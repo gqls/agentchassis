@@ -778,3 +778,43 @@ the fact the close/no-close decision should actually turn on.
 > on a URL you CONSTRUCTED is evidence about your guess, not about the site.** The real URL is in
 > `pages.url` (`/tools/tool-gas-unit-converter.html`) — one query, and it is the only acceptable
 > source for a page address on a fleet whose sites do not share a URL convention.
+
+---
+
+## 9. 2026-08-22 — OWNER INSTRUCTION "backfill the 27, scoped to these 27": 3 written and proven, 24 refused for three distinct measured reasons
+
+**Applied: migration `540`** (3 rows) + `cmd/content-data-recover` (council `cd8e555d`).
+
+| outcome | rows | why |
+|---|---|---|
+| **recovered + written** | **3** | the recovered `content_data` re-renders to the stored `rendered_html` **byte for byte** |
+| blocked | 7 | template drift confined to `<style>` |
+| blocked | 8 | template drift in **markup** |
+| **refused** | 9 | the stored HTML is not that component's output at all → **`bugs_open/357`** |
+
+**The gate, and why it is not negotiable.** `datahelpers.ContentDataCanFillTemplate` returns true when
+content_data holds **any one** of the template's top-level fields. So writing a single recovered field
+flips a component from "cannot regenerate" to "can regenerate", and the next regeneration renders that
+one field and blanks the rest under `missingkey=zero`. **A partial backfill is destructive, not
+incomplete** — the parked state was protecting these pages. Byte-identity is precisely the property
+that makes the flip safe: what a regeneration would produce is what is being served today.
+
+**Why the 15 can never be proven.** Their HTML was rendered by template versions that no longer exist.
+`component_versions` holds 367 rows across 202 components and **zero** for any of the nine components
+involved. Worked case: `call-to-action`'s template now reads `var(--color-cta-bg, var(--color-primary))`
+where the stored HTML has `var(--color-primary, #1a1a2e)` — the component was edited after the page was
+rendered. Re-rendering them would change the page; whether that is wanted is a separate decision from
+this repair, and it is **not** a data-recovery question.
+
+**The three that were written** cover every field their findings named (`headline`; `features,
+headline`). Their rows remain `needs_human_review` until the daily revalidator re-checks them — that is
+the mechanism's job, not a session's to hand-close, and it is a disconfirmable prediction: the next
+`review-queue-revalidate-daily` pass should stop reporting *"carries no content_data"* for these three.
+
+### What this leaves for 277
+
+- Clause 1: **MET** (§7) and now with a second, independent repair shape delivered.
+- The `no_content_data` half: **17 of 27 remain parked and 9 of those must stay parked for ever
+  unless `357` is fixed.** The residual is no longer "nothing can repair this class" — something can,
+  it is built, and it refuses exactly the rows it should. What is left is a **decision about the 15
+  drifted rows**, which is a question about re-rendering pages, not about recovering data.
