@@ -93,6 +93,29 @@ page's visible copy, because the claims scanner cannot see inside JavaScript.
 | G5 | Carbon cycling against sequestration, the stoichiometry, and the UK regulatory position | /guides/seaweed-carbon.html | 319 | 3 | 0 | 1 | 0 | | not-started |
 | G6 | VPD as the driver of transpiration: the kPa target band and the leaf-temperature offset | /guides/vapor-pressure-deficit.html | 315 | 4 | 1 | 1 | 0 | | not-started |
 
+#### DLI evidence carries a GROWTH-STAGE caveat (2026-08-22, Phase 2 run 6)
+
+Four DLI facts registered, from Purdue and Virginia Tech extension services. Sound sources, and
+DLI transfers across borders in a way SFI payment rates do not — a lettuce plant's light
+requirement is physics and biology, not policy, so US extension figures are legitimate here in a
+way US subsidy figures never would be.
+
+**But three of the four are for TRANSPLANT production specifically**, which is a distinct growth
+stage with a lower light requirement than a mature or fruiting crop. Purdue gives 15–20 for tomato
+*transplants*; the retired site's table gave 20–30 as the tomato optimum, presumably for fruiting.
+Both can be right. **A writer who drops the stage qualifier turns one into the other and
+under-lights somebody's crop.**
+
+The control already holds: three of the four writer_lines say "transplant production" explicitly.
+The exception is CIT-a6eef3fe8aef9044 (Virginia Tech, "lettuce grows well at a DLI close to 15"),
+which carries no stage. Treat that one as unqualified and say so, or pair it with a stage-specific
+source before using it.
+
+Note also what the extractor did RIGHT here and got wrong on the LED facts: for the three ranges
+it left `value` null and put the range in the writer_line, rather than picking an end of the range
+as "the" figure. That is the correct handling of a range, and it is inconsistent with run 5 — so
+it is a behaviour to verify per run, not to rely on.
+
 **Every explainer additionally owes:** at least one code-rendered infographic (the whole current
 guide set has exactly one diagram between them), a sourced figure for every number, and the
 equation/table count preserved or exceeded.
