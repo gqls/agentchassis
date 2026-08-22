@@ -44857,3 +44857,49 @@ in `bugs_open/354` §2(d), credited to the lane that found it.
 **The cheap check, and it is embarrassingly cheap: a mechanism claim about a LANGUAGE or LIBRARY is a five-line program, so write the five lines.** Not a grep, not a memory of a previous version, not "everyone knows". This estate already says a `[MEASURED]` figure only counts if it could have come out otherwise; the same test applies to a mechanism — and "does `eq` error on nil?" could have come out either way, which is precisely why it needed running rather than asserting.
 
 **Second-order, and the one I would carry forward: prose in an APPLIED migration is unfalsifiable by construction.** The SQL was verified by its own `DO`/`RAISE` block; the paragraph next to it was not, could not be, and is what the next reader will actually read. Corrected in place with a dated strike (`563_..._branches_on_the_failure_code.sql`) rather than silently edited away.
+
+---
+
+## 2026-08-22 — `bugs_open/308` lane: THREE council rounds burned on a hand-written sketch drifting from code that was already correct
+
+**What I claimed**, implicitly, three rounds running: that the `plan.edits[].sketch` in my council
+submission described the code I had written.
+
+**What was actually true.** It described the code as I had *last hand-typed it*, and I kept editing
+the code afterwards without regenerating the sketch. Three consecutive REVISE verdicts
+(`e4336931`, 11:40:30Z / 11:59:43Z / 18:05:06Z, every one `decided_by` a gating objection from
+`editquality`) were gated on this one class of defect:
+
+- **round 1** — my rationale listed the non-page keep among branches needing the stamp; the code
+  correctly did not stamp it.
+- **round 2** — `SeedCTAMinted`'s body was absent from the sketch and it was not even in the
+  `symbol` field, so the reviewer could not answer its central question (does it copy the nested
+  map or alias it?). The code copies, and had a test pinning exactly that.
+- **round 3** — the `applyCTARecompute` sketch showed no `SeedCTAMinted` call. The call is at
+  `rerender_page_sections_action.go:1006` and is mutation-proven.
+
+**In every case the objection was right about the SUBMISSION and wrong about the WORK** — which is
+the trap, because "the reviewer has misread my code" is the comfortable reading and it was never
+available: **a reviewer can only judge what is shown, so a stale sketch IS the defect.**
+
+**What caught it.** The council, three times. Nothing I ran caught it, because every check I ran
+was against the *code*, which was fine.
+
+**The cheap check — and it is structural, not vigilance.** Do not hand-write sketches. Generate
+them from the committed diff:
+
+```python
+subprocess.run(["git","show",COMMIT,"--",path], capture_output=True, text=True).stdout
+```
+
+I have now done that, and it immediately caught a fourth instance of the same defect before
+dispatch: a naive `lines[start:start+90]` truncation **cut `SeedCTAMinted`'s body off the end of
+the file** — reproducing round 2's exact objection inside the fix for it. Elided the doc comments
+instead so the whole API fits, and asserted the three function bodies were present before sending.
+
+**The general form, which is why this is worth a row rather than a shrug.** When a document
+*describes* code, the document is a second source of truth that decays every time the code moves,
+and **nothing in your test suite watches it**. `go build`, `go test` and the mutation proofs all
+passed throughout — they cannot see a stale paragraph. Sibling of the memory line *a subagent's
+report is ANOTHER DOC*: the submission is another doc too. Either generate it from the source, or
+expect it to be wrong by the time anyone reads it.
