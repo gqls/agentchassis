@@ -6013,3 +6013,17 @@ namespace to publish. So the 14 `/blog/` files still serve 200. That half-state 
 and no worse than before: archived pages are refused by the deploy path
 (`ARCHIVED_PAGE_DEPLOY_REFUSED`), so nothing will republish them; they simply persist
 until the script is run by someone who can dispatch.
+
+## 2026-08-22 — 227 moved to bugs_closed (contribution from an independent session)
+
+Re-verified live before moving, all first-hand: active row `e0194bee` census
+`~* 'provocation|gauntlet|arena|vonc|spark'` → FALSE (and this held AFTER a 198-row
+fleet-wide agent sweep at 08:36Z the same morning — no `agent_snapshots` entry, bulk
+touch, fix survived); `persist_plan` reachable only via `check_approved.then_step`
+(target-field scan, not `::text`, per the 370 warning); `max_rounds` = 5;
+`debt-difficulty-help` plan of record clean, both vonc-shaped rows still demoted;
+`site-chat-intake` (08-15) is a second clean non-vonc plan. The owner-raised
+fundamentallyai `needs_experience_plan` row closed satisfied 08-17 (other lanes'
+rebuilds; see its `result.closed_2026_08_17`), so nothing queues behind 227. Move made
+under the owner's 08-12 restored fixed-AND-live bar; commit `baa8102e0` names both
+paths. Full closure evidence is in the bug file's CLOSED section.

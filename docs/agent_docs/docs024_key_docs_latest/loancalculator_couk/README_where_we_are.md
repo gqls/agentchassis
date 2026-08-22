@@ -2225,3 +2225,19 @@ that cannot happen.
 
 Still outstanding after that: the Guides index page is the only genuine broken address on
 the site, and it still cannot build because nothing has composed any sections for it.
+
+---
+
+**2026-08-22 — bug 227 is formally closed (a different session, tidying rather than changing anything).**
+The experience-planner bug this lane found and fixed in early August — the one where the
+planner's own instructions carried vonc.com's diagnosis, so a plan for any other site came
+back describing vonc's pages — has been moved from the open list to the closed list. No new
+work was done to earn that: the fix this lane shipped (the site brief became data the
+planner loads per site, and a vetoed plan is no longer saved at all) was checked again
+today against the live system and is still in place and still working. The file had stayed
+in the open list under an instruction from the 6th of August that the owner superseded on
+the 12th ("if it is fixed and live it should be moved"). Also worth knowing: the
+fundamentallyai request that was queued waiting for this fix resolved itself on the 17th —
+other work on that site delivered what it asked for, so nothing is waiting on the planner
+any more, and the planner has since produced a second correct plan for a new subject
+(site-chat-intake, the 15th) with no vonc leakage.
