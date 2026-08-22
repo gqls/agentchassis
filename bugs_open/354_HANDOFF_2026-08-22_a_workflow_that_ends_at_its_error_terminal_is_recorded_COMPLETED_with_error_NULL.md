@@ -8,15 +8,29 @@ It is filed so somebody can own it; this lane is not working it.
 > This is a cross-cutting structural claim, so it went to the diagnosis loop **before** this file
 > asserted a cause. Intake correlation `2f17e660-70fd-4c69-8a73-4c5ab28b792c`, run correlation
 > **`025968a3-6e2e-4f2c-9dbb-f351820a871a`** (the key the artifacts are written under).
-> **The verdict had not landed when this file was written** — read it before acting:
+> **VERDICT: CONFIRMED**, at iteration 1, landed 09:21Z the same morning (`stopped_by: confirmed`).
+> Read it in full — it carries pointers this file does not:
 > ```sql
-> SELECT current_step, status FROM orchestration_states
->  WHERE correlation_id = '025968a3-6e2e-4f2c-9dbb-f351820a871a'::uuid;
-> SELECT * FROM diagnosis_artifacts
->  WHERE correlation_id = '025968a3-6e2e-4f2c-9dbb-f351820a871a'::uuid;
+> SELECT jsonb_pretty(result->'response'->'response') FROM site_work_items
+>  WHERE id = '619ff617-ae57-4414-95f0-533a7216b0cd';
 > ```
-> Everything in §2 and §3 below is first-hand: a query whose output is quoted, or a function read
-> at the deciding arm. Nothing is inferred from the loop.
+> It reached the conclusion **independently**, and its citations are its own, not this file's:
+> `state.Status = StatusCompleted` in `completeWorkflow`; `state.CollectedData["__step_error"] = …`
+> and `state.CurrentStep = errorStep; state.Status = StatusExecutingStep` in `routeToErrorStep`;
+> plus a live row it fetched itself with its own SQL —
+> `0e7762af-… | COMPLETED | complete_error | error NULL | __step_error.failed_step = save_tool`.
+> Its coverage note is the sharpest statement of the defect: *"completeWorkflow's body (fully shown)
+> reads CollectedData only to log its keys (`safeDataKeys`) and never inspects the `__step_error`
+> value"*, and *"completeWorkflow never assigns to `state.Error` anywhere in its body"*.
+>
+> **It also named the scope a fixer should read next**, which this file had not: `continueExecution`,
+> `handleOrchestrationStatus`, `getNextStepFromResult`, and — the two most relevant —
+> `routeToErrorStepOrFail` and `failWorkflow`, which are the sibling arms that DO fail the workflow.
+> Start there: the question a fix has to answer is why one arm records the failure and the other does not.
+>
+> Everything in §2 and §3 below is first-hand and was written before the verdict: a query whose output
+> is quoted, or a function read at the deciding arm. The loop agrees with all of it; none of it is
+> inferred from the loop.
 
 ## 1. The one-paragraph version
 
