@@ -423,3 +423,67 @@ citations**, in a file whose entire purpose is to complain about unverified decl
 The report treats instance 5 as "(iii) judgement". I agree, but the reason matters for the edit
 list: `newestConstraintValues` is **the shape to generalise**, not merely a case to patch. Its
 corpus scan is what makes 322/331/374 visible where a glob is not.
+
+---
+
+## 2026-08-22 — the diagnosis loop returned UNVERIFIABLE, and that is NOT a confirmation
+
+Run `c8ec6478-5a54-4a16-aaf1-1e3373684ba0`, item reached `complete`. **But `complete` is not proof
+the work happened** — and here it wasn't. Reading the diagnoser's own response:
+
+```
+status      : UNVERIFIABLE
+conclusion  : NOT CONFIRMED (stopped: iteration-cap)
+stopped_by  : iteration-cap
+summary     : Diagnosis NOT confirmed (stopped: iteration-cap). Best-effort trail
+              attached for a human; no fix proposed.
+```
+
+**So `bugs_open/363` is NOT carried by the loop.** It is carried by my own first-hand verification —
+7 live objects measured, the git history of 220, the three glob-invisible migrations, and both
+disconfirming checks. The 2026-07-31 owner ruling allows exactly that (run the loop, or state plainly
+why first-hand verification substituted); what it does not allow is writing up an UNVERIFIABLE run as
+a verdict. It is not one, and this file says so.
+
+**Why it failed, in its own words** (iteration 1 citation): the run got **no seed scope**, fell back
+to symbol search on the symptom text, and drew `MarkDecommissioned`, `idleMonitor`,
+`ClaimEmailAttempt`, `notifyTopicsReady` — none of my seven guards. It then re-proposed almost the
+same scope for five iterations and hit the cap. My fault: `090` takes `SEED_SCOPE` (`:117`) and warns
+`nothing to key coverage on … dispatching blind` (`:308-309`). Logged to `WRONG_CALLS.md`.
+
+**The general lesson, worth more than this run:** a symptom whose evidence lives in **test files and
+migration files** has no runtime symbol named after it — the defect *is* that a guard reads the wrong
+thing. So the fallback scope structurally cannot find this class, which is the class most in need of
+an independent read.
+
+### But its Tier-1 citations corroborated three facts, and handed me the best finding in the file
+
+Independently cited by the loop, from the live system:
+
+1. `schema_migrations` columns: `filename, applied_at, checksum, applied_by, notes` — confirms the
+   ledger keys on the FILE and its checksum, never on the live object.
+2. `524_claimed_item_timeout_honours_the_cooldown.sql | 2026-08-21 18:44:22 | 30af2a80…` and
+   `506_dispatch_reads_honour_retry_after.sql | 2026-08-20 14:14:47 | 3501f696…` — both applied.
+3. It quoted the **live `scheduled_tasks.pre_query`**, and that quote is the finding I had missed.
+
+### The finding I had missed, and the loop surfaced: the LIVE object's own contract statement is stale
+
+The live column carries, immediately above the exclusion clause:
+
+> *"The item_type exclusion is the LOCKSTEP TWIN of the `RegisterVerifier()` calls … 
+> `TestRegisteredVerifiersMatchClaimTimeoutExclusion` pins the two together."*
+
+**Both halves are false as of 2026-08-19.** The contract is the union of both gate rosters (mig 482),
+and `grep -rn "func TestRegisteredVerifiersMatchClaimTimeoutExclusion"` returns **nothing** — the test
+was replaced by `TestClaimTimeoutExclusionCoversBothCompletionGates`.
+
+I had been reading the live column for its *data* (the 14-type list, which is correct) and never read
+the *prose* around it. **That sentence is the cause of bug 317** — its author read it, believed it and
+built a gate-2-only lockstep. `482` corrected the data and left the sentence.
+
+This is the one thing that defeats the obvious framing of my own bug. It is not "the repo file is
+stale, the live object is true": **the live object carries its own stale declaration too**, and a
+drift auditor comparing live text to a declared clause would pass it, because the clause matches and
+it is the prose that lies. Recorded as a constraint on the fix, not a reason to abandon it.
+
+Added to `bugs_open/363` as its own section.

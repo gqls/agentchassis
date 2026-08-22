@@ -147,6 +147,47 @@ Since the freeze, the live exclusion clause has been edited by migrations the gu
 comment.** That is a hand-maintained copy of a live vocabulary, which is the class this estate keeps
 filing bugs about — and it is one careful author away from being wrong.
 
+## The LIVE object documents a contract that was superseded three days ago — and names a deleted test
+
+This is the sharpest instance in the file, and it was found by the diagnosis loop's Tier-1 citation
+of the live column rather than by reading any repo file.
+
+This estate's standing rule is **"the repo file is history, the live row is fact — read the live
+row."** Do that here, and `scheduled_tasks.pre_query` for `claimed-item-timeout` tells you, in the
+comment block immediately above the exclusion clause it governs [MEASURED 2026-08-22, live column]:
+
+```
+-- The item_type exclusion is the LOCKSTEP TWIN of the RegisterVerifier()
+-- calls in platform/orchestration/actions/discovery_checks/: those item
+-- types have a Go verifier that can BLOCK completion (bugs_open/017, /021)
+-- and SQL cannot run it, so they keep falling through to reset.
+-- TestRegisteredVerifiersMatchClaimTimeoutExclusion pins the two together.
+```
+
+**Both sentences are now false.**
+
+1. The contract has been the **UNION of both completion-gate rosters** since migration `482`
+   (2026-08-19) — `excluded ⇔ (has a verifier) OR (has a noChangeGates entry)`. "LOCKSTEP TWIN of
+   the `RegisterVerifier()` calls" is precisely the gate-2-only contract that `bugs_closed/317`
+   exists to have corrected.
+2. **`TestRegisteredVerifiersMatchClaimTimeoutExclusion` no longer exists.**
+   `grep -rn "func TestRegisteredVerifiersMatchClaimTimeoutExclusion"` returns nothing; it was
+   replaced by `TestClaimTimeoutExclusionCoversBothCompletionGates`, which had to move package to
+   see both rosters. The live object names a deleted test as its own guarantee.
+
+**Why this is the worst version of the defect, not a footnote.** That exact sentence is *the cause
+of 317* — the guard's author read "LOCKSTEP TWIN of the `RegisterVerifier()` calls", believed it,
+and built a gate-2-only lockstep. `482` fixed the **data** (the 14-type list) and left the
+**sentence** in place. So the next author who does the correct thing — reads the live object rather
+than the repo file — is handed the same wrong contract that produced the original bug, now with a
+citation to a test they cannot find.
+
+It also closes off the one escape hatch a reader might hope for: it is not merely that the repo file
+is stale while the live object is true. **The live object carries its own stale declaration**, and
+nothing checks that either. A drift auditor that compares live text to a declaration would not catch
+this on its own — the *clause* matches; it is the *prose around it* that lies. Any fix should treat
+an object's embedded contract statement as part of what is declared, or say plainly that it does not.
+
 ## Fix candidates, ordered by what closes the door
 
 **1. RECOMMENDED — give the current declaration a home that is allowed to change, and tie both ends

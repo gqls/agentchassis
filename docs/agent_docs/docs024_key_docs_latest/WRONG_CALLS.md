@@ -43927,3 +43927,44 @@ beforehand was that it would fail.
 is a failure mode in how I write tests, and the tally is the point — the second instance
 is evidence that the write-up is not the control. The control is the refactor.
 
+
+---
+
+## 2026-08-22 — I dispatched a diagnosis run past its own "dispatching blind" warning, and it burned all five iterations on unrelated symbols (`bugs_open/363`)
+
+**Not a false claim** — the run returned `UNVERIFIABLE`, which is honest. It is logged because the
+cost was a whole loop (~23 minutes and its credits) and the check that would have prevented it was
+printed **on my own screen, by the tool I was running**.
+
+**What I did.** Filed `090_TRIGGER_needs_diagnosis_v1.sh "<symptom>"` with a symptom naming seven
+test files and four live DB objects, and nothing else.
+
+**What came back.** `status: UNVERIFIABLE`, `stopped_by: iteration-cap`, five iterations, no verdict.
+Iteration 1's own citation says exactly why:
+
+> *"This scope was NOT chosen — it is the **code-search fallback**. No revised scope from a previous
+> iteration and no `seed_scope` from the caller reached this step, so the symbols below are whatever
+> the symbol search returned for the symptom text."*
+
+The fallback returned `MarkDecommissioned`, `idleMonitor`, `ClaimEmailAttempt`, `notifyTopicsReady`
+— none of them among my seven guards, none of them related. The loop then re-proposed almost the
+same irrelevant `NextScope` for five iterations and hit the cap.
+
+**The check I skipped, which the script prints.** `090` takes a `SEED_SCOPE` environment variable
+(`:117` — comma-separated `path[:Symbol]` entries for iteration 1), and at `:308-309` it warns
+verbatim: **`WARNING: nothing to key coverage on (no PAGES, no site, no SEED_SCOPE) — dispatching
+blind.`** I read past it. One `SEED_SCOPE=platform/orchestration/actions/claim_timeout_exclusion_lockstep_test.go,...`
+would have put the loop on the actual evidence from iteration 1.
+
+**The generalisable shape, which is the reason this is worth a row.** A symptom whose evidence lives
+in **test files and migration files** is invisible to a *symbol* search: there is no runtime symbol
+named after the defect, because the defect is that a guard reads the wrong thing. So the class of
+bug most in need of an independent read is exactly the class the fallback scope cannot find. **When
+the evidence is not a runtime symbol, `SEED_SCOPE` is not optional** — and a tool that warns it is
+"dispatching blind" is telling you the run will be uninformative, not that it might be.
+
+**Worth keeping despite the non-verdict:** its Tier-1 citations still corroborated three facts
+independently — `schema_migrations`' columns (`filename, applied_at, checksum, applied_by, notes`),
+`524` recorded applied at 2026-08-21 18:44:22Z, and the live `scheduled_tasks.pre_query` text. An
+UNVERIFIABLE run is not a worthless one; it is just not a verdict, and must never be written up as
+one.
