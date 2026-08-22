@@ -2693,3 +2693,19 @@ UPDATEs; `domain` added to the request; discriminator `create_tool_component_reg
 now anchors all THREE writers per-file (UPDATE-anchored for this one), regenerate mutation proven.
 362 §10 has the full record. TWO council verdicts now owed a read: `c6b9a382` (writers 1+2) and
 `b8bdd4b3` (writer 3) — act on any REVISE/REJECTED; the code is on the shared branch.
+
+## 2026-08-22 ~14:30Z — 362 exchange closed by the 238 session; two ripples worth the line
+
+1. The **census-by-addition rule** is taken into their audit tooling, credited to this lane: a
+   writer-set census is stale the moment `git log --since=<census date> --diff-filter=A -- <dir>`
+   is non-empty for the counted pattern — distinct from the stale-POINTER class (§6 of 362), both
+   "true when written, not now", both detectable without judgement.
+2. **My mid-run commit exposed a real defect in their auditor** (verdicts judged against a moving
+   HEAD — 4,967 commits in 14 days means HEAD moves under a 15-minute sweep; the regenerate arm was
+   still-true at minute 2 and false by minute 14 because of `fe1dee52d`). Fixed by them same day
+   (one pinned sha per run, printed and carried; commit `b06b7e8d9`, register **DBG-076**, this
+   lane's commits named as the worked example). The two 362 commits are now the audit's both-arms
+   evidence for RFC_008's decisive question: `3a3a612d5` proves `acted` is reachable, the regenerate
+   discovery was its first live `unacted`.
+Nothing further owed either direction. Lane tail unchanged: verdicts `c6b9a382` + `b8bdd4b3` owed a
+read; 362 §9 census re-run post-roll; the staged instance-scope-guard removal still anonymous.
