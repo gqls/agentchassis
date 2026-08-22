@@ -1,12 +1,21 @@
 #!/usr/bin/env python3
 """
-wedge-evidence-capture — preserves `bugs_open/343`'s evidence before retention eats it.
+wedge-evidence-capture — preserves `bugs_closed/343`'s evidence before retention eats it.
 
 ⚠ RENUMBERED 2026-08-21. This was built for `bugs_open/029`, which the owner SPLIT on 2026-08-20:
 029 is CLOSED (for the inverted retry window only) and the silent freeze this job captures is now
 `bugs_open/343`. Every note this job had already written says "bugs_open/029" — a path that no
 longer exists — so a reader following it during an incident lands nowhere. The strings below are
 the fix; the historical rows keep their old label and are not rewritten.
+
+⚠ RETARGETED AGAIN 2026-08-22 — 343 is now `bugs_closed/343`, CLOSED BY OWNER RULING, and the
+capture is DELIBERATELY LEFT ARMED. The close was an override of the fixed-AND-live bar, not a
+solved bug: the second wedge is fixed and live on v1.0.1322, the FIRST DEATH is unexplained, and
+the lane had no path left that did not begin with "wait for another GitHub outage". So this job is
+the standing bet that the freeze recurs — if it fires, it captures the evidence that was missing
+in August. **Do not decommission it on the grounds that the bug is closed**, and do not read a
+capture as a 343 recurrence: the trigger is broad (see below) and the recurrence test is the
+abandoned-rv3-await count, not these notes.
 
 ⚠ THIS JOB IS DELIBERATELY BROAD AND ITS ROWS ARE NOT ALL 343 INSTANCES. The trigger is
 "an EXECUTING_STEP row older than the threshold", which is far wider than the 343 signature. As of
@@ -185,7 +194,7 @@ def write_note(subject_key, body, password, host):
 def render(row):
     awaited = row.get("awaited_requests") or []
     lines = [
-        "WEDGE EVIDENCE CAPTURE (%s) — bugs_open/343 (was 029, split 2026-08-20)" % row["kind"],
+        "WEDGE EVIDENCE CAPTURE (%s) — bugs_closed/343 (CLOSED 2026-08-22, capture still armed)" % row["kind"],
         "",
         "orchestration_id : %s" % row["orchestration_id"],
         "owner_agent_type : %s" % row["owner_agent_type"],
@@ -242,7 +251,7 @@ def main():
         print("CAPTURED: " + captured[-1])
 
     summary = [
-        "wedge-evidence-capture run summary — bugs_open/343 (was 029, split 2026-08-20)",
+        "wedge-evidence-capture run summary — bugs_closed/343 (CLOSED 2026-08-22, capture still armed)",
         "",
         "orchestration_states rows visible : %d" % totals["total"],
         "frozen-threshold (minutes)        : %d" % FROZEN_MINUTES,
