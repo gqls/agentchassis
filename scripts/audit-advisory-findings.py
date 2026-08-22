@@ -128,18 +128,26 @@ def findings_for_commit(pc, sha, owner=None):
     return res
 
 
-def still_true_at_head(pc, check_name, path):
-    """Replay ONE check against ONE path with HEAD's content and no diff.
+def still_true_at_head(pc, check_name, path, base):
+    """Replay ONE check against ONE path with BASE's content and no diff.
 
-    ref=("HEAD","HEAD") makes pattern-check read content via `git show HEAD:<path>`,
+    ref=(base, base) makes pattern-check read content via `git show <base>:<path>`,
     so this asks a question about STATE, not about a change.
+
+    ⚠ `base` is a PINNED SHA, never the literal "HEAD", and that is load-bearing on this
+    tree. A 5,000-commit sweep takes ~15 minutes; this repo takes ~4,967 commits in 14
+    days, so HEAD MOVES UNDERNEATH THE RUN and findings judged early would be compared
+    against a different tree from findings judged late. Not theoretical: on 2026-08-22 a
+    sibling session fixed `create_tool_component_regenerate.go` DURING a sweep, so the
+    same finding was "still true" at minute 2 and false at minute 14. A measurement whose
+    baseline moves cannot be reproduced or defended.
     """
     check = next((c for c in pc.CHECKS if c.__name__ == check_name), None)
     if check is None:
         return None
     out = []
     try:
-        check([path], ("HEAD", "HEAD"), out)
+        check([path], (base, base), out)
     except Exception:
         return None
     return any(k == KIND_OF.get(check_name, k) for (k, _w, _a, _b) in out) or bool(out)
@@ -221,7 +229,13 @@ def main():
         return st
     if st != 0:
         return st
-    commits = [c for c in sh("git", "log", "--format=%H", "-n", str(args.n)).split() if c]
+    # PIN the comparison baseline once. Everything "at HEAD" below is judged against
+    # this immutable sha, not against a HEAD that other sessions keep moving.
+    base = sh("git", "rev-parse", "HEAD").strip()
+    if not base:
+        print("audit-advisory-findings: cannot resolve HEAD", file=sys.stderr)
+        return 2
+    commits = [c for c in sh("git", "log", "--format=%H", "-n", str(args.n), base).split() if c]
     if not commits:
         print("audit-advisory-findings: no commits in range — refusing to report a clean sweep",
               file=sys.stderr)
@@ -241,10 +255,10 @@ def main():
     rows = []
     for (kind, path), shas in sorted(fired.items()):
         first = shas[-1]                          # git log is newest-first
-        exists = rc("git", "cat-file", "-e", f"HEAD:{path}") == 0
-        unchanged = exists and rc("git", "diff", "--quiet", first, "HEAD", "--", path) == 0
+        exists = rc("git", "cat-file", "-e", f"{base}:{path}") == 0
+        unchanged = exists and rc("git", "diff", "--quiet", first, base, "--", path) == 0
         check_name = owner.get(kind)
-        fires = still_true_at_head(pc, check_name, path) if (check_name and exists) else False
+        fires = still_true_at_head(pc, check_name, path, base) if (check_name and exists) else False
         try:
             age = (time.time() - int(sh("git", "log", "-1", "--format=%ct", first).strip())) / 86400.0
         except (ValueError, TypeError):
@@ -279,11 +293,12 @@ def main():
         tally[r["verdict"]] = tally.get(r["verdict"], 0) + 1
 
     decided = tally.get("unacted", 0) + tally.get("acted", 0)
-    body = render(commits, rows, tally, evaluable, control_evidence, decided)
+    body = render(commits, rows, tally, evaluable, control_evidence, decided, base)
 
     if args.json:
         print(json.dumps({"commits": len(commits), "findings": rows, "tally": tally,
-                          "state_evaluable_checks": sorted(evaluable)}, indent=2))
+                          "state_evaluable_checks": sorted(evaluable),
+                          "baseline": base}, indent=2))
     else:
         print(body)
 
@@ -293,10 +308,12 @@ def main():
     return 0
 
 
-def render(commits, rows, tally, evaluable, control_evidence, decided):
+def render(commits, rows, tally, evaluable, control_evidence, decided, base):
     b = []
     b.append(f"advisory-findings audit — {len(commits)} commits swept "
              f"({commits[-1][:9]}..{commits[0][:9]})")
+    b.append(f"  baseline PINNED at {base[:9]} — every 'still true?' verdict below is "
+             f"judged against that one tree")
     b.append("")
     b.append(f"  distinct (check, file) findings replayed : {len(rows)}")
     b.append(f"    UNACTED  (condition still true at HEAD): {tally.get('unacted', 0)}")
