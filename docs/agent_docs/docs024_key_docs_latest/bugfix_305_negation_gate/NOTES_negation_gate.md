@@ -581,3 +581,37 @@ is the first that can prove anything.
 then `page_components.content_data` must LACK the removed construction (verify on the part that
 DIFFERS, never the rewrite's opening; never `updated_at`). Traffic is live (a `page_rerender` was
 claimed at query time; 235 unresolved queued), so this should arrive without prompting.
+
+## 2026-08-22 ~09:40Z — the first post-548 page PROVED the gate through render and compile, and an unrelated guard blocked the save
+
+`loanzy.uk/tool-interest-rate-stress-test`, spawned 09:23:03Z (post-548), COMPLETED 09:24:31Z,
+`copy_gate_2: repaired, hits_before 6 → hits_after 5`.
+
+**What is now PROVEN that was not yesterday:**
+- The rewrite itself: iteration 2's `generated_content_2.result.content` (2631 chars) vs
+  `copy_gate_2.result.content` (2582) — word-diff shows ONE surgical change: *"…is the right next
+  step, rather than trying to borrow your way around it."* → *"…is the right next step."* Nothing
+  else touched. ⚠ The marker's own `from`/`to` were USELESS here — both truncate at 160 chars and the
+  pair shares its opening; the diff of the two durable content fields is the working recipe.
+- **`render_section` read the patch**: `section_output_2.rendered_html` carries the rewritten
+  sentence. This is the thing §22 proved was NOT happening.
+- **`compile_page`/`complete` page_html carries the rewrite and LACKS the removed construction**
+  (checked both polarities). The repaired copy survives the writer's entire in-run pipeline.
+- **The gate hands clean sections on byte-identical**: `copy_gate_0.result = generated_content_0.result`
+  (true, and for iter 1) — so 548 does not perturb untouched content.
+
+**What is still NOT proven: persistence.** `page_components` was not updated — the writer's PARENT
+(`7ff636c3`) ended at `complete_error`: `save_page_sections` REFUSED the whole save on the
+`bugs_open/253` (framework_rewrite slug) SECTION COMPONENT FLOOR — "hero-tool 12→5 class attributes
+(42% kept, floor 50%) … Nothing was written". **NOT caused by the gate**, two controls: (1) the hero's
+input from the gate was byte-identical (above); (2) the 5-class hero is today's renderer generally —
+three OTHER loanzy pages saved fresh this morning (09:14/09:18/09:21Z) all store 5-class `hero-tool`,
+while this page's stored hero is 08-18 vintage with 12. Any resave of an 08-18-vintage loanzy tool
+page trips the floor no matter what the copy says. Same shape as §0b's `bugs_open/260` blocker: the
+proof page died at the NEXT step, on a pre-existing condition, with a control. Observation contributed
+to the 253 file; the work item was marked failed by the parent (`mark_item_failed`), so the immune
+sweep sees it.
+
+**So the remaining owed item narrows to: one post-548 repaired page whose save is ACCEPTED** (a fresh
+page, or one whose stored structure matches today's renderer). Watch armed for the next terminal
+repaired run after 09:25Z.

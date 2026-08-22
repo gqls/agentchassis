@@ -300,3 +300,21 @@ thread's live work. Raised so the decision is explicit rather than inherited.
 *Evidence: `bugs_open/263` (the 18→18 measurement and the three checks that passed);
 `WRONG_CALLS.md` 2026-08-12; `scripts/class_count_delta.py --selftest`, whose own induced
 failure is the netting-out case.*
+
+---
+
+## OBSERVED LIVE 2026-08-22 (contributed by the 305 lane): the floor fired on RENDERER DRIFT, and it will keep firing on every 08-18-vintage loanzy resave
+
+`loanzy.uk/tool-interest-rate-stress-test` rebuild, 09:24Z: `save_page_sections` refused —
+"hero-tool 12→5 class attributes (42% kept, floor 50%) … Nothing was written" — parent `7ff636c3`,
+work item marked failed. The refusal is the guard doing its stated job; what the firing REVEALS is
+that the `hero-tool` renderer now emits ~5 class attributes fleet-wide (three loanzy pages saved
+fresh the same morning: 5, 5, 5 — one other: 15), while pages stored on 08-18 carry 12-class heroes.
+**Consequence: a rebuild of any 08-18-vintage loanzy tool page cannot save until someone either
+declares the flattening intended (`section_component_floor` in the step config) or restores the
+richer hero.** That is a policy call for the site/guard owners, not the 305 lane's; recorded here so
+the next refusal reads as "known drift, decision pending", not as a fresh mystery. Controls that
+clear the co-arriving copy gate (`bugs_open/305`): the gate handed the hero byte-identical content
+(`copy_gate_0.result = generated_content_0.result`), and the 5-class hero appears identically on
+pages the gate left `clean`. Evidence trail: `bugfix_305_negation_gate/NOTES_negation_gate.md`
+2026-08-22 ~09:40Z entry.
