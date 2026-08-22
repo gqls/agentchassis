@@ -332,3 +332,72 @@ exemptions gave **exit 1** — which looked like the budget firing one short. It
 budget stayed quiet. The exit code alone would have had me lower N. **A composite gate's
 exit code cannot tell you WHICH guard spoke** — grep the finding kind, not the status.
 The clean at-budget case is the unit test, which builds real overlays.
+
+---
+
+## 2026-08-22 — phase 2: the cluster census, and it broke its own report on the first run
+
+`--census` mode on the same binary, `make release-census`. Three comparisons over a
+`[]Workload`; `cmd/releasecheck/cluster.go` owns the only part that touches client-go, so
+the predicates stay table-testable with no cluster.
+
+### The first live run `[MEASURED 2026-08-22]`
+
+```
+Release census — namespace ai-persona-system: 29 of 45 workloads run a
+docker.io/aqls/ image; the fleet is on v1.0.1323.  5 findings.
+```
+
+| finding | service | independently confirmed by |
+|---|---|---|
+| AHEAD OF THE FLEET (hand-deployed) | `commit-sha-exposure-check` v1.0.1324 | the `docker images` census earlier today |
+| AHEAD OF THE FLEET (hand-deployed) | `content-loss-check` v1.0.1324 | same |
+| BEHIND THE FLEET TAG | `optional-explicit-wires-check` v1.0.1321 | the overlay census earlier today |
+| DECLARED BUT NOT RUNNING | `capped-schedule-ordering-check` | found by hand; contributed to the 316 lane |
+| DECLARED BUT NOT RUNNING | `component-source-vocabulary-check` | the 309 lane's own commit message: *"NOT yet built or deployed"* |
+
+**Zero false positives**, and no `RUNNING BUT NOT DECLARED` at all — every `aqls` workload
+in the cluster is accounted for by a declaration.
+
+### ⚠ THE RUN EXPOSED A DEFECT IN MY OWN REPORT, and it is the useful part
+
+The first two findings came out as **"RUNNING AN OLD FLEET TAG: commit-sha-exposure-check
+… at v1.0.1324 while the fleet is on v1.0.1323"**. They are not old. They are **newer** —
+hand-built and hand-deployed ahead of the fleet.
+
+**A report that states the opposite of the truth is worse than one that stays quiet.** A
+reader chasing a frozen service would have found one that was, if anything, too new, and
+concluded the instrument works. This is the same family as the blind-pass landmine, one
+rung along: not a check that misses, but a check that *asserts the inverse*.
+
+Fixed three ways, each with a test:
+
+- the kind is split by **direction** — `BEHIND THE FLEET TAG` vs
+  `AHEAD OF THE FLEET TAG (hand-deployed)` — with **opposite remedies**: a straggler wants
+  a release; a hand-deploy wants the tag never reused, because a same-tag re-push serves
+  the node's cached image;
+- tags are ordered **numerically, not lexically**. Not theoretical: this estate is on
+  `v1.0.13xx`, so it has already crossed `v1.0.999 → v1.0.1000`, where a string comparison
+  says 999 is the newer. `TestCompareTags` pins that boundary and the real
+  `v1.0.948 → v1.0.1126` runner freeze;
+- a tag that **cannot** be ordered (`latest`, a date, a different arity) gets its own
+  finding kind rather than a guessed direction. A fabricated ordering is how a report
+  starts asserting what it does not know.
+
+**What would have caught it earlier:** nothing in the unit tests, because I wrote fixtures
+for the case I had in mind (behind) and not its mirror. The live run was the control.
+Generalisable: **when a finding has a direction, write the fixture for BOTH directions
+before running it anywhere** — a one-sided fixture cannot fail on the side it omits.
+
+### Two deliberate limits, stated so they are not read as oversights
+
+- **Hand-run only.** No CronJob, no RBAC manifest, no `doc_notes` row. The makefile
+  comment says so in capitals. Scheduling is a separate decision with its own round, and
+  the split is the estate's own lesson: *"detection works; SCHEDULE and DISPATCH do not."*
+  Nothing runs this unless a person does, and it must not be described as a live detector.
+- **First container only.** `readWorkloads` reads `containers[0]`; a sidecar carrying one
+  of our images would be missed. No workload here has one today. Named because it is the
+  **same shape** the council caught in round 1 (the `images:` block cap) — if a sidecar
+  ever appears, this is where to look.
+
+Submitted `b0883c17-32a1-434d-b0ab-114df4cb04b1`.
