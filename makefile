@@ -19,7 +19,7 @@ REGISTRY ?= docker.io/aqls
 # 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
 # carries 252 newer commits, 24 of them touching platform/internal/pkg. A
 # same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
-IMAGE_TAG ?= v1.0.1324
+IMAGE_TAG ?= v1.0.1325
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -188,6 +188,31 @@ OWN_LINEAGE := admin-dashboard:deploy-dashboard
 .PHONY: check-release-coverage
 check-release-coverage: ## Fail if an overlay pins one of our images but is in no release path
 	@go run ./cmd/releasecheck --root . --registry $(REGISTRY)
+
+# release-census — the CLUSTER half, and it asks a DIFFERENT question from the
+# gate above. Do not read one as the other.
+#
+#   check-release-coverage  reads the FILESYSTEM: "can a release reach this
+#                           service?" It is preventive and it REFUSES.
+#   release-census          reads the CLUSTER: "does what is running match what
+#                           is declared?" It is a detector and it only REPORTS.
+#
+# It exists because the filesystem and the cluster are two enumerations and
+# NEITHER IS A SUPERSET OF THE OTHER — measured 2026-08-22, one service declared
+# everywhere and running nowhere (`capped-schedule-ordering-check`), and two
+# running as CronJobs with no overlay on disk. No filesystem gate can see either,
+# in either direction, ever.
+#
+# ⚠ HAND-RUN ONLY, deliberately (bugs_open/318 phase 1). There is no CronJob, no
+# RBAC and no doc_notes row yet — so nothing runs this unless a person does, and
+# it must NOT be described as a live detector. Scheduling it is a separate
+# decision with its own round, and this estate's own evidence is why the two were
+# split: "detection works; SCHEDULE and DISPATCH do not."
+#
+# Read-only: it LISTS deployments, cronjobs and daemonsets and nothing else.
+.PHONY: release-census
+release-census: ## Report cluster-vs-declaration drift (read-only; hand-run, no CronJob)
+	@go run ./cmd/releasecheck --census --root . --registry $(REGISTRY) --namespace $(PROJECT_NAME)
 
 # print-* — echo-only, and they exist for pkg/releaseset/decl_parity_test.go:
 # the Go side reads these declarations with a literal extractor rather than a

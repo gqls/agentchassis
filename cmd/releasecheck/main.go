@@ -27,6 +27,15 @@
 //	2  the check COULD NOT RUN (unparseable makefile, unreadable deployment
 //	   tree). Never conflated with 0: a gate that passes what it failed to
 //	   measure is this estate's own blind-pass landmine.
+//
+// TWO MODES, and they ask DIFFERENT questions — do not read one as the other.
+// The default reads the FILESYSTEM and answers "can a release reach this
+// service?"; it is preventive and it REFUSES. `--census` reads the CLUSTER and
+// answers "does what is running match what is declared?"; it is a detector and
+// it only REPORTS. The census exists because the filesystem and the cluster are
+// two enumerations and neither is a superset of the other — measured 2026-08-22,
+// one service declared everywhere and running nowhere, and two running with
+// nothing on disk describing them.
 package main
 
 import (
@@ -58,10 +67,16 @@ func main() {
 		root     = flag.String("root", ".", "repository root to read the makefile and deployment tree from")
 		registry = flag.String("registry", "docker.io/aqls", "our image registry prefix; overlays pinning anything else are not ours to roll")
 		quiet    = flag.Bool("quiet", false, "print only violations")
+		census   = flag.Bool("census", false, "read the CLUSTER instead of the filesystem: report stragglers, declared-but-not-running, and running-but-not-declared")
+		ns       = flag.String("namespace", "ai-persona-system", "namespace to census")
 	)
 	flag.Parse()
 
-	code, err := run(*root, *registry, *quiet)
+	runner := func() (int, error) { return run(*root, *registry, *quiet) }
+	if *census {
+		runner = func() (int, error) { return runCensus(*root, *registry, *ns) }
+	}
+	code, err := runner()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%sRELEASE COVERAGE: THE CHECK COULD NOT RUN%s — %v\n", red, reset, err)
 		fmt.Fprintf(os.Stderr, "%s  This is exit %d, NOT a pass. Nothing was measured, so nothing was cleared.%s\n",
