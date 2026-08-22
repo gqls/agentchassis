@@ -1212,3 +1212,53 @@ what separate the two.
 > "Read more carefully" is not a check. "Read the consumer", "re-measure", "read the whole row"
 > are three different ones, and collapsing them into a single lesson loses exactly the part that
 > would prevent the next instance.
+
+## 2026-08-22 — the card-image audit, and an improvement-loop misfire that was mine
+
+### The image audit, and why the first two instruments both said "fine"
+
+Owner asked whether all the images exist for all the cards. Three passes, each finding what the
+previous one could not see:
+
+1. **`render_audit.py` said `broken-img=0`** across 23 pages at both widths on 08-20. True, and
+   it answers a narrower question than the one asked: it reports `<img>` elements that failed to
+   LOAD. A card with **no image at all** is invisible to it, and so is a CSS `background-image`
+   that 404s.
+2. **My own URL sweep said 21 of 21 resolve.** Also true, also narrower than it looked: my
+   extractor matched `background-image:\s*url(`, and this site writes
+   `background-image: linear-gradient(...), url('...')` — the gradient comes first, so the regex
+   missed every hero. **A hand-rolled extractor's blind spot is invisible in its own output**;
+   the count looked complete because nothing reported a gap.
+3. **Per-card association, splitting on real card boundaries**, found it: 11 `article-card` blocks
+   but only **10** `<img>` in the body on both the homepage and `/guides/index.html`.
+
+**Findings [MEASURED 2026-08-22]:**
+
+| finding | detail |
+|---|---|
+| `grip-styles` has no card image | the only one of 11 guides without `/assets/images/card-<slug>.jpg`. **10 card assets exist as of 2026-08-22**, 9 created 08-09 and 1 on 08-11; grip-styles was built after that batch and never got one. Its **hero** exists (`content-hero-grip-styles.jpg`, 200) — so this is a DERIVE case, not a generate |
+| `/assets/images/hero.jpg` 404s on **5 served pages** | about, contact, news index, brands index, shop index — as an inline `background-image: linear-gradient(...), url('/assets/images/hero.jpg')`. The gradient still paints, so the hero reads as a flat dark band rather than as broken. The platform had already filed `image_url_404` for it on **2026-08-09** — `detected`, **no handler_agent at all**, untouched for 13 days |
+| everything else | 21 of 21 referenced images resolve; the 2 `contact-card` and 4 `db-result-card` blocks are icon/JS-result components, not content cards; news/brands/shop/new-arrivals/sale listings carry no imagery by design |
+
+**The improvement loop then found the same two independently** (`needs_content_image` for
+grip-styles, `needs_hero_image` for the unbacked path) plus `needs_imagery` for the four articles
+built on 08-20 — which is the useful check on both methods. All 7 reached `triaged` with real
+handlers (`asset-deployer`, `image-build-handler`). **I did not promote them: my UPDATE matched
+0 rows because the platform's own promoter moved them in the seconds between two of my queries.**
+Recorded because "I fixed it" and "it fixed itself while I was typing" are different facts.
+
+### The misfire — mine, and the correction to my own impact report
+
+`076_improvement_loop_trigger.sh` ignores its arguments and fires at robot-hands.com. I found
+that, wrote a patch, and then ran two "refusal tests" that executed the **unpatched** script,
+dispatching the loop at another lane's site twice. Full account in `WRONG_CALLS.md` and a
+LANDMINE on the directory (**4 scripts as of 2026-08-22** share the shape, one with 64 stacked
+overrides across 10 sites).
+
+**A second error, and it is the one worth carrying:** I reported the blast radius as "~60
+findings, mostly `detected` — annoying, not damaging" from a census taken minutes after dispatch.
+By 18:38 the promoter had moved ~93 rows to `triaged` and a 34-page assemble wave was live. **I
+described a queue in motion as a finished result.** Same family as reading a 404 during a B2 sync
+as a failed deploy: a mid-flight system sampled once reads as a final state, and the reassuring
+sample is the one nobody re-takes. The check is to name what would change if you looked again in
+five minutes — and if the answer is "the numbers", say so in the report or take the second look.
