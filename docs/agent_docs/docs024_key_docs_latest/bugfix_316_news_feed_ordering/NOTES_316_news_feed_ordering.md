@@ -331,3 +331,57 @@ inherits SCH-025's required property for free.
 
 This also sharpens the argument for the fix generally: the ordering state was **already being maintained
 correctly by the platform all along**. `find_news_sites` was the one reader that ignored it.
+
+## Council verdict on the migration — APPROVED, and it found a real hole anyway
+
+Corr `e6e8b923-f614-4a1e-97d8-bf40fb5e3cc3`. **APPROVED**, *"approved with 2 advisory objection(s) —
+none high-severity"*, `gated_by_truncation: false`, 9 reviewers.
+
+> **CORRECTION to my own reading, same hour:** I first reported this as *"8 of 9 seats abstained"*, from
+> `metadata->>'abstained' = 8` in the summary object. That is wrong — the report body carries **nine
+> substantive reviews** with written notes. Whatever the `abstained` counter is counting, it is not
+> "seats that did not review". Recorded because I nearly told the owner the approval was thin when it was
+> the opposite, and because reading a summary counter instead of the artefact it summarises is the same
+> mistake as trusting a status over an artefact.
+
+**The one that mattered — `debug_historian`, medium, and it is right:**
+
+> *"The pre-state guard only anchors on the QUERY'S TAIL … then overwrites the ENTIRE query string with a
+> hardcoded new literal. If any other part of the live WHERE/predicate had drifted since the author's
+> snapshot … the guard would pass and the wholesale replacement would silently revert that unrelated
+> change. Needle-gate discipline calls for gating on the full known pre-state."*
+
+That is exactly the hazard I *thought* I was guarding against — this row's unexplained 08:36Z
+`updated_at` bump — and my guard only covered the region I was changing. A concurrent edit to the
+news_feed test, the deployed-page `EXISTS`, or either arm of the eligibility predicate leaves the
+`ORDER BY` tail untouched, so my guard would have passed and my rewrite would have thrown that change
+away. **Fixed:** the guard is now `q IS DISTINCT FROM $pre$<the whole captured query>$pre$`, and the
+literal is the verbatim pre-state already committed as `PREFIX_find_news_sites_query_2026-08-22.sql`.
+Verified against live before applying — the equality returns `t`, so the migration will not spuriously
+abort.
+
+Also taken: **`editquality`, low** — the duplicate-active-row abort now names the colliding `version`s,
+because aborting safely is not much use if the operator then has to go and find out which rows collided.
+
+**Raised and answered rather than changed:**
+- **`editquality` + `debug_historian`, medium (both):** the `_ROLLBACK` file is described in the rationale
+  but absent from the `edits` array. It **exists and is committed** (`95635d09b`) — `_ROLLBACK` is
+  explicitly out of council scope, so it could not have been an edit. A submission-hygiene point, and a
+  fair one: the rationale should have said "committed alongside, out of scope" rather than describing it
+  as if reviewable.
+- **`guardian`, low:** should have used `operation: "config_change"` rather than `"add"`. Noted for next time.
+
+**Three checks the seats asked for, run rather than asserted:** [MEASURED 2026-08-22]
+
+| asked by | check | result |
+|---|---|---|
+| `guardian` | does any OTHER agent carry this query text? | **1 row** — `content-feed-trigger.find_news_sites` only |
+| `prior_art_librarian` | re-run "zero live instances of arm A" | **0** |
+| `prior_art_librarian` | does `check_has_sources` genuinely cover arm A? | **yes, and stronger than I claimed** |
+
+The third is worth spelling out because the seat was right to doubt it: `check_has_sources` reads
+`seed_result.has_sources`, i.e. it reads the output of a step that has *already run*. The orchestrator's
+`start_step` is **`seed_sources`** (`seed_content_sources`) → `check_has_sources` → `dispatch_sources` /
+`complete_no_sources`. So seeding is the **first thing that happens to every selected site**, not a
+branch reached only by arm-A sites. Arm A really is the provisioning path, and the NULLS LAST reasoning
+stands on a verified premise rather than a plausible one.

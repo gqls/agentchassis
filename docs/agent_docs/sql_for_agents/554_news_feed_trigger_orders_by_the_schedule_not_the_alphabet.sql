@@ -102,13 +102,22 @@ DO $$
 DECLARE
     live_rows int;
     q         text;
+    versions  text;
 BEGIN
     SELECT count(*) INTO live_rows
     FROM agent_definitions
     WHERE type = 'content-feed-trigger' AND is_active
       AND COALESCE(is_snapshot,false) = false AND deleted_at IS NULL;
     IF live_rows <> 1 THEN
-        RAISE EXCEPTION 'MIGRATION 554: expected exactly 1 live content-feed-trigger row, found % — a second active row would make this UPDATE ambiguous. Resolve first.', live_rows;
+        -- Versions named in the message (council corr e6e8b923, editquality,
+        -- low): aborting safely is not enough if the operator then has to go
+        -- and find out WHICH rows collided.
+        SELECT string_agg(COALESCE(version::text,'(null)'), ', ' ORDER BY version)
+          INTO versions
+        FROM agent_definitions
+        WHERE type = 'content-feed-trigger' AND is_active
+          AND COALESCE(is_snapshot,false) = false AND deleted_at IS NULL;
+        RAISE EXCEPTION 'MIGRATION 554: expected exactly 1 live content-feed-trigger row, found % (versions: %) — a second active row would make this UPDATE ambiguous. Resolve first.', live_rows, COALESCE(versions,'(none)');
     END IF;
 
     SELECT default_config->'workflow'->'steps'->'find_news_sites'->'config'->>'query'
@@ -126,9 +135,22 @@ BEGIN
     -- reasons nothing in schema_migrations or either snapshot table accounts
     -- for. Gating on the exact pre-state means a concurrent edit ABORTS this
     -- migration instead of being silently overwritten under someone else's nose.
-    IF q NOT LIKE '%ORDER BY s.domain LIMIT 5' THEN
-        RAISE EXCEPTION 'MIGRATION 554: find_news_sites no longer ends "ORDER BY s.domain LIMIT 5" — another change landed first. Live tail is: %. Re-derive this migration against the live value.',
-            right(q, 60);
+    --
+    -- ⚠ GATED ON THE **WHOLE** QUERY, NOT ITS TAIL — council corr e6e8b923,
+    -- debug_historian, medium. The first cut tested only
+    -- `q NOT LIKE '%ORDER BY s.domain LIMIT 5'` and then replaced the ENTIRE
+    -- string with a hardcoded literal. A concurrent edit to any OTHER clause —
+    -- the news_feed test, the deployed-page EXISTS, either arm of the
+    -- eligibility predicate — leaves the ORDER BY tail untouched, so the guard
+    -- would PASS and the wholesale rewrite would silently revert that unrelated
+    -- change. Needle-gate discipline: gate on the full known pre-state, not on
+    -- the region you intend to change. The literal below is the live query as
+    -- captured 2026-08-22 and committed verbatim at
+    -- docs/agent_docs/docs024_key_docs_latest/bugfix_316_news_feed_ordering/
+    -- PREFIX_find_news_sites_query_2026-08-22.sql.
+    IF q IS DISTINCT FROM $pre$SELECT DISTINCT s.id::text as site_id, s.domain FROM sites s JOIN site_specs ss ON ss.site_id = s.id AND ss.aspect = 'classification' AND ss.is_current = true AND (ss.data->'content_features'->'news_feed'->>'recommended')::boolean = true WHERE EXISTS (SELECT 1 FROM pages p WHERE p.site_id = s.id AND p.build_status = 'deployed') AND (NOT EXISTS (SELECT 1 FROM content_sources cs WHERE cs.site_id = s.id AND cs.is_active = true) OR EXISTS (SELECT 1 FROM content_sources cs WHERE cs.site_id = s.id AND cs.is_active = true AND (cs.next_fetch_at IS NULL OR cs.next_fetch_at <= NOW()))) ORDER BY s.domain LIMIT 5$pre$ THEN
+        RAISE EXCEPTION 'MIGRATION 554: find_news_sites is not byte-identical to the pre-state this migration was derived against — another change landed first, and replacing the whole string would silently revert it. Live length %, expected %. Live tail: %. Re-derive against the live value.',
+            length(q), length($pre$SELECT DISTINCT s.id::text as site_id, s.domain FROM sites s JOIN site_specs ss ON ss.site_id = s.id AND ss.aspect = 'classification' AND ss.is_current = true AND (ss.data->'content_features'->'news_feed'->>'recommended')::boolean = true WHERE EXISTS (SELECT 1 FROM pages p WHERE p.site_id = s.id AND p.build_status = 'deployed') AND (NOT EXISTS (SELECT 1 FROM content_sources cs WHERE cs.site_id = s.id AND cs.is_active = true) OR EXISTS (SELECT 1 FROM content_sources cs WHERE cs.site_id = s.id AND cs.is_active = true AND (cs.next_fetch_at IS NULL OR cs.next_fetch_at <= NOW()))) ORDER BY s.domain LIMIT 5$pre$), right(q, 60);
     END IF;
 
     IF q LIKE '%due_at%' THEN
