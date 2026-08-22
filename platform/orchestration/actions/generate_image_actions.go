@@ -1003,14 +1003,13 @@ func StoreGeneratedImageAction(ctx context.Context, params ActionParams) (interf
 		zap.String("image_uri", imageURI),
 		zap.String("relative_url", relativeURL))
 
-	// Store in database
+	// Store in database. The {purpose}_uri write that used to precede this is
+	// GONE (bugs_open/155 / 209 Phase 3, 2026-08-22): a site-wide,
+	// last-write-wins cache of a per-asset fact whose last reader was deleted
+	// on 2026-08-09 (91dda3243) — measured readerless across Go, live
+	// agent_definitions, workflow_templates and active component templates
+	// before removal. The source of an asset is its own row (storage_path/url).
 	if params.DB != nil {
-		// Store S3 URI for assemble_site to fetch
-		uriField := purpose + "_uri"
-		if err := updateSiteContentField(ctx, params.DB, siteID, uriField, imageURI); err != nil {
-			logger.Error("Failed to store URI", zap.Error(err))
-		}
-
 		// Store relative URL for templates
 		urlField := purpose + "_url"
 		if err := updateSiteContentField(ctx, params.DB, siteID, urlField, relativeURL); err != nil {
@@ -1024,12 +1023,10 @@ func StoreGeneratedImageAction(ctx context.Context, params ActionParams) (interf
 
 	// Update collected_data for downstream steps
 	if params.CollectedData != nil {
-		params.CollectedData[purpose+"_uri"] = imageURI
 		params.CollectedData[purpose+"_url"] = relativeURL
 
 		if siteRecord != nil {
 			if contentData, ok := siteRecord["content_data"].(map[string]interface{}); ok {
-				contentData[purpose+"_uri"] = imageURI
 				contentData[purpose+"_url"] = relativeURL
 			}
 		}

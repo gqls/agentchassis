@@ -46,7 +46,9 @@ import (
 //
 // If this test fails, a purpose-keyed source route has grown back: some resolution
 // path is answering with a value that belongs to whichever same-purpose asset was
-// stored LAST, which is bugs_open/209 and, one layer up, bugs_closed/155.
+// stored LAST, which is bugs_open/209 and, one layer up, bugs_open/155 (still in
+// bugs_open until its behavioural closure proof runs — this comment said
+// bugs_closed for two weeks while the file sat in bugs_open).
 func TestDeployImageAsset_PurposeKeyedSlotIsNoLongerASource(t *testing.T) {
 	logger := zap.NewNop()
 

@@ -3448,16 +3448,16 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 	// cache of a per-asset fact, and its only reader — deploy_image_asset's
 	// old Priority-1 — deployed the wrong asset's bytes on any site with 2+
 	// same-purpose assets. The source now travels on the asset row itself
-	// (storage_path, written above). The in-run collected_data copy stays:
-	// the legacy pageflow deploy step reads it within the same workflow.
+	// (storage_path, written above). The in-run collected_data copy is gone
+	// too (209 Phase 3, 2026-08-22): its stated reader — findStorageURI's
+	// {purpose}_uri lookup in the legacy pageflow deploy step — was deleted on
+	// 2026-08-09 (91dda3243, "resolved by identity or not at all"), and the
+	// copy was measured readerless across Go, live agent_definitions,
+	// workflow_templates and active component templates before removal.
 	if purpose != "" && siteID != nil {
 		// Generate paths using storage package helper (use correct extension for purpose)
 		_, _, _, purposeExt := storage.GetImageConfig(purpose)
 		paths := storage.BuildAssetPaths(purpose, purposeExt)
-
-		if storageURI != "" {
-			params.CollectedData[purpose+"_uri"] = storageURI
-		}
 
 		// Store relative URL for templates
 		updateContentDataField(ctx, params.DB, *siteID, purpose+"_url", paths.RelativeURL, params.Logger)
