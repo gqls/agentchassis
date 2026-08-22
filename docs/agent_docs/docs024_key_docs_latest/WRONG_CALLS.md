@@ -43445,3 +43445,41 @@ write it `IS DISTINCT FROM`, and in the same result print the number of rows whe
 actually **ran**. A zero with no denominator beside it is not a measurement. This is the same shape
 as the demand control the memory index already insists on for a post-fix zero — it applies to the
 SQL operator, not just to the traffic.
+
+---
+
+## 2026-08-22 — I grepped ONE spelling of a registration call and briefly concluded a live guard was failing (`bugs_closed/317` re-verification)
+
+**Caught before it reached any durable doc or a bug file**, so it is not a published false claim.
+It is here because the skipped check is a one-liner and the failure mode is flattering: it produced
+a *specific, quantified* discrepancy, which is exactly the shape that feels like a finding.
+
+**The claim I was assembling.** Re-verifying 317's fix, the live
+`scheduled_tasks.claimed-item-timeout` exclusion list holds **14** item types. The contract is that
+this list must equal the union of the two completion-gate rosters. I enumerated them:
+`grep -rn 'RegisterVerifier(' .../discovery_checks/` → **11**; `noChangeGates` → **1**. Eleven plus
+one is twelve. Two excluded types — `hardcoded_section_colors` and `needs_brand_head_assets` —
+appeared to be gated by nothing, which is the guard's *reverse* direction and should have reddened
+`TestClaimTimeoutExclusionCoversBothCompletionGates`. For a few minutes I had a live guard that was
+manifestly not reporting a violation it should have, and had started reasoning about why.
+
+**What is actually true.** The registry has **two** public writers, not one:
+`RegisterVerifier(...)` and `RegisterVerifierWithPolicy(...)` (`discovery_checks/verifiers.go:143`
+and `:149`; the first is a thin wrapper on the second). The policy form arrived with RFC_017's
+fail-closed ruling, which shipped the new authority as an opt-in field — so the *estate's own good
+practice* is what created the second spelling. The two missing types are registered through it
+(`check_hardcoded_section_colors.go:66`, `check_undeployed_assets.go:104`). 13 + 1 = **14**, exactly
+the live list. The guard was right and green the whole time.
+
+**The check, and why it is not merely "grep harder".** Grepping a call site measures *my* guess
+about the API's shape. The guard does not grep — it calls `RegisteredVerifierItemTypes()`. **Read
+the function the guard itself uses to build its own set**, and you get every writer of that map in
+one step, including any added tomorrow. Where a test and I disagree about a set, the cheap move is
+to make my set the same way the test makes its set, before theorising about the test.
+
+**The generalisable shape.** An opt-in field added to a shared seam — the remedy this estate
+*prescribes* for new authority — necessarily creates a second call spelling. So every `grep` census
+of a registration API silently undercounts by however many policy/option variants exist, and it
+undercounts *quietly*, returning a smaller number rather than an error. Related in kind to
+`declaring-a-key-silences-your-own-detector`, but the inverse: there, my action hid a real finding;
+here, my method invented one.
