@@ -15164,3 +15164,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_closed/283` (the conversion programme this converter served); `architecture_review/RFC_032` §8.6 (where this was found, and the ruled remedy); the MEMORY lesson that a post-fix zero needs a demand control — this is the same family one level down, a *refusal* that needs one
 - **source:** 2026-08-22, `bugs_open/283` lane, found while checking whether the five `{{.ComponentID}}` templates could be filed through the proven pipeline. They could not; the plan that assumed they could would have produced five no-op completions and a census that never moved.
 - **added:** 2026-08-22, bugfix_283_component_instance_scope lane
+
+---
+
+### A Go check image COPYs only the binary — so a check that reads a repo-relative data file deploys clean, reports success at every layer, and cannot run
+
+- **footprint:** `build/docker/backend/*-check.dockerfile` · `cmd/config-key-audit` (any mode with a `default*Path` const) · `deployments/kustomize/services/*-check/` · any check whose rule needs a file as well as code
+- **fires when:** you add a check mode that loads an acks file, a baseline, a fixture or a roster from a repo path — `docs/agent_docs/.../something.json` — and ship it on the Go check-image pattern. **Every signal you would normally trust says it worked.** The release builds it, the overlay applies, `kubectl get cronjob` lists it, the image tag is right, and a binary probe for the new `--mode` flag **finds it**, because the flag really is compiled in. The only thing that is missing is the file the mode reads, and nothing about the deployment mentions files.
+- **the mechanism:** the two-stage dockerfile ends `FROM alpine:latest` and `COPY --from=builder /app/config-key-audit /app/` — the binary and nothing else. The builder stage `COPY . .`'d the whole repo, so the path exists *at build time*, which is why nothing fails during the build. At runtime `WORKDIR /app` contains one file. `[MEASURED 2026-08-22]` `component-source-vocabulary-check` v1.0.1326 deployed and would have exited 2 on every scheduled run: *"baseline docs/agent_docs/…/component_source_baseline.json: no such file or directory"*.
+- **the check — probe the FILE, not just the flag. A binary probe cannot see this:**
+  ```bash
+  docker run --rm --entrypoint sh <image>:<tag> -c 'ls -la /app; ls -l /app/<the path your const names>'
+  # then run it the way the CronJob does, with no DB, and read the FIRST refusal:
+  docker run --rm <image>:<tag> 2>&1 | head -3
+  ```
+  A first refusal naming your data file is this trap. A first refusal naming `PG_CLIENTS_HOST` means the file loaded and you are past it.
+- **⚠ the failure is INVISIBLE for a day and then looks like a backlog.** The CronJob only runs on its schedule, so nothing fails until the next fire; and when it does, exit 2 shows as a failed Job that reads like "the check found something" unless you read the log. **Never deploy a check and wait for its schedule to tell you it works** — trigger one manual Job and read the POD's `state.terminated.exitCode`.
+- **the fix is a MOUNT, not a `COPY`, whenever the file is meant to change.** Baking it in is defensible only for a fixture that changes with the code. A baseline/acks/roster file that shrinks or grows on its own schedule must come from a `configMapGenerator`, or the image goes stale the moment the file is edited and the check reports the edit as drift. Note the arrangement that forces: **the real file must live inside the kustomize base** (kustomize resolves symlinks and refuses a generator source outside its root), with a symlink from the documented path — same as `component-fallback-check`'s script and fixture. And **re-apply the overlay after editing the file**, or the cluster keeps the old ConfigMap.
+- **relations:** LANDMINES *"`kubectl get cronjobs` cannot see a schedule that is COMMITTED but not yet DEPLOYED"* (the sibling trap, same lane, same service) · the ImagePullSecrets family (`ImagePullBackOff` reads as a Job still RUNNING) · MEMORY [[prove-a-deploy-at-the-artefact-index]] · CLC-025 / `bugs_open/309` §15 (the worked case)
+- **added:** 2026-08-22, `bugfix_309_unclickable_index_cards` lane

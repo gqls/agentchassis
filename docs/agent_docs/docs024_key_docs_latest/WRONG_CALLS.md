@@ -44549,3 +44549,35 @@ to the end of it — and when the subject is a table, ask the table (`SELECT DIS
 because a live column of provenance labels is a census that cannot be stale. Any sentence containing
 *one / only / the single / the sole* about writers, callers or call sites needs the count and its date
 beside it, which is now CLAUDE.md's rule anyway: **N as of \<date\>**.
+
+### 6. (309 lane, after the fleet build) I called the check "shipped" when it could not run — the binary probe I trusted cannot see a missing FILE
+
+I verified the deployed check the way this estate teaches: read the CronJob's image by
+jsonpath, then probe the binary for the new flag **with a must-be-absent control**. Both
+passed. `--component-source-vocabulary` was genuinely compiled into
+`v1.0.1326`. I had said in chat that the remaining step was "build and push, then apply".
+
+**Every scheduled run would have exited 2.** The image is
+`FROM alpine` + `COPY --from=builder /app/config-key-audit /app/` — the binary and nothing
+else — and the mode loads its baseline from a **repo-relative path**. The builder stage
+`COPY . .`'d the repo, so the path existed at build time and nothing failed during the
+build.
+
+**What caught it:** running the image the way the CronJob runs it, with no database, and
+reading the FIRST refusal. It named the baseline file, not `PG_CLIENTS_HOST` — i.e. it had
+not even reached the database check. That is a two-second command and it was the only thing
+in the whole verification chain that could have failed.
+
+**The shape: a binary probe answers "did my CODE ship", and says nothing about "can my code
+RUN".** Both are needed and only the first is habitual here, because most changes are pure
+code. The moment a mode needs *data* — an acks file, a baseline, a roster, a fixture — the
+deployment has a second dependency that no image tag, no build provenance stamp and no
+`grep /proc/1/exe` will ever mention. **The cheap check: run the container with its real
+arguments and no environment, and read the first refusal.**
+
+**The redeeming half, and the reason to design refusals this way:** it failed *loudly*.
+Because the loader refuses to run without its baseline rather than treating an unreadable
+file as an empty one, the failure was exit 2 with the filename in it. Had it defaulted to
+"no baseline = nothing grandfathered", the first run would have reported all 69 known
+findings as NEW — a flood on day one, indistinguishable from a real regression. **The
+refusal I wrote for a different reason is what made this diagnosable in one command.**
