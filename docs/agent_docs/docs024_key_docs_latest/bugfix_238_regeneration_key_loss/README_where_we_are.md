@@ -248,3 +248,40 @@ write" mode stays unbuilt until the detector has actually seen a loss — no poi
 population of zero. One thing you didn't decide and I haven't assumed: the sister question about the
 *rendered page text* column (RFC_008) is still open; today's ruling covers the structured content
 only. Each piece of code goes through the review council before it ships.
+
+---
+
+**2026-08-22, later — you said ship it, and it's live.**
+
+You asked two things this morning: fix the fact that two warning codes were being written and never
+read, and ship the detector together with the thing that reads its output. Both are done, and the
+second one ran for the first time this afternoon, on the real database, before I wrote this.
+
+What now exists: a small program that runs every morning and asks three questions. Did any part of
+the system quietly drop a value it was supposed to keep? Is any page serving right now with a
+required value missing? And — for every warning already on file — is it still true, or has the page
+since healed? Warnings that have healed get marked off. That marking-off had never happened in the
+system's entire history: forty-eight warnings were closed today as verified-healed, the first ever.
+
+Two safety habits are built into it, learned the hard way this week. It never says "all clear"
+without first proving it can still see — every run it re-finds a set of old, known losses, and if it
+ever can't, it refuses to report at all rather than hand you a false clean bill. And it writes a
+one-page note of what it found every single day, including the quiet days — so if the note is ever
+missing, you know the check didn't run, rather than assuming nothing was wrong.
+
+It also has an honest red light: today it reports 32 required values missing across 13 pages. Ten of
+those are the ai-agent-orchestration homepage cards we already parked for the imagery work; six are
+a leopardess page from the same family; one is the gamesdesign contact page that genuinely has no
+email. The rest are new sightings on dartsonline, finetuning and gaswholesalers pages — nobody knew
+about them this morning. The daily job will show as "failed" until those pages get owners, and
+that's deliberate: a red light you have to look at beats a green one that lies.
+
+Two supporting pieces ride with it: every part of the system that edits page content now signs its
+name when it writes (so the next investigation can say WHO, not just WHAT — that starts working at
+the next release), and the archive now keeps a copy even when only the content changes and not the
+visible page (a gap we only noticed while building this). Both are with the council now; the
+archive change waits for their verdict before it's switched on.
+
+The parallel session you spoke to about "option c" filed the companion piece: a register of ALL
+sixteen warning types that nothing reads — ours were just the two we tripped over. That's
+bugs_open/358, and it's the to-do list for applying today's pattern more widely, one type at a time.

@@ -637,3 +637,53 @@ This session's contributions, all handed over by message:
   class owner; 358 excludes the two codes content-loss-check consumes. Verified at CONSTANT level,
   not just literal (the one real reader, `page_build_failure_guard.go:131`, binds a const — a
   literal-grep verdicts it unread; trap recorded in 358 §3/§8). 016b §10 row added.
+
+---
+
+## 2026-08-22 afternoon — the owner ruled option (c) twice over, and the whole thing shipped the same day
+
+The owner, in this session: *"we should fix that and also ship both the detector and the solution
+that reads its output"* — and independently in the parallel 238 session: *"option c please"*
+(decision record `d14e6a882`). Shipped, in the ruled order:
+
+1. **mig 552** (`e7567d1fc`) — content-only UPDATEs archive too. Found while designing: 357's
+   trigger is `AFTER UPDATE OF rendered_html` gated on the html changing, so a content_data-only
+   UPDATE — the change this class is ABOUT — archived nothing. A FIFTH blind spot 355 missed.
+   Committed unapplied; apply follows council `f5550f04`.
+2. **A1** (`8552e621d`, `0702fb9cb`) — writer stamps. **355's own sketch was unrunnable twice over**
+   (SET takes no bind params; only 2 of 9 sites hold a tx, and set_config(...,true) is a
+   statement-scoped no-op on autocommit) — caught by the parallel session's explorer BEFORE build.
+   Corrected in place in 355 §A1 with credit. Shipped as stampedExecContext (short tx around the
+   four bare writers) + stampWriterTx (the two real txs) + inline admin/CLI stamps. Mutations
+   M1–M3 proven. The commit-scope untouched-twin advisory was a REAL catch: HandleUpdateSiteComponent
+   writes the chrome table whose 344 archive also captures application_name — follow-up commit.
+3. **A2+A3** (`cba51ad1d`) — `cmd/content-loss-check`, ONE binary: detector (archive sweep, both
+   ops, named non-llm definition), reader (re-grades + resolves the family), state census (covers
+   the INSERT blind spot AND is the durable record — mig 466 expires finding rows, 358's finding),
+   heartbeat every run, canary + pinned demand control with exit-2 refusal. Mutations M1–M4 proven.
+   Register PBP-046/047; deployed same day (image v1.0.1324 = the commit, label verified).
+
+**Design deviation from 355 §A2, recorded:** NOT an extension of writeContentDataRegressionLog —
+that sits in the funnel and never sees the eight uncarried writers. Archive sweep instead:
+structural coverage incl. psql and future writers, reader in the same binary.
+
+**First writing run** (manual job, 11:40Z): control 72 ✓; 72 filed; **48 stamped resolved — the
+first resolved=true rows in agent_error_log's history**; 93 open (incl. the gated-field class that
+had no producer until today); state census 32 blanks / 13 page-slots (aao 11, leopardess 6+1,
+gamesdesign 1, NEW: dartsonline 6, finetuning 3, gaswholesalers 3); heartbeat row verified in
+doc_notes. Exit 1 = correct steady state while parked damage stands.
+
+**MISSTEPS this leg, so the next reader doesn't re-walk them:**
+- The `content-loss-check-now` make target shipped with `$$$$(date` (python heredoc preserved all
+  four dollars) → shell syntax error on first use. One-char fix, `d56fd6b11`.
+- **That fix's pathspec commit took a SAME-FILE PASSENGER**: another lane's uncommitted
+  `capped-schedule-ordering-check` makefile targets (their 316 work) rode into `d56fd6b11` under my
+  message. The landmine says no hook can prevent this; I HAD checked `git diff --numstat makefile`
+  before the first makefile commit and did NOT re-check before the second, eleven minutes later —
+  the tree moved in between. Their work is intact and committed; noted here so its authors know
+  where it landed. The check that would have caught it: re-run the numstat in the same breath as
+  EVERY commit to a shared file, not just the first.
+- Council trailer: tried `Council-Submitted: pending...` again (blocked, correctly — third time
+  this lane has reached for a placeholder). The right order is submit-then-commit; 552/A1 commits
+  predate the submission and will list as un-reviewed in 098 — accepted, the submission JSON
+  commit carries the trailer.

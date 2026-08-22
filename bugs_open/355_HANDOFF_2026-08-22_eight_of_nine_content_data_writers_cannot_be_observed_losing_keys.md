@@ -208,7 +208,7 @@ Assert no counts — the loop fetches them.
 Ranked by the estate's rule: prefer what makes the bad state unrepresentable over what asks an
 operator to remember something.
 
-### A1 — make the write self-attributing (`SET LOCAL application_name`) · **do this one first**
+### A1 — make the write self-attributing (transaction-scoped `set_config('application_name', …)`) · **do this one first**
 
 One statement per write site, before the write, inside the existing transaction:
 
@@ -216,6 +216,20 @@ One statement per write site, before the write, inside the existing transaction:
 // so page_component_history.application_name names the CALLER, not the socket
 _, _ = tx.ExecContext(ctx, `SET LOCAL application_name = $1`, "action:section_editor.replace")
 ```
+
+> **CORRECTED 2026-08-22, hours after filing — the sketch above DOES NOT RUN, twice over.**
+> Caught by the parallel 238 session before anyone shipped it. (1) `SET`/`SET LOCAL` take **no bind
+> parameters** in the extended protocol, and the `_, _ =` would have discarded the refusal — a
+> silent no-op on every write. The working form is
+> `SELECT set_config('application_name', $1, true)` (third argument = transaction-scoped).
+> (2) "inside the existing transaction" assumed transactions that mostly do not exist: **only 2 of
+> the 9 write sites hold one** — on a bare autocommit statement, `set_config(..., true)` is a
+> statement-scoped no-op, and a session-level `SET` is forbidden outright behind pgbouncer
+> `pool_mode=transaction` (it leaks the stamp onto other clients' work on the shared server
+> connection). So the shipped form wraps each bare write in a short transaction
+> (`stampedExecContext`, `content_write_stamp.go`) and stamps the two real transactions in place
+> (`stampWriterTx`). Best-effort both ways: a Begin or stamp failure falls back to the exact
+> unstamped statement — attribution must never break a write.
 
 **No schema change, no new column, no config key, no migration.** The trigger already captures the
 value; today it captures a default nobody chose. It closes §3.2 permanently and **retro-actively
@@ -343,3 +357,54 @@ or a demonstrably non-blind zero over a full window.
 
 **What must not happen is the third silent code.** Two already sit unread; the whole argument for a
 detector is that it measures something, and a measurement nobody reads is not one.
+
+---
+
+## 10. IMPLEMENTATION RECORD — built, deployed and behaviourally proven 2026-08-22, the day of filing
+
+The owner ruled option (c) and separately directed: *"fix that and also ship both the detector and
+the solution that reads its output."* All four pieces shipped the same day:
+
+| piece | commit(s) | state |
+|---|---|---|
+| **mig 552** — content-only UPDATEs archive too (closes a FIFTH blind spot found after filing: 357's trigger is gated on `rendered_html` changing, so the one change this class is about was the one change the archive could not see; the admin handler's dynamic SET is the live producer) | `e7567d1fc` | committed; **apply follows council corr `f5550f04`** |
+| **A1** — writer stamps, in the corrected form above | `8552e621d` + `0702fb9cb` (the untouched-twin advisory was a real catch: the 344 chrome archive captures `application_name` too) | committed, INERT until the next roll |
+| **A2+A3** — `cmd/content-loss-check`, detector and reader ONE binary (register **PBP-046**; A1 is **PBP-047**) | `cba51ad1d` (+`d56fd6b11` makefile fix) | **LIVE**: CronJob daily 07:05 UTC, image `v1.0.1324` = that commit (provenance label verified before push) |
+| **A4** — refusal | — | correctly unbuilt: no measured population |
+
+**One deviation from this file's own A2, recorded not silent:** the detector does NOT extend
+`writeContentDataRegressionLog` — that function sits in the FUNNEL, so per-key-ifying it upgrades
+the one writer PBP-039 already carries and does nothing for the eight uncarried ones, which never
+route through it. The shipped shape is a daily sweep over `page_component_history` (with 552
+closing its content-only hole): structural coverage of all nine writers plus psql plus every future
+writer, and the reader in the same binary so it cannot be shipped without it.
+
+**First writing run (job `content-loss-check-manual-20260822-113722`, pod exit 1 — the honest
+steady state while parked damage stands):**
+- instrument: canary ok; demand control re-found exactly **72** (0 would have refused the run);
+- coverage 6,216 pairs / 5,820 judgeable over 21 days;
+- **72 findings filed** (all pre-fix funnel, as §2.3 predicted), deduped for every future run;
+- **48 findings stamped resolved — the first `resolved=true` rows in `agent_error_log`'s entire
+  history** (40 `CONTENT_KEY_LOSS` healed, 7 carry-miss healed, 1 row-gone); **93 genuinely still
+  open**, including the gated-field class 238 said had no producer — it has one now;
+- state census: **32 required non-llm blanks across 13 (page, slot)s** — aao's parked grid (11),
+  leopardess `who-we-help` (6), gamesdesign's honest no-email gap (1), and NEW visibility on
+  dartsonline `brands-index`/`shop-index` `category-listing` (3+3), finetuning
+  `ai-guides`/`insights`/`ai-readiness-quiz`, gaswholesalers `client-case-studies`/
+  `fuel-industry-insights`, leopardess `ai-readiness-quiz` (1 each) — surfaced for owners, not
+  fixed by this lane;
+- heartbeat `doc_notes` row written (`subject_key='content-loss-check'`).
+
+**§3 scorecard after shipping:** §3.1 (58% FK loss) — mitigated by the slot fallback, residual
+honest in the judgeable count; §3.2 (attribution) — CLOSED by A1 at the next roll; §3.3 (INSERT
+blind) — covered by the state census each run; §3.4 (13-day window) — grows a day per day and the
+detect window is 21; the FIFTH (content-only UPDATEs) — CLOSED by 552 on apply.
+
+**Retention (from `bugs_open/358`, filed the same day as the class file this section's A3 rule
+anticipated):** finding rows expire — 30d unresolved, 14d RESOLVED (mig 466), so resolving halves a
+row's remaining life. Accepted deliberately: nothing depends on the rows persisting — the durable
+records are the heartbeat and the state census, both re-derived every run.
+
+**What closes this file:** the council verdict on `f5550f04` read and 552 applied; one scheduled
+run (07:05 UTC) producing its heartbeat unattended; and after the next roll, one archive row
+carrying an `action:*` writer. Then this moves to `bugs_closed/` with the fixed-AND-live bar met.

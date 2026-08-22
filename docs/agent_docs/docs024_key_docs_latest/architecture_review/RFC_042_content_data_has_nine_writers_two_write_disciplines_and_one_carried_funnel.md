@@ -268,6 +268,18 @@ the guard's population is currently an inference and the detector is what would 
 > so RFC_008 remains open and nothing here decides the `rendered_html` seam. Implementation record:
 > `bugs_open/355` (per its §8).
 
+> **IMPLEMENTED 2026-08-22, same day (see `bugs_open/355` §10 for the full record).** One deviation
+> from the ruling's letter, recorded here because this block is what a future reader will quote:
+> A2 was NOT built by extending `writeContentDataRegressionLog` — that function sits in the FUNNEL
+> (the save path), so per-key-ifying it upgrades the one writer PBP-039 already protects and never
+> sees the eight uncarried writers, which do not route through it. The shipped shape is a daily
+> archive sweep (`cmd/content-loss-check`, PBP-046) over `page_component_history`, with migration
+> `552` closing that archive's content-only blind spot and A1 (PBP-047) making its
+> `application_name` column name the writer. Reader and detector are one binary (the A3 same-commit
+> rule); refusal (A4) remains correctly unbuilt — first run measured the non-funnel population at
+> zero against a 72-loss control, and 48 historical findings were graded healed and stamped
+> resolved, the first resolved rows in `agent_error_log`'s history.
+
 ---
 
 ## Appendix — how this RFC's own figures were obtained
