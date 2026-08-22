@@ -401,3 +401,59 @@ before running it anywhere** — a one-sided fixture cannot fail on the side it 
   ever appears, this is where to look.
 
 Submitted `b0883c17-32a1-434d-b0ab-114df4cb04b1`.
+
+---
+
+## 2026-08-22 — census round 1: REVISE, and the gating objection found the same defect a THIRD time
+
+Verdict `revise`, gating HIGH from `editquality`. It was right, and it is the most useful
+thing this lane has been told all day.
+
+**The objection.** `modalTag` broke ties with `tag > best` — a **lexical** comparison, in
+the same file as, and one screen below, the numeric comparator I had just written to fix
+exactly that. A tie between five workloads on `v1.0.999` and five on `v1.0.1000` picks
+`v1.0.999`: lexically higher, numerically older.
+
+**Why it is worse than the bug it mirrors.** The fleet tag is the **single value every
+straggler and ahead-of-fleet finding is measured against**. Getting the comparator wrong
+inverts one line; getting the **tie-break** wrong inverts the entire report.
+
+**Three occurrences, one file, one afternoon:**
+
+1. the shipped report that called two hand-deployed services "old" (found by the live run);
+2. the first repair for it, which compared strings (caught before commit);
+3. this tie-break (caught by the council).
+
+**The lesson, written at the function so it is not just an anecdote here:**
+**a helper that does the comparison correctly does not protect the call sites that do not
+use it.** `TestCompareTags` was green throughout all three.
+
+**Fixed and mutation-proven the decisive way round:** restoring `tag > best` makes the new
+test fail with its own message; the fixed version passes. The test also pins three things
+the objection did not ask for — the end-to-end census on that fleet, that a clear 3-2
+majority still wins outright (so the tie-break does not quietly become the rule), and that
+an unorderable tie is **deterministic across 20 calls**, because a report that changes run
+to run is not reproducible.
+
+### The reuse objection: answered with three measurements, and its premise was wrong
+
+`reuse_agent` (medium) held that the CronJob check services "must already list/read cluster
+workloads to do their jobs", so a shared helper probably existed. They do not — **they read
+Postgres.** `config-key-audit`'s own dockerfile header says it reads *"DIRECTLY from
+Postgres … no kubectl in this image, no pods/exec RBAC"*. `[MEASURED 2026-08-22]`
+
+| question | command | answer |
+|---|---|---|
+| is there a shared k8s client wrapper? | `grep -rln 'kubernetes.NewForConfig' --include=*.go .` | **six inline sites, no wrapper** — and `agent_image.go` is `rest.InClusterConfig()` only, so it cannot serve a hand-run CLI |
+| does anything list workloads? | `grep -rn 'Deployments(.*).List(\|CronJobs(.*).List(\|DaemonSets(.*).List('` | **zero hits** outside `cluster.go` |
+| does any check service reach the API? | each service's dockerfile `CMD` | **none** — all Postgres or `postgres:16-alpine` |
+
+**What the objection DID surface, recorded and deliberately not acted on:** six inline
+`kubernetes.NewForConfig` bootstraps with no shared wrapper is a real extraction
+opportunity. Doing it inside a bug-fix round means touching five unrelated call sites,
+which is precisely the scope shape the `guardian` seat vetoes — and it would be right to.
+**Named here as a follow-up so its absence is a decision rather than an oversight.** Whoever
+takes it: `spawn_actions.go`, `diagnose_build_gate_action.go`, `agent_image.go`,
+`internal/adapters/thunder/ssh/secrets.go`, `cmd/remote-job-spawner/main.go`,
+`cmd/releasecheck/cluster.go`, and note the in-cluster-only/kubeconfig split is the one
+real difference between them.
