@@ -116,3 +116,99 @@ found this) · register **LCO-009** — **its "expect the WARN to fire on work-q
 false positive" note is vindicated here, and its "eventual coverage is not a defect" gloss is what this
 file narrows** · `bugs_open/298` / `bugs_open/313` (the other live instances, both on `internal-linker`)
 · `bugs_closed/297`.
+
+---
+
+# UPDATE 2026-08-22 — still valid, WORSE, and two of the three fix candidates above need correcting
+
+Added by the `bugfix_316_news_feed_ordering` lane (docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_316_news_feed_ordering/`). Ownership checked first:
+`scripts/who-owns.py 316` names `bugfix_275_silent_row_caps`, which **closed 2026-08-19 10:30Z** and whose
+handoff lists this ticket among *"three tickets that stand on their own — they are not this lane and
+nobody owns them"*. Taken on that basis.
+
+## Still live
+
+`content-feed-trigger.find_news_sites` still ends **`ORDER BY s.domain LIMIT 5`**, byte-identical to the
+text quoted above. [MEASURED 2026-08-22 09:52Z]
+
+## The starvation has compounded — the sentinel has moved
+
+All five retained runs returned **5 of 5** (at cap), reproducing the central claim on a fresh window:
+
+| run (UTC) | domains returned |
+|---|---|
+| 08-22 08:38 | dartsonline, gaswholesalers, mortgagecalculator, relojistas, vetcomparison |
+| 08-22 02:38 | ai-agent-orchestration, dartsonline, fundamentallyai, relojistas, robot-hands |
+| 08-21 20:37 | dartsonline, gaswholesalers, mortgagecalculator, relojistas, vetcomparison |
+| 08-21 14:37 | ai-agent-orchestration, dartsonline, fundamentallyai, relojistas, robot-hands |
+| 08-21 08:37 | ai-agent-orchestration, dartsonline, fundamentallyai, gaswholesalers, mortgagecalculator |
+
+**`webdesign.co.uk` (alphabetical rank 9, last) appears in ZERO of the five.** Last fetched
+**2026-08-21 02:45Z** — over **31 hours** on a **6-hour** cadence, i.e. **419% of its own cycle**. This
+file recorded that same site at **7%** three days ago.
+
+It was eligible by the trigger's **own** predicate at the runs it missed, not merely by a looser
+paraphrase — `news_feed.recommended = true`, **128** deployed pages, and **5 of 5** active sources due at
+both 08-21 14:37Z and 08-22 08:38Z. Control in the same query: `ai-agent-orchestration.com` reads **0**
+sources due at those same instants, so the check discriminates.
+
+⚠ **The sentinel this file nominates, `relojistas.com`, is currently a POOR one** — it appears in 4 of 5
+runs and is not overdue. At alphabetical rank 6 it sits just past the old cut and wins whenever fewer
+than five earlier sites are due. That is the same mechanism, not a refutation: the alphabet does not fix
+*who* is late, it fixes *that the latest-lettered contender loses*. **Watch `webdesign.co.uk`** — it is
+the site the ordering currently starves, and the one whose relief will be unambiguous.
+
+## ⚠ CORRECTION to fix candidate 1 — `NULLS FIRST` as written creates a permanent squatter
+
+The eligibility predicate has two arms: `NOT EXISTS (any active content_sources)` **OR**
+`EXISTS (a source due now)`. A site matching the **first** arm has no active sources, so its
+`min(next_fetch_at)` is NULL **and it is permanently eligible** — no fetch can advance a timestamp it does
+not have. Under `ORDER BY min_next_fetch_at NULLS FIRST` such a site would win **every run for ever**:
+deterministic starvation of everyone else, which is worse than the alphabet.
+
+[MEASURED 2026-08-22] Zero sites are in that state today (all nine carry 1–9 active sources), so this is
+latent, not live — but the arm is deliberate and the fix must answer it rather than delete it. Second,
+smaller trap in the same expression: a source with `next_fetch_at IS NULL` has **never been fetched** and
+is maximally overdue, but SQL `min()` skips NULLs, so a bare `min(cs.next_fetch_at)` hides it.
+
+The ordering fix is still right, and it is not even a new convention — the platform's own Go layer
+already orders this exact work by `next_fetch_at ASC NULLS FIRST` at
+`platform/orchestration/actions/dispatch_feed_sources_action.go:101` and
+`platform/orchestration/actions/feed_actions.go:1016`. Those select **sources within a site**; the
+**site**-selection query, which lives in config rather than Go, is the one layer that skipped it.
+
+## ⚠ CORRECTION to fix candidate 2 — there are TWO caps, in series, and raising one does nothing
+
+`process_sites`, the `loop` step that consumes `news_sites.rows`, carries **`max_iterations: 5`**.
+[MEASURED 2026-08-22: `loop_cap|query_cap` = `5|5`.]
+
+So *"raise the cap to ≥10"* as written would change throughput by **nothing** — the query returns 10 rows
+and the loop processes the first 5 and stops. And it would be worse than inert: the cap-hit census this
+class is measured by (`jsonb_array_length` of the step's own output) would go from 5-of-5 to 10-of-10 and
+**stop reporting a cap hit**, so the instrument would report relief that never happened.
+
+Supply is `runs/day × min(query LIMIT, loop max_iterations)`. **Both literals must move together or
+neither moves.** The capacity arithmetic itself reproduces exactly on today's rows — 9 eligible sites,
+**42** fetches/day demanded against **20** supplied, **2.10×** — and remains, as this file says, an owner
+spend decision. Each loop iteration spawns and calls a `content-feed-orchestrator` per site (600 s
+timeout), so the cap is a real spend gate.
+
+## The class, censused fleet-wide
+
+Every `query_database` step in live config carrying a `LIMIT`, classified: ~19 are the `LIMIT 1`
+fetch-one/claim-one idiom, correctly ordered; two put the `LIMIT` inside a subquery (outer result one
+row); `build-pipeline-trigger.find_dispatchable_site` is correct FIFO; `model-directory-trigger`
+(`random()`, 12) never binds at 3–4 rows. **`find_news_sites` is the only live member of the dangerous
+shape.**
+
+The near-miss is the instructive one. `meta-description-backfiller.load_pages_missing_meta` is
+`ORDER BY p.name LIMIT 25` — alphabetical *and* capped — and is **not** this defect, because a page that
+gains a meta description **leaves** its candidate set. That forces the distinction, which sharpens the
+narrowing this file made to register **LCO-009**:
+
+> A cap on a set **replenished by the clock** (rows never leave; they acquire a later due-time) starves
+> the tail **permanently** under a static `ORDER BY`. A cap on a set that is **consumed** (a row leaves
+> once served) is only a batching delay — and there, "coverage is eventual" is true.
+
+The row count alone cannot tell the two apart, which is precisely why LCO-009's WARN cannot.
