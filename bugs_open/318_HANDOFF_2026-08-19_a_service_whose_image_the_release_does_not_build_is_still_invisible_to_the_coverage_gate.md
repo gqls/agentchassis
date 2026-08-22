@@ -453,8 +453,7 @@ today's compliant tree proves only that it *could* pass. When a release has run 
 
 ## 2026-08-22 — PHASE 2: the cluster census (candidate 3) is built, hand-run
 
-`make release-census` / `go run ./cmd/releasecheck --census`. Register **BLD-026**,
-`Council-Submitted: b0883c17-32a1-434d-b0ab-114df4cb04b1`.
+`make release-census` / `go run ./cmd/releasecheck --census`. Register **BLD-026**, **council APPROVED round 2, all reviewers** — `Council-Reviewed: b0883c17-32a1-434d-b0ab-114df4cb04b1`. Round 1 was REVISE on a gating HIGH that found a real defect; see the round record at the foot of this section.
 
 **This closes candidate 3 as a capability, not as a scheduled job** — see the two stated
 limits below before describing it as a detector.
@@ -524,3 +523,43 @@ running it anywhere* — a one-sided fixture cannot fail on the side it omits.
 
 The close condition is unchanged and is still a single item: **a real release under the
 gate.** The census is a detector and cannot substitute for that.
+
+### The census's council rounds — REVISE then APPROVED, and round 1 earned its cost
+
+**Round 1: REVISE**, gating HIGH from `editquality`, and it found a real defect:
+`modalTag` broke ties with `tag > best` — a **lexical** comparison, in the same file as
+and one screen below the numeric comparator written to fix exactly that. A tie between
+five workloads on `v1.0.999` and five on `v1.0.1000` picks `v1.0.999`: lexically higher,
+numerically older. And because the fleet tag is **the single value every straggler and
+ahead-of-fleet finding is measured against**, that inverts the whole report rather than
+one line of it.
+
+**Three occurrences of the same defect, in one file, in one afternoon:** the shipped
+report that called two hand-deploys "old" (found by the live run), the first repair for it
+(caught before commit), and this tie-break (caught by the council). The lesson is written
+at the function: **a helper that does the comparison correctly does not protect the call
+sites that do not use it** — `TestCompareTags` was green through all three.
+
+Fixed and mutation-proven the decisive way round: restoring `tag > best` fails the new
+test with its own message. The test also pins the end-to-end census on that fleet, that a
+clear 3-2 majority still wins outright so the tie-break does not become the rule, and that
+an unorderable tie is deterministic across 20 calls.
+
+`reuse_agent`'s objection was **answered with three measurements and its premise was
+wrong**: the named CronJob checks do not read the cluster, they read Postgres —
+`config-key-audit`'s own dockerfile says *"no kubectl in this image, no pods/exec RBAC"*.
+Six inline `kubernetes.NewForConfig` sites and no shared wrapper; zero `.List(` calls for
+Deployments/CronJobs/DaemonSets anywhere else in the estate. Nothing to reuse.
+
+**Round 2: APPROVED, all reviewers**, three advisory lows. Two were acted on:
+
+- **`debug_historian`** — the census measures **tags**, and a tag is not the code: a
+  same-tag rebuild serves the node's cached image, so a service *on* the fleet tag can
+  still be stale. Stated rather than fixed, in the code and in BLD-026: **a clean census
+  means "every service is on the tag it should be on", NOT "every service is running the
+  code it should be running."** The artefact-side answer belongs to BLD-019/020/023 and
+  duplicating it here would give one question two answers that can disagree.
+- **`architecture`** — `cluster.go` is the **seventh** inline k8s client bootstrap with no
+  shared wrapper, and unwinding seven call sites later costs an RFC. Not extracted here
+  (five unrelated call sites inside a bug-fix round is the scope shape the guardian seat
+  vetoes) but now tracked in BLD-026 with all seven named.
