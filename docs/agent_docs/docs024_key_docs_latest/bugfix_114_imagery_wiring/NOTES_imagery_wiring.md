@@ -237,3 +237,85 @@ pattern built by concatenating an identifier that contains `_` is not doing stri
 equality on that identifier.
 
 Corrected in the bug file too. → `WRONG_CALLS.md`.
+
+---
+
+## 2026-08-22 (part 2) — convergence moved to the event; a plan element DROPPED after reading; and the same testing mistake made twice
+
+### Shipped
+
+`d2b38b2ae` — `flag_page_image_rebuild` now files the `needs_content_image` DERIVE
+itself, in the same transaction as the page re-render, when the landed page has a
+content hero and no card. Register **IMG-073**. Go only, inert until the roll.
+
+### A plan element I dropped, and why — read the readers before adding the writer
+
+The approved plan's Task B step 1 was *"add optional `entity_type`/`entity_id` config
+to `store_asset`"*. **I did not do it, because it would have fixed nothing.** Both
+readers of the entity link require `purpose='card'`:
+
+```
+queryresolve.go:370-372   ca.entity_type='page' AND ca.entity_id=p.id AND ca.purpose='card'
+check_content_image_missing.go:219-221   (identical predicate)
+```
+
+So an entity link on a `content_hero` asset has **no reader at all**. Adding the config
+would have been an opt-in key with zero live consumers — exactly the accumulation
+RFC_022's optional-key budget exists to prevent, and exactly the shape the owner ruling
+calls out ("ten individually inert opt-in fields are a shared action nobody
+understands"). The page's own hero already resolves **by key** through Lane B, needing no
+link at all.
+
+What actually needed fixing was only the convergence: the card is what the readers want,
+`derive_card_asset` already writes the link correctly, and nothing filed the DERIVE
+except a sweep that has been dead since 08-11. **The plan was wrong about the mechanism
+and the code said so in two greps.** Recorded here because the plan had already been
+approved — an approved plan is not evidence.
+
+### MISSTEP — the same testing error, twice in one session, hours apart
+
+Building the emitter's test I asserted
+`discovery_checks.ContentImageItemKey(page) == "content_image:"+page`. Mutating the
+emitter to use a hand-spelled `"content-image:"+page` — a hyphen where the contract has
+an underscore, precisely the drift the shared helper exists to prevent — **passed**.
+
+That is character-for-character the mistake I made this morning on `store_asset`'s URL
+derivation (asserting `storage.DeployedWebPath` directly rather than the action's use of
+it), which I had already written up in `WRONG_CALLS.md` and in IMG-072's register entry
+before making it again.
+
+**The fix is the same both times, and it is structural, not a matter of care:** extract
+what the code under test must call into a pure function that **returns the value**, then
+assert on that. `storeAssetContentDataUpdate` returns `(url, writeSiteWide)`;
+`contentCardDeriveItem` returns the whole `workItem`. Both are now mutation-provable.
+
+The generalisable rule: **a test that never touches the code under test passes every
+mutation of it.** Writing the lesson down did not stop me repeating it four hours later
+— only changing the shape of the code did. That asymmetry is the point worth carrying.
+
+### Pattern-check note
+
+The commit drew `unpaired-change: touches idx_swi_dedup but not workItemTerminalStatuses`.
+It is a **comment mention**, not a contract change: the emitter files an existing
+`item_type` at a non-terminal status through the existing `insertWorkItem`. The index and
+the Go terminal-status list are untouched. Flagging it because it is the
+"a source-scanning check makes your COMMENTS load-bearing" shape — the checker is right
+to be twitchy about that identifier, and the honest answer is a note rather than removing
+the word from a comment that earns its place.
+
+### Council trail on corr `3c0560f3`
+
+- Round 1 **REVISE** — `DeployedWebPath` vs `DeployedAssetPath` might differ for variant
+  keys. Fair; nothing in the submission proved they do not. Answered with a test
+  (`de1945f87`) rather than prose.
+- Round 2 **REVISE** — the gate is per-STEP config, so a brand-update step with a dynamic
+  `asset_key` could still write site-wide with a page-scoped key. **A real residual.**
+  Answered in two parts: reachability IS per-invocation (the only dynamic-key true-step
+  sits behind `input_data.spec.brand_update == true`, and the other two declare a literal
+  purpose with no `asset_key_field`), and the remaining hole is now a WARN naming the key
+  so a future producer that files `hero_about` as a brand update is greppable.
+- Round 3 submitted with both answers.
+
+Two of three rounds found something worth changing. That matches the lane memory
+("a REVISE round is cheaper than the defect it finds") and is the argument against
+treating the gate as a formality.
