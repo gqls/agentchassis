@@ -330,3 +330,32 @@ than just deleted from the list: **"declares no contract" and "has no contract t
 different things, and the query cannot tell them apart.** Three of these have no fields; two
 handle their own absence. An aggregate count of empty `input_schema` sees five problems where
 there are none — the same misreading as the tool case one level down.
+
+### Check (c) will resolve ITSELF — measured, so it is a wait, not a gap
+
+The one canary check that could not fire needed a queue-driven edit rather than a CLI one. Rather
+than fabricate a work item to exercise another lane's bug, I measured how `apply_section_edit` is
+actually driven — and queue-driven is the NORM:
+
+- **15 `section-editor` orchestrations in the week of 2026-08-17, 12 of them carrying a
+  `work_item_id`** (80%).
+- Live queue: **4 open items** handled by `section-editor` as of 2026-08-22; all-time
+  **74 complete + 4 failed + 3 in_progress + 2 cancelled `section_edit`**, plus 8 `literal_markdown`.
+
+So the refusal will meet a real queue-driven edit in ordinary traffic, probably within days. **What
+to watch, and it is one query** — a refused edit whose driving item nevertheless reads terminal:
+
+```sql
+SELECT wi.id, wi.item_type, wi.status, wi.completed_at, wi.retry_after,
+       wi.retry_after > wi.completed_at AS trampled_344, left(wi.error, 200)
+  FROM site_work_items wi
+ WHERE wi.handler_agent = 'section-editor'
+   AND (wi.error ILIKE '%refusing to persist%' OR wi.updated_at > '2026-08-22')
+ ORDER BY wi.updated_at DESC LIMIT 10;
+```
+
+A row with `status='complete'` AND an error naming the refusal is `bugs_open/344` confirmed on
+this route; a row parked `failed`/`needs_human_review` means 344 does not reach here and check (c)
+passes outright. **Either result closes it — which is what makes it worth waiting for rather than
+staging.** ⚠ Do NOT file a synthetic work item to force this: it would put fabricated work on a
+live queue to test a defect another lane already owns and has measured.
