@@ -540,6 +540,18 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 		// updatePageComponentAfterEdit's html-only UPDATE branch).
 		err = updatePageComponentAfterEdit(ctx, params.DB, pcID, outcome.HTML, nil)
 	case "component_swap":
+		// Regulated-identity refusal (CGV-033) on the THIRD write branch. Round 3
+		// of the council round on correlation aac38d5b objected that the guard was
+		// wired into one branch and asked whether other paths write the same
+		// column. Checked: this switch has three persisting branches and this was
+		// the only one left unguarded — content_edit was wired by the original
+		// change, rendered_html_transform by the lane that added it (af0f00bb5),
+		// and this one by nobody. A swap writes rendered_html AND content_data,
+		// so it can carry the claim just as the other two can.
+		if regErr := refuseRegulatedIdentityEdit(ctx, params, siteID,
+			pageName, slotName, outcome.HTML, logger); regErr != nil {
+			return nil, regErr
+		}
 		err = updatePageComponentSwap(ctx, params.DB, pcID,
 			outcome.ComponentID, outcome.SlotName, outcome.HTML, outcome.ContentData)
 	}
