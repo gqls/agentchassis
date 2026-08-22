@@ -294,3 +294,40 @@ changed what the trigger considers, which is not what this fix is for.
 nobody anything. The ordering only decides an outcome when more than five are due — which is the
 condition that held at all five retained runs. So this dry-run demonstrates the *promotion*, not the
 relief; the relief is verified after the fact against the lateness query.
+
+## Prior art I should have found sooner: SCH-025, and the property it says a due-ordered queue must have
+
+Found while writing the register entry, which is later than it should have been — the register is exactly
+what you are meant to consult *before* concluding a mechanism does not exist.
+
+**SCH-025 (`site_discovery_rotation`)** already solved this class on this estate: starvation in a
+recurring scheduled queue, fixed by picking *the least-recently-selected* site from a stamp table. It
+names `IMP-010` as "the starvation this design answers" and `SCH-008` / `bugs_open/048` as the shape.
+
+**This does not make the fix redundant, and I checked rather than assumed.** SCH-025 had to *invent*
+rotation state because discovery had none. The feed pipeline already has it —
+`content_sources.next_fetch_at` **is** the rotation stamp. Adding a second stamp table would be the
+duplicate-mechanism smell; reading the one that exists is the cheap correct answer. So: same class, same
+remedy, lighter instrument because the state was already there and only the reader was ignoring it.
+
+**The transferable warning in SCH-025 is the one worth acting on:**
+
+> *"the stamp records **selection, not completion**, so a site whose run fails cannot pin the rotation
+> head (the SCH-008/`bugs_open/048` starvation shape)"*
+
+That is a real hazard for due-ordering. If `next_fetch_at` only advanced on SUCCESS, a permanently
+failing site would sit at the head of the queue for ever under my fix — the same squatter I rejected
+`NULLS FIRST` for, but *reachable* rather than latent. **So I read the writers rather than assuming:**
+
+| writer | what it does to `next_fetch_at` |
+|---|---|
+| `dispatch_feed_sources_action.go:272-279` | **on DISPATCH, optimistically** — `NOW() + fetch_interval`, before the work completes, commented *"to prevent re-dispatch before completion"* |
+| `feed_actions.go:1112` (failure path) | `NOW() + (fetch_interval * LEAST(error_count + 1, 4))` — advanced **with exponential backoff** |
+| `feed_actions.go:1124` (success path) | `NOW() + fetch_interval` |
+
+**All three advance it.** There is no path on which a site is served and its key stays put, so a failing
+source cannot pin the head — it is pushed forward at dispatch and pushed *further* on failure. The fix
+inherits SCH-025's required property for free.
+
+This also sharpens the argument for the fix generally: the ordering state was **already being maintained
+correctly by the platform all along**. `find_news_sites` was the one reader that ignored it.
