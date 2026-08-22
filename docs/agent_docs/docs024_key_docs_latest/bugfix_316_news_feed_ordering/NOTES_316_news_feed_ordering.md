@@ -139,3 +139,25 @@ The repo seed `docs/agent_docs/sql_for_agents/090_b_content_feed_trigger.sql` ca
 correct and the seed is stale. Recorded because "live config dropped a guard the seed has" is a
 convincing-looking finding that took one query to refute, and the memory note is right: the seed is
 history, the live row is fact.
+
+## The starvation claim, checked against the trigger's OWN predicate (not my paraphrase of it)
+
+The claim "`webdesign.co.uk` was eligible at four consecutive runs and picked at none" is only worth
+anything if it was eligible by the **trigger's** definition. My lateness query uses a looser filter (it is
+the denominator, deliberately), so it cannot settle this. Checked directly: [MEASURED 2026-08-22]
+
+| | `webdesign.co.uk` | `ai-agent-orchestration.com` (control) |
+|---|---|---|
+| `news_feed.recommended` | true | true |
+| deployed pages | **128** | 38 |
+| active sources | 5 | 5 |
+| sources due at 08-21 14:37Z | **5** | **0** |
+| sources due at 08-22 08:38Z | **5** | **0** |
+
+`webdesign.co.uk` satisfied **every arm** of the trigger's eligibility predicate at both runs and was not
+selected at either. The claim holds.
+
+**The control is the point of the table.** `ai-agent-orchestration.com` returns **0 due** at those same
+two instants, which is what makes this a measurement rather than a formality: the query can come out
+"not eligible", and for one of the two sites it does. Had both columns read 5 I would have learned
+nothing — I would only have shown that my predicate matches everything.
