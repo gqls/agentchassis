@@ -130,3 +130,47 @@ The right enumeration is "an overlay pins a `$(REGISTRY)/…` image".
 and `site-locale-unset-check` run as CronJobs with no `services/*` overlay on disk.
 Both are `postgres:16-alpine`, so no freeze risk today — but it bounds what any
 filesystem-only gate can claim.
+
+---
+
+## 2026-08-22 — the narrow unblock shipped, and it was mutation-proven on a copy
+
+`95757b6c2`: `build-backend: $(addprefix build-,$(RELEASE_IMAGES))`, plus a
+`build-github-actions-runner` alias for the one image whose target predates the naming
+convention (`build-github-runner`).
+
+Chose the derivation over adding three names deliberately. Adding names fixes three
+instances of a defect whose shape is *"two hand-maintained enumerations with nothing
+keeping them in step"* — which is the same shape `bugs_open/237` removed from the four
+deploy lists, and the same shape that produced this. `$(addprefix …)` deletes the
+second enumeration. Set difference now **25/25 IDENTICAL**.
+
+**Mutation proof, on a COPY.** `cp makefile $SC/mf-mutant`, inject
+`nobody-built-this-check` into `RELEASE_IMAGES`, `make -f $SC/mf-mutant -n
+build-backend` → exit **2**, *"No rule to make target 'build-nobody-built-this-check',
+needed by 'build-backend'"*. Live makefile, identical command → exit **0**. Never the
+live file: `WRONG_CALLS.md` 2026-08-22 (`f016b07ec`) records a session doing exactly
+that this morning and another session committing the file inside the window.
+
+**MISSTEP, logged in `WRONG_CALLS.md`:** the first run of that proof read the exit code
+off a pipeline (`make … | tail -3; echo "exit=$?"`) and printed a reassuring `exit=0`
+beside the failure message, because `$?` was `tail`'s. That control would have said
+`exit=0` whether or not the mutation took effect. It is the same defect the council's
+`editquality` seat raised against `bugs_open/153`'s provenance check — a bug file I had
+read forty minutes earlier in this session.
+
+**Second misstep, same file:** `tr ' ' '\n'` over `RELEASE_IMAGES` reported **nine**
+missing images against a true three, because the continuation lines are tab-indented.
+`tr -s ' \t' '\n'` is now in RUNBOOK R2.
+
+## 2026-08-22 — the LANDMINE entry was carried by another session's commit
+
+Appended the `newTag`-is-never-committed landmine, ran `git diff --numstat` (41 lines),
+and by the time `git commit` ran the file was already clean: the `361` lane had
+committed it inside the window as `8cc994b12` (*"a CronJob's Job listing shows only the
+last N failures…"*). Both entries survived intact; that lane noticed and recorded it in
+`f0db82afc`. Nothing lost, forward-only holds — but **this lane's commit message for
+that entry does not exist**, so `git log`ging the landmine returns a commit about
+CronJob Job listings. Attribution lives in the entry's own `**added:**` line, which is
+why that line is not decoration. Third instance in ~24 h of the trap already recorded at
+`LANDMINES.md:14307`.
