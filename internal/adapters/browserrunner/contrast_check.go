@@ -87,6 +87,51 @@ func contrastProbe(container string, minRatio float64) string {
     + (el.id ? '#' + el.id : '')
     + (el.className && typeof el.className === 'string' && el.className.trim()
        ? '.' + el.className.trim().split(/\s+/).join('.') : ''); };
+
+  // backdropBound — WHY THIS EXISTS, and it is the whole reason the check can
+  // see its own founding case. effBG sets ONE flag, overImage, for "a
+  // background-image appeared anywhere in the ancestor chain", and the audit
+  // treats that as unmeasurable. That conflates two different situations:
+  //
+  //   UNBOUNDED — a url() image, or no opaque colour was ever reached, so
+  //               effBG substituted a mid-grey guess. The real pixels behind
+  //               the text are genuinely unknown; any ratio is fiction.
+  //   BOUNDED   — the chain reached an OPAQUE colour and every image above it
+  //               is a gradient whose stops are rgba(). The true backdrop is
+  //               then confined to the range spanned by that base and those
+  //               translucent stops composited over it. Unknown exactly,
+  //               known within bounds.
+  //
+  // Measured on vonc.com 2026-08-22: the gauntlet section is opaque
+  // rgb(124,60,255) under radial/linear gradients whose stops are all rgba
+  // with alpha 0.08-0.35 and NO url() anywhere, and ten sub-threshold
+  // elements sat inside it — including bugs_open/131 item A itself, the
+  // defect that motivated this whole check. Treating that as unmeasurable
+  // made the check structurally incapable of catching the case it was built
+  // for, which is the PASSES-WHILE-BLIND family it exists to end.
+  //
+  // Returns the gradient stop colours above the text and whether anything
+  // makes the backdrop unbounded. Deliberately probe-local, NOT part of
+  // contrastMathsJS: the shared kernel is byte-identical to the string the
+  // render audit already runs in production, and this must not change the
+  // audit's behaviour.
+  var backdropBound = function(el){
+    var stops = [], unbounded = false, baseOpaque = false;
+    for (var n = el; n && n.nodeType === 1; n = n.parentElement) {
+      var cs2 = getComputedStyle(n), bi = cs2.backgroundImage;
+      if (bi && bi !== 'none') {
+        if (bi.indexOf('url(') !== -1) { unbounded = true; }
+        var toks = bi.match(/rgba?\([^)]*\)/g) || [];
+        // A gradient whose stops are named colours or hex (no rgba tokens) is
+        // opaque paint of unknown colour — as unbounded as a photograph.
+        if (bi.indexOf('url(') === -1 && toks.length === 0) { unbounded = true; }
+        for (var k = 0; k < toks.length; k++) { var sc = parseRGB(toks[k]); if (sc) stops.push(sc); }
+      }
+      var bc = parseRGB(cs2.backgroundColor);
+      if (bc && bc.a >= 1) { baseOpaque = true; break; }
+    }
+    return { unbounded: unbounded, stops: stops, baseOpaque: baseOpaque };
+  };
   var out = { probe: %s, located: !!tool, scanned: 0, failures: [] }, seen = {};
   var all = document.querySelectorAll('body *');
   for (var i = 0; i < all.length; i++) {
@@ -106,11 +151,35 @@ func contrastProbe(container string, minRatio float64) string {
     var large = size >= 24 || (size >= 18.66 && weight >= 700);
     var need = minRatio > 0 ? minRatio : (large ? 3.0 : 4.5);
     if (rr >= need) continue;
+
+    // An image in the stack does not automatically mean unmeasurable. Where
+    // the backdrop is BOUNDED (opaque base, gradients with rgba stops, no
+    // url()), judge the text on the reading MOST FAVOURABLE to the page:
+    // the best contrast it achieves against the base or against any single
+    // stop composited over that base. Fail only when nothing in that range
+    // saves it. Anything unbounded stays approximate and can never fail.
+    var approx = eb.overImage, bounded = false;
+    if (eb.overImage) {
+      var bnd = backdropBound(el);
+      if (!bnd.unbounded && bnd.baseOpaque) {
+        var best = rr;
+        for (var s = 0; s < bnd.stops.length; s++) {
+          var cand = over(bnd.stops[s], eb.bg);
+          var r2 = ratio(over(fg, cand), cand);
+          if (r2 > best) best = r2;
+        }
+        if (best >= need) continue;   // some plausible backdrop saves it
+        rr = best;                    // report the page's BEST case, not the worst
+        approx = false; bounded = true;
+      }
+    }
+
     var key = describe(el) + '|' + cs.color + '|' + txt.slice(0, 40);
     if (seen[key]) continue; seen[key] = 1;
     out.failures.push({ selector: describe(el), text: txt.slice(0, 60), fg: cs.color,
       bg: 'rgb(' + Math.round(eb.bg.r) + ',' + Math.round(eb.bg.g) + ',' + Math.round(eb.bg.b) + ')',
-      ratio: Math.round(rr * 100) / 100, need: need, overImage: eb.overImage,
+      ratio: Math.round(rr * 100) / 100, need: need, overImage: approx,
+      gradientBounded: bounded,
       px: Math.round(size), inTool: !!(tool && tool.contains(el)) });
   }
   return out;
@@ -126,15 +195,22 @@ func mustJSONString(s string) string {
 
 // contrastHit is one element the probe found below its threshold.
 type contrastHit struct {
-	Selector  string  `json:"selector"`
-	Text      string  `json:"text"`
-	FG        string  `json:"fg"`
-	BG        string  `json:"bg"`
-	Ratio     float64 `json:"ratio"`
-	Need      float64 `json:"need"`
-	OverImage bool    `json:"overImage"`
-	Px        float64 `json:"px"`
-	InTool    bool    `json:"inTool"`
+	Selector string  `json:"selector"`
+	Text     string  `json:"text"`
+	FG       string  `json:"fg"`
+	BG       string  `json:"bg"`
+	Ratio    float64 `json:"ratio"`
+	Need     float64 `json:"need"`
+	// OverImage means UNBOUNDED: a url() image, a gradient of unknown opaque
+	// colours, or no opaque base at all. The ratio is a guess and can never
+	// fail the check.
+	OverImage bool `json:"overImage"`
+	// GradientBounded means the backdrop was an opaque base under translucent
+	// gradient stops, so Ratio is the page's BEST case across that range and
+	// the failure is firm. Reported so a reader knows the number is a bound.
+	GradientBounded bool    `json:"gradientBounded"`
+	Px              float64 `json:"px"`
+	InTool          bool    `json:"inTool"`
 }
 
 type contrastScan struct {
@@ -213,9 +289,19 @@ func runContrastRatio(page browserPage, doc criteriaDoc, ch criteriaCheck, profi
 	sort.Slice(firm, func(i, j int) bool { return firm[i].Ratio < firm[j].Ratio })
 	worst := firm[0]
 
+	bounded := 0
+	for _, f := range firm {
+		if f.GradientBounded {
+			bounded++
+		}
+	}
+	worstNote := ""
+	if worst.GradientBounded {
+		worstNote = ", best case over a gradient backdrop"
+	}
 	detail := fmt.Sprintf(
-		"text is painted below its contrast threshold on %s: %d firm failure(s), worst %s %q at %.2f:1 (needs %.1f:1, %s on %s, %.0fpx)",
-		profile, len(firm), worst.Selector, worst.Text, worst.Ratio, worst.Need, worst.FG, worst.BG, worst.Px)
+		"text is painted below its contrast threshold on %s: %d firm failure(s), worst %s %q at %.2f:1 (needs %.1f:1, %s on %s, %.0fpx%s)",
+		profile, len(firm), worst.Selector, worst.Text, worst.Ratio, worst.Need, worst.FG, worst.BG, worst.Px, worstNote)
 	for i, f := range firm {
 		if i == 0 {
 			continue
@@ -226,8 +312,11 @@ func runContrastRatio(page browserPage, doc criteriaDoc, ch criteriaCheck, profi
 		}
 		detail += fmt.Sprintf("; %s at %.2f:1", f.Selector, f.Ratio)
 	}
+	if bounded > 0 {
+		detail += fmt.Sprintf("; %d of these sit on a bounded gradient backdrop and are reported at the reading most favourable to the page", bounded)
+	}
 	if approx > 0 {
-		detail += fmt.Sprintf(" (%d further element(s) over an image/gradient backdrop not judged)", approx)
+		detail += fmt.Sprintf(" (%d further element(s) over an UNBOUNDED backdrop — a url() image or no opaque base — not judged)", approx)
 	}
 
 	scope := ScopeUnknown

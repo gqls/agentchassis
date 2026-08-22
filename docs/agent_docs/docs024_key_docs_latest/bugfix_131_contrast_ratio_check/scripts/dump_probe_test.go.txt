@@ -1,0 +1,16 @@
+package browserrunner
+
+import (
+	"os"
+	"testing"
+)
+
+// Dumps the EXACT probe the deployed code builds — no hand-copying, so
+// scan-vs-deployed drift is impossible by construction.
+func TestDumpProbe(t *testing.T) {
+	js := contrastProbe(".gauntlet-interface-section", 0)
+	if err := os.WriteFile("/tmp/deployed_probe.js", []byte(js), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("wrote %d bytes", len(js))
+}

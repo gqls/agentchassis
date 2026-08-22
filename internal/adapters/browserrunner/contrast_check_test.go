@@ -87,6 +87,41 @@ func TestContrastRatio_OverImageNeverFails(t *testing.T) {
 	}
 }
 
+// A gradient-bounded failure IS firm — it fails the check — but the detail
+// must say the number is a best case over a range, not a flat measurement.
+// The distinction is load-bearing: a reader who treats a bound as an exact
+// reading will "fix" the wrong token.
+func TestContrastRatio_GradientBoundedFailsAndSaysSo(t *testing.T) {
+	h := hit("div.gi-rules-label", 2.08, false, true)
+	h["gradientBounded"] = true
+	page := &fakePage{evalResult: scanResult(true, h)}
+	pass, detail, r := runOn(t, page, 0)
+	if pass {
+		t.Fatal("a bounded-backdrop failure is firm and must fail the check")
+	}
+	if !strings.Contains(detail, "best case over a gradient backdrop") {
+		t.Errorf("detail must mark the worst offender's number as a bound: %s", detail)
+	}
+	if !strings.Contains(detail, "1 of these sit on a bounded gradient backdrop") {
+		t.Errorf("detail must count the bounded failures: %s", detail)
+	}
+	if r.CulpritSelector != "div.gi-rules-label" {
+		t.Errorf("bounded failures must still attribute: %q", r.CulpritSelector)
+	}
+}
+
+// The unbounded wording must name WHY it was not judged, so a reader does not
+// read silence as "measured and fine" (the whole PASSES-WHILE-BLIND family).
+func TestContrastRatio_UnboundedDetailNamesTheReason(t *testing.T) {
+	page := &fakePage{evalResult: scanResult(true,
+		hit("p.on-photo", 1.02, true, true),
+		hit("div.flat", 2.00, false, true))}
+	_, detail, _ := runOn(t, page, 0)
+	if !strings.Contains(detail, "UNBOUNDED backdrop") || !strings.Contains(detail, "url() image or no opaque base") {
+		t.Errorf("unjudged elements must say why they were unjudged: %s", detail)
+	}
+}
+
 func TestContrastRatio_ChromeAttribution(t *testing.T) {
 	page := &fakePage{evalResult: scanResult(true, hit("a.site-nav-link", 1.90, false, false))}
 	pass, _, r := runOn(t, page, 0)
