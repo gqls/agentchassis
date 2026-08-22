@@ -7621,3 +7621,70 @@ file); items route through 353; candidate 2 (269-pair remainder) still deliberat
 **The robot-hands tool page itself** (`planned`, `needs_rerender: true`) goes live via the
 ordinary page-build path — the tool the owner asked for exists and will deploy; only its
 crosslinks wait on 353.
+
+## 2026-08-22 (~09:4xZ) — §1 item 4 is BUILT AND LIVE (WFA-022), `bugs_open/334` is CLOSED, and the gate's first interim read is clean against real demand
+
+**Three things landed, in this order.**
+
+**1. `bugs_open/334` → `bugs_closed/334`.** Both halves were fixed and live before I picked this
+up (ten handlers standardised 519–540, plus 537's `commit_sha?` wire); what was missing was the
+close. Re-verified on an ~18 h window before moving it: **0 `RESOLVER_*` rows of any class or
+phase since the 15:36:22Z apply, against 93 bdl runs, while 154 of 205 completed items still
+record `result.commit_sha`.** That last number is the falsifier the 08-21 handoff §4.2 stated —
+*if BOTH went to zero the wire would be DROPPING the field rather than declaring it* — and it is
+excluded. The close-out §9 says plainly that the bare zero is NOT the evidence (every conflict
+class fleet-wide is silent now, so no observational control survives): the claim rests on the
+boundary discontinuity measured yesterday while the recorder was provably writing, plus the
+post-flip mechanism evidence. Moved with both paths named on the commit (`git ls-tree HEAD`
+confirms exactly one path — the `git mv` + pathspec landmine).
+
+**2. §1 item 4 — the standing form of 537's guard — is BUILT AND LIVE: `WFA-022`.**
+`config-key-audit --commit-sha-exposure` + CronJob `commit-sha-exposure-check`, daily 06:45 UTC,
+image `v1.0.1324`. It asks 537's question — *can this handler produce a commit of its own, is it
+live in dispatch, and does it expose `response.commit_sha` via `result_mapping`?* — every
+morning, because the guard ran ONCE at apply and the handler population is per-item and dynamic.
+The three set definitions are the guard's, verbatim, with **one deliberate difference stated in
+the file**: this walks with `validation.WalkSteps`, so a complete step nested in a sub-workflow
+is not a false alarm (`bugs_open/144`).
+- **Proven at the pod, not the tag:** manual `--from=cronjob` run 09:41Z, pod `Succeeded`,
+  container **exit code 0 read at the pod** (an `ImagePullBackOff` reports here as a Job still
+  RUNNING), 194 agents walked, the exact 8-handler intersection the SQL guard computes, 8 of 8
+  exposed, `doc_notes` row written.
+- **Positive control fires:** a synthetic unexposed producer through the real binary exits 1 and
+  names it. Three mutation proofs RUN, each failing exactly its named test (not claimed —
+  executed; this lane's own §6.3 trap was a mutation-proof CLAIM that had never been run).
+- **The vacuity refusals are structural on purpose, and that is this lane's lesson made
+  mechanical.** As our fixes land they destroy every observational instrument-alive control, so
+  the check cannot rely on one: an empty producers set, an empty handlers set, or zero exposing
+  agents fleet-wide each exit **2**, because in every one of those states a blind run and a clean
+  run print the same thing.
+- **A misstep worth recording, caught by our own tooling:** my first commit named the register
+  CATEGORY file by pathspec and not the INDEX, so `WFA-022` shipped as an entry with no index
+  row — which reads as DOES NOT EXIST to the next lane's prior-art grep (`bugs_open/106`). The
+  `pattern-check` `register-entry-without-row` advisory caught it in the commit output; fixed in
+  a follow-up, and the index's count narrative now records the trap rather than just the number.
+  **The pathspec rule that protects other sessions' work is also how half a register edit ships.**
+- **Second misstep, loud and therefore cheap:** the image build FAILED at `COPY` until
+  `.dockerignore` un-ignored the new acks file. Noted in that file for the next ack-shipping
+  check — the failure direction is the good one, and the quiet direction would have been an
+  image with no acks file, refusing every run at exit 2.
+
+**3. Gate interim read (window opened 08:45Z), recorded, not interpreted beyond the table.**
+`RESOLVER_*` rows since the boundary, any phase: **0**. **Demand control first, per §2.10 1b:
+189 orchestrations across 26 distinct agent types since 08:45Z** — real traffic, not a quiet
+window. Instrument alive in the same window (18 rows of other classes: 9 UNKNOWN, 7
+`tool_birth_instance_scope_refused`, 1 `COMPONENT_COLLISION_DIVERTED`, 1
+`tool_crosslink_not_emitted`). Per the epistemic guard: **this is the expected ambiguous case and
+proves nothing about the flip** — zero `1-resolve-and-warn` (no pre-flip pod) and zero
+`2-refuse` (no real conflict). The ≥48 h close-out at ~08:45Z 08-24 stands with whoever is alive.
+
+**One watch item, measured and deliberately NOT filed as a bug.** The 09:3xZ entry above flagged
+`tool_birth_instance_scope_refused` as "worth its own file if the rate holds". Against its real
+denominator: **08-21 = 21 tool-generator runs / 2 refusals; 08-22 (partial, ~10 h) = 10 runs / 7
+refusals.** That looks like a step change and it is **[UNVERIFIED] as a class**, for two reasons
+I can state rather than hide: the numerator includes our OWN positive control's refused attempts
+(a deliberately unusual input surface, twice), and `orchestration_states` retention gives
+tool-generator a **two-day** window, which cannot establish a baseline. The refusals themselves
+are the instance-scope guard working correctly (dynamic id with no static prefix; 11 dangling
+bindings) — i.e. generation quality, not a guard defect. **Someone should re-measure once the
+control's contamination has aged out; do not carry these two numbers forward as a rate.**

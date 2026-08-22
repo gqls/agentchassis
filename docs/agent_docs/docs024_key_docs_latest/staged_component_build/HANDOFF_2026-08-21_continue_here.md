@@ -28,7 +28,7 @@ Everything shipped today was its *precondition*, not the thing itself.
 | **1** | **THE FLIP** — conflicts → refusal at the marked sites (`unified_extractor_search_test.go` header names them) | **🟢 LIVE `v1.0.1323` since 08-22 08:37Z, binary-verified with controls (NOTES 08-22 ~08:4x). APPROVED r3 (`26186633`). What remains is the ≥48h gate — window opens 08:45Z 08-22, terms §2.10 1b, attribution boundary in the NOTES entry.** (History: BUILT+COMMITTED `5fe010ada` 08-21, R1+R2 REVISE then approved r3.) ~~❌ NOT BUILT~~ |
 | **2** | Retire the read-side tolerance in `setRenderContextScalarsFromData` (2nd `if`) + the "old tree"/"both present" cases of `TestRestoreAcceptsBothSpellingsAcrossTheRoll` | **🟢 LIVE `v1.0.1323` since 08-22 08:37Z (same roll as the flip; same gate covers it). APPROVED r1 (`e05ea6f9`), commits `e5c1b3c15`+`9970eb71c`. Ground (b) needed correcting first — see §5's corrected bullet. Test renamed `TestRestoreReadsOnlyTheStepBoundaryName`.** ~~❌ NOT DONE~~ |
 | **3** | `bugs_open/330` candidate 2 — an unmarked wired-but-empty field still falls through to the search | ❌ OPEN, gated on the **269-pair / 75-agent unsampled remainder** (330 §9) |
-| **4** | A **standing** form of 537's guard | ❌ NOT BUILT — named residual, see §4 |
+| **4** | A **standing** form of 537's guard | **🟢 BUILT AND LIVE 2026-08-22 as `WFA-022` — `config-key-audit --commit-sha-exposure` + CronJob `commit-sha-exposure-check` (daily 06:45 UTC, image `v1.0.1324`). Proven at the POD, not the tag: manual `--from=cronjob` run 09:41Z, Succeeded, exit 0, 194 agents / 8-of-8 exposed, `doc_notes` row written; positive control fires; 3 mutation proofs RUN. `bugs_open/334` CLOSED in the same pass (now `bugs_closed/334` §9). See NOTES `## 2026-08-22 (~09:4xZ)`.** ~~❌ NOT BUILT~~ |
 | — | `?` OPTIONAL-EXPLICIT marker | ✅ LIVE `v1.0.1321`, council APPROVED r3 |
 | — | Adoption gate + acks + **daily CronJob** | ✅ LIVE and proven in-cluster |
 | — | Migrations 512 / 515 / 516 / 537 (+ the 306 lane's 519–540) | ✅ ALL APPLIED |
@@ -198,7 +198,12 @@ does not revert it.
   `bugs_open/330` was the worked case. Say this out loud in the design rather than inheriting the
   precondition's "or" branch as if it were sufficient.
 
-**The residual worth building alongside it (§1 item 4):** 537's guard runs **once, at apply time**.
+**The residual worth building alongside it (§1 item 4)** — ✅ **BUILT AND LIVE 2026-08-22 as
+`WFA-022`; do not rebuild it.** Read this paragraph for the WHY, then the register entry and NOTES
+`## 2026-08-22 (~09:4xZ)` for what shipped. One thing the built version adds that this paragraph did
+not anticipate: **the three vacuity refusals are structural, not observational**, precisely because
+this lane's own §4.2 finding says every observational instrument-alive control is now gone.
+Original text: 537's guard runs **once, at apply time**.
 The handler population is per-item and **dynamic**, so a new commit-producing handler appearing
 afterwards that does not expose at `handler_result.response.commit_sha` will simply never record
 `result.commit_sha` — no error, no row, nothing to notice. The query is already written, in 537's

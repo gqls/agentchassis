@@ -2484,3 +2484,50 @@ set out to do is done. Three things remain, and none of them is more of this wor
 - and three follow-ons that belong to other lanes or to a later decision, all named and none started.
 
 Nothing waits on you.
+
+---
+
+**2026-08-22, late morning — the last piece of building is done, and one of the open bugs is now
+properly closed.**
+
+Two things happened since the note above, and neither of them changes the plan; they finish it.
+
+**First, the commit-tracking bug is closed.** For background: when a build finishes a piece of work,
+it records which code change the work produced. That value used to be found by searching the whole
+job for anything that looked like one, and in a job that loops — a build that handles ten pages one
+after another — it would sometimes pick up the wrong loop's answer and attach it to the wrong piece
+of work. We fixed that in two halves yesterday: ten of the workers now state their answer in one
+agreed place, and the loop now reads that place and nowhere else. What was missing was the closing
+check, so I did it before moving the file: over the last eighteen hours the system has run
+ninety-three of these loops and has not recorded a single one of the old confusions, while a hundred
+and fifty-four completed pieces of work still carry their commit. That second number is the one that
+matters, and it is why I am willing to call it closed — if the fix had gone too far and simply
+dropped the value, both numbers would be zero, and they are not.
+
+**Second, I built the standing guard we said we owed.** The fix above was protected by a check that
+ran once, at the moment we applied it, proving every worker that could produce a commit was
+announcing it properly. But new workers get added over time, and one that arrives tomorrow without
+that announcement would silently stop recording — no error, nothing in a log, nothing to notice,
+because "nothing here" is a legitimate answer in the new design. So that one-off check now runs
+every morning at 6:45 and writes down what it found, clean or not. I proved it in the live system
+rather than trusting the deployment: it ran, it examined all 194 workers, it found the same eight
+that can produce commits and confirmed all eight announce properly, and it wrote its row. I also
+proved it can *fail* — fed a made-up worker that doesn't announce, it says so and exits red. A check
+that has never been seen to fail is not yet a check.
+
+**A caution on the 48-hour watch, unchanged and worth repeating.** Its first reading this morning is
+clean, over real traffic — a hundred and eighty-nine jobs across twenty-six different worker types
+since the watch opened, and none of them hit the situation we're watching for. That is the expected
+result and it still is not proof, for the reason in the note above: we fixed the live cases before
+switching the guessing off, so silence is what we would see either way. It closes Sunday morning.
+
+**One thing I noticed and deliberately did not act on.** Tool builds have been refused more often
+today than yesterday — the system's own quality gate turning away generated code that would clash
+with the rest of a page. It looks like a jump, but some of those refusals are our own test build
+being turned away, and the records only go back two days, so there is no honest baseline to compare
+against. I have written down the numbers and said plainly that they are not yet a rate. Someone
+should look again in a few days when our own interference has aged out. Nothing is broken by it —
+the gate is doing its job; the question is only whether the code being generated has got worse.
+
+**Where that leaves us: nothing waits on you.** The watch closes Sunday, one small verification
+still needs somebody to queue a tool build, and the remaining follow-ons belong to other lanes.
