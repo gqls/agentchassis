@@ -43678,3 +43678,43 @@ cannot tell a false positive from a true one. And check the legitimate variants 
 *documented* to produce — for a write-seam guard the exemptions are the design, not an afterthought.
 The corrected figure is **24 defects and 3 legitimate**, and the guard now carries a verbatim
 exemption it would not have had.
+
+## 2026-08-22 — I broke HEAD's build with a *correct* pathspec commit, and my verification could not have caught it
+
+**The claim I acted on:** "`go build ./...` is clean, the tests pass, so this commit is safe."
+
+**Actually:** `77865a223` (bugs_open/358) left HEAD unable to compile, in **two** independent
+ways, and `make build-<service>` builds from committed HEAD — so it was broken for every session,
+not just mine. Both came from one act: `git commit cmd/config-key-audit/main.go` takes the file
+**from the working tree**, and another session was mid-flight in that same file.
+
+1. Their in-progress comment block had lost its `//` markers on three lines →
+   `import path must be a string`.
+2. Their `--component-source-vocabulary` dispatch arm called
+   `emitComponentSourceVocabulary`, whose 530-line implementation was **untracked** and whose
+   dependency `actions.SourceVocabularyFindings` was **uncommitted** →
+   `undefined: emitComponentSourceVocabulary`.
+
+**What made it invisible:** my working tree had all three files, so it built and tested clean.
+The tree that broke was the one I never built — HEAD. Fix (1) even *looked* like the whole fix,
+because after it the working tree still built; only `git archive HEAD` showed (2).
+
+**Caught by:** the pre-commit hook's optional-key-budget parity check reporting
+`[setup failed]` — a check about something else entirely, whose real message was "this package no
+longer compiles". Reading past the check's own headline to its output is what found it.
+
+**The cheap check, and it is one line:**
+```bash
+rm -rf /tmp/h && mkdir /tmp/h && git archive HEAD | tar -x -C /tmp/h && (cd /tmp/h && go build ./...)
+```
+Run it **after** committing any file another session is also in — not before, and never against
+the working tree. `MEMORY.md` already carries both halves separately
+([a pathspec commit still takes a same-file passenger], [test against `git archive HEAD`]); what
+I had not joined up is that **the passenger can be half-written**, and that a green working-tree
+build is *evidence of nothing* when an untracked file is supplying a symbol.
+
+**What I got right, and it is the reusable part:** the repair was to remove **my** premature
+reference (`8664a7f96`), not to commit **their** three files. Committing their work to fix my
+mistake would have taken a whole feature under my message, and the dependency chain did not stop
+at three files. A comment left in place tells that session what happened and that their design is
+intact. **Repairing a shared-tree mistake must not enlarge its blast radius.**
