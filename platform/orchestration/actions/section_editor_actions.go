@@ -361,6 +361,30 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 		}, nil
 	}
 
+	// ── Tombstone gate (bugs_open/360) ──────────────────────────────────────
+	// build_status='removed' is the assembly-excluded tombstone: the row is
+	// NOT on the page, so an edit here repairs nothing a visitor can see — and
+	// every persist branch below promotes build_status to 'approved', which
+	// UN-RETIRES the slot and the next rerender publishes the retired content
+	// again (measured 2026-08-21: four literal_markdown transforms resurrected
+	// four retired ported slots; the pages publicly served two stacked tools
+	// for ~19 h). Skip-result, not error, mirroring the lock gate above; the
+	// race-free enforcement is pageComponentNotRemovedSQL on the UPDATEs
+	// themselves.
+	if bs, _ := pcData["build_status"].(string); bs == "removed" {
+		logger.Warn("ApplySectionEditAction: refusing to edit a removed (tombstoned) component (bugs_open/360)",
+			zap.String("page_component_id", pcIDStr),
+			zap.String("slot_name", slotName),
+		)
+		return map[string]interface{}{
+			"success":    true,
+			"skipped":    true,
+			"tombstoned": true,
+			"reason": fmt.Sprintf("component %s (%s) has build_status='removed' — it is retired from the page and an automated edit would resurrect it; if a finding names this slot, the finder is scanning content the page no longer serves",
+				pcIDStr, slotName),
+		}, nil
+	}
+
 	// ── Decision citation gate (RFC_015) ────────────────────────────────────
 	// If an active decision record covers this page/slot, the edit must NAME
 	// it (acknowledges_decision or supersedes_decision) to proceed. Change is
@@ -1464,10 +1488,23 @@ func loadComponentByFunction(ctx context.Context, db *sql.DB, function string) (
 }
 
 // errComponentLocked is returned by the page_components UPDATE helpers when
-// the row exists but carries an active human lock (bugs_open/058). The
-// lock predicate lives in the UPDATE's WHERE clause, so the refusal is
+// the row exists but carries an active human lock (bugs_open/058) — or, since
+// bugs_open/360, when it is a removed tombstone the race window let through
+// (the advisory tombstone gate in ApplySectionEditAction catches the ordinary
+// case with its own skip-result; this sentinel is the race-free backstop).
+// The predicates live in the UPDATE's WHERE clause, so the refusal is
 // race-free; callers convert this to a skip-result rather than a failure.
-var errComponentLocked = errors.New("page component is locked or missing — automated edit refused (bugs_open/058)")
+var errComponentLocked = errors.New("page component is locked, removed, or missing — automated edit refused (bugs_open/058, bugs_open/360)")
+
+// pageComponentNotRemovedSQL is the tombstone predicate (bugs_open/360).
+// build_status='removed' is the documented assembly-excluded tombstone
+// (rerender_single_page_action.go:843): the row is NOT on the page, and the
+// helpers below all promote build_status to 'approved' — so without this
+// predicate an automated edit UN-RETIRES the slot and the next rerender
+// publishes the retired content again. Measured 2026-08-21: four
+// literal_markdown transform edits resurrected four retired ported slots and
+// the pages publicly served two stacked tools for ~19 h.
+const pageComponentNotRemovedSQL = "COALESCE(build_status, 'pending') <> 'removed'"
 
 func updatePageComponentAfterEdit(ctx context.Context, db *sql.DB, pcID uuid.UUID, html string, contentData map[string]interface{}) error {
 	var contentDataJSON []byte
@@ -1496,7 +1533,7 @@ func updatePageComponentAfterEdit(ctx context.Context, db *sql.DB, pcID uuid.UUI
 			    content_data = $3::jsonb,
 			    build_status = 'approved',
 			    updated_at = NOW()
-			WHERE id = $1 AND `+pageComponentAgentWritableSQL("")+`
+			WHERE id = $1 AND `+pageComponentNotRemovedSQL+` AND `+pageComponentAgentWritableSQL("")+`
 		`, pcID, html, string(contentDataJSON))
 	} else {
 		res, err = stampedExecContext(ctx, db, contentWriterSectionEditorUpdate, `
@@ -1505,7 +1542,7 @@ func updatePageComponentAfterEdit(ctx context.Context, db *sql.DB, pcID uuid.UUI
 			    rendered_html_digest = md5($2),
 			    build_status = 'approved',
 			    updated_at = NOW()
-			WHERE id = $1 AND `+pageComponentAgentWritableSQL("")+`
+			WHERE id = $1 AND `+pageComponentNotRemovedSQL+` AND `+pageComponentAgentWritableSQL("")+`
 		`, pcID, html)
 	}
 
@@ -1533,7 +1570,7 @@ func updatePageComponentSwap(ctx context.Context, db *sql.DB, pcID, componentID 
 		    content_data = $5::jsonb,
 		    build_status = 'approved',
 		    updated_at = NOW()
-		WHERE id = $1 AND `+pageComponentAgentWritableSQL("")+`
+		WHERE id = $1 AND `+pageComponentNotRemovedSQL+` AND `+pageComponentAgentWritableSQL("")+`
 	`, pcID, componentID, newSlotName, html, string(contentDataJSON))
 
 	if err != nil {

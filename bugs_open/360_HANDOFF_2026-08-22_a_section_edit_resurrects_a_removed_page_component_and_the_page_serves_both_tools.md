@@ -94,3 +94,17 @@ Recreate the arm harmlessly: pick any `removed` slot, plant a code span in its `
 dispatch a section_edit at the row directly → the write must refuse and the item must complete with
 the typed skip, and the row must still read `removed` after. Then the motivating case: re-run the
 2026-08-21 13:19Z canary shape against webdesign.co.uk and confirm zero items name tombstoned slots.
+
+## Fix candidate (1) BUILT — 2026-08-22, this lane
+
+The door-close half is committed: `section_editor_actions.go` gains an advisory tombstone gate
+(skip-result `{tombstoned:true}`, mirroring the lock gate) plus the race-free predicate
+`COALESCE(build_status,'pending') <> 'removed'` on all three page_components UPDATEs (shared const
+`pageComponentNotRemovedSQL`); zero-rows still surfaces via the existing skip-convertible sentinel.
+Mutation-proven captured-SQL test (`section_editor_tombstone_guard_test.go`) — predicate deleted
+from the swap statement alone failed exactly that case. Proven against `git archive HEAD` + the two
+changed files (the tree carries other lanes' WIP). Council `Council-Submitted:
+4007ce96-4cc7-4d52-bdfe-cd00deeeca89`. **Go — INERT until the next chassis roll**; the defect stays
+reproducible in production until then, so this file stays OPEN and the tool-rebuilds RUNBOOK's
+post-retire re-read rule stays in force. Candidates (2) filer scoping and (3) the 486 INSERT
+predicate remain with the 277/283 lanes (CONTRIBs delivered).

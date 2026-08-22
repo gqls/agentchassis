@@ -1,0 +1,43 @@
+{
+  "rationale": "bugs_open/360: on 2026-08-21 a literal_markdown discovery canary dispatched section-editor rendered_html_transform edits at four page_components rows this lane had RETIRED (build_status='removed', the documented assembly-excluded tombstone \u2014 rerender_single_page_action.go:843). Every section-editor persist branch promotes build_status to 'approved' and its only write guard is the lock predicate (AgentWritableSQLFor \u2014 locks only), so each edit UN-RETIRED the slot; the afternoon sweep rerenders then published four public pages serving BOTH the old and new tool stacked, for ~19 hours (measured at the served bytes cache-busted, both days; all flips timestamped inside the items' claim windows; byte deltas +11 chars match one code-span conversion each). The class is fleet-wide: any workflow using build_status='removed' as a tombstone is exposed on every retire, and migration 486's create_section_edit_delivery selects placements with no build_status filter either (a batch-resurrect one producer earlier). This change closes the DOOR at the writer, the highest fix candidate in 360's door-closing order: the section editor refuses to edit a tombstoned row, advisory gate for messaging + race-free predicate on the three UPDATEs, exactly mirroring the file's existing lock-gate idiom (bugs_open/058). Filer-side scoping (check_literal_markdown) and the 486 predicate are deliberately NOT in this change \u2014 they belong to the 277/283 lanes (CONTRIBs filed; bugs_open/356 \u00a76-B names the check's sibling page-axis gap and its posture registry should move with that fix, in that lane's hands).",
+  "submitter": "webdesign-tool-rebuilds",
+  "plan": {
+    "summary": "Section editor refuses tombstoned rows: advisory skip-result gate after the lock gate + COALESCE(build_status,'pending') <> 'removed' predicate on all three page_components UPDATEs, one shared const, mutation-proven captured-SQL test.",
+    "edits": [
+      {
+        "file": "platform/orchestration/actions/section_editor_actions.go",
+        "symbol": "pageComponentNotRemovedSQL, errComponentLocked",
+        "operation": "modify",
+        "rationale": "One shared predicate const so the three statements cannot drift; sentinel doc+message broadened to name the removed case (it is the race-window backstop, the advisory gate is the ordinary path).",
+        "sketch": "const pageComponentNotRemovedSQL = \"COALESCE(build_status, 'pending') <> 'removed'\" // + comment citing 360 and the measured 19h double-serve; errComponentLocked message: 'locked, removed, or missing'"
+      },
+      {
+        "file": "platform/orchestration/actions/section_editor_actions.go",
+        "symbol": "ApplySectionEditAction (tombstone gate, after the lock gate)",
+        "operation": "modify",
+        "rationale": "Skip-result, not error \u2014 an error would fail/retry the orchestration for a state only a re-deploy decision can change; identical posture to the lock gate directly above it. pcData already carries build_status (loadPageComponentByID/BySlotRO both SELECT it).",
+        "sketch": "if bs, _ := pcData[\"build_status\"].(string); bs == \"removed\" { logger.Warn(...); return map[string]interface{}{\"success\": true, \"skipped\": true, \"tombstoned\": true, \"reason\": ...}, nil }"
+      },
+      {
+        "file": "platform/orchestration/actions/section_editor_actions.go",
+        "symbol": "updatePageComponentAfterEdit (both UPDATE branches), updatePageComponentSwap",
+        "operation": "modify",
+        "rationale": "The race-free half: the predicate lives in the UPDATE's WHERE like the lock predicate, so a retire landing between load and write still refuses. RowsAffected==0 already surfaces as the skip-convertible sentinel at both consumers (:422, :558 region) \u2014 no caller changes needed.",
+        "sketch": "WHERE id = $1 AND `+pageComponentNotRemovedSQL+` AND `+pageComponentAgentWritableSQL(\"\")+`  (x3)"
+      },
+      {
+        "file": "platform/orchestration/actions/section_editor_tombstone_guard_test.go",
+        "symbol": "TestSectionEditorWritesCarryTombstonePredicate, TestSectionEditorWriteZeroRowsSurfacesAsSkipSentinel",
+        "operation": "add",
+        "rationale": "Captured-SQL contract test in the file's established sqlmock idiom (section_editor_html_only_persist_test.go): per-statement cases so a guard surviving in a sibling cannot mask a mutation; asserts the predicate sits AFTER the WHERE (a comment cannot pass); plus the zero-rows-surfaces-as-sentinel pin. Mutation-proven at authoring: predicate deleted from the swap statement alone -> exactly that case failed.",
+        "sketch": "3 cases x {capture SQL, assert contains predicate after WHERE}; NewResult(0,0) -> errors.Is(err, errComponentLocked)"
+      }
+    ],
+    "grounded_in": [
+      "UPDATE page_components SET rendered_html = $2, ... build_status = 'approved', updated_at = NOW() WHERE id = $1 AND (locked_at IS NULL OR ...) [source: section_editor_actions.go updatePageComponentAfterEdit (pre-change) \u2014 the unconditional promotion; the only guard is the lock predicate]",
+      "grid flip 13:30:49 inside claim 13:30:17->13:30:56; json 13:32:22 (13:31:45->13:32:27); noise 13:33:05 (13:32:29->13:33:09); text 13:36:55 (13:36:22->13:37:02); doubles published by sweep rerenders 15:19-16:29Z; repaired 2026-08-22 11:01Z, serve-graded PASS x4 [source: webdesign_tool_rebuilds/NOTES entry 2026-08-22 11:06Z (measured at site_work_items rows, page_components.updated_at, and the served bytes)]",
+      "WHERE pc.page_id = $1 AND pc.locked_at IS NULL \u2014 no build_status predicate in check_literal_markdown Run (:391-398) or verifier (:311-) [source: platform/orchestration/actions/discovery_checks/check_literal_markdown.go \u2014 why the finding existed; that filer fix is the 277 lane's, deliberately out of this change's scope]",
+      "consumers at both errComponentLocked sites already convert to {success:true, skipped:true, locked:true} \u2014 so zero-rows refusal is a proven-safe surface, not new behaviour [source: section_editor_actions.go ApplySectionEditAction (:422 and the persist-switch consumer)]"
+    ]
+  }
+}
