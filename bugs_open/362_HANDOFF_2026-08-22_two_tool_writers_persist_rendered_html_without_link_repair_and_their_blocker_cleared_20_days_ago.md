@@ -5,14 +5,16 @@
 (`create_tool_component_action.go`, `deploy_tool_action.go`) on their own merits, in the tool lane
 that owns those files. That is a bug fix, not architecture."*
 
-**Owner** routed to **`webdesign_tool_rebuilds`** — `scripts/who-owns.py` and the commit record both
-put both files there (TL-043/044/047/048, `bugs_closed/331`, `bugs_open/283`'s flow half, commits as
-recent as 2026-08-21). **This file does not start a competing fix**; it is the evidence package the
-owning lane asked for by owning the files.
+**Owner** **`webdesign_tool_rebuilds` — TAKEN 2026-08-22**, accepted by that lane within the hour on
+the evidence below. (Routing basis: `scripts/who-owns.py` and the commit record both put both files
+there — TL-043/044/047/048, `bugs_closed/331`, `bugs_open/283`'s flow half, commits as recent as
+2026-08-21.) Two sessions carry that lane name; the accepting one has notified its sibling and will
+hand over if the sibling objects, so **the lane holds it either way — do not treat this as unowned,
+and do not start a competing fix.** The filing session wrote the evidence and stopped there.
 
-**Status** OPEN. Low urgency by measurement (§3: live damage is one instance, and that one is
-probably legitimate) — but the *reason* it is still open is the interesting part, and it is not
-"nobody got round to it".
+**Status** OPEN, OWNED, fix in progress. Low urgency by measurement (§3: live damage is one instance,
+and that one is probably legitimate) — but the *reason* it was still open is the interesting part,
+and it is not "nobody got round to it".
 
 > **On the 2026-07-31 owner ruling** (a cross-cutting root-cause claim needs the `090` loop or a
 > stated substitute): **`090` not run, deliberately.** This file asserts no new causal theory. The
@@ -128,6 +130,14 @@ grep -rln "bugs_open/180" docs/agent_docs/docs026_concept_register/ docs/agent_d
 The second is the sharper one: **a `bugs_open/NNN` reference in any document, where `NNN` now lives
 in `bugs_closed/`, is a stale-status suspect** — and it is mechanically detectable across the whole
 corpus, which makes it a candidate for `scripts/pattern-check.py` rather than a habit.
+
+> **Status of that check: PROPOSED, UNOWNED, deliberately not built by the filing session.**
+> Endorsed independently by the `webdesign_tool_rebuilds` lane (which took the Go half above) and
+> flagged to the `bugs_open/358` lane, which is designing a related corpus-scanning check in **the
+> same file** (its B2: no new finding code ships without a reader). If B2 builds a general
+> "grep the corpus, compare against a live source of truth" shape, this belongs inside it as a second
+> rule rather than as a competing walker — 358's call, since they hold that design. Whoever builds it
+> owes a concept-register entry: it is a new reusable mechanism, not a bug fix.
 
 ## 7. Not in scope
 
