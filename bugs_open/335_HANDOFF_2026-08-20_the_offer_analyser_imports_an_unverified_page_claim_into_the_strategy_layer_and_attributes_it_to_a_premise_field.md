@@ -221,6 +221,60 @@ records the removal in the artefact under `dropped_unsourced`. It still refuses 
    re-run* replaces `lead_with`, and the `improvement-sweep` is still **disabled** (owner cost
    control, last fired 2026-08-17).
 
+### 2026-08-22 — THE RE-PROOF RAN. The false claim is GONE. The gate's enforcement arm is STILL UNPROVEN.
+
+Owner authorised two runs. Fired with a new surgical dispatcher
+(`scripts/fire-offer-analyser.sh`) — **not** `run_improvement_sweep_once.sh`, which fires the whole
+improvement loop and whose `triage_findings` promotes every `detected` item into live handler
+dispatches: `[MEASURED]` **111 items on webdesign.co.uk, 37 on leopardess**, including other lanes'.
+To prove one gate that is the wrong instrument by two orders of magnitude.
+
+| | webdesign.co.uk | leopardessconsulting.co.uk |
+|---|---|---|
+| run | `dde16c30`, COMPLETED | `dd2e3433`, COMPLETED |
+| new spec row | `8784955f` (was `85315516`, 08-15) | new row (was `1df360b9`) |
+| `lead_with` kept | 6 | 6 |
+| **dropped** | **0** | **0** |
+| `dropped_unsourced` key present | **yes, `[]`** | **yes, `[]`** |
+| *"eight live sites"* | — | **GONE** |
+
+**What this DOES prove.**
+1. The gate executes in production without breaking the workflow — both runs traversed
+   `set_audit_source → verify_ordering_cardinals → write_offer_ordering → write_offer_findings →
+   complete`.
+2. **The round-3 merge fix is proven live:** both clean runs *wrote* `dropped_unsourced` as an empty
+   array rather than omitting it. That is the fix that stops a stale drop record accusing a clean
+   artefact for ever, and it is now observable in the artefact.
+3. The false claim is gone from leopardess, and the artefact was not gutted.
+
+**What this does NOT prove, and must not be written up as proving.**
+> **THE GATE DROPPED NOTHING. It has never fired in production.** `dropped_unsourced` is `[]` on both
+> runs. *"eight live sites"* is gone because **the model did not emit it** — the prompt half — not
+> because the gate caught it. The enforcement arm is proven only by unit test (with the verbatim live
+> strings, mutation-proven), and remains **untested in production**. A run containing no cardinals
+> passes this gate trivially, which is exactly the "measurement that could not have come out
+> otherwise" trap.
+
+**⚠ AND THE PROMPT HALF MAY BE OVER-SUPPRESSING — a real cost, measured.** Both new orderings carry
+**zero** word-numerals across 12 points. The superseded ones each carried one: webdesign's rank 1 was
+*"any of the **sixty-three** tools"* — legitimately premise-sourced, and exactly the specificity this
+artefact exists to supply. It is now gone. So the prompt rule appears to suppress cardinals
+generally rather than unsourced ones, trading useful specificity for safety. **Unmeasured at n=2;
+watch it across the next few runs before concluding.**
+
+### ⚠ A LIVE FALSE POSITIVE FOUND BY THESE RUNS — fixed in Go, INERT until the next roll
+
+`cardinalDigitRe` is not word-anchored, so it reads a quantity out of the middle of a technology
+name: **`B2B` → 2**, `S3` → 3, `IPv6` → 6, `Web3` → 3. A point saying *"UK B2B SaaS engineering
+teams"* asserts no quantity, but would be **dropped** unless its cited field happened to contain a
+stray digit. **It is live right now and survived on leopardess only by coincidence** — that premise
+says "B2B" too, so "2" was in the allowed set.
+
+Fixed (`590fb1f5b`) by rejecting a digit welded to a letter; `63 tools`, `2-3`, `£1,520`, `32.70` are
+unaffected, pinned by tests. **Stated residual:** `GPT-4` still yields 4, pinned by a test that fails
+if anyone fixes it. **The running binary still has the bug** — do not hand-fire B4 before the next
+roll without accepting that a legitimate technology-name point may vanish.
+
 ### What is still owed
 
 - **Read the council verdict** and act on it.

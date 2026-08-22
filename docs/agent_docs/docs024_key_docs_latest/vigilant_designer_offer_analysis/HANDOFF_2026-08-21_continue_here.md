@@ -11,6 +11,22 @@
 
 ## The one-line state
 
+> **UPDATE 2026-08-22 ~11:20Z — RE-PROOF RUN. The false claim is GONE; the gate itself has NEVER
+> FIRED.** Both authorised runs COMPLETED (`dde16c30` webdesign, `dd2e3433` leopardess), both kept 6
+> points and dropped **0**. *"eight live sites"* is gone from leopardess — but because the **prompt**
+> half stopped the model emitting it, not because the gate caught it. **Proven live:** the gate runs
+> without breaking the workflow, and the round-3 merge fix (a clean run WRITES `dropped_unsourced` as
+> `[]`). **Not proven:** enforcement, which is unit-tested only.
+> **⚠ TWO THINGS TO CARRY FORWARD.** (1) A **live false positive** — `B2B` is read as the quantity 2
+> (`S3`→3, `IPv6`→6). Fixed in Go (`590fb1f5b`) but **the running binary still has it**, so a
+> hand-fired B4 can silently drop a legitimate technology-name point until the next roll.
+> (2) The prompt may be **over-suppressing**: both new orderings carry zero word-numerals across 12
+> points where the superseded ones each carried one — webdesign lost *"sixty-three tools"*, which was
+> legitimately sourced. Watch it over the next few runs.
+> **⚠ FIRE B4 WITH `scripts/fire-offer-analyser.sh`, NOT `run_improvement_sweep_once.sh`** — the
+> latter fires the whole loop and promotes every `detected` item into live handler dispatches
+> ([MEASURED] 111 on webdesign, 37 on leopardess, including other lanes').
+>
 > **UPDATE 2026-08-22 11:03Z — THE GATE IS NOW LIVE, AND `bugs_open/335` IS STILL OPEN.**
 > Chassis rolled to `v1.0.1323`; migration `537` applied after a capability probe (with two controls)
 > confirmed the action is registered in the running binary. Council APPROVED at round 3.
