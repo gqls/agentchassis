@@ -42549,3 +42549,88 @@ and *"a future session must remember to re-point this"* is a defect, not a plan.
 **Cost if uncaught:** a third silent rot, at the worst moment — a reopened 343, or any later
 re-close, sending an on-call reader to a path that does not exist while they are looking at a live
 freeze. Which is the exact damage the 08-21 fix existed to prevent.
+
+---
+
+## 2026-08-22 — a wrong JSON path turned a real finding into a plausible non-finding, and the wrong answer looked like corroboration
+
+**Lane:** `bugfix_356_orphan_check_lifecycle_axis` (session `bugs_open/298`), while re-measuring
+`bugs_closed/298`'s unclaimed adjacent finding, *"15 of 38 completed `internal-linker` items found
+NO target page"*.
+
+**The claim I nearly wrote.** I censused `site_work_items.result->'target_page'` and got
+`no_target 0 / with_target 0 / unreadable 34`. The write-up I was one command away from making:
+*"298's adjacent finding can no longer be measured — every completed row's `result` is the spawn
+record."*
+
+**Why it was wrong.** The outcome is nested one level deeper, under `response`. The correct path
+`result->'response'->'target_page'->>'count'` gives **17 no-target / 9 with-target / 8 genuinely
+unreadable** — and all 17 turned out to name an `archived` page, which is the entire mechanism of
+`bugs_open/356`. The shallow path returns NULL on every row, so it reported 100% unreadable.
+
+**What caught it.** Dumping one row with `jsonb_pretty(result)` instead of trusting a path I had
+inferred from 298's prose description of the data.
+
+**The cheap check that would have.** Read one row before writing a path over a column you have not
+personally inspected — `SELECT jsonb_pretty(<col>) … LIMIT 1`. Under a minute, and it is the JSON
+equivalent of the `\d <table>` rule CLAUDE.md already states for SQL. **Schema first applies to
+JSONB too; a `jsonb` column is a schema you have not read yet.**
+
+**The transferable half, and the reason this is worth a row.** *The wrong answer was not
+implausible — it was corroborating.* "All results are the spawn record" is a real, documented
+phenomenon on this exact table (`bugs_closed/287`), so the failed measurement looked like it had
+independently rediscovered a known trap. **A null-returning path and a genuinely null column are
+indistinguishable at the aggregate**, and when the null result happens to match a trap you already
+believe in, nothing about it feels like an error. Same family as
+[[a-plausible-external-cause-is-when-to-doubt-your-instrument]]: a believable explanation for an
+absence is precisely when to doubt the instrument. **The disconfirming move is cheap and specific —
+if a path returns null for 100% of rows, suspect the path before the data**, because a real
+phenomenon rarely has no exceptions.
+
+**Cost if uncaught:** the adjacent finding would have been recorded as unmeasurable and closed. 34
+archived pages would still be filed as work every rotation across 18 discovery checks, and the
+class in `bugs_open/356` would have gone unfound — the misread pointed away from the defect, not
+merely short of it.
+
+---
+
+## 2026-08-22 — I grep-counted a predicate and my own audit called the defective file clean
+
+**Lane:** `bugfix_356_orphan_check_lifecycle_axis`, sizing the blast radius across
+`platform/orchestration/actions/discovery_checks/`.
+
+**The claim.** To find which discovery checks lack a page-lifecycle arm I ran a per-file
+`grep -c "status = 'active'\|PageWantedLivePredicateFor\|status NOT IN"`. It scored
+**`check_orphan_pages.go` at 2** — the one file whose entire defect is that it has no lifecycle arm
+on the page row.
+
+**Why it was wrong.** Both hits are on a JOINED table: `sni.status='active'` at
+`check_orphan_pages.go:220` and `:226`, where `sni` is `site_nav_items`. A predicate is only a
+page-row predicate if it binds to the alias in the `FROM pages` clause, and **grep cannot see what
+a predicate binds to.** Had I trusted the count I would have marked the file under investigation
+clean and gone hunting elsewhere; worse, the same count would have marked ~8 genuinely unarmed
+files "armed" for the same reason.
+
+**What caught it.** The count disagreed with SQL I had read in that same file minutes earlier.
+That is luck, not method — it only worked because this file was already open.
+
+**The cheap check that would have.** For any "does this query filter on X" question, read the
+`FROM`/`JOIN` clauses and resolve the alias; if the audit is too big to read by hand, delegate the
+*reading*, not the *counting*. And spot-check a delegated audit **in both directions** — I verified
+three claimed-unarmed files and two claimed-clean ones, because checking only the side that
+supports your thesis cannot detect a systematically over-reporting audit.
+
+**Generalises.** A textual count over code answers a textual question. Any claim of the form "this
+query does/does not constrain column C on table T" is a *binding* question, and every
+alias-qualified predicate is a chance for the count to be confidently wrong in whichever direction
+happens to flatter the hypothesis. Same family as
+[[your-measurement-answers-the-question-you-encoded]]: the grep faithfully answered "does this file
+contain this string", which was never the question. ⚠ Related trap in the same package, found the
+same day: `COALESCE(p.status,'') <> 'deleted'` in `check_sectionless_pages.go` **reads** as a
+lifecycle filter and excludes **nothing** — `pages.status` has only two live values, `active` and
+`archived`. Reading the SQL is necessary and still not sufficient; query the column's actual
+vocabulary before believing a predicate does what it looks like.
+
+**Cost if uncaught:** the blast-radius section of `bugs_open/356` would have named the wrong set of
+checks — plausibly omitting the two highest-risk ones — and the framework fix would have been sized
+against a fiction.
