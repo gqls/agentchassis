@@ -642,3 +642,42 @@ the check on. If someone does them the wrong way round, the second one refuses �
 in this morning, and watched it refuse, precisely so that nobody has to remember the order.
 
 After that, this piece of work is finished, and the original bug can be closed.
+
+---
+
+## 2026-08-22, morning — the alarm went off, and it was a real fire
+
+Overnight the new check ran 86 times across the estate. It raised **one** item, and that one is worth
+the whole exercise.
+
+**vetcomparison.uk's home page was serving the wrong version for at least nine hours.** We published
+it at 20:49 last night. At 21:53 the check noticed the live page was not the page we had sent, and
+raised a flag. It checked again at 01:54 and again at 05:56 — still wrong, and serving *exactly* the
+same old bytes each time, so this was not a page caught mid-update. By the time I looked this morning
+it had finally corrected itself, somewhere between 05:56 and 08:40 — nine to twelve hours after we
+published it.
+
+Nothing else in the platform noticed. The database said the page was deployed. The publish had
+committed successfully. The job that did it completed without error. This is precisely the fault the
+whole investigation started from — a page quietly serving yesterday's content while every internal
+signal reads green — and it is the first time we have ever *seen* it happen rather than inferred it
+afterwards.
+
+**What that tells us, in order of importance.** First, the check works, on a real fault, unprompted.
+Second, the fault is not a one-off from last week: it happened again last night, on a different site,
+and it lasted longer than the original six-hour case that prompted all this. Third, and this is the
+part I would not have believed without the evidence — **the page fixed itself**. We did not republish
+it. The same publish eventually arrived, many hours late. So the delivery step is not losing pages
+outright, it is delivering some of them extraordinarily slowly, which is a different problem with
+different fixes.
+
+**What I have not done.** I have not chased *why* delivery took nine hours, because that happens
+inside the publishing runner, which lives in a repository we do not control and cannot read. That was
+already the known boundary. What has changed is that we can now hand whoever does have access an exact
+case: this site, this page, published at this timestamp, still wrong nine hours later. Before today we
+could not have named one.
+
+**The one caveat, stated plainly.** The check is designed to clear its own flag once the page comes
+right. That has not happened yet — the next scheduled pass for that site is late this morning, and I
+have not watched that half of the mechanism work. Until I have, treat "it will clean up after itself"
+as designed-but-unproven rather than a fact.

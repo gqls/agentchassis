@@ -1832,3 +1832,47 @@ one it was written for.
 Recorded as **D8**: widen to 60 minutes at the next build. Not taken now — it costs a rebuild and a
 roll, and the failure mode is bounded: a premature finding is flag-only and retracts itself on the next
 pass's positive re-observation.
+
+---
+
+## 2026-08-22 ~08:40Z — FIRST LIVE CATCH, and it is a true positive of exactly the 315 class
+
+Chassis rolled to `v1.0.1323` this morning (observed mid-roll: my first reading showed `v1.0.1322`
+and "nothing rolled", which was true at that instant and wrong two minutes later — corrected in place
+rather than left standing). The check has been live since 19:23Z yesterday.
+
+**86 availability runs overnight. ONE item filed. It is real.**
+
+```
+20:49:12Z  deploy committed, deployed_at stamped, content_hash = 2a4b4947...
+21:53:04Z  age  1h04  DIVERGED  served 2bacf7c9...  -> ITEM FILED
+01:54:34Z  age  5h05  DIVERGED  served 2bacf7c9...  -> dedup skip (item already open)
+05:56:34Z  age  9h07  DIVERGED  served 2bacf7c9...  -> dedup skip
+08:40Z     age 11h51  MATCH     served 2a4b4947...  (5/5 cache-busted fetches)
+```
+
+`vetcomparison.uk/index.html`. **The served hash was IDENTICAL across three observations spanning
+eight hours**, so this was not a page caught mid-propagation — it was consistently serving the
+superseded bytes. And `deployed_at`/`updated_at` are both still 20:49:12, so **there was no
+redeploy**: the same publish landed 9–12 hours late, on its own.
+
+That last fact reshapes candidate 3. The delivery boundary is not (in this instance) *losing* pages —
+it is delivering some of them extraordinarily slowly. Different problem, different fix, and still not
+diagnosable from this side; but for the first time we can hand the runner's owner a named case with
+timestamps instead of a class description.
+
+**A worry I had and then disproved.** `items_resolved: 0` on the 01:54 and 05:56 runs looked like my
+retraction path failing. It was not: `items_inserted: 0` with **`items_skipped: 1`** and a non-empty
+`findings` array means the check re-detected the divergence and the dedup index correctly refused a
+second row. Retraction did not fire because there was nothing to retract — the page was still wrong.
+Reading `items_inserted` alone would have had me debugging a working mechanism.
+
+**⚠ THE RETRACTION HALF IS STILL UNEXERCISED.** The page now matches, so the next pass on that site
+(rotation floor 4h; last run 05:56Z, so due ~09:56Z) should emit a `Resolved` and close the item.
+Until observed, "it self-clears" is designed-but-unproven. **Whoever is next in this lane: check
+that.**
+
+**On D8** (widen the settle window 30→60 min): this catch does not argue against it. Detection
+happened at age 1h04, so a 60-minute window would still have caught it on the same pass. The
+false-positive pressure (a ~17-minute delivery tail) and the true-positive latency are not in tension
+here, because detection granularity is set by the 4-hour rotation, not by the window.

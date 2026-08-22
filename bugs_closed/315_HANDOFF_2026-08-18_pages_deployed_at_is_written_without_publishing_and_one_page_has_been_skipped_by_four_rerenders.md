@@ -22,6 +22,19 @@
 >   failure from this side rather than explain it from theirs. **This is a scope decision, not an
 >   omission.**
 >
+> **⚠ ADDENDUM 2026-08-22 — THE DETECTOR CAUGHT ONE, AND IT SHARPENS CANDIDATE 3. Closed stays closed.**
+> `vetcomparison.uk/index.html`, published 2026-08-21 20:49:12Z, was observed serving superseded bytes
+> at **1h04, 5h05 and 9h07** after the stamp — the served hash IDENTICAL across all three, so not a page
+> caught mid-propagation — and matching again by 11h51. `deployed_at`/`updated_at` never moved, so
+> **there was no redeploy: the same publish arrived 9–12 hours late on its own.**
+>
+> **That is a different fault from the one this file assumed.** §3's live instance looked like a page
+> being *skipped* by the batch. This one was not skipped, it was *delayed* — which means the runner is
+> not necessarily losing work, and a fix aimed at "why was this page dropped" may be aimed at the wrong
+> thing. Still not diagnosable from this side (the workflow is in the private `gqls/sites` repo), but
+> whoever has access now has a named case with timestamps instead of a class description. Detail:
+> the lane's `NOTES` and register `DGH-015`.
+
 > **THE STATE OF THE FLEET, re-runnable:** `[MEASURED 2026-08-21]` **253 pages carry a fingerprint**
 > where all estate history had 0, and a fleet-wide sweep found every active hashed page serving bytes
 > that hash exactly to its stored fingerprint. *"Is this page serving what we sent?"* is now one
