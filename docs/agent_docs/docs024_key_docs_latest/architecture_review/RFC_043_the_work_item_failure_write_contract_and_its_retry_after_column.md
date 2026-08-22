@@ -67,7 +67,7 @@ first version of the change used one list for both; that is what the council gat
 
 ## 3. Blast radius, measured
 
-- **Consumers:** 9 live (enumerated in WII-024 and in the submission, via the nested
+- **Consumers:** 9 live **as of 2026-08-20** (enumerated in WII-024 and in the submission, via the nested
   `jsonb_path_query(default_config,'$.**.steps')` walk — a top-level `jsonb_each` returns **zero**
   rows for these actions).
 - **Population the behaviour change reaches** [MEASURED 2026-08-20, archive-inclusive]: **401 of

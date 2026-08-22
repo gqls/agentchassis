@@ -237,3 +237,55 @@ artefact.** Until then, stamping `retry_after` from this sweep creates mid-coold
 `mark_complete` is still unguarded in production, which is exactly the widening the hold exists to
 prevent. The distinction matters because "the fix is committed" is the reading that would have
 released it a day early.
+
+## §7 — 2026-08-22: the proof event may have become RARE because 307's fix removed its supply
+
+`524` has been live for **~25 h as of 2026-08-22 18:00Z** and the sweep has reset **0** items in
+that time — so candidate 2 is applied and structurally verified but still has **no artefact proof**.
+Before reading that zero as anything, the disconfirming check, run today so nobody repeats it:
+
+- **the sweep is healthy** — `enabled`, firing on its 120 s interval (last fire 136 s before the
+  check), `last_completed_at` equal to `last_triggered_at`;
+- **its `pre_query` still parses** — `EXECUTE 'EXPLAIN ' || pre_query` returns `PARSES OK` against
+  the live column. This is the check this bug's own migration header demands, because a sweep that
+  fails to parse raises nothing a human sees and looks *exactly* like "nothing is timing out".
+
+So the zero is a real absence of claim timeouts, not a broken sweep.
+
+### Why the absence is probably CAUSAL, not quiet
+
+[MEASURED 2026-08-22, boundary = v1.0.1322 rolled 2026-08-21 16:53Z]
+
+| | before the 42P18 fix (7 d) | since it rolled (~25 h) |
+|---|---|---|
+| claim timeouts / day | **4.71** | **0** |
+| claims / day | **859.71** | **480.31** |
+
+⚠ The "since" figure for timeouts is **0 counted separately** — the rate query returned *no row*,
+because an aggregate over an empty filtered set produces no row rather than a zero. Do not read a
+missing row as a measured zero; that is why it is stated twice here.
+
+Claim volume roughly halved, which explains part of it. Volume-adjusted, the expectation over the
+window is ≈ **2.6** timeouts against **0** observed — about a **7 %** outcome by timing alone, so
+suggestive rather than demonstrated.
+
+**The hypothesis, and it is mechanically plausible rather than merely convenient:** `bugs_closed/307`
+§9b's 42P18 defect made the ladder's TERMINAL write error. A failure write that errors fails the
+saga — and an item whose saga dies mid-flight stays `claimed`, which is precisely the population
+this sweep exists to reap. **So the defect we fixed was itself manufacturing claim timeouts**, and
+fixing it removed part of this bug's own supply of proof events.
+
+### What that means for anyone waiting on this bug
+
+- **Its historical rate (39 resets in the 14 d to 2026-08-21, ~2.8/day, of which only ~half took the
+  stamping arm) OVERSTATES the wait's end.** The honest expectation now is "rarer than that, by an
+  unmeasured amount".
+- **A continued zero is NOT evidence of breakage** — the two checks above are what would show that,
+  and both are clean. Re-run them rather than re-deriving the reasoning.
+- The event still required is unchanged: one item whose claim goes stale past the 40-minute
+  threshold **with attempts remaining**, so the sweep takes its non-terminal arm and stamps a
+  cooldown. The terminal arm writes `retry_after = NULL` by design and proves nothing.
+- If a week passes with no qualifying event, the useful move is not to wait longer but to ask
+  whether this path is now rare enough that candidate 1 (moving the sweep into Go, where it would
+  share the contract rather than mirror its numbers) is the cheaper way to retire the divergence
+  than proving the mirror works.
