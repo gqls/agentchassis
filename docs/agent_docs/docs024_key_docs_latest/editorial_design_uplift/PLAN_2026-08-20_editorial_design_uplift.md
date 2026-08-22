@@ -73,10 +73,17 @@ assembly is flat concatenation and the single template executor has no
 `{{template}}` support. **So composition is build-and-prove, not wiring.**
 
 `features_open/035_FEATURE_component_hierarchy.md` is the reserved slot for that
-design. **It is Fable's to write** (owner, reaffirmed 2026-08-20) and is
+design. **It is Fable's to write** (owner, reaffirmed 2026-08-20) and ~~is
 **BLOCKED**: four dispatches now, the latest failing on
 *"You've reached your Fable 5 limit"*. **Not substituted.** The brief is ready;
-this is a capacity block, not a knowledge one.
+this is a capacity block, not a knowledge one.~~
+
+> **CORRECTED 2026-08-22: 035 is WRITTEN — by Fable, in-session (the owner's
+> interactive session runs Fable 5), fifth attempt, no substitution.** It arrived
+> with a new owner steer, quoted in 035 §1: decompose the one-llm-call
+> interleaving; more control and consistency over it; control over versions and
+> design variations of the same. Phase F below is no longer blocked on the plan
+> existing — only on its own build order (035 §5, local walk proof P0 first).
 
 **The consequence for sequencing, and it is the main design judgement in this
 plan:** the editorial page family does **not** need composition to look
@@ -187,8 +194,10 @@ E2 The timeline component, once real data exists: HTML text + CSS furniture, eac
    event carrying its citation, in the `mechanism-flow` idiom (which already
    proves a no-numeric-field component can carry a sequence honestly).
 
-**Phase F — composition (BLOCKED on 035/Fable).** Revisit once the plan exists.
-Nothing above depends on it.
+**Phase F — composition.** ~~BLOCKED on 035/Fable~~ **035 WRITTEN 2026-08-22** —
+phasing, hazards and the first-target choice (our own locked insights pages) live
+in that file; P0 is a local render-walk proof with no cluster writes. Nothing
+above depends on it.
 
 ## 5. What would make this fail
 

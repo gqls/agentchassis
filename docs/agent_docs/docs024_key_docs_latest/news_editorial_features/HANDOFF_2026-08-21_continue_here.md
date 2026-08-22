@@ -75,7 +75,7 @@ Worked examples to copy: `sql_for_agents/498` (best verify block) and `499`.
 
 | item | state |
 |---|---|
-| **Fable / `features_open/035`** | **BLOCKED.** Component-hierarchy plan, owner wants **Fable specifically**, four capacity failures. **Do not substitute a model — ask.** Brief and reading list: design lane PLAN §2 + this lane's NOTES. |
+| **Fable / `features_open/035`** | ~~BLOCKED~~ **WRITTEN 2026-08-22 by Fable in-session** (fifth attempt; no substitution — the owner's session runs Fable 5). Design: `features_open/035_FEATURE_component_hierarchy.md`; execution = design lane Phase F. New owner steer (decompose the one-llm-call interleaving; versions + design variants) quoted in 035 §1. |
 | **Cobot feature (#4)** | **PARKED, ready.** Cluster real, premise good ("coverage reads as a takeover; ~1 in 10 installations says otherwise"). Needs ONE thing: a **primary** source for the 2024 cobot share. IFR's own page yields only 2023 (10.5% of 541,302). The 11.9%/64,542 figures are **not in any indexed IFR source** — negative result recorded so nobody re-walks it. |
 | **`published_page_id` reader** | Data exists (15 rows, 2 pages) and **nothing reads it**. The `analysis_url` addition to `newsJSONItem` in `render_news_section_action.go` + the two news components' JS is designed, not built. Go change → council gate → inert until a roll. |
 | **`bugs_open/349`** | Filed by this lane. 090 verdict **CONFIRMED**. 20 orphan page rows on 12 live sites that are "wanted live" and serve 404. **No root cause established** — do not read the verdict as one. |

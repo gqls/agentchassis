@@ -59,3 +59,41 @@ fourth — and for timelines I want to **start collecting the dated events now**
 with citations, inside the features we are already writing, so that when the
 timeline component is built there is honest data to draw. Building the picture
 before the data is the one mistake this platform has already made and caught twice.
+
+---
+
+## 2026-08-22 — the composition plan is written, by the model you asked for
+
+The plan you wanted Fable to write now exists —
+`features_open/035_FEATURE_component_hierarchy.md`. It took no workaround in the
+end: this session itself runs Fable, so the fifth attempt was simply to write it
+here. Nothing was substituted.
+
+You added a steer as you unblocked it: you don't like the interleaved content and
+imagery being produced in one model call, and you want it decomposed — more
+control and consistency, and control over versions and design variations of the
+same content. That became the plan's centre. In short: every piece of an
+interleaved page — a block of prose, a figure, a chart, a pull-quote — becomes
+its own addressable row, written by its own call against one shared brief,
+individually lockable, individually regenerable, with its own history. Rewriting
+one paragraph can no longer destroy a neighbouring figure, because they are no
+longer the same thing.
+
+Two useful discoveries came out of checking the ground first. The versioning
+machinery is half-built already: the platform has been quietly snapshotting every
+template edit — 363 snapshots so far — but nothing ever reads them back. The plan
+wires that up, so a piece of a page can pin the design version it renders with,
+and the same words can be re-dressed in a different design without being
+regenerated. And the database already refuses, loudly, to delete a parent that
+still has children — which is exactly the safety behaviour we want, found rather
+than built.
+
+The plan is deliberately staged: prove the rendering walk on one of our own
+editorial pages first (they are locked and owned, so the blast radius is one
+page), then decomposed generation, then versions and variants, then letting the
+design agents propose re-arrangements — always through human review, never
+applied automatically. The guides on the other sites come last, jointly with the
+lane that owns the in-body imagery plan.
+
+Nothing is built yet. The next concrete step is the local rendering proof, then
+the first council-gated code phase.

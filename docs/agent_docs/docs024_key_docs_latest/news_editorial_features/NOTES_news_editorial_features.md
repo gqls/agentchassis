@@ -1046,3 +1046,16 @@ Full procedure written up as `RUNBOOK` §10, including the marker trap (a census
 over-reports on the hub and on the retired page itself, which are the two pages
 every de-listing touches by definition) and the `rebuild_policy='generic'` window
 with the two things that bound it.
+
+## 2026-08-22 — 035 UNBLOCKED AND WRITTEN (corrects MISSTEP 3's standing state)
+
+MISSTEP 3 above and §4 of the 08-21 handoff record 035 as BLOCKED on Fable
+capacity after four failures. **That state ended 2026-08-22: the owner's
+interactive session runs Fable 5, and the plan was written in-session — fifth
+attempt, no substitution.** `features_open/035_FEATURE_component_hierarchy.md`
+now exists; execution belongs to the design lane (`editorial_design_uplift`,
+Phase F). A new owner steer arrived with the go-ahead — decompose the
+one-llm-call interleaving; more control and consistency; control over versions
+and design variations of the same — and is quoted in 035 §1. The handoff §4 row
+is corrected in place. This lane owes nothing further on 035; its editorial
+pages are the design's P1 proving ground, which is a design-lane concern.

@@ -451,3 +451,42 @@ rather than alarming — `hero` already using `var(--x-ink, var(--x))` is
 independent confirmation that the two-level form is the house idiom and not
 something I invented. Re-run scoped to the four slot names, plus a second
 assertion that none still carries the unwrapped colour: both passed.
+
+## 2026-08-22 — 035 WRITTEN, by Fable, in-session; census re-run; two new measured facts
+
+The capacity block ended the simplest possible way: the owner's interactive
+session is running Fable 5, so the plan was written here rather than dispatched.
+No substitution — the "Fable specifically" ruling is satisfied literally.
+`features_open/035_FEATURE_component_hierarchy.md` is the design; execution is
+this lane's Phase F.
+
+**A new owner steer arrived with the go-ahead and is recorded in 035 §1:**
+*"I don't like the interleaved content and imagery being in one llm call, I'd
+like to decompose and have more control and consistency over that and more
+control over versions and design variations of the same."* 035 treats this as
+the governing goal — composition is a CONTROL mechanism (one call per child,
+row-scoped regeneration, versions, variants); layout flexibility is a
+consequence, not the goal.
+
+Measurements re-run rather than carried forward, all `[MEASURED 2026-08-22]`:
+
+- `page_components` grew 1,580 → **1,903** rows since the 08-20 census;
+  `parent_instance_id` still **0**, `render_mode='composite'` **0**, non-empty
+  `child_components` **0**, zero Go references (re-grepped platform/internal/pkg).
+- **NEW: the version seam is half-live.** `component_versions` holds **363**
+  template snapshots with real live producers (`scope_component_instance` 98,
+  `036_component_hygiene` 51, `repair_instance_scope_bindings` 27,
+  `component_selector` 16, …) — but `page_components.component_version_id` is
+  **0 rows** and no render path reads it. Write-only history. 035 D6 makes the
+  render walk read it (pinned version, else current), which is the whole of the
+  version-control goal's mechanism.
+- **NEW: the parent FK has NO ON DELETE action**
+  (`page_components_parent_instance_id_fkey`) — deleting a parent that has
+  children ERRORS. Fail-loud, and load-bearing for 035 §6.1: the page-wide save
+  DELETE (`save_page_sections_action.go:823`) cannot silently take a composed
+  region; the error is the tripwire, and "fixing" it with CASCADE would hand the
+  sweep silent-destruction power. Do not.
+- `deriveRenderMode` runs on both the INSERT and UPDATE paths (:561, :639), so a
+  hand-seeded `composite` row would be **silently reverted on its next
+  regeneration** — hence 035 §9's first rule: no composite rows, no
+  `parent_instance_id` values, before the P1 code ships.
