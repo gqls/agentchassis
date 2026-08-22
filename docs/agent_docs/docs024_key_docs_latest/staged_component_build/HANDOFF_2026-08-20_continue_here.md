@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-20 (rev. 2026-08-21 ~19:3xZ): **THE LANE IS AT REST, WAITING ON ONE ROLL.** All five steps built; steps 1–4 live+proven; the census fully dispositioned; **the flip (`5fe010ada`, corr `26186633`) and the read-tolerance retirement (`e5c1b3c15`+`9970eb71c`, corr `e05ea6f9`) are BOTH council-APPROVED and BOTH inert until a chassis roll carries them.** Next action is not a build: it is the **post-roll monitoring gate (§2.10 1b — an OBLIGATION, terms fixed in advance), and ONE window covers both changes.**
+# HANDOFF — 2026-08-20 (rev. 2026-08-22 ~08:4xZ): **BOTH CHANGES ARE LIVE.** The flip and the read-tolerance retirement shipped in **`v1.0.1323`** (roll settled 08:37:14Z, stamp `70e7b4f9c`), verified three ways. **The 48 h gate is RUNNING — boundary `2026-08-22 08:37:14Z`, baseline banked below.** All five steps of the workstream are now built, shipped and verified; what remains is the gate window and three named follow-ons that are NOT this lane's to start.
 
 > **⚠ THIS FILE NOW CONSOLIDATES TWO.** `HANDOFF_2026-08-18b_continue_here.md` was still being
 > updated by a parallel session of this lane until ~10:17Z today (its audit results are folded in
@@ -451,6 +451,51 @@ otherwise absent, no error. Same shape as 515, and the marker is now proven in p
 envelope is doubly nested (`response.<field>.response.data.`) on `call_agent`-reached handlers, and
 their `result_mapping` work is meant to have flattened that. **Read a live post-535 bdl tree before
 writing the path**; do not take `handler_result.response.commit_sha` from this paragraph.
+
+## 2.11 ✅ BOTH CHANGES ARE LIVE ON `v1.0.1323` — and the gate is running (2026-08-22 08:3xZ)
+
+**Roll settled 08:37:14Z.** Two pods, one replicaset (`74ffb74b8d`), both `v1.0.1323`, stamp
+**`70e7b4f9c`**. ⚠ **It was a PARTIAL roll for ~2 minutes** — four pods across two tags, then three
+replicasets churning. Probes during that window were worthless and one pod gave **opposite answers
+30 seconds apart**. Wait for one tag and one replicaset before probing.
+
+**Verified THREE ways, because one change has a literal and the other is a pure deletion:**
+1. **Capability probe** (the flip): `2-refuse` PRESENT in the binary, with the WARN message literal
+   as a present-control. ⚠ Two other pods returned `flip=absent` **with the control ALSO failing** —
+   that is a blind probe, not an absence. **The control is what made the difference readable.**
+2. **Ancestry**: `5fe010ada` (flip), `e5c1b3c15` + `9970eb71c` (tolerance) are all ancestors of
+   `70e7b4f9c`.
+3. **Code read AT THE STAMP, not at HEAD** — the route a pure deletion has and a capability probe
+   does not: `git show 70e7b4f9c:…/unified_extractor.go | grep -c '2-refuse'` → **4**, and
+   `git show 70e7b4f9c:…/v3_site_actions.go` → `setRenderContextScalarsFromData` contains
+   **0** occurrences of `stepKey != key`, i.e. **the tolerance's second branch is gone**.
+
+### ⚠ WHAT THE GATE CAN AND CANNOT PROVE — read before interpreting its silence
+
+**The baseline says the conflict table was ALREADY near-silent before the flip.** In the 24 h to the
+boundary, against **2,983 orchestrations / 48 agents** of demand, there were exactly two classes and
+both had stopped hours earlier — `bdl`/`commit_sha` **263 rows, last 2026-08-21 15:35:37** (the
+pre-wire tail of migration 537, which fixed it at 15:33:39) and `tg`/`related_pages` **8 rows, last
+14:15:35** (fixed by 516). **Every row carried `phase=1-resolve-and-warn`.**
+
+**So a post-roll ZERO is NOT evidence the flip works — it is what we would see anyway.** The
+migrations removed the live conflicts before the flip shipped. Do not write "0 rows, therefore the
+flip is proven"; that inference is unavailable here and the capability probe plus the 13 unit tests
+are what carry the behaviour claim.
+
+**What the gate IS for, and its terms (§2.10 1b), restated as what to actually look for:**
+
+| observation | meaning |
+|---|---|
+| a row with **`phase='2-refuse'`** | ✅ the flip is live AND a real conflict occurred — **trace the pair to its consumer**, give it an explicit mapping. Not a regression |
+| a row with **`phase='1-resolve-and-warn'`** post-boundary | 🔴 **REGRESSION SIGNAL** — a pod is running pre-flip code. Probe the pods |
+| **zero of both** | ⚪ ambiguous, and the expected case. Says nothing about the flip; only that no conflict arose |
+
+**FIRST READ, 08:4xZ** (minutes after the boundary, recorded because a baseline read is worth having
+even when thin): demand **10 orchestrations / 7 agents**; conflict rows **0**; phase-1 rows **0**;
+phase-2 rows **0**. Far too little demand to mean anything — banked, not interpreted.
+
+**The gate closes 2026-08-24 ~08:37Z.** Record the result here whether clean or not.
 
 ## 2.10 ✅ THE FLIP IS BUILT AND COMMITTED — `5fe010ada` (2026-08-21 ~17:1xZ)
 
