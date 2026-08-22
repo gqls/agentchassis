@@ -35,3 +35,24 @@ limit to a measured number; teach the framework to notice "the answer was cut of
 retry once with a higher ceiling instead of failing three times identically; and add a
 small daily check that watches every AI step's real output sizes against its ceiling, so
 we find out a limit is getting tight before pages start failing, not after.
+
+## 2026-08-22 (later) — the fix is written, tested, committed, and in front of the reviewers
+
+Everything described above is now built. The three parts became two, and that change is
+worth explaining: while researching, I found the daily "watch every AI step's output
+sizes" check I planned to build **already exists and had already noticed this problem**
+— it has been writing a note about this exact step since the 18th of August, four days
+before anyone acted. So the missing piece was never detection; it is that nobody and
+nothing reads those notes. I have recorded that gap where the next person will find it,
+rather than building a second watcher that would be ignored the same way.
+
+What shipped: (1) the writer's limit goes from 16,000 to 24,000 — a number derived from
+what its outputs actually measure, not a guess; (2) a new framework ability: any AI step
+can be given a second, higher "ceiling" limit, and if its answer gets cut off at the
+normal limit it retries once at the ceiling instead of failing three times identically —
+switched off for everyone except steps that explicitly opt in, and the loans writer is
+the first. The code is committed and goes live at the next fleet release; the limit
+change itself is a configuration change I will apply once the review council has looked
+at it (they are reviewing now — their verdict usually lands within the hour). After
+that, I re-run the two broken loan pages and check the live pages actually gain their
+calculators.

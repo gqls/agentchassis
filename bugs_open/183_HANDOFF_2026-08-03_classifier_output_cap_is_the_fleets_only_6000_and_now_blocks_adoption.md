@@ -287,3 +287,28 @@ cap raise: LCO-007's wall-clock ceiling (~58k tokens on Sonnet 5 through the non
 600s client) leaves headroom for ~48k but not much more — and per that register entry,
 raising a cap in response to a clock kill (C) is actively wrong; this one is a genuine
 output-volume kill, not a clock kill. Not filing separately — this lane owns the class.
+
+---
+
+## CONTRIBUTED 2026-08-22 (bugfix_337_token_cap lane) — the class now has an opt-in in-call escape hatch: `max_tokens_ceiling` (MDL-042), and your two steps are the visible next candidates
+
+Telling this lane per the 2026-07-29 §3 ruling (a shared mechanism's other consumers must
+be told, not merely measured). `bugs_open/337` (generate_template's deterministic 16000
+cut) shipped a framework seam on `execute_llm_prompt`: a step may declare
+`max_tokens_ceiling` beside `max_tokens` in its `ai_service` block, and on a typed
+`TruncatedError` the step retries ONCE at the ceiling (cut call kept as a `success=false`
+`ESCALATED (bugs_open/337: …)` llm_call_log row; the escalated call's outcome flows
+through the existing machinery verbatim). Opt-in, default OFF — nothing changes for any
+step until its owner names the key. Code committed `9e89e8ca1`, INERT until the next
+chassis roll; register **MDL-042**; council corr `3d531c9a` (pending at time of writing).
+
+What changed about your guarantee: nothing today. What you can now choose: the two
+cap-hit steps this file tracks — `diagnose-agent`/`diagnose-dispatch-loop` `verdict`
+(@32000, incl. the 2026-08-19 permanent verdict loss above) and
+`tool-improver/improve_tool` (@32000, truncated 3) — could declare a ceiling instead of
+another raise. Sizing caveat that binds YOU specifically: the ceiling must be clock-safe
+for the step's model (LCO-007's C-vs-T doctrine; ~58k tokens on Sonnet 5 through the
+non-streaming 600s client per this file's own 08-19 note), and the 08-19 verdict case
+recovered **0 chars** at 32000 — check whether that is thinking-spend starvation
+(bugs_closed/107 shape) before assuming a taller ceiling helps it. Your call, not
+auto-opted. Details: `docs/agent_docs/docs024_key_docs_latest/bugfix_337_token_cap/PLAN_2026-08-22_token_cap_management.md`.
