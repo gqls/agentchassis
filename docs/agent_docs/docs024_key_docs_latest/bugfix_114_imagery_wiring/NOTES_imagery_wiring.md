@@ -366,3 +366,83 @@ anyway.
    landing after the roll should file the derive, link the card, and put the content-hero
    path on the served page.
 4. **Part 3** — the flag-only detection check, and hygiene for the 8 parked rows.
+
+---
+
+## 2026-08-22 (post-roll) — v1.0.1326 verified at the artefact, repair 562 APPLIED, and a landmine I had in my own memory index
+
+### The roll, proven rather than assumed
+
+Pods `agent-chassis-6bb7b67bd4-{l8lzf,pwtbf}`, image `v1.0.1326`, started 15:10Z. The
+`build provenance` startup line had already scrolled out of `--tail=300`, which is the
+documented shelf-life problem, so I probed the binary for the CAPABILITY instead of the
+commit — three new literals, on BOTH replicas, with two controls in the same pass:
+
+```
+PRESENT  "Left site-wide content_data untouched"                 (part 1)
+PRESENT  "queued card derivation at the landing event"           (part 2)
+PRESENT  "hero resolved from the site-wide content_data fallback" (part 1b)
+PRESENT  "StoreAssetAction: Asset stored"          <- control that MUST be present
+ABSENT   "StoreAssetAction: XYZZY-not-a-real-string" <- control that MUST be absent
+```
+
+The absent-control is the half that makes the others mean anything: without it a
+`grep` that matched everything would read identically.
+
+### Repair 562 applied, with both controls INDUCED
+
+`INSERT 0 12` (per-row backup), `UPDATE 11` (repointed), `UPDATE 1` (key removed),
+`NOTICE repair OK: 11 point at hero-home.jpg, 7 correctly retain hero.jpg, 0 broken`.
+
+- **Guard induced**: re-run WITHOUT the marker → `ERROR: REFUSING…`, nothing touched. A
+  guard nobody has watched refuse is not a guard.
+- **Idempotency**: re-run WITH the marker → `INSERT 0 0`, `UPDATE 0`, `UPDATE 0`.
+- **Wire probe after**: `hero-home.jpg` = 200 on fundamentallyai, relojistas, vonc,
+  dartsonline — every one of which served **404** on `hero.jpg` before.
+
+### MISSTEP — a false claim in my own migration header, caught by previewing
+
+The header's first draft said `noted.co.uk` and `webdesign.uk` were *"excluded by the
+WHERE clause's own logic"*. **They are not.** Both hold a `hero_home` asset, so ARM 1
+catches them. I found it by running the three arms as read-only `SELECT`s before
+applying, rather than trusting what I had just written two minutes earlier.
+
+Corrected in place, with the reason they are included anyway. The lesson is narrow and
+useful: **a migration header describing a WHERE clause is a claim about code, and the
+cheapest check is to run the clause as a SELECT and read the list of names it returns.**
+That preview costs one query and it is the only thing that distinguishes a header from a
+hope.
+
+### MISSTEP — backticks in `git commit -m` executed, and this trap is in MY OWN memory index
+
+The commit message for 562 contained ``an active canonical `hero` asset`` and
+``an active `hero_home```. Bash ran them as command substitution inside the
+double-quoted string:
+
+```
+/bin/bash: line 50: hero: command not found
+/bin/bash: line 50: hero_home: command not found
+```
+
+Both words were **replaced with nothing** in the committed message, which now reads
+*"holds an active canonical  asset"* and *"no canonical hero but an active  ->
+repointed"*. The message is degraded, not false, and forward-only forbids an amend, so it
+stands corrected here instead.
+
+**What makes this worth writing down is that the trap is already documented**, in
+`MEMORY.md`'s own index line: *"backticks in `-m` execute"*. I have read that line at the
+start of this session. Knowing it did not stop me, which is the **third** instance today
+of the same shape — the other two being the duplicated test-assertion mistake I had
+written up hours before repeating it. **A documented trap is not a control.** The
+mechanical control here is single quotes for the whole `-m` body, or a heredoc via
+`git commit -F -`, and that is what I will use for the rest of this lane.
+
+### Docs brought in line with today's owner ruling on counts
+
+CLAUDE.md gained a ruling this session: *a count of things must carry the date it was
+counted*, because a census does not go wrong, it goes **stale by addition**, and it reads
+as current for ever. My figures sat under section headers dated 2026-08-22, which is
+weaker than the rule asks. The most quotable ones now carry the date inline — `518 of 580
+as of 2026-08-22`, `23 of 94 as of 2026-08-22`, and the `store_asset` caller census —
+each with the re-derivation pointer, so `--since` is mechanically available to whoever
+quotes them next.

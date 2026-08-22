@@ -16,12 +16,12 @@ All `[MEASURED]` today unless marked. Queries in `RUNBOOK_imagery_wiring.md`.
 | claim | measured today |
 |---|---|
 | fixture unwired | mortgagecalculator's 10 `content_hero_tool_*` assets: active, serving 200, **0 rendered references**, entity links NULL |
-| entity links absent fleet-wide | **518 of 580** `assets` rows have `entity_type` NULL. Last 14 days: only `card` (45) linked; `hero` 66, `content_hero` 45, `icon` 19, `favicon` 7, `og_card` 7, `logo` 5 all NULL |
+| entity links absent fleet-wide | **518 of 580 as of 2026-08-22** `assets` rows have `entity_type` NULL. Last 14 days: only `card` (45) linked; `hero` 66, `content_hero` 45, `icon` 19, `favicon` 7, `og_card` 7, `logo` 5 all NULL |
 | the poisoned default spread | `sites.content_data.hero_url='/assets/images/hero.jpg'` on **18 sites** (10 when 114's 07-29 contribution measured it) |
 | the 07-29 repair was undone | fundamentallyai was repaired to `hero-home.jpg` on 07-29; it reads `/assets/images/hero.jpg` again today |
 | that path is dead on some sites | HTTP probe: relojistas.com **404**, vonc.com **404**, fundamentallyai.com **404**; gamesdesign/idea/oufe/webdesign.co.uk/mortgagecalculator **200** |
 | the queue mostly drains now | `image_landed`: 40 complete / **8 needs_human_review** / 7 cancelled / 3 wont_fix / 1 failed (was 14 parked / 13 complete at filing) |
-| the class is fleet-wide | content_hero assets vs wired components: dartsonline 20/12, robot-hands 16/7, **gamesdesign 14/0, finetuning 14/0**, mcalc 10/2, leopardess 7/0, fundamentallyai 6/0, ai-agent-orchestration 4/0, idea.uk 3/2 — **23 of 94 wired** |
+| the class is fleet-wide | content_hero assets vs wired components: dartsonline 20/12, robot-hands 16/7, **gamesdesign 14/0, finetuning 14/0**, mcalc 10/2, leopardess 7/0, fundamentallyai 6/0, ai-agent-orchestration 4/0, idea.uk 3/2 — **23 of 94 wired, as of 2026-08-22** |
 
 **Verdict: still valid, and larger than filed.**
 

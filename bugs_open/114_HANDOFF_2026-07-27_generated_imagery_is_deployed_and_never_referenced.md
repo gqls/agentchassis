@@ -458,8 +458,8 @@ Ownership re-checked first: three lanes cite 114, none owns the fix.
 | | at filing | today |
 |---|---|---|
 | sites carrying the legacy `content_data.hero_url` | 10 (07-29 contribution) | **18** |
-| `assets` rows with no entity link | — | **518 of 580**; in the last 14 days only `card` (45) is ever linked |
-| content_hero assets vs components wired to one | — | **23 of 94** fleet-wide (gamesdesign 14/0, finetuning 14/0, leopardess 7/0, fundamentallyai 6/0) |
+| `assets` rows with no entity link | — | **518 of 580 as of 2026-08-22**; in the last 14 days only `card` (45) is ever linked |
+| content_hero assets vs components wired to one | — | **23 of 94 as of 2026-08-22** fleet-wide (gamesdesign 14/0, finetuning 14/0, leopardess 7/0, fundamentallyai 6/0). ⚠ A census goes STALE BY ADDITION: re-run before quoting — `git log --since=2026-08-22 --diff-filter=A -- platform/orchestration/actions/discovery_checks/` for new producers |
 | parked `image_landed` items | 14 parked / 13 complete | **8 parked / 40 complete** — the queue now mostly drains |
 
 **fundamentallyai's 2026-07-29 repair has reverted.** It reads `/assets/images/hero.jpg`
