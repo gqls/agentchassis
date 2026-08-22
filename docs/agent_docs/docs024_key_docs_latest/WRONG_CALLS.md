@@ -44673,3 +44673,45 @@ READS, ask what the reader does when it is absent — and only then write down w
 matters.** "Additive" describes the migration, never the reader. If the honest answer is an
 error, say so in the commit message and apply the migration first; the estate's ordering
 exemption was retired for *seams*, not for preconditions.
+
+## 2026-08-22 (third) — I inherited a rule from the render audit without asking what it conflates, and it made my check unable to fail the one page it was written for
+
+**The claim.** The `contrast_ratio` check I built for `bugs_open/131` (vonc slug) carries, by
+deliberate design and stated in its council submission as a safety feature, the rule *"text over an
+image or gradient backdrop is reported but can NEVER fail — the composite there is approximate."*
+I took that rule from `render_audit_action.go`, which has always worked that way, and I defended it
+in two council rounds as false-positive containment.
+
+**What the witness showed.** On `v1.0.1326`, driving the deployed adapter against vonc's gauntlet
+page: `passed:3 failed:0`. The probe had found **ten** sub-threshold elements — including
+`gi-eyebrow` at 1.66:1 and `gi-title-accent` at 2.48:1, *which is bug 131 item A itself, the defect
+this entire check exists because of* — and discarded every one. The section is an **opaque**
+`rgb(124,60,255)` under gradients whose stops are all `rgba` at alpha 0.08–0.35, with **no `url()`
+anywhere**. The backdrop was never unknown. It was decorated.
+
+**The error, precisely.** `effBG` sets a single flag meaning "a background-image appeared somewhere
+in the ancestor chain". That one bit conflates two situations that are nothing alike: *we
+substituted a mid-grey guess because we never reached an opaque colour* (genuinely unmeasurable),
+and *we have a real opaque base with a translucent gradient over it* (measurable within bounds).
+I never asked which one the flag meant. I read "over image → approximate", agreed with the
+reasoning, and shipped a check that is blind on every section with a decorative gradient — which on
+this estate is where hero-text contrast defects actually live.
+
+**Why it is worse than a missed edge case.** This is the second PASSES-WHILE-BLIND defect in the
+same lane in one day. Round 1's was *"an unmeasured page reads as clean"*, caught by a reviewer.
+This one is *"a measured, failing page reads as clean"*, caught only because I ran a witness against
+a page whose failure I had independently confirmed by screenshot hours earlier. **Neither the unit
+tests nor two council rounds nor the deployment proof could see it**: every test fixture I wrote
+supplied `overImage: true/false` as a given, so they tested my handling of the flag and never
+questioned what sets it.
+
+**The cheap check, and it generalises past contrast.** When you inherit a rule from an existing
+mechanism — especially a rule that SUPPRESSES output, because suppression is invisible in every
+green result — **enumerate the cases the rule's condition actually covers before adopting it**, and
+build the discriminating pair: two inputs identical in every respect except the one the rule keys
+on. Here that pair is three lines of HTML (same colours, same 1.34:1; one over a flat colour, one
+over a `url()`) and it fails loudly against the old code. I built that pair only *after* the live
+run embarrassed me. The rule to carry: **a suppression rule needs a test that proves it suppresses
+the right things, not merely that it suppresses.** Related: `a-post-fix-zero-needs-a-demand-control`,
+and this lane's own LANDMINES entry on unmeasured-reads-as-clean, which I wrote this morning and
+which did not save me from the same family eight hours later.

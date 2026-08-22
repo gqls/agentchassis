@@ -678,3 +678,29 @@ witness). Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_131_contras
 *(090 not run for this section — first-hand live measurement with by-eye confirmation and an
 archived reproducible script substitutes, per the 2026-07-31 ruling's escape hatch; the one
 unverified claim above is marked `[INFERRED]` and asserted nowhere as cause.)*
+
+### UPDATE 2026-08-22 (evening) — the check is LIVE, and witnessing it on THIS page found it blind
+
+`browser-runner-adapter` rolled to **v1.0.1326** (provenance `27b932aca`; both code commits proven
+ancestors, with a negative control; binary needles 1/1/1/0). The `contrast_ratio` check runs — and
+on its first witness against **this bug's own page** it reported `passed:3 failed:0`.
+
+It was wrong, and the reason matters for anyone reading §A. The probe found **ten** sub-threshold
+elements here (`gi-eyebrow` 1.66:1, `gi-rules-label` 1.31:1, and **`gi-title-accent` at 2.48:1 —
+item A itself**) and discarded all ten, because the section carries decorative gradients and the
+check inherited the render audit's rule that anything over an image is unmeasurable. Measured: the
+section is an **opaque** `rgb(124,60,255)` under `rgba` gradient stops (α 0.08–0.35) with **no
+`url()` anywhere** — the backdrop was bounded, not unknown.
+
+Fixed the same session (council round 3, `7e2391ec`): bounded backdrops are now judged on the
+reading most favourable to the page and fail only if nothing in that range saves them. On this page
+that is **9 firm failures** — and note it is *generous*: `gi-eyebrow` reads 2.37:1 on its best case
+rather than 1.66:1, and **item A's accent now clears 3.0 on its best reading and is correctly not
+flagged**, which is the honest answer for a token whose ground varies under a gradient.
+
+**So §A's remedy needs restating for whoever picks it up:** the fix is not to re-pin the accent
+again — it is that this section's *body* text (`gi-eyebrow`, `gi-rules-label`, the rules list) is
+below AA on every reading of its own backdrop, and that is what the queued design pass should
+repair at the token level. The check will be able to prove it once the adapter carries the
+refinement (inert on v1.0.1326).
+

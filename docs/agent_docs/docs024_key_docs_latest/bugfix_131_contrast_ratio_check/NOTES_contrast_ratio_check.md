@@ -237,3 +237,78 @@ same-day code, `NEEDS_HUMAN_REVIEW` is the *correct and uninformative* answer �
 declining to guess, which is the behaviour we want, but it means **the verdict carries no information
 about the entry's truth** and must not be quoted as if it did. Both entries' own evidence is in this
 lane's NOTES and the commits.
+
+## 2026-08-22 (evening) — the adapter rolled, the check is LIVE, and the witness earned its keep
+
+**Deployment PROVEN at the artefact, not inferred.** `browser-runner-adapter` and
+`render-audit-adapter` both on `v1.0.1326`, pods started 15:10:5xZ (overlay bumped 1323→1326 by
+another session's build). Provenance line: `git_commit 27b932acad15740da850d71799e01191010a3713`.
+`git merge-base --is-ancestor` TRUE for `2611b0b16` (the fail-closed fix) and `de7806e55` — **with a
+negative control**: HEAD is correctly NOT an ancestor, so the test can say no. Binary needles in one
+exec (no `strings` in this image): new marker **1**, probe sentinel **1**, 131-B positive control
+**1**, nonsense negative control **0**.
+
+**The witness.** Fired `run_checks` DIRECTLY at the adapter topic (`witness_contrast_ratio.sh`) with
+the reply on a throwaway topic — deliberately NOT a tool-acceptance run, because acceptance invokes
+the judge, which files `improve_tool` items, and the target is the gauntlet lane's live surface with
+a design pass queued for exactly these tokens. Reply topic did not auto-create (only 3 KafkaTopic
+CRs exist), so the result came from the adapter's own completion log:
+
+```
+run_checks complete  run_id=65c90571…  function=witness-131-contrast  profiles=[mobile]
+passed=3  failed=0  skipped=0
+```
+
+**`skipped:0` is the deployment proof** (the binary knows the type — an unknown type is skipped).
+**`failed:0` was WRONG**, on a page I had screenshot-confirmed as unreadable that morning.
+
+### What the witness found: the check could not see its own founding case
+
+Diagnosed with the probe **extracted from source at runtime** (`scripts/dump_probe_test.go.txt` →
+`scripts/run_deployed_probe.py`), so scan-vs-deployed drift is impossible by construction — the
+131-B session's own method. Before the fix, on the live page: **scanned 33, failures 10, firm 0,
+overImage 10** — `gi-eyebrow` 1.66:1, `gi-title-accent` 2.48:1, `gi-rules-label` 1.31:1, ratios
+matching the morning's independent Playwright scan. **All ten discarded.**
+
+Cause, measured by dumping the ancestor chain: `effBG` sets ONE flag for "a background-image
+appeared anywhere", and over-image can never fail. The gauntlet section is an **opaque**
+`rgb(124,60,255)` beneath `radial-gradient(rgba(139,0,0,0.35) → rgba(0,0,0,0))` and the rules card
+adds `linear-gradient(rgba(251,191,36,0.08), rgba(220,38,38,0.08))` — **`url()` appears nowhere.**
+So the backdrop was never unknown, only decorated, and the check threw away the very defect it was
+built for. **That is the PASSES-WHILE-BLIND family again — the second instance in this lane after
+round 1's nil-result defect, and this one I introduced by inheriting the audit's rule without
+asking what it conflates.**
+
+### The fix, and why it is conservative rather than merely less blind
+
+Split by what is knowable. **UNBOUNDED** (a `url()` image, a gradient whose stops are named/hex
+colours, or no opaque base so `effBG` substituted mid-grey) → unchanged, reported, never fails.
+**BOUNDED** (opaque base + translucent rgba stops) → the true backdrop lies in a known range, so
+judge on the reading **most favourable to the page** (best contrast against the base or any single
+stop composited over it) and fail only when nothing in that range saves it, reporting that best
+case. Probe-local, NOT in `contrastMathsJS`: the shared kernel stays byte-identical, so the render
+audit's behaviour is provably untouched (sha-pinned golden still green).
+
+After, same page and method: **9 FIRM, 0 unbounded** — and visibly generous where it should be
+(`gi-eyebrow` 1.66 → **2.37** best case; `gi-title-accent` now clears 3.0 on its best reading and is
+**correctly not flagged**).
+
+**Four induced controls** (`scripts/induced_backdrop_controls.py`), each able to come out otherwise:
+
+| case | expected | got |
+|---|---|---|
+| flat opaque, bad colours | FIRM flat | FIRM flat 1.34:1 |
+| gradient over opaque, bad | FIRM bounded | FIRM bounded 1.78:1 |
+| `url()` image, bad | approx, never fails | approx 1.34:1 |
+| gradient over opaque, good | not flagged | not flagged |
+
+The discriminating pair is rows 1 and 3: **identical colours, identical 1.34:1, opposite verdicts.**
+The classification is doing the work, not the colours — which is the control that would have caught
+this defect at design time had I run it then.
+
+**Submitted as council round 3** (`RESUBMIT_CORR=7e2391ec`, run orch `956e2326`) because it widens
+what an already-approved mechanism refuses.
+
+**Still owed after this lands:** a rebuild of `browser-runner-adapter` (the refinement is inert on
+`v1.0.1326`), then re-run the witness expecting `failed:1` with an attributed culprit, then the
+Phase-2 seed/planner vocabulary work.
