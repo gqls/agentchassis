@@ -100,3 +100,43 @@ a sweep that may never come.
 follow-up work immediately rather than waiting for the sweep, and add a check that notices
 "this page has its own picture sitting unused". All specified in the lane plan. Part one
 is submitted to the review council and is waiting on a verdict.
+
+---
+
+## 2026-08-22, later — the review passed, and the second half is built
+
+**The review council approved it**, on the third round. That is worth a sentence because
+the first two rounds both changed the work rather than rubber-stamping it. Round one
+asked, reasonably, how I knew that the address the storing step records and the address
+the deploying step publishes are actually the same — I had asserted it and not shown it.
+They are the same function, one calling the other, but that was an argument, so I made it
+a test instead. Round two found something I had genuinely missed: the safeguard is
+declared per workflow *step*, and one step takes the image's name from the job it is
+handling, so a future job could still declare a single page's picture to be the whole
+site's. Every such job today is legitimate, and reaching that step at all requires the job
+to have said "this is a brand update" — but nothing in the code prevents it, so it now
+logs a warning naming the picture. Anyone who does it in future is findable in one search
+rather than invisible.
+
+**And the second half is built.** The step that was meant to connect each generated
+picture to its page only ever ran when a daily sweep visited the site — the sweep that
+has not run since 11 August. That connection now happens at the moment the picture lands,
+in the same breath as the page re-render, so a batch of images finishes its own job
+instead of waiting for something that may never arrive.
+
+**One thing I decided not to build.** The plan I wrote this morning said to add a new
+setting so the storing step could record which page a picture belongs to. I dropped it
+after actually reading the two places that read that information: both of them only ever
+look at a different kind of image (the small "card" version used on listing pages). So the
+setting would have had nothing reading it — a new knob that does nothing, which this
+system has a specific rule against accumulating. The page's own picture was already found
+by name; what was missing was only the card, and that is what the change above now
+triggers.
+
+**Nothing is live yet.** All of it is program code, so it takes effect at the next system
+build. What is owed then, in order: check the running services are actually on the new
+build; run the two controls (a page-specific image must *not* move the site default, a
+genuine site image must); then apply the held repair to the eighteen sites; then watch the
+mortgagecalculator batch — ten pictures, no connections since 15 August — do the whole
+journey by itself. That last one is the real test, and it is the honest place to say the
+bug is fixed. Not before.
