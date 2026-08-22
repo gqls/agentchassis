@@ -361,3 +361,28 @@ exactly the situation the `Council-Submitted:` trailer exists to keep honest.
 **Consequence for everyone else:** no council gate, no 090 diagnosis loop, no content generation,
 no checker agents until the cap clears. Anything queued will fail at its first LLM step. This is an
 owner-level (billing/plan) matter — reported in chat 2026-08-22.
+
+---
+
+## 2026-08-22 — ORPHANED WORK IN `sql_for_agents/`, recorded so it cannot vanish quietly
+
+Not mine, not adopted, and deliberately not committed by me. Recorded because uncommitted work on
+this tree is not safe (CLAUDE.md: the next `git add -A` from any lane sweeps it into an unrelated
+commit and nothing records what it was), and because it currently looks *in flight* when it is not.
+
+| fact | state as of 2026-08-22 19:00 UTC |
+|---|---|
+| files | `566_database_cleanup_reaps_every_terminal_status.sql` + its `_ROLLBACK` |
+| tracked? | **no** — untracked in `git status` |
+| applied? | **no** — 0 rows in `schema_migrations` for `566%` |
+| complete? | yes — full file, guard + edit + verify, ends `COMMIT;` |
+| author | the `bugs_open/354` lane, session **ENDED** (confirmed by the `bugs_open/307 [abdc1e]` lane, which held the other half of that name) |
+| what it fixes | arm 3 of `database-cleanup` names `'COMPLETED','FAILED'` literally while arm 4 skips `is_terminal` rows, so a terminal status named by neither is **never deleted**. `CANCELLED` is already in that position: 24 rows, oldest 34 days, against a 24h norm |
+| its `before` md5 is now stale | it pins `c26ccf49…`; after 567 the live text is `7f4321d4…`. Its anchor `WHERE status IN ('COMPLETED', 'FAILED')` is untouched and still occurs exactly once — 567 asserts that as a negative control — so swapping its two md5 literals is the whole fix |
+
+**Why I did not adopt it.** I have not read its arm-3 change closely enough to vouch for it, and
+committing another lane's finished work under my name is precisely what the commit-per-task rule
+exists to prevent. The `bugs_open/307 [abdc1e]` lane declined for the same reason and surfaced the
+choice; we independently reached the same answer, which is some evidence it is the right one.
+Surfaced to the owner instead — "finished work from an ended session, sitting untracked, fixing a
+leak that is losing rows today" is his call.
