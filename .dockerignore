@@ -44,6 +44,12 @@ docs/
 # it into a literal the job carries — is the exact drift trap CLAUDE.md records
 # against 099/check.py.
 !docs/agent_docs/docs024_key_docs_latest/architecture_review/optional_explicit_wire_acks.json
+# Same argument, second gate: commit-sha-exposure-check (WFA-022, the standing
+# form of migration 537's guard, bugs_closed/334) ships its own exceptions file
+# the same way. ⚠ A NEW ack-shipping check needs a line HERE as well as in its
+# dockerfile — without one the COPY fails at build time, which is the loud
+# direction and how this line got written; the quiet direction would be worse.
+!docs/agent_docs/docs024_key_docs_latest/architecture_review/commit_sha_exposure_acks.json
 scripts/migration/
 scripts/deployment/
 
