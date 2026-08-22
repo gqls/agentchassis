@@ -159,6 +159,13 @@ banking them is what makes the job able to go green. That is a debt decision, no
   passenger; in the minutes that took, **they committed first and my line rode into `5fddba825`**
   (a TL-049 status commit). So the trap is symmetric, and waiting does not avoid it — it only
   decides which side of it you are on. Recorded here so that session can find the line they carried.
+  **It then happened AGAIN, in the other direction, twenty minutes later**: the `LANDMINES.md`
+  entry this bug produced was committed as `8cc994b12` — `git diff --numstat` said 23 added
+  immediately before, the commit reported **41**, and the extra 18 were another session's
+  `newTag`-overlay entry appended in the gap. **So `--numstat` before the commit is not a
+  sufficient check** — the window between the check and the commit IS the exposure. The
+  reliable read is the insertion count and the commit-scope block the hook prints AFTER the
+  commit, which is what caught both. Forward-only; that entry is live under my message.
   Noted at all because the class recurs — `LANDMINES.md`, *"A concept-register STATUS
   line is a snapshot that outlives its truth"*.)
 - **`CGV-030`'s `verify-later` asks "whether the first UNATTENDED 06:55 firing succeeds".** It did
