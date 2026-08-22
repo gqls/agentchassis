@@ -64,6 +64,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | read the rule before inferring its purpose | 1 |
 | **re-ground a figure before repeating it — one copied from a sibling doc inherits ITS measurement date, one copied out of a since-corrected tool keeps the old tool's answer, and one handed to you by a sub-agent sweep carries no measurement date at all; never let any of them land in a commit message, council submission or code comment unmeasured** | **5** |
 | **a duplication audit identifies SHAPE, never INTERCHANGEABILITY — before calling two things duplicates, open BOTH and query live USAGE. A header states intent, not adoption; three of one sweep's "clear duplicates" failed this check (8 "byte-identical" health servers were 8 distinct bodies; two "duplicate" exporters shared a purpose and 0 of 16 functions; the "generic" Firecrawl action had no callers at all while the "bespoke" one was live)** | **1** |
+| **ask when a column was ADDED before reading its presence/absence as a WRITER fingerprint — a split by column-existence is a split by DATE** | **1** |
+| **write a nullable comparison as `IS DISTINCT FROM`, and print the count of rows where the comparison actually RAN — `<>` against a NULL yields NULL and silently drops exactly the rows the query exists to find, returning a clean zero** | **1** |
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **2** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **5** |
@@ -43396,3 +43398,50 @@ as a difference. The tell was that the false six were all ordinary, long-standin
 result too alarming to be true is worth one more look before it becomes a finding. `tr -s ' \t' '\n'`.
 Same family as the existing landmine that `tr '\n' ' ' | grep -c` cannot detect a partial loss:
 **whitespace normalisation is part of the measurement, not a tidying step before it.**
+
+---
+
+## 2026-08-22 — two comparisons that would each have reported "nothing is wrong", in one hour, on the same bug (`bugs_open/357`)
+
+**Both were caught before they reached a durable doc**, so neither is a published false claim and
+nobody should count them as equal in weight to the rows above. They are here because the file's
+value is the tally of *skipped checks*, and one of the two was caught by luck rather than by method.
+
+### 1. I nearly used a column's presence as a WRITER fingerprint. It is a DATE fingerprint.
+
+**The claim I was assembling.** The 22 mislabelled rows split cleanly: nine have
+`page_components.rendered_html_digest` NULL, thirteen have it set. I was one sentence from writing
+that the two groups came from **different writers** — which would have sent the whole diagnosis
+after a second producer that does not exist.
+
+**What is actually true.** The INSERT writes `md5($3)` **unconditionally**
+(`save_page_sections_action.go:999-1001`), so no row from that writer can lack it. The column
+postdates the older rows (`bugs_open/229` / IMP-052). **The split is by date.** The real
+discriminator — `content_brief`, which only `save_page_sections_action.go` writes at all — pointed
+at *one* writer for all 22, which is the answer the `63d4d1a7` diagnosis run could not reach.
+
+**The check.** Before reading a column's presence or absence as evidence about *behaviour*, ask
+when the **column** arrived. `git log -S<column> -- <migrations>` costs one command. A schema change
+partitions your population by calendar and it looks exactly like a partition by cause.
+
+### 2. `<>` against a nullable column returned a clean zero for the defect it was written to find
+
+**What I ran.** Testing whether a component's `data-component` self-declaration disagrees with the
+one in the HTML it supposedly produced:
+`count(*) FILTER (WHERE tmpl_attr IS NOT NULL AND tmpl_attr <> html_attr)` → **0**.
+
+**Why that is the worst possible answer.** The pathological rows carry **no** attribute at all:
+`html_attr` is NULL, `'hero' <> NULL` is NULL, not true, so the FILTER drops precisely the 27 rows
+the query existed to find. Written as `IS DISTINCT FROM` the same data returns **27**. A zero from
+the first form is indistinguishable from a healthy fleet — and I would have concluded the guard had
+nothing to guard against and dropped the whole fix candidate.
+
+**It was not method that saved it.** The same SELECT happened to carry a separate
+`tmpl_declares_html_silent` column, for an unrelated reason, and *that* returned 27. Had I written
+the tidy one-column version I set out to write, the defect would have measured itself away.
+
+**The check.** Any SQL predicate over a nullable column that is meant to **find** something:
+write it `IS DISTINCT FROM`, and in the same result print the number of rows where the comparison
+actually **ran**. A zero with no denominator beside it is not a measurement. This is the same shape
+as the demand control the memory index already insists on for a post-fix zero — it applies to the
+SQL operator, not just to the traffic.
