@@ -110,3 +110,21 @@ default over the one-row live read — the armed dry-run; (2) a grep filter
 - 554 asset-retraction disarm `bbf5e418`: **APPROVED r1**.
 All four commits carry `Council-Submitted:`; 098 credits them automatically now the
 verdicts are approved — no amends, per forward-only.
+
+## 2026-08-22 ~19:00Z — POST-ROLL VERIFICATION (chassis v1.0.1326)
+
+Fresh chassis deployed (~16:30Z, pods `6bb7b67bd4-*`). Verified at the artefact, not the roll:
+- **Stamp**: binary embeds build commit `27b932aca` (found by looping candidate shas over
+  `/proc/1/exe` — the provenance log line had rotated out of retention). Ancestry:
+  `git merge-base --is-ancestor` → **all four commits IN** (0ce242d9c, 120427766 r2,
+  d59ba32b8, 69cc0ea7a).
+- **Marker pairs, BOTH replicas, nonsense control clean**:
+  `"Failed to store URI"` ABSENT (writer retirement live) · `"Failed to store URL"` PRESENT
+  (positive control) · `CONTENT_VALIDATION_WARNING_DETAIL` + `"Valid build carried"` PRESENT
+  (071 recorder live).
+- **Organic acceptance rows**: zero rows under all three recorder codes in the 4h since the
+  roll — a quiet build window, so behavioural acceptance needs the induced/organic run:
+  `SELECT count(*) FROM agent_error_log WHERE error_code='CONTENT_VALIDATION_WARNING_DETAIL';`
+  (first warning-carrying valid build writes row 1).
+- **Regression proof re-fired** (pageflow pair at cookly — exercises StoreAssetAction, the
+  changed code, end-to-end): result recorded below when drained.

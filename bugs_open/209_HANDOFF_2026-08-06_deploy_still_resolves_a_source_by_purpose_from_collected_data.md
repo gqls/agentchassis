@@ -310,3 +310,14 @@ sharpen 324's old-binary tripwire, whose last legitimate writer is now gone), an
 (it was untracked and halting every `--apply` at its guard), and migration `553` relaxed
 asset-deployer's stale `input_contract` (`required:["domain"]`) so the asset_id-only
 dispatch your Phase 2 built for is admissible through the contract-validated path.
+
+### 2026-08-22 post-roll — the writer retirement is LIVE on v1.0.1326; marker pair verified
+
+Chassis rolled (~16:30Z, build commit `27b932aca` — embedded in the binary; commit
+`69cc0ea7a` is an ancestor). The contribution note's own check, run on BOTH replicas with a
+nonsense control: `"Failed to store URI"` **ABSENT** (the deleted DB `_uri` writer's log
+line — gone from the binary), `"Failed to store URL"` **PRESENT** (the kept writer, positive
+control). Post-roll pageflow regression at cookly.uk fired the same hour (exercises
+StoreAssetAction end-to-end); result in the closeout lane's NOTES. What remains for this
+file is unchanged from the note above: the 16 stale `sites.content_data` `{purpose}_uri`
+keys (**16** as of 2026-08-22) and the `sql_for_agents/057` doc rot.
