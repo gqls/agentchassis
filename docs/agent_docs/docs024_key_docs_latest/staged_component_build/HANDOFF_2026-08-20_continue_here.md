@@ -615,6 +615,36 @@ unsatisfiable-fence shape) and it is nobody's tonight.
 08:45Z boundary, against 8 tool-generator runs plus normal fleet traffic. **No `1-resolve-and-warn`
 ⇒ no regression signal.** No `2-refuse`. Banked uninterpreted, per the §2.11 table.
 
+### ✅ 516's WITH-PAGES RESOLVER LEG IS PROVEN — and it is the strongest `?` evidence the lane has
+
+The positive control completed 09:06Z (corr `8ea2140b`). `cross_links_added: 0` — **but that is not
+the wire failing**, and the emitter's own telemetry says so in one row, verified here:
+
+```
+tool_crosslink_not_emitted:tool_page_will_not_go_live
+  related_pages_n : 3
+  related_pages   : ["electric-vs-pneumatic-economics","robot-demand-step-change",
+                     "pneumatic-vs-electric-grippers"]
+```
+
+Those are **exactly** the three pages the owner named in the spec. So the `?`-marked wire resolved
+`input_data.spec.related_pages` through Strategy 0 and delivered all three values to the emitter,
+which then withheld for an unrelated reason.
+
+**This is a BETTER proof of the `?` marker's present-value half than 537's.** 537 gave a *count*
+(140 of 180 completions carrying `result.commit_sha`); this gives the **exact values**, end to end,
+visible in the consumer's own record. Both halves of the marker's contract are now demonstrated in
+production: absence (515 — `page_type` excluded from `requested_fields`) and presence (here).
+⚠ Still true and unchanged: `page_type?` itself remains unprovable on the presence axis, because
+nothing durable records the value `plan_sections` was handed. Do not let this row be read as
+covering it.
+
+**My "if it comes back short, the marker is not the suspect — look at the emitter" call held**, and
+it saved the first hypothesis. The withholding is a separate defect, now `bugs_open/353` (029's
+Guard 2 gates new-page crosslinks on a `needs_content_page` item that 177's guard no longer raises
+for pure-tool pages; censused at **32 withholdings / 30 tools deployed with zero items / ~24
+domains**). **Not the flip, not 516's resolver leg, not this lane's to fix.**
+
 **THE GAP I ALMOST LEFT OPEN, now closed.** Every `?` marker proof this lane has produced tests the
 **ABSENCE** half — 515 showed `page_type` excluded from `requested_fields`; 537 showed the same for
 `commit_sha`; both are evidence the field *stops reaching the whole-tree search*. **None of them
