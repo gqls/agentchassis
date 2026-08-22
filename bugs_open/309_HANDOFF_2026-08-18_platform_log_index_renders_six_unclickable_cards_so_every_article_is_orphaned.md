@@ -665,3 +665,81 @@ a defect that is not there.
 live by the `bugfix_309_unclickable_index_cards` lane. This section closes the **case**
 half only. Whether any sibling site still carries a numbered-flat list component is that
 lane's question, not this one's.
+
+
+---
+
+## 14. THE LAST HALF IS BUILT — §5 candidate 2, the at-rest audit (2026-08-22)
+
+**Status of this bug, precisely.** The **case** is fixed and still holding. The **class**
+has two doors, and until today only one was shut.
+
+| half | state |
+|---|---|
+| the case — fundamentallyai.com's index | **FIXED and re-verified 2026-08-22**: HTTP 200, 64,775 bytes, **8 `bl-card` blocks, 2 anchors in every one**, card 4 on the LIVE `/guides/tool-ai-readiness-checker-guide.html`. Three days on from §13 and unchanged. |
+| the class, BIRTH door — CLC-018 | **LIVE and HOLDING.** `[MEASURED]` **zero** offending components created or updated since it went live 2026-08-19. |
+| the class, AT-REST door — §5 candidate 2 | **BUILT, committed, council round 2 in flight. NOT deployed.** This section. |
+
+### Why the birth gate was never going to be enough
+
+The gate only fires on GENERATION. **A component is routinely inserted or altered by a
+hand-written migration or by hand SQL, which never passes through
+`store_generated_component_action` at all** — already a standing LANDMINE, and precisely
+how `blog-listing_pre_037` came to exist. `[MEASURED 2026-08-22]` the population the gate
+can never see:
+
+| class | fields | components |
+|---|---|---|
+| `phantom_aspect` | 51 | 9 |
+| `unregistered_query` | 14 | 5 |
+| `prefix_outside_vocabulary` | 4 | 3 |
+| **total** | **69** | **17 distinct** |
+
+**Six of the seventeen are live on 46 page instances** — `info-card-grid` 32,
+`Latest News Feed` 6, `featured_article` 3, `category-listing` 2, `testimonials` 2,
+`social_proof` 1. Each of those is a field being silently dropped on a served page today,
+by the same mechanism that orphaned the six articles this bug is named after.
+
+> **The 69 now have an owner: `bugs_open/362`.** Every row of the baseline names it by
+> path, and a repair forces a visible baseline trim — **that file's shrink history is the
+> burn-down**, with no separate bookkeeping to keep in step.
+
+### What was built
+
+`config-key-audit --component-source-vocabulary`, daily CronJob
+`component-source-vocabulary-check` at **07:20 UTC**. Commits `747e717a1` (mode + rule
+refactor + baseline), `effd08fff` (image + manifests + makefile), `62f187442` (bug 362 +
+a correction). Register entry **CLC-025**.
+
+**It CALLS the birth gate's rule; it does not mirror it.** §8 of this file and CLC-018
+both asked for exactly that — *"build it ON `sourceVocabularyIssues`, not on a second
+predicate, or they drift"* — so the guard now returns structured `[]SourceIssue` and
+`SourceVocabularyIssues` is a thin projection over it. The three older daily checks carry
+a Python re-implementation pinned by a parity test; **that shape was considered and
+rejected here**, because a mirror can only DETECT drift where a call makes it
+unrepresentable.
+
+**The 69 are grandfathered by a baseline that can only SHRINK** — keyed on the exact
+`(component_id, field, source, class)` tuple so it can never become an all-clear for a
+component, date-refused so it cannot be appended to, and governing the **exit code only**:
+the daily `doc_notes` row names all 69 every morning.
+
+### Proven, not asserted
+
+Controls against the real live library: day-one **GREEN** at exactly 69/17/6/46; the
+**real pre-478 `blog-listing_pre_037` schema** (from migration 478's own backup table, not
+a synthetic) re-entering the library goes **RED**; a second bad field on already-baselined
+`info-card-grid` (32 live instances) goes **RED** — the allow-list-silences-your-own-detector
+proof; a repaired component turns its entries stale; both vacuity refusals exit 2. Then
+**six mutation proofs**, each defeated in the working tree and each KILLING its test, file
+restored byte-identical.
+
+### What is left, and it is one step
+
+**Build and push the image, then apply the overlay** — in that order, and verify at the
+artefact (recipe in the lane RUNBOOK). Until then the check has never executed, and
+**its silence must not be read as health**: the image does not exist at the pinned
+`v1.0.1324`, and an `ImagePullBackOff` on this fleet reports as a Job still RUNNING. It is
+in `RELEASE_IMAGES`, so a normal fleet release builds it.
+
+**309 therefore stays OPEN**, on that one step. Nothing about it is blocked or undecided.
