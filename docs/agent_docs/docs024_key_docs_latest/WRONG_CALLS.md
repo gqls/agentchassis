@@ -44903,3 +44903,39 @@ and **nothing in your test suite watches it**. `go build`, `go test` and the mut
 passed throughout — they cannot see a stale paragraph. Sibling of the memory line *a subagent's
 report is ANOTHER DOC*: the submission is another doc too. Either generate it from the source, or
 expect it to be wrong by the time anyone reads it.
+
+## 2026-08-22 (fourth, caught BEFORE filing) — I nearly filed a broken-HTTPS bug against another lane's live site, on a domain I typed from memory. Two independent tools "confirmed" it, because all three of us were asked about the wrong host
+
+**The claim I was minutes from filing.** While measuring the blast radius of a contrast change I ran
+a scan over eight live pages, one of which I wrote as `dartsonline.co.uk`. It failed with
+`ERR_CERT_COMMON_NAME_INVALID`. I verified that with **openssl** (`subject=CN=*.secure-secure.co.uk`,
+a hosting default) and with **curl** (`SSL: no alternative certificate subject name matches target
+hostname`), established that the fleet's browser sets no `IgnoreHTTPSErrors` so every browser-based
+check would be blind on the site, confirmed 52 open work items against it, and started drafting
+`bugs_open/366`: *a live fleet site is serving a hosting-default certificate and every visitor gets
+a security interstitial.*
+
+**The fleet's site is `dartsonline.com`.** There is no `.co.uk`. I had typed the TLD from memory
+into my own page list. `dartsonline.com` serves `CN=dartsonline.com`, valid to 1 Oct 2026, HTTP 200,
+`ssl_verify_result:0`. The domain I tested belongs to someone else entirely.
+
+**Why this one is worth its own row.** *Three independent tools agreed with me* — Playwright,
+openssl and curl — and their agreement was worth nothing, because independence in the INSTRUMENT is
+not independence in the SUBJECT. All three were asked about a host that was never ours. I have
+written the phrase "verified two ways" in this file as a virtue; here it would have been three ways
+and still false. **Corroboration only counts across instruments that could disagree about the thing
+you actually mean** — and every one of them was downstream of one hand-typed string.
+
+**What caught it, and it was luck dressed as process.** Not scepticism about the finding — I
+believed it. It was the standing rule to *check who owns a thing before filing against it*: querying
+`sites` for the domain returned `dartsonline.com` with 34 pages deployed that same afternoon, and
+the mismatch was visible in the query output. The ownership rule exists to stop me competing with
+another lane; it happened to stop me fabricating a defect. Worth knowing that it does double duty.
+
+**The cheap check, now applied.** A target list for a fleet-wide measurement must come FROM the
+fleet, never from recall: `SELECT domain FROM sites WHERE …` and iterate that. I have changed the
+blast-radius script to do exactly that, because the version that reads my memory will be wrong again
+the next time a domain is added, removed or renamed — and it will be wrong *quietly*, since an
+unreachable page just drops out of the table. Related: `prior-art-search-goes-stale` (an absence is
+only true when you looked) and this file's own 2026-08-22 first row — a hand-authored input dressed
+as a measurement, twice in one day at opposite ends of the pipeline.

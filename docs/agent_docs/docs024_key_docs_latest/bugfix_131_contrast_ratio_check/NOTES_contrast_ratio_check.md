@@ -312,3 +312,38 @@ what an already-approved mechanism refuses.
 **Still owed after this lands:** a rebuild of `browser-runner-adapter` (the refinement is inert on
 `v1.0.1326`), then re-run the witness expecting `failed:1` with an attributed culprit, then the
 Phase-2 seed/planner vocabulary work.
+
+### Blast radius of the bounded-backdrop refinement — measured fleet-wide 2026-08-22
+
+Ran the refined probe (extracted from source) against **every live fleet domain** — 24 domains, list
+taken from `sites JOIN pages WHERE deployed_at IS NOT NULL`, NOT from recall (see the WRONG_CALLS
+row below about what a hand-typed list cost me). Homepage per domain, mobile 390×844.
+
+**The refinement is almost inert fleet-wide: 3 newly-judged elements, all on one site.**
+
+| | count (as of 2026-08-22) |
+|---|---|
+| firm failures across 24 live homepages | **145** |
+| of those, NEWLY judged by the refinement (`gradientBounded`) | **3** — all on vonc.com |
+| sites gaining zero new failures from the refinement | **23 of 24** |
+| the diagnosed page itself (`vonc.com/tools/gauntlet/`) | 9 firm, all 9 newly judged |
+
+So the answer to "this widens what an approved mechanism refuses" is: measured, the widening is
+**3 elements on 1 of 24 sites** plus the page it was diagnosed from. The new branch is rare and
+specific — the same shape 131-B found for its own clipped-overflow clause (86 clean / 8 flagged /
+exactly 1 on the new branch), and for the same reason: it keys on a narrow structural condition.
+
+**The much larger finding is the 145, and it is NOT about this refinement** — 142 of them fail under
+the rule as already shipped in `v1.0.1326`. **If `contrast_ratio` were added to standing fences
+today, it would fail most sites.** That is a Phase-3 input the owner/council will need: adoption is
+not a switch to flip quietly. Worst offenders on this sample: `loanandmortgagecalculator.co.uk` 30,
+`vonc.com` 33, `gamesdesign.co.uk` 15, `idea.uk` 14, `loancash.co.uk` 13.
+
+⚠ **145 is a FLOOR, and homepage-only is exactly the sampling error `bugs_closed/122` warns about**
+(*"a homepage is not a sample of a site"*; its own homepage-vs-sitemap runs differed by ~2 orders of
+magnitude — robot-hands 3 → 193, dartsonline 1 → 125). Do not quote 145 as a fleet total; it is
+24 pages, one per site, on one profile, on one date.
+
+**`https://pool-energy-utilities.internal` was excluded** (not publicly resolvable), and that
+exclusion is stated rather than silent — a dropped row in a scan table reads exactly like a clean
+one.
