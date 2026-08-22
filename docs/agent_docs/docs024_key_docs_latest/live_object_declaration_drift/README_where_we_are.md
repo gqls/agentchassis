@@ -59,3 +59,39 @@ One honest note: I got something wrong on the way and it is written up. I counte
 the code two short of the live list and briefly thought the guard was failing. I had grepped for
 one spelling of a function call when there are two. The lesson is small and general — I measured
 my guess about the interface rather than the interface — and I have logged it.
+
+## 2026-08-22, later — I went looking for damage and did not find any. That is the honest headline.
+
+I said earlier that seven of our tests check the code against a photograph rather than against the
+live system. The obvious next question is whether any of those photographs have stopped resembling
+the thing, so I checked six of the seven directly against the live database — the scheduled job's
+setting, two database triggers, two column rules, and two workflow definitions.
+
+**All six still agree.** Nothing has drifted. Nothing is broken today.
+
+I want to be plain about that rather than dress it up, because it would have been easy to. Each of
+those six checks could have come out the other way, and one of them very nearly looked like it had
+— I found that a third database trigger now exists on one table where the file our test reads
+describes only two. But the part the test actually checks, the shared logic behind those triggers,
+still matches.
+
+So the case for doing something is not "this is broken". It is narrower and, I think, stronger.
+
+Three of these seven tests **cannot fail** in the way they are written to fail. They check that a
+migration file still contains a particular line — but we have a firm rule that a migration file must
+never be edited once it has run, because the system stores a fingerprint of it. So the thing the
+test is watching for is something our own rules have already made impossible. The test is green, and
+would stay green if the live database were changed out from under it tomorrow. Two others quietly
+pass if the file they want has merely been renamed.
+
+There is also a good example already in our code of how this should look. One of the seven, the one
+covering which values a couple of columns will accept, doesn't name a fixed file at all — it scans
+every migration we have and takes the most recent one that sets the rule. That is much harder to
+slip past, and it is the pattern I would want to generalise rather than invent something new. What
+even that one lacks is the last step: asking the live database what it actually thinks.
+
+The independent diagnosis run is still going, on its third pass. The design work is still coming
+back. When both land I will file this properly and put it to the review council. I do not expect to
+be told this is urgent, and I would not argue if someone said it should wait behind more pressing
+work — but it is the kind of thing that is very cheap to fix now and expensive to discover later,
+because the failure it permits is one where everything looks fine.

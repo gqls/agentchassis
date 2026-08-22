@@ -129,3 +129,215 @@ Filed per the OWNER RULING of 2026-07-31 (a `bugs_open/` file asserting a cross-
 structural root cause is not filed until it has been through the loop).
 `CORRELATION_ID=c236fbb4-ca7f-4540-8170-8b806f40fc54`,
 **`RUN_CORRELATION_ID=c8ec6478-5a54-4a16-aaf1-1e3373684ba0`** ← the key the artifacts carry.
+
+---
+
+## 2026-08-22 (later) — three live objects checked against their files. All three AGREE. The class is LATENT.
+
+I went looking for damage and did not find it. Recording that plainly, because the finding below
+is stronger *without* a damage claim and would be worth less if I stretched for one.
+
+| live object | checked how | result |
+|---|---|---|
+| `scheduled_tasks.claimed-item-timeout.pre_query` | `regexp_match` on the live column | 14 types = union of both rosters ✅ agrees |
+| function `site_component_history_archive` (mig 344) | `pg_get_functiondef` | all three verdicts + the md5 clause present ✅ agrees |
+| function `page_component_artefact_archive` (mig 357) | `pg_get_functiondef`, all four of the guard's needles | 1 occurrence each, all four ✅ agrees |
+
+[MEASURED 2026-08-22] Each of these could have come out otherwise — that is the point of running
+them. None did.
+
+### But the mechanism sharpened, and the sharper form does not need damage
+
+Reading `TestDivergenceVocabularyMatchesMigration357`
+(`page_component_divergence_test.go:217-240`) makes the real defect obvious:
+
+```go
+src, err := os.ReadFile(".../357_page_component_artefact_archive.sql")
+if err != nil { t.Skipf(...) }                       // ← unreadable ⇒ PASSES
+for _, needle := range []string{ ... } {
+    if !strings.Contains(s, needle) {
+        t.Errorf("migration 357 no longer contains %q — the DB-side verdict has drifted")
+    }
+}
+```
+
+**Migration 357 is an applied, frozen file. It CANNOT stop containing those needles** — editing an
+applied migration is forbidden by this estate's own rule, precisely because `schema_migrations`
+holds its checksum. So the assertion "migration 357 no longer contains X" describes an event that
+policy has already made impossible.
+
+The guard is therefore **not capable of failing in the direction it exists to detect.** It is not a
+weak guard against live drift; it is a guard against a different thing entirely (someone editing a
+frozen file), wearing the error message of the first. That is the same shape as the memory index's
+*a quiet-test passes when the RULE is gone* and *a mutation that PASSES may have hit a guard in
+series* — a check whose green is uninformative.
+
+Two aggravations in the same function:
+- `t.Skipf` on an unreadable file. A rename makes the guard pass silently. Instance 2
+  (`TestGoAndSQLAgreeOnTheCooldownBoundary`, migration 506) has the identical construct.
+- The Go half of the same test **is** real — it reads `page_component_divergence.go` and asserts the
+  live source compares `rendered_html_digest <> md5(pc.rendered_html)`. So one test contains a
+  genuine assertion and a vacuous one, and the genuine half makes the vacuous half look load-bearing.
+
+### The live trigger SET has already outgrown the file the guard reads
+
+`pg_trigger` on `page_components` returns **three** triggers on `page_component_artefact_archive`:
+
+```
+trg_page_component_artefact_archive_upd   ← declared in 357
+trg_page_component_artefact_archive_del   ← declared in 357
+trg_page_component_content_archive_upd    ← NOT in 357; added by 552
+```
+
+`552_content_only_update_archives_too.sql` added the third. The guard reads 357 and the Go comment
+at `page_component_divergence.go:9` describes a *pair*. So the description the guard checks is
+**already incomplete** with respect to the live object — the function body still matches, but the
+set of firing conditions does not.
+
+⚠ **552 belongs to an ACTIVE lane** — it is `bugs_open/355`'s build (RFC_042 option (c), ruled
+2026-08-22). **Not touched, and must not be.** It is cited here only as evidence that live objects
+accumulate past the file a guard reads, which is the whole claim. Its author did nothing wrong.
+
+### What this does to the fix
+
+It rules out the tempting cheap fix. "Point the guard at the newest migration instead of a pinned
+one" (what instance 1's glob already tries) does **not** work: it still reads history, the glob
+must guess a filename convention, and 552's name would not match a `*_page_component_artefact_archive.sql`
+glob any more than 524's matched the claim-timeout one. The declaration has to stop being a
+migration file.
+
+---
+
+## 2026-08-22 — instance 5 checked, and it is the best guard in the class. That matters for the fix.
+
+`TestValidDocSubjectTypes_LockstepWithMigrationCheck` (`doc_subjects_common_test.go:141`) does
+**not** pin a filename. Its helper `newestConstraintValues` (`:73-120`) walks the whole
+`sql_for_agents` directory, parses the numeric prefix, and keeps the **newest** migration that
+recreates the named CHECK constraint — then asserts Go's `validDocSubjectTypes` equals the
+**union** of the newest `doc_plans_subject_type_check` and `doc_notes_subject_type_check` values.
+
+Live check [MEASURED 2026-08-22, `pg_get_constraintdef`]:
+
+| | values | n |
+|---|---|---|
+| live `doc_plans_subject_type_check` | tool, pipeline, experience, action, experience-pattern, component | 6 |
+| live `doc_notes_subject_type_check` | …+ landmine, decision | 8 |
+| union | 8 | |
+| Go `validDocSubjectTypes` | tool, pipeline, experience, action, experience-pattern, component, landmine, decision | 8 |
+
+**Agrees.** The 6-vs-8 asymmetry between the two tables is deliberate and documented (a landmine
+has no shared-contract shape for `doc_plans`), and the test models it correctly as a union.
+
+### Why this changes the recommendation
+
+This is the shape the rest of the class should already have had, and it is **already in the repo**.
+It removes the two weakest links the other guards have — no pinned filename, no glob that a later
+migration can slip past by being named differently (`524`, `552` both did exactly that). It derives
+a *current declaration* from append-only history by construction, which is the thing I was about to
+propose inventing a `declarations/` directory for.
+
+So the honest framing of the fix is **not** "build a new declaration mechanism". It is:
+
+1. **Generalise `newestConstraintValues`** from "newest migration declaring this CHECK constraint"
+   to "newest migration declaring this *named live object*" — the same scan, parameterised by what
+   is being declared. One helper, shared, instead of five bespoke readers.
+2. **Add the half nobody has: compare that derived declaration to the LIVE object.** This cannot
+   live in `go test` (no DB), which is why it has to be a runtime auditor — and why a pre-commit
+   hook cannot do it either (at commit time the migration is unapplied; RFC_006 ruled on exactly
+   this and the answer was a daily CronJob).
+
+### Score so far: 4 live objects checked, 4 agree
+
+`claimed-item-timeout.pre_query` · `site_component_history_archive` · `page_component_artefact_archive`
+· both `subject_type` CHECKs. **The class is LATENT — filed for the door, not the damage**, the same
+basis 317 itself was filed on. What is NOT latent is that three of the guards cannot fail in the
+direction they exist to detect, and the live trigger set has already outgrown migration 357.
+
+---
+
+## 2026-08-22 — census COMPLETE: 6 of 6 live objects checked against their declaring file. All 6 AGREE.
+
+| # | guard | live object | how checked | result |
+|---|---|---|---|---|
+| 1 | `TestClaimTimeoutExclusionCoversBothCompletionGates` | `scheduled_tasks.claimed-item-timeout.pre_query` | `regexp_match` on live column | ✅ 14 = union of both rosters |
+| 2 | `TestGoAndSQLAgreeOnTheCooldownBoundary` (506) | dispatch read predicate | — **not separately measured**; `524` stamps rather than reads, so no boundary to compare | ⚠ [UNMEASURED] |
+| 3 | `TestDivergenceVocabularyMatchesMigration344` | fn `site_component_history_archive` | `pg_get_functiondef` | ✅ 3 verdicts + md5 clause |
+| 4 | `TestDivergenceVocabularyMatchesMigration357` | fn `page_component_artefact_archive` | `pg_get_functiondef`, all 4 needles | ✅ 1 occurrence each |
+| 5 | `TestValidDocSubjectTypes_LockstepWithMigrationCheck` | 2 CHECK constraints | `pg_get_constraintdef` | ✅ Go 8 = union(6, 8) |
+| 6 | `TestRenderSlotNameConfigKeyMatchesTheSeededWorkflow` | `agent_definitions` `page-content-writer` | count of the setting in live `default_config` | ✅ 2 occurrences, seed demands ≥2 |
+| 7 | `TestMigration302CarriesTheCanonicalPredicateVerbatim` | `agent_definitions` `build-site-planner` | grep live config for the built predicate | ✅ exactly 1, verbatim |
+
+Instance 2 is honestly marked UNMEASURED rather than counted as agreeing — I have no live artefact
+for it that I checked, and padding the score would be the exact dishonesty this file exists to
+prevent.
+
+### Instance 7's own comment is the best statement of the bug in the repo
+
+`links_shipped_predicate_test.go:100-104`:
+
+> *"If migration 302's file is ever archived/moved, move this assertion onto its successor rather
+> than deleting it — **the LIVE row was written from that text**, and this test is the only thing
+> tying the row's predicate to the builder."*
+
+That is the inference the whole class rests on: *live == file, because the live object was once
+written from the file.* True at the instant of application; it decays silently from then on. The
+author saw the tie and named it, and the tie is still not asserted anywhere.
+
+### What the census does and does not license
+
+**Does:** the defect is real, structural, and affects seven guards across four kinds of live object
+(`scheduled_tasks.pre_query`, trigger functions, CHECK constraints, `agent_definitions` workflows).
+Three of the seven cannot fail in the direction they exist to detect, because they assert the text
+of a file that policy forbids editing. Two more (`506`, `357`) `t.Skipf` or pass when the file is
+unreadable, so a rename is a silent green.
+
+**Does not:** there is no damage to point at. No live object has drifted. Anyone reading this should
+file/fix it on the "close the door" argument — the same basis `bugs_closed/317` itself used — and
+**not** claim a live fault. If a future session finds drift, that is a new and much louder finding.
+
+---
+
+## 2026-08-22 — CORRECTION to the census table above: instance 2 is now MEASURED, and it agrees
+
+> **CORRECTED 2026-08-22:** the row for instance 2 above says `⚠ [UNMEASURED]`. That was true when
+> written and is now superseded — I found the live artefact and checked it. **Leaving the original
+> row in place** rather than editing it, per the working-docs rule; this block is the correction.
+
+`506_dispatch_reads_honour_retry_after.sql` writes **two** live objects (its own header, line 12):
+`scheduled_tasks.build-pipeline-trigger.pre_query` (line 37) and an `agent_definitions.default_config`
+via `jsonb_set` (line 57).
+
+The Go canonical renderer is `workItemRetryNotPendingSQL` (`work_items_common.go:355`), which for
+alias `wi` produces `(wi.retry_after IS NULL OR wi.retry_after <= NOW())`.
+
+Live [MEASURED 2026-08-22]:
+
+```
+$ ... SELECT pre_query FROM scheduled_tasks WHERE name='build-pipeline-trigger';
+      1 (wi.retry_after IS NULL OR wi.retry_after <= NOW())
+```
+
+**Exactly one occurrence, verbatim, non-strict `<=`** — matching Go, and specifically NOT the strict
+`<` the guard warns about. ✅ agrees.
+
+### Final score: 7 of 7 live objects agree. Nothing has drifted anywhere in the class.
+
+That is the whole census, with no UNMEASURED rows left and no instance excluded for being awkward.
+The bug is filed on the door, not on damage — and a future session finding drift should treat that
+as a NEW and much louder finding, not as confirmation of this one.
+
+### One more design input for the fix
+
+`506` is the case that shows why the auditor cannot be keyed on "one migration → one object". A
+single migration writes a `scheduled_tasks` row **and** an `agent_definitions` row, and the guard
+that reads it checks only the first. Whatever registry the fix introduces has to be keyed on the
+**live object**, with the migration as an attribute of it — not the other way round. Keying on the
+file reproduces the defect in the fix.
+
+### Council scope, checked before designing (`scripts/council-scope.sh:57-61`)
+
+In scope: `^(platform|internal|pkg)/` and `^docs/agent_docs/sql_for_agents/[0-9]{3}_[A-Za-z0-9_]+\.sql$`.
+**`cmd/` and `scripts/` are OUT of scope.** The existing precedent auditor lives in
+`cmd/config-key-audit`, i.e. outside review. So the new logic should sit in `platform/` (reviewable,
+importable by both a test and a runtime auditor) with only a thin `main` in `cmd/` — that is a
+design consequence of the gate's scope, not a style preference.
