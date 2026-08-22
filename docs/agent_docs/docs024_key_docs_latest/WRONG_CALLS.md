@@ -42808,3 +42808,164 @@ regenerate the plan from the code — never hand-patch the edit you have in mind
 refuted diagnosis (the inner loop that was 52 uncounted dispatches), a stale-column hazard
 (`LANDMINES:7104`), and now a fix wired to nothing. None was caught by my tests, all of which pass,
 because every one of them tests a function that is never reached in production.
+
+---
+
+## 2026-08-22 — I wrote a guard against a class, and shipped two versions of it that asserted NOTHING. Only mutation told them apart
+
+**Lane:** `bugfix_356_orphan_check_lifecycle_axis`. The guard is
+`page_lifecycle_posture_test.go` — a build-enforced check that a discovery check declaring
+"my query is lifecycle-armed" actually carries the arm. It exists precisely because a doc
+comment had failed to enforce the same rule.
+
+**Both wrong versions passed their own suite, looked correct in review, and protected nothing.**
+
+**v1 — the guard read its own documentation as evidence.** It scanned the file for
+`PageWantedLivePredicateFor`. Deleting the real SQL arm from `check_orphan_pages.go` left the
+test GREEN, because the arm's own explanatory comment names the helper in prose. **What caught
+it:** running the mutation instead of asserting the test was "mutation-provable" in its
+docstring — which is what the first draft of that docstring actually said. This is
+`LANDMINES`' *"a source-scanning test makes your COMMENTS load-bearing"* firing inside a test
+written by someone who had read that landmine an hour earlier.
+
+**v2 — I hand-rolled a comment stripper, and it was wrong in the direction it said it could not
+be.** v2 stripped `//` and `/* */` textually, then searched for `status = 'active'`. Two
+failures at once:
+
+- **Over-stripping.** `req.Header.Set("Accept", "*/*")` appears in two checks. A textual
+  scanner reads the `/*` inside that STRING LITERAL as a block-comment opener and discards
+  everything to end of file — so two correctly-armed checks failed. **Its own header claimed
+  the only weakness was UNDER-stripping, "which could only ever cause a false PASS".** The
+  stated limit was wrong about its own direction.
+- **Under-discriminating, which is the serious one.** The needle was unqualified, and nearly
+  every check in the package joins `site_nav_items sni ... AND sni.status = 'active'`. So with
+  the real arm deleted, `check_orphan_pages.go` still PASSED — **satisfied by a predicate on a
+  different table.** That is the identical false-clean reading the grep-count gave earlier the
+  same day (entry above), reproduced *inside the guard written to prevent it*.
+
+**v3, which works:** `go/scanner` for tokenising (the compiler's own lexer knows a string
+literal from a comment), and the needle bound to a **declared pages alias** recorded per file.
+Proven by mutation with the decoys deliberately left in place: deleting the arm now fails while
+the file still contains the string in a comment AND twice on the nav join.
+
+**The cheap check that would have.** Mutate before you believe, and mutate with the DECOYS
+PRESENT. A clean-room mutation ("delete the line, does it fail?") would have caught v1 but
+passed v2, because v2's blind spot needed the nav join to be there. **The mutation has to be
+run against the real file in its real state, not a minimal reproduction.**
+
+**Generalises, and this is why it is worth the length.** A source-scanning guard is a
+measurement, and it answers the question you ENCODED. Three encodings of "is this file armed"
+were available — *contains the string*, *contains it outside a comment*, *contains it bound to
+the right table* — and only the third is the question. All three compile, all three pass a
+green suite, and **nothing in the code review distinguishes them**; the difference is only
+visible under mutation. Same family as
+[[your-measurement-answers-the-question-you-encoded]] and
+[[mutate-the-code-to-prove-the-guard]], with one addition worth carrying: **when a guard's
+header states its own limitation, that is not a discharge and it is not necessarily even
+accurate.** v2's header reasoned confidently about a bound its author had not tested, and got
+the direction backwards. `verifier_coverage_test.go`'s own 2026-07-20 correction says the same
+thing about the same package — I had read it, quoted it in the submission, and still did it.
+
+**Cost if uncaught:** the worst possible outcome — a guard on the books, cited in the concept
+register and a council submission as the thing that closes the class, silently permitting the
+exact defect it names. Every future author would have had a green build telling them their
+check was armed when it was not.
+
+---
+
+## 2026-08-22 — my mutation-test cleanup trap wrote a stray source file into the repo root
+
+**Lane:** `bugfix_356_orphan_check_lifecycle_axis`, during the mutation runs above.
+
+**What happened.** I backed a file up and set `trap 'cp /tmp/backup.go check_orphan_pages.go' EXIT`
+with a RELATIVE path, inside a command that later `cd`ed to the repo root. The trap fired at
+exit, in the new working directory, and created `/home/ant/projects/agentchassis/check_orphan_pages.go`
+— a second copy of a package file, at the module root, in a shared tree.
+
+**What caught it, and it was luck.** `go build ./...` failed with `undefined: Register` — the
+stray file has no package siblings at the root. Had I only run the package-scoped tests I had
+been running all along (`go test ./platform/.../discovery_checks/`), nothing would have
+complained.
+
+**Why it matters more than it looks.** This tree is shared and several sessions run
+`git add -A`. An untracked `.go` file at the module root breaks `go build ./...` for **every
+other session**, and would have been swept into whoever committed next — under their message,
+in their area, with no connection to this lane.
+
+**The cheap check that would have.** Absolute paths in any trap or cleanup that can outlive a
+`cd`; and after any command that mutates and restores files, run `git status --porcelain` and
+`go build ./...` rather than the narrow test you were iterating on. **A restore is a write, and
+a write in a shared tree needs the same check as any other.**
+
+**Generalises.** `trap ... EXIT` evaluates in the shell's state AT EXIT, not at definition —
+so a relative path in a trap is a bug whenever the command body contains a `cd`. The failure is
+silent at the moment it happens and surfaces somewhere unrelated.
+
+---
+
+## 2026-08-22 — I told the owner tools-api was unbuilt. It has been live on its own VM for a month, and my "evidence" was a 404 that meant the opposite
+
+**Lane:** `webdesign_uk_build_service`, answering the owner's D-A question (may core-manager be
+publicly reachable) by surveying what the estate already had for a bastion host.
+
+**What I claimed.** *"`tools-api` is deployed in NO namespace, so the whole bastion path is
+unbuilt"*, and *"the bastion host is a complete design that was never applied — a finished plan
+on a shelf, not a thing we have."* I put it in the lane NOTES, in the owner-facing README, and
+in a commit message.
+
+**What is actually true.** `tools-api` runs on a dedicated Mythic Beasts VM (the "island",
+`toolsapisuk.vs.mythic-beasts.com`), under docker-compose, image
+`docker.io/aqls/tools-api:v1.0.1198`, with its own postgres, its own spend-capped Anthropic key
+and its own offsite backup. It has been live since **2026-07-24/25**, serving
+`https://tools.apis.uk/api/v1/tools/*` through a Cloudflare tunnel, and it picked up a second
+tenant on 2026-08-16. It is one of the more thoroughly built things in the estate.
+
+**How the wrong call happened — two compounding errors.**
+
+1. **I asked Kubernetes whether a thing existed, and treated "not in Kubernetes" as "not
+   deployed".** `kubectl get svc -A | grep tools` returning nothing is a true fact about the
+   cluster and says nothing at all about the estate, which has at least three deployment
+   targets (the cluster, the webdesign box, the island). The query silently encoded
+   "deployed" = "in k8s".
+2. **I read the superseded document and skipped the current one.** I read
+   `gauntlet_dead_cta/infra/README_bastion_exposure.md` (a July *draft* proposing
+   bastion→WireGuard→cluster) and never opened `infra/island/RUNBOOK_island.md` in the same
+   directory — whose first line is *"the tools-api island (Route B1, built 2026-07-24)"*. The
+   design I described as unapplied had been **replaced**, not forgotten: the island is
+   deliberately self-contained so there is no tunnel into the cluster at all, which is why
+   `wireguard_bastion.yaml` and `networkpolicy_tools_api.yaml` were correctly never applied.
+
+**And the part that should have stopped me: I measured the live system and misread the result.**
+I ran `curl https://tools.apis.uk/` and got **404**, which I took as confirmation. The runbook
+records, from the day it was built: *"VERIFIED from outside: `https://tools.apis.uk/` → **404
+from our Caddy**"*. **The 404 was the design working.** The service allowlists `/api/v1/tools/*`
+and 404s everything else on purpose. I had the confirming measurement in hand and read it as
+disconfirming, because I never asked what a *working* system would have returned.
+
+**What caught it.** The owner: *"Please double check that the tools-api isn't wired up, I thought
+it was."* Nothing in my own process would have.
+
+**The cheap checks that would have, in ascending order of value.**
+
+- `ls -lt` the directory before choosing what to read. `RUNBOOK_island.md` was modified
+  **2026-08-20**, two days before I read the July README beside it. The newest file in a
+  directory is the one that knows.
+- `grep -rl "tools-api" --include='*.yml' --include='*.yaml' .` — finds the compose file
+  immediately. I restricted my search to k8s manifests because I had already assumed the
+  answer's shape.
+- **Discriminate the 404 instead of counting it.** Two requests, not one:
+  `/` returned 404 with **0 bytes** (Caddy's bare `respond 404`) while `/api/v1/tools/`
+  returned 404 with **18 bytes** — `404 page not found`, Go's own. Different bodies mean a
+  live origin with a path allowlist; a dead origin gives you the same response for both, or a
+  Cloudflare 52x. **One status code cannot tell "absent" from "working exactly as specified",
+  and I had no control that could have come out otherwise.**
+
+**Generalises, and this is the reusable part.** *"X is not built"* is a **negative claim about
+the whole estate**, and a negative claim inherits the scope of the narrowest query you used to
+support it. Before asserting one, name the places a thing could live and say which ones you
+actually looked in. Here there were three and I searched one, then wrote the conclusion in the
+voice of a survey. **The same 404-shaped trap is general too: an allowlisting proxy answers
+"not found" to everything it is protecting, so absence and correct operation are the same
+status code by design.** Related in kind: `a-post-fix-zero-needs-a-demand-control`, and the
+served-page zero I caught myself on earlier the same day — the control saved me there and I
+did not carry the habit into the next question.

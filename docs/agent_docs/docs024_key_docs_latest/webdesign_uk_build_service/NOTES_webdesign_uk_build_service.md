@@ -5261,13 +5261,52 @@ what caught the first; reading the lane's own verify script is what caught the s
   is running (5 controller pods, NodePort 30080/30443) with zero Ingress objects — the
   capability is there and unused.
 
-### 3. The bastion and tools-api designs are complete and were never applied
+### 3. ~~The bastion and tools-api designs are complete and were never applied~~ — **WRONG. CORRECTED 2026-08-22, same day, by the owner**
 
-`docs024_key_docs_latest/gauntlet_dead_cta/infra/` holds a finished, twice-corrected design:
-`README_bastion_exposure.md`, `Caddyfile`, `cloudflared_config.yml`, `wireguard_bastion.yaml`,
-`networkpolicy_tools_api.yaml`. **`tools-api` is deployed in NO namespace**
-(`kubectl get svc -A | grep tools` → nothing), so the whole path is unbuilt, exactly as the
-README's last line says.
+> ~~`docs024_key_docs_latest/gauntlet_dead_cta/infra/` holds a finished, twice-corrected design:
+> `README_bastion_exposure.md`, `Caddyfile`, `cloudflared_config.yml`, `wireguard_bastion.yaml`,
+> `networkpolicy_tools_api.yaml`. **`tools-api` is deployed in NO namespace**
+> (`kubectl get svc -A | grep tools` → nothing), so the whole path is unbuilt, exactly as the
+> README's last line says.~~
+
+**`tools-api` IS built and has been LIVE since 2026-07-24/25.** The owner caught this
+(*"Please double check that the tools-api isn't wired up, I thought it was"*); nothing in my
+own process would have.
+
+`[MEASURED 2026-08-22]` it runs on a dedicated **Mythic Beasts VM** — the "island",
+`toolsapisuk.vs.mythic-beasts.com` — under docker-compose
+(`gauntlet_dead_cta/infra/island/docker-compose.yml`), image
+`docker.io/aqls/tools-api:v1.0.1198`, with its own postgres, its own spend-capped Anthropic
+key, offsite backups, and a second tenant added 2026-08-16 (the gripper dossier intake).
+`RUNBOOK_island.md` line 1: *"the tools-api island (Route B1, built 2026-07-24)"*.
+
+**Verified serving by me, from the public internet, today** — and note the discriminator,
+because a single status code cannot decide this:
+
+| request | code | body | whose handler |
+|---|---|---|---|
+| `https://tools.apis.uk/` | 404 | **0 B** | Caddy's bare `respond 404` |
+| `https://tools.apis.uk/api/v1/tools/` | 404 | **18 B**, `404 page not found` | **Go / tools-api itself** |
+
+Different bodies on the same status = a live origin behind a path allowlist. A dead origin
+returns the same thing for both, or a Cloudflare 52x.
+
+**Why the earlier claim was wrong, and it matters for D-A:** the `wireguard_bastion.yaml` /
+`networkpolicy_tools_api.yaml` pair was **superseded, not forgotten**. The July README proposed
+bastion → WireGuard → *cluster* tools-api. What actually got built (Route B1) is
+**self-contained on the island with no route into the cluster at all** — the island's own
+Caddyfile says so: *"this replaces the bastion draft's caddy-ratelimit dependency"*. I read the
+draft and never opened the runbook beside it, which was the most recently modified file in that
+directory (2026-08-20, two days before I read the July one).
+
+**So the estate has ALREADY SOLVED D-A's shape once, in production**: expose an HTTP surface to
+the internet without exposing the cluster, by putting it on an island behind a cloudflared
+tunnel with a path allowlist. That is D-A option (b) — *"move `/c/` and `/d/` to a service
+allowed to be public"* — with a month of live precedent, and it should be costed as the
+leading option rather than treated as new ground.
+
+Full write-up of the wrong call, its two compounding causes and the cheap checks:
+`docs024_key_docs_latest/WRONG_CALLS.md`, 2026-08-22 entry.
 
 ### 4. ⚠ THE HAZARD THAT DESIGN WAS WRITTEN TO PREVENT IS ALREADY LIVE
 

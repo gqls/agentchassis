@@ -2031,3 +2031,30 @@ words on the wrong page. I only caught it because I had also asked the page to s
 price, and it could not. The real shopfront lives at a preview address, and there the count
 is exactly what we thought. Worth saying because a zero that comes from looking in the
 wrong place looks identical to a zero that means we fixed something.
+
+**Correction, same day — you were right about the tools API and I was wrong.** I told you the
+bastion host was a plan on a shelf and the tools API was not running anywhere. Both wrong. It
+has been live since 24 July on its own small UK server from Mythic Beasts, the provider that
+July design recommended, with its own database, its own separately capped AI key, and its own
+offsite backups. It picked up a second job in mid-August. It is one of the better-built things
+we have.
+
+Two mistakes stacked up. I asked the Kubernetes cluster whether it existed, got no, and wrote
+that down as "not deployed" — but we run things in three places, and I checked one. Then I read
+the old July proposal and never opened the runbook sitting next to it in the same folder, which
+was the more recently updated file and says on its first line that the thing was built.
+
+The part I mind most is that I actually tested the live address and misread the answer. I asked
+`tools.apis.uk` for its home page, got "404 not found", and took that as proof it was dead. That
+404 is the design working: the server is deliberately set up to answer "not found" to everything
+except the one path it serves, so that a stranger poking at it learns nothing. The way to tell
+the difference is to ask for two different addresses and compare the replies, not to count one.
+When I did that, the protected path answered with a message that could only have come from the
+running program, and the unprotected one answered with nothing at all.
+
+**Why this changes something rather than being just an apology.** Your question was whether the
+service holding every site's data may be reachable from the internet. It turns out we have
+already answered that question once, and built the answer, and run it for a month: put the
+public-facing bit on its own small machine, let a tunnel reach in to it, and allow exactly one
+path through. That is now the leading option rather than a new idea, and it comes with a working
+example we can copy instead of a design we would be trying for the first time.
