@@ -264,7 +264,7 @@ objections, none high. Register **BLD-026**. Lane:
 | candidate | state |
 |---|---|
 | **2** — `build-backend` builds exactly `RELEASE_IMAGES` | **DONE by construction** (`95757b6c2`). Not by adding three names: `build-backend: $(addprefix build-,$(RELEASE_IMAGES))` deletes the second enumeration entirely, so the two sides cannot drift. Set difference 25/25 **by identity**. |
-| **1** — the content-change trigger | **REPLACED, not built.** See below — as worded it is uncomputable here, and after the P1 fix its population is one service. The re-aim is the owner's call. |
+| **1** — the content-change trigger | **RULED OUT by the owner 2026-08-22 — *"we can skip the 18 August staleness build"* — and REPLACED by an accumulation budget on the exemption list. Not deferred: do not re-file it. See the ruling section at the foot. |
 | **the main gap** — an image of ours the release does not build | **CLOSED** (`f16daa34a`, `9b87dcfac`). The gate's admission test is INVERTED. |
 | **3** — a daily cluster census | **not built**, deliberately: it is detection, it needs RBAC, and it earns its own commit and its own review. |
 
@@ -363,3 +363,88 @@ over an empty population. **Not built pending the ruling.**
 real release has run under it (the `guardian` seat's objection is that this is the single
 choke point every deploy passes through, and it is right that the first run should be
 watched), and when the owner has ruled on candidate 1's re-aim.
+
+---
+
+## ⚖️ OWNER RULING 2026-08-22 — **SKIP the staleness build; guard the EXEMPTION LIST instead.** Candidate 1 is closed, not parked
+
+> *"we can skip the 18 August staleness build."* — and, on the options put to him,
+> **skip it AND add the cheap guard on the excused list.**
+
+This supersedes the section above headed *"⚠ WHAT IS STILL OPEN — an owner decision, not
+work"*, and supersedes the recommendation in the lane's
+`PLAN_2026-08-22_release_source_coverage.md` §2 that the predicate be re-aimed at the
+artefact and attached to `OWN_LINEAGE` entries. **Neither the 2026-08-18 wording nor the
+artefact-anchored re-aim is to be built.**
+
+**Read this as CLOSED, not as a gap.** The reason matters, because a later reader who
+finds only *"the content-change trigger was never built"* will re-file it — this estate has
+a landmine for exactly that shape (*a closed blocker keeps being obeyed*). Two independent
+facts had already emptied the idea before the ruling:
+
+1. **As worded it is uncomputable on this tree.** It dates a service's pin from the
+   overlay's git history, and `deploy-agents` seds `newTag` in place with nobody committing
+   the result — **26 production overlays dirty as of 2026-08-22**, `agent-chassis` recorded
+   at `v1.0.1239` against `v1.0.1323` on disk *and* in the cluster. A staleness test on that
+   history grades the most-rolled service on the estate as the most frozen. In `LANDMINES.md`.
+2. **After the P1 inversion its population is the exemption list, and that list holds ONE
+   entry as of 2026-08-22** (`admin-dashboard:deploy-dashboard`). Every other image of ours
+   is in the release, and BLD-020 makes a release one commit — so *"stale iff its source
+   moved"* could only ever bite an `OWN_LINEAGE` service. A mechanism with one possible
+   subject is one nobody exercises, which is this estate's own documented failure mode
+   (BLD-023 declined `assert_live_capability()` on precisely that ground).
+
+### What was built instead, and why it is the right trade
+
+**The risk skipping actually carries is not staleness — it is that the exemption list
+becomes the new hiding place.** The old one was "not in `RELEASE_IMAGES`"; eight services
+found it, two of them within three days of the ruling meant to close it. `OWN_LINEAGE` is
+better paperwork for the same shape unless something watches the pile.
+
+So (`8fe69e6c6`), two halves:
+
+- **`ExemptionBudget = 3`** in `pkg/releaseset/predicates.go` — the release fails when the
+  excused list grows past it, naming every entry. It polices the **accumulation**, not the
+  entry, the same shape as the optional-key budget (RFC_022, owner-set N=10, **WFA-013**).
+  N is **lower than 10 deliberately**: an exemption from the release is rarer and costlier
+  — what it permits is a service running months-old code with nothing reporting it, which
+  is this bug. **It is a judgement and one line; the owner may set it otherwise.**
+- **The gate names the standing exemptions on every GREEN run** — *"1 of those is EXCUSED
+  from the release (OWN_LINEAGE, budget 3) — admin-dashboard → deploy-dashboard"*. This is
+  the half that does the work: a threshold silent until it trips is a threshold nobody
+  watches, and this puts the count in front of whoever runs the release, so the **fourth**
+  exemption is noticed as it arrives rather than when a number is crossed.
+
+**Stated plainly, because it is the honest objection:** the budget **cannot fire today**.
+What distinguishes it from the mechanisms this estate has declined to build is that it
+needs no caller — it runs on every `deploy-core` whether or not it fires, so it is
+exercised continuously while quiet. That argument is written at the constant so the next
+reader can disagree with it rather than guess at it.
+
+**Proven** (`T10` plus a copied-tree run, never the live makefile): at the budget, silent;
+one over, reported and naming the whole accumulated set, with a remedy that offers a
+**reviewed** raise rather than a bare refusal. Honest detail from the shell control —
+fabricating three exemptions trips the *no-overlay* guard instead, because an exemption
+naming a service with no overlay is separately a violation; the two guards are independent,
+and the clean at-budget case is the unit test, which uses real overlays.
+
+### What still holds after the ruling, so nothing is lost with it
+
+- `OWN_LINEAGE` is unchanged — an explicit, greppable exemption naming the target that
+  moves the service. It never depended on the staleness predicate.
+- Staleness of a *release-covered* service was never this bug's question and is answered
+  elsewhere: **BLD-019** stamps the commit into every image and binary, **BLD-020** makes
+  one release one revision, **BLD-023** lets a running pod publish what it can do.
+- The **cluster-side census** (candidate 3) is untouched by this ruling. It is a different
+  question — *is anything declared but not running, running but undeclared, or off the
+  fleet tag?* — and it is the only thing that sees the two shapes found while measuring:
+  `capped-schedule-ordering-check` (declared, never applied) and two CronJobs running with
+  no overlay on disk. Unbuilt, not owed, its own round if anyone wants it.
+
+### Close condition, restated after the ruling
+
+**One thing remains: a real release under the gate.** The `guardian` seat's objection is
+the reason — this is the single choke point every deploy passes through, its admission
+logic has been inverted, and it can now fail a release it previously passed. A green run on
+today's compliant tree proves only that it *could* pass. When a release has run under it,
+`318` closes.
