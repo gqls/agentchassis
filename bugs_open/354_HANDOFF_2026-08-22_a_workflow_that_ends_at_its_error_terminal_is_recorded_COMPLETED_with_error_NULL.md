@@ -81,6 +81,16 @@ So `current_step='complete_error'` is a near-perfect discriminator — **the inf
 tell the two populations apart is already on the row.** This control could have come out the other
 way, and would have refuted the whole entry if `complete_error` were a routine terminal.
 
+> **ADDED 2026-08-22 by this lane at `bugs_open/307 [e24299]`'s prompting — the control's ONE
+> exception is not noise, it is a third state.** I recorded "exactly 1" (they measured 2 on their
+> sample) and never asked what it was. They did: those rows are `check_page_found`'s `else_step`
+> firing — **a page genuinely not found, i.e. a SKIP, not a failure.** So the discriminator's only
+> apparent false positive is a case that *should* be excluded, and requiring `__step_error` to be
+> present excludes it for free. That is `bugs_closed/299`'s finding — **a skip is a third state,
+> neither clean nor failed** — showing up inside this bug's own control. **The lesson is the same one
+> §2(d) records against me:** I treated a small residue as rounding error rather than asking what it
+> was, twice in one file, and both times the residue was load-bearing.
+
 **(c) What is actually being swallowed.** Grouped by the failing step (`status='COMPLETED'`):
 
 | failed step | runs | sample message (truncated) |
