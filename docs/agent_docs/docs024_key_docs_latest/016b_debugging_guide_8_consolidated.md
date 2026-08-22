@@ -5839,6 +5839,66 @@ construction. Expect the estate's source-scan guards (285 fence, 253/178 floors)
 writer — answer them (call / declared exemption with reason), do not allow-list around them.
 Worked case: `bugs_open/331`, TL-047, RFC_036 §12.
 
+### One artefact, TWO writers, neither reading the other — the repair works and expires, and nothing marks the moment it goes stale
+
+*From `bugs_closed/198` (css-patch-agent clobbering site stylesheets, three waves, nine sites).*
+
+**The shape.** A durable artefact is produced by two independent paths. One generates it from
+upstream records and never touches the stored copy; the other treats the stored copy as truth
+and publishes it wholesale. Whichever ran last owns the artefact entirely. The stored copy is
+not "stale" — **it was never in the other path**, so no amount of care in either writer detects
+the divergence, and the state where they disagree is the normal state.
+
+**Why it hides.** Nothing fails. Each writer is individually correct and reports success. The
+divergence is only visible by comparing two things that no code compares, and the tell is
+*size or content of A versus B*, never a status. `bugs_closed/198`'s producer even inserted the
+stored copy EMPTY by design, with a comment explaining why — correct for its own reader, lethal
+for the other.
+
+**What it costs, and this is the part to carry:** every per-instance repair has an **expiry
+equal to the other writer's next run**, with no signal in between. Nine sites were restored
+across three lanes over two weeks; each restore was correct and each would have silently
+reverted at that site's next design run (~weekly). *Repairing instances of a two-writer
+divergence is unbounded work until one writer is made to write what the other reads.*
+
+**How to recognise it before you have a symptom.** Ask of any artefact you are about to repair:
+*which writers can produce this, and does my repair change what each of them will write next
+time?* If the answer is "one of them", you have a stopgap — say so where you record it, with
+the other writer's cadence. `grep -rlE "(INSERT INTO|UPDATE) +<table>" --include=*.go .` is the
+cheap census; read each hit for whether it READS the column it writes.
+
+**The fix that ends it** is reconciliation at the producer (make the generating path persist
+what it generates), not a guard at the consumer. A guard makes the failure safe and leaves the
+work unbounded; reconciliation makes the divergence unrepresentable. Ship both — the guard
+covers the window before the producer runs — but only one of them closes the door.
+
+⚠ **A register or design doc may already CLAIM the reconciliation exists.** 198's did, from the
+entry's creation: *"empty css_content (webdesign-agent fills it at render)"*. That fill had
+never existed in any code path. It is the sentence most likely to reassure a reader that their
+repair will be maintained, so **verify the claimed writer by grepping for the write**, not by
+reading the doc that asserts it.
+
+### A fix aimed at a selector the producer invented — authored, deployed, and inert
+
+*From `bugs_open/352`, spun out of 198.*
+
+A finding names the thing to fix as a string, and a downstream agent faithfully turns that
+string into a change. If the producer composed the string with a **fallback** — here, an
+element's tag name substituted into a field called `Class` when it had no class — the two cases
+are indistinguishable by shape downstream, and the resulting fix targets nothing. It deploys,
+the work item completes honestly (a write really did happen), and the defect is untouched.
+
+**The tell:** a finding that keeps returning after being "fixed", and a fix whose target you
+cannot locate in the artefact. **The check:** take the selector the finding names and ask the
+page whether it matches anything (`document.querySelectorAll(sel).length`). **The remedy is at
+the producer** — never emit a lossy field whose name asserts more than it carries; omit the
+component you do not have rather than substituting one you do. Teaching the consumer to detect
+the fallback is guessing at intent from a string that has already lost the information.
+
+Sibling cause worth ruling out first: a *correct* selector can still be inert when the
+declaration it must beat is emitted after the file being edited (source order), which is a
+different remedy — see 352's second arm.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
