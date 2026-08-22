@@ -1079,3 +1079,25 @@ migration 435 (2026-08-16); my 08-21 "arm" was a no-op on an already-true key, m
 Phase C build died on it at 11:28Z today, and their migration 558 restored it blind
 ("nobody's"). Attribution + apology filed; 558 stands; the SQL_2026-08-21 file's un-arm
 instruction is hereby VOID — the flag is theirs.
+
+## 2026-08-22 (session 9, afternoon) — the ORACLE DRIVE caught a real defect in the rebuilt consolidation tool on its FIRST vector: a hallucinated interface to the site's shared engine
+
+Delivered page live-verified structurally clean (prefixed ids, 0 bare, 0 tokens) — and then
+the calibration drive found the tool CANNOT CALCULATE: every debt row returns "Could not
+calculate this debt". Diagnosis at the code arm (parseRow): the generated script calls
+`window.calculateAmortization(principal, rate, term)` — the site's SHARED calculators.js
+engine, which EXISTS (typeof function) but whose interface the LLM GUESSED (return
+keys/units differ), so totalInterest/monthlyPayment come back non-finite. Birth gates
+cannot see a runtime interface contract; the oracle's first drive did. **This is the
+LMC-first ruling and RFC_034's oracle-as-witness argument proven in one incident** — a
+structurally perfect, gate-clean, id-scoped tool that computes nothing.
+
+Also observed while driving: debt terms are now YEARS (old tool: months) and the tool
+initialises with 2 rows whose validation counts filled-in rows only — semantics for the
+oracle rewrite. Prompt-rule follow-on (generator): rule 7 ("no external dependencies") did
+not stop a window.* call into a sibling script — it names CDN/fetch only; worth an explicit
+"no window.* / shared-script calls" clause in a future 520-style migration.
+
+Round 3 seeded (same key): self-containment sharpened — inline annuity arithmetic required,
+no window.* calls, years semantics stated. Monitor also watches the engine literal in the
+template as the tell.
