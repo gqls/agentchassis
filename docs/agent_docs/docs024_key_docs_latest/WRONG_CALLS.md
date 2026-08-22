@@ -42351,3 +42351,45 @@ under-matching, so a tool that silently reads only part of its input passes clea
 probe's answer would change what you report, get a second instrument of a different KIND —
 here, "what does it contain" versus "what was it built from" — rather than a second control on
 the same one. All three documents that carried my flawed recipe are corrected.
+
+## 2026-08-22 — I handed a peer a "free control" that could only ever have confirmed me (staged_component_build lane)
+
+**The call.** A parallel session fired a positive control: one tool-generator run with
+`related_pages` present, to prove the crosslink wire emits items. I noticed two other tool-generator
+runs in the same minutes on the same binary **without** `related_pages`, and told them they had an
+accidental paired control for free — with-pages should emit 3 items and no skip row, without-pages
+should emit no items and one skip row each, and both halves holding would rule out "the crosslink
+path is broken" as an explanation for either.
+
+**It was not a control.** Both of my "without-pages" runs carry `spec.replace_existing = true` —
+they are REBUILDS. A replace run takes the regenerate-in-place arm at
+`create_tool_component_action.go:287` (`return regenerateToolComponentInPlace(...)`), an early return
+**270 lines before the crosslink emitter at :559**. They cannot emit a skip row, or anything else on
+that path, by construction.
+
+**What caught it:** not me. The session I gave it to found the no-pages half came back empty and
+**asked why instead of accepting it** — because empty was exactly what my prediction said they should
+see. Had they taken the result at face value, my invalid control would have *confirmed* me.
+
+**That is what makes this worse than a control that fails.** A failing control announces itself. Mine
+would have **passed, for a reason unrelated to the thing under test**, and I would have written two
+absent skip rows into the handoff as corroboration.
+
+**The error in one line: I split on the wrong variable.** I chose `spec_has_related_pages`, because
+that is what the *fix* is about. The variable that decides whether the crosslink path **executes at
+all** is **birth vs replace**. Those two runs differed from the positive case in both, and I only
+looked at one.
+
+**The cheap check that would have:** before offering a comparison as a control, trace the path under
+test from entry to the assertion point and ask *"does the control arm actually get there?"* One
+`grep -n 'return ' ` between the branch and the emitter would have shown the early return. More
+generally: **a control must differ from the treatment in EXACTLY the variable under test** — if it
+differs in two, it is not a control, it is a second unrelated observation.
+
+**The generalisable half, and it is the sharper sibling of yesterday's blind-probe lesson.** There,
+the *instrument* was broken and the control caught it. Here, the **choice of comparison** was broken,
+and no instrument check could have caught it — the probe worked perfectly and measured something
+irrelevant. **Verifying that your control CAN FAIL is not the same as verifying it EXERCISES THE
+PATH.** Ask both. And the specific trap for this estate: `replace_existing` silently reroutes
+`create_tool_component` through an entirely different function, so any claim about tool-creation
+behaviour has to state which arm it is about.
