@@ -45112,3 +45112,27 @@ the effect it claims to discriminate* — daily buckets cannot distinguish "inte
 own instruction is to escalate as *"the cap is hit, please raise it"*. Corrected within the hour,
 before it was acted on — but it had already been written into two lane docs, which is precisely the
 copy-forward the landmine warns about.
+
+**The tally, which is this file's whole point, and it is past the threshold.** Three in one session
+from me — a control comparing two 100%-NULL columns, a migration verify block that passed a mutant,
+a discriminator at the wrong resolution. The `bugs_open/307 [abdc1e]` lane reports five of the same
+shape in the same week from its own work (a filter that could not match its target, mutations that
+never applied, an attribution by column-presence rather than write-time, a boundary literal dated in
+the future, a coverage grep for a literal where the code uses a constant) — **their five is their
+measurement, not mine, and is recorded here as their report rather than as something I checked.**
+
+Eight-ish in a week across two lanes, all one shape: **a check run somewhere it could not fail.**
+By this file's stated purpose that is the point at which the answer stops being "more care" and
+becomes a control. The one control I have actually adopted and can vouch for, because it caught my
+second error the moment I applied it:
+
+```bash
+# never run a mutation test without proving the mutation took
+B=$(grep -c "$TARGET" "$ORIG"); A=$(grep -c "$TARGET" "$MUTANT")
+[ "$A" -eq $((B+1)) ] || { echo "MUTATION DID NOT TAKE — refusing to run a vacuous test"; exit 1; }
+```
+
+A mutation test that silently tests the original is strictly worse than none, because it hands you
+a PASS you then trust. The generalisation the outage error paid for: **a discriminator must be run
+at a finer resolution than the effect it claims to discriminate** — daily buckets cannot separate
+"interleaved all day" from "dead two hours then recovered", and that distinction *was* the claim.
