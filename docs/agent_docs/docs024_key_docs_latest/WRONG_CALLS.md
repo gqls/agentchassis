@@ -42433,3 +42433,71 @@ already carries six numbers naming two unrelated cases: inheriting an ambiguity 
 add one knowingly. The move commit names **both** paths — a `git mv` under a pathspec commit
 otherwise ships a copy and leaves the original at HEAD — and was verified with `git ls-tree`, not
 with `ls`, which cannot see the difference.
+
+## 2026-08-22 — I read a VACUOUS zero as a clean census: the query tested no candidates at all (bugfix_342 lane)
+
+**The claim.** Sizing whether it was safe to arm `record_absent_required_fields` on the chrome
+render path, I censused `site_components` rows for absent schema-required `source:"llm"` fields,
+got zero rows, and stated "no chrome row in the live store is missing a required field". Stated in
+the session, moments before it would have gone into the PLAN as the arming justification.
+
+**What caught it.** The vacuity check run immediately after — `count(*)` over the SAME join with
+the missing-field predicate removed — returned **candidate_pairs_tested = 0**. No `site_components`
+row references ANY component that declares a required llm field, so the census could not have
+returned a hit against any state of the world. The zero was true but meant something different:
+*"the chrome store only uses zero-required components"*, not *"every required field is supplied"*.
+The arming decision survives either way (0 rows fire), but the recorded REASON would have been
+wrong, and the next reader would have inherited "chrome content is complete" — a claim about data
+the query never looked at.
+
+**The cheap check that would have (and did, one query late):** select the candidate count in the
+same statement as the census — `(SELECT count(*) FROM <join>) AS candidates, (SELECT count(*)
+FROM <join> WHERE <defect>) AS hits` — and refuse to read `hits = 0` as a finding unless
+`candidates > 0`. Each psql statement is its own world (a CTE dies at the `;`), so putting both
+in one statement is what makes the check unskippable. This is the same family as the estate's
+"a `[MEASURED]` figure is only evidence if the measurement could have come out otherwise"
+(2026-08-03, twice) — the new wrinkle is that the JOIN, not the filter, was what made it
+undisconfirmable, and a join is where nobody looks for a tautology.
+
+**Generalises.** Any census of the shape "rows WHERE defect" over a JOIN is really two claims —
+"the join finds the population" and "the population is clean" — and a zero only speaks to the
+second if the first is proven in the same breath. RUNBOOK for the lane now carries the guarded
+form (`docs024_key_docs_latest/bugfix_342_absent_required/RUNBOOK_342_absent_required.md`).
+
+---
+
+## 2026-08-22 — bugfix_337 lane: designed a fleet monitor that already existed and had already fired — written into two lane docs before the register was consulted
+
+**The claim.** The 337 fix plan's third leg, written into `bugfix_337_token_cap/NOTES` and
+the owner-facing `README_where_we_are`: *"add a small daily check that watches every AI
+step's real output sizes against its ceiling, so we find out a limit is getting tight
+before pages start failing"* — asserted as a thing to BUILD, i.e. an implicit claim that
+no such mechanism exists.
+
+**What caught it.** The prior-art sweep (a subagent pass over bug files, the concept
+register and LANDMINES, run before any code): register **LCO-007**
+(`fleet-step-token-pressure`, `llm-call-observability.md:85`) is a live 6-hourly
+scheduled task doing precisely this — and its `doc_notes` rows had flagged
+`T generate_template@16000 … truncated 9` since 2026-08-18, four days before this lane
+picked the bug up. The monitor not only existed; it had already detected this exact bug
+and been ignored. Cost if uncaught: a second watcher writing a second unread note stream
+— the exact duplicate-mechanism failure `bugs_open/106` documents — plus the real gap
+(flag→action dispatch) staying unnamed because "we built monitoring" would have read as
+closing it.
+
+**The cheap check that would have.** Grep the concept register BEFORE designing new
+machinery, not after: `grep -ril 'token.pressure\|llm_call_log\|headroom'
+docs/agent_docs/docs026_concept_register/register/` (one command, and it hits LCO-007's
+title line). CLAUDE.md already states the register's bar — "another workstream could
+call this and would not know it exists" — and 67% of workstreams postdate the extraction
+freeze, so *"I have not heard of one"* is evidence of nothing. Same family as
+`prior-art-search-goes-stale`, new wrinkle: the danger case is not a stale search but a
+search NEVER RUN because the mechanism was imagined fresh — a design that arrives as
+"add a check" feels additive and so never triggers the does-this-exist reflex that a
+"fix X" task does.
+
+**Generalises.** Any plan leg of the form "add a monitor/check/report for Y" is a claim
+that none exists; the register (plus `scheduled_tasks`: `SELECT name FROM
+scheduled_tasks WHERE name ILIKE '%<topic>%'`) is one query each. And when the monitor
+IS found, check whether it already fired on your case before concluding detection is the
+gap — here the gap was consumption, which is a different fix entirely.
