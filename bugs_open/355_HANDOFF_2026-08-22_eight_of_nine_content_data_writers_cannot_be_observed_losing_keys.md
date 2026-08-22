@@ -10,9 +10,13 @@ that the instrument capable of *finding* one is blind in four specific, quantifi
 zero cannot yet be trusted as an answer. This file exists so the detector is built from measurement
 rather than from the census's silence — in either direction.
 
-**Decision this depends on** RFC_042 §6 is still with the owner. This file is the scoping of option
+**Decision this depends on** ~~RFC_042 §6 is still with the owner. This file is the scoping of option
 (c) so that decision can be taken on costed work rather than on a sketch. **Nothing here should be
-built before that decision.**
+built before that decision.**~~
+**DECIDED 2026-08-22 — OWNER RULED option (c)** (decision record in RFC_042 §6). The build order is
+§4's: A1 first, then A2+A3 in one commit, A4 not before a measured population exists. Per §8 this
+file is now the implementation record; the joint-with-RFC_008 half of the §6 question was NOT ruled
+and stays open.
 
 > **Prior art, read first:**
 > `docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_042_content_data_has_nine_writers_two_write_disciplines_and_one_carried_funnel.md`

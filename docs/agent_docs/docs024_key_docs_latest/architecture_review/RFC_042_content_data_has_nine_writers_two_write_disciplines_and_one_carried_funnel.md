@@ -15,7 +15,8 @@ declined it as *"above this thread's pay grade"*. **This is that file, eighteen 
 delay is itself evidence: in the interval the divergence WAS re-reached** — `bugs_open/268` lost 214
 CTA anchors across 19 sites through a branch the carry did not cover.
 
-**Status:** DRAFT — no code proposed here. The decision asked of the owner is at §6.
+**Status:** ~~DRAFT — no code proposed here. The decision asked of the owner is at §6.~~
+**DECIDED 2026-08-22 — OWNER RULED option (c).** See the decision record at the end of §6.
 
 > **UPDATE 2026-08-22 — option (c) is now scoped and its population is measured:
 > [`bugs_open/355_HANDOFF_2026-08-22_eight_of_nine_content_data_writers_cannot_be_observed_losing_keys.md`](../../../../bugs_open/355_HANDOFF_2026-08-22_eight_of_nine_content_data_writers_cannot_be_observed_losing_keys.md).**
@@ -255,6 +256,17 @@ its candidate **A1**, a one-line-per-writer stamp that makes the archive self-at
 worth doing under option (a) as much as under (c). The reasoning is one sentence: **build the detector before the guard, because
 the guard's population is currently an inference and the detector is what would measure it** — and
 (e) is already in flight, so it costs this decision nothing to take.
+
+> **DECIDED 2026-08-22 — OWNER RULED option (c)**, in the session working `bugs_closed/238`'s
+> successor, on being shown this RFC's options and `bugs_open/355`'s scoping. The ruling: commission
+> the unified content-loss detector — record-only, refusal per-caller opt-in — executed in the order
+> `bugs_open/355` §4 prescribes: **A1** (writer self-attribution via transaction-scoped
+> `application_name`) first, then **A2** (the per-key differ, extending
+> `writeContentDataRegressionLog`) with **A3** (its consumer) in the same commit; **A4** (refusal)
+> stays unbuilt until A2/A3 produce a population.
+> **Not ruled:** whether this is answered jointly with `RFC_008` — the owner named option (c) only,
+> so RFC_008 remains open and nothing here decides the `rendered_html` seam. Implementation record:
+> `bugs_open/355` (per its §8).
 
 ---
 

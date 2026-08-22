@@ -237,3 +237,14 @@ than an accident.
 The file is `bugs_open/355_HANDOFF_2026-08-22_eight_of_nine_content_data_writers_cannot_be_observed_losing_keys.md`.
 It says plainly that it can be closed with **no code at all** if you'd rather take the zero and put
 the census on a monthly schedule — that is a legitimate answer, and it's cheaper than the rest.
+
+---
+
+**2026-08-22, afternoon.** You ruled: build it — option (c), the detector. So the order of work is
+the one already written in the bug file: first the one-line-per-writer change where every writer says
+its own name when it writes (so anything we ever find can be routed to someone), then the detector
+itself together with the thing that reads its output, in the same commit. The stricter "refuse the
+write" mode stays unbuilt until the detector has actually seen a loss — no point arming a gun at a
+population of zero. One thing you didn't decide and I haven't assumed: the sister question about the
+*rendered page text* column (RFC_008) is still open; today's ruling covers the structured content
+only. Each piece of code goes through the review council before it ships.

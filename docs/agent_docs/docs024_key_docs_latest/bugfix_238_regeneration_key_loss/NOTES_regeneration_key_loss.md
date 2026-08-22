@@ -587,3 +587,27 @@ owner takes RFC_042 option (a).
 Also this session: RFC_042 updated with an 08-22 header note and a re-read warning on its own
 recommendation; the census + its control written into this lane's RUNBOOK with the two ⚠ traps;
 016b §9's demand-control entry strengthened.
+
+## 2026-08-22 (later) — OWNER RULED RFC_042 §6: option (c)
+
+Ruled in chat, in the session that picked the lane up via `bugs_open/238` (which is closed; the
+session verified the closure before reporting — 355's §2.3 census independently re-confirms it).
+Recorded in RFC_042 §6 (decision block) and 355 (status). The ruling commissions the detector as 355
+§4 scopes it, in that order:
+
+- **A1** first — `application_name` self-attribution at the nine write sites, transaction-scoped.
+- **A2 + A3 in one commit** — the per-key differ extending `writeContentDataRegressionLog`, plus its
+  consumer. The two existing unread codes (`CONTENT_DATA_REGRESSION` 41, `STRUCTURAL_KEY_CARRY_MISS`
+  28) are the anti-pattern the consumer half exists to end.
+- **A4 NOT commissioned** — refusal waits for a measured population from A2/A3.
+
+**NOT ruled:** the joint-with-RFC_008 half of §6. The owner named option (c) only; nothing in this
+ruling decides the `rendered_html` seam, and RFC_008 stays open. Do not read this as licence to build
+one seam over both columns.
+
+Next in this session: read the nine write sites at HEAD (tx context, exec layer, what identifiers and
+schema are in scope), design A1 against what the code actually does — noting ⚠ the sketch in 355 §4
+(`SET LOCAL application_name = $1` via a bind parameter) is not executable as written: SET is a
+utility statement and takes no parameters, so the real form is `SELECT set_config('application_name',
+$1, true)` or an interpolated literal from a compile-time constant. Council-submit A1 as its own
+coherent task, then A2+A3 as a second.
