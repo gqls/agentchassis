@@ -14419,3 +14419,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** this file's per-run ephemeral-pod entry and the `logs deploy/X reads one pod of N` family · MEMORY [[a-post-fix-zero-needs-a-demand-control]] (a boundary error and a missing demand control produce the same symptom: a zero you cannot read) · [[prove-a-deploy-at-the-artefact-index]] · `docs024_key_docs_latest/staged_component_build/HANDOFF_2026-08-20_continue_here.md` §2.11 (the worked gate)
 - **source:** 2026-08-22, `staged_component_build` lane — the RFC_029 Phase 2 gate, boundary corrected by a parallel session of the same lane and adopted on this asymmetry
 - **added:** 2026-08-22, staged_component_build lane
+
+### `kubectl exec … grep -ac '<string>' /proc/1/exe` returns 0 for strings that ARE in the binary — the capability probe this estate relies on has a silent false-NEGATIVE mode, and exit code 1 makes it look like an honest "not shipped"
+
+- **footprint:** any post-roll capability probe · `/proc/1/exe` · `git-adapter` · `agent-chassis` · the "pod-grep the binary, with a negative control" recipe in `LANDMINES.md`, `bugs_open/198`, DGH-007, DGH-016 and several lane RUNBOOKs
+- **the trap, measured 2026-08-22 on `git-adapter:v1.0.1323`:** the deployed binary genuinely contains the shrink guard's three message constants. In-pod `grep -ac` reported **0** for `"git commit refused"`, `"fraction of itself"` and `"could not MEASURE"` — while reporting **>0**, on the same binary in the same breath, for `enforceFileShrinkFloor` (3), `evaluateFileShrink` (4), `file_shrink_floor` (2) and `"commit passed the shrink floor"` (1). **`cat`ing the binary out and grepping it locally returned 1 for every one of them.** Same binary, same patterns, opposite answers.
+- **why the usual controls do NOT catch it.** A negative control (`…_NOTREAL` → 0) only proves the probe is not matching everything. A *positive* control drawn from pre-existing code passes too — I checked four (`system.adapter.git.requests`, `failed to create blob for`, …) and pod and local agreed on all four. The failure is **positional, not universal**: Go stores string data as one enormous newline-free blob, and the in-pod `grep` stops finding matches past some point in it. Short keys and early strings match; long constants late in the blob do not. **So a probe can pass both controls and still be lying about the one string you actually care about.**
+- **⚠ and exit status does not give you away.** `grep -c` exits **1** on "no match" — the same code as an honest absence — so wrapping the probe in `2>/dev/null` (which the standing recipe does) makes a false negative indistinguishable from "the code did not ship". Every ingredient of a confident wrong conclusion is present.
+- **the check that is actually sound — pull the binary, then grep it where you control the tool:**
+  ```bash
+  P=$(kubectl -n ai-persona-system get pods -l app=<svc> -o name | head -1 | cut -d/ -f2)
+  kubectl -n ai-persona-system exec "$P" -- cat /proc/1/exe > /tmp/<svc>-deployed
+  ls -l /tmp/<svc>-deployed          # sanity: tens of MB, not 0
+  grep -ac '<your string>'  /tmp/<svc>-deployed    # expect >= 1
+  grep -ac 'zz_not_real_xyz' /tmp/<svc>-deployed   # control: expect 0
+  ```
+  It costs one `cat` of ~20–100 MB and removes the pod's `grep` from the evidence chain entirely. **Prefer a SYMBOL name (`enforceFileShrinkFloor`) over a message string** if you must probe in-pod: symbols live in a different region and matched reliably in every trial here.
+- **the better question, where it is available:** ask what the binary was BUILT from rather than what it contains — `msg:"build provenance"` carries `git_commit`, and `git merge-base --is-ancestor <your-commit> <that sha>` is a query with no string-matching in it at all. That startup line SCROLLS (absent from `agent-chassis` within ~2 minutes of a roll here), so catch it during the rollout or fall back to the pull-and-grep above.
+- **relations:** this file's `⚠ a "FRESH BUILD" CAN SHIP NO NEW CODE` and the `never use strings(1)` entries (same family: the probe, not the deploy, is the unreliable part) · DGH-007 / DGH-016 post-roll checks, both of which named the in-pod form · `bugs_open/198` §9
+- **source:** 2026-08-22, bugfix-198 lane — verifying DGH-016 after the v1.0.1323 roll; the contradiction (functions present, their own constants absent) is what forced the pull, and a local build from the stamped commit is what proved which answer was wrong
+- **added:** 2026-08-22, bugfix-198 lane

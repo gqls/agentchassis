@@ -1418,3 +1418,39 @@ round-trip-writer inventory owed since council round `5249320e`.
 > loanzy.uk's queued items appended to its restored base and shipped the whole file v21/17,906 →
 > v34/21,330 with `:root` intact. **On a tree this busy, the arm you decline to induce has often
 > already been witnessed by someone else** — look before you synthesise.
+
+### 9. 2026-08-22 — v1.0.1323 rolled: DGH-016 is LIVE on both halves, and the probe that says otherwise is wrong
+
+**The last inert piece is now live.** Verified at the binary after the roll, both services:
+
+| half | evidence |
+|---|---|
+| `agent-chassis` v1.0.1323 | carries `file_shrink_floor` and `shrinkFloorForGitData`; stamps commit `70e7b4f9c`, of which the shipping commit `4ee9bfff6` is a **proven ancestor** (`git merge-base --is-ancestor` — a query, not an inference) |
+| `git-adapter` v1.0.1323 | carries `enforceFileShrinkFloor`, `evaluateFileShrink`, and **all three message constants** |
+
+Negative controls 0 throughout. `deploy_css` has carried `file_shrink_floor: 0.5` since
+migration 542, so the guard is now armed end to end.
+
+> **⚠ CORRECTION TO THIS FILE'S OWN POST-ROLL INSTRUCTION — the in-pod probe gives FALSE
+> NEGATIVES, and it nearly cost a true finding.** §2 and the lane RUNBOOK told the next reader
+> to `kubectl exec … grep -ac '<string>' /proc/1/exe`. Run on `git-adapter:v1.0.1323` that
+> returned **0** for `"git commit refused"`, `"fraction of itself"` and `"could not MEASURE"` —
+> while returning **>0**, same binary same breath, for `enforceFileShrinkFloor` (3),
+> `evaluateFileShrink` (4) and `"commit passed the shrink floor"` (1). Functions present and
+> their own constants absent is not a state a Go binary can be in; that contradiction is the
+> only reason the run was not reported as "the enforcement half did not ship".
+> **`cat`ing the binary out and grepping it locally returns 1 for every one of them.**
+>
+> The recipe's safeguards do not cover this: a negative control only detects over-matching, a
+> positive control from pre-existing code passes (four checked, pod and local agreed on all
+> four), and `grep -c` exits 1 on no-match exactly as it does on a genuine absence. **Use the
+> pull form** (`kubectl exec … -- cat /proc/1/exe > /tmp/x`, then grep locally), or ask what
+> the binary was BUILT from instead of what it contains. Full mechanism in LANDMINES; the
+> near-miss in `WRONG_CALLS.md`.
+
+**What is NOT yet observed, and it is the only thing left on the guard:** a live *enforcement*
+event. The guard fires only on a css-patch-agent deploy, so the `"commit passed the shrink
+floor"` Info line on the git-adapter is owed on the next real dispatch — that single line
+proves the field crossed the wire, the guard measured, and a healthy commit still passes, none
+of which a binary probe can show. It is opportunistic, not blocking: the refusing arm is proven
+by the httptest suite and the whole chain by the 2026-08-21 witnessed run.

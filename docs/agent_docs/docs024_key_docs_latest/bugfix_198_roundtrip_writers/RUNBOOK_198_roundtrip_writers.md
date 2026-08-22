@@ -135,13 +135,35 @@ files** (`git status` the dir — other sessions leave uncommitted migrations).
 Both halves must be new — the guard exists only when the chassis sends the field AND the
 adapter enforces it. Probe each, **with a negative control in the same breath**:
 
+> ⚠ **CORRECTED 2026-08-22 — the in-pod form below gives FALSE NEGATIVES. Pull the binary
+> instead.** Measured on `git-adapter:v1.0.1323`: in-pod `grep -ac` reported 0 for three
+> message constants that the same binary demonstrably contains, while reporting >0 for symbol
+> names and shorter keys in the same breath. `grep -c` exits 1 on no-match, so with the
+> customary `2>/dev/null` a false negative is indistinguishable from "it did not ship". Full
+> mechanism in LANDMINES (`kubectl exec … grep -ac … /proc/1/exe returns 0 for strings that ARE
+> in the binary`).
+
 ```bash
-for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | cut -d/ -f2); do
-  kubectl -n ai-persona-system exec "$p" -- grep -ac 'file_shrink_floor' /proc/1/exe   # expect >= 1
-  kubectl -n ai-persona-system exec "$p" -- grep -ac 'file_shrink_floor_NOTREAL' /proc/1/exe  # expect 0
+# THE SOUND FORM: pull it out, grep where you control the tool
+for app in agent-chassis git-adapter; do
+  P=$(kubectl -n ai-persona-system get pods -l app=$app -o name | head -1 | cut -d/ -f2)
+  kubectl -n ai-persona-system exec "$P" -- cat /proc/1/exe > /tmp/$app-deployed
+  ls -l /tmp/$app-deployed                                   # sanity: tens of MB, not 0
+  grep -ac 'file_shrink_floor'  /tmp/$app-deployed            # expect >= 1
+  grep -ac 'zz_not_real_xyz'    /tmp/$app-deployed            # control: expect 0
 done
-# then the same two greps against the git-adapter pod
+# git-adapter additionally must carry the enforcement itself:
+grep -ac 'could not MEASURE' /tmp/git-adapter-deployed        # expect 1
 ```
+
+Better still, when you can catch it: the build-provenance line during the rollout, then
+`git merge-base --is-ancestor <your-commit> <that sha>` — a query with no string matching in
+it. It scrolls fast (gone from `agent-chassis` within ~2 min of the roll).
+
+**RESULT 2026-08-22, v1.0.1323 — DGH-016 is LIVE on both halves:** chassis carries
+`file_shrink_floor` + `shrinkFloorForGitData` and stamps `70e7b4f9c` (my Go commit `4ee9bfff6`
+proven an ancestor); git-adapter carries `enforceFileShrinkFloor`, `evaluateFileShrink` and all
+three message constants. Controls 0 throughout.
 
 > ⚠ Never `strings` (absent from the debian-slim images; behind `2>/dev/null` its failure is
 > indistinguishable from "not stamped"). A control that comes out PRESENT means the probe

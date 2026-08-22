@@ -42299,3 +42299,55 @@ this.
 answers. The check's "confirmation fetch must agree with the first" guard was written for *origin
 mid-write*; it turns out to be load-bearing for **edge propagation**, which is a better justification
 than the one it shipped with.
+
+---
+
+## 2026-08-22 — I published a post-roll probe recipe that returns "not shipped" for code that shipped (bugs_open/198 lane)
+
+**The claim.** Yesterday I wrote the DGH-016 verification instruction into three places — the
+concept register, the lane RUNBOOK (§7 and §11) and the bug file — as: pod-grep the binary for
+a distinctive string, with a negative control in the same breath. That is this estate's
+standard capability probe and I copied it faithfully.
+
+**What happened when I ran my own recipe.** On the v1.0.1323 roll, `kubectl exec … grep -ac`
+against `/proc/1/exe` on `git-adapter` returned **0** for `"git commit refused"`,
+`"fraction of itself"` and `"could not MEASURE"` — the guard's own refusal sentences. It
+returned **>0**, same binary, same command, for `enforceFileShrinkFloor` (3),
+`evaluateFileShrink` (4), `file_shrink_floor` (2) and `"commit passed the shrink floor"` (1).
+
+Functions present, their own constants absent, is not a state a Go binary can be in. That
+contradiction is the only reason I did not stop and report "the enforcement half did not
+ship". **`cat`ing the binary out and grepping it locally returned 1 for every one of them.**
+The code was live the whole time.
+
+**Why the recipe's own safeguards did not help.**
+
+- The **negative control** (`…_NOTREAL` → 0) only proves the probe is not matching everything.
+  It cannot detect a probe that matches *too little*.
+- A **positive control from pre-existing code** passes: I checked four old strings and pod and
+  local agreed on all four. The failure is **positional** — Go stores string data as one huge
+  newline-free blob and the in-pod `grep` stops matching past some point in it. So the probe
+  can satisfy both controls and still be wrong about the one string you care about.
+- **`grep -c` exits 1 on no-match**, the same as an honest absence, and the standard recipe
+  wraps it in `2>/dev/null`. Every ingredient of a confident false conclusion is present, and
+  my own memory index already carries "behind the customary `2>/dev/null` its failure is
+  indistinguishable from 'not stamped'" — about `strings(1)`. I inherited the lesson and
+  applied it to the wrong tool.
+
+**Did it change any conclusion?** Not in the end, and only because two independent things
+disagreed. But it very nearly did, and the near-miss is the point: I would have reported a
+shipped guard as unshipped, on a bug whose entire subject is *a check that reports the wrong
+thing confidently*. Had the constants been the only probe I ran — which is exactly what my
+RUNBOOK told the next person to do — there would have been no contradiction to notice.
+
+**The cheap check that would have caught it.** Pull the binary and grep it where you control
+the tool (`kubectl exec … -- cat /proc/1/exe > /tmp/x`), or skip string-matching entirely and
+ask what it was BUILT from: `msg:"build provenance"` gives `git_commit`, and
+`git merge-base --is-ancestor <your-commit> <that sha>` is a query, not a search.
+
+**Transferable, and it is not about grep.** *A probe's controls test the directions you
+thought of.* A negative control tests over-matching; nothing in the standard recipe tests
+under-matching, so a tool that silently reads only part of its input passes cleanly. When a
+probe's answer would change what you report, get a second instrument of a different KIND —
+here, "what does it contain" versus "what was it built from" — rather than a second control on
+the same one. All three documents that carried my flawed recipe are corrected.
