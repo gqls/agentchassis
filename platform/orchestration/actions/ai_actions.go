@@ -422,11 +422,11 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	// bugs_open/076 guard, isAIUnavailable, the transient ladder, the
 	// catch-all) applies to it verbatim, with no second code path to drift.
 	if err != nil {
-		sentCap := 0
-		if mt, ok := options["__sent_max_tokens"].(int); ok {
-			sentCap = mt
-		}
-		if ceiling, escalate := truncationEscalationApplies(err, aiServiceConfig, sentCap); escalate {
+		// The `ok` is carried, not discarded: an absent key must not read as a
+		// 0 baseline, which would make the ceiling>cap refusal vacuous
+		// (council round 1, editquality). See truncationEscalationApplies.
+		sentCap, sentCapKnown := options["__sent_max_tokens"].(int)
+		if ceiling, escalate := truncationEscalationApplies(err, aiServiceConfig, sentCap, sentCapKnown); escalate {
 			// One call, one forensic row: the cut first call is recorded
 			// success=false, prefixed so a census can count escalations without
 			// joining anything. Logged before options is reused — LogLLMCall

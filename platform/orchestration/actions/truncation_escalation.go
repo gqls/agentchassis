@@ -101,18 +101,39 @@ func truncationEscalationCeiling(aiServiceConfig map[string]interface{}) (int, b
 
 // truncationEscalationApplies is the whole escalation decision, pure so it can
 // be tested without a provider: escalate exactly when the error is a typed
-// truncation AND an operator declared a ceiling AND that ceiling is strictly
-// taller than the cap the cut call was actually sent with (`sentMaxTokens`,
-// from options["__sent_max_tokens"] — the wire number, not the config's,
-// because the two can differ under overlay or the provider fallback).
+// truncation AND an operator declared a ceiling AND the cap the cut call was
+// actually sent with is KNOWN AND that ceiling is strictly taller than it.
+//
+// `sentMaxTokens`/`sentKnown` come from `options["__sent_max_tokens"]` — the
+// wire number rather than the config's, because the two can differ under
+// overlay or the provider fallback.
 //
 // A ceiling at or below the sent cap refuses to escalate rather than retrying
 // at the same height: an identical retry on a deterministic cut is the exact
 // waste bugs_open/337 measured (nine cap-hits, zero successes), and refusing
 // keeps a misconfiguration (ceiling <= max_tokens) inert instead of making it
 // a silent doubled spend.
-func truncationEscalationApplies(err error, aiServiceConfig map[string]interface{}, sentMaxTokens int) (int, bool) {
+//
+// AN UNKNOWN SENT CAP REFUSES TOO, and that third state is the point (council
+// round 1, editquality, gating — the objection was RIGHT). Reading the key
+// into a bare int makes "absent" indistinguishable from "0", and a 0 baseline
+// makes `ceiling <= sentMaxTokens` false for every positive ceiling: the
+// safety refusal above would be silently vacuous rather than enforced.
+// It is reachable, not theoretical — anthropic.go:313-318 and gemini.go:376
+// always write the key on this path (`options` is never nil in
+// ExecuteAIStepAction), but ollama.go:121 writes it ONLY when `num_predict`
+// is configured, and ollama deliberately omits that key when no budget was
+// chosen (aiservice/max_tokens.go). So an unconfigured ollama step reaches
+// here with no wire number at all. Refusing there is fail-closed: it declines
+// a retry rather than escalating against a baseline nobody established. This
+// is the same three-state discipline rewrite_negations_action.go applies to
+// unreported usage — known-and-at-the-ceiling, known-and-below, and UNKNOWN,
+// which is never assumed safe.
+func truncationEscalationApplies(err error, aiServiceConfig map[string]interface{}, sentMaxTokens int, sentKnown bool) (int, bool) {
 	if _, isTrunc := aiservice.IsTruncated(err); !isTrunc {
+		return 0, false
+	}
+	if !sentKnown {
 		return 0, false
 	}
 	ceiling, ok := truncationEscalationCeiling(aiServiceConfig)

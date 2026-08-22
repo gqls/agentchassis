@@ -99,3 +99,67 @@ threshold instead of folklore.
 - Council: DRY_RUN passed, submitted for real.
   **SUBMISSION_CORR = 3d531c9a-4351-42bc-806c-17ed25636a8c** — budget ~30 min; find
   the run by payload, not by the printed id.
+
+## 2026-08-22 — before-state pinned; council run located
+
+- Council run found by payload: orchestration `4f031702-0e36-4a4e-a1b1-9eb5d8b00f06`,
+  dispatched 09:21:36Z (fast — no queue delay this time), `gate_bug_historian` at
+  09:25Z. Watching for the verdict; migration apply waits for it per the PLAN phasing.
+- Before-state pinned, TWO reads each, stable:
+  - `https://loanzy.uk/tools/credit-health-check/index.html` — 24,323 bytes,
+    md5 `bdc997300740612af0625a53d61416d3`, `grep -c '<input'` = **0**.
+  - `https://loancalculator.co.uk/tools/credit-roadmap/index.html` — 1,201 bytes,
+    md5 `8561e9f73e44ec554f8864deea13833a`, `<input` = **0** (a stub — this page has
+    never been built, consistent with `incomplete_page_group` open item).
+- Migration runner dry-run running in background (slow — per-file ledger checks).
+
+## 2026-08-22 — same-file passenger disclosure on commit 9e23fb852
+
+My WRONG_CALLS append (the LCO-007 duplicate-monitor near-miss) committed at 68
+insertions where my entry is ~35 lines: **the bugfix_342 lane's uncommitted entry ("I
+read a VACUOUS zero as a clean census") rode along** — the same-file-passenger case a
+pathspec commit cannot exclude. Nothing lost, forward-only holds; their entry is intact
+under my commit message. 342 lane: your WRONG_CALLS entry is already committed
+(9e23fb852) — do not re-append it.
+
+## 2026-08-22 — council round 1: REVISE, and the gating objection found a REAL defect
+
+Verdict at 09:37:52Z, `decided_by: gating objection from editquality`, 4 abstained,
+`gated_by_truncation: false`. Objection on edit 3, verbatim: *"The wiring reads
+`options["__sent_max_tokens"]` to get sentCap for the refusal check
+(`ceiling <= sentMaxTokens`), but no edit anywhere sets this key. If it isn't already an
+established key elsewhere in ai_actions.go, sentCap silently defaults to 0 on every
+call, which makes the stated safety refusal … "*
+
+**Checked rather than argued, and the objection is RIGHT — narrowly, and worse than its
+own framing.** The key IS established (`grep -rn '__sent_max_tokens' --include=*.go`):
+- `anthropic.go:313-318` — set from `requestBody["max_tokens"]`, guarded only by
+  `options != nil`, and `options` is never nil on this path (`ai_actions.go:350`
+  `make(map…)`). Always set.
+- `gemini.go:376` — unconditional inside the same `options != nil`. Always set.
+- **`ollama.go:121` — set ONLY when `optionsBlock["num_predict"]` is present as an int.
+  And ollama deliberately OMITS `num_predict` when no budget is configured
+  (`aiservice/max_tokens.go`: "ollama does NOT use it — it omits the field entirely
+  when unconfigured").** So an unconfigured ollama step reaches the escalation with no
+  wire number at all.
+
+So the reviewer's failure mode is reachable on one provider, and its consequence is the
+inverse of safety: `sentCap` = 0 makes `ceiling <= 0` false for EVERY positive ceiling,
+so the refusal I documented as the safety property would have been **vacuous** — it
+would escalate against a baseline nobody established. A comment asserting a guard that
+the code cannot enforce is exactly the estate's "a doc comment is not an enforcement
+mechanism" shape.
+
+**Fix (round 2):** carry the type assertion's `ok` instead of discarding it —
+`sentCap, sentCapKnown := options["__sent_max_tokens"].(int)` — and make UNKNOWN a
+third state that **refuses to escalate** (fail-closed). Same three-state discipline
+`rewrite_negations_action.go` applies to unreported usage. Two new test rows pin it, and
+**the guard is mutation-proven, not asserted**: deleting `if !sentKnown { return 0,
+false }` fails exactly those two cases and nothing else (run 2026-08-22; the rest of the
+table stayed green, so the mutant is not killed by collateral). No behaviour change for
+the motivating anthropic case.
+
+**Cost of the round: one REVISE, ~16 minutes, and it bought a defect that no test I had
+written could see** — my table set `sent` as a plain int, so absence was unrepresentable
+in the fixture. The estate's line holds again: a REVISE round is cheaper than the defect
+it finds.
