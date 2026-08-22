@@ -44794,3 +44794,66 @@ edited dated entry costs the reader's trust in every other date in the file.
 **Nothing was lost:** every changed line is one this lane wrote, only the path string
 differs, and it still resolves to the same file. Recorded because the damage class is
 *record integrity*, which does not announce itself and which no test can catch.
+
+---
+
+## 2026-08-22 — I read 24 anomalous rows' AGE as their diagnosis, and never asked what STATE they were in (`bugs_open/260` lane)
+
+**The claim.** Measuring `orchestration_states` retention for `bugs_open/354`, I found the table
+held 08-21 and 08-22 (3,107 rows) plus a handful of much older ones, and wrote — in the bug file
+and again in a `LANDMINES.md` entry — *"plus 24 stragglers stuck since July"*. I meant it as an
+aside: a known population of hung rows, safely ignorable, the sort of thing `bugs_closed/294`
+describes.
+
+**What was true.** They are **all `CANCELLED`**, oldest 2026-07-19. They are not stuck — they are
+**unreaped**, because `database-cleanup`'s arm 3 deletes on a literal `status IN
+('COMPLETED','FAILED')` while arm 4 skips anything `is_terminal`, and a terminal status named in
+neither falls through both. That is a live defect with a 34-day-old proof sitting in the table, and
+it is directly load-bearing for `354`'s own fix: **any new terminal status inherits it.** So the
+rows I waved away were evidence for the very bug I was writing.
+
+**What caught it.** The `bugs_open/307` lane, picking `354` up hours later, and only in passing —
+they were verifying the cost of a fix candidate, not checking my arithmetic. Nothing in my own work
+would have found it, because a "straggler" needs no explanation and therefore prompts no query.
+
+**The cheapest check, and it is one clause.** I had already written the `WHERE` and the `count(*)`:
+
+```sql
+SELECT status, count(*), min(created_at)::date, max(created_at)::date
+  FROM orchestration_states WHERE created_at < now() - interval '48 hours'
+ GROUP BY 1;                                  -- ^^^^^^^^ the clause I did not add
+```
+
+`GROUP BY status` on a query I was already running. It returns `CANCELLED | 24 | 2026-07-19 |
+2026-07-24` and there is no reading of that which supports "stuck".
+
+**The general form, which is why this is worth a row.** **An anomalous row's AGE is not its
+diagnosis.** "Old" is a property of every failure mode at once — hung, cancelled, unreaped,
+deliberately pinned — so it discriminates nothing, and the word I reached for (*straggler*) is one
+that quietly asserts a cause while sounding like a description. The same sentence would have been
+honest as *"24 rows older than the window, cause unexamined"*, and that phrasing would have made
+somebody look. **Distrust any noun in your own writing that explains an anomaly without citing a
+column.**
+
+**Related:** the marker discipline in CLAUDE.md's working-docs rules would have caught this if I had
+applied it to an aside — I marked the figures around it `[MEASURED]` and left the *interpretation*
+unmarked, which is exactly the asymmetry the `[INFERRED]` marker exists to close. Corrected in place
+in `bugs_open/354` §2(d), credited to the lane that found it.
+
+## 2026-08-22 — `bugs_open/345` lane, same session: I wrote a mechanism I had never run into a migration header AND a test file, and framed the test as proving it
+
+**The claim.** Migration `563` guards a prompt branch with `{{if eq (printf "%v" .input_data.last_error_code) "..."}}`. I wrote, in the migration header and again in the test file:
+
+> "`eq` on a nil operand raises a template error, which would break EVERY generation, not just a retry — so each comparison is made through `printf "%v"`, which is total."
+
+**MEASURED, and it is false.** All four combinations render cleanly with no error on this Go toolchain: builtin `eq` vs a missing map key, builtin `eq` vs an explicit nil, and both again through `printf`. `eq` returns false; it does not error. (The belief is not invented — older Go *did* raise `invalid type for comparison` — but I never checked which behaviour this toolchain has.)
+
+**What makes this worse than a stray wrong sentence.** I did not merely believe it, I *built on it*: the test file's header said the wrappers were "the thing that says so", presenting an unverified mechanism as the test's whole purpose. A reader trusting it would have concluded that removing a `printf` risks a fleet-wide generation outage — and would have been wrong in the safe direction this time, but the file would have taught them a false fact about the estate's templating.
+
+**What caught it: mutation-testing, exactly as the estate requires and for exactly the reason it requires it.** I stripped the `printf` wrappers, expecting a red test. It stayed green. I then stripped the outer `{{if}}` too, then both together — still green. Three passing mutations is not "my guards are redundant", it is **"there is no hazard here at all"**. The sibling lesson in MEMORY (*a mutation that PASSES usually hit a guard in SERIES*) points at the right question and, followed through, gave the sharper answer: nothing was in series because nothing needed guarding.
+
+**Cost: about four minutes**, entirely because the claim was in a file I was already mutation-testing. Had I written it only in the migration header — where nothing executes and no mutation is possible — it would have shipped as fact and stayed there.
+
+**The cheap check, and it is embarrassingly cheap: a mechanism claim about a LANGUAGE or LIBRARY is a five-line program, so write the five lines.** Not a grep, not a memory of a previous version, not "everyone knows". This estate already says a `[MEASURED]` figure only counts if it could have come out otherwise; the same test applies to a mechanism — and "does `eq` error on nil?" could have come out either way, which is precisely why it needed running rather than asserting.
+
+**Second-order, and the one I would carry forward: prose in an APPLIED migration is unfalsifiable by construction.** The SQL was verified by its own `DO`/`RAISE` block; the paragraph next to it was not, could not be, and is what the next reader will actually read. Corrected in place with a dated strike (`563_..._branches_on_the_failure_code.sql`) rather than silently edited away.
