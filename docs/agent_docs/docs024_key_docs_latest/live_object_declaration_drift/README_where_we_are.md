@@ -147,3 +147,50 @@ is the kind of thing that makes a tidy solution look better than it is.
 
 The design proposal is now with the review council. Nothing is built yet, and I would rather wait for
 their verdict than start.
+
+## 2026-08-22, end of session — the review council approved it at the second attempt, and the first half is built
+
+The council said no the first time, and it was right to.
+
+My plan had split the work in two: add a new automatic check that forbids anyone writing a test which
+reads one of those frozen old files, and then, in a second batch, fix the tests that currently do
+exactly that. A reviewer pointed out the obvious consequence I had walked straight past — the moment
+the new check lands, those existing tests are still doing the forbidden thing, so either the check
+goes off immediately, or I have to add them to its list of permitted exceptions. And adding them
+would mean formally excusing the two tests I had spent all day arguing are broken. I had even quoted
+the rule against doing that in my own plan.
+
+I did not argue. I merged the two batches, so the fix and the check land together, and moved the
+second half of the work — the part that actually goes and asks the live database — into its own
+separate review. A second reviewer found something equally fair: I had discovered that one of our
+database triggers has quietly grown a third instance where the old file describes two, put that in
+the bug as evidence, and then designed a fix that would not have noticed it. That is now covered.
+
+The second round was approved, and the first half is built, committed and working.
+
+**What it does.** There is now one place that says what each of these live database settings is
+supposed to contain, and it is a normal file that can be edited — unlike the old migration files,
+which are frozen. Four tests now check against that instead of against the frozen files, and the two
+that used to pass silently when their file went missing can no longer do so.
+
+**How I know it works, rather than assume.** The new automatic check was written *before* the four
+fixes. Run then, it flagged exactly those four files and nothing else. Run after, it passes. So it
+has been seen both failing and succeeding on the same day, which is the only way to tell a working
+check from one that is simply not looking. I also deliberately broke the thing in six different ways
+one at a time, and confirmed each break was caught.
+
+**What is not done, and I want to be clear about it.** This closes the half where our tests were
+checking something that could never fail. It does *not* yet close the half where the live database
+drifts away from what we have written down — that needs a daily job, and it is the next piece of
+work. In fact this first half creates a small new gap: someone changing one of these settings now
+has to remember to update the written-down version too, and until the daily job exists nothing will
+tell them if they forget. I have written that up as a warning in the shared traps file rather than
+leave it implied, and the bug stays open.
+
+Two housekeeping notes. My warning entry got picked up and committed by another session working on
+something unrelated — nothing was lost, it is all there, but it is a good illustration of what this
+shared working tree is like. And I made a mistake worth recording: my own check for "have I found all
+the files that do this?" was written in a way that could only see one line at a time, and these
+things span two lines, so it found seven where there are nine — and one of the two it missed was a
+file I had personally written about that morning. The tool I was building found the right answer; my
+quick check of it did not.
