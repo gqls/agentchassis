@@ -43968,3 +43968,71 @@ independently — `schema_migrations`' columns (`filename, applied_at, checksum,
 `524` recorded applied at 2026-08-21 18:44:22Z, and the live `scheduled_tasks.pre_query` text. An
 UNVERIFIABLE run is not a worthless one; it is just not a verdict, and must never be written up as
 one.
+
+---
+
+## 2026-08-22 — bugs_open/309 at-rest audit: three wrong calls in one session, and only one of them was about the code
+
+### 1. I typed a fleet figure into a PLAN doc that I had never measured
+
+The plan's opening sentence said the birth gate had never been asked its question of "the **147
+components** already in the database". **There is no 147.** `[MEASURED]` `content_components` holds
+**285 active** rows, 184 of them carrying an `input_schema.fields` object, 339 in total. The number
+came from nowhere — not from another doc, not from a stale query, just a plausible-looking figure
+typed while writing prose about figures I HAD measured.
+
+**What caught it:** re-reading my own sentence before committing and noticing it was the one number
+in the paragraph with no query behind it. One `SELECT count(*)` fixed it.
+
+**Why it is worth a row despite being caught.** Every OTHER figure in that document is measured,
+dated and reconciled — 69 fields, 17 components, 46 instances, the 51/14/4 split. That is exactly the
+condition under which an unmeasured number is most dangerous: **it inherits the credibility of its
+neighbours.** The marker rules (`[MEASURED]`, `[INFERRED]`) do not help here, because the failure is
+not omitting a marker — it is that a figure in a densely-measured paragraph *reads* as measured
+whether or not anyone measured it. **The cheap check: before committing a doc, grep your own prose
+for bare integers and ask which query produced each one.**
+
+### 2. I inherited another lane's census instead of running its query, and it was already stale
+
+Both my Go source comment and my PLAN said `STRUCTURAL_KEY_CARRY_MISS` — the runtime detector of the
+exact silence this bug is about — is one of `bugs_open/358`'s **unread** codes, with no automated
+consumer. **False when written.** `cmd/content-loss-check` consumes it as of `cba51ad1d`, committed
+*that same morning* by the `bugfix_238` lane, and `[MEASURED]` 8 of its 28 rows now carry
+`resolved = true`.
+
+I did measure the parts I quoted as measured (28 rows, first 08-11, last 08-17 — all correct). What I
+did not measure was the **consumer**, because `358` had a census of it and `358` was filed *that day*.
+
+**What caught it:** the `358` lane messaged me directly. I then re-verified at the source
+(`cmd/content-loss-check/main.go`) and at the table before accepting it — a peer's report is another
+doc.
+
+**The shape: a document is at its most quotable on the day it is filed, and that is also when its
+fastest-moving claims are closest to expiring.** "Filed today" reads as freshness and is doing the
+opposite work — a same-day file has had no time to be corrected, and a lane actively working a
+subject changes that subject hourly. **The cheap check: a claim you are borrowing about LIVE state
+gets its own query, however new the document you took it from — especially if it is new.** Cost:
+one query. What it bought: the decision (don't route findings into `agent_error_log`) survived on a
+*different* and better reason — that writer only fires when a page is BUILT, so it can never see a
+component that is never built.
+
+### 3. I compressed a submission to fit an 8-edit limit and drew a GATING objection on files that exist
+
+The council round-1 verdict was REVISE, gated by `editquality`: edit 7 was named
+`.../base/cronjob.yaml` while its rationale and sketch described makefile targets and docs. **Real
+defect, and mine.** Restructuring to fit the ≤8-edit cap, I merged three artefacts into one entry and
+left the filename of one with the content of another.
+
+The cost was not the round — it was that **four objections across two seats were about the WORK when
+they were really about the DESCRIPTION.** `editquality` and `debug_historian` both reported
+`base/kustomization.yaml`, the production overlay, and the `RELEASE_IMAGES` entry as MISSING. All
+three shipped in the same commit. A reviewer can only review what the submission says.
+
+**The shape: when a cap forces you to merge edits, the merged entry is the one that lies.** A
+submission is a description of a change, and a description that has been compressed to fit is a
+description that no longer matches. **The cheap check: after any edit-list restructure, re-read each
+entry asking only "does this file's name match this content?" — the failure is mechanical and
+survives every check that looks at rationale quality.** Related and already on this file's record:
+`9a4f574ba`, "the gating objections were right about the SUBMISSION and wrong about the WORK — stop
+compressing". **That is the second time this exact failure has been logged, which is what makes it a
+pattern rather than an incident.**

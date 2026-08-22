@@ -14957,3 +14957,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **⚠ the asymmetry that makes this worth an entry:** the spreadsheet case leaves you with *no* conclusion, which is safe. This one hands you a *confident wrong* one — "the model hallucinated" and, downstream, "that site's data is invented" — because the failure text names the least likely cause first. Treat `citation_lost` as "could not be re-matched", never as "was not true".
 - **relations:** LANDMINES *"evidence-researcher can only register a figure a source states in HTML PROSE"* (the sibling format trap, same lane, same day) · `bugs_open/161` (the register ratifies what it holds — so what it wrongly REFUSES matters as much) · MEMORY [[a-plausible-external-cause-is-when-to-doubt-your-instrument]] · `docs024_key_docs_latest/agritec_uk/SEED_2026-08-22f_dli_table_attested.sql` (the worked remedy: 11 ranges registered by attestation)
 - **added:** 2026-08-22, `agritec_uk` lane
+
+---
+
+### `kubectl get cronjobs` cannot see a schedule that is COMMITTED but not yet DEPLOYED — so the cluster tells you a slot is free while another service already owns it
+
+- **footprint:** `deployments/kustomize/services/*/base/cronjob.yaml` (`spec.schedule`) · `kubectl -n ai-persona-system get cronjobs` · any new daily check service
+- **fires when:** you are adding a scheduled check and pick its slot by listing what the cluster is running. **There is no error and nothing looks wrong** — you get a tidy list of times, you choose a gap, and the manifest applies cleanly. The collision only becomes visible when the *other* service is finally deployed, at which point two jobs share a slot and neither author knows it.
+- **the mechanism:** on this tree a check service is routinely **committed several days before its image is built and pushed**, precisely because applying its overlay early would give an `ImagePullBackOff` — which this fleet reports as a Job still **RUNNING**, never FAILED. So the correct, careful practice (commit the manifest, defer the apply) is exactly what makes the schedule invisible to `kubectl`. `[MEASURED 2026-08-22]` `capped-schedule-ordering-check` is committed at `"5 7 * * *"` and absent from `get cronjobs`; 07:05 therefore reads as free, and it is not — it is claimed, and already collides with `content-loss-check`, which IS deployed at the same minute. Two services, one minute, and the cluster shows one of them.
+- **the check — enumerate the REPO, which is the only complete list:**
+  ```bash
+  for f in deployments/kustomize/services/*/base/cronjob.yaml; do
+    printf "%-42s %s\n" "$(basename $(dirname $(dirname $f)))" \
+      "$(grep -m1 '^  schedule:' "$f" | sed 's/.*schedule: *//')"
+  done | sort -k2
+  ```
+  Compare that against `kubectl get cronjobs` and treat **any row present in the repo but absent from the cluster as a CLAIMED slot**, not a spare one. The difference between the two lists is the trap, and it is also the useful signal: it is the list of checks that have never run.
+- **⚠ do not pick the top of the hour either.** Hourly jobs fire at `:00`-relative minutes (`wedge-evidence-capture` at `:17`), and other lanes rebuild pages hourly, so a config check placed at `:00` can measure mid-rebuild state. Pick a minute that is free in the repo AND not on the hour.
+- **⚠ and the sibling trap, which fires straight after this one:** having chosen a slot, do **not** `deploy-` before `build-` and `push-`. An absent image gives `ImagePullBackOff`, the Job shows as RUNNING, and a check that has never once executed looks healthy — so its silence reads as "nothing is wrong" for as long as nobody looks.
+- **relations:** LANDMINES *"`make deploy-component-render-check` ships NOTHING on its own"* (the overlay/tag half of the same deployment) · the ImagePullSecrets family (`removed-config-keys-check` hit the RUNNING-not-FAILED reading on its first rollout) · MEMORY [[prove-a-deploy-at-the-artefact-index]] · CLC-025 / `bugs_open/309` (the entry this came out of — 07:20 was chosen against the repo list, not the cluster's)
+- **added:** 2026-08-22, `bugfix_309_unclickable_index_cards` lane
