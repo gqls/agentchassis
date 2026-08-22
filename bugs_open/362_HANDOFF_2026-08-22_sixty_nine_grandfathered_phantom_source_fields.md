@@ -78,8 +78,15 @@ with zero links for four months.
 | `product-card-with-cta` | 0 | 1 | unregistered_query | `query.affiliate_products` |
 | `webdesign.co.uk Site Header` | 0 | 1 | prefix_outside_vocabulary | `nav` |
 
-Totals: **51 phantom_aspect · 14 unregistered_query · 4 prefix_outside_vocabulary = 69**,
-over **17 components**, **6 live** on **46 instances**.
+Totals **as of 2026-08-22**: **51** phantom_aspect · **14** unregistered_query · **4** prefix_outside_vocabulary = **69**, over **17** components, **6** live on **46** instances.
+
+> **Every figure here is a census and carries its date, per the owner ruling of 2026-08-22 —
+> a census does not go wrong, it goes STALE BY ADDITION and reads as current for ever.**
+> Re-run it before quoting: the query is in the lane RUNBOOK, and `config-key-audit
+> --component-source-vocabulary --emit-baseline` regenerates the whole list from the shipped
+> rule. **The daily check is the live answer** — it reports the current population every
+> morning into `doc_notes` (`source='component-source-vocabulary-check'`), so the freshest
+> count is always one query away and this table never has to be trusted.
 
 ## Two things a reader will get wrong if they are not told
 
@@ -127,9 +134,15 @@ and confirm the daily check returns to exit 0.
 
 - **The generation door is shut** — CLC-018's birth gate, live since v1.0.1314, and
   `[MEASURED 2026-08-22]` zero offending components created or updated since.
-- **The at-rest door is watched** — `config-key-audit --component-source-vocabulary`,
-  daily CronJob `component-source-vocabulary-check` at 07:20 UTC (`747e717a1`,
-  `effd08fff`). It calls the birth gate's own function, so the two cannot drift.
+- **The at-rest door is watched, and PROVEN IN-CLUSTER 2026-08-22** — `config-key-audit
+  --component-source-vocabulary`, daily CronJob `component-source-vocabulary-check` at 07:20
+  UTC on image `v1.0.1326`: manual Job run, **pod exitCode 0**, `doc_notes` row written. It
+  calls the birth gate's own function, so the two cannot drift.
+- **A repair is not finished until the baseline shrinks.** Delete the entry's lines from
+  `deployments/kustomize/services/component-source-vocabulary-check/base/component_source_baseline.json`
+  (the docs path is a symlink to it) **and re-apply the overlay** — the baseline is mounted
+  from a ConfigMap, so an edit that is not applied leaves the cluster on the old copy. Until
+  you do, the check goes RED with a stale-entry message naming the exact lines.
 - **A dormant component that gets DEPLOYED turns the job red**, so this backlog cannot
   quietly grow live surface while it waits.
 
