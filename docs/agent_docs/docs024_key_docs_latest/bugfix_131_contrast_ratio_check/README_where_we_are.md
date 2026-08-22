@@ -77,3 +77,38 @@ control.
 One correction worth flagging: I had been repeating that the two deployments of this service run far
 apart in versions. They are both on the same version today (v1.0.1323). The gap is possible, not a
 current fact, and the handoff now says so.
+
+## Friday 22 August 2026, evening — it went live, and the first real test showed it was half-blind
+
+The build you deployed carried the check, and I proved that properly rather than trusting the
+version number: the running service reports the exact commit it was built from, both of my commits
+are ancestors of it, and searching the actual binary finds my new text with a known-present control
+alongside and a nonsense string that correctly isn't found.
+
+Then I pointed it at the vonc Gauntlet page — the page this whole bug came from — and it said the
+page was fine. It isn't. I had photographed the unreadable text that morning.
+
+The reason turned out to be worth the whole day. The check found all ten pieces of unreadable text,
+measured them correctly, and then threw every one away. It inherited a rule from our older contrast
+sweep that says "if there's any background image behind the text, we can't trust the measurement,
+so don't report it". That rule treats two very different situations as one. If text sits on a
+photograph, we genuinely cannot know what's behind it. But the Gauntlet section is a solid purple
+with a faint decorative gradient over it — the background is not unknown, it just varies slightly.
+Because our house style puts decorative gradients on exactly the big colourful sections where
+unreadable text tends to happen, the check was blind in precisely the place it was needed. It could
+not have caught the original bug.
+
+I've fixed it so the two cases are treated differently: genuinely unknown backgrounds are still left
+alone, while a solid colour under a see-through gradient is now judged — and judged generously, on
+the most flattering reading of the background, so it only fails when no version of the background
+could rescue it. On the Gauntlet page that turns zero reported problems into nine real ones, and
+notably it no longer flags the headline accent, because under that gradient the headline plausibly
+does clear the bar. That felt like the right kind of honest.
+
+This is the third mistake of mine logged today, and the most instructive: I adopted a rule that
+*hides* things without ever testing what it hides. A rule that suppresses output can never be caught
+by a passing test, which is why it survived two review rounds and a deployment check. The test that
+would have caught it is three lines of HTML and now lives in the lane.
+
+The fix is with the review council now. It needs one more build of that service before it takes
+effect — the version running today has the check but not the fix.
