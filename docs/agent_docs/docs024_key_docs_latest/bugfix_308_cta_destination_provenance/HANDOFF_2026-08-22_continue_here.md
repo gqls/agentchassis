@@ -58,7 +58,7 @@ Then the negative control: non-CTA components must stay stamp-free.
 anything works or not, so it is NOT a measure of this fix. Any verification must induce a
 discovery run and then read a **served page**.
 
-## 4. Council — round 3 in flight
+## 4. Council — round 4 in flight (rounds 1-3 all REVISE)
 
 `SUBMISSION_CORR = e4336931-487b-4db3-b4dc-a4b128b3566c`
 
@@ -74,9 +74,22 @@ ORDER BY created_at;
 last. (b) **A resubmit writes another `iteration = 0` row**, so a watcher keyed on `iteration > 0`
 waits for ever. Key on the correlation and count rows, or compare `created_at`.
 
-Rounds 1 and 2 both REVISE, both gated by `editquality`. Round 2's gating objections were about my
-**sketch**, not my code (a stale sketch of already-changed code) — the seat was right: a reviewer
-can only judge what is shown. All objections are answered in the submission JSON's rationale.
+**Rounds 1, 2 and 3 were ALL REVISE, every one `decided_by` a gating objection from
+`editquality`, and all three on ONE class of defect: my hand-written sketch drifting from code
+that was already correct.** Round 3 approved 10–3. The work was never the problem; the submission
+was. **Fixed structurally in round 4 — sketches are now generated from the committed diff with
+`git show`**, which immediately caught a fourth instance before dispatch (a naive line truncation
+cut `SeedCTAMinted`'s body, reproducing round 2's objection inside the fix for it). Full account
+in `WRONG_CALLS.md`. **If round 4 also revises, read the objection carefully before changing
+code** — three times running the code was right.
+
+Round 3's other seats found two things worth keeping: **four** discovery checks raw-iterate
+`content_data` (as of 2026-08-22), and `check_literal_markdown`'s `walkContentDataStrings`
+**skips every key beginning `_`** as platform metadata — which is both a second precedent for the
+convention and the thing that stops `__cta_minted` convicting itself, since `__` is markdown bold.
+And the "no generic per-field provenance helper" absence claim survives only on the *broader*
+grep: adding `fieldOrigin|valueOrigin` returns 16, all `sectionsMetadataFieldOrigin` (the origin
+of a config key, not of a content value).
 
 **The best objection across three rounds** was guardian's round-2 HIGH: does the key perturb
 `content_hash` / divergence fleet-wide? It named a blast radius I had not considered. Measured: it
