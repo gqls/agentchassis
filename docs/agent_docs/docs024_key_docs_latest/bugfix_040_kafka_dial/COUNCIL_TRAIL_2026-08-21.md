@@ -1,4 +1,4 @@
-# Council trail — 2026-08-21 session (bugs_open/343 + bugs_open/040)
+# Council trail — 2026-08-21 session (`343` (silent post-abandonment freeze; lane `docs024_key_docs_latest/bugfix_029_retry_kills_live_child/`) + bugs_open/040)
 
 Five coherent tasks, five submissions, **all four live correlations APPROVED**. Recorded here because
 one of them cannot be joined mechanically and the reason is my own mistake.

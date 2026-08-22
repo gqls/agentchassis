@@ -1736,7 +1736,7 @@ func (r *StateRepository) GetAwaitedRequest(ctx context.Context, requestID strin
 //
 // This is the TABLE's answer to "what is outstanding". The advance decision
 // (handleCompleteResponse) reads the AwaitedRequests JSONB map instead, and
-// nothing reconciles the two: bugs_open/343's wedge is exactly a state where the
+// nothing reconciles the two: bug 343 (silent post-abandonment freeze)'s wedge is exactly a state where the
 // map says "all done" while a row here says otherwise, and the orchestration
 // advances past work it still owes. Use this as a CROSS-CHECK, never as a naive
 // replacement — the map's optimistic-lock CAS is what serialises two pods racing

@@ -140,7 +140,7 @@ func TestParkPersistsTheActionsOwnKeys(t *testing.T) {
 // The reply-beats-park race: when the fresh row already shows an arrived
 // response, the park returns early and must not write at all.
 //
-// Since bugs_open/343 this fixture — a bare "response" with no
+// Since bug 343 (silent post-abandonment freeze) this fixture — a bare "response" with no
 // response_request_id sibling — is specifically the LEGACY marker case: written
 // by an image that predates the id marker, identity unrecoverable, so treat-as-
 // arrived remains the safe reading during the mixed-fleet window. The id-keyed

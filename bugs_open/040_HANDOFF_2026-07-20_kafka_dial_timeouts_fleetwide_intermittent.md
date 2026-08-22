@@ -914,9 +914,9 @@ anything in the sweep's own config (the same chain end-to-end had run clean at 1
 Evidence lives in `orchestration_states` error columns while retention lasts; quoted verbatim
 in `vigilant_designer_offer_analysis/NOTES` 2026-08-15.
 
-## CONTRIBUTION 2026-08-21 (bugs_open/343 lane, not this bug's owner) — the two error surfaces are DISJOINT, and this file names the one that sees <1%
+## CONTRIBUTION 2026-08-21 (`343` lane, not this bug's owner) — the two error surfaces are DISJOINT, and this file names the one that sees <1%
 
-Arrived here from `bugs_open/343`: two `availability-discovery-agent` orchestrations, 27 minutes
+Arrived here from `343` (silent post-abandonment freeze; lane `docs024_key_docs_latest/bugfix_029_retry_kills_live_child/`): two `availability-discovery-agent` orchestrations, 27 minutes
 apart on 2026-08-20, both dying at the terminal step on a Kafka write —
 `step complete failed: failed to execute action complete_workflow: failed to send response: failed
 to write message to kafka: Kafka write errors (1/1)`. That is the same `complete_workflow` class this
@@ -952,7 +952,7 @@ That makes the 1-of-126 above a **worked consequence rather than a special case*
 sentence to put in front of anyone re-measuring this bug — because **this file's own
 "How to verify" hands them the near-empty sink**, where a zero ends the investigation. Related
 blindness in the same table, worth reading together: `agent_error_log` has **no column joining a
-parent orchestration to its child** (see `bugs_open/343`), so "what actually failed here" is hard from
+parent orchestration to its child** (see `343`), so "what actually failed here" is hard from
 either direction.
 
 **The worked pair, which is how it was found and why it is easy to get backwards.** The two

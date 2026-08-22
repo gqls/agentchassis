@@ -2049,7 +2049,7 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 		// already applied it and owns the continuation. Nothing was persisted, so
 		// there is nothing to insert and nothing to time out.
 		//
-		// bugs_open/343: this path used to fall through and insert a table row and
+		// bug 343 (silent post-abandonment freeze): this path used to fall through and insert a table row and
 		// arm a timeout for a request the state row knows nothing about — the
 		// orphan row that made the map and the table disagree with no reconciler
 		// anywhere. Drop the in-memory entry so this state cannot re-assert it.
@@ -2121,7 +2121,7 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 // parkOutcome says what a park actually DID, so no caller can read "no error" as
 // "the awaited entry is persisted".
 //
-// bugs_open/343: persistAwaitingStateWithRetry's arrival check returned a bare nil
+// bug 343: persistAwaitingStateWithRetry's arrival check returned a bare nil
 // on a hit without persisting anything, and processAwaitResponse then inserted the
 // table row and armed a timeout for a request whose entry exists in no map. Making
 // the outcome part of the signature makes "returned success without persisting"
@@ -2156,7 +2156,7 @@ func persistAwaitingStateWithRetry(ctx context.Context, state *OrchestrationStat
 		//
 		// The question is about IDENTITY, not presence. A marker under the step
 		// name says only "some reply was recorded here once"; on a loop step that
-		// is true of every iteration after the first. bugs_open/343: keying on the
+		// is true of every iteration after the first. bug 343: keying on the
 		// step name alone made every re-registration of an answered step name read
 		// as an arrival, so the park returned success without persisting and the
 		// orchestration froze holding no waiting awaited request.
@@ -2186,7 +2186,7 @@ func persistAwaitingStateWithRetry(ctx context.Context, state *OrchestrationStat
 				return parkSkippedReplyArrived, nil
 			case hasID:
 				// Stale residue: an EARLIER request answered under this same step
-				// name. Park normally — this is the bugs_open/343 mechanism, and
+				// name. Park normally — this is the bug 343 mechanism, and
 				// skipping here is what stranded the orchestration.
 				logger.Info("Stale response marker under this step name belongs to an earlier request - parking normally",
 					zap.String("request_id", reqID),
@@ -2271,7 +2271,7 @@ const awaitedResponseMarker = "response"
 // read only by persistAwaitingStateWithRetry's arrival check, which needs identity,
 // not mere presence.
 //
-// bugs_open/343: the arrival check used to key on step NAME alone, so a step name
+// bug 343: the arrival check used to key on step NAME alone, so a step name
 // that had already been answered once — every iteration N+1 re-registration of a
 // loop's call_handler — read as "the reply beat the park" for a request that had
 // never been sent. The park then returned success WITHOUT persisting, the caller
@@ -2328,7 +2328,7 @@ func carryCollectedDataOntoFreshState(freshState, state *OrchestrationState, log
 	}
 
 	// The steps we are about to park on. Carrying a key spelled "response" — or,
-	// since bugs_open/343, its "response_request_id" sibling — under one of these
+	// since bug 343, its "response_request_id" sibling — under one of these
 	// would forge the signal the arrival check reads, and a forged arrival is
 	// indistinguishable from a real one. The id is the MORE dangerous of the two
 	// to carry: an id equal to the request being parked forges precisely the
@@ -2762,7 +2762,7 @@ func (s *SagaCoordinator) handleProgressUpdate(ctx context.Context, state *Orche
 //
 // Detection is UNCONDITIONAL: a disagreement is logged loudly and recorded in
 // agent_error_log whatever the flag says, because the whole defect class
-// bugs_open/343 sits in is invisible today — the advance decision reads the JSONB
+// bug 343 sits in is invisible today — the advance decision reads the JSONB
 // map alone and the table is never consulted, so a divergence becomes a wrong
 // decision with nothing written down anywhere.
 //
@@ -2823,7 +2823,7 @@ func (s *SagaCoordinator) reconcileAllDoneAgainstTable(ctx context.Context, repo
 			"outstanding_statuses":    statuses,
 			"completing_request_id":   requestID,
 			"enforced":                enforce,
-			"bug":                     "bugs_open/343",
+			"bug":                     "bug 343",
 		},
 	})
 
@@ -2902,7 +2902,7 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 			// The map says the orchestration owes nothing more. Ask the TABLE the
 			// same question before acting on it — this is the one moment the two
 			// representations' disagreement becomes a wrong decision, and until
-			// bugs_open/343 nothing ever compared them.
+			// bug 343 nothing ever compared them.
 			allDone = s.reconcileAllDoneAgainstTable(ctx, repo, freshState, requestID, allDone)
 		}
 		if allDone {
@@ -3032,7 +3032,7 @@ func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepNa
 		mappedResult["response_received_at"] = time.Now().Format(time.RFC3339)
 		mappedResult["response_status"] = "complete"
 		// Record WHICH request this answered. This branch wrote no arrival marker
-		// at all before bugs_open/343, so a reply that beat the park on an
+		// at all before bug 343, so a reply that beat the park on an
 		// output_mapping step was invisible to the check — and output_mapping IS
 		// live on call_agent await paths (107_image_build_handler.sql:589
 		// call_variant_gen, :1119 call_imagery_gen). One write covers stepName and
@@ -3135,7 +3135,7 @@ func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepNa
 	// Unreachable at HEAD: the isAgentResponse test above already claims every
 	// stepExists && spawn_agent case and returns. The id marker is written here
 	// anyway so the branch cannot come back to life marker-blind — the shape of
-	// hole bugs_open/343 found in the output_mapping branch.
+	// hole bug 343 found in the output_mapping branch.
 	if stepExists && step.Action == "spawn_agent" {
 		spawnData := s.extractSpawnData(normalisedData, step)
 		setAwaitedResponseID(spawnData, awaitedReq)
@@ -3147,7 +3147,7 @@ func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepNa
 	}
 
 	// Default: store response directly (for non-agent actions). Adapter and HITL
-	// await paths land here and wrote no arrival marker before bugs_open/343.
+	// await paths land here and wrote no arrival marker before bug 343.
 	setAwaitedResponseID(normalisedData, awaitedReq)
 	state.CollectedData[stepName] = normalisedData
 	if outputField != "" {

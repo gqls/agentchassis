@@ -100,7 +100,7 @@ func shouldContinueLoopOnError(state *OrchestrationState, logger *zap.Logger) bo
 // we derive total_iterations and first_substep from the workflow plan.
 // The injected steps and the {loop}_complete step are always present.
 //
-// PERSISTENCE (bugs_open/343 P2, 2026-08-21). The mutations below are applied to
+// PERSISTENCE (bug 343 (silent post-abandonment freeze) P2, 2026-08-21). The mutations below are applied to
 // a FRESHLY LOADED state inside an optimistic-lock retry loop, not to the caller's
 // copy with a single unretried write. It used to be one bare repo.UpdateState: an
 // optimistic-lock failure there returned an error and LOST the advance — and on
@@ -349,7 +349,7 @@ func findFirstSubstep(steps map[string]models.Step, loopName string) string {
 // also cleans up the awaited request that failed. Used by handleUnrecoverableError
 // and handleRequestTimeout.
 //
-// ORDERING (bugs_open/343 P2, 2026-08-21): the awaited row is marked terminal
+// ORDERING (bug 343 P2, 2026-08-21): the awaited row is marked terminal
 // only AFTER the advance is durably persisted — the same rule handleCompleteResponse
 // calls "the key fix". It used to be marked FIRST. When the persist then failed,
 // the advance and the map delete were both lost while the row was already

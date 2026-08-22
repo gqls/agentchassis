@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/park_arrival_check_test.go
 //
-// bugs_open/343 — the park's arrival check, keyed on request IDENTITY.
+// bug 343 (silent post-abandonment freeze) — the park's arrival check, keyed on request IDENTITY.
 //
 // The defect these tests pin: the check used to ask "is there a response marker
 // under this step name?", which on a loop step is true of every iteration after
@@ -59,7 +59,7 @@ func TestParkProceedsOnStaleMarkerFromAnEarlierRequest(t *testing.T) {
 		t.Fatalf("outcome = %v, want parkPersisted: a marker naming a DIFFERENT request is stale residue, not an arrival", outcome)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatalf("the park skipped on another request's marker - this is the bugs_open/343 wedge: %v", err)
+		t.Fatalf("the park skipped on another request's marker - this is the bug 343 wedge: %v", err)
 	}
 }
 

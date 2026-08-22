@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/await_response_id_marker_test.go
 //
-// bugs_open/343 — every branch that records a reply must also record WHICH
+// bug 343 (silent post-abandonment freeze) — every branch that records a reply must also record WHICH
 // request it answered.
 //
 // The park's arrival check keys on that id. A branch that stores a reply without
@@ -39,7 +39,7 @@ func TestIDMarkerIsWrittenInEveryResponseBranch(t *testing.T) {
 	}{
 		{
 			// The live hole: output_mapping stores the mapped result directly and
-			// wrote no arrival marker of any kind before bugs_open/343.
+			// wrote no arrival marker of any kind before bug 343.
 			name:      "output_mapping",
 			wantKeys:  []string{"the_step", "mapped_out"},
 			stepExist: true,
@@ -98,7 +98,7 @@ func TestIDMarkerIsWrittenInEveryResponseBranch(t *testing.T) {
 				}
 				got, present := container[awaitedResponseIDMarker].(string)
 				if !present {
-					t.Fatalf("%s: container %q records a reply but not WHICH request answered it - the park's arrival check is blind here (bugs_open/343)", tc.name, key)
+					t.Fatalf("%s: container %q records a reply but not WHICH request answered it - the park's arrival check is blind here (bug 343)", tc.name, key)
 				}
 				if got != reqID {
 					t.Errorf("%s: container %q recorded request id %q, want %q", tc.name, key, got, reqID)

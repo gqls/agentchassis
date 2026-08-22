@@ -53,7 +53,7 @@ type WorkflowPlan struct {
 	// rows the table still shows outstanding.
 	//
 	// Default false = today's behaviour exactly. Detection of the divergence is
-	// UNCONDITIONAL and logs either way; only the decision is gated. bugs_open/343:
+	// UNCONDITIONAL and logs either way; only the decision is gated. bug 343 (silent post-abandonment freeze):
 	// two representations of "what is outstanding" with nothing reconciling them is
 	// the wedge's substrate, and enforcement is the half that changes what runs, so
 	// it ships opt-in with the unsafe side off (owner ruling 2026-08-02 §2).

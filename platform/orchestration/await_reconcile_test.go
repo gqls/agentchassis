@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/await_reconcile_test.go
 //
-// bugs_open/343 — the advance decision cross-checks the awaited_requests table.
+// bug 343 (silent post-abandonment freeze) — the advance decision cross-checks the awaited_requests table.
 //
 // "All responses are in" is decided from the AwaitedRequests JSONB map alone, and
 // the table that drives the response consumer is never consulted. Where the two

@@ -687,7 +687,7 @@ observed so far (~12h). Two episodes is not a rate. Not relying on it.
 
 ## 2026-08-21 — the write side, the empty-host guard, the opt-in retry, and three things I got wrong on the way
 
-**Session brief:** owner asked for `bugs_open/040` and `bugs_open/343` together — research, validate,
+**Session brief:** owner asked for `bugs_open/040` and `343` (silent post-abandonment freeze; lane `docs024_key_docs_latest/bugfix_029_retry_kills_live_child/`) together — research, validate,
 plan with Fable, council, commit for the next build.
 
 ### What was measured first, before any code

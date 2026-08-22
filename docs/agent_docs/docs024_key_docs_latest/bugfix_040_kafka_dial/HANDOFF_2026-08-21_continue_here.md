@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-21 — bugs_open/343 + bugs_open/040, continue here
+# HANDOFF — 2026-08-21 — `343` (silent post-abandonment freeze; lane `docs024_key_docs_latest/bugfix_029_retry_kills_live_child/`) + bugs_open/040, continue here
 
 **Session brief was:** research both bugs, validate they are still real, plan with Fable, council-review,
 commit for the next chassis build, keep the docs current, log missteps.
@@ -135,7 +135,7 @@ idempotent producer in kafka-go 0.4.47) and is *assumed* absorbed by the parent'
 
 ## 6. Where everything is
 
-- Bugs: `bugs_open/343_HANDOFF_2026-08-20_…md` (08-21 block at the top),
+- Bugs: ``343`_HANDOFF_2026-08-20_…md` (08-21 block at the top),
   `bugs_open/040_HANDOFF_2026-07-20_…md` (§12).
 - Lanes: `docs024_key_docs_latest/bugfix_029_retry_kills_live_child/` (NOTES §28, README) and
   `docs024_key_docs_latest/bugfix_040_kafka_dial/` (NOTES, README, `COUNCIL_TRAIL_2026-08-21.md`).

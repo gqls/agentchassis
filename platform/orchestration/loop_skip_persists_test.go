@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/loop_skip_persists_test.go
 //
-// bugs_open/343 P2 — the loop-skip advance persists with the same optimistic-lock
+// bug 343 (silent post-abandonment freeze) P2 — the loop-skip advance persists with the same optimistic-lock
 // retry discipline as every other advance, and the awaited row goes terminal only
 // once that advance is durable.
 //
