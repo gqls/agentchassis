@@ -446,3 +446,68 @@ plainly that round 2's gating objection is still literally true of this code. Wh
 ruling and the named step 2, not the rhetoric. Also flags for the council that if they think a
 write-half should not be reviewed apart from its readers, the code is already on the shared branch,
 so that changes the review unit rather than what is on main.
+
+---
+
+## 2026-08-22 (evening) — phase 1 is LIVE, unexercised; council round 3 REVISE with 6 clean approvals; the writer census was wrong
+
+### The deploy, verified at the artefact
+
+Chassis rolled **2026-08-22 15:10:31Z**. The `build provenance` startup line had already scrolled out
+of `--tail=3000` (the known landmine: an empty result there means *not in range*, not *unstamped*),
+so I probed the running binary for the **capability** with four arms:
+
+| probe | result | expected |
+|---|---|---|
+| `observed at render` (new SQL literal) | PRESENT | PRESENT |
+| `component version: template changed` (new log line) | PRESENT | PRESENT |
+| `self-contained tool section` (pre-existing) — **positive control** | PRESENT | PRESENT |
+| `zzz_never_shipped_literal_357_qqq` — **negative control** | ABSENT | ABSENT |
+
+**The stamp is NOT yet exercised, and I am not claiming it works.** [MEASURED 2026-08-22 17:50Z]
+`page_components` rows created since the roll: **0**. So `since_roll_stamped` is 0 of 0 — *pending*,
+not passing. The control half does hold: **0 of 1,940** pre-roll rows are stamped, which is the
+disconfirmable half (a backfill would have moved it, and nothing backfills). `component_versions`
+holds 372 rows, **0** with `change_source='render_stamp'`. A capability with no live caller has an
+untested dependency on its environment; this one is waiting for the first page save.
+
+### Council round 3 — REVISE, but the shape changed
+
+**Six clean approvals** (guidelines, tooling_provenance, render_guardian, constitution, mission,
+prior_art_librarian), and **editquality and architecture moved to APPROVE** with low-severity notes —
+both had objected in earlier rounds. Gated by `debug_historian` (HIGH) on a livespec/landmine
+concern.
+
+**The gating objection does not apply, and that is checkable rather than arguable:** this change
+ships no migration and alters no live DB object. `git show --name-only bbe178309` has no `.sql`,
+nothing under `sql_for_agents/`, no livespec file; `grep -c component_version_id
+platform/livespec/livespec.go` = **0**; `go test ./platform/livespec/...` passes. The landmine fires
+on migrations that move a guarded live object — the edit here widened a *source*-scanning regex over
+a Go file, which has no live-object sibling.
+
+### ⚠ The `reuse_agent` seat was RIGHT, and I had published the error three times
+
+I claimed `component_versions` was *"written by one path"*. It has **five INSERT sites across four
+files as of 2026-08-22**. Corrected visibly in the PLAN §10.2, in register CLC-026, and logged in
+`WRONG_CALLS.md` (8th). The live table would have told me for free — **26 distinct `change_source`
+values**; a single-writer table does not have 26 provenance labels.
+
+**What survives, stronger than what it replaced:** 277's nine components had no versions not because
+one Go writer missed them, but because a template edited by a **hand-written SQL migration** passes
+through **no Go writer at all** — which is exactly why the stamp must be taken at RENDER time rather
+than at edit time. And the error hid a real defect: every writer allocates `version_number` by its
+own `MAX+1`, so the version-number race a seat raised against my get-or-create is a property of the
+**table**, predating this change by four writers.
+
+### New finding no seat raised
+
+`page_component_history` has 15 columns and **none** is `component_version_id`. The archive **drops
+the stamp**, so a row's provenance is lost the moment it is archived — precisely the forensic case
+`bugs_closed/277` needed and could not have. Named as a phase-2 item.
+
+### Round 4 dispatched (`81a38cc4` envelope)
+
+Answers each round-3 objection with the check that settles it. **The dispatch receipt I filed as a
+landmine two hours ago worked in use**: `fix_plan` artifacts on the trail went 3 → 4 within 75
+seconds, which is how a landed dispatch is now told apart from the silently dropped one that cost
+this lane 95 minutes earlier today.
