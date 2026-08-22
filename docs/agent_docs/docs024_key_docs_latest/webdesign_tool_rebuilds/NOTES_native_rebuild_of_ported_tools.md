@@ -2709,3 +2709,56 @@ now anchors all THREE writers per-file (UPDATE-anchored for this one), regenerat
    discovery was its first live `unacted`.
 Nothing further owed either direction. Lane tail unchanged: verdicts `c6b9a382` + `b8bdd4b3` owed a
 read; 362 §9 census re-run post-roll; the staged instance-scope-guard removal still anonymous.
+
+## 2026-08-22 12:35Z — Phase C #1 `tool-blueprint-compiler` DONE (28 of 63 by the corrected count) — via a fleet outage found on its first filing: the 435 adopt flag had been REMOVED, un-snapshotted
+
+**The outage (second config regression this lane has caught at filing time; 336 was the first):**
+first filing `21ab0704` (11:24Z) died at `save_tool` with `pages_site_id_name_key` 23505, item
+`complete`/`error` NULL. Diagnosis at the live row: `adopt_existing_page` ABSENT from tool-generator's
+save_tool config. Snapshot trail: every backup through the pre-516 image (state of 08-21 13:50:42Z)
+still shows `true`; 516 itself is surgical (jsonb_set + `#-` of `related_pages` only — read before
+acquitting); whole-config diff pre-516→live shows exactly three key changes, two of them 516's rename.
+So the key was removed between 516's apply (~16:55Z 08-21) and the row's updated_at 08:36:05Z 08-22,
+with **no `agent_definitions_backup` row and no `schema_migrations` row — writer UNIDENTIFIED**.
+Binary probed (positive + negative control): v1.0.1322 still carries the adopt literal, so config was
+the whole fix. **RESTORED by migration 558** (pre-guard, snapshot `1bca62f6`, one jsonb_set,
+post-guard, doc_note telling the remover to come forward, ledger row; applied 11:5xZ). Effect while
+absent: EVERY adopt-route add_tool fleet-wide died the same way — casualty census: one item (mine).
+
+**#28 (refile `4d1d56b5`, 11:36Z): RUN complete/adopted, component `ad0cda73` (26,385 chars), retire
+`UPDATE 1` at 11:41:43 (~60s after build; ported slot `86da7257` md5 `c3e53b7f…` intact, one deployed
+slot = the new tool asserted in-txn), generator rerender `1fc587e4` complete 11:50:26.**
+**COMPONENT PASS by mechanism:** copy honesty is real (writeText `.then/.catch` → execCommand
+fallback whose ACTUAL result drives 'Could not copy automatically…' + `copy-fail` class); the ported
+false self-claim class is dead BY REFUSAL (missing name/phone → inline message naming the fields,
+"Prompts are only compiled once your real details are entered, so nothing invented ever appears in
+them" — now TRUE by construction); every sitemap entry pushes a block unconditionally (no silent
+skip possible); empty sitemap → visible message; innerHTML only as `=''` clears, DOM via
+createElement/textContent; 0·0·0·0 standard counts, 5 listeners; 5 tones with plain fallback;
+deck = Phase 1 step 0 system + step N per page + Phase 2 Lovable + Phase 3 guardrail.
+**SERVE-GRADE PASS:** 200 / 33,628 B / last-modified 11:50:40 > 11:50:26; `ported-page` 0, `{{.` 0;
+NEGATIVES all 0 (`id="biz-name"`, `id="btn-compile"`, `id="page-type"`, **`src="script.js"` — the
+Phase C decisive one: the external reference is GONE from the served page**, the false self-claim
+sentence, `id="sitemap-list"`); POSITIVES present (compile-error-message, compile-button, 'Phase 3:
+Maintenance guardrail prompt', 'Could not copy automatically'). **Tombstone re-read (the new rule):
+`removed`, updated_at = my retire, no open literal_markdown/section_edit items.**
+
+**360 tombstone guard: council APPROVED round 1** (corr `4007ce96`, commit `1cd184f6e` already
+carries Council-Submitted; 098 credits automatically). Advisory dispositions, recorded not banked:
+- editquality (medium, symbol mismatch): answered by construction — `pageComponentAgentWritableSQL`
+  is the actions-package delegate of `datahelpers.AgentWritableSQLFor`; compiles, tests green.
+- reuse_agent (medium) + bug_historian's convergence note: folding the tombstone predicate INTO the
+  shared writable helper would cover every writer but changes `site_components` writers and five
+  other page_components writers UNREVIEWED — recorded in `bugs_open/360` as the convergence
+  question for whoever takes candidates (2)/(3); not silently widened here.
+- guardian (medium, skip-result read as applied): same posture as the live lock gate (precedent);
+  the item-completion backstop is the type's verifier. Noted in 360.
+- debug_historian (low): the mutation proof is authoring-time evidence only on this shared package —
+  agreed; the durable artefact is the per-statement captured-SQL test itself.
+
+**Asset retire (TL-032, the Phase C extra step): dry-run retraction dispatched** for
+`/tools/blueprint-compiler/script.js` (corr `a7e165e2-e8a7-4f70-a9b5-6e6f8604693c`, asset-retraction
+agent, live config verified dry-run-by-default post-554 BEFORE dispatch, per the 08-22 LANDMINE). No
+orchestration row after 2 min — the known dispatch latency; find it BY PAYLOAD, do not retry.
+⚠ the shared `/tools/assets/webdesign-couk-header.js` is referenced by every ported page — it is
+retired with the LAST ported page, never per-tool.

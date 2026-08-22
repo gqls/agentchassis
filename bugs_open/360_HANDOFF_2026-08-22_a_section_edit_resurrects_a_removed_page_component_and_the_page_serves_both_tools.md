@@ -108,3 +108,19 @@ changed files (the tree carries other lanes' WIP). Council `Council-Submitted:
 reproducible in production until then, so this file stays OPEN and the tool-rebuilds RUNBOOK's
 post-retire re-read rule stays in force. Candidates (2) filer scoping and (3) the 486 INSERT
 predicate remain with the 277/283 lanes (CONTRIBs delivered).
+
+## Council round outcome (2026-08-22): APPROVED round 1, corr `4007ce96` — and one convergence question the seats raised for whoever takes candidates (2)/(3)
+
+Two advisory objections + notes, dispositions in the lane NOTES (webdesign_tool_rebuilds, 12:35Z).
+The one that needs a durable home HERE: **reuse_agent (medium) proposes folding the tombstone
+predicate into the shared writable helper (`datahelpers.AgentWritableSQLFor`) instead of a second
+const call-sites must remember to AND — and bug_historian separately asks that 486's predicate not
+reinvent the const.** The fold was NOT done in fix (1) because the helper is shared with
+`site_components` writers and five other `page_components` writers (adopt_verbatim,
+chrome_link_policy, create_report_page, fix_forced_text_colours, create_tool_component_regenerate)
+whose removed-row semantics this round did not review. Whoever takes candidate (2) or (3): consider
+the fold as its own reviewed change (it would close the door for ALL writers at once), or at least
+import/export `pageComponentNotRemovedSQL` rather than writing a third copy. bug_historian also
+asked whether the filer gap has an open tracking item: it does — `bugs_open/356` §6-B names
+`check_literal_markdown` (page axis), this file's candidates (2)/(3) name the component axis, and
+CONTRIBs are delivered to the 277 and 283 lanes.
