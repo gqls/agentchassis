@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-wedge-evidence-capture — preserves `bugs_closed/343`'s evidence before retention eats it.
+wedge-evidence-capture — preserves bug 343's evidence before retention eats it.
 
 ⚠ RENUMBERED 2026-08-21. This was built for `bugs_open/029`, which the owner SPLIT on 2026-08-20:
 029 is CLOSED (for the inverted retry window only) and the silent freeze this job captures is now
@@ -8,14 +8,24 @@ wedge-evidence-capture — preserves `bugs_closed/343`'s evidence before retenti
 longer exists — so a reader following it during an incident lands nowhere. The strings below are
 the fix; the historical rows keep their old label and are not rewritten.
 
-⚠ RETARGETED AGAIN 2026-08-22 — 343 is now `bugs_closed/343`, CLOSED BY OWNER RULING, and the
-capture is DELIBERATELY LEFT ARMED. The close was an override of the fixed-AND-live bar, not a
-solved bug: the second wedge is fixed and live on v1.0.1322, the FIRST DEATH is unexplained, and
-the lane had no path left that did not begin with "wait for another GitHub outage". So this job is
-the standing bet that the freeze recurs — if it fires, it captures the evidence that was missing
-in August. **Do not decommission it on the grounds that the bug is closed**, and do not read a
-capture as a 343 recurrence: the trigger is broad (see below) and the recurrence test is the
-abandoned-rv3-await count, not these notes.
+⚠ RETARGETED AGAIN 2026-08-22 — 343 is CLOSED BY OWNER RULING and the capture is DELIBERATELY
+LEFT ARMED. The close was an override of the fixed-AND-live bar, not a solved bug: the second
+wedge is fixed and live on v1.0.1322, the FIRST DEATH is unexplained, and the lane had no path
+left that did not begin with "wait for another GitHub outage". So this job is the standing bet
+that the freeze recurs — if it fires, it captures the evidence that was missing in August.
+**Do not decommission it on the grounds that the bug is closed**, and do not read a capture as a
+343 recurrence: the trigger is broad (see below) and the recurrence test is the abandoned-rv3-await
+count, not these notes.
+
+⚠ AND NOTE WHAT THE LABELS BELOW NO LONGER SAY. They name the bug by NUMBER + SLUG + LANE
+DIRECTORY and carry **no `bugs_open/` or `bugs_closed/` prefix at all**. That is not a style
+choice — a directory-prefixed pointer is guaranteed to rot, because moving between those two dirs
+is precisely what opening and closing a bug DOES, and it rots silently: nothing errors, the string
+still looks like a well-maintained pointer, and the reader following it mid-incident lands nowhere.
+This job has now been retargeted TWICE for exactly that reason (029 → 343 on 08-21, 343 → closed on
+08-22), which is the tell that the pointer shape was the defect rather than either address. The
+lane directory does not move when a bug's status changes. Full entry: LANDMINES.md, "A pointer that
+hardcodes `bugs_open/` rots at exactly the moment it starts to matter".
 
 ⚠ THIS JOB IS DELIBERATELY BROAD AND ITS ROWS ARE NOT ALL 343 INSTANCES. The trigger is
 "an EXECUTING_STEP row older than the threshold", which is far wider than the 343 signature. As of
@@ -194,7 +204,9 @@ def write_note(subject_key, body, password, host):
 def render(row):
     awaited = row.get("awaited_requests") or []
     lines = [
-        "WEDGE EVIDENCE CAPTURE (%s) — bugs_closed/343 (CLOSED 2026-08-22, capture still armed)" % row["kind"],
+        "WEDGE EVIDENCE CAPTURE (%s) — bug 343 parent_freezes_silently_after_an_abandoned_await "
+        "(CLOSED 2026-08-22 by owner override, capture still armed). Grep BOTH bugs_ dirs by SLUG; "
+        "lane: docs024_key_docs_latest/bugfix_029_retry_kills_live_child/" % row["kind"],
         "",
         "orchestration_id : %s" % row["orchestration_id"],
         "owner_agent_type : %s" % row["owner_agent_type"],
@@ -251,7 +263,9 @@ def main():
         print("CAPTURED: " + captured[-1])
 
     summary = [
-        "wedge-evidence-capture run summary — bugs_closed/343 (CLOSED 2026-08-22, capture still armed)",
+        "wedge-evidence-capture run summary — bug 343 parent_freezes_silently_after_an_abandoned_await "
+        "(CLOSED 2026-08-22 by owner override, capture still armed). Grep BOTH bugs_ dirs by SLUG; "
+        "lane: docs024_key_docs_latest/bugfix_029_retry_kills_live_child/",
         "",
         "orchestration_states rows visible : %d" % totals["total"],
         "frozen-threshold (minutes)        : %d" % FROZEN_MINUTES,
