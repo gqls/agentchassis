@@ -481,6 +481,30 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			preStoreScore, blockingIssues,
 		)
 
+		// section_type self-heal on the REJECTION path (bugs_open/337).
+		//
+		// The UPDATE below carries the same COALESCE, but it only ever runs on
+		// a SUCCESSFUL store — so the repair was gated behind the success that
+		// its own absence prevents. A row whose section_type is NULL is
+		// invisible to BOTH section_type readers: the selector, which is how a
+		// page finds a component at all, and load_existing_component, which is
+		// how the writer learns the field contract this very rejection is
+		// enforcing. Blind writer -> stranded fields -> rejection -> no heal ->
+		// blind writer. Measured 2026-08-22: one such component was refused 70
+		// times without a single success, while a sibling with four generically
+		// named fields escaped on the second attempt by reproducing them by
+		// chance.
+		//
+		// ⚠ GATED ON is_active, AND THAT GATE IS THE WHOLE SAFETY ARGUMENT.
+		// Healing section_type makes a component SELECTABLE, and migration 036
+		// deactivates broken components precisely so that pages stop choosing
+		// them. Healing an inactive row here would take a component that just
+		// failed the gate and offer it to page planning — strictly worse than
+		// the invisibility being repaired. So this only ever fills a metadata
+		// gap on a row the estate already treats as live; it never revives one.
+		// It writes a single NULL column, never the template, never is_active.
+		healRejectedComponentSectionType(ctx, params.DB, logger, existingID, isRegeneration, sectionType)
+
 		logger.Warn("store_generated_component: rejecting low-quality template",
 			zap.String("function", functionName),
 			zap.String("section_type", sectionType),
@@ -1337,6 +1361,57 @@ var unknownTemplateVarPattern = regexp.MustCompile(`^template var \{\{\.([^}]+)\
 //     data-component, "<no value>" artifacts, 0-placeholder
 //     substantive template). These indicate the LLM
 //     produced something broken at a deeper level.
+// healRejectedComponentSectionType fills a NULL section_type on the row a
+// REFUSED regeneration was targeting, so the component stops being invisible to
+// the two readers that key on that column.
+//
+// Full rationale at the call site. The two properties that matter here:
+//
+//   - It is gated on is_active, so a component deactivated as broken is never
+//     made selectable by a failed regeneration. Dropping that condition is the
+//     mutation the test suite exists to catch.
+//   - COALESCE means an already-set section_type is never overwritten. The two
+//     columns legitimately differ on live rows, and this repairs an absence
+//     only — it is not a reconciliation.
+//
+// Best-effort: a failure here logs and is otherwise ignored. The caller is
+// already returning a rejection, and losing a metadata repair must never turn
+// into a second, different error.
+func healRejectedComponentSectionType(
+	ctx context.Context,
+	db *sql.DB,
+	logger *zap.Logger,
+	existingID string,
+	isRegeneration bool,
+	sectionType string,
+) {
+	// Only a regeneration has a row to repair; a refused creation wrote nothing.
+	if !isRegeneration || existingID == "" || sectionType == "" || db == nil {
+		return
+	}
+
+	result, err := db.ExecContext(ctx, `
+		UPDATE content_components
+		SET section_type = COALESCE(section_type, $1)
+		WHERE id = $2::uuid
+		  AND is_active = true
+		  AND section_type IS NULL
+	`, sectionType, existingID)
+	if err != nil {
+		logger.Warn("store_generated_component: section_type heal on rejection failed (non-fatal)",
+			zap.String("component_id", existingID),
+			zap.String("section_type", sectionType),
+			zap.Error(err))
+		return
+	}
+	if n, rowsErr := result.RowsAffected(); rowsErr == nil && n > 0 {
+		logger.Info("store_generated_component: healed NULL section_type on a refused regeneration — the component is no longer invisible to the selector or to the writer's advisory",
+			zap.String("component_id", existingID),
+			zap.String("section_type", sectionType),
+			zap.Int64("rows", n))
+	}
+}
+
 func recordValidationRejection(
 	ctx context.Context,
 	db *sql.DB,
@@ -1464,6 +1539,82 @@ func recordValidationRejection(
 		logger.Warn("recordValidationRejection: failed to write to agent_error_log",
 			zap.Error(err),
 			zap.String("function", functionName))
+	}
+
+	// bugs_open/345: the same refusal, on the ROW, in a typed channel the next
+	// generation can read. Deliberately the SAME errorMessage and errorCode the
+	// insert above uses — one message, two destinations. Composing a second,
+	// prettier message here would be two implementations of one rule, which is
+	// the drift class bugs_closed/034 closed.
+	recordRetryFeedback(ctx, db, logger, workItemID, errorCode, errorMessage,
+		params.ExecutionContext.OrchestrationID, "store_component")
+}
+
+// recordRetryFeedback is THE ONLY WRITER of site_work_items.retry_feedback
+// (migration 561), and that singularity is the entire point of the column.
+//
+// WHY A DEDICATED COLUMN EXISTS AT ALL. bugs_open/345's shipped fix feeds the
+// previous failure back to the writer so a retry can differ from its
+// predecessor — and it works (item ceea0c07, 2026-08-22: refused 12:18:43Z,
+// re-dispatched 12:51 carrying the text, completed 12:53:07). But it was
+// reading `site_work_items.error`, and that column is a general-purpose
+// annotation field: [MEASURED 2026-08-22] TWENTY write sites across TEN files
+// write it, three of them the human operator HTTP path in
+// internal/core-manager/admin/site_admin_handlers.go, plus hand-run SQL. Of the
+// 799 rows fleet-wide that passed the loader's gate, 405 were human notes
+// ("HELD 2026-08-18 by the loanzy_uk_example_site lane: …") and only 11 were
+// validation rejections. The prompt nevertheless told the model "your previous
+// output for this component was refused by validation" — false for 6 of the 17
+// items (35%) that could actually reach it.
+//
+// The fix is not a better classifier. Classifying at the reader would mean
+// matching error TEXT written freely by twenty producers and by people; a
+// column with one writer makes the wrong answer unrepresentable instead of
+// merely detectable. `error` keeps its twenty writers and its meaning.
+//
+// SO: if you are about to add a second writer to this column, don't. Add your
+// own producer call to THIS function with your own code, or the guarantee the
+// reader depends on is gone and no test will notice.
+//
+// Best-effort by design, exactly like the agent_error_log insert above: the
+// caller is already failing, and losing the feedback costs one blind
+// regeneration (pre-345 behaviour), never correctness.
+//
+// One write per failure EVENT, never on a cadence — WII-018:
+// trg_site_work_items_updated_at bumps updated_at on every write and the stale
+// reaper keys on it, so a periodic writer makes an open item permanently
+// unreapable. updated_at is deliberately NOT set here: the trigger owns it.
+func recordRetryFeedback(ctx context.Context, db *sql.DB, logger *zap.Logger,
+	workItemID, code, message, orchestrationID, step string) {
+
+	if db == nil || workItemID == "" {
+		// No work item means this generation was not dispatched from the queue
+		// (a canary, a direct call). There is nothing to feed a retry with.
+		return
+	}
+
+	// completed_at IS NULL mirrors the reader's gate (load_work_item_actions.go):
+	// a completed row keeps its failure text, and writing feedback onto a
+	// lifecycle that already ended is how a fresh generation inherits a dead
+	// one's refusal — the round-3 hazard, LANDMINES.md:7104.
+	_, err := db.ExecContext(ctx, `
+		UPDATE site_work_items
+		SET retry_feedback = jsonb_build_object(
+		        'code',             $2::text,
+		        'message',          $3::text,
+		        'at',               NOW()::text,
+		        'orchestration_id', NULLIF($4::text, ''),
+		        'step',             NULLIF($5::text, ''))
+		WHERE id = NULLIF($1::text, '')::uuid
+		  AND completed_at IS NULL
+	`, workItemID, code, message, orchestrationID, step)
+
+	if err != nil {
+		logger.Warn("recordRetryFeedback: failed to record typed retry feedback — "+
+			"the next attempt will regenerate blind (pre-345 behaviour)",
+			zap.Error(err),
+			zap.String("work_item_id", workItemID),
+			zap.String("code", code))
 	}
 }
 

@@ -702,7 +702,10 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			wi.batch_id, wi.attempt_count,
 			COALESCE(wi.approval_mode, 'auto') as approval_mode,
 			wi.component_id, wi.entity_id, wi.affected_url,
-			wi.error, wi.completed_at
+			-- bugs_open/345: the TYPED retry-feedback channel (migration 561),
+			-- NOT wi.error. See the scan block below for why the swap happened.
+			wi.retry_feedback->>'message', wi.retry_feedback->>'code',
+			wi.completed_at
 		FROM site_work_items wi
 		WHERE wi.site_id = $1
 		  AND wi.status IN ('triaged', 'approved')
@@ -782,13 +785,42 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			// such resets, so it is the discriminator: last_error is only
 			// surfaced when the item has never completed.
 			completedAt sql.NullTime
-			// bugs_open/345: the PREVIOUS attempt's failure text. A handler that
-			// regenerates an artefact was re-running from identical inputs, so
-			// every retry reproduced the same rejection — measured at 99
-			// rejections across 3 sites with one distinct reason per item, and
-			// one item burning 52 generations. NullString because the column was
-			// nullable before migration 217 and old rows still hold NULL.
-			lastError sql.NullString
+			// bugs_open/345: the PREVIOUS attempt's failure, from the TYPED
+			// channel `retry_feedback` (migration 561) — deliberately NOT from
+			// `wi.error`.
+			//
+			// A handler that regenerates an artefact was re-running from
+			// identical inputs, so every retry reproduced the same rejection —
+			// 99 rejections across 3 sites with one distinct reason per item,
+			// one item burning 52 generations. Feeding the failure back fixed
+			// that and is proven live (item ceea0c07, 2026-08-22: refused
+			// 12:18:43Z, re-dispatched 12:51 carrying this key, completed
+			// 12:53:07 on attempt 1).
+			//
+			// WHY THE SOURCE MOVED OFF `wi.error`. That column is a
+			// general-purpose annotation field, and the prompt reading this key
+			// asserts a provenance it cannot support ("your previous output for
+			// this component was refused by validation"). [MEASURED 2026-08-22]
+			// TWENTY write sites across TEN files write it — three of them the
+			// human operator HTTP path in admin/site_admin_handlers.go — plus
+			// hand-run SQL. Of 799 rows fleet-wide passing this very gate, 405
+			// were human notes ("HELD 2026-08-18 by the loanzy_uk_example_site
+			// lane: …", "Claim timed out (attempts exhausted)") and only 11 were
+			// validation rejections; of the 17 that could actually reach a
+			// reader, 6 (35%) were misattributed — 3 token-cap truncations,
+			// where the true remedy is "be shorter", and 3 human notes.
+			//
+			// The remedy is a channel with ONE writer
+			// (store_generated_component_action.go recordRetryFeedback), not a
+			// cleverer classifier here: matching error TEXT written freely by
+			// twenty producers is a lexical comparison, and this estate's
+			// council gate has killed that defect class three rounds running.
+			//
+			// lastErrorCode carries the producer's OWN classification so the
+			// prompt can render the right remedy per class instead of asserting
+			// one for all of them.
+			lastError     sql.NullString
+			lastErrorCode sql.NullString
 		)
 		// Nullable in the schema until migration 217 (bugs_closed/078) gave it
 		// NOT NULL DEFAULT ''. Scanned as NullString regardless: a plain string
@@ -804,7 +836,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			&priority, &handlerAgent, &status, &itemKey,
 			&batchID, &attemptCount, &approvalMode,
 			&componentID, &entityID, &affectedURL,
-			&lastError, &completedAt,
+			&lastError, &lastErrorCode, &completedAt,
 		)
 		if err != nil {
 			// Error, not Warn: this branch drops a row that the site selector
@@ -875,6 +907,14 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 				prev = prev[:maxPreviousFailureChars] + " …[truncated]"
 			}
 			item["last_error"] = prev
+			// The code rides with the message or not at all. A message whose
+			// class is unknown must NOT be rendered under a claim about its
+			// class — that is the 35% misattribution this change exists to end
+			// — and the prompt's per-code branches make an absent code render
+			// nothing, so the two keys are set together on purpose.
+			if code := strings.TrimSpace(lastErrorCode.String); code != "" {
+				item["last_error_code"] = code
+			}
 		}
 
 		// First-class routing columns, column-first with a spec.<key> fallback,

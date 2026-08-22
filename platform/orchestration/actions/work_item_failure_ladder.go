@@ -555,7 +555,24 @@ func writeTransientRelease(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 func transientReleaseStatement(itemID uuid.UUID, errorMsg, reason string, cooldownMins int,
 	resultMerge []byte, guard string, withRetryAfter bool) (string, []interface{}) {
 
-	args := []interface{}{itemID, "transient (" + reason + "): " + errorMsg, reason}
+	// bugs_open/345: the stored text is the error ITSELF, with no
+	// "transient (<reason>): " prefix in front of it any more. Two reasons, and
+	// the second is the load-bearing one:
+	//
+	//  1. The prefix ate the FRONT of the reader's 2,000-char cap
+	//     (load_work_item_actions.go), and the front is the end that cap's own
+	//     comment says it preserves — "the guard names the offending field
+	//     first".
+	//  2. It made two reports of ONE failure textually different depending on
+	//     which arm wrote them, so a repeat could not be recognised as a repeat.
+	//     stopOnRepeatFailure below compares this column against the incoming
+	//     message; with the prefix in place the comparison could never match and
+	//     the rule would be silently inert.
+	//
+	// Nothing is lost: the reason is already recorded structurally, in
+	// spec->'last_transient_release'->>'reason' below, which is where every
+	// query should have been reading it from anyway.
+	args := []interface{}{itemID, errorMsg, reason}
 
 	retryAfter := ""
 	if withRetryAfter {
@@ -568,7 +585,14 @@ func transientReleaseStatement(itemID uuid.UUID, errorMsg, reason string, cooldo
 	q := `
 		UPDATE site_work_items
 		SET status = 'triaged',
-		    error = $2,
+		    -- COALESCE/NULLIF, matching the counting arm at writeCountingLadder.
+		    -- The two arms were asymmetric: this one was a bare assignment, so an
+		    -- empty incoming message could blank an error a previous attempt had
+		    -- recorded — the very thing bugs_closed/040 candidate 2 exists to
+		    -- prevent, prevented on one arm only. [MEASURED 2026-08-22: 0 live
+		    -- rows carry the content-free form, so this is a hazard closed
+		    -- before it fired, NOT a measured incident.]
+		    error = COALESCE(NULLIF($2, ''), error),
 		    claimed_by = NULL,
 		    claimed_at = NULL,
 		    handled_by = NULL,

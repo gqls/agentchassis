@@ -39,9 +39,27 @@ func loadOneItem(t *testing.T, attemptCount int, errText interface{}) map[string
 	return loadOneItemFull(t, attemptCount, errText, nil)
 }
 
+// loadOneItemCoded drives a row carrying BOTH halves of the typed channel.
+// bugs_open/345: the loader reads retry_feedback->>'message' and
+// retry_feedback->>'code', never site_work_items.error.
+func loadOneItemCoded(t *testing.T, attemptCount int, errText, code interface{}) map[string]interface{} {
+	t.Helper()
+	return loadOneItemAll(t, attemptCount, errText, code, nil)
+}
+
 // loadOneItemFull additionally sets completed_at — the round-3 discriminator for
 // a prior completed lifecycle (LANDMINES.md:7104).
 func loadOneItemFull(t *testing.T, attemptCount int, errText, completedAt interface{}) map[string]interface{} {
+	t.Helper()
+	return loadOneItemAll(t, attemptCount, errText, nil, completedAt)
+}
+
+// loadOneItemAll is the one place the mocked column list lives. It is declared
+// POSITIONALLY, which is why adding a column to the loader's SELECT breaks every
+// test in this package at once — that breakage is the feature: a silent scan
+// misalignment drops rows, and a dropped row is invisible at fleet scale
+// (bugs_closed/078).
+func loadOneItemAll(t *testing.T, attemptCount int, errText, code, completedAt interface{}) map[string]interface{} {
 	t.Helper()
 
 	db, mock, err := sqlmock.New()
@@ -57,14 +75,14 @@ func loadOneItemFull(t *testing.T, attemptCount int, errText, completedAt interf
 		"priority", "handler_agent", "status", "item_key",
 		"batch_id", "attempt_count", "approval_mode",
 		"component_id", "entity_id", "affected_url",
-		"error", "completed_at",
+		"last_error", "last_error_code", "completed_at",
 	}
 	rows := sqlmock.NewRows(cols).
 		AddRow(uuid.New(), siteID, "component_selector", "build", "needs_new_component",
 			"medium", "Need component template", []byte(`{"section_type":"mortgages-repayment"}`), nil,
 			50, "component-creator", "triaged", "needs_new_component:mortgages-repayment",
 			nil, attemptCount, "auto",
-			nil, nil, nil, errText, completedAt)
+			nil, nil, nil, errText, code, completedAt)
 
 	mock.ExpectQuery("SELECT").WillReturnRows(rows)
 
@@ -195,5 +213,91 @@ func TestLoadWorkItems_PriorCompletedLifecycleCarriesNothing(t *testing.T) {
 
 	if v, present := item["last_error"]; present {
 		t.Errorf("last_error present (%v) on an item with a prior completed lifecycle — feeding a fresh generation a dead lifecycle's refusal is the round-3 hazard", v)
+	}
+}
+
+// ── The typed channel (migration 561) ────────────────────────────────────────
+//
+// Everything above pins the GATE. These pin the SOURCE, which is the 2026-08-22
+// change: the feedback no longer comes from `site_work_items.error`.
+//
+// Why it moved. `error` is a general-purpose annotation column and the prompt
+// reading this key asserts a provenance it cannot support ("your previous
+// output for this component was refused by validation"). [MEASURED 2026-08-22,
+// live clients_db] TWENTY write sites across TEN files write that column,
+// three of them the human operator HTTP path in admin/site_admin_handlers.go.
+// Of 799 rows fleet-wide passing the gate above, 405 were human notes and only
+// 11 were validation rejections; of the 17 that could reach a reader, 6 (35%)
+// were misattributed — 3 token-cap truncations and 3 lane notes such as
+// "HELD 2026-08-18 by the loanzy_uk_example_site lane: …".
+
+// The load-bearing property, and the only one here that reads PRODUCTION SQL
+// rather than a mocked row: the loader must select the typed channel and must
+// NOT select wi.error. sqlmock matches the query text the action actually
+// issues, so this is an assertion about the code's behaviour — not about a
+// comment, and not a re-implementation of it.
+func TestLoadWorkItems_ReadsTheTypedChannelNotTheErrorColumn(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	mock.ExpectQuery(`retry_feedback`).WillReturnRows(sqlmock.NewRows([]string{}))
+
+	params := ActionParams{
+		Context:          context.Background(),
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &orchtypes.ExecutionContext{Action: "process"},
+		CollectedData: map[string]interface{}{
+			"input_data": map[string]interface{}{"site_id": siteID.String()},
+		},
+		StepConfig: models.Step{Config: map[string]interface{}{"site_id": "input_data.site_id"}},
+	}
+
+	if _, err := LoadWorkItemsAction(context.Background(), params); err != nil {
+		t.Fatalf("LoadWorkItemsAction: %v", err)
+	}
+	// The expectation above only fires if the issued SQL names retry_feedback.
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("the loader did not read the typed channel: %v", err)
+	}
+}
+
+// The code rides WITH the message, so the prompt can render the remedy that
+// matches the failure class instead of asserting one class for all of them.
+func TestLoadWorkItems_RetryCarriesTheFailureCode(t *testing.T) {
+	const rejection = `component validation rejected for function="mortgages-repayment": ` +
+		`field "currency_symbol" declares source "site_specs.locale.currency_symbol"`
+
+	item := loadOneItemCoded(t, 1, rejection, "component_validation_rejected")
+
+	if got, _ := item["last_error"].(string); got != rejection {
+		t.Errorf("last_error = %q, want %q", got, rejection)
+	}
+	got, ok := item["last_error_code"].(string)
+	if !ok {
+		t.Fatal("last_error_code absent — the prompt cannot tell a validation refusal from a token-cap truncation, which is the 35% misattribution this change exists to end")
+	}
+	if got != "component_validation_rejected" {
+		t.Errorf("last_error_code = %q, want the producer's own classification", got)
+	}
+}
+
+// A message whose class is UNKNOWN must not arrive wearing a class. The key is
+// absent rather than empty: a prompt gating on presence reads "supplied empty"
+// as "supplied", which is how a truncation gets rendered under "your output was
+// refused by validation".
+func TestLoadWorkItems_UnclassifiedFailureCarriesNoCode(t *testing.T) {
+	for _, code := range []interface{}{nil, "", "   "} {
+		item := loadOneItemCoded(t, 1, "something failed", code)
+		if _, present := item["last_error"]; !present {
+			t.Fatal("last_error should still be carried — only the CODE is unknown")
+		}
+		if v, present := item["last_error_code"]; present {
+			t.Errorf("last_error_code present (%q) for code %v — want the key absent", v, code)
+		}
 	}
 }
