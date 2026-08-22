@@ -1,4 +1,15 @@
-# HANDOFF — ai-agent-orchestration.com. START HERE. Written 2026-08-18 ~12:15Z.
+# HANDOFF — ai-agent-orchestration.com. ⚠ SUPERSEDED. Written 2026-08-18 ~12:15Z.
+
+> ## ⛔ SUPERSEDED 2026-08-22 by `HANDOFF_2026-08-22_continue_here.md` — READ THAT FIRST.
+> Kept for its evidence and its `029` briefing, which still hold. **Two of its plans are not merely
+> stale, they would not have worked**, and both are corrected in the new file:
+> - **§5 carousels** — "the work is APPROVE + BIND, not design" produces nothing. The experience
+>   register specifies and verifies; it does not render. Carousels shipped as migration `559`.
+> - **§4 images** — "there is no `cardN_image_url` key at all" is true of `index` only;
+>   `enterprise-reference-deployment` had all five, pointing at files that never existed. Both
+>   halves fixed; 10/10 images now live.
+> - **§3c pricing** — "approved, not yet dispatched … will not be refused" was already false when
+>   written; it had been dispatched and refused. Corrected in place below.
 
 **Supersedes `HANDOFF_2026-08-05_rebuild_scope.md`** for current state. That file is still the
 record of the rebuild scoping and its `bugs_closed/194` analysis — read it second, not first, and
