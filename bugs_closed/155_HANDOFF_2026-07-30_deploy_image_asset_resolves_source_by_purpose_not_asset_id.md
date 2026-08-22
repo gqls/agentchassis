@@ -21,6 +21,11 @@ image served with a green light.
 > plainly. So: **do not re-diagnose this and do not re-fix it** — the only open work is
 > that one dispatch. **Do not move it to `bugs_closed/` either**, until that proof exists.
 >
+> **CLOSED 2026-08-22 — that proof now exists.** Two asset_id-only deploys at
+> dartsonline icons, distinct sha256s at the committed artefacts, one opened against
+> its own origin_prompt. See the foot of this file for the full evidence, including
+> the stale `input_contract` that had to move first (migration 553).
+>
 > Caught by the `bugs_open/235` residual lane while surveying dormant bugs; of five
 > dormant files checked against live code, five had moved on without their headers
 > moving. `WRONG_CALLS.md` 2026-08-21 carries the rate and the lesson.
@@ -316,3 +321,62 @@ not. `[UNRECOVERABLE]` whether the July runs carried that key: terminal
 **What the v1.0.1259 proof DOES establish, unchanged:** the DB-side purpose cache is
 gone from the binary and from the write path, all four readers resolve per-asset, and
 migration 323 made 205 rows durable. That is real and it stands. It is one arm.
+
+---
+
+## CLOSED 2026-08-22 — the behavioural proof RAN and PASSED; every closure requirement is met
+
+By the `bugfix_235_155_071_closeout` lane (owner-scoped full depth, in-session decision).
+The three revised closure requirements, each with its evidence:
+
+1. **The in-run arm: DONE 2026-08-09, under `bugs_open/209` Phase 2.** `findStorageURI`
+   was deleted entirely (`91dda3243`, "the source is resolved by identity or not at
+   all", live v1.0.1276, pod-verified with negative control). At HEAD the resolution is
+   two rungs, both per-asset (`deploy_image_asset_action.go:323-330`): caller's `s3_uri`,
+   else `asset_id` → the asset row's own `storage_path`/`url`, else a loud skip. No
+   purpose-keyed read survives anywhere in the file (grep: only historical comments).
+2. **`asset_id` reaches the action through asset-deployer: DONE.** Migration `324`
+   applied out-of-band 2026-08-06; live `input_fields =
+   ["s3_uri","purpose","domain","asset_key","asset_id"]` re-verified 2026-08-22. The
+   file was untracked and unrecorded — committed (`8403546ad`) and `--record-only`'d
+   2026-08-22, so the runner no longer halts at its guard. **One more blocker found and
+   fixed on the way:** asset-deployer's `input_contract` still said
+   `required:["domain","s3_uri"]`, and `ValidateInputContract` hard-refuses a missing
+   required field on the contract-validated dispatch path — so the asset_id-only shape
+   this file's recipe demands was REFUSED at the contract. Migration `553` (pre-state
+   guarded, backed up, applied + recorded 2026-08-22) relaxes it to
+   `required:["domain"]`, `s3_uri`/`asset_id` optional, with the either/or rule in the
+   description. Blast radius measured: exactly ONE live step is contract-validated
+   (image-build-handler `call_asset_deployer`) and it maps both keys.
+3. **The sha256-differ deploy: RUN 2026-08-22, PASS.** Two dispatches at dartsonline.com
+   (20+ active `icon` assets — the founding case), spec `{domain, purpose, asset_key,
+   asset_id}` and **no `s3_uri` anywhere in the mapping**, via spawn+call with literal
+   `agent_type` so the contract validation was exercised too
+   (script: `bugfix_235_155_071_closeout/fire_155_assetid_only_proof.sh`):
+
+   | asset | corr | committed artefact | sha256 (repo bytes, not the report) |
+   |---|---|---|---|
+   | `icon_dartboard` (`68445485…`) | `4150f72b` | `icon-dartboard.jpg`, commit `1f32bbc40` | `de14fb6c…aacab4d` |
+   | `icon_steel_tip` (`320a9bcf…`) | `72b3fb29` | `icon-steel-tip.jpg`, commit `1c9ad71d9` | `47b0672e…9658e2` |
+
+   **Distinct bytes**, each fetched from `origin/master` of gqls/sites and hashed
+   independently (both match the deploy's own `files_sha256`, which is corroboration,
+   not the evidence). `icon-dartboard.jpg` opened as an image: a flat line-art
+   dartboard, matching its own `origin_prompt` — not the 1408×768 hero photo that six
+   pre-fix deploys shipped byte-identically. Baseline control the same morning: the
+   legacy two-purpose pair (`fire_209_proof.sh pageflow`) also deployed distinct
+   correct bytes per purpose at cookly.uk (commits `2bc1888e4`/`f03151d06`).
+
+**Also this session, contributing to 209 Phase 3 (not a closure requirement of THIS
+file):** the readerless `{purpose}_uri` writers were deleted (`69cc0ea7a`, inert until
+the next roll, council corr `c0e02ad3`) — including the surviving DB write in
+`StoreGeneratedImageAction`, the exact site-wide last-write-wins cache this file was
+filed about, measured readerless across Go, live agent configs, `workflow_templates`
+and active component templates. Post-roll marker pair: `"Failed to store URI"` ABSENT
+from `/proc/1/exe`, `"Failed to store URL"` PRESENT.
+
+**Deliberately untouched, still open elsewhere:** the third independent defect in
+Evidence (generation/storage mix-up on `icon_specialist_range`) — never folded in, per
+this file's own instruction; `bugs_open/152` (post-deploy `url` rewrite not observably
+firing); `bugs_open/209`'s remaining residue (now only doc rot and the stale
+`sites.content_data` `{purpose}_uri` keys, 16 sites, readerless).
