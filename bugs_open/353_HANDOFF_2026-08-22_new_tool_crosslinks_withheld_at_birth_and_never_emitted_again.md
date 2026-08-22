@@ -115,9 +115,11 @@ a new defect in their composition, not a reopening of either. **029 is an ambigu
 `bugs_closed/029_…_tool_suggester_writes_phantom_tool_links.md` (closed 07-26), and **the
 countable-skip rows that made this bug findable at all are THAT lane's council round's doing**
 (`025f4f34e`, "central insert, countable skips") — credit there, not to the hung-spawns lane.
-The OTHER 029 (`…_hung_spawns_saturate_dispatch_group…`) closed 2026-08-22 with its live half
-re-filed as `bugs_open/343`; that session was notified 2026-08-22 (misrouted by the bare
-number — it confirmed no conflict and supplied these corrections). Adjacent-but-unaffected:
+The OTHER 029 (`…_hung_spawns_saturate_dispatch_group…`) closed **2026-08-20 18:10**
+(`75b77f751`) with its live half re-filed as `bugs_open/343`; that session was notified
+2026-08-22 (misrouted by the bare number — it confirmed no conflict and supplied these
+corrections, including this close date, which an earlier version of this paragraph had merged
+with the notification date). Adjacent-but-unaffected:
 the tool-rebuild lanes (`replace_existing`, 331/TL-047) whose arm exits before the emitter.
 Filing lane: staged-component-build (this find falls out of 330's verification and blocks
 nothing in it — 516's resolver half is proven both directions regardless; see 330 §10).
