@@ -25,10 +25,25 @@ still ends `... ORDER BY s.domain LIMIT 5`. Verbatim text saved to
 `PREFIX_find_news_sites_query_2026-08-22.sql` in this directory — it is the fixture the detector's
 positive control will be built from, and once the migration lands the live row can no longer supply it.
 
-⚠ **`agent_definitions.updated_at` for this row reads 2026-08-22 08:36:05Z — today.** That is NOT
-another session fixing this: the query text is byte-identical to the one the bug file quotes on 08-19,
-and there are **zero snapshot rows** for `content-feed-trigger`. Recorded because a fresh `updated_at`
-on a shared tree is exactly the shape that should make you look before assuming your target is untouched.
+⚠ **`agent_definitions.updated_at` for this row reads 2026-08-22 08:36:05Z — today.** Recorded because a
+fresh `updated_at` on a shared tree is exactly the shape that should make you look before assuming your
+target is untouched.
+
+> **CORRECTED same day, before writing anything:** this paragraph first read *"That is NOT another session
+> fixing this … there are **zero snapshot rows** for `content-feed-trigger`"*. The zero was from
+> `agent_definitions WHERE is_snapshot`, which is **one of two** places a snapshot can live —
+> `snapshot_agent()`'s two-arg overload writes to `agent_definitions_backup` instead. Caught by grepping
+> `LANDMINES.md` for my own footprints before touching anything (§*"`snapshot_agent` has TWO overloads
+> writing to TWO different tables"*), not by a symptom. `agent_definitions_backup` is **also** empty for
+> this agent, so the conclusion stands — but it stood on a check that would have returned the same zero
+> had it been false. Logged in `WRONG_CALLS.md`.
+>
+> **The 08:36Z bump remains unexplained** and is left that way rather than tidied: no migration in
+> `schema_migrations` touched this agent (549 at 09:56Z is the day's latest, unrelated), both snapshot
+> tables are empty. The evidenced claim is the narrower one — **the step's query text is byte-identical
+> to the one `bugs_open/316` quotes on 08-19**, still `ORDER BY s.domain LIMIT 5` — so the bump is inert
+> with respect to this defect. That is not the same as "nobody touched it", and only the first is claimed.
+> ⚠ **Re-read the live row immediately before applying the migration**, for the same reason.
 
 ## The bug has WORSENED, and the new figure is much sharper than the filed one
 
