@@ -286,3 +286,77 @@ register entry, the tests. None changes any persisted output.
 | `bug_historian` | Layer D is detection-only at five other writers | **Accepted as residual exposure, not closed.** Named in the submission |
 
 Round 2 dispatched on the same trail (`RESUBMIT_CORR`), run envelope `3ad2cff2`.
+
+---
+
+## 2026-08-22 — COUNCIL ROUND 2: **REVISE** again, and it is right that the resized plan fixes nothing
+
+Gated by `editquality` (HIGH), seconded by `bug_historian` (HIGH). Both say the same thing:
+
+> the mistyping mechanism and the Layer 2 carry-forward *"both continue to fire exactly as before.
+> The diagnosed corruption is not stopped by this plan"* — and the 22 pages *"get a work item filed
+> and nothing else, indefinitely. This is exactly the documented 'detected but never blocked'
+> recurrence — `bugs_open/079` (phantom links detected, never blocked) and `bugs_open/083`."*
+
+**That is a fair hit and I accept it.** Round 1 was too broad (it would have changed what four live
+sites serve as a side effect); round 2 over-corrected into pure paperwork. Six seats approved
+cleanly, and the three that objected converge on the same gap.
+
+**The `architecture` seat named the actual answer**, and it is an RFC rather than a third round:
+
+> *"This is the fourth distinct heuristic-identity mechanism layered into
+> `save_page_sections_action.go` (stub detection, Layer 2 slot-name carry-forward, shrink/floor
+> guards, now data-component matching). Recommend an RFC scoping a durable component-instance
+> identity (e.g. a stamped identity token independent of `slot_name`/`position`) rather than a fifth
+> heuristic layer next time this class recurs."*
+
+Every failure this lane has found is a symptom of one thing: **identity is inferred — from position,
+from a plan, from a slot-name string match, now from an HTML attribute — and never stamped.** A
+fifth inference is not the fix. Filed as `RFC_046`.
+
+`bug_historian`'s second objection is the same point from the other end: pinning Layer 2's
+name-only matching with a test *"leaves the mechanism itself as exploitable as before for any future
+author who renames a slot without reading this test"*.
+
+## The diagnosis run (`e580b34a`) — UNVERIFIABLE again, and worth more than its verdict
+
+Stopped at iteration-cap, no fix proposed. But it did something I had not: it read
+**`page_component_history`** and found that on `tool-portfolio` the hero `content_data` was already
+present at the `2026-08-15T13:52:39` archive event and unchanged through the `19:53:52` write that
+produced the live row — *"content_data looks carried-forward, not freshly paired, which cuts against
+the 'second path pairs identity+content_data+tool bytes' half of the hypothesis."*
+
+**That supports the Layer 2 carry account and weakens my "second path" hypothesis** — which is what
+I filed the run to test. A run that refutes half your hypothesis for the price of one is a good run.
+
+## ⚠ CORRECTION — "there is no systematic `page_components` history" is FALSE
+
+I wrote, and published in `bugs_open/357` §5, that the casualty question was unanswerable because
+*"there is no systematic `page_components` history to check (only ad-hoc `_backup_*` tables)"*.
+**`page_component_history` exists** — 26,965 rows over 558 pages, 2026-03-16 → 2026-08-22, with
+`rendered_html`, `slot_name`, `op` and `created_at`. It is `bugs_closed/229`'s page-side artefact
+archive. I missed it because my table listing was `| head -30` and the alphabetical `_backup_*` and
+`page_components_bak_*` tables filled every line.
+
+## The casualty census — and the honest answer is NO, not the one I announced
+
+With the history table, the question I marked `[UNMEASURED]` is answerable. Slots that were
+interactive in history and are not interactive now:
+
+| | slots |
+|---|---|
+| still interactive (**control**) | **182** |
+| no longer interactive | 17 |
+| slot gone entirely | 39 |
+
+**I said "so the destruction HAS happened" on those counts. Then I opened the 17, and it does not
+hold:** 15 are `ported-page` slots on `loancash.co.uk` guides whose byte count **GREW**
+(e.g. 6,929 → 9,300) — a normal rebuild replacing ported HTML that happened to contain a `<script>`,
+not a loss. One (`fundamentallyai.com` `platform-log-index`, 14,256 → 11,470) shrank modestly. One
+is worth a look on its own merits: **`webdesign.co.uk` `learn-ai-builders-content-first`, 8,855 →
+3,781, a 57% shrink on 2026-08-15** — recorded as a follow-up, not as a 357 casualty.
+
+**None of the 17 is a page in the 357 population.** So: no evidence that this mechanism has
+destroyed a tool. The correct statement is *"searched with a working control and found none"*, which
+is a much stronger claim than the `[UNMEASURED]` it replaces — and the opposite of what I said
+sixty seconds earlier. The 39 vanished slots have not been opened and are NOT claimed either way.
