@@ -1246,3 +1246,49 @@ LIFECYCLE's failure to a fresh generation under the non-blank gate. Loadable-pop
 today: 0 of 2 carry any error — a snapshot, not proof. **Structural close ready: gate ALSO on
 `completed_at IS NULL`** (the success UPDATE writes `completed_at`; a genuinely failing item never
 has it) — build in progress when the owner's four answers arrived; resuming it next.
+
+## 2026-08-22 10:00Z — RESULT of the owner-authorised loanzy release: 8 of 11 tool pages now serve calculators (was 1 yesterday morning)
+
+Graded at the served artefact, cache-busted, every page:
+
+| page | served | inputs | note |
+|---|---|---|---|
+| `tool-compare-loans` | 42,831 B | **6** | was 404 (archived, never built) |
+| `tool-loan-repayment-calculator` | 39,615 B | **6** | was archived — deploy stamp refused 08-20 |
+| `tool-loan-comparison-calculator` | 42,791 B | **6** | 08-20 |
+| `tool-overpayment-calculator` | 42,089 B | **5** | 08-20 |
+| `tool-settlement-calculator` | 32,151 B | **5** | 08-20 |
+| `tool-car-finance-calculator` | 38,912 B | **4** | 08-19 |
+| `tool-interest-rate-stress-test` | 34,811 B | **4** | **the 253-floor page — see below** |
+| `tool-loan-vs-savings` | 39,237 B | **4** | render-only leg, no generation |
+| `tool-is-a-loan-right-for-me` | 22,040 B | 0 | **correct**: hero-tool + text + CTA, no calculator section planned — a guide page, not a defect |
+| `tool-credit-health-check` | 24,323 B | 0 | `337`-blocked (other lane) |
+| `tool-eligibility-checker` | 31,924 B | 0 | `337`-blocked; build deliberately not filed |
+
+### The 253-floor page cleared — and the attribution is honest, not triumphant
+
+`tool-interest-rate-stress-test` had failed **twice with identical figures** (hero-tool 12→5 class
+attributes, 42% kept). After the layout-preservation rule went into `content_direction`, the
+re-filed item failed once more (attempt 0) then **completed on attempt 1**, and the page now serves
+4 `<input>` with **hero-tool intact at 3,749 chars** beside the diverted calculator (15,005 chars,
+position 2, deployed).
+
+**[ATTRIBUTION, stated carefully]** The pattern changed — 2/2 identical failures before, 1 failure
+then a success after — which is suggestive, and the surviving hero-tool is consistent with the rule
+biting. It is **not** proof: content generation is stochastic and one success is one sample. What
+IS established is that the guard's own prescribed remedy was applied (rather than the escape hatch
+it warns against) and the page cleared. Anyone re-testing should look for the failure pattern
+breaking across several pages, not this one result.
+
+### A live confirmation of round 3's premise, found by accident
+
+That item is now `status='complete'`, `attempt_count=1`, **and its `error` column still holds the
+attempt-0 floor refusal** — precisely the stale-error shape `LANDMINES:7104` describes and the
+council's round-3 HIGH warned about. Under the round-4 gate (`completed_at IS NULL`) it is excluded
+correctly. A better demonstration than the 0-of-2 snapshot I submitted with.
+
+### Housekeeping observed, not chased
+
+`tool-is-a-loan-right-for-me` reads `build_status='needs_rebuild'` while all three of its slots are
+`deployed` and the page serves — the `315` status-column family again. Recorded, not acted on: not
+this lane's, and the artefact is correct.
