@@ -1109,6 +1109,11 @@ other `DeliverReply` callers are byte-identical and a test pins that.
 > lane so the parks live in the same numbered list they qualify, rather than in a note somewhere else
 > that a reader of this list would never reach. **Parked is not fixed and not refuted** — the evidence
 > below stands unchanged and re-raising either needs new evidence, not a re-read of this section.
+>
+> **What "parked" means, in the 029 lane's own words because they are sharper than mine: the work is
+> understood, costed and deliberately not being done. Do NOT open a fresh round on either without
+> going back to the owner.** And do not read a park as a judgement that the finding was wrong — §12.1
+> and §12.2's numbers stand, and item 3's coverage limit still bounds every figure in §12.
 
 1. ~~**The `timeout` residual — 146 in 7 days, prod-0 dominant, undiagnosed.**~~ **PARKED (owner,
    2026-08-22), together with §4.2's node-pinned `nc` probes.** The measurement stands: 146 in 7 days
@@ -1121,7 +1126,12 @@ other `DeliverReply` callers are byte-identical and a test pins that.
    next burst answers this for free: a non-zero `empty_host` says the remaining producer is
    library-internal (kafka-go's own coordinator lookup), and **`refused` carrying an EMPTY broker label
    must now be structurally zero — a non-zero DISCONFIRMS and means a THIRD `:9092` producer exists
-   outside the instrumented dial path.** A `090` run is not worth firing while that label is live.
+   outside the instrumented dial path.**
+   ⚠ **This item's earlier condition has EXPIRED, and is quoted elsewhere, so kill it explicitly.** It
+   read *"a `090` run is only worth firing if a burst arrives BEFORE that label is live"*. The label
+   went live at 08:36Z on 2026-08-22, so that clause can no longer be satisfied and a reader acting on
+   it would fire a paid run for nothing. **A `090` is not worth firing while `empty_host` is live** —
+   the next burst answers this for free.
 3. ~~**The 13 adapter/service Deployments still serve no `/metrics`** (§8b).~~ **PARKED (owner,
    2026-08-22).** The coverage limit is unchanged and still governs how every figure here must be
    read: **§12's numbers cover the chassis and spawned agents only, never "the fleet"** — say it that
@@ -1137,6 +1147,12 @@ other `DeliverReply` callers are byte-identical and a test pins that.
 control: `kafka produce succeeded after retry` PRESENT, `client_no_leader` PRESENT, `system.other`
 PRESENT, `ai_persona_kafka_produce_retry_recoveries_total` PRESENT, nonsense negative control ABSENT.
 **So every change from the 08-21 session is now live**, round-2 fixes and retry included.
+
+**The probe is shown to discriminate ACROSS TIME, which is stronger than a same-run control** (the
+029 lane's observation, kept because it is a better argument than the one I made): `kafka produce
+succeeded after retry` was the deliberately-ABSENT control on `v1.0.1322` yesterday and is PRESENT on
+`v1.0.1323` today. The same literal answered both ways on two builds, so neither answer can be an
+artefact of the method.
 
 `[MEASURED 2026-08-22 ~09:37Z]` produce counter over 2 h: **`ok` = 2,052, `timeout` = 2.** The `ok` is
 the **demand control** — a zero there would mean the instrument is broken, not the fleet clean.
@@ -1154,32 +1170,14 @@ roll.
 > **zero** raw topics. **Any label-set claim about a metric whose vocabulary changed in a roll must be
 > read over a post-roll-only window.** Filed in `LANDMINES.md`.
 
-## 12.7 OWNER RULING 2026-08-22 — items 1 and 3 above are PARKED. 040 itself stays OPEN
-
-Recorded by the `bugfix_029` lane, which put the three outstanding calls to the owner directly and
-heard the answers first-hand. **040 is not closed and nothing about it is withdrawn** — this parks
-two lines of *further work*, it does not retract a finding.
-
-| §12.6 item | ruling |
-|---|---|
-| 1 — the `timeout` residual (146/7d, prod-0 dominant) + §4.2's node-pinned `nc` probes | **PARKED** |
-| 2 — the `refused` mechanism is `[INFERRED]` | **NOT parked, and now free** (see below) |
-| 3 — the 13 Deployments with no `/metrics` | **PARKED** |
-
-**What "parked" means here, stated so the next session does not re-raise it as an oversight:** the
-work is understood, costed and deliberately not being done. Do **not** open a fresh round on either
-without going back to the owner. Do **not** read the park as a judgement that the finding was wrong —
-§12.6's numbers stand, and item 3's coverage limit still bounds every figure in §12.
-
-**Item 2 is unaffected and its cheap confirmation is now armed.** `agent-chassis` rolled to
-**v1.0.1323** at 2026-08-22 08:36Z, and `[VERIFIED at the binary 2026-08-22]` `9b93af8a0`'s round-2
-label work is aboard — probed `client_no_leader` PRESENT and `kafka produce succeeded after retry`
-PRESENT (the literal that was the *absent* control on v1.0.1322, so the probe is shown to
-discriminate), with `zzz_nonexistent_marker_qqq` absent as the negative control. So §12.6's condition
-*"a `090` is only worth firing if a burst arrives before that label is live"* has **expired** — the
-label is live, and the next burst answers it for free. **Named disconfirming result, unchanged:
-`refused` with an empty broker label must now be structurally zero; a non-zero means a THIRD producer
-exists outside the instrumented dial path.**
-
-**Also now due, and not parked:** the `DUPLICATE_SKIPPED` watch that the opt-in produce retry accepts
-as a risk. That retry is live as of this same roll, so the signal is live too.
+<!--
+The bugfix_029 lane appended a second §12.7 here in commit 441dc4193, before this
+lane's reply reached it — the same owner parks, tabulated. Removed 2026-08-22 by
+the 040 lane WITH THAT LANE'S EXPLICIT AGREEMENT ("deleting it is the right call
+and I'd expect it"), because §12.6 above now carries the parks in place and two
+sections numbered §12.7 is worse than either alone. Nothing was lost: its three
+sharpest points — the "do not open a fresh round without going back to the owner"
+wording, the EXPIRED clause called out by name, and the across-time control
+observation — are folded into §12.6 and §12.7 above and attributed. The original
+is intact at `git show 441dc4193` if anyone wants the tabulated form.
+-->
