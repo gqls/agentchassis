@@ -20,9 +20,28 @@
 >
 > **Census arm:** "0 sites over the cap, or no cap" — satisfied by construction (no cap).
 >
-> **The adjacent finding in this file ("15 of 38 completed items found NO target page") remains
-> unaddressed and unclaimed** — still a candidate for its own ticket, and now the only live thread
-> left in this file.
+> ~~**The adjacent finding in this file ("15 of 38 completed items found NO target page") remains
+> unaddressed and unclaimed**~~ — **CLAIMED AND ANSWERED 2026-08-22: it is now `bugs_open/356`.**
+> This file has no live threads left; its own cap defect is fixed, live and proven above.
+>
+> **The answer, because it is worth reading here rather than only there:** re-measured with the
+> correct JSON path (`result->'response'->'target_page'`, not `result->'target_page'` — the
+> shallow one returns NULL on every row and reads as "all unreadable"), the split is **17
+> no-target / 9 with-target / 8 genuinely unreadable** of 34, not 15 of 38. **All 17 of the
+> no-target items name a page whose `pages.status` is `archived`** — not most, all.
+>
+> The cause is not in the linker. `check_orphan_pages` selects pages on the BUILD axis only
+> (`PageHasShippedPredicateFor`, no `PageWantedLivePredicateFor`), so it files retired pages as
+> work; `load_target_page` then correctly requires `p.status = 'active'` and finds nothing. **The
+> linker was right every time.** It is a producer defect, and 18 checks share it. Lane:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_356_orphan_check_lifecycle_axis/`.
+>
+> **One consequence that reaches back into this file's own subject:** those no-op completions fed
+> the two-strike ladder, which is what parked the linker's 20 queued items at `unresolved` —
+> and **15 of those 20 name an `active` page**, i.e. legitimate link work retired as collateral.
+> `bugs_closed/313`'s self-healing note still holds (they age out of `idx_swi_dedup` after 7 days
+> and the rotation re-raises them), so nothing needs reviving by hand — but the linker's real
+> throughput has been suppressed by this the whole time it was being measured.
 >
 > ---
 >
