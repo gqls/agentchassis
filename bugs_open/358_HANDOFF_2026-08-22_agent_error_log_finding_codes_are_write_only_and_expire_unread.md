@@ -18,6 +18,53 @@ is `[MEASURED]` this session; every query and grep is restated inline.
 > `bugs_open/355` filed on the same grounds, same day, and its reasoning survived. If independent
 > grading is wanted, the symptom to file is in §7.
 
+> ## CONTRIBUTION 2026-08-22 (later) — lane picked up; THREE of this file's claims corrected
+>
+> Owning lane from now: `docs/agent_docs/docs024_key_docs_latest/bugfix_358_unread_finding_codes/`
+> (`PLAN_2026-08-22_unread_finding_codes.md` carries the design and the dated corrections;
+> `NOTES_unread_finding_codes.md` the evidence log; `RUNBOOK_unread_finding_codes.md` the queries).
+> Council submission `be1fd678-0836-4f32-90a6-8927b2463fee`. `090` filed on the §3 claim below,
+> run correlation `c965bfec-993a-4b2b-88ba-d44549c81df1`.
+>
+> **CORRECTION 1 — "the `resolved` workflow has never been used once" (§1) expired within the
+> day.** Live now: **48 resolved rows**, all stamped 2026-08-22 10:40 UTC by `resolved_by =
+> 'content-loss-check:healed'` / `':row_gone'`. The `bugfix_238_regeneration_key_loss` lane's
+> checker (`cba51ad1d`) is the first user of the triple in the table's history, and it also added
+> a code, `CONTENT_KEY_LOSS` (72 rows), which it writes AND reads AND resolves. §2.2's
+> "reader-with-writer from birth" claim gains a fourth instance and a working exemplar.
+>
+> **CORRECTION 2 — `RESOLVER_CONFLICTING_CANDIDATES` is NOT unruled, and it is this file's
+> headline example.** §4 B1 says *"nobody has ruled which"*. Somebody has: it and
+> `RESOLVER_MAPPING_BYPASSED` are Phase-1 instrumentation under
+> `architecture_review/RFC_029`, with an owner, a stated observation window, **six dated reads**
+> (§10.5, §10.6, §10.7, §10.9, §10.11, §10.12) and an **owner ruling of 2026-08-18** (§10.13)
+> sequencing Phase 2 on their evidence. The concept register carries the architecture seat's
+> scope note verbatim (`register/contracts-and-standards.md:511`). The no-dedup design this file
+> reads as waste is deliberate — *"frequency is the population §9's disconfirmation clause
+> needs."* **Consequence for §4 B1:** its three outcomes (consume / demote / keep-as-human-
+> evidence) have no slot for a time-boxed instrument with an owner. A **fourth disposition** is
+> needed, and the triage must join against OWNERS, not only against automated readers.
+>
+> **CORRECTION 3 — the load-bearing one, and it changes where the fix goes.** This file assumes
+> (reasonably, from its own §2.1 grep method) that the Go write sites are the population.
+> `platform/orchestration/agenterrors/agenterrors.go:3` declares itself *"The ONE writer against
+> `agent_error_log`"* and RFC_012 did retire nineteen hand-copied INSERTs into it — but
+> `grep -rn "INSERT INTO agent_error_log"` across every language finds **five** paths, not one:
+> the seam; `store_generated_component_action.go:1439` (own INSERT, kept deliberately — a prior
+> council round's edit-quality and guardian seats objected to consolidating it, recorded at
+> `:1428`); `internal/agents/contentcreator/claims_guard.go:184`, which **cannot** use the seam
+> (`*pgxpool.Pool` at `agent.go:92` vs `agenterrors.Write`'s `*sql.DB` — a type-level barrier);
+> `sql_for_agents/214_build_dispatch_watchdog.sql:108`; and `cmd/content-loss-check/main.go:292`.
+> **So the obvious home for B2's ratchet — a guard inside the one writer — would be blind to four
+> of the five writers while looking complete.** The fix is DB-authoritative instead:
+> `SELECT DISTINCT error_code` sees every writer regardless of language, seam, or whether the
+> value is a literal, and parses nothing. Also worth knowing before building a per-code consumer:
+> **there is no index on `error_code`** (`\d agent_error_log` — four indexes, none on it).
+>
+> Two figures re-measured, both still standing: 45,507 rows (was 45,426), oldest still
+> 2026-07-23, and retention confirmed live — `scheduled_tasks` row `database-cleanup`, enabled,
+> `interval_seconds` 3600, last triggered 2026-08-22 10:07 UTC.
+
 ## 1. The defect, in plain terms
 
 When a platform mechanism notices something wrong that it will not or cannot fix — a review being
