@@ -60,3 +60,73 @@ put it to him as such rather than quietly substituting my own.
 
 Next: a design plan, then the council, then the fix — narrow first for the thing that
 breaks the next release, then the structural change that stops the hole reopening.
+
+---
+
+## 2026-08-22, afternoon — the gate is built, reviewed and in place, and there is one decision I need from you
+
+**The urgent thing first, and it is fixed.** The next `make release` would have failed.
+Three of the newest check services had been added to the list of images the release
+*ships* and to none of the lists that say how to *build* them, so the release would have
+built twenty-two images, taken about six minutes doing it, and then stopped dead trying
+to upload an image that had never been built — before the deploy step, so nothing would
+have reached the cluster.
+
+I did not fix that by adding three names, because that is the same shape as the bug: two
+hand-written lists that have to agree, with nothing keeping them in agreement. The build
+list is now **derived** from the ship list. There is one list, and the other cannot drift
+from it. I proved it reacts by putting a made-up service into a *copy* of the file and
+watching the build refuse; the real file is never edited for a test, because a session
+did exactly that this morning and another session committed their half-finished edit
+before they could put it back.
+
+**Then the actual bug.** The gate's job is to shout when one of our services is going to
+be left behind. It asked "is this service's image one the release builds?" and skipped
+the service when the answer was no — which is what being left behind *means*. So the one
+case it existed to catch was the one case it stepped over. That is now inverted: an image
+of ours that no release builds is a failure, and the only way out is to say so explicitly
+in a new list, naming what does move that service instead.
+
+The code moved out of the makefile into Go. That is not tidiness. Our review council only
+looks at code in certain directories, and the makefile is not one of them — so the old
+gate was never reviewed by anyone, and could not have been. It also means the thing can
+now be tested properly, which the shell version could not be without editing a file forty
+sessions share.
+
+**The council approved it, first time round**, with three advisory notes. Two of them
+were good enough to change the code rather than argue with:
+
+- One reviewer noticed that my new scanner read only the *first* image in a file and
+  silently ignored any second one — which is precisely the disease this whole change
+  exists to cure, reproduced in miniature inside the cure. I checked: no file on the
+  estate has two images today, so it was a trap waiting rather than a live fault. I
+  removed the limit rather than adding a warning about it.
+- Another pointed out an inconsistency in which lists I insisted must exist. Fixed, with
+  a test that pins the reason it is now safe.
+
+**Something rather satisfying happened while I was writing it up.** Another team created
+a brand-new check service, and did it correctly — and the new gate said so, silently and
+without being asked. That is a pass that could have failed, which is the only kind worth
+much.
+
+**The decision I need from you.** On 18 August you said the gate should fire "when a
+service's version is older than the last change to that service's own code". I tried to
+build that and could not, for a reason worth knowing: the file that records a service's
+version is edited by the release itself and never committed, so its history is a work of
+fiction — twenty-six of them are sitting uncommitted right now, and the chassis reads
+"v1.0.1239" in the record while actually running v1.0.1323. Eighty-four versions apart.
+
+The honest version of your rule asks the running thing what code it is made of, which the
+platform has been able to answer since the build-provenance work earlier this month. But
+there is a second fact that changes the shape of the question: now that every service of
+ours is either in the release or explicitly excused, that rule could only ever apply to
+the excused ones — and there is exactly one of those. So I would rather put it to you than
+quietly build a different thing than you asked for. It is your call whether that is worth
+building at all yet.
+
+**One more thing to know before your next release.** Use a version number of v1.0.1325 or
+higher, not v1.0.1324. Someone hand-built one image at 1324 already, and re-using a
+version number serves the old cached copy rather than the new one. Also: the next release
+will *create* a check service that has been sitting scaffolded but switched off
+(`capped-schedule-ordering-check`) — that is fine and intended, but it will appear in the
+cluster and I would rather you heard it from me than found it.
