@@ -62,7 +62,7 @@ func ScanOverlays(root string) ([]Pin, error) {
 	if err != nil {
 		return nil, fmt.Errorf(
 			"cannot read %s: %w — refusing to report zero overlays when the tree was "+
-				"never opened (bugs_open/318)", servicesDir, err)
+				"never opened (bugs_closed/318)", servicesDir, err)
 	}
 	if !info.IsDir() {
 		return nil, fmt.Errorf("%s is not a directory", servicesDir)

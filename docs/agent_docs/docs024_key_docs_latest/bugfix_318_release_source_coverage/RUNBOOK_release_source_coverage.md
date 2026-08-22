@@ -1,4 +1,4 @@
-# RUNBOOK — `bugs_open/318` release source coverage
+# RUNBOOK — `bugs_closed/318` release source coverage
 
 Every command this lane had to get right, with its gotcha attached. Change a command
 HERE, not in your scrollback.

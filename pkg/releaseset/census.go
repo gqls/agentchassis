@@ -1,6 +1,6 @@
 // FILE: pkg/releaseset/census.go
 //
-// The CLUSTER half of bugs_open/318, and it asks a different question from the
+// The CLUSTER half of bugs_closed/318, and it asks a different question from the
 // rest of this package.
 //
 // `UncoveredOverlays` and `InvalidDeployEntries` read the filesystem and the

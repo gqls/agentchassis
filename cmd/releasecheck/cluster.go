@@ -12,7 +12,7 @@
 // It reads Deployments, CronJobs and DaemonSets, because all three carry one of
 // our images today: Deployments for the services, CronJobs for the daily checks,
 // a DaemonSet for `node-config` (BLD-021). Reading only Deployments would have
-// missed every frozen check service, which is most of bugs_open/318's evidence.
+// missed every frozen check service, which is most of bugs_closed/318's evidence.
 //
 // LIST ONLY. Nothing here mutates, execs, or reads a Secret.
 package main
@@ -72,7 +72,7 @@ func k8sClient() (*kubernetes.Clientset, string, error) {
 // ⚠ A LIST ERROR IS RETURNED, NEVER SWALLOWED. If the CronJob list fails and the
 // Deployment list succeeds, silently returning the Deployments would report a
 // clean fleet while blind to every scheduled check — which is the exact
-// population bugs_open/318 is about. A partial read is not a read.
+// population bugs_closed/318 is about. A partial read is not a read.
 func readWorkloads(ctx context.Context, cs *kubernetes.Clientset, namespace string) ([]releaseset.Workload, error) {
 	var out []releaseset.Workload
 
@@ -156,7 +156,7 @@ func runCensus(root, registry, namespace string) (int, error) {
 		return exitOK, nil
 	}
 
-	fmt.Fprintf(os.Stderr, "%s%d finding(s) (bugs_open/318, register BLD-026)%s\n", yellow, len(res.Findings), reset)
+	fmt.Fprintf(os.Stderr, "%s%d finding(s) (bugs_closed/318, register BLD-026)%s\n", yellow, len(res.Findings), reset)
 	for _, v := range res.Findings {
 		fmt.Fprintf(os.Stderr, "%s  %s%s\n", yellow, v.String(), reset)
 		fmt.Fprintf(os.Stderr, "%s      %s%s\n", dim, v.Remedy, reset)

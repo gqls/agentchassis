@@ -1,4 +1,4 @@
-# PLAN — `bugs_open/318`: close the coverage gate's self-referential admission
+# PLAN — `bugs_closed/318`: close the coverage gate's self-referential admission
 
 **Lane:** `bugfix_318_release_source_coverage`, opened 2026-08-22.
 **Designed with** the `fable` planning agent against this lane's measurements; its

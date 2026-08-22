@@ -1,4 +1,4 @@
-# NOTES — `bugs_open/318` release source coverage
+# NOTES — `bugs_closed/318` release source coverage
 
 Append-only, newest at the bottom. Technical log: what was tried, what the system
 actually said, and every misstep.

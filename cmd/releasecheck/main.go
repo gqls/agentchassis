@@ -7,7 +7,7 @@
 // stylistic. `scripts/council-scope.sh` scopes review to platform/, internal/,
 // pkg/ and appliable migrations — `cmd/` is OUTSIDE it. A helper written wholly
 // here would draw no council round at all, which is precisely the trap
-// bugs_open/318 warned about in its own fix-candidate list ("decide the shape
+// bugs_closed/318 warned about in its own fix-candidate list ("decide the shape
 // before assuming a review is available"). Every decision therefore lives in
 // pkg/releaseset; main only parses flags and prints. Same pattern as
 // cmd/regcheck: the operator CLI runs the SAME code as the gate, never a
@@ -153,7 +153,7 @@ func run(root, registry string, quiet bool) (int, error) {
 		return exitOK, nil
 	}
 
-	fmt.Fprintf(os.Stderr, "%sRELEASE COVERAGE: %d problem(s) (bugs_open/318, bugs_open/237)%s\n",
+	fmt.Fprintf(os.Stderr, "%sRELEASE COVERAGE: %d problem(s) (bugs_closed/318, bugs_open/237)%s\n",
 		red, len(violations), reset)
 	for _, v := range violations {
 		fmt.Fprintf(os.Stderr, "%s  %s%s\n", red, v.String(), reset)

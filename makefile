@@ -138,7 +138,7 @@ RETAG_EXEMPT := auth-service:deploy-auth-service core-manager:deploy-core-manage
 # OWN_LINEAGE — the ONLY way an overlay may pin one of OUR images and stay out
 # of the release. Entry form is <service>:<the make target that retags it>.
 #
-# ⚠ EMPTY, AND ITS EMPTINESS IS THE POINT (added 2026-08-22, bugs_open/318).
+# ⚠ EMPTY, AND ITS EMPTINESS IS THE POINT (added 2026-08-22, bugs_closed/318).
 # Until today, "the release does not build this image" was the coverage gate's
 # ADMISSION TEST — it skipped such an overlay entirely — so a service omitted at
 # birth was not uncovered, it was out of scope, and the gate printed "Release
@@ -159,7 +159,7 @@ RETAG_EXEMPT := auth-service:deploy-auth-service core-manager:deploy-core-manage
 # of `pinned_sweep` in `release`. So it is genuinely own-lineage and genuinely
 # covered — but until now NOTHING ON DISK SAID SO, and the old gate could not
 # have said so, because its image is not in RELEASE_IMAGES and that was the
-# gate's admission test. This is the shape bugs_open/318 is about, found on the
+# gate's admission test. This is the shape bugs_closed/318 is about, found on the
 # new predicate's first live run rather than by anyone remembering.
 # ⚠ NOTE what the entry does NOT cover: `release-backend` (the no-dashboard
 # variant) omits `release-dashboard`, so a backend-only release leaves this
@@ -168,7 +168,7 @@ RETAG_EXEMPT := auth-service:deploy-auth-service core-manager:deploy-core-manage
 OWN_LINEAGE := admin-dashboard:deploy-dashboard
 
 # check-release-coverage (the door-closer for bugs_open/237's class, widened by
-# bugs_open/318): every overlay on disk that pins one of OUR images must be in a
+# bugs_closed/318): every overlay on disk that pins one of OUR images must be in a
 # release path or explicitly exempt, or the release refuses to run.
 #
 # ⚠ THE PREDICATE MOVED TO GO (2026-08-22) AND THE SHELL COPY WAS DELETED, not
@@ -205,7 +205,7 @@ check-release-coverage: ## Fail if an overlay pins one of our images but is in n
 # running as CronJobs with no overlay on disk. No filesystem gate can see either,
 # in either direction, ever.
 #
-# ⚠ HAND-RUN ONLY, deliberately (bugs_open/318 phase 1). There is no CronJob, no
+# ⚠ HAND-RUN ONLY, deliberately (bugs_closed/318 phase 1). There is no CronJob, no
 # RBAC and no doc_notes row yet — so nothing runs this unless a person does, and
 # it must NOT be described as a live detector. Scheduling it is a separate
 # decision with its own round, and this estate's own evidence is why the two were
@@ -282,7 +282,7 @@ build-all: build-backend build-frontends ## Build all images
 # (bugs_open/237 Decision B, owner ruling 2026-08-18).
 #
 # ⚠ IT IS DERIVED FROM `RELEASE_IMAGES`, NOT HAND-LISTED (changed 2026-08-22,
-# bugs_open/318). Until today this was a hand-written list of six group targets,
+# bugs_closed/318). Until today this was a hand-written list of six group targets,
 # so "build-backend builds exactly RELEASE_IMAGES" was an invariant two separate
 # enumerations had to agree on with nothing keeping them in step — the same shape
 # as the four hand-maintained deploy lists `bugs_open/237` removed. BLD-022 §(iv)

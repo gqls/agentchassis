@@ -3,7 +3,7 @@
 // Every case below names, in its comment, WHAT A DIFFERENT RESULT WOULD MEAN.
 // That is the point of the table: a green gate on a compliant tree proves
 // nothing — it could only have passed — so the discriminating power of
-// bugs_open/318's fix has to live here, in cases where the predicate is shown
+// bugs_closed/318's fix has to live here, in cases where the predicate is shown
 // able to FAIL.
 package releaseset
 

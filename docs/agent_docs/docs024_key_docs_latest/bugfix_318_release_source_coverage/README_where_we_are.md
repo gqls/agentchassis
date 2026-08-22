@@ -1,4 +1,4 @@
-# README — where we are: the release coverage gate (`bugs_open/318`)
+# README — where we are: the release coverage gate (`bugs_closed/318`)
 
 Plain-prose log for the owner. Append; never rewrite or reorder.
 
@@ -6,7 +6,7 @@ Plain-prose log for the owner. Append; never rewrite or reorder.
 
 ## 2026-08-22, morning — what I was asked, and what I found in the first hour
 
-I was pointed at `bugs_open/153` and told to fall back to `bugs_open/318` if 153 was
+I was pointed at `bugs_open/153` and told to fall back to `bugs_closed/318` if 153 was
 already being worked. 153 is being worked — a lane has owned it since 10 August, its
 main fix is live, and what is left there is a short residual list rather than an open
 defect. So this is 318.

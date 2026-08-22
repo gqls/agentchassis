@@ -1836,7 +1836,7 @@ def check_silent_reply_drop(files, ref, findings):
 
 
 # ── an overlay born outside the release lists ───────────────────────────────
-# bugs_open/318. A new service arrives correct in every visible way — dockerfile,
+# bugs_closed/318. A new service arrives correct in every visible way — dockerfile,
 # kustomize overlay, build-/push-/deploy- targets, proven in-cluster — and absent
 # from RELEASE_IMAGES, so no release will ever move it again. EIGHT services have
 # now done this. Six were folded in by owner ruling on 2026-08-18; two MORE fell
@@ -1882,7 +1882,7 @@ def _makefile_block(text, name):
 
 
 def check_unlisted_release_overlay(files, ref, findings):
-    """bugs_open/318 — a new production overlay pinning one of OUR images must be
+    """bugs_closed/318 — a new production overlay pinning one of OUR images must be
     named in RELEASE_IMAGES in the same commit, or no release will ever move it."""
     added = set()
     out = (sh("git", "diff", "--name-only", "--diff-filter=A", ref[0], ref[1]) if ref
@@ -1932,7 +1932,7 @@ def check_unlisted_release_overlay(files, ref, findings):
             f"two of them AFTER the owner ruling meant to close it. Add '{img}' to "
             f"RELEASE_IMAGES and '{svc}' to AGENT_DEPLOY_SERVICES in THIS commit, or declare "
             f"'{svc}:<its retag target>' in OWN_LINEAGE. The authority is "
-            "`make check-release-coverage` (bugs_open/318, register BLD-026); this warning is "
+            "`make check-release-coverage` (bugs_closed/318, register BLD-026); this warning is "
             "only here because that one does not fire until the next release.",
         ))
 

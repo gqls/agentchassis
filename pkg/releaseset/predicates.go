@@ -32,7 +32,7 @@ func (v Violation) String() string {
 
 // Violation kinds.
 const (
-	// KindUnbuiltImage is bugs_open/318's main gap: an overlay pins one of OUR
+	// KindUnbuiltImage is bugs_closed/318's main gap: an overlay pins one of OUR
 	// images and no release builds it, so it freezes at whatever tag its author
 	// pushed and nothing ever notices.
 	KindUnbuiltImage = "OUR IMAGE, NO RELEASE BUILDS IT"

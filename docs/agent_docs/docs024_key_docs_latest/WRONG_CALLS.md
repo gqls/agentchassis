@@ -43365,7 +43365,7 @@ and the output gets pasted next to it. If you are writing the claim first, you a
 with a citation format. Caught here by re-reading my own commit, which is luck; the digest pin two
 paragraphs above it was caught by a reviewer, which is not a system I control.
 
-## 2026-08-22 (`bugs_open/318` lane) — I read an exit code off a pipeline while proving a gate discriminates, and printed the reassuring answer
+## 2026-08-22 (`bugs_closed/318` lane) — I read an exit code off a pipeline while proving a gate discriminates, and printed the reassuring answer
 
 **The claim.** Mutation-testing the new `build-backend: $(addprefix build-,$(RELEASE_IMAGES))`
 derivation, I injected a bogus image name into a **copy** of the makefile (correctly — never the
@@ -44380,7 +44380,7 @@ cannot see: ship the *minimum* config that achieves the goal, not the *generated
 every risky step self-reverting; and write the verification step against the failure mode you
 are actually worried about, not against the happy path.
 
-## 2026-08-22 (`bugs_open/318` lane, third of the day) — my new detector's first live run reported the INVERSE of the truth, and I only found out because I read the output instead of the exit code
+## 2026-08-22 (`bugs_closed/318` lane, third of the day) — my new detector's first live run reported the INVERSE of the truth, and I only found out because I read the output instead of the exit code
 
 **The claim.** The cluster census I had just written, run against the live fleet, printed:
 

@@ -3,7 +3,7 @@
 // Package releaseset answers one question the makefile could only ask about
 // itself: is every service of ours actually reachable by a release?
 //
-// WHY IT IS A PACKAGE AND NOT MORE SHELL (bugs_open/318). The gate this
+// WHY IT IS A PACKAGE AND NOT MORE SHELL (bugs_closed/318). The gate this
 // replaces, `check-release-coverage` (register BLD-022), skipped any overlay
 // whose pinned image was not already in RELEASE_IMAGES. Membership of that list
 // was therefore the gate's OWN admission criterion, so a service left out at
@@ -198,7 +198,7 @@ func ParseMakefileDecls(r io.Reader) (Decl, error) {
 			return Decl{}, fmt.Errorf(
 				"%s is not declared in the makefile — refusing to report on a release shape "+
 					"that was never read (a check that passes what it failed to measure is worse "+
-					"than no check; bugs_open/318)", name)
+					"than no check; bugs_closed/318)", name)
 		}
 	}
 	d.ReleaseImages = raw["RELEASE_IMAGES"]
