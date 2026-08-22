@@ -44260,3 +44260,28 @@ the conversions and passed after, it has been observed in both states on the sam
 has only ever been green cannot distinguish "nothing is wrong" from "I am not looking" — the same
 demand-control rule this file already carries for a post-fix zero, applied to a test instead of a
 metric.
+
+---
+
+## 2026-08-22 — 283 lane: I "un-armed" a flag I believed was my temporary arm; it was another lane's STANDING config since migration 435, and removing it broke their next build
+
+**The call:** on 2026-08-21 I needed `adopt_existing_page` on tool-generator's save_tool for
+two rebirths. I wrote an arm-then-un-arm plan, "armed" it (a no-op — it was ALREADY true,
+standing since migration 435, 2026-08-16, webdesign_tool_rebuilds lane), ran my rebirths, and
+then "un-armed" it with a bare psql UPDATE — no snapshot, no ledger row, no provenance check.
+
+**The cost:** their first adopt-route build on 2026-08-22 (tool-blueprint-compiler, 11:28Z)
+died on pages_site_id_name_key 23505 with the item reading complete/error NULL. They burned a
+diagnosis on an "un-snapshotted removal ... nobody's" (their words in migration 558's header,
+which restored the key at 11:34Z) and provisionally filed bug numbers over it.
+
+**The cheap check that would have caught it:** before REMOVING any config key, grep the
+migrations for who SET it — `grep -rn "adopt_existing_page" docs/agent_docs/sql_for_agents/`
+surfaces 435 in one command. I checked the key's VALUE and never its PROVENANCE. My own arm
+file even took a snapshot before setting; the destructive half ran with none.
+
+**The transferable shape:** *"I set this, so I can unset it" requires that you actually set
+it — a no-op write on an already-true key feels exactly like an arm.* Config keys on shared
+agents have owners; the migration directory is their register. Symmetric discipline: any
+un-arm gets the same snapshot + ledger + provenance grep as an arm — and a TEMPORARY flag
+plan must verify the flag was absent BEFORE arming (mine printed UPDATE 1 either way).
