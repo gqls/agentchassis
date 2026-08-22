@@ -1251,3 +1251,46 @@ anything at that site.
 
 **Where we are otherwise:** unchanged — five of twenty-three sites carry the ranked record, and the
 sweep stays shut until you open it.
+
+---
+
+**2026-08-22 — the check is switched on, the false sentence is gone, and I want to be careful about what that does and does not prove**
+
+The fleet released overnight, so this morning the program code from yesterday was finally running.
+I checked that properly rather than assuming: I asked the running service directly whether it
+contains the new check, and I asked it two control questions as well — one thing that should be
+missing (it was) and one that should be there (it was). Only then did I switch the configuration on.
+
+Then, with your go-ahead, I ran the analyser twice: once on webdesign, once on leopardess. Both
+completed. **The "eight live sites" sentence is gone from leopardess.**
+
+**But I do not want to let that stand as "the check works", because it isn't quite what happened.**
+The check removed nothing on either run — its own record of removals is empty both times. The false
+sentence is gone because the *instruction* we added stopped the model writing it in the first place,
+not because the check caught it on the way out. Those are two different halves of the fix, and only
+the first has been shown working on real data. The catching half is proven by tests built from the
+actual live sentences, but it has still never fired in production. I would rather say that plainly
+now than have someone later discover the proof was thinner than it sounded.
+
+**Two things came out of those runs that are worth your attention.**
+
+The first is a genuine mistake of mine that the runs exposed. The check counts numbers, and it was
+counting the "2" inside "B2B" as if someone had claimed a quantity of two. Same for "S3", "IPv6",
+"Web3". That means a perfectly ordinary sentence about serving "UK B2B SaaS teams" could have been
+deleted for asserting a number it never asserted. On leopardess it survived purely by luck — the
+site's own strategy record happens to contain "B2B" as well, so the "2" was considered accounted
+for. I have fixed it, but the fix is program code, so it will not be live until the next release.
+Until then I would not run the analyser by hand without accepting that small risk.
+
+The second is a cost I did not anticipate. Both new versions contain no spelled-out numbers at all,
+where the previous versions each had one. Webdesign's opening line used to say "any of the
+sixty-three tools" — which was true, and was drawn straight from the site's own record. It is gone
+now. So the instruction may be making the model shy of numbers in general rather than shy of
+*unsupported* numbers, and we would be trading away exactly the kind of specific, checkable detail
+these records are supposed to supply. Two runs is not enough to be sure; it is enough to watch.
+
+**One thing I stopped myself doing.** The normal way this lane runs the analyser fires the whole
+improvement loop, and that loop promotes every queued item on the site into live page edits — 111
+of them on webdesign, 37 on leopardess, including work other people had queued. To test one check,
+that would have been wildly disproportionate, and it was not what you agreed to. I wrote a small
+dispatcher that runs only the analyser instead.
