@@ -105,3 +105,43 @@ WHERE correlation_id = '<SUBMISSION_CORR>' AND kind = 'council_report';
 
 ⚠ Never the runbook's `doc_notes ... ORDER BY created_at DESC LIMIT 1` — that returns whoever
 finished last, fleet-wide, and several councils run per hour.
+
+## This lane's live correlations
+
+| what | correlation | read it with |
+|---|---|---|
+| diagnosis loop (090) intake | `c236fbb4-ca7f-4540-8170-8b806f40fc54` | — (the intake key; artifacts are NOT under it) |
+| diagnosis loop RUN | `c8ec6478-5a54-4a16-aaf1-1e3373684ba0` | `SELECT kind, length(body) FROM diagnosis_artifacts WHERE correlation_id='…';` |
+| council gate submission | `b3676918-9eee-4b9f-85f3-749e16b3d033` | see below |
+
+```sql
+-- the council verdict, keyed on OUR correlation
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='b3676918-9eee-4b9f-85f3-749e16b3d033' AND kind='council_report'
+ORDER BY created_at;
+```
+
+⚠ **Never** the runbook's `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY
+created_at DESC LIMIT 1` — it returns whoever finished last, fleet-wide, and several councils run
+per hour. A session hit this on 2026-08-22 and read another lane's REVISE as its own verdict.
+
+⚠ The trigger prints the SUBMISSION correlation; the 090 trigger prints an INTAKE correlation and
+then the RUN one. **The run correlation is the key the diagnosis artifacts are written under** —
+the intake one resolves nothing.
+
+## Council submission schema (the five client-side traps, all hit or avoided on 2026-08-22)
+
+`.plan` is an **object**, not an array: `{summary, edits[<=8], grounded_in[], risks}`.
+
+- `operation` ∈ `modify|add|remove|config_change`. **`create` is NOT valid** — a new file is `add`.
+- `grounded_in` must be an array of **strings**, not objects.
+- `risks` must be a **string**, not an array — join into one prose block.
+- A sketch whose every non-blank line is a comment (`--`, `#`, `//`) is **refused server-side**
+  ("a fix plan proposes changes, not observations").
+- **One edit = one file.** `.file` must be a single repo-relative path: no whitespace, no leading
+  `/`, no `..`. Naming two files in one edit reads fine to a human and is refused.
+
+**Always `DRY_RUN=1` first** — it runs every client-side validation and the scope admission check,
+mints no correlation and spends no credits. A server-side refusal instead costs a dispatch and
+~30 minutes, and surfaces only as `current_step='complete_invalid'` with no verdict row, which
+reads exactly like "still queued".
