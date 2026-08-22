@@ -1,6 +1,6 @@
 # RFC_046 — a component row's identity is INFERRED **five** different ways (as of 2026-08-22) and stamped none
 
-**Status:** OPEN — raised 2026-08-22 by the `bugfix_357_component_identity` lane, at the explicit
+**Status:** **RULED 2026-08-22 — OPTION 1 (stamp identity at the point of production).** Raised 2026-08-22 by the `bugfix_357_component_identity` lane, at the explicit
 recommendation of the council gate's `architecture` seat (trail `62aac6c2`, round 2).
 **Source bug:** `bugs_open/357`. **Lane:** `docs024_key_docs_latest/bugfix_357_component_identity/`.
 
@@ -121,3 +121,41 @@ All measured 2026-08-22 against the live database and HEAD; queries and their tr
   357 population.
 - Council trail `62aac6c2`: round 1 REVISE (gated by `bug_historian`), round 2 REVISE (gated by
   `editquality`, seconded by `bug_historian`), six seats approving cleanly in round 2.
+
+
+---
+
+# OWNER RULING 2026-08-22 — **OPTION 1**, and the existing pages follow it
+
+> *"Option 1 please, we can change the existing pages once option 1 has been built."*
+
+Two things are settled by that sentence, and they are separate:
+
+1. **The estate will STAMP component identity** at the point the bytes are produced, rather than
+   continue to infer it. Options 2 (consolidate the five inferences) and 3 (knowingly accept the
+   class) are declined.
+2. **The 22 mislabelled rows WILL be repaired — after the stamp exists, not before.** This is the
+   sequencing the lane asked for and it is now authorised in principle rather than left open. It is
+   not a licence to repair them now: until the stamp is live, correcting a row's `slot_name` still
+   sends the next rebuild down the re-append arm (LANDMINES, and §2 inference #5), which is why the
+   repair was withdrawn from council rounds 1 and 2.
+
+## What this ruling does NOT decide, stated so nobody reads it as broader than it is
+
+- **It does not approve an implementation.** The platform-code change still goes through the council
+  gate in the normal way. This ruling settles the architecture question the gate's own `architecture`
+  seat referred here; it does not pre-approve the edits.
+- **It does not authorise repairing the 22 pages yet.** "Once option 1 has been built" is a
+  precondition, and *built* means the stamp is live and readable on those rows — not merely
+  committed. Prove it at the artefact per this lane's RUNBOOK before touching any page.
+- **It does not decide the shape of the stamp** (column vs reserved key, what is stamped, which seam
+  writes it). That is the implementing design's job, and it is where the reviewable risk lives.
+
+## The property this now has to deliver
+
+> When a component's bytes are produced, the identity of the component that produced them is
+> **recorded with the bytes**, and every later hop **reads that record** instead of re-deriving it
+> from position, from a plan, from a name, or from an attribute.
+
+A row whose stamp is absent is **honestly unknown** — never inferred into a confident answer. That
+is the specific failure this whole class is made of.
