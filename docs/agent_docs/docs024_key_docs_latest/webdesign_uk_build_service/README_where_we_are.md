@@ -2058,3 +2058,55 @@ already answered that question once, and built the answer, and run it for a mont
 public-facing bit on its own small machine, let a tunnel reach in to it, and allow exactly one
 path through. That is now the leading option rather than a new idea, and it comes with a working
 example we can copy instead of a design we would be trying for the first time.
+
+---
+
+## 2026-08-22b — the delivery promise is changed, and the box's back door is shut
+
+**Both things you asked for are done and checked on the live system.**
+
+**The timing promise now says three or four days, usually sooner.** The site's fact register
+carries it, the writer's instructions carry it, and — the bit that actually matters — I asked
+the live chat bot how long a site takes and it said *"usually three or four days from when
+you've sent everything we need, sometimes sooner"*. That is the customer-facing answer, so
+that is where I checked it rather than trusting the database row.
+
+There was a trap in this one worth knowing about. Back in mid-August we deliberately banned
+the phrase "three or four days", because it belonged to the old £1,200 product and we did not
+want it drifting back. That ban was still switched on. So the exact words you asked for were,
+until this morning, forbidden by our own system. If I had just changed the promise, the site
+would have started refusing to publish its own new copy, and it would have looked like the
+writing tool was broken rather than like we had contradicted ourselves. Both halves went in
+together.
+
+**One piece of this is deliberately not finished.** Four pages still have the old "two or
+three days" wording baked into them and need rebuilding. I have written the final step — the
+one that bans the old phrase for good — but I have left it switched off until those pages are
+redone, because switching it on first would freeze the pages in their wrong state and make
+them impossible to fix through the normal route. That is a real trap we have hit before.
+Worth noting: two of those four pages do not show up if you just look at the obvious web
+addresses. I only found them by asking the database what it had stored.
+
+**The back door on the webdesign box is shut.** Yesterday I told you that box could reach our
+main database. It can't any more. It can still do the three things it actually needs — look up
+addresses, talk to the service that runs the site's chat and confirmation links, and receive
+card payment notifications — and nothing else.
+
+I did this a different way from the one I described to you, for a good reason. The plan I
+showed you involved rebuilding the box's connection from scratch, which meant a short outage
+on the payment path. It also needed me to log into the box, and this session is not permitted
+to do that. So instead I put the restriction on our side, in the cluster, where I could both
+apply it and test it. It took no downtime, it needed nothing done to the box, and undoing it
+is a single command if it ever causes trouble.
+
+I checked before and after, and I checked the things that would have broken if I had got the
+list wrong: the chat bot still answers, the confirmation link still works, the site still
+loads. One near miss worth recording — the chat bot gets its facts by reaching into the
+cluster, and it is built to refuse to start rather than serve stale information. If I had
+guessed at what the box needed instead of reading its configuration, I would have switched
+the bot off.
+
+**One honest gap.** Our database was not recording who connects to it, and still isn't. So
+while I can prove the door was open, nobody can now say whether anyone ever walked through it.
+That is a fact about our record-keeping, not a clean bill of health, and I would rather say so
+than imply I had checked.

@@ -5354,3 +5354,122 @@ which contradicts register `ADM-004`'s status line ("live P2/P3 have no approve/
 endpoints ... anywhere"). That is the stale-register-status landmine class, and it matters
 here because `DECISION_21e`'s gate needs exactly an approve step and the register says it
 was retired.
+
+---
+
+## 2026-08-22b — D-B APPLIED and verified at the bot; the box's tunnel FENCED
+
+### D-B — build_duration is now "three or four days, usually sooner"
+
+Owner, 2026-08-22, wording confirmed with him before writing:
+*"two or three should probably be 3 or 4 but usually sooner."* This is
+`DECISION_2026-08-21e` §3 **option (b)** — the promise is re-cut to absorb his
+pre-delivery review step rather than being broken by it.
+
+Applied by `SQL_2026-08-22_build_duration_three_or_four_days.sql`. `BEGIN / INSERT 0 1 /
+DO / COMMIT`, and the row moved **24 facts / 34 bans → 24 facts / 33 bans** (compared
+against the row it superseded, never against a remembered number).
+
+**The catch that made this not a one-line edit: the owner's new figure was ITSELF BANNED.**
+`\bthree (or|to) four days\b|…` was armed 2026-08-14 as a retired £1,200-offer figure and
+was still live. Re-attesting without retiring it would have made the claims gate refuse our
+own new copy at deploy time — and that failure presents as a broken writer, not as a
+register contradicting itself. Both happen in one transaction.
+
+**Six mutation tests, each caught by its intended guard** (§8: a guard that has only seen
+the state it was written for proves nothing):
+
+| mutant | guard that fired |
+|---|---|
+| ban not retired | `banned_claims moved by 0, expected exactly -1` |
+| `value` 3 not 4 | `value is 3 not 4 (upper bound is the only safe stat figure for a range)` |
+| skip writer_block edit 2 | `writer_block is not the old text plus exactly the two named edits` |
+| claim keeps the old range | `claim does not carry the new range` |
+| arm a two-or-three ban (net 0) | the count guard |
+| arm one **at net −1** | `a ban on "two or three days" was armed here - it must wait for the re-render (bugs_open/161)` |
+
+The last one matters: the first attempt at that mutant was caught by the *count* guard, so
+the HOLD guard itself was still unproven. Constructing a mutant that passes the count check
+(drop two bans, add one) is what actually exercised it.
+
+**Three of my own guards were wrong on the first pass, and the dry runs caught all three:**
+
+1. `bd::text ~* 'two or three'` fired on the **owner's own quoted words** inside
+   `source.attested_by`. The guard was checking provenance as if it were copy. Narrowed to
+   `claim` / `writer_line` / `context_terms` — the fields a reader actually sees — and the
+   narrowing is written into the file, because the lazy fix would have been to launder the
+   attestation instead.
+2. `bd->'context_terms'::text` parses as `bd->('context_terms'::text)`. Needs `(…)::text`.
+3. **`~ 'three (or|to) four days'` matched nothing, because the stored value IS ITSELF A
+   REGEX** — its literal `(`, `|`, `)` were read as alternation syntax. Replaced with
+   `strpos(…, 'three (or|to) four days') > 0`, a literal ASCII substring test, which also
+   sidesteps the en-dashes in the stored pattern that would otherwise be hostage to the
+   encoding of every pipe the file travels down.
+
+**Verified AT THE BOT, not at the row** (§8), after polling until the 5-minute facts cache
+turned over — the first two polls still returned the old figure and *"still says the old
+thing"* is not a result until the cache has turned:
+
+> *"Usually three or four days from when you've sent everything we need, sometimes sooner.
+> It depends on the queue - we only build a few sites at a time…"*
+
+The queue sentence is **attested** (`queue_limited`), checked rather than assumed — this
+lane has already had the bot improvise off no fact.
+
+**⚠ STILL OWED, and it is the ordering rule, not an oversight:**
+`SQL_2026-08-22b_arm_retired_two_or_three_days_HOLD.sql` is written and **must not run
+yet**. Its census (run read-only today) returns **10 components across 4 pages** —
+`faq`, `how-it-works`, `index`, `tool-website-brief-starter-guide` — the same four the
+2026-08-19 next-day change had to rebuild. Arming a BLOCKER-severity ban while that copy is
+still stored makes those pages refuse to save: the retired figure stays published AND
+becomes unfixable through the rewrite path (`bugs_open/161`). Re-render first.
+
+**And size the re-render from the CENSUS, not from the served pages.** Curling the two
+obvious URLs gives index 6× / faq 3× and misses `how-it-works` and the tool guide entirely.
+Two of the four affected pages are invisible to the check I would naturally have run.
+
+### The box's tunnel is fenced
+
+`deployments/kustomize/services/wireguard/base/networkpolicy-wireguard-egress.yaml`, applied
+2026-08-22. Owner chose "fence it now"; the **separate-instance** design he was shown needs
+a box-side cutover, and **SSH to the box is blocked for this session by the sandbox**, so I
+did the containment that needs no box access at all.
+
+Egress-on-the-wireguard-pod is not a shortcut, it is the only enforcement point that works:
+the masquerade means a policy keyed on a peer's `10.13.13.x` address can never match, and
+under `default-deny-ingress` it would fail closed — looking like a working restriction while
+simply breaking that peer. That is the July design's own correction, re-derived.
+
+**The allowlist is evidence, not judgement** — every cluster upstream named anywhere in the
+box's own configuration, found by grepping `box/` exhaustively rather than by reasoning about
+what it probably needs: kube-dns:53, `core-manager:8088`, `auth-service:8081`, plus
+`admin-dashboard:8080` for the owner's laptop/phone peers.
+
+**The check that changed the design:** `box/chat-service/facts.go` — the bot fetches the
+register over the tunnel from **core-manager's facts relay**, and by its own stated design
+**refuses to start** if it cannot. Had I assumed the bot read postgres (which is what
+"the bot reads the register" suggests), I would have written an allowlist that killed it.
+
+Before/after from the wireguard pod, with a closed-port control:
+
+| destination | before | after |
+|---|---|---|
+| DNS resolve core-manager | OK | OK |
+| core-manager:8088 | REACHABLE | REACHABLE |
+| auth-service:8081 | REACHABLE | REACHABLE |
+| admin-dashboard:8080 | REACHABLE | REACHABLE |
+| **postgres:5432** | **REACHABLE** | **blocked** |
+| postgres:5433 (control) | refused | refused |
+
+Live services re-verified after: bot answers, `/c/x` still **200** in-cluster, site **200**.
+
+`[UNKNOWABLE, and this is worth stating]` **`log_connections = off` on postgres-clients**, so
+there is no record of past connections and nobody can say whether the box ever used the reach
+it had. "No evidence of use" here is a property of the instrumentation, not of the box.
+
+**Not council-gated:** scope is single-sourced in `scripts/council-scope.sh` and covers
+`platform/`, `internal/`, `pkg/` and appliable migrations. `deployments/` is not in it.
+
+**The separate-instance design is still the better long-run shape** and is not cancelled by
+this — `gauntlet_dead_cta/infra/wireguard_bastion.yaml`. This fence buys the containment now,
+at zero downtime and one `kubectl delete` of rollback.
