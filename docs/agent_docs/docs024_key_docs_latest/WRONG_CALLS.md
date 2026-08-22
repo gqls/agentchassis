@@ -70,6 +70,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **OPEN the rows a new predicate flags before calling the flag-set pathological — a false positive is indistinguishable from a true one in a COUNT, and the legitimate case is usually already documented in the file you are writing in** | **1** |
 | **`| head -N` on a table/file listing is an UNMARKED TRUNCATION — an absence claim built on one is fiction, and alphabetical `_backup_*` names are exactly what fills the visible lines** | **1** |
 | **when mutation-proving a SOURCE-SCANNING test, mutate inside the anchor's MATCHED SPAN — `replace(x, 1)` takes the file's first occurrence, which is usually not the one the pin reads** | **1** |
+| **`grep -rn` returns a LIST — read to the end of it before writing 'one', 'only' or 'the single'; stopping at the first file is how a five-writer table becomes a one-writer claim** | **1** |
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **2** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **5** |
@@ -44515,3 +44516,36 @@ around it before you interpret it** — a value that equals its neighbour is bei
 authored. And when an identifier looks like it could be an identity, **test its uniqueness at
 the scope you need it unique in** before designing on it. Both are one query. "Readable and
 stable" is not the same property as "unique", and only the second one was load-bearing.
+
+---
+
+## 2026-08-22 (eighth) — "written by ONE path": I ran the grep, read the first file's hits, and stopped. The table has five writers.
+
+**The claim**, published in the lane PLAN §10.2, in concept-register entry CLC-026, and in two council
+submissions: *"`component_versions` is written by **one** path — `fix_component_template_action.go:1127`,
+as a pre-repair snapshot. So a template edited by any other route is never versioned, which is
+precisely how 277's nine components ended up with zero versions."*
+
+**What the grep actually returns** (the same command I ran, read to the end):
+`fix_component_template_action.go` ×2, `store_generated_component_action.go` (`snapshotComponentVersion`),
+`update_component_html_action.go` — **four pre-existing writers across three files**, plus mine.
+The live table agrees and would have told me for free: 26 distinct `change_source` values including
+`repair_template_slots`, `manual-restore`, `minilobby_trim_20260709` and a scatter of bare correlation
+ids. A single-writer table does not have 26 provenance labels.
+
+**Caught by the council's `reuse_agent` seat**, which named `snapshotComponentVersion` by symbol — the
+second time in this lane a seat has found something by opening a file I had only grepped.
+
+**Why the error mattered, and why it did not.** It was load-bearing for my explanation of *why* 277's
+nine components had no versions ("one writer, so most edits miss it") and that explanation was wrong.
+The true one is stronger: a template edited by a **hand-written SQL migration** passes through no Go
+writer at all, so **none of the four** sees it — which is exactly why the stamp must be taken at
+RENDER time rather than at edit time. The design survives; my stated reason for it did not. It also
+hid a real defect: every writer allocates `version_number` with its own `MAX+1`, so the version-number
+race a reviewer raised against my get-or-create is a property of the **table**, not of my code.
+
+**The check.** `grep -rn` prints a list; the claim "one" is about the **length of that list**, so read
+to the end of it — and when the subject is a table, ask the table (`SELECT DISTINCT change_source`),
+because a live column of provenance labels is a census that cannot be stale. Any sentence containing
+*one / only / the single / the sole* about writers, callers or call sites needs the count and its date
+beside it, which is now CLAUDE.md's rule anyway: **N as of \<date\>**.

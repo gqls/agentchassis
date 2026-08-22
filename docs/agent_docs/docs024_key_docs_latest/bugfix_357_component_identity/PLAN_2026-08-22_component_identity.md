@@ -212,7 +212,24 @@ would be recoverable. Wiring this does not fix those 15, but it stops the class 
 
 ## 10.2 Why `component_versions` alone is not already the answer
 
-It is written by **one** path — `fix_component_template_action.go:1127`, as a pre-repair snapshot.
+> ⚠ **CORRECTED 2026-08-22 (council round 3, `reuse_agent` seat) — the "one path" claim below is
+> FALSE and I published it here, in register CLC-026 and in two council submissions.**
+> `component_versions` has **five INSERT sites across four files as of 2026-08-22**:
+> `fix_component_template_action.go` (×2, `change_source='repair_template_slots'`),
+> `store_generated_component_action.go` (`snapshotComponentVersion`),
+> `update_component_html_action.go` (`changed_by='update_component_html'`), and this lane's new one
+> (`change_source='render_stamp'`). I ran the grep, read the first file's two hits, and stopped.
+> Live `change_source` values confirm the plurality: 26 distinct values including
+> `repair_template_slots`, `manual-restore` and a scatter of bare correlation ids.
+> **What survives the correction, and is now better evidenced:** the reason `bugs_closed/277`'s nine
+> components had zero versions is NOT that a single Go writer missed them — it is that a template
+> edited by a **hand-written SQL migration** passes through no Go writer at all, so none of the four
+> sees it. That is a stronger statement than the one it replaces, and it is why the stamp has to be
+> taken at RENDER time rather than at edit time. Logged in `WRONG_CALLS.md`.
+> **Also corrected:** each writer allocates `version_number` with its own `MAX+1`, so the race the
+> `editquality` seat raised about my get-or-create exists BETWEEN writers too, not only within mine.
+
+~~It is written by **one** path — `fix_component_template_action.go:1127`, as a pre-repair snapshot.~~
 So a template edited by any other route is never versioned, which is precisely how 277's nine
 components ended up with zero versions. **A stamp pointing at a version table that does not capture
 every template change is a stamp that goes NULL exactly when it matters.** The build therefore has
