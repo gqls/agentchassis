@@ -574,3 +574,55 @@ would never have gone looking for: those two safety checks each quietly cover fo
 delete either one and every test still passed. Nothing was actually testing that part. I have written a
 test that does. That is the second time this month the review has paid for itself by being wrong in a
 useful direction.
+
+
+---
+
+**2026-08-22 — you closed it, and I want to be precise about what that does and does not mean.**
+
+You were given three decisions and made all three: close 343, park the Kafka timeout residual, park
+the thirteen services that report no metrics. All three are done and recorded where the next person
+will trip over them rather than only where I happened to be working.
+
+**On closing 343.** The bug is now filed under closed, but I have written the closing note so that it
+cannot be misread as "we fixed it". We fixed one half — the part that explained why a stuck job
+*stayed* stuck — and that half is running in production and was checked by asking the program itself
+what it contains. The other half, why the helper stopped answering in the first place, is exactly as
+unexplained today as it was two days ago. So the file says, in those words, that this was your
+decision to close an unsolved problem rather than a problem that got solved. If someone hits a
+silently frozen build next month, the file tells them to open a fresh case rather than assume
+something has come undone.
+
+I think the close is defensible and here is the honest reason. The lane had run out of moves. The one
+route that did not depend on the fault happening again — comparing the twenty jobs that froze against
+the ten that stopped dead on the same day — was tried, and nothing in the surviving records separates
+the two groups. And the burst that started all this turned out to have an outside cause: GitHub was
+failing that afternoon, several hundred times its normal rate, on that day and no other. So "wait for
+it to happen again" really meant "wait for the next GitHub outage", which could be months. Keeping a
+bug open to wait for weather is not a plan.
+
+**What I deliberately did not switch off.** There is a small hourly job that watches for this freeze
+and preserves the evidence if it ever recurs — the thing we did not have in August, which is why the
+investigation stalled. Closing the bug does not retire it. It costs essentially nothing, and it is now
+the standing bet that if this comes back we will have what we need on the first occurrence rather than
+the third. I have written that instruction into the job itself, because the obvious tidy-up for a
+future session is to delete a monitor for a closed bug, and that would be the wrong call. I also had
+to repoint the notes it writes: they named an address that stopped existing the moment the file moved,
+which would send someone chasing a dead link in the middle of an incident.
+
+**On the two parks.** Nothing has been retracted — the findings stand, and the limitation that all our
+Kafka figures only cover part of the estate is still true and still written down. What is parked is
+further *work* on them. I recorded it as a deliberate decision rather than an omission, so nobody
+raises it again next week as something we forgot.
+
+**One thing that closed itself while we were talking.** The last open item in the old handoff was a
+one-line change to the diagnosis tooling that we shipped but could not prove was working, because
+proving it needed someone else to run a diagnosis. Three ran this morning, and it works. That was the
+only outstanding decision in the document you pointed me at; it is now spent.
+
+**And a note on how this was done.** Another session has been working the same two bugs and is still
+active. I told it what you had ruled before I touched anything, and it asked to write the Kafka half
+itself — which was fair, since it owns that file. I had already written mine, so I have handed it over
+rather than fight over the same paragraph. It also corrected me on a detail: I checked two things had
+reached production and declared the release good; it checked four and showed that everything had.
+Its version was the better check.
