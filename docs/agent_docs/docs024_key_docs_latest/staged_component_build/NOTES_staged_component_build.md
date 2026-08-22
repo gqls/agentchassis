@@ -7688,3 +7688,30 @@ tool-generator a **two-day** window, which cannot establish a baseline. The refu
 are the instance-scope guard working correctly (dynamic id with no static prefix; 11 dangling
 bindings) — i.e. generation quality, not a guard defect. **Someone should re-measure once the
 control's contamination has aged out; do not carry these two numbers forward as a rate.**
+
+**Addendum (~10:0xZ) — two more things from the same pass, one of them a passenger I took.**
+
+**A LANDMINE filed, and it is about the estate's own coverage gate.** Checking my new check
+service's release membership, I found it was in neither `RELEASE_IMAGES` nor
+`AGENT_DEPLOY_SERVICES` — and so was `optional-explicit-wires-check`, born yesterday on this same
+lane. Both are `config-key-audit` images, so for them a frozen image is a frozen action
+**INVENTORY**, which is the failure the owner's 08-18 ruling (`bugs_open/237` Decision B) closed
+for four other checks. **What makes it a landmine rather than an oversight: `make
+check-release-coverage` printed "Release coverage OK" throughout.** The gate skips any overlay
+whose image is not ALREADY in `RELEASE_IMAGES` — membership is its own admission criterion — so a
+service omitted at BIRTH is invisible to the mechanism that exists to catch the omission. Both
+folded in under the standing ruling (`67201d125`), gate re-run and passing, and the makefile
+comment now says a new check service must be listed in the commit that creates it.
+
+**A SAME-FILE PASSENGER I took, recorded so its author can find it.** My LANDMINES.md commit
+(`a93fc3ffd`) reports 30 insertions and **8 deletions** — and I appended only. The pattern check's
+`shared-ledger-not-appended` advisory caught it; my first verification was **WRONG and I nearly
+stopped there**: I grepped for surviving phrases after `tr '\n' ' '`, which collapses the file to
+ONE line, so `grep -c` can only ever return 0 or 1 — it cannot count occurrences and cannot detect
+a partial loss. The check that actually settles it is a **word-level set difference** between the
+two blobs (`tr -s '[:space:]' '\n' | sort | comm -23`). That showed the real change: eight
+`bugs_open/343` references became `` `343` (silent post-abandonment freeze) `` — another session's
+uncommitted edit, resolving the bug by SLUG rather than by an ambiguous path, which is this
+estate's own practice. **Nothing was lost and their edit is intact — it is simply committed under
+my message.** This is the documented case CLAUDE.md says no hook can prevent: a pathspec commit
+protects you from other files, never from another session's edit to the SAME file.
