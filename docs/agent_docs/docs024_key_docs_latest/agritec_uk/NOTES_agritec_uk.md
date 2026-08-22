@@ -273,3 +273,86 @@ check side, this one guards the instruction side.
 **Not filed as a platform bug.** It is a cross-cutting structural claim, and CLAUDE.md's bar for
 one of those is the 090 diagnosis loop or a stated substitute. Raised with the owner instead as a
 decision: it is his call whether this lane widens into filing it.
+
+---
+
+## 2026-08-22 — Phase 2 run 1: the SFI calculator on the live site is paying a subsidy that no longer exists
+
+### The finding
+
+First evidence-researcher run (correlation `1e8c7735-b922-450c-b261-cbfac3e2d5d6`) registered **10
+facts**, and four of them say the same thing:
+
+- gov.uk SFI26 scheme rules: *"the SFI management payment has been removed for SFI26 agreements"*
+- same page: *"You will not be paid: an SFI management payment for your SFI26 agreement"*
+- defrafarming.blog.gov.uk, 2026-02-24: *"We will no longer offer the SFI management payment. It
+  was intended as a time-limited payment to support farmers transitioning into the new scheme."*
+
+**The live site still pays it, as a headline feature.**
+`agritec.uk/tools/elms-calculator.html` opens with a green callout — *"You receive £20 per hectare
+for the first 50 hectares… the first £1,000 of your SFI income is effectively guaranteed"* — and
+its JS computes `Math.min(farmSize, 50) * 20` into a top-line "SFI Management Pmt" row. Next to a
+GOV.UK link, which lends it authority.
+
+This is exactly the `bugs_open/288` class stated in the abstract yesterday and met in the concrete
+today: a legislated figure encoded in a calculator, checked by nothing, still running after the
+legislation moved. The SDLT precedent ran an expired threshold for 16 months.
+
+Four further SFI26 constraints landed that the old calculator does not model at all: a £100,000
+annual agreement value cap, a 3-hectare eligibility floor, one agreement per farm business, and
+limited-area actions capped at 25% of the farm's agricultural area.
+
+### Verified first-hand, because a citation is not a reading
+
+`verify_and_register` re-fetches the URL and rejects a claim unless the quote appears verbatim —
+so the machine proved the words are on the page. It cannot prove we read them correctly
+(`bugs_open/161`). So I fetched the GOV.UK page myself (HTTP 200) and confirmed all five quotes
+present, plus the surrounding context: the removal sits in a list of SFI26 changes, unambiguous.
+
+### Acted on it: five bans, added BEFORE any page exists
+
+`SEED_2026-08-22_sfi26_bans.sql`. Tested on **both arms**, which is the part that mattered:
+
+- Caught: the retired site's own sentences, "management payment is available", "farmers will
+  receive an SFI management payment", "the management payment is £20 per hectare".
+- **Left sayable:** "the SFI management payment has been removed for SFI26 agreements", "Under the
+  SFI 2023 offer, an annual management payment of £20 per hectare was available", "You will not be
+  paid an SFI management payment…", "DEFRA said it would no longer offer…".
+
+That second list is the point. A ban that made the removal unsayable would suppress the single
+most useful thing this site can currently tell an SFI reader. Two patterns failed their keep-arm
+on the first attempt and were rewritten:
+- `guaranteed[^.]{0,60}(£1,000|first 50)` required the words in an order the real sentence does not
+  use — the site says "the first £1,000 … is effectively guaranteed". Now matches both orders.
+- `(SFI)[^.]{0,40}management payment (of|is) £` caught the correctly-scoped past-tense form.
+  Narrowed to present-tense verbs only (`is|remains|stands at|comes to`), so registered fact
+  CIT-f88b5cd stays usable in the past tense with its scope attached — which is its only honest use.
+
+All five compile under Go RE2.
+
+### MISSTEP 6 — the supersede-then-insert as a single CTE cannot work, and it reads perfectly
+
+First attempt wrapped supersede + insert in one statement with data-modifying CTEs. It failed:
+
+    duplicate key value violates unique constraint "idx_site_specs_current"
+
+All CTEs in a statement run against **one snapshot**, so the INSERT's uniqueness check never sees
+the sibling UPDATE's supersede — the old row is still `is_current` as far as the partial index is
+concerned. I invented that form because I needed to carry the existing document forward, and in
+doing so diverged from the oufe seed, which uses sequential statements.
+
+**It failed safely**: `BEGIN` + `ON_ERROR_STOP` rolled everything back, verified — bans, facts and
+writer_block all unchanged afterwards. Rewritten as sequential statements in one transaction, with
+a `DO/RAISE` guard that aborts unless it finds exactly one current row carrying exactly the 10
+known facts. `DO/RAISE` rather than a `SELECT` verify block, because `ON_ERROR_STOP` ignores a
+non-empty result and a `SELECT` cannot stop a `COMMIT`.
+
+### Carry-forward proven, not assumed
+
+    is_current  created_by                     bans  facts
+    f           agritec-workstream-2026-08-21    19      0
+    f           evidence-researcher              19     10
+    t           agritec-workstream-2026-08-22    24     10
+
+Facts still 10, writer_block still 2,024 chars, allowed_entities still 28. A lost `facts` array
+would have looked exactly like success on the bans count alone, which is why both were checked.
