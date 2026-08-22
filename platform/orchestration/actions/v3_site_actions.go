@@ -3476,6 +3476,28 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 		deployedURL, writeSiteWide := storeAssetContentDataUpdate(assetKey, purpose, config)
 
 		if writeSiteWide {
+			// The one remaining way a page-scoped key can reach site-wide state,
+			// made visible rather than left silent (council round 2 objection on
+			// corr 3c0560f3, which was right to raise it). The declaration is
+			// per-STEP config, so it cannot itself distinguish "this really is the
+			// site's hero" from "this is one page's hero filed through the brand
+			// branch". Reachability IS per-invocation — the only step combining a
+			// dynamic asset_key with a true declaration
+			// (store_imagery_brand_asset) is behind `input_data.spec.brand_update
+			// == true`, a per-item decision by the producing check — and today
+			// every such item is hero_home or logo, both legitimately
+			// site-representative. But nothing in code constrains a future
+			// producer from filing hero_about the same way, and that would
+			// re-point the site default exactly as bugs_open/114 describes.
+			// So it is greppable: if this WARN ever names a page-scoped key,
+			// the producer that filed it is the bug.
+			if assetKey != purpose {
+				params.Logger.Warn("StoreAssetAction: site-wide brand state written from a PAGE-SCOPED asset key — the caller declared update_site_brand_assets, so this is permitted, but it re-points every page that falls back to this purpose",
+					zap.String("purpose", purpose),
+					zap.String("asset_key", assetKey),
+					zap.String("relative_url", deployedURL),
+					zap.String("bug", "bugs_open/114"))
+			}
 			updateContentDataField(ctx, params.DB, *siteID, purpose+"_url", deployedURL, params.Logger)
 			params.Logger.Info("StoreAssetAction: Updated content_data for purpose",
 				zap.String("purpose", purpose),

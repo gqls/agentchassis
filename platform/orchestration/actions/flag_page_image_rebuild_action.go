@@ -187,6 +187,11 @@ func FlagPageImageRebuildAction(ctx context.Context, params ActionParams) (inter
 	}, logger); err != nil {
 		return nil, fmt.Errorf("emit needs_page re-render: %w", err)
 	}
+	// 3. Derive this page's listing card, in the SAME transaction, if the page
+	//    now has a content hero and no card yet (bugs_open/114). See
+	//    emitContentCardDerive for why this cannot wait for the sweep.
+	cardEmit := emitContentCardDerive(ctx, tx, siteID, pageName, batchID, logger)
+
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
 	}
@@ -194,6 +199,7 @@ func FlagPageImageRebuildAction(ctx context.Context, params ActionParams) (inter
 	logger.Info("flag_page_image_rebuild: queued page re-render",
 		zap.String("site_id", siteID.String()), zap.String("page", pageName),
 		zap.String("sections_source", sectionSource),
+		zap.String("card_derive", cardEmit),
 		zap.Int("declared_sections", len(declared)))
 	return map[string]interface{}{
 		"rebuilt":         true,

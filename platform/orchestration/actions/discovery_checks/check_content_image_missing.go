@@ -321,7 +321,7 @@ func (c *ContentImageMissingCheck) generationItem(dctx DiscoveryCheckContext, r 
 // mode (derive_card_asset re-crops the article's current preferred source and
 // refreshes the entity link + origin lineage).
 func (c *ContentImageMissingCheck) deriveItem(dctx DiscoveryCheckContext, r contentImageRow) (WorkItemSpec, error) {
-	specJSON, err := contentImageSpecJSON(c.Name(), r.PageID, r.PageName)
+	specJSON, err := ContentImageSpecJSON(c.Name(), r.PageID, r.PageName)
 	if err != nil {
 		return WorkItemSpec{}, err
 	}
@@ -341,7 +341,7 @@ func (c *ContentImageMissingCheck) deriveItem(dctx DiscoveryCheckContext, r cont
 		HandlerAgent: "asset-deployer",
 		Status:       "detected",
 		CreatedBy:    dctx.AgentType,
-		ItemKey:      contentImageItemKey(r.PageName),
+		ItemKey:      ContentImageItemKey(r.PageName),
 		BatchID:      dctx.BatchID,
 	}, nil
 }

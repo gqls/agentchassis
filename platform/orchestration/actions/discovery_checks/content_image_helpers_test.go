@@ -9,7 +9,7 @@ import (
 )
 
 func TestContentImageItemKey(t *testing.T) {
-	if got := contentImageItemKey("gripper-payload-calculator-guide"); got != "content_image:gripper-payload-calculator-guide" {
+	if got := ContentImageItemKey("gripper-payload-calculator-guide"); got != "content_image:gripper-payload-calculator-guide" {
 		t.Fatalf("item key = %q", got)
 	}
 }
@@ -18,7 +18,7 @@ func TestContentImageItemKey(t *testing.T) {
 // (spec.mode) and derive_card_asset's inputs (entity_type/entity_id/
 // page_name) — pin every field the other side reads.
 func TestContentImageSpecJSON(t *testing.T) {
-	s, err := contentImageSpecJSON("content_image_missing", "3fbb0f5e-0000-0000-0000-000000000000", "my-guide")
+	s, err := ContentImageSpecJSON("content_image_missing", "3fbb0f5e-0000-0000-0000-000000000000", "my-guide")
 	if err != nil {
 		t.Fatal(err)
 	}
