@@ -44378,3 +44378,44 @@ as a warning and go read the check.**
 cannot see: ship the *minimum* config that achieves the goal, not the *generated* one; make
 every risky step self-reverting; and write the verification step against the failure mode you
 are actually worried about, not against the happy path.
+
+## 2026-08-22 (`bugs_open/318` lane, third of the day) — my new detector's first live run reported the INVERSE of the truth, and I only found out because I read the output instead of the exit code
+
+**The claim.** The cluster census I had just written, run against the live fleet, printed:
+
+> `RUNNING AN OLD FLEET TAG: commit-sha-exposure-check — CronJob runs
+> docker.io/aqls/commit-sha-exposure-check at v1.0.1324 while the fleet is on v1.0.1323`
+
+Two services, both reported as **old**. Both were **newer** than the fleet — hand-built and
+hand-deployed ahead of it. The exit code was 1, which was correct; the finding count was 5,
+which was correct; every other finding was correct. Only the *direction* was inverted, on
+two of five lines.
+
+**Why this is worse than a missed finding, which is the reason it is here.** A detector
+that stays quiet gets ignored. A detector that says the opposite gets **believed**: a
+session hunting a frozen service would have followed that line, found a service that was if
+anything too new, and concluded the instrument works. The wrong answer would have survived
+precisely because it produced a plausible investigation. This is the blind-pass family one
+rung along — not *"passed what it failed to measure"* but *"asserted the reverse of what it
+measured"*.
+
+**Why the tests did not catch it.** I wrote `TestCensus_Straggler` for a service left
+behind, which was the case I had in mind, and never wrote its mirror. **A one-sided fixture
+cannot fail on the side it omits**, and it reads as thorough — the test was detailed, it
+named its disconfirming result, and it passed for the right reason. Nothing about it looked
+thin.
+
+**Cheapest check for the class:** **when a finding has a DIRECTION, write the fixture for
+both directions before you run it anywhere.** Ahead/behind, over/under, added/removed,
+too-many/too-few. The mirror case takes a minute and it is the only thing that can catch a
+sign error, because a sign error produces a confident, well-formed, completely wrong
+sentence.
+
+**Second lesson from the same fix, and it was one line from being a different bug.** The
+first repair compared tags with `<` on strings. That is right for `v1.0.1321 < v1.0.1323`
+and **wrong** for `v1.0.999 < v1.0.1000`, where the string comparison calls 999 the newer.
+This estate is on `v1.0.13xx`, so that boundary is already behind us and every finding
+across it would have been silently inverted — the same defect I had just fixed,
+reintroduced by the fix. It compares numerically now, refuses to order anything that is not
+`vN.N.N`, and the boundary is pinned by a test. **A comparison is not a check until you
+know which comparison it is doing.**
