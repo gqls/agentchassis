@@ -42509,6 +42509,17 @@ gap — here the gap was consumption, which is a different fix entirely.
 
 **Lane:** `bugfix_029_retry_kills_live_child` (closing 343 on the owner's ruling).
 
+> ⚠ **DO NOT "REPAIR" THE POINTERS IN THIS ENTRY. They are the defect, quoted.** Every
+> `bugs_open/343` / `bugs_closed/343` / `bugs_open/029` below is the exact string whose *shape* is
+> the subject — rewriting them to number+slug makes the entry describe a mistake it no longer
+> contains, and the next reader cannot see what went wrong. Same rule the 08-20 LANDMINES entry
+> applies to its own quoted-dead examples. **This is not hypothetical:** a sweep on 2026-08-22
+> rewrote eight `bugs_open/343` tokens to `` `343` `` in `LANDMINES.md` (correct there — they were
+> live pointers, not evidence) and rode into another session's pathspec commit as a passenger. A
+> sweeper who cannot tell a live pointer from a quoted one will do the same here, where it destroys
+> the record. If you are counting dead pointers estate-wide, this entry's occurrences belong in the
+> **quoted-evidence** bucket, not the dead-pointer one.
+
 **The claim.** Closing `bugs_open/343` broke the `wedge-evidence-capture` CronJob's note labels,
 which named that path — a reader following one mid-incident lands nowhere. I fixed it by rewriting
 them to `bugs_closed/343`, committed it (`791c6e820`), applied the overlay, and verified at the
