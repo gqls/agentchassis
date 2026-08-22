@@ -53,9 +53,38 @@ arming.
 >    stitched TEMPLATE whose content arrives later; audit probes that remove fields by design).
 >    Still no change owed there.
 >
-> **Remaining to close this file:** apply 551 after the next roll + the live canary (one
-> refusing edit with the live section byte-identical, one clean edit persisting), and a decision
-> on the 5 no-schema components (or an explicit scope-out recorded here).
+> **ROUND 2 (council `3626629a` REVISE → resubmitted): the chrome store gets the SAME refusal,
+> and it is deliberately UNARMED.** The `bug_historian` seat used this bug against the plan and
+> was right: arming DETECTION on chrome while only the editor got PROTECTION is 016b §9's *"one
+> call site of a shared judgement gets the rigorous fix, the sibling stays heuristic"*, and "0
+> rows fire today" is a population snapshot, not a structural guarantee. So
+> `renderAndStoreSiteComponent` now consults the same `refusePersistForAbsentRequired`, default
+> OFF, **with no migration arming it** — arming today would arm an unexercisable refusal, while
+> omitting the capability would put a code change, a review and a roll between the first
+> adopting site and its protection. **The flip trigger is named: the first
+> `required_fields_missing` item with `surface='site_component'`.** Its disposition mirrors the
+> execution-failure branch beside it (decline to store, previous bytes keep serving; fatal only
+> where the slot has nothing stored, because a site must not go live with a missing header), and
+> it sits AFTER the emit so a refused slot still leaves its queue entry. A test asserts the two
+> persist paths share ONE decision on all four arming×finding combinations.
+>
+> The GATING objection was checkable and is checked: 551 UPDATEs by type, and four agent types
+> carry TWO active rows of which only the higher loads — **section-editor is not one of them**
+> (they are `chief-strategist`, `content-creator`, `content-creator-contact`,
+> `site-component-architect`) and has exactly one live row. Also re-measured this round rather
+> than quoted: one consumer of `apply_section_edit` (top-level 1, nested 0), both keys armed 0,
+> `render_site_components` 7 top-level / 0 nested.
+>
+> **Remaining to close this file:**
+> 1. apply `550` (appliable now) and, after the next roll, `551` + the canary — which checks
+>    THREE things: the live section byte-identical, the `required_fields_missing` item filed, and
+>    the DRIVING item's terminal status READ (expect `complete` until `bugs_open/344` lands; its
+>    fingerprint is `retry_after > completed_at` on a `complete` row);
+> 2. the 5 no-schema non-tool components — author minimal schemas, reclassify, or scope out here
+>    explicitly;
+> 3. the chrome refusal's arming, if and when its trigger fires. **Do not arm it on a schedule** —
+>    it is unexercisable until a chrome component declaring a required `source:"llm"` field is
+>    adopted, and the record half is what will say so.
 
 > **WHAT WAS DONE.** RFC_041 §5's candidate (a), the structural one: `RenderContext` now carries the
 > component's `InputSchema`, and the **seam** applies `missingRequiredLLMFields` — the same function
