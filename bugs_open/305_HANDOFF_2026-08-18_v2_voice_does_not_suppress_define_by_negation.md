@@ -799,3 +799,39 @@ Before `0eea9e597`, six accepted rewrites landed as one.
 the bar is the owner's damage instruction (§11, and "Can `bugs_open/305` close?" in the lane handoff),
 which needs `site_ai_agent_orchestration` to edit that site's brief and re-render. The *defect* half
 is complete and proven.
+
+## §24. The damage half, re-measured 2026-08-22 evening — and what CHANGED about it today
+
+The three pages the owner named still serve the construction: **6 of their 9 components** as of
+2026-08-22 (`model-directory` all three, `adoption-tracker` hero, `protocol-tracker` hero and
+listing), and their components have not been rewritten since **2026-08-17 20:34Z**. The brief that
+mandates the tagline is unchanged since **2026-07-24**.
+
+**What changed today is not the pages — it is that a rerender would now WORK.** Before this morning a
+rerender of those pages would have reported success and changed nothing (§22). The gate now
+demonstrably changes pages (§23), so the six repairable hits — **including both sentences the owner
+actually quoted** — are one ordinary rerender away, with no brief edit at all. That splits the damage
+half into two very different jobs, and only one of them is a decision:
+
+| what | how it gets fixed | whose call |
+|---|---|---|
+| the 6 repairable hits, incl. both quoted sentences | a rerender, no brief change | mechanical, and now proven to work |
+| the canonical tagline (`adoption-tracker` hero) | edit `content_direction`, then rerender | **D2 — the site's positioning, the owner's** |
+
+`[INFERRED, not re-measured]` the 7 / 1 exempt / 6 repairable split from §15 still holds: all three of
+that canary's inputs are unchanged — the detection code (the only scanner commit since is
+`1ac9b8890`, which adds `superlativeRe` to the *acceptance* path, not to `ScanDefineByNegation`), the
+pages' `content_data` (08-17), and the brief (07-27). Deterministic inputs, deterministic output —
+but it is an inference, so re-run `RUNBOOK` §7 before quoting the figure as fresh.
+
+### ⚠ Why this lane did NOT fire those rerenders, and why that is not timidity
+
+`ai-agent-orchestration.com` is mid-repair by its own lane **today**: migration `557` (11:29Z) rewrote
+that site's `evidence_base` because its `writer_block` mandated a phrase its own facts could not
+validate — *"the `pricing` rebuild has failed twice on a claims error"* — and `560` bound its case-study
+images at 12:14Z. Two of the three pages carry **open `claims_unverified` items filed 16:02Z today**
+(`adoption-tracker` 8 unregistered numbers, `protocol-tracker` 3). A rerender fired into that state is
+likely to fail at the claims gate rather than at the copy gate, produce a failure that reads as this
+bug, and compete with the lane actively fixing the cause. **The rerender should ride their work, not
+race it.** What this lane owes them is the sentence above: *the copy gate will now repair these pages
+when you rebuild them, and it will leave the tagline alone until the brief changes.*

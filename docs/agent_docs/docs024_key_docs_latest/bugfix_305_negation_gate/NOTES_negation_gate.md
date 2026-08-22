@@ -722,3 +722,29 @@ landed, and `hits_after` (2) equals `hits_before − len(rewritten)` (8 − 6) e
 sentence and got `false` everywhere — because a rebuild REGENERATES the copy, so the earlier run's
 phrasing does not exist in it. §8's query is right precisely because it compares against **this run's
 own** two durable fields; a literal from an earlier run is not a probe, it is a different page.
+
+## 2026-08-22 ~19:00 BST — a fresh chassis build (`v1.0.1326`) landed; the gate survived it, checked rather than assumed
+
+**Why this needed checking at all:** a deploy writes to `agent_definitions` (the live writer row's
+`updated_at` moved to **15:09:49Z, one minute before the pods started at 15:10Z**, with no migration
+behind it), and this lane's config half is exactly two keys on that row. A re-seed that reverted
+either would be silent — the gate would go back to being live-but-blind (`§18`) or the repair would
+go back to being thrown away (`§22`), and nothing would error.
+
+**Both keys survived, re-read from the live row after the deploy:**
+- `render_section.config.content_from` = `copy_gate.result` (migration `548`).
+- the `rewrite_negations` step intact, **including its `ai_service` block** (migration `517`, the fix
+  for the blind first run) — `claude-sonnet-5`, `max_tokens` 2000, `page_budget` 2,
+  `output_field: copy_gate`, `next_step: render_section`.
+
+**The binary carries the gate on both replicas** `[MEASURED 2026-08-22]`: `rewrite_negations` 8,
+`copy_gate` 7, control `rewrite_negationz` **0**; and `invented_superlative` **1** with control
+`invented_superlativz` **0** — so handoff item (2), "the superlative guard is not in the running
+binary", is now **CLOSED**: it is in, on `v1.0.1326`.
+
+**Fleet behaviour between the two builds is healthy** `[MEASURED 2026-08-22, runs 10:00–14:07Z]`:
+12 gate runs across **6 domains** (`apis.uk`, `remortgagecalculator.uk`, `ai-agent-orchestration.com`,
+`loanandmortgagecalculator.co.uk`, `webdesign.co.uk`, `leopardessconsulting.co.uk`), 5 `repaired`,
+7 `clean`, and **`has_result` true on every one of the 12** — the post-548 contract holding across
+sites, not just on the page that proved it. No gate run has happened yet on `v1.0.1326` (none since
+14:07Z); a watch is armed for the first.
