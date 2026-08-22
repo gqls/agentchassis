@@ -444,3 +444,137 @@ is `call_asset_deployer … timed out after 3 retries` — a transient, not the 
 (`hero_lenders`, `62ffe42d`), which is why `assets` shows nothing created since the roll
 and why that zero is not a sign of failure. So generation+deploy works again; the five
 above are blocked by the surface list, not by the deployer.
+
+---
+
+## FIX IN PROGRESS 2026-08-22 — the site-wide default was being CORRUPTED BY THE PIPELINE ITSELF, and four claims in this file are corrected
+
+By the `bugfix_114_imagery_wiring` lane (`docs024_key_docs_latest/bugfix_114_imagery_wiring/`),
+which is taking the framework half of this bug rather than contributing another instance.
+Ownership re-checked first: three lanes cite 114, none owns the fix.
+
+### The bug is still valid, and larger than filed `[MEASURED 2026-08-22]`
+
+| | at filing | today |
+|---|---|---|
+| sites carrying the legacy `content_data.hero_url` | 10 (07-29 contribution) | **18** |
+| `assets` rows with no entity link | — | **518 of 580**; in the last 14 days only `card` (45) is ever linked |
+| content_hero assets vs components wired to one | — | **23 of 94** fleet-wide (gamesdesign 14/0, finetuning 14/0, leopardess 7/0, fundamentallyai 6/0) |
+| parked `image_landed` items | 14 parked / 13 complete | **8 parked / 40 complete** — the queue now mostly drains |
+
+**fundamentallyai's 2026-07-29 repair has reverted.** It reads `/assets/images/hero.jpg`
+again. Nobody undid it.
+
+### WHY it reverted, and why the spread from 10 to 18 sites — this is the new finding
+
+`StoreAssetAction` wrote `sites.content_data.<purpose>_url` on **every** asset store,
+deriving the value from `storage.BuildAssetPaths(purpose, ext)` — from the **purpose
+alone**. The deployer commits under the **asset key**
+(`deploy_image_asset_action.go:403` → `storage.DeployedAssetPath`). Two derivations for
+one artefact, so **every page-scoped hero generation re-stamped the site-wide default
+with a path that may exist nowhere**. An operator repair could never hold: the next
+generation overwrote it.
+
+The census that makes it unambiguous — `count(DISTINCT value)` per key across all sites:
+
+```
+hero_url          18 sites, 1 distinct value   /assets/images/hero.jpg
+icon_url          16 sites, 1 distinct value   /assets/images/icon.jpg      404 on all
+logo_url          15 sites, 1 distinct value   /assets/images/logo.png
+content_hero_url   6 sites, 1 distinct value   /assets/images/content_hero.jpg   404 on all
+illustration_url   3 sites, 1 distinct value   /assets/images/illustration.jpg
+sprite_sheet_url   1 site,  1 distinct value   /assets/images/sprite_sheet.jpg
+```
+
+**One distinct value per key across every site is the signature of a value with no site
+and no asset input.** `content_hero.jpg` and `icon.jpg` are filenames the deployer cannot
+produce for any input; HTTP-probed 2026-08-22, both 404 on all six sites carrying them.
+
+And the gate that should have stopped it **already existed in config and nothing read
+it**: `image-build-handler`'s imagery store step has passed `update_site_brand_assets:
+false` since it was written; `grep -rn "update_site_brand_assets" --include=*.go platform/
+internal/` returned nothing. Six live steps declare `true`, two declare `false`, and the
+two declaring `false` are exactly the page-scoped ones.
+
+**Fixed and committed** (`ebd1ce890`, register **IMG-072**, council corr `3c0560f3`):
+the declaration is honoured in both directions, an undeclared caller writes only when
+`asset_key == purpose`, and the value is now the deployer's own path. Three mutation
+proofs. **Inert until the next chassis roll.** The repair of the existing 18 rows is
+deliberately held until the gate is live — applying it first invites the next generation
+to undo it, which is precisely what happened to fundamentallyai.
+
+### The 08-15 mortgagecalculator population, re-examined — and two of my own hypotheses refuted
+
+The 08-16 contribution above reports 10 tool heroes with 0 references. Re-measured:
+**two of eight are wired** (`tool-equity-release`, `tool-overpayment`), six are not. Same
+site, same day, same agent. That contrast is more informative than the zero.
+
+Ruled out, each by measurement rather than argument:
+- **a race** — every asset was `active` 972–2650 s before its render, and
+  `tool-affordability` rendered **2.2 days** later and still missed;
+- **the plan routes** — mcalc's current plan has **no** page-scope hero row for any tool
+  page and **no** site-scope hero row at all (only `logo`), so routes 1 and 3 were empty
+  for all eight equally;
+- **which flow ran** — filed to the diagnosis loop (run corr
+  `ea7dfeef-c11d-40c4-b24f-b8f42413b1ae`; verdict UNVERIFIABLE, but narrowing): both
+  pages carried `handler_agent='page-build-handler'` and the wrong value was produced by
+  that flow's own resolution, not by a later overwrite;
+- **a stored value being sticky** — the failing page had carried
+  `/assets/images/hero.jpg` since 13:46 that day and the wired ones had no stored
+  `hero_url` at all, which looked decisive until the population was widened: **ten pages
+  fleet-wide carry that value in `page_component_history` and are wired to a content-hero
+  today** (`idea.uk/tool-funding-fit` has 23 such versions). `carryStored` fires only when
+  the source resolves nothing, exactly as its comment says.
+
+What survives is narrower: routes 1, 2 and 4 of `ensureAssets` are **all** gated on
+`pageName != ""`, route 3 needed a row that site lacks, route 5 is ungated — so the
+outcome is exactly "every pageName-gated route skipped". **Not asserted as the cause**:
+the 08-15 orchestration rows are purged and the runtime evidence the loop asked for
+cannot be recovered.
+
+So the lane fixed what made it unknowable instead of guessing (`736108464`): the
+fallback branch now logs that it fired and whether the page-scoped routes were eligible
+at all. Falling through is legitimate for a legacy site with no plan imagery and is also
+exactly this bug's symptom — the two were indistinguishable after the fact.
+
+### ⚠ FOUR CLAIMS IN THIS FILE ARE STALE — corrected here, dated, not edited away
+
+1. **The ADDENDUM's "the LLM-free rerender path does not re-resolve fields"
+   (`flag_page_image_rebuild_action.go` header) is a MISREADING.** The header says that of
+   the *terminal assemble leg*. `rerender_page_sections` **does** re-resolve
+   (`rerender_page_sections_action.go:20-23`, `:459`).
+2. **The ADDENDUM's merge-order claim is CONTRADICTED by source.** It states injected
+   site-wide `hero_url` beats per-page `content_data.hero_url`. Fresh `plan.ResolvedData`
+   is merged **last** and wins (`rerender_page_sections_action.go:614-620`); the base only
+   wins when the fresh data carries no hero.
+3. **`plan_sections_action.go:1608` no longer names that comment** — it is now
+   `:2424-2432`. Line refs in this file are a year of drift; resolve by symbol.
+4. **"Why nothing caught any of it" quotes a header that has since been replaced.**
+   `check_image_url_404` was fixed and closed (`bugs_closed/128`, live v1.0.1219) — it
+   compares exact deployed paths now and scans `site_components` too. What still stands is
+   class (c): paths outside the `/assets/images/` prefix remain invisible to it. Separately
+   `check_placeholder_image_in_use` was narrowed 2026-08-12 to the canonical `asset_key`,
+   and when it fires it files `needs_hero_image` — i.e. **generates a new site hero rather
+   than wiring the page-scoped one that already exists**, which is still this bug.
+
+### Still open, and who has it
+
+- **The entity link** (`assets.entity_type`/`entity_id` never written at generation; the
+  only writer is `derive_card_asset_action.go:214-228`, `purpose='card'` hardcoded) and
+  **event-driven convergence** — this lane's parts 2 and 3, specified in
+  `bugfix_114_imagery_wiring/PLAN_2026-08-22_imagery_wiring.md`, not yet built.
+- **⚠ Convergence has been dead for eleven days and nothing said so.** The DERIVE arm that
+  writes the entity link needs a later `design-discovery-agent` sweep. `site_discovery_rotation`
+  shows that lane's newest `last_selected_at` as **2026-08-11** while all four sibling lanes
+  are current (08-21/22). The `site-discovery-staleness` CronJob (`bugs_open/230`) reports
+  it **daily** — the design lane simply never appears in "stamps advanced last 24h" — and
+  nothing consumes the report. **That belongs to 230's lane**; recorded here because it is
+  why a one-shot generation never converges, and it is the argument for making convergence
+  event-driven rather than sweep-driven.
+- **`check_undeployed_assets.go:289-305`** matches `rendered_html` against the underscored
+  purpose (`content_hero.`/`content_hero-`) while deployed files carry the hyphenated key
+  (`content-hero-tool-x.jpg`). `[UNVERIFIED]` — one query owed before filing.
+- **Owner decisions, unasked as yet:** widening `check_content_image_missing`'s surface to
+  `page_type='content'` (fleet-wide generation spend); and the disposition of the five
+  parked rows whose pages resolve no sections.
+

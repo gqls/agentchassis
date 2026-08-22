@@ -122,3 +122,73 @@ run corr **`ea7dfeef-c11d-40c4-b24f-b8f42413b1ae`**.
    was fixed and closed (`bugs_closed/128`, live v1.0.1219) — it compares exact deployed
    paths now. The half of the claim that still stands is class (c): paths outside the
    `/assets/images/` prefix remain invisible to it.
+
+---
+
+## 2026-08-22 (later) — part 1 committed; two of my own hypotheses refuted; GAP 4 left narrowed, not solved
+
+### Shipped
+
+- `ebd1ce890` — the `store_asset` gate (IMG-072), council corr `3c0560f3-2873-439f-8311-61fde3903fc7`
+  (`Council-Submitted:` trailer, verdict owed a read).
+- `736108464` — the fallback branch of `ensureAssets` now logs that it fired and whether
+  the page-scoped routes were eligible.
+
+Both are Go, so **inert until the next chassis roll**. Nothing is proven live yet; the
+roll is where the demand controls run (a page-scoped store that must NOT move
+`content_data`, a canonical store that must).
+
+### The register row travelled in someone else's commit
+
+I named both register files on my `git commit` pathspec. The commit landed with the
+**entry** (`imagery.md`) and without the **row** (`000_concept_index.md`) — because
+another session had already committed my index edit as a same-file passenger in
+`5fddba825` (the TL-049 lane) between my write and my commit. Verified at HEAD: row 1,
+entry 1, the pair is intact and nothing was lost.
+
+This is the hazard CLAUDE.md names and says no hook can prevent — *"if two sessions edit
+one file, whoever commits takes both edits"*. Worth recording because the visible symptom
+was the **commit-scope block listing 4 docs where I had named 5**, and the natural reading
+of that is "my pathspec was wrong", not "my edit already shipped elsewhere". The check is
+`git log -S '<your row text>' -- <file>`, which names the commit that actually carried it.
+
+### GAP 4: what I refuted, and what survives
+
+Full account in `WRONG_CALLS.md`; the short form, because the *sequence* is the lesson.
+
+**Refuted 1 — "which flow ran".** The 090 loop (run corr `ea7dfeef-…`) came back
+UNVERIFIABLE but narrowing: both the wired and the unwired page carried
+`handler_agent='page-build-handler'`, and the failing page's hero write falls inside that
+item's own run window after the only later rerender had completed. One run, and it killed
+the explanation I would otherwise have written into this file.
+
+**Refuted 2 — "a stored value is sticky".** `page_component_history` showed the failing
+page carrying `/assets/images/hero.jpg` since 13:46 and the wired pages carrying no
+`hero_url` in any archived version. A named mechanism (`carryStored`) even existed to hang
+it on. Then I widened the population: **ten pages fleet-wide carry that value in history
+and are wired to a content-hero today** (`idea.uk/tool-funding-fit`: 23 such versions).
+Refuted in one `GROUP BY`, which I nearly skipped because the correlation inside my sample
+was perfect.
+
+**Also wrong along the way** — I queried `content_components.input_schema->'background_image'`
+and got NULL for four rows, and read that as "the component declares neither field". The
+fields live under `input_schema.fields`. `background_image` IS declared, with
+`source: site_assets.hero` and `on_missing: use_fallback`. Four rows agreeing perfectly is
+what made it convincing, and that uniformity was evidence about my PATH, not the data.
+**`jsonb_pretty` the object once before writing predicates against its interior.**
+
+**What survives, stated as narrowly as the evidence allows:** routes 1, 2 and 4 of
+`ensureAssets` are all gated on `pageName != ""`; route 3 needed a `site_plan_imagery`
+row mcalc does not have; route 5 is ungated. The observed outcome is exactly "every
+pageName-gated route skipped". **This is NOT asserted as the cause** — the 08-15
+orchestration rows are purged and the runtime trace the loop asked for cannot be
+recovered. Hence the observability commit rather than a speculative code fix: the next
+occurrence is a grep, not a dead end.
+
+### Open, in order
+
+1. Read the council verdict on `3c0560f3` and act on a REVISE (the code is already on the
+   shared branch).
+2. After the roll: pod-verify per service, then the held repair migration for the 18 sites.
+3. Part 2 — the entity link at generation + event-driven DERIVE filing.
+4. Part 3 — the flag-only detection check; queue hygiene for the 8 parked rows.
