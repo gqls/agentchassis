@@ -173,3 +173,58 @@ TOTAL 7 | exempt (brief-supplied or regulatory) 1 | repairable 6, of which headl
 If the exempt count goes to 0, the brief changed (or the exemption broke) — check which before
 celebrating. If the reveal's sentence comes back as *"A model directory tells you which agents
 exist."*, the attribution regression is back.
+
+## 8. THE POST-548 PERSISTENCE CHECK — one query, two-sided, and it defeats the truncation trap
+
+Added 2026-08-22, after `548` pointed `render_section` at `copy_gate.result`. This is the query that
+answers "did the repair reach the page?" **without** reading the marker's `from`/`to`, which truncate
+at 160 chars and share their opening (§20/§22 both wasted time on that).
+
+It compares the two **durable** content fields and then asks which of them the stored component
+matches. Substitute the domain and page:
+
+```sql
+WITH run AS (
+  SELECT collected_data cd FROM orchestration_states
+   WHERE collected_data->'input_data'->'current_page'->>'name'='<page>'
+     AND collected_data->'input_data'->'site_record'->>'domain'='<domain>'
+     AND status='COMPLETED' ORDER BY created_at DESC LIMIT 1),
+gate AS (SELECT k, v FROM run, LATERAL jsonb_each(run.cd) e(k,v)
+          WHERE k ~ '^copy_gate_[0-9]+$' AND v->>'status'='repaired')
+SELECT gate.k,
+  (gate.v->'result' <> (SELECT cd->replace(gate.k,'copy_gate','generated_content')->'result' FROM run)) AS gate_changed_something,
+  (SELECT bool_or(pc.content_data->>'content' = (SELECT cd->replace(gate.k,'copy_gate','generated_content')->'result'->>'content' FROM run))
+     FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+    WHERE s.domain='<domain>' AND p.name='<page>') AS stored_matches_PRE_repair,
+  (SELECT bool_or(pc.content_data->>'content' = gate.v->'result'->>'content')
+     FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+    WHERE s.domain='<domain>' AND p.name='<page>') AS stored_matches_POST_repair
+FROM gate;
+```
+
+**Reading it.** `gate_changed_something = false` → the run proves nothing about persistence (every
+rewrite was rejected); pick another page. Otherwise the two `stored_matches_*` columns are the
+answer, and asking BOTH is the point — a single "is the rewrite present?" test cannot distinguish
+"lost" from "never attempted".
+
+- PRE=true, POST=false → the §22 defect: repair made and thrown away.
+- PRE=false, POST=true → **the fix works at the artefact.** This is what 548 is for.
+- both false → the component was rewritten by something else after the save; go and find it before
+  drawing any conclusion about the gate.
+
+**Measured 2026-08-22 as a NEGATIVE CONTROL** on `loanzy.uk/tool-loan-repayment-calculator`, built
+09:10Z — before 548 applied at 09:20:25Z — and whose save was ACCEPTED:
+`gate_changed_something=true, stored_matches_PRE_repair=true, stored_matches_POST_repair=false`.
+Same pipeline, same morning, save accepted, repair lost. That is the control the post-548 run has to
+invert. ⚠ Use `created_at`, not `updated_at`, to place a run either side of the migration.
+
+**If the save was REFUSED there is nothing to read.** Check the parent before blaming the gate:
+
+```sql
+SELECT p.status, p.current_step, left(p.collected_data->'__step_error'->>'message',300)
+  FROM orchestration_states c JOIN orchestration_states p ON p.orchestration_id=c.parent_orchestration_id
+ WHERE c.collected_data->'input_data'->'current_page'->>'name'='<page>' ORDER BY c.created_at DESC LIMIT 1;
+```
+A parent at `complete_error` with `save_page_sections … COMPONENT FLOOR REFUSED` is `bugs_open/253`
+(framework_rewrite slug), not this gate — and "nothing was written" means the whole page, so every
+section's repair is invisible, not just the refused slot.

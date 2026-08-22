@@ -615,3 +615,24 @@ sweep sees it.
 **So the remaining owed item narrows to: one post-548 repaired page whose save is ACCEPTED** (a fresh
 page, or one whose stored structure matches today's renderer). Watch armed for the next terminal
 repaired run after 09:25Z.
+
+### The negative control that makes the pending proof exact (2026-08-22 ~09:50Z)
+
+`loanzy.uk/tool-loan-repayment-calculator`, built **09:10Z — before 548 applied at 09:20:25Z** — and
+its save was **accepted** (unlike the stress-test page). Ran the new §8 RUNBOOK query:
+`gate_changed_something=true, stored_matches_PRE_repair=true, stored_matches_POST_repair=false`.
+
+So: same pipeline, same morning, save accepted, and **the repair was still thrown away**. That is
+§22's defect measured a third time and — because this page SAVED — it isolates the variable. The
+post-548 proof is now a single inversion of one boolean pair on the same query, not a fresh argument.
+Recipe with both failure modes and the parent-check for a refused save: `RUNBOOK` §8.
+
+⚠ Place runs either side of the migration by **`created_at`**, not `updated_at` — the stress-test run
+was still writing at 09:24 and its `updated_at` sits after the apply while its whole section pass ran
+before it. (I nearly used `updated_at` and it would have mislabelled the boundary.)
+
+**Traffic state at 09:50Z:** the loanzy batch that produced this morning's five writer runs is
+finished (4 `needs_page` complete, 1 triaged after the floor refusal); no writer run has started
+since 09:23. Loanzy builds are another lane's live work (see `bugfix_311` notes, "loanzy opened: four
+pages unarchived, four builds filed"), so this lane should NOT fire its own rerender there and
+compete — the proof rides their next build, or any fleet page that trips the gate.
