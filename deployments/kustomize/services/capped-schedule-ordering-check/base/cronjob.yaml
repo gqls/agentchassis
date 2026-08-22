@@ -1,0 +1,106 @@
+# deployments/kustomize/services/capped-schedule-ordering-check/base/cronjob.yaml
+#
+# bugs_open/316. A capped `query_database` step that picks CLOCK-REPLENISHED work
+# by a STATIC sort serves the same rows every run and starves its tail for ever.
+# `content-feed-trigger.find_news_sites` ended `ORDER BY s.domain LIMIT 5`, and
+# over five consecutive cap-hitting runs the alphabetically LAST of nine eligible
+# sites was selected ZERO times while continuously due — 419% of its own
+# configured cadence.
+#
+# WHY A CRONJOB AND NOT A REPO-SIDE TEST (which would need no image at all).
+# At commit time a migration is unapplied, and config on this platform is
+# routinely changed directly in the database with no commit. The only place this
+# question has a true answer is live `agent_definitions`, on a clock. That is
+# RFC_006's settled reasoning and single-owner-carriers-check's docstring records
+# it. It is also why the council's architecture seat has objected before to a
+# detector that "exits 1 on findings but isn't wired into anything" — a detector
+# nobody runs is inert-by-omission.
+#
+# WHY IT IS NOT FOLDED INTO LCO-009's EXISTING WARN, which watches the same step:
+# that check counts rows, and the row count is IDENTICAL whether the ordering is
+# fair or not. It reported "hit its cap" truthfully on every run for days while
+# this went unseen. Additionally the WARN is a LOG LINE, and this fleet's
+# container logs retain 15–90 seconds (measured), so a log-only signal is not a
+# durable control here. One `doc_notes` row per run is.
+#
+# Modelled on optional-explicit-wires-check: same binary, same secret, same
+# direct-Postgres route (the ai-persona-app service account has no pods/exec RBAC
+# in this namespace, so a kubectl-based check cannot work — cmd/config-key-audit/
+# fleetdb.go).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: capped-schedule-ordering-check
+  labels:
+    app: capped-schedule-ordering-check
+    component: config-integrity
+spec:
+  # Daily, in the config-integrity window. 07:05 UTC verified free against the
+  # LIVE schedule 2026-08-22 (not against a neighbour's comment, which is how
+  # these drift): 06:20 single-owner-carriers · 06:25 removed-config-keys ·
+  # 06:30 optional-explicit-wires · 06:35 site-discovery-staleness ·
+  # 06:40 component-fallback · 06:45 commit-sha-exposure · 06:50 optional-key-budget
+  # AND concept-register-drift · 06:55 component-render · 07:10 shared-output-fields ·
+  # 07:15 site-locale-unset · 07:25 verifier-remit · 07:40 brief-negation AND
+  # instance-scope-sweep · 07:55 loop-sitewide-item-key.
+  #
+  # Daily rather than hourly: a capped step's ordering arrives by migration, and
+  # the window that matters is "before the next author copies the pattern", not
+  # minutes. Not less often than daily either — the harm accrues continuously
+  # once a queue is oversubscribed, and the point is to shorten how long it runs
+  # unnoticed.
+  schedule: "5 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # One query plus a walk over ~194 live definitions (measured 2026-08-22).
+      # Hanging past 5 minutes means something is wrong and it should not block
+      # the schedule.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: capped-schedule-ordering-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          # REQUIRED for a private repo image. Without it the pull fails with
+          # "insufficient_scope" and the pod sits in ImagePullBackOff — which
+          # this fleet reports as a Job still RUNNING, never FAILED (LANDMINES,
+          # ImagePullSecrets family). removed-config-keys-check hit exactly this
+          # on its first rollout.
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              #
+              # ⚠ THIS IMAGE DOES NOT EXIST UNTIL THE FIRST RELEASE THAT BUILDS
+              # IT. Do NOT `deploy-` this CronJob before `build-` and `push-`
+              # have run at the pinned tag: the pod would sit in
+              # ImagePullBackOff, and by the landmine above that reads as a Job
+              # still RUNNING rather than a failure — i.e. a check that has never
+              # once executed would look healthy. The service is in
+              # RELEASE_IMAGES so a normal fleet release builds it.
+              image: docker.io/aqls/capped-schedule-ordering-check:latest
+              # The image's CMD is already:
+              #   ./config-key-audit --capped-schedule-ordering --report
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
