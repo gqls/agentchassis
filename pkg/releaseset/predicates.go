@@ -51,7 +51,72 @@ const (
 	// KindExemptionUnreasoned is an OWN_LINEAGE entry that does not name the
 	// target that moves the service instead.
 	KindExemptionUnreasoned = "EXEMPTION NAMES NO RETAG TARGET"
+	// KindExemptionBudget is the ACCUMULATION guard: individually-reasoned
+	// exemptions are fine, and a pile of them is a hiding place.
+	KindExemptionBudget = "TOO MANY SERVICES EXCUSED FROM THE RELEASE"
 )
+
+// ExemptionBudget is how many OWN_LINEAGE entries may stand without a review.
+//
+// WHY A BUDGET AND NOT A PER-ENTRY RULE (owner decision, 2026-08-22). The owner
+// ruled OUT the staleness build this bug originally proposed — "we can skip the
+// 18 August staleness build" — and took this instead. The reasoning is worth
+// keeping, because the two decisions are one decision:
+//
+// UncoveredOverlays makes an image of ours that no release builds a violation,
+// and OWN_LINEAGE is the only way out. That closes the old hiding place ("not in
+// RELEASE_IMAGES") and opens a new one ("excused"). Every entry is individually
+// reasoned and reviewable — that is the point of the form — but nothing about
+// reviewing entries one at a time notices that there are now nine of them. This
+// bug's own history is the argument: EIGHT services fell into the previous
+// hiding place, TWO of them within three days of the owner ruling meant to close
+// it, each addition individually unremarkable.
+//
+// So this polices the ACCUMULATION, not the entry — the same shape as the
+// optional-key budget (RFC_022, owner-set N=10, register WFA-013), which exists
+// because "ten individually inert opt-in fields are a shared action nobody
+// understands".
+//
+// N = 3 IS A JUDGEMENT AND THE OWNER MAY SET IT OTHERWISE — it is one line.
+// It is lower than the optional-key budget's 10 because an exemption from the
+// release is rarer and costlier: the failure it permits is a service running
+// months-old code with nothing reporting it, which is this bug.
+//
+// ⚠ IT CANNOT FIRE TODAY — **1 entry as of 2026-08-22** (`admin-dashboard`). A
+// guard with no live subject is normally this estate's own failure mode (see
+// BLD-023 on why `assert_live_capability()` was deliberately NOT built: "a
+// fail-closed helper with exactly ONE caller is a mechanism nobody exercises").
+// What makes this one different is that it needs no caller: it runs on every
+// `deploy-core` whether or not it fires, and the gate NAMES the standing
+// exemptions in its green output, so the count is in front of a human on every
+// release rather than waiting for a threshold.
+const ExemptionBudget = 3
+
+// ExemptionBudgetExceeded reports the accumulation guard.
+func ExemptionBudgetExceeded(d Decl) []Violation {
+	if len(d.OwnLineage) <= ExemptionBudget {
+		return nil
+	}
+	names := make([]string, 0, len(d.OwnLineage))
+	for _, e := range d.OwnLineage {
+		names = append(names, e.Raw)
+	}
+	sort.Strings(names)
+	return []Violation{{
+		Kind:    KindExemptionBudget,
+		Service: fmt.Sprintf("%d services", len(d.OwnLineage)),
+		Detail: fmt.Sprintf(
+			"OWN_LINEAGE now holds %d entries against a budget of %d: %s. Each one may be "+
+				"individually correct; the pile is the problem — an exemption list is where the "+
+				"next frozen service hides, and nothing that reviews entries one at a time notices "+
+				"there are now %d of them",
+			len(d.OwnLineage), ExemptionBudget, strings.Join(names, ", "), len(d.OwnLineage)),
+		Remedy: "fold one back into RELEASE_IMAGES + AGENT_DEPLOY_SERVICES, or review the whole " +
+			"accumulated set and raise ExemptionBudget in pkg/releaseset/predicates.go with the " +
+			"review recorded — raising it silently is the failure this guard exists to prevent.",
+		Source: "makefile OWN_LINEAGE",
+	}}
+}
 
 // UncoveredOverlays is the birth-admission predicate (P1) and the ported
 // no-release-path predicate (the old gate) in one walk, because they are two
@@ -199,6 +264,7 @@ func InvalidDeployEntries(d Decl, pins []Pin) []Violation {
 // Check runs every predicate and returns the findings, most structural first.
 func Check(d Decl, pins []Pin, registry string) []Violation {
 	out := append(UncoveredOverlays(d, pins, registry), InvalidDeployEntries(d, pins)...)
+	out = append(out, ExemptionBudgetExceeded(d)...)
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Kind != out[j].Kind {
 			return out[i].Kind < out[j].Kind

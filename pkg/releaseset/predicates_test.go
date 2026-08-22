@@ -408,6 +408,62 @@ func TestParseMakefileDecls_ClearingListsAreOptional(t *testing.T) {
 	}
 }
 
+// T10 — THE ACCUMULATION GUARD (owner decision 2026-08-22, taken INSTEAD of the
+// staleness build). Individually-reasoned exemptions are fine; a pile of them is
+// the next hiding place, and nothing that reviews entries one at a time notices
+// there are now more than a handful.
+//
+//	Silence above the budget would mean the exemption list can grow without
+//	limit — rebuilding the hole this whole change closed, with better paperwork.
+//	A finding AT the budget would mean the guard fires on a state the owner
+//	explicitly permitted, which is how a gate gets disabled.
+func TestExemptionBudget(t *testing.T) {
+	root := t.TempDir()
+	baseline(t, root)
+	var names []string
+	for i := 0; i < ExemptionBudget+1; i++ {
+		svc := "own-lineage-svc-" + string(rune('a'+i))
+		names = append(names, svc+":release-"+svc)
+		writeOverlay(t, root, svc, "overlays/production/uk_001/kustomization.yaml",
+			imagesBlock(registry+"/"+svc, "v1.0.900"))
+	}
+	pins, _ := ScanOverlays(root)
+
+	// AT the budget: silent. Each entry reasoned, none over the line.
+	at := goodMakefile + "\nOWN_LINEAGE := " + strings.Join(names[:ExemptionBudget], " ") + "\n"
+	atPins := pins[:0:0]
+	for _, p := range pins {
+		if p.Service != "own-lineage-svc-"+string(rune('a'+ExemptionBudget)) {
+			atPins = append(atPins, p)
+		}
+	}
+	if got := Check(mustDecl(t, at), atPins, registry); len(got) != 0 {
+		t.Fatalf("T10: %d exemptions is AT the budget and must be silent; got %v", ExemptionBudget, kinds(got))
+	}
+
+	// ONE over: the guard speaks, and names every entry so the pile is legible.
+	over := goodMakefile + "\nOWN_LINEAGE := " + strings.Join(names, " ") + "\n"
+	got := Check(mustDecl(t, over), pins, registry)
+	var budget *Violation
+	for i := range got {
+		if got[i].Kind == KindExemptionBudget {
+			budget = &got[i]
+		}
+	}
+	if budget == nil {
+		t.Fatalf("T10: %d exemptions is OVER the budget of %d and was not reported; got %v",
+			len(names), ExemptionBudget, kinds(got))
+	}
+	for _, n := range names {
+		if !strings.Contains(budget.Detail, n) {
+			t.Fatalf("T10: the finding must NAME the accumulated set — %q missing from %q", n, budget.Detail)
+		}
+	}
+	if !strings.Contains(budget.Remedy, "review") {
+		t.Fatalf("T10: the remedy must offer a reviewed raise, not just a refusal: %q", budget.Remedy)
+	}
+}
+
 // newName must win over name — kustomize's semantics, and the shell gate read
 // the wrong one. Latent on this estate (one placeholder overlay uses newName),
 // so this pins a correctness fix rather than recording a live defect.
