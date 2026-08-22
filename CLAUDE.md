@@ -484,6 +484,23 @@ Rules that make them worth the effort:
   test, produces the same number regardless of what is true. Both happened,
   dated and marked, in one 2026-08-03 session (`WRONG_CALLS.md`) — the marker
   rule was followed in full and neither claim could ever have come out false.
+- **A COUNT OF THINGS MUST CARRY THE DATE IT WAS COUNTED (owner ruling, 2026-08-22).**
+  Any "N writers / callers / call sites / instances of X" claim — in a bug file, an
+  RFC, a register entry, a landmine or a commit message — is written `**N** as of
+  <date>`, never a bare `N`. **A census does not go wrong; it goes STALE, by
+  ADDITION, and it reads as current for ever.** The worked case: `RFC_008` counted
+  ten writers of `page_components.rendered_html` on 2026-08-02 and named two as the
+  open gap. `create_tool_component_regenerate.go` was **born 2026-08-19** — so every
+  document quoting "ten writers" was correct when written and wrong by birthday,
+  including the landmine whose own text warns that *"the SET of writers grows while
+  you are not looking"*. The eleventh was found by `DBG-076`, not by any reader of
+  those documents (`bugs_open/362` §6a).
+  **The date is what makes the staleness mechanically checkable**, which is the whole
+  reason for the rule: `git log --since=<census date> --diff-filter=A -- <dir>` lists
+  what was added since, and a non-empty result means re-run the census before quoting
+  it. Without the date there is no `--since`, and the claim can only be re-derived by
+  hand. So the cheap half of this is free and you owe it today: **put the date next to
+  the number.**
 - **Log the wrong calls: `docs/agent_docs/docs024_key_docs_latest/WRONG_CALLS.md`.**
   Fleet-wide, append-only — a claim you wrote down that turned out to be false,
   what caught it, and the cheap check that would have. One row is an anecdote;
