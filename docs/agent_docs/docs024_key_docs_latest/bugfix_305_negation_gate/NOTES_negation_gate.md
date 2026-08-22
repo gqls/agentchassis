@@ -676,3 +676,20 @@ instrument than the grep I used this morning: every marker written by the fixed 
 set on the CLEAN path, which is the property that stops `548` dropping untouched sections. Recorded
 in the landmine entry so the next person checking "is the `result` half live?" does not have to exec
 into a pod.
+
+### CORRECTION to misstep 11 — my "nothing was lost" check was too weak to have found a partial loss
+
+I wrote above that I verified my swept LANDMINES correction with `tr '\n' ' ' | grep -c`. A peer
+session logged the same technique in `WRONG_CALLS.md` the same hour and is right: collapsing the file
+to ONE line makes `grep -c` return **1 whether the phrase appears once or fifty times**, so it
+establishes that my FIRST phrase is present and says nothing about whether the rest of the edit
+survived. My conclusion was correct; the instrument could not have told me otherwise.
+
+**Re-verified properly, at word level, against the sweeping commit itself** — counts of distinctive
+tokens in `a93fc3ffd` vs its parent: `70e7b4f9c` 0→1, `09:20:25Z` 0→2, `tool-interest-rate-stress-test`
+0→1, `RUNBOOK_negation_gate.md` 0→1, `created_at` 170→171; and the full closing sentence of my
+correction is present at HEAD. So the whole edit rode in, not just its opening.
+
+⚠ And an accidental control worth keeping: my sixth probe token, `EXPIRED`, returned 0→0 — because I
+had written the word in lower case. **A test whose tokens can come out zero is the only kind worth
+running**; had every token returned a hit I would have learned nothing about the check itself.
