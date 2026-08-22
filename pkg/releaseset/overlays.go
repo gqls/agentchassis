@@ -34,8 +34,8 @@ func (p Pin) Bare(registry string) string {
 	return strings.TrimPrefix(p.Image, prefix)
 }
 
-// ScanOverlays walks every production overlay under root and reads the image
-// each one pins.
+// ScanOverlays walks every production overlay under root and reads EVERY image
+// each one pins — one Pin per element of the `images:` block, not one per file.
 //
 // ⚠ IT WALKS TO ANY DEPTH, and that is a correction, not a generalisation.
 // The shell gate globbed a fixed `overlays/$(OVERLAY_PATH)/kustomization.yaml`
@@ -52,6 +52,10 @@ func (p Pin) Bare(registry string) string {
 // overlay that redirected. Only one overlay on this estate uses newName today
 // (`tools-api`, a placeholder), so this is a correctness fix for a LATENT case
 // — stating it as a live defect would be an overclaim.
+//
+// ⚠ AND IT DOES NOT STOP AT THE FIRST IMAGE — see blockImages below. Both of
+// these are cases where the honest description of the fix is "the old gate could
+// not have seen this", not "the old gate was wrong about this".
 func ScanOverlays(root string) ([]Pin, error) {
 	servicesDir := filepath.Join(root, "deployments", "kustomize", "services")
 	info, err := os.Stat(servicesDir)
@@ -93,15 +97,13 @@ func ScanOverlays(root string) ([]Pin, error) {
 			if err != nil {
 				return fmt.Errorf("reading %s: %w", path, err)
 			}
-			img, tag, ok := firstImage(string(raw))
-			if !ok {
-				return nil
-			}
 			rel, relErr := filepath.Rel(root, path)
 			if relErr != nil {
 				rel = path
 			}
-			pins = append(pins, Pin{Service: svcDir.Name(), Image: img, Tag: tag, Path: rel})
+			for _, im := range blockImages(string(raw)) {
+				pins = append(pins, Pin{Service: svcDir.Name(), Image: im.image, Tag: im.tag, Path: rel})
+			}
 			return nil
 		})
 		if walkErr != nil {
@@ -117,25 +119,56 @@ func ScanOverlays(root string) ([]Pin, error) {
 	return pins, nil
 }
 
-// firstImage reads the FIRST element of the `images:` transformer block and
-// returns the image that element actually selects — `newName` when present,
-// else `name` — plus its `newTag`.
+// blockImages reads EVERY element of the `images:` transformer block and
+// returns, for each, the image that element actually selects — `newName` when
+// present, else `name` — plus its `newTag`.
 //
-// A hand parser rather than a YAML dependency, matched to the shape these files
-// actually have (a flat `images:` list whose elements carry two or three
-// scalar keys). Three boundaries are load-bearing and each has a test:
+// ⚠ IT READS EVERY ELEMENT, AND THAT IS A COUNCIL FINDING ACTED ON, not a
+// generalisation. The first cut stopped at the first element, inheriting the
+// shell gate's `awk … exit`. The council's `bug_historian` seat objected
+// (medium, corr 83442a5a): if an overlay pins two images — app plus sidecar, or
+// two of our services in one kustomization — and OURS is the second, the scan
+// would silently produce no Pin for it and the gate could never flag it. That is
+// precisely the shape this whole change exists to close (a check reporting clean
+// about the thing it never looked at), reproduced in miniature inside the fix.
+// [MEASURED 2026-08-22: no kustomization anywhere under deployments/ has more
+// than one element today, so the gap was LATENT, not live — but a cap that is
+// only safe because of today's data is the wrong kind of safe, and a warning
+// surface would have been a worse answer than simply not capping.]
+//
+// Two boundaries remain and each has a test:
 //
 //   - the block ENDS at the first line that is neither indented nor blank, so a
 //     `patches:` or `labels:` section below cannot leak into the read;
-//   - the ELEMENT ends at the next `- ` at the same level, so a second image in
-//     the same block cannot overwrite the first — the shell gate took the first
-//     element too (its awk `exit`), and this preserves that;
-//   - within the element `newName` WINS over `name` regardless of source order,
+//   - within an element `newName` WINS over `name` regardless of source order,
 //     because that is kustomize's semantics: `name` selects what to rewrite,
 //     `newName` is what runs.
-func firstImage(text string) (image, tag string, ok bool) {
+type blockImage struct{ image, tag string }
+
+func blockImages(text string) []blockImage {
+	var out []blockImage
+	var cur blockImage
+	inImages, inElement := false, false
+
+	flush := func() {
+		if !inElement {
+			return
+		}
+		img := cur.image
+		if img != "" {
+			out = append(out, blockImage{image: img, tag: cur.tag})
+		}
+		cur = blockImage{}
+	}
+
 	var name, newName string
-	inImages, inFirst, done := false, false, false
+	setImage := func() {
+		if newName != "" {
+			cur.image = newName
+		} else {
+			cur.image = name
+		}
+	}
 
 	for _, line := range strings.Split(text, "\n") {
 		trimmed := strings.TrimSpace(line)
@@ -153,14 +186,13 @@ func firstImage(text string) (image, tag string, ok bool) {
 			break
 		}
 		if strings.HasPrefix(trimmed, "- ") || trimmed == "-" {
-			if inFirst {
-				done = true // second element: stop reading, keep the first
-				break
-			}
-			inFirst = true
+			setImage()
+			flush()
+			name, newName = "", ""
+			inElement = true
 			trimmed = strings.TrimSpace(strings.TrimPrefix(trimmed, "-"))
 		}
-		if !inFirst || trimmed == "" {
+		if !inElement || trimmed == "" {
 			continue
 		}
 		switch {
@@ -169,16 +201,12 @@ func firstImage(text string) (image, tag string, ok bool) {
 		case strings.HasPrefix(trimmed, "name:"):
 			name = value(trimmed)
 		case strings.HasPrefix(trimmed, "newTag:"):
-			tag = value(trimmed)
+			cur.tag = value(trimmed)
 		}
 	}
-	_ = done
-
-	image = newName
-	if image == "" {
-		image = name
-	}
-	return image, tag, image != ""
+	setImage()
+	flush()
+	return out
 }
 
 func value(kv string) string {

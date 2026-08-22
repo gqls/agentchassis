@@ -293,17 +293,19 @@ func TestScanOverlays_UpstreamImagesIgnored(t *testing.T) {
 //	A nil error here would mean this gate can report clean on a makefile it
 //	never understood.
 func TestParseMakefileDecls_MissingBlockIsAnError(t *testing.T) {
-	for _, missing := range []string{"RELEASE_IMAGES", "AGENT_DEPLOY_SERVICES", "RETAG_EXEMPT"} {
+	// Only the JUDGING lists. The two CLEARING lists are optional by design —
+	// see TestParseMakefileDecls_ClearingListsAreOptional and the council's
+	// editquality objection (medium, corr 83442a5a).
+	for _, missing := range []string{"RELEASE_IMAGES", "AGENT_DEPLOY_SERVICES"} {
 		src := goodMakefile
 		src = strings.Replace(src, missing+" :=", "SOMETHING_ELSE"+" :=", 1)
 		if _, err := ParseMakefileDecls(strings.NewReader(src)); err == nil {
 			t.Fatalf("T8: a makefile with no %s parsed clean — the gate would report on a shape it never read", missing)
 		}
 	}
-	// OWN_LINEAGE is the one that may legitimately be absent: it is the list
-	// that CLEARS services, it is empty today, and absent must mean the same as
-	// empty or the first exemption anyone adds changes the meaning of every
-	// prior run.
+	// OWN_LINEAGE may legitimately be absent: it CLEARS services, so its absence
+	// can only ever produce MORE findings, and absent must mean the same as empty
+	// or the first exemption anyone adds changes the meaning of every prior run.
 	d, err := ParseMakefileDecls(strings.NewReader(goodMakefile))
 	if err != nil {
 		t.Fatalf("T8: absent OWN_LINEAGE must be tolerated: %v", err)
@@ -336,26 +338,97 @@ func TestParseMakefileDecls_TabContinuations(t *testing.T) {
 	}
 }
 
+// T9 — TWO IMAGES IN ONE BLOCK, AND OURS IS THE SECOND.
+//
+// The council's bug_historian seat raised this (medium, corr 83442a5a) against
+// the first cut, which stopped at the first element and inherited the shell
+// gate's `awk … exit`: an overlay pinning app + sidecar, with OUR uncovered
+// image second, would produce no Pin at all and the gate could never flag it —
+// this fix reproducing, in miniature, the very shape it exists to close. The cap
+// is gone rather than merely warned about.
+//
+// [MEASURED 2026-08-22: no kustomization anywhere under deployments/ has more
+// than one element, so the gap was LATENT. A cap that is safe only because of
+// today's data is the wrong kind of safe.]
+//
+//	Returning one Pin here would mean an uncovered image of ours is invisible
+//	whenever it is not written first in the file.
+func TestScanOverlays_SecondImageInBlockIsSeen(t *testing.T) {
+	root := t.TempDir()
+	baseline(t, root)
+	body := "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\n\nimages:\n" +
+		"  - name: busybox\n    newTag: 1.36\n" +
+		"  - name: " + registry + "/sidecar-check\n    newTag: v1.0.900\n\npatches:\n  - path: p.yaml\n"
+	writeOverlay(t, root, "two-image-svc", "overlays/production/uk_001/kustomization.yaml", body)
+
+	pins, err := ScanOverlays(root)
+	if err != nil {
+		t.Fatalf("ScanOverlays: %v", err)
+	}
+	var second bool
+	for _, p := range pins {
+		if p.Image == registry+"/sidecar-check" && p.Tag == "v1.0.900" {
+			second = true
+		}
+	}
+	if !second {
+		t.Fatalf("T9: the SECOND images element was dropped; pins=%+v", pins)
+	}
+	if got := Check(mustDecl(t, goodMakefile), pins, registry); !hasKind(got, KindUnbuiltImage, "two-image-svc") {
+		t.Fatalf("T9: an uncovered image written second was never judged; got %v", kinds(got))
+	}
+	// And the upstream first element must still not be judged.
+	for _, v := range Check(mustDecl(t, goodMakefile), pins, registry) {
+		if strings.Contains(v.Detail, "busybox") {
+			t.Fatalf("T9: an upstream image in the same block was judged: %s", v)
+		}
+	}
+}
+
+// Both clearing lists may be absent, and absent must equal empty — otherwise the
+// first entry anyone adds changes the meaning of every prior run. Raised by the
+// council's editquality seat against requiring RETAG_EXEMPT.
+func TestParseMakefileDecls_ClearingListsAreOptional(t *testing.T) {
+	src := strings.Replace(goodMakefile, "RETAG_EXEMPT :=", "NOT_RETAG_EXEMPT :=", 1)
+	d, err := ParseMakefileDecls(strings.NewReader(src))
+	if err != nil {
+		t.Fatalf("absent RETAG_EXEMPT must be tolerated, not a could-not-run: %v", err)
+	}
+	if len(d.RetagExempt) != 0 || len(d.OwnLineage) != 0 {
+		t.Fatalf("absent clearing lists produced entries: %+v %+v", d.RetagExempt, d.OwnLineage)
+	}
+	// ...and its absence produces MORE findings, never fewer: the two services it
+	// used to clear now surface. That direction is what makes optional safe.
+	root := t.TempDir()
+	baseline(t, root)
+	pins, _ := ScanOverlays(root)
+	got := Check(d, pins, registry)
+	if !hasKind(got, KindNoReleasePath, "auth-service") {
+		t.Fatalf("dropping RETAG_EXEMPT should EXPOSE what it cleared; got %v", kinds(got))
+	}
+}
+
 // newName must win over name — kustomize's semantics, and the shell gate read
 // the wrong one. Latent on this estate (one placeholder overlay uses newName),
 // so this pins a correctness fix rather than recording a live defect.
 func TestFirstImage_NewNameWins(t *testing.T) {
 	body := "images:\n  - name: PLACEHOLDER\n    newName: " + registry + "/real-thing\n    newTag: v1\n"
-	img, tag, ok := firstImage(body)
-	if !ok || img != registry+"/real-thing" || tag != "v1" {
-		t.Fatalf("newName did not win: img=%q tag=%q ok=%v", img, tag, ok)
+	got := blockImages(body)
+	if len(got) != 1 || got[0].image != registry+"/real-thing" || got[0].tag != "v1" {
+		t.Fatalf("newName did not win: %+v", got)
 	}
-	// And a second element must not overwrite the first.
+	// Two elements: BOTH are returned, each with its own tag, in order.
 	two := "images:\n  - name: " + registry + "/first\n    newTag: v1\n  - name: " + registry + "/second\n    newTag: v2\n"
-	img, tag, _ = firstImage(two)
-	if img != registry+"/first" || tag != "v1" {
-		t.Fatalf("second images element leaked into the read: img=%q tag=%q", img, tag)
+	got = blockImages(two)
+	if len(got) != 2 || got[0].image != registry+"/first" || got[0].tag != "v1" ||
+		got[1].image != registry+"/second" || got[1].tag != "v2" {
+		t.Fatalf("both images elements must be returned with their own tags: %+v", got)
 	}
-	// A following top-level block must not leak in either.
+	// A following top-level block must not leak in.
 	trailing := imagesBlock(registry+"/x", "v9") + "\nreplicas:\n  - name: x\n    count: 2\n"
-	img, tag, _ = firstImage(trailing)
-	if img != registry+"/x" || tag != "v9" {
-		t.Fatalf("a later top-level block leaked into the read: img=%q tag=%q", img, tag)
+	got = blockImages(trailing)
+	if len(got) != 1 || got[0].image != registry+"/x" || got[0].tag != "v9" {
+		t.Fatalf("a later top-level block leaked into the read: %+v", got)
 	}
 }
 

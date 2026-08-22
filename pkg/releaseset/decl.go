@@ -25,9 +25,11 @@
 // THIS IS NOT A MAKE EVALUATOR, deliberately. It extracts four literal
 // `NAME := a b \` continuation blocks — the cron_parity_test.go idiom, one
 // language over — and decl_parity_test.go pins the reading against
-// `make -s print-release-images` so the two cannot drift. A block that cannot
-// be found is an ERROR, never an empty set: a gate that passes what it failed
-// to measure is this estate's own blind-pass landmine.
+// `make -s print-release-images` so the two cannot drift. A missing JUDGING
+// block (RELEASE_IMAGES, AGENT_DEPLOY_SERVICES) is an ERROR rather than an empty
+// set, so "the check is broken" never reads as "the release is fine"; the two
+// CLEARING lists are optional, because their absence can only ever produce more
+// findings. See ParseMakefileDecls for why that asymmetry is the right one.
 package releaseset
 
 import (
@@ -85,10 +87,18 @@ type Decl struct {
 	// out is an explicit, greppable declaration a reviewer of the OVERLAY can
 	// see. That is CLAUDE.md's owner ruling of 2026-08-02 §2 applied literally:
 	// new authority on a shared seam ships as an opt-in field with the unsafe
-	// default OFF, because a comment is not a control here. It is EMPTY today,
-	// and it must stay a list rather than becoming a predicate — a rule that
-	// guesses which services are legitimately outside the release is a rule
-	// nobody can review.
+	// default OFF, because a comment is not a control here. It must stay a LIST
+	// rather than becoming a predicate — a rule that guesses which services are
+	// legitimately outside the release is a rule nobody can review.
+	//
+	// It was going to ship EMPTY and this predicate's first live run found an
+	// entry for it: `admin-dashboard` pins one of our images that `build-backend`
+	// does not build (a frontend, working-tree build, no provenance stamp — BLD-019
+	// and BLD-020 scope frontends out explicitly) and yet IS released, as the last
+	// goal of `pinned_sweep` via `release-dashboard`. Genuinely own-lineage,
+	// genuinely covered, and nothing on disk said so — the old gate could not have
+	// said so, because its image is not in RELEASE_IMAGES and that WAS the gate's
+	// admission test.
 	OwnLineage []Entry
 }
 
@@ -133,15 +143,24 @@ var declBlocks = []string{
 
 // ParseMakefileDecls reads the four declarations out of a makefile.
 //
-// RELEASE_IMAGES, AGENT_DEPLOY_SERVICES and RETAG_EXEMPT are REQUIRED: a
-// missing one is an error, not an empty set. That asymmetry is the whole point
-// — an empty RELEASE_IMAGES would make UncoveredOverlays flag every overlay on
-// disk (loud, self-correcting), but an empty AGENT_DEPLOY_SERVICES would make
-// InAnyReleasePath answer false for everything, and an empty read of a list the
-// gate uses to CLEAR a service is how a check passes a tree it never measured.
-// OWN_LINEAGE is optional precisely because it is the clearing list and it is
-// legitimately empty today; absent and empty must mean the same thing there, or
-// the first exemption anyone adds changes the meaning of every prior run.
+// RELEASE_IMAGES and AGENT_DEPLOY_SERVICES are REQUIRED: a missing one means the
+// extractor did not understand the makefile, and thirty violations an operator
+// then "fixes" is a worse outcome than a refusal that says so. Both fail SAFE if
+// they parse empty (everything gets flagged, loudly) — the requirement is about
+// telling "the release is wrong" apart from "the check is broken", not about
+// preventing a silent pass.
+//
+// RETAG_EXEMPT and OWN_LINEAGE are OPTIONAL, and the reason is a consistency the
+// first cut of this file got wrong. Both are CLEARING lists: their absence can
+// only ever produce MORE findings, never fewer, so tolerating it is safe in the
+// only direction that matters. The council's editquality seat objected (medium,
+// corr 83442a5a) that requiring RETAG_EXEMPT risks a self-inflicted "could not
+// run" on day one if it were ever absent. It is declared today — [MEASURED
+// 2026-08-22: the live gate parses and runs green, which is the proof] — but the
+// objection was right about the rule rather than the fact, and this file's own
+// argument for OWN_LINEAGE being optional applies word for word to RETAG_EXEMPT.
+// Absent and empty must mean the same thing for a clearing list, or the first
+// entry anyone adds changes the meaning of every prior run.
 func ParseMakefileDecls(r io.Reader) (Decl, error) {
 	raw := map[string][]string{}
 	sc := bufio.NewScanner(r)
@@ -174,7 +193,7 @@ func ParseMakefileDecls(r io.Reader) (Decl, error) {
 	}
 
 	var d Decl
-	for _, name := range declBlocks[:3] {
+	for _, name := range declBlocks[:2] { // RELEASE_IMAGES, AGENT_DEPLOY_SERVICES
 		if _, ok := raw[name]; !ok {
 			return Decl{}, fmt.Errorf(
 				"%s is not declared in the makefile — refusing to report on a release shape "+
@@ -184,8 +203,8 @@ func ParseMakefileDecls(r io.Reader) (Decl, error) {
 	}
 	d.ReleaseImages = raw["RELEASE_IMAGES"]
 	d.AgentDeploy = toEntries(raw["AGENT_DEPLOY_SERVICES"])
-	d.RetagExempt = toEntries(raw["RETAG_EXEMPT"])
-	d.OwnLineage = toEntries(raw["OWN_LINEAGE"]) // optional; nil when absent
+	d.RetagExempt = toEntries(raw["RETAG_EXEMPT"]) // optional; nil when absent
+	d.OwnLineage = toEntries(raw["OWN_LINEAGE"])   // optional; nil when absent
 
 	sort.Strings(d.ReleaseImages)
 	return d, nil
