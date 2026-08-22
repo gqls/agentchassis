@@ -186,3 +186,21 @@ What's left is the proof: one ordinary page that trips the check, built from now
 rewritten sentence is what the stored page actually says. The system is busy this morning, so that
 should happen on its own; I'll read the first one that qualifies. Until a page proves it, treat
 "the check now changes pages" as expected rather than established.
+
+Later the same morning. A page came through that tripped the check and I could follow it the whole
+way: it found six of these constructions, rewrote one — "…is the right next step, rather than trying
+to borrow your way around it" became "…is the right next step" — and left everything else on the page
+alone. I could see the rewritten sentence in the section the system built and in the finished page it
+assembled. That is the part that was broken last night, and it is working.
+
+The page still didn't get saved, and for a reason that has nothing to do with copy: a separate safety
+guard refuses a save when a page's layout suddenly loses half its structure, and this page's stored
+version is four days old while the layout builder has changed since. So the guard did its job and
+threw the whole save away. I've written that up for the people who own that guard, because it will
+refuse every rebuild of those older pages until someone decides which version of the layout is the
+right one.
+
+So the honest position: the check now works end to end inside the build, and I still owe you one page
+where the improved sentence lands in the stored site. I've left the exact test written down so it is
+a single query when the next suitable page comes through, and I've deliberately not forced one — that
+site is being rebuilt by another thread this morning and I'd be treading on their work.

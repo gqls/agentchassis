@@ -51,6 +51,9 @@ lane built the platform half and contributed it back into that file, §8–§17)
 | the scanner + repair (`rewrite_negations`) | **LIVE** | `grep -ac 'rewrite_negations' /proc/1/exe` = 7 on BOTH replicas, control `rewrite_negationz` = 0 |
 | the counting annotation | **LIVE, opt-in, on this agent only** | `copy_gate_annotate` = 1 in the binary; `true` at both step paths in `agent_definitions` |
 | migration `509` | **APPLIED 2026-08-21 10:28Z** | chain reads `generate_content → rewrite_negations → render_section`, `page_budget` 2 |
+| migration `548` | **APPLIED 2026-08-22 ~09:19Z**, recorded 09:20:25Z | `UPDATE 1`, verify `DO` passed; live row re-read as `content_from = copy_gate.result` |
+| the repaired copy reaching `render_section` + `compile_page` | **PROVEN 2026-08-22** | `loanzy.uk/tool-interest-rate-stress-test`: `section_output_2.rendered_html` and the final `page_html` both carry the rewrite and lack the removed clause |
+| the repaired copy reaching `page_components` | **STILL UNPROVEN** — the one open item | that page's save was refused wholesale by `bugs_open/253`'s component floor; pre-548 control shows the old defect on an accepted save (`RUNBOOK` §8) |
 | migration `517` | **APPLIED 2026-08-21 10:40Z** — the repair had NO `ai_service` and was live-but-blind on the first page | `copy_gate` marker went from `repair_unavailable` to needing its next run to confirm; both 509 and 517 recorded in the runner's ledger with `--record-only` |
 | `brief-negation-check` | **LIVE daily 07:40 UTC**, `v1.0.1320` (rebuilt from HEAD), `imagePullPolicy: Always` | behavioural probe: reports "9 of 25" + a `regulatory (left alone)` column, which only the current code produces |
 | council | **APPROVED**, `Council-Reviewed: c48b7612-3ecc-4345-912e-5966c079cb91` | 4 advisories at medium, none high; 11 of 14 seats approved outright |
@@ -60,11 +63,24 @@ lane built the platform half and contributed it back into that file, §8–§17)
 ## What is left
 
 **THE ORDER, and it is now three steps rather than one:**
+> **2026-08-22: steps 1 and 2 are DONE (details in the banner above and NOTES). Step 3 is the
+> only open item, and it now has a one-query recipe with a measured control — `RUNBOOK` §8.
+> The three-step list is kept below as the record of what was required.**
+>
+> Step 3, as it now stands: the gate is proven through `render_section`, `compile_page` and the
+> writer's final `page_html` on a real post-548 page (`loanzy.uk/tool-interest-rate-stress-test`,
+> `copy_gate_2` repaired 6→5, one surgical rewrite). What is NOT yet proven is **persistence to
+> `page_components`**, because that page's save was refused wholesale by `bugs_open/253`'s
+> component floor (`hero-tool` 12→5 classes) — not by the gate, and with two controls. Needed: one
+> post-548 repaired page whose save is ACCEPTED. Run `RUNBOOK` §8 on it; the pre-548 control
+> (`tool-loan-repayment-calculator`, save accepted, `stored_matches_PRE=true/POST=false`) is what
+> it has to invert. ⚠ Do NOT fire a loanzy rerender to force it — those builds are `bugfix_311`'s
+> live work.
 
-1. **A chassis roll** carrying the commit that adds the step's own `result` key (after `dd9fc619`).
-   Probe the capability on every replica with an absent control — do not read the tag.
-2. **Apply migration `548`** (drop its `_HOLD`): `render_section.content_from` → `copy_gate.result`.
-   ⚠ Applying it against an older binary means the renderer finds no content — loud, but a failure.
+1. ~~**A chassis roll**~~ **DONE 2026-08-22** — `v1.0.1323`, stamp `70e7b4f9c`, both replicas probed
+   with an absent control; `dd9fc6197` is an ancestor and the control commit is not.
+2. ~~**Apply migration `548`**~~ **DONE 2026-08-22 ~09:19Z**, recorded 09:20:25Z; live row reads
+   `copy_gate.result`.
 3. **Then confirm at the artefact**, on the part that DIFFERS:
    ```sql
    SELECT pc.slot_name, pc.content_data->>'subheadline'
