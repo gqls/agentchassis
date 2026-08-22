@@ -319,3 +319,33 @@ too-small output limit that still blocks one calculator type; the design questio
 component-scoping team about newly created components being born unscoped, which needs your call;
 and two loanzy pages that are deliberate choices rather than defects. Each lives in its own file
 with its own evidence.
+
+## 2026-08-22, late morning — loanzy's calculators are working, eight of eleven
+
+You said to open loanzy up for whatever it needed. Four of its tool pages turned out to have been
+archived — which is why one of them built perfectly on Wednesday and still showed nothing: the
+system correctly refuses to publish a page somebody has retired, right at the last step, after
+doing all the work. I un-retired those four and rebuilt what was needed.
+
+Eight of the eleven tool pages now serve a real, working calculator, against one yesterday morning.
+The counts of input controls run from four to six a page, and I checked every one at the live page
+rather than trusting the database.
+
+Of the three that don't: two are waiting on a different problem entirely — the AI writes about
+47,000 characters for that particular calculator when the limit allows 16,000, so it is cut off and
+fails. You've said another team has that one, and their fix releases both pages; I deliberately
+didn't retry them, because each attempt costs three full generations and cannot succeed. The third
+page never had a calculator in its plan at all — it is a guide page with a heading, some text and a
+link, and it is working exactly as designed. If you want a tool on it, that is a planning change,
+not a repair.
+
+One thing I changed on the site itself, and you should know because it affects how every loanzy
+page gets written from now on. The stress-test page had been refused twice by a safety check that
+stops a rewrite stripping the layout out of a section — the AI kept flattening the banner at the
+top of the page. There is a documented right answer for that (tell the writer to preserve the
+layout) and a documented wrong answer (turn the check off), and I used the first: a new
+writing rule on the site saying regeneration must keep the styled elements and change only the
+words. The page then built and its banner survived. I want to be careful about the claim though —
+it worked once, and the writer is not deterministic, so I would call that promising rather than
+proven. Undoing the rule is a one-line change if you dislike it, but I'd expect that page to start
+failing again.
