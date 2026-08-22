@@ -111,14 +111,26 @@ spec:
               # check that has never once executed would look healthy. The service is in
               # RELEASE_IMAGES so a normal fleet release builds it.
               image: docker.io/aqls/component-source-vocabulary-check:latest
-              # The image's CMD is already:
-              #   ./config-key-audit --component-source-vocabulary --report
+              # ⚠ THE COMMAND IS OVERRIDDEN HERE, and the reason is a defect this
+              # service already shipped once. The image's CMD points the mode at
+              # `defaultComponentSourceBaselinePath`, a REPO-RELATIVE path — and the
+              # image COPYs only the binary, so that file is not in it. Deployed at
+              # v1.0.1326 the check exited 2 on every run: "baseline ... no such file
+              # or directory". It failed LOUDLY rather than reporting 69 phantom "new"
+              # findings, which is the refuse-without-baseline design working, but the
+              # check was inert. Caught by the deploy-verification recipe in the lane
+              # RUNBOOK (the council's debug_historian seat asked for that recipe), not
+              # by anything in the build.
               #
-              # The baseline is read from the path baked into the binary
-              # (defaultComponentSourceBaselinePath), which resolves inside the image
-              # because the build COPYs the repo. If that ever stops being true the mode
-              # exits 2 rather than reporting a flood of 69 "new" findings — the refusal
-              # is deliberate and is tested.
+              # The baseline is now MOUNTED from a ConfigMap instead of baked in,
+              # because it is designed to SHRINK as bugs_open/362's repairs land — see
+              # kustomization.yaml for why that rules out an image copy.
+              command: ["./config-key-audit"]
+              args:
+                - "--component-source-vocabulary"
+                - "--baseline"
+                - "/config/component_source_baseline.json"
+                - "--report"
               env:
                 - name: PG_CLIENTS_HOST
                   value: postgres-clients
@@ -134,3 +146,11 @@ spec:
                 limits:
                   cpu: 200m
                   memory: 128Mi
+              volumeMounts:
+                - name: baseline
+                  mountPath: /config
+                  readOnly: true
+          volumes:
+            - name: baseline
+              configMap:
+                name: component-source-vocabulary-baseline

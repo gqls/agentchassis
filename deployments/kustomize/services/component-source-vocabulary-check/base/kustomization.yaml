@@ -2,3 +2,30 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - cronjob.yaml
+
+configMapGenerator:
+  # THE REAL BASELINE LIVES HERE, and the docs path is a SYMLINK POINTING AT IT —
+  # deliberately that way round, for two independent reasons.
+  #
+  # 1. Kustomize resolves symlinks and refuses a configMapGenerator source outside the
+  #    kustomization root ("security; file ... is not in or below ..."). The obvious
+  #    arrangement — real file in docs/, symlink here — DOES NOT BUILD. Same constraint
+  #    component-fallback-check documents for its script and fixture.
+  #
+  # 2. THE BASELINE IS DESIGNED TO SHRINK. Every repair in bugs_open/362 deletes lines
+  #    from it. If it were baked into the image (the first cut of this service did
+  #    exactly that, and shipped a check that could not run — see the cronjob header),
+  #    then a repair landing in the repo would leave the image's copy stale, and the
+  #    check would report the repaired entry as STALE for ever, or until someone
+  #    rebuilt. Mounted, a repair is `apply -k` and the next run is correct.
+  #
+  # ⚠ AFTER EDITING THE BASELINE, RE-APPLY THIS OVERLAY or the cluster keeps the old
+  # ConfigMap. The generator appends a content hash to the ConfigMap name, so the
+  # CronJob is repointed automatically on apply — but only on apply.
+  #
+  # If you move this file, move the symlink with it. `docs/agent_docs/.../
+  # component_source_baseline.json` is the path the bug file, the register entry and
+  # the Go test all name, and a dangling link fails loudly rather than silently.
+  - name: component-source-vocabulary-baseline
+    files:
+      - component_source_baseline.json
