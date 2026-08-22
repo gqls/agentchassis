@@ -45045,6 +45045,16 @@ confers no protection from it**; only a check does, and the check has to be on t
 changed rather than on the thing you were changing it for. This is the same family as
 `a-post-fix-ZERO-needs-a-demand-control`: I verified the subject and not the instrument.
 
+**A SECOND error in the same incident, and the more transferable one:** I reported the blast
+radius as "~60 findings, mostly `detected` — annoying, not damaging", from a status census taken
+minutes after the dispatch. By 18:38 the promoter had moved ~93 rows to `triaged` and a 34-page
+assemble wave was live. **I described a queue in motion as a finished result.** This is the
+measurement index's `a [MEASURED] claim about STATE expires while a DATED EVENT does not` — a
+status census is STATE, and against a 60-second dispatcher it expires in about a minute. The
+check: before reporting a census of anything a scheduler touches, name what would differ if you
+looked again in five minutes. If the answer is "the numbers", say so in the report or take the
+second look — the reassuring sample is the one nobody re-takes.
+
 **Disclosed immediately to the affected lane** with the correlations, the item counts and an offer
 to cancel; cleanup left to them, since it is their site. The script is now fixed, both refusal
 paths exercised (exit 2, exit 3), and a bug in my own fix — a single-quoted payload that would
