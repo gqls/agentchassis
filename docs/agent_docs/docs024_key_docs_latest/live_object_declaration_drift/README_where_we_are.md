@@ -95,3 +95,55 @@ back. When both land I will file this properly and put it to the review council.
 be told this is urgent, and I would not argue if someone said it should wait behind more pressing
 work — but it is the kind of thing that is very cheap to fix now and expensive to discover later,
 because the failure it permits is one where everything looks fine.
+
+## 2026-08-22, evening — the independent check did not settle it, and then handed me the best finding anyway
+
+Two things to report, and the second is the interesting one.
+
+**First: the independent diagnosis run came back inconclusive, and I am not going to dress that up.**
+It ran for about twenty-three minutes, went round five times, and stopped because it hit its own
+iteration limit without reaching a conclusion. Its verdict field says "NOT CONFIRMED". That is not
+the same as being told I am wrong — it did not refute anything — but it is certainly not support,
+and the bug I have filed rests on my own checking, not on that run.
+
+It failed for a reason that is my fault, and I have written it down. The tool takes an optional
+"start by looking here" list, and I did not give it one; it even printed a warning saying it was
+"dispatching blind", which I read past. Without that list it guesses where to look by searching for
+code whose *names* match the words in my description — and the whole point of this bug is that the
+problem lives in test files and old migration files, which have no such names. So it went looking at
+a decommissioning routine, an idle monitor and an email-claim function, none of which have anything
+to do with anything, and spent all five of its attempts there. The general lesson is worth more than
+the wasted run: the kind of bug that most needs an outside opinion is exactly the kind this tool
+cannot find on its own.
+
+**Second: while doing that, it quoted something back at me that I had missed, and it is the sharpest
+thing in the whole file.**
+
+We have a firm rule here: don't trust the old migration file, go and read what the database actually
+says now. It is good advice and I have been following it all day. But when the run quoted the live
+setting back to me, I finally read the *comment* sitting directly above the list — rather than just
+checking the list itself, which is what I had been doing.
+
+That comment tells you the rule is "the twin of the verifier registrations", and it names a specific
+test that supposedly keeps the two in step.
+
+Both statements are wrong. The rule changed three days ago — it is now the combination of *two*
+checks, not one — and the test it names has been deleted; it was replaced by a differently-named one
+that had to be moved to another part of the codebase to do its job.
+
+Here is why that matters more than it sounds. That sentence is the *original cause* of the bug I was
+asked to look at this morning. Someone read it, believed it, and built a half-complete safeguard on
+the strength of it. When that was fixed three days ago, the fix corrected the *list* and left the
+*sentence* saying the old thing. So anyone who now does the correct thing — ignores the old file,
+reads the live system — is handed the very same wrong explanation that caused the original problem,
+along with a pointer to a test they will not be able to find.
+
+It also spoils the neat version of my own story. I had been about to say "the files are stale, the
+live system is the truth". That is not right either: the live system is carrying its own out-of-date
+explanation of itself, and a checker that simply compared the live list against a written-down list
+would sail straight past this, because the *list* is correct and it is the *prose* that lies. I have
+written that into the bug as a constraint on any fix rather than quietly leaving it out, because it
+is the kind of thing that makes a tidy solution look better than it is.
+
+The design proposal is now with the review council. Nothing is built yet, and I would rather wait for
+their verdict than start.
