@@ -133,6 +133,30 @@ Fetched and counted, not recalled:
 - **The data layer is dead.** `fetch(` count across all six agri calculators is **0**. The six
   `/data/*.json` files are read by nothing; every number is hardcoded per tool. The JSON files are
   still publicly served (`/data/crop-dli-table.json` returns 200).
+- **The sitemap is a THIRD inventory, and it agrees with neither of the other two.**
+  Found by the framework itself: within about four hours of the seed landing, the
+  `check_site_structural_validity` discovery check ran against the live site and filed seven
+  `sitemap_entry_dead_live` items. Verified by hand afterwards — 26 sitemap entries against 30
+  live pages, and they diverge in *both* directions:
+  - **7 entries are dead (404).** The sitemap lists the deep-dive series under an old
+    `iot-01-architecture.html` / `iot-02-hardware.html` naming scheme. The real pages are
+    `iot-system-architecture.html`, `iot-hardware-spec.html` and so on. Confirmed:
+    `/deepdives/iot-01-architecture.html` -> 404, `/deepdives/iot-system-architecture.html` -> 200.
+  - **11 live pages are absent from it**, including **every one of the seven real deep dives** —
+    so the whole engineering series is invisible to search — plus `guides/elms-stacking.html`,
+    `tools/elms-calculator.html`, `tools/insect-waste-converter.html` and
+    `tools/seaweed-carbon-est.html`.
+
+  Note *which* four agri pages those are: the same ones missing from the tools and guides
+  indexes. The nav, the sitemap and reality each tell a different story, and the three failures
+  overlap without matching. **This is the argument for the rebuild in one line** — the framework
+  generates nav, sitemap and pages from one set of rows, so they cannot drift apart like this.
+
+  No action needed on the old site: the items are `detected` with no handler, the check is
+  mechanical and self-clears when a re-probe finds the entry live, and every URL involved is being
+  retired at cutover anyway. Recorded because it is evidence, and because the rebuilt site must be
+  checked for the same class rather than assumed free of it.
+
 - **The market ticker was fabricated.** Its feeder,
   `domains/agritec.uk/data-collector/v1/cmd/updater/main.go`, is a `rand` simulator stamping its
   own output `"Source": "Simulated Exchange / National Grid"`. Already commented out on the live
