@@ -42501,3 +42501,51 @@ that none exists; the register (plus `scheduled_tasks`: `SELECT name FROM
 scheduled_tasks WHERE name ILIKE '%<topic>%'`) is one query each. And when the monitor
 IS found, check whether it already fired on your case before concluding detection is the
 gap — here the gap was consumption, which is a different fix entirely.
+
+
+---
+
+## 2026-08-22 — I "fixed" a dead pointer by writing the next dead pointer, and the anti-pattern was already a LANDMINE entry with my file's own footprint
+
+**Lane:** `bugfix_029_retry_kills_live_child` (closing 343 on the owner's ruling).
+
+**The claim.** Closing `bugs_open/343` broke the `wedge-evidence-capture` CronJob's note labels,
+which named that path — a reader following one mid-incident lands nowhere. I fixed it by rewriting
+them to `bugs_closed/343`, committed it (`791c6e820`), applied the overlay, and verified at the
+mounted configmap with a positive and a negative control. **Every step of that was sound and the
+result was still wrong**: `bugs_closed/343` is a directory-prefixed pointer, and moving between
+those two directories is *precisely what opening and closing a bug does*. I had written a pointer
+guaranteed to rot, exactly like the one I was replacing.
+
+**What caught it.** Nothing about the change. I grepped `LANDMINES.md` for an unrelated reason
+(checking whether a landmine I was considering already existed) and read straight into
+*"A pointer that hardcodes `bugs_open/` rots at exactly the moment it starts to matter"* — filed
+2026-08-20, two days earlier, whose **"write it so it cannot rot"** clause states the remedy I had
+just failed to apply: name a bug by **number and slug**, never by directory, and name the **lane
+directory**, which does not move. Fixed in `ad98fe140`.
+
+**The tell was in the file's own history and I walked past it.** That docstring records the job
+being retargeted from `bugs_open/029` to `bugs_open/343` on 08-21 — I read that paragraph, edited
+around it, and added the 08-22 retarget directly beneath. **Two retargets in two days is the
+pointer SHAPE failing, not two unlucky addresses.** I treated a recurring correction as routine
+maintenance instead of as a defect signal, which is the whole reason it recurred.
+
+**The cheap check that would have.** The one this repo already tells me to run, at the moment I
+touched the file rather than an hour later:
+`grep -n "<path-or-symbol-you-are-editing>" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`.
+⚠ **The SessionStart hook would NOT have shown me this one** — it matches entries against files
+already dirty in the tree, and `check.py` was clean when the session started; the entry's footprint
+is a *table and a string shape*, not my path. That is the documented limit of the hook
+(MEMORY `grep-landmines-for-your-symbols`), and this is it firing in practice.
+
+**Generalises, and this is the transferable half.** A correction you are making *because a previous
+correction of the same kind did not hold* is evidence about the SHAPE of the thing, not about the
+value you are correcting. Before applying the obvious fix — update the string, bump the version,
+re-point the link — ask what would have to be true for this never to need correcting again. If the
+answer is "the world stops changing", fix the shape. Same family as
+[[order-fix-candidates-by-what-closes-the-door]]: rank by what makes the bad state unrepresentable,
+and *"a future session must remember to re-point this"* is a defect, not a plan.
+
+**Cost if uncaught:** a third silent rot, at the worst moment — a reopened 343, or any later
+re-close, sending an on-call reader to a path that does not exist while they are looking at a live
+freeze. Which is the exact damage the 08-21 fix existed to prevent.
