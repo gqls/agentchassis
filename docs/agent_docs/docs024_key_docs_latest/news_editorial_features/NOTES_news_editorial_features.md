@@ -1090,3 +1090,12 @@ peer (told them to HOLD, msg 18:4xZ). The exact UPDATE is in the session transcr
 the owner report; until it runs, the cancel-set items may be claimed by the 60s dispatcher —
 worst realised so far is unrequested-but-gated tool audits and CTA rerenders, all on
 unlocked generic rows.
+
+**Addendum, same evening:** the peer confirmed the hold and corrected their own impact
+report unprompted (they had described a queue in motion as a static result). Separately,
+their dartsonline sweep found `darts-calendar-density` — this lane's article — has no card
+image, so it renders bare in listings; a `needs_content_image` item derives a card from the
+hero this lane generated 08-20. **Approved to run** (additive, no locked rows, on-brand by
+construction; consistent with the two imagery items kept on robot-hands). Watch-point
+stated to them: it must land as a NEW asset + listing reference, never a write to the
+article's own rows — the latter would be a mechanism surprise to file.
