@@ -195,3 +195,22 @@ page_components INSERT, after the pages row exists so the tool's own URL is in t
   two files).
 - **§5's census re-run is OWED post-roll** (the wiring is Go, inert until the next chassis roll);
   whoever rolls next re-runs §3's query and appends the number here.
+
+## 10. A THIRD writer, found only AFTER §9's wiring — and wired the same day
+
+`create_tool_component_regenerate.go` (TL-047's `replace_existing` arm, live 2026-08-21) does
+`UPDATE page_components SET rendered_html` inside its transaction — **and no census had ever named
+it**: RFC_008 counted ten writers naming these two as the gap; the landmine names the same two; this
+file's §4 named the same two. It surfaced from the 238 session's new `scripts/audit-advisory-findings.py`
+replaying pattern-check findings against HEAD — the check fired on it AFTER §9 silenced the original
+two, which is exactly the "the SET of writers grows while you are not looking" clause of the landmine,
+demonstrated on the very bug that quotes it (the arm was born 2026-08-19, seventeen days after the
+census that counted ten).
+
+Wired 2026-08-22 by the same lane, same shape: repair after the placements resolve (page identity
+known for the durable record) and before either UPDATE; `domain` added to `toolRegenerateRequest`
+for attribution; template stays verbatim, mirroring both siblings; discriminator
+`create_tool_component_regenerate` so the 097 drift query can see this path independently. The scan
+test now anchors all THREE writers (UPDATE-anchored for this one) and the regenerate mutation is
+proven to fail it. Note the probe matters MOST here: regeneration rewrites an EXISTING tool's
+markup, where JS-built anchors are certain rather than likely.
