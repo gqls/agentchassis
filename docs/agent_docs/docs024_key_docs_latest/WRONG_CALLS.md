@@ -45290,3 +45290,21 @@ different-host clause, the possessive "this domain also hosts" form and the trai
 plus an absolute prohibition in `writer_block`. **An instruction deleted from a prompt is a decision
 no future reader can see; a ban is.** Also a `LANDMINES.md` entry, because the trap is not specific
 to this site: it fires for anyone briefing a public page on a domain that also runs something else.
+
+> **OUTCOME, 2026-08-23 — what the misfire actually cost, since an incident entry that stops at
+> "disclosed" leaves the next reader guessing.** The affected lane's owner ran a bounded cancel
+> (`UPDATE 23`). The race with the 60-second dispatcher split the set, and it split favourably:
+> **everything tool-modifying was cancelled before dispatch** (`improve_tool` ×5, `audit_tool` ×5,
+> `acceptance_run` ×4, `evaluate_tools`, and the second-wave `improvement_rerender`), while what
+> got through first was the benign tail. **Net cost: ~17 unrequested CTA repairs on unlocked
+> generic rows**, all platform-designed and recoverable. Verified by that lane at three layers:
+> 0 locked rows touched of 62 writes, zero escalation items spawned, all 62 overwrites archived
+> `machine_made` with save-path snapshots, served editorial pages healthy.
+>
+> Two things worth carrying rather than filing away:
+> - **The favourable split was luck, not design.** The cancel raced a dispatcher and won on the
+>   items that mattered; nothing in the mechanism arranged that. An incident whose damage is
+>   bounded by timing is not a bounded incident.
+> - **Immediate disclosure is most of why it was cheap.** The cancel was possible because the set
+>   was still precisely bounded — one site, one timestamp, two keep-groups — and that boundary
+>   existed because it was written down within minutes, not reconstructed later.
