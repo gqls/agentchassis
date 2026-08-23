@@ -41,6 +41,49 @@ deploy    healthy (the 08-17 fleet outage cleared; retraction committed and publ
   expressible role. `bugs_open/241`'s identity policy — written while planning THIS site
   — stops the write path re-deriving a live page's identity, and is now ON here.
 
+## OWNER'S FOUR INSTRUCTIONS (2026-08-23): *"1. deleted, 2. release the rebuilds. 3. build and restore the Guides link 4. we only need one of them."*
+
+| # | state |
+|---|---|
+| 1 | ✅ done and verified — 14/14 `/blog/` URLs 404, controls held |
+| 2 | **canary PASSED**, nine released and queued (see below) |
+| 3 | ✅ `/guides/index.html` serves **200** and lists all 14 guides. ⚠ the LINK needs the queued `nav_drift` |
+| 4 | `tool-credit-roadmap` ARCHIVED + its 3 tickets cancelled; **file retraction still owed** |
+
+**(2) "Release" is NOT a status flip — the 11 `owned_page_review` tickets have
+`handler_agent = ''`.** They are review MARKERS (TP-004: "no handler by design"); triaging
+them rebuilds nothing. The rebuild is a separate `needs_page` / `page_rerender:<page>` /
+`page-build-handler` item — shape copied from the row that rebuilt `tool-credit-roadmap` on
+08-22. Nine are queued at priority 15, `source='loancalc_owner_release_20260823'`.
+
+**The canary (`tool-overpayment-calculator`) passed on the untested arm** — a tool-role page
+whose calculator is LOCKED. Served order is now `hero · CALCULATOR · prose · faq · cta`, and
+**the locked row was never written** (`updated_at` still 2026-08-09 while every sibling shows
+13:24:19). No copy changed: every archived/saved pair is md5-identical.
+
+⚠ **THE ACCEPTANCE HARNESS IS DOWN.** `toolgolden --compare` fails with `timeout waiting for
+Runtime.evaluate` — **on rebuilt AND un-rebuilt pages alike**, so it is the environment, not
+the change. Do not read it as rebuild damage, and do not quote a toolgolden pass after
+2026-08-23 without checking it actually captured. The 08-17 golden is ALSO stale (a FAQ
+heading changed in an 08-17 19:00 re-deploy, after the capture) — re-baseline once it works.
+
+**(3) The Guides 404's cause: the plan composed ZERO sections for that page** while `about`
+and `legal` had two each — verbatim what its build kept reporting. Fixed with two
+`site_plan_sections` rows (`hero`, `guide-list`, the fleet convention for `section-index`).
+⚠ **Restoring the LINK is a SECOND mechanism**: the chrome was last rendered 08-20 and
+carries no `/guides/` link, because the renderer correctly declined to link a 404ing page.
+A `nav_drift` → `nav-updater` item (`nav_rebuild:e31c71a8…`) is queued to rebuild the nav
+tables and re-render chrome. **A session that only built the page would see a working page
+and a menu that never mentions it.**
+
+**(4) Keep `tool-credit-health-check`** — both pages carry the same component function, but
+its instance is the LOCKED one; credit-roadmap held an unlocked duplicate. Archived, tickets
+cancelled, and excluded from the nine rebuilds. ⚠ **Its file still serves and its retraction
+will be REFUSED**: 15 pages carried 16 links to it plus an active nav row. The sequence is
+archive (done) → let the nine rebuilds regenerate their cross-links without it → then
+`retract_page_deployment`. **[INFERRED] that the rebuilds drop the links — the nine are its
+test.** If they persist, the retraction stays refused and it becomes a prose decision.
+
 ## THE TWO REMAINING ITEMS
 
 ### 1. The calculators sit at the BOTTOM of ten tool pages — 11 tickets await the owner
