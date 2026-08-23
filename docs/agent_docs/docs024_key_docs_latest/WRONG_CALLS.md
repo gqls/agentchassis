@@ -46179,3 +46179,43 @@ common shape is not carelessness about the query — all three were carefully wr
 is **failing to ask what the disconfirming output would have looked like** before
 believing the confirming one. For this one the answer was trivial and I never asked it:
 a missing file and a clean file both print nothing.
+
+### 9. (327 lane) I twice concluded a tool was broken when I had simply not read what its output meant
+
+Two near-misses in five minutes at the end of an otherwise careful session, both the same
+shape: **I inferred a defect from an output whose meaning I had not established.**
+
+**First: "the landmine sync is broken."** After appending to `LANDMINES.md` I ran
+`landmines-sync.py --check`, which printed `to insert/refresh: 747` and `OUT OF SYNC`. I then
+ran `--apply`, which printed the **same 747** and `nothing to apply — already in sync`. I read
+that as the two modes contradicting each other and was drafting it up as a finding.
+
+`to insert/refresh: 747` is a **TOTAL, not a delta.** It prints identically whether the corpus
+is in sync or not — 747 is simply how many entries the sync manages. A re-run of `--check`
+now returns **`in sync`, exit 0**. Nothing was contradicting anything; a status line that looks
+like pending work is printed unconditionally, and I supplied the alarm myself.
+
+**Second, and worse: "my landmine never reached `doc_notes`."** I queried
+`WHERE body LIKE '%bugfix_327 lane%'`, got zero, and wrote `ABSENT (row is stale)` — concluding
+that the agents and council seats reading `doc_notes` could not see my contribution.
+
+**I had never looked at what a landmine `doc_notes` row contains.** They are not the entry
+body. They are **verifier verdicts and per-footprint summaries**, averaging **841 characters**
+across 476 rows (max 1,152). Reading one settled it in seconds — it began
+*"**last verified (landmine-verifier): NEEDS_HUMAN_REVIEW.** Every footprint file is a .sh
+script and the code index holds only .go symbols…"*. My appended prose was never going to
+appear there verbatim, by design. The rows were **current**, written 18:01 and 18:09 that day.
+
+**What caught both:** running the control instead of writing the claim — re-running `--check`,
+and `SELECT left(body,300)` on the table I was making assertions about.
+
+**The cheap check, and it is embarrassingly small: read one row before you characterise a
+table, and read a status line twice before you treat it as a delta.** `SELECT left(body,300)
+FROM <table> LIMIT 1` would have prevented the second outright. A `LIKE` returning zero tells
+you the string is not there; it tells you **nothing** about whether it was ever supposed to be.
+
+**The pattern across both:** an absence is only evidence once you know what a presence would
+have looked like. That is the same lesson as entry 8 immediately above — where the control
+*did* run and converted a meaningless zero into a decisive one — arriving twice more in the
+same session, in a form I did not recognise because the subject had changed from a database
+retention window to a tool's stdout.
