@@ -64,7 +64,7 @@ close call.
 **⚠ But this site is one of the six decomposed sites (`bugs_open/204`)**, which no
 prior document connected to the twin population. Its `pages.sections` hold positional
 slot names, so a rebuild of either side is already unreliable. **Recommend: decide the
-survivor now (`tool-`), but do not execute until 204 is fixed** — and do not enable
+survivor now (`tool-`), but do not execute until 204 is fixed** — ~~**BLOCKER CLEARED 2026-08-23**~~: `bugs_closed/204` is fixed, live (v1.0.1322, re-verified v1.0.1328) and closed, so the 204 dependency in this line no longer holds. The clearance is of the DEPENDENCY only — whether to execute remains this lane's decision on its own grounds. Note also the correction recorded in PLAN-048 and `bugs_closed/347b`: of the four remaining pairs, none turned out to be duplicates
 any identity gate here meanwhile.
 
 ### 3–4. fundamentallyai.com — the two `-guide` pairs

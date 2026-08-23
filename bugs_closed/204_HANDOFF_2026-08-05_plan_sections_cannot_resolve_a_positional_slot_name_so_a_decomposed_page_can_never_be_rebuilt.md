@@ -10,10 +10,17 @@
 > **The one thing NOT proven, stated here rather than buried:** the read-side arm has
 > not yet FIRED in production — no planner has run anywhere since 2026-08-20 17:15, so
 > the clean readings prove nothing on their own. What IS proven is coverage, measured
-> directly against the live data: **83 of 88 truly-unresolvable names are rescued, and
-> the other 5 refer to nothing at all** (no component under any spelling, not slots on
-> their page), so dropping those is correct. 83 of the 83 that should be kept. The
-> write guard is separately proven against real Postgres, all four directions.
+> directly against the live data: **83 of 88** truly-unresolvable names are rescued
+> **as of 2026-08-23** (unchanged from the 2026-08-21 measurement — re-run at
+> v1.0.1328), **and the other 5 refer to nothing at all** (no component under any
+> spelling, not slots on their page), so dropping those is correct. 83 of the 83 that
+> should be kept. The write guard is separately proven against real Postgres, all four
+> directions.
+>
+> ⚠ **That count is a census and censuses go stale by ADDITION** (owner ruling
+> 2026-08-22). Re-run the corrected query in the lane RUNBOOK before quoting it; the
+> raw-match version this file used to carry OVER-REPORTS, and its retired `86 → 87 →
+> 107` series is corrected further down.
 >
 > Closed on the fixed-AND-live bar because the defect is no longer reproducible on the
 > shipped code. **If you are here to re-verify, the two outstanding checks are the
@@ -802,6 +809,13 @@ wiring that decides its input.**
 
 ## ✅ LIVE 2026-08-21 at chassis `v1.0.1322` — proven at the binary and against real Postgres. One behavioural step remains, and it is blocked on a quiet site, not on the code
 
+> **RE-VERIFIED 2026-08-23 on the wider roll — chassis `v1.0.1328`, 54 pods** (the
+> 2026-08-21 verification below was at `v1.0.1322`, then only 5 pods). All three
+> capability strings present in `/proc/1/exe` — the rescue arm, the write guard's
+> finding code, and the read-failure code — with a fabricated symbol absent as the
+> control. **The fix survived the rebuild**, which is not automatic: a same-tag rebuild
+> can serve a cached image, so this was re-probed rather than assumed.
+
 Stamp `bac189921`; all six commits of this lane are ancestors of it
 (`git merge-base --is-ancestor`). Probed the `agent-chassis` binary itself, because
 that deployment's `build provenance` line had already scrolled — **with both controls
@@ -895,3 +909,48 @@ run, and an unexercised path is what this estate keeps getting bitten by. **If
 site-record step, or teach `ValidateSitePlanAction` the estate's conventional
 `site_id_field` config key (noting that action still has no `RegisterActionInputSpec`,
 so any key added to it is invisible to the WFA-013 budget check).
+
+---
+
+## §2026-08-23 — the canary still has not arrived, and now we know why it will not arrive by waiting
+
+Re-checked 2.5 days after closing. **Still zero rows of every code**, including zero new
+`PLAN_SECTION_NAME_DROPPED` since 2026-08-20 17:15. That zero is now EXPLAINED rather
+than merely unexplained, which is the difference between "no evidence" and "evidence of
+absence":
+
+| agent | LLM calls (all-time) | last run | reaches this fix? |
+|---|---|---|---|
+| `content-gap-planner` | 2,755 | **2026-08-23 11:14** | yes — 2 of the 4 call sites |
+| `site-planner` | 5 | 2026-08-22 18:03 | no — not covered (see residual) |
+| `build-site-planner` | 75 | 2026-08-22 12:55 | yes — the primary site |
+| `site-adoption-agent` | 150 | 2026-08-01 | yes — the write guard added 2026-08-21 |
+
+[MEASURED 2026-08-23 11:56 UTC.]
+
+**The one `build-site-planner` run since the roll was GREENFIELD.** Correlation
+`1ca67055-702f-445d-ad10-fcccf87817c2`, 2026-08-22 12:55, prompt opens *"Plan a website
+for apis.uk"* — a brand-new site with no existing pages. A greenfield plan has no
+realised slots to rescue and no positional names to drop, so **the arm was never
+reached**. The zero is correct and says nothing about the fix.
+
+**So waiting does not produce this evidence.** `build-site-planner` has run 75 times in
+the platform's entire history, and it must run *on a decomposed site* to exercise this.
+`content-gap-planner` is busy (2,755 calls) and has produced no drops either, which says
+its gap plans have not proposed an unresolvable name — also uninformative.
+
+**Still not forced, and the reasoning has not changed:** obtaining it means firing a
+replan at one of the six decomposed sites, all live. The two that would give a DEMAND
+CONTROL (finetuning.uk 4 orphans, gaswholesalers.com 1) are the ones where the rescue
+has nothing to keep, and finetuning.uk is additionally twin-constrained under PLAN-048.
+The site that would show KEEPS (loanandmortgagecalculator.co.uk, 70 of 70) has no orphan
+to drop, so one run cannot give both. A hand-built throwaway site is not available
+either — the owner's 2026-08-04 ruling forbids hand-building a site outside the
+framework.
+
+**What would close it, for whoever is next in the area:** the next replan of any
+decomposed site, watched with the two queries in the lane RUNBOOK. On
+loanandmortgagecalculator.co.uk expect `kept_count ≈ 70` and `sections` unchanged on 41
+pages; on finetuning.uk expect **4** `PLAN_SECTION_NAME_DROPPED` rows naming
+`article_grid` / `category_section` — which is the demand control, because those five
+orphans are the estate's only guaranteed drops.
