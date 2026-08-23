@@ -1,3 +1,11 @@
+-- ⚠ SUPERSEDED IN PART by 574 (bugs_open/367), 2026-08-23 — three things in this file are
+--   no longer what the live agent does: the classify `comp` CTE's resolution predicate
+--   (was deployed-only, now lifecycle: any component not 'removed'), the `stale` arm (now
+--   requires POSITIVE evidence of absence — a failed lookup parks at the new
+--   park_not_dispatchable instead of closing), and BOTH close-arm evidence strings.
+--   RE-APPLYING THIS FILE ALONE REVERTS ALL THREE, and the verify block at the bottom of
+--   this file will NOT notice: it asserts branch wiring and park statuses, never the
+--   resolution predicate. If you re-seed from here, apply 574 immediately afterwards.
 -- 410 — required-fields-missing-handler: the repair router for the one item type
 --       the owner ruled on this morning
 --
