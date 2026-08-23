@@ -97,6 +97,20 @@ front door stays shut until 20:17:15Z with nothing saying so.~~
 > under repair by whoever you are writing it for. **Re-read the other bug's config before asserting
 > a compound, and date the assertion.**
 
+> **Still true elsewhere, scoped and dated so this line cannot go stale in turn:** 572 declared the
+> five build-chain hops only. **As of 2026-08-23 there are 14 keyed steps still undeclared**
+> (`scripts/audit-undeclared-recurrence.sh` names the current set — run it rather than quoting this
+> number) plus 36 non-test `insertWorkItem` call sites in Go. For any of those, "the work died and
+> the front door silently reports `COMPLETED` for the rest of the window" remains exactly right.
+> That is `bugs_open/326`'s territory, not this file's — pointer, not a second account.
+
+**Not a motivating case for `RFC_048`** (*the anti-churn brake may delay work but may not destroy
+it*), and it should not be cited as one. **The brake never runs in this bug.** `needs_strategy` is
+not destroyed by it — the producing step dies upstream, so the item is **never created**. Absence of
+work that should have existed, not destruction of work that did; a fix for either leaves the other
+untouched. What this bug *does* support is the premise beneath that RFC — that the cascade has hops
+with **no producer of last resort** (§2a), so anything stopping one hop stops the build for good.
+
 **What survives the retraction, and it is the whole severity case:** the build is still terminally
 dead at hop two. Recovery now requires a human to notice and re-submit; nothing retries it, and the
 re-submission will hit the same refused exemplar (§4).
