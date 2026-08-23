@@ -46573,3 +46573,40 @@ question was never "has this type ever closed?" (usually yes) but "can a row par
 `needs_human_review` ever leave that status?" (structurally no). I reached a correct conclusion
 through a false premise, which is the version of being wrong that survives review longest — three
 council rounds, in this case, because the number looked thorough.
+
+---
+
+## 2026-08-23 — I ran the right control and then wrote down a purpose for it I had not checked (`bugs_open/326`)
+
+Recording the live proof that the 326 fix works, I wrote:
+
+> *"Demand control: `recurrence_expected` re-read on the live definition at the same moment and
+> still `true`. Without that the insert proves nothing about the fix — it would be consistent
+> with the window simply having elapsed."*
+
+**The control was right to run. The reason I gave for it is arithmetically false.** The brake's
+threshold is 3.0 hours and the measured offset was 2h05m51s. The window had not elapsed, by
+54 minutes. "Elapse" was never a rival explanation and no control was needed to exclude it.
+
+**What the control actually earns** is attribution: it rules out that something *other than my
+declaration* stopped the brake biting — the threshold retuned, the block disabled, or migration
+572 rolled back between the two snapshots. Every one of those is consistent with an
+inside-window insert, and the live flag is what separates them from my fix.
+
+**What caught it:** the loanzy.uk lane, reading it as a stranger would, with the observation that
+makes it worth fixing rather than shrugging at — *"the first reader to do the subtraction finds a
+rival that was never possible and will trust the rest of the block less."* A wrong justification
+attached to a correct check does not merely waste a line; it discredits the evidence around it.
+
+**The cheap check:** before writing "this control rules out X", **ask whether X was ever
+possible given the numbers already on the page.** Ten seconds of subtraction. If the arithmetic
+already excludes X, the control is doing something else — and naming that something else is
+usually the more interesting sentence anyway, as it was here.
+
+**The failure mode this belongs to, and it is not the one I have been logging all day.** My
+other entries today are measurements that could not have come out otherwise. This is the
+inverse: **a correct measurement with a purpose invented after the fact.** The reflex to reach
+for a control fired properly; what did not fire was checking what the control was for. That
+distinction is worth keeping, because the remedy is different — the others need a disconfirming
+outcome named before you measure, this one needs the rival named and checked before you write
+the sentence.

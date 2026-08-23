@@ -112,9 +112,19 @@ watched end to end. **Status: OPEN, UNOWNED. Live. Customer-facing.**
 > stronger statement. `retry_after` is NULL on both rows, correctly — the deferral change was
 > vetoed and is not shipped, so what is proven here is the classification and nothing else.
 >
-> **Demand control:** `recurrence_expected` re-read on the live definition at the same moment
-> and still `true`. Without that the insert proves nothing about the fix — it would be
-> consistent with the window simply having elapsed.
+> **Attribution control:** `recurrence_expected` re-read on the live definition at the same
+> moment and still `true`.
+>
+> > **CORRECTED 2026-08-23, hours after writing it** — this control was first described here as
+> > ruling out "the window simply having elapsed". **It does not, and that rival was never
+> > live:** the threshold is 3.0h and the offset was 2h05m51s, so elapse is excluded by the
+> > arithmetic alone, by 54 minutes. What the control actually rules out is that something
+> > OTHER than the declaration stopped the brake biting — the threshold retuned, the block
+> > disabled, or 572 rolled back between the two snapshots. All of those are consistent with an
+> > inside-window insert; the live flag is what picks this fix out of that set. So it
+> > establishes **attribution, not elapse**. Caught by the loanzy.uk lane: as first written, the
+> > first reader to do the subtraction would find a rival that was never possible and trust the
+> > rest of the block less.
 >
 > **Two caveats recorded by the lane that took the measurement, because a clean result is when
 > to check the instrument:**

@@ -329,9 +329,19 @@ re-submitted — the exact operator move this bug is about — and the row appea
 both rows, correctly: the deferral is vetoed and unshipped, so this proves the classification
 alone.
 
-**Demand control:** `recurrence_expected` re-read on the live definition in the same breath and
-still `true`. Without it, an insert at 2h05m is also consistent with "the window elapsed" — the
-control is what makes it evidence about the fix rather than about the clock.
+**Attribution control:** `recurrence_expected` re-read on the live definition in the same breath
+and still `true`.
+
+> **CORRECTED same day.** I first wrote that without this control "an insert at 2h05m is also
+> consistent with 'the window elapsed'". **That is arithmetically false** — the threshold is 3.0h
+> and the offset 2h05m51s, so elapse was never a rival, by 54 minutes. The control is still worth
+> having, for a different reason: it rules out that something OTHER than the declaration stopped
+> the brake — a retuned threshold, a disabled block, or 572 rolled back between the snapshots.
+> **Attribution, not elapse.** Caught by the loanzy.uk lane before it spread.
+>
+> The habit was right and the stated reason was invented afterwards, which is its own failure
+> mode: reaching for a control reflexively is good, narrating a purpose you have not checked is
+> how a correct check ends up discrediting the block it appears in.
 
 **Outcome meanings were agreed BEFORE the result existed** (new row ⇒ the fix works, not a
 revision of the account; no row ⇒ a live defect investigated as such). That mattered: I had
@@ -354,3 +364,27 @@ afterwards would have been choosing an interpretation to fit a number.
 this step. The 14 still-undeclared steps and the 36 Go call sites would have had the request
 destroyed exactly as before. That is what RFC_048 is for, and this measurement is evidence for
 its premise, not against it.
+
+## 2026-08-23 — the classifier is reproducible enough to be a FIXTURE (from the loanzy.uk lane)
+
+Incidental to 326 but useful to anyone testing on this estate. The re-submission re-ran
+`domain-research-classifier` from scratch on the same bare domain, giving two independent runs
+to compare `[MEASURED 2026-08-23]`:
+
+| field | run 1 (17:44) | run 2 (19:26) |
+|---|---|---|
+| category | hub | hub |
+| site_type | content | content |
+| confidence | **0.82** | **0.82** |
+| suggested_style | modern-light | modern-light |
+| page_count_estimate | 12 | 12 |
+| recommended_builder | pageflow-builder | pageflow-builder |
+
+**Every structured decision field identical, confidence to two decimal places.** Only the
+free-text `industry_tags` varies, and in wording rather than meaning (8 tags → 10;
+`buying-guide-platform` → `buying-guides`).
+
+**Why it matters beyond this bug:** a before/after test that re-runs this classifier is
+comparing like with like on the structured fields — not something to assume of an LLM step with
+no temperature pinned, and worth knowing before anyone builds a harness that avoids re-running
+it. It does NOT license treating the free-text fields as stable.
