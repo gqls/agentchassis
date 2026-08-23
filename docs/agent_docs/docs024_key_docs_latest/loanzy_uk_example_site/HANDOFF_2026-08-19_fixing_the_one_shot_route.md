@@ -233,6 +233,59 @@ a count. Report it as such.
 
 ---
 
+## 9. THE BUILD DIES AT HOP TWO ON AN UNSCRAPABLE EXEMPLAR — `bugs_open/376` (found 2026-08-23, `garden-tools.uk`)
+
+**This is now the FIRST thing that will stop a greenfield build, ahead of everything above**, because
+it fires before any page is planned and there is no producer of last resort behind it.
+
+`vertical-exemplar-researcher` (the hop inserted between the classifier and the strategist) asks an
+LLM for the three best sites in the vertical and crawls each with `firecrawl_crawl`. Firecrawl
+**refuses some domains outright** — big publisher properties, which are exactly what an LLM
+nominates. The crawl steps have **no `on_error`**, so one refusal kills the child orchestration and
+discards the crawls that already succeeded.
+
+**It is terminal, not degrading.** `create_next_item` — the step that queues `needs_strategy` — is
+the **last** step, reachable only after all three crawls, and it is the **only** producer of that
+item type anywhere in the estate (swept every live agent's steps, 2026-08-23: one row). So the
+cascade stops permanently at its second hop. `garden-tools.uk` has four classifier specs, a site
+row, and will never get a strategy from that attempt.
+
+**Retrying cannot route around it, and this is the counter-intuitive part.** `select_exemplars`
+pins no temperature, so it is tempting to expect a different pick next time. Measured across two
+attempts on the same build: **the same three sites, re-ordered** — attempt 1 died at
+`crawl_exemplar_2` (thespruce.com in slot 2), attempt 2 at `crawl_exemplar_3` (thespruce.com in slot
+3), having thrown away two good crawls instead of one. Sampling varies the ORDER; the POOL is fixed
+by the prompt against a vertical containing ~4 candidate sites.
+
+⚠ **The trap for whoever verifies the fix:** the refused crawl's own step record reads
+`"success": true`. That is a **dispatch receipt** (the request reached
+`system.adapter.webscrape.requests`); the refusal lands asynchronously on `site_work_items.error`.
+It is green before the fix and green after. Join on `request_id`, and verify at the artefact — does
+a vertical spec row exist. Also in `LANDMINES.md`.
+
+**Not an `RFC_048` case** — the anti-churn brake never runs here; the item is never *created* rather
+than *destroyed*. It does support that RFC's premise (hops with no producer of last resort).
+
+## 10. Two measured properties of the route that are not defects, but size everything above
+
+**Time-to-first-agent is queue depth ÷ ~90s, and has nothing to do with your submission**
+`[MEASURED 2026-08-23]`. `082` returns in seconds; the first agent touched `garden-tools.uk`
+**24m52s** later. The picker is `build-pipeline-trigger`, one tick per ~90s, selecting
+`ORDER BY wi.created_at ASC, wi.priority ASC, wi.id ASC LIMIT 1` — **FIFO by item age, with
+`priority` only breaking ties inside an identical timestamp.** A priority-**5** research item waited
+behind 64 priority-**110** `content_rewrite` items purely because they were older. To predict your
+wait, count sites with an older eligible item (recipe in the RUNBOOK); do not watch your own row,
+which looks identical whether it is queued, dropped or stalled.
+
+**A site is serialised to one in-flight item.** The selector excludes any site with a `claimed` item,
+so a build walks its own work items strictly sequentially regardless of fleet parallelism — and a
+stuck `claimed` item halts that site's entire build while looking like nothing is wrong.
+
+**`site_unreachable` also fires on the normal path, not just on maintenance** (§6 said maintenance).
+A sweep filed one against `garden-tools.uk` at 17:22, five minutes into the build, because the apex
+404s while the bucket is still empty. Inert here — `detected` is not a status the selector reads —
+but it means every greenfield build files a spurious defect against itself.
+
 ## READINESS CHECK 2026-08-21 — for the next clean-domain run (`garden-tools.uk`, owner's choice)
 
 **`bugs_open/260` is CLOSED** (2026-08-20): *"the renderer half is FIXED AND LIVE, verified"*, and
@@ -247,7 +300,7 @@ is what our route uses.
 | bug | risk to a clean-domain build |
 |---|---|
 | **`307`** | a transient infrastructure burst kills work items **terminally** — all three attempts fit inside the outage. Its own record: ~815 failed steps, 100 items reaching a terminal state. A build running through an outage loses pages permanently, with no retry left. |
-| **`326`** (this lane) | **if the build fails partway, it cannot be re-run** *for 3 hours*. Re-submitting reports COMPLETED and queues nothing. ⚠ **CORRECTED 2026-08-23:** not the dedup index (it excludes every terminal status) but the two-strike within-cycle block in `writeWorkItem`. Recovery is **waiting out the 3h window or `recurrenceExpected`** — NOT hand-renaming `item_key`s. See the correction in §"the front door" above. |
+| **`326`** (this lane) | ~~if the build fails partway, it cannot be re-run *for 3 hours*~~ **FIXED FOR THE BUILD CHAIN 2026-08-23 ~18:12Z** by migration **572**, which declares `recurrence_expected: true` on all five build-chain hops, skipping the brake. Verified at the live config, not the migration's report. ⚠ The earlier correction still stands for everything else: the cause was never the dedup index (it excludes every terminal status) but the two-strike block in `writeWorkItem`, and **14 keyed steps remain undeclared as of 2026-08-23** (`scripts/audit-undeclared-recurrence.sh`), where the silent-`COMPLETED` behaviour is still live. Never hand-rename `item_key`s. Fixing lane: `bugfix_326_retry_the_front_door/`. |
 | **`327`** (this lane) | the trigger can publish nothing and exit 0 (1 of 3 last time). Mitigated by procedure — verify the `needs_domain_research` row, never the exit code — but unfixed. |
 | **`328`** (this lane) | any page that fails to build stays linked from the pages that did, turning one failure into a visibly broken site. |
 
