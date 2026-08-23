@@ -467,3 +467,70 @@ section plan looks like once the brief contains anything quotable.**
 **I have not touched `section_shrink_floor`.** If attempt 2 shrinks the hero past the floor
 again *with a good headline*, that is the moment to consider the override — with the copy
 read first, in that order.
+
+## 2026-08-23 (attempt 2) — the voice is FIXED; the topics are not; and I nearly reverted a healthy page
+
+**The voice result, measured on the served page, whole-page counts old versus new:**
+
+| construction the owner named | before | after |
+|---|---|---|
+| `worth sitting with` | 2 | **0** |
+| `does not simply` | 3 | **0** |
+| `rather than` | 3 | **0** |
+| `it simply` | 2 | **0** |
+| `not just` | 1 | **0** |
+| **total** | **12** | **0** |
+
+**Every tell is gone.** Three changes landed together (exemplars marked style-samples-not-
+content; a no-duplicate-opening rule; per-section subjects), so **which one did it is not
+separable** — recorded as a guess, not a finding, in the CONTRIB.
+
+### The misstep: I called a regression on a page that was mid-deploy
+
+Straight after the rebuild I measured the live page at **12,272 bytes**, against 65,250
+before. Inline CSS had collapsed from 51,023 to 2,270 bytes, the footer was gone, and three
+section classes had no rule anywhere. I diagnosed a styling regression, went as far as
+listing the previous commits in the sites repo to pick one to restore — and was one command
+from reverting.
+
+**It was deploy lag.** `git log` on `apis.uk/index.html` showed a LATER commit than the one
+being served: `25f877fff` at 13:50, **64,085 bytes, footer present, disclosure 0**. The
+rerender had already produced a healthy page; B2 had not finished syncing when I measured.
+Re-fetched: **64,085 bytes, 51,023 inline CSS, footer present, 0 disclosure.** Nothing was
+wrong.
+
+**Why I got it wrong, precisely:** I treated "the orchestration COMPLETED" as licence to read
+the served bytes immediately. Completion is the moment the commit lands, and the deploy is a
+GitHub Action plus a B2 sync AFTER that. **A cache-buster does not help — this is not a cache,
+it is a pipeline stage that has not run yet**, so `?cb=` returned the genuinely-current
+object, which was genuinely stale. The check that settles it costs one command and I only ran
+it once I had already drawn a conclusion:
+
+```bash
+git -C /home/ant/projects/sites log --oneline -4 origin/master -- <domain>/index.html
+# then compare `git show <sha>:<domain>/index.html | wc -c` against what is being served
+```
+
+**If the repo holds a newer commit than the bytes you fetched, you are early, not broken.**
+Had I acted on the first reading I would have reverted a good page over a regression that did
+not exist, and blamed the framework for it in the handoff.
+
+### What is genuinely still wrong: subject allocation
+
+Six headings, and only two subjects between them:
+
+- *Most bees keep no company at all* · *A solitary life in an old beetle hole* · *A nest built
+  for one* · *The bees that live alone* — **four sections on solitary bees**
+- *The jobs a bee does before she ever leaves the hive* · *One bee, several careers* — **two
+  on a worker's changing job**
+
+The dance, the wax and the swarm — all named in `roadmap_brief` — are **absent entirely**.
+
+**Cause is arithmetic, not style.** The page carries **six** `generic-text-block` slots and
+that roadmap named **five** subjects. A writer with a slot left over and no subject for it
+duplicates the last thing it wrote. So the two failure modes are independent: **style is
+reachable by prompt; subject allocation is not, while the plan and the brief disagree about
+how many sections exist.**
+
+Attempt 3 names **six subjects for six slots**, in order, and states both prior failures
+explicitly so the instruction is about a known mistake rather than an abstraction.
