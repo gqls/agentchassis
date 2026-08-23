@@ -6221,3 +6221,51 @@ copy at all.
 **Check after the canary lands** — `page_component_history` retains the previous rows, so
 the before/after is recoverable: compare the `ported-prose` and `faq` content for this page
 across the rebuild before releasing the other nine.
+
+### (2) CANARY PASSED — and the evidence that matters is not the one I planned to use
+
+`page_rerender:tool-overpayment-calculator` completed 13:24:20. [MEASURED]
+
+```
+served section order: hero · tool-overpayment-impact-section · ported-prose · faq · tool-cta
+component rows      : 1 hero · 2 tool-overpayment-impact (LOCKED) · 3 ported-prose · 4 faq · 5 tool-cta
+```
+
+**The calculator moved from position 5 to position 2, on the page and in the rows.** Locks
+12/12 sitewide.
+
+**Two checks that make this more than "it completed":**
+
+1. **The locked row was never written.** Its `updated_at` is still **2026-08-09** while every
+   other component on the page shows 13:24:19. The rebuild REPOSITIONED it without touching
+   its bytes — LOCK-008 doing exactly its job, on the arm nobody had exercised (a tool-role
+   page whose calculator is locked; index proved locked-but-landing, credit-roadmap proved
+   tool-role-but-unlocked).
+2. **No copy was rewritten.** I feared the opposite: the handler sat in
+   `process_sections_loop_iter_4_generate_content`, which reads like the builder rewriting
+   prose. It did not. Every archived/saved pair at 13:24:19 is **md5-identical**:
+   `674 acde538f` (tool-cta), `3264 5817941c` (ported-prose), `3280 aa8ccab8` (related
+   items), `3941 f4006ce4` (faq). **A step named "generate_content" that produces identical
+   bytes is not evidence of a no-op until you compare the bytes** — I nearly recorded the
+   fear as a finding.
+
+⚠ **THE ACCEPTANCE HARNESS IS DOWN, and I only know that because I ran a control.**
+`toolgolden.py --compare` fails on the rebuilt page with `timeout waiting for
+Runtime.evaluate`. That reads exactly like "the rebuild broke the calculator". **It is not:
+the same harness times out identically on `settlement-calculator`, which has NOT been
+rebuilt.** So it is the environment/chromium, not the change. Two consequences:
+- **The lane's tool-verification instrument is unavailable right now.** Anyone quoting a
+  toolgolden pass after 2026-08-23 should check it actually captured.
+- For THIS question the lock evidence is stronger anyway: toolgolden proves the values
+  still compute; `locked_at`/`updated_at` proves the bytes were never touched.
+
+⚠ **Also noticed, and NOT caused by this rebuild:** the FAQ heading on the served page is now
+*"Overpayment calculator: common questions"*, where the 08-17 golden recorded *"Questions
+people ask about overpaying a loan"*. The faq content_data is md5-identical across today's
+rebuild, so this changed EARLIER — the page re-deployed 08-17 19:00, after the golden was
+captured at ~12:40. **The golden is stale relative to the pages**, which is a second reason a
+compare would have looked alarming. Re-baseline once the harness works again.
+
+**Released the remaining NINE** at priority 15 (`source='loancalc_owner_release_20260823'`),
+excluding the canary and excluding `tool-credit-roadmap`, which the owner has chosen to
+retire.
