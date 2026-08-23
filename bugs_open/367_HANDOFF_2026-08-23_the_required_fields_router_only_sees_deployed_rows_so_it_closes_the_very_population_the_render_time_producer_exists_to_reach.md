@@ -16,6 +16,19 @@ reaches the population the post-deploy check cannot, i.e. sections that render e
 by assembly, and **never become a deployed row**. The producer reaches them; the router then
 discards them as stale.
 
+> # ✅ CONFIRMED BY THE LIVE HANDLER, 2026-08-23 17:09Z — the hand-run prediction held exactly.
+> §2 below predicted this from the router's SQL run by hand. The router then picked the item up
+> for real and did precisely that: `route: "stale"`, `component_id: ""`, `page_type: tool`,
+> `rebuild_policy: owned` — **identical to the predicted row** — and closed item `562788c3` via
+> `close_stale` at **`status='complete'`, attempt_count 1, `error` NULL**.
+>
+> **So the quietness warned about in §4 is not a projection, it is observed.** A true finding —
+> `headline` and `trust_note` really are absent, the refusal really did fire on them minutes
+> earlier — is now recorded in the queue as **`complete`, with no error and no trace of the
+> disagreement**. Any census of "did we action our required-fields findings?" counts this as a
+> success. The pre-fix behaviour (three failed attempts, parked) was ugly and *legible*; this is
+> tidy and wrong.
+
 ## 2. Evidence — the router's own query, run by hand against three real items `[MEASURED 2026-08-23]`
 
 The `classify` SQL was read out of the live `agent_definitions` row and executed with its own two
