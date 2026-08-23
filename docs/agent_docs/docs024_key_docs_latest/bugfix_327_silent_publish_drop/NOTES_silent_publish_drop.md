@@ -318,3 +318,61 @@ duplicate, but with n=10 that is not evidence of immunity either.
 several hundred publishes each way, under load, on a day the cluster is busy. Neither the
 drop rate nor the duplicate rate is established by 10 samples, and this note should not be
 quoted as though either were.
+
+---
+
+## 2026-08-23 — Phase 1: 082 migrated, and every arm verified against live data
+
+### The publish path
+
+```
+$ KAFKA_PUBLISH_BROKER=nonexistent-broker.invalid:9092 \
+    bash scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh \
+    induction-327-notreal.example --email test@example.com
+
+NOT PUBLISHED  topic=system.agent.generic.requests correlation=9cbd57b6-…
+  Nothing landed. RETRY NOW — a retry collides with nothing.
+  | % ERROR: Local: Host resolution failure: … Name does not resolve
+SUBMISSION DID NOT GO OUT — nothing has been queued for induction-327-notreal.example.
+Re-run: scripts/…/082_submit_domain_unified.sh induction-327-notreal.example --email test@example.com
+>>> EXIT CODE: 10
+>>> correct: no 'SAVE:' line on a failed publish
+```
+
+Four properties, each of which was false before: **non-zero exit**, a message naming what
+did not land, **the `SAVE:` line suppressed** on the failing path, and a re-run line that
+actually works.
+
+**A defect found while writing that last one.** The re-run hint was first written as
+`$0 ${DOMAIN} ${*}` — and `$*` is **empty** by then, because the option loop has shifted
+every argument away. A retry hint that silently drops `--mission-file` or `--from` is worse
+than no hint at all: the operator re-runs a *different* submission and believes it is the
+same one. Fixed by capturing `ORIGINAL_ARGS=("$@")` before the loop
+(`082_submit_domain_unified.sh:96`). Nothing would have caught this — the line only prints
+on a path nobody exercises.
+
+### `kafka_verify_landing` — all three arms, against the live database
+
+| arm | input | result |
+|---|---|---|
+| **0 LANDED** | a real recent correlation (`daf6bbe8…`) | `LANDED … COMPLETED|complete` |
+| **12 CONSUMED AND REFUSED** | `c66c480d…`, a real `VALIDATION_ERROR_DROPPED` with **no** orchestration row | quoted the code and the message |
+| **13 PUBLISHED, NOT LANDED** | a freshly generated UUID that never existed | latency guidance, no retry advice |
+
+The **12** arm is the one worth dwelling on: it is exactly the case a lane got wrong on
+2026-08-20, when it blamed kcat for a drop while `agent_error_log` held the delivery record
+the whole time. That misdiagnosis is now mechanical rather than a matter of remembering to
+check — and it is discriminated on live rows, not fixtures.
+
+### What is NOT verified end-to-end, and why
+
+**V5 (exit 11, indeterminate receipt) is verified at the classifier, not end-to-end.** With
+the payload in the container command, the remote is `… && echo PUBLISH_OK`: if kcat
+succeeds the marker prints, so an exit-0-without-receipt cannot be induced from outside the
+library — it requires a genuinely lost output stream. `_kafka_classify 0 ""` → 11 is covered
+in the self-test. Stated rather than glossed, because "all verified" would be a false claim.
+
+**The healthy end-to-end path (V6) is deliberately NOT run.** Submitting a real domain
+creates a site row and consumes every stage `item_key` for ever (`bugs_open/326`), so it is
+not a test you can run twice. The publish half was exercised 10/10 against the scratch topic
+in V2; the landing half was exercised against real landed correlations above.

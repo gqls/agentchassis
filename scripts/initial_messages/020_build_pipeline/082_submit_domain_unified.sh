@@ -90,6 +90,11 @@
 
 set -euo pipefail
 
+# Captured BEFORE the option loop consumes them, so the failure path can print a re-run
+# line that actually works. `$*` at that point is empty — the loop has shifted everything
+# away — and a retry hint that silently drops --mission-file/--from is worse than none.
+ORIGINAL_ARGS=("$@")
+
 DOMAIN="${1:?Usage: $0 <domain> [--from URL] [--fidelity L] [--email E] [--phone P] [--mission TXT] [--mission-file PATH]}"
 shift || true
 
@@ -155,29 +160,74 @@ echo "  Fidelity:      ${FIDELITY}   (RECORDED ONLY — see NOTE in header)"
 echo "  Correlation:   ${CORRELATION_ID}"
 echo "  Orchestration: ${ORCHESTRATION_ID}"
 echo "========================================="
+echo ""
+
+# ---------------------------------------------------------------------------
+# PUBLISH — via the shared, receipt-asserting publisher (bugs_open/327).
+#
+# WHAT THIS REPLACED, AND WHY IT MATTERED HERE MORE THAN ANYWHERE. This block used to be
+# `kubectl -n kafka run -i --rm … kcat -P … <<JSON`. `kubectl run -i` attaches stdin
+# ASYNCHRONOUSLY: lose that race and kcat sees EOF, publishes NOTHING and exits 0, and
+# `--rm` deletes the evidence. On 2026-08-18 one submission in three from this very script
+# vanished that way — no orchestration row, no work item, no error — while 29 orchestrations
+# ran fleet-wide in the same ten minutes.
+#
+# This is the customer-facing entry point of the one-shot build. A dropped submission here
+# is a build that never starts while everybody believes it did.
+#
+# THE "SAVE:" LINE MOVED, AND THAT IS PART OF THE FIX. It used to print three lines ABOVE
+# the publish — telling the operator to record ids for a message that had not yet been
+# attempted, and that might never be sent. Both ids are generated locally by this script,
+# so that line was exactly as confident on the failing path as on the succeeding one. It
+# now prints only after a receipt has been asserted.
+# ---------------------------------------------------------------------------
+REPO_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "$REPO_ROOT" ] || [ ! -f "$REPO_ROOT/scripts/kafka-publish-lib.sh" ]; then
+  echo "ERROR: scripts/kafka-publish-lib.sh not found (repo root: ${REPO_ROOT:-<not in a git repo>})." >&2
+  echo "       This script will not publish without it: an unverified publish is the bug (bugs_open/327)." >&2
+  exit 1
+fi
+. "$REPO_ROOT/scripts/kafka-publish-lib.sh"
+
+PUBLISH_RC=0
+kafka_publish_checked \
+  --topic system.agent.generic.requests \
+  --correlation "$CORRELATION_ID" \
+  --payload "{\"action\":\"orchestrate\",\"config\":{\"agent_type\":\"$AGENT\"},\"input_data\":$INPUT_DATA}" \
+  --header "request_id=$REQUEST_ID" \
+  --header "message_id=$MESSAGE_ID" \
+  --header "orchestration_id=$ORCHESTRATION_ID" \
+  --header "orchestration_name=submit-${DOMAIN}-$(date +%Y%m%d-%H%M%S)" \
+  --header "step_name=start" \
+  --header "client_id=$CLIENT_ID" \
+  --header "message_type=request" \
+  --header "action=orchestrate" \
+  --header "from_agent_type=user" \
+  --header "from_agent_id=cli" \
+  --header "responses_topic=system.agent.generic.responses" || PUBLISH_RC=$?
+
+if [ "$PUBLISH_RC" -ne 0 ]; then
+  echo "" >&2
+  echo "SUBMISSION DID NOT GO OUT — nothing has been queued for ${DOMAIN}." >&2
+  echo "Re-run: $0 ${ORIGINAL_ARGS[*]}" >&2
+  exit "$PUBLISH_RC"
+fi
+
 echo "SAVE: CORRELATION_ID=${CORRELATION_ID}  ORCHESTRATION_ID=${ORCHESTRATION_ID}"
 echo ""
 
-kubectl -n kafka run -i --rm kcat-submit-$(date +%s) \
-  --image=edenhill/kcat:1.7.1 \
-  --restart=Never -- \
-  kcat -P \
-  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
-  -t system.agent.generic.requests \
-  -H correlation_id=$CORRELATION_ID \
-  -H request_id=$REQUEST_ID \
-  -H message_id=$MESSAGE_ID \
-  -H orchestration_id=$ORCHESTRATION_ID \
-  -H orchestration_name=submit-${DOMAIN}-$(date +%Y%m%d-%H%M%S) \
-  -H step_name=start \
-  -H client_id=$CLIENT_ID \
-  -H message_type=request \
-  -H action=orchestrate \
-  -H from_agent_type=user \
-  -H from_agent_id=cli \
-  -H responses_topic=system.agent.generic.responses <<JSON
-{"action":"orchestrate","config":{"agent_type":"$AGENT"},"input_data":$INPUT_DATA}
-JSON
+# Confirm it was CONSUMED, not merely accepted by the broker. A receipt proves the bytes
+# left; only a row proves something picked them up. This also names the case the receipt
+# cannot see — a refusal recorded in agent_error_log — and warns if bugs_open/326's
+# any-status dedup means this run queued nothing new.
+LANDING_RC=0
+kafka_verify_landing "$CORRELATION_ID" 60 || LANDING_RC=$?
+if [ "$LANDING_RC" -ne 0 ]; then
+  echo "" >&2
+  echo "The message WAS published (receipt confirmed) but has not landed. Read the guidance above" >&2
+  echo "before re-submitting: re-running is only correct in one of these cases, and ${DOMAIN}'s" >&2
+  echo "stage item_keys may already be consumed (bugs_open/326)." >&2
+fi
 
 echo ""
 echo "=== Monitor (psql below = your shortcut / kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db) ==="
