@@ -496,3 +496,41 @@ The four `low` ones, and what I did with each:
    filters on an unindexed expression hourly.
 4. *"two migrations racing one row across sessions … worth a tracked follow-up to reconcile rather
    than perpetual either/or guards."* Agreed. The either/or guard is a bridge, not a home.
+
+---
+
+## 2026-08-23 — the ratchet, the index, and a number I stated two ways in one paragraph
+
+**The backlog is capped, as a RATCHET** (`3ed3e4a8c`). Owner said "cap it"; a flat target would
+have been red from day one against a backlog of 32, and this checker's own header says why that is
+self-defeating. Above the cap is a finding, below it is a nudge naming the number to lower to,
+absent is a finding. Live: *"32 unruled, exactly at the cap — the backlog cannot grow"*, and a copy
+with the cap at 31 breaches, so the clean reading is a measurement.
+
+**The index is live** (`570`, applied by hand, recorded). Measured at the artefact after applying,
+not just in the trial: the strike ladder now plans `Index Scan using idx_error_log_code_time`,
+**Buffers: shared read=3** against 8,018 before.
+
+**The council's objection had a wrong premise and a right conclusion, and both halves were worth
+measuring.** The seat worried about 567's *sweep*; the sweep never needed an index (already driven
+by `idx_error_log_time`, `split_part` only a Filter, 7 buffers). The *readers* needed one badly.
+Had I acted on the objection as stated I would have added an index for a query that did not want
+one and never looked at the three that did.
+
+> **CORRECTED 2026-08-23 — a small one, mine, and exactly the discipline this lane keeps preaching.**
+> `570`'s submission says *"four indexes before this change"* and then **lists five**
+> (`agent_error_log_pkey`, `idx_error_log_agent`, `idx_error_log_site`, `idx_error_log_time`,
+> `idx_error_log_unresolved`). The table had **five**, or four besides the primary key. I inherited
+> "four indexes, none on it" from the original handoff and repeated it without recounting, then
+> pasted a list that contradicted it in the same sentence. Nothing turns on it — the negative
+> control names all five explicitly and passed — but a count repeated from another doc without
+> re-counting is the exact failure the owner's dated-census rule exists for, and it survived into a
+> council submission.
+
+**⚠ `/tmp` IS FULL — 16 GB tmpfs at 100%, measured 2026-08-23.** This breaks Go builds with
+`link: mapping output file failed: no space left on device`, which reads like a toolchain fault and
+is not one. Worse, **the standard HEAD-verification recipe in this lane's own handoff starts
+`rm -rf /tmp/h && mkdir /tmp/h`** — so the check every session is told to run to prove HEAD compiles
+is the check that now fails first. Workaround: build somewhere off `/tmp` **and** set
+`TMPDIR=<that dir>`, because the Go linker's work directory follows `TMPDIR`, not the build path.
+Fleet-wide, not this lane's to fix.
