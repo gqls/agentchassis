@@ -370,3 +370,33 @@ measured on.
 comparability of the window it is measured over*, and an infrastructure outage inside your
 measurement window silently breaks that comparability while leaving every query correct. I set the
 51.4 h bar carefully, hours before the cap existed, and it was obsolete before it was tested.
+
+## §7d — 2026-08-23: the cap lifted, so the clock is re-based — and it restarts at ~zero
+
+Per §7c, the 51.4 h bar re-bases from the resumption of Anthropic calls, not from when `524` applied.
+
+[MEASURED 2026-08-23 11:54Z] The outage ran **2026-08-22 18:15:51Z → 2026-08-23 10:41:42Z**, i.e.
+**16 h 26 m** — verified with the provider-filtered query (Anthropic **53 ok / 16 failed** in the
+last 6 h, last success 42 s before the check), because the unfiltered version had already produced a
+false all-clear once during this outage.
+
+| | |
+|---|---|
+| re-based clock (since Anthropic resumed) | **1.2 h** |
+| the bar it must beat | **51.4 h** (and see the caveat below) |
+| sweep resets since `524` | **0** |
+| claims in the last hour | **54** — work is flowing again, above the 20.4/h pre-cap rate |
+
+**So the honest position is unchanged and now for a third reason: the clock effectively restarted
+this morning.** Nothing can be concluded from the silence before roughly **2026-08-25 14:00Z**, and
+even that assumes no further interruption.
+
+⚠ **The 51.4 h figure itself is now suspect and should be re-derived before it is used.** It was
+measured over the 14 days to 2026-08-21 — a window that did not contain a 16-hour fleet outage. A
+gap distribution measured across a period containing one is not the same distribution. Whoever
+finally judges this should re-run the gap query over a clean fortnight rather than inherit the
+number, which is the same mistake in a different coat.
+
+**Meanwhile the cheap check stands and still passes**: the sweep is enabled, firing on its 120 s
+interval, and its `pre_query` parses. That is what rules out the alarming reading, and it costs one
+query — unlike the silence, which currently costs two days of waiting to say nothing.
