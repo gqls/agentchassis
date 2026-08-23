@@ -815,3 +815,62 @@ an unscrapable exemplar, because the candidate pool is a property of the vertica
 sampling. Retrying is therefore **structurally incapable** of fixing this — which promotes fix
 candidate 2 (persist the refusals, exclude them at selection) from "nice" to "the only one that
 works", and demotes "just retry" from a mitigation to a way of paying three times for one failure.
+
+### 19:23Z — attempt 3 kills the build; and the re-submission VERIFIES the `326` fix live, inside the window
+
+**Attempt 3 (19:20:32Z → FAILED 19:22:13Z at `crawl_exemplar_2`).** Third exemplar set
+`[MEASURED]`:
+
+| slot | attempt 1 | attempt 2 | attempt 3 |
+|---|---|---|---|
+| 1 | gardenersworld.com | gardenersworld.com | gardenersworld.com |
+| 2 | **thespruce.com** ✗ | which.co.uk | **thespruce.com** ✗ |
+| 3 | which.co.uk | **thespruce.com** ✗ | which.co.uk/reviews/garden-tools |
+
+**Three identical organisation sets, and it died at whichever slot `thespruce.com` occupied.** That
+is now settled beyond the two-attempt version filed in `376` §4 — sampling permutes the order, it
+does not re-draw the pool. (Attempt 3 also nominated a *deep path* for Which? rather than the front
+page the prompt asks for — a variation in the URL, not in the set, and irrelevant to the failure.)
+
+`needs_vertical_research` is `failed`, `attempt_count=3`. **The build is dead**, ~1h37m after the
+item was created, having produced four classifier specs and nothing else. No `needs_strategy` exists
+and nothing will create one (§2a of `376`).
+
+**Then the `bugs_open/326` fix, verified live and inside the window.** The natural operator recovery
+here is to re-submit, so I did — nothing but the domain, as always — and captured the pair the 326
+lane asked for, before and after, with the outcome-meanings agreed **in advance** so neither side
+could reason backwards from the result.
+
+- terminal sibling `07b589a9…` created **17:17:15.482481Z**
+- new row **`3921bde4-968e-464d-8c2f-f682f495edf4`**, `research_garden-tools.uk`, `triaged`, created
+  **19:23:06.330863Z**
+- offset **2h05m51s** — **inside** the 3.0h brake that would have swallowed it this morning
+- `claimed` items on the site: **0** before and after
+
+**⇒ THE FIX WORKS**, on a live greenfield build, at an offset that would have failed before
+migration 572. This is the first-hand evidence that bug never had.
+
+**Three honesty notes about the measurement, because a clean result is exactly when to check the
+instrument:**
+1. **The `claimed_now=0` control did no work.** It exists to separate "no row was created" from "a
+   row was created but not dispatched". A row appeared, so it never discriminated anything here. It
+   is an *unused* control, not corroboration — recording it as though it confirmed something would
+   be the `[MEASURED]`-that-could-not-come-out-otherwise error.
+2. **Re-submission is not inert on the specs.** The old `submission` spec flipped `is_current`
+   `t → f` and a second was written. Anything downstream reading `aspect='submission'` and assuming
+   one row will now see two.
+3. **Timing was load-bearing and nearly went wrong.** The item reached `failed` at 19:22:13Z, ~40s
+   before my BEFORE snapshot. The 326 lane's original instruction was "re-submit whenever, whatever
+   the offset"; had I followed it while `needs_vertical_research` was still `triaged`, that item was
+   **non-terminal and therefore inside `idx_swi_dedup`'s partial index**, the classifier's own
+   `create_next_item` would have conflicted on the key, and I would have handed them a **false
+   negative on their fix's first live test** — caused by my timing, not their code. I raised it,
+   they agreed it was the better call. **Wait for the key to be genuinely free before testing a
+   dedup fix.**
+
+**Why I am letting the re-submitted build run rather than stopping it.** Attempts 1-3 all read the
+**same** classifier specs, so their identical exemplar sets could in principle be an artefact of
+fixed input. The re-submission re-runs `domain-research-classifier` from scratch, which may write
+**different** specs — so if the exemplar set comes back the same *again* off fresh specs, that is a
+materially stronger result than three retries could ever give. It costs fleet time and buys a real
+control, and it is also simply what an operator would see.
