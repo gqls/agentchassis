@@ -45500,3 +45500,46 @@ PARSE.** A tool that separates data on stdout from commentary on stderr is follo
 convention exactly; merging them is the caller destroying that separation. **The cheap
 check is to parse the file you just wrote before you move it anywhere** — one line, and it
 is the difference between a slip and a corrupted artefact in the cluster.
+
+### 8. (327 lane) I re-verified a "dropped message" against a table that had forgotten the day it happened — the zero I got could not have come out otherwise
+
+Picking up `bugs_open/327` (the build trigger publishes nothing and exits 0), the obvious
+first move was to re-confirm the bug's own headline evidence: correlation
+`8fa2a4a6-…` had **0 rows** in `orchestration_states` on 2026-08-18. I ran exactly that
+query and got **0**, which agreed with the bug file and was one keystroke from being
+written down as *"re-verified 2026-08-23, still zero."*
+
+**It proved nothing.** `orchestration_states` retains about two days:
+
+```sql
+SELECT created_at::date, count(*) FROM orchestration_states GROUP BY 1 ORDER BY 1;
+-- 2026-07-19|6  2026-07-20|8  2026-07-21|6  2026-07-24|4  2026-08-22|1417  2026-08-23|3140
+```
+
+**Zero rows exist for the whole of 2026-08-18** — for every correlation, landed or lost.
+The query returns 0 for a message that was delivered, consumed and completed just as
+readily as for one that vanished. It was not a measurement; it was the retention window
+wearing a measurement's clothes.
+
+**What caught it:** running the demand control before writing the claim down, because the
+result was an ABSENCE and this estate's rule is that an absence needs proof the instrument
+could have spoken. One `GROUP BY` on the date, about fifteen seconds.
+
+**The cheap check, and it generalises past this table:** before believing any
+`count(*) = 0` about a past event, ask the table what it still holds *from that date* —
+not whether it holds rows at all. `SELECT min(created_at), count(*) FILTER (WHERE
+created_at::date = '<the date>')` is the whole check. A table with 4,580 rows in it looks
+perfectly healthy while being completely silent about last week.
+
+**The half I got right and want to keep:** the same reflex applied to the *other* absence
+in this investigation and paid off properly. Ruling out the competing explanation (a
+validation refusal, which produces identical absences) needed `agent_error_log` to be
+silent about the correlation — so I asked whether that recorder was alive on 2026-08-18,
+and it was: **3,761 rows including a real `VALIDATION_ERROR_DROPPED`.** Same reflex, same
+cost, and there it converted a meaningless silence into a decisive one. The lesson is not
+"be suspicious of zeros" — it is that **the control is what tells you which kind of zero
+you have**, and you cannot tell by looking.
+
+**Where the bug's validity actually rests, corrected:** at the SOURCE, not the database.
+`082_submit_domain_unified.sh` still carries the racing `kubectl run -i … <<JSON` form and
+is unchanged since 2026-07-30 — a fact no retention window can erase.
