@@ -15617,3 +15617,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **also: the count travels badly.** The 311 lane pinned **eight** incumbents (its own prose says "seven" and lists eight); the 2026-08-23 garden-tools handoff carried **three**. Control on the source lane's set, not the set your handoff quotes, or five incumbents go unobserved for the whole run
 - **source:** the one-shot-build lane's pre-run control before the `garden-tools.uk` build, 2026-08-23 17:2xZ. Contribution filed at `docs/agent_docs/docs024_key_docs_latest/bugfix_311_component_keys/CONTRIB_2026-08-23_from_garden_tools_lane_your_pinned_md5_baselines_are_superseded.md`; lane record in `docs024_key_docs_latest/loanzy_uk_example_site/NOTES_loanzy_uk_example_site.md`
 - **added:** 2026-08-23, loanzy_uk_example_site (one-shot build route) lane
+
+### `pages.build_status='needs_rebuild'` is a STANDING INVITATION — a sweep regenerates the page hours later and silently discards every manual edit you made
+
+- **footprint:** `pages.build_status`, `build-dispatch-loop`, `page-build-handler`, `page-content-writer`, `page_components.content_data`, `page_components.rendered_html`, `scripts/initial_messages/110_page_rebuild/072_page_rebuild`, any hand-repair of a page's stored content
+- **fires when:** you edit a page's `content_data` / `rendered_html` directly — removing a claim, stripping a disclosure, embedding an image, fixing a link — on a page whose `build_status` is `needs_rebuild`. Your edit applies, your re-render deploys it, you verify at the served page, and it is correct. **Then it is not.**
+- **the trap:** `needs_rebuild` is not a note-to-self, it is a **queue membership**. `build-dispatch-loop` sweeps for it on its own schedule and dispatches `page-build-handler` → `page-content-writer`, which **regenerates every section from the specs** and overwrites `content_data` and `rendered_html` wholesale. Nothing warns you, nothing conflicts, and the run reports success because from its side it did exactly its job. `[MEASURED 2026-08-23, apis.uk]` six illustrations were embedded and deployed (verified: served bytes == repo commit, all 6 sections carrying `<img>`, every image URL 200). A sweep at **15:56** dispatched the writer; by **16:00:18** all six sections had different headings and **zero** `<img>` in either column. Elapsed: **~4 minutes** after a verification that was correct when made.
+- **⚠ why "I verified it" does not protect you:** the verification is not wrong, it *expires*. Every check in this estate's playbook — read the served bytes, compare against the repo commit, assert both DB columns — is a statement about **now**, and `needs_rebuild` guarantees a future writer. **A page in that state has no stable content, only a most-recent render.**
+- **the tell, and it is the field itself:** `SELECT build_status FROM pages WHERE id=…`. Fleet-wide as of 2026-08-23, **703** pages are `deployed`, **72** `needs_rebuild`, **64** `planned` — so `deployed` is the settled state and `needs_rebuild` is a live queue you are standing in.
+- **the check, BEFORE you hand-edit a page and again before you call it done:**
+  ```sql
+  SELECT name, build_status FROM pages WHERE site_id=(SELECT id FROM sites WHERE domain='<domain>');
+  -- needs_rebuild? your edit has a shelf life. Settle it FIRST, in this order:
+  UPDATE pages SET build_status='deployed', updated_at=now() WHERE id='<page>';
+  -- ...THEN apply the edit, THEN re-render.
+  ```
+  **Order is the whole control.** Edit-then-settle leaves a window; settle-then-edit closes it. And re-check the field after any `page-rebuild`, which sets it back.
+- **the honest limit:** clearing the flag stops the sweep from *regenerating* the page, which is what you want while a hand-edit is standing — but it also means a genuinely-needed rebuild will not happen until someone sets it again. If the page still needs a real rebuild, the edit you are protecting is a workaround and should be recorded as one.
+- **relations:** the render-cache entry above (`content_data` clean while `rendered_html` serves the old bytes) and the deploy-lag entry (`COMPLETED` is the commit, not the deploy) are the other two ways a page-edit verification lies. **All three fired on the same page on the same day.**
+- **source:** 2026-08-23, `apis_uk_bees_homepage` lane — found only because the owner sent a screenshot showing headings the lane had never written, four minutes after a full green verification
+- **added:** 2026-08-23, `apis_uk_bees_homepage` lane
