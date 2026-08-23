@@ -136,11 +136,26 @@ whichever slot `thespruce.com` occupied.** Attempt 2 got one step further and th
 (`/reviews/garden-tools`) rather than the front page the prompt asks for — a variation in the URL,
 not in the set, and irrelevant to the refusal.
 
-> **Caveat on what these three attempts can and cannot establish.** All three read the **same**
-> classifier specs, so strictly they show the selection is stable *given fixed input*, not that the
-> vertical always yields this set. A fresh `domain-research-classifier` run (re-submitted 19:23:06Z)
-> re-derives the specs and is the stronger control; its result will be appended here. **Do not
-> quote "three identical sets" as proof of vertical-level stability until that lands.**
+> **The caveat, and its DISCHARGE.** All three attempts above read the **same** classifier specs, so
+> strictly they showed the selection is stable *given fixed input* — not that the vertical always
+> yields this set. **The control has now run and it settles it.**
+>
+> The domain was re-submitted 19:23:06Z, which re-ran `domain-research-classifier` from scratch. It
+> produced **materially different specs** — `industry_tags` came back with 10 entries against the
+> first run's 8, and reworded (`buying-guide-platform → buying-guides`, `uk-gardening → uk-retail`,
+> new `allotment`/`tool-directory`). Off those fresh specs, `select_exemplars` returned
+> `[MEASURED 19:30Z]`:
+>
+> | slot | attempt 4 — FRESH specs |
+> |---|---|
+> | 1 | `which.co.uk` |
+> | 2 | `gardenersworld.com` |
+> | 3 | **`thespruce.com`** |
+>
+> **The same three organisations, a fourth time, in a fourth permutation, from re-derived input.**
+> So the candidate pool is a property of the **vertical**, not of the specs and not of the sampling.
+> "Sampling permutes, it does not re-draw" is now unconditional, and any fix that relies on a retry
+> eventually picking differently is disproved rather than merely doubted.
 
 ## 4. Why "just retry" cannot work, and why that is the interesting part
 
