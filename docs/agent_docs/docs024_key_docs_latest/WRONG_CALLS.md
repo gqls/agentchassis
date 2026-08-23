@@ -45475,3 +45475,28 @@ or tag; `id="c-<function>-` is there regardless of styling. Both are properties 
 itself. `<section>`, `<input>` and a URL pattern are all properties of *a rendering I assumed*.
 **And when a measurement contradicts a cheaper one you already have — the byte count went up,
 the database says it is attached — do not invent a mechanism to reconcile them. Go and look.**
+
+### 7. (309/362 lane) I merged stderr into a data file with `2>&1` and copied the corrupted result over the live baseline
+
+Regenerating the grandfather baseline after a repair, I wrote
+`--emit-baseline ... > new.json 2>&1`. The mode writes the JSON to **stdout** and its
+one-line summary ("emitted 65 baseline entries from the shipped rule") to **stderr**, so
+the summary landed inside the JSON and made it unparseable — and I then `cp`'d that file
+over the baseline the daily check reads. I had written the same command correctly ten
+minutes earlier (`> file 2>err`), which is what makes this careless rather than unlucky.
+
+**What caught it, immediately:** the very next step parsed the file and threw
+`JSONDecodeError: Extra data: line 656`, and the check itself then exited **2** rather
+than reporting a clean estate — the refuse-without-a-readable-baseline design doing its
+job for the second time in two days.
+
+**What I did right, and would do again:** `git checkout --` the baseline *before*
+re-emitting, so the regeneration ran from a known-good state rather than from a corrupted
+one. Re-emitting on top of a corrupted file is how a one-command slip becomes a
+half-correct data file that parses.
+
+**The shape: `2>&1` is for logs you are going to READ, never for a stream you are going to
+PARSE.** A tool that separates data on stdout from commentary on stderr is following the
+convention exactly; merging them is the caller destroying that separation. **The cheap
+check is to parse the file you just wrote before you move it anywhere** — one line, and it
+is the difference between a slip and a corrupted artefact in the cluster.
