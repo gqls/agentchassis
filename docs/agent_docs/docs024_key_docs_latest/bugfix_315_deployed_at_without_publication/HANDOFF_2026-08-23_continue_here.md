@@ -17,7 +17,10 @@
 > had been reported as deployed and had not reached the chassis, and the tell was that `IMAGE_TAG`
 > still named the tag already running.
 >
-> **ONE VERIFICATION REMAINS, and it is the lane's closure test.** `vetcomparison.uk` has not been
+> **✅ CLOSURE TEST PASSED 2026-08-23 15:20Z — see §1b. The paragraph below is what it asked for,
+> kept because the ORDER of its queries is the reusable part.**
+>
+> ~~**ONE VERIFICATION REMAINS, and it is the lane's closure test.**~~ `vetcomparison.uk` has not been
 > swept since `10:14Z` (per-site floor is ~4h), so the guard has not yet met the real case. Both
 > false items are now `rejected`, so the dedup slot is FREE — which makes the next pass a genuine
 > test rather than a dedup no-op. Check it with the DEMAND CONTROL FIRST, because "no item filed"
@@ -108,6 +111,35 @@ was **15 seconds AFTER `deployed_at`**, so the object was current before any has
 **The rule:** a hash comparison can only tell you **THAT** two bodies differ. Before naming the
 difference — stale, old, truncated — **`diff` them.** Logged in `WRONG_CALLS.md` and `LANDMINES.md`.
 
+## 1b. THE CLOSURE TEST — PASSED, and here is every alternative explanation it rules out
+
+`[MEASURED 2026-08-23 15:20Z]` The sweep ran and filed nothing. "Filed nothing" is worthless on its
+own, so each way it could have been vacuous was closed:
+
+| what could have made "0 filed" meaningless | measurement | verdict |
+|---|---|---|
+| the check never ran over this site | a pass at **14:21:17Z**, after the 11:51Z roll | ran |
+| the check errored or was unregistered | `checks_run: [site_unreachable, page_content_divergence]`, `checks_failed: []`, `checks_unregistered: []` | ran cleanly |
+| dedup silently held the slot | both prior items are `rejected`, which `idx_swi_dedup` EXCLUDES — the slot was free | a real test |
+| the page was inside the settle window, so never judged | `deployed_at` 11:14:40Z vs the pass at 14:21:17Z = **3h07m**, against a 60-minute window | judged |
+| the page simply converged, so there was nothing to suppress | browser `Accept` still returns `97fa37ca…` **3/3**, ≠ the fingerprint. The divergence is STILL THERE | the guard suppressed it |
+| the page was redeployed mid-pass | `content_hash` still `4dbd143f…`, unchanged | stable |
+
+And the suppression condition itself, still true: `Accept: */*` returns **exactly**
+`pages.content_hash`, 3/3.
+
+**The before/after, on one site whose situation never changed:**
+
+| binary | items filed by this check |
+|---|---|
+| before the guard (≤ 11:51Z) | **2** — and it re-detected on *every* pass, six consecutive |
+| after the guard (> 11:51Z) | **0** |
+
+⚠ **What this does NOT establish** — the lane must not overstate this on the way out. It proves the
+check no longer files a KNOWN false positive whose mechanism was measured. It is not evidence that
+the check would catch a real divergence: it still has **zero** live true positives, and remains a
+regression guard proved by induced faults.
+
 ## 2. What was done 2026-08-23
 
 | piece | state |
@@ -142,7 +174,7 @@ lanes (`bugs_open/215`, `299`) were burned by the grep-the-binary route it repla
 | item | state | whose |
 |---|---|---|
 | ~~Roll the two guards~~ | ✅ **DONE 2026-08-23 11:51Z**, `v1.0.1328` / `2dbe12f1d`, both ancestry-proved with reverse controls | done |
-| **Verify at the artefact — THE CLOSURE TEST** | pending the next natural pass over `vetcomparison.uk` (~14:14Z; last swept 10:14Z, ~4h floor). Both false items are `rejected` so the dedup slot is free and the pass is a real test. **Run the demand control first** — see §0 | **this lane's, and it is the last one** |
+| ~~Verify at the artefact — THE CLOSURE TEST~~ | ✅ **PASSED 2026-08-23**, six ways — see §1b | done |
 | **Resubmit the council round** | `submission_315_raw_object_guard.json` covers BOTH guards, validated, ready. `RESUBMIT_CORR=1ceef75a-81ee-4302-8182-69b0f6602bca` | this lane's, when the cap lifts |
 | **D9 — escalate on PERSISTENCE across passes** | unbuilt. Convergence times (seconds → ~17 min → 1h20 → 21h) OVERLAP the failure, so no settle-window value separates them | open design question |
 | **D6 — unarmed stamper NULLs the hash** | unbuilt; 6 of 6 armed today, so it is a backstop for the NEXT one added | open, low urgency |

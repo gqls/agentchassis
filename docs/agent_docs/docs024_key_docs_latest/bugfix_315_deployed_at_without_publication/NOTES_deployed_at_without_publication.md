@@ -2269,3 +2269,37 @@ anything else, so it cannot fire the availability agent — and editing another 
 to dispatch an agent is not worth the blast radius to save two hours. `[MEASURED 11:56Z]` the
 suppression condition is stable meanwhile: `Accept: */*` → exactly `pages.content_hash` 3/3, browser
 → the injected body 3/3.
+
+### 8. CLOSURE TEST PASSED — and the work was in ruling out the vacuous readings, not in the zero
+
+`[MEASURED 2026-08-23 15:20Z]` The natural pass over `vetcomparison.uk` landed at **14:21:17Z** and
+filed nothing. On its own that is worth nothing — this lane's whole week has been about results that
+could not have come out otherwise — so each vacuous explanation was closed in turn:
+
+- **the check never ran** → a pass exists at 14:21:17Z, after the 11:51Z roll. This is the demand
+  control, and it is queried FIRST on purpose;
+- **it errored** → `checks_run: [site_unreachable, page_content_divergence]`, `checks_failed: []`,
+  `checks_unregistered: []`;
+- **dedup held the slot** → both prior items are `rejected`, which `idx_swi_dedup` excludes, so the
+  slot was genuinely free;
+- **it was inside the settle window** → `deployed_at` 11:14:40Z vs the pass at 14:21:17Z is **3h07m**
+  against a 60-minute window. (Worth noting: the page HAD been redeployed at 11:14Z and its
+  `content_hash` was unchanged at `4dbd143f…` — a byte-identical rerender, which is exactly the case
+  DGH-009 says a sha alone cannot distinguish);
+- **the page just converged** → browser `Accept` still returns `97fa37ca…` **3/3**. The divergence is
+  still there. The guard is what suppressed it;
+- **the fingerprint moved** → `content_hash` unchanged.
+
+Before the guard this site filed on every pass (2 items, six consecutive detections). After it, zero,
+with the situation on the wire unchanged.
+
+The one piece of evidence I could NOT get: the `origin object matches the fingerprint; the difference
+is edge-injected` log line. The run executed on a short-lived spawned pod that has since been
+deleted, so its logs are gone. Recorded as absent rather than quietly dropped — the branch is
+established by elimination plus the two mutation proofs, not by having read it fire.
+
+> **[WHAT I WOULD DO DIFFERENTLY]** A skip that matters should be observable somewhere that outlives
+> a pod. The skip COUNTERS are logged and vanish with the pod; `items_skipped` in the result payload
+> counts only dedup skips at insert time, so `edge_injected` never reaches the durable record. If D9
+> is ever built, carry the skip counters into `discovery_result` — that is a one-line change and it
+> would have made this paragraph a query instead of an elimination argument.
