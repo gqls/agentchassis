@@ -59,7 +59,7 @@
 // proven by an induced fault in check_page_content_divergence_test.go rather than
 // by hope.
 //
-// ── THE SIX THINGS THAT COULD MAKE THIS CHECK LIE, AND WHAT STOPS EACH ────
+// ── THE SEVEN THINGS THAT COULD MAKE THIS CHECK LIE, AND WHAT STOPS EACH ──
 //
 //  1. DELIVERY STILL IN FLIGHT. A page stamped seconds ago has not reached the
 //     origin yet. → `divergenceSettleWindow` (60 min), and the finder will not look at a
@@ -172,6 +172,14 @@
 //     while answering `Accept: */*` with the current object would be exonerated
 //     here. That is why the branch SKIPS rather than RETRACTS — it declines to
 //     judge, and asserts no health it did not observe.
+//
+//  7. A 200 THAT IS NOT THE PAGE. An edge can answer 200 with a zero-length
+//     body or a small interstitial. Those hash STABLY, so the confirmation
+//     fetch AGREES and guard 4 does not filter them — two consecutive empty
+//     200s would file against a healthy page. → `divergenceMinPlausibleBody`,
+//     a floor measured at ~5.5x below the smallest page the fleet actually
+//     serves. PLAN D10. The empty half was observed live 2026-08-22; the
+//     interstitial half is precautionary.
 //
 // ── THE OTHER PUBLISH SEAM, AND WHY THIS CHECK STAYS OFF IT ────────────────
 //
@@ -418,6 +426,39 @@ const (
 	divergenceAcceptRaw  = "*/*"
 )
 
+// divergenceMinPlausibleBody is the floor below which a 200 body is treated as
+// an artefact of the delivery path rather than as a page, and is NOT judged.
+//
+// WHY A FLOOR AT ALL. A non-200 is already unjudgeable, but an edge can return
+// 200 with a body that is not the page: a zero-length response (sha256
+// e3b0c44298fc…, the hash of the empty string, OBSERVED live during this lane's
+// 2026-08-22 watch) or a small interstitial. Those bodies hash STABLY, so the
+// confirmation fetch agrees with the first and the moving-target guard does not
+// filter them — two consecutive empty 200s would file a work item against a
+// perfectly healthy page.
+//
+// WHY 2048. `[MEASURED 2026-08-23]` 45 live pages sampled at random from the 232
+// carrying a fingerprint, fetched with the check's own header: the SMALLEST body
+// served fleet-wide was **11,388 bytes** (`webdesign.co.uk/learn/design/
+// oklch-colors.html`) and NONE was under 4,096. So this floor sits ~5.5x below
+// the smallest real page, which is the margin that makes it safe rather than
+// merely plausible.
+//
+// WHAT IT GIVES UP, and why that is the right way round: a genuinely tiny page
+// that genuinely diverged would be skipped. That costs ONE PASS — the sweep
+// re-probes the whole fleet every few hours — whereas a false item costs a human
+// a triage. The skip is COUNTED and LOGGED, so the blindness is visible rather
+// than silent, which is this file's standing rule.
+//
+// ⚠ RE-MEASURE IF THE ESTATE STARTS SHIPPING SMALL PAGES. The disconfirming
+// query is the sample above; a page legitimately under ~4KB means this constant
+// is now doing something it was not measured for.
+//
+// NOTE the EMPTY half is observed and the INTERSTITIAL half is precautionary:
+// this lane has not seen an edge error page served at 200, only at non-200,
+// where it is already skipped.
+const divergenceMinPlausibleBody = 2048
+
 // divergenceProbeResult is what one fetch observed. A transport failure is NOT a
 // status and must never be compared against 200.
 type divergenceProbeResult struct {
@@ -506,6 +547,7 @@ type divergenceSkips struct {
 	redeployedMidPass int // the page's own intent changed while we looked
 	edgeInjected      int // the origin object is correct; the edge added to it
 	rawProbeUnusable  int // the raw-object probe could not be read at all
+	implausibleBody   int // a 200 whose body is too small to be a page
 }
 
 func (c *PageContentDivergenceCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
@@ -666,6 +708,19 @@ func (c *PageContentDivergenceCheck) Run(dctx DiscoveryCheckContext) (*CheckResu
 					zap.String("second", shortHash(j.second.hash)))
 				continue
 			}
+			// An implausible body is not this page, so it is not evidence about
+			// this page. Placed AFTER the hash-match arm above deliberately: if a
+			// page really is this small and really does match, that is a healthy
+			// observation and must still retract.
+			if j.first.bytes < divergenceMinPlausibleBody {
+				skips.implausibleBody++
+				dctx.Logger.Info("page_content_divergence: 200 body too small to be a page, not judged",
+					zap.String("url", t.url),
+					zap.Int64("bytes", j.first.bytes),
+					zap.Int("floor", divergenceMinPlausibleBody))
+				continue
+			}
+
 			// ── THE RAW-OBJECT GUARD ────────────────────────────────────────
 			//
 			// WHAT IS BEING RULED OUT. A CDN may add bytes to a response on its
@@ -900,7 +955,7 @@ func contentIntentUnchanged(dctx DiscoveryCheckContext, pg divergencePage) (bool
 func logDivergenceSkips(dctx DiscoveryCheckContext, s divergenceSkips, candidates int) {
 	if s.unfetchableURL == 0 && s.overCap == 0 && s.transportError == 0 &&
 		s.notOK == 0 && s.oversizeBody == 0 && s.movingTarget == 0 && s.redeployedMidPass == 0 &&
-		s.edgeInjected == 0 && s.rawProbeUnusable == 0 {
+		s.edgeInjected == 0 && s.rawProbeUnusable == 0 && s.implausibleBody == 0 {
 		return
 	}
 	dctx.Logger.Info("page_content_divergence: pages not judged",
@@ -914,5 +969,6 @@ func logDivergenceSkips(dctx DiscoveryCheckContext, s divergenceSkips, candidate
 		zap.Int("moving_target", s.movingTarget),
 		zap.Int("redeployed_mid_pass", s.redeployedMidPass),
 		zap.Int("edge_injected", s.edgeInjected),
-		zap.Int("raw_probe_unusable", s.rawProbeUnusable))
+		zap.Int("raw_probe_unusable", s.rawProbeUnusable),
+		zap.Int("implausible_body", s.implausibleBody))
 }

@@ -318,8 +318,8 @@ func TestPageContentDivergence_OriginServingTwoBodiesFilesNothing(t *testing.T) 
 
 	fetcher := newStubFetcher()
 	fetcher.seq["https://"+divTestDomain+"/index.html"] = []divergenceProbeResult{
-		{hash: divOtherHash, status: 200, bytes: 100},
-		{hash: "2222222222222222222222222222222222222222222222222222222222222222", status: 200, bytes: 101},
+		{hash: divOtherHash, status: 200, bytes: 41000},
+		{hash: "2222222222222222222222222222222222222222222222222222222222222222", status: 200, bytes: 41001},
 	}
 	fetcher.install(t)
 
@@ -353,7 +353,7 @@ func TestPageContentDivergence_RedeployedDuringThePassFilesNothing(t *testing.T)
 
 	fetcher := newStubFetcher()
 	fetcher.seq["https://"+divTestDomain+"/index.html"] = []divergenceProbeResult{
-		{hash: divOtherHash, status: 200, bytes: 100},
+		{hash: divOtherHash, status: 200, bytes: 41000},
 	}
 	fetcher.install(t)
 
@@ -506,7 +506,7 @@ func TestPageContentDivergence_EveryRequestCarriesAUniqueCacheBuster(t *testing.
 
 	fetcher := newStubFetcher()
 	fetcher.seq["https://"+divTestDomain+"/index.html"] = []divergenceProbeResult{
-		{hash: divOtherHash, status: 200, bytes: 10},
+		{hash: divOtherHash, status: 200, bytes: 41000},
 	}
 	fetcher.install(t)
 
@@ -545,7 +545,7 @@ func TestPageContentDivergence_NeverRoutesToAHandler(t *testing.T) {
 
 	fetcher := newStubFetcher()
 	fetcher.seq["https://"+divTestDomain+"/index.html"] = []divergenceProbeResult{
-		{hash: divOtherHash, status: 200, bytes: 10},
+		{hash: divOtherHash, status: 200, bytes: 41000},
 	}
 	fetcher.install(t)
 
@@ -849,5 +849,91 @@ func TestPageContentDivergence_UnusableRawProbeFilesNothing(t *testing.T) {
 	}
 	if len(res.Resolved) != 0 {
 		t.Errorf("want 0 retractions, got %d", len(res.Resolved))
+	}
+}
+
+// TestPageContentDivergence_EmptyTwoHundredFilesNothing — PLAN D10. An edge can
+// answer 200 with a zero-length body, and this lane OBSERVED exactly that during
+// its 2026-08-22 watch (sha256 e3b0c44298fc…, the hash of the empty string).
+//
+// The reason it needs its own guard is that it defeats the one that looks like it
+// should catch it: an empty body hashes STABLY, so the confirmation fetch AGREES
+// with the first and the moving-target guard passes it straight through. Two
+// consecutive empty 200s would file a work item against a healthy page.
+//
+// Scripts three results so that DELETING the floor lets the candidate run all the
+// way to a filed item — otherwise this would pass green for the wrong reason.
+func TestPageContentDivergence_EmptyTwoHundredFilesNothing(t *testing.T) {
+	dctx, mock := newDivergenceCtx(t)
+	pageID := uuid.New()
+	expectDomain(mock, dctx.SiteID)
+	mock.ExpectQuery(`FROM pages p`).WillReturnRows(
+		divergenceRows().AddRow(pageID.String(), "index", "/index.html",
+			divStoredHash, "deployed", divDeployedAt, int64(7200)),
+	)
+	expectIntentReRead(mock, pageID.String(), divStoredHash, divDeployedAt)
+
+	const emptyBodyHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	fetcher := newStubFetcher()
+	fetcher.seq["https://"+divTestDomain+"/index.html"] = []divergenceProbeResult{
+		{hash: emptyBodyHash, status: 200, bytes: 0},
+		{hash: emptyBodyHash, status: 200, bytes: 0},
+		{hash: emptyBodyHash, status: 200, bytes: 0},
+	}
+	fetcher.install(t)
+
+	res, err := (&PageContentDivergenceCheck{}).Run(dctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res.WorkItems) != 0 {
+		t.Fatalf("an empty 200 is not a page and cannot convict one; want 0 work items, got %d", len(res.WorkItems))
+	}
+	if len(res.Findings) != 0 {
+		t.Errorf("want 0 findings, got %d", len(res.Findings))
+	}
+	if len(res.Resolved) != 0 {
+		t.Errorf("an unjudgeable body must not retract either, got %d", len(res.Resolved))
+	}
+}
+
+// TestPageContentDivergence_SmallBodyThatMatchesStillRetracts pins the floor's
+// PLACEMENT, which is the part of it that could silently go wrong.
+//
+// The floor sits inside the candidate branch, AFTER the hash-match arm. If it
+// were hoisted above that arm — the obvious "skip unjudgeable bodies early"
+// refactor — then a small page that is perfectly healthy would stop retracting,
+// and its open item would never close. That failure is invisible in production
+// (a retraction that does not happen looks like a page that has not recovered),
+// so it is pinned here instead.
+func TestPageContentDivergence_SmallBodyThatMatchesStillRetracts(t *testing.T) {
+	dctx, mock := newDivergenceCtx(t)
+	pageID := uuid.New()
+	expectDomain(mock, dctx.SiteID)
+	mock.ExpectQuery(`FROM pages p`).WillReturnRows(
+		divergenceRows().AddRow(pageID.String(), "tiny", "/tiny.html",
+			divStoredHash, "deployed", divDeployedAt, int64(7200)),
+	)
+
+	fetcher := newStubFetcher()
+	// Below the floor, and it MATCHES. Health does not need to clear a size bar.
+	fetcher.seq["https://"+divTestDomain+"/tiny.html"] = []divergenceProbeResult{
+		{hash: divStoredHash, status: 200, bytes: 12},
+	}
+	fetcher.install(t)
+
+	res, err := (&PageContentDivergenceCheck{}).Run(dctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res.Resolved) != 1 {
+		t.Fatalf("a matching hash is a positive observation whatever the body size; want 1 retraction, got %d", len(res.Resolved))
+	}
+	if len(res.WorkItems) != 0 {
+		t.Errorf("want 0 work items, got %d", len(res.WorkItems))
+	}
+	// One fetch: a match is not a candidate, so nothing is confirmed or re-probed.
+	if n := fetcher.callCount(); n != 1 {
+		t.Errorf("want 1 fetch for a matching page, got %d", n)
 	}
 }
