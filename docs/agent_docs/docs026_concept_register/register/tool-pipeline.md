@@ -61,3 +61,12 @@ _Concept count retired 2026-08-09 — derived, not stored; run the drift pair in
 - **sources:** ED/FOCUS_self_development_coding_pipeline_reasoning(1).md#2,#3,#4
 - **relations:** verification harness; STEP ZERO; self-dev coordination positions
 - **verify-later:** existing loop primitives; component_versions; needs_human_review
+
+### TP-008 — Tool cross-link repair seam: `EmitToolCrossLinksForBackfill` + `cmd/backfill-tool-crosslinks`
+
+- **status:** built, exercised once in production (2026-08-23), forward fix inert until a chassis roll
+- **status-evidence:** 74 cross-link items created across 34 tools / 19 sites, 2026-08-23 ~17:1xZ; canary (`tool-gripper-torque-moment-calculator`) verified at the artefact before the batch; 5 tools legitimately produced zero (every page they name is itself a tool page, which the emitter skips by design).
+- **what:** An exported seam over the shared cross-link emitter, plus the one-shot command that drives it, for repairing tools whose related-page cross-links were withheld at birth (`bugs_open/353`). **Its input is the guard's own telemetry**: every withholding wrote an `agent_error_log` row carrying `related_pages` verbatim plus site, tool function, page id and the resolved page URL, so a repair reconstructs nothing. **It calls the real emitter rather than inserting rows**, so the item spec JSON, the `tool_crosslink:` item_key namespace, the dedup clause and the two-strike anti-churn stay single-sourced — a SQL backfill would have been a second copy of all four. Dry-run by default, `--only <function>` canary, `--apply` writes; re-running is harmless because the item_key is the dedup unit. It deliberately does NOT set the build-path opt-in, so a tool whose page never went live is refused exactly as on the build path. Ships alongside `crossLinkEmitDecision`, the extracted, mutation-proved decision function that made the guard's branch testable at all.
+- **sources:** platform/orchestration/actions/create_tool_cross_link_items.go (EmitToolCrossLinksForBackfill, crossLinkEmitDecision); cmd/backfill-tool-crosslinks/; bugs_open/353 §9
+- **relations:** TP-001 (the pipeline whose cross-link stage this repairs); bugs_closed/029 (the emitter and its countable-skip rows, without which no repair would have been possible); fix 177 (the narrowing that starved the gate)
+- **verify-later:** the 74 items are REQUESTS, not links — verify at the artefact once they dispatch; `tool-deployer` still has 0 runs in retained history, so the second emitter caller remains unexercised
