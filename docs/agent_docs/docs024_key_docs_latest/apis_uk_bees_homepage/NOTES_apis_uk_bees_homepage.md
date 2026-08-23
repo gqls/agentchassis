@@ -711,3 +711,52 @@ front of the subject, which is why these match the earlier five.
   generation that had already succeeded.** The bucket listing is what separated those.
 - Both `content_data` AND `rendered_html` updated in the same statement, per the render-cache
   landmine — updating only the source would have re-rendered the old markup.
+
+## 2026-08-23 — the images WERE added, and a sweep deleted them four minutes later
+
+The owner sent a screenshot showing no images and headings this lane had never written
+(*"The many jobs of a single bee"*, *"The bees that live without a hive"*). Both facts had
+the same cause and it was not the image work.
+
+**What happened, from the orchestration log:**
+
+| time | event |
+|---|---|
+| 15:53 | four `image-build-handler` runs — illustrations generated |
+| 15:54 | four `asset-deployer` runs — images live, all 200 |
+| 15:56:15 | **`build-dispatch-loop`** — swept the page |
+| 15:56:30 | `page-build-handler` |
+| 15:56:51 | my `page-rerender` — deployed the page WITH images, verified |
+| 15:56:56 | **`page-content-writer`** — began rewriting every section |
+| 16:00:18 | all six sections replaced: new headings, **zero `<img>` in either column** |
+
+**`pages.build_status='needs_rebuild'` is not a note-to-self, it is queue membership.** The
+page had carried that flag all day — `page-rebuild` sets it and it had never been settled —
+so a dispatch loop was entitled to regenerate the page at any moment, and did. My
+verification (served bytes == repo commit, six sections with `<img>`, every image URL 200)
+was **correct when made and expired four minutes later**. That is the part worth keeping:
+the check was not wrong, it had a shelf life, and nothing in the check could reveal that.
+
+**Fixed in the right order this time:** settle the flag FIRST (`build_status='deployed'` —
+the state 703 of 839 pages are in), then re-apply the six images to the *current* section
+text, then render, **then settle it again** — because `page-rerender` re-queues the page,
+which I only found by re-reading the field after the deploy looked finished.
+
+**Live and verified:** served bytes == repo commit `a7eeed551` (65,009), **7 `<img>` tags**
+(six sections + logo), each section carrying a distinct illustration matched to its text,
+`build_status='deployed'`, nothing in flight. Watching for 30 minutes to confirm it *stays*,
+since the last verification is exactly the one that expired.
+
+**Landmine filed** (`LANDMINES.md`, 2026-08-23) — and it is the third member of a set that
+all fired on this one page today: the render cache (`content_data` clean while
+`rendered_html` serves the old bytes), deploy lag (`COMPLETED` is the commit, not the
+deploy), and now the rebuild queue. **All three make a page-edit verification lie in a
+different direction.**
+
+> **Note on a flagged ledger removal (`bdeaba560`).** `pattern-check` correctly flagged that
+> the commit removed one line from `LANDMINES.md`, which is append-only and shared. Checked:
+> the removed line was **my own**, from `7a690f068` twenty minutes earlier in this session,
+> corrected in place because it was wrong (it said to re-check the flag after `page-rebuild`;
+> `page-rerender` does it too). No other session's entry was touched. Recorded here rather
+> than left to an auditor, because "the removal was mine" is exactly the claim that check
+> exists to make someone prove.
