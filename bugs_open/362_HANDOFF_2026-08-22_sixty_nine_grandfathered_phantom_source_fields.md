@@ -199,3 +199,69 @@ hole in your rule**, and that is the useful half: of its **125** active `tool`-l
 remaining 27 do have a `fields` object, so your at-rest audit already covers them and reports
 zero offenders. Recorded so the next person does not re-ask; it would become a hole the moment
 that path starts emitting `source` declarations.
+
+
+---
+
+## REPAIR LOG — started 2026-08-23 on owner direction ("do the six live ones next")
+
+**Population now: 67 fields / 15 components / 4 live components / 8 live page instances**
+(from 69 / 17 / 6 / 46 **as of 2026-08-22**). The daily check is the live figure; this
+line is a snapshot.
+
+### DONE — migration 569, applied 2026-08-23
+
+| component | field | was | now | live instances |
+|---|---|---|---|---|
+| `info-card-grid` | `carousel` | `config` (no dot) | `static` | 32 |
+| `Latest News Feed` | `insights_url` | `query.pages` (unregistered) | `pages.news` | 6 |
+
+- **`carousel` is behaviour-identical by construction**, which is why it was safe on 32
+  live instances. 1 of the 32 carries `carousel: true`; it survives because
+  `handleMissingField()` calls `carryStored()` FIRST, and bare `static` resolves to
+  `(nil, true)` while the field loop only assigns `if found && value != nil` — so it falls
+  through to the same carry. Nothing rendered changed; the declaration stopped lying.
+- **`insights_url` is deliberately NOT `llm`.** It sits inside an anchor in a `<noscript>`
+  fallback, and an LLM-authored URL there is `bugs_open/203`'s exact class. `pages.<name>`
+  resolves a live page name and explicitly does not fabricate on a miss: 2 of the 6 sites
+  have a page named `news` and gain a working link; 4 do not and keep today's behaviour.
+
+**The ratchet loop was proven end to end on these two** — the check went RED naming exactly
+them as STALE with the lines to delete; `--emit-baseline` regenerated the file from the
+SHIPPED RULE (69→67, removing precisely those two, adding nothing); the check went GREEN;
+the overlay was applied and an in-cluster Job returned pod `exitCode` 0 under a new
+ConfigMap hash. **That is the repair procedure for every remaining entry.**
+
+### NOT REPAIRABLE AS A DECLARATION FIX — the remaining four live components
+
+**`featured_article`** (7 fields, `query.featured_post`, 3 live instances) and
+**`category-listing`** (3 fields, `query.category` / `query.category_posts`, 2 live
+instances) need queries the resolver has never registered. That is a **Go change** in
+`queryresolve.queryHandlers` plus a migration — not a declaration fix.
+
+⚠ **Both are currently rendering an EMPTY SHELL into `page_components.rendered_html`** —
+`[MEASURED 2026-08-23]` `category-listing` stores 315 chars of section markup with an empty
+`<h2>` and an empty grid; `featured_article` stores 334. **They do not reach visitors** —
+the served `dartsonline.com/brands/index.html` and `/shop/index.html` (both HTTP 200, ~72 KB,
+deployed 12:31Z that day) contain **zero** occurrences of `section--category`, so assembly
+drops them. The damage is therefore *missing sections on live index pages*, not visible
+empty boxes. Check the served page before sizing this, not the stored HTML.
+
+**`testimonials`** (2 live instances) and **`social_proof`** (1) —
+`site_specs.social_proof.testimonials`, an aspect no site has ever carried.
+**BLOCKED ON AN OWNER CONTENT DECISION, not on effort.**
+
+`[MEASURED 2026-08-23]` no `site_specs` aspect on gaswholesalers.com holds testimonial data.
+The one populated instance (`why-gas-wholesalers`, 3 entries) does **not** hold customer
+testimonials: it holds first-person company statements — *"Our Commitment"*, *"Our Approach"*,
+*"Our Promise"* — with **`author` and `company` both empty strings**. The other two instances
+have `content_data` NULL entirely, and the field is `required: true` with
+`on_missing: skip_section`.
+
+**Why a session must not just fix this.** The cheap declaration fix is `source: llm`, and
+that licenses a model to write *customer testimonials* — attributed claims about real third
+parties. That is the fabrication class this estate polices (`bugs_open/161`, the
+`banned_claims` sweep), and it is worse than the defect. The real options are: seed a
+`social_proof` aspect with genuine, owner-supplied testimonials; change the component's
+contract to what it is actually being used for (unattributed brand statements) and rename
+it accordingly; or deactivate it on those pages. All three are content decisions.
