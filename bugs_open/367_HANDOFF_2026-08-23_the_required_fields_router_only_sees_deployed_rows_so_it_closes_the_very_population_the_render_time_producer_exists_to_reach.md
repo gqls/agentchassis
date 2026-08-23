@@ -4,6 +4,54 @@
 routability fix. **Status: OPEN, UNOWNED.** The mechanism belongs to `bugs_closed/277`'s router,
 which is closed — hence a new file rather than a contribution.
 
+> # ✅ FIXED AND LIVE 2026-08-23 — migration `574`, config only, applied and verified at the route.
+> `docs/agent_docs/sql_for_agents/574_required_fields_router_stops_closing_what_it_cannot_resolve.sql`
+> (+ `_ROLLBACK`). Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_367_router_remit/`.
+> Council `d48c0a89-9ff8-4286-bfe9-2690dc13d5bc`. **Kept OPEN** until the parked disposition is
+> observed on a real item in production — the fix is proven at the ROUTE, which is this file's
+> own §6 bar, but no render-time item has been re-filed since it went in.
+>
+> **§5's ordering was right about candidate 1 being first, and wrong about what it buys.**
+> Widening the `comp` CTE alone does NOT repair anything, for two measured reasons this file did
+> not have:
+> 1. `file_rewrite` reads four spec fields the render-time producer never writes
+>    (`component_id`, `page_id`, `component_function`, `reason` — 62 of 62 post-deploy items carry
+>    them, 0 of 3 render-time ones do), and both `spec_paths` and `item_key_suffix_field` are
+>    deliberate HARD ERRORS when unresolved (`create_work_item_action.go:281,294` and `:252-256`).
+>    So widening trades a silent wrong close for a loud `mark_failed`.
+> 2. The `partial` arm's destination is not a targeted edit: `save_page_sections_action.go:823`
+>    DELETEs every agent-writable row on the page. **28 of 31** `from_rfm` conversions are already
+>    failing there on the owned-page refusal (`bugs_open/333`, owned by the 277 lane) — and this
+>    bug's own page is `rebuild_policy=owned`.
+>
+> **So the fix is neither candidate 1 nor candidate 2 as written. It changes the RULE:**
+> a disposer may close only on **positive evidence of absence**. `stale` now requires the page row
+> to be gone, or the component to be locked (277's accept-as-is), or a `build_status='removed'` row
+> actually sitting at the slot. A lookup that finds nothing — or finds a real but non-deployed
+> component — routes to a new **fifth park**, `park_not_dispatchable`, at `needs_human_review`,
+> holding its dedup key. `triage.target_state` names which leg fired. Resolution moved to the
+> lifecycle axis (`COALESCE(build_status,'pending') <> 'removed'`) so the component RESOLVES and the
+> human sees its real state. The estate already states this rule at
+> `revalidate_review_queue_action.go:684`.
+>
+> **⚠ The population is now VISIBLE AND HONEST, not REPAIRED.** Do not let anyone write that 367
+> made render-time findings repairable. It did not. That needs `bugs_open/333` plus a producer that
+> writes the convert arm's read-set; both named, neither taken.
+>
+> **Verified before applying, inside a transaction that was then rolled back** (so production was
+> never the test rig), and again afterwards by reading the query back out of the live row:
+> * the real item `562788c3` → `target_not_dispatchable`, `target_state=pending`, component
+>   **RESOLVES** (`0a1498b3`, `html_len=9220`, `n_still_empty=2`)
+> * **positive control** — retired slot (`tool-clip-path`/`ported-page`) → **still `stale`**,
+>   `target_state=component_retired`
+> * **positive control** — page that does not exist → **still `stale`**, `target_state=page_missing`
+> * all **65** items of this type re-classified old-vs-new: **exactly one route changes**
+> * apply-then-rollback returns `default_config` **byte-identical**
+>
+> **Also corrected here:** §4's *"Render-time items filed to date: 3"* and the §2 table remain true
+> as dated, but `orchestration_states` retains only **~2 days**, so the route history they imply is
+> not re-derivable — see the lane's NOTES and `LANDMINES.md`.
+
 ## 1. The defect in one paragraph
 
 `required-fields-missing-handler`'s `classify` step resolves the offending component with

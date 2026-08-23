@@ -3988,6 +3988,65 @@ needs a paragraph, the verifier is measuring the wrong contract.
 Category tags: `detector-broader-than-handler`, `verifier-verifies-the-wrong-contract`,
 `false-fail-strands-correct-work`, `share-the-predicate-dont-mirror-it`.
 
+### And the mirror: a DISPOSER may close only on POSITIVE evidence of absence — a failed lookup is not evidence (2026-08-23)
+
+*The other side of the entry immediately below, which is about the PRODUCER end. That one says
+a detector must not file what its handler cannot do. This one says a router must not dispose of
+what its own predicate could not find. Added on `bugs_open/367`.*
+
+**Shape.** A router resolves the thing a finding is about, then routes on what it found. Its
+resolution predicate is inevitably narrower than the union of its producers — it was written
+against the first producer, and producers accumulate. When the lookup comes back empty the
+router has two readings available, *"the thing is gone"* and *"I looked in the wrong
+place"*, and they are indistinguishable from inside the query. Choosing the first and CLOSING
+is the defect, and it is the worst-behaved kind, because a wrong close is **quieter than the
+failure it replaces**: `complete`, one attempt, no error, and it scores as a success in every
+census of "did we action our findings?".
+
+**Why reuse makes it likelier, not safer.** An `item_type` is a string; a router is the fields
+it reads and the predicate it resolves on. A second producer that reuses the type inherits the
+*dispatcher* and none of the *contract* — so it files into a disposer whose remit was defined
+by somebody else's population. That is the parent lesson (`bugs_closed/342`: "REUSING A TYPE IS
+NOT REUSING ITS CONTRACT"); this entry is what happens one layer down when the reuse succeeds.
+
+**Live instance.** `required-fields-missing-handler` resolved components with
+`pc.build_status = 'deployed'`, mirroring `check_required_fields_missing.go`, the post-deploy
+check it was built for. `bugs_closed/342` then added a render-time producer whose *stated
+justification* is reaching the population that check cannot see — so every finding it filed was
+about a component the router had been told not to look at, and the router closed them as gone.
+Confirmed live 2026-08-23: `route=stale, component_id=''` for a component sitting at
+`build_status='pending'`, unlocked, with 9,220 characters of `rendered_html`, whose two named
+fields really were empty.
+
+**The rule.** *Enumerate the positive facts that justify closing, and close only on those.*
+For that router: the page row is gone; or the component is locked (an accept-as-is decision a
+human made); or a `build_status='removed'` row is actually sitting at the slot. Everything else
+— including "nothing resolved" — **parks**, holding its dedup key so the producer cannot churn
+re-raises. The estate already states this correctly one door over,
+`revalidate_review_queue_action.go:684`: *"That MIGHT mean the finding is moot, but it might
+equally be a lookup miss — so it is not positive evidence and the item stays queued."*
+
+**Two corollaries worth carrying.**
+
+1. **Absence of a row is rarely evidence about history.** Before treating "no row here" as
+   "there used to be one", measure how ordinary the empty state is. [MEASURED 2026-08-23]
+   **336 of 2,160** slots named in `pages.sections` have no `page_components` row at all —
+   about one planned slot in six — so the router's own close-evidence ("no longer exists") was
+   a false statement across an ordinary population, quite apart from the narrowed predicate.
+2. **Widening the predicate is usually NOT the whole fix, and can be the wrong one.** Check
+   where the widened population then routes *to*. Here, widening alone would have handed
+   non-deployed components to a repair path that DELETEs and rebuilds the whole page
+   (`save_page_sections_action.go:823`) and on which 28 of 31 prior conversions had already
+   failed (`bugs_open/333`). Making the disposition honest was both smaller and safer than
+   making the router cleverer.
+
+**The asymmetry that decides scope.** The same narrow predicate is hand-typed at 19 other
+read sites, and none of them is this bug: they are all PRODUCERS, whose failure mode is
+under-detection — they file less. Only a disposer converts non-detection into an affirmative
+claim of absence. So when you find a shared over-narrow predicate, **fix the disposer first and
+do not assume the producers need the same change**; whether they do is a separate, measured
+question.
+
 ### A detector must PARTITION its population by the handler's remit, and file the residue as a capability gap (2026-07-26)
 
 *The other half of the entry immediately above, which closed `bugs_open/021` and

@@ -15812,3 +15812,66 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/253` (the guard; the 08-22 `bugs_open/305` correction and the 08-23 correction at its foot) · `bugs_closed/337` (the worked case, and the close-out) · `bugs_closed/029` (a different self-healing mechanism, ~40 min — same species of trap, already cost this lane a filing-grade starvation claim) · WRONG_CALLS 2026-08-23
 - **source:** 2026-08-23, `bugfix_337_token_cap` lane — found by starting the investigation the handoff proposed and discovering both its premise and its blocked page were false
 - **added:** 2026-08-23, `bugfix_337_token_cap` lane
+
+### `pages.sections` is an array of TEXT, not of objects — `s->>'name'` returns NULL for every element and your census silently reads zero
+
+- **footprint:** `pages.sections`, `jsonb_array_elements`, `jsonb_array_elements_text`, any census joining planned slots to `page_components.slot_name`, any query of the form "which sections are declared but not built?"
+- **fires when:** you unnest `pages.sections` to compare the planned composition against `page_components`. There is no error and no empty-result warning — the rows are there, your filter just cannot see them.
+- **the tell:** a suspiciously round zero. `SELECT count(*) … CROSS JOIN LATERAL jsonb_array_elements(COALESCE(p.sections,'[]')) s WHERE s->>'name' IS NOT NULL` returns **0 of 0** on an estate with 839 pages and 746 non-empty `sections` arrays, because the elements are bare strings — `"hero"`, `"article-body"`, `"call-to-action"` — so `->>'name'` is NULL on every one and the `IS NOT NULL` discards the lot. The same query shape is what you would write if you assumed `[{"name":"hero",…}]`, which is what most section-carrying JSON in this estate looks like.
+- **why it matters beyond the typo:** the zero is not a small error, it inverts a design decision. [MEASURED 2026-08-23] the true figures are **2,160** slots named in `pages.sections` on non-deleted pages and **336 (15.6%) with no `page_components` row at all** — about one planned slot in six. A session that took the zero would conclude "a slot with no component row cannot happen" and would, for instance, let a disposer treat a failed component lookup as proof the component was deleted. That is exactly the reasoning `bugs_open/367` had to unpick.
+- **the check, and it costs one line:** print an element before you unnest.
+  ```sql
+  SELECT jsonb_typeof(sections), sections->0 FROM pages
+  WHERE jsonb_array_length(COALESCE(sections,'[]'::jsonb)) > 0 LIMIT 1;   -- "hero"
+  ```
+  Then, having corrected it, run the **match control** before trusting the new number — a naming mismatch produces the same absence as a real one: `count(*) FILTER (WHERE EXISTS (SELECT 1 FROM page_components pc WHERE pc.page_id=slots.pid AND COALESCE(pc.slot_name,'')=slots.slot))` must come back **large**, not zero. On 2026-08-23 it was 1,824 of 2,160, which is what establishes that the remaining 336 are real absences and not a vocabulary difference.
+- **the general form:** *a filter over an assumed JSON shape can only return zero when the assumption is wrong* — so if a join or filter over JSON yields nothing, suspect the shape before the world, and prove the query CAN return non-zero on data you know exists.
+- **relations:** `bugs_open/367` (the design decision this nearly corrupted) · the `pages.sections` cache entry above (a different trap on the same column) · WRONG_CALLS 2026-08-23
+- **source:** 2026-08-23, `bugfix_367_router_remit` lane
+- **added:** 2026-08-23, `bugfix_367_router_remit` lane
+
+### `orchestration_states` retains about TWO DAYS — but `min(created_at)` reads over a month back, because the purge EXEMPTS stuck rows
+
+- **footprint:** `orchestration_states`, `min(created_at)`, any "has this ever happened?" / "how often has this route fired?" census over orchestration history, any claim of the form "N times in the platform's audited history"
+- **fires when:** you establish how far back the orchestration record goes before counting something in it — which is the responsible thing to do, and is exactly where this bites.
+- **the tell:** none. `SELECT min(created_at) FROM orchestration_states` returns a date **five weeks old**, so a census over the table reads as a census over five weeks. It is not.
+- **the mechanism:** [MEASURED 2026-08-23] rows per day are `08-23: 3,299`, `08-22: 1,324`, and then **nothing at all** until four scattered days in July totalling **24 rows — every one `CANCELLED`**. Those 24 are stuck orchestrations the cleanup skips, and it is those survivors, not the retention window, that `min()` reports. There were **zero** rows for 2026-08-14→19. So the oldest surviving row tells you what the purge **exempts**, and exempted rows are by construction unrepresentative of everything else.
+- **what it costs:** a confident negative. This lane wrote *"route `stale` has been taken exactly once in the platform's audited history"* into a plan file as a dated `[MEASURED]` figure. It was false: `bugfix_277_required_fields_repair/RUNBOOK_required_fields_repair.md` records that route firing on a canary on 2026-08-15, inside the hole. The marker discipline was followed in full and did not help, because the error was in what was measured, not in whether it was marked.
+- **the check:** plot the days before quoting the window, and look at what survives past the cliff.
+  ```sql
+  SELECT created_at::date AS d, count(*) FROM orchestration_states GROUP BY 1 ORDER BY 1 DESC LIMIT 12;
+  SELECT created_at::date, count(*), string_agg(DISTINCT status,',') FROM orchestration_states
+   WHERE created_at < now() - interval '7 days' GROUP BY 1 ORDER BY 1;   -- expect: all CANCELLED
+  ```
+  If your question is about an event older than ~2 days, `orchestration_states` cannot answer it — go to the artefact, the work item, or a lane's own RUNBOOK, which is where this one was caught.
+- **the general form, distinct from "a zero from a retained table is meaningless":** that trap is about an *absence* you know might be truncated. This one is a *positive* measurement of the window itself, taken from the very rows that prove the window does not apply to them.
+- **relations:** `bugs_open/367` · `bugfix_277_required_fields_repair/RUNBOOK_required_fields_repair.md` (which caught it) · WRONG_CALLS 2026-08-23 · WRONG_CALLS 2026-08-23 (`bugs_open/327`, the ~2-day retention trap on a different table, same day)
+- **source:** 2026-08-23, `bugfix_367_router_remit` lane
+- **added:** 2026-08-23, `bugfix_367_router_remit` lane
+
+### Adding a producer to `required_fields_missing` — the ROUTER's remit is not the item_type, and until 2026-08-23 it disposed of anything outside it as "gone"
+
+- **footprint:** `required_fields_missing`, `required-fields-missing-handler`, `sql_for_agents/410_required_fields_missing_router.sql`, `sql_for_agents/574_*`, `check_required_fields_missing.go`, `work_items_common.go` (`emitRequiredFieldsMissing`, `requiredFieldsMissingRouting`), `file_rewrite`, `page_components.build_status`
+- **fires when:** you file `required_fields_missing` from a new place, or you read a closed item of this type and take its disposition at face value.
+- **the tell (historical, fixed by 574 — read this before trusting any item closed BEFORE 2026-08-23):** the router resolved the offending component with `WHERE pc.build_status = 'deployed'`, mirroring the post-deploy check it was built for. A finding about a **non-deployed** component resolved nothing, fell to route `stale`, and was CLOSED `complete` — no error, one attempt, evidence *"cannot be located on the live site"*. A true finding scored as a success. **Any census of this type over items closed before 574 is overcounting successes.**
+- **what 574 changed:** the router may now close only on **positive evidence of absence** — the page row is gone, the component is locked (the accept-as-is resolution), or a `build_status='removed'` row is actually sitting at that slot. A lookup that finds nothing, or finds a real but non-deployed component, PARKS at `needs_human_review` via `park_not_dispatchable` and holds its dedup key. `triage.target_state` names which leg fired.
+- **the trap that is STILL LIVE, and it is the reason to read this entry:** `classify` is not the only contract. The `partial` arm's `file_rewrite` step reads **four** spec fields the classifier never touches — `spec.component_id`, `spec.page_id`, `spec.component_function`, `spec.reason` — and both `spec_paths` (`create_work_item_action.go:281,294`) and `item_key_suffix_field` (`:252-256`) are **deliberate hard errors** when a path does not resolve. [MEASURED 2026-08-23] the post-deploy producer writes all four (62 of 62 items); the render-time producer writes **none** (0 of 3). A new producer that satisfies the classifier and omits these will route correctly and then **die at the next step**. Today that is masked, because a non-deployed target parks before reaching `file_rewrite` — so the gap is unexercised, not closed.
+- **the check, before you file this type from anywhere new:**
+  ```sql
+  -- 1. read the LIVE classify query (NOT seed 410: it was edited in place three times,
+  --    its comments say "v3", and the live row is version = 1)
+  SELECT default_config->'workflow'->'steps'->'classify'->'config'->>'query'
+    FROM agent_definitions WHERE type='required-fields-missing-handler' AND is_active
+      AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  -- 2. read what the CONVERT arm needs, which is a different set:
+  SELECT default_config->'workflow'->'steps'->'file_rewrite'->'config'->'spec_paths',
+         default_config->'workflow'->'steps'->'file_rewrite'->'config'->>'item_key_suffix_field'
+    FROM agent_definitions WHERE type='required-fields-missing-handler' AND is_active
+      AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  ```
+  Then run the classifier by hand against a real item of your shape (`PREPARE`/`EXECUTE`, because `$1`/`$2` are placeholders) and require a route that is neither `stale` nor `malformed`.
+- **⚠ the disposition of a CLOSED item is not on the row.** `mark_complete` overwrites `site_work_items.result` with spawn bookkeeping. Parked rows keep `result->>'route'` and the message in `error`; completed ones do not. The audit lives in `orchestration_states.collected_data->'triage'` — which retains ~2 days (see the entry above), so if you need it, read it now.
+- **the general form, and it is the transferable half:** *a router's remit is defined by the resolution predicate in its classifier, not by the `item_type` string it claims.* Reusing a type buys you the dispatcher, not the contract — and a disposer whose predicate is narrower than its producer set will report the difference as **absence**, which is the one failure mode that looks like success. The estate's existing statement of the correct behaviour is `revalidate_review_queue_action.go:684`: *"That MIGHT mean the finding is moot, but it might equally be a lookup miss — so it is not positive evidence and the item stays queued."*
+- **relations:** `bugs_open/367` · `bugs_closed/277` (built the router) · `bugs_closed/342` (added the second producer; its own LANDMINE *"REUSING A TYPE IS NOT REUSING ITS CONTRACT"* is this one's parent) · `bugs_open/333` (why the convert arm is the wrong destination for a non-deployed target) · register `CQ-023` · `016b` §9 *"A detector must PARTITION its population by the handler's remit"* (the producer-side sibling)
+- **source:** 2026-08-23, `bugfix_367_router_remit` lane
+- **added:** 2026-08-23, `bugfix_367_router_remit` lane
