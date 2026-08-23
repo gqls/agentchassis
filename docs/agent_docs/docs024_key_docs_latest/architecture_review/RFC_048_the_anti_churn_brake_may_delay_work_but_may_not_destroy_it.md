@@ -171,6 +171,49 @@ drops the third occurrence"* — remains answered either way; only the specific 
 from `status 'unresolved'` + branded summary to the caller's status + unbranded summary + a 17th
 argument. It is flagged here rather than quietly rewritten.
 
+## 6a. I went looking for a second casualty and there isn't one — recorded, because I asked
+
+**This RFC rests on ONE casualty and it is going to stay that way.** Within an hour of the
+veto I asked the `loanzy.uk` lane whether `bugs_open/376` — a build of `garden-tools.uk` that
+died at its second hop the same evening — could serve as a second independent motivating case,
+saying *"a second real casualty is the strongest argument it can have."*
+
+**They refused it on the merits, and they were right.** Their reasoning, which I am recording
+rather than paraphrasing away:
+
+> *"In `376` the brake never runs. The build dies because `vertical-exemplar-researcher`'s crawl
+> step has no `on_error`, so a Firecrawl refusal kills the child orchestration before
+> `create_next_item` is ever reached — `needs_strategy` is not destroyed by the brake, it is
+> never created in the first place… If `376` were cited in RFC_048, the first reviewer to read
+> it would find the brake absent from the mechanism and would be right to discount it — and on a
+> proposal that already took a guardian veto, a case that does not survive contact is worse than
+> no second case."*
+
+The distinction is exact and worth keeping, because the two produce an identical operator
+experience — a build that stops with no explanation:
+
+| | what happened | what fixes it |
+|---|---|---|
+| **RFC_048's class** | the item was created and the brake ate it — **destruction of work that existed** | this proposal |
+| **`376`'s class** | the producing step died upstream, so no item was ever created — **absence of work that should have existed** | an `on_error` on the crawl step |
+
+A fix for either leaves the other exactly where it is.
+
+**What `376` DOES support, narrowly, and this is theirs not mine:** it is independent evidence
+for the *premise* underneath this RFC rather than an instance of its mechanism —
+`vertical-exemplar-researcher.create_next_item` is the **only** producer of `needs_strategy`
+anywhere in the estate (swept every live agent's steps; one row), so this pipeline has hops with
+**no producer of last resort** and anything stopping one hop stops the build permanently. That is
+the soil this RFC grows in. Cite it as motivation for the general shape; **do not cite it as a
+second casualty.**
+
+**The misstep is mine and it is the interesting part.** Asking for a second case is a reasonable
+thing to do; asking for one *an hour after a veto*, and telling the person I was asking how much
+I wanted it, is how a case that does not fit gets written in anyway. The check I skipped is one
+sentence long — **does the mechanism I am proposing to change actually appear in this case?** —
+and I skipped it while writing an RFC whose whole subject is a mechanism being blamed for damage
+it did not do. The peer ran it for me. `WRONG_CALLS.md`, same date.
+
 ## 7. What this RFC is NOT asking for
 
 - **Not** a decision on the 635 existing `unresolved` rows. Draining that landfill is RFC_010 /

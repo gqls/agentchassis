@@ -46384,3 +46384,41 @@ they could not see my migration, and I was not thinking about their clock.
 for BOTH outcomes explicitly, agreed in advance, before they ran it — new row ⇒ the fix works,
 not a refutation; no new row ⇒ a live defect I investigate immediately. Fixing the reasoning
 before the result exists is the only point at which that is free.
+
+---
+
+## 2026-08-23 — an hour after a veto I went looking for a second casualty, and told the person I asked how much I wanted one (`bugs_open/326` / RFC_048)
+
+`RFC_048` rests on a single motivating case. That is a genuine weakness and I felt it. When the
+`loanzy.uk` lane mentioned that a live build had just died in the same pipeline
+(`bugs_open/376`), I asked whether it could be cited as a second case, and wrote: *"a second
+real casualty is the strongest argument it can have."*
+
+**It is not a case, and they refused it.** In 376 the anti-churn brake never runs at all: the
+crawl step has no `on_error`, so a Firecrawl refusal kills the orchestration before the work
+item is ever created. RFC_048's class is *destruction of work that existed*; 376's is *absence
+of work that should have existed*. Identical operator experience — a build that stops with no
+explanation — and a fix for either leaves the other untouched.
+
+**What caught it:** the peer, not me. They went looking for the link I was hoping for, did not
+find it, and said so — adding the argument I should have made myself: *"on a proposal that
+already took a guardian veto, a case that does not survive contact is worse than no second
+case."*
+
+**The cheap check, and it is one sentence:** *does the mechanism I am proposing to change
+actually appear in this case?* Not "did it produce the same symptom" — the symptom is the thing
+that misleads. I skipped it while writing an RFC **whose entire subject is a mechanism being
+blamed for damage it did not do**. `bugs_open/326` was filed against `idx_swi_dedup` on exactly
+that reasoning: same symptom, wrong mechanism, and half a day of my own work went into
+demonstrating it. I then reproduced the error in the document correcting it.
+
+**The condition that made it likely, stated because it is the transferable part:** I had just
+taken a veto and was reaching for support. A request for evidence, made from that position and
+carrying "this is what I need", is not a request — it is pressure, and a less careful
+correspondent would have found me a case. **Ask what a piece of evidence shows, never whether it
+supports you**, and do not tell the person which answer helps.
+
+**Where it is recorded:** RFC_048 §6a, in full, including their reasoning verbatim and the
+narrower support they DID offer — 376 is evidence for the RFC's *premise* (this pipeline has
+hops with no producer of last resort; `create_next_item` is the sole producer of
+`needs_strategy` estate-wide) but not an instance of its *mechanism*.
