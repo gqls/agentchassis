@@ -103,13 +103,21 @@ func TestRetryPredicateIsRenderedOnceNotCopied(t *testing.T) {
 	// THE CENSUS, settled and stated once (three seats objected to a submission
 	// that gave three different numbers — 3, 4 and 5 — for the same claim, and
 	// they were right that an unclosed census is where a missed duplicate hides):
-	// FOUR call sites across THREE consumer files, plus the definition. Two more
-	// copies of the same contract live in SQL (migration 506's two dispatch reads),
-	// which is what TestGoAndSQLAgreeOnTheCooldownBoundary exists for.
+	// **FIVE call sites across FOUR consumer files, plus the definition, as of
+	// 2026-08-23.** Two more copies of the same contract live in SQL (migration
+	// 506's two dispatch reads), which is what TestGoAndSQLAgreeOnTheCooldownBoundary
+	// exists for.
+	//
+	// ⚠ The count is dated because a census does not go wrong, it goes STALE, BY
+	// ADDITION (owner ruling 2026-08-22). It moved from four to five when
+	// markOriginalComplete joined the contract; it will move again. To check
+	// whether it has: `git log --since=2026-08-23 --diff-filter=A -- platform/orchestration/actions/`
+	// and re-run the census before quoting the number.
 	for _, f := range []string{
 		"load_work_item_actions.go",          // dispatch selection + the completion writer
 		"complete_work_item_verification.go", // the verification-failure writer
 		"claim_work_item_action.go",          // the atomic claim
+		"apply_gap_plan_action.go",           // markOriginalComplete — the only writer that names `triaged` itself
 	} {
 		src := read344Source(t, f)
 		// A LITERAL copy of the whole predicate is the drift; a reference to the
@@ -308,4 +316,85 @@ func TestASuccessfulCompletionWIPESTheSkipMarker(t *testing.T) {
 	if strings.Contains(stmt, "COALESCE(result") && strings.Contains(stmt, "|| $2::jsonb") {
 		t.Error("the success path now MERGES result — see above; the skip marker would leak")
 	}
+}
+
+// TestMarkOriginalCompleteCarriesTheContract pins the second machine writer that
+// could stamp `complete` over a scheduled retry.
+//
+// WHY THIS WRITER AND NOT THE OTHER TEN. Of the writers that can reach a
+// `triaged` row, this is the only one whose WHERE clause NAMES that status
+// (`status IN ('triaged','claimed')`) — so it does not merely fail to exclude the
+// ladder's output, it selects for it. The rest either exclude `triaged`
+// structurally (the diagnose_* writers each pin a single unrelated status) or are
+// human dispositions, where overriding a machine-scheduled retry is the point
+// rather than the defect; those are named exemptions, recorded in the commit and
+// deliberately NOT given the predicate.
+//
+// TWO properties are asserted, because the defect had two halves and fixing one
+// leaves the other live: the predicate must be present, AND the outcome must be
+// read. The original discarded both the error and the rowcount, so a refusal —
+// by this guard or by the status list already there — reached no reader at all.
+// A predicate whose refusals nobody can observe is how a guard rots unnoticed.
+func TestMarkOriginalCompleteCarriesTheContract(t *testing.T) {
+	src := read344Source(t, "apply_gap_plan_action.go")
+	stmt := extractStatement(t, src, "func markOriginalComplete(")
+	// ⚠ extractStatement STOPS at "\n\tif err" by design — that is how it bounds a
+	// statement to the Exec call. So it structurally cannot see error or rowcount
+	// handling, which lives immediately after that marker. The two outcome
+	// assertions below therefore read the whole function body, not the statement
+	// slice; asserting them against `stmt` fails for a reason that has nothing to
+	// do with the property, which is a false red worth not re-discovering.
+	body := funcBody(t, src, "func markOriginalComplete(")
+
+	if !strings.Contains(stmt, `workItemRetryNotPendingSQL("")`) {
+		t.Error("markOriginalComplete does not carry the retry predicate — a gap plan applied " +
+			"while the original sits mid-cooldown would cancel that retry and record the item done " +
+			"(bugs_closed/344's defect, one writer over)")
+	}
+	if !strings.Contains(body, "RowsAffected()") {
+		t.Error("markOriginalComplete discards its rowcount, so a refusal is invisible — assert the " +
+			"EFFECT is observable, not merely that the guard is spelled")
+	}
+	if !strings.Contains(body, "if err != nil") {
+		t.Error("markOriginalComplete discards its error")
+	}
+}
+
+// TestMarkOriginalCompleteStillClosesAHealthyItem is the DISCONFIRMING CONTROL.
+//
+// The failure mode of this whole change is a completion OUTAGE, not a false green:
+// if the predicate were spelled `retry_after > NOW()` or the status list grew to
+// include `triaged`, gap plans would stop closing their originating items and the
+// queue would fill with work that was actually done. So the ordinary path must
+// remain admissible — an item with no cooldown (`retry_after IS NULL`, which is
+// every item that has never failed) and one whose cooldown has expired.
+func TestMarkOriginalCompleteStillClosesAHealthyItem(t *testing.T) {
+	src := read344Source(t, "apply_gap_plan_action.go")
+	stmt := extractStatement(t, src, "func markOriginalComplete(")
+
+	if !strings.Contains(stmt, "'triaged', 'claimed'") {
+		t.Error("markOriginalComplete no longer selects the statuses it exists to close — " +
+			"this is a completion outage, not a fix")
+	}
+	// The renderer admits NULL and past stamps; a strict comparison would not.
+	if strings.Contains(stmt, "retry_after > NOW()") {
+		t.Error("the predicate was inverted: a healthy item that failed once, waited out its " +
+			"cooldown and genuinely succeeded must STILL complete")
+	}
+}
+
+// funcBody returns a whole top-level function, marker to its closing brace at
+// column 0. extractStatement deliberately stops at the Exec call's error check,
+// so any property ABOUT that error check needs this instead.
+func funcBody(t *testing.T, src, marker string) string {
+	t.Helper()
+	i := strings.Index(src, marker)
+	if i < 0 {
+		t.Fatalf("marker %q not found — re-derive this test rather than deleting it", marker)
+	}
+	rest := src[i:]
+	if end := strings.Index(rest, "\n}\n"); end >= 0 {
+		return rest[:end]
+	}
+	return rest
 }

@@ -287,7 +287,7 @@ func applyAddToPage(ctx context.Context, db *sql.DB, plan map[string]interface{}
 	}
 
 	// Mark original as complete
-	markOriginalComplete(ctx, db, originalItemID)
+	markOriginalComplete(ctx, db, originalItemID, logger)
 
 	logger.Info("ApplyGapPlanAction: add_to_page applied",
 		zap.String("raw_page_names", pageNameRaw),
@@ -543,7 +543,7 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 	}
 
 	// Mark original as complete
-	markOriginalComplete(ctx, db, originalItemID)
+	markOriginalComplete(ctx, db, originalItemID, logger)
 
 	logger.Info("ApplyGapPlanAction: new_page applied",
 		zap.String("page_name", pageName),
@@ -973,7 +973,7 @@ func applyRetypeExisting(ctx context.Context, db *sql.DB, plan map[string]interf
 		return nil, fmt.Errorf("create build work item for re-typed page: %w", err)
 	}
 
-	markOriginalComplete(ctx, db, originalItemID)
+	markOriginalComplete(ctx, db, originalItemID, logger)
 
 	logger.Info("ApplyGapPlanAction: retype_existing applied",
 		zap.String("page_name", pageName),
@@ -1128,7 +1128,7 @@ func applyUpdateSpec(ctx context.Context, db *sql.DB, plan map[string]interface{
 	}
 
 	// Mark original as complete
-	markOriginalComplete(ctx, db, originalItemID)
+	markOriginalComplete(ctx, db, originalItemID, logger)
 
 	logger.Info("ApplyGapPlanAction: update_spec applied",
 		zap.String("aspect", aspect),
@@ -1177,13 +1177,44 @@ func applyNotActionable(ctx context.Context, db *sql.DB, plan map[string]interfa
 // Helpers
 // ============================================================================
 
-func markOriginalComplete(ctx context.Context, db *sql.DB, itemID *uuid.UUID) {
-	if itemID != nil {
-		db.ExecContext(ctx, `
-			UPDATE site_work_items
-			SET status = 'complete', completed_at = NOW(), handled_by = 'content-gap-planner'
-			WHERE id = $1 AND status IN ('triaged', 'claimed')
-		`, *itemID)
+// markOriginalComplete closes the gap-plan item that produced this change.
+//
+// It carries the COMPLETION CONTRACT (bugs_closed/344): an item whose retry the
+// failure ladder has already scheduled must not be stamped `complete`. This
+// writer needed the predicate more than any other, because it is the only one
+// that names `triaged` in its own WHERE — and `triaged` is exactly what the
+// ladder writes when it re-triages a failed item with a cooldown (WII-024). A
+// gap plan applied while the original sat mid-cooldown would therefore cancel
+// that retry and record the item done: 344's defect, one writer over.
+//
+// Refusing costs one retry cycle — the original returns at cooldown expiry,
+// re-runs against the spec this plan has just updated, and completes through the
+// guarded path. That is the more honest order in any case, because it verifies
+// the plan actually closed the gap. Admitting would cost a false `complete`,
+// which is this estate's most-filed defect class.
+//
+// The outcome is no longer DISCARDED. Both the error and a zero rowcount were
+// thrown away here, so a refusal — by this guard or by the status list that was
+// already present — was invisible to every reader. That silence is why the gap
+// had to be found by reading the code rather than by querying for it.
+func markOriginalComplete(ctx context.Context, db *sql.DB, itemID *uuid.UUID, logger *zap.Logger) {
+	if itemID == nil {
+		return
+	}
+	res, err := db.ExecContext(ctx, `
+		UPDATE site_work_items
+		SET status = 'complete', completed_at = NOW(), handled_by = 'content-gap-planner'
+		WHERE id = $1 AND status IN ('triaged', 'claimed')
+		  AND `+workItemRetryNotPendingSQL("")+`
+	`, *itemID)
+	if err != nil {
+		logger.Warn("apply_gap_plan: could not complete the originating work item",
+			zap.String("item_id", itemID.String()), zap.Error(err))
+		return
+	}
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		logger.Info("apply_gap_plan: originating work item NOT completed — a retry is already scheduled for it, or a deliberate decision is recorded on it",
+			zap.String("item_id", itemID.String()))
 	}
 }
 
