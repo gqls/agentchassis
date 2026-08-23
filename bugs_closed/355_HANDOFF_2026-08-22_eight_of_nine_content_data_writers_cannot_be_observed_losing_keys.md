@@ -426,3 +426,37 @@ never compress files into prose**, because a seat can only review what the edits
 **What closes this file:** the council verdict on `f5550f04` read and 552 applied; one scheduled
 run (07:05 UTC) producing its heartbeat unattended; and after the next roll, one archive row
 carrying an `action:*` writer. Then this moves to `bugs_closed/` with the fixed-AND-live bar met.
+
+---
+
+## 11. CLOSED 2026-08-23 — fixed, live, and every half behaviourally proven on organic traffic
+
+| closing-bar item (§10) | state |
+|---|---|
+| mig 552 applied after an approved verdict | ✅ APPROVED `ebbea0c1` (all reviewers, 2 low advisories), applied 08-22, all three archive triggers verified enabled at `pg_trigger` with 357's two undisturbed |
+| one scheduled run producing its heartbeat unattended | ✅ 08-23 07:05 UTC run: canary ok, control 72 re-found, 0 newly filed (cross-run dedupe), heartbeat written — twice, because exit 1 makes the Job retry once and each attempt writes its row (family semantics; a THIRD row would be news) |
+| one archive row carrying an `action:*` writer after the roll | ✅ **three**, organic: `action:section_editor.update`, op=overwrite, 07:18 08-23 — the first attributed rows in the table's history; funnel rows correctly still socket-named (unstamped by design) |
+| council verdict on `f5550f04` round 2 read | ⏸ **structurally blocked, not pending**: the run completed `complete_invalid` — its reviewer seat died on the fleet's Anthropic usage cap (*"You will regain access on 2026-09-01 at 00:00 UTC"*). No verdict can exist before then. The review is ADVISORY by design; the trail is committed under the correlation and 098 auto-credits on approval. **If it returns REVISE with a real defect, fix forward — closure does not seal code** |
+
+**Bonus proof nobody scheduled:** overnight the imagery pipeline supplied aao's five card images —
+the 08-23 run's state census moved 32 → 27 and the seven aao carry-miss findings now name only the
+`link_url` stragglers. The partial-heal logic (`carryMissVerdict`) worked in production on the
+first natural opportunity.
+
+**Residuals, each with an owner that is not this file:**
+- the unread-codes class programme → `bugs_open/358` (incl. B1a: all 41 open regressions are tool
+  pages behind the shared `rerender_sections` step — the suppression-key trap is its headline);
+- the stamp-convention lint → deferred to wherever 358 §B2 lands, built once with the
+  reader-at-birth law (355 §10);
+- dartsonline `category-listing` blanks (`query.*`-sourced, third source family) and the other new
+  state-census sightings → surfaced daily by the heartbeat for the owner's queue;
+- RFC_008 (the `rendered_html` seam) → with the owner, explicitly not ruled by option (c);
+- the vanished 08-22 12:05 dispatch (no orchestration row ever; NOT the restart window) →
+  one data point, recorded, unexplained; the 09:48 re-dispatch recorded run envelope `242d15b1`
+  so any recurrence is distinguishable.
+
+**What this file changed, in one line each:** the archive now sees every content change (552) and
+names its writer (A1); the losses it records have a reader that grades and resolves them daily
+(A2+A3, one binary); the zero it reports is only ever spoken over a passing canary and a pinned
+non-zero control; and the two codes that were written-and-never-read for weeks are consumed by the
+same binary that would have caught the class that produced them.
