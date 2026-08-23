@@ -642,3 +642,72 @@ planner path traced first (still `[UNVERIFIED]` where `roadmap_brief` lands).
 **Do not re-render or rebuild this page without reading the entry above** — the specs are
 correct but the plan is not, and a rebuild will re-introduce duplicate sections and the
 placeholder hero.
+
+## 2026-08-23 — images: five already existed and were unused; four more generated; all six embedded
+
+Owner: *"There are insufficient images on this page, please can you add an image for each section."*
+
+**First finding: the page was not short of images, it was short of images IN USE.** Five
+illustrations already existed, generated 2026-08-22 from my seeded `imagery_style_guide`
+(their `origin_prompt` begins with my exact palette, so the style guide is driving them) and
+all five were live and serving:
+
+| asset_key | serves |
+|---|---|
+| `illustration_waggle_dance` | 200, 191,747 bytes |
+| `illustration_wax_comb` | 200, 278,998 |
+| `illustration_swarm` | 200, 234,959 |
+| `illustration_solitary_bee` | 200, 195,543 |
+| `illustration_pollination` | 200, 204,315 |
+
+The page referenced none of them — only `hero-home.jpg` and `logo.png`. **A silent mechanism
+that is undriven, not missing.**
+
+**Second finding, and it is the same defect as the copy:** those five cover the waggle dance,
+wax/comb, swarm, solitary bees and pollination — **exactly the five subjects the page was
+supposed to have and does not.** The images were generated against the intended plan; the
+prose drifted to four solitary-bee sections and two worker-job sections. So the assets and
+the copy disagree, and using a swarm illustration on a solitary-bee section would have been
+actively misleading.
+
+### Why I generated new ones rather than reusing what was there
+
+Reusing `illustration_solitary_bee` across the four solitary sections would have made the
+duplication **more** obvious, not less. So: four new illustrations, each matched to what its
+section actually says, deliberately different from one another so related text does not get
+four identical pictures.
+
+| section | image | source |
+|---|---|---|
+| 2 · Most bees keep no company at all | `illustration_hive_vs_solitary` (crowd vs one bee) | NEW |
+| 3 · A solitary life in an old beetle hole | `illustration_beetle_hole` | NEW |
+| 4 · A nest built for one | `illustration_nest_cutaway` (burrow cross-section) | NEW |
+| 5 · The jobs a bee does before she ever leaves the hive | `illustration_wax_comb` | existing — the text says she *"works wax into comb"* |
+| 6 · The bees that live alone | `illustration_solitary_bee` | existing |
+| 7 · One bee, several careers | `illustration_worker_stages` (one comb, four tasks) | NEW |
+
+Generated through the framework: four `needs_imagery` work items (spec shape copied from
+apis.uk's own `illustration_swarm` item) dispatched to `image-build-handler`. **No prompt
+written from scratch for style** — the handler composes the site's `imagery_style_guide` in
+front of the subject, which is why these match the earlier five.
+
+### Traps hit
+
+- **`Generic Text Block` has no image slot.** Its `html_template` is 211 chars: section →
+  container → `h2.section__title` → `div.section__content`. There is no component in the
+  library that is "prose section plus illustration", so the image goes inside the section's
+  content HTML. **Precedent for that is the fleet's own** — `leopardessconsulting.co.uk` has
+  3 Generic Text Block sections carrying `<figure class="infographic"><img …>` inside
+  `content`. I copied the idiom rather than inventing one.
+- **`figure` and `.infographic` have NO rule in apis.uk's CSS** (checked inline + external),
+  so a bare `<figure>` would take the browser default `margin: 1em 40px` and inset every
+  image. Used an inline `style="margin:0 0 1.75rem"`, which is self-contained and cannot
+  affect anything else. `img` IS globally styled (`max-width:100%; height:auto; display:block`),
+  so the images are responsive without touching the stylesheet.
+- **`illustration-worker-stages.jpg` 404'd while its asset row said `active` with a filename
+  and its orchestration said COMPLETED.** `b2 ls` showed the object present in the bucket, so
+  it was edge propagation, not a failed deploy — 200 on the next attempt. **Had I trusted the
+  DB I would have called it deployed; had I trusted the first 404 I would have re-run a
+  generation that had already succeeded.** The bucket listing is what separated those.
+- Both `content_data` AND `rendered_html` updated in the same statement, per the render-cache
+  landmine — updating only the source would have re-rendered the old markup.
