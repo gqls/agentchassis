@@ -46422,3 +46422,41 @@ supports you**, and do not tell the person which answer helps.
 narrower support they DID offer — 376 is evidence for the RFC's *premise* (this pipeline has
 hops with no producer of last resort; `create_next_item` is the sole producer of
 `needs_strategy` estate-wide) but not an instance of its *mechanism*.
+
+---
+
+## 2026-08-23 — I submitted the same defect to the council TWICE: a rationale whose load-bearing fact lived in files I had left out of the plan
+
+**The claim.** Round 1's submission for `bugs_open/358` phase 2 said the new `--no-source` flag's
+skipped arms "run at commit time instead: `scripts/check-finding-code-registry.sh`". Round 2's said
+its live consumers were "exactly one, the finding-code-registry-check image's CMD".
+
+**Both were TRUE of the tree and neither was checkable from the plan.** I had left the companion
+files out of the `edits` list — the script because it is out of council scope (`scripts/`), the
+dockerfile and CronJob for the same reason (`build/`, `deployments/`) — following the runbook's
+"name the companion file in the edit's `rationale`, not its `file`". The effect was a plan that
+pointed at things a reviewer could not confirm existed.
+
+**What caught it: the council, twice, on the same mechanism.** Round 1, `prior_art_librarian`,
+HIGH: *"this plan ships a report field that names a runner that is not yet real, i.e. a forward
+reference presented as fact."* Round 2, `editquality` and `debug_historian`, both HIGH: *"no edit
+modifies that CMD... the plan builds the capability to fix the bug but never applies it to the
+failing job."* Two rounds, ~40 minutes of fleet time, for a fact I had in hand each time.
+
+**The cheap check I skipped, and it is one question:** before submitting, read the rationale and ask
+of every load-bearing sentence — *can a reviewer confirm this from the edits alone?* If the answer
+is no, the file belongs in `edits`, whatever its council scope. Scope governs what gets REVIEWED, not
+what a reviewer is allowed to SEE; an out-of-scope path listed as an edit costs nothing, and a plan
+that reads as complete is the only thing the seats can grade.
+
+**Why it is worth a row rather than a shrug:** the second occurrence is the finding. After round 1
+I fixed the specific instance (added the script as an edit) and did not generalise, so the identical
+shape — the CMD — walked straight into round 2. **Fixing an instance is not fixing the class**, and
+this file exists because a tally of skipped checks is what tells you which check to automate.
+
+**Related, same session, caught by a control rather than a reviewer:** extracting the shared
+pre-commit helper, I passed the failure headline into the could-not-tell line, printing
+*"optional-key budget parity: DRIFTED (RFC_022): NOT CHECKED (the tree does not build)"* — a single
+line asserting a finding and disclaiming one. Caught by re-running all three cases for **both**
+callers after the refactor, including the pre-existing guard I had not come to change. Recorded in
+`LANDMINES.md` as the trap the extraction created.

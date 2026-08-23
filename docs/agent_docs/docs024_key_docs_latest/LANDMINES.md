@@ -15948,3 +15948,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **sibling, distinct:** the house rule *trust the artefact, not the status* usually means a DB status column vs the served page. This is the same rule one layer in — the step's own JSON, which most readers treat as ground truth precisely because it is not a status column
 - **source:** `bugs_open/376`, filed 2026-08-23 from the `garden-tools.uk` greenfield build; the trap is called out in that file's §7 because it will mislead whoever verifies the fix
 - **added:** 2026-08-23, loanzy_uk_example_site (one-shot build route) lane
+
+---
+
+### `scripts/lib/precommit-gotest.sh` is on the path of EVERY session's commit — a non-zero exit anywhere in it stops the whole fleet committing, and it reads like an ordinary library
+
+- **footprint:** `scripts/lib/precommit-gotest.sh`, `precommit_run_gotest`, `precommit_staged_files`, `scripts/check-optional-key-parity.sh`, `scripts/check-finding-code-registry.sh`, `.githooks/pre-commit`
+- **fires when:** you edit that helper, or add a third guard that sources it. It sits under `scripts/lib/`, it is 80 lines of shell, and nothing about opening it says "this runs before every commit in every session on this tree". The two callers are *scoped* — they exit early unless the staged diff is relevant — but **the helper itself is reached by any commit that trips either scope**, and one of those scopes is `cmd/config-key-audit/*`, which several lanes touch weekly.
+- **the tell: there is none until the fleet cannot commit.** A `set -e` added for tidiness, a `return $rc` that looks more honest than `return 0`, or a `grep` whose no-match exit escapes — each is a normal-looking edit, and each turns an advisory guard into a blocking one for every session at once. The hook's own header says it in terms: *"a stray non-zero exit here stops the whole fleet committing. Keep it boring."*
+- **the check, and it is cheap:** every path through `precommit_run_gotest` must `return 0` — the pass, the go-absent case, the build-failure case and the real-failure case. Prove it rather than reading it, in a scratch clone (**never by staging in the shared tree**):
+  ```bash
+  git archive HEAD | tar -x -C "$SCRATCH/hooks" && cd "$SCRATCH/hooks" && git init -q && git add -A && git -c user.email=t@t -c user.name=t commit -qm base
+  # one case per line; ALL must print 0
+  for case in healthy realfail buildfail; do … ; ./scripts/check-optional-key-parity.sh; echo "$case exit=$?"; done
+  ```
+  And test **both** callers, not just the one you came for: the RFC_022 parity guard predates the helper and is the one every session's commits actually reach.
+- **the second trap, inside the first:** the helper takes a neutral `subject` AND a `failure-headline`, and they must stay separate. The first cut passed the headline into the could-not-tell line and printed `optional-key budget parity: DRIFTED (RFC_022): NOT CHECKED (the tree does not build)` — one line asserting a finding and disclaiming one in the same breath. On a tree this often fails to compile because of another session's WIP, **keeping the undecidable case legible as undecidable is the single behaviour this file exists to hold**, and merging those two strings quietly destroys it.
+- **why the helper exists at all** (so nobody "simplifies" it back into two copies): the council's reuse seat gated on the duplication — *"two independently-built mechanisms solving overlapping problems in the same package, each maintained separately, with no unification once both exist"* (corr `be252395`, round 2). Deliberately NOT shared, and not a candidate for sharing: each caller's relevance predicate and its guidance text.
+- **source:** 2026-08-23, `bugfix_358_unread_finding_codes` lane, extracting the helper in response to that objection. No incident — this is the trap the extraction *created*, written down at the moment it was created rather than after it bit.
+- **added:** 2026-08-23, bugfix_358_unread_finding_codes lane
