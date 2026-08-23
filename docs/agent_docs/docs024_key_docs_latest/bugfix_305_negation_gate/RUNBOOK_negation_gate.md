@@ -289,12 +289,28 @@ different things.
 
 ⚠ **The step name is the LOOP-EXPANDED one** — `process_sections_loop_iter_1_rewrite_negations`, not
 `rewrite_negations`. A query filtering on the bare step name returns nothing and reads as "no
-truncation".
+truncation". Filed fleet-wide 2026-08-23 (`LANDMINES.md`, "A truncation/cost census over
+`llm_call_log` keyed on the step name you CONFIGURED returns zero rows") — the pre-existing entry for
+this trap names pod logs and `orchestration_states`, **not** `llm_call_log`, so it is not findable
+from the table you are querying.
 
 ## 11. READING THIS STEP'S CONFIG AT ALL — it is NOT a top-level step
 
 The `rewrite_negations` step lives inside a **sub-workflow**, so every top-level
 `default_config->'workflow'->'steps'` query returns 0 rows and reads as "the step does not exist".
+This is a known fleet-wide trap — `LANDMINES.md` documents it and gives the general idiom, a
+**recursive walk** that finds a step at any depth and is what to reach for when you do not already
+know the path:
+
+```sql
+FROM agent_definitions ad,
+     LATERAL jsonb_path_query(ad.default_config, '$.**.steps') AS steps,
+     LATERAL jsonb_each(steps) AS s(key,value)
+WHERE s.value->>'action' = 'rewrite_negations'
+```
+
+The explicit-path version below is faster and asserts the path is where this lane thinks it is —
+use it for THIS step, and the walk above when auditing an action across agents.
 
 ```sql
 SELECT e.k AS step, e.s->'config'->'ai_service'->>'max_tokens' AS max_tokens,
