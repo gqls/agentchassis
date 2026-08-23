@@ -450,3 +450,32 @@ ruling, not a bug patch. Recorded, not pursued.
 **Relations added:** RFC_043 Q2/Q3/Q4 · register **WII-003**/**WII-024** · `bugs_open/345` (whose
 in-flight work blocks Gap (c)) · `bugs_open/354` + `bugs_open/341` (the root repair and the SQL
 ladder copy, both **owned by the `bugs_open/307` lane** — untouched here by design).
+
+### §5(h) — council verdict: APPROVED at round 1, and the two objections dispositioned
+
+`af5135d6-8ca2-4453-b33e-a299dcd6a622` — **APPROVED, round 1, all ten seats approve.** Two `low`
+objections, both making the same point, and they were right that the submission was thin there:
+
+1. **`editquality` + `stability`: the sketch showed the function diff but only *described* the four
+   call-site updates, and the signature went from 3 params to 4 — "worth confirming no fifth caller
+   exists elsewhere in the package."** Settled by census rather than assertion:
+   `grep -rn "markOriginalComplete" --include="*.go" .` over the whole repo returns **exactly four
+   call sites**, all in `apply_gap_plan_action.go` (`:290` `applyAddToPage`, `:546` `applyNewPage`,
+   `:976` `applyRetypeExisting`, `:1131` `applyUpdateSpec`), plus the definition and test
+   references. **There is no fifth caller**, and the function is unexported so no other package can
+   reach it. The stronger proof is that `go build ./...` passes across the whole repo: a missed
+   caller *cannot* compile against a 3→4 parameter change, so the compiler settles this question in
+   a way a sketch never could. **Lesson for the next submission from this lane: when a signature
+   changes, put the call-site diffs IN the sketch — two seats spent attention on it, which is
+   attention not spent on the logic.**
+2. **`bug_historian`: "does this pattern of *ExecContext result discarded* recur at the ~10 OTHER
+   complete-writers? … worth a human confirming the bug file actually lists them, since an unwritten
+   intention to fix them later is exactly how a partial guard rots forgotten."** It does — §5(b)
+   above is that table, with each writer's file:line and why it can reach a `triaged` row, and
+   §5(e) names the three blocked files and the reason. Recording the confirmation here so the
+   question is answered where the seat asked it.
+
+`architecture` returned `ARCHITECTURE_SIGNAL: point_fix | DEFLECTIONS: 0` and explicitly agreed the
+scope-out was discipline rather than under-scoping. The commit carries `Council-Submitted:` (the
+verdict had not landed when it was made); `098` credits it automatically at report time, and
+forward-only forbids an amend.
