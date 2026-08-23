@@ -215,3 +215,62 @@ It also sharpens finding B above: 27 of 30 filings named an **exact function mat
 the route that actually matters for this population and Path 2's `section_type` key is close to
 irrelevant to it. A `section_type := function` backfill would be adding a key to the path that was
 never the bottleneck.
+
+---
+
+## 2026-08-23 (later still) — the council round, and three things I got wrong
+
+### Council `7b662d65`: APPROVED round 1, and the objections were worth more than the verdict
+
+Both advisories were acted on rather than banked. Recorded in full in `bugs_open/351`; the part
+worth repeating here is that **the medium-severity objection found a hole in my own calibration that
+neither I nor the submission had seen.** `bug_historian` asked whether every
+`componentTemplateValid` dispatch arm had been audited. There are only two — and because the second
+is a **default** rather than a `section` case, **12 active rows at other levels
+(`site` 6, `header` 4, `footer` 1, `element` 1) took the changed predicate and had never been
+calibrated.** Measured: `read=12, rescued=6, regressed=0`, and six site-level headers/footers turn
+out to have been wrongly dropped all along.
+
+**The lesson is not "audit the arms".** It is that *I calibrated the populations the bug was about,
+not the populations the changed function serves.* The blast radius of a predicate is its callers'
+inputs, not the rows that motivated it — and a `default:` arm is the easiest way for those two sets
+to differ without anything looking wrong.
+
+### MISSTEP 3 — I answered "which path resolved it?" by inference when a positive signal was available
+
+`editquality` objected, correctly, that Path-1 resolution was *asserted, not shown*. I had marked it
+`[INFERRED]`, which is honest, but the marker was doing work a query could have done: the selector's
+`IncrementUsageCount` side-effect gives a **positive** signal, not merely the absence of one, and it
+was two minutes away. **Marking a claim unverified is not a substitute for verifying it when the
+check is cheap** — the marker is the floor, not the ceiling.
+
+### MISSTEP 4 — my census of the manual route answered a slightly different question than I asked
+
+I gave the planning agent a date histogram of `created_from='manual'` section-level births
+(08-15 ×12, 08-14 ×2, 08-13 ×14, …) as if it described **the 25 NULL rows**. It does not — it is the
+histogram of **all** manual section births and sums to 35. The 25 NULL rows' own histogram is
+08-13 ×13, 08-14 ×2, 08-15 ×6, 07-28 ×2, 07-31 ×1, 08-02 ×1 (as of 2026-08-23). Caught by the agent,
+which reconciled the sum against the population — the **same** check that caught misstep 2 earlier
+today, now two for two. Nothing was published with the wrong figure; the claim that reached the docs
+("all 25 are manual, last manual write 2026-08-15") is correct.
+
+### The planning agent was wrong about one thing, and it is the thing I had just filed a landmine on
+
+It reported that `service_binary_capabilities` *"has no rows at all before 15:30Z on 08-23 (the
+table's writer is that new)"*. The emptiness is real; **the explanation is not** — the writer has run
+since RFC_040 on 2026-08-20, and the rows had simply been **pruned**. I had cited
+`min(started_at) = 10:53Z` in this lane's own landmine only ~25 minutes earlier, and by 18:09Z that
+row was gone, with `min(last_seen_at)` sitting exactly on `now() - 2 hours`.
+
+**So two readers drew opposite conclusions from the same emptiness on the same afternoon, and both
+were wrong in the same way** — treating a pruned window as evidence about the past. That is a better
+argument for the landmine than anything I wrote in it, and it is now recorded inside the entry.
+A subagent's report is another doc: its figures were sound, one of its *explanations* was not, and
+the two are not distinguishable by tone.
+
+### Housekeeping: my landmine correction was swept into another session's commit
+
+`d0930af6f` (the `326` lane, pathspec on `LANDMINES.md`) took my uncommitted one-line correction as
+a **same-file passenger** — roughly ten minutes after I read this bug file's own implementation note
+warning to expect exactly that. Nothing is lost: the text is committed and correct, just under
+someone else's message. Recorded because the file's warning is evidently not folklore.
