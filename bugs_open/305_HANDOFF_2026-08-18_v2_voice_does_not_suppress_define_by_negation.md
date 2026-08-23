@@ -835,3 +835,56 @@ likely to fail at the claims gate rather than at the copy gate, produce a failur
 bug, and compete with the lane actively fixing the cause. **The rerender should ride their work, not
 race it.** What this lane owes them is the sentence above: *the copy gate will now repair these pages
 when you rebuild them, and it will leave the tagline alone until the brief changes.*
+
+## §25. 2026-08-23 — BOTH SENTENCES THE OWNER QUOTED ARE GONE FROM THE LIVE PAGE
+
+The site's own lane rebuilt all three pages this morning (10:39–10:49Z), after the account cap cleared.
+
+| page | gate | saved? | still carries the construction? |
+|---|---|---|---|
+| `model-directory` | `clean 0` | **YES, 10:48Z** | **NO — all three components clean** |
+| `adoption-tracker` | `repaired 1→0` | no | hero only (the brief-supplied tagline) |
+| `protocol-tracker` | `repaired 1→1` | no | hero + listing |
+
+**`model-directory` is the page §1 quotes.** Both of the owner's verbatim examples —
+*"The registry shows you what's possible, not what survives production."* and *"…tells you which
+agents exist. It doesn't tell you how they…"* — are **absent from the stored `content_data`**,
+checked as literals, with a length control confirming the components hold real text. The new
+call-to-action headline reads *"The model registry is one of several tools on this site."*
+
+⚠ **And note HOW it came clean: `hits_before 0`.** The gate repaired nothing on that page — the
+writer simply produced clean copy this time. Do not cite `model-directory` as proof the repair works
+(§23 is that proof, on `loanzy.uk`); cite it as the damage being gone.
+
+**Why the other two did not save — NOT the gate, and not the component floor either.** Both parents
+ended `complete_error` at `validate_content`: *"content validation failed: 0 blockers, 19 errors"*
+(`adoption-tracker`) and *"5 errors"* (`protocol-tracker`). That is the claims/validation layer, and
+it matches the open `claims_unverified` work items on both pages (8 and 3 unregistered numbers) and
+migration `557`, which the site's lane applied yesterday because a rebuild there *"has failed twice
+on a claims error"*. It is their work, in progress.
+
+**So what actually remains of the damage, precisely:**
+- `adoption-tracker`'s hero = **the canonical brief-supplied tagline**. The gate exempts it BY DESIGN
+  (§11) and always will. Only editing `content_direction` moves it — that is **D2**, the owner's.
+- `protocol-tracker`'s two components = would clear on a successful rebuild, currently blocked by the
+  claims layer above.
+
+## §26. THE REPAIR LOG HAD A HOLE, FOUND WHILE ANSWERING THE CLOSURE QUESTION
+
+`[MEASURED 2026-08-23]` Of 49 markers with `targets > 0`, **15 do not reconcile**
+(`targets ≠ rewritten + rejected`) and **12 account for none of their targets**. Worked case in the
+same morning's traffic: `protocol-tracker`'s `copy_gate_2` reports `targets=1, rewritten=0,
+rejected=0`, in a run whose other two iterations account correctly.
+
+**Cause, first-hand:** `runNegationRepair`'s loop ranges over `decodeReplacements(parsed)` — the
+model's answer — not over `plan.targets`. Every branch inside accounts for its target, so a target
+the answer never mentions is visited by no branch and recorded nowhere. Invisible on inspection
+precisely because the accounting looks total.
+
+**No page was ever misdescribed** — `hits_after` is recomputed from the real content. The damage is to
+the INSTRUMENT, and that matters here because **`D3` is explicitly to be settled from the rejection
+log**: an unreconciled 31% was about to inform an owner decision while looking complete.
+
+Fixed (`no_answer_for_target`), three properties mutation-proven, council `f3046f0c` submitted.
+**INERT until the next chassis roll** — so `D3` should not be decided from the log until it has rolled
+and a week of traffic has accumulated under the fixed accounting.
