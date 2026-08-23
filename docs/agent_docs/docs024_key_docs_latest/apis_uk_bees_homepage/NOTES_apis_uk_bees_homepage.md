@@ -391,3 +391,79 @@ Consequence: the Python checker is now labelled a fast authoring aid, `check_ban
 sits beside it as the authority, and the whole apis.uk suite was re-run under RE2 —
 **37 patterns, 23 forbidden all caught, 12 permitted all clean, 0 problems**. The suite
 holds where it actually runs, not only where I wrote it.
+
+## 2026-08-23 (afternoon) — the limit lifted mid-session, and the first rewrite attempt was REFUSED by a guard, correctly
+
+**How I found out the blocker had gone: by accident, and it is worth recording how.** I
+wrote `fire_page_rebuild.sh` with a refusal guard on `ai_endpoint_health`, and ran it
+expecting exit 4. It dispatched instead — because `claude` had recovered at **12:12:18Z**
+(74 calls in the following 20 minutes, 73 successful). The guard was correct; the world had
+changed under it.
+
+**Two missteps of mine in that one command.**
+1. **I ran the script TWICE** — once silenced to capture `$?`, once to show output — and
+   **each invocation dispatched a real orchestration.** Two concurrent rebuilds of the same
+   page. They both died on the same guard so no damage, but *testing a dispatching script by
+   running it dispatches*, and I should have exercised the guard logic in isolation (which
+   is what I then did, and what the script's header now records).
+2. **The live run only exercised the ALLOW arm**, so my "guard works" claim was unproven in
+   the direction that matters. Driven directly afterwards: `HEALTHY=f` refuses, `HEALTHY=''`
+   refuses (a failed query must never read as healthy), `HEALTHY=t` proceeds.
+
+### The rewrite was REFUSED, and the refusal was right
+
+```
+SECTION SHRINK REFUSED for page "index" — hero 296→144 chars of VISIBLE text
+(49% kept, floor 50%) ... Nothing was written (bugs_open/178, axis corrected by bugs_open/293).
+```
+
+**Nothing was written**, so the live page was never at risk. My first instinct was that the
+guard was in the way — my tighter style rules naturally produce shorter copy, and the error
+even names `section_shrink_floor` as the override. **Overriding it would have been the wrong
+call, and the proposed content is why.**
+
+### What the writer actually produced — read before deciding, not after
+
+| section | opening |
+|---|---|
+| hero | *"A returning forager climbs onto the vertical comb and dances the direction she flew."* — **my exemplar 1, verbatim** |
+| 1 | *"A forager returning from a good patch of flowers **does not simply** walk into the hive and stop."* |
+| 3 | *"**Most bees live alone.** They nest in dry soil, in hollow plant stems…"* |
+| 4 | *"**Most bees live alone.** They nest in dry soil, in hollow stems…"* |
+| 6 | *"**Most bees live alone.** They nest in dry soil, in hollow plant stems…"* |
+
+**Three sections opening on the same sentence, and that sentence is my own exemplar 4.** The
+hero is exemplar 1 verbatim, under the bare label headline *"A page about bees"*. And the
+negative frames survived anyway: `does not simply`, `is not one thing`, `looks nothing like`,
+and `rather than` four times.
+
+**So my exemplar fix backfired in a way I had explicitly predicted the opposite of.** The
+CONTRIB I filed this morning said transfer was *selective and frame-shaped* and treated that
+as reassuring. Rewriting the exemplars to be concrete, complete and on-subject turned
+stylistic influence into **wholesale lifting**: a vivid finished sentence about bees is not
+read as "write like this", it is read as "good material for this page". Addendum appended to
+that CONTRIB, because a finding I gave another lane was wrong within three hours.
+
+### The structural half, which is not a style problem at all
+
+`section_plan_0.ready_names` = `hero, generic-text-block ×6`. **Six identical slots with no
+per-section subject.** The writer is asked six times for "a section" with nothing to tell
+them apart, so it reaches for the most concrete material in the brief — which, after my
+change, was six finished sentences about bees. **Duplication here is what a contentless
+section plan looks like once the brief contains anything quotable.**
+
+### Fixes for attempt 2 (`afbc8d26`), and the shrink guard is now expected to pass on merit
+
+- `roadmap_brief` **names the five section subjects** — waggle dance, wax and comb, a
+  worker's changing job, swarming, solitary bees — one each, with *"cover solitary bees
+  ONCE, in section five only"* and the three-way duplication named as the failure it exists
+  to prevent.
+- `example_phrases.how_to_use_these`: these are **style samples, not content**; no sentence
+  may be copied; no section may be built around a subject an exemplar mentions.
+- a `writing_rules` entry forbidding two sections opening on the same claim.
+- the hero brief now demands **a real headline**, naming *"A page about bees"* as
+  unacceptable — which should also clear the shrink floor honestly rather than by override.
+
+**I have not touched `section_shrink_floor`.** If attempt 2 shrinks the hero past the floor
+again *with a good headline*, that is the moment to consider the override — with the copy
+read first, in that order.
