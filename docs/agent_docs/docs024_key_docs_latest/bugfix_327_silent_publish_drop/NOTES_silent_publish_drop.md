@@ -204,3 +204,30 @@ so it tests neither arm.
 **What this means for the fix:** the receipt is not belt-and-braces on top of an exit code
 that mostly works. For the failure mode that actually bites, **the exit code carries no
 information at all**, and the receipt is the only signal that exists.
+
+### The receipt mechanism tested against all three known traps
+
+Before designing around the receipt, I checked it actually discriminates. Both tests
+publish nothing (unreachable broker), so both are side-effect free.
+
+**Test 1 — safe form, unreachable broker.** `--command -- sh -c "… | kcat -P … && echo
+PUBLISH_OK"`. Result: broker errors, pod terminated (Error), **receipt ABSENT**. The `&&`
+chain does suppress the marker on a failed publish, as intended.
+
+**Test 2 — the `--command` omission trap.** Same command with `--command` dropped, so
+`sh -c …` arrives as *arguments to kcat* (the image ENTRYPOINT). Result: kcat's usage text,
+pod terminated (Error), **receipt ABSENT**.
+
+`[MEASURED 2026-08-23]` So an **asserted** receipt is a single control that catches all
+three known ways this fails silently:
+
+| trap | exit code today | receipt catches it |
+|---|---|---|
+| stdin race / empty stdin (the 327 case) | **0 — no signal** | yes |
+| broker unreachable | 1 | yes |
+| `--command` omitted (ENTRYPOINT trap) | 1 | yes |
+
+The middle and bottom rows are already loud; **the top row is the one with no other
+signal**, and it is the one that produced 327. That is the argument for the receipt being
+*asserted* rather than printed: it is the only instrument that reads the silent arm, and 23
+of the 25 scripts that emit it never look at it.
