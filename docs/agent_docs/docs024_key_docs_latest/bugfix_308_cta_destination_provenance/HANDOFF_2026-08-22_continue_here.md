@@ -1,4 +1,9 @@
-# HANDOFF — `bugs_open/308`, CTA destination provenance. Continue here.
+# HANDOFF — `bugs_open/308`, CTA destination provenance. ⚠ SUPERSEDED.
+
+> **SUPERSEDED 2026-08-23 by `HANDOFF_2026-08-23_continue_here.md`. Read that instead.**
+> §4 of this file (the BLOCKED banner, "do not resubmit before 2026-09-01") is **FALSE**: the cap
+> was on the wrong Anthropic account and lifted 2026-08-23 10:10:40Z. §5 says Phase B has not
+> started; it is committed (`7f85aa814`). Kept unedited below because the trail is the record.
 
 **Written 2026-08-22 ~19:00Z.** Lane dir:
 `docs/agent_docs/docs024_key_docs_latest/bugfix_308_cta_destination_provenance/`
