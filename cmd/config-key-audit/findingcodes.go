@@ -75,6 +75,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/gqls/agentchassis/pkg/buildinfo"
 )
 
 const findingCodeRegistryPath = "docs/agent_docs/docs024_key_docs_latest/architecture_review/finding_code_registry.json"
@@ -159,6 +161,18 @@ type findingCodeReport struct {
 	// parity) and a clean parity run produce the same empty findings list, and
 	// the reader cannot tell which they are holding.
 	RetentionParity string `json:"retention_parity"`
+
+	// SourceArms says whether the two checks that open a `consumed` entry's
+	// reader FILE actually ran, and is emitted ALWAYS for exactly the reason
+	// RetentionParity is: a run that skipped them and a run that passed them
+	// print the same empty findings list otherwise. See the sourceArms* consts.
+	SourceArms string `json:"source_arms"`
+
+	// DeclaredCodes is how many codes the registry this run graded against
+	// declares. It is here because the registry TRAVELS IN THE IMAGE: a cluster
+	// row and a local run disagreeing on this number is the visible tell that
+	// the image is behind the repo, and without it that lag is invisible.
+	DeclaredCodes int `json:"declared_codes"`
 }
 
 var validDispositions = map[string]bool{
@@ -291,13 +305,58 @@ func repoSourceReader(root string) sourceReader {
 	}
 }
 
+// ─── RUNNING WITHOUT A SOURCE TREE (bugs_open/358 phase 2) ──────────────────
+//
+// A NIL sourceReader means "this binary has no repo beside it", which is the
+// CronJob's situation and nothing else's. It is passed explicitly, from the
+// `--no-source` flag, and never inferred from a failed read: an unreadable file
+// where source IS available stays a finding, because that is a registry pointing
+// at a file that does not exist.
+//
+// WHY THE ARMS MOVE RATHER THAN THE SOURCE. Two of this mode's checks open the
+// Go file a `consumed` entry names. No check image in this estate ships a source
+// tree, so in the container all five `consumed` entries would raise
+// `reader-unreadable` and the job would be RED EVERY DAY for a non-defect — and
+// a permanently red check is a disabled one. Shipping ~17MB of Go source to
+// satisfy them buys nothing: those arms compare the registry against source, and
+// BOTH change only by commit, so they cannot come out differently in the cluster
+// than they did at build time. Their home is commit time, and they now have a
+// runner there (scripts/check-finding-code-registry.sh, wired into
+// .githooks/pre-commit, which runs this package's tests including
+// TestShippedRegistryIsSelfConsistent). Before that script they had none: the
+// existing hook runs only `-run 'BudgetCron'`.
+//
+// WHAT IS STILL CHECKED WITHOUT SOURCE — everything a clock or the live table can
+// move, which is the whole reason for scheduling this at all: the undeclared
+// ratchet, the unruled cap, retention parity, `review_by` EXPIRY (the one arm
+// only the passage of time can trip), the human-evidence window, bad
+// dispositions, prefix collisions, and both `consumed` field-presence checks.
+// The foreign-sink REPORT survives too — it compares two registry fields and
+// never needed a file.
+const (
+	sourceArmsChecked = "checked — every `consumed` entry's reader file was opened and must name " +
+		"both the code and its sink"
+	sourceArmsSkipped = "NOT run (--no-source): this binary has no repo beside it. These two arms " +
+		"grade the registry against Go SOURCE, and both halves change only by commit — so they " +
+		"cannot come out differently here than they did at build time. They run at commit time " +
+		"instead: scripts/check-finding-code-registry.sh (pre-commit) → `go test " +
+		"./cmd/config-key-audit/`. Everything a clock or the live table can move DID run here, " +
+		"including the undeclared ratchet and review_by expiry"
+)
+
 // auditFindingCodes is the pure check (same pure/impure split as
 // findSingleOwnerViolations and censusOptionalKeys, for the same testability
 // reason). `live` is the observed code list; `now` is passed rather than read so
-// a review_by expiry test cannot depend on the wall clock.
+// a review_by expiry test cannot depend on the wall clock. A nil `src` is the
+// no-source-tree case above — stated in the report, never silent.
 func auditFindingCodes(live []string, reg map[string]findingCodeEntry, src sourceReader, now time.Time) findingCodeReport {
 	rep := findingCodeReport{Findings: []findingCodeFinding{}, Unruled: []string{},
 		NotObserved: []string{}, ForeignSinks: []string{}}
+	rep.SourceArms = sourceArmsChecked
+	if src == nil {
+		rep.SourceArms = sourceArmsSkipped
+	}
+	rep.DeclaredCodes = len(reg)
 
 	observed := map[string]bool{}
 	for _, raw := range live {
@@ -344,25 +403,32 @@ func auditFindingCodes(live []string, reg map[string]findingCodeEntry, src sourc
 				})
 				break
 			}
-			body, err := src(e.Reader)
-			if err != nil {
-				rep.Findings = append(rep.Findings, findingCodeFinding{
-					Kind: "reader-unreadable", Code: code,
-					Detail: fmt.Sprintf("reader %s cannot be read: %v", e.Reader, err),
-				})
-				break
-			}
-			// The code may be reached through a Go constant rather than a
-			// literal (358 §3.2 — the trap that made the original census miss
-			// page_build_failure_guard's reader), so accept either the code
-			// itself or a constant declared to it in the same file.
-			if !strings.Contains(body, code) {
-				rep.Findings = append(rep.Findings, findingCodeFinding{
-					Kind: "reader-does-not-name-code", Code: code,
-					Detail: fmt.Sprintf("reader %s does not mention %s — a reader reference that "+
-						"names the wrong file is worse than none, because it reads as a closed loop",
-						e.Reader, code),
-				})
+			// The two source-side arms. Skipped, and SAID so in rep.SourceArms,
+			// when this binary ships without a repo — never skipped silently.
+			var body string
+			haveSource := src != nil
+			if haveSource {
+				b, err := src(e.Reader)
+				if err != nil {
+					rep.Findings = append(rep.Findings, findingCodeFinding{
+						Kind: "reader-unreadable", Code: code,
+						Detail: fmt.Sprintf("reader %s cannot be read: %v", e.Reader, err),
+					})
+					break
+				}
+				body = b
+				// The code may be reached through a Go constant rather than a
+				// literal (358 §3.2 — the trap that made the original census miss
+				// page_build_failure_guard's reader), so accept either the code
+				// itself or a constant declared to it in the same file.
+				if !strings.Contains(body, code) {
+					rep.Findings = append(rep.Findings, findingCodeFinding{
+						Kind: "reader-does-not-name-code", Code: code,
+						Detail: fmt.Sprintf("reader %s does not mention %s — a reader reference that "+
+							"names the wrong file is worse than none, because it reads as a closed loop",
+							e.Reader, code),
+					})
+				}
 			}
 
 			// WHICH SINK the reader reads. See the ReaderSink doc comment: a
@@ -376,7 +442,7 @@ func auditFindingCodes(live []string, reg map[string]findingCodeEntry, src sourc
 						"actually selects this code from. 'Something reads it' and 'this table's " +
 						"row is read' are different claims and the first was hiding the second",
 				})
-			case !strings.Contains(body, e.ReaderSink):
+			case haveSource && !strings.Contains(body, e.ReaderSink):
 				// Same strength as the reader check above, and the same limit:
 				// it proves the reader MENTIONS the sink, not that it selects
 				// this code from it. A file naming several tables can satisfy
@@ -501,9 +567,16 @@ func findingCodeRunSummary(rep findingCodeReport, registryPath string) string {
 	fmt.Fprintf(&b, "finding-code registry check — %d distinct error_code(s) observed live, "+
 		"%d finding(s), %d unruled, %d registered-but-unobserved\n",
 		rep.ObservedCount, len(rep.Findings), len(rep.Unruled), len(rep.NotObserved))
-	fmt.Fprintf(&b, "registry: %s (bugs_open/358)\n", registryPath)
+	// The registry TRAVELS IN THE IMAGE, so its declared-code count and the
+	// commit this binary was built from are what let a reader of an old row tell
+	// which declarations it was graded against. Without them a stale image's
+	// clean report is indistinguishable from a current one's.
+	fmt.Fprintf(&b, "registry: %s — %d code(s) declared (bugs_open/358)\n",
+		registryPath, rep.DeclaredCodes)
+	fmt.Fprintf(&b, "built from: %s\n", buildinfo.GitCommit)
 	fmt.Fprintf(&b, "retention parity: %s\n", rep.RetentionParity)
 	fmt.Fprintf(&b, "unruled cap:      %s\n", rep.UnruledCap)
+	fmt.Fprintf(&b, "source-side arms: %s\n", rep.SourceArms)
 	if len(rep.Findings) == 0 {
 		b.WriteString("\nEvery code firing today is declared. The unruled count below is the " +
 			"backlog, not a defect — it should go down.\n")
@@ -535,6 +608,11 @@ func emitFindingCodes(args []string) {
 	root := "."
 	report := false
 	sweepFile := ""
+	// OPT-IN, with the unsafe side OFF (owner ruling 2026-08-02: new authority on
+	// a shared seam ships as a field whose default is the safe one). Absent, the
+	// source-side arms run exactly as they always have. Its ONE live consumer is
+	// the finding-code-registry-check image's CMD, which has no repo beside it.
+	noSource := false
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--registry":
@@ -553,6 +631,8 @@ func emitFindingCodes(args []string) {
 			i++
 		case "--report":
 			report = true
+		case "--no-source":
+			noSource = true
 		case "--sweep-file":
 			// The hand-run wrapper has no DB handle of its own — it reads the
 			// table through kubectl and pipes. Without this flag the parity check
@@ -568,7 +648,8 @@ func emitFindingCodes(args []string) {
 			i++
 		default:
 			fmt.Fprintf(os.Stderr, "config-key-audit --finding-codes: unrecognised argument %q "+
-				"(want: [--registry <file>] [--root <dir>] [--report] [--sweep-file <file>])\n", args[i])
+				"(want: [--registry <file>] [--root <dir>] [--report] [--no-source] "+
+				"[--sweep-file <file>])\n", args[i])
 			os.Exit(2)
 		}
 	}
@@ -647,7 +728,15 @@ func emitFindingCodes(args []string) {
 		os.Exit(2)
 	}
 
-	rep := auditFindingCodes(live, reg, repoSourceReader(root), time.Now())
+	// nil is the no-source-tree case, and it is passed EXPLICITLY from the flag
+	// rather than inferred from a failed read: where source is available an
+	// unreadable reader file stays a finding, because that is a registry
+	// pointing at a file that does not exist.
+	src := repoSourceReader(root)
+	if noSource {
+		src = nil
+	}
+	rep := auditFindingCodes(live, reg, src, time.Now())
 	rep.Findings = append(rep.Findings, parityFindings...)
 	rep.RetentionParity = parityState
 	capFindings, capState := auditUnruledCap(len(rep.Unruled), unruledCap)

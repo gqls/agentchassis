@@ -402,3 +402,138 @@ func TestOwnSinkIsNotReported(t *testing.T) {
 		t.Fatalf("the ordinary case must be silent on both channels; got %v / %v", kinds(got), got.ForeignSinks)
 	}
 }
+
+// ─── --no-source: the CronJob's mode (bugs_open/358 phase 2) ────────────────
+//
+// The image ships no repo, so the two arms that OPEN a reader file cannot run
+// there. What must not happen is either failure mode of a skip: five
+// `reader-unreadable` findings a day over a healthy registry (a permanently red
+// check is a disabled one), or a silent skip that reads as a pass. So each test
+// below pins the skipped case AND its control — the same fixture WITH source,
+// which must still find the defect.
+
+func TestWithoutSourceAConsumedEntryIsNotReaderUnreadable(t *testing.T) {
+	reg := map[string]findingCodeEntry{
+		"MY_CODE": {Disposition: "consumed", Reader: "r.go:1", ReaderSink: "agent_error_log"},
+	}
+
+	// No source tree: the reader file cannot be opened and that is not a defect.
+	got := auditFindingCodes([]string{"MY_CODE"}, reg, nil, testNow)
+	if len(got.Findings) != 0 {
+		t.Fatalf("a healthy consumed entry must be silent without a source tree; got %v", kinds(got))
+	}
+
+	// THE CONTROL. With a source tree in which that file does not exist, the
+	// same entry IS a finding — otherwise this test would pass against a
+	// checker that had simply stopped looking.
+	withSrc := auditFindingCodes([]string{"MY_CODE"}, reg, srcContaining(nil), testNow)
+	if len(withSrc.Findings) != 1 || withSrc.Findings[0].Kind != "reader-unreadable" {
+		t.Fatalf("with a source tree an unreadable reader must still be a finding; got %v", kinds(withSrc))
+	}
+}
+
+// The load-bearing one: the arm that catches a reader pointed at the WRONG FILE
+// must still catch it whenever source is available, and must not fire when it
+// cannot look. Same fixture, both directions, one test.
+func TestSourceArmsRunWithSourceAndAreSkippedWithout(t *testing.T) {
+	reg := map[string]findingCodeEntry{
+		"MY_CODE": {Disposition: "consumed", Reader: "wrong.go:1", ReaderSink: "agent_error_log"},
+	}
+	body := map[string]string{"wrong.go:1": "FROM agent_error_log WHERE error_code='SOMETHING_ELSE'"}
+
+	withSrc := auditFindingCodes([]string{"MY_CODE"}, reg, srcContaining(body), testNow)
+	if len(withSrc.Findings) != 1 || withSrc.Findings[0].Kind != "reader-does-not-name-code" {
+		t.Fatalf("with source, a reader that does not name the code must be a finding; got %v", kinds(withSrc))
+	}
+	if !strings.Contains(withSrc.SourceArms, "checked") || strings.Contains(withSrc.SourceArms, "NOT run") {
+		t.Errorf("the state must say the arms ran; got %q", withSrc.SourceArms)
+	}
+
+	noSrc := auditFindingCodes([]string{"MY_CODE"}, reg, nil, testNow)
+	if len(noSrc.Findings) != 0 {
+		t.Fatalf("without source the same entry must not be a finding; got %v", kinds(noSrc))
+	}
+	if !strings.Contains(noSrc.SourceArms, "NOT run") {
+		t.Errorf("a skipped arm must SAY it was skipped, or the skip is indistinguishable "+
+			"from a pass; got %q", noSrc.SourceArms)
+	}
+	if !strings.Contains(noSrc.SourceArms, "check-finding-code-registry.sh") {
+		t.Errorf("the state must name where the arms DO run, or it records a gap rather than "+
+			"a relocation; got %q", noSrc.SourceArms)
+	}
+}
+
+// The field-presence halves of `consumed` need no file, so they must survive the
+// skip. These are what stop --no-source becoming a way to declare anything.
+func TestWithoutSourceConsumedStillNeedsBothFields(t *testing.T) {
+	noReader := auditFindingCodes([]string{"MY_CODE"},
+		map[string]findingCodeEntry{"MY_CODE": {Disposition: "consumed", ReaderSink: "agent_error_log"}},
+		nil, testNow)
+	if len(noReader.Findings) != 1 || noReader.Findings[0].Kind != "consumed-without-reader" {
+		t.Fatalf("a consumed entry with no reader must be a finding without source too; got %v", kinds(noReader))
+	}
+
+	noSink := auditFindingCodes([]string{"MY_CODE"},
+		map[string]findingCodeEntry{"MY_CODE": {Disposition: "consumed", Reader: "r.go:1"}},
+		nil, testNow)
+	if len(noSink.Findings) != 1 || noSink.Findings[0].Kind != "consumed-without-reader-sink" {
+		t.Fatalf("a consumed entry with no reader_sink must be a finding without source too; got %v", kinds(noSink))
+	}
+}
+
+// The foreign-sink REPORT compares two registry fields and never needed a file,
+// so it must survive the skip — it is the channel that keeps "something reads
+// this code" from reading as "this table's row is read".
+func TestWithoutSourceAForeignSinkIsStillReported(t *testing.T) {
+	reg := map[string]findingCodeEntry{
+		"MY_CODE": {Disposition: "consumed", Reader: "r.go:1", ReaderSink: "site_work_items"},
+	}
+	got := auditFindingCodes([]string{"MY_CODE"}, reg, nil, testNow)
+	if len(got.Findings) != 0 {
+		t.Fatalf("a foreign sink is a REPORT, never a finding; got %v", kinds(got))
+	}
+	if len(got.ForeignSinks) != 1 || !strings.Contains(got.ForeignSinks[0], "still unread") {
+		t.Fatalf("the foreign-sink report must survive --no-source; got %v", got.ForeignSinks)
+	}
+}
+
+// review_by EXPIRY is the one arm only the passage of time can trip, which makes
+// it the strongest argument for scheduling this check at all. It must not be
+// collateral damage of the skip.
+func TestWithoutSourceInstrumentationStillExpires(t *testing.T) {
+	reg := map[string]findingCodeEntry{
+		"MY_CODE": {Disposition: "instrumented", Owner: "architecture_review/RFC_029.md", ReviewBy: "2026-08-01"},
+	}
+	got := auditFindingCodes([]string{"MY_CODE"}, reg, nil, testNow)
+	if len(got.Findings) != 1 || got.Findings[0].Kind != "instrumentation-expired" {
+		t.Fatalf("an expired review_by must still fire without a source tree; got %v", kinds(got))
+	}
+}
+
+// The registry travels IN THE IMAGE, so the row must say how many codes it
+// declared or a stale copy's clean report is indistinguishable from a current
+// one's. Asserted on the summary a doc_notes row is built from, not just the struct.
+func TestSummaryStatesDeclaredCountAndSourceArmState(t *testing.T) {
+	reg := map[string]findingCodeEntry{
+		"A_CODE": {Disposition: "operational"},
+		"B_CODE": {Disposition: "operational"},
+	}
+	rep := auditFindingCodes([]string{"A_CODE"}, reg, nil, testNow)
+	rep.RetentionParity = "checked"
+	rep.UnruledCap = "0 unruled"
+	summary := findingCodeRunSummary(rep, "/app/finding_code_registry.json")
+
+	for _, want := range []string{"2 code(s) declared", "source-side arms:", "NOT run", "built from:"} {
+		if !strings.Contains(summary, want) {
+			t.Errorf("the doc_notes body must contain %q:\n%s", want, summary)
+		}
+	}
+
+	// THE CONTROL: with source the same body must say the arms ran, or the
+	// assertion above would pass against a summary that always printed "NOT run".
+	repChecked := auditFindingCodes([]string{"A_CODE"}, reg, srcContaining(nil), testNow)
+	repChecked.RetentionParity, repChecked.UnruledCap = "checked", "0 unruled"
+	if s := findingCodeRunSummary(repChecked, "x"); strings.Contains(s, "NOT run") {
+		t.Errorf("with a source tree the body must not claim the arms were skipped:\n%s", s)
+	}
+}
