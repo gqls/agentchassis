@@ -72,7 +72,11 @@ func layer2PreloadWith(slot, html, storedStamp string) *sqlmock.Rows {
 // asserts a row COUNT, so it cannot be satisfied by the splice not running)
 // noticed. Keep an assertion in this file that dies when the carry is skipped.
 func layer2PreloadWithIdentity(slot, html, storedStamp, storedComponentID string) *sqlmock.Rows {
-	return layer2PreloadRows().AddRow(slot, html, nil, storedStamp, storedComponentID)
+	return layer2PreloadWithFunction(slot, html, storedStamp, storedComponentID, "")
+}
+
+func layer2PreloadWithFunction(slot, html, storedStamp, storedComponentID, fn string) *sqlmock.Rows {
+	return layer2PreloadRows().AddRow(slot, html, nil, storedStamp, storedComponentID, fn)
 }
 
 // TestAdoptCarriedProvenance_ClearsTheDiscardedDigest is the DIRECT pin, and it

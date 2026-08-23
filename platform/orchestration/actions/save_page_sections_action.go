@@ -494,12 +494,14 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// reconstruct the tool.
 	{
 		rows, qErr := params.DB.QueryContext(ctx, `
-			SELECT slot_name, rendered_html, content_data,
-			       COALESCE(component_version_id::text, ''),
-			       COALESCE(component_id::text, '')
-			FROM page_components
-			WHERE page_id = $1 AND build_status = 'deployed'
-			  AND `+interactiveHTMLSQL("rendered_html")+`
+			SELECT pc.slot_name, pc.rendered_html, pc.content_data,
+			       COALESCE(pc.component_version_id::text, ''),
+			       COALESCE(pc.component_id::text, ''),
+			       COALESCE(cc.function, '')
+			FROM page_components pc
+			LEFT JOIN content_components cc ON cc.id = pc.component_id
+			WHERE pc.page_id = $1 AND pc.build_status = 'deployed'
+			  AND `+interactiveHTMLSQL("pc.rendered_html")+`
 		`, pageID)
 		if qErr != nil {
 			params.Logger.Warn("SavePageSectionsAction: interactive-section preload failed (Layer 2)",
@@ -518,13 +520,17 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 				// PLAN's identity on bytes the plan did not produce, which is what
 				// re-mints bugs_open/357's population on every rebuild.
 				componentID string
+				// The stored component's FUNCTION, so the carry can be narrowed to
+				// exactly what adoption created rather than re-typing every carried
+				// section on the page.
+				componentFunction string
 			}
 			var preserved []preservedSection
 			for rows.Next() {
 				var slot, html string
 				var cdJSON []byte
-				var storedVersionID, storedComponentID string
-				if scanErr := rows.Scan(&slot, &html, &cdJSON, &storedVersionID, &storedComponentID); scanErr != nil {
+				var storedVersionID, storedComponentID, storedFunction string
+				if scanErr := rows.Scan(&slot, &html, &cdJSON, &storedVersionID, &storedComponentID, &storedFunction); scanErr != nil {
 					params.Logger.Warn("SavePageSectionsAction: interactive-section scan failed (Layer 2)",
 						zap.Error(scanErr))
 					continue
@@ -537,6 +543,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 					slot: slot, html: html, contentData: cd,
 					componentVersionID: storedVersionID,
 					componentID:        storedComponentID,
+					componentFunction:  storedFunction,
 				})
 			}
 			rows.Close()
@@ -572,8 +579,8 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 					// and the population renews itself. Opt-in with the adoption
 					// itself — neither half is useful alone, and the flag's default
 					// is OFF, so this is byte-identical to today until armed.
-					if carryStoredIdentity && p.componentID != "" {
-						sections[matchedIdx].ComponentID = p.componentID
+					if id := carriedIdentity(carryStoredIdentity, p.componentID, p.componentFunction); id != "" {
+						sections[matchedIdx].ComponentID = id
 					}
 				default:
 					// Slot dropped entirely — re-append the tool so it survives.
@@ -593,7 +600,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 						// carry arms must state the same thing, or the next edit reopens
 						// the gap on whichever one nobody was looking at.
 						ComponentVersionID: p.componentVersionID,
-						ComponentID:        carriedIdentity(carryStoredIdentity, p.componentID),
+						ComponentID:        carriedIdentity(carryStoredIdentity, p.componentID, p.componentFunction),
 						Position:           len(sections) + 1,
 					})
 				}

@@ -328,7 +328,7 @@ func expectSaveSlotReads(mock sqlmock.Sqlmock, siteID, pageID uuid.UUID, pageNam
 // layer2PreloadRows is the Layer 2 preload's column set, in one place so a change
 // to that query's SELECT list does not have to be chased through two files.
 func layer2PreloadRows() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"slot_name", "rendered_html", "content_data", "component_version_id", "component_id"})
+	return sqlmock.NewRows([]string{"slot_name", "rendered_html", "content_data", "component_version_id", "component_id", "function"})
 }
 
 func expectSaveSlotReadsPreloading(mock sqlmock.Sqlmock, siteID, pageID uuid.UUID, pageName string,
@@ -344,8 +344,13 @@ func expectSaveSlotReadsPreloading(mock sqlmock.Sqlmock, siteID, pageID uuid.UUI
 		WithArgs(pageID).
 		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("generic"))
 
-	// Layer 2 interactive-section preload
-	mock.ExpectQuery("SELECT slot_name, rendered_html, content_data").
+	// Layer 2 interactive-section preload. ⚠ The matcher must track the query's
+	// actual text: when phase 2 added a LEFT JOIN and qualified the columns, the
+	// old "SELECT slot_name, rendered_html, content_data" pattern stopped matching
+	// this query and started matching a LATER page_components read, which
+	// desynchronised every ordered expectation after it and produced a refusal
+	// about the text floor. The failure names a completely unrelated guard.
+	mock.ExpectQuery("SELECT pc.slot_name, pc.rendered_html, pc.content_data").
 		WithArgs(pageID).
 		WillReturnRows(preload)
 

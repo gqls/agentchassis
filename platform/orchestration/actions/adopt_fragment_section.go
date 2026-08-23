@@ -136,14 +136,30 @@ func adoptFragmentSection(ctx context.Context, db *sql.DB, s *SectionData, logge
 	return true
 }
 
-// carriedIdentity returns the stored row's component when the carry is armed, and
-// the empty string otherwise — so a re-appended section states the identity of the
-// bytes it is made of, or states nothing. Written as a helper rather than inline
-// because the two Layer 2 arms must agree: the splice and the re-append are the
-// same decision about the same bytes, and the last time they diverged nobody
-// noticed for a day.
-func carriedIdentity(armed bool, storedComponentID string) string {
-	if !armed {
+// carriedIdentity returns the stored row's component when the carry is armed AND
+// that component is one adoption created, and the empty string otherwise — so a
+// carried section states the identity of the bytes it is made of, or states
+// nothing.
+//
+// ⚠ NARROWED after council round 1, where THREE seats (editquality, guardian,
+// bug_historian) independently made the same point about the first version: it
+// carried the stored identity for EVERY interactive section, which is far broader
+// than the diagnosed bug and would silently keep a legitimately-typed component at
+// its old identity when a plan intended to swap it. The first version defended
+// that as "a fix rather than a regression" — by argument, not by measurement,
+// which is exactly the move this estate's review exists to catch. Restricting the
+// carry to `adopted-fragment` rows delivers the causal fix (adoption must survive
+// a rebuild, or the next one re-mints the plan's identity over it) and changes
+// carry semantics for nothing else.
+//
+// It stays a helper rather than an inline condition because the two Layer 2 arms
+// must agree: the splice and the re-append are the same decision about the same
+// bytes, and the last time they diverged nobody noticed for a day.
+func carriedIdentity(armed bool, storedComponentID, storedComponentFunction string) string {
+	if !armed || storedComponentID == "" {
+		return ""
+	}
+	if storedComponentFunction != adoptedFragmentFunction {
 		return ""
 	}
 	return storedComponentID

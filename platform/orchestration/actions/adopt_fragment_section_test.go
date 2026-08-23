@@ -236,12 +236,84 @@ func TestAdopt_ASectionThatDeclaresItselfIsLeftAlone(t *testing.T) {
 // disarmed they must state nothing, which is today's behaviour exactly.
 //
 // MUTATION THAT MUST BREAK IT: return storedComponentID unconditionally.
-func TestCarriedIdentity_IsOffByDefault(t *testing.T) {
-	if got := carriedIdentity(false, "some-component"); got != "" {
+func TestCarriedIdentity_IsOffByDefaultAndNarrowedToAdoptedFragments(t *testing.T) {
+	if got := carriedIdentity(false, "some-component", adoptedFragmentFunction); got != "" {
 		t.Errorf("carriedIdentity(disarmed) = %q, want empty — the default must change nothing", got)
 	}
-	if got := carriedIdentity(true, "some-component"); got != "some-component" {
-		t.Errorf("carriedIdentity(armed) = %q, want the stored component: carried bytes keep the identity "+
-			"they came with, or the next rebuild re-mints the plan's identity over them", got)
+	if got := carriedIdentity(true, "some-component", adoptedFragmentFunction); got != "some-component" {
+		t.Errorf("carriedIdentity(armed, adopted) = %q, want the stored component: an adopted row's identity "+
+			"must survive a rebuild or the next one re-mints the plan's identity over it", got)
+	}
+	// The narrowing the council asked for, as an assertion rather than a promise:
+	// a legitimately-typed component is NOT re-typed by the carry.
+	if got := carriedIdentity(true, "some-component", "hero"); got != "" {
+		t.Errorf("carriedIdentity(armed, hero) = %q, want empty. Carrying identity for every interactive "+
+			"section is broader than the diagnosed bug and would silently keep a legitimately-typed "+
+			"component at its OLD identity when a plan intended to swap it — three council seats made "+
+			"that point independently", got)
+	}
+	if got := carriedIdentity(true, "", adoptedFragmentFunction); got != "" {
+		t.Errorf("carriedIdentity with no stored component = %q, want empty", got)
+	}
+}
+
+// TestAdopt_UnidentifiedRowStillWritesItsBytes answers the council's GATING
+// objection (bug_historian, high) rather than arguing with it.
+//
+// The objection: this change creates a NEW population — rows with component_id
+// NULL where today they would carry a wrong-but-present component — and the
+// estate has a documented case of exactly that shape, bugs_closed/039
+// "section_naming_a_missing_component_renders_an_empty_stub", where a section
+// pointing at no component silently rendered empty. The first submission asserted
+// "the page serves identically either way" and never verified it.
+//
+// This pins the half that lives at the seam being changed: a section with no
+// component still reaches the INSERT with its bytes intact and a NULL component
+// bind — it is not dropped, not blanked, not skipped.
+//
+// ⚠ WHAT THIS DOES NOT COVER, stated rather than implied: the RERENDER path.
+// resolveComponent (rerender_page_sections_action.go:377) falls through to the
+// slot-NAME map when component_id is empty, so an unadopted row named `hero`
+// resolves to the hero component there and the fresh-render entry re-emits
+// hero's id — which re-binds it on the next save. Adoption normally succeeds (the
+// seeded template is the identity function, so the round trip only fails if
+// someone edits it), but that residual is real, it is named in the bug file, and
+// it is why this is a reduction of the mint rather than its elimination.
+func TestAdopt_UnidentifiedRowStillWritesItsBytes(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID, pageID := uuid.New(), uuid.New()
+	expectSaveSlotReads(mock, siteID, pageID, "tool-ttk-calculator", lockedRowSet(), 1, 0, 1)
+
+	// The row the objection is about: bytes present, component NULL (bind 5), and
+	// no provenance (bind 8). Pinning the HTML bind is what makes this a real
+	// assertion — a blanked or dropped section cannot satisfy it.
+	mock.ExpectExec("INSERT INTO page_components").
+		WithArgs(pageID, 1, adoptToolFragment, "hero",
+			nil, sqlmock.AnyArg(), sqlmock.AnyArg(), nil).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	out, err := SavePageSectionsAction(context.Background(),
+		saveSlotParams(db, siteID, "tool-ttk-calculator", []interface{}{
+			map[string]interface{}{
+				"rendered_html":    adoptToolFragment,
+				"stored_slot_name": "hero",
+				"component_name":   "hero",
+				// component_id deliberately ABSENT — the unidentified row.
+			},
+		}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := saveResult(t, out)["sections_saved"]; got != 1 {
+		t.Errorf("sections_saved = %v, want 1 — a section with no component must still be SAVED. If this "+
+			"is 0 the row was dropped, which is bugs_closed/039's shape and the objection's exact worry", got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the unidentified row did not reach the INSERT with its bytes intact: %v", err)
 	}
 }
