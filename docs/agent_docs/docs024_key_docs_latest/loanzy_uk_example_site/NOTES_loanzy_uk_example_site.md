@@ -723,3 +723,53 @@ vertical whose obvious exemplars are big publisher properties (recipes, health, 
 reviews — i.e. most affiliate verticals) will draw the same picks and hit the same wall. The cost
 is not the failure, it is that **the failure is silent for 30 minutes at a time and the step record
 reads `success`.**
+
+### 17:52Z — REFINING that prediction by reading the config instead of inferring it, and the real defect is worse and quieter
+
+I marked the prediction above `[INFERRED]` because I had not read the agent. I have now, and two
+config facts change it. This is the "if you name a mechanism, read the mechanism" check from the
+`WRONG_CALLS` entry I wrote an hour ago, applied to myself.
+
+**1. The provider is Firecrawl, and the step cannot tolerate a refusal** `[MEASURED 17:51Z]`.
+`crawl_exemplar_2` is `{"action": "firecrawl_crawl", "config": {"url_field":
+"selected_exemplars.result.exemplar_2.url", ...}}` — and there is **no `on_error`, no
+`continue_on_failure`, no fallback step**. `next_step` is simply `format_exemplar_2`. So "one
+refusal discards the whole step, including the crawl that worked" is now **config-verified, not
+inferred**. The refusal string with the typeform link is Firecrawl's blocklist response.
+
+**2. Selection is STOCHASTIC, not deterministic — so my "it will re-pick thespruce.com" was
+wrong-headed** `[MEASURED 17:52Z]`. `select_exemplars` is an `ai_service` step,
+`claude-sonnet-4-6`, `max_tokens: 1500`, and **no `temperature` key**, so it runs at the provider
+default. The retry genuinely may pick a different three.
+
+**But that makes the defect worse, not better, and this is the actual finding:**
+
+> **Nothing anywhere learns that a site cannot be crawled.** The prompt asks for *"the THREE best
+> EXISTING websites … the sites a person in this niche would call the best"* — there is no notion
+> of crawlability in it, no exclusion list, and the refused URL is **not written anywhere the next
+> attempt reads**. The failure is recorded on the work item and in a FAILED orchestration; the
+> selector reads neither.
+
+So each attempt is an independent roll of the same dice. For UK gardening the "well-known leaders"
+set is small and stable — Gardeners' World, The Spruce, Which?, RHS — and at least two of those are
+the kind of property (Dotdash Meredith; a paywalled subscription tester) that scrapers are routinely
+refused by. **The build does not loop deterministically; it re-rolls, with no memory, against a
+biased dice.** That is why this will keep costing time across the estate and never present as a
+consistent bug: the same vertical succeeds on Monday and fails on Tuesday, and nobody can reproduce
+it.
+
+**Revised prediction, replacing the one above:**
+> The 18:19 retry is a coin flip. It succeeds if all three fresh picks happen to be crawlable, and
+> fails identically if any one is not. **I therefore predict the OUTCOME is not reliably
+> predictable** — which is itself the falsifiable claim: if the retry re-picks an identical
+> exemplar set, selection is effectively deterministic despite the absent temperature, and my
+> reading of it is wrong. **Record the exemplar URLs on every attempt** — that comparison is the
+> measurement, not the pass/fail.
+
+**Fix shape, for whoever owns this** (ordered by what closes the door, per the house rule):
+1. **Tolerate partial results** — N-of-3 is research, not a transaction. One `on_error: continue`
+   on each crawl step makes a refusal cost nothing. Closes the door on the *consequence*.
+2. **Persist the refusals and feed them to the selector** — a `firecrawl_unsupported` list the
+   prompt excludes. Closes the door on the *recurrence*, estate-wide, and is the only one of these
+   that gets cheaper over time.
+3. Retrying an unchanged stochastic choice is not a fix; it is the current behaviour.
