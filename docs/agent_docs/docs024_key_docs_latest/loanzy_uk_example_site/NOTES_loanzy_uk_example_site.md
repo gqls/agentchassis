@@ -1226,3 +1226,45 @@ their 404s are transient), but the candidate set is now known and larger than I 
 *pipeline* is wrong not to populate entities. Both readings fit. `[UNVERIFIED]` — the discriminator
 is whether any non-greenfield path (adoption, a mission brief naming brands) does populate them, in
 which case the gap is specific to the no-hint route rather than to the page class. Not measured.
+
+### 20:35Z — CORRECTION to the 20:31Z entry: it is not "entity pages", it is every COLLECTION role. Now 5 of 12
+
+> **CORRECTED 20:35Z, four minutes after I wrote it.** At 20:31 I framed the no-op class as
+> *"`entity-directory` and `entity-page` need brand entities; nobody populates them"*. **Too narrow.**
+> Two more pages no-op'd with the identical message, and they are not entity pages:
+
+| page | role | status |
+|---|---|---|
+| `brand-directory-index` | entity-directory | needs_human_review |
+| `brand-profile` | entity-page | needs_human_review |
+| **`buying-guides-index`** | **section-index** | **needs_human_review** |
+| **`buying-guide-post`** | **blog-post** | **needs_human_review** |
+| `tool-finder` | tool | needs_human_review (owner-gated, different cause) |
+
+All four share one error: *"page-build-handler no-op: no sections ready to build (empty spec
+sections, or all sections deferred…)"*. **Five of twelve pages will not auto-build.**
+
+**The corrected mechanism — broader and simpler than entities.** Every one of these four is a
+**collection or instance role**: it indexes something (`section-index`, `entity-directory`) or is one
+instance of something (`blog-post`, `entity-page`). Their content is *other content*. On a greenfield
+build that other content does not exist, so the section spec is empty and the builder correctly
+declines. The three pages that HAVE built (`about`, `affiliate-disclosure`, and `care` in progress)
+are all **standalone `content`/`landing` roles whose content is self-contained.**
+
+> **So the shape is: the planner plans a SITE, the builder builds PAGES, and nothing builds the
+> CORPUS that the collection pages exist to present.** A twelve-page plan where four pages are
+> containers is a plan for a site with roughly eight pages of actual content plus four shells — and
+> the pipeline has no step that fills them. This is a planner/pipeline contract gap, and naming it
+> "entity pages" would have sent a fixer to the wrong half.
+
+**PREDICTION B IS NOW CONFIRMED, and not on the page I predicted.** The already-serving `about` page
+links to `/buying-guides/index.html` `[MEASURED 20:27Z]`. `buying-guides-index` is now
+`needs_human_review` and **will not build without a human**. So a live, serving page links to a
+destination that will never exist on an unattended build — `bugs_open/328` exactly, reproduced on a
+greenfield run. I predicted it via `tool-finder`; it arrived via a page whose failure mode I had not
+anticipated at all. **The prediction was right for the wrong reason, and the mechanism I named was
+not the one that fired.**
+
+⚠ **Still not the final count.** `contact`, `how-we-assess`, `index` and `seasonal-planner` are yet
+to build, and `index` is the one that matters most — it is the apex, and if the landing page is
+mostly links to the four shells the whole site reads as broken. Do not write the summary yet.
