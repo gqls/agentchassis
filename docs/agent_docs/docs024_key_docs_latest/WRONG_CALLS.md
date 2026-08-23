@@ -45308,3 +45308,45 @@ to this site: it fires for anyone briefing a public page on a domain that also r
 > - **Immediate disclosure is most of why it was cheap.** The cancel was possible because the set
 >   was still precisely bounded — one site, one timestamp, two keep-groups — and that boundary
 >   existed because it was written down within minutes, not reconstructed later.
+
+## 2026-08-23 — I reused an item type SO the existing router would handle my items, and never checked the router could read them (bugfix_342 lane)
+
+**The claim, and it was in four places.** `bugs_open/342`'s escalation files
+`required_fields_missing` items. I chose that existing type deliberately, and wrote — in the code
+comment, the bug file, the concept register entry (`STY-057`) and the **approved** council
+submission — that it reuses *"the item type that ALREADY EXISTS for this defect, with a router
+already seeded (`bugs_open/277`)"*, and that *"the item_key matches the check's so the two
+producers co-dedup"*.
+
+**Both halves were false, and live traffic found them in under 24 hours.**
+
+1. **The items were unroutable.** `required-fields-missing-handler`'s `classify` step resolves
+   the page by `spec->>'page_name'` and the component by `spec->>'slot_name'`. My producer
+   supplied neither. The first item it ever filed (`a31da7f3`) was classified
+   `route: "malformed"`, routed to `mark_failed`, attempted three times and parked. The
+   orchestrations all read `COMPLETED` while the item ended `failed` — so nothing looked broken
+   from the orchestration side.
+2. **The keys could not co-dedup.** `check_required_fields_missing.go:180` keys on
+   `required_fields_missing:<page_id>:<slot_name>`. Mine keyed on
+   `<site_id>:<component function>`. Two producers, two keys, two items for one defect — the
+   exact outcome the "reuse the type" argument existed to prevent.
+
+**What caught it:** not a test, not a review — **the item's own terminal status, read a day later
+while checking something else.** The council's `reuse_agent` seat had *approved* the reuse
+reasoning, correctly, because the reasoning was sound; nobody checks that the artefact matches the
+reasoning, and I had given them no reason to doubt it.
+
+**The cheap check that would have, and it is embarrassingly cheap:** read the consumer's own
+predicate before claiming it consumes you.
+`SELECT s.v->'config'->>'query' FROM agent_definitions a, jsonb_each(...) s WHERE a.type='<the
+handler>' AND s.k='classify'` — the `spec->>'page_name'` is right there in the SQL. Or, after
+filing one: `SELECT status, spec FROM site_work_items WHERE item_key = '<yours>'` an hour later.
+**One filed item, watched once, would have shown this on day one.**
+
+**The generalisable half — REUSING A TYPE IS NOT REUSING ITS CONTRACT.** An `item_type` is a
+string; a router is a set of fields it reads and a key shape it dedupes on. Sharing the first
+buys nothing unless you match the other two, and the failure is invisible from the producing side:
+my emitter logged `item filed`, the insert succeeded, the orchestrations completed. This is the
+sibling of the estate's *"a `complete` work item is not a repaired artefact"* — one level earlier,
+at the point where the work item is *born* rather than closed. Now pinned by
+`TestRequiredFieldsMissingItemsAreRoutable`, mutation-proven.

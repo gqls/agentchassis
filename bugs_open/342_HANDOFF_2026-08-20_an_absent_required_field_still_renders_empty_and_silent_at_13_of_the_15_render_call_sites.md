@@ -61,6 +61,35 @@ arming.
 >    stitched TEMPLATE whose content arrives later; audit probes that remove fields by design).
 >    Still no change owed there.
 >
+> # ⚠ 2026-08-23 — THE ESCALATION FILED ITEMS ITS OWN ROUTER COULD NOT ROUTE. **FIXED, and the
+> file does NOT close.** Read this before the banners below, two of which it corrects.
+>
+> The first item this producer ever filed in production (`a31da7f3`) was classified
+> `route: "malformed"`, failed three times and parked. **Both of the reuse claims this file,
+> `STY-057` and the approved council submission all make were FALSE:**
+> * `required-fields-missing-handler`'s `classify` resolves the page by `spec->>'page_name'` and
+>   the component by `spec->>'slot_name'` — **the producer supplied neither**, so "a router
+>   already seeded" bought nothing;
+> * `check_required_fields_missing.go:180` keys on `<page_id>:<slot_name>`; **this keyed on
+>   `<site_id>:<component function>`** — so ~~"the item_key matches the check's so the two
+>   producers co-dedup"~~ was false and the two would file **two items for one defect**.
+>
+> **REUSING A TYPE IS NOT REUSING ITS CONTRACT** — an `item_type` is a string; a router is the
+> fields it reads and the key it dedupes on. The failure is invisible from the producing side:
+> the insert succeeded, the emitter logged `item filed`, and every orchestration read `COMPLETED`
+> while the item ended `failed`. Found by reading the item's terminal status a day later, not by
+> a test or a review. (`WRONG_CALLS.md` 2026-08-23.)
+>
+> **Fixed at source** (`eb918bd58`): the emitter carries a `pageContext`, puts `page_name` and
+> `slot_name` in the spec, takes the check's key shape exactly when a page is known, and sets
+> `page_id` on the row (the column existed; it was never set). **Chrome, which has no page and
+> which the page-resolving router structurally cannot classify, is filed for a human
+> (`needs_human_review`, the router's own `park_*` vocabulary) instead of being fake-routed** —
+> deliberately not a phantom handler (`bugs_closed/291`: unregistered ⇒ born blocked, never
+> claimed). Pinned by `TestRequiredFieldsMissingItemsAreRoutable`, mutation-proven.
+> ⚠ **INERT until the next roll.** The old malformed item is left as the honest record; the key
+> shape changed, so the fixed code files a correctly-routed item next time that path runs.
+>
 > **✅ 2026-08-22 18:05Z — THE CANARY PASSED ON BOTH ARMS, ON v1.0.1326.** This is the evidence
 > the file was waiting for, so read it before re-deriving anything.
 > * **Refusal arm** (`0a1498b3`, tool-cta, `pending` so nothing live was at risk): the step
