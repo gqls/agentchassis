@@ -7821,3 +7821,59 @@ substitution.
 **A third roll (`v1.0.1328`, 11:51Z today) crossed the window** and was re-verified with both
 controls before any row above was trusted. Window unbroken; boundary still 08:45:00Z 08-22;
 **gate closes 2026-08-24 ~08:45Z.**
+
+## 2026-08-23 (~17:2xZ) — both owner-directed builds shipped: the improvement-loop declaration (571) and `bugs_open/353` fixed AND backfilled (74 items)
+
+**Owner's direction:** don't chase historical damage; fix the loop properly; asked whether the
+same page ids appear on different sites and whether we need a joint `[site,page]` key or a better
+page-id scheme. **Both builds carried out; the identity question was MEASURED and refuted.**
+
+### 1. The owner's hypothesis is refuted, and the refutation is what shaped the fix
+
+| check (2026-08-23) | result |
+|---|---|
+| pages / distinct ids | **839 / 839** — `pages.id` is a globally unique UUID |
+| ids appearing on >1 site | **0** — cross-site id collision does not happen |
+| `UNIQUE(site_id, name)` | **already exists** (`pages_site_id_name_key`) — the joint key already there |
+| the 34 ambiguous ids | **all ONE site's** — the ambiguity is entirely intra-site |
+| page NAMES across sites | repeat heavily (`index` 28, `about` 20) — a NAME needs a site; an ID never does |
+
+**So a better identifier scheme would fix nothing.** All 34 candidates were valid, distinct,
+correctly-scoped page ids. **The REQUEST was underspecified, not the identity** — "give me
+page_id" has no answer when the tree legitimately holds 34, and no identity design can supply one.
+The fix therefore belongs in what the step DECLARES it takes.
+
+**And the real diagnosis was not what the gate row suggested at first glance.** It is not a
+loop-binding problem: `improvement-loop` has no findings loop. It files TWO SITE-WIDE items via
+`create_work_item`, whose spec declares `page_id`/`component_id` Optional (other callers file
+page-scoped items legitimately). Both steps wire NEITHER — and an unwired Optional field does not
+become absent, it reaches the whole-tree search. **Migration 571** declares `page_id?` /
+`component_id?` → `input_data.<field>`: the sweep's own request or nothing. Council `5ae2147d`.
+
+### 2. `bugs_open/353` — CLAIMED, FIXED, BACKFILLED (owner: "you claim it")
+
+`who-owns.py 353` showed only this lane's filing commits. Full record in the bug file §9.
+
+**The fix (`323b63a00`, council `642ecc3c`)** — and the part worth carrying is why widening the
+gate is NOT enough: **ORDERING**. `save_tool` calls the emitter; `enqueue_rerender` files the gate
+item **51 seconds later** in the same workflow. Guard 2 was hunting an item its own run had not
+created yet. So: widen the gate's item types AND an **opt-in field with the unsafe default OFF**
+(2026-08-02 shared-seam ruling) set by the one caller that owns the build. The decision is
+**extracted** into `crossLinkEmitDecision` — the branch that caused this sat where no unit test
+could reach it, which is how it survived 19 days while tests of its *inputs* passed.
+**Mutation-proved.**
+
+**The backfill — 74 items, 34 tools, 19 sites.** Its input is **the guard's own telemetry**:
+`related_pages` is recorded verbatim in every skip row, so nothing is reconstructed. *The
+countable-skip design that made this bug findable is what made it repairable* — the strongest
+argument for countable skips this lane has seen. It drives the **real emitter** (new exported
+seam, registered **TP-008**) rather than inserting rows, so the item shape cannot fork.
+**Canary first**, verified at the artefact, then the batch.
+
+**⚠ Five tools created ZERO and every one is correct — checked, not accepted:** all 12 pages they
+name are themselves tool pages, and tool-to-tool linking is skipped by design. A zero here is the
+filter working. This is the lane's own "a post-fix zero needs a control" rule applied to a
+backfill: the control was asking WHICH pages, not counting rows.
+
+**NOT closeable:** a created item is a **REQUEST, not a link**. The bar is the artefact — named
+pages actually serving an inline link — and the forward fix is inert until a roll.
