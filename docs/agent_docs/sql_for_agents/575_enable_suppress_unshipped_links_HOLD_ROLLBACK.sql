@@ -11,23 +11,32 @@
 
 BEGIN;
 
+-- Keys on the RUNTIME row (highest version per type), exactly as 575 does — an
+-- is_active filter can address a dormant duplicate and leave the loaded config
+-- untouched, which for a ROLLBACK is the worse direction: it would read as undone
+-- while the key stayed live.
+CREATE TEMP TABLE t575_targets ON COMMIT DROP AS
+SELECT DISTINCT ON (a.type) a.id, a.type
+  FROM agent_definitions a
+ WHERE a.is_active AND COALESCE(a.is_snapshot, false) = false AND a.deleted_at IS NULL
+   AND a.type IN ('pageflow-builder', 'page-rebuild', 'site-work-orchestrator',
+                  'page-rerender', 'report-builder')
+ ORDER BY a.type, a.version DESC NULLS LAST, a.updated_at DESC NULLS LAST;
+
 UPDATE agent_definitions
    SET default_config = default_config #- '{workflow,steps,build_pages_loop,config,sub_workflow,steps,assemble_page,config,suppress_unshipped_links}',
        updated_at = now()
- WHERE type IN ('pageflow-builder', 'page-rebuild')
-   AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+ WHERE id IN (SELECT id FROM t575_targets WHERE type IN ('pageflow-builder', 'page-rebuild'));
 
 UPDATE agent_definitions
    SET default_config = default_config #- '{workflow,steps,build_items_loop,config,sub_workflow,steps,assemble_page,config,suppress_unshipped_links}',
        updated_at = now()
- WHERE type = 'site-work-orchestrator'
-   AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+ WHERE id IN (SELECT id FROM t575_targets WHERE type = 'site-work-orchestrator');
 
 UPDATE agent_definitions
    SET default_config = default_config #- '{workflow,steps,render_page,config,suppress_unshipped_links}',
        updated_at = now()
- WHERE type = 'page-rerender'
-   AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+ WHERE id IN (SELECT id FROM t575_targets WHERE type IN ('page-rerender', 'report-builder'));
 
 DO $post$
 DECLARE

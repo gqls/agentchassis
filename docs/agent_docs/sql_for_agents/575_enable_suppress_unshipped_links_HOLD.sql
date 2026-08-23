@@ -59,6 +59,22 @@
 
 BEGIN;
 
+-- ⚠ EVERY STATEMENT BELOW KEYS ON THE RUNTIME ROW, NOT ON `is_active` ALONE.
+-- There is a documented landmine that an agent type can carry TWO active rows
+-- while only the HIGHER `version` is ever loaded at runtime -- so an is_active
+-- filter can write the dormant row, pass its own $post$ count, and leave the
+-- config that actually runs unguarded. Measured 2026-08-23: all five types here
+-- carry exactly ONE active non-snapshot row, so this changes nothing today. It is
+-- written this way because the day that stops being true, nothing announces it.
+-- (Council round 2, debug_historian HIGH.)
+CREATE TEMP TABLE t575_targets ON COMMIT DROP AS
+SELECT DISTINCT ON (a.type) a.id, a.type
+  FROM agent_definitions a
+ WHERE a.is_active AND COALESCE(a.is_snapshot, false) = false AND a.deleted_at IS NULL
+   AND a.type IN ('pageflow-builder', 'page-rebuild', 'site-work-orchestrator',
+                  'page-rerender', 'report-builder')
+ ORDER BY a.type, a.version DESC NULLS LAST, a.updated_at DESC NULLS LAST;
+
 -- $pre$ — refuse a re-run and refuse a drifted target. A verify block of plain
 -- SELECTs CANNOT stop the COMMIT (ON_ERROR_STOP ignores a non-empty result), so
 -- every assertion here is a DO/RAISE.
@@ -79,11 +95,17 @@ BEGIN
              SELECT 1 FROM agent_definitions a
               WHERE a.type = t.type AND a.is_active
                 AND COALESCE(a.is_snapshot, false) = false AND a.deleted_at IS NULL
-                AND a.default_config #> t.path::text[] IS NOT NULL
+                AND a.default_config #> (t.path::text[] || ARRAY['config']) IS NOT NULL
            );
     IF v_missing IS NOT NULL THEN
-        RAISE EXCEPTION '575 PRE: step path missing or agent absent for: % — the workflow shape has drifted since 2026-08-23; re-enumerate before applying', v_missing;
+        RAISE EXCEPTION '575 PRE: step path or its config object missing for: % — the workflow shape has drifted since 2026-08-23; re-enumerate before applying', v_missing;
     END IF;
+    -- ⚠ THE PARENT `config` IS ASSERTED, NOT JUST THE STEP, and that is the
+    -- load-bearing half. jsonb_set with create_missing=true creates only the LAST
+    -- key: if the parent object is absent the call is a SILENT NO-OP that returns
+    -- the row unchanged. Verified 2026-08-23 that all five paths carry a config
+    -- object; this guard is what makes a future drift abort instead of writing
+    -- nothing and reading clean. (Council round 2, debug_historian HIGH.)
 
     IF EXISTS (
         SELECT 1 FROM agent_definitions
@@ -95,29 +117,40 @@ BEGIN
 END
 $pre$;
 
+-- Back up every row this file is about to mutate, before mutating any of it.
+-- Needle-gate discipline for a live jsonb mutation on agent_definitions, and this
+-- table has heavy landmine history around missed snapshots. (Council round 2,
+-- debug_historian MEDIUM. The 340/336 precedent skipped this and conceded it; the
+-- concession is not a reason to skip it again.)
+DO $snap$
+DECLARE r record;
+BEGIN
+    FOR r IN SELECT type FROM t575_targets ORDER BY type LOOP
+        PERFORM snapshot_agent(r.type, 'pre-575: enable suppress_unshipped_links (bugs_open/328)');
+    END LOOP;
+END
+$snap$;
+
 UPDATE agent_definitions
    SET default_config = jsonb_set(default_config,
         '{workflow,steps,build_pages_loop,config,sub_workflow,steps,assemble_page,config,suppress_unshipped_links}',
         'true'::jsonb, true),
        updated_at = now()
- WHERE type IN ('pageflow-builder', 'page-rebuild')
-   AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+ WHERE id IN (SELECT id FROM t575_targets WHERE type IN ('pageflow-builder', 'page-rebuild'));
 
 UPDATE agent_definitions
    SET default_config = jsonb_set(default_config,
         '{workflow,steps,build_items_loop,config,sub_workflow,steps,assemble_page,config,suppress_unshipped_links}',
         'true'::jsonb, true),
        updated_at = now()
- WHERE type = 'site-work-orchestrator'
-   AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+ WHERE id IN (SELECT id FROM t575_targets WHERE type = 'site-work-orchestrator');
 
 UPDATE agent_definitions
    SET default_config = jsonb_set(default_config,
         '{workflow,steps,render_page,config,suppress_unshipped_links}',
         'true'::jsonb, true),
        updated_at = now()
- WHERE type IN ('page-rerender', 'report-builder')
-   AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+ WHERE id IN (SELECT id FROM t575_targets WHERE type IN ('page-rerender', 'report-builder'));
 
 -- $post$ — read the keys back and RAISE on any mismatch, including the arm that
 -- matters most: NO live step running a seam action may be left without the key.
@@ -134,9 +167,8 @@ BEGIN
             ('page-rerender',          '{workflow,steps,render_page,config,suppress_unshipped_links}'),
             ('report-builder',          '{workflow,steps,render_page,config,suppress_unshipped_links}')
            ) AS t(type, path)
-      JOIN agent_definitions a
-        ON a.type = t.type AND a.is_active
-       AND COALESCE(a.is_snapshot, false) = false AND a.deleted_at IS NULL
+      JOIN t575_targets tt ON tt.type = t.type
+      JOIN agent_definitions a ON a.id = tt.id
      WHERE a.default_config #> t.path::text[] = 'true'::jsonb;
 
     IF v_on <> 5 THEN
