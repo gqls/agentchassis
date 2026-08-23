@@ -1,9 +1,7 @@
 {
   "_doc": "bugs_open/358 — one entry per agent_error_log error_code. THE AUTHORITY IS THE LIVE TABLE, not this file and not a source scan: `config-key-audit --finding-codes` reads SELECT DISTINCT error_code and asks whether each observed code is declared here. That is deliberate — agenterrors.Write calls itself 'The ONE writer against agent_error_log' and it is NOT (four of five INSERT paths bypass it, and internal/agents/contentcreator CANNOT use it: *pgxpool.Pool against a *sql.DB parameter), so a check anchored on the seam or on a grep would read clean while most writers walked past. KEYED ON THE CODE UP TO THE FIRST COLON (358 §8: error_code is free text and one writer emits colon-suffixed variants); raw_variants lists what is actually written, so a family cannot double-count as compliance. DISPOSITIONS: consumed (an automated reader selects by this code and acts — `reader` must be a file:line the checker verifies CONTAINS the code, AND `reader_sink` must name the TABLE that reader selects it from, which the checker verifies the reader file mentions); instrumented (deliberate, time-boxed measurement — `owner` doc and a `review_by` date the checker expires); human-evidence (hand-run forensics only — `why` must name the retention window it accepts); operational (failure plumbing, whose correct consumption IS the generic newest-N diagnostic read — 358 §2.3); unruled (declared, not yet decided — a COUNTED BACKLOG, listed at exit 0, never an exemption). Every required field is chosen so it cannot be satisfied by typing, which is RFC_029 §10.15's lesson from optional_explicit_wire_acks.json: 'an ack satisfiable by typing the key is no ack'. AN OBSERVED CODE ABSENT FROM THIS FILE IS A FINDING (exit 1). A registered code NOT observed is report-only — retention is 30 days, so absence proves 30 days and never 'never'. ⚠ STATED LIMIT: `consumed` says a reader selects by this code and acts on it. It does NOT say the WRITER can see the whole population it would need to — a detector that only fires on one code path is blind to everything off it, however faithfully its rows are read (worked example: STRUCTURAL_KEY_CARRY_MISS below). Coverage of the writer is a separate question this registry does not answer and must not be read as answering. ⚠ SECOND STATED LIMIT, and a DIFFERENT one (added 2026-08-23): `consumed` also used to be silently ambiguous about WHICH SINK the reader reads. component_validation_rejected has a genuine automated reader — migration 563 branches the component-creator's prompt on the failure class — but that reader reads `site_work_items.retry_feedback` (single writer: store_generated_component_action.go:1587, wired by 564), NOT this table. Its agent_error_log row is a PARALLEL record nothing reads. Marked `consumed` it would have passed the reader check (563 does contain the string) and read as a closed loop for ever. Hence `reader_sink`: a value other than `agent_error_log` is REPORTED, not failed — a parallel append-only record beside an overwritten column is often deliberate — but it can never again read as though THIS table's row were consumed. The check's own limit, stated: it proves the reader file MENTIONS the sink, not that it selects this code from it; a file naming several tables can satisfy it wrongly.",
-
-  "_unruled_cap": 32,
+  "_unruled_cap": 25,
   "_unruled_cap_doc": "THE RATCHET (owner ruling 2026-08-23: cap it). The unruled count may never EXCEED this number — a new code parked rather than decided is a FINDING, which is what capping the backlog means. Below it is REPORTED with the number to lower it to: lowering is a one-word edit in the same commit as the ruling, and the report is what stops ground gained being quietly given back. ABSENT is a finding too — a cap you can delete is not a cap. It is a ratchet rather than a flat target because this check lists `unruled` at exit 0 on purpose: a check that fails from day one over a pre-existing backlog is a check that gets ignored, so a target of 10 against a live backlog of 32 would be permanently red and therefore disabled. Set to 32 = the measured count on 2026-08-23, before batch 1 is ratified. Precedent: 102_coverage_ratchet.txt.",
-
   "CONTENT_VALIDATION_BLOCKER_DETAIL": {
     "disposition": "consumed",
     "writer": "platform/orchestration/actions/validate_page_content.go:636",
@@ -41,7 +39,6 @@
     "reader_sink": "agent_error_log",
     "note": "writer and reader are one mechanism — a 7-day strike ladder counting its own rows. Zero rows in the window is legitimately quiet, not absent. ⚠ the reader binds a Go CONST to $1, so a literal-grep verdicts this code unread (358 §3.2)"
   },
-
   "RESOLVER_CONFLICTING_CANDIDATES": {
     "disposition": "instrumented",
     "writer": "platform/orchestration/datahelpers/unified_extractor.go:589",
@@ -56,7 +53,6 @@
     "review_by": "2026-10-01",
     "note": "sibling of RESOLVER_CONFLICTING_CANDIDATES, same sink, same scope note"
   },
-
   "UNKNOWN": {
     "disposition": "operational",
     "writer": "platform/orchestration/agenterrors/agenterrors.go:178",
@@ -116,11 +112,11 @@
     "writer": "platform/orchestration/actions/discovery_checks.go:393",
     "note": "severity 'warning' deliberately: a check ERRORING is 'we could not check this', which must not be graded alongside a real content finding"
   },
-
   "CONTENT_LINK_REPAIR_DETAIL": {
-    "disposition": "unruled",
+    "disposition": "human-evidence",
     "writer": "platform/orchestration/actions/validate_page_content.go:728",
-    "note": "358 §2.1's third-largest unread code. Cited as precedent by save_sections_content_data_links.go:57 — the record shape propagated and the missing reader propagated with it (358 §3.1)"
+    "note": "358 §2.1's third-largest unread code. Cited as precedent by save_sections_content_data_links.go:57 — the record shape propagated and the missing reader propagated with it (358 §3.1)",
+    "why": "Records what the link-repair pass DID on a build that SUCCEEDED, deliberately distinct from the blocker code because 'the two rows answer different questions' (validate_page_content.go). Its stated purpose is to name WHICH of three origins repaired, so a row that cannot say which path acted cannot spot the path that stopped acting. Comparing the three origins over time is a longitudinal question, and migration 567 gives it 365 days rather than the 30-day unresolved window this table's sweep otherwise applies — accepted knowingly. This records TODAY'S TRUTH, not the ambition: it is the code in this batch most worth a real reader (count by origin; an origin dropping to zero is the bugs_open/097 drift it exists to catch), and human-evidence is what 'nothing reads it yet' honestly says."
   },
   "CONTENT_VALIDATION_WARNING_DETAIL": {
     "disposition": "unruled",
@@ -128,18 +124,21 @@
     "note": "added 2026-08-22 by 0ce242d9c (071's residual) — the SAME MORNING bugs_open/358 was filed about this class. Zero rows: inert until the next chassis roll. It is the seventeenth member of §2.1 and the live proof of §3.1"
   },
   "VALIDATION_ERROR_DROPPED": {
-    "disposition": "unruled",
+    "disposition": "human-evidence",
     "writer": "platform/messaging/validation_drop.go:109",
-    "note": "TWO writers — also platform/agentbase/agent.go:1489"
+    "note": "TWO writers — also platform/agentbase/agent.go:1489",
+    "why": "The row is the ONLY trace a dropped message ever existed — written on a detached context precisely so a cancelled request cannot take the record with it (validation_drop.go). It already has a named hand-run consumer: bugs_open/034's VERIFY_034_post_roll.sh greps for exactly this code. Accepts the retention window it lives under (30 days unresolved, 14 resolved, migration 466), now 365 under 567."
   },
   "PLAN_SECTION_NAME_DROPPED": {
-    "disposition": "unruled",
-    "writer": "platform/orchestration/actions/component_name_resolver_menu.go:183"
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/component_name_resolver_menu.go:183",
+    "why": "A section the planner proposed that resolves to no active component, carrying a `remedy` string distinguishing 'the planner invented it' from 'this planner cannot read its own menu' (component_name_resolver_menu.go). The strongest human-evidence case in the batch: site_db_actions.go:429 tells a reader IN PROSE to query agent_error_log for exactly this code, so the hand-run path is documented rather than merely possible. Accepts the 30-day unresolved window of migration 466, extended to 365 by 567."
   },
   "component_validation_rejected": {
-    "disposition": "unruled",
+    "disposition": "human-evidence",
     "writer": "platform/orchestration/actions/store_generated_component_action.go:1439",
-    "note": "one of three codes from a hand-rolled INSERT that BYPASSES agenterrors — kept deliberately (a council round's edit-quality and guardian seats objected to consolidating it; the reason is at :1428). A 'component_validation_%' LIKE query exists live, so prefix-disjointness matters for this family"
+    "note": "one of three codes from a hand-rolled INSERT that BYPASSES agenterrors — kept deliberately (a council round's edit-quality and guardian seats objected to consolidating it; the reason is at :1428). A 'component_validation_%' LIKE query exists live, so prefix-disjointness matters for this family",
+    "why": "NOT `consumed`, and the distinction is this registry's `reader_sink` field in miniature. Its code value IS automatically consumed — migration 563 branches the component-creator's prompt on the failure class, so a rejected component is regenerated with the right remedy — but that reader reads site_work_items.retry_feedback, a dedicated single-writer column (store_generated_component_action.go:1587 recordRetryFeedback) wired to the prompt by 564. THE agent_error_log ROW IS A SECOND, PARALLEL RECORD THAT NOTHING READS. Marked consumed it would have passed the reader check (563 does contain the string) and read as a closed loop for ever. Accepts this table's retention window (30 days unresolved under migration 466; 365 under 567) for the parallel row."
   },
   "component_validation_orphan_schema_field": {
     "disposition": "unruled",
@@ -150,13 +149,15 @@
     "writer": "platform/orchestration/actions/store_generated_component_action.go:1426"
   },
   "ARCHIVED_PAGE_DEPLOY_REFUSED": {
-    "disposition": "unruled",
+    "disposition": "human-evidence",
     "writer": "platform/orchestration/actions/git_deployer_actions.go:103",
-    "note": "TWO writers — also v3_site_actions.go:911"
+    "note": "TWO writers — also v3_site_actions.go:911",
+    "why": "A deploy refused because the page is archived, written BEFORE the return 'so a refusal is countable even though this action dispatches nothing further' (git_deployer_actions.go:100). Nothing counts them today, and the honest record of that is human-evidence plus the accepted window — not a `consumed` claim. Accepts 30 days unresolved (migration 466), 365 under 567. Two writers; v3_site_actions.go:911 is the second."
   },
   "CONTENT_CLAIMS_FLOOR_DETAIL": {
-    "disposition": "unruled",
-    "writer": "platform/orchestration/actions/save_sections_claims_guard.go:104"
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/save_sections_claims_guard.go:104",
+    "why": "Claims-guard detail on the SAVE path, deliberately distinct from the gate's own code so 'which path caught this' stays answerable — the same bugs_open/097 rationale as CONTENT_LINK_REPAIR_DETAIL, and the two are one design and are ruled together. Longitudinal by nature, so the 365-day clock of migration 567 rather than the 30-day unresolved default of 466 is what it accepts."
   },
   "CONTENT_CREATOR_CLAIMS_DETAIL": {
     "disposition": "unruled",
@@ -164,9 +165,10 @@
     "note": "the writer that CANNOT use the seam: the agent holds a *pgxpool.Pool (agent.go:92) and agenterrors.Write takes a *sql.DB. Zero rows in the window; content-creator writes nothing to llm_call_log, so this row is the only trace that would ever exist"
   },
   "TRUNCATION_DEGRADED_REVIEW": {
-    "disposition": "unruled",
+    "disposition": "human-evidence",
     "writer": "platform/orchestration/actions/diagnose_council_decide_action.go:625",
-    "note": "EXTRACTED 2026-08-22 before the cleaner reached it — all 41 rows, 24 rounds, 12 seats: bugfix_358_unread_finding_codes/EVIDENCE_truncation_degraded_review_2026-08-22.json. ⚠ THE CODE IS MISNAMED FOR ITS OWN POPULATION: 40 of 41 rows come from the `json.Valid(rb) == false` arm, logged as 'invalid JSON, likely truncated at max_tokens' — and the token data refutes that for those 40. Across the whole retained llm_call_log only FIVE review calls have ever hit their ceiling exactly (four on 2026-07-18, before this writer existed; the fifth 2026-08-02), and 11,514 of 11,519 reviewer replies end in '}'. Exactly ONE row (branch producer_marker) is a confirmed truncation. The other 40 record 'this seat's output did not parse', cause unmeasured. THE SILENCE SINCE 2026-08-02 IS A FIX, NOT A BLIND DETECTOR, and the control is the sibling channel written by the SAME function: diagnosis_artifacts kind='council_report' carries `unreadable` and `gated_by_truncation` unconditionally — 248 reports in the week of 2026-08-17, 100% carrying the key, and unreadable seats ran 17 (wk 07-20) → 24 (wk 07-27) → 0 → 0 → 0. The mechanism is proven executing and reporting clean, which is the demand control a zero row count cannot supply on its own. [CORRELATED, not proven causal] reviewer ceilings moved 8000 → 16000 over the same weeks (5 calls at 16k in wk 07-20, 1,756 in wk 08-17). The 2026-08-02 final row was review_adoption_guardian running at max_tokens=120, a misconfiguration since corrected (8000 today, outputs ~300 tokens)"
+    "note": "EXTRACTED 2026-08-22 before the cleaner reached it — all 41 rows, 24 rounds, 12 seats: bugfix_358_unread_finding_codes/EVIDENCE_truncation_degraded_review_2026-08-22.json. ⚠ THE CODE IS MISNAMED FOR ITS OWN POPULATION: 40 of 41 rows come from the `json.Valid(rb) == false` arm, logged as 'invalid JSON, likely truncated at max_tokens' — and the token data refutes that for those 40. Across the whole retained llm_call_log only FIVE review calls have ever hit their ceiling exactly (four on 2026-07-18, before this writer existed; the fifth 2026-08-02), and 11,514 of 11,519 reviewer replies end in '}'. Exactly ONE row (branch producer_marker) is a confirmed truncation. The other 40 record 'this seat's output did not parse', cause unmeasured. THE SILENCE SINCE 2026-08-02 IS A FIX, NOT A BLIND DETECTOR, and the control is the sibling channel written by the SAME function: diagnosis_artifacts kind='council_report' carries `unreadable` and `gated_by_truncation` unconditionally — 248 reports in the week of 2026-08-17, 100% carrying the key, and unreadable seats ran 17 (wk 07-20) → 24 (wk 07-27) → 0 → 0 → 0. The mechanism is proven executing and reporting clean, which is the demand control a zero row count cannot supply on its own. [CORRELATED, not proven causal] reviewer ceilings moved 8000 → 16000 over the same weeks (5 calls at 16k in wk 07-20, 1,756 in wk 08-17). The 2026-08-02 final row was review_adoption_guardian running at max_tokens=120, a misconfiguration since corrected (8000 today, outputs ~300 tokens)",
+    "why": "Settled by this lane's Task A: the whole population was EXTRACTED before the cleaner reached it (EVIDENCE_truncation_degraded_review_2026-08-22.json), and the condition has been clean since 2026-08-02 with the mechanism proven executing and reporting via the sibling diagnosis_artifacts channel — a demand control a zero row count cannot supply alone. Accepts the retention window knowingly (30 days unresolved under migration 466, 365 under 567) because the durable record is the extracted evidence file, not the rows. ⚠ CARRY THE CORRECTION: the code is MISNAMED for its own population — 40 of its 41 rows are not truncation; see this entry's note."
   },
   "CONTENT_DATA_LINK_AUDIT": {
     "disposition": "unruled",
