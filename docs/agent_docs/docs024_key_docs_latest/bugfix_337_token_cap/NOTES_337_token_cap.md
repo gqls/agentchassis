@@ -401,3 +401,22 @@ the 12-sites-vs-zero census above as the evidence.**
 **What this does NOT change:** the 337 fix is live, council-APPROVED, and demand-proven at the
 mechanism, and the component this bug is about is stored. The three pages remain unrepaired for
 a reason that lives downstream of anything this lane changed.
+
+> **RESOLVED 2026-08-23 13:12:42Z — it was the self-heal window, NOT a defect, and the decision
+> not to file was the right one.** loanzy resumed dispatching after **~40 minutes** of complete
+> starvation, which is precisely `bugs_closed/029`'s recorded self-heal behaviour. Nothing was
+> filed and nothing needs to be.
+>
+> **The transferable half is the near-miss, not the outcome.** I had a measured, genuinely
+> striking census — *12 sites served in an hour, several 15–59 times, loanzy zero* — with four
+> plausible causes ruled out by check rather than guess. That is a filing-grade evidence
+> package, and it was **describing normal behaviour**. What stopped it becoming a false bug
+> report was not the evidence (which was correct) but a single question asked before writing:
+> *how long does the closest known mechanism take to clear itself?* Forty minutes. The
+> observation window was forty minutes.
+>
+> **So: before filing a starvation/stall/never-runs claim, get the self-heal interval of the
+> nearest known mechanism and check your observation window is longer than it.** An hour of
+> zero is not evidence of a defect if the known defect clears in forty minutes. The census
+> stays in this file because it is a good measurement — it just does not mean what it looked
+> like it meant.
