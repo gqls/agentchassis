@@ -240,3 +240,45 @@ failures produced the same visible result, so the test could not tell them apart
 reasonable-looking, and worthless. I rebuilt it so that deliberately breaking the code now does fail
 it. That check — break your own code and confirm the test notices — is the only reason I know the
 rest of today's tests mean anything.
+
+## 2026-08-23 (later) — the mislabelling now stops at the source, with the switch off
+
+Since the last note I have built the part that actually stops new bad pages being
+made, and written the repair for the existing ones without running it.
+
+**The idea that unlocked it.** A section has two different names: the slot it sits
+in on its page, and the component that made it. Everything that goes wrong here is
+about the second; everything dangerous is about the first — renaming a slot is what
+would make a rebuild duplicate the tool. So the new code fixes what a row says it
+IS and never touches what it is CALLED. That is why this version can be both safe
+and effective, where the two earlier attempts could only be one or the other.
+
+**How it decides.** When a page arrives as a single blob that nothing can identify,
+the platform now attaches it to a component that is literally "the content, as
+given" — but only after rendering that component and checking the result is
+byte-for-byte what it was about to store. If that check fails, it records nothing
+rather than guessing. Honestly unlabelled beats confidently wrong.
+
+**It is switched off.** It ships behind a flag that defaults to off, so the next
+release changes nothing on any site. Turning it on is a separate decision, and a
+reversible one.
+
+**The repair for the twenty-two is written and deliberately not run**, because your
+ruling was that it may only happen once the record is real and readable on a live
+page — which needs the release first.
+
+**Something you may want to decide.** Six of the twenty-two are pages marked as
+claimed by a human. That is why they have sat unchanged since June while the others
+are rewritten constantly. They are still mislabelled and still generating false
+warnings, but I do not think automation should quietly rewrite a page someone has
+claimed, so the repair now prints them by name and skips them. If you would like
+them included, it is a one-line change.
+
+**Two more of my own mistakes today, both the same shape as the first.** A test
+fixture was one column short, which made the thing under test silently not run at
+all — the test passed while checking nothing. And the first version of the repair
+quietly selected 16 of the 22 pages, missing the six the bug was originally
+reported about, because I had written my own narrower version of a rule the
+platform already had. Both were caught by running the check against the real
+database instead of trusting what I had written, which is now the only way I am
+willing to accept one of these.

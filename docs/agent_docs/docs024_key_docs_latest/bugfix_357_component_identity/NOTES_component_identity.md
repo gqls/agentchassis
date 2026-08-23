@@ -592,3 +592,63 @@ that `git archive HEAD` builds and passes.
 `a2e2fbac2`, `Council-Submitted: 73a638c7-f2a0-4a69-8145-96fc9a89c7bb`. Register CLC-028; CLC-026
 corrected in place (it claimed "not yet rolled" and it had been rolled for a day, writing nothing).
 Landmine appended and dispatched. **Phase 0 does not fix 357** — the mint continues at ~12/day.
+
+---
+
+## 2026-08-23 (later) — phase 2 built and shipped OFF, phase 3 written and held
+
+### Phase 2, and the cut that makes safe and effective the same plan
+
+`slot_name` and `component_id` are different facts read by different consumers.
+`component_id` joins to `content_components` (`check_required_fields_missing.go:80`
+reads `cc.input_schema` through it) and carries 100% of this bug's damage;
+`slot_name` is Layer 2's match key, **420** Go references as of 2026-08-23, and
+carries 100% of the landmine. So: correct the component, never the name.
+`enrichSectionsWithPlannedNames` is untouched, `pages.sections` is untouched — the
+landmine is not managed, it is never armed.
+
+Constructive adoption, not a sixth inference: bind to `adopted-fragment`
+(`{{.body}}`) with the fragment as `content_data.body`, **only after rendering that
+template and comparing bytes**. `RenderTemplate` uses `text/template` (checked at
+the import), so nothing escapes — but the comparison is what makes it a fact, and
+it means a later edit to the seeded template stops adoption rather than corrupting
+rows. Adoption is a real render, so the row earns a genuine stamp through the
+resolver phase 0 repaired this morning.
+
+Opt-in `adopt_unidentified_fragments`, default OFF. It governs BOTH halves —
+adoption, and Layer 2 carrying the stored `component_id` with the stored bytes —
+because adoption alone does not survive a rebuild: the incoming section carries the
+plan's identity and the next rebuild would re-mint `hero` over an adopted row.
+
+### ⚠ MISSTEP: a fixture one column short made the splice silently not run
+
+Adding `component_id` to the Layer 2 preload widened the query to five columns
+while `layer2PreloadWith` still supplied four. `rows.Scan` then fails, the loop
+logs and `continue`s, **and the splice never runs** — at which point the provenance
+assertions pass while testing nothing. Only the re-append case noticed, because it
+asserts a row COUNT that a skipped splice cannot satisfy. The spliced test now pins
+the INSERT's `rendered_html` bind to the TOOL bytes rather than `AnyArg`, and that
+vacuity mutation is proven to fail it. Second time today a green test turned out to
+be worthless; both are in `WRONG_CALLS.md`.
+
+### ⚠ MISSTEP: 578's first predicate silently dropped the six rows the bug is about
+
+Written as `ILIKE '%tool-page%'` AND "not owned", it selected **16 of 22**. Running
+it read-only against the live database — rather than trusting it — showed the six
+missing were the original gamesdesign tool pages, `tool-ttk-calculator` among them,
+which is the worked example in the bug file's own opening paragraph.
+
+Two separate faults in one clause. The interactivity test was a **second, narrower
+spelling** of a definition the estate already has, so it now mirrors
+`interactiveStructuralMarkers`/`interactiveControlMarkers` (the markers
+`interactiveHTMLSQL` renders). And the six are `rebuild_policy='owned'` — which is
+also why they have been stable since June while the other 16 re-mint — so skipping
+them is an **owner decision**, not a technical exclusion, and it is now a per-row
+`RAISE NOTICE` plus a count line instead of a `WHERE` clause nobody would read.
+
+### State
+
+- `a2e2fbac2` phase 0 — **council APPROVED** (`73a638c7`), 3 advisory objections, two answered in `c2edcd6aa` (producer DISCOVERY rather than a hand-maintained list; the later-substep recovery case).
+- phase 2 — committed, `Council-Submitted: 74e4c1fd`, verdict pending at time of writing.
+- `b702e9d04` phase 3 — written, HELD, not applied.
+- Diagnosis `1ca712e3` — **5 bundles, no verdict**; the same scope-not-narrowing shape as this lane's earlier `090`. The root cause rests on first-hand measurement with controls, declared as the owner ruling of 2026-07-31 allows, not on the loop.

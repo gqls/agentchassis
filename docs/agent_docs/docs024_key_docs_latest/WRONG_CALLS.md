@@ -46460,3 +46460,45 @@ pre-commit helper, I passed the failure headline into the could-not-tell line, p
 line asserting a finding and disclaiming one. Caught by re-running all three cases for **both**
 callers after the refactor, including the pre-existing guard I had not come to change. Recorded in
 `LANDMINES.md` as the trap the extraction created.
+
+### 4 and 5 — same session, later: two more green tests that were checking nothing
+
+Both are the same shape as entry 2 above, and both were caught the same way — by
+running the thing rather than reading it.
+
+**4. A test fixture one column short made the code under test silently not run.**
+Phase 2 added `component_id` to Layer 2's preload query, widening it to five
+columns; the fixture still supplied four. `rows.Scan` then fails, the loop logs and
+`continue`s, and **the splice never executes** — so the provenance assertions
+written that morning passed while exercising nothing at all. Only the re-append
+case noticed, because it asserts a row COUNT that a skipped splice cannot satisfy.
+*The cheap check:* pin an assertion that is impossible unless the mechanism ran —
+the spliced test's `rendered_html` bind is now the TOOL bytes rather than
+`AnyArg`, and the short-row mutation is proven to fail it. A test whose every
+assertion is satisfiable by "nothing happened" is not a test.
+
+**5. My repair migration silently selected 16 of the 22 rows — missing the six the
+bug was filed about.** The predicate read
+`ILIKE '%tool-page%' AND NOT owned`. Run read-only against the live database
+before being trusted, it returned 16, and the six absentees were the original
+gamesdesign tool pages — `tool-ttk-calculator` among them, which is the worked
+example in the bug file's opening paragraph.
+
+Two faults in one clause. First, I had written **my own narrower spelling** of a
+rule the estate already owns: the platform defines interactivity in
+`interactiveStructuralMarkers`/`interactiveControlMarkers` and renders it to SQL in
+`interactiveHTMLSQL`, and my version tested one of the four structural markers.
+Second, the six are `rebuild_policy='owned'` — which is *why* they have been stable
+since June — so excluding them is an owner's decision about human-claimed pages,
+not a technical filter, and burying it in a `WHERE` clause made it invisible.
+
+*The cheap check, and it is the one that has now caught three of my five errors
+today:* **run the predicate read-only and look at the rows before writing anything
+that depends on it.** A count on its own would not have been enough here — 16 is a
+perfectly plausible number for a population last measured at 22 and known to churn
+daily. It was reading the NAMES that made it obvious.
+
+*And the transferable half:* when you are about to test a property the codebase
+already has a definition for, use that definition. A second spelling is not merely
+duplication — it is a spelling that will be narrower or wider than the original in
+some case you have not thought of, and the failure is silent in both directions.
