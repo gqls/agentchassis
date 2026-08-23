@@ -80,11 +80,32 @@ arming.
 > while the item ended `failed`. Found by reading the item's terminal status a day later, not by
 > a test or a review. (`WRONG_CALLS.md` 2026-08-23.)
 >
-> **Fixed at source** (`eb918bd58`): the emitter carries a `pageContext`, puts `page_name` and
+> **APPROVED 2026-08-23, council `a0ef0b07`** (three advisories, none high) — and two of them
+> changed the code, so read this before the fix description below. `bug_historian` caught the
+> chrome residue being filed under an INVENTED shape (the finding's own type at a bespoke
+> `needs_human_review`) when `bugs_closed/077` already had the convention: **a detector whose
+> predicate is wider than its handler's remit files the residue as `capability_gap`**,
+> `status='deferred'`, empty handler, `gap_kind='handler_remit'`. What decides it is the
+> consumer — `diagnose_triage_action`'s roadmap sweep reads
+> `item_type='capability_gap' OR status='deferred'` grouped by `spec->>'builder_needed'`, and my
+> shape had none, so the items would have aged for ever (`debug_historian`'s low objection, same
+> point from the other end). ⚠ **The irony is the lesson**: this change ships a landmine saying
+> *reusing a type is not reusing its contract*, and the seats caught me NOT reusing a type that
+> already fitted. Both halves are now in that landmine entry. `editquality` also had the
+> fallback key carry the SURFACE so a page-shaped residue and a chrome finding on one site cannot
+> collide. The three checkable objections were checked, not argued: both premises re-verified
+> fresh (the check's key literal at `check_required_fields_missing.go:180`; the LIVE classify step
+> reading `spec->>'page_name'` AND `slot_name`), `emitRequiredFieldsMissing` is the only emitter
+> in its file, and the one `page_id IS NULL` consumer
+> (`reconcile_superseded_reviews_action.go:96`) is a FALLBACK clause that now takes its primary
+> arm and resolves to the same page.
+>
+> **Fixed at source** (`eb918bd58`, reworked in `23d2a577d`): the emitter carries a `pageContext`, puts `page_name` and
 > `slot_name` in the spec, takes the check's key shape exactly when a page is known, and sets
 > `page_id` on the row (the column existed; it was never set). **Chrome, which has no page and
-> which the page-resolving router structurally cannot classify, is filed for a human
-> (`needs_human_review`, the router's own `park_*` vocabulary) instead of being fake-routed** —
+> which the page-resolving router structurally cannot classify, is filed as a `capability_gap`
+> at `deferred` with `gap_kind='handler_remit'` (bugs_closed/077's convention, and the roadmap
+> sweep's own predicate) instead of being fake-routed** —
 > deliberately not a phantom handler (`bugs_closed/291`: unregistered ⇒ born blocked, never
 > claimed). Pinned by `TestRequiredFieldsMissingItemsAreRoutable`, mutation-proven.
 > ⚠ **INERT until the next roll.** The old malformed item is left as the honest record; the key
