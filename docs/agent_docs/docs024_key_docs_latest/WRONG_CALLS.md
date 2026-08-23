@@ -46336,3 +46336,51 @@ was corrected in place with the query that settles it. **The severity case in `3
 
 **Distinct from this lane's entry above** (naming a mechanism without reading it). That one was
 never checking; this one was checking the right thing for the wrong purpose and not hearing it.
+
+---
+
+## 2026-08-23 — I applied the fix, then told a peer to run a test of the pre-fix behaviour (`bugs_open/326`)
+
+The loanzy.uk lane had agreed to capture live evidence of `bugs_open/326`'s within-cycle
+suppression arm: re-submit a domain inside the 3-hour window and record that no work item
+appears. Good plan, real operational cause, and the one piece of first-hand evidence the bug
+never had.
+
+At ~18:12Z I applied migration 572, which sets `recurrence_expected: true` on
+`domain-submitter.create_research_item` — **skipping the anti-churn brake entirely for exactly
+that step**. Then I messaged them: *"please take your two queries whenever you re-submit,
+whatever the offset."*
+
+**That sentence was wrong in the one case their test was aimed at.** "Whatever the offset" is
+true of the *fixed* behaviour and reads as reassurance; what it actually did was tell them the
+offset no longer mattered without saying why — which is that the mechanism they were measuring
+is no longer reachable on that step. They replied with a plan predicting suppression at 2h08m
+and, reasonably, wrote down the falsification condition in advance: *"If a row DOES appear at
+2h08m, your account needs revisiting."*
+
+**A row will appear. It would not have meant that.** It would have meant my fix works. Had they
+run it before I caught this, a successful insert would have been read as evidence AGAINST the
+diagnosis — and the error would have been mine, from a message I sent an hour earlier.
+
+**What caught it:** reading their prediction against the live config rather than against my
+memory of the bug. `SELECT … ->'config'->>'recurrence_expected'` on `domain-submitter` returns
+`true` now, and it did not this morning.
+
+**The cheap check, and it is a habit not a query:** *when you change a system, re-derive what
+every outstanding measurement of that system now measures* — especially one somebody else is
+holding. A peer running a test on your behalf is carrying a premise you own, and when you
+invalidate it they have no way to know. Concretely: before telling anyone "go ahead and
+measure", ask what each possible outcome would now mean, and say so in the message. Two
+sentences.
+
+**This is the fleet-memorised trap "your own action can silence your own detector", in its
+worst variant** — the detector was in someone else's hands and pointed at behaviour I had just
+removed. The memorised instances (an allow-list hiding what it was written to catch, a filing
+that bumps `updated_at` and sorts itself out of the selector) are all self-contained. This one
+crossed a session boundary, which is precisely why neither party would have spotted it alone:
+they could not see my migration, and I was not thinking about their clock.
+
+**The recovery, recorded because it is the reusable part:** I sent the falsification conditions
+for BOTH outcomes explicitly, agreed in advance, before they ran it — new row ⇒ the fix works,
+not a refutation; no new row ⇒ a live defect I investigate immediately. Fixing the reasoning
+before the result exists is the only point at which that is free.
