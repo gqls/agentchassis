@@ -202,3 +202,27 @@ FROM baseline b JOIN content_components cc ON left(cc.id::text,8)=b.id8 ORDER BY
 `UNCHANGED` on all eight against the fresh ones. A check that has never once come out the other way
 is not evidence. Full harness: `after_test.sh` (this session's scratchpad; promote it here if it
 survives a second run).
+
+## ⚠ `kubectl`'s own error lines are LOCAL time; the database is UTC (added 2026-08-23)
+
+While waiting on a `retry_after` I read a `kubectl` klog line stamped `19:29:41` and briefly
+concluded a 19:20:32 retry had already fired. It had not — the DB said **18:29:50 UTC**. Client-side
+`kubectl`/klog diagnostics print in the machine's local zone (**BST = UTC+1** here); everything in
+`site_work_items`, `orchestration_states` and `date -u` is UTC.
+
+**One hour is exactly the size of error that looks plausible**, so it does not announce itself: a
+retry window that has not opened reads as one that has closed, and the natural next action is to
+conclude the step failed again and act on it.
+
+**Always stamp your own comparison** — put `date -u` in the same command as the query, and compare
+UTC to UTC:
+
+```sh
+date -u; kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+ "SELECT item_type, status, attempt_count, retry_after FROM site_work_items w
+   JOIN sites s ON s.id=w.site_id WHERE s.domain='<domain>';"
+```
+
+Never take the time from a `kubectl` error line, a pod log prefix, or a shell prompt. This bites
+hardest in the BST half of the year, when the offset is non-zero but small enough to be mistaken for
+clock skew rather than a zone.
