@@ -230,3 +230,55 @@ a resolver path that CAN mint a utility url — but chrome lives in `site_compon
 `page_components`, and `site-header` is not in `ctaFieldNames`, so the predicate is never
 consulted for it. The scope is exact; it is just only true because of a table boundary that is
 nowhere written down.
+
+---
+
+## CONTRIB 2026-08-23 — PHASE A IS LIVE AND PROVEN. This bug STAYS OPEN.
+
+Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_308_cta_destination_provenance/`
+(handoff: `HANDOFF_2026-08-22_continue_here.md`; milestone:
+`SUMMARY_2026-08-23_cta_destination_provenance.md`).
+
+**The owner-ruled candidate 1 — record the provenance — is built, council-reviewed over three
+rounds, shipped (`288ce3e7a`), and verified WORKING at the artefact.** `__cta_minted` is a
+value-bound record of which CTA url the resolver wrote, registered as **LNK-035**;
+`storedCTADestinationIsAuthored` is re-based on it and its SIGNATURE changed so no caller can
+reach the utility-area shape test without the mint check.
+
+Measured 2026-08-23, against a baseline of **0** taken immediately after the 2026-08-22 roll:
+
+| check | result |
+|---|---|
+| rows carrying `__cta_minted` | **11** (hero 6, call-to-action 5) — it MOVED |
+| record entries naming the url their field carries | **21 of 21**, 0 mismatched |
+| non-CTA components stamped (negative control) | **0** |
+| rows with a `secondary_cta_url` that record it | **11 of 11** |
+
+The last line is the live confirmation of a defect found during implementation: both persist
+paths merge SHALLOWLY and the record is a nested map, so a naive version recorded one slot and
+dropped the sibling's — freezing it. Four of the six `ctaFieldNames` components have two slots.
+
+### Why this does NOT close 308
+
+**Phase A makes the fix safe; it does not make the fix.** The candidate set is unchanged, so the
+resolver still cannot offer `/contact.html`, and the 200 findings remain exactly as unrepairable
+as when this bug was filed. This file's own verification bar #1 — *the CTA whose copy names
+contact must actually reach the contact page, checked at the served page* — is untouched. **308
+stays OPEN until Phase B.**
+
+### One constraint Phase B must not lose (this lane's finding, not in the sections above)
+
+`loadContentHubs`/`loadInteractivePages` have **three** non-test callers as of 2026-08-22, and the
+third — `render_site_components_action.go:182-190`, the site HEADER's CTA fallback — is named in
+no CTA bug file or register entry. **Widen at `candidatesFromHubs`, never at the loaders**, or
+every site's header button silently re-picks; and `site_components` holds **0** `cta_url` keys
+across all **24** header rows, so no `content_data` diff could ever have shown it.
+
+### ⚠ Phase B is BLOCKED on the estate, not on design
+
+The account's LLM budget is exhausted — the API states access returns **2026-09-01 00:00 UTC** —
+and it is not confined to reviews: **112** failed steps as of 2026-08-23 09:49Z, including
+`call_content_writer` (live site content generation). Zero LLM-producing orchestrations have
+completed since. Council round 4 died unreviewed because of it. Phase B retires LNK-033's
+invariant, and the only honest proof it worked is a real button on a real served page — which
+needs the repair path running. **Do not start Phase B until the budget resets.**
