@@ -1004,3 +1004,39 @@ changes.
 > Second-order: my 17:52 entry *over*-corrected into false uncertainty after being refuted, and this
 > one *under*-corrected into false certainty. Neither is calibration — both are reacting to the
 > last error instead of to the evidence.
+
+### 20:10Z — the strategy spec read (the artefact this lane judges), and two concrete after-test items it raises
+
+Hop three landed at 20:09Z. Per the RUNBOOK ("the strategy spec is where the framework's own answer
+to *what is this domain for* first becomes readable — the artefact to judge before any page
+deploys"), read in full. **It is good**, and specifically it is good in the ways `loanzy.uk` was not:
+
+- `primary_model: affiliate`, `site_type: review-site`, tone editorial. The three rejected models
+  each carry a *reason* rather than a shrug — `direct_business` is refused because retailing "would
+  directly compete with the affiliate partners the site depends on"; `lead_generation` because
+  garden-tool vendors do not run lead programmes.
+- **It volunteers the disclosure obligation unprompted:** sponsored brand-directory listings "must
+  be clearly disclosed and structurally separated from editorial content to preserve the independent
+  stance that is the site's core differentiator", and are scoped to "maturity, not at launch".
+- Search intent is plausibly UK-specific and commercially literate ("best spade for clay soil UK",
+  "garden fork vs spade which do I need", "best pruning shears for arthritic hands").
+
+**Two things it puts on the after-test, both concrete, neither yet a problem:**
+
+1. **Named third-party affiliate relationships that DO NOT EXIST.** The spec asserts commission
+   "from retailers including Amazon UK, RHS Shop, and participating specialist garden retailers",
+   and elsewhere names Thompson & Morgan, Crocus and Dobies. That is a *plan*, correctly scoped as
+   one. **It becomes a false claim the moment a built page states or implies a live affiliate
+   relationship, or shows a commission disclosure naming a partner we have not signed.** Check the
+   served pages for partner names presented as fact. This is the same class as `loanzy.uk`'s lender
+   panel — an invented commercial relationship — arriving by a quieter route.
+2. **`RHS endorsed garden tools` appears twice, in `likely_searches` AND `high_value_terms`.** As a
+   search term it is a legitimate observation about demand. **As page copy it would be an endorsement
+   claim about a real named charity**, and the Royal Horticultural Society licenses its endorsement
+   commercially. If a page says or implies RHS endorsement of anything, that is a banned-claim
+   failure and it must be reported loudly. Grep the served pages for `RHS`.
+
+Both are exactly what `evidence_base` claims gating and the banned-claim sweep exist to catch, so
+**the right reading is "the controls now have something real to catch", not "the strategy is
+wrong".** Recorded before the pages exist so the check is not invented after seeing them — a check
+written to fit an artefact you have already read is not a check.
