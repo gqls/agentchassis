@@ -3,11 +3,47 @@
 > **THE BUG IS CLOSED.** `bugs_closed/315_HANDOFF_2026-08-18_…md`. The check is live, and it has now
 > been graded against the whole fleet. This file is the record of how it got there plus what is open.
 
+> # ⚠⚠ CORRECTED 2026-08-23 — READ THIS BEFORE §0. THE HEADLINE BELOW IS WRONG.
+>
+> **§0's "1 true positive, 0 false positives" is INVERTED. It was 0 true positives and
+> 1 FALSE positive, and §2's "THE ONLY THING LEFT" was already done before it was written.**
+>
+> 1. **`vetcomparison.uk/index.html` was never stale.** Cloudflare Web Analytics is enabled
+>    on that zone, and Cloudflare injects a ~359-byte
+>    `static.cloudflareinsights.com/beacon.min.js` `<script>` into anything it treats as
+>    browser HTML. `[MEASURED 2026-08-23, 5 fetches per header]` `Accept: */*` returns
+>    **exactly the stored fingerprint 5/5**; the browser header and the check's own
+>    `Accept: text/html,*/*` return one other hash 5/5; **a diff of the two bodies is TWO
+>    LINES** — the beacon tag and its close. The served `last-modified` was **15 seconds
+>    AFTER `deployed_at`**, so the object was current. Every visitor was being served the
+>    current page for the whole ~21 hours.
+> 2. **The six "independent observations" were one unconditional fact.** On an injecting
+>    zone this check can never match, so it re-flags every pass for as long as the feature
+>    is on. Repetition was not corroboration.
+> 3. **§0's rule 1 is what hid it.** "Send a browser `Accept`" made the difference VISIBLE
+>    and then `≠ stored` was read as *"the old page"* — the label "8/8 OLD" in §0 is that
+>    inference, not an observation. **A hash tells you two things differ; it cannot tell
+>    you HOW.** The missing step cost a day: `diff` the two bodies.
+> 4. **FIXED at source** — commit `14a50e533` adds a raw-object probe: after a mismatch
+>    confirms itself, a third fetch with `Accept: */*`; if that hashes to the fingerprint,
+>    nothing is filed. It cannot hide a real divergence (a stale delivery serves the old
+>    object under every header). The false item is `rejected`, with the mechanism in its
+>    `result`.
+> 5. **§2 is STALE, not pending: `547` and `526` were BOTH applied on or before
+>    2026-08-21 21:53Z** — see §2's own corrected banner. Their ledger rows were missing
+>    and were recorded 2026-08-23.
+> 6. **D8 (60-minute window) is LIVE** — settled at the artefact 2026-08-23; see §0b.
+
 ## 0. THE HEADLINE — the check works, and my hand-checks did not
 
 `[MEASURED 2026-08-22 ~18:50Z]` 311 judgeable pages swept, then every flagged page re-probed **5 times**:
 
 **`page_content_divergence` scored 1 true positive, 0 false positives, 0 misses.**
+
+> **⚠ CORRECTED 2026-08-23: this line is FALSE — it was 0 true positives, 1 false
+> positive.** The single finding was Cloudflare beacon injection, not a stale page. See
+> the banner at the top of this file. The 311-page sweep's *negative* result stands; only
+> the grading of the one positive is withdrawn.
 
 The one real case, `vetcomparison.uk/index.html`, has been serving visitors the **old page for ~21
 hours** — through a republish at 08:50Z — and the check flagged it on **six consecutive passes**,
@@ -17,6 +53,13 @@ unprompted, starting 1h04 after the deploy.
 in the private `gqls/sites` runner. What this lane can now do, which it could not before, is name it
 exactly: site, page, publish timestamp, and six independent observations.
 
+> **⚠ CORRECTED 2026-08-23: there was NO fault, live or otherwise.** The page was serving
+> the current bytes to everyone the whole time. "Six independent observations" was one
+> deterministic fact observed six times — on a beacon-injecting zone the check cannot
+> match, so it re-flags every pass. **Repetition of an unconditional result is not
+> corroboration**, and that it kept firing "unprompted" made it feel like evidence
+> accumulating when nothing was accumulating.
+
 ### ⚠ Reproducing a finding by hand — read this before disagreeing with the check
 
 I disagreed with it three times in one day and was wrong three times. Both rules are needed:
@@ -25,6 +68,19 @@ I disagreed with it three times in one day and was wrong three times. Both rules
    body per `Accept`*, from the same B2 object (identical `x-amz-version-id`). On the stale page,
    **8 fetches per header**: browser `Accept` 8/8 OLD, `Accept: text/html,*/*` (what the check sends)
    8/8 OLD, `Accept: */*` (curl's default) 8/8 CURRENT. **A plain curl says the page is fine.**
+
+   > **⚠ CORRECTED 2026-08-23 — THE OBSERVATION IS RIGHT AND EVERY LABEL ON IT IS WRONG.**
+   > The bodies really do differ by `Accept`, from one B2 object. But **"OLD" was never
+   > observed — it was inferred from `≠ stored hash`.** The browser body was the CURRENT
+   > page plus a Cloudflare Insights beacon; the `*/*` body was the same page without it.
+   > So "a plain curl says the page is fine" is not curl being fooled — **curl was right**.
+   > The rule that actually generalises: **a hash comparison can only tell you THAT two
+   > bodies differ. Before you name the difference, `diff` them.** One `diff` here would
+   > have cost seconds and saved a day; the whole delta was two lines.
+   >
+   > The check now does this itself (raw-object probe, `14a50e533`), so a by-hand
+   > reproduction should compare **three** things: stored hash, browser body, `*/*` body —
+   > and if the `*/*` body matches stored, the delivery is FINE.
 2. **Fetch N times and state N.** A single fetch is noise-dominated here — live responses include
    zero-length bodies (`e3b0c44298fc…`, the sha256 of the empty string) and Cloudflare error pages
    (`e3ebaa16dd9d…`). One-fetch sweeps of mine produced "228 of 228 healthy" (under-read) and
@@ -42,8 +98,9 @@ That is why it was right. I built that guard and applied it to none of my own sp
 
 | item | state |
 |---|---|
-| **D8 — window 30→60 min** | Committed (`971178638`), council **APPROVED** (`fe8bbefc`). ⚠ **Liveness UNPROVEN** on `v1.0.1326`: the provenance line has scrolled and the binary probe found **no positive control**, so an absent grep proves nothing. **Settle it from the next filed item's `spec->>'settle_window_seconds'` — 1800 = old, 3600 = D8 is live.** |
+| **D8 — window 30→60 min** | ✅ **SETTLED 2026-08-23: LIVE.** Not by the item route (no new item has been filed since, and the one that exists predates D8 — its spec still reads `1800`, which is correct-and-irrelevant). Settled at the artefact instead, via the RFC_040 capability table nobody in this lane had used: `SELECT git_commit FROM service_binary_capabilities WHERE service='agent-chassis' AND name='page_content_divergence'` → `bd454eb93`, and `git merge-base --is-ancestor 971178638 bd454eb93` = YES with the reverse direction NO (so the test discriminates). **That table is the answer to "has my Go change rolled" and it has no shelf life** — unlike the provenance log line, which had already scrolled out of a full `kubectl logs` here. |
 | **D9 — escalate on PERSISTENCE across passes** | Unbuilt, and the day's evidence is the argument for it: convergence times (seconds → ~17 min → 1h20 → 21h) OVERLAP the failure, so no settle-window value separates them. The check already re-detects on every pass and the dedup index absorbs it. |
+| **D11 — an EDGE THAT ADDS BYTES** | ✅ **BUILT AND COMMITTED 2026-08-23** (`14a50e533`), and it was not hypothetical — it had already produced this check's only production finding. Raw-object probe: after a mismatch confirms itself, refetch with `Accept: */*`; if that hashes to the fingerprint, discard. Three mutations, three distinct test failures. |
 | **D10 — an empty/error 200 is HASHED, not skipped** | Unbuilt. Both artefact bodies are STABLE hashes, so the double-fetch guard does **not** filter them: two consecutive empty 200s would agree and file against a healthy page. The one remaining way this check can manufacture a false positive. Cheap. |
 | **D6 — unarmed stamper should NULL the hash** | Unbuilt; no unarmed stampers exist today (6 of 6 armed). |
 | **Retraction half** | **Still never fired, and still correctly so** — its precondition is a pass that OBSERVES A MATCH, and the page genuinely still diverges. Not evidence of a defect. |
@@ -71,6 +128,20 @@ noticing into a comparison a machine makes every few hours.
 | Docs (the standing five) + `WRONG_CALLS` + `LANDMINES` | **COMMITTED** `ba4abbd5d`, `ae210bef4` |
 
 ## 2. THE ONLY THING LEFT — one step, and it is not this lane's to take
+
+> **⚠ CORRECTED 2026-08-23 — ALL OF §2 IS DONE. Nothing here is outstanding.**
+> `547` and `526` were both applied on or before **2026-08-21 21:53:04Z** (the moment the
+> first `page_content_divergence` item was filed — which requires the check to be enabled,
+> and `526` refuses while any unarmed stamper exists, so `547` necessarily preceded it).
+> Re-proved 2026-08-23: the recursive census returns **6 of 6 stampers armed**, the
+> `availability-discovery-agent` checks array is `[site_unreachable,
+> page_content_divergence]`, and rehearsing `547` in a rolled-back transaction aborts on
+> its own guard — *"547: already applied"*.
+> **Neither had a `schema_migrations` row**; both were recorded 2026-08-23 with notes
+> saying the applying session is unknown and that `applied_at` is a proven upper bound.
+> That gap mattered: `547` is not a `_HOLD` file, so the next `run-migrations.sh --apply`
+> would have taken it and **aborted the whole pending batch** on its already-applied guard.
+> ⚠ **Do not re-run either file.**
 
 **a. The chassis image — ✅ DONE 2026-08-21 ~17:00Z.** `v1.0.1322`, built from commit
 `bac1899216fc6406f46cfcf8710f6a74c24276e0`, **contains all seven of this lane's commits** and the

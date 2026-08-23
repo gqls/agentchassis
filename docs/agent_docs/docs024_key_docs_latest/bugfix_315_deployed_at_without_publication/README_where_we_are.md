@@ -730,3 +730,65 @@ hours writing carefully-worded corrections explaining why the instrument must be
 the quick manual check was easier to run and agreed with what I expected. The corrections were all
 published before I bisected the problem and found the real cause. That is recorded in our
 wrong-calls log, which is the point of keeping one.
+
+---
+
+**2026-08-23 — the fault we reported yesterday was not real, and the vet site was fine all along**
+
+Short version: yesterday this lane reported that vetcomparison.uk had been showing visitors
+an out-of-date page for about 21 hours. That was wrong. The page was correct the whole
+time. Nobody saw a stale page. I have fixed the thing that made us believe otherwise, and
+the false alert has been closed with the reason written on it.
+
+What the checker does, in plain terms: when we publish a page, we write down a fingerprint
+of exactly the bytes we sent. Every few hours a checker fetches the live page, takes its
+fingerprint, and compares. If they differ, it says "what we published is not what people
+are being served."
+
+What actually happened: Cloudflare — the service that sits in front of our sites — has a
+traffic-analytics feature switched on for the vetcomparison.uk zone. When that is on,
+Cloudflare adds a small piece of its own tracking code to the page **on the way out to the
+browser**. It never touches the file we published. So the page a visitor gets is our page
+plus about 360 bytes of Cloudflare's, and its fingerprint can never match ours.
+
+Which means the alert was not a one-off that happened to keep repeating. On that site the
+checker could **never** match, so it re-raised the alert every single time it ran. We read
+those repeats as six independent confirmations. They were the same unavoidable result six
+times over.
+
+Why yesterday's session missed it, and this is the part worth keeping: it compared
+fingerprints, saw they differed, and concluded the visitor was getting the *old* page. It
+never looked at the two pages side by side. When I did, the entire difference was two
+lines — Cloudflare's tracking tag and its closing tag. A fingerprint can tell you two
+things are different. It cannot tell you *how* they differ, and "how" was the whole answer.
+That comparison takes seconds. Not doing it cost a day and put a false customer-facing
+fault into a handoff.
+
+I also checked whether this affects other sites. Of the seventeen domains with a
+fingerprint recorded, only vetcomparison.uk is affected. One other — webdesign.co.uk —
+carries the *same* Cloudflare tracking code, but there it is genuinely part of the page we
+publish, so both copies contain it and it matches correctly. That contrast is what makes me
+confident about the cause rather than merely comfortable with it.
+
+The fix: when the checker sees a mismatch, it now asks the site once more in a way that
+tells Cloudflare not to add anything. If *that* copy matches our fingerprint, the page was
+delivered correctly and nothing is reported. Importantly this cannot hide a genuine
+problem: if a site really were serving an out-of-date page, the old page comes back either
+way and the alert still fires.
+
+Two smaller things, both of which were listed as outstanding and were not:
+
+- The two database changes the handoff said still needed applying had **already been
+  applied**, two days ago, by a session that did not leave a record of doing it. I proved
+  that rather than assumed it, and added the missing records — which mattered more than it
+  sounds, because without them the next routine run would have tried to apply one again and
+  stopped the whole batch.
+- The 60-minute grace period we added on Friday **is** live. The handoff could not confirm
+  it; there turned out to be a table in the system that records exactly which version of
+  the code each running service is on, which answers that question directly and does not
+  go stale.
+
+Nothing here needs a decision from you. The one judgement call I made is that the checker
+now stays *silent* in this situation rather than declaring the page healthy — because
+staying silent claims nothing, and I would rather it under-claim than repeat yesterday's
+mistake in the opposite direction.

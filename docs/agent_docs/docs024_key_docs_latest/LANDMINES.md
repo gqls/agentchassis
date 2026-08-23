@@ -15363,3 +15363,25 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** `copy_quality_two_stage` applying stage-2 proposal `6d6d4975`, 2026-08-21/23; recipe now in `scripts/fire-section-edit.sh`
 - **relations:** the dangling-`page_component_id` entry (the other half of what made this apply fail twice) · register CQ-024
 - **added:** 2026-08-23, copy_quality_two_stage lane
+
+### A CDN can ADD bytes to a page on the way out, so "served bytes ≠ published bytes" is the NORMAL state on some zones — and the page is perfectly healthy
+
+- **footprint:** `pages.content_hash` · `platform/orchestration/actions/discovery_checks/check_page_content_divergence.go` · `sites.published_hash` / migration 422's publish reconciler · any script comparing a `sha256sum` of a fetched page against a stored digest · `curl … | sha256sum` against **any** site behind Cloudflare
+- **fires when:** you compare bytes you published against bytes you fetch, and they differ. Everything about the difference says "stale delivery": the fingerprint is right, the fetch is right, the mismatch is stable across repeats, and cache-busting does not shift it.
+- **the trap:** **the mismatch can be the EDGE adding content, not the origin serving something old.** Cloudflare Web Analytics, when enabled on a zone, injects a ~359-byte `<script src="https://static.cloudflareinsights.com/beacon.min.js/…">` into responses it treats as **browser HTML** — keyed on the request's `Accept`. The stored object is untouched. So the served body legitimately never hashes to what you published, **on every request, for as long as the feature is on**. Cache-busting cannot help (the injection is not a cache), and repeating the fetch cannot help (it is deterministic) — which is precisely why it survives the guards you would reach for.
+- **why the wrong result looks exactly right:** a stable mismatch that reproduces on every pass is the signature you would *design* a staleness detector to trust. Measured 2026-08-22, this produced **six consecutive "independent" detections** of a fault that did not exist, and a handoff calling it a LIVE CUSTOMER-FACING FAULT. **Repetition of an unconditional result is not corroboration.**
+- **the check — three fetches, not one, and then LOOK:**
+  ```bash
+  BROWSER='Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
+  curl -s -H "$BROWSER"     "https://$D$U?cb=$RANDOM$$" -o /tmp/b.html   # what a visitor gets
+  curl -s -H 'Accept: */*'  "https://$D$U?cb=$RANDOM$$" -o /tmp/s.html   # the object itself
+  sha256sum /tmp/b.html /tmp/s.html          # compare BOTH against pages.content_hash
+  diff <(sed 's/></>\n</g' /tmp/s.html) <(sed 's/></>\n</g' /tmp/b.html)
+  ```
+  **If the `*/*` body matches the fingerprint, delivery is FINE.** And run the `diff` regardless: a hash tells you two bodies differ, never HOW, and naming the difference without looking is the whole failure mode.
+- **the control that tells "the edge added it" from "we ship it":** grep the beacon in **both** bodies. Present in the browser body only ⇒ injected by the edge. Present in **both**, with identical byte counts ⇒ it is in your committed source and the hashes should match. `[MEASURED 2026-08-23]` across 17 domains: `vetcomparison.uk` was the first case, `webdesign.co.uk` the second — same vendor, same script, opposite verdicts.
+- **also: check `last-modified` before believing "stale".** A stale delivery cannot serve a `last-modified` NEWER than `deployed_at`. Here it was **15 seconds after**, which contradicted the diagnosis before any hashing was needed.
+- **the durable fix, live since `14a50e533`:** `page_content_divergence` refetches a confirmed mismatch with `Accept: */*` and files nothing if that hashes to the fingerprint. It cannot mask a genuine divergence — a stale delivery serves the old object under every header. **It SKIPS rather than RETRACTS**, because an edge could in principle serve a stale body to browsers while answering `*/*` correctly.
+- **relations:** `bugs_closed/315` · register `DGH-015`, `DGH-013` · `WRONG_CALLS.md` 2026-08-23 · the "prove a deploy at the ARTEFACT" family (same shape: the instrument, not the system, was wrong)
+- **source:** 2026-08-23, `bugfix_315` lane, by inheriting the false finding as fact and re-measuring it.
+- **added:** 2026-08-23, bugfix_315_deployed_at_without_publication lane.

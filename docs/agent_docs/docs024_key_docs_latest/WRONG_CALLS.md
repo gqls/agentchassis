@@ -45178,3 +45178,48 @@ for making the check mechanical rather than remembered.
 contains `ORDER BY ... DESC LIMIT 1` and not the identifier of the thing you started, it is watching
 the fleet, not your work. `scripts/fire-section-edit.sh` now carries the warning in its header, and
 its own polling loop is correlation-scoped.
+
+---
+
+## 2026-08-23 — `bugfix_315`: I graded a CDN's tracking tag as a "LIVE CUSTOMER-FACING FAULT", because I compared fingerprints and never compared the pages
+
+**The claim.** In a handoff, in a commit message, and in a work item: *"`page_content_divergence`
+scored 1 true positive, 0 false positives, 0 misses"*, and `vetcomparison.uk/index.html` *"has been
+serving visitors the old page for ~21 hours"*, corroborated by *"six consecutive passes,
+unprompted"*.
+
+**The truth.** The page was correct the entire time. Cloudflare Web Analytics is enabled on that
+zone, and Cloudflare injects a ~359-byte `static.cloudflareinsights.com/beacon.min.js` `<script>`
+into anything it treats as browser HTML. The published object was byte-perfect — its served
+`last-modified` was **15 seconds AFTER `deployed_at`**. The score inverts to **0 true positives, 1
+false positive**.
+
+**What caught it.** Fetching the page with `Accept: */*` returned **exactly** the stored fingerprint,
+5/5 — and then `diff`ing the two bodies, which is **two lines**: the beacon tag and its close.
+
+**The error was not the measurement, it was the LABEL on it.** The original session did the hard
+parts well: 5 fetches per header, stated N, browser `Accept`, cache-buster. All of that rigour went
+into establishing that the two hashes **differed** — which was never in doubt. The step it never
+took was the cheap one: **look at the two bodies**. `≠ stored` was written down as *"8/8 OLD"*, and
+"OLD" was never observed; it was inferred, and then quoted onward as an observation.
+
+**Two things that made it feel like evidence when it was not:**
+
+- **Repetition of an unconditional result is not corroboration.** On an injecting zone the check
+  *cannot* match, so it re-flags every pass, for ever. "Six consecutive passes, unprompted" reads as
+  six independent confirmations and is one deterministic fact observed six times. **Ask whether the
+  observation could have come out otherwise before counting it again** — the estate's own
+  disconfirmability rule, failed here in the "repeat it" direction rather than the usual one.
+- **Extra rigour applied to the half you already know buys nothing.** Being *more* careful than
+  usual is not protective when the care is aimed at the settled half of the question.
+
+**The cheap check, and it is a rule about hashes, not a habit:** **a hash comparison can only tell
+you THAT two things differ; before you name the difference, `diff` them.** Any time you are about to
+write *what* a hash mismatch means — "stale", "truncated", "old" — you are describing content you
+have not looked at. One `diff` costs seconds. This one cost a day, a false customer-facing fault in
+a handoff, and a grading that was quoted forward.
+
+**Made mechanical:** the check now runs a raw-object probe itself (`14a50e533`) — after a mismatch
+confirms itself, it refetches with `Accept: */*` and files nothing if that matches the fingerprint.
+Also a `LANDMINES.md` entry, because the trap fires on anyone comparing published bytes to served
+bytes, not just on this check.

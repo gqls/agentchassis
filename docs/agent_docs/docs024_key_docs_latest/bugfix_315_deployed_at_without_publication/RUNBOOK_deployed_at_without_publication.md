@@ -402,3 +402,101 @@ A finding on day one is likelier to be a defect in the check than a divergence i
 the `curl | sha256sum` comparison by hand before believing it. Rollback is
 `526_enable_page_content_divergence_HOLD_ROLLBACK.sql`, which removes the name and asserts
 `site_unreachable` survives.
+
+---
+
+## Part 4 — reproducing a divergence BY HAND (corrected 2026-08-23; supersedes the two-rule method in Part 3)
+
+Part 3's method (browser `Accept`, N fetches, state N) is necessary and **not sufficient** — it
+established that the bytes differ and then let "OLD" be inferred rather than observed. That
+produced a whole-day false positive. **Three fetches, then LOOK.**
+
+```bash
+D=vetcomparison.uk ; U=/index.html
+BROWSER='Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
+
+STORED=$(kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -qtA -c \
+  "SELECT p.content_hash FROM pages p JOIN sites s ON s.id=p.site_id WHERE s.domain='$D' AND p.url='$U';")
+
+# 5 fetches per header, each with its own cache-buster; state N in whatever you write.
+for hdr in "$BROWSER" 'Accept: */*'; do
+  echo "--- $hdr ---"
+  for i in 1 2 3 4 5; do
+    curl -s -H "$hdr" "https://$D$U?cb=$RANDOM$RANDOM$$$i" | sha256sum | cut -c1-64
+  done | sort | uniq -c
+done
+echo "STORED = $STORED"
+```
+
+**Reading it:**
+
+| browser body | `*/*` body | verdict |
+|---|---|---|
+| = STORED | = STORED | healthy |
+| ≠ STORED | **= STORED** | **the EDGE adds bytes. Delivery is FINE — do not file.** |
+| ≠ STORED | ≠ STORED | a genuine divergence; the origin object is not what we published |
+
+Then always look at *how* they differ — this is the step whose absence cost a day:
+
+```bash
+curl -s -H "$BROWSER"    "https://$D$U?cb=b$$" -o /tmp/b.html
+curl -s -H 'Accept: */*' "https://$D$U?cb=s$$" -o /tmp/s.html
+diff <(sed 's/></>\n</g' /tmp/s.html) <(sed 's/></>\n</g' /tmp/b.html)
+```
+
+**The control that names the cause** (edge-injected vs shipped in source) — grep the injected
+marker in **both** bodies. Browser-only ⇒ the edge added it. Both, at identical byte counts ⇒ it is
+in our committed source and the hashes should match anyway.
+
+**And check `last-modified` before believing "stale"** — it cannot be NEWER than `deployed_at` on a
+genuinely stale delivery:
+
+```bash
+curl -sI -H "$BROWSER" "https://$D$U?cb=h$$" | grep -iE 'last-modified|x-amz-version-id|server-timing'
+```
+
+## Part 5 — "has my Go change actually rolled?" (the route that does not go stale)
+
+The `build provenance` startup line scrolls, and grepping the binary for your own commit returns
+ABSENT for a binary that certainly contains it (it stamps ONE commit, not an ancestry — two other
+lanes were burned by this). Use the RFC_040 capability table instead:
+
+```sql
+SELECT DISTINCT git_commit, max(last_seen_at)
+  FROM service_binary_capabilities
+ WHERE service='agent-chassis' AND name='page_content_divergence'
+ GROUP BY 1;
+```
+
+```bash
+git merge-base --is-ancestor <your-commit> <the stamp>   # YES = live
+git merge-base --is-ancestor <the stamp> <your-commit>   # MUST be NO, or the test does not discriminate
+```
+
+`kind='provenance'` rows are the sentinel: a service that registers no checks still reports in, so
+an ABSENCE means the pod never wrote, not that it lacks the capability.
+
+## Part 6 — is a migration already applied, when the ledger is silent?
+
+`schema_migrations` had **no row** for either `547` or `526` although both were live. Two
+independent ways to settle it without applying anything:
+
+```bash
+# 1. Rehearse it: swap the final COMMIT for ROLLBACK. A well-written migration's
+#    already-applied guard is a state oracle.
+sed 's/^COMMIT;$/ROLLBACK;/' docs/agent_docs/sql_for_agents/<file>.sql > /tmp/rehearse.sql
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 -f - < /tmp/rehearse.sql
+#    -> "ERROR: 547: already applied — ..."  is the answer.
+```
+
+⚠ **Afterwards, prove the rehearsal wrote nothing** — `SELECT count(*) FROM agent_definitions WHERE
+created_at > CURRENT_DATE` and the same for `updated_at`. A `SELECT snapshot_agent(...)` prints the
+id of the row it SNAPSHOTTED, not of a new row, so seeing that id in the table afterwards is
+expected and is **not** evidence your transaction leaked.
+
+2. Read the effect directly (the recursive stamper census in Part 3; the agent's `checks` array).
+
+⚠ **And when a config row's `updated_at` looks like a deliberate change, COUNT how many rows share
+it.** Four rows sharing a timestamp to the microsecond is a transaction; 204 rows sharing it is a
+fleet release, and it has just erased the per-row timing evidence you were about to reason from.

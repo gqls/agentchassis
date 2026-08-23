@@ -2017,3 +2017,156 @@ check would file a divergence for a page that is fine**. It has not happened (th
 real, and its served hash is the genuine old content), but the guard is missing. Fix: treat a
 zero-length 200 as unjudgeable — same posture as the oversize-body skip — and consider refusing bodies
 that carry no `<html`. Cheap, and it removes the one way this check could manufacture a false positive.
+
+---
+
+## 2026-08-23 — the one production finding was a FALSE POSITIVE, and §2 of the handoff was already done
+
+Picked up from `HANDOFF_2026-08-21_continue_here.md` with the instruction "go ahead, a new
+chassis has been deployed". §2 said the only thing left was to apply `547` then `526`.
+Neither statement survived contact.
+
+### 1. Both migrations were already applied — and the first inference about WHEN was wrong
+
+The live recursive census returned **6 of 6 stampers armed**, and
+`availability-discovery-agent`'s checks array already read
+`[site_unreachable, page_content_divergence]`. All four rows shared `updated_at =
+2026-08-22 19:04:18.435632+00`, to the microsecond, so I inferred one transaction had
+applied both.
+
+> **[MISSTEP] That inference was wrong, and the check that caught it was counting.**
+> `SELECT count(*) FROM agent_definitions WHERE updated_at = '<that exact timestamp>'`
+> returned **204** — essentially the whole table. It was the fleet release (pods started
+> `19:05:13Z`, 55 seconds later), not either migration. **A timestamp shared by four rows
+> looks like a deliberate transaction; the same timestamp shared by 204 rows is a release.
+> The distinguishing query is a `count(*)`, and it costs nothing.** Had I stopped at four
+> rows I would have recorded a confident, wrong apply-time in the ledger.
+
+The release also **destroyed the per-row timing evidence**, so "when were they applied"
+had to be answered another way:
+
+- `page_content_divergence` filed a work item at **2026-08-21 21:53:04Z**. A check cannot
+  file unless it is enabled, so `526` was live by then; and `526` refuses to apply while
+  any unarmed stamper exists, so `547` necessarily preceded it. That is a **proven upper
+  bound**, which is what went into the ledger `notes` — not a guess dressed as a time.
+- Rehearsing `547` in a rolled-back transaction aborts on its own guard: *"547: already
+  applied"*. Its idempotence guard doubles as a state oracle.
+
+**Neither file had a `schema_migrations` row.** Recorded both 2026-08-23, `applied_by =
+record-only`, notes stating plainly that this lane did not apply them. This was not
+bookkeeping: `547` is **not** a `_HOLD` file, so the next `run-migrations.sh --apply`
+would have picked it up and **aborted the entire pending batch** on that guard.
+
+> **[MISSTEP, caught by its own control]** While rehearsing `547` I saw
+> `snapshot_agent(...)` print `c0500042-…` and then found that id present in
+> `agent_definitions` — which read as "my rolled-back rehearsal wrote a row". It had not:
+> that is the id of the **live `site-work-orchestrator` row** (`is_snapshot = f`), i.e.
+> `snapshot_agent()` returns its SOURCE's id, not the new snapshot's. The disconfirming
+> query was `count(*) … WHERE created_at > today` → **0**. **A returned uuid does not tell
+> you what it is a uuid OF.**
+
+### 2. D8 settled — via a table this lane never knew existed
+
+The handoff said to settle D8 from the next filed item's `settle_window_seconds`. That
+route is dead: no item has been filed since, and the one that exists **predates D8**
+(its spec reads `1800`, which is correct and tells you nothing). The `build provenance`
+log line had scrolled out of a **full** `kubectl logs`, and probing the binary for
+candidate commit shas gave `absent` for every candidate — with **no positive control**, so
+it proved nothing, exactly as the handoff warned.
+
+What worked: **`service_binary_capabilities`** (RFC_040, `platform/buildcapability`). It
+records, per running pod, the capabilities the binary actually registers plus its
+`git_commit`, and it is refreshed continuously:
+
+```sql
+SELECT git_commit FROM service_binary_capabilities
+ WHERE service='agent-chassis' AND name='page_content_divergence';   -- bd454eb93…
+```
+
+`git merge-base --is-ancestor 971178638 bd454eb93` → YES; reverse → NO. **D8 is LIVE.**
+This is the answer to "has my Go change rolled?" and it has **no shelf life**. Worth
+knowing fleet-wide: two other lanes (`215`, `299`) were burned by the grep-the-binary
+route this table replaces.
+
+### 3. THE HEADLINE INVERTS — 0 true positives, 1 false positive
+
+`vetcomparison.uk/index.html` had been redeployed at `20:55:52Z`, so I measured it
+properly (browser `Accept`, cache-buster, 5 fetches): still diverging, 5/5. The first
+thing that did not fit was a **header**, not a hash:
+
+```
+last-modified: Sat, 22 Aug 2026 20:56:07 GMT      <- 15 SECONDS AFTER deployed_at
+```
+
+A stale delivery cannot have a `last-modified` newer than the deploy. So the object was
+current and the bytes still differed — which is a different fault, or none.
+
+`[MEASURED 2026-08-23, 5 fetches per header]`:
+
+| Accept | hash | == stored? |
+|---|---|---|
+| browser | `97fa37ca…` | no, 5/5 |
+| `text/html,*/*` (what the check sends) | `97fa37ca…` | no, 5/5 |
+| `*/*` | `4dbd143f…` | **YES, 5/5** |
+
+Then the step the previous session never took — **diff the two bodies**:
+
+```
+1403a1404,1405
+> <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v451…"
+> </script>
+```
+
+**Two lines. 359 bytes.** Cloudflare Web Analytics is enabled on that zone, and Cloudflare
+injects its beacon into anything it treats as browser HTML. The page was never stale. The
+check sends an HTML `Accept`, so **on that zone it can never match** — the flag was
+unconditional, and the "six consecutive passes, unprompted" were one deterministic fact
+observed six times.
+
+**Scope `[MEASURED 2026-08-23]`, 17 domains with a hashed active+deployed page, 2 fetches
+per header requiring agreement:** 15 MATCH/MATCH, no beacon. `vetcomparison.uk`
+DIVERGE/MATCH, beacon in the browser body only (**1 vs 0** occurrences). And the control
+that makes the mechanism certain rather than plausible: **`webdesign.co.uk` carries the
+same beacon IN ITS COMMITTED SOURCE** — present in *both* bodies, identical byte counts,
+MATCH under both headers. Same vendor, same script, opposite outcome, because there the
+bytes were ours. That is what separates "the edge added this" from "the page ships this".
+
+> **[THE TRANSFERABLE LESSON]** The previous session's rule 1 — *"send a browser
+> `Accept`"* — is what hid this. It made the difference **visible** and then labelled
+> `≠ stored` as **"8/8 OLD"**. "OLD" was never observed; it was inferred. **A hash
+> comparison can only tell you THAT two bodies differ. Before you name the difference,
+> `diff` them.** The `diff` cost seconds. The label cost a day, a "LIVE CUSTOMER-FACING
+> FAULT" in a handoff, and a grading of "1 true positive, 0 false positives".
+>
+> Note the shape: the session was *more* rigorous than usual (5 fetches, stated N,
+> browser header) and the extra rigour all went into confirming that the two hashes
+> differed — which was never in doubt. **Rigour spent on the half you already know is
+> not rigour.**
+
+### 4. What was built
+
+Raw-object probe (commit `14a50e533`), the check's **case 6**: once a mismatch has
+confirmed itself with a second browser-`Accept` fetch, a third fetch asks with
+`Accept: */*`. If that hashes to `content_hash`, the bytes we sent arrived and the
+difference is the edge's, so nothing is filed.
+
+- **It cannot hide a real divergence**: a stale delivery serves the old object under every
+  header, so the raw probe returns the old hash too and the finding still files.
+  Suppression requires an exact sha256 match against the fingerprint.
+- **Unusable raw probe → discard, not file.** No information is not exonerating
+  information; the sweep re-probes every ~4–5h, so a missed pass costs one cycle while a
+  false item costs a human a triage.
+- **It SKIPS rather than RETRACTS**, deliberately. An edge that served a stale body to
+  browsers while answering `*/*` correctly would be exonerated here — that limit is
+  written into the file header rather than left implicit, and the retraction half keeps
+  exactly one producer (an observed hash match).
+- **Mutation-proved from the RUN**: three mutations, three distinct failures (guard
+  disabled → item files; raw-unusable guard disabled → item files; raw probe reusing the
+  HTML `Accept` → the `Accept`-sequence assertion fails).
+- Both new tests are **paired controls** of the existing filing test — identical fixture,
+  one value changed, opposite outcomes. Each scripts the intent re-read *deliberately*
+  and does **not** assert `ExpectationsWereMet`: without that scripted row, deleting the
+  guard would merely error on an unexpected query, discard the candidate, and **pass green
+  for the wrong reason**.
+
+The false item is `rejected`, mechanism and evidence in its `result`.
