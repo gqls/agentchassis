@@ -100,3 +100,62 @@ be put through the council at all** — that's a fact about the gate's reach, no
 avoid review, and I'll say plainly which parts of what we do end up reviewable.
 
 Next entry will record the plan and what I decided to do about that.
+
+---
+
+## 2026-08-23, later — built, proven, and three things that went differently than expected
+
+The fix is in and working. The build trigger now refuses to pretend. Point it at a broken
+address and it stops, tells you nothing went out, and hands you a retry command that actually
+works. It no longer prints "save this reference number" before it has tried to send anything —
+that line used to appear three lines *above* the send, which is why the failing case read
+exactly like the succeeding one.
+
+Underneath it is a shared publisher any script can call. That was the real decision. The fix
+for this has been written down for a month; twenty-five scripts copied it and only two made it
+work. When guidance is followed and still doesn't take, the guidance isn't the fix — so we
+made it something you call rather than something you copy.
+
+**Three things I want to say plainly, because they went against me.**
+
+The first is that **I could not reproduce the original failure.** Ten out of ten old-style
+sends arrived on the day I tested. That kills the four-in-five loss rate seen last month, but
+it only proves today's rate is under about a quarter — it doesn't prove the new way is better
+in a head-to-head. What I can say is that the new way cannot have the fault at all, because it
+doesn't use the mechanism that breaks. That is a stronger claim than winning a race, but it is
+a different claim, and I'd rather say which one I have.
+
+The second is that **the old method sent one message twice** in that same test. Nobody
+predicted that. A duplicate on the real system means two builds competing over one site. One
+observation, not a rate, and written down as such.
+
+The third is that **I nearly recorded a meaningless result as a verification.** My first move
+was to re-check the original evidence in the database; it agreed with the bug report, and I was
+a keystroke from writing "confirmed". That table only keeps two days of history and the
+incident was five days ago — it holds nothing at all for that date, for successes or failures
+alike. Fifteen seconds of checking caught it. The same habit paid off straight afterwards when
+it let me rule out a rival explanation properly, so the lesson isn't "distrust zeros" — it's
+that a control is the only thing that tells you which kind of zero you're holding.
+
+**Two things I found that weren't what I went looking for.**
+
+A handoff written today, steering a live build, said this bug was already fixed. It wasn't —
+it had been confused with a different bug that happens to share the number 327. I've added a
+dated correction where the claim sits, without touching the lane's own words. Their practical
+advice was already sound; only the status line was wrong.
+
+And the tool that checks our own landmine documentation publishes using the exact pattern we
+were fixing, then reports "0 failed to publish" — a number computed from the one signal that is
+always missing when a message is silently lost. It is the next thing to fix.
+
+**On review:** I put the change to the council and it declined, correctly, because the code
+lives in a directory the council doesn't cover. I've recorded that rather than overriding it —
+overriding spends fleet credits against a rule you set, which is your call and not mine. Worth
+knowing: the file holding our 22 commit-time checks is invisible to the council for the same
+reason, which is the identical gap you closed for a different file today.
+
+**What's left.** One script of about 178 is migrated. I'm deliberately not sweeping the rest:
+bulk-editing old one-off scripts risks firing live triggers, and about two dozen of them turn
+out to be notes files that cannot run at all. There's a better end state we've costed but not
+built — sending from inside the cluster, where the message broker itself confirms receipt.
+That would make a silent loss impossible rather than merely visible.
