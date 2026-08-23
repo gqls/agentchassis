@@ -45663,3 +45663,43 @@ page", the column must be the page identity, not a label for it.
 
 **The transferable shape:** *a sample judged against a field the defect does not live in reads as
 clean.* The audit was the right instrument and it was pointed one field to the left.
+
+## 2026-08-23 — `bugs_open/345` pick-up: I nearly filed the classifier's fall-through as a misattribution bug, when the code returns 300 lines before it
+
+**The claim I was about to write:** that `store_generated_component`'s two truncation-shaped
+refusals — Check 1 ("no HTML structure … likely CSS-only or truncated output") and Check 2
+("unclosed `<style>` … likely truncated by token limit") — reach the error classifier, fall through
+its `if` ladder to the generic `component_validation_rejected`, and are therefore fed back to the
+writer under migration `563`'s framing *"your previous output was refused by validation … change
+exactly what it says was wrong"*. For output that was **cut off**, that is the wrong instruction,
+and the `bugfix_337_token_cap` lane had already written up exactly that hazard — so the story had
+corroboration waiting for it.
+
+**What was true:** the two checks are at `store_generated_component_action.go:176–193` and they
+`return nil, fmt.Errorf(…)`. The classifier is at `:1496`, inside `recordValidationRejection`,
+reached only from `:477`. They return **~300 lines before** the only call site. They are never
+classified, never logged to `agent_error_log`, and never written to the typed channel. The real
+state is not a wrong message — it is **no message at all**.
+
+**Why I nearly got it wrong:** I read the classifier and the checks in the same sitting and
+connected them by *plausibility of the code path*, not by control flow. Both are in one file, both
+concern validation, and the fall-through arm is genuinely reachable — by other issues. I had the
+right two facts and invented the edge between them. This is the same shape as the correction this
+very bug file already carries from 2026-08-22 ("I verified both ends of the pipe and inferred the
+middle"), which I had read an hour earlier.
+
+**What caught it:** grepping for the callers before writing — `grep -n "recordValidationRejection"`
+returns one call site, at a line number *larger* than the checks'. One command, and the story died.
+
+**The cheap check that would have:** *before asserting that code A feeds mechanism B, get the line
+numbers of both and of every call site between them.* An early `return` is invisible to a reading
+that moves top-to-bottom through a 1,600-line file and remembers only the two interesting parts.
+
+**And the measurement that would have caught it independently:** both literals return **0** rows in
+`agent_error_log` and in `site_work_items.error`, with a passing demand control (14 rows of the
+`:477` path's own message shape sit in the same column). Had I filed the misattribution claim, that
+zero would have refuted it — the symptom I was about to describe leaves records, and there are none.
+
+**The transferable shape:** *two mechanisms in one file, both real, with no edge between them.*
+Corroboration from another lane made the invented edge feel measured. Corroboration of the
+CONSEQUENCE is not evidence for the PATH.

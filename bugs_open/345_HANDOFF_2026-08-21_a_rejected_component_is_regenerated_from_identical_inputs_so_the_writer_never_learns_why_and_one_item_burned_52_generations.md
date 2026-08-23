@@ -1,27 +1,62 @@
 # 345 — a component rejected by pre-store validation is regenerated from **identical inputs**, so the writer never learns why it was rejected: every repeat produces the *same* rejection, and one item burned **52 generations** under a 3-attempt budget
 
 **Filed:** 2026-08-21 by the `bugfix_311_component_keys` lane, after it blocked the repair of
-`bugs_open/311`'s **originating page**. **Status: OPEN — FIX LIVE ON BOTH HALVES since 2026-08-21 ~17:05Z** (v1.0.1322 carries the Go
-half — provenance stamp `bac189921`, `0f80f5ea1` ancestor — and migration `533` is applied and
-ledger-recorded; the CSS lane's contrib below independently probed both replicas with a control and
-confirmed the live prompt carries the `{{if .input_data.last_error}}` block). **⚠ CORRECTED 2026-08-22 (council round 4, guardian HIGH): THE FIX IS INERT — NOT MERELY
-UNEXERCISED.** `build-dispatch-loop`'s `call_handler` is a `call_agent` step with an explicit
-**`input_mapping` allow-list of **14 keys as of 2026-08-22**, and `last_error` is not one of them** — so the loader's new
-key never becomes part of the handler's `input_data` and `533`'s `{{if .input_data.last_error}}`
-cannot fire. Fleet census of all live `call_agent` mappings — **73 as of 2026-08-22** — **zero pass it.** A THIRD half is
-required: add `last_error?` to that mapping (and check `site-work-orchestrator`'s 8-key
-`sub:call_handler`) — a dispatcher migration on a shared seam, to be named as such.
-**I had measured the zero and explained it away as "no retry yet"** — the "a post-fix ZERO needs a
-DEMAND control" lesson, paid again. ~~DEMAND BAR OPEN: the
-path has never fired~~ — `collected_data->'input_data' ? 'last_error'` is 0 across all history
-(their query), and the first post-fix generation on the originating page succeeded on attempt 0, so
-no retry existed to feed. The signal that closes this: two `component_validation_rejected` rows on
-ONE item with **different** `md5(error_message)`. **⚠ Do NOT read `bugs_closed/311`'s close as this
-bug's proof:** the originating page healed on an attempt-0 success — the feedback path never fired,
-because there was no retry to feed. "The page has its calculator" and "345 worked" are different
-claims, and only the first is established. Note the ROUND-2 REVISION (gate = non-blank
-recorded failure, not `attempt_count>0`) is committed but rides the NEXT roll — the live binary
-still carries the attempt-gated form.
+`bugs_open/311`'s **originating page**.
+
+**Status: OPEN — but the primary fix (candidate 1) is APPLIED, LIVE AND DEMAND-PROVEN END TO END.**
+What keeps it open is a narrower residual, named in §"What still keeps this open" below — not the
+main mechanism. **[STATE RE-MEASURED 2026-08-23 ~17:00Z by the session that picked this up.]**
+
+> **⚠ THE HEADER THAT STOOD HERE UNTIL 2026-08-23 WAS STALE AND TOLD YOU TO BUILD WORK THAT HAD
+> ALREADY SHIPPED.** It read *"THE FIX IS INERT — NOT MERELY UNEXERCISED … A THIRD half is
+> required: add `last_error?` to that mapping"*. That correction was true when written (2026-08-22
+> morning, council round 4, guardian HIGH), and the third half **shipped the same day** — migration
+> `555`, applied 2026-08-22 11:08:01Z — followed by two more halves (`561`, `563`, `564`, applied
+> 18:00–18:05Z). The lane recorded all of it in `bugfix_311_component_keys/NOTES_311_fix.md` and
+> **never came back to this header**, so for a day this file's own top line asked the next reader to
+> rebuild a live seam. Kept visible rather than deleted: this is the
+> `a stale status line prevents the thing it describes` trap, fired inside the bug file that the
+> trap's own lane owns.
+
+**The five halves, all applied and ledger-recorded** [MEASURED 2026-08-23 from `schema_migrations`]:
+
+| half | what it does | applied |
+|---|---|---|
+| `533` | `component-creator` prompt renders the retry block | 2026-08-21 18:08:15Z |
+| `555` | `build-dispatch-loop` `call_handler` forwards `last_error` (the "third half") | 2026-08-22 11:08:01Z |
+| `561` | `site_work_items.retry_feedback` — the TYPED channel, **one writer** | 2026-08-22 18:00:32Z |
+| `563` | the prompt block gates on `last_error_code`, three producer codes only | 2026-08-22 18:05:09Z |
+| `564` | `call_handler` also forwards `last_error_code` | 2026-08-22 18:05:09Z |
+
+**Go halves are LIVE on chassis `v1.0.1330`** (pods started 2026-08-23 16:03Z). Probed at the
+artefact on **both** replicas, capability not commit: `retry_feedback` PRESENT, `last_error_code`
+PRESENT, control `deadbeefdeadbeefdeadbeef` ABSENT on each.
+
+**DEMAND BAR: MET, once, today.** Item **`b0ba3e3a-14dc-4c5e-8ea5-9c985133c38c`**
+(`loancalculator.co.uk`, `loans-credit-health-check`) — orchestration 1 at 12:09:53Z **FAILED at
+`store_component`** (`component_validation_unknown_template_var`: "template variables and schema
+fields do not match"); orchestration 2 at 12:29:23Z **carried BOTH `last_error` and
+`last_error_code`** and **COMPLETED**; the item completed 12:31:42Z. It is the **only dispatch in
+all history** ever to carry `last_error_code` (the 8 rows before it, all 2026-08-22 evening, carry
+the untyped `last_error` from the `wi.error` era). **n=1, and no causal claim is made** — but the
+disconfirming outcome (a second identical rejection) did not occur, and the pre-fix base rate is
+**3 of 15 items completed** after a `component_validation_*` rejection against **1 of 1** since.
+`Council-Reviewed: 67b07528-b40b-4eef-9abc-35ad70efae04` (APPROVED, round 5).
+
+**⚠ THE FILE'S ORIGINAL SUCCESS SIGNAL HAS NEVER BEEN OBSERVED, AND PROBABLY NOW CANNOT BE.** It was
+"two rejections on ONE item with **different** `md5(error_message)`". Measured 2026-08-23: **13
+items have >1 rejection, every one of them pre-fix, and ZERO have differing reasons.** No post-fix
+item has been rejected twice — the one that was rejected once then *succeeded*. So the signal is
+unmet not because the fix failed but because the failure it was designed to detect stopped
+happening. Grade this bug on the b0ba3e3a trace above, not on that signal.
+
+**⚠ Do NOT read `bugs_closed/311`'s close, or the repaired page, as this bug's proof.** The
+originating page IS repaired — `https://remortgagecalculator.uk/index.html` is now **200 / 69,545 B
+/ 6 `<input>` / md5 `c8203085905e78d65ef846258780b7b7`** against this file's pinned before of
+40,726 B / 0 `<input>` / md5 `89910f6e…` [MEASURED 2026-08-23 ~17:00Z] — **but it healed on the 311
+redrive item `e9e5a10b`, which completed at ATTEMPT 0 on 2026-08-21 18:19:35Z, before any of this
+could fire.** "The page has its calculator" and "345 worked" remain different claims with different
+evidence; the second one's evidence is b0ba3e3a, not the page.
 `Council-Submitted: 67b07528-b40b-4eef-9abc-35ad70efae04`.
 
 > **⚠ WHERE THE CODE ACTUALLY IS, because `git log` will not tell you.** The **Go half is at HEAD
@@ -135,9 +170,18 @@ of it. Identity resolution precedes pre-store validation.
    sources, and it is the only candidate that makes a retry *capable* of succeeding. It is also
    the one that needs care: the failure text is model-authored in part, so it is untrusted input
    heading back into a prompt.
-2. **Classify a validation rejection as non-retryable.** It cannot succeed unchanged, so stop
+2. ~~**Classify a validation rejection as non-retryable.** It cannot succeed unchanged, so stop
    paying for it: park on the first rejection with the actionable message attached. Saves the spend
-   and repairs nothing — but it converts a silent 52-generation burn into one visible refusal.
+   and repairs nothing — but it converts a silent 52-generation burn into one visible refusal.~~
+   > **⚠ INVERTED 2026-08-23 — DO NOT IMPLEMENT THIS AS WRITTEN; it would now disable candidate 1.**
+   > Its whole premise is the clause "it cannot succeed unchanged". That was measured and true when
+   > this file was filed (99 rejections, zero retries ever differing). **Candidate 1 falsified it:**
+   > with the feedback path live, a retry is no longer unchanged, and on 2026-08-23 item `b0ba3e3a`
+   > was rejected at `store_component`, retried carrying the typed rejection, and **completed**.
+   > Parking on the first rejection would forbid exactly the second attempt that now works. A stale
+   > candidate is not inert — it reads as a to-do list. If the spend argument is still wanted, the
+   > surviving form is *park on the SECOND rejection when the reason is byte-identical to the
+   > first*, which is the original burn (52 identical) without vetoing the retry that can differ.
 3. **Bound the inner loop.** Whatever retries ~17× inside one attempt is the actual cost defect;
    `attempt_count` is not bounding generations. Find it and cap it regardless of candidates 1-2.
 4. **Enumerate valid sources in the generate prompt.** Weakest, and the measurement argues against
@@ -372,3 +416,87 @@ produces a validation rejection, so it will never feed your `retry_feedback` cha
 It was restored from that session's context within minutes because they were told immediately.
 Logged in `WRONG_CALLS.md` and written up as a `LANDMINES.md` entry, since `git stash` is
 hook-blocked for exactly that blast radius and the single-path form is not.
+
+---
+
+## PICKED UP 2026-08-23 (a fresh session, no prior lane) — the fix is proven, the header was a day stale, and what remains is ONE narrow class
+
+I was asked to check whether anyone else was on this bug and to pick it up if not. Nobody is: the
+`bugfix_311_component_keys` lane that filed it has moved to garden-tools/311 after-tests, and the
+`bugfix_337_token_cap` lane is on 337+253. `scripts/who-owns.py 345` says OWNED, but it reads
+commits — its most recent 345-specific commit is 2026-08-22 evening, and both lanes' 08-23 commits
+are about other bugs. Everything below is first-hand measurement from today; I changed the header,
+struck candidate 2, and wrote this. **No code or config was changed.**
+
+### 1. What I re-measured, and how it could have come out otherwise
+
+All figures **[MEASURED 2026-08-23 ~17:00Z]**, live `clients_db` and the live pods.
+
+| claim | check | disconfirming result that did not occur |
+|---|---|---|
+| five halves applied | `schema_migrations` ~ `^(533\|555\|561\|563\|564)_` | a missing filename |
+| Go halves live | `grep -aq` on `/proc/1/exe`, **both** replicas | either string absent, or the `deadbeef…` control PRESENT |
+| path fires | `input_data ? 'last_error_code'` = **1**, all history | 0 |
+| retry succeeded | `b0ba3e3a` orch 1 FAILED → orch 2 carried the code → COMPLETED | orch 2 rejected again |
+| the old signal is unmet | 13 repeat-items, **0** with differing reasons | any item with 2 distinct `md5(error_message)` |
+| page repaired | live HTTP: 6 `<input>`, 69,545 B | still 0 `<input>` |
+
+The one that most nearly came out otherwise is the **provenance probe**: I probed the *capability*
+(`retry_feedback`, `last_error_code` — strings the edit itself introduced) rather than a commit sha,
+because the `build provenance` startup line has long scrolled on a service that busy. That is the
+lesson `f8dced1c1` recorded, reused here.
+
+### 2. The base rate, which is what stops n=1 being nothing
+
+Of items that ever hit a `component_validation_*` rejection: **pre-fix 3 of 15 completed (12 died
+cancelled)**; post-full-stack **1 of 1**. n=1 supports no causal claim and none is made here. What
+it does do is make the single success *non-routine*: the modal pre-fix outcome was death.
+
+### 3. What still keeps this open — ONE class, and `561` created it deliberately
+
+`recordRetryFeedback` is the **only** writer of the typed channel, and it is called from exactly one
+place: `store_generated_component_action.go:1549`, inside `recordValidationRejection`, which is
+called from **one** site, `:477`. Everything upstream of `:477` therefore feeds nothing.
+
+Two consequences, both read from the code and then measured:
+
+- **The two truncation-shaped checks never reach the writer.** `StoreGeneratedComponentAction`'s
+  Check 1 (no `<section>`/`<div>` — *"likely CSS-only or truncated output"*, `:176–180`) and Check 2
+  (unclosed `<style>` — *"likely truncated by token limit"*, `:186–193`) `return nil, fmt.Errorf(…)`
+  **before** `:477`. They write neither `agent_error_log` nor `retry_feedback`. Measured: **0
+  occurrences of either literal** in `agent_error_log` **and** in `site_work_items.error`. **That
+  zero has a passing demand control** — the same column holds **14** `store_component` failures in
+  the identical `generated template for %q …` shape (all from the `:477` path), so the instrument
+  would have shown these if they had fired. So: structurally unfeedable, but not currently firing.
+- **A `generate_template` failure feeds nothing at all, and this is a TRADE `561` made knowingly.**
+  Before `561` the loader read `site_work_items.error`, which the failure ladder writes for *any*
+  step; after it, the loader reads only the typed channel, which only `store_component` writes.
+  Measured across `needs_new_component` items: **14** failed at `store_component` (1 has typed
+  feedback — the rest predate the column), **2** failed at `generate_template`, **0** of which can
+  ever be fed. That second population is `bugs_open/337`'s truncation class. `561` bought
+  provenance — the prompt can now assert *"your previous output was refused by validation"* and be
+  right — at the price of breadth, and the price is real rather than theoretical.
+
+**So the drafted truncation remedy in the 337 lane's contrib above is still UNWIRED, and cannot be
+wired by a prompt migration alone.** `563` gates on three codes and renders **silence** for
+anything else, which is correct given the channel's contents; a truncation branch needs a *writer*
+for the truncation class first. That is the next piece of work on this bug, and because it spans
+both lanes it should be agreed with `bugfix_337_token_cap` rather than built unilaterally.
+
+### 4. Three things a reader should NOT conclude
+
+- **Not**: "the page is fixed, so 345 is fixed." It healed at attempt 0 on 08-21, before the path
+  could fire. The file already warned about this conflation; the warning survived and is still right.
+- **Not**: "the old success signal is unmet, so the fix is unproven." The signal required a second
+  rejection; none has occurred. Grade on `b0ba3e3a`.
+- **Not**: "candidate 2 is still to do." See the strike above — it would now veto the working retry.
+
+### 5. My own near-miss on this pass
+
+I nearly recorded that truncation-shaped refusals were flowing through as
+`component_validation_rejected` and being mislabelled *"change exactly what it says was wrong"* —
+a tidy story that fits the classifier at `:1496–1501`, where anything unmatched falls through to the
+generic code. **It is wrong, and reading the function rather than the classifier is what caught it:**
+Checks 1 and 2 return ~300 lines *before* the recorder, so they are not classified at all. The
+symptom I would have filed (misattribution) and the real state (no message whatsoever) call for
+opposite fixes. Logged in `WRONG_CALLS.md`.
