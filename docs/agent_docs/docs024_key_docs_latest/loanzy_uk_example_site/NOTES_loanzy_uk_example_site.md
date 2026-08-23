@@ -874,3 +874,46 @@ fixed input. The re-submission re-runs `domain-research-classifier` from scratch
 **different** specs — so if the exemplar set comes back the same *again* off fresh specs, that is a
 materially stronger result than three retries could ever give. It costs fleet time and buys a real
 control, and it is also simply what an operator would see.
+
+### 19:26Z — the classifier is REPRODUCIBLE: two independent runs, same bare domain, identical structured verdict
+
+The re-submission re-ran `domain-research-classifier` from scratch on the same input (the domain
+string and nothing else). Comparing the two `classification` specs `[MEASURED 19:26Z]`:
+
+| field | run 1 (17:44:31Z) | run 2 (19:26:20Z) |
+|---|---|---|
+| `category` | hub | hub |
+| `site_type` | content | content |
+| `confidence` | **0.82** | **0.82** |
+| `suggested_style` | modern-light | modern-light |
+| `page_count_estimate` | 12 | 12 |
+| `recommended_builder` | pageflow-builder | pageflow-builder |
+
+**Every structured decision field identical, confidence included, to two decimal places.** The only
+divergence is the free-text `industry_tags` list, and that in wording rather than meaning:
+`buying-guide-platform → buying-guides`, `comparison-content → comparison-platform`,
+`uk-gardening → uk-retail`, plus `allotment`/`tool-directory`/`home-garden` appearing and
+`magazine-grid` dropping — 10 tags against 8.
+
+**This is a genuinely good result for the route and it belongs in §7 of the route handoff** ("what
+the route got RIGHT, so a fix does not remove it"). Three things follow:
+
+1. **The framework's answer to "what is this domain" is stable**, not a coin toss dressed up as a
+   verdict. Two independent runs 1h42m apart, no shared orchestration state, same answer.
+2. **The classifier is usable as a FIXTURE.** A before/after that re-runs it is comparing like with
+   like on the structured fields. I would not have assumed that of an LLM step with no `temperature`
+   pinned, and it is worth other lanes knowing.
+3. **It sharpens the `376` control.** The next exemplar selection reads these *fresh* specs. If the
+   same three organisations come back, "sampling permutes, it does not re-draw" stops being
+   conditional on fixed input — which is precisely the caveat I attached to the three-attempt table.
+
+⚠ **Do not over-read it.** This is **n=2** on **one domain** in **one vertical**, measured on the
+same afternoon `[MEASURED 2026-08-23]`. It says the classifier was reproducible here; it is not a
+claim about the fleet, and the free-text half demonstrably is not stable. A lane wanting to rely on
+this as a fixture should re-measure on its own vertical, and should pin the **structured fields
+only** — an assertion over `industry_tags` would have failed on the second run.
+
+Also noted: the fresh `needs_vertical_research` (19:26:57Z) inserted cleanly alongside the `failed`
+one from the first build — consistent with `idx_swi_dedup` excluding `failed` **and** the classifier's
+`create_next_item` carrying `recurrence_expected: true`. Two rows of the same type now exist on this
+site, one terminal and one live, which is correct but will look like a duplicate to anyone counting.
