@@ -543,3 +543,13 @@ And the item it filed, `562788c3`, is the whole point:
 — the two defects are fixed at the artefact, not just in the source. What is NOT yet proven is the
 router's *disposition*: the item is `detected, attempts=0`, so it has not been picked up. That is
 the last piece of closure evidence and it is a wait, not a task.
+
+### Positive control re-run on v1.0.1330 — clean edits still persist
+
+Corr `2d06bb0a`, target `9737d0d9` (all required fields present). COMPLETED, and the artefact's
+`updated_at` moved from `2026-08-22 18:05:04` to **`2026-08-23 17:00:25`** while the bytes stayed
+identical — the discriminator that separates *"persisted"* from *"skipped"*, since I set the field
+to its own value. **So on this build both arms hold: the unhealthy edit is refused, the healthy
+one is written.** Re-running the control was not ceremony — the rework changed the emitter that
+runs on the same path, and an arm that had started refusing healthy edits would show up nowhere
+else.
