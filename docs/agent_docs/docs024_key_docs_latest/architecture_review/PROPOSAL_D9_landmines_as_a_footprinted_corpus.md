@@ -138,3 +138,80 @@ start. Three candidates, none costed:
 - **The same test D8a′ set for itself applies here:** the honest measure is not that the
   rows exist, but whether a seat's `checks` array ever cites them and whether a session's
   behaviour changes. Present text is not use.
+
+---
+
+## 6. EVIDENCE ADDED 2026-08-23 — two sessions hit one documented landmine within an hour, in opposite directions
+
+Contributed jointly by the `bugs_open/326` and `loanzy.uk` lanes. It is offered as a
+**measurement of the delivery path**, which §5 says is the honest test: *"Present text is not
+use."*
+
+### What happened
+
+`LANDMINES.md:3248` has carried, since **2026-08-02**, an entry titled *"`orchestration_states`
+keeps terminal rows ~24 HOURS — and `min(created_at)` says 20 days, because the statuses it
+reaps are not the ones that set the floor"*. It is not a thin entry. It gives the measured
+window, explains the false floor, prescribes bounding **per status**, and instructs the reader to
+re-source durable claims from a table with no retention job — **naming `site_specs` and
+`site_work_items` specifically**. Two further entries (`:2571`, `:7737`) cover the same table's
+retention from other angles.
+
+On the evening of 2026-08-23, within about one hour:
+
+- the **`loanzy.uk`** lane wrote that `vertical-exemplar-researcher` had *"four runs in its
+  entire history"* — that being the 24-hour retention window, not a history;
+- the **`bugs_open/326`** lane (me) generalised a `0/4` from the same table into *"that branch
+  has **never** fired"*, and hardened it into *"a defect"*.
+
+Each caught the other's version. Neither caught their own, and **neither had read the entry**.
+The recovery in both cases was exactly the move the entry prescribes — re-sourcing from
+`site_work_items` + its archive, which gave **32 items across 27 sites since 2026-04-02** against
+a visible four.
+
+### Why we think this is mechanical, not two careless readers
+
+- The `SessionStart` hook surfaces landmines by matching footprints against **files already dirty
+  in the working tree**. This entry's footprint is a **TABLE**. A table cannot match a path, so
+  the entry is **structurally unable to auto-surface** — not unlucky, ineligible.
+- The only delivery route left is grepping `LANDMINES.md` for the table before querying it.
+- `MEMORY.md` carries exactly that instruction — *"grep LANDMINES for the SYMBOL you are about to
+  trust — the hook only matches files already DIRTY"* — and it auto-loads. Both sessions had it
+  in context. Neither acted on it.
+
+**A guard that is correct, well-written, indexed, and reachable only by a discipline nobody
+performs is indistinguishable in its effects from an absent guard** — with the added cost that
+its presence makes the gap invisible to anyone auditing coverage.
+
+### The sharper version of the miss, from the 326 lane
+
+I did not merely fail to grep. **The signal was in my own output and I read past it.** At ~17:00Z
+I ran a whole-table grouping over `orchestration_states` and it returned
+`build-dispatch-loop | 777 | min 2026-07-24` — a **month-wide floor** on a table that retains a
+day. That is precisely the false-floor shape the entry describes, sitting in my terminal, two
+hours before I made the claim it would have prevented. The entry would have told me what I was
+looking at; nothing connected the two.
+
+*(Bound on that observation: a per-status query at 19:40Z showed nothing older than 08-22, so
+those rows had been reaped in the interval. That does not change the point — I had the anomalous
+figure and did not treat it as a retention signal — but the month-wide floor is not reproducible
+from the table now.)*
+
+### What we did NOT do, and why it bears on D10
+
+**We did not file a second landmine entry.** Writing the guard again does not fix the thing that
+is broken. The failure is delivery, and a duplicate would make the corpus worse — one more entry
+competing for the same unread channel, and one more thing for a coverage audit to count as
+protection.
+
+That reasoning is D10's own argument, arrived at independently by two lanes under pressure. **If
+the proposal wants a case where the prose corpus demonstrably failed at its job, this is one**:
+the guard existed, it was right, it was specific, it named the remedy, and it reached nobody.
+Both incidents are in `WRONG_CALLS.md` under 2026-08-23, from both sides.
+
+**The one design note we would add to §4:** footprinting by table would have fixed *this* case
+only if the trigger fires on **querying** the table, not on editing a file that mentions it.
+Neither of these sessions had `orchestration_states` in a dirty path — we were reading it live
+through `psql`. Whatever D10 becomes, the delivery moment for a table-footprinted entry is the
+first query against that table in a session, and we do not know what mechanism could catch that.
+Stating it as an open problem rather than pretending the footprint alone solves it.
