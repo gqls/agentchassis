@@ -10,8 +10,8 @@
 -- applied by hand — a migration's guard checks DRIFT, not ORDER, so a banner
 -- cannot hold it; the _HOLD suffix can.
 --
--- WHAT IT TURNS ON. `suppress_unshipped_links: true` on the step configs of the
--- two OUTBOUND seams — the last point before a page's HTML leaves for deploy.
+-- WHAT IT TURNS ON. `suppress_unshipped_links: true` on every live step config of
+-- the two OUTBOUND seams — the last point before a page's HTML leaves for deploy.
 -- With the flag absent (today, and on every step this file does not touch) the
 -- seam returns the html byte-identical, which is the owner's RFC_010 §2 rule:
 -- new authority on a shared seam ships as an opt-in field whose UNSAFE side —
@@ -30,7 +30,7 @@
 --   page-rebuild            workflow,steps,build_pages_loop,config,sub_workflow,steps,assemble_page   -> ON
 --   site-work-orchestrator  workflow,steps,build_items_loop,config,sub_workflow,steps,assemble_page   -> ON
 --   page-rerender           workflow,steps,render_page                                                -> ON
---   report-builder          workflow,steps,render_page                                                -> deliberately LEFT OFF
+--   report-builder          workflow,steps,render_page                                                -> ON (see below)
 --   page-rerender           workflow,steps,rerender_sections                                          -> not a seam; see below
 --
 -- page-rerender.render_page carries the initial build too: page-build-handler's
@@ -43,12 +43,19 @@
 -- happen. Named here so the next reader does not have to re-derive that it was
 -- considered.
 --
--- report-builder is left OFF because report pages are not the measured harm and
--- their link shapes were not part of the 2026-08-23 census. Turning it on later
--- is one UPDATE; turning it on now would be an unmeasured claim.
+-- report-builder WAS going to be left OFF as "not the measured harm". The council's
+-- bug_historian seat objected (2026-08-23) that this is the estate's most recent
+-- recurring shape -- one call site of a shared mechanism guarded while the
+-- mechanism stays generic at every unaudited call site -- and that shipping a
+-- KNOWN unmeasured gap is the same reasoning that leaves the other path live until
+-- someone hits it. So it was MEASURED instead of argued: there are **ZERO** pages
+-- of page_type 'report' fleet-wide, and none of the 24 pages currently serving a
+-- dead anchor is one. An empty population cannot regress, so turning it ON is free
+-- and it removes the "one call site guarded" shape entirely. Cheaper than
+-- defending the exception.
 --
 -- ROLLBACK: 575_enable_suppress_unshipped_links_HOLD_ROLLBACK.sql — the exact
--- inverse (#- of the one key on each of the four paths).
+-- inverse (#- of the one key on each of the five paths).
 
 BEGIN;
 
@@ -65,7 +72,8 @@ BEGIN
             ('pageflow-builder',       '{workflow,steps,build_pages_loop,config,sub_workflow,steps,assemble_page}'),
             ('page-rebuild',           '{workflow,steps,build_pages_loop,config,sub_workflow,steps,assemble_page}'),
             ('site-work-orchestrator', '{workflow,steps,build_items_loop,config,sub_workflow,steps,assemble_page}'),
-            ('page-rerender',          '{workflow,steps,render_page}')
+            ('page-rerender',          '{workflow,steps,render_page}'),
+            ('report-builder',          '{workflow,steps,render_page}')
            ) AS t(type, path)
      WHERE NOT EXISTS (
              SELECT 1 FROM agent_definitions a
@@ -108,11 +116,11 @@ UPDATE agent_definitions
         '{workflow,steps,render_page,config,suppress_unshipped_links}',
         'true'::jsonb, true),
        updated_at = now()
- WHERE type = 'page-rerender'
+ WHERE type IN ('page-rerender', 'report-builder')
    AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 
--- $post$ — read the keys back and RAISE on any mismatch, including the one that
--- would matter most: report-builder must NOT have acquired the key.
+-- $post$ — read the keys back and RAISE on any mismatch, including the arm that
+-- matters most: NO live step running a seam action may be left without the key.
 DO $post$
 DECLARE
     v_on  int;
@@ -123,25 +131,29 @@ BEGIN
             ('pageflow-builder',       '{workflow,steps,build_pages_loop,config,sub_workflow,steps,assemble_page,config,suppress_unshipped_links}'),
             ('page-rebuild',           '{workflow,steps,build_pages_loop,config,sub_workflow,steps,assemble_page,config,suppress_unshipped_links}'),
             ('site-work-orchestrator', '{workflow,steps,build_items_loop,config,sub_workflow,steps,assemble_page,config,suppress_unshipped_links}'),
-            ('page-rerender',          '{workflow,steps,render_page,config,suppress_unshipped_links}')
+            ('page-rerender',          '{workflow,steps,render_page,config,suppress_unshipped_links}'),
+            ('report-builder',          '{workflow,steps,render_page,config,suppress_unshipped_links}')
            ) AS t(type, path)
       JOIN agent_definitions a
         ON a.type = t.type AND a.is_active
        AND COALESCE(a.is_snapshot, false) = false AND a.deleted_at IS NULL
      WHERE a.default_config #> t.path::text[] = 'true'::jsonb;
 
-    IF v_on <> 4 THEN
-        RAISE EXCEPTION '575 POST FAILED: expected 4 steps carrying suppress_unshipped_links=true, found %', v_on;
+    IF v_on <> 5 THEN
+        RAISE EXCEPTION '575 POST FAILED: expected 5 steps carrying suppress_unshipped_links=true, found %', v_on;
     END IF;
 
+    -- No seam is left unguarded: assert that every live step running one of the
+    -- two seam actions now carries the key. This is the arm that would catch a
+    -- SIXTH consumer appearing between the enumeration and the apply.
     SELECT count(*) INTO v_off
-      FROM agent_definitions
-     WHERE type = 'report-builder' AND is_active
-       AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
-       AND default_config::text LIKE '%suppress_unshipped_links%';
+      FROM agent_definitions a, jsonb_each(a.default_config->'workflow'->'steps') s
+     WHERE a.is_active AND COALESCE(a.is_snapshot, false) = false AND a.deleted_at IS NULL
+       AND (s.value->>'action') = 'rerender_single_page'
+       AND COALESCE(s.value->'config'->>'suppress_unshipped_links', 'false') <> 'true';
 
     IF v_off <> 0 THEN
-        RAISE EXCEPTION '575 POST FAILED: report-builder acquired suppress_unshipped_links; it is deliberately left OFF';
+        RAISE EXCEPTION '575 POST FAILED: % live rerender_single_page step(s) do NOT carry suppress_unshipped_links — a seam consumer appeared since the 2026-08-23 enumeration', v_off;
     END IF;
 END
 $post$;

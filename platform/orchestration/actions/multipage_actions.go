@@ -188,9 +188,18 @@ func AssemblePageAction(ctx context.Context, params ActionParams) (interface{}, 
 	// byte-identical, which is what every consumer sees until a migration enables
 	// it. See refused_link_targets.go for the policy and its two escapes.
 	if params.DB != nil {
-		if siteUUID, err := uuid.Parse(
-			datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id"),
-		); err == nil {
+		siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+		siteUUID, siteErr := uuid.Parse(siteIDStr)
+		switch {
+		case siteErr != nil && configBoolOrDefault(config, suppressUnshippedLinksKey, false):
+			// A SILENT skip here would reproduce this bug's own shape: the seam
+			// that was found to have no outbound link protection at all fails to
+			// apply the check and nothing says so. Only warn when the step asked
+			// for suppression — an un-opted-in step skipping is not an event.
+			params.Logger.Warn("assemble_page: outbound link suppression SKIPPED — site_record.site_id missing or unparseable; page assembled unsuppressed (bugs_open/328)",
+				zap.String("site_id_raw", siteIDStr),
+				zap.Error(siteErr))
+		case siteErr == nil:
 			html = suppressUnshippedOutboundLinks(ctx, params, siteUUID,
 				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
 				datahelpers.ExtractNestedFieldString(params.CollectedData, "current_page.name"),

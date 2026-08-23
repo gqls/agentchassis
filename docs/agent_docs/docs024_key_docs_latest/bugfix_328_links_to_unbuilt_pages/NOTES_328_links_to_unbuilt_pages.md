@@ -257,3 +257,90 @@ skips comment lines, and carries its own synthetic-line gone-blind test.
 sectionMetaComplete`). Everything above was built and tested against a clean `git archive HEAD`
 overlay with only this lane's files copied in, and the mutations were run *there*, so the shared
 tree was never left in a mutated state.
+
+## 2026-08-23 — council round 1: REVISE, and two seats found real defects
+
+Corr `21c19c1f-e614-49bd-82ac-0bb5b58082e0`. 13 reviewers, 4 abstained. Decided by a **gating HIGH
+from `prior_art_librarian`**.
+
+### The gating HIGH was wrong, and the seat itself said how to check
+
+It cited a landmine titled *"`RegisterVerifier` is not a drain — a completion verifier for a type
+born `needs_human_review` guards a door that type never walks through"* and reasoned: **"IF the
+landmine's full text says what its title fragment implies"**, then edits 6-7 do not do what I claim.
+
+It does not. The entry's own CHECK paragraph, verbatim:
+
+> Born `needs_human_review` ⇒ the verifier needs a sibling entry in `reviewRevalidators` (delegate to
+> the same verify function so the two doors cannot disagree — `revalidate_truncated_component.go` is
+> the worked pattern).
+
+That is precisely and only what my change does. The landmine is not a warning against it, it is the
+**specification for it**, and its own worked case (`truncated_component`, `bugs_open/325`) is the same
+fix made four days earlier. Confirmed mechanically too: the sweep's loader selects
+`status IN ('needs_human_review','unresolved')`, so parked rows are exactly what it reads.
+
+**The transferable bit is not "the seat was wrong".** It read a title, flagged the risk, and hedged
+the claim explicitly. That is the seat working — and it cost one grep to answer.
+
+### Two seats found REAL defects. Both fixed in code, not argued away.
+
+**`render_guardian` (medium) — my "3 publish paths" claim was overstated.**
+`RerenderSitePagesAction` (`rerender_pages_actions.go:214`) appears in **no entry of
+`GlobalActionRegistry`** — dead code, per a landmine I had not read. Corrected to **two** live paths
+through seam 1. ⚠ The galling part: I had the evidence in round 1 — I measured that no live agent has
+a `rerender_site_pages` step — and failed to connect it to my own coverage claim. A measurement you
+take and do not apply is worth nothing.
+
+**`bug_historian` (medium) — the `report-builder` exception.** I left it OFF as "not the measured
+harm", and the seat named that as the estate's recurring shape: one call site guarded, the mechanism
+generic everywhere else, "turn it on later" being exactly the reasoning that leaves the other path
+live. So I **measured it instead of defending it**: `SELECT count(*) FROM pages WHERE
+page_type='report'` → **0** fleet-wide, and none of the 24 pages serving a dead anchor is one. An
+empty population cannot regress, so it is now ON, and `575`'s `$post$` gained an arm that RAISEs if
+**any** live step running a seam action lacks the key — which also catches a sixth consumer appearing
+between enumeration and apply. **The exception is gone rather than justified, and that is cheaper than
+the argument would have been.**
+
+### The objection I could not answer with a query — and had to read a bug file for
+
+`bug_historian` also noted `bugs_open/097`'s title is
+`cta_integrity_misses_card_links_to_unbuilt_pages` — "unbuilt pages", apparently my exact class —
+while I had asserted 079/097 were a *different* class. **I had not read 097.** Reading it: its six
+missed links are four *"never planned"* (no `pages` row at all — phantom) and two whose page exists at
+a different url (`/cases/thames-water` vs the stored `/blog/thames-water.html` — rewrite). **Not one is
+a `pages` row that exists and has never shipped.** Its actual cause is that the CTA check does not walk
+arrays of child objects inside `content_data` (`info-card-grid` keeps destinations at
+`content_data.cards[*].link_url`) — a detector-coverage bug.
+
+So the distinction survives, **but my reasoning for it was unearned**, and 097's title is misleading
+about its own contents. Worth stating positively rather than just defending: this change covers 097's
+*surface* (card links) incidentally, because it works on rendered anchors — and its control arm is
+aimed at exactly the `info-card-grid` shape 097 names. It does not fix 097.
+
+### The rest, briefly
+
+- **`prior_art` (medium)**: I cited `archived_page_guard.go:38` — a **code comment** — as authority for
+  the `page_renderer` role mapping. Re-verified at the live config: `page-build-handler`'s
+  `spawn_rerender_agent` is `{action: spawn_agent, config: {role: page_renderer, agent_type:
+  page-rerender}, next_step: deploy_page}`, and `call_agent.go`'s `findTopicsForRole` matches a
+  preceding `spawn_*` step's `role`. A comment is not evidence; the config is.
+- **`guardian` (medium)**: failure isolation on the shared assemble seam — answered with a test, not a
+  sentence (`TestADatabaseFailureNeverFailsTheAssembly`).
+- **`bug_historian` (low)**: the assemble seam's silent skip on a bad `site_id` now warns — and only
+  when the step opted in, because an un-opted-in skip is not an event.
+- **`architecture` (low)**: optional-key budget run by name — `assemble_page` and
+  `rerender_single_page` are in the **NOT COUNTED** population (no `ActionInputSpec`);
+  `rerender_page_sections` is counted at 3, `over_budget` false, and this adds no key to it.
+- **`architecture`/`guardian`/`reuse_agent`/`constitution` (medium ×4) — the third-instance question.**
+  I declared it in round 1 and all four objected anyway, correctly: **declaring a debt is not
+  discharging it.** Done as the architecture seat itself prescribed — an amendment ON `LNK-030`
+  carrying the count, and `RFC_049` opened as the consolidation ticket. ⚠ I first wrote `RFC_048`;
+  that number was already taken (the anti-churn brake, raised the same day by the `bugs_open/326`
+  lane). Caught by `ls` before it reached the register.
+- **`render_guardian` (low)**: suppression removes content with a log trail and no escalation.
+  **Declined, on record** — it matches `RepairPageLinks`' existing precedent, the item an escalation
+  would file already exists (the type this change also drains), and a second item per anchor would
+  re-create `bugs_open/077`'s "items whose handler has no remit".
+
+Round 2 submitted under the same correlation (`RESUBMIT_CORR`), so the trail accumulates.

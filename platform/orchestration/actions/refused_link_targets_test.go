@@ -233,6 +233,44 @@ func TestOptInSuppressesAndKeepsTheServableSibling(t *testing.T) {
 	}
 }
 
+// TestADatabaseFailureNeverFailsTheAssembly is the failure-isolation the council's
+// guardian seat asked to see stated for THIS seam rather than inferred from the
+// loader's general degrade rules.
+//
+// AssemblePageAction is a shared foundational step consumed by three pipelines
+// (pageflow-builder, page-rebuild, site-work-orchestrator), and this change adds
+// a DB round-trip to it. A database error inside the policy lookup must degrade
+// to a no-op and return the page unchanged — it must never propagate, and it must
+// never truncate the HTML it was handed.
+func TestADatabaseFailureNeverFailsTheAssembly(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	mock.ExpectQuery("SELECT p.url").WithArgs(siteID).
+		WillReturnError(errors.New("connection reset by peer"))
+
+	html := `<p><a href="/your-rights.html">rights</a> and <a href="/calculators.html">calculators</a></p>`
+	params := ActionParams{
+		DB:     db,
+		Logger: zap.NewNop(),
+		StepConfig: models.Step{
+			Action: "assemble_page",
+			Config: map[string]interface{}{suppressUnshippedLinksKey: true},
+		},
+	}
+
+	got := suppressUnshippedOutboundLinks(context.Background(), params, siteID,
+		"loanzy.uk", "index", "/index.html", html, zap.NewNop())
+
+	if got != html {
+		t.Errorf("a DB failure changed the assembled page — suppression must degrade to a no-op:\n got: %s\nwant: %s", got, html)
+	}
+}
+
 // TestSuppressionIsConfinedToTheOutboundSeams is the door, not the policy.
 //
 // Suppression must NEVER run at a seam that writes to the database. The

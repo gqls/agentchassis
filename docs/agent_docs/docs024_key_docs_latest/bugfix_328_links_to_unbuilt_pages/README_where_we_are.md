@@ -48,3 +48,69 @@ coming" apart from "not here yet", and it has to do it with something we can act
 
 I have handed that design question to a second model with all the evidence, and I will bring the
 answer back through the reviewer council before anything is committed.
+
+## 2026-08-23, evening — built, committed, and with the council; plus two things I got wrong on the way
+
+The fix is written and committed. What it does, in one sentence: just before a page's HTML leaves
+for publication, we now check every link it makes to another page of the same site, and if that
+page has never existed on the web and is not on its way, the link comes out.
+
+Three things about that are worth saying plainly, because they are the difference between this
+working and this being another well-intentioned change nobody notices.
+
+**We do not touch what the page is made of.** The link stays in the stored source. Only the copy
+being published loses it. That sounds like a detail and it is actually the whole design: it means
+the day the missing page finally gets built, the link comes back on its own, the next time that
+page is rendered. Nothing has to remember to put it back. No queue, no repair job, nothing to go
+wrong later. It also means the existing detector still sees the link in the database and keeps
+reporting it, so we have not made the problem invisible by fixing it.
+
+**Deciding "would this link break" turned out to be harder than it looks, and the obvious answer
+was wrong.** The database has a column that says when a page was last published, and the natural
+move is to treat an empty one as "never published". I measured it instead of assuming, and nine
+pages across the fleet have an empty column and are *serving perfectly well* — they were published
+and the column simply never got filled in. Removing links to those would have broken nine working
+pages to fix fourteen broken ones. There is an existing, narrower rule the platform already uses,
+and that one has the opposite problem: it misses three genuinely dead pages, one of which is the
+exact page this bug was filed about. So neither existing rule would do, and I had to find a third
+signal. It is whether the page has any actual content stored against it: twenty pages with none
+were all dead, nine with some were all alive. Twenty-nine out of twenty-nine.
+
+**The scale is small and precise, which is what I wanted to see before shipping it.** Across every
+page on every site, there are 3,193 links between pages. This change removes 36 of them. Every one
+of those 36 is a link that gives the reader a "page not found" today.
+
+### The two mistakes
+
+**I measured 56 pages and got the opposite of the truth.** My first sweep said nineteen supposedly
+unbuilt pages were serving fine, which would have meant the platform's existing rule was badly out
+of date and my whole approach was wrong. All nineteen were one domain — a site parked at its
+registrar, which answers "200 OK" for *every* address, including one I made up on the spot to test
+it. The check that caught it costs one extra request per site and I nearly didn't do it. That is
+now written down as a trap, because the next person to check a list of our URLs will hit the same
+domain and get the same confident wrong answer.
+
+**I wrote "fourteen days of live broken links" into our notes when about two thirds of that was
+not true.** The platform has 63 open records of this problem, so I quoted 63. Checking them, 42
+point at pages that are working now — old records left open by a separate bookkeeping bug. The
+real number had to be measured a completely different way. A record in a queue tells you what
+something noticed once; it is not evidence about what the website is doing today. That one was
+caught by a second model reviewing my write-up, after I had already put the number in a document.
+
+Both are logged in the shared mistakes file, which is the point of having one.
+
+### Where it goes next
+
+The code cannot do anything until the next platform rebuild — that is normal here. After it, there
+are three small steps: switch it on (a database change I have written and deliberately held back so
+it cannot go live before the code that reads it), re-publish the 24 pages that are serving broken
+links today, and then check the result on the actual website rather than in the database. That last
+check has a deliberate second half: as well as confirming the broken link is gone, I have to confirm
+a *working* link is still there. Without that, a change that simply deleted all the links would look
+like a success.
+
+It has gone to the reviewer council and is being reviewed now. I told the reviewers up front about
+the one thing I expect them to object to: this is the third time we have solved this same shape of
+problem with a purpose-built piece rather than a general one, and our own records flagged after the
+second time that the third should probably prompt a wider rethink. I do not think that should stop
+this fix, but it should be said by me rather than found by them.
