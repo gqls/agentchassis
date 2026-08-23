@@ -45640,3 +45640,26 @@ on a live failure. What it did not cost: the fix, which the 326 lane now has cor
 **Distinct from the entry above it**, which is the same bug from the other side: that one is a
 present-tense predicate making a past event unmeasurable. This one is naming a mechanism from a
 response field without reading it.
+
+## 2026-08-23 — `bugfix_308` lane: I judged a 50-row audit against a field the defect does not live in
+
+**The claim:** the hand audit of the CTA widening's writes came out **39 right, 6 wrong** of 50.
+
+**What was true:** **34 right, 11 wrong** — five more of the sampled rows pointed a button at the
+page it was already on, which is a defect, and I had marked all five correct.
+
+**Why:** the table I printed for myself showed each row's page **name** and the proposed **URL**.
+I compared them by eye. On this fleet a page's name is frequently not its URL stem — dartsonline's
+`grip-styles` page lives at `/blog/grip-styles.html` — so a self-link only looks like one when both
+sides are URLs.
+
+**What caught it:** not the reading. A separate census that normalised both sides and compared them
+mechanically, which returned 35 of 291 across the whole population and forced a re-read of the
+sample.
+
+**The cheap check that would have:** print the two things you are comparing **in the same units**,
+and compute the comparison you are about to make by eye. If the judgement is "are these the same
+page", the column must be the page identity, not a label for it.
+
+**The transferable shape:** *a sample judged against a field the defect does not live in reads as
+clean.* The audit was the right instrument and it was pointed one field to the left.
