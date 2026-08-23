@@ -639,3 +639,102 @@ done: the cap work (08-22), the writer-contract fix (live, council-APPROVED, dem
 the component stored, the parked backlog closed, and two of three pages serving their tools.
 **It stays OPEN for `tool-credit-health-check` alone** — the page named in the title — and the
 next step there is 253's floor, not this lane's code.
+
+---
+
+## 2026-08-23 (evening) — THE THIRD PAGE IS REPAIRED. It repaired itself 20 minutes after the previous session's last look, and this bug CLOSES.
+
+**The section immediately above is superseded on its central claim.** It says
+`tool-credit-health-check` is "NOT repaired", blocked by 253's floor guard, and that the bug
+stays open for that one page. **All three statements were true when written and were false
+within the hour.** I did not fix anything to make this so — I looked.
+
+### The 20-minute gap nobody re-checked
+
+| event | time (UTC) | evidence |
+|---|---|---|
+| floor refusal, `tool-credit-health-check` hero-tool 12→5 | **14:03:06.44** | `agent_error_log`, `error_code='UNKNOWN'`, msg `SECTION COMPONENT FLOOR REFUSED` |
+| **successful save of all four slots** | **14:23:29.30** | `page_components.updated_at`, 4 rows, `build_status='deployed'` |
+| further refusals for this page | **none** | floor-refusal scan over the last 2 days [MEASURED 2026-08-23 17:5xZ] |
+
+**A retry 20m23s later produced a `hero-tool` render that passed the floor cleanly**, and the
+same save attached the tool component. The previous handoff was written at **17:15Z**, ~2h50m
+after the repair landed, and still recorded the page as blocked.
+
+### The page, measured with THIS FILE'S OWN predicates [MEASURED 2026-08-23 ~17:50Z]
+
+`curl https://loanzy.uk/tools/credit-health-check/index.html` → **HTTP 200, 30,756 B**
+
+| predicate | before (this file, 08-23 late) | now | 
+|---|---|---|
+| bytes | 25,514 | **30,756** |
+| `loans-credit-health-check` refs | 0 | **18** |
+| instance-scoped `id="c-…"` (distinct) | 0 | **9** |
+| `<button>` | 0 | **13** |
+| script chars (4 blocks) | ~0 | **3,974** |
+
+That is the **same repaired profile** this file already certifies for `tool-eligibility-checker`
+(18 refs / 9 ids / 13 buttons) — the identical shared component, rendered on its own page with
+its own content. Content is page-correct, not a copy: `heading_1..6` read *Payment history,
+Credit utilisation, Length of credit history, Recent credit applications, Your credit health
+summary, Ways to strengthen your profile* — all five present on the wire.
+
+**Three of three pages now serve their tools.** This file's stated closure condition
+("Until they land, no page is repaired and this bug does not close") is met.
+
+### The fix is still live after the 16:03Z roll — probed at the CAPABILITY, because the sha probe was BLIND
+
+⚠ **The binary sha probe returned 0 for the fix commit AND 0 for the positive control**
+(`grep -ac <sha> /proc/1/exe` on `agent-chassis-6549c65d9b-9g25j`, both `2dbe12f1d5a1…` and
+HEAD `013d8040…`). **A failed positive control means the METHOD is blind — it is not evidence
+the fix is absent**, and I discarded the measurement rather than reading it as a regression.
+The `build provenance` log line had already scrolled out of `--tail=3000`, exactly as CLAUDE.md
+warns for this service.
+
+**What answered it instead — probe the capability, not the commit:**
+
+```sql
+SELECT created_at, length(collected_data->'existing_component'->>'aspect_paths') FROM orchestration_states
+WHERE collected_data ? 'existing_component' ORDER BY created_at DESC LIMIT 3;
+--  2026-08-23 17:41:19Z | 10292     <-- 20 min old, on pods started 16:03Z running v1.0.1330
+```
+`aspect_paths` is the field this fix adds. Non-zero on a row **20 minutes old**, on pods rolled
+at 16:03Z: the mechanism is live now, not merely once.
+
+### Demand-controlled, because a post-fix zero is worth nothing without one
+
+[MEASURED 2026-08-23 ~17:50Z] Since the fix went live at ~12:00Z: **9 `section` components
+stored** (vs **1** in the preceding 24h) plus **7 `tool`-level** = 16 total writes. Against
+that demand, **one** `component_validation_*` rejection fleet-wide — the `orphan_field` at
+12:12:21Z this file already narrates, which `345`'s typed feedback then resolved on retry.
+
+### §3c ANSWERED, in the only honest way: the sample cannot decide it, and here is how much would
+
+The open question was *"does Arm A (advising a 43-name contract) RAISE the orphan rate?"*
+Post-roll data now exists, so I ran it rather than carrying it forward.
+
+[MEASURED 2026-08-23] Orphan rejections per generation attempt (`stored + rejected`), by day:
+`08-16..08-22: 0 rejections / 48 section components stored (0%)` · `08-23 post-fix: 1 / 10 (10%)`.
+
+**That is one event. It cannot distinguish "unchanged" from "raised".** A single occurrence in
+10 attempts is compatible with an underlying rate anywhere from ~0.3% to ~45% (95% interval),
+which spans both hypotheses. **Naming the detectable threshold, per the standing rule:** to have
+even ~80% odds of *seeing* a 10% rate at all you need ≥16 advised generations; to distinguish a
+raised rate from the ~0% pre-fix base with confidence needs **hundreds**, not tens. So:
+**still unresolved — but no longer open-ended.** It is a question about a rate that this
+estate's generation volume will answer in roughly a week, and re-running the one query above is
+the whole test. Nobody should spend a session on it before then.
+
+### Closing
+
+Everything this bug was filed about is done and live: the cap work (08-22), the writer-contract
+fix (live, council-APPROVED `9efde776-a210-42bc-aa99-899d0d301c67`, capability-probed post-roll),
+migration 565, the parked backlog closed, and **all three pages serving their tools**. The
+residuals in "What this does NOT fix" are scope statements about what the fix deliberately does
+not cover, not reproducible defects. **Moved to `bugs_closed/`.**
+
+**The one thing worth carrying forward is not a defect, it is a habit:** this bug spent its last
+hours blocked on a page that had already repaired itself, because the blocker was a *retryable*
+failure and nobody re-read the artefact after the retry window. See the correction filed to
+`bugs_open/253` the same evening — the "fixed thinner render" characterisation this file
+contributed there is refuted by the same data.
