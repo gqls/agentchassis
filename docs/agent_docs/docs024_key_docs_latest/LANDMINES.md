@@ -15498,3 +15498,42 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_closed/283` (the closed defect class) · `architecture_review/RFC_032` §8 (the owner ruling this arrived under) · council `cd6a5ef6-d530-42c2-81fe-238552eb690d` rounds 1–2 · MEMORY [[a-guarantee-conditional-on-a-classifier-inherits-its-gaps]], [[two-defects-can-wear-one-symptom]]
 - **source:** 2026-08-23, `bugs_open/283` lane, answering a council objection that was filed as a hypothetical. The census turned it into a fact in one grep.
 - **added:** 2026-08-23, bugs_open/283 lane
+
+### A truncation/cost census over `llm_call_log` keyed on the step name you CONFIGURED returns zero rows — the column holds the loop-EXPANDED name, and zero reads as "this step never hits its ceiling"
+
+- **footprint:** `llm_call_log` (`step_name`, `max_tokens`, `output_tokens`, `provider`) · any `WHERE step_name = '<step>'` / `LIKE '<step>%'` / `GROUP BY step_name` census over it · `agent_definitions` steps nested under `…config.sub_workflow.steps` · `platform/orchestration/actions/ai_actions.go` (which writes `llm_call_log.max_tokens` from `__sent_max_tokens`)
+- **the same trap as "A loop's nested step is logged as `<loop>_iter_N_<step>`" above, on a DIFFERENT footprint.** That entry names pod logs and `orchestration_states.collected_data`; it does **not** name `llm_call_log`, so a session doing spend or truncation analysis will not find it by grepping the table they are querying. This entry exists to be findable from `llm_call_log`.
+- **fires when:** you ask "is any step hitting its output ceiling / how much is step X costing". The config calls it `rewrite_negations`; the column says `process_sections_loop_iter_1_rewrite_negations`. An equality or `LIKE 'rewrite_negations%'` filter returns **zero rows, no error** — indistinguishable from "this step never truncates" and from "this step never ran". Worked case 2026-08-23 (`bugs_open/305` §27): the step was truncating on **11.8%** of its calls and discarding the entire repair round while a name-keyed query said nothing was wrong.
+- **the check:** filter by SUFFIX (`LIKE '%<step>%'`), and **print the names you did find** before concluding anything —
+  ```sql
+  SELECT step_name, count(*) FROM llm_call_log
+   WHERE step_name LIKE '%rewrite_negations%' AND created_at > now() - interval '3 days'
+   GROUP BY 1;              -- if this is empty, the step really did not run
+  ```
+  Then the census proper, using the estate's own documented cut detector — **`output_tokens == max_tokens` means the completion was CUT, not finished**:
+  ```sql
+  SELECT agent_type, step_name, max_tokens, count(*) AS calls,
+         count(*) FILTER (WHERE output_tokens >= max_tokens) AS cut
+  FROM llm_call_log
+  WHERE created_at > now() - interval '3 days'
+    AND max_tokens IS NOT NULL AND output_tokens IS NOT NULL AND provider='anthropic'
+  GROUP BY 1,2,3 HAVING count(*) FILTER (WHERE output_tokens >= max_tokens) > 0;
+  ```
+- **two more ways the same query lies.** (1) **There is no `finish_reason` column** — reaching for one is the first thing that fails, and the fix is the `output_tokens >= max_tokens` detector above, not a schema hunt. (2) **Pin `provider='anthropic'`**: `llm_call_log.max_tokens` is fed from `__sent_max_tokens` (the ceiling APPLIED, which is the distinction `d6fc76dde` was about), and gemini's bookkeeping differs (`bugs_open/110`) — a mixed-provider census silently compares two different quantities.
+
+### A COMPLETED render orchestration is not a deployed page — and the stale bytes you fetch look exactly like a regression you caused
+
+- **footprint:** `page-rerender`, `page-rebuild`, `orchestration_states.status='COMPLETED'`, `gqls/sites` repo, `.github/workflows/deploy-to-b2.yml`, `b2://portfolio-sites/<domain>/`, any "did my content change ship?" check on a framework-built site
+- **fires when:** you re-render or rebuild a page, watch the orchestration reach `COMPLETED`, and immediately fetch the served page to confirm. This is the correct instinct — verify at the artefact, not the status — and it is the timing that betrays it.
+- **the trap:** **`COMPLETED` is the moment the git COMMIT lands, not the moment the bytes serve.** Two pipeline stages run afterwards: the `Deploy to B2` GitHub Action, and its `b2 sync` into `portfolio-sites`. Fetch inside that window and you get the PREVIOUS deployment — which, if your change was substantial, looks precisely like a regression. `[MEASURED 2026-08-23, apis.uk]` a rebuild completed and the served page read **12,272 bytes** against **65,250** before, with inline CSS collapsed 51,023 → 2,270, **the footer absent**, and three section classes with no CSS rule anywhere. Every one of those readings was true of the bytes fetched and false of the deployment: the repo already held a **64,085-byte** page, footer present, committed **four minutes earlier**. I diagnosed a styling regression and got as far as listing commits to revert to.
+- **⚠ A CACHE-BUSTER CANNOT SAVE YOU HERE, and believing it can is the whole trap.** `?cb=$(date +%s)` defeats a *cache*; this is not a cache. The object in the bucket genuinely is the old one because a pipeline stage has not run, so a cache-busted GET returns the current object, which is genuinely stale — and it returns it with every appearance of being authoritative. The estate's standing advice ("an unbusted GET tells you what a cache thinks") is correct and does not cover this.
+- **the check, and it is one command against the thing that actually gates the deploy:**
+  ```bash
+  git -C ~/projects/sites fetch -q origin master
+  git -C ~/projects/sites log --oneline -4 origin/master -- <domain>/index.html
+  git -C ~/projects/sites show <newest-sha>:<domain>/index.html | wc -c    # vs what you fetched
+  ```
+  **If the repo holds a commit newer than the bytes you fetched, you are EARLY, not broken.** Only once the newest commit's size matches the served size are you looking at your own change. Cross-check with `gh run list --repo gqls/sites --limit 5` — and note that a push can land with **no run at all** (measured the same day: a rerender commit reached `master` with no workflow run in the last 40), so an absent run is its own finding rather than proof of anything.
+- **why this earns an entry rather than "be patient":** the failure is not that you wait a minute too few. It is that the stale reading is *specific and plausible* — missing footer, collapsed CSS, unstyled classes — so it invites a confident diagnosis and a destructive remedy. **The action it tempts you into (reverting the deployed file) would overwrite the good page your own render just produced**, and would land in the handoff as "the framework broke the page".
+- **source:** 2026-08-23, `apis_uk_bees_homepage` lane, during a copy rewrite. Caught only because listing the repo's commits to CHOOSE a revert target showed a newer, healthy commit than the one being served.
+- **added:** 2026-08-23, `apis_uk_bees_homepage` lane
