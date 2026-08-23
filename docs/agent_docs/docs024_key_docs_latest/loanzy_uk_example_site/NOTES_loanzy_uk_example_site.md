@@ -406,3 +406,70 @@ failing its rerenders again.
 Also for your record: `tool-is-a-loan-right-for-me` reads `build_status='needs_rebuild'` while all
 its slots are `deployed` and it serves correctly — the `bugs_open/315` status-column family, noted
 not chased.
+
+## 2026-08-23 17:17Z — the `garden-tools.uk` one-shot build is RUNNING, and the 311 after-test baselines were already stale before it started
+
+**The run.** Pre-flight per `HANDOFF_2026-08-23_garden_tools_continue_here.md` §2, all four checks
+clean and each one read rather than assumed: `sites`=0 / `site_work_items`=0 `[MEASURED 17:16Z]`;
+apex body is the 9-byte `Not found` (read the BODY, not the status) `[MEASURED 17:16Z]`; chassis
+pods started 16:03:26Z/16:03:54Z, i.e. **72 minutes** before dispatch, well clear of the ~300s
+silent-drop window `[MEASURED 17:16Z]`; image tag still `v1.0.1330`, unchanged from the handoff, so
+the falsifier "a chassis roll changed the live fix set" does not fire.
+
+Dispatched **17:17:18Z**, nothing but the domain — no mission, no email, no seed. **No deviation
+from the no-hint rule.** The only value the script contributes is its own fresh-build default
+`fidelity=medium`, which its header states is "RECORDED ONLY", modulating nothing.
+`CORRELATION_ID=1c23bf66-4c29-4299-980c-08f6f3d6a013`,
+`ORCHESTRATION_ID=09010a66-411e-48e5-9d1a-f68724359018`.
+
+**It LANDED** `[MEASURED 17:17:4xZ]` — the check the trigger script still cannot do for itself
+(`bugs_open/327`, unchanged since 2026-07-30, prints ids and exits 0 regardless): one
+`needs_domain_research` / `triaged` / `research_garden-tools.uk`; site row
+`16784842-f7d8-4467-bb5b-eb1fb5c1caba`, `status=active`, `build_status=pending`; submitter
+orchestration `COMPLETED`. No re-dispatch needed.
+
+### The finding: the handoff's 311 md5 baselines were ALREADY superseded, three days before this run
+
+The handoff's §3(a) after-test says to re-read three incumbent md5s and that they "must be
+UNCHANGED", and primes the reader to "say so first and loudly" if they moved. I measured them
+**before** dispatch could touch anything, as a control. Result `[MEASURED 2026-08-23 17:2xZ]`:
+
+- **all eight** incumbents' `md5(html_template)` DIFFER from the values pinned by the 311 lane;
+- **all eight** `md5(input_schema::text)` are unchanged;
+- every `updated_at` is **2026-08-20** (seven at 17:0x-17:20Z, `b420389f` at 07:02Z) — i.e. after
+  that lane's 2026-08-19 16:18Z re-pin and its 16:24Z "no collateral damage" verification, and
+  **three days before this build existed**.
+
+**Cause, and it is benign:** `component_versions` version 1 for `7d8b0503` / `824e3309` /
+`b89f91e1` holds `md5` values that equal the 08-19 baselines EXACTLY
+(`5f9534982e7f2bd776605ed78e755010`, `e6ee4b07f11d0b43c1c5a62667f4999f`,
+`a2c00f1c66ce6f4ef72b48083f1e3da6`), archived under
+`change_source='scope_component_instance_judged'`. That is the judged half of `bugs_open/283`
+(RFC_034), shipped by `docs/agent_docs/sql_for_agents/486_judged_instance_scope_pipeline.sql`
+(`platform/orchestration/actions/fix_component_template_action.go:1514`): it snapshots the prior
+version, then writes a scoped rewrite. So this is another lane's intended work, correctly
+versioned — **not damage, and not ours.**
+
+**Why this mattered enough to measure first.** Had I run the after-test only afterwards, as the
+handoff literally instructs, all eight would have read CHANGED and the honest-looking report would
+have been *"the diversion guard failed and our run overwrote the incumbents"* — loudly, as
+instructed, and **false**. The handoff's baselines are a `[MEASURED]` claim about STATE, and state
+expires; a dated event would not have. **The after-test's baseline for this run is therefore the
+08-23 set pinned above, not the 08-19 set in the handoff.**
+
+⚠ **Two counts in the source disagree, so do not quote either without looking.** The 311 lane's
+own NOTES say "RE-PINNED 16:18Z for all **seven** incumbents" and then list **eight**; its later
+measurement says "all **EIGHT**". Eight is right (`7d8b0503`, `9cbfe279`, `824e3309`, `2cf33f06`,
+`b7a499f4`, `70b72b3e`, `b420389f`, `b89f91e1`). The 08-23 handoff propagated only **three** of
+them. Controlling on three would have left five incumbents unwatched during this run.
+
+**Pre-run baseline for this run's after-test, `content_components` [MEASURED 2026-08-23 17:2xZ]**
+(`html_md5` / `schema_md5`):
+- `7d8b0503` loans-car-finance-calculator: `1de725368744680ef052ab1da2b4dc94` / `8e2cfe0afb1863b178390d6a048409b0`
+- `9cbfe279` loans-compare-loans: `a591c07c6da83d77aea7bc7d29819257` / `3bba8e7d9d13338ea0370971f9ef487c`
+- `824e3309` loans-credit-health-check: `67e3d20d83ddad4b0cff54b2e4a98559` / `dd8f9863c84f8a5a7ec3e99154241f43`
+- `2cf33f06` loans-interest-rate-stress-test: `07aa4a2ba7a7778b736e8fadb6cff8b3` / `a805b2af699f1c28a9d7833ff35405e6`
+- `b7a499f4` loans-overpayment-calculator: `12bf5cc88fbd8138769f78502702ab7a` / `fd2a6336dd159833892afdad62863f19`
+- `70b72b3e` loans-settlement-calculator: `c42b9a8c843638d660509ca883eb7e9f` / `b7a1e6090d00f0bc1f17178d9ade3a45`
+- `b420389f` loans-standard-calc: `a9dea7cd35372bd6c0bd70cee8140d06` / `a5790bcfeb1d46da94cb8ef3d9fc5fdc`
+- `b89f91e1` mortgages-repayment: `a453a6565489c348ad6a9156a8af812f` / `8265ae5a931b735305b1fe007b148acb`
