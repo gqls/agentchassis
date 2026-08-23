@@ -15967,3 +15967,46 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **why the helper exists at all** (so nobody "simplifies" it back into two copies): the council's reuse seat gated on the duplication — *"two independently-built mechanisms solving overlapping problems in the same package, each maintained separately, with no unification once both exist"* (corr `be252395`, round 2). Deliberately NOT shared, and not a candidate for sharing: each caller's relevance predicate and its guidance text.
 - **source:** 2026-08-23, `bugfix_358_unread_finding_codes` lane, extracting the helper in response to that objection. No incident — this is the trap the extraction *created*, written down at the moment it was created rather than after it bit.
 - **added:** 2026-08-23, bugfix_358_unread_finding_codes lane
+
+### A "has anything ever closed this work-item type?" census run on `site_work_items` is guaranteed to under-count — CLOSING a row is what moves it out of the table you are querying
+
+- **footprint:** `site_work_items`, `site_work_items_archive`, `work-item-archiver`, `platform/orchestration/actions/revalidate_review_queue_action.go` (`reviewRevalidators`), any `SELECT ... FROM site_work_items WHERE item_type='X' AND status IN ('complete','verified')`, any claim of the form "N items in the type's whole history" or "nothing has ever closed one"
+- **fires when:** you run the CLOSER CENSUS before registering a revalidator — the discipline this file already prescribes two entries above, and the right instinct. `site_work_items` is a **rolling window**: `work-item-archiver` moves TERMINAL rows to `site_work_items_archive`. So **the census's own success condition is what removes its evidence**, and the better a type closes, the more invisible its closures become. A type that closes perfectly reads as a type that has never closed at all
+- **the tell — there is none in the result, which is the whole problem.** The query is well-formed, the type is spelled right, the count is real, and `0` is exactly what "nothing drains this" looks like. Nothing about the answer suggests a second table exists
+- **measured 2026-08-23, archived rows that are `complete`/`verified` — i.e. what each existing census could NOT see:** `needs_page` **739** · `unresolved_cta` **118** · `required_fields_missing` **98** · `needs_section_data` **59** · `unbuilt_internal_link` **26** · `claims_unverified` **12** · `truncated_component` **1** · `voice_tells` **1**. **Four registered revalidators carry a "the CLOSER census returned ZERO rows" justification in their test comments and three of the four are FALSE** (`voice_tells`, `claims_unverified`, `truncated_component`), as was `unbuilt_internal_link`'s when first written
+- **⚠ the DECISIONS all survive, only the justifications fail** — a revalidator is still the one drain for rows parked at `needs_human_review`, which `CompleteWorkItemAction`'s status guard refuses to leave. So do not "fix" this by de-registering anything. Fix it by asking the right question: not *"has this type ever closed?"* (usually yes) but *"can a row parked at `needs_human_review` ever leave that status?"* (structurally no, without a revalidator)
+- **the check, and it is one UNION:**
+  ```sql
+  SELECT src, status, count(*) FROM (
+    SELECT 'live' AS src, status FROM site_work_items          WHERE item_type = '<type>'
+    UNION ALL
+    SELECT 'archive',      status FROM site_work_items_archive WHERE item_type = '<type>'
+  ) x GROUP BY 1,2 ORDER BY 1;
+  ```
+  Same trap for any "how often has this ever happened?" question over work items — dedup-key reasoning, producer/closer censuses, `resolution_path` counts. ⚠ And `count(DISTINCT resolution_path) = 0` is a SEPARATE and weaker fact than "never closed": on `unbuilt_internal_link` all 26 real closures carry no `resolution_path` at all, so that column is silent on a type that closes fine
+- **source:** 2026-08-23, `bugs_open/328` — caught by the council gate's `prior_art_librarian` seat at round 3, on a census I had written into a register entry, a test comment, two Go doc comments and a commit message. Logged in `WRONG_CALLS.md`
+- **added:** 2026-08-23, bugs_open/328 lane
+
+---
+
+### Bumping `IMAGE_TAG` in a new service's birth commit ARMS a fleet-wide `ImagePullBackOff` — `deploy-agents` retags all 33 overlays to a tag only YOUR image exists at
+
+- **footprint:** `makefile` (`IMAGE_TAG`, `AGENT_DEPLOY_SERVICES`, `update-kustomization-images`, `deploy-agents`, `deploy-%`), `make release`, any commit adding a service to `RELEASE_IMAGES`
+- **fires when:** you add a service, bump `IMAGE_TAG` by one as the convention requires (CLAUDE.md: *"Bump `IMAGE_TAG` for every build — a same-tag rebuild ships the node's stale cached binary"*), build and push **your** image, and stop there — correctly, because deploying is the owner's whole-fleet release. The window between that commit and the next full release is the hazard, and nothing marks it.
+- **the mechanism:** `deploy-agents` and `deploy-%` do not deploy the tag an overlay names — they **`sed` every overlay's `newTag` to `$(IMAGE_TAG)`** and then apply (`makefile` `update-kustomization-images` and `deploy-agents` both). So one bump silently repoints **every** service at a tag that only exists for the one image you built. `[MEASURED 2026-08-23]` immediately after `finding-code-registry-check`'s birth commit: **1** image at `v1.0.1331` (mine), **32** overlays sitting at `v1.0.1330`. A bare `make deploy-agents` at that moment retags all 33 and 32 of them cannot pull.
+- **the tell: there is none, and it is the worst possible failure shape.** An absent image gives `ImagePullBackOff`, which this fleet reports as a Job/pod still **RUNNING**, never FAILED — so 32 services go quietly stale while every status you would check reads healthy. The `sed` is also **never committed**, so `git status` shows 32 dirty overlays that look like someone else's WIP rather than a pending fleet retag.
+- **the check — the ordering is the whole protection, so run the full release, never `deploy-` alone:**
+  ```bash
+  date; make release redeploy-agents ENVIRONMENT=production REGION=uk001; date
+  # release = build-backend -> push-backend -> deploy-core -> deploy-agents ...
+  # build and push come FIRST, so all 33 exist at the tag before anything applies.
+  ```
+  Before any hand deploy, prove the tag is populated rather than assuming it:
+  ```bash
+  docker images --format '{{.Repository}}:{{.Tag}}' | grep -c ":$IMAGE_TAG"   # want: the whole fleet, not 1
+  grep -h newTag deployments/kustomize/services/*/overlays/production/uk_001/kustomization.yaml | sort | uniq -c
+  ```
+  A count of **1** against a fleet of 33 is this landmine, and it is the normal, correct state of the tree between a service's birth commit and the next release. **The bump is not the mistake — deploying without building is.**
+- **relations:** this file's *"`make deploy-component-render-check` ships NOTHING on its own"* (the OPPOSITE direction — an overlay pin making a deploy a no-op; here the sed overrides the pin) · the ImagePullSecrets family (same RUNNING-not-FAILED reading) · MEMORY [[releases-are-whole-fleet-make-release]], which is the rule this entry supplies the mechanism for
+- **source:** 2026-08-23, `bugfix_358_unread_finding_codes` lane. Raised by the council's constitution seat as *"bumping the shared global IMAGE_TAG for a single new CronJob service risks re-tagging every OTHER make build-*/make release invocation … the plan gives no evidence other targets were checked against this bump"* (corr `be252395`, round 4, medium, on an APPROVED verdict). The objection was right that the evidence was missing; measuring it produced this entry.
+- **added:** 2026-08-23, bugfix_358_unread_finding_codes lane

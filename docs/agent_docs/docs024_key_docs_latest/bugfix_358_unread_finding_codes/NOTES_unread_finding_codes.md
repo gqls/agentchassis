@@ -731,3 +731,47 @@ Worth stating plainly for the next author: the council found **no defect in the 
 rounds. Every gating objection was about the plan failing to show what the tree already contained.
 That is still worth the rounds — an unshowable claim and a false one are indistinguishable from the
 reviewer's chair, which is the same discipline this lane applies to `[MEASURED]` markers.
+
+### Council round 4: APPROVED — 10 seats, 7 abstained, no gating objection
+
+`be252395-9d51-4427-b2ae-5f581337b16d`, verdict 2026-08-23 18:55Z. Four rounds, and **the council
+never found a defect in the code** — every gating objection across rounds 1–3 was the plan failing
+to show what the tree already contained. That is still worth the rounds: from the reviewer's chair
+an unshowable claim and a false one are indistinguishable, which is the same discipline this lane
+applies to its own `[MEASURED]` markers.
+
+Five advisory objections. **Checked, not waved past:**
+
+1. **[medium, editquality] "no edit shows the CLI flag registration in `main.go` … leaving the
+   causal chain from 'docker CMD passes `--no-source`' to 'auditFindingCodes receives nil'
+   unshown."** The premise is conditional and resolves to **no change was needed**:
+   `main.go:251-253` already dispatches `emitFindingCodes(os.Args[2:])`, and the flag is parsed
+   inside that function (`findingcodes.go:634`). The 12 added lines `git diff` shows in `main.go`
+   over the same range belong to **another lane** (`d0930af6f`, bugs 326), not to this change. So
+   the chain is complete: CMD → `os.Args` → `emitFindingCodes` → nil `sourceReader` →
+   `auditFindingCodes`. **The seat was right to ask** — I asserted "every touched file is present"
+   and did not show that `main.go` was untouched, which is the same evidence gap in miniature.
+2. **[medium, constitution] the `IMAGE_TAG` bump is fleet-shared plumbing and "the plan gives no
+   evidence other targets were checked against this bump."** Correct that the evidence was
+   missing, and measuring it found a real hazard worth writing down. `[MEASURED 2026-08-23]`
+   **1** image exists at `v1.0.1331` (mine) against **32** overlays at `v1.0.1330` — and
+   `deploy-agents` does not deploy the tag an overlay names, it **`sed`s every overlay to
+   `$(IMAGE_TAG)`** and applies. So a bare `make deploy-agents` in this window would repoint 33
+   services at a tag only one image exists at, and `ImagePullBackOff` reads as RUNNING. The full
+   `make release` builds and pushes first, which is exactly why the procedure is what it is. **New
+   LANDMINES entry**; the bump is not the mistake, deploying without building is.
+3. **[medium, constitution] the shared pre-commit helper "should get architecture-level sign-off
+   beyond this single council pass."** Recorded rather than actioned, with the reasoning: under the
+   2026-07-29 ruling an RFC is owed when a change alters what a shared mechanism **guarantees**, and
+   both guards' behaviour is unchanged — proved by re-running all three cases for both callers,
+   including the pre-existing RFC_022 guard. What is real is the blast radius, and that is why it
+   already has a LANDMINES entry naming it fleet-critical. Available to the architecture track on
+   the owner's call; this lane is not the one to escalate its own change.
+4. **[low, constitution] both guards now break together if the helper regresses**, where the risk
+   was previously distributed. True, acknowledged, and the deliberate trade for removing the drift
+   the reuse seat gated on. Also in the landmine.
+5. **[low, tooling_provenance] no `doc_notes` entry records THIS decision for the subject.** Partly
+   met: the landmine is synced into `doc_notes` by `landmines-sync.py`, so the fleet-critical-helper
+   trap is readable by agents. The `--no-source` shape itself is recorded in the concept register
+   (**DBG-075**), which is this estate's sanctioned home for "what exists and is callable" — and
+   CLAUDE.md forbids hand-writing landmine rows into `doc_notes` directly.
