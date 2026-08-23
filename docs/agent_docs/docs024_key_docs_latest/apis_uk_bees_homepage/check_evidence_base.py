@@ -19,8 +19,21 @@ and looked correct on the page:
 Five real gaps, none of them visible by reading the list. All five were found by asserting
 on SENTENCES.
 
+⚠ ENGINE CAVEAT — READ BEFORE TRUSTING A VERDICT FROM THIS SCRIPT.
+This runs Python's `re`. Production evaluates banned_claims in **Go, whose regexp package
+is RE2**, and the two differ. Measured 2026-08-23: scanning all 205 ban patterns across the
+19 sites that have an evidence_base, Python flagged `webdesign.uk`'s
+`"[^"]{20,}" ?[—,-]? ?(?-i)[A-Z][a-z]+ [A-Z]` as an invalid regex — bare `(?-i)` is illegal
+in Python and perfectly legal in RE2. **That was a FALSE POSITIVE about another lane's
+site**, and reporting it would have sent someone to fix working code. Compiled under Go,
+**all 205 patterns are valid and 0 are rejected.**
+So: this script is a fast authoring aid, and `check_bans_re2.go` beside it is the
+authority. Cross-check there before asserting anything about a pattern — especially before
+telling another lane theirs is broken.
+
 USAGE
   python3 check_evidence_base.py <domain> [--url https://<domain>/]
+  go run check_bans_re2.go suite.json      # the same forbidden/permitted suite under RE2
 
 It asserts three things, and the third is the one people forget:
   1. every FORBIDDEN sentence is caught  (no gaps)

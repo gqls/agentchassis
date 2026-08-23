@@ -364,3 +364,30 @@ plus a short-page guard so an empty body cannot be called clean.
 guard had not worked. `$?` after a pipe is **`tail`'s** status. The guard was fine; the
 measurement was not. Re-measured with `cmd >/dev/null 2>&1; echo $?` → **2**, `--skip-live`
 → 0, control → 0.
+
+### Fleet check, and a false positive I caught before reporting it
+
+Having found five gaps in my own ban list, the obvious question was whether the pattern is
+inherited — every site's `evidence_base` copies the same worked example, so a blind spot in
+the recipe would be fleet-wide. Scanned all of it: **19 sites** carry a current
+`evidence_base`, holding **205** ban patterns between them as of 2026-08-23.
+
+**The apis.uk defects were mine, not inherited.** No other site carries the
+literal-backslash bug, and no pattern anywhere fails to compile.
+
+**But the scan first told me `webdesign.uk` had an invalid regex, and that was WRONG.**
+Python rejected `"[^"]{20,}" ?[—,-]? ?(?-i)[A-Z][a-z]+ [A-Z]` with *"missing : at position
+25"*, because bare `(?-i)` is illegal in Python's `re`. It is perfectly legal in **RE2**,
+which is what Go — and therefore production — actually uses. Compiled all 205 under Go:
+**0 rejected.**
+
+I caught it only because I stopped to ask which engine evaluates these in production before
+writing the finding down. Had I not, I would have told another lane their working pattern
+was broken, with a plausible error message to back it up. **A validator that does not use
+the production engine produces confident, well-evidenced, wrong findings** — and the
+direction of the error is not predictable, so it can under-report just as easily.
+
+Consequence: the Python checker is now labelled a fast authoring aid, `check_bans_re2.go`
+sits beside it as the authority, and the whole apis.uk suite was re-run under RE2 —
+**37 patterns, 23 forbidden all caught, 12 permitted all clean, 0 problems**. The suite
+holds where it actually runs, not only where I wrote it.
