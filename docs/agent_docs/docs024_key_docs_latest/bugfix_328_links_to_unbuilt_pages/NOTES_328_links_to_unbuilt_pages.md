@@ -344,3 +344,70 @@ aimed at exactly the `info-card-grid` shape 097 names. It does not fix 097.
   re-create `bugs_open/077`'s "items whose handler has no remit".
 
 Round 2 submitted under the same correlation (`RESUBMIT_CORR`), so the trail accumulates.
+
+## 2026-08-23 — council round 2: REVISE again, and this time the migration had the real defects
+
+Gated by **`editquality` HIGH** — and it is right, but about the SUBMISSION, not the code. When
+round 2 was squeezed to the gate's 8-file cap I itemised the ratchet TEST and left the
+`reviewRevalidators` map entry in prose. So the plan read as shipping `revalidate_unbuilt_link.go`'s
+function **with no caller** — which is exactly the shape the round-1 landmine warns about. The
+registration was committed all along (`bb1e144b5`); the plan could not be checked for it. Fixed by
+itemising the registration in round 3 and describing the test inside it.
+
+**Same class, second instance, and this one was mine to avoid:** round 2's rationale said the
+LNK-030 amendment and RFC_049 were "done in this round as **edit 9**". There is no edit 9 — the cap
+is 8. Both `editquality` and `architecture` flagged it, and they were right to: from the plan alone
+it reads as an aspiration. They ARE committed (`c4baa53e7`); they sit outside the edits array because
+the gate refuses docs-scope files client-side. **The lesson is narrow and worth keeping: never
+describe work by an edit number the plan does not contain — name the commit instead.**
+
+### `debug_historian` found two HIGHs on the migration. One was structural and real.
+
+**HIGH (a) — `is_active` is not the runtime selector.** There is a documented landmine that an agent
+type can carry TWO active rows while only the higher `version` ever loads. My UPDATEs filtered on
+`is_active` alone, so in principle they could write the dormant row, pass their own `$post$` count,
+and leave the config that actually runs unguarded.
+
+**Measured: all five target types carry exactly ONE active non-snapshot row today** (pageflow-builder
+v21, page-rebuild v1, page-rerender v1, report-builder v1, site-work-orchestrator v2). So nothing
+was wrong. **Fixed anyway** — every statement now keys on a temp table of
+`DISTINCT ON (type) … ORDER BY version DESC`. The `_ROLLBACK` keys the same way, because for an undo
+addressing a dormant duplicate is the *worse* direction: it would read as undone while the key stayed
+live. **The reason to fix a latent one is that the day it stops being latent, nothing announces it.**
+
+**HIGH (b) — read off my sketch, not the file.** The seat said the `jsonb_set` path
+`{workflow,steps,render_page,…}` is blind to sub_workflow-nested steps. The sketch showed only the
+`render_page` UPDATE; the file has three, with both nested paths spelled in full. **But the hazard
+underneath is real**: `jsonb_set` with `create_missing=true` creates only the LAST key, so an absent
+parent `config` object is a **silent no-op that returns the row unchanged**. Checked — all five paths
+carry a `config` today — and `$pre$` now asserts the PARENT, not just the step, so a future drift
+aborts instead of writing nothing and reading clean.
+
+⚠ **Both HIGHs were about the same file and only one was a defect. Reading the sketch instead of the
+file produced a confident wrong objection twice across two rounds** (round 1's gating HIGH was a
+landmine title; this one a sketch). That is not a complaint — each cost one query to answer, and the
+one that was real is the kind nothing else would have caught.
+
+**MEDIUM, taken: no snapshot before a live `jsonb` mutation.** `snapshot_agent(type, reason)` now
+runs for every row the file touches, before it touches any. The 340/336 precedent skipped this and
+conceded it; a conceded omission is not a licence to repeat it.
+
+### `bug_historian`'s MEDIUM was the sharpest thing in the round
+
+*"Once a target page later ships, nothing in this plan triggers a re-render of the PAGES THAT LINKED
+to it — so a suppressed anchor stays suppressed until that source page happens to rebuild."*
+
+**Correct.** I had been writing "the anchor returns by itself on the next render", which is true and
+quietly assumes a render happens. Measured instead of assumed: of the 25 pages carrying an anchor to
+an unservable target, **24 were touched within 7 days — the most recent SIX MINUTES ago — and exactly
+one is 60 days stale.** So the empirical restore path is strong, it is not a guarantee, and the tail
+is one nameable page. The claim is now stated with that number attached, and Phase 1c makes it
+deterministic for this population.
+
+**`guardian` MEDIUM — the N+1.** With the flag on, `AssemblePageAction` issues one extra query per
+page per build run. Costed rather than dismissed: one indexed SELECT over `pages` for that site plus
+a correlated `NOT EXISTS`; sites here run ~15–45 pages, and it is the same shape the gate already
+runs per page via `loadValidPagePaths`. Recorded as a named follow-up (a per-run cache), not built
+here — a cache keyed to a build run is a lifetime question this edit does not otherwise raise.
+
+Round 3 submitted under the same correlation.
