@@ -48,6 +48,24 @@ which is closed — hence a new file rather than a contribution.
 > * all **65** items of this type re-classified old-vs-new: **exactly one route changes**
 > * apply-then-rollback returns `default_config` **byte-identical**
 >
+> **Council `d48c0a89` APPROVED at round 1**, 14 advisory objections, none high. Two drew code:
+> migration **`576`** guards the `tomb` CTE against an empty-slot match (measured NOT reachable —
+> 0 of 38 removed rows and 0 `page_components` rows anywhere have an empty `slot_name` — so it
+> makes the bad state unrepresentable rather than merely unpopulated), and the behavioural checks
+> became a re-runnable sidecar,
+> `574_required_fields_router_stops_closing_what_it_cannot_resolve_VERIFY.sql`, **proven
+> non-vacuous** by applying the 574 rollback inside a transaction and requiring it to fail.
+> **Run that file before trusting this router's dispositions** — its two POSITIVE CONTROLS are
+> the point, not the first check.
+>
+> **A precedent this file should have cited and did not** (a seat found it): `bugs_closed/032`,
+> *"the completion verifier reads a DELETED component as a successful fix"* (2026-07-19), is the
+> same defect one layer over, and its fix was *"return an error, never a verdict, so the gate's
+> fail-OPEN policy turns a false success into a visible unknown"* — this bug's remedy in a
+> verifier's vocabulary. Two lanes, five weeks apart, same shape, same answer. The lesson:
+> **grep the closed bugs for the SHAPE, not just the mechanism** — a search for `build_status`
+> or `required_fields_missing` finds neither of 032's words.
+>
 > **Also corrected here:** §4's *"Render-time items filed to date: 3"* and the §2 table remain true
 > as dated, but `orchestration_states` retains only **~2 days**, so the route history they imply is
 > not re-derivable — see the lane's NOTES and `LANDMINES.md`.

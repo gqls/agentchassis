@@ -127,3 +127,68 @@ lanes' entries into cdfa3cb35."* Two lanes, one afternoon, same file.
 The practical lesson for a shared append-only doc: **the window between appending and committing is
 where your work belongs to everybody.** Append and commit in the same breath, and do not assume a
 `git status` from thirty seconds ago still describes the file.
+
+## 2026-08-23 — the council round: APPROVED round 1, and two of its objections were worth code
+
+Correlation `d48c0a89-9ff8-4286-bfe9-2690dc13d5bc`. **APPROVED at round 1**, 14 advisory
+objections, none high-severity. Approval is not "no objections", so here is what I did with
+them.
+
+**Acted on with code — migration `576`.** The `tomb` CTE matched the slot with
+`COALESCE(pc2.slot_name,'') = COALESCE(item.spec->>'slot_name','')` — inherited from 410's
+`comp` CTE. If BOTH sides are absent that compares `'' = ''` and matches, so an item with no
+`slot_name` could be "retired" by an unrelated removed row with no `slot_name` on the same
+page, and **closed** on it. The seat named the consequence exactly: *"an incorrect `stale`
+close — exactly the outcome this migration exists to stop."*
+
+I measured before patching, and it is **not reachable**: 0 of 38 removed rows and **0
+`page_components` rows anywhere** have an empty `slot_name`, and the 2 items lacking
+`slot_name` also lack `page_name`, so they classify `malformed` first. No row's disposition
+changes. I shipped the guard anyway, because "unpopulated" and "unrepresentable" are not the
+same thing and the difference is one clause.
+
+**Acted on with code — the `_VERIFY` sidecar.** A seat pointed out that 574's verify block
+checks only the *shape* of the rewritten JSON and never RUNS the SQL it assembles — the
+estate's own *"embedded SQL is DATA to your migration's probe"* landmine. It was right about
+the deeper thing too: I **had** run the behavioural checks, against the patched row inside a
+rolled-back transaction, but they lived in my scratchpad, so a re-apply could not repeat them.
+They are now
+`574_required_fields_router_stops_closing_what_it_cannot_resolve_VERIFY.sql`, and I proved it
+non-vacuous by applying the 574 ROLLBACK inside a transaction and requiring VERIFY to fail —
+it did, loudly, then the transaction was discarded.
+
+**Acted on with prose — the precedent I should have found myself.** A seat noted that
+`bugs_closed/032` (2026-07-19), *"the completion verifier reads a DELETED component as a
+successful fix"*, is functionally identical one layer over, and that its fix was *"return an
+error, never a verdict, so the gate's fail-OPEN policy turns a false success into a visible
+unknown"* — the same remedy in a verifier's vocabulary. **My plan was well-grounded and still
+never asked whether the council had already ruled on this shape.** Now cited in `016b` §9. The
+transferable bit: *grep the closed bugs for the SHAPE, not just the mechanism* — I grepped for
+`build_status` and `required_fields_missing`, and 032 contains neither.
+
+**Answered by measurement, no change needed.**
+- *"Two active definition rows could exist and the UPDATE does not pin version"* (two seats):
+  the migration's first premise is `count(*) <> 1 → RAISE`, so it aborts rather than guessing.
+  Live count is 1.
+- *"Does the revalidator actually cover a `needs_human_review` row filed by this router?"*:
+  yes — `revalidate_review_queue_action.go:281` registers
+  `"required_fields_missing": revalidateNamedFields("missing_fields")` and the whole file is
+  the `needs_human_review` queue. The new park lands in a queue that IS re-validated.
+- *"'removed' may have writers you did not find"*: exactly one Go path,
+  `internal/core-manager/admin/page_admin_handlers.go:576` (which also locks what it removes),
+  plus hand SQL such as `570_deactivate_testimonials`. My Risk 5 held.
+- *"`pageComponentNotRemovedSQL` may not be the only equivalent"*: it is the only **named**
+  one (`section_editor_actions.go:1537`) and my spelling matches it byte for byte — but there
+  are **12** hand-typed `<> 'removed'` / `IS DISTINCT FROM 'removed'` occurrences in non-test
+  Go as of 2026-08-23. The claim was precise and easy to misread; stating the 12 is the honest
+  form.
+- *"Are there OTHER disposers with the same unresolved⇒stale-close shape?"*: I did census this
+  before designing — `required-fields-missing-handler` is the **only** live agent definition
+  with a `stale` route and a `close_stale` step. The objection was that I had not *said* so.
+  Now said, dated, and in `016b` §9.
+
+**Not acted on, deliberately.** A seat asked for the workflow edits to be retagged
+`config_change` rather than `add` in the submission metadata. Fair, and a real machine-checkable
+improvement — but it is a change to how submissions are *tagged*, not to what shipped, and
+retagging an approved round's plan after the fact would make the record less accurate, not more.
+Worth doing on the next submission.

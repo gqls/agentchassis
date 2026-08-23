@@ -4040,6 +4040,18 @@ equally be a lookup miss — so it is not positive evidence and the item stays q
    failed (`bugs_open/333`). Making the disposition honest was both smaller and safer than
    making the router cleverer.
 
+**This is a SETTLED shape, not a novel one — and the precedent confirms the remedy.**
+`bugs_closed/032` (2026-07-19) is the same defect one layer over, in a **verifier** rather
+than a router: *"the completion verifier reads a DELETED component as a successful fix"*. Its
+fix was *"return an error, never a verdict, so the gate's fail-OPEN policy turns a false
+success into a visible unknown"* — which is this entry's rule in the verifier's vocabulary.
+Two independent lanes, five weeks apart, reached the same remedy from the same shape: **a
+failed lookup must produce an honest unknown, never a positive verdict.** If you find a third
+instance, you are not discovering something — you are finding a place that has not adopted a
+rule the estate has now settled twice. (Cited here because a council seat objected, correctly,
+that `bugs_open/367`'s plan was well-grounded independently and still never checked whether
+the council had already ruled on the shape.)
+
 **The asymmetry that decides scope.** The same narrow predicate is hand-typed at 19 other
 read sites, and none of them is this bug: they are all PRODUCERS, whose failure mode is
 under-detection — they file less. Only a disposer converts non-detection into an affirmative
