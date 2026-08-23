@@ -1331,15 +1331,15 @@ func fixScopeComponentInstance(ctx context.Context, params ActionParams, logger 
 		zap.Int("snapshot_version", maxVersion+1))
 
 	return map[string]interface{}{
-		"fixed":                true,
-		"fix_type":             "scope_component_instance",
-		"function":             function,
-		"component_id":         componentIDStr,
-		"ids_declared":         len(rep.IDsDeclared),
-		"id_attrs_renamed":     rep.IDAttrsRenamed,
-		"get_element_by_id":    rep.GetElementByID,
-		"id_ref_attrs":         rep.IDRefAttrs,
-		"hash_refs":            rep.HashRefs,
+		"fixed":             true,
+		"fix_type":          "scope_component_instance",
+		"function":          function,
+		"component_id":      componentIDStr,
+		"ids_declared":      len(rep.IDsDeclared),
+		"id_attrs_renamed":  rep.IDAttrsRenamed,
+		"get_element_by_id": rep.GetElementByID,
+		"id_ref_attrs":      rep.IDRefAttrs,
+		"hash_refs":         rep.HashRefs,
 		// RFC_032: id attributes whose value was the RETIRED {{.ComponentID}}
 		// and is now {{.InstanceID}}. On the five section templates this is the
 		// ONLY non-zero count the conversion produces — every other counter
@@ -1622,14 +1622,21 @@ func fixScopeComponentInstanceJudged(ctx context.Context, params ActionParams, l
 		logger.Info("scope_component_instance_judged: baseline gates clean (script scoped since routing) — wrote the MECHANICAL conversion, LLM output discarded",
 			zap.String("function", function), zap.Int("snapshot_version", maxVersion+1))
 		return map[string]interface{}{
-			"fixed":            true,
-			"fix_type":         "scope_component_instance",
-			"converged_from":   "scope_component_instance_judged",
-			"function":         function,
-			"component_id":     componentIDStr,
-			"ids_declared":     len(rep.IDsDeclared),
-			"snapshot_version": maxVersion + 1,
-			"note":             "script was already scoped by the time the judged arm ran; mechanical conversion written, rewrite discarded",
+			"fixed":          true,
+			"fix_type":       "scope_component_instance",
+			"converged_from": "scope_component_instance_judged",
+			"function":       function,
+			"component_id":   componentIDStr,
+			"ids_declared":   len(rep.IDsDeclared),
+			// Same reason as the mechanical arm: a template whose only id was
+			// the retired {{.ComponentID}} produces zero in every other counter,
+			// so this is the only key that tells a real conversion from a no-op.
+			// The pre-commit twin check flagged its absence here and was right —
+			// this is a reporting addition, and a counter that exists on one arm
+			// of a pair is a census that silently under-reports.
+			"templated_id_swaps": rep.TemplatedIDSwaps,
+			"snapshot_version":   maxVersion + 1,
+			"note":               "script was already scoped by the time the judged arm ran; mechanical conversion written, rewrite discarded",
 		}, nil
 	}
 
