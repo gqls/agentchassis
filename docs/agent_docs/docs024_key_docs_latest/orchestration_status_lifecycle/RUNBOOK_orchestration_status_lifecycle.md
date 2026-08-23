@@ -80,6 +80,24 @@ sed 's/^COMMIT;$/ROLLBACK;/' "$FILE" | kubectl -n ai-persona-system exec -i post
 
 The runner has no single-file mode and `--apply` takes **every** pending file (~17 other threads').
 
+> **CORRECTED 2026-08-23 — it effectively DOES have one: scope the directory.** The runner reads
+> `MIGRATIONS_DIR`, so copying your one file into a temp dir gives a single-file apply that still
+> runs the probe and still records the row itself — no separate `--record-only`, and no chance of
+> sweeping another lane's pending file. Used to apply `566` on 2026-08-23:
+>
+> ```bash
+> SCOPED=$(mktemp -d); cp docs/agent_docs/sql_for_agents/<file>.sql "$SCOPED"/
+> MIGRATIONS_DIR="$SCOPED" ./scripts/migration/run-migrations.sh          # dry run: must list exactly 1
+> MIGRATIONS_DIR="$SCOPED" ./scripts/migration/run-migrations.sh --apply
+> ```
+>
+> **Why prefer this to the `psql -f` recipe below:** the probe executes your file verbatim in a
+> doomed transaction first, so a stale md5 guard, a lost arm or a query that no longer parses is
+> caught *before* anything is written — and `ok … ran to its own COMMIT` is a full rehearsal of the
+> verify block. Hand-applying with `psql -f` skips that and then needs `--record-only`, which is a
+> second chance to forget. The recipe below stays correct for a file the runner cannot contain
+> (its own `ROLLBACK`/`ABORT`, psql metas, `setval`), which the runner lists as "not probed".
+
 ```bash
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
   -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/<file>.sql
@@ -125,6 +143,27 @@ One INSERT. Forgetting it is a hard write failure at the first attempt — loud 
 > — one INSERT is genuinely all a terminal status needs. Nothing here needs changing for the
 > next one; the point of recording it is that the guarantee is new, and a reader of the pre-566
 > archive should not assume it held earlier.
+>
+> **⚠ AND THE PRICE OF THAT GUARANTEE, ADDED THE SAME DAY: `is_terminal` is now a DELETION
+> predicate.** Arm 3 deletes `status IN (… WHERE is_terminal)`, so marking a status terminal
+> also decides its retention — those rows go 24 hours after `updated_at`, fleet-wide, on the
+> next hourly sweep. The INSERT above is still one INSERT and still says nothing about this.
+> Two things follow for anyone adding a status here:
+> 1. **`is_pausable = true` is what spares a row**, and the note below is right that a pausable
+>    status needs no sweep change — but that is now because arm 4 checks the column, not because
+>    the sweep is indifferent. A status that is neither terminal nor pausable is reaped by arm 4;
+>    one that is pausable and not terminal is immortal **by design**.
+> 2. **Never set both flags on one row.** Arm 3 would delete it while arm 4 deliberately spares
+>    it — the two arms disagree and the destructive one wins. **There is no CHECK constraint
+>    stopping you** (verified 2026-08-23). Zero rows are both today; run the two queries in
+>    `LANDMINES.md` ("Setting `is_terminal` … now ARMS a 24-hour DELETE") before and after
+>    touching this table, with the row-count demand control, because both queries return empty
+>    when healthy and an empty table reads the same way.
+>
+> Raised as a medium advisory objection by the council `guardian` seat on 566's review
+> (`9d23ccd9-c16c-422d-8bf9-7b60e8b52795`, APPROVED). Recorded here rather than fixed with a
+> constraint: that is a seam change on a shared table and belongs in its own reviewed migration.
+> Flagged to this lane because the column gained a consequence it was not asked about.
 
 ```sql
 INSERT INTO orchestration_status_vocabulary (status, is_terminal, is_pausable, written_by, notes)
