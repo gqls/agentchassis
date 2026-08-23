@@ -15585,3 +15585,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the general shape, which is why this is here rather than in one lane's runbook:** **a literal scanner makes your commentary load-bearing.** Same class as `check_literal_markdown`'s `walkContentDataStrings` skipping every `_`-prefixed key, and as a source-scanning test that reads the first matching comment. When a checker greps text, the text you write ABOUT your work is inside its scope.
 - **source:** 2026-08-23, `bugfix_308_cta_destination_provenance` lane, Phase A rounds 5 and 6
 - **added:** 2026-08-23, `bugfix_308_cta_destination_provenance` lane
+
+### `cloudflared tunnel route dns <id> <host>` CREATES THE RECORD IN THE WRONG ZONE AND REPORTS SUCCESS — if the hostname's zone is not in the tunnel's account it silently appends the whole string to a zone that IS
+
+- **footprint:** `cloudflared tunnel route dns` · `/etc/cloudflared/config.yml` · `~/.cloudflared/cert.pem` · any `*.cfargotunnel.com` CNAME · adding a hostname to an existing tunnel · `docs024_key_docs_latest/webdesign_uk_build_service/box/` · `docs024_key_docs_latest/gauntlet_dead_cta/infra/island/`
+- **fires when:** you add a new hostname to a working tunnel with the documented one-liner. **The command exits 0 and prints `INF Added CNAME …`, so it reads as done.** Measured 2026-08-23: `cloudflared tunnel route dns 81f59f78-… admin.apis.uk` printed `Added CNAME admin.apis.uk.noted.co.uk`, creating a record for **`admin.apis.uk.noted.co.uk`** — a subdomain of a completely different zone — while `admin.apis.uk` itself gained nothing.
+- **the mechanism:** `route dns` resolves the hostname to one of the ZONES IN THE TUNNEL'S OWN ACCOUNT (whichever account `cert.pem` was minted for). When the intended zone is absent from that account, it does not fail; it treats the longest zone suffix it *does* hold as the zone and the entire remaining string as the record name. `admin.apis.uk` + a `noted.co.uk` zone therefore becomes the record `admin.apis.uk` inside `noted.co.uk`.
+- **why you will not catch it from DNS**, which is the second half of the trap: **on a Cloudflare zone with a proxied wildcard, every name resolves to the same anycast IPs whether or not it has its own record.** Comparing `dig +short admin.apis.uk` against `dig +short random-name.apis.uk` returns identical answers in both the working and broken states, and `dig +short CNAME <host>` returns nothing for a *proxied* record because the edge flattens it. A session that "checks DNS" here will confirm whatever it already believed.
+- **the check — read the command's own output, and verify in the ZONE, not in the resolver:**
+  ```bash
+  # 1. the output names the record it actually made. Compare it to what you asked for.
+  cloudflared tunnel route dns "$TUNNEL" admin.apis.uk   # -> "Added CNAME <READ THIS>"
+  # 2. the authoritative check is the zone's record list in the dashboard
+  #    (or the API), NOT a resolver:
+  #    Cloudflare -> <zone> -> DNS -> Records -> filter "admin"
+  #    want: CNAME  admin  ->  <TUNNEL-UUID>.cfargotunnel.com  (Proxied)
+  # 3. and confirm the zone is in the SAME account as the tunnel:
+  #    that account -> Websites  ... is the zone listed?
+  ```
+- **⚠ and the fix is not always "create the CNAME by hand":** a `*.cfargotunnel.com` CNAME only routes when the DNS record and the tunnel are **in the same Cloudflare account**. If the zone genuinely lives in another account, hand-creating the record produces a name that resolves and then fails at the edge. The real options are to move the zone into the tunnel's account, run a second tunnel authenticated to the zone's account, or pick a hostname in a zone the tunnel's account already holds.
+- **clean up the bogus record.** It is live, it resolves, and it points a plausible-looking name at your tunnel. Delete it in the zone it was wrongly created in.
+- **source:** 2026-08-23, `web_admin_console` lane, publishing the admin console at `admin.apis.uk` from the webdesign box's tunnel. The command reported success; the browser kept serving a 404 from a different box's probe vhost. Found by reading the `INF Added CNAME` line rather than trusting the exit code. My own DNS-based "still riding the wildcard" inference in the same session was unsound for the reason above — it happened to be right, and could not have been wrong.
