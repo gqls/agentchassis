@@ -314,3 +314,43 @@ remaining blind spot should be stated rather than assumed away.
 Whoever takes it: `apis.uk/index.html` is the standing repro, and it holds `needs_rebuild` from
 an unrelated 7-of-8 shortfall, so it rebuilds and re-collides on its own — a free test case that
 regenerates itself.
+
+### 9d. CORRECTED SAME DAY — the trigger is not "a rebuild", it is ANY per-section render, and it is firing in production now
+
+§9b named the trigger as a full page build, because that is the path I happened to reproduce.
+**That was too narrow, and the narrower version is the more comfortable one, which is exactly why
+it should be distrusted.** Measured a few hours later, at the end of the conversion:
+
+Of the 12 pages that were serving duplicate ids this morning, **9 are fixed and 3 are colliding
+again** — and all three carry the same signature, two sections both stamped the occurrence-0
+token `c-generic-text-block`. The 9 fixed pages had their sections written at 12:50–13:24 by the
+page-rerender queue (which uses `InstanceCounter` and gets it right). The 3 colliding pages were
+rewritten at **17:41–17:51**, hours after that queue drained, by:
+
+```
+item_type        handler_agent        created_by     completed_at
+content_rewrite  page-build-handler   backfill-353   2026-08-23 17:41:50
+content_rewrite  page-build-handler   backfill-353   2026-08-23 17:44:02
+```
+
+**An unrelated lane's content backfill.** Not a rebuild I triggered, not a section edit, not
+anything to do with this work. It renders sections one at a time, so it takes the occurrence-0
+path, and it silently re-collided pages that had been correct for four hours. All three pages are
+`rebuild_policy='generic'`, so this is not the owned-page `section_edit` delivery route either.
+
+**So the correct statement of the defect is: ANY path that renders a section on its own
+re-collides every multi-instance page it touches.** Page builds, content rewrites, section edits,
+and whatever is added next. These are ordinary, high-volume operations, which means:
+
+- The conversion **does not hold**. A page fixed today is fixed until the next content operation
+  touches it, and nothing warns anyone when it flips back.
+- **Counting converted templates, or converted stored HTML, measures the wrong thing.** All four
+  templates are converted and stay converted; 244 of 275 placements carry a `c-` prefix. Both
+  numbers stay healthy while pages re-collide, because `c-generic-text-block` twice *is* a `c-`
+  prefix twice. The only measurement that sees this is DISTINCTNESS per page, at the artefact.
+- The fix in §9c is therefore not a tidy-up to schedule; it is what makes the ruling's first half
+  durable. Until it lands, RFC_032 §8 is achieved at the corpus and only intermittently at the
+  page.
+
+Standing repro, no setup required: re-fetch `gaswholesalers.com/pricing-transparency.html` and
+`vetcomparison.uk/how-it-works.html` and count distinct `<section id>`.
