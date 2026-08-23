@@ -82,20 +82,82 @@
 -- what surfaces the remaining sixteen, by name, for their owning lanes to rule on.
 --
 -- ============================================================================
--- APPLY
+-- PRE-FLIGHT — two guards added on the council's debug_historian objections
+-- (round 1, correlation f610741f, both medium). Neither fires today; both are
+-- here because "it does not fire today" is not a property this file can rely on.
 -- ============================================================================
 BEGIN;
 
-SELECT snapshot_agent('domain-submitter',
-    'bugs_open/326: declare recurrence_expected on the build-chain handoff');
-SELECT snapshot_agent('domain-research-classifier',
-    'bugs_open/326: declare recurrence_expected on the build-chain handoff');
-SELECT snapshot_agent('vertical-exemplar-researcher',
-    'bugs_open/326: declare recurrence_expected on the build-chain handoff');
-SELECT snapshot_agent('domain-strategist',
-    'bugs_open/326: declare recurrence_expected on the build-chain handoff');
-SELECT snapshot_agent('build-briefing-agent',
-    'bugs_open/326: declare recurrence_expected on the build-chain handoff');
+-- GUARD 1: DUPLICATE ACTIVE ROWS.
+-- Four agent types fleet-wide carry TWO active, non-snapshot definition rows at
+-- once (measured 2026-08-23: content-creator, content-creator-contact,
+-- chief-strategist, site-component-architect), and only the higher version is
+-- ever loaded at runtime. A version-blind UPDATE on such a type patches a row
+-- that governs nothing, while the verify block below still counts a match and
+-- reports success — the customer path stays broken and the migration says it is
+-- fixed. None of these five is in that state today (each has exactly one active
+-- row, version 1), which is WHY this is an assertion and not a version filter:
+-- a filter would silently pick a row, an assertion refuses to guess.
+DO $$
+DECLARE dupes TEXT;
+BEGIN
+    SELECT string_agg(type || ' x' || n, ', ') INTO dupes FROM (
+        SELECT type, count(*) AS n FROM agent_definitions
+        WHERE is_active AND COALESCE(is_snapshot,false) = false AND deleted_at IS NULL
+          AND type IN ('domain-submitter','domain-research-classifier',
+                       'vertical-exemplar-researcher','domain-strategist','build-briefing-agent')
+        GROUP BY type HAVING count(*) > 1) q;
+    IF dupes IS NOT NULL THEN
+        RAISE EXCEPTION '572 REFUSED: these types carry MULTIPLE active definition rows (%) — '
+            'a version-blind UPDATE would patch a row that governs nothing while this '
+            'migration reported success. Resolve the duplicates, then re-run.', dupes;
+    END IF;
+END $$;
+
+-- GUARD 2: RE-RUN SAFETY, and the snapshot is INSIDE it.
+-- An unconditional `SELECT snapshot_agent(...)` before a fenced UPDATE is a
+-- documented landmine: a second apply (a hand re-run, a retry after a partial
+-- failure, the runner's ledger bypassed) takes a SECOND snapshot whose stated
+-- reason still says "pre-update" while it actually describes an already-updated
+-- row — which corrupts the rollback lineage precisely when someone is reaching
+-- for it. Gating the snapshot on the same pre-state marker that drives the
+-- UPDATE makes a re-run a true 0-row no-op rather than merely an idempotent
+-- end-state.
+DO $$
+DECLARE already INT;
+BEGIN
+    SELECT count(*) INTO already
+    FROM agent_definitions d
+    CROSS JOIN LATERAL (
+        SELECT CASE d.type WHEN 'domain-submitter' THEN 'create_research_item'
+                           ELSE 'create_next_item' END AS s
+    ) x
+    WHERE d.type IN ('domain-submitter','domain-research-classifier',
+                     'vertical-exemplar-researcher','domain-strategist','build-briefing-agent')
+      AND d.is_active AND COALESCE(d.is_snapshot,false) = false AND d.deleted_at IS NULL
+      AND d.default_config->'workflow'->'steps'->x.s->'config' ? 'recurrence_expected';
+
+    IF already = 5 THEN
+        RAISE NOTICE '572 NO-OP: all 5 build-chain steps already declare recurrence_expected; '
+            'skipping the snapshot so the rollback lineage is not polluted with a '
+            'post-update row labelled pre-update.';
+    ELSIF already > 0 THEN
+        RAISE EXCEPTION '572 REFUSED: % of 5 steps already declare the key — a PARTIAL prior '
+            'apply. Snapshotting now would label a mixed state as pre-update. Inspect '
+            'agent_definitions and finish or roll back the prior attempt by hand.', already;
+    ELSE
+        PERFORM snapshot_agent('domain-submitter',
+            'bugs_open/326: declare recurrence_expected on the build-chain handoff');
+        PERFORM snapshot_agent('domain-research-classifier',
+            'bugs_open/326: declare recurrence_expected on the build-chain handoff');
+        PERFORM snapshot_agent('vertical-exemplar-researcher',
+            'bugs_open/326: declare recurrence_expected on the build-chain handoff');
+        PERFORM snapshot_agent('domain-strategist',
+            'bugs_open/326: declare recurrence_expected on the build-chain handoff');
+        PERFORM snapshot_agent('build-briefing-agent',
+            'bugs_open/326: declare recurrence_expected on the build-chain handoff');
+    END IF;
+END $$;
 
 -- domain-submitter.create_research_item — the FRONT DOOR. A customer re-submitting after a
 -- failed build is the motivating case: this is the step that reported COMPLETED and queued

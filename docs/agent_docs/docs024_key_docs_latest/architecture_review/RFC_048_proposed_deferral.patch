@@ -1,0 +1,936 @@
+--- a/platform/orchestration/actions/load_work_item_actions.go
++++ b/platform/orchestration/actions/load_work_item_actions.go
+@@ -19,6 +19,7 @@
+ 	"fmt"
+ 	"os"
+ 	"strings"
++	"time"
+ 
+ 	"github.com/google/uuid"
+ 	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
+@@ -1459,6 +1460,13 @@
+ 	refreshOnConflict
+ )
+ 
++// antiChurnWindowHours is the brake's quiet period: how long after a terminal
++// sibling on the same (site_id, item_key) a repeat is held back rather than
++// dispatched. It was an unnamed 3.0 in the middle of a comparison; naming it is
++// what lets the deferral compute the REMAINDER of the window instead of parking
++// a flat interval, and what lets a test state the boundary without re-deriving it.
++const antiChurnWindowHours = 3.0
++
+ // workItemWrite is the honest outcome of a work-item write. It exists because a
+ // bool cannot carry it: `ON CONFLICT … DO UPDATE` affects a row, so RowsAffected
+ // would read "true" for a write that created nothing — reintroducing, inside
+@@ -1478,6 +1486,25 @@
+ 	// Inserted stays true — and feasibility-recheck promotes the row the moment
+ 	// an agent of that name is registered.
+ 	BornBlocked bool
++
++	// Deferred: the row WAS written, at the status the caller asked for, but
++	// with retry_after in the future because the anti-churn brake decided this
++	// key has been worked too recently or too often (bugs_open/326). Inserted
++	// stays true — the request is durably recorded and WILL dispatch, later.
++	//
++	// This field exists because its absence was the bug. Before it, the brake's
++	// two arms expressed themselves as `Inserted:false` (indistinguishable from
++	// a genuine open-item dedup, and the request simply gone) and as a row born
++	// 'unresolved' (terminal, undispatchable, and reading like a decision
++	// somebody made). Neither told the caller what had actually happened.
++	Deferred bool
++	// DeferredUntil is when the deferred row becomes dispatchable. Zero unless
++	// Deferred.
++	DeferredUntil time.Time
++	// PriorAttempts is the number of terminal siblings on this (site_id,
++	// item_key) inside the brake's 7-day window — the number the brake acted on.
++	// Zero when the brake did not fire.
++	PriorAttempts int
+ }
+ 
+ // Recorded reports whether a durable record now describes this finding, however
+@@ -1501,10 +1528,50 @@
+ 		batchIDPtr = &item.batchID
+ 	}
+ 
+-	// --- Two-strike rule: suppress within-cycle, label unresolved after 2 attempts ---
++	// --- The anti-churn brake: DELAY a repeat, never drop it, never bury it ---
++	//
+ 	// Skipped entirely for recurrence-expected items (see workItem.recurrenceExpected):
+ 	// for an action request a terminal predecessor is a SUCCESS, not a strike, and
+ 	// suppressing the re-request drops the very work that success depends on.
++	//
++	// WHAT CHANGED, AND WHY (bugs_open/326). The brake used to express itself two
++	// ways, and both LOST THE REQUEST:
++	//
++	//   - within-cycle (<3h since the newest terminal sibling) returned
++	//     `workItemWrite{}, nil` — no row, no error. The caller could not tell
++	//     that from a genuine open-item dedup, because it is the same value, and
++	//     create_work_item duly reported `deduped: true` over a request that had
++	//     simply evaporated. A re-submitted domain build died exactly here:
++	//     the second submission landed 2h28m after the first item was created,
++	//     and the operator saw a COMPLETED orchestration with no error.
++	//   - two-strike (>=2 terminal siblings in 7 days) rewrote the arriving
++	//     item's status to 'unresolved' — which is TERMINAL and is not in
++	//     workItemDispatchableStatuses, so the row was born dead, sat outside
++	//     idx_swi_dedup, and read to every human and dashboard like a decision
++	//     somebody had made. 635 of the 747 live 'unresolved' rows carry its
++	//     brand (measured 2026-08-23), the two biggest populations being
++	//     page_rerender and improve_tool — both ACTION REQUESTS.
++	//
++	// Both arms now DEFER instead: the row is written at the status the caller
++	// asked for, with retry_after set. The brake is preserved in full — nothing
++	// dispatches inside the window, because retry_after is honoured by the claim
++	// (claim_work_item_action.go), the dispatch loader (this file) and the
++	// completion verifier, all through the one renderer
++	// workItemRetryNotPendingSQL. It is also STRENGTHENED: a deferred row holds
++	// the dedup slot, so re-finds arriving during the window collapse onto it via
++	// idx_swi_dedup instead of each being separately swallowed.
++	//
++	// The bound on the two-strike defer is the failure ladder's own
++	// maxBackoffMinutes, and that is not a coincidence — its comment says it was
++	// chosen so "a fat-fingered backoff_minutes must not push a row past the
++	// stale-work-item-reaper's 48h ceiling on a triaged row". The same ceiling
++	// applies here, so the same bound is the right one to reuse rather than mint.
++	//
++	// NOTHING HERE TOUCHES A STATUS LIST OR AN INDEX PREDICATE. workItemTerminalStatuses
++	// is unchanged and the ON CONFLICT text below is byte-identical, so the
++	// idx_swi_dedup lockstep is untouched and there is no 42P10 exposure.
++	var deferUntil *time.Time
++	var priorAttempts int
+ 	if item.itemKey != "" && !item.recurrenceExpected {
+ 		var terminalCount int
+ 		var newestAge float64 // hours since most recent terminal item
+@@ -1520,25 +1587,58 @@
+ 		`, item.siteID, item.itemKey).Scan(&terminalCount, &newestAge)
+ 
+ 		if err == nil && terminalCount > 0 {
+-			// Within-cycle suppress: most recent terminal item is < 3h old
+-			if newestAge < 3.0 {
+-				logger.Info("insertWorkItem: suppressed — terminal item too recent",
+-					zap.String("item_key", item.itemKey),
+-					zap.Float64("age_hours", newestAge),
+-				)
+-				return workItemWrite{}, nil
+-			}
++			priorAttempts = terminalCount
+ 
+-			// Two strikes: handler had 2 chances and the issue persists.
+-			// Mark as unresolved so it's visible for investigation.
+-			if terminalCount >= 2 {
+-				logger.Info("insertWorkItem: marking unresolved — 2 prior attempts did not fix the issue",
++			// The disarm lever, not an opt-in. It ships ARMED — the owner has
++			// ruled against default-OFF switches that rot unexercised — and
++			// exists so an operator can put the brake back to its exact former
++			// behaviour fleet-wide with a redeploy-free env change if the
++			// deferral ever misbehaves. Same posture and same reasoning as
++			// DISABLE_UNREGISTERED_HANDLER_DEMOTION a few lines below.
++			legacy := os.Getenv("DISABLE_ANTI_CHURN_DEFERRAL") != ""
++
++			switch {
++			// Two strikes: the handler has had two goes and the issue persists.
++			// Slow the key down hard, but keep the request alive and claimable.
++			case terminalCount >= 2:
++				if legacy {
++					logger.Info("insertWorkItem: marking unresolved — 2 prior attempts did not fix the issue",
++						zap.String("item_key", item.itemKey),
++						zap.Int("prior_attempts", terminalCount),
++						zap.String("original_handler", item.handlerAgent),
++					)
++					item.status = "unresolved"
++					item.summary = fmt.Sprintf("[unresolved after %d attempts] %s", terminalCount, item.summary)
++					break
++				}
++				t := time.Now().Add(time.Duration(maxBackoffMinutes) * time.Minute)
++				deferUntil = &t
++				logger.Info("writeWorkItem: deferred — 2 prior attempts did not fix the issue (bugs_open/326)",
+ 					zap.String("item_key", item.itemKey),
+ 					zap.Int("prior_attempts", terminalCount),
+ 					zap.String("original_handler", item.handlerAgent),
++					zap.Time("retry_after", t),
++				)
++
++			// Within-cycle: the newest terminal sibling is younger than the
++			// brake's window. Defer by the REMAINDER of that window — not a flat
++			// interval, so a request arriving at 2h59m waits a minute rather than
++			// three hours, and the total quiet period per key is unchanged.
++			case newestAge < antiChurnWindowHours:
++				if legacy {
++					logger.Info("insertWorkItem: suppressed — terminal item too recent",
++						zap.String("item_key", item.itemKey),
++						zap.Float64("age_hours", newestAge),
++					)
++					return workItemWrite{}, nil
++				}
++				t := time.Now().Add(time.Duration((antiChurnWindowHours - newestAge) * float64(time.Hour)))
++				deferUntil = &t
++				logger.Info("writeWorkItem: deferred — terminal item too recent (bugs_open/326)",
++					zap.String("item_key", item.itemKey),
++					zap.Float64("age_hours", newestAge),
++					zap.Time("retry_after", t),
+ 				)
+-				item.status = "unresolved"
+-				item.summary = fmt.Sprintf("[unresolved after %d attempts] %s", terminalCount, item.summary)
+ 			}
+ 		}
+ 	}
+@@ -1640,6 +1740,16 @@
+ 		extraVals += fmt.Sprintf(", $%d", argN)
+ 		args = append(args, "Handler agent not registered: "+item.handlerAgent)
+ 	}
++	// retry_after joins the SAME conditional-column discipline for the SAME
++	// reason (bugs_open/326): a caller the brake did not touch sends the
++	// identical statement with the identical arguments it always sent, so no
++	// sqlmock expectation in any other lane changes shape.
++	if deferUntil != nil {
++		argN++
++		extraCols += ", retry_after"
++		extraVals += fmt.Sprintf(", $%d", argN)
++		args = append(args, *deferUntil)
++	}
+ 
+ 	insertSQL := fmt.Sprintf(`
+ 		INSERT INTO site_work_items (
+@@ -1671,7 +1781,16 @@
+ 			zap.String("status", item.status),
+ 			zap.Int("priority", item.priority),
+ 		)
+-		return workItemWrite{Inserted: true, BornBlocked: demotedUnroutable}, nil
++		w := workItemWrite{
++			Inserted:      true,
++			BornBlocked:   demotedUnroutable,
++			Deferred:      deferUntil != nil,
++			PriorAttempts: priorAttempts,
++		}
++		if deferUntil != nil {
++			w.DeferredUntil = *deferUntil
++		}
++		return w, nil
+ 	}
+ 
+ 	// Nothing was inserted: an OPEN item already holds this key. Under the
+--- a/platform/orchestration/actions/create_work_item_action.go
++++ b/platform/orchestration/actions/create_work_item_action.go
+@@ -51,6 +51,23 @@
+ //       anti-churn heuristics (dedup is NOT waived). For an action request a
+ //       'complete' predecessor is a SUCCESS, not a strike.
+ //
++//   "on_dedup":              "error"
++//       What to do when the write queued NOTHING because an open item already
++//       holds this key. Default "" is today's behaviour exactly: report success
++//       and carry on, which is right for a mid-pipeline step where converging on
++//       one open item IS the point.
++//
++//       "error" fails the step instead, naming the open holder. It exists for
++//       the FRONT DOOR (bugs_open/326): an operator re-submitting a domain after
++//       a half-finished build got a COMPLETED orchestration, no error, and no
++//       work — because "your request is already in hand" and "your request was
++//       not queued" were the same result. A step whose entire purpose is to
++//       queue work should not be able to report success without doing it.
++//
++//       Deliberately opt-in with the UNSAFE DEFAULT OFF (owner ruling
++//       2026-08-02 §2): it is new authority on a shared seam, so the decision
++//       belongs where a reviewer of the CALLER can see it, not in a doc comment.
++//
+ // Layering: spec_data, then spec_paths, then spec_literal — later wins.
+ //
+ // Registration (add to registry.go):
+@@ -60,8 +77,10 @@
+ 
+ import (
+ 	"context"
++	"database/sql"
+ 	"encoding/json"
+ 	"fmt"
++	"time"
+ 
+ 	"github.com/google/uuid"
+ 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+@@ -106,6 +125,7 @@
+ 		"item_key_prefix",       // :159
+ 		"item_key_suffix_field", // :184
+ 		"recurrence_expected",   // :198
++		"on_dedup",              // the dedup disposition; see the header
+ 		"spec_paths",            // :219
+ 		"spec_literal",          // :236
+ 	},
+@@ -370,10 +390,36 @@
+ 	}
+ 	inserted := w.Inserted
+ 
++	// on_dedup: the caller's declared disposition for "nothing was queued".
++	// Validated before the commit so a typo is a definition error the author
++	// meets immediately, not a silent fallback to the permissive branch — the
++	// same posture spec_paths takes a few lines above, and for the same reason.
++	onDedup, _ := config["on_dedup"].(string)
++	switch onDedup {
++	case "", "ignore", "error":
++	default:
++		return nil, fmt.Errorf("on_dedup: unknown value %q — use \"error\" to fail the step when nothing was queued, or omit it for today's silent-success behaviour", onDedup)
++	}
++
+ 	if err := tx.Commit(); err != nil {
+ 		return nil, fmt.Errorf("commit: %w", err)
+ 	}
+ 
++	// The front door refuses to report success over an empty queue.
++	//
++	// Read AFTER the commit, and deliberately: the write itself is legitimate
++	// either way — an open item holding the key is a correct outcome of a correct
++	// dedup — so this is a disposition the CALLER has declared about that
++	// outcome, not a failure of the write. Rolling back would suggest otherwise.
++	if onDedup == "error" && !w.Recorded() {
++		holder := describeOpenWorkItemHolder(ctx, params.DB, siteID, itemKey)
++		return nil, fmt.Errorf(
++			"on_dedup=error: no work was queued for item_key %q — %s. "+
++				"The work this step exists to queue is already in hand; if it is stalled, "+
++				"resolve or cancel that item and try again (bugs_open/326)",
++			itemKey, holder)
++	}
++
+ 	logger.Info("CreateWorkItemAction: complete",
+ 		zap.String("item_type", itemType),
+ 		zap.String("handler_agent", handlerAgent),
+@@ -412,9 +458,64 @@
+ 		// because handler_agent names no registered agent (bugs_open/291).
+ 		// Additive key — nothing consumed item_created.* before it existed.
+ 		"born_blocked": w.BornBlocked,
++
++		// deferred / retry_after / prior_attempts: the row EXISTS and WILL
++		// dispatch, but not yet — the anti-churn brake held it back
++		// (bugs_open/326). Additive, on the born_blocked precedent: no live
++		// definition branched on this action's output when these were added
++		// (measured 2026-08-23), so nothing can be surprised by them.
++		//
++		// Why they matter more than they look: before them, `deduped: true` had
++		// two meanings — "an open item covers this" and "the brake ate your
++		// request" — and the second one was the bug. It now has one.
++		"deferred":       w.Deferred,
++		"retry_after":    deferredUntilString(w),
++		"prior_attempts": w.PriorAttempts,
+ 	}, nil
+ }
+ 
++// deferredUntilString renders the deferral boundary for the result map, and
++// empty when there is none. A zero time.Time formats as a real-looking RFC3339
++// timestamp in the year 1, which is exactly the kind of value a reader trusts.
++func deferredUntilString(w workItemWrite) string {
++	if !w.Deferred || w.DeferredUntil.IsZero() {
++		return ""
++	}
++	return w.DeferredUntil.UTC().Format(time.RFC3339)
++}
++
++// describeOpenWorkItemHolder names the item that already holds this key, for the
++// on_dedup=error message. Best-effort by design: the caller has already decided
++// to fail, and a failed lookup must degrade the EXPLANATION, never swap the
++// disposition — so every error path here returns prose, not an error.
++//
++// The predicate is the same non-terminal set idx_swi_dedup uses, rendered from
++// the one shared list, so the row it names is necessarily the row that refused
++// the insert rather than a plausible-looking neighbour.
++func describeOpenWorkItemHolder(ctx context.Context, db *sql.DB, siteID uuid.UUID, itemKey string) string {
++	if db == nil || itemKey == "" {
++		return "no open item could be identified"
++	}
++	var id, status string
++	var ageHours float64
++	err := db.QueryRowContext(ctx, fmt.Sprintf(`
++		SELECT id::text, status,
++		       EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600.0
++		FROM site_work_items
++		WHERE site_id = $1 AND item_key = $2
++		  AND status NOT IN (%s)
++		ORDER BY created_at DESC
++		LIMIT 1
++	`, sqlInList(workItemTerminalStatuses)), siteID, itemKey).Scan(&id, &status, &ageHours)
++	if err != nil {
++		// Includes sql.ErrNoRows, which is itself informative: the key is held
++		// by nothing, so the write was held back by the anti-churn brake rather
++		// than by dedup. Saying so beats naming a row that is not there.
++		return "no open item holds that key — the write was held back by the anti-churn brake, not by dedup"
++	}
++	return fmt.Sprintf("an open item already covers it: %s (status %s, %.1fh old)", id, status, ageHours)
++}
++
+ // shouldWarnLoopDedup decides whether a non-inserted (deduped) work item
+ // deserves the bugs_open/321 loop-dedup Warn: only when the step is executing
+ // as a loop iteration. Loop context is read from the framework-injected
+--- a/platform/orchestration/actions/anti_churn_deferral_test.go
++++ b/platform/orchestration/actions/anti_churn_deferral_test.go
+@@ -0,0 +1,318 @@
++// FILE: platform/orchestration/actions/anti_churn_deferral_test.go
++//
++// bugs_open/326 — the anti-churn brake in writeWorkItem may DELAY a repeat
++// request. It may not drop it, and it may not bury it in a terminal status.
++//
++// WHAT THIS FILE PINS, AND WHY IT IS SEPARATE FROM work_item_recurrence_test.go.
++// That file is bugs_closed/024's: it establishes that the brake is wrong for an
++// ACTION REQUEST and that recurrenceExpected is the opt-out. This file is about
++// the callers who never set that flag — 19 of the 21 live keyed create_work_item
++// steps at the time of writing (measured 2026-08-23) — and about the 36 Go call
++// sites nobody is going to reclassify. For them the guarantee is weaker but
++// unconditional: your request is recorded and it will dispatch, later.
++//
++// ⚠ THE VACUOUS-PASS TRAP THIS FILE IS WRITTEN AGAINST (LANDMINES.md, footprint
++// load_work_item_actions.go): "A test asserting a query is NOT issued passes
++// VACUOUSLY against insertWorkItem — it swallows the error the mock raises."
++// Every test below therefore asserts an EFFECT — a pinned INSERT argument, a
++// returned outcome value — and never the absence of a call. The one place that
++// looks like an exception is the kill-switch's Arm A case, which expects NO
++// insert; it is non-vacuous for the opposite reason, spelled out at the callsite:
++// writeWorkItem RETURNS the Exec error rather than swallowing it, so the mutation
++// that removes the switch fails the test loudly.
++
++package actions
++
++import (
++	"context"
++	"database/sql/driver"
++	"fmt"
++	"regexp"
++	"testing"
++	"time"
++
++	"github.com/DATA-DOG/go-sqlmock"
++	"go.uber.org/zap"
++)
++
++// timeWithin matches a time.Time argument that lands inside [want±slack].
++//
++// A bare sqlmock.AnyArg() in the retry_after position would let the deferral be
++// any duration at all, including zero — which would pass while the brake was
++// doing nothing. The window is what makes the assertion mean something, and the
++// slack exists only to absorb wall-clock drift between the code computing the
++// stamp and the test computing its expectation.
++type timeWithin struct {
++	want  time.Time
++	slack time.Duration
++}
++
++func withinOf(want time.Time, slack time.Duration) timeWithin {
++	return timeWithin{want: want, slack: slack}
++}
++
++func (m timeWithin) Match(v driver.Value) bool {
++	got, ok := v.(time.Time)
++	if !ok {
++		return false
++	}
++	d := got.Sub(m.want)
++	if d < 0 {
++		d = -d
++	}
++	return d <= m.slack
++}
++
++// expectDeferredInsert pins the SEVENTEEN-argument insert a deferral produces:
++// the caller's own summary at $6, the caller's own status at $12, and
++// retry_after at $17 inside the expected window.
++//
++// The arg COUNT is load-bearing, exactly as it is for expectInsertWithSummaryAndStatus
++// next door: sqlmock fails on a length mismatch, so dropping the retry_after
++// column append fails this test even if every value assertion were relaxed.
++func expectDeferredInsert(mock sqlmock.Sqlmock, summary, status string, retryAfter timeWithin) {
++	mock.ExpectExec("INSERT INTO site_work_items").
++		WithArgs(
++			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
++			sqlmock.AnyArg(),
++			summary, // $6  — unbranded
++			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
++			sqlmock.AnyArg(),
++			status, // $12 — dispatchable
++			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
++			retryAfter, // $17 — the deferral
++		).
++		WillReturnResult(sqlmock.NewResult(1, 1))
++}
++
++// The disarm lever must produce EXACTLY the pre-326 behaviour on both arms —
++// that is the whole point of shipping one, and an untested lever is a lever
++// nobody can safely pull.
++//
++// This is also where the two assertions deleted from work_item_recurrence_test.go
++// went: the branded 'unresolved' row and the silent drop. They were correct
++// descriptions of the old behaviour and they are still correct descriptions of
++// what disarming restores, so they are kept rather than thrown away.
++func TestAntiChurn_KillSwitch_RestoresLegacyBehaviour(t *testing.T) {
++	t.Run("arm B brands the row unresolved again", func(t *testing.T) {
++		t.Setenv("DISABLE_ANTI_CHURN_DEFERRAL", "1")
++		db, mock := newInsertMock(t)
++		defer db.Close()
++
++		mock.ExpectBegin()
++		mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
++			WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(2, 5.0))
++		// SIXTEEN args — no retry_after — and the legacy brand.
++		expectInsertWithSummaryAndStatus(mock,
++			"[unresolved after 2 attempts] Re-render page after tool improvement",
++			"unresolved")
++
++		tx, err := db.Begin()
++		if err != nil {
++			t.Fatalf("begin: %v", err)
++		}
++		w, err := writeWorkItem(context.Background(), tx, baseItem(), dropOnConflict, zap.NewNop())
++		if err != nil {
++			t.Fatalf("writeWorkItem: %v", err)
++		}
++		if w.Deferred {
++			t.Error("Deferred must be false when the switch is set — the legacy path defers nothing")
++		}
++		if err := mock.ExpectationsWereMet(); err != nil {
++			t.Errorf("expectations: %v", err)
++		}
++	})
++
++	t.Run("arm A drops the item again", func(t *testing.T) {
++		t.Setenv("DISABLE_ANTI_CHURN_DEFERRAL", "1")
++		db, mock := newInsertMock(t)
++		defer db.Close()
++
++		mock.ExpectBegin()
++		mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
++			WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(1, 1.0))
++		// No INSERT registered.
++		//
++		// NOT A VACUOUS ABSENCE ASSERTION. If the mutation under test — deleting
++		// the switch, or inverting its sense — makes the code insert here, sqlmock
++		// returns "call to ExecQuery ... was not expected", and writeWorkItem
++		// RETURNS that error (`insert failed for %s: %w`) rather than logging past
++		// it. The t.Fatalf below is what fires. The landmine's swallowing case is
++		// the anti-churn PROBE, whose error is deliberately ignored; the INSERT's
++		// is not.
++
++		tx, err := db.Begin()
++		if err != nil {
++			t.Fatalf("begin: %v", err)
++		}
++		w, err := writeWorkItem(context.Background(), tx, baseItem(), dropOnConflict, zap.NewNop())
++		if err != nil {
++			t.Fatalf("writeWorkItem: %v — an INSERT was issued with the kill switch set", err)
++		}
++		if w.Inserted || w.Deferred {
++			t.Fatalf("legacy within-cycle path must drop the item: got %+v", w)
++		}
++		if err := mock.ExpectationsWereMet(); err != nil {
++			t.Errorf("expectations: %v", err)
++		}
++	})
++}
++
++// THE BUG'S OWN REQUIRED NEGATIVE CONTROL, and the reason candidate 1 ("put the
++// attempt in the item_key") was rejected.
++//
++// bugs_open/326's verification section: "Include a negative control: a genuine
++// duplicate submitted while the first is still `triaged` must still dedup, or
++// candidate 2 has simply removed the protection."
++//
++// Concurrency protection lives entirely in idx_swi_dedup, via the ON CONFLICT
++// clause — never in the anti-churn brake — so neither recurrenceExpected nor the
++// deferral may weaken it. Two operators submitting the same domain at once must
++// still produce one build.
++func TestWriteWorkItem_OpenHolderStillDedups_WhateverTheBrakeDoes(t *testing.T) {
++	for _, tc := range []struct {
++		name               string
++		recurrenceExpected bool
++		probe              bool // whether the brake's probe runs at all
++	}{
++		{"recurrence-expected item", true, false},
++		{"ordinary item", false, true},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			db, mock := newInsertMock(t)
++			defer db.Close()
++
++			mock.ExpectBegin()
++			if tc.probe {
++				// No terminal siblings: the brake has nothing to act on, so this
++				// isolates the dedup arm.
++				mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
++					WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
++			}
++			// RowsAffected 0 == ON CONFLICT DO NOTHING fired: an OPEN row holds
++			// the key. This is the outcome that must survive the fix.
++			mock.ExpectExec("INSERT INTO site_work_items").
++				WillReturnResult(sqlmock.NewResult(0, 0))
++
++			tx, err := db.Begin()
++			if err != nil {
++				t.Fatalf("begin: %v", err)
++			}
++			item := baseItem()
++			item.recurrenceExpected = tc.recurrenceExpected
++
++			w, err := writeWorkItem(context.Background(), tx, item, dropOnConflict, zap.NewNop())
++			if err != nil {
++				t.Fatalf("writeWorkItem: %v", err)
++			}
++			if w.Inserted {
++				t.Fatal("a second OPEN item for one (site_id, item_key) must never be created — " +
++					"idx_swi_dedup is the concurrency guarantee and nothing here may waive it")
++			}
++			if w.Deferred {
++				t.Error("a dedup against an open holder is not a deferral: the work IS queued")
++			}
++			if err := mock.ExpectationsWereMet(); err != nil {
++				t.Errorf("expectations: %v", err)
++			}
++		})
++	}
++}
++
++// A key with no terminal siblings must be byte-identical to before: the SIXTEEN
++// argument insert, no retry_after, nothing deferred.
++//
++// This is the regression guard for the ~20 lanes whose sqlmock expectations pin
++// the argument count. Widening the shared statement unconditionally is what
++// "failed twenty tests across eight files in lanes other sessions are working
++// right now" (load_work_item_actions.go's own comment); this test is what says
++// out loud that the deferral did not do that.
++func TestWriteWorkItem_NoTerminalSiblings_IsUnchanged(t *testing.T) {
++	db, mock := newInsertMock(t)
++	defer db.Close()
++
++	mock.ExpectBegin()
++	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
++		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
++	expectInsertWithSummaryAndStatus(mock,
++		"Re-render page after tool improvement", "triaged")
++
++	tx, err := db.Begin()
++	if err != nil {
++		t.Fatalf("begin: %v", err)
++	}
++	w, err := writeWorkItem(context.Background(), tx, baseItem(), dropOnConflict, zap.NewNop())
++	if err != nil {
++		t.Fatalf("writeWorkItem: %v", err)
++	}
++	if !w.Inserted || w.Deferred || w.PriorAttempts != 0 {
++		t.Errorf("untouched path changed shape: %+v", w)
++	}
++	if !w.DeferredUntil.IsZero() {
++		t.Errorf("DeferredUntil must stay zero when nothing was deferred, got %v", w.DeferredUntil)
++	}
++	if err := mock.ExpectationsWereMet(); err != nil {
++		t.Errorf("expectations: %v", err)
++	}
++}
++
++// The window remainder, at its boundaries — the property a flat interval would
++// silently lose. An arrival late in the window must wait the little that is
++// left of it, so the total quiet period per key is exactly what it always was.
++func TestWithinCycleDeferral_WaitsTheRemainderNotAFlatInterval(t *testing.T) {
++	for _, tc := range []struct {
++		ageHours float64
++		wantWait time.Duration
++	}{
++		{0.1, 174 * time.Minute}, // just after a terminal sibling: nearly the whole window
++		{1.0, 2 * time.Hour},
++		{2.99, 36 * time.Second}, // the case a flat 3h interval would get 300x wrong
++	} {
++		t.Run(fmt.Sprintf("age=%.2fh", tc.ageHours), func(t *testing.T) {
++			db, mock := newInsertMock(t)
++			defer db.Close()
++
++			mock.ExpectBegin()
++			mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
++				WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(1, tc.ageHours))
++			expectDeferredInsert(mock, "Re-render page after tool improvement", "triaged",
++				withinOf(time.Now().Add(tc.wantWait), 2*time.Minute))
++
++			tx, err := db.Begin()
++			if err != nil {
++				t.Fatalf("begin: %v", err)
++			}
++			w, err := writeWorkItem(context.Background(), tx, baseItem(), dropOnConflict, zap.NewNop())
++			if err != nil {
++				t.Fatalf("writeWorkItem: %v", err)
++			}
++			if !w.Deferred {
++				t.Fatal("expected a deferral inside the window")
++			}
++			if err := mock.ExpectationsWereMet(); err != nil {
++				t.Errorf("expectations: %v", err)
++			}
++		})
++	}
++}
++
++// The two-strike defer must stay inside the stale-work-item-reaper's 48h ceiling
++// on a triaged row, or the fix trades a dead-letter for a reaped row and the
++// request is lost anyway — the same outcome by a slower route.
++//
++// maxBackoffMinutes is reused rather than minted precisely because its own
++// comment records that constraint. This test is what stops someone "tidying" the
++// deferral onto a fresh constant that does not carry it.
++func TestTwoStrikeDeferral_StaysInsideTheStaleReaperCeiling(t *testing.T) {
++	const reaperCeilingHours = 48
++	got := time.Duration(maxBackoffMinutes) * time.Minute
++	if got >= reaperCeilingHours*time.Hour {
++		t.Fatalf("two-strike deferral of %v reaches or exceeds the %dh reaper ceiling: a deferred "+
++			"row would be reaped to 'unresolved' before it could ever be claimed", got, reaperCeilingHours)
++	}
++	// Not merely "under" — there must be real headroom, because the reaper keys
++	// on created_at and the row is created NOW.
++	if headroom := reaperCeilingHours*time.Hour - got; headroom < 24*time.Hour {
++		t.Errorf("only %v of headroom below the reaper ceiling; want at least 24h", headroom)
++	}
++}
+--- a/platform/orchestration/actions/work_item_recurrence_test.go
++++ b/platform/orchestration/actions/work_item_recurrence_test.go
+@@ -5,6 +5,7 @@
+ 	"database/sql"
+ 	"regexp"
+ 	"testing"
++	"time"
+ 
+ 	"github.com/DATA-DOG/go-sqlmock"
+ 	"github.com/google/uuid"
+@@ -104,65 +105,100 @@
+ 	}
+ }
+ 
+-// The regression itself: two COMPLETE predecessors are two SUCCESSES, but the
+-// rule counts them as failed attempts. Without the opt-in the row is born
+-// 'unresolved' — non-dispatchable — which is how the fix loop silently died.
+-func TestInsertWorkItem_TwoCompletedPredecessors_PoisonTheKey(t *testing.T) {
++// Two COMPLETE predecessors are two SUCCESSES, but the brake counts them as
++// failed attempts. It used to brand the arriving row 'unresolved' at birth —
++// terminal and non-dispatchable — which is how the fix loop silently died.
++//
++// REWRITTEN 2026-08-23 (bugs_open/326). This test used to be named
++// ..._PoisonTheKey and ASSERTED THE POISONING: `status 'unresolved'`, branded
++// summary, and it passed for as long as the defect existed. That is the right
++// test to have had — it documented the damage precisely — but the damage is now
++// fixed, so the assertion inverts: the row is born at the status the caller
++// asked for, unbranded, with retry_after set instead. The old expectation is
++// not deleted; it moved to TestAntiChurn_KillSwitch_RestoresLegacyBehaviour,
++// which is what the disarm lever must still produce.
++func TestInsertWorkItem_TwoCompletedPredecessors_DeferRatherThanPoison(t *testing.T) {
+ 	db, mock := newInsertMock(t)
+ 	defer db.Close()
+ 
+ 	mock.ExpectBegin()
+-	// 2 terminal rows, newest 5h old (past the 3h within-cycle suppression).
++	// 2 terminal rows, newest 5h old (past the within-cycle window).
+ 	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
+ 		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(2, 5.0))
+-	// The row is branded at birth: status 'unresolved' (non-dispatchable) and a
+-	// summary claiming two failed attempts — when both predecessors SUCCEEDED.
+-	expectInsertWithSummaryAndStatus(mock,
+-		"[unresolved after 2 attempts] Re-render page after tool improvement",
+-		"unresolved")
++	// SEVENTEEN args now: the deferral appends retry_after. The summary is the
++	// caller's own and the status is dispatchable — the two things the brand
++	// used to destroy.
++	expectDeferredInsert(mock,
++		"Re-render page after tool improvement", "triaged",
++		withinOf(time.Now().Add(maxBackoffMinutes*time.Minute), 5*time.Minute))
+ 
+ 	tx, err := db.Begin()
+ 	if err != nil {
+ 		t.Fatalf("begin: %v", err)
+ 	}
+ 
+-	inserted, err := insertWorkItem(context.Background(), tx, baseItem(), zap.NewNop())
++	w, err := writeWorkItem(context.Background(), tx, baseItem(), dropOnConflict, zap.NewNop())
+ 	if err != nil {
+-		t.Fatalf("insertWorkItem: %v", err)
++		t.Fatalf("writeWorkItem: %v", err)
+ 	}
+-	if !inserted {
+-		t.Fatal("expected the item to be inserted (labelled), not suppressed")
++	if !w.Inserted {
++		t.Fatal("expected the item to be inserted (deferred), not suppressed")
++	}
++	if !w.Deferred {
++		t.Error("Deferred must be true: the caller cannot otherwise tell this row will not dispatch yet")
++	}
++	if w.PriorAttempts != 2 {
++		t.Errorf("PriorAttempts = %d, want 2 — the number the brake acted on", w.PriorAttempts)
+ 	}
+ 	if err := mock.ExpectationsWereMet(); err != nil {
+ 		t.Errorf("expectations: %v", err)
+ 	}
+ }
+ 
+-// Within-cycle suppression drops the item ENTIRELY (returns false, no row).
+-// For an action request that is the most damaging branch: a fix lands, its
+-// re-render completes, a second fix lands an hour later — and the re-render
+-// that would deploy it is silently discarded.
+-func TestInsertWorkItem_WithinCycleSuppression_DropsItem(t *testing.T) {
++// Within-cycle: a fix lands, its re-render completes, a second fix lands an
++// hour later. The brake used to drop that second re-render ENTIRELY — no row,
++// no error, `Inserted:false` — and the request was simply gone.
++//
++// REWRITTEN 2026-08-23 (bugs_open/326). Formerly ..._DropsItem, and it asserted
++// the drop. That branch is what made a re-submitted domain build report success
++// and queue nothing: 2h28m after the first item was created, inside this
++// window. The row is now written and deferred by the REMAINDER of the window,
++// so the brake still holds the key quiet for exactly as long as before while the
++// request survives it.
++func TestInsertWorkItem_WithinCycleWindow_DefersRatherThanDrops(t *testing.T) {
+ 	db, mock := newInsertMock(t)
+ 	defer db.Close()
+ 
+ 	mock.ExpectBegin()
+-	// 1 terminal row, 1h old — inside the 3h window.
++	// 1 terminal row, 1h old — inside the window, so 2h of it remain.
+ 	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
+ 		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(1, 1.0))
+-	// No INSERT expected: the item is suppressed.
++	expectDeferredInsert(mock,
++		"Re-render page after tool improvement", "triaged",
++		withinOf(time.Now().Add(2*time.Hour), 5*time.Minute))
+ 
+ 	tx, err := db.Begin()
+ 	if err != nil {
+ 		t.Fatalf("begin: %v", err)
+ 	}
+ 
+-	inserted, err := insertWorkItem(context.Background(), tx, baseItem(), zap.NewNop())
++	w, err := writeWorkItem(context.Background(), tx, baseItem(), dropOnConflict, zap.NewNop())
+ 	if err != nil {
+-		t.Fatalf("insertWorkItem: %v", err)
++		t.Fatalf("writeWorkItem: %v", err)
++	}
++	if !w.Inserted {
++		t.Fatal("within-cycle arrival must be RECORDED and delayed, never dropped (bugs_open/326)")
+ 	}
+-	if inserted {
+-		t.Fatal("expected within-cycle suppression to drop the item")
++	if !w.Deferred {
++		t.Error("Deferred must be true")
++	}
++	// The remainder, not a flat interval: an arrival at 2h59m must wait a
++	// minute, not three hours. Asserted through the argument matcher above; this
++	// checks the same boundary on the returned value, which is what a caller
++	// reads.
++	if got := time.Until(w.DeferredUntil); got > 2*time.Hour+5*time.Minute || got < 2*time.Hour-5*time.Minute {
++		t.Errorf("DeferredUntil is %v away, want ~2h (the REMAINDER of a %vh window entered at 1h)",
++			got.Round(time.Minute), antiChurnWindowHours)
+ 	}
+ 	if err := mock.ExpectationsWereMet(); err != nil {
+ 		t.Errorf("expectations: %v", err)
+--- a/platform/orchestration/actions/write_render_audit_findings_test.go
++++ b/platform/orchestration/actions/write_render_audit_findings_test.go
+@@ -60,6 +60,23 @@
+ 	return strings.Contains(s, a.substr)
+ }
+ 
++// argNotContains asserts a string argument does NOT carry a substring.
++//
++// It exists so "the summary is the finding's own, unbranded" can be asserted as
++// an EFFECT rather than as sqlmock.AnyArg(), which would pass whatever the code
++// wrote. Added 2026-08-23 with bugs_open/326: the two-strike brand it watches
++// for used to be REQUIRED here, so an AnyArg would have quietly accepted its
++// return.
++type argNotContains struct{ substr string }
++
++func (a argNotContains) Match(v driver.Value) bool {
++	s, ok := v.(string)
++	if !ok {
++		return false
++	}
++	return !strings.Contains(s, a.substr)
++}
++
+ func renderAuditCollected(siteID uuid.UUID, payload map[string]interface{}) map[string]interface{} {
+ 	return map[string]interface{}{
+ 		"site_id": siteID.String(),
+@@ -257,23 +274,46 @@
+ 	}
+ }
+ 
+-// TestWriteRenderAuditFindings_ThirdOccurrenceIsBornUnresolvedNotDropped is
+-// the direct answer to council e49f5935's gating objection (bug_historian,
+-// high): "omitting recurrenceExpected silently drops the third occurrence."
+-// It does not: for a DETECTED DEFECT the two-strike rule INSERTS the third
+-// occurrence with status 'unresolved' and a loud label — parked for the admin
+-// dashboard's attention queues, not vanished. The test pins both halves:
++// TestWriteRenderAuditFindings_ThirdOccurrenceIsDeferredNotDropped is the
++// direct answer to council e49f5935's gating objection (bug_historian, high):
++// "omitting recurrenceExpected silently drops the third occurrence."
++// It does not. The test pins both halves:
+ //
+ //   - the two-strike pre-check RUNS (recurrenceExpected must stay false: if a
+ //     session "fixes" the objection by setting it, the INTERVAL query is never
+ //     issued and this test fails on an unmet expectation), and
+-//   - the third occurrence is INSERTED, born 'unresolved' with the
+-//     "[unresolved after 2 attempts]" prefix — not suppressed.
++//   - the third occurrence is INSERTED — not suppressed.
++//
++// > **UPDATED 2026-08-23 (bugs_open/326) — the OBJECTION this test answers is
++// > unchanged and still answered; WHAT the brake does to the third occurrence
++// > changed underneath it, and this lane was a consumer of that behaviour.**
++// >
++// > It used to be born `unresolved` with an "[unresolved after 2 attempts]"
++// > prefix — "parked for the admin dashboard's attention queues, not vanished",
++// > as this comment said. That reading was too kind to the old behaviour:
++// > `unresolved` is in workItemTerminalStatuses AND absent from
++// > workItemDispatchableStatuses, so the row was parked in a place nothing
++// > drains — 635 of 747 live `unresolved` rows carried that brand on 2026-08-23,
++// > and no revalidator covers this item_type.
++// >
++// > The brake now DEFERS instead: the row is written at the status the caller
++// > asked for, with `retry_after` set 12h out (the failure ladder's
++// > maxBackoffMinutes, reused because its own comment records that it is bounded
++// > to stay inside the stale-reaper's 48h ceiling). So the third occurrence is
++// > still inserted, still slowed down, and now actually reachable — the
++// > dispatch loader and the claim both honour retry_after.
++// >
++// > The assertions below move from `status 'unresolved'` + branded summary to
++// > the caller's own status + unbranded summary + a 17th argument. The old
++// > expectations are not lost: they are what
++// > TestAntiChurn_KillSwitch_RestoresLegacyBehaviour pins as the disarm
++// > behaviour of DISABLE_ANTI_CHURN_DEFERRAL.
+ //
+ // Mutation-proven 2026-08-03: setting recurrenceExpected=true on the contrast
+ // item fails this test twice over (unmet INTERVAL expectation; status arrives
+-// 'detected'); deleting the two-strike block fails it the same way.
+-func TestWriteRenderAuditFindings_ThirdOccurrenceIsBornUnresolvedNotDropped(t *testing.T) {
++// 'detected'); deleting the two-strike block fails it the same way. Both
++// mutations still fail it after the 2026-08-23 update.
++func TestWriteRenderAuditFindings_ThirdOccurrenceIsDeferredNotDropped(t *testing.T) {
+ 	db, mock, err := sqlmock.New()
+ 	if err != nil {
+ 		t.Fatalf("sqlmock: %v", err)
+@@ -294,12 +334,16 @@
+ 	mock.ExpectQuery("INTERVAL '7 days'").
+ 		WithArgs(siteID, "contrast_failure:/faq.html#p.answer").
+ 		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(2, 24.0))
++	// SEVENTEEN arguments now: the deferral appends retry_after ($17). The
++	// summary is the finding's own and the status is the one the caller asked
++	// for — the two things the old 'unresolved' brand destroyed.
+ 	mock.ExpectExec("INSERT INTO site_work_items").
+ 		WithArgs(siteID, "render-audit", "build", "contrast_failure", "medium",
+-			argContains{substr: "[unresolved after 2 attempts]"},
++			argNotContains{substr: "[unresolved after"},
+ 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+-			60, "css-patch-agent", "unresolved", sqlmock.AnyArg(),
+-			"contrast_failure:/faq.html#p.answer", sqlmock.AnyArg(), sqlmock.AnyArg()).
++			60, "css-patch-agent", "detected", sqlmock.AnyArg(),
++			"contrast_failure:/faq.html#p.answer", sqlmock.AnyArg(), sqlmock.AnyArg(),
++			sqlmock.AnyArg()).
+ 		WillReturnResult(sqlmock.NewResult(0, 1))
+ 	mock.ExpectCommit()
+ 
+@@ -324,7 +368,7 @@
+ 	}
+ 	m := out.(map[string]interface{})
+ 	if m["inserted"] != 1 {
+-		t.Fatalf("third occurrence must be INSERTED (born unresolved), got %#v", m)
++		t.Fatalf("third occurrence must be INSERTED (deferred, not dropped), got %#v", m)
+ 	}
+ 	if err := mock.ExpectationsWereMet(); err != nil {
+ 		t.Fatalf("unmet expectations: %v", err)
+--- a/platform/orchestration/actions/create_work_item_config_contract_test.go
++++ b/platform/orchestration/actions/create_work_item_config_contract_test.go
+@@ -42,6 +42,7 @@
+ 		"item_key_prefix":       "config[\"item_key_prefix\"] :159",
+ 		"item_key_suffix_field": "config[\"item_key_suffix_field\"] :184",
+ 		"recurrence_expected":   "config[\"recurrence_expected\"] :198",
++		"on_dedup":              "config[\"on_dedup\"], the dedup disposition (bugs_open/326)",
+ 		"spec_paths":            "config[\"spec_paths\"] :219",
+ 		"spec_literal":          "config[\"spec_literal\"] :236",
+ 	}

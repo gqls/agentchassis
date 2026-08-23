@@ -91,6 +91,28 @@ watched end to end. **Status: OPEN, UNOWNED. Live. Customer-facing.**
 > verification substituted and stated, per the ruling's escape hatch. Full evidence and
 > every query: `docs/agent_docs/docs024_key_docs_latest/bugfix_326_retry_the_front_door/NOTES_326_retry_the_front_door.md`.
 >
+> ### STATUS 2026-08-23: the customer path is FIXED AND LIVE; the framework half is vetoed and routed
+>
+> **Migration 572 is applied.** The five build-chain handoffs now declare
+> `recurrence_expected: true`, so a re-submission after a finished build queues work instead of
+> vanishing. Verified at the artefact: the new census (`scripts/audit-undeclared-recurrence.sh`)
+> went 19 → 14 findings and **no build-chain step is undeclared any more**. The negative control
+> is unaffected and enforced by the database, not by config — `idx_swi_dedup` still refuses a
+> second OPEN item, so two simultaneous submissions of one domain still produce one build.
+>
+> **The wider fix — making the brake DEFER rather than destroy, for all 36 Go call sites and the
+> 14 still-undeclared config steps — was REJECTED by the council gate on a guardian hard veto**
+> (corr `f610741f-5054-41e8-b0b7-54915d79ba92`), on the ground that it is a fleet-wide
+> architecture change bundled into an urgent point fix, and that 572 alone closes this bug. Both
+> points are right. It is routed to
+> `docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_048_the_anti_churn_brake_may_delay_work_but_may_not_destroy_it.md`
+> with the patch beside it and three options costed. **Not resubmitted** — a scope veto is not
+> answered with better measurements.
+>
+> **So this bug stays OPEN**, and what is still open is precisely: an unclassified caller's
+> request can still be destroyed silently. `bugs_open/327` (the trigger's own silence) and
+> migration 573 (`_HOLD`, the loud front door) are the other two residuals.
+>
 > *Caught by the bugs_open/326 fix lane. The loanzy.uk lane, which filed this, has recorded
 > the matching correction in its own NOTES and runbook rather than having it forked here.*
 

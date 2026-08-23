@@ -268,3 +268,48 @@ Re-run correlation `f610741f-5054-41e8-b0b7-54915d79ba92`, confirmed live at
   and have removed it. Recording it here because I nearly carried a refuted mechanism
   into a bug file on a peer's say-so — **a subagent's or a peer's report is another
   doc**, and this one was corrected by its own author before I could ground it.
+
+## 2026-08-23 — COUNCIL: REJECTED, guardian hard veto. The veto is right and I am not contesting it
+
+Corr `f610741f-5054-41e8-b0b7-54915d79ba92`, round 1. 14 seats: 11 approve, 2 object, 1 veto.
+
+**The veto, in its own words:** *"The customer-facing bug is already fully closed by edit 4
+alone… Edit 1 is therefore not required to fix the filed bug; it is a separate, fleet-wide
+architecture decision bundled into an urgent point-fix submission. That is the veto-criterion
+pattern: architecture change dressed as a point fix."* And on shape: the deferral *"flips
+default behaviour for everyone and only offers a global env-var kill switch"*, where the owner
+ruling of 2026-08-02 §2 asks for opt-in-per-caller with the unsafe side OFF.
+
+**Both halves are correct, and the first one is the one I should have seen myself.** Migration
+572 alone closes `bugs_open/326`. I had the deferral evidence in hand and bundled it, which is
+exactly the pattern the criterion exists to catch. CLAUDE.md: *"A veto on SCOPE is not answered
+by resubmitting with better measurements."* So I have not resubmitted.
+
+**What I did instead**, which is the guardian's own named alternative:
+- Landed edits 3/4/5 + docs (`d0930af6f`, `74c527f56`) — it said it would approve those alone.
+- **Applied 572.** Census 19 → 14 findings; **no build-chain step is undeclared any more.**
+- Routed the seam to `architecture_review/RFC_048_…`, with the patch beside it, three options
+  costed, and my own view marked as a view.
+- **Reverse-applied my own patch out of the shared tree** so a vetoed change cannot ship on
+  another session's roll. Verified their `bugs_open/345` hunk survived byte-for-byte (`+4/−1`,
+  the `stop_on_repeat_failure_item_types` line) — reverting a shared file is exactly where you
+  clobber somebody.
+
+**Objections acted on, not banked:**
+
+| seat | objection | what I did |
+|---|---|---|
+| debug_historian (med) | unconditional `snapshot_agent` before a fenced UPDATE — a re-run takes a second snapshot labelled "pre-update" over an already-updated row | both migrations now gate the snapshot on the same pre-state marker that drives the UPDATE; a re-run is a true no-op |
+| debug_historian (med) | version-blind `WHERE` on a table where four types carry TWO active rows | **checked: none of my five is in that state** (one active row each, version 1) — but both migrations now REFUSE outright if any target has duplicates, because "it does not fire today" is not a property a file can rely on |
+| bug_historian (low) | is `bugs_open/091` the same root cause? | **No, and it is not open.** `bugs_closed/091` (CLOSED 2026-08-03, live v1.0.1237) is the INDEX arm dropping a second, *different* finding while an earlier item is OPEN — remedied by `refreshOnConflict`. Mine is the anti-churn brake above it. Sibling arm, same family, already fixed; the class continues in `bugs_open/184`. The seat flagged it from the title alone and said so. |
+| architecture (med) | `retry_after` now carries two causal meanings; no test exercises the three readers against a deferred-but-never-failed row | **True, and I did not write it.** Recorded as owed work in RFC_048 §4 and pointed at RFC_043, whose contract it extends |
+| tooling_provenance (low) | no `doc_notes` row for the design decision under a stable subject_key | written, subject_key `create_work_item` |
+| reuse_agent (low) | confirm the audit extends the existing binary rather than forking one | it does — a new mode in `cmd/config-key-audit`, dispatched from the same `main.go` |
+| editquality (low) | 572 assumes four targets share the step name `create_next_item` | true, and self-protecting: the verify block RAISEs if a targeted step is not a `create_work_item` step |
+
+**The one I could not act on**, recorded because it bounds what the verdict is worth: the
+guardian noted *"No SQL exists in this schema to inspect index definitions (idx_swi_dedup) or Go
+status-list constants — the plan's central claim about which arms the index excludes cannot be
+checked by this council tier and must be taken on the author's word."* The council could not
+verify my central correction. It is in this file with its query, and `prior_art_librarian`
+independently attached a `pg_indexes` check that agrees.

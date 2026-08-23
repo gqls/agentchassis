@@ -68,8 +68,46 @@
 -- ============================================================================
 BEGIN;
 
-SELECT snapshot_agent('domain-submitter',
-    'bugs_open/326: on_dedup=error so a submission that queues nothing cannot report COMPLETED');
+-- RE-RUN SAFETY, with the snapshot INSIDE the guard (council round 1, correlation
+-- f610741f, debug_historian, medium — and it flagged THIS file as the higher risk
+-- of the two, correctly: a _HOLD migration is applied BY HAND, out of band, by an
+-- operator following a runbook, which is exactly the setting where an accidental
+-- second apply happens).
+--
+-- An unconditional `SELECT snapshot_agent(...)` before a fenced UPDATE takes a
+-- second snapshot on re-run whose reason still says "pre-update" while describing
+-- an already-updated row — corrupting the rollback lineage at the moment someone
+-- is reaching for it. Gate it on the same pre-state marker that drives the UPDATE
+-- and a re-run becomes a true no-op instead.
+DO $$
+DECLARE current_val TEXT; dupes INT;
+BEGIN
+    SELECT count(*) INTO dupes FROM agent_definitions
+     WHERE type = 'domain-submitter' AND is_active
+       AND COALESCE(is_snapshot,false) = false AND deleted_at IS NULL;
+    IF dupes <> 1 THEN
+        RAISE EXCEPTION '573 REFUSED: domain-submitter has % active definition rows, expected 1 — '
+            'only the higher version is loaded at runtime, so a version-blind UPDATE could '
+            'patch a row that governs nothing while this migration reported success.', dupes;
+    END IF;
+
+    SELECT default_config->'workflow'->'steps'->'create_research_item'->'config'->>'on_dedup'
+      INTO current_val
+      FROM agent_definitions
+     WHERE type = 'domain-submitter' AND is_active
+       AND COALESCE(is_snapshot,false) = false AND deleted_at IS NULL;
+
+    IF current_val = 'error' THEN
+        RAISE NOTICE '573 NO-OP: on_dedup is already "error"; skipping the snapshot so the '
+            'rollback lineage is not polluted with a post-update row labelled pre-update.';
+    ELSIF current_val IS NOT NULL THEN
+        RAISE EXCEPTION '573 REFUSED: on_dedup is already %, not NULL and not "error" — '
+            'somebody set it deliberately. Resolve by hand.', current_val;
+    ELSE
+        PERFORM snapshot_agent('domain-submitter',
+            'bugs_open/326: on_dedup=error so a submission that queues nothing cannot report COMPLETED');
+    END IF;
+END $$;
 
 UPDATE agent_definitions
    SET default_config = jsonb_set(default_config,
