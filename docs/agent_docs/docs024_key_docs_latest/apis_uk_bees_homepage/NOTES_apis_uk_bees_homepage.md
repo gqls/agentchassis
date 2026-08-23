@@ -606,3 +606,39 @@ STRUCTURE. It does not fix the copy — the duplicate headings and the placehold
 **Owner decision, not mine:** whether to restore attempt 2's copy, accept attempt 3's, or
 spend another build. I have stopped iterating — three builds is enough to have established
 that more attempts at the same lever will not fix a defect that lives in the section plan.
+
+## 2026-08-23 — DONE. Attempt 2's copy restored and live
+
+Owner: *"just get the page done."* Stopped iterating on the brief and shipped the best
+framework-written version we had.
+
+Route 3 from the previous entry worked on a simpler statement (no TEMP TABLE, direct
+`UPDATE … FROM (SELECT … jsonb_array_elements … WITH ORDINALITY)`): attempt 2's
+`content_data` and `rendered_html` recovered from orchestration `7304b797` for all 7 slots,
+then `page-rerender` to assemble and deploy.
+
+**Live and verified at the artefact** (served bytes confirmed equal to repo commit
+`fba43582f` before believing anything, per the deploy-lag landmine):
+
+| check | result |
+|---|---|
+| served | **63,726 bytes**, HTTP 200 |
+| inline CSS | **51,023** (styled) |
+| footer | present |
+| other-service disclosure | **0** |
+| voice tells (was **12**) | **0** |
+| `check_evidence_base.py apis.uk` | ALL CONSISTENT (37 bans, 23 forbidden, 12 permitted) |
+| `tools.apis.uk` liveness POST | **200** |
+
+**Known and accepted imperfection:** four of the six content sections are about solitary
+bees (*Most bees keep no company at all* · *A solitary life in an old beetle hole* · *A nest
+built for one* · *The bees that live alone*) and two about a worker's changing job. The
+waggle dance, wax/comb and swarming subjects are not on the page. This is the section-plan
+defect recorded above — six identical `generic-text-block` slots with no per-section subject
+— and three builds established it is **not** reachable by editing the brief. Fixing it means
+per-section subjects in the plan itself, which is a separate piece of work and needs the
+planner path traced first (still `[UNVERIFIED]` where `roadmap_brief` lands).
+
+**Do not re-render or rebuild this page without reading the entry above** — the specs are
+correct but the plan is not, and a rebuild will re-introduce duplicate sections and the
+placeholder hero.
