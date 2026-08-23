@@ -244,13 +244,23 @@ LLM for the three best sites in the vertical and crawls each with `firecrawl_cra
 nominates. The crawl steps have **no `on_error`**, so one refusal kills the child orchestration and
 discards the crawls that already succeeded.
 
-**It is terminal, not degrading.** `create_next_item` — the step that queues `needs_strategy` — is
+> **⚠ CORRECTED 2026-08-23 20:06Z, 35 minutes after this section was written.** Two claims below are
+> too strong and are retracted in `bugs_open/376` §4b. **A fifth exemplar draw dropped the refused
+> host** (substituting `burgonandball.com`, taken from `identity.competitors_found` — the branch I
+> had said never fires), cleared all three crawls, wrote a `vertical_landscape` spec and queued
+> `needs_strategy`. **The build is alive and at hop three.** So: the refused host appears in **4 of
+> 5 draws, not 5 of 5**; retry is a *low-probability escape*, not an impossibility. What stands
+> unchanged is the mechanism — no `on_error`, sole producer of `needs_strategy` — and therefore that
+> an exhausted 3-attempt budget **is** terminal, which is exactly how the first submission died.
+> Read the two paragraphs below as "4-in-5 tax against a 3-attempt budget", not as "inescapable".
+
+**It is terminal when the retry budget runs out, which is usually — but not always.** `create_next_item` — the step that queues `needs_strategy` — is
 the **last** step, reachable only after all three crawls, and it is the **only** producer of that
 item type anywhere in the estate (swept every live agent's steps, 2026-08-23: one row). So the
 cascade stops permanently at its second hop. `garden-tools.uk` has four classifier specs, a site
 row, and will never get a strategy from that attempt.
 
-**Retrying cannot route around it, and this is the counter-intuitive part.** `select_exemplars`
+**Retrying rarely routes around it (4 of 5 draws contained the refused host), and this is the counter-intuitive part.** `select_exemplars`
 pins no temperature, so it is tempting to expect a different pick next time. Measured across two
 attempts on the same build: **the same three sites, re-ordered** — attempt 1 died at
 `crawl_exemplar_2` (thespruce.com in slot 2), attempt 2 at `crawl_exemplar_3` (thespruce.com in slot

@@ -177,3 +177,39 @@ changed days ago for innocent reasons. Run in the order we were given, I would h
 that our build had destroyed another site's work. And a bug this lane filed four days ago blamed the
 wrong mechanism entirely; another team found the real one, and I have corrected the four documents
 that had been repeating it since.
+
+---
+
+**2026-08-23, 20:10 — correction: the build is not dead. It got past the wall half an hour after I
+told you it could not.**
+
+I need to correct what I wrote earlier this evening. I said the build had died permanently and that
+trying again would never help, because it had chosen the same three example sites four times running
+and been refused by the same one each time.
+
+On the fifth try it chose differently. It dropped the site we cannot read, picked a British garden
+tool maker instead, read all three successfully, and carried on. It has written up what it learned
+about the field and has moved to the next stage, which is deciding the site's strategy. As I write
+this it is working on that.
+
+So the honest position is narrower than the one I gave you. The flaw is real: one unreadable example
+still throws away the whole step including the examples it read fine, and if that happens three
+times the build dies for good — which is exactly what happened to the first attempt. But it is a
+four-in-five problem, not a certainty, and I described a run of bad luck as if it were a law.
+
+**That is the second time today I have done that**, and it is the thing I would most want you to
+take from the day. This morning I explained a delay with a theory built on fourteen consistent
+observations, and it fell apart twenty minutes later. This evening I said "disproved" on the
+strength of four, and it fell apart in thirty minutes. Both times the machine handed me the
+counter-example for free, simply by carrying on running, and both times I had already written the
+strong version down.
+
+The rule I have written into the notes is simple enough to hold onto: **if what I have is a count,
+the claim has to contain the count.** "Four times out of five" was always what I actually knew, and
+it would still be true now.
+
+I have corrected the bug report, the notes, and both handover documents. I have kept the wrong ones
+rather than tidying them away — a handover whose title says "it died" and which was wrong within the
+hour is worth more as a record than as an embarrassment.
+
+The build continues. I am not touching it.
