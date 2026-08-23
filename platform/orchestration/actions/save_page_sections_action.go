@@ -388,8 +388,14 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// Runs for BOTH metadata and HTML paths — metadata path often lacks component_id,
 	// and HTML path may have generic section names.
 	if params.DB != nil && len(sections) > 0 {
+		// The planned-name pass is UNCHANGED and still runs: the slot name is the
+		// page's positional identity, it keeps the row in step with pages.sections,
+		// and it is the key Layer 2 matches on. Only the COMPONENT binding below
+		// learns to decline (RFC_046 / bugs_open/357 — the damage is on the
+		// component axis, the landmine is on the slot axis).
 		enrichSectionsWithPlannedNames(ctx, params.DB, pageID, sections, params.Logger)
-		enrichSectionsWithComponentIDs(ctx, params.DB, sections, params.Logger)
+		enrichSectionsWithComponentIDs(ctx, params.DB, sections, params.Logger,
+			configBoolOrDefault(config, adoptFragmentsKey, false))
 	}
 
 	if len(sections) == 0 {
@@ -467,6 +473,14 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
 		pageName, pageURL, sectionsSource, metaField, metaFieldOrigin, sections)
 
+	// The adoption flag, read once. It governs BOTH halves of the phase-2 change
+	// (RFC_046 / bugs_open/357): binding an unidentified fragment to a component
+	// that provably produces it, and — here — letting carried bytes keep the
+	// identity they came with. Neither half survives without the other, so they
+	// share one key rather than having one each. Default OFF: with the flag unset
+	// this whole file behaves exactly as it did before.
+	carryStoredIdentity := configBoolOrDefault(config, adoptFragmentsKey, false)
+
 	// --- Preserve interactive tool sections (Layer 2) ---
 	// Interactive tools (games/simulators) exist ONLY as rendered_html in
 	// page_components — their bespoke <canvas>/JS markup is not in the page
@@ -481,7 +495,8 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	{
 		rows, qErr := params.DB.QueryContext(ctx, `
 			SELECT slot_name, rendered_html, content_data,
-			       COALESCE(component_version_id::text, '')
+			       COALESCE(component_version_id::text, ''),
+			       COALESCE(component_id::text, '')
 			FROM page_components
 			WHERE page_id = $1 AND build_status = 'deployed'
 			  AND `+interactiveHTMLSQL("rendered_html")+`
@@ -498,13 +513,18 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 				// change the bytes, so it must not change their provenance — and it
 				// must not let the incoming section's provenance describe them.
 				componentVersionID string
+				// The stored row's own component. Carried with the bytes only when
+				// the adoption flag is on: without it, a rebuild re-imposes the
+				// PLAN's identity on bytes the plan did not produce, which is what
+				// re-mints bugs_open/357's population on every rebuild.
+				componentID string
 			}
 			var preserved []preservedSection
 			for rows.Next() {
 				var slot, html string
 				var cdJSON []byte
-				var storedVersionID string
-				if scanErr := rows.Scan(&slot, &html, &cdJSON, &storedVersionID); scanErr != nil {
+				var storedVersionID, storedComponentID string
+				if scanErr := rows.Scan(&slot, &html, &cdJSON, &storedVersionID, &storedComponentID); scanErr != nil {
 					params.Logger.Warn("SavePageSectionsAction: interactive-section scan failed (Layer 2)",
 						zap.Error(scanErr))
 					continue
@@ -516,6 +536,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 				preserved = append(preserved, preservedSection{
 					slot: slot, html: html, contentData: cd,
 					componentVersionID: storedVersionID,
+					componentID:        storedComponentID,
 				})
 			}
 			rows.Close()
@@ -543,6 +564,17 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 						sections[matchedIdx].ContentData = p.contentData
 					}
 					adoptCarriedProvenance(&sections[matchedIdx], p.componentVersionID)
+					// The stored bytes keep their own identity, instead of
+					// inheriting the identity of the section they displaced
+					// (RFC_046 / bugs_open/357). Without this, adoption does not
+					// survive: the incoming section carries the PLAN's component,
+					// so the very next rebuild re-mints `hero` over an adopted row
+					// and the population renews itself. Opt-in with the adoption
+					// itself — neither half is useful alone, and the flag's default
+					// is OFF, so this is byte-identical to today until armed.
+					if carryStoredIdentity && p.componentID != "" {
+						sections[matchedIdx].ComponentID = p.componentID
+					}
 				default:
 					// Slot dropped entirely — re-append the tool so it survives.
 					params.Logger.Warn("SavePageSectionsAction: re-appending dropped interactive tool (Layer 2)",
@@ -561,6 +593,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 						// carry arms must state the same thing, or the next edit reopens
 						// the gap on whichever one nobody was looking at.
 						ComponentVersionID: p.componentVersionID,
+						ComponentID:        carriedIdentity(carryStoredIdentity, p.componentID),
 						Position:           len(sections) + 1,
 					})
 				}
@@ -1320,6 +1353,18 @@ type SectionData struct {
 	// the defect (bugs_open/357).
 	RenderedTemplateSHA string
 	ComponentVersionID  string
+
+	// FallbackAdopted marks a section that exists only because the page's HTML
+	// carried no <section> at all and the whole fragment was stored as one
+	// (saveSectionsExtractFromHTML's documented fallback). It is set ONLY when the
+	// fragment also declares no data-component — i.e. when nothing about the bytes
+	// says what they are.
+	//
+	// This is the one place where identity is INVENTED rather than carried, and
+	// marking it is what lets the enrichment stop inventing (RFC_046,
+	// bugs_open/357). It is not persisted: it describes how the section got here,
+	// which the row itself has no business claiming.
+	FallbackAdopted bool
 }
 
 // extractSectionsFromMetadata builds SectionData from the structured array
@@ -1523,6 +1568,12 @@ func saveSectionsExtractFromHTML(html string, logger *zap.Logger) []SectionData 
 				ComponentName: componentName,
 				HTML:          trimmed,
 				Position:      1,
+				// Nothing about these bytes says what they are: no <section>, and
+				// (when the name is still the sentinel) no data-component either.
+				// Everything downstream that names this section is guessing, and
+				// this flag is what lets the component binding decline to
+				// (bugs_open/357).
+				FallbackAdopted: componentName == "section",
 			})
 			logger.Info("saveSectionsExtractFromHTML: no <section> blocks found; stored whole fragment as one section",
 				zap.String("component_name", componentName),
@@ -1546,16 +1597,41 @@ func saveSectionsExtractFromHTML(html string, logger *zap.Logger) []SectionData 
 //	slot_name "case-studies-hero" → function "hero" with name matching
 //	slot_name "differentiators-section" → function "differentiators" (suffix strip)
 //	metadata ComponentName differs from data-component attr → prefer HTML attr
-func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []SectionData, logger *zap.Logger) {
+func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []SectionData, logger *zap.Logger, adoptFragments bool) {
 	logger.Info("enrichSectionsWithComponentIDs: invoked",
 		zap.Int("section_count", len(sections)),
-		zap.Bool("db_nil", db == nil))
+		zap.Bool("db_nil", db == nil),
+		zap.Bool("adopt_fragments", adoptFragments))
 
 	dataComponentRe := regexp.MustCompile(`data-component="([^"]+)"`)
 
 	for i := range sections {
 		if sections[i].ComponentID != "" {
 			continue // already has an ID
+		}
+
+		// RFC_046 / bugs_open/357 — the one place identity is INVENTED.
+		//
+		// This section exists only because the page had no <section> at all, and
+		// its bytes declare no component. By this point the planned-name pass has
+		// given it a slot name from POSITION in the plan — correctly, that is what
+		// slot names are — and the resolution below would then read that positional
+		// name as a statement about what the bytes ARE, binding a whole interactive
+		// tool to the shared `hero` because hero was planned first.
+		//
+		// So: bind it to a component that provably reproduces these bytes, or bind
+		// it to nothing. Never to the name.
+		if adoptFragments && sections[i].FallbackAdopted {
+			if dataComponentRe.FindStringSubmatch(sections[i].HTML) == nil {
+				if adoptFragmentSection(ctx, db, &sections[i], logger) {
+					continue
+				}
+				logger.Info("enrichSectionsWithComponentIDs: fragment not adoptable — leaving it unidentified "+
+					"rather than binding it to its positional name (bugs_open/357)",
+					zap.String("slot_name", sections[i].ComponentName),
+					zap.Int("position", i+1))
+				continue
+			}
 		}
 
 		// Extract the data-component attribute from the rendered HTML first —

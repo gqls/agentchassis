@@ -328,7 +328,7 @@ func expectSaveSlotReads(mock sqlmock.Sqlmock, siteID, pageID uuid.UUID, pageNam
 // layer2PreloadRows is the Layer 2 preload's column set, in one place so a change
 // to that query's SELECT list does not have to be chased through two files.
 func layer2PreloadRows() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"slot_name", "rendered_html", "content_data", "component_version_id"})
+	return sqlmock.NewRows([]string{"slot_name", "rendered_html", "content_data", "component_version_id", "component_id"})
 }
 
 func expectSaveSlotReadsPreloading(mock sqlmock.Sqlmock, siteID, pageID uuid.UUID, pageName string,

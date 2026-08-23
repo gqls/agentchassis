@@ -61,7 +61,18 @@ const decoyHeroTemplate = `<section class="hero" data-component="hero"><div clas
 // assertion for a reason that has nothing to do with provenance. NULL is also the
 // live shape of the nine original bugs_open/357 rows.
 func layer2PreloadWith(slot, html, storedStamp string) *sqlmock.Rows {
-	return layer2PreloadRows().AddRow(slot, html, nil, storedStamp)
+	return layer2PreloadWithIdentity(slot, html, storedStamp, "")
+}
+
+// layer2PreloadWithIdentity also stages the stored row's component. ⚠ The column
+// list here must match the preload query's exactly: a short row makes rows.Scan
+// fail, the Layer 2 loop logs and skips, and the splice NEVER RUNS — at which
+// point the assertions below pass while testing nothing. That happened while
+// phase 2 added component_id to the query, and only the re-append case (which
+// asserts a row COUNT, so it cannot be satisfied by the splice not running)
+// noticed. Keep an assertion in this file that dies when the carry is skipped.
+func layer2PreloadWithIdentity(slot, html, storedStamp, storedComponentID string) *sqlmock.Rows {
+	return layer2PreloadRows().AddRow(slot, html, nil, storedStamp, storedComponentID)
 }
 
 // TestAdoptCarriedProvenance_ClearsTheDiscardedDigest is the DIRECT pin, and it
@@ -160,8 +171,12 @@ func TestLayer2_SplicedToolIsNotStampedWithTheDiscardedRender(t *testing.T) {
 	// position 1, slot "hero", and the stamp bind ($8) must be nil — unknown
 	// provenance written as NULL, which is the honest state for bytes this save
 	// did not render.
+	// ⚠ The HTML bind is pinned to the TOOL, not AnyArg. That is what makes this
+	// test die if the splice stops running for an unrelated reason — a short
+	// preload row, a renamed column — instead of passing while asserting nothing
+	// about a splice that never happened. It nearly did exactly that.
 	mock.ExpectExec("INSERT INTO page_components").
-		WithArgs(pageID, 1, sqlmock.AnyArg(), "hero",
+		WithArgs(pageID, 1, layer2ToolHTML, "hero",
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), nil).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
