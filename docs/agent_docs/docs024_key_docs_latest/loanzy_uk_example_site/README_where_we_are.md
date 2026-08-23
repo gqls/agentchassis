@@ -79,3 +79,54 @@ which is the right call. And the menu is still the old one — it offers "Check 
 "Lenders", pages that no longer exist — because the navigation rebuild sensibly refuses to run
 while half the site is missing. That last one is the only thing on the live site that
 contradicts itself, and it is next.
+
+---
+
+**2026-08-23, late afternoon — the garden-tools build is away, and two of our own claims turned
+out to be wrong before it had produced a single page.**
+
+I started the clean-domain test. garden-tools.uk went in at 17:17 with nothing attached to it — no
+brief, no contact details, no seed, just the name, exactly as you asked. All the pre-flight checks
+were clean first: no rows for the domain, the domain still serving the little "Not found" that
+means the plumbing is right and the shelf is empty, and the chassis untouched for over an hour. I
+then checked that the submission actually landed rather than trusting the script, because that
+script still reports success whether or not it published anything. It landed.
+
+Nothing has been built yet. Twenty minutes in, the job is sitting in a queue, and I want to be
+clear that this is not a fault: I went and looked at why, and the machine that hands work to the
+builders walks the sites one at a time, about ninety seconds apart, in a fixed order. Our new site
+was created about forty seconds after the current lap had already started, so it missed this lap
+and waits for the next one. I wrote that prediction down before the outcome so it can be wrong in
+public — if it misses a second lap, that is a real defect and a much more interesting one. Either
+way we have learned something worth having: **a new domain waits up to about three quarters of an
+hour before anything starts, and the submit command returning instantly tells you nothing about
+that.** Nobody had measured it.
+
+The more useful part of the afternoon was two things we had written down that were not true.
+
+The first was a trap I walked up to and did not step in. The instructions I inherited said that
+when this build finishes I should re-check eight stored calculator templates and confirm they have
+not changed, and to say so loudly if they had, because a build stealing another site's calculator
+is the exact damage we are guarding against. I checked them **before** starting instead, and they
+had already changed — three days ago, by a different team's tidy-up, which kept a copy of the
+originals. Had I run that check only at the end, as written, I would have reported that our build
+had damaged another site's live content. It would have been wrong, it would have been loud, and it
+would have landed on someone else's bug. The general lesson is dull but it keeps biting: a
+fingerprint taken days ago quietly stops being a baseline, and it goes on looking like one.
+
+The second was ours outright. We filed a bug in this lane saying that once a build fails you can
+never retry it, because the database refuses a repeat. Another session picked that bug up today to
+fix it, read the database rule we had blamed, and found it says the opposite — it explicitly allows
+a repeat after a failure. The real cause is a separate three-hour cooling-off period. I checked
+both halves myself rather than take their word, and they are right. Worse, the recovery we
+recommended and recorded as a success — renaming seventy-eight rows by hand — was probably
+unnecessary; waiting would very likely have done the same job. I say probably, because renaming
+those rows destroyed the only records that could have settled it. That is the uncomfortable one:
+our own fix erased the evidence for the claim we then made about it.
+
+I have corrected all four documents that carried the wrong version, written the whole thing up in
+the fleet's log of wrong calls, and left the fix itself with the session that is doing it rather
+than starting a competing account. The practical upshot for us: if this build fails tonight, we
+wait, we do not start renaming things.
+
+The build is still running. I am watching it and will report what it produces.
