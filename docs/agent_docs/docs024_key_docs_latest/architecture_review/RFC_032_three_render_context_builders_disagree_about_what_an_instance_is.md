@@ -247,3 +247,70 @@ the same conclusion and additionally found that `RenderTemplate` already logs
 `Warn "fields rendered empty" fields=[ComponentID]` (`component_library.go:1244`) while both
 section-editor call sites discard the report; and four affected pages plus two controls fetched
 live.
+
+## 9. STEP 2 DONE, AND IT EXPOSED THE REAL SHAPE OF STEP 3 (2026-08-23, `bugs_open/283` lane)
+
+§8's ruling is executed as far as the corpus goes, and the execution turned one of this RFC's
+deferred worries into a **measured, reproduced defect with a live victim**. Recording it here
+because it changes what the remaining work IS, not merely when it happens.
+
+### 9a. What is done
+
+Pass 0 shipped (`67d34e6c1`, council `cd6a5ef6` r1+r2 APPROVED, both verdicts read) and is LIVE
+on chassis **v1.0.1328** — binary-probed with controls, not inferred from the tag. Four of the
+five templates are converted through the fixer: `generic-text-block` (179 placements / 152 pages
+/ 21 sites), `faq` (82/82/15), `mechanism-flow` (6/6/3), `evidence-timeseries` (3/3/3), all
+**as of 2026-08-23**. The conversion self-propagates: the fixer filed **219 `page_rerender`
+items**, and those produce correct, distinct per-instance ids (`c-generic-text-block`,
+`-2`, `-3`, `-4` — verified in stored HTML on webdesign.co.uk/domains and
+gaswholesalers.com/service-areas).
+
+`pricing` (row `6175e049`) is NOT converted: active, same placeholder, **zero placements**, and
+`site_work_items.site_id` is NOT NULL with the site only reachable through a placement, so there
+is no honest site to file it against. **It is a precondition of §8's second half** — retire the
+`{{.ComponentID}}` bindings while that row still spells the placeholder and its first placement
+renders `id=""`.
+
+### 9b. The finding: a FULL PAGE BUILD re-collides every multi-instance page, deterministically
+
+`BindSingleSectionInstanceToken` supplies **occurrence 0** to the two paths that render one
+section at a time (`RenderComponentAction` at `v3_site_actions.go:2404`, the section editor at
+`section_editor_actions.go:1104,1275`). Its doc comment states the licence plainly: right
+"whenever the component appears once on the page, which is every interactive component on every
+live page today (measured 2026-08-15)". **That measurement was about `getElementById`
+components. It has never been true of the templates in THIS RFC** — they are the ones that
+repeat, up to ×6.
+
+Reproduced 2026-08-23 on `apis.uk/index.html`, six instances of `generic-text-block`:
+
+1. A page rerender hit a **pre-existing** 7-of-8 plan shortfall, so `UpdatePageStatusAction`
+   refused the deployed stamp and set `build_status='needs_rebuild'` (`v3_site_actions.go:976`).
+2. A `build-pipeline-trigger` picked that up 6 minutes later and rebuilt the page.
+3. The rebuild rendered each section individually → occurrence 0 for **all six** → the stored
+   HTML now carries `<section id="c-generic-text-block">` six times, and the page redeployed
+   with it.
+
+**Severity, stated precisely so it is neither over- nor under-sold: this is NOT a regression.**
+Before conversion the same page served the component ROW ID six times; after a rebuild it serves
+occurrence 0 six times. Identical collision count, different string. **What it means is that the
+conversion does not STICK**: any page that rebuilds returns to a colliding state, so §8's ruling
+cannot be completed by converting templates alone. The page-rerender path is correct; the
+build path is not.
+
+It is also **worse than a silent risk in one specific way**: `c-generic-text-block` *looks*
+converted. Any check that greps for the `c-` prefix, or that asks whether the template carries
+`{{.InstanceID}}`, reports success on a page serving six identical ids.
+
+### 9c. What step 3 therefore is
+
+Not "unify the builders" in the abstract — **derive the real occurrence where the page's rows
+exist, and fall back to 0 only where they genuinely do not** (a build in progress, before
+`page_components` is written). `InstanceCounter` already is the canonical rule; the
+single-section paths need its INPUT, not a second rule. The honest constraint is that
+`RenderComponentAction` renders during a build when the rows may not exist yet, so the fallback
+must stay — which means the fix is a lookup plus a documented fallback, and the fallback's
+remaining blind spot should be stated rather than assumed away.
+
+Whoever takes it: `apis.uk/index.html` is the standing repro, and it holds `needs_rebuild` from
+an unrelated 7-of-8 shortfall, so it rebuilds and re-collides on its own — a free test case that
+regenerates itself.
