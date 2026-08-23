@@ -7784,3 +7784,40 @@ uncommitted edit, resolving the bug by SLUG rather than by an ambiguous path, wh
 estate's own practice. **Nothing was lost and their edit is intact — it is simply committed under
 my message.** This is the documented case CLAUDE.md says no hook can prevent: a pathspec commit
 protects you from other files, never from another session's edit to the SAME file.
+
+## 2026-08-23 (~12:3xZ) — gate interim read 2: **the flip caught a REAL silent-substitution bug in production**, and the 08-22 residual is discharged
+
+Full read-out and the interpretation table live in the gate's home,
+`docs/agent_docs/docs024_key_docs_latest/staged_component_build/HANDOFF_2026-08-20_continue_here.md`
+§2.11 ("INTERIM READ 2"). Recorded here only for the lane's chronology and the two lessons.
+
+**5 × `2-refuse`, 0 × `1-resolve-and-warn`, 4,256 orchestrations / 68 agent types of demand,
+694 error rows / 22 classes (all as of 2026-08-23 12:3xZ).** Three new refusals, all
+`improvement-loop`, 08-22 18:34–18:40Z.
+
+**THE FINDING.** `improvement-loop` asks for a bare `page_id`; the whole-tree search offered
+**80+ candidates that are elements of ONE findings array** (`findings[0..64].page_id`, plus
+`members[N]`/`components[N]`, doubled by the step/alias pair `call_completeness_discovery` ≡
+`completeness_result`). **Pre-flip that resolved to `findings[0].page_id` — one finding's page
+silently attached to work about another.** Same shape on `component_id`. That is 330's class on
+a new surface, caught in production on day one, and it is the clearest justification the flip
+has: no conflict WARN could ever have proven this safe, because the old behaviour *was* the
+substitution.
+
+**Both runs COMPLETED** — absence beat the wrong value, as the owner ruled 2026-08-15.
+
+**Two lessons worth carrying:**
+1. **A bare field name against an ARRAY is inherently ambiguous — a `?` wire is the wrong
+   remedy.** 537's fix (name the one true path) has no analogue when the tree holds 65 equally
+   well-formed candidates; the wire must bind the **loop's current item**. Whoever takes
+   `bugs_open/330` candidate 2 should start here: this is the measured, live instance of the
+   population that bug is about, and the gate handed it over already traced.
+2. **A residual is discharged by what is ABSENT SINCE, not by the count falling.** The
+   `allow_reinstall` class I flagged on 08-22 dropped 6 rows → 1, but that fall is per-status
+   retention and proves nothing. What discharges it is that its newest occurrence is
+   **2026-08-22 12:18Z** — nothing new in ~24 h, and nothing after my own 18:0x read. I nearly
+   wrote the falling count as the good news.
+
+**A third roll (`v1.0.1328`, 11:51Z today) crossed the window** and was re-verified with both
+controls before any row above was trusted. Window unbroken; boundary still 08:45:00Z 08-22;
+**gate closes 2026-08-24 ~08:45Z.**

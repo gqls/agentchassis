@@ -703,6 +703,46 @@ it** rather than inherit this paragraph's conclusion.
 **Consequence control:** 312 of 371 completed items still record `result.commit_sha` since the
 boundary — no fleet-wide field loss.
 
+### ✅ INTERIM READ 2 — 2026-08-23 ~12:3xZ (~27¾ h in). **5 × `2-refuse`, still 0 × `1-resolve-and-warn`. And the flip has caught a REAL silent-substitution bug.**
+
+| observation | count (as of 2026-08-23 12:3xZ) | reading |
+|---|---|---|
+| `phase='2-refuse'` | **5** (was 2) — 3 new, all `improvement-loop`, 08-22 18:34–18:40Z | ✅ flip live, refusing real conflicts |
+| `phase='1-resolve-and-warn'` | **0** | ✅ **still no regression signal**, now across three binaries |
+| demand control | **4,256** orchestrations / **68** agent types | strong window |
+| instrument alive | **694** rows / **22** classes | recorder writing |
+
+**THE NEW PAIRS ARE THE BEST EVIDENCE THIS LANE HAS PRODUCED.** `improvement-loop` asked for a
+bare **`page_id`** and the whole-tree search offered **80+ candidate paths that are ARRAY
+ELEMENTS OF ONE FINDINGS LIST** — `…discovery_result.findings[0].page_id` through
+`findings[64].page_id`, plus nested `members[N]`/`components[N]` variants, doubled because the
+step and its alias (`call_completeness_discovery` / `completeness_result`) carry the same tree.
+**Pre-flip this resolved to `findings[0].page_id` — the FIRST finding's page, silently attached
+to work about a different finding.** Same shape for **`component_id`** (4 paths,
+`findings[0].components[0|1]`). This is `bugs_open/330`'s class — a wrong value substituted with
+no error — on a completely different surface, and the flip caught it in production on day one.
+
+**Consequence: NOT broken.** Both `improvement-loop` runs in the window **COMPLETED**. Absence
+beat the wrong value, exactly as the owner ruled on 2026-08-15.
+
+**Neither field is wired in config** (checked: `improvement-loop`'s step configs carry no
+`page_id`/`component_id` key) — they fall through from an action's declared spec, i.e. the
+137-of-298 population the flip's own council round measured. **The remedy is NOT a bare `?`
+wire:** a bare `page_id` is *inherently* ambiguous against an array of findings, so the fix must
+bind to the **loop's current item** (a `$ctx.`-style or explicit loop-item path), not pick one.
+That is a design task and it is the strongest candidate to hand `bugs_open/330` candidate 2.
+
+**⚠ A THIRD ROLL CROSSED THE WINDOW — `v1.0.1328`** (pods up 11:51:18/11:51:39Z 08-23),
+re-verified before any row above was trusted: flip literal PRESENT, present-control PRESENT
+(probe reading), absent-control correctly not found; retirement still 0 occurrences at HEAD with
+no reintroducing commit. **Window unbroken; boundary still 08:45:00Z 08-22.**
+
+**✅ THE `allow_reinstall` RESIDUAL FROM INTERIM READ 1 IS DISCHARGED — it was a burst, not a
+trend.** Its last occurrence is **2026-08-22 12:18Z**, i.e. ~24 h with none, and none after my
+own 18:0x read. The benign workload reading now has the disconfirming check it lacked. (Row
+count also fell 6 → 1 through ordinary per-status retention — that fall is NOT the evidence; the
+absence of anything newer is.)
+
 ## 2.10 ✅ THE FLIP IS BUILT AND COMMITTED — `5fe010ada` (2026-08-21 ~17:1xZ)
 
 `findFieldRecursive` now returns **nil** on a conflict. Council submitted,
