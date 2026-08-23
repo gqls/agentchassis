@@ -105,7 +105,8 @@ const ctaComponentScanQuery = `
 //
 // Generic link text ("Learn More") reduces to zero distinctive tokens and is
 // reported as named=false, so it is never a misdirect.
-func ctaClassifyAnchor(a datahelpers.Anchor, slotName string, pages []datahelpers.LabelMatchCandidate) (*misdirectedAnchor, bool) {
+func ctaClassifyAnchor(a datahelpers.Anchor, slotName string, pages []datahelpers.LabelMatchCandidate,
+	pageName, pageURL string) (*misdirectedAnchor, bool) {
 	// AMBIGUOUS copy is named=false (bugs_open/308 Phase B). BestLabelMatch
 	// reports ambiguity when the winner was separated from a DIFFERENT page by
 	// nothing but alphabetical order, and this check must not file a repair on
@@ -116,7 +117,14 @@ func ctaClassifyAnchor(a datahelpers.Anchor, slotName string, pages []datahelper
 	// had the repairer EXECUTE them. The third return is discarded rather than
 	// recorded on purpose: a "copy names two pages equally" finding is a real
 	// signal but a new work-item type, and this change is already a widening.
-	best, found, _ := datahelpers.BestLabelMatch(a.Text, pages)
+	// The page identity is a parameter because "does this copy name a page?"
+	// cannot be answered without knowing which page the copy is ON: a label
+	// naming its own page names nothing, and this check already files the
+	// mirror-image defect ("links back to its own page") on the href side.
+	// Suggesting one as the repair target was that defect arriving from the
+	// other direction, and Phase B's widening made it common — 35 of 291 writes
+	// on the writers' side, measured 2026-08-23.
+	best, found, _ := datahelpers.BestLabelMatchForPage(a.Text, pages, pageName, pageURL)
 	if !found {
 		return nil, false
 	}
@@ -181,7 +189,7 @@ func (c *MisdirectedCTACheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 			if scope != datahelpers.LinkScopePage && scope != datahelpers.LinkScopeEmpty {
 				continue // external/mailto/asset/anchor — not internal page links
 			}
-			misdirect, named := ctaClassifyAnchor(a, slotName, pages)
+			misdirect, named := ctaClassifyAnchor(a, slotName, pages, pageName, pageURL)
 			if named {
 				if misdirect == nil {
 					continue // copy and destination agree

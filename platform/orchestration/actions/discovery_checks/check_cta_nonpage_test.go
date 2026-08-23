@@ -128,7 +128,7 @@ func TestClassifyNonPageAnchor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f, ok := classifyNonPageAnchor(
-				datahelpers.Anchor{Text: tt.text, Href: tt.href}, "call-to-action", pages(t))
+				datahelpers.Anchor{Text: tt.text, Href: tt.href}, "call-to-action", pages(t), "", "")
 			if tt.wantKind == "" {
 				if ok {
 					t.Fatalf("want no finding, got %+v", f)

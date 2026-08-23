@@ -126,7 +126,7 @@ func TestApplyCTARecomputeKeepsAuthoredContactLink(t *testing.T) {
 	// CONTROL: an ordinary stored destination, same label. Untouched.
 	control := map[string]interface{}{}
 	applyCTARecompute(control, map[string]interface{}{"cta_url": "/tools/password-entropy.html"},
-		"cta_url", positionalTarget, valid, "/index.html", genericContactLabel, candidates)
+		"cta_url", positionalTarget, valid, "/index.html", genericContactLabel, candidates, "")
 	if len(control) != 0 {
 		t.Errorf("CONTROL: ordinary stored destination should be left untouched, got %v", control)
 	}
@@ -134,7 +134,7 @@ func TestApplyCTARecomputeKeepsAuthoredContactLink(t *testing.T) {
 	// CASE: the same call with an authored contact destination. Kept.
 	got := map[string]interface{}{}
 	applyCTARecompute(got, map[string]interface{}{"cta_url": "/contact.html"},
-		"cta_url", positionalTarget, valid, "/index.html", genericContactLabel, candidates)
+		"cta_url", positionalTarget, valid, "/index.html", genericContactLabel, candidates, "")
 	if got["cta_url"] != "/contact.html" {
 		t.Errorf("CASE: authored contact link clobbered — cta_url = %v, want /contact.html", got["cta_url"])
 	}
@@ -151,7 +151,7 @@ func TestApplyCTARecomputeCarriesAuthoredTargetTitle(t *testing.T) {
 	applyCTARecompute(got,
 		map[string]interface{}{"cta_url": "/contact.html", "cta_target_title": "Contact us"},
 		"cta_url", contentHub{Name: "t", Title: "T", URL: "/tools/password-entropy.html"},
-		contactSitePages(), "/index.html", "Get in Touch", nil)
+		contactSitePages(), "/index.html", "Get in Touch", nil, "")
 	if got["cta_url"] != "/contact.html" || got["cta_target_title"] != "Contact us" {
 		t.Errorf("authored url/title pair not kept together: %v", got)
 	}
@@ -166,7 +166,7 @@ func TestApplyCTARecomputeStillRepairsFabricatedContactWithPageNamingLabel(t *te
 	got := map[string]interface{}{}
 	applyCTARecompute(got, map[string]interface{}{"cta_url": "/contact.html"},
 		"cta_url", contentHub{Name: "tool-password-entropy", Title: "Password Strength Physics", URL: "/tools/password-entropy.html"},
-		contactSitePages(), "/index.html", "Run the Risk Checker", riskCheckerCandidates(t))
+		contactSitePages(), "/index.html", "Run the Risk Checker", riskCheckerCandidates(t), "")
 	if got["cta_url"] != "/tools/tool-ai-data-risk-checker.html" {
 		t.Errorf("label naming a real page must still win over a stored contact url: %v", got)
 	}
@@ -191,7 +191,7 @@ func TestSetCTAFieldKeepsAuthoredContactLink(t *testing.T) {
 	resolved := map[string]interface{}{}
 	var unresolved []map[string]interface{}
 	setCTAField(resolved, stored, "cta_url", positionalTarget, contactSitePages(),
-		"hero", "hero", "primary", &unresolved, "Get in touch", riskCheckerCandidates(t))
+		"hero", "hero", "primary", &unresolved, "Get in touch", riskCheckerCandidates(t), "")
 
 	if resolved["cta_url"] != "/contact.html" {
 		t.Errorf("authored contact link not kept on the build path: %v", resolved["cta_url"])
@@ -218,7 +218,7 @@ func TestSetCTAFieldRederivesOrdinaryStoredDestination(t *testing.T) {
 	resolved := map[string]interface{}{}
 	var unresolved []map[string]interface{}
 	setCTAField(resolved, stored, "cta_url", positionalTarget, contactSitePages(),
-		"hero", "hero", "primary", &unresolved, "Learn More", riskCheckerCandidates(t))
+		"hero", "hero", "primary", &unresolved, "Learn More", riskCheckerCandidates(t), "")
 
 	if resolved["cta_url"] != "/tools/tool-ai-data-risk-checker.html" {
 		t.Errorf("ordinary stored destination was frozen instead of re-derived: %v", resolved["cta_url"])
@@ -233,7 +233,7 @@ func TestSetCTAFieldStillRepairsFabricatedContactWithPageNamingLabel(t *testing.
 	setCTAField(resolved, map[string]interface{}{"cta_url": "/contact.html"}, "cta_url",
 		contentHub{Name: "tool-password-entropy", Title: "Password Strength Physics", URL: "/tools/password-entropy.html"},
 		contactSitePages(), "hero", "hero", "primary", &unresolved,
-		"Run the Risk Checker", riskCheckerCandidates(t))
+		"Run the Risk Checker", riskCheckerCandidates(t), "")
 
 	if resolved["cta_url"] != "/tools/tool-ai-data-risk-checker.html" {
 		t.Errorf("label naming a real page must still win on the build path: %v", resolved)
@@ -300,7 +300,7 @@ func TestFreshPickRefusesUtilityWhileStoredUtilityIsKept(t *testing.T) {
 	// (c) an already-stored, UNSTAMPED one is kept — a person's link.
 	got := map[string]interface{}{}
 	applyCTARecompute(got, map[string]interface{}{"cta_url": "/contact/index.html"},
-		"cta_url", servicesHub, valid, "/index.html", "Talk to us", nil)
+		"cta_url", servicesHub, valid, "/index.html", "Talk to us", nil, "")
 	if got["cta_url"] != "/contact/index.html" {
 		t.Errorf("stored utility destination not kept: %v", got)
 	}
@@ -319,7 +319,7 @@ func TestFreshPickRefusesUtilityWhileStoredUtilityIsKept(t *testing.T) {
 	}
 
 	gotRecompute := map[string]interface{}{}
-	applyCTARecompute(gotRecompute, stored, "cta_url", servicesHub, valid, "/index.html", "Get Started", nil)
+	applyCTARecompute(gotRecompute, stored, "cta_url", servicesHub, valid, "/index.html", "Get Started", nil, "")
 	if u, _ := gotRecompute["cta_url"].(string); u != "" && u != "/contact/index.html" {
 		t.Errorf("repair path DISPLACED a minted utility destination with the positional pick: %v", gotRecompute)
 	}
@@ -327,7 +327,7 @@ func TestFreshPickRefusesUtilityWhileStoredUtilityIsKept(t *testing.T) {
 	gotBuild := map[string]interface{}{}
 	var unresolved []map[string]interface{}
 	setCTAField(gotBuild, stored, "cta_url", servicesHub, valid, "hero", "hero", "primary", &unresolved,
-		"Get Started", nil)
+		"Get Started", nil, "")
 	if gotBuild["cta_url"] != "/contact/index.html" {
 		t.Errorf("build path DISPLACED a minted utility destination with the positional pick: %v", gotBuild)
 	}
@@ -367,7 +367,7 @@ func TestSetCTAFieldPreservesSiblingSlotStamp(t *testing.T) {
 
 	// Only the PRIMARY slot is processed this pass.
 	setCTAField(resolved, stored, "cta_url", target, valid,
-		"hero", "hero", "primary", &unresolved, "", nil)
+		"hero", "hero", "primary", &unresolved, "", nil, "")
 
 	if !datahelpers.CTAMintedCovers(resolved, "secondary_cta_url", "/services.html") {
 		t.Error("the untouched secondary slot lost its mint record — it will read as authored " +
@@ -402,7 +402,7 @@ func TestSetCTAFieldCarriesMintAtUnresolvedFallthrough(t *testing.T) {
 	var unresolved []map[string]interface{}
 
 	setCTAField(resolved, stored, "cta_url", contentHub{}, valid,
-		"hero", "hero", "primary", &unresolved, "", nil)
+		"hero", "hero", "primary", &unresolved, "", nil, "")
 
 	if len(unresolved) != 1 {
 		t.Fatalf("expected the unresolved fallthrough to be the branch under test, got %d entries", len(unresolved))
@@ -435,7 +435,7 @@ func TestSetCTAFieldInventsNoProvenanceForAnAuthoredValue(t *testing.T) {
 	var unresolved []map[string]interface{}
 
 	setCTAField(resolved, stored, "cta_url", contentHub{}, valid,
-		"hero", "hero", "primary", &unresolved, "", nil)
+		"hero", "hero", "primary", &unresolved, "", nil, "")
 
 	if datahelpers.CTAMintedCovers(resolved, "cta_url", "/contact.html") {
 		t.Error("provenance was manufactured for an authored value — the resolver would then be " +
@@ -463,7 +463,7 @@ func TestApplyCTARecomputePreservesSiblingSlotStamp(t *testing.T) {
 	target := contentHub{Name: "risk-checker", Title: "Risk Checker",
 		URL: "/tools/tool-ai-data-risk-checker.html"}
 
-	applyCTARecompute(resolved, stored, "cta_url", target, valid, "/index.html", "", nil)
+	applyCTARecompute(resolved, stored, "cta_url", target, valid, "/index.html", "", nil, "")
 
 	if !datahelpers.CTAMintedCovers(resolved, "secondary_cta_url", "/services.html") {
 		t.Error("the untouched secondary slot lost its mint record on the repair path")

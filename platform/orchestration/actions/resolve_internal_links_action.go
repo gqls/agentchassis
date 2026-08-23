@@ -228,9 +228,9 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 		resolved := sectionResolvedData(section)
 		existing := existingLabels[sectionName]
 		setCTAField(resolved, existing, fields[0], primary, validPages, function, sectionName, "primary", &unresolved,
-			existingLabelFor(existing, labelFieldOf[fields[0]]), candidates)
+			existingLabelFor(existing, labelFieldOf[fields[0]]), candidates, pageName)
 		setCTAField(resolved, existing, fields[1], secondary, validPages, function, sectionName, "secondary", &unresolved,
-			existingLabelFor(existing, labelFieldOf[fields[1]]), candidates)
+			existingLabelFor(existing, labelFieldOf[fields[1]]), candidates, pageName)
 		section["resolved_data"] = resolved
 		if stampGuidance {
 			stampCTADestinationGuidance(section, labelFieldOf[fields[0]], resolved, fields[0])
@@ -398,7 +398,7 @@ func stampCTADestinationGuidance(section map[string]interface{}, labelField stri
 
 func setCTAField(resolved, stored map[string]interface{}, field string, target contentHub, validPages datahelpers.PageURLSet,
 	function, sectionName, slot string, unresolved *[]map[string]interface{},
-	existingLabel string, candidates []datahelpers.LabelMatchCandidate) {
+	existingLabel string, candidates []datahelpers.LabelMatchCandidate, pageName string) {
 	if field == "" {
 		return // single-URL component — no field in this slot, nothing to resolve or report
 	}
@@ -421,7 +421,11 @@ func setCTAField(resolved, stored map[string]interface{}, field string, target c
 		// ranking key that carries signal) reports !ok, so control falls to the
 		// keeps below and the stored value stands. That is the safe direction:
 		// the alternative is writing a destination chosen by alphabetical order.
-		if match, ok, _ := datahelpers.BestLabelMatch(existingLabel, candidates); ok && validPages.Contains(match.URL) {
+		// BestLabelMatchForPage, not BestLabelMatch: a label naming the page it
+		// SITS ON names nothing (bugs_open/308, the 2026-08-23 hand audit — 12%
+		// of the widening's writes were self-links). This path has the page's
+		// name but not its URL, which is the same key rank() has always used.
+		if match, ok, _ := datahelpers.BestLabelMatchForPage(existingLabel, candidates, pageName, ""); ok && validPages.Contains(match.URL) {
 			resolved[field] = match.URL
 			datahelpers.SetCTAMinted(resolved, field, match.URL)
 			if match.Title != "" {

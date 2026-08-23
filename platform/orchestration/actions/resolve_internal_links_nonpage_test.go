@@ -53,7 +53,7 @@ func TestSetCTAFieldKeepsAuthoredPhoneButton(t *testing.T) {
 	var unresolved []map[string]interface{}
 	setCTAField(resolved, stored, "secondary_cta_url", positional, webdesignLikePages(),
 		"call-to-action", "call-to-action", "secondary", &unresolved,
-		"Call us on +44 (0) 7934 524 911", webdesignLikeCandidates(t))
+		"Call us on +44 (0) 7934 524 911", webdesignLikeCandidates(t), "")
 
 	if got := resolved["secondary_cta_url"]; got != "tel:+447934524911" {
 		t.Errorf("secondary_cta_url = %v, want the NORMALISED kept tel:, not the positional pick", got)
@@ -78,7 +78,7 @@ func TestSetCTAFieldLabelMatchStillBeatsStoredTel(t *testing.T) {
 	var unresolved []map[string]interface{}
 	setCTAField(resolved, stored, "secondary_cta_url", positional, webdesignLikePages(),
 		"call-to-action", "call-to-action", "secondary", &unresolved,
-		"Or answer a few short questions first with the Website Brief Starter", webdesignLikeCandidates(t))
+		"Or answer a few short questions first with the Website Brief Starter", webdesignLikeCandidates(t), "")
 
 	if got := resolved["secondary_cta_url"]; got != "/tools/website-brief-starter/index.html" {
 		t.Errorf("secondary_cta_url = %v, want the label-matched page — label match stays AHEAD of the keep", got)
@@ -96,7 +96,7 @@ func TestSetCTAFieldKeepsUndialableTelRaw(t *testing.T) {
 	resolved := map[string]interface{}{}
 	var unresolved []map[string]interface{}
 	setCTAField(resolved, stored, "secondary_cta_url", positional, webdesignLikePages(),
-		"hero", "hero", "secondary", &unresolved, "Call us", webdesignLikeCandidates(t))
+		"hero", "hero", "secondary", &unresolved, "Call us", webdesignLikeCandidates(t), "")
 
 	if got := resolved["secondary_cta_url"]; got != "tel:+4407934524911" {
 		t.Errorf("secondary_cta_url = %v, want the RAW undialable tel kept for a human", got)
@@ -114,7 +114,7 @@ func TestSetCTAFieldJavascriptHrefIsNotAuthored(t *testing.T) {
 	resolved := map[string]interface{}{}
 	var unresolved []map[string]interface{}
 	setCTAField(resolved, stored, "cta_url", positional, webdesignLikePages(),
-		"hero", "hero", "primary", &unresolved, "", webdesignLikeCandidates(t))
+		"hero", "hero", "primary", &unresolved, "", webdesignLikeCandidates(t), "")
 
 	if got := resolved["cta_url"]; got != positional.URL {
 		t.Errorf("cta_url = %v, want the positional pick — a dead control is not an authored destination", got)
@@ -134,7 +134,7 @@ func TestApplyCTARecomputeKeepsAndNormalisesPhoneButton(t *testing.T) {
 	resolved := map[string]interface{}{}
 	applyCTARecompute(resolved, stored, "secondary_cta_url", target, webdesignLikePages(),
 		"/faq.html", "Or call us on +44 (0) 7934 524 911, if you'd rather talk it through.",
-		webdesignLikeCandidates(t))
+		webdesignLikeCandidates(t), "")
 
 	if got := resolved["secondary_cta_url"]; got != "tel:+447934524911" {
 		t.Errorf("secondary_cta_url = %v, want the normalised kept tel:, not the positional target", got)
@@ -152,7 +152,7 @@ func TestApplyCTARecomputeKeepsMailto(t *testing.T) {
 
 	resolved := map[string]interface{}{}
 	applyCTARecompute(resolved, stored, "primary_cta_url", target, webdesignLikePages(),
-		"/faq.html", "Send us an email", webdesignLikeCandidates(t))
+		"/faq.html", "Send us an email", webdesignLikeCandidates(t), "")
 
 	if got := resolved["primary_cta_url"]; got != "mailto:hello@webdesign.uk" {
 		t.Errorf("primary_cta_url = %v, want the kept mailto:", got)
@@ -168,7 +168,7 @@ func TestApplyCTARecomputeLabelMatchStillBeatsStoredTel(t *testing.T) {
 	resolved := map[string]interface{}{}
 	applyCTARecompute(resolved, stored, "secondary_cta_url", contentHub{}, webdesignLikePages(),
 		"/index.html", "Answer a few questions with the Website Brief Starter",
-		webdesignLikeCandidates(t))
+		webdesignLikeCandidates(t), "")
 
 	if got := resolved["secondary_cta_url"]; got != "/tools/website-brief-starter/index.html" {
 		t.Errorf("secondary_cta_url = %v, want the label-matched page — the misdirect repair still wins", got)

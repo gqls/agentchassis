@@ -62,7 +62,7 @@ func TestRerenderCTAStateOffersTheContactPage(t *testing.T) {
 		sqlmock.NewRows([]string{"url"}).AddRow("/contact.html"))
 
 	params := ActionParams{DB: db, Logger: zap.NewNop()}
-	state := loadRerenderCTAState(context.Background(), params, uuid.New(), "home", zap.NewNop())
+	state := loadRerenderCTAState(context.Background(), params, uuid.New(), "home", "/index.html", zap.NewNop())
 
 	match, ok, ambiguous := datahelpers.BestLabelMatch("Contact our supply team", state.candidates)
 	if !ok || ambiguous || match.URL != "/contact.html" {
@@ -134,7 +134,7 @@ func TestResolveInternalLinksBuildPathOffersTheContactPage(t *testing.T) {
 	section := map[string]interface{}{
 		"name": "hero",
 		"component": map[string]interface{}{
-			"function": "hero",
+			"function":     "hero",
 			"input_schema": `{"fields":{"cta_url":{"type":"string"},"cta_label":{"type":"string"}}}`,
 		},
 	}

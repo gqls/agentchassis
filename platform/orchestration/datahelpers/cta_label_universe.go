@@ -118,3 +118,56 @@ func LoadCTALabelUniverse(ctx context.Context, db *sql.DB, siteID uuid.UUID) ([]
 	}
 	return out, nil
 }
+
+// BestLabelMatchForPage is BestLabelMatch with one extra rule: a label that
+// names THE PAGE IT SITS ON names nothing. It reports ok=false, which for both
+// CTA writers means their keep branches hold the stored value, and for the
+// detector means no finding is filed.
+//
+// WHY THIS EXISTS — measured, not anticipated. The owner asked for the Phase B
+// widening to be hand-audited before it rolled (2026-08-23). **35 of the 291
+// writes it would have performed — 12% — pointed a button at the page it was
+// already on**: "Read the full grip styles guide" on /blog/grip-styles.html
+// resolving to /blog/grip-styles.html; "Read the policy" on /privacy.html
+// resolving to /privacy.html; 33 more. The widening is what manufactures them,
+// because a page's own copy is usually the best token match for that page and
+// before Phase B most pages were not candidates at all.
+//
+// THE PLATFORM ALREADY AGREES A SELF-LINK IS A DEFECT, in three places, which is
+// why this is a fix rather than a preference:
+//   - chooseCTATargets' rank() has dropped `h.Name == pageName` since
+//     2026-07-14 ("don't point a page's hero at itself");
+//   - applyCTARecompute's keeps refuse a stored value equal to pageURL;
+//   - check_misdirected_cta files "links back to its own page" as a finding —
+//     so suggesting one as the REPAIR was the same defect from the other side.
+//
+// ⚠ REFUSING IS NOT THE SAME AS DROPPING THE PAGE FROM THE POOL, and the
+// difference was measured too. Filtering the page out first and letting the
+// runner-up win was tried: **25 of the 35 then matched nothing (correct — the
+// button is left alone), but 10 wrote somewhere else, and most of those were
+// wrong** — "Compare flight shapes" landing on the barrel-shapes guide,
+// "Catch up on this week's darts news" on the dartboard setup guide,
+// "Talk to FineTuning About Your Automation Audit" on a blog post about
+// employment law. Once the best candidate is removed, a single shared token is
+// enough for noise to win. So the answer is NO OPINION, exactly as for an
+// ambiguous tie: copy that names its own page is a CONTENT defect (the button
+// should not be there), not a destination the matcher should guess at.
+//
+// Match on NAME or URL because the two diverge and callers hold different ones:
+// the build path knows `page_name` only, the repair path knows both, and a
+// page's name is frequently not its URL stem (`grip-styles` lives at
+// /blog/grip-styles.html). Pass "" for whichever you lack.
+func BestLabelMatchForPage(label string, candidates []LabelMatchCandidate,
+	pageName, pageURL string) (best LabelMatchCandidate, ok bool, ambiguous bool) {
+	best, ok, ambiguous = BestLabelMatch(label, candidates)
+	if !ok {
+		return best, ok, ambiguous
+	}
+	if pageName != "" && best.Name == pageName {
+		return LabelMatchCandidate{}, false, false
+	}
+	if pageURL != "" && NormalizePagePath(best.URL) == NormalizePagePath(pageURL) {
+		return LabelMatchCandidate{}, false, false
+	}
+	return best, true, false
+}

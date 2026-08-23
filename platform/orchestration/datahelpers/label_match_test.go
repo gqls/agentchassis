@@ -249,3 +249,74 @@ func TestBestLabelMatchRefusesAnAlphabeticalTie(t *testing.T) {
 		t.Errorf("unambiguous winner refused: got %+v ok=%v ambiguous=%v", got, ok, ambiguous)
 	}
 }
+
+// TestBestLabelMatchForPageRefusesTheButtonsOwnPage pins the fix the owner's
+// hand-audit produced (bugs_open/308, 2026-08-23).
+//
+// THE DEFECT IT PINS: Phase B's widening added every page to the candidate set,
+// and a page's own copy is usually the best token match for that page. 35 of
+// the 291 writes the change would have performed pointed a button at the page
+// it was already on — "Read the policy" on /privacy.html resolving to
+// /privacy.html. The platform already treats a self-link as a defect in three
+// other places, including this very check's "links back to its own page" arm.
+//
+// AND IT PINS THE SHAPE OF THE FIX, which is the part worth protecting: the
+// page is REFUSED, not FILTERED OUT. Filtering was tried and measured first —
+// 25 of the 35 then matched nothing (correct) but 10 wrote somewhere else and
+// most were wrong, because once the best candidate is gone a single shared
+// token is enough for noise to win. The second sub-test fails if someone
+// "simplifies" this back into a pre-filter.
+func TestBestLabelMatchForPageRefusesTheButtonsOwnPage(t *testing.T) {
+	mk := func(name, title, url string) LabelMatchCandidate {
+		c, ok := NewLabelMatchCandidate(name, name, title, url, false, "")
+		if !ok {
+			t.Fatalf("fixture %q produced no tokens", name)
+		}
+		return c
+	}
+	// The real shape from the audit, and the fixture is load-bearing: a
+	// PLAUSIBLE RUNNER-UP must exist, or this test cannot tell a refusal from a
+	// pre-filter. dartsonline.com's flight-shapes page carries "Compare flight
+	// shapes"; [flight,shapes] scores 2 against its own page and 1 against the
+	// barrel-shapes guide, so a pre-filter hands the button to the barrel guide
+	// — which is exactly what the measured pre-filter version did on 10 rows.
+	//
+	// The FIRST version of this test used grip-styles vs barrel-shapes, where
+	// the runner-up shares NO token with the label. Both implementations
+	// returned "no match" and the pre-filter mutation passed. A fixture that
+	// cannot discriminate makes a green test meaningless.
+	self := mk("flight-shapes", "Dart Flight Shapes Explained", "/blog/flight-shapes.html")
+	other := mk("barrel-shapes", "Dart Barrel Shapes Explained", "/blog/barrel-shapes.html")
+	pages := []LabelMatchCandidate{self, other}
+	const label = "Compare flight shapes"
+
+	// The runner-up really would win if the page were merely filtered out.
+	if got, ok, _ := BestLabelMatch(label, []LabelMatchCandidate{other}); !ok || got.URL != "/blog/barrel-shapes.html" {
+		t.Fatalf("fixture is inert: with the page removed the runner-up must still match, got %+v ok=%v", got, ok)
+	}
+
+	t.Run("by name", func(t *testing.T) {
+		if _, ok, _ := BestLabelMatchForPage(label, pages, "flight-shapes", ""); ok {
+			t.Error("matched the page the button sits on, identified by name")
+		}
+	})
+	t.Run("by url, when the name is not the url stem", func(t *testing.T) {
+		if _, ok, _ := BestLabelMatchForPage(label, pages, "", "/blog/flight-shapes.html"); ok {
+			t.Error("matched the page the button sits on, identified by url")
+		}
+	})
+	t.Run("refuses rather than falling through to the runner-up", func(t *testing.T) {
+		got, ok, _ := BestLabelMatchForPage(label, pages, "flight-shapes", "")
+		if ok || got.URL != "" {
+			t.Errorf("fell through to a second-best candidate (%q) instead of refusing — "+
+				"measured 2026-08-23: doing that wrote to the wrong page on most of the 10 "+
+				"rows where it happened", got.URL)
+		}
+	})
+	t.Run("another page's copy still resolves", func(t *testing.T) {
+		got, ok, _ := BestLabelMatchForPage("Read the barrel shapes guide", pages, "flight-shapes", "")
+		if !ok || got.URL != "/blog/barrel-shapes.html" {
+			t.Errorf("self-refusal must not disable ordinary matching: got %+v ok=%v", got, ok)
+		}
+	})
+}

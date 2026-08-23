@@ -110,7 +110,7 @@ func TestCTAClassifyAnchor(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got, named := ctaClassifyAnchor(
-				datahelpers.Anchor{Text: tc.text, Href: tc.href}, "hero", pages)
+				datahelpers.Anchor{Text: tc.text, Href: tc.href}, "hero", pages, "", "")
 
 			if named != tc.wantNamed {
 				t.Fatalf("named = %v, want %v", named, tc.wantNamed)

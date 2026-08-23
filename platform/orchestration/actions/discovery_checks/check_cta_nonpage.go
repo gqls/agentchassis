@@ -101,7 +101,8 @@ type nonPageCTAFinding struct {
 // yields the true-positive classes only. External returns when it has a
 // discriminator better than one-token overlap; that residue is stated in the
 // header, not hidden.
-func classifyNonPageAnchor(a datahelpers.Anchor, slotName string, pages []datahelpers.LabelMatchCandidate) (*nonPageCTAFinding, bool) {
+func classifyNonPageAnchor(a datahelpers.Anchor, slotName string, pages []datahelpers.LabelMatchCandidate,
+	pageName, pageURL string) (*nonPageCTAFinding, bool) {
 	if datahelpers.ClassifyLinkScope(a.Href) != datahelpers.LinkScopeMailto {
 		return nil, false
 	}
@@ -137,7 +138,7 @@ func classifyNonPageAnchor(a datahelpers.Anchor, slotName string, pages []datahe
 	// never agree with the page it names — a non-page href normalises to no
 	// page URL — so named==true is always a mismatch here.
 	if !selfAgrees {
-		if misdirect, named := ctaClassifyAnchor(a, slotName, pages); named && misdirect != nil {
+		if misdirect, named := ctaClassifyAnchor(a, slotName, pages, pageName, pageURL); named && misdirect != nil {
 			return &nonPageCTAFinding{
 				Kind:                 "cta_names_nonpage_destination",
 				SlotName:             slotName,
@@ -217,7 +218,7 @@ func (c *CTANonPageDestinationCheck) Run(dctx DiscoveryCheckContext) (*CheckResu
 			continue
 		}
 		for _, a := range datahelpers.ExtractAnchors(html) {
-			if f, ok := classifyNonPageAnchor(a, slotName, pages); ok {
+			if f, ok := classifyNonPageAnchor(a, slotName, pages, pageName, pageURL); ok {
 				all = append(all, flagged{pageName: pageName, pageID: pageID, f: *f})
 			}
 		}

@@ -537,7 +537,7 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 			}
 			if fields, isCTA := ctaFieldNames[fn]; isCTA {
 				if cta == nil {
-					cta = loadRerenderCTAState(ctx, params, siteID, pageName, logger)
+					cta = loadRerenderCTAState(ctx, params, siteID, pageName, pageURL, logger)
 				}
 				if plan.ResolvedData == nil {
 					plan.ResolvedData = map[string]interface{}{}
@@ -547,9 +547,9 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 					labelFieldOf[cf.URLField] = cf.LabelField
 				}
 				applyCTARecompute(plan.ResolvedData, s.contentData, fields[0], cta.primary, cta.validPages, pageURL,
-					existingLabelFor(s.contentData, labelFieldOf[fields[0]]), cta.candidates)
+					existingLabelFor(s.contentData, labelFieldOf[fields[0]]), cta.candidates, cta.pageName)
 				applyCTARecompute(plan.ResolvedData, s.contentData, fields[1], cta.secondary, cta.validPages, pageURL,
-					existingLabelFor(s.contentData, labelFieldOf[fields[1]]), cta.candidates)
+					existingLabelFor(s.contentData, labelFieldOf[fields[1]]), cta.candidates, cta.pageName)
 			}
 		}
 
@@ -941,13 +941,14 @@ type rerenderCTAState struct {
 	primary, secondary contentHub
 	validPages         datahelpers.PageURLSet
 	candidates         []datahelpers.LabelMatchCandidate
+	pageName, pageURL  string // this page's own identity — never its own CTA target
 }
 
 // loadRerenderCTAState reuses the internal-link-resolver's loaders and ranking
 // (interactive pages first, then hubs). Loader failures degrade to empty
 // candidate lists: applyCTARecompute then leaves fields untouched rather than
 // aborting the rerender.
-func loadRerenderCTAState(ctx context.Context, params ActionParams, siteID uuid.UUID, pageName string, logger *zap.Logger) *rerenderCTAState {
+func loadRerenderCTAState(ctx context.Context, params ActionParams, siteID uuid.UUID, pageName, pageURL string, logger *zap.Logger) *rerenderCTAState {
 	hubs, err := loadContentHubs(ctx, params, siteID, logger)
 	if err != nil {
 		logger.Warn("rerender_page_sections: loadContentHubs failed for CTA recompute", zap.Error(err))
@@ -975,6 +976,8 @@ func loadRerenderCTAState(ctx context.Context, params ActionParams, siteID uuid.
 		logger.Warn("rerender_page_sections: CTA label universe failed for CTA recompute", zap.Error(err))
 	}
 	return &rerenderCTAState{
+		pageName:   pageName,
+		pageURL:    pageURL,
 		primary:    primary,
 		secondary:  secondary,
 		validPages: loadResolverPageSet(ctx, params, siteID, logger),
@@ -1007,7 +1010,8 @@ func loadRerenderCTAState(ctx context.Context, params ActionParams, siteID uuid.
 // The label match stays AHEAD of the keep on purpose: a FABRICATED contact url
 // whose label names a real page is 203's defect and must still be repaired.
 func applyCTARecompute(resolved, stored map[string]interface{}, field string, target contentHub,
-	validPages datahelpers.PageURLSet, pageURL string, existingLabel string, candidates []datahelpers.LabelMatchCandidate) {
+	validPages datahelpers.PageURLSet, pageURL string, existingLabel string, candidates []datahelpers.LabelMatchCandidate,
+	pageName string) {
 
 	if field == "" {
 		return // single-URL component — no field in this slot
@@ -1025,11 +1029,14 @@ func applyCTARecompute(resolved, stored map[string]interface{}, field string, ta
 	current, hasCurrent := stored[field].(string)
 
 	if existingLabel != "" {
-		// AMBIGUOUS copy reports !ok and falls to the keeps (bugs_open/308): a
-		// repair that rewrites a live button to a page chosen by alphabetical
-		// order is not a repair. 137 of the 428 writes this widening would
-		// otherwise perform fleet-wide were exactly that (measured 2026-08-23).
-		if match, ok, _ := datahelpers.BestLabelMatch(existingLabel, candidates); ok && validPages.Contains(match.URL) &&
+		// Two ways this declines, both meaning "no opinion, keep what is there":
+		// AMBIGUOUS copy (two pages tied on everything but alphabetical order —
+		// 137 of the 428 writes the widening would otherwise perform), and copy
+		// that names THE PAGE IT SITS ON (35 of 291 after the refusal — the
+		// 2026-08-23 hand audit). A repair that rewrites a live button to a page
+		// chosen by the alphabet, or to the page the reader is already on, is
+		// not a repair.
+		if match, ok, _ := datahelpers.BestLabelMatchForPage(existingLabel, candidates, pageName, pageURL); ok && validPages.Contains(match.URL) &&
 			(!hasCurrent || datahelpers.NormalizePagePath(match.URL) != datahelpers.NormalizePagePath(current)) {
 			resolved[field] = match.URL
 			datahelpers.SetCTAMinted(resolved, field, match.URL)

@@ -50,7 +50,7 @@ func TestSetCTAFieldPrefersLabelMatchOverPositionalTarget(t *testing.T) {
 	resolved := map[string]interface{}{}
 	var unresolved []map[string]interface{}
 	setCTAField(resolved, nil, "cta_url", positionalTarget, valid, "hero", "hero", "primary", &unresolved,
-		"Run the Risk Checker", candidates)
+		"Run the Risk Checker", candidates, "")
 
 	if got := resolved["cta_url"]; got != "/tools/tool-ai-data-risk-checker.html" {
 		t.Errorf("cta_url = %v, want the risk-checker tool (label match), not the positional pick", got)
@@ -70,7 +70,7 @@ func TestSetCTAFieldFallsBackToPositionalWhenLabelIsGeneric(t *testing.T) {
 	resolved := map[string]interface{}{}
 	var unresolved []map[string]interface{}
 	setCTAField(resolved, nil, "cta_url", positionalTarget, valid, "hero", "hero", "primary", &unresolved,
-		"Get Started", candidates)
+		"Get Started", candidates, "")
 
 	if got := resolved["cta_url"]; got != positionalTarget.URL {
 		t.Errorf("cta_url = %v, want the unchanged positional pick for a generic label", got)
@@ -88,7 +88,7 @@ func TestSetCTAFieldFallsBackToPositionalWhenLabelMatchesNoCandidate(t *testing.
 	resolved := map[string]interface{}{}
 	var unresolved []map[string]interface{}
 	setCTAField(resolved, nil, "cta_url", positionalTarget, valid, "hero", "hero", "primary", &unresolved,
-		"Read Our Privacy Policy", candidates)
+		"Read Our Privacy Policy", candidates, "")
 
 	if got := resolved["cta_url"]; got != positionalTarget.URL {
 		t.Errorf("cta_url = %v, want the positional pick when the label matches no candidate", got)
@@ -112,7 +112,7 @@ func TestApplyCTARecomputeOverridesValidButMisdirectedLink(t *testing.T) {
 	resolved := map[string]interface{}{}
 	stored := map[string]interface{}{"cta_url": "/tools/password-entropy.html"} // valid, but wrong for the label
 	applyCTARecompute(resolved, stored, "cta_url", positionalTarget, valid, "/index.html",
-		"Run the Risk Checker", candidates)
+		"Run the Risk Checker", candidates, "")
 
 	if got := resolved["cta_url"]; got != "/tools/tool-ai-data-risk-checker.html" {
 		t.Errorf("cta_url = %v, want the label-matched risk-checker tool to override the valid-but-wrong stored link", got)
@@ -131,7 +131,7 @@ func TestApplyCTARecomputeLeavesAlreadyCorrectLinkUnwritten(t *testing.T) {
 	resolved := map[string]interface{}{}
 	stored := map[string]interface{}{"cta_url": "/tools/tool-ai-data-risk-checker.html"} // already correct
 	applyCTARecompute(resolved, stored, "cta_url", positionalTarget, valid, "/index.html",
-		"Run the Risk Checker", candidates)
+		"Run the Risk Checker", candidates, "")
 
 	if len(resolved) != 0 {
 		t.Errorf("expected no write when the stored link already matches the label, got %v", resolved)
@@ -148,7 +148,7 @@ func TestApplyCTARecomputeFallsBackWhenLabelGeneric(t *testing.T) {
 	resolved := map[string]interface{}{}
 	stored := map[string]interface{}{"cta_url": "/tools/password-entropy.html"}
 	applyCTARecompute(resolved, stored, "cta_url", positionalTarget, valid, "/index.html",
-		"Get Started", candidates)
+		"Get Started", candidates, "")
 
 	if len(resolved) != 0 {
 		t.Errorf("generic label should keep the stored valid link untouched, got %v", resolved)
