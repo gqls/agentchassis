@@ -53,6 +53,59 @@ that never starts while everyone believes it did.
 
 ## How to verify a fix
 
-Run the trigger with the broker deliberately unreachable (or the topic renamed) and require a
-**non-zero exit** and a message naming what did not land. A fix verified only against a healthy
-broker has tested nothing — the failure mode IS the unhealthy path, and it must be induced.
+~~Run the trigger with the broker deliberately unreachable (or the topic renamed) and require a
+**non-zero exit** and a message naming what did not land.~~ **A fix verified only against a
+healthy broker has tested nothing — the failure mode IS the unhealthy path, and it must be
+induced.** (That second sentence stands and is the whole point. The recipe in the first does
+not — see the correction.)
+
+> **CORRECTED 2026-08-23 — the recipe above passes on the UNFIXED script, so it cannot tell a
+> fix from no fix.** Measured, both arms side-effect free (each publishes zero messages):
+>
+> | induced condition | published | exit | operator sees |
+> |---|---|---|---|
+> | broker unreachable — *the recipe above* | 0 | **1** | loud broker errors |
+> | **empty / unattached stdin, HEALTHY broker** — *the real arm* | 0 | **0** | **nothing at all** |
+>
+> `set -euo pipefail` already propagates `kubectl`'s non-zero status when the pod terminates in
+> Error, so the unfixed trigger **already exits 1** on an unreachable broker. The two modes are
+> **opposite in observability** and this file tested the loud one.
+>
+> **Induce the silent arm instead:** `… kcat -P -b <REAL broker> -t <topic> < /dev/null`, which
+> reproduces the post-race state deterministically and publishes nothing. "Topic renamed" is also
+> weak — with auto-create on, the broker accepts the publish and exits 0, testing neither arm.
+>
+> **What this means for any fix:** on the mode that actually bites, **the exit code carries no
+> information**, so a receipt is not belt-and-braces — it is the only instrument that reads the
+> silent arm.
+
+## Status 2026-08-23 — FIXED AT THE TRIGGER, and the bug stays OPEN
+
+`082_submit_domain_unified.sh` now publishes through **`scripts/kafka-publish-lib.sh`** (register
+**OPP-009**): payload in the container **command** so the stdin race is structurally impossible,
+an **asserted** `PUBLISH_OK` receipt, `SAVE: CORRELATION_ID` moved to *after* the receipt (it used
+to print three lines *above* the publish, telling the operator to record ids for a message not yet
+attempted), a **non-zero exit** naming what did not land, and a landing check that separates
+*never published* (retry now, **10**) from *consumed and REFUSED* (**12**, read from
+`agent_error_log`) and *published but not landed* (**13**, wait — this is also latency's
+signature). A new racing publisher now draws an advisory `check_kcat_stdin_race` at commit time.
+
+**It stays OPEN, deliberately.** `[MEASURED 2026-08-23]` of **218** `kcat -P` publishers, **201**
+still use the racing form — **178 of them runnable** (23 are scrapbooks that do not parse) — and
+**one** caller has been migrated. The customer path this bug names is closed; the class is not.
+
+**Also corrected here:** this file's evidence (`8fa2a4a6…` → 0 rows) can no longer be
+re-verified — `orchestration_states` retains **~2 days** and holds nothing for 2026-08-18, so that
+query now returns 0 regardless. Validity was re-established at the **source** instead (the script
+was unchanged since 2026-07-30). The competing explanation *was* excluded: no `agent_error_log`
+row names the correlation, and that table recorded **3,761 rows including a real
+`VALIDATION_ERROR_DROPPED` on 2026-08-18**, so the recorder was live and its silence is evidence.
+
+**One finding this file did not anticipate:** the racing form is non-deterministic in *both*
+directions. In a controlled 10-vs-10 run it published a **duplicate** (11 delivered for 10 sends).
+On the real topic a duplicate submission is two builds. `[ONE observation, not a rate.]` In the
+same run the **drop did not reproduce** — 0 of 10 — which excludes the historical 4-in-5
+(p≈1e-7) but bounds today's rate only below ~26%. **The rate is load-dependent; the silence is
+not.**
+
+Full trail: `docs/agent_docs/docs024_key_docs_latest/bugfix_327_silent_publish_drop/`.
