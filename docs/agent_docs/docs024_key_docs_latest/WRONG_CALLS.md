@@ -46299,3 +46299,40 @@ entry was left untouched.
 **The thread through all three:** each was caught by a control that could have come out otherwise,
 and none by re-reading my own work. The second is the one that matters — it is the only one where
 being wrong would have shipped, because a passing test is normally where checking stops.
+
+## 2026-08-23 — `loanzy_uk_example_site` lane: I asserted a COMPOUND between two bugs without re-reading the other one's config, and it was already false when I typed it
+
+**The claim.** In `bugs_open/376` §2a, filed 18:30Z, I wrote that when the garden-tools build died
+the operator's re-submission would be silently suppressed by `bugs_open/326`'s two-strike block —
+*"the front door stays shut until 20:17:15Z"* — and gave the arithmetic from the sibling's
+`created_at`.
+
+**It was wrong within the hour, and arguably wrong when written.** Migration **572** had been
+applied that afternoon, declaring `recurrence_expected: true` on all five build-chain handoffs,
+which skips the block entirely. Re-submitting inserts a fresh row at any offset.
+
+**What caught it:** the `bugs_open/326` session told me, unprompted, while I was writing. Not a
+check of mine. Worse, **I had already read the disconfirming evidence and not registered it** — at
+18:28Z I read `vertical-exemplar-researcher.create_next_item` in full and quoted
+`"recurrence_expected": true` from it *in this very bug file*, ten lines above the claim, because I
+was reading that step for a different reason (which item type it produces). The fact was on my
+screen, in my own quotation, and I did not connect it.
+
+**The cheap check: re-read the OTHER bug's mechanism at the moment you assert a compound — and
+treat a field you have already quoted as evidence you have already been given.** A cross-bug
+interaction is the least stable claim available: it depends on two mechanisms, and the second one
+is under active repair *by the very lane you are writing it for*. There is no slower-moving version
+of this error — the more relevant your compound is to another lane, the more likely they are
+changing it while you write.
+
+**The near-miss that makes it worth logging rather than just fixing.** I nearly told the 326
+session that their own fix had a hole in it, in a message about their own bug, citing a mechanism
+they had retired that afternoon. The reason I did not is that they messaged first — which is luck,
+not method.
+
+**What it cost:** nothing beyond a retraction, because it was caught in under an hour and the file
+was corrected in place with the query that settles it. **The severity case in `376` is unaffected**
+— it never depended on the compound.
+
+**Distinct from this lane's entry above** (naming a mechanism without reading it). That one was
+never checking; this one was checking the right thing for the wrong purpose and not hearing it.
