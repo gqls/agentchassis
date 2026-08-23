@@ -207,6 +207,24 @@ anywhere in the estate (swept every live agent's steps; one row), so this pipeli
 the soil this RFC grows in. Cite it as motivation for the general shape; **do not cite it as a
 second casualty.**
 
+> **⚠ CORRECTED 2026-08-23 20:1xZ — "permanently" is wrong, and the retraction came from the
+> lane that supplied the case.** A fifth exemplar draw, 30 minutes after the four that looked
+> settled, **re-drew**: the refused host was absent and one pick came from
+> `identity.competitors_found` — the branch both lanes had recorded as never having fired. All
+> three crawls cleared, and `garden-tools.uk` is now at **hop four** (`needs_strategy` claimed
+> 20:05:55Z, `needs_briefing` queued 20:09:29Z, `vertical_landscape` spec written 20:05:45Z —
+> verified at the artefact by this lane, not taken on report).
+>
+> So the accurate statement is: **4 of 5 draws contained the refused host.** The pool is
+> **biased, not fixed**; a retry escaped on the very next observation. What survives unchanged is
+> the structural half — `create_next_item` really is the sole producer of `needs_strategy`, and
+> the step really has no `on_error` — so an **exhausted attempt budget** is still terminal. That
+> is "usual", not "certain", and the word "permanently" should read "once the three attempts run
+> out".
+>
+> **This does not touch §6 or §6a of `PROPOSAL_D9`**, whose delivery-gap finding depends on none
+> of it.
+
 **The misstep is mine and it is the interesting part.** Asking for a second case is a reasonable
 thing to do; asking for one *an hour after a veto*, and telling the person I was asking how much
 I wanted it, is how a case that does not fit gets written in anyway. The check I skipped is one

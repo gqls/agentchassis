@@ -468,8 +468,52 @@ versus an upstream identity question). Sent to that lane; not filed in theirs by
 >
 > **The discriminator, for whoever wants it:** one greenfield build in a vertical whose
 > competitors genuinely ARE content properties.
+>
+> **⚠ SETTLED 2026-08-23 20:0xZ, AND AGAINST BOTH OF US — the branch FIRED.** A fifth draw, 30
+> minutes after the four that looked settled, dropped the refused host and picked
+> `burgonandball.com`, which **is** in `competitors_found`. So `0/4` was a run, exactly as the
+> bound above said it might be, and the mechanism I proposed — *"the pool is fixed because the
+> fresh specs never reach the decision"* — **is false**: the specs reach the decision, at least
+> sometimes. The honest statement is the count: **4 of 5 draws contained the refused host.**
+> Biased, not fixed. Retracted by the `loanzy.uk` lane, verified here at the artefact.
+>
+> **Nothing caught this except the system continuing to run.** Not a check, not either session.
+> That is worth more than the finding: a run of identical observations became a mechanism, and
+> only a free counter-example broke it.
 
 **The transferable bit for this lane:** I nearly recorded "the pool is a property of the
 vertical" as received. Checking a peer's inference — not their measurement, their *inference* —
 is what turned a true-but-shallow mechanism into an actionable one. `[a-subagent-report-is-another-doc]`
 applies to peers, and it applies to the reasoning as much as the numbers.
+
+## 2026-08-23 20:09Z — the fix's strongest evidence, arriving unasked: the re-submitted build is at HOP FOUR
+
+Verified at the artefact, this lane's own query:
+
+```
+needs_domain_research   | research_garden-tools.uk          | complete | 17:17:15   <- submission 1
+needs_vertical_research | vertical_research_garden-tools.uk | failed   | 17:44:56   <- died here (376)
+needs_domain_research   | research_garden-tools.uk          | complete | 19:23:06   <- submission 2, THE FIX
+needs_vertical_research | vertical_research_garden-tools.uk | complete | 19:26:57
+needs_strategy          | strategy_garden-tools.uk          | claimed  | 20:05:55
+needs_briefing          | briefing_garden-tools.uk          | triaged  | 20:09:29
+```
+
+Plus a `vertical_landscape` spec at 20:05:45Z, `is_current`.
+
+**The 19:23 re-submission did not merely queue a row — it produced a build that has since cleared
+four pipeline stages**, including the hop that killed submission 1. That is the fix demonstrated
+end to end rather than at its first insert, and I did not design the test: it fell out of another
+lane letting a failed build take its natural course.
+
+**Two claims this kills, one of them mine**, both retracted above: the exemplar pool is biased
+(4 of 5), not fixed; and the `competitors_found` branch fires.
+
+**The lesson I am taking, from the lane that made the error and named it better than I would
+have:** *if the evidence is a count, the claim must contain the count.* "4 of 5 draws contained
+the refused host" was always what was actually known, needs no hedge, and would have survived the
+fifth draw intact. Twice today that lane turned a run of identical observations into a mechanism
+(14 ordered dispatches → a `site_id` walk theory, broken in 20 minutes; 4 identical draws →
+"structurally incapable", broken in 30), and **neither was caught by a check or by me — the
+system kept running and contradicted them.** That is luck standing in for method, and it is the
+most useful thing either of us learned today.
