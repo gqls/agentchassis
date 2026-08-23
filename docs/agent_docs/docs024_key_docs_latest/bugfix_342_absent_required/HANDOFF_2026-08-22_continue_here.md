@@ -1,5 +1,26 @@
 # HANDOFF 2026-08-22 — `bugfix_342_absent_required`, continue here
 
+> # ✅ STATE AS OF 2026-08-23 ~14:00Z — THE LANE IS BLOCKED ON ONE THING: A ROLL.
+> Everything this lane owns is written, council-APPROVED and committed. **Nothing here needs a
+> decision or more work.** The routability fix (`eb918bd58` 13:08, `23d2a577d` 13:34, trail
+> `a0ef0b07`) is **NOT live**: the deployed image is **v1.0.1328, started 11:51Z**, i.e. it
+> predates both commits, and the makefile's `v1.0.1329` is a bumped tag nothing is running.
+> Verified at the artefact with a working-probe control — the new literal
+> `capability_gap:required_fields_missing` is ABSENT while yesterday's live
+> `refuse_absent_required_fields` is PRESENT in the same probe.
+>
+> **To finish this lane after the next `make release` (owner-run, whole-fleet):**
+> 1. Re-probe the binary for `capability_gap:required_fields_missing` — and keep a second arm in
+>    the same breath (a literal you know is live), because otherwise ABSENT cannot be told apart
+>    from a broken probe. Check literal NOVELTY first: `git grep -c "<literal>" <commit>^`.
+> 2. Confirm the armings survived the roll: editor refusal `true`, chrome record 7/7 (§8 queries).
+>    A roll re-applies overlays, so "it was armed" has a shelf life.
+> 3. Then the two closure checks in §4/§7.
+>
+> **Production while inert, measured 2026-08-23:** accrual is ZERO (still exactly 2 render-time
+> items, newest 08-22 18:03), and **12 `section-editor` items completed with 0 refusals** — the
+> demand control showing the armed refusal is not breaking healthy traffic.
+
 > # ⚠ SUPERSEDED IN PART — 2026-08-23. Read this box before anything below it.
 >
 > This file said the lane was done bar one check. **It was not.** Running that check on 08-23
