@@ -361,3 +361,43 @@ already present"*.
 agreed 562 with them directly — and by the time the file was written 562, 563 and 564 had all
 been taken by other lanes. Landed on **565**. On a tree this busy, pick the number at the
 moment you write the file, not at the moment you plan it.
+
+## 2026-08-23 — the repair is blocked by something that is NOT this bug: loanzy.uk is not being dispatched at all
+
+The component stored (12:31:38Z) and three `needs_page` re-renders were filed at 12:32Z. Forty
+minutes later all three are still `triaged`, never claimed, `attempt_count = 0`, no error.
+
+**This is not queue latency and it is not this bug.** Measured [2026-08-23 13:0xZ]:
+
+- **12 other sites were served by `build-dispatch-loop` in the same hour**, several 15–59 times
+  (`dartsonline.com` 59, `ai-agent-orchestration.com` 18, `apis.uk` 17, `robot-hands.com` 17…).
+  **loanzy.uk: zero.** Its last touch of any kind is 12:33:13Z; 18 items sit `triaged`.
+- Ruled out, each with a check rather than a guess:
+  - **not a site lock** — `sites.locked_at`/`locked_by` are NULL, and `status`/`build_status`
+    (`deployed`/`pending`) are identical to sites that ARE being served;
+  - **not head-of-line blocking by a claimed item** — loanzy has none `claimed`;
+  - **not a dead handler** — `page-rerender` has 4,214 completions and `page-build-handler` 262;
+    `remortgagecalculator.uk` completed a `needs_page` at 12:39Z;
+  - **not the known dropped-row scan failure** that `load_work_item_actions.go:829-853` warns
+    about (site selected as dispatchable, every row dropped on scan, loop claims nothing) —
+    **zero** `work item row DROPPED on scan error` lines in 60 minutes of chassis logs. That
+    hypothesis was the best fit and it is refuted.
+- **The 15 items ahead of mine were filed by `component-template-fixer` at 12:32:25–12:33:02Z —
+  i.e. triggered by my own component store 47 seconds earlier.** They are not the cause of the
+  starvation (loanzy was already not being served), but they do mean loanzy's queue is now 18
+  deep and my three re-renders are at the back of it.
+- `find_dispatchable_site`, which `RUNBOOK_311_fix.md` and the `single-page-deploy` memory both
+  describe as the selector, **no longer exists as a DB function** — only a comment in
+  `load_work_item_actions.go:829` still names it. The runbook's model of the dispatcher is
+  stale, and anyone debugging dispatch from it will be reading about a function that is gone.
+
+**Not filed as a bug yet, deliberately.** `bugs_closed/029` ("hung spawns saturate dispatch
+group and halt builds fleetwide") is the closest known mechanism and its recorded behaviour
+self-heals in ~40 minutes — which is exactly the window observed, so filing now would risk
+recording latency as a defect. A watch is running. **If loanzy is still unserved well past
+that window it is a real starvation defect and should be filed against the dispatch lane, with
+the 12-sites-vs-zero census above as the evidence.**
+
+**What this does NOT change:** the 337 fix is live, council-APPROVED, and demand-proven at the
+mechanism, and the component this bug is about is stored. The three pages remain unrepaired for
+a reason that lives downstream of anything this lane changed.
