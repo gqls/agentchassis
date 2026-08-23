@@ -31,6 +31,7 @@ import (
 	"go/token"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap"
@@ -49,6 +50,111 @@ var sectionMetadataProducers = map[string]string{
 	"annotateSectionNegation":    "result", // the copy-gate wrapper, which adds a key of its own
 	"RerenderPageSectionsAction": "entry",  // fresh re-render (rerender_page_sections_action.go)
 	"carryStoredSection":         "m",      // carry, same file
+}
+
+// sectionMetadataAppenders is the DISCOVERED set: every function that appends to
+// a sections_metadata slice. Unlike sectionMetadataProducers above, this list is
+// not trusted — TestSectionMetadata_NoUndeclaredProducer walks the package and
+// fails if the real set differs, in either direction.
+//
+// This exists because the council's bug_historian seat put the obvious objection
+// to the producer map: a hand-maintained list of producers is the same shape as
+// bugs_open/189's hand-maintained list of keys, and a future producer with a new
+// variable name would reproduce this class with a green test. It is a fair hit.
+// A new producer cannot avoid appending its entry to the metadata slice, so
+// discovering appenders from the code — and requiring each to be declared — is
+// the part that generalises. The value beside each name says how its keys are
+// covered.
+var sectionMetadataAppenders = map[string]string{
+	"CompilePageSectionsAction":  "appends what extractSectionFromMap returns (the carrier itself, scanned by the round-trip test) plus a bare {rendered_html} literal for string-only items",
+	"RerenderPageSectionsAction": "builds `entry` — scanned via sectionMetadataProducers",
+}
+
+// appendsToSectionsMetadata reports whether fn appends to an identifier whose
+// name is the sections_metadata slice, and returns any composite literals it
+// appends DIRECTLY (rather than via a variable), so an inline entry cannot smuggle
+// in an undeclared key.
+func appendsToSectionsMetadata(fn *ast.FuncDecl) (bool, []string) {
+	found := false
+	var inlineKeys []string
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		id, ok := call.Fun.(*ast.Ident)
+		if !ok || id.Name != "append" || len(call.Args) == 0 {
+			return true
+		}
+		dst, ok := call.Args[0].(*ast.Ident)
+		if !ok || !strings.Contains(strings.ToLower(dst.Name), "sectionsmetadata") {
+			return true
+		}
+		found = true
+		for _, arg := range call.Args[1:] {
+			cl, ok := arg.(*ast.CompositeLit)
+			if !ok {
+				continue
+			}
+			for _, elt := range cl.Elts {
+				if kv, ok := elt.(*ast.KeyValueExpr); ok {
+					if s, ok := basicString(kv.Key); ok {
+						inlineKeys = append(inlineKeys, s)
+					}
+				}
+			}
+		}
+		return true
+	})
+	return found, inlineKeys
+}
+
+// TestSectionMetadata_NoUndeclaredProducer is the answer to "your producer list is
+// itself hand-maintained". It does not trust either list: it finds the functions
+// that actually append section metadata and requires the set to match, so a NEW
+// producer — whatever it names its variable — fails the build until someone
+// declares how its keys are covered.
+//
+// MUTATION THAT MUST BREAK IT: add a function that does
+// `sectionsMetadata = append(sectionsMetadata, map[string]interface{}{...})`
+// without declaring it here.
+func TestSectionMetadata_NoUndeclaredProducer(t *testing.T) {
+	funcs, _ := parsePackageFuncs(t)
+
+	discovered := map[string]bool{}
+	for name, fd := range funcs {
+		appends, inlineKeys := appendsToSectionsMetadata(fd)
+		if !appends {
+			continue
+		}
+		discovered[name] = true
+		for _, k := range inlineKeys {
+			if !sectionKeyIsDeclared(k) {
+				t.Errorf("%s appends an inline section entry carrying undeclared key %q — declare it as "+
+					"carried or denied in section_metadata_keys.go", name, k)
+			}
+		}
+	}
+
+	if len(discovered) == 0 {
+		t.Fatal("CONTROL FAILED: found no function appending to a sections_metadata slice. The slice was " +
+			"renamed, or the walk is broken — either way every rule in this test would pass vacuously.")
+	}
+	for name := range discovered {
+		if _, declared := sectionMetadataAppenders[name]; !declared {
+			t.Errorf("%s appends section metadata but is NOT declared in sectionMetadataAppenders.\n"+
+				"A new producer is exactly how this class recurs: bugs_open/189 was pinned by a list that "+
+				"could not see the next arrival, and bugs_open/357 was the next arrival. Declare it, and say "+
+				"how its keys are covered — if it builds its entry in a local variable, add it to "+
+				"sectionMetadataProducers too so its keys are actually scanned.", name)
+		}
+	}
+	for name := range sectionMetadataAppenders {
+		if !discovered[name] {
+			t.Errorf("sectionMetadataAppenders names %q, which no longer appends section metadata. A stale "+
+				"entry here is a list drifting away from the code — the thing this test exists to prevent.", name)
+		}
+	}
 }
 
 // basicString unwraps a string literal, and only a string literal: a key built
@@ -274,6 +380,27 @@ func TestExtractSectionFromMap_CarriesEveryDeclaredKey(t *testing.T) {
 		"nested_under_section_output": {
 			"section_output": producer(),
 		},
+	}
+
+	// The council's editquality seat read the early-exit as checking only some of
+	// the carry keys, and asked what stops it breaking out while a key is still
+	// missing from a LATER substep — which would reintroduce the silent drop via
+	// the optimisation instead of the allow-list. sectionMetaComplete requires
+	// EVERY carried key, so it cannot; this case is the proof rather than the
+	// assurance. The first substep supplies most keys, and component_id lives only
+	// in the third.
+	cases["key_only_in_a_later_substep_is_still_recovered"] = map[string]interface{}{
+		"section_output": map[string]interface{}{
+			"rendered_html":         "<section>hi</section>",
+			"component_name":        "hero",
+			"component_function":    "hero",
+			"stored_slot_name":      "prose-0",
+			"content_data":          map[string]interface{}{"headline": "H"},
+			"rendered_template_sha": wantSHA,
+			"component_version_id":  wantVersion,
+		},
+		"render_section":       map[string]interface{}{"rendered_html": "<section>hi</section>"},
+		"render_from_template": map[string]interface{}{"component_id": wantCompID},
 	}
 
 	for name, in := range cases {
