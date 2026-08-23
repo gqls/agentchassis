@@ -208,3 +208,47 @@ Until the cap is raised, **anything in the estate that calls the AI will fail**:
 council, the diagnosis loop, and every site build that writes content. Nothing is broken and
 nothing needs repairing; it will simply stop working until you lift the limit or 1 September
 arrives. I would rather flag it now than have you find it as a wave of failed builds.
+
+## 2026-08-23 — the rebuild went out, my change is live and working, and it has moved the problem one step rather than finishing it
+
+**The fix is genuinely in the running system and genuinely doing its job.** I checked that
+properly rather than assuming: the running service reports which version of the code it was
+built from, my change is inside it, and I used a check that could have said "no" (a later
+change correctly showed as absent). Before, the writer was handed nothing; on the first run
+after the rebuild it was handed both things it had been missing — the list of field names it
+must keep, and a 10,000-character list of the valid data sources it may use.
+
+**And the specific mistake this bug was about has stopped.** Yesterday the same job was refused
+because the writer invented a data source called "ctas" that does not exist. Today, shown the
+real list, it used only real ones. That failure did not come back.
+
+**But the page still is not fixed, and I want to be straight about that.** The job was refused
+again — for a *different* reason, and by a rule that has been there since the 3rd of August,
+nothing to do with my change. The writer declared forty-three pieces of content and then only
+placed forty-two of them in the actual page layout. One missing. The safety check spotted it
+and refused, correctly.
+
+So: one field short of forty-three, rather than an invented data source or eighteen missing
+names. Much closer, still not there.
+
+**One thing I genuinely don't know and won't pretend to.** My change tells the writer to keep
+all forty-three names. It is possible that asking it to juggle forty-three makes it more likely
+to drop one than if it had invented a smaller set of its own. The evidence leans against me
+having caused it — that failure has happened 58 times to 24 different jobs since the 3rd of
+August, long before my change — but I have not proved it either way, and I have written down
+the measurement whoever picks this up should run.
+
+**The good news underneath it:** the other team's work now captures the exact reason for that
+refusal and hands it to the next attempt, so the retry is being told precisely which field is
+missing. If that works, it will be the first time we have seen prevention and correction close
+a loop together. It is still queued, so I am not claiming it yet.
+
+**A correction to something I told you yesterday.** You approved re-driving all eleven stopped
+jobs. I checked before spending anything and the picture has changed overnight: there are nine
+now, not eleven, and other teams have already repaired most of the pages — I confirmed that by
+looking at the live sites, with working pages as a comparison. **Only three loanzy pages are
+genuinely still missing their tool.** Worse, every one of those stopped jobs now has a
+component that exists, so re-running them would *rewrite* components other pages are using
+rather than create missing ones — nine expensive runs to fix three pages, with a real risk of
+breaking six working ones. I have run one, and I am holding the rest for you rather than
+following yesterday's instruction into a situation it was not written for.
