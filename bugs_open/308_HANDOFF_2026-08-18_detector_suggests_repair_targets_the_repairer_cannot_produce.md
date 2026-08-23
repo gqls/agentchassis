@@ -414,3 +414,49 @@ then induce a discovery run and a `cta_links_stale` rerender on **finetuning.uk*
 findings) and load the page. `page_components` rows whose CTA url is a utility destination should
 move from ~0; `misdirected_cta` items per day should FALL, because the two false families stop
 being filed. Both directions matter — a fall alone could just mean the detector stopped running.
+
+---
+
+## CONTRIB 2026-08-23 (later) — the owner-commissioned HAND AUDIT, and the 12% defect it found
+
+Phase B's council round approved the change and its guardian seat still objected that a fleet-wide
+content change had no staged path. **The owner's answer was to audit a sample of the writes before
+the roll.** Doing so found a defect that four council rounds, 13 reviewers, mutation testing and
+two calibration passes had all missed.
+
+**50 of the 291 writes, judged by hand** (md5-ordered sample, so reproducible and not dominated by
+the biggest site or the biggest label family): **34 right, 11 wrong, 5 arguable.**
+
+**Nine of the eleven wrong were one defect.** Census over the full population:
+
+> **35 of 291 writes (12%) pointed a button at the page it was already on.**
+> `Read the policy` on `/privacy.html` → `/privacy.html`. `Read the full grip styles guide` on
+> `/blog/grip-styles.html` → `/blog/grip-styles.html`. 33 more.
+
+The widening manufactures them: a page's own copy is usually the best token match for that page,
+and before Phase B most pages were not candidates at all. **This bug file's own check already
+treats a self-link as a defect** — the `links back to its own page` arm — so suggesting one as the
+*repair* was that same defect arriving from the other direction.
+
+**FIXED** (`9163cf4ef`, council `49addc8d-884c-4027-8c7b-b3ac4b69f489`): `BestLabelMatchForPage`
+refuses a winner that is the page the button sits on, and both writers and the detector now pass
+their page identity so the compiler makes every call site decide.
+
+⚠ **Refusing is not the same as filtering the page out of its own candidate list.** Filtering was
+implemented and measured first: self-links went to 0, but **10 rows diverted to a runner-up and
+most were wrong** (`Compare flight shapes` → the barrel-shapes guide). Once the best candidate is
+removed, one shared token is enough for noise to win. Writes: 291 → 281 (filter) → **256**
+(refusal, nothing diverted).
+
+**Residual, unfixed and shipping:** 13 of the 256 writes land on an About page and **6 are wrong** —
+the `Talk to us about your setup` family. It is token-identical to `Learn More About Us` →
+`/about.html`, which is correct, so no stopword or ranking key can separate them. **Owner ruling
+2026-08-23: that class goes to the `offer-analyser` agent** — see `RFC_047` §10 for the ruling and
+for what stands between it and a mechanism (the agent's `offer_ordering` ranks messaging points,
+not pages, and 2 sites have one).
+
+**One correction to my own audit, because it is the transferable part:** my first tally was 39
+right / 6 wrong. The sample I printed showed each row's page *name*, and I compared it by eye to
+the proposed *URL* — but on this fleet a page's name is frequently not its URL stem, so five
+self-links read as correct. **A sample judged against a field the defect does not live in reads as
+clean.** The census caught it, not the reading.

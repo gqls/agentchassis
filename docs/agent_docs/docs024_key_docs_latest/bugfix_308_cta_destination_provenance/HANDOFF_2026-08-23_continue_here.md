@@ -49,12 +49,19 @@ destination whose label goes generic used to take no keep at all and fell to the
 
 | | |
 |---|---|
-| fleet CTA writes today → after widening → after the ambiguity refusal | **32 → 428 → 291** |
+| fleet CTA writes today → after widening → after the ambiguity refusal → after the self-link refusal | **32 → 428 → 291 → 256** |
 | wide-pool matches decided by ALPHABETICAL ORDER alone | **263 of 1,146** (137 would overwrite a live CTA) |
 | this bug's findings (was 200 on 08-22) | **188** — `complete` 63 items/99 findings, `unresolved` 53/86 |
 | …repairable by the writers at all | **147 (78%)**; the other **41 can never be** — prose anchors |
 | all `misdirected_cta` findings fleet-wide → reachable by the writers | 1,855 → **675 (36%)** |
 | live pages that are planned-and-never-deployed | **43 of 764**, and **10** findings named one |
+
+**The hand audit (owner-commissioned, 2026-08-23) found a 12% defect and it is FIXED** — 35 of the
+291 writes pointed a button at the page it was already on. `BestLabelMatchForPage` now refuses
+that, both writers and the detector pass their page identity, and writes fall to **256** with 0
+self-links. ⚠ **Refusing is not the same as FILTERING the page out**: filtering was measured first
+and diverted 10 rows to a runner-up, most of them wrong. Full account:
+`CALIBRATION_2026-08-23_phase_b_widening_report.md` §9.
 
 **Three things measurement settled, so do not re-open them without new evidence:**
 
@@ -70,7 +77,8 @@ destination whose label goes generic used to take no keep at all and fell to the
 | what | correlation | state |
 |---|---|---|
 | Phase A | `e4336931-487b-4db3-b4dc-a4b128b3566c` | **REVISE ×4** (rounds 1-4). Every one a SUBMISSION defect; the code was right each time. |
-| Phase B | `00732119-4e24-43c3-bd5e-ba30ced47f15` | dispatched 2026-08-23 ~12:55Z |
+| Phase B | `00732119-4e24-43c3-bd5e-ba30ced47f15` | **APPROVED** 2026-08-23 13:14Z, 13 reviewers, 4 advisory objections |
+| Self-link refusal (the audit's fix) | `49addc8d-884c-4027-8c7b-b3ac4b69f489` | dispatched 2026-08-23 ~13:45Z |
 
 ```sql
 SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
@@ -101,10 +109,14 @@ A stale record cannot vouch for a value it does not name.
    should rise from ~0, and `misdirected_cta` items/day should fall — a fall alone could just mean
    the detector stopped running. ⚠ The detector is not on a reliable schedule (08-22: 40 items,
    08-19: 3, 08-18: 128), so induce rather than wait.
-2. **`RFC_047` needs an owner ruling.** Its §9 asks one live question: should the DETECTOR keep
-   guessing on a tie where the writers now refuse? Filing a finding is cheaper than a write, so it
-   is arguable — but it re-drifts the two halves, which is what 308 and `bugs_open/203` both exist
-   to stop. Do not decide it in a lane.
+2. **`RFC_047` §9 is ANSWERED (owner, 2026-08-23): route the undecidable case to the
+   `offer-analyser` agent.** Recorded as §10 of that RFC with the gap measured — the agent exists
+   and is active, but has run 4 times, its `offer_ordering` holds ranked MESSAGING POINTS rather
+   than pages, and 2 sites have one. So it cannot break a page-vs-page tie as it stands. The
+   refusal holds until a page-level output and a route back from a refused match exist. **That is
+   the next real piece of work on this seam**, and it also covers the `Talk to us about your setup`
+   → `/about.html` residual (6 wrong writes of 256), which is token-identical to the CORRECT
+   `Learn More About Us` → `/about.html` and therefore unreachable by any stopword or ranking key.
 3. **Phase C, which is what the bug file actually asked for and is NOT built:** `suggested_target`
    still has **no consumer** — the detector computes the answer, writes it down, and the repairer
    re-derives it. And there is still no completion verifier, so a repair that changes nothing still
