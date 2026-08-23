@@ -500,3 +500,12 @@ generic code. **It is wrong, and reading the function rather than the classifier
 Checks 1 and 2 return ~300 lines *before* the recorder, so they are not classified at all. The
 symptom I would have filed (misattribution) and the real state (no message whatsoever) call for
 opposite fixes. Logged in `WRONG_CALLS.md`.
+
+### 6. The seam is now REGISTERED — `WII-026`
+
+The typed channel this bug produced (`site_work_items.retry_feedback`, single-writer) was callable
+and **undiscoverable**: nothing in `docs026_concept_register/` mentioned it. Filed 2026-08-23 as
+**`WII-026`** in `docs/agent_docs/docs026_concept_register/register/work-item-integrity.md`, with
+the two traps that cost this bug a day each — the strict `input_mapping` allow-list on
+`call_handler`, and the reader being narrower than the one it replaced. I did not build the seam and
+the entry says so; what I verified first-hand is marked as such.
