@@ -74,11 +74,11 @@ import (
 // said which kind of item it files. ItemType is the routing hint a reviewer
 // needs: it is usually enough to tell a stage handoff from a detector's finding.
 type undeclaredRecurrenceFinding struct {
-	Agent             string `json:"agent"`
-	Path              string `json:"path"`
-	ItemType          string `json:"item_type"`
-	ItemKeyPrefix     string `json:"item_key_prefix"`
-	DeclaredUnhonoured bool  `json:"declared_unhonoured"`
+	Agent              string `json:"agent"`
+	Path               string `json:"path"`
+	ItemType           string `json:"item_type"`
+	ItemKeyPrefix      string `json:"item_key_prefix"`
+	DeclaredUnhonoured bool   `json:"declared_unhonoured"`
 }
 
 // findUndeclaredRecurrence is the pure check (I/O split off, per this binary's
