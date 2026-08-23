@@ -1148,7 +1148,15 @@ func renderAndStoreSiteComponent(
 	// justify (council 98852baa). Unset means today's behaviour, byte for byte.
 	if recordAbsentRequired && len(renderCtx.AbsentRequiredFields) > 0 {
 		compID := componentID
-		emitRequiredFieldsMissing(ctx, db, siteID, &compID, slot,
+		// pageContext{} — EMPTY, and deliberately: a chrome slot hangs off the
+		// SITE, not a page, so there is no page_name for the router's classify
+		// step to resolve. The emitter reads that as "no page" and files the
+		// item for human review rather than handing it to a page-resolving
+		// router that would classify it `malformed` and burn three attempts —
+		// which is exactly what happened on the editor route before
+		// 2026-08-23 (bugs_open/342, item a31da7f3).
+		emitRequiredFieldsMissing(ctx, db, siteID, pageContext{},
+			&compID, slot,
 			fmt.Sprintf("Chrome %s", slot), "site_component", "render_site_components",
 			renderCtx.AbsentRequiredFields,
 			map[string]interface{}{"slot_name": slot, "component_id": componentID.String()}, logger)

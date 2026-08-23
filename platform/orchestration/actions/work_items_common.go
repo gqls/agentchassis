@@ -493,8 +493,51 @@ func resolveWorkItems(
 //
 // Failures are logged, never returned: no render or edit may fail because a note
 // could not be written.
+// pageContext is what the ROUTER needs and what this emitter did not supply for
+// its first day alive (see the header note above). Zero value = "no page", which
+// is the chrome surface's honest state, not a caller forgetting.
+type pageContext struct {
+	id   *uuid.UUID
+	name string
+	slot string
+}
+
+// requiredFieldsMissingRouting decides an item's key, handler and intake status
+// from one question: is there a page? Factored out of the emitter so a test can
+// exercise the decision that was WRONG — the emitter itself needs a database,
+// and both defects it carried (an unroutable spec and a key that could not
+// co-dedup) are computable without one.
+//
+// WITH a page this is the same finding the post-deploy check files, so it takes
+// the SAME key — `required_fields_missing:<page_id>:<slot_name>`,
+// check_required_fields_missing.go:180 — and the two producers genuinely
+// co-dedup. ⚠ They did NOT before 2026-08-23: this producer keyed on
+// `<site_id>:<component function>`, so the "matching item_key" claim in the bug
+// file, the register and the APPROVED council submission was false, and the two
+// would have filed separate items for one defect.
+//
+// WITHOUT a page — the chrome surface, whose slots hang off the SITE — the
+// page-resolving router structurally cannot classify the item, so handing it
+// over buys three failed attempts and a parked item, which is exactly what the
+// editor route demonstrated (item a31da7f3). It is filed for a human instead:
+// `needs_human_review` is the estate's parking vocabulary and the router's own
+// park_* steps use it. Deliberately NOT a phantom handler — bugs_closed/291:
+// an unregistered handler is born blocked and never claimed, which reads as a
+// queue bug rather than as work waiting for a person.
+//
+// BOTH halves of the page context are required before taking the routed path:
+// the classify step resolves the page by name AND the component by slot, so
+// half the context must not be allowed to look like all of it.
+func requiredFieldsMissingRouting(siteID uuid.UUID, page pageContext, scopeKey string) (itemKey, handler, status string) {
+	if page.id != nil && page.slot != "" {
+		return fmt.Sprintf("required_fields_missing:%s:%s", *page.id, page.slot),
+			"required-fields-missing-handler", "detected"
+	}
+	return fmt.Sprintf("required_fields_missing:%s:%s", siteID, scopeKey), "", "needs_human_review"
+}
+
 func emitRequiredFieldsMissing(ctx context.Context, db *sql.DB, siteID uuid.UUID,
-	componentID *uuid.UUID, scopeKey, label, surface, source string,
+	page pageContext, componentID *uuid.UUID, scopeKey, label, surface, source string,
 	absent []string, extraSpec map[string]interface{}, logger *zap.Logger) {
 
 	if len(absent) == 0 {
@@ -518,6 +561,25 @@ func emitRequiredFieldsMissing(ctx context.Context, db *sql.DB, siteID uuid.UUID
 			"detected AT RENDER: the post-deploy check cannot see it, because it reads rows that " +
 			"have already reached a deployed build status and a dropped section never becomes one.",
 	}
+	// THE FIELDS THE ROUTER ACTUALLY READS. required-fields-missing-handler's
+	// `classify` step resolves the page by `spec->>'page_name'` and the component
+	// by `spec->>'slot_name'`; without them it classifies the item `malformed`,
+	// routes to mark_failed, and the attempt ladder parks it. That is not a
+	// theory — it happened to the first item this emitter ever filed
+	// (`a31da7f3`, 2026-08-22): three attempts, three `route: "malformed"`
+	// classifications, terminal status `failed`, no repair attempted.
+	//
+	// ⚠ THE LESSON, because it is the reusable half: REUSING A TYPE IS NOT
+	// REUSING ITS CONTRACT. This producer was written to reuse
+	// `required_fields_missing` precisely so the existing router would handle
+	// it, that reasoning was reviewed and approved, and nobody — me least of
+	// all — checked that the items carried the keys the router reads.
+	if page.name != "" {
+		spec["page_name"] = page.name
+	}
+	if page.slot != "" {
+		spec["slot_name"] = page.slot
+	}
 	for k, v := range extraSpec {
 		spec[k] = v
 	}
@@ -529,6 +591,26 @@ func emitRequiredFieldsMissing(ctx context.Context, db *sql.DB, siteID uuid.UUID
 		summary = summary[:247] + "..."
 	}
 
+	// ── Key, handler and status all follow from ONE question: is there a page? ──
+	//
+	// WITH a page, this is the same finding the post-deploy check files, so it
+	// takes the SAME key — `required_fields_missing:<page_id>:<slot_name>`,
+	// check_required_fields_missing.go:180 — and the two producers genuinely
+	// co-dedup. ⚠ They did NOT before 2026-08-23: this emitter keyed on
+	// `<site_id>:<component function>`, so the "matching item_key" claim in the
+	// bug file, the register and the council submission was FALSE and the two
+	// producers would have filed separate items for one defect. Corrected at
+	// source rather than only in the docs.
+	//
+	// WITHOUT a page — the chrome surface, whose slots hang off the SITE — the
+	// page-resolving router structurally cannot classify the item, so handing it
+	// over would buy three failed attempts and a parked item, which is what the
+	// editor route just demonstrated. It is filed for a human instead: honest
+	// about who can act on it, and visible rather than fake-routed. Not a
+	// phantom handler (bugs_closed/291: an unregistered handler is born blocked
+	// and never claimed, which reads as a queue bug).
+	itemKey, handler, status := requiredFieldsMissingRouting(siteID, page, scopeKey)
+
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		logger.Warn("required_fields_missing: begin tx failed", zap.String("surface", surface), zap.Error(err))
@@ -536,6 +618,7 @@ func emitRequiredFieldsMissing(ctx context.Context, db *sql.DB, siteID uuid.UUID
 	}
 	inserted, err := insertWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
+		pageID:       page.id,
 		componentID:  componentID,
 		source:       source,
 		pipeline:     "build",
@@ -544,10 +627,10 @@ func emitRequiredFieldsMissing(ctx context.Context, db *sql.DB, siteID uuid.UUID
 		summary:      summary,
 		spec:         string(specJSON),
 		priority:     50,
-		handlerAgent: "required-fields-missing-handler",
-		status:       "detected",
+		handlerAgent: handler,
+		status:       status,
 		createdBy:    source,
-		itemKey:      fmt.Sprintf("required_fields_missing:%s:%s", siteID, scopeKey),
+		itemKey:      itemKey,
 	}, logger)
 	if err != nil {
 		_ = tx.Rollback()

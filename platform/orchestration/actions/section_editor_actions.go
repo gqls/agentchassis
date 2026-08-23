@@ -1119,7 +1119,13 @@ func applyContentEdit(
 	// If they are the riskiest, they are the ones that most need the queue
 	// entry; detection-only on the highest-exposure path is the "one call site
 	// gets the rigorous fix, the sibling stays heuristic" shape 016b §9 names.
-	emitRequiredFieldsMissing(ctx, db, siteID, nil, getStringVal(componentData, "function"),
+	//
+	// The page context is what makes the item ROUTABLE — see the emitter's own
+	// comment. Without it the router classifies `malformed` and the ladder parks
+	// the item, which is what happened to the first one this path ever filed.
+	emitRequiredFieldsMissing(ctx, db, siteID,
+		editPageContext(pageInfoForRender, pcData),
+		nil, getStringVal(componentData, "function"),
 		fmt.Sprintf("Section edit on %s", getStringVal(componentData, "function")),
 		"page_component", "section_editor", renderCtx.AbsentRequiredFields,
 		map[string]interface{}{"route": "content_edit", "live_page": true}, logger)
@@ -1153,6 +1159,28 @@ func applyContentEdit(
 		StrippedMarkdownFields: strippedMarkdownFields,
 		AbsentRequiredFields:   renderCtx.AbsentRequiredFields,
 	}, nil
+}
+
+// editPageContext assembles the page identity a required_fields_missing item
+// needs to be ROUTABLE, from the two things both edit branches already hold.
+// One helper rather than two literals because the two branches filing the same
+// item type with different context is precisely how the editor route came to
+// file unroutable items in the first place (bugs_open/342, 2026-08-23).
+//
+// A nil PageInfo yields the zero pageContext, which the emitter reads as "no
+// page" and files for human review instead of handing it to a page-resolving
+// router. That is the correct behaviour, not a degraded one: an item nobody can
+// route is better parked visibly than failed three times.
+func editPageContext(page *PageInfo, pcData map[string]interface{}) pageContext {
+	if page == nil {
+		return pageContext{}
+	}
+	pc := pageContext{name: page.Name, slot: getStringVal(pcData, "slot_name")}
+	if page.ID != uuid.Nil {
+		id := page.ID
+		pc.id = &id
+	}
+	return pc
 }
 
 // applyComponentSwap changes the component template for this section.
@@ -1247,7 +1275,9 @@ func applyComponentSwap(
 	BindSingleSectionInstanceToken(renderCtx, comp.Function)
 	renderCtx.InputSchema = comp.InputSchema // bugs_open/342 — same live-page exposure as applyContentEdit
 	rendered, _, _, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
-	emitRequiredFieldsMissing(ctx, db, siteID, nil, comp.Function,
+	emitRequiredFieldsMissing(ctx, db, siteID,
+		editPageContext(pageInfoForRender, pcData),
+		nil, comp.Function,
 		fmt.Sprintf("Section swap on %s", comp.Function),
 		"page_component", "section_editor", renderCtx.AbsentRequiredFields,
 		map[string]interface{}{"route": "component_swap", "live_page": true}, logger)

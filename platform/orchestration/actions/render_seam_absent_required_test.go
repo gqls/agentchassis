@@ -279,7 +279,7 @@ func TestRequiredFieldsMissingEmitterDecidesCorrectlyWithoutADatabase(t *testing
 	// it would log a warning on every healthy edit, which is how a real signal
 	// gets filtered out.
 	core, logs := observer.New(zapcore.DebugLevel)
-	emitRequiredFieldsMissing(context.Background(), nil, uuid.New(), nil, "hero", "Section edit on hero",
+	emitRequiredFieldsMissing(context.Background(), nil, uuid.New(), pageContext{}, nil, "hero", "Section edit on hero",
 		"page_component", "section_editor", nil, nil, zap.New(core))
 	if logs.Len() != 0 {
 		t.Errorf("a clean edit produced %d log line(s) — the empty case must return before every "+
@@ -288,7 +288,7 @@ func TestRequiredFieldsMissingEmitterDecidesCorrectlyWithoutADatabase(t *testing
 
 	// Something absent but no identity → refuse loudly, never silently.
 	core2, logs2 := observer.New(zapcore.DebugLevel)
-	emitRequiredFieldsMissing(context.Background(), nil, uuid.Nil, nil, "hero", "Section edit on hero",
+	emitRequiredFieldsMissing(context.Background(), nil, uuid.Nil, pageContext{}, nil, "hero", "Section edit on hero",
 		"page_component", "section_editor", []string{"body"}, nil, zap.New(core2))
 	if logs2.Len() == 0 {
 		t.Error("an identity-less call with real findings said nothing — a record that cannot be " +
@@ -432,5 +432,70 @@ func TestChromeAndEditorShareOneRefusalDecision(t *testing.T) {
 				"the two persist paths must share one decision or they will drift apart",
 				c.armed, c.absent, got, want)
 		}
+	}
+}
+
+// ── bugs_open/342: the item must be ROUTABLE, not merely filed (2026-08-23) ──
+//
+// The first item this emitter ever filed in production (`a31da7f3`) was
+// classified `malformed` by required-fields-missing-handler, failed three
+// times and parked — because the emitter supplied neither `page_name` nor
+// `slot_name`, which is what that handler's `classify` step resolves the page
+// and component by, and keyed on `<site_id>:<function>` while the post-deploy
+// producer keys on `<page_id>:<slot_name>`.
+//
+// Both defects came from the same false assumption, stated in the code, the
+// bug file, the register AND the approved council submission: that reusing the
+// item TYPE meant inheriting its router. **Reusing a type is not reusing its
+// contract**, and nothing asserted the contract — so this test does.
+//
+// It deliberately tests the DECISION rather than the insert (the emitter needs
+// a database): the key shape and the routing disposition are what were wrong,
+// and both are computable without one.
+func TestRequiredFieldsMissingItemsAreRoutable(t *testing.T) {
+	pageID := uuid.New()
+	siteID := uuid.New()
+
+	// WITH a page: must take the post-deploy check's key shape exactly
+	// (check_required_fields_missing.go:180) so the two producers co-dedup on
+	// one key instead of filing two items for one defect.
+	page := pageContext{id: &pageID, name: "ai-agent-roi-estimator", slot: "tool-cta"}
+	wantKey := "required_fields_missing:" + pageID.String() + ":tool-cta"
+	gotKey, gotHandler, gotStatus := requiredFieldsMissingRouting(siteID, page, "tool-cta")
+	if gotKey != wantKey {
+		t.Errorf("page-scoped item_key = %q, want %q — a key that does not match "+
+			"check_required_fields_missing's means the two producers file TWO items for ONE defect",
+			gotKey, wantKey)
+	}
+	if gotHandler != "required-fields-missing-handler" {
+		t.Errorf("page-scoped handler = %q, want the router", gotHandler)
+	}
+	if gotStatus != "detected" {
+		t.Errorf("page-scoped status = %q, want detected (the router's intake status)", gotStatus)
+	}
+
+	// WITHOUT a page (chrome: slots hang off the SITE): the page-resolving
+	// router cannot classify this, so it must NOT be handed over. Parked for a
+	// human is the honest disposition; routing it buys three failed attempts.
+	gotKey, gotHandler, gotStatus = requiredFieldsMissingRouting(siteID, pageContext{}, "header")
+	if gotHandler != "" {
+		t.Errorf("chrome handler = %q, want empty — required-fields-missing-handler resolves the "+
+			"page by spec.page_name, which a chrome slot does not have; handing it over reproduces "+
+			"the malformed-then-failed loop that item a31da7f3 hit", gotHandler)
+	}
+	if gotStatus != "needs_human_review" {
+		t.Errorf("chrome status = %q, want needs_human_review (the estate's parking vocabulary — "+
+			"the router's own park_* steps use it)", gotStatus)
+	}
+	if gotKey != "required_fields_missing:"+siteID.String()+":header" {
+		t.Errorf("chrome item_key = %q, want the site-scoped shape", gotKey)
+	}
+
+	// A page WITHOUT a slot cannot be keyed like the check either — it must
+	// fall back rather than emit a half-formed page-scoped key.
+	gotKey, gotHandler, _ = requiredFieldsMissingRouting(siteID, pageContext{id: &pageID, name: "x"}, "hero")
+	if gotHandler != "" || gotKey != "required_fields_missing:"+siteID.String()+":hero" {
+		t.Errorf("page-without-slot took the routed path (key=%q handler=%q) — the router needs BOTH "+
+			"page_name and slot_name, so half the context must not look like all of it", gotKey, gotHandler)
 	}
 }
