@@ -1325,6 +1325,7 @@ func fixScopeComponentInstance(ctx context.Context, params ActionParams, logger 
 		zap.Int("get_element_by_id", rep.GetElementByID),
 		zap.Int("id_ref_attrs", rep.IDRefAttrs),
 		zap.Int("hash_refs", rep.HashRefs),
+		zap.Int("templated_id_swaps", rep.TemplatedIDSwaps),
 		zap.Int("binding_literals", rep.Bindings.LiteralIDsRenamed),
 		zap.Int("binding_concat_sites", rep.Bindings.ConcatSitesRenamed),
 		zap.Int("snapshot_version", maxVersion+1))
@@ -1339,6 +1340,12 @@ func fixScopeComponentInstance(ctx context.Context, params ActionParams, logger 
 		"get_element_by_id":    rep.GetElementByID,
 		"id_ref_attrs":         rep.IDRefAttrs,
 		"hash_refs":            rep.HashRefs,
+		// RFC_032: id attributes whose value was the RETIRED {{.ComponentID}}
+		// and is now {{.InstanceID}}. On the five section templates this is the
+		// ONLY non-zero count the conversion produces — every other counter
+		// here reads 0, so without this key a successful conversion of them is
+		// indistinguishable at the work-item result from one that did nothing.
+		"templated_id_swaps":   rep.TemplatedIDSwaps,
 		"binding_literals":     rep.Bindings.LiteralIDsRenamed,
 		"binding_concat_sites": rep.Bindings.ConcatSitesRenamed,
 		"snapshot_version":     maxVersion + 1,

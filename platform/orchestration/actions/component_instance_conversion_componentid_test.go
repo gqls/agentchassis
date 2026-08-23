@@ -216,6 +216,79 @@ func TestConvertTemplateToInstanceScope_SwapIsNotReRunnable(t *testing.T) {
 	}
 }
 
+// A mismatched quote pair around the placeholder. Go's regexp is RE2 and has no
+// backreferences, so the two quotes are separate capture groups and the pattern
+// alone cannot require them to match — the pairing is enforced in the replace
+// function (council round 1: editquality edit 3 and bug_historian edit 1, both
+// asking for a `\2` that cannot be written in this engine).
+//
+// The output must not be a tidied `id="{{.InstanceID}}"`: that would launder a
+// malformed attribute the browser never parsed as an id into a well-formed one,
+// which is a silent repair of evidence, not a conversion.
+func TestConvertTemplateToInstanceScope_MismatchedQuotesAreNotSwapped(t *testing.T) {
+	tpl := `<section id="{{.ComponentID}}' class="section"><p>body</p></section>`
+	out, rep, ok := ConvertTemplateToInstanceScope(tpl)
+	if ok {
+		t.Fatalf("a mismatched-quote attribute must not convert:\n%s", out)
+	}
+	if rep.TemplatedIDSwaps != 0 {
+		t.Errorf("TemplatedIDSwaps = %d, want 0 — the malformed attribute was counted as a swap", rep.TemplatedIDSwaps)
+	}
+	if strings.Contains(out, "InstanceID") {
+		t.Errorf("the malformed attribute was rewritten:\n%s", out)
+	}
+	if out != tpl {
+		t.Error("a refusal must return the template unmodified")
+	}
+	if !strings.Contains(rep.RefusedReason, "ComponentID") {
+		t.Errorf("the refusal must name the placeholder, got %q", rep.RefusedReason)
+	}
+	// CONTROL: the same template with MATCHING quotes converts. Without it this
+	// test passes against a converter that refuses everything.
+	good := `<section id="{{.ComponentID}}" class="section"><p>body</p></section>`
+	if _, repGood, okGood := ConvertTemplateToInstanceScope(good); !okGood || repGood.TemplatedIDSwaps != 1 {
+		t.Fatalf("control failed: the well-formed twin must convert (ok=%v swaps=%d reason=%q)",
+			okGood, repGood.TemplatedIDSwaps, repGood.RefusedReason)
+	}
+}
+
+// The refusal REASON is part of the converter's contract, because
+// tool_birth_instance_scope.go routes on its text: a template with no literal
+// ids takes an arm that persists the caller's bytes VERBATIM in both modes.
+//
+// A template with no literal ids that carries {{.ComponentID}} somewhere pass 0
+// cannot rewrite reaches that same early return — and it is NOT inert, because
+// the placeholder renders the same value on every instance. So the two cases
+// must leave under reasons that can be told apart. (The call-site consequence is
+// pinned in tool_birth_instance_scope_test.go; this pins the reason itself.)
+func TestConvertTemplateToInstanceScope_NoLiteralIDsButComponentIDElsewhere(t *testing.T) {
+	for name, tpl := range map[string]string{
+		"data attribute": `<section data-target="{{.ComponentID}}"><p>body</p></section>`,
+		"css selector":   `<section><style>#{{.ComponentID}} { color: red; }</style></section>`,
+		"script literal": `<section><script>var root = "{{.ComponentID}}";</script></section>`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, rep, ok := ConvertTemplateToInstanceScope(tpl)
+			if ok {
+				t.Fatalf("%s: converted a template pass 0 cannot fix", name)
+			}
+			if !strings.Contains(rep.RefusedReason, "ComponentID") {
+				t.Fatalf("the reason must name the placeholder or the birth guard's inert-safe arm swallows it: %q", rep.RefusedReason)
+			}
+		})
+	}
+	// CONTROL: a template with genuinely nothing to scope keeps the ORIGINAL
+	// reason, unqualified. The narrowing must distinguish the two cases, not
+	// rename both — the inert-safe pass-through is correct for this one.
+	_, rep, ok := ConvertTemplateToInstanceScope(`<div class="prose"><p>No ids here.</p></div>`)
+	if ok {
+		t.Fatal("control: an id-less template cannot convert")
+	}
+	if !strings.Contains(rep.RefusedReason, "declares no literal element ids") || strings.Contains(rep.RefusedReason, "ComponentID") {
+		t.Fatalf("control failed: an id-less template must keep the plain reason, got %q", rep.RefusedReason)
+	}
+}
+
 // The pre-existing contract this change must NOT break: TemplateNeedsInstanceID
 // keys on {{.InstanceID}} only, so a template still spelling the old name is
 // correctly reported as NOT namespaced. component_instance_scope_test.go pins

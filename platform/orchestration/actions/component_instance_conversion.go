@@ -53,8 +53,16 @@ var reHexish = regexp.MustCompile(`^[0-9a-fA-F]{3,8}$`)
 // per-instance placeholder. Deliberately tolerant of Go template whitespace and
 // trim markers ({{- .ComponentID -}}), because the corpus is LLM-written and a
 // spelling this misses would be silently left behind rather than loudly
-// refused. Group 1 is the leading whitespace, group 2 the quote character, so
-// the rewrite preserves both.
+// refused. Group 1 is the leading whitespace, group 2 the OPENING quote and
+// group 3 the CLOSING one, so the rewrite preserves the first and the caller
+// can compare the pair.
+//
+// ⚠ The two quotes are separate groups because Go's regexp is RE2, which has
+// NO BACKREFERENCES — `\3` cannot be written here to force the closing quote to
+// match the opening one (council round 1 on this change, editquality/edit 3 and
+// bug_historian/edit 1, both suggested exactly that). The pairing is therefore
+// enforced in the replace function below, where a mismatched pair declines the
+// rewrite instead of emitting `id="…'`.
 var reComponentIDInIDAttr = regexp.MustCompile(`(\s)id=(["'])\{\{-?\s*\.ComponentID\s*-?\}\}(["'])`)
 
 // reComponentIDAnywhere — the same placeholder in ANY position, for the
@@ -138,8 +146,18 @@ func ConvertTemplateToInstanceScope(tpl string) (string, InstanceConversionRepor
 	// id IS the instance's identity rather than an id scoped WITHIN it, and
 	// the prefix form would render `c-faq-` with nothing after the hyphen.
 	swapped := reComponentIDInIDAttr.ReplaceAllStringFunc(tpl, func(m string) string {
-		rep.TemplatedIDSwaps++
 		g := reComponentIDInIDAttr.FindStringSubmatch(m)
+		if g[2] != g[3] {
+			// Mismatched quotes (id="{{.ComponentID}}'). Not a well-formed
+			// attribute, so this is not the shape pass 0 is proven on: decline
+			// the rewrite and let the completeness checks below refuse the
+			// component. Rewriting it would produce consistent quoting around a
+			// value the browser never parsed as an id in the first place —
+			// tidying the evidence of a malformed template rather than refusing
+			// it.
+			return m
+		}
+		rep.TemplatedIDSwaps++
 		return g[1] + "id=" + g[2] + "{{.InstanceID}}" + g[2]
 	})
 
@@ -160,6 +178,29 @@ func ConvertTemplateToInstanceScope(tpl string) (string, InstanceConversionRepor
 		}
 	}
 	if len(seen) == 0 && rep.TemplatedIDSwaps == 0 {
+		// Two very different templates arrive here, and they must not leave
+		// under the same reason. ONE production caller greps this text —
+		// tool_birth_instance_scope.go's "no literal ids — nothing to scope"
+		// arm, which persists the caller's bytes VERBATIM in both modes — so
+		// the reason string is a load-bearing signal, not a message.
+		//
+		//   (a) a template with no ids at all: inert, nothing to collide on,
+		//       and the pass-through is right.
+		//   (b) a template carrying {{.ComponentID}} somewhere pass 0 cannot
+		//       rewrite — a data-* value, a #selector, a script literal, or a
+		//       mismatched-quote attribute the replace func above declined.
+		//       That one DOES collide (the placeholder is the same value on
+		//       every instance), so passing it through as "nothing to collide
+		//       on" would state the opposite of the truth.
+		//
+		// Naming the placeholder here is what routes (b) to the birth guard's
+		// default arm — refused when armed, recorded when not — instead of the
+		// inert-safe one.
+		if loc := reComponentIDAnywhere.FindString(swapped); loc != "" {
+			rep.RefusedReason = fmt.Sprintf(
+				"template declares no literal element ids, but carries a %s reference outside an id attribute's whole value — it cannot be swapped mechanically and renders the SAME value on every instance; convert this component through the judged pool", loc)
+			return tpl, rep, false
+		}
 		rep.RefusedReason = "template declares no literal element ids — nothing to namespace"
 		return tpl, rep, false
 	}
@@ -301,6 +342,16 @@ func ConvertTemplateToInstanceScope(tpl string) (string, InstanceConversionRepor
 	// {{.ComponentID}} (control: 87 active templates carry a literal id at
 	// all), so this refuses nothing today. It is here for the arrival that
 	// half-learns the convention, not for the current corpus.
+	//
+	// ⚠ DELIBERATE DEFERRAL, named because leaving it implicit is what the
+	// council's editquality seat objected to (round 1 on this change): the
+	// blind spot itself — reElementID's brace exclusion at
+	// component_instance_scope.go:215 — is NOT patched here. This refusal
+	// closes THIS defect's route to it; it does not close the blind spot, so
+	// any other future cause of an empty id still passes the gate unseen. That
+	// is a detector fix, with its own blast radius across every caller of
+	// DetectInstanceCollisions, and it belongs in RFC_032's track rather than
+	// riding in on a converter change.
 	if loc := reComponentIDAnywhere.FindString(out); loc != "" {
 		rep.RefusedReason = fmt.Sprintf(
 			"%s reference survived pass 0 — it is not an id attribute's whole value, so it cannot be swapped mechanically and would render EMPTY on every instance; convert this component through the judged pool", loc)

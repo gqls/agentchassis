@@ -101,6 +101,14 @@ func ScopeToolBirthTemplate(html, function string, armed bool, logger *zap.Logge
 		info["instance_scope_ids"] = len(rep.IDsDeclared)
 		info["instance_scope_binding_literals"] = rep.Bindings.LiteralIDsRenamed
 		info["instance_scope_concat_sites"] = rep.Bindings.ConcatSitesRenamed
+		if rep.TemplatedIDSwaps > 0 {
+			// A newborn spelling the RETIRED placeholder (RFC_032). Reported
+			// because it is the one conversion that says something about the
+			// GENERATOR — the prompt taught {{.InstanceID}} and this sample
+			// used the old name — and a count nobody surfaces is a count
+			// nobody can act on.
+			info["instance_scope_templated_id_swaps"] = rep.TemplatedIDSwaps
+		}
 		if !armed {
 			info["instance_scope"] = "record-only: mechanically convertible; arming enforce_instance_scope on this step would convert it at birth"
 			return html, html, info, nil
@@ -108,8 +116,19 @@ func ScopeToolBirthTemplate(html, function string, armed bool, logger *zap.Logge
 		info["instance_scope"] = "mechanically converted at birth"
 		return converted, bound, info, nil
 
-	case strings.Contains(rep.RefusedReason, "declares no literal element ids"):
+	case strings.Contains(rep.RefusedReason, "declares no literal element ids") &&
+		!strings.Contains(rep.RefusedReason, "ComponentID"):
 		// Nothing to scope and nothing to collide on — inert-safe both modes.
+		//
+		// ⚠ This arm greps a REASON STRING, which makes that string part of the
+		// converter's contract with this file (LANDMINES 2026-08-23). It is
+		// deliberately narrowed: a template that declares no literal ids but
+		// carries {{.ComponentID}} somewhere pass 0 cannot rewrite reaches the
+		// same early return with a reason that names the placeholder, and it is
+		// NOT inert — the placeholder renders the same value on every instance,
+		// which is the collision this seam exists to remove. That one belongs
+		// in the default arm below (refused when armed), so the ComponentID
+		// clause here is load-bearing, not defensive.
 		info["instance_scope"] = "no literal ids — nothing to scope"
 		return html, html, info, nil
 

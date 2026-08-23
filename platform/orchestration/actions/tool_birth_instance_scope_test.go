@@ -148,3 +148,95 @@ func TestScopeToolBirth_noIDsPassesThrough(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Pass 0 AT THE CALL SITE (RFC_032; council round 1 on that change, bug_historian
+// edit 4 and guardian edit 1, both MEDIUM, both making the same point against my
+// own submission's prose).
+//
+// Pass 0 lives in ConvertTemplateToInstanceScope, which this file calls, so both
+// ARMED birth guards — create_tool_component and deploy_tool_to_site, live since
+// v1.0.1322 — inherited a behaviour change that only the converter's own tests
+// exercised. The seats' conditional ("if any caller treated the old refusal as
+// an expected outcome, that path is now silently bypassed") is not hypothetical:
+// the `declares no literal element ids` arm above IS such a caller, and it
+// persists the caller's bytes verbatim in both modes. These tests pin what that
+// arm now does and no longer does.
+// ---------------------------------------------------------------------------
+
+// A newborn spelling the RETIRED placeholder. Before pass 0 the converter
+// refused it ("declares no literal element ids") and the arm above passed it
+// through UNCHANGED, armed or not — minting, at the one seam that exists to stop
+// that, a template whose id is identical on every instance.
+const birthTemplatedID = `<section id="{{.ComponentID}}" class="tool">
+  <p>Nothing interactive; the wrapper is the whole component.</p>
+</section>`
+
+// No literal ids AND the placeholder somewhere pass 0 cannot rewrite. This one
+// reaches the SAME early return as a genuinely id-less template, which is why
+// the reason string is load-bearing: routed by text alone it takes the
+// inert-safe arm and ships.
+const birthComponentIDInDataAttr = `<section data-target="{{.ComponentID}}" class="tool">
+  <p>The placeholder is a data attribute value, not an id.</p>
+</section>`
+
+func TestScopeToolBirth_armedConvertsTemplatedID(t *testing.T) {
+	tpl, rendered, info, refuse := ScopeToolBirthTemplate(birthTemplatedID, "my-tool", true, zap.NewNop())
+	if refuse != nil {
+		t.Fatalf("a templated-id newborn must convert at birth, got refusal: %v", refuse)
+	}
+	if !strings.Contains(tpl, `id="{{.InstanceID}}"`) {
+		t.Fatalf("armed mode must persist the CONVERTED template; got: %s", tpl)
+	}
+	if strings.Contains(tpl, "ComponentID") {
+		t.Fatalf("the retired placeholder was persisted at birth: %s", tpl)
+	}
+	// The rendered bytes are what a live page serves (tools carry the template
+	// verbatim as rendered_html), so an unbound or empty token here ships to a
+	// reader. Assert the token POSITIVELY: `id=""` also contains no placeholder.
+	// Occurrence 0's token is `c-my-tool` with no numeric suffix — InstanceToken
+	// only appends one from the second instance on (`c-my-tool-2`), so asserting
+	// a "-0" suffix would fail against correct output.
+	if !strings.Contains(rendered, `id="c-my-tool"`) {
+		t.Fatalf("rendered bytes must carry the bound occurrence-0 token; got: %s", rendered)
+	}
+	if n, _ := info["instance_scope_templated_id_swaps"].(int); n != 1 {
+		t.Errorf("info must report the swap so the generator's spelling is visible; got %v", info["instance_scope_templated_id_swaps"])
+	}
+	// Unarmed on the same bytes: record-only means no new authority.
+	tpl2, rendered2, _, refuse2 := ScopeToolBirthTemplate(birthTemplatedID, "my-tool", false, zap.NewNop())
+	if refuse2 != nil || tpl2 != birthTemplatedID || rendered2 != birthTemplatedID {
+		t.Fatalf("unarmed mode must return the caller's bytes verbatim (refuse=%v)", refuse2)
+	}
+}
+
+func TestScopeToolBirth_armedRefusesComponentIDOutsideIDAttr(t *testing.T) {
+	tpl, rendered, info, refuse := ScopeToolBirthTemplate(birthComponentIDInDataAttr, "my-tool", true, zap.NewNop())
+	if refuse == nil {
+		t.Fatalf("a newborn carrying the retired placeholder outside an id attribute must be REFUSED when armed — it renders the same value on every instance; info=%v", info)
+	}
+	if tpl != "" || rendered != "" {
+		t.Fatalf("a refusal must return no bytes to persist")
+	}
+	if !strings.Contains(refuse.Error(), "ComponentID") {
+		t.Errorf("the refusal must name what is wrong so the retry loop can act: %v", refuse)
+	}
+	// Unarmed: passes through, but the defect is RECORDED — the record-only
+	// mode's whole purpose. Before the reason split it recorded nothing,
+	// because the inert-safe arm reported "nothing to scope".
+	tpl2, _, info2, refuse2 := ScopeToolBirthTemplate(birthComponentIDInDataAttr, "my-tool", false, zap.NewNop())
+	if refuse2 != nil || tpl2 != birthComponentIDInDataAttr {
+		t.Fatalf("unarmed mode must pass through: refuse=%v", refuse2)
+	}
+	if info2["instance_scope_defect"] == nil {
+		t.Fatalf("unarmed mode must RECORD the defect, got info=%v", info2)
+	}
+	// CONTROL, and the reason this test is not just the converter's test again:
+	// a template with no ids and no placeholder must STILL take the inert arm.
+	// If this fails, the narrowing above swallowed the case it was meant to
+	// leave alone.
+	tpl3, _, info3, refuse3 := ScopeToolBirthTemplate(birthNoIDs, "my-tool", true, zap.NewNop())
+	if refuse3 != nil || tpl3 != birthNoIDs {
+		t.Fatalf("control failed: a genuinely id-less template must still pass through armed (refuse=%v, info=%v)", refuse3, info3)
+	}
+}
