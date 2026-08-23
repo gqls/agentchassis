@@ -1,0 +1,135 @@
+# 376 — one unscrapable exemplar discards the WHOLE vertical-research step, and retrying is structurally incapable of routing around it
+
+**Filed:** 2026-08-23 by the `loanzy_uk_example_site` lane (one-shot build route), from the live
+`garden-tools.uk` greenfield build. **Status: OPEN, unowned.**
+**Severity: medium** — 100% reproducible per affected vertical, silent for 30-60 minutes at a time,
+and the step's own stored record reads `success: true` while it is failing.
+
+> **On the 2026-07-31 owner ruling** (a `bugs_open/` file asserting a cross-cutting root cause is
+> not filed until it has been through `090`, or the filing session says plainly why it substituted
+> equivalent first-hand verification): **substituted, and here is the why.** The cause is not
+> inferred from symptoms — it is read directly from the live `agent_definitions` config (the crawl
+> step has no error tolerance; the selector pins no temperature) and confirmed by **two controlled
+> observations of the same build** in which the candidate set was identical and only the
+> permutation moved, with the failing request_id matching the error on the item both times. There
+> is no hypothesis here for a diagnosis loop to narrow: the config is the mechanism and the two
+> attempts are the control. What `090` could still add is estate-wide blast radius, which §6 leaves
+> as the open question.
+
+## 1. Symptom
+
+A greenfield build's `needs_vertical_research` item fails, retries, and (on this evidence) parks
+`failed` after three attempts spanning ~1h37m, having produced no vertical research at all. The
+build's own record of the crawl steps says they succeeded.
+
+## 2. The mechanism, in four lines
+
+1. `vertical-exemplar-researcher` asks an LLM (`select_exemplars`) to pick **three** exemplar sites
+   for the vertical, then crawls each with `firecrawl_crawl` in three sequential steps.
+2. Firecrawl **refuses some domains outright** — `"We apologize for the inconvenience but we do not
+   support this site … (code: WEBSCRAPE_ERROR)"`. Large publisher properties are exactly the sites
+   an LLM nominates as "the best in this vertical".
+3. The crawl steps have **no `on_error`, no `continue_on_failure`, no fallback** — so ONE refusal
+   fails the child orchestration (`CHILD_ORCHESTRATION_FAILED`) and **discards the crawls that
+   already succeeded**.
+4. The refusal is **never persisted anywhere the selector reads**. Each retry re-asks the same LLM
+   the same question, so it re-nominates the same sites.
+
+## 3. Evidence — two attempts, same build, `garden-tools.uk` `[MEASURED 2026-08-23]`
+
+Site `16784842-f7d8-4467-bb5b-eb1fb5c1caba`, item `needs_vertical_research` created 17:44:56Z.
+
+| slot | attempt 1 (17:48:27Z) | attempt 2 (18:19:48Z) |
+|---|---|---|
+| 1 | `gardenersworld.com` — dispatched OK | `gardenersworld.com` — dispatched OK |
+| 2 | **`thespruce.com` — REFUSED** | `which.co.uk` — dispatched OK |
+| 3 | `which.co.uk` — never reached | **`thespruce.com` — REFUSED** |
+| died at | `crawl_exemplar_2` | `crawl_exemplar_3` |
+| request_id | `4ac4c952-55c0-4a94-b66d-09bc9cfd3a02` | `1607dc02-cc7f-4a94-b0e2-b165dd58f90d` |
+
+Both request_ids appear verbatim in `site_work_items.error`. Back-off doubled 30min → 60min;
+`attempt_count=2/3`, `retry_after=2026-08-23 19:20:32Z`.
+
+**The load-bearing observation: the SET is identical and only the ORDER changed.** Attempt 2 got
+one step further and therefore threw away **two** successful crawls instead of one.
+
+## 4. Why "just retry" cannot work, and why that is the interesting part
+
+`select_exemplars` is an `ai_service` step (`claude-sonnet-4-6`, `max_tokens: 1500`) with **no
+`temperature` key**, so it samples at the provider default. It is tempting to conclude that a retry
+will route around a bad pick. **It does not, and the two attempts above are the disproof.**
+
+Sampling varies the *ordering*; it does not vary the *candidate pool*, because the pool is fixed by
+the prompt — *"the THREE best EXISTING websites … the sites a person in this niche would call the
+best"* — against a vertical that contains about four such sites. **Retry re-rolls a die whose faces
+are all the same.** Any fix built on retrying, widening `max_attempts`, or nudging temperature is
+therefore treating the one variable that provably does not move.
+
+## 5. Fix candidates, ordered by what closes the door
+
+1. **Tolerate partial results (smallest, closes the consequence).** N-of-3 is research, not a
+   transaction. Give each `crawl_exemplar_*` step an error-tolerant path so a refusal yields an
+   empty crawl rather than a dead orchestration, and let `format_*`/downstream proceed on what
+   returned. On attempt 2 this alone would have delivered two good exemplars. **Requires a stated
+   floor** — decide and record whether 1-of-3 is acceptable research or whether the step should
+   fail loudly below 2, because "silently proceeds on one exemplar" is its own defect.
+2. **Persist refusals and exclude them at selection (the only one that gets cheaper over time).**
+   On `WEBSCRAPE_ERROR`, record the host in a small `firecrawl_unsupported` store and inject it
+   into the `select_exemplars` prompt as an exclusion list. This is the only candidate that makes
+   the *estate* smarter rather than this *step* luckier, and it converts a recurring cross-vertical
+   tax into a one-off per host.
+3. **Ask the provider first.** If Firecrawl exposes a support/blocklist probe, check the three URLs
+   before crawling any and re-select once, cheaply, rather than discovering it a step at a time.
+4. **Not a fix: raising `max_attempts` or setting a temperature.** See §4 — pool, not sampling.
+
+## 6. Blast radius — MEASURED for occurrence, OPEN for exposure
+
+`[MEASURED 2026-08-23 17:50Z]` **one** `site_work_items` row carries `WEBSCRAPE_ERROR` in 30 days —
+this one. Nothing in `/bugs_open/`, `/bugs_closed/` or `LANDMINES.md` mentions `WEBSCRAPE_ERROR` or
+the refusal string.
+
+**Do not read that as "rare".** It is a count of *occurrences*, not of *exposure*, and the
+exposure is one greenfield build per new domain — which this estate has done **twice in a month**.
+`needs_vertical_research` has run few times; it has failed on a meaningful share of them. The open
+question, which a sweep or `090` could answer: **how many verticals nominate a Firecrawl-refused
+exemplar?** Recipes, health, consumer reviews and personal finance all point at exactly the
+publisher properties most likely to be on a blocklist.
+
+⚠ **A COUNT OF THINGS CARRIES ITS DATE (owner ruling 2026-08-22):** "one in 30 days" is **as of
+2026-08-23**, and this class grows by ADDITION every time a new domain is submitted.
+
+## 7. The trap this bug leaves for whoever verifies the fix
+
+**`collected_data.crawl_exemplar_N` says `success: true` on a crawl that was REFUSED.** That flag
+records that the request was published to `system.adapter.webscrape.requests` — it is a dispatch
+receipt, not an outcome. The refusal arrives asynchronously and is written **only** to
+`site_work_items.error`. So:
+
+- **Do not verify this fix by reading the step outputs.** They were already green.
+- Join on `request_id`, which appears in both the optimistic step record and the true error.
+- The house rule applies unchanged: *trust the artefact, not the status* — here the artefact is
+  whether a `vertical_research` spec row actually exists afterwards.
+
+## 8. How to verify a fix
+
+```sql
+-- the artefact, not the item status: did vertical research actually land?
+SELECT ss.aspect, ss.source_agent, ss.created_at FROM site_specs ss JOIN sites s ON s.id=ss.site_id
+ WHERE s.domain='<domain>' AND ss.aspect LIKE '%vertical%' AND ss.is_current;
+
+-- and that a refusal no longer kills the step:
+SELECT attempt_count, status, left(error,120) FROM site_work_items w JOIN sites s ON s.id=w.site_id
+ WHERE s.domain='<domain>' AND w.item_type='needs_vertical_research';
+```
+A fix is proven only against a vertical whose exemplar set **contains a refused host** — otherwise
+the test passes for the wrong reason. `thespruce.com` is a known-refused host as of 2026-08-23 and
+makes a ready positive control.
+
+## 9. Provenance
+
+Live run: `garden-tools.uk`, submitted 17:17:18Z 2026-08-23 with no prompt, no mission, no seed
+(the lane's one-shot route test). Full running record, including the two attempts and a correction
+to this filer's own reasoning about them:
+`docs/agent_docs/docs024_key_docs_latest/loanzy_uk_example_site/NOTES_loanzy_uk_example_site.md`
+(entries 17:49Z, 17:52Z, 18:20Z). Route defects index:
+`docs/agent_docs/docs024_key_docs_latest/loanzy_uk_example_site/HANDOFF_2026-08-19_fixing_the_one_shot_route.md`.
