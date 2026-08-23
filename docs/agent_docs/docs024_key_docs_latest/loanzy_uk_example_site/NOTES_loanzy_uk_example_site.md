@@ -1268,3 +1268,44 @@ not the one that fired.**
 ⚠ **Still not the final count.** `contact`, `how-we-assess`, `index` and `seasonal-planner` are yet
 to build, and `index` is the one that matters most — it is the apex, and if the landing page is
 mostly links to the four shells the whole site reads as broken. Do not write the summary yet.
+
+### 20:42Z — PREDICTION A RESOLVES, and it resolves the RIGHT way: the framework refused to invent contact details
+
+`needs_section_data` / `needs_human_review` `[MEASURED 20:42Z]`:
+
+```
+Section 'contact-info' on contact needs: Business contact email address
+spec.missing[0] = { field: "email", type: "text",
+                    source: "site_specs.identity.email",
+                    reason: "Business contact email address",
+                    on_missing: "needs_human_review" }
+source: plan_sections
+```
+
+**Prediction A had three branches: (a) build thin, (b) INVENT, (c) refuse and ask. It is (c)** — the
+best of the three, and the one I said would be the correct behaviour. The framework hit a field it
+did not have, **declined to fabricate it**, and filed a review item naming the page, the section, the
+field, the spec path it would have read, and why the field matters. Nothing was invented.
+
+**This is the direct counter to the `loanzy.uk` failure class.** That build invented an entire
+regulated business — a lender panel, an eligibility checker — from a domain name. This one would not
+invent an email address. The difference is not tone or luck: it is a **declarative per-field
+`on_missing` policy** carried in the component's own spec, so the refusal happens at the field, by
+configuration, rather than depending on a writer's judgement. **That belongs in §7 of the route
+handoff as a mechanism, not an anecdote.**
+
+**And it partly corrects my 20:35Z framing.** I wrote *"nothing builds the CORPUS that the collection
+pages exist to present"* and implied the pipeline has no way to say "I need data I do not have". It
+does — `on_missing` is exactly that, and it works. **The narrower, correct statement:** the pipeline
+has a per-FIELD mechanism for declaring and escalating missing data, and **no equivalent for a
+missing CORPUS.** A contact page missing an email raises a precise, actionable review item; a
+buying-guides index missing all its guides raises `"no sections ready to build"` — true, but it names
+no field, no source, and no remedy, because the thing missing is not a field. **The gap is not
+"nothing asks"; it is that the asking mechanism has field granularity and the failure has corpus
+granularity.** That is a much more useful thing to hand a fixer.
+
+⚠ Note what this does to the earlier harness check: the invented-identity greps are still worth
+running on the served pages, but **their most likely outcome is now "nothing found" for a good
+reason rather than a lucky one.** Do not report a clean result as evidence the writer resisted
+temptation — the writer was never asked. The control that would discriminate is a build where
+`identity.email` IS present; then a fabricated *different* address would mean something.
