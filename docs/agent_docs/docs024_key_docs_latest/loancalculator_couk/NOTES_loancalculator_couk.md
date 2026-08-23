@@ -6113,3 +6113,72 @@ held — `/guides/can-i-overpay.html`, `/guides/loan-faqs.html`, `/index.html` a
 `/guides/`, 11 tool pages, 12 locks held, identity flags on so a replan will not re-mint the
 twins. What remains on this lane is the 11 held `owned_page_review` tickets (the calculators
 sit LAST on ten tool pages) and `guides-index`.
+
+## 2026-08-23 (owner's four instructions) — released, composed, and the duplicate-tool decision
+
+Owner: *"1. deleted, 2. release the rebuilds. 3. build and restore the Guides link 4. we
+only need one of them."*
+
+### (2) "release the rebuilds" is NOT a status flip — the tickets have no handler
+
+[MEASURED] All 11 `owned_page_review` items carry **`handler_agent = ''`**. They are review
+MARKERS, not build jobs — TP-004's gate is "no handler by design". Setting them `triaged`
+would leave them unroutable, not rebuild anything. **The rebuild is a separate item**, and
+this site already has a proven one: `needs_page` / `page_rerender:<page>` /
+`page-build-handler`, which is what rebuilt `tool-credit-roadmap` on 08-22 into plan shape
+(created by the `bugfix_337_redrive` lane, not this one). Copied that row's exact shape
+rather than inventing one — `pipeline=build, approval_mode=auto, priority=99,
+spec={reason,page_name}`, and `created_by` is NOT NULL.
+
+**CANARY FIRST, one page, deliberately.** Ten live money pages is too many to move on an
+arm nobody has exercised. Two halves have precedent and their COMBINATION does not:
+index rebuilt with a LOCKED calculator (08-17, moved 6 → 2), and credit-roadmap rebuilt as a
+TOOL-ROLE page (08-22) — but credit-roadmap's calculator is **not locked**. The ten remaining
+are tool-role AND locked. Canary = `tool-overpayment-calculator`
+(`page_rerender:tool-overpayment-calculator`, born `triaged`). Baseline recorded:
+`hero, ported-prose, faq, tool-cta, tool-overpayment-impact(locked, position 5)`.
+
+### (3) The Guides 404 had a plain cause: the plan composes NOTHING for that page
+
+[MEASURED] In plan `9463e31d`, `about` and `legal` each carry 2 sections and **`guides-index`
+carries ZERO**. That is precisely what its build kept reporting — *"no sections ready to
+build (empty spec sections)"*. The page is in the plan, its nav row exists, and nothing had
+ever composed it.
+
+Took the fleet convention rather than inventing: a `section-index` composes
+`hero, <thing>-list` — `gamesdesign.co.uk/guides-index` is `hero,guide-list`, dartsonline and
+idea.uk use `hero,content-listing`. **Composed `guides-index` as `hero, guide-list`** (0-based
+ordering, matching this plan's own rows), and `guide-list` is already live on this site's
+homepage, so it is a component this site demonstrably renders.
+
+Then **re-drove the EXISTING item rather than creating one** — `idx_swi_dedup` refused a
+duplicate `page_rerender:guides-index`, correctly: the item was sitting at
+`needs_human_review`, attempt 1/3, with the error that the composition has now fixed.
+⚠ **Side effect worth knowing: re-triaging preserved its `created_at` of 2026-08-17, which
+made it the OLDEST triaged build item FLEET-WIDE** — so `find_dispatchable_site`
+(`ORDER BY created_at ASC LIMIT 1`) now selects this site ahead of everyone. That is how a
+re-drive jumps the queue, and it is worth knowing before doing it on a busy fleet.
+
+### (4) "we only need one of them" — keep credit-health-check, and retiring the other is NOT clean
+
+[MEASURED] The two pages carry the SAME component function, `tool-credit-health-check`:
+
+```
+tool-credit-health-check   deployed 08-19   tool-credit-health-check   LOCKED
+tool-credit-roadmap        deployed 08-22   tool-credit-health-check   not locked
+```
+
+**So keep `tool-credit-health-check`** — its instance is the protected, golden-verified one;
+`tool-credit-roadmap` holds an unlocked second instance minted in the rebuild era.
+
+⚠ **But its retraction WILL BE REFUSED as things stand: 15 pages carry 16 links to
+`/tools/credit-roadmap.html`, plus 1 active nav row.** That is the graph guard working —
+inbound editorial links refuse the retraction and name the referrers, because repairing prose
+is a content decision. Unlike the `/blog/` set, which had zero of all three.
+
+**Sequence that makes it clean, and it composes with (2):** archive `tool-credit-roadmap`
+FIRST, then run the remaining rebuilds — their cross-link sections regenerate from the ACTIVE
+page set, so the links should clear themselves — then retract the file, then the nav row goes
+with the retraction. **[INFERRED] that the rebuilds drop the links; the canary and the first
+rebuilds are the test, and if the links persist the retraction stays refused and the owner
+has a prose decision.** Not doing (4) until (2) has proven itself.
