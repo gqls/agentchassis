@@ -85,6 +85,14 @@
 //	  Needs input_contract in the export. Exit 1 on findings OR on an unmatched
 //	  registry entry, which means an assertion stopped running.
 //
+//	go run ./cmd/config-key-audit --undeclared-recurrence [--report] < live-workflows.json
+//	  {"agents_scanned": N, "findings": [{"agent": "...", "path": "...",
+//	    "item_type": "...", "item_key_prefix": "...", "declared_unhonoured": false}]}
+//	  Which keyed create_work_item step has never declared whether the item it
+//	  files is an ACTION REQUEST or a DETECTED DEFECT? The anti-churn brake acts
+//	  on the answer; a MISSING declaration is the finding, either explicit value
+//	  is clean (bugs_open/326).
+//
 //	go run ./cmd/config-key-audit --loop-sitewide-item-keys [--report] < live-workflows.json
 //	  {"agents_scanned": N, "findings": [{"agent": "...", "path": "...",
 //	    "loop_path": "...", "loop_variable": "...", "item_key_prefix": "...", ...}]}
@@ -278,6 +286,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--loop-sitewide-item-keys" {
 		emitLoopSitewideItemKeys()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--undeclared-recurrence" {
+		emitUndeclaredRecurrence()
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--component-source-vocabulary" {

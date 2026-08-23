@@ -8,6 +8,92 @@ watched end to end. **Status: OPEN, UNOWNED. Live. Customer-facing.**
 > plus the absence of the row it should have created. Both are quoted below. Nothing here is
 > inferred from a symptom.
 
+> ## ⚠ CORRECTED 2026-08-23 — THE ROOT CAUSE IN THIS FILE'S TITLE AND BODY IS WRONG
+>
+> **`create_work_item` does NOT dedup on `item_key` in any status.** The live index
+> excludes terminal ones, `complete` and `cancelled` among them:
+>
+> ```
+> "idx_swi_dedup" UNIQUE, btree (site_id, item_key)
+>   WHERE item_key IS NOT NULL
+>     AND status <> ALL (ARRAY['complete','verified','rejected','wont_fix',
+>                              'failed','unresolved','cancelled'])
+> ```
+>
+> `writeWorkItem`'s `ON CONFLICT (site_id, item_key) … DO NOTHING` names exactly that
+> predicate, so a completed predecessor **cannot** hold the dedup slot. The index arm is
+> innocent and it works: all **36** dedup events retained in `orchestration_states` over
+> 24h resolve as legitimate open-holder dedups when read with timestamps.
+>
+> **The real mechanism is the anti-churn brake at the TOP of `writeWorkItem`**
+> (`platform/orchestration/actions/load_work_item_actions.go`), which counts
+> `complete`/`failed` siblings on `(site_id, item_key)` inside 7 days and has two arms:
+>
+> - **within-cycle** — newest terminal sibling under **3.0 hours** old ⇒
+>   `return workItemWrite{}, nil`: no row, no error, and `Inserted:false` is
+>   byte-identical to a genuine dedup. **This is what bit this build.**
+> - **two-strike** — ≥2 terminal siblings ⇒ status rewritten to `unresolved`, which is
+>   terminal *and* not dispatchable, so the row is born dead and outside the dedup index.
+>
+> **The timing proves which arm fired.** `domain-submitter` writes a `submission` spec
+> *before* the deduping step, so `site_specs` dates every submission even though
+> `orchestration_states` reaped correlation `3296ac3a-…` long ago:
+>
+> | # | submission spec | outcome |
+> |---|---|---|
+> | 1 | 12:53:00.04Z | filed `research_loanzy.uk` at 12:53:00.25 → `complete` 13:36:36 |
+> | 2 | **15:21:17.23Z** | **the deduped one** — no row |
+> | 3 | 20:16:12.61Z | filed a new row at 20:16:13.85 |
+>
+> Submission 2 landed **2h28m** after the terminal sibling was **created**. The window is
+> 3.0 hours. At 3h01m the insert would have succeeded and there would be no bug — so the
+> measurement could have come out otherwise.
+>
+> **⚠ THE WINDOW KEYS ON `created_at`, NOT `completed_at`,** and the gap is not small: on
+> `garden-tools.uk` (live greenfield, 2026-08-23) the research item was created 17:17:15Z
+> and completed 17:44:59Z — **27m44s apart**, so its window closed at 20:17, not 20:45. An
+> operator reasoning from when the stage *finished* gets the boundary wrong in the
+> **unsafe** direction on any long-running item.
+>
+> ### What this means for the claims in this file
+>
+> - **"Consumed for ever" is FALSE.** The window expires after three hours. `[MEASURED]`
+> - **The 78-row hand-rename of `item_key`s was very likely NOT what made submission 3
+>   possible** — by 20:16 the sibling was 7.4h old and `complete` sits outside the index,
+>   so waiting past 15:53Z would have done the same job. `[INFERRED — the counterfactual
+>   is unmeasurable after the fact, because the rename removed the very rows it would be
+>   measured against. Proven instead by test: a `complete` sibling older than the window
+>   inserts.]` **Do not repeat the hand-rename; it is surgery for a three-hour timer.**
+> - **The two-strike arm is not literally permanent either** — its counter reads only 7
+>   days. What IS permanently lost is each request that arrived inside the poisoned
+>   window, because an action request has no detector to re-file it. **635 of 747** live
+>   `unresolved` rows carry the two-strike brand (2026-08-23); the largest populations are
+>   `page_rerender` (212) and `improve_tool` (205), both action requests.
+> - **Fix candidate 1 ("put the attempt in the key") is REJECTED.** It defeats the one arm
+>   that works, which is this file's own required negative control.
+> - **Fix candidate 2 is right about where to look but wrong about the target** — the
+>   index already excludes terminal rows; it is the brake above it that needed aligning.
+>
+> ### What this actually is
+>
+> **`bugs_closed/024`'s defect class, recurring on a pipeline 024 never touched.**
+> `work_item_recurrence_test.go` already says the brake *"is wrong for an ACTION REQUEST,
+> where a terminal predecessor means the request SUCCEEDED"*, and `recurrenceExpected` is
+> the proven opt-out that waives the heuristics **without** waiving dedup. 024 fixed the Go
+> call sites it touched; the config-driven build chain reaches the same helper through
+> `create_work_item` and nobody classified it. **19 of 21** keyed `create_work_item` steps
+> had never declared either way (2026-08-23).
+>
+> **On the 090 loop:** filed, as the standing rule requires for a contradicted root cause
+> (intake `df0b3d97-…`, run `655c8508-…`). It returned **5 bundles and no verdict** — the
+> documented over-60KB shape (`load_work_item_actions.go` is 82,669 bytes), with
+> `doc_notes` taking 21 rows in the same window as the demand control. First-hand
+> verification substituted and stated, per the ruling's escape hatch. Full evidence and
+> every query: `docs/agent_docs/docs024_key_docs_latest/bugfix_326_retry_the_front_door/NOTES_326_retry_the_front_door.md`.
+>
+> *Caught by the bugs_open/326 fix lane. The loanzy.uk lane, which filed this, has recorded
+> the matching correction in its own NOTES and runbook rather than having it forked here.*
+
 ## The one-paragraph version
 
 `082_submit_domain_unified.sh <domain>` on a domain that has been submitted before produces a
