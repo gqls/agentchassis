@@ -166,3 +166,103 @@ func TestConfirmPageIsSelfContainedAndObeysTheVoiceRules(t *testing.T) {
 		}
 	}
 }
+
+// ── Speculative-fetch refusal ────────────────────────────────────────────────
+//
+// These follow this file's rule: assert the EFFECT, never that the dependency
+// went uncalled. The fake confirms ANY token, so if the guard were deleted each
+// of these requests would reach it, succeed, and render the success page. The
+// assertion "the success copy is absent" therefore fails the moment the
+// behaviour is removed, which is the whole point.
+
+func serveWithHeader(t *testing.T, deps DeliveryDeps, method, path, hdr, val string) *httptest.ResponseRecorder {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	h := NewDeliveryHandler(deps)
+	r.GET("/c/:token", h.HandleConfirmTransfer)
+	r.HEAD("/c/:token", h.HandleConfirmTransfer)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(method, path, nil)
+	if hdr != "" {
+		req.Header.Set(hdr, val)
+	}
+	r.ServeHTTP(w, req)
+	return w
+}
+
+func TestConfirmTransferRefusesSpeculativeFetches(t *testing.T) {
+	// Every vendor's spelling of the same idea. A browser sends whichever its
+	// generation used, so missing one is missing that whole browser.
+	cases := []struct{ name, hdr, val string }{
+		{"sec-purpose prefetch", "Sec-Purpose", "prefetch"},
+		{"sec-purpose prefetch;prerender", "Sec-Purpose", "prefetch;prerender"},
+		{"sec-purpose prerender", "Sec-Purpose", "prerender"},
+		{"sec-purpose mixed case", "Sec-Purpose", "PreFetch"},
+		{"purpose prefetch", "Purpose", "prefetch"},
+		{"x-purpose preview", "X-Purpose", "preview"},
+		{"x-purpose prefetch", "X-Purpose", "prefetch"},
+		{"x-moz prefetch", "X-Moz", "prefetch"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := &fakeDeliveryDeps{}
+			w := serveWithHeader(t, f, http.MethodGet, "/c/abc123", tc.hdr, tc.val)
+
+			// THE assertion that makes this test real: with the guard gone, the
+			// fake would confirm and this copy would be present.
+			if strings.Contains(w.Body.String(), "that is recorded") {
+				t.Fatalf("a speculative fetch was CONFIRMED: %q", w.Body.String())
+			}
+			if w.Code == http.StatusOK {
+				t.Errorf("status = 200; a 2xx is a usable prefetch result and may be "+
+					"replayed to the customer instead of their real click (got body %q)", w.Body.String())
+			}
+			if got := w.Header().Get("Cache-Control"); got != "no-store" {
+				t.Errorf("Cache-Control = %q, want no-store", got)
+			}
+		})
+	}
+}
+
+func TestConfirmTransferRefusesHEAD(t *testing.T) {
+	f := &fakeDeliveryDeps{}
+	w := serveWithHeader(t, f, http.MethodHead, "/c/abc123", "", "")
+	if w.Code == http.StatusOK {
+		t.Errorf("HEAD returned 200, want a refusal")
+	}
+	if strings.Contains(w.Body.String(), "that is recorded") {
+		t.Errorf("HEAD confirmed a transfer")
+	}
+}
+
+// The must-pass arm. Without it, a guard that refused EVERYTHING would pass
+// every test above, and the whole confirm mechanism would be dead with the
+// suite green.
+func TestConfirmTransferStillSucceedsForAnOrdinaryClick(t *testing.T) {
+	f := &fakeDeliveryDeps{}
+	w := serveWithHeader(t, f, http.MethodGet, "/c/abc123", "User-Agent", "Mozilla/5.0")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 for a normal click", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "that is recorded") {
+		t.Fatalf("a normal click was not confirmed: %q", w.Body.String())
+	}
+	if len(f.gotTokens) != 1 || f.gotTokens[0] != "abc123" {
+		t.Errorf("token not passed through: %v", f.gotTokens)
+	}
+}
+
+// A header that merely MENTIONS a signal word must not trip the guard: the
+// check is on the four purpose headers, not on any header containing
+// "prefetch". Without this, tightening the guard into a substring search over
+// all headers would look correct.
+func TestConfirmTransferIgnoresUnrelatedHeaders(t *testing.T) {
+	for _, hdr := range []string{"User-Agent", "Referer", "Accept"} {
+		f := &fakeDeliveryDeps{}
+		w := serveWithHeader(t, f, http.MethodGet, "/c/abc123", hdr, "prefetch")
+		if !strings.Contains(w.Body.String(), "that is recorded") {
+			t.Errorf("%s: an ordinary click was refused because an unrelated header said %q", hdr, "prefetch")
+		}
+	}
+}

@@ -102,6 +102,42 @@ const maxTokenLen = 128
 func (h *DeliveryHandler) HandleConfirmTransfer(c *gin.Context) {
 	log := h.deps.Logger()
 
+	// A GET that changes state is what an emailed confirmation link has to be,
+	// given the owner's ruling that recording the click IS the state. The cost
+	// is that anything which FETCHES the link without a human deciding to
+	// follow it would confirm a transfer nobody confirmed, and we would then
+	// stop chasing a customer who never moved, and retract their live site on
+	// schedule believing they had.
+	//
+	// So: never mutate for a request that announces itself as speculative, and
+	// never for HEAD (gin does not route HEAD to a GET handler today, but that
+	// is a routing detail one r.Any() away from changing, and this is the file
+	// that must not depend on it).
+	//
+	// ⚠ BE CLEAR ABOUT WHAT THIS DOES NOT COVER. It closes the BROWSER
+	// prefetch/prerender/preview vector, which is the one that announces
+	// itself. It does NOT close the mail-scanner vector: a corporate security
+	// gateway or an inbox provider's link checker typically sends a plain GET
+	// with none of these headers, and is indistinguishable at this layer from
+	// the customer clicking. That half cannot be fixed here — it needs either a
+	// second click or an accepted risk, and it is the owner's call
+	// (DECISION_2026-08-21b s4). Do not read this guard as closing the hazard.
+	if c.Request.Method == http.MethodHead {
+		log.Info("confirm-transfer refused: HEAD, state not changed")
+		h.renderSpeculativeRefusal(c)
+		return
+	}
+	if reason := speculativeFetchReason(c.Request); reason != "" {
+		// Logged so this is MEASURABLE. If it never fires we have learned that
+		// browser prefetch is not a real vector for our mail; if it fires we
+		// have learned it is, before a customer is affected. A guard nobody can
+		// count is a guard nobody can review.
+		log.Info("confirm-transfer refused: speculative fetch, state not changed",
+			zap.String("signal", reason))
+		h.renderSpeculativeRefusal(c)
+		return
+	}
+
 	token := strings.TrimSpace(c.Param("token"))
 	if token == "" || len(token) > maxTokenLen {
 		// NOT logged with the token in it. An emailed link ends up in access
@@ -127,6 +163,55 @@ func (h *DeliveryHandler) HandleConfirmTransfer(c *gin.Context) {
 		log.Error("confirm-transfer failed", zap.Error(err))
 		h.renderConfirm(c, confirmError)
 	}
+}
+
+// speculativeFetchReason returns the header that marks this request as a
+// browser prefetch, prerender or link preview, or "" if it looks like a human
+// following the link. The returned string is the SIGNAL NAME only, never a
+// header value: values are attacker-supplied and this goes to the log.
+//
+// All four headers are checked because they are four different vendors' takes
+// on the same idea and a browser sends whichever its generation used. Checking
+// only Sec-Purpose (the current standard) would silently miss older Chrome,
+// Firefox and Safari.
+func speculativeFetchReason(r *http.Request) string {
+	// Sec-Purpose: the Speculation Rules standard. Values seen in the wild
+	// include "prefetch" and "prefetch;prerender", so substring, not equality.
+	if v := strings.ToLower(r.Header.Get("Sec-Purpose")); strings.Contains(v, "prefetch") || strings.Contains(v, "prerender") {
+		return "Sec-Purpose"
+	}
+	if strings.EqualFold(strings.TrimSpace(r.Header.Get("Purpose")), "prefetch") {
+		return "Purpose"
+	}
+	switch strings.ToLower(strings.TrimSpace(r.Header.Get("X-Purpose"))) {
+	case "preview", "prefetch":
+		return "X-Purpose"
+	}
+	if strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Moz")), "prefetch") {
+		return "X-Moz"
+	}
+	return ""
+}
+
+// renderSpeculativeRefusal answers a speculative fetch without changing
+// anything.
+//
+// WHY A 4xx AND NOT A FRIENDLY 200. A 200 would be a valid prefetch result, and
+// the browser may serve it back when the customer actually clicks — so the
+// human would see a page while the click never reached us, which is the failure
+// this guard exists to prevent, wearing a different hat. A non-2xx makes the
+// browser discard the speculation and re-fetch on the real navigation, which is
+// exactly what we want: the customer's own click then mutates normally, because
+// it carries none of these headers.
+//
+// no-store belongs here for the same reason and is not redundant with the
+// status: it is the half that does not depend on the browser agreeing with our
+// choice of code.
+func (h *DeliveryHandler) renderSpeculativeRefusal(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	c.Header("Referrer-Policy", "no-referrer")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.String(http.StatusPreconditionFailed, "This link is confirmed by opening it yourself.\n")
 }
 
 type confirmOutcome int
