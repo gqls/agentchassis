@@ -689,3 +689,49 @@ func CreateToolCrossLinkItemsAction(ctx context.Context, params ActionParams) (i
 		"skipped_tool_has_no_page": skippedNoPage,
 	}, nil
 }
+
+// ============================================================================
+// BACKFILL SEAM (bugs_open/353)
+// ============================================================================
+
+// BackfillCrossLinkRequest is the exported shape of one repair: a tool whose
+// cross-links were withheld at birth and which nothing will ever re-emit.
+//
+// Every field is read back out of the withholding's own agent_error_log row —
+// nothing here is reconstructed. See cmd/backfill-tool-crosslinks.
+type BackfillCrossLinkRequest struct {
+	SiteID       uuid.UUID
+	ToolFunction string
+	ToolName     string
+	ToolDesc     string
+	ToolPageID   uuid.UUID
+	ToolPageURL  string
+	RelatedPages []string
+}
+
+// EmitToolCrossLinksForBackfill repairs one tool's withheld cross-links by
+// calling the SAME emitter the build path calls. It exists so the backfill
+// cannot become a second implementation of the item's shape: the spec JSON, the
+// item_key namespace, the dedup clause and the two-strike anti-churn all stay in
+// exactly one place, and a change to any of them reaches the repair for free.
+//
+// It deliberately does NOT set pageBuildIsEnqueuedByThisWorkflow: a backfill
+// promises no build. A tool whose page is still not live is refused by Guard 2
+// exactly as it would be on the build path — which is correct, because a page
+// that never deployed should not be linked to, and the caller filters for live
+// pages before reaching here anyway. Belt and braces, deliberately.
+//
+// Returns the number of items created (0 is a legitimate outcome: dedup, an
+// unresolvable page name, or a refusal — all of which the emitter records).
+func EmitToolCrossLinksForBackfill(ctx context.Context, params ActionParams, logger *zap.Logger, req BackfillCrossLinkRequest) int {
+	return emitToolCrossLinkItems(ctx, params, logger, toolCrossLinkRequest{
+		siteID:       req.SiteID,
+		toolFunction: req.ToolFunction,
+		toolName:     req.ToolName,
+		toolDesc:     req.ToolDesc,
+		toolPageID:   req.ToolPageID,
+		toolPageURL:  req.ToolPageURL,
+		relatedPages: req.RelatedPages,
+		emittedBy:    "backfill-353",
+	})
+}

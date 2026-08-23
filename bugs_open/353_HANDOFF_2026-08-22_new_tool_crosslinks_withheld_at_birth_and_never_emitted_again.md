@@ -126,3 +126,73 @@ nothing in it — 516's resolver half is proven both directions regardless; see 
 **The FIX is unowned as of filing** — it belongs to whoever claims this file (announce the
 claim here, and run `who-owns.py 353` first), not to whichever session reads it next, and not
 automatically to the filing lane.
+
+## 9. CLAIMED, FIXED AND BACKFILLED — 2026-08-23 (staged-component-build lane, owner-approved)
+
+**Claimed** after `who-owns.py 353` showed only this lane's own filing commits.
+
+### 9.1 The forward fix — commit `323b63a00`, council `642ecc3c` (submitted)
+
+Widening the gate's item types alone does **not** fix the birth path, and finding out why is the
+substance of this fix: **the ordering**. tool-generator runs `save_tool` (create_tool_component,
+which calls the emitter) and only THEN `enqueue_rerender` (create_rerender_items), which files the
+`page_rerender` item. On the worked case the withhold is stamped **09:05:20Z** and the gate item
+**09:06:11Z** — Guard 2 ran **51 seconds before** the item it was hunting for existed.
+
+So the fix is two parts:
+1. **Widen the gate query** to the channels that actually build a page today —
+   `item_type IN ('needs_content_page','page_rerender','needs_page')`.
+2. **An OPT-IN field, unsafe default OFF** (the owner's 2026-08-02 shared-seam ruling):
+   `pageBuildIsEnqueuedByThisWorkflow`, set by **only** `create_tool_component`, which creates the
+   page and whose own workflow enqueues its build. `deploy_tool_action` is deliberately left on the
+   default — it promises no build. A zero-valued request keeps today's behaviour, pinned by test.
+3. **The decision is EXTRACTED** into `crossLinkEmitDecision(pageLive, gateItemFound,
+   buildEnqueuedByCaller)` — because the branch that caused this bug sat inside a DB-dependent
+   function where no unit test could reach it, which is how it survived 19 days while tests of its
+   *inputs* passed. **Mutation-proved:** making the opt-in inert fails exactly the named
+   `THE_353_FIX` case; `./platform/...` green from a git-archive-HEAD copy.
+4. The permissive arm writes its own countable INFO row
+   (`emitted_ungated_build_enqueued_by_caller`), so the new branch is as measurable as the withhold
+   was. **Go change ⇒ inert until a roll.**
+
+### 9.2 The backfill — DONE, 2026-08-23 ~17:1xZ
+
+**`cmd/backfill-tool-crosslinks`** (dry-run default, `--only <fn>` canary, `--apply`). It calls the
+**real emitter** rather than inserting rows, so the item shape, the `item_key` namespace, the dedup
+clause and the two-strike anti-churn cannot drift into a second implementation.
+
+**Its input is the guard's own telemetry** — `related_pages` is recorded verbatim in every skip row,
+so nothing is reconstructed or guessed. *The design decision that made this bug findable is what
+made it repairable*, which is the strongest possible argument for countable skips.
+
+| figure (as of 2026-08-23 17:1xZ) | value |
+|---|---|
+| withheld tools found | **37** across **24** domains |
+| eligible (page live, no items yet) | **34** (3 already had items from a later rebirth) |
+| **cross-link items created** | **74** (1 canary + 73) |
+| fleet total now | **151** items, **65** tools, **19** sites |
+| withheld tools still at zero | **5 — ALL CORRECT, see below** |
+
+**Canary first** (`tool-gripper-torque-moment-calculator`, robot-hands): verified at the artefact
+before the rest — right `item_key` namespace, `content_rewrite`/`triaged`/`page-build-handler`,
+priority 110, `source='backfill-353'`, the REAL tool URL, `mode=edit_live`, acceptance_test present.
+
+**⚠ THE FIVE ZEROS ARE CORRECT, AND WERE CHECKED RATHER THAN ACCEPTED.** `tool-bridging-compound`,
+`tool-rate-scenarios`, `tool-combat-balance-comparator`, `tool-stat-budget-allocator`,
+`tool-wave-difficulty-ramp` created nothing because **every page they name is itself a tool page**
+(12 of 12 named pages `LIKE 'tool-%'`, all of which exist) — and the emitter deliberately skips
+tool-to-tool cross-linking. Several other tools created *fewer* items than pages named for the same
+reason. A zero here is the filter working, not a failure.
+
+### 9.3 What is NOT yet true — the bar for closing this bug
+
+**A created item is a REQUEST, not a link.** These are `content_rewrite` items for
+page-build-handler; the pages carry the references only once they dispatch and rerender. **Do not
+close 353 on the 74.** The close condition is the artefact: named pages actually serving an inline
+link to their tool. Also note two of the robot-hands targets are `rebuild_policy='owned'`, so their
+completions may legitimately sit in human review — "74 created, N completed" is the owned-page
+control working, not a partial failure.
+
+**Still open:** (a) the forward fix is inert until a chassis roll; (b) the 74 items must dispatch
+and be verified at the artefact; (c) `tool-deployer` still has 0 runs in retained history — the
+second emitter caller remains an unexercised path, unchanged by this work.
