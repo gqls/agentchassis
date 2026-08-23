@@ -1,5 +1,15 @@
 # Open threads — restart list
 
+> **⚠ SUPERSEDED FOR THE LIVE ROSTER — 2026-08-23.** Everything below describes
+> the fleet as it stood on **2026-07-27**, 26 days ago: its §0 defect is long
+> closed, its bug rows predate roughly 200 newer cases, and its thread list names
+> sessions that ended weeks back. **For which sessions are running right now and
+> how to bring them back after a reboot, read
+> `docs/agent_docs/docs024_key_docs_latest/RESTART_2026-08-23_open_threads.md`.**
+> That file was built by reading the live process table, not by editing this one.
+> This one is kept for the historical account only — do not act on a row in it
+> without re-checking the claim first.
+
 **Rewritten 2026-07-27, 16:05 UTC.** (The previous version of this file was dated
 2026-07-22 and its bug table had gone badly stale — it listed bugs as open that
 had since closed and predated about forty newer ones. That table is not
