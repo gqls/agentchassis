@@ -50,6 +50,16 @@ docs/
 # dockerfile — without one the COPY fails at build time, which is the loud
 # direction and how this line got written; the quiet direction would be worse.
 !docs/agent_docs/docs024_key_docs_latest/architecture_review/commit_sha_exposure_acks.json
+# Third, same argument: finding-code-registry-check (bugs_open/358, DBG-075) ships
+# the finding-code registry inside its image. The registry says which
+# agent_error_log codes the estate has ACCEPTED as human-evidence-only, so it is
+# the same "silenced finding with no diff" surface as the two acks files above,
+# and it travels the same way — `make build-*` builds from committed HEAD, which
+# makes an unreviewed disposition unshippable rather than merely discouraged.
+# The warning above is not decoration: this line exists because the build DID fail
+# on 2026-08-23 without it, exactly as predicted, and that loud failure is the
+# whole reason the registry is a COPY rather than a mount.
+!docs/agent_docs/docs024_key_docs_latest/architecture_review/finding_code_registry.json
 scripts/migration/
 scripts/deployment/
 
