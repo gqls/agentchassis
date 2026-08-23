@@ -130,3 +130,77 @@ absent. A receipt nobody asserts on is not a control — it is a log line.
 dispatch that exited 0 having published nothing: 90 minutes with no row while other lanes'
 runs executed; re-dispatch produced a row in 3 seconds (`7760963cf`). Same class, a
 different trigger, current.
+
+---
+
+## 2026-08-23 — the failure INDUCED, and a correction to the bug file's own verification
+
+CLAUDE.md and the bug file both insist the failure must be induced, not assumed. I ran two
+inductions. Both publish **zero messages, so both are side-effect free.**
+
+### Induction A — unreachable broker (this is the recipe the bug file proposes)
+
+```bash
+( set -euo pipefail
+kubectl -n kafka run -i --rm kcat-induce-a-$(date +%s) --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- kcat -P -b nonexistent-broker.invalid:9092 \
+  -t system.agent.generic.requests -H correlation_id=INDUCTION-TEST-A <<'JSON'
+{"action":"orchestrate","config":{"agent_type":"NONEXISTENT-INDUCTION-TEST"},"input_data":{}}
+JSON
+)
+```
+
+```
+% ERROR: Local: Host resolution failure: ... Name does not resolve
+% ERROR: Local: All broker connections are down: 1/1 brokers are down: terminating
+pod kafka/kcat-induce-a-... terminated (Error)
+>>> EXIT CODE: 1
+```
+
+**Exit 1, loudly — on the UNFIXED script.**
+
+### Induction B — real broker, empty stdin (what a LOST RACE actually looks like)
+
+```bash
+( set -euo pipefail
+kubectl -n kafka run -i --rm kcat-induce-b-$(date +%s) --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- kcat -P \
+  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests -H correlation_id=INDUCTION-TEST-B-NEVER-SENT < /dev/null )
+```
+
+```
+pod "kcat-induce-b-..." deleted from kafka namespace
+>>> EXIT CODE: 0
+```
+
+**Exit 0. Zero messages. No error output of any kind.** The pod is reported as deleted
+normally — which is precisely the sentence the 327 filing quotes as reassuring.
+
+### > **CORRECTION to `bugs_open/327` § "How to verify a fix"**
+
+The bug file says: *"Run the trigger with the broker deliberately unreachable (or the topic
+renamed) and require a non-zero exit."*
+
+**That recipe is already satisfied by the UNFIXED script** — induction A exits 1 today,
+because `set -euo pipefail` propagates `kubectl`'s non-zero status when the pod terminates
+in Error. A fix verified that way would be verified against a control that **cannot come
+out false**, which is the exact trap CLAUDE.md's measurement-discipline rule names.
+
+The two failure modes are **opposite in observability**, and the file's recipe tests the
+wrong one:
+
+| induced condition | messages published | exit | operator-visible |
+|---|---|---|---|
+| broker unreachable | 0 | **1** | loud broker errors |
+| **stdin lost / empty** | 0 | **0** | **nothing at all** |
+
+**So the verification must induce the SILENT arm**: an empty or unattached stdin against a
+*healthy* broker. `< /dev/null` reproduces the post-race state deterministically and with no
+side effects, and is the control any candidate fix has to fail on before it is believed.
+"Topic renamed" is also weak — brokers with auto-create will accept the publish and exit 0,
+so it tests neither arm.
+
+**What this means for the fix:** the receipt is not belt-and-braces on top of an exit code
+that mostly works. For the failure mode that actually bites, **the exit code carries no
+information at all**, and the receipt is the only signal that exists.
