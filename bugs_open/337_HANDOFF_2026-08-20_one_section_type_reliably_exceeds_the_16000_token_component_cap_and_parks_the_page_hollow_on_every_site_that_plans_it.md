@@ -517,3 +517,69 @@ of those items would be a **regeneration**, not a creation, on components other 
 on. **Re-driving all 9 would spend nine generations to repair three pages and risk stranding
 fields on six working components.** One was re-driven; the rest are held pending the owner's
 call now the picture has changed.
+
+---
+
+## 2026-08-23 (afternoon) — the loop CLOSED end to end, council APPROVED, and the parked backlog cancelled as superseded
+
+### The component stored, and the way it got there is the point
+
+Work item `b0ba3e3a` (loanzy.uk / `loans-credit-health-check`), the item refused on 08-22 for
+inventing `site_specs.ctas`:
+
+| time (UTC) | what happened |
+|---|---|
+| 12:12:21 | generation 1 refused — **one** orphan schema field, `score_label_high` (43 declared, 42 placed). The phantom-source class did **not** recur. |
+| — | `retry_feedback.code = component_validation_orphan_schema_field` written by `bugs_open/345`'s typed channel |
+| 12:31:38 | **component STORED** — `loans-credit-health-check-loancalculator-co-uk`, 17,163 chars, 43 fields, contains `</section>`, active |
+
+**Two `agent_error_log` rows total, both from generation 1.** The retry produced no rejection at
+all — it succeeded on its first attempt after being told which field was orphaned.
+
+**This is the first end-to-end demonstration of prevention plus correction closing a loop on
+this estate**, and neither half would have done it alone: without `337` the writer invents an
+unresolvable source and never reaches the orphan check; without `345` the retry is handed the
+same inputs and repeats the orphan. Attribution is stated rather than assumed, and **at n=1**:
+one item, one retry. It is not a rate.
+
+### Council APPROVED — corr `9efde776-a210-42bc-aa99-899d0d301c67`, 2026-08-23 12:25:48Z
+
+**11 of 12 seats approve**, and the seat that GATED round 1 (`prior_art_librarian`) flipped to
+approve once the reuse claim was corrected to *three functions reused, one extracted to be
+shared*. Both code commits carry `Council-Submitted:`, so `098` credits them automatically —
+no amend, which forward-only forbids anyway.
+
+**`bug_historian` maintained two medium objections (non-gating). Both answered here rather than
+left standing:**
+
+1. *"Leaf paths make a plausible-but-wrong key MORE attractive to invent than a bare aspect
+   name was."* **Conceded as a real trade-off and already filed** as a residual in
+   `bugs_open/362`. The mitigation is the leaf paths themselves — a writer shown
+   `site_specs.cta.primary_url` is less likely to invent `cta.primary_href` than one shown only
+   `cta` — plus the prompt's explicit "do not invent a path" sentence. **That is guidance, not
+   enforcement, and the gate still cannot refuse it.** Unchanged from what the submission said.
+2. *"`create_tool_component` runs neither gate, and **nothing in this plan detects that
+   transition**."* **The premise is answerable and the answer is a measurement, not an
+   argument: the transition IS detected, by CLC-025's daily at-rest audit.** Its population
+   predicate is `is_active AND jsonb_typeof(input_schema->'fields')='object'` with **no
+   `component_level` filter**, so it already covers **27** tool-level components today and
+   would flag the 98 the moment any of them gains a `fields` object carrying an unresolvable
+   source. CronJob `component-source-vocabulary-check`, `20 7 * * *`, `suspend=false`, last ran
+   **2026-08-23 07:20Z**. The detector is not in my plan because it already existed.
+
+### The parked backlog: NINE items cancelled as SUPERSEDED, on the owner's instruction
+
+Not abandoned, and the reason is written onto each row rather than only here. Every one of
+those section types now has an active section-level component, and **seven of the eight have
+1–2 live pages bound to them**, so a re-drive would have *regenerated* a component other pages
+depend on rather than created a missing one — about **70,000 output tokens to repair nothing**,
+against a real risk of a stranded-field refusal on a working component. Their pages were
+verified serving their tools at the artefact, with working pages as positive controls.
+
+### Still open
+
+Three `needs_page` re-renders filed and in flight (`tool-is-a-loan-right-for-me`,
+`tool-credit-health-check`, `tool-eligibility-checker`) — all three components now exist and
+all three pages still serve **0 `<input>`, 1 `<button>`**. `needs_rebuild` on a page has no
+consumer, which is why these had to be filed by hand. **Until they land, no page is repaired
+and this bug does not close.**
