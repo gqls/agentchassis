@@ -525,3 +525,68 @@ I declined to add a speculative site-id fallback chain because I cannot exercise
 against a real run, and shipping an unexercised path is a failure mode this estate has
 recorded repeatedly. If it is revived, the right fix is a site-record step in its
 workflow, not path-guessing in the action.
+
+---
+
+## 2026-08-23 (g) — reopened the lane's file to check on it two days later; the fix holds, and the real find was elsewhere
+
+### Re-verified on the wider roll
+
+Chassis moved `v1.0.1322` (5 pods) → **`v1.0.1328` (54 pods)** — a genuine fleet roll.
+Re-probed rather than assumed, because a rebuild can serve a cached image: all three
+capability strings present in `/proc/1/exe` (rescue arm, write-guard finding code,
+read-failure code), fabricated symbol absent as the control.
+
+### The zero is now EXPLAINED, which is a different thing from unexplained
+
+Still zero rows of every code, and no new `PLAN_SECTION_NAME_DROPPED` since 08-20
+17:15. Two days ago I could only say "nothing has run". Now I can say WHY, and it
+changes the conclusion from *no evidence* to *evidence of absence*
+[MEASURED 2026-08-23 11:56 UTC]:
+
+- `build-site-planner` ran **once** since the roll — corr `1ca67055`, 08-22 12:55 —
+  and it was **greenfield**: *"Plan a website for apis.uk"*. No existing pages, so no
+  realised slots to rescue and no positional names to drop. **The arm was never
+  reached.** The zero is correct and says nothing about the fix.
+- `content-gap-planner` is genuinely busy — **2,755** LLM calls, last today 11:14 —
+  and produced no drops either, so its gap plans have simply not proposed an
+  unresolvable name.
+- `site-planner` ran 3 more times (2 → 5 all-time). It is the agent this fix does NOT
+  cover, and it filed no drops, so those runs were not on decomposed sites either.
+
+**So waiting does not produce this evidence.** `build-site-planner` has run 75 times in
+the platform's whole history and must run *on a decomposed site* to exercise the arm.
+I had assumed on 08-21 that the canary would arrive on its own; that assumption was
+wrong and is corrected here.
+
+### The actual find: two live deferrals still naming 204 as their blocker
+
+A memory lesson added since I closed this says *closing a bug does not retract the
+deferrals pointing at it* — it cost another lane 20 days. I went looking, and found
+two:
+
+- **PLAN-048's landmine**, gating **six** decomposed sites: *"do not opt those sites in
+  until 204 is fixed"*.
+- The twin-pairs `DECISION_INPUT_2026-08-12`: *"do not execute until 204 is fixed"*.
+
+Both retracted, with two care points. **The retraction is of the DEPENDENCY, not the
+ACTION** — I lifted the 204 blocker and left the opt-in decision with its owning lane,
+because only the blocker was mine to clear. And **the deferral's stated reason was
+wrong**: it blamed `normaliseRealisedToPlanPage` carrying positional names verbatim,
+where the damage actually came from validate's resolver deleting them (204's own 08-20
+contribution says so). So the exclusion's basis is *gone*, not merely weakened — which
+a reader could only learn by opening the closed bug, not the deferral.
+
+⚠ **And it sharpens the memory's own remedy, which would have missed two of the
+three.** That lesson prescribes `grep -rln "bugs_open/NNN"`. **Both deferrals are
+written in PROSE** — they name the number without the path, so the path grep finds
+neither. `grep "until NNN is fixed"` is what caught them, and it should be the primary
+form: a deferral is written by someone describing a dependency, not citing a file.
+Recorded back into the memory file.
+
+### Housekeeping
+
+Counts in the closed bug file's headline now carry their date, per the owner ruling of
+2026-08-22 (*a census does not go wrong, it goes STALE by ADDITION*). The census
+itself is unchanged over two days: **88 unresolvable across 6 sites, 83 rescued, 5
+correctly dropped** [MEASURED 2026-08-23].
