@@ -471,3 +471,229 @@ WHERE t.is_active ORDER BY 1;
 - **Council `7b662d65` is still verdictless** (`complete_invalid`, 9 s, zero artifacts). The council
   is **working again** — verdicts landed fleet-wide on 2026-08-23 at 12:49, 13:14, 13:42, 17:07 and
   17:17Z — so the re-run is unblocked.
+
+---
+
+## COUNCIL VERDICT 2026-08-23 — **APPROVED** (`7b662d65`, round 1), and both advisory objections ACTED ON
+
+The round that died verdictless on 08-22 was resubmitted under the **same correlation**
+(`RESUBMIT_CORR=7b662d65`) carrying the live-and-demand-proven evidence above. Verdict:
+**approved with 1 advisory objection, none high-severity**; 5 seats abstained,
+`gated_by_truncation: false`. Neither objection is answered by argument below — both are answered by
+a measurement that could have come out the other way, and **one of them found a real hole in my own
+calibration**.
+
+### Objection 1 — `bug_historian` (medium): "did you audit EVERY `componentTemplateValid` dispatch arm?"
+
+> *"componentTemplateValid dispatches on component_level, and this plan only patches the 'section'
+> arm … If any other component_level value (e.g. hero/chrome/layout) still uses a naive
+> substring/marker check … this plan reproduces the identical shape it is closing."*
+
+**The feared shape does not exist — there are exactly TWO arms** (`plan_sections_action.go:1866`):
+
+```go
+if componentLevel == "tool" { return toolTemplateValid(htmlTemplate) }
+return sectionTemplateValid(htmlTemplate)          // ← the DEFAULT, not a "section" arm
+```
+
+`tool`, and **everything else**. So no third arm can be carrying a stale marker.
+
+**But the objection was still right, for a reason it did not name, and this is the part worth
+reading.** Because that second arm is a *default* rather than a `section` case, **every other level
+routes through the predicate I changed — and my calibration only ever covered `section` and
+`tool`.** Live levels as of **2026-08-23**: `section` 149 active, `tool` 130, `site` 6, `header` 4,
+`footer` 1, `element` 1, `head` 0. **Twelve active rows took the change uncalibrated.**
+
+Measured now, same harness, same vacuity guard, plus an assertion that
+`componentTemplateValid(body, level) == sectionTemplateValid(body)` for each row — which is what
+turns "there are two arms" from a reading of the code into a test:
+
+```
+read=12   by level: site 6, header 4, footer 1, element 1
+rescued=6   [043095a1 webdesign-couk-footer, 14cf6193 webdesign-couk-head, 58fde68f site-header,
+             990b7162 site-header, ad6033ae webdesign-couk-header, e6347680 site-footer]
+regressed=0
+routing assertion: 12/12 agree — no third arm
+```
+
+**Six site-level chrome components — headers, footers, a head — were ALSO being called truncated by
+the `</section>` marker, and nobody had noticed.** Zero regressions. So the change is better than
+the submission claimed, and the submission's calibration was narrower than its blast radius. Total
+across all levels as of 2026-08-23: **28 rescued, 0 regressed**.
+
+### Objection 2 — `editquality` (low): "Path-1 resolution is asserted, not shown"
+
+> *"the deferral rests on an unverified assumption that Path-1 function-matching (not the
+> section_type query) is what let the loanzy.uk demand-proof cases resolve — that alternative path
+> is asserted, not shown as code."*
+
+**Fair, and it was marked `[INFERRED]` in the lane's NOTES for exactly that reason. Two independent
+arms now settle it, one structural and one a positive signal.**
+
+**Arm 1 — the selector structurally cannot have returned them.** `SelectComponentByType` queries
+`WHERE section_type = $1` (`component_selector.go:184`, and `:238` for the batch form). All three
+bound components carry `section_type IS NULL`, and in SQL `NULL = anything` is never true. Path 2
+could not have produced them whatever else is true.
+
+**Arm 2 — the Path-2 side-effect never fired.** `resolveSectionComponent` calls
+`IncrementUsageCount` on **every** Path-2 success (`plan_sections_action.go:1957`, and that is its
+**only** non-test caller as of 2026-08-23). Both incumbents still read `usage_count = 0` after being
+bound.
+
+**The control, because a check that cannot fail is not a check.** Components that *have* been
+Path-2 selected carry non-zero counts and all have a non-NULL `section_type` —
+`bayesian-ranking-hero-tool` 20, `case-studies-grid` 19, `contact-block` 7, and
+`loans-interest-rate-stress-test-loanzy-uk` (one of the diverted twins) 4. And across the **whole**
+corpus:
+
+```sql
+SELECT count(*) FROM content_components WHERE section_type IS NULL AND usage_count > 0;  -- 0
+```
+
+**Zero, fleet-wide.** The two facts are perfectly correlated over every row, which is exactly what
+the mechanism predicts and is a much stronger statement than the three rows I needed.
+
+### A finding that fell out of arm 2, and is a separate defect
+
+`usage_count` is incremented **only** on Path 2, and is **read as a scoring input** on Path 2
+(`component_selector.go:181` and `:235`: `LEAST(COALESCE(usage_count,0)::float / 50.0, 1.0) * 0.1`,
+under a header calling it *"battle-tested components score higher"*). A component resolved by Path 1
+is bound to a live page and never counted.
+
+`[MEASURED 2026-08-23]`, active non-forked `component_level='section'`: **12** of 149 have any
+`usage_count`; **96** have none despite ≥1 live `page_components` binding; **1,802** bindings are
+invisible to the term. **A component's score reflects the path it was reached by, not its merit.**
+
+This is not filed as a bug yet and is not blocking anything today. It is recorded here because it
+is a **direct argument against the `section_type` backfill**: a backfill would enter the incumbents
+(0, because Path 1 is all they have ever had) into Path-2 scoring against their own diverted twins
+(1–4), on a number that measures the route rather than the component — systematically preferring the
+site-specific copy over the general-purpose original.
+
+### Commit trailer
+
+The verdict is read and approved, so the code commit's `Council-Submitted: 7b662d65` is superseded
+by `Council-Reviewed: 7b662d65` on this record.
+
+---
+
+## THE `section_type` DECISION, TAKEN 2026-08-23 — incumbents stay Path-1-only, and the backfill is DECLINED
+
+This file has said twice that the ordering question must be *"decided deliberately or declined
+explicitly — silence is the only wrong answer"*. **Deciding it now.** Planned with a `fable` agent
+against the live code and DB; every decisive claim below was re-verified here before recording.
+
+### ⚠ FIRST — the reason this file gives for declining the backfill is SPENT, and that matters
+
+§"Why the obvious fixes are wrong" declines the backfill because *"backfilling makes all 22
+selectable and then the guard drops all 22"*. **That reason died the moment the predicate fix went
+live** — the guard no longer drops them. A reader who notices this will conclude the backfill is now
+safe. **It is not, and the conclusion survives on entirely new grounds.** Those grounds are below.
+
+### THE RULING
+
+> **Incumbents stay Path-1-only, permanently and deliberately (decided 2026-08-23).** The standing
+> NULL-`section_type` rows are reachable by `function` (Path 1) and by stored identity (Path 0), they
+> self-heal organically, and they are **NOT** backfilled. A backfill adds no reachability any live
+> caller uses, and it changes candidate sets in two places that make things worse.
+
+### Why it adds nothing (the part I originally argued, now settled in code)
+
+`plan_sections_action.go:1258` runs Path 1 — `components[sectionName]`, built by
+`loadComponentSchemas:1587` → `loadSectionComponents` (`v3_site_actions.go:4958`), which matches
+**`name` then `function`**, each against the **raw and kebab-normalised** form. Neither of its two
+SELECTs reads `section_type` at all. Path 2 (`:1276`) only runs when Path 1 misses. A backfill sets
+`section_type := function`, so the only key it adds to Path 2 is a string **Path 1 already resolves
+and pre-empts**. Pass 2's `DISTINCT ON (function) … ORDER BY function, created_at DESC` cannot pit
+incumbent against twin either: their `function` values are disjoint (twins are site-suffixed), so
+they never share a `DISTINCT ON` group.
+
+**Path order never needed deciding.** Function match precedes and pre-empts `section_type` match by
+construction. That is the answer to this file's original worry.
+
+### Why it would actively harm — two consumers, both verified here
+
+**1. `load_existing_component` — the decisive one, and I had missed this consumer entirely.**
+Its **primary** query (`load_existing_component_action.go:163`) is:
+
+```sql
+SELECT function, input_schema FROM content_components
+WHERE section_type = $1 AND forked_from IS NULL AND is_active = true AND component_level = 'section'
+ORDER BY usage_count DESC NULLS LAST, updated_at DESC LIMIT 1
+```
+
+A NULL row misses it **by design**, and the fallback comment says why in its own words:
+
+> *"a row whose `section_type` is NULL, or which is deactivated pending regeneration, is invisible
+> here while still being the row the store will overwrite and enforce. Ask the store's own resolver
+> before concluding the writer is unconstrained (`bugs_open/337`)."*
+
+So the miss routes to `resolveContractViaStorageIdentity`, which resolves by function through the
+store's diversion logic and **deliberately advises no contract on a divert-to-create** — because
+naming the incumbent's fields to a writer whose work will be diverted *"imposes a phantom one"* and
+manufactures a source-vocabulary refusal. **A backfill converts that correct miss into a primary
+hit, re-opening the exact channel that fed `bugs_open/345`'s refusal loop.** This consumer was
+invisible to my original argument, which only considered `plan_sections`.
+
+**2. The selector's guard-dropped edge has NO tie-break.** `component_selector.go:184` ends
+`ORDER BY score DESC LIMIT 5` — **no secondary sort key**. If an incumbent's template is ever
+genuinely truncated again, Path 1 drops it silently and its name falls through to Path 2, where a
+backfilled incumbent and its twin can score **exactly equal** (both `suitable_site_types` empty,
+both quality NULL, twin usage 0, page type not matching) — and the winner is then nondeterministic.
+If the *broken* incumbent wins, `loadSingleComponentSchema` re-applies the guard, returns nil,
+yields `selector_error`, and the section is passed to the content writer "as-is" — **a hollow
+section, where today the twin is reliably selected.**
+
+### And the scoring input the tie would be decided on is itself broken
+
+`usage_count` is incremented **only** on Path 2 and **read as a scoring input** on Path 2. As of
+**2026-08-23**: 12 of 149 active section components have any `usage_count`; **96** have none despite
+a live binding; **1,802** bindings are invisible to it; and `SELECT count(*) FROM content_components
+WHERE section_type IS NULL AND usage_count > 0` returns **0** fleet-wide. A backfill would enter
+incumbents at 0 against twins at 1–4 on a number that measures **which path found it**, not merit —
+systematically preferring the site-specific copy over the general-purpose original.
+
+### What IS still owed — the birth door, not the standing rows
+
+Every NULL-`section_type` section-level unforked row **ever** born is `created_from='manual'`; the
+`generated` route has produced **zero, ever**. No Go code guards that route because it is hand-run
+SQL — only the table can. The recommended remedy is therefore a **BEFORE INSERT refusal trigger**
+scoped `component_level='section' AND forked_from IS NULL AND section_type IS NULL`.
+
+⚠ **Two scoping traps for whoever writes it**, both verified: `forked_from IS NULL` is
+**load-bearing** — `deploy_tool_action.go`'s fork INSERT copies `component_level` but **not**
+`section_type`, so a section-level fork is legitimately born NULL and an unscoped trigger breaks
+tool deployment at runtime. And it must be **INSERT-only**: a `CHECK` (even `NOT VALID`) is enforced
+on UPDATE, so every template-repair write to the standing rows would start failing. A **generated
+column is wrong outright** — 35 rows deliberately carry a `section_type` that differs from
+`function`.
+
+**This is a precaution, not a repair: the live harm today is ~0** (all 25 rows are bound and in
+service, reachable by Paths 0/1, with two live self-heals). It is recorded as the recommended next
+step, not shipped in this pass.
+
+### CORRECTION to the demand proof above — a row that will look like a refutation
+
+A `needs_new_component:loans-credit-health-check` **was** filed for loanzy.uk at **12:08:49Z** on
+2026-08-23, before the three bindings. Anyone re-running the verification query without a time scope
+will find it and read the demand proof as refuted. It is not, for two reasons that must be stated
+together:
+
+- It **completed at 12:31:42Z** by regenerating the *twin* `c6be0e10` to v3 — so it is a pre-fix
+  Path-3 filing, not a post-fix one.
+- **The absence at 14:07/14:23 only discriminates because that item was already terminal.**
+  `CreateNeedsNewComponentItem`'s dedup check excludes terminal statuses, so a Path-3 hit at 14:07
+  or 14:23 **would have inserted a fresh row, and did not**. Without this argument the zero could
+  equally have been dedup suppression, and would prove nothing.
+
+The independent two-armed proof in the council section above (NULL cannot match `section_type = $1`;
+`usage_count` still 0) does not depend on either point.
+
+### Smaller corrections to counts in this file
+
+- *"All 22 active calculators carry `section_type = NULL`"* → **21 as of 2026-08-23**. `29e63065`
+  healed and left the set on 08-22.
+- *"Seven incumbents also have a diverted twin"* → **ten as of 2026-08-23** (also corrected above).
+- *"A writer hunt is probably a dead class … check whether the manual/adoption route is scheduled to
+  run again"* → **answered**: dormant since 2026-08-15 across three batches, **not** proven dead.
+  The trigger closes it without a hunt.
