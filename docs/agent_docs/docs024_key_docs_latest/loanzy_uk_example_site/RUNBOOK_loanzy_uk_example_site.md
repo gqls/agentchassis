@@ -99,3 +99,38 @@ SELECT ss.aspect, ss.source_agent, ss.is_current, ss.created_at FROM site_specs 
 ```
 The strategy spec is where the framework's own answer to "what is this domain for" first
 becomes readable — that is the artefact to judge before any page deploys.
+
+## `garden-tools.uk` — zone setup for the next clean-domain test (2026-08-23, DONE)
+
+Followed `portfolio_positioning/RUNBOOK_dns_pointing_a_domain_at_the_serving_worker.md`
+§"PROVEN RECIPE" exactly. Token `~/.config/cloudflare/portfoliotoken` (All zones: Zone/DNS/
+Workers-Routes edit, no expiry), account `13044f178ae0b156961065f55c8fada8`.
+
+Zone `82d90228c20877e2b3fc8470c2bc73d1` · NS `alexis`/`leah.ns.cloudflare.com` (owner set them
+at the registrar) · one proxied apex `A → 192.0.2.1` · route `garden-tools.uk/*` →
+`portfolio-sites-router` · `www` record + route added by `scripts/cloudflare/add_www_redirect.sh
+--apply garden-tools.uk`.
+
+**Timings, measured — useful for sizing the next domain:** zone `pending → active` **60s** after
+`PUT /zones/<id>/activation_check`; Universal SSL issued **~90s** after that; `www` 301 live
+**~20s** after its record was added.
+
+⚠ **The apex returns an EMPTY body for two unrelated reasons during setup, and they look
+identical.** Before activation, Cloudflare's nameservers serve the raw `192.0.2.1`
+(TEST-NET-1, unroutable) — nothing connects, so HTTP, HTTPS and TLS all fail together. After
+activation but before the certificate, the proxy is live but the handshake fails with **alert 40
+/ "no peer certificate available"**. Separate them by asking the layers individually rather than
+re-running the same request:
+```sh
+dig +short @alexis.ns.cloudflare.com <domain> A     # proxy IPs (104.21.x/172.67.x) = activated
+echo | openssl s_client -connect <proxy-ip>:443 -servername <domain> 2>&1 | grep -E "subject=|alert"
+curl -s --resolve <domain>:443:<proxy-ip> https://<domain>/ | head -c 200
+```
+⚠ **Use `--resolve` against a proxy IP throughout.** A local resolver caches the pre-activation
+`192.0.2.1` for its TTL, so `curl https://<domain>/` keeps failing long after the zone is
+correct — a stale cache and a broken zone are indistinguishable from the client.
+
+**Ready state confirmed:** apex serves the router's **9-byte `Not found`** and
+`https://www.garden-tools.uk/` → **301 → `https://garden-tools.uk/`**. That 9-byte 404 is the
+positive signal to require before dispatching any build: the route is live and the bucket is
+empty. `sites` and `site_work_items` remain at **0 rows** — nothing is built.
