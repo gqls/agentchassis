@@ -53,6 +53,23 @@ bash scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh ga
 fixed (live on `v1.0.1319`), but **the trigger script is unchanged since 2026-07-30** and still
 prints ids and exits 0 regardless. One submission in three vanished this way on 2026-08-18.
 
+> **CORRECTION 2026-08-23, bugfix_327 lane — two 327s got conflated, and the operational advice
+> above survives it.** `bugs_open/327`'s drop is **NOT** fixed and **v1.0.1319 has nothing to do
+> with it**. v1.0.1319 carried the *other* 327 (`bugs_closed/327_…a_partial_spec_write_silently_
+> shrinks_the_brief…`, closed by the `copy_quality_two_stage` lane) — that lane's own commit
+> reads *"327 still cannot close: zero **content_direction** writes since the fix went live"*,
+> which is the spec-write bug, not a dispatch. **No commit between 08-18 and 08-21 touched the
+> publish path, and no image could:** the drop lives in `kubectl run -i`'s stdin race, entirely
+> inside the operator's shell and a throwaway pod, where no service binary runs.
+>
+> **Your instruction above is right and stays right** — verify at the work-item row, because the
+> script cannot tell you. **What has changed since this was written:** `082_submit_domain_unified.sh`
+> now publishes through `scripts/kafka-publish-lib.sh`, asserts a `PUBLISH_OK` receipt, prints
+> `SAVE: CORRELATION_ID` only *after* it, and **exits non-zero when nothing was sent** — so the
+> re-dispatch decision is no longer yours to infer from an absent row. It also now runs the
+> landing check for you and distinguishes *never published* (retry at once) from *published but
+> not consumed* (wait). Resolve 327 by SLUG, never by number.
+
 ```sh
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
  "SELECT w.item_type, w.status, w.item_key FROM site_work_items w JOIN sites s ON s.id=w.site_id
@@ -93,7 +110,9 @@ is a four-token set (`{{end}}`, `{{if`, `{{.label}}`, `{{range`) and any token c
 
 **Closed since the loanzy run:** `260` (render leak), `307` (outage kills items), `311`
 (component collision — section half, fixed AND the originating page healed), `317`, `286`,
-`331`, `327` (the dispatch drop; fix live on `v1.0.1319`).
+`331`, ~~`327` (the dispatch drop; fix live on `v1.0.1319`)~~ — **STRUCK 2026-08-23: wrong 327.**
+The closed one is the *partial spec write*; **`bugs_open/327`, the dispatch drop, is still OPEN**
+(fixed at the trigger today, not by any image). See the correction in §"GO" above.
 
 **Still open, and what each will do to this run:**
 - **`bugs_open/326`** — *a failed build cannot be retried.* Re-submitting returns `COMPLETED`
