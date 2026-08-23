@@ -461,41 +461,58 @@ func TestRequiredFieldsMissingItemsAreRoutable(t *testing.T) {
 	// one key instead of filing two items for one defect.
 	page := pageContext{id: &pageID, name: "ai-agent-roi-estimator", slot: "tool-cta"}
 	wantKey := "required_fields_missing:" + pageID.String() + ":tool-cta"
-	gotKey, gotHandler, gotStatus := requiredFieldsMissingRouting(siteID, page, "tool-cta")
+	gotType, gotKey, gotHandler, gotStatus := requiredFieldsMissingRouting(siteID, page, "page_component", "tool-cta")
+	if gotType != "required_fields_missing" {
+		t.Errorf("page-scoped item_type = %q, want required_fields_missing", gotType)
+	}
 	if gotKey != wantKey {
 		t.Errorf("page-scoped item_key = %q, want %q — a key that does not match "+
 			"check_required_fields_missing's means the two producers file TWO items for ONE defect",
 			gotKey, wantKey)
 	}
-	if gotHandler != "required-fields-missing-handler" {
-		t.Errorf("page-scoped handler = %q, want the router", gotHandler)
-	}
-	if gotStatus != "detected" {
-		t.Errorf("page-scoped status = %q, want detected (the router's intake status)", gotStatus)
+	if gotHandler != "required-fields-missing-handler" || gotStatus != "detected" {
+		t.Errorf("page-scoped routing = (%q,%q), want (required-fields-missing-handler, detected)",
+			gotHandler, gotStatus)
 	}
 
 	// WITHOUT a page (chrome: slots hang off the SITE): the page-resolving
-	// router cannot classify this, so it must NOT be handed over. Parked for a
-	// human is the honest disposition; routing it buys three failed attempts.
-	gotKey, gotHandler, gotStatus = requiredFieldsMissingRouting(siteID, pageContext{}, "header")
+	// router cannot classify this, so the residue is a capability_gap —
+	// bugs_closed/077's convention for a detector wider than its handler's
+	// remit, NOT an invented shape. The type and status are what give it a
+	// CONSUMER: diagnose_triage_action's roadmap sweep reads
+	// `item_type='capability_gap' OR status='deferred'`.
+	gotType, gotKey, gotHandler, gotStatus = requiredFieldsMissingRouting(siteID, pageContext{}, "site_component", "header")
+	if gotType != "capability_gap" {
+		t.Errorf("page-less item_type = %q, want capability_gap — parking it under the finding's own "+
+			"type with a bespoke status invents a shape nothing sweeps, and the items age forever "+
+			"(council a0ef0b07: bug_historian named 077, debug_historian named the missing consumer)",
+			gotType)
+	}
+	if gotStatus != "deferred" {
+		t.Errorf("page-less status = %q, want deferred — the roadmap sweep's own predicate", gotStatus)
+	}
 	if gotHandler != "" {
-		t.Errorf("chrome handler = %q, want empty — required-fields-missing-handler resolves the "+
-			"page by spec.page_name, which a chrome slot does not have; handing it over reproduces "+
-			"the malformed-then-failed loop that item a31da7f3 hit", gotHandler)
+		t.Errorf("page-less handler = %q, want empty — all 45 live capability_gap rows carry none, "+
+			"and an unregistered handler name is born blocked and never claimed (bugs_closed/291)",
+			gotHandler)
 	}
-	if gotStatus != "needs_human_review" {
-		t.Errorf("chrome status = %q, want needs_human_review (the estate's parking vocabulary — "+
-			"the router's own park_* steps use it)", gotStatus)
-	}
-	if gotKey != "required_fields_missing:"+siteID.String()+":header" {
-		t.Errorf("chrome item_key = %q, want the site-scoped shape", gotKey)
+	// The key carries the SURFACE, so a page-shaped residue and a chrome finding
+	// on the same site cannot collide on a shared scope name (council a0ef0b07,
+	// editquality).
+	if !strings.Contains(gotKey, "site_component") {
+		t.Errorf("page-less item_key = %q, want the surface in it so residues cannot collide", gotKey)
 	}
 
 	// A page WITHOUT a slot cannot be keyed like the check either — it must
-	// fall back rather than emit a half-formed page-scoped key.
-	gotKey, gotHandler, _ = requiredFieldsMissingRouting(siteID, pageContext{id: &pageID, name: "x"}, "hero")
-	if gotHandler != "" || gotKey != "required_fields_missing:"+siteID.String()+":hero" {
-		t.Errorf("page-without-slot took the routed path (key=%q handler=%q) — the router needs BOTH "+
-			"page_name and slot_name, so half the context must not look like all of it", gotKey, gotHandler)
+	// fall back rather than emit a half-formed page-scoped key, because the
+	// classifier needs BOTH.
+	gotType, gotKey, gotHandler, _ = requiredFieldsMissingRouting(siteID, pageContext{id: &pageID, name: "x"}, "page_component", "hero")
+	if gotHandler != "" || gotType != "capability_gap" {
+		t.Errorf("page-without-slot took the routed path (type=%q handler=%q) — the router needs BOTH "+
+			"page_name and slot_name, so half the context must not look like all of it", gotType, gotHandler)
+	}
+	if strings.Contains(gotKey, pageID.String()) {
+		t.Errorf("page-without-slot emitted a page-scoped key %q — a key the router cannot act on "+
+			"must not look like one it can", gotKey)
 	}
 }

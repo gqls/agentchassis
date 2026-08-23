@@ -519,21 +519,44 @@ type pageContext struct {
 // WITHOUT a page — the chrome surface, whose slots hang off the SITE — the
 // page-resolving router structurally cannot classify the item, so handing it
 // over buys three failed attempts and a parked item, which is exactly what the
-// editor route demonstrated (item a31da7f3). It is filed for a human instead:
-// `needs_human_review` is the estate's parking vocabulary and the router's own
-// park_* steps use it. Deliberately NOT a phantom handler — bugs_closed/291:
-// an unregistered handler is born blocked and never claimed, which reads as a
-// queue bug rather than as work waiting for a person.
+// editor route demonstrated (item a31da7f3).
+//
+// THE RESIDUE IS A `capability_gap`, AND THAT IS NOT AN INVENTION — it is
+// `bugs_closed/077`'s convention, for exactly this shape: *a detector whose
+// predicate is wider than its handler's remit files the residue as a capability
+// gap*, with `gap_kind` distinguishing `handler_remit` (a handler exists, this
+// finding is outside it — us) from `handler_missing` (none exists at all).
+// 45 such rows are live, all with an empty handler, and — the part that decides
+// it — **`diagnose_triage_action.go`'s roadmap sweep reads
+// `item_type='capability_gap' OR status='deferred'`, grouped by
+// `spec->>'builder_needed'`**, so a gap filed this way has a CONSUMER.
+//
+// ⚠ The first version of this parked at `needs_human_review` with the
+// `required_fields_missing` type — invented, and nothing swept it, so the items
+// would have aged forever. Two council seats caught it on trail a0ef0b07
+// (`bug_historian`, medium, naming 077; `debug_historian`, low, naming the
+// no-consumer risk). The irony is worth keeping: this same change ships a
+// landmine saying *reusing a type is not reusing its contract*, and the seats
+// caught me NOT reusing a type that already fitted.
+//
+// Deliberately still an EMPTY handler_agent, matching all 45 live rows and
+// `bugs_closed/291`: an unregistered handler name is born `blocked` and never
+// claimed, which reads as a queue bug rather than as a roadmap entry.
 //
 // BOTH halves of the page context are required before taking the routed path:
 // the classify step resolves the page by name AND the component by slot, so
-// half the context must not be allowed to look like all of it.
-func requiredFieldsMissingRouting(siteID uuid.UUID, page pageContext, scopeKey string) (itemKey, handler, status string) {
+// half the context must not be allowed to look like all of it. The fallback key
+// carries the SURFACE so a page-shaped residue and a chrome finding on the same
+// site cannot collide on a shared scope name (council a0ef0b07, editquality).
+func requiredFieldsMissingRouting(siteID uuid.UUID, page pageContext, surface, scopeKey string) (itemType, itemKey, handler, status string) {
 	if page.id != nil && page.slot != "" {
-		return fmt.Sprintf("required_fields_missing:%s:%s", *page.id, page.slot),
+		return "required_fields_missing",
+			fmt.Sprintf("required_fields_missing:%s:%s", *page.id, page.slot),
 			"required-fields-missing-handler", "detected"
 	}
-	return fmt.Sprintf("required_fields_missing:%s:%s", siteID, scopeKey), "", "needs_human_review"
+	return "capability_gap",
+		fmt.Sprintf("capability_gap:required_fields_missing:%s:%s:%s", siteID, surface, scopeKey),
+		"", "deferred"
 }
 
 func emitRequiredFieldsMissing(ctx context.Context, db *sql.DB, siteID uuid.UUID,
@@ -609,7 +632,19 @@ func emitRequiredFieldsMissing(ctx context.Context, db *sql.DB, siteID uuid.UUID
 	// about who can act on it, and visible rather than fake-routed. Not a
 	// phantom handler (bugs_closed/291: an unregistered handler is born blocked
 	// and never claimed, which reads as a queue bug).
-	itemKey, handler, status := requiredFieldsMissingRouting(siteID, page, scopeKey)
+	itemType, itemKey, handler, status := requiredFieldsMissingRouting(siteID, page, surface, scopeKey)
+
+	// A capability_gap says WHAT IS MISSING, not just that something is: the
+	// roadmap sweep groups by `spec->>'builder_needed'`, so a gap with no
+	// builder named lands in a `?` bucket and tells the reader nothing.
+	if itemType == "capability_gap" {
+		spec["gap_kind"] = "handler_remit"
+		spec["builder_needed"] = "a required_fields_missing router that can service the " +
+			surface + " surface (required-fields-missing-handler resolves pages by " +
+			"spec.page_name; this surface has no page)"
+		spec["finding_type"] = "required_fields_missing"
+		specJSON, _ = json.Marshal(spec)
+	}
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -622,7 +657,7 @@ func emitRequiredFieldsMissing(ctx context.Context, db *sql.DB, siteID uuid.UUID
 		componentID:  componentID,
 		source:       source,
 		pipeline:     "build",
-		itemType:     "required_fields_missing",
+		itemType:     itemType,
 		severity:     "medium",
 		summary:      summary,
 		spec:         string(specJSON),
