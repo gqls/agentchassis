@@ -83,7 +83,40 @@ Unchanged from the previous handoff and still open: **D1** fleet-wide counting a
 **D4** the `negation_density` threshold, **D5** routing for `brief_supplies_negation` findings.
 Full text in `HANDOFF_2026-08-21_continue_here.md` — do not re-litigate them in a session.
 
-## 5. Can `bugs_open/305` close? — still NO, and the bar has not moved
+## ⏱ UPDATE 2026-08-23 — WHAT CHANGED, AND THE ANSWER TO "CAN WE CLOSE IT"
+
+**The cap cleared** (recovery 2026-08-22 21:42:28Z, a 3h27m outage — `bugs_open/243`, and the owner
+acted again rather than the calendar). **Chassis `v1.0.1328`** is live, and it carries yesterday's
+`ClassifyTruncation` (probed 1 on both replicas, control 0) — so MDL-043 is no longer inert. Both
+config keys survived this deploy too, re-read from the live row.
+
+**The gate ran across the fleet overnight and this morning**, `result=true` on every marker.
+
+**The damage half moved a long way** (bug file §25): the site's lane rebuilt all three pages, and
+**`model-directory` — the page carrying BOTH sentences the owner quoted — saved clean at 10:48Z.**
+Both quotes are absent from the stored `content_data`, checked as literals with a control. The other
+two pages failed at `validate_content` (19 and 5 errors — the claims layer, their lane's work).
+
+**But a NEW defect was found today, in this lane's own mechanism** (bug file §26): 15 of 49 markers
+did not reconcile (`targets ≠ rewritten + rejected`), 12 accounting for none of their targets, because
+the repair loop ranges over the model's answer rather than over the targets. Fixed, mutation-proven,
+council `f3046f0c` **submitted — verdict pending**, and **INERT until the next roll**.
+
+### So: NOT YET — and the blocker is no longer the owner's pages
+
+The estate's bar is *fixed AND live*, and *"a fix committed but inert until the next roll stays OPEN,
+because the defect is still reproducible until it ships"*. By that bar this lane has one open,
+reproducible defect: the repair log under-reports. It is the honest reason to hold, and it is a
+**one-roll wait plus a verdict**, not a dependency on anybody's decision.
+
+⚠ **And it has a consequence worth stating: `D3` must not be decided yet.** That decision was to be
+settled from the rejection log, and the log is exactly what was incomplete.
+
+**After that roll**, closure rests only on things that are NOT this defect — `D2` (an owner decision
+about a brief the gate exempts by design) and another lane's claims validation — at which point
+closing with the residual filed is defensible, on the `bugs_open/198` → `352` precedent.
+
+## 5. Can `bugs_open/305` close? — the ORIGINAL assessment, superseded by the block above
 
 The **defect** is fixed, live and proven. The **damage** is not: the owner asked for two things and
 "fix the affected pages" is unmet. Same shape as `bugs_open/327`. What would close it: the aiao lane
