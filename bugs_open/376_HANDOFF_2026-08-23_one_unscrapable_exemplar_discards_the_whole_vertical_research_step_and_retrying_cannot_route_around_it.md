@@ -67,14 +67,39 @@ bypass.** `garden-tools.uk` has **zero** `needs_strategy` rows and will never ge
 attempt. No strategy, no briefing, no plan, no pages, no site. The site row and its four classifier
 specs simply sit there.
 
-⚠ **Compound with `bugs_open/326`, and this is the part that bites an operator.** When attempt 3
-parks the item `failed` (~19:21Z on this run), the natural recovery is to re-submit the domain. That
-is **suppressed**: `writeWorkItem`'s two-strike block refuses a new `research_<domain>` while the
-newest terminal sibling with that key is under **3.0h** old, returning no row and **no error**, so
-the operator is told `COMPLETED`. Here the sibling was created 17:17:15Z, so **the front door stays
-shut until 20:17:15Z** — the build dies at 19:21 and cannot be restarted for another 56 minutes,
-with nothing anywhere saying so. (Note the suppressor keys on the sibling's `created_at`, not its
-`completed_at`.)
+⚠ ~~**Compound with `bugs_open/326`.** When attempt 3 parks the item `failed`, re-submitting is
+suppressed by `writeWorkItem`'s two-strike block for 3h from the sibling's `created_at`, so the
+front door stays shut until 20:17:15Z with nothing saying so.~~
+
+> **RETRACTED 2026-08-23 18:35Z, within an hour of writing it — the ground moved while I was
+> typing.** Migration **572** is applied and live, and it declares `recurrence_expected: true` on
+> the build-chain handoffs, which **skips the two-strike block entirely**. Verified here at the
+> live config rather than taken from the report `[MEASURED 18:34Z]` — all five hops now carry it:
+>
+> ```sql
+> SELECT ad.type, s.key, s.value->'config'->>'item_type',
+>        COALESCE(s.value->'config'->>'recurrence_expected','(absent)')
+> FROM agent_definitions ad, jsonb_each(ad.default_config->'workflow'->'steps') s
+> WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+>   AND s.value->'config'->>'item_type' IN ('needs_domain_research','needs_vertical_research',
+>        'needs_strategy','needs_briefing','needs_site_plan');
+> -- all five: recurrence_expected = true, including domain-submitter.create_research_item
+> ```
+>
+> **So re-submitting after this build dies WILL queue a fresh `research_<domain>`, at any offset.**
+> `idx_swi_dedup` is untouched, so a genuinely concurrent duplicate is still refused — that
+> protection lives in the database, not in config.
+>
+> **The lesson is the retraction itself, not the fact.** I filed a compound claim about another
+> lane's live mechanism without re-reading that mechanism's config *at the moment of writing* — and
+> it had changed within the hour, because that lane was actively fixing it. A cross-bug interaction
+> is the least stable claim you can make: it depends on two mechanisms, either of which may be
+> under repair by whoever you are writing it for. **Re-read the other bug's config before asserting
+> a compound, and date the assertion.**
+
+**What survives the retraction, and it is the whole severity case:** the build is still terminally
+dead at hop two. Recovery now requires a human to notice and re-submit; nothing retries it, and the
+re-submission will hit the same refused exemplar (§4).
 
 ## 3. Evidence — two attempts, same build, `garden-tools.uk` `[MEASURED 2026-08-23]`
 
