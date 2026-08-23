@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ai-persona-system
+resources:
+  - ../../../base
+
+labels:
+  - pairs:
+      environment: production
+      region: uk
+
+# Pinned, like every other check service here. `latest` in the base is the
+# placeholder the overlay replaces; a CronJob left on `latest` re-pulls whatever
+# was pushed last, which is how a scheduled check silently changes behaviour
+# between runs with no diff anybody reviewed.
+#
+# ⚠ THE REGISTRY IS INSIDE THIS IMAGE, so a stale tag here is a stale set of
+# DECLARATIONS: the check would keep grading against yesterday's dispositions, and
+# a code declared since would be reported `undeclared` — a false finding — until
+# the next roll. Bump this in the same commit as the rebuild. The run's doc_notes
+# body states how many codes the registry it graded declares, so a row
+# disagreeing with a local `./scripts/audit-finding-codes.sh` IS that staleness,
+# visible rather than silent.
+images:
+  - name: docker.io/aqls/finding-code-registry-check
+    newTag: v1.0.1331

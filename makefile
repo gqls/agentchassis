@@ -19,7 +19,7 @@ REGISTRY ?= docker.io/aqls
 # 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
 # carries 252 newer commits, 24 of them touching platform/internal/pkg. A
 # same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
-IMAGE_TAG ?= v1.0.1326
+IMAGE_TAG ?= v1.0.1331
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -98,7 +98,7 @@ RELEASE_IMAGES := auth-service core-manager agent-chassis reasoning-agent \
 	github-actions-runner \
 	optional-explicit-wires-check commit-sha-exposure-check \
 	capped-schedule-ordering-check component-source-vocabulary-check \
-	live-declaration-drift-check
+	live-declaration-drift-check finding-code-registry-check
 
 # AGENT_DEPLOY_SERVICES — what deploy-agents retags and applies. Entry form is
 # <service>[:<image>]; the image defaults to the service name. A service that
@@ -127,7 +127,7 @@ AGENT_DEPLOY_SERVICES := agent-chassis reasoning-agent web-search-adapter \
 	loop-sitewide-item-key-check brief-negation-check content-loss-check \
 	optional-explicit-wires-check commit-sha-exposure-check \
 	capped-schedule-ordering-check component-source-vocabulary-check \
-	live-declaration-drift-check \
+	live-declaration-drift-check finding-code-registry-check \
 	github-actions-runner github-actions-runner-vmsites:github-actions-runner
 
 # RETAG_EXEMPT — overlays that pin a RELEASE_IMAGES image but are retagged by
@@ -478,6 +478,17 @@ build-commit-sha-exposure-check: ## Build commit-sha-exposure-check CronJob imag
 .PHONY: build-live-declaration-drift-check
 build-live-declaration-drift-check: ## Build live-declaration-drift-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,live-declaration-drift-check)
+
+# bugs_open/358 phase 2. Same config-key-audit binary as its siblings, different
+# CMD, PLUS the finding-code registry it grades against. Committed-HEAD build is
+# load-bearing here for the usual reason and one extra: the registry says which
+# findings the estate has ACCEPTED as human-evidence-only, so a working-tree build
+# could bake in an unreviewed disposition — a silenced finding with no diff to
+# review. It runs --no-source (the image ships no repo); the two arms that read Go
+# source run at commit time instead, via scripts/check-finding-code-registry.sh.
+.PHONY: build-finding-code-registry-check
+build-finding-code-registry-check: ## Build finding-code-registry-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,finding-code-registry-check)
 
 .PHONY: build-capped-schedule-ordering-check
 build-capped-schedule-ordering-check: ## Build capped-schedule-ordering-check CronJob image (committed HEAD; REF=<ref> to pin)
@@ -2279,6 +2290,10 @@ push-live-declaration-drift-check: ## Push the live-declaration-drift-check Cron
 push-capped-schedule-ordering-check: ## Push the capped-schedule-ordering-check CronJob image
 	docker push $(REGISTRY)/capped-schedule-ordering-check:$(IMAGE_TAG)
 
+.PHONY: push-finding-code-registry-check
+push-finding-code-registry-check: ## Push the finding-code-registry-check CronJob image
+	docker push $(REGISTRY)/finding-code-registry-check:$(IMAGE_TAG)
+
 .PHONY: push-component-source-vocabulary-check
 push-component-source-vocabulary-check: ## Push the component-source-vocabulary-check CronJob image
 	docker push $(REGISTRY)/component-source-vocabulary-check:$(IMAGE_TAG)
@@ -2306,6 +2321,18 @@ deploy-capped-schedule-ordering-check: ## Deploy the daily capped-schedule-order
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/capped-schedule-ordering-check/overlays/$(OVERLAY_PATH)
 	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob capped-schedule-ordering-check
+
+.PHONY: deploy-finding-code-registry-check
+deploy-finding-code-registry-check: ## Deploy the daily finding-code-registry-check CronJob (bugs_open/358: an agent_error_log finding code firing with no declared disposition)
+	@echo "$(YELLOW)Deploying finding-code-registry-check CronJob...$(NC)"
+	@echo "$(YELLOW)  The image MUST already be pushed at this tag. An absent image gives$(NC)"
+	@echo "$(YELLOW)  ImagePullBackOff, which this fleet reports as a Job still RUNNING —$(NC)"
+	@echo "$(YELLOW)  never FAILED. Build and push before deploying, not after.$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/finding-code-registry-check/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob finding-code-registry-check
+	@echo "$(YELLOW)  This target proves NOTHING about the image actually running. Read the artefact:$(NC)"
+	@echo "$(YELLOW)  kubectl -n $(PROJECT_NAME) get cronjob finding-code-registry-check -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}'$(NC)"
 
 .PHONY: deploy-component-source-vocabulary-check
 deploy-component-source-vocabulary-check: ## Deploy the daily component-source-vocabulary-check CronJob (bugs_open/309: an ACTIVE component declaring a data source that resolves nowhere)

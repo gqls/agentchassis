@@ -1,0 +1,122 @@
+# deployments/kustomize/services/finding-code-registry-check/base/cronjob.yaml
+#
+# bugs_open/358 phase 2 — the ONLINE half. The registry and the checker shipped
+# 2026-08-22 (council be1fd678, APPROVED) and until now ran only when a human ran
+# them, which is the state the lane's own plan named as the gap: "the schedule is
+# what makes it real — detection works; SCHEDULE and DISPATCH do not". A check
+# that catches unread detectors, itself consumed by nobody, is the bug it was
+# written to find.
+#
+# WHAT IT CHECKS. `agent_error_log` carries deliberately-written FINDING CODES —
+# a detector's record of something it noticed and will not fix. Most had no
+# automated reader, and migration 466's hourly `database-cleanup` sweep deletes an
+# unresolved row at 30 days, so the estate's memory of its own detections was a
+# sliding window that, for most codes, nothing looked at before it slid. The fix
+# is not a reader per code. It is that a code cannot enter the estate with NO
+# DECLARED DISPOSITION and nobody notice. This is what notices, daily.
+#
+# WHY DAILY IS THE RIGHT CADENCE, and why a clock is needed at all: the thing this
+# watches moves by a route no commit can carry. A new code appears in the table
+# when a detector FIRES, which can be hours or weeks after the commit that wrote
+# it — and for a code written by a scheduled SQL pre_query, with no commit at all.
+# Two further arms are pure clock: `review_by` on an `instrumented` code expires
+# on a date, and the retention sweep's short-list can be edited live by a
+# migration. None of those is visible to anything that runs at commit time.
+#
+# THE SCHEDULE WAS CHOSEN AGAINST THE REPO, NOT THE CLUSTER. `kubectl get
+# cronjobs` cannot see a schedule that is committed but not yet deployed, so the
+# cluster reports a slot as free while another service already owns it (LANDMINES,
+# 2026-08-22, capped-schedule-ordering-check). Census over
+# deployments/kustomize/services/*/base/cronjob.yaml on 2026-08-23: 06:20 through
+# 07:25 is a solid block of check jobs, 07:40 carries two (brief-negation,
+# instance-scope-sweep) and 07:55 one. 07:30 is free in the repo AND in the
+# cluster, and is not on the hour — wedge-evidence-capture fires hourly at :17 and
+# other lanes rebuild pages on the hour, so a config check placed at :00 can
+# measure mid-rebuild state.
+#
+# IT REPORTS ON EVERY RUN, INCLUDING CLEAN ONES, and that is not politeness. A
+# check that only speaks when it fails is INDISTINGUISHABLE FROM ONE THAT HAS
+# STOPPED RUNNING, so a missing row means THE JOB DID NOT RUN and can never be
+# read as "nothing is wrong". Read it with the literal taken from the writer
+# (cmd/config-key-audit/findingcodes.go), never guessed — a daily check's
+# doc_notes `source` is not reliably its CronJob name across this estate:
+#   SELECT created_at, left(body, 600) FROM doc_notes
+#    WHERE source = 'finding-code-registry-check' ORDER BY created_at DESC LIMIT 7;
+# The body states the SCOPE of the run — how many distinct codes were observed
+# live, how many the registry declares, and which arms ran — because a finding
+# count alone cannot tell "graded 42 codes and found nothing" from "graded 3".
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: finding-code-registry-check
+  labels:
+    app: finding-code-registry-check
+    component: config-integrity
+spec:
+  schedule: "30 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # 1, not 0: a transient database blip deserves one retry, because a failed
+      # run is indistinguishable at a glance from a NEW finding and both page a
+      # human. Not more than 1 — a retried job that keeps failing on a real
+      # finding just writes the same row three times.
+      backoffLimit: 1
+      # Two SELECTs (the DISTINCT code list, and database-cleanup's pre_query)
+      # plus an in-memory walk over ~50 declarations. Measured sub-second by hand;
+      # 300s is a wide margin that still stops a hung job blocking tomorrow's.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: finding-code-registry-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          # REQUIRED for a private repo image. Without it the pull fails with
+          # "insufficient_scope" and the pod sits in ImagePullBackOff — which this
+          # fleet reports as a Job still RUNNING, never FAILED (LANDMINES,
+          # ImagePullSecrets family). A check that never runs reads as a check
+          # that found nothing, which is this service's own subject matter.
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/finding-code-registry-check:latest
+              # Image CMD, deliberately NOT overridden here so the image and the
+              # deployment cannot disagree about which registry is graded:
+              #   ./config-key-audit --finding-codes --report --no-source \
+              #        --registry /app/finding_code_registry.json
+              #
+              # --no-source: this image ships no repo, so the two arms that open a
+              # `consumed` entry's reader FILE cannot run. Without the flag all
+              # five raise `reader-unreadable` and the job is RED EVERY DAY
+              # against a healthy registry (measured 2026-08-23: 5 findings, exit
+              # 1). Those arms grade the registry against Go source, both halves
+              # change only by commit, and they run at commit time instead
+              # (scripts/check-finding-code-registry.sh). Every run SAYS which
+              # arms it skipped — a skip must never read as a pass.
+              #
+              # CONNECTS TO POSTGRES DIRECTLY — never kubectl. The ai-persona-app
+              # service account has no pods/exec RBAC in this namespace, and a
+              # kubectl-only tool fails there in a way that looks CLEAN
+              # (cmd/config-key-audit/fleetdb.go).
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
