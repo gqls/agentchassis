@@ -6302,3 +6302,39 @@ is the guard doing its job rather than an obstacle.
 
 **Still queued:** 7 rebuilds (priority 15) and the `nav_drift` (priority 30, so it runs after
 them) that ships the Guides link. Chrome still reads 2026-08-20 with no `/guides/` link.
+
+### 2026-08-23 (evening) — ALL FOUR INSTRUCTIONS COMPLETE, verified at the artefact
+
+```
+(1) duplicates deleted    14/14 /blog/ URLs 404
+(2) rebuilds released     10/10 tool pages: locked calculator at POSITION 2,
+                          verified on the SERVED page for all ten, locks 12/12
+(3) Guides                /guides/index.html 200 with all 14 guides;
+                          chrome regenerated 14:50:24 WITH the /guides/ link
+(4) duplicate tool        tool-credit-roadmap retracted -> 404;
+                          tool-credit-health-check (the LOCKED instance) 200
+site                      28 active pages, 28 serving 200 — ZERO 404s
+```
+
+**(2) generalised cleanly from the canary.** All ten served pages now render the calculator
+as section 2 (`hero · <tool>-section · ported-prose · faq · tool-cta`), measured by parsing
+each served page, not by trusting the rows. **Locks 12/12 throughout** — ten rebuilds, not
+one lock lost. The 10 `owned_page_review` tickets are now closed as satisfied.
+
+**(4) completed without the prose decision I had warned might be needed.** The sequence held:
+archive first → the tool rebuilds and the template-fix rerender wave regenerated their
+cross-link sections from the ACTIVE page set → inbound links fell **16 → 8 → 0** → then the
+retraction ran clean (`considered=1, retracted=1`). `nav_retired=0` is CORRECT here and not a
+miss: the 14:50 nav rebuild had already dropped the row, because by then the page was
+archived.
+
+**(3) has a tail worth stating precisely.** The chrome is right — regenerated 14:50:24 with
+the Guides link and without credit-roadmap — but **a page only gains it when that page next
+re-renders**. At the time of writing 15 of 28 pages carry the new chrome and 13 do not
+(including the homepage). All 13 already have a queued rerender, so it ships without further
+action. **Until it drains, the Guides link is live on some pages and absent on others**, and
+sampling one page would misreport it either way — the same lesson as 08-17 §11, which I had
+already been caught by once.
+
+**Bookkeeping done:** 10 review tickets closed; credit-roadmap's 3 tickets cancelled with the
+page.
