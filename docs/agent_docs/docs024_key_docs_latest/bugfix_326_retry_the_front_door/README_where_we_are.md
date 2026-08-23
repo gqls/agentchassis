@@ -84,3 +84,57 @@ rebuilds simultaneously, and the question of what to do with them is already an 
 decision of yours from earlier in the month. And the other sixteen unclassified
 steps belong to other people's work; the new check names them, and those lanes
 should make their own call rather than have me guess from outside.
+
+## 2026-08-23, evening — the review council said no to half of it, and it was right
+
+I put the change through the review council and it came back REJECTED. Eleven of the
+fourteen reviewers approved, two raised points, and one — the guardian seat, which
+can veto on its own — refused it. Its reasoning was better than mine and I want to
+record that plainly rather than dress it up.
+
+Its argument: the customer's problem is fixed by the configuration change alone. The
+larger change I bundled with it — making the mechanism delay work instead of
+destroying it, everywhere, for everyone — is a separate decision about how the whole
+system should behave, and I had attached it to an urgent bug fix, where it would get
+waved through on the urgency of something else. It called that "an architecture change
+dressed as a point fix", which is exactly what it was. I had the evidence in front of
+me and I bundled it because it was there.
+
+So: the configuration fix is applied and live. Re-submitting a domain after a
+finished build now queues work instead of quietly doing nothing. I checked that at
+the artefact rather than trusting the migration's own report — the new audit went
+from nineteen unclassified steps to fourteen, and none of the remaining fourteen is
+in the customer build path. The protection against two people submitting the same
+domain at once is untouched, and it is enforced by the database rather than by
+configuration, so it cannot be undone by an edit.
+
+The larger change is written, tested, and *not* committed. On this repository,
+committing is shipping — any other session's next build picks up whatever is on the
+shared branch — so committing something the council refused would have been shipping
+it by the back door. Instead it is preserved as a patch file next to a written-up
+proposal that lays out three options with their costs, including the one I would pick
+and why that is a view rather than a finding. Someone else decides.
+
+I also took the change back out of the shared working files. That was the fiddly part:
+another session has unfinished work in the same file, and the careless way to undo
+mine would have destroyed theirs. I removed exactly my own lines and then checked
+theirs was still there, character for character.
+
+Two of the reviewers' smaller points were real defects and are fixed. Both migrations
+could have taken a corrupted backup if anyone ran them twice, and both would have
+happily edited the wrong row for any agent that has two active configurations — four
+agents on the system do, though none of the five I touched. Both now refuse rather
+than guess.
+
+## What is still open, in one place
+
+- **Fixed and live:** the customer path. Re-submission works.
+- **Written, refused, waiting on a decision:** the framework-wide protection, so that
+  a step nobody has classified cannot have its work silently destroyed. Fourteen
+  configuration steps and thirty-six places in the code are still exposed.
+- **Waiting on a release:** one further configuration change that makes the front door
+  say so out loud when it genuinely cannot start a build. It is deliberately held
+  back, because applying it before the code ships would stop the front door working
+  entirely. The file says so at the top in large letters.
+- **Not mine, flagged to their owners:** fourteen unclassified steps in other people's
+  areas, now listed by name by the new check.
