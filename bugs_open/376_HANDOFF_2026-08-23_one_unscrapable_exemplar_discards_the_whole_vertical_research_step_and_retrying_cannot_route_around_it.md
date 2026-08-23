@@ -2,8 +2,14 @@
 
 **Filed:** 2026-08-23 by the `loanzy_uk_example_site` lane (one-shot build route), from the live
 `garden-tools.uk` greenfield build. **Status: OPEN, unowned.**
-**Severity: medium** — 100% reproducible per affected vertical, silent for 30-60 minutes at a time,
-and the step's own stored record reads `success: true` while it is failing.
+~~**Severity: medium**~~ **Severity: HIGH — this does not degrade a greenfield build, it KILLS it.**
+100% reproducible per affected vertical, silent for 30-60 minutes at a time, and the step's own
+stored record reads `success: true` while it is failing.
+
+> **UPGRADED 2026-08-23 18:30Z, ~20 minutes after filing, by the filer.** I first wrote that the
+> build "then continues without vertical research, or stalls, depending on whether the next stage
+> gates on it" — I had not checked which. It stalls, terminally, and §2a is now the most important
+> section of this file. Filing a severity before checking the chaining was the wrong order.
 
 > **On the 2026-07-31 owner ruling** (a `bugs_open/` file asserting a cross-cutting root cause is
 > not filed until it has been through `090`, or the filing session says plainly why it substituted
@@ -34,6 +40,41 @@ build's own record of the crawl steps says they succeeded.
    already succeeded**.
 4. The refusal is **never persisted anywhere the selector reads**. Each retry re-asks the same LLM
    the same question, so it re-nominates the same sites.
+
+## 2a. Why this is terminal: the step that chains the build is the LAST step, and it is the ONLY producer
+
+`vertical-exemplar-researcher`'s step order is
+`select_exemplars → crawl_exemplar_1 → format_1 → crawl_exemplar_2 → format_2 → crawl_exemplar_3 →
+format_3 → synthesise → write_landscape_spec → create_next_item → complete`.
+
+**`create_next_item` is what queues `needs_strategy`** (`handler_agent: domain-strategist`,
+`item_key_prefix: strategy`, `recurrence_expected: true`). It is reachable only after **all three**
+crawls succeed. A refusal at crawl 2 or 3 kills the orchestration, so it is never reached.
+
+**And it is the only thing in the estate that produces that item type** `[MEASURED 2026-08-23 18:29Z]` —
+one row, from a sweep of every live agent's steps:
+
+```sql
+SELECT type, s.key FROM agent_definitions ad, jsonb_each(ad.default_config->'workflow'->'steps') s
+WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+  AND s.value->'config'->>'item_type' = 'needs_strategy';
+-- vertical-exemplar-researcher | create_next_item      (1 row)
+```
+
+So the documented cascade — *research → strategy → briefing → site plan → composition → design →
+pages* — **has a single point of failure at its second hop, with no alternative producer and no
+bypass.** `garden-tools.uk` has **zero** `needs_strategy` rows and will never get one from this
+attempt. No strategy, no briefing, no plan, no pages, no site. The site row and its four classifier
+specs simply sit there.
+
+⚠ **Compound with `bugs_open/326`, and this is the part that bites an operator.** When attempt 3
+parks the item `failed` (~19:21Z on this run), the natural recovery is to re-submit the domain. That
+is **suppressed**: `writeWorkItem`'s two-strike block refuses a new `research_<domain>` while the
+newest terminal sibling with that key is under **3.0h** old, returning no row and **no error**, so
+the operator is told `COMPLETED`. Here the sibling was created 17:17:15Z, so **the front door stays
+shut until 20:17:15Z** — the build dies at 19:21 and cannot be restarted for another 56 minutes,
+with nothing anywhere saying so. (Note the suppressor keys on the sibling's `created_at`, not its
+`completed_at`.)
 
 ## 3. Evidence — two attempts, same build, `garden-tools.uk` `[MEASURED 2026-08-23]`
 
