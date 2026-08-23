@@ -45731,3 +45731,37 @@ script with N callers. Prior art: four `LANDMINES.md` entries, the earliest of w
 concluded "the durable fix is not putting checkouts in tmpfs" on 2026-07-31 — correct, and it never
 reached the nine documents prescribing it. It recurred because the diagnosis never reached the
 instructions.
+
+---
+
+## 2026-08-23 — "section=148, tool=132" from a pipe-delimited export. Wrong: tool=129, and the parts did not fit the whole (`bugs_open/351` lane)
+
+Exporting the live component corpus for 351's re-calibration, I counted the two populations with a
+line grep over a sentinel header of the shape `@@@BEGIN:<id>|<level>|<category>|<function>`:
+
+```bash
+grep -c '^@@@BEGIN:.*|section|'   # 148
+grep -c '^@@@BEGIN:.*|tool|'      # 132   <-- wrong
+grep -c '^@@@BEGIN:'              # 277
+```
+
+**148 + 132 = 280, against a total of 277.** Three section-level components have
+`category='tool'`, so `.*|tool|` matched them in the *third* field while `.*|section|` had already
+matched them in the second. Every one of those three was counted twice.
+
+**What caught it:** nothing clever — the parts did not add up to the whole, and I had printed the
+whole in the same breath. Had I printed only the two subtotals, `tool=132` would have gone into the
+bug file, the commit message and the council submission looking exactly like the right answer,
+because 132 is a perfectly plausible number for that population.
+
+**The cheap check, and it is two words: reconcile the parts against the total.** Print the whole
+alongside any breakdown of it and assert they agree. The stronger habit is to stop grepping lines
+for something that is a *field*: `awk -F'|' '$2=="section"'` cannot make this mistake, because it
+asks the question I actually meant. A substring match on a delimited record silently searches every
+column, and the wrong answer is always in the plausible range — which is why the arithmetic, not the
+eye, has to be the check.
+
+Same family as the vacuous `0/22` recorded in `bugs_open/351` itself and the flip-count-vs-flip-set
+amendment beside it: **three cases now in one lane where the number was stable and its meaning was
+not.** The generalisation those three earn: *a measurement whose wrong value is in the same range as
+its right value cannot be checked by reading it. It has to be checked by something that would break.*
