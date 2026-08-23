@@ -1087,3 +1087,44 @@ the `311` after-test may also have nothing to test. **That would not be a null r
 the finding**: the route never reaches the component-collision path on a vertical whose single tool
 page is owner-gated. Say that explicitly rather than reporting "no collision detected", which would
 read as the guard having been exercised when it was not.
+
+### 20:21Z — `unresolved_cta` on `about`: the RIGHT behaviour, and a build-ORDER question it exposes
+
+A second human-review item appeared while the pages build `[MEASURED 20:21Z]`:
+
+```
+unresolved_cta | needs_human_review | Unresolved CTA on about ('call-to-action'):
+                 no real-page destination for primary_cta_url, secondary_cta_url
+spec.fix: "No real page exists to serve as this CTA's destination (no eligible content hub).
+           The gated template renders no button. Add/activate a section-index hub, or set
+           the destination manually."
+source: resolve_internal_links
+```
+
+**This is the route behaving well and it belongs in §7.** Faced with a CTA whose destination does
+not exist, it (a) **renders no button rather than a broken one**, (b) files a review item naming the
+page, the section, the two missing fields and two concrete remedies. That is precisely the opposite
+of `bugs_open/328`, which leaves a dead link and says nothing — and it is worth noting that **the
+same build contains both behaviours**, so 328 is not "the platform does not care about broken
+destinations", it is narrower than that.
+
+**But it exposes an ordering question, and I do not yet know the answer.** `about` is being built
+while `buying-guides-index` and `brand-directory-index` are still `planned`. Its CTA could not
+resolve **because the target pages do not exist yet** — not because they never will.
+
+> **PREDICTION C, recorded now:** the `needs_rerender` item already queued for this site should
+> re-resolve `about`'s CTA once the hubs exist, and the buttons should appear. **If they do,** this
+> is transient and correct, and the only defect is a human-review item raised for a condition that
+> resolves itself — noise, not damage. **If they do not** — if `about` ships permanently buttonless
+> because its CTA was resolved once, early, against a site that was 1/12 built — then build ORDER
+> silently determines page quality, and every early page on every greenfield build carries it.
+> **That would be a new bug and a nastier one than 328**, because the page looks finished.
+>
+> **How to tell them apart at the artefact, not the item:** after the build settles, fetch
+> `https://garden-tools.uk/about.html` cache-busted and count `<a class="...cta...">`/`<a class="btn`
+> occurrences. The item going `complete` is NOT the test — `resolve_internal_links` filing a review
+> row and something later fixing the HTML are independent events, and only the second one matters.
+
+⚠ **Do not act on this.** It is the route's own behaviour under a no-hint build, which is the thing
+being measured. Setting the destination by hand — which the `fix` text invites — would destroy the
+measurement.
