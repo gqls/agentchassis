@@ -45527,9 +45527,34 @@ could have spoken. One `GROUP BY` on the date, about fifteen seconds.
 
 **The cheap check, and it generalises past this table:** before believing any
 `count(*) = 0` about a past event, ask the table what it still holds *from that date* —
-not whether it holds rows at all. `SELECT min(created_at), count(*) FILTER (WHERE
-created_at::date = '<the date>')` is the whole check. A table with 4,580 rows in it looks
-perfectly healthy while being completely silent about last week.
+not whether it holds rows at all. A table with 4,580 rows in it looks perfectly healthy
+while being completely silent about last week.
+
+> **CORRECTED, same day, by an existing LANDMINES entry I failed to grep for — and half my
+> own remedy was the trap.** I first wrote the check as
+> `SELECT min(created_at), count(*) FILTER (WHERE created_at::date = '<the date>')`.
+> **`min(created_at)` is precisely the misleading reading.** LANDMINES, *"`orchestration_states`
+> retains about TWO DAYS — but `min(created_at)` reads over a month back, because the purge
+> EXEMPTS stuck rows"* (filed 2026-08-23 by another lane): the purge skips stuck rows, so the
+> oldest survivor reports **what the purge exempts**, and exempted rows are by construction
+> unrepresentative. That entry measured the same cliff I did, hours apart —
+> `08-23: 3,299 · 08-22: 1,324 · then nothing until four July dates totalling 24 rows, every
+> one CANCELLED`. My own `min()` read `2026-07-19` and I treated it as "retention goes back to
+> July" in passing; it does not.
+>
+> **The check, corrected — plot the days, never ask for the oldest row:**
+> ```sql
+> SELECT created_at::date AS d, count(*) FROM orchestration_states GROUP BY 1 ORDER BY 1 DESC LIMIT 12;
+> ```
+> The `GROUP BY` is what saved me; the `min()` I recommended alongside it would have handed the
+> next reader the very trap I was writing the entry about.
+>
+> **The missed step, and it is the one that stings:** CLAUDE.md says *grep LANDMINES for the
+> symbol you are about to trust*. I did not grep it for `orchestration_states` — in a session
+> whose entire subject is a landmine. The entry was already there, filed the same day, with the
+> measurement and the corrected query. **One `grep` would have upgraded my accidental save into
+> a known check**, and would have stopped me publishing half-wrong advice under a heading that
+> says "the cheap check".
 
 **The half I got right and want to keep:** the same reflex applied to the *other* absence
 in this investigation and paid off properly. Ruling out the competing explanation (a
@@ -46109,3 +46134,48 @@ since moved. The high-churn shared append-only files — `WRONG_CALLS.md`, `LAND
 `016b`, `MEMORY*.md` — are where this bites hardest, because every lane writes to them and each
 does so exactly once per session, so the arrival rate is high and uncorrelated with anything you
 are doing.
+
+---
+
+## 2026-08-23 — a `cd` that outlived its command, plus `2>/dev/null`, turned "file not found" into "clean" (`bugs_open/326`)
+
+`CLAUDE.md` requires that a new concept-register entry drops any matching line from
+`102_coverage_ratchet.txt`. I checked:
+
+```bash
+grep -in "recurrence\|anti-churn\|undeclared" docs/agent_docs/docs026_concept_register/102_coverage_ratchet.txt 2>/dev/null
+# (no output)
+```
+
+and wrote down "nothing to drop". **The file was never opened.** Two commands earlier I
+had run `cd docs/agent_docs/docs026_concept_register/register && …` for a one-off parity
+check, and this harness's shell **keeps the working directory between calls**. So the
+relative path resolved to `…/register/docs/agent_docs/…`, which does not exist — and
+`2>/dev/null` swallowed the "No such file or directory" that would have said so.
+
+**What caught it:** the next command in the same batch tried to write three documents
+into the lane directory and failed with `No such file or directory` on a path I had
+successfully written to twenty minutes before. That is the only reason I looked. Had the
+batch contained only greps, the false all-clear would have gone into a commit message.
+
+**The cheap check, and it is two habits, not one:**
+
+1. **Never `2>/dev/null` a grep whose ABSENCE you intend to believe.** An absence is only
+   evidence if the instrument could have spoken; redirecting stderr is precisely the act
+   of gagging it. If the noise is genuinely unwanted, `ls -la <file> && grep …` — the `ls`
+   costs nothing and makes "the file exists and has no match" distinguishable from "there
+   is no file". Redone that way, the ratchet check gave `39478 bytes` and `grep exit=1`,
+   which is a real clean result.
+2. **`cd` is state.** Prefix any command that follows one with
+   `cd /home/ant/projects/agentchassis &&`, or never `cd` at all and pass the directory to
+   the tool (`grep -r … <dir>`, `git -C <dir>`).
+
+**Not a new lesson, which is the uncomfortable part.** `MEMORY.md` already carries
+"0 matches AND no error on ISO-8859" and "a `||true` watcher reads as target silence" —
+the same family, different mechanism. This is the third time in one session I produced a
+measurement that could not have come out otherwise: the present-tense dedup query (entry
+above), a one-level-deep step census that missed 8 of 19 nested steps, and this. The
+common shape is not carelessness about the query — all three were carefully written. It
+is **failing to ask what the disconfirming output would have looked like** before
+believing the confirming one. For this one the answer was trivial and I never asked it:
+a missing file and a clean file both print nothing.
