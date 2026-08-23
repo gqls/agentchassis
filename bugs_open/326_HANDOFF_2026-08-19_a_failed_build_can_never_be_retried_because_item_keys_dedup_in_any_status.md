@@ -91,6 +91,46 @@ watched end to end. **Status: OPEN, UNOWNED. Live. Customer-facing.**
 > verification substituted and stated, per the ruling's escape hatch. Full evidence and
 > every query: `docs/agent_docs/docs024_key_docs_latest/bugfix_326_retry_the_front_door/NOTES_326_retry_the_front_door.md`.
 >
+> ### ✅ PROVEN LIVE 2026-08-23 19:23Z — a re-submission INSIDE the window queued work
+>
+> The fix is verified at the artefact on a real build, by two observers, with the outcome
+> meanings agreed **before** the result existed.
+>
+> `garden-tools.uk` was a greenfield build that died at its second hop (`bugs_open/376`, an
+> unrelated `on_error` gap). The natural operator response — re-submit — is exactly the case
+> this bug is about, and it landed **2h05m51s** after the terminal sibling was created, well
+> inside the 3.0h brake that would have eaten it that morning:
+>
+> ```
+> 07b589a9-025f-4cae-a454-809ddf4584f5 | research_garden-tools.uk | complete | 17:17:15.482481+00
+> 3921bde4-968e-464d-8c2f-f682f495edf4 | research_garden-tools.uk | triaged  | 19:23:06.330863+00
+> ```
+>
+> **A distinct id, exactly as this file's "How to verify a fix" section demands** — asserted at
+> the row, never at the orchestration status. Re-queried independently minutes later, the new
+> row had moved `triaged` → **`claimed`**: not merely filed but **dispatched**, which is the
+> stronger statement. `retry_after` is NULL on both rows, correctly — the deferral change was
+> vetoed and is not shipped, so what is proven here is the classification and nothing else.
+>
+> **Demand control:** `recurrence_expected` re-read on the live definition at the same moment
+> and still `true`. Without that the insert proves nothing about the fix — it would be
+> consistent with the window simply having elapsed.
+>
+> **Two caveats recorded by the lane that took the measurement, because a clean result is when
+> to check the instrument:**
+> - The `claimed`-items snapshot (0 before and after) was an **unused control**. It would only
+>   have mattered on a null result; it corroborates nothing here.
+> - **The key was genuinely free.** `needs_vertical_research` reached `failed` at 19:22:13Z,
+>   ~40s before the test. Had the re-submission run while that item was still `triaged` —
+>   non-terminal, and therefore inside `idx_swi_dedup` — the classifier's own `create_next_item`
+>   would have conflicted and produced a **false negative on the fix's first live test**. My own
+>   earlier instruction ("re-submit whenever, whatever the offset") would have caused exactly
+>   that; the lane's own timing discipline is what avoided it.
+>
+> **Incidental finding, worth knowing if anything reads `aspect='submission'`:** a re-submission
+> is *not* inert on the specs. The prior `submission` spec was superseded (`is_current` t→f) and
+> a second written, so that aspect can hold more than one row per site.
+>
 > ### STATUS 2026-08-23: the customer path is FIXED AND LIVE; the framework half is vetoed and routed
 >
 > **Migration 572 is applied.** The five build-chain handoffs now declare

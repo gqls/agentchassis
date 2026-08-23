@@ -138,3 +138,27 @@ than guess.
   entirely. The file says so at the top in large letters.
 - **Not mine, flagged to their owners:** fourteen unclassified steps in other people's
   areas, now listed by name by the new check.
+
+## 2026-08-23, 19:23Z — it works, on a real build, and we watched it happen
+
+The proof arrived by accident, which is the best way for it to arrive.
+
+A new domain was being built from scratch this evening as an unrelated test. That build died
+partway through on a different fault entirely. So the person watching did the natural thing —
+submitted the domain again — and this is precisely the situation the bug was about: a failed
+build, a re-submission, and just over two hours since the first attempt. That is inside the
+three-hour window that would have silently swallowed it this morning.
+
+The work was queued. A new record, a new identity, and when I checked again a few minutes later
+it had already been picked up and was running. Two of us checked, separately, and we agreed in
+writing beforehand what each possible outcome would mean — which mattered, because I had already
+managed to invalidate their original prediction without noticing.
+
+I have also written down the two things that could have made this a false result and did not:
+the check we thought would matter turned out to be unused, and the test came within about forty
+seconds of colliding with a leftover item that would have blocked it for an entirely different
+reason. Following my own earlier instruction, it would have collided. Their care caught that,
+not mine.
+
+So the customer path is fixed and demonstrated rather than merely believed. What is still open
+is everything outside that path, which is what the refused proposal is about.

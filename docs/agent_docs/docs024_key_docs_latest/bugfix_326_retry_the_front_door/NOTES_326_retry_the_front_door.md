@@ -313,3 +313,44 @@ status-list constants — the plan's central claim about which arms the index ex
 checked by this council tier and must be taken on the author's word."* The council could not
 verify my central correction. It is in this file with its query, and `prior_art_librarian`
 independently attached a `pg_indexes` check that agrees.
+
+## 2026-08-23 19:23Z — PROVEN LIVE, on a real build, by two observers
+
+`garden-tools.uk` died at its second hop on an unrelated defect (`bugs_open/376`). The lane
+re-submitted — the exact operator move this bug is about — and the row appeared:
+
+```
+07b589a9-… | complete | 17:17:15.482481+00      <- the terminal sibling
+3921bde4-… | triaged  | 19:23:06.330863+00      <- 2h05m51s later, INSIDE the 3.0h window
+```
+
+`[MEASURED 2026-08-23]` independently by me minutes afterwards, where it had already moved to
+**`claimed`** — dispatched, not merely filed, which is the stronger claim. `retry_after` NULL on
+both rows, correctly: the deferral is vetoed and unshipped, so this proves the classification
+alone.
+
+**Demand control:** `recurrence_expected` re-read on the live definition in the same breath and
+still `true`. Without it, an insert at 2h05m is also consistent with "the window elapsed" — the
+control is what makes it evidence about the fix rather than about the clock.
+
+**Outcome meanings were agreed BEFORE the result existed** (new row ⇒ the fix works, not a
+revision of the account; no row ⇒ a live defect investigated as such). That mattered: I had
+already invalidated their original prediction by applying 572, and fixing the reasoning
+afterwards would have been choosing an interpretation to fit a number.
+
+**Three instrument checks the measuring lane volunteered, all of which sharpen the result:**
+1. The `claimed`-items snapshot (0 both sides) is an **unused control** — it would only have
+   discriminated on a null result. Recorded so nobody later reads it as corroboration.
+2. **The key was free by ~40 seconds.** `needs_vertical_research` reached `failed` at 19:22:13Z.
+   On my own earlier instruction ("re-submit whenever, whatever the offset") the test would have
+   run while that item was still `triaged` — non-terminal, inside `idx_swi_dedup` — and the
+   classifier's `create_next_item` would have conflicted, giving a **false negative on the fix's
+   first live test**. Their timing discipline caught what my instruction would have broken. That
+   is twice in one evening my guidance to that lane would have produced a wrong reading.
+3. A re-submission **supersedes** the prior `submission` spec (`is_current` t→f) and writes a
+   second. So `aspect='submission'` is not one-row-per-site; anything reading it must not assume.
+
+**And the residual this proves is still open:** the row inserted because migration 572 declared
+this step. The 14 still-undeclared steps and the 36 Go call sites would have had the request
+destroyed exactly as before. That is what RFC_048 is for, and this measurement is evidence for
+its premise, not against it.
