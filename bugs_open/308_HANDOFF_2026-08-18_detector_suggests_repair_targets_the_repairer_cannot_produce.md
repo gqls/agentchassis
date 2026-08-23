@@ -282,3 +282,38 @@ and it is not confined to reviews: **112** failed steps as of 2026-08-23 09:49Z,
 completed since. Council round 4 died unreviewed because of it. Phase B retires LNK-033's
 invariant, and the only honest proof it worked is a real button on a real served page — which
 needs the repair path running. **Do not start Phase B until the budget resets.**
+
+---
+
+## ⚠ CORRECTION 2026-08-23 (afternoon) — THE BUDGET BLOCK ABOVE IS LIFTED. Phase B is NOT blocked.
+
+The section immediately above ends *"Do not start Phase B until the budget resets"*, and dates the
+reset at **2026-09-01**. **That is now false, and a session reading it would stand down for nine
+days for no reason** — the exact shape of the "a stale status line prevents the thing it
+describes" trap.
+
+**What actually happened** is in `memory/the-fleet-key-is-not-on-the-default-console-org.md`: the
+cap was never a spend cap on the fleet's own account. The console the owner lands on by default is
+**not the org the fleet's `ANTHROPIC_API_KEY` belongs to**, so the meter read `0% used` while the
+API refused calls, and `2026-09-01` was the *wrong* account's reset date — a coincidence (monthly
+limits reset on the 1st for everyone) that read as corroboration for two rounds. The owner
+identified the correct account this morning.
+
+**Measured at the fleet's own log, not at a console** [MEASURED 2026-08-23 12:25Z]:
+
+```sql
+SELECT max(created_at) FILTER (WHERE error_message LIKE '%usage limits%') AS last_cap_error,
+       count(*) FILTER (WHERE success) AS ok_24h
+FROM llm_call_log WHERE created_at > now() - interval '24 hours';
+```
+
+| | |
+|---|---|
+| last `usage limits` error | **2026-08-23 10:10:40Z** — none since |
+| successful calls since | 15 (10:00Z hour) → 40 (11:00Z) → 79 (12:00Z) |
+| failures in that window | 2, both `stop_reason=max_tokens` truncations — a different defect |
+
+**Council round 4 has been resubmitted** on the same correlation
+(`RESUBMIT_CORR=e4336931-487b-4db3-b4dc-a4b128b3566c`) and is in flight.
+
+**308 still stays OPEN** — nothing here changes that. Phase A remains the whole of what shipped.
