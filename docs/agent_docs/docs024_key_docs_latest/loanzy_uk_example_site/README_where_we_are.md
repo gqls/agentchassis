@@ -130,3 +130,50 @@ than starting a competing account. The practical upshot for us: if this build fa
 wait, we do not start renaming things.
 
 The build is still running. I am watching it and will report what it produces.
+
+---
+
+**2026-08-23, evening — the answer, and it is a clean one even though the website does not exist.**
+
+The build is dead and we know exactly why. It got as far as deciding what the site should be — an
+independent gardening-review hub, no regulated angle, twelve pages — and then stopped at the very
+next step, which is the one where it studies three examples of the best sites in the field.
+
+It chose Gardeners' World, The Spruce and Which?. Our scraping service flatly refuses to fetch The
+Spruce. That one refusal throws away the entire step, including the sites it had already read
+successfully. It tried three times over an hour and a half, picked the same three sites each time in
+a different order, and died on The Spruce wherever it happened to land. Then it stopped for good,
+because the step that hands the build to the next stage is the last one in that sequence and is the
+only thing in the whole system that can start what comes after it.
+
+So we have a site row, four pages of notes about what the site should be, and nothing else. Nothing
+will ever pick it up again on its own.
+
+I then did the thing an operator would do — submitted it a second time — and that produced two
+useful results. The first is that another team's fix, shipped this afternoon, worked: the front door
+accepted the resubmission where two hours ago it would have silently swallowed it and reported
+success. They now have live proof of their fix on a real build, which they did not have before.
+
+The second is more interesting for us. The second submission re-ran the "what is this domain"
+step from scratch, and **it gave the identical answer** — same category, same style, same twelve
+pages, and the same confidence score of 0.82 to two decimal places. Only the free-text list of
+keywords came out differently worded. That is worth knowing: the machine's judgement about a domain
+is stable, so we can use it as a fixed point when testing other things.
+
+And it let me run the test that mattered. Because the second run produced genuinely different notes,
+I could ask whether the three example sites were being chosen because of those notes or because of
+the field itself. **It picked the same three sites again.** So this is not bad luck and it is not
+something a retry will ever fix — the machine will keep nominating the same handful of famous
+gardening sites, one of which we are not allowed to read, for ever.
+
+I have not fixed it. Fixing it would have meant the build was no longer a measurement of what the
+framework does unaided, which is the whole point of this exercise. It is written up as a new bug
+with the evidence, and the fix worth having is not "try again" but "remember which sites we cannot
+read, and stop suggesting them".
+
+Two smaller things from today, both of them us being wrong rather than the system. A safety check we
+were told to run after the build, I ran before it — and found the thing it checks had already
+changed days ago for innocent reasons. Run in the order we were given, I would have loudly announced
+that our build had destroyed another site's work. And a bug this lane filed four days ago blamed the
+wrong mechanism entirely; another team found the real one, and I have corrected the four documents
+that had been repeating it since.
