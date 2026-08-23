@@ -199,9 +199,9 @@ because the diagnosis never reached the instructions.
 - **CLEANUP DONE 2026-08-23 ~14:30 UTC, on the owner's instruction.** 72 directories, 11 GB,
   gated at 24h idle. Results in §8.
 - **Nothing has been resized**, deliberately — see §1.
-- **No documents have been edited yet.** §4.1 is the highest-leverage change and touches 9 files
-  across other lanes' directories, which wants either the owner's go-ahead or a `sweep:` commit.
-  **Until it lands, this recurs**: the cleanup bought time, not a fix.
+- **§4.1 and §4.2 are DONE 2026-08-23** on the owner's instruction (`e745c16d0`, a declared sweep).
+  §4.3 (janitor) and the `pattern-check.py` rule are **deliberately deferred** by the owner.
+  See §9.
 
 ---
 
@@ -246,3 +246,60 @@ that failed earlier the same day:
 
 **System directories verified intact afterwards**: `.X11-unix`, `.ICE-unix`, `snap-private-tmp` and
 all 11 `systemd-private-*` still present.
+
+
+---
+
+## 9. What shipped, 2026-08-23
+
+**The recipe is now a script**, `scripts/verify-head-builds.sh`, registered as **OPP-008**. One
+implementation, nine callers — the same answer as `scripts/council-scope.sh`, and for the same
+reason: the nine pasted copies had already drifted into six directory names, two build targets, and
+one version that did not work.
+
+It covers **both** workflows the copies were doing, because three of the nine were doing the second
+one and flattening it would have sent those lanes back to hand-rolled commands:
+
+| | when | command |
+|---|---|---|
+| does committed `HEAD` build? | **after** committing | `scripts/verify-head-builds.sh [targets]` |
+| does *my* change work against `HEAD`, not against a tree full of other sessions' WIP? | **before** committing | `scripts/verify-head-builds.sh --with <file> [--test] [targets]` |
+
+It writes to disk, points `GOTMPDIR`/`TMPDIR` at disk as well, deletes its tree on exit, and
+**refuses to run if its target is on a tmpfs** — checked by filesystem type rather than path
+spelling, so a later edit cannot quietly point it back at RAM.
+
+**Documents updated (8):** `016b` (which also gains a short note on why it is a script now), and the
+lane documents for `097`, `136`, `006`, `104`, `351` and `358` ×2. **`WRONG_CALLS.md` was NOT
+edited** — it is append-only, and rewriting a remedy inside a past incident would make the record
+disagree with what was advised at the time; a dated note was appended instead.
+
+**Config:** `GOTMPDIR` **and** `TMPDIR` now point at `/home/ant/.claude-scratch/gotmp` in
+`~/.claude/settings.json`. ⚠ **NEW SESSIONS ONLY** — a running session keeps the environment it
+launched with, exactly as the 2026-08-03 `CLAUDE_CODE_TMPDIR` change did, so the benefit arrives as
+sessions turn over. `TMPDIR` is one line beyond the linker fix the owner asked for and is flagged
+here rather than buried: it also redirects `mktemp`, which produced **10 of the 28** abandoned
+checkouts. Drop that line if the wider blast radius is unwanted; `GOTMPDIR` alone still fixes the
+linker.
+
+### A bug I shipped into the script and caught on its first run
+
+The first cut set `TMPDIR` to the extracted tree itself. Go then treats the module as living inside
+the system temp root, **ignores its `go.mod`**, and reports `pattern ./x/...: directory prefix does
+not contain main module`. **The script told me HEAD was broken. HEAD was fine.** That is the single
+wrong answer this tool must never give, and it gave it within a minute of being written. Go's
+scratch is now a sibling of the tree, never the tree or a parent of it, and the reason is a comment
+in the script so nobody re-simplifies it.
+
+Worth stating because it generalises: **a checker's most dangerous failure is not silence, it is a
+confident false positive** — a session that believed it would have gone hunting for a break another
+lane had not made.
+
+### Still open
+
+- **The janitor** (§4.3) — deferred. Nothing reaps idle scratch, so it accumulates between manual
+  clean-ups regardless of where it is written. The measurement that decides it is the refill rate
+  now the recipe is fixed: `/tmp` sat at **4.4 G / 29%** immediately after this landed. If it climbs
+  again, the recipe was not the whole story.
+- **A `pattern-check.py` rule** for a tenth document spelling out its own command — deferred with
+  it, and the cheaper of the two.
