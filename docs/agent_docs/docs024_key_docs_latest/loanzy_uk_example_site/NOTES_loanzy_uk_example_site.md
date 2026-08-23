@@ -618,3 +618,48 @@ cheapest possible refutation and only arrived because the prediction was written
 - **`build-dispatch-loop` is per-SITE, not a queue sweeper** — `load_items` is `load_work_items`
   with `config.site_id = input_data.site_id` (config-verified, not inferred from the ordering).
   Something upstream chooses the site; **what, and in what order, is now an open question.**
+
+### 17:45Z — the actual selector, read from config instead of guessed from a pattern
+
+The open question two entries up ("what orders this queue") is answered, and the answer was one
+config read away the whole time. The upstream is **`build-pipeline-trigger`**, which runs every
+**~90s** and whose `find_dispatchable_site` step is a `query_database` action `[MEASURED 17:45Z]`:
+
+```sql
+SELECT wi.site_id::text, s.domain FROM site_work_items wi JOIN sites s ON s.id = wi.site_id
+WHERE s.locked_at IS NULL
+  AND wi.status IN ('triaged','approved')
+  AND wi.attempt_count < wi.max_attempts
+  AND (wi.retry_after IS NULL OR wi.retry_after <= NOW())
+  AND (COALESCE(wi.approval_mode,'auto') = 'auto' OR wi.status = 'approved')
+  AND (wi.depends_on IS NULL OR NOT EXISTS (...unmet deps...))
+  AND NOT EXISTS (SELECT 1 FROM site_work_items active
+                   WHERE active.site_id = wi.site_id AND active.status = 'claimed')
+ORDER BY wi.created_at ASC, wi.priority ASC, wi.id ASC
+LIMIT 1
+```
+
+**It is FIFO by work-item age, one site per tick.** `ORDER BY wi.created_at ASC` first —
+**`priority` is only a tie-breaker within the same timestamp**, which is why our priority-**5**
+item sat behind 64 priority-**110** `content_rewrite` items: they were created earlier. Reading
+"priority 5 is the best in the queue" as "goes next" was the same mistake in miniature as the walk
+theory — a plausible ordering assumed rather than read.
+
+**So the 25-minute wait is explained, correctly this time.** `research_garden-tools.uk` was created
+17:17:15; every site whose oldest eligible item predated that went first, one per ~90s tick, and
+our turn came at 17:42:07 — **24m52s**, which is just the queue depth ahead of us divided by the
+tick rate. Nothing was skipped and nothing was broken.
+
+**And the ascending-`site_id` run is explained too** — as the coincidence it was. The selector
+never mentions `site_id` except as a final tie-break on `wi.id`. Fourteen ordered samples came out
+of a `created_at` ordering that happened to correlate over one window, and stopped correlating
+when it stopped.
+
+**Two properties worth carrying, because they bound every build on this estate** `[MEASURED]`:
+- **`NOT EXISTS (... status='claimed')` serialises a site to ONE in-flight item.** A site with
+  anything claimed is invisible to the selector until it clears. A build is therefore a strictly
+  sequential walk of its own work items, whatever the fleet's parallelism.
+- **Time-to-first-agent is queue depth ÷ ~90s, not a property of your submission.** On a busy
+  estate a greenfield domain can wait half an hour before a single agent looks at it, and
+  `082` returning in seconds is not evidence about any of it. If you need to know when your build
+  will start, count eligible sites with an older oldest-item — do not watch your own row.
