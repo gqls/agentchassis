@@ -266,3 +266,44 @@ I've repointed the ones this lane owns and deliberately left the rest: they refe
 204, not to a file location, both folders are searched by convention, and rewriting 35
 files that other sessions are actively editing to change a directory name in prose is
 exactly the kind of broad edit that swept my own half-finished work this morning.
+
+## 2026-08-23 — checked back two days later. It holds, and the useful find wasn't where I expected
+
+The new build carries everything — I re-checked rather than assumed, because a rebuild
+can quietly serve a cached image. The fleet has gone from 5 machines running this code
+to 54, and all three parts of the fix are present in the running program, with the
+same "and here's something that should NOT be there" control as before.
+
+**On the one thing I said we hadn't proved:** I was wrong about how it would resolve. I
+expected the fix would get exercised naturally within a day or two. It hasn't, and now
+I know why rather than just noting it hasn't. The site planner *did* run — once, on the
+22nd — but it was planning a brand-new site from scratch, which has no existing pages,
+so there was nothing for the fix to act on. It was never reached. The gap-planner has
+been very busy (nearly 3,000 model calls, most recent this morning) and hasn't met one
+of these names either.
+
+So "waiting" isn't a plan. That planner has run 75 times in the platform's entire
+history and has to run *on one of the six affected sites* to exercise this. I've written
+down exactly what to watch for when it next does, and left it at that rather than
+forcing a replan on a live site — the reasoning is unchanged from Thursday, and one
+detail makes it worse: no single site would even give both answers, because the sites
+with a name that *should* be deleted are the ones with nothing to preserve.
+
+**The find worth the visit was somewhere else.** There's a known failure in this system
+where closing a bug doesn't retract the instructions telling people to wait for it —
+it recently cost another team twenty days. So I went looking, and found two live
+instructions still saying "don't do this until 204 is fixed": one blocking six sites
+from a mechanism, one blocking a decision about duplicate pages. Both have been
+retracted.
+
+Two things I was careful about there. I lifted the *blocker*, not the *decision* — 
+whether to actually opt those sites in belongs to the team that owns them, and I gave
+them the per-site numbers to decide on. And the instruction's stated reason turned out
+to be the wrong mechanism: it blamed the thing that carries the names around, when the
+damage was the thing that deleted them. So the reason for the block is genuinely gone
+rather than just weakened — which you'd only discover by opening the closed bug, not by
+reading the instruction.
+
+One small correction I fed back: the written advice for finding these says to search for
+the bug's *file path*. Both of the ones I found were written in plain prose naming only
+the number, so that search finds neither. Searching for the phrase is what worked.
