@@ -473,3 +473,106 @@ them. Controlling on three would have left five incumbents unwatched during this
 - `70b72b3e` loans-settlement-calculator: `c42b9a8c843638d660509ca883eb7e9f` / `b7a1e6090d00f0bc1f17178d9ade3a45`
 - `b420389f` loans-standard-calc: `a9dea7cd35372bd6c0bd70cee8140d06` / `a5790bcfeb1d46da94cb8ef3d9fc5fdc`
 - `b89f91e1` mortgages-repayment: `a453a6565489c348ad6a9156a8af812f` / `8265ae5a931b735305b1fe007b148acb`
+
+### 17:27Z — why nothing has started yet, and a PREDICTION recorded before its outcome
+
+Ten minutes in, `needs_domain_research` is still `triaged`, `claimed_at` NULL. Before reading that
+as the `bugs_open/327` drop again (it is not — the row exists), I measured what the dispatcher is
+actually doing, because "queued" and "dropped" look identical from the item row.
+
+**The dispatcher is per-SITE, not a queue-wide sweeper** `[MEASURED 17:26Z]`. `build-dispatch-loop`'s
+`load_items` step is `load_work_items` with `config.site_id = input_data.site_id` — so a loop is
+spawned *for a site* and only ever sees that site's items. Something else chooses the site. Nothing
+in the queue's own state can therefore start your build.
+
+**It is walking sites in ascending `site_id` order, ~90s apart** `[MEASURED 17:26Z]`, from
+`orchestration_states WHERE owner_agent_type='build-dispatch-loop'`: 17:16:31 `00ff3af5` · 17:18:02
+`11c884e5` · 17:19:31 `1244516d` · 17:20:59 `1368e337` · 17:22:35 `199733a8` · 17:24:02 `1fcfa4f3` ·
+17:25:33 `2a8ebf9c` · 17:26:59 `5fe15466`. Before 17:16 the pattern is absent — the same site
+(`0162cde4`) repeats for an hour — so the ordered walk began at **17:16:31**.
+
+**garden-tools.uk is `16784842`, which sorts between `1368e337` (17:20:59) and `199733a8`
+(17:22:35). Its slot was passed over.** Zero `build-dispatch-loop` orchestrations have ever named
+its site_id `[MEASURED 17:26Z]`.
+
+**The benign reading, which I believe and have NOT yet confirmed [INFERRED]:** the walk began
+**17:16:31**, and the garden-tools site row was created **17:17:15** — **44 seconds later**. A
+scheduler that snapshots its site list at the start of a cycle could not contain a site that did
+not exist when it looked. That explains the skip with no defect.
+
+**PREDICTION, recorded now so it can fail** — 48 sites exist, 31 carry non-terminal work, the walk
+head is `5fe15466` with 27 site_ids above it, so at ~90s a cycle is **~45 minutes**:
+> `garden-tools.uk` gets its first `build-dispatch-loop` when the walk wraps and returns to the
+> `16xxxxxx` range — expected **before ~18:05Z**. If the walk wraps past `16784842` a SECOND time
+> without dispatching it, the snapshot explanation is refuted and this is a real defect in the
+> one-shot route: a site created mid-cycle is invisible for ever, not merely delayed.
+
+Either way this is a measured property of the route worth having: **time-to-first-agent on a
+greenfield domain is bounded by a per-site scheduler walk (~45 min at today's 31 active sites),
+not by the submit.** The 082 script returning in seconds says nothing about when work starts.
+
+### 17:32Z — CORRECTION to this lane's `326` account: the dedup index is not the mechanism, and the 78-row rename was theatre
+
+> **CORRECTED 2026-08-23, caught by the `bugs_open/326` session** (it picked up the fix, found no
+> fix commits via `who-owns.py`, and messaged this lane to check we were not mid-flight). I have
+> **verified both halves first-hand rather than accepting the report** — a peer session's message
+> is another doc, and the point of checking is that it took two queries.
+
+**What this lane filed, and repeated in four places:** that `create_work_item` dedups on `item_key`
+in **any** status, so a failed build can never be retried, and the recovery is hand-renaming
+`item_key`s (`SET item_key = item_key || '_run2'`). That appears in `bugs_open/326`'s title and
+body, `HANDOFF_2026-08-19_fixing_the_one_shot_route.md` (§ lines ~32-36 and the §230 table row),
+and `HANDOFF_2026-08-23_garden_tools_continue_here.md` §4.
+
+**It is wrong, and here is the check I should have run when filing** `[MEASURED 2026-08-23 17:31Z]`:
+
+```sql
+SELECT indexdef FROM pg_indexes WHERE indexname='idx_swi_dedup';
+```
+```
+CREATE UNIQUE INDEX idx_swi_dedup ON public.site_work_items USING btree (site_id, item_key)
+  WHERE ((item_key IS NOT NULL) AND (status <> ALL (ARRAY['complete','verified','rejected',
+         'wont_fix','failed','unresolved','cancelled'])))
+```
+
+`complete` **and** `failed` are both excluded. A terminal predecessor cannot hold the dedup slot,
+so "dedups in ANY status" is false, and it is false for exactly the status a failed build leaves
+behind.
+
+**The real mechanism** is the two-strike block at the TOP of `writeWorkItem`
+(`platform/orchestration/actions/load_work_item_actions.go:1507-1546`), read first-hand: when the
+newest `complete`/`failed` sibling with the same `item_key` is **under 3.0 hours** old it does
+
+```go
+return workItemWrite{}, nil    // no row, and NO ERROR
+```
+
+— which is why the caller reports `COMPLETED` and queues nothing. Past 3h the suppression lapses;
+at `terminalCount >= 2` the item is instead inserted as `unresolved`.
+
+**So the recovery instruction in our own handoffs is theatre.** The peer's `site_specs`
+(`aspect='submission'`) timestamps date the three loanzy submissions at 12:53:00Z, 15:21:17Z and
+20:16:12Z: the deduped one landed **2h28m** after its terminal sibling — inside the 3h window —
+and by 20:16 the sibling was **7.4h** old, i.e. already outside it.
+
+**`[INFERRED]` — and the 326 session asked for this marker explicitly, rightly.** That waiting
+past 15:53Z *alone* would have unblocked it rests on the code path plus the timings, **not** on a
+re-run. The rename removed the rows the counterfactual would have been measured against, so it is
+**unmeasurable after the fact** — the classic shape where our own repair destroyed the evidence
+for the claim we then made about it. What IS `[MEASURED]`: the index predicate, the suppression
+branch, and the three submission timestamps. The 326 lane is proving the rest with a test (a
+`complete` sibling older than 3h must insert); this note gets upgraded when that lands.
+
+**The cheap check that would have caught it:** read the index predicate before naming the index as
+the cause. The bug's own title names a mechanism (`dedup on item_key in ANY status`) that one
+`pg_indexes` query refutes — and that query costs nothing and needs no repro. Logged in
+`WRONG_CALLS.md`.
+
+**What this means for the run in flight.** If the garden-tools build fails partway, **do not
+hand-rename `item_key`s.** Either wait out the 3h window, or use the proven opt-out the peer names:
+`recurrenceExpected`, which skips the two-strike block without waiving dedup
+(`work_item_recurrence_test.go` already states the rule is wrong for an action request; 2 of 22
+live `create_work_item` steps set it, and none of the five build-chain steps do).
+
+The mechanism account now lives with the fixing lane — `bugs_open/326` and
+`bugfix_326_retry_the_front_door/`. **Point at it; do not fork a second copy here.**

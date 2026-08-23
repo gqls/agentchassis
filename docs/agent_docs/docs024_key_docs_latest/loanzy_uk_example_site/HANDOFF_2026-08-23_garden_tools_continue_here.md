@@ -97,9 +97,21 @@ is a four-token set (`{{end}}`, `{{if`, `{{.label}}`, `{{range`) and any token c
 
 **Still open, and what each will do to this run:**
 - **`bugs_open/326`** — *a failed build cannot be retried.* Re-submitting returns `COMPLETED`
-  and queues nothing; `create_work_item` dedups on `item_key` in **any** status. If this build
-  fails partway, recovery is hand-renaming `item_key`s (`… SET item_key = item_key || '_run2'`).
+  and queues nothing. ~~`create_work_item` dedups on `item_key` in **any** status. If this build
+  fails partway, recovery is hand-renaming `item_key`s (`… SET item_key = item_key || '_run2'`).~~
   **Know this before you need it.**
+  > **CORRECTED 2026-08-23 by the `bugs_open/326` session, verified first-hand here.** The
+  > SYMPTOM is real; the mechanism and the remedy above are both wrong. `idx_swi_dedup`
+  > EXCLUDES `complete`, `failed`, `cancelled` and four more (`SELECT indexdef FROM pg_indexes
+  > WHERE indexname='idx_swi_dedup';`), so a terminal predecessor cannot hold the slot. What
+  > actually suppresses the re-submission is the two-strike block at the top of `writeWorkItem`
+  > (`platform/orchestration/actions/load_work_item_actions.go:1507-1546`): when the newest
+  > `complete`/`failed` sibling is **under 3.0h** old it returns `workItemWrite{}, nil` — no row,
+  > no error. **So do NOT hand-rename `item_key`s if this build fails.** Wait out the 3h window,
+  > or set `recurrenceExpected` (skips the block, does not waive dedup). Loanzy's third
+  > submission succeeded because it was 7.4h later, not because 78 rows were renamed —
+  > `[INFERRED]`, not measured: the rename destroyed the rows the counterfactual needed.
+  > Fixing lane: `bugfix_326_retry_the_front_door/`.
 - **`bugs_open/328`** — any page that fails to build **stays linked** from the pages that did,
   so one failure reads as a broken site. Expect dead links if anything fails; they are the
   symptom of that bug, not of the build being wrong.

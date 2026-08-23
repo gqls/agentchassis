@@ -29,11 +29,31 @@ nothing at all. `domain-submitter`'s `create_research_item` returned:
 {"deduped": true, "inserted": false, "item_key": "research_loanzy.uk", "item_type": "needs_domain_research"}
 ```
 
-`create_work_item` dedups on `item_key` **in any status, including `complete` and
+~~`create_work_item` dedups on `item_key` **in any status, including `complete` and
 `cancelled`**. Every stage key (`research_`, `strategy_`, `briefing_`, `site_plan_` + domain) is
 therefore consumed for ever by the first attempt. A build that fails halfway can never be
 re-run through the front door; the only way we got a second run was to **rename 78 rows'
-`item_key` with a `_run1` suffix by hand**.
+`item_key` with a `_run1` suffix by hand**.~~
+
+> **CORRECTED 2026-08-23 — the mechanism above is WRONG, and so is the remedy.** Caught by the
+> `bugs_open/326` session; both halves re-verified first-hand before this correction was written.
+> `idx_swi_dedup` **excludes** `complete`, `verified`, `rejected`, `wont_fix`, `failed`,
+> `unresolved` and `cancelled` — one query says so and it needs no repro:
+> `SELECT indexdef FROM pg_indexes WHERE indexname='idx_swi_dedup';`. A terminal predecessor
+> therefore cannot consume a stage key, and no key is consumed "for ever".
+> The actual suppressor is the **two-strike block** at the top of `writeWorkItem`
+> (`platform/orchestration/actions/load_work_item_actions.go:1507-1546`): with a `complete`/
+> `failed` sibling **under 3.0 hours** old it returns `workItemWrite{}, nil` — no row and no
+> error, which is precisely why the caller reports `COMPLETED`. Past 3h it lapses; at two prior
+> attempts the item inserts as `unresolved` instead.
+> **The 78-row rename was therefore almost certainly theatre `[INFERRED]`** — the counterfactual
+> cannot be measured after the fact, because the rename removed the very rows it would be measured
+> against. The submissions were 12:53:00Z,
+> 15:21:17Z and 20:16:12Z (`site_specs`, `aspect='submission'`): the deduped one fell 2h28m after
+> its sibling — inside the window — and the successful third came 7.4h after, already outside it.
+> Waiting past 15:53Z would have done the same job. Retry by waiting out the window, or with
+> `recurrenceExpected` (skips the block, does not waive dedup) — **not by renaming keys**.
+> Fixing lane: `bugfix_326_retry_the_front_door/`; account stays in `bugs_open/326`.
 
 **Why it is not merely inconvenient:** the operator sees `COMPLETED`. Nothing anywhere says
 "deduped". A support person would reasonably tell the customer the rebuild is running.
@@ -227,7 +247,7 @@ is what our route uses.
 | bug | risk to a clean-domain build |
 |---|---|
 | **`307`** | a transient infrastructure burst kills work items **terminally** — all three attempts fit inside the outage. Its own record: ~815 failed steps, 100 items reaching a terminal state. A build running through an outage loses pages permanently, with no retry left. |
-| **`326`** (this lane) | **if the build fails partway, it cannot be re-run.** Re-submitting reports COMPLETED and queues nothing. The recovery path is hand-renaming `item_key`s. |
+| **`326`** (this lane) | **if the build fails partway, it cannot be re-run** *for 3 hours*. Re-submitting reports COMPLETED and queues nothing. ⚠ **CORRECTED 2026-08-23:** not the dedup index (it excludes every terminal status) but the two-strike within-cycle block in `writeWorkItem`. Recovery is **waiting out the 3h window or `recurrenceExpected`** — NOT hand-renaming `item_key`s. See the correction in §"the front door" above. |
 | **`327`** (this lane) | the trigger can publish nothing and exit 0 (1 of 3 last time). Mitigated by procedure — verify the `needs_domain_research` row, never the exit code — but unfixed. |
 | **`328`** (this lane) | any page that fails to build stays linked from the pages that did, turning one failure into a visibly broken site. |
 

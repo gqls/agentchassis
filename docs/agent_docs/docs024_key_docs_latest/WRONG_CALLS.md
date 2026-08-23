@@ -45543,3 +45543,100 @@ you have**, and you cannot tell by looking.
 **Where the bug's validity actually rests, corrected:** at the SOURCE, not the database.
 `082_submit_domain_unified.sh` still carries the racing `kubectl run -i … <<JSON` form and
 is unchanged since 2026-07-30 — a fact no retention window can erase.
+
+---
+
+## 2026-08-23 — I ruled out a mechanism with a query that measured the present, not the moment (`bugs_open/326`)
+
+`bugs_open/326` blames `idx_swi_dedup` for silently swallowing a re-submitted build. I
+suspected the real culprit was a different mechanism in the same function, and reached for
+what looked like a clean discriminator: every `deduped: true` result still retained in
+`orchestration_states`, joined to whether an OPEN row holds that `(site_id, item_key)`.
+
+```sql
+(SELECT count(*) FROM site_work_items w
+  WHERE w.site_id=r.site_id AND w.item_key=r.item_key
+    AND w.status NOT IN ('complete','verified','rejected','wont_fix','failed','unresolved','cancelled'))
+```
+
+It returned **0 open holders** on both distinct keys, and I read that as *"no open row, so
+the index cannot have refused these inserts — it must be the other arm."*
+
+**It could not have come out any other way, and the reading was backwards.** The subquery
+asks whether a holder is open **now**. The dedup happened hours earlier. Both keys had a
+row that was `triaged` at the moment of the dedup and `complete` by the time I looked —
+so the correct answer to my question was 0 *precisely because the index HAD done its job*.
+I had built an instrument that returns 0 for the mechanism firing and 0 for it not firing.
+
+**What caught it:** the timestamps disagreed with the story. The earliest dedup event
+(12:30:00Z) preceded the creation of the row I was blaming (12:31:10Z), which is
+impossible if that row was the reason. Pulling `created_at`/`completed_at` into the same
+SELECT resolved all **36** events as legitimate index dedups — the newest dedup on each key
+lands ~20s after its holder was created and ~5min before it completed.
+
+**The cheap check:** *a query about a past EVENT must read state as of that event, not as
+of now.* Concretely — put the event's timestamp and the row's lifecycle columns in the same
+row of output and compare them, rather than filtering on a status that has since moved.
+Any predicate over a mutable column is a claim about the present tense; if the thing you
+are explaining happened in the past, that predicate is not evidence about it. The tell is
+free: if you cannot say what the disconfirming output would have looked like, you have not
+built a control.
+
+**What it cost, and what it did not:** about ten minutes, and nothing beyond that, because
+the wrong reading never left this session. The right conclusion was reachable from evidence
+I already had — `site_specs` dates every submission (`aspect='submission'`, written before
+the deduping step), and it put the re-submission **2h28m** after its terminal sibling,
+inside a **3.0-hour** suppression window. That is a measurement with a disconfirming
+outcome: at 3h01m the insert succeeds and there is no bug.
+
+**Not the same lesson as the entry above it.** That one was about a retention window making
+an absence meaningless. This one is about a *present-tense predicate* making a past event
+unmeasurable — the table held every row I needed, and I still asked it the wrong question.
+
+## 2026-08-23 — `loanzy_uk_example_site` lane: I put a mechanism in a bug's TITLE that one `pg_indexes` query refutes, and four documents inherited it
+
+**The claim.** `bugs_open/326` is titled *"a failed build can NEVER be retried: `create_work_item`
+dedups on `item_key` in ANY status"*, and its body says every stage key is *"consumed for ever by
+the first attempt"*. The lane's route handoff repeated it, the garden-tools handoff repeated it as
+an operational instruction, and the runbook credited the recovery to renaming 78 rows' `item_key`
+by hand.
+
+**It is wrong, and the refutation is one query with no repro and no cluster state:**
+
+```sql
+SELECT indexdef FROM pg_indexes WHERE indexname='idx_swi_dedup';
+```
+
+The index is `WHERE item_key IS NOT NULL AND status <> ALL (ARRAY['complete','verified','rejected',
+'wont_fix','failed','unresolved','cancelled'])`. It excludes **every terminal status**, including
+the two a failed build actually leaves behind. A terminal predecessor cannot hold the slot, so no
+key is consumed at all, let alone "for ever". The real suppressor is the two-strike block at the
+top of `writeWorkItem` (`load_work_item_actions.go:1507-1546`), which returns `workItemWrite{}, nil`
+— no row, no error — while the newest `complete`/`failed` sibling is under **3.0 hours** old.
+
+**What caught it:** not us. The `bugs_open/326` session, picking up the fix four days later,
+read the index before trusting the title. We had the symptom right and the mechanism wrong for
+four days, in a bug file whose whole purpose is to hand the mechanism to a fixing thread.
+
+**The cheap check: if you NAME a mechanism, read the mechanism.** We observed
+`{"deduped": true, "inserted": false}` — a true observation — and then attributed it to the
+component whose name appears in the response key. `deduped` is a field name, not a diagnosis.
+Reading the index definition costs one query and no setup, and it is a *definition*, so it cannot
+be stale, flaky or environment-dependent the way a repro can. **The bar this failed is the one
+already written in CLAUDE.md**: a durable, cross-cutting root cause belongs in the `090` diagnosis
+loop, and this one went into a bug title on a plausible inference instead.
+
+**A second, subtler error inside the first — the remedy became evidence for the diagnosis.** The
+rename "worked", which felt like confirmation. It was not: the third submission was also **7.4h**
+after its sibling, i.e. outside the suppression window, so waiting alone plausibly explains it.
+And because the rename mutated the very rows the counterfactual needed, **the question is now
+unmeasurable after the fact** — our repair destroyed the evidence for the claim we then made about
+it. That half stays `[INFERRED]`; the 326 lane is settling it with a test.
+
+**What it cost:** four days of a wrong mechanism in a filed bug, four documents carrying it, and an
+operational instruction ("hand-rename `item_key`s") that would have wasted the next session's time
+on a live failure. What it did not cost: the fix, which the 326 lane now has correctly scoped.
+
+**Distinct from the entry above it**, which is the same bug from the other side: that one is a
+present-tense predicate making a past event unmeasurable. This one is naming a mechanism from a
+response field without reading it.
