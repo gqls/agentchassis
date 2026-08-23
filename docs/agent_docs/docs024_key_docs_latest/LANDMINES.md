@@ -15537,3 +15537,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **why this earns an entry rather than "be patient":** the failure is not that you wait a minute too few. It is that the stale reading is *specific and plausible* — missing footer, collapsed CSS, unstyled classes — so it invites a confident diagnosis and a destructive remedy. **The action it tempts you into (reverting the deployed file) would overwrite the good page your own render just produced**, and would land in the handoff as "the framework broke the page".
 - **source:** 2026-08-23, `apis_uk_bees_homepage` lane, during a copy rewrite. Caught only because listing the repo's commits to CHOOSE a revert target showed a newer, healthy commit than the one being served.
 - **added:** 2026-08-23, `apis_uk_bees_homepage` lane
+
+### `git diff` reports NOTHING for an untracked file — so a generator that builds review sketches from the diff emits an EMPTY one for the most important file, and the output looks complete
+
+- **footprint:** `git diff`, `git diff --cached`, any script that renders a change for review or a handoff (`097_TRIGGER_council_review_v1.sh` submissions, `plan.edits[].sketch`, commit-scope tooling, "here is my diff" summaries), and every NEW file in a change
+- **fires when:** you do the right thing — stop hand-writing diffs and generate them from git — and your change includes a file that is not yet tracked. `git diff` and `git diff --cached` both print **absolutely nothing** for it: no error, no warning, exit 0. The generator produces a sketch consisting of its own header and nothing else.
+- **the trap:** it is a **false PRESENCE**, not an absence. The field is populated, the JSON validates, `DRY_RUN=1` passes (it validates locally and never reads the content), and the submission looks complete on inspection — *the edit is listed*. What is missing is the body of the one file the reviewer most needs, and the new file is usually the heart of the change. `[MEASURED 2026-08-23, bugfix_308 lane]` the two NEW files in a 7-edit submission generated **78-character** sketches against ~4,800 for the tracked files; both were the change's core (a new shared loader and its wiring tests). This was caught **inside the tool built to stop exactly this defect** — the lane had just been REVISED three times for hand-written sketches drifting from the code, and once more for a missing function body.
+- **the check — assert the ratio, never eyeball the output:**
+  ```python
+  full = run(["git","diff","--",f]).stdout or run(["git","diff","--cached","--",f]).stdout \
+         or run(["git","diff","--no-index","--","/dev/null",f]).stdout   # ← the untracked fallback
+  if not full.strip(): raise SystemExit(f"REFUSING: no diff for {f}")
+  kept = [l for l in sketch.splitlines() if l.startswith("@@")]
+  allh = [l for l in full.splitlines()  if l.startswith("@@")]
+  assert len(kept) == len(allh), f"{f}: {len(kept)}/{len(allh)} hunks"
+  ```
+  **Print the per-file sizes and the hunk ratio before dispatching anything.** A 78 next to a 4,800 is visible in one line; an empty field inside 60KB of JSON is not.
+- **the SECOND half, same run:** with the untracked case fixed, a character budget silently dropped **2 of 6 hunks** from a tracked file — including the *deletion* of a shared helper, which is the hunk a reviewer would most want. Truncating by hunk instead of by line (this lane's earlier fix) stops a body being cut in half; it does not stop whole hunks vanishing. Only the ratio assertion catches that.
+- **why this earns an entry:** every instinct here is correct — generate, don't hand-write; truncate whole hunks, not lines; dry-run before dispatch — and all three still produce a confident, empty claim. The failure mode is that the tooling you built to be honest reports success.
+- **source:** 2026-08-23, `bugfix_308_cta_destination_provenance` lane, Phase B council submission
+- **added:** 2026-08-23, `bugfix_308_cta_destination_provenance` lane

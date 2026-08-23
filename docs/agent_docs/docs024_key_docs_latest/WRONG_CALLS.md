@@ -45391,3 +45391,45 @@ closing correction had already moved this number once (13 → 18) *and* carried 
 number and its date and still did not ask what it counted. **A dated figure is protected against
 going stale, not against having always measured the wrong thing** — and the date makes it look
 more checked, not less.
+
+## 2026-08-23 — `bugfix_308` lane: I measured the MATCHER and reported it as the WRITER
+
+**The claim, written into a committed calibration report:** the Phase B widening performs "435
+writes over a non-empty stored url" fleet-wide, "298" after the ambiguity refusal.
+
+**What was true:** **428** and **291**. Both writers gate every write on
+`validPages.Contains(match.URL)`; my harness counted every pick that differed from the stored
+value, whether or not the writer would have been allowed to write it.
+
+**What caught it:** writing a *second* report pass that mirrored the writers' full branch
+condition rather than the match alone, for an unrelated comparison (option A vs option B). The two
+passes disagreed by 7, which is the only reason I looked.
+
+**The cheap check that would have:** state the predicate you are counting **in the same sentence as
+the number**. "Writes" is not a measurement; "picks that differ from stored AND pass the writer's
+own validity gate" is, and typing it out is what exposes the missing conjunct. The figure was
+already dated and marked, and neither helped: a `[MEASURED]` count of the wrong quantity looks
+exactly like a `[MEASURED]` count of the right one.
+
+## 2026-08-23 — `bugfix_308` lane: my anti-drift generator emitted an EMPTY sketch, and the output looked complete
+
+**Background:** this lane had been REVISED three times for hand-written council sketches drifting
+from code that was already correct, and a fourth time for a function body missing from a sketch. The
+structural fix was to generate every sketch from the real diff.
+
+**The claim:** the Phase B submission contained the full diff of all seven edited files.
+
+**What was true:** the two **new** files — the change's core — carried 78-character sketches
+containing only the generator's own header, because `git diff` prints nothing at all for an
+untracked file. Then, after fixing that, a character budget silently dropped 2 of 6 hunks from a
+tracked file, including the deletion of a shared helper.
+
+**What caught it:** printing per-file sketch sizes before dispatch. 78 against ~4,800 is visible;
+an empty field inside 60KB of JSON is not.
+
+**The cheap check that would have:** assert `hunks_in_sketch == hunks_in_diff` per file, and refuse
+to emit an empty sketch rather than emitting one. Now in `LANDMINES.md` with the code.
+
+**The lesson worth keeping:** the defect the tool existed to prevent reappeared *inside the tool*,
+one layer down, and the tool's own success output was what hid it. A generator is not evidence; its
+measured output is.

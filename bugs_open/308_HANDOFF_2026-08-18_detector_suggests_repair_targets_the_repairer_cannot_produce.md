@@ -317,3 +317,100 @@ FROM llm_call_log WHERE created_at > now() - interval '24 hours';
 (`RESUBMIT_CORR=e4336931-487b-4db3-b4dc-a4b128b3566c`) and is in flight.
 
 **308 still stays OPEN** — nothing here changes that. Phase A remains the whole of what shipped.
+
+---
+
+## CONTRIB 2026-08-23 — PHASE B IS COMMITTED (inert until the roll). 308 STAYS OPEN.
+
+Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_308_cta_destination_provenance/`.
+Commit `7f85aa814`. Register: **LNK-036** (the shared universe) + **LNK-037** (ambiguity refusal).
+Architecture note: `architecture_review/RFC_047_label_match_may_refuse_an_ambiguous_answer.md`.
+Full evidence: `…/bugfix_308_cta_destination_provenance/CALIBRATION_2026-08-23_phase_b_widening_report.md`.
+
+### What shipped
+
+`datahelpers.LoadCTALabelUniverse` is now the ONE answer to "which pages may a CTA label name?",
+consumed by the detector (`loadCTAMatchIndex`) and BOTH writers. `candidatesFromHubs` is **deleted**.
+So the resolver can now mint `/contact.html`, and this file's fix candidate 1 is complete.
+
+**The POSITIONAL pick is NOT widened** and must not be — `rank()` still refuses every utility area
+(this file's verification bar #3), and the loaders keep their third consumer, the site HEADER CTA.
+
+**Both writers' KEEP branches had to change, and this is the subtle half.** A MINTED utility
+destination — a state that could not exist before this commit — took no keep at all once its label
+went generic, and fell to the positional pick. That is `bugs_open/248`'s clobber arriving through
+308's own fix. `applyCTARecompute` KEEP #2 lost its area test; `setCTAField` gained the matching
+branch. The invariant that replaces LNK-033's:
+
+> **The positional pick may neither CHOOSE nor DISPLACE a utility destination.** Only a confident
+> label match puts one there or moves it away.
+
+Verification bar #2 is satisfied: `TestFreshPickRefusesUtilityWhileStoredUtilityIsKept` is rewritten
+(arm (b) inverted, arm (d) added), after provenance landed, not before.
+
+### The measurement that changed the design — and it is bigger than this bug
+
+Frozen fleet dump, real `datahelpers` imported, control of 1,266 pairs against the shipping matcher
+with **0 disagreements**:
+
+| | |
+|---|---|
+| fleet CTA writes today → after the widening | **32 → 428** |
+| …after the ambiguity refusal | **291** |
+| wide-pool matches decided by ALPHABETICAL ORDER alone | **263 of 1,146 (23%)** |
+| …of which would overwrite a live CTA | **137** |
+
+**Two families in that 137 are wrong and would have been executed fleet-wide**: finetuning.uk's
+`"how we work"` moving OFF the `/how-we-work.html` its copy names (13 findings — the About page's
+TITLE reads "…Who We Are and How We Work"), and dartsonline.com's `"Read the guides"` moving off
+`/guides/index.html` (6). Both are one-token ties. So `BestLabelMatch` now returns `ambiguous` and
+refuses an alphabetical-only win. **A name-tier key and a path-depth key were measured first and
+both rejected** — third and fourth rejected tie-break keys across two calibrations.
+
+**Two of this file's own standing suggestions are now answered by measurement:**
+
+- **"recalibrate the stopwords" / add `about`** — DO NOT. It suppresses the four
+  `Talk to us about …` → `/about.html` false matches AND the correct `Learn More About Us`.
+- **fix candidate 2, the narrow widening** (label match only, utility pages added to the old pool)
+  — measured and **WORSE**: 108 writes vs 291, and 26 utility "repairs" the wide pool does not make,
+  because a pool that omits the label's real target gives the matcher a monopoly, not a choice.
+
+### Why 308 STAYS OPEN — three reasons, none of them optional
+
+1. **Nothing has touched a served page.** Go-only, inert until the next fleet roll. This file's
+   verification bar #1 (the CTA whose copy names contact must actually reach the contact page,
+   checked at the served page) is untouched.
+2. **41 of the 188 findings can NEVER be closed by this change** [MEASURED 2026-08-23]: of 1,855
+   `misdirected_cta` findings fleet-wide only **675 (36%)** sit on a `ctaFieldNames` component with
+   the href as a `content_data` value; for this bug's 188, **147 (78%)** are repairable by the
+   writers. The rest are anchors in prose or in components outside `ctaFieldNames` and need a
+   different mechanism.
+3. **A confident false match is not caught.** dartsonline's *"See how each brand differs, spec by
+   spec"* → `/about.html` wins on identity overlap (`spec` is in the About page's title), not on a
+   tie. No tie rule sees it and no stopword list can.
+
+### A second axis of this bug's own defect, found while building the fix
+
+The detector's universe had no build-state filter, so it could name a page the writers' `validPages`
+gate then refuses — the same "suggests what the repairer cannot produce" shape. **43 of 764 live
+pages are planned-and-never-deployed and 10 live findings named one** [MEASURED 2026-08-23].
+`CTALabelUniverseSQL` carries the predicate now.
+
+### Corrections to this file's own dated claims
+
+- **"200 findings" → 188** (same predicate, 2026-08-23): `complete` 63 items/99 findings,
+  `unresolved` 53/86, `cancelled` 2/2, `failed` 1/1. Nothing was fixed; items changed status.
+- **"the detector has been silent since 2026-08-19" is FALSE** — 40 items were filed 2026-08-22. Do
+  not carry the `[INFERRED]` attribution to `bugs_open/230` forward without re-checking.
+- The `⚠ Phase B is BLOCKED` banner above is retracted; see the correction at the end of that
+  section. The cap was on the wrong Anthropic account and lifted 2026-08-23 10:10:40Z.
+
+### For whoever verifies this at the roll
+
+```bash
+kubectl -n ai-persona-system exec <chassis-pod> -- grep -aq "LoadCTALabelUniverse" /proc/1/exe   # + a control that must be ABSENT
+```
+then induce a discovery run and a `cta_links_stale` rerender on **finetuning.uk** (55 of the 188
+findings) and load the page. `page_components` rows whose CTA url is a utility destination should
+move from ~0; `misdirected_cta` items per day should FALL, because the two false families stop
+being filed. Both directions matter — a fall alone could just mean the detector stopped running.
