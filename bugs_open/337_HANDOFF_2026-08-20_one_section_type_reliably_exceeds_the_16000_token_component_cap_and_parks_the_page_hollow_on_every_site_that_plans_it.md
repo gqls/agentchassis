@@ -583,3 +583,59 @@ Three `needs_page` re-renders filed and in flight (`tool-is-a-loan-right-for-me`
 all three pages still serve **0 `<input>`, 1 `<button>`**. `needs_rebuild` on a page has no
 consumer, which is why these had to be filed by hand. **Until they land, no page is repaired
 and this bug does not close.**
+
+---
+
+## 2026-08-23 (late) — TWO PAGES REPAIRED AND VERIFIED AT THE ARTEFACT. The third is blocked by a third guard, and this bug is now down to that one page.
+
+**The full chain, end to end, for the first time:** the writer was shown the source vocabulary
+(this fix) → it stopped inventing `site_specs.ctas` → one orphan-field refusal → `345`'s typed
+feedback named the field → the retry stored the component (12:31) → the page re-render attached
+it → **the page now serves the tool.**
+
+| page | before | after | verdict |
+|---|---|---|---|
+| `tool-is-a-loan-right-for-me` | 22,040 B, 0 `<input>`, 841 script bytes, no tool | 24,459 B, **4 `<input>`**, 1,697 script bytes, `loans-damage-checker` ×14, 5 instance-scoped ids | **REPAIRED** |
+| `tool-eligibility-checker` | 31,924 B, 1 `<button>`, 847 script bytes, no tool | 36,198 B, **13 `<button>`**, 4,128 script bytes, `loans-credit-health-check` ×18, 9 instance-scoped ids | **REPAIRED** — and with the very component this fix caused to be stored |
+| `tool-credit-health-check` | 24,323 B, 0 inputs | 25,514 B, still **0 of everything** | **NOT repaired** |
+
+⚠ **A THIRD wrong success-predicate, caught before it was reported — the same species as the
+two this file already records.** I grepped for `<section[^>]*class="...-section"` and got zero
+on both repaired pages, and was one step from reporting them as failures. **This component
+renders as instance-scoped `<div>`s, not a classed `<section>`**: the actual markup is
+`<div id="c-loans-damage-checker-damage-verdict" class="results-box">`. The reliable predicate
+is **the component's function name and the `id="c-<function>-` instance-scope prefix**, not any
+particular element or class. Three predicates wrong in one lane — `<input` for a button quiz,
+a name-derived URL, and now a `<section class>` for a `<div>`-rendered component — all three
+would have reported a working page as broken.
+
+### The remaining page is blocked by `bugs_open/253`'s floor guard, not by anything here
+
+> `SECTION COMPONENT FLOOR REFUSED for page "tool-credit-health-check" — hero-tool 12→5 class
+> attributes (42% kept, floor 50%) … Nothing was written`
+
+**The guard is right and must not be worked around.** It refused because re-rendering would
+strip 58% of the layout classes from the page's `hero-tool` slot — which is exactly what 253
+exists to prevent. Overriding `section_component_floor` to force my repair through would be
+"fixing the checker to agree with a broken save".
+
+**A characterisation for the 253 lane, from 5 refusals on loanzy today** — all five are the
+**same slot collapsing to the same number**:
+
+| page | slot | classes |
+|---|---|---|
+| `tool-credit-health-check` | hero-tool | 12→5 (42%) |
+| `tool-eligibility-checker` | hero-tool | 15→5 (33%) |
+| `tool-interest-rate-stress-test` ×3 | hero-tool | 12→5 (42%) |
+
+**Every refusal is `hero-tool`, and every one lands on exactly 5.** That is the signature of a
+fresh render producing a fixed, thinner `hero-tool` than the stored form — not of pages
+degrading differently. Contributed to `bugs_open/253`.
+
+### What is left on this bug
+
+**One page**, and its blocker belongs to another lane. Everything this bug was filed about is
+done: the cap work (08-22), the writer-contract fix (live, council-APPROVED, demand-proven),
+the component stored, the parked backlog closed, and two of three pages serving their tools.
+**It stays OPEN for `tool-credit-health-check` alone** — the page named in the title — and the
+next step there is 253's floor, not this lane's code.

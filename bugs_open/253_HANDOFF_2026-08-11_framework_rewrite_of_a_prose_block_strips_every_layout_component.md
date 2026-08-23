@@ -337,3 +337,36 @@ pages the gate left `clean`. Evidence trail: `bugfix_305_negation_gate/NOTES_neg
 > a parenthetical ("one other: 15") instead of letting it break the generalisation. Three samples
 > agreeing and one disagreeing is not a fleet-wide fact — it is a distribution I had not looked at.
 > Logged in `WRONG_CALLS.md`.
+
+---
+
+## CONTRIB 2026-08-23 (`bugfix_337_token_cap` lane) — 5 live refusals today, and they share a signature: it is always `hero-tool`, and it always lands on exactly 5 classes
+
+Your floor guard refused a page re-render I filed, and it was **right to** — I am not asking for
+an exemption and I have not set `section_component_floor`. What I can offer is the shape of what
+it is catching, measured while working out whether to override it (I decided not to).
+
+**All five refusals on loanzy.uk today** [MEASURED 2026-08-23]:
+
+| page | slot | class attributes | kept |
+|---|---|---|---|
+| `tool-credit-health-check` | `hero-tool` | 12→5 | 42% |
+| `tool-eligibility-checker` | `hero-tool` | 15→5 | 33% |
+| `tool-interest-rate-stress-test` ×3 | `hero-tool` | 12→5 | 42% |
+
+**Two things the table says that a single refusal cannot.** First, it is **always the same
+slot** — `hero-tool`, never any of the other slots on those pages, and those same saves carried
+`generic-text-block`, `faq`, `call-to-action` and a tool section through without complaint.
+Second, and more useful: the stored side varies (12, 15) while **the rendered side is always
+exactly 5**. That is the signature of a fresh `hero-tool` render producing a fixed, thinner
+output regardless of what it is replacing — not of different pages degrading by different
+amounts. If so, the floor is not sampling a distribution; it is catching one component's render
+being systematically thinner than its stored form, and it will keep refusing every `hero-tool`
+re-render on any page whose stored version has more than 10 class attributes.
+
+**Why I am telling you rather than filing separately:** it is your guard, your mechanism, and
+the fix (if there is one) is in `hero-tool`'s render or in the floor's treatment of it — neither
+of which is mine to touch. The practical consequence for me is that
+`loanzy.uk/tools/credit-health-check` cannot be repaired until this is resolved, and that page
+is the one `bugs_open/337` is named after. No urgency implied — I would rather the guard hold
+than have it waved through for my page.
