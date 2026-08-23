@@ -2350,3 +2350,56 @@ row as run 4's, because I had sorted by `created_at DESC` and taken the top row 
 date. Two runs of the same agent on the same page produce results that look interchangeable. **Filter
 by correlation, never by recency** — the same shape as reading a council verdict off the newest
 `doc_notes` row.
+
+---
+
+## 2026-08-23 — run 4's three edits are APPLIED and LIVE, after the first attempt died at a step that runs before the edit
+
+**Owner approved on 2026-08-21** (all three, including the ones that delete copy). Applied today,
+verified at the artefact and then at the served page.
+
+| slot · field | content_data | live on the page |
+|---|---|---|
+| `differentiators-section` · features | 3,286 → **3,028** chars, 7 items unchanged | yes |
+| `call-to-action` · subheadline | 733 → **496** chars | old phrase absent, new present |
+| `latest-news` · subheadline | 340 → **255** chars | new phrasing present |
+
+Served-page check: the old CTA phrase *"so we see this pattern from both sides"* is **absent**, both
+new phrasings **present**, page 89,621 chars. DB → render → deploy → served, end to end.
+
+### The first attempt failed, and both causes are worth more than the fix
+
+**1. `client_id` is a SCHEMA NAME.** I invented `cli-copyedit-apply` for traceability. `spawn_agent`
+builds `INSERT INTO client_%s.agent_instances` with it **unquoted** (`spawn_actions.go:2315`), so it
+became `client_cli-copyedit-apply.agent_instances` → `syntax error at or near "-"` (SQLSTATE 42601),
+surfaced as *"failed to create agent in DB"*. **It reads exactly like a platform fault in the spawn
+path.** Fleet values as of 2026-08-23: `system`, `demo_client`.
+
+⚠ **And I nearly misread what had happened, because the failing step SOUNDS post-edit.**
+`section-editor`'s order is `ensure_site_record → spawn_deployer → load_edit_context → apply_edit`,
+so `spawn_deployer` is the **second** step and the run died **before** the edit was attempted. The
+page was untouched and the item was left claimed at `in_progress`. Reading the step order settled in
+one query what "did a partial edit land?" could have cost an hour of guessing.
+
+**2. A filed `component_id` rots within a day.** All three ids were live when I filed the items on
+08-21 and **all three were dead by the 08-22 14:43 rerender** — that page is re-rendered daily, and a
+rerender REPLACES the `page_components` row. This is the dangling-id landmine firing for the **third**
+time on this lane's work (08-17 proof case; run 4's proposal within 4 hours; these items within a
+day). The lesson has moved from "treat a stored id as a hint" to something mechanical: **resolve by
+`(page_id, slot_name)` at DISPATCH time**, which is what `scripts/fire-section-edit.sh` now does, and
+what the gate now does too.
+
+**Content was unchanged across both rerenders** (733/340/3,286 chars identical on 08-21 and 08-22), so
+the proposal stayed apt — the rerender regenerates from `content_data` and only the row identity
+moves. That is why re-grading rescued the apply instead of forcing a re-run.
+
+### What is now written down rather than remembered
+
+- `scripts/fire-copy-editor.sh` — fire a stage-2 run (proposal side).
+- `scripts/fire-section-edit.sh` — ship one approved edit (apply side), with both traps in its header
+  and a **correlation-scoped** poll, because I got the recency thing wrong again today
+  (`WRONG_CALLS` 2026-08-23).
+- The gate re-resolves a dead id by slot, loudly, and grades against the NEW row.
+
+**All four work items closed with the evidence on the row** (`result = result || …`, so the handler's
+own record survives — the mistake this lane made on 08-17 and recorded).
