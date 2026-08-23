@@ -308,7 +308,7 @@ func TestRegisteredButUnobservedIsReportedNotAFinding(t *testing.T) {
 // here would be a second stale roster, which is the class this whole change
 // retires.
 func TestShippedRegistryIsSelfConsistent(t *testing.T) {
-	reg, err := loadFindingCodeRegistry("../../" + findingCodeRegistryPath)
+	reg, _, err := loadFindingCodeRegistry("../../" + findingCodeRegistryPath)
 	if err != nil {
 		t.Fatalf("the shipped registry must load: %v", err)
 	}

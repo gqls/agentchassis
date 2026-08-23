@@ -168,3 +168,63 @@ func TestReadableSweepFileIsActuallyChecked(t *testing.T) {
 		t.Errorf("state must report a real check, got %q", state)
 	}
 }
+
+// ─── the unruled ratchet (owner ruling 2026-08-23, "cap it") ────────────────
+
+func TestUnruledOverTheCapIsAFinding(t *testing.T) {
+	got, state := auditUnruledCap(33, 32)
+	if len(got) != 1 || got[0].Kind != "unruled-over-cap" {
+		t.Fatalf("a backlog above the cap must be a finding; got %+v", got)
+	}
+	if !strings.Contains(state, "OVER") {
+		t.Errorf("state must say OVER; got %q", state)
+	}
+}
+
+// The ratchet's whole purpose: one new parked code is what it must catch,
+// because that is how a capped backlog grows back.
+func TestOneNewParkedCodeBreachesTheCap(t *testing.T) {
+	if f, _ := auditUnruledCap(32, 32); len(f) != 0 {
+		t.Fatalf("exactly at the cap must be silent; got %+v", f)
+	}
+	if f, _ := auditUnruledCap(32+1, 32); len(f) != 1 {
+		t.Fatalf("one more parked code must breach; got %+v", f)
+	}
+}
+
+// Below the cap is NOT a finding — it is a nudge naming the number to lower it
+// to. Without the nudge, a ruled code frees a slot that the next parked code
+// silently occupies, and the ratchet never tightens.
+func TestBelowTheCapNudgesRatherThanFails(t *testing.T) {
+	got, state := auditUnruledCap(25, 32)
+	if len(got) != 0 {
+		t.Fatalf("below the cap must not fail; got %+v", got)
+	}
+	if !strings.Contains(state, "LOWER THE CAP TO 25") {
+		t.Errorf("the nudge must name the number; got %q", state)
+	}
+}
+
+// A cap that can be deleted is not a cap.
+func TestMissingCapIsAFinding(t *testing.T) {
+	got, state := auditUnruledCap(32, -1)
+	if len(got) != 1 || got[0].Kind != "unruled-cap-missing" {
+		t.Fatalf("an absent cap must be a finding, not an unbounded default; got %+v", got)
+	}
+	if !strings.Contains(state, "ABSENT") {
+		t.Errorf("state must say ABSENT; got %q", state)
+	}
+}
+
+// The shipped registry must actually carry a cap, and it must match the count
+// the file's own doc claims. This is the test that fails if someone edits the
+// registry and forgets the ratchet.
+func TestShippedRegistryCarriesACap(t *testing.T) {
+	_, cap, err := loadFindingCodeRegistry("../../" + findingCodeRegistryPath)
+	if err != nil {
+		t.Skipf("registry not readable from here: %v", err)
+	}
+	if cap < 0 {
+		t.Fatalf("the shipped registry declares no _unruled_cap")
+	}
+}

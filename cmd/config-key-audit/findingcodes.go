@@ -149,6 +149,10 @@ type findingCodeReport struct {
 	// never again read as a closed loop over this table when it is not one.
 	ForeignSinks []string `json:"consumed_from_another_sink"`
 
+	// UnruledCap is the ratchet's state, emitted ALWAYS so "at the cap",
+	// "below it" and "no cap at all" are distinguishable in one read.
+	UnruledCap string `json:"unruled_cap"`
+
 	// RetentionParity says whether the registry was compared against the live
 	// sweep's short-retention list, and is emitted ALWAYS — "not checked" is a
 	// state a reader must be able to see. Without it a stdin run (no DB, so no
@@ -177,14 +181,22 @@ func normaliseFindingCode(code string) string {
 // registry is an ERROR, never an empty map: with no declarations every observed
 // code reads as undeclared, and the report becomes noise rather than a finding —
 // the same reasoning loadOptionalExplicitAcks gives for refusing to run.
-func loadFindingCodeRegistry(path string) (map[string]findingCodeEntry, error) {
+func loadFindingCodeRegistry(path string) (map[string]findingCodeEntry, int, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	var entries map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &entries); err != nil {
-		return nil, fmt.Errorf("registry is not a JSON object: %w", err)
+		return nil, 0, fmt.Errorf("registry is not a JSON object: %w", err)
+	}
+	// The unruled CAP (owner ruling 2026-08-23). Absent is -1, which
+	// auditUnruledCap reports as a finding: a cap you can delete is not a cap.
+	unruledCap := -1
+	if v, ok := entries["_unruled_cap"]; ok {
+		if err := json.Unmarshal(v, &unruledCap); err != nil {
+			return nil, 0, fmt.Errorf("_unruled_cap is not a number: %w", err)
+		}
 	}
 	reg := make(map[string]findingCodeEntry, len(entries))
 	for code, v := range entries {
@@ -193,14 +205,62 @@ func loadFindingCodeRegistry(path string) (map[string]findingCodeEntry, error) {
 		}
 		var e findingCodeEntry
 		if err := json.Unmarshal(v, &e); err != nil {
-			return nil, fmt.Errorf("registry entry %q: %w", code, err)
+			return nil, 0, fmt.Errorf("registry entry %q: %w", code, err)
 		}
 		reg[code] = e
 	}
 	if len(reg) == 0 {
-		return nil, fmt.Errorf("registry %s declares no codes", path)
+		return nil, 0, fmt.Errorf("registry %s declares no codes", path)
 	}
-	return reg, nil
+	return reg, unruledCap, nil
+}
+
+// ─── THE UNRULED CAP, AS A RATCHET (owner ruling 2026-08-23) ────────────────
+//
+// The owner's instruction was "cap it". A plain cap is the obvious reading and
+// it is the wrong mechanism here, for a reason this file already states about
+// itself: `unruled` entries are listed at exit 0 because "a check that fails
+// from day one over a pre-existing backlog is a check that gets ignored".
+// Setting a target of, say, 10 against a live backlog of 32 makes the check red
+// immediately and permanently, and a permanently red check is a disabled one.
+//
+// So the cap is a RATCHET, which gives what a cap gives and more:
+//
+//   - the count may never EXCEED the recorded cap  -> finding. A new code parked
+//     as `unruled` is exactly what this stops: the backlog cannot grow, which is
+//     the whole point of capping it.
+//   - the count BELOW the cap  -> reported, with the number to lower it to.
+//     Lowering is a one-word edit in the same commit as the ruling, and the
+//     report is what stops the ground gained being quietly given back.
+//   - the cap ABSENT -> finding. A cap that can be deleted is not a cap, and
+//     deleting it would restore the unbounded backlog silently.
+//
+// The estate precedent is 102_coverage_ratchet.txt, which works the same way and
+// for the same reason.
+func auditUnruledCap(unruledCount, cap int) ([]findingCodeFinding, string) {
+	switch {
+	case cap < 0:
+		return []findingCodeFinding{{
+			Kind: "unruled-cap-missing", Code: "_unruled_cap",
+			Detail: "the registry declares no `_unruled_cap`, so the undecided backlog is " +
+				"unbounded again. It is a finding rather than a default because a cap that can be " +
+				"removed without anything noticing is not a cap.",
+		}}, "ABSENT — the backlog is unbounded"
+	case unruledCount > cap:
+		return []findingCodeFinding{{
+			Kind: "unruled-over-cap", Code: "_unruled_cap",
+			Detail: fmt.Sprintf("%d codes are unruled against a cap of %d. A code was declared and "+
+				"parked rather than decided. Rule one (consumed / instrumented / human-evidence / "+
+				"operational), or raise the cap deliberately and say why — but raising it is the "+
+				"thing this ratchet exists to make visible.", unruledCount, cap),
+		}}, fmt.Sprintf("OVER — %d unruled against a cap of %d", unruledCount, cap)
+	case unruledCount < cap:
+		return nil, fmt.Sprintf("%d unruled against a cap of %d — LOWER THE CAP TO %d in the same "+
+			"commit as the ruling, or the ground gained is given back silently",
+			unruledCount, cap, unruledCount)
+	default:
+		return nil, fmt.Sprintf("%d unruled, exactly at the cap — the backlog cannot grow", unruledCount)
+	}
 }
 
 // sourceReader is how the check verifies a `consumed` entry's reader. Injected
@@ -443,6 +503,7 @@ func findingCodeRunSummary(rep findingCodeReport, registryPath string) string {
 		rep.ObservedCount, len(rep.Findings), len(rep.Unruled), len(rep.NotObserved))
 	fmt.Fprintf(&b, "registry: %s (bugs_open/358)\n", registryPath)
 	fmt.Fprintf(&b, "retention parity: %s\n", rep.RetentionParity)
+	fmt.Fprintf(&b, "unruled cap:      %s\n", rep.UnruledCap)
 	if len(rep.Findings) == 0 {
 		b.WriteString("\nEvery code firing today is declared. The unruled count below is the " +
 			"backlog, not a defect — it should go down.\n")
@@ -512,7 +573,7 @@ func emitFindingCodes(args []string) {
 		}
 	}
 
-	reg, err := loadFindingCodeRegistry(registryPath)
+	reg, unruledCap, err := loadFindingCodeRegistry(registryPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "config-key-audit --finding-codes: registry %q: %v — refusing to "+
 			"run without it, because every observed code would then read as undeclared and the "+
@@ -589,6 +650,9 @@ func emitFindingCodes(args []string) {
 	rep := auditFindingCodes(live, reg, repoSourceReader(root), time.Now())
 	rep.Findings = append(rep.Findings, parityFindings...)
 	rep.RetentionParity = parityState
+	capFindings, capState := auditUnruledCap(len(rep.Unruled), unruledCap)
+	rep.Findings = append(rep.Findings, capFindings...)
+	rep.UnruledCap = capState
 
 	if report {
 		summary := findingCodeRunSummary(rep, registryPath)
