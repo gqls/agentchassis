@@ -190,3 +190,65 @@ Another session spotted it and pointed me at the note. I re-did the measurement 
 take their word, and they were right. I have logged the mistake in the shared log of wrong calls,
 because the interesting part is not the outage — it is that I built a comparison at a resolution
 too coarse to show the thing I was comparing, and then found it convincing.
+
+---
+
+**2026-08-23, evening — the check now has a clock, and you ratified the first batch.**
+
+Short version: the thing we built yesterday only ran when somebody remembered to run it. That is
+now fixed — it is packaged as a daily job at 07:30, and the image is built and pushed. It is not
+deployed yet, because deploying is your whole-fleet release, not something I should do to one
+service on its own.
+
+There is a nice irony worth stating plainly, because it is the reason this mattered rather than
+being tidy-up. The whole point of this piece of work is that the system writes down things it
+notices and then nobody reads them. Our own check was in exactly that position: it noticed things,
+and it only spoke when a person went and asked it. Putting it on a clock is what makes it a check
+rather than a thing we could run.
+
+**One real obstacle, and it is the interesting part.** The check has two questions it can only
+answer by opening our own source code — "does the file you claim reads this code actually mention
+it?". A scheduled job runs from a small image that contains the program and nothing else, so those
+two questions would have failed every single morning, on a perfectly healthy setup. I measured it
+rather than guessing: five failures, every day, for nothing.
+
+I did not solve that by shipping our source code into the image. Those two questions compare two
+things that both only change when somebody commits — so asking them again every morning cannot
+possibly produce a different answer than it did when the image was built. What I did instead was
+move them to the moment they can actually change: they now run when someone commits. And the daily
+job says, in its own words, in every record it writes, which questions it did not ask and where
+those questions are asked instead — because a check that quietly skips something looks exactly
+like a check that passed.
+
+While doing that I found the two questions **had no automatic runner at all**, which surprised me.
+There is an existing commit-time check that compiles the very same code, but it runs only four
+named tests, and the one that grades our registry is not among them. I proved that by running it
+and listing what came out, rather than by reading the script and believing myself.
+
+**Your batch 1 is applied.** All seven codes are now recorded as human-evidence, each with the
+reason and the retention window it accepts written into the file. The undecided backlog went from
+32 to 25, and I lowered the cap to 25 in the same commit — otherwise the ground we just gained
+gets quietly given back. Two of the seven carry corrections that travel with them: one is read
+automatically but from a *different* record, so its row here is still unread; and one is misnamed
+for what its own rows actually contain.
+
+**One thing went wrong and it went wrong in the right direction.** The image build refused,
+because a file listing what may travel into images did not include our registry. The comment in
+that file predicts this exact mistake and says the loud failure is preferable to the quiet one. It
+is: a build that refuses cannot ship a check that silently cannot run — which is precisely what
+happened to another team's check the day before, deployed and green-looking and dead.
+
+**The reviewers sent it back once, and they were right to.** The report the daily job writes names
+the commit-time script as the place those two questions now get asked. I had described that script
+in prose rather than listing it as part of the change — so from the reviewer's side, the job was
+pointing at something they could not confirm existed. It does exist and shipped in the same commit,
+but they could not see that, and "points at something that may not be real" is exactly what that
+reviewer is there to catch. Resubmitted with the script shown in full.
+
+**What I need from you:** the deploy. The image `finding-code-registry-check:v1.0.1331` is built
+and pushed; it needs the fleet release to actually start running:
+
+    date; make release redeploy-agents ENVIRONMENT=production REGION=uk001; date
+
+After that I will trigger one run by hand rather than waiting for the morning, and check the job
+actually wrote its row — a missing row has to mean "it did not run", never "nothing was wrong".

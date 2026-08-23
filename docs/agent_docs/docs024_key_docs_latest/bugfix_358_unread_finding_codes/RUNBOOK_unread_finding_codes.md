@@ -153,3 +153,99 @@ here in one commit and broke HEAD twice; a green working-tree build is evidence 
 GOTCHA — **use a quoted heredoc for every commit message carrying prose**:
 `-m "$(cat <<'EOF' … EOF)"`. Backticks inside `-m "…"` execute; this lane lost two words from a
 commit message that way, and forward-only means they cannot be amended back.
+
+## Phase 2 — the CronJob (added 2026-08-23)
+
+```bash
+# 1. COMMIT FIRST — make build-* builds from committed HEAD, not your tree
+make build-finding-code-registry-check      # REF=<ref> to pin
+make push-finding-code-registry-check
+# 2. the DEPLOY is the owner's whole-fleet release, never a one-service apply:
+#    date; make release redeploy-agents ENVIRONMENT=production REGION=uk001; date
+```
+
+GOTCHA — **a new ack/registry-shipping check needs a line in `.dockerignore` as well as in its
+dockerfile.** `docs/` is excluded wholesale with one `!` un-ignore per shipped file. Without it the
+`COPY` fails at build time — the loud direction, and the reason to prefer `COPY` over a mount here.
+
+### Prove the image BEFORE it is deployed (the file, not just the flag)
+
+```bash
+IMG=docker.io/aqls/finding-code-registry-check:v1.0.1331
+docker run --rm --entrypoint sh "$IMG" -c 'ls -l /app'     # registry must be present
+docker run --rm "$IMG" 2>&1 | head -3                       # read the FIRST refusal
+#   naming PG_CLIENTS_HOST  -> the registry LOADED and you are past it
+#   naming the registry     -> the .dockerignore trap; the check would be inert
+# grade the live codes against the IMAGE'S OWN registry copy (the strongest check):
+docker run --rm -i --entrypoint ./config-key-audit "$IMG" --finding-codes --no-source \
+  --registry /app/finding_code_registry.json < /tmp/live_codes.txt 2>&1 >/dev/null | head -7
+```
+
+That last one prints `built from: <sha>` and `— N code(s) declared`. **Both exist to make image
+staleness visible**: the registry travels inside the image, so a cluster row whose declared count
+disagrees with a local `./scripts/audit-finding-codes.sh` IS the staleness, and `built from` says
+which commit produced it. `git merge-base --is-ancestor <your-commit> <that sha>` settles "did my
+ruling ship?" without a marker.
+
+### After the release — prove it at the artefact, never at the tag
+
+```bash
+# the deployed image really is the new tag (make deploy-* prints success unconditionally)
+kubectl -n ai-persona-system get cronjob finding-code-registry-check \
+  -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}'; echo
+
+# NEVER wait for the schedule to tell you it works — trigger one and read the POD
+kubectl -n ai-persona-system create job --from=cronjob/finding-code-registry-check \
+  fcrc-manual-$(date +%s)
+kubectl -n ai-persona-system get pods -l job-name=<that job> \
+  -o jsonpath='{.items[0].status.containerStatuses[0].state.terminated.exitCode}'; echo
+kubectl -n ai-persona-system logs job/<that job>
+```
+
+```sql
+-- the row. The literal is read out of the writer (findingcodes.go), never guessed —
+-- a daily check's doc_notes source is not reliably its CronJob name across this estate.
+SELECT created_at, left(body, 600) FROM doc_notes
+ WHERE source = 'finding-code-registry-check' ORDER BY created_at DESC LIMIT 7;
+```
+
+GOTCHA — **a missing row means THE JOB DID NOT RUN**, never "nothing is wrong". The job writes one
+row per run including clean ones, which is the whole reason the convention exists.
+
+### The demand control for the deployed job
+
+A clean daily row is worth nothing unless the job could have said otherwise. Point the container at
+a **copy** of the registry with one observed code deleted; it must report `undeclared` and exit 1.
+⚠ mutate a copy, never the shipped file.
+
+```bash
+python3 -c "import json;p='docs/agent_docs/docs024_key_docs_latest/architecture_review/finding_code_registry.json';d=json.load(open(p));d.pop('VALIDATION_ERROR_DROPPED');json.dump(d,open('/tmp/reg_missing.json','w'),indent=2)"
+docker run --rm -i -v /tmp/reg_missing.json:/tmp/r.json --entrypoint ./config-key-audit "$IMG" \
+  --finding-codes --no-source --registry /tmp/r.json < /tmp/live_codes.txt >/dev/null 2>&1
+echo "want 1: $?"
+```
+
+### The commit-time half (`scripts/check-finding-code-registry.sh`)
+
+The two source-side arms do NOT run in the cluster — the image ships no repo, so the job passes
+`--no-source` and every run says so. They run at commit time instead, scoped to the registry, the
+mode's source, and any file a live `consumed` entry names as its reader (that list is computed from
+the registry, not hand-kept). Advisory, never blocks.
+
+```bash
+go test ./cmd/config-key-audit/ -count=1        # what the hook runs, no -run filter
+```
+
+GOTCHA — **the pre-existing hook does not cover this.** `check-optional-key-parity.sh` compiles the
+same package but with `-run 'BudgetCron'`, which runs four tests and **not**
+`TestShippedRegistryIsSelfConsistent`. Verify by running it with `-v` and grepping the output, not
+by reading the script:
+
+```bash
+go test ./cmd/config-key-audit/ -run 'BudgetCron' -v -count=1 | grep -c ShippedRegistry   # 0
+go test ./cmd/config-key-audit/ -run 'TestShippedRegistryIsSelfConsistent' -v -count=1    # RUNS, PASSES
+```
+
+GOTCHA — **to test the hook, use an isolated scratch repo, and restore with `git checkout HEAD --`,
+not `git checkout --`.** The latter restores from the INDEX, which still holds the broken copy you
+just staged, so your control reports a failure and reads like a real one.

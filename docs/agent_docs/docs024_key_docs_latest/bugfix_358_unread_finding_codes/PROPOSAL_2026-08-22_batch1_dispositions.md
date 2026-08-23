@@ -1,8 +1,26 @@
 # Batch 1 — proposed dispositions for 7 of the 32 undecided finding codes
 
+> ## RATIFIED IN FULL — owner ruling, 2026-08-23
+>
+> All seven ruled `human-evidence` and applied to the registry in one commit, each with the `why`
+> its disposition requires (the checker rejects a `why` that does not name the retention window it
+> accepts — proved on a copy). `_unruled_cap` came down **32 → 25 in the same commit**: lowering it
+> is the point of the ratchet, and left at 32 the checker prints *"25 unruled against a cap of 32 —
+> LOWER THE CAP TO 25 … or the ground gained is given back silently"*.
+>
+> §1's proposed remedy — a required `reader_sink` on `consumed` — was approved separately on
+> 2026-08-23 and is live. `component_validation_rejected` is ruled **human-evidence** on exactly
+> that ground: it has a real automated reader, and that reader reads `site_work_items.retry_feedback`,
+> not this table.
+>
+> **Live after the ruling:** 42 codes observed, 0 findings, **25 unruled**, retention parity clean.
+
 **For the owner to ratify or overrule** (his ruling, 2026-08-22: the session proposes with the
-evidence attached, he ratifies in batches). **Nothing here is applied** — every one of these codes
-is still `unruled` in the registry. Ratify and I will change them in one commit.
+evidence attached, he ratifies in batches). ~~**Nothing here is applied** — every one of these codes
+is still `unruled` in the registry. Ratify and I will change them in one commit.~~
+**Superseded 2026-08-23 by the banner above: all seven ARE applied.** Left visible rather than
+edited away — the proposal is the record of what was argued, and this line is what it was arguing
+towards.
 
 Batch chosen by volume and by expiry, not alphabetically. Every row count is
 **`[MEASURED]` 2026-08-22** over the retained window.

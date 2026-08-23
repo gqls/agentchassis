@@ -199,8 +199,45 @@ a CronJob cannot shell to `kubectl exec`. A new mode inherits all of it.
 | phase | what | why separable |
 |---|---|---|
 | **1** | registry seeded from the live census + `--finding-codes` mode + its tests + the two hand-rolled roster tests repointed at the registry + concept-register entry | one coherent task; inert (a read-only audit binary); the register entry ships in the SAME commit per the 2026-07-29 ordering exemption's surviving condition (2) |
-| **2** | the daily CronJob (`finding-code-registry-check`), image before overlay | the schedule is what makes it real — *"detection works; SCHEDULE and DISPATCH do not"*. Separated only because the image must exist before the overlay pins its tag (LANDMINES, `component-render-check`) |
+| **2** ✅ **BUILT 2026-08-23** | the daily CronJob (`finding-code-registry-check`), 07:30 UTC — image + push done at `v1.0.1331`, awaiting the owner's fleet release to deploy | the schedule is what makes it real — *"detection works; SCHEDULE and DISPATCH do not"*. Separated only because the image must exist before the overlay pins its tag (LANDMINES, `component-render-check`) |
 | **3** | B1's per-code rulings, filled in against the registry, `unruled` count going to zero | needs owner judgement per code; the registry is the vehicle, and the count is the progress metric |
+
+### 6a. What phase 2 turned out to need, which this plan did not anticipate (2026-08-23)
+
+Packaging was not the whole job. Two of the mode's arms open the Go file a `consumed` entry names,
+and **no check image in this estate ships a source tree** — so the naive deploy produces 5
+`reader-unreadable` findings and exit 1 every morning against a healthy registry
+(`[MEASURED 2026-08-23]`, compiled binary, live code list, source-less root). A permanently red
+check is a disabled one, and this lane's own subject is checks that cannot fail; one that always
+fails is the same defect with the sign flipped.
+
+The remedy is a split by **what can change without a commit**, which is also the only honest reason
+to put anything on a clock:
+
+| runs in the CronJob (a clock or the live table can move it) | runs at commit time (only a commit can move it) |
+|---|---|
+| the undeclared ratchet · the unruled cap · retention parity · `review_by` **expiry** · human-evidence window · bad dispositions · prefix collisions · both `consumed` field-presence checks · the foreign-sink report | `reader-does-not-name-code` · `reader-sink-not-in-reader` — the two arms that open a file |
+
+`--no-source` is opt-in with the unsafe side OFF (owner ruling 2026-08-02); its one consumer is the
+image's CMD. The skip is **stated in an always-emitted report field**, on the principle
+`findingcodes.go` already applies to `RetentionParity` — *"not checked is a state a reader must be
+able to see"*.
+
+**The condition that makes the split honest, and it was missing:** those two arms had **no
+automatic runner at all**. `[MEASURED 2026-08-23]` `go test ./cmd/config-key-audit/ -run 'BudgetCron'`
+— the existing pre-commit hook's filter — runs exactly four tests and never
+`TestShippedRegistryIsSelfConsistent`; the control is that naming that test directly runs and passes,
+so its absence is the filter, not a missing test. `scripts/check-finding-code-registry.sh` (hook 5)
+is its runner, scoped by a reader list **computed from the registry** rather than hand-kept.
+
+**The registry travels IN the image, deliberately against the freshest sibling landmine** (*"the fix
+is a MOUNT, not a COPY, whenever the file is meant to change"*). A mounted ConfigMap goes stale
+**indefinitely** — until a human remembers `apply -k`; a copy goes stale only until the next
+release, and this service is in `RELEASE_IMAGES` so that is hours. And `make build-*` builds from
+committed HEAD, so the copy is by construction the reviewed version, whereas a mount ships whatever
+is in the working tree at apply time — for a file recording which findings are **accepted**, that is
+an unreviewed disposition with no diff. The residual is made visible rather than silent: the run
+states the registry's declared-code count and the binary's build commit.
 
 ## 7. Acceptance, with the control for each
 

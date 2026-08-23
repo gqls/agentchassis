@@ -572,3 +572,93 @@ a re-derived guard, a re-measured premise and a blast-radius check, none of whic
 someone's finished file". What the two lanes did that mattered was **write it down** — the file
 was untracked, and one `git add -A` from any lane would have swept it into an unrelated commit
 with no record of what it was.
+
+---
+
+## 2026-08-23 — PHASE 2 BUILT: the check has a clock, and the blocker was real rather than theoretical
+
+**The blocker, measured before it was designed around.** Phase 2 could not simply be packaged.
+Two of `--finding-codes`' arms open the Go file a `consumed` entry names, and no check image in
+this estate ships a source tree. Run the compiled binary against the live `DISTINCT error_code`
+list with a source-less `--root`:
+
+```
+exit=1, 5 findings, e.g.
+  [reader-unreadable] CONTENT_DATA_REGRESSION
+      reader cmd/content-loss-check/main.go:325 cannot be read: no such file or directory
+```
+
+`[MEASURED 2026-08-23]`. The same run with `--no-source`: exit 0. So the naive deploy would have
+produced a **red job every morning against a registry with nothing wrong with it** — and this
+lane's whole subject is checks that cannot fail. One that always fails is the same defect with
+the sign flipped, and a permanently red check is a disabled one.
+
+**Why the arms moved instead of the source.** They grade the registry against Go source, and
+**both halves change only by commit** — so a daily re-run in the cluster is arithmetically
+incapable of coming out differently than it did at build time. Shipping ~17MB of source to
+recompute a constant is not a check. The narrower form (COPY the three files named as readers
+today) is worse: a fourth hand-maintained roster, silently wrong the first time a `consumed`
+entry names a fourth file.
+
+**The honesty condition, and it is the half that mattered.** Before this, those arms had **no
+automatic runner at all** — and that was worth measuring rather than reading, because the entire
+remedy rests on it. `[MEASURED 2026-08-23]` at committed HEAD:
+
+```bash
+go test ./cmd/config-key-audit/ -run 'BudgetCron' -v -count=1   # what the EXISTING hook runs
+#   → exactly 4 tests, all TestBudgetCron*; grep -c ShippedRegistry → 0
+go test ./cmd/config-key-audit/ -run 'TestShippedRegistryIsSelfConsistent' -v -count=1
+#   → RUNS and PASSES                                        ← the control
+```
+
+The control is what makes it evidence: the test's absence is the **filter**, not a missing or
+broken test. `scripts/check-finding-code-registry.sh` (new, wired in as hook 5) gives them a
+runner, scoped to the registry, the mode's source, and — computed **from the registry at run
+time**, never a hand-kept list — any file a live `consumed` entry names as its reader.
+
+### Missteps and things that came out otherwise
+
+- **The build refused, and that was the good direction.** `.dockerignore` excludes `docs/`
+  wholesale with a `!` un-ignore line per acks file, and I had not added a third:
+  `"/app/docs/.../finding_code_registry.json": not found`. The file's own comment predicts this
+  exactly — *"A NEW ack-shipping check needs a line HERE as well as in its dockerfile — without
+  one the COPY fails at build time, which is the loud direction and how this line got written;
+  the quiet direction would be worse."* **The warning worked.** No new landmine: this one is
+  already written, and its author was right that a `COPY` which refuses to build cannot ship an
+  inert check. The quiet direction is `component-source-vocabulary-check` v1.0.1326 — deployed
+  clean, reported success at every layer, exit 2 on every scheduled run.
+- **A control that fired when it should have been silent, and the cause was my restore, not the
+  check.** Testing the hook script in a scratch repo, case (C) — the *unmodified* registry —
+  reported a failure. The check was right; `git checkout -- <file>` restores from the **index**,
+  which still held the broken copy I had just staged. `git checkout HEAD -- <file>` fixed it.
+  This is LANDMINES' `git checkout <file>` entry meeting the index, in a throwaway repo where it
+  cost nothing — in the shared tree it costs another session's uncommitted work.
+- **A scoping test that looked like a failure and was not.** Renaming `DEPLOY_STAMP_REFUSED_ON_SKIP`
+  → `..._RENAMED` in its reader file produced no report. Not a scoping bug: the reader arm is a
+  **substring** check, and the renamed constant still contains the original string. Removing the
+  code entirely (`..._WITHHELD_ON_SKIP`) reported immediately, with no registry edit at all —
+  which is the clause that catches a session deleting a query out from under a `consumed` entry.
+  The substring limit is pre-existing and stated in the code; worth re-recording because it makes
+  a whole class of rename invisible to this arm.
+- **My own hook caught the shared tree on its first live run**, and said the right thing:
+  *"finding-code registry: NOT CHECKED (the tree does not build — not a registry claim)"*. Another
+  session's uncommitted `platform/livespec` rename had the package unbuildable. A check that
+  cannot run must say so rather than pass — the same discipline this lane keeps arguing for,
+  arriving unprompted.
+
+### Council round 1: REVISE, and the gating objection was right in FORM
+
+`be252395-9d51-4427-b2ae-5f581337b16d`. 9 reviewers, 8 abstained. Gated by **prior_art_librarian**,
+HIGH: *"the plan's SourceArmsSkipped message points users to 'scripts/check-finding-code-registry.sh
+(pre-commit)' as where the two arms now run, but that script is explicitly 'out of council scope' —
+not created by this submission. If it does not already exist, this plan ships a report field that
+names a runner that is not yet real, i.e. a forward reference presented as fact."*
+
+**The fact was fine — the script shipped in the SAME commit as the flag (`6b2bfb800`) — and the
+objection was still correct.** Reviewers see the plan, not the tree. I had followed the runbook's
+"name the companion file in the edit's `rationale`, not its `file`" guidance for an out-of-scope
+path, and the effect was a report string that, *from the plan alone*, pointed at nothing. That is
+precisely this seat's remit. Round 2 lists the script as edit 6 with its real content, names the
+landing commit, and answers the seat's second missing item with the measurement above rather than
+another reading of the shell script. **A REVISE round is cheaper than the defect it finds**, and
+this one found a real gap between what was true and what was showable.

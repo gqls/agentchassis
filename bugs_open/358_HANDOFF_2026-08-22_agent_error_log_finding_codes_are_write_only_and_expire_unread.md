@@ -81,7 +81,26 @@ is `[MEASURED]` this session; every query and grep is restated inline.
 > `SELECT DISTINCT error_code` rather than against source, for Correction 3's reason. Against the
 > live table today: 43 normalised codes observed, **0 findings**, 32 `unruled` (the backlog — that
 > count is the progress metric for §4 B1), 10 registered-but-unobserved. Mutation-proved both
-> ways; the controls are in the lane's NOTES. Phase 2 (the daily CronJob) is **not** built.
+> ways; the controls are in the lane's NOTES. ~~Phase 2 (the daily CronJob) is **not** built.~~
+>
+> > **UPDATED 2026-08-23 — PHASE 2 IS BUILT, and B1 has its first ratified batch.** The CronJob
+> > (`finding-code-registry-check`, 07:30 UTC) is committed, imaged and pushed at `v1.0.1331`;
+> > only the owner's fleet release stands between it and running. Live reading that day:
+> > **42 codes observed, 0 findings, 25 unruled** (the owner ratified batch 1 — seven codes to
+> > `human-evidence` — and the `_unruled_cap` came down 32 → 25 in the same commit, because
+> > lowering it is the point of the ratchet).
+> >
+> > **Two things a reader of §4 should know, because they change what B2-as-deployed guarantees.**
+> > (1) The scheduled job runs **`--no-source`**: two of the mode's arms open the Go file a
+> > `consumed` entry names, and no check image in this estate ships a source tree, so the naive
+> > deploy produced **5 `reader-unreadable` findings and exit 1 every morning** against a healthy
+> > registry (`[MEASURED 2026-08-23]`). Those arms grade the registry against source and both
+> > halves change only by commit, so they moved to commit time
+> > (`scripts/check-finding-code-registry.sh`, `.githooks/pre-commit` hook 5) — where, measured,
+> > **they had no automatic runner at all** before. Every run states which arms it skipped.
+> > (2) The registry **travels inside the image**, so the cluster grades against the declarations
+> > as of the last build; the run states the registry's declared-code count and the binary's build
+> > commit so that lag is visible rather than silent.
 >
 > ⚠ **`d795e10f5` routed an RFC_008 open question at "358 B2" the same day, and it is NOT this
 > question.** That commit expects B2 to deliver (a) no undeclared finding code — **done**;
