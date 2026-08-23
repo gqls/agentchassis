@@ -428,9 +428,46 @@ model priors with no site-specific input at all.
 
 So the pool is not fixed *despite* fresh specs; it is fixed **because the fresh specs never
 reach the decision**. That separates two different remedies (an exclusion list / `on_error`
-versus an upstream identity defect), and it exposes a second, separable defect: **a prompt
-branch with a live input that has never once been taken.** Sent to that lane; not filed in
-theirs by me.
+versus an upstream identity question). Sent to that lane; not filed in theirs by me.
+
+> **⚠ CORRECTED 2026-08-23, within the hour — I wrote "a prompt branch with a live input that
+> has never once been taken" and called it a DEFECT. Both halves overreach.**
+>
+> **On "never":** my 0/4 is 0 out of the four runs `orchestration_states` still holds, on ONE
+> site, in ONE vertical, on ONE afternoon — a population the other lane generated for my test.
+> The loanzy.uk lane caught this and bounded it correctly in their own file: it licenses
+> *"the branch is unexercised and worth investigating"*, never *"the branch cannot fire"*. At
+> n=4 those are indistinguishable.
+>
+> **And the denominator is worse than either of us said**, which I found checking their bound
+> and which corrects them too. They wrote "four runs in its **entire history**". That is the
+> ~24h retention window wearing a measurement's clothes — the same trap I logged in
+> `WRONG_CALLS.md` this morning, hit again by two people in one evening. The durable evidence
+> says otherwise `[MEASURED 2026-08-23]`:
+>
+> ```sql
+> SELECT count(*), min(created_at)::date, count(DISTINCT site_id) FROM (
+>   SELECT created_at, site_id FROM site_work_items         WHERE item_type='needs_strategy'
+>   UNION ALL
+>   SELECT created_at, site_id FROM site_work_items_archive WHERE item_type='needs_strategy') q;
+> --  32 | 2026-04-02 | 27
+> ```
+>
+> **32 `needs_strategy` items across 27 sites since April.** So this agent has run many times;
+> the four visible runs are what survived reaping. The true denominator for "has the branch ever
+> fired" is **not knowable from `orchestration_states` at all** — the historical selections are
+> gone. My claim was not merely under-powered, it was measured against a table that cannot
+> answer the question.
+>
+> **On "defect":** the other lane's point, and it is the better one. `identity` found RETAILERS
+> for a domain the classifier called `hub`/`content`. "Not genuinely strong" as exemplars for a
+> content site is a **defensible reading of the prompt**, not a bug — so *the branch not firing*
+> and *the branch working correctly on unsuitable input* produce the identical observation, and
+> nothing here separates them. Their §4a says that instead of asserting the upstream defect I
+> sketched, and they are right to.
+>
+> **The discriminator, for whoever wants it:** one greenfield build in a vertical whose
+> competitors genuinely ARE content properties.
 
 **The transferable bit for this lane:** I nearly recorded "the pool is a property of the
 vertical" as received. Checking a peer's inference — not their measurement, their *inference* —

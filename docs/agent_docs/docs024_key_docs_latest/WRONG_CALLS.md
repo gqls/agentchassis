@@ -46610,3 +46610,58 @@ for a control fired properly; what did not fire was checking what the control wa
 distinction is worth keeping, because the remedy is different — the others need a disconfirming
 outcome named before you measure, this one needs the rival named and checked before you write
 the sentence.
+
+---
+
+## 2026-08-23 — I turned a 0/4 into "never", and measured it against a table that cannot answer the question (`bugs_open/326` / `376`)
+
+Checking another lane's inference, I found that none of the exemplar sites selected by
+`vertical-exemplar-researcher` appeared in `identity.competitors_found` across four attempts,
+and wrote to them: *"That branch has **never fired**… it exposes a second, separable **defect**:
+a prompt branch with a live input that has never once been taken."*
+
+**Three things wrong with one sentence.**
+
+**1. "Never" from n=4.** The four attempts were one site, one vertical, one afternoon — a
+population the other lane generated for my test. That licenses *"unexercised and worth
+investigating"*; it does not license *"cannot fire"*. They caught it and bounded it correctly in
+their own file before I had.
+
+**2. The denominator was measured against the wrong table, and this is the part I found while
+checking their bound — so it corrects them too.** They wrote "four runs in its entire history".
+`orchestration_states` retains ~24h, so "entire history" is the retention window again. The
+durable evidence:
+
+```sql
+SELECT count(*), min(created_at)::date, count(DISTINCT site_id) FROM (
+  SELECT created_at, site_id FROM site_work_items         WHERE item_type='needs_strategy'
+  UNION ALL
+  SELECT created_at, site_id FROM site_work_items_archive WHERE item_type='needs_strategy') q;
+--  32 | 2026-04-02 | 27
+```
+
+**32 items across 27 sites since April.** The agent has run many times; four is what survived
+reaping. So the true denominator is **not knowable from `orchestration_states` at all** — the
+historical selections are gone. My claim was not under-powered, it was made against a table
+structurally unable to answer it.
+
+**I logged this exact trap this morning**, in this same file, about this same bug: *"before
+believing any `count(*) = 0` about a past event, ask the table what it still holds from that
+date."* I then spent the afternoon citing a 0/4 from that table without asking. Two sessions hit
+it within an hour of each other on the same evening.
+
+**3. "Defect" was unearned**, and theirs is the better reading: `identity` found retailers for a
+domain classified `hub`/`content`, so "not genuinely strong" is a **defensible application of the
+prompt**, not a failure of it. *The branch never firing* and *the branch working correctly on
+unsuitable input* produce the identical observation and nothing separates them yet.
+
+**The cheap check, and it is one question in two parts:** before writing "never" or "always",
+ask **out of how many, and out of how many COULD there have been?** The first is arithmetic; the
+second is whether the table you asked can see the population at all. A 0/N in prose loses its N,
+and the reader inherits a certainty the query never had.
+
+**Distinct from my other entries today** — those were measurements that couldn't come out
+otherwise, and one was a correct measurement with an invented purpose. This is a correct
+measurement, correctly run, **generalised past its population** and then hardened into a noun
+("a defect") that the evidence does not support. Three different ways to be wrong with a query
+that ran fine.
