@@ -1,5 +1,50 @@
 # 342 — An ABSENT required field still renders empty and silent; the gate that catches it runs at 2 of the 15 render call sites
 
+> # ✅ CLOSED 2026-08-23 — FIXED, LIVE ON v1.0.1330, AND PROVEN AT THE ARTEFACT.
+> Closed by the owning lane `bugfix_342_absent_required` after the last mechanism it owns was
+> verified in production. Everything below is the working record; this box is the verdict.
+>
+> **What the defect was:** `missingkey=zero` renders an absent required field as empty with no
+> error, page assembly drops the visually-empty section, and the content does not arrive at all.
+> The gate that caught it ran at **2 of 15** render call sites.
+>
+> **What is live now, each proven at the artefact rather than at a tag:**
+> * **It is no longer silent.** The seam applies the same `missingRequiredLLMFields` the two
+>   pre-render gates call, at **9 of 15** call sites — the other **6 cannot carry it by
+>   construction** (two take raw template strings with no component row; the legacy head render
+>   loads only `html_template` *and its action is in no `GlobalActionRegistry` entry*;
+>   `RenderTemplateWithMap` is a different executor; two audit probes remove fields on purpose).
+> * **It escalates**, and the item is now genuinely routable — page-scoped key matching the
+>   sibling producer, `page_id` set, `page_name`/`slot_name` in the spec. Proven by running the
+>   router's OWN `classify` SQL against the real item: the page resolves (`page_type=tool`,
+>   `rebuild_policy=owned`) where **nothing** resolved before.
+> * **It refuses**, on the two routes that write straight to a live page. Canary, both arms, on
+>   v1.0.1330: a real edit REFUSED naming `headline, trust_note`, the stored artefact
+>   **byte-identical with `updated_at` untouched since 2026-07-17**, the work item filed anyway —
+>   and a clean-edit positive control still persisted (`updated_at` moved). An arm that merely
+>   stopped edits would have failed that second half.
+>
+> **The residuals are filed, not forgotten** — this file closes because none of them is this
+> bug's mechanism:
+> * **`bugs_open/367`** (FILED today): the router's `classify` filters `build_status='deployed'`,
+>   so it closes as `stale` the non-deployed population this producer uniquely reaches. ⚠ **It
+>   also means a claim this file used to make is too strong** — reaching a population and being
+>   able to ACT on it are different; corrected here and in `STY-057`.
+> * **`bugs_open/344`**: a refused edit's DRIVING item may read `complete`. **UNEXERCISED, not
+>   verified benign** — a CLI canary has no driving item, and 12 queue-driven edits in the window
+>   were all healthy. The live page is protected either way and the item is filed before the
+>   refusal, so nothing is lost by the wait.
+> * **The chrome refusal is built and deliberately UNARMED**: 0 rows can trigger it. Flip trigger:
+>   the first `capability_gap` whose `spec->>'finding_type'` is `required_fields_missing`.
+> * **The 5 no-schema non-tool components owe NOTHING** — verified per component, not counted.
+> * **Refusal at the SEAM stays out of scope** by owner ruling 2026-08-02 §2. The `bug_historian`
+>   seat's standing objection — that this leaves a generic root cause patched per call site — is
+>   recorded as an argument, not settled.
+>
+> **Council:** `bb7f5d0e` (seam+escalation), `3626629a` (refusal, r2), `a0ef0b07` (routability,
+> r1) — all APPROVED. **Cite the state as "live on v1.0.1330 as at 2026-08-23", never bare
+> "live"**: this fleet rolled five times in the four days this bug was open.
+
 **Filed 2026-08-20** by the `bugs_open/260` renderer-half lane, at the council gate's request
 (trail `a44d9eb8`: the `bug_historian` seat's **gating** objection in round 1, and `architecture`'s
 advisory in round 2 — *"worth a follow-up ticket with a target date rather than an open-ended
