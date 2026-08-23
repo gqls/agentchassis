@@ -1128,3 +1128,64 @@ resolve **because the target pages do not exist yet** — not because they never
 ⚠ **Do not act on this.** It is the route's own behaviour under a no-hint build, which is the thing
 being measured. Setting the destination by hand — which the `fix` text invites — would destroy the
 measurement.
+
+### 20:27Z — FIRST PAGE SERVES. Every predicted check run against it, including one my own harness got wrong
+
+`about` reached `deployed` at ~20:26 and **actually serves**: `http=200`, **12,830 bytes**
+(`deployed != serving` — checked at the artefact, cache-busted).
+
+| check | result |
+|---|---|
+| **PRED C baseline** — CTA anchors | **0** `cta`/`btn`-class anchors, but the `call-to-action` section IS present. The gated template rendered the container and no button, exactly as the `unresolved_cta` item said. **This is the before-picture for the rerender test.** |
+| **PRED A** — invented email / phone | **none.** No address, no `mailto:`, no Cloudflare `/cdn-cgi/l/email-protection` rewrite, no UK phone pattern |
+| **PRED A** — invented people | **none** (see the harness fault below) |
+| partner names (Amazon/RHS Shop/Crocus/…) | **none** |
+| RHS endorsement claim | **did not materialise in the dangerous form** — see below |
+| template-syntax leak (`260`) | **0** tokens |
+| internal links | 3, and **all three 404 right now** — see the distinction below |
+
+**The RHS line, verbatim, because the prediction was about this and it deserves the actual words:**
+> *"Every buying guide reckons with British conditions: clay that sets like brick after a dry August,
+> **RHS testing standards**, and retailers who actually ship to a UK address."*
+
+That is **not** an endorsement claim — it does not say the RHS endorses this site or any tool, which
+is what I flagged and what would have been serious. It is a weaker adjacent thing: an unverified
+assertion that "RHS testing standards" exist as a citable benchmark for hand tools, plus an implied
+methodology claim ("every buying guide reckons with" them) from a site that has tested nothing yet.
+Worth an `evidence_base` look; **not** worth reporting loudly. **Recording the prediction as NOT
+CONFIRMED rather than quietly reshaping it to fit what turned up.**
+
+**⚠ The three 404s are NOT `bugs_open/328`, and calling them that would be wrong.**
+`/affiliate-disclosure.html`, `/buying-guides/index.html` and `/how-we-assess.html` all 404 as I
+write this — but those pages are `planned` and being built right now, one at a time. **That is a
+build in progress, not a page that failed.** 328 is about links to pages that will never exist.
+> The real 328 candidate on this build remains **`tool-finder`**, which is owner-gated at
+> `needs_human_review` and will not auto-build. **The 328 test is: after the build settles, is
+> `tool-finder` still linked?** Testing it now would confirm the bug from evidence that cannot
+> distinguish it from normal progress — the same could-not-come-out-otherwise shape this lane keeps
+> tripping over. **Transient 404s during a serialised build are expected and must not be counted.**
+
+### ⚠ My harness produced a FALSE POSITIVE on its very first real page
+
+It reported `named bylines: written by people who`. There is no invented byline. The bug is mine:
+
+```sh
+grep -oiE '(written|reviewed|tested) by [A-Z][a-z]+ [A-Z][a-z]+'   # -i DEFEATS the whole test
+```
+
+**`-i` makes `[A-Z][a-z]+` match any word**, so a pattern whose entire discriminating power was
+*"two Capitalised words = a person's name"* degraded to *"any two words after 'written by'"*. Without
+`-i`: no match, correctly. Fixed in the harness with the reason written above the line.
+
+**Two lessons, and the second is the one worth carrying:**
+1. **A case-sensitive pattern and a case-insensitive grep are mutually exclusive.** If capitalisation
+   IS the signal, `-i` deletes the signal while leaving the check looking present and green.
+2. **PRINT THE MATCH, NOT THE COUNT.** I caught this only because the harness echoes the matched
+   text. Had it printed `bylines: 1` I would have gone and read the page looking for a fabricated
+   author, found the phrase "written by people who", and — worse — might have reported an invented
+   byline to the owner. **A count cannot be sanity-checked; a match can.** Every grep in that
+   harness now prints what it matched.
+
+**This is the harness's first real use and it was wrong.** That is the argument for validating an
+instrument on live data before trusting a clean run from it — a check that has only ever returned
+"nothing found" has not been shown to work.
