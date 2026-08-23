@@ -247,6 +247,57 @@ unsuitable input** are indistinguishable on this evidence: `identity` found reta
 classified `hub`/`content`, so "not genuinely strong" is a defensible reading of the prompt, not a
 proven defect. The upstream question stays a question.
 
+## 4b. ⚠ CORRECTION 2026-08-23 20:03Z — §4 and §4a OVERCLAIMED. The pool is BIASED, not FIXED, and the `competitors_found` branch DOES fire
+
+**A fifth selection refutes both.** Attempt 5 (20:02Z, off the run-2 specs) chose
+`[MEASURED 20:03Z]`:
+
+| slot | attempt 5 |
+|---|---|
+| 1 | `gardenersworld.com` |
+| 2 | `which.co.uk` |
+| 3 | **`burgonandball.com`** |
+
+**`thespruce.com` is absent** — the set re-drew. And `burgonandball.com` is **in
+`identity.competitors_found`**, so the branch §4a said had never fired **just fired.**
+
+**What is retracted:**
+- ~~"Sampling permutes the order; it does not re-draw the pool."~~ It does re-draw, just rarely —
+  **4 of 5 draws** contained the refused host, the fifth did not.
+- ~~"Any fix premised on a retry eventually picking differently is disproved."~~ **Not disproved.**
+  A retry *can* escape; it is a low-probability escape, not an impossible one.
+- ~~"The `competitors_found` branch has never fired."~~ It fired on the next observation after I
+  wrote it. The 0/4 was a run, not a property.
+- ~~"The candidate pool is a property of the vertical."~~ Too strong. It is **heavily biased toward**
+  a small editorial set, and it samples outside it.
+
+**What SURVIVES, and it is still the whole severity case** — none of it depended on the pool being
+fixed:
+- The crawl steps have **no `on_error`**, so one refusal discards the stage including successful
+  crawls. Config-verified. Unchanged.
+- `create_next_item` is the last step and the **only** producer of `needs_strategy` estate-wide, so
+  a refusal is **terminal** for the build. Unchanged.
+- On this vertical the refused host appeared in **4 of 5** draws, so the expected cost is several
+  full retry cycles (~30-60min each) before a lucky draw — and `max_attempts=3` means **the item
+  usually dies first.** That is a strong argument for fix candidates 1 and 2 and a weak one against
+  them being urgent; it is *not* the "retry is structurally futile" argument I made.
+
+**Fix ranking changes slightly:** candidate 2 (persist refusals, exclude at selection) is still the
+one that gets cheaper over time, but its case is now "removes a 4-in-5 tax" rather than "is the only
+thing that can ever work". Candidate 1 (`on_error`) is unaffected and remains the cheapest real fix.
+
+> **The meta-lesson, and it is the SECOND time today in the same shape.** This morning I built a
+> dispatch-walk theory on **14** consecutive ordered samples; it broke 20 minutes later. This
+> afternoon I wrote "disproved, not doubted" on **4** consecutive identical samples; it broke on the
+> fifth. Both times a run of identical observations was read as a mechanism, and both times the
+> counter-example arrived within the hour, for free, because the system kept running.
+> **A run is not a law, and the number of repetitions is not the evidence — the absence of a
+> counter-example you actively looked for is.** In both cases I could not name what would break the
+> pattern, which is exactly the check this repo already prescribes and which I skipped twice.
+> **Practical form: state the claim at the strength the sample supports ("4 of 5 draws", "0 of 4
+> observations") and never in the modal form ("cannot", "structurally incapable") unless a
+> mechanism, not a tally, forbids it.**
+
 ## 5. Fix candidates, ordered by what closes the door
 
 1. **Tolerate partial results (smallest, closes the consequence).** N-of-3 is research, not a
