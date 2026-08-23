@@ -1938,12 +1938,65 @@ def check_unlisted_release_overlay(files, ref, findings):
 
 
 
+# A publish whose payload rides on the container's stdin. `kubectl run -i` attaches stdin
+# ASYNCHRONOUSLY, so if the container reaches kcat first it sees EOF, publishes NOTHING and
+# exits 0 — and `--rm` deletes the evidence. bugs_open/327; LANDMINES "kubectl run -i --rm …
+# kcat -P < file drops roughly 4 publishes in 5 AT EXIT 0".
+#
+# TWO SEPARATE SIGNALS, both required, because either alone is ordinary and harmless:
+# `kubectl run … -i` is fine for an interactive shell, and `kcat -P` is fine in the safe
+# `--command` form.
+KCAT_RUN_I = re.compile(r"\bkubectl\b[^|]*\brun\b[^|]*(?:\s-\w*i\b|\s--stdin\b)")
+KCAT_PRODUCE = re.compile(r"\bkcat\b[^|]*\s-P\b")
+
+
+def check_kcat_stdin_race(files, ref, findings):
+    """bugs_open/327 — a publish on `kubectl run -i` stdin can send nothing and exit 0."""
+    for path in files:
+        if not (path.endswith(".sh") or path.endswith(".bash")):
+            continue
+        # Only what THIS commit added. The estate carries ~178 runnable racing publishers
+        # (measured 2026-08-23); firing on all of them every time anyone edits one would be
+        # noise, and noise is how a check gets ignored. The job here is to stop the class
+        # GROWING.
+        added = "\n".join(l[1:] for l in changed_hunk_text(path, ref).splitlines()
+                          if l.startswith("+"))
+        if not added:
+            continue
+
+        # ⚠ `#`-ONLY STRIPPING, AND `--` MUST SURVIVE. check_stdin_eater (above) records
+        # why the shared strip_comments() cannot be used on a kubectl line: it treats `--`
+        # as a comment start, and `--` is kubectl's ARGUMENT SEPARATOR. Stripping it here
+        # would cut the command in half — the exact half this check reads — and the
+        # detector would go quiet on the thing it exists to catch.
+        body = "\n".join(SH_COMMENT.sub("", l) for l in added.splitlines())
+
+        if not (KCAT_RUN_I.search(body) and KCAT_PRODUCE.search(body)):
+            continue
+        # Already the safe form: payload in the container COMMAND, not on stdin.
+        if "--command" in body:
+            continue
+        # Sourcing the shared library IS the fix; a caller that also mentions kcat in a
+        # comment or a fallback is not adding a racing publisher.
+        if "kafka_publish_checked" in body or "kafka-publish-lib.sh" in body:
+            continue
+
+        findings.append((
+            "kcat-stdin-race", path,
+            "publish sends its payload on `kubectl run -i` stdin",
+            "That race publishes NOTHING and exits 0 about as often as it works, and `--rm` "
+            "deletes the evidence (bugs_open/327). Source scripts/kafka-publish-lib.sh and "
+            "call kafka_publish_checked — it puts the payload in the container command and "
+            "asserts the receipt. This never blocks."))
+
+
 # The check roster, at module level so it is SINGLE-SOURCED. `main()` runs it, and
 # `scripts/audit-advisory-findings.py` imports it to measure whether the findings
 # these produce are ever acted on (RFC_008's decisive question — this script's own
 # output is the thing being measured). Hoisted out of `main()` 2026-08-22; keeping a
 # second copy in the auditor is exactly the drift this estate keeps paying for.
-CHECKS = (check_untouched_twin, check_gofmt, check_stdin_eater, check_declared_pairs,
+CHECKS = (check_untouched_twin, check_gofmt, check_stdin_eater, check_kcat_stdin_race,
+          check_declared_pairs,
           check_unguarded_migration_insert, check_append_only_docs,
           check_bug_file_duplicated,
           check_truncation_without_reader, check_logged_model_output,
