@@ -305,8 +305,13 @@ func assembleComponents(ctx context.Context, db interface{}, componentNames []st
 			return nil, fmt.Errorf("assemble_from_library: component %q failed to render: %w (bugs_open/260)", comp.Function, err)
 		}
 
-		// Also handle old-style {{.ComponentID}} placeholder
-		renderedHTML = strings.ReplaceAll(renderedHTML, "{{.ComponentID}}", componentID)
+		// The {{.ComponentID}} substitution that stood here was DEAD CODE and is
+		// deleted with the binding it belonged to (RFC_032 §8). RenderTemplate
+		// above runs first, and under missingkey=zero it resolves the placeholder
+		// to <no value>, which component_library.go strips — so by the time this
+		// line ran there was never a "{{.ComponentID}}" left to match. Measured
+		// 2026-08-22: 0 of 270 live placements carried the shape it produced,
+		// proved against a synthetic positive before the zero was believed.
 
 		finalHTML.WriteString(renderedHTML + "\n")
 

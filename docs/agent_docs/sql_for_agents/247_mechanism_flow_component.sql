@@ -157,7 +157,7 @@ VALUES (
   }
 </style>
 
-<section id="{{.ComponentID}}" class="mech-flow" data-component="mechanism-flow">
+<section id="{{.InstanceID}}" class="mech-flow" data-component="mechanism-flow">
   <div class="mech-flow__inner">
     {{if .eyebrow}}<span class="mech-flow__eyebrow">{{.eyebrow}}</span>{{end}}
     {{if .section_title}}<h2 class="mech-flow__title">{{.section_title}}</h2>{{end}}

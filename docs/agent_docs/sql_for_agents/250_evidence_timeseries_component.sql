@@ -117,7 +117,7 @@ VALUES (
        rather than degrade. evidence-chart declares it the same way; this is that
        contract, not a new one. Caught by executing the template before shipping. */ -}}
 {{- $facts := .facts -}}
-<section id="{{.ComponentID}}" class="ev-ts" data-component="evidence-timeseries">
+<section id="{{.InstanceID}}" class="ev-ts" data-component="evidence-timeseries">
   <div class="ev-ts__inner">
     {{if .eyebrow}}<span class="ev-ts__eyebrow">{{.eyebrow}}</span>{{end}}
     {{if .section_title}}<h2 class="ev-ts__title">{{.section_title}}</h2>{{end}}

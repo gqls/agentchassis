@@ -638,12 +638,11 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		if rc.ContentData == nil {
 			rc.ContentData = make(map[string]interface{})
 		}
-		rc.ContentData["ComponentID"] = comp.ID
-		// InstanceID is per-INSTANCE; ComponentID above is per-COMPONENT and is
-		// therefore identical for every instance of the same component on a page.
-		// A template that namespaces element ids must use this one — see
-		// component_instance_scope.go and bugs_open/283 for why the distinction
-		// is load-bearing rather than stylistic.
+		// {{.ComponentID}} is RETIRED here too (RFC_032 §8, 2026-08-22): it bound
+		// the component ROW id, identical for every instance of the same
+		// component on a page. All templates spelling it were converted
+		// 2026-08-23; the census is zero. See v3_site_actions.go's note for why
+		// the binding is deleted rather than left bound-but-unused.
 		//
 		// The counter advances only for sections that RESOLVED a component: a
 		// carried section (component missing or template invalid) keeps its
@@ -749,6 +748,16 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 			"component_function": comp.Function,
 			"stored_slot_name":   s.slotName,
 			"content_data":       mergedContent,
+		}
+		// Provenance for a FRESH render (RFC_046). This path called RenderTemplate
+		// above, so the seam has already told us which template text produced these
+		// bytes — a fact only it knows, and one this producer held and threw away
+		// until now. Carrying the stamp on the carry path while dropping it on the
+		// re-render path made the fleet's own repair vehicle write NULL: a page
+		// mended through a rerender came out less well-provenanced than one left
+		// alone. Empty stays absent — unknown must reach the database as NULL.
+		if rc.RenderedTemplateSHA != "" {
+			entry["rendered_template_sha"] = rc.RenderedTemplateSHA
 		}
 		if comp.ID != "" {
 			entry["component_id"] = comp.ID
