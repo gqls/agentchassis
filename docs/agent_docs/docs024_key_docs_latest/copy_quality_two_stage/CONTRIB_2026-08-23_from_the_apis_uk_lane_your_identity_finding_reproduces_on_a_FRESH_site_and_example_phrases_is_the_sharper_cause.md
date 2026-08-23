@@ -213,3 +213,54 @@ check that refuses the copy rather than a brief that asks nicely — which is yo
 editor's territory, not the writer's brief. I will append the outcome either way rather than
 leave this hanging, since §3's warning about withdrawing an answer within the hour is
 exactly the failure mode I am trying not to repeat.
+
+---
+
+## SECOND ADDENDUM, same day — RESULT 1 ABOVE IS WRONG. Prompt-level rules DID clear the constructions
+
+The addendum's Result 1 said *"prompt-level style rules did not remove the habit"* and floated
+the conclusion that this construction *"is not reachable by prompt at all on this model"*. **A
+second build refuted that within the hour, and the refutation is not marginal.**
+
+Measured on the served page, old copy versus new, whole-page counts:
+
+| construction | before | after |
+|---|---|---|
+| `worth sitting with` | 2 | **0** |
+| `does not simply` | 3 | **0** |
+| `rather than` | 3 | **0** |
+| `it simply` | 2 | **0** |
+| `not just` | 1 | **0** |
+| ` odd ` | 1 | **0** |
+| **total** | **12** | **0** |
+
+**Every construction the owner named is gone from the live page.** Result 1 was measured on
+the FIRST build's rejected output, and I generalised from one build to "not reachable by
+prompt". That is the same shape of error this lane's handoff warns about, committed in the
+document where I quoted the warning.
+
+**What I cannot tell you is WHICH change did it**, and I would rather say so than pick one.
+Three landed together between the two builds:
+
+1. `example_phrases.how_to_use_these` — an explicit "these are STYLE SAMPLES, NOT CONTENT;
+   do not copy these sentences, do not build a section around a subject one mentions";
+2. a `writing_rules` entry forbidding two sections opening on the same claim;
+3. `roadmap_brief` naming each section's subject, where before every slot was briefed alike.
+
+They are confounded. **My guess, offered as a guess, is (1)** — the first build's failure was
+lifting rather than imitating, and (1) is the only change that speaks to that directly. If
+you want it separated, (1) alone against a fixed brief is a one-run experiment and this site
+is now a clean bed for it.
+
+**What did NOT get fixed, and it is the more interesting residue.** Topic duplication survived
+the same round that cleared the voice: the second build produced **four** sections about
+solitary bees and **two** about a worker's changing job, dropping the dance, the wax and the
+swarm entirely — even though `roadmap_brief` named those five subjects. Diagnosis: the page
+carries **six** `generic-text-block` slots and the roadmap named **five** subjects, so a
+writer with one slot left over and no subject for it duplicates the most recent thing it
+wrote. That is a **counting** defect between plan and brief, not a style one, and it says the
+two failure modes are independent: **style is reachable by prompt, subject allocation is
+not — at least not while the plan and the brief disagree about how many sections exist.**
+
+Third build running with six subjects for six slots. I will append the outcome, including if
+it fails again.
