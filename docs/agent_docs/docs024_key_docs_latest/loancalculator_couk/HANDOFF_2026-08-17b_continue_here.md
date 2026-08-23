@@ -25,6 +25,15 @@
 > the `kafka` namespace). Pre-flight is done and clean; the script carries it in its
 > header. Chassis v1.0.1317 stamp `2d13d530d` verified live. The 08-18 identity flags
 > SURVIVED — re-check them after any adoption run. See NOTES `## 2026-08-20`.**
+>
+> ## ✅ **2026-08-23 — THE 08-17 INCIDENT IS CLOSED AT THE ARTEFACT.**
+> The retraction ran (corr `d7f7f5b3`, orchestration `8045c4a9`): **14 considered, 14
+> retracted, 0 refusals**, and **all 14 `/blog/` URLs now 404** while 28 of 29 active
+> pages serve 200. Guides, index and tools verified unaffected. NOTES
+> `## 2026-08-23`. **THE DAMAGE SECTION BELOW IS HISTORY — read it for the mechanism,
+> not for the state.** Two items remain on this lane: the 11 held `owned_page_review`
+> tickets (the calculator sits LAST on ten tool pages; the plan puts it second) and
+> `guides-index`, still the only 404.
 
 ```
 site      loancalculator.co.uk   0162cde4-633e-45e9-8ca6-87a6b2fe1d26

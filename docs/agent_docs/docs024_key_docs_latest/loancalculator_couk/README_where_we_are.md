@@ -2241,3 +2241,32 @@ fundamentallyai request that was queued waiting for this fix resolved itself on 
 other work on that site delivered what it asked for, so nothing is waiting on the planner
 any more, and the planner has since produced a second correct plan for a new subject
 (site-chat-intake, the 15th) with no vonc leakage.
+
+---
+
+## 2026-08-23 — the duplicate pages are gone
+
+You ran the retraction and it went through cleanly. All fourteen /blog/ addresses now return
+"not found", and I checked every one rather than sampling. Your guides, the homepage and the
+calculators are all still serving normally — I checked those too, because a cleanup that
+quietly took something else with it would look identical to a successful one.
+
+The mechanism did its job properly: it considered fourteen pages, retracted fourteen, refused
+none, found nothing still linking to them and nothing left stranded. It deleted the files in
+one commit and left a durable record of what it did.
+
+So the mess from the 17th is now fully cleared: twenty-nine real pages, fourteen guides where
+you wanted them at /guides/, eleven calculator pages, all twelve protected calculators intact,
+and the setting that stops a future replan moving them is on.
+
+Two things are left on this site, and only the first is really worth your attention:
+
+**The calculators are at the bottom of their own pages.** On ten of the eleven calculator
+pages the calculator currently sits below the article text, the questions-and-answers section
+and a call-to-action. The plan says it should sit directly under the heading. The homepage
+already made that move, and one calculator page made it on the 22nd, so you can see the
+difference live. It's held behind eleven review tickets that exist deliberately so nothing
+rebuilds a calculator page without a human saying yes. Releasing them is your call.
+
+**The Guides index page still doesn't exist**, so /guides/ itself is the one broken address
+on the site. Its menu entry is already waiting for it.

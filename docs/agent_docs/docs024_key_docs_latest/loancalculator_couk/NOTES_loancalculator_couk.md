@@ -6076,3 +6076,40 @@ FAQ and a call-to-action. The plan puts it directly under the hero. That is the 
 the homepage rebuild already made (6 → 2) and credit-roadmap has now made. It is the
 substantive remaining work on this lane, and it is gated only by the owner releasing the
 11 `owned_page_review` tickets (TP-004's human gate).
+
+### 2026-08-23 (later) — RETRACTION DONE: the 14 duplicates are gone, verified at the artefact
+
+Owner authorised; the dispatch went through on this attempt (the earlier refusals were this
+session's permission classifier, not the cluster). Corr
+`d7f7f5b3-501b-4f14-b7a2-db6576acdf27`, orchestration `8045c4a9-2f3c-400b-94ff-0fb82d394277`,
+**COMPLETED in 9 seconds**.
+
+**The audit, which is the part worth keeping** — a `complete` status is not evidence, so
+these are the action's own recorded numbers plus the served check:
+
+```
+considered        14
+retracted         14      (zero refusals)
+nav_retired        0      (nothing pointed at them — matches the pre-flight)
+editorial_inbound  null   (no body/chrome links — matches the pre-flight)
+stranded_targets   null
+git                repo gqls/sites, commit a1508b92…, success:true, 14 paths deleted
+durable row        RETRACTION_AUDIT in agent_error_log, 12:42:11Z
+```
+
+**At the artefact (the only thing that counts):** all **14 of 14** `/blog/` URLs now return
+**404**; **28 of 29** active pages return 200, `guides-index` still the only 404. Controls
+held — `/guides/can-i-overpay.html`, `/guides/loan-faqs.html`, `/index.html` and
+`/tools/overpayment-calculator.html` all still 200.
+
+> **One over-cautious call of mine, corrected by the run.** My read-only pre-flight predicted
+> the action would REPORT one stranded target (`/tools/interest-rate-stress-test.html`, which
+> loses its only in-body inbound link). It reported **none** — correctly, because the tool is
+> in the site-wide footer, and the action asks the same reachability question the orphan check
+> does, which includes chrome. The pre-flight's three inbound counts were exact; only this
+> outbound prediction was wrong, and it was wrong in the harmless direction.
+
+**⇒ The 2026-08-17 incident is closed at the artefact.** Site: 29 active pages, 14 guides at
+`/guides/`, 11 tool pages, 12 locks held, identity flags on so a replan will not re-mint the
+twins. What remains on this lane is the 11 held `owned_page_review` tickets (the calculators
+sit LAST on ten tool pages) and `guides-index`.
