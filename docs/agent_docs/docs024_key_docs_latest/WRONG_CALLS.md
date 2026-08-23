@@ -46063,3 +46063,49 @@ would have been honest and would have cost nothing, whereas "all 8" asserted a c
 not run. This is the same family as the index's *"a cap census cannot say WHO was cut — read
 the `ORDER BY`"*, one level sillier: I wrote the cap myself, in the same session, and still
 read past it.
+
+---
+
+## 2026-08-23 — I ran the append-only numstat gate right after APPENDING instead of right before COMMITTING, and swept four other lanes' entries into my commit (bugs_closed/344 follow-through lane)
+
+**What I did.** Appended two entries to `WRONG_CALLS.md` and two to `LANDMINES.md`, and — correctly
+— gated each append on `git diff --numstat <file>` to prove append-only (`88 0` and `46 0`; the
+landmine for that gate says count first, read lines second). Then did other work: ran
+`landmines-verify-dispatch.sh`, wrote the bug file's §5, wrote an RFC note, wrote three lane docs.
+**Then** committed all seven files by explicit pathspec.
+
+**What the commit actually contained:** `193 0` for `WRONG_CALLS.md` and `152 0` for `LANDMINES.md`
+— against the `88` and `46` I wrote. In the ~20 minutes between my append and my commit, **other
+sessions appended their own entries to the same two files**, and a pathspec commit takes the
+working-tree content of the paths it names. So my commit carries the `bugfix_337_token_cap` lane's
+entry, the `bugs_open/328` lane's entry, and **six** landmines belonging to five other lanes, all
+under a message about bug 344.
+
+**Nothing was lost and nothing is corrupt** — deletions are `0 0` on both files, so append-only
+held, and forward-only forbids an amend. The cost is exactly what CLAUDE.md says it is: four lanes'
+work now arrives under one lane's message, and `git log --follow` on those entries points at the
+wrong thread. That is a review/bisect cost, not a data loss.
+
+**Why the gate did not catch it.** The gate was sound; its *timing* was wrong. `git diff --numstat`
+proves a property of the file **at the moment you run it**, and on a tree this many sessions share
+that property has a half-life of minutes. I proved append-only about a file that no longer existed
+in that form by the time I committed it. This is the same tense error as reading a `git status`
+snapshot from session start — CLAUDE.md warns about that one explicitly, and I did not transfer it
+to the numstat gate.
+
+**The cheap check, and it is one line moved:** run the numstat gate **immediately before the
+commit**, in the same command, and compare it against what you appended:
+
+```bash
+git diff --numstat <shared-append-only-file>   # RIGHT BEFORE the commit, not after the append
+# added != what you wrote  =>  other lanes have appended under you.
+# You cannot prevent the passenger, but you CAN say so in the message:
+#   -m "... (also carries N appended entries from other lanes — same-file passengers, not mine)"
+```
+
+**And the generalisable half: on a shared tree, a check and the action it licenses must be
+ADJACENT.** Any evidence gathered before an intervening step is evidence about a tree that has
+since moved. The high-churn shared append-only files — `WRONG_CALLS.md`, `LANDMINES.md`,
+`016b`, `MEMORY*.md` — are where this bites hardest, because every lane writes to them and each
+does so exactly once per session, so the arrival rate is high and uncorrelated with anything you
+are doing.
