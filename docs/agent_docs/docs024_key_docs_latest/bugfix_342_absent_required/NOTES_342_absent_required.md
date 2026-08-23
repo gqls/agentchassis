@@ -486,3 +486,60 @@ Everything this lane owns is written, reviewed and approved. **The only blocker 
 fix is committed and inert, and this estate's bar is *fixed AND live*. Nothing here needs a
 decision or more work; it needs `make release` (owner-run, whole-fleet) and then the two checks in
 the handoff's §4.
+
+## 2026-08-23 ~17:00Z — v1.0.1330 CARRIES THE ROUTABILITY FIX, and the closure question narrows to one word: exercised
+
+The roll happened for real this time. **v1.0.1330 on both replicas, started 16:03Z** — after the
+13:34 commit — desired image and makefile agree, and the artefact confirms it:
+
+| needle | novel? | want | got |
+|---|---|---|---|
+| `capability_gap:required_fields_missing` (new key prefix) | yes, 0 at `23d2a577d^` | present | **present, both replicas** |
+| `a required_fields_missing router that can service` (builder_needed) | yes, 0 at parent | present | **present** |
+| `refuse_absent_required_fields` (known-live) | — | present | **present** — *the probe works* |
+| nonsense literal | — | absent | absent |
+
+That third row is the arm that matters on a POSITIVE probe as much as a negative one: it proves
+the probe is capable of reading the binary at all, so PRESENT is a reading rather than an artefact
+of a working grep on the wrong thing.
+
+**Both armings survived the roll**: editor refusal `true`, chrome record 7/7. Re-checked because a
+roll re-applies overlays.
+
+### The state that decides closure: LIVE but UNEXERCISED
+
+- render-time items: **still exactly 2**, both the old `required_fields_missing`/`failed` rows,
+  newest `2026-08-22 18:03` — i.e. **nothing has been filed since the fix went live**;
+- `capability_gap` rows from this producer: **0**;
+- queue-driven refusals (check c): **0**.
+
+So the fix is live and has never run. A zero here means "no demand yet", not "it works" — the
+distinction this estate keeps re-learning. **Firing the canary's refuse arm is the demand**, and
+it is the same safe target (`0a1498b3`, `pending`, nothing live at risk), re-baselined first:
+md5 `69a2f28c…`, `updated_at` still `2026-07-17`.
+
+⚠ Note the old item does NOT block the new one: the key shape changed from
+`<site_id>:<function>` to `<page_id>:<slot_name>`, so there is no dedup collision — which is
+itself a small confirmation that the two shapes really were different.
+
+### The canary rerun on v1.0.1330 — the item is now SHAPED correctly
+
+Refuse arm, corr `ceff1346`. The refusal fired again with the same message (`headline,
+trust_note`) and the artefact is **byte-identical, `updated_at` still 2026-07-17** — so the
+protection is unchanged by the rework, which matters because the rework touched the emitter that
+runs immediately before the gate.
+
+And the item it filed, `562788c3`, is the whole point:
+
+| field | before (a31da7f3) | now (562788c3) |
+|---|---|---|
+| `item_key` | `…:<site_id>:tool-cta` | **`…:f438eca6…:tool-cta`** — page-scoped, the check's shape |
+| `page_id` | NULL | **set** |
+| `spec.page_name` | absent | **`ai-agent-roi-estimator`** |
+| `spec.slot_name` | absent | **`tool-cta`** |
+| handler / status | handler / `detected` → `failed` ×3 | handler / `detected` (pending pickup) |
+
+**Both fields the router resolves by are now present, and the key matches the sibling producer's**
+— the two defects are fixed at the artefact, not just in the source. What is NOT yet proven is the
+router's *disposition*: the item is `detected, attempts=0`, so it has not been picked up. That is
+the last piece of closure evidence and it is a wait, not a task.
