@@ -252,3 +252,40 @@ component that exists, so re-running them would *rewrite* components other pages
 rather than create missing ones — nine expensive runs to fix three pages, with a real risk of
 breaking six working ones. I have run one, and I am holding the rest for you rather than
 following yesterday's instruction into a situation it was not written for.
+
+## 2026-08-23 (late) — two of the three pages are fixed, and you can look at them
+
+**Fixed and live:**
+- **https://loanzy.uk/tools/is-a-loan-right-for-me/index.html** — now carries its checker (four
+  input boxes and its own logic, where before it had none).
+- **https://loanzy.uk/tools/eligibility-checker/index.html** — now carries the credit-health
+  quiz: thirteen buttons and four thousand characters of working logic, where before it had one
+  button and none.
+
+The second one matters most, because it is the whole chain working: my change showed the writer
+the list of valid data sources it had never been given → it stopped inventing one → it was
+refused once for a small, different mistake → the other team's change told it exactly what that
+mistake was → the retry got it right → the component was stored → the page picked it up. Every
+link in that had to work.
+
+**Not fixed: the credit-health-check page itself** — the one this bug is named after. Its
+rebuild was refused by a *third* safety check, and that check is right. Rebuilding it would
+have stripped well over half the layout from the top section of the page, and there is a
+guard whose whole job is to stop exactly that. I have not overridden it. Forcing my repair
+through a guard designed to prevent damage would be the wrong instinct even when the repair is
+genuine.
+
+I did find something useful for the team that owns that guard, and passed it to them: it has
+refused five loanzy pages today, always the same section, and always collapsing to exactly the
+same size. That pattern says one component's rebuild is systematically thinner than the stored
+version — which is a fixable thing, and different from "these pages are all degrading".
+
+**One thing I got wrong and caught, worth telling you because it is the third of its kind.** I
+briefly reported that neither repaired page had actually gained its tool. They both had. I had
+searched the page for the wrong kind of HTML tag — I looked for the shape I expected rather
+than for the thing itself. What caught it was checking the database before writing it up. That
+is now three times in this lane I have used a test that would have called a working page
+broken, and I have written up the common cause rather than the three incidents.
+
+**Where this leaves the bug:** everything it was filed for is done except one page, and that
+page is waiting on another team's guard.

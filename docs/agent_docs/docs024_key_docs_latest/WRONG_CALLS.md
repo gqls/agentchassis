@@ -45433,3 +45433,45 @@ to emit an empty sketch rather than emitting one. Now in `LANDMINES.md` with the
 **The lesson worth keeping:** the defect the tool existed to prevent reappeared *inside the tool*,
 one layer down, and the tool's own success output was what hid it. A generator is not evidence; its
 measured output is.
+
+## 2026-08-23 — bugfix_337 lane: I told the owner two repaired pages had NOT gained their tool, because I grepped for the wrong ELEMENT — the third wrong success-predicate in one lane
+
+**The claim.** Verifying two page repairs, I ran
+`grep -oE '<section[^>]*class="[^"]*"'` over the served HTML, got back only
+`hero-tool-section`, `info-card-grid-section`, `faq`, `cta-section`, and reported — in a
+message to the owner — *"the counts went up but the tool section isn't there … neither page
+actually gained its tool section."* **Both pages had gained it.** The served HTML named
+`loans-damage-checker` fourteen times and `loans-credit-health-check` eighteen.
+
+**What caught it.** Checking the database before writing the conclusion up. `page_components`
+showed both tool components attached in their slots, which flatly contradicted the grep. The
+page had also grown ~2.4 KB and gained four `<input>`s, which I had noticed and explained away
+as "regenerated existing sections" — **a made-up mechanism invented to preserve a wrong
+predicate**, which is the part I would most like not to repeat.
+
+**Why the grep was wrong.** These components do not render as a classed `<section>`. They
+render as instance-scoped `<div>`s — the actual markup is
+`<div id="c-loans-damage-checker-damage-verdict" class="results-box">`, the `c-<function>-`
+prefix coming from the instance-scope work. My predicate encoded a *guess about the element
+type* and tested that guess, not the presence of the component.
+
+**This is the THIRD wrong success-predicate in this one lane**, and the pattern across them is
+the point:
+
+| predicate | why it was wrong | what it would have reported |
+|---|---|---|
+| `grep -c '<input'` | the component is a button-driven quiz | a working page as broken |
+| a name-derived URL | URL shape is per site; the guess hit a custom 404 | a real page as missing |
+| `<section class="…-section">` | the component renders as `<div>`s | a repaired page as unrepaired |
+
+**All three fail in the same direction — they report SUCCESS as FAILURE** — which is the
+politer failure mode, but only by luck; the same carelessness produces false positives just as
+easily.
+
+**The cheap check, and it is the same one every time: derive the predicate from the ARTEFACT
+you are looking for, not from the shape you expect it to have.** The component's own
+`function` name is in the stored template and in the served HTML regardless of element, class
+or tag; `id="c-<function>-` is there regardless of styling. Both are properties of the thing
+itself. `<section>`, `<input>` and a URL pattern are all properties of *a rendering I assumed*.
+**And when a measurement contradicts a cheaper one you already have — the byte count went up,
+the database says it is attached — do not invent a mechanism to reconcile them. Go and look.**
