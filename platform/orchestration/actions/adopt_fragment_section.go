@@ -104,6 +104,21 @@ func adoptFragmentSection(ctx context.Context, db *sql.DB, s *SectionData, logge
 	// anyone ever edits the seeded template into something that wraps or escapes,
 	// adoption stops rather than silently storing bytes the component would not
 	// reproduce.
+	// No instance token is bound, deliberately (bugs_open/283's check flags this
+	// shape and is right to): this render's output is COMPARED and thrown away, it
+	// never reaches page_components.rendered_html and is never served. The template
+	// is the identity function, so it contains no {{.InstanceID}} to render empty —
+	// and if one were ever introduced, the byte comparison below would REFUSE the
+	// adoption rather than store a collision. Recorded in pattern-check.py's
+	// INSTANCE_TOKEN_ALLOWED with that reason.
+	// No instance token is bound here, deliberately — bugs_open/283's pattern check
+	// flags this shape and is right to ask. This render's output is COMPARED and
+	// thrown away: it never reaches page_components.rendered_html and is never
+	// served, which is the same standing as cmd/component-render-check's offline
+	// lint. The template is the identity function, so it holds no {{.InstanceID}}
+	// to render empty; and if one were ever introduced, the byte comparison below
+	// REFUSES the adoption rather than storing a collision. Recorded with that
+	// reason in pattern-check.py's INSTANCE_TOKEN_ALLOWED.
 	rc := &RenderContext{ContentData: map[string]interface{}{"body": s.HTML}}
 	rendered, _, _, renderErr := RenderTemplate(template, rc, logger)
 	if renderErr != nil {
