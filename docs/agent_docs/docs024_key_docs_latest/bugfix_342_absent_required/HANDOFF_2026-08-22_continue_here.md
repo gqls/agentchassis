@@ -1,7 +1,22 @@
 # HANDOFF 2026-08-22 — `bugfix_342_absent_required`, continue here
 
-**Lane state: the work is DONE and PROVEN. One check is waiting on ordinary traffic, and that is
-the only thing outstanding.** Read this file first; it is written so you do not have to re-derive
+> # ⚠ SUPERSEDED IN PART — 2026-08-23. Read this box before anything below it.
+>
+> This file said the lane was done bar one check. **It was not.** Running that check on 08-23
+> surfaced a real defect in the ESCALATION half (shipped earlier, on trail `bb7f5d0e`): the
+> `required_fields_missing` items it files were **unroutable — 2 of 2, a 100% failure rate**, and
+> the first failure was **real production traffic** on `loans-application-tracker` at 13:32 on
+> 08-22, hours before the canary. `required-fields-missing-handler` resolves the page by
+> `spec->>'page_name'` and the component by `spec->>'slot_name'`; the producer supplied neither,
+> and keyed on `<site_id>:<function>` where the sibling producer keys on `<page_id>:<slot_name>`,
+> so the co-dedup claim was false too. **Both were one assumption — that reusing a TYPE meant
+> inheriting its ROUTER. It does not.** Fixed at source in `eb918bd58`, pinned by
+> `TestRequiredFieldsMissingItemsAreRoutable`, council trail `a0ef0b07`. **INERT until the next
+> roll, so the bug does NOT close** — see §7, whose recommendation is now out of date by exactly
+> this. Everything else below still holds: the refusal half is live, armed and canary-proven.
+
+**Lane state: the refusal half is DONE and PROVEN; the ESCALATION half has a fix awaiting a roll
+(see the box above), and check (c) is still waiting on ordinary traffic.** Read this file first; it is written so you do not have to re-derive
 anything or re-run anything that has already been measured.
 
 ---
@@ -111,7 +126,10 @@ proven on the path that writes straight to a serving page; every other path eith
 refuses before rendering (build, rerender) or cannot carry the check by construction. What keeps
 the file open is §4's one unexercised check and the deliberate decision in §5 not to refuse at the
 seam — i.e. the *class* is still patched per call site by design, and the bug's own title is about
-those call sites. **Recommendation: close it once §4's query returns a verdict**, recording which
+those call sites. ~~**Recommendation: close it once §4's query returns a verdict**~~ **SUPERSEDED 2026-08-23 —
+closure now needs BOTH that verdict AND the routability fix live and proven (a filed item that
+the router actually classifies). Recommendation: close it once a `required_fields_missing` item
+filed by the render-time producer reaches a NON-`failed` disposition**, recording which
 of the two outcomes it was, and cite the closure as "live on v1.0.1326 as at <date>" rather than
 bare "live".
 
