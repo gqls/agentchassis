@@ -2170,3 +2170,37 @@ difference is the edge's, so nothing is filed.
   for the wrong reason**.
 
 The false item is `rejected`, mechanism and evidence in its `result`.
+
+### 5. The council round died with NO VERDICT — and it is not this submission
+
+`SUBMISSION_CORR = 1ceef75a-81ee-4302-8182-69b0f6602bca`. Admission passed (`DRY_RUN=1`), the
+`fix_plan` artifact was written at 07:37:12Z, and the orchestration then terminated at
+`current_step = complete_invalid` — which is an **error step, not a fourth verdict**. No
+`council_report` artifact, no `doc_notes` verdict row.
+
+**Do not read that as a rejection, and do not resubmit.** The discriminating measurement is
+fleet-wide, not lane-local:
+
+```sql
+-- council verdicts, 2026-08-23:  0
+-- council verdicts, 2026-08-22: 54
+SELECT count(*) FROM doc_notes WHERE categories ? 'council-gate' AND created_at > '<day>';
+```
+
+Zero verdicts across every lane today against 54 yesterday is the estate-wide Anthropic
+account cap (`243-anthropic-cap`, third occurrence, onset 2026-08-22 18:15:35Z, several lanes
+recorded it in commits yesterday), not a property of this plan. Two client-side validations
+DID reject earlier drafts and both were real: `.plan.risks` must be a **string**, not an
+array, and an edit whose `sketch` is comment-only is refused outright ("a fix plan proposes
+changes, not observations") — so the header-documentation edit was folded into the guard
+edit's rationale rather than carried as its own.
+
+**Consequence to carry forward: `14a50e533` is committed and UNREVIEWED.** The
+`Council-Submitted:` trailer is honest — it asserts nothing — but it will never resolve to an
+approval, because this round produced no verdict to resolve to. **Whoever picks this lane up
+after the cap lifts should resubmit** (the submission JSON is committed at
+`submission_315_raw_object_guard.json`, ready to fire unchanged) and, if approved, record it
+then. Two prior arguments matter here and pull in opposite directions: the code is already on
+the shared branch and will roll on any session's build, so holding it back was never
+available; and a REVISE round has historically found real defects in this lane's work 2 rounds
+out of 4, including a false claim in the very file that fixed the bug it described.
