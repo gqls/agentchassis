@@ -35,28 +35,27 @@ Commits: `288ce3e7a` (code + register), `cbef38e7a` (round 3 + dated counts),
 `577cae3ca` / `3484c978b` (docs). Landmine + WRONG_CALLS rows were swept into other sessions'
 commits (`e7bf70cc9`, `62291fa66`, `ce3ca376d`) — content is in HEAD, `git blame` misattributes.
 
-## 3. THE NEXT ACTION — the 0→N proof, and nothing is proven until it moves
+## 3. ✅ THE 0→N PROOF IS DONE — Phase A is proven at the artefact
 
-**BASELINE RECORDED 2026-08-22 after the roll: `0` stamped rows of `1866` rows with
-`content_data`.**
+**Verified 2026-08-23** (baseline was `0` of 1866 immediately after the 08-22 roll):
 
-```sql
-SELECT count(*) FILTER (WHERE content_data ? '__cta_minted') AS stamped,
-       count(*) FILTER (WHERE content_data IS NOT NULL)      AS with_content_data
-FROM page_components;
-```
+| check | result |
+|---|---|
+| rows carrying `__cta_minted` | **11** (hero 6, call-to-action 5) — the number MOVED |
+| record entries vs the field's actual url | **21 of 21 match, 0 mismatched** |
+| non-CTA components stamped (negative control) | **0** |
+| rows with a `secondary_cta_url` that record it | **11 of 11** — the shallow-merge sibling defect confirmed fixed on LIVE data, not just in tests |
+| Phase A present in the 2026-08-23 11:51Z build | PRESENT, with positive + negative controls in the same exec |
 
-To move it you must induce **BOTH** writers — they are independent and one proves nothing about
-the other:
+One row records only its secondary slot (`learning-center`, primary → `/tools/matchmatrix/`).
+That is **KEEP #2 behaving as designed**: an ordinary valid non-utility destination is kept by
+leaving the field untouched and is deliberately NOT stamped, because such a value may be authored
+and stamping it would assert provenance we do not have. Residual worth knowing, unchanged by
+Phase A and not what 308 is about: an ordinary destination the resolver DID mint loses its record
+if it later flows through KEEP #2.
 
-1. a **full page build** (exercises `setCTAField`), and
-2. a **`cta_links_stale` rerender** (exercises `applyCTARecompute`).
-
-Then the negative control: non-CTA components must stay stamp-free.
-
-⚠ **The detector has not run since 2026-08-19.** The 200-finding census returns ~200 whether
-anything works or not, so it is NOT a measure of this fix. Any verification must induce a
-discovery run and then read a **served page**.
+**What this does NOT mean.** Phase A does not fix `bugs_open/308`. It makes the fix safe. The 200
+findings remain unrepairable until Phase B, so **308 stays OPEN.**
 
 ## 4. ⚠ BLOCKED — the estate's LLM budget is exhausted until 2026-09-01 00:00 UTC
 
