@@ -439,3 +439,81 @@ fails**, including the council gate, the diagnosis loop and every content build.
 on record for this correlation remains round 1's REVISE; `Council-Submitted:` is therefore the
 correct trailer on both commits and `098` will credit them automatically if a later round
 approves.
+
+---
+
+## 2026-08-23 — ROLLED. The mechanism is live and demand-proven; the page is NOT repaired, and the binding constraint has MOVED to a different, older rule.
+
+**Deploy proven at the artefact, with a control that could have failed.** agent-chassis build
+provenance `2dbe12f1d` (11:51Z); `git merge-base --is-ancestor e1951c24b 2dbe12f1d` → **yes**.
+Control: current HEAD is **not** an ancestor, and 10 commits have landed since the build was
+cut, so the test discriminates rather than matching everything. ⚠ **My first control was
+worthless and I nearly published it** — I picked a commit from the evening *before* the build,
+which is trivially an ancestor. A control has to be a commit that must be ABSENT.
+
+**Both arms fired on the first post-roll generation** (work item `b0ba3e3a`, orchestration
+`47a41199`, 12:12Z), which is the demand bar this fix needed:
+
+| | before the roll | first run after |
+|---|---|---|
+| `existing_component.field_names` | `''` (empty) | **697 chars** |
+| `existing_component.aspect_paths` | key absent | **10,292 chars** |
+
+⚠ **A figure I predicted and got wrong, corrected rather than restated:** I sized the
+`aspect_paths` block at **~5.1 KB** from `length(aspect)+length(key)+3`. It renders at
+**10,292 chars** — the arithmetic ignored the indent and the `(N sites)` suffix, i.e. roughly
+double. It is still comfortably inside the input budget, but the estimate was wrong and the
+council was given it.
+
+### The class this bug targeted is GONE. A different one is now binding.
+
+Same item, same section, same site:
+
+- **2026-08-22 (pre-fix):** refused for `site_specs.ctas.primary_url` / `.secondary_url` —
+  an invented aspect. **This class did not recur.** The writer, now shown the vocabulary,
+  declared only resolvable sources.
+- **2026-08-23 (post-fix):** refused by a **different, pre-existing rule** — template/schema
+  sync. **43 schema fields, 42 template variables, one orphan: `score_label_high`** declared
+  in the schema and never placed as a `{{placeholder}}`.
+
+**One field short of forty-three.** That is a materially different position from an invented
+source or eighteen stranded names, but **the page is still not repaired and this file must not
+be closed on it.**
+
+**Is my own Arm A causing it?** Honest answer: **not established, and the evidence leans
+against it.** `component_validation_orphan_schema_field` is **58 rows across 24 items since
+2026-08-03** — three weeks older than this change and independent of it. What I cannot yet
+rule out is that advising a 43-name contract makes an orphan *more likely* than the smaller
+schema a blind writer would have invented. **That is a real open question and whoever takes
+this next should measure it**, not assume either way: the test is the orphan rate on
+advised-contract generations versus blind ones, post-roll.
+
+**The interaction to watch, because it is the whole point of the two lanes together:** the
+refusal was captured by `bugs_open/345`'s typed channel —
+`retry_feedback.code = 'component_validation_orphan_schema_field'` — so the retry is told
+exactly which field is orphaned. If that converges, it is the first end-to-end demonstration of
+prevention (337) plus correction (345) working as one loop. **At the time of writing the item
+is sitting `triaged` awaiting re-dispatch and has generated ONCE; the convergence is UNPROVEN
+and must not be claimed.**
+
+### The parked-item backlog is largely STALE — do not re-drive it blindly
+
+The owner authorised re-driving all 11. **Re-checked before spending, and the world moved
+overnight:** there are now **9**, not 11, and most of their damage is already repaired by other
+lanes' work. Measured at the served artefact [2026-08-23]:
+
+| site / page | served state | verdict |
+|---|---|---|
+| loanzy `tool-settlement-calculator`, `tool-overpayment-calculator` (+5 more) | 5 `<input>`, 2–3 `<button>` | **repaired** — positive controls |
+| remortgagecalculator.uk `index` | 6 sections, 6 `<input>` | **repaired** |
+| loanzy `tool-credit-health-check` | 3 sections, 0 `<input>`, 1 `<button>`, 850 script bytes | **still broken** |
+| loanzy `tool-is-a-loan-right-for-me` | 3 sections, 0 `<input>` | **still broken** |
+| loanzy `tool-eligibility-checker` | 4 sections, 0 `<input>` | **still broken** (and it is `active`/`planned` now, NOT archived as this file's §Evidence says) |
+
+All three broken pages carry only chrome-shaped sections (`hero-tool`,
+`generic-text-block`, `faq`, `call-to-action`) and **no tool section at all**. And every one of
+the 8 distinct parked section types now HAS an active section-level component — so a re-drive
+of those items would be a **regeneration**, not a creation, on components other pages depend
+on. **Re-driving all 9 would spend nine generations to repair three pages and risk stranding
+fields on six working components.** One was re-driven; the rest are held pending the owner's
+call now the picture has changed.
