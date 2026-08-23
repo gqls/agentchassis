@@ -116,19 +116,22 @@ func ScopeToolBirthTemplate(html, function string, armed bool, logger *zap.Logge
 		info["instance_scope"] = "mechanically converted at birth"
 		return converted, bound, info, nil
 
-	case strings.Contains(rep.RefusedReason, "declares no literal element ids") &&
-		!strings.Contains(rep.RefusedReason, "ComponentID"):
+	case rep.NoLiteralElementIDs && !rep.ComponentIDUnswappable:
 		// Nothing to scope and nothing to collide on — inert-safe both modes.
 		//
-		// ⚠ This arm greps a REASON STRING, which makes that string part of the
-		// converter's contract with this file (LANDMINES 2026-08-23). It is
-		// deliberately narrowed: a template that declares no literal ids but
-		// carries {{.ComponentID}} somewhere pass 0 cannot rewrite reaches the
-		// same early return with a reason that names the placeholder, and it is
-		// NOT inert — the placeholder renders the same value on every instance,
-		// which is the collision this seam exists to remove. That one belongs
-		// in the default arm below (refused when armed), so the ComponentID
-		// clause here is load-bearing, not defensive.
+		// ⚠ TWO CONDITIONS, and the second is load-bearing: a template that
+		// declares no literal ids but carries {{.ComponentID}} somewhere pass 0
+		// cannot rewrite reaches the same early return in the converter, and it
+		// is NOT inert — that placeholder renders the same value on every
+		// instance, which is the collision this seam exists to remove. It
+		// belongs in the default arm below (refused when armed).
+		//
+		// Both are TYPED FIELDS rather than a substring of RefusedReason, which
+		// is what this arm used to key on. That text is prose: it gets reworded,
+		// and a future refusal whose wording happens to contain the old phrase
+		// would silently inherit this pass-through — the failure mode that put
+		// the ComponentID case here in the first place (council cd6a5ef6 r2,
+		// bug_historian; LANDMINES 2026-08-23). Route on facts, not sentences.
 		info["instance_scope"] = "no literal ids — nothing to scope"
 		return html, html, info, nil
 

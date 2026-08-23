@@ -15474,12 +15474,27 @@ code change owed at the next roll, tracked in RFC_015 §5.
   grep -rn "RefusedReason" --include="*.go" . | grep -v "_test.go"
   # a `zap.String("reason", …)` or a wrapped error message is a LOG — harmless.
   # a `strings.Contains(rep.RefusedReason, …)` in a switch/if is a ROUTER — that
-  # arm's behaviour now applies to your new string. As of 2026-08-23 there is
-  # exactly ONE router (tool_birth_instance_scope.go) and three log sites
-  # (fix_component_template_action.go:1261,1268,1602).
+  # arm's behaviour now applies to your new string.
   ```
+  > **CORRECTED 2026-08-23, hours after this entry was written — and the fix is the
+  > entry's own advice.** This first said "as of 2026-08-23 there is exactly ONE
+  > router (`tool_birth_instance_scope.go`) and three log sites". The census was
+  > right; leaving it there was not. The council's `bug_historian` seat (round 2 on
+  > `cd6a5ef6`, medium) pointed out that the guard I had just written *re-introduced*
+  > the very failure mode this entry describes — a string-keyed cross-file contract —
+  > in the act of fixing it, and that a typed field was available at zero cost because
+  > the same change had already proved the struct additive-safe. **So there is now
+  > ZERO text routing on this seam**: `InstanceConversionReport` carries
+  > `NoLiteralElementIDs` and `ComponentIDUnswappable`, the guard reads those, and
+  > `RefusedReason` is prose again. A bool cannot be reworded, and renaming one breaks
+  > the build instead of a live page.
+  >
+  > The trap above is still exactly right as a *pattern* — it is why the fields exist,
+  > and the grep is still the check before you trust any reason string anywhere else.
+  > What changed is only this seam's answer to it.
   Then prove the routing at the CALL SITE, not the converter: `ScopeToolBirthTemplate(<your fixture>, "my-tool", true, zap.NewNop())` must return a non-nil refusal with empty `tpl`/`rendered`. **A test on `ConvertTemplateToInstanceScope` alone cannot see this** — the converter refuses correctly in both worlds; only the guard's disposition differs.
-- **the generalisable half:** a string that crosses a module boundary and is matched by substring is an **undeclared enum**. It has no compiler, no exhaustiveness check, and no grep-visible list of its members, so it drifts silently in the one direction that matters — a new member defaulting into an existing arm. If you must route on one, route on a field (`rep.AlreadyConverted` is the same file's honest example) and let the string stay prose. Where that is not worth it, the two guards must be kept **in series** and both tested: reverting either the reason split or the arm clause independently re-opens the path, which is measured, not asserted.
+- **the generalisable half:** a string that crosses a module boundary and is matched by substring is an **undeclared enum**. It has no compiler, no exhaustiveness check, and no grep-visible list of its members, so it drifts silently in the one direction that matters — a new member defaulting into an existing arm. **Route on a field and let the string stay prose** (`rep.AlreadyConverted` was already this file's honest example, and `NoLiteralElementIDs`/`ComponentIDUnswappable` now join it). The two facts must still be kept **in series** — "no literal ids" AND "a placeholder pass 0 cannot swap" — and both tested: dropping either the guard's clause or the converter's assignment independently re-opens the path, which is measured, not asserted.
+- **and the honest bit about how this entry got written:** the first version of this fix *did* route on the string, with the fragility "pinned under test" rather than removed. A reviewer had to point out that the entry's own generalisable half was the answer. **Writing the trap down is not the same as applying it to the code you are writing at the time** — that gap is the reusable lesson here.
 - **relations:** `bugs_closed/283` (the closed defect class) · `architecture_review/RFC_032` §8 (the owner ruling this arrived under) · council `cd6a5ef6-d530-42c2-81fe-238552eb690d` rounds 1–2 · MEMORY [[a-guarantee-conditional-on-a-classifier-inherits-its-gaps]], [[two-defects-can-wear-one-symptom]]
 - **source:** 2026-08-23, `bugs_open/283` lane, answering a council objection that was filed as a hypothetical. The census turned it into a fact in one grep.
 - **added:** 2026-08-23, bugs_open/283 lane

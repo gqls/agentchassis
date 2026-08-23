@@ -96,6 +96,23 @@ type InstanceConversionReport struct {
 	HashRefs         int // CSS selectors, querySelector('#…'), href="#…"
 	RefusedReason    string
 	AlreadyConverted bool
+	// The two facts a CALLER routes on. They exist because routing on
+	// RefusedReason's TEXT is a cross-file contract with no compiler behind it:
+	// ScopeToolBirthTemplate used to select its inert-safe pass-through with
+	// strings.Contains(RefusedReason, "declares no literal element ids"), so a
+	// new refusal whose prose happened to contain that phrase silently
+	// inherited a pass-through nobody chose — which is exactly what pass 0's
+	// first cut did (council cd6a5ef6 round 2, bug_historian, medium: the same
+	// string-keyed-routing shape as several documented fleet-wide silent
+	// failures, 016b §9). A bool cannot be reworded.
+	//
+	// NoLiteralElementIDs: the harvest found no literal id to namespace.
+	// ComponentIDUnswappable: a {{.ComponentID}} reference survived pass 0
+	// because it is not an id attribute's whole value, so it would render the
+	// SAME value on every instance. Both can be true at once, and that
+	// combination is the one that must NOT be treated as inert.
+	NoLiteralElementIDs    bool
+	ComponentIDUnswappable bool
 	// Binding passes (2026-08-19, component_instance_bindings.go): literals
 	// and concatenation sites that carry an id to a lookup without containing
 	// the lookup — the class the original passes could not see.
@@ -196,7 +213,9 @@ func ConvertTemplateToInstanceScope(tpl string) (string, InstanceConversionRepor
 		// Naming the placeholder here is what routes (b) to the birth guard's
 		// default arm — refused when armed, recorded when not — instead of the
 		// inert-safe one.
+		rep.NoLiteralElementIDs = true
 		if loc := reComponentIDAnywhere.FindString(swapped); loc != "" {
+			rep.ComponentIDUnswappable = true
 			rep.RefusedReason = fmt.Sprintf(
 				"template declares no literal element ids, but carries a %s reference outside an id attribute's whole value — it cannot be swapped mechanically and renders the SAME value on every instance; convert this component through the judged pool", loc)
 			return tpl, rep, false
@@ -353,6 +372,7 @@ func ConvertTemplateToInstanceScope(tpl string) (string, InstanceConversionRepor
 	// DetectInstanceCollisions, and it belongs in RFC_032's track rather than
 	// riding in on a converter change.
 	if loc := reComponentIDAnywhere.FindString(out); loc != "" {
+		rep.ComponentIDUnswappable = true
 		rep.RefusedReason = fmt.Sprintf(
 			"%s reference survived pass 0 — it is not an id attribute's whole value, so it cannot be swapped mechanically and would render EMPTY on every instance; convert this component through the judged pool", loc)
 		return tpl, rep, false

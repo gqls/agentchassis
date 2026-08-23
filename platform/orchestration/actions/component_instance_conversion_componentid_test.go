@@ -272,8 +272,18 @@ func TestConvertTemplateToInstanceScope_NoLiteralIDsButComponentIDElsewhere(t *t
 			if ok {
 				t.Fatalf("%s: converted a template pass 0 cannot fix", name)
 			}
+			// The TYPED signals are the contract the birth guard routes on
+			// (council r2, bug_historian: a bool cannot be reworded). Both must
+			// be set here — no literal ids AND a placeholder pass 0 cannot swap
+			// — and it is that COMBINATION that must not read as inert.
+			if !rep.NoLiteralElementIDs {
+				t.Errorf("NoLiteralElementIDs not set; the guard cannot classify this refusal")
+			}
+			if !rep.ComponentIDUnswappable {
+				t.Errorf("ComponentIDUnswappable not set — the birth guard's inert-safe arm would swallow this template")
+			}
 			if !strings.Contains(rep.RefusedReason, "ComponentID") {
-				t.Fatalf("the reason must name the placeholder or the birth guard's inert-safe arm swallows it: %q", rep.RefusedReason)
+				t.Errorf("the reason should still NAME the placeholder for a human reading it: %q", rep.RefusedReason)
 			}
 		})
 	}
@@ -283,6 +293,10 @@ func TestConvertTemplateToInstanceScope_NoLiteralIDsButComponentIDElsewhere(t *t
 	_, rep, ok := ConvertTemplateToInstanceScope(`<div class="prose"><p>No ids here.</p></div>`)
 	if ok {
 		t.Fatal("control: an id-less template cannot convert")
+	}
+	if !rep.NoLiteralElementIDs || rep.ComponentIDUnswappable {
+		t.Fatalf("control failed: a genuinely id-less template must be NoLiteralElementIDs without ComponentIDUnswappable (got %v/%v) — otherwise the split classified both cases the same way",
+			rep.NoLiteralElementIDs, rep.ComponentIDUnswappable)
 	}
 	if !strings.Contains(rep.RefusedReason, "declares no literal element ids") || strings.Contains(rep.RefusedReason, "ComponentID") {
 		t.Fatalf("control failed: an id-less template must keep the plain reason, got %q", rep.RefusedReason)
