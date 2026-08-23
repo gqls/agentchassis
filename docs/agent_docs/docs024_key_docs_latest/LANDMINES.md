@@ -15632,7 +15632,8 @@ code change owed at the next roll, tracked in RFC_015 §5.
   UPDATE pages SET build_status='deployed', updated_at=now() WHERE id='<page>';
   -- ...THEN apply the edit, THEN re-render.
   ```
-  **Order is the whole control.** Edit-then-settle leaves a window; settle-then-edit closes it. And re-check the field after any `page-rebuild`, which sets it back.
+  **Order is the whole control.** Edit-then-settle leaves a window; settle-then-edit closes it.
+  **⚠ AND CLEARING IT ONCE IS NOT ENOUGH — `page-rerender` SETS IT BACK.** `[MEASURED 2026-08-23]` the flag was set to `deployed`, the images applied, `page-rerender` fired, the deploy verified at the served page — and the field read `needs_rebuild` again immediately afterwards, because the render itself re-queues the page. So the sequence is **settle → edit → render → SETTLE AGAIN**, and the last step is the one everybody will skip because the page looks finished by then. Re-read the field as the final action, after the deploy, not before it.
 - **the honest limit:** clearing the flag stops the sweep from *regenerating* the page, which is what you want while a hand-edit is standing — but it also means a genuinely-needed rebuild will not happen until someone sets it again. If the page still needs a real rebuild, the edit you are protecting is a workaround and should be recorded as one.
 - **relations:** the render-cache entry above (`content_data` clean while `rendered_html` serves the old bytes) and the deploy-lag entry (`COMPLETED` is the commit, not the deploy) are the other two ways a page-edit verification lies. **All three fired on the same page on the same day.**
 - **source:** 2026-08-23, `apis_uk_bees_homepage` lane — found only because the owner sent a screenshot showing headings the lane had never written, four minutes after a full green verification
