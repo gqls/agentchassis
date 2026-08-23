@@ -48,12 +48,42 @@ The related objections on `99b5af22` also still stand and are unaffected:
 - the `$http_cf_connecting_ip` rate-limit trust boundary must be **verified, not argued**;
 - the `/d/` deferral still owes a `doc_notes` row.
 
-## The architecture seat's accumulation warning is now LIVE
+## The architecture seat's accumulation warning
 
 `architecture` approved with a low-severity note: *"a second and third publicly-proxied prefix
-should trigger a boundary review."* `admin.apis.uk` is the **second** publicly-proxied surface
-on this box, after `webdesign.uk`. **The third triggers the review** — that is not a formality,
-it is the condition the seat set, and it is now one step away.
+should trigger a boundary review."*
+
+> **CORRECTED 2026-08-23, from the box's own `cloudflared` config.** This section first said
+> `admin.apis.uk` was *"the **second** publicly-proxied surface on this box, after
+> `webdesign.uk`"*. **Both halves were wrong**, and I had not looked at the tunnel config when I
+> wrote it. The box serves **seven hostnames across three backend ports**: `webdesign.uk`,
+> `www.webdesign.uk`, `preview.webdesign.uk` (→ :8080), `noted.co.uk`, `www.noted.co.uk`,
+> `app.noted.co.uk` (→ :8082) and now `admin.apis.uk` (→ :8083). I did not know `noted.co.uk`
+> was on this box at all.
+
+**Counted correctly — by what the seat actually meant, a publicly-reachable route INTO THE
+CLUSTER — `admin.apis.uk` is the FIRST, not the second.** `[MEASURED 2026-08-23]` the other two
+cluster-proxying blocks are written but not reachable: `webdesign.uk/c/` and
+`webdesign.uk/stripe/webhook` both sit behind a Cloudflare **page rule** that 302s
+`webdesign.uk/*` to `webdesign.co.uk`, and `preview.webdesign.uk/c/x` returns 404 because that
+nginx block's `server_name` is the apex, not `preview`. Control: `preview.webdesign.uk/` → 200,
+so those are refusals, not failed fetches.
+
+**So the boundary review is further away than I implied, and the count that matters is
+cluster-reaching surfaces (now 1), not hostnames (now 7).**
+
+## ⚠ AND THE THING THAT FALLS OUT OF THAT, WHICH IS A REAL HAZARD
+
+**The only thing keeping `/c/` and `/stripe/webhook` off the internet is a Cloudflare page
+rule** — a redirect that exists for *parking*, not for security. Nobody chose it as a control.
+
+The moment `webdesign.uk` is pointed at its own shopfront — which is the whole point of that
+lane, and is coming — that redirect goes, and **both routes become internet-reachable with no
+code change, no deploy, and nothing to notice.** `/c/` is a GET that mutates state, and the
+prefetch hazard on it is still unmitigated (`DECISION_2026-08-21b` §4).
+
+**Whoever removes that page rule owns this.** Before it goes: mitigate the prefetch hazard, or
+move `/c/` to a hostname that is not the shopfront, or gate it. Recorded in `LANDMINES.md`.
 
 ## Sources
 
