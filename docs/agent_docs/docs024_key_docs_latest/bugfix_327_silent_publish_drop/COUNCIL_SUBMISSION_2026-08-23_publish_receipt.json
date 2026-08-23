@@ -1,0 +1,35 @@
+{
+  "rationale": "bugs_open/327: the customer-facing build trigger can publish nothing and exit 0. kubectl run -i attaches stdin asynchronously, so kcat -P can see EOF, publish zero messages and exit 0 while --rm deletes the evidence. The remedy has been documented in LANDMINES.md since 2026-08-16 and is not landing: measured 2026-08-23, 218 scripts publish via kcat -P, 201 use the racing form, 25 print a PUBLISH_OK receipt and only 2 assert on it. A receipt nobody asserts on is a log line, not a control, so this ships the remedy as a callable library rather than more guidance to copy. It also separates two failures whose correct responses are opposite and which currently look identical: never-published (retry at once) and published-but-not-consumed (wait, because that is also latency's signature). Submitted knowing the load-bearing files are under scripts/ and therefore out of council scope; this run is to confirm that admission boundary rather than to claim review the gate cannot give.",
+  "plan": {
+    "summary": "Ship a sourced, receipt-asserting Kafka publisher and migrate the filed customer path to it; add an advisory pre-commit detector so the class stops growing.",
+    "edits": [
+      {
+        "file": "scripts/kafka-publish-lib.sh",
+        "operation": "add",
+        "rationale": "Single-sourced publisher following the scripts/council-scope.sh precedent (SOURCED, NEVER EXECUTED, mode 664). Puts the payload in the container COMMAND so the stdin race is structurally impossible, refuses a multi-line payload because kcat -P publishes one message per line, and ASSERTS the PUBLISH_OK receipt. Exit codes start at 10 because callers already own 1 and 2 per 097's documented contract.",
+        "sketch": "kafka_publish_checked() { ... kubectl -n kafka run \"$pod\" --rm --restart=Never --image=edenhill/kcat:1.7.1 --attach=true --quiet --command -- sh -c \"echo '$b64' | base64 -d | kcat -P -b $broker -t $topic $hdr_args && echo PUBLISH_OK\"; code=$(_kafka_classify \"$status\" \"$out\"); return $code; }\nkafka_verify_landing() { poll orchestration_states; if none, ask agent_error_log -> 12 CONSUMED AND REFUSED; else 13 PUBLISHED, NOT LANDED; }"
+      },
+      {
+        "file": "scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh",
+        "operation": "modify",
+        "rationale": "The filed case. Replaces the racing publish, moves the SAVE: CORRELATION_ID line to AFTER a confirmed receipt (it previously printed three lines above the publish, telling the operator to record ids for a message not yet attempted), exits non-zero when nothing was sent, and runs the landing check.",
+        "sketch": ". \"$REPO_ROOT/scripts/kafka-publish-lib.sh\"\nkafka_publish_checked --topic system.agent.generic.requests --correlation \"$CORRELATION_ID\" --payload \"...\" --header ... || PUBLISH_RC=$?\nif [ \"$PUBLISH_RC\" -ne 0 ]; then echo \"SUBMISSION DID NOT GO OUT\" >&2; exit \"$PUBLISH_RC\"; fi\necho \"SAVE: CORRELATION_ID=${CORRELATION_ID} ...\"\nkafka_verify_landing \"$CORRELATION_ID\" 60 || LANDING_RC=$?"
+      },
+      {
+        "file": "scripts/pattern-check.py",
+        "operation": "modify",
+        "rationale": "Advisory pre-commit detector so new racing publishers cannot be added silently. Measured before wiring in as this file's header requires: 5 findings over 300 commits (1.7%), 5/5 true positives. Follows check_stdin_eater's rule that '--' must never be treated as a comment start, since it is kubectl's argument separator and stripping it would silence the check.",
+        "sketch": "KCAT_RUN_I = re.compile(r\"\\bkubectl\\b[^|]*\\brun\\b[^|]*(?:\\s-\\w*i\\b|\\s--stdin\\b)\")\nKCAT_PRODUCE = re.compile(r\"\\bkcat\\b[^|]*\\s-P\\b\")\ndef check_kcat_stdin_race(files, ref, findings):\n    added = only '+' lines from changed_hunk_text(path, ref)\n    body = SH_COMMENT.sub(\"\", ...)   # '#' only; '--' MUST survive\n    if KCAT_RUN_I.search(body) and KCAT_PRODUCE.search(body) and '--command' not in body:\n        findings.append((\"kcat-stdin-race\", path, ...))\nCHECKS = (..., check_kcat_stdin_race, ...)"
+      }
+    ],
+    "grounded_in": [
+      "LANDMINES.md: 'kubectl run -i wires stdin asynchronously to a container that is already starting. If the container reaches kcat before stdin is attached, kcat sees EOF, publishes zero messages and exits 0. Measured 2026-07-26: four of five publishes lost.'",
+      "Census measured 2026-08-23 in this repo: 218 scripts publish via kcat -P; 201 use the racing kubectl run -i + stdin form; 25 print a PUBLISH_OK receipt; only 2 assert on it (grep/if -> non-zero exit).",
+      "Induced 2026-08-23, both arms side-effect free: unreachable broker -> exit 1 loudly on the UNFIXED script; empty stdin against a healthy broker -> zero messages, exit 0, no output. The bug file's own verification recipe therefore passes without any fix.",
+      "Retention measured 2026-08-23: orchestration_states holds ~2 days (zero rows for 2026-08-18); agent_error_log holds ~30 days (46,141 rows from 2026-07-24). A dropped submission is forensically unrecoverable after ~48h, so the evidence must be created at publish time.",
+      "The validation-refusal rival was excluded with a positive control: no agent_error_log row names correlation 8fa2a4a6, and that table recorded 3,761 rows on 2026-08-18 including a real VALIDATION_ERROR_DROPPED, so the recorder was live and its silence is evidence.",
+      "Detector precision measured before wiring in: 5 findings across 300 commits (1.7%), 5/5 true positives, each a newly added racing publisher. Commit bc61d1bfd adds a comment warning about the one-message-per-line trap on the very line that walks into the stdin race."
+    ],
+    "risks": "The receipt is scraped from pod output via kubectl attach, which is weaker than a broker ack; platform/kafka/producer.go is already RequiredAcks: RequireAll, Async: false, so an in-cluster Go submit path would make a silent drop unrepresentable rather than merely detected - that is filed as proposed-and-unbuilt (OPP-009 verify-later) because it needs an image build and a fleet roll while this needs neither. The library deliberately does not retry: on an indeterminate receipt an automatic retry is a double-publish engine. Exit 11 is verified at the classifier only, not end-to-end, because with the payload in the container command an exit-0-without-receipt cannot be induced from outside the library. The stdin race did not reproduce on 2026-08-23 (0 drops in 10, excluding the historical 4-in-5 at p~1e-7 but bounding today's rate only below ~26%), so the fix is not demonstrated to beat the race under load - it is structurally immune to it. In the same run the old form published a duplicate (11 delivered for 10 sends), one observation and not a rate. Adoption is one caller; 178 runnable racing publishers remain and are deliberately not swept, because mass-editing one-shot lane scripts risks re-publishing live triggers."
+  }
+}

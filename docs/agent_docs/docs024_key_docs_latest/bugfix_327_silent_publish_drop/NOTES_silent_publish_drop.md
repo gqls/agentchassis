@@ -475,3 +475,43 @@ what it also does when nothing was sent.
 ahead of `097` — because it is a *shipped* tool whose whole purpose is verification, and its
 failure is invisible by construction. **Not migrated in this lane**, which was scoped to the
 filed case; recorded here so the next session does not have to rediscover it.
+
+---
+
+## 2026-08-23 — the council was asked, and REFUSED on scope (exit 2)
+
+Submission written in full and put through the gate's admission test, which is free:
+
+```
+$ DRY_RUN=1 ./…/097_TRIGGER_council_review_v1.sh COUNCIL_SUBMISSION_2026-08-23_publish_receipt.json
+REFUSED: no edit touches the review scope.
+  In scope: platform/, internal/, pkg/ … cmd/config-key-audit/ … sql_for_agents/NNN_name.sql
+>>> exit: 2
+```
+
+It cleared every schema check — rationale, ≤8 edits with file/operation/rationale/sketch,
+`grounded_in` strings, `risks` as prose, no comment-only sketch, single repo-relative paths —
+and was refused **only** because all three edits live under `scripts/`.
+
+**This is a real answer, not a failure, and it is recorded rather than forced.** `FORCE=1`
+would override it; I have not used it, because the scope boundary is an owner ruling and
+spending fleet credits against it is the owner's call, not a session's. The submission file is
+kept here so a forced round costs nothing to start.
+
+**So: the load-bearing artefact of this fix ships UNREVIEWED.** Compensations actually
+delivered: the library's offline self-test (11/11), every runtime arm proven against live data,
+the detector measured for precision before wiring in, and both directions controlled.
+
+### > A scope observation worth the owner's attention
+
+**`scripts/pattern-check.py` is detector logic the gate cannot see — the same shape as the gap
+the owner closed TODAY.** The 2026-08-23 widening admitted `cmd/config-key-audit/` on the
+stated reasoning that *"the detector logic for the daily check fleet has accumulated in one
+binary the gate cannot see"*. `pattern-check.py` now carries **22 advisory checks** that run on
+**every commit in every session** via `.githooks/pre-commit` — a larger and more frequently
+executed detector surface than the nightly CronJob fleet — and it is entirely out of scope. A
+false positive there is, in the pre-commit hook's own words, *"a fleet-wide commit outage"*.
+
+Not proposed as a change from this lane: widening council scope is an architecture-scope
+decision and the owner has just made a deliberate, measured, targeted one. Recorded because
+the parallel is exact and nobody appears to have noticed it while making that ruling.
