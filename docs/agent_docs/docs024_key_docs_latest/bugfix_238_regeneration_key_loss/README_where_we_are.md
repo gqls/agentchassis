@@ -285,3 +285,28 @@ archive change waits for their verdict before it's switched on.
 The parallel session you spoke to about "option c" filed the companion piece: a register of ALL
 sixteen warning types that nothing reads — ours were just the two we tripped over. That's
 bugs_open/358, and it's the to-do list for applying today's pattern more widely, one type at a time.
+
+---
+
+**2026-08-23 — closed, and the system told us so itself.**
+
+This morning's evidence arrived without anyone asking for it, which is the best kind. The daily
+check ran on its own schedule and wrote its note. Overnight, the imagery work supplied the missing
+pictures on the ai-agent-orchestration homepage — and the check noticed: its tally dropped from 32
+missing values to 27, and the warnings for that page now name only the links that are still owed,
+not the images that arrived. Nobody told it; it saw. And at 07:18 someone's ordinary section edit
+became the first write in the system's history to be recorded with its author's name instead of a
+network address.
+
+So everything you commissioned is not just built but observed working: the detector, its reader,
+the archive that now sees every kind of change, and the signatures. The bug file has moved to the
+closed shelf.
+
+One honest footnote: the second half of the advisory review can't report until the 1st of
+September, because the fleet has used up its AI budget for the month — the reviewers are AI calls
+and the meter is at its cap until then. The review can't block anything and the paperwork resolves
+itself when it lands; if it comes back with a real objection, we fix it forward like anything else.
+
+What the daily note will keep showing you, for whoever picks each up: five link values still owed
+on the ai-agent-orchestration homepage, a leopardess page from the same family, and the new
+sightings on dartsonline's two shop pages — each named every morning until someone owns them.
