@@ -411,3 +411,86 @@ runs per page via `loadValidPagePaths`. Recorded as a named follow-up (a per-run
 here — a cache keyed to a build run is a lifetime question this edit does not otherwise raise.
 
 Round 3 submitted under the same correlation.
+
+## 2026-08-23 — council round 3: the seat found that my headline census was FALSE
+
+`prior_art_librarian`, MEDIUM, and it is the most valuable objection of the four rounds. It said
+`site_work_items` is a **rolling window** — `work-item-archiver` moves terminal rows to
+`site_work_items_archive` — so my "72 rows in the type's whole history, ZERO ever closed" could not
+see any closure that had already happened.
+
+**Checked. It is right.** Across both tables: **99 rows, of which 26 COMPLETED** (2026-08-02 to
+08-14, **18 carrying a `_verification` stamp**). The mechanism I described as never having worked had
+worked twenty-six times, and those 26 are `bugs_open/220`'s verifier doing exactly its job.
+
+**The shape, which is the transferable half: the census's own success condition destroys its
+evidence.** Closing a work item is precisely what makes it eligible for archiving, so "has anything
+ever closed this type?" asked of the live table is *guaranteed* to under-count — and the better a
+type closes, the more invisible its closures become. A perfectly-draining type reads as one that has
+never drained. There is no tell: the query is well-formed, the count is real, and `0` is exactly what
+a true claim would look like.
+
+**And it is not my claim alone.** Four registered revalidators justify themselves with a "CLOSER
+census returned ZERO rows" line in one shared test file. Measured across both tables — archived
+closures each census could not see:
+
+| type | archived closures |
+|---|---|
+| `needs_page` | **739** |
+| `unresolved_cta` | **118** |
+| `required_fields_missing` | **98** |
+| `needs_section_data` | **59** |
+| `unbuilt_internal_link` (mine) | **26** |
+| `claims_unverified` | **12** |
+| `truncated_component` | **1** |
+| `voice_tells` | **1** |
+
+**Three of the four are false the same way.** Four lanes, four sessions, one query shape, one wrong
+answer — which is what turns an incident into a LANDMINE rather than a WRONG_CALLS row alone. Both
+are written, carrying the one-UNION check. Corrected by ONE note at the top of
+`TestRevalidatorCoverageIsDeliberate` covering all four; I have not rewritten each lane's own
+paragraph, because that is their account.
+
+⚠ **The registration decisions all stand — mine included.** A revalidator is still the only drain for
+rows parked at `needs_human_review`, which `CompleteWorkItemAction` refuses to leave. But **my
+justification was wrong in both directions**: this type is born `detected`, not parked, and closes
+normally when the handler SUCCEEDS. It only lands parked on handler FAILURE. So it was never the
+`truncated_component` birth-status trap I likened it to across three rounds.
+
+⚠ **I had the contradicting evidence in hand and explained it away.** `bugs_open/220`'s handoff
+records "10/10 items `complete`"; my census said zero had ever completed. I noticed the discrepancy,
+wrote *"those must have been reaped/deleted since"*, and moved on. **A prior lane's recorded result
+contradicting your fresh measurement is evidence about YOUR measurement.** The archive was sitting
+right there.
+
+## 2026-08-23 — council round 4: APPROVED
+
+`21c19c1f-e614-49bd-82ac-0bb5b58082e0`, **approved with 6 advisory objections, none high-severity**,
+15 reviewers, 2 abstained. Four rounds; every one found something, and the last two found things I
+could not have found by re-reading my own work.
+
+Two of the approving round's advisories were potential real defects and both were checked rather than
+accepted:
+
+**`render_guardian`: "assemble mode re-deploys stored section HTML unchanged, so a plain
+`page_rerender` will not re-surface a suppressed anchor."** Checked at the code:
+`repairOutboundPageLinks` — and therefore suppression — runs **after** assembly on the assembled
+string (`rerender_single_page_action.go:~222`), unconditionally past the skip guard. It is not a
+section re-render, so it applies in assemble mode; and the stored sections still carry the anchor, so
+once a target ships the refused set drops it and the link returns. **Answered, no change.**
+
+**`render_guardian`: "the control arm deletes the whole anchor, so a section whose only visible
+content is that CTA could fall under the assembler's ≤10-visible-char floor and be dropped."** Two
+parts. The floor (`sectionHasVisibleContent`) runs during assembly, **before** suppression, on stored
+HTML — so a control-drop cannot cause a section to be dropped. The *inverse* is the real version: a
+section could pass the floor on the label's text and then lose it. Measured over the whole current
+population — all 8 control anchors sit in components carrying **2,300–4,826 visible characters**,
+against labels of ~20. Under 1% of the section's text, three orders of magnitude above the floor.
+**Theoretical today; recorded rather than dismissed, because a future bare-CTA section would meet it.**
+
+Still open as advisories, none blocking: the N+1 (one policy query per page per build — costed, a
+per-run cache is the named follow-up); the `assemble_page`/`rerender_single_page` optional-key blind
+spot (no `ActionInputSpec`, so migration 575 arms a key nothing audits); the crowded predicate family
+(**RFC_049**'s subject); and `bugs_open/049`, which `bug_historian` notes is titled almost identically
+to this bug's premise and which I cited but never reconciled in detail — worth ten minutes from
+whoever picks this up.
