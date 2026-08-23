@@ -45223,3 +45223,70 @@ a handoff, and a grading that was quoted forward.
 confirms itself, it refetches with `Accept: */*` and files nothing if that matches the fingerprint.
 Also a `LANDMINES.md` entry, because the trap fires on anyone comparing published bytes to served
 bytes, not just on this check.
+
+## 2026-08-23 — `apis_uk_bees_homepage`: I wrote a disclosure requirement nobody asked for into a mission brief, and the framework published our infrastructure on a public page
+
+**What I did.** The owner asked for a bees page on the apis.uk apex "without affecting the DNS for
+the tools-api that runs on that same domain". I measured the DNS constraint carefully and got that
+part right. Then, unprompted, I added a **requirement of my own invention** to the mission brief and
+to `roadmap_brief`:
+
+> *"A single short, plainly worded line somewhere unobtrusive, acknowledging that the domain also
+> hosts an unrelated technical service, is welcome so that a developer who lands here by mistake is
+> not left confused."*
+
+The framework did exactly as instructed. It went live. The owner found it, not me:
+
+> *"This address also carries an unrelated technical service on a different hostname, with no
+> connection to the bees described here."*
+> *"Separately from all of that, apis.uk is also the address of an unrelated technical service, run
+> on a different part of the same domain. This page has nothing to do with it. It is only about the
+> insect."*
+
+**This is not a framework failure and must not be filed as one.** Every layer performed correctly on
+the input it was given. The defect was in the input, and I wrote it.
+
+**Four things went wrong, and only the first is obvious.**
+
+1. **I invented an outward-facing requirement the owner never asked for.** The brief for a public
+   page is not the place to solve a hypothetical I made up (a confused developer who does not exist)
+   — especially not by *publishing the existence of infrastructure*. The owner's ask was "don't
+   break the API", and I turned that into "tell everyone the API is there", which is close to the
+   opposite. **A constraint about protecting something is not a licence to describe it.**
+
+2. **"Somewhere unobtrusive, once" names no location, so the writer satisfied it EVERYWHERE.** It
+   appeared **4** times in the exact phrase, and the strip matched **6** components once the
+   near-phrasings were included — one per section, because a section-by-section writer satisfies a
+   placement-free instruction per section. **An instruction with no specified location is not a
+   light touch; it is an instruction repeated at every opportunity.** If a brief cannot say *which*
+   element carries a thing, the brief cannot ask for it at all.
+
+3. **The instruction PROPAGATED, and fixing where I wrote it would not have fixed it.** By the time
+   I looked, the disclosure had spread from `mission_brief` into **7** current specs — `submission`,
+   `identity` (as a fact about the site), `classification` (as a listed constraint), `strategy` (as
+   a footer element), `content_direction` (the brief the content writer actually reads), and
+   `briefing` — where it had become an **acceptance criterion**, i.e. a validator could have failed
+   the page for *omitting* it. **A sentence in a brief is not a document, it is a seed**, and the
+   cascade's job is to grow it. Scrubbing the origin spec alone would have left six copies and one
+   test demanding it back.
+
+4. **I checked the wrong artefact.** I verified page COUNT (one page — the roadmap constraint held)
+   and that the API still answered. Both true, both irrelevant. **I never read the page.** The one
+   check that would have caught this in ten seconds is the one a person would do first.
+
+**What caught it.** The owner, reading his own website, roughly a day after it shipped.
+
+**The cheap check, and it is a rule about briefs, not a habit.** **Before writing "mention X" into a
+brief for a public page, ask whether the owner would put X on a billboard — and if X is
+infrastructure, the answer is no.** Then, after any content build: **fetch the page and read it.**
+Not the row count, not the status, not the work item — the served bytes, as prose. `curl -sS
+https://<domain>/ | sed 's/<[^>]*>//g'` and actually read the output. A content pipeline's output is
+prose meant for a human, and the only check that covers prose is a human reading it.
+
+**Made mechanical, both directions.** Removing the instruction only stops the writer being *asked*;
+it does not stop the sentence if anything else ever suggests it. So the site's `evidence_base` now
+carries an **OTHER-SERVICE DISCLOSURE** ban class (**5** patterns, catching the phrase, the
+different-host clause, the possessive "this domain also hosts" form and the trailing disclaimer),
+plus an absolute prohibition in `writer_block`. **An instruction deleted from a prompt is a decision
+no future reader can see; a ban is.** Also a `LANDMINES.md` entry, because the trap is not specific
+to this site: it fires for anyone briefing a public page on a domain that also runs something else.

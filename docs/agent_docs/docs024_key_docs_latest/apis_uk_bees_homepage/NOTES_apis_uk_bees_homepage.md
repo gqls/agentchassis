@@ -160,3 +160,152 @@ check FAILS OPEN with no contact email), three specs `is_current` and `pinned`,
 Submitted 12:18Z. `CORRELATION_ID=ba7a9c24-aea3-4fd0-9def-7e1d6f1cf891`.
 Chassis pods were ~3.5 h old, well clear of the ~300s post-restart window in which
 spawns are silently dropped.
+
+## 2026-08-23 — THE MISSTEP: I put an infrastructure disclosure on a public page, and the framework did as it was told
+
+The owner found this live on apis.uk and flagged it as serious. He is right.
+
+**What was live.** Four sentences of this shape, one per content section:
+
+> *"Away from the bees: this domain also hosts an unrelated technical service, on a
+> different address, with no connection to anything on this page."*
+> *"Separately from all of that, apis.uk is also the address of an unrelated technical
+> service, run on a different part of the same domain. This page has nothing to do with
+> it. It is only about the insect."*
+
+**Whose fault.** Mine, entirely, and at the input. The 2026-08-22 mission brief I wrote
+asked for it in as many words — *"A single short, plainly worded line somewhere
+unobtrusive, acknowledging that the domain also hosts an unrelated technical service, is
+welcome so that a developer who lands here by mistake is not left confused"* — and
+`roadmap_brief` repeated it. **Do not file this against the framework.** Every layer did
+exactly what the brief said.
+
+The judgement was wrong in a way worth naming precisely: the owner's constraint was
+*protect the API*, and I converted it into *tell everyone the API is there*. **A
+constraint about protecting something is not a licence to describe it.** And the visitor
+it was meant to serve — a developer arriving at a bees page by mistake — does not exist
+in any number worth a public disclosure.
+
+### Four things, and only the first is obvious
+
+1. **I invented an outward-facing requirement nobody asked for.** Full stop.
+2. **"Somewhere unobtrusive, once" names no location, so the writer satisfied it
+   everywhere.** A section-by-section writer meets a placement-free instruction once per
+   section. An instruction that cannot name which element carries it must not be written.
+3. **It PROPAGATED, and fixing the origin would not have fixed it.** By the time I looked
+   it was in **7** current specs as of 2026-08-23: `mission_brief`, `submission`,
+   `identity` (as a fact about the site), `classification` (as a listed constraint),
+   `strategy` (as a footer element), `content_direction` (the brief the writer actually
+   reads) and `briefing` — where it had become an **acceptance criterion**, so a validator
+   could have failed the page for *omitting* it. **A sentence in a brief is a seed, not a
+   document.**
+4. **I checked the wrong artefact.** I verified the page COUNT and the API's liveness.
+   Both were true and neither was relevant. **I never read the page.**
+
+### The repair, and the two traps inside it
+
+Order mattered: specs first, bytes second, because the specs are what a regeneration
+reads. Strip the sentences first and the next rerender writes them straight back.
+
+- **Trap 1 — `content_data` is not what the renderer used.** I stripped the disclosure
+  from `page_components.content_data`, confirmed **0** components dirty, re-rendered, and
+  the committed file came back **byte-identical** (66,205). The renderer had used
+  `page_components.rendered_html`, the cached render. `content_data` clean / `rendered_html`
+  dirty on all six components. **"A rerender regenerates from `content_data`" is true of
+  the SOURCE and says nothing about which layer the render actually reads.** Fixed both,
+  re-rendered, and the file dropped to 65,250 with 0 hits — verified on the served page,
+  not in the DB.
+- **Trap 2 — a sentence-level scrub leaves ORPHANS that no trigger-word query finds.**
+  My scrubber dropped whole list elements from structured keys but only offending
+  *sentences* from long strings, so `content_direction.formatted` kept a dangling
+  *"State it once, style it quietly, never present it as documentation or as a link to
+  technical resources."* It contains none of the trigger phrases, so every "is it clean?"
+  query I ran said yes. **It was caught only because I reimplemented
+  `FormatContentDirection` and diffed my rebuild against the stored string** — a control
+  I ran for a different reason. Regenerating `formatted` from the structured keys removed it.
+
+### Fail-closed, not merely corrected
+
+Removing the instruction stops the writer being *asked*. It does not stop the sentence
+arriving from anywhere else. So `evidence_base` now carries an **OTHER-SERVICE DISCLOSURE**
+ban class (**5** patterns as of 2026-08-23, catching the phrase, the different-host clause,
+the possessive "this domain also hosts" form and the trailing disclaimer) plus an absolute
+prohibition in `writer_block`. **An instruction deleted from a prompt is a decision no
+future reader can see; a ban is.** Logged in `WRONG_CALLS.md` and `LANDMINES.md`.
+
+## 2026-08-23 — the copy voice, traced to the same origin
+
+The owner also said the copy reads as AI-written, citing *"worth sitting with"* and
+*"not just"* negative framing. It does, and it traces to the same place.
+
+`copy_quality_two_stage`'s `CONTRIB_2026-08-12` established that negatively-framed copy
+originates in `site_specs.identity`, not in the model. That reproduced here exactly.
+**Four of five `identity.unique_selling_points` were built as "X, not Y"** — *"reads like
+a knowledgeable friend, not an institution"*, *"deeply rather than skimming everything"*,
+*"No agenda — nothing to sell, nothing to sign up for, no conservation sermon"*, *"as they
+live, not as things to be kept"*. They are a faithful encoding of my mission brief, which
+was itself largely a list of prohibitions (*"What this page is not, and these are firm"*).
+
+**The sharper cause is `content_direction.example_phrases.characteristic`** — the literal
+exemplars a writer imitates. Four of five violated the house style:
+
+> *"A returning forager does not simply arrive back at the hive — she announces where she
+> has been."* (negative frame + em dash)
+> *"A swarm looks like catastrophe. It is, in fact, reproduction."* (the manufactured twist)
+
+And the live copy mirrors them: *"not just that the information passes between them, but
+the translation involved"*, *"stranger fact than it first sounds"*. **The writer copied
+its examples.** Giving a writer exemplars in the style you do not want is a stronger
+instruction than any rule forbidding it.
+
+**Fixed through the framework's own controls, which already existed and which I had simply
+left un-populated:** `content_direction.voice / sentence_style / writing_rules /
+things_to_avoid / example_phrases`. Exemplars rewritten positive-first with no em dashes;
+the five house de-AI-ify rules from
+`travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT_v3.md` added to
+`writing_rules` (**16** as of 2026-08-23); the specific tells added to `things_to_avoid`
+(**16**) and to `would_never_say`; `identity.unique_selling_points` restated as what the
+page IS.
+
+**`formatted` regenerated by a faithful reimplementation of `FormatContentDirection`,
+validated by reproducing the STORED string before writing a new one** — the diff was one
+line, and that line was the orphan above. Then `page-rebuild` fired for the domain, so the
+framework rewrites the prose from the corrected brief. I am not writing the copy.
+
+**Misstep inside the repair:** the first apply failed because psql read `\n` inside the
+JSON payload as a meta-command (*"invalid command \nAssumed"*). The transaction aborted
+cleanly. Re-applied by base64-encoding the JSON and decoding in SQL
+(`convert_from(decode(...,'base64'),'UTF8')::jsonb`), which has no quoting surface at all.
+
+### The rewrite is STAGED, not done — blocked on the API usage limit (owner already aware)
+
+`page-rebuild` (orch `96d68aba`) FAILED at `call_rebuilder`:
+
+> `AI endpoint unavailable: provider=anthropic model=claude-sonnet-5 ... status 400:`
+> `"You have reached your specified API usage limits. You will regain access on 2026-09-01 at 00:00 UTC."`
+
+Fleet-wide, not this lane's doing — `llm_call_log` by day: 08-21 **1229 calls / 6 failed**,
+08-22 **1179 / 116**, 08-23 **35 / 30**. `ai_endpoint_health` has `claude` unhealthy
+(`last_healthy` 2026-08-23 09:44:13Z) with that same message; `cpu-ollama` is healthy and
+`gpu-ollama` has never been. **Owner already knows — do not re-file this.**
+
+**Everything the rewrite needs is already in place, so it is one command when the limit
+lifts.** The corrected `identity` and `content_direction` are live and pinned, and
+`pages.build_status` is still `needs_rebuild`, which is the precondition the trigger reads:
+
+```bash
+# re-fire; the corrected specs are already current
+scripts/initial_messages/110_page_rebuild/072_page_rebuild   # after editing DOMAIN, or use the
+                                                             # inlined envelope in this lane's history
+```
+
+**Do NOT hand-write the copy in the meantime.** The owner's instruction was explicitly to
+put the copywriting through the framework, and the 2026-08-04 ruling says the same. The
+current live copy is in the wrong voice but it is honest, contains no disclosure and
+asserts no quantities — it is safe to leave standing until the framework can rewrite it.
+
+**Verification owed when it does run** (do not close this without them):
+1. Read the served page as prose, not as a row count — that is the check this lane already
+   got wrong once: `curl -sS https://apis.uk/ | sed 's/<[^>]*>//g'`.
+2. Assert **both** `content_data` and `rendered_html` are clean, per the render-cache landmine.
+3. Re-run the tools-api liveness POST as an independent fact.

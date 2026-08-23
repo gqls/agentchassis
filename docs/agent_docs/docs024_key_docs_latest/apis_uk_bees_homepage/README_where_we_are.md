@@ -110,3 +110,96 @@ was added, so the bees page is not taking anything away that was still working.
 But the wildcard arm is still listening on every other subdomain, and the log has
 never been read. It might be worth reading before we lose interest in it — that is
 a separate small job and I have not done it.
+
+---
+
+**2026-08-23 — I put your infrastructure on a public page. That was my mistake, it is off, and here is what I have changed so it cannot happen again.**
+
+You found four sentences live on apis.uk telling the world that the domain also runs an
+unrelated technical service on another hostname. You called it a serious misstep. It is,
+and it was mine.
+
+It is worth being exact about whose mistake it was, because the answer decides what gets
+fixed. The framework did not invent that sentence. **I asked for it.** The brief I wrote
+on the 22nd said, in as many words, that a short line acknowledging the other service was
+welcome so a developer arriving by mistake would not be confused. The framework did what
+it was told, and it did it four times.
+
+The reasoning behind that instruction was wrong in a way I want to name properly. You
+asked me to protect the API. I turned that into telling everyone the API exists. Those
+are close to opposite things. **A constraint about protecting something is not permission
+to describe it**, and the confused developer I was writing for does not exist in numbers
+that would justify putting infrastructure on a public page.
+
+Three things made it worse than a single bad sentence.
+
+First, I said "somewhere unobtrusive, once". That names no particular place, so the writer
+put one in every section. An instruction that cannot say which part of the page carries it
+is not a light touch. It is an instruction repeated at every opportunity.
+
+Second, it spread. By the time I went looking, that instruction had propagated into seven
+different planning documents the system keeps for this site: it had become a stated fact
+about what the site is, an item on its constraints list, a footer element in the strategy,
+and — worst — an **acceptance criterion**, meaning a check could in principle have failed
+the page for *leaving it out*. Deleting it from where I typed it would have left six
+copies and a test demanding it back.
+
+Third, and this is the one I am least happy about: I checked the wrong things. After the
+build I confirmed the page count was one, and I confirmed the API still answered. Both
+were true. Neither was relevant. **I never read the page.** The check that would have
+caught this in ten seconds is the one any person would have done first.
+
+**Where it stands now.** The sentences are gone from the live site, verified by fetching
+the page rather than by trusting a status. The API still answers correctly — I checked
+that separately, because "the page changed" and "the API still works" are two facts and I
+am treating them as two from now on.
+
+Removing my instruction only stops the system being *asked* for that sentence. So I have
+also made it refused: the site now carries an explicit ban on mentioning anything else
+running on this domain, in any phrasing, plus a flat prohibition in the writing rules. A
+deleted instruction is invisible to whoever reads this next. A ban is not. I have logged
+the whole thing in the two fleet-wide records we keep for exactly this, so it is not just
+buried in this lane's notes.
+
+Two things surprised me while fixing it, both worth telling you because they are the sort
+of thing that bites again.
+
+The first: I removed the sentences from the page's stored content, confirmed it was clean,
+re-rendered — and got back a file identical to the byte. The renderer had not used the
+content I cleaned. It used a *cached* copy of the rendered version sitting in another
+column. So I had cleaned the source and the machine was reading the cache. Fixed both.
+
+The second: my clean-up left an orphan. It removed the sentence naming the service, but
+left the next sentence, which said "state it once, style it quietly, never present it as
+documentation". That fragment contains none of the words I was searching for, so every
+check I ran said the file was clean. I only caught it because I happened to rebuild that
+document from scratch and compared it against the stored one for an unrelated reason. That
+is luck, and I would rather say so than dress it up.
+
+**On the copy sounding like AI wrote it — you are right, and it has the same root.**
+
+You pointed at "worth sitting with" and the "not just" framing. Another lane here has
+already done the work on why our copy comes out negatively framed, and their finding is
+that it comes from the site's own stated identity, not from the model. That reproduced
+here exactly. Four of the five things recorded as this site's distinguishing features were
+written as "X, **not** Y": reads like a friend *not an institution*, covers things deeply
+*rather than* skimming, *no* agenda, *nothing* to sell. Those are a faithful summary of my
+brief, which was mostly a list of things the page must not be.
+
+But the sharper cause is worse and simpler. The system keeps a short list of example
+sentences for the writer to imitate. Four of the five examples were written in exactly the
+style you objected to — "A returning forager does not simply arrive back at the hive — she
+announces where she has been." The writer copied its examples. **Showing a writer examples
+in the style you do not want beats any rule telling it not to.**
+
+The good news is that the framework already has proper controls for all of this — voice,
+sentence style, writing rules, things to avoid, example phrases — and I had simply left
+them at whatever the classifier first guessed. We also already have a house
+"de-AI-ify this copy" prompt, built by reverse-engineering an edit you yourself judged
+more readable. I have now put that to work: the example sentences are rewritten to state
+things plainly and lead with the fact, the house rules are in the writing rules, and the
+specific tells you named are on the banned list.
+
+Then I handed it back to the framework to rewrite the prose. I am not writing the copy
+myself — that is the rule, and it is the right one. That rebuild is running now, and I
+will check the result by reading it.
