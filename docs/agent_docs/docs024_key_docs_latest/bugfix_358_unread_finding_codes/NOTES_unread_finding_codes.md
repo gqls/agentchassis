@@ -463,3 +463,36 @@ revise against. Its rationale opens by stating the migration is **already applie
 seat reviews it as a plan, and cites the owner ruling of 2026-07-29 that review here is after the
 fact by design. If a seat objects the remedy is a follow-up migration; the rollback exists and is
 lossy in one direction.
+
+### 567 — APPROVED, round 1 (`9dc2e6b4-a8fd-476c-8080-ae23567e25c5`), and the one objection worth chasing
+
+11 seats, 6 abstained, **0 unreadable**, one advisory objection set. No high severity, nothing
+gating. Five objections in total, all `low` except one:
+
+**[medium, guardian] "Plan never addresses whether `database-cleanup`'s pre_query is one of the
+objects `platform/livespec` tracks. If it is, this ships with stale livespec silently."**
+**CHECKED — it is not.** `livespec.go` declares exactly two `scheduled_task` objects:
+`claimed-item-timeout` (:171) and `build-pipeline-trigger` (:184). `database-cleanup` is absent, so
+there is nothing to go stale and the objection does not bite. **The seat was right to ask** — it is
+the correct question and I had not asked it. *Second-order, and NOT mine:* `database-cleanup` is a
+guarded live object edited by migrations 466, 566 and 567 and arguably belongs in that list; that
+is the `363`/livespec lane's call, and that session is mid-rename in the package right now.
+
+The four `low` ones, and what I did with each:
+
+1. *"the post-566 md5 `b4deb963…` has no supporting evidence in `grounded_in` — only the pre-566
+   hash is measured. If wrong the migration safely refuses rather than corrupts, but the value is
+   asserted, not shown."* **Correct, and a fair hit.** I took that value from 566's own header
+   rather than measuring it, and never said so. It is unfalsifiable now: 566 is unapplied and its
+   author's session has ended, so the text that hash describes has never existed live. It cost
+   nothing because the guard fails loud — but "asserted, not shown" is exactly right and it is the
+   `[UNMEASURED]` marker rule I would apply to anyone else's number.
+2. *"the arm-3 form check hardcodes two exact substrings from 566 … a third, unanticipated form of
+   arm 3 would REFUSE the whole migration rather than skip that assertion."* True, disclosed, and
+   the trade I chose deliberately: refusing loudly beats applying against a text I cannot recognise.
+3. *"~15k/yr growth plus an unindexed hot predicate (`split_part(error_code…)`) on a shared table is
+   a blast-radius concern for every consumer of `agent_error_log`, not just this lane."* This is my
+   own risk 3 handed back, correctly, as **not committed to a follow-up**. Worth one: the sweep now
+   filters on an unindexed expression hourly.
+4. *"two migrations racing one row across sessions … worth a tracked follow-up to reconcile rather
+   than perpetual either/or guards."* Agreed. The either/or guard is a bridge, not a home.
