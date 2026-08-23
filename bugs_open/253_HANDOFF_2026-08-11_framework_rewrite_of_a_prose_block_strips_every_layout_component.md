@@ -370,3 +370,66 @@ of which is mine to touch. The practical consequence for me is that
 `loanzy.uk/tools/credit-health-check` cannot be repaired until this is resolved, and that page
 is the one `bugs_open/337` is named after. No urgency implied — I would rather the guard hold
 than have it waved through for my page.
+
+---
+
+## TAKEN ON 2026-08-23 by the `bugfix_337_token_cap` lane — and the first finding reframes what the component floor is actually measuring
+
+**Ownership checked before taking it, because `who-owns.py` said OWNED and was misleading:**
+the two workstreams it named (`vigilant_designer_offer_analysis`, `bugfix_311_component_keys`)
+only *cite* this bug — their commits are about 335/345/311/537. No live session is named for it
+(40 peers listed, none). No commit has touched `save_sections_shrink_guard.go` since
+**2026-08-18**, and those were `bugs_open/293`'s. ⚠ **The five guard files ARE dirty in the
+tree** — which is exactly the case `who-owns` is blind to — **but the diff is `gofmt` whitespace
+only** (one space added to align a const block) and was last modified **2026-08-21 14:39**, over
+two days ago. Stale alignment drift, not work in progress. **Unowned.**
+
+### The finding: the component floor cannot tell "layout was stripped" from "this page has less content"
+
+The floor refused five loanzy re-renders today, **all on the same slot** (`hero-tool`, never any
+other on the same saves), with the rendered side always landing on a small number while the
+stored side varied. That looked like a renderer regression. **It is not.**
+
+`hero-tool` [MEASURED 2026-08-23]: template carries **18** `class=` attributes, **11 `{{if}}`
+gates**, 13 fields of which **11 are `on_missing: skip_field`**, and **zero** `site_specs`
+sources. So the markup — and the classes it carries — is *gated on whether each optional field
+has a value*.
+
+Every loanzy page stores **exactly 11** `content_data` keys for this slot. What differs is how
+many of those values are non-empty, and the correlation with the rendered class count is
+monotonic and near-exact:
+
+| page | non-empty values (of 11) | class attributes |
+|---|---|---|
+| `tool-loan-repayment-calculator`, `tool-loan-comparison-calculator` | 11 | **15** |
+| `tool-credit-health-check`, `tool-settlement-calculator`, `tool-interest-rate-stress-test` | 9 | **12** |
+| `tool-eligibility-checker` | 7 | **9** |
+| `tool-overpayment-calculator`, `tool-compare-loans` | 5 | **5** |
+
+**Roughly three class attributes per two empty fields, with no exceptions in the sample.** So
+for this component the class count is a **proxy for content fullness**, not for layout
+integrity — and a save carrying less content trips a guard built to catch a framework rewrite
+*destroying layout*. `tool-credit-health-check`'s refusal reads `12→5`, i.e. the incoming render
+had 5 non-empty values where the stored one has 9: **four fields emptied between saves.**
+
+### What this does and does not mean
+
+- **It is NOT an argument for lowering or overriding the floor**, and I have not set
+  `section_component_floor` on my blocked page. The floor is refusing a save that would
+  genuinely leave the page thinner, which is what it is for.
+- **It IS an argument that the floor's *diagnosis* is wrong in its message.** It reports
+  "12→5 class attributes … A same-named slot may not lose more than 50% of the elements
+  carrying layout classes", which sends the reader looking for a layout/renderer defect. The
+  real question it should provoke is *"why did four of this slot's eleven field values go
+  empty?"* — a content-loss question, the `bugs_open/238`/`355` family.
+- **The next step is therefore upstream of this guard**, and I have not started it: determine
+  what empties `hero-tool`'s `content_data` values between saves.
+
+**Not proposing a code change yet.** A floor that measured non-empty *field values* rather than
+*class attributes* would be measuring the thing it cares about directly — but that is a change
+to a shared guard's contract on nine writers' behalf, and it needs the content-loss cause
+established first. Recorded here rather than acted on.
+
+**Live consequence, stated so it is not lost:** `loanzy.uk/tools/credit-health-check` — the page
+`bugs_open/337` is named after — cannot be repaired until this is resolved. Everything else in
+337 is done.
