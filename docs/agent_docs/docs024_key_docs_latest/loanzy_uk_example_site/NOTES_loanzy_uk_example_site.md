@@ -576,3 +576,45 @@ live `create_work_item` steps set it, and none of the five build-chain steps do)
 
 The mechanism account now lives with the fixing lane — `bugs_open/326` and
 `bugfix_326_retry_the_front_door/`. **Point at it; do not fork a second copy here.**
+
+### 17:42Z — the prediction was RIGHT on the outcome and WRONG on the mechanism; the walk theory is REFUTED
+
+> **CORRECTED 2026-08-23 17:43Z, by the event it predicted.** The 17:27Z entry above offered a
+> mechanism — a scheduler walking sites in ascending `site_id` order over a list snapshotted at
+> 17:16:31, which could not contain a site created at 17:17:15. **That mechanism is refuted.**
+> The prediction's *outcome* held; its *explanation* did not, and the outcome would have been
+> taken as confirming the explanation had I not gone back and looked.
+
+**What happened** `[MEASURED]`: `garden-tools.uk` got its `build-dispatch-loop` at **17:42:07.6Z**
+and the item was `claimed` at **17:42:10.0Z**, 2.4s later. Predicted "before ~18:05Z" — correct,
+and 23 minutes early.
+
+**Why the mechanism is wrong.** The full dispatch sequence from 17:16:31 is 14 rows strictly
+ascending (`00ff3af5` → `11c884e5` → `1244516d` → `1368e337` → `199733a8` → `1fcfa4f3` →
+`2a8ebf9c` → `5fe15466` → `5fe8785b` → `6b49db8e` → `72b9e3a6` → `9ec3b9ee` → `a0d7f1ae` →
+`b50a8da1`) and then **stops being ascending**: `5fe15466` again at 17:37:34, `e33263f4`,
+`11c884e5` again at 17:40:48, then `16784842`. Two sites are revisited inside 25 minutes, and
+`16784842` is reached **without ever traversing `c`/`d`/`f` or wrapping**. A snapshot walk does
+neither. So:
+
+- the site was **not** "skipped because the lap had already started" — that was a story fitted to
+  14 ordered samples;
+- **the 25-minute wait remains unexplained.** I have not established what orders this queue, and I
+  am not going to guess a second time in the same file.
+
+**The lesson, which is the transferable part.** Fourteen consecutive ascending samples felt
+overwhelming — I reasoned "1/8! by chance" at eight of them. That arithmetic assumes the
+alternative hypothesis is *random order*, and it never was: the real alternatives are other
+non-random orders that correlate with id over a short window. **A pattern that holds for N samples
+and then breaks was never a mechanism; it was a run.** The tell I ignored: I could not name what
+would break the pattern, which is the same "what would the disconfirming result look like" test
+this repo keeps writing down. Here it broke 20 minutes later, on its own, for free — which is the
+cheapest possible refutation and only arrived because the prediction was written down first.
+
+**What survives, and it is the useful bit** `[MEASURED 2026-08-23]`:
+- **Time-to-first-agent on a greenfield domain: 24m52s** (submit 17:17:18Z → claim 17:42:10Z),
+  with 48 sites and 31 carrying non-terminal work. The `082` script returns in seconds and tells
+  you nothing about this.
+- **`build-dispatch-loop` is per-SITE, not a queue sweeper** — `load_items` is `load_work_items`
+  with `config.site_id = input_data.site_id` (config-verified, not inferred from the ordering).
+  Something upstream chooses the site; **what, and in what order, is now an open question.**
