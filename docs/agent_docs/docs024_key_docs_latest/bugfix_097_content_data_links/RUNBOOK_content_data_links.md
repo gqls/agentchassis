@@ -173,9 +173,10 @@ cp /tmp/cdl.orig.go platform/orchestration/datahelpers/content_data_links.go
 The tree carries other sessions' WIP; `make build-*` builds from `HEAD`.
 
 ```bash
-rm -rf /tmp/headtree && mkdir -p /tmp/headtree && git archive HEAD | tar -x -C /tmp/headtree
-for f in <your files>; do cp "$f" "/tmp/headtree/$f"; done
-cd /tmp/headtree && go build ./... && go test ./platform/orchestration/{datahelpers,actions}/ -count=1
+# overlays your working files onto a clean checkout of committed HEAD
+scripts/verify-head-builds.sh --with <your file> [--with <another>]
+scripts/verify-head-builds.sh --with <your file> --test \
+  ./platform/orchestration/datahelpers/ ./platform/orchestration/actions/
 ```
 
 ## R8 — Which live agents actually persist through this chokepoint?

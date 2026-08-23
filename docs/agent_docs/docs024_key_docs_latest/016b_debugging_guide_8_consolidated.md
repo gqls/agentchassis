@@ -9126,8 +9126,23 @@ precisely when the missing piece is someone else's untracked file.
 **The check, which costs three seconds:**
 
 ```bash
-git archive HEAD | tar -x -C /tmp/headcheck && (cd /tmp/headcheck && go build ./platform/... ./cmd/...)
+scripts/verify-head-builds.sh ./platform/... ./cmd/...
 ```
+
+It extracts committed `HEAD` on its own, builds it, and deletes the tree afterwards. Add
+`--with <file>` to overlay your uncommitted files onto that clean checkout — which is how you
+test *your change* rather than a working tree carrying every other session's WIP — and `--test`
+to run tests instead of a build.
+
+> **This used to be a command you pasted, and it is a script now for a reason worth knowing.**
+> The pasted version lived in nine documents, drifted into six different directory names, and the
+> copy that stood *here* never created the directory it extracted into — so it failed first-use for
+> anyone who followed it exactly and worked only for someone who had run a different variant
+> earlier. All nine wrote ~450 MB into `/tmp`, which on this box is a **16 GB tmpfs — RAM, not
+> disk** — and none cleaned up: 12 GB of a full `/tmp` was this one check, and when it filled it
+> took the machine's swap with it. The script writes to disk, points Go's linker at disk too (Go
+> ignores `CLAUDE_CODE_TMPDIR`), and refuses outright if its target is on a tmpfs.
+> Full account: `tmpfs_exhaustion/HANDOFF_2026-08-23_tmp_is_ram_not_disk.md`.
 
 **Run it whenever a commit touches a file another session is also editing** — and you
 find that out from the pre-commit scope block, or from `git status` immediately

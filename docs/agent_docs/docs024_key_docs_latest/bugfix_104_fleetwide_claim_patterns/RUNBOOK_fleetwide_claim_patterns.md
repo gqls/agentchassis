@@ -166,7 +166,7 @@ compiling while your own tests stay green. `make build-<service>` builds from HE
 so this breaks everyone's next image build.
 
 ```bash
-git archive HEAD | tar -x -C /tmp/headcheck && (cd /tmp/headcheck && go build ./platform/...)
+scripts/verify-head-builds.sh ./platform/...
 ```
 
 Run it straight after committing platform code. The tell in the diff: a hunk whose

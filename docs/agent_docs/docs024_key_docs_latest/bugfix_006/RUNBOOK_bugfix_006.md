@@ -232,9 +232,8 @@ production database*, so delete them in the same session that created them.
 ## Testing Go in this repo
 
 ```bash
-git archive HEAD | tar -x -C /tmp/cleantree
-cp <your changed files> /tmp/cleantree/<same paths>
-cd /tmp/cleantree && go test ./platform/orchestration/actions/discovery_checks/
+scripts/verify-head-builds.sh --with <your changed file> \
+  --test ./platform/orchestration/actions/discovery_checks/
 ```
 **Gotcha:** the shared working tree frequently does not compile — it is not yours. This session hit
 `undefined: hardcodedColourCandidate` from another session's in-flight edit. Never "fix" their

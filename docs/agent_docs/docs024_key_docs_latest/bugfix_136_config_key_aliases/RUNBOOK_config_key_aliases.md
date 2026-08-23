@@ -161,9 +161,9 @@ establishing coverage.
 ## Testing on a shared tree
 
 ```bash
-rm -rf /tmp/x && mkdir -p /tmp/x && git archive HEAD | tar -x -C /tmp/x
-# copy ONLY your files over it, then:
-cd /tmp/x && go build ./... && go test ./platform/orchestration/... ./cmd/...
+# --with copies ONLY the files you name onto a clean checkout of committed HEAD
+scripts/verify-head-builds.sh --with <only your files>
+scripts/verify-head-builds.sh --with <only your files> --test ./platform/orchestration/... ./cmd/...
 ```
 
 **Gotcha:** this is how you test *the commit you are about to make* rather than *your tree*,

@@ -100,7 +100,7 @@ unexported), run it, and **delete it in the same command** — the tree is share
   rescued set (another lane fixed it at 14:14Z) and a new one joined (11:51Z) — a count read 22 both
   times and would have hidden the substitution.
 - **`go test` in the working tree is NOT a clean signal.** 18 other sessions' `.go` files were dirty
-  on 2026-08-22. Isolate: `git archive HEAD | tar -x -C /tmp/chk`, copy your files in, test there.
+  on 2026-08-22. Isolate: `scripts/verify-head-builds.sh --with <your file> --test <pkg>`.
   ⚠ `TestUpdateWorkItemStatus_RecordsRoutedStepError` fails in the tree from another lane's
   uncommitted `work_item_failure_ladder.go`. **It is not ours. Do not "fix" it.**
 - **Mutation-prove every guard.** Five mutations, each caught by a named test — and note the

@@ -45703,3 +45703,31 @@ zero would have refuted it — the symptom I was about to describe leaves record
 **The transferable shape:** *two mechanisms in one file, both real, with no edge between them.*
 Corroboration from another lane made the invented edge feel measured. Corroboration of the
 CONSEQUENCE is not evidence for the PATH.
+
+---
+
+## 2026-08-23 — a note on the two `git archive … /tmp` commands above (`bugs_open/358` lane)
+
+**The two entries in this file that prescribe `git archive HEAD | tar -x -C /tmp/...` are left
+exactly as written**, because this file is append-only and rewriting the remedy inside a past
+incident would make the record disagree with what was actually advised at the time.
+
+**Do not run them as written.** `/tmp` on this box is a 16 GB **tmpfs — RAM, not disk**. Each of
+those checkouts is ~450 MB, none of the pasted variants cleaned up, and on 2026-08-23 `/tmp` was at
+**100%** with 28 abandoned checkouts holding 12 GB — which had also consumed the machine's entire
+8 GB of swap. Deleting the files returned **6.9 GB of swap** and 4 GB of RAM, which is what
+establishes the tmpfs as the cause rather than a coincidence.
+
+**Use `scripts/verify-head-builds.sh` instead.** Same check, on disk, with the cleanup step none of
+the pasted copies had. `--with <file>` overlays your uncommitted files onto the clean checkout;
+`--test` runs tests rather than a build.
+
+**The transferable lesson, which is why this note is here rather than only in a runbook:** the same
+command was pasted into nine documents and drifted into **six different directory names**, two
+different build targets, and one version that **did not work at all** — the copy in `016b`, the
+guide every session is told to read, extracted into a directory it never created. *A command
+copied into N documents is N commands*, and this file's own tally is the argument for making it one
+script with N callers. Prior art: four `LANDMINES.md` entries, the earliest of which already
+concluded "the durable fix is not putting checkouts in tmpfs" on 2026-07-31 — correct, and it never
+reached the nine documents prescribing it. It recurred because the diagnosis never reached the
+instructions.

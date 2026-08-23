@@ -198,7 +198,7 @@ registry be read as a clean bill of health.
   ever bites, CARRY THE FILE — do not hard-code the list back into the package**, which would be
   the third hand-maintained roster and the exact drift this retired. The failure message says so.
 - **After committing any file another session is also in, build the COMMITTED tree:**
-  `rm -rf /tmp/h && mkdir /tmp/h && git archive HEAD | tar -x -C /tmp/h && (cd /tmp/h && go build ./...)`.
+  `scripts/verify-head-builds.sh`.
   This lane broke HEAD twice in one commit by trusting a green working tree
   (`WRONG_CALLS.md` 2026-08-22, and the memory entry `a-pathspec-passenger-can-be-half-written`).
 - **Use a quoted heredoc for every commit message carrying prose** — `-m "$(cat <<'EOF' … EOF)"`.

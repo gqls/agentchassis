@@ -140,7 +140,7 @@ re-running.
 
 ```bash
 # AFTER committing any file another session is also in — build the COMMITTED tree, not yours
-rm -rf /tmp/h && mkdir /tmp/h && git archive HEAD | tar -x -C /tmp/h && (cd /tmp/h && go build ./...)
+scripts/verify-head-builds.sh
 
 # package won't build locally because of someone's transient edit? test YOUR file against HEAD:
 cp <your-file> /tmp/h/<same-path> && (cd /tmp/h && go test ./<pkg>/ -run '<YourTests>')
