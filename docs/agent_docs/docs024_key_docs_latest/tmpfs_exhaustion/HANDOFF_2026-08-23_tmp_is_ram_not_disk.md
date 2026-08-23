@@ -143,14 +143,32 @@ check you reach for fails first and for the same reason.
 
 Gated on idle time, prints before it deletes, and touches nothing active:
 
-```bash
-# DRY RUN — see what would go
-find /tmp -maxdepth 1 -mindepth 1 -type d -mmin +1440 -print0 \
-  | du -xc --files0-from=- -sh 2>/dev/null | tail -1
-find /tmp -maxdepth 1 -mindepth 1 -type d -mmin +1440 2>/dev/null
+> **⚠ CORRECTED 2026-08-23 after running it.** The first version of this section was a bare
+> `find /tmp -mmin +1440 -exec rm -rf {} +`. **That would have deleted `.X11-unix`, `.ICE-unix`,
+> `snap-private-tmp` and 11 `systemd-private-*` directories** — all long idle, all system-owned,
+> all capable of breaking running services. Idle time is the right gate for *scratch*; it is not a
+> filter for *what a directory is*. The exclusion list below is not optional.
 
-# then, to actually remove (24h idle threshold, ~11 GB today)
-find /tmp -maxdepth 1 -mindepth 1 -type d -mmin +1440 -exec rm -rf {} + 2>/dev/null
+```bash
+# 1. DRY RUN — build the list with system dirs pruned, and LOOK at it
+find /tmp -maxdepth 1 -mindepth 1 -type d -mmin +1440 \
+  \( -name '.X11-unix' -o -name '.ICE-unix' -o -name '.XIM-unix' -o -name '.font-unix' \
+     -o -name '.Test-unix' -o -name 'systemd-private-*' -o -name 'snap-private-tmp' \
+     -o -name 'snap.*' -o -name 'pulse-*' -o -name 'ssh-*' -o -name 'dbus-*' \
+     -o -name 'tmux-*' -o -name 'claude*' -o -name '.claude*' \) -prune -o \
+  -maxdepth 1 -mindepth 1 -type d -mmin +1440 -print > /var/tmp/tmp_delete_list.txt
+wc -l < /var/tmp/tmp_delete_list.txt
+du -xc --files0-from=<(tr '\n' '\0' < /var/tmp/tmp_delete_list.txt) -sh | tail -1
+
+# 2. CONTROL — must print 0, or the prune failed and you are about to break the desktop
+grep -cE 'X11-unix|ICE-unix|XIM-unix|font-unix|systemd-private|snap|pulse-|ssh-|dbus-|tmux-|claude' \
+  /var/tmp/tmp_delete_list.txt
+
+# 3. CONTROL — a bare archive extract is disposable, a working tree is NOT. Must print 0.
+while read -r d; do [ -e "$d/.git" ] && echo "HAS .git: $d"; done < /var/tmp/tmp_delete_list.txt
+
+# 4. only then
+xargs -a /var/tmp/tmp_delete_list.txt -d '\n' -r rm -rf
 ```
 
 Re-run the `df -h /tmp` before and after. **Do not lower the threshold below ~2h**: a long build in
@@ -178,8 +196,53 @@ because the diagnosis never reached the instructions.
 
 ## 7. Status
 
-- **Nothing has been deleted.** `/tmp` is shared and this session did not want to destroy another
-  session's in-flight build on its own judgement. §5 is ready to run.
+- **CLEANUP DONE 2026-08-23 ~14:30 UTC, on the owner's instruction.** 72 directories, 11 GB,
+  gated at 24h idle. Results in §8.
 - **Nothing has been resized**, deliberately — see §1.
 - **No documents have been edited yet.** §4.1 is the highest-leverage change and touches 9 files
   across other lanes' directories, which wants either the owner's go-ahead or a `sweep:` commit.
+  **Until it lands, this recurs**: the cleanup bought time, not a fix.
+
+---
+
+## 8. The cleanup, and what it proved about the memory claim
+
+**What was checked before deleting, because `/tmp` is shared ground and this is irreversible:**
+
+1. **An inventory first, not a pattern.** 16 system directories (`.X11-unix`, `.ICE-unix`,
+   `.font-unix`, `.XIM-unix`, `snap-private-tmp`, 11 × `systemd-private-*`) were identified and
+   excluded by name. All hold **0 bytes**, so excluding them costs nothing and deleting them could
+   have broken running services. A naive `find /tmp -mmin +1440 -exec rm -rf` — which is what §5
+   originally said — would have taken every one of them. **§5 has been corrected accordingly.**
+2. **No session scratchpads were in `/tmp`** (no `claude*` entries), confirming the 2026-08-03
+   `CLAUDE_CODE_TMPDIR` change is holding for every currently-live session.
+3. **A control on the exclusion list**: `grep -c` for protected names in the final delete list
+   returned **0**.
+4. **Every candidate was checked for a `.git` directory** — because a bare `git archive` extract is
+   disposable and a working tree is not. **0 of 72 had one.** With a control proving the check
+   could find `.git` when there was one, so the zero is a measurement and not a broken test.
+
+**Results — and the swap line is the one that matters:**
+
+| | before | after |
+|---|---|---|
+| `/tmp` | 16 G used, **100%** | 4.4 G, **29%** |
+| RAM used | 25 GiB | 21 GiB |
+| RAM available | 5.0 GiB | **9.2 GiB** |
+| shared (the tmpfs itself) | 8.8 GiB | 4.9 GiB |
+| **Swap free** | **1.0 MiB** | **6.9 GiB** |
+
+Swap went from completely exhausted to 86% free by deleting *files*. **That is the disconfirmable
+proof that `/tmp` was the CAUSE of this machine's memory pressure and not merely correlated with
+it** — had the tmpfs not been what filled memory, swap would not have drained when it was emptied.
+It is also, retrospectively, the strongest possible argument against §1's "make it bigger": the
+15 GB was costing the whole box its swap headroom.
+
+**Symptom confirmed gone**, both ways, with no `TMPDIR` override — i.e. exactly the configuration
+that failed earlier the same day:
+
+- `go build ./cmd/config-key-audit/` → exit 0 (was `link: mapping output file failed`)
+- the estate's prescribed HEAD-check recipe, run verbatim into `/tmp` → exit 0
+
+**System directories verified intact afterwards**: `.X11-unix`, `.ICE-unix`, `snap-private-tmp` and
+all 11 `systemd-private-*` still present.
