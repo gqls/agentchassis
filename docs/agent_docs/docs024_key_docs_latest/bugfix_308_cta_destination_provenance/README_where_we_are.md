@@ -118,3 +118,70 @@ One caution I keep repeating because it will otherwise cause a false result: the
 these broken buttons **has not run since 19 August**. So the count will sit at 200 whether we have
 fixed anything or not. Proving this worked means deliberately making the check run, and then
 looking at a real page in a browser.
+
+---
+
+## 2026-08-23, afternoon — the block was never real, and Phase B is written and shipped
+
+**First, a correction to what I wrote this morning.** I said the estate's AI budget was exhausted
+until 1 September and that Phase B could not start until then. That was wrong, and if you had read
+only that you would have lost nine days for nothing. The cap was never a spend limit on our own
+account: the billing page you land on by default belongs to a *different* Anthropic organisation
+from the one the fleet's key lives on, so it read "0% used" while the API refused every call, and
+the 1 September date it quoted was that other account's monthly reset. You sorted it this morning.
+The fleet's own call log shows the last refusal at **10:10Z** and 134 successful calls since. So I
+restarted the stalled review round, and it came back within the hour.
+
+**Then the measurement, which is the real work of this session and which changed the design.**
+
+Before writing a line of Phase B I built a throwaway harness that replays the platform's *actual*
+matching code over a frozen snapshot of the live fleet — 829 pages, 667 button-bearing components,
+1,266 buttons with words on them — and asked what the widening would do. Two things came out that
+I would not have guessed.
+
+**One: this change is much bigger than the bug.** Today the platform rewrites about 32 button
+destinations across the whole fleet on a given pass. After the widening it would rewrite **291** —
+about nine times as many — and roughly two thirds of that is nothing to do with bug 308. Every one
+of those is a button whose words name one page while its link points at another, so most of them
+are corrections. But it is a fleet-wide content change and I want you to have the number rather
+than a reassuring adjective. It only happens to a page when that page is next built or rebuilt.
+
+**Two: a third of the rewrites were decided by alphabetical order.** When two pages score equally,
+the code picks whichever page's name comes first in the alphabet. That is not a small tail — it
+decided **263 of 1,146** matches, and **137** of the rewrites. Worse, I could see it going wrong:
+on finetuning.uk the button reading "how we work" *already points at* `/how-we-work.html`, and the
+widening would have moved it to `/about.html` — because the About page's title happens to read
+"Who We Are and How We Work", so both pages tie on the word "work" and "about" wins the alphabet.
+Thirteen live findings tell the platform to make exactly that change. The same thing on
+dartsonline.com would move "Read the guides" off the guides page.
+
+So I tried to break the tie better — twice, with two different rules — and measured both over the
+whole fleet. Both fixed some cases and broke others, for the same reason a third rule was tried
+and thrown away back on 11 August: when two pages tie on one word, there is genuinely nothing there
+to decide with, and any rule you invent is just a different arbitrary answer. **So the change I
+made instead is that the platform now says "I don't know" and leaves the button alone.** The
+repairs bug 308 is actually about — "Book a discovery call" pointing at a password tool instead of
+the contact page — all survive it.
+
+**One more thing that is worth knowing because it is counter-intuitive.** The obvious safer
+version of this change is to add *only* contact/about/terms pages to the list of candidates, and
+leave everything else as it is. I measured that too. It rewrites a third as much and gets **more**
+of it wrong — it invents repairs like "Talk to us about your setup" → the About page, purely
+because the word "about" is in the sentence and the page it *should* have found is not on the list
+it was given. A short list does not make the machine careful; it makes it certain for the wrong
+reason.
+
+**Where we are now.** Phase B is written, tested, mutation-checked (I deliberately broke it seven
+different ways and confirmed a test caught each one), committed, registered, and submitted to the
+review council. It is inert until the next fleet build. I also wrote up the one part of it that
+changes a shared piece of machinery as a formal architecture note (RFC 047) for you to rule on,
+because it changes what that piece of machinery *promises* — and there is a live choice in it I
+would rather you made than I did: whether the *detector* should go on guessing on a tie even
+though the *repairer* now refuses to.
+
+**Bug 308 stays open.** Nothing here has touched a real page yet. The bar is a button moving on a
+site somebody can load in a browser, and that needs the next build.
+
+**And a correction to my own caution from this morning:** I said the check that finds these broken
+buttons had not run since 19 August. It ran on **22 August** and filed 40 items. The count is 188
+today, not 200 — it moved down because items changed status, not because anything was fixed.

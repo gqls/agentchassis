@@ -386,3 +386,116 @@ the correlation at report time, so if a verdict ever lands approved the commits 
 no amend. **Three rounds of substantive review did happen** (rounds 1–3, 10 approvals in round 3),
 and every objection they raised has been answered in the tree. What is missing is the final
 verdict, not the review.
+
+## 2026-08-23 (afternoon) — the cap was on the WRONG ACCOUNT; Phase B measured, written, committed
+
+### 0. The blocker this lane recorded yesterday was false, and I nearly inherited it
+
+Yesterday's NOTES, the handoff banner, the summary and the bug file all said the same thing: the
+account's LLM budget is exhausted until 2026-09-01, do not resubmit, do not start Phase B. First
+action of this session was to check it rather than obey it:
+
+```sql
+SELECT date_trunc('hour',created_at) hr, provider, success, count(*),
+       min(left(coalesce(error_message,''),90))
+FROM llm_call_log WHERE created_at > now() - interval '6 hours' GROUP BY 1,2,3 ORDER BY 1 DESC;
+```
+
+Last `usage limits` refusal **2026-08-23 10:10:40Z**; 15 successes in the 10:00Z hour, 40 in
+11:00Z, 79 in 12:00Z. The two failures since are `stop_reason=max_tokens` truncations — a
+different defect. The cause is in `memory/the-fleet-key-is-not-on-the-default-console-org.md`: the
+console the owner lands on by default is **not the org the fleet's key belongs to**, so it read
+`0% used` while the API refused calls, and `2026-09-01` was the *other* account's reset date.
+
+**Round 4 resubmitted** on the same correlation (`RESUBMIT_CORR=e4336931-…`), and it returned a
+verdict in ~35 minutes — which is itself the proof the cap is gone.
+
+### 1. Round 4 verdict: REVISE (the fourth), and again NOT the code
+
+`decided_by: gating objection from editquality`, 13 reviewers, 4 abstained. Its HIGH objection is
+correct and is the same class as rounds 2 and 3: **edit 2 claimed `storedCTADestinationIsAuthored`
+as its symbol but its sketch was call-site-only and byte-identical to edit 3's**, so the one
+function whose logic actually changed was never shown in any sketch. Also flagged: edits 2 and 3
+duplicate each other, and the LANDMINES/register edits the notes claim shipped are absent from the
+plan. Four rounds, four submission defects, zero code defects. The handoff's advice held.
+
+### 2. The `bug_historian` objection, ANSWERED by a code read (it asked for one)
+
+> "…never checks whether `apply_section_edit` / `ApplySectionEditAction` can write a new `cta_url`
+> into a `ctaFieldNames` slot without going through `SetCTAMinted`."
+
+**It can, and the answer is that this is safe BY THE VALUE-BINDING, not by luck.**
+`applyContentEdit` merges `field_updates` key-by-key into the existing map
+(`section_editor_actions.go:1025-1026`) and the file contains **0** occurrences of
+`SetCTAMinted`/`SeedCTAMinted`/`CTAMintedKey` (grep -c, 2026-08-23). Walking the four reachable
+states:
+
+| stored record | editor writes | `CTAMintedCovers` | verdict | outcome |
+|---|---|---|---|---|
+| none | `/contact.html` | false | authored | KEPT ✓ |
+| `{cta_url: /tools/x}` | `/contact.html` | false (names another url) | authored | KEPT ✓ |
+| `{cta_url: /contact.html}` | label only, url unchanged | true | minted | KEPT by Phase B's new keeps ✓ |
+| `{cta_url: /contact.html}` | `/about.html` | false | authored | KEPT ✓ |
+
+**A stale record cannot vouch for a value it does not name — that is what value-bound means**, and
+it is exactly the property LNK-035's design note claims for the section-editor merge. The objection
+is right that it was asserted rather than established; it is established now.
+
+### 3. The calibration — and it changed the design
+
+`CALIBRATION_2026-08-23_phase_b_widening_report.md` has the full numbers. Method mirrors the
+2026-08-11 precedent: throwaway harness, **real `datahelpers` imported**, frozen JSON dumps, and a
+control (the harness's local ranking mirror re-scored against the shipping `BestLabelMatch` on all
+1,266 pairs → **0 disagreements**; a mismatch would have invalidated everything).
+
+Three results, in order of how much they changed what I then wrote:
+
+1. **Widening rewrites 428 stored CTA urls fleet-wide (32 today).** ~2/3 outside 308's population.
+2. **263 of 1,146 wide-pool matches are decided by alphabetical order alone; 137 of the writes.**
+   Two families in there are wrong and would have been executed: finetuning.uk `"how we work"`
+   (13 findings) moving OFF `/how-we-work.html`, dartsonline `"Read the guides"` (6) moving off
+   `/guides/index.html`. Both are one-token ties where the loser matched on its own NAME and the
+   winner on marketing copy in its TITLE.
+3. **A name-tier key and a path-depth key were measured and BOTH rejected** — each repairs some and
+   breaks others, e.g. name-tier moves *"Try the Password Strength Physics tool…"* off the password
+   tool, because this estate names every tool page `tool-…` so the token `tool` is in all of them.
+   Third rejected key in two calibrations. **So: refuse the tie instead of breaking it.**
+
+And one counter-intuitive result worth carrying: **the NARROW widening (utility pages only) is
+WORSE** — 108 writes vs 291 and *more* of them wrong, because a pool that omits the label's real
+target gives the matcher a monopoly rather than a choice. It also settles 308's standing "add
+`about` to LabelStopwords" suggestion: it would suppress the four `Talk to us about …` false
+matches AND the correct `Learn More About Us` → `/about.html`.
+
+### 4. What shipped (commit `7f85aa814`, inert until the roll)
+
+`LoadCTALabelUniverse` (LNK-036) consumed by the detector and both writers; `candidatesFromHubs`
+deleted; `BestLabelMatch` returns `ambiguous` (LNK-037); **both writers' keeps changed** so the
+positional pick can no longer DISPLACE a utility destination it could never have chosen. That last
+part is the subtle half — without it the widening re-creates `bugs_open/248`'s clobber through its
+own fix, because a MINTED utility destination whose label goes generic takes no keep at all.
+
+New invariant, replacing LNK-033's: **the positional pick may neither CHOOSE nor DISPLACE a utility
+destination.** `rank()` enforces the first half; the keeps enforce the second.
+
+Mutation-proven 7/7 against a clean `git archive HEAD` tree + my files. RFC_047 filed for the
+guarantee change on `BestLabelMatch` (the commit hook's architecture signal fired on it, correctly).
+
+### 5. My own errors this session
+
+- **My sketch generator silently produced an EMPTY sketch for both NEW files** — `git diff` reports
+  nothing at all for an untracked file, and the submission JSON looked complete (78 chars of
+  header). This is round 4's own objection (a missing body) reproduced *inside the tool built to
+  prevent it*, one layer down. Caught by printing sketch sizes before dispatch — 78 vs ~4,800.
+  Fixed with a `--no-index` fallback **and a hard refusal**: the generator now raises rather than
+  emit an empty sketch. Then a second pass found the budget had also dropped 2 of 6 hunks from
+  `resolve_internal_links_action.go` — including the deletion of `candidatesFromHubs` — so the
+  final run asserts **hunks-kept == hunks-in-diff for every file** and prints the ratio.
+- **I reported 435 writes / 298 post-refusal, then corrected to 428 / 291.** The first pass counted
+  every pick differing from the stored value; the shipping writers additionally gate on
+  `validPages.Contains`. **I measured the MATCHER and called it the WRITER.** Corrected in place in
+  the calibration report with the cause named.
+- **I assumed the "index/home" exclusion was dropping section-index pages** (it would have explained
+  "Browse all guides" landing on `/about.html`). Measured: **28 pages named index/home fleet-wide,
+  all 28 at the site root, 0 non-root**. The hypothesis was wrong and the real mechanism was the
+  alphabetical tie. One query, and it stopped me "fixing" something that was not broken.
