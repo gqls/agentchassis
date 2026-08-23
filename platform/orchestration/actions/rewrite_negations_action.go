@@ -569,8 +569,28 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 			zap.Error(perr))
 		return rewritten, rejected, "unparseable repair answer"
 	}
+	// ⚠ THIS LOOP RUNS OVER WHAT THE MODEL RETURNED, NOT OVER WHAT WE ASKED
+	// ABOUT — so a target the answer simply never mentions is visited by no
+	// branch below and lands in NEITHER list. `answered` is what closes that,
+	// after the loop. Measured 2026-08-23 before the fix: **15 of 49** markers
+	// with `targets > 0` did not reconcile (`targets != rewritten + rejected`)
+	// and **12 of those accounted for NONE of their targets**.
+	//
+	// `hits_after` stayed honest throughout — it is recomputed from the real
+	// content — so this never misdescribed a PAGE. What it corrupted is the
+	// INSTRUMENT: this action's whole displacement defence is "every rejection
+	// is recorded with its reason, and that log is how we find out whether the
+	// repair is fixing the copy or teaching the model a new tic". A silently
+	// dropped target is an outcome that log cannot show, and `bugs_open/305`'s
+	// D3 (is `rather than` a tic or ordinary English?) is explicitly to be
+	// settled FROM that log — so an unreconciled 31% was about to inform an
+	// owner decision.
+	answered := make(map[string]bool, len(plan.targets))
 	for _, r := range decodeReplacements(parsed) {
 		t, found := matchTarget(plan.targets, r.Field, r.From)
+		if found {
+			answered[negationTargetKey(t)] = true
+		}
 		if !found {
 			rejected = append(rejected, map[string]interface{}{
 				"field": r.Field, "reason": "no_such_sentence",
@@ -635,7 +655,47 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 			"from": datahelpers.TruncateString(t.Sentence, 160),
 			"to":   datahelpers.TruncateString(strings.TrimSpace(r.To), 160)})
 	}
+
+	// Every target we asked about and did not hear back on. Recorded as a
+	// rejection with its own reason rather than silently dropped, so that
+	// `targets == len(rewritten) + len(rejected)` holds for every marker and a
+	// census can tell "the model declined this shape" from "the model never saw
+	// it". It is deliberately NOT a failure: the copy stands as written, exactly
+	// as it does for any other rejection, and `hits_after` already said so.
+	rejected = append(rejected, unansweredTargetRejections(plan.targets, answered)...)
 	return rewritten, rejected, ""
+}
+
+// negationTargetKey identifies a target for answered-bookkeeping. The NUL
+// separator is what stops a field name ending in the first characters of a
+// sentence from colliding with a shorter field plus a longer sentence, and the
+// sentence half is normalised so the key matches on the same terms
+// `matchTarget` does — otherwise a target could be answered and still counted
+// unanswered on a curly apostrophe.
+func negationTargetKey(t negationTarget) string {
+	return t.Field + "\x00" + normaliseSentenceKey(t.Sentence)
+}
+
+// unansweredTargetRejections records every target the repair asked about and
+// heard nothing back on, so that for every marker
+//
+//	targets == len(rewritten) + len(rejected)
+//
+// It is separate from the loop above, and exported to the test, because the
+// invariant is the point: the loop iterates the MODEL'S answer, so a target the
+// answer never mentions is visited by no branch and would otherwise be recorded
+// nowhere at all.
+func unansweredTargetRejections(targets []negationTarget, answered map[string]bool) []map[string]interface{} {
+	var out []map[string]interface{}
+	for _, t := range targets {
+		if answered[negationTargetKey(t)] {
+			continue
+		}
+		out = append(out, map[string]interface{}{
+			"field": t.Field, "reason": "no_answer_for_target", "shape": t.Shape,
+			"from": datahelpers.TruncateString(t.Sentence, 160)})
+	}
+	return out
 }
 
 // negationRewriteClaimSafe returns a rejection reason when the candidate

@@ -331,3 +331,103 @@ func TestNoContentHandsOnNothing(t *testing.T) {
 		t.Error("no content found, so no `result` should be handed on")
 	}
 }
+
+// THE ACCOUNTING INVARIANT: every target we asked about ends up in exactly one
+// of the two lists.
+//
+// MEASURED IN PRODUCTION 2026-08-23, BEFORE THE FIX: 15 of 49 markers with
+// `targets > 0` did not reconcile (`targets != rewritten + rejected`), and 12 of
+// those accounted for NONE of their targets. The cause is structural rather than
+// occasional: `runNegationRepair`'s loop iterates the MODEL'S replacements, so a
+// target the answer never mentions is visited by no branch and lands in neither
+// list.
+//
+// `hits_after` stayed honest throughout — it is recomputed from the real content
+// — so no page was ever misdescribed. What was corrupted is the INSTRUMENT: this
+// action's displacement defence is that every rejection is recorded with its
+// reason, and `bugs_open/305`'s D3 (is `rather than` a tic or ordinary English?)
+// is to be settled from exactly that log.
+func TestEveryTargetIsAccountedForEvenWhenTheModelIgnoresIt(t *testing.T) {
+	content := map[string]interface{}{
+		"headline": "We ship in days, not months.",
+		"content": "<p>The two systems overlap rather than compete.</p>" +
+			"<p>Everything past that is refinement rather than requirement.</p>",
+	}
+	// budget 0 = no allowance, so every non-exempt hit is a target. (99 would
+	// ALLOW the first 99 and leave only headline-class hits — the inverse.)
+	plan := planNegationRepairs(content, nil, 0, 0)
+	if len(plan.targets) < 3 {
+		t.Fatalf("fixture must produce at least 3 targets, got %d", len(plan.targets))
+	}
+
+	// The model answered exactly ONE of them — the case that used to vanish.
+	answered := map[string]bool{negationTargetKey(plan.targets[0]): true}
+	unanswered := unansweredTargetRejections(plan.targets, answered)
+
+	if got, want := len(unanswered), len(plan.targets)-1; got != want {
+		t.Fatalf("unanswered targets = %d, want %d — a target the model ignored was recorded nowhere", got, want)
+	}
+	// One rewrite (the answered one) plus the unanswered rejections must
+	// reconcile against the target count. This is the invariant the marker
+	// publishes and a census reads.
+	if got := 1 + len(unanswered); got != len(plan.targets) {
+		t.Fatalf("targets=%d but rewritten+rejected=%d — the marker does not reconcile", len(plan.targets), got)
+	}
+	for _, r := range unanswered {
+		if r["reason"] != "no_answer_for_target" {
+			t.Errorf("reason = %v, want no_answer_for_target — a census must be able to tell this apart from a judged rejection", r["reason"])
+		}
+		if r["from"] == nil || r["from"] == "" {
+			t.Error("an unanswered rejection with no `from` cannot be traced back to a sentence")
+		}
+	}
+}
+
+// The key must survive the same normalisation matchTarget applies, or a target
+// that WAS answered gets re-reported as ignored — a false entry in the very log
+// the fix exists to make trustworthy.
+func TestAnsweredBookkeepingSurvivesPunctuationDrift(t *testing.T) {
+	content := map[string]interface{}{
+		"headline": "The registry shows you what's possible, not what survives production.",
+	}
+	plan := planNegationRepairs(content, nil, 0, 0)
+	if len(plan.targets) != 1 {
+		t.Fatalf("expected 1 target, got %d", len(plan.targets))
+	}
+	// Same sentence, curly apostrophe — what matchTarget already tolerates.
+	drifted := plan.targets[0]
+	drifted.Sentence = "The registry shows you what’s possible, not what survives production."
+
+	answered := map[string]bool{negationTargetKey(drifted): true}
+	if n := len(unansweredTargetRejections(plan.targets, answered)); n != 0 {
+		t.Fatalf("%d targets reported unanswered after a punctuation-only difference — matchTarget accepts this pair, so the bookkeeping must too", n)
+	}
+}
+
+// The NUL separator in negationTargetKey is a real guard, not decoration, and
+// this test is why it can be trusted: without it, `field + sentence` is
+// ambiguous, so a field whose name ends where another field's sentence begins
+// produces the SAME key — and one target being answered would silently mark the
+// other answered too, dropping it from the log with no trace.
+//
+// Added because the mutation that removed the separator PASSED the rest of this
+// suite. A comment claiming a protection that no test exercises is not a
+// protection.
+func TestTargetKeySeparatorPreventsFieldSentenceCollision(t *testing.T) {
+	// "ab" + "c is not d." and "a" + "bc is not d." concatenate identically.
+	a := negationTarget{Field: "ab", Sentence: "c is not d.", Shape: "x_not_y"}
+	b := negationTarget{Field: "a", Sentence: "bc is not d.", Shape: "x_not_y"}
+
+	if negationTargetKey(a) == negationTargetKey(b) {
+		t.Fatalf("two distinct targets share a key (%q) — one being answered would silently account for the other",
+			negationTargetKey(a))
+	}
+
+	// And prove the consequence, not just the key: answering A must leave B
+	// reported as unanswered.
+	answered := map[string]bool{negationTargetKey(a): true}
+	got := unansweredTargetRejections([]negationTarget{a, b}, answered)
+	if len(got) != 1 || got[0]["field"] != "a" {
+		t.Fatalf("expected exactly B unanswered, got %d entries: %v", len(got), got)
+	}
+}
