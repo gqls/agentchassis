@@ -645,3 +645,43 @@ One small thing worth knowing, because it nearly became a false alarm on my side
 finished I checked the log of AI calls and found nothing there, which looks exactly like our
 instrumentation having broken. It hadn't — that log simply lands a few minutes late. I checked whether
 the log was receiving anything at all before concluding anything, and it was.
+
+---
+
+**2026-08-23.** The three edits you approved are applied and live on the AI-orchestration homepage.
+
+**What changed.** The call-to-action is the one you'd notice: it was 733 characters and is now 496 —
+the version that ran the same statistic past the reader twice is gone. The news subheadline went from
+340 to 255, and the differentiators list lost about 250 characters without losing any of its seven
+items. I checked the actual served page afterwards, not just our database: the old phrasing is gone
+from it and the new copy is there.
+
+**It failed the first time, and both reasons are worth two minutes of your time**, because they are
+the sort of thing that will bite whoever does this next.
+
+The first was my own mistake wearing a convincing disguise. When I sent the instruction I gave it a
+readable name for tracing — "cli-copyedit-apply". It turns out that field is not a label at all: the
+system uses it as a **database schema name**, dropped straight into a query without quoting. The
+hyphens made the query invalid, and what came back was a database syntax error deep in the code that
+creates agents. **It looked exactly like a platform fault and it was entirely my doing.** The fleet
+uses plain names like "demo_client"; I now do too, and the trap is written down where the next person
+will meet it before they hit it.
+
+The second is more interesting because it is a property of the system rather than a slip. That page is
+automatically rebuilt every day, and rebuilding it **replaces** its components rather than updating
+them — new internal identities, same content. So the addresses I had written down when you approved
+the edits were dead by the next afternoon. This is the third time this has caught this lane. The fix
+is to stop writing addresses down: look the component up by *which slot on which page* at the moment
+of sending, which both the checker and the sending script now do.
+
+Worth saying plainly: the content itself was **identical** across both rebuilds, so your approval
+still applied to exactly what you approved. If the rebuild had changed the copy, the checker would
+have failed the edits rather than shipping something you had not seen — that is what re-checking
+immediately before sending is for.
+
+**One admission.** Two days ago I wrote down a lesson for myself: when watching for a job to finish,
+match it by its own identifier, never by "the most recent one". Today, on this task, I wrote a check
+that took the most recent one — and it told me an edit had finished when it hadn't. I caught it only
+because I also looked at whether the text had actually changed, and it hadn't. Writing the lesson down
+did not stop me repeating it, which is why the check now lives inside the script rather than in a
+document I have to remember to reread.
