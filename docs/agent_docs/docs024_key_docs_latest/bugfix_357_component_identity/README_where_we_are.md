@@ -180,3 +180,63 @@ I got six things wrong today, all of them written down in the shared mistakes lo
 that would have caught them. Three were the same mistake: describing a set of rows from its count
 without opening the rows. It appears in the tally three times in one day, and the log now says
 plainly that when that happens the check needs a mechanism rather than another entry.
+
+## 2026-08-23 — the thing we built and got approved last night has been running all day doing nothing
+
+Short version: yesterday's work was correct and it was not connected to anything. I found that,
+connected it, and found on the way that connecting it naively would have made things worse rather
+than better.
+
+**What yesterday built.** A way for the platform to record, at the moment a page section is made,
+*which version of which template actually produced these bytes*. That record is the thing the whole
+repair depends on — you cannot safely fix a row that lies about what it is until something reliably
+says what it is.
+
+**What I checked first.** Not "what shall I build next" but "did that actually do anything?" It had
+been live since 15:10 yesterday and approved by the review council at 18:02. In the day since,
+**820 new sections were written and not one of them carries the record.** Zero. The check that
+proves this is not a hunch is that I asked the same question of a field I *know* works: of 546 live
+payloads, 546 carry the control field and 0 carry ours. So the copying step definitely runs — it
+just quietly leaves ours out.
+
+**Why.** Between the part that produces the record and the part that stores it, there is a step that
+rebuilds the parcel from scratch, copying across a hand-written list of contents. Our field was not
+on the list, so it was dropped in silence. No error, no warning, nothing in a log.
+
+**This has happened here before, and the way it was fixed last time is why it happened again.** The
+same step lost a different field in an earlier bug. That was fixed by adding *that one field* to the
+list and writing a test that checks *that one field* survives. The test was passing the whole time
+ours was being thrown away, because it only knows about its own field. Three fields were being
+dropped, as it turns out, and nobody knew.
+
+So I have not added our field to the list. I have made the list a **contract**: everything a producer
+sends is either on the carry list or on a "deliberately dropped" list with a written reason, and a
+test now fails the build if someone adds a field to neither — or if the storing end reads a field the
+carrying end was never told to carry. That last rule is the one that would have caught this on day
+one.
+
+**The thing that would have gone wrong if I had just added the field.** There is a protective
+mechanism that stops a rebuild wiping out an interactive tool: when the page rebuild produces a plain
+text banner where a tool used to be, the platform puts the tool back. It swaps the *content* — but it
+was leaving the *record of where that content came from* untouched. That was harmless while the
+record was always empty. The moment I connected it up, the platform would have confidently recorded
+"this tool was produced by the hero banner template" — which is false, and worse than recording
+nothing, because it is exactly the kind of confident wrong answer that other tools then trust. That
+is fixed in the same change.
+
+**On the bug itself: it is still happening, roughly a dozen times a day.** Twelve of the twenty-two
+mislabelled pages were created *today*. Nothing I shipped today stops that — today's work makes the
+evidence real and honest, and the next step uses it to stop the mislabelling at birth. I want to be
+plain that this is not the fix; the review council caught this lane claiming otherwise once already
+and was right to.
+
+**One small good thing:** last night's round-4 review came back **approved**, nine minutes after the
+lane stopped writing, so nobody had recorded it. It is recorded now.
+
+**Three mistakes of my own today**, all written down with the checks that would have caught them. The
+one worth telling you about: I wrote a test for the protection above, watched it pass, then broke the
+code deliberately to make sure the test would catch it — **and the test still passed.** Two different
+failures produced the same visible result, so the test could not tell them apart. It was green,
+reasonable-looking, and worthless. I rebuilt it so that deliberately breaking the code now does fail
+it. That check — break your own code and confirm the test notices — is the only reason I know the
+rest of today's tests mean anything.

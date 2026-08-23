@@ -401,3 +401,111 @@ inference-based fix is both.
 **So the state of this bug is: cause established and cited, population corrected to 22 and still
 minting, no casualties found, both proposed repairs blocked on a mechanism question that is now an
 open RFC.** Nothing has been changed in code or on any site.
+
+---
+
+## 2026-08-23 — THE STAMP WAS LIVE FOR A DAY AND WROTE NOTHING. Phase 0 shipped; the mint continues.
+
+Picked up from the `bugfix_357_component_identity` lane, which stopped on 08-22 evening after
+dispatching council round 4. **Two things it never learned:**
+
+### a. Round 4 was APPROVED, and nothing recorded it
+
+`doc_notes`, 2026-08-22 **18:02:26Z**, on submission correlation `62aac6c2-996f-4b5d-8f8f-72e3daf4c82e`:
+*"COUNCIL GATE — APPROVED — approved with 2 advisory objection(s) — none high-severity."* The lane's
+last entry says "round 4 dispatched". The verdict landed 9 minutes later and no document says so.
+
+### b. The approved, rolled stamp writes nothing — measured, with the control
+
+Phase 1's own §10.5 named the disconfirming result: *"still 0 after the roll ⇒ the seam is not
+reporting or the writer is not persisting."* It has fired.
+
+| check [MEASURED 2026-08-23] | result |
+|---|---|
+| `page_components` born since the 08-22 15:10:31Z roll | **820, of which stamped: 0** |
+| pre-roll rows (**the control** — nothing backfills, by design) | 1,146, stamped 0 |
+| `component_versions` with `change_source='render_stamp'` | **0** |
+| chassis logs, 24h, `component version:` | **0** — consistent with the *silent* early return |
+
+**Cause, with a control that could have come out otherwise.** `extractSectionFromMap`
+(`v3_site_actions.go:2835`) rebuilds every section's metadata into a fresh map from a hand-written
+allow-list of six keys. `rendered_template_sha` is not on it. Of **546** live `sections_metadata`
+elements since the roll, **0** carry the digest and **546** carry `component_id`. The copy runs; the
+key is dropped. Three keys were being dropped, not one (`stripped_markdown_fields` and
+`copy_gate_findings` too).
+
+> **This hop had already eaten a key.** `bugs_open/189` lost `stored_slot_name` here and was fixed by
+> adding that one key plus a test asserting *its own key* is forwarded. That test was green
+> throughout. **No test file in the repo mentions `rendered_template_sha`.**
+
+### c. The bug is still valid and is minting at roughly a dozen a day
+
+The population query in this file returns **22 rows as of 2026-08-23**, of which **12 were born
+2026-08-23** — after the phase-1 roll. All: `position=1`, `slot_name='hero'`, component `hero`,
+`content_brief` present, `content_data` present, `build_status='deployed'`, `component_version_id`
+NULL, no `data-component` in the HTML. `pages.sections` on an affected page reads
+`["hero","generic-text-block"]` with `rebuild_policy='generic'`, so the plan really does put `hero`
+first and these pages really are rebuilt automatically.
+
+**Every row in the fleet whose HTML holds a tool fragment is typed `hero` — 22 of 22.** There is no
+correctly-typed exemplar anywhere, and no passthrough/identity-function component exists to point
+one at (`content_components` searched for a `{{.body}}`-shaped template and for
+`adopted-fragment`/`passthrough`/`verbatim`: **zero rows**). The estate has no representation for
+*"these bytes are the content"*, which is why one gets invented per page.
+
+**And the tools are one Layer-2 miss from being replaced by a title band:** today's rows carry a full
+hero `content_data` (headline, subheadline, cta_text, hero_url, …) beside 14.5KB of tool markup, so
+`ContentDataCanFillTemplate(hero_template, …)` is **true**. What prevents the swap is Layer 2
+splicing the stored bytes back on every rebuild — accidental protection, keyed on slot-name
+equality, and the same mechanism that re-mints the false identity.
+
+### d. Two findings that change the fix, one of which inverts the obvious one
+
+**F1 — a SECOND severed hop.** `RerenderPageSectionsAction`'s *fresh-render* entry
+(`rerender_page_sections_action.go:746`) never emitted the digest either, though `:662` calls
+`RenderTemplate` and holds it 85 lines earlier. `bbe178309` wired only that file's *carry* path. The
+rerender is the fleet's repair vehicle **and** the path that re-mints this population — so a page
+mended by a rerender came out less well-provenanced than one left alone.
+
+**F2 — adding the key alone would have been a REGRESSION.** Layer 2's splice (`:532`) replaces a
+section's HTML with the stored tool but left the *incoming* section's `RenderedTemplateSHA` — the
+digest of the hero band it just discarded — in place. Harmless only while the digest never arrives.
+Deliver it and `resolveComponentVersionID` matches it against `hero` and stamps **the hero version
+onto a whole interactive tool**: by this lane's own standard, worse than no stamp. The "just add two
+keys to the allow-list" fix would have converted *no stamp* into *false stamp* on precisely these
+rows.
+
+### e. What shipped today — phase 0 (`a2e2fbac2`, `Council-Submitted: 73a638c7-f2a0-4a69-8145-96fc9a89c7bb`)
+
+Fixed as the **class**, not the key: one declared carry list + a deny list naming each deliberate
+drop with its reason + an AST parity test that fails when a producer sets an undeclared key **or**
+when the save READS a key the carrier does not carry (the half that would have caught this on day
+one). Plus F1's emission, and `adoptCarriedProvenance` for F2 at both Layer 2 carry arms. Register:
+**CLC-028**, with CLC-026 corrected in place. Four mutations proven to kill their tests; full actions
+suite green at committed HEAD.
+
+**It does not fix this bug.** Identity is still inferred at birth and the mint continues. It makes
+the fact the fix is made of actually reach the database, and stops that fact being false.
+
+> ⚠ **Phase 0 is INERT UNTIL THE NEXT CHASSIS ROLL, and it must be verified at the artefact then** —
+> `sections_metadata` carrying the digest on **both** producer paths, post-roll rows stamped while
+> the pre-roll cohort stays exactly 0, and **the F2 guard holding**: this population is rewritten
+> roughly daily, so within a day its re-minted rows must still read `component_version_id IS NULL`.
+> A population row appearing *with* a hero stamp means the splice hygiene failed — stop there.
+
+### f. What remains
+
+- **Phase 2 — stop the mint.** Design settled (see the lane's PLAN): the damage is on the
+  **component** axis (`component_id` → hero's schema, hero's template) while the landmine is entirely
+  on the **slot** axis (Layer 2's match key, 420 Go references). So: **no slot name changes, at birth
+  or at repair, and `pages.sections` is never touched** — the landmine is not managed, it is never
+  armed. A fallback-adopted fragment that declares no `data-component` is *constructively adopted*
+  onto a seeded `adopted-fragment` component (`{{.body}}`, verified byte-identical by an actual
+  `RenderTemplate` round trip — `text/template`, so no escaping), which earns a real stamp through
+  existing machinery; if adoption cannot complete, `component_id` stays NULL and the row is honestly
+  unknown. Shipped behind an opt-in key defaulting **OFF** (owner ruling 2026-08-02 §2).
+- **Phase 3 — the 22.** Owner-authorised in principle *after* the stamp is live and readable.
+  Byte-preserving re-type (`component_id`, `content_data.body`, `component_version_id`), leaving
+  `slot_name`, `position`, `rendered_html`, `rendered_html_digest` and `pages.sections` untouched.
+  **Re-census on the day** — the population mints daily, so the target is that day's query result,
+  not the number 22 — and exclude the three loancash verbatim pages and the two unrelated defects.

@@ -511,3 +511,84 @@ Answers each round-3 objection with the check that settles it. **The dispatch re
 landmine two hours ago worked in use**: `fix_plan` artifacts on the trail went 3 → 4 within 75
 seconds, which is how a landed dispatch is now told apart from the silently dropped one that cost
 this lane 95 minutes earlier today.
+
+---
+
+## 2026-08-23 — the stamp was severed at a hop nobody measured; phase 0 fixes the CONTRACT, not the key
+
+Picked the lane up after ~23h idle. First question asked, deliberately not "what shall I build next"
+but **"did yesterday's approved, rolled capability actually do anything?"**
+
+### The answer, with its control
+
+[MEASURED 2026-08-23] **820** `page_components` rows born since the 08-22 15:10:31Z roll, **0**
+stamped. `component_versions` with `change_source='render_stamp'`: **0**. `component version:` log
+lines in 24h: **0** — which is *consistent with* the resolver's silent early return
+(`src.renderedSHA == ""` returns with no log), not with it refusing. Pre-roll control: 0 of 1,146,
+correct, nothing backfills.
+
+The decisive measurement was of the **middle** of the chain, not either end:
+
+```sql
+WITH r AS (SELECT collected_data FROM orchestration_states
+           WHERE created_at > '2026-08-22 15:10:31Z' AND collected_data::text LIKE '%rendered_template_sha%'),
+     sm AS (SELECT jsonb_path_query(r.collected_data,'strict $.**.sections_metadata[*]') AS elem FROM r)
+SELECT count(*) AS elems,
+       count(*) FILTER (WHERE elem ? 'rendered_template_sha') AS with_sha,
+       count(*) FILTER (WHERE elem ? 'component_id')          AS with_control
+FROM sm;
+-- 546 | 0 | 546
+```
+
+**546 / 0 / 546.** The copy runs; the key is dropped. `extractSectionFromMap` rebuilt the metadata
+map from a hand-written six-key allow-list and `rendered_template_sha` was not on it. Both ends were
+verified yesterday and the middle was assumed.
+
+### Why this is a contract fix and not a two-line fix
+
+This hop ate `stored_slot_name` in `bugs_open/189`. The remedy then was to add that key and pin it
+with `TestExtractSectionFromMap_ForwardsStoredSlotName` — which asserts **its own key** and was green
+the entire time our stamp was being dropped beside it. **No test file in this repo mentions
+`rendered_template_sha`.** Three keys were being dropped at once.
+
+### Two findings the lane's own plan did not have
+
+**F1.** `RerenderPageSectionsAction`'s *fresh-render* entry (`:746`) never emitted the digest, though
+`:662` calls `RenderTemplate` and holds it 85 lines earlier. `bbe178309` wired only `carryStoredSection`.
+The rerender is the repair vehicle *and* the re-minting path.
+
+**F2, and this one inverts the obvious fix.** Layer 2's splice swaps the section's HTML for the
+stored tool but kept the incoming render's digest. Inert while the digest never arrived — deliver it
+and it resolves against `hero` and stamps the hero version onto the tool. **The "just add the two
+keys" fix would have turned no-stamp into FALSE-stamp on exactly the 357 population.**
+
+### ⚠ MISSTEP: my mutation PASSED and I nearly wrote that down as the test working
+
+Full-action sqlmock test asserting the spliced row's stamp bind is nil: green. Mutation removing
+`RenderedTemplateSHA = ""`: **also green.** The resolver swallows its own query errors and returns
+"no stamp", so a stale digest and no digest write the same `nil`. A guard in series standing in for
+the property under test. Fixed by extracting `adoptCarriedProvenance` and pinning it directly, plus
+an AST test that the splice still calls it — both mutations now kill their tests. Logged in
+`WRONG_CALLS.md` along with two others (a `git apply` that exited 0 while skipping the patch, because
+the scratchpad is itself a git repo; and a concept-register id another session already owned).
+
+### ⚠ The suite is red in the working tree and green at HEAD, and that is not my code
+
+`refused_link_targets.go` / `_test.go` are **untracked** files from another lane, mid-write (the test
+references a function that does not exist yet). Every test result in this section was taken in an
+isolated `git archive HEAD` tree with my changes applied, never in the working tree.
+
+### ⚠ Committing `v3_site_actions.go` needed care, and a plain pathspec commit would have broken HEAD
+
+Another lane has uncommitted WIP in that file passing an **8th** argument to
+`applyWorkItemFailureLadder`, whose *committed* signature takes **7**. `git commit <path>` takes the
+file from the working tree, so it would have shipped a HEAD that does not compile — and every
+`make build-*` builds from HEAD. Committed a HEAD+my-hunk version of the file by pathspec, then
+restored their hunk; verified afterwards that the working-tree diff is exactly their 5/1 hunk and
+that `git archive HEAD` builds and passes.
+
+### Shipped
+
+`a2e2fbac2`, `Council-Submitted: 73a638c7-f2a0-4a69-8145-96fc9a89c7bb`. Register CLC-028; CLC-026
+corrected in place (it claimed "not yet rolled" and it had been rolled for a day, writing nothing).
+Landmine appended and dispatched. **Phase 0 does not fix 357** — the mint continues at ~12/day.

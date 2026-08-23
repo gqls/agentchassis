@@ -285,3 +285,70 @@ dishonesty the council caught in round 2.
 - **Version churn is bounded:** `component_versions` should gain roughly one row per component whose
   template text is not already its newest, then settle. *Disconfirming:* row count climbing on every
   render ⇒ the resolve is comparing wrongly and minting a version per call.
+
+---
+
+# 11. CORRECTIONS 2026-08-23 — three things §10 asserted that turned out to be false or incomplete
+
+Recorded here rather than edited into §10, because §10 is what we believed when phase 1 shipped and
+the difference is the useful part.
+
+## 11.1 ⚠ "Carry paths carry the stamp" was ONE-THIRD true
+
+§10.3 says *"Carry paths carry the stamp"* and lists `carryStoredSection`. That path was wired
+correctly. **Two others were not:**
+
+- `RerenderPageSectionsAction`'s **fresh-render** entry (`rerender_page_sections_action.go:746`) never
+  emitted `rendered_template_sha` at all, though `:662` calls `RenderTemplate` and holds the digest
+  85 lines earlier. `bbe178309` touched only the carry half of that file.
+- **`extractSectionFromMap` dropped it outright** — the compile hop rebuilds the metadata map from a
+  hand-written six-key allow-list. This is why the stamp wrote **0 of 820** rows in its first day
+  live. §10.5's own disconfirming result ("still 0 after the roll") fired and nobody was looking.
+
+The plan verified the **two ends** of the chain and asserted the middle. The check that settles it
+measures the middle: 546 live `sections_metadata` elements, **0** with the digest, **546** with
+`component_id` as the demand control.
+
+## 11.2 ⚠ Phase 1 was not merely inert — once un-severed it would have written FALSE stamps
+
+§10.4 calls phase 1 *"provably inert"*, and while the digest never arrived that was true. It is not a
+property of the code; it is a property of the breakage. Layer 2's splice
+(`save_page_sections_action.go:532`) replaces a section's HTML with stored interactive bytes while
+leaving the incoming section's `RenderedTemplateSHA` — the digest of the *discarded* render — in
+place. Deliver the digest and `resolveComponentVersionID` resolves it against `hero` and stamps the
+hero version onto a whole interactive tool. **"Worse than no stamp", by §10.5's own standard, on
+exactly the population this lane exists for.** Fixed by `adoptCarriedProvenance` at both carry arms
+(phase 0, `a2e2fbac2`).
+
+Generalised: **before repairing a severed field, enumerate every place its payload is REPLACED
+without it.** A missing fact becomes a false one at the moment you fix the plumbing.
+
+## 11.3 §10.4's phase 2 ("readers stop guessing") is wrong as written, and Layer A inherits the landmine
+
+§10.4 states phase 2 as *"`enrichSectionsWithPlannedNames` may not name an unstamped section from
+`planned[Position-1]`"*. Two problems:
+
+1. **Unstamped is the common, honest case** — the whole HTML-parse path, plus 190 of 339 components
+   that declare no `data-component`. As written this deletes positional naming wholesale, which §8 of
+   this same plan explicitly declines to do.
+2. **Suppressing the slot rename desynchronises the row from `pages.sections`** and arms the
+   carry-forward landmine this lane itself filed. §4's Layer A has the same defect for the same
+   reason: an `adopted-fragment`-*named* slot on a page whose plan lists `hero` first re-appends on
+   every rebuild.
+
+**The correct cut, and it is the one that makes safe and effective the same plan:** slot name and
+component identity are different facts. The damage is entirely on the **component** axis
+(`component_id` → hero's schema, hero's template, `ContentDataCanFillTemplate`); the landmine is
+entirely on the **slot** axis (Layer 2's match key; **420** Go references as of 2026-08-23). So type
+the component and **never touch the slot name or `pages.sections`** — the landmine is not managed, it
+is never armed. Constructive adoption onto a `{{.body}}` component, verified byte-identical by a real
+`RenderTemplate` round trip (`text/template`, so no escaping — checked), earns a genuine stamp
+through existing machinery and needs no new inference.
+
+## 11.4 And Layer B should not be built
+
+§4's Layer B (a `data-component` verification guard at the INSERT) is the sixth inference RFC_046
+declines by name, is silent for 190 of 339 components, and cannot vouch for the repair's own output
+(`{{.body}}` declares no attribute). With the stamp now actually flowing, it answers the same
+question as fact. Layer D (an at-rest detector for the other five `page_components` writers) keeps
+its value, as a separate lane.

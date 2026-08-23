@@ -46219,3 +46219,83 @@ have looked like. That is the same lesson as entry 8 immediately above — where
 *did* run and converted a meaningless zero into a decisive one — arriving twice more in the
 same session, in a form I did not recognise because the subject had changed from a database
 retention window to a tool's stdout.
+
+---
+
+## 2026-08-23 — `bugfix_357_component_identity` lane, phase 0: three, and the middle one nearly shipped a test that could not fail
+
+### 1. `git apply` printed nothing, exited 0, and did not apply the patch — because my scratch directory is itself inside a git repo
+
+Building an isolated `HEAD + my changes` tree to test in (the right instinct: another lane's
+untracked WIP reddens the working-tree suite), I extracted `git archive HEAD` into the scratchpad,
+`cd`'d there, and ran `git apply <my.patch>`. It printed **nothing** and exited **0**. The build
+that followed also passed. Both facts were true and neither meant what I read them to mean: the
+patch had been **skipped**.
+
+`/home/ant/.claude-scratch/claude-1000` is a git work tree in its own right (the auto-memory
+versioning). So `git apply`, run from a directory beneath it, resolved
+`platform/orchestration/actions/v3_site_actions.go` against **that** repo, found no such path, and
+declined — `git apply -v` says `Skipped patch '...'` out loud, but the bare form says nothing at
+all and still exits 0.
+
+**What caught it:** a grep control I had written for a different purpose —
+`grep -c carrySectionMetaKey` on the file, expecting 3, got **0** — while the neighbouring control
+(`applyWorkItemFailureLadder`, expecting the other lane's line to be absent) read as expected. One
+control passing and one failing is what made it a mechanism rather than a typo.
+
+**The cheap check:** never accept "the patch applied" from an exit code. Assert a **string that
+must now be present** and one that **must still be absent**, in the same breath. And in a scratch
+directory, prefer `patch -p1`, which has no opinion about repositories, over `git apply`, which has
+a strong one and will act on it silently.
+
+### 2. THE BAD ONE — my mutation PASSED, and I nearly recorded that as the test passing
+
+The whole point of the Layer 2 hygiene edit is that a spliced section must not keep the digest of
+the render it discarded. I wrote a full-action sqlmock test asserting the stamp bind is `nil`,
+watched it pass, then ran the mutation that removes the clearing line.
+
+**The mutation passed too.** The test could not fail.
+
+The reason is a **guard in series**: `resolveComponentVersionID` swallows its own query errors and
+returns "no stamp" on failure. With the mutation in place the resolver *did* go looking, sqlmock
+refused the unexpected query, the resolver logged and returned nothing — and the INSERT bound
+`nil`, exactly as the correct code does. `ExpectationsWereMet()` was satisfied either way, because
+it only checks that *registered* expectations were consumed, not that no others were attempted. Two
+different mechanisms, one observable outcome.
+
+Worse, the fix for the *first* instinct — "register the decoy queries so the wrong path resolves
+something" — inverts the problem: with correct code those expectations go unconsumed and the test
+fails for being right.
+
+**What caught it:** running the mutation. Nothing else would have. The test was green, the code was
+correct, the reasoning was sound, and the assertion was worthless.
+
+**The remedy, which is a design change and not a better assertion:** extract the decision into
+`adoptCarriedProvenance` and pin it directly, plus an AST test (`TestSplice_UsesAdoptCarried…`)
+that the seam still calls it. Both mutations now kill their tests. The action-level pair was kept,
+but demoted to what it can honestly claim — the observable outcome, and a paired control proving
+the decoy is genuinely reachable.
+
+**The cheap check:** when a mutation passes, do not conclude the guard is robust — **find the
+second mechanism that produced the same outcome.** My own memory index already carries this
+("a mutation that PASSES usually hit a guard in SERIES"); I hit it anyway, while writing a test
+whose entire subject was a mechanism that answers when it does not know.
+
+### 3. I claimed a concept-register ID another session already owned
+
+Appended a new register entry as **CLC-027**, having read the file's tail (which ended at CLC-026)
+and not its middle. CLC-027 already existed at line 61 — *"the birth gate's contracts stated to the
+writer"* — added by another lane. On a tree this many sessions share, "the highest id I can see at
+the end of the file" is not the highest id.
+
+**What caught it:** `grep -c CLC-027` on the index returning **3** when I had added exactly one
+line. A count that disagrees with what you just did is worth thirty seconds.
+
+**The cheap check, before writing any new register id:**
+`grep -o "CLC-[0-9]\{3\}" -r docs/agent_docs/docs026_concept_register/register/ | sort -u | tail -3`
+— the whole directory, sorted, not the tail of one file. Renumbered to CLC-028; the other lane's
+entry was left untouched.
+
+**The thread through all three:** each was caught by a control that could have come out otherwise,
+and none by re-reading my own work. The second is the one that matters — it is the only one where
+being wrong would have shipped, because a passing test is normally where checking stops.
