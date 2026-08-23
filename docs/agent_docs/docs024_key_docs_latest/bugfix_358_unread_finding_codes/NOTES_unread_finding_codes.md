@@ -413,3 +413,53 @@ leak that is losing rows today" is his call.
 > right escalation is *"the cap is hit, please raise it"* — precedent is hours, not weeks — and the
 > only proof of a lift is a non-zero success count in the CURRENT hour, never the absence of
 > failures.
+
+---
+
+## 2026-08-23 — the cap lifted overnight, `reader_sink` is live, and 567's owed review is submitted
+
+**The cap lifted, and the landmine's precedent held exactly.** [MEASURED 2026-08-23 ~12:50 UTC]
+`llm_call_log` by hour: 09:00 = 1 ok / 3 capped, 10:00 = 15 ok / 3 capped, **11:00 = 40 ok / 0
+capped**, 12:00 = 22 ok / 0. So the outage ran ~18:15Z → ~10:00Z, **not** to 2026-09-01 as the 400
+body stated. That is the fourth recurrence to clear early and the fourth time the stated reset was
+the vendor's worst case rather than a forecast. **Verified on the SUCCESS side in the CURRENT hour**,
+which is the only proof of a lift — the failures stop appearing either way.
+
+**`reader_sink` is live** (`4156ecca0`), owner-approved from the batch 1 proposal. The point is in
+that commit and the registry `_doc`; what belongs here is how it was verified, because the field's
+whole purpose is to not be satisfiable by typing:
+
+- **All five existing `consumed` entries were audited against the query their reader actually
+  issues, BEFORE the field was filled.** `reconcile_superseded_reviews_action.go:228` →
+  `SELECT context FROM agent_error_log …`; `cmd/content-loss-check` `dispositionFamily` →
+  `SELECT … FROM agent_error_log WHERE error_code IN ($1,$2,$3)` (three codes);
+  `page_build_failure_guard.go:131` → `SELECT count(*) FROM agent_error_log WHERE error_code = $1`.
+  Every one reads this table, so the field is honest and the check did not go red.
+- **Three mutants on a registry COPY** (`--registry <copy>`, never the shipped file): field removed
+  → `consumed-without-reader-sink`, exit 1; sink the reader never mentions →
+  `reader-sink-not-in-reader`, exit 1; foreign sink the reader DOES mention → **reported, not
+  failed**. So the shipped 0 findings / 0 foreign sinks is a measurement.
+
+**⚠ THE CHECK IS WEAKER THAN IT LOOKS, and this is stated in the code, the `_doc` and here.** It
+proves the reader file **mentions** the sink — not that it selects this code from it. A reader
+naming several tables can satisfy it wrongly, and `cmd/content-loss-check/main.go` names several.
+It is deliberately at the same strength as the existing `reader` check and uses no parsing, because
+this mode's founding decision was that it parses nothing so no comment can become load-bearing. It
+is still the check that catches the motivating case: 563's prompt template never mentions
+`agent_error_log` at all.
+
+**A tree that would not build, and a hook that got it right.** The working tree currently fails
+`go test ./cmd/config-key-audit/` because another session's **uncommitted** `platform/livespec/`
+rename left a **committed** test (`livedeclarations_test.go:151`) referencing
+`livespec.DeferredDeclarations`, which no longer exists. Not mine, not touched. I tested against a
+clean `git archive HEAD` with only my two files overlaid. Worth recording: the pre-commit hook
+printed *"optional-key parity: NOT CHECKED (the tree does not build — not a parity claim)"* —
+which is exactly the right behaviour and the same discipline this lane keeps arguing for. A check
+that cannot run must say so rather than pass.
+
+**567's owed review is submitted: `9dc2e6b4-a8fd-476c-8080-ae23567e25c5`.** A FRESH submission, not
+a `RESUBMIT_CORR` — the first round (`bae8d694`) produced no verdict at all, so there is nothing to
+revise against. Its rationale opens by stating the migration is **already applied and live**, so no
+seat reviews it as a plan, and cites the owner ruling of 2026-07-29 that review here is after the
+fact by design. If a seat objects the remedy is a follow-up migration; the rollback exists and is
+lossy in one direction.
