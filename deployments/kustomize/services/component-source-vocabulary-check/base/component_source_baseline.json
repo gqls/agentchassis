@@ -622,26 +622,6 @@
       "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md"
     },
     {
-      "component_id": "9f625d4a-d7ea-40b9-8bb2-7e36b977b198",
-      "component": "social_proof",
-      "field": "testimonials",
-      "source": "site_specs.social_proof.testimonials",
-      "class": "phantom_aspect",
-      "live_instances_at_baseline": 1,
-      "baselined": "2026-08-22",
-      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md"
-    },
-    {
-      "component_id": "994c2c5e-4966-4e46-8bff-7bb7c6b5803e",
-      "component": "testimonials",
-      "field": "testimonials",
-      "source": "site_specs.social_proof.testimonials",
-      "class": "phantom_aspect",
-      "live_instances_at_baseline": 2,
-      "baselined": "2026-08-22",
-      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md"
-    },
-    {
       "component_id": "043095a1-57de-47c7-8931-b0cb6d65191e",
       "component": "webdesign.co.uk Site Footer",
       "field": "categories",
