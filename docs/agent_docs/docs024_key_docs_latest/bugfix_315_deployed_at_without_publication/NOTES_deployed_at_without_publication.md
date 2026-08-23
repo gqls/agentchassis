@@ -2204,3 +2204,35 @@ then. Two prior arguments matter here and pull in opposite directions: the code 
 the shared branch and will roll on any session's build, so holding it back was never
 available; and a REVISE round has historically found real defects in this lane's work 2 rounds
 out of 4, including a false claim in the very file that fixed the bug it described.
+
+### 6. D10 built, and the "fresh chassis build" had not reached the fleet
+
+**The build did not happen, and the tell was the tag.** `[MEASURED 2026-08-23 09:45Z]` every chassis
+pod still ran `v1.0.1327` started `2026-08-22T19:05Z`, `service_binary_capabilities` reported ONE
+distinct commit across **129** pods (`bd454eb93`), the deployment sat at revision 885 unchanged since
+19:05Z, and `makefile` `IMAGE_TAG` still read **`v1.0.1327` — the tag already running**. So a build
+at that tag would have served the node's cached image, and a deploy with an unchanged image spec
+does not restart pods at all, which is exactly the observed state. `git merge-base --is-ancestor
+14a50e533 bd454eb93` → **NO**. Reported rather than worked around: bumping another lane's
+`IMAGE_TAG` and rolling the fleet is not this lane's call.
+
+**D10 built** (`de5d180fc`): `divergenceMinPlausibleBody = 2048`. The floor was **measured** — 45
+random live pages of the 232 hashed, smallest served body 11,388 bytes, none under 4,096, largest
+94,275 — so it sits ~5.5x below the smallest real page, and the const carries the sample and the
+re-measurement condition.
+
+> **[THE DECISION THAT MATTERED WAS PLACEMENT, NOT THE NUMBER.]** The floor goes INSIDE the candidate
+> branch, AFTER the hash-match arm. Hoisting it above — the obvious "skip unjudgeable bodies early"
+> refactor — makes a small HEALTHY page stop retracting, so its open item never closes. That failure
+> is invisible in production, because a retraction that does not happen looks exactly like a page
+> that has not recovered. Pinned by its own test and mutation-proved by performing the hoist.
+
+> **[MISSTEP, and a useful one] The floor caught its own test data.** Five existing fixtures used
+> `bytes: 10` and `bytes: 100` — below the floor — so two unrelated tests failed on the first run.
+> The fix was to raise the fixtures to realistic sizes, not to lower the floor to accommodate
+> fiction. **A fixture that could not exist in production is not a test of production.**
+
+> **[FORESEEN CONSEQUENCE OF MY OWN ACTION]** Rejecting the false item freed its dedup slot —
+> `idx_swi_dedup` excludes `rejected` — while the running binary still lacks the guard. So the check
+> **will re-file the same false positive** on its next pass until the roll. Flag-only, so it costs a
+> triage read. Recorded in the handoff so the next reader meets it as expected rather than as news.

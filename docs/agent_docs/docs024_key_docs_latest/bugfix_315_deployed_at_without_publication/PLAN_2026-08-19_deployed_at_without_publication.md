@@ -480,7 +480,58 @@ survive a retraction cycle or a flapping page will oscillate. And re-detection i
 and the entry must say which of the two it is claiming.
 
 
-### D10 — an empty or error-page 200 is HASHED rather than skipped. NOT BUILT.
+### D10 — an empty or error-page 200 is HASHED rather than skipped. ✅ BUILT 2026-08-23 (`de5d180fc`).
+
+> **DECIDED AND BUILT 2026-08-23.** `divergenceMinPlausibleBody = 2048` bytes; a 200 whose body is
+> smaller is not judged, counted as `implausible_body`.
+>
+> **The floor is MEASURED, not chosen.** `[MEASURED 2026-08-23]` 45 live pages sampled at random
+> from the 232 carrying a fingerprint, fetched with the check's own header: smallest served body
+> **11,388 bytes**, **none under 4,096**, largest 94,275. 2048 sits ~5.5x below the smallest real
+> page. Re-measure if the estate ever ships pages under ~4KB — that is the disconfirming condition,
+> and it is written into the const.
+>
+> **Placement was the real decision.** The floor sits INSIDE the candidate branch, AFTER the
+> hash-match arm, so a small page that is HEALTHY still retracts. Hoisting it above that arm is the
+> obvious refactor and would silently stop retractions — invisible in production, because a
+> retraction that does not happen looks like a page that has not recovered. Pinned by
+> `TestPageContentDivergence_SmallBodyThatMatchesStillRetracts`, and mutation-proved by performing
+> exactly that hoist.
+>
+> **What it gives up:** a genuinely tiny page that genuinely diverged is skipped. One pass, versus a
+> human triage for a false item — and the skip is counted and logged, so the blindness is visible.
+> The EMPTY half was observed live 2026-08-22; the INTERSTITIAL half is precautionary (this lane has
+> never seen an edge error page at 200, only at non-200, where it is already skipped).
+
+### D11 — AN EDGE THAT ADDS BYTES ON THE WAY OUT. ✅ BUILT 2026-08-23 (`14a50e533`). NEW DECISION.
+
+> **This decision did not exist when the plan was written, and it had already cost a day by the time
+> it was taken.** It is the cause of this check's only production finding, which was graded a TRUE
+> POSITIVE for ~21 hours and was not one.
+>
+> **The mechanism.** A CDN can ADD bytes to a response on the way out without the stored object
+> changing. Cloudflare Web Analytics, enabled per zone, injects a ~359-byte
+> `static.cloudflareinsights.com/beacon.min.js` `<script>` into anything it treats as browser HTML.
+> The check sends an HTML `Accept`, so on such a zone it **can never match** — the flag is
+> unconditional and re-fires every pass.
+>
+> **Why the existing guards could not catch it:** it is not a cache (so cache-busting is irrelevant)
+> and it is deterministic (so the confirmation fetch agrees). Both guards pass it through.
+>
+> **The decision: a raw-object probe.** Once a mismatch has confirmed itself, fetch once more with
+> `Accept: */*`. If THAT hashes to the fingerprint, the bytes we sent arrived and the difference is
+> the edge's — discard. It cannot hide a real divergence, because a stale delivery serves the old
+> object under every header; suppression requires an exact sha256 match.
+>
+> **Two sub-decisions, both deliberate.** (1) An unusable raw probe DISCARDS rather than files — no
+> information is not exonerating information, and a missed pass costs one cycle while a false item
+> costs a triage. (2) It SKIPS rather than RETRACTS: an edge could in principle serve a stale body to
+> browsers while answering `*/*` correctly, so retracting would assert health we did not observe.
+> That keeps the retraction half with exactly one producer.
+>
+> **The generalisable lesson, recorded in `WRONG_CALLS.md` and `LANDMINES.md`:** a hash comparison
+> can only tell you THAT two bodies differ. Before naming the difference — "stale", "old",
+> "truncated" — `diff` them.
 
 `fetchServedPage` hashes whatever a 200 returns. `[MEASURED 2026-08-22]` live responses on this estate
 include zero-length bodies (`sha256 = e3b0c44298fc…`, the empty string) and Cloudflare error pages
