@@ -480,7 +480,8 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// reconstruct the tool.
 	{
 		rows, qErr := params.DB.QueryContext(ctx, `
-			SELECT slot_name, rendered_html, content_data
+			SELECT slot_name, rendered_html, content_data,
+			       COALESCE(component_version_id::text, '')
 			FROM page_components
 			WHERE page_id = $1 AND build_status = 'deployed'
 			  AND `+interactiveHTMLSQL("rendered_html")+`
@@ -493,12 +494,17 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 				slot        string
 				html        string
 				contentData map[string]interface{}
+				// The stamp that describes THESE bytes (RFC_046). A carry does not
+				// change the bytes, so it must not change their provenance — and it
+				// must not let the incoming section's provenance describe them.
+				componentVersionID string
 			}
 			var preserved []preservedSection
 			for rows.Next() {
 				var slot, html string
 				var cdJSON []byte
-				if scanErr := rows.Scan(&slot, &html, &cdJSON); scanErr != nil {
+				var storedVersionID string
+				if scanErr := rows.Scan(&slot, &html, &cdJSON, &storedVersionID); scanErr != nil {
 					params.Logger.Warn("SavePageSectionsAction: interactive-section scan failed (Layer 2)",
 						zap.Error(scanErr))
 					continue
@@ -507,7 +513,10 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 				if len(cdJSON) > 0 {
 					_ = json.Unmarshal(cdJSON, &cd)
 				}
-				preserved = append(preserved, preservedSection{slot: slot, html: html, contentData: cd})
+				preserved = append(preserved, preservedSection{
+					slot: slot, html: html, contentData: cd,
+					componentVersionID: storedVersionID,
+				})
 			}
 			rows.Close()
 
@@ -533,6 +542,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 					if p.contentData != nil {
 						sections[matchedIdx].ContentData = p.contentData
 					}
+					adoptCarriedProvenance(&sections[matchedIdx], p.componentVersionID)
 				default:
 					// Slot dropped entirely — re-append the tool so it survives.
 					params.Logger.Warn("SavePageSectionsAction: re-appending dropped interactive tool (Layer 2)",
@@ -542,7 +552,16 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 						ComponentName: p.slot,
 						HTML:          p.html,
 						ContentData:   p.contentData,
-						Position:      len(sections) + 1,
+						// Same rule as the splice arm (adoptCarriedProvenance): the stored
+						// bytes keep the stamp they earned, and there is no incoming
+						// digest here to clear because this section is BUILT from the
+						// stored row. Today it cannot reach the database — the INSERT
+						// resolves a version only when the section also has a
+						// component_id, and a re-appended section has none — but the two
+						// carry arms must state the same thing, or the next edit reopens
+						// the gap on whichever one nobody was looking at.
+						ComponentVersionID: p.componentVersionID,
+						Position:           len(sections) + 1,
 					})
 				}
 			}

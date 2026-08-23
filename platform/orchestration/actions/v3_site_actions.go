@@ -2844,63 +2844,37 @@ func extractSectionFromMap(m map[string]interface{}, logger *zap.Logger) (string
 	}
 
 	// Collect component metadata from top level first.
-	if id, ok := m["component_id"]; ok && id != nil {
-		meta["component_id"] = fmt.Sprintf("%v", id)
-	}
-	if name, ok := m["component_name"].(string); ok && name != "" {
-		meta["component_name"] = name
-	}
-	if fn, ok := m["component_function"].(string); ok && fn != "" {
-		meta["component_function"] = fn
-	}
-	if cd, ok := m["content_data"]; ok && cd != nil {
-		meta["content_data"] = cd
-	}
-	if slot, ok := m["stored_slot_name"].(string); ok && slot != "" {
-		meta["stored_slot_name"] = slot
+	//
+	// ONE declared list, not a hand-written block per key (RFC_046;
+	// bugs_open/357). Every key a producer sets is either in
+	// sectionMetadataCarryKeys or in sectionMetadataDeniedKeys with its reason,
+	// and section_metadata_parity_test.go fails on a key in neither. Before that
+	// contract, this function rebuilt the map from a literal six-key list and
+	// silently dropped rendered_template_sha, which severed the identity stamp
+	// for a day of production without a single error or failing test — the same
+	// way it dropped stored_slot_name in bugs_open/189.
+	for _, key := range sectionMetadataCarryKeys {
+		carrySectionMetaKey(meta, m, key)
 	}
 
 	// Remember whether top-level already had the name, so we only log recovery
 	// when the nested fallback actually contributed it.
 	_, hadTopName := m["component_name"].(string)
 
-	if meta["component_id"] == nil || meta["component_name"] == nil ||
-		meta["component_function"] == nil || meta["content_data"] == nil ||
-		meta["stored_slot_name"] == nil {
+	if !sectionMetaComplete(meta) {
 
 		for _, subKey := range []string{"section_output", "render_section", "render_from_template"} {
 			nested, ok := m[subKey].(map[string]interface{})
 			if !ok {
 				continue
 			}
-			if meta["component_id"] == nil {
-				if id, ok := nested["component_id"]; ok && id != nil {
-					meta["component_id"] = fmt.Sprintf("%v", id)
-				}
+			// Same declared list as the top-level pass. carrySectionMetaKey never
+			// overwrites, so a value already recovered from an earlier substep — or
+			// present at the top level — still wins.
+			for _, key := range sectionMetadataCarryKeys {
+				carrySectionMetaKey(meta, nested, key)
 			}
-			if meta["component_name"] == nil {
-				if name, ok := nested["component_name"].(string); ok && name != "" {
-					meta["component_name"] = name
-				}
-			}
-			if meta["component_function"] == nil {
-				if fn, ok := nested["component_function"].(string); ok && fn != "" {
-					meta["component_function"] = fn
-				}
-			}
-			if meta["content_data"] == nil {
-				if cd, ok := nested["content_data"]; ok && cd != nil {
-					meta["content_data"] = cd
-				}
-			}
-			if meta["stored_slot_name"] == nil {
-				if slot, ok := nested["stored_slot_name"].(string); ok && slot != "" {
-					meta["stored_slot_name"] = slot
-				}
-			}
-			if meta["component_id"] != nil && meta["component_name"] != nil &&
-				meta["component_function"] != nil && meta["content_data"] != nil &&
-				meta["stored_slot_name"] != nil {
+			if sectionMetaComplete(meta) {
 				break
 			}
 		}

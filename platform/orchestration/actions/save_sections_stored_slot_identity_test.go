@@ -313,8 +313,26 @@ func saveSlotParams(db *sql.DB, siteID uuid.UUID, pageName string, meta []interf
 // Expectations are ORDERED deliberately. This action issues several queries
 // against page_components, and an unordered set would let one regexp match the
 // wrong one and still pass.
+// expectSaveSlotReads keeps the original signature — a page with NO stored
+// interactive section, which is what every case in this file wants. The Layer 2
+// preload is parameterised in the variant below because bugs_open/357's stamp
+// hygiene has to stage a stored row there, and until it did, nothing in the suite
+// ever returned one: the splice arm had no test at all.
 func expectSaveSlotReads(mock sqlmock.Sqlmock, siteID, pageID uuid.UUID, pageName string,
 	locked *sqlmock.Rows, writable, lockedRows, planned int) {
+
+	expectSaveSlotReadsPreloading(mock, siteID, pageID, pageName, locked,
+		writable, lockedRows, planned, layer2PreloadRows())
+}
+
+// layer2PreloadRows is the Layer 2 preload's column set, in one place so a change
+// to that query's SELECT list does not have to be chased through two files.
+func layer2PreloadRows() *sqlmock.Rows {
+	return sqlmock.NewRows([]string{"slot_name", "rendered_html", "content_data", "component_version_id"})
+}
+
+func expectSaveSlotReadsPreloading(mock sqlmock.Sqlmock, siteID, pageID uuid.UUID, pageName string,
+	locked *sqlmock.Rows, writable, lockedRows, planned int, preload *sqlmock.Rows) {
 
 	// saveSectionsLookupPageID
 	mock.ExpectQuery("SELECT id, url FROM pages").
@@ -329,7 +347,7 @@ func expectSaveSlotReads(mock sqlmock.Sqlmock, siteID, pageID uuid.UUID, pageNam
 	// Layer 2 interactive-section preload
 	mock.ExpectQuery("SELECT slot_name, rendered_html, content_data").
 		WithArgs(pageID).
-		WillReturnRows(sqlmock.NewRows([]string{"slot_name", "rendered_html", "content_data"}))
+		WillReturnRows(preload)
 
 	// Link repair: the site's page URL index
 	mock.ExpectQuery("FROM pages").
