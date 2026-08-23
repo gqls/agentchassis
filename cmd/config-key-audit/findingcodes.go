@@ -94,9 +94,29 @@ const liveCodesQuery = `
 // file it names; `review_by` expires on its own; `why` must name the window it
 // accepts.
 type findingCodeEntry struct {
-	Disposition string   `json:"disposition"`
-	Writer      string   `json:"writer,omitempty"`
-	Reader      string   `json:"reader,omitempty"`
+	Disposition string `json:"disposition"`
+	Writer      string `json:"writer,omitempty"`
+	Reader      string `json:"reader,omitempty"`
+
+	// ReaderSink names the TABLE the reader actually selects the code from, and
+	// it exists because `consumed` was silently ambiguous between two very
+	// different states (batch 1, 2026-08-22).
+	//
+	// component_validation_rejected has a genuine automated reader — migration
+	// 563 branches the component-creator's prompt on the failure class, so a
+	// rejected component is regenerated with the right remedy. But that reader
+	// reads `site_work_items.retry_feedback`, a dedicated single-writer column
+	// (store_generated_component_action.go:1587), wired to the prompt by 564.
+	// The agent_error_log row is a SECOND, parallel record that nothing reads.
+	//
+	// Without this field that entry would have been marked `consumed`, passed
+	// the reader check (563 does contain the string), and read as healthy for
+	// ever while its row stayed unread — bugs_open/358's own defect wearing a
+	// green badge. Note this is a DIFFERENT failure from the one the registry
+	// already warns about on STRUCTURAL_KEY_CARRY_MISS: that is the WRITER
+	// being blind to part of its population; this is the READER reading
+	// somewhere else entirely.
+	ReaderSink  string   `json:"reader_sink,omitempty"`
 	Owner       string   `json:"owner,omitempty"`
 	ReviewBy    string   `json:"review_by,omitempty"`
 	Why         string   `json:"why,omitempty"`
@@ -122,6 +142,12 @@ type findingCodeReport struct {
 	Unruled       []string             `json:"unruled"`
 	NotObserved   []string             `json:"registered_not_observed"`
 	ObservedCount int                  `json:"observed_codes"`
+
+	// ForeignSinks lists `consumed` codes whose reader consumes them from a
+	// table other than agent_error_log. REPORT, never a finding: a parallel
+	// record is not automatically a defect. It is here so the registry can
+	// never again read as a closed loop over this table when it is not one.
+	ForeignSinks []string `json:"consumed_from_another_sink"`
 
 	// RetentionParity says whether the registry was compared against the live
 	// sweep's short-retention list, and is emitted ALWAYS — "not checked" is a
@@ -210,7 +236,8 @@ func repoSourceReader(root string) sourceReader {
 // reason). `live` is the observed code list; `now` is passed rather than read so
 // a review_by expiry test cannot depend on the wall clock.
 func auditFindingCodes(live []string, reg map[string]findingCodeEntry, src sourceReader, now time.Time) findingCodeReport {
-	rep := findingCodeReport{Findings: []findingCodeFinding{}, Unruled: []string{}, NotObserved: []string{}}
+	rep := findingCodeReport{Findings: []findingCodeFinding{}, Unruled: []string{},
+		NotObserved: []string{}, ForeignSinks: []string{}}
 
 	observed := map[string]bool{}
 	for _, raw := range live {
@@ -276,6 +303,40 @@ func auditFindingCodes(live []string, reg map[string]findingCodeEntry, src sourc
 						"names the wrong file is worse than none, because it reads as a closed loop",
 						e.Reader, code),
 				})
+			}
+
+			// WHICH SINK the reader reads. See the ReaderSink doc comment: a
+			// reader that genuinely consumes the code from somewhere ELSE
+			// leaves this table's row unread while the entry reads as closed.
+			switch {
+			case strings.TrimSpace(e.ReaderSink) == "":
+				rep.Findings = append(rep.Findings, findingCodeFinding{
+					Kind: "consumed-without-reader-sink", Code: code,
+					Detail: "disposition 'consumed' requires reader_sink — the table the reader " +
+						"actually selects this code from. 'Something reads it' and 'this table's " +
+						"row is read' are different claims and the first was hiding the second",
+				})
+			case !strings.Contains(body, e.ReaderSink):
+				// Same strength as the reader check above, and the same limit:
+				// it proves the reader MENTIONS the sink, not that it selects
+				// this code from it. A file naming several tables can satisfy
+				// this wrongly — stated rather than papered over. It is still
+				// the check that would have caught the motivating case, where
+				// the named reader never mentions agent_error_log at all.
+				rep.Findings = append(rep.Findings, findingCodeFinding{
+					Kind: "reader-sink-not-in-reader", Code: code,
+					Detail: fmt.Sprintf("reader %s never mentions %s, so it cannot be selecting "+
+						"this code from there — either the sink is wrong or the reader is",
+						e.Reader, e.ReaderSink),
+				})
+			case e.ReaderSink != agentErrorLogSink:
+				// REPORT, not a finding. A parallel record is not automatically
+				// a defect — an append-only history beside an overwritten
+				// column is often the point. What must not happen is it reading
+				// as a closed loop over THIS table when it is not one.
+				rep.ForeignSinks = append(rep.ForeignSinks,
+					fmt.Sprintf("%s — reader %s consumes it from %s, so its %s row is still unread",
+						code, e.Reader, e.ReaderSink, agentErrorLogSink))
 			}
 		case "instrumented":
 			if strings.TrimSpace(e.Owner) == "" {
@@ -391,6 +452,13 @@ func findingCodeRunSummary(rep findingCodeReport, registryPath string) string {
 	}
 	if len(rep.Unruled) > 0 {
 		fmt.Fprintf(&b, "\nunruled (%d): %s\n", len(rep.Unruled), strings.Join(rep.Unruled, ", "))
+	}
+	if len(rep.ForeignSinks) > 0 {
+		fmt.Fprintf(&b, "\nconsumed, but NOT from this table (%d): %s\n",
+			len(rep.ForeignSinks), strings.Join(rep.ForeignSinks, "; "))
+		b.WriteString("  Report only. The code has a real automated reader, but this table's row " +
+			"is still unread - a parallel record, which is often deliberate. What it must not do " +
+			"is read as a closed loop over agent_error_log.\n")
 	}
 	if len(rep.NotObserved) > 0 {
 		fmt.Fprintf(&b, "\nregistered but not observed in the retained window (%d): %s\n",
@@ -580,6 +648,11 @@ func emitFindingCodes(args []string) {
 //     judgement its `review_by` governs; RFC_029's two resolver codes want
 //     frequency and are deliberately short-retention. Asserting either way here
 //     would make this check the owner of a decision that is not its to make.
+//
+// agentErrorLogSink is the table this whole registry is about. A `consumed`
+// entry naming any other sink is reported rather than assumed closed.
+const agentErrorLogSink = "agent_error_log"
+
 const retentionSweepTask = "database-cleanup"
 
 const retentionSweepQuery = `SELECT pre_query FROM scheduled_tasks WHERE name = $1`

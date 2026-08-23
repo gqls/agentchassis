@@ -1,16 +1,18 @@
 {
-  "_doc": "bugs_open/358 — one entry per agent_error_log error_code. THE AUTHORITY IS THE LIVE TABLE, not this file and not a source scan: `config-key-audit --finding-codes` reads SELECT DISTINCT error_code and asks whether each observed code is declared here. That is deliberate — agenterrors.Write calls itself 'The ONE writer against agent_error_log' and it is NOT (four of five INSERT paths bypass it, and internal/agents/contentcreator CANNOT use it: *pgxpool.Pool against a *sql.DB parameter), so a check anchored on the seam or on a grep would read clean while most writers walked past. KEYED ON THE CODE UP TO THE FIRST COLON (358 §8: error_code is free text and one writer emits colon-suffixed variants); raw_variants lists what is actually written, so a family cannot double-count as compliance. DISPOSITIONS: consumed (an automated reader selects by this code and acts — `reader` must be a file:line the checker verifies CONTAINS the code); instrumented (deliberate, time-boxed measurement — `owner` doc and a `review_by` date the checker expires); human-evidence (hand-run forensics only — `why` must name the retention window it accepts); operational (failure plumbing, whose correct consumption IS the generic newest-N diagnostic read — 358 §2.3); unruled (declared, not yet decided — a COUNTED BACKLOG, listed at exit 0, never an exemption). Every required field is chosen so it cannot be satisfied by typing, which is RFC_029 §10.15's lesson from optional_explicit_wire_acks.json: 'an ack satisfiable by typing the key is no ack'. AN OBSERVED CODE ABSENT FROM THIS FILE IS A FINDING (exit 1). A registered code NOT observed is report-only — retention is 30 days, so absence proves 30 days and never 'never'. ⚠ STATED LIMIT: `consumed` says a reader selects by this code and acts on it. It does NOT say the WRITER can see the whole population it would need to — a detector that only fires on one code path is blind to everything off it, however faithfully its rows are read (worked example: STRUCTURAL_KEY_CARRY_MISS below). Coverage of the writer is a separate question this registry does not answer and must not be read as answering.",
+  "_doc": "bugs_open/358 — one entry per agent_error_log error_code. THE AUTHORITY IS THE LIVE TABLE, not this file and not a source scan: `config-key-audit --finding-codes` reads SELECT DISTINCT error_code and asks whether each observed code is declared here. That is deliberate — agenterrors.Write calls itself 'The ONE writer against agent_error_log' and it is NOT (four of five INSERT paths bypass it, and internal/agents/contentcreator CANNOT use it: *pgxpool.Pool against a *sql.DB parameter), so a check anchored on the seam or on a grep would read clean while most writers walked past. KEYED ON THE CODE UP TO THE FIRST COLON (358 §8: error_code is free text and one writer emits colon-suffixed variants); raw_variants lists what is actually written, so a family cannot double-count as compliance. DISPOSITIONS: consumed (an automated reader selects by this code and acts — `reader` must be a file:line the checker verifies CONTAINS the code, AND `reader_sink` must name the TABLE that reader selects it from, which the checker verifies the reader file mentions); instrumented (deliberate, time-boxed measurement — `owner` doc and a `review_by` date the checker expires); human-evidence (hand-run forensics only — `why` must name the retention window it accepts); operational (failure plumbing, whose correct consumption IS the generic newest-N diagnostic read — 358 §2.3); unruled (declared, not yet decided — a COUNTED BACKLOG, listed at exit 0, never an exemption). Every required field is chosen so it cannot be satisfied by typing, which is RFC_029 §10.15's lesson from optional_explicit_wire_acks.json: 'an ack satisfiable by typing the key is no ack'. AN OBSERVED CODE ABSENT FROM THIS FILE IS A FINDING (exit 1). A registered code NOT observed is report-only — retention is 30 days, so absence proves 30 days and never 'never'. ⚠ STATED LIMIT: `consumed` says a reader selects by this code and acts on it. It does NOT say the WRITER can see the whole population it would need to — a detector that only fires on one code path is blind to everything off it, however faithfully its rows are read (worked example: STRUCTURAL_KEY_CARRY_MISS below). Coverage of the writer is a separate question this registry does not answer and must not be read as answering. ⚠ SECOND STATED LIMIT, and a DIFFERENT one (added 2026-08-23): `consumed` also used to be silently ambiguous about WHICH SINK the reader reads. component_validation_rejected has a genuine automated reader — migration 563 branches the component-creator's prompt on the failure class — but that reader reads `site_work_items.retry_feedback` (single writer: store_generated_component_action.go:1587, wired by 564), NOT this table. Its agent_error_log row is a PARALLEL record nothing reads. Marked `consumed` it would have passed the reader check (563 does contain the string) and read as a closed loop for ever. Hence `reader_sink`: a value other than `agent_error_log` is REPORTED, not failed — a parallel append-only record beside an overwritten column is often deliberate — but it can never again read as though THIS table's row were consumed. The check's own limit, stated: it proves the reader file MENTIONS the sink, not that it selects this code from it; a file naming several tables can satisfy it wrongly.",
 
   "CONTENT_VALIDATION_BLOCKER_DETAIL": {
     "disposition": "consumed",
     "writer": "platform/orchestration/actions/validate_page_content.go:636",
     "reader": "platform/orchestration/actions/reconcile_superseded_reviews_action.go:228",
+    "reader_sink": "agent_error_log",
     "note": "reader merges the last 20 blocker values per page into its supersede finding"
   },
   "CONTENT_KEY_LOSS": {
     "disposition": "consumed",
     "writer": "cmd/content-loss-check/main.go:292",
     "reader": "cmd/content-loss-check/main.go:325",
+    "reader_sink": "agent_error_log",
     "owner_lane": "bugfix_238_regeneration_key_loss",
     "note": "bugs_open/355 A2+A3. Writer and reader are one binary; it also re-grades and RESOLVES — the first user of the resolved triple in the table's history (2026-08-22)"
   },
@@ -18,6 +20,7 @@
     "disposition": "consumed",
     "writer": "platform/orchestration/actions/plan_sections_action.go:1520",
     "reader": "cmd/content-loss-check/main.go:325",
+    "reader_sink": "agent_error_log",
     "owner_lane": "bugfix_238_regeneration_key_loss",
     "note": "⚠ CONSUMED IS NOT COMPLETE, and this is the worked example. It gained its reader on 2026-08-22 (cba51ad1d) — 8 of its 28 rows are already resolved — but the WRITER only fires when a page is BUILT, so a component that never gets built is invisible to it for ever (bugs_open/309's at-rest audit found eleven such, and cites bugs_open/358 in its own code for why it does NOT route findings here). That limit is independent of the reader: a disposition says who reads a code, never that the writer can see the whole population it would need to. Do not read `consumed` as coverage."
   },
@@ -25,12 +28,14 @@
     "disposition": "consumed",
     "writer": "platform/orchestration/actions/save_sections_metadata_source.go:306",
     "reader": "cmd/content-loss-check/main.go:325",
+    "reader_sink": "agent_error_log",
     "owner_lane": "bugfix_238_regeneration_key_loss"
   },
   "DEPLOY_STAMP_REFUSED_ON_SKIP": {
     "disposition": "consumed",
     "writer": "platform/orchestration/actions/page_build_failure_guard.go:110",
     "reader": "platform/orchestration/actions/page_build_failure_guard.go:131",
+    "reader_sink": "agent_error_log",
     "note": "writer and reader are one mechanism — a 7-day strike ladder counting its own rows. Zero rows in the window is legitimately quiet, not absent. ⚠ the reader binds a Go CONST to $1, so a literal-grep verdicts this code unread (358 §3.2)"
   },
 

@@ -93,11 +93,12 @@ func TestUnruledIsCountedButNotAFinding(t *testing.T) {
 // wrong file is WORSE than none, because it reads as a closed loop.
 
 func TestConsumedEntryNeedsAReaderThatActuallyNamesTheCode(t *testing.T) {
-	entry := findingCodeEntry{Disposition: "consumed", Reader: "some/reader.go:12"}
+	entry := findingCodeEntry{Disposition: "consumed", Reader: "some/reader.go:12",
+		ReaderSink: "agent_error_log"}
 	reg := map[string]findingCodeEntry{"MY_CODE": entry}
 
 	wrong := auditFindingCodes([]string{"MY_CODE"}, reg,
-		srcContaining(map[string]string{"some/reader.go:12": "func unrelated() {}"}), testNow)
+		srcContaining(map[string]string{"some/reader.go:12": "func unrelated() { db.Query(`FROM agent_error_log`) }"}), testNow)
 	if len(wrong.Findings) != 1 || wrong.Findings[0].Kind != "reader-does-not-name-code" {
 		t.Fatalf("a reader that never mentions the code must be rejected; got %v", kinds(wrong))
 	}
@@ -105,7 +106,7 @@ func TestConsumedEntryNeedsAReaderThatActuallyNamesTheCode(t *testing.T) {
 	// THE CONTROL — the same entry against a body that DOES name it.
 	right := auditFindingCodes([]string{"MY_CODE"}, reg,
 		srcContaining(map[string]string{
-			"some/reader.go:12": "rows, _ := db.Query(`WHERE error_code = 'MY_CODE'`)",
+			"some/reader.go:12": "rows, _ := db.Query(`SELECT context FROM agent_error_log WHERE error_code = 'MY_CODE'`)",
 		}), testNow)
 	if len(right.Findings) != 0 {
 		t.Fatalf("a real reader must pass, or the check rejects every entry equally; got %v", kinds(right))
@@ -118,7 +119,8 @@ func TestConsumedEntryNeedsAReaderThatActuallyNamesTheCode(t *testing.T) {
 // const to $1. Verifying at file granularity is what keeps that case passing.
 func TestConsumedReaderMayReachTheCodeThroughAConstant(t *testing.T) {
 	reg := map[string]findingCodeEntry{
-		"DEPLOY_STAMP_REFUSED_ON_SKIP": {Disposition: "consumed", Reader: "guard.go:131"},
+		"DEPLOY_STAMP_REFUSED_ON_SKIP": {Disposition: "consumed", Reader: "guard.go:131",
+			ReaderSink: "agent_error_log"},
 	}
 	body := "const deployStampRefusedErrorCode = \"DEPLOY_STAMP_REFUSED_ON_SKIP\"\n" +
 		"db.QueryRow(`SELECT count(*) FROM agent_error_log WHERE error_code = $1`, deployStampRefusedErrorCode)"
@@ -325,5 +327,78 @@ func TestShippedRegistryIsSelfConsistent(t *testing.T) {
 			fmt.Fprintf(&b, "\n  [%s] %s — %s", f.Kind, f.Code, f.Detail)
 		}
 		t.Fatalf("the shipped registry does not satisfy its own rules:%s", b.String())
+	}
+}
+
+// ─── reader_sink (batch 1, 2026-08-23) ──────────────────────────────────────
+//
+// `consumed` was silently ambiguous between "an automated reader consumes this
+// code" and "this table's row is read". component_validation_rejected is the
+// live case where those differ: its reader is real, and it reads
+// site_work_items.retry_feedback, not agent_error_log.
+
+func TestConsumedWithoutAReaderSinkIsAFinding(t *testing.T) {
+	reg := map[string]findingCodeEntry{
+		"MY_CODE": {Disposition: "consumed", Reader: "r.go:1"}, // no ReaderSink
+	}
+	got := auditFindingCodes([]string{"MY_CODE"}, reg,
+		srcContaining(map[string]string{"r.go:1": "FROM agent_error_log WHERE error_code='MY_CODE'"}), testNow)
+	if len(got.Findings) != 1 || got.Findings[0].Kind != "consumed-without-reader-sink" {
+		t.Fatalf("consumed must name the sink it reads from; got %v", kinds(got))
+	}
+}
+
+// The sink claim is VERIFIED against the reader body, exactly as the code claim
+// is. This is the check that would have caught the motivating case: 563's
+// prompt template never mentions agent_error_log at all.
+func TestReaderSinkMustAppearInTheReader(t *testing.T) {
+	reg := map[string]findingCodeEntry{
+		"MY_CODE": {Disposition: "consumed", Reader: "r.go:1", ReaderSink: "agent_error_log"},
+	}
+	got := auditFindingCodes([]string{"MY_CODE"}, reg,
+		srcContaining(map[string]string{
+			"r.go:1": "SELECT retry_feedback FROM site_work_items WHERE code='MY_CODE'",
+		}), testNow)
+	if len(got.Findings) != 1 || got.Findings[0].Kind != "reader-sink-not-in-reader" {
+		t.Fatalf("a sink the reader never mentions must be rejected; got %v", kinds(got))
+	}
+}
+
+// A FOREIGN sink is REPORTED, never failed. A parallel append-only record
+// beside an overwritten column is often deliberate — what must not happen is
+// the entry reading as a closed loop over agent_error_log when it is not one.
+func TestForeignSinkIsReportedNotFailed(t *testing.T) {
+	reg := map[string]findingCodeEntry{
+		"component_validation_rejected": {
+			Disposition: "consumed",
+			Reader:      "563.sql:156",
+			ReaderSink:  "site_work_items.retry_feedback",
+		},
+	}
+	got := auditFindingCodes([]string{"component_validation_rejected"}, reg,
+		srcContaining(map[string]string{
+			"563.sql:156": "eq .last_error_code \"component_validation_rejected\" -- fed from site_work_items.retry_feedback",
+		}), testNow)
+	if len(got.Findings) != 0 {
+		t.Fatalf("a foreign sink must not FAIL the check; got %v", kinds(got))
+	}
+	if len(got.ForeignSinks) != 1 {
+		t.Fatalf("a foreign sink must be REPORTED; got %v", got.ForeignSinks)
+	}
+	if !strings.Contains(got.ForeignSinks[0], "still unread") {
+		t.Errorf("the report must say the agent_error_log row is unread; got %q", got.ForeignSinks[0])
+	}
+}
+
+// THE CONTROL for the test above: agent_error_log itself must NOT be reported,
+// or the report would name every consumed entry and mean nothing.
+func TestOwnSinkIsNotReported(t *testing.T) {
+	reg := map[string]findingCodeEntry{
+		"MY_CODE": {Disposition: "consumed", Reader: "r.go:1", ReaderSink: "agent_error_log"},
+	}
+	got := auditFindingCodes([]string{"MY_CODE"}, reg,
+		srcContaining(map[string]string{"r.go:1": "FROM agent_error_log WHERE error_code='MY_CODE'"}), testNow)
+	if len(got.Findings) != 0 || len(got.ForeignSinks) != 0 {
+		t.Fatalf("the ordinary case must be silent on both channels; got %v / %v", kinds(got), got.ForeignSinks)
 	}
 }
