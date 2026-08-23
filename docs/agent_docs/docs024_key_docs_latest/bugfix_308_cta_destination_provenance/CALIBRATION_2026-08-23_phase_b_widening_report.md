@@ -61,7 +61,15 @@ destination on its next build or `cta_links_stale` rerender:
 | writes into an **empty** field | — | 189 |
 | **writes over a non-empty stored url** | **32** | **435** |
 
-**The widening multiplies fleet CTA rewrite volume by ~13x (32 → 435).** 308's own population is
+> **CORRECTED 2026-08-23 (later the same day):** the 435 above counts every pick that differs
+> from the stored value. **Both writers additionally gate the write on `validPages.Contains`**
+> (`setCTAField`, `applyCTARecompute`), and applying that gate — as the shipping code does — the
+> figure is **428**, of which **92** land in a utility area (not 96). §4's post-refusal figure is
+> **291**, not 298. The corrected numbers are the ones §8 compares. What caught it: re-running the
+> same population through a harness path that mirrored the writers' *full* branch condition rather
+> than the match alone — i.e. the first version measured the matcher, not the writer.
+
+**The widening multiplies fleet CTA rewrite volume by ~13x (32 → 428).** 308's own population is
 147 findings (§4), so **roughly two thirds of what Phase B would rewrite is not what 308 is
 about.** That is the number to hold in mind: this change is far wider than the bug that motivates
 it, and its safety cannot rest on the bug's own examples looking right.
@@ -176,3 +184,41 @@ be counted as closed.
 - **The detector-side cost of refusal is a recall trade that has not been audited case by case**:
   263 anchors would stop being classified as "names a page". Two families (19 findings) are known
   false and stop correctly; the rest are unexamined.
+
+---
+
+## 8. OPTION B — "add only the utility pages" — measured, and it is WORSE
+
+The obvious cheaper change is to widen the pool by **only** the utility-area pages
+(contact/about/privacy/terms/legal, any `page_type`) and leave every other content page out. 308's
+whole population is utility suggestions, so this looks like the minimal sufficient fix, and it
+rewrites a third as much.
+
+| pool | matched | writes (validity-gated) | → utility | refused as ambiguous |
+|---|---|---|---|---|
+| **A** wide (detector's universe) | 1,146 | 428 | 92 | — |
+| **A'** wide **+ tie refusal** | 883 | **291** | **66** | 263 |
+| **B** utility-only widening | 883 | 136 | 105 | — |
+| **B'** utility-only **+ tie refusal** | 702 | **108** | **96** | 181 |
+
+**B' writes FEWER links and MORE of them are wrong.** It makes 26 utility repairs that A' does not
+make, and reading them is the argument:
+
+| B'-only "repair" | why it is wrong |
+|---|---|
+| dartsonline "Check the tungsten percentage guide first" → `/about.html` | the tungsten guide page exists; it is **not in B's pool**, so About wins by default |
+| finetuning "How We Work" / "See how we work" → `/about.html` | `/how-we-work.html` is not in B's pool either |
+| finetuning "Talk to Us About Your Setup" → `/about.html` | matched on the token **`about`** — the false match this bug file predicted |
+| fundamentallyai "Talk to us about a recovery" → `/about.html` | same |
+
+**A' makes zero utility repairs that B' misses** — the wide pool is a superset, so it can only
+change a pick by finding something *better*. The mechanism is the point: adding utility pages to a
+pool that still excludes the label's real target does not give the matcher a choice, it gives it a
+**monopoly**. A narrow widening is not a safer widening; it is a widening with the right answers
+withheld.
+
+This also settles the "recalibrate the stopwords" item the bug file carries as a Phase B
+constraint: `about` in `LabelStopwords` would suppress the four `Talk to us about …` cases above,
+but it would equally suppress *"Learn More About Us"* → `/about.html`, which is a **correct**
+repair A' makes. The lever that separates them is not the stopword list — it is having the real
+target in the pool, plus refusing the ties. **Do not add `about` to `LabelStopwords`.**
