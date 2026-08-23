@@ -1,4 +1,24 @@
-# HANDOFF 2026-08-23b — `garden-tools.uk` RAN. It died at hop two. Do not re-run it expecting a site.
+# HANDOFF 2026-08-23b — ⚠ SUPERSEDED AFTER 35 MINUTES. ITS TITLE IS WRONG: THE BUILD IS ALIVE.
+
+> **READ `HANDOFF_2026-08-23c_garden_tools_escaped_and_is_building.md` INSTEAD.**
+> This file's central claim — that the build died terminally at hop two and that retrying is
+> structurally incapable of escaping — **was refuted 35 minutes after it was written**, by the
+> system, while I watched. At 20:02Z the second submission's `needs_vertical_research` re-drew a
+> different exemplar set, cleared all three crawls, wrote a `vertical_landscape` spec at 20:05:45Z
+> and queued `needs_strategy` at 20:05:55Z. The cascade is at hop three.
+>
+> **It is kept, unedited below, deliberately.** The lane's rule is that a wrong belief is not
+> deleted — it is the only record of how the understanding moved, and this one is a worked example
+> of converting four identical observations into "structurally incapable". Retraction and the
+> transferable rule: `bugs_open/376` §4b and `NOTES_loanzy_uk_example_site.md` (20:06Z).
+>
+> **Still accurate below:** the pre-flight recipe, the 376 mechanism (no `on_error`; sole producer
+> of `needs_strategy`), the 326 correction, the stale-baseline landmine, and the measured dispatch
+> properties. **Wrong below:** every sentence asserting the build is dead or that retry cannot work.
+
+---
+
+# (original title) `garden-tools.uk` RAN. It died at hop two. Do not re-run it expecting a site.
 
 **Supersedes `HANDOFF_2026-08-23_garden_tools_continue_here.md`**, which said "the build has NOT been
 run" and is now falsified by its own §6 criteria (`sites`/`site_work_items` are non-zero). That file
