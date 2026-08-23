@@ -109,6 +109,23 @@ refused by the FK. That is the enforcement working; invent a status and you get 
 
 One INSERT. Forgetting it is a hard write failure at the first attempt — loud by design.
 
+> **CORRECTED 2026-08-23 (migration 566): "loud by design" was true for a NON-terminal status
+> and FALSE for a terminal one — and it is only true for both as of today.** The FK makes
+> *forgetting the INSERT* loud. It says nothing about *adding* a terminal status, which until
+> today was silently unreaped: `database-cleanup`'s arm 3 deleted `WHERE status IN
+> ('COMPLETED','FAILED')` — a literal — while arm 4 skipped everything `is_terminal`. A new
+> terminal status was named by neither arm, so the INSERT succeeded, nothing failed, and its
+> rows accumulated for ever. **This was not hypothetical: `CANCELLED` had been in exactly that
+> position since migration 466 — 24 rows, oldest 2026-07-19 (35 days), against this table's
+> 24-hour retention norm.** Caught by the `bugs_open/354` lane while costing a new terminal
+> status, not by anything in this runbook.
+>
+> Migration **566** makes arm 3 read the vocabulary, so both arms now ask the same question and
+> no status is enumerated anywhere. **After 566 the sentence above is finally true as written**
+> — one INSERT is genuinely all a terminal status needs. Nothing here needs changing for the
+> next one; the point of recording it is that the guarantee is new, and a reader of the pre-566
+> archive should not assume it held earlier.
+
 ```sql
 INSERT INTO orchestration_status_vocabulary (status, is_terminal, is_pausable, written_by, notes)
 VALUES ('MY_STATUS', false, false, 'pkg.Func (file.go:NN)', 'why it exists');
