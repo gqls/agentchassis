@@ -376,3 +376,52 @@ in the self-test. Stated rather than glossed, because "all verified" would be a 
 creates a site row and consumes every stage `item_key` for ever (`bugs_open/326`), so it is
 not a test you can run twice. The publish half was exercised 10/10 against the scratch topic
 in V2; the landing half was exercised against real landed correlations above.
+
+---
+
+## 2026-08-23 — the two "Phase 1 siblings" are NOT scripts, and my census over-counted
+
+The plan named `077_submit_domain.sh` and `076_trigger_build_pipeline.sh` as the siblings to
+migrate alongside 082. **I named them from their filenames without reading them.** Reading
+them says do not touch either:
+
+**`076_trigger_build_pipeline.sh`** — 1,101 lines, mode 664, **no shebang**, opening with a
+bare `INSERT INTO build_queue …` and pasted `psql` session output. It contains two copies of
+the racing publish as *quoted command text inside a scrapbook*. It is a notes file with a
+`.sh` extension.
+
+**`077_submit_domain.sh`** — has a shebang and looks like a script, and **does not parse**:
+
+```
+$ bash -n scripts/initial_messages/020_build_pipeline/077_submit_domain.sh
+line 117: syntax error near unexpected token `wi.summary,'
+line 117: `       LEFT(wi.summary, 70) as summary'
+```
+
+Pasted SQL in the body, a bare `---` separator at line 26, and hardcoded `DOMAIN="idea.uk"`
+assignments *after* the argument parse that would override whatever the operator passed.
+Mode 664. **It cannot be executed at all.**
+
+**So neither is migrated**, and that is the right call twice over: it would be churn, and
+"fixing" a file that cannot run would make it *look* runnable — manufacturing a new trap
+rather than closing one.
+
+### > **CORRECTION to my own census, and it halves the headline**
+
+I reported **200 scripts using the racing form**. That counts *files containing the
+pattern*, which is not the same as *publishers that can run* — and the difference is large:
+
+```
+racing-form files:                 201     (201 today, not 200 — the set grows)
+  ...that PARSE (bash -n):         178
+  ...that are EXECUTABLE (+x):     106
+  ...both parse AND +x:            105
+```
+
+`[MEASURED 2026-08-23]` **23 of the 201 cannot run at all** — scrapbooks like the two above.
+A file that parses but lacks `+x` can still be run as `bash <file>`, so the honest exposure
+is **178 runnable racing publishers, of which 105 are marked executable** — not 200.
+
+Both numbers were true; they answer different questions, and I quoted the one that flatters
+the case. The number that matters for exposure is 178. The earlier figures in this file and
+in the RUNBOOK are corrected accordingly, and the detector below should count the same way.

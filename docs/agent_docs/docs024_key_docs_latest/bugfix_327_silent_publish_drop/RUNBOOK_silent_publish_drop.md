@@ -73,8 +73,20 @@ grep -rl "PUBLISH_OK" --include="*.sh" . | while read f; do
   grep -qE 'grep .*PUBLISH_OK|if .*PUBLISH_OK|\[\[ .*PUBLISH_OK' "$f" && echo "$f"; done
 ```
 
-`[MEASURED 2026-08-23]` 218 / 200 / 25 / **2**. Per CLAUDE.md's counting rule, quote these
-with the date; check for additions since with:
+`[MEASURED 2026-08-23]` 218 / 201 / 25 / **2**.
+
+⚠ **A file containing the pattern is NOT a publisher that can run, and the gap is ~2×.** Of
+the 201 racing-form files, **178 parse** (`bash -n`), **106** are executable, **105** are
+both — the other **23 are scrapbooks with a `.sh` extension** (pasted SQL, no shebang, or a
+syntax error), e.g. `020_build_pipeline/076_trigger_build_pipeline.sh` and
+`077_submit_domain.sh`. Quote **178** as the exposure, not 201:
+
+```bash
+grep -rl "kcat -P" --include="*.sh" . | while read f; do grep -q "run -i" "$f" && echo "$f"; done \
+  | while read f; do bash -n "$f" 2>/dev/null && echo "$f"; done | wc -l
+```
+
+Per CLAUDE.md's counting rule, quote these with the date; check for additions since with:
 
 ```bash
 git log --since=2026-08-23 --diff-filter=A --name-only -- '*.sh' | grep '\.sh$' | sort -u
