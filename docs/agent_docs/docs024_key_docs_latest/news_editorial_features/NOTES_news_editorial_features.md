@@ -1099,3 +1099,19 @@ hero this lane generated 08-20. **Approved to run** (additive, no locked rows, o
 construction; consistent with the two imagery items kept on robot-hands). Watch-point
 stated to them: it must land as a NEW asset + listing reference, never a write to the
 article's own rows — the latter would be a mechanism surprise to file.
+
+**RESOLVED 2026-08-22 late / verified 08-23.** Owner ran the bounded cancel: `UPDATE 23`.
+The race with the 60s dispatcher split the set — **everything tool-modifying was cancelled
+in time** (improve_tool ×5, audit_tool ×5, acceptance_run ×4, evaluate_tools, the
+second-wave improvement_rerender) plus the 5 head_essentials + 3 link items; already run
+by then: undeployed_asset ×18 (additive deploys), ~17 of the 18 reason-carrying
+misdirected_cta rerenders (+1 failed), sprite css, orphan_blog_posts — and the two KEPT
+needs_content_image completed (content images for both editorial articles now exist; check
+what they generated as a Phase-C input). Post-verification, all three layers: **0 locked
+rows** touched of 62 writes; **zero escalation items** (needs_page / content_rewrite /
+needs_human_review / required_fields_missing all absent); all 62 overwrites archived
+`machine_made` with save-path snapshots (recoverable); served artefact healthy with the
+stylesheet control run FIRST (25,559 B; both features serve hero + full chart markup, hub
+intact). The `_assemble` wave (35 triaged) continues by design; the 2 kept needs_imagery
+will generate heroes for the electric-vs-pneumatic tool pages. Net cost of the incident:
+~17 unrequested-but-designed CTA-repair rerenders on unlocked generic pages, all archived.
