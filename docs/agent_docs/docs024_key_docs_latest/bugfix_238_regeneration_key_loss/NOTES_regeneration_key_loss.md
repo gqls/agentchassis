@@ -699,3 +699,36 @@ triggers present and enabled (357's two undisturbed). The archive's content-only
 CLOSED live. The peer session independently re-verified the first-run figures and corrected 358 on
 the CONTENT_DATA_REGRESSION consumer question (their commit `edeef157e`); the 41-tool-pages lead is
 358 §B1a with the shared-step suppression trap as its headline.
+
+---
+
+## 2026-08-23 morning — the roll made A1 live, the scheduled run proved itself unattended, and one dispatch turned out to have vanished
+
+**A1 IS LIVE.** Chassis + core-manager both run `v1.0.1327` = image revision `bd454eb93` (19:40
+HEAD yesterday); A1 `8552e621d` and the twin `0702fb9cb` verified as ancestors, control both ways.
+⚠ MEASUREMENT NOTE: my first "must-be-absent" control fired — I picked `70bc09d06` assuming it
+postdated the build, but the build postdates it (built from 19:40 HEAD). A control commit for
+merge-base ancestry must be chosen AFTER reading the image's commit date, not assumed from session
+memory. Re-ran with current HEAD: correctly not an ancestor. The positive claim was never in doubt;
+the control was.
+
+**The 07:05 UTC scheduled run happened unattended and the partial-heal logic proved itself in
+production.** Overnight, something (the imagery pipeline) supplied aao's five card images: the
+state census moved 32 → 27, and the seven aao carry-miss rows now name ONLY the link stragglers
+("fields still absent: card1_link_url,…" — yesterday each also named the image fields). 0 newly
+filed (cross-run dedupe works); control 72 re-found; canary ok. TWO heartbeats (07:08 + 07:11):
+exit 1 → the Job retries once (backoffLimit 1) → each attempt writes its row. Family-accepted and
+idempotent — expect two rows on red days; a THIRD would mean something new.
+
+**The A1 round-2 dispatch of 08-22 12:05 VANISHED** — 20 hours, zero orchestration rows after
+11:50 (the two rows on the correlation are both round 1's, 10:25 + 10:55 — note round 1 itself
+dispatched twice for one submission). Not the chassis-restart drop window: pods restarted 19:05,
+seven hours after the dispatch. Cause unestablished; re-dispatched 09:48Z today, same trail
+correlation, run envelope `242d15b1` / orch `a89f4182` recorded so the next absence is
+distinguishable from this one. Register PBP-047 status corrected same-day (the PBP-040 stale-line
+class — "INERT until the roll" had become false this morning).
+
+**New in the state census, for the owner queue not this lane:** dartsonline `brands-index` and
+`shop-index` `category-listing` blanks are `query.*`-sourced required fields (`query.category`,
+`query.category_posts`) — the third source family, distinct from aao's spec-sourced and the tool
+pages' 194 class.
