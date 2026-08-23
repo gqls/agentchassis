@@ -6027,3 +6027,52 @@ fundamentallyai `needs_experience_plan` row closed satisfied 08-17 (other lanes'
 rebuilds; see its `result.closed_2026_08_17`), so nothing queues behind 227. Move made
 under the owner's 08-12 restored fixed-AND-live bar; commit `baa8102e0` names both
 paths. Full closure evidence is in the bug file's CLOSED section.
+
+## 2026-08-23 — state check (3-day gap): everything I did held; the retraction still has not run
+
+Re-checked rather than assumed. **1,471 fleet commits** since 08-20; one touched this lane
+(`b91dcaae3`, another session recording bug 227's closure in the lane docs — unrelated to
+the /blog/ work).
+
+**Held, all measured 2026-08-23:**
+
+```
+pages          29 active / 15 archived · 0 active blog-post · 14 active guide
+identity flags honour_realised_identity, twin_identity_snap, stem_twin_snap all TRUE
+               url_shape flat, 27-entry pages list intact  (survived a 5-day gap)
+locks          12/12
+plan           9463e31d still is_current — no replan has run
+chassis        v1.0.1328, stamp 2dbe12f1d, pods 11:51Z — VERIFIED (positive control
+               present, previous stamp 2d13d530d absent, ancestor of HEAD)
+```
+
+**NOT done: the file deletion.** `/blog/can-i-overpay.html`, `/blog/loan-faqs.html`,
+`/blog/jargon-buster.html` all still serve **200**. `retract_blog_duplicates.sh` has not
+been run — it needs a dispatch this session's permission classifier refuses.
+
+**One page moved: `tool-credit-roadmap` re-deployed 2026-08-22 10:34Z** and now matches the
+current plan exactly — `hero, tool-credit-health-check, ported-prose, faq, tool-cta`, i.e.
+the calculator at **position 2**. Its `owned_page_review` ticket is still open, so something
+else drove it.
+
+> **CORRECTION to my 08-17 flag on this page.** I recorded that credit-roadmap "was given
+> another page's calculator" and left the impression of damage. Checked at the served
+> artefact today: it carries **its own instance** — zero element ids shared with
+> `/tools/credit-health-check.html`, and identical interactive structure to it (13 buttons,
+> 4 scripts, 3 onclick, 22 ids on both). So it is a *working* questionnaire of the same
+> KIND, not a broken page and not a stolen instance. Two pages offering the same kind of
+> tool is a content decision for the owner, which is where I should have left it.
+
+**And credit-roadmap is the worked demonstration of what the 11 held tickets do.** Measured
+on `tool-overpayment-calculator`, which is typical of the other ten:
+
+```
+live now :  hero, ported-prose, faq, tool-cta, [calculator LAST at position 5]
+plan says:  hero, [calculator at 1], ported-prose, faq, tool-cta
+```
+
+**On all ten un-rebuilt tool pages the calculator sits at the BOTTOM**, below the prose, the
+FAQ and a call-to-action. The plan puts it directly under the hero. That is the same move
+the homepage rebuild already made (6 → 2) and credit-roadmap has now made. It is the
+substantive remaining work on this lane, and it is gated only by the owner releasing the
+11 `owned_page_review` tickets (TP-004's human gate).
