@@ -244,3 +244,10 @@ the same collision discipline as migrations, and this list is the ledger.
 > `ls RFC_*.md | sed 's/.*RFC_//' | cut -c1-3 | sort -n | tail -1` ⇒ 040 taken by
 > this entry, so **the next free number is `RFC_041`**. Run the command; do not
 > trust this sentence either.
+>
+> **RE-DERIVED 2026-08-23** (`bugfix_308` lane, on taking a number): the line above was wrong by
+> **six** — RFC_041-046 were filed against it, and this is the *second* correction in the same
+> paragraph, four days apart. **047 is now taken**, so the next free number is `RFC_048` — and that
+> sentence has the same half-life as its two predecessors. The ledger below stops at 040 and has
+> not been a ledger since; **the directory is the ledger.** Run:
+> `ls docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_*.md | sed 's/.*RFC_//' | cut -c1-3 | sort -n | tail -1`
