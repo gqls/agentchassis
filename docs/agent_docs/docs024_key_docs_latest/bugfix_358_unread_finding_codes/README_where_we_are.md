@@ -252,3 +252,43 @@ and pushed; it needs the fleet release to actually start running:
 
 After that I will trigger one run by hand rather than waiting for the morning, and check the job
 actually wrote its row — a missing row has to mean "it did not run", never "nothing was wrong".
+
+---
+
+**2026-08-23, later — approved, and a separate thing I found on the way that matters more.**
+
+The review passed on the fourth attempt. Worth being straight about why it took four: the
+reviewers never found anything wrong with the code. Every time they sent it back, it was because
+my write-up claimed something that was true but that they could not check from what I had shown
+them — I kept leaving files out of the submission on the grounds that they were "out of scope for
+review", which meant the reviewers were being asked to take my word for the part that mattered.
+That is a fair thing to refuse. I have written it up as a mistake of mine, because it happened
+three times and I only fixed the specific instance each time instead of the habit.
+
+One of their comments was worth more than the review. A reviewer said I had bumped a
+version number that the whole fleet shares without showing evidence that this was safe. They were
+right that I had not shown it, so I measured it — and it turned up a genuine trap nobody had
+written down. **Deploying does not use the version each service records; it rewrites every
+service to the number in the makefile and then deploys.** So in the window between adding a new
+service and the next full release, exactly one image exists at the new number and thirty-two do
+not. Anyone taking the shortcut of deploying without building first would have quietly broken
+thirty-two services — and the way that failure shows up, the cluster reports them as *running*.
+The full release command builds everything first, which is exactly why it is the procedure. Now
+written down.
+
+**And one real defect, found by accident.** After the review passed I went to check that the
+system had credited my work as reviewed — and it had not listed it at all. Not "unreviewed":
+absent. It turns out the report that tracks which changes have been reviewed keeps its own
+private list of which folders to look in, and when you widened the review scope this morning to
+include the folder holding our daily checks, that private list was not updated with it. So for
+the last fortnight, **twenty-two changes across four different workstreams have been invisible to
+that report** — including other people's, not just mine. The report was printing a confident
+total that meant "of the ones I can see". Fixed in both places, with a note left where the next
+person changing the scope will actually be standing.
+
+**Still outstanding, and it is the same ask as before:** the deploy. The image is built and
+pushed; the job will not run until the fleet release goes:
+
+    date; make release redeploy-agents ENVIRONMENT=production REGION=uk001; date
+
+Please run the whole thing rather than a deploy on its own — that is precisely the trap above.
