@@ -1421,3 +1421,48 @@ because a fix for one does nothing for the other.
 `about` and `care` `[MEASURED 21:03Z]`, with `unresolved_cta` now at **8** items and the
 `needs_rerender` / `reconcile_rerender` items still `triaged`. The before-state is stable across the
 whole site. The rerender is the test.
+
+### 21:29Z — the rerender wave: pages 4.5× bigger, Prediction C STILL un-fired, and 5 rerenders that "completed" on pages that do not exist
+
+**Two distinct waves, different types and handlers** `[MEASURED 21:31Z]` — worth separating because
+they look alike in a status roll-up:
+
+| wave | item_type | handler | item_key shape | state |
+|---|---|---|---|---|
+| 1 | `page_rerender` | `page-rerender` | `page_rerender_<page>_<siteid>_assemble` | **12 complete** |
+| 2 | `needs_page` | `page-build-handler` | `page_rerender:<page>` | 1 claimed, 5 triaged |
+
+Wave 1 inlined the design system: `index` went **14,831 → 66,512 bytes**, `about` 12,830 → 64,486.
+All 11 `needs_imagery` items are complete.
+
+**PREDICTION C IS STILL UN-FIRED, and my crude grep nearly said otherwise.** After wave 1 the pages
+report `buttons=1` where they had `buttons=0`. **That button is the mobile menu toggle** —
+`<button class="mobile-menu-toggle" aria-label="Toggle menu">` — not a CTA. `cta-anchors` is still
+**0** on `index`, `about`, `care` and `how-we-assess`, and `unresolved_cta` still stands at **8**
+`needs_human_review` items. **Had I graded on the count I would have reported the CTAs restored.**
+Same lesson as the byline false positive, four hours apart: *read what matched.* Wave 2 is still
+running, so the prediction remains open.
+
+**NEW FINDING — a `complete` rerender on a page that does not exist.** Wave 1 completed for **all
+twelve** pages, including the five that never built. Measured at the artefact:
+
+| page | `page_rerender` item | `pages.build_status` | `deployed_at` | served |
+|---|---|---|---|---|
+| `buying-guides-index` | **complete** | planned | NULL | **404** |
+| `tool-finder` | **complete** | planned | NULL | **404** |
+| `brand-directory-index` | **complete** | planned | NULL | **404** |
+| `brand-profile` | **complete** | planned | NULL | **404** |
+| `buying-guide-post` | **complete** | planned | NULL | **404** |
+
+> **Why it matters, and it is not pedantry:** anyone auditing "did this site finish rendering?" reads
+> `page_rerender: 12 complete, 0 failed` and concludes yes. The only columns that disagree are
+> `build_status='planned'` and a NULL `deployed_at` — and `build_status` is exactly the column this
+> lane's own handoff warns is unreliable in the other direction (*"`deployed` means pushed, not
+> serving"*). **So the two signals a reader would reach for are both wrong, in opposite directions,
+> on the same site.** This is the `bugs_open/315` status-column family, and the safe rule is
+> unchanged and now doubly evidenced: **the served page is the only artefact.**
+
+`[UNVERIFIED]` whether the handler *should* no-op or refuse on a page with no content — I have not
+read `page-rerender`'s workflow, and "rerender a page that has nothing to render" may be a legitimate
+no-op that simply reports the wrong terminal status. Not asserting a defect in the handler; asserting
+that **the status is uninformative**, which is measured.
