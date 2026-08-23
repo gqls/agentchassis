@@ -662,3 +662,72 @@ precisely this seat's remit. Round 2 lists the script as edit 6 with its real co
 landing commit, and answers the seat's second missing item with the measurement above rather than
 another reading of the shell script. **A REVISE round is cheaper than the defect it finds**, and
 this one found a real gap between what was true and what was showable.
+
+### Council round 2: REVISE again — and the same defect as round 1, which is the actual finding
+
+Two HIGH objections (`editquality`, `debug_historian`), saying one thing: *"no edit modifies that
+CMD, its Dockerfile, or its CronJob manifest to actually pass `--no-source` … the plan builds the
+capability to fix the bug but never applies it to the failing job."*
+
+**True of the plan, false of the tree** — the CMD was already committed in `875a56bac`, and
+`docker inspect --format '{{json .Config.Cmd}}'` returns it verbatim. **And that is exactly what
+round 1 gated on.** After round 1 I fixed the *instance* (listed the script as an edit) and did not
+generalise, so the identical shape walked into round 2. I had been leaving `build/` and
+`deployments/` out of `edits` because they are out of council scope — but **scope governs what gets
+REVIEWED, not what a reviewer is allowed to SEE.** Logged in `WRONG_CALLS.md`; the cheap check is
+one question, asked of every load-bearing sentence before submitting: *can a reviewer confirm this
+from the edits alone?*
+
+**The reuse seat's medium objection was right and is FIXED rather than answered.**
+`check-finding-code-registry.sh` re-implemented `check-optional-key-parity.sh`'s shape — staged
+diff, relevance filter, `go test` on the same package, build-failure-vs-real-failure, always exit 0.
+*"Two independently-built mechanisms solving overlapping problems in the same package, each
+maintained separately, with no unification once both exist."* This lane has no standing to argue:
+retiring pairs of hand-maintained things that must stay in sync is most of what `bugs_open/358` is.
+`scripts/lib/precommit-gotest.sh` now carries the shared mechanics and both scripts source it
+(`83b7e0994`). Not shared, deliberately: each caller's relevance predicate and its guidance text.
+
+> **THE REFACTOR INTRODUCED A REGRESSION AND MY OWN CONTROL CAUGHT IT — worth more than the
+> refactor.** Passing the failure headline into the could-not-tell line printed
+> `optional-key budget parity: DRIFTED (RFC_022): NOT CHECKED (the tree does not build)` — one line
+> asserting a finding and disclaiming one in the same breath. On a tree that often fails to compile
+> because of another session's WIP, keeping an undecidable case **legible as undecidable** is the
+> single behaviour that helper exists to hold, and merging those two strings quietly destroyed it.
+> Caught only because I re-ran all three cases (healthy / real failure / unbuildable) for **both**
+> callers — including the pre-existing RFC_022 guard I had not come to change and which every
+> session's commits reach. Fixed with a separate neutral `subject`, and the reason is written at the
+> parameter so the next author cannot re-merge them. New LANDMINES entry: that helper is now
+> fleet-critical and looks like an ordinary library.
+
+`debug_historian`'s medium — *verify at the running pod, not the commit hash* — is accepted and
+answered by not making the claim: the CronJob does not exist in the cluster yet
+(`kubectl get cronjob finding-code-registry-check` → NotFound), because deploying is the owner's
+whole-fleet release. One refinement on the lore it cites: the `strings | grep <symbol>` recipe was
+**retired 2026-08-11** after three confidently wrong readings in a day. The binary states its own
+provenance now, and this mode prints it (`built from: <sha>`), so "did my change ship?" is
+`git merge-base --is-ancestor` against what the artefact says.
+
+### Council round 3: REVISE — the reuse fix was real and my SKETCH was stale, so it read as dead code
+
+Two HIGH (`editquality`, `reuse_agent`): *"edit 8's own rationale says 'BOTH scripts source it', but
+edit 4's sketch still contains its own inline `go test`/OUT/RC/grep logic — it never calls
+`precommit_run_gotest`. And `check-optional-key-parity.sh` … is not in the edit list at all. As
+shown, the shared helper is dead code with no caller."* Plus a third: the kustomizations and the
+makefile were again named in prose only.
+
+**All correct.** I had built round 3 by appending edits to round 2's JSON and never regenerated the
+sketch for the file I had since refactored. The runbook says exactly this — *"On a resubmit, update
+the `sketch` fields — not just the `rationale`. Reviewers judge the sketch"* — and I did what it
+says not to. **Third round, same defect, and that repetition is the actual finding**: rounds 1 and 2
+I fixed the instance and did not generalise.
+
+**The structural fix, in round 4:** every sketch is now GENERATED from the committed diff
+(`git diff e7320fc23 HEAD -- <file>` / `git show HEAD:<file>`), so a sketch cannot disagree with the
+tree; every touched file is present — eight as edits, and the four the cap excludes pasted verbatim
+at the head of `grounded_in` rather than described. **Scope governs what gets REVIEWED, not what a
+reviewer may SEE**, and an out-of-scope path listed as an edit costs nothing.
+
+Worth stating plainly for the next author: the council found **no defect in the code** across three
+rounds. Every gating objection was about the plan failing to show what the tree already contained.
+That is still worth the rounds — an unshowable claim and a false one are indistinguishable from the
+reviewer's chair, which is the same discipline this lane applies to `[MEASURED]` markers.

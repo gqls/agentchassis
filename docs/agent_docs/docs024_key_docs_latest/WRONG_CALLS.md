@@ -46502,3 +46502,20 @@ daily. It was reading the NAMES that made it obvious.
 already has a definition for, use that definition. A second spelling is not merely
 duplication — it is a spelling that will be narrower or wider than the original in
 some case you have not thought of, and the failure is silent in both directions.
+
+> **ADDENDUM, same evening — IT HAPPENED A THIRD TIME, and the third one is the worst because the
+> runbook warns about it in terms.** Round 3 fixed rounds 1–2's omissions and was gated again, by
+> `editquality` and `reuse_agent` (both HIGH): the reuse remedy's own sketch for
+> `check-finding-code-registry.sh` **still showed the pre-refactor inline `go test` block**, so the
+> shared helper read as *dead code with no caller* — and the other caller was not in the edit list
+> at all. I had built round 3 by appending new edits to round 2's JSON and never regenerated the
+> sketch I had since changed. `RUNBOOK_council_gate.md` says exactly this: *"On a resubmit, update
+> the `sketch` fields — not just the `rationale`. Reviewers judge the sketch; it is the only view of
+> your code they get."*
+>
+> **The check that ends the class, and it is mechanical rather than a resolution to be careful:**
+> generate every sketch from the tree — `git diff <base> HEAD -- <file>` / `git show HEAD:<file>` —
+> so a sketch *cannot* disagree with what was committed, and list every file the change touches. For
+> the files an 8-edit cap excludes, paste them verbatim into `grounded_in` rather than describing
+> them. Three rounds and ~50 minutes of fleet time bought that one line, and hand-assembly is what
+> cost it each time: the fact was in hand on every round.
