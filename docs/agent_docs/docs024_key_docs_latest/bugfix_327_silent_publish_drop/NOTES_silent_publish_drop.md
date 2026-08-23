@@ -252,3 +252,69 @@ This matters for the fix beyond tidiness: even after a receipt is added, **if th
 block still prints before the publish, the operator's transcript still reads as a success**
 above whatever error appears below it. The ids must be printed *after* a confirmed publish,
 or explicitly marked as unconfirmed until one arrives.
+
+---
+
+## 2026-08-23 — V2 run: the race did NOT reproduce today, and the old form duplicated instead
+
+The decisive experiment the plan called for: 10 publishes by the old racing form and 10 by
+the new library, into `system.agent.scratch-327-publishrace.requests` (a scratch topic
+nothing consumes; naming follows the existing `system.agent.scratch-069-chromelock`
+precedent). Then count what actually landed with `kcat -C -e`.
+
+```
+old: kubectl reported success on 10/10 invocations
+new: receipt asserted on          10/10 invocations
+OLD landed: 11        NEW landed: 10
+```
+
+Broken down by message id:
+
+```
+OLD:  n=1 -> TWICE;  n=2..10 -> once each     (10 distinct, 11 delivered)
+NEW:  n=1..10 -> once each                    (10 distinct, 10 delivered)
+```
+
+### > **This is NOT the result I expected, and it must not be written up as a success.**
+
+**The drop did not reproduce. Zero of 10 old-form publishes were lost.** The library form
+is structurally immune (the payload rides in the container command; stdin is not involved
+at all) and delivered cleanly with an asserted receipt on every attempt — but **I have not
+demonstrated that the new form beats the race, because the race did not fire.**
+
+**What the sample can and cannot say** (the estate's rule: name the failure rate your
+sample could DETECT):
+
+- The historical rate — 4 in 5 lost, measured 2026-07-26 — is **decisively excluded for
+  today's conditions**: P(0 drops in 10 | p=0.8) = 0.2^10 ≈ 1×10⁻⁷.
+- With 0 drops in 10, the **95% upper bound on today's drop rate is ~26%**
+  ((1−0.26)^10 ≈ 0.05). Anything below that is entirely consistent with what I saw.
+- So: the race is **timing- and load-dependent**, and today the cluster is not producing
+  it at anything like the rate that was originally measured. `[MEASURED 2026-08-23]`
+
+**This does not weaken the bug, and here is why.** 327 is not a claim about frequency; it
+is a claim that when the publish is lost the loss is **silent and indistinguishable from
+success**. That property is unchanged and was verified directly earlier today (empty
+stdin, healthy broker → zero messages, exit 0, no output). And the class is demonstrably
+still live: the 2026-08-22 `097` incident is five days after the 08-18 one.
+
+### The unexpected half: the racing form published a DUPLICATE
+
+`n=1` landed **twice** from a single invocation. Distinct pod name, distinct payload, a
+run id unique to this run — so it is not contamination from an earlier test.
+
+That is a second, independent pathology in the same mechanism, and it is arguably worse
+than the drop for the customer path: **a duplicate submission on the real topic is two
+builds, or two orchestrations racing one site.** It also compounds with `bugs_open/326`
+from the opposite direction — 326 is about a retry doing nothing, and this is the trigger
+doing something twice without being asked.
+
+`[MEASURED 2026-08-23 — ONE observation, n=1 of 10.]` One duplicate in ten is not a rate,
+and I am not claiming one. Recorded because it was observed under controlled conditions
+and because nothing in the bug file or the landmine anticipates it. The new form showed no
+duplicate, but with n=10 that is not evidence of immunity either.
+
+**What would settle both questions** and is deliberately NOT claimed here: a run of
+several hundred publishes each way, under load, on a day the cluster is busy. Neither the
+drop rate nor the duplicate rate is established by 10 samples, and this note should not be
+quoted as though either were.
