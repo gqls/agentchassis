@@ -388,3 +388,51 @@ free-text `industry_tags` varies, and in wording rather than meaning (8 tags →
 comparing like with like on the structured fields — not something to assume of an LLM step with
 no temperature pinned, and worth knowing before anyone builds a harness that avoids re-running
 it. It does NOT license treating the free-text fields as stable.
+
+## 2026-08-23 — what the fix ENABLED, and the two lanes' evidence propping each other up
+
+Recording this because it is an argument for fixing retry paths generally, not just this one.
+
+The `loanzy.uk` lane could not test `bugs_open/376`'s central claim — *"retry cannot help,
+because sampling permutes the exemplar set rather than re-drawing it"* — without re-running the
+front door, which is precisely what 326 made impossible. **Migration 572 bought them the
+control.** Their fourth attempt ran off freshly re-derived specs and returned the same three
+organisations in a fourth permutation, turning a conditional claim into an unconditional one.
+
+**And their reproducibility finding is what made that control interpretable.** Because the
+classifier's *structured* verdict was identical across both runs while only the free text moved,
+"the pool is fixed" can be separated from "the input never really changed". Had the structured
+verdict drifted too, the control would have proved nothing. Neither lane designed that; it fell
+out of re-submitting for my test.
+
+### What I checked rather than took, and it was stronger than reported
+
+Their inference rests on the exemplar step's input having genuinely varied. Verified at the
+config `[MEASURED 2026-08-23]`:
+
+- `select_exemplars` reads `{{.site_specs}}` — the **whole** blob, so `industry_tags` is in
+  scope. ✅
+- **`identity.competitors_found` ALSO changed** between the runs (5 → 6 entries,
+  `sgs-engineering.com` added), which they had not noticed. So **two** independent site-specific
+  inputs moved and the pool still did not.
+
+### The finding that came out of checking — and it is theirs to own, not mine
+
+The prompt says: *"Prefer sites named in `identity.competitors_found` when they are genuinely
+strong; otherwise use well-known leaders of the vertical."*
+
+**Not one selected exemplar is in `competitors_found`, in any of the four attempts** —
+gardenersworld / thespruce / which.co.uk against six UK garden-tool retailers, zero overlap. The
+`competitors_found` branch has **never fired**. Every selection came from the fallback, i.e.
+model priors with no site-specific input at all.
+
+So the pool is not fixed *despite* fresh specs; it is fixed **because the fresh specs never
+reach the decision**. That separates two different remedies (an exclusion list / `on_error`
+versus an upstream identity defect), and it exposes a second, separable defect: **a prompt
+branch with a live input that has never once been taken.** Sent to that lane; not filed in
+theirs by me.
+
+**The transferable bit for this lane:** I nearly recorded "the pool is a property of the
+vertical" as received. Checking a peer's inference — not their measurement, their *inference* —
+is what turned a true-but-shallow mechanism into an actionable one. `[a-subagent-report-is-another-doc]`
+applies to peers, and it applies to the reasoning as much as the numbers.
