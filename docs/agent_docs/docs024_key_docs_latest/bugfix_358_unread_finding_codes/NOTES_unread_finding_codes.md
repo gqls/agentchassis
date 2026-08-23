@@ -534,3 +534,41 @@ is not one. Worse, **the standard HEAD-verification recipe in this lane's own ha
 is the check that now fails first. Workaround: build somewhere off `/tmp` **and** set
 `TMPDIR=<that dir>`, because the Go linker's work directory follows `TMPDIR`, not the build path.
 Fleet-wide, not this lane's to fix.
+
+---
+
+## 2026-08-23 — the orphaned 566 was ADOPTED and APPLIED; this entry is closed
+
+Closing the loop on the entry above, so it stops reading as an open question. **Not this lane's
+work and not a claim on this lane** — recorded here only because this is where the orphan was
+written down, and a record that outlives its resolution is how the next reader wastes an hour.
+
+The owner directed a session to pick it up. `566_database_cleanup_reaps_every_terminal_status.sql`
+and its `_ROLLBACK` are now **tracked, applied and recorded**: commit `ccc851a42`, applied
+2026-08-23 17:46Z, present in `schema_migrations`.
+
+**The entry above was right on every checkable point**, which is worth saying because it was
+written by a lane that deliberately did not read the SQL closely:
+
+| the entry's claim | how it held up |
+|---|---|
+| before-md5 `c26ccf49` stale, live text `7f4321d4` | **correct**, unchanged a day later |
+| the anchor is untouched and occurs exactly once | **correct** — asserted against the live text before applying |
+| "swapping its two md5 literals is the whole fix" | **correct**, and it was the only edit the SQL needed |
+| the leak is real and losing rows | **correct** — still 24 `CANCELLED` rows, oldest 2026-07-19, now 35 days |
+
+One thing the entry could not have known, and the next person computing an md5 guard should:
+**the after-md5 must be computed IN THE DATABASE**, with the same `replace()` expression the
+migration runs. A locally-hashed copy of the column disagrees — `length()` counts CHARACTERS
+while `md5()` hashes BYTES, and this row holds a multi-byte character, so the two sides differ
+by 3 bytes. Had the after-md5 been derived locally, the migration's own byte-exact assertion
+would have aborted the apply. (This is a known family — `LANDMINES.md` already carries it at
+"`length()` on stored HTML is CHARACTERS", so no new entry was added for it. It is also *loud*
+when it goes wrong, which is why it is not landmine-shaped.)
+
+**On the judgement not to adopt it.** Two lanes independently declined and surfaced it to the
+owner instead, and that was the right call rather than an over-cautious one: the adoption needed
+a re-derived guard, a re-measured premise and a blast-radius check, none of which is "just commit
+someone's finished file". What the two lanes did that mattered was **write it down** — the file
+was untracked, and one `git add -A` from any lane would have swept it into an unrelated commit
+with no record of what it was.

@@ -204,6 +204,22 @@ own bug too. **Do not re-fix those from here; they are the damage, this is the r
 > everything else is reaped at 24h. So candidate 1 must widen the cleanup arm in the same migration
 > or it silently re-files `bugs_closed/294`.
 >
+> > **UPDATE 2026-08-23 — THAT TRAP IS NOW CLOSED, and candidate 1 no longer carries this cost.**
+> > Contributed by the lane that picked up 354's remainder; this bug stays OWNED by the `307`
+> > lane and nothing else in §5 is touched. Migration **566** (applied 2026-08-23 17:46Z,
+> > commit `ccc851a42`) points arm 3 at the vocabulary, so both arms now ask the same question
+> > and **a new terminal status is reaped with no cleanup change at all**. Candidate 1 therefore
+> > does NOT need to widen the sweep in its own migration — the widening already shipped, on its
+> > own account, because it was losing rows today rather than because candidate 1 needed it.
+> > Re-measured before applying: still 24 `CANCELLED` rows, oldest 2026-07-19 — **35 days** by
+> > then, not the 34 recorded above (a count goes stale by ADDITION and reads as current for ever).
+> > The blast radius of finally reaping them was measured with a demand control and is zero across
+> > all five referencing tables. **What this does NOT change: the §5 ordering.** Candidate 1 is
+> > still the architecture question and still needs its RFC — 566 removed a cost, not the scope
+> > ruling. The SQL was written by this bug's own lane on 2026-08-22 and left untracked and
+> > unapplied when that session ended; two lanes found it and declined to adopt it before the
+> > owner directed this one to.
+>
 > **So the net effect on §5's ordering is the OPPOSITE of what a first reading suggests, and this
 > lane got it wrong out loud before being corrected.** The FK makes the *write* cheap; the *reaping*
 > is the real cost, and it did not exist in the estimate at all. **Candidate 1 is more expensive than
