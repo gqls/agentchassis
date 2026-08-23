@@ -110,3 +110,39 @@ Everything is committed. What is left on this bug is small and specific: five co
 have no content contract at all (a content job, not a software one), the header-and-footer
 version of the protection which is built but deliberately switched off until something can
 actually trigger it, and that one outstanding check above.
+
+## 2026-08-23 — we cannot close it, and the reason is a mistake of mine that real traffic found
+
+I came back to run the last outstanding check and found something more important instead.
+
+Yesterday's safeguard works — that part holds. But the *other* half of this work, the part that
+files a note on the work queue when a page section is missing required text, has been filing
+notes that **nothing can act on**. Two notes have been filed since it went live. Both were
+rejected by the system meant to process them, retried three times, and left parked. That is two
+out of two — and the first of them was real traffic on a customer site, not my test.
+
+The cause is a mistake I made and then repeated in four places. The queue already had a handler
+for this kind of note, and I reused it deliberately so the work would be picked up automatically.
+I wrote that down as a virtue, in the code, in the bug file, in the shared reference index, and
+in the submission the review council approved. **What I never checked was whether the notes I was
+filing contained the two pieces of information that handler looks up** — which page, and which
+part of the page. They did not. So every note arrived unreadable and was thrown out.
+
+The reviewers approved the reasoning, and the reasoning was fine. Nobody checks that the thing you
+built matches the thing you described, and I gave them no reason to doubt it. The lesson, written
+where the next person will hit it: **reusing something's name is not the same as meeting its
+requirements.**
+
+It is fixed. The notes now carry the page and section, and use the same identifier as the existing
+checker so the two never file duplicates about the same fault. One case needed a genuine decision:
+site headers and footers do not belong to any single page, so that handler could never process
+them. Rather than pretend otherwise, those notes are now addressed to a person instead of to an
+automated handler — which is honest about who can actually act, and avoids three pointless retries.
+
+**So the bug stays open.** The fix is written and reviewed but does not take effect until the next
+deployment, and this project's rule is that a fix which has not yet shipped leaves the bug open.
+The two rejected notes are being left exactly as they are: they are the evidence, and quietly
+editing them to make my own fix look good would not prove anything.
+
+One practical note: the shared temporary disk filled up and stopped builds working. I did not
+clear it — other people's work is in there — and pointed my own builds elsewhere instead.

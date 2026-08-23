@@ -359,3 +359,80 @@ this route; a row parked `failed`/`needs_human_review` means 344 does not reach 
 passes outright. **Either result closes it — which is what makes it worth waiting for rather than
 staging.** ⚠ Do NOT file a synthetic work item to force this: it would put fabricated work on a
 live queue to test a defect another lane already owns and has measured.
+
+## 2026-08-23 — the escalation was filing items its own router could not route (2 of 2), and the answer to "can we close it?" is NO
+
+Came back to run the one outstanding check and found something worse than an unexercised check.
+
+### What I found, and it was not what I was looking for
+
+The check-(c) query returned seven queue-driven section edits since arming, **all `complete`, none
+refused** — a good demand control (the arm is not breaking healthy traffic) but no verdict. What
+it also surfaced was **one `required_fields_missing` item at status `failed`**. Pulling it apart:
+
+- item `a31da7f3` (my canary's), handler `required-fields-missing-handler`, **attempt_count 3**,
+  terminal `failed`, `error` column NULL;
+- its three servicing orchestrations all read `current_step=done, status=COMPLETED`;
+- the handler's own triage recorded **`route: "malformed"`**, `component_id: ""`, `html_len: 0`,
+  `page_type: ""`.
+
+And then the part that matters: **there are TWO such items, not one.** `a6e00dcf` was filed at
+**13:32 on 2026-08-22 by real production traffic** on `loans-application-tracker`
+(loanandmortgagecalculator.co.uk), hours before my canary, and failed identically. **So the
+producer's items were unroutable 2 times out of 2 — a 100% failure rate — and the first was not
+a test.**
+
+### The cause: two false claims, both mine, both in four places
+
+`required-fields-missing-handler`'s `classify` step resolves the page by `spec->>'page_name'` and
+the component by `spec->>'slot_name'` — I read the predicate out of the live agent row. **The
+producer supplied neither.** And `check_required_fields_missing.go:180` keys on
+`<page_id>:<slot_name>` while this producer keyed on `<site_id>:<component function>` — so
+**"the item_key matches the check's so the two producers co-dedup" was also false**, and the two
+would have filed two items for one defect.
+
+Both are one assumption: **that reusing the item TYPE meant inheriting its router.** An
+`item_type` is a string; a router is the fields it reads and the key it dedupes on. The
+`reuse_agent` seat approved the reuse reasoning and was right to — the reasoning was sound. What
+nobody checked, me least of all, was whether the artefact matched it. **And the failure is
+invisible from the producing side**: the insert succeeds, the emitter logs `item filed`, every
+orchestration reads `COMPLETED`. Only the item's own terminal status says otherwise, and only if
+you look a day later.
+
+### Fixed at source (`eb918bd58`), and the chrome case forced a real decision
+
+The emitter now carries a `pageContext`, writes `page_name`/`slot_name` into the spec, takes the
+check's key shape exactly when a page is known, and sets `page_id` on the row — a field that
+existed on the shared `workItem` struct and was simply never set.
+
+**Chrome has no page**, so the page-resolving router cannot classify it by construction. Three
+options, and the middle one is what shipped: hand it over anyway (buys three failed attempts —
+the defect I was fixing), invent a chrome handler (`bugs_closed/291`: an unregistered handler is
+born `blocked` and never claimed, which reads as a queue bug), or **file it for a human at
+`needs_human_review` — the router's own `park_*` vocabulary, so no new status is invented.**
+
+The decision is factored into `requiredFieldsMissingRouting` so the test runs what production
+runs. Mutation-proven: routing chrome to the page-router trips two assertions, and a
+page-*without*-slot taking the routed path trips a third — the classifier needs both, so half the
+context must not be allowed to look like all of it.
+
+### A shared-tree note worth keeping
+
+Three `UpdateWorkItemStatus` tests fail in the working tree and are **not mine** — another session
+has uncommitted failure-ladder work in `load_work_item_actions.go`. Proved rather than assumed by
+copying my four changed files onto a clean `git archive HEAD` and running the whole suite there:
+**ok**. On this tree, "the suite is red" is not evidence about your own change until you isolate it.
+
+### Also today
+
+`/tmp` (a 16G tmpfs shared with every session) was **93% full** and Go could not write its build
+output. **Did not clear it** — other sessions' work lives there. Pointed `TMPDIR` at this
+session's scratchpad on the 139G root volume instead, which is the sanctioned place. If you hit
+`no space left on device` on a build, that is the fix, not `rm`.
+
+### So: can 342 close? NO — and this is why the question was worth asking
+
+The refusal half is live, armed and proven. But the ESCALATION half — reviewed and approved on an
+earlier trail — has been filing unactionable items since it shipped, and the fix for that is
+**committed and INERT until the next roll**. A bug whose fix is committed but not live stays OPEN
+by this estate's own bar. Submitted as council trail `a0ef0b07`.
