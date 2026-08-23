@@ -171,3 +171,47 @@ mechanical backfill.
 
 `[INFERRED]` — this is read off the code, not demonstrated by running it. The disconfirming
 experiment is stated in the plan; do not quote this paragraph as measured.
+
+---
+
+## 2026-08-23 (later) — putting a number on the damage: 25 of 30 filings were avoidable
+
+Over the **whole history** of `needs_new_component` (first row 2026-08-05, last 2026-08-23),
+`[MEASURED 2026-08-23]`:
+
+| | count |
+|---|---|
+| items ever filed | **30** |
+| whose `section_type` exactly matched a live component's `function` | **27** |
+| …and that component carried `section_type IS NULL` | **25** |
+
+Each of those 25 is a paid LLM generation for a section the library already owned and could have
+resolved by name on Path 1 — the platform commissioning a second copy of its own work.
+
+**The obvious way this measurement could have lied, and the control that rules it out.** The
+matching component might have been created *by* the item it appears to indict, which would make the
+join circular and the number meaningless. Re-run with `AND c.created_at < w.created_at`:
+
+```
+30 | 27 | 25      -- identical
+```
+
+Identical, so every match genuinely predated its item. (The twins do **not** contaminate this: their
+`function` values are site-suffixed — `loans-credit-health-check-loancalculator-co-uk` — so they
+cannot satisfy `lower(function) = section_type`.)
+
+`[CAVEAT]` `is_active` is evaluated as of today, not as of the item's date, so a component that was
+inactive when the item was filed and activated later would be counted wrongly. Not checked — it
+would move the number by at most a couple either way and does not change the shape.
+
+**This makes a disconfirmable prediction, which is the point of recording it rather than admiring
+it:** if the predicate fix is doing what we think, the *rate* of `needs_new_component` filings whose
+`section_type` matches a live function should fall to near zero from 2026-08-23 onward. It has not
+been long enough to test. **Whoever next picks this up should run the query above windowed on
+`created_at > '2026-08-23'` — a continued high rate refutes the fix, and that is the cheapest
+available way to be wrong about it.**
+
+It also sharpens finding B above: 27 of 30 filings named an **exact function match**, so Path 1 is
+the route that actually matters for this population and Path 2's `section_type` key is close to
+irrelevant to it. A `section_type := function` backfill would be adding a key to the path that was
+never the bottleneck.
