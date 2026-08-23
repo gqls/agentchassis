@@ -6269,3 +6269,36 @@ compare would have looked alarming. Re-baseline once the harness works again.
 **Released the remaining NINE** at priority 15 (`source='loancalc_owner_release_20260823'`),
 excluding the canary and excluding `tool-credit-roadmap`, which the owner has chosen to
 retire.
+
+### (2)+(4) converging, and the link-clearing hypothesis is now MEASURED, not inferred
+
+[MEASURED 2026-08-23 ~14:00] Three of the ten tool pages now carry their locked calculator at
+**position 2** (`tool-overpayment-calculator`, `tool-compare-loans`,
+`tool-credit-health-check`); seven remain at position 5 and are queued. **Every one of the
+ten is still `locked=true`** — the rebuilds have not broken a single lock.
+
+Verified the served artefact for a NON-canary page, `tool-compare-loans`:
+`hero · tool-compare-loan-offers-section · ported-prose · faq · tool-cta`. So the canary
+generalises.
+
+**The (4) hypothesis is confirmed.** I recorded "[INFERRED] that the rebuilds drop the links
+to credit-roadmap; the rebuilds are its test". They do: `tool-compare-loans` no longer
+contains `/tools/credit-roadmap.html`, and the site-wide inbound count has fallen
+**16 instances / 15 pages → 8 / 8** as pages rebuild.
+
+**The 8 that remain are all `guide` pages**, which the tool-page rebuilds do not touch. They
+clear via the OTHER queue: the 31 remaining `page_rerender` items ("Rerender page after
+template fix", another lane's wave) target the guides too.
+⚠ **A trap I nearly fell into here:** `guide-debt-consolidation-explained` shows a
+**`complete`** rerender AND still links to credit-roadmap, which reads like "a rerender does
+not clear the link". It does not read that way once dated: **that completion is 2026-08-17**,
+and the archive happened **2026-08-23 13:42:43**. Its pending rerender from today's wave has
+not run yet. **A completed job only tells you about the world at the moment it ran** — the
+same staleness lesson as the golden, one table over.
+
+⇒ So the retraction for (4) needs no prose decision after all, provided the guide rerenders
+drain. Retract only once the inbound count reaches **0**; the action refuses otherwise, which
+is the guard doing its job rather than an obstacle.
+
+**Still queued:** 7 rebuilds (priority 15) and the `nav_drift` (priority 30, so it runs after
+them) that ships the Guides link. Chrome still reads 2026-08-20 with no `/guides/` link.
