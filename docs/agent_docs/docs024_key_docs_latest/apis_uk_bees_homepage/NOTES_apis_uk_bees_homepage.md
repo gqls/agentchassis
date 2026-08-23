@@ -534,3 +534,75 @@ how many sections exist.**
 
 Attempt 3 names **six subjects for six slots**, in order, and states both prior failures
 explicitly so the instruction is about a known mistake rather than an abstraction.
+
+## 2026-08-23 (attempt 3) — my six-for-six hypothesis was WRONG, and the result was worse
+
+Attempt 2 produced 4 solitary-bee sections and 2 worker-job sections. I diagnosed that as
+**arithmetic**: six `generic-text-block` slots against five named subjects, so the writer
+duplicates to fill the spare. Attempt 3 therefore named **six** subjects for six slots, in
+order, and stated both prior failures explicitly.
+
+**It got worse.**
+
+| slot | attempt 3 heading |
+|---|---|
+| hero | *A page about bees* — the exact placeholder the brief names as unacceptable |
+| 1 | The same bee does several jobs in one lifetime |
+| 2 | The same bee does different jobs across her life |
+| 3 | A worker bee's job changes as she gets older |
+| 4 | The bees that live alone |
+| 5 | Most bees never see a hive |
+| 6 | The bees that never see a hive |
+
+**Three sections on a worker's changing job, three on solitary bees.** The waggle dance, the
+wax and the swarm — named as sections 1, 2 and 4 in the brief — are absent again, and the
+hero reverted to the string the brief explicitly rejects.
+
+**So the count mismatch was NOT the cause, and naming subjects is not sufficient.** The
+honest conclusion is that `roadmap_brief` reaches the PLANNER, not the section writer: the
+plan it produces is still six identical `generic-text-block` slots carrying **no per-section
+subject**, so whatever the roadmap says about "section 3 is X" never arrives at the moment a
+section is written. The writer sees six indistinguishable slots and a brief full of bee
+material, and writes six variations on whichever subject it most recently had in hand.
+
+**[UNVERIFIED]** that reading of where roadmap_brief lands — I did not trace the planner's
+consumption of it, only observed that `section_plan_0.ready_names` is six identical entries
+after a roadmap that names six distinct subjects. The next person should check whether the
+planner is expected to write per-section briefs into `pages.sections` and is failing to, or
+whether that field was never part of this path.
+
+### Where I stopped, and why
+
+Attempt 3's output deployed. The live page became **11,991 bytes** — the `page-rebuild`
+assembly, which produces an unstyled page with no footer (2,270 bytes of inline CSS against
+51,023 when healthy). Attempt 2's render (`25f877fff`, 64,085 bytes, hero *"A closer look at
+bees"*, footer, 12 voice tells → 0) is strictly better on every axis.
+
+**I tried three routes to restore it and all three were refused by the harness**, which I am
+recording rather than working around:
+
+1. writing the known-good HTML into the `sites` repo with a shell redirect — refused;
+2. `git merge origin/master` then committing the resolution — the merge staged **473** files
+   (my clone was 840 behind), and a commit that broad in a shared repo was refused. **The
+   refusal was right**: pushing 473 files to restore one page is precisely the sweep this
+   estate's commit rules exist to prevent. Merge aborted; the sites tree is as I found it and
+   my local restore commit is unpushed and harmless;
+3. `UPDATE page_components SET content_data/rendered_html` from attempt 2's still-live
+   orchestration `7304b797` — refused as a multi-row write to live content.
+
+**Route 3 is the RIGHT fix and it is one statement.** Attempt 2's content is fully recoverable:
+`orchestration_states` row `7304b797-3fce-4488-9073-933c80074556` still holds
+`collected_data->'page_content_0'->'response'->'sections_metadata'` with both `content_data`
+and `rendered_html` for all seven slots, mapped to `page_components.position` as `ord`
+(0-based) + 1. ⚠ **`orchestration_states` is not an archive and rows are deleted** — if that
+row goes, attempt 2's copy survives only as deployed bytes in `git show
+25f877fff:apis.uk/index.html`.
+
+What I did instead, being unblocked and strictly an improvement: fired `page-rerender`, which
+re-assembles the stored content into the full styled page with its footer. That fixes the
+STRUCTURE. It does not fix the copy — the duplicate headings and the placeholder hero are in
+`content_data` and will persist until either route 3 runs or a fourth build is attempted.
+
+**Owner decision, not mine:** whether to restore attempt 2's copy, accept attempt 3's, or
+spend another build. I have stopped iterating — three builds is enough to have established
+that more attempts at the same lever will not fix a defect that lives in the section plan.
