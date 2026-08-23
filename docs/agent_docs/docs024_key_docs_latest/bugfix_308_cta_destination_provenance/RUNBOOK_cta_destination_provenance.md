@@ -147,3 +147,40 @@ def gosize(plan):
 **Cost of getting it wrong is low but not zero:** the run fails BEFORE any seat is dispatched, so
 no credits are spent — but it consumes a round and ~10 minutes, and the terminal state is
 indistinguishable at a glance from the API cap that killed round 4.
+
+
+## 11. The plan validator GREPS YOUR PROSE — describing your own diff honestly can fail the gate
+
+The submission after §10's size fix failed again, at the same step, with:
+
+> `plan failed validation: edit 1: sketch is comment-only — a fix plan proposes changes, not
+> observations; drop the edit or make it real; edit 5: …; edit 6: …`
+
+**All three sketches were full of real code.** `noOpEditReason`
+(`diagnose_persist_fix_plan_action.go:602-619`) is a **substring match on the sketch text**, and my
+own trim note said *"N COMMENT-ONLY lines elided to fit the plan cap"*. The phrase `comment-only`
+is on its list. Writing an accurate description of the trim is what failed the gate.
+
+**The literals, so you can avoid them in prose** (lower-cased `strings.Contains` on the whole
+sketch, sketch only — `rationale` is not scanned):
+
+| verdict | any of these phrases |
+|---|---|
+| `sketch declares no code change` | `no code change`, `no change required`, `no change is required`, `no change needed`, `no change is needed` |
+| `sketch is comment-only` | `clarifying note`, `clarifying comment`, `add a comment`, `comment-only` |
+
+The check is deliberately literal — its own comment says over-blocking a real edit is worse than
+letting the council catch a subtle no-op — so it cannot tell your *description* from your *diff*.
+**Say "doc-prose lines were dropped", never "comment-only".** And scan before dispatching:
+
+```python
+TRIGGERS = ["no code change","no change required","no change is required","no change needed",
+            "no change is needed","clarifying note","clarifying comment","add a comment","comment-only"]
+for i, e in enumerate(plan["edits"]):
+    hit = [t for t in TRIGGERS if t in e["sketch"].lower()]
+    assert not hit, f"edit {i+1} would be rejected on {hit}"
+```
+
+This is the same class as `check_literal_markdown`'s `walkContentDataStrings` skipping `_`-prefixed
+keys: **a literal scanner makes your commentary load-bearing.** Two rounds were spent on it here,
+and neither cost credits — both failed before any seat was dispatched.
