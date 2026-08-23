@@ -1189,3 +1189,40 @@ grep -oiE '(written|reviewed|tested) by [A-Z][a-z]+ [A-Z][a-z]+'   # -i DEFEATS 
 **This is the harness's first real use and it was wrong.** That is the argument for validating an
 instrument on live data before trusting a clean run from it — a check that has only ever returned
 "nothing found" has not been shown to work.
+
+### 20:31Z — THREE of twelve pages will not auto-build, and the pattern is a page CLASS, not a page
+
+`[MEASURED 20:31Z]` — `needs_page` status after four of twelve:
+
+| page | status | why |
+|---|---|---|
+| `about` | complete | serves, 12,830B |
+| `affiliate-disclosure` | complete | — |
+| **`brand-directory-index`** (entity-directory) | **needs_human_review** | *"page-build-handler no-op: no sections ready to build (empty spec sections, or all sections deferred…)"* |
+| **`brand-profile`** (entity-page) | **needs_human_review** | same message |
+| **`tool-finder`** (tool) | **needs_human_review** (`owned_page_review`) | *"needs owner-aware build, not the generic builder"* |
+| the other 7 | triaged | building one at a time |
+
+**The finding is that it is a CLASS, not an incident.** loanzy's route handoff §7 recorded ONE such
+refusal (`guides-index` no-op'd rather than ship an empty shell) and filed it under *what the route
+got right*. It still is right — refusing beats shipping a hollow page. But at **3 of 12** it stops
+being a nice guard and becomes a shape:
+
+> **The site planner plans page ROLES whose content depends on entities or ownership that the
+> greenfield route never creates.** `entity-directory` and `entity-page` need brand entities; nobody
+> populates them from a domain name. `tool` needs an owner-aware build by design. So the planner
+> commits to twelve pages while the pipeline behind it can only deliver nine, and **nothing
+> reconciles the two.** That is not the builder's fault — it is a planner/pipeline contract gap, and
+> it will recur on every vertical whose plan includes a directory (which is most of them: the
+> classifier chose `brand-directory-index` here unprompted, and "directory" is one of the three
+> things this domain was picked to exercise).
+
+**This changes the `328` test materially — it is now 3 pages, not 1.** If nav and the built pages
+link to `brand-directory-index`, `brand-profile` and `tool-finder`, a finished-looking site ships
+with **three** dead destinations. **Still not testable yet** (the other seven are mid-build and
+their 404s are transient), but the candidate set is now known and larger than I predicted.
+
+**What I do NOT yet know, and will not assert:** whether the *plan* is wrong to include them, or the
+*pipeline* is wrong not to populate entities. Both readings fit. `[UNVERIFIED]` — the discriminator
+is whether any non-greenfield path (adoption, a mission brief naming brands) does populate them, in
+which case the gap is specific to the no-hint route rather than to the page class. Not measured.
