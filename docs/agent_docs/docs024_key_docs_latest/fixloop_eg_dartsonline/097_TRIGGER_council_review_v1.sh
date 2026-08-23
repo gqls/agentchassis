@@ -43,6 +43,8 @@
 #
 # SCOPE (owner ruling 2026-07-17, widened 2026-08-19 per bugs_open/314):
 #   platform/, internal/, pkg/                          — platform code
+#   cmd/config-key-audit/                               — the check-detector binary
+#                                                         (owner ruling 2026-08-23)
 #   docs/agent_docs/sql_for_agents/NNN_name.sql          — appliable migrations
 # A submission touching none of those is refused — prose, site content and the
 # hand-run sidecars (_ROLLBACK/_VERIFY/_HOLD) never spend council credits.
@@ -195,6 +197,9 @@ if ! jq -e --arg code "$COUNCIL_SCOPE_CODE_RE" \
   if [ "${FORCE:-0}" != "1" ]; then
     echo "REFUSED: no edit touches the review scope." >&2
     echo "  In scope: platform/, internal/, pkg/ (owner ruling 2026-07-17)" >&2
+    echo "            cmd/config-key-audit/ — the check-detector binary (owner ruling 2026-08-23)." >&2
+    echo "            Other cmd/ binaries are OUT: the widening was targeted at where the" >&2
+    echo "            detector logic actually sits, not at every main()." >&2
     echo "            docs/agent_docs/sql_for_agents/NNN_name.sql — migrations, INCLUDING _HOLD (bugs_open/314, widened 2026-08-19)" >&2
     echo "  Out:      prose, site content, and the SQL that is not the change (_ROLLBACK/_VERIFY/_SUPERSEDED)." >&2
     echo "Docs and site content do not spend council credits. FORCE=1 to override." >&2

@@ -3,7 +3,8 @@
 # (build-order step 3: visibility BEFORE enforcement, the standing rule).
 #
 # WHAT. A deterministic join of git history against council verdicts: every
-# commit in the window touching the review scope — platform/, internal/, pkg/
+# commit in the window touching the review scope — platform/, internal/, pkg/,
+# cmd/config-key-audit/ (owner ruling 2026-08-23)
 # (owner ruling 2026-07-17) or an appliable migration under
 # docs/agent_docs/sql_for_agents/ (NNN_name.sql, sidecars excluded; widened
 # 2026-08-19 per bugs_open/314) — is bucketed as

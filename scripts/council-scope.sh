@@ -53,8 +53,36 @@
 # applied — a bigger blast radius than the bug being fixed. The copy is held honest
 # by council_scope_drift_warn() below, which is called on every 097/098 run.
 
-# Platform code (owner ruling 2026-07-17).
-COUNCIL_SCOPE_CODE_RE='^(platform|internal|pkg)/'
+# Platform code (owner ruling 2026-07-17), plus the check-detector binary
+# (owner ruling 2026-08-23).
+#
+# WHY cmd/config-key-audit AND NOT ALL OF cmd/. A "check service" — one of the ~20
+# nightly CronJobs that watch for a class of defect — keeps its DETECTOR LOGIC in
+# cmd/, its image recipe in build/docker/ and its schedule in deployments/. None of
+# those paths was in scope, so the entire class was invisible to this gate: measured
+# 2026-08-23, both commits shipping component-source-vocabulary-check contained ZERO
+# in-scope files, and a second lane hit the identical wall the same day
+# (bugs_open/309, bugs_open/363).
+#
+# The owner was offered all of cmd/ and chose this one directory, on the measurement
+# rather than the principle. As of 2026-08-23 cmd/ is 18,402 non-test lines — about
+# 6% of the reviewable-shaped Go here — and it is CONCENTRATED, not spread:
+# cmd/config-key-audit alone is 6,417 of them (35%), and it carries the rules for
+# roughly ten of the twenty nightly checks. The rest of cmd/ is overwhelmingly thin
+# main() wiring that would spend credits to review a flag parser. So the honest
+# statement of the gap was never "a sixth of the codebase is unreviewed" — it was
+# "the detector logic for the daily check fleet has accumulated in one binary the
+# gate cannot see", and this widening closes exactly that and nothing else.
+#
+# Same shape as the 2026-08-19 migration widening (bugs_open/314): a TARGETED
+# addition justified by where the risk actually sits, not a general loosening.
+#
+# ⚠ IF THE DETECTOR LOGIC MOVES, MOVE THIS. The moment a check's rules live somewhere
+# else under cmd/ — a new cmd/<something>-check with real logic rather than a thin
+# main — this pattern stops covering the class it was widened for, and it will do so
+# SILENTLY, because an out-of-scope path is refused with no finding. cmd/ line counts
+# per directory are two commands: see bugs_open/309's notes for the one-liner.
+COUNCIL_SCOPE_CODE_RE='^(platform|internal|pkg)/|^cmd/config-key-audit/'
 # VERBATIM from scripts/migration/run-migrations.sh:283 (the appliable-name grep).
 # Change this only together with the runner.
 COUNCIL_SCOPE_MIGRATION_RE='^docs/agent_docs/sql_for_agents/[0-9]{3}_[A-Za-z0-9_]+\.sql$'
