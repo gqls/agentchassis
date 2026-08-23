@@ -433,3 +433,90 @@ established first. Recorded here rather than acted on.
 **Live consequence, stated so it is not lost:** `loanzy.uk/tools/credit-health-check` — the page
 `bugs_open/337` is named after — cannot be repaired until this is resolved. Everything else in
 337 is done.
+
+---
+
+## ⚠ CORRECTION 2026-08-23 (evening), by the same (`bugfix_337_token_cap`) lane that wrote the two sections above — MY OWN CHARACTERISATION IS REFUTED, AND I RE-MADE AN ERROR THIS FILE HAD ALREADY CORRECTED DIRECTLY ABOVE ME
+
+**What I wrote, twice, and what is actually true.** My CONTRIB and take-on above say the
+refusals are *"the signature of a fresh `hero-tool` render producing a fixed, thinner output
+regardless of what it is replacing"*, and that the next step is to **"determine what empties
+`hero-tool`'s `content_data` values"** — a writer census. **There is nothing to census. Nothing
+empties them.** The premise is false, and the census would have burned a session finding no
+such writer.
+
+**The worst part is that the refutation was already in this file, immediately above my
+contribution.** The `bugs_open/305` lane corrected exactly this generalisation on **2026-08-22**
+— *"15, 5, 5, 5, 12 … per-run variance in generated output, not a settled renderer change"* —
+and named its own failure mode as letting three agreeing samples outvote one disagreeing one.
+**I then wrote the same generalisation from five agreeing samples the next day**, in the same
+file, below the correction. Reading a file is not the same as reading the correction in it.
+Logged in `WRONG_CALLS.md`.
+
+### The census that settles it [MEASURED 2026-08-23 ~17:45Z, loanzy.uk, 11 pages carrying `hero-tool`]
+
+**1. The empties are confined to ONE optional block, with no exceptions.** Of **40** empty
+values across all 11 pages, **40 are `stat_*` keys**. Not one of the other five keys is ever
+empty on any page. Every page stores exactly **11** keys.
+
+**2. They empty in label/value PAIRS**, so the non-empty count moves in twos and maps exactly
+onto "how many of three optional stat slots are filled":
+
+| non-empty (of 11) | = 5 fixed + | stats filled | rendered `class=` |
+|---|---|---|---|
+| 11 | 6 | **3** | 15 |
+| 9 | 4 | **2** | 12 |
+| 7 | 2 | **1** | 9 |
+| 5 | 0 | **0** | 5 |
+
+**3. And the count moves in BOTH DIRECTIONS across successive writes** — which is what kills
+the emptying-writer theory outright. From `page_component_history` (archived pre-write state)
+joined to the current row:
+
+| page | stats filled, in write order |
+|---|---|
+| `tool-loan-comparison-calculator` | 0 → **3** |
+| `tool-loan-repayment-calculator` | 0 → 0 → **3** |
+| `tool-settlement-calculator` | 0 → **2** |
+| `tool-overpayment-calculator` | 1 → **0** |
+
+Three up, one down. **A mechanism that empties values cannot fill them.** What this is: the
+generator choosing, run to run, how many of three optional stat slots it populates — the
+`on_missing: skip_field` gates then drop ~3 class attributes per unfilled stat. Per-run
+variance, exactly as the 305 lane said on 08-22.
+
+### What this means for your guard — less than my earlier note implied
+
+- **The floor is not catching content loss.** It is catching a *fresh generation that filled
+  fewer optional stats than the stored one did*. Both saves are legitimate outputs of the same
+  writer; neither is damaged.
+- **The refusals are therefore RETRYABLE, and they retry successfully.** Proven on the page I
+  was blocked on: refused 14:03:06Z at 12→5, **saved cleanly at 14:23:29Z** with the stat count
+  back at 2. I did not touch `section_component_floor`, and I did not need to.
+- **So my "practical consequence" paragraph above was wrong too.** I wrote that
+  `loanzy.uk/tools/credit-health-check` "cannot be repaired until this is resolved". It
+  repaired itself 20 minutes later, on retry, while I was writing that it could not.
+- **The one thing that stands from my earlier note is the diagnosis-vs-message gap**, and it is
+  narrower than I framed it: the message says *"may not lose more than 50% of the elements
+  carrying layout classes"*, which sends the reader hunting a renderer defect. For this
+  component the honest reading is *"the incoming render filled fewer optional fields than the
+  stored one"* — a **retry** signal, not an investigation signal.
+- **I am still not proposing a code change**, and I am now proposing one *less* than before: the
+  earlier note floated measuring non-empty field values instead of class attributes. On this
+  evidence that would change what the guard refuses without making anything safer — it would
+  refuse the same saves for a better-worded reason. **A shared-guard contract change affecting
+  nine writers should not be spent on a message.**
+
+### Why this is filed without a `090` run, stated plainly per the 2026-07-31 owner ruling
+
+This is a **refutation** of a structural claim, not the assertion of a new root cause, and it
+rests on a complete first-hand census rather than inference: all 40 empty values enumerated by
+key, all 11 pages, all 22 available history rows read directly. **It could have come out
+otherwise, and I expected it to** — a single empty non-`stat_*` key, or a monotone downward
+trend, would have refuted me and sent me to the writer census I am here to cancel. It is also
+independently corroborated by a separate lane (305) reaching the same conclusion from different
+samples a day earlier. The disconfirming check is one query and it is in the tables above.
+
+**Net effect on this bug: one open question is CANCELLED, none is added.** `hero-tool` needs no
+content-loss investigation. 253's own subject — a framework rewrite stripping layout components —
+is untouched by any of this and remains whatever it was.
