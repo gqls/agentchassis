@@ -45,21 +45,21 @@ func TestBestLabelMatch(t *testing.T) {
 		mk("archetypes", "The Archetypes", false),
 	}
 
-	if got, ok := BestLabelMatch("gauntlet", pages); !ok || got.Name != "tool-gauntlet" {
+	if got, ok, _ := BestLabelMatch("gauntlet", pages); !ok || got.Name != "tool-gauntlet" {
 		t.Errorf("gauntlet: got %+v ok=%v, want tool-gauntlet", got, ok)
 	}
 	// Interactive pages beat content pages on equal-strength matches:
 	// "archetype" hits the quiz (interactive), "archetypes" hits the hub.
-	if got, ok := BestLabelMatch("archetype", pages); !ok || got.Name != "tool-quiz" {
+	if got, ok, _ := BestLabelMatch("archetype", pages); !ok || got.Name != "tool-quiz" {
 		t.Errorf("archetype: got %+v ok=%v, want tool-quiz", got, ok)
 	}
-	if got, ok := BestLabelMatch("archetypes", pages); !ok || got.Name != "archetypes" {
+	if got, ok, _ := BestLabelMatch("archetypes", pages); !ok || got.Name != "archetypes" {
 		t.Errorf("archetypes: got %+v ok=%v, want archetypes hub", got, ok)
 	}
-	if _, ok := BestLabelMatch("arena", pages); ok {
+	if _, ok, _ := BestLabelMatch("arena", pages); ok {
 		t.Errorf("arena: got a match, want none (no page names it)")
 	}
-	if _, ok := BestLabelMatch("Learn More", pages); ok {
+	if _, ok, _ := BestLabelMatch("Learn More", pages); ok {
 		t.Errorf("generic text: got a match, want none")
 	}
 }
@@ -83,7 +83,7 @@ func TestBestLabelMatchOverlapBeatsCategory(t *testing.T) {
 		// 2-token overlap: "gripper" and "catalog" — the better match, non-interactive.
 		mk("gripper-catalog-index", "Gripper Catalog", false),
 	}
-	got, ok := BestLabelMatch("Browse the Gripper Catalog", pages)
+	got, ok, _ := BestLabelMatch("Browse the Gripper Catalog", pages)
 	if !ok || got.Name != "gripper-catalog-index" {
 		t.Errorf("Browse the Gripper Catalog: got %+v ok=%v, want the stronger hub match gripper-catalog-index, not the weaker tool match", got, ok)
 	}
@@ -104,7 +104,7 @@ func TestBestLabelMatchInteractiveTiesBreakToInteractive(t *testing.T) {
 		mk("tool-widget", "Widget Tool", true),
 		mk("widget-guide", "Widget Guide", false),
 	}
-	got, ok := BestLabelMatch("Widget", pages)
+	got, ok, _ := BestLabelMatch("Widget", pages)
 	if !ok || got.Name != "tool-widget" {
 		t.Errorf("Widget (equal overlap both candidates): got %+v ok=%v, want the interactive tool-widget", got, ok)
 	}
@@ -155,7 +155,7 @@ func TestBestLabelMatchIdentityBeatsDescription(t *testing.T) {
 	}
 	pages := []LabelMatchCandidate{payloadOverview, payloadTool, safetyFactorTool}
 
-	got, ok := BestLabelMatch("Gripper Safety Factor Calculator", pages)
+	got, ok, _ := BestLabelMatch("Gripper Safety Factor Calculator", pages)
 	if !ok || got.URL != "/tools/gripper-safety-factor-calculator/index.html" {
 		t.Errorf("Gripper Safety Factor Calculator: got %+v ok=%v, want the page it names, not a payload-calculator page whose nav_label incidentally contains its words", got, ok)
 	}
@@ -177,24 +177,39 @@ func TestBestLabelMatchRichNameBeatsShortGenericPage(t *testing.T) {
 	}
 	pages := []LabelMatchCandidate{tools, toolsGuide}
 
-	got, ok := BestLabelMatch("Tools Guide", pages)
+	got, ok, _ := BestLabelMatch("Tools Guide", pages)
 	if !ok || got.Name != "tools-guide" {
 		t.Errorf("Tools Guide: got %+v ok=%v, want tools-guide (identity overlap 2 beats 1)", got, ok)
 	}
 }
 
-// TestBestLabelMatchTiesStillBreakByName pins the FINAL tie-break at Name —
-// unchanged from before the bugs_open/253 fix. A candidate-token-set-size
-// tie-break (smaller wins) was tried here and DROPPED before shipping:
-// 2026-08-11 calibration against the live fleet showed it was decided almost
-// entirely by tokenisation artefacts and site-wide generic words with no real
-// signal (a stray hyphen in one candidate's own copy flipped 9 already-
-// correct, live gaswholesalers.com CTAs onto the wrong tool purely because
-// the loser's title happened to be one token longer — see
-// CALIBRATION_2026-08-11_label_match_identity_report.txt). This test exists
-// so a future re-introduction of a size-based tie-break has to consciously
-// break this assertion, not slip in unnoticed.
-func TestBestLabelMatchTiesStillBreakByName(t *testing.T) {
+// TestBestLabelMatchRefusesAnAlphabeticalTie — this test REPLACES
+// TestBestLabelMatchTiesStillBreakByName, whose fixture is kept verbatim below
+// and whose assertion is inverted (bugs_open/308 Phase B, 2026-08-23).
+//
+// WHAT THE OLD TEST PINNED, and why it was right at the time: the final
+// tie-break is Name, and a candidate-token-set-size key must never replace it.
+// That key was tried and DROPPED on 2026-08-11 after fleet calibration showed
+// it was decided by tokenisation artefacts (a stray hyphen flipped 9 already-
+// correct live gaswholesalers.com CTAs). That finding STANDS and is now
+// reinforced: this lane measured two more substitute keys (name-tier,
+// path-depth) on 2026-08-23 and dropped both for the same reason —
+// CALIBRATION_2026-08-23_phase_b_widening_report.md §3.
+//
+// WHAT CHANGED: the conclusion those three rejections were pointing at. If no
+// key can break the tie meaningfully, the tie itself is the finding, and the
+// honest answer is "this label does not name one page". Measured on the fleet
+// dump of 2026-08-23: 263 of 1,146 matches against the widened CTA universe
+// were decided by nothing but alphabetical order, and 137 of those would have
+// OVERWRITTEN a live CTA destination — including finetuning.uk's "how we work",
+// which would have moved OFF the /how-we-work.html its copy names.
+//
+// So an alphabetical-only win now reports ok=false with ambiguous=true. The
+// tie-break itself is NOT removed: it still decides which candidate is compared
+// against the rest (and two rows for the SAME page are not a tie at all), so a
+// size-based key re-introduced here would still change behaviour and still has
+// to break an assertion — that is what the second half of this test pins.
+func TestBestLabelMatchRefusesAnAlphabeticalTie(t *testing.T) {
 	big, ok := NewLabelMatchCandidate(
 		"1", "aaa-gadget-long-name-thing", "Aaa Gadget Long Name Thing",
 		"/aaa-gadget-long-name-thing.html", false, "")
@@ -206,10 +221,31 @@ func TestBestLabelMatchTiesStillBreakByName(t *testing.T) {
 	if !ok {
 		t.Fatal("fixture candidate produced no tokens")
 	}
-	pages := []LabelMatchCandidate{big, small}
 
-	got, ok := BestLabelMatch("gadget", pages)
-	if !ok || got.Name != "aaa-gadget-long-name-thing" {
-		t.Errorf("gadget: got %+v ok=%v, want aaa-gadget-long-name-thing (both tie on identity/total overlap and interactivity, so Name decides — alphabetically first, regardless of either candidate's token-set size)", got, ok)
+	got, ok, ambiguous := BestLabelMatch("gadget", []LabelMatchCandidate{big, small})
+	if ok || !ambiguous {
+		t.Errorf("gadget: got %+v ok=%v ambiguous=%v — two DIFFERENT pages tie on identity, "+
+			"total overlap and interactivity, so only alphabetical order separated them and the "+
+			"label names neither", got, ok, ambiguous)
+	}
+
+	// The tie must be about the PAGE, not the row: two candidates naming one
+	// destination are not a disagreement, and refusing there would silently
+	// disable matching for every site whose page appears under both /x/ and
+	// /x/index.html.
+	sameA, _ := NewLabelMatchCandidate("3", "gadget-hub", "Gadget Hub", "/gadget/index.html", false, "")
+	sameB, _ := NewLabelMatchCandidate("4", "gadget-hub-alias", "Gadget Hub", "/gadget/", false, "")
+	got, ok, ambiguous = BestLabelMatch("gadget", []LabelMatchCandidate{sameA, sameB})
+	if !ok || ambiguous || NormalizePagePath(got.URL) != "/gadget" {
+		t.Errorf("two rows for ONE page must still resolve: got %+v ok=%v ambiguous=%v", got, ok, ambiguous)
+	}
+
+	// And a clear winner is still returned: the ambiguity rule must not fire
+	// whenever two candidates merely both overlap.
+	clear, _ := NewLabelMatchCandidate("5", "gadget-calibrator", "Gadget Calibrator", "/gadget-calibrator.html", false, "")
+	other, _ := NewLabelMatchCandidate("6", "widget-press", "Widget Press", "/widget-press.html", false, "")
+	got, ok, ambiguous = BestLabelMatch("gadget calibrator", []LabelMatchCandidate{clear, other})
+	if !ok || ambiguous || got.Name != "gadget-calibrator" {
+		t.Errorf("unambiguous winner refused: got %+v ok=%v ambiguous=%v", got, ok, ambiguous)
 	}
 }

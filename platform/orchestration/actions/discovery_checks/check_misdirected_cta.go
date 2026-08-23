@@ -106,7 +106,17 @@ const ctaComponentScanQuery = `
 // Generic link text ("Learn More") reduces to zero distinctive tokens and is
 // reported as named=false, so it is never a misdirect.
 func ctaClassifyAnchor(a datahelpers.Anchor, slotName string, pages []datahelpers.LabelMatchCandidate) (*misdirectedAnchor, bool) {
-	best, found := datahelpers.BestLabelMatch(a.Text, pages)
+	// AMBIGUOUS copy is named=false (bugs_open/308 Phase B). BestLabelMatch
+	// reports ambiguity when the winner was separated from a DIFFERENT page by
+	// nothing but alphabetical order, and this check must not file a repair on
+	// that: measured 2026-08-23, 19 live findings in two families
+	// (finetuning.uk "how we work" → /about.html over the /how-we-work.html the
+	// copy names; dartsonline.com "Read the guides" → /about.html over
+	// /guides/index.html) are exactly this, and Phase B's widening would have
+	// had the repairer EXECUTE them. The third return is discarded rather than
+	// recorded on purpose: a "copy names two pages equally" finding is a real
+	// signal but a new work-item type, and this change is already a widening.
+	best, found, _ := datahelpers.BestLabelMatch(a.Text, pages)
 	if !found {
 		return nil, false
 	}
@@ -355,14 +365,30 @@ func ctaAreaExcluded(href string) bool {
 	return ctaExcludedAreas[p]
 }
 
-// loadCTAMatchIndex loads the real pages as match candidates (index/home
-// excluded — link text rarely "names" the homepage) plus the full validity
-// set (which DOES include the homepage) for phantom tests.
+// loadCTAMatchIndex returns this check's two page sets: the MATCH CANDIDATES —
+// now datahelpers.LoadCTALabelUniverse, the definition shared with the two CTA
+// writers (bugs_open/308 Phase B) — and the VALIDITY set used by the phantom
+// arm.
+//
+// THE TWO SETS ARE DIFFERENT ON PURPOSE and are not merged:
+//   - the homepage is in the validity set (a link to "/" is not a phantom) and
+//     out of the candidate set (link copy rarely names the homepage);
+//   - a page that is planned and never deployed is OUT of the candidate set
+//     (the writers' validPages gate refuses it, so suggesting one files a
+//     repair no writer can perform — 10 live findings did exactly that,
+//     measured 2026-08-23) but stays IN the validity set, because narrowing
+//     validity would newly classify those links as phantom and file work items
+//     this change has not measured.
+//
+// So it costs a second query, and that is the honest price of two axes.
 func loadCTAMatchIndex(dctx DiscoveryCheckContext) ([]datahelpers.LabelMatchCandidate, datahelpers.PageURLSet, error) {
+	pages, err := datahelpers.LoadCTALabelUniverse(dctx.Ctx, dctx.DB, dctx.SiteID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("misdirected_cta candidate universe failed: %w", err)
+	}
+
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
-		SELECT p.id::text, p.name, COALESCE(p.title, p.name),
-		       COALESCE(p.nav_label, ''), p.url,
-		       COALESCE(p.page_type, 'content')
+		SELECT p.url
 		FROM pages p
 		WHERE p.site_id = $1
 		  AND p.status NOT IN ('deleted', 'archived')
@@ -373,25 +399,13 @@ func loadCTAMatchIndex(dctx DiscoveryCheckContext) ([]datahelpers.LabelMatchCand
 	}
 	defer rows.Close()
 
-	var pages []datahelpers.LabelMatchCandidate
 	var urls []string
 	for rows.Next() {
-		var id, name, title, navLabel, url, pageType string
-		if err := rows.Scan(&id, &name, &title, &navLabel, &url, &pageType); err != nil {
+		var url string
+		if err := rows.Scan(&url); err != nil {
 			continue
 		}
 		urls = append(urls, url)
-		if name == "index" || name == "home" {
-			continue
-		}
-		candidate, ok := datahelpers.NewLabelMatchCandidate(
-			id, name, title, url, pageType == "tool" || pageType == "game",
-			navLabel,
-		)
-		if !ok {
-			continue
-		}
-		pages = append(pages, candidate)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, nil, fmt.Errorf("misdirected_cta pages iteration failed: %w", err)

@@ -957,11 +957,28 @@ func loadRerenderCTAState(ctx context.Context, params ActionParams, siteID uuid.
 		logger.Warn("rerender_page_sections: loadInteractivePages failed for CTA recompute", zap.Error(err))
 	}
 	primary, secondary := chooseCTATargets("", pageName, interactive, hubs)
+	// LABEL-MATCH supply is the SHARED universe (bugs_open/308 Phase B): the
+	// misdirected_cta check that FILES this rerender and this recompute must
+	// answer "which pages may this label name?" identically, or the repair
+	// cannot reach the destination the check suggested — which is the whole of
+	// bug 308 (99 findings sat on work items marked `complete`, 2026-08-23).
+	// The POSITIONAL pick above still reads the hub/tool loaders and still
+	// refuses every utility area.
+	//
+	// A failure degrades to an empty universe, matching the two loaders above:
+	// applyCTARecompute then leaves fields untouched rather than aborting a
+	// rerender that has other work to do. That asymmetry with the build path
+	// (which returns the error) is deliberate — a rerender is a repair pass over
+	// an already-serving page, and half-repairing it beats failing it.
+	candidates, err := datahelpers.LoadCTALabelUniverse(ctx, params.DB, siteID)
+	if err != nil {
+		logger.Warn("rerender_page_sections: CTA label universe failed for CTA recompute", zap.Error(err))
+	}
 	return &rerenderCTAState{
 		primary:    primary,
 		secondary:  secondary,
 		validPages: loadResolverPageSet(ctx, params, siteID, logger),
-		candidates: candidatesFromHubs(interactive, hubs),
+		candidates: candidates,
 	}
 }
 
@@ -1008,7 +1025,11 @@ func applyCTARecompute(resolved, stored map[string]interface{}, field string, ta
 	current, hasCurrent := stored[field].(string)
 
 	if existingLabel != "" {
-		if match, ok := datahelpers.BestLabelMatch(existingLabel, candidates); ok && validPages.Contains(match.URL) &&
+		// AMBIGUOUS copy reports !ok and falls to the keeps (bugs_open/308): a
+		// repair that rewrites a live button to a page chosen by alphabetical
+		// order is not a repair. 137 of the 428 writes this widening would
+		// otherwise perform fleet-wide were exactly that (measured 2026-08-23).
+		if match, ok, _ := datahelpers.BestLabelMatch(existingLabel, candidates); ok && validPages.Contains(match.URL) &&
 			(!hasCurrent || datahelpers.NormalizePagePath(match.URL) != datahelpers.NormalizePagePath(current)) {
 			resolved[field] = match.URL
 			datahelpers.SetCTAMinted(resolved, field, match.URL)
@@ -1049,14 +1070,34 @@ func applyCTARecompute(resolved, stored map[string]interface{}, field string, ta
 		return
 	}
 
-	// KEEP #2 — an ordinary valid, non-utility destination. Unchanged since
-	// 203: kept by leaving the field untouched, so the stored value flows
-	// through the merge.
+	// KEEP #2 — any ordinary valid destination. Kept by leaving the field
+	// untouched, so the stored value flows through the merge (unchanged since
+	// 203).
+	//
+	// ⚠ THE UTILITY-AREA EXCLUSION WAS REMOVED HERE (bugs_open/308 Phase B) and
+	// removing it is REQUIRED BY the widening, not incidental to it. Until Phase
+	// B the resolver could not mint a utility destination, so a stored one was
+	// authored, KEEP #1 caught it, and this branch never saw one. Now the label
+	// match CAN write /contact.html and stamp it — and KEEP #1's predicate
+	// deliberately refuses a stamped value (that is what the stamp MEANS). With
+	// the old exclusion still here, a minted /contact.html whose copy later went
+	// generic ("Get Started" names no page, so the label match declines) took no
+	// keep at all and fell to the POSITIONAL PICK, which replaced a working
+	// contact button with an unrelated tool page. That is bugs_open/248's exact
+	// damage, re-created by 308's own fix.
+	//
+	// The invariant that replaces it, and it is the symmetric half of the one
+	// rank() enforces: THE POSITIONAL PICK MAY NEITHER CHOOSE NOR DISPLACE A
+	// UTILITY DESTINATION. Only a confident label match moves one.
+	//
+	// ⚠ `validPages.Contains` STAYS — it is what makes KEEP #3 reachable, since
+	// every non-page href (tel:/mailto:/external) fails it by construction. The
+	// LANDMINES entry warns against "tidying" this branch by dropping that test;
+	// this edit drops the AREA test, which is a different condition.
 	if hasCurrent && current != "" &&
 		validPages.Contains(current) &&
-		!ctaExcludedDestination(current) &&
 		datahelpers.NormalizePagePath(current) != datahelpers.NormalizePagePath(pageURL) {
-		return // authored link to a real, sensible destination — keep it
+		return // a real, sensible destination — keep it
 	}
 
 	// KEEP #3 — an AUTHORED NON-PAGE destination (bugs_open/299): tel:/

@@ -240,18 +240,35 @@ func TestSetCTAFieldStillRepairsFabricatedContactWithPageNamingLabel(t *testing.
 	}
 }
 
-// TestFreshPickRefusesUtilityWhileStoredUtilityIsKept is the ASYMMETRY PIN, and
-// the point of the whole change. Three assertions that must hold together:
+// TestFreshPickRefusesUtilityWhileStoredUtilityIsKept is the ASYMMETRY PIN.
+// Its name is unchanged so `git log -S` still finds the whole history, but
+// assertion (b) is INVERTED by bugs_open/308 Phase B (2026-08-23) and the test
+// has grown a fourth arm.
 //
-//	(a) a fresh POSITIONAL pick still refuses a utility destination;
-//	(b) the label-match CANDIDATE SET refuses one too, which is what makes
+// WHAT IT PINNED, 2026-07-14 → 2026-08-22:
+//
+//	(a) a fresh POSITIONAL pick refuses a utility destination;
+//	(b) the label-match CANDIDATE SET refuses one too, which is what made
 //	    "the resolver cannot mint a utility url" exact rather than approximate;
 //	(c) an already-STORED one is kept.
 //
-// If someone later re-unifies these two uses of areasExcludedFromCTA — the
-// natural-looking tidy-up, and the original 2026-07-14 design note explicitly
-// asked for it ("reuse it in chooseCTATargets' area filter too so the two
-// agree") — this test goes red rather than 13 live contact buttons going quiet.
+// (b) IS NOW RETIRED, deliberately and by owner ruling (2026-08-18), because it
+// is the invariant that made bug 308 unfixable: the detector could name
+// /contact.html as the repair for "Contact our supply team" and the repairer's
+// candidate list could not contain one, so the repair ran, reported success and
+// changed nothing — 188 findings, 99 of them on work items marked `complete`
+// (measured 2026-08-23). The bug file's own bar #2 says editing this test is the
+// signal that the invariant was consciously retired rather than quietly broken,
+// and that it is only legitimate once provenance has landed. It has:
+// __cta_minted shipped 2026-08-22 (LNK-035) and was verified at the artefact.
+//
+// (d) IS NEW, and is the half that never existed: the positional pick must not
+// DISPLACE a utility destination either. Before Phase B it could not — nothing
+// could store one except a person, and (c) covered that. Now the resolver mints
+// them, and a minted one whose copy later goes generic reaches the keeps with
+// its record saying "the machine wrote this", which is exactly the state that
+// used to mean "recompute it away". Doing so would replace a working contact
+// button with a tool page: bugs_open/248's damage, arriving through 308's fix.
 func TestFreshPickRefusesUtilityWhileStoredUtilityIsKept(t *testing.T) {
 	// A contact page that IS a section-index hub, so it reaches the loaders.
 	// Four such pages exist fleet-wide, which is why the filters are URL-shape
@@ -266,20 +283,53 @@ func TestFreshPickRefusesUtilityWhileStoredUtilityIsKept(t *testing.T) {
 		t.Errorf("fresh positional pick landed on a utility page: %v", primary.URL)
 	}
 
-	// (b) the label-match candidate set refuses it too.
-	for _, c := range candidatesFromHubs(nil, []contentHub{contactHub, servicesHub}) {
-		if c.URL == contactHub.URL {
-			t.Errorf("label-match candidates offered a utility page (%v) — the resolver can now mint "+
-				"the very urls storedCTADestinationIsAuthored treats as authored", c.URL)
-		}
+	// (b) INVERTED: the shared label-match universe now OFFERS a utility page.
+	// Asserted at the membership rule rather than the query, because that rule
+	// is the only place a page can be excluded from candidacy — there is no
+	// area predicate left in CTALabelUniverseSQL to assert the absence of.
+	if _, ok := datahelpers.CTALabelCandidateRow("1", "contact", "Contact us", "", "/contact.html", "content"); !ok {
+		t.Error("the CTA label universe refused a contact page — bug 308's repair " +
+			"target is unreachable again and the widening has been undone")
+	}
+	// …and the homepage is still not a candidate, which is the one exclusion
+	// that survived the widening.
+	if _, ok := datahelpers.CTALabelCandidateRow("2", "index", "Home", "", "/index.html", "content"); ok {
+		t.Error("the CTA label universe offered the homepage as a candidate")
 	}
 
-	// (c) an already-stored one is kept.
+	// (c) an already-stored, UNSTAMPED one is kept — a person's link.
 	got := map[string]interface{}{}
 	applyCTARecompute(got, map[string]interface{}{"cta_url": "/contact/index.html"},
 		"cta_url", servicesHub, valid, "/index.html", "Talk to us", nil)
 	if got["cta_url"] != "/contact/index.html" {
 		t.Errorf("stored utility destination not kept: %v", got)
+	}
+
+	// (d) a MINTED one is kept too, on BOTH writers. The mint record is what
+	// makes storedCTADestinationIsAuthored decline, so this row reaches the
+	// later keeps — and before Phase B's keep changes it reached the positional
+	// pick instead and was overwritten with /services.html.
+	stored := map[string]interface{}{
+		"cta_url":                "/contact/index.html",
+		datahelpers.CTAMintedKey: map[string]interface{}{"cta_url": "/contact/index.html"},
+	}
+	if storedCTADestinationIsAuthored(stored, "cta_url", valid) {
+		t.Fatal("fixture is wrong: a minted destination must NOT read as authored, " +
+			"or this case is testing arm (c) again")
+	}
+
+	gotRecompute := map[string]interface{}{}
+	applyCTARecompute(gotRecompute, stored, "cta_url", servicesHub, valid, "/index.html", "Get Started", nil)
+	if u, _ := gotRecompute["cta_url"].(string); u != "" && u != "/contact/index.html" {
+		t.Errorf("repair path DISPLACED a minted utility destination with the positional pick: %v", gotRecompute)
+	}
+
+	gotBuild := map[string]interface{}{}
+	var unresolved []map[string]interface{}
+	setCTAField(gotBuild, stored, "cta_url", servicesHub, valid, "hero", "hero", "primary", &unresolved,
+		"Get Started", nil)
+	if gotBuild["cta_url"] != "/contact/index.html" {
+		t.Errorf("build path DISPLACED a minted utility destination with the positional pick: %v", gotBuild)
 	}
 }
 

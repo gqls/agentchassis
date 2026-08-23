@@ -70,7 +70,13 @@ type contentHub struct {
 }
 
 // areasExcludedFromCTA names the utility areas a FRESH CTA pick must never land
-// in. It governs CANDIDATE SELECTION ONLY — rank() below, and candidatesFromHubs.
+// in. It governs the POSITIONAL PICK ONLY — rank(), below.
+//
+// It NO LONGER governs the label match (bugs_open/308 Phase B): that supply is
+// datahelpers.LoadCTALabelUniverse, which deliberately offers utility pages so
+// a button whose copy says "Contact our supply team" can reach the contact
+// page. candidatesFromHubs, which applied this set to the label-match supply,
+// was deleted with that change rather than left callerless.
 // Judging an already-STORED destination with it was bugs_open/248's clobber
 // (slug cta_recompute_clobbers_authored_contact_links): "never newly SEND a
 // generated CTA to contact" is a sound default; "never TRUST an existing link to
@@ -154,7 +160,20 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 	}
 	validPages := loadResolverPageSet(ctx, params, siteID, logger)
 	primary, secondary := chooseCTATargets(pageType, pageName, interactive, hubs)
-	candidates := candidatesFromHubs(interactive, hubs)
+	// LABEL-MATCH supply is the SHARED universe (bugs_open/308 Phase B), not the
+	// positional pick's hub/tool lists: the detector that files the repair and
+	// the writers that perform it must answer "which pages may this label name?"
+	// from one place, or the repair cannot reach what the check suggested. The
+	// positional pick above is untouched and still refuses every utility area.
+	//
+	// A load failure is FATAL here, matching the two loaders above. Degrading to
+	// an empty universe would silently disable every label match for the page —
+	// the build would succeed, each CTA would take the positional pick, and the
+	// only trace would be a Warn nobody reads.
+	candidates, err := datahelpers.LoadCTALabelUniverse(ctx, params.DB, siteID)
+	if err != nil {
+		return nil, err
+	}
 
 	// Existing published label per slot, if this page has been built before —
 	// nil/empty for a brand-new page, which is fine: there is nothing yet to
@@ -398,7 +417,11 @@ func setCTAField(resolved, stored map[string]interface{}, field string, target c
 	// idempotent and order-independent.
 	datahelpers.SeedCTAMinted(resolved, stored)
 	if existingLabel != "" {
-		if match, ok := datahelpers.BestLabelMatch(existingLabel, candidates); ok && validPages.Contains(match.URL) {
+		// An AMBIGUOUS label (bugs_open/308: two different pages tie on every
+		// ranking key that carries signal) reports !ok, so control falls to the
+		// keeps below and the stored value stands. That is the safe direction:
+		// the alternative is writing a destination chosen by alphabetical order.
+		if match, ok, _ := datahelpers.BestLabelMatch(existingLabel, candidates); ok && validPages.Contains(match.URL) {
 			resolved[field] = match.URL
 			datahelpers.SetCTAMinted(resolved, field, match.URL)
 			if match.Title != "" {
@@ -433,6 +456,31 @@ func setCTAField(resolved, stored map[string]interface{}, field string, target c
 		// returns false as soon as it does. A conditional re-stamp would be dead
 		// code, and an unconditional one would assert that the resolver minted a
 		// value it is the entire point of this branch to say a person authored.
+		resolved[field] = storedURL
+		if title, _ := stored[ctaTargetTitleField(field)].(string); title != "" {
+			resolved[ctaTargetTitleField(field)] = title
+		}
+		return
+	}
+	if storedURL, _ := stored[field].(string); storedURL != "" &&
+		ctaExcludedDestination(storedURL) && validPages.Contains(storedURL) {
+		// A MINTED utility destination (bugs_open/308 Phase B). Reaching this
+		// line proves the mint record COVERS storedURL — the branch above
+		// returns for a valid utility url it does not cover — so this is the
+		// resolver's own earlier output, not a person's.
+		//
+		// It is kept anyway, and the reason is not provenance but what the
+		// alternative is: the only branch below is the POSITIONAL pick, which
+		// cannot produce a utility destination and would therefore replace a
+		// working contact button with an unrelated tool page — bugs_open/248's
+		// damage, arriving through 308's fix. Control only reaches here when the
+		// label match declined (generic or ambiguous copy), so there is no
+		// evidence for a move; and if the copy DOES name another page, the label
+		// match above already won and this line is never reached.
+		//
+		// The invariant, stated positively and symmetric with rank()'s:
+		// THE POSITIONAL PICK MAY NEITHER CHOOSE NOR DISPLACE A UTILITY
+		// DESTINATION. Only a confident label match moves one.
 		resolved[field] = storedURL
 		if title, _ := stored[ctaTargetTitleField(field)].(string); title != "" {
 			resolved[ctaTargetTitleField(field)] = title
@@ -509,47 +557,6 @@ func setCTAField(resolved, stored map[string]interface{}, field string, target c
 		"field":     field,
 		"slot":      slot,
 	})
-}
-
-// candidatesFromHubs converts the interactive/hub contentHub lists into
-// label-match candidates.
-//
-// The lists arrive RAW from loadInteractivePages/loadContentHubs. An earlier
-// comment here claimed "both lists are already filtered (excluded areas, the
-// page's own URL) by chooseCTATargets' own rank()" — that was never true:
-// rank() builds its own filtered LOCAL slice and never mutates its inputs, and
-// both call sites (this file's ResolveInternalLinksAction, and
-// rerender_page_sections' loadRerenderCTAState) pass the loader output
-// unchanged. Both writers believed the claim, which is how a label match could
-// reach a destination the positional pick is forbidden to choose.
-//
-// So the one filter label matching needs is applied HERE: a utility-area page
-// is dropped, by the URL-SHAPE test (ctaExcludedDestination) rather than by
-// page_type, because a section-index hub can legitimately live at
-// /contact/index.html — 4 such pages exist fleet-wide (measured 2026-08-17).
-// This is what makes storedCTADestinationIsAuthored's invariant exact for the
-// label-match path as well as the positional one.
-//
-// NOT applied here, and known: rank()'s self-exclusion (h.Name == pageName).
-// The page's own name is not in scope in this function, so a label naming the
-// page it sits on can still match it — dartsonline's brands-index/hero
-// recomputed to a link to its own page. Recorded in bugs_open/248's sibling
-// observations; not fixed by this change.
-func candidatesFromHubs(interactive, hubs []contentHub) []datahelpers.LabelMatchCandidate {
-	var out []datahelpers.LabelMatchCandidate
-	add := func(list []contentHub, isInteractive bool) {
-		for _, h := range list {
-			if ctaExcludedDestination(h.URL) {
-				continue // the invariant: the resolver never OFFERS a utility page
-			}
-			if c, ok := datahelpers.NewLabelMatchCandidate(h.Name, h.Name, h.Title, h.URL, isInteractive, ""); ok {
-				out = append(out, c)
-			}
-		}
-	}
-	add(interactive, true)
-	add(hubs, false)
-	return out
 }
 
 // existingLabelFor reads a string field from a possibly-nil content_data map,
@@ -732,6 +739,35 @@ func ctaExcludedDestination(url string) bool {
 // did. It is what makes the widening (Phase B) safe rather than a regression:
 // once a label CAN resolve to /contact.html, a stamped one is re-derivable and
 // an unstamped one is still the person's.
+//
+// ── bugs_open/308, PHASE B (2026-08-23): THE WIDENING HAS LANDED, so the two
+// paragraphs above are now HISTORY, not description. ───────────────────────
+//
+// `candidatesFromHubs` is DELETED. The label match is supplied by
+// datahelpers.LoadCTALabelUniverse, which offers every page on the site —
+// utility areas included — so **"no resolver path can produce a utility-area
+// destination" is FALSE from this commit onward**, by design and by owner
+// ruling (2026-08-18: "keep a provenance record", then widen). The bullet list
+// above is retained verbatim because it is the reason the record had to exist
+// first; do not read it as a live invariant.
+//
+// What is still true, and is the invariant a reader should hold instead:
+//
+//	THE POSITIONAL PICK MAY NEITHER CHOOSE NOR DISPLACE A UTILITY DESTINATION.
+//	Only a confident label match puts one there or moves it away.
+//
+// rank() enforces the first half (unchanged since 2026-07-14). The keep
+// branches in setCTAField and applyCTARecompute enforce the second, and BOTH
+// had to change for it: each previously let a MINTED utility destination — a
+// state that could not exist before this commit — fall through to the
+// positional pick the moment its label went generic, which is bugs_open/248's
+// clobber arriving through 308's own fix.
+//
+// This predicate keeps its exact meaning ("a person put this here"), and it is
+// still the thing that stops a recompute overwriting a real contact button. It
+// simply no longer carries the whole weight: the keeps below it now hold a
+// valid utility destination whatever its provenance, and the provenance record
+// decides which of them writes it, not whether it survives.
 //
 // THE SIGNATURE IS THE ENFORCEMENT. It takes the stored map and the field name
 // rather than a bare url so that no caller can reach the utility-area shape

@@ -169,10 +169,45 @@ func NewLabelMatchCandidate(id, name, title, url string, interactive bool, navLa
 // Requires totalOverlap >= 1 — a page matchable only via nav_label stays
 // matchable; a label with no distinctive tokens, or one that matches no
 // candidate at all, reports !ok rather than guessing.
-func BestLabelMatch(label string, candidates []LabelMatchCandidate) (best LabelMatchCandidate, ok bool) {
+//
+// ── AMBIGUITY (bugs_open/308, Phase B, 2026-08-23) ─────────────────────────
+//
+// Key 4 above is ALPHABETICAL ORDER. When it is what decides the winner, the
+// result carries no information about which page the label names — and the
+// 2026-08-11 calibration had already established that no substitute key fixes
+// that (a token-set-size key was tried, measured and dropped; this lane
+// measured a name-tier key and a path-depth key and dropped both for the same
+// reason: each repaired some cases and broke others on the same mechanism —
+// see CALIBRATION_2026-08-23_phase_b_widening_report.md §3).
+//
+// So a winner separated from a DIFFERENT page by nothing but its name's
+// spelling is reported as `ambiguous`, with ok=false. Measured on the frozen
+// fleet dump of 2026-08-23: 263 of 1,146 matches (23%) against the widened CTA
+// candidate universe, of which 137 would have OVERWRITTEN a live CTA
+// destination. Two families in that set are known-wrong and were about to be
+// executed fleet-wide by 308's widening: finetuning.uk's "how we work"
+// (stored /how-we-work.html, the page its copy names) losing to /about.html
+// because the About page's TITLE reads "…Who We Are and How We Work"; and
+// dartsonline.com's "Read the guides" (stored /guides/index.html) losing to an
+// About page whose title ends "Spec-First Darts Guides".
+//
+// ok=false on ambiguity is the SAFE READING and is deliberate: a caller that
+// ignores the third value gets "this label names nothing", which for both CTA
+// writers means their keep branches hold the stored value, and for the
+// detector means no finding is filed. The third return exists so a caller that
+// wants to TELL the two apart (copy names nothing / copy names two things
+// equally) can, without any caller being able to reach the ambiguous winner by
+// accident — the same signature-is-the-enforcement reasoning as Phase A's
+// storedCTADestinationIsAuthored.
+//
+// What it does NOT catch, stated because the gap is real: a CONFIDENT false
+// match. dartsonline's "See how each brand differs, spec by spec" resolves to
+// /about.html on an identity-token win ("spec"), not a tie. No tie rule sees
+// that, and no stopword list can (`spec` is distinctive on that site).
+func BestLabelMatch(label string, candidates []LabelMatchCandidate) (best LabelMatchCandidate, ok bool, ambiguous bool) {
 	tokens := LabelTokens(label)
 	if len(tokens) == 0 {
-		return LabelMatchCandidate{}, false
+		return LabelMatchCandidate{}, false, false
 	}
 
 	// scored pairs a candidate with its overlap counts against label, so
@@ -199,10 +234,7 @@ func BestLabelMatch(label string, candidates []LabelMatchCandidate) (best LabelM
 		return a.c.Name < b.c.Name
 	}
 
-	var bestScored scored
-	found := false
-	for i := range candidates {
-		c := &candidates[i]
+	overlap := func(c *LabelMatchCandidate) scored {
 		identityOverlap, totalOverlap := 0, 0
 		for _, t := range tokens {
 			if c.tokens[t] {
@@ -212,17 +244,43 @@ func BestLabelMatch(label string, candidates []LabelMatchCandidate) (best LabelM
 				identityOverlap++
 			}
 		}
-		if totalOverlap == 0 {
+		return scored{c: c, identity: identityOverlap, total: totalOverlap}
+	}
+
+	var bestScored scored
+	found := false
+	for i := range candidates {
+		cur := overlap(&candidates[i])
+		if cur.total == 0 {
 			continue
 		}
-		cur := scored{c: c, identity: identityOverlap, total: totalOverlap}
 		if !found || better(cur, bestScored) {
 			bestScored = cur
 			found = true
 		}
 	}
 	if !found {
-		return LabelMatchCandidate{}, false
+		return LabelMatchCandidate{}, false, false
 	}
-	return *bestScored.c, true
+
+	// Was the winner separated from a DIFFERENT page only by key 4? Compared on
+	// the NORMALISED path, so two candidate rows for one page (/contact/ and
+	// /contact/index.html) are the same destination and not a disagreement —
+	// the ambiguity being tested is "which page", never "which row".
+	winner := NormalizePagePath(bestScored.c.URL)
+	for i := range candidates {
+		c := &candidates[i]
+		if NormalizePagePath(c.URL) == winner {
+			continue
+		}
+		rival := overlap(c)
+		if rival.total == 0 {
+			continue
+		}
+		if rival.identity == bestScored.identity && rival.total == bestScored.total &&
+			c.Interactive == bestScored.c.Interactive {
+			return LabelMatchCandidate{}, false, true
+		}
+	}
+	return *bestScored.c, true, false
 }
