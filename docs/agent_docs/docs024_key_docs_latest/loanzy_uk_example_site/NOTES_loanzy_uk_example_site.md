@@ -917,3 +917,39 @@ Also noted: the fresh `needs_vertical_research` (19:26:57Z) inserted cleanly alo
 one from the first build — consistent with `idx_swi_dedup` excluding `failed` **and** the classifier's
 `create_next_item` carrying `recurrence_expected: true`. Two rows of the same type now exist on this
 site, one terminal and one live, which is correct but will look like a duplicate to anyone counting.
+
+### 19:30Z — THE CONTROL RUNS AND SETTLES IT: fresh specs, same three organisations, fourth time
+
+The caveat I attached to the three-attempt table is now discharged, and in the direction that makes
+the finding stronger.
+
+The re-submission re-ran `domain-research-classifier` from scratch, and it produced **materially
+different** `content_direction`/`classification` specs — `industry_tags` came back with **10**
+entries against the first run's **8**, reworded throughout. So the input to `select_exemplars` was
+genuinely re-derived, not the same rows read twice. Off those fresh specs `[MEASURED 19:30Z]`:
+
+| slot | att. 1 | att. 2 | att. 3 | **att. 4 — FRESH SPECS** |
+|---|---|---|---|---|
+| 1 | gardenersworld | gardenersworld | gardenersworld | **which.co.uk** |
+| 2 | **thespruce** ✗ | which.co.uk | **thespruce** ✗ | **gardenersworld** |
+| 3 | which.co.uk | **thespruce** ✗ | which.co.uk/reviews/… | **thespruce** |
+
+**Four independent selections, four identical organisation sets, four different permutations.** The
+fourth came from re-derived specs, so the stability is **not** an artefact of fixed input:
+
+> **The candidate pool is a property of the VERTICAL.** Not of the specs, not of the sampling
+> temperature, not of the orchestration state. Any fix premised on a retry eventually picking
+> differently is now **disproved**, not merely doubted.
+
+**Why the control was worth the fleet time, stated plainly.** Three retries off one set of specs
+could only ever show "stable given fixed input" — which is exactly the shape of a measurement that
+cannot come out otherwise, because the thing I wanted to vary (the specs) was held constant by the
+mechanism under test. The re-submission was the only way to vary it, and it happened to be the
+action an operator would take anyway. **The classifier's own reproducibility (previous entry) is
+what makes this a clean control rather than a confound**: the structured verdict was identical
+across the two runs, so the exemplar set cannot be explained by the classifier having changed its
+mind about the domain — only the free-text half moved, and the exemplars did not follow it.
+
+`thespruce.com` sits at slot 3 this time, so on the established pattern this run dies at
+`crawl_exemplar_3` after two more discarded crawls. That will be the **twelfth** exemplar crawl
+this domain has paid for and the **fourth** time the same host has killed the stage.
