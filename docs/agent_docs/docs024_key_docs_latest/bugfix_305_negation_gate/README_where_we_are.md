@@ -284,3 +284,58 @@ a genuine tic worth policing — was going to be answered from exactly that reco
 is with the reviewers, and it needs one more release before it is live. So: one release away, and
 please hold off on the "rather than" question until then, because the evidence for it is currently
 incomplete.
+
+---
+
+**2026-08-23, afternoon — the review came back approved, and reading it properly found something bigger**
+
+The council approved yesterday's fix to the repair log (the one where a sentence the model ignored was
+recorded nowhere). It was a clean approval: ten reviewers, all ten voted, nothing unreadable. Two of
+them raised objections without blocking, and I went and checked all of them against the actual code
+rather than just taking the approval. All three checkable ones turned out to be answered already — the
+reviewers see a *sketch* of a change, not the code, so they were flagging things that look unproven on
+paper but are settled a few lines away. That is the system working, not failing; it cost about fifteen
+minutes to confirm.
+
+But chasing one of those objections meant walking every branch of the repair loop, and that turned up
+the question nobody had asked: **the repair has a size limit, and it was set far too low.**
+
+Here is the plain version. When the gate finds phrases to fix on a page, it asks the model to rewrite
+them, and there is a cap on how much the model is allowed to write back. That cap was 2000 units. A
+page with one phrase to fix needs very little, so it worked fine. A page with nine or ten phrases
+needs the model to quote each original sentence *and* its replacement — far more — and it ran off the
+end of the cap. When that happens the whole answer is thrown away. Not "some of the fixes land" —
+**none of them do.**
+
+The numbers were unusually clean. Every page with five or fewer phrases to fix: repaired. Both pages
+with nine or more: repaired nothing at all. No exceptions either way. So this isn't occasional bad
+luck, it's a wall somewhere between five and eight. And because the failure is all-or-nothing, those
+two pages alone accounted for **a quarter of everything the gate was supposed to fix** — more than the
+bug I fixed yesterday.
+
+The irony is that the cap was set deliberately, by me, two days ago, with a written reason: the answer
+should only be a handful of sentences, so don't give the model room to write an essay. That was
+sensible and it was wrong — because the answer isn't a fixed size, it grows with the number of phrases
+on the page. What makes this recoverable is that the same note also wrote down, in advance, exactly how
+it would fail and made sure it would fail *loudly* rather than silently. It did fail loudly, and that
+is the only reason I found it today.
+
+I raised the cap to 16000 — which is simply what the neighbouring step already uses. That step writes
+an entire section of the page; the step that rewrites a few sentences of it was set eight times
+smaller. This is a settings change, so unlike yesterday's fix it is **live now**, no waiting for a
+release. It costs essentially nothing: you're billed for what the model actually writes, not for the
+headroom, so the many small pages cost exactly what they cost yesterday.
+
+Two honest caveats. First, I checked whether this was a widespread problem or just here — across every
+call the whole system made in three days, this was **the only step anywhere hitting its limit**. So it
+was one bad number, not a pattern. Second, the cap is still a fixed number while the number of phrases
+on a page has no upper bound, so an extreme page could hit it again. It would fail loudly again if so.
+The proper fix is to break the work into batches, which needs a code change; I've written it down
+rather than half-doing it here.
+
+One correction to yesterday's write-up, because it would mislead the next person: I claimed the repair
+log now balances "for every page". It doesn't — pages where the repair never ran at all (the cap
+failures above) still record nothing, and that's by design, since they're flagged separately with the
+reason. The right check is to read the two groups separately. Anyone running the balance check and
+seeing a non-zero number should **not** tune the check until it reads zero — that would hide exactly
+the failures that turned out to be the expensive ones.

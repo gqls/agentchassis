@@ -814,3 +814,74 @@ MDL-042's escalate-on-truncation retry is wired into `execute_llm_prompt`. This 
 lost repair, not a retry at a higher ceiling. That is the correct outcome for a style repair (the
 copy stands as written and the marker says `repair_unavailable`), but it should be a decision, not a
 surprise: 3 of 70 calls hit the ceiling.
+
+---
+
+## 2026-08-23 (afternoon) — the council verdict, and what reading its objections turned up
+
+**Council `f3046f0c` (§26's target-accounting fix): APPROVED**, and the round was sound rather than
+merely favourable — `unreadable=0`, 10 reviews in the body, all 10 voted (`approve`/`object`). 8
+approved outright, 2 objected on record without blocking.
+
+**I checked the objections against the real code instead of accepting the approval.** Three were
+checkable first-hand; all three were answered by code the seats could not see, because a submission
+shows a *sketch*:
+
+1. **`normaliseSentenceKey` parity (medium).** The worry: if unanswered-target keying differs from how
+   `matchTarget` matches, a target could be double-counted or still lost. **Answered structurally** —
+   line 592 marks `answered[negationTargetKey(t)]` off *the matched target `t` itself*, and
+   `unansweredTargetRejections` checks the same `t` from the same slice. Same struct, same pure
+   function, so parity is not asserted, it is unavoidable. The sketch didn't show line 592.
+2. **Possibly-vacuous test (low).** The worry: `planNegationRepairs(content, nil, 0, 0)` might select
+   zero targets, making `len(plan.targets)-1` trivially true. **Not vacuous** — there is an explicit
+   `if len(plan.targets) < 3 { t.Fatalf }` floor above it, and budget 0 makes every non-exempt hit a
+   target (the `used <= budget` branch is what *skips* one). Both tests re-run green.
+3. **"One call site of a class" (medium).** The seat named `evidence_citations.go`,
+   `revalidate_unverified_claims.go` and others as possible siblings. Deferred — but I ran the
+   *ceiling* version of that census (below) rather than asserting scope, which is what the same
+   objection shape asked for last round.
+
+**The seats were right to object even though every objection was wrong on the facts.** Each named a
+real failure mode; the sketch just didn't carry the evidence to settle it. Cost of answering all
+three: ~15 minutes of reading. That is the cheap direction.
+
+### The thing the seats did NOT ask, which was the expensive one
+
+Chasing objection 1 meant enumerating every branch of the repair loop, and that surfaced the question
+none of the reviews asked: **does the promised invariant actually hold?** It does not — five early
+returns (454, 458, 540, 559, 570) precede the `unansweredTargetRejections` call at 665. Measuring that
+gap is what found §27.
+
+**Misstep worth recording: I nearly mis-sized this.** My first instinct was to test the invariant by
+reasoning about `no_such_sentence` (a hallucinated replacement inflating `rejected`). I went to the
+data instead — `over_counted = 0`, and `no_such_sentence` has **never fired** in a live window. The
+break I had reasoned my way to was real in principle and absent in practice; the break I had *not*
+reasoned about (early returns) was live and cost 19 targets. **The branch I could imagine was not the
+branch that was firing.**
+
+### §27, and the numbers that made it decisive
+
+The `targets`-vs-`status` distribution separated with **no exceptions**: every marker ≤5 targets
+`repaired`, both markers ≥9 `repair_unavailable`. That is what turned "sometimes truncates" into "a
+hard capacity limit between 5 and 8 targets", and it is the whole argument — a scatter would have been
+a much weaker case.
+
+⚠ **These are rolling-window figures and I nearly quoted them as fixed.** The marker population moved
+**42 → 44 between two of my own queries**, because `orchestration_states` is reaped while the fleet is
+live. Every §27 figure is stamped `~12:35Z` for that reason. Per the owner's 2026-08-22 counting
+ruling, the date is what makes staleness checkable.
+
+**Migration `569` applied by hand, not `--apply`.** The dry run listed ~10 other lanes' pending files,
+several `?? probe inconclusive` / `!! LIKELY ALREADY APPLIED` — `--apply` takes every pending file, so
+it would have attempted all of them. Applied the one file with `psql -f`, then
+`run-migrations.sh --record-only`, which is exactly the trap that helper exists for (`bugs_open/007`:
+a hand-applied file stays "pending" for ever and eventually gets replayed).
+
+**The verify block was INDUCED before applying**, per the standing landmine — ran `569`'s own `DO`
+block with the `UPDATE` skipped and it raised `569 FAILED: … got 0`, exit code 3. A guard that has
+never been seen to fail is not a guard. The dry run then rehearsed the whole file to its own `COMMIT`.
+
+**Also fixed a blocked build, without touching shared state.** `go test` failed with
+`no space left on device`: `/tmp` is a 16G tmpfs at **100%**, shared with every other session on this
+tree. I did not clear it — pointed `TMPDIR` at this session's scratchpad (on `/`, 136G free) instead.
+Worth knowing before assuming a build failure is your code.

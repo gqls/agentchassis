@@ -888,3 +888,82 @@ log**: an unreconciled 31% was about to inform an owner decision while looking c
 Fixed (`no_answer_for_target`), three properties mutation-proven, council `f3046f0c` submitted.
 **INERT until the next chassis roll** — so `D3` should not be decided from the log until it has rolled
 and a week of traffic has accumulated under the fixed accounting.
+
+## §27. THE CEILING WAS LOSING MORE COPY THAN THE ACCOUNTING HOLE — found, fixed and LIVE 2026-08-23
+
+`[MEASURED 2026-08-23 ~12:35Z]` Found while reading the council's objections on §26's fix. The
+repair call's `max_tokens` was **2000**, and it was failing on exactly the pages the gate exists for.
+
+**The distribution separates perfectly, with no exceptions either side:**
+
+| targets | markers | outcome |
+|---|---|---|
+| 1 | 36 | `repaired` |
+| 2 | 2 | `repaired` |
+| 3 | 3 | `repaired` |
+| 5 | 2 | `repaired` |
+| 9 | 1 | **`repair_unavailable`** |
+| 10 | 1 | **`repair_unavailable`** |
+
+Not intermittent truncation — a hard capacity limit between 5 and 8 targets. Both failures name the
+ceiling in their own error text: `stop_reason=max_tokens (output_tokens=2000 reached the configured
+cap, 2066 chars recovered)` at 10 targets, and the same with **`0 chars recovered`** at 9.
+
+**The cost, and why it outranked §26:** the failure is TOTAL, not partial — the round is discarded
+whole, so a page with 10 constructions gets ZERO repaired while a page with 1 gets its one. Those two
+markers held **19 of the 78 targets** in the window — **24.4% of all repair targets** — against the
+**12** lost to §26's accounting hole. ⚠ These are rolling-window figures: `orchestration_states` is
+reaped, and the population moved 42 → 44 *during the measurement*.
+
+**Why 2000 could not hold, and it was never about essays.** `max_tokens` is an enforced per-response
+ceiling **the model is not aware of** — it cannot pace itself to fit, it is simply cut, so a ceiling
+that is too small does not buy brevity, it buys nothing. The answer is **O(targets)**, not O(1): the
+model echoes `from` AND `to` per target. And `claude-sonnet-5` with no `thinking` block set runs
+**adaptive thinking**, drawn from this same ceiling — which is what `0 chars recovered` looks like.
+
+**Fixed by migration `569`, applied and verified live 2026-08-23**: 2000 → **16000**, anchored on the
+sibling step in the same sub-workflow (`generate_content`, which writes a whole *section*, was already
+at 16000 while the step rewriting a few of its sentences was 8x smaller). Config-only — **live on
+apply, no roll**, unlike §26's fix. Council `4829bd48` submitted. Applied by hand and `--record-only`
+registered, because `--apply` would have swept ~10 other lanes' pending files, several aborting.
+
+**It is not one call site of a class — I ran the census rather than asserting it** (the objection
+shape §26's round drew). Over `llm_call_log`, 3 days, `provider='anthropic'`, using this estate's own
+documented detector (`output_tokens >= max_tokens`): **exactly one step in the entire fleet** was
+hitting its ceiling — this one, 4 of 34 calls (11.8%). No other `agent_type`/`step_name` pair had a
+single truncated call.
+
+### §27a. ⚠ CORRECTION to §26 and to the code comment: the invariant does NOT hold for every marker
+
+§26 and `runNegationRepair`'s own comment state that after the fix
+`targets == len(rewritten) + len(rejected)` holds **"for every marker"**. **That is wrong, and the
+post-roll census will trip over it.** `unansweredTargetRejections` is called at
+`rewrite_negations_action.go:665`, and there are **five early returns above it** (lines 454, 458, 540,
+559, 570) that all bypass it. A marker that takes one of those paths still accounts for **none** of
+its targets — which is what both `repair_unavailable` markers above did, losing 19 targets between
+them, *more* than the 12 the fix recovers.
+
+**The honest statement, and what a census must actually test:**
+
+> `targets == rewritten + rejected` holds for every marker with **`status='repaired'`**. A
+> `repair_unavailable` marker accounts for none of its targets **by design** — its `error` field
+> names which of the five reasons applied, and that is the discriminator to read.
+
+This is a **doc/comment defect, not a code defect** — the `repair_unavailable` status and its `error`
+field were a deliberate council-round-4 design (bug_historian seat), precisely so a census can find
+runs where the gate was "PRESENT and BLIND rather than present and satisfied". The instrument was
+right; the sentence describing it over-claimed. ⚠ **Do not "fix" the census to make the count come out
+zero** — segment it by `status` instead.
+
+### §27b. What is NOT fixed, stated rather than smuggled
+
+The ceiling is fixed while `plan.targets` is **unbounded**: the page budget is a **tolerance**, not a
+cap — every hit *past* it becomes a target (`planNegationRepairs` `continue`s on the within-budget
+branch). 16000 is 8x the old ceiling against a worst observed case of 10 targets, so the margin is
+wide, but a dense enough page truncates again — and would again fail **loudly** as
+`repair_unavailable`. **Chunking the targets across calls is the structural answer and is a CODE
+change**; it is recorded here rather than attempted inside a config migration.
+
+Also unchanged: `rewrite_negations_action.go` still falls back to `options["max_tokens"] = 2000` when
+no `ai_service` resolves. That path is unreachable for this step because `517` declares the config —
+noted so a reader does not conclude from the Go source that the ceiling is still 2000.

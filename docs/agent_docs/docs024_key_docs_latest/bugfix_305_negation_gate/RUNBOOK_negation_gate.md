@@ -228,3 +228,83 @@ SELECT p.status, p.current_step, left(p.collected_data->'__step_error'->>'messag
 A parent at `complete_error` with `save_page_sections … COMPONENT FLOOR REFUSED` is `bugs_open/253`
 (framework_rewrite slug), not this gate — and "nothing was written" means the whole page, so every
 section's repair is invisible, not just the refused slot.
+
+## 9. THE RECONCILIATION CENSUS — and the one thing that makes it read wrong
+
+Added 2026-08-23. §26's fix is judged by this query, so it must be segmented by `status` or it lies.
+
+```sql
+WITH m AS (
+  SELECT os.updated_at, e.key, e.val->>'status' AS status,
+         (e.val->>'targets')::int AS targets,
+         COALESCE(jsonb_array_length(e.val->'rewritten'),0) AS rw,
+         COALESCE(jsonb_array_length(e.val->'rejected'),0)  AS rj
+  FROM orchestration_states os, LATERAL jsonb_each(os.collected_data) AS e(key,val)
+  WHERE e.key LIKE 'copy\_gate%' AND jsonb_typeof(e.val)='object'
+    AND (e.val->>'targets') IS NOT NULL AND (e.val->>'targets')::int > 0)
+SELECT status, count(*) AS markers,
+       count(*) FILTER (WHERE targets <> rw + rj) AS not_reconciling,
+       count(*) FILTER (WHERE rw + rj = 0)        AS account_for_none,
+       count(*) FILTER (WHERE targets < rw + rj)  AS over_counted,
+       sum(targets) AS targets
+FROM m GROUP BY status;
+```
+
+⚠ **`LIKE 'copy\_gate%'`** — the underscore is a wildcard in `LIKE`, so an unescaped `copy_gate%`
+also matches things like `copyXgate…`. Escape it.
+
+⚠ **Segment by `status`, and do NOT expect zero overall.** `targets == rw + rj` holds only for
+`status='repaired'`. A `repair_unavailable` marker accounts for **none** of its targets by design —
+the five early returns in `runNegationRepair` (lines 454, 458, 540, 559, 570) all precede the
+`unansweredTargetRejections` call at 665. Read its `error` field for which one fired. **Do not tune
+this query until the total reads zero** — that hides the ceiling failures, which are the expensive
+half (§27).
+
+⚠ **`over_counted` is the column that would catch a REGRESSION.** A replacement matching no target
+appends a `no_such_sentence` rejection with no target behind it, which would push `rw + rj` above
+`targets`. Measured 2026-08-23: **0**, and `no_such_sentence` has never fired in a live window — so a
+non-zero reading there is new information, not the known hole.
+
+## 10. IS ANY STEP HITTING ITS OUTPUT CEILING? (fleet-wide, and it found §27)
+
+The estate's own durable rule is the detector: **`output_tokens == max_tokens` means the completion
+was CUT, not finished.** `llm_call_log.max_tokens` is fed from `__sent_max_tokens`, i.e. the ceiling
+**APPLIED**, not the one requested — which is the distinction `d6fc76dde` was about.
+
+```sql
+SELECT agent_type, step_name, max_tokens, count(*) AS calls,
+       count(*) FILTER (WHERE output_tokens >= max_tokens) AS cut,
+       round(100.0*count(*) FILTER (WHERE output_tokens >= max_tokens)/count(*),1) AS pct_cut
+FROM llm_call_log
+WHERE created_at > now() - interval '3 days'
+  AND max_tokens IS NOT NULL AND output_tokens IS NOT NULL AND provider='anthropic'
+GROUP BY 1,2,3 HAVING count(*) FILTER (WHERE output_tokens >= max_tokens) > 0
+ORDER BY pct_cut DESC, cut DESC;
+```
+
+⚠ There is **no `finish_reason` column** on `llm_call_log` — reaching for one is the first thing that
+fails. ⚠ Pin `provider='anthropic'`: the comment at `rewrite_negations_action.go:~503` records that
+gemini's `max_tokens` bookkeeping differs (`bugs_open/110`), so a mixed-provider census compares two
+different things.
+
+⚠ **The step name is the LOOP-EXPANDED one** — `process_sections_loop_iter_1_rewrite_negations`, not
+`rewrite_negations`. A query filtering on the bare step name returns nothing and reads as "no
+truncation".
+
+## 11. READING THIS STEP'S CONFIG AT ALL — it is NOT a top-level step
+
+The `rewrite_negations` step lives inside a **sub-workflow**, so every top-level
+`default_config->'workflow'->'steps'` query returns 0 rows and reads as "the step does not exist".
+
+```sql
+SELECT e.k AS step, e.s->'config'->'ai_service'->>'max_tokens' AS max_tokens,
+       e.s->'config'->'ai_service'->>'model' AS model
+FROM agent_definitions a,
+     LATERAL jsonb_each(a.default_config #> '{workflow,steps,process_sections_loop,config,sub_workflow,steps}') AS e(k,s)
+WHERE a.type='page-content-writer' AND a.is_active
+  AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+  AND e.s->'config'->'ai_service' IS NOT NULL ORDER BY e.k;
+```
+
+Both steps should read `16000` / `claude-sonnet-5` after `569`. `generate_content` is the **anchor**
+the repair ceiling was chosen against — if it moves, re-read `569`'s rationale.
