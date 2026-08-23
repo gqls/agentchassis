@@ -515,3 +515,41 @@ false positive there is, in the pre-commit hook's own words, *"a fleet-wide comm
 Not proposed as a change from this lane: widening council scope is an architecture-scope
 decision and the owner has just made a deliberate, measured, targeted one. Recorded because
 the parallel is exact and nobody appears to have noticed it while making that ruling.
+
+---
+
+## 2026-08-23 — closing checks, and prior art I should have grepped for first
+
+**Final state:** library self-test 11/11 · `082` parses · `pattern-check.py` loads with 22
+checks including `check_kcat_stdin_race` · `landmines-sync.py --check` → **in sync, exit 0** ·
+the kcat entry's `doc_notes` rows are current (written 18:01 and 18:09 today).
+
+**Two false alarms of mine at the end, both logged as `WRONG_CALLS` 9:** `to insert/refresh:
+747` is a **total, not a delta**, and landmine `doc_notes` rows are **verifier verdicts, not
+entry bodies** (841 chars average) — so a `LIKE` against my own prose was never going to match.
+Both caught by running a control instead of writing the claim.
+
+### Prior art this lane failed to grep for — and one piece corrects me
+
+Surfaced by accident, in the sync's own output. **CLAUDE.md says to grep LANDMINES for the
+symbol you are about to trust; I did not, in a session about landmines.**
+
+1. **`orchestration_states` retains about TWO DAYS — but `min(created_at)` reads over a month
+   back, because the purge EXEMPTS stuck rows.** Filed 2026-08-23 by another lane, hours from
+   my own measurement, and it **corrects the check I published**: my `WRONG_CALLS` 8 recommended
+   `min(created_at)` alongside the `GROUP BY`, and `min()` is precisely the misleading reading —
+   the survivors are 24 stuck `CANCELLED` rows the purge skips. Their day-plot
+   (`08-23: 3,299 · 08-22: 1,324 · then nothing until four July dates`) matches mine
+   (`3,140 · 1,417`) taken hours apart. Entry 8 now carries the correction.
+
+2. **`097_TRIGGER_council_review` prints its `SAVE: SUBMISSION_CORR=` receipt BEFORE it
+   publishes.** The ordering defect I found at `082:158` is therefore a **second instance of a
+   documented class**, not a discovery. That strengthens the case rather than weakening it: two
+   independent triggers, written years apart, both print the operator's reassurance before
+   attempting the send — which is what a *class* looks like, and what the shared library fixes
+   by construction (ids print only after a receipt).
+
+**The transferable bit:** grepping LANDMINES costs seconds and I skipped it because I already
+knew the landmine I was working on. The entries that would have helped were about
+`orchestration_states` and `097` — neither of which is the symbol I thought I was studying.
+**Grep for the symbols you TOUCH, not the ones your task is named after.**
