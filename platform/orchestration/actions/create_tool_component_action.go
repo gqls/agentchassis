@@ -578,6 +578,14 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		toolPageURL:  pageURL,
 		relatedPages: relatedPagesFromInputs(inputs, params.CollectedData),
 		emittedBy:    "tool-generator",
+		// bugs_open/353. This action creates the page row above with
+		// build_status='planned', and tool-generator's NEXT step
+		// (`enqueue_rerender` → create_rerender_items) files the page_rerender
+		// item that builds it. Guard 2 therefore runs BEFORE the gate item it
+		// looks for exists — measured at 51 seconds on 2026-08-22 — and
+		// withheld every new tool's cross-links permanently, because nothing
+		// re-emits. The build IS enqueued; say so.
+		pageBuildIsEnqueuedByThisWorkflow: true,
 	})
 
 	// --- Create companion guide page ---

@@ -73,6 +73,30 @@ type toolCrossLinkRequest struct {
 	// "tool-deployer". Cross-link rows are identified by their item_key
 	// prefix (tool_crosslink:), not by source — see itemKey below.
 	emittedBy string
+
+	// pageBuildIsEnqueuedByThisWorkflow opts a caller out of Guard 2's
+	// withhold-when-no-gate-item branch (bugs_open/353). DEFAULT FALSE — the
+	// unsafe side is the default, per the owner's 2026-08-02 ruling on new
+	// authority over a shared seam: a caller that cannot promise the build must
+	// not get the permissive branch by forgetting a field.
+	//
+	// Set it true ONLY from a caller that creates the tool page and whose own
+	// workflow enqueues that page's build in the same run. The build path
+	// qualifies: tool-generator's `save_tool` step (this emitter's caller)
+	// is followed by `enqueue_rerender` (action create_rerender_items), which
+	// files the page_rerender item — 51 seconds later on the measured run
+	// (2026-08-22, robot-hands), which is precisely why Guard 2 found nothing
+	// and withheld. The gate item it was looking for did not exist yet and was
+	// never going to at that instant.
+	//
+	// Why this is safe rather than a weakening of bugs_open/029's guard: that
+	// guard exists to stop cross-links pointing at a page that may NEVER
+	// deploy. Measured 2026-08-23 over every withholding this guard has ever
+	// done — 32 events, 32 tools — **30 of the 32 pages are deployed today**
+	// and the remaining 2 are hours old. The "may never deploy" case the guard
+	// was defending against did not occur once on the build path. What the
+	// guard actually prevented was the cross-links, permanently.
+	pageBuildIsEnqueuedByThisWorkflow bool
 }
 
 // crossLinkFailedStatuses are the work-item statuses from which a tool page's
@@ -104,6 +128,43 @@ var crossLinkFailedStatuses = []string{"failed", "rejected", "cancelled", "wont_
 // refresh, so the link resolves today.
 func toolPageLive(buildStatus string) bool {
 	return buildStatus == "deployed" || buildStatus == "needs_rebuild"
+}
+
+// crossLinkDecision is what Guard 2 concluded. Extracted from the emitter so a
+// test can CALL the decision instead of asserting a mock's bookkeeping around
+// it: the branch that caused bugs_open/353 sat inside a DB-dependent function
+// and was therefore never exercised by a unit test, which is how a permanent
+// withhold shipped and survived 19 days.
+type crossLinkDecision int
+
+const (
+	// crossLinkWithhold: the page is not live, nothing promises it will be,
+	// and no caller has taken responsibility. bugs_open/029's original guard.
+	crossLinkWithhold crossLinkDecision = iota
+	// crossLinkEmitGated: emit, with depends_on the open build item found.
+	crossLinkEmitGated
+	// crossLinkEmitUngated: emit now with no dependency — either the page is
+	// already served, or the caller guarantees this workflow enqueues its build.
+	crossLinkEmitUngated
+)
+
+// crossLinkEmitDecision decides whether a tool's cross-links may be written.
+//
+// The three inputs are exactly what Guard 2 knows, and the order of the checks
+// is the meaning: a served page needs no gate; otherwise an existing build item
+// is the gate; otherwise only a caller that OWNS the build may proceed
+// (bugs_open/353), and by default nobody does.
+func crossLinkEmitDecision(pageLive, gateItemFound, buildEnqueuedByCaller bool) crossLinkDecision {
+	if pageLive {
+		return crossLinkEmitUngated
+	}
+	if gateItemFound {
+		return crossLinkEmitGated
+	}
+	if buildEnqueuedByCaller {
+		return crossLinkEmitUngated
+	}
+	return crossLinkWithhold
 }
 
 // emitToolCrossLinkItems creates one content_rewrite item per related page,
@@ -172,27 +233,48 @@ func emitToolCrossLinkItems(ctx context.Context, params ActionParams, logger *za
 	var dependsOn []uuid.UUID
 	if !toolPageLive(buildStatus) {
 		var gateID uuid.UUID
+		// The gate item may be filed under ANY of the channels that actually
+		// build a page. `needs_content_page` was the only one when this guard
+		// was written; fix 177 (2026-08-03) stopped raising it for pure-tool
+		// pages, which have no prose sections — and nothing widened this query,
+		// so the guard went looking for an item that could no longer exist
+		// (bugs_open/353). A guard that gates on another subsystem's artefact
+		// inherits that subsystem's raising policy: 016b §9.
 		err := db.QueryRowContext(ctx, fmt.Sprintf(`
 			SELECT id FROM site_work_items
 			WHERE site_id = $1
 			  AND page_id = $2
-			  AND item_type = 'needs_content_page'
+			  AND item_type IN ('needs_content_page', 'page_rerender', 'needs_page')
 			  AND status NOT IN (%s)
 			ORDER BY created_at DESC
 			LIMIT 1
 		`, sqlInList(crossLinkFailedStatuses)), req.siteID, req.toolPageID).Scan(&gateID)
-		if err != nil {
+
+		switch crossLinkEmitDecision(false, err == nil, req.pageBuildIsEnqueuedByThisWorkflow) {
+		case crossLinkEmitGated:
+			dependsOn = []uuid.UUID{gateID}
+			logger.Info("emitToolCrossLinkItems: gating cross-links behind the tool page build",
+				zap.String("build_status", buildStatus),
+				zap.String("depends_on", gateID.String()))
+
+		case crossLinkEmitUngated:
+			// No gate item EXISTS YET. On the build path that is an ordering
+			// artefact, not a verdict: the page's build item is filed by a
+			// LATER step of the same workflow. bugs_open/353's fix.
+			logger.Info("emitToolCrossLinkItems: no gate item yet, but this workflow enqueues the page build — emitting ungated",
+				zap.String("build_status", buildStatus),
+				zap.String("tool", req.toolFunction))
+			recordCrossLinkSkip(ctx, params, logger, req, "emitted_ungated_build_enqueued_by_caller", "info",
+				fmt.Sprintf("tool page build_status=%q with no gate item yet; caller guarantees the build is enqueued in this workflow, so cross-links were emitted without a depends_on (bugs_open/353)", buildStatus))
+
+		default: // crossLinkWithhold
 			logger.Info("emitToolCrossLinkItems: tool page is not live and has no open build item — not emitting cross-links",
 				zap.String("build_status", buildStatus),
 				zap.Error(err))
 			recordCrossLinkSkip(ctx, params, logger, req, "tool_page_will_not_go_live", "warning",
-				fmt.Sprintf("tool page build_status=%q and no open needs_content_page item to gate on — cross-links withheld rather than pointed at a page that may never deploy", buildStatus))
+				fmt.Sprintf("tool page build_status=%q and no open build item (needs_content_page/page_rerender/needs_page) to gate on — cross-links withheld rather than pointed at a page that may never deploy", buildStatus))
 			return 0
 		}
-		dependsOn = []uuid.UUID{gateID}
-		logger.Info("emitToolCrossLinkItems: gating cross-links behind the tool page build",
-			zap.String("build_status", buildStatus),
-			zap.String("depends_on", gateID.String()))
 	}
 
 	// --- Resolve related page names to ids ---

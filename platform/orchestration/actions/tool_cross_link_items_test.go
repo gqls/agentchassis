@@ -91,3 +91,55 @@ func TestToolPageLive(t *testing.T) {
 		t.Error("an unreadable build_status must not be treated as live")
 	}
 }
+
+// TestCrossLinkEmitDecision pins Guard 2's decision table — bugs_open/353.
+//
+// This exists because the defect it stands against lived in a branch NO unit
+// test could reach: the decision was inline in a DB-dependent function, so the
+// only tests possible were of its inputs (`toolPageLive`, `relatedPagesFromSpec`
+// above), and those passed throughout the 19 days the guard was silently
+// withholding every new tool's cross-links. Pinning inputs is not pinning a
+// guard; the decision is extracted so it can be CALLED.
+//
+// The two rows that matter are the last two: identical except for the caller's
+// promise, and they must differ. If they ever agree, either the opt-in has been
+// made the default (unsafe — the owner's 2026-08-02 ruling says the unsafe side
+// defaults OFF) or it has become inert (the 353 defect is back).
+func TestCrossLinkEmitDecision(t *testing.T) {
+	cases := []struct {
+		name                  string
+		pageLive              bool
+		gateItemFound         bool
+		buildEnqueuedByCaller bool
+		want                  crossLinkDecision
+	}{
+		{"a served page needs no gate at all", true, false, false, crossLinkEmitUngated},
+		{"served, and the promise is irrelevant", true, false, true, crossLinkEmitUngated},
+		{"not live but a build item exists: gate on it", false, true, false, crossLinkEmitGated},
+		{"a gate item outranks the caller's promise — depends_on is stricter", false, true, true, crossLinkEmitGated},
+		{"THE 353 CASE: not live, no gate item, no promise -> withhold", false, false, false, crossLinkWithhold},
+		{"THE 353 FIX: not live, no gate item, caller owns the build -> emit", false, false, true, crossLinkEmitUngated},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := crossLinkEmitDecision(tc.pageLive, tc.gateItemFound, tc.buildEnqueuedByCaller); got != tc.want {
+				t.Errorf("crossLinkEmitDecision(live=%v, gate=%v, promise=%v) = %v, want %v",
+					tc.pageLive, tc.gateItemFound, tc.buildEnqueuedByCaller, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestCrossLinkOptInDefaultsToWithhold is the one assertion that cannot be made
+// by the table above: that a caller which says NOTHING gets the safe branch. A
+// zero-valued request is exactly what a new caller written by someone who never
+// read this file produces, and it must not be granted the permissive arm.
+func TestCrossLinkOptInDefaultsToWithhold(t *testing.T) {
+	var req toolCrossLinkRequest // zero value: the forgetful caller
+	if req.pageBuildIsEnqueuedByThisWorkflow {
+		t.Fatal("the opt-in must default to false — the unsafe side is the default per the 2026-08-02 shared-seam ruling")
+	}
+	if got := crossLinkEmitDecision(false, false, req.pageBuildIsEnqueuedByThisWorkflow); got != crossLinkWithhold {
+		t.Errorf("a zero-valued request on an unbuilt page must withhold, got %v", got)
+	}
+}
