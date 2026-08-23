@@ -1,0 +1,60 @@
+{
+  "submitter": "bugfix_315_deployed_at_without_publication workstream",
+  "rationale": "page_content_divergence (DGH-015) went live 2026-08-21 and produced exactly one production finding: vetcomparison.uk/index.html, flagged on six consecutive passes and graded in this lane's own handoff as '1 true positive, 0 false positives, 0 misses', described as a LIVE CUSTOMER-FACING FAULT serving visitors a stale page for ~21 hours. It is a FALSE POSITIVE. Measured 2026-08-23, 5 fetches per header against the live origin: Accept:*/* returns EXACTLY the stored fingerprint (4dbd143f...) 5/5, while the browser header and the check's own Accept:text/html,*/* return a different hash 5/5. Diffing the two bodies shows the whole difference is TWO LINES: a ~359-byte <script src=static.cloudflareinsights.com/beacon.min.js> tag Cloudflare injects into responses it treats as browser HTML, because Web Analytics is enabled on that zone. The object in the bucket is byte-perfect and every visitor is served the current page. The check cannot ever match on such a zone, so its flag is UNCONDITIONAL and carries no information about staleness - it reproduces on every pass for as long as the feature is on, which is exactly what the six 'independent observations' were. Scope that day, 17 domains with a hashed page: ONE injected-and-diverging (vetcomparison.uk); a second (webdesign.co.uk) carries the same beacon in its COMMITTED SOURCE so both bodies contain it and it matches under both headers - that is the control separating 'the edge added this' from 'the page ships this'; the other 15 carry no beacon and match under both headers. This change closes that false-positive class at the source rather than allow-listing a vendor.",
+  "plan": {
+    "summary": "Add a raw-object probe to page_content_divergence: after a mismatch has confirmed itself with a second browser-Accept fetch, fetch the same URL once more with Accept:*/*. If that body hashes to pages.content_hash, the bytes we deployed DID arrive and the difference was added by the edge, so the candidate is discarded instead of filed. Makes the fetch seam take its Accept header as a parameter so no caller can take a probe without saying which kind it wants.",
+    "edits": [
+      {
+        "file": "platform/orchestration/actions/discovery_checks/check_page_content_divergence.go",
+        "symbol": "divergenceAcceptHTML / divergenceAcceptRaw",
+        "operation": "add",
+        "rationale": "Named constants because the DIFFERENCE between the two headers is load-bearing; a bare literal at a call site reads like a formatting choice.",
+        "sketch": "const (\n\tdivergenceAcceptHTML = \"text/html,*/*\"\n\tdivergenceAcceptRaw  = \"*/*\"\n)"
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/check_page_content_divergence.go",
+        "symbol": "fetchServedPage",
+        "operation": "modify",
+        "rationale": "The seam now takes the Accept header as a parameter rather than hard-coding it. A parameter (not a second swappable var) so that a test which forgets the new path fails to COMPILE rather than silently making a real network call.",
+        "sketch": "-var fetchServedPage = func(ctx context.Context, target string) divergenceProbeResult {\n+var fetchServedPage = func(ctx context.Context, target, accept string) divergenceProbeResult {\n-\treq.Header.Set(\"Accept\", \"text/html,*/*\")\n+\treq.Header.Set(\"Accept\", accept)"
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/check_page_content_divergence.go",
+        "symbol": "Run (probe worker)",
+        "operation": "modify",
+        "rationale": "The third fetch fires ONLY once the mismatch has agreed with itself, so the cost lands on confirmed candidates only - which are rare by construction. Same URL, same instant, one header different, so any difference is attributable to the edge.",
+        "sketch": "if j.second.err == nil && j.second.status == http.StatusOK &&\n\t!j.second.oversize && j.second.hash == j.first.hash {\n\tj.raw = fetchServedPage(dctx.Ctx, cacheBust(t.url), divergenceAcceptRaw)\n}"
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/check_page_content_divergence.go",
+        "symbol": "Run (candidate branch) - the raw-object guard",
+        "operation": "add",
+        "rationale": "Suppression requires an EXACT sha256 match against the fingerprint, a value no noise, error page or empty body can produce by accident. A genuinely stale delivery serves the old object under every header, so the raw probe returns the old hash too and the finding still files - the guard cannot hide a real divergence. An unusable raw probe is no information rather than exonerating information, so it discards: the sweep re-probes every ~4-5h, so a missed pass costs one cycle while a false item costs a human a triage. The file header's 'THE FIVE THINGS THAT COULD MAKE THIS CHECK LIE' list becomes SIX in the same edit, carrying the measurement, the two-line diff, the in-source-beacon control, a CORRECTED block recording that this check's only production finding was graded a true positive for a day, and a plain statement of what the guard gives up.",
+        "sketch": "if j.raw.err != nil || j.raw.status != http.StatusOK || j.raw.oversize {\n\tskips.rawProbeUnusable++; continue\n}\nif j.raw.hash == pg.StoredHash {\n\tskips.edgeInjected++; continue\n}"
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/check_page_content_divergence.go",
+        "symbol": "divergenceSkips / logDivergenceSkips",
+        "operation": "modify",
+        "rationale": "Two new skip counters, logged. A check that reports only findings cannot be told apart from one that was blinded - the file's own stated rule.",
+        "sketch": "edgeInjected     int\nrawProbeUnusable int"
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/check_page_content_divergence_test.go",
+        "symbol": "TestPageContentDivergence_EdgeInjectedBodyFilesNothing / _UnusableRawProbeFilesNothing / stubFetcher.acceptHeaders",
+        "operation": "add",
+        "rationale": "Both new tests are PAIRED CONTROLS of the existing filing test: identical fixture, one value changed (the raw probe's outcome), opposite results - so they test the guard rather than the fixture. Each scripts the intent re-read deliberately and does NOT assert ExpectationsWereMet, because without that scripted row a deleted guard would merely error on an unexpected query, discard the candidate, and pass green for the wrong reason. The existing tests now also pin the Accept header SEQUENCE, so a raw probe that reused the HTML header fails.",
+        "sketch": "if got := fetcher.acceptHeaders(); got[2] != divergenceAcceptRaw { t.Errorf(...) }"
+      }
+    ],
+    "grounded_in": [
+      "MEASURED 2026-08-23, 5 fetches per header, live origin: Accept:*/* -> 4dbd143fe83b778a...(== pages.content_hash) 5/5; browser Accept and Accept:text/html,*/* -> 97fa37cafd5e6cdc... 5/5.",
+      "MEASURED 2026-08-23, diff of the two bodies, whole output: '> <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496\" ...' plus its closing tag. 44857 bytes browser vs 44498 raw = 359 bytes.",
+      "MEASURED 2026-08-23, scope over 17 domains carrying a hashed active+deployed page with sites.publish_target IS NULL, 2 fetches per header requiring agreement: 15 MATCH/MATCH with no beacon; vetcomparison.uk DIVERGE(browser)/MATCH(raw) with the beacon present ONLY in the browser body (1 vs 0 occurrences); webdesign.co.uk MATCH/MATCH with the beacon in BOTH bodies at identical byte counts, i.e. shipped in source.",
+      "The origin object was NOT stale: served last-modified 'Sat, 22 Aug 2026 20:56:07 GMT' against pages.deployed_at 2026-08-22 20:55:52Z - 15 seconds after the deploy.",
+      "check_page_content_divergence.go:395 (pre-change) req.Header.Set(\"Accept\", \"text/html,*/*\") - the header that triggers the injection is the one the check itself sends.",
+      "MUTATION-PROVED 2026-08-23 from the RUN, not the design: disabling the edge-injected guard -> TestPageContentDivergence_EdgeInjectedBodyFilesNothing fails 'want 0 work items, got 1'; disabling the raw-unusable guard -> TestPageContentDivergence_UnusableRawProbeFilesNothing fails 'want 0 work items, got 1'; making the raw probe reuse the HTML Accept -> TestPageContentDivergence_ConfirmedMismatchFilesOneItem fails on the Accept sequence. Three mutations, three distinct failures."
+    ],
+    "risks": "One extra HTTP request per CONFIRMED candidate. Not per page: it fires only after two agreeing fetches have already disagreed with the fingerprint. On a healthy fleet that is zero extra requests. The guard's known limit, stated in the code rather than left implicit: an edge that served a genuinely STALE body to browsers while answering Accept:*/* with the current object would be exonerated. This is why the branch SKIPS rather than RETRACTS - it declines to judge and asserts no health it did not observe. Deliberately NOT extended to retraction, so the retraction half still has exactly one producer (an observed hash match). Behaviour change is suppression-only: no path that previously filed nothing now files. The only pages affected are confirmed candidates whose raw object matches the fingerprint exactly. The already-open false-positive item for vetcomparison.uk is NOT closed by this change (the check re-detects and dedups rather than retracting). It needs a separate, explicit disposition."
+  }
+}

@@ -78,8 +78,9 @@ type stubFetcher struct {
 	mu sync.Mutex
 	// seq maps a path (url without the cache-buster) to successive results, so
 	// the confirmation branch can be given a different answer the second time.
-	seq   map[string][]divergenceProbeResult
-	calls []string
+	seq     map[string][]divergenceProbeResult
+	calls   []string
+	accepts []string
 }
 
 func newStubFetcher() *stubFetcher {
@@ -89,10 +90,11 @@ func newStubFetcher() *stubFetcher {
 func (s *stubFetcher) install(t *testing.T) {
 	t.Helper()
 	prev := fetchServedPage
-	fetchServedPage = func(_ context.Context, target string) divergenceProbeResult {
+	fetchServedPage = func(_ context.Context, target, accept string) divergenceProbeResult {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.calls = append(s.calls, target)
+		s.accepts = append(s.accepts, accept)
 		key := target
 		if i := strings.Index(target, "?"); i >= 0 {
 			key = target[:i]
@@ -114,6 +116,12 @@ func (s *stubFetcher) callCount() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return len(s.calls)
+}
+
+func (s *stubFetcher) acceptHeaders() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.accepts...)
 }
 
 func (s *stubFetcher) requested() []string {
@@ -218,9 +226,17 @@ func TestPageContentDivergence_ConfirmedMismatchFilesOneItem(t *testing.T) {
 	if !strings.Contains(wi.SpecJSON, divStoredHash) || !strings.Contains(wi.SpecJSON, divOtherHash) {
 		t.Errorf("spec must carry both full hashes, got %s", wi.SpecJSON)
 	}
-	// The confirming fetch must have happened.
-	if n := fetcher.callCount(); n != 2 {
-		t.Errorf("want 2 fetches (probe + confirmation), got %d", n)
+	// The confirming fetch AND the raw-object probe must both have happened.
+	if n := fetcher.callCount(); n != 3 {
+		t.Errorf("want 3 fetches (probe + confirmation + raw-object probe), got %d", n)
+	}
+	// The headers are the point of the third fetch: two as a browser, then one
+	// asking for the object itself. A raw probe that repeated the HTML Accept
+	// would return the injected body and could never exonerate anything.
+	if got := fetcher.acceptHeaders(); len(got) != 3 ||
+		got[0] != divergenceAcceptHTML || got[1] != divergenceAcceptHTML || got[2] != divergenceAcceptRaw {
+		t.Errorf("Accept headers = %v, want [%s %s %s]",
+			got, divergenceAcceptHTML, divergenceAcceptHTML, divergenceAcceptRaw)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)
@@ -498,16 +514,19 @@ func TestPageContentDivergence_EveryRequestCarriesAUniqueCacheBuster(t *testing.
 		t.Fatalf("Run: %v", err)
 	}
 	reqs := fetcher.requested()
-	if len(reqs) != 2 {
-		t.Fatalf("want probe + confirmation, got %d", len(reqs))
+	if len(reqs) != 3 {
+		t.Fatalf("want probe + confirmation + raw-object probe, got %d", len(reqs))
 	}
 	for _, r := range reqs {
 		if !strings.Contains(r, "?cb=") {
 			t.Errorf("request %q carries no cache-buster", r)
 		}
 	}
-	if reqs[0] == reqs[1] {
-		t.Errorf("the confirmation reused the probe's buster (%q) — an edge can serve both from one cache", reqs[0])
+	// All three must be distinct, the raw probe included: it is fetched to be
+	// compared against the fingerprint, so an edge answering it from the cache
+	// of an earlier fetch would make it agree with whatever it just served.
+	if reqs[0] == reqs[1] || reqs[1] == reqs[2] || reqs[0] == reqs[2] {
+		t.Errorf("two fetches shared a cache-buster — an edge can serve both from one cache: %v", reqs)
 	}
 }
 
@@ -677,7 +696,7 @@ func TestFetchServedPageHashesTheDecodedBody(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got := fetchServedPage(context.Background(), cacheBust(srv.URL+"/product-detail.html"))
+	got := fetchServedPage(context.Background(), cacheBust(srv.URL+"/product-detail.html"), divergenceAcceptHTML)
 	if got.err != nil {
 		t.Fatalf("fetch: %v", got.err)
 	}
@@ -703,7 +722,7 @@ func TestFetchServedPageDoesNotHashANon200Body(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got := fetchServedPage(context.Background(), cacheBust(srv.URL+"/gone.html"))
+	got := fetchServedPage(context.Background(), cacheBust(srv.URL+"/gone.html"), divergenceAcceptRaw)
 	if got.err != nil {
 		t.Fatalf("fetch: %v", got.err)
 	}
@@ -728,5 +747,107 @@ func TestCacheBustIsUniquePerCall(t *testing.T) {
 			t.Fatalf("cacheBust repeated itself after %d calls: %q", i, got)
 		}
 		seen[got] = true
+	}
+}
+
+// TestPageContentDivergence_EdgeInjectedBodyFilesNothing is the false positive
+// this check actually produced in production, reduced to a unit test.
+//
+// vetcomparison.uk had Cloudflare Web Analytics enabled on its zone. Cloudflare
+// injects a ~359-byte beacon <script> into anything it treats as browser HTML,
+// so the body on the wire could never hash to the fingerprint — while the object
+// in the bucket was byte-perfect and every visitor was served the current page.
+// The check flagged it on six consecutive passes and a whole session was spent
+// believing a live customer-facing fault existed. It did not.
+//
+// PAIRED CONTROL: this is TestPageContentDivergence_ConfirmedMismatchFilesOneItem
+// with ONE value changed — the raw probe's hash. There it repeats the served
+// hash and an item files; here it equals the stored hash and nothing files. Two
+// opposite outcomes from one differing input is what makes this a test of the
+// guard rather than a test of the fixture.
+//
+// It deliberately does NOT assert ExpectationsWereMet: the intent re-read IS
+// scripted so that deleting the guard lets the candidate run all the way to a
+// filed item and fail this test. Without that scripted row a deleted guard would
+// merely error on an unexpected query, discard the candidate, and pass — the
+// test would be green for the wrong reason.
+func TestPageContentDivergence_EdgeInjectedBodyFilesNothing(t *testing.T) {
+	dctx, mock := newDivergenceCtx(t)
+	pageID := uuid.New()
+	expectDomain(mock, dctx.SiteID)
+	mock.ExpectQuery(`FROM pages p`).WillReturnRows(
+		divergenceRows().AddRow(pageID.String(), "index", "/index.html",
+			divStoredHash, "deployed", divDeployedAt, int64(7200)),
+	)
+	expectIntentReRead(mock, pageID.String(), divStoredHash, divDeployedAt)
+
+	fetcher := newStubFetcher()
+	fetcher.seq["https://"+divTestDomain+"/index.html"] = []divergenceProbeResult{
+		// Two browser-Accept fetches agree: the injected body.
+		{hash: divOtherHash, status: 200, bytes: 44857},
+		{hash: divOtherHash, status: 200, bytes: 44857},
+		// The raw-object probe gets the object itself, and it is exactly what we
+		// stamped. The delivery worked; the edge added to it afterwards.
+		{hash: divStoredHash, status: 200, bytes: 44498},
+	}
+	fetcher.install(t)
+
+	res, err := (&PageContentDivergenceCheck{}).Run(dctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res.WorkItems) != 0 {
+		t.Fatalf("an edge-injected body is not a delivery fault; want 0 work items, got %d", len(res.WorkItems))
+	}
+	if len(res.Findings) != 0 {
+		t.Errorf("want 0 findings, got %d", len(res.Findings))
+	}
+	// Deliberately does not retract either. The origin object is right, but this
+	// check observes the wire, and an edge that can add bytes could in principle
+	// serve a stale body to browsers while answering the raw probe correctly.
+	// Skipping asserts nothing; retracting would assert health we did not see.
+	if len(res.Resolved) != 0 {
+		t.Errorf("want 0 retractions from a body we could not judge, got %d", len(res.Resolved))
+	}
+	if n := fetcher.callCount(); n != 3 {
+		t.Errorf("want 3 fetches, got %d", n)
+	}
+}
+
+// TestPageContentDivergence_UnusableRawProbeFilesNothing — the raw probe is the
+// exonerating evidence, so failing to READ it is not the same as failing to be
+// exonerated by it. With no information either way the candidate is discarded:
+// the sweep re-probes the whole fleet every few hours, so a missed pass costs
+// one cycle, while a false item costs a human a triage.
+//
+// Same paired-control construction as the test above: only the raw probe's
+// outcome differs from the filing case.
+func TestPageContentDivergence_UnusableRawProbeFilesNothing(t *testing.T) {
+	dctx, mock := newDivergenceCtx(t)
+	pageID := uuid.New()
+	expectDomain(mock, dctx.SiteID)
+	mock.ExpectQuery(`FROM pages p`).WillReturnRows(
+		divergenceRows().AddRow(pageID.String(), "index", "/index.html",
+			divStoredHash, "deployed", divDeployedAt, int64(7200)),
+	)
+	expectIntentReRead(mock, pageID.String(), divStoredHash, divDeployedAt)
+
+	fetcher := newStubFetcher()
+	fetcher.seq["https://"+divTestDomain+"/index.html"] = []divergenceProbeResult{
+		{hash: divOtherHash, status: 200, bytes: 44857},
+		{hash: divOtherHash, status: 200, bytes: 44857},
+		{err: errors.New("connection reset by peer")},
+	}
+	fetcher.install(t)
+
+	res, err := (&PageContentDivergenceCheck{}).Run(dctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res.WorkItems) != 0 {
+		t.Fatalf("want 0 work items when the raw probe could not be read, got %d", len(res.WorkItems))
+	}
+	if len(res.Resolved) != 0 {
+		t.Errorf("want 0 retractions, got %d", len(res.Resolved))
 	}
 }

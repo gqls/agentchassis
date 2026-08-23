@@ -59,7 +59,7 @@
 // proven by an induced fault in check_page_content_divergence_test.go rather than
 // by hope.
 //
-// ── THE FIVE THINGS THAT COULD MAKE THIS CHECK LIE, AND WHAT STOPS EACH ────
+// ── THE SIX THINGS THAT COULD MAKE THIS CHECK LIE, AND WHAT STOPS EACH ────
 //
 //  1. DELIVERY STILL IN FLIGHT. A page stamped seconds ago has not reached the
 //     origin yet. → `divergenceSettleWindow` (60 min), and the finder will not look at a
@@ -134,6 +134,44 @@
 //     in 494's shape) — arming raises fingerprint coverage, whereas PLAN D6's
 //     stamp-side NULLing lowers it and is the backstop for the NEXT unarmed
 //     stamper rather than the answer to these three. See PLAN D6/D7.
+//
+//  6. AN EDGE THAT ADDS BYTES ON THE WAY OUT. A CDN can inject content into a
+//     response without the stored object changing at all, so the body on the
+//     wire is legitimately not the body we hashed — and no amount of
+//     cache-busting or re-fetching helps, because the injection is deterministic
+//     and reproduces on every pass for as long as the feature is switched on.
+//     → after a mismatch has confirmed itself, a THIRD fetch asks the same URL
+//     with `Accept: */*` instead of an HTML Accept. If THAT hashes to the
+//     fingerprint, the bytes we sent did arrive and the difference belongs to
+//     the edge, so nothing is filed.
+//
+//     > **⚠ CASE 6 WAS FOUND THE EXPENSIVE WAY, 2026-08-23 — it had already
+//     > produced this check's only production finding, and that finding was
+//     > graded a TRUE POSITIVE for a day.** `vetcomparison.uk/index.html` was
+//     > reported as serving visitors a stale page for ~21 hours across six
+//     > consecutive passes. It was not. Cloudflare Web Analytics was enabled on
+//     > that zone, and Cloudflare injects a ~359-byte
+//     > `static.cloudflareinsights.com/beacon.min.js` `<script>` into anything it
+//     > treats as browser HTML. `[MEASURED 2026-08-23]` fetched 5x per header:
+//     > `Accept: */*` returned EXACTLY the stored fingerprint 5/5, the browser
+//     > and check headers returned one other hash 5/5, and a diff of the two
+//     > bodies was **two lines — the beacon tag and its closing tag, nothing
+//     > else**. Scope that day: of 17 domains with a hashed page, ONE was
+//     > injected-and-diverging. A second (`webdesign.co.uk`) carries the same
+//     > beacon IN ITS COMMITTED SOURCE, so both bodies contain it and it matched
+//     > under both headers — which is the control that distinguishes "the edge
+//     > added this" from "the page ships this".
+//     >
+//     > The earlier session's rule "always send a browser Accept" is what made
+//     > it invisible: it made the difference VISIBLE and then read ≠stored as
+//     > "the old page", without ever diffing the two bodies. A hash tells you
+//     > two things differ; it cannot tell you HOW, and that is the whole error.
+//
+//     WHAT THIS GUARD GIVES UP, stated because it is a real limit and not a
+//     rounding error: an edge that served a genuinely STALE body to browsers
+//     while answering `Accept: */*` with the current object would be exonerated
+//     here. That is why the branch SKIPS rather than RETRACTS — it declines to
+//     judge, and asserts no health it did not observe.
 //
 // ── THE OTHER PUBLISH SEAM, AND WHY THIS CHECK STAYS OFF IT ────────────────
 //
@@ -366,6 +404,20 @@ const (
 	divergenceMaxBodyBytes = 8 << 20
 )
 
+// divergenceAcceptHTML is what the check asks for on its judging fetches: the
+// header a BROWSER sends, because the bytes a visitor receives are the ones
+// this check exists to judge.
+//
+// divergenceAcceptRaw is the opposite request — "give me the object, not a
+// rendition of it" — and it is what the raw-object probe below sends. The two
+// exist as named constants because the DIFFERENCE between them is load-bearing
+// (see divergenceProbeResult.raw handling in Run), and a bare string literal at
+// a call site would read like a formatting choice.
+const (
+	divergenceAcceptHTML = "text/html,*/*"
+	divergenceAcceptRaw  = "*/*"
+)
+
 // divergenceProbeResult is what one fetch observed. A transport failure is NOT a
 // status and must never be compared against 200.
 type divergenceProbeResult struct {
@@ -384,7 +436,10 @@ type divergenceProbeResult struct {
 //
 // It returns the sha256 of the WHOLE body, which is the only thing that can be
 // compared against pages.content_hash.
-var fetchServedPage = func(ctx context.Context, target string) divergenceProbeResult {
+// The `accept` argument is a PARAMETER rather than a constant inside the body
+// because the check now fetches the same URL two different ways on purpose, and
+// a caller must be unable to take that fetch without stating which one it wants.
+var fetchServedPage = func(ctx context.Context, target, accept string) divergenceProbeResult {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
 		return divergenceProbeResult{err: err}
@@ -392,7 +447,7 @@ var fetchServedPage = func(ctx context.Context, target string) divergenceProbeRe
 	// GET, not HEAD: the body IS the question. An explicit, honest User-Agent —
 	// if an origin refuses it that is a 403, and a 403 files nothing.
 	req.Header.Set("User-Agent", "agentchassis-discovery/1.0 (+page_content_divergence)")
-	req.Header.Set("Accept", "text/html,*/*")
+	req.Header.Set("Accept", accept)
 	// DELIBERATELY NO Accept-Encoding. Go's transport adds gzip itself and then
 	// transparently decompresses, so the body we hash is the file's own bytes.
 	// Setting the header by hand DISABLES that transparent decode and we would
@@ -449,6 +504,8 @@ type divergenceSkips struct {
 	oversizeBody      int
 	movingTarget      int // two fetches, two different bodies
 	redeployedMidPass int // the page's own intent changed while we looked
+	edgeInjected      int // the origin object is correct; the edge added to it
+	rawProbeUnusable  int // the raw-object probe could not be read at all
 }
 
 func (c *PageContentDivergenceCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
@@ -512,6 +569,7 @@ func (c *PageContentDivergenceCheck) Run(dctx DiscoveryCheckContext) (*CheckResu
 	type judged struct {
 		first  divergenceProbeResult
 		second divergenceProbeResult // only populated for a candidate mismatch
+		raw    divergenceProbeResult // only populated for a CONFIRMED candidate
 	}
 	results := make(map[string]judged, len(targets))
 	var mu sync.Mutex
@@ -527,12 +585,21 @@ func (c *PageContentDivergenceCheck) Run(dctx DiscoveryCheckContext) (*CheckResu
 		go func() {
 			defer wg.Done()
 			for t := range work {
-				j := judged{first: fetchServedPage(dctx.Ctx, cacheBust(t.url))}
+				j := judged{first: fetchServedPage(dctx.Ctx, cacheBust(t.url), divergenceAcceptHTML)}
 				// Confirm a candidate mismatch with a second fetch. Candidates are
 				// rare by construction, so the extra call costs nothing normally.
 				if j.first.err == nil && j.first.status == http.StatusOK &&
 					!j.first.oversize && j.first.hash != t.page.StoredHash {
-					j.second = fetchServedPage(dctx.Ctx, cacheBust(t.url))
+					j.second = fetchServedPage(dctx.Ctx, cacheBust(t.url), divergenceAcceptHTML)
+
+					// Only once the mismatch has AGREED with itself is the raw
+					// probe worth a third request. Same URL, same instant, one
+					// header different — so whatever it returns differently is
+					// the edge's doing and not the origin's.
+					if j.second.err == nil && j.second.status == http.StatusOK &&
+						!j.second.oversize && j.second.hash == j.first.hash {
+						j.raw = fetchServedPage(dctx.Ctx, cacheBust(t.url), divergenceAcceptRaw)
+					}
 				}
 				mu.Lock()
 				results[t.page.PageID] = j
@@ -599,6 +666,49 @@ func (c *PageContentDivergenceCheck) Run(dctx DiscoveryCheckContext) (*CheckResu
 					zap.String("second", shortHash(j.second.hash)))
 				continue
 			}
+			// ── THE RAW-OBJECT GUARD ────────────────────────────────────────
+			//
+			// WHAT IS BEING RULED OUT. A CDN may add bytes to a response on its
+			// way out without the stored object changing at all — Cloudflare's
+			// Web Analytics beacon is the worked case: a ~359-byte <script> tag
+			// injected into anything it considers browser HTML. The object in
+			// the bucket is byte-perfect; the body on the wire is not what we
+			// hashed. That is not a delivery failure, and filing it as one is a
+			// false positive that NOTHING downstream can talk us out of, because
+			// it reproduces on every pass for as long as the feature is on.
+			//
+			// THE RULE. This check may only convict the DELIVERY. So before
+			// filing, ask the same origin for the same URL with the one header
+			// that makes an edge stop rewriting: if the object itself hashes to
+			// what we stamped, the bytes we sent DID arrive, and the difference
+			// belongs to the edge.
+			//
+			// WHY IT CANNOT HIDE A REAL DIVERGENCE. A genuinely stale delivery
+			// serves the OLD object under every header, so the raw probe returns
+			// the old hash too and the finding still files. Suppression requires
+			// an exact sha256 match against the fingerprint — a value no noise,
+			// error page or empty body can produce by accident.
+			if j.raw.err != nil || j.raw.status != http.StatusOK || j.raw.oversize {
+				// No information rather than exonerating information. Discard
+				// rather than file: this check re-probes the whole fleet every
+				// few hours, so a missed pass costs one cycle, while a false
+				// item costs a human a triage.
+				skips.rawProbeUnusable++
+				dctx.Logger.Info("page_content_divergence: raw-object probe unusable, discarding candidate",
+					zap.String("url", t.url), zap.Int("status", j.raw.status), zap.Error(j.raw.err))
+				continue
+			}
+			if j.raw.hash == pg.StoredHash {
+				skips.edgeInjected++
+				dctx.Logger.Info("page_content_divergence: origin object matches the fingerprint; the difference is edge-injected, not a delivery fault",
+					zap.String("url", t.url),
+					zap.String("stored", shortHash(pg.StoredHash)),
+					zap.String("served_to_a_browser", shortHash(j.first.hash)),
+					zap.Int64("browser_bytes", j.first.bytes),
+					zap.Int64("raw_bytes", j.raw.bytes))
+				continue
+			}
+
 			current, err := contentIntentUnchanged(dctx, pg)
 			if err != nil {
 				dctx.Logger.Warn("page_content_divergence: could not re-read page intent, discarding candidate",
@@ -789,7 +899,8 @@ func contentIntentUnchanged(dctx DiscoveryCheckContext, pg divergencePage) (bool
 
 func logDivergenceSkips(dctx DiscoveryCheckContext, s divergenceSkips, candidates int) {
 	if s.unfetchableURL == 0 && s.overCap == 0 && s.transportError == 0 &&
-		s.notOK == 0 && s.oversizeBody == 0 && s.movingTarget == 0 && s.redeployedMidPass == 0 {
+		s.notOK == 0 && s.oversizeBody == 0 && s.movingTarget == 0 && s.redeployedMidPass == 0 &&
+		s.edgeInjected == 0 && s.rawProbeUnusable == 0 {
 		return
 	}
 	dctx.Logger.Info("page_content_divergence: pages not judged",
@@ -801,5 +912,7 @@ func logDivergenceSkips(dctx DiscoveryCheckContext, s divergenceSkips, candidate
 		zap.Int("non_200", s.notOK),
 		zap.Int("oversize_body", s.oversizeBody),
 		zap.Int("moving_target", s.movingTarget),
-		zap.Int("redeployed_mid_pass", s.redeployedMidPass))
+		zap.Int("redeployed_mid_pass", s.redeployedMidPass),
+		zap.Int("edge_injected", s.edgeInjected),
+		zap.Int("raw_probe_unusable", s.rawProbeUnusable))
 }
