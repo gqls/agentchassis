@@ -82,6 +82,15 @@
 # main — this pattern stops covering the class it was widened for, and it will do so
 # SILENTLY, because an out-of-scope path is refused with no finding. cmd/ line counts
 # per directory are two commands: see bugs_open/309's notes for the one-liner.
+# ⚠ WIDENING THIS REGEX IS NOT ENOUGH — 098 CARRIES A SECOND, PATHSPEC COPY.
+# scripts/... this file is the single source for the *decision*, and 097 and the commit-msg
+# nudge do read only this. But 098_REPORT_unreviewed_commits_v1.sh must enumerate commits
+# BEFORE it can judge them, and `git log` takes pathspecs, not regexes — so it carries
+# SCOPE_PATHS, a hand-kept array, as a PRE-filter. A path added here and not there is
+# INVISIBLE to the coverage report: not UNREVIEWED, absent, which reads as nothing to
+# report. MEASURED 2026-08-23, the day cmd/config-key-audit was added below: 22 commits in
+# the previous fortnight were in scope by this regex and in no bucket of that report, across
+# four lanes. Change both, in one commit.
 COUNCIL_SCOPE_CODE_RE='^(platform|internal|pkg)/|^cmd/config-key-audit/'
 # VERBATIM from scripts/migration/run-migrations.sh:283 (the appliable-name grep).
 # Change this only together with the runner.

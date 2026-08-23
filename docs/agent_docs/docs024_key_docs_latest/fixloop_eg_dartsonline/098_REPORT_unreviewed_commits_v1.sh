@@ -83,7 +83,23 @@ WINDOW_DAYS="${1:-7}"
 # as a POST-FILTER at the top of the commit loop below, so a sidecar-only or
 # prose-only commit under that directory is not miscounted as an unreviewed
 # in-scope change. Stated here rather than hidden (bugs_open/314).
-SCOPE_PATHS=(platform internal pkg docs/agent_docs/sql_for_agents)
+# ⚠ THIS IS A SECOND COPY OF THE SCOPE, and it is a PRE-FILTER: `git log -- "${SCOPE_PATHS[@]}"`
+# below never shows a commit these paths miss, so the in_council_scope POST-filter at :147
+# never gets to judge it. A path in council-scope.sh but absent here is INVISIBLE to this
+# report — not UNREVIEWED, invisible, which reads as "nothing to report".
+#
+# It went wrong exactly that way: the owner widened scope to cmd/config-key-audit on
+# 2026-08-23 (council-scope.sh:85, the detector logic for ~10 nightly checks), and this
+# array was not widened with it. MEASURED 2026-08-23: 12 commits in the previous two days
+# were in scope by the shared definition and absent from every bucket of this report,
+# across four lanes (358, 363, 309, 362, WFA-022). The report said "In-scope commits found:
+# 37" and meant "37 of the ones I can see".
+#
+# KEEP THIS IN STEP WITH scripts/council-scope.sh's COUNCIL_SCOPE_CODE_RE. It cannot be
+# derived from that regex mechanically (git log takes pathspecs, not regexes), which is why
+# it is a copy — so widening the scope means editing BOTH, and the post-filter is what stops
+# this array over-selecting.
+SCOPE_PATHS=(platform internal pkg cmd/config-key-audit docs/agent_docs/sql_for_agents)
 NS='ai-persona-system'
 PG_POD='postgres-clients-0'
 

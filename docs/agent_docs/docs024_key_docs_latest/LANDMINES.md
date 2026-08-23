@@ -16010,3 +16010,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** this file's *"`make deploy-component-render-check` ships NOTHING on its own"* (the OPPOSITE direction — an overlay pin making a deploy a no-op; here the sed overrides the pin) · the ImagePullSecrets family (same RUNNING-not-FAILED reading) · MEMORY [[releases-are-whole-fleet-make-release]], which is the rule this entry supplies the mechanism for
 - **source:** 2026-08-23, `bugfix_358_unread_finding_codes` lane. Raised by the council's constitution seat as *"bumping the shared global IMAGE_TAG for a single new CronJob service risks re-tagging every OTHER make build-*/make release invocation … the plan gives no evidence other targets were checked against this bump"* (corr `be252395`, round 4, medium, on an APPROVED verdict). The objection was right that the evidence was missing; measuring it produced this entry.
 - **added:** 2026-08-23, bugfix_358_unread_finding_codes lane
+
+---
+
+### The council gate's scope is single-sourced for the DECISION and copied for the ENUMERATION — widening `council-scope.sh` alone makes a whole class INVISIBLE to the coverage report, not unreviewed
+
+- **footprint:** `scripts/council-scope.sh` (`COUNCIL_SCOPE_CODE_RE`), `098_REPORT_unreviewed_commits_v1.sh` (`SCOPE_PATHS`, the `git log -- "${SCOPE_PATHS[@]}"` at :196), `097_TRIGGER_council_review_v1.sh`, `scripts/council-coverage-nudge.sh`, any owner ruling that widens council scope
+- **fires when:** the owner widens what the gate reviews and you implement it where CLAUDE.md tells you to — *"The scope is single-sourced in `scripts/council-scope.sh` … so do not re-hardcode it"*. That instruction is true of the **decision** and not of the **enumeration**: 098 must list candidate commits before `in_council_scope` can judge them, and `git log` takes pathspecs, not regexes, so it keeps `SCOPE_PATHS` as a hand-maintained pre-filter. A path present in the regex and absent from that array never reaches the post-filter.
+- **the tell: there is none, and the failure is an ABSENCE.** The commit does not appear as UNREVIEWED — it appears in **no bucket at all**. The report's header still prints a confident total (`In-scope commits found: 37`) which actually means "37 of the ones I can see", and a lane checking whether its work is credited finds nothing and cannot tell "not in scope" from "not looked at". `[MEASURED 2026-08-23]` the owner widened scope to `cmd/config-key-audit` that morning (the detector logic for ~10 nightly checks); **22 commits over the previous fortnight, across four lanes (358, 363, 309, 362, WFA-022), were in scope by the shared definition and in no bucket of the report.** Widening `SCOPE_PATHS` moved the one-day count 37 → 41 and surfaced two genuinely UNREVIEWED commits that had been invisible.
+- **the check, before believing any coverage number:**
+  ```bash
+  # every path the regex admits must also be reachable by the pre-filter
+  grep -n 'COUNCIL_SCOPE_CODE_RE=' scripts/council-scope.sh
+  grep -n 'SCOPE_PATHS=('        docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/098_REPORT_unreviewed_commits_v1.sh
+  # and the direct test: a commit in the new path must land in SOME bucket
+  ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/098_REPORT_unreviewed_commits_v1.sh 1 | grep <your-sha>
+  ```
+  Absent from all five buckets = this landmine. **097's admission gate is NOT affected** — it applies `in_council_scope` to your submitted paths directly, so a submission is admitted correctly while the report cannot see the commit. That asymmetry is what makes it survive: the gate works, so nothing prompts you to check the report.
+- **the general form:** *single-sourced* usually means one definition. Here it means one definition and one **derived** copy that cannot be derived mechanically — and the copy is upstream of the definition in the data flow, so it silently bounds what the authoritative test ever sees. Whenever a filter runs before an authority, ask what the filter drops that the authority would have kept.
+- **relations:** the `099` roster-mirror trap and the dedup-index/Go-list lockstep (the same two-copies-must-agree class this estate keeps filing) · `bugs_open/314` (which created the single-sourcing) · MEMORY [[a-pass-from-a-blind-check-outlives-the-blindness]]
+- **source:** 2026-08-23, `bugfix_358_unread_finding_codes` lane, found while checking that a `Council-Submitted:` trailer had been credited after an approved verdict. It had — the commit was simply not in the report. Fixed the same day in both files, with a pointer at the widening site because that is where the next person works.
+- **added:** 2026-08-23, bugfix_358_unread_finding_codes lane
