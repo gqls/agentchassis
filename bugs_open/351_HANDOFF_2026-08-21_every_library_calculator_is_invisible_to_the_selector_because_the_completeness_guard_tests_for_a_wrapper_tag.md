@@ -364,3 +364,110 @@ guards still reject a real cut**, so agreement does not quietly become permissiv
   filed at all**. That, not a green test, is what closes this file.
 - **Council `7b662d65` verdict is unread.** Act on a REVISE — the code is already on the shared
   branch.
+
+---
+
+## LIVE AND DEMAND-PROVEN 2026-08-23 — the predicate half is DONE; three corrections to the section above
+
+> **⚠ CORRECTED 2026-08-23: the "IMPLEMENTED" section above says the fix is "INERT until the next
+> chassis roll". That is no longer true and a reader acting on it would hold back work that has
+> already shipped.** It rolled. Everything in this section is dated 2026-08-23.
+
+### 1. It is LIVE — verified at the binary, not at git
+
+Both `agent-chassis` pods report `git_commit = f5eaabe3342a906b0392f3cb0d77a67765da6955`
+(`service_binary_capabilities`, `kind='build'` — the RFC_040 table, which has no shelf life, unlike
+the `build provenance` startup line that had already scrolled out of `--tail=3000`):
+
+```sql
+SELECT DISTINCT service, git_commit, max(last_seen_at) OVER (PARTITION BY service, git_commit)
+FROM service_binary_capabilities WHERE kind='build' ORDER BY 1,3 DESC;
+```
+
+`git merge-base --is-ancestor 97c337371 f5eaabe33` → **yes**, with a control commit that correctly
+reports NOT an ancestor. An earlier binary the same day (`2dbe12f1d`, pods from 10:53Z) also
+contains it.
+
+> ⚠ **A LANDMINE found while doing this, recorded because the table invites the mistake:**
+> `service_binary_capabilities` has a **2-hour `RetentionWindow`**, so it is a *window*, not a
+> history. It can tell you what is running now; it **cannot** tell you what was running at a past
+> moment, because the pods that would prove it have been pruned. I started to date a pre-fix
+> observation from it before noticing.
+
+### 2. Re-calibrated against the LIVE corpus, and the flip SET is exactly as predicted
+
+Isolated `git archive HEAD` tree (**not** in `/tmp` — see the 2026-08-23 note in `WRONG_CALLS.md`;
+the scratchpad is on disk, `/tmp` is a tmpfs that another lane found at 100%), throwaway
+`zz_tmp_*_test.go` inside `platform/orchestration/actions`, deleted with the tree:
+
+```
+read: section=148  tool=129  calculators=22      (all asserted non-zero — the vacuity guard)
+sectionTemplateValid   rescued=22  regressed=0
+endsCleanly flips      = 2   SET = {3f946437 case-studies-grid, 6c41404d about-commercial-block}
+calculators FAILING the live predicate = 0
+calculators with unbalanced markup     = 0
+```
+
+The **set** assertion this file demanded holds — the flip set is the same two rows, by id, that the
+2026-08-22 run named. Mutation controls in the same harness: a real mid-tag cut is still refused, a
+cut immediately after a complete mid-template action is still refused, a bare `}}` suffix is still
+refused, and nested trailing `{{end}}` wrappers are still accepted.
+
+Corpus as of **2026-08-23**: section **148**, tool **129** (08-22 read 150 / 124 — it moves daily,
+which is the reason for the re-run).
+
+### 3. DEMAND PROOF AT THE ARTEFACT — this file's own closing condition, met
+
+The condition written above is *"a site planning a calculator section that RESOLVES to a library
+incumbent with **no `needs_new_component` item filed at all**"*. That happened three times on
+2026-08-23, all on **loanzy.uk**, all binding incumbents born on a **different** site
+(`loanandmortgagecalculator.co.uk`), all carrying `section_type IS NULL` — i.e. exactly the rows
+that were unreachable before this fix:
+
+| bound at (UTC) | page | component | `section_type` |
+|---|---|---|---|
+| 13:57:41 | `tool-is-a-loan-right-for-me` | `loans-damage-checker` | NULL |
+| 14:07:15 | `tool-eligibility-checker` | `loans-credit-health-check` | NULL |
+| 14:23:29 | `tool-credit-health-check` | `loans-credit-health-check` | NULL |
+
+No `needs_new_component` row was filed for any of the three (the only items that day are
+`loans-credit-health-check` at 12:08Z, which **predates** these and was superseded by the 14:23
+binding on the very same page, and an unrelated `testimonials` at 17:18Z).
+
+**Attribution is clean, and that is the part worth checking rather than assuming:** incumbent
+`824e3309`'s `html_template` was last written **2026-08-20**, so the data did not change under us —
+the code did.
+
+⚠ **`usage_count` is NOT the reuse signal on this estate.** All 22 incumbents still read
+`usage_count = 0` while three of them are demonstrably bound to live pages. Read `page_components`.
+Anyone closing this file off `usage_count` would conclude the opposite of the truth.
+
+### 4. CORRECTION — "seven" diverted twins is now TEN (and the number is dated for a reason)
+
+The section "What this does NOT need" says *"Seven incumbents now also have a diverted twin"*. As of
+**2026-08-23** it is **ten**, by the owner's 2026-08-22 ruling written next to the number this time.
+The census grew **by addition** while the sentence stayed true-looking — two new twins on 2026-08-22
+(`loans-credit-health-check`, `loans-damage-checker`), on top of 08-18 ×1, 08-19 ×1, 08-20 ×5,
+08-21 ×1. Query that regenerates it:
+
+```sql
+WITH incumbents AS (
+  SELECT id, function FROM content_components
+  WHERE is_active AND component_level='section' AND forked_from IS NULL
+    AND category='calculators' AND section_type IS NULL)
+SELECT i.function, t.id, t.function, t.section_type, t.usage_count, t.created_at::date
+FROM incumbents i JOIN content_components t ON lower(t.section_type)=lower(i.function)
+WHERE t.is_active ORDER BY 1;
+```
+
+### 5. What is left
+
+- **The `section_type` half.** As of **2026-08-23**, **25** of **149** active non-forked
+  section-level rows carry `section_type IS NULL` — 21 calculators plus `evidence-timeseries`,
+  `mechanism-flow`, `ported-prose` and `gauntlet-round-record`. **All 25 are
+  `created_from='manual'`**, and the manual route's last section-level write was **2026-08-15**, so
+  the writer is **dormant, not proven dead**. Being planned in a separate pass; the ordering
+  decision this file left open is answered there rather than deferred a third time.
+- **Council `7b662d65` is still verdictless** (`complete_invalid`, 9 s, zero artifacts). The council
+  is **working again** — verdicts landed fleet-wide on 2026-08-23 at 12:49, 13:14, 13:42, 17:07 and
+  17:17Z — so the re-run is unblocked.
