@@ -201,7 +201,16 @@ def silent_drops(cd_spec):
     for key, val in cd_spec.items():
         if key == "formatted":
             continue
-        if humanise(key) + ":" in formatted:
+        # ⚠ The label is not always `Label:` exactly. A brief can carry
+        # `Layout preservation (rerender rule):` — same key, qualified label — and an
+        # exact-match test calls that key DROPPED when its 370 chars are right there.
+        # Measured 2026-08-23 on loanzy.uk, where it produced a false "data is being
+        # lost" reading about a write that had in fact worked correctly.
+        # So: the label must START A LINE and reach a colon without crossing a newline.
+        # Anchoring to the line start is what keeps this tight — a passing mention of the
+        # words mid-sentence must NOT count, or the check stops seeing real drops, which
+        # is the failure direction that matters.
+        if re.search(r"^" + re.escape(humanise(key)) + r"[^\n]*:", formatted, re.M):
             continue
         chars = len(json.dumps(val, ensure_ascii=False)) if not isinstance(val, str) else len(val)
         empty = val in (None, "", [], {}) or (isinstance(val, (list, dict)) and not val)
