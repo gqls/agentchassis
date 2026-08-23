@@ -1,5 +1,47 @@
 # HANDOFF — `bugfix_351_section_template_predicate`, 2026-08-22 (cold start: read this file top to bottom, then §"What to do next")
 
+> ## ⚠ CURRENT STATE, 2026-08-23 — read this before anything below it
+>
+> **Everything under §3, §4 and §6.1–6.2 has moved. The body of this file is left as written**
+> (it is the record of what was believed on 08-22); this block is what is true today.
+>
+> **1. The predicate fix is LIVE, not inert.** §3's "Go is inert until an image is built and rolled"
+> and §6.2's "after the next chassis roll" are both spent. Both `agent-chassis` pods report
+> `git_commit = f5eaabe33`, which has `97c337371` as an ancestor — verified from
+> `service_binary_capabilities` (`kind='build'`) with a control commit that correctly reports NOT an
+> ancestor, because the `build provenance` startup line had already scrolled.
+>
+> **2. It is DEMAND-PROVEN at the artefact — §6.2's bar is met and 351's predicate half is done.**
+> On 2026-08-23 `loanzy.uk` bound three library incumbents carrying `section_type IS NULL`, all born
+> on a *different* site, with **no `needs_new_component` filed for any of them**: `loans-damage-checker`
+> 13:57:41Z, `loans-credit-health-check` 14:07:15Z and 14:23:29Z. Incumbent `824e3309`'s template was
+> last written 2026-08-20, so the code moved, not the data.
+>
+> **3. Re-calibrated 2026-08-23** — section=148, tool=129, calculators=22 (asserted); rescued=22,
+> regressed=0; `endsCleanly` flip SET still exactly `{3f946437, 6c41404d}` by id. Corpus moved again
+> from 08-22's 150/124, which is why §5's "re-calibrate before shipping" earns its place.
+>
+> **4. §4's council round has been RESUBMITTED** under the same correlation `7b662d65`
+> (`RESUBMIT_CORR`), carrying today's live-and-proven evidence. The council is working again —
+> verdicts landed fleet-wide on 08-23 at 12:49, 13:14, 13:42, 17:07 and 17:17Z. Submission JSON:
+> `<this session's scratchpad>/council_351_resubmit.json`. **Verdict still unread.**
+>
+> **5. §5's isolation recipe is superseded.** Do **not** `git archive HEAD | tar -x -C /tmp/chk` —
+> `/tmp` is a 16 GB tmpfs and another lane found it at 100% with 12 GB of abandoned checkouts on
+> 2026-08-23. Use `scripts/verify-head-builds.sh --with <file> --test <pkg>`, or a scratchpad path on
+> disk. See the 2026-08-23 note in `WRONG_CALLS.md`.
+>
+> **6. TWO CORRECTIONS to counts this file repeats from the bug file.** §3's "**7** diverted twins" is
+> **TEN as of 2026-08-23** — the census grew by addition while the sentence stayed true-looking.
+> And **`usage_count` is not the reuse signal here**: all 22 incumbents still read `0` while three are
+> bound to live pages. Read `page_components`, or you will conclude the opposite of the truth.
+>
+> **7. WHAT IS ACTUALLY LEFT:** the `section_type` half (§3's "NOT DONE, deliberately") — **25** of
+> **149** active non-forked section rows are NULL as of 2026-08-23, all `created_from='manual'`, last
+> manual write 2026-08-15 (dormant, not proven dead) — plus §6.3's migration `541` and §6.4's ordering
+> decision. A new `LANDMINES.md` entry from this lane covers the retention-window trap in item 1's table.
+
+
 **This lane began as "the CSS is broken on remortgagecalculator.uk" and ended up owning a platform
 predicate.** Both halves of the owner's original complaint are FIXED AND LIVE. What is left is one
 committed-but-unrolled platform change, one unread council verdict, and one deliberately-declined
