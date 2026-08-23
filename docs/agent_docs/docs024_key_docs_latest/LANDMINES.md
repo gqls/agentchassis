@@ -15351,3 +15351,15 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the `kcat -P` stdin-drop entry · `bugs_open/083` (detected findings never reach a handler — what the misfired sweep filled a queue with) · `WRONG_CALLS.md` 2026-08-22
 - **source:** 2026-08-22, dartsonline_traffic lane, by triggering it on another lane's site while in the act of fixing it.
 - **added:** 2026-08-22, dartsonline_traffic lane.
+
+### `client_id` is interpolated UNQUOTED as a SCHEMA NAME, so any hand-dispatch with a hyphen in it dies as `syntax error at or near "-"` — before your workflow does anything
+
+- **footprint:** `platform/orchestration/actions/spawn_actions.go:2315` (`INSERT INTO client_%s.agent_instances`), `:2895`, `discovery_actions.go:649`, `platform/messaging/processor.go:947`, `platform/discovery/agent_discovery.go:352` · the `spawn_agent` action · `section-editor`'s `spawn_deployer` step · **any hand-fired Kafka envelope where you invent a `client_id`**
+- **fires when:** you hand-dispatch an agent and pick a readable client id for your own traceability — `cli-copyedit-apply`, `my-session-2026-08-21`, anything hyphenated. It is the natural thing to do and nothing warns you.
+- **the trap:** the client id is not a label, it is a **schema name**, and it reaches SQL unquoted: `INSERT INTO client_cli-copyedit-apply.agent_instances` → `ERROR: syntax error at or near "-" (SQLSTATE 42601)`, surfaced as `failed to create agent in DB: failed to insert agent instance`. **It reads like a platform fault in the spawn path and it is your own payload.** Worse, `section-editor` spawns its deployer as its **SECOND step** (`ensure_site_record → spawn_deployer → load_edit_context → apply_edit`), so the run dies *before* the edit is attempted — the work item is left claimed and `in_progress`, the page is untouched, and nothing says why. Measured 2026-08-21.
+- **the check:** use a client id that is a valid unquoted SQL identifier. The fleet's live values, as of 2026-08-23: `system` and `demo_client` (`SELECT client_id, count(*) FROM orchestration_states WHERE owner_agent_type='<agent>' GROUP BY 1`). If a spawn fails with a 42601 mentioning a character that is in your envelope, look at your envelope before you look at the code.
+- **and read the step ORDER before concluding what did or did not happen:** a failure at `spawn_deployer` sounds post-edit and is pre-edit. `SELECT k FROM agent_definitions, jsonb_object_keys(default_config->'workflow'->'steps') k WHERE type='<agent>'` plus each step's `next_step` gives the real order in one query.
+- ⚠ **Noted, not diagnosed:** the same interpolation is a SQL-injection shape if a `client_id` can ever be externally supplied. I have **not** established whether it can, and this entry does not claim it — it is flagged so whoever owns that path can answer it.
+- **source:** `copy_quality_two_stage` applying stage-2 proposal `6d6d4975`, 2026-08-21/23; recipe now in `scripts/fire-section-edit.sh`
+- **relations:** the dangling-`page_component_id` entry (the other half of what made this apply fail twice) · register CQ-024
+- **added:** 2026-08-23, copy_quality_two_stage lane
