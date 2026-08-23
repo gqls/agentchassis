@@ -1383,3 +1383,41 @@ So a served page asserts a commercial arrangement that does not exist. It is the
 lender-panel class arriving as disclosure boilerplate: far milder, same shape, and the sort of thing
 `evidence_base` gating exists for. **Worth reporting to whoever owns claims gating; not worth
 alarm.**
+
+### 21:02Z — page phase CLOSED: 7 of 12 serving. Corrected dead-link figures, and a nuance about which unbuilt pages actually hurt
+
+`needs_page`: **7 complete, 4 needs_human_review**, none pending. `seasonal-planner` **did** build
+after all (it was still `claimed` when I reported "6 serving" — corrected here).
+
+**Serving (7):** `index` 14,831B · `how-we-assess` 15,242B · `care` 13,113B · `about` 12,830B ·
+`seasonal-planner` · `contact` 5,503B (`needs_rebuild`, serves a working form) ·
+`affiliate-disclosure` 2,374B.
+**Never built (5):** `brand-directory-index`, `brand-profile`, `buying-guide-post`,
+`buying-guides-index` (all *"no sections ready to build"*), `tool-finder` (owner-gated).
+
+**Corrected `328` measurement `[MEASURED 21:03Z]` — 9 dead link instances, but only THREE distinct
+dead targets:**
+
+| dead target | linked from |
+|---|---|
+| `/buying-guides/index.html` | index, about, how-we-assess, seasonal-planner (**4**) |
+| `/tools/finder/index.html` | index, care, how-we-assess, seasonal-planner (**4**) |
+| `/brand-directory/index.html` | index (**1**) |
+
+> **Earlier figure superseded:** at 20:58 I counted `/seasonal-planner.html` among the dead targets
+> from `index` and `care`. It built at ~21:01 and now returns 200, so the home page has **three**
+> dead links, not four. The instances stayed at 9 because `seasonal-planner`, once serving,
+> **contributes two dead links of its own**. Same total, different composition — a good reminder
+> that a count taken mid-build is a snapshot of a moving system, not a result.
+
+**The nuance, and it narrows `328` usefully:** of the five never-built pages, only **three** are
+linked. `brand-profile` and `buying-guide-post` are unbuilt **and unlinked** — orphans. So 328's
+damage is not "every unbuilt page becomes a dead link"; it is "every unbuilt page **that something
+links to**". The other two are a different and milder defect: **a plan that promises pages nothing
+references**, which costs a build slot and a review item but no visible breakage. Worth separating,
+because a fix for one does nothing for the other.
+
+**Prediction C still pending and still un-fired:** `cta-anchors=0` and `buttons=0` on `index`,
+`about` and `care` `[MEASURED 21:03Z]`, with `unresolved_cta` now at **8** items and the
+`needs_rerender` / `reconcile_rerender` items still `triaged`. The before-state is stable across the
+whole site. The rerender is the test.
