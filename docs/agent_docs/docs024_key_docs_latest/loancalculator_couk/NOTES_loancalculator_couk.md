@@ -6182,3 +6182,42 @@ page set, so the links should clear themselves — then retract the file, then t
 with the retraction. **[INFERRED] that the rebuilds drop the links; the canary and the first
 rebuilds are the test, and if the links persist the retraction stays refused and the owner
 has a prose decision.** Not doing (4) until (2) has proven itself.
+
+### (3) DONE — `/guides/index.html` is BUILT and SERVING; the LINK needs one more step
+
+[MEASURED 2026-08-23] `page_rerender:guides-index` completed 13:14→13:16:47.
+**`/guides/index.html` now returns 200**, 2 components, and the page links to **all 14
+guides**. The site's last 404 is gone: 30 active pages, 30 serving.
+
+**The fix was the composition, and the diagnosis is worth keeping**: the plan listed the page
+and composed NOTHING for it, so every build honestly reported "no sections ready to build".
+Two rows into `site_plan_sections` (`hero`, `guide-list`) and the existing item — re-driven,
+not duplicated — built it first time on its second attempt.
+
+⚠ **But the LINK does not ship yet, and the reason is a second mechanism.** The served
+header still shows only Home/About + a CTA. [MEASURED] the chrome components (`header`,
+`footer`) were last rendered **2026-08-20 17:42** and contain **no** `/guides/index.html`.
+The nav ROW has existed since 08-15, so the chrome renderer excluded it deliberately —
+**it was not linking a page that 404'd**, which is correct behaviour. Now that the page is
+deployed, the chrome has to be rebuilt.
+
+Raised the framework's own item for it rather than hand-editing chrome: **`nav_drift` →
+`nav-updater`** (48 completed fleet-wide, so a well-exercised path), copying a live row's
+shape — *"rebuild nav tables and re-render chrome so the link ships"*.
+`nav_rebuild:e31c71a8…`, priority 30.
+
+**So "restore the Guides link" is two mechanisms, not one**: build the page (done), then
+regenerate the chrome (queued). A session that only did the first would see a working page
+and a menu that still does not mention it.
+
+### (2) canary in flight — and it REGENERATES PROSE, which is the thing to watch
+
+The canary's handler is real work, not a stuck claim: orchestration `0648ce0f` sat at
+`process_sections_loop_iter_4_generate_content` for minutes. **That means a tool-page rebuild
+re-generates section CONTENT, not just the section ORDER** — so the page's tuned voice-H
+prose is rewritten by the builder. Nobody has checked that on this lane: the 08-17 index
+rebuild was verified with toolgolden, which records TOOL VALUES and would not notice changed
+copy at all.
+**Check after the canary lands** — `page_component_history` retains the previous rows, so
+the before/after is recoverable: compare the `ported-prose` and `faq` content for this page
+across the rebuild before releasing the other nine.
