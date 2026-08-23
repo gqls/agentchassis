@@ -45350,3 +45350,44 @@ my emitter logged `item filed`, the insert succeeded, the orchestrations complet
 sibling of the estate's *"a `complete` work item is not a repaired artefact"* — one level earlier,
 at the point where the work item is *born* rather than closed. Now pinned by
 `TestRequiredFieldsMissingItemsAreRoutable`, mutation-proven.
+
+---
+
+## 2026-08-23 — "18 live pages serve a duplicated section id": I inherited a PROXY, repeated it in a plan and a commit message, and only then fetched the pages (bugs_open/283 lane, RFC_032)
+
+**The claim.** That 18 live pages served a duplicated `<section id>` and 11 served an empty one.
+It came from a DB census — pages carrying a *repeated component* whose template spells
+`{{.ComponentID}}` — and it was already in the closed bug file's own dated correction, so it
+read as measured. I put it in a plan, a council submission and a commit message before I
+checked it.
+
+**What was actually true, measured at the artefact the same afternoon** (all 18 fetched,
+cache-busted): **12 serve duplicates** (one of those also serving 4 empty ids), **3 are clean**,
+**2 return 404** and **1 returns 302**. The three "clean" ones carry the repeated component and
+still serve distinct ids, because their `content_data` supplies its own `ComponentID` — a value
+that happens to equal the slot name. The 404s and the 302 are not served at all, so no id of
+theirs reaches anyone.
+
+**Why the proxy fails, and this is the reusable half:** the census counts *what the database
+would render*, and the page serves *what was rendered, when it was rendered, if it is served at
+all*. Three separate ways to diverge — a content-supplied override, a page that 404s, a domain
+parked behind a redirect — and none of them is visible from the component table. **A census over
+inputs cannot answer a question about outputs.**
+
+**What caught it:** the canary discipline, by accident. I fetched two pages before re-rendering
+because a stale page carries every improvement since it last rendered — and the second canary
+came back CLEAN, which the claim said was impossible. Had I canaried only the obvious page
+(`apis.uk`, six identical ids, the one everybody had already looked at) I would have confirmed
+the figure and moved on. **Two canaries, chosen to disagree, is what did it.**
+
+**The cheap check that would have:** fetch them. Eighteen `curl`s, ninety seconds, and the loop
+was already written for the *verification* step — I just ran it after the claim instead of
+before. **A figure you are about to put in a commit message is a figure you can afford to
+measure.**
+
+**Aggravating, and the reason this is logged rather than shrugged off:** the same file's own
+closing correction had already moved this number once (13 → 18) *and* carried the owner's
+2026-08-22 ruling that a count must carry the date it was counted. I copied the corrected
+number and its date and still did not ask what it counted. **A dated figure is protected against
+going stale, not against having always measured the wrong thing** — and the date makes it look
+more checked, not less.

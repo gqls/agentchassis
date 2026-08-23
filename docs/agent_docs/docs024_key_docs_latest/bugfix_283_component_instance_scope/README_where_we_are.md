@@ -424,3 +424,52 @@ that: the eighteen pages still serve duplicate names this evening. What exists i
 to fix them, sitting in the code waiting for the next release. The conversion itself, the
 deletion of the old system, and the re-render of those pages are the next steps and they are not
 done. The review council has the change and has not reported back yet.
+
+**2026-08-23.** Picking up where yesterday evening left off. Four things happened, and one of
+them is a mistake of mine worth reading before the good news.
+
+**The review council approved the change, and then caught something real.** Yesterday I taught
+the conversion machine to see a name written as a placeholder rather than as plain text. The
+council approved it but asked a pointed question: that machine is also used by the two guards
+that sit on the door where new calculators are born — did anything downstream depend on the old
+refusal message? I went and looked instead of reasoning about it, and yes, something did. One
+piece of code decides what to do by reading the *words* of the refusal, and it had a branch
+meaning "nothing here to worry about, save it as-is". A template of exactly the shape we are
+fixing would have taken that branch and been saved, broken, by the guard built to prevent it.
+Fixed, with tests that fail if either half is removed.
+
+**Then the council caught me making the same mistake again, in the fix.** My repair still worked
+by reading words in a sentence — so if anyone ever rewrites that sentence, the hole reopens
+silently. The reviewer pointed out I had a better option sitting right there for free. What
+stings is that I had spent the morning writing that exact lesson into our permanent traps file:
+*route on a fact, not a sentence.* I wrote the rule and then did not follow it an hour later. It
+is fixed properly now — the two pieces of code pass a plain yes/no fact between them, and if
+anyone renames it the build breaks instead of a live page. The traps file now records that
+episode too, because the gap between writing a lesson down and applying it is the actual lesson.
+
+**The conversion itself is running, and the system is doing it for us.** All four of the
+templates in use are converted. Better than that: converting a template makes the system queue
+up a refresh for every page using it, so two hundred and nineteen page refreshes went into the
+queue by themselves and have been working through steadily. I checked the first finished page —
+apis.uk's homepage, which was serving the same name six times over — and it now serves six
+distinct ones with all its text intact. One template, `pricing`, is not converted: it is not used
+on any page, and the way we file this work needs a page to hang it on. Harmless today, but it
+must be done before we delete the old naming system, or the first page to use it comes out blank.
+
+**And the mistake.** We have been saying "eighteen pages are affected". I repeated it in a plan
+and in a commit message. Then I actually fetched all eighteen, and it is twelve. Three of them
+were never broken — they happen to supply their own names — and three are not reachable at all
+(two are missing, one is a parked domain that redirects). The number came from asking the
+database what it *would* build rather than asking the pages what they *are serving*, which are
+different questions. Nobody was careless: it was written down, dated, and corrected once
+already. It was just counting the wrong thing, and being dated made it look more checked than it
+was. It is in the mistakes log with the ninety-second check that would have caught it.
+
+**Where that leaves us.** Twelve pages needed fixing; the first is confirmed fixed and the rest
+are working through the queue. Nothing a visitor sees has got worse. Still outstanding, and
+deliberately not done today: the unused template above, deleting the old naming system (which
+must come last), and one deeper issue — when a single section is re-rendered on its own rather
+than as part of a whole page, the system assumes it is the only copy on the page. For almost
+everything that is true. For exactly these templates it is not, so editing one section of one of
+those twelve pages could reintroduce a clash. It is visible when it happens rather than silent,
+and it is written up as the next piece of work rather than quietly absorbed into this one.

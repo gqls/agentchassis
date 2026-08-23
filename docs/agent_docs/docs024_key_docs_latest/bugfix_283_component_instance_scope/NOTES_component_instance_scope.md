@@ -1228,3 +1228,114 @@ still serve `id=""`.** Pass 0 is inert until the next chassis roll under a bumpe
 untouched: the section-writer birth gate (strand 2, unblocked by today's inline-JS ruling) and
 the sweeper's `querySelector` blind spot (strand 3 — **6** actionable rows, the other 25 being
 owner-ruled out).
+
+## 2026-08-23 (session 11) — the council's conditional was a fact, my own fix re-opened the thing it closed, and the "18 pages" figure was a proxy
+
+Continues session 10. Chassis rolled to **v1.0.1328 at 11:51Z**, so pass 0 (`67d34e6c1`) is
+LIVE — verified at the artefact, not the tag: `grep -ac` on `/proc/1/exe` for the string that
+commit introduced → **1**, with a pre-existing string as positive control (**1**) and a
+nonsense string as negative control (**0**). The tag alone would not have said this.
+
+### 1. Council round 1: APPROVED, and its conditional objection was true
+
+`cd6a5ef6` r1 (2026-08-22 18:10Z): **approved with 3 advisory objections, none high.**
+`bug_historian` (edit 4) and `guardian` (edit 1), both medium, both named the same thing —
+pass 0 lives in `ConvertTemplateToInstanceScope`, so **both armed birth guards inherited a
+live behaviour change tested only at the converter**. `bug_historian` put the risk as a
+conditional: *"if any caller treated the old refusal as an expected outcome…"*.
+
+**I ran the census rather than answering the conditional in prose.**
+`grep -rn RefusedReason --include="*.go"` → exactly **ONE** production consumer routes on the
+refusal TEXT (`tool_birth_instance_scope.go:111`), and that arm returns the caller's bytes
+**verbatim in both armed and unarmed mode**; the three other sites only log it. So the
+conditional was real — and worse than the seats could see. A template with **no literal ids**
+carrying `{{.ComponentID}}` where pass 0 cannot rewrite it reaches the same empty-harvest
+return, matches that arm, and is persisted verbatim under a comment reading "nothing to
+collide on" — the exact collision the guards exist to stop, arriving *through* the guard.
+Round 1's own refusal test could not catch it: all three fixtures carry a literal `id="wrap"`,
+so none reaches that return.
+
+### 2. My fix re-introduced the failure mode it was closing — and a seat caught it
+
+First cut: two guards in series (the reason names the placeholder; the arm excludes any reason
+naming ComponentID), both mutation-proven independently necessary. Round 2 approved it with a
+**medium** from `bug_historian`: that is still a **string-keyed cross-file contract**, so a
+rewording silently re-opens the hole, and *a typed field was available at zero cost* because
+this very change had already proved the report struct additive-safe.
+
+The seat was right, and the sting is that **my own LANDMINES entry, written that morning, says
+"route on a field, not a string"** — I wrote the trap down and then did not apply it to the
+code I was writing at the time. `InstanceConversionReport` now carries `NoLiteralElementIDs`
+and `ComponentIDUnswappable`; the guard reads those; `RefusedReason` is prose again. **Zero
+text routing on this seam.** Mutations E and F both fail as predicted (`0e6c62168`).
+
+### 3. The conversion is done at the CORPUS, and the framework propagates it itself
+
+4 of the 5 templates converted through the fixer (`SQL_2026-08-23_seed_…`): generic-text-block
+(179 placements / 152 pages / 21 sites), faq (82/82/15), mechanism-flow (6/6/3),
+evidence-timeseries (3/3/3) — all counts **as of 2026-08-23**. All five were the same shape:
+one well-formed templated wrapper id, no script, no lookups.
+
+⚠ **The completed item's result reads `fixed: true` with EVERY counter 0** —
+`ids_declared: 0`, `id_attrs_renamed: 0`, `hash_refs: 0`. Without `templated_id_swaps` (added
+this round, not yet rolled) a real conversion is **indistinguishable from a no-op at the work
+item**; the only reason I know it worked is that I read the template. That is precisely the
+argument the round-2 submission made, confirmed live an hour later.
+
+**RESIDUAL: `pricing` (row 6175e049) is NOT converted.** Active, same placeholder, **zero
+placements** — and `site_work_items.site_id` is NOT NULL with the site only reachable through
+a placement, so there is no honest site to file it against. Inert today (nothing renders it).
+**It is a precondition of deleting the ComponentID bindings**: retire them while this row still
+spells the placeholder and its first placement renders `id=""`.
+
+**The fixer files its own page-scoped rerenders.** The four conversions produced **219
+`page_rerender` work items** plus 2 `section_edit` items for owned pages, draining through the
+normal queue — 39 of 270 placements converted in stored HTML within the hour. I did not need
+to fire anything by hand.
+
+### 4. Two wrong turns of mine, both instructive
+
+**(a) I hand-fired 11 page-rerenders that computed the work and threw it away.** My Kafka
+dispatch carried `spec.reason=template_changed` (correct — it routes to `rerender_sections`)
+but no page name, and `save_page_sections` — which `rerender_page_sections_action.go:402` calls
+**"the ONLY writer of `rendered_html`"** — skips with `{"reason":"no page name","skipped":true,
+"success":true,"sections_saved":0}`. All 11 orchestrations read `COMPLETED`, in section mode,
+with no refusal, and **persisted nothing**. Harm check: all 11 pages still `deployed`, so the
+cost was only my time. apis.uk appeared to work and misled me for ten minutes — because its
+page is literally named `index`, and because a queued rerender (correctly shaped) landed on it
+at 12:46 while I was looking. **A COMPLETED orchestration in the right mode is not a write.**
+
+**(b) The "18 pages serve a duplicated section id" figure is a PROXY, and it is wrong.** It
+counts pages carrying a repeated *component*, which is not the same as pages *serving*
+duplicate ids. Measured at the artefact, all 18, cache-busted, 2026-08-23:
+**12 serve duplicates** (one also serving 4 empty ids), **3 are clean** (their `content_data`
+supplies its own `ComponentID`, so they already serve distinct slot-name ids), **2 return 404**
+and **1 returns 302** (webdesign.uk, the parked-domain redirect). Session 10 confirmed four
+pages at the artefact and the rest by inference; I repeated the inference in a plan and a
+commit message before checking. Logged in `WRONG_CALLS.md`.
+
+Also caught in passing: a first version of that census dropped `function` from the `GROUP BY`
+and returned **45** — a page with one `faq` and one `generic-text-block` counted as a repeat,
+which it is not. The 18 was the honest number for the question as posed.
+
+### 5. Verified at the artefact — apis.uk/index.html
+
+Before: six identical `<section id="8d81e665-…">`. After: `c-generic-text-block`, `-2`, `-3`,
+`-4`, `-5`, `-6` — **6 distinct, 0 duplicates, 0 empty**. Prose 8,722 → 8,938 chars (intact).
+Bytes 13,326 → 65,164, and **that is not my change**: 1 `<style>` block became 5 styles + 3
+scripts and the headings changed, because the page was serving copy older than the database.
+A stale page holds every improvement since it last rendered — never size a rerender by your own
+change. Its `build_status` went to `needs_rebuild` from a **pre-existing** 7-of-8 plan
+shortfall (7 `page_components` rows against 8 planned), present in the run *before* the
+conversion too.
+
+### 6. What is NOT done
+
+- The other ~230 rerenders are still draining; verify at the artefact, not at the queue.
+- `pricing` unconverted (§3) — blocks the binding deletion.
+- `{{.ComponentID}}`'s bindings and the dead `assemble_from_library` `ReplaceAll` are **not**
+  deleted. Order: corpus converted → pages rerendered → *then* delete.
+- **The occurrence-0 weakness is untouched.** `BindSingleSectionInstanceToken` supplies
+  occurrence 0 to `RenderComponentAction` and the section editor, correct only while a
+  component appears once per page — which these five templates are the ones to violate. A
+  single-section edit to one of the 12 re-collides, detectably. RFC_032's next step.
