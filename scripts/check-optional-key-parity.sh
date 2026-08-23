@@ -29,7 +29,15 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 cd "$ROOT" || exit 0
 
-STAGED="$(git diff --cached --name-only 2>/dev/null)" || exit 0
+# The staged-diff / go-test / build-failure-vs-real-failure mechanics are shared
+# with scripts/check-finding-code-registry.sh — see that file's header and the
+# council's reuse objection (corr be252395, round 2). What stays HERE is the part
+# that is actually about RFC_022: which staged paths can move the counts, and what
+# to do when they have drifted.
+# shellcheck source=scripts/lib/precommit-gotest.sh
+. "$ROOT/scripts/lib/precommit-gotest.sh" 2>/dev/null || exit 0
+
+STAGED="$(precommit_staged_files)"
 [ -n "$STAGED" ] || exit 0
 
 RELEVANT=0
@@ -48,27 +56,14 @@ while IFS= read -r f; do
 done <<< "$STAGED"
 
 [ "$RELEVANT" -eq 1 ] || exit 0
-command -v go >/dev/null 2>&1 || exit 0
 
-OUT="$(go test ./cmd/config-key-audit/ -run 'BudgetCron' -count=1 2>&1)"
-RC=$?
-[ "$RC" -eq 0 ] && exit 0
-
-if printf '%s' "$OUT" | grep -qE 'build failed|cannot find|undefined:|redeclared|syntax error'; then
-  printf '\n\033[2m── optional-key parity: NOT CHECKED (the tree does not build — not a parity claim) ──\033[0m\n'
-  printf '\033[2m   run it yourself once the tree compiles: go test ./cmd/config-key-audit/\033[0m\n'
-  exit 0
-fi
-
-printf '\n\033[1;33m── optional-key budget parity: DRIFTED (RFC_022) ──\033[0m\n'
-printf '%s\n' "$OUT" | grep -E 'check\.py|FAIL|acks' | head -8 | sed 's/^/   /'
-cat <<'MSG'
-   The budget cron's literal no longer matches the Go registry. An action missing
+precommit_run_gotest ./cmd/config-key-audit/ 'BudgetCron' \
+  'optional-key parity' \
+  'optional-key budget parity: DRIFTED (RFC_022)' \
+  '   The budget cron'"'"'s literal no longer matches the Go registry. An action missing
    from it is counted as ZERO optional keys — permanently invisible to the
    accumulation check, while the cron keeps writing a clean row every morning.
-   Regenerate (the command is in check.py's own comment), then RE-APPLY the overlay
+   Regenerate (the command is in check.py'"'"'s own comment), then RE-APPLY the overlay
    or the cluster keeps the old literal:
-     kubectl apply -k deployments/kustomize/services/optional-key-budget-check/overlays/production/uk_001
-   Advisory — this never blocks.
-MSG
+     kubectl apply -k deployments/kustomize/services/optional-key-budget-check/overlays/production/uk_001'
 exit 0

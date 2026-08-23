@@ -44,17 +44,27 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 cd "$ROOT" || exit 0
 
+# The staged-diff / go-test / build-failure-vs-real-failure mechanics are SHARED
+# with scripts/check-optional-key-parity.sh rather than re-implemented here — the
+# council's reuse seat objected to the first cut on exactly that ground (corr
+# be252395, round 2, medium: "two independently-built mechanisms solving
+# overlapping problems in the same package, each maintained separately"), and this
+# lane has no standing to argue: retiring pairs of hand-maintained things that
+# must stay in sync is most of what bugs_open/358 is.
+# shellcheck source=scripts/lib/precommit-gotest.sh
+. "$ROOT/scripts/lib/precommit-gotest.sh" 2>/dev/null || exit 0
+
 REGISTRY="docs/agent_docs/docs024_key_docs_latest/architecture_review/finding_code_registry.json"
 
-STAGED="$(git diff --cached --name-only 2>/dev/null)" || exit 0
+STAGED="$(precommit_staged_files)"
 [ -n "$STAGED" ] || exit 0
 
-# The reader files, read out of the registry itself so this can never become a
+# The reader files, read out of the registry ITSELF so this can never become a
 # fourth hand-maintained roster. Read from the WORKING TREE copy: a staged
 # registry edit that adds a reader should put that file in scope immediately.
 READERS=""
 if [ -f "$REGISTRY" ] && command -v python3 >/dev/null 2>&1; then
-  READERS="$(python3 - "$REGISTRY" <<'PY' 2>/dev/null || true
+  READERS="$(python3 - "$REGISTRY" <<'PYREADERS' 2>/dev/null || true
 import json, sys
 try:
     d = json.load(open(sys.argv[1]))
@@ -67,7 +77,7 @@ for k, v in d.items():
         r = (v.get("reader") or "").strip()
         if r:
             print(r.rsplit(":", 1)[0] if r.rsplit(":", 1)[-1].isdigit() else r)
-PY
+PYREADERS
 )"
 fi
 
@@ -79,7 +89,9 @@ while IFS= read -r f; do
     cmd/config-key-audit/findingcodes*)   RELEVANT=1 ;;
     platform/orchestration/actions/finding_code_roster_test.go) RELEVANT=1 ;;
     *)
-      # A reader file named by a live `consumed` entry.
+      # A reader file named by a live `consumed` entry. This clause is the one
+      # that catches a session deleting the query out from under a declaration
+      # without ever touching the registry.
       while IFS= read -r r; do
         [ -n "$r" ] && [ "$f" = "$r" ] && RELEVANT=1
       done <<< "$READERS"
@@ -88,22 +100,14 @@ while IFS= read -r f; do
 done <<< "$STAGED"
 
 [ "$RELEVANT" -eq 1 ] || exit 0
-command -v go >/dev/null 2>&1 || exit 0
 
-OUT="$(go test ./cmd/config-key-audit/ -count=1 2>&1)"
-RC=$?
-[ "$RC" -eq 0 ] && exit 0
-
-if printf '%s' "$OUT" | grep -qE 'build failed|cannot find|undefined:|redeclared|syntax error'; then
-  printf '\n\033[2m── finding-code registry: NOT CHECKED (the tree does not build — not a registry claim) ──\033[0m\n'
-  printf '\033[2m   run it yourself once the tree compiles: go test ./cmd/config-key-audit/\033[0m\n'
-  exit 0
-fi
-
-printf '\n\033[1;33m── finding-code registry: a declaration does not hold up (bugs_open/358) ──\033[0m\n'
-printf '%s\n' "$OUT" | grep -E '^(---|\s+findingcodes_test|\s+finding)' | head -8 | sed 's/^/   /'
-cat <<'MSG'
-   These are the arms that CANNOT run in the daily CronJob — that image ships no
+# NO -run FILTER, deliberately. A filter is a roster, and a roster drifts: a new
+# test whose name did not match it would silently never run, which is the exact
+# class this lane keeps retiring. The package is the unit.
+precommit_run_gotest ./cmd/config-key-audit/ '' \
+  'finding-code registry' \
+  'finding-code registry: a declaration does not hold up (bugs_open/358)' \
+  '   These are the arms that CANNOT run in the daily CronJob — that image ships no
    source tree and runs --no-source. Commit time is where they live, so a failure
    here is not advisory noise: it is the only place this gets caught.
    Most likely one of:
@@ -111,7 +115,5 @@ cat <<'MSG'
        (a reader reference pointing at the wrong file reads as a CLOSED LOOP);
      * a `reader_sink` the reader file never mentions;
      * a code declared with a disposition whose required field is missing.
-   Re-check by hand:  ./scripts/audit-finding-codes.sh
-   Advisory — this never blocks.
-MSG
+   Re-check by hand:  ./scripts/audit-finding-codes.sh'
 exit 0
