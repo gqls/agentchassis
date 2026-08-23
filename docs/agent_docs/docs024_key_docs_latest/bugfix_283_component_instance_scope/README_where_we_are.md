@@ -473,3 +473,43 @@ than as part of a whole page, the system assumes it is the only copy on the page
 everything that is true. For exactly these templates it is not, so editing one section of one of
 those twelve pages could reintroduce a clash. It is visible when it happens rather than silent,
 and it is written up as the next piece of work rather than quietly absorbed into this one.
+
+**2026-08-23, evening.** You asked me to convert the unused `pricing` template and then sort out the
+bindings. Both are done, and the second half turned up something that changes the picture.
+
+**Pricing, and two others I hadn't seen.** When I went to convert `pricing` I widened the search to
+every place in the database that could hold a template, rather than the one table I'd checked
+before. There were three of these old-style templates, not one: `pricing`, plus a `header` and a
+`footer` left over from before the current chrome system. The latter two are switched off and used
+nowhere, but I converted them anyway — once the old naming is gone, switching one back on would
+produce a blank name that none of our checks can see. All three are converted, and the count of
+templates still using the old style is now zero.
+
+**A trap I nearly walked into.** Two of the files that originally created these templates are not
+recorded as having been run, and they overwrite on re-run. So the next time anyone runs our database
+update script, it would have quietly put the old naming back into two of the templates we fixed this
+morning. Fixed by correcting those two files.
+
+**The bindings: two of three removed.** The third lives in a file that another session is currently
+working in, and their work-in-progress calls three functions from a file they haven't committed yet.
+Because of how our commit rules work, committing that file would have taken their half-finished work
+along with mine and broken the build for everyone. So I left that one, and it's written down in
+three places so it gets finished. It's harmless meanwhile: nothing uses the old naming any more, so
+a leftover connection to it changes nothing.
+
+**And the thing you should actually know.** The fix does not stay fixed. Of the twelve pages that
+were serving duplicate names this morning, nine are fixed and three have already gone back to
+serving duplicates — not through anything I did, but because another team's routine content update
+ran over them at ten to six this evening. When any part of our system re-renders a single section on
+its own, rather than a whole page at once, it assumes that section is the only copy on the page. For
+almost every component that's true. For these it isn't.
+
+So the honest position: the underlying template work is done and will stay done, but individual
+pages will keep flipping back until that assumption is fixed, and nothing tells us when they do. I
+have written it up as the next piece of work with a live example anyone can check in ten seconds.
+
+**One more thing worth flagging, because it would have fooled a status report.** Every summary
+number looks healthy: all four templates converted, 244 of 275 page sections carrying the new
+naming. Those numbers stay healthy while pages break, because two sections with the *same* new name
+still count as two sections with the new naming. The only check that sees the problem is asking a
+served page whether its names are actually different from each other.

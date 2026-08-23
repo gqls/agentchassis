@@ -1339,3 +1339,80 @@ conversion too.
   occurrence 0 to `RenderComponentAction` and the section editor, correct only while a
   component appears once per page — which these five templates are the ones to violate. A
   single-section edit to one of the 12 re-collides, detectably. RFC_032's next step.
+
+## 2026-08-23 (session 11, later) — `pricing` converted, the bindings retired, and the conversion turns out not to HOLD
+
+Owner asked for both: convert the `pricing` row, then sort out the bindings.
+
+### 7. The census found THREE rows, not one
+
+My earlier "only `pricing` remains" was an `is_active`-filtered query. Scanning **every live table
+with a template-or-html column** (a `DO` block over `information_schema`, backup tables excluded by
+name — not a guess at which table matters) found the placeholder in exactly two places:
+`component_versions.html_template` (history, which is its job) and `content_components.html_template`
+— **3 rows**: `pricing` (ACTIVE, 0 placements), `header` and `footer` (both INACTIVE, 0 placements,
+same 2025-11-21 library seed). All three the same shape: one well-formed templated wrapper id, no
+script, no lookups.
+
+All three converted (`SQL_2026-08-23b_…`). The inactive two deliberately: they cannot render today,
+but after the bindings go a reactivated row renders `id=""`, which the detector cannot see. **Count
+of rows spelling `{{.ComponentID}}`: 3 → 0.**
+
+Not hand-written: each conversion is the output of the REAL converter and passed the REAL gate, with
+a CONTROL proving the gate REFUSES each unconverted original (a gate that accepts everything vouches
+for nothing). Only the persistence is by hand, mirroring `writeScopedTemplate` (snapshot at MAX+1,
+then UPDATE), each UPDATE guarded on the row still spelling the placeholder.
+
+### 8. A replay hole that would have undone this morning's work
+
+`247_mechanism_flow_component.sql` and `250_evidence_timeseries_component.sql` both create their
+component with `id="{{.ComponentID}}"`, both carry `ON CONFLICT (name) DO UPDATE`, and **neither is
+recorded in `schema_migrations`** — and the runner's entire pending test is "filename not in the
+ledger" (`run-migrations.sh:225`). A migration run would have replayed them over two templates
+converted hours earlier. One line changed in each; every other replay hazard those files carry is
+left exactly as it was rather than quietly widened.
+
+### 9. Two of three bindings deleted; the third is a HEAD-safety refusal
+
+`rerender_page_sections_action.go:641` (live binding) and `assemble_from_library.go:309` (dead
+`ReplaceAll`) are gone. **`v3_site_actions.go:2385` is edited in the working tree and NOT committed**:
+that file carries another session's uncommitted work — five further hunks calling three functions in
+`platform/orchestration/actions/section_metadata_keys.go`, which is **UNTRACKED and absent from
+HEAD**. A pathspec commit takes the working-tree file whole, so committing it would put calls to
+undefined symbols on the shared branch and break the build for every session. Inert to leave (zero
+templates reference the placeholder), named so it is finished rather than forgotten.
+
+⚠ **The first HEAD extract was stale and that is what surfaced this.** The build failed on symbols I
+had never heard of; the instinct "my change broke it" was wrong both ways — it was neither my change
+nor a stale extract alone, it was another session's WIP inside a file I had edited. Re-extract from
+CURRENT HEAD before believing a build failure, then read `git diff --numstat` on your own files.
+
+### 10. ⚠ THE CONVERSION DOES NOT HOLD — and my §9b trigger claim was too narrow
+
+Final artefact sweep of the 12 pages that served duplicates this morning: **9 FIXED, 3 colliding
+again.** All three carry the same signature — two sections both stamped the occurrence-0 token.
+
+The 9 were written 12:50–13:24 by the page-rerender queue, which uses `InstanceCounter` and is
+correct. The 3 were rewritten at **17:41–17:51** by `content_rewrite` items from **`backfill-353`**,
+an unrelated lane's content backfill running through `page-build-handler`. Not a rebuild I caused,
+not a section edit, not the owned-page route (all three are `rebuild_policy='generic'`).
+
+So the defect is **any path that renders a section on its own**, not "a build" as RFC_032 §9b said.
+Those are ordinary high-volume operations, so a page fixed today is fixed only until the next
+content operation touches it, and nothing warns anyone when it flips back. Corrected in RFC_032 §9d.
+
+**The measurement trap this creates, which is the transferable part:** all four templates are
+converted, and 244 of 275 placements carry a `c-` prefix — both numbers stay healthy while pages
+re-collide, because `c-generic-text-block` twice IS a `c-` prefix twice. **Only distinctness per
+page, at the artefact, can see it.** Any dashboard built on the corpus counts would have reported
+this work as finished.
+
+### 11. Queue outcome and the residuals that are NOT mine
+
+325 rerenders complete, **3 failed**, queue drained. The failures are other lanes' territory and the
+guards are behaving: `webdesign.uk/index.html` ×2 refused by the claims floor (15 banned claims in
+its content), `loancalculator.co.uk/tools/loan-vs-savings.html` with 1 of 6 sections unable to
+resolve a component. 31 placements remain unconverted across 8 domains — a mixed bag of those
+failures plus pages whose rerender completed without rewriting (the escalate-to-writer path,
+including the four idea.uk pages serving `<section id="">` since 2026-08-12). **Fixing the cause did
+not repair the casualties**, and the casualties are named rather than assumed to heal.
