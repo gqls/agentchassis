@@ -138,6 +138,8 @@ PY
   bare-plural forms.
 - **`live` does not match `lives`.** `live (for )?[0-9]` misses `lives for 6 weeks`.
   Use `lives?`.
+- **RE-RUNNABLE NOW: `check_evidence_base.py <domain>`** (in this directory). It asserts
+  three things and **exit 2 means check 3 did not run** — see below.
 - **Assert the clean cases too, not only the catches.** A ban list that matches
   everything is useless in the other direction; the suite here holds **8** ordinary
   bee sentences that must stay clean as of 2026-08-22.
@@ -186,3 +188,47 @@ that after a deploy, nothing shipped.
 **Gotcha** — an unbusted GET tells you what a cache thinks, not what is deployed.
 **And re-run the §2 tools-api probe after any publish**, because "the bees page went
 live" and "the API still answers" are independent facts.
+
+
+## 7. The evidence-base test suite, and the five gaps it found [PROVEN 2026-08-23]
+
+```bash
+python3 docs/agent_docs/docs024_key_docs_latest/apis_uk_bees_homepage/check_evidence_base.py apis.uk
+# exit 0 = all three checks passed · exit 1 = a gap or false positive · exit 2 = check 3 could not RUN
+```
+
+Three assertions, and the third is the one people leave out:
+
+1. every FORBIDDEN sentence is caught — no gaps (**23** as of 2026-08-23);
+2. every PERMITTED sentence is clean — no false positives (**12**);
+3. **the site's own LIVE PROSE is clean** — the list does not block the copy we want
+   (**8,907** chars of the framework's own bee prose, zero hits).
+
+**Why it exists: inspecting a ban list tells you what you MEANT, not what the regexes DO.**
+All five defects below passed `jq -e .` and looked correct on the page. Every one was found
+by asserting on SENTENCES:
+
+| gap | why it was invisible |
+|---|---|
+| `\\.` decoding to "literal backslash", not "decimal point" | a **VALID** regex, so evidence_base's own stated safety net ("an invalid regex degrades to a literal substring") never fired. Would have read clean for ever. |
+| `2 million flowers` — the most repeated bee statistic there is | a magnitude WORD sat between the number and the noun; every digit-adjacent pattern needs them adjacent |
+| `colonies fell by 40%` | the decline pattern required the decline word AFTER the figure |
+| `the population has halved since 1990` | `halved` carries its own magnitude and offers no number to anchor on |
+| `sign up to our newsletter` | slipped between `sign up` and `our` in the commercial pattern |
+
+**Gotchas**
+- **A failed page fetch is FATAL (exit 2), deliberately.** The first cut returned empty on
+  any exception and still printed `ALL CONSISTENT` — and Cloudflare 403s urllib's default
+  User-Agent, so check 3 silently did not run on the very site it was written for. **A check
+  that quietly does not run is worse than no check**: it produces a pass that outlives the
+  blindness. `--skip-live` allows it deliberately (e.g. before first deploy).
+- **`$?` after a pipe is the PIPE's exit code.** Verifying the above with
+  `python3 check.py … | tail -3; echo $?` reported **0** while the script was correctly
+  printing `INCOMPLETE` and returning 2. Measure with `cmd >/dev/null 2>&1; echo $?`, or
+  `${PIPESTATUS[0]}`.
+- **The two lists ARE the specification.** Extend `FORBIDDEN` the moment you think of a
+  sentence the page must never contain; that is cheaper than reasoning about regexes.
+- Definitional numbers are deliberately PERMITTED (`six-sided cells`, `six legs`, `one
+  queen`) via a `writer_block` carve-out — a number that is part of what a thing IS is not
+  a measurement. The test asserts both directions so the carve-out and the bans cannot drift
+  apart.

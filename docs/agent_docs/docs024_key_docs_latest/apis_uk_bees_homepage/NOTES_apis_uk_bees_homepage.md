@@ -309,3 +309,58 @@ asserts no quantities — it is safe to leave standing until the framework can r
    got wrong once: `curl -sS https://apis.uk/ | sed 's/<[^>]*>//g'`.
 2. Assert **both** `content_data` and `rendered_html` are clean, per the render-cache landmine.
 3. Re-run the tools-api liveness POST as an independent fact.
+
+## 2026-08-23 — pre-flight on my own change: the ban list had five gaps, all found by testing sentences
+
+With the rewrite blocked, the useful thing was to check that **my** change will work when it
+finally runs. I added 32 bans yesterday; if they over-block, the rewrite fails or comes out
+stunted, and I would not learn that until September.
+
+Started from the right question — *does the list block the copy we WANT?* — and ran it over
+**8,907** chars of the framework's own live bee prose. **Zero hits.** Good, and it could
+have come out otherwise.
+
+Then the sharper self-consistency check: **do my own new exemplars trip my own bans?** If
+they did, I would be telling the writer to imitate sentences the gate rejects. They did not.
+But it surfaced a genuine ambiguity I had introduced: my exemplar says *"The cells settle
+into six sides"* while `writer_block` said *"do not state any count"*. A writer reading both
+gets a mixed signal and could have dropped the comb-geometry section, which is one of the
+best on the page. Added a **definitional-number carve-out**: a number that is part of what a
+thing IS (six sides, six legs, one queen) is not a quantity claim; a number that could come
+out different if measured again still is.
+
+**Then I tested the carve-out against the bans, and found the first real gap** — and four
+more behind it. In order, each found by asserting on a sentence rather than by reading the
+list:
+
+1. **`colonies fell by 40%` — nothing caught it.** The decline pattern required the decline
+   word to follow the figure. This is the most loaded claim available on this subject.
+   Fixed with a blanket percentage ban (consistent with `writer_block`, which forbids all
+   percentages) plus a verb-first trend pattern.
+2. **`the population has halved since 1990`** — `halved` is self-quantifying and offers no
+   number to anchor on. Added the self-quantifying-verb class. ⚠ `half` as a bare word is
+   deliberately NOT banned: *"half the bees leave with the old queen"* is the correct
+   description of a swarm and is one of our own exemplars.
+3. **`the species was named in 1758`** — no date ban existed at all, though `governing_rule`
+   has always required dates to trace to a registered fact. Added, requiring a preposition
+   so the footer's copyright year does not trip it.
+4. **`sign up to our newsletter`** — slipped between `sign up` and `our` in the commercial
+   pattern. Added a standalone audience-capture class.
+
+**32 → 37 bans.** Final state: 23 forbidden sentences all caught, 12 permitted all clean,
+8,907 chars of live prose clean.
+
+### The checker is now a script, and it had the same disease it was written to cure
+
+`check_evidence_base.py` in this directory. Its first cut returned empty prose on any
+exception and printed **`ALL CONSISTENT`** — and Cloudflare 403s urllib's default
+User-Agent, so **check 3 silently did not run on the very site it was written for**. That is
+the blind-pass failure mode, in a script whose whole job is preventing blind passes. A
+failed fetch is now fatal (exit 2), with an explicit `--skip-live` for the pre-deploy case,
+plus a short-page guard so an empty body cannot be called clean.
+
+**Misstep in verifying that fix:** I mutation-tested the new exit code with
+`python3 check.py … | tail -3; echo "exit=$?"` and read **exit=0**, and briefly believed the
+guard had not worked. `$?` after a pipe is **`tail`'s** status. The guard was fine; the
+measurement was not. Re-measured with `cmd >/dev/null 2>&1; echo $?` → **2**, `--skip-live`
+→ 0, control → 0.
