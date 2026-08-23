@@ -499,3 +499,40 @@ guarantee change on `BestLabelMatch` (the commit hook's architecture signal fire
   "Browse all guides" landing on `/about.html`). Measured: **28 pages named index/home fleet-wide,
   all 28 at the site root, 0 non-root**. The hypothesis was wrong and the real mechanism was the
   alphabetical tie. One query, and it stopped me "fixing" something that was not broken.
+
+### 6. Phase B council verdict: **APPROVED** (13 reviewers, 4 abstained, 4 advisory objections)
+
+`SUBMISSION_CORR = 00732119-4e24-43c3-bd5e-ba30ced47f15`, verdict 2026-08-23 13:14:05Z,
+`decided_by: approved with 4 advisory objection(s) — none high-severity`. The commit already
+carries `Council-Submitted:`, and `098` resolves the correlation at report time, so it is credited
+without an amend (forward-only forbids one anyway).
+
+**Approval is not silence. What the seats found, and what I did about each:**
+
+- **`architecture` (low) — ACTED ON.** "If a 4th caller appears it would silently inherit
+  ambiguity-refusal semantics tuned for CTA repair — worth a comment at the symbol noting the
+  consumer count is closed, not open." Correct and cheap: `BestLabelMatch`'s doc now lists the
+  three call sites with the grep that enumerates them, and says plainly that refusing is the right
+  default when the consequence is rewriting a live button and may be wrong when it is only a weaker
+  suggestion.
+- **`bug_historian` (medium) — CHECKED, both are CLOSED.** It asked whether `bugs_open/092` and
+  `bugs_open/097` are distinct from this. They are, and neither is open: `bugs_closed/092` is the
+  page WRITER never being told which pages exist; `bugs_closed/097` is in-body CARD links to unbuilt
+  pages. Different surfaces — this change touches the CTA url fields of six components. Worth
+  knowing that 097 is the same *family* as my build-state finding (§ the 43 planned-never-deployed
+  pages), which is a point in favour of the predicate, not against it.
+- **`editquality` (medium) — a REAL submission gap, not a code gap.** It observed that
+  `BestLabelMatch` "almost certainly has its own dedicated unit tests… none are shown in the edit
+  list", and that if so the package would not compile and "full suite green" would be false. The
+  file (`label_match_test.go`) **is** updated and **is** in the commit — I simply left it out of
+  the seven-edit plan. That is the same class of defect that gated Phase A four times: the
+  submission understating what the change touches. **A generated edit LIST would have caught it,
+  the way generated sketches caught the drift** — the edit list is still hand-written here.
+- **`guardian` (medium) — NOT actionable by this lane, and it is the right objection.** "A
+  wide-surface, silent (next-build-triggered) content change across the whole multi-tenant fleet
+  with no staged/canary path, justified only by an owner 'no opt-out flags' ruling." This is my own
+  risk #1 in the submission, said back to me by a reviewer, and it belongs to the owner: a per-site
+  canary would need a flag, and the flag is what the 2026-08-18 ruling forbids. Recorded in the
+  handoff and in `RFC_047`; not resolved here.
+- **`prior_art_librarian` (medium)** — wanted the three-call-site enumeration shown rather than
+  asserted. Fair; it is now in the code comment above, with the command that produces it.

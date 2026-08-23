@@ -204,6 +204,23 @@ func NewLabelMatchCandidate(id, name, title, url string, interactive bool, navLa
 // match. dartsonline's "See how each brand differs, spec by spec" resolves to
 // /about.html on an identity-token win ("spec"), not a tie. No tie rule sees
 // that, and no stopword list can (`spec` is distinctive on that site).
+//
+// ⚠ THE CONSUMER SET IS CLOSED, NOT OPEN, and the refusal above is tuned for
+// it (council 00732119, architecture seat). Three non-test call sites, all CTA,
+// verified by `grep -rn "BestLabelMatch(" --include=*.go platform/ internal/
+// pkg/ cmd/` on 2026-08-23:
+//
+//	resolve_internal_links_action.go   setCTAField        (build writer)
+//	rerender_page_sections_action.go   applyCTARecompute  (repair writer)
+//	discovery_checks/check_misdirected_cta.go  ctaClassifyAnchor (detector,
+//	                                   itself reused by check_cta_nonpage.go)
+//
+// A FOURTH consumer — a breadcrumb or sitemap label matcher, say — would
+// silently inherit "refuse rather than guess", which is the right default when
+// the consequence is REWRITING A LIVE BUTTON and may be the wrong one when the
+// consequence is merely a weaker suggestion. Decide it deliberately at the new
+// call site, and add it to the list above; do not assume the semantics were
+// chosen with your case in mind.
 func BestLabelMatch(label string, candidates []LabelMatchCandidate) (best LabelMatchCandidate, ok bool, ambiguous bool) {
 	tokens := LabelTokens(label)
 	if len(tokens) == 0 {
