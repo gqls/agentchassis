@@ -109,3 +109,21 @@ The render-time population is now **visible and honest**, not repaired. It parks
 `needs_human_review` with the facts and the repair paths on the row. Repair needs
 `bugs_open/333` plus a producer that writes the convert arm's read-set. Both named, neither
 taken here. Do not let anyone write that 367 "made the render-time findings repairable".
+
+## 2026-08-23 — my three WRONG_CALLS entries were swept into another lane's commit
+
+Appended them, then committed by pathspec — and the pathspec matched nothing, because the file was
+already clean. Another session had committed `WRONG_CALLS.md` in the gap between my append and my
+commit, taking my three entries with it. They are at HEAD, in `bb1e144b5` (the `bugs_open/328`
+lane's commit, whose subject is about anchor suppression and says nothing about any of this).
+
+Nothing is lost and forward-only holds, so there is nothing to undo. Recording it because it is the
+exact scenario CLAUDE.md describes — *"it cannot stop a session that still runs `git add -A` from
+sweeping up yours"* — and because the very next commit on that file
+(`a79a65b09`) is another lane writing up **the same thing happening to them**: *"I ran the
+append-only gate right after APPENDING instead of right before COMMITTING, and swept four other
+lanes' entries into cdfa3cb35."* Two lanes, one afternoon, same file.
+
+The practical lesson for a shared append-only doc: **the window between appending and committing is
+where your work belongs to everybody.** Append and commit in the same breath, and do not assume a
+`git status` from thirty seconds ago still describes the file.
