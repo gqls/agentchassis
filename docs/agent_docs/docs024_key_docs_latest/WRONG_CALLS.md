@@ -46665,3 +46665,51 @@ otherwise, and one was a correct measurement with an invented purpose. This is a
 measurement, correctly run, **generalised past its population** and then hardened into a noun
 ("a defect") that the evidence does not support. Three different ways to be wrong with a query
 that ran fine.
+
+## 2026-08-23 — `loanzy_uk_example_site` lane: I quoted a 24-hour retention window as "its entire history" — and the LANDMINE for it already existed, was correct, and did not reach me
+
+**The claim.** In `bugs_open/376` §4a I bounded a finding with *"`vertical-exemplar-researcher` has
+**4 runs in its entire history**"*, from `count(*)` over `orchestration_states`. I wrote it as the
+*cautious* half of the entry — the sentence telling readers not to over-claim.
+
+**It was false.** `orchestration_states` is a ~24h rolling window: its oldest row was
+`2026-08-22 19:22:13Z`, **exactly 24h** before my query. The durable tables say the step has run
+**32 times across 27 sites since 2026-04-02** (`site_work_items` ∪ `site_work_items_archive`,
+`item_type='needs_strategy'`). Four was what had not yet been reaped.
+
+**Worse than a small sample — an unanswerable question.** The historical *selections* lived in
+`orchestration_states.collected_data`, which is reaped with the row. So "has this prompt branch ever
+fired?" **cannot be answered from that table at any sample size.** Not under-powered: structurally
+incapable. Short retention fails *directionally* — it can only ever manufacture absence — so it
+fails toward whatever absence you were already testing for.
+
+**What caught it:** the `bugs_open/326` session, who had cited the same 0/4 from the same table an
+hour earlier in the opposite direction. Neither of us caught our own.
+
+**The part that makes this worth logging rather than just fixing: the guard already existed and was
+excellent.** `LANDMINES.md` has carried an entry on precisely this since **2026-08-02** — it names
+the ~24h reap, warns that a whole-table `min()` reads twenty days because `CANCELLED`/`RUNNING`/
+`INITIALIZED` are not reaped, prescribes bounding retention **per status**, and says to re-source
+durable claims from a table with no retention job. Every word of it applied. Neither of us read it.
+
+**Why it did not fire, which is a delivery fact rather than a content one.** The `SessionStart` hook
+surfaces landmines by matching footprints against files **already dirty in the working tree**. This
+entry's footprint is a **table**, not a path, so it can never be auto-surfaced — the only route to it
+is grepping `LANDMINES.md` for the table you are about to query, and neither session did.
+**`MEMORY.md`'s own index carries the reminder to do exactly that** (*"grep LANDMINES for the SYMBOL
+you are about to trust — the hook only matches files already DIRTY"*), which I had loaded and did
+not act on.
+
+**The cheap check, and it is two seconds:** before any `count(*)`, `min()` or absence claim over a
+table you have not personally established the retention of —
+`grep -n '<table>' docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`, and
+`SELECT min(created_at), max(created_at), count(*) FROM <table>;` **in the same query as the count**,
+printing the window beside the figure. A rate or a census quoted without its window is the failure
+mode, not a style preference.
+
+**What it cost:** one false sentence in a filed bug, corrected within the hour with the durable
+query beside it. **What it says beyond this lane:** two independent sessions hit one well-documented
+trap inside an hour on the same evening. That is not two careless readers — it is evidence that a
+table-footprinted landmine has no delivery path, and it is the strongest argument yet for D10
+(footprinted corpus) actually shipping. Recorded here rather than as a new landmine, because
+**duplicating the entry would not fix the thing that is broken, which is that nobody reads it.**
