@@ -134,3 +134,71 @@ correct — a stale cache and a broken zone are indistinguishable from the clien
 `https://www.garden-tools.uk/` → **301 → `https://garden-tools.uk/`**. That 9-byte 404 is the
 positive signal to require before dispatching any build: the route is live and the bucket is
 empty. `sites` and `site_work_items` remain at **0 rows** — nothing is built.
+
+## "Why hasn't my build started?" — read the selector, don't watch your row (added 2026-08-23)
+
+A submitted item sits at `triaged` with `claimed_at` NULL for tens of minutes on a healthy estate.
+That looks identical to `bugs_open/327`'s dispatch drop and to a stalled queue, and **your own row
+cannot tell the three apart**. Ask the selector instead.
+
+```sh
+# 1. Did it land at all? (a row exists = not the 327 drop)
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+ "SELECT item_type, status, claimed_at FROM site_work_items w JOIN sites s ON s.id=w.site_id
+   WHERE s.domain='<domain>';"
+
+# 2. Is the fleet dispatching at all, or is it just not you?
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+ "SELECT max(claimed_at) AS last_claim_fleetwide FROM site_work_items;"
+
+# 3. THE ONE THAT ANSWERS IT — how many sites are ahead of you in the FIFO?
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+ "SELECT count(DISTINCT wi.site_id) AS sites_ahead
+    FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+   WHERE s.locked_at IS NULL AND wi.status IN ('triaged','approved')
+     AND wi.attempt_count < wi.max_attempts
+     AND (wi.retry_after IS NULL OR wi.retry_after <= NOW())
+     AND wi.created_at < '<your item created_at>'
+     AND NOT EXISTS (SELECT 1 FROM site_work_items a
+                      WHERE a.site_id=wi.site_id AND a.status='claimed');"
+```
+
+**Multiply `sites_ahead` by ~90s and that is your wait.** The upstream picker is
+`build-pipeline-trigger`, one tick per ~90s, and its `find_dispatchable_site` step orders
+`wi.created_at ASC, wi.priority ASC, wi.id ASC LIMIT 1` — **FIFO by item age; `priority` only
+breaks ties within an identical timestamp.** Measured 2026-08-23: a priority-**5**
+`needs_domain_research` waited **24m52s** behind 64 priority-**110** `content_rewrite` items,
+purely because they were created earlier. Read the live selector before quoting this — it is config,
+so it can change without a deploy:
+
+```sh
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA -c \
+ "SELECT jsonb_pretty(default_config->'workflow'->'steps'->'find_dispatchable_site')
+    FROM agent_definitions WHERE type='build-pipeline-trigger'
+     AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;"
+```
+
+⚠ **A site with ANY `claimed` item is invisible to the selector** (`NOT EXISTS … status='claimed'`),
+so a build is a strictly sequential walk of its own items no matter how parallel the fleet is — and
+a stuck `claimed` item halts that site's whole build while looking like nothing is wrong.
+
+## Collateral check that reports UNCHANGED/CHANGED instead of eight md5s to eyeball (added 2026-08-23)
+
+Do not diff hashes by eye, and **do not use a baseline from another lane's notes without re-pinning
+it first** — all eight moved under us on 2026-08-20 (`bugs_open/283`) while still reading as the
+current pin. Pin your own values immediately BEFORE dispatch, then:
+
+```sql
+WITH baseline(id8, html_md5, schema_md5) AS (VALUES
+  ('7d8b0503','<html>','<schema>'), ... )
+SELECT b.id8, cc.function,
+       CASE WHEN md5(cc.html_template)=b.html_md5 THEN 'UNCHANGED' ELSE '*** HTML CHANGED ***' END AS html,
+       CASE WHEN md5(cc.input_schema::text)=b.schema_md5 THEN 'UNCHANGED' ELSE '*** SCHEMA CHANGED ***' END AS schema
+FROM baseline b JOIN content_components cc ON left(cc.id::text,8)=b.id8 ORDER BY cc.function;
+```
+
+**Prove the instrument discriminates before you trust a clean result**: this one returned
+`*** HTML CHANGED ***` on all eight against the stale 08-19 pins the same morning it returned
+`UNCHANGED` on all eight against the fresh ones. A check that has never once come out the other way
+is not evidence. Full harness: `after_test.sh` (this session's scratchpad; promote it here if it
+survives a second run).
