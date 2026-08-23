@@ -1,3 +1,7 @@
+> # ⚠ SUPERSEDED 2026-08-23 — read `HANDOFF_2026-08-23_continue_here.md` first.
+> Wrong about the two things that matter: `327` is **closed** (verified on two real writes), and run
+> 4's proposal is **applied and live**. Kept for the measurements and the council record.
+
 # HANDOFF 2026-08-20 — continue here
 
 **Lane:** `copy_quality_two_stage`. **Supersedes `HANDOFF_2026-08-19_continue_here.md`**, which is
