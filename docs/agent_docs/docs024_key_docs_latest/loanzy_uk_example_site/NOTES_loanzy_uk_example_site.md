@@ -663,3 +663,63 @@ when it stopped.
   estate a greenfield domain can wait half an hour before a single agent looks at it, and
   `082` returning in seconds is not evidence about any of it. If you need to know when your build
   will start, count eligible sites with an older oldest-item — do not watch your own row.
+
+### 17:49Z — FIRST REAL DEFECT OF THE RUN: one unsupported exemplar fails the whole vertical-research step, and the step's own record says `success: true`
+
+`needs_vertical_research` (created 17:44:56, claimed 17:48:07) failed at 17:49 and bounced back to
+`triaged`. Verbatim from `site_work_items.error` `[MEASURED 17:49Z]`:
+
+```
+Request 4ac4c952-55c0-4a94-b66d-09bc9cfd3a02 failed: API error: We apologize for the
+inconvenience but we do not support this site. If you are part of an enterprise and want to have
+a further conversation about this, please fill out our intake form here:
+https://fk4bvu0n5qp.typeform.com/to/Ej6oydlg (code: WEBSCRAPE_ERROR) (code: CHILD_ORCHESTRATION_FAILED)
+```
+
+**The mechanism, read off the failed orchestration** (`vertical-exemplar-researcher`, FAILED at
+step `crawl_exemplar_2`). The agent asks an LLM to pick three exemplar sites to study, and got:
+
+| # | url | crawl |
+|---|---|---|
+| 1 | `https://www.gardenersworld.com` | **succeeded** |
+| 2 | `https://www.thespruce.com` | **refused by the scrape provider** — `WEBSCRAPE_ERROR` |
+| 3 | `https://www.which.co.uk` | never attempted — the step died at 2 |
+
+**Three things worth separating, because only one of them is the scrape provider's fault:**
+
+1. **No partial credit.** Exemplar 1 crawled fine and its content is in `collected_data`. One
+   refusal out of three discards the step, and with it the successful crawl. A research step that
+   studies N examples does not need all N.
+2. **⚠ The step's stored result says `success: true` while the operation failed.** `crawl_exemplar_2`
+   holds `{"success": true, ..., "topic_sent_to": "system.adapter.webscrape.requests",
+   "request_id": "4ac4c952…"}` — that `success` means **the request was published to the adapter**,
+   not that the crawl worked. The refusal came back asynchronously and is recorded only on the work
+   item. **Reading the step output would tell you both crawls succeeded.** This is the house lesson
+   (`trust the artefact, not the status`) in a new place, and the request_id is the join between
+   the optimistic record and the true one.
+3. **The exemplars are chosen by an LLM from the classifier's own output**, so the choice is
+   re-made on every retry. `thespruce.com` is a Dotdash Meredith property with aggressive anti-bot;
+   it is a *plausible* pick for this vertical and a *reliably unscrapable* one.
+
+**Novel fleet-wide** `[MEASURED 17:50Z]`: exactly **one** `WEBSCRAPE_ERROR` in `site_work_items`
+in 30 days — this one. Nothing in `/bugs_open/`, `/bugs_closed/` or `LANDMINES.md` mentions
+`WEBSCRAPE_ERROR` or the refusal string. So this is a new failure mode, surfaced by the one-shot
+route doing exactly what it is for.
+
+**PREDICTION, recorded before the retry so it can fail.** `attempt_count=1/3`,
+`retry_after=2026-08-23 18:19:03Z` (a 30-minute back-off):
+> If exemplar selection is effectively deterministic given identical specs, the retry re-picks
+> `thespruce.com`, fails identically, and the third attempt parks the item `failed` at roughly
+> **19:19Z** — **90 minutes and three LLM selections spent to reach the same refusal.** The build
+> then continues without vertical research, or stalls, depending on whether the next stage gates on
+> it.
+> **Disconfirmers, either of which kills this:** the retry picks a different exemplar set and
+> succeeds (selection is stochastic enough to route around a bad pick), or the step tolerates the
+> refusal on a retry path I have not read. I have NOT read `vertical-exemplar-researcher`'s retry
+> config — this prediction is from the item's `attempt_count`/`retry_after` alone `[INFERRED]`.
+
+**Why it matters beyond this run.** Exemplar-driven research is not specific to this lane: any
+vertical whose obvious exemplars are big publisher properties (recipes, health, finance, consumer
+reviews — i.e. most affiliate verticals) will draw the same picks and hit the same wall. The cost
+is not the failure, it is that **the failure is silent for 30 minutes at a time and the step record
+reads `success`.**
