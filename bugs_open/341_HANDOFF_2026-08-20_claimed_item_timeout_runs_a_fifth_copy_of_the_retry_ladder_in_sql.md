@@ -332,3 +332,41 @@ than demonstrated"* and thought the hedge made the figure safe. It did not — *
 around an unsound statistic is still an unsound claim**, and the hedge does double damage: it makes
 the number feel handled, and it reads as conservative rather than unfounded. `WRONG_CALLS.md`,
 2026-08-22.
+
+## §7c — 2026-08-23: the 51 h threshold §7b set is CONTAMINATED, because the fleet was API-capped for 13 h of it
+
+§7b replaced §7's unsound rate argument with a defensible one: *the silence says nothing until it
+beats the **51.4 h** longest natural quiet gap.* That threshold is still the right SHAPE and its
+CLOCK is now wrong, because the window it is measured over is not a normal one.
+
+[MEASURED 2026-08-23 07:15Z] The estate hit an Anthropic account cap at **2026-08-22 18:15:51Z** and
+is still in it (Anthropic **1 ok / 128 failed** since — the 1 being the pre-cap boundary row itself;
+`mistral-small3.1` unaffected at 6/0, which is what makes the outage easy to misread as over).
+Handlers that cannot call a model do not claim work:
+
+| | |
+|---|---|
+| claims/hour, 24 h **before** the cap | **20.4** |
+| claims/hour, **since** the cap | **8.7** (a 57 % drop) |
+| hours of the current 36.5 h silence spent capped | **13.0** |
+
+**A claim that is never made cannot go stale, so the cap directly suppresses the very event this bug
+is waiting for.** In normal-volume-equivalent terms the silence is worth roughly **29 h**, not 36.5 —
+and the 51.4 h bar should be re-based from **when Anthropic calls resume**, not from when `524`
+applied.
+
+**So: still not evidence, and now for two independent reasons** — the silence has not beaten the
+natural gap, and the window is not comparable to the one the gap was measured in. Anyone reading a
+continued zero tonight should not conclude anything from it.
+
+**What to do instead of waiting on a contaminated clock:** the sweep-health check (enabled, firing
+on its 120 s interval, `pre_query` parses — all still true today) is what rules out the alarming
+reading, and it is cheap. Re-run *that*, not the silence. Re-base the 51.4 h bar once
+`llm_call_log` shows a resumed **`claude%`** success, and note the natural-gap figure itself may
+need re-deriving afterwards, since a fortnight containing a 13 h+ outage is not the fortnight it was
+measured on.
+
+⚠ **The general shape, since it will outlive this bug:** *a threshold is only as good as the
+comparability of the window it is measured over*, and an infrastructure outage inside your
+measurement window silently breaks that comparability while leaving every query correct. I set the
+51.4 h bar carefully, hours before the cap existed, and it was obsolete before it was tested.
