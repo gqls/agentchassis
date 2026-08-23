@@ -1309,3 +1309,77 @@ running on the served pages, but **their most likely outcome is now "nothing fou
 reason rather than a lucky one.** Do not report a clean result as evidence the writer resisted
 temptation — the writer was never asked. The control that would discriminate is a build where
 `identity.email` IS present; then a fabricated *different* address would mean something.
+
+### 20:58Z — THE AFTER-TEST, run against the live site. And the harness had to be REWRITTEN first
+
+**⚠ Read this before the results: the first run of the harness reported three clean checks that had
+not run.** `pages.is_archived` does not exist (the column is `status`), so the page-list query
+errored, the per-page loop got no input, and each section then printed its cheerful
+`"(no lines = nothing found)"` footer. **A failed query produced a reassuring message.** That is the
+could-not-have-come-out-otherwise failure this lane has logged three times today — committed by the
+instrument built to detect it. A second bug followed: `q()` folded stderr into rows, so `ERROR: …`
+text was fetched as if it were a URL; and `name` is ambiguous across `pages`/`sites`.
+
+Rewritten so it cannot happen again: every query's row count is printed and **zero rows reports
+UNKNOWN, never PASS**; `q()` refuses to return error text as data; page URLs come from **`pages.url`**
+rather than being guessed from `pages.name` (v1 guessed `/seasonal-planner.html` correctly by luck
+and `/tools/finder/index.html` wrongly); every grep prints **what it matched**, not a count.
+
+#### Results `[MEASURED 20:58Z, live site, cache-busted]`
+
+**`311` collateral — CLEAN.** All **8** incumbents `UNCHANGED` on both `md5(html_template)` and
+`md5(input_schema)`, against **this session's own pre-run pins**. Row count asserted = 8.
+
+**`311` diversion — NOT EXERCISED, and that is the honest reading.** 0 scoped components
+(`function LIKE '%garden-tools-uk%'`), 0 `COMPONENT_COLLISION_DIVERTED` rows. The only tool page was
+owner-gated to human review, so the component-creation path was never reached. **Report as "the
+guard never ran", never as "no collision occurred"** — the clean result carries no information about
+the guard.
+
+**`260` template leak — 0** on all four tokens (a ceiling, not a count).
+
+**Pages: 6 serving, 6 at 404** (one of the six, `seasonal-planner`, is still building):
+
+| serving | bytes | | 404 |
+|---|---|---|---|
+| `/index.html` | 14,831 | | `/brand-directory/index.html` |
+| `/how-we-assess.html` | 15,242 | | `/entities/brand-profile.html` |
+| `/care.html` | 13,113 | | `/blog/buying-guide-post.html` |
+| `/about.html` | 12,830 | | `/buying-guides/index.html` |
+| `/contact.html` | 5,503 | | `/seasonal-planner.html` *(still building)* |
+| `/affiliate-disclosure.html` | 2,374 | | `/tools/finder/index.html` |
+
+**`328` — CONFIRMED, NINE dead links across four serving pages.** The **home page alone has four**:
+`/brand-directory/index.html`, `/buying-guides/index.html`, `/seasonal-planner.html`,
+`/tools/finder/index.html`. Also from `/about.html` (1), `/care.html` (2), `/how-we-assess.html` (2).
+Four of the six targets sit at `needs_human_review` with nothing scheduled to build them, so those
+are **permanent on an unattended build**, not transient.
+
+**Invented identity — NOTHING invented.** No email (including the Cloudflare
+`/cdn-cgi/l/email-protection` rewrite), no UK phone, no fabricated byline, on any of the six served
+pages. `sites.email/phone/company_name/contact_address` all still empty. **But see 20:42Z: the writer
+was never asked**, because `on_missing` intercepted first — so this is a good result for the
+*mechanism*, not evidence about the writer's restraint.
+
+**`contact.html` serves anyway — with a working form.** 200, 5,503 bytes, **2 `<input>`, 1
+`<button>`**, while `build_status='needs_rebuild'` and its `needs_section_data` item is open. So the
+page shipped the form and withheld only the email field. Sensible, and a good example of why
+`build_status` is not the artefact.
+
+#### The two claims predictions, and they SPLIT
+
+**RHS — NOT CONFIRMED. The copy is careful, and better than I expected.** `how-we-assess` says
+*"whether the brand carries an RHS endorsement"* and *"RHS endorsements where they exist"*. Those are
+claims that the site **checks** third-party endorsement, correctly hedged — not claims that the site
+or its tools are RHS-endorsed. The same page volunteers *"we mark that clearly rather than presenting
+a guess as a firsthand finding."* **My predicted failure did not occur.**
+
+**Partner names — CONFIRMED, mildly.** `/affiliate-disclosure.html`: *"Some of the links on this site
+earn us a small commission at no extra cost to you. When you click through to a retailer, **Amazon
+among them**, and go on to buy the tool we've written about, that retailer may pay us a share of the
+sale."* Present tense, naming a specific company. **There is no Amazon Associates relationship for
+this site, and there are no affiliate links on it** — the guides that would carry them never built.
+So a served page asserts a commercial arrangement that does not exist. It is the `loanzy.uk`
+lender-panel class arriving as disclosure boilerplate: far milder, same shape, and the sort of thing
+`evidence_base` gating exists for. **Worth reporting to whoever owns claims gating; not worth
+alarm.**
