@@ -116,3 +116,34 @@ ORDER BY created_at;
 
 Budget ~30 minutes, not ~2: the council itself takes 2-5 minutes but the dispatch queues behind
 the fleet. A missing row is latency, not a dropped dispatch — do not retry on that evidence.
+
+
+## 10. The plan-size cap is measured by the SERVER, and `DRY_RUN=1` does not see it
+
+**Round 5 died at `persist_submission` with `plan too large: 65561 bytes (cap 65536)` — 25 bytes
+over — after `DRY_RUN=1` had passed on the same file seconds earlier.** The dry run validates
+locally with a different size computation; only the server's counts. The failure looks exactly like
+the API-cap failure (`complete_invalid`, COMPLETED, no `council_report`), so read `__step_error`
+before concluding anything:
+
+```sql
+SELECT left(collected_data->>'__step_error', 1200) FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>'
+ORDER BY created_at DESC LIMIT 1;
+```
+
+**The server measures Go's `json.Marshal` of `plan`** — UTF-8 bytes, with `<`, `>` and `&` escaped
+to `\u003c`/`\u003e`/`\u0026` (+5 bytes each). Python's `len(json.dumps(...))` is wrong in both
+directions (`ensure_ascii=True` inflates every `—`; compact-vs-indent differs by hundreds). This
+predictor was verified exact against the server's own number:
+
+```python
+def gosize(plan):
+    s = json.dumps(plan, separators=(',',':'), ensure_ascii=False)
+    return len(s.encode()) + sum(s.count(c)*5 for c in '<>&')
+# 65561 predicted, 65561 reported. Gate on gosize(plan) <= 65536 - 500 before dispatching.
+```
+
+**Cost of getting it wrong is low but not zero:** the run fails BEFORE any seat is dispatched, so
+no credits are spent — but it consumes a round and ~10 minutes, and the terminal state is
+indistinguishable at a glance from the API cap that killed round 4.
