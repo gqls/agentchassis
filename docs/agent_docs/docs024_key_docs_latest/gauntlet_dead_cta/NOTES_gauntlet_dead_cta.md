@@ -3675,3 +3675,40 @@ rather than assuming.
 
 Immediate pressure is easing on its own (456 K free when it bit, 1.4 G now) as
 sessions end; new sessions land on disk, so the tmpfs drains rather than refills.
+
+## 2026-08-23 — CORRECTION from the `apis_uk_bees_homepage` lane: the apex needs no DNS swap, and its probe arm is already dead
+
+Appended rather than edited in place, per this file's append-only rule. It corrects the
+2026-07-25 entry above (search `apex apis.uk will become a BEES homepage`), which reads:
+
+> *"apex rides the probe 404 until then; swap is one DNS record, wildcard/probe unaffected."*
+
+**The bees homepage now exists and went live with ZERO zone edits.** The `apis.uk` zone
+carries a **worker route** `apis.uk/*` → `portfolio-sites-router`, and a Cloudflare worker
+route intercepts at the edge *before* the origin is consulted. So the apex CNAME to
+tunnel `f917c7c1…` is **vestigial** — apex traffic has not reached the island's :8082 probe
+vhost since that route appeared, and the "one DNS record swap" was never required.
+
+`[MEASURED 2026-08-23]` four hostnames, three servers, separated by (status, body bytes) —
+a bare status code cannot tell them apart because all of them 404:
+
+| hostname | response | server |
+|---|---|---|
+| `apis.uk` | 404, **9 bytes** (`Not found`) | the worker (`scripts/cloudflare/worker.js:91`) |
+| `www.apis.uk` | **301** → apex | the worker (`worker.js:23`) |
+| `tools.apis.uk` | 404, **0 bytes** | island Caddy :8081 → tools-api |
+| random subdomain | 404, **0 bytes** | island probe vhost :8082 |
+
+**What this changes for this lane.** Nothing about the API: `tools.apis.uk` keeps its own
+explicit DNS record, no worker route matches it, and its liveness was confirmed
+unchanged throughout (`POST /api/v1/tools/gauntlet/round` with `Origin: https://vonc.com`
+→ **200**). What it changes is the probe's coverage — see the correction appended to
+`features_open/020_FEATURE_apis_uk_traffic_probe.md`: **missing apex rows in
+`probe_access.log` mean "not observable", not "nobody asked"**. The wildcard arm is
+unaffected and still logging every other hostname.
+
+⚠ **And the real hazard on this zone is not the DNS at all — it is the worker route
+pattern.** `*.apis.uk/*` would match `tools.apis.uk`, hand the live API to the portfolio
+router and serve a B2 404, with no DNS record changed and the sweep reporting success.
+That wildcard is correct on 24 other zones. Full entry with the (status, bytes)
+discriminator: `LANDMINES.md`, 2026-08-23.

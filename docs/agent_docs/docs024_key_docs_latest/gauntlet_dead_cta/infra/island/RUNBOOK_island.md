@@ -73,8 +73,17 @@ Verified from outside: `http://tools.apis.uk/` → 301 to https; https → our 4
 - **Review ~2026-08-08**: rank hostname × path, e.g.
   `jq -r '.request | .host + " " + .uri' probe_access.log | sort | uniq -c | sort -rn | head -30`
   (cross-check against the zone's free Cloudflare analytics).
-- Apex note: when the owner's bees homepage (separate thread) exists, repoint
-  ONLY the apex record at its hosting; wildcard + probe stay as they are.
+- ~~Apex note: when the owner's bees homepage (separate thread) exists, repoint
+  ONLY the apex record at its hosting; wildcard + probe stay as they are.~~
+  **CORRECTED 2026-08-23 (`apis_uk_bees_homepage`): NO REPOINT NEEDED — it is already
+  done by a worker route, not by DNS.** The zone has `apis.uk/*` →
+  `portfolio-sites-router`, which intercepts at the Cloudflare edge ahead of the tunnel,
+  so the apex CNAME here is vestigial and the bees page went live with zero zone edits.
+  The apex therefore no longer reaches the :8082 probe vhost. Wildcard + probe unaffected
+  and still logging. **Do not add a wildcard worker route to this zone** — `*.apis.uk/*`
+  would match `tools.apis.uk` and kill the API with no DNS change (`LANDMINES.md`,
+  2026-08-23). Liveness probe for the API is a real endpoint, never `GET /`:
+  `curl -X POST https://tools.apis.uk/api/v1/tools/gauntlet/round -H 'Origin: https://vonc.com' -d '{}'` → 200.
 
 ## ENGINE LANDED — 2026-07-25 (PR #3 merged 09:19Z, deployed + smoke-verified same day)
 

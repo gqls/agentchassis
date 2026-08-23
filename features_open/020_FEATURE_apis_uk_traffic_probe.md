@@ -25,8 +25,25 @@ NXDOMAINs and the requests never reach anything we can see.
 > logrotate needed). Verified from the public internet: apex/www/random
 > subdomain all 404 with a JSON log line incl. CF-Connecting-IP + CF-IPCountry.
 > Logs: `/opt/island/logs/probe/probe_access.log`. **Review due ~2026-08-08.**
-> NOTE: apex will be repointed at the owner's planned bees homepage (separate
-> thread) when that exists — one record swap, wildcard/probe unaffected.
+> ~~NOTE: apex will be repointed at the owner's planned bees homepage (separate
+> thread) when that exists — one record swap, wildcard/probe unaffected.~~
+>
+> **CORRECTED 2026-08-23 (`apis_uk_bees_homepage` lane) — NO DNS SWAP IS NEEDED, AND THE
+> APEX ARM OF THIS PROBE IS ALREADY DEAD.** The bees homepage now exists and went live
+> without a single zone edit. The zone carries a **worker route** `apis.uk/*` →
+> `portfolio-sites-router`, and a worker route intercepts at the Cloudflare edge *before*
+> the origin is consulted, so the apex CNAME to the tunnel is **vestigial**: apex requests
+> have not reached the island probe vhost since that route was added. `[MEASURED
+> 2026-08-23]` `apis.uk/` → 404 with body `Not found` (the worker's string,
+> `scripts/cloudflare/worker.js:91`), while `tools.apis.uk/` and a random subdomain →
+> 404 with **0 bytes** (the island). `www.apis.uk` → 301, also the worker.
+> **Consequence for step 4's review:** a reader of `probe_access.log` must NOT treat
+> missing apex rows as "nobody asks for apis.uk" — the apex stopped being observable
+> here before the log was ever read. The **wildcard arm is unaffected and still logging**
+> every other hostname, so the review below is still worth doing on that data.
+> **And do NOT "tidy" the apex DNS record on the strength of this** — see the
+> `LANDMINES.md` entry (2026-08-23) on wildcard worker routes: the record is harmless,
+> whereas a `*.apis.uk/*` route would swallow the live `tools.apis.uk` API.
 
 ## Design (stage 1 — passive, ~30 min on the island, no new infra)
 
