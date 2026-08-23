@@ -953,3 +953,54 @@ mind about the domain — only the free-text half moved, and the exemplars did n
 `thespruce.com` sits at slot 3 this time, so on the established pattern this run dies at
 `crawl_exemplar_3` after two more discarded crawls. That will be the **twelfth** exemplar crawl
 this domain has paid for and the **fourth** time the same host has killed the stage.
+
+### 20:06Z — THE BUILD IS ALIVE. Attempt 5 escaped, and my "terminally dead" claim was wrong
+
+**What happened** `[MEASURED 20:06Z]`. The second build's `needs_vertical_research`, attempt 2 of 3,
+selected a **different set** and cleared all three crawls:
+
+| slot | attempts 1-4 (all contained the refused host) | **attempt 5** |
+|---|---|---|
+| 1 | gardenersworld.com | gardenersworld.com |
+| 2 | thespruce/which | which.co.uk |
+| 3 | which/thespruce | **burgonandball.com** |
+
+`thespruce.com` absent; `burgonandball.com` is **from `identity.competitors_found`** — the branch I
+had recorded as never having fired. Verified **at the artefact, not the status**:
+`site_specs.aspect='vertical_landscape'` written **20:05:45Z** by `vertical-exemplar-researcher`,
+and `needs_strategy` created **20:05:55Z**, `triaged`. The item is `complete`. The cascade has moved
+to hop three.
+
+**So three claims of mine are retracted** (full retraction in `bugs_open/376` §4b):
+1. ~~"Sampling permutes the order; it does not re-draw the pool."~~ It re-draws — 4 of 5, not 5 of 5.
+2. ~~"Retry is structurally incapable of routing around it / disproved, not doubted."~~ A retry
+   routed around it, on the very next observation after I wrote that.
+3. ~~"The `competitors_found` branch has never fired."~~ It fired.
+4. ~~"The build is terminally dead."~~ It is not. It was dead **for the first submission**, whose
+   item genuinely exhausted `attempt_count=3`; the second submission escaped on its second attempt.
+
+**What still stands, and it is the entire defect:** the crawl steps have no `on_error`, so a refusal
+discards the stage including successful crawls (config-verified); and `create_next_item` is the sole
+estate-wide producer of `needs_strategy`, so a refusal that exhausts retries **is** terminal — which
+is exactly what happened to submission 1. The bug is a **4-in-5 tax that usually exhausts a
+3-attempt budget before a lucky draw**, not an inescapable trap. Severity stays HIGH; the argument
+changes.
+
+> **THE SAME ERROR TWICE IN ONE DAY, AND THAT IS THE FINDING.** 11:xx: a dispatch-walk mechanism
+> built on **14** consecutive ordered samples — broke 20 minutes later. 19:3x: "disproved, not
+> doubted" on **4** consecutive identical samples — broke on the fifth, 30 minutes later. Both times
+> I converted a *run* into a *law*; both times the counter-example arrived for free because the
+> system kept running; both times I could not have named what would falsify the claim, which is the
+> check this repo already prescribes.
+>
+> **The tally is the point** (`WRONG_CALLS`'s own thesis). One instance is carelessness; two in a
+> day, in the same shape, from the same reasoning move, is a habit — and the habit is
+> **reaching for the modal form**. "Cannot", "structurally incapable", "disproved" are claims about
+> a *mechanism*; a tally of identical observations can only ever support "N of N so far".
+> **Rule I am adopting: if the evidence is a count, the claim must contain the count.** "4 of 5
+> draws contained the refused host" was always available, is what I actually knew, and would have
+> survived the fifth draw intact.
+>
+> Second-order: my 17:52 entry *over*-corrected into false uncertainty after being refuted, and this
+> one *under*-corrected into false certainty. Neither is calibration — both are reacting to the
+> last error instead of to the evidence.
