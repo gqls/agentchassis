@@ -86,7 +86,7 @@ queue to test a defect another lane already owns and has measured.
 - **The chrome refusal is unarmed on purpose.** Zero rows can trigger it (re-measured at approval:
   candidate_pairs 0, rows_missing 0, while 813 required-field pairs and 72 chrome rows both exist
   — the JOIN is what is empty). Arming it now would arm an unexercisable refusal. **Flip trigger:
-  the first `required_fields_missing` item with `surface='site_component'`.** Not on a schedule.
+  the first `capability_gap` item whose `spec->>'finding_type'` is `required_fields_missing` (⚠ CORRECTED 2026-08-23 — this trigger used to name a `required_fields_missing` item with `surface='site_component'`, which the capability_gap rework means will now NEVER be filed, so the old trigger could not fire).** Not on a schedule.
 - **The five no-schema non-tool components owe NOTHING.** Verified per component: three have no
   `{{.field}}` placeholders at all; two gate every reference with `{{if .x}}…{{else}}fallback{{end}}`,
   which `missingBareFields` deliberately does not report — confirmed at the artefact (no empty

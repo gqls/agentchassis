@@ -144,7 +144,7 @@ Acted on rather than argued: the chrome store now has the SAME refusal, through 
 function, **default OFF with no migration arming it**. That is the honest middle: arming today
 would arm an unexercisable refusal, while leaving the capability out would put a code change, a
 review and a roll between the first adopting site and its protection. The flip trigger is named —
-the first `required_fields_missing` item with `surface='site_component'`. A new test asserts the
+the first `capability_gap` item whose `spec->>'finding_type'` is `required_fields_missing` (⚠ CORRECTED 2026-08-23 — this trigger used to name a `required_fields_missing` item with `surface='site_component'`, which the capability_gap rework means will now NEVER be filed, so the old trigger could not fire). A new test asserts the
 two paths agree on all four arming×finding combinations, so a forked chrome implementation fails.
 
 **`guidelines`, medium:** 550's post-verify walked only the top level — i.e. it certified exactly

@@ -158,8 +158,12 @@ arming.
 > `renderAndStoreSiteComponent` now consults the same `refusePersistForAbsentRequired`, default
 > OFF, **with no migration arming it** — arming today would arm an unexercisable refusal, while
 > omitting the capability would put a code change, a review and a roll between the first
-> adopting site and its protection. **The flip trigger is named: the first
-> `required_fields_missing` item with `surface='site_component'`.** Its disposition mirrors the
+> adopting site and its protection. **The flip trigger is named: the first `capability_gap`
+> item whose `spec->>'finding_type'` is `required_fields_missing`.** ⚠ CORRECTED 2026-08-23 — it
+> used to name a `required_fields_missing` item with `surface='site_component'`, and the
+> capability_gap rework means such an item will now NEVER be filed, so the old trigger could not
+> fire. **A trigger written against a shape you then change is a trigger that never fires**, and
+> nothing would have reported that. Its disposition mirrors the
 > execution-failure branch beside it (decline to store, previous bytes keep serving; fatal only
 > where the slot has nothing stored, because a site must not go live with a missing header), and
 > it sits AFTER the emit so a refused slot still leaves its queue entry. A test asserts the two
