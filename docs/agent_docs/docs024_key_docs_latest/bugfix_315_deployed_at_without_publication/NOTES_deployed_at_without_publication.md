@@ -2236,3 +2236,36 @@ re-measurement condition.
 > `idx_swi_dedup` excludes `rejected` — while the running binary still lacks the guard. So the check
 > **will re-file the same false positive** on its next pass until the roll. Flag-only, so it costs a
 > triage read. Recorded in the handoff so the next reader meets it as expected rather than as news.
+
+### 7. The roll landed — both guards LIVE, and the foreseen re-file happened exactly as written
+
+`[MEASURED 2026-08-23 ~11:53Z]` chassis **`v1.0.1328`**, pods started **11:51Z**, stamped
+**`2dbe12f1d`** (130 pods on the new commit, 106 still draining on the old). `git merge-base
+--is-ancestor` → **YES** for both `14a50e533` and `de5d180fc`, **NO** in both reverse directions.
+First post-roll run: `checks_run: [site_unreachable, page_content_divergence]`, `checks_failed: []`,
+`checks_unregistered: []` — the damage query, answering nothing.
+
+**The prediction in §6 held.** The false positive **re-filed at 10:14:13Z** (item `34cc6335`) on the
+pre-roll binary, because rejecting `26e5c477` at 07:37Z freed the `idx_swi_dedup` slot while the
+running code still lacked the guard. That was written into the handoff *before* it happened, which
+is the only reason it arrives as expected rather than as a new fault. Both items are now `rejected`,
+with the re-file's own `result` recording why it re-filed.
+
+**What is NOT yet proven, stated plainly:** the guard has not met the real case in production.
+`vetcomparison.uk` was last swept at 10:14Z and the per-site floor is ~4h, so the next pass is
+~14:14Z. The unit behaviour is proved (2 mutations) and the binary is proved to carry it, but that
+is not the same as observing the skip.
+
+> **[THE TRAP IN THE VERIFICATION ITSELF]** With both items rejected the dedup slot is free, so "no
+> new item" finally means something — but only if a pass actually ran. A check that never ran files
+> nothing and looks identical to a guard working perfectly. **So the demand control comes FIRST:**
+> query `orchestration_states` for an `availability-discovery-agent` run against
+> `site_id='72b9e3a6-872f-4528-a6d6-7f205ea60f4d'` after `11:51Z`, and only read the work-item count
+> if that is non-empty. Written into the handoff §0 in that order deliberately.
+
+I considered forcing the pass rather than waiting. `075_trigger_discovery.sh` cleared the
+argument-override landmine check (empty output), but it hard-codes `design|completeness` and refuses
+anything else, so it cannot fire the availability agent — and editing another lane's trigger script
+to dispatch an agent is not worth the blast radius to save two hours. `[MEASURED 11:56Z]` the
+suppression condition is stable meanwhile: `Accept: */*` → exactly `pages.content_hash` 3/3, browser
+→ the injected body 3/3.

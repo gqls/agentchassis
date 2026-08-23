@@ -6,7 +6,38 @@
 
 ## 0. THE ONE THING TO KNOW BEFORE YOU DO ANYTHING
 
-**Two guards are committed and NEITHER IS RUNNING. The chassis has not been rebuilt.**
+> **✅ UPDATED 2026-08-23 12:00Z — THE ROLL HAPPENED AND BOTH GUARDS ARE LIVE.** Chassis
+> **`v1.0.1328`**, pods started **11:51Z**, stamp **`2dbe12f1d`**. `git merge-base --is-ancestor`
+> is **YES** for both `14a50e533` (D11) and `de5d180fc` (D10), and **NO** in both reverse
+> directions, so the test discriminates. The first post-roll run reports
+> `checks_run: [site_unreachable, page_content_divergence]`, `checks_failed: []`,
+> `checks_unregistered: []` — the "what did I break?" query, answering nothing.
+>
+> **The section below is kept because its REASONING is the reusable part** — for ~2 hours a build
+> had been reported as deployed and had not reached the chassis, and the tell was that `IMAGE_TAG`
+> still named the tag already running.
+>
+> **ONE VERIFICATION REMAINS, and it is the lane's closure test.** `vetcomparison.uk` has not been
+> swept since `10:14Z` (per-site floor is ~4h), so the guard has not yet met the real case. Both
+> false items are now `rejected`, so the dedup slot is FREE — which makes the next pass a genuine
+> test rather than a dedup no-op. Check it with the DEMAND CONTROL FIRST, because "no item filed"
+> from a check that never ran looks identical to success:
+> ```sql
+> -- 1. the demand control: did a pass actually run over this site after the roll?
+> SELECT created_at, status FROM orchestration_states
+>  WHERE owner_agent_type='availability-discovery-agent'
+>    AND site_id='72b9e3a6-872f-4528-a6d6-7f205ea60f4d' AND created_at > '2026-08-23 11:51Z';
+> -- 2. ONLY IF (1) IS NON-EMPTY: did it file anything?
+> SELECT id, status, created_at FROM site_work_items
+>  WHERE item_type='page_content_divergence' AND created_at > '2026-08-23 11:51Z';
+> ```
+> Expected: (1) non-empty, (2) **empty**, and the pod log carrying
+> `origin object matches the fingerprint; the difference is edge-injected`.
+> `[MEASURED 2026-08-23 11:56Z]` the suppression condition still holds — `Accept: */*` returns
+> exactly `pages.content_hash` 3/3, browser `Accept` returns the injected body 3/3 — so the guard
+> has something real to fire on.
+
+~~**Two guards are committed and NEITHER IS RUNNING. The chassis has not been rebuilt.**~~
 
 `[MEASURED 2026-08-23 09:45Z]`, and this is the whole of the evidence:
 
@@ -110,8 +141,8 @@ lanes (`bugs_open/215`, `299`) were burned by the grep-the-binary route it repla
 
 | item | state | whose |
 |---|---|---|
-| **Roll the two guards** | committed, not live. Bump `IMAGE_TAG` first | **this lane's, and it is the last one** |
-| **Verify at the artefact after the roll** | the check should SKIP vetcomparison, not file. `implausible_body` / `edge_injected` appear in the skip log | this lane's |
+| ~~Roll the two guards~~ | ✅ **DONE 2026-08-23 11:51Z**, `v1.0.1328` / `2dbe12f1d`, both ancestry-proved with reverse controls | done |
+| **Verify at the artefact — THE CLOSURE TEST** | pending the next natural pass over `vetcomparison.uk` (~14:14Z; last swept 10:14Z, ~4h floor). Both false items are `rejected` so the dedup slot is free and the pass is a real test. **Run the demand control first** — see §0 | **this lane's, and it is the last one** |
 | **Resubmit the council round** | `submission_315_raw_object_guard.json` covers BOTH guards, validated, ready. `RESUBMIT_CORR=1ceef75a-81ee-4302-8182-69b0f6602bca` | this lane's, when the cap lifts |
 | **D9 — escalate on PERSISTENCE across passes** | unbuilt. Convergence times (seconds → ~17 min → 1h20 → 21h) OVERLAP the failure, so no settle-window value separates them | open design question |
 | **D6 — unarmed stamper NULLs the hash** | unbuilt; 6 of 6 armed today, so it is a backstop for the NEXT one added | open, low urgency |
