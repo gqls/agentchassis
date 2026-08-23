@@ -1,6 +1,15 @@
 # HANDOFF 2026-08-22 — `bugfix_342_absent_required`, continue here
 
-> # ✅ STATE AS OF 2026-08-23 ~14:00Z — THE LANE IS BLOCKED ON ONE THING: A ROLL.
+> # ✅✅ LANE CLOSED 2026-08-23 ~17:15Z. `bugs_open/342` → `bugs_closed/342`.
+> Fixed, live on **v1.0.1330**, and proven at the artefact on every mechanism it owns. The whole
+> file below is now HISTORY — read it for the traps in §6 and the reasoning, not for state.
+> **Successor: `bugs_open/367`** (the router only sees deployed rows, so it closes as `stale` the
+> population this producer uniquely reaches — filed with the evidence, and it corrects a claim
+> 342 used to make). Also still open elsewhere: `bugs_open/344` (a refused edit's driving item may
+> read `complete` — UNEXERCISED, not verified benign), and the chrome refusal built and
+> deliberately unarmed with its trigger named. Nothing here needs picking up.
+
+> # ⏸ SUPERSEDED — STATE AS OF 2026-08-23 ~14:00Z — THE LANE IS BLOCKED ON ONE THING: A ROLL.
 > Everything this lane owns is written, council-APPROVED and committed. **Nothing here needs a
 > decision or more work.** The routability fix (`eb918bd58` 13:08, `23d2a577d` 13:34, trail
 > `a0ef0b07`) is **NOT live**: the deployed image is **v1.0.1328, started 11:51Z**, i.e. it

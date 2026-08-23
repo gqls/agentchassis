@@ -146,3 +146,33 @@ editing them to make my own fix look good would not prove anything.
 
 One practical note: the shared temporary disk filled up and stopped builds working. I did not
 clear it — other people's work is in there — and pointed my own builds elsewhere instead.
+
+## 2026-08-23, end of day — closed, and the last thing we found was worth the extra day
+
+The deployment finally carried the fix, so we could finish. Two things happened.
+
+First, the safeguard was re-tested end to end on the new build and passed on both halves: an edit
+that would have blanked required text was refused, the live page left untouched to the byte with
+its "last modified" date still reading 17 July, and the fault still recorded on the queue. A clean
+edit went through normally. That second half matters as much as the first — a safeguard that
+simply stops all edits looks identical to one that works, until someone needs to make an edit.
+
+Second, and this is the part worth the extra day: I checked whether the *note* we file can actually
+be acted on now, rather than assuming it. I did that by taking the queue handler's own lookup
+query and running it by hand against the real note. The page now resolves, where before nothing
+resolved — so yesterday's fix genuinely works. But the same query showed something new: **that
+handler only looks at pages that have already been published.** Our note is specifically for
+sections that never get published, because that is what this whole bug is about. So the handler
+would look, find nothing, and close the note as "cannot be found on the live site."
+
+That is not this bug — it is the handler's — so it is filed as its own (`bugs_open/367`) with the
+evidence, including the fact that the new failure is *quieter* than the one it replaces: three
+visible retries have become one clean-looking close. And it means a claim we had been making
+needed softening: reaching a population is not the same as being able to act on it. Corrected in
+both places that said it.
+
+**The bug is closed.** It is fixed, deployed, and demonstrated working on the live system, which
+is this project's bar. Three follow-ups are on file rather than forgotten: the handler gap above,
+a known unrelated bug about job records reporting success when a step refused, and a
+headers-and-footers version of the safeguard that is built but switched off because nothing can
+trigger it yet — with the signal that says it is time written down.
