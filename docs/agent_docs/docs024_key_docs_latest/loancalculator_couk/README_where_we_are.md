@@ -2270,3 +2270,52 @@ rebuilds a calculator page without a human saying yes. Releasing them is your ca
 
 **The Guides index page still doesn't exist**, so /guides/ itself is the one broken address
 on the site. Its menu entry is already waiting for it.
+
+---
+
+## 2026-08-23 (evening) — all four done, and the site has no broken pages at all
+
+Everything you asked for is finished and checked on the live site rather than in the database.
+
+**The calculators are at the top of their pages.** All ten calculator pages now show the
+calculator immediately under the heading, where before it sat below the article text, the
+questions section and a call-to-action. I checked this by reading all ten published pages, not
+by trusting the records. All twelve protected calculator copies came through untouched — ten
+rebuilds without losing a single one.
+
+I did the first page on its own and checked it before doing the rest. That was worth it: it
+let me confirm two things I could not have assumed. The protected calculator was moved
+without being rewritten — its record still shows it was last changed on 9 August, while
+everything around it changed today. And no wording changed anywhere on the page: I compared
+the before and after of every block and they are byte-for-byte identical. I had genuinely
+expected the rebuild to rewrite the text, and it was worth checking rather than hoping.
+
+**The Guides page exists and works.** /guides/ now loads and lists all fourteen guides. The
+cause of it never working was mundane once found: the site's plan named the page but listed
+nothing to put on it, so every attempt to build it correctly reported having nothing to build.
+
+One honest caveat on the Guides *menu link*. The shared header has been rebuilt and now
+contains the link — but a page only picks up a new header when that page is next republished.
+Fifteen of the twenty-eight pages have it so far; the other thirteen are already queued and
+will get it without anyone doing anything. Until then the link is on some pages and not
+others, so if you look at the homepage in the next little while and do not see it, that is
+why.
+
+**The duplicate calculator page is gone.** We kept the Credit Health Check, because its
+calculator is the protected, verified copy; the Credit Roadmap page held an unprotected
+duplicate of the same tool. It now returns "not found" and the Credit Health Check is
+untouched.
+
+That one needed care and it worked out neatly. Fifteen pages linked to the page we were
+removing, and the framework quite rightly refuses to delete a page that things still link to.
+Rather than hand-edit fifteen pages, I archived it first and let the rebuilds regenerate their
+own link lists — the count fell from sixteen links to eight to zero on its own, and then the
+removal went through cleanly. So it needed no decision from you about wording after all.
+
+**The site now has twenty-eight pages and every one of them loads.** No broken addresses
+anywhere, for the first time in this whole stretch of work.
+
+One thing to be aware of for next time: the tool that checks the calculators still compute
+correctly is currently broken — it times out. That is the tool, not the calculators; it fails
+the same way on pages we never touched. It will need fixing before it can vouch for anything
+again, and the reference snapshot it compares against is also out of date.

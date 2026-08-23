@@ -48,7 +48,20 @@ deploy    healthy (the 08-17 fleet outage cleared; retraction committed and publ
 | 1 | ✅ done and verified — 14/14 `/blog/` URLs 404, controls held |
 | 2 | **canary PASSED**, nine released and queued (see below) |
 | 3 | ✅ `/guides/index.html` serves **200** and lists all 14 guides. ⚠ the LINK needs the queued `nav_drift` |
-| 4 | `tool-credit-roadmap` ARCHIVED + its 3 tickets cancelled; **file retraction still owed** |
+| 4 | ✅ `tool-credit-roadmap` RETRACTED → 404; `tool-credit-health-check` (the LOCKED instance) 200 |
+
+> ## ✅ **ALL FOUR COMPLETE 2026-08-23 evening — 28 active pages, 28 serving, ZERO 404s.**
+> 10/10 tool pages render the calculator as section 2 (verified on the SERVED page for each,
+> not from rows); locks **12/12** through ten rebuilds; the 10 review tickets are closed.
+> `/guides/index.html` serves 200 with all 14 guides. `credit-roadmap` retracted clean
+> (`considered=1, retracted=1`) after the archive-first sequence took its inbound links
+> **16 → 8 → 0** — no prose decision needed. NOTES `## 2026-08-23 (evening)`.
+>
+> ⚠ **TWO THINGS STILL TRUE AND EASY TO MISREAD.** (a) The chrome carries the Guides link,
+> but **a page only gains it when it next re-renders** — 15 of 28 had it at hand-off, the
+> other 13 are queued, so sampling ONE page misreports the state either way. (b) **The
+> acceptance harness is DOWN** (`toolgolden` times out identically on pages never rebuilt),
+> and the 08-17 golden is stale — re-baseline before quoting either.
 
 **(2) "Release" is NOT a status flip — the 11 `owned_page_review` tickets have
 `handler_agent = ''`.** They are review MARKERS (TP-004: "no handler by design"); triaging
