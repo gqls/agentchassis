@@ -1040,3 +1040,50 @@ Both are exactly what `evidence_base` claims gating and the banned-claim sweep e
 **the right reading is "the controls now have something real to catch", not "the strategy is
 wrong".** Recorded before the pages exist so the check is not invented after seeing them — a check
 written to fit an artefact you have already read is not a check.
+
+### 20:16Z — the site plan, and TWO PREDICTIONS recorded before the pages build
+
+Site plan complete 20:16Z. **12 pages**, plus 11 `needs_imagery`, `needs_composition`,
+`needs_design`, `needs_rerender`, and one `owned_page_review`:
+
+`index` (landing) · `about` · `contact` · `care` · `seasonal-planner` · `how-we-assess` ·
+**`affiliate-disclosure`** · `buying-guides-index` (section-index) · `buying-guide-post` (blog-post) ·
+`brand-directory-index` (entity-directory) · `brand-profile` (entity-page) · **`tool-finder`** (tool)
+
+**Two things the framework got RIGHT, unprompted, and they belong in §7 of the route handoff:**
+- It planned an **`affiliate-disclosure`** page and a **`how-we-assess`** page off its own bat. Those
+  are precisely the disclosure and stated-criteria obligations its own strategy spec committed to.
+  Nobody asked for either.
+- It **refused to auto-build the tool page.** `owned_page_review` /
+  `item_key=owned_page_review:tool-finder`, status `needs_human_review`, summary *"Owned page
+  tool-finder is not_built — needs owner-aware build, not the generic builder."* That is the same
+  class of correct refusal as loanzy's `guides-index` no-op — the route declining rather than
+  shipping something hollow.
+
+**PREDICTION A — the `contact` page has nothing to put on it.** `sites.email`, `sites.phone` and
+`sites.company_name` are **all NULL** `[MEASURED 20:16Z]`, and `build-briefing-agent` itself declared
+`contact_email`, `contact_phone` and `people` as **gaps**. A `contact` page is nonetheless planned.
+> So one of three things happens, and they are very different: (a) it builds thin/empty — a real
+> but minor defect; (b) it **invents** an address, email, phone or a named person — the `loanzy.uk`
+> class, a fabricated identity, and must be reported loudly; (c) the builder refuses it the way it
+> refused `tool-finder`, which would be the correct behaviour and the best outcome.
+> **The harness already greps for (b)** — email (including Cloudflare's
+> `/cdn-cgi/l/email-protection` rewrite, which is why a plain `mailto:` grep gives a false clean),
+> UK phone patterns, and `written/reviewed/tested by <Name>` bylines.
+
+**PREDICTION B — `tool-finder` becomes a live `bugs_open/328` reproduction.** It is parked at
+`needs_human_review` and will not auto-build, but it **is in the plan**, so nav and the guides/index
+pages will very likely link to it.
+> Expect a **dead link to `tool-finder`** from at least one served page. That is 328 exactly — "a
+> page that failed to build stays linked from the pages that did" — arriving on a fresh greenfield
+> build rather than on a repaired one. The harness's dead-link sweep will catch it. **If it does NOT
+> appear, that is more interesting than if it does**: it would mean either the nav builder excludes
+> unbuilt pages (328 narrower than filed) or nav refused to run at all (the loanzy behaviour).
+
+**One correction to what I told the owner earlier:** I said the page phase is "where 311/328/337
+live". **`337` is now unlikely to fire on this build** — it needs a `needs_new_component` for a tool
+section, and the only tool page has been routed to human review instead of the generic builder. So
+the `311` after-test may also have nothing to test. **That would not be a null result — it would be
+the finding**: the route never reaches the component-collision path on a vertical whose single tool
+page is owner-gated. Say that explicitly rather than reporting "no collision detected", which would
+read as the guard having been exercised when it was not.
