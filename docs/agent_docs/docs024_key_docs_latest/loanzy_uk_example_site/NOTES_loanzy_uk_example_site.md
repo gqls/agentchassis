@@ -773,3 +773,45 @@ it.
    prompt excludes. Closes the door on the *recurrence*, estate-wide, and is the only one of these
    that gets cheaper over time.
 3. Retrying an unchanged stochastic choice is not a fix; it is the current behaviour.
+
+### 18:20Z — attempt 2: SAME THREE SITES, RE-ORDERED. The set is stable; only the permutation moves
+
+The measurement I said mattered — the exemplar URLs per attempt — and it is decisive
+`[MEASURED 18:20Z]`:
+
+| slot | attempt 1 (17:48) | attempt 2 (18:19) |
+|---|---|---|
+| 1 | gardenersworld.com | gardenersworld.com |
+| 2 | **thespruce.com** ← refused | which.co.uk |
+| 3 | which.co.uk | **thespruce.com** ← refused |
+
+**Identical set, different order.** Attempt 1 died at `crawl_exemplar_2`; attempt 2 died at
+`crawl_exemplar_3`, request_id `1607dc02-cc7f-4a94-b0e2-b165dd58f90d`, matching the error on the
+item exactly. It got *further* — `crawl_1` (gardenersworld) and `crawl_2` (which.co.uk) both
+dispatched fine — so this attempt discarded **two** good crawls instead of one.
+
+`attempt_count=2/3`, `retry_after=19:20:32Z` — the back-off **doubled**, 30min → 60min. Attempt 3
+therefore lands ~19:20 and, on this evidence, parks the item `failed` at ~19:21: **1h37m from
+creation, three exemplar selections, six successful crawls thrown away, zero vertical research.**
+
+> **CORRECTION TO MY OWN CORRECTION, and this is the more interesting error.** At 17:49 I predicted
+> "the retry re-picks thespruce.com and fails identically" — **substantively right**. At 17:52,
+> after reading that `select_exemplars` pins no temperature, I *revised* it to "a coin flip, it may
+> route around" and called the outcome unpredictable. **That revision was worse than the thing it
+> replaced.** Absent temperature makes the *ordering* vary; it does not make the *candidate set*
+> vary, because the set is pinned by the prompt ("the sites a person in this niche would call the
+> best") against a vertical with about four such sites. I had that reasoning in the 17:49 entry —
+> *"the well-known leaders set is small and stable"* — and then talked myself out of it.
+>
+> **The mechanism: having been refuted once today (the dispatch-walk theory), I over-corrected
+> toward uncertainty.** Hedging felt like the lesson of being wrong. It is not — the lesson was
+> *read the config*, and when I did, I mis-weighted what it implied. **A hedge is not a free
+> action: "unpredictable" is a claim too, and here it was the false one.** The disconfirmable
+> version I did get right was procedural — *record the URLs every attempt* — and that is the only
+> reason this is settled rather than argued.
+
+**What is now established beyond the single case:** stochastic selection does **not** route around
+an unscrapable exemplar, because the candidate pool is a property of the vertical, not of the
+sampling. Retrying is therefore **structurally incapable** of fixing this — which promotes fix
+candidate 2 (persist the refusals, exclude them at selection) from "nice" to "the only one that
+works", and demotes "just retry" from a mitigation to a way of paying three times for one failure.
