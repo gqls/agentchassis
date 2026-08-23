@@ -215,3 +215,41 @@ Neither of these sessions had `orchestration_states` in a dirty path — we were
 through `psql`. Whatever D10 becomes, the delivery moment for a table-footprinted entry is the
 first query against that table in a session, and we do not know what mechanism could catch that.
 Stating it as an open problem rather than pretending the footprint alone solves it.
+
+### 6a. A costed option for the §6 open problem — NOT BUILT, and deliberately so
+
+§6 ends on an open problem: a table-footprinted entry's delivery moment is the **first query
+against that table**, and nothing currently catches it. There is a concrete mechanism, and the
+repo already runs one of exactly this shape.
+
+**The shape already exists.** `scripts/block-git-stash.py` is a `PreToolUse` hook on Bash, wired
+in `.claude/settings.json`, that inspects the command *about to run* and acts on it however the
+command is compounded. The same shape fits here: match a Bash command containing `psql`, extract
+table-shaped tokens from the SQL, look them up against `LANDMINES.md` **footprints**, and print
+any match as advisory context **before** the query executes. That is precisely the moment both
+sessions missed on 2026-08-23. It needs **no new corpus format** — it reads the footprints D9
+already prescribes — so it is evidence *for* this proposal rather than a competing mechanism.
+
+**Two constraints, and the second is load-bearing** (both from the `loanzy_uk_example_site` lane,
+which raised the option):
+
+1. **Once per table per session, not per query.** `psql` runs constantly here. An entry reprinted
+   forty times becomes wallpaper — and wallpaper is the exact failure mode §6 documents. *Present
+   text is not use*, and present text repeated is worse than absent text, because it trains the
+   reader to skip the channel.
+2. **Match FOOTPRINTS, not free text.** Grepping the whole file for a table name hits every entry
+   that merely *mentions* it — three entries touch `orchestration_states` from different angles,
+   and firing all three on every query is how a reader learns to ignore them. This constraint is
+   what makes the option depend on D9's footprinting rather than substitute for it.
+
+**Neither lane has built it, and neither will on the other's suggestion.** A `PreToolUse` hook is
+a harness/config change: it means editing `.claude/settings.json` and intercepting **every session
+on this machine**, not just the two that found the problem. A peer session asking is not authority
+for that — it would be taking an instruction from a session rather than from the owner. So it is
+recorded here as a costed option for the owner to rule on, and both lanes have flagged it to
+theirs.
+
+**What would make it worth building, stated as a test rather than an assertion:** the honest
+measure is not that the hook fires, but whether a session's behaviour changes — the same bar §5
+sets for the corpus itself. The 2026-08-23 pair is the baseline to beat: guard present, correct,
+specific, naming the remedy, and reaching neither of two sessions actively looking at the table.
