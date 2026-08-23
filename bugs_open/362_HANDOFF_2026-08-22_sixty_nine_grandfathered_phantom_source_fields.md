@@ -247,9 +247,16 @@ deployed 12:31Z that day) contain **zero** occurrences of `section--category`, s
 drops them. The damage is therefore *missing sections on live index pages*, not visible
 empty boxes. Check the served page before sizing this, not the stored HTML.
 
-**`testimonials`** (2 live instances) and **`social_proof`** (1) —
-`site_specs.social_proof.testimonials`, an aspect no site has ever carried.
-**BLOCKED ON AN OWNER CONTENT DECISION, not on effort.**
+**`testimonials`** (2 live instances) and **`social_proof`** (1) — **RULED AND DONE
+2026-08-23, migration 570.** ~~BLOCKED ON AN OWNER CONTENT DECISION.~~ Owner: *"deactivate
+testimonials, we don't have any yet."* Both components retired (`is_active=false`) and all
+three instances tombstoned (`build_status='removed'`), then **both pages rerendered and
+verified at the SERVED page**: `why-gas-wholesalers` 30,317→27,329 bytes and
+`client-case-studies` 26,740→20,542, **zero blockquotes on either**, byte drops matching
+the two section sizes so nothing else was lost. `social_proof` went too because it is the
+same capability under another name — same grid, same range, same phantom source — and
+`client-case-studies` carried both. Detail retained below because the reasoning is the
+transferable part.
 
 `[MEASURED 2026-08-23]` no `site_specs` aspect on gaswholesalers.com holds testimonial data.
 The one populated instance (`why-gas-wholesalers`, 3 entries) does **not** hold customer
@@ -265,3 +272,29 @@ parties. That is the fabrication class this estate polices (`bugs_open/161`, the
 `social_proof` aspect with genuine, owner-supplied testimonials; change the component's
 contract to what it is actually being used for (unattributed brand statements) and rename
 it accordingly; or deactivate it on those pages. All three are content decisions.
+
+
+---
+
+## The trap that nearly made this repair a no-op, worth reading before touching any other entry
+
+`client-case-studies` served **6 `<blockquote>`** while its
+`content_data->'testimonials'` was **empty**. The copy lived in the stored
+`rendered_html`, not in `content_data`.
+
+**So deactivating the component alone changes nothing a visitor sees.** Anyone verifying
+this repair by reading `content_data` — the obvious place — would have concluded those
+pages showed nothing and stopped. Retiring a component needs three steps, and only the
+third is visible to a visitor:
+
+1. `is_active = false` — stops future selection. Changes no live page.
+2. `build_status = 'removed'` on each instance — the documented assembly-excluded
+   tombstone (`rerender_single_page_action.go:870`). Changes no live page **yet**.
+3. **Rerender the affected pages.** Only now does the section leave the served HTML.
+
+Stopping after (1) or (2) leaves a state that looks finished in the database and unchanged
+to every visitor — and the migration's own header says so, because a half-state that reads
+as done is worse than one that reads as broken.
+
+**Verify at the served page, never at `content_data` and never at `rendered_html`.** Both
+stored fields disagreed with what was being served here, in opposite directions.
