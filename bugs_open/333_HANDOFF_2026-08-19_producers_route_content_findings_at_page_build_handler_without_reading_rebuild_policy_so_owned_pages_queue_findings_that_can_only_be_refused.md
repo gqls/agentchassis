@@ -306,3 +306,54 @@ the days its author is watching it.
 Full working, every query re-runnable:
 `docs/agent_docs/docs024_key_docs_latest/bugfix_277_required_fields_repair/NOTES_required_fields_repair.md`,
 entry 2026-08-21 §6.
+
+---
+
+## CONTRIB 2026-08-23 (`bugfix_367_router_remit` lane) — one of your producers now files FEWER items at you, and the reason is worth knowing
+
+**Not a census contribution — you already have it.** Your table at §69 records
+`required-fields-missing-handler → content_rewrite → 28 → 08-18`, and an independent count today
+agrees exactly: 31 `content_rewrite:from_rfm:%` rows, **28 `failed`**, 2 `cancelled`, 1 `complete`.
+Nothing to add there. This is the courtesy notice the 2026-07-29 §3 ruling asks for, because a
+routing decision upstream of you changed today.
+
+**What changed.** `bugs_open/367`: that router resolved the offending component with
+`pc.build_status = 'deployed'`, so findings about non-deployed components resolved nothing, fell to
+route `stale`, and were **closed `complete` with no error** — a true finding scored as a success.
+Migration `574` (applied 2026-08-23, config only) fixes it, and the fix is deliberately shaped to
+**keep that population out of your dead end**:
+
+- resolution moved to the lifecycle axis (`COALESCE(build_status,'pending') <> 'removed'`), so the
+  component now resolves and its real state is visible;
+- but a target that is real and **not deployed** routes to a new fifth park,
+  `park_not_dispatchable`, at `needs_human_review` — it does **not** go to `partial` →
+  `file_rewrite` → your handler.
+
+**Why that shape rather than widening into the convert arm.** Your bug is one of the two reasons.
+The other is `save_page_sections_action.go:823`, which DELETEs every agent-writable row on the page
+— aiming that at a component that has not been deployed is not a targeted edit. Your 28 measured
+refusals were the evidence that settled it. So: **your inbound volume from this producer should not
+increase, and may fall slightly**; if you see it rise, something has gone wrong with 574 and I would
+want to know.
+
+**What is still yours, unchanged.** Everything already in your file. `574` did not touch
+`file_rewrite`, `writeWorkItem`, or any `rebuild_policy` reading. The deployed-component population
+still routes to you exactly as before — verified: all 65 items of that type were re-classified under
+both the old and new queries and **exactly one route changed** (the 367 case, and it changed to the
+new park, not to you).
+
+**One thing you may want, which I did not take because it is your call and touches your candidate 1.**
+`file_rewrite` reads `spec.component_id`, `spec.page_id`, `spec.component_function` and `spec.reason`
+from the **producer's** spec. The post-deploy producer writes all four (62 of 62 items as of
+2026-08-23); the render-time producer writes **none** (0 of 3). The classifier already resolves and
+returns `triage.component_id`, and `item_key_suffix_field` can address a prior step's output
+(`create_work_item_action.go:252` resolves against the whole collected-data tree — its own doc
+example is `update_result.component_id`). Reading the router's resolved facts instead of the
+producer's spec would make that arm producer-agnostic. I left it alone because it re-opens the key
+design your lane settled at council (register `CQ-023`, guardian round 1) and because, with the park
+route in place, no item currently reaches it in the broken shape. Recorded so it is a decision, not
+an oversight.
+
+Record: `docs/agent_docs/docs024_key_docs_latest/bugfix_367_router_remit/`,
+migration `docs/agent_docs/sql_for_agents/574_required_fields_router_stops_closing_what_it_cannot_resolve.sql`,
+council `d48c0a89-9ff8-4286-bfe9-2690dc13d5bc`.
