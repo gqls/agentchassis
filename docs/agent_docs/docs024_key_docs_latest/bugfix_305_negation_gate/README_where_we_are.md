@@ -257,3 +257,30 @@ quoted at me. The seventh is the tagline, which comes from that site's own writt
 needs a decision from you rather than a fix from me. I have not rebuilt them yet, and deliberately:
 another thread is in the middle of repairing that site's factual claims today, and a rebuild fired
 now would most likely fail on that rather than on anything to do with copy.
+
+2026-08-23, midday. Thank you for raising the cap — the fleet came back last night at 22:42 our time,
+after about three and a half hours down, and everything has been running normally since. The new
+release is out and I checked it still contains our work rather than assuming so.
+
+The good news is about your three pages. The site's own team rebuilt all three this morning, and the
+one you actually quoted at me — the model directory — came back clean and saved. Both sentences you
+picked out are gone from the live page; I checked for them word for word rather than trusting a
+summary. Its new closing line is simply "The model registry is one of several tools on this site."
+
+I want to be straight about how that happened, because it flatters us slightly: on that rebuild the
+writer produced clean copy by itself, so our check found nothing to fix. The proof that the repair
+works is a different page, yesterday. Both are true; they are just different claims.
+
+The other two pages did not save, and not because of anything to do with copy — they failed a factual
+claims check, which is the thing that team is in the middle of fixing. One of them, the adoption
+tracker, still carries the tagline in its heading, and that will not change until the wording in that
+site's own instructions changes. That remains a decision for you.
+
+On whether we can close this off: not quite, and the reason changed today. It is no longer waiting on
+your pages. While answering your question I found a fault in our own check — it was quietly failing to
+log about a third of the sentences it looked at. Nothing wrong reached any page; what was wrong was
+the record. That matters because the question I was going to bring you next — whether "rather than" is
+a genuine tic worth policing — was going to be answered from exactly that record. I have fixed it, it
+is with the reviewers, and it needs one more release before it is live. So: one release away, and
+please hold off on the "rather than" question until then, because the evidence for it is currently
+incomplete.
