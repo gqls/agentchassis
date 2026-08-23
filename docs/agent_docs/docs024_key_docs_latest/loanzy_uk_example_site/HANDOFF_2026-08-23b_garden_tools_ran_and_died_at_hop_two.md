@@ -43,7 +43,14 @@ baselines and UNCHANGED on fresh ones the same morning.
 
 - **`bugs_open/376`** (new) — the exemplar-crawl kill. §4a has the deeper mechanism: the
   `competitors_found` branch has never fired, so site-specific input never reaches the selection.
-  ⚠ bounded — the agent has only ever run 4 times, all here.
+  ⚠ **bounded, and the bound is that the question is UNANSWERABLE, not that the sample is small.**
+  The 0/4 comes from `orchestration_states`, which reaps on a **24-hour clock** (oldest row measured
+  at exactly 24h). The durable tables show **32 `needs_strategy` items across 27 sites since
+  2026-04-02**, and the historical *selections* are reaped with the rows — so "has this branch ever
+  fired?" cannot be answered from that table at any sample size. ⚠ **This handoff's own first
+  version said "the agent has only ever run 4 times" — corrected 2026-08-23 19:40Z.** Before any
+  `count(*)`/`min()`/absence claim here, `grep orchestration_states LANDMINES.md` (an entry has
+  existed since 2026-08-02) and print `min/max(created_at)` beside the count.
 - **`bugs_open/326` corrected and now FIXED for the build chain.** Its filed root cause (dedup index)
   was wrong; the real one is `writeWorkItem`'s 3h two-strike block. Migration **572** declares
   `recurrence_expected` on all five build-chain hops. **Never hand-rename `item_key`s** — that
