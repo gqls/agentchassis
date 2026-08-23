@@ -76,7 +76,7 @@ and diverted 10 rows to a runner-up, most of them wrong. Full account:
 
 | what | correlation | state |
 |---|---|---|
-| Phase A | `e4336931-487b-4db3-b4dc-a4b128b3566c` | **REVISE ×4** (rounds 1-4). Every one a SUBMISSION defect; the code was right each time. |
+| Phase A | `e4336931-487b-4db3-b4dc-a4b128b3566c` | **APPROVED 2026-08-23 13:41Z, at round 5.** Rounds 1-4 were all REVISE and every one was a SUBMISSION defect; the code was right each time. |
 | Phase B | `00732119-4e24-43c3-bd5e-ba30ced47f15` | **APPROVED** 2026-08-23 13:14Z, 13 reviewers, 4 advisory objections |
 | Self-link refusal (the audit's fix) | `49addc8d-884c-4027-8c7b-b3ac4b69f489` | dispatched 2026-08-23 ~13:45Z |
 
@@ -88,7 +88,13 @@ WHERE correlation_id='<corr>' AND kind='council_report' ORDER BY created_at;
 that returns whoever finished last. And a resubmit writes another `iteration = 0` row, so key on
 the correlation and count rows.
 
-**Round 4's gating objection (editquality, HIGH) is CORRECT and unfixed:** Phase A's edit 2 claimed
+**Round 4's gating objection (editquality, HIGH) was CORRECT and is now FIXED — round 5 passed.**
+What it took: regenerating edit 1's sketch from `git show 288ce3e7a` selected by matching the
+predicate's own `+func` declaration (so it cannot be a call site again), taking the complement for
+edit 2 so the two are disjoint by construction, and adding the register + LANDMINES edits the notes
+claimed. Two more rounds died before reaching a seat — a server-side size cap `DRY_RUN` cannot see,
+and a validator that greps the sketch PROSE — both now in the RUNBOOK §§10-11 with predictors.
+The original objection, for the record: Phase A's edit 2 claimed
 `storedCTADestinationIsAuthored` as its symbol but showed a call-site-only sketch, byte-identical to
 edit 3's, so the one function whose logic changed was never shown. Fixing that means regenerating
 edit 2's sketch from `git show 288ce3e7a -- …resolve_internal_links_action.go` scoped to the
