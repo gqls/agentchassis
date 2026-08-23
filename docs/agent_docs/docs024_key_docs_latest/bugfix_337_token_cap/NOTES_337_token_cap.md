@@ -420,3 +420,96 @@ a reason that lives downstream of anything this lane changed.
 > zero is not evidence of a defect if the known defect clears in forty minutes. The census
 > stays in this file because it is a good measurement — it just does not mean what it looked
 > like it meant.
+
+---
+
+## 2026-08-23 (evening) — I picked this lane up to work 253, and instead found that both live items in my own handoff were false. Two of my three near-misses today were wrong theories I nearly wrote down.
+
+### What I set out to do, and why it stopped immediately
+
+The handoff (17:15Z) sent me to §3b: *determine what empties `hero-tool`'s `content_data`
+values*, starting with "find a page where it happened and diff `content_data` across history".
+I did that first, before anything else, and the diff refused to show an emptying.
+
+### Misstep 1 (mine, caught in ~4 minutes) — I read a shared component as the WRONG component
+
+Listing the tool components on loanzy I saw `tool-eligibility-checker` and
+`tool-credit-health-check` both pointing at function **`loans-credit-health-check`**, and
+`tool-is-a-loan-right-for-me` pointing at **`loans-damage-checker`** — a name with nothing to do
+with loans-vs-savings, borrowed from `loanandmortgagecalculator.co.uk`. I was one step from
+filing "two loanzy pages serve the wrong tool".
+
+**What stopped me:** the estate rule that shared actions/components are *design*, not a smell
+(owner 08-14) — so the discriminating check is the **content**, not the function name. Dumping
+both pages' `content_data` settled it in one query: eligibility asks *"Your income and regular
+outgoings" / "The loan you're considering" / "Your eligibility snapshot"*; credit asks *"Payment
+history" / "Credit utilisation" / "Length of credit history"*. And `loans-damage-checker` on
+"is a loan right for me" is a correct affordability calculator (*take-home pay, existing debt
+repayments, essential costs, the repayment you're considering, what you'd have left over*) —
+**a badly-named template doing exactly the right job.**
+
+**The cheap check that would have saved the detour:** read the `content_data`, not the
+`function`. A shared template is identified by its function; what it *is* on this page is its
+content. I had the query written before I had the suspicion — I just ran the wrong one first.
+
+### Misstep 2 (mine, and this one nearly re-opened a closed bug) — a probe whose POSITIVE control also failed
+
+Verifying the 337 fix was still live after the 16:03Z roll, the `build provenance` log line had
+scrolled past `--tail=3000` (as CLAUDE.md warns for `agent-chassis` specifically). So I fell
+back to the binary probe — and ran both controls, which is the only reason this is a note and
+not an incident:
+
+```
+grep -ac 2dbe12f1d5a1…  /proc/1/exe   -> 0     # must be PRESENT
+grep -ac 013d8040…      /proc/1/exe   -> 0     # control, must be ABSENT
+```
+
+**Both zero. The positive control failed, so the instrument is blind** — and a blind instrument
+reporting 0 is indistinguishable from a true absence. Read at face value it says *"the 337 fix
+is not deployed"*, which would have re-opened a bug I was about to close. **Discarded the
+measurement rather than the conclusion.**
+
+What answered it: **probe the capability, not the commit.** `aspect_paths` is the field the fix
+adds to the advisory; it reads **10,292 chars on a row 20 minutes old**, on pods started 16:03Z
+running v1.0.1330. That is "live *now*", which is strictly more than "was built from the right
+sha".
+
+### The finding that cancelled my own §3b
+
+All 40 empty values across 11 loanzy pages are `stat_*` keys — *no other key is ever empty* —
+and they empty in label/value pairs, so non-empty 11/9/7/5 is just 3/2/1/0 of three optional
+stat slots filled. Then the direction check killed it outright: across successive writes the
+stat count goes **0→3, 0→0→3, 0→2** and only once **1→0**. **A mechanism that empties values
+cannot fill them.** There is no writer to census.
+
+**And the refutation was already in `bugs_open/253`, immediately above my own contribution.**
+The 305 lane wrote it on 08-22 — *"per-run variance in generated output, not a settled renderer
+change"* — including a note that its own error had been letting three agreeing samples outvote
+one disagreeing one. **I then wrote the same generalisation from five agreeing samples the next
+day, in the same file, below the correction.** Reading a file is not reading the corrections in
+it. That is the misstep worth keeping from today.
+
+### And the page was never blocked
+
+Last floor refusal for `tool-credit-health-check`: **14:03:06Z**. Successful save of all four
+slots: **14:23:29Z**, `build_status='deployed'`. The handoff declaring it blocked was written at
+**17:15Z** — 2h50m *after* the repair. The live page serves 200 / 30,756 B with 18 function refs,
+9 instance-scoped ids and 13 buttons: the same repaired profile the bug file already certifies
+for the sibling page.
+
+**The general shape, and why it is now trap #4 in the handoff:** the refusal was a *retryable*
+failure, and a snapshot of a retryable failure is indistinguishable in a status table from a
+permanent blocker. Nothing in the row says "this will probably clear on its own in 20 minutes".
+The lane had even been told this once already — `bugs_closed/029` self-heals at ~40 minutes, and
+that trap is written in this same handoff.
+
+### Disposition
+
+- `bugs_open/337` → **`bugs_closed/337`**, with a close-out section and the demand control.
+- `bugs_open/253` → correction filed at the foot, cancelling one open question and adding none.
+  I explicitly did **not** propose the "measure non-empty fields instead of classes" change I
+  had floated: on this evidence it would refuse the same saves for a better-worded reason, and
+  that is not worth a shared-guard contract change across nine writers.
+- §3c (does Arm A raise the orphan rate?) **run, not carried**: 0/48 pre-fix vs 1/10 post-fix,
+  which decides nothing at n=1. Recorded with the sample size that *would* decide it, so the
+  next session can skip it knowingly instead of re-discovering that it is underpowered.

@@ -289,3 +289,71 @@ broken, and I have written up the common cause rather than the three incidents.
 
 **Where this leaves the bug:** everything it was filed for is done except one page, and that
 page is waiting on another team's guard.
+
+---
+
+## 2026-08-23, evening — the bug was already fixed and we hadn't looked
+
+Short version: bug 337 is finished and closed. The last page repaired itself this afternoon,
+about twenty minutes after we last checked on it, and nobody went back to look. I found it by
+starting the next job rather than by working on 337 at all.
+
+Here is what happened, in order.
+
+This morning's work went live and did what it was supposed to. The page-building agent now gets
+told, up front, what names it is allowed to use — which is the whole fix. Three pages on
+loanzy.uk needed rebuilding as a result. Two of them rebuilt cleanly.
+
+The third one, the credit health check, was refused by a safety guard. That guard exists to stop
+a rebuild quietly making a page thinner than it was, and it was doing its job, so the earlier
+session correctly refused to switch it off. It wrote a handoff saying "this page is blocked,
+here is who needs to fix the guard", and stopped.
+
+But the refusal wasn't permanent. It was the kind of failure that clears if you simply try
+again. The system did try again, on its own, twenty minutes later — and it worked. The page has
+been live and working since twenty past three this afternoon. The handoff saying it was blocked
+was written at quarter past five, nearly three hours after the page fixed itself.
+
+I checked the page on the actual website before believing either story: it loads, it's about
+6,000 bytes bigger than before, and it has the full working quiz on it with the right questions.
+So that's three pages out of three, and the bug closes.
+
+The second thing is more useful than the first.
+
+The handoff also left instructions for the next person: go and find out what is deleting content
+from these pages. That sounds like a serious bug and it would have been someone's whole day.
+
+**There is nothing deleting anything.** The hero section at the top of these tool pages has room
+for three optional statistics. Sometimes the writing agent fills in all three, sometimes two,
+sometimes none. When it fills in fewer, the page has fewer bits of styling on it — and the
+safety guard counts bits of styling, so it sees a thinner page and refuses.
+
+The proof that nothing is being deleted is simple: the number of statistics goes **up** as often
+as it goes down. Three of the four pages I could check went from zero statistics to two or three
+on their next rebuild. Something that deletes content cannot also add it.
+
+So I've cancelled that investigation and written down why, and I've been careful to say what
+evidence would have proved me wrong.
+
+The part I'm least comfortable with is that this was already known. Another team wrote exactly
+this conclusion into the same bug file yesterday — and our own note was added underneath theirs,
+today, saying the opposite. We read the file and missed the correction sitting in it. I've logged
+that, because it's a mistake that will happen again unless it's visible.
+
+Two other near-misses today, both caught before they went anywhere.
+
+I nearly reported that two loanzy pages were showing the wrong tool, because two pages share the
+same underlying component. They aren't — the component is a shared template and each page fills
+it with its own questions. Sharing components is how the estate is meant to work; I was reading
+the label instead of the contents.
+
+And I nearly reported this morning's fix as *not deployed*. The usual way of checking had gone
+stale, so I checked the running program directly — and got "not found". The reason that isn't a
+result is that I also ran a control that was supposed to come back "not found", and it did too.
+When the check can't tell the two apart, the check is broken, not the thing being checked. I
+threw the measurement away and confirmed the fix a different way, by watching it actually do its
+job twenty minutes ago.
+
+Nothing needs a decision from you. 337 is closed, 253 has one fewer open question than it had
+this morning, and I've left the next session a corrected handoff rather than the one that would
+have sent them looking for a bug that isn't there.
