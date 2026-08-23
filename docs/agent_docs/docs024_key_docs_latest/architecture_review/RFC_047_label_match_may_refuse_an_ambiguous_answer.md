@@ -1,6 +1,6 @@
 # RFC 047 — a shared matcher may REFUSE to answer: `BestLabelMatch` and the alphabetical tie
 
-**Status: DRAFT — raised 2026-08-23 by the `bugfix_308_cta_destination_provenance` lane.
+**Status: DRAFT, §9 ANSWERED by the owner 2026-08-23 — raised 2026-08-23 by the `bugfix_308_cta_destination_provenance` lane.
 RETROSPECTIVE, in the shape RFC_002 established: the change is committed (`7f85aa814`) and
 inert until the next fleet roll. It is here because the commit hook's architecture signal fired
 on an exported-symbol change and because the 2026-07-29 owner ruling §1 makes the trigger exact —
@@ -152,3 +152,50 @@ writers should refuse ambiguity while the DETECTOR goes on reporting its best gu
 cheaper than a write). That would be a deliberate re-drift of the two halves — the exact thing
 `bugs_open/203`'s extraction and `bugs_open/308` both exist to stop — so it is not proposed here,
 but it is the live choice and it belongs to the owner rather than to this lane.
+
+
+---
+
+## 10. OWNER RULING 2026-08-23 — §9 is answered, and the answer is neither of the options offered
+
+§9 asked whether the DETECTOR should go on guessing where the writers now refuse. The owner's
+answer: **"the offer and benefit analysis agent should probably decide."**
+
+That is a third option this RFC did not put, and it is better than both of mine. My two were
+*guess* and *stay silent* — both of them properties of a token counter that cannot tell
+`Talk to us about your setup` (wants the contact page) from `Learn More About Us` (wants the About
+page). Those two labels are **token-identical**: each reduces to the single token `about`. No tie
+rule, ranking key or stopword list can separate them, and this lane measured the stopword version
+and confirmed it kills both together (`CALIBRATION_2026-08-23…` §8). **Separating them needs
+judgement about what the site is for, which is a different kind of instrument.**
+
+### What exists today, measured before repeating the owner's phrase back as a plan
+
+`agent_definitions.type = 'offer-analyser'`, active. Its own description: *"Reads one site's
+recorded premise and its reachable page surface, and answers two questions: what should this site
+lead with for its own reader (written to `site_specs` aspect `offer_ordering`, ranked), and where
+does the live site fail to."* Dispatch with `{site_id, domain}`.
+
+**Three facts that stand between the ruling and an implementation** [MEASURED 2026-08-23]:
+
+1. **It has run 4 times, all on 2026-08-22.** It is new and barely exercised.
+2. **`offer_ordering` holds ranked MESSAGING POINTS, not ranked pages** — `lead_with[]` entries of
+   `{rank, point, why}`, where `point` is a sentence of prose. There is no page id or URL in it, so
+   a tied page-vs-page decision cannot be resolved by reading it as it stands.
+3. **Two sites have one** (leopardessconsulting.co.uk, webdesign.co.uk), one of them flagged
+   `degraded: true`.
+
+### So the ruling is recorded as DIRECTION, and the work it implies is named
+
+The direction: **a tie, and a label that names its own page, are questions for an agent that knows
+the site's premise — not for the matcher.** What that needs, none of which exists:
+
+- a page-level output from `offer-analyser` (or a mapping from its `lead_with` points to pages),
+  since the matcher's question is "which of these two pages", not "what should we lead with";
+- a route from a refused match to that agent, and back — today a refusal is silent, files nothing,
+  and nobody learns the button is undecidable;
+- coverage: 2 of ~25 live sites have an ordering at all.
+
+**Until that exists the refusal stands**, which is the safe reading and is what shipped. The gap
+is stated here rather than in a lane's notes because it is the difference between a ruling and a
+mechanism, and this RFC is where a reader will look for the decision.
