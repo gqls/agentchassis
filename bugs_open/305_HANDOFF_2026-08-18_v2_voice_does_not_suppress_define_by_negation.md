@@ -967,3 +967,21 @@ change**; it is recorded here rather than attempted inside a config migration.
 Also unchanged: `rewrite_negations_action.go` still falls back to `options["max_tokens"] = 2000` when
 no `ai_service` resolves. That path is unreachable for this step because `517` declares the config —
 noted so a reader does not conclude from the Go source that the ceiling is still 2000.
+
+### §27c. `569`'s council round — APPROVED, and the one objection checked
+
+`Council-Reviewed: 4829bd48-7dfc-4f9b-86c6-9fc11427c443` — `decision=approved`, `unreadable=0`,
+`in_body=10`, `voted=10` (a sound round, not merely a favourable one). Nine approved; one objected on
+record, medium, and it named a real footprint:
+
+> the `duplicate_active_rows` landmine — four agent types carry TWO active definition rows and only
+> the higher version is loaded, and the plan never enumerates versions for this type before writing.
+
+**Checked, and it is answered twice over.** `page-content-writer` has **exactly one** row in any
+state (`all_rows_any_state=1`, `live_active=1`, version 2) — it is not one of the four. **And `569`'s
+verify block covers the case regardless**: a second active row would have matched the same `WHERE`,
+made the post-condition `count(*)` equal **2**, and raised rather than committing a half-write. That
+is why the check is `IF n <> 1`, not `IF n = 0`.
+
+Worth recording anyway: the seat was pointing at a genuine trap on a genuine footprint, and "my guard
+happens to cover it" is a weaker answer than "I enumerated the rows". Both are now on file.
