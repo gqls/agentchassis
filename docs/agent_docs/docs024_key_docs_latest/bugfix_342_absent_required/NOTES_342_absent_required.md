@@ -436,3 +436,53 @@ The refusal half is live, armed and proven. But the ESCALATION half — reviewed
 earlier trail — has been filing unactionable items since it shipped, and the fix for that is
 **committed and INERT until the next roll**. A bug whose fix is committed but not live stays OPEN
 by this estate's own bar. Submitted as council trail `a0ef0b07`.
+
+## 2026-08-23 later — the "fresh build" does NOT carry the routability fix, and the lane is now purely waiting
+
+Asked to carry on after a fresh build. **It is not fresh enough**, and the check that settles that
+is worth writing down because the tag says otherwise.
+
+| signal | reading |
+|---|---|
+| pod image, both replicas | **v1.0.1328**, started **11:51Z** |
+| `deploy/agent-chassis` desired image | **v1.0.1328** (rollout reports "successfully rolled out") |
+| makefile `IMAGE_TAG` | **v1.0.1329** — bumped, but nothing is running it |
+| my routability commits | `eb918bd58` **13:08**, `23d2a577d` **13:34** — *after* the pods started |
+
+So the arithmetic already says no. **Confirmed at the artefact anyway, with the control that makes
+the negative mean something:** the new literal `capability_gap:required_fields_missing` is
+**ABSENT** from `/proc/1/exe`, while yesterday's `refuse_absent_required_fields` (which IS live) is
+**PRESENT** in the same probe. Without that second arm an ABSENT reading is indistinguishable from
+a broken probe — which is the mistake I made in the other direction on 08-22 (a positive control on
+a literal that already existed, `WRONG_CALLS.md`).
+
+⚠ **Probe-literal novelty checked BEFORE probing this time**, per that same entry:
+`capability_gap:required_fields_missing` → 0 occurrences at `23d2a577d^`, valid; `handler_remit` →
+**1 occurrence, NOT a valid control**, and it was dropped rather than used.
+
+### What production did in the meantime — three readings, all reassuring
+
+- **Accrual is ZERO.** Still exactly **2** render-time items, most recent `2026-08-22 18:03`. The
+  broken producer has filed nothing new in ~24h, so the cost of it staying inert another roll is
+  measured, not guessed.
+- **The armed refusal is not breaking healthy traffic.** **12 `section-editor` items completed**
+  since arming (18:00 on 08-22), **0** carrying a refusal error. That is the demand control the
+  348/`bug_historian` worry asks for — an arm that only stops edits would show up here as failures,
+  and it does not.
+- **Both armings survived the roll**: editor refusal `true`, chrome record 7/7. (Worth checking
+  every time — a roll re-applies overlays, and config that "was armed" is a claim with a shelf
+  life.)
+
+### Canary check (c): still unexercised, and now with a measured reason
+
+0 queue-driven refusals. 12 queue-driven edits completed cleanly in the window, so the traffic
+exists — what has not occurred is an edit that *leaves a required field empty*. That is a rarer
+event than "an edit", and the honest statement is that the sample has not contained one yet, not
+that the interaction is benign.
+
+### So: still cannot close, and the blocker is now ONE thing
+
+Everything this lane owns is written, reviewed and approved. **The only blocker is a roll** — the
+fix is committed and inert, and this estate's bar is *fixed AND live*. Nothing here needs a
+decision or more work; it needs `make release` (owner-run, whole-fleet) and then the two checks in
+the handoff's §4.
