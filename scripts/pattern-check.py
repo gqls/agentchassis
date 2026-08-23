@@ -694,6 +694,18 @@ INSTANCE_TOKEN_ALLOWED = {
         "site chrome slots (header/nav/footer), one instance per page by construction",
     "rerender_pages_actions.go":
         "renders the <head> template only (:532) — a document has exactly one",
+    "adopt_fragment_section.go":
+        "adoptFragmentSection renders the adopted-fragment template ({{.body}}, the "
+        "identity function) ONLY to compare the output against the bytes it is about "
+        "to bind, and DISCARDS it — the render never reaches "
+        "page_components.rendered_html and is never served. Same standing as "
+        "rendercheck.go below: a verification render, not a page render. The template "
+        "holds no {{.InstanceID}} to render empty, and if one were introduced the byte "
+        "comparison REFUSES the adoption rather than storing a collision "
+        "(bugs_open/357, RFC_046). ⚠ SCOPE: this exemption is per-FILE and the file "
+        "has exactly ONE render call as of 2026-08-23 — a page-producing render added "
+        "here later would be silenced by this entry, so split the file instead of "
+        "widening this reason",
     "rendercheck.go":
         "cmd/component-render-check is an offline LINT: it renders every active "
         "component to look for empty-element shapes and writes its report to "
