@@ -15436,3 +15436,27 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **what to do before removing the page rule** (whoever does it owns this): mitigate the prefetch hazard in the handler (refuse to mutate on `Sec-Purpose: prefetch`, `Purpose: prefetch`, `X-Purpose: preview`, and on HEAD), **or** move `/c/` off the shopfront hostname, **or** gate it. Do not discover the choice afterwards.
 - **also, the box hosts more than its name suggests** — a related trap in the same file. Its cloudflared config serves **seven** hostnames on three ports: `webdesign.uk`/`www`/`preview` → :8080, `noted.co.uk`/`www`/`app.` → :8082, `admin.apis.uk` → :8083. A session reasoning about "the webdesign box" from the lane's docs alone will not know `noted.co.uk` is on it. Read `/etc/cloudflared/config.yml` on the box, not the lane's file list.
 - **source:** 2026-08-23, `web_admin_console` lane, while adding `admin.apis.uk` to the same tunnel. Found by checking whether `/c/` was already public before claiming the new hostname was "the second publicly-proxied prefix" — it was not, and neither claim survived the check. The owner pasting the real `config.yml` is what exposed both errors.
+
+---
+
+### Reusing a work-item TYPE does not reuse its ROUTER — your items can be born unroutable, and every signal on the producing side says success
+- **footprint:** `site_work_items.item_type`, `site_work_items.item_key`, `site_work_items.handler_agent`, `insertWorkItem`, `emitRequiredFieldsMissing`, `required-fields-missing-handler`, `check_required_fields_missing.go`, `create_work_item`
+- **fires when:** you file a work item of an EXISTING type from a NEW producer — the standard, encouraged move (reuse the type, inherit its handler, co-dedup with the sibling producer). It is the right instinct and the reviewers will approve it; the trap is in what "reuse" silently does not include.
+- **the trap.** An `item_type` is a **string**. A router is (a) the set of `spec` fields its classifier reads and (b) the `item_key` shape it dedupes on. Match the string and neither of the others and your items are inserted, counted, and **thrown away**. Worked case, 2026-08-22/23: a new render-time producer of `required_fields_missing` filed **2 items in its lifetime and both were unroutable — 100%**. `required-fields-missing-handler`'s `classify` step resolves the page by `spec->>'page_name'` and the component by `spec->>'slot_name'`; the producer supplied neither, so triage returned `route: "malformed"`, `component_id: ''`, `page_type: ''`, the ladder burned three attempts and parked. Separately its key was `<site_id>:<component function>` while the sibling producer keys on `<page_id>:<slot_name>` (`check_required_fields_missing.go:180`), so the two would have filed **two items for one defect** — the exact outcome reuse was chosen to avoid.
+- **why it survives review, and this is the dangerous half: EVERY SIGNAL ON THE PRODUCING SIDE SAYS SUCCESS.** The `INSERT` succeeds. The emitter logs `item filed`. All three servicing orchestrations read `current_step=done, status=COMPLETED`. The item's `error` column is **NULL**. Only `site_work_items.status = 'failed'` and the handler's own `triage.route` in `collected_data` say otherwise, and neither is anywhere a producer author would look. A council seat approved the reuse *reasoning* — correctly, the reasoning was sound; nobody verifies that the artefact matches the reasoning.
+- **the check — before you claim a handler consumes your items, read its predicate:**
+  ```sql
+  -- what does the router actually resolve by?
+  SELECT s.k, s.v->'config'->>'query'
+    FROM agent_definitions a, jsonb_each(a.default_config->'workflow'->'steps') s(k,v)
+   WHERE a.type='<the handler>' AND a.is_active
+     AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+     AND s.k IN ('classify','triage');           -- the spec->> references are right there in the SQL
+  -- and the sibling producer's key shape, which yours must match to co-dedup:
+  --   grep -n "ItemKey:" <the other producer>.go
+  ```
+  **Then watch ONE filed item for an hour** — `SELECT status, attempt_count, spec FROM site_work_items WHERE item_key='<yours>'`. A `failed` with `attempt_count=3` and a NULL `error` is this trap's exact fingerprint.
+- **the generalisable half:** this is the sibling of *"a `complete` work item is not a repaired artefact"*, one step earlier — at the point where the item is **born** rather than closed. Both say the same thing: the queue's own bookkeeping is not evidence about the work. And note the asymmetry that makes it expensive: a producer that files nothing is noticed immediately, while a producer that files garbage looks *more* healthy than one that stays quiet.
+- **relations:** `bugs_open/342` (the worked case, fixed in `eb918bd58`, pinned by `TestRequiredFieldsMissingItemsAreRoutable`) · `bugs_closed/291` (why the page-less case gets an EMPTY handler and `needs_human_review` rather than an invented handler name — an unregistered handler is born `blocked` and never claimed) · `bugs_open/277` (the router being reused) · `WRONG_CALLS.md` 2026-08-23 · MEMORY [[a-complete-work-item-is-not-a-repaired-artefact]]
+- **source:** 2026-08-23, `bugfix_342_absent_required` lane — found by reading a filed item's terminal status a day later while checking something else entirely
+- **added:** 2026-08-23, bugfix_342_absent_required lane
