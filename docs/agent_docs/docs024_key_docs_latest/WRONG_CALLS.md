@@ -45150,3 +45150,31 @@ at a finer resolution than the effect it claims to discriminate** — daily buck
 **The cheap check:** before quoting any "N expected vs M observed", ask what the arrival process looks like — one query, `count(*)` grouped by hour, and read whether the events cluster. If they do, quote the **longest natural gap** instead of a rate, because that is the number a silence has to beat.
 
 **Tally.** Sixth this week for *"my measurement answered the question I encoded"*, and the first where the flaw was in the **model** rather than the query — the SQL was correct, the arithmetic was correct, and the assumption underneath both was not. That is a harder one to catch by re-reading, which is why it took another lane's mistake to surface it.
+
+---
+
+## 2026-08-23 — `copy_quality_two_stage`: I made the SAME "filter by correlation, not recency" mistake I had logged two days earlier, in the same lane, on the same task
+
+**The claim.** Mid-apply, my watcher printed `DONE: complete|COMPLETED` for the `call-to-action`
+edit. I read that as the edit having finished.
+
+**The truth.** My correlation was still `trigger_edit|EXECUTING_STEP`. The row I had printed was the
+*previous* edit's — my watcher queried *"the most recent `section-editor` orchestration"* rather than
+`WHERE correlation_id='<mine>'`, and with three edits going through one agent in sequence, "most
+recent" is reliably somebody else's.
+
+**What caught it.** Checking the artefact rather than the status: the component's `content_data` was
+unchanged, which contradicted a COMPLETED that I had no business trusting anyway.
+
+**Why this entry exists at all.** On **2026-08-21** I wrote in this same file: *"filter by
+correlation, never by recency"* — after reading run 3's `llm_call_log` row as run 4's. Two days
+later, same lane, same task, I wrote a query that sorts by `created_at DESC` and takes the top row.
+**Writing the lesson down did not install it.** The estate already has that observation
+("*Writing the lesson down does not install it — the next instance does not announce itself as an
+instance*"); this is a second confirmation of it from a different direction, and it is the argument
+for making the check mechanical rather than remembered.
+
+**The cheap check, and it is not a habit — it is a rule about the query:** if a watcher's SQL
+contains `ORDER BY ... DESC LIMIT 1` and not the identifier of the thing you started, it is watching
+the fleet, not your work. `scripts/fire-section-edit.sh` now carries the warning in its header, and
+its own polling loop is correlation-scoped.
