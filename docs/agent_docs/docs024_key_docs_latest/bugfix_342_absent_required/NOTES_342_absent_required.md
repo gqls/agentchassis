@@ -553,3 +553,28 @@ to its own value. **So on this build both arms hold: the unhealthy edit is refus
 one is written.** Re-running the control was not ceremony — the rework changed the emitter that
 runs on the same path, and an arm that had started refusing healthy edits would show up nowhere
 else.
+
+### The closure criterion was met AFTER I closed the file — and it held
+
+I closed 342 on the strength of the fix being live and the item being correctly *shaped*, with the
+router's disposition predicted from its own SQL run by hand. Twelve minutes later the router picked
+the item up for real. **The prediction held exactly**: `route: "stale"`, `component_id: ""`,
+`page_type: tool`, `rebuild_policy: owned` — the same row, field for field — and item `562788c3`
+closed `complete`, **attempt_count 1**, `error` NULL.
+
+Against the pre-fix behaviour (`malformed`, three attempts, terminal `failed`) that is the
+closure criterion in the handoff's §7 satisfied outright: **a render-time item reached a
+non-`failed` disposition.** So the close was correct, and it is now evidenced rather than
+predicted. Recording it this way round because the honest version matters — I did not wait for the
+evidence, I forecast it and then checked, and the check could have gone the other way.
+
+⚠ **And it makes `bugs_open/367` sharper than when I filed it.** Its worry — that a `close_stale`
+is quieter than the failure it replaces — is no longer a projection. A finding that is *true*
+(`headline` and `trust_note` really are absent; the refusal fired on exactly those two fields
+minutes earlier) now sits in the queue as **`complete` with no error**. Any census asking "did we
+action our required-fields findings?" scores it as a success. **The old behaviour was ugly and
+legible; this is tidy and wrong**, which is the harder of the two to find.
+
+⚠ Check (c) is still NOT this. The item that completed was the *finding*, serviced by the router;
+check (c) asks whether a refused edit's **driving** item lies about its status. Still unexercised,
+now owned by `bugs_open/344` rather than by this lane.
