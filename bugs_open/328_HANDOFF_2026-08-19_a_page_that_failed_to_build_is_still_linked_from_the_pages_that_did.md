@@ -164,3 +164,117 @@ six anchors were served for 25 days regardless, which is this bug's point and no
 
 Lane record: `docs/agent_docs/docs024_key_docs_latest/mortgagecalculator_couk_adoption/NOTES_mortgagecalculator_couk.md`,
 `## 2026-08-21`.
+
+---
+
+## FIX BUILT 2026-08-23 — and three corrections to the account above, all measured
+
+**Status: fix committed, Go INERT until the next fleet roll; the config half held as
+`sql_for_agents/575_enable_suppress_unshipped_links_HOLD.sql`. Council SUBMITTED, corr
+`21c19c1f-e614-49bd-82ac-0bb5b58082e0`, verdict not yet read. Register entry LNK-038.
+Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_328_links_to_unbuilt_pages/`.**
+
+**Still live when the work started**, re-measured cache-busted 2026-08-23: `https://loanzy.uk/`
+serves 200 carrying `href="/your-rights.html"` ×2 and `href="/guides/index.html"` ×1, both 404.
+And it **reproduces on a build that ran the same day** — loanzy redeployed all 17 pages
+13:13–14:24Z, the home page at 13:28:27Z, while both targets had sat `deployed_at IS NULL` and
+untouched since 08-18 with no open work item. So this is not a stale artefact from the filing date;
+the binary and config in production that afternoon still did it.
+
+### CORRECTION 1 — the handler ran, and its one remedy cannot work here
+
+The 08-21 contrib says the seven items "sit at `status='needs_human_review'` with no handler",
+i.e. that detection works and **delivery** is the gap. The rows say otherwise. All **58** parked
+items carry `triaged_at`, `handler_agent='page-build-handler'` and `attempt_count ≥ 1`:
+
+| status | error | count |
+|---|---|---|
+| needs_human_review | `page-build-handler no-op: no sections ready to build` | **48** |
+| needs_human_review | `content validation failed: N blockers` | **10** |
+
+They were dispatched, the handler ran, and it failed — because the item type implements exactly
+**one** remedy, *build the target page*, and the target is parked precisely because it cannot be
+built. `bugs_open/220`'s routing is not the gap; it works. **The missing remedy is the other one
+the item's own `fix` text names: stop the referrer advertising it.** That reprices the candidate
+list again — candidate 3 is not "80% built", it is *built and inert*, and the 08-21 contrib's cost
+argument rested on the wrong half.
+
+### CORRECTION 2 — detection did NOT cover this bug's own headline instance
+
+There is **no `unbuilt_internal_link` item anywhere** for loanzy's `/your-rights.html` or
+`/guides/index.html` — open, cancelled or otherwise. The site's only three name a different page's
+component (`about:about-content`), all filed 08-18. The audit is periodic and reads deployed HTML;
+loanzy's last discovery pass predates its redeploy. So "detection exists, is per-linking-page, and
+is accurate" is true of mortgagecalculator and **silent** about loanzy — and any fix routed through
+the item queue would miss the youngest and worst case. This is the third argument for candidate 1
+over 3 and 4, on top of the two the file already makes.
+
+### CORRECTION 3 — the open-item count overstates live harm by about 3×
+
+**42 of the 63 open items name targets that serve HTTP 200 today**: all 40 lendzy items (3 tool
+pages), gaswholesalers' `/fuel-pricing-framework.html` — the canonical 404 quoted in `links.go`'s
+own comment, which has since shipped — and mortgagecalculator's `/contact/index.html`. They are
+stale records held open by a missing `deployed_at` stamp (the `bugs_open/315` family), not live
+damage. **A work item records what a detector saw; it is not evidence about the wire.**
+
+The honest measure is at the artefact. Every `<a href>` in every stored
+`page_components.rendered_html` fleet-wide, resolved against the fix's predicate:
+
+| target class | anchor hits | referring pages | distinct targets |
+|---|---|---|---|
+| servable — untouched | **3,193** | 577 | 557 |
+| unservable — suppressed | **36** | 24 | **14** |
+
+**1.1% of internal anchors, every one of them a live 404** — and it names damage this file's census
+never reached: `remortgagecalculator.uk` (2 targets, 6 hits), `webdesign.co.uk`, both
+`pool-*.internal`. 14 targets on 9 sites against the queue's 13 on 7.
+
+### The fix — candidate 1, at the seam, with the predicate the estate did not yet have
+
+`datahelpers.RepairPageLinks` already unlinks dead in-body links at four seams, and all four load
+their index from ONE function, `loadValidPagePaths` (`validate_page_content.go:1515`), whose query
+has **no build-axis arm at all**. A `pages` row that has never existed on the web is a perfectly
+good link target to every one of them. The same omission was fixed on three sibling loaders on
+2026-08-09; this loader was missed.
+
+⚠ **Candidate 1's own warning was right, and both existing predicates are wrong in opposite
+directions.** Measured fleet-wide against live HTTP on 2026-08-23, cache-busted, **with a
+per-domain 404 control**: `NeverDeployedPagePredicate` selects **9 pages that return 200**;
+`PageMayBeLinkedPredicateFor`'s `planned`-only floor still holds (17/17 404) but **misses the 3
+`needs_rebuild` rows never built at all, 3/3 returning 404** — one of which is `/your-rights.html`.
+The discriminator is the rendered-component count: **20 never-shipped pages with zero components →
+20/20 404; 9 with ≥1 → 9/9 200.** The conjunction is load-bearing — 8 pages have `deployed_at` set
+and zero components (tool/blog-index pages served by another subsystem) and a component test alone
+would delist all eight.
+
+⚠ **The control is the finding.** Uncontrolled, the same census read *"19 `planned` pages serve
+200"* — a refutation of the whole approach. All 19 were one parked domain returning 200 with a
+114-byte registrar redirect for every path, including a URL invented at the prompt. Logged in
+`WRONG_CALLS.md`; the control is now a LANDMINE.
+
+**What was built** (`LNK-038` carries the full account):
+
+- `PageLinkRefusedPredicateFor` — a fourth member of the predicate family, never a second spelling.
+- Suppression **at the two OUTBOUND seams only** — `repairOutboundPageLinks` (both rerender paths
+  *and* the initial build, since `deploy_page` calls the page-rerender agent by role) and
+  `AssemblePageAction` (the loop paths, which called **neither** repair function). Nothing writes
+  to `content_data`: **the authored href survives, so the anchor returns by itself when the target
+  ships** — no cascade, no repair queue. It also means this **silences no detector**: the stored
+  `rendered_html` still holds the anchor for `check_phantom_internal_links` to find.
+- **Two arms**, from reading all 36 anchors rather than assuming: 28 classless prose anchors unlink
+  (keep the words); 8 classed template controls are dropped whole (owner's decision, 2026-08-23),
+  because unlinking those would leave "Read your rights →" as bare text inside the card — a
+  standing landmine this would otherwise have multiplied by eight.
+- Opt-in field `suppress_unshipped_links`, **default OFF** (RFC_010 §2), with the chrome policy's
+  two degrade escapes: failed lookup, and **zero shipped pages** (the first-build case).
+- `unbuilt_internal_link` registered in `reviewRevalidators` — the type has **72 items in its whole
+  history and ZERO ever closed**, because it is born `needs_human_review`, which
+  `CompleteWorkItemAction` refuses to leave, so its registered verifier could never run. It
+  delegates to that same verifier, and will honestly report `still_holds` on the ~42 items above
+  rather than closing them on a stamping gap it did not fix.
+
+**This does not close the bug.** A renderer fix is inert until something re-renders, and 36 anchors
+on 24 pages are serving now. Owed after the roll: apply 575, fire `page_rerender` for those 24
+pages, then verify **at the served bytes** — `href="/your-rights.html"` gone **while
+`href="/calculators.html"` is still there**, because without the positive control "stopped emitting
+internal links" passes the test.

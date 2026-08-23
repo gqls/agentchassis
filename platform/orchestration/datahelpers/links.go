@@ -333,6 +333,79 @@ func PageMayBeLinkedPredicateFor(alias string) string {
 	return fmt.Sprintf("NOT (%[1]sdeployed_at IS NULL AND COALESCE(%[1]sbuild_status, '') = 'planned')", q)
 }
 
+// PageLinkRefusedPredicateFor is the OUTBOUND-SUPPRESSION floor: "an <a> emitted
+// at this page would 404 right now, AND the page is not arriving". It is
+// STRICTLY NARROWER than every predicate above, and it exists because none of
+// them answers this question (bugs_open/328).
+//
+// ⚠ THE ALIAS IS REQUIRED, unlike its siblings. The correlated subquery's
+// `pc.page_id = <alias>.id` would bind an unqualified `id` inside the EXISTS to
+// page_components.id, which is always true and would refuse every page. Callers
+// pass their pages alias; the empty string is rejected by the family's own test
+// rather than silently producing that predicate.
+//
+// WHY NOT NeverDeployedPagePredicateFor. Measured fleet-wide against live HTTP
+// on 2026-08-23, cache-busted, with a per-domain 404 control (an invented URL
+// fetched in the same run — one parked domain returns 200 with a 114-byte
+// redirect for EVERY path, including the invented one, and without the control
+// its 19 rows read as "never-deployed pages that serve"): of the 29 rows that
+// survive the control, `deployed_at IS NULL` selects **9 that return HTTP 200**.
+// Suppressing those would delist working pages, which this estate calls "worse
+// than the bug" (bugs_open/052's addendum).
+//
+// WHY NOT PageMayBeLinkedPredicateFor. Its floor is `planned` + never deployed,
+// and that arm still holds today (17/17 of those rows 404). But it misses the
+// `needs_rebuild` rows that were never built at all — 3 of them on 2026-08-23,
+// **3/3 returning 404**, one of which is bugs_open/328's own instance,
+// loanzy.uk `/your-rights.html`.
+//
+// THE DISCRIMINATOR IS THE COMPONENT COUNT, and it separates the mixed class
+// exactly. Same measurement, same day: **20 never-shipped pages with zero
+// rendered components returned 404, 20 of 20; 9 with at least one rendered
+// component returned 200, 9 of 9.** The check was disconfirmable in both
+// directions and the uncontrolled version of it did come out the other way.
+//
+// THE CONJUNCTION IS LOAD-BEARING — do not reduce this to the component test.
+// **8** pages fleet-wide (as of 2026-08-23) carry a non-NULL deployed_at and
+// zero rendered components: pages served by another subsystem, a tool or a blog
+// index, which realisedPageHasShipped (v3_site_actions.go) already records. The
+// never-deployed arm excludes all eight before the component arm is reached.
+//
+// THE 48-HOUR CLOCK ON THE `planned` ARM is what tells "not coming" from "not
+// yet". A build wave's planned rows are hours old for the wave's duration, while
+// every true-404 planned target measured on 2026-08-23 was at least two days
+// stale. It keys on updated_at, not created_at, so any write a resumed build
+// makes to the row takes it out of the refused set. A time threshold is
+// tolerable here only because the consequence is bounded: the sole consumer
+// suppresses OUTBOUND markup and recomputes on every render, so a wrongly
+// refused target restores itself on the referrer's next render with nothing
+// lost. It would NOT be tolerable in a predicate that governs a destructive
+// write.
+//
+// Pair with a lifecycle arm, per the family contract above.
+func PageLinkRefusedPredicateFor(alias string) string {
+	if alias == "" {
+		// A bare form cannot be written safely (see the alias note above), so
+		// there is no bare form. Returning a predicate that is false for every
+		// row is the fail-open direction: nothing is refused, nothing is
+		// suppressed, and the caller ships exactly what it holds today.
+		return "FALSE"
+	}
+	q := alias + "."
+	return fmt.Sprintf(
+		"( (%[1]sdeployed_at IS NULL AND COALESCE(%[1]sbuild_status, '') = 'planned'"+
+			" AND %[1]supdated_at < NOW() - INTERVAL '%[2]d hours')"+
+			" OR (%[1]sdeployed_at IS NULL AND COALESCE(%[1]sbuild_status, '') = 'needs_rebuild'"+
+			" AND NOT EXISTS (SELECT 1 FROM page_components pc"+
+			" WHERE pc.page_id = %[1]sid AND COALESCE(pc.rendered_html, '') <> '')) )",
+		q, PlannedPageRefusedAfterHours)
+}
+
+// PlannedPageRefusedAfterHours is the staleness threshold on the `planned` arm
+// of PageLinkRefusedPredicateFor, named so the test that pins the arithmetic and
+// the doc comment above cannot drift from the SQL.
+const PlannedPageRefusedAfterHours = 48
+
 // PageWantedLivePredicateFor is the LIFECYCLE axis: "the platform still wants
 // this page served". It is deliberately a separate axis from the build/shipped
 // predicates above, because the two answer different questions and nothing

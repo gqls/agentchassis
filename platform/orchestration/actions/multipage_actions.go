@@ -179,6 +179,26 @@ func AssemblePageAction(ctx context.Context, params ActionParams) (interface{}, 
 		html = addSimpleNavigation(html, "index")
 	}
 
+	// bugs_open/328 — the LAST point before deploy_page on every loop this action
+	// feeds, and the only one they share. It is placed after chrome injection so
+	// the whole outbound string is judged, matching what the rerender seam already
+	// does; and it writes nothing, so content_data keeps the authored href and the
+	// anchor returns by itself once the target ships. Opt-in, default OFF: with
+	// no `suppress_unshipped_links` in the step config this call returns `html`
+	// byte-identical, which is what every consumer sees until a migration enables
+	// it. See refused_link_targets.go for the policy and its two escapes.
+	if params.DB != nil {
+		if siteUUID, err := uuid.Parse(
+			datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id"),
+		); err == nil {
+			html = suppressUnshippedOutboundLinks(ctx, params, siteUUID,
+				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
+				datahelpers.ExtractNestedFieldString(params.CollectedData, "current_page.name"),
+				datahelpers.ExtractNestedFieldString(params.CollectedData, "current_page.url"),
+				html, params.Logger)
+		}
+	}
+
 	params.Logger.Info("Page assembled successfully",
 		zap.Int("final_length", len(html)),
 		zap.Bool("added_navigation", addNav),

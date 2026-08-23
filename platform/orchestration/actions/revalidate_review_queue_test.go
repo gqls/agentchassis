@@ -204,7 +204,20 @@ func TestRevalidatorCoverageIsDeliberate(t *testing.T) {
 	// retracts findings the current template no longer supports; the remedy
 	// decision (restore/regenerate/remove) stays human — see
 	// revalidate_truncated_component.go.
-	want := []string{"unresolved_cta", "required_fields_missing", "needs_section_data", "needs_page", "voice_tells", "claims_unverified", "truncated_component"}
+	// unbuilt_internal_link added 2026-08-23 (bugs_open/328), and it cleared the
+	// same bar: the CLOSER census (item_type='unbuilt_internal_link' AND status
+	// IN ('complete','verified')) returned ZERO rows across **72** items filed in
+	// the type's whole history, with count(DISTINCT resolution_path) = 0 and only
+	// 3 rows carrying a _verification stamp at all. Same birth-status trap as
+	// truncated_component — 58 sit at needs_human_review, every one dispatched
+	// (triaged_at set, handler_agent 'page-build-handler', attempt_count >= 1)
+	// and failed, because the type's only remedy is "build the target page" and
+	// the target is parked precisely because it cannot be built. ONE producer,
+	// check_phantom_internal_links.go. It retracts nothing and rewrites nothing:
+	// it re-runs the registered completion verifier and reports. See
+	// revalidate_unbuilt_link.go, including why the 328 suppression fix
+	// deliberately does NOT close these.
+	want := []string{"unresolved_cta", "required_fields_missing", "needs_section_data", "needs_page", "voice_tells", "claims_unverified", "truncated_component", "unbuilt_internal_link"}
 	for _, itemType := range want {
 		if _, ok := reviewRevalidators[itemType]; !ok {
 			t.Errorf("revalidator for %q is missing", itemType)

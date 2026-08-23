@@ -65,7 +65,10 @@ func repairOutboundPageLinks(ctx context.Context, params ActionParams, siteID uu
 	}
 	repaired, repairs := datahelpers.RepairPageLinks(html, pageIndex)
 	if len(repairs) == 0 {
-		return html
+		// No dead links, but a link to a page that EXISTS and has never shipped
+		// is not a dead link by this index's definition — it is bugs_open/328,
+		// and it is judged separately. Returning early here would skip it.
+		return suppressUnshippedOutboundLinks(ctx, params, siteID, domain, pageName, pageURL, html, logger)
 	}
 	rewritten, unlinked := countLinkRepairs(repairs)
 	logger.Info("rerender: repaired dead internal links before deploy",
@@ -82,7 +85,11 @@ func repairOutboundPageLinks(ctx context.Context, params ActionParams, siteID uu
 			PageURL:    pageURL,
 		},
 		repairs, rewritten, unlinked, logger)
-	return repaired
+	// Suppression runs on the REPAIRED string, not the original: the rewrite arm
+	// above can turn "/your-rights" into the stored "/your-rights.html", and the
+	// refused set holds stored pages.url values. Judging the pre-repair string
+	// would miss exactly the anchors the repair just normalised.
+	return suppressUnshippedOutboundLinks(ctx, params, siteID, domain, pageName, pageURL, repaired, logger)
 }
 
 // skipStepName names the workflow step for the durable record, degrading to a

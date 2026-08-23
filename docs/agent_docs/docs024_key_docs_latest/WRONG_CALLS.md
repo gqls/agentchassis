@@ -45958,3 +45958,108 @@ real harm was ~3× smaller and had to be measured a different way entirely (36 a
 Notably it was another model, reviewing my framing, that caught this one — after I had already
 written the number into a lane doc. The number was in the same paragraph as three figures I *had*
 verified, which is exactly how an unchecked claim borrows the credibility of its neighbours.
+
+## 2026-08-23 — `bugs_open/367` lane: I read a JSON column's shape wrong and got a confident zero that could not have been anything else
+
+Deciding whether a router needed a route for "the finding's target cannot be resolved at all",
+I asked how many slots named in `pages.sections` have no `page_components` row. I unnested
+with `jsonb_array_elements(...) s` and filtered `WHERE s->>'name' IS NOT NULL`.
+
+**The answer came back `0` slots named, out of `0`.** I was one keystroke from writing "that
+case is unreachable" into a design decision, and I had already told two review agents exactly
+that.
+
+`pages.sections` is an array of **text** — its elements look like `"hero"`, not
+`{"name":"hero"}` — so `s->>'name'` is NULL for every element and my `IS NOT NULL` filter
+discarded all **746** non-empty rows. The query could not have returned anything but zero,
+whatever the state of the estate.
+
+Redone with `jsonb_array_elements_text`, the real figure is **336 of 2,160 named slots have
+no component row at all — 15.6%, about one planned slot in six.** That is not an edge case,
+and it is what makes the router's close-evidence (*"no longer exists"*) a false statement
+across an ordinary population, quite separately from the bug I was actually fixing.
+
+**What caught it:** the zero was too round for a table with 839 pages in it, so I ran a
+control against my own query rather than against the world — `jsonb_typeof(sections->0)`,
+which printed `"hero"`. Then, before trusting the corrected number, a second control: do the
+two vocabularies even match? (**1,824 of 2,160** named slots DO resolve to a row, and sampled
+pages show `sections` entries and `page_components.slot_name` are the same strings — so the
+join is sound and the 336 is a real absence, not a naming mismatch.)
+
+**The cheap check:** *before unnesting a JSON column, print one element.* `jsonb_typeof(col)`
+and `col->0` cost nothing and answer "is this an array of objects or of scalars?", which is
+the assumption every `->>'key'` in the query silently depends on. And the general form —
+**a filter over a shape you assumed is a filter that can only return zero if you assumed
+wrong**; if a join or filter yields zero, suspect the join before the world, and prove it by
+showing the same query CAN return non-zero on data you know exists.
+
+**What it cost:** ten minutes, plus two correction messages to review agents I had already
+briefed with the wrong claim. Nothing reached a commit — because the correction went out
+before the design did.
+
+## 2026-08-23 — `bugs_open/367` lane: I quoted a retention window off a survivor artefact, and said a route had "fired exactly once ever"
+
+To size the defect I asked how often the router had taken its `stale` route. `SELECT
+min(created_at) FROM orchestration_states` read **2026-07-19**, so I concluded the table went
+back five weeks; the route census over it returned one `stale`; and I wrote **"`stale` has
+been taken exactly once in the platform's audited history"** into a plan file, as a
+`[MEASURED]` figure with its date attached.
+
+**It is false, and the marker rule did not save me** — the claim was dated, sourced and
+disconfirmable-looking, and still wrong, because I had measured the wrong thing. Rows per day:
+
+```
+2026-08-23  3,299      2026-07-24  4      (and nothing else, at all)
+2026-08-22  1,324      2026-07-21  6
+                       2026-07-20  8
+                       2026-07-19  6
+```
+
+Retention is about **two days**. The 24 rows in July are all `CANCELLED` — stuck
+orchestrations the cleanup skips — and it is those survivors, not the window, that my `min()`
+was reporting. There are **zero** rows for 2026-08-14→19, which is precisely the period the
+router's first canary ran in.
+
+**What caught it:** `bugfix_277_required_fields_repair/RUNBOOK_required_fields_repair.md`
+records canary `332bb3f6` closing `complete/stale` on 2026-08-15 — a route my census said had
+never happened. A document predicting something my measurement denied.
+
+**The cheap check:** *a `min()` over a table with retention is not a retention window — plot
+rows per day before quoting it as one.* One `GROUP BY created_at::date ORDER BY 1 DESC LIMIT
+12` shows the cliff immediately, and shows what kind of row survives past it. The
+generalisation, which is the reusable half: **the oldest surviving row of a purged table
+tells you what the purge EXEMPTS, not how far back it keeps** — and exempted rows are by
+construction unrepresentative (here: every one was `CANCELLED`).
+
+**Not the same lesson as "a zero from a retention-bearing table is meaningless."** That one is
+about an absence you know might be truncated. This one is about a *positive* measurement of
+the window itself, taken from the very rows that prove the window does not apply to them.
+
+**What it cost:** nothing downstream — the fix's evidence never depended on the audit trail,
+and both the hand-run classification and the whole-population re-run stood on their own. But
+the claim was in a plan file for twenty minutes and it read as settled.
+
+## 2026-08-23 — `bugs_open/367` lane: I handed a reviewer a count that was my own `LIMIT`
+
+Briefing an adversarial review agent, I wrote: *"all 8 existing `content_rewrite:from_rfm:`
+conversions are `status='failed'` (created 2026-08-18)."* I had run a sampling query ending
+`ORDER BY created_at DESC LIMIT 8`, seen eight `failed` rows, and reported the eight as a
+population.
+
+The real census is **31** — 28 `failed`, 2 `cancelled`, 1 `complete`. So "all" was wrong
+(30 of 31, not 31 of 31), the count was an artefact of how I looked, and the reviewer went
+away to trace a population I had mis-sized. It came back with the correct number and the
+finding that actually mattered: those 28 are failing on the **owned-page refusal**, which is
+`bugs_open/333` and belongs to another lane. That reframed my fix — it is the reason the
+change parks the population instead of converting it.
+
+**The direction survived; the number did not.** Which is the trap: a wrong count that points
+the right way is the hardest kind to notice, because the conclusion it supports keeps working.
+
+**The cheap check:** *never quote a count off a query carrying a `LIMIT`.* Count and sample in
+separate statements — `SELECT status, count(*) … GROUP BY 1` first, then look at rows. And
+when passing a figure to another agent, say how it was obtained: "8 rows, from a `LIMIT 8`"
+would have been honest and would have cost nothing, whereas "all 8" asserted a census I had
+not run. This is the same family as the index's *"a cap census cannot say WHO was cut — read
+the `ORDER BY`"*, one level sillier: I wrote the cap myself, in the same session, and still
+read past it.

@@ -309,6 +309,17 @@ var reviewRevalidators = map[string]reviewRevalidator{
 	// needs_human_review, which CompleteWorkItemAction refuses to leave. See
 	// revalidate_truncated_component.go for both censuses.
 	"truncated_component": revalidateTruncatedComponent,
+	// spec.href + spec.target_page_id — asks whether a link to a page that had
+	// never been deployed is still a live 404: either the href is gone from the
+	// surface, or the target has since shipped. Delegates to the SAME function
+	// complete_work_item's gate runs (checks.VerifyUnbuiltInternalLinkResolved).
+	// Added 2026-08-23 (bugs_open/328): 72 items in the type's whole history,
+	// ONE producer, and ZERO ever closed — the same birth-status trap as
+	// truncated_component, on a type whose handler's only remedy (build the
+	// target) fails by construction on the parked population. See
+	// revalidate_unbuilt_link.go for both censuses, and for why the outbound
+	// suppression fix deliberately does NOT close these.
+	"unbuilt_internal_link": revalidateUnbuiltInternalLink,
 }
 
 // coveredItemTypes is the selection's source of truth, derived from
