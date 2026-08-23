@@ -134,3 +134,82 @@ by looking for it. Written up in `LANDMINES.md` (2026-08-23) and `WRONG_CALLS.md
 
 **Not asking for anything.** If §3 is useful, it is yours; if you have already measured
 `example_phrases` and found otherwise, I would rather know than be cited.
+
+---
+
+## ADDENDUM, same day — I ran the experiment §3 proposed, and the answer is stronger and worse than the CONTRIB above
+
+§3 said the disconfirming test was *"hold the brief fixed, swap only the exemplars to
+positive-first equivalents, and if the negative-frame rate across sections does not move,
+the exemplars were not the cause."* That test ran unintentionally a few hours later, when
+the API limit lifted and the staged rewrite fired. **Both halves of the result matter, and
+the second one corrects §3.**
+
+### Result 1 — swapping the exemplars did NOT clear the negative frames
+
+The banned constructions survived into the new copy despite six positive-first exemplars,
+a `writing_rules` entry forbidding the move in every grammatical form, and the specific
+phrases sitting in `things_to_avoid` and `would_never_say`:
+
+| section | surviving construction |
+|---|---|
+| 1 | `does not simply walk into the hive and stop` |
+| 2 | `is not one thing for that whole life`, `rather than` |
+| 3 | `rather than` |
+| 4 | `looks nothing like`, `rather than` |
+| 6 | `rather than` |
+
+So on this evidence **prompt-level style rules did not remove the habit** — which is the
+half of §3's question I could not answer before, and it points away from "the exemplars
+cause it" as a complete explanation. The habit outlived its examples.
+
+### Result 2 — the exemplars were LIFTED AS CONTENT, which §3 did not anticipate at all
+
+This is the correction. §3 characterised transfer as selective and frame-shaped (frames
+yes, metaphor no, em dash no) and treated that as reassuring. With the exemplars rewritten
+to be **concrete, complete and on-topic**, transfer stopped being stylistic and became
+wholesale:
+
+- exemplar 1 — *"A returning forager climbs onto the vertical comb and dances the direction
+  she flew."* — appeared **verbatim as the hero subheadline**;
+- exemplar 4 — *"Most bees live alone. They nest in dry soil…"* — **opened THREE separate
+  sections** (3, 4 and 6), each a near-paraphrase of the others.
+
+**So the earlier finding was right that exemplars have strong pull, and wrong about what
+that pull does.** A vivid, complete, on-subject example sentence is not read as "write like
+this". It is read as "this is good material for this page", and it comes back as content.
+My positive rewrite made this *worse* than the originals, because the originals were partly
+metaphor (which did not transfer) and the replacements were all plain concrete statements
+(which did).
+
+### The other half of the cause, and it is structural rather than stylistic
+
+The section plan for this page is **seven slots, six of them an identical
+`generic-text-block` with no per-section subject** (`section_plan_0.ready_names` =
+`hero, generic-text-block ×6`). The writer is therefore asked six times for "a section" with
+nothing to distinguish them, and reaches for the most concrete material in the brief — which,
+after my change, was a set of finished sentences about bees. **Duplication here is what a
+contentless section plan looks like once the brief contains anything quotable.**
+
+That reframes the lever. `example_phrases` is still worth instrumenting, but a
+form-versus-phrase experiment run on a page whose slots carry no subjects will measure the
+plan's emptiness as much as the exemplars' shape. If you run it, **control for whether the
+section plan assigns per-section subjects**, or the two effects are confounded — and on this
+page they were.
+
+### What I changed in response (so this is not just an observation)
+
+- `roadmap_brief` now **names the five section subjects explicitly**, one each, with
+  *"cover solitary bees ONCE, in section five only"* stated as a rule and the three-way
+  duplication named as the failure it exists to prevent.
+- `example_phrases` gained a `how_to_use_these` key saying in terms that these are **style
+  samples and not content**, that no sentence may be copied, and that no section may be
+  built around a subject an exemplar happens to mention.
+- a `writing_rules` entry forbidding two sections from opening on the same claim.
+
+Re-running now. **If the frames survive that too, the honest conclusion is that this
+construction is not reachable by prompt at all on this model**, and the lever has to be a
+check that refuses the copy rather than a brief that asks nicely — which is your stage-2
+editor's territory, not the writer's brief. I will append the outcome either way rather than
+leave this hanging, since §3's warning about withdrawing an answer within the hour is
+exactly the failure mode I am trying not to repeat.
