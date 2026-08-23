@@ -222,3 +222,86 @@ constraint: `about` in `LabelStopwords` would suppress the four `Talk to us abou
 but it would equally suppress *"Learn More About Us"* → `/about.html`, which is a **correct**
 repair A' makes. The lever that separates them is not the stopword list — it is having the real
 target in the pool, plus refusing the ties. **Do not add `about` to `LabelStopwords`.**
+
+---
+
+## 9. THE HAND AUDIT (owner-commissioned, 2026-08-23) — and the defect it found
+
+§7 said precision was judged on samples and that a systematic audit would need a human pass over
+the write list. **The owner asked for exactly that before the roll.** This section is its result.
+
+### Method
+
+50 of the 291 writes, selected by **md5 of the row key** (`domain|page|function|slot|field`) and
+taking the first 50 of that ordering. Deterministic, reproducible, and uncorrelated with domain —
+a straight `LIMIT 50` would have been dominated by whichever site sorts first, and a
+frequency-weighted pick would have been dominated by finetuning.uk's 28 "Book a discovery call"
+rows. Each row was read with its label, its current target and title, and its proposed target and
+title.
+
+### Verdicts, and a correction to my own first pass
+
+| verdict | n |
+|---|---|
+| right — the proposal names the page the copy names | **34** |
+| wrong | **11** |
+| arguable — both destinations defensible | **5** |
+
+> **CORRECTED, same session.** My first tally was **39 right / 6 wrong**. It was wrong because the
+> printed sample showed each row's page *name* and I compared it by eye against the proposed
+> *URL* — and on this fleet a page's name is frequently not its URL stem (`grip-styles` lives at
+> `/blog/grip-styles.html`). Five self-links were invisible to me and I marked them right. The
+> census below is what caught it. **A sample judged against a field the defect does not live in
+> reads as clean.**
+
+### The defect: 9 of the 11 wrong were the same thing
+
+**The button would point at the page it is already on.** Census over the whole population:
+
+> **35 of 291 writes (12%) resolved to the page the button sits on.**
+
+`Read the full grip styles guide` on `/blog/grip-styles.html` → `/blog/grip-styles.html`.
+`Read the policy` on `/privacy.html` → `/privacy.html`. `Read the full terms below` on
+`/terms.html` → `/terms.html`. Thirty-two more.
+
+**The widening is what manufactures them.** A page's own copy is usually the best token match for
+that page; before Phase B most pages were not candidates at all, so the case could not arise.
+
+**The platform already agreed this was a defect** — in three places, none of which covered the
+suggestion side: `rank()` has dropped `h.Name == pageName` since 2026-07-14; `applyCTARecompute`'s
+keeps refuse a stored value equal to `pageURL`; and `check_misdirected_cta` files *"links back to
+its own page"* as a finding.
+
+### The fix's SHAPE was measured too, and the obvious version is the wrong one
+
+| version | writes | self-links | diverted to a runner-up |
+|---|---|---|---|
+| unfixed | 291 | 35 | — |
+| **filter** the page out of its own candidates | 281 | 0 | **10, most of them wrong** |
+| **refuse** when the page itself wins | **256** | **0** | **0** |
+
+Filtering looks equivalent and is not. 25 of the 35 then matched nothing, which is correct — the
+button is left alone. The other 10 wrote somewhere else: `Compare flight shapes` → the
+barrel-shapes guide, `Catch up on this week's darts news` → the dartboard setup guide,
+`Talk to FineTuning About Your Automation Audit` → a blog post about employment law.
+**Once the best candidate is removed, one shared token is enough for noise to win.**
+
+So the shipped rule is: match against the full universe, and report **no match** if the winner is
+the page itself. Copy that names its own page is a **content** defect — the button should not be
+there — not a destination for the matcher to guess at.
+
+### Residual after the fix, stated rather than implied closed
+
+**13 of the 256 writes land on an About page, and 6 of those are wrong** — the
+`Talk to us about your setup` family, where the only overlapping token is `about`. Token counting
+cannot separate them from `Learn More About Us` → `/about.html`, which is **correct**, and §8's
+measurement already showed a stopword entry kills both. This is the class the owner has ruled
+should go to the `offer-analyser` agent: it needs judgement about what the site is for, which is
+not a property of the tokens.
+
+### What the audit cost, and what it bought
+
+A few hours, no credits, no cluster writes. It found a **12%** defect rate that four council
+rounds, 13 reviewers, mutation testing and two calibration passes had all missed — because every
+one of those checks the change against what it *claims* to do, and only reading the output checks
+it against the fleet.
