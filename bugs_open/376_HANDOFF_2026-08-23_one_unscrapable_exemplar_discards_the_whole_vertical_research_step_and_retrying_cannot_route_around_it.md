@@ -119,19 +119,28 @@ re-submission will hit the same refused exemplar (§4).
 
 Site `16784842-f7d8-4467-bb5b-eb1fb5c1caba`, item `needs_vertical_research` created 17:44:56Z.
 
-| slot | attempt 1 (17:48:27Z) | attempt 2 (18:19:48Z) |
-|---|---|---|
-| 1 | `gardenersworld.com` — dispatched OK | `gardenersworld.com` — dispatched OK |
-| 2 | **`thespruce.com` — REFUSED** | `which.co.uk` — dispatched OK |
-| 3 | `which.co.uk` — never reached | **`thespruce.com` — REFUSED** |
-| died at | `crawl_exemplar_2` | `crawl_exemplar_3` |
-| request_id | `4ac4c952-55c0-4a94-b66d-09bc9cfd3a02` | `1607dc02-cc7f-4a94-b0e2-b165dd58f90d` |
+| slot | attempt 1 (17:48:27Z) | attempt 2 (18:19:48Z) | attempt 3 (19:20:48Z) |
+|---|---|---|---|
+| 1 | `gardenersworld.com` — OK | `gardenersworld.com` — OK | `gardenersworld.com` — OK |
+| 2 | **`thespruce.com` — REFUSED** | `which.co.uk` — OK | **`thespruce.com` — REFUSED** |
+| 3 | `which.co.uk` — never reached | **`thespruce.com` — REFUSED** | `which.co.uk/reviews/garden-tools` — never reached |
+| died at | `crawl_exemplar_2` | `crawl_exemplar_3` | `crawl_exemplar_2` |
+| request_id | `4ac4c952-55c0-4a94-b66d-09bc9cfd3a02` | `1607dc02-cc7f-4a94-b0e2-b165dd58f90d` | `b480af93-41f8-4816-9234-228c18d57f88` |
 
-Both request_ids appear verbatim in `site_work_items.error`. Back-off doubled 30min → 60min;
-`attempt_count=2/3`, `retry_after=2026-08-23 19:20:32Z`.
+All three request_ids appear verbatim in `site_work_items.error`. Back-off doubled 30min → 60min.
+Item now **`failed`, `attempt_count=3`** at 19:22:13Z — **1h37m from creation to death.**
 
-**The load-bearing observation: the SET is identical and only the ORDER changed.** Attempt 2 got
-one step further and therefore threw away **two** successful crawls instead of one.
+**The load-bearing observation: THREE attempts, THREE identical organisation sets, and it died at
+whichever slot `thespruce.com` occupied.** Attempt 2 got one step further and therefore threw away
+**two** successful crawls instead of one. Attempt 3 nominated a *deep path* for Which?
+(`/reviews/garden-tools`) rather than the front page the prompt asks for — a variation in the URL,
+not in the set, and irrelevant to the refusal.
+
+> **Caveat on what these three attempts can and cannot establish.** All three read the **same**
+> classifier specs, so strictly they show the selection is stable *given fixed input*, not that the
+> vertical always yields this set. A fresh `domain-research-classifier` run (re-submitted 19:23:06Z)
+> re-derives the specs and is the stronger control; its result will be appended here. **Do not
+> quote "three identical sets" as proof of vertical-level stability until that lands.**
 
 ## 4. Why "just retry" cannot work, and why that is the interesting part
 
