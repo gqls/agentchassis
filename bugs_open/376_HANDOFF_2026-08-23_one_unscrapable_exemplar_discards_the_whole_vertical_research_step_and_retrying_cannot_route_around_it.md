@@ -211,12 +211,41 @@ thing that varies.
   compared against retailers; its real comparators are other content sites. That is a different
   owner from the `on_error` gap.
 
-⚠ **BOUND THE EVIDENCE, and it is narrower than "never fired" sounds.** `vertical-exemplar-researcher`
-has **4 runs in its entire history** `[MEASURED 2026-08-23 19:35Z]` — all four are the ones above,
-all on `garden-tools.uk`, all today, all from this lane's own build. So "the branch has never fired"
-is literally true fleet-wide **and rests entirely on one domain in one vertical**. It is enough to
-say the branch is *unexercised* and to justify looking; it is **not** enough to say it *cannot*
-fire, and a second vertical could settle it cheaply. Do not quote the 0/4 without this sentence.
+⚠ **BOUND THE EVIDENCE — and the first version of this bound was itself wrong.**
+
+> ~~`vertical-exemplar-researcher` has **4 runs in its entire history**~~ **CORRECTED 2026-08-23
+> 19:36Z, caught by the `bugs_open/326` session and verified here.** That count came from
+> `orchestration_states`, which is a **~24-hour rolling window** — measured: its oldest row is
+> `2026-08-22 19:22:13Z`, exactly 24h before the query. "Four runs" was the retention window, not a
+> history. The durable tables say otherwise:
+>
+> ```sql
+> SELECT count(*), min(created_at)::date, count(DISTINCT site_id) FROM (
+>   SELECT created_at, site_id FROM site_work_items         WHERE item_type='needs_strategy'
+>   UNION ALL
+>   SELECT created_at, site_id FROM site_work_items_archive WHERE item_type='needs_strategy') q;
+> --  32 | 2026-04-02 | 27
+> ```
+>
+> **32 items across 27 sites since April.** This step has run many times; four is what survived
+> reaping.
+
+**So the honest bound is stronger than "small sample".** The historical *selections* lived in
+`orchestration_states.collected_data`, which is reaped — so **"has the `competitors_found` branch
+ever fired?" cannot be answered from that table at any sample size.** The 0/4 was not
+under-powered; it was measured against a table structurally unable to hold the answer, which is the
+`could-not-have-come-out-otherwise` shape.
+
+**What the 0/4 does license:** that across four selections on one domain, with two site-specific
+inputs demonstrably varying, the branch did not fire — enough to say it is **unexercised here** and
+to justify looking. **It licenses nothing about the branch's history or about the fleet.** Do not
+quote it without this paragraph.
+
+**The cheap discriminator** remains one greenfield build in a vertical whose competitors genuinely
+*are* content properties. Note also that the branch not firing and the branch **working correctly on
+unsuitable input** are indistinguishable on this evidence: `identity` found retailers for a domain
+classified `hub`/`content`, so "not genuinely strong" is a defensible reading of the prompt, not a
+proven defect. The upstream question stays a question.
 
 ## 5. Fix candidates, ordered by what closes the door
 
