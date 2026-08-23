@@ -3,9 +3,13 @@
 **Filed:** 2026-08-21 by the `bugfix_311_component_keys` lane, after it blocked the repair of
 `bugs_open/311`'s **originating page**.
 
-**Status: OPEN — but the primary fix (candidate 1) is APPLIED, LIVE AND DEMAND-PROVEN END TO END.**
-What keeps it open is a narrower residual, named in §"What still keeps this open" below — not the
-main mechanism. **[STATE RE-MEASURED 2026-08-23 ~17:00Z by the session that picked this up.]**
+**Status: CLOSED 2026-08-23 (evening) — APPLIED, LIVE AND DEMAND-PROVEN END TO END.**
+The reasoning, and what closing does NOT claim, is in the final section. In short: the defect as
+filed — a retry regenerated from **identical inputs** — is structurally false for every failure class
+that produces rejections, proven at the artefact on item `b0ba3e3a`. The one residual (the truncation
+class) was put to the `bugfix_337_token_cap` lane and **deliberately not built**, with zero live
+demand and a recorded tripwire. **[STATE MEASURED 2026-08-23 ~17:00Z and re-checked ~18:15Z by the
+session that picked this up; every figure below carries its own date.]**
 
 > **⚠ THE HEADER THAT STOOD HERE UNTIL 2026-08-23 WAS STALE AND TOLD YOU TO BUILD WORK THAT HAD
 > ALREADY SHIPPED.** It read *"THE FIX IS INERT — NOT MERELY UNEXERCISED … A THIRD half is
@@ -212,7 +216,7 @@ a retry able to differ.
 
 - `bugs_open/311` — the originating page this blocks. Its own fix works here (the scoped name was
   derived); this defect is downstream.
-- `bugs_open/337` — sibling, filed by the same lane the day before: a **cap** failure retried
+- `bugs_closed/337_HANDOFF_2026-08-20_one_section_type_reliably_exceeds_the_16000_token_component_cap_and_parks_the_page_hollow_on_every_site_that_plans_it.md` (**CLOSED 2026-08-23**; was `bugs_open/337`) — sibling, filed by the same lane the day before: a **cap** failure retried
   identically. Same shape (deterministic generation failure consuming a retry budget), different
   trigger. Both would be caught by candidate 2.
 - `bugs_open/309` — the guard's own citation, and the reason the refusal is correct.
@@ -473,7 +477,7 @@ Two consequences, both read from the code and then measured:
   step; after it, the loader reads only the typed channel, which only `store_component` writes.
   Measured across `needs_new_component` items: **14** failed at `store_component` (1 has typed
   feedback — the rest predate the column), **2** failed at `generate_template`, **0** of which can
-  ever be fed. That second population is `bugs_open/337`'s truncation class. `561` bought
+  ever be fed. That second population is `337`'s truncation class (now `bugs_closed/337_…`). `561` bought
   provenance — the prompt can now assert *"your previous output was refused by validation"* and be
   right — at the price of breadth, and the price is real rather than theoretical.
 
@@ -509,3 +513,104 @@ and **undiscoverable**: nothing in `docs026_concept_register/` mentioned it. Fil
 the two traps that cost this bug a day each — the strict `input_mapping` allow-list on
 `call_handler`, and the reader being narrower than the one it replaced. I did not build the seam and
 the entry says so; what I verified first-hand is marked as such.
+
+---
+
+## RESOLVED 2026-08-23 (evening) — the 337 lane answered, the truncation class is DELIBERATELY NOT BUILT, and this bug is CLOSED
+
+I put §3's residual to the `bugfix_337_token_cap` lane rather than building across their work.
+They answered with a measurement, not a preference, and **I re-verified every figure before acting
+on it** — a peer lane's report is another doc.
+
+### 1. Their answer: don't build it, because the population is gone
+
+| their claim | my independent check [MEASURED 2026-08-23 ~18:15Z] | verdict |
+|---|---|---|
+| 0 OPEN `needs_new_component` items | 15 cancelled / 15 complete / **0 open** | ✅ |
+| newest completion 17:43Z | `2026-08-23 17:43:27Z` | ✅ |
+| 9 of the cancellations are theirs, superseded | one batch, **9** rows, `2026-08-23 12:33Z` | ✅ |
+| truncation literals still 0 | **0** in `agent_error_log` AND **0** in `site_work_items.error` | ✅ |
+| `bugs_open/337` closed and moved | now at **`bugs_closed/337_HANDOFF_2026-08-20_…`** | ✅ |
+
+**Correction to my own §3, in place:** it said the `generate_template` population was "**2** items,
+0 of which can ever be fed". Both have since completed; the split I measured this morning
+(14 `store_component` / 2 `generate_template`) has **fully drained**. The count was right when taken
+and is stale by ~6 hours — the owner's count-dating rule earning its keep on a figure I wrote today.
+Note **part of that drain is the 337 lane's own cancellation batch, not natural attrition**, and they
+said so unprompted; do not read "0 open" as "the class stopped occurring".
+
+### 2. The decision, and the reason it is not laziness
+
+**Building a writer for the truncation class now buys a mechanism that rots unexercised** — the exact
+cost the owner named on 2026-07-29 when declining to require default-OFF switches. Zero live demand,
+zero recorded occurrences in either destination, and the population that would have exercised it is
+empty. So it stays unbuilt, **by decision rather than by omission**, which is the difference this
+paragraph exists to record.
+
+**Where it goes when it is wanted, so this is an hour and not a rediscovery:** the recording call at
+`store_generated_component_action.go:1549` (inside `recordValidationRejection`, called from `:477`)
+sits **below** the two truncation-shaped checks at `:176–180` and `:186–193`. Either move the
+recording above them, or have those two checks record. That is the whole change. Both lanes now
+understand the site; neither has to re-derive it.
+
+**THE TRIPWIRE IS A COUNT, NOT A MECHANISM.** Build when this stops being zero:
+
+```sql
+SELECT (SELECT count(*) FROM agent_error_log
+         WHERE error_message ILIKE '%truncated by token limit%'
+            OR error_message ILIKE '%no HTML structure%') AS in_error_log,
+       (SELECT count(*) FROM site_work_items
+         WHERE error ILIKE '%truncated by token limit%'
+            OR error ILIKE '%no HTML structure%')          AS in_work_items;
+```
+
+**0 / 0 as of 2026-08-23 ~18:15Z**, and the 337 lane's independent 14-day sweep agrees — their only
+`truncat` hits are `RENDER_AUDIT_TRUNCATED` (1 on 08-18, 1 on 08-21), **a different mechanism; do not
+count it**. ⚠ This zero has a **passing demand control** (see §3): the same column carries 14 rows of
+the `:477` path's own message shape, so the instrument is sensitive.
+
+### 3. I checked for the inherited-blocker hazard they warned about — 345 has none
+
+They flagged that their lane had written "cannot be repaired until this is resolved" about a page
+that repaired itself on retry while the sentence was being written, and asked whether any of 345's
+reasoning inherits a "blocked until X" status from their notes. **Checked: it does not.** The two
+337-lane contribs in this file assert a *sequencing confounder* ("pin your before-measurement to a
+timestamp") and an *offer* of remedy wording. Neither is a blocker, and nothing in this file's
+reasoning waits on 337. Their new `LANDMINES.md` entry — a snapshot of a retryable failure is shaped
+exactly like a permanent blocker — is the general form and worth reading before trusting any
+"blocked" line in a handoff, including the ones above.
+
+### 4. Their independent wrong call is the SAME species as mine, on the same day
+
+They probed the chassis binary for a sha, got 0, **and the positive control also returned 0** — a
+failed positive control means the instrument is blind, not that the thing is absent. Mine was
+inventing an edge between two real mechanisms. Both are *corroboration of the consequence taken as
+evidence for the path*. Two lanes, one day, same shape; both logged in `WRONG_CALLS.md`.
+
+### 5. Why this bug is CLOSED
+
+The bar is **fixed AND live**. Both hold and are proven at the artefact:
+
+- **Fixed:** the defect as filed is "a retry is regenerated from **identical inputs**". That is now
+  structurally false for every failure class that actually produces rejections — the dispatch
+  demonstrably carries `last_error` + `last_error_code`.
+- **Live:** five migrations ledger-recorded; Go halves probed on **both** replicas by capability,
+  with a control absent; chassis `v1.0.1330`.
+- **Proven:** item `b0ba3e3a` — refused 12:09:53Z, retry 12:29:23Z carried the typed code, COMPLETED.
+
+**What is NOT claimed by closing it:** that the fix *raises the success rate*. That is n=1 and no
+causal claim is made. What is established is the narrower thing the bug was filed about — the retry
+now receives **different** inputs. The pre-fix base rate (3 of 15 items surviving a rejection) is
+recorded so the claim can be tested as n grows; **`WII-026`'s verify-later carries that instruction.**
+
+**Remaining non-defects, deliberately out of scope and each with an owner:** the truncation writer
+(declined above, tripwire recorded) · `site-work-orchestrator`'s `fix_items_loop`, named and left
+unwired because it has no consumer · `create_tool_component_action.go` running neither birth gate,
+which is `bugs_open/362`'s territory and never produced a rejection to feed.
+
+### 6. Path correction — every `bugs_open/337` in this file is now `bugs_closed/337_…`
+
+`337` closed and moved this evening. References to it **above this line**, including inside the 337
+lane's own contributed sections (left as they wrote them), now resolve to
+`bugs_closed/337_HANDOFF_2026-08-20_one_section_type_reliably_exceeds_the_16000_token_component_cap_and_parks_the_page_hollow_on_every_site_that_plans_it.md`.
+**Resolve by slug, not number** — several numbers name two unrelated cases.

@@ -167,6 +167,19 @@ close-out commit.
   (loanzy loan-repayment), the `253` component floor on an unrelated slot (loanzy stress-test), and
   `345` (remortgage index). The collision fix is sound; what is left between a diverted component
   and a serving page is a queue of other people's guards.
+> **⚠ DISCHARGED 2026-08-23 by the session that closed 345 — BOTH deferrals above are spent, and
+> the page needs NO repair.** `345` is **CLOSED** (`bugs_closed/345_HANDOFF_2026-08-21_…`): the
+> feedback path is live on chassis `v1.0.1330` and demand-proven end to end. **And the originating
+> page repaired itself two days ago** — `https://remortgagecalculator.uk/index.html` [MEASURED
+> 2026-08-23 ~17:00Z] serves **200 / 69,545 B / 6 `<input>` / md5 `c8203085905e78d65ef846258780b7b7`**
+> against the `40,726 B / 0 <input> / 89910f6e…` pinned below. The component
+> `mortgages-repayment-remortgagecalculator-uk` was created **2026-08-21 18:19:33Z** by the redrive
+> item `e9e5a10b`, which **completed at attempt 0** — i.e. it never needed 345's fix at all.
+> **So do not run the one-command repair**: re-pin and re-measure first, because the pinned before
+> below is three days stale and a repair dispatched against it would regenerate a component live
+> pages are already bound to. Left in place rather than deleted — the reasoning was right when
+> written, and it is the record of what we believed.
+
 - **The originating page is a one-command repair the moment `345` is fixed:** site unlocked, both
   dedup keys free, incumbent pinned same-day (`b89f91e1`, html `a453a6565489c348ad6a9156a8af812f`
   — it moved AGAIN on 08-20 via `scope_component_instance_judged`, so re-pin same-day), served

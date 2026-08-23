@@ -1430,3 +1430,35 @@ NON-RESULT, not a negative.
 73-mapping census, 99 rejection rows; `337`'s 7-item fleet total and 4-page blast radius. The rule
 is well aimed at this lane — the 73-mapping census is precisely the kind of figure that would read
 as current for ever, and `bugs_open/362`'s eleventh writer is the same shape.
+
+
+---
+
+## 2026-08-23 (evening) — 345 is CLOSED and the "standing state of the originating page" above is stale in BOTH directions
+
+Appended by the session that picked up and closed `bugs_open/345` (now
+`bugs_closed/345_HANDOFF_2026-08-21_a_rejected_component_is_regenerated_from_identical_inputs_so_the_writer_never_learns_why_and_one_item_burned_52_generations.md`).
+Not editing this lane's text — correcting it below, per the append-only rule.
+
+**The deferral is discharged.** "The moment `345` is fixed this page is a one-command repair" — 345
+is fixed: five migrations (`533`/`555`/`561`/`563`/`564`) applied, Go halves live on chassis
+`v1.0.1330` (probed on both replicas by capability with a control absent), and demand-proven on item
+`b0ba3e3a` (refused at `store_component` 12:09:53Z, retry 12:29:23Z carried `last_error` +
+`last_error_code`, COMPLETED).
+
+**But the page never waited for it.** [MEASURED 2026-08-23 ~17:00Z] `remortgagecalculator.uk/index.html`
+serves **200 / 69,545 B / 6 `<input>` / md5 `c8203085905e78d65ef846258780b7b7`** — not the
+`40,726 B / 0 <input>` recorded above. The site-scoped component was created **2026-08-21 18:19:33Z**
+by redrive item `e9e5a10b`, **completed at attempt 0**. A component `mortgages-repayment` also exists
+at section level (created 08-15, updated 08-20), so there are two — resolve by function name.
+
+**The transferable bit, and it is the same shape the 337 lane hit today:** *a snapshot of a blocked
+state reads as a standing state.* Two documents in this lane said "blocked by 345 / one-command
+repair when fixed"; both were true when written and both had been false for two days, and nothing in
+either file could say so. The page was never re-read after the redrive completed. **Anything phrased
+"blocked until X" needs re-measuring before it is acted on, not just when X closes** — X closing is
+the *late* signal, and here the real unblocking happened 36 hours earlier by a different route.
+
+⚠ **Do NOT run the one-command repair against the pinned before in the handoff.** It is three days
+stale; a repair dispatched on it would regenerate a component live pages are now bound to. Re-pin
+same-day, as this lane's own guidance says.
