@@ -584,3 +584,45 @@ still open in `bugs_open/305`. **This narrows the risk; it does not retire it.**
 `ai-agent-orchestration.com`'s lane's call on their own site config, and I have offered to make the
 edit. That keeps the repair and removes the payload, rather than preserving a defect to contain its
 side effect.
+
+---
+
+# ✅ VERIFIED AT THE ARTEFACT 2026-08-23 — on two real writes, by two different producers. Closing.
+
+The fix went live on `v1.0.1319` (binary-probed) but **nothing had exercised it** — zero
+`content_direction` writes had occurred. Two have now happened, and both behave:
+
+| write | producer | doc keys | keys reaching the brief |
+|---|---|---|---|
+| `loanzy.uk`, 2026-08-22 09:04 | `owner_release_20260822` (an operator write) | 14 | **all 14 with content** |
+| `apis.uk`, 2026-08-22 12:26 | `domain-research-classifier` | 13 | **12, the 13th being an empty `compliance_rules`** |
+
+`audit_writer_brief.py` reports `none — every key with content reaches the brief` for both. **The
+defect is fixed, live, and now proven on real writes by two independent producers**, which is the
+bar. Moving to `bugs_closed/`.
+
+⚠ **The first reading of this was WRONG, in the direction that would have wasted someone's day.**
+`loanzy.uk` initially reported `layout_preservation` (370 chars) as DROPPED on a **post-fix** write —
+i.e. "the fix does not work". It was a false positive in my own tool: the brief labels that block
+`Layout preservation (rerender rule):`, and the check tested for `Layout preservation:` exactly. The
+tell was arithmetic that did not fit the story — **`formatted` had grown by ~400 chars on the very
+write that supposedly dropped a 370-char key.** Fixed (label must start a line and reach a colon
+without crossing a newline), with the 12 genuine drops on `ai-agent-orchestration.com` as the control
+that the loosening did not erase real findings.
+
+## The owner's rulings, 2026-08-21 — the council escalation is ANSWERED
+
+The `compliance` seat's HIGH objection was escalated rather than resubmitted (council round 2). The
+owner ruled:
+
+1. **Ship as-is. No gate.** The repair stays ungated; the fix is live and unconditional.
+2. **The three fragment briefs are their own lanes' to repair** — not to be pushed by this lane.
+   They have each been told twice and given the command that lists exactly what will return.
+3. (Separately) run 4's proposal was approved and is applied — see `CQ-024`.
+
+**So the residual is DATA, not defect, and it is assigned.** `ai-agent-orchestration.com`,
+`robot-hands.com` and `leopardessconsulting.co.uk` still serve fragments
+(3,558 / 3,324 / 3,774 chars as of 2026-08-23) and repair themselves the moment anything writes those
+specs. The restoration trap — including that one site's returning `example_phrases` teach the
+construction the owner objected to — is in `LANDMINES.md` so a session meets it before acting, which
+was the whole point of declining a code gate.
