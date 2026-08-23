@@ -425,3 +425,53 @@ is **178 runnable racing publishers, of which 105 are marked executable** — no
 Both numbers were true; they answer different questions, and I quoted the one that flatters
 the case. The number that matters for exposure is 178. The earlier figures in this file and
 in the RUNBOOK are corrected accordingly, and the detector below should count the same way.
+
+---
+
+## 2026-08-23 — the landmine VERIFIER publishes with the racing form, and says "0 failed to publish"
+
+Found by using it: arming my own LANDMINES contribution meant running
+`./scripts/landmines-verify-dispatch.sh`, which printed
+
+```
+Dispatched 2, 0 failed to publish.
+```
+
+**That sentence is the bug, printed by the landmine system about itself.**
+
+- `scripts/trigger-landmine-verifier.sh:84` publishes with `kubectl -n kafka run -i --rm …
+  kcat -P` — the racing form, payload on stdin, no `--command`, no receipt.
+- `scripts/landmines-verify-dispatch.sh:45-62` increments `FAILED` **only if that script
+  returns non-zero**. On the silent arm it returns **0**. So "0 failed to publish" is
+  computed from the one signal that is absent precisely when a publish is lost.
+
+The tool that verifies landmines is subject to the landmine it verifies, and reports success
+in the words most likely to be false. Nobody would notice: a verdict that never arrives looks
+like the async wait the script's own closing message tells you to expect.
+
+**A second gap, found the same way:** appending a CONTRIBUTED bullet to an *existing* entry
+does **not** mark it changed for dispatch. The sweep picked up two unrelated entries and not
+mine. CLAUDE.md's escape hatch is the per-entry trigger, and it works:
+
+```bash
+./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#kubectl-run-i-rm-kcat-p-file-drops-roughly-4-publishes-in-5-at-exit-0-and-with-b'
+```
+
+### The library earned its keep on someone else's dispatch
+
+Rather than trusting that trigger's `exit 0`, I asked:
+
+```
+$ kafka_verify_landing 80404f33-1520-4632-9ebd-0d2684f34670 45
+LANDED  correlation=80404f33-…  EXECUTING_STEP|spawn_verifier
+>>> returned 0
+```
+
+Positive evidence that the verifier run actually started, on a real dispatch this lane did
+not author. Before today the available evidence was "the trigger exited 0", which is exactly
+what it also does when nothing was sent.
+
+**`scripts/trigger-landmine-verifier.sh` is therefore the top Phase 2 migration candidate** —
+ahead of `097` — because it is a *shipped* tool whose whole purpose is verification, and its
+failure is invisible by construction. **Not migrated in this lane**, which was scoped to the
+filed case; recorded here so the next session does not have to rediscover it.
