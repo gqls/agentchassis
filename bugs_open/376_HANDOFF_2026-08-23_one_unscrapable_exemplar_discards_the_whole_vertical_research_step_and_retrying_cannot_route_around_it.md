@@ -169,6 +169,55 @@ best"* — against a vertical that contains about four such sites. **Retry re-ro
 are all the same.** Any fix built on retrying, widening `max_attempts`, or nudging temperature is
 therefore treating the one variable that provably does not move.
 
+## 4a. WHY the pool is fixed — the site-specific inputs never reach the decision (found by the `bugs_open/326` session, verified here)
+
+§4 says the candidate pool is a property of the vertical. True, but the mechanism is one level
+deeper and it changes which fix is right.
+
+`select_exemplars`'s prompt says: *"Prefer sites named in `identity.competitors_found` when they are
+genuinely strong; otherwise use well-known leaders of the vertical."* **The `competitors_found`
+branch has never been taken** `[MEASURED 2026-08-23 19:35Z]`:
+
+```sql
+-- 0 of 4 runs chose ANY exemplar appearing in that site's competitors_found; 6 were available each time
+```
+
+| run | chosen exemplars | drawn from `competitors_found` | available |
+|---|---|---|---|
+| 17:48 | gardenersworld / thespruce / which | **0** | 6 |
+| 18:19 | gardenersworld / which / thespruce | **0** | 6 |
+| 19:21 | gardenersworld / thespruce / which | **0** | 6 |
+| 19:30 | which / gardenersworld / thespruce | **0** | 6 |
+
+`competitors_found` holds UK garden-tool **retailers** (`burgonandball.com`, `kentandstowe.com`,
+`gardentoolcompany.com`, `gardena.com/uk`, `marshallsgarden.com`, `sgs-engineering.com`); the
+exemplars are **editorial** properties. Zero overlap, every time.
+
+**And that input demonstrably varied while the output did not** — run 2's identity spec added
+`sgs-engineering.com` (5 → 6), and `industry_tags` went 8 → 10 reworded. `select_exemplars` reads
+`{{.site_specs}}` whole, so both were in scope. **Two independent site-specific inputs moved; the
+chosen set did not.**
+
+**So the pool is not fixed *despite* fresh specs — it is fixed *because the fresh specs never reach
+the decision*.** Every selection so far has come from the fallback branch, i.e. the model's own
+priors for a well-known vertical, which are near-deterministic. That is why permutation is the only
+thing that varies.
+
+**This separates two fixes that would otherwise be confused:**
+- If the pool were genuinely vertical-derived, the remedy is §5's exclusion list.
+- If the site-specific branch never fires, there is a **second, separable defect upstream**: either
+  the prompt's "genuinely strong" test is too strict, or — more likely here — `identity` is finding
+  the wrong *kind* of competitor for the classification. A site classified `hub`/`content` is
+  compared against retailers; its real comparators are other content sites. That is a different
+  owner from the `on_error` gap.
+
+⚠ **BOUND THE EVIDENCE, and it is narrower than "never fired" sounds.** `vertical-exemplar-researcher`
+has **4 runs in its entire history** `[MEASURED 2026-08-23 19:35Z]` — all four are the ones above,
+all on `garden-tools.uk`, all today, all from this lane's own build. So "the branch has never fired"
+is literally true fleet-wide **and rests entirely on one domain in one vertical**. It is enough to
+say the branch is *unexercised* and to justify looking; it is **not** enough to say it *cannot*
+fire, and a second vertical could settle it cheaply. Do not quote the 0/4 without this sentence.
+
 ## 5. Fix candidates, ordered by what closes the door
 
 1. **Tolerate partial results (smallest, closes the consequence).** N-of-3 is research, not a
