@@ -18,12 +18,28 @@
 //
 //   - Producer side: ONE producer, discovery_checks/check_phantom_internal_links.go
 //     (grep of the whole tree for the literal, not filtered to ItemType:).
-//   - Closer side: **72 rows filed in the type's whole history, ZERO ever
-//     reached complete or verified**, count(DISTINCT resolution_path) = 0, and
-//     only 3 rows carry a `_verification` stamp at all. Nothing has ever closed
-//     one. 58 sit at needs_human_review, every one of them with triaged_at set,
+//   - Closer side: 58 sit at needs_human_review, every one with triaged_at set,
 //     handler_agent = 'page-build-handler' and attempt_count >= 1 — dispatched,
-//     attempted, failed, parked.
+//     attempted, FAILED, parked.
+//
+// > **CORRECTED 2026-08-23 (council round 3, prior_art_librarian).** This block
+// > first read "72 rows in the type's whole history, ZERO ever reached complete
+// > or verified". That is FALSE, and it was false because the census read a
+// > ROLLING WINDOW and called it history: `work-item-archiver` moves terminal
+// > rows to `site_work_items_archive`, which the query never touched. The true
+// > history is **99 rows (72 live + 27 archived), of which 26 COMPLETED** —
+// > 2026-08-02 to 08-14, **18 of them carrying a `_verification` stamp**, i.e.
+// > bugs_open/220's verifier working exactly as designed.
+// >
+// > **The drain still stands, but its justification is NARROWER and this is the
+// > accurate one.** The type is NOT born parked — the producing check files it at
+// > `detected`. It dispatches, and on handler SUCCESS it closes normally (26
+// > times). Only on handler FAILURE does it land at `needs_human_review`, where
+// > CompleteWorkItemAction's status guard refuses to touch it and the registered
+// > completion verifier can therefore never run. THAT population — 58 rows, every
+// > one a build the handler could not perform — is what this revalidator drains.
+// > So the "nothing has ever closed one" bar the earlier adopters set is NOT met
+// > here, and claiming it would have been a false claim about a working mechanism.
 //
 // WHY IT DELEGATES INSTEAD OF RESTATING THE PREDICATE. It calls
 // checks.VerifyUnbuiltInternalLinkResolved — the SAME function complete_work_item

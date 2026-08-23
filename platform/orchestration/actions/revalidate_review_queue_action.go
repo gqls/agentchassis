@@ -313,10 +313,12 @@ var reviewRevalidators = map[string]reviewRevalidator{
 	// never been deployed is still a live 404: either the href is gone from the
 	// surface, or the target has since shipped. Delegates to the SAME function
 	// complete_work_item's gate runs (checks.VerifyUnbuiltInternalLinkResolved).
-	// Added 2026-08-23 (bugs_open/328): 72 items in the type's whole history,
-	// ONE producer, and ZERO ever closed — the same birth-status trap as
-	// truncated_component, on a type whose handler's only remedy (build the
-	// target) fails by construction on the parked population. See
+	// Added 2026-08-23 (bugs_open/328). ⚠ NOT the same as truncated_component:
+	// this type is born 'detected' and DOES close when the handler succeeds (26
+	// completions, visible only in site_work_items_archive). It is registered for
+	// the FAILURE population — 58 rows parked at needs_human_review, which
+	// CompleteWorkItemAction refuses to leave, on a type whose only remedy (build
+	// the target) fails by construction there. ONE producer. See
 	// revalidate_unbuilt_link.go for both censuses, and for why the outbound
 	// suppression fix deliberately does NOT close these.
 	"unbuilt_internal_link": revalidateUnbuiltInternalLink,

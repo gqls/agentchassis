@@ -46519,3 +46519,57 @@ some case you have not thought of, and the failure is silent in both directions.
 > the files an 8-edit cap excludes, paste them verbatim into `grounded_in` rather than describing
 > them. Three rounds and ~50 minutes of fleet time bought that one line, and hand-assembly is what
 > cost it each time: the fact was in hand on every round.
+
+---
+
+## 2026-08-23 — bugs_open/328 lane: I called a rolling window "the type's whole history", and wrote it into five places before a council seat caught it
+
+**The claim.** Registering a revalidator requires a CLOSER CENSUS — this estate's own bar, set after
+a lane shipped a duplicate closer. I ran it and reported:
+
+> **72 rows filed in the type's whole history, ZERO ever reached `complete` or `verified`**,
+> `count(DISTINCT resolution_path) = 0`, only 3 carrying a `_verification` stamp. Nothing has ever
+> closed one.
+
+I put that in the Go doc comment, the registry map comment, the ratchet test comment, register entry
+LNK-038, a commit message and two council submissions.
+
+**What was true.** `site_work_items` is a **rolling window**. `work-item-archiver` moves terminal
+rows to `site_work_items_archive`, which I never queried. Across both tables the type has **99 rows,
+of which 26 COMPLETED** — 2026-08-02 to 08-14, **18 of them carrying a `_verification` stamp**, i.e.
+`bugs_open/220`'s verifier working exactly as designed. The mechanism I described as never having
+worked had worked twenty-six times.
+
+**The shape that makes it worth a row here: the census's own success condition destroys its
+evidence.** Closing a work item is precisely what makes it eligible for archiving. So a query asking
+"has anything ever closed this type?" against the live table is guaranteed to under-count, and **the
+better a type closes, the more invisible its closures become.** A perfectly-draining type reads as a
+type that has never drained. There is no tell in the output: the query is well-formed, the count is
+real, and `0` is exactly what the answer would look like if the claim were true.
+
+**I also had contradicting evidence in hand and explained it away.** The `bugs_open/220` handoff says
+its acceptance run landed "10/10 items `complete`". My census said zero had ever completed. I noticed
+the discrepancy, wrote "those must have been reaped/deleted since", and moved on. **A prior lane's
+recorded result contradicting your fresh measurement is evidence about your measurement**, and I
+treated it as evidence about their rows.
+
+> **The cheap check, one UNION, and it would have taken thirty seconds:**
+> ```sql
+> SELECT 'live' AS src, status, count(*) FROM site_work_items          WHERE item_type='X' GROUP BY 1,2
+> UNION ALL
+> SELECT 'archive',      status, count(*) FROM site_work_items_archive WHERE item_type='X' GROUP BY 1,2;
+> ```
+
+**The tally is the point, and this one is not mine alone.** Four registered revalidators justify
+themselves with a "CLOSER census returned ZERO rows" claim in the same shared test file. Measured
+across both tables, **three of the four are false the same way** — `voice_tells` (1 archived
+closure), `claims_unverified` (12), `truncated_component` (1) — as was mine (26). Four lanes, four
+sessions, one query shape, the same wrong answer. That is what turns an incident into a LANDMINE, and
+it now has one.
+
+**What does NOT change: every registration decision stands.** A revalidator is still the only drain
+for rows parked at `needs_human_review`, which `CompleteWorkItemAction` refuses to leave. The right
+question was never "has this type ever closed?" (usually yes) but "can a row parked at
+`needs_human_review` ever leave that status?" (structurally no). I reached a correct conclusion
+through a false premise, which is the version of being wrong that survives review longest — three
+council rounds, in this case, because the number looked thorough.

@@ -180,6 +180,29 @@ func TestSpecString(t *testing.T) {
 // built by another route sat for ever. Its verdicts are pinned in
 // page_section_satisfiability_test.go.
 func TestRevalidatorCoverageIsDeliberate(t *testing.T) {
+	// ⚠⚠ CORRECTION 2026-08-23, AND IT APPLIES TO MOST OF THE COMMENTS BELOW, NOT
+	// JUST THE NEWEST ONE. Four of the entries here justify themselves with a
+	// "CLOSER census returned ZERO rows" claim. Every one of those censuses was run
+	// against `site_work_items` alone — and that table is a ROLLING WINDOW.
+	// `work-item-archiver` moves TERMINAL rows to `site_work_items_archive`, so
+	// **closing a row is precisely what removes it from the table the census
+	// queries.** The census's own success condition destroys its evidence, and the
+	// better a type closes, the more invisible its closures become.
+	//
+	// Measured across both tables, 2026-08-23 (archived rows that are
+	// complete/verified — i.e. what each census could not see):
+	//
+	//	needs_page 739 · unresolved_cta 118 · required_fields_missing 98 ·
+	//	needs_section_data 59 · unbuilt_internal_link 26 · claims_unverified 12 ·
+	//	truncated_component 1 · voice_tells 1
+	//
+	// So "nothing has ever closed one" is FALSE for voice_tells, claims_unverified,
+	// truncated_component and unbuilt_internal_link as written. **None of the
+	// registration DECISIONS changes** — a revalidator is still the only drain for
+	// rows parked at needs_human_review, which CompleteWorkItemAction refuses to
+	// leave — but the stated justification was wrong, and it was wrong in a way
+	// that reads as thorough. Any future closer census MUST union the archive.
+	//
 	// voice_tells added 2026-08-08. Deliberate, and it cleared the bar this lane
 	// set after shipping a duplicate closer: the CLOSER census
 	// (item_type='voice_tells' AND status IN ('complete','verified')) returned
@@ -204,18 +227,23 @@ func TestRevalidatorCoverageIsDeliberate(t *testing.T) {
 	// retracts findings the current template no longer supports; the remedy
 	// decision (restore/regenerate/remove) stays human — see
 	// revalidate_truncated_component.go.
-	// unbuilt_internal_link added 2026-08-23 (bugs_open/328), and it cleared the
-	// same bar: the CLOSER census (item_type='unbuilt_internal_link' AND status
-	// IN ('complete','verified')) returned ZERO rows across **72** items filed in
-	// the type's whole history, with count(DISTINCT resolution_path) = 0 and only
-	// 3 rows carrying a _verification stamp at all. Same birth-status trap as
-	// truncated_component — 58 sit at needs_human_review, every one dispatched
-	// (triaged_at set, handler_agent 'page-build-handler', attempt_count >= 1)
-	// and failed, because the type's only remedy is "build the target page" and
-	// the target is parked precisely because it cannot be built. ONE producer,
-	// check_phantom_internal_links.go. It retracts nothing and rewrites nothing:
-	// it re-runs the registered completion verifier and reports. See
-	// revalidate_unbuilt_link.go, including why the 328 suppression fix
+	// unbuilt_internal_link added 2026-08-23 (bugs_open/328). ⚠ IT DOES NOT CLEAR
+	// THE "nothing has ever closed one" BAR THE FOUR ENTRIES ABOVE CLEARED, and
+	// saying so was a false claim in this comment's first version: the census that
+	// produced it read site_work_items only, which is a ROLLING WINDOW —
+	// work-item-archiver moves terminal rows to site_work_items_archive. True
+	// history: 99 rows (72 live + 27 archived), **26 COMPLETED**, 18 with a
+	// _verification stamp. The type closes fine when the handler SUCCEEDS.
+	// It is registered here for the narrower, real reason: the type is born
+	// 'detected', not parked, and only lands at needs_human_review when the
+	// handler FAILS — where CompleteWorkItemAction's status guard refuses to touch
+	// it, so its registered verifier can never run. 58 rows sit there now, every
+	// one dispatched (triaged_at set, handler_agent 'page-build-handler',
+	// attempt_count >= 1) and failed, because the type's only remedy is "build the
+	// target page" and the target is parked precisely because it cannot be built.
+	// ONE producer, check_phantom_internal_links.go. It retracts nothing and
+	// rewrites nothing: it re-runs the registered completion verifier and reports.
+	// See revalidate_unbuilt_link.go, including why the 328 suppression fix
 	// deliberately does NOT close these.
 	want := []string{"unresolved_cta", "required_fields_missing", "needs_section_data", "needs_page", "voice_tells", "claims_unverified", "truncated_component", "unbuilt_internal_link"}
 	for _, itemType := range want {
