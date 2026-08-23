@@ -626,3 +626,51 @@ consequence for this workstream's censuses: this type's completions were previou
 ALL false-greens (the dispatch built the wrong page — see the bug file), so any
 completion-quality figure that counts pre-roll `unbuilt_internal_link` completions as
 successes overstates; 13/13 all-history rows are the wrong-page shape. — bugfix_220 lane
+
+---
+
+## 2026-08-23 — lane revived: `bugs_closed/344`'s contract, and how much of it is actually enforced
+
+**Asked to fix `bugs_open/344`; it does not exist.** Closed 2026-08-21. Re-verified rather than
+trusted: `0f80f5ea1`/`45ce175c8` both ancestors of HEAD, fleet on `v1.0.1330`, both predicates
+present, damage census **0** — with a demand control behind the zero (592 completions / 582 claims
+in 24 h; **16** rows completed while carrying `retry_after`, all `retry_after <= completed_at`).
+The control is the point: the census could have returned a positive.
+
+**The real finding: the contract is enforced at 1 `complete` writer of ~11 that can reach a
+`triaged` row** (dated census in the bug file §5(b); re-run before quoting). The sharpest of them,
+`markOriginalComplete`, is the only one whose WHERE *names* `triaged` — it does not fail to exclude
+the ladder's output, it selects for it. Fixed and committed (`2dd05c5b2`).
+
+### Missteps, in order, because they are the reusable part
+
+1. **I read a self-erasing counter as demand evidence.** `result->'completion_skipped'` showed 22
+   markers, all `already_flagged_or_terminal`, zero `retry_scheduled`, and I wrote "the guard has
+   never fired naturally" into a plan. Wrong: the success path REPLACES `result`, so a
+   `retry_scheduled` skip (an item that will be retried, and may succeed) erases its own marker,
+   while `already_flagged_or_terminal` sits on terminal rows and survives for ever. **The
+   instrument preserves one category and erases the other.** Caught by grepping `LANDMINES.md` for
+   the symbols I was about to touch, which surfaced the identical defect on `result._verification`
+   recorded 2026-08-08 — same table, neighbouring key, fifteen days earlier.
+2. **A census on a key nothing writes.** `result ? 'previous_status'` = **0 of 9,656**. My
+   cancelled/deferred census could not have come out otherwise. Caught by testing the instrument
+   (`count(*) FILTER (WHERE result ? '<key>')`) before trusting the result. Replaced with a
+   *writer enumeration*, which can return a positive: no Go writer of `status='cancelled'` exists
+   anywhere; `deferred` is a birth status only; and the claim admits `('triaged','approved')` only.
+3. **I overstated a disarm path.** Listed `WORK_ITEM_BURST_COOLDOWN_MINUTES=0` as live; `envInt`
+   requires `n > 0`. Corrected before it reached the bug file. Two live routes remain (the
+   `DISABLE_WORK_ITEM_RETRY_BACKOFF` kill switch and a `reaper_policies.backoff_minutes <= 0` row),
+   plus one rollback-dependent.
+4. **My first version of a new test asserted the right property against the wrong slice.**
+   `extractStatement` stops at `\n\tif err` by design, so it structurally cannot see error
+   handling — a false red about nothing. Added `funcBody` beside it with the reason written down.
+
+### The operational fact that resized the session
+
+Four of five target files carried other sessions' uncommitted work — `v3_site_actions.go` touched
+**one minute** before I checked, `load_work_item_actions.go` nine minutes, and
+`work_item_failure_ladder.go` holding `bugs_open/345`'s in-flight rule. The package is **RED in the
+working tree and GREEN on a clean `git archive HEAD`**, which is how I knew the red was theirs.
+Committing any of those files takes their half-written work as a same-file passenger under my
+message. So three of four gaps are **recorded, not written** — the bug file names each with its
+file, so the next session can re-check and proceed. — 344 follow-through lane

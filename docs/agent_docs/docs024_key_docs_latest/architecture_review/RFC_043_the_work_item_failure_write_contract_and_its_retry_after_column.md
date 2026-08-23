@@ -212,3 +212,65 @@ the `"DISABLE_…"` literals. A coverage claim about env switches is a claim abo
 
 **Open, and deliberately not decided here:** whether this becomes a general estate rule or stays
 this lane's practice. It reads as general — but that is a ruling, and this RFC has had its four.
+
+---
+
+## NOTE 2026-08-23 (`bugs_closed/344` follow-through lane) — Q2 is STILL UNOWNED, and here is the instrument its disconfirming question needs
+
+**Q2 was examined and deliberately NOT taken.** Not for lack of will: one of the two inline
+seven-status literals lives in `load_work_item_actions.go`, which another session was editing
+**nine minutes** before this note was written (+139/−17 uncommitted, package RED in the working
+tree and GREEN on a clean `git archive HEAD`). Converging one of the two literals and leaving the
+other would be worse than converging neither, and editing that file would take half-finished work
+as a same-file passenger. **So Q2 remains unowned and unscheduled, exactly as ruled.**
+
+**What this lane can hand the next owner is the instrument**, because the obvious one is vacuous.
+The ruling names the disconfirming question — *"whether any live flow legitimately completes a
+`cancelled` row"* — and the natural data census cannot answer it:
+
+```sql
+SELECT count(*) FILTER (WHERE result ? 'previous_status'), count(*) FROM site_work_items;
+--  0 | 9656
+```
+
+**The estate records no previous status anywhere**, so any census filtering on it returns 0 before
+it is run. Read the **writers** instead; that argument *could* have returned a positive:
+
+- **`cancelled`** — no Go writer of `site_work_items.status='cancelled'` exists at all. The only
+  `SET status = 'cancelled'` in `platform/`/`internal/`/`cmd/` is on `awaited_requests`
+  (`state.go:2076`). The live rows carry `handled_by` values like `brochure_215_o2_thread` and
+  `claude-session-248-bookkeeping-20260815` — i.e. hand-written by sessions, not by a flow.
+- **`deferred`** — written only at row *birth*, for non-dispatchable `capability_gap` items with an
+  empty `handler_agent` (`discovery_checks/remit.go:184`), never as a transition.
+- **Neither status can be reached by the dispatch path**: `ClaimWorkItemAction` admits only
+  `status IN ('triaged','approved')` (`claim_work_item_action.go:102`), so an item in either status
+  is never claimed, never dispatched, and never reaches `CompleteWorkItemAction`.
+
+**Still owed before converging** (do not skip, and **date it** — a census goes stale by addition):
+enumerate the SQL-side writers of these two statuses in `sql_for_agents/`, and the four live
+`scheduled_tasks` sweeps whose `pre_query` touches them (`claimed-item-timeout`,
+`detected-item-promoter`, `held-pair-canary-escalation`, `site-discovery-rotation-completeness`,
+enabled as of 2026-08-23).
+
+### Q4's condition is NOT fully met — a fifth kill switch exists and no test drives it
+
+The ruling made "armed with env disarms" conditional on **every kill switch being exercised by a
+test**. `bugs_open/345` candidate 2 added a fifth — `DISABLE_WORK_ITEM_REPEAT_TERMINATION`
+(`work_item_failure_ladder.go:108`) — and `grep -c Setenv` over
+`work_item_failure_ladder_test.go` shows the other four driven (`envDisableDecisionGuard`,
+`envDisableRetryBackoff`, `envDisableTransientRelease`, `envDisableBurstRelease`) and this one at
+**zero**. It is in that lane's uncommitted work, so it is theirs to close, not this note's — but
+the condition is open until they do.
+
+### And a coupling Q4 did not anticipate: a kill switch that disarms a DIFFERENT contract
+
+`DISABLE_WORK_ITEM_RETRY_BACKOFF` is named and documented for the backoff. Setting it makes
+`backoff` stay 0 (`:485`), which makes `countingLadderStatement` write `retry_after = NULL`
+(`:594`) while `status` still becomes `triaged` (`:622`) — and `bugs_closed/344`'s completion guard
+reads that NULL as "no retry pending". **So a switch named after backoff silently disarms a
+completion guard in another file.** Same for a `reaper_policies.backoff_minutes <= 0` row, which is
+operator-editable with no build — the very build-free retuning §5 Q1 endorses. Neither is armed
+today (`__default__`=30, `initial_verification`=20; no `DISABLE_WORK_ITEM_*` set in the cluster).
+Written up with its check in `LANDMINES.md`; the source-level repair (make the stamp CASE's
+condition textually identical to the status CASE's) is blocked on the same file as above and is
+recorded in `bugs_closed/344` §5(c) and (e).

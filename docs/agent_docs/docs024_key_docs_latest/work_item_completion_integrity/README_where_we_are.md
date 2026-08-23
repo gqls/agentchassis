@@ -309,3 +309,43 @@ after a new build goes out can vanish without a trace — no error, no record,
 nothing. It happened to a review submission earlier and to one of these test runs.
 The fix is a five-second check of when the system last restarted, *before* sending
 anything, rather than waiting twenty minutes and then investigating.
+
+---
+
+**2026-08-23 — asked to fix a bug that was already fixed, and what turned up instead**
+
+I was asked to look at bug 344. It turned out to have been closed two days earlier, so the
+first job was to check whether that closure was actually true rather than take it on trust. It
+is true: the fix is in the running fleet, and the query that would show damage returns zero.
+I made a point of also checking that the query *could* have found something — it sees 592
+completions a day and sixteen items that went through exactly the situation in question, all
+of them handled correctly. A zero from a query that can never find anything is worthless, and
+that distinction turned out to matter twice more before the day was out.
+
+What I found instead is worth explaining, because it is a shape that recurs here. Bug 344
+established a rule: if the system has already scheduled a retry for a piece of work, nothing
+should then mark that work "done" — otherwise a failed job is recorded as finished and the
+retry is silently cancelled. The rule is right and it was implemented properly. But it was
+implemented in the two places where the bug happened to bite, and there are about eleven places
+in the code that can mark work done. So the rule is real in two of them and absent in the rest.
+
+Nothing is currently going wrong because of this — I checked, and no live configuration takes
+the route that would trigger it. It is an open door rather than a leak. I have closed the one
+that mattered most: a piece of code that, uniquely, went looking for work in exactly the state
+the retry system puts it in. It also threw away its own error messages, so if it ever had
+refused to do something, nobody would have known. Both halves are fixed and committed.
+
+The rest I could not safely do today, and I want to be straight about why. Three other sessions
+are editing the very files involved — one of them had saved a change sixty seconds before I
+looked — and their work is half-finished and currently failing its tests. On this setup, if I
+edit a file someone else is midway through, my commit takes their unfinished work with it under
+my description. So I have written down precisely what remains, in the bug's own file, with the
+reason, so whoever comes next can check whether the coast is clear and carry on.
+
+Two of my own mistakes are worth recording, because they are the same mistake twice. I counted
+something using a field that the system erases whenever the job eventually succeeds — so the
+count could only ever show me the failures that stayed failures, and I briefly believed the
+safety mechanism had never been used. And I ran a check filtered on a field that nothing in the
+system has ever written, so the answer was guaranteed before I asked. Both are logged. The
+lesson in both is the same one: before believing a number, ask what result would have proved you
+wrong, and check that such a result was even possible.

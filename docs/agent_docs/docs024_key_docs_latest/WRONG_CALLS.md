@@ -45765,3 +45765,196 @@ Same family as the vacuous `0/22` recorded in `bugs_open/351` itself and the fli
 amendment beside it: **three cases now in one lane where the number was stable and its meaning was
 not.** The generalisation those three earn: *a measurement whose wrong value is in the same range as
 its right value cannot be checked by reading it. It has to be checked by something that would break.*
+
+---
+
+## 2026-08-23 — I read a SELF-ERASING counter as evidence of demand, and it erases exactly the arm I was counting (bugs_closed/344 follow-through lane)
+
+**The claim I wrote down.** Sizing what remained of bug 344, I queried the durable
+`result->'completion_skipped'` marker and found **22 markers, every one
+`already_flagged_or_terminal`, ZERO `retry_scheduled`**. I recorded that as: 344's guard
+"has never fired on natural traffic", and put it in the plan as honest sizing.
+
+**Why it is wrong, and wrong in a direction.** `CompleteWorkItemAction`'s success path writes
+`result = $2::jsonb` — a **REPLACE**, not a merge — so a later genuine completion **destroys**
+the marker. The code says so itself at `load_work_item_actions.go:1153`: *"SELF-CLEANING …
+this marker cannot survive into the record of an eventual genuine completion."* Now put the two
+reasons beside that:
+
+- a **`retry_scheduled`** skip is, by definition, an item that is going to be retried — and if
+  that retry succeeds, its marker is wiped;
+- an **`already_flagged_or_terminal`** skip sits on a row in a terminal/decision status, which
+  will therefore never be completed, so its marker survives **for ever**.
+
+**The instrument preserves one reason and erases the other.** A 22/0 split is what that query
+returns whether the retry arm fires constantly or never. It could hardly have come out otherwise,
+which is the whole test the estate already applies to a `[MEASURED]` figure.
+
+**What caught it:** not the query — grepping `LANDMINES.md` for the symbols I was about to touch,
+which surfaced the 2026-08-08 entry recording that each completion attempt REPLACES
+`result._verification` and that the fleet census over `result ? '_verification'` therefore
+"counts **surviving** verdicts, not verifications performed, and systematically under-counts
+exactly the refusals the registry exists to produce". **That is the identical defect, on the
+neighbouring key, written down fifteen days earlier.** I read it while checking something else.
+
+**The cheap check:** before counting events in a mutable column, ask *what writes this column
+next, and does it keep or replace what is here?* A counter that lives in a field its own success
+path overwrites is not a counter — it is a snapshot of the cases that never succeeded. Event
+counts belong somewhere append-only (`agent_error_log` retains a month); `result` holds current
+state. **And the sharper, transferable form: when a census splits into categories, ask whether
+the categories have equal chances of SURVIVING to be counted.** Both of these figures were real;
+only one population could still be there when I looked.
+
+Filed as a residual gap on `bugs_closed/344` (the contract's own effectiveness is unmeasurable),
+not as a new bug, because the fix is one log line rather than a defect in the guard.
+
+---
+
+## 2026-08-23 — a census keyed on a column nothing ever writes: 0 of 9,656, and it could not have been anything else (same lane)
+
+**The claim I nearly wrote down.** RFC_043's Q2 owner ruling names the disconfirming question for
+converging the completion-guard lists: *"whether any live flow legitimately completes a
+`cancelled` row"*. I answered it with:
+
+```sql
+SELECT count(*) FROM site_work_items
+WHERE status='complete'
+  AND (result ? 'cancelled_at' OR result->>'previous_status' IN ('cancelled','deferred'));
+-- 0
+```
+
+**Why it is worthless.** I then tested the instrument itself:
+
+```sql
+SELECT count(*) FILTER (WHERE result ? 'previous_status') AS has_key, count(*) FROM site_work_items;
+--  0 | 9656
+```
+
+**`previous_status` is written on ZERO of 9,656 rows** — the estate does not record a previous
+status anywhere. The predicate rested almost entirely on a key that does not exist, so the zero
+was guaranteed before I ran it. `cancelled_at` exists on 7 rows, which is the only reason the
+query was not *completely* vacuous.
+
+**What caught it:** running the "could this have come out otherwise?" test as a query rather than
+as a thought — one extra `count(*) FILTER (WHERE result ? '<key>')` before trusting any census
+that filters on a JSONB key. It cost one query and would have cost a false answer to a question
+the owner had explicitly framed as the deciding one.
+
+**The cheap check, and it is now the habit: never filter on a JSONB key without first counting
+how many rows carry that key at all.** The denominator is the instrument's own calibration. A
+`0` over a key with 0 occurrences and a `0` over a key with 9,656 occurrences are the same
+character and opposite facts.
+
+**What replaced it.** The question is answerable, just not from the data: read the WRITERS. There
+is no Go writer of `site_work_items.status='cancelled'` at all (the only `SET status = 'cancelled'`
+in the tree is on `awaited_requests`, `state.go:2076`); `deferred` is a birth status for
+non-dispatchable `capability_gap` rows; and `ClaimWorkItemAction` admits only
+`status IN ('triaged','approved')` (`claim_work_item_action.go:102`), so neither status can be
+reached by the dispatch path at all. That argument **could** have returned a positive — if an
+automated cancel-then-complete flow existed, the enumeration would have found it. The census
+could not.
+
+---
+
+## 2026-08-23 — `bugfix_337_token_cap` — I wrote a generalisation into a bug file DIRECTLY BELOW another lane's correction of that same generalisation, in the same file, one day later
+
+**The claim I wrote** (into `bugs_open/253`, 08-23, and again into the lane's handoff):
+
+> "the stored side varies (12, 15) while **the rendered side is always exactly 5**. That is the
+> signature of a fresh `hero-tool` render producing a fixed, thinner output regardless of what it
+> is replacing … it will keep refusing every `hero-tool` re-render on any page whose stored
+> version has more than 10 class attributes."
+
+and the instruction I derived from it: *"determine what empties `hero-tool`'s `content_data`
+values"* — a writer census, handed to the next session as the lane's live thread.
+
+**It is false, and the correction was already in the file, ~40 lines above where I typed mine.**
+The `bugs_open/305` lane wrote on **2026-08-22**: *"Today's actual distribution of freshly-saved
+loanzy `hero-tool` components — 15, 5, 5, 5, 12 — is per-run variance in generated output, not a
+settled renderer change."* It even named its own failure mode: it had held a disconfirming
+15-class sample and mentioned it as a parenthetical instead of letting it break the
+generalisation.
+
+**I then made the identical error from five agreeing samples, one day later, in the same file.**
+I also inherited its consequence: I wrote that the blocked page "cannot be repaired until this is
+resolved" — it repaired itself on retry 20 minutes later, while that sentence was being written.
+
+**What caught it:** starting the proposed investigation instead of trusting the premise. Two
+queries, four minutes:
+1. *Which* keys are empty — all **40** of 40 are `stat_*`, no other key is ever empty.
+2. *Which direction* the count moves across writes — **0→3, 0→0→3, 0→2**, and once 1→0.
+   **A mechanism that empties values cannot fill them.**
+
+**The cheap check that would have prevented it — and it is not "read the file", because I did
+read the file:**
+
+> **Before adding a finding to a shared bug file, read the file's own CORRECTIONS on the thing
+> you are about to assert.** Corrections are appended *below* the claim they refute and *above*
+> where you will type, so the normal reading order — skim down, append at the bottom — puts the
+> refutation of your claim in the last screen you read before writing it, and it still does not
+> register, because at that moment you are looking for a place to write, not for an argument.
+> **Grep the file for your own conclusion before you add it:** `grep -in 'variance\|CORRECTION' <bugfile>`
+> would have returned the 08-22 entry with the word *variance* in it.
+
+**Second, smaller wrong call in the same session, caught by its own control.** Verifying the
+337 fix was still live, `grep -ac <fix-sha> /proc/1/exe` returned **0** — and so did the
+positive control (`grep -ac <HEAD-sha>`, which must be absent, and a sha that must be present).
+**A failed positive control means the instrument is blind**, and a blind instrument returning 0
+is indistinguishable from a true absence; read at face value it said "your fix is not deployed"
+and would have re-opened a bug that was about to close. Discarded, and answered instead by
+**probing the capability** (the field the fix adds, non-zero on a row 20 minutes old). This is
+already the standing rule in CLAUDE.md — logged here only because the rule earned its keep for
+real, and the tally is the point.
+
+---
+
+## 2026-08-23 — bugs_open/328 lane: I ran a 56-URL census with no control, and it told me the exact opposite of the truth
+
+**The claim I was about to act on.** Designing 328's fix, I needed to know which "never shipped"
+pages actually 404. I fetched all 56 never-deployed pages fleet-wide, cache-busted, and tabulated
+by `build_status`. The result read:
+
+> `planned` + never deployed: **19 serve 200**, 17 return 404.
+
+That is a refutation. The estate's linkability floor (`PageMayBeLinkedPredicateFor`) rests on a
+2026-08-09 measurement of "22 such pages, all 22 return 404", and my number said it had gone
+badly stale — 45% of the population now serving. I had already begun writing that the floor was
+wrong and needed replacing.
+
+**What was actually true.** All 19 were **one domain**, `adversecreditmortgage.co.uk`, parked at a
+registrar and returning **200 with a 114-byte redirect stub for every path ever requested**,
+including `/definitely-not-a-real-page-24480.html`, which I invented on the spot. Excluding it,
+`planned` + never deployed is **17/17 returning 404** and the 08-09 finding holds exactly.
+
+**The cheap check, and it is one extra fetch per domain:**
+
+> **Fetch a URL that cannot exist, on each domain, in the same run as the census** —
+> `https://<domain>/zzz-control-not-a-page-$RANDOM.html` — and discard every 200 from a domain
+> whose control also returns 200. Per DOMAIN, not once per fleet: exactly one of fifteen reachable
+> domains had the catch-all, so a single fleet-level control would have found nothing and read as
+> a clean bill of health.
+
+**Why this one belongs in the tally rather than in a shrug.** The figure was dated, it was
+`[MEASURED]`, and it was produced by a command I could paste for anyone to re-run — it satisfied
+every marker rule in CLAUDE.md and was still worthless, because *the measurement could not
+distinguish the two states it existed to separate*. That is the standing rule about disconfirmable
+measurement, and this is the first time I have watched the uncontrolled and controlled forms of
+one command produce opposite architectural conclusions twenty minutes apart. The control is now a
+LANDMINE entry, because the next person to curl a list of this fleet's URLs will hit the same
+domain.
+
+**Second wrong call, same session, same shape: I wrote a harm figure into the lane NOTES that the
+data did not support.** I recorded "63 open `unbuilt_internal_link` items … oldest 2026-08-09 —
+**14 days of live 404s**". A subsequent check showed **42 of the 63 name targets that serve HTTP
+200 today** (the 40 lendzy items, gaswholesalers' fuel-pricing-framework, mortgagecalculator's
+contact/index) — stale records held open by missing `deployed_at` stamps, not live damage. The
+real harm was ~3× smaller and had to be measured a different way entirely (36 anchors on 24 pages
+→ 14 unservable targets).
+
+> **The cheap check: curl the target before calling a queue row live damage.** A work item is a
+> record that something *was* true when a detector ran. It is not evidence about the wire, and on
+> this fleet the two disagree for a whole documented class of reasons.
+
+Notably it was another model, reviewing my framing, that caught this one — after I had already
+written the number into a lane doc. The number was in the same paragraph as three figures I *had*
+verified, which is exactly how an unchecked claim borrows the credibility of its neighbours.

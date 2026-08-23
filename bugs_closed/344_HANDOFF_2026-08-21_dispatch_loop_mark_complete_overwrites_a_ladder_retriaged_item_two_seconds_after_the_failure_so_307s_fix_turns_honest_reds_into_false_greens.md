@@ -312,3 +312,141 @@ advisory objections, both dispositioned below.
 - **The outage-scale watch lives in `bugs_closed/307` only**, with its reopen trigger. It is
   deliberately not duplicated here: two records of one watch is the drift shape this estate keeps
   filing bugs about. If it fires, it reopens `307`, and this mechanism is re-examined from there.
+
+---
+
+## §5 — 2026-08-23: the closure RE-VERIFIED, and the CONTRACT's remaining reach measured (follow-through lane)
+
+**344 stays CLOSED. Nothing here re-opens it.** A later session was asked to "fix bug 344",
+found it closed, and re-verified the closure rather than trusting it. What follows is the
+contract's reach — a different question from the bug, and the one that was left open.
+
+### (a) The closure holds — re-verified, with a demand control
+
+| check | result 2026-08-23 |
+|---|---|
+| `0f80f5ea1` / `45ce175c8` ancestors of HEAD | ✓ / ✓ |
+| fleet | `v1.0.1330`, 37 chassis pods on one tag |
+| predicate in `CompleteWorkItemAction` | ✓ `load_work_item_actions.go:1129` |
+| predicate in `failUnverifiedCompletion` | ✓ `complete_work_item_verification.go:438` |
+| damage census `status='complete' AND retry_after > completed_at` | **0** |
+| **demand control** | 592 completions / 582 claims in 24 h, and **16** rows completed while *carrying* `retry_after` — every one with `retry_after <= completed_at`, the legitimate after-cooldown path |
+
+The demand control is the load-bearing row: the census **could** have returned a positive, because
+the population it filters on exists and flows daily. Without it the 0 would be worth nothing.
+
+### (b) The contract is enforced at ONE `complete` writer of about eleven
+
+344 shipped the predicate to two writers. **As of 2026-08-23**, these also write
+`site_work_items.status='complete'`, can reach a `triaged` row, and did not carry it (verified by
+direct read, not by grep count):
+
+| writer | why it can meet a re-triaged row |
+|---|---|
+| `v3_site_actions.go:6291` `UpdateWorkItemStatusAction` | has the *status* guard, not the retry one; its own comment calls it "a third writer of `complete`". **Live config census: `image-build-handler`, `image-source-unsatisfiable-handler`, `image-url-404-handler`, `required-fields-missing-handler` all complete through it — 4 of the 5 agents §Exposure above names** |
+| `apply_gap_plan_action.go:1180` `markOriginalComplete` | **the only writer that NAMES `triaged` in its own WHERE** — `status IN ('triaged','claimed')` — so it selects for exactly what the ladder writes. **FIXED 2026-08-23, see (d)** |
+| `site_admin_handlers.go:1118`, `confirm_work_item_handler.go:213` | `WHERE id = $1`, no status guard at all — human dispositions |
+| `work_items_common.go:444`, `plan_sections_action.go:2633`, `cmd/verifier-remit-check:538`, `cmd/brief-negation-check:548` | `triaged` not excluded |
+
+⚠ **The count carries its date** (owner ruling 2026-08-22) — a census goes stale **by addition**.
+Re-run before quoting: `git log --since=2026-08-23 --diff-filter=A -- platform/orchestration/actions/`.
+
+**Sizing, honestly: latent, not bleeding.** Checked each of the four exposed agents' step graphs —
+no live workflow config routes fail→complete inside one saga, and the damage census is 0. The
+argument for closing these doors is that they are open, not that blood is flowing.
+
+### (c) The predicate is a PROXY, and it can be silently disarmed — now a LANDMINE
+
+`retry_after IS NULL` means **"claimable now"** to the claim path (`claim_work_item_action.go:109`
+says so) and **"no retry pending"** to the completion guard. Those agree for a healthy row and
+**contradict** for a zero-backoff ladder write, where `status` becomes `triaged` on one condition
+(`:622`) and `retry_after` becomes NULL on a *wider* one (`:594`). Three live routes to that state:
+`DISABLE_WORK_ITEM_RETRY_BACKOFF` (a kill switch named after backoff that also disarms this guard),
+a `reaper_policies.backoff_minutes <= 0` row (operator-editable, no build), and
+`retryAfterColumnPresent` latching false. **None armed 2026-08-23** (`__default__`=30,
+`initial_verification`=20; no `DISABLE_WORK_ITEM_*` set in the cluster).
+
+> **CORRECTION, recorded rather than quietly dropped:** this lane first listed
+> `WORK_ITEM_BURST_COOLDOWN_MINUTES=0` as a fourth live route. It is **not** — `envInt` requires
+> `n > 0` (`work_item_failure_ladder.go:297-304`) and falls back to the 15-minute default. The
+> statement-level hazard survives for any caller passing 0 directly; the env route is closed.
+
+### (d) Gap D — the contract's own effectiveness is UNMEASURABLE, and that is how this lane got it wrong
+
+`result->'completion_skipped'` cannot be used to count refusals. The success path writes
+`result = $2::jsonb`, a REPLACE, so a genuine later completion **wipes** the marker — `:1153`
+says so. The two reasons have opposite survival odds: `retry_scheduled` marks an item that will be
+retried and may then succeed (marker erased); `already_flagged_or_terminal` marks a terminal row
+that never completes (marker permanent). So the observed **22 markers, all
+`already_flagged_or_terminal`, zero `retry_scheduled`** is an artefact of the instrument, **not**
+evidence that the guard has never fired — which is what this lane wrote down first. Logged in
+`WRONG_CALLS.md` and `LANDMINES.md` (and it is the *second* key under `result` with this defect —
+`result._verification` has it too, found 2026-08-08).
+
+**The fix is one append-only log line** (`agent_error_log`, retains a month), not a change to the
+guard. Not built here.
+
+### (e) What was BUILT here, and what was deliberately NOT — and why
+
+**BUILT** (commit `2dd05c5b2`, council corr `af5135d6-8ca2-4453-b33e-a299dcd6a622`): the contract
+added to `markOriginalComplete`, plus the half nobody had noticed — it discarded **both** the error
+and the rowcount from its `ExecContext`, so a refusal by the new predicate *or* by the status filter
+already present reached no reader at all. Mutation-proven four ways (predicate removed → RED;
+outcome discarded → RED; predicate re-inlined → RED on the drift test; predicate inverted → RED on
+the disconfirming control), file restored byte-identically. The drift census in
+`complete_work_item_retry_guard_test.go` re-derived from **four call sites across three files** to
+**five across four, as of 2026-08-23**, with the staleness recipe attached.
+
+**NOT BUILT, and this is a blocking constraint rather than a choice.** The other three gaps live in
+files carrying other sessions' large, currently-**RED**, uncommitted work:
+
+| file | uncommitted | last touched | holds |
+|---|---|---|---|
+| `v3_site_actions.go` | +23/−45 | **1 min before this was written** | Gap (b)'s highest-value site |
+| `load_work_item_actions.go` | +139/−17 | 9 min before | Gap (d), and one of Gap C's two literals |
+| `work_item_failure_ladder.go` (+test) | +181/−12, +312/−29 | 2026-08-22 | `bugs_open/345`'s repeat-termination rule; Gap (c) lives here |
+
+`go test ./platform/orchestration/actions/` is **red in the working tree** and **green on a clean
+`git archive HEAD`** — so the red is theirs, in flight. Editing any of these would take
+half-finished work as a **same-file passenger** under this change's message, which is the one thing
+a pathspec commit cannot prevent. **So they are recorded, not written.** Whoever picks them up:
+re-check `git status` first; the constraint may have cleared.
+
+### (f) RFC_043 Q2 — examined, and NOT taken, for the same reason
+
+The owner ruled 2026-08-21 that the three completion-guard lists *"should become one with it's own
+change and review"*, calling it **"unowned and unscheduled"**. One of the two inline literals is in
+`load_work_item_actions.go`, which is being actively edited; converging one of two would be worse
+than neither. **Still unowned.**
+
+What this lane *did* contribute is the instrument for the owner's stated disconfirming question
+("does any live flow legitimately complete a `cancelled` row?"), because the obvious data census is
+**vacuous**: `result ? 'previous_status'` is present on **0 of 9,656** rows, so it could not have
+come out otherwise. Read the **writers** instead — that argument *can* return a positive:
+
+- **`cancelled`** — there is **no Go writer** of `site_work_items.status='cancelled'` anywhere
+  (the only `SET status = 'cancelled'` in the tree is on `awaited_requests`, `state.go:2076`). Live
+  rows carry `handled_by` values like `brochure_215_o2_thread` — hand-written by sessions.
+- **`deferred`** — the birth status of non-dispatchable `capability_gap` rows (empty
+  `handler_agent`), never a transition.
+- **Neither is reachable by the dispatch path at all**: `ClaimWorkItemAction` admits only
+  `status IN ('triaged','approved')` (`claim_work_item_action.go:102`).
+
+Remaining for whoever takes Q2: enumerate the SQL-side writers in `sql_for_agents/` and the four
+live `scheduled_tasks` sweeps that touch these statuses, and **date the enumeration**.
+
+### (g) A design road NOT taken, recorded so it is not re-derived
+
+A Postgres `BEFORE UPDATE` trigger on `site_work_items` would bind every writer at once — present,
+future, Go, SQL, admin and `cmd/` — and `RETURN NULL` would reproduce the `rows==0` outcome every
+caller already handles (precedent: migration `216` put `updated_at` on this table by trigger for
+exactly that reason). **Rejected here** on RFC_043 Q3, owner 2026-08-21: *"Shared contracts live in
+GO; a SQL sweep that needs one gets MOVED, not mirrored."* A trigger gives the contract a second
+home, which is the drift shape this estate keeps filing. The counter-argument — that a trigger is a
+*relocation* rather than a mirror, and would let the SQL copy in `claimed-item-timeout` be retired,
+lowering the media count — is real and is **architecture-scope**: it needs an RFC and an owner
+ruling, not a bug patch. Recorded, not pursued.
+
+**Relations added:** RFC_043 Q2/Q3/Q4 · register **WII-003**/**WII-024** · `bugs_open/345` (whose
+in-flight work blocks Gap (c)) · `bugs_open/354` + `bugs_open/341` (the root repair and the SQL
+ladder copy, both **owned by the `bugs_open/307` lane** — untouched here by design).

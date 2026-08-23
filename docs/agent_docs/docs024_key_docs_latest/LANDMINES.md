@@ -15660,3 +15660,155 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the overlay-`newTag` entry above (which correctly recommends this table, for the present-tense question) · `bugs_open/351` §"LIVE AND DEMAND-PROVEN 2026-08-23" (the case) · the `failedJobsHistoryLimit` entry (same class, retention-as-history) · MEMORY [[prove-a-deploy-at-the-artefact-index]]
 - **source:** 2026-08-23, `bugs_open/351` lane — caught before it was asserted, while checking whether a work item filed at 12:08Z proved the fix had failed. It did not; the table simply could not see that far back.
 - **added:** 2026-08-23, `bugs_open/351` lane
+
+
+### `site_work_items.retry_after IS NULL` means TWO OPPOSITE THINGS to the two paths that read it — "claimable now" to the claim, "no retry pending" to the completion guard
+
+- **footprint:** `site_work_items.retry_after`, `workItemRetryNotPendingSQL` (`platform/orchestration/actions/work_items_common.go:355`), `ClaimWorkItemAction` (`claim_work_item_action.go:111`), `CompleteWorkItemAction` (`load_work_item_actions.go:1129`), `failUnverifiedCompletion` (`complete_work_item_verification.go:438`), `markOriginalComplete` (`apply_gap_plan_action.go`), `countingLadderStatement` / `transientReleaseStatement` (`work_item_failure_ladder.go:594`, `:690`), `backoffMinutesFor`, `reaper_policies.backoff_minutes`, `DISABLE_WORK_ITEM_RETRY_BACKOFF`, register **WII-003** / **WII-024**, `bugs_closed/344`, RFC_043
+- **fires when:** you reason about whether bug 344's completion guard is armed for a given item, or you tune a backoff, or you add a writer that completes a work item. **There is no symptom** — every column is individually correct and the guard's own tests pass.
+- **the mechanism:** one column carries two different questions. `claim_work_item_action.go:109` documents its reading in as many words — *"NULL = claimable now"* — while the completion guard reads the identical NULL as *"no retry is pending, completion is allowed"*. Those agree for a row that has never failed. They **contradict** for a row the ladder has just re-triaged with a zero backoff: `countingLadderStatement` sets `status='triaged'` when `attempt+1 < max_attempts` (`:622`) but sets `retry_after = NULL` on a **wider** condition that also includes `$5::int <= 0` (`:594`). So the item is simultaneously *pending retry* (status says so, the attempt was consumed, the claim was cleared) and *completable* (the guard sees NULL). That is `bugs_closed/344`'s exact defect, reachable with the guard fully in place.
+- **the three ways to reach the zero-backoff write, none of which mentions completion:**
+  1. **`DISABLE_WORK_ITEM_RETRY_BACKOFF`** — `envArmed(k)` is `os.Getenv(k) == ""` (`:306`), so *setting* this kill switch makes `backoff` stay 0 (`:485`). It is named and documented as a switch for the *backoff*; it silently disarms **344's completion guard** fleet-wide as well. RFC_043 Q4's owner condition — *every kill switch is exercised by a test* — does not cover this coupling.
+  2. **a `reaper_policies` row with `backoff_minutes <= 0`** — `backoffMinutesFor` returns 0 (`:772`). This is operator-editable **with no build and no deploy**, which is the point of RFC_018's policy table. `[MEASURED 2026-08-23]` live rows are `__default__`=30 and `initial_verification`=20, so it is not armed today — but nothing warns an operator that typing 0 here also turns off a completion guard in another file.
+  3. **`retryAfterColumnPresent` latching false** (migration 502/505 rolled back on SQLSTATE 42703) — no stamp is written at all, so the guard passes on **every** ladder row. The file's own comment calls this "the fix looks live but does nothing".
+- **⚠ what is NOT a path, so you do not repeat my overstatement:** `WORK_ITEM_BURST_COOLDOWN_MINUTES=0` does **not** reach `transientReleaseStatement`'s `NOW() + 0`, because `envInt` requires `n > 0` (`:297-304`) and falls back to the 15-minute default. The statement-level hazard is real for any *caller* passing 0 directly; the env route is closed. I asserted the env route first and had to correct it.
+- **the check, before you trust the guard for a population, or tune anything here:**
+  ```sql
+  -- a re-triaged row that carries NO stamp is a row the completion guard will not protect
+  SELECT count(*) FROM site_work_items
+  WHERE status='triaged' AND attempt_count > 0 AND retry_after IS NULL;
+  SELECT item_type, backoff_minutes FROM reaper_policies WHERE queue='site_work_items';
+  ```
+  ```bash
+  kubectl -n ai-persona-system get deploy -o json | grep -o 'DISABLE_WORK_ITEM_[A-Z_]*'   # empty = all armed
+  ```
+  **And read the two CASE conditions side by side** (`work_item_failure_ladder.go:594` and `:622`): if the `retry_after` condition has a disjunct the `status` condition does not, the stamp and the decision can disagree, and every reader of the stamp inherits that.
+- **the general form:** **a guard built on a PROXY inherits every way the proxy can be switched off, including switches named after something else entirely.** The proxy here is honest most of the time, which is what makes it dangerous: it fails only under configurations nobody associates with completion.
+- **relations:** `bugs_closed/344` §5 (the contract's remaining gaps) · register **WII-024** (the ladder, working as designed — this is about what its stamp *means* downstream) · **WII-003** (the guard) · RFC_043 Q2/Q4 (the convergence and the kill-switch-test condition) · the self-erasing skip-counter entry below
+- **source:** 2026-08-23, `bugs_closed/344` follow-through lane, reading the two CASE conditions while sizing what remained of the bug
+- **added:** 2026-08-23, `bugs_closed/344` follow-through lane
+
+
+### The `completion_skipped` marker is a SELF-ERASING counter — it destroys exactly the refusal reason you are most likely to be counting
+
+- **footprint:** `site_work_items.result->'completion_skipped'`, `CompleteWorkItemAction` (`platform/orchestration/actions/load_work_item_actions.go:1136-1183`), `retry_scheduled`, `already_flagged_or_terminal`, `result->'_verification'`, `bugs_closed/344`, register **WII-003**
+- **fires when:** you count how often the completion contract has refused a write — sizing 344, judging whether the guard earns its keep, or checking whether a fix has demand behind it.
+- **the tell:** none, and the split looks *informative*. `[MEASURED 2026-08-23]` **22 markers, 100% `already_flagged_or_terminal`, 0% `retry_scheduled`** — which reads as "the retry arm has never fired". It is not a measurement of the retry arm at all.
+- **the mechanism:** the success path writes `result = $2::jsonb`, a **REPLACE** (`:1122`), and the skip branch's own comment says the consequence out loud (`:1153`): *"SELF-CLEANING … this marker cannot survive into the record of an eventual genuine completion."* Now note that the two reasons have **opposite survival odds**: a `retry_scheduled` skip is by definition an item that will be retried, and a successful retry wipes its marker; an `already_flagged_or_terminal` skip sits on a terminal/decision row that will never be completed, so its marker is permanent. The census therefore reports ~100% of the reason that cannot be erased and ~0% of the reason that erases itself, **regardless of how often either fires**.
+- **the check:** do not count events in this column. For "how often was a completion refused", the only sound sources are the pod log (`"CompleteWorkItemAction: skipped"`, rotates in ~90s) and, once it exists, an append-only row in `agent_error_log` (retains a month). To size the *current* state — which is what the column is genuinely for — read it as a snapshot and say so:
+  ```sql
+  SELECT result->'completion_skipped'->>'reason' AS reason, status, count(*)
+  FROM site_work_items WHERE result ? 'completion_skipped' GROUP BY 1,2 ORDER BY 3 DESC;
+  ```
+  The `status` column is the disambiguator: a terminal status beside the marker means "this one survived because it never completed", not "this reason is common".
+- **the general form, and it is the transferable half: when a census splits into categories, ask whether the categories have equal chances of SURVIVING to be counted.** A counter stored in a field that its own success path overwrites is not a counter — it is a census of the cases that never succeeded.
+- **⚠ this is the SECOND key on this table with exactly this defect.** The 2026-08-08 entry above records the same mechanism on `result->'_verification'`: each completion attempt replaces it, so the fleet census over `result ? '_verification'` "counts **surviving** verdicts, not verifications performed". Same table, same cause, fifteen days apart, found by two lanes independently — so treat *any* bookkeeping key under `result` as replace-prone until you have read the writer.
+- **relations:** the 2026-08-08 `result._verification` entry (same defect, neighbouring key — read them together) · `bugs_closed/344` §5 Gap D · WRONG_CALLS 2026-08-23
+- **source:** 2026-08-23, `bugs_closed/344` follow-through lane — I had already written the 22/0 split into a plan as honest sizing before grepping this file for the symbols I was about to touch and finding the `_verification` entry
+- **added:** 2026-08-23, `bugs_closed/344` follow-through lane
+
+### A never-deployed page that SERVES 200 — `deployed_at IS NULL` selects nine of them, so the obvious predicate delists working pages
+
+- **footprint:** `platform/orchestration/datahelpers/links.go` (`NeverDeployedPagePredicate`, `NeverDeployedPagePredicateFor`, `PageHasShippedPredicateFor`, `PageMayBeLinkedPredicateFor`, `PageLinkRefusedPredicateFor`), `pages.deployed_at`, `pages.build_status`, any new SQL of the form `deployed_at IS NULL`
+- **fires when:** you need "would a link to this page 404" and reach for the predicate whose name says exactly that. `NeverDeployedPagePredicate` answers **"has this page a recorded deploy"**, which is a different question, and the gap is not small: measured fleet-wide against live HTTP on **2026-08-23**, it selects **9 pages that return 200** — apis.uk `/index.html`, both gaswholesalers guides, idea.uk and webdesign.co.uk tool pages, three lendzy tools, mortgagecalculator `/contact/index.html`. They were built and served and their `deployed_at` was never stamped (the `bugs_open/315` family). Delisting a working page is what this estate calls "worse than the bug" (`bugs_open/052`'s addendum)
+- **the second half, which bites from the other side:** `PageMayBeLinkedPredicateFor` — the floor written *because* of the above — excludes only `planned` + never deployed, and **misses the `needs_rebuild` rows that were never built at all**: 3 of them on 2026-08-23, **3/3 returning 404**, including loanzy.uk `/your-rights.html`, which is `bugs_open/328`'s own instance. So the two existing predicates are wrong in **opposite directions** and neither is the link-suppression floor
+- **the discriminator, and it is not a column of `pages`:** whether the page has any `page_components` row with non-empty `rendered_html`. Same day, same census: **20 never-shipped pages with zero rendered components → 20/20 return 404; 9 with at least one → 9/9 return 200.** ⚠ **The conjunction is load-bearing — a component test ALONE delists 8 live pages**, the tool and blog-index pages that serve through another subsystem with `deployed_at` set and zero components. Use `PageLinkRefusedPredicateFor(alias)`, which pairs both, and note its **alias is REQUIRED** (its correlated subquery's unqualified `id` would bind to `page_components.id` inside the EXISTS and refuse every page; the bare form deliberately returns `FALSE`)
+- **the check, before you write or trust any `deployed_at IS NULL` predicate:** curl the population, do not reason about it —
+  ```sql
+  SELECT s.domain, p.url, p.build_status,
+         (SELECT count(*) FROM page_components pc WHERE pc.page_id=p.id AND COALESCE(pc.rendered_html,'')<>'') AS comps
+  FROM pages p JOIN sites s ON s.id=p.site_id
+  WHERE COALESCE(p.status,'') NOT IN ('deleted','archived')
+    AND p.deployed_at IS NULL AND COALESCE(p.build_status,'') <> 'deployed';
+  ```
+  then fetch each one **cache-busted**, and **fetch a URL that cannot exist on the same domain in the same run** (see the next entry). A count is not the answer here: the population is MIXED, and only the per-row HTTP result tells you which half you are looking at
+- **source:** 2026-08-23, `bugs_open/328` / register LNK-038: the fix was designed against `NeverDeployedPagePredicate`, and the measurement is what stopped it shipping that way
+- **added:** 2026-08-23, bugs_open/328 lane
+
+### A parked domain returns HTTP 200 for EVERY path, so an uncontrolled URL census reports dead pages as healthy — and the wrong answer is the confident one
+
+- **footprint:** any `curl -o /dev/null -w '%{http_code}'` sweep over a site's pages, `pages.url` censuses, link-target verification, `bugs_open/328` / `052` / `191`-shaped work, `adversecreditmortgage.co.uk`
+- **fires when:** you verify a list of URLs by fetching them. On this fleet at least one domain is parked at a registrar and answers **200 with a 114-byte redirect stub** (`<script>window.onload=function(){window.location.href="/lander"}</script>`) for every path ever requested. Nineteen of one census's 56 rows came from it
+- **the tell — there is not one in the status code, which is the whole problem.** The bytes are a valid HTML document, the code is 200, and `%{http_code}` is exactly what you asked for. The only signals are the tiny, IDENTICAL body length across unrelated paths and the fact that the site has **zero rendered components** in the database while apparently serving every page
+- **the check, and it costs one extra fetch per domain:** request a URL that cannot exist — `https://<domain>/zzz-control-not-a-page-$RANDOM.html` — **in the same run as the census**, and discard every 200 from a domain whose control also returns 200. Run it per DOMAIN, not once per fleet: on 2026-08-23 exactly one of fifteen reachable domains had the catch-all, and every other returned a proper 404. Treat `000` (unreachable, e.g. `*.internal`) as its own bucket rather than as a 404
+- **why it matters more than a bad row:** the uncontrolled census said *"19 `planned` pages serve 200"*, which **refutes** the estate's linkability floor and would have reversed a design decision. The controlled one says 17/17 of those pages 404. Same command, same data, opposite conclusion — this is the shape of measurement the marker rules cannot catch, because the figure was dated, `[MEASURED]`, and wrong
+- **source:** 2026-08-23, `bugs_open/328` lane, caught by running the control before acting on the result; logged in `WRONG_CALLS.md`
+- **added:** 2026-08-23, bugs_open/328 lane
+
+### A page's STORED `rendered_html` now disagrees with the wire for a SECOND reason — suppression, not just repair
+
+- **footprint:** `platform/orchestration/actions/refused_link_targets.go` (`suppressUnshippedOutboundLinks`), `platform/orchestration/datahelpers/link_suppress.go` (`SuppressRefusedPageLinks`), `rerender_link_repair.go` (`repairOutboundPageLinks`), `multipage_actions.go` (`AssemblePageAction`), `page_components.rendered_html`, `suppress_unshipped_links`
+- **fires when:** you investigate a link that is missing from a live page, or verify that a link is still present. There has been one outbound rewrite for a while (`RepairPageLinks` unlinking a phantom — its own entry above). Since `bugs_open/328` there are **two**, and the new one removes anchors whose target is a perfectly valid `pages` row that has never shipped. The stored HTML holds a well-formed `<a href="/your-rights.html">`; the wire does not
+- **the tell:** `curl … | grep -c 'href="/x.html"'` returns **0** while `SELECT ... FROM page_components WHERE rendered_html LIKE '%href="/x.html"%'` returns rows. That reads as "the link is not on that page" and means "the link was removed on the way out". The account is in `agent_error_log` under **`CONTENT_LINK_SUPPRESSED_UNSHIPPED`**, keyed by page, with every href in `context.suppressed` — a DIFFERENT code from `CONTENT_LINK_REPAIR_DETAIL`, so a query written for the old one finds nothing
+- **the second half:** for a **classed control** the whole `<a>` element is dropped, label and arrow glyph together, so there is no orphaned prose to grep for either — the card simply has no action. Do not conclude the component template changed
+- **the check:** before believing a link is absent, read both copies and the log —
+  `SELECT slot_name FROM page_components WHERE page_id=… AND rendered_html LIKE '%<the-href>%';` then
+  `SELECT error_message, context FROM agent_error_log WHERE error_code='CONTENT_LINK_SUPPRESSED_UNSHIPPED' AND site_id=… ORDER BY created_at DESC;`
+  A hit in the second explains the gap between the first and the wire. **And the href is still in `content_data`, deliberately** — the anchor returns on the first render after the target ships, so "the link is gone" is never a permanent statement
+- **source:** 2026-08-23, `bugs_open/328` / register LNK-038, written with the mechanism rather than after someone hit it
+- **added:** 2026-08-23, bugs_open/328 lane
+
+### `create_work_item` returning `deduped: true` does NOT mean an open item holds the key — a 3-hour brake returns the identical value having written nothing
+
+- **footprint:** `platform/orchestration/actions/create_work_item_action.go`, `platform/orchestration/actions/load_work_item_actions.go` (`writeWorkItem`, the anti-churn block), `site_work_items` (`item_key`, `retry_after`), `idx_swi_dedup`, `collected_data->'<output_field>'->>'deduped'`, and any workflow step whose config carries `item_key_prefix`
+- **fires when:** you read a `create_work_item` result — in an orchestration row, in a handoff, in a bug file — and take `deduped: true` to mean "an open item already covers this, so the work is queued". It is the natural reading, it is what the field name says, and roughly half the time it is wrong.
+- **the mechanism:** `writeWorkItem` runs an anti-churn brake BEFORE the insert, for any item with a non-empty `item_key` that has not set `recurrence_expected`. Its within-cycle arm fires when the newest `complete`/`failed` sibling on the same `(site_id, item_key)` is under **3.0 hours** old, and — before the 2026-08-23 fix — it returned `workItemWrite{}, nil`: **no row, no error**. `create_work_item` reports that as `deduped: true`, which is the same value it reports for a genuine `ON CONFLICT` dedup against an open row. Two opposite meanings, one field: "your work is in hand" and "your work is gone".
+- **the tell: there is none in the result.** `inserted:false` / `deduped:true` / no error / orchestration `COMPLETED` at step `complete`. That is what a re-submitted customer build looked like when it queued nothing at all (`bugs_open/326`, loanzy.uk 2026-08-18).
+- **⚠ the obvious check DOES NOT DISCRIMINATE, and it fails in the reassuring direction.** Asking whether an open row holds that `(site_id, item_key)` **now** answers a question about the present; the dedup happened in the past. A holder that was `triaged` at the time and `complete` by the time you look returns **zero open holders** — which reads as "the index cannot have refused it", when the index is exactly what did. Measured 2026-08-23: all **36** retained dedup events returned 0 open holders on that query and all 36 were genuine index dedups.
+- **the check that does discriminate — read state AS OF the event, not now:**
+  ```sql
+  -- put the event's timestamp and the row's lifecycle columns in the SAME output row
+  SELECT ev.updated_at AS deduped_at, w.status, w.created_at, w.completed_at,
+         round(EXTRACT(EPOCH FROM (ev.updated_at - w.created_at))/3600.0, 2) AS hrs_since_created
+  FROM (SELECT os.updated_at, (v.value->>'site_id')::uuid sid, v.value->>'item_key' k
+        FROM orchestration_states os, jsonb_each(os.collected_data) v
+        WHERE jsonb_typeof(v.value)='object' AND v.value->>'deduped'='true') ev
+  JOIN site_work_items w ON w.site_id=ev.sid AND w.item_key=ev.k;
+  ```
+  `hrs_since_created < 3` with the holder already terminal at `deduped_at` ⇒ **the brake, and the request is gone**. A holder that was still open at `deduped_at` ⇒ a real dedup, and the work is queued.
+- **⚠ the window keys on `created_at`, NOT `completed_at`.** The probe is `MAX(created_at)` over terminal siblings. On `garden-tools.uk` (2026-08-23) a research item was created 17:17:15Z and completed 17:44:59Z — **27m44s apart** — so its window closed at 20:17, not 20:45. Reasoning from when the stage *finished* puts the boundary in the **unsafe** direction, and on a long page build the gap is hours.
+- **what changed 2026-08-23, and what did not:** both arms now DEFER (`retry_after`) instead of dropping or birthing `unresolved`, and the result map carries `deferred` / `retry_after` / `prior_attempts`, so the two meanings are finally distinguishable. **The trap survives the fix in two forms:** every orchestration row, handoff and bug file written BEFORE that build still carries the ambiguous value, and the kill switch `DISABLE_ANTI_CHURN_DEFERRAL` restores the old behaviour exactly. Also: `deduped:true` is still ambiguous on any binary older than the roll — check the service's own `build provenance` stamp before trusting the new keys.
+- **the second-order trap:** a `create_work_item` step that never declares `recurrence_expected` is not opting out of anything — it is opting IN to the brake by silence. **19 of 21** live keyed steps had never declared (2026-08-23). `scripts/audit-undeclared-recurrence.sh` names them; declaring `true` does **not** weaken dedup, because `idx_swi_dedup` still refuses a second OPEN row.
+- **source:** 2026-08-23, `bugs_open/326` fix lane (`docs024_key_docs_latest/bugfix_326_retry_the_front_door/`); the non-discriminating query is this session's own recorded misstep in `WRONG_CALLS.md` the same date
+- **added:** 2026-08-23, bugs_open/326 session
+
+### `097_TRIGGER_council_review` prints its `SAVE: SUBMISSION_CORR=` receipt BEFORE it publishes — and the publish can fail on a one-second pod-name collision
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh` (`:260` the printout, `:263` the publish), pods named `kcat-cgate-<unix-seconds>` in namespace `kafka`, `orchestration_states.collected_data->'input_data'->>'fix_correlation_id'`
+- **fires when:** two sessions run `097` in the **same second**. The pod name carries only second resolution, so `kubectl run` fails with `Error from server (AlreadyExists)`, the container never starts, `kcat` never runs, and **nothing is published** — after the script has already printed a complete, convincing summary block with a correlation id to save.
+- **the tell, and why it is easy to miss:** the error prints *below* the `=====` summary and the "If APPROVED, commit with…" advice, so the eye reads a success and stops. Measured 2026-08-23: `pods "kcat-cgate-1787507905" already exists`, correlation `94c196fa-…` minted and never dispatched.
+- **⚠ do NOT reach for the standing "a missing orchestration row is latency, do not retry" guidance here.** That rule is right for a *silent* absence — publish→run start is ~29 minutes under load. This is different in kind: `kubectl run` returned **non-zero**, which is positive evidence the message never left. Retrying costs nothing because nothing was dispatched; NOT retrying costs the whole round.
+- **the check, before you believe a submission is in flight:**
+  ```sql
+  SELECT correlation_id, current_step, status FROM orchestration_states
+  WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+  ```
+  and read the trigger's LAST line, not its summary block. An empty result plus a clean tail is latency; an empty result plus an `AlreadyExists` (or any non-zero `kubectl run`) is a dropped dispatch — re-run, and treat the first correlation as never having existed.
+- **the same shape one file over:** `082_submit_domain_unified.sh` has the identical print-then-publish order and the identical `kcat -P` exposure (`bugs_open/327`). Whatever fixes one should fix both; a unique pod suffix (`$(date +%s)-$$` or a uuid) removes this instance.
+- **source:** 2026-08-23, `bugs_open/326` fix lane, submitting the deferral change; recovered by re-running as `f610741f-…` and confirming the row
+- **added:** 2026-08-23, bugs_open/326 session
+
+
+### A `SECTION COMPONENT FLOOR REFUSED` is usually a RETRYABLE refusal, but every record it leaves behind — the error row, the work item, your handoff — is shaped exactly like a permanent blocker
+
+- **footprint:** `platform/orchestration/actions/save_sections_shrink_guard.go`, `save_page_sections`, `apply_section_edit`, the literals `SECTION COMPONENT FLOOR REFUSED` / `SLOT FLOOR REFUSED` / `Nothing was written`, `section_component_floor`, `site_work_items.item_type='save_refused_incomplete'`, `hero-tool`, `bugs_open/253`
+- **fires when:** a page rebuild is refused by the shrink guard and you write down *why the page is blocked* — in a bug file, a handoff, a status table, or a work item you route at another lane. Also when you read someone else's such record.
+- **the tell:** none at all, and that is the entry. The refusal message names a *structural* fault — *"a same-named slot may not lose more than 50% of the elements carrying layout classes"* — which reads as a renderer or layout defect that will recur on every attempt. Nothing in the row, the message, or the work item says *"this may well clear if it simply runs again."*
+- **the mechanism:** the guard compares the **stored** render against the **incoming** one, and the incoming one is a **fresh generation**, not a re-render of the same data. For a component with optional `on_missing: skip_field` fields, how many of those the writer fills **varies run to run**, and each unfilled field takes its gated markup — and its class attributes — with it. So the refusal is measuring *this run's content fullness against last run's*, and the next run rolls the dice again. [MEASURED 2026-08-23] `hero-tool` on loanzy.uk: 18 `class=` attributes behind 11 `{{if}}` gates, 11 of 13 fields `skip_field`; three optional stat slots; every one of **40** empty values fleet-wide on that slot is a `stat_*` key, and across successive writes the filled-stat count moves **0→3, 0→0→3, 0→2** as often as **1→0**.
+- **the worked case:** `tool-credit-health-check` was refused at **14:03:06Z** (`hero-tool 12→5, 42% kept`) and **saved cleanly on retry at 14:23:29Z**, untouched, with `section_component_floor` never set. The lane that owned it wrote a handoff at **17:15Z** — 2h50m *after* the page repaired itself — recording it as blocked, naming another lane as the blocker, and setting a day of investigation for the next session. Two lanes had by then written the same "the render is systematically thinner" generalisation into `bugs_open/253` (one of them directly beneath the other lane's correction of it).
+- **the check:** **before repeating a floor refusal as a blocker, re-read the artefact and the row, and get the timestamps the right way round.**
+  ```sql
+  -- did a LATER save succeed? (the refusal time is in agent_error_log.occurred_at, NOT created_at)
+  SELECT pc.updated_at, pc.build_status FROM page_components pc
+  JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+  WHERE s.domain='<domain>' AND p.name='<page>' ORDER BY pc.updated_at DESC;
+  -- compare against:
+  SELECT occurred_at FROM agent_error_log
+  WHERE error_message ILIKE '%FLOOR REFUSED%' AND error_message LIKE '%<page>%' ORDER BY occurred_at DESC;
+  ```
+  Then confirm at the wire, with the component's `function` and its `id="c-<function>-` instance prefix — never `<input`, never `<section class>`, never a name-derived URL (all three have produced false "broken" readings on this exact component family).
+- **⚠ and the work item outlives the condition.** The refusal files a `save_refused_incomplete` row at `needs_human_review`; the successful retry 20 minutes later **does not close it**. [MEASURED 2026-08-23] item `95956168-3af0-4441-ae97-70694aabb577` still sits at `needs_human_review` describing a refusal that no longer holds, with `updated_at` equal to `created_at`. A reader triaging that queue has no way to tell a live blocker from a resolved one — so **check the artefact before actioning any `save_refused_incomplete`**, and expect the queue to overstate how many pages are actually stuck.
+- **the general form, and it is the transferable half: a record of a TRANSIENT failure is indistinguishable from a record of a PERMANENT one, because both are a row saying it failed.** The asymmetry is that the transient one is *supposed* to be superseded and nothing goes back to amend it. So the question to ask of any inherited "blocked" status is not *"is this argument sound?"* but **"when was this last measured, and has the thing retried since?"** — and the cheapest possible answer is to go and look at the artefact, which costs one `curl`.
+- **relations:** `bugs_open/253` (the guard; the 08-22 `bugs_open/305` correction and the 08-23 correction at its foot) · `bugs_closed/337` (the worked case, and the close-out) · `bugs_closed/029` (a different self-healing mechanism, ~40 min — same species of trap, already cost this lane a filing-grade starvation claim) · WRONG_CALLS 2026-08-23
+- **source:** 2026-08-23, `bugfix_337_token_cap` lane — found by starting the investigation the handoff proposed and discovering both its premise and its blocked page were false
+- **added:** 2026-08-23, `bugfix_337_token_cap` lane
