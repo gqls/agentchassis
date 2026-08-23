@@ -231,3 +231,24 @@ The middle and bottom rows are already loud; **the top row is the one with no ot
 signal**, and it is the one that produced 327. That is the argument for the receipt being
 *asserted* rather than printed: it is the only instrument that reads the silent arm, and 23
 of the 25 scripts that emit it never look at it.
+
+### Where the operator's false confidence is manufactured — it is an ORDERING defect too
+
+`082_submit_domain_unified.sh`:
+
+```
+158: echo "SAVE: CORRELATION_ID=${CORRELATION_ID}  ORCHESTRATION_ID=${ORCHESTRATION_ID}"
+161: kubectl -n kafka run -i --rm kcat-submit-$(date +%s) \
+```
+
+**The script tells the operator to SAVE an identifier three lines before it first attempts
+to send it.** Both ids are generated locally by the script itself (lines 148-149,
+`/proc/sys/kernel/random/uuid`) — they are not issued by the broker and they do not depend
+on anything having happened. So the most reassuring line of output, the one phrased as an
+instruction to record the id for later, is printed unconditionally and is exactly as
+confident on the failing path as on the succeeding one.
+
+This matters for the fix beyond tidiness: even after a receipt is added, **if the summary
+block still prints before the publish, the operator's transcript still reads as a success**
+above whatever error appears below it. The ids must be printed *after* a confirmed publish,
+or explicitly marked as unconfirmed until one arrives.
