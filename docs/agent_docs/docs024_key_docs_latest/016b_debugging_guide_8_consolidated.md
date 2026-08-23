@@ -6043,6 +6043,68 @@ only its scheduling changed. This is the third recorded instance of the class
 past its blocker; RFC_022's "not built" line ran three days past the build; this one, twenty. **The
 cost scales with how carefully the deferral was written** — a well-argued one is obeyed longer.
 
+### Re-rolling a STOCHASTIC choice does not widen the CANDIDATE POOL — when the pool is fixed by the prompt, retry re-rolls a die whose faces are all the same (2026-08-23, `bugs_open/376`)
+
+**The shape.** A step asks an LLM to nominate N things, then acts on each. One nomination is
+structurally unusable (here: a site the scrape provider refuses outright). The step has no error
+tolerance, so it dies; the item retries; the LLM is asked again. **Because no temperature is
+pinned, it is natural to reason that the retry samples differently and may route around the bad
+pick.** That reasoning is wrong, and cheap to test.
+
+**What the two attempts showed.** Same build, same specs, thirty minutes apart:
+
+| slot | attempt 1 | attempt 2 |
+|---|---|---|
+| 1 | gardenersworld.com | gardenersworld.com |
+| 2 | **thespruce.com** (refused) | which.co.uk |
+| 3 | which.co.uk | **thespruce.com** (refused) |
+
+**Identical set, permuted order.** Attempt 1 died at step 2, attempt 2 at step 3 — one step
+*further*, so it discarded two successful crawls instead of one. Sampling moved the ORDER; it did
+not move the POOL, because the pool is pinned by the prompt ("the sites a person in this niche
+would call the best") against a vertical containing about four such sites.
+
+**The general rule.** Temperature varies *which* of the plausible answers you get. It cannot
+invent a plausible answer that does not exist. So retry only helps when the failing item is a
+*minority* of the pool — and when the prompt names a superlative over a small real-world set, the
+pool is nearly a constant. **Ask "how many distinct answers could this prompt produce?" before
+treating a retry as a mitigation.** If the honest answer is "about four, and one of them always
+fails", the retry budget is being spent on an outcome that cannot change.
+
+**Sibling, and the distinction matters.** `bugs_open/337` above is *N identical failures with
+identical numbers = a deterministic refusal*. This is the case that **looks** like the opposite —
+the failures differ (different step, different request_id, and it gets further each time) and it is
+still deterministic underneath. **Progress between attempts is not evidence that retrying can
+succeed.**
+
+**The check, and it costs nothing.** Record the LLM's actual choices on every attempt, not just
+pass/fail:
+
+```sql
+SELECT created_at, jsonb_pretty(collected_data->'<selection_step>'->'result')
+FROM orchestration_states WHERE owner_agent_type='<agent>' ORDER BY created_at DESC LIMIT 3;
+```
+
+Two attempts is enough to settle it. Comparing the *sets* answers "can retry ever work?" — which
+neither the item status nor the error column can tell you, because both look different each time.
+
+### A step result of `success: true` may be a DISPATCH RECEIPT, not an outcome — the async refusal is written somewhere else entirely (2026-08-23, `bugs_open/376`)
+
+**The tell: there is none, and the green record outlives the failure.** `collected_data.crawl_exemplar_2`
+reads `{"success": true, ..., "topic_sent_to": "system.adapter.webscrape.requests", "request_id": "…"}`
+for a crawl the provider **refused**. The flag is true because the request was published to the
+adapter. The refusal came back asynchronously and was written only to `site_work_items.error`.
+
+**So a reader of the step outputs concludes both crawls succeeded**, and would verify a fix against
+a record that was already green before the fix existed. This is `trust the artefact, not the status`
+in the place it is hardest to spot, because the thing lying is not a status *column* — it is a field
+literally named `success` inside the step's own output.
+
+**The check.** Wherever a step's output carries `topic_sent_to`/`await_response`, treat `success` as
+"published", and **join on `request_id`** — it is the only key shared by the optimistic record and
+the true one. Then verify at the artefact the step was supposed to produce (did the spec row appear?),
+never at the step's self-report.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
