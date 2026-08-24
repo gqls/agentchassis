@@ -46839,3 +46839,35 @@ confident voice.
 2. **Never infer a competing row's priority (or any per-row value) from the column default** —
    the mint sites are greppable (`priority:` in the creating action) and the live rows are one
    query; the default only tells you what a row gets when NO ONE chose.
+
+---
+
+## 2026-08-24 — `copy_quality_two_stage`: my exemplar-transfer figure was too low for the case it was used to argue, and it fed an owner decision
+
+**The claim.** Answering the council's `compliance` seat at HIGH severity, I argued the risk of
+restoring `example_phrases` on `ai-agent-orchestration.com` was narrow, on this measurement: of 60
+`example_phrases` strings, 52 reached a prompt and **3** came back verbatim (18 appearances), against
+**409** for the single mandated tagline. Two orders of magnitude apart. The owner ruled "ship as-is",
+and that measurement was part of what he ruled on.
+
+**What qualifies it.** The `apis_uk_bees_homepage` lane ran the experiment I had not: they *rewrote*
+one site's exemplars and measured what came back. **A vivid, complete, on-topic exemplar is not
+imitated as style — it is lifted as CONTENT.** One appeared verbatim as the hero subheadline; another
+opened three separate sections. Their own words: *"the originals were partly metaphor (which did not
+transfer) and the replacements were all plain concrete statements (which did)"*.
+
+**So transfer is not a rate, it is a function of the exemplar's character** — and my 3-of-52 was a
+fleet-wide sample drawn alphabetically across exemplars of every kind. It is a fair estimate of the
+average and an under-estimate for the concrete, on-topic ones. **I offered an average where the
+question was about a specific set.**
+
+**What it does and does not change.** It does not reverse the ruling: the restoration still has not
+happened, the trap is landmined, and `ai-agent-orchestration.com`'s exemplars are aphoristic rather
+than concrete, which is the lower-transfer end. But my "two orders of magnitude" framing was more
+reassuring than the evidence now supports, and anyone re-reading that argument should read this too.
+The landmine has been updated so the warning does not rest on my figure.
+
+**The cheap check I skipped:** before offering an average as an answer about a particular set, ask
+whether the set is drawn from the same distribution. I had the exemplars in front of me and never
+asked whether they resembled the ones I had sampled. **An average is a claim about a population; the
+council's question was about a payload.**
