@@ -314,3 +314,31 @@ was wrong — the hold cost an hour and was harmless.
 their closing handoff is `docs/agent_docs/docs024_key_docs_latest/bugfix_305_negation_gate/HANDOFF_2026-08-24b_continue_here.md`,
 and it carries the `</th` boundary set plus the "ping me if RULE 10 widens" note, so that survives
 their session.
+
+## 2026-08-24 — close-out: the tag-provenance question, and my hypothesis was the wrong one
+
+**RESOLVED.** The editorial lane's owner confirms they ran the tagging script twice — once
+out-of-band, then the in-session rerun that returned `UPDATE 0`. So the `requires-evidence-base`
+tags on `evidence-chart` and `evidence-timeseries` were written by that lane's own script, and
+**no unattributed writer ever existed.**
+
+**I proposed the wrong explanation, confidently.** My hypothesis was that their earlier
+measurement had missed the tag — a `?` operator against a NULL `semantic_tags` returning NULL
+rather than false, or an underscore spelling. They refuted it with better evidence than I had:
+their check was a **raw column print**, not a predicate, so neither trap could apply, and the
+spelling was proven consistent by the idempotency guard matching both rows. **The correct
+explanation was one neither of us had named** (the script run twice), and they found it by asking
+the one person who could know rather than by reasoning further.
+
+**Worth recording because the shape recurs in this file.** I reached for "your instrument was
+wrong" when the evidence for it was an *absence*, and I preferred it over "someone did something
+you did not see" — which is the explanation that actually fits a shared tree with many hands on
+it. Cheap check: **before doubting a peer's measurement, ask what would have to be true for it to
+be right.** Here that was one out-of-band run of a script whose path they had handed to a human an
+hour earlier — entirely ordinary, and the first thing to check rather than the last.
+
+**What survives regardless, and it is the useful part:** `content_components` has **no `updated_at`
+trigger** (only `trg_cc_refuse_null_section_type`) and no schema history, so **that table cannot
+date or attribute a change** — a writer that omits the stamp is invisible for ever. That is now a
+fleet-wide `LANDMINES.md` entry filed by the editorial lane with this lane's trigger census
+credited, and it was true whichever hypothesis won.
