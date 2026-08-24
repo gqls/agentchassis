@@ -830,3 +830,27 @@ make isn't there. One habit survived — sentences shaped like "X rather than Y"
 trace it directly: the instructions we hand the writer USE that shape twenty-one times while
 telling it not to. We've cleaned up the instructions we own; the shared fleet wording is the
 copy team's call and we've sent them the numbers.
+
+Evening, same day. Three good things and one decision for you.
+
+The fix shipped with the evening release, the page rebuilt itself, and it's live:
+https://finetuning.uk/your-own-model.html. The headline is the line we agreed, the price is
+stated once and plainly, the promise we retired stays absent — instead the page says a person
+runs each training while volumes are small "and we'll say plainly if that changes", which is
+honest in exactly the way we wanted. The glossary answers "what is GGUF" in one sentence. The
+page isn't yet in the site menu — that rebuild is queued and should follow on its own.
+
+We also ran the copy editor over it once, deliberately. It found something real: two sections
+were re-telling the three-step story the "How it works" section had already told, and it
+proposes rewriting them — one into "what you get and what you can do with it" (adding a
+contact link in the body text), one into a practical "what to send us" list. Reading it, the
+rewrite is good. The automated checker flags it — partly for reasons that look like checker
+sharpness rather than real faults, and partly one genuine call: the rewrite swaps two
+subheadings for a bullet list, which the checker counts as structure loss.
+
+**The decision for you:** approve or decline that rewrite (work item 8003c51a, parked for
+review as designed — nothing applies without you). If you'd rather read it on the page than
+in a database row, say so and we'll stage it somewhere readable.
+
+Still on the list, in your order: the playground booking shape, sample datasets, the terms
+questions — and Stripe last, as you said.
