@@ -554,3 +554,42 @@ not my scaffolding.
 exits 0 — `applyCTARecompute` landed), so the workaround is not needed for compilation at all any
 more. The only reason left to isolate from HEAD is the honest one the script exists for: checking
 that a commit does not lean on another session's untracked work.
+
+## 2026-08-24 — OWNER RULED: "D + E now, census alongside". E is BUILT and mutation-proven; D queued behind 333
+
+**E — eight `recurrenceExpected: true` declarations across seven Go files**, each with its
+one-line justification at the site: `apply_adoption_plan` (adoption→classifier handoff),
+`emit_design_items` ×2 (`needs_composition`, `needs_design` — the build chain's Go half),
+`emit_imagery_items`, `flag_page_image_rebuild`, `reconcile_section_data`,
+`seed_build_queue` (the canonical retry), `validate_composition_inputs`.
+
+**Read before flagged, and three sites were deliberately REFUSED:**
+- `create_tool_cross_link_items.go` — its own comment already decided FALSE, with reasons. Respected.
+- `emit_content_card_derive.go` — an action request, but its item_key is shared with a discovery
+  CHECK (`ContentImageItemKey`); the coupling's lane decides, not this one.
+- `rerender_page_sections_action.go` escalation — genuinely ambiguous (re-request vs
+  remedy-did-not-work). Listed, not guessed.
+
+**And a correction that shrank E (brief updated, v3):** the `page_rerender` "bleed" I had
+assigned to E comes from two discovery checks (`check_misdirected_cta`,
+`check_contact_form_undeliverable`) — DETECTORS filing a re-render as the remedy. When the
+re-render completes and the CTA is still misdirected, the brake is RIGHT to two-strike. That
+population is `352`'s class. E does not stop it and nothing should.
+
+**Proof:** `action_request_producers_recurrence_test.go` — a comment-stripped source ratchet over
+all eight sites (with its own anti-prose mutation guard) + one end-to-end effect test
+(`EmitDesignItems` driven through sqlmock in `nav_rebuild_request_test.go`'s worked pattern: a
+2-strike history registered so a dropped flag ACTUALLY brands, INSERT pinned to `$12='triaged'`).
+**Mutation-proven:** removing the `needs_design` flag fails BOTH tests, the ratchet naming the
+site. One existing test corrected (`page_section_satisfiability_test.go` scripted the brake probe
+E now skips — helper split so the two still-braked `page-rerender` callers keep the original).
+Package green.
+
+**Sequencing:** E's tests call `expectWorkItemDoorStandsDown` — `bugs_open/333`'s helper, in the
+tree but uncommitted — so **the E commit waits for 333 to land** (they answered: within the
+hour, option 1, I rebase D on top). D is written next against their described final state.
+Their two design notes are adopted: a parked row sets `recurrenceExpected` itself so D can never
+fire on it, and D's deferral must stay out of `deferred`-status ambiguity.
+
+**Census alongside:** 14 undeclared config steps (list above from today's run). Decision 3 —
+who tells their lanes — remains with the owner; not acting on other lanes' steps from here.

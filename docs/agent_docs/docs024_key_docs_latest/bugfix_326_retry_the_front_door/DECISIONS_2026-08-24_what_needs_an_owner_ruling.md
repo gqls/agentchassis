@@ -64,8 +64,17 @@ The 431 splits again by who filed them:
   per-item key suffix (the `bugs_open/321` fix), so the collision that fed this stopped.
   `[dates MEASURED; causal link INFERRED]`
 - `page_rerender` **212** — the **discovery sweep, in Go** (`created_by`
-  `completeness-discovery-agent` / `generic`). **Ongoing, ~3.4/day.** The config census cannot
-  see it; only a code change reaches it.
+  `completeness-discovery-agent` / `generic`). **Ongoing, ~3.4/day.**
+  > **CORRECTED 2026-08-24, third version, after reading the two producers.** I classed these
+  > as action requests. They are not. Both emitters (`check_misdirected_cta`,
+  > `check_contact_form_undeliverable`) are **detectors** that file a re-render as the
+  > *remedy* for a fault they found, at status `detected`. When the re-render completes and
+  > the same CTA is still misdirected, the remedy did not work — and the brake two-striking it
+  > is **correct**. So these 212 belong with the 230 detector rows, in `352`'s class (a remedy
+  > that reports done without fixing), **not** with the classification failures. That moves the
+  > split to **~219 action requests / ~442 detector-remedy pairs**, and it means option E does
+  > NOT stop this bleed — I had said it did. What stops it is fixing why a re-render leaves a
+  > misdirected CTA in place, which is its own bug.
 
 The 230 detector rows are a different bug entirely. `contrast_failure`: **200 `complete` + 26
 `unresolved`** by `css-patch-agent` in 7 days — the fixer reports done, the fault persists, the
@@ -98,7 +107,7 @@ and because 572 had already closed the customer bug without it. Both grounds sta
 | **B** opt-in defer per caller | ❌ unclassified stay exposed | ❌ | only where opted in | ✅ gives detectors a choice | ✅ exactly §2 |
 | **C** census → zero, then mandatory | config only | config only — **Go `page_rerender` bleed continues** | ❌ | ✅ untouched | ✅ no mechanism change |
 | **D** defer **Arm A only** | ✅ all callers | ❌ | ❌ | ✅ untouched | narrower default change; **Arm A has no legitimate use, so the "safe side" is unambiguous** |
-| **E** set the flag on the ~10 Go action-request producers | Go sites only | ✅ stops `page_rerender` | ❌ | ✅ untouched | ✅ per-caller, exactly §2 |
+| **E** set the flag on the Go action-request producers (**8 sites, 7 files** after reading each) | Go sites only | ❌ — corrected: the `page_rerender` bleed is a detector-remedy pair, not a misclassification | ❌ | ✅ untouched | ✅ per-caller, exactly §2 |
 
 **None of A–E fixes the 230 detector rows** — that is `bugs_open/352`'s class. **Only A fixes the
 duplication.**
