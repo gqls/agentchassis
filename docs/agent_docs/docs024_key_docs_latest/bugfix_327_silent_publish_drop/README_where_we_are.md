@@ -248,3 +248,40 @@ problem by writing the warning down more clearly.
 
 **Handoff for a fresh chat:**
 `docs/agent_docs/docs024_key_docs_latest/bugfix_327_silent_publish_drop/HANDOFF_2026-08-24_continue_here.md`
+
+---
+
+## 2026-08-24, evening — the migration is done
+
+All eleven are migrated. The check that finds live scripts still publishing the unsafe way now
+returns **nothing**, and twenty-one scripts use the shared publisher. Every one of them was
+tested by pointing it at a broken address and confirming it stops with an error naming what will
+not happen — none of them can now exit cleanly having sent nothing.
+
+Three judgements I made file by file rather than by rule, because getting them wrong would have
+been worse than leaving the scripts alone:
+
+**Some of these publish from inside a loop that processes many items.** There, failing to send
+one message now fails *that item* and hands the decision back, rather than tearing down a sweep
+that may already have done real work on earlier ones.
+
+**Several had the message written inline in the script.** Lifting that out into a variable is
+routine, except for one detail: the quoting style controls whether `${DOMAIN}` becomes the actual
+domain or the literal text. Get it wrong and the script publishes placeholders and looks
+perfectly healthy doing it.
+
+**Four more printed "save this reference number" before sending anything** — the same defect as
+the original bug. Those prints now come after confirmation, and I checked they don't appear on
+the failing path.
+
+**On closing.** You told me to keep the bug open and track the class, and I then wrote down what
+would close it: the live scripts migrated, the commit-time check left in place, and the dormant
+one-off scripts declared out of scope in writing. **All three now hold.** I have recorded that in
+the bug file but have not closed it, because keeping it open was your instruction and reversing
+that is your call, not mine.
+
+What would remain after closing is genuinely not work: about 55 scripts under `scripts/` that
+still contain the old pattern but haven't been touched in over a month, plus the lane one-offs
+that should never be rewritten. If any of them is ever picked up again, the commit-time check
+will flag it then — which is the right moment, rather than us rewriting a hundred dormant files
+today on the chance that one of them gets used.
