@@ -50103,3 +50103,48 @@ was true and the implication was not.
 > **The check: print the plan's byte count before deciding to truncate anything; if it is under
 > the cap, nothing gets cut.** A safeguard with a hard-coded limit will fire below the real limit
 > for ever, and it will look like prudence while it does.
+
+---
+
+## 2026-08-24 — I nearly widened a production declaration so a guard would stop objecting to my test fixture
+
+**Lane:** `bugfix_375_completion_verifier_gap` (`bugs_open/375`).
+
+**What I did.** My new test needed an item type with a registered verifier, so I registered a
+synthetic one — `checks.RegisterVerifier("test_375_verified_type", …)` — from the test file's
+`init()`. My own tests passed. The package's wider suite then failed in a test I had never
+heard of: `TestClaimTimeoutExclusionCoversBothCompletionGates`, complaining that my type had a
+verifier but was absent from `livespec.ClaimedItemTimeoutExclusions`.
+
+**What I nearly wrote.** The failure message *tells you the remedy* — "add it to the
+declaration" — and for a moment that read as instructions rather than as a description of what
+a REAL type would owe. Adding `test_375_verified_type` to a live declaration would have made
+the guard quiet and left a fixture name in production config, asserting that the
+claimed-item-timeout sweep must skip a type that does not exist.
+
+**What was true.** The guard was correct and my fixture was wrong. That registry has no
+removal, and it is read process-wide by a cross-package contract test; anything registered from
+an `init()` is registered for every test in the binary. The fix was to stop touching it —
+indirect the lookup through a package variable, swap it under `t.Cleanup`, and assert that
+production never re-points it.
+
+**What caught it.** Running `go test ./platform/orchestration/actions/...` rather than only
+`-run` on my own test names. My scoped run was green throughout.
+
+**The cheap check that would have caught it first.** Before registering anything into a
+package-level registry from a test, ask who READS it:
+`grep -rn 'RegisteredVerifierItemTypes()' platform/` → two callers, one of them a contract test
+spanning packages. One command, before writing the fixture.
+
+**And the general one, which is the reason this is here rather than in NOTES alone.** When a
+guard objects to something you just wrote, the question is not "how do I satisfy it" but
+"**which of us is wrong**". A failure message naming a remedy is describing what a genuine
+instance would owe — it is not authorising you to make your instance look genuine. Same family
+as *"fix the CHECKER to match production, never the reverse"*, one step earlier: here the
+checker was right and the *fixture* was the thing pretending to be production.
+
+**Postscript — the objection was worth more than the time it cost.** That guard is where I
+learned there is a THIRD writer of `complete` (the `claimed-item-timeout` sweep, `bugs_closed/317`),
+solved by declaration + lockstep + a live-drift auditor. That is the same class as `375` and the
+shape its candidate 4 should copy — now written up as §7c of the bug file. Had I silenced the
+guard, I would have lost the finding along with the noise.
