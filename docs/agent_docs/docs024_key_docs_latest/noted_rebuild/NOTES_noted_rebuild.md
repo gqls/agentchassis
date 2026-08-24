@@ -2467,3 +2467,41 @@ carries `Council-Submitted:` and 098 resolves it at report time — no amend,
 nothing owed. The five advisories live in the full report
 (`diagnosis_artifacts` kind=council_report, that correlation, latest row) and
 are undispositioned — a small next-session item, not a gate.
+
+---
+
+## 2026-08-24 (later) — stage 1 DEPLOYING: engine LIVE, tool regenerated, page in the queue
+
+The owner ran the two RUNBOOK blocks by hand (the session's classifier refused
+box writes; checksum compared before the overwrite: `83c895ce…` both sides).
+
+**Engine LIVE + verified at the artefact, 15:3x UTC:**
+- `DELETE /api/media/1` unauthenticated via the public edge → **401** (route
+  registered; the pre-media binary answers 405 — no DELETE pattern), with the
+  GET control also 401 (so the 401 is not vacuous);
+- live constraint: `kind = ANY (ARRAY['audio','image','video'])` — the startup
+  migration ran;
+- shopfront box-local control 200 (33641 → 34061 B across the ~40 min between
+  baselines — that lane ships continuously; nothing on this path touches :8080);
+- backup of the old binary at `/root/noted-engine.pre-20260824`.
+
+**Tool regenerated in place, 15:45:29 UTC** (077, replace_existing; publish via
+kafka_publish_checked — receipt PUBLISHED, corr `f20de677-a836-40ab-8905-39c4ae5a7d15`;
+orchestration COMPLETED). Verified at the artefact, positive AND negative:
+placement rendered_html (23,174 B) contains `nw-add-media` = t, contains the old
+"Voice recordings and photographs are NOT" doc line = f.
+
+**page_rerender hand-filed** for tool-write (`c50da088-c07a-4dd6-9096-08c5618bfd37`,
+item_key `…_assemble_media_v1`): temp-table copy of today's 13:57 tool-write row,
+completion fields nulled, status `triaged` (the claim gates filter
+`IN ('triaged','approved')` — claim_work_item_action.go:102), and the target
+asserted by the LEFT JOIN before believing anything: the `page_id` COLUMN points
+at **tool-write**. NOTE: rerenders for this site ran at 13:57 TODAY (another
+lane's or a sweep's) — they predate the 15:45 regeneration, so the served page
+is still pre-media until this item runs.
+
+`[MEASURED]` queue position at filing: **492 claimable items older than mine**,
+drain ~152/h (completions in the last hour) ⇒ ~3 h. Queue alive, so the
+single-page bypass (whose condition is a DEAD queue) is not invoked; a watcher
+polls the row every 5 min. Remaining when it lands: bytes on the box, live page,
+`smoke_live_editor.py https://noted.co.uk` (now with the media round-trip).
