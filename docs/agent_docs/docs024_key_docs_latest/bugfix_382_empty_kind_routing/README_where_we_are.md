@@ -129,3 +129,41 @@ regression.
 does, three checks close the bug, and they are written down with a control attached so that a quiet
 result cannot be mistaken for a good one — a lesson this estate keeps having to relearn, including
 by me today.
+
+## 2026-08-24 — the build went out, and the lane is closed
+
+**It's done.** The rebuild you deployed carried the code fix. I checked it three ways rather than
+trusting the version number: both copies of the image service are running the same image (a rebuild
+that reuses a version number can silently serve the old one, which has bitten us before); the
+service states which commit it was built from, and mine is in it; and the new code's own text is
+present inside the running program, checked alongside a control that had to be absent and a control
+that had to be present, so the check could have failed and didn't.
+
+So both halves are now live: per-page hero images get the right model and the site's own style
+rules, and if any part of the system ever again asks for an image without saying what kind it is,
+it gets the good model and files a record naming who asked. The bug has moved to the closed pile.
+
+**One honest thing about how I closed it.** This morning I wrote down what would have to be true
+before closing, and one of my own conditions turned out to be impossible to meet. I wanted to see a
+real per-page hero generated after the fix. There won't be one for a while — I checked, and across
+every site on the fleet there is currently not a single per-page hero that has been asked for and
+not yet made. The queue is empty.
+
+That is worth saying because it also corrects something I believed earlier today. I had been
+reading "no new bad images since 11 August" as *the problem went quiet*. It didn't go quiet — the
+part of the system that was making them had simply finished its list. Same numbers, different
+meaning, and the second meaning is the one that tells you a fix can't be proved by waiting.
+
+Rather than manufacture an unwanted image on a customer site to tick my own box, I retracted the
+condition in writing, said why, and replaced it with three queries anyone can run — the third being
+the one that asks "did anything generate at all", without which the first two just measure a quiet
+afternoon. Holding a bug open on a test that cannot be run is how the open-bugs list stops meaning
+anything.
+
+**What's left, and it isn't this lane's.** Three loose ends are named in the closed bug file and
+each has been handed somewhere a person will meet it: two workflows still carry image steps that
+name no kind and can't be fixed by configuration (left with the imagery lane, now harmless and
+loud); a second, rarer producer with the same gap where I deliberately did *not* apply the obvious
+fix because it would have made things worse; and the underlying seam that has now produced three of
+these bugs in six weeks, which a reviewer asked be looked at properly and which is written up as a
+proposal for you rather than a change by me.
