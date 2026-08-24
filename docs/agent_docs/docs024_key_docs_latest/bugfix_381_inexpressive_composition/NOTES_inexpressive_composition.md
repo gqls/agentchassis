@@ -215,3 +215,61 @@ filed it as a landmine with the trigger census credited. I offered a hypothesis 
 measurement being wrong; **they refuted it with better evidence than I had** (a raw column print,
 no predicate involved) and found the likelier explanation themselves. Recorded because my
 hypothesis was the confident one and it was wrong.
+
+## 2026-08-24 — arm A APPLIED and live; arm B held mechanically, not by a note
+
+**Applied 591/592/593 by hand and recorded them.** Not via `run-migrations.sh --apply`: the runner
+has **no directory or file scope**, and `600_claims_audit_rotation.sql` was pending from another
+lane at the time, so `--apply` would have shipped someone else's change under my action. Recorded
+afterwards with `--record-only`, which is the documented path for an out-of-band apply.
+⚠ The runner's default dry run re-executes every pending file inside a doomed transaction and
+outran a 300s timeout — read the ledger (`schema_migrations`) and diff it against the non-sidecar
+files on disk instead, or pass `--no-probe`.
+
+**The check that mattered, and it nearly wasn't done.** I had verified the evidence-base gate was
+*present* in the live query text. That is not a check — it cannot distinguish a working gate from
+one that filters everything, or nothing. So I stripped the clause out of the live query text and
+ran both versions against two sites:
+
+| site | with gate | without gate | excluded |
+|---|---|---|---|
+| evidence-LESS (`garden-tools.uk`) | 149 | 151 | **exactly the 2 tagged components** ✓ |
+| evidence-BEARING | 151 | 151 | **nothing** ✓ |
+
+Both directions. `[VERIFIED 2026-08-24]` **A gate tested only on the site it is supposed to filter
+proves nothing** — this is the same shape as the positive-control lesson from this morning's `\b`
+misstep, arriving a second time in one session in a different costume.
+
+Also verified rather than assumed: each menu query **executes** bound as the chassis binds it
+(149/149/151 rows). A query that parses but fails at runtime would kill the whole planner step, and
+nothing in the migration's own verify block could have caught that — the migration only checks the
+query's *text*.
+
+**Arm B is held by RENAME, not by a note.** `594`/`595` are now `*_HOLD.sql` so `SIDECAR_RE`
+excludes them from the runner. The reasoning is the point: **a documented "do not apply yet" does
+not survive another session's `--apply`**, and this tree has many sessions. The release condition
+(the 305 lane's `714789d7b` live in the chassis) is in both headers, and I have asked that lane to
+ping me when it rolls.
+
+**⚠ And I could not confirm that fix's status — both obvious methods failed, which is worth
+recording because they are the methods anyone would reach for.**
+- `grep -a 714789d7b /proc/1/exe` on the chassis pod: **useless here.** The 40-zeros control came
+  back **PRESENT** (Go's internal digit table matches it), so the probe cannot discriminate — the
+  existing LANDMINES entry warns about exactly this and I walked into it anyway before reading my
+  own control.
+- Pod `.status.startTime`: dates the **ROLL, not the IMAGE.** Ours started 15:39:22Z and 15:39:53Z,
+  about an hour *after* the fix was committed at 14:39:30Z — which feels like evidence and is not.
+  A tag can be built before a commit and rolled after it.
+- The honest check is a freshly-started pod's `build provenance` line plus
+  `git merge-base --is-ancestor`. Ours had already scrolled past `--since-time`.
+
+**Not weakened instead of held.** Dropping the `<table>` clause from the guidance would have removed
+the dependency entirely. I did not, because 0 content tables across 741 fleet pages is part of what
+this fix exists to restore, the council approved the vocabulary as written, and waiting costs
+nothing — the defect has been live for months and nothing degrades while two files sit held. That
+reasoning is in the header so a later reader does not "simplify" the hold away.
+
+**What is live is honest about itself:** `generic-text-block` still reads `[prose only]` in the
+planner menu, because arm B has not landed. That is correct, not a bug — and it is why both the
+loanzy lane and this file now warn that a build in this window measures arm A alone (which
+components get CHOSEN), not markup volume.
