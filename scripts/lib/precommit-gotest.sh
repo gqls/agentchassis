@@ -80,7 +80,12 @@ precommit_run_gotest() {
   # NOT CHECKED — silently, which is the one thing this helper exists to
   # prevent. Measured 2026-08-24: no test in scope emits those tokens today;
   # tightened before one does.
-  if printf '%s' "$out" | grep -qE '^FAIL[[:space:]].*\[(build|setup) failed\]'; then
+  # A here-string, not a pipe: under `pipefail`, `grep -q` exiting on first
+  # match can hand printf a SIGPIPE on output past the pipe buffer, and the
+  # `if` would then see non-zero and print a build failure as a REAL one.
+  # Unreachable at Go's compile-error volumes, and cheaper to remove than to
+  # argue about (review nit, Fable 2026-08-24).
+  if grep -qE '^FAIL[[:space:]].*\[(build|setup) failed\]' <<<"$out"; then
     printf '\n\033[2m── %s: NOT CHECKED (the tree does not build — not a claim about your change) ──\033[0m\n' "$subject"
     printf '\033[2m   run it yourself once the tree compiles: go test %s\033[0m\n' "$pkg"
     return 0

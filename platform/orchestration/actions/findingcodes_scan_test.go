@@ -32,6 +32,12 @@
 //     action, code, …) — the trap bugs_open/358's handoff calls a fourth
 //     blindness beyond the constant one;
 //   - codes built at runtime, or read from config;
+//   - a const whose value is not a plain string literal or an alias of one —
+//     concatenation, a selector into another package, a conversion. Pass 1
+//     resolves `const a = "X"` and `const b = a`; anything else at an
+//     `ErrorCode:` site is REPORTED as unresolved (t.Logf) rather than silently
+//     dropped, which is the fix for a review finding (Fable, 2026-08-24) that
+//     the first cut dropped them without a trace;
 //   - writers outside this package (four of the five INSERT paths bypass the
 //     agenterrors seam entirely, one of them in SQL).
 //
@@ -44,6 +50,7 @@ package actions
 
 import (
 	"encoding/json"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -57,12 +64,13 @@ import (
 
 // scanPackageErrorCodes returns every literal value assigned to an `ErrorCode:`
 // field anywhere in the package's non-test sources, with constant identifiers
-// resolved through the package's own `const x = "..."` declarations.
+// resolved through the package's own FILE-SCOPE `const` declarations.
 //
-// Returns the codes and the files it actually parsed, because a scan that
-// silently parsed nothing is indistinguishable from a clean one — the same
-// vacuity trap the DB-side check refuses on.
-func scanPackageErrorCodes(t *testing.T) (codes []string, filesParsed int) {
+// Returns the codes, the files it actually parsed, and every `ErrorCode:` value
+// it could NOT resolve — because a scan that silently parsed nothing, or
+// silently dropped a value it did not understand, is indistinguishable from a
+// clean one. Both are the vacuity trap the DB-side check refuses on.
+func scanPackageErrorCodes(t *testing.T) (codes []string, filesParsed int, unresolved []string) {
 	t.Helper()
 
 	entries, err := os.ReadDir(".")
@@ -71,7 +79,6 @@ func scanPackageErrorCodes(t *testing.T) (codes []string, filesParsed int) {
 	}
 
 	fset := token.NewFileSet()
-	consts := map[string]string{}
 	var files []*ast.File
 
 	for _, e := range entries {
@@ -90,31 +97,69 @@ func scanPackageErrorCodes(t *testing.T) (codes []string, filesParsed int) {
 		filesParsed++
 	}
 
-	// Pass 1 — every string constant in the package, so an `ErrorCode:` naming a
-	// constant resolves. This is bugs_open/358 §3.2's trap ("grep the CONSTANT,
-	// not just the literal") applied to the scanner rather than to a human.
+	// Pass 1 — every FILE-SCOPE string constant in the package, so an
+	// `ErrorCode:` naming a constant resolves. This is bugs_open/358 §3.2's trap
+	// ("grep the CONSTANT, not just the literal") applied to the scanner rather
+	// than to a human.
+	//
+	// File scope ONLY, walking f.Decls rather than ast.Inspect: the first cut
+	// inspected every node, so a `var code = "X"` inside any function body
+	// entered a package-wide map keyed by bare identifier, and the three sites
+	// that write `ErrorCode: code` from a local variable would have been
+	// misattributed to it (review finding, Fable 2026-08-24). Error codes are
+	// package-level consts; that is the population this map should hold.
+	consts := map[string]string{}
+	aliases := map[string]string{} // const b = a
 	for _, f := range files {
-		ast.Inspect(f, func(n ast.Node) bool {
-			vs, ok := n.(*ast.ValueSpec)
-			if !ok {
-				return true
+		for _, d := range f.Decls {
+			gd, ok := d.(*ast.GenDecl)
+			if !ok || gd.Tok != token.CONST {
+				continue
 			}
-			for i, id := range vs.Names {
-				if i >= len(vs.Values) {
+			for _, spec := range gd.Specs {
+				vs, ok := spec.(*ast.ValueSpec)
+				if !ok {
 					continue
 				}
-				if lit, ok := vs.Values[i].(*ast.BasicLit); ok && lit.Kind == token.STRING {
-					if s, err := strconv.Unquote(lit.Value); err == nil {
-						consts[id.Name] = s
+				for i, id := range vs.Names {
+					if i >= len(vs.Values) {
+						continue // implicit repetition in a const block — never a string code here
+					}
+					switch v := vs.Values[i].(type) {
+					case *ast.BasicLit:
+						if v.Kind == token.STRING {
+							if str, err := strconv.Unquote(v.Value); err == nil {
+								consts[id.Name] = str
+							}
+						}
+					case *ast.Ident:
+						aliases[id.Name] = v.Name
 					}
 				}
 			}
-			return true
-		})
+		}
+	}
+	// Resolve alias chains (const b = a; const c = b). Bounded: a cycle or an
+	// alias of a non-string simply never resolves and surfaces as unresolved
+	// below if it is ever used at an ErrorCode: site.
+	for round := 0; round < 8 && len(aliases) > 0; round++ {
+		progressed := false
+		for name, target := range aliases {
+			if val, ok := consts[target]; ok {
+				consts[name] = val
+				delete(aliases, name)
+				progressed = true
+			}
+		}
+		if !progressed {
+			break
+		}
 	}
 
-	// Pass 2 — every `ErrorCode:` field value.
+	// Pass 2 — every `ErrorCode:` field value. Anything that is neither a string
+	// literal nor a resolvable file-scope const is RECORDED, not dropped.
 	seen := map[string]bool{}
+	unresolvedSeen := map[string]bool{}
 	for _, f := range files {
 		ast.Inspect(f, func(n ast.Node) bool {
 			kv, ok := n.(*ast.KeyValueExpr)
@@ -125,17 +170,29 @@ func scanPackageErrorCodes(t *testing.T) (codes []string, filesParsed int) {
 			if !ok || key.Name != "ErrorCode" {
 				return true
 			}
+			pos := fset.Position(kv.Value.Pos())
+			where := filepath.Base(pos.Filename) + ":" + strconv.Itoa(pos.Line)
 			switch v := kv.Value.(type) {
 			case *ast.BasicLit:
 				if v.Kind == token.STRING {
-					if s, err := strconv.Unquote(v.Value); err == nil && s != "" {
-						seen[s] = true
+					if str, err := strconv.Unquote(v.Value); err == nil && str != "" {
+						seen[str] = true
+						return true
 					}
 				}
+				unresolvedSeen[where+" (non-string literal)"] = true
 			case *ast.Ident:
-				if s, ok := consts[v.Name]; ok && s != "" {
-					seen[s] = true
+				if str, ok := consts[v.Name]; ok && str != "" {
+					seen[str] = true
+					return true
 				}
+				// A local variable or parameter — the code arrives at runtime,
+				// which the header lists as a stated blind spot. Named so a
+				// reader can see WHICH sites the scan is blind to.
+				unresolvedSeen[where+" (identifier "+v.Name+" is not a file-scope string const)"] = true
+			default:
+				unresolvedSeen[where+" ("+strings.TrimPrefix(strings.TrimPrefix(
+					strings.Split(strings.TrimSpace(nodeKind(v)), " ")[0], "*ast."), "ast.")+")"] = true
 			}
 			return true
 		})
@@ -145,7 +202,42 @@ func scanPackageErrorCodes(t *testing.T) (codes []string, filesParsed int) {
 		codes = append(codes, c)
 	}
 	sort.Strings(codes)
-	return codes, filesParsed
+	for u := range unresolvedSeen {
+		unresolved = append(unresolved, u)
+	}
+	sort.Strings(unresolved)
+	return codes, filesParsed, unresolved
+}
+
+// nodeKind names an expression's Go type for the unresolved report.
+func nodeKind(n ast.Node) string { return fmt.Sprintf("%T", n) }
+
+// scanOrFatal is the ONE entry point every test below uses, so the vacuity
+// guards cannot be forgotten by a test that only wanted the codes. The first cut
+// put the guards in one test only; a `-run` of any other test could then pass
+// against a scanner that returned nothing (review finding, Fable 2026-08-24) —
+// which is exactly the `-run`-filter-as-roster shape this lane's own scripts
+// warn against.
+//
+// The package has carried hundreds of source files and dozens of ErrorCode:
+// sites continuously; a count below either floor means the scanner broke, not
+// that the package stopped writing findings.
+func scanOrFatal(t *testing.T) (codes []string, unresolved []string) {
+	t.Helper()
+	codes, filesParsed, unresolved := scanPackageErrorCodes(t)
+	if filesParsed < 50 {
+		t.Fatalf("parsed only %d source files — refusing to report a clean scan over a package "+
+			"this size. The scanner is broken, not the package.", filesParsed)
+	}
+	if len(codes) < 10 {
+		t.Fatalf("found only %d ErrorCode: values across %d files — refusing to report a clean "+
+			"scan. An empty or near-empty result here is an instrument failure.", len(codes), filesParsed)
+	}
+	for _, u := range unresolved {
+		t.Logf("UNRESOLVED ErrorCode: value at %s — this site is INVISIBLE to the scan; if it "+
+			"writes a real code, only the daily live-table check will see it", u)
+	}
+	return codes, unresolved
 }
 
 // TestEveryErrorCodeThisPackageWritesIsRegistered is the early warning proper.
@@ -155,21 +247,7 @@ func scanPackageErrorCodes(t *testing.T) (codes []string, filesParsed int) {
 // add to it — the one case that does not need catching — and it had already gone
 // stale twice over by the time this was written.
 func TestEveryErrorCodeThisPackageWritesIsRegistered(t *testing.T) {
-	codes, filesParsed := scanPackageErrorCodes(t)
-
-	// VACUITY GUARD. A scan that parsed nothing, or found nothing, produces a
-	// clean pass indistinguishable from a healthy package — and this test's own
-	// subject is checks that cannot fail. The package has carried dozens of
-	// ErrorCode: sites continuously; zero means the scanner broke, not that the
-	// package stopped writing findings.
-	if filesParsed < 50 {
-		t.Fatalf("parsed only %d source files — refusing to report a clean scan over a package "+
-			"this size. The scanner is broken, not the package.", filesParsed)
-	}
-	if len(codes) < 10 {
-		t.Fatalf("found only %d ErrorCode: values across %d files — refusing to report a clean "+
-			"scan. An empty or near-empty result here is an instrument failure.", len(codes), filesParsed)
-	}
+	codes, _ := scanOrFatal(t)
 
 	// THE RATCHET. Failing flat over the codes this package already writes and
 	// nobody has declared would make this red on the day it ships, and
@@ -252,7 +330,7 @@ func scanBaseline(t *testing.T) map[string]bool {
 // — so a scanner without constant resolution would have stayed silent on them
 // while looking like it worked.
 func TestTheScanFindsCodesReachedThroughAConstant(t *testing.T) {
-	codes, _ := scanPackageErrorCodes(t)
+	codes, _ := scanOrFatal(t)
 	got := map[string]bool{}
 	for _, c := range codes {
 		got[c] = true
@@ -288,7 +366,7 @@ func TestTheScanFindsCodesReachedThroughAConstant(t *testing.T) {
 // the hand-maintained surface bugs_open/358 spent a round retiring, and the fix
 // is deleting one line.
 func TestTheHandListHoldsOnlyWhatTheScanCannotSee(t *testing.T) {
-	codes, _ := scanPackageErrorCodes(t)
+	codes, _ := scanOrFatal(t)
 	found := map[string]bool{}
 	for _, c := range codes {
 		found[c] = true
@@ -302,11 +380,13 @@ func TestTheHandListHoldsOnlyWhatTheScanCannotSee(t *testing.T) {
 		}
 	}
 
-	// THE CONTROL, so this test cannot pass by the list being empty and the scan
-	// being broken at the same time. The list is expected to be small and
-	// non-empty while any positional write survives; an empty list means every
-	// write site is discoverable, which is a real improvement and should be
-	// recorded deliberately rather than arrived at by accident.
+	// The broken-scanner half of the control is scanOrFatal above, which every
+	// test here goes through — the first cut had it in one test only, so this
+	// one passed vacuously under `-run` against a scanner returning nothing
+	// (review finding, Fable 2026-08-24). What remains here is the report: an
+	// empty list means every write site is discoverable, which is a real
+	// improvement and should be recorded deliberately rather than arrived at by
+	// accident.
 	if len(codesInvisibleToTheScan) == 0 {
 		t.Log("codesInvisibleToTheScan is EMPTY — every finding code this package writes is now " +
 			"discoverable by the scan. If that is true, say so where the list was; if it is not, " +

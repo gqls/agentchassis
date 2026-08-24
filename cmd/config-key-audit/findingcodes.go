@@ -439,10 +439,16 @@ func auditFindingCodes(live []string, reg map[string]findingCodeEntry, src sourc
 					break
 				}
 				body = b
-				// The code may be reached through a Go constant rather than a
-				// literal (358 §3.2 — the trap that made the original census miss
-				// page_build_failure_guard's reader), so accept either the code
-				// itself or a constant declared to it in the same file.
+				// A plain substring check, and it is worth being exact about what
+				// that accepts: the LITERAL must appear in the reader file. A
+				// reader that reaches the code through a constant declared IN THE
+				// SAME FILE passes, because the declaration line carries the
+				// literal (358 §3.2 — page_build_failure_guard.go:65 is that
+				// case). A reader that uses a constant declared in ANOTHER file
+				// does NOT pass, and will draw reader-does-not-name-code; there is
+				// no constant resolution here (review finding, Fable 2026-08-24 —
+				// the previous comment implied there was). All five live readers
+				// carry the literal, so this is a stated limit, not a defect.
 				if !strings.Contains(body, code) {
 					rep.Findings = append(rep.Findings, findingCodeFinding{
 						Kind: "reader-does-not-name-code", Code: code,

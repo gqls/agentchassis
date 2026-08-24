@@ -81,33 +81,52 @@ PYREADERS
 )"
 fi
 
-RELEVANT=0
+# TWO packages, TWO relevance sets. The checker's tests (cmd/config-key-audit)
+# grade the registry against reader files; the actions package's scan test
+# grades the package's OWN ErrorCode: writes against the registry. The first cut
+# of this script ran only the first — so a session adding `ErrorCode: "NEW"` to
+# an actions file walked through the hook unremarked, which is the exact commit
+# shape that produced LINK_CONTEXT_UNAVAILABLE, and the scan test's own header
+# claimed commit-time coverage it was not getting (review finding, Fable
+# 2026-08-24). A claimed early warning that nothing runs is this lane's own
+# founding defect, one level up.
+RELEVANT_CHECKER=0
+RELEVANT_SCAN=0
 while IFS= read -r f; do
   [ -n "$f" ] || continue
   case "$f" in
-    "$REGISTRY")                          RELEVANT=1 ;;
-    cmd/config-key-audit/findingcodes*)   RELEVANT=1 ;;
-    platform/orchestration/actions/finding_code_roster_test.go) RELEVANT=1 ;;
-    *)
-      # A reader file named by a live `consumed` entry. This clause is the one
-      # that catches a session deleting the query out from under a declaration
-      # without ever touching the registry.
-      while IFS= read -r r; do
-        [ -n "$r" ] && [ "$f" = "$r" ] && RELEVANT=1
-      done <<< "$READERS"
+    "$REGISTRY")                          RELEVANT_CHECKER=1; RELEVANT_SCAN=1 ;;
+    cmd/config-key-audit/findingcodes*)   RELEVANT_CHECKER=1 ;;
+    platform/orchestration/actions/finding_code_roster_test.go) RELEVANT_SCAN=1 ;;
+    platform/orchestration/actions/findingcodes_scan_test.go)   RELEVANT_SCAN=1 ;;
+    platform/orchestration/actions/*.go)
+      # Only a staged actions file that carries an ErrorCode: field can add a
+      # code the scan must see. Read the STAGED content, as the parity script
+      # does for ActionInputSpec, so a working-tree edit that is not being
+      # committed cannot trigger or suppress this.
+      if git show ":$f" 2>/dev/null | grep -q 'ErrorCode:'; then
+        RELEVANT_SCAN=1
+      fi
       ;;
   esac
+  # A reader file named by a live `consumed` entry. This clause is the one
+  # that catches a session deleting the query out from under a declaration
+  # without ever touching the registry.
+  while IFS= read -r r; do
+    [ -n "$r" ] && [ "$f" = "$r" ] && RELEVANT_CHECKER=1
+  done <<< "$READERS"
 done <<< "$STAGED"
 
-[ "$RELEVANT" -eq 1 ] || exit 0
+[ "$RELEVANT_CHECKER" -eq 1 ] || [ "$RELEVANT_SCAN" -eq 1 ] || exit 0
 
 # NO -run FILTER, deliberately. A filter is a roster, and a roster drifts: a new
 # test whose name did not match it would silently never run, which is the exact
 # class this lane keeps retiring. The package is the unit.
-precommit_run_gotest ./cmd/config-key-audit/ '' \
-  'finding-code registry' \
-  'finding-code registry: a declaration does not hold up (bugs_open/358)' \
-  '   These are the arms that CANNOT run in the daily CronJob — that image ships no
+if [ "$RELEVANT_CHECKER" -eq 1 ]; then
+  precommit_run_gotest ./cmd/config-key-audit/ '' \
+    'finding-code registry' \
+    'finding-code registry: a declaration does not hold up (bugs_open/358)' \
+    '   These are the arms that CANNOT run in the daily CronJob — that image ships no
    source tree and runs --no-source. Commit time is where they live, so a failure
    here is not advisory noise: it is the only place this gets caught.
    Most likely one of:
@@ -116,4 +135,17 @@ precommit_run_gotest ./cmd/config-key-audit/ '' \
      * a `reader_sink` the reader file never mentions;
      * a code declared with a disposition whose required field is missing.
    Re-check by hand:  ./scripts/audit-finding-codes.sh'
+fi
+
+if [ "$RELEVANT_SCAN" -eq 1 ]; then
+  precommit_run_gotest ./platform/orchestration/actions/ '' \
+    'finding-code scan' \
+    'finding-code scan: this package writes a code the registry does not declare (bugs_open/358)' \
+    '   A staged file in platform/orchestration/actions writes an ErrorCode: that is
+   neither declared in finding_code_registry.json nor in its _scan_baseline — so
+   it is NEW. Declare it in the SAME commit (consumed / instrumented /
+   human-evidence / operational, or `unruled` if the decision is genuinely open).
+   Catching it here is the whole point: LINK_CONTEXT_UNAVAILABLE reached the live
+   table on 2026-08-24 because nothing ran this at commit time.'
+fi
 exit 0
