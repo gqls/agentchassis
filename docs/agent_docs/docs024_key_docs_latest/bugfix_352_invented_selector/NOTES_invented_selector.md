@@ -324,3 +324,66 @@ pre-ship baseline.
 - **`doc_notes.categories` is `jsonb`, not `text[]`**, and `subject_type`/`subject_key` are NOT
   NULL. My first INSERT used an `ARRAY[...]` literal and would have failed at apply time. Schema
   first, every time — the shape came from live rows in the end, not from memory.
+
+---
+
+## 2026-08-24 (post-roll) — BOTH halves are live, and my first negative control was worthless
+
+### The roll [MEASURED 2026-08-24 ~16:50 UTC]
+
+`v1.0.1334`, all three overlays. Pods started **15:39 UTC**:
+
+| service | evidence | verdict |
+|---|---|---|
+| `browser-runner-adapter` | own startup line, `git_commit 70fd163c2` | **producer half LIVE** |
+| `render-audit-adapter` | same line, same commit (shares the image, makefile:107) | **LIVE** |
+| `agent-chassis` | startup line SCROLLED (busy service, exactly as the landmine warns); binary probe found `70fd163c2` | **consumer half LIVE** |
+
+`git merge-base --is-ancestor ffa6e1c3d 70fd163c2` → **YES**. My fix (13:45 UTC) predates the build
+commit (15:11 UTC), which predates the pod start (15:39 UTC). All three clocks agree.
+
+**Capability probed, not just the commit** — the stronger check, since a commit being an ancestor
+does not prove the code path shipped:
+
+- chassis: `skipped_unverified_selector` ✓, `skipped_unanchored_selector` ✓, `selector_scheme` ✓
+- browser-runner: `verified/v1` ✓, `indexOf.call(nodes,el)` ✓, `selectorVerified` ✓
+- both: a deliberately invented string absent ✓ (so the probe is not over-matching)
+
+**So migration 587's ordering gate is SATISFIED.** Both images confirmed at the artefact.
+
+### ⚠ MY FIRST NEGATIVE CONTROL COULD NOT HAVE FAILED, AND I ALMOST BANKED IT
+
+I ran the ancestor check with what I called a negative control — `ffdca67fd`, "a commit made AFTER,
+must NOT be an ancestor". It returned **YES**, which I first read as the control failing.
+
+It was not the control failing. **`ffdca67fd` was committed at 14:08 UTC and the build commit at
+15:11 UTC, so it genuinely IS an ancestor.** I had picked a control on the assumption that a commit
+made later in my *session* was made later than the *build*, and the build had happened in between.
+The control was not discriminating; it was simply mis-chosen, and had it happened to return NO I
+would have recorded a passing control and moved on with no idea it proved nothing.
+
+Redone with a real one: **HEAD** (16:47 UTC, genuinely after the build) → correctly **NOT** an
+ancestor. Only then is the positive result worth anything.
+
+**The lesson is the family this lane keeps hitting** — *a measurement that could not have come out
+otherwise is not evidence*. Here it wears a new coat: **the control's validity depended on a
+timestamp I never looked at.** Choosing a control is itself a measurement, and mine was an
+assumption. The cheap check is one line: print the timestamps of the control, the subject and the
+build side by side **before** interpreting either result. That is what I did the second time and it
+took seconds.
+
+### The canary, dispatched
+
+No audit had run since the roll (`rows_since_roll = 0`), which is expected on a ~fortnightly
+rotation — so the proof has to be driven, not waited for.
+
+Dispatched a render audit on **ai-agent-orchestration.com** (`2a8ebf9c-…`), correlation
+**`c2fce02e-2fe7-489f-bc22-edcfa75b0761`**, via `kafka_publish_checked` (a receipt, not a hopeful
+`kcat -P`). Chosen deliberately: it is **`bugs_open/211`'s own site**, the one whose `[UNRESOLVED]`
+§4 item is written around the six class-less `<h3>`s, and it holds 8 invented rows. Queue checked
+first — no render-audit work in flight there.
+
+Expect ~30 min publish→start under fleet load. **587 is NOT applied and should not be until this
+canary proves the producer files a verified, anchored selector** — the gate in the file is "both
+images rolled", which is now met, but seeing one good row first costs nothing and is the difference
+between an argument and a measurement.
