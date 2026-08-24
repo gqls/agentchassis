@@ -284,3 +284,17 @@ and the 40-loop returned 8×404 then 32×429 — the edge rate-limit rule blocks
 threshold. Morning §2 CLOSED. Boundary-review condition MET; council round owed, blocked
 on the kubectl token refresh. Second public-facing milestone of the day after the Builds
 screen; SUMMARY_2026-08-24 already covers both.
+
+### 2026-08-24 ~22:15 — the roll shipped BOTH halves; everything this lane had in flight is LIVE
+
+Owner's fresh roll (~21:00, pods 21:03): core-manager `635f2d32f` — `git merge-base
+--is-ancestor e6350e74b` PASSES, backend live. Dashboard `v1.0.1336` built from this
+shared tree AFTER my commits — proven at the ARTEFACT: fetched `assets/index-Bqjp4Gs8.js`
+from the pod (127.0.0.1:8080 — `localhost` resolves to ::1 in that busybox and refuses;
+worth remembering) and grepped all five markers incl. `1a8db99f9`'s "does NOT interrupt".
+So the deploy-ordering constraint dissolved — another session's roll swept both halves in
+the correct order. Deploy pair CLOSED without this lane deploying anything. kubectl token
+refreshed by the owner. Falsifiers re-run: tokens 0, handed_over 0/0. RFC_054 filed (the
+boundary review the architecture seat's condition owed — census reused from tonight, not
+re-measured). New consolidated handoff: HANDOFF_2026-08-24c_continue_here.md. Remaining
+code task: the second-click page (DECISION doc has the spec; POST same-path pinned).

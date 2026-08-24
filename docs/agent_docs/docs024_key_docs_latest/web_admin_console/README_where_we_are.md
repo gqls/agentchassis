@@ -211,3 +211,26 @@ routine software roll before it appears in your console, and the reviewers owe u
 over the overall exposure picture now that this second public door exists — that review
 fires once the cluster access key is refreshed (it expired on schedule this evening; the
 usual three-day cycle, yours to renew whenever convenient).
+
+## 2026-08-24, late — your new software roll delivered the Builds screen
+
+The roll you ran this evening carried both halves of the new screen — the cluster side
+and the console side — in the right order, so there is nothing left to deploy. I checked
+it the thorough way: asked the running service which code it was built from, and pulled
+the actual page bundle the console is serving to confirm the new screen is inside it.
+It is. Open the console, pick a site, press "Builds" — your apis.uk build should read as
+about an hour, stage by stage.
+
+One small favour while you are in there: open any months-old stuck workflow and press
+Terminate. It should say it worked. Until today that button always failed with a server
+error — it was writing to a database table that never existed — and your click is the
+last proof the fix behaves in real life.
+
+I also filed the exposure review the architecture reviewers asked us to trigger once a
+second public door existed. It puts three questions to you when you have a moment,
+written in plain terms in the review file — the biggest one is whether the customer-links
+door should get its own dedicated entrance in the service itself, so that even a
+misconfigured relay box could never expose anything beyond the links.
+
+Next piece of building work is the button-press confirmation page — the thing you ruled
+must exist before any customer email goes out.

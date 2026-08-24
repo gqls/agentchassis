@@ -1,0 +1,71 @@
+# RFC_054 — the cluster's public exposure boundary, reviewed at the second door
+
+**Status: OPEN — filed 2026-08-24 by the web_admin_console lane, the evening
+`links.webdesign.uk` went live.** This fulfils the architecture seat's stated approval
+condition from the `admin.apis.uk` round: *"a second and third publicly-proxied prefix
+should trigger a boundary review."* The second deliberate prefix is now live; this RFC is
+that review's brief, written while every figure below was freshly measured.
+
+## 1. The public surface, measured 2026-08-24 (evening)
+
+**Two doors reach the cluster from the internet. Everything else that looks public does
+not touch it.**
+
+| door | reaches | gate | state |
+|---|---|---|---|
+| `admin.apis.uk` | admin-dashboard:8080 (SPA + core-manager/auth-service APIs) | Cloudflare Access (OTP, 2 emails) + box nginx fail-closed on the Access header | LIVE, owner using it |
+| `links.webdesign.uk/c/<token>` | core-manager:8088, ONE handler | token IS the credential (256-bit, hashed, expiring, single-use) + token-shape regex at the box + edge rate limit (429s proven) + prefetch guard | LIVE 2026-08-24, verified 404/404/200/429; **0 tokens exist** |
+| ~39 portfolio zones (noted.co.uk, idea.uk, robot-hands.com, apis.uk …) | **nothing in the cluster** | — | static serving from the B2 bucket / git route via the Worker |
+| `webdesign.uk/c/` + `/stripe/webhook` | (would reach core-manager / auth-service) | **parking 302 to webdesign.co.uk swallows both** (measured) | inert until the shopfront unparks; `/c/` also now removed from the committed vhost |
+
+Shared plumbing behind both doors: cloudflared tunnel (box dials out; no inbound ports),
+box nginx on loopback, WireGuard leg fenced by `networkpolicy-wireguard-egress.yaml` to
+exactly kube-dns / core-manager:8088 / auth-service:8081 / admin-dashboard:8080 (postgres
+proven blocked, with control). Zero Ingress objects in the cluster.
+
+## 2. What the review is FOR — three questions, in rising order of consequence
+
+**Q1 — Is the two-door pattern the standing pattern?** Both doors were built the same
+way: hostname-scoped vhost on the box, exact-path exposure, tunnel-only, gate at the
+edge appropriate to the audience (Access for the owner; token-in-link for customers).
+If this is the pattern, say so once — the next door (`/d/` downloads, the Phase-5 editor
+session, a future `/stripe/webhook` unparking) copies it instead of re-deriving it, and
+the seat's condition converts from "review each door" to "review deviations".
+
+**Q2 — The containment candidate: a delivery-only listener.** Today the links door
+proxies to core-manager:8088 — the SAME port that serves the whole admin API. The
+defence is the nginx location regex, i.e. configuration on a box. The candidate: a
+second HTTP listener in core-manager (e.g. :8090) serving ONLY the delivery routes
+(`/c/`, later `/d/`), with the box and the egress fence pointed at it. Then a box
+misconfiguration — the exact class the LANDMINES file keeps collecting — could expose
+nothing but delivery routes. Cost: a listener + config + fence change + roll; a council
+round of its own. **The trade to rule on: is box-nginx config an acceptable last line,
+or must the blast radius be capped in the binary?** (CLAUDE.md 2026-08-02 §2's own
+logic — "a comment is not a control" — leans toward the binary; the counter-argument is
+a second listener is a second thing to keep in step.)
+
+**Q3 — What makes door number three automatic?** The `/stripe/webhook` door becomes
+reachable the day the shopfront unparks — nobody will run a review that day unless a
+mechanism fires. Candidate: a LANDMINES/register entry stating the rule from Q1 plus a
+one-line check in the box files' headers ("adding a hostname or location that proxies
+into the cluster ⇒ cite the Q1 pattern or file an RFC"). Cheap, prospective, and it is
+the difference between this review being a norm and being an event.
+
+## 3. Facts a reviewer should not have to re-derive
+
+- The mail-scanner hazard on `/c/` is CLOSED BY RULING, not accepted: GET becomes
+  render-only, confirm is a POST from the page, no delivery email before it ships
+  (`webdesign_uk_build_service/DECISION_2026-08-24_confirmation_needs_a_second_click.md`).
+- `customer_access_tokens` = **0** and handed_over/confirmed = **0/0** as of 2026-08-24
+  evening — every "nothing at risk" statement expires the moment either is non-zero.
+- The admin door's residuals are recorded in `RUNBOOK_deploy_admin_apis_uk.md` (bare
+  role-string check behind Access; header-presence guard, not JWT validation).
+- Full census, foot-guns and verification transcript:
+  `web_admin_console/HANDOFF_2026-08-24b_continue_here.md` §3.3–§3.10.
+
+## 4. What this RFC is not
+
+Not a council-gate submission (prose is out of the gate's scope) and not a proposal to
+build Q2's listener — that gets its own plan and council round IF this review rules for
+it. It is the boundary look the architecture seat asked to happen, packaged for a human
+ruling on Q1–Q3.
