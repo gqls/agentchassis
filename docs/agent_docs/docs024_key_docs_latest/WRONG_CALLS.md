@@ -49409,3 +49409,52 @@ for the **commands I was about to run** (`git mv`, `--record-only`, `run-migrati
 path-matching hook is silent on a file you are about to create, and silent on a verb.
 Cross-refs: [[a-pathspec-commit-still-takes-a-same-file-passenger]], and this session's own entry
 above about a resolved warning left in place.
+
+### 10 — 2026-08-24: my own alarm fired on FAILURE TO MEASURE, and I had already seen the failure mode and explained it away
+
+I armed a watcher over the newly-armed fix, with a stop condition for the worst
+case: a mislabelled row acquiring a *wrong* provenance stamp, which would mean the
+splice hygiene had failed. Forty minutes later it fired:
+
+```
+[17:07:18] adopted=0 population=22 population_stamped=0 seam_invocations_5m=0
+[17:08:20] adopted= population= population_stamped= seam_invocations_5m=0
+!!! STOP: a population row acquired a stamp — splice hygiene failed
+```
+
+Nothing had failed. A transient query returned **nothing**, and my test was
+`[ "$BAD" != "0" ]`. An empty string is not equal to `"0"`, so **"I could not
+measure" raised the identical alarm to "the bad thing happened."**
+
+**That is worse than having no alarm at all.** A guard that cries wolf on its own
+plumbing teaches its reader to discount it, so the one real firing — the only moment
+it exists for — arrives indistinguishable from noise. And it cost a live scare on a
+fix armed twenty minutes earlier: for a few seconds the reasonable reading was that
+arming had broken four live sites.
+
+**The part I should be hardest on myself about: I had already seen this.** Hours
+earlier a smoke test of the same watcher printed exactly that empty output. I looked
+at it, concluded *"my test harness was malformed, the watcher is fine"* — which was
+TRUE — and moved on. I explained the blank and never asked the next question:
+**what does my code do when a value comes back blank?** The evidence was in front of
+me and I disposed of it by finding a reason for it.
+
+**The fix is three states, not two,** with distinct exit codes: adoption observed /
+stop condition on a *real reading* / **could not measure**. A value is compared only
+once it matches `^[0-9]+$`; a blank is retried, then reported as UNKNOWN, and five
+consecutive blanks are a MEASUREMENT FAILURE that says plainly that nothing is known
+about the guard.
+
+**Proven in all three directions before re-arming** — because a guard rewritten not
+to fire is the opposite failure: (1) a normal tick reports real numbers; (2) the query
+pointed at a non-existent database reports UNKNOWN and does **not** alarm; (3) the
+guard query pointed at a genuinely non-zero value **does** alarm. The middle one alone
+would have been the trap.
+
+**The cheap check:** for any comparison against a measured value, ask what the
+comparison does when the measurement is ABSENT — and in shell specifically, `!=` on a
+possibly-empty variable is an alarm waiting to happen. **The transferable half:** an
+unmeasured value is a third state, and code that has only two will silently file it
+under whichever one is cheaper to write. Mine filed "unknown" under "disaster";
+the more common version of this bug files it under "fine", which is how a dead
+detector reads green for months.
