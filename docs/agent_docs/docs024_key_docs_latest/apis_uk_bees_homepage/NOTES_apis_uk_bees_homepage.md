@@ -983,3 +983,46 @@ Live: **67,464 bytes**, 6 sections rendered through `illustrated-text-block`, 7 
 200, no footer, no email, `build_status='deployed'`, **7 components permanently locked**,
 `tools.apis.uk` 200. Open review rows on this site: **2** — the negation item (owner's call)
 and one historical `save_refused_incomplete` from 08-22.
+
+## 2026-08-24 — the peer's "oldest open item" pointer found a live placeholder headline
+
+The web_admin_console session re-measured, confirmed the cascade was never stalled, and named
+its own error more precisely than I had: the query was honest when run on 08-22, but the
+sentence *"about two days now, not progressing"* was **arithmetic on a stale row, never
+measured** — a derived duration delivered in the same voice as the measurement. Worth
+recording as a shape: **the derived half of a claim can be invented while the measured half
+is sound, and the derived half is the one that sounds like evidence.**
+
+They also confirmed my resolution landed independently (25 rows `complete`, one timestamp),
+and pointed at `save_refused_incomplete` as the oldest open row, suspecting the
+`bugs_open/012` truncation family.
+
+**It is not that family — the guard REFUSED the save, so no fragment was persisted; that is
+the guard working.** But following the pointer to the hero found something real and live:
+
+> **`headline: "A page about bees"`** — the exact string `roadmap_brief` names as
+> unacceptable, sitting on the served page.
+
+It arrived in the third build (08-23) and survived every later render because renders read
+stored `rendered_html`. **Fixed without writing copy:** restored the hero
+`content_data` that the framework itself produced in attempt 2 (orchestration `7304b797`) —
+headline *"A closer look at bees"*, with its own subheadline, taken as one coherent unit
+rather than composed by me. Live and verified: `<h1>A closer look at bees</h1>`.
+
+**Queue cleared, with reasons rather than silence:**
+- **4 × `needs_page`** (`image-build-handler`, "re-render after imagery changed") → `complete`.
+  Superseded: the re-render happened, the regenerated images are live and 200. Their two
+  failed attempts were against the shrink guard while the page was mid-conversion.
+- **2 × `content_rewrite`** (swarm, pollination) → **`deferred`, not abandoned**, with the
+  unblock condition written into the row: the subjects are still wanted and their
+  illustrations still exist unused, but (1) adding ONE section is not possible — the sibling
+  item rewrote all six sections about the waggle dance — and (2) the components are now
+  permanently locked, so a rewrite would be discarded anyway. **Running them today spends a
+  build to produce a refusal.**
+
+**Open on this site: 2.** `brief_supplies_negation` (annotated, owner's call) and
+`save_refused_incomplete` (historical, guard worked, no residual damage found).
+
+**Final live state:** 67,457 bytes · `<h1>A closer look at bees</h1>` · 6 sections through
+`illustrated-text-block` · 7 images all 200 · no footer · no email · 7 components permanently
+locked · `build_status='deployed'` · `tools.apis.uk` 200.
