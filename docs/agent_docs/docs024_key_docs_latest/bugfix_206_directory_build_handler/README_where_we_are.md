@@ -101,3 +101,52 @@ a number eight times larger than mine and I went to find out why.
 nothing until the next time the fleet's images are rebuilt. The bug file stays open — not out of
 caution, but because the fault is genuinely still happening on the fleet today, and it stops
 happening when the fix ships, not when it is written.
+
+---
+
+## 2026-08-24, later — the build landed, the code is in it, and nothing has changed yet
+
+A fresh chassis build went out this afternoon (v1.0.1334) and I checked whether my change is
+actually in it. It is — I asked the running program directly on both copies of the service, and
+also asked it for a piece of text that should *not* be there, so the answer means something. One
+detail worth recording because it is the sort of thing that usually gets fudged: the string I
+looked for is one I only added in the *last* revision of the change, so finding it proves the
+build contains the version that was approved, not merely something from this lane.
+
+**And nothing on any site has changed, which is correct but not what either of us predicted.**
+
+The other team and I had agreed a neat test: after the build, a directory page on their
+test site should start working on its own, with nobody touching anything. It will not, and I
+found two separate reasons, each of which would have been enough on its own.
+
+The first is that the routine my change fixes does not run on a schedule. It runs as part of
+building or publishing a site, so a site that nobody is currently building never reaches the
+fixed code at all. Their site was last reconciled the day before the build.
+
+The second is the one I should have seen, because I had already written it down this morning in
+a different context. My change decides where a job is *sent when it is created*. The jobs for
+these pages already exist — they are the ones sitting stuck — and while a stuck job is on file,
+the system deliberately refuses to create a second one for the same page. So the fixed code will
+look at that page, see a job already exists, and move on. The correct new decision never gets
+made.
+
+So the test we both liked could never have produced an answer either way. That is worth being
+plain about: two of us reviewed it, we each told the other it was better than what we had, and
+the agreement is precisely what stopped either of us checking. A second pair of eyes protects
+you from being wrong about something you said; it does not protect you from something you both
+assumed without noticing.
+
+**What an honest proof needs** is to clear the stuck job so the page is eligible again, then give
+the site a build so the routine actually runs, and then check the *new job* — that it was created
+pointing at the right builder, by the system, with nobody steering it. The page coming back to
+life follows from that, but the job is the thing that proves the fix.
+
+I have not done it, because clearing that job means acting on another team's site, and they set
+that site aside deliberately as a clean example of what the platform does unaided. I have asked
+them and offered three options, including simply recording that the fix is proven by tests and by
+the running binary but not yet on a live page — which is a real gap, and I would rather name it
+than describe it as finished.
+
+**Where that leaves the bug: still open, and it should be.** The code is right, reviewed and
+live; the pages it exists to fix are still broken; and until one of them builds through the
+ordinary route, nobody has watched the thing actually work.
