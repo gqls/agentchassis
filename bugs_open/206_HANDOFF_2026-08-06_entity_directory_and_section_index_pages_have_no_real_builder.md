@@ -341,3 +341,55 @@ page. It has not yet. That is a latent instance, not a live one — worth a comm
 > preserved. The loop genuinely did revive the row (that part stands); it did not choose the
 > handler. `[The mechanism of the preservation is INFERRED from the hardcode — I have not read
 > refreshOpenWorkItem's field-merge behaviour.]`
+
+## Status of the 2026-08-24 fix at end of session — read THIS, the sections above are as-written
+
+The sections above were written across one day and their council-status lines went stale as they
+were written; this is the current state. Forward-only — nothing above has been edited.
+
+**Committed and inert.** Five commits, Go-only, all carrying `Council-Submitted: 52dbd067-…`:
+
+| commit | what |
+|---|---|
+| `d1aa231aa` | `builderForPageType` + reconcile routes through it + the routing tests |
+| `0baa8a107` | the operator recipe the `capability_gap` arm replaces (comment only) |
+| `03e2bbdb7` | round-2 answer: the gap row's `handler_agent` is now **empty** |
+| `90448d175` | every ROUTED handler must be a known-registered agent (the 078 class) |
+| — | plus this file, NOTES, PLAN, RUNBOOK, README, SUMMARY, LANDMINES, BLD-027, WRONG_CALLS ×7 |
+
+**Council: FOUR rounds on one correlation, three REVISE and the fourth in flight at session end.**
+Each round found something real, which is the argument for the gate rather than against it:
+
+1. **REVISE** (`editquality`) — a phantom `site_plan_pages.page_type` column in my submission text.
+   The code never had it. Its checks also returned **87 items / 16 sites** against my "five", and
+   chasing that discrepancy is what found `bugs_closed/187`.
+2. **REVISE** (`bug_historian`) — three HIGHs, all "you asserted, you did not query". Two were
+   answered by one query each (`directory-build-handler` is live; `tool-builder` /
+   `entity-page-builder` are genuinely absent). **The third changed the code**: a `deferred` row
+   with a non-empty `handler_agent` naming a non-existent agent is the `bugs_closed/078` shape.
+   Now empty, matching 47 of 47 existing `capability_gap` rows.
+3. **REVISE** (`guardian`) — I had put the HELD `WriteBuildItemsAction` swap into the submission's
+   **executable** `edits[]` array in order to document that it must not ship. An applier would
+   have patched a file I had myself measured as red. Removed; it is prose-only now.
+4. In flight at session end. **Pre-committed stopping rule** (NOTES, written before the verdict):
+   a real defect → fix it; a false premise → one evidenced answer; **a third objection to either
+   question I asked the council to RULE on — the `capability_gap` arm versus 187, or the transient
+   split-brain — means taking the contained option instead of a fifth round: revert the gap arm,
+   keep the routing half.**
+
+**Two things are the council's to decide, not this lane's**, and both have a revert offered:
+the `capability_gap` arm against `bugs_closed/187`'s deliberate "not guarded" ruling (notice filed
+in 187's own file), and the transient split-brain while `WriteBuildItemsAction` keeps its inline
+maps (blocked by another lane's ownerless change, measured red — breaks HEAD's build and fails
+three existing tests).
+
+**A `090` diagnosis run was attempted twice** (the owner-ruling escape hatch is declared above).
+The first was doomed by the cumulative bundle-budget trap and cancelled with its reason recorded;
+the second, scoped to one symbol, read the target and was still iterating at session end.
+**Neither produced a verdict, so nothing here rests on one.**
+
+**Nothing above changes the closure test**, which is unchanged and is at the artefact: after the
+next roll, probe the running pod for `builderForPageType` with a negative control, watch a
+`reconcile_site_plan` run mint a typed page's item at the right handler, then re-triage the five
+parked rows using the RUNBOOK's recipe — **not before the roll**, because until then the rows
+still name `page-build-handler` and a re-triage burns an attempt of three for nothing.
