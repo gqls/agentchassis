@@ -16321,3 +16321,21 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** MEMORY [[shell-tool-traps-committing]] (same family: shell constructs that fail at exit 0), and the `$?`-after-a-pipe trap — both are "the instrument answered a narrower question than you asked".
 - **source:** 2026-08-24, `apis_uk_bees_homepage` lane, during the fleet GTM roll-out
 - **added:** 2026-08-24, `apis_uk_bees_homepage` lane
+
+### An image `asset_key` does NOT name the branch that produced it — `hero_<page>` comes from at least two paths, and the site-lane check for "was I affected" returns a confident false positive
+
+- **footprint:** `assets.asset_key`, `hero_home`, `hero_about`, `unfulfilled_hero_variant`, `needs_imagery`, `needs_hero_image`, `call_variant_gen`, `call_imagery_gen`, `call_hero_gen`, `platform/orchestration/actions/discovery_checks/check_unfulfilled_image_prompt.go`, `classifyPromptKey`
+- **fires when:** you are deciding whether a site, an asset or a batch was affected by something that happened on ONE image-generation branch, and you reach for the asset's name to decide. Also whenever you read `classifyPromptKey` and carry away "so `hero_<page>` means `unfulfilled_hero_variant`".
+- **the trap:** `classifyPromptKey` maps a **planner prompt key** to an item type. That is a one-way implication and it is routinely read as two-way. At least three item types land per-page hero images with `hero_<page>` keys — `unfulfilled_hero_variant` (→ `call_variant_gen`), `needs_imagery` (→ `call_imagery_gen`) and `needs_hero_image` (→ `call_hero_gen`) — and they behave differently: as of 2026-08-24 one of the three forwarded no `kind` and no `site_id` while the other two forwarded both.
+- **why the wrong answer looks exactly like the right one:** the key shape is *the* natural tell, it is right there in the `assets` row, it needs no join, and on an affected site it gives the correct answer. `[MEASURED 2026-08-24]` agritec.uk carries **twelve** `hero_*` asset_keys (hero_about, hero_contact, hero_guides, hero_sfi, hero_vpd, hero_lighting, hero_tools, hero_bsf, hero_seaweed, hero_hydroponic, hero_home) and has **zero** `unfulfilled_hero_variant` rows — all 17 of its assets came from `needs_imagery` plus one `needs_hero_image`, and all 17 are `banana/gemini-3-pro-image-preview`. A lane checking "do I have per-page heroes?" would have declared itself hit and gone hunting for damage that does not exist.
+- **the check — join to the work item, per site, and read `item_type`:**
+  ```sql
+  SELECT w.item_type, w.status, w.summary, w.updated_at
+  FROM site_work_items_archive w JOIN sites s ON s.id = w.site_id
+  WHERE s.domain = '<domain>' AND w.updated_at BETWEEN '<asset_time - 5m>' AND '<asset_time + 5m>'
+  ORDER BY w.updated_at;   -- the item completes ~25-30s AFTER the asset it produced
+  ```
+  Query `site_work_items_archive`, not `site_work_items` (see the rolling-window entry). `orchestration_states` cannot answer this beyond ~1 day. If the branch still cannot be identified, say the attribution is **[INFERRED]** rather than letting it stand beside first-hand matches in the same voice.
+- **relations:** the rolling-window entry above (its companion — this join only works against the archive) · `bugs_open/382` §7e (the case) · `WRONG_CALLS.md` 2026-08-24, where I made exactly this error on 9 of 14 assets and another lane caught it · MEMORY [[a-subagent-report-is-another-doc]] (no seam shows where measuring stopped)
+- **source:** 2026-08-24, found by the `agritec.uk` lane checking whether its own site was in `bugs_open/382`'s affected population. It was not.
+- **added:** 2026-08-24, `bugs_open/382` lane

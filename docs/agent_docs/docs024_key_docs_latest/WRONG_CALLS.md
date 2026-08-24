@@ -48399,3 +48399,86 @@ evidence, and made an open bug worse while closing this one.
 recommending a filter on the strength of what it *rejects* having never counted what it *keeps*.
 Both are the same shape: **a measurement that answers a question adjacent to the one being decided,
 and reads as though it answered the one being decided.**
+
+---
+
+## 2026-08-24 — I attributed 9 of 14 assets to a producer by their NAME SHAPE and wrote it as measured (bugs_open/382 lane)
+
+**The claim, as it went into a bug file, a commit message and a council submission.** "14 of the
+15 SDXL assets are per-page hero variants and belong to this mechanism" — the mechanism being
+`image-build-handler.call_variant_gen`, the handler of `unfulfilled_hero_variant` work items.
+
+**What I actually had.** Five of the fourteen, matched minute-for-minute against their own
+`unfulfilled_hero_variant` rows in the archive — real, first-hand, decisive. The other nine
+(finetuning 5, gaswholesalers 3, leopardess 1) I assigned to the same producer because their
+`asset_key` values were `hero_about`, `hero_services`, `hero_case_studies` — the shape that
+`classifyPromptKey` produces for that item type. **`classifyPromptKey` maps promptKey → item type.
+It does not say that nothing else produces that key shape.** I read a one-way implication as a
+two-way one, and the nine went into three durable artefacts in the same voice as the five.
+
+**What caught it: another lane, checking its own site.** The `agritec.uk` lane took my heads-up,
+looked for the obvious tell — "do I have per-page heroes?" — and found twelve `hero_*` keys.
+Every one came from `needs_imagery` → `call_imagery_gen`, and agritec has no
+`unfulfilled_hero_variant` rows at all. **The same key shape, a different branch, an unaffected
+site.** Had they trusted the shape the way I did, they would have concluded their site was hit and
+gone looking for damage that is not there.
+
+**The cheap check — the one I had already run five times.** `SELECT item_type … FROM
+site_work_items_archive WHERE site_id = … AND updated_at BETWEEN …`, once per site, ~20 seconds
+for all four. Run properly it **confirms** the claim: all nine have their own variant row, 25-30 s
+before the asset. So this cost nothing in conclusions and everything in warrant — and that is the
+uncomfortable part. **A claim that is true is not thereby evidenced**, and I had no way to know
+which it was, because I never asked.
+
+**The rule.** *When a producer and an artefact share a naming convention, the convention is a
+HYPOTHESIS about provenance, never a record of it.* Provenance lives in the work item, the
+orchestration or the log — somewhere a producer actually wrote. If the join is available and you
+ran it for some of the population, **run it for all of the population**: a partial join stated as
+a whole one is worse than no join, because the five real matches lend their credibility to the
+nine guesses standing beside them. This is [[a-subagent-report-is-another-doc]] with the seam
+inside one head instead of between two — no marker shows where the measuring stopped.
+
+**Also worth its own line: I told the other lane my finding, and that is what found this.** The
+heads-up was sent as courtesy, not as verification, and it worked as verification — because a
+site lane checks its own site with the tell it can reach for, which is exactly the tell I had
+over-trusted. Telling the affected lanes is cheap; it is also the only review that comes with an
+independent population attached.
+
+### 5. And the council found the same family a FOURTH time, in the fix for the third
+
+Phase 3a went to the gate and came back REVISE, gated at HIGH. The objection: I built
+the probe's surface with `string_agg(pc.rendered_html)` and then ran **one stateful HTML
+tokenizer over the concatenation**. Each `page_components` row is a **partial fragment**,
+not a document. An unbalanced `<script>` in one component leaves `inScript` set as the
+tokenizer crosses into the next, so that component's genuine **prose** is collected as
+"script text" — and the probe reports `present_in_script` for a figure that is only in
+the copy.
+
+**That is the exact bug this file was written to prevent, one level down.** I had spent
+the session proving that reading the whole page instead of the script would certify bug
+225, and then reintroduced the same certification at component-boundary granularity
+inside the fix. It is the estate's already-documented multi-component `string_agg`
+landmine — *"stripping style/script AFTER string_agg lets one component's block eat the
+NEXT component's prose"* — and every one of my fixtures was a single synthetic page, so
+nothing could see it.
+
+**Then the repair's own test was wrong, and only the premise assertion caught it.** I
+wrote it to assert the leak EXISTS before asserting the fix prevents it. It failed on the
+premise: my fixture put the unclosed `<script>` **first**, and the next fragment's own
+`</script>` closed the leak before it could reach the prose. The naive join did not leak,
+so without that assertion the test would have "proved" per-component extraction while
+exercising nothing at all — the fourth instance of the same family in one day, in the
+test for the third.
+
+**Two checks, both cheap:**
+- **Never run a stateful parser over a `string_agg` of partial HTML fragments.** Parse
+  each fragment and combine the *results*. State cannot cross a boundary the parser never
+  sees. (A stateless literal or regex search over the join is fine — that is why the
+  markup arm still spans components deliberately.)
+- **When a test defends "X would be wrong", assert that X IS wrong first.** A fixture
+  built to demonstrate a rule tends not to exercise it; the premise assertion is what
+  turns the demonstration into a test, and it earned its place twice here.
+
+Running tally for this change: **13 mutations, 4 of which passed and were worthless**,
+and one REVISE round that found a real defect the 13 could not — because the defect was
+in the shape of the input, and every fixture I wrote had the wrong shape.

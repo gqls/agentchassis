@@ -130,6 +130,64 @@ as far as it went.
 
 *(Both rows above came from `site_work_items_archive`, not `site_work_items` — see §7d.)*
 
+**All 14 are now attributed by WORK ITEM TYPE, not by key shape — and the first version of this
+section was not.** I matched ai-agent-orchestration's five against the archive and then assigned
+the other nine (finetuning 5, gaswholesalers 3, leopardess 1) to the same mechanism because their
+`asset_key`s were `hero_<page>`. The `agritec.uk` lane, checking whether its own site was
+affected, showed that inference is unsound (§7e). Re-run properly, it holds — every one of the
+nine has its own `unfulfilled_hero_variant` row, ~25-30 s before the asset:
+finetuning 2026-08-03 12:30:31 / 12:32:01 / 12:38:15 / 12:39:25 / 12:40:39 (hero_contact,
+hero_about, hero_services, hero_case_studies, hero_how_we_work); gaswholesalers 2026-08-03
+22:57:38 / 23:07:33 / 23:14:10 (hero_about, hero_contact, hero_services); leopardess 2026-08-08
+21:34:48 (hero_case_studies). Conclusion unchanged, evidence now first-hand.
+
+## 7e. `asset_key` does NOT name the producing branch (found by the `agritec.uk` lane, 2026-08-24)
+
+A `hero_<page>` key means "per-page hero". It says **nothing** about which branch made it. agritec
+has twelve `hero_*` keys — hero_about, hero_contact, hero_guides, hero_sfi, hero_vpd, … — and
+**none** came from `call_variant_gen`: all 17 of its assets came from `needs_imagery`
+(→ `call_imagery_gen`) plus one `needs_hero_image` (→ `call_hero_gen`), it has no
+`unfulfilled_hero_variant` rows at all, and all 17 are `banana/gemini-3-pro-image-preview`.
+
+**This matters because it is the check a site lane will actually reach for.** "Do I have per-page
+heroes generated before today?" returns a confident **false positive** on a site that was never
+affected. **The discriminator is the work item type, not the key.** agritec also supplied a
+corroborating control on the unaffected path: 16 of its 17 `origin_prompt` values carry that
+site's seeded palette hex verbatim, and that string appears in no `site_plan_imagery.prompt` row —
+so the style guide was reaching `call_imagery_gen` at generation time, which is exactly the thing
+`call_variant_gen` was missing.
+
+## 7f. A SECOND live empty-kind producer, measured — and the obvious fix for it is REFUSED
+
+`image-build-handler.call_imagery_gen` maps `kind?` from `input_data.spec.kind`, so a
+`needs_imagery` spec without a `kind` key reaches the adapter empty. One producer files exactly
+that shape: `image-source-unsatisfiable-handler.file_imagery_request`, whose `spec_paths` carry
+`purpose` (← `source_facts.implied_purpose`) and **no `kind`**.
+
+Measured 2026-08-24: **1** such `needs_imagery` item has ever been filed (mortgagecalculator.co.uk,
+2026-08-14, `cancelled` — it never generated), out of 564 `needs_imagery` specs of which **563**
+carry a kind. So the door is latent. It is also **loaded**: **33** `image_source_unsatisfiable`
+rows sit in `needs_human_review`, and each one approved becomes another kind-less request.
+
+**The obvious fix — add `"kind": "source_facts.implied_purpose"` beside the existing `purpose`
+path — is refused, and the reason is the point.** `implied_purpose` is whatever the source path's
+last segment is, gated by the handler's own SQL against a `mappable` list of eleven values:
+hero, logo, icon, og_card, favicon, illustration, infographic, banner, background, thumbnail,
+portrait. **Only five of those eleven are `kindProviderRouting` keys.** Supplying `background` or
+`banner` as a kind would turn a post-fix *banana* default into an *SDXL* fallback flagged
+`UNROUTED_IMAGE_KIND` — a worse image, and a diagnosis pointing at the routing table when the
+caller is what is wrong. More fundamentally it would make an SQL literal inside one agent
+definition **predict a routing table compiled into a different binary**, which is the drift class
+`routing.go`'s own header forbids and the reason detection lives in the adapter at all.
+
+Today's reachable set happens to be safe — of the 33 pending, 17 imply `hero` and 7 `illustration`
+(both routed); the other 9 imply `image`, which is not in the `mappable` list, so `decide_route`
+sends them to `escalate_unmappable_source` and they never file. **That is luck, not a design**, and
+it is exactly the reasoning that made the original empty-kind exemption look safe. The correct
+behaviour for this producer is the one the code half already gives: no kind → strong provider →
+one `MISSING_IMAGE_KIND` row naming the caller. **Left open deliberately, with the evidence, so the
+next lane does not "fix" it into a regression.**
+
 ## 7b. The other empty-kind doors, live in `agent_definitions` **as of 2026-08-24**
 
 `pageflow-builder` and `site-work-orchestrator` each carry `generate_hero_image` and
