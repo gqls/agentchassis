@@ -2,7 +2,7 @@
 
 **Filed** 2026-08-24 · **Status: FIX COMMITTED (`364e80b7f`), INERT until the next chassis roll — so this stays OPEN**
 · lane `docs/agent_docs/docs024_key_docs_latest/bugfix_283_component_instance_scope/`
-· council correlation `3fd0d026-8966-44c6-b0d8-bd8c0dfba187` (verdict pending at filing)
+· council `3fd0d026-8966-44c6-b0d8-bd8c0dfba187` **APPROVED round 1**, 2026-08-24 16:04 UTC (§9)
 
 > **WHY THIS IS A NEW NUMBER AND NOT `283`.** `bugs_closed/283` is a DIFFERENT defect —
 > interactive components could not be reused on one page because their element ids were
@@ -138,3 +138,49 @@ curl -s https://gaswholesalers.com/pricing-transparency.html \
   trigger is ANY per-section render), §10 (owner ruling), §10a (the interim exposure record).
 - `PLAN_2026-08-24_occurrence_derivation_and_empty_id_detector.md` — the originating plan.
   **Its Half A design is superseded**; the correction is recorded in that file.
+
+---
+
+## 9. Council: APPROVED round 1 (`3fd0d026`, 2026-08-24 16:04 UTC) — verdict read, four advisory objections and what was done
+
+*"approved with 4 advisory objection(s) — none high-severity"*. 7 seats approved, 4 objected
+advisorily, 6 abstained. The commit carries `Council-Submitted:`, which `098` resolves to
+credited automatically now the correlation is approved — **no amend** (forward-only).
+
+| seat | objection | disposition |
+|---|---|---|
+| **guardian** (med) | *"confirm `loadStoredSections` has no other callers whose behaviour depends on the pre-existing tie-break order"* | **RUN, and it is decisive: exactly ONE production caller** — `rerender_page_sections_action.go:262`, the canonical walk this change fixes. Every other hit of that symbol is a comment. `grep -rn loadStoredSections --include=*.go . \| grep -v _test.go` |
+| **editquality** (med) | *"no edit entry modifies `loop_expansion_handler.go` or `loop_actions.go`, yet edit 1's rationale and mutations (E)/(F) assume the rewiring is done"* | **Correct, and it is a defect in my SUBMISSION, not in the code.** The three rewires are in the commit; I hit the 8-edit cap and folded them into edit 1's prose instead of listing them. The seat caught a real gap between what I described and what I enumerated. Nothing to change in the tree; recorded here so the trail is honest. |
+| **bug_historian** (med) | *"the root constant-0 fallback stays generic; a LANDMINES entry is documentation, not a guard"* — cites 016b §9 item 7, the platform's most-repeated shape | **Fair, and half-answered.** The landmine is now filed and verifier-dispatched (`8cb37bfb`), which is what this seat and the architecture seat both asked for. The seat's deeper point stands and is not closed: this patches the two known callers, and a future non-loop caller inherits occurrence 0 silently. That is §7 above, and it is the right thing for a human to weigh. |
+| **debug_historian** (med) | *"'live at the roll' names no post-roll pod verification; a same-tag rebuild ships a stale binary"* | **Already in §6 above** (build-provenance line + `git merge-base --is-ancestor`), but absent from the submission — so the objection is right about what I submitted. |
+| **architecture** (low) | wants the binder retirement as a **tracked item**, not only a file-header comment — *"so it doesn't rot the way RFC_032's ComponentID binding did (two deferrals already)"* | Tracked here as §10. That precedent is exact: the binding this very commit deletes had been deferred twice. |
+| **reuse_agent** (missing) | *did it reuse the existing loop-config reader rather than write new parsing?* | It reuses `datahelpers.GetIntField` (the helper `loop_actions.go:324` uses) via `placementInt`, and `datahelpers.LoopItemKey`, which this change created **by single-sourcing three existing literals**. There is no existing item-shape reader to extend. |
+
+## 10. TRACKED FOLLOW-UP — retire `BindSingleSectionInstanceToken` (architecture seat, 2026-08-24)
+
+`component_instance_scope.go` still defines it; **no production code calls it** after `364e80b7f`.
+It was left in place only because that file was dirty in the concurrent Half B lane and moving a
+function out from under it would repeat the same-file passenger that drew the guardian veto on
+`e8c7414c`. **Do this once that lane is clean:** delete the function, drop
+`BindSingleSectionInstanceToken` from `scripts/pattern-check.py`'s `INSTANCE_BIND_SEAM_RE`, and
+update `component_instance_scope_test.go:126`, which is the only remaining caller. Until then a
+census of "single-section binders" honestly returns two.
+
+## 11. Repair items FILED 2026-08-24 (owner decision) — and the trap that nearly made them useless
+
+Three `page_rerender` items filed for the three pages currently carrying a duplicated token
+(`SQL_2026-08-24_repair_duplicated_instance_tokens.sql`; `INSERT 0 3`, `VERIFY: PASS`).
+
+⚠ **A rerender repairs this on TODAY's code** — it goes through the canonical walk, which is how
+9 of 12 pages were repaired on 2026-08-23. **What the roll adds is that the repair HOLDS.**
+
+⚠ **THE `spec.reason` IS LOAD-BEARING AND MY FIRST DRAFT WOULD HAVE DONE NOTHING.**
+`page-rerender`'s `check_rerender_mode` is a conditional over an allow-list of exactly five
+reasons. Anything else — including an invented one, and including none — takes `else_step:
+render_page`, which is `rerender_single_page`: *"simple concatenation, no template re-rendering"*.
+It **re-ships the stored bytes** and completes successfully. I had invented
+`reason: instance_scope_383`. `template_changed` is the correct one of the five and is the only
+one with no Go branch keyed on it (`cta_links_stale` triggers a CTA recompute with its own clobber
+landmine; `section_data_resolved`/`image_landed` get scoped to one component when a component_id
+is present). The applied file carries a control asserting all three items route to the sections
+branch, so this cannot recur silently.
