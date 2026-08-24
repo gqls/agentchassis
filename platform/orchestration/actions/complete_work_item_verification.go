@@ -62,21 +62,38 @@ import (
 // back from site_work_items.result because at this point it has not been stored:
 // load_work_item_actions.go marshals it only after these gates run. A gate that
 // re-read the column would judge the row's previous value.
-func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID,
-	handlerResult map[string]interface{}, logger *zap.Logger) (map[string]interface{}, bool, *noChangeAbstention) {
-	var itemType string
-	var specJSON []byte
-	var siteID uuid.UUID
-	var pageID uuid.NullUUID
+// workItemVerifyRow is the identity the completion gates are keyed on: the type
+// that selects the verifier, and the ids and spec that scope it to THIS item.
+//
+// Factored out of verifyBeforeComplete when update_work_item_status gained the
+// same gate (bugs_open/375). One read, one definition — a second copy of this
+// SELECT is the drift class bugs_closed/284 exists to stop, and it would be a
+// copy of the very thing whose duplication is the bug.
+type workItemVerifyRow struct {
+	ItemType string
+	SpecJSON []byte
+	SiteID   uuid.UUID
+	PageID   uuid.NullUUID
+}
+
+func loadWorkItemVerifyRow(ctx context.Context, db *sql.DB, itemID uuid.UUID) (workItemVerifyRow, error) {
+	var r workItemVerifyRow
 	err := db.QueryRowContext(ctx, `
 		SELECT item_type, COALESCE(spec, '{}'::jsonb), site_id, page_id
 		FROM site_work_items WHERE id = $1
-	`, itemID).Scan(&itemType, &specJSON, &siteID, &pageID)
+	`, itemID).Scan(&r.ItemType, &r.SpecJSON, &r.SiteID, &r.PageID)
+	return r, err
+}
+
+func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID,
+	handlerResult map[string]interface{}, logger *zap.Logger) (map[string]interface{}, bool, *noChangeAbstention) {
+	row, err := loadWorkItemVerifyRow(ctx, db, itemID)
 	if err != nil {
 		// Row missing or unreadable — the completion UPDATE will no-op or
 		// fail on its own; nothing to verify here.
 		return nil, true, nil
 	}
+	itemType, specJSON, siteID, pageID := row.ItemType, row.SpecJSON, row.SiteID, row.PageID
 
 	// Completion gate 1b (bugs_open/213 D1): opt-in per item_type, inert for every
 	// type that has not asked for it. Placed BEFORE the verifier for the same reason

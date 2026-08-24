@@ -6176,6 +6176,47 @@ func UpdateWorkItemStatusAction(ctx context.Context, params ActionParams) (inter
 			resultPayload[k] = v
 		}
 	}
+	// ── COMPLETION GATE 2, opt-in (bugs_open/375).
+	//
+	// This action is the platform's SECOND writer of `complete`, and until now the
+	// only one that never asked the item type's verifier whether the defect was
+	// actually gone. See update_work_item_status_verification.go for what a
+	// verifier is, the measured blast radius, and why the consult is opt-in per
+	// step rather than automatic (short version: making it automatic would
+	// fail-close CQ-023's `converted` arm the day somebody registers the verifier
+	// its own backlog invites them to write).
+	//
+	// Absent `verify_before_complete` — which is every live step as of 2026-08-24
+	// — this call reaches `GetVerifier`, finds nothing registered for any of the
+	// five live types, and returns (nil, true). The arm below is then byte-identical
+	// to what it was. When a verifier IS registered and the step is unarmed, the
+	// completion still proceeds and the bypass is recorded at result._verification
+	// rather than passing in silence.
+	verifyArmed, _ := config[updateStatusVerifyConfigKey].(bool)
+	if newStatus == "complete" {
+		verification, mayComplete := verifyBeforeUpdateStatusComplete(ctx, params.DB, workItemID, verifyArmed, params.Logger)
+		if verification != nil {
+			resultPayload["_verification"] = verification
+		}
+		if !mayComplete {
+			blockedJSON, mErr := json.Marshal(resultPayload)
+			if mErr != nil {
+				return nil, fmt.Errorf("failed to marshal result payload: %w", mErr)
+			}
+			agentType := "unknown"
+			if params.ExecutionContext.Sender.AgentType != "" {
+				agentType = params.ExecutionContext.Sender.AgentType
+			}
+			// The SAME refusal path the guarded writer takes: attempt_count+1, claim
+			// released, 'triaged' for retry or 'failed' once the budget is spent. A
+			// second refusal path here would be a second definition of what a blocked
+			// completion means, which is the drift bugs_closed/284 exists to stop.
+			msg, reason := blockedCompletionReason(verification)
+			return failUnverifiedCompletion(ctx, params.DB, workItemID, agentType, string(blockedJSON),
+				msg, reason, params.Logger)
+		}
+	}
+
 	resultJSON, err := json.Marshal(resultPayload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal result payload: %w", err)
