@@ -131,6 +131,79 @@ Three constraints on how, each earned:
 Do not attach a confidence claim to the citations. They let a reader check us; they do not make
 us right, and the site says so.
 
+## 6c. Code-level checking: what covers our rates, and what provably does not
+
+Updated 2026-08-24 from measurements run by the `bugs_open/288` lane against this site's live
+register. This section exists because I asked them whether their fix made my visible-rate-table
+control redundant. **It does not, and the answer is quantitative.**
+
+**Their code probe refuses our figures, by design.** Phase 3a reads a tool's `<script>` out of
+stored `rendered_html` and looks for a registered value as a guarded literal. It has a
+*measured* distinctiveness floor — false-positive rates over the script text of all 161
+script-bearing tool pages, using invented values so every match is a false positive by
+construction:
+
+| digits | 1 | 2 | 3 | 4 | 5+ |
+|---|---|---|---|---|---|
+| FP rate | 32.75% | 3.79% | 0.06% | 0.03% | 0.00% |
+
+The floor is **1000**, and below it the probe refuses rather than guesses. Against our register:
+**75 of 105 facts refused, 25 have no numeric value, 5 probed.** Every figure in this tool —
+382, 224, 45, 129, 20, 13, 10 — is under the floor. Lowering it would not rescue us: our rates
+cluster at two and three digits, and 3.79% wrong on a rate table is noise that teaches people to
+ignore the check.
+
+**So §6b's visible-rate-table requirement is not belt-and-braces. It is the only thing covering
+this tool's shape**, and it must not be dropped.
+
+**A second, structural gap on their side:** their suggester's population is
+`page_type='tool' OR component_level='tool'`, and agritec currently has **zero** tool-level
+components. A calculator embedded in an article would never be selected — fleet-wide that class
+is 50 of 222 script-bearing pages (23%). Another reason this tool must be built as a real
+`page_type='tool'` with a `component_level='tool'` component, not as a script inside a
+`blog-post`.
+
+### What we DO gain: a per-fact `artifact_check` on each rate
+
+`artifact_check` became reachable for **citation facts** in their Phase 2 (RFC_025 stage 2b) —
+previously the per-fact loop handled `source.citation` and `continue`d before ever testing it,
+which is why it had 0 consumers of 294 facts — and it is now addressable by `subject_key` rather
+than a `page_components.id` that dies on decomposition.
+
+So each rate this tool encodes gets, **on the fact itself**:
+
+```json
+"artifact_check": {
+  "subject_key": "<this tool's subject key>",
+  "pattern": "HERBAL_LEYS_RATE\\s*=\\s*224",
+  "must_be_present": true
+}
+```
+
+**The pattern must carry context.** A bare `224` is refused by the platform's own guard, and
+correctly — that refusal is exactly the floor above. A human-authored pattern is admissible
+because the constant NAME does the discriminating. This is what makes a sub-1000 legislated
+figure checkable at all, and it is per-fact, so we only pay for the rates that matter.
+
+**Two cautions, both from them, both load-bearing:**
+- **A green acceptance run on a fence carrying `facts` means nothing about the figures.** Both
+  tiers ignore the key by design; only the nightly `evidence-freshness` sweep reads it. Do not
+  read a Tier-4 pass as evidence the rates are right.
+- **None of their four phases is live** — all Go, inert until the next chassis roll — and Phase
+  3a is **annotation only** by construction. It records what it saw and changes no routing.
+
+### We are the live proof, deliberately
+
+They asked, and it is worth saying yes: this is the one case where a tool and a register are
+known to disagree *today*, so it is the only real test of whether the mechanism fires rather than
+reads green. **The result we most need is the negative one** — if the first sweep after the roll
+does not flag a tool encoding £382 against a register saying £224, the mechanism is inert on the
+case it was built for, and that is far better learned here than from a synthetic fixture.
+
+Sequencing, because it matters: they cannot see this tool's code today (they probed — 0 pages
+containing `Math.min`, 0 containing `382`), for the simple reason that it does not exist yet.
+Neither lane may quote their probe's verdict on this tool until it is built and deployed.
+
 ## 7. Output
 
 Per-action subtotal, a stack total, and — separately and prominently — **which caps bound the
