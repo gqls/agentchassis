@@ -1475,3 +1475,31 @@ NOT a live fleet bug, do not file); (b) live hero-home.jpg 404s at origin while 
 regen must confirm the live URL actually serves the new bytes, not just that deploy reported
 success. (c) contact page references hero.jpg which was never an asset_key — that is the open
 `image_url_404` item from 08-01, not new.
+
+> **CORRECTED 2026-08-24, ~2h after writing (caught by my own regeneration run):** the third-turn
+> entry above called the "None — text-only" prompt contamination a **relic** ("all 07-17 … NOT a
+> live fleet bug"). WRONG — the mechanism is LIVE: my own hero regeneration at 13:02:57 had the
+> refusal prepended verbatim to the prompt I supplied (item fee55dc0's result records it). The
+> census that misled me counted ASSETS with the prefix (3, all 07-17) — but assets only accrue
+> when generation RUNS, and none had run on this site since 07-17; a census of outputs cannot
+> date a mechanism's death. Source found: `design_intent.imagery_direction` held the refusal, and
+> the prompt composer prepends `imagery_direction` verbatim — sensible for a real style
+> direction, pathological for a refusal. Fleet census: vetcomparison was the ONLY site with a
+> refusal-shaped `imagery_direction` (`ILIKE 'none%'`, **1 of fleet as of 2026-08-24**) — so
+> fixed at source rather than filed: design_intent superseded (new row d2745fb2) with a real
+> photographic direction encoding the owner's rules (white/teal palette, no close-up generated
+> human faces, clear headline space); `avoid[0]` no longer bans imagery outright. If a second
+> refusal-shaped direction ever appears, this correction block holds the census query.
+
+**hero_home regen, actual outcome (fee55dc0):** generation itself was RIGHT (banana/Gemini,
+13:02:57, asset e1bc3b66 — inspected by eye: waiting room, dog + cat, people from behind, no
+faces, no garbled text) but the handler deployed it to its DEFAULT path `/assets/images/hero.jpg`,
+IGNORING spec.path (the dartsonline precedent never caught this — its path WAS the default).
+Incidentally that un-404'd the contact page's background and closed the 08-01 `image_url_404`
+item (87486427, completed with evidence). The path five pages actually reference
+(`hero-home.jpg`) still served the SDXL nurse — fetched and inspected: the 10:18 page deploy had
+restored the OLD image from B2 to origin, so the owner's "cached" nurse was really a live file.
+Fix in flight: `undeployed_asset` item 987bdde0 → asset-deployer, **spec.s3_uri explicit** per
+the deploy-by-purpose landmine (four active hero-purpose assets on this site make purpose
+resolution a lottery). hero_about/hero_contact regens DROPPED — no live page references either
+path (grepped all main pages); their stale SDXL assets are inert.
