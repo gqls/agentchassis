@@ -286,3 +286,13 @@ access, which is why gaswholesalers finished anyway. And dartsonline has to wait
 Friday the 29th: it was swept two days ago by the old broken code, and the platform's
 two-strikes rule would file anything found now straight into the "gave up" pile rather than
 repairing it.
+
+**End of the evening.** All four sites that were safe to sweep tonight are done, and I checked
+every fixable button on the pages a visitor actually receives: gaswholesalers 25 of 25,
+leopardess 23 of 23, ai-agent-orchestration 20 of 22, lendzy 20 of 20 — 88 of 90 across the
+four. Each site took the platform under an hour, nobody touched anything by hand, and the two
+buttons that didn't move turned out to be relics from April with no data behind them — the
+repairer has nothing to write into, so they'll need the next phase of this work (the verifier)
+rather than another sweep. Dartsonline remains the one to do after Friday. The estate's
+remaining broken buttons are now mostly the kind no machine should fix: prose links and
+ported pages, which go to a human queue.

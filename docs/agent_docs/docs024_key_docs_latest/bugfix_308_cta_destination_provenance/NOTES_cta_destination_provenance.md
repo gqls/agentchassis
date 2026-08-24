@@ -832,3 +832,22 @@ Today's pair points at real pages (/services.html, /contact.html) — mismatch, 
 
 lendzy.co.uk fired 20:01:42Z (corr `5484e5df-d539-41d5-8315-a39282e8cf22`), 20 FIX / 7 SKIP
 expected, monitor armed.
+
+### 13. lendzy.co.uk and the day-1 close-out [MEASURED 2026-08-24 ~20:45Z]
+
+lendzy (corr `5484e5df`): 15 items filed 20:07Z, **15/15 complete, 20/20 tick-list buttons
+verified at the served page**, zero guard failures — the cleanest of the four.
+
+**Day 1 of the per-site release, totals.** Four sites swept, one deferred:
+
+| site | items | tick-list verified at served page | residual |
+|---|---|---|---|
+| gaswholesalers.com | 12/12 complete | 8/8 sampled + probe 25→0 | none |
+| leopardessconsulting.co.uk | 16/18 | 23/23 | 2 OWNED_PAGE_GUARD (no covered findings) |
+| ai-agent-orchestration.com | 15/16 | 20/22 | 1 retrying (uncovered page); 2 data-less legacy components |
+| lendzy.co.uk | 15/15 | 20/20 | none |
+
+**88 of the 90 machine-fixable buttons on these four sites are verified moved in the served
+bytes**, the remaining 2 being blog's April-frozen data-less components (§12). Typical
+detection → served-fix latency: 25-40 min, unattended. dartsonline.com next window: after
+2026-08-29 ~18:40Z (two-strike ageout, §9).
