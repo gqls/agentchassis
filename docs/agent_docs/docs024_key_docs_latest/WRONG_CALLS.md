@@ -48059,3 +48059,73 @@ three properties my copy-pasted recipe had none of.
 **The transferable half:** a cleanup step positioned at the START of a run is not a
 cleanup step, it is an initialisation step. If the thing you are reclaiming is named
 per-run, nothing you write at the top of the run will ever reclaim it.
+
+## 2026-08-24 — bugs_open/352 lane: my guard matched my own COMMENT, so deleting the code it guarded still passed
+- **The claim:** a new assertion in `TestAuditJSComposition` — `strings.Contains(newRegion,
+  "||el.tagName")` — "pins the legacy `cls` echo, so a session that removes it must do so on
+  purpose, in review". The echo is load-bearing: without it an un-rolled `agent-chassis` composes
+  bare-tag keys and the retraction path closes live rows on a key-shape mismatch.
+- **What caught it:** mutating the line out and running the test, which **passed**. I only ran the
+  mutation because the estate's own rule says a guard you have not mutated is not a guard.
+- **The error:** the line I was guarding has an explanatory comment directly above it reading
+  *"do not 'clean up' the `||el.tagName` fallback"* — **which I had written myself, minutes
+  earlier, to protect that very line.** So the source contained the needle twice: once in prose,
+  once in code. A source-scanning assertion cannot tell them apart, and the prose occurrence
+  survives deleting the code. The better my comment, the more reliably the test lies.
+- **Why it nearly stood:** the test failed correctly on the other two mutations (removing the
+  in-page verification, removing `selector:sel`), so the suite *looked* mutation-proven. **One
+  guard in a set of three being vacuous is invisible if you report the set.** Note this is the
+  known "a source-scan test makes your COMMENTS load-bearing" trap arriving from the other
+  direction: the usual version is a comment accidentally satisfying someone else's checker; this
+  is a comment satisfying the checker **written to protect the thing the comment describes**, which
+  is a coupling you create yourself in one sitting.
+- **The cheap check:** assert on a string the surrounding prose cannot contain — here the whole
+  expression, `var cls=(typeof el.className==='string'?el.className:'')||el.tagName;`, which no
+  comment would ever spell out. Generally: before trusting a source-scanning assertion, `grep -c`
+  the needle in the file. **If the count is greater than one, the test is not measuring what you
+  think, and the second hit is usually your own explanation of why the first one matters.**
+
+### 7 — 2026-08-24: I recommended a filter to another lane on the strength of what it REMOVES, having never counted what it KEEPS
+
+The `bugs_open/378` lane is replacing `content_components.usage_count` with a
+signal derived from `page_components`, and asked how to avoid counting
+`bugs_open/357`'s 22 dishonest rows as votes for `hero`. I recommended keying on
+`component_version_id IS NOT NULL` — the RFC_046 provenance stamp — because a
+stamped row means the component *provably produced* those bytes, and every one of
+the 22 is unstamped and structurally cannot become stamped.
+
+**Every word of that was true, which is exactly why it was dangerous.** The lane
+measured what I had not:
+
+```
+any non-removed binding   108 components
+stamped binding only       39 components
+```
+
+The stamp had been live for four hours. It excludes the 22 bad rows — and roughly
+**1,750 honest pre-roll bindings with them**, because nothing backfills (by design;
+that is the control I had been quoting all day). So as a contamination filter it is
+not selective, it is merely small: at today's coverage it separates **recent from
+old**, not honest from dishonest, and my phantoms simply happened to be recent.
+
+Their sharper framing, which I did not reach on my own: adopting it would have
+reproduced 378's *own* defect one epoch over — "was reached by the counting route"
+becoming "was touched after the stamping roll", with a future session finding a
+perfect correlation between "has a score" and "was rebuilt recently".
+
+**What caught it:** the peer ran the query I should have. Nothing on my side would
+have — I had verified the mechanism thoroughly (controls, churn, stamp-truth, the
+lot) and none of that work bore on the question I was actually answering, which was
+about COVERAGE, not correctness.
+
+**The cheap check, and it is one line:** when recommending a filter, count the rows
+it KEEPS, not only the rows it removes. `count(*) FILTER (WHERE <predicate>)`
+beside `count(*)` would have shown 39 of 151 and killed the recommendation on
+sight.
+
+**The transferable half:** a filter's fitness is a property of the population, not
+of the predicate. I had proven the predicate correct — that a stamp means what it
+says — and then used that proof to answer a question about selectivity, which it
+does not address at all. **A mechanism being sound is not evidence that it is
+sufficient**, and "excludes the bad rows by construction" is a claim about the
+numerator that says nothing whatever about the denominator.
