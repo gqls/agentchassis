@@ -16791,3 +16791,33 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/330` §12 (why the tool path needed a picker) · `bugs_open/029`, `bugs_open/353` (the guards that cannot be bypassed) · migration `602_tool_workflows_ask_for_related_pages_HOLD.sql` · council `c962abd1-87e4-473f-9990-3985322050af` (reuse seat, advisory, round 1) · MEMORY [[a-helper-with-no-callers-is-not-a-refactor]]
 - **source:** 2026-08-24, `staged_component_build` lane — raised by the council's reuse seat as an advisory objection in an APPROVED round, then measured
 - **added:** 2026-08-24, `staged_component_build` lane
+
+---
+
+## `idx_swi_dedup` DOES NOT CONTAIN `item_type` — your `item_key` must be unique across EVERY work-item type on that site, not just within yours
+
+- **footprint:** `site_work_items.item_key`, `idx_swi_dedup`, `platform/orchestration/actions/work_items_common.go` (`insertWorkItem`, `workItemTerminalStatuses`), `platform/orchestration/actions/load_work_item_actions.go`, `platform/orchestration/actions/discovery_checks/`, any new detector or action performing a keyed insert, `PageRerenderItemKey`
+- **fires when:** you add a producer that files work items with an `item_key`, and you reason about collisions **within your own `item_type`** — the natural and universal mental model, and the one every existing entry in this file about this index reinforces, because they all discuss its *status* predicate and none of them mentions its columns.
+- **the trap:** read it from `pg_indexes`, not from the Go list:
+  ```
+  CREATE UNIQUE INDEX idx_swi_dedup ON public.site_work_items USING btree (site_id, item_key)
+    WHERE item_key IS NOT NULL AND status <> ALL (ARRAY['complete','verified','rejected','wont_fix','failed','unresolved','cancelled'])
+  ```
+  **`(site_id, item_key)`. `item_type` is not a column.** So the key space is GLOBAL across every type on a site. Two different types that compute the same string for the same site are one dedup slot: whichever inserts first owns it, and the second either raises a unique violation or `ON CONFLICT`-updates a row **of the other type** — a `page_rerender` producer silently editing a `needs_page` row.
+- **why the wrong result looks exactly right:** almost every key in the estate happens to be type-prefixed (`contrast_failure:<path>#<sel>`, `needs_page:<name>`), so the namespace *looks* partitioned by construction and has never had to be. Nothing enforces the convention, no test asserts it, and a key that omits or varies the prefix passes review because reviewers check it against **their own** type's keys.
+- **[MEASURED 2026-08-24 19:30 UTC] the surface is real and has simply never been hit.** `item_key LIKE 'page_rerender%'` is carried by **two** `item_type`s — **4,809** `page_rerender` rows and **150** `needs_page` rows (`image-build-handler` 64, `render_directory` 63, `bugfix_311_redrive` 13, `loancalc_owner_release_20260823` 10). Estate-wide, **four** key prefixes are shared by two types (`needs_page`, `page_rerender`, `cta_nonpage`, `placeholder_image_in_use`). And **zero** `(site_id, item_key)` pairs have ever carried two types — the suffixes have always differed. **A clean history here is not a guard; it is a coincidence that has held.**
+- **the check — one query, before you ship a new keyed producer.** Not "is my key unique among my type's rows", which is the question that returns the reassuring answer:
+  ```sql
+  -- has this key space EVER been used by another item_type? (run per prefix you mint)
+  SELECT item_type, created_by, count(*)
+    FROM site_work_items WHERE item_key LIKE '<your prefix>%'
+   GROUP BY 1,2 ORDER BY 3 DESC;
+  -- and the estate-wide invariant this entry asserts — it must stay 0 rows:
+  SELECT site_id, item_key, string_agg(DISTINCT item_type, ', ')
+    FROM site_work_items WHERE item_key IS NOT NULL
+   GROUP BY 1,2 HAVING count(DISTINCT item_type) > 1;
+  ```
+  ⚠ **The second query is the one worth keeping.** It is an invariant, it is cheap, and today it returns nothing — so if it ever returns a row, that row IS the incident, already in production, with no other symptom.
+- **relations:** WII-005 (`idx_swi_dedup` itself) · the `workItemTerminalStatuses` ↔ index-predicate lockstep entries in this file (same index, its OTHER half — get *those* wrong and every keyed insert fails fleet-wide with 42P10; get THIS wrong and one row is silently owned by the wrong producer) · owner ruling 2026-08-02 §1 (converging N producers onto one `item_type`/`item_key` is fine **provided** the producer set and key shape are stated in the register — that entry is where a reader would learn a key is shared, and it is per-type, so it cannot warn about this) · VIZ-016 (`contrast_failure`'s key shape) · MEMORY [[dedup-index-go-list-lockstep]]
+- **source:** 2026-08-24, `bugfix_352_invented_selector` lane, measured while answering a `bugs_open/384` cross-session query about whether its new `page_list_stale` check — a **fourth** producer minting keys in the `page_rerender` space — could conflict with 352's design. It could not; this could. **Found because a peer asked a narrow question and the honest answer needed the index definition read rather than recalled.**
+- **added:** 2026-08-24, `bugfix_352_invented_selector` lane
