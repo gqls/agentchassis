@@ -67,10 +67,18 @@
 -- timeline the editorial lane is building) reachable as generic list-expressers — and
 -- on a site with no evidence base they can only fail. The vocabulary stays pure; the
 -- gate lives in the menu row set, exactly as 419 gates `requires-backend`. MEASURED
--- by the editorial_design_uplift lane 2026-08-24: `data_sources` is EMPTY on both
--- evidence components and exactly ONE active component fleet-wide uses that column at
--- all, so a `requires-evidence-base` semantic tag is the ONLY available mechanism,
--- not belt-and-braces. NO ROW CARRIES THE TAG TODAY — the two-row tagging UPDATE is
+-- by the editorial_design_uplift lane 2026-08-24 AND RE-MEASURED BY THIS LANE the same
+-- day rather than taken on trust (their words, my query): `data_sources` is NULL on both
+-- `evidence-chart` and `evidence-timeseries`, and exactly ONE active component fleet-wide
+-- has a non-empty `data_sources` at all (`gripper-spec-sheet -> {products}`). So a
+-- `requires-evidence-base` semantic tag is the ONLY available mechanism, not
+-- belt-and-braces. ⚠ Re-measured deliberately: a peer-supplied fact about YOUR OWN
+-- change's design justification, written into your own header, has a conversation as its
+-- provenance and reads exactly like a measurement — see `WRONG_CALLS.md` 2026-08-24
+-- (`7071876b0`), where this lane and the 305 lane held one belief between them on a
+-- single measurement of zero. The query, so the next reader need not trust this either:
+--     SELECT function, data_sources FROM content_components
+--      WHERE is_active AND data_sources IS NOT NULL AND array_length(data_sources,1) > 0; NO ROW CARRIES THE TAG TODAY — the two-row tagging UPDATE is
 -- owed by that lane — so this clause is INERT on apply and changes no menu by one
 -- row. That is intended: the tag semantics should exist before the tags do.
 --
