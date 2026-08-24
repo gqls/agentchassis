@@ -76,3 +76,56 @@ have not thought of — particularly whether switching the empty case to the goo
 requests *fail* rather than merely improve, which would be a worse outcome than the bug. Nothing is
 committed yet. I will come back to you before anything ships if the answer to that question is
 uncomfortable.
+
+## 2026-08-24 — later the same day: both halves shipped, and what other people found
+
+**The short version.** Both fixes are done. The configuration fix is live now — per-page hero
+images are already being generated correctly as of this afternoon. The code fix is committed but
+does nothing until the image service is next rebuilt and restarted, which happens on someone
+else's schedule, not mine. Until then the bug stays open, because a fix that hasn't shipped is
+still a fix that hasn't shipped.
+
+**Two independent reviews, and neither said what I expected.**
+
+The council of reviewers approved it first time round, which is good, but the interesting part is
+what one reviewer refused to accept. It read my sentence "a config migration ships alongside" and
+said, in effect: this platform has a specific history of exactly that promise being false on
+exactly this file — migration 390's own header claimed it had fixed three branches when it had
+fixed two — so I will not treat the caller-side fix as done until I have seen it. It was right,
+and by then I had applied it, so the answer was easy. But it is the best example I have of a
+review catching the shape of a past failure rather than the content of a present one.
+
+The other reviewer approved and then objected past its own approval, to say something larger: this
+is the third bug in six weeks on the same underlying seam, none of them found by any automated
+check — all three found by a person looking at an image. It asked for a design pass on the seam
+itself before a fourth one arrives. I have written that up properly as an RFC rather than burying
+it in the bug file, with four options costed, because that is a decision for a human and not for
+me.
+
+**The independent diagnosis run did not confirm it.** I fired one deliberately, because our
+standing rule is to have a machine try to refute a claim like this before it goes into a document
+other people will believe. It came back "unverifiable" — it ran out of iterations without being
+able to read the one function at the centre of the claim, and it said in as many words: hand this
+to a human, do not auto-conclude. I have recorded that as a non-result rather than quietly filing
+it under "we checked". Everything in this bug file rests on checks I did by hand, and the file now
+says so in a table, gap by gap.
+
+**Two other lanes made this better, and one of them caught me out.**
+
+I sent courtesy messages to the two lanes affected. The agritec lane checked its own site rather
+than taking my word, and found twelve images with exactly the naming pattern I had been treating as
+proof of which code path produced them — on a site that had never used that path at all. I had
+matched five of my fourteen assets properly and assumed the other nine from their names. Re-run
+properly the nine hold, which is the uncomfortable outcome rather than the comforting one: being
+right is not the same as having checked, and I had no way of telling which I was.
+
+That same lane's push then found a second door I had missed — a different producer that also sends
+image requests with no type. I was about to fix it, and stopped, because the obvious fix would have
+made six of the eleven possible cases worse rather than better. That refusal, with its reasoning,
+is now written into the bug file so that the next person to notice the gap doesn't "fix" it into a
+regression.
+
+**What is left.** One thing, and it is not mine to do: the image service needs to roll. When it
+does, three checks close the bug, and they are written down with a control attached so that a quiet
+result cannot be mistaken for a good one — a lesson this estate keeps having to relearn, including
+by me today.
