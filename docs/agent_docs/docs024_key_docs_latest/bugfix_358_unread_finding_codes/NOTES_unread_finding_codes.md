@@ -1051,3 +1051,45 @@ handoff.** I ran the three items on its checklist a reviewer would most plausibl
 
 Not checked here and still owed to Fable: an independent read of the AST walk for edge cases I am
 too close to see, and the `--no-source` guard's completeness.
+
+### The Fable pass, second attempt: COMPLETED — five findings, all real, all fixed and proven
+
+Relaunched with a budget-aware brief (read, do not rebuild; what was already checked; ~12 tool
+calls). Its verdict, most severe first, and what each became:
+
+1. **HIGH — the scan test is a hand-run tool wearing a commit-time label.** *"`.githooks/pre-commit`
+   runs only `check-optional-key-parity.sh` … and `check-finding-code-registry.sh` (`go test
+   ./cmd/config-key-audit/`). Neither runs `go test ./platform/orchestration/actions/`."* **Correct,
+   and it is yesterday's wrong call one level up**: yesterday the scan test did not exist; today it
+   existed and *nothing ran it*. The exact commit shape that produced `LINK_CONTEXT_UNAVAILABLE`
+   would still have walked through the hook. **Fixed:** the hook keeps two relevance sets and runs
+   two packages; a staged actions file whose STAGED content carries `ErrorCode:` triggers the
+   actions package (whole package, no `-run`). Proven in a scratch tree: new code + registry
+   untouched → reported by name; actions file without `ErrorCode:` → silent. → `WRONG_CALLS.md`.
+2. **MEDIUM — `const b = a` at an `ErrorCode:` site was dropped silently.** Pass 1 recorded only
+   string-literal consts; pass 2 had no `default:`. In the missing-a-new-code direction, and not in
+   the stated-limits block. **Fixed:** alias chains resolve (bounded fixpoint); every unresolvable
+   `ErrorCode:` value is REPORTED by file:line. Proven: an alias probe with a new code now fails
+   where the old scanner passed it.
+3. **LOW — the const map was keyed by bare identifier across every scope.** `ast.Inspect` walked
+   function bodies, so a `var code = "X"` inside any function would have misattributed the three
+   real `ErrorCode: code` sites. **Fixed:** `f.Decls`, file-scope `const` only. Proven: a local-var
+   probe passes (reported unresolved) where the old scanner would have failed falsely.
+4. **LOW — `TestTheHandListHoldsOnlyWhatTheScanCannotSee`'s "control" was a `t.Log`.** Under `-run`
+   it passed vacuously against a broken scanner — the `-run`-as-roster shape my own scripts warn
+   against. **Fixed:** `scanOrFatal`, one entry point for all three tests.
+5. **LOW — the reader-check comment overstated itself** ("a constant declared to it in the same
+   file"); the check is `strings.Contains` with no resolution. **Fixed:** the comment now says
+   exactly what passes and why.
+
+Plus a nit (pipe under `pipefail` in the fleet-critical helper → here-string), taken.
+
+**What Fable verified HOLDS** (so nobody re-spends on it): vacuity thresholds vs the package's real
+size (354 files, ~36 codes); ratchet state consistent; key normalisation; the hand list's one entry
+genuinely positional; `--no-source` nil-`src` reachability; every script path returns 0; all five
+`consumed` readers carry both the code and the sink; 9/9 `human-evidence` `why` fields name the
+window.
+
+**The unresolved report, on the real package** (`-v`): exactly the four sites Fable named —
+`component_write_guard.go:501`, `log_action_error.go:252`, `v3_site_actions.go:4197`, `:4261` — all
+local variables, i.e. the stated runtime blind spot, now *visible* as such rather than silent.

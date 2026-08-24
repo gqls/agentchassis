@@ -99,15 +99,30 @@ declarations, and the in-cluster run is green. The DEGRADATION itself — writer
 context on DB timeouts — remains unfixed and unowned-in-practice; it is a candidate for a fresh
 bug file routed at the 092 lane, not for silent adoption.)*
 
-## 3a. OWED: a Fable review pass that did not complete
+## 3a. The Fable review pass — DONE (second attempt), five findings, all fixed
 
-The owner asked (2026-08-24 evening) for a second review pass over this lane's shipped code by
-Fable. The agent hit the API session limit mid-review (resets 23:50 London) and returned **no
-findings**. **Do not read anything in this lane as Fable-reviewed.** To relaunch, the brief is in
-NOTES (2026-08-24 evening, "The Fable review pass DID NOT COMPLETE"): read-only, the eight files
-listed there, findings with file:line + failure scenario, verified against the code before
-reporting. What I checked myself in its place is in the same NOTES entry — three items, all
-resolved, one of which produced a fix (the hook classifier) and one a trap (below).
+The owner asked for an independent pass by Fable. The first attempt died on an API session limit;
+the second (budget-aware brief) completed. **Five findings, all verified against the code, all
+fixed and mutation-proven the same day.** The one that matters:
+
+> **HIGH — the scan test was a hand-run tool wearing a commit-time label.** Its header claimed a
+> new `ErrorCode:` is caught at commit; `check-finding-code-registry.sh` tested only
+> `./cmd/config-key-audit/` and never named an actions file. The exact commit shape that produced
+> `LINK_CONTEXT_UNAVAILABLE` would still have walked through the hook. **Now fixed:** the hook keeps
+> two relevance sets and runs the actions package when a STAGED actions file carries `ErrorCode:`.
+> This was yesterday's wrong call one level up — *existence is not execution* — and it is in
+> `WRONG_CALLS.md` as a repeat.
+
+The other four (const aliases dropped silently → now resolved and every unresolvable site
+REPORTED; function-local vars misattributed → file-scope consts only; a vacuous `-run` control →
+one shared `scanOrFatal`; an overstated comment → corrected) and what Fable verified HOLDS are in
+NOTES under "The Fable pass, second attempt". **Nothing in this lane needs a further review pass.**
+
+**If you run the scan verbosely** (`go test ./platform/orchestration/actions/ -run
+TestEveryErrorCode -v`) you will see four `UNRESOLVED ErrorCode:` lines. Those are the stated
+runtime blind spot — local variables at `component_write_guard.go:501`, `log_action_error.go:252`,
+`v3_site_actions.go:4197`, `:4261` — made visible, not a defect. Only the daily live-table check
+sees what those sites write.
 
 ## 4. Traps this lane created or found — read before touching
 
@@ -120,6 +135,10 @@ resolved, one of which produced a fix (the hook classifier) and one a trap (belo
   the tag an overlay names — it **`sed`s every overlay to `$(IMAGE_TAG)`** and applies. Between a
   new service's birth commit and the next release, one image exists at the new tag and ~32 do not.
   Run the **whole** `make release`, never `deploy-` alone. LANDMINES entry, measured.
+- **⚠ A comment saying a test runs "at commit time" is a claim about a HOOK.** Verify it with
+  `grep -n 'go test' .githooks/pre-commit scripts/check-*.sh` — not by confirming the test file
+  exists. This lane got it wrong both ways in two days (file did not exist; then file existed and
+  nothing ran it).
 - **⚠ `UNKNOWN` is a PREFIX of `UNKNOWN_HANDLER_VERDICT`** (a `_scan_baseline` code, writer
   `complete_work_item_verification.go:394`). The checker's prefix-collision rule is pairwise and
   unconditional over every declared code, so **the day that code is declared, the daily check
