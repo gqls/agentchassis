@@ -48825,3 +48825,26 @@ or not it is canonical, so no amount of probing could have refuted either versio
 fix. Logged as a landmine (`LANDMINES.md`, "A URL probe proves FETCHABILITY, never
 CANONICALITY") because it fires on touch, with no symptom.
 
+
+## 2026-08-24 — bugs_open/352 lane: I called something a "negative control" whose validity rested on a timestamp I never looked at
+- **The claim:** verifying my fix shipped, I ran `git merge-base --is-ancestor <fix> <build commit>`
+  and paired it with what I labelled a negative control — a second commit that "was made AFTER, so
+  must NOT be an ancestor".
+- **What caught it:** the control returned **YES**, and for a moment I read that as the control
+  failing (an over-matching probe). It was not. The commit I had chosen was made at 14:08 UTC and
+  the build commit at 15:11 UTC, so it **genuinely was an ancestor**. The control was not
+  discriminating — it was simply the wrong commit.
+- **The error:** I picked the control on the assumption that a commit made later in my *session* was
+  later than the *build*, and the build had happened in between without my noticing. **The control
+  was itself an unmeasured assumption.** The dangerous branch is the one that did not happen: had it
+  returned NO — which it easily might have, for the wrong reason — I would have recorded "control
+  passed" and banked a positive result that proved nothing.
+- **Why it is worth logging even though I caught it:** the estate's rule is *always run a control in
+  the same breath*, and I did. Following the rule produced a control that could not have come out
+  otherwise, so **the rule is not self-enforcing** — a control is only a control if the thing it
+  rests on is checked, and here that was a timestamp, not the code.
+- **The cheap check:** print the timestamps of the control, the subject and the artefact **side by
+  side, before interpreting either result** — one `git log -1 --format=%cd` per sha. Redone that way
+  it took seconds and gave a real control (HEAD, 16:47 UTC, correctly NOT an ancestor). Generally:
+  **when you choose a control, state the property that makes it a control and verify THAT property**
+  — "made after" is a claim about time, so look at the clock.
