@@ -1,5 +1,7 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-22 ~13:00Z. Supersedes `HANDOFF_2026-08-21_continue_here.md`.
 
+**UPDATED 2026-08-24 12:40Z — session end state: 32 of 63 SERVE-CONFIRMED + #33 recommender-engine retired with serve-grade OWED (rerender `1ff4b0d1`, queued; grade with the controls in NOTES 12:40Z, then dispatch its orphan dry-run). Census CORRECTED: Phase C was 12 not 13 (head-architect has NO sidecar — moves to Phase B; WRONG_CALLS 08-24). Remainder: 6 Phase C + 24 Phase B. 360 CLOSED (guard live+proven). 558 APPROVED r2. Earlier update line follows.**
+
 **UPDATED 2026-08-24 10:25Z: 29 of 63 (image-optimizer PASS); 360 CLOSED (guard live+proven, probe `5fafef84`); 558 APPROVED r2; tombstone re-read now hygiene, not mandatory; Phase C remainder 11, next `tool-bayesian-rank`. Original state line follows.**
 
 **STATE: 28 of 63 rebuilt and serve-graded (DB-corrected count — the old docs' "28" was 27; today's

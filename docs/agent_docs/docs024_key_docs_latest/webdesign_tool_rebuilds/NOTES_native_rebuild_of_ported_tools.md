@@ -2877,3 +2877,23 @@ OutOfStock). Tombstone re-reads: both removed ✓. Orphan #5 dispatched (corr `9
 
 **Phase C remainder (7 as of 11:45Z): recommender-engine, performance-budget, smart-contrast,
 csp-builder, fluid-typography, vibe-equalizer(2 sidecars), micro-cms(4 sidecars).**
+
+## 2026-08-24 12:40Z — #33 recommender-engine built+retired+graded by mechanism; serve-grade OWED on its queued assemble (33rd rebuild in flight to the served page)
+
+Item `36472b6d` (11:39Z). RUN complete/adopted, component `163f033b` (14,613). Retire `UPDATE 1`
+~30 s after build (slot `dc0558e3` md5 `e66a8b28…` intact, one deployed slot = the new tool,
+post-commit re-read `removed`). **COMPONENT PASS by mechanism:** `computeSimilarity` iterates ONLY
+`ratedKeys` for the dot product AND BOTH magnitudes — a true restricted cosine (the ported version
+mixed a 2-item visitor magnitude with a 3-item database magnitude, so the number it called cosine
+was neither full nor restricted); `readField` typed valid/value with per-field inline errors (1–5);
+negative/zero similarity excluded from the prediction WITH a visible statement; innerHTML sites are
+static-string + toFixed numbers only (no user text can reach them); 0·0·0 counts, 4 listeners.
+**Controls pinned:** NEG (0): `id="r0"`, `id="simA"`, `id="mathLog"`, **`src="recommender.js"`**,
+`id="finalPrediction"` (all ≥1 in the old slot). POS: `id="c-tool-recommender-engine-error-scifi"`,
+`id="c-tool-recommender-engine-prediction-output"`, `Predicted Documentary rating`.
+**SERVE-GRADE OWED**: rerender `1ff4b0d1` queued 11:48Z, unclaimed after ~48 min (fleet FIFO busy
+with other sites; drain healthy at ~24/10 min). Tombstone protects the page meanwhile — the live
+page serves the OLD single tool until the assemble lands, which is the correct interim state.
+Orphan #6 to dispatch with the serve-grade: `/tools/recommender-engine/recommender.js`.
+**Phase C remainder after #33: 6 (performance-budget, smart-contrast, csp-builder,
+fluid-typography, vibe-equalizer, micro-cms).**
