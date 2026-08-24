@@ -156,3 +156,42 @@ infrastructure proofs) and §2/§3 (owner box steps) remain the reference — re
 5. **kubectl token EXPIRED mid-session (~16:50Z)** — fleet-wide `Unauthorized`, the known
    3-day expiry; owner refreshes. Every DB/pod check above predates the expiry; anything
    needing the cluster from here waits on the refresh.
+
+6. **Link expiry + more protection between the links host and the cluster (owner asked
+   2026-08-24 evening; answers measured at the code, `platform/delivery/handover.go` +
+   `handlers/delivery.go`):**
+   - **Expiry is ALREADY BUILT IN** — every token row carries `expires_at`, enforced
+     atomically inside `RedeemToken`'s single UPDATE (`AND expires_at > now`), alongside
+     single-use (race-safe: one statement, `used_at IS NULL` predicate), sha256-at-rest
+     (a DB leak yields no working links), 256-bit random plaintext, and a 128-char
+     length bound refused before the DB is touched. **The confirm-link TTL is UNPINNED**:
+     nothing mints confirm tokens yet (the delivery-email builder is unbuilt), so the
+     number is a free owner dial. Recommendation put to the owner: short (7–14 days) —
+     cheap because there is deliberately no resend path, and each weekly chase email can
+     mint a fresh link; pin it as a named constant beside `LiveLinkWindow` (six weeks,
+     which governs the ZIP link by the 2026-08-20 ruling) when the email builder is built.
+   - **"Disguise" is largely designed in already**: every failure (unknown/expired/
+     revoked/spent/wrong-purpose) is ONE page at HTTP 200 — no oracle, nothing for an
+     enumerator to learn, and probing tells you nothing distinguishable. Added at the
+     vhost 2026-08-24: `X-Robots-Tag: noindex,nofollow` on every response (the hostname
+     exists only inside emails), `server_tokens off`.
+   - **Vhost hardened** (committed; the owner applies the CURRENT file — re-copy if an
+     older copy was already staged on the box): the `/c/` location is now an exact
+     token-shape regex (`^/c/[A-Za-z0-9_-]{20,128}$`) so traversal/encoding/junk paths
+     die at the box and never cross WireGuard; methods beyond GET/HEAD/POST refused at
+     the box; `client_max_body_size 4k`. **Consequence pinned in the decision doc: the
+     second-click POST must be `POST /c/<token>` (same path) or the box 404s it.**
+   - **Edge layer (owner, Cloudflare dashboard, optional ~5 min):** a rate-limiting rule
+     for `links.webdesign.uk` (e.g. >30 req/min per IP → block) keeps floods off the box
+     entirely; a Configuration Rule raising Security Level for that hostname is the
+     lighter variant. Not applied — dashboard is owner-side.
+   - **Structural candidate — feed it to the owed boundary review (§1.3):** a dedicated
+     delivery-only LISTENER in core-manager (e.g. `:8090` serving only `/c/`+`/d/`),
+     with the WireGuard egress fence allowlisting 8090 instead of 8088. Then even a
+     widened nginx location could reach nothing but delivery routes — containment that
+     survives a box misconfiguration. Moderate effort, its own council round; NOT built.
+   - **Layers that already exist and count**, so the review doesn't re-invent them:
+     tunnel-only box (no inbound ports, ufw deny, loopback binds), WireGuard egress
+     fence (peers reach exactly kube-dns/core-manager:8088/auth-service:8081/
+     admin-dashboard:8080 — postgres proven blocked, with control), zero Ingress
+     objects in the cluster, the prefetch guard, and the second-click page once built.

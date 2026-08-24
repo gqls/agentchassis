@@ -48,6 +48,10 @@ while this is pending.
 
 - `internal/core-manager/handlers/delivery.go` — `HandleConfirmTransfer` splits: GET
   renders the page (NO state change on any arm), new POST handler performs the confirm.
+  **The POST route is `POST /c/<token>` — the SAME path, method as the distinction**
+  (pinned 2026-08-24): the hardened box vhost admits exactly token-shaped `/c/` paths by
+  regex, so a suffix route (`/c/<token>/confirm`) would be silently 404'd at the box.
+  Change the vhost and this line together or not at all.
   Page is handler-served transactional HTML, same class as the existing "no longer
   active" page (this is not a framework site; the every-site-through-the-framework
   ruling governs sites, not a service's own transactional page).

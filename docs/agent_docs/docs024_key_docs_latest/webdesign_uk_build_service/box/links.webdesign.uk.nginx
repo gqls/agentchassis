@@ -42,8 +42,24 @@ server {
     listen 127.0.0.1:8084;
     server_name links.webdesign.uk;
 
-    location /c/ {
+    # Hardening pass 2026-08-24 (owner asked for more between this host and the
+    # cluster). Nothing that is not token-shaped crosses the WireGuard leg:
+    #  - the regex admits exactly /c/<token> — tokens are 32 random bytes in
+    #    base64url (43 chars, charset [A-Za-z0-9_-]); the handler's own
+    #    maxTokenLen is 128, mirrored here. Traversal, encodings, overlong junk
+    #    and probe paths all die at the box as a local 404.
+    #  - the second-click POST (DECISION_2026-08-24) uses the SAME path with the
+    #    method as the distinction, so this regex keeps holding when it ships.
+    #  - methods beyond GET/HEAD/POST are refused here, not forwarded.
+    #  - noindex on everything: this hostname exists only inside emails; it
+    #    should never appear in an index or advertise itself.
+    server_tokens off;
+
+    location ~ "^/c/[A-Za-z0-9_-]{20,128}$" {
         limit_req zone=links_rl burst=3 nodelay;
+        limit_except GET POST { deny all; }
+        client_max_body_size    4k;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_pass              http://core-manager.ai-persona-system.svc.cluster.local:8088;
         proxy_http_version      1.1;
         proxy_set_header Host   $host;
@@ -58,6 +74,7 @@ server {
     # When it is built, it belongs HERE, not on the shopfront.
 
     location / {
+        add_header X-Robots-Tag "noindex, nofollow" always;
         return 404;
     }
 }
