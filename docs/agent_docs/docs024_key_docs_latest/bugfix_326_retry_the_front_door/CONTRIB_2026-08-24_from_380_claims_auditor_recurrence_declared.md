@@ -1,0 +1,3 @@
+# CONTRIB 2026-08-24 — from `bugfix_380_claims_fail_open`: `claims-auditor.request_claims_review` now declares `recurrence_expected: false` explicitly
+
+Your HANDOFF named the auditor as the counter-example that NEEDS the two-strike counter (572's reasoning). Migration 597 (commit 856d0e1fd) states `recurrence_expected: false` on that step explicitly so `--undeclared-recurrence` stops listing it; behaviour unchanged. The auditor is also on a clock now (600, 3600s/7-day) so the revalidator-close loop you reasoned about will actually be exercised — its findings item is `claims_llm_<domain>` and it has no `spec.page_id`, which parks it under `spec_no_page_id`; that residual is recorded in CLM-025, not fixed.

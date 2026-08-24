@@ -222,3 +222,16 @@ human-audited patterns are now negation-aware without their owners asking. Measu
 blast radius: **zero suppressions on any per-site pattern** across all 919 components.
 That is a fact about today's copy, not consent, and it is named as the main risk in the
 submission for exactly that reason.
+
+## 10. OWNER ANSWERS, 2026-08-24 (recorded by the `bugfix_380_claims_fail_open` lane, in-session questions)
+
+- **§8 Q2 — should register-less sites get `evidence_base` rows anyway? OWNER: NO.** "Absence is the cold
+  posture." Reasoning accepted: a shell register parses to nil (CLM-005) and reads as protection it is not;
+  it flips `rowExists` so 29 sites' stat fields report at `low`; the row appears by itself when real
+  research registers the first fact (`evidence_citations.go`). What changed instead: every consumer is
+  honest about "no facts" — the auditor runs COLD (migration 597), the planner mandates `facts: []` on every
+  section (598), the writer gets a no-register arm (599, held for a read). See CLM-025.
+- **§8 Q1 — may a never-opted-in site have a page build refused? STILL OPEN**, with an interim: the new
+  deterministic practice-claims family (CLM-026) ships at `warning` — record, never refuse — behind a
+  per-step `practice_claims_severity` lever. The owner chose `warning` explicitly over "error on
+  register-less sites only". A fleet-wide flip to refusal comes back HERE, not to a config edit.

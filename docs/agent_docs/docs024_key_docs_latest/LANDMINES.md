@@ -16761,3 +16761,13 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the check:** run `SELECT count(*) …` with the identical predicate and compare to `wc -l`; export with an `ORDER BY` so a re-run is diffable; keep stderr (`2> file.err`) and treat any bytes in it as "the file is incomplete", not as noise.
 - **source:** 2026-08-24, `bugfix_380_claims_fail_open` lane
 - **added:** 2026-08-24, `bugfix_380_claims_fail_open` lane
+
+---
+
+## ADDENDUM to "A PostgreSQL regex takes the GREEDINESS OF ITS FIRST QUANTIFIER" (same day): the mechanism was ALREADY fixed once (517/518, `bugs_open/320`), and four more live agents still carry it
+
+- **footprint:** `meta-description-backfiller.load_pages_missing_meta`, `webdesign-agent.load_decisions`, `internal-linker.load_target_page`, `visual-design-auditor.load_design_context` (live step configs, `[MEASURED 2026-08-24]`: `regexp_replace` with `.*?` and/or `string_agg(… rendered_html …)` with no `ORDER BY`); `page_visible_text_len(uuid)` (517, the per-component LENGTH); migration `518`
+- **the trap, restated:** the entry above was written as a discovery; it is a REDISCOVERY. 518 (2026-08-21) found "noted.co.uk/index = ONE character", fixed the visible-text measure per component and measured 349/693 pages losing over half their text. A LITERAL grep for the regex finds one copy; a MECHANISM grep (`string_agg(` + `regexp_replace`) finds five, and the prior fix.
+- **the check:** any SQL that strips markup from a `string_agg` of components is suspect until it strips PER ROW inside the aggregate with an `ORDER BY`; prefer ONE shared definition — 517's `page_visible_text_len` is the length; a `page_visible_text(uuid)` TEXT twin from which it derives is the follow-on nobody has built (601 is a third formulation until then).
+- **source:** 2026-08-24, `bugfix_380_claims_fail_open` lane, prompted by the council's `bug_historian` objection (corr e684fc8d) and `bugs_open/320`'s 517/518
+- **added:** 2026-08-24, `bugfix_380_claims_fail_open` lane

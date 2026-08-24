@@ -181,3 +181,68 @@ Lane record: `docs/agent_docs/docs024_key_docs_latest/loanzy_uk_example_site/NOT
 Related but distinct: `bugs_open/288` (the evidence register guards COPY, not CODE — a tool encoding a
 legislated figure is checked by nothing) is the same register failing on a different surface; this is
 the register being **absent entirely** and every consumer failing open.
+
+## 6b. FIX RECORD — `bugfix_380_claims_fail_open` lane, 2026-08-24 (owning session: `bugs_open/380`)
+
+**Taken 2026-08-24 ~15:15 BST.** Lane dir: `docs/agent_docs/docs024_key_docs_latest/bugfix_380_claims_fail_open/`
+(PLAN / NOTES / RUNBOOK / README_where_we_are / `TRIGGER_claims_audit.sh`). Owner decisions taken in-session
+(PLAN "Decisions"): **D1** no register minting or backfill — absence IS the cold posture (RFC_003 §8 Q2 = NO);
+**D2** rotation 3600s/7-day; **D3** the Go practice family at `warning`, never a refusal (RFC_003 Q1 stays
+open); **D4** the writer arm waits for the owner's plaintext read (RFC_016 §5.2).
+
+**Corrections to this file, in addition to §6a's:**
+- §5.1 as written ("file a work item / doc_notes row on the skip") was NOT the fix: the skip branch is
+  DELETED (RFC_017 — audits fail closed; a DB error now FAILS the run) and every run leaves a doc_notes
+  RECEIPT (`pipeline`/`claims-audit`) so coverage is a query. Findings still file `claims_unverified`.
+- §5.3 ("mint an empty-but-present register flips (b) and (c)") is **wrong as written**: both conditions
+  test the FACTS, not the row (`facts_text` is NULL on `[]`; `ParseEvidenceBase` returns nil, CLM-005).
+  The fix keys on facts and fails closed on their absence; no shell registers are minted (owner D1).
+- §6's "~40%, silently" was `[INFERRED]` from config. `[MEASURED 2026-08-24, pinned before 16:00Z]` the
+  LLM auditor had ONE `llm_call_log` row in its life and its work-item step had never fired: the LLM
+  layer's coverage was ~0% everywhere, and the auditor was UNDRIVEN (no seed, no schedule, no spawner).
+
+**What is LIVE (config, applied + recorded 2026-08-24):**
+- **597** — `check_opted_in` deleted; `load_evidence_facts.error_step` removed (fail closed); cold-register
+  prompt arm (practice/possession/track-record/named-relationship classes; do-not-report list for
+  could-framed, negated, quoted and industry statements); `ALLOWED ENTITIES` nil-guarded; per-page text
+  cap 12,000; `recurrence_expected:false` explicit; per-run doc_notes receipts.
+- **598** — the planner's two identical `{{else}}` arms are distinct; both mandate the OBJECT form with
+  `"facts": []` on every section (proven end to end with no Go change: `scopeItem` scopes a non-nil empty
+  list; every carrier keeps `[]` ≠ NULL; `section_facts` wired live on page-build-handler); the no-register
+  arm bans briefing a methodology page as practice; rule 17's contradictory last sentence edited.
+- **600** — `claims-audit-rotation` (590's shape; shipped-page predicate; `locked_at IS NULL`; stamp).
+- **601** — the extraction defect the proof found: a PostgreSQL ARE regex takes the greediness of its
+  FIRST quantifier, so `<style[^>]*>.*?</style>` over an unordered `string_agg` ate most of every page
+  (how-we-assess 3,732 → 8,266 chars; `index` was ONE char). Now per-component, lazy, ordered.
+- `claims_verification/SEED_claims_auditor.sql` — the agent's first seed, regenerated from the live row.
+- **599_HOLD** (writer no-register arm + `## Operating history: NONE RECORDED` block + "say what we DO"
+  qualified) — HELD with `brochure_component_library/sql/page_content_writer_prompt_v5_2026-08-24.txt`
+  generated from the LIVE template (the committed v4 text was 1,718 chars behind it).
+
+**Proof, on this site, without touching it** (corr `bcf23316`, after 601): the cold audit's first two
+findings are §1's own sentences — *"We garden ourselves, and we test what we can get our hands on."* (about,
+high) and *"Where we can, we buy the tool at the same price a reader would pay…"* (how-we-assess, high) —
+with the owner's framing in the suggestion (*"reframe as aspiration… 'we aim to test'"*). Work item
+`claims_llm_garden-tools.uk` (needs_human_review) — the FIRST that step has ever filed. Control at
+leopardessconsulting.co.uk (corr `be39ddba`): roster arm; one real drift finding ("22 sites" vs a verified
+floor of 25).
+
+**Go (built, tested against HEAD, INERT until an image rolls):** `datahelpers/claims_practice.go` — the
+practice-claims family (§5.2), five physical-verb patterns, `Check="practice_claim"`, exempted by an
+`operating_history` attestation in `evidence_base`, NOT unioned into the refusing set (mutation test pins
+it), recorded at `practice_claims_severity` (default `warning`) in `validate_page_content`; `claimscan`
+prints `PRACTICE` lines. Full-corpus dry run 2026-08-24: 12 findings / 1,867 components — 7 on this site
+(all invented), 3 true-practice on operating sites (the attestation case), 1 clear false positive
+(`idea.uk` "how we test your idea"). Also: `ParseEvidenceBase` keeps an attestation-only base non-nil and
+the numeric scan's arming moved to `HasScannableRegister()` at its three call sites (closes CGV-033's
+latent hazard; zero live instances).
+
+**Council:** config slice `Council-Submitted: e684fc8d` (verdict pending at write time); Go slice
+submitted separately. **Status: FIXED IN CONFIG AND LIVE for (b) planner and (c) auditor; (a) is answered
+by design (no register minted — absence is cold); the writer half (599) is HELD for the owner; the Go
+family is inert until the next roll.** Stays in `bugs_open/` until 599 applies and the Go half rolls.
+
+**Named follow-ons (not in this fix):** wiring `evidence-researcher` into the greenfield chain ("source
+more" — unattended research breaks agritec RUNBOOK §9's mandatory review; owner decision); the LLM item's
+missing `spec.page_id` (parks under `spec_no_page_id`); discovery-check wiring of the practice family
+(slice 2b); RFC_003 Q1 (escalation to refusal); `bugs_open/033` (the queue the findings feed).

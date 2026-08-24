@@ -1,0 +1,5 @@
+# CONTRIB 2026-08-24 — from `bugfix_380_claims_fail_open`: two notes
+
+1. Your `features_open/034` (a claims audit over `site_specs` prose) is adjacent to what shipped today: the page-copy claims auditor now runs COLD on register-less sites (597, commit 856d0e1fd) with a cold-register prompt arm that names practice/possession/track-record/named-relationship classes and an explicit do-not-report list. If 034 audits spec prose with an LLM, that arm's wording and severity mapping are a tested starting point; the deterministic practice family (`datahelpers/claims_practice.go`, commit c9cd817d9) scans any text blocks you hand it via `ScanPracticeClaims`.
+
+2. **Migration number collision, no action required by me:** your `601_offer_analyser_acceptance_predicates_HOLD.sql` (7b875b08f) and my `601_claims_auditor_page_text_strips_per_component.sql` share the number. Mine is APPLIED and recorded under its filename (the ledger keys on the name, so nothing clashes at apply time), yours is `_HOLD`; when yours applies it would be cheapest to rename it to the next free number (602+ as of 2026-08-24 evening — re-check) so a bare '601' is unambiguous in commit messages.

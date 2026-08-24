@@ -49746,3 +49746,41 @@ is what makes it worse than an unmarked figure. **An unmarked claim advertises i
 mis-dated one advertises strength it does not have.** Cost here was small — one number in five
 documents, caught by arithmetic that happened not to add up. It would not have been caught at all
 had the intervening audit filed nothing.
+
+## 2026-08-24 — `bugfix_380_claims_fail_open` lane: I generated the text the owner was going to APPROVE from the migration file instead of from the live row, and it was 1,718 characters behind
+
+**The claim.** "Here is the v5 writer-prompt plaintext for your read" — produced by decoding migration 330's base64 and applying my three replacements to it. Every anchor counted ×1, every balance check passed, the file wrote cleanly.
+
+**What was true.** The live `page-content-writer` template is 12,118 chars; 330's stored text is 13,836. Two later migrations had inserted a no-invented-commitments clause and a rule 19, and the House Voice tail had been removed — none of which updated the committed plaintext. My migration (599) would have APPLIED correctly (its anchors are counted on live at apply time), while the owner approved a text that is not what runs — RFC_016 §5.2's whole purpose defeated by the artefact that was supposed to serve it. PBP-035's warning, one level up.
+
+**What caught it.** A length comparison I ran for a different reason (the anchor-count query printed the live template length). The plaintext was regenerated from a live base64 dump before anyone read it.
+
+**The cheap check.** `length(live prompt_template)` vs `len(decoded file)` — one query, and if they differ the read-copy comes from the live dump. Filed as a LANDMINE (same date).
+
+## 2026-08-24 — `bugfix_380_claims_fail_open` lane: my own verification erased the evidence for the bug, and the migration header would have contradicted the next reader who re-ran its own queries
+
+**The claim (in migration 597's header).** "ONE llm_call_log row ever; `claims_llm%` work items = 0 rows." True when written.
+
+**What happened.** Proving the fix (a hand dispatch at garden-tools.uk) populated exactly the two tables the diagnosis cited as empty: 3 rows and 2 rows within the hour. The `loanzy_uk_example_site` lane re-ran the header's queries to confirm my finding and got numbers that refute it — and had the sense to ask which was wrong rather than assume. **The risk was to the diagnosis's credibility, not the fix**: a future reader confirming "this never ran" gets 3 and 2 and may conclude the finding was wrong when it was exactly right.
+
+**The cheap check, and it is one clause.** A count that a fix will change is written with its predicate pinned to before the fix: `AND created_at < '2026-08-24 16:00+00'`. A DATED figure still invites the re-run that contradicts it; a PINNED predicate keeps returning the pre-fix state. Same family as "filing your finding bumps `updated_at` and sorts it to the back": the act of proving a thing moves the thing.
+
+## 2026-08-24 — `bugfix_380_claims_fail_open` lane: a fleet dry run over a TRUNCATED export nearly went into a Go file header as the calibration figure
+
+**The claim.** "6 practice-claim findings across 1,453 components" — the first fleet claimscan run, about to be recorded as the family's false-positive census (the CGV-033 recipe).
+
+**What was true.** The DB predicate returns 1,867 rows; the kubectl exec stream had dropped 414 of them with an `unexpected EOF` on stderr that the pipeline swallowed. The missing rows included the motivating site's pages, so the number was wrong in the direction that flatters the detector (fewer findings, and none of the sentences the family exists to catch).
+
+**What caught it.** The absence of the garden-tools sentences in the findings — the unit tests catch them, so the corpus had to be short. `wc -l` against `SELECT count(*)` with the same predicate confirmed it; the ordered re-export gave 12 findings on 1,867.
+
+**The cheap check.** Count the exported rows against the DB before trusting anything computed over the file, keep stderr, and treat bytes in it as "incomplete". LANDMINE filed.
+
+## 2026-08-24 — `bugfix_380_claims_fail_open` lane: I "discovered" a mechanism that migration 518 had documented three days earlier, because my census grepped the literal regex instead of the mechanism
+
+**The claim.** "Found by the first live cold audit — a PostgreSQL ARE regex takes the greediness of its first quantifier … fleet census: this SQL shape exists on exactly ONE live agent." (601's header, my LANDMINES entry, the council submission.)
+
+**What was true.** `518_strip_per_component_not_after_concatenation.sql` (2026-08-21, `bugs_open/320` lane) had found the identical defect — *"noted.co.uk/index measured as ONE character of content"* — named the same cause (a `<style>` strip running across component join boundaries), fixed the visible-text measure per component, and measured 349 of 693 pages losing more than half their text. I read none of it: my "is this known?" check was a grep for the literal `<style[^>]*>.*?</style>`, which matched one agent config, and I took one hit as "only here". The council's `bug_historian` seat objected on exactly that: *"a narrower literal-string census under-covers the mechanism."* Re-censused for the MECHANISM (`string_agg(` over `rendered_html` and `regexp_replace` with `.*?` in a Postgres query): four more live agents carry it.
+
+**What it cost.** A duplicate diagnosis written up as a discovery; a LANDMINES entry that had to be amended to credit the prior art; and, had I read 518 first, 601 could have reused a shared text definition instead of adding a third formulation.
+
+**The cheap check.** Before writing "found by …" about a mechanism, grep the migrations directory for the MECHANISM's nouns (`string_agg`, `regexp_replace`, `per component`) — not the regex — and `git log --since=<a week ago> -- docs/agent_docs/sql_for_agents/ | grep -i strip`. A literal grep finds copies; a mechanism grep finds the person who already fixed it.
