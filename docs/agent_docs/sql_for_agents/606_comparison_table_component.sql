@@ -32,6 +32,40 @@
 -- not an enforcement mechanism (owner ruling), and the real control for figures on
 -- a site with no evidence base is bugs_open/380's work, not this component's schema.
 --
+-- ⚠ COUNCIL `c134b0e9` (APPROVED, 1 advisory) — the COMPLIANCE seat objected here, at
+-- MEDIUM, and it was right to. Its point: nothing structurally stops a writer typing an
+-- invented price into a free-text cell, enforcement is deferred to a prompt rule this
+-- file itself concedes is not a control, and the plan never checked whether the site it
+-- ships to is ARMED. It cited "banned_claims covered 5 of 15 sites as of 2026-07-26" and
+-- asked for either a dispatch-time check or an explicit statement that this is left to a
+-- future gate.
+--
+-- ITS FIGURE RE-MEASURED HERE rather than quoted `[MEASURED 2026-08-24]`, and the shape is
+-- worse than the seat's number suggested. ⚠ `banned_claims` is NOT a site_specs aspect —
+-- it is a KEY INSIDE the `evidence_base` spec (`check_unverified_claims.go:297`,
+-- `datahelpers/claims.go:25`). A first query for an aspect named for it returned 0 sites,
+-- which is a FALSE ABSENCE from looking in the wrong place, not a coverage figure. The
+-- real numbers: **48 sites; 19 carry an `evidence_base` spec; 15 of those 19 have a
+-- non-empty `banned_claims[]` and 15 a non-empty `facts[]`; 29 of 48 have NEITHER.** So a
+-- site with no evidence base has no banned-claims scanning either — the two are the same
+-- opt-in, and the exposed population is 29 of 48, not a minority.
+--
+-- WHAT IS DONE, AND IT IS THE SECOND OPTION THE SEAT OFFERED, STATED PLAINLY: this is left
+-- to a future gate, deliberately, and here is why the first option was rejected. The
+-- machinery to gate it EXISTS — migration 591 added a `requires-evidence-base` semantic
+-- tag that 591/593 honour, excluding a tagged component from a planner's menu on a site
+-- with no evidence spec (proven to discriminate both ways). Tagging THIS component would
+-- work mechanically. It is not done because it would withhold the comparison table from
+-- exactly the 29 sites whose pages most need one — garden-tools.uk, the buying-guide
+-- comparison hub that motivated this whole bug, is one of them — and a component
+-- unreachable by the sites that need it fixes nothing. That is a judgement, it is the
+-- owner's to overturn, and it is one line to reverse: add 'requires-evidence-base' to this
+-- row's semantic_tags and the gate applies from the next planner run.
+--
+-- THE HONEST SUMMARY: this component makes a PRE-EXISTING estate-wide exposure easier to
+-- reach. It does not create it, it does not widen the class of sites affected, and it does
+-- not fix it. The fix is `bugs_open/380`'s work.
+--
 -- NAMED CELLS, NOT A POSITIONAL GRID — and this is a reliability decision, not a
 -- style one. The obvious schema is `columns: [...]` plus `rows: [{cells: [...]}]`,
 -- i.e. a 2D array. An LLM that emits four columns and one row of three cells
@@ -54,6 +88,23 @@
 -- comprehension; `{{.InstanceID}}` from birth (RFC_032).
 --
 -- ⚠ content_shape is set and is currently READ BY NOTHING — see 604's header.
+--
+-- ⚠ COUNCIL `c134b0e9`, debug_historian seat (MEDIUM): the render harness was described as
+-- "the same engine as executeGoTemplate" and that was CLAIMED, not verified. Checked, and
+-- the seat was right — the harness was NOT identical: `executeGoTemplate`
+-- (`call_agent.go:1170`) also installs a FuncMap (`default`, `eq`, `ne`, `lower`, `upper`,
+-- `isset`, `safe`). The harness now carries that FuncMap verbatim and all 11 cases were
+-- re-run against it: 11 pass, 0 fail. The outcome did not change — these templates use no
+-- custom function — but "it would not have changed the outcome" is an argument, and
+-- re-running it is a measurement. Note `safe` exists precisely to return "" instead of
+-- "<no value>", which is further confirmation that the estate already knew about the
+-- artefact this lane briefly mistook for a defect (see the correction above).
+--
+-- ⚠ ALSO FROM THAT SEAT (low), and CHECKED: the schema absence-assertions are regex over
+-- jsonb-as-text, which the lore warns about. Verified — they use NO `\b` (which in
+-- PostgreSQL is BACKSPACE, this lane's own landmine), and each alternative is anchored on
+-- the opening quote of a key and is a PREFIX match, so `"rank` catches `"rankings_note"`.
+-- The regex is a QA sentry; the real control is that the schema declares no such field.
 --
 -- ROLLBACK: 606_comparison_table_component_ROLLBACK.sql
 

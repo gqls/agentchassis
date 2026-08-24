@@ -60,6 +60,23 @@
 -- to "what can this express" is `component_expresses(html_template, input_schema)`
 -- (migration 591, register PLAN-053). See LANDMINES.md.
 --
+-- ⚠ COUNCIL `c134b0e9`, debug_historian seat (MEDIUM): the render harness was described as
+-- "the same engine as executeGoTemplate" and that was CLAIMED, not verified. Checked, and
+-- the seat was right — the harness was NOT identical: `executeGoTemplate`
+-- (`call_agent.go:1170`) also installs a FuncMap (`default`, `eq`, `ne`, `lower`, `upper`,
+-- `isset`, `safe`). The harness now carries that FuncMap verbatim and all 11 cases were
+-- re-run against it: 11 pass, 0 fail. The outcome did not change — these templates use no
+-- custom function — but "it would not have changed the outcome" is an argument, and
+-- re-running it is a measurement. Note `safe` exists precisely to return "" instead of
+-- "<no value>", which is further confirmation that the estate already knew about the
+-- artefact this lane briefly mistook for a defect (see the correction above).
+--
+-- ⚠ ALSO FROM THAT SEAT (low), and CHECKED: the schema absence-assertions are regex over
+-- jsonb-as-text, which the lore warns about. Verified — they use NO `\b` (which in
+-- PostgreSQL is BACKSPACE, this lane's own landmine), and each alternative is anchored on
+-- the opening quote of a key and is a PREFIX match, so `"rank` catches `"rankings_note"`.
+-- The regex is a QA sentry; the real control is that the schema declares no such field.
+--
 -- ROLLBACK: 604_checklist_component_ROLLBACK.sql
 
 BEGIN;
