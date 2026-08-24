@@ -163,10 +163,17 @@ which of two steps is missing depending on the arm.
 **Owner: the `bugs_open/381` session** (this file's filing lane marked it UNOWNED and keeps the
 account of the site; the fix lane is
 `docs/agent_docs/docs024_key_docs_latest/bugfix_381_inexpressive_composition/`).
-**Status: five config-only migrations committed and APPROVED (council `ca400ba6`, round 1, three
-advisory objections, none high). NOT APPLIED.** They are live the moment they are applied and need
-no chassis roll — but a committed migration is not an applied one, so nothing below is in
-production yet.
+**Status: LIVE. All five migrations applied and recorded 2026-08-24 16:53–16:58Z** (council
+`ca400ba6`, round 1, APPROVED, three advisory objections, none high — all acted on). Config-only,
+so no chassis roll was needed. Verified at the artefact, not at the exit code: every menu query
+executes bound as the chassis binds it; the evidence-base gate discriminates in BOTH directions
+(excludes exactly 2 rows on an evidence-less site, 0 on an evidence-bearing one); all four target
+fields read back the LITERAL `html`; 304's markdown ban survived the rule-9 replace; and
+`generic-text-block` moved from `[prose only]` to `{html-block,list,table}` in the planner's own
+listing. Arm B was briefly held as `_HOLD.sql` pending another lane's Go fix and released the same
+afternoon once `714789d7b` was proven an ancestor of the running chassis `70fd163c2`.
+**What is NOT yet evidenced: no page has been BUILT under the new instructions** — the mechanism is
+verified, the outcome is not. See §8f.
 
 ### 8a. Still valid, and it is not site-specific `[MEASURED 2026-08-24, live DB]`
 
