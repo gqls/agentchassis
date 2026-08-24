@@ -65,9 +65,30 @@ FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.s
 WHERE pc.component_id IS NULL AND p.status='active' ORDER BY pc.created_at DESC;
 ```
 
-**Only the loancalculator row was checked at the artefact.** Whether the other ten
-duplicate a *locked* row, or are a different shape sharing one column value, is unmeasured
-— treat the 11 as a candidate population, not as ten more instances of this bug.
+> **NARROWED the same day, and this is the more useful number.** I first wrote that the
+> other ten were an unmeasured candidate population. They are not: characterised
+> `[MEASURED 2026-08-24]`, **none of the ten is a byte-twin of any other row on its page,
+> and none has a locked sibling in the same slot** — so `component_id IS NULL` is a column
+> value several unrelated shapes share, and **this duplication is a population of ONE
+> observed instance.** The discriminating query, which is the one to re-run rather than the
+> bare `IS NULL` count above:
+>
+> ```sql
+> WITH orphans AS (
+>   SELECT pc.id, pc.page_id, pc.slot_name, md5(pc.rendered_html) AS h, s.domain, p.url
+>   FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+>   WHERE pc.component_id IS NULL AND p.status='active')
+> SELECT o.domain, o.url, o.slot_name,
+>        (SELECT count(*) FROM page_components t WHERE t.page_id=o.page_id AND t.id<>o.id
+>           AND md5(t.rendered_html)=o.h) AS byte_twins_on_page,
+>        (SELECT count(*) FROM page_components t WHERE t.page_id=o.page_id AND t.id<>o.id
+>           AND t.slot_name=o.slot_name AND t.locked_at IS NOT NULL) AS locked_same_slot
+> FROM orphans o ORDER BY 4 DESC;
+> ```
+>
+> **A non-zero `byte_twins_on_page` is this bug. A bare `component_id IS NULL` count is not**
+> — it over-reports by 10 out of 11, which is the difference between "a fleet-wide class" and
+> "one page", and I had written the first before running the second.
 
 ## 5. Mechanism — one hypothesis REFUTED, one UNVERIFIED
 
