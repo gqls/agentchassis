@@ -47463,3 +47463,81 @@ three days, all one shape — *a check run somewhere it could not fail*:
 (the mutant that never applied) was caught by a gate I had added *after* number four. The gate
 generalises and is the one durable output of this list: **before believing a check, name the result
 that would have come out differently — and if you cannot, the check has not run yet.**
+
+## 2026-08-24 — `staged_component_build` / `bugs_open/353` (second entry today) — I read the retention landmine, then queried the table, and still wrote the FALSE FLOOR into a council submission
+
+`bugs_open/353` has said since filing that `tool-deployer` "has 0 orchestrations in all retained
+history", hedged as *"a RETENTION-BOUNDED statement, not an all-time one"* — which is the right
+hedge, attached to the wrong number. My round-3 submission then quoted the bound as **"retention
+reaches 2026-07-19"**.
+
+**It reaches 24 hours.** Measured today: oldest `COMPLETED` row **24.5 h**, oldest `FAILED`
+**23.5 h**, no non-reaped status present to lift the floor at all. The 07-13/07-19-shaped floor is
+the documented artefact of `CANCELLED`/`RUNNING`/`INITIALIZED` rows nobody reaps.
+
+**Re-sourced from a table with no reaper, which took one query:** `agent_error_log` holds **10**
+`tool-deployer` rows spanning **2026-08-03 → 2026-08-15**, every one *"workflow completed but its
+result could not be delivered to the parent"*. **The path had run at least ten times.** The claim
+was not merely unevidenced, it was false.
+
+**What caught it:** the round-3 council's `prior_art_librarian` seat — on an **ADVISORY** objection,
+in a round that returned **APPROVED**. Nothing else would have. The seat could not query the table
+itself and objected on the SHAPE of the claim, which is the part worth copying.
+
+**The cheap check** is the landmine's own, and it is one query: bound retention **per status**
+(`GROUP BY status` with `min(created_at)`), never with a whole-table `min()`, and re-source any
+durable "never happened" claim from a table with no retention job.
+
+**⚠ The uncomfortable part, and the reason this is worth a second entry today: THE GUARD WAS READ
+AND STILL DID NOT FIRE.** I had `LANDMINES.md` open in this very session and grepped it — for a
+different footprint. The entry's own text predicts exactly this: its footprint is a TABLE, the
+`SessionStart` hook matches only files already dirty in the tree, and `kubectl exec … psql` touches
+no file at all. It names two lanes it failed to reach on 08-23 for the same reason; **this is the
+third**. So the mechanism is now 3-for-3 at failing to deliver, and that is a fact about the
+delivery system, not about three careless sessions — recorded on the entry itself and relevant to
+`PROPOSAL_D9`.
+
+**The transferable rule:** *before* writing any `count(*)`, `min()`, or the word "never" over a
+table, grep the landmines for **the table name** — the hook cannot do it for you, and reading the
+file for something else does not count as having read it for this.
+
+## 2026-08-24 — `bugfix_206_directory_build_handler` (ninth entry) — THIRD instance in one session of the same mechanism: the disconfirming line was in my own tool output and I wrote the claim anyway
+
+A scripted two-file register edit printed:
+
+```
+register corrected
+Traceback (most recent call last):
+  File "<stdin>", line 8, in <module>
+AssertionError
+```
+
+The first file succeeded, the second raised. I committed with a message asserting *"Entry and
+index row both corrected"* — false when written, and the traceback saying so was four lines above
+in the same result. Forward-only, so the wrong message stands (`be223c1c4`); the correction is in
+the following commit.
+
+**Why this is filed as a repeat rather than a new lesson.** The same mechanism produced three of
+this session's entries:
+
+1. the fleet census that returned a false **zero** — the empty `spec->>'page_type'` was already
+   printed in my own earlier query output;
+2. the `090` run I waited on — the `body omitted … budget already spent` line was in the bundle;
+3. this one — the `AssertionError` was in the command's own stdout.
+
+Each time the output contained the refutation, and each time I read the part of it that matched
+what I expected to see. This is not three unrelated slips; it is one habit — **treating a tool
+result as confirmation of the thing I ran it for, rather than as evidence about it** — and it is
+the most-automatable failure in this file, because in all three cases a machine reading the same
+bytes would have caught it.
+
+**The cheap checks, in ascending order of how much they would have saved:**
+
+1. **Make failure loud rather than inferable.** A python heredoc that ends in an `assert` should
+   end in `sys.exit(1)` too, so the shell's own `&&` chain refuses to run the commit.
+2. **After any scripted multi-file edit, verify what actually changed before describing it** —
+   `git diff --numstat <files>` prints one line per file that moved, and a missing line is the
+   whole finding. This is the same "gate on the COUNT, which no content can fool" check the
+   markdown-bullet landmine already prescribes for a neighbouring case.
+3. **Read tool output for what it refutes, not for what it confirms** — and specifically read the
+   lines you did not expect, which is where all three of today's refutations were sitting.
