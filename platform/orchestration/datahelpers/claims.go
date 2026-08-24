@@ -776,12 +776,52 @@ type ClaimSurface struct {
 //     model numbers inside product names ("Schunk EGP 40-N-S-B — manufacturer
 //     specification") tripping on `verified` in the context window. Excluding it
 //     here would fix those by coincidence, not by mechanism.
+//
+// THE TRACKER/DIRECTORY THREE, added 2026-08-22..24 (bugs_open/364) — and this
+// addition KNOWINGLY FAILS the second half of the bar above. Read this before
+// citing it as precedent.
+//
+// What earns them (measured 2026-08-24, cmd/claimscan over live rendered_html,
+// each site against its own current register, export asserted row-for-row
+// against the DB — 115/115 on ai-agent-orchestration.com):
+//   - adoption-tracker (17 false positives), protocol-tracker (3),
+//     model-directory (part of the same 20) — 20 findings, precision ZERO.
+//     Every one is a THIRD PARTY's figure in an aggregated listing:
+//     "rollout_scope 65% of Fortune 500 executives…", "200,000 onboarded users"
+//     (someone else's), "JSON-RPC 2.0" (a version string), and the `2` inside
+//     the acronym A2A. The listing rows carry their own per-row `source` field;
+//     the ±70-byte claimWindow cannot see it, and businessClaimContextRe fires
+//     on `agents?` because the site is ABOUT agents.
+//
+// WHAT THIS GIVES UP, stated rather than discovered later: unlike the five
+// members above, these pages are NOT "never marketing". Each carries a `hero`
+// AND a `call-to-action`, and protocol-tracker's CTA reads "We run over 1,600
+// orchestrations a day across 13 live production systems" — a first-person
+// quantified claim, i.e. exactly what this scan exists to catch. Gating by PAGE
+// type blinds those slots too. Measured loss on 2026-08-24 is ~0 only because
+// the register's `4068 gte / "orchestration"` fact already vouches for both
+// figures — that is the ACCIDENTAL support bugs_open/364 §2 warns about, not a
+// guarantee. Tighten the register and the blind spot becomes real.
+// TestTrackerPagesGiveUpTheirFirstPersonCTA pins that cost so it stays visible.
+//
+// The right grain is the COMPONENT, not the page: hero and call-to-action stay
+// scanned while the listing does not. That is Phase 2 (RFC), and it is the same
+// mechanism the 'report' note above asks for when it says excluding a page type
+// "would fix those by coincidence, not by mechanism". This entry is the interim.
+//
+// NOT added, on the same bar that keeps blog-index out: 'entity-directory' (4
+// pages) and 'entity-page' (21 pages) raised ZERO measured findings, so there is
+// no evidence either way and analogy is not a measurement.
 var editorialPageTypes = map[string]bool{
 	"guide":      true,
 	"blog-post":  true,
 	"news-index": true,
 	"tool":       true,
 	"game":       true,
+	// Aggregated third-party listings — interim, see the note above.
+	"adoption-tracker": true,
+	"protocol-tracker": true,
+	"model-directory":  true,
 }
 
 // ProseNumbersAreClaims reports whether the heuristic number scan applies to

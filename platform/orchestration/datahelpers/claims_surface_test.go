@@ -17,9 +17,16 @@
 //  3. a BANNED claim is still raised on an editorial page — the case that
 //     motivated the whole check was "70+ agents across eight functional
 //     departments" found on a guide;
-//  4. the three types that LOOK editorial and are deliberately not (blog-index,
-//     section-index, report) stay scanned, each with its reason attached, so
-//     adding one back is a deliberate act rather than a tidy-up.
+//  4. the types that LOOK editorial and are deliberately not (blog-index,
+//     section-index, report, and since bugs_open/364 entity-directory and
+//     entity-page) stay scanned, each with its reason attached, so adding one
+//     back is a deliberate act rather than a tidy-up.
+//
+// Extended 2026-08-24 (bugs_open/364) with the tracker/directory three, measured
+// the same way: 20 findings at ZERO precision, every one a third party's figure
+// in an aggregated listing. That addition knowingly fails the second half of the
+// membership bar — see editorialPageTypes' comment and
+// TestTrackerPagesGiveUpTheirFirstPersonClaims, which pins what it costs.
 
 package datahelpers
 
@@ -71,6 +78,22 @@ var editorialFalsePositives = []struct {
 			"you have an inflation problem."},
 	{"news-index", "robot-hands.com",
 		"[Insights] Market report projects cobot tending cells to hold 38% share, driven by demand from small manufacturing customers."},
+
+	// The tracker/directory three (bugs_open/364), measured 2026-08-24 on
+	// ai-agent-orchestration.com. Every one is a THIRD PARTY's figure sitting in
+	// an aggregated listing, tripping businessClaimContextRe on `agents?`
+	// because the site is about agents. Note the last two are not statistics at
+	// all — a version string and a digit inside an acronym.
+	{"adoption-tracker", "ai-agent-orchestration.com",
+		"rollout_scope Over 80% of Fortune 500 deploying active agents built with Copilot Studio or Agent Framework source"},
+	{"adoption-tracker", "ai-agent-orchestration.com",
+		"roi_claimed only 95 of 1,837 respondents reported AI agents live in production respondents source"},
+	{"protocol-tracker", "ai-agent-orchestration.com",
+		"agent_framework JSON-RPC 2.0 client-server with Tools, Resources, Prompts, and Sampling"},
+	{"protocol-tracker", "ai-agent-orchestration.com",
+		"Agent-to-Agent Protocol (A2A) Linux Foundation"},
+	{"model-directory", "ai-agent-orchestration.com",
+		"protocol_adopted Salesforce Headless 360 platform routes customer and agent interactions via MCP source"},
 }
 
 // The types that look editorial and are NOT, each for its own reason — pinned so
@@ -84,6 +107,8 @@ var notEditorialPageTypes = []struct {
 	{"blog-index", "never measured: 3 pages fleet-wide, zero findings even against an empty register"},
 	{"section-index", "2 of its 20 pages are about-index / contact-index — marketing bodies under an index name"},
 	{"report", "its false positives are model numbers in product names, a different mechanism"},
+	{"entity-directory", "bugs_open/364: 4 pages fleet-wide, ZERO measured findings — analogy to the trackers is not a measurement"},
+	{"entity-page", "bugs_open/364: 21 pages fleet-wide, ZERO measured findings — same bar that keeps blog-index out"},
 }
 
 func TestTypesDeliberatelyNotEditorialStayScanned(t *testing.T) {
@@ -206,5 +231,56 @@ func TestStatScanIsNotSurfaceGated(t *testing.T) {
 	if len(findings) == 0 {
 		t.Error("a stat card's figure must be audited whatever page it sits on — " +
 			"if this now depends on page type, bugs_open/102's boundary has been widened wrongly")
+	}
+}
+
+// TestTrackerPagesGiveUpTheirFirstPersonClaims pins the COST of the
+// bugs_open/364 interim, so it stays visible instead of being discovered later.
+//
+// Unlike the five original editorial types, the tracker/directory three are NOT
+// "never marketing": each page carries a hero and a call-to-action in the site's
+// own voice. Gating by PAGE type therefore blinds those slots too. This test
+// asserts the blindness DELIBERATELY — it is what Phase 2 (component-grain
+// ClaimSurface) exists to undo, and when Phase 2 lands this test must be
+// INVERTED, not deleted.
+//
+// The probe is this file's own standard business-surface claim, reused so the
+// two directions are graded with one instrument.
+//
+// ⚠ It scans against an EMPTY &EvidenceBase{} on purpose, for the reason
+// bugs_open/364 §4 records: surfaceTestEB carries a `gte` fact, and a gte fact
+// vouches for any smaller value whose window holds a context term — so against
+// that register the assertion could pass with the page types reverted, i.e.
+// assert nothing. With an empty register nothing is supported and the control
+// arm can actually fail.
+//
+// ⚠ AND A SECOND TRAP, MEASURED 2026-08-24, which is why the probe is NOT the
+// real CTA copy: every first-person numeric claim actually on these three pages
+// says "orchestrationS" — "We run over 1,600 orchestrations a day across 13 live
+// production systems" — and businessClaimContextRe carries `orchestration`
+// SINGULAR with no `s?`. Those sentences are therefore invisible to the scan
+// whatever the page type does, so using one here would have produced a test that
+// passed for a reason unrelated to what it claims to check. That plural blindness
+// is a separate defect of the lexical gate, recorded in bugs_open/364.
+func TestTrackerPagesGiveUpTheirFirstPersonClaims(t *testing.T) {
+	// The same first-person claim TestTypesDeliberatelyNotEditorialStayScanned
+	// uses to prove a surface is still scanned.
+	const claim = "We hold 45,000 client records across the estate."
+
+	empty := &EvidenceBase{}
+
+	// The control FIRST: on a business surface this IS a finding. If this arm
+	// ever goes quiet, the assertion below proves nothing.
+	if f := empty.ScanUnregisteredNumbers([]string{claim}, ClaimSurface{PageType: "content"}); len(f) == 0 {
+		t.Fatal("control failed: a first-person quantified claim must be scanned on a content page — " +
+			"without this the assertion below is vacuous")
+	}
+
+	// The cost, asserted: the same sentence on a tracker page is now unscanned.
+	for _, pt := range []string{"adoption-tracker", "protocol-tracker", "model-directory"} {
+		if f := empty.ScanUnregisteredNumbers([]string{claim}, ClaimSurface{PageType: pt}); len(f) != 0 {
+			t.Errorf("page_type %q: expected the interim to give this up, got %+v — "+
+				"if Phase 2 (component-grain surface) has landed, INVERT this test rather than deleting it", pt, f)
+		}
 	}
 }
