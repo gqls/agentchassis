@@ -6142,6 +6142,37 @@ review item — and print them together so staleness is visible rather than infe
 reality. This is about the disagreement being **bidirectional and simultaneous**, which defeats the
 usual mitigation of "distrust the optimistic direction".
 
+### A validator pattern with a 100% false-positive record blocks builds for weeks, because a blocked build parks where nobody looks (2026-08-24, `bugs_open/377`)
+
+**Symptom.** A page build fails `validate_content` with `content validation failed: N
+blockers`; the work item parks at `needs_human_review` (no surface, `bugs_open/033`), and the
+next build of any page whose copy contains the same phrase fails the same way. Nothing retries,
+nothing escalates, and the copy looks like the culprit.
+
+**Diagnose.** The generic error hides the detail on purpose — read the sibling row:
+`SELECT jsonb_pretty(context->'issues') FROM agent_error_log WHERE
+error_code='CONTENT_VALIDATION_BLOCKER_DETAIL' AND site_id=... ORDER BY occurred_at DESC`.
+Then, before believing ANY single conviction, census the PATTERN's whole history: the same
+query filtered `context->'issues' @> '[{"value":"<pattern>"}]'` fleet-wide, and READ the
+locations. A pattern can have a 100% false-positive record and still be blocking builds every
+week. ⚠ A census location is evidence about ITS row's build, dated by `occurred_at` — do not
+attribute another row's sentence to the build in front of you (WRONG_CALLS 2026-08-24).
+
+**Root cause.** `placeholderPatterns` in `validate_page_content.go` is a static substring
+list, every hit `severity=blocker`. Entries that describe template residue in words a customer
+also uses ("your company") convict the estate's own product: 46/46 recorded firings of that
+entry were ordinary second-person B2B prose, 41 of them serial re-blocks of one site whose
+ratified proposition contains the phrase (three weeks). The list's own comment records the
+class (bare "placeholder" was removed for it); `bugs_open/218` is the sibling defect (code
+scanned as prose) — this one convicts genuine prose, so scope fixes cannot help.
+
+**Fix.** Narrow the entry to the unambiguous residue form and pin BOTH directions with tests
+(the legitimate-prose case must fail if the bare pattern is re-added). Before touching any
+OTHER prose-plausible entry ("coming soon", "not provided", "tbd"), run the same census — the
+377 fix deliberately left them unmeasured. And when a needs_human_review carries
+`placeholder_text`, check the pattern's history before rewriting the copy.
+
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
