@@ -2291,7 +2291,13 @@ function BuildsView({ token, siteId, siteDomain, onBack }) {
     const handleWorkflowAction = async (action) => {
         if (!selectedWorkflow) return;
         const verb = action === "terminate" ? "Terminate" : "Resume";
-        if (!confirm(`${verb} workflow ${selectedWorkflow.correlation_id}?`)) return;
+        // Termination is a state-row label, not an interrupt: it marks the row
+        // FAILED but does not stop a step already executing in a chassis pod
+        // (council 45b3c93f, guardian seat). Say so before the click.
+        const caveat = action === "terminate"
+            ? "\n\nThis marks the workflow FAILED in its state row. It does NOT interrupt a step already executing — a running process finishes or fails on its own."
+            : "";
+        if (!confirm(`${verb} workflow ${selectedWorkflow.correlation_id}?${caveat}`)) return;
         setActionLoading(true);
         try {
             await apiFetch(`/workflows/${selectedWorkflow.correlation_id}/resume`, token, {
