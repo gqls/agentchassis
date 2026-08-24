@@ -4,10 +4,16 @@
 `bugs_closed/225`). **Supersedes `HANDOFF_2026-08-16_continue_here.md`**, which is
 accurate for everything up to 2026-08-17 and silent on everything since.
 
-**State: four phases built and committed 2026-08-24. ALL GO, therefore ALL INERT until
-the next chassis roll.** Phase 1 council-**APPROVED at round 1** (`67643b47`, both real
-advisories acted on, not banked). Phases 3a/4 are at `041b3026`, **round 1 REVISE
-answered, round 2 in flight** — read the verdict before doing anything else.
+**State (updated 2026-08-24 ~19:00Z, post-roll): four phases built, committed, council-approved,
+LIVE, and stage 2b PROVEN BOTH WAYS on a real citation fact.** Phase 1 **APPROVED round 1**
+(`67643b47`); Phases 3a/4 **APPROVED round 2** (`041b3026`, round 1 REVISE was gated at HIGH and
+was right). Proof at the binary and both induced dry runs are in `bugs_open/288` §5b.
+
+⚠ **BUT THE MECHANISM HAS NEVER RUN FOR REAL.** The last non-dry sweep was **09:05 on 08-24,
+before the roll**; everything proven so far is a dry run, which writes nothing. **The next real
+pass is 09:05 on 2026-08-25 and it is the first thing to read.** Until then, zero rows from the
+probe, the suggester and both doc_note surfaces means *"it has not run"*, never *"nothing to
+find"*.
 
 ## Read this first: three claims in the OLD handoff and bug file were false
 
@@ -42,6 +48,34 @@ answered, round 2 in flight** — read the verdict before doing anything else.
 3. **The distinctiveness floor (1000) is MEASURED, not chosen.** 32.75% / 3.79% / 0.06% /
    0.03% / 0.00% false positives at 1–5+ digits over 161 real tool pages with invented
    probes. Do not lower it by argument; re-derive it (RUNBOOK).
+
+## THE FIRST THING TO DO (2026-08-25, after 09:05Z)
+
+Read the first real post-roll sweep. Four questions, in this order:
+
+```sql
+-- 1. did it run at all, and did the probe annotate?
+SELECT created_at,
+       (SELECT count(*) FROM jsonb_array_elements(collected_data->'refresh_result'->'results') r,
+               jsonb_array_elements(coalesce(r->'fact_drift','[]'::jsonb)) d WHERE d ? 'evidence') AS annotated
+FROM orchestration_states WHERE collected_data ? 'refresh_result'
+  AND created_at > '2026-08-25 08:00+00' ORDER BY created_at DESC LIMIT 3;
+-- 2. the probe's DISTRIBUTION — this is Phase 3b's entire precondition
+SELECT d->>'evidence' AS outcome, count(*) FROM orchestration_states o,
+  jsonb_array_elements(o.collected_data->'refresh_result'->'results') r,
+  jsonb_array_elements(coalesce(r->'fact_drift','[]'::jsonb)) d
+WHERE o.created_at > '2026-08-25 08:00+00' GROUP BY 1 ORDER BY 2 DESC;
+-- 3. did the suggester file anything, and to whom?
+SELECT subject_key, site_id, created_at FROM doc_notes
+WHERE categories ? 'fact_binding_suggested' ORDER BY created_at DESC;
+-- 4. the control: did anything BREAK? errors on the pass, and the 13 items unchanged
+SELECT collected_data->'refresh_result'->>'total_errors',
+       (SELECT count(*) FROM site_work_items WHERE item_type='fact_drift_review');
+```
+**Expect ~3 suggestions across 3 sites** (measured pre-roll: 15 bindings, 3 tools) — one of them
+`mortgages-stamp-duty` on loanandmortgagecalculator. **If it is 0, that is the finding**, and the
+first thing to check is the population predicate (`page_type='tool' OR component_level='tool'`),
+which is known to miss 50 of 222 script-bearing pages.
 
 ## WHAT IS OWED, in order
 
