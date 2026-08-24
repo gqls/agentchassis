@@ -833,3 +833,31 @@ gone: `'14 days'` matched the **stale comment**, not a live rule. I tested a pro
 anywhere in the row) instead of the thing (a live 14-day predicate). Ironically the false alarm is
 what found `580`'s real defect — but it could as easily have sent someone re-applying a migration
 that was already in place.
+
+### 2026-08-24 — CLOSED. Final state, verified at the artefact
+
+| | |
+|---|---|
+| registry check | **0 findings**, exit 0 — 41 codes observed, all declared |
+| retention parity | **0 disagreements** (registry ↔ live sweep) |
+| unruled backlog | **25, exactly at the cap** — cannot grow without a finding |
+| `567` retention rule | LIVE · `570` index LIVE · `580` honest comment LIVE |
+| council | `9dc2e6b4` **approved** · `cf916059` **approved** · `a105d04a` **approved** |
+| HEAD | builds, checked with this lane's own `verify-head-builds.sh` |
+
+**The last thing this lane found was its own broken undo.** Both `567`'s and `580`'s rollbacks used
+`regexp_replace(..., 'n')` over multi-line patterns and replaced **nothing** while reporting
+`UPDATE 1`. Found only because a council objection claimed `580` had no rollback and I ran it to
+prove otherwise. The objection was wrong about the file and **right about the capability**. Fixed,
+both now dry-run clean, filed as a `LANDMINES.md` entry footprinted on `scheduled_tasks.pre_query`
+and `regexp_replace`.
+
+⚠ **That landmine entry is in HEAD but was carried by another session's commit** (`5f038dd6d`,
+the loancalculator lane) — it sat in the shared working tree between my append and my commit and
+rode along as a same-file passenger, which is the hazard `CLAUDE.md` documents. Nothing lost; the
+remainder (`WRONG_CALLS.md`) went in `fcc19cdef`. Recorded so the trail is accurate rather than
+tidy.
+
+**Handed on, not left undone:** phase 2 (the daily CronJob) and the remaining 25 rulings belong to
+the thread the owner moved 358 to. The ratchet is what makes leaving them safe — the count can go
+down at that lane's pace and cannot climb back.
