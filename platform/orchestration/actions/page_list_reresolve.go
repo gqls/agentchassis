@@ -54,6 +54,16 @@ import (
 // re-run query.* sources for a stored array (check_rerender_mode; STY-048).
 const pageListReresolveReason = "section_data_resolved"
 
+// maxPageListReresolvePerEvent bounds what ONE landing may file (council round
+// c2873f56, guardian seat: "per-event consumer-count … acknowledged or
+// bounded"). The structural bound is the lookup's renders-image predicate
+// (0–3 consumer pages per site on 2026-08-24, max robot-hands.com at 3); this
+// is the belt behind it, at queryresolve's own hard cap — one page-list's
+// worth. Exceeding it is NOT silent: the remainder is logged at Warn with the
+// page names and reported as Capped, and the page_list_stale sweep files the
+// rest on its next visit.
+const maxPageListReresolvePerEvent = 24
+
 // pageListReresolveExec is the slice of *sql.DB / *sql.Tx this needs: the
 // consumer lookup (QueryContext) and the canonical INSERT (ExecContext).
 type pageListReresolveExec interface {
@@ -69,7 +79,10 @@ type pageListReresolve struct {
 	Queued      int
 	Deduped     int
 	Failed      int
-	Pages       []string
+	// Capped counts consumer pages NOT filed because the per-event bound was
+	// hit; they are named in the Warn log and left to the sweep.
+	Capped int
+	Pages  []string
 }
 
 func (r pageListReresolve) fields() map[string]interface{} {
@@ -78,6 +91,7 @@ func (r pageListReresolve) fields() map[string]interface{} {
 		"page_list_reresolve_consumers": r.Consumers,
 		"page_list_reresolve_queued":    r.Queued,
 		"page_list_reresolve_deduped":   r.Deduped,
+		"page_list_reresolve_capped":    r.Capped,
 		"page_list_reresolve_pages":     r.Pages,
 	}
 }
@@ -108,6 +122,18 @@ func requestPageListReresolve(
 	if len(consumers) == 0 {
 		out.Disposition = "no_consumers"
 		return out
+	}
+	if len(consumers) > maxPageListReresolvePerEvent {
+		dropped := make([]string, 0, len(consumers)-maxPageListReresolvePerEvent)
+		for _, c := range consumers[maxPageListReresolvePerEvent:] {
+			dropped = append(dropped, c.Name)
+		}
+		out.Capped = len(dropped)
+		logger.Warn("page_list_reresolve: consumer count exceeds the per-event bound — the remainder is NOT filed here and is left to the page_list_stale sweep",
+			zap.String("site_id", siteID.String()), zap.String("cause", cause),
+			zap.Int("consumers", len(consumers)), zap.Int("bound", maxPageListReresolvePerEvent),
+			zap.Strings("not_filed", dropped))
+		consumers = consumers[:maxPageListReresolvePerEvent]
 	}
 
 	for _, c := range consumers {

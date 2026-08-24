@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -285,5 +286,35 @@ func TestPageListReresolveCallSitesAreWired(t *testing.T) {
 		if !strings.Contains(src[at:], site.call) {
 			t.Fatalf("%s: %s is not called after %q — the listings would never be told (bugs_open/384)", site.file, site.call, site.anchor)
 		}
+	}
+}
+
+// The per-event bound (council c2873f56, guardian): more consumers than the
+// bound → exactly the bound is filed, the rest are counted as Capped (and
+// named in the log), and the disposition still reports what WAS queued. Kills:
+// deleting the cap, or a cap that silently drops without counting.
+func TestRequestPageListReresolve_CapsPerEventAndCountsTheRemainder(t *testing.T) {
+	db, mock := newInsertMock(t)
+	defer db.Close()
+	siteID := uuid.New()
+	rows := pageListConsumerRows()
+	for i := 0; i < maxPageListReresolvePerEvent+3; i++ {
+		rows = rows.AddRow(uuid.New(), fmt.Sprintf("tool-%02d", i), fmt.Sprintf("/tools/%02d.html", i), "example.com", "tool-list",
+			`{"fields":{"items":{"type":"array","source":"query.pages_where_type:tool"}}}`)
+	}
+	mock.ExpectQuery("FROM page_components pc").WillReturnRows(rows)
+	for i := 0; i < maxPageListReresolvePerEvent; i++ {
+		mock.ExpectExec("INSERT INTO site_work_items").WillReturnResult(sqlmock.NewResult(1, 1))
+	}
+
+	got := requestPageListReresolve(context.Background(), db, siteID, "derive_card_asset", "card_landed:x", uuid.New(), zap.NewNop())
+	if got.Queued != maxPageListReresolvePerEvent || got.Capped != 3 || got.Consumers != maxPageListReresolvePerEvent+3 || got.Disposition != "queued" {
+		t.Fatalf("got %+v, want %d queued / 3 capped / %d consumers / queued", got, maxPageListReresolvePerEvent, maxPageListReresolvePerEvent+3)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet: %v", err)
+	}
+	if got.fields()["page_list_reresolve_capped"] != 3 {
+		t.Errorf("the cap must be visible in the caller's result map: %v", got.fields())
 	}
 }

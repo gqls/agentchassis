@@ -76,3 +76,18 @@ git log --oneline --since='90 minutes ago' -- bugs_open/384* platform/orchestrat
 CUT=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ); find ~/.claude/projects/-home-ant-projects-agentchassis/ -maxdepth 1 -name '*.jsonl' -newermt "$CUT" | grep -v <own-session-id> | xargs grep -c "PageListConsumerPages\|requestPageListReresolve\|derive_card_asset_action" | grep -v ':0$'
 ```
 Peer sessions are addressable by name via ListAgents/SendMessage (`bugs_open/326`, `bugs_open/357`, `bugs_open/352`, `bugs_open/333 [cb419e]`). The filing lane (`dartsonline_traffic`) has no named session — coordinate through `bugs_open/384` itself.
+
+## Phase 2 — enabling the sweep (ONLY after the roll)
+1. Prove the binary registers the check (capability list, not `strings`):
+   ```sql
+   SELECT service, built_from, capabilities ? 'page_list_stale' FROM service_binary_capabilities ORDER BY recorded_at DESC LIMIT 3;  -- schema: \d first
+   ```
+   and `git merge-base --is-ancestor <phase-2 commit> <build provenance sha>` per CLAUDE.md.
+2. Apply by hand: `docs/agent_docs/sql_for_agents/603_enable_page_list_stale_HOLD.sql` (snapshot_agent first, DO/RAISE verify inside). Rollback file beside it.
+3. First sweep proof (demand control = the 4 sites with stale tool-cta entries, 14 pairs on 2026-08-24 — re-run the pair census first, it may have moved):
+   ```sql
+   SELECT s.domain, w.status, w.spec->'stale' FROM site_work_items w JOIN sites s ON s.id=w.site_id
+    WHERE w.item_type='page_rerender' AND w.spec->>'check'='page_list_stale' ORDER BY w.created_at DESC;
+   ```
+   Disconfirming result: the completeness agent visits a stale site (`site_discovery_rotation`) and files nothing; or files against a page whose stored array matches a fresh resolve (re-run the comparison by hand before calling it wrong).
+4. The per-run summary is in the discovery run's findings (`"summary":true` with stale/current/unknown) — `unknown > 0` on a site means a source did not resolve; that is not "current".

@@ -25,10 +25,22 @@
 //   - fields whose source is a query.* base that does NOT read page images
 //     (news_archive, the directory kinds, …): their arrays are refreshed by
 //     their own producers and a card landing cannot change them.
+//   - components whose html_template never RENDERS `.image` (council round
+//     c2873f56, guardian seat, 2026-08-24). A consumer that stores the image
+//     and never shows it has a stale-but-invisible array; re-resolving it on
+//     every landing is a page re-render for no visible change. Measured the
+//     same day: loancalculator.co.uk has 26 consumer pages by schema and 1 that
+//     renders the image — the other 25 are `tool-cta` strips (58 instances
+//     fleet-wide, 0 rendering). With the filter the per-site count is 0–3.
+//     When such a template is later changed to render the image, the
+//     template_changed re-render re-resolves the array anyway (REB-002).
 //
 // The LIKE pre-filter is a cheap narrowing only; the decision is made in Go
 // against datahelpers.SchemaContentFields (both schema dialects) and
-// SourceReadsPageImages (the declared set beside queryHandlers).
+// SourceReadsPageImages (the declared set beside queryHandlers). The
+// renders-image predicate is SQL (`html_template ~ '\.image\y'`): `{{.image}}`,
+// `{{if .image}}`, `{{$it.image}}` all match; `.image_url` does not (`\y` is a
+// word boundary and `_` is a word character).
 
 package queryresolve
 
@@ -99,6 +111,7 @@ const pageListConsumerSQL = `
 	   AND COALESCE(p.rebuild_policy, 'generic') <> 'owned'
 	   AND cc.input_schema IS NOT NULL
 	   AND cc.input_schema::text LIKE '%query.%'
+	   AND cc.html_template ~ '\.image\y'
 	 ORDER BY p.name, cc.name`
 
 // PageListConsumerPages returns the site's pages that consume a page-image
