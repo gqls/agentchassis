@@ -765,3 +765,44 @@ for. **A demand control must exercise the filter, not the delivery** — and the
 is the one-row test above: take a known-real occurrence of the class and run the tripwire's own
 `WHERE` against it. Both lanes signed off a blind instrument; one query would have caught it, and
 neither of us ran it until the author went back on their own evidence.
+
+### The ownerless candidate-2 change: its tests ARE load-bearing — MUTATION-PROVEN 2026-08-24
+
+The `bugfix_337_token_cap` lane made the right objection to my "16 test references" figure: *an
+author who moved on cannot confirm which of them are load-bearing*, and a count of references is not
+evidence of a guard (the estate has a landmine for exactly this — a source-scanning or
+reference-counting check passes vacuously). So it was measured.
+
+**Method, and it never touched the shared tree** — `git archive HEAD` into a scratch dir, overlay the
+four dirty files, mutate *there*. Mutating a shared working tree is how the 337 lane destroyed ~75
+lines of another session's work on 08-22.
+
+| run | result |
+|---|---|
+| control (unmutated) | **PASS** |
+| **M1** — neuter the rule (`repeatTermination = true` → `false`) | **FAIL ×2**: `TestFailureLadder_RepeatOfTheRecordedFailureTerminatesEarly` and `TestFailureLadder_UncountedRedispatchStillTerminatesOnRepeat` |
+| **M2** — drop exact equality (`prev != "" && prev == errorMsg` → `prev != ""`) | **FAIL**: `TestFailureLadder_ADifferentFailureKeepsTheBudget` |
+| control, restored | **PASS** |
+
+**Both load-bearing properties are pinned**: that an identical repeat terminates, and that a
+*different* failure does **not** — the second being the discriminator that stops this becoming the
+naive candidate 2. M1's second failure also shows the uncounted-re-dispatch population (49 of the 52)
+is covered, which is the case an `attempt_count` gate would have hidden.
+
+⚠ **One caveat for whoever adopts it.** M2 fails *indirectly* — via an `sqlmock` expectation mismatch
+(the backoff query is skipped when the row is being terminated) rather than a clean assertion on the
+outcome. It does fail, and the test's name states the property correctly, so the guard holds; but the
+diagnostic is noisy and a future edit could make it fail for a different reason and still look like
+the same red. Worth tightening to assert `TerminatedOnRepeat` directly if the change is adopted.
+
+**A suspicion I had and checked before recording** — `if envArmed(envDisableRepeatTermination)` reads
+inverted, as though the rule fires only when the disable flag is set. It is **correct**:
+`envArmed(key)` is `os.Getenv(key) == ""`, i.e. "no disable var present", and the identical idiom
+governs `envDisableRetryBackoff` in the very next block. Recorded because the misreading is
+attractive and the next reader will have it too.
+
+**None of this makes the change mine to land**, and the authorship remains an inference. The 337 lane
+has since confirmed from its own tree that it is **not theirs** (their three code files are committed
+and clean; no commit of that lane has ever touched the ladder; their 08-23 handoff contemporaneously
+disclaimed any uncommitted work), which strengthens the `bugfix_311_component_keys` inference without
+establishing it.
