@@ -686,6 +686,12 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		createdBy:    "site-adoption-agent",
 		itemKey:      "needs_domain_research",
 		batchID:      batchID,
+		// An ACTION REQUEST — the adoption→classifier handoff, mirroring domain-submitter's
+		// front door (migration 572). Re-adopting a site whose previous classification
+		// completed is the normal course of business, not a repeat defect; without this the
+		// anti-churn brake drops the request inside 3h and brands it after two (bugs_open/326).
+		// Dedup is NOT waived: idx_swi_dedup still refuses a second OPEN row.
+		recurrenceExpected: true,
 	}, logger)
 	if err != nil {
 		return nil, fmt.Errorf("insert needs_domain_research: %w", err)

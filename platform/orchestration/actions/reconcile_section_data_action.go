@@ -211,6 +211,10 @@ func ReconcileSectionDataAction(ctx context.Context, params ActionParams) (inter
 				createdBy:    "section-data-reconciler",
 				itemKey:      fmt.Sprintf("page_rerender:%s", page),
 				batchID:      batchID,
+				// An ACTION REQUEST — "re-render, deferred section data is now resolvable".
+				// Data can become resolvable again after a later change; the brake must not
+				// treat the previous successful re-render as a strike (bugs_open/326).
+				recurrenceExpected: true,
 			}, logger); err != nil {
 				return nil, fmt.Errorf("emit needs_page for %s: %w", page, err)
 			}

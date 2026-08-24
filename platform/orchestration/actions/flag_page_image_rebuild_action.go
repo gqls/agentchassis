@@ -184,6 +184,10 @@ func FlagPageImageRebuildAction(ctx context.Context, params ActionParams) (inter
 		createdBy:    "image-build-handler",
 		itemKey:      itemKey,
 		batchID:      batchID,
+		// An ACTION REQUEST — "re-render this page, its image just landed". An image can
+		// land again (regeneration), and the second re-render is exactly as legitimate as
+		// the first; a completed predecessor is a success, not a strike (bugs_open/326).
+		recurrenceExpected: true,
 	}, logger); err != nil {
 		return nil, fmt.Errorf("emit needs_page re-render: %w", err)
 	}

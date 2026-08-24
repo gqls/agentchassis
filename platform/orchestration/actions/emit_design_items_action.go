@@ -127,6 +127,11 @@ func EmitDesignItemsAction(ctx context.Context, params ActionParams) (interface{
 		createdBy:    "build-site-planner",
 		itemKey:      "needs_composition",
 		batchID:      batchID,
+		// An ACTION REQUEST — a build-pipeline stage handoff in Go, the same shape as the
+		// five config-driven handoffs migration 572 declared. A completed predecessor means
+		// the previous cascade SUCCEEDED; re-running the design cascade must not be dropped
+		// (<3h) or buried (two strikes) by the anti-churn brake (bugs_open/326).
+		recurrenceExpected: true,
 	}, logger); err != nil {
 		return nil, fmt.Errorf("insert needs_composition: %w", err)
 	}
@@ -173,6 +178,8 @@ func EmitDesignItemsAction(ctx context.Context, params ActionParams) (interface{
 		itemKey:      "needs_design",
 		batchID:      batchID,
 		dependsOn:    designDepends,
+		// Same reasoning as needs_composition above: a stage handoff, not a detected defect.
+		recurrenceExpected: true,
 	}, logger); err != nil {
 		return nil, fmt.Errorf("insert needs_design: %w", err)
 	}

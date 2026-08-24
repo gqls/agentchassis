@@ -177,6 +177,11 @@ func SeedBuildQueueAction(ctx context.Context, params ActionParams) (interface{}
 			createdBy:    "seed_build_queue",
 			itemKey:      fmt.Sprintf("seed_%s_%s", itemType, domain),
 			batchID:      batchID,
+			// An ACTION REQUEST — seeding the build queue IS the canonical retry of a build.
+			// Re-seeding a site whose previous seed items completed must file fresh items;
+			// under the anti-churn brake it silently filed nothing inside 3h and a dead row
+			// after two (bugs_open/326, the Go twin of the domain-submitter case).
+			recurrenceExpected: true,
 		}, logger)
 		if err != nil {
 			tx.Rollback()

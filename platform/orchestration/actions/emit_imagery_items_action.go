@@ -132,6 +132,11 @@ func EmitImageryItemsAction(ctx context.Context, params ActionParams) (interface
 			createdBy:    "build-site-planner",
 			itemKey:      itemKey,
 			batchID:      batchID,
+			// An ACTION REQUEST from the planner: "generate this asset". Re-planning a site
+			// legitimately re-requests imagery whose previous generation completed; the
+			// anti-churn brake must not drop or brand it (bugs_open/326). Dedup against an
+			// OPEN request is unchanged — that is the index, which this flag does not touch.
+			recurrenceExpected: true,
 		}, logger); err != nil {
 			return nil, fmt.Errorf("insert needs_imagery (%s): %w", itemKey, err)
 		}

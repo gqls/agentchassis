@@ -262,6 +262,9 @@ func queueClassifierForCompositionRecovery(
 		status:       "triaged",
 		createdBy:    "site-design-planner",
 		itemKey:      "backfill_classification_for_composition",
+		// An ACTION REQUEST — a backfill asked for by composition validation. A second
+		// backfill after the first completed is a legitimate re-request (bugs_open/326).
+		recurrenceExpected: true,
 	}
 
 	inserted, err := insertWorkItem(ctx, tx, item, logger)

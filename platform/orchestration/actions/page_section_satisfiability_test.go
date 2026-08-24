@@ -62,6 +62,31 @@ func expectPlanMembership(mock sqlmock.Sqlmock, member bool) {
 // produces: begin, the two-strike probe (these emitters do NOT set
 // recurrenceExpected), the insert, commit. Sixteen arguments, because neither
 // caller sets a parent_item_id.
+// expectNeedsPageInsertActionRequest is expectNeedsPageInsert for a producer
+// that declares recurrenceExpected (bugs_open/326 option E, 2026-08-24):
+// flag_page_image_rebuild's emit skips the anti-churn COUNT probe entirely, so
+// scripting it would leave an unmet expectation and fail ExpectationsWereMet on
+// a query the production code is CORRECT not to issue. The flag itself is pinned
+// elsewhere (action_request_producers_recurrence_test.go, ratchet + effect), so
+// this helper stays a satisfiability fixture and asserts nothing about the brake.
+func expectNeedsPageInsertActionRequest(mock sqlmock.Sqlmock, source string) {
+	mock.ExpectBegin()
+	mock.ExpectExec("INSERT INTO site_work_items").
+		WithArgs(
+			sqlmock.AnyArg(),
+			source, // $2 source
+			sqlmock.AnyArg(),
+			"needs_page", // $4 item_type
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			"page-build-handler", // $11 handler_agent
+			"triaged",            // $12 status
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+}
+
 func expectNeedsPageInsert(mock sqlmock.Sqlmock, source string) {
 	mock.ExpectBegin()
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
@@ -372,7 +397,7 @@ func TestFlagPageImageRebuild_SectionedPage_StillEmits(t *testing.T) {
 	mock.ExpectExec("UPDATE pages").WillReturnResult(sqlmock.NewResult(0, 1))
 	expectPlanTableSections(mock, "hero", "article-body", "call-to-action")
 	expectPlanMembership(mock, false)
-	expectNeedsPageInsert(mock, "image-build-handler")
+	expectNeedsPageInsertActionRequest(mock, "image-build-handler")
 
 	out, err := FlagPageImageRebuildAction(context.Background(), flagRebuildParams(db, uuid.New(), "board-setup"))
 	if err != nil {
@@ -400,7 +425,7 @@ func TestFlagPageImageRebuild_PlanMemberWithoutSections_StillEmits(t *testing.T)
 	mock.ExpectExec("UPDATE pages").WillReturnResult(sqlmock.NewResult(0, 1))
 	expectNoDeclaredSections(mock)
 	expectPlanMembership(mock, true)
-	expectNeedsPageInsert(mock, "image-build-handler")
+	expectNeedsPageInsertActionRequest(mock, "image-build-handler")
 
 	out, err := FlagPageImageRebuildAction(context.Background(), flagRebuildParams(db, uuid.New(), "brands-index"))
 	if err != nil {
