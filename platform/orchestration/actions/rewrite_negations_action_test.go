@@ -34,7 +34,7 @@ func sectionContent() map[string]interface{} {
 }
 
 func TestPlanClassifiesEveryHitOnce(t *testing.T) {
-	plan := planNegationRepairs(sectionContent(), nil, 2, 0)
+	plan := planNegationRepairs(sectionContent(), nil, 2, 0, 0)
 	if plan.total < 4 {
 		t.Fatalf("expected at least four hits in this content, got %d", plan.total)
 	}
@@ -55,14 +55,21 @@ func TestPlanClassifiesEveryHitOnce(t *testing.T) {
 // it is never rewritten, and it must not eat the page's budget either — the
 // budget exists to bound what the WRITER does.
 func TestExemptHitsDoNotConsumeTheBudget(t *testing.T) {
+	// ⚠ FIXTURE CHANGED 2026-08-24, and the assertions below did NOT. The two
+	// non-exempt sentences were `x_not_y` (sharp) and are now `rather_than`
+	// (mild), because after the D3 ruling only a mild shape can spend the page
+	// budget — a sharp one is always repaired, so a sharp fixture can no longer
+	// demonstrate anything about budget consumption. This test's actual subject
+	// is its title: an EXEMPT hit must not eat the budget. That property is
+	// untouched by the ruling and is still what is asserted.
 	content := map[string]interface{}{
 		"hero":  "Multi-agent systems deployed to production in days, not months, on Kubernetes.",
-		"intro": "This list is pulled from the production registry, not from provider marketing pages.",
-		"outro": "We show the pipeline running, not a slide about it.",
+		"intro": "This list is pulled from the production registry rather than from provider marketing pages.",
+		"outro": "We show the pipeline running rather than a slide about it.",
 	}
 	brief := []string{"Tagline: 'Multi-agent systems deployed to production in days, not months' — use it in the homepage hero."}
 
-	plan := planNegationRepairs(content, brief, 2, 0)
+	plan := planNegationRepairs(content, brief, 2, 0, 0)
 	if plan.exemptCount != 1 {
 		t.Fatalf("the supplied tagline must be exempt, got %d (%v)", plan.exemptCount, plan.exemptReasons)
 	}
@@ -80,7 +87,7 @@ func TestHeadlineHitIsAlwaysATarget(t *testing.T) {
 		"headline": "The registry shows you what's possible, not what survives production.",
 	}
 	// Budget of 5 — far more than the single hit — and it is STILL repaired.
-	plan := planNegationRepairs(content, nil, 5, 0)
+	plan := planNegationRepairs(content, nil, 5, 0, 0)
 	if len(plan.targets) != 1 || !plan.targets[0].Headline {
 		t.Errorf("a headline hit must be a target regardless of budget, got %+v", plan.targets)
 	}
@@ -88,13 +95,18 @@ func TestHeadlineHitIsAlwaysATarget(t *testing.T) {
 
 // The standard is per PAGE. Section two must see the budget section one used.
 func TestBudgetIsPerPageNotPerSection(t *testing.T) {
-	one := map[string]interface{}{"intro": "We show what runs, not what demos."}
-	two := map[string]interface{}{"intro": "We ship the pipeline, not a slide deck."}
-	three := map[string]interface{}{"intro": "We report the failures, not just the wins."}
+	// ⚠ FIXTURE CHANGED 2026-08-24 for the same reason as
+	// TestExemptHitsDoNotConsumeTheBudget: these were `x_not_y` (sharp), which
+	// after the D3 ruling is always repaired and therefore cannot demonstrate a
+	// budget carry at all. The subject — the budget is per PAGE, not per section —
+	// is unchanged, and the assertions below are untouched.
+	one := map[string]interface{}{"intro": "We show what runs rather than what demos."}
+	two := map[string]interface{}{"intro": "We ship the pipeline rather than a slide deck."}
+	three := map[string]interface{}{"intro": "We report the failures rather than only the wins."}
 
-	p1 := planNegationRepairs(one, nil, 2, 0)
-	p2 := planNegationRepairs(two, nil, 2, p1.pageHits)
-	p3 := planNegationRepairs(three, nil, 2, p2.pageHits)
+	p1 := planNegationRepairs(one, nil, 2, 0, 0)
+	p2 := planNegationRepairs(two, nil, 2, p1.pageHits, p1.mildHits)
+	p3 := planNegationRepairs(three, nil, 2, p2.pageHits, p2.mildHits)
 
 	if len(p1.targets) != 0 || len(p2.targets) != 0 {
 		t.Errorf("the first two hits on a page are earned: %d, %d targets", len(p1.targets), len(p2.targets))
@@ -107,7 +119,7 @@ func TestBudgetIsPerPageNotPerSection(t *testing.T) {
 
 // The prompt must name the sentences and must NOT teach the shape it is removing.
 func TestRepairPromptCarriesNoExampleOfTheBannedForm(t *testing.T) {
-	plan := planNegationRepairs(sectionContent(), nil, 0, 0)
+	plan := planNegationRepairs(sectionContent(), nil, 0, 0, 0)
 	prompt := negationRepairPrompt(plan.targets)
 	if !strings.Contains(prompt, "The registry shows you what's possible") {
 		t.Error("the prompt must quote the sentence being rewritten")
@@ -127,7 +139,7 @@ func TestRepairPromptCarriesNoExampleOfTheBannedForm(t *testing.T) {
 }
 
 func TestMatchTargetIgnoresRenamedField(t *testing.T) {
-	plan := planNegationRepairs(sectionContent(), nil, 0, 0)
+	plan := planNegationRepairs(sectionContent(), nil, 0, 0, 0)
 	// A model that renamed the field but copied the sentence: still matched.
 	if _, ok := matchTarget(plan.targets, "title", "The registry shows you what's possible, not what survives production."); !ok {
 		t.Error("the sentence is the identity; a renamed field must still match")
@@ -147,7 +159,7 @@ func TestMatchTargetIgnoresRenamedField(t *testing.T) {
 func TestSplicePreservesTheRestOfTheField(t *testing.T) {
 	content := sectionContent()
 	var target negationTarget
-	for _, tg := range planNegationRepairs(content, nil, 0, 0).targets {
+	for _, tg := range planNegationRepairs(content, nil, 0, 0, 0).targets {
 		if tg.Field == "body" {
 			target = tg
 		}
@@ -223,7 +235,7 @@ func TestTwoTargetsInOneFieldBothSurvive(t *testing.T) {
 		"content": "<p>The two systems overlap rather than compete.</p>" +
 			"<p>Everything past that is refinement rather than requirement.</p>",
 	}
-	plan := planNegationRepairs(content, nil, 0, 0)
+	plan := planNegationRepairs(content, nil, 0, 0, 0)
 	if len(plan.targets) != 2 {
 		t.Fatalf("expected two targets in one field, got %d", len(plan.targets))
 	}
@@ -355,7 +367,7 @@ func TestEveryTargetIsAccountedForEvenWhenTheModelIgnoresIt(t *testing.T) {
 	}
 	// budget 0 = no allowance, so every non-exempt hit is a target. (99 would
 	// ALLOW the first 99 and leave only headline-class hits — the inverse.)
-	plan := planNegationRepairs(content, nil, 0, 0)
+	plan := planNegationRepairs(content, nil, 0, 0, 0)
 	if len(plan.targets) < 3 {
 		t.Fatalf("fixture must produce at least 3 targets, got %d", len(plan.targets))
 	}
@@ -390,7 +402,7 @@ func TestAnsweredBookkeepingSurvivesPunctuationDrift(t *testing.T) {
 	content := map[string]interface{}{
 		"headline": "The registry shows you what's possible, not what survives production.",
 	}
-	plan := planNegationRepairs(content, nil, 0, 0)
+	plan := planNegationRepairs(content, nil, 0, 0, 0)
 	if len(plan.targets) != 1 {
 		t.Fatalf("expected 1 target, got %d", len(plan.targets))
 	}
@@ -455,7 +467,7 @@ func TestReconciliationExcludesHallucinatedReplacements(t *testing.T) {
 		"headline": "We ship in days, not months.",
 		"content":  "<p>The two systems overlap rather than compete.</p>",
 	}
-	plan := planNegationRepairs(content, nil, 0, 0)
+	plan := planNegationRepairs(content, nil, 0, 0, 0)
 	if len(plan.targets) < 2 {
 		t.Fatalf("fixture must produce at least 2 targets, got %d", len(plan.targets))
 	}
@@ -488,4 +500,111 @@ func TestReconciliationExcludesHallucinatedReplacements(t *testing.T) {
 	// markers (bugs_open/305 §29, 1 over-count in 122). What is testable in a unit
 	// is the DISCRIMINATION above, and a mutation dropping the containment check in
 	// matchTarget makes it fail.
+}
+
+// OWNER RULING 2026-08-24 (D3): "`rather than` is a little bit of a tic."
+//
+// The gate lets a page keep `page_budget` constructions and repairs the rest.
+// Before this ruling the survivors were whichever the scanner walked past FIRST —
+// document order, nothing to do with severity — so a page could keep both its
+// `x_not_y` constructions and spend the gate's effort rewriting two `rather
+// than`s further down. That is the ruling inverted, and it is what this test
+// pins: the budget is FORGIVENESS, and only a mild shape may spend it.
+//
+// The fixture is built so document order works AGAINST the desired outcome: the
+// two sharp constructions come first, so under the old rule they would have
+// consumed the whole budget of 2 and survived, and the `rather than` after them
+// would have been the thing repaired.
+func TestOnlyAMildShapeCanSpendThePageBudget(t *testing.T) {
+	content := map[string]interface{}{
+		// Non-headline field, so the budget is in play at all.
+		"content": "<p>The registry shows you what ships, not what demos.</p>" +
+			"<p>We measure throughput, not vanity metrics.</p>" +
+			"<p>The two systems overlap rather than compete.</p>" +
+			"<p>Everything past that is refinement rather than requirement.</p>" +
+			"<p>Teams adopt it incrementally rather than all at once.</p>",
+	}
+	plan := planNegationRepairs(content, nil, 2, 0, 0)
+
+	byShape := map[string]int{}
+	for _, tgt := range plan.targets {
+		byShape[tgt.Shape]++
+	}
+
+	// Both sharp constructions must be targets. Under the old rule they came
+	// first, spent the budget, and survived.
+	if byShape["x_not_y"] != 2 {
+		t.Errorf("x_not_y targets = %d, want 2 — a sharp shape bought forgiveness it is no longer entitled to (targets: %+v)", byShape["x_not_y"], byShape)
+	}
+	// Three mild hits, budget 2, so exactly one is repaired.
+	if byShape["rather_than"] != 1 {
+		t.Errorf("rather_than targets = %d, want 1 (3 hits, budget 2) — the mild tolerance is not being applied", byShape["rather_than"])
+	}
+	if plan.withinBudget != 2 {
+		t.Errorf("withinBudget = %d, want 2 — the forgiveness was not spent on the mild shape", plan.withinBudget)
+	}
+	// `rather than` is still DETECTED and still counted — the ruling changed who
+	// is forgiven, not what is seen.
+	if plan.pageHits != 5 {
+		t.Errorf("pageHits = %d, want 5 — mildness must not remove a hit from the density signal", plan.pageHits)
+	}
+	if plan.mildHits != 3 {
+		t.Errorf("mildHits = %d, want 3", plan.mildHits)
+	}
+}
+
+// The budget is per PAGE, so the mild count must survive across sections — and it
+// must be carried SEPARATELY from page_hits. Seeding the budget from the total
+// would let a sharp hit in an earlier section eat a later section's forgiveness,
+// which is the same inversion the ruling is about, one section removed.
+func TestTheMildBudgetCarriesAcrossSectionsWithoutSharpHitsEatingIt(t *testing.T) {
+	sharp := map[string]interface{}{
+		"content": "<p>The registry shows you what ships, not what demos.</p>" +
+			"<p>We measure throughput, not vanity metrics.</p>",
+	}
+	mild := map[string]interface{}{
+		"content": "<p>The two systems overlap rather than compete.</p>" +
+			"<p>Everything past that is refinement rather than requirement.</p>",
+	}
+
+	s1 := planNegationRepairs(sharp, nil, 2, 0, 0)
+	if len(s1.targets) != 2 {
+		t.Fatalf("section 1: %d targets, want 2 — both sharp hits must be repaired", len(s1.targets))
+	}
+	if s1.mildHits != 0 {
+		t.Fatalf("section 1 mildHits = %d, want 0 — sharp hits must not touch the mild counter", s1.mildHits)
+	}
+
+	// Section 2 carries section 1's counters. Its two mild hits should BOTH be
+	// forgiven: the budget of 2 is untouched, because section 1 spent none of it.
+	s2 := planNegationRepairs(mild, nil, 2, s1.pageHits, s1.mildHits)
+	if len(s2.targets) != 0 {
+		t.Errorf("section 2: %d targets, want 0 — the sharp section consumed forgiveness it cannot spend", len(s2.targets))
+	}
+	if s2.withinBudget != 2 {
+		t.Errorf("section 2 withinBudget = %d, want 2", s2.withinBudget)
+	}
+	// The total still counts everything.
+	if s2.pageHits != 4 {
+		t.Errorf("section 2 pageHits = %d, want 4 (2 sharp + 2 mild across the page)", s2.pageHits)
+	}
+}
+
+// A headline is repaired regardless of shape or budget — unchanged by the ruling,
+// and worth pinning because the mildness test sits directly above the headline
+// branch and an edit to one can silently reorder the other.
+func TestAMildShapeInAHeadlineIsStillAlwaysRepaired(t *testing.T) {
+	content := map[string]interface{}{
+		"headline": "We integrate rather than replace.",
+	}
+	plan := planNegationRepairs(content, nil, 99, 0, 0)
+	if len(plan.targets) != 1 {
+		t.Fatalf("got %d targets, want 1 — a headline must bypass the budget however mild the shape", len(plan.targets))
+	}
+	if !plan.targets[0].Headline {
+		t.Error("target is not marked headline")
+	}
+	if plan.withinBudget != 0 {
+		t.Errorf("withinBudget = %d, want 0 — a headline must not spend the budget", plan.withinBudget)
+	}
 }

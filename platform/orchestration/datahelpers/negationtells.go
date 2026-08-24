@@ -182,6 +182,42 @@ var (
 // exact substring and a sentence recovered from stripped text is not a substring
 // of the field it came from. Sentence edges are trimmed of whole tags so the
 // sentence handed to a human or a model reads as prose.
+// NegationShapeIsMild reports whether a detected shape is one the owner has
+// ruled is only mildly objectionable.
+//
+// OWNER RULING 2026-08-24 (bugs_closed/305, decision D3): "`rather than` is a
+// little bit of a tic." That is deliberately neither of the two answers D3 was
+// framed with — it is not "a tic" (repair it like the rest) and not "ordinary
+// English" (stop detecting it). The estate implements the middle as a question of
+// WHO GETS FORGIVEN: the copy gate lets a page keep `page_budget` constructions
+// (2 by default) and repairs the rest, and before this ruling the two survivors
+// were simply whichever the scanner walked past FIRST — document order, nothing
+// to do with severity. A page could therefore keep both of its "X, not Y"
+// constructions and spend the gate's effort rewriting two "rather than"s further
+// down, which is the ruling inverted.
+//
+// So mildness decides the tolerance, not detection: a mild shape can consume the
+// page budget, a sharp one cannot and is always repaired. `rather than` stays
+// fully detected and still counts toward `page_hits` and the density signal.
+//
+// Why this is a function on the vocabulary rather than a config key: which shapes
+// are mild is a judgement about English recorded as a ruling, not an operational
+// dial an operator should turn per site. `page_budget` remains the dial.
+//
+// Scale, for anyone tempted to widen this: `rather_than` was 71% of all gate
+// rewrites and appears in 43% of writer sections (measured 2026-08-23/24), so
+// moving one shape in or out of this set changes most of the gate's traffic.
+func NegationShapeIsMild(shape string) bool {
+	_, ok := mildNegationShapes[shape]
+	return ok
+}
+
+// A set rather than an equality test, so adding a second mild shape is one line
+// and so this reads as a policy list rather than a special case.
+var mildNegationShapes = map[string]struct{}{
+	"rather_than": {},
+}
+
 func ScanDefineByNegation(text string) []NegationHit {
 	if strings.TrimSpace(text) == "" {
 		return nil

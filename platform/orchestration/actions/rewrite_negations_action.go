@@ -156,8 +156,9 @@ func RewriteNegationsAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	supplied := collectBriefText(params, config)
-	plan := planNegationRepairs(content, supplied, copyGatePageBudget(config), pageHitsSoFar(params))
+	plan := planNegationRepairs(content, supplied, copyGatePageBudget(config), pageHitsSoFar(params), mildHitsSoFar(params))
 	recordPageHits(params, plan.pageHits)
+	recordMildHits(params, plan.mildHits)
 
 	marker := map[string]interface{}{
 		// The content this step hands ON. ALWAYS set when a content map was
@@ -171,6 +172,7 @@ func RewriteNegationsAction(ctx context.Context, params ActionParams) (interface
 		"within_budget":  plan.withinBudget,
 		"targets":        len(plan.targets),
 		"page_hits":      plan.pageHits,
+		"mild_hits":      plan.mildHits,
 	}
 	if len(plan.targets) == 0 {
 		marker["status"] = "clean"
@@ -224,6 +226,7 @@ type negationPlan struct {
 	exemptReasons map[string]int
 	withinBudget  int
 	pageHits      int
+	mildHits      int // mild-shape hits so far this PAGE — what the budget counts
 	targets       []negationTarget
 }
 
@@ -231,9 +234,9 @@ type negationPlan struct {
 // budget, or a target. Order matters and is fixed: exemptions first (they are
 // never counted against the budget, because a brief-supplied phrase is not the
 // writer's doing), then headline hits (always repaired), then the budget.
-func planNegationRepairs(content map[string]interface{}, supplied []string, budget, alreadyUsed int) negationPlan {
-	plan := negationPlan{exemptReasons: map[string]int{}, pageHits: alreadyUsed}
-	used := alreadyUsed
+func planNegationRepairs(content map[string]interface{}, supplied []string, budget, alreadyUsed, alreadyMild int) negationPlan {
+	plan := negationPlan{exemptReasons: map[string]int{}, pageHits: alreadyUsed, mildHits: alreadyMild}
+	used := alreadyMild
 	seen := map[string]bool{} // one repair per (field, sentence), whatever shapes it carries
 
 	for _, f := range datahelpers.WalkContentStrings(content) {
@@ -251,8 +254,19 @@ func planNegationRepairs(content map[string]interface{}, supplied []string, budg
 			if seen[key] {
 				continue
 			}
-			if !headline {
+			// THE BUDGET IS FORGIVENESS, AND ONLY A MILD SHAPE CAN SPEND IT.
+			// OWNER RULING 2026-08-24 (D3): `rather than` is "a little bit of a
+			// tic". Before it, the two survivors were whichever the scanner
+			// walked past first — document order, nothing to do with severity —
+			// so a page could keep both its `x_not_y` constructions and have the
+			// gate rewrite two `rather than`s instead, which is the ruling
+			// inverted. A sharp shape now never consumes the budget and is
+			// always repaired; a mild one is tolerated up to `page_budget`.
+			// `rather than` is still fully detected and still counts toward
+			// `page_hits`, so the density signal is unchanged.
+			if !headline && datahelpers.NegationShapeIsMild(h.Shape) {
 				used++
+				plan.mildHits++
 				if used <= budget {
 					plan.withinBudget++
 					continue
@@ -294,6 +308,35 @@ func pageHitsSoFar(params ActionParams) int {
 	return 0
 }
 
+// mildHitsSoFar / recordMildHits carry the MILD-shape count across the sections
+// of one page, exactly as page_hits carries the total. Two counters are needed
+// rather than one because `page_hits` is published for the density signal and
+// counts every shape, while the budget must count only the shapes that may spend
+// it — seeding the budget from the total would let a sharp hit in an earlier
+// section consume a later section's forgiveness.
+func mildHitsSoFar(params ActionParams) int {
+	m, ok := params.CollectedData[copyGateMarkerKey].(map[string]interface{})
+	if !ok {
+		return 0
+	}
+	switch n := m["mild_hits"].(type) {
+	case float64:
+		return int(n)
+	case int:
+		return n
+	}
+	return 0
+}
+
+func recordMildHits(params ActionParams, hits int) {
+	m, ok := params.CollectedData[copyGateMarkerKey].(map[string]interface{})
+	if !ok {
+		m = map[string]interface{}{}
+		params.CollectedData[copyGateMarkerKey] = m
+	}
+	m["mild_hits"] = hits
+}
+
 func recordPageHits(params ActionParams, hits int) {
 	m, ok := params.CollectedData[copyGateMarkerKey].(map[string]interface{})
 	if !ok {
@@ -310,8 +353,8 @@ func stampCopyGate(params ActionParams, marker map[string]interface{}) {
 		params.CollectedData[copyGateMarkerKey] = m
 	}
 	for k, v := range marker {
-		if k == "page_hits" {
-			continue // owned by recordPageHits, which runs per section
+		if k == "page_hits" || k == "mild_hits" {
+			continue // owned by recordPageHits/recordMildHits, which run per section
 		}
 		m[k] = v
 	}
