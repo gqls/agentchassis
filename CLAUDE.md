@@ -111,10 +111,29 @@ roll back, and 67% of migration-shipping commits could previously only be review
 with `FORCE=1`.** Prose, site content and the SQL that is **not the change** (`_ROLLBACK`, `_VERIFY`,
 `_SUPERSEDED`) are still refused client-side and never spend credits. **`_HOLD.sql` IS in
 scope** — it is the change, held back from the runner for ordering and applied by hand
-(excluding it was a real defect in the first cut, caught by the council). **The scope is
-single-sourced in `scripts/council-scope.sh`** — 097, the commit-msg nudge and the
-098 report all read it, so do not re-hardcode it; `DRY_RUN=1 097_TRIGGER…` tests
-admission for free. Full runbook + submission schema:
+(excluding it was a real defect in the first cut, caught by the council).
+
+**Two further widenings, both owner rulings, both TARGETED at where detector logic
+sits rather than loosening a directory:** `cmd/config-key-audit/` (2026-08-23 — the
+check fleet keeps its rules there, and both commits shipping one such check contained
+zero in-scope files), and **`scripts/pattern-check.py` (2026-08-24)**. The second is the
+same argument one level along: `[MEASURED 2026-08-24]` that one file is **2,058 lines
+carrying 22 checks**, against **2,220 lines for every other `audit-*`/`check-*` script
+under `scripts/` combined** — so it is about half the non-Go detector surface, and the
+half that runs most often, firing on **every commit in every session** via
+`.githooks/pre-commit` rather than once a night. Nothing else under `scripts/` is in
+scope: `scripts/kafka-publish-lib.sh` is refused, and so is
+`scripts/audit-advisory-findings.py` even though it imports this file's checks.
+
+**The scope is single-sourced in `scripts/council-scope.sh`** for the **decision**, and
+097 plus the commit-msg nudge read only that. ⚠ **But "single-sourced" does NOT mean one
+edit widens it.** `098_REPORT` has to **enumerate** candidate commits before it can judge
+them, and `git log` takes pathspecs, not regexes — so it carries `SCOPE_PATHS`, a
+hand-kept array, as a pre-filter. **A path added to the regex and not to that array is
+INVISIBLE to the coverage report** — not listed as unreviewed, absent, which reads as
+nothing to report. Measured 2026-08-23, the day `cmd/` was added: **22 in-scope commits
+across four lanes sat in no bucket at all.** **Widen both, in one commit.**
+`DRY_RUN=1 097_TRIGGER…` tests admission for free. Full runbook + submission schema:
 `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/RUNBOOK_council_gate.md`.
 
 **Approval is now reachable, so this is a real norm — not a formality (owner

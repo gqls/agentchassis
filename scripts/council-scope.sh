@@ -91,7 +91,34 @@
 # report. MEASURED 2026-08-23, the day cmd/config-key-audit was added below: 22 commits in
 # the previous fortnight were in scope by this regex and in no bucket of that report, across
 # four lanes. Change both, in one commit.
-COUNCIL_SCOPE_CODE_RE='^(platform|internal|pkg)/|^cmd/config-key-audit/'
+#
+# ── OWNER RULING 2026-08-24: scripts/pattern-check.py enters scope. ──────────────
+# The 2026-08-23 widening admitted cmd/config-key-audit on the reasoning that the
+# DETECTOR LOGIC FOR THE CHECK FLEET had accumulated where the gate could not see it.
+# That argument applies with more force to pattern-check.py, and it was missed at the
+# time: `[MEASURED 2026-08-24]` it is **2,058 lines carrying 22 checks**, versus **2,220
+# lines for EVERY other audit-*/check-* script under scripts/ combined**. So one file is
+# about half the estate's non-Go detector surface, and it is the half that runs most
+# often: the nightly cron fleet fires ~20 checks once a day, while this file runs on
+# EVERY COMMIT IN EVERY SESSION via .githooks/pre-commit. Its own header states the
+# stake — "a false positive that blocks is a fleet-wide outage".
+#
+# Same shape as both prior widenings (bugs_open/314's migrations, 08-23's cmd/): a
+# TARGETED addition justified by where the risk sits, not a general loosening of scripts/.
+#
+# ⚠ DELIBERATELY NOT INCLUDED, and worth revisiting rather than assuming:
+# scripts/audit-advisory-findings.py (429 lines) IMPORTS this file's CHECKS tuple, so the
+# two are coupled — but it REPORTS on findings rather than deciding them, and a reporting
+# bug cannot block a commit. The other ~10 audit-*/check-* scripts are 90-343 lines each
+# and individually thin. If detector logic starts accumulating in any of them, this
+# pattern stops covering the class it was widened for — silently, because an out-of-scope
+# path is refused with no finding. Re-measure with:
+#   wc -l scripts/audit-*.sh scripts/audit-*.py scripts/check-*.sh scripts/check-*.py
+#
+# ⚠ ANCHORED TO THE ONE FILE ($), not to scripts/. Adding a second detector file means
+# editing this regex AND 098's SCOPE_PATHS — see the warning directly above, which is
+# what caught this change before it shipped half-done.
+COUNCIL_SCOPE_CODE_RE='^(platform|internal|pkg)/|^cmd/config-key-audit/|^scripts/pattern-check\.py$'
 # VERBATIM from scripts/migration/run-migrations.sh:283 (the appliable-name grep).
 # Change this only together with the runner.
 COUNCIL_SCOPE_MIGRATION_RE='^docs/agent_docs/sql_for_agents/[0-9]{3}_[A-Za-z0-9_]+\.sql$'

@@ -99,7 +99,10 @@ WINDOW_DAYS="${1:-7}"
 # derived from that regex mechanically (git log takes pathspecs, not regexes), which is why
 # it is a copy — so widening the scope means editing BOTH, and the post-filter is what stops
 # this array over-selecting.
-SCOPE_PATHS=(platform internal pkg cmd/config-key-audit docs/agent_docs/sql_for_agents)
+# scripts/pattern-check.py added 2026-08-24 (owner ruling — see council-scope.sh's rationale
+# beside COUNCIL_SCOPE_CODE_RE). A FILE, not a directory: git log takes it as a pathspec
+# happily, and the post-filter re-tests it against the authoritative regex anyway.
+SCOPE_PATHS=(platform internal pkg cmd/config-key-audit scripts/pattern-check.py docs/agent_docs/sql_for_agents)
 NS='ai-persona-system'
 PG_POD='postgres-clients-0'
 
