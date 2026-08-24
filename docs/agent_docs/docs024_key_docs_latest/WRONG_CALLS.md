@@ -47383,3 +47383,35 @@ failure mode recurring (the bug lived 19 days in a branch no unit test could rea
 inputs' tests stayed green), and it is now `TestCrossLinkCallSitePassesTheRealPageLive`,
 mutation-proved: restoring the literal fails it and leaves both older tests PASSING. **A REVISE
 round that finds a real defect is not a cost, and this is the fourth in this lane's tally.**
+
+## 2026-08-24 — `bugfix_206_directory_build_handler` (eighth entry) — TWO documented landmines fired on me in one session, both of which are in my own auto-loaded memory index. I am reading them as reference, not as pre-flight checks
+
+Not two unrelated slips — one habit, twice:
+
+1. **The `090` cumulative bundle-budget trap.** I read the entry, applied its *superseded*
+   per-file size proxy, and got the false all-clear its own CORRECTION banner exists to warn
+   about. Two runs spent, neither produced a verdict.
+2. **Backticks in `git commit -m` EXECUTE.** Writing `` `known` `` in a message ran it as a
+   command substitution (`bash: known: command not found`) and silently deleted the word from
+   the commit. Forward-only means the message stands wrong — commit `200d54bdf` reads
+   "- was discarded" where it should read "- `known` was discarded". Cosmetic here; it would not
+   have been if the backticked text had been a path or a sha, and the memory line for it says in
+   terms: *"backticks in `-m` execute"*.
+
+**The mechanism, which is the transferable part.** Both entries were available to me — one in
+the SessionStart hook's output, one in the auto-loaded memory index — and in both cases I had
+read the material at some point and carried a *summary* of it in my head. What I acted on was
+the summary: "check the file size" and "be careful with shell quoting". The entries' actual
+content — a CORRECTION banner retiring the size check, and a specific prohibition on one
+character in one flag — is more specific than any summary of it, and the specificity is the
+whole value.
+
+**The cheap check, and it is a habit not a query:** when you are about to do the exact thing a
+landmine names, RE-OPEN the entry and read the check line, in that moment — not "I remember this
+one". Both of today's failures happened between remembering the entry and performing the action.
+For `-m` specifically: never backtick in a commit message, use single quotes or plain text; the
+message body is not markdown to anything that reads it.
+
+*(Tally note for whoever automates from this file: this lane logged eight entries today, and the
+two that repeat a KNOWN, WRITTEN-DOWN trap are these — which is a different and more automatable
+class than the six that were novel measurement errors.)*
