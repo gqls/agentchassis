@@ -423,3 +423,90 @@ theoretical ceiling is the right teaching material.
 Carbon intensity is **deferred, not failed**: no Phase 1 calculator consumes it. The energy tool
 returns money, not emissions, and carbon intensity appeared on the retired site only in the
 fabricated ticker and the dead data layer.
+
+---
+
+## 2026-08-24 — submitted, and the build ran further than expected while I was reading a peer's message
+
+### Submitted (Tier-3), and the roadmap held
+
+`TRIGGER_submit_tier3.sh`, correlation `84529075-bc81-4223-b52c-e3928555ad66`, COMPLETED. Both
+briefs persisted (5,884 / 8,238 chars) — the whole reason for using that trigger over `082`. The
+seeded, pinned `evidence_base` (95KB, 105 facts) and `imagery_style_guide` survived untouched.
+
+The planner **obeyed the roadmap brief exactly**: index, about, tools, contact, a `section-index`
+guides hub, and the six named explainers. Nothing invented.
+
+### THE DEPTH DECISION PAID OFF — measured, not hoped
+
+The four explainers that have rendered so far:
+
+| page | words |
+|---|---|
+| hydroponic-solution-chemistry | 1,726 |
+| vapour-pressure-deficit-and-transpiration | 1,717 |
+| seaweed-and-the-carbon-question | 1,498 |
+| insect-bioconversion | 1,400 |
+
+Against the retired site's **315–453**. Roughly **four times** the depth, and within range of the
+~1,600 the `blog-post` measurement predicted. The other two are still `needs_rebuild` and render
+as 1 word, which is why they must not be read as failures yet.
+
+### AND THE DEPTH DECISION CAUSED A DEFECT — the exact one we set out to fix
+
+`/guides/index.html` has the sections I specified — `["hero", "guide-list"]`, so the
+explicit-list-component requirement worked. The `guide-list` instance is `deployed` with 4,937
+chars of rendered HTML.
+
+**It contains ZERO anchors and zero cards.** Only the section furniture: a heading ("Explainers
+behind the calculators") and a CTA. Three of the six explainers have **no inbound link from
+anywhere on the site**.
+
+The cause is my own decision. `guide-list` resolves `page_type='guide'`; I chose `blog-post` for
+the word count, and it delivered the words. So the two halves of the same decision fought each
+other, and I did not see it coming — the roadmap brief's "build the hub with an explicit list
+section from day one" was necessary and **not sufficient**, because a list component and the page
+type it resolves are a pair, and I only specified one of them.
+
+**It will not self-heal.** Checked rather than assumed: `rerender_single_page_action` READS
+`pages.sections` and assembles; nothing in the rerender path rewrites it. The 11 queued
+`page_rerender` items will re-render an empty list, for ever.
+
+**The fix, verified at the artefact before adopting it.** `blog-listing` is the component that
+resolves blog-posts, and `fundamentallyai.com /platform-log/index.html` is the same shape as our
+hub — a `section-index` with `["hero", "blog-listing"]`. That page is the subject of
+`bugs_open/309` ("six unclickable cards so every article is orphaned"), so copying it blind would
+have been copying a bug. I read its rendered HTML: **16 anchors, real `/blog/...` hrefs.** 309's
+defect is not present there now. The component works.
+
+### What is in flight and must NOT be mistaken for breakage
+
+- **16 `unresolved_cta`** — every one is `secondary_cta_url` with "no real-page destination".
+  Those point at tool pages that do not exist yet, because the tools are Phase 4. Expected.
+- **11 `page_rerender` (triaged)** — in flight; will resolve the two `needs_rebuild` explainers.
+- **5 `needs_page`** — at needs_human_review.
+
+The site was submitted about three hours ago and the cascade is still working. Intervening on
+things the pipeline is about to finish is how you end up fighting it.
+
+### Peer message from the bugs_open/382 lane — checked, not relayed
+
+They flagged migration 586 (`image-build-handler.call_variant_gen` now forwards `kind` and
+`site_id`) and asked whether agritec had pre-fix per-page heroes.
+
+**The obvious answer was wrong.** agritec has 17 assets created 12:12–12:30; 586 applied 13:46 —
+so they all predate the fix, and twelve keys are literally `hero_about`, `hero_sfi`, `hero_vpd`
+and so on. On the natural test the site looks squarely affected.
+
+It is not. All 17 came from `needs_imagery` items, which route through `call_imagery_gen`; one
+went `needs_hero_image` → `call_hero_gen`. **Nothing here touched `call_variant_gen`** — there are
+no `unfulfilled_hero_variant` items on this site at all.
+
+**The transferable point, sent back to them:** `asset_key` naming is not a reliable indicator of
+which branch produced an image. `hero_<page>` says "per-page hero" and says nothing about whether
+it came from plan-fulfilment or variant-repair. The discriminator is the work item type.
+
+Corroborating on the unaffected path: all 17 are `banana/gemini-3-pro-image-preview`, none SDXL,
+and 16 of 17 `origin_prompt` values carry this site's seeded palette hex verbatim — which appears
+in no `site_plan_imagery.prompt` row, so the style guide was applied at generation time, not at
+plan time. Seeding it before submission (PLAN Phase 1) did the job it was seeded for.
