@@ -234,6 +234,31 @@ func RenderSitemapAction(ctx context.Context, params ActionParams) (interface{},
 // is the authoritative path (git_deployer_actions.go:494 says so of nav, sitemap
 // and link checks alike), but it is stored inconsistently across the estate —
 // some rows carry a leading slash, some do not, some are already absolute.
+//
+// THE SITE ROOT IS CANONICALISED, EVERY OTHER index.html IS NOT. This asymmetry
+// looks like an inconsistency and is the opposite: it is what the sites
+// themselves declare. Measured 2026-08-24 by fetching the pages and reading
+// their `<link rel="canonical">`:
+//
+//	https://dartsonline.com/          → canonical https://dartsonline.com/
+//	https://dartsonline.com/guides/   → canonical https://dartsonline.com/guides/index.html
+//
+// 10 of 10 sites checked declare the bare root (across all three builders —
+// B2, vm-sites and git-hosted), and `/` returns 200 on every one, so the probe
+// in rule 1 still passes. `/` and `/index.html` served byte-identical bodies on
+// the site checked, which is what makes listing the wrong one a real duplicate
+// signal rather than a cosmetic quibble.
+//
+// This is the one rule the generator this action replaces
+// (`scripts/site-discovery-files.py:132`) gets wrong: it emits
+// `https://{domain}{path}` unconditionally, so every sitemap it has produced
+// advertises `/index.html` as the homepage while the page itself says the
+// canonical is `/`. The action's own header states the rule it was breaking —
+// "a sitemap should carry the canonical URL" — and applied it only to redirects.
+//
+// Population as of 2026-08-24: 27 listable rows are exactly `/index.html`
+// (one per site) and 228 are `<section>/index.html`. The second set must pass
+// through untouched, which is why this matches the whole path and not a suffix.
 func absoluteURL(domain, path string) string {
 	p := strings.TrimSpace(path)
 	if strings.HasPrefix(p, "http://") || strings.HasPrefix(p, "https://") {
@@ -241,6 +266,12 @@ func absoluteURL(domain, path string) string {
 	}
 	if !strings.HasPrefix(p, "/") {
 		p = "/" + p
+	}
+	// Whole-path match, deliberately: a suffix match would rewrite
+	// `/guides/index.html` to `/guides/`, which contradicts that page's own
+	// canonical tag.
+	if p == "/index.html" {
+		p = "/"
 	}
 	return "https://" + domain + p
 }

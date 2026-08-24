@@ -47,6 +47,11 @@ func TestAbsoluteURLHandlesEveryStoredShape(t *testing.T) {
 		{"example.co.uk", "/about.html", "https://example.co.uk/about.html"},
 		{"example.co.uk", "about.html", "https://example.co.uk/about.html"},
 		{"example.co.uk", "/", "https://example.co.uk/"},
+		// The site root is canonicalised to bare `/`; a SECTION index is not.
+		// See absoluteURL's header for the canonical tags this was read off.
+		{"example.co.uk", "/index.html", "https://example.co.uk/"},
+		{"example.co.uk", "index.html", "https://example.co.uk/"},
+		{"example.co.uk", "/guides/index.html", "https://example.co.uk/guides/index.html"},
 		{"example.co.uk", "  /spaced.html  ", "https://example.co.uk/spaced.html"},
 		{"example.co.uk", "https://other.com/x", "https://other.com/x"},
 		{"example.co.uk", "http://other.com/x", "http://other.com/x"},
@@ -157,4 +162,49 @@ func extractPagesQuery(t *testing.T, src string) string {
 		t.Fatalf("extracted text is not the pages query: %q", q)
 	}
 	return q
+}
+
+// TestRootIndexIsCanonicalisedButSectionIndexIsNot pins the asymmetry that looks
+// like a bug and is the fix. It exists to fail on the ONE plausible "tidy-up":
+// rewriting the whole-path comparison in absoluteURL as a suffix match
+// (strings.HasSuffix / strings.TrimSuffix on "index.html"), which would silently
+// rewrite all 228 section indexes as of 2026-08-24 and contradict every one of
+// their own canonical tags.
+//
+// Measured 2026-08-24 — https://dartsonline.com/ declares canonical
+// `https://dartsonline.com/`, while https://dartsonline.com/guides/ declares
+// canonical `https://dartsonline.com/guides/index.html`. A sitemap must carry
+// the canonical URL, which is the rule the action's header already states.
+func TestRootIndexIsCanonicalisedButSectionIndexIsNot(t *testing.T) {
+	if got := absoluteURL("dartsonline.com", "/index.html"); got != "https://dartsonline.com/" {
+		t.Errorf("site root must canonicalise to bare /, got %q", got)
+	}
+
+	// A suffix match would break every one of these. Each is a real stored shape
+	// from the live `pages` table.
+	sections := []string{
+		"/guides/index.html",
+		"/news/index.html",
+		"/shop/index.html",
+		"/tools/setup-builder/index.html",
+		"/report/example/index.html",
+	}
+	for _, s := range sections {
+		want := "https://dartsonline.com" + s
+		if got := absoluteURL("dartsonline.com", s); got != want {
+			t.Errorf("section index must pass through unchanged: absoluteURL(%q) = %q, want %q", s, got, want)
+		}
+	}
+}
+
+// TestSitemapNeverListsBothRootForms guards the duplicate that canonicalisation
+// could introduce if a site ever stores BOTH `/` and `/index.html` as pages
+// rows: they resolve to the same loc, and a sitemap listing one URL twice is
+// malformed. Neither shape coexists today (27 rows are `/index.html`, 0 are `/`,
+// as of 2026-08-24) — this is the latent case, honoured for the same reason
+// rule 2 in the action header honours `expires_at`.
+func TestSitemapNeverListsBothRootForms(t *testing.T) {
+	if absoluteURL("x.uk", "/") != absoluteURL("x.uk", "/index.html") {
+		t.Fatal("`/` and `/index.html` must resolve to the same canonical loc")
+	}
 }
