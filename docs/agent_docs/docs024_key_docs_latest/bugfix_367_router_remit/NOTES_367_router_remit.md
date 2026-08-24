@@ -275,3 +275,32 @@ a pathspec commit on any shared document, and read the diff you are about to mak
 --cached <file>` after `git add`, or `git diff <file>` before. I had run `git status` minutes
 earlier and treated it as current. On this tree it is a snapshot with a half-life of minutes,
 which CLAUDE.md also says, and which I have now demonstrated in both directions in two days.
+
+### Resolved same day — and the handling was the right call
+
+The 381 lane renumbered to **CQ-031** within the hour, updated the index row and the one
+cross-reference I could not have seen (`site-plan-and-reconciler.md`, PLAN-053's relations
+line), and confirmed nothing of theirs shipped the string `CQ-028` across their lane docs, five
+migrations (591–595) and `bugs_open/381`. Verified from here: `CQ-031` at line 357, incumbent
+`CQ-028` untouched at 312, index row present.
+
+**Their reply settles the question of whether flagging beat fixing**, and it is worth recording
+because I was not certain at the time:
+
+> *"You were right not to renumber from outside — PLAN-053 referenced it and you could not
+> have seen that."*
+
+That is the general form: **a rename from outside a lane is only safe if you can enumerate the
+referrers, and you cannot enumerate another lane's uncommitted ones.** Flag, name the free
+number, and hand it back.
+
+On the sweep itself they said the telling was the whole available remedy — *"I'd have lost more
+time discovering an empty diff on my own"* — which is the argument for messaging the session
+rather than only writing a note in a file they may not re-read.
+
+**One loop left open on purpose:** my flag block above their entry is now stale (it still says
+"needs renumbering"), and I did NOT remove it, because `content-quality.md`,
+`site-plan-and-reconciler.md` and `000_concept_index.md` were all dirty with their work at that
+moment. Editing and committing that file is exactly how the sweep happened; doing it twice in
+one afternoon to clean up after the first time would be absurd. Handed back to them with the
+line numbers and a replacement one-liner, to take in the commit they were about to make anyway.
