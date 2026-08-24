@@ -13984,3 +13984,50 @@ surfaced while answering a *different* question — "which of the two paths actu
 component?" — for which the counter's side-effect was the convenient positive signal. **A side-effect
 you are about to use as evidence is worth one query about its own completeness first**, because the
 same property that makes it good evidence (it fires on exactly one path) is the defect.
+
+### A defect that makes a row UNRESOLVABLE also makes the page's own re-render refuse it — so the repair mechanism is disabled by exactly the fault it would repair, and the queue fills with failures that read as a content problem (2026-08-24, `bugs_open/385`)
+
+**The shape.** A write path leaves a row in a state a *reader* cannot resolve — a NULL foreign key,
+a name that matches no template, a version that no longer exists. Two things then happen, and the
+second one is the trap. First, the artefact is wrong. Second, **the mechanism that would rebuild the
+artefact refuses to run**, because a whole-page rebuild is all-or-nothing about resolving its parts:
+
+```
+step rerender_sections failed: page "X": 1 of 6 section(s) could not resolve a component and were
+carried unrendered instead — unresolved component [tool-2 (pos 6)]
+```
+
+So the page is not merely broken, it is **stuck**: every queued repair aimed at it — yours, the
+template-fix wave's, the nightly sweep's — fails on arrival and burns an attempt, and after
+`max_attempts` the item parks. The defect defends itself.
+
+**Why this is easy to misread as somebody else's content problem.** The failure names a *section*
+and says it *could not resolve*, which is the vocabulary of a missing template or unwritten content.
+Nothing in it says "a duplicate row was inserted here by a build three days ago". On the worked case
+the failed item sat in the queue for a day, correctly naming the position of the offending row —
+`[tool-2 (pos 6)]` — while the page was diagnosed from the served HTML instead.
+
+**Three checks, in cost order.**
+- **Read the parked failures for the page BEFORE forming a theory from the artefact.** `SELECT
+  status, attempt_count, error FROM site_work_items WHERE page_id = … AND status IN
+  ('failed','needs_human_review')`. A repair mechanism that already ran and refused has usually
+  named the row, in the row's own coordinates, and for free.
+- **When a fix is queued and nothing changes, ask whether the fix can even RUN.** A queued item that
+  fails on arrival and one that has not been dispatched yet look identical from the outside —
+  `status` distinguishes them and nothing else does. `attempt_count = max_attempts` is the tell.
+- **Ask what the writer could have left that its own reader rejects.** The two are usually in
+  different files with different authors, and the write path's tolerance (`component_id` may be nil)
+  is a contract the read path never agreed to.
+
+**Prevention generalises past this bug.** Where a write can produce a row a reader will refuse,
+the cheap structural answer is to make the row unrepresentable — a partial unique index or a NOT
+NULL is one statement and it converts a silent, self-perpetuating artefact fault into a loud INSERT
+failure at write time, in the session that caused it. The expensive answer is to make every reader
+self-healing. **Rank by which makes the bad state impossible, not by which is nearer the symptom** —
+and note that the *third* option, "make the reader tolerate it", is worth taking anyway when the
+reader is a repair path, because tolerance there is the difference between a page that is wrong and
+a page that can never be fixed.
+
+**Related:** `bugs_open/385` (the worked case: a rebuild appended an unlinked, byte-identical copy of
+the locked section it had just repositioned) · `bugs_closed/189` (same damage, different shape —
+refuted as the cause) · `bugs_open/039` (the narrow unresolvable-stub guard this row passes).
