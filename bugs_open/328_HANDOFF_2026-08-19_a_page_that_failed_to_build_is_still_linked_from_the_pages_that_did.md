@@ -278,3 +278,61 @@ on 24 pages are serving now. Owed after the roll: apply 575, fire `page_rerender
 pages, then verify **at the served bytes** — `href="/your-rights.html"` gone **while
 `href="/calculators.html"` is still there**, because without the positive control "stopped emitting
 internal links" passes the test.
+
+---
+
+## 2026-08-24 — LIVE. Go proven on `v1.0.1334`, migration 575 applied, and the `049` reconciliation the council asked for
+
+**The fix is live.** Chassis `v1.0.1334` (pods 15:39Z), binary-probed on **both** replicas with a
+control pair in the same run — `suppressUnshippedOutboundLinks`, `PageLinkRefusedPredicateFor` and
+`CONTENT_LINK_SUPPRESSED_UNSHIPPED` all PRESENT; `repairOutboundPageLinks` PRESENT as the positive
+control; an invented symbol absent as the negative. Migration `575` applied by hand at 16:07Z (5
+snapshots taken first, `$post$` passed, keys read back with an independent query), recorded
+`record-only`. Council **APPROVED at round 4**, corr `21c19c1f-e614-49bd-82ac-0bb5b58082e0`.
+
+### ⚠ THE CENSUS IN THIS FILE IS ALREADY STALE — it grew overnight
+
+| | 2026-08-23 | 2026-08-24 |
+|---|---|---|
+| dead anchors | 36 | **48** |
+| referring pages | 24 | **28** |
+| unservable targets | 14 | **16** |
+
+**+12 in a day**, including a site that did not exist in the first census — `garden-tools.uk`,
+arriving with **9 dead anchors across 4 pages**. This is §"The self-fuelling property" measured on
+its own terms, and it is the reason the fix is at the renderer rather than in a repair queue:
+**repair has to keep pace with a producer that never stops.**
+
+### The `049` reconciliation (council round 4, `bug_historian`, advisory)
+
+The seat noted that `bugs_closed/049` — *"live 404 links from stale chrome and unbuilt pages"* — is
+titled almost identically to this bug's premise, and that this lane cited it without ever saying
+whether its closed fix covers or conflicts with this one. Read now:
+
+**They are the same harm on two different surfaces, and they do not overlap.** 049 is the
+**chrome/nav** spelling: its fix is `applyNavVisibility` + `loadFetchablePageSet`, it deactivated
+nav items and cleared `in_header`/`in_footer` flags pointing at never-built pages, and it went live
+in `v1.0.1171` on 2026-07-26. 328 is the **page-body** spelling — in-body anchors written into
+`content_data` by the writer, which no nav predicate has ever governed. Neither fix touches the
+other's surface, and 049's closure is precisely why chrome is out of scope here (see LNK-030, its
+successor).
+
+Worth carrying across: **049's own correction records that its first pod-grep marker was VACUOUS** —
+`NavFetchableOnly`, a typed constant Go resolves at compile time, so the grep returns 0 whether or
+not the fix shipped. Today's probe avoided that class by using function names and string literals
+with both controls. The trap 049 paid for is still live, and still worth the ten seconds.
+
+### What is owed before this can close
+
+The bug is **not closed**: a renderer fix is inert until something re-renders, and 48 anchors on 28
+pages are serving now. **26 of those 28 pages re-rendered today**, all of them *before* the flag went
+live at 16:07Z — so the next natural render is the test, and the fleet's own cadence should carry
+almost all of it within a day. A 28-page dispatch was deliberately NOT fired: a re-render carries
+every platform change since a page last rendered, not just this one, which is real risk on customer
+sites for no gain where the page is about to re-render anyway.
+
+Canary queued instead — loanzy.uk `index`, this bug's headline instance (item `b18a0287`). The
+acceptance test is at the **served bytes with a positive control in the same fetch**: `2 ×
+href="/your-rights.html"` and `1 × href="/guides/index.html"` must be **gone**, and `5 ×
+href="/calculators.html"` must **remain**. Without that second half, a fix that stopped emitting
+internal links altogether would pass.
