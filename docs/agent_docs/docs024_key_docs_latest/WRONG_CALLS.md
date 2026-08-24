@@ -48161,3 +48161,55 @@ more the fixture tends to be built to demonstrate it rather than to test it.**
 
 Tally for this change: **9 mutations, 3 of which passed and were worthless** — one per
 phase, each caught only because the mutation was run at all.
+
+---
+
+## 2026-08-24 — I repeated another lane's mechanism claim into my own NOTES, and it was false in a way that would have aimed the fix at a dead code path (`bugfix_243_provider_cap_resilience`)
+
+`bugs_open/243`'s 08-17 addendum explains the fleet-wide dispatch stop as the health
+**prober** losing a coin-flip: it samples one call, the cap is intermittent, so occasionally
+the sample comes back refused and the endpoint is marked unhealthy for an hour. It then
+proposes, first in its list of fix shapes, *"require N consecutive failures before marking
+unhealthy (a single sample should not gate a fleet)"*.
+
+I read that, believed it, and wrote it into my own lane NOTES as established mechanism —
+*"the 08-17 addendum blamed the probe's lost coin-flip. That is one trigger, but the more
+common one is live traffic"*. The words "that is one trigger" are the wrong call: I was
+correcting the addendum's **emphasis** while accepting its **mechanism**, and I had not read
+the prober.
+
+**It is not one trigger. It is not a trigger at all.** `pingClaude`
+(`check_endpoint_health_action.go:220-231`) returns `true` for 200, `false` for 401/402,
+`true` for 529, and **`true` in its default branch** — *"any non-auth error means API is
+reachable"*. The usage cap arrives as a **400**, a fact `bugs_open/243`'s own §1 puts in bold.
+So the prober **cannot mark the endpoint unhealthy for this condition under any
+circumstances**, and it cannot lose the coin-flip it is described as losing. The only writer
+of `healthy=false` is live traffic, via the single `update_endpoint_health` caller at
+`ai_actions.go:634`.
+
+**What it would have cost.** The addendum's first-ranked fix — hysteresis on the prober —
+targets a path that never fires for the bug it is meant to fix. Built as specified, it would
+have passed review, shipped, changed nothing, and *looked* like the fix: the next cap event
+would still have stopped the fleet, and the natural reading would have been "we already
+hardened that". It also would have consumed the one edit anyone was likely to make to that
+file. I was one step from planning exactly that, because I had ranked the addendum's shapes
+before reading the function they act on.
+
+**The cheap check, and I skipped it in the most ordinary way possible: read the function
+before repeating a claim about what it detects.** Not "before contradicting it" — before
+*repeating* it. A mechanism claim inherited from another lane's file arrives with the
+authority of something already investigated, and the addendum was careful, measured and right
+about everything else in it (the 60m25s stop, the `claim_work_item` gate, the
+`ORDER BY created_at ASC LIMIT 1` fleet queue all check out exactly). **That is what made it
+dangerous: nine correct claims and one unchecked one read identically**, and the unchecked one
+was the one the fix candidates were built on.
+
+This is [[a-pass-from-a-blind-check-outlives-the-blindness]] with the roles swapped — not a
+blind check whose PASS was quoted later, but a blind check whose *failure mode* was theorised
+and then designed against. Same remedy: when a probe's verdict is load-bearing, read what the
+probe actually returns for the specific condition, and only then decide what the fix hardens.
+
+Tally note: the check that would have caught it — `grep -n "func pingClaude" -A 40` — is the
+same one that eventually did, run for a different reason (I was designing the fix, not
+auditing the claim). It cost nothing. It just needed to happen ~40 minutes earlier, before I
+wrote the sentence.
