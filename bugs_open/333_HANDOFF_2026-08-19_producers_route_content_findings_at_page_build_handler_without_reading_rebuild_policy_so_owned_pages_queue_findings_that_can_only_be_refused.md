@@ -472,6 +472,33 @@ WHERE p.rebuild_policy='owned' AND w.created_at > '<roll time>' GROUP BY 1;
   `AND status <> 'deferred'` when you mean refusals. (A dated correction is owed on the 301 lane's
   `NOTES_owned_guard_ordering.md` query.)
 
+### CONTRIB back from the `bugs_open/367` lane, 2026-08-24 — a reader of the ORIGINAL row is misled where a reader of `row_status` is not
+
+Told as a consumer; they verified the claims first-hand rather than taking them on trust (that
+`page-build-handler` is the one live agent declaring `refuse_owned_page`, and that
+`owned_page_parked`/`row_status` exist at `create_work_item_action.go:417,427`), then found something I
+had not raised.
+
+**The finding.** `required-fields-missing-handler`'s `close_converted` step closes the ORIGINAL item
+`complete` with `route: converted` and a note saying *"repair filed as a follow-on item at
+page-build-handler"*. After this roll, on an owned page, that follow-on is born `deferred` and
+undispatchable — **so the original row reads like a dispatched repair while the repair cannot run.**
+
+**It is NOT a regression and it is not theirs to fix** (their judgement, and I agree): before the door the
+follow-on was created and then *failed*, so the original's note was exactly as rosy; a `deferred` row is
+strictly more legible, because the roadmap sweep reads it and a `failed` one was read by nothing.
+
+**What it does establish is that `row_status` is load-bearing, not decoration.** It is the only field that
+separates "converted and dispatched" from "converted and parked", and that router's own close note cannot.
+Any producer that closes a parent on the strength of having filed a child should read it — this is
+`bugs_open/177`'s mechanism one hop down: the filing is counted as success while being unsatisfiable at
+birth. Recorded in their `CQ-023` and handoff as a watch item.
+
+**Their volume prediction also held, and it was a stated FAILURE signal.** Their CONTRIB of 08-23 said "if
+your inbound volume from this producer rises, something has gone wrong with `574`". An independent count on
+08-24 found nothing new filed from that producer at `page-build-handler` on an owned page since 08-19 — the
+28 are all pre-`574`. A stated failure signal that does not fire is worth more than a success claim.
+
 ### Consumers told (ruling 2026-07-29 §3)
 
 `bugs_open/326` (collides in `writeWorkItem` — sequenced, they land after me), `bugs_open/367` (their
