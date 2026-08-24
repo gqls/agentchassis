@@ -8,7 +8,13 @@ because **"routed to a handler that refuses" is a routing defect and "how should
 repaired" is a design question — different bugs.** The second question is `bugs_open/277`'s
 (see "Relates to"); this file does NOT take it.
 
-**Status: OPEN, unowned.** Nothing in the tree is changed by this filing.
+**Status: OPEN — OWNED since 2026-08-24 by `docs/agent_docs/docs024_key_docs_latest/bugfix_333_owned_page_door/`.
+Fix candidate 1 is BUILT AND COMMITTED (`6ab0b3434`), INERT until the next chassis roll.** See
+"## FIX 2026-08-24" at the foot of this file before adding to it.
+
+> ⚠ **The bug is NOT closed and must not be moved to `bugs_closed/`.** The bar is fixed AND live; this
+> is committed and inert, so the defect is still reproducible until the chassis rolls. The 142 legacy
+> rows are also untouched by design (see the fix section).
 
 **One line:** ~25 files name `"page-build-handler"` as the handler for a content finding; **none of
 them, and not the shared write seam they mostly pass through, reads `pages.rebuild_policy`** — so a
@@ -357,3 +363,117 @@ an oversight.
 Record: `docs/agent_docs/docs024_key_docs_latest/bugfix_367_router_remit/`,
 migration `docs/agent_docs/sql_for_agents/574_required_fields_router_stops_closing_what_it_cannot_resolve.sql`,
 council `d48c0a89-9ff8-4286-bfe9-2690dc13d5bc`.
+
+
+---
+
+## FIX 2026-08-24 — candidate 1 built at the shared door, with ONE deliberate departure from the shape this file proposed
+
+**Committed `6ab0b3434`** by the `bugfix_333_owned_page_door` lane. Council SUBMITTED, corr
+`9813dec8-5ce1-48ab-bb77-e3f601f9f64c` — **verdict not yet read at the time of writing; do not cite this
+as approved.** Register **WII-028**. Two `LANDMINES.md` entries and one `016b` §9 pattern.
+**INERT until the next chassis roll** — `make build-*` builds from committed HEAD, but releases are
+whole-fleet and the owner runs them.
+
+### What was built
+
+`writeWorkItem` asks two questions before writing a row that carries a `page_id`, names a handler, and is
+born at a status heading for dispatch (`detected`/`triaged`/`approved`/`claimed`): **does this handler
+declare `refuse_owned_page`**, and **is this page `owned`**. On a hit the row is written parked —
+`status='deferred'`, `handler_agent=''`, `priority=200`, `recurrence_expected`, an `error` LEADING with
+`OWNED_PAGE_GUARD`, and a spec carrying `bugs_closed/077`'s gap keys plus `what_to_do` naming the route
+that works. Kill switch `DISABLE_OWNED_PAGE_DOOR_DEMOTION`, ships ARMED. Producer honesty: `create_work_item`
+reports `owned_page_parked` + `row_status`; `raiseToolContentItem` returns `parked_owned_page` instead of
+claiming a raise.
+
+**It reads the handler's DECLARATION, not a Go list of names** — this file's candidate 1 said "enumerate,
+do not assume", and the enumeration is a query rather than a slice: `page-build-handler` opts in via
+migration 488, so a handler that adopts the refusal is covered by the door in the same migration that makes
+it refuse. Positive control [MEASURED 2026-08-24, live DB]: exactly ONE live agent declares it, while
+`page-rerender` (5,040 completions on owned pages), `section-editor` (44/1) and `tool-generator` (43) do not.
+
+### ⚠ THE DEPARTURE, and it corrects this file
+
+**This file's candidate 1 offered two demoted shapes: (a) `capability_gap` with a reason, or (b) keep the
+type at `needs_human_review` with the handler cleared. NEITHER was taken as written, and (a) would have
+been a defect.**
+
+A red-team pass over the plan — before any code existed — found that re-typing the row to `capability_gap`
+**orphans it from the only thing that could ever close it**. `resolveWorkItems`
+(`work_items_common.go:443-457`) retracts a finding by matching `(item_type, item_key)`, and `deferred` is
+NOT in `workItemClosedStatuses`. So a parked row that KEEPS its identity is retracted normally the day the
+page is repaired by another route; a re-typed one matches no retraction ever again, sits at `deferred`
+holding its `idx_swi_dedup` slot, and thereby stops the detector re-filing too — undispatchable and
+un-refilable at once. That is the same hole two council seats caught on `bugs_open/342` on 2026-08-23.
+
+**What shipped is a third shape: 077's SIGNAL (`deferred`, empty handler, `gap_kind`, `builder_needed`,
+`not_dispatchable`) on the finding's OWN `item_type` and `item_key`.** This also delivers this file's own
+requirement — *"counted per finding, not per page"* — for free, since the key is the producer's. The
+roadmap sweep still sees the rows through its `OR status='deferred'` arm.
+
+Both directions are mutation-proven: disarming the door fails the positives; re-typing/re-keying the parked
+row fails the retraction-contract assertions.
+
+### Corrections to this file's own figures
+
+> **CORRECTED 2026-08-24:** §"The routing sites" says *"30 literal sites in 25 files"*. Re-counted today:
+> **49 matches in 26 files** (`grep -rn '"page-build-handler"' platform/ internal/ --include=*.go | grep -v
+> _test`), many of them comments. The number that matters is WRITERS, and a file-by-file read gives **28
+> write sites**. Both figures are right for their date; per the 2026-08-22 counting ruling, this one is
+> `**28** as of 2026-08-24`.
+
+> **RE-MEASURED 2026-08-24 14:15Z (the filing figures were 08-19):** 83 owned-page `wont_fix` refusals at
+> `page-build-handler` since 08-19, five on 08-24, the most recent filing at 11:48Z that morning — so the
+> bug was live on the day it was picked up. 78 new filings on owned pages since 08-19: `tool-generator` 64
+> (63 of them webdesign.co.uk), `backfill-353` 8, `offer-analysis` 3, `internal-linker` 2, `generic` 1.
+> Legacy open: 59 failed / 36 unresolved / 16 needs_human_review. Owned pages: **176** on 13 sites, 96
+> `tool-*`. Of 88 refused rows since 08-19, **83 carry `page_id`** — the 5 that do not are the
+> `spec.page_name`-only producers, which the door cannot see.
+
+### What this does NOT do — named, not quietly dropped
+
+- **It does not repair owned pages.** It converts "silently refused and forgotten" into "visibly parked,
+  with its reason and the route that works". The repair route is `bugs_open/277`'s question and the owner
+  ruled 2026-08-19 the two must not be merged.
+- **The 142 legacy rows are untouched.** A one-off data move is the owner's call; offered as a follow-up
+  `_HOLD` migration. Until they drain, legacy `detected` rows are still promoted and still refused — so
+  post-roll verification must split by `created_at` against the roll time or it will read as a failure.
+- **Nine raw-`INSERT` writers bypass the seam** as of 2026-08-24 (`write_audit_findings_action.go`,
+  `apply_adoption_plan_action.go`, `deploy_tool_action.go`, `create_tool_component_action.go`,
+  `create_blog_posts_action.go`, and four core-manager admin handlers). The handler's own cheap refusal
+  (301) stays their backstop, exactly as claim's branch is 291's. A promoter-side backstop for the ones born
+  `detected` is a separate change.
+- **The tool lane's design conflict** (`raiseToolContentItem` asking the generic builder for prose on a page
+  the same pipeline marked owned — this file's candidate 2, and the largest single producer) is NOT taken.
+  It is now COUNTABLE per finding, which is the precondition for that lane deciding it.
+
+### How to verify after the roll (this file's original section, made runnable)
+
+Provenance first — `logs -l app=agent-chassis | grep -m1 'build provenance'` then
+`git merge-base --is-ancestor 6ab0b3434 <stamp>`; if the startup line has scrolled, probe the binary for
+`DISABLE_OWNED_PAGE_DOOR_DEMOTION` **with a must-be-absent control in the same breath**.
+
+```sql
+-- POSITIVE: parked rows, per finding, created AFTER the roll
+SELECT item_type, count(*), min(created_at), count(DISTINCT page_id) AS pages
+FROM site_work_items
+WHERE status='deferred' AND error LIKE 'OWNED_PAGE_GUARD:%'
+GROUP BY 1 ORDER BY 2 DESC;
+
+-- DEMAND CONTROL: a zero above is only a pass if this is non-zero
+SELECT created_by, count(*) FROM site_work_items w JOIN pages p ON p.id=w.page_id
+WHERE p.rebuild_policy='owned' AND w.created_at > '<roll time>' GROUP BY 1;
+```
+
+- **Negative (the discriminating one):** `page-rerender` still completes on owned pages, and
+  `page-build-handler` still receives and completes generic-page items.
+- **291's twin untouched:** an unregistered-handler item is still born `blocked`.
+- ⚠ **A census of `error LIKE 'OWNED_PAGE_GUARD%'` now counts PARKED rows as refusals** — add
+  `AND status <> 'deferred'` when you mean refusals. (A dated correction is owed on the 301 lane's
+  `NOTES_owned_guard_ordering.md` query.)
+
+### Consumers told (ruling 2026-07-29 §3)
+
+`bugs_open/326` (collides in `writeWorkItem` — sequenced, they land after me), `bugs_open/367` (their
+`from_rfm` rows on owned pages now park at the door), the tool lanes, the gap-planner, and the
+offer-analysis lane (whose `write_audit_findings` writer BYPASSES the seam and is therefore NOT covered).

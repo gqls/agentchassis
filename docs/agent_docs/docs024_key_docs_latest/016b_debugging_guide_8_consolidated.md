@@ -4088,6 +4088,61 @@ claim of absence. So when you find a shared over-narrow predicate, **fix the dis
 do not assume the producers need the same change**; whether they do is a separate, measured
 question.
 
+### N producers route by ITEM TYPE alone; the fact that makes the route wrong is a COLUMN on the row they already hold — and the handler's refusal is DATA a shared door can read (2026-08-24)
+
+*The sibling of the entry below, from the producer side. That one says a
+detector must partition its own population; this one is what to do when the
+partition is not the detector's to make, because the disqualifying fact belongs
+to the TARGET rather than to the finding.*
+
+**The shape.** `bugs_open/333`: ~26 producers file content findings at
+`handler_agent='page-build-handler'`, chosen from the item type alone. Whether
+that handler may act depends on `pages.rebuild_policy`, a column every producer
+has in hand (they all pass `pageID`) and none consults. The handler refuses, the
+item terminates `wont_fix` — *we decided not to fix this* — on a real
+detector-found defect, and since `idx_swi_dedup` excludes `wont_fix` the detector
+re-files it, for ever. 83 findings in five days.
+
+**Do not fix it in the producers.** Twenty-six doors, two already shut, and the
+twenty-seventh arrives open — `bugs_open/266` rejected that shape for the same
+reason and was right. Fix it at the shared WRITE SEAM, where the finding and the
+target meet, beside whatever routability check is already there (`bugs_open/291`
+put the registration probe in exactly that spot).
+
+**The reusable half: ask the HANDLER, do not keep a list of handler names.** The
+refusing handler already declares its refusal in config (`refuse_owned_page`, an
+opt-in on one step). A Go slice of names would be another hand-kept copy of a
+fact the database holds, and wrong in the dangerous direction the day a handler
+opts in — the door would keep filing at a handler that had started refusing.
+Reading the declaration means a handler that adopts the refusal is covered by the
+door **in the same migration that makes it refuse**. It also gives you a positive
+control that could come out otherwise: on this estate exactly one live agent
+declares it, while the route that completes 5,040 items on the same pages does
+not — which is what makes it safe to leave alone.
+
+**Three things that decide whether the parked row is worth filing.**
+
+1. **Demote, never refuse.** A refusal at a write seam loses the finding to a pod
+   log: discovery sweeps log-and-continue on insert error, and config-driven
+   `create_work_item` loops run `continue_on_error`.
+2. **Park at the status nothing promotes.** `blocked` self-heals within 600 s
+   (feasibility-recheck) and `needs_human_review` is a queue the owner has ruled
+   should not fill. `deferred` is the estate's parking state and already has a
+   reader (the roadmap sweep).
+3. **⚠ KEEP THE ROW'S OWN `item_type` AND `item_key`.** Taking a convention's
+   shape wholesale — re-typing the row to `capability_gap` — orphans it from
+   `resolveWorkItems`, which retracts by `(item_type, item_key)`. Take the
+   convention's SIGNAL (status, empty handler, `gap_kind`, `builder_needed`) and
+   leave the identity alone. Full trap in `LANDMINES.md`.
+
+**And the verification trap, which is about your own tests.** A door that fails
+open swallows sqlmock's *"could not match actual sql"*, so every existing seam
+test that does not script the new probes goes green having stopped exercising its
+own statement sequence — 21 cases across 8 files here. Instrument the probe-error
+branch with a PRINT (not a panic: it aborts at the first offender), run the suite
+verbosely, and script every test it names.
+
+
 ### A detector must PARTITION its population by the handler's remit, and file the residue as a capability gap (2026-07-26)
 
 *The other half of the entry immediately above, which closed `bugs_open/021` and
