@@ -212,7 +212,32 @@ func TemplateNeedsInstanceID(templateStr string) bool {
 var (
 	// Attribute ids only. Deliberately does not match {{...}} expressions: an
 	// unrendered template is not evidence of a collision.
+	//
+	// The `+` is load-bearing and is why reEmptyElementID exists below: this
+	// pattern cannot match id="" at all, so an id that rendered EMPTY was
+	// invisible to every caller of DetectInstanceCollisions until 2026-08-24.
 	reElementID = regexp.MustCompile(`\sid="([^"{}]+)"`)
+	// An id attribute that rendered LITERALLY EMPTY. Its own class, not a
+	// widening of reElementID, and the separation is the point:
+	//
+	//   - ONE is already a defect. Duplicates only mean anything at >=2, so
+	//     folding empties into DuplicateElementIDs would report a single
+	//     empty id as clean — which is the blindness this closes, not a fix
+	//     for it.
+	//   - The two classes have DIFFERENT CAUSES and different remedies. A
+	//     duplicate id is a wrong OCCURRENCE (the token was derived from bad
+	//     input). An empty id is a failed BINDING — either the per-instance
+	//     token was never bound and {{.InstanceID}} took missingkey=zero, or
+	//     the id's whole value is a content field that resolved to nothing
+	//     (live 2026-08-24: category-listing's id="{{.category_slug}}" on
+	//     dartsonline.com, which has no InstanceID in it at all). Reporting
+	//     them as one class would send a reader to the wrong half of the seam.
+	//   - Summary() would otherwise print an empty string as the offending id.
+	//
+	// Both quoting styles, because the corpus contains both. Still deliberately
+	// blind to {{...}}: an UNRENDERED template is not evidence, which is the
+	// property reElementID's comment states and this must not weaken.
+	reEmptyElementID = regexp.MustCompile(`\sid=(?:""|'')`)
 	// Inline scripts only — a <script src=...> is a shared file, not a
 	// per-instance body, and is expected to be present once per component.
 	reInlineScript = regexp.MustCompile(`(?s)<script(?:\s[^>]*)?>(.*?)</script>`)
@@ -288,6 +313,12 @@ type InstanceCollisions struct {
 	// DuplicateElementIDs are ids appearing more than once in the document,
 	// sorted. Every getElementById for one of these resolves to the first.
 	DuplicateElementIDs []string
+	// EmptyElementIDs counts id attributes that rendered literally empty.
+	// ONE is already a defect — an empty id is addressable by nothing, and
+	// two of them are a collision that DuplicateElementIDs cannot see because
+	// reElementID requires at least one character. Counted, not listed:
+	// there is no string to name.
+	EmptyElementIDs int
 	// WindowOnloadAssignments counts `window.onload =` across inline scripts.
 	// More than one means all but the last component never initialises.
 	WindowOnloadAssignments int
@@ -300,6 +331,7 @@ type InstanceCollisions struct {
 // Clean reports whether the document is safe to carry repeated components.
 func (c InstanceCollisions) Clean() bool {
 	return len(c.DuplicateElementIDs) == 0 &&
+		c.EmptyElementIDs == 0 &&
 		c.WindowOnloadAssignments <= 1 &&
 		c.UnscopedInlineScripts == 0
 }
@@ -319,6 +351,10 @@ func (c InstanceCollisions) Summary() string {
 		parts = append(parts, fmt.Sprintf("%d duplicate element id(s): %s",
 			n, strings.Join(shown, ", ")))
 	}
+	if c.EmptyElementIDs > 0 {
+		parts = append(parts, fmt.Sprintf(
+			"%d empty element id(s) — an id binding rendered empty", c.EmptyElementIDs))
+	}
 	if c.WindowOnloadAssignments > 1 {
 		parts = append(parts, fmt.Sprintf(
 			"%d window.onload assignments (only the last one runs)",
@@ -332,7 +368,9 @@ func (c InstanceCollisions) Summary() string {
 }
 
 // DetectInstanceCollisions scans an assembled page (or any HTML fragment) for
-// the three classes above.
+// the classes above. (Three collision classes plus the empty-id class added
+// 2026-08-24 — an empty id is not a collision between two instances, it is an
+// instance with no identity at all, and it was invisible here until then.)
 //
 // LIMITATION, stated rather than hidden: this is a regex scan, not an HTML
 // parse. An id inside a comment or a string literal counts, and a script body
@@ -353,6 +391,8 @@ func DetectInstanceCollisions(html string) InstanceCollisions {
 		}
 	}
 	sort.Strings(out.DuplicateElementIDs)
+
+	out.EmptyElementIDs = len(reEmptyElementID.FindAllString(html, -1))
 
 	for _, m := range reInlineScript.FindAllStringSubmatch(html, -1) {
 		whole, body := m[0], strings.TrimSpace(m[1])

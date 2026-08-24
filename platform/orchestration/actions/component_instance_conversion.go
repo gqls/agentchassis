@@ -436,6 +436,22 @@ func GateConvertedTemplate(function, converted string, logger *zap.Logger) (need
 		return false, fmt.Errorf("gate: %d id(s) still duplicated across two instances (%s) — transform incomplete",
 			n, strings.Join(report.DuplicateElementIDs, ", "))
 	}
+	if report.EmptyElementIDs > 0 {
+		// An id rendered EMPTY across a render that bound REAL tokens. The
+		// `id="-` check inside the loop above catches only the token-empty
+		// shape id="{{.InstanceID}}-suffix"; it cannot see id="{{.InstanceID}}"
+		// on its own (6 of the 140 active InstanceID templates spell it exactly
+		// that way as of 2026-08-24, generic-text-block among them), nor an id
+		// whose whole value is some OTHER field that resolved to nothing.
+		//
+		// HARD ERROR, never the judged pool. The judged pool is for a template
+		// whose SCRIPT genuinely needs rewriting; this is a template that
+		// produces an element nothing can address, under a token that was
+		// supplied. That is a transform defect, and shipping it would put the
+		// empty-id class into the corpus through the very gate that exists to
+		// keep it out.
+		return false, fmt.Errorf("gate: %d id attribute(s) rendered EMPTY across a real-token render — an id binding resolved to nothing, so the element is addressable by neither instance", report.EmptyElementIDs)
+	}
 	if report.UnscopedInlineScripts > 0 || report.WindowOnloadAssignments > 1 {
 		// The §2.1 refusal: ids are clean, the script half is not. Shipping
 		// now would remove the only visible signal while both buttons still

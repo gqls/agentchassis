@@ -24,6 +24,7 @@
 //	          WHERE c.is_active AND c.html_template ~ 'getElementById') x;" > /tmp/templates.json
 //	go run ./cmd/instanceaudit /tmp/templates.json [--list]
 //	go run ./cmd/instanceaudit /tmp/converted.json --bindings
+//	go run ./cmd/instanceaudit /tmp/templates.json --gate
 //
 // --bindings (2026-08-19, bugs_open/283 §14) runs the BINDING completeness
 // detector — actions.UnprefixedBindings — over already-converted templates and
@@ -32,6 +33,16 @@
 // outputs carried an id literal that travels to a lookup through a variable,
 // a helper or a concatenation, and every spot-check (ids + tokens) read clean.
 // Export the converted rows with: … WHERE c.html_template LIKE '%InstanceID%'.
+//
+// --gate (2026-08-24, plan §B1) runs the REAL acceptance gate —
+// actions.GateConvertedTemplate, tokens bound, rendered through the real render
+// layer — over every row that spells {{.InstanceID}}, and reports the outcome
+// classes. It exists because the gate gained a hard-error branch for ids that
+// render EMPTY, and "expect zero trips" is a claim about the LIVE corpus that
+// has to be measured before the branch ships rather than after. Unlike the
+// default mode it does not double the raw template: an empty id is only visible
+// in a real render, which is precisely why the gate's own `id="-` check could
+// not see it.
 //
 // The export is deliberately the caller's job: this reads a file and touches no
 // database, so it can be run against a snapshot, a single candidate template, or
@@ -62,6 +73,7 @@ import (
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
+	"go.uber.org/zap"
 )
 
 type row struct {
@@ -75,6 +87,11 @@ type detail struct {
 	unscopedN    int
 	onloadN      int
 	dupIfDoubled int
+	// emptyIfDoubled counts id attributes that rendered LITERALLY EMPTY in the
+	// doubled render. Reported separately from dupIfDoubled because one is
+	// already a defect and because the two have different causes — a duplicate
+	// is a wrong occurrence, an empty is a failed binding.
+	emptyIfDoubled int
 }
 
 func main() {
@@ -128,7 +145,8 @@ func main() {
 		}
 		buckets[k] = append(buckets[k], r.Function)
 		details = append(details, detail{r.Function, one.UnscopedInlineScripts,
-			one.WindowOnloadAssignments, len(two.DuplicateElementIDs)})
+			one.WindowOnloadAssignments, len(two.DuplicateElementIDs),
+			two.EmptyElementIDs})
 	}
 
 	fmt.Printf("templates analysed: %d\n\n", len(rows))
@@ -146,16 +164,22 @@ func main() {
 	}
 
 	sort.Slice(details, func(i, j int) bool { return details[i].dupIfDoubled > details[j].dupIfDoubled })
-	var totalDup, zeroDup int
+	var totalDup, zeroDup, totalEmpty, anyEmpty int
 	for _, d := range details {
 		totalDup += d.dupIfDoubled
 		if d.dupIfDoubled == 0 {
 			zeroDup++
 		}
+		totalEmpty += d.emptyIfDoubled
+		if d.emptyIfDoubled > 0 {
+			anyEmpty++
+		}
 	}
 	fmt.Printf("\nIf each component appeared TWICE on one page:\n")
 	fmt.Printf("  total duplicate ids across all %d:           %d\n", len(rows), totalDup)
 	fmt.Printf("  components with ZERO id collisions:          %d\n", zeroDup)
+	fmt.Printf("  total EMPTY ids (a binding resolved to none): %d across %d component(s)\n",
+		totalEmpty, anyEmpty)
 	fmt.Printf("  worst 8: ")
 	for i := 0; i < 8 && i < len(details); i++ {
 		fmt.Printf("%s(%d) ", details[i].fn, details[i].dupIfDoubled)
@@ -167,12 +191,81 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 2 && os.Args[2] == "--gate" {
+		auditGate(rows)
+		return
+	}
+
 	if len(os.Args) > 2 && os.Args[2] == "--list" {
 		fmt.Println("\n--- per component ---")
 		for _, d := range details {
-			fmt.Printf("%-45s unscoped=%d onload=%d dupIfDoubled=%d\n",
-				strings.TrimSpace(d.fn), d.unscopedN, d.onloadN, d.dupIfDoubled)
+			fmt.Printf("%-45s unscoped=%d onload=%d dupIfDoubled=%d emptyIfDoubled=%d\n",
+				strings.TrimSpace(d.fn), d.unscopedN, d.onloadN, d.dupIfDoubled,
+				d.emptyIfDoubled)
 		}
+	}
+}
+
+// auditGate runs the real acceptance gate over every template that spells the
+// instance token and reports what it does to each. Exit 3 if any row is refused
+// with a HARD error, because that is a template the gate would not let ship.
+//
+// The empty-id class is broken out separately from the other hard errors: it is
+// the branch added 2026-08-24, and a count that lumped it in with "transform
+// incomplete" could not answer the question the change has to answer before it
+// ships — how many live templates does the NEW refusal stop.
+func auditGate(rows []row) {
+	logger := zap.NewNop()
+
+	var considered, clean, judged int
+	var emptyID, otherHard []string
+
+	for _, r := range rows {
+		if !actions.TemplateNeedsInstanceID(r.Tpl) {
+			continue // nothing for this gate to judge
+		}
+		considered++
+		needsJudged, err := actions.GateConvertedTemplate(r.Function, r.Tpl, logger)
+		switch {
+		case err != nil && strings.Contains(err.Error(), "rendered EMPTY"):
+			emptyID = append(emptyID, fmt.Sprintf("%s: %v", strings.TrimSpace(r.Function), err))
+		case err != nil:
+			otherHard = append(otherHard, fmt.Sprintf("%s: %v", strings.TrimSpace(r.Function), err))
+		case needsJudged:
+			judged++
+		default:
+			clean++
+		}
+	}
+
+	// A clean report over zero considered rows is indistinguishable from a clean
+	// report over a healthy corpus. Refuse rather than reassure — the same rule
+	// the empty-export check at the top of main enforces.
+	if considered == 0 {
+		fmt.Fprintf(os.Stderr, "REFUSING: none of the %d rows spell {{.%s}}, so the gate "+
+			"judged nothing and a clean result here is not evidence.\n",
+			len(rows), actions.InstanceContentKey)
+		os.Exit(2)
+	}
+
+	fmt.Printf("gate run over %d of %d rows (those spelling {{.%s}})\n\n",
+		considered, len(rows), actions.InstanceContentKey)
+	fmt.Printf("  ships as-is (gate clean):                    %d\n", clean)
+	fmt.Printf("  routed to the judged pool (script/bindings):  %d\n", judged)
+	fmt.Printf("  HARD ERROR — id rendered EMPTY (new branch):  %d\n", len(emptyID))
+	fmt.Printf("  HARD ERROR — other transform defect:         %d\n", len(otherHard))
+
+	sort.Strings(emptyID)
+	sort.Strings(otherHard)
+	for _, e := range emptyID {
+		fmt.Printf("\n  EMPTY-ID  %s", e)
+	}
+	for _, e := range otherHard {
+		fmt.Printf("\n  HARD      %s", e)
+	}
+	if len(emptyID)+len(otherHard) > 0 {
+		fmt.Println()
+		os.Exit(3)
 	}
 }
 

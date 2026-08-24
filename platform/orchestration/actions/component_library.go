@@ -1093,19 +1093,68 @@ func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) 
 	// every one of them arrives, and mirrors the form_action seeding above: the
 	// guarantee is made mechanical rather than left to each caller remembering.
 	//
-	// It reports and does not substitute. There is no value this layer could
+	// It refuses and does not substitute. There is no value this layer could
 	// invent that would be right: it cannot see the page, so any token it made up
 	// would either collide (no better than empty) or disagree with the token the
 	// page's other render paths use for the SAME instance — which is worse than
 	// empty, because the ids would then depend on which action last touched the
-	// section. Error level matches the dead-control report below: both are a
-	// silently-wrong artefact shipped to a live page.
+	// section.
+	//
+	// ARMED FROM LOG-ONLY TO REFUSAL, 2026-08-24 (plan §B2, RFC_032 §10). It
+	// stood here as a named logger.Error for eight days, and this estate has an
+	// owner ruling — cited at the dead-control report below — that a named log
+	// is not escalation. The output is structurally wrong for EVERY instance,
+	// which is the bugs_open/260 class: execute, or fail; there is no third
+	// state. It is deliberately unlike the absent-content report further down,
+	// which does not refuse because that content legitimately renders today.
+	//
+	// UNCONDITIONAL, NOT OPT-IN, and the measurements are why. The owner ruling
+	// of 2026-08-02 §2 requires new authority on a shared seam to ship opt-in
+	// with the unsafe default OFF *or* to be measured inert; the second arm is
+	// satisfied here, and a per-caller flag would re-create exactly the
+	// per-call-site wiring this seam exists to remove. What was measured, all
+	// dated 2026-08-24 and all disconfirmable:
+	//
+	//   - STATIC, tree-wide: 11 non-test files call a RenderTemplate* helper;
+	//     6 bind a token, 5 are allow-listed in pattern-check.py's
+	//     INSTANCE_TOKEN_ALLOWED as slots that occur once per document. Zero
+	//     unbound. Demand control: deleting the bind call from each of the 6
+	//     flips it to an unscoped-component-render finding, so the zero could
+	//     have come out otherwise.
+	//   - AT THE ARTEFACT: of 2,020 page_components rows, ZERO carry the
+	//     unbound-token shape id="-…"; 374 carry a bound id="c-…". In the
+	//     window since generic-text-block began spelling id="{{.InstanceID}}"
+	//     exactly (2026-08-23 12:32), 155 of its rows were written and 155 of
+	//     155 carry a bound token, 0 empty. That template is the one where an
+	//     unbound render is visible as id="" rather than id="-…", so it is the
+	//     sharpest available detector, and it says the live paths all bind.
+	//   - BLAST RADIUS: zero chrome-level templates (header 4, footer 1, site
+	//     6, element 1 — all active) spell {{.InstanceID}}, so the refusal
+	//     cannot fail a header, footer or <head> render. All 140 that do spell
+	//     it are section (30) or tool (110) level.
+	//   - NOT MEASURED, stated rather than implied: the fleet log census the
+	//     plan asked for is a BLIND instrument on this cluster and its zero is
+	//     worth nothing — there is no log aggregator, spawned job pods carry
+	//     ttlSecondsAfterFinished=3600, and across all 181 live and completed
+	//     pods (176k log lines) not one line names component_library.go at all.
+	//     The artefact census above is the substitute, because it can come out
+	//     non-zero.
+	//
+	// SECOND DOOR, unclosed on purpose: RenderTemplateWithMap
+	// (rerender_pages_actions.go:818) is a separate render path with no such
+	// check (bugs_open/260 §13g — it does not even share this one's FuncMap).
+	// Its callers render chrome only, and the chrome census above is zero, so
+	// arming it would guard nothing today. If a section or tool template ever
+	// reaches it, this refusal will not fire.
 	if TemplateNeedsInstanceID(templateStr) {
 		token, _ := ctx.ContentData[InstanceContentKey].(string)
 		if token == "" {
-			logger.Error("RenderTemplate: template namespaces ids with {{."+InstanceContentKey+"}} but no per-instance token was bound — every instance on this page will render identical element ids",
+			logger.Error("RenderTemplate: template namespaces ids with {{."+InstanceContentKey+"}} but no per-instance token was bound — refusing rather than rendering identical element ids",
 				zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
 			)
+			return "", nil, nil, fmt.Errorf(
+				"template namespaces ids with {{.%s}} but no per-instance token is bound — bind via BindInstanceToken/BindSingleSectionInstanceToken (bugs_open/283 seam)",
+				InstanceContentKey)
 		}
 	}
 

@@ -227,16 +227,31 @@ func TestRenderLayer_twoInstancesOnOnePageGetDifferentIDs(t *testing.T) {
 	// MUTATION — the regression test for §3.3, the objection that the value was
 	// bound at three call sites while the mechanism stayed generic. Render the
 	// same template through a path that binds NOTHING (any of the five call
-	// sites that did not, before this change). Both instances must then collide,
-	// proving the clean result above is produced by the binding and not by the
-	// template happening to be harmless.
-	var unbound strings.Builder
-	for i := 0; i < 2; i++ {
-		unbound.WriteString(mustRender(t, tmpl, &RenderContext{}, logger))
+	// sites that did not, before this change).
+	//
+	// UPDATED 2026-08-24 (plan §B2): the seam now REFUSES that render rather
+	// than returning colliding ids, so the control asserts the refusal. The
+	// control's job is unchanged — prove the clean result above is produced by
+	// the binding and not by the template happening to be harmless — but the
+	// evidence moved one layer earlier, from "the output collides" to "there is
+	// no output". Both arms are kept: the refusal (this seam), and a collision
+	// control on hand-built bytes below (the detector), so neither half can go
+	// inert without a test failing.
+	if _, _, _, err := RenderTemplate(tmpl, &RenderContext{}, logger); err == nil {
+		t.Fatal("CONTROL FAILED: rendering an {{.InstanceID}} template with no token " +
+			"bound must be REFUSED — the seam is inert and every instance would " +
+			"again take identical ids")
 	}
-	if DetectInstanceCollisions(unbound.String()).Clean() {
-		t.Fatal("CONTROL FAILED: an unbound InstanceID must produce colliding ids — " +
-			"either the detector or this test is inert")
+
+	// The detector half of the same control, on bytes the render layer will no
+	// longer produce: two copies of what an unbound render USED to emit must
+	// still read as a collision. Without this, arming the refusal above would
+	// have quietly retired the only test that exercises the duplicate-id path
+	// end to end.
+	unboundShape := strings.ReplaceAll(tmpl, "{{.InstanceID}}", "")
+	if DetectInstanceCollisions(unboundShape + unboundShape).Clean() {
+		t.Fatal("CONTROL FAILED: two copies of an unbound render must collide — " +
+			"the detector is inert")
 	}
 }
 
@@ -451,5 +466,62 @@ func TestDetect_ignoresSharedScriptSrcAndUnrenderedTemplates(t *testing.T) {
 	tmpl := `<input id="{{.InstanceID}}-loanAmount"><input id="{{.InstanceID}}-rate">`
 	if got := DetectInstanceCollisions(tmpl); !got.Clean() {
 		t.Fatalf("unrendered template must not report collisions: %s", got.Summary())
+	}
+}
+
+// An id that rendered LITERALLY EMPTY was invisible to this detector until
+// 2026-08-24: reElementID's `+` cannot match id="". Six non-removed rows in
+// page_components carried one at the time, on two sites, and every caller of
+// DetectInstanceCollisions read them as clean.
+//
+// The class separation is the assertion, not just the count. Empty and
+// duplicate have different causes (failed BINDING vs wrong OCCURRENCE) and
+// different remedies, so a test that only checked !Clean() would pass against
+// the wrong fix — folding empties into DuplicateElementIDs, which would also
+// report a SINGLE empty id as clean and print an empty string in Summary().
+func TestDetect_emptyIdIsItsOwnClass(t *testing.T) {
+	one := DetectInstanceCollisions(`<section id=""><p>copy</p></section>`)
+	if one.EmptyElementIDs != 1 {
+		t.Fatalf("one empty id must be counted, got %d", one.EmptyElementIDs)
+	}
+	if len(one.DuplicateElementIDs) != 0 {
+		t.Fatalf("an empty id is NOT a duplicate — classes must not merge, got %v",
+			one.DuplicateElementIDs)
+	}
+	if one.Clean() {
+		t.Fatal("ONE empty id is already a defect: the element is addressable by " +
+			"nothing, so Clean() must be false without needing a second one")
+	}
+	if s := one.Summary(); !strings.Contains(s, "empty element id") {
+		t.Fatalf("Summary must name the class so a reader is sent to the binding "+
+			"half of the seam, got %q", s)
+	}
+
+	// Single quotes appear in the corpus too.
+	if got := DetectInstanceCollisions(`<section id=''></section>`); got.EmptyElementIDs != 1 {
+		t.Fatalf("id='' must be counted, got %d", got.EmptyElementIDs)
+	}
+
+	// CONTROL — the property reElementID's comment states and this must not
+	// weaken: an UNRENDERED template is not evidence. A template still holding
+	// {{.InstanceID}} has not failed to bind; it has not been rendered.
+	if got := DetectInstanceCollisions(`<section id="{{.InstanceID}}"></section>`); got.EmptyElementIDs != 0 {
+		t.Fatalf("an unrendered placeholder must NOT count as an empty id "+
+			"(got %d) — that would flag every template at rest", got.EmptyElementIDs)
+	}
+	// CONTROL — a normal id must not be counted, or the class fires everywhere.
+	if got := DetectInstanceCollisions(`<section id="c-faq"></section>`); got.EmptyElementIDs != 0 {
+		t.Fatalf("a bound id must not count as empty, got %d", got.EmptyElementIDs)
+	}
+
+	// Two empty ids on one page are the live shape this closes: BOTH instances
+	// unaddressable, and the old detector saw neither.
+	two := DetectInstanceCollisions(`<section id=""></section><section id=""></section>`)
+	if two.EmptyElementIDs != 2 {
+		t.Fatalf("both empty ids must be counted, got %d", two.EmptyElementIDs)
+	}
+	if len(two.DuplicateElementIDs) != 0 {
+		t.Fatalf("two empties are still not DuplicateElementIDs, got %v",
+			two.DuplicateElementIDs)
 	}
 }

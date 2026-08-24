@@ -213,3 +213,85 @@ func TestContactInfoSeamRejectsTheComponentLibraryFuncMap(t *testing.T) {
 		t.Errorf("contact-info render lost its data: %s", out)
 	}
 }
+
+// ARMED 2026-08-24 (plan §B2). A template that namespaces its ids with
+// {{.InstanceID}}, rendered by a path that bound no token, gets missingkey=zero
+// — an empty string — so every instance on the page lands back on IDENTICAL
+// ids. That was a named logger.Error here for eight days, and this estate has
+// an owner ruling that a named log is not escalation: the output is
+// structurally wrong for EVERY instance, which is this file's own class.
+//
+// The positive controls are the load-bearing half, exactly as the file header
+// says. A refusal that also fired on the ~100 components with no {{.InstanceID}}
+// in them would take the fleet down, so both must be asserted here.
+func TestRenderTemplate_refusesUnboundInstanceToken(t *testing.T) {
+	const needsToken = `<section id="{{.InstanceID}}"><button id="{{.InstanceID}}-go"></button></section>`
+
+	out, _, _, err := RenderTemplate(needsToken, &RenderContext{}, zap.NewNop())
+	if err == nil {
+		t.Fatalf("an {{.InstanceID}} template with no token bound must be REFUSED, "+
+			"got output %q — rendering it ships an element addressable by nothing "+
+			"and, on a second instance, two elements answering to one id", out)
+	}
+	// The message has to send the reader to the seam, not just say "no".
+	if !strings.Contains(err.Error(), "BindInstanceToken") {
+		t.Errorf("the refusal must name the binder a caller is supposed to use, got: %v", err)
+	}
+	if out != "" {
+		t.Errorf("a refused render must return no output, got %q", out)
+	}
+
+	// POSITIVE CONTROL 1 — bound, it renders. Without this the assertion above
+	// would pass against a seam that refuses every template with an id in it.
+	rc := &RenderContext{}
+	BindInstanceToken(rc, InstanceToken("faq", 0))
+	bound, _, _, err := RenderTemplate(needsToken, rc, zap.NewNop())
+	if err != nil {
+		t.Fatalf("CONTROL FAILED: a BOUND render must succeed: %v", err)
+	}
+	if !strings.Contains(bound, `id="c-faq"`) {
+		t.Errorf("CONTROL FAILED: bound render lost the token: %s", bound)
+	}
+
+	// POSITIVE CONTROL 2 — a template that does not use the token must render
+	// with nothing bound. This is the majority of the corpus (140 of the active
+	// templates spell {{.InstanceID}} as of 2026-08-24; the rest do not), and
+	// refusing them would be a fleet-wide outage rather than a guard.
+	plain := `<section id="static-thing"><p>{{.body}}</p></section>`
+	if _, _, _, err := RenderTemplate(plain, &RenderContext{}, zap.NewNop()); err != nil {
+		t.Fatalf("CONTROL FAILED: a template with no {{.InstanceID}} must still "+
+			"render unbound: %v", err)
+	}
+}
+
+// The gate's own `id="-` check sees only the token-empty shape
+// id="{{.InstanceID}}-suffix". It cannot see an id whose WHOLE value resolved
+// to nothing — either id="{{.InstanceID}}" spelled on its own (6 of the 140
+// active InstanceID templates as of 2026-08-24, generic-text-block among them)
+// or some other field that rendered empty, which is the live dartsonline case
+// (category-listing's id="{{.category_slug}}").
+func TestGate_refusesEmptyIdResidue(t *testing.T) {
+	// Tokens ARE bound here — that is what makes this a transform defect rather
+	// than the binding failure the render seam now refuses.
+	const residue = `<section id="{{.InstanceID}}-wrap"><div id="{{.category_slug}}">x</div></section>`
+
+	needsJudged, err := GateConvertedTemplate("category-listing", residue, zap.NewNop())
+	if err == nil {
+		t.Fatal("the gate must refuse a converted template that renders an EMPTY id " +
+			"under real tokens — shipping it puts an unaddressable element into the " +
+			"corpus through the gate that exists to keep it out")
+	}
+	if needsJudged {
+		t.Error("an empty id is a transform defect, never a judged-pool case: the " +
+			"judged pool is for scripts that need rewriting, not for an element " +
+			"nothing can address")
+	}
+
+	// CONTROL — the same shape with the id supplied must gate cleanly, or this
+	// test would pass against a gate that refuses everything.
+	const sound = `<section id="{{.InstanceID}}-wrap"><div id="{{.InstanceID}}-inner">x</div></section>`
+	if needsJudged, err := GateConvertedTemplate("category-listing", sound, zap.NewNop()); err != nil || needsJudged {
+		t.Fatalf("CONTROL FAILED: a soundly converted template must pass "+
+			"(err=%v needsJudged=%v)", err, needsJudged)
+	}
+}
