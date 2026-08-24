@@ -2802,3 +2802,26 @@ re-diagnose during Phase C asset retirement. This session's open tail: verdicts 
   post-retire re-read demoted from mandatory to cheap hygiene (the filer still scans tombstones —
   277/283 residuals stand in 360's close block).
 - **Phase C remainder (11): bayesian-rank next** (8,749), then community-growth, head-architect …
+
+## 2026-08-24 10:35Z — #30 `tool-bayesian-rank` DONE (30 of 63). Sighting #12 of the self-misdescription class: static stars beside a live number
+
+Item `d8ed3e4e` (10:17Z, gates all clear incl. adopt-flag check). RUN complete/adopted, component
+`ea71d899` (13,816 chars). **Retire `UPDATE 1` at 10:21:07** (~1 min after build; slot `4c4bc980`
+md5 `d1124523…` intact; ⚠ the FIRST retire attempt silently didn't run — a typo'd heredoc path meant
+psql never received the SQL; caught because the post-commit re-read said `deployed`, which is the
+re-read rule doing its job — the corrected txn ran ~4 min after build, race won). Sweep rerender
+`416e9c3d` complete 10:29:13.
+**Ported defects:** NaN scores from blank inputs (`parseFloat('')` → "NaN" cells, winner logic
+silently no-ops); no min on count → negative counts can ZERO the denominator (v=-C → Infinity);
+**static ★★★★★ glyphs never updated while the number beside them is** — the tool contradicts
+itself the moment a rating is edited (self-misdescription sighting #12).
+**COMPONENT PASS by mechanism:** `renderStars(container, rating)` renders a percentage-fill from
+the VALUE and empties on invalid — glyphs structurally cannot contradict the number;
+`parseRating`/`parseCount` typed-error returns with distinct inline messages (blank/NaN/range/
+fractional), invalid → '-' cells and cleared stars; `denom <= 0 || !isFinite(denom)` → '-';
+explicit tie message element; 0·0·0 counts, 6 listeners.
+**SERVE-GRADE PASS:** 200 / 20,754 B / last-modified 10:29:26 > 10:29:13; negatives all 0
+(`ratingA`, `bayesA`, `cardA`, **`src="bayes.js"`**, `confDisplay`); positives present
+(tie-message, stars-fill ×2, result-summary). Tombstone re-read: removed/10:21:07 ✓.
+**Orphan #3:** `/tools/bayesian-rank/bayes.js` (dry-run corr `7f88d441`, expected refusal — 365 list).
+**Phase C remainder (10): community-growth (8,771) next, then head-architect, seo-schema…**
