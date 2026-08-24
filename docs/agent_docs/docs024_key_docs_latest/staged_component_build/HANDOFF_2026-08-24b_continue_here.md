@@ -112,3 +112,66 @@ pending a roll (§12.1).
    anything at all.
 5. Council/ownership: `5ae2147d`, `26186633`, `e05ea6f9` APPROVED + live; `642ecc3c` at round 3.
    Nothing else owed.
+
+---
+
+## 5. ⚠ ADDED LATER THE SAME DAY — round 3 is **APPROVED**, and its advisory objections corrected §1.1 and §2 above. **Read this section before acting on either.**
+
+Run `53e3812f` → `complete_approved`, *"approved with 3 advisory objection(s) — none high-severity"*.
+**The forward fix is approved AND live: there is nothing left to ship on it.** Full record:
+`bugs_open/353` §13.
+
+**Two of the three objections found real defects in my evidence, and one refutes a claim that had
+stood in the bug file since filing. `APPROVED` is exactly the moment those stop being read — so:**
+
+### 5.1 §1.1's probe was too narrow. Method wrong, conclusion survives.
+
+`-l app=agent-chassis` matches **2** pods. The namespace holds **159**, of which **68** run this
+binary as **per-run `agent-*` pods** — and `tool-generator` is one of those (it spawns per run; no
+such pod exists at rest). "One replicaset" on a two-pod selector proves nothing about the pod that
+executes the code.
+
+**Re-checked and it holds:** 68/68 per-run pods on `v1.0.1332`, and a per-run pod **on a different
+node** probes clean with both controls. **`-l app=<service>` answers "which pods carry this label",
+never "which pods run this binary" — here they differ by 34×.**
+
+### 5.2 ⚠ **"`tool-deployer` has never run" is FALSE** — §2's item (c) is withdrawn
+
+`orchestration_states` retention is **24 h, sliding** (measured: oldest `COMPLETED` **24.5 h**). The
+"0 rows" meant *"none in the last day"*. The "retention reaches 2026-07-19" figure was the
+documented **false floor**.
+
+**Re-sourced from `agent_error_log` (no reaper): 10 `tool-deployer` rows, 08-03 → 08-15**, each
+*"workflow completed but its result could not be delivered to the parent"*. It ran.
+
+> **(c) is REPLACED by (c′), which is a better question:** the re-emission path **ran at least 10
+> times inside the damage window and the 30 withheld tools still have zero cross-links.** Did it run
+> for other tools, or for these and withhold again? **[UNMEASURED]** — the discriminator is whether
+> any of those 10 runs names a withheld tool. **This is the most interesting thing still open on 353.**
+
+The damage figures are untouched — they came from durable rows, never from that table.
+
+### 5.3 §2's item (d) has MOVED — it is now `bugs_open/379`, and it is UNOWNED
+
+The regeneration residual (a `replace_existing` regeneration that ADDS a related page never emits
+cross-links for it) was parked in 353's open list, where it would have closed silently when 353
+closed. Filed separately at the council's direction. **Its size is `[UNMEASURED]` on purpose** — the
+first task there is counting how many regenerations changed their `related_pages` set, not guessing.
+
+### 5.4 Corrected open list for 353
+
+- **(b)** new arm live but **UNEXERCISED** — first non-zero INFO row closes it (§1.2 still stands).
+- **(c′)** `tool-deployer` ran ≥10× and the withheld tools still have nothing — **[UNMEASURED]**.
+- ~~(d)~~ → `bugs_open/379`, unowned.
+
+### 5.5 Trap 10, and it is the one worth carrying
+
+**An ADVISORY objection in an APPROVED round is where the real defects were.** Two of three landed,
+including the only thing that refuted a filed claim — raised by the one seat that *could not query
+the table* and judged the claim's SHAPE instead. Read them before filing the verdict away.
+
+**Trap 11: grepping `LANDMINES.md` for footprint A does not deliver entry B.** I had the file open
+this session and still wrote the retention false floor. A TABLE-footprinted entry cannot reach you
+through a hook that matches dirty FILE paths, and `kubectl exec … psql` touches no file — so the
+delivery moment is the query itself. **Grep the table name before any `count(*)`, `min()`, or the
+word "never".** (Third recorded instance; appended to the entry's own tally.)
