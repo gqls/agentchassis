@@ -109,3 +109,68 @@ json` — the trigger interpolates the symptom into a `$json$` literal, so **dou
 symptom text break it**; re-filed with none. Also worth knowing: the trigger warned that local
 HEAD was **464 commits ahead of origin**, and the diagnosis reads `origin/<branch>` — checked all
 three relevant files are byte-identical at origin before relying on the run.
+
+## 2026-08-24 — session 1, second half: shipped, reviewed, and two things I got wrong
+
+### What shipped
+
+- **Code**, `da21ae20f`, inert until the adapter rolls: absent kind → banana, `MissingKind` flag,
+  `MISSING_IMAGE_KIND` condition carrying a bounded prompt opening. Safety checked at the
+  construction site, not assumed: `banana.New` refuses an empty `APIKey` and
+  `NewDynamicImageAdapter` aborts on that error, so a **running** adapter always has a working
+  Banana client. Exactly one place in the repo publishes to the adapter topic.
+- **Config**, migration `586`, APPLIED + RECORDED, live on apply. Dry-run inside a rolled-back
+  transaction first; the DO/RAISE guard mutation-tested (skipping the dead-key deletion aborts it
+  with *"3 live call_agent step(s) still carry the dead default_kind key"*). Applied by hand then
+  `--record-only`, because `582/583/584` are another lane's pending files and `--apply` takes the
+  whole directory.
+- Both new routing guards mutation-tested: routing the absent case back to Stability fails 2
+  tests, dropping the flag fails 4 — **different tests**, so neither passes via a guard in series.
+
+### Misstep 2 — I attributed 9 of 14 assets by their NAME SHAPE and wrote it as measured
+
+Full entry in `WRONG_CALLS.md`. Short form: I matched five assets to their `unfulfilled_hero_variant`
+rows minute-for-minute and assigned the other nine to the same producer because their `asset_key`s
+looked like `hero_<page>`. `classifyPromptKey` maps prompt key → item type; **it does not say
+nothing else produces that shape.** The `agritec.uk` lane found twelve `hero_*` keys on a site with
+**zero** variant rows — all from `needs_imagery`. Re-run properly, my nine hold. That is the
+uncomfortable outcome, not the reassuring one: **a claim that is true is not thereby evidenced**,
+and the five real matches were lending their credibility to nine guesses standing beside them.
+
+**The check that found it was a message I sent as a courtesy.** Telling the affected lanes is the
+only review that arrives with an independent population attached — a site lane checks its own site
+with the tell it can reach for, which is exactly the tell I had over-trusted.
+
+### Misstep 3 — I nearly "fixed" a second door into a regression
+
+Chasing agritec's discriminator into `call_imagery_gen` turned up
+`image-source-unsatisfiable-handler.file_imagery_request`, which files `needs_imagery` specs with
+`purpose` and no `kind`. The obvious fix — add `"kind": "source_facts.implied_purpose"` beside
+`purpose` — is **wrong**, and I was two minutes from writing migration 587 before checking what
+`implied_purpose` can actually contain. It is gated against an eleven-value `mappable` list of
+which **only five are `kindProviderRouting` keys**; supplying `background` or `banner` would turn a
+post-fix banana default into an SDXL fallback misdiagnosed as a table gap. Worse, it would make an
+SQL literal in one agent definition **predict a routing table compiled into a different binary** —
+the drift class `routing.go`'s own header forbids.
+
+Today's reachable set is safe by luck (17 imply `hero`, 7 `illustration`, 9 imply `image` which is
+unmappable and escalates instead of filing). **Luck is exactly what made the original exemption
+look safe**, so the refusal and its reasoning are written into `bugs_open/382` §7f rather than left
+as a silent omission.
+
+### The verdicts
+
+Council **APPROVED round 1**; every objection answered in `bugs_open/382` §9a, and the
+`architecture` seat's medium routed to `architecture_review/RFC_051`. The diagnosis loop returned
+**UNVERIFIABLE** on `iteration-cap` — three harness-reach gaps, no budget truncation, and
+explicitly *"do NOT auto-conclude"*. It is recorded as a non-result, with a table of how each gap
+was answered first-hand, because the temptation to file it under "the loop looked at it" is exactly
+what the 2026-07-31 owner ruling exists to stop.
+
+### Also corrected: my own answer to a council objection
+
+I first wrote that `586` closed the attribution gap the guardian seat flagged. **It does not.**
+`buildErrorEntry` reads `site_record.site_id` from the *child's* collected data, and the
+image-generator's workflow is one `generate` step with no site load — so those columns stay NULL
+whatever the caller maps. Caught while writing §9a, which is an argument for writing the answers
+down rather than nodding at them.
