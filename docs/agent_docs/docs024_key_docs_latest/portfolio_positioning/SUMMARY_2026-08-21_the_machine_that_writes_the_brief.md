@@ -28,6 +28,14 @@ The first brief, for a houseplant-pot domain, named its real competitors, took a
 
 ## Where we are now
 
+> **⚠ CORRECTED 2026-08-24: this paragraph is overtaken.** `bugs_open/311` is **closed** — fixed,
+> live, and the originating page verified healed at the served artefact (`remortgagecalculator.uk`
+> now serves a real calculator: 6 inputs, 69,704 bytes, where on 08-18 it was 40,726 bytes with
+> none). The precondition is gone and that site is unlocked; `adversecreditmortgage.co.uk` remains
+> locked on the owner's call rather than on anything technical. Left in place unedited because the
+> summary series is a record of what we believed at each milestone, and a summary that was
+> overtaken is evidence about how the understanding moved.
+
 **Builds are still halted, and the reason has narrowed to one thing.** The decisions that were blocking are answered. What remains is a defect: two sites cannot both have a calculator with the same internal name, so on a fleet of finance domains that all want the same tools, whichever site is built first owns the name and every later one ships its tool hollow — with nothing on the page to show a reader anything failed. That is understood, written up, ruled to be fixed as one piece of work, and **not yet built**. It is the last thing standing between us and running the pipeline at scale.
 
 **Twenty-two of your hosted sites are cleared for a remake**, three protected. They are all small — the biggest is 22 pages and nine are single-pagers — so there is very little to lose and a great deal to gain.
