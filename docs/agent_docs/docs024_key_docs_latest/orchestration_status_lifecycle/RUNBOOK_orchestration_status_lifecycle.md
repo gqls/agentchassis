@@ -153,9 +153,14 @@ One INSERT. Forgetting it is a hard write failure at the first attempt — loud 
 >    status needs no sweep change — but that is now because arm 4 checks the column, not because
 >    the sweep is indifferent. A status that is neither terminal nor pausable is reaped by arm 4;
 >    one that is pausable and not terminal is immortal **by design**.
-> 2. **Never set both flags on one row.** Arm 3 would delete it while arm 4 deliberately spares
->    it — the two arms disagree and the destructive one wins. **There is no CHECK constraint
->    stopping you** (verified 2026-08-23). Zero rows are both today; run the two queries in
+> 2. **You can no longer set both flags on one row — the database refuses.** Arm 3 would delete
+>    such a row while arm 4 deliberately spares it, the two arms disagreeing with the destructive
+>    one winning. ~~There is no CHECK constraint stopping you~~ **CORRECTED 2026-08-24: there is
+>    now — `chk_status_not_terminal_and_pausable`, added by migration `589`, and arm 3
+>    independently excludes pausable rows in case it is ever dropped.** A both-flagged INSERT or
+>    UPDATE now fails loudly at the moment you make it. ⚠ **This does NOT cover the other half:**
+>    a status named for pausing but left `is_pausable = false` is still writable and still reaped
+>    at 24h — the constraint checks the flags, not the name. Run the two queries in
 >    `LANDMINES.md` ("Setting `is_terminal` … now ARMS a 24-hour DELETE") before and after
 >    touching this table, with the row-count demand control, because both queries return empty
 >    when healthy and an empty table reads the same way.
