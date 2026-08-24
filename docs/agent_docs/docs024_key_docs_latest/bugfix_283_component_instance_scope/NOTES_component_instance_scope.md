@@ -1661,3 +1661,108 @@ They confirmed `v3_site_actions.go` came clean (the 345 lane committed `d14eae8a
 they are adjudicating a design that may drop the plan's DB lookup entirely in favour of the loop's
 own `loop_item_index`. **⚠ For them and for anyone reading round 1: `RenderTemplate` NO LONGER
 RETURNS AN ERROR for an unbound token.**
+
+## 2026-08-24 (session 14, the Half A building thread) — the loop was already telling us the answer; the plan's DB design is superseded, and two of my own claims were wrong
+
+Picked the lane up cold. It reads CLOSED, and it is: the literal-id defect (283) is fixed and
+live. What was owed is **Half A**, which the 08-24 close-out handed to "the §10 building thread".
+
+### Ownership, settled by asking rather than by inferring
+
+`scripts/who-owns.py 283` names the architecture_review dir, which is true and not useful here.
+`ListAgents` showed a session literally named **"empty id detector"**, idle, started ~2h earlier.
+Messaged it before touching anything. It IS the building thread, it is mid-REVISE on Half B, and
+its answer was: **Half A is unowned, take it** — with a file split (theirs:
+`component_instance_scope.go`, `component_instance_conversion.go`, `component_library.go`,
+`cmd/instanceaudit/main.go`, `render_seam_no_fallback_test.go`). That one message saved a
+same-file collision on `component_instance_scope.go`, which the committed plan's §A2 would have
+had me edit (it proposed MOVING `BindSingleSectionInstanceToken` out of that file).
+
+⚠ **The lesson is not "check ownership" — this lane has done that for a week. It is that a
+*name* in the session list was better evidence than the ownership tool**, and only because I
+asked it a direct question instead of reading its commits.
+
+### The bug is still live, checked at the artefact before anything else
+
+`gaswholesalers.com/pricing-transparency.html` and `vetcomparison.uk/how-it-works.html` each
+serve `id="c-generic-text-block"` **twice** (2026-08-24). 3 multi-instance pages carry a
+duplicated token in stored HTML. `apis.uk/index.html` still holds `needs_rebuild`. Every dated
+figure in the plan re-verified unchanged on build day: **30 / 16 / 2 / 6 / 6**.
+
+### The finding that reshaped the fix
+
+The plan has the BUILD path query `page_components` by `slot_name` + a same-slot rank, activated
+by a new `page_id_from` config key, and it names an **irreducible residue**: a new page's first
+build has no rows, so every instance still gets 0.
+
+`loop_expansion_handler.go` **already injects `loop_item_index` and `loop_name` into every
+substep's own config** and parks each item at `CollectedData["<loop>_item_<i>"]`. Verified on a
+live orchestration, not read off the handler: `de6a6243-…` carries all 10 injected
+`render_component` steps with indices 0–4, and item count == injected-step count on 5 sampled
+runs. So the build path can count **its own pass's** predecessors: correct on a first build,
+no slot matching, no config key, live at the roll.
+
+Handed the adjudication to a Fable Plan agent rather than assuming I was right. It recommended
+the hybrid — loop counting on the build path, position-exact DB on the editor — and found three
+things I had not: the peer is dirty in **five** files not four; `INSTANCE_BIND_SEAM_RE` is
+unanchored so a name *ending in* `BindInstanceToken(` already matches; and the monotonicity
+argument (under constant 0 every same-function pair already collides, so a derived assignment
+can only MERGE pairs already merged — the change is non-worse by construction, with one stated
+exception on the editor path).
+
+### Two claims of mine that were WRONG, both logged
+
+1. **`WRONG_CALLS` 9.** I told the peer the plan's config instruction was "wrong" and that anyone
+   following it would write a no-op migration. The measurement was right (top-level `jsonb_each`
+   finds 0 `render_component` steps; they are nested in `sub_workflow`). The *framing* was not:
+   `RUNBOOK…§6` and `LANDMINES.md:5811` **already say this**, verbatim, one of them in this
+   lane's own runbook. A rediscovery presented as a discovery. The cheap check was
+   `grep -n render_component LANDMINES.md`, which my own memory index tells me to run.
+2. **`WRONG_CALLS` 10.** I then told the peer their `WRONG_CALLS` entry "does not exist anywhere".
+   It did. I had OR'd `swallowed` (17 hits in a 48k-line file) in beside four rare phrases and
+   piped to `| head`, so all ten lines shown were early noise and the six decisive matches were
+   30,000 lines further down. Worse: my shell had pre-written `echo "(empty above = NOT in the
+   file)"` before the command ran, and the output was not even empty. **The peer's own diagnosis
+   of my error was also wrong** — they proposed the documented hard-wrap false-absence trap,
+   which is real on that file and innocent here (every phrase matches on one line; the unwrapped
+   `tr` remedy returns identical counts). A plausible known trap is a comfortable place to put an
+   error and is not evidence.
+
+### A mutation that did NOT kill a test, and why it is the most useful line here
+
+Six mutations were RUN against committed HEAD, not asserted. Five killed named tests. The sixth
+— **changing `datahelpers.LoopItemKey`'s format** — left everything green, which my first draft
+of the parity test's docstring had claimed would kill it. It does not, because single-sourcing
+the spelling makes writer and reader move **together**: the helper is a guard in **series** with
+the test, so the format is no longer a thing that CAN drift. The drift that remains possible is a
+caller going *around* the helper, which is a different mutation and which the test does catch.
+Docstring corrected in the committed code. **A mutation that passes usually means a guard in
+series rather than a blind test, and the two are indistinguishable until you look.**
+
+### Cross-lane, and one thing that came back
+
+Told 357 and 308 before going dirty; both cleared me. 357 raised a real blast-radius question —
+my change alters second-instance bytes, so `rendered_html_digest` takes a new value on those
+rows. **Measured rather than argued:** 6 writers all compute `md5($n)` in the same statement as
+the bytes; the 2 readers (`page_component_divergence.go:68`, `site_component_divergence.go:70`)
+and `livespec.go:203/215` all compare stored digest against **stored** bytes. Nothing compares a
+stored digest to a fresh render, so the pair stays in lockstep. That census then answered an
+**unasked** question about *their* pending migration `578_HOLD`, which they had been calling
+"byte-preserving" without having checked what reads that digest. Worth noting as a property of
+the exchange rather than of either lane: the useful thing was not the answer, it was that
+neither of us had asked.
+
+### Shared-tree facts worth carrying
+
+- **The working tree does not compile.** Another session's uncommitted
+  `load_work_item_actions.go:1605` calls an undefined `ownedPageParkedItem`. Every test result
+  in this session is from `verify-head-builds.sh` with my 9 files overlaid onto committed HEAD.
+- **Appends to shared append-only docs were swept as passengers TWICE, and the second time I
+  already knew.** `WRONG_CALLS` entry 9 went into the peer's `aa1e2665a` a minute after I wrote
+  it; entry 10 I committed in the same breath and it was fine; then I appended a `LANDMINES.md`
+  entry, went off to write the register, and it left in an unrelated lane's `9d060db04` ("589 is
+  LIVE"). Nothing lost either time — both are at HEAD — but the record now credits my landmine
+  to a lane that has nothing to do with it. **The rule is not "commit promptly", it is "an append
+  to a SHARED append-only file is not finished until it is committed"**, because those files
+  attract everyone's pathspec at once. `git diff --numstat <file>` reading empty is the tell, and
+  it looks exactly like "my edit did not save".

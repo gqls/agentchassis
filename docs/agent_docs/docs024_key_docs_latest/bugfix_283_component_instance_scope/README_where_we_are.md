@@ -667,3 +667,55 @@ rather than a thing you remember.
 **Other news:** another session has picked up the bigger half — the actual name-collision fix — and
 we've split the files explicitly so neither of us commits over the other. They may have found a
 better design for it than the plan had.
+
+---
+
+## 2026-08-24, late afternoon — the second half is built, and the loop was already telling us the answer
+
+Plain version of where this got to today.
+
+The bug that was still biting: when a page uses the same kind of section twice — two text
+blocks, say — each copy needs its own name so that a script or a stylesheet aimed at one does
+not hit the other. The system works that out by counting: first copy, second copy, third copy.
+Two of the ways a page gets rendered can only see **one** section at a time, so they could not
+count anything, and both just said "first copy" about every copy. That is why pages we repaired
+kept breaking again: three of the twelve fixed on Saturday were broken again within hours by an
+unrelated job touching the same pages. Fixing them worked. It just did not stick.
+
+I checked it was still real before doing anything else, by fetching two live pages rather than
+believing the file. Both still serve the same id twice, today.
+
+**The fix turned out to be smaller than the plan expected, because the information was already
+there.** The plan proposed looking the answer up in the database — which is reasonable, but it
+had a hole its own author wrote down: on a brand-new page there is nothing in the database yet,
+so a new page would still break on its first build. It also needed a configuration change
+applied separately, which meant the fix would sit inert until someone remembered to apply it.
+
+It turns out the page-building loop already tells each section which number it is, and already
+keeps the list of sections beside it. So the section can just count the ones before it. That is
+correct on a brand-new page, needs no configuration change at all, and starts working the
+moment the next build of the software goes out. I had a second model check that reasoning
+against the original plan rather than trusting my own enthusiasm; it agreed, and found three
+details I had missed.
+
+**Two things I got wrong today, both written down.** I told the other session working this area
+that the plan's instructions were wrong — they were not, they were just incomplete, and the
+missing part was already documented in two places I had not read. Then I told the same session
+that a note they had filed did not exist; it did, and I had simply searched badly (I included a
+very common word in the search and then cut the output short, so I never saw the matches). Both
+are in the estate's record of wrong calls, along with the one-word check that would have caught
+each.
+
+There is a third thing worth saying, because it is the kind of thing that normally goes
+unrecorded. When testing, I deliberately broke the code in six different ways to check the tests
+would notice. Five were caught. **One was not** — and that turned out to be good news rather
+than a hole: I had made that particular mistake impossible earlier in the same change, so there
+was nothing left to catch. But I had already written a comment claiming the test would catch it.
+Running the experiment is what turned a confident false claim into an accurate one.
+
+**Where it stands.** The code is committed and has gone to the review council. It is Go, so it
+does nothing until the next fleet build goes out — that is the owner's to run. The damaged pages
+can be repaired now, and repairing them works even on today's code; what today's commit adds is
+that the repair *holds*. The defect also now has its own entry in the open-bugs folder, which it
+did not before — it had been living inside an architecture document where nobody grepping for
+"duplicate ids" would find it.

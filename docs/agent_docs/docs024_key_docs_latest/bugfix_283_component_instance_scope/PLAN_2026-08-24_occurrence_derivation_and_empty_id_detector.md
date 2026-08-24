@@ -28,6 +28,58 @@ Measured this session (2026-08-24, live DB unless stated): 30 multi-instance (pa
 
 ## Half A — derive the occurrence from page_components
 
+> **⚠ CORRECTED 2026-08-24 BY THE BUILDING THREAD — §§A2–A4 BELOW ARE SUPERSEDED. BUILT AND
+> COMMITTED AS `364e80b7f`, council `3fd0d026-8966-44c6-b0d8-bd8c0dfba187`.** The sections are
+> left standing, not edited away: what changed and why is the useful record.
+>
+> **What survives unchanged:** the ruled shape (§9c — feed the canonical rule its real INPUT,
+> never a second rule), constant 0 as the universal fallback, the input-improver-never-a-gate
+> property, the `(position, id)` tie-break at `loadStoredSections`, and the editor path's
+> position-exact DB count, which is exactly what §A3's first SQL shape prescribes.
+>
+> **What is superseded, and the measurement that did it.** §A2/§A3 have the BUILD path do a DB
+> lookup keyed on `slot_name` + `SameSlotRank`; §A4 activates it with a new `page_id_from`
+> workflow-config key. The build path instead counts same-function predecessors among **its own
+> loop's already-rendered items**. The decisive fact, verified on live orchestration
+> `de6a6243-b575-429f-a58f-2e985c98314d` (2026-08-24): loop expansion **already injects
+> `loop_item_index` and `loop_name` into every substep's own config** and parks each item at
+> `CollectedData["<loop>_item_<i>"]`. Three consequences the plan's design could not reach:
+> 1. **It closes the residue §A5 called irreducible.** "First build of a new page: no rows exist
+>    → every instance gets 0 → a NEW multi-instance page still collides." The list being counted
+>    IS the list being rendered, so there is nothing to have not been written yet.
+> 2. **The 16-of-30 repeated-slot problem stops existing** rather than being managed. Slot names
+>    are unreliable by this repo's own record — `v3_site_actions.go:1203` (`pages.sections` names
+>    do not reliably equal `page_components.slot_name`) and `bugs_open/182` (positional slots like
+>    `"prose-0"`). Loop counting never consults a slot.
+> 3. **No config key, so no rollout step 4 and no inert period.** The fix is live at the image roll.
+>
+> **Was that coupling to loop internals?** No, and it is evidenced rather than argued:
+> `datahelpers/action_inputs.go:211-230` declares those keys in `frameworkStepConfigKeys`
+> ("injected by loop expansion", never unknown), and `LoopCompleteAction` has read `loop_name` and
+> the item keys for months. The one fragile part — the item key's spelling, which existed as
+> **three** separate literals — is now single-sourced as `datahelpers.LoopItemKey`, pinned by a
+> cross-package test that drives the REAL expander (`loop_item_contract_parity_test.go`).
+>
+> **Two smaller corrections to §A4 itself**, both measured 2026-08-24:
+> - The two render steps are NOT at `workflow.steps.*`. They are nested at
+>   `steps.process_sections_loop.config.sub_workflow.steps.{render_section,render_from_template}`.
+>   A top-level `jsonb_each` returns **zero** `render_component` steps fleet-wide (control: 1,322
+>   steps carry an `action`). This is not new — `RUNBOOK…§6` and `LANDMINES.md:5811` both already
+>   say it; the plan simply did not restate it. (I first reported this as a defect in the plan and
+>   it was not one: `WRONG_CALLS.md` entry 9.)
+> - §A4 says "add `slot_name_from` to `render_from_template` if absent" — **both steps already
+>   carry it** (`current_section.name`). Only `page_id_from` was missing, and the superseding
+>   design needs neither.
+>
+> **Also folded in, as §A4 anticipated:** the third `ComponentID` binding at
+> `v3_site_actions.go:2385` is deleted. Census with a demand control: **0 active AND 0 inactive**
+> templates spell `{{.ComponentID}}`, against **140** spelling `{{.InstanceID}}`.
+>
+> **The defect now has its own bug number:** `bugs_open/383` (owner ruling 2026-08-24) — until
+> today its only open record was RFC_032 §9d/§10 and this file.
+
+
+
 ### A1. The canonical rule's exact semantics (verified, must be matched)
 
 `InstanceCounter.Next` (component_instance_scope.go:140) keys on `strings.ToLower(strings.TrimSpace(function))`. The canonical walk is `loadStoredSections` (rerender_page_sections_action.go:1198): rows `WHERE page_id=$1 AND build_status IS DISTINCT FROM 'removed' ORDER BY position ASC`, and `Next` is called **only for sections that resolved a component** (carried sections — component missing, template invalid/empty, plan not ready — skip it; comment at :646-653). Equivalence claim for the SQL below: `lower(btrim(cc.function)) = lower(btrim($fn))` is exactly the counter's key equality; strict position ordering matches `ORDER BY position ASC`; the carried-section divergence is documented in A5 (it errs toward a HIGHER occurrence, i.e. a distinct token, never a collision).
