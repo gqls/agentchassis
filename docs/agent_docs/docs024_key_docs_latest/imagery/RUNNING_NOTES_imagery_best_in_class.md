@@ -3276,3 +3276,23 @@ correct.
 Full account: `bugs_open/382` §7–§8 and
 `docs/agent_docs/docs024_key_docs_latest/bugfix_382_empty_kind_routing/`.
 Council-Submitted: `e53f57ae-3bb1-442c-8e7b-742a1c2bb0ad`.
+
+> **UPDATE 2026-08-24, later the same day — the entry above says "inert until the image-generator
+> adapter rolls". IT HAS ROLLED. `da21ae20f` is LIVE.** Written as an addition rather than an edit
+> to the paragraph, but flagged loudly here because an "inert until the roll" line is one of this
+> estate's recorded traps in its own right: it makes the correct next action look premature, and a
+> detector once sat switched off for nine days after its blocker cleared for exactly that reason.
+>
+> Proof, per SERVICE and at the artefact: `v1.0.1334`, both `image-generator-adapter` replicas on
+> ONE digest `sha256:d7a1d219…`, started 2026-08-24 15:39:36Z; the service's own provenance line
+> says `70fd163c2`; `git merge-base --is-ancestor da21ae20f 70fd163c2` → YES with both controls
+> behaving; and `MISSING_IMAGE_KIND` is present in `/proc/1/exe` with a method control present and
+> a fake needle absent. **Label trap for whoever repeats this: `-l app=image-generator` returns
+> NOTHING — the deployment is `image-generator-adapter`.**
+>
+> `bugs_closed/382` is CLOSED. The residual left on this lane's doorstep is unchanged and is in
+> §10c of that file: `pageflow-builder` and `site-work-orchestrator` still carry four image steps
+> with no `kind`, they cannot be fixed in config (`input_mapping` resolves paths, not literals),
+> and their reachability is still UNMEASURED beyond a 1-day window. They are now harmless — an
+> absent kind gets Banana — and LOUD, so if they ever run, `MISSING_IMAGE_KIND` will say so with
+> the prompt's opening words attached.
