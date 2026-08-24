@@ -24,7 +24,14 @@ num() { [[ "$1" =~ ^[0-9]+$ ]]; }
 ADQ="SELECT count(*) FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id WHERE cc.function='adopted-fragment';"
 POPQ="SELECT count(*) FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id WHERE cc.name='hero' AND position(left(cc.html_template, position('{{' in cc.html_template)-1) in pc.rendered_html)=0;"
 BADQ="SELECT count(pc.component_version_id) FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id WHERE cc.name='hero' AND position(left(cc.html_template, position('{{' in cc.html_template)-1) in pc.rendered_html)=0;"
-CANDQ="SELECT count(*) FROM page_components pc WHERE pc.created_at > '$ARMED_AT' AND (SELECT count(*) FROM page_components x WHERE x.page_id = pc.page_id) = 1 AND pc.rendered_html NOT ILIKE '%<section%' AND pc.rendered_html !~ 'data-component=\"[^\"]+\"';"
+# v5: a candidate must ALSO have come through save_page_sections (content_brief is
+# that action's fingerprint). Adoption lives inside that action, so a row written by
+# the tool pipeline — create_tool_component / deploy_tool — can never be adopted and
+# is not a candidate. Measured 2026-08-24: the first row this control flagged was
+# agritec.uk/tool-sfi26-revenue-stacker, and it was NOT a defect — the tool pipeline
+# had given it its own bespoke component, correctly named, and it never went near the
+# armed seam. Without this clause the control reports opportunities that never existed.
+CANDQ="SELECT count(*) FROM page_components pc WHERE pc.created_at > '$ARMED_AT' AND pc.content_brief IS NOT NULL AND (SELECT count(*) FROM page_components x WHERE x.page_id = pc.page_id) = 1 AND pc.rendered_html NOT ILIKE '%<section%' AND pc.rendered_html !~ 'data-component=\"[^\"]+\"';"
 SAVEQ="SELECT count(*) FROM page_components WHERE created_at > '$ARMED_AT' AND content_brief IS NOT NULL;"
 
 unmeasured=0

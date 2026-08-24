@@ -741,3 +741,38 @@ adopted=0 population=22 population_stamped=0 adoption_candidates=0 saves_since_a
 ```
 
 Every number needed to interpret the zero is on the line.
+
+### 2026-08-24 19:35Z — the first flagged candidate was NOT a defect, and it sharpens the diagnosis
+
+The watch reported `adoption_candidates=1`. Opened it rather than reacting to it, and
+it is a page the platform got **right**:
+
+| `agritec.uk/tool-sfi26-revenue-stacker`, born 19:17Z | |
+|---|---|
+| `slot_name` | `tool-sfi26-revenue-stacker` |
+| component | `tool-sfi26-revenue-stacker` — **its own bespoke component, not `hero`** |
+| `content_brief` | NULL ⇒ **did not come through `save_page_sections`** |
+| stamped | no |
+
+**The tool pipeline types its rows correctly.** `create_tool_component` /
+`deploy_tool` mint a bespoke component per tool and bind the row to it, so a page
+built that way is never mislabelled. It also never reaches adoption, which lives
+inside `save_page_sections` — so this row could not have been adopted and should not
+have been counted as an opportunity.
+
+**That narrows the defect usefully.** The mislabelling is not "tool pages" in
+general; it is specifically a tool fragment reaching **`save_page_sections`' HTML
+fallback** without the tool pipeline having created a component for it. Two routes
+produce a tool page and only one of them is broken.
+
+**Control corrected (watcher v5):** a candidate must now also carry `content_brief`
+— the `save_page_sections` fingerprint. Without that clause the control reports
+opportunities that never existed, which would eventually have been read as "adoption
+is failing" when nothing had been asked of it. Re-reads **0** candidates, 321 saves
+since arming.
+
+⚠ **Noted, not chased:** that correctly-typed row is **unstamped**, because
+`create_tool_component`/`deploy_tool` are among the five `page_components` writers
+that do not write `component_version_id`. Phase 0 covers the `save_page_sections`
+path only. It is the already-named follow-up — five other writers, no watch on them —
+and this is the first live instance of it.
