@@ -141,8 +141,10 @@ Full command set with gotchas: `RUNBOOK_unread_finding_codes.md`.
 - Council `be252395-9d51-4427-b2ae-5f581337b16d` — phase 2, **APPROVED round 4**. Rounds 1–3 were
   all gated on the same defect of mine: a fact true of the tree and unshowable from the plan. Round
   4 generates every sketch from the committed diff. `WRONG_CALLS.md` 2026-08-23.
-- Council `2e5f687d-5753-441b-91f3-406c84a98394` — the source-side scan, **submitted 2026-08-24,
-  read the verdict before assuming**.
+- Council `2e5f687d-5753-441b-91f3-406c84a98394` — the source-side scan, **APPROVED 2026-08-24**,
+  10 seats, 7 abstained, no gating objection. All four advisory objections say one thing: the sketch
+  was truncated over the logic. Cause was mechanical (42 lines of header comment, cap applied in file
+  order), fix is a RUNBOOK rule — strip comments before truncating. No code change owed.
 - `090` `c965bfec…` — UNVERIFIABLE (scope-not-narrowing), **not a refutation**: its static tier is
   `.go`-only, so the SQL writer was outside its corpus.
 

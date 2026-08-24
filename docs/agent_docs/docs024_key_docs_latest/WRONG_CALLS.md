@@ -49224,3 +49224,18 @@ warning text teaches people to ignore the whole script"* — and I honoured it *
 where `SH_COMMENT` strips comments and it was never fooled. Then I broke it in the **census**.
 Same rule, same session, two instruments, one of them done properly. Knowing a trap and applying
 it to the artefact in front of you are separate acts, and only the second one counts.
+
+> **ADDENDUM 2026-08-24 — a FOURTH round of the same family, through a door I had not shut.** The
+> follow-up submission (`2e5f687d`) was APPROVED, and every one of its four advisory objections says
+> the same thing: the sketch was truncated **exactly** where the three mechanisms the rationale
+> claimed would have been visible. I had fixed hand-assembly (rounds 1–3) by generating sketches from
+> the committed diff — and then truncated that generated diff **in file order** at 95 lines, against
+> a file whose house-style header is **42 comment lines**. Half the budget went to prose; the cut fell
+> on the constant resolution, the ratchet and the vacuity guard.
+>
+> **The check: when a sketch must be cut for the plan cap, drop COMMENT lines first — never code.**
+> One line of Python, now in this lane's RUNBOOK. The wider point is the one worth carrying: I had
+> generalised "show the reviewer what the tree contains" into a *generation* rule and stopped there,
+> while the *truncation* step was still free to undo it. **A rule that fixes one stage of a pipeline
+> does not protect the stages after it** — and three seats had to tell me so before I looked at where
+> the cut actually landed.
