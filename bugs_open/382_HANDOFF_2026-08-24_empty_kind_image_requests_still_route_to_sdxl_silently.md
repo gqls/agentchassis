@@ -198,6 +198,13 @@ Diagnosis loop, run correlation `bdea8252-aa93-44b6-be59-9a6c43fed858`.
 3. A `MISSING_IMAGE_KIND` row appears in `agent_error_log` from one of §7b's orchestrator doors,
    OR those four steps are shown never to run. Either answers the open question; a permanent
    absence of rows answers neither on its own.
+4. **The healthy-path negative control, supplied by the vetcomparison lane 2026-08-24 and worth
+   more than it looks.** `needs_hero_image → image-build-handler → call_hero_gen` produces banana
+   output same-day (agritec 8 of 8; vetcomparison item `fee55dc0`). **That path predates 586 and
+   is untouched by it**, so post-roll it must still be banana. If it ever flips, that is a
+   regression in the code half, and it is a DISTINCT signal from anything the variant-path fix
+   could cause — which is exactly what makes it a usable control rather than another way of
+   measuring the same thing.
 
 **Cross-refs added by this lane:** `LANDMINES.md` — *a key in a `call_agent` step's config is read
 by nothing* and *`site_work_items` is a rolling window*; `WRONG_CALLS.md` (2026-08-24, two
