@@ -615,3 +615,54 @@ before believing it.
 my thing at all. Checking the disjointness claim honestly meant reading a shared index definition,
 and that is where the finding was. **A narrow question from a peer is a cheap prompt to re-read a
 shared mechanism you have been quoting from memory.**
+
+### ⚠ The landmine I filed at 19:30 was wrong by 19:50 — and I had already shipped the wrong number to a peer
+
+`bugs_open/384` came back having acted on all three points inside twenty minutes: a register entry
+(PBP-048) naming the producers with a dated count, a unit test on their key shape, and my
+"all-history: 0 pairs with two types" **quoted in their helper's doc comment**. Reading their reply
+closely enough to check *their* shape claim is what turned up mine.
+
+**`site_work_items_archive` exists** — 25,281 rows, 25,070 keyed, 2026-02-22 → 2026-08-17. I had
+queried only the live table and written **"ever"**.
+
+| claim I gave them | true value (live ∪ archive) |
+|---|---|
+| 0 `(site_id,item_key)` pairs have ever carried two `item_type`s | **20** — incl. `needs_page` + `page_rerender` on `page_rerender:llm-cost-calculator`, their exact pair |
+| they are the **4th** producer on `section_data_resolved` | **53** distinct `created_by` over 1,289 rows (live alone: 10 over 198) |
+
+The first came from reading the wrong **table**; the second from a `LIMIT 12` ordered by count across
+all reasons, so the small producers fell off the bottom. Both were reported as censuses.
+
+⚠ **RUNBOOK §2 of this lane carries that exact warning, in bold, in my own words** — *"`site_work_items`
+is a ROLLING WINDOW … a figure for 'how many were ever X' cannot be taken from here"* — and I had
+re-read it hours earlier while applying 587. Knowing the trap did nothing. What was missing was the
+one question: **which table would hold a counter-example, and am I reading it?**
+`information_schema.tables WHERE table_name LIKE '%work_item%'` found the archive in one query.
+
+**Not over-corrected, because the swing is its own error.** The 20 are **not** proven index
+violations: `idx_swi_dedup` constrains only live rows with non-terminal status, so an archived row
+has freed its slot and a later row of another type may take that key legitimately. What the 20
+establish is that the key space is **shared across types in practice**. The entry's check is now a
+**ratchet against a dated baseline of 20**, not a zero-invariant, and it unions the archive — read
+against the live table alone it returns 0, which is the failure the entry's own first draft made.
+
+**One thing got BETTER on re-measurement, and it belongs to them.** I was ready to tell 384 their
+unit test was one-sided. It is not: `needs_page` has used the colon shape **exclusively** — 337
+archive + 154 live — and underscore **zero** times in six months, and the one real collision was
+colon-on-colon. Their underscore key is safe by evidence, not by convention. The residual hazard is
+the **46 `page_rerender`-typed rows that use the colon shape** (36 archive + 10 live, all lane
+one-offs) sitting in `needs_page`'s namespace. **The convention is not the hazard; the minority that
+opted out of it is, and nobody reviews a lane one-off.**
+
+**Then the correction had its own trap.** I struck the false line through and abbreviated it with an
+ellipsis, which silently swallowed two figures that were still correct (the prefix-sharing census and
+its per-producer breakdown). The count-gate this file's own landmine prescribes — `git diff --numstat`
+— catches lines *leaving*, and I ran it and read it; it says nothing about content vanishing *inside*
+a line you rewrite. **An ellipsis in a correction is a deletion the diff renders as an edit.** Caught
+by the pre-commit pattern check, not by me. Restored verbatim.
+
+**The transferable one:** a wrong figure you keep is an error; a wrong figure you **relay** is a
+supply-chain defect, and it compounds at the speed of a competent peer — register entry, doc comment
+and unit test were downstream inside twenty minutes. **Hand over the query with the number.** I did
+not the first time and did the second, so their re-check costs one query instead of an excavation.

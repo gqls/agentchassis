@@ -49825,11 +49825,11 @@ the crux is inside.
 
 **What I wrote.** *"page-rerender's save_sections fails OWNED_PAGE_GUARD on those pages — 12 FAILED page-rerender runs in the last 14d are exactly that shape"* — sent to the `bugs_open/333`, `326` and `352` sessions as the sizing for excluding owned pages from a new emitter, and written into the lane NOTES as `**12 OWNED_PAGE_GUARD on save_sections**`.
 
-**What was true.** My query grouped `orchestration_states` rows (one per RUN, and a work item retries up to `max_attempts=3`). The 333 lane re-measured at the work-item level with the guard's own error text: **4** items carry `OWNED_PAGE_GUARD`; the larger owned-page failure population (10 in 14d, 82 all-history) is `cta_links_stale` failing earlier at `rerender_sections` for a non-ownership reason — a different defect. 4 items × up to 3 attempts reconciles the two numbers exactly. The exclusion I built is still right; it prevents 4 failures, not 12, and had I verified it post-roll against "12" I would have read a mostly-unchanged count as the fix not working.
+**What was true — in three steps, because the correction was itself wrong once.** (1) My query grouped `orchestration_states` rows: one per RUN, and a work item retries up to `max_attempts=3`, so "12" was runs of a much smaller item set. (2) The 333 lane re-measured at the item level by the guard's own marker, `error LIKE '%OWNED_PAGE_GUARD%'`: **4** items — and told me the other ~80 owned-page failures were a different defect. I wrote that into the bug file. (3) The 333 lane then retracted it: the `OWNED_PAGE_GUARD` marker was only added to the refusal on **2026-08-19** (`bugs_open/301`); before that the identical refusal read `… page X is rebuild_policy=owned …` with no marker, so the marker classifier was answering "written after 08-19?", not "ownership refusal?". By CAUSE (`error LIKE '%rebuild_policy=owned%' OR '%OWNED_PAGE_GUARD%'`), my own re-run on the live table: **13 of 18** owned-page `page-rerender` failures in the last 14 days are ownership refusals, all `cta_links_stale` items. So the exclusion I built is right and covers the dominant cause of that population's shape — but it only keeps MY items off owned pages; the `cta_links_stale` items are another producer's, and I had nearly written "different defect, not this bug" over them on the strength of a number I did not re-run.
 
-**What caught it.** A peer session that re-ran the measurement in a different table and by a different classifier (error text, not a `rebuild_policy` join) before agreeing with me.
+**What caught it.** A peer session re-running the measurement in a different table and by a different classifier before agreeing with me — twice, the second time catching its own first answer.
 
-**The cheap check that would have.** State the UNIT next to every count — `12 runs` is a different claim from `12 items` — and when a count is about a work-item population, count `site_work_items`, not `orchestration_states`, which multiplies by retries. `SELECT count(DISTINCT w.id)` beside `count(*)` costs nothing and would have printed 4 next to 12. (Same family as the owner's 2026-08-22 ruling that a count carries its date: a count also carries its unit.)
+**The cheap checks that would have.** (a) State the UNIT next to every count — `12 runs` is a different claim from `12 items`; for a work-item population count `site_work_items`, not `orchestration_states`, which multiplies by retries (`count(DISTINCT w.id)` beside `count(*)` prints 4 next to 12 for free). (b) A classifier built on a literal has a BIRTH DATE — check `git log -S'<literal>'` before using it across a window that predates it; classify by the cause (`rebuild_policy=owned` in the error), not the marker. (c) Never inherit a peer's number into a document without re-running it: the same rule as re-running someone's SQL. (Same family as the owner's 2026-08-22 ruling that a count carries its date: a count also carries its unit and its classifier's birthday.)
 
 
 ## 2026-08-24 — bugs_open/333 lane: I "corrected" a peer's count with a classifier that was measuring a marker's birthday, and told them 82 real refusals were a different bug
@@ -49874,3 +49874,56 @@ the crux is inside.
   (12 runs vs my 4 items — both true for their units, as they worked out themselves), and I replaced it with a
   wrong one plus an instruction to go and look for a defect that does not exist. Retracted in full before they
   acted; they had already written it into two of their own documents.
+
+## 2026-08-24 — `bugfix_352_invented_selector` lane: I answered an "has this EVER happened" question from a table I knew was a ROLLING WINDOW, said zero, and relayed it to a peer who was writing it into a doc comment
+
+**The claim.** A peer lane (`bugs_open/384`) asked whether its new work-item key could conflict with
+mine. Checking properly meant reading `idx_swi_dedup`, which turned out to be `(site_id, item_key)`
+with **no `item_type` column** — a genuinely useful finding, filed as a landmine. I supported it
+with: *"**zero** `(site_id, item_key)` pairs have ever carried two types — the suffixes have always
+differed. A clean history here is not a guard; it is a coincidence that has held."*
+
+**It is 20, and one of the 20 is the peer's exact pair** (`needs_page` + `page_rerender`, on
+`page_rerender:llm-cost-calculator`). `site_work_items_archive` exists — **25,281 rows, 25,070
+keyed, 2026-02-22 → 2026-08-17** — and I queried only `site_work_items`.
+
+**How.** The word "ever" and the table I typed are incompatible, and I knew it. **My own lane's
+RUNBOOK §2 carries the warning in bold**: *"`site_work_items` is a ROLLING WINDOW — closing a row
+can archive it out of the table you queried, so a figure for 'how many were ever X' cannot be taken
+from here."* I wrote that sentence. I had re-read it hours earlier while applying migration 587. The
+failure was not ignorance of the trap; it was **never asking which table answers the question I had
+just phrased**, because the query I wanted to write ran against the table already in my hands.
+
+**The same error, twice in one hour, on the same axis.** I also told them they were the **fourth**
+producer on `section_data_resolved`. Live table: 10 distinct `created_by`. Live ∪ archive: **53**,
+over 1,289 rows. The "4" came from a `GROUP BY reason, created_by … ORDER BY count DESC LIMIT 12`
+spanning every reason, so the small producers fell off the bottom — an unordered-population read,
+the exact shape logged in this file earlier the same day by another lane. **Two figures, one
+truncated by a `LIMIT` and one truncated by a table boundary, both reported as censuses.**
+
+**What made it expensive rather than embarrassing.** They acted on it immediately and correctly:
+quoted my "all-history: 0" into a helper's doc comment **with the date**, and wrote a register entry
+naming "every `section_data_resolved` producer" per the owner ruling of 2026-08-02 §1 — where naming
+the producer set is the *condition* for skipping an RFC. Dating a wrong figure does not make it
+right; it makes it **durable and citable**. Caught only because I re-read their acknowledgement
+closely enough to check a claim they were making about *their* keys, and the archive turned up on
+the way past.
+
+**The cheap check, and it is one question, before any query whose answer contains "ever", "never",
+"always" or "all-history":** *which table would hold a counter-example, and am I reading it?* Then
+`information_schema.tables WHERE table_name LIKE '%<yours>%'` — it took one query and found the
+archive instantly. **A superlative is a claim about a POPULATION; the population is what you must
+name, not the predicate.**
+
+**And the correction has its own trap, which I then walked into.** Striking the false line through,
+I abbreviated it with an ellipsis — which silently swallowed two figures that were still correct and
+still useful. The estate's count-gate (`git diff --numstat`) catches lines *leaving* and I ran it;
+it says nothing about content vanishing *inside* a line you rewrote. **An ellipsis in a correction
+is a deletion the diff renders as an edit.** Caught by the pre-commit pattern check, not by me.
+
+**What generalises past this instance.** A wrong figure you keep is an error; a wrong figure you
+**relay** is a supply-chain defect, and it accelerates — the peer's register entry, doc comment and
+unit test were all downstream within about twenty minutes. **When you hand a peer a number, hand
+them the query too**, which I did not do the first time and did the second. They can then re-run it
+against the population *they* care about, and the correction costs one query instead of an
+excavation.
