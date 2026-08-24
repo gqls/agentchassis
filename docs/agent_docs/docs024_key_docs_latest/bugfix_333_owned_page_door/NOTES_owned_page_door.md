@@ -290,3 +290,45 @@ about the tree. Noted inside both landmine entries, because a future reader meet
 explanation would reasonably read it as "this landmine is wrong". **Check `max(created_at)` on the index before
 believing an absence it reports** — the same shape as the estate's standing "a record goes stale faster than its
 reader can tell".
+
+## 2026-08-24 — MISSTEP 6, the worst of the day: I "corrected" a peer with a classifier that measured a marker's birthday
+
+Full account in `WRONG_CALLS.md` and the new `LANDMINES.md` entry. The short version, because it is the one
+future-me most needs:
+
+The `bugs_open/384` lane asked a design question, I answered it correctly (their consumer-side exclusion is
+right; the door structurally cannot help, because its unit is the AGENT and `page-rerender`'s ownership behaviour
+varies by BRANCH) — **and then volunteered a correction of their numbers that was wrong.** I said 4 of 95
+`page-rerender` owned-page failures were ownership refusals and the other 82 were "a different, bigger defect".
+It is **85 of 95**. There is no second defect.
+
+I classified with `error LIKE '%OWNED_PAGE_GUARD%'`. That marker landed **2026-08-19**; before it the identical
+refusal had no prefix. So my predicate answered *"was this row written after the marker shipped?"* The split was
+exact — 4 marked rows 08-22→08-24, 82 unmarked 07-17→08-18 — and **a clean temporal boundary with zero overlap
+is the fingerprint of a classifier measuring an artefact's introduction rather than a property of the data.**
+
+Three things worth keeping:
+
+1. **I had read the fact that morning.** `owned_page_guard.go`'s comment says "added 2026-08-19, bugs_open/301",
+   and I quoted that file's matcher list in my own register entry. Knowing it was not a control on using it.
+2. **What caught it was two views disagreeing.** I pulled three sample rows to characterise "the other defect"
+   before writing it up; all three carried the marker, contradicting my own aggregate (samples were
+   `updated_at DESC`, so post-marker; the count was dominated by pre-marker rows). Had I only run the aggregate
+   I would have shipped it.
+3. **The control I never ran refutes it on sight:** `cta_links_stale` is 0.7% failed on generic pages against
+   **37%** on owned ones. Before writing "a different defect", run the cross-axis comparison.
+
+And it sharpens a rule I had quoted AT them in the same message — `016b` §9's *"classify refusals by the guard's
+own error text, never by joining `rebuild_policy`"*. That is right and incomplete: **an error text is only stable
+after the code emitting it shipped.** For a window spanning the marker, the "worse" method is the complete one.
+
+Retracted in full before they acted, but they had already written it into two of their own documents. **A wrong
+correction aimed at a peer's work is worse than an ordinary wrong call: they had a defensible number and I
+replaced it with a wrong one plus an instruction to hunt a defect that does not exist.**
+
+### Footnote — my landmine shipped inside another session's commit
+
+`LANDMINES.md` is absent from `f38c0a019`'s scope despite being named in the pathspec: the `352` lane committed
+the file (`53a3230a4`) between my append and my commit, taking my entry with it. Nothing lost, forward-only
+holds, and HEAD carries the entry — this is CLAUDE.md's stated same-file passenger case, which no hook can
+prevent. Verified with `git show HEAD:<path> | grep -c` rather than assumed, which is how I found it.

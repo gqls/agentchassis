@@ -47,6 +47,21 @@ FROM site_work_items
 WHERE status = 'deferred' AND error LIKE 'OWNED_PAGE_GUARD:%'
 GROUP BY 1 ORDER BY 2 DESC;
 ```
+
+⚠ **THAT MARKER IS SAFE HERE AND UNSAFE FOR HISTORY, and the difference matters.** Every row the door writes
+carries `OWNED_PAGE_GUARD` by construction, so it is the right predicate for *this* query. But the marker was
+only added to `SavePageSectionsAction`'s refusal on **2026-08-19** (`bugs_open/301`) — so **any census of
+HISTORICAL ownership refusals keyed on it silently drops everything older than that date**, and the dropped half
+reads as a different defect. It cost me exactly that mistake on 2026-08-24 (I told the `bugs_open/384` lane 82
+real refusals were an unrelated bug; it was 85 of 95, one defect). For history, match the CAUSE wording, which
+predates the marker:
+
+```sql
+-- HISTORY: ownership refusals however they were worded at the time
+... WHERE error LIKE '%rebuild_policy=owned%' OR error LIKE '%OWNED_PAGE_GUARD%'
+```
+And if a census splits cleanly on one date with zero overlap, suspect the literal rather than the data — the
+full trap is in `LANDMINES.md` under "A marker in an error string has a BIRTH DATE".
 ⚠ Split by `created_at` vs the roll time. Legacy `detected` rows filed BEFORE the roll are still promoted and
 still refused, so `wont_fix` does not drop to zero on the day — only new filings from seam producers do.
 ⚠ A count of ZERO is not a pass unless the demand control also ran: if no producer filed anything on an owned
