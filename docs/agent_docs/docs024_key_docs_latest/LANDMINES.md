@@ -16942,12 +16942,16 @@ code change owed at the next roll, tracked in RFC_015 §5.
   | `page_rerender` | 18,360 | **122** | **0** | — |
   | `needs_page` | 1,418 | 46 | 4 | 1 |
   | `contrast_failure` | 513 | **1** | 79 | 1 |
-  | `empty_section` | — | 2 | 23 | **1** (`empty_sections`) |
-  | `literal_markdown` | — | 2 | 21 | **1** (`literal_markdown`) |
-  | `needs_rerender` | — | 2 | 17 | **1** (`missing_structure`) |
-  | `canonical_mismatch` | — | 2 | 2 | **1** (`canonical_mismatch`) |
+  | `needs_rerender` | 635 | **21** | 17 | **1** (`missing_structure`) |
+  | `empty_section` | 463 | 2 | 23 | **1** (`empty_sections`) |
+  | `literal_markdown` | 106 | 2 | 21 | **1** (`literal_markdown`) |
+  | `canonical_mismatch` | 18 | 2 | 2 | **1** (`canonical_mismatch`) |
+
+  > ⚠ **CORRECTED 2026-08-24 20:35 UTC, and the method was wrong for all four of the bottom rows even though three were right.** I first filled the `filers` column for those four from a grouping that counted `created_by` **among retracted rows only** — a different population from the whole-type filer count in the three rows above it, in the same column, under one header. `needs_rerender` was published as **2** and is **21**; the other three happened to agree because every one of their filers files retractable rows. **Three correct answers from a wrong denominator is not three-quarters right; it is a coincidence that hid the defect.** Caught when the `bugs_open/384` lane re-ran the census independently and reported `needs_rerender 635 / 21 / 17`.
 
   **No `item_type` in this estate has two competing retraction authorities**, and **nothing has ever retracted a `page_rerender`** — across 18,360 rows and 122 filing producers. A first retractor there would be deciding on behalf of 121 others.
+
+  **`needs_rerender` is the SAFE case and the entry needs it, or the rule reads as "never retract on a shared type".** 21 filing producers, 17 retractions, **one** authority (`missing_structure`) — retraction on a many-producer type is fine *precisely when* the condition above holds. The rule discriminates; it does not merely forbid.
 - ⚠ **`created_by` is NOT the column that answers this.** It is free text written by whoever filed the row; it says what WROTE a row, never what may CLOSE one. Four item types show two filers *and* live retractions, which reads instantly as "two retractors, already broken" — one further query on `result->>'resolved_by'` says single, every time. **Both halves of the check, or you get a false alarm as readily as a false clean.**
 - **the check — before you add `Resolved` to a check, or an `AllOfType` to an existing one:**
   ```sql
