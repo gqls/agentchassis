@@ -49130,3 +49130,37 @@ eleven** are discoverable by the new scan and the eleventh, `deployStampRefusedE
 silently dropped a code's coverage while looking like a tidy-up. **The check that saved it was
 asking, per entry, "would the replacement actually find this one?" rather than "is the replacement
 broadly better?"**
+
+## 2026-08-24 — `staged_component_build` lane: I dated a config migration from `agent_definitions.updated_at`, and the answer would have refuted the right cause
+
+**The claim.** Investigating why a skip code had started firing, I needed the date migration 516
+went live. I read `SELECT updated_at FROM agent_definitions WHERE type IN ('tool-generator',
+'tool-deployer')` — both rows read **2026-08-24 15:38:27Z**, identical to the second, which looked
+like exactly what a single migration touching two agents leaves behind.
+
+**Why it was wrong, and how badly.** 516 was applied **2026-08-21 16:55Z**. The 15:38 stamp is a
+*different* migration touching both rows this afternoon. `updated_at` dates the last write to a row,
+never the write you are asking about — and on a shared estate where many lanes migrate the same
+agent rows daily, "the last write" is almost never yours.
+
+**The damage it would have done.** The occurrences I was explaining ran 10:19–11:48Z. A 15:38 apply
+sits *after* them, so the reading refuted 516 as the cause and pointed at an unexplained regression
+— a bug hunt for something that was our own fix working as designed. I would have gone looking for a
+producer change that never happened.
+
+**What caught it.** Reading the lane's own NOTES before writing the claim down. The apply time was
+recorded there in prose (`## 2026-08-21 (~19:1xZ)`) and in `bugs_open/330` §10, because the
+migration runner **refuses `--record-only` on a `_HOLD` sidecar** — so this file has no
+`schema_migrations` row at all, and the prose IS the ledger. I had both files open this session.
+
+**The cheap check that would have.** `SELECT * FROM schema_migrations WHERE filename LIKE '516%'` —
+**zero rows** [MEASURED 2026-08-24, with `515%` as a present-control returning **1**], which is
+the tell that the apply was recorded somewhere else, not that it never happened. One query, and it
+points you at the lane NOTES instead of at a timestamp column.
+
+**The transferable shape, and it is the second instance this week.** The `content_components.updated_at`
+landmine (added 2026-08-24 by another lane) records that an *unstamped* writer makes the column
+useless for dating. This is the other half: even a faithfully stamped column is useless for dating a
+*specific* write, because it only ever holds the most recent one. **A timestamp column answers "when
+was this row last touched", and every question I have ever wanted it for was "when was it touched in
+the way I care about" — which it cannot answer and will not decline to answer.**
