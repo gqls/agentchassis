@@ -45,6 +45,15 @@
         <textarea id="nw-content" rows="12"
                   placeholder="Put the thought down. Save when you like."></textarea>
       </label>
+      <div class="noted-write__media-controls">
+        <button type="button" class="btn btn-secondary" id="nw-add-media">Add photos, video or audio</button>
+        <input type="file" id="nw-file" multiple hidden accept="image/*,video/*,audio/*">
+        <span class="noted-write__small">&hellip;or paste or drop files straight onto the note.</span>
+      </div>
+      <p class="noted-write__error" id="nw-media-note" role="alert" hidden></p>
+      <ul class="noted-write__media" id="nw-media"></ul>
+      <p class="noted-write__small" id="nw-storage" hidden></p>
+
       <p class="noted-write__buttons">
         <button type="button" class="btn btn-primary" id="nw-save">Save</button>
         <span class="noted-write__status" id="nw-status" role="status" aria-live="polite">New note</span>
@@ -77,9 +86,15 @@
        listed newest-first (GET /api/notes); clicking one loads it. "New note"
        clears the editor. Save POSTs /api/notes; the response's id is kept so
        the next save updates rather than duplicates.
-     - Voice recordings and photographs are NOT in this version of the editor;
-       the engine stores them (media endpoints + import) but this UI does not
-       capture them yet. Say so nowhere in the UI — absence is honest enough.
+     - Media (2026-08-24, pasteboard stage 1): images, GIFs, video and audio
+       can be added to the open note — paste, drag-drop, or the picker button.
+       Each file uploads immediately (a brand-new note is saved first, through
+       the SAME save path, because the upload needs a note to belong to) and
+       renders in a strip: images inline, video/audio as players, all served
+       from /api/media/{id} same-origin. Remove asks first and the item leaves
+       the strip only on the server's 2xx. A storage meter reads /api/me
+       (media_bytes / media_quota / max_upload) and oversized or alien file
+       types are refused with a plain sentence BEFORE any bytes travel.
 
      THE LOAD-BEARING CONTRACT (experience pattern authenticated-note-sync;
      the reason this tool exists as designed):
@@ -101,6 +116,14 @@
         failed save. Retry re-sends the same text.
      3. Closing the tab with unsaved changes asks first (beforeunload) —
         "text survives" includes surviving the person themselves.
+     4. The same honesty covers media: an item shows as STORED only after the
+        server's 2xx. A failed upload stays on the page, marked plainly, with
+        the bytes still held and a Try again; it never silently vanishes and
+        never claims storage. beforeunload also asks while an upload is in
+        flight or a failed one is still held.
+
+     Existing #nw-* ids are load-bearing (experience-pattern selectors bind to
+     them): ids are only ever ADDED here, never renamed.
 
      Each of these is covered by a MUTATION-VERIFIED check in
      docs/.../noted_rebuild/editor_tool/test_editor_degraded.py — a test that
@@ -113,12 +136,16 @@
   var el = {};
   ['auth','auth-form','email','password','signin','register','auth-error',
    'app','whoami','new','signout','failure','failure-detail','retry',
-   'title','content','save','status','list','loading'].forEach(function (id) {
+   'title','content','save','status','list','loading',
+   'add-media','file','media','media-note','storage'].forEach(function (id) {
     el[id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); })] =
       document.getElementById('nw-' + id);
   });
 
-  var state = { noteId: null, dirty: false, saving: false };
+  var state = { noteId: null, dirty: false, saving: false,
+                media: [],      // stored on the server — each {id, kind, mime, byte_len}
+                pending: [],    // held in the page — each {file, kind, status, error}
+                limits: {} };   // from /api/me: quota, used, maxUpload
 
   function api(path, opts) {
     opts = opts || {};
@@ -155,7 +182,11 @@
   }
   function hideFailure() { el.failure.hidden = true; }
 
-  function save() {
+  function save(onSaved, onFailed) {
+    // Button/retry clicks arrive here with a click event as the first
+    // argument; only real functions are treated as hooks.
+    if (typeof onSaved !== 'function') onSaved = null;
+    if (typeof onFailed !== 'function') onFailed = null;
     if (state.saving) return;
     state.saving = true;
     hideFailure();
@@ -173,11 +204,200 @@
       if (saved && saved.id !== undefined) state.noteId = saved.id;
       setStatus('Saved ✓');
       refreshList();
+      if (onSaved) onSaved();
     }).catch(function (err) {
       // Contract 2: loud, text untouched, retry available.
       state.saving = false;
       setStatus('NOT saved');
       showFailure(err && err.message ? err.message : 'no answer from the server');
+      if (onFailed) onFailed();
+    });
+  }
+
+  // --- media (pasteboard stage 1) ---------------------------------------
+
+  function fmtBytes(n) {
+    if (n >= 1024 * 1024) return (Math.round(n / (1024 * 1024) * 10) / 10) + ' MB';
+    if (n >= 1024) return Math.round(n / 1024) + ' KB';
+    return n + ' B';
+  }
+
+  function kindLabel(kind) {
+    return kind === 'audio' ? 'recording' : kind === 'video' ? 'video' : 'image';
+  }
+
+  function showMediaNote(msg) {
+    el.mediaNote.textContent = msg;
+    el.mediaNote.hidden = !msg;
+  }
+
+  function refreshStorage() {
+    api('/api/me').then(function (me) {
+      state.limits = { quota: me.media_quota, used: me.media_bytes, maxUpload: me.max_upload };
+      if (me.media_quota) {
+        el.storage.textContent = 'Storage used for photos, video and audio: ' +
+          fmtBytes(me.media_bytes || 0) + ' of ' + fmtBytes(me.media_quota);
+        el.storage.hidden = false;
+      }
+    }).catch(function () { /* the meter is a convenience; the editor is the product */ });
+  }
+
+  function hasUnsavedMedia() { return state.pending.length > 0; }
+
+  function leaveGuardMessage(doing) {
+    if (state.dirty && hasUnsavedMedia()) return 'You have unsaved changes and files still uploading or not yet stored. ' + doing + ' anyway?';
+    if (hasUnsavedMedia()) return 'Some files are still uploading or not yet stored. ' + doing + ' anyway?';
+    if (state.dirty) return 'You have unsaved changes. ' + doing + ' anyway?';
+    return null;
+  }
+
+  function kindFor(file) {
+    var t = file.type || '';
+    if (t.indexOf('image/') === 0) return 'image';
+    if (t.indexOf('video/') === 0) return 'video';
+    if (t.indexOf('audio/') === 0) return 'audio';
+    return null;
+  }
+
+  function addFiles(files) {
+    showMediaNote('');
+    var refusals = [];
+    Array.prototype.forEach.call(files, function (f) {
+      var kind = kindFor(f);
+      if (!kind) {
+        refusals.push('"' + (f.name || 'that file') + '" is not something Noted can keep — images, GIFs, video and audio only.');
+        return;
+      }
+      if (state.limits.maxUpload && f.size > state.limits.maxUpload) {
+        refusals.push('"' + (f.name || 'that file') + '" is ' + fmtBytes(f.size) +
+          ' — the most a single file can be is ' + fmtBytes(state.limits.maxUpload) + '.');
+        return;
+      }
+      var item = { file: f, kind: kind, status: 'uploading', error: null };
+      state.pending.push(item);
+      uploadItem(item);
+    });
+    if (refusals.length) showMediaNote(refusals.join(' '));
+    renderMedia();
+  }
+
+  function uploadItem(item) {
+    item.status = 'uploading';
+    item.error = null;
+    renderMedia();
+    var doUpload = function () {
+      fetch('/api/notes/' + state.noteId + '/media?kind=' + item.kind, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': item.file.type || 'application/octet-stream' },
+        body: item.file
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+          if (!res.ok) {
+            var err = new Error(data.error || ('the server answered ' + res.status));
+            throw err;
+          }
+          return data;
+        });
+      }).then(function (data) {
+        // ONLY here — the server's 2xx — does the item become stored. Contract 4.
+        state.pending = state.pending.filter(function (p) { return p !== item; });
+        state.media.push({ id: data.id, kind: item.kind, mime: item.file.type, byte_len: data.byte_len });
+        renderMedia();
+        refreshStorage();
+        refreshList();
+      }).catch(function (err) {
+        item.status = 'failed';
+        item.error = (err && err.message) ? err.message : 'no answer from the server';
+        renderMedia();
+      });
+    };
+    if (state.noteId !== null) { doUpload(); return; }
+    // A brand-new note: the upload needs a note to belong to, so the note is
+    // saved first — through the same save path, so the Saved contract holds.
+    save(doUpload, function () {
+      item.status = 'failed';
+      item.error = 'the note itself could not be saved yet';
+      renderMedia();
+    });
+  }
+
+  function removeMedia(m) {
+    if (!window.confirm('Remove this ' + kindLabel(m.kind) + ' from the note? It will be deleted from your account.')) return;
+    fetch('/api/media/' + m.id, { method: 'DELETE', credentials: 'same-origin' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('the server answered ' + res.status);
+        state.media = state.media.filter(function (x) { return x !== m; });
+        renderMedia();
+        refreshStorage();
+        refreshList();
+      }).catch(function (err) {
+        showMediaNote('That ' + kindLabel(m.kind) + ' was NOT removed (' +
+          (err && err.message ? err.message : 'no answer from the server') + '). It is still safe in your account.');
+      });
+  }
+
+  function discardPending(item) {
+    if (!window.confirm('Discard this file? It was never stored, so it will be gone for good.')) return;
+    state.pending = state.pending.filter(function (p) { return p !== item; });
+    renderMedia();
+  }
+
+  function renderMedia() {
+    el.media.innerHTML = '';
+    state.media.forEach(function (m) {
+      var li = document.createElement('li');
+      li.className = 'noted-write__mitem';
+      var src = '/api/media/' + m.id;
+      var node;
+      if (m.kind === 'image') {
+        node = document.createElement('img');
+        node.src = src;
+        node.alt = 'An image saved on this note';
+      } else if (m.kind === 'video') {
+        node = document.createElement('video');
+        node.src = src;
+        node.controls = true;
+        node.preload = 'metadata';
+      } else {
+        node = document.createElement('audio');
+        node.src = src;
+        node.controls = true;
+        node.preload = 'metadata';
+      }
+      li.appendChild(node);
+      var rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'noted-write__mremove';
+      rm.textContent = '\u00d7';
+      rm.setAttribute('aria-label', 'Remove this ' + kindLabel(m.kind));
+      rm.addEventListener('click', function () { removeMedia(m); });
+      li.appendChild(rm);
+      el.media.appendChild(li);
+    });
+    state.pending.forEach(function (item) {
+      var li = document.createElement('li');
+      li.className = 'noted-write__mitem noted-write__mitem--pending';
+      var label = document.createElement('span');
+      var name = item.file.name || ('a ' + kindLabel(item.kind));
+      label.textContent = item.status === 'uploading'
+        ? 'Uploading ' + name + '\u2026'
+        : name + ' — NOT stored (' + item.error + ')';
+      li.appendChild(label);
+      if (item.status === 'failed') {
+        var retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'btn btn-primary';
+        retry.textContent = 'Try again';
+        retry.addEventListener('click', function () { uploadItem(item); });
+        li.appendChild(retry);
+        var drop = document.createElement('button');
+        drop.type = 'button';
+        drop.className = 'btn btn-secondary';
+        drop.textContent = 'Discard';
+        drop.addEventListener('click', function () { discardPending(item); });
+        li.appendChild(drop);
+      }
+      el.media.appendChild(li);
     });
   }
 
@@ -201,22 +421,32 @@
   }
 
   function openNote(n) {
-    if (state.dirty && !window.confirm('You have unsaved changes. Open a different note anyway?')) return;
+    var msg = leaveGuardMessage('Open a different note');
+    if (msg && !window.confirm(msg)) return;
     state.noteId = n.id;
     state.dirty = false;
+    state.media = (n.media || []).slice();
+    state.pending = [];
     el.title.value = n.title || '';
     el.content.value = n.content || '';
     hideFailure();
+    showMediaNote('');
+    renderMedia();
     setStatus('Opened — not changed yet');
   }
 
   function newNote() {
-    if (state.dirty && !window.confirm('You have unsaved changes. Start a new note anyway?')) return;
+    var msg = leaveGuardMessage('Start a new note');
+    if (msg && !window.confirm(msg)) return;
     state.noteId = null;
     state.dirty = false;
+    state.media = [];
+    state.pending = [];
     el.title.value = '';
     el.content.value = '';
     hideFailure();
+    showMediaNote('');
+    renderMedia();
     setStatus('New note');
   }
 
@@ -226,6 +456,7 @@
     el.app.hidden = false;
     el.whoami.textContent = email;
     refreshList();
+    refreshStorage();
   }
   function showAuth() {
     el.loading.hidden = true;
@@ -246,10 +477,13 @@
   el.authForm.addEventListener('submit', function (ev) { ev.preventDefault(); authenticate('/api/login'); });
   el.register.addEventListener('click', function () { authenticate('/api/register'); });
   el.signout.addEventListener('click', function () {
-    if (state.dirty && !window.confirm('You have unsaved changes. Sign out anyway?')) return;
+    var msg = leaveGuardMessage('Sign out');
+    if (msg && !window.confirm(msg)) return;
     api('/api/logout', { body: {} }).catch(function () {}).then(function () {
       state.noteId = null; state.dirty = false;
+      state.media = []; state.pending = [];
       el.title.value = ''; el.content.value = '';
+      renderMedia();
       showAuth();
     });
   });
@@ -259,9 +493,26 @@
   el.title.addEventListener('input', markDirty);
   el.content.addEventListener('input', markDirty);
 
+  el.addMedia.addEventListener('click', function () { el.file.click(); });
+  el.file.addEventListener('change', function () {
+    if (el.file.files && el.file.files.length) addFiles(el.file.files);
+    el.file.value = '';
+  });
+  document.addEventListener('paste', function (ev) {
+    if (el.app.hidden) return;
+    var files = ev.clipboardData && ev.clipboardData.files;
+    if (files && files.length) { ev.preventDefault(); addFiles(files); }
+  });
+  el.app.addEventListener('dragover', function (ev) { ev.preventDefault(); });
+  el.app.addEventListener('drop', function (ev) {
+    ev.preventDefault();
+    var files = ev.dataTransfer && ev.dataTransfer.files;
+    if (files && files.length) addFiles(files);
+  });
+
   // Contract 3: leaving with unsaved text asks first.
   window.addEventListener('beforeunload', function (ev) {
-    if (!state.dirty) return;
+    if (!state.dirty && !hasUnsavedMedia()) return;
     ev.preventDefault();
     ev.returnValue = '';
   });
@@ -293,4 +544,14 @@
 .noted-write__list { list-style: none; padding: 0; }
 .noted-write__list li { padding: 0.3rem 0; border-bottom: 1px solid var(--section-border, #ddd); }
 .noted-write__small { opacity: 0.85; }
+.noted-write__media-controls { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-top: 0.75rem; }
+.noted-write__media { list-style: none; padding: 0; margin: 0.75rem 0 0; display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.noted-write__mitem { position: relative; border: 1px solid var(--section-border, #b6b6b6); border-radius: 6px; padding: 0.35rem; max-width: 100%; }
+.noted-write__mitem img { display: block; max-width: 180px; max-height: 180px; border-radius: 4px; }
+.noted-write__mitem video { display: block; max-width: 280px; max-height: 200px; }
+.noted-write__mitem audio { display: block; max-width: 280px; }
+.noted-write__mitem--pending { display: flex; gap: 0.6rem; align-items: center; padding: 0.6rem 0.75rem; }
+.noted-write__mremove { position: absolute; top: -0.55rem; right: -0.55rem; width: 1.6rem; height: 1.6rem;
+  border: 1px solid var(--section-border, #b6b6b6); border-radius: 50%; line-height: 1;
+  background: var(--section-surface, #fff); color: inherit; font-weight: 700; cursor: pointer; }
 </style>

@@ -33,6 +33,12 @@ TOOL = (HERE / "noted-write.html").read_text()
 PAGE = "<!doctype html><html><head><meta charset='utf-8'><title>write</title></head><body>" + TOOL + "</body></html>"
 
 SAVE_DELAY_S = 1.0   # slow enough that "Saving…" is observable, fast enough to test
+MEDIA_DELAY_S = 0.8  # same idea for uploads: the "Uploading…" window must be provable
+
+# A real 1x1 PNG, so a stored item renders as an actual <img> load, not a 404.
+PNG_1PX = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "0000000d49444154789c626001000000ffff03000006000557bfabd40000000049454e44ae426082")
 
 
 class StubAPI(http.server.BaseHTTPRequestHandler):
@@ -49,7 +55,15 @@ class StubAPI(http.server.BaseHTTPRequestHandler):
         if self.path == "/api/me":
             self._json(401, {"error": "please sign in"})
         elif self.path == "/api/notes":
-            self._json(200, {"notes": [{"id": 7, "title": "Earlier thought", "content": "kept"}]})
+            self._json(200, {"notes": [{
+                "id": 7, "title": "Earlier thought", "content": "kept",
+                "media": [{"id": 901, "kind": "image", "mime": "image/png", "byte_len": len(PNG_1PX)}]}]})
+        elif self.path.startswith("/api/media/"):
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(PNG_1PX)))
+            self.end_headers()
+            self.wfile.write(PNG_1PX)
         elif self.path in ("/", "/write.html"):
             body = PAGE.encode()
             self.send_response(200)
@@ -72,6 +86,16 @@ class StubAPI(http.server.BaseHTTPRequestHandler):
             n = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0)) or 0) or b"{}")
             n.setdefault("id", 42)
             self._json(200, n)
+        elif self.path.startswith("/api/notes/") and "/media" in self.path:
+            body = self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
+            time.sleep(MEDIA_DELAY_S)         # the observable window for "Uploading…"
+            self._json(201, {"id": 901, "byte_len": len(body)})
+        else:
+            self._json(404, {"error": "no such path"})
+
+    def do_DELETE(self):
+        if self.path.startswith("/api/media/"):
+            self._json(200, {"status": "deleted"})
         else:
             self._json(404, {"error": "no such path"})
 
@@ -196,6 +220,159 @@ def main():
             " window.dispatchEvent(e); return e.defaultPrevented; }")
         check("guard DISARMED after a successful save", disarmed is False)
         ctx.close()
+        ctx.close()
+
+        # ------------------------------------------------------------------
+        # MEDIA (pasteboard stage 1). Same contract family, cases G–J.
+        # /api/me is routed per-context: first call passes through (401, so the
+        # auth form appears), later calls answer with the account's limits —
+        # that is how the storage meter and the size pre-check get exercised.
+        # ------------------------------------------------------------------
+
+        def route_me(page, max_upload=25 * 1024 * 1024):
+            calls = {"n": 0}
+            def handler(r):
+                calls["n"] += 1
+                if calls["n"] == 1:
+                    r.continue_()
+                else:
+                    r.fulfill(status=200, content_type="application/json",
+                              body=json.dumps({"email": "probe@example.com", "media_bytes": 1234,
+                                               "media_quota": 50 * 1024 * 1024, "max_upload": max_upload}))
+            page.route("**/api/me", handler)
+
+        def guard_armed(page):
+            return page.evaluate(
+                "() => { const e = new Event('beforeunload', {cancelable: true});"
+                " window.dispatchEvent(e); return e.defaultPrevented; }")
+
+        def add_png(page, name="photo.png", buffer=None):
+            page.set_input_files("#nw-file", files=[{
+                "name": name, "mimeType": "image/png", "buffer": buffer or PNG_1PX}])
+
+        # ---------- CASE G: an upload is honest, and a NEW note saves itself first ----------
+        print("\nCASE G — upload honesty: 'Uploading…' until the 2xx; a new note saves first")
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        route_me(page)
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        add_png(page)          # note is NEW: no text typed, no id yet
+        page.wait_for_timeout(int(SAVE_DELAY_S * 300))
+        check("item shows 'Uploading…' while in flight",
+              "Uploading" in page.locator("#nw-media").inner_text())
+        check("no <img> before the server's 2xx", page.locator("#nw-media img").count() == 0)
+        check("guard ARMED by an in-flight upload alone (text is clean)", guard_armed(page) is True)
+        page.wait_for_selector("#nw-media img", timeout=int((SAVE_DELAY_S + MEDIA_DELAY_S) * 1000) + 5000)
+        check("stored item renders from /api/media/",
+              "/api/media/" in page.locator("#nw-media img").get_attribute("src"))
+        check("the note was saved first, through the save path",
+              "Saved ✓" in page.locator("#nw-status").inner_text())
+        check("no pending item left", "Uploading" not in page.locator("#nw-media").inner_text())
+        check("guard DISARMED once stored", guard_armed(page) is False)
+        page.wait_for_selector("#nw-storage:not([hidden])", timeout=3000)
+        check("storage meter reads the account's numbers",
+              "of 50 MB" in page.locator("#nw-storage").inner_text())
+        ctx.close()
+
+        # ---------- CASE H: a failed upload is LOUD, held, and retryable ----------
+        print("\nCASE H — failed upload: loud, bytes held, Try again works; engine message verbatim")
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        route_me(page)
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        page.route("**/api/notes/**", lambda r: r.abort() if r.request.method == "POST" else r.continue_())
+        page.fill("#nw-content", "media must not eat the text")
+        add_png(page)
+        page.wait_for_function(
+            "() => document.getElementById('nw-media').textContent.includes('NOT stored')",
+            timeout=int(SAVE_DELAY_S * 1000) + 6000)
+        check("failure named plainly", "NOT stored" in page.locator("#nw-media").inner_text())
+        check("no <img> claimed", page.locator("#nw-media img").count() == 0)
+        check("text untouched by the media failure",
+              page.locator("#nw-content").input_value() == "media must not eat the text")
+        check("guard ARMED while a failed upload is held", guard_armed(page) is True)
+        page.unroute("**/api/notes/**")
+        page.route("**/api/notes/**", lambda r: r.fulfill(
+            status=507, content_type="application/json",
+            body=json.dumps({"error": "you have used all your storage for recordings and photos"}))
+            if r.request.method == "POST" else r.continue_())
+        page.click("#nw-media >> text=Try again")
+        page.wait_for_function(
+            "() => document.getElementById('nw-media').textContent.includes('all your storage')",
+            timeout=5000)
+        check("engine's own refusal shown verbatim",
+              "you have used all your storage" in page.locator("#nw-media").inner_text())
+        page.unroute("**/api/notes/**")
+        page.click("#nw-media >> text=Try again")
+        page.wait_for_selector("#nw-media img", timeout=int(MEDIA_DELAY_S * 1000) + 5000)
+        check("retry stored the SAME bytes", page.locator("#nw-media img").count() == 1)
+        check("pending entry cleared after the 2xx", "NOT stored" not in page.locator("#nw-media").inner_text())
+        ctx.close()
+
+        # ---------- CASE I: removing asks first, and leaves only on the server's 2xx ----------
+        print("\nCASE I — remove: asks first; refusal keeps the item; 2xx removes it")
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        route_me(page)
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        page.click("#nw-list >> text=Earlier thought")
+        page.wait_for_selector("#nw-media img", timeout=5000)
+        deletes = []
+        page.on("request", lambda r: deletes.append(r.url) if r.method == "DELETE" else None)
+
+        page.once("dialog", lambda d: d.dismiss())
+        page.click(".noted-write__mremove")
+        page.wait_for_timeout(300)
+        check("declining the confirm removes nothing", page.locator("#nw-media img").count() == 1)
+        check("…and sends nothing", len(deletes) == 0)
+
+        page.route("**/api/media/**", lambda r: r.abort() if r.request.method == "DELETE" else r.continue_())
+        page.once("dialog", lambda d: d.accept())
+        page.click(".noted-write__mremove")
+        page.wait_for_function(
+            "() => document.getElementById('nw-media-note').textContent.includes('NOT removed')",
+            timeout=5000)
+        check("failed delete is loud and the item STAYS", page.locator("#nw-media img").count() == 1)
+
+        page.unroute("**/api/media/**")
+        page.once("dialog", lambda d: d.accept())
+        page.click(".noted-write__mremove")
+        page.wait_for_function("() => document.querySelectorAll('#nw-media img').length === 0", timeout=5000)
+        check("2xx removes the item", page.locator("#nw-media img").count() == 0)
+        ctx.close()
+
+        # ---------- CASE J: refusals happen BEFORE any bytes travel ----------
+        print("\nCASE J — alien type and oversized file are refused with no request")
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        route_me(page, max_upload=10 * 1024)   # 10 KB cap, so oversize is testable
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        page.wait_for_selector("#nw-storage:not([hidden])", timeout=3000)  # limits have arrived
+        uploads = []
+        page.on("request", lambda r: uploads.append(r.url) if "/media" in r.url and r.method == "POST" else None)
+
+        page.set_input_files("#nw-file", files=[{
+            "name": "notes.pdf", "mimeType": "application/pdf", "buffer": b"%PDF-1.4 not media"}])
+        page.wait_for_selector("#nw-media-note:not([hidden])", timeout=3000)
+        check("alien type refused in plain words",
+              "images, GIFs, video and audio only" in page.locator("#nw-media-note").inner_text())
+
+        add_png(page, name="huge.png", buffer=b"x" * (20 * 1024))
+        page.wait_for_function(
+            "() => document.getElementById('nw-media-note').textContent.includes('the most a single file')",
+            timeout=3000)
+        check("oversized file refused before travelling",
+              "the most a single file can be is 10 KB" in page.locator("#nw-media-note").inner_text())
+        page.wait_for_timeout(300)
+        check("no upload request was ever made", len(uploads) == 0)
         ctx.close()
 
         browser.close()
