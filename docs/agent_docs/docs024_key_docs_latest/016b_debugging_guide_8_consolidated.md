@@ -13799,3 +13799,48 @@ types"*, verbatim in the cited field). A control with no specific in it passes a
 one that bans every numeral — which is what the original bug file proposed, and it would have read as
 a clean pass. See LANDMINES for the two shapes that bite once you build the checker: digits-only
 tokenisers miss spelled-out numerals, and un-anchored digit regexes read `B2B` as the quantity 2.
+
+### A counter written on ONE of the several paths that use a thing, and read as a quality signal, records which ROUTE was taken and not how good the thing is — and the half-written version is far harder to catch than a dead one (2026-08-24, `bugs_open/378`)
+
+**The shape.** A row has a `usage_count` / `hit_count` / `times_used` column. Two or more code paths
+can consume the row. **One of them increments; the others just use it.** Later — usually much later,
+and usually by someone who did not write the counter — the column is read as a *merit* signal:
+"battle-tested entries score higher", "prefer the most-used", `ORDER BY usage_count DESC`.
+
+**Why it is worse than the obvious version of this bug.** The well-known case is a counter nothing
+maintains (`bugs_closed/060`: `agent_definitions.usage_count` was `0` for **every** active agent).
+That one is *self-announcing* — one query shows a column of zeros and nobody trusts it again. A
+counter written on one path of two returns **7, 19, 20** and looks maintained. Its zeros are
+indistinguishable from "this one genuinely isn't used much", so the disconfirming observation and the
+expected observation are the same observation. `content_components.usage_count` sat like this while
+**96 of 149** active section components read `0` with a live page binding, and **1,802** bindings were
+invisible to the term (as of 2026-08-23).
+
+**The bias is monotone, which is what makes it a correctness problem and not just noise.** The
+counting path is not a random sample of usage — it is a *structurally selected* one. On the worked
+case the counter lived inside the `section_type` selector, so a row with no `section_type` could
+never be counted at all: `SELECT count(*) WHERE section_type IS NULL AND usage_count > 0` returned
+**0** across the whole table. So the score rewarded rows that were already *discoverable* by that
+path, and the metric quietly became a proxy for itself.
+
+**What to check, wherever a "how often used" column exists.**
+- **Count the writers, then count the consumers, and compare the two sets.** `grep` for the increment
+  helper — if it has one call site, that call site names the only path that counts. Then find every
+  path that *uses* the row. Any consumer not in the writer set is invisible to the metric for ever.
+- **Look for a column that makes the counting path impossible, and correlate against it.** If some
+  attribute (a NULL key, a level, a flag) excludes a row from the counting path, then `attribute
+  → count = 0` should be *perfectly* correlated. **A perfect correlation across every row is
+  mechanism, not popularity** — and it is a one-line query that no amount of reading the code will
+  substitute for.
+- **Never accept the counter as the usage evidence.** Ask the table that records the actual use — the
+  join table, the binding, the log — and compare. On the worked case, three components bound to live
+  pages that same afternoon still read `usage_count = 0`.
+- **Check whether anything SCORES on it before deciding severity.** A stale display figure is
+  cosmetic; the same figure inside an `ORDER BY` or a weighted score changes what the platform
+  chooses, and does so in one direction.
+
+**And the meta-lesson, because this was found sideways.** Nobody was investigating the counter. It
+surfaced while answering a *different* question — "which of the two paths actually resolved this
+component?" — for which the counter's side-effect was the convenient positive signal. **A side-effect
+you are about to use as evidence is worth one query about its own completeness first**, because the
+same property that makes it good evidence (it fires on exactly one path) is the defect.
