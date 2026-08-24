@@ -4128,3 +4128,132 @@ honestly) but it is a judgement I have deliberately **not** made unasked. **Flag
 Item `07bc64cd` (`needs_section_data`, wanting a business email) is **left open**: the owner asked
 for a reword rather than supplying an address, but has not said "never", and closing it would
 assert a decision they did not make.
+
+## 2026-08-24 — owner asked for the not-financial-advice disclaimer on EVERY page; used STY-051 rather than touching 32 pages
+
+### The mechanism already existed and is purpose-built for exactly this
+
+`site-footer`'s `input_schema` declares two config-sourced fields, and the first is this request
+almost verbatim:
+
+| field | source | description (verbatim) |
+|---|---|---|
+| `compliance_lines` | `config.chrome.compliance_lines` | *"Every-page compliance/mission lines: an ARRAY of plain-text strings rendered as a gated block in the footer chrome on every page"* — STY-051 |
+| `footer_note` | `config.chrome.footer_note` | per-site disclosure band — STY-052 |
+
+⚠ **Neither is an LLM field**, so the framework's writer cannot author them — the value is config,
+living in `site_specs` aspect `site_config` under `chrome.*`. That is *why* the wording went to the
+owner rather than to a brief: there is no generator to ask, and a financial-advice disclaimer is a
+legal statement that is the owner's to make. **Owner chose the site's own voice** (option 1 of 3),
+reusing the phrasing the framework itself wrote for the contact page on 08-21, and **declined an
+FCA/regulated line** — deliberately, because neither of us has verified the site's regulatory
+status and a wrong claim about it is worse than no claim.
+
+⚠ **`compliance_lines` must be an ARRAY of strings.** The schema says a non-array *"degrades the
+whole template to the regex fallback renderer"*. The template is
+`{{range .compliance_lines}}<p>{{.}}</p>{{end}}`, so each element becomes its own `<p>` — two
+elements, two tidy centred lines.
+
+### The write, and the index that has bitten this lane before
+
+`site_specs` has `idx_site_specs_current UNIQUE (site_id, aspect) WHERE is_current`. This lane
+previously aborted on exactly that index by naming a pinned row id that a later sweep had
+superseded. So: **one statement, resolving the current row dynamically**, superseding and inserting
+in a single CTE so two current rows never coexist —
+
+```sql
+WITH old AS (UPDATE site_specs SET is_current=false, superseded_at=now()
+             WHERE site_id=… AND aspect='site_config' AND is_current
+             RETURNING site_id, aspect, data)
+INSERT INTO site_specs (…) SELECT site_id, aspect,
+  data || jsonb_build_object('chrome',
+    COALESCE(data->'chrome','{}'::jsonb) || jsonb_build_object('compliance_lines', …)) …
+FROM old;
+```
+
+`data || …` and the `COALESCE(data->'chrome', …)` merge are deliberate: the pre-existing
+`{"locale":{"lang":"en-GB"}}` survived, and any future `footer_note` would too. Verified in the
+`RETURNING`: both `chrome` and `locale` present.
+
+### Chrome re-render — asserted the STAMP, not the run status
+
+Dispatched `rerender-chrome` (STY-055; `config.agent_type`, `input_data={site_id,domain}`),
+correlation `3ae42823-09aa-4346-8477-8bc2f8a27577`. **STY-055's own landmine says a run at a
+locked site completes GREEN having stamped nothing**, so locks were checked first (all three slots
+`locked_at` NULL) and the assertion was the artefact:
+
+| slot | md5 before | md5 after | length |
+|---|---|---|---|
+| footer | `32a3c879…` | **`d1a2600e…`** | 2,722 → 3,139 |
+
+and the stored footer now literally contains
+`<div class="footer-compliance"><p>This site works out figures rather than giving financial
+advice.</p><p>Any decision about your own borrowing needs a lender or a broker who can look at your
+full circumstances.</p></div>`.
+
+### The canary earned its keep: the page got 2.4× BIGGER, and my change is ~400 bytes of it
+
+Memory's rule — *never size a re-render by YOUR change; canary TWO pages* — and it was right.
+Chrome is baked byte-for-byte into each deployed page (verified: the stored footer's opening
+fragment is present in the served homepage), so all 29 deployed pages need re-rendering.
+
+Canaried the **oldest** (`guides-index`, last deployed 08-16) via the assemble-only single-page
+route (no `reason` ⇒ no LLM, authored copy untouched):
+
+| | before | after |
+|---|---|---|
+| bytes | 25,173 | **59,961** |
+| visible words | 315 | 351 |
+| `<head>` | 9,110 | **43,960** |
+| inline CSS | 16,454 (8 blocks) | 50,204 (7 blocks) |
+
+**Visible-text diff is clean** — every delta is nav/footer link text (the nav rebuilds from
+currently-deployed pages, and more are deployed now than on 08-16) plus the disclaimer itself. **No
+body copy changed.** But +34,788 bytes for +36 words needed explaining before repeating it 28 times.
+
+**The cause: a single 34,530-byte `tool-portal-light` LAYOUT stylesheet (240 rules) now inlined in
+the head chrome.** The stored `head` slot went **8,628 → 43,102**.
+
+**Is that damage I caused, or catch-up?** The disconfirming control was one query — head-chrome
+size across the fleet, ordered by recency (**measured 2026-08-24**):
+
+| rendered | site | head bytes |
+|---|---|---|
+| 08-24 (mine) | mortgagecalculator.co.uk | 43,102 |
+| 08-23 | garden-tools.uk | 48,891 |
+| 08-23 | dartsonline.com | 62,038 |
+| 08-22 | robot-hands.com | 59,800 |
+| 08-22 | cookly.uk | 43,153 |
+| 08-21 | fundamentallyai.com | 43,521 |
+| **08-20** | **webdesign.uk** | **8,580** |
+| **08-20** | **vonc.com** | **9,335** |
+
+**The small heads are exactly the sites last rendered on 08-20 — which is what this site was.** So
+the inflation is this site adopting the current design system, not something the disclaimer
+introduced. ⚠ **One counter-example, stated rather than smoothed over:** `loancalculator.co.uk` is
+8,561 bytes and was rendered 08-23. So "recency alone predicts head size" is **not** exactly true —
+[UNVERIFIED] why; probably a different layout/theme. The pattern is strong, not universal.
+
+**Proceeded** because stopping after one page is the worst state available: one page on the new
+design system and 28 on the old is a visibly inconsistent site.
+
+### A hazard found on the way, which matters to the NEXT person more than to me
+
+**Three deployed pages have a section with NULL `content_data`** — `tool-bridging-compound`,
+`tool-rate-scenarios`, `tool-simple` (one section each, **as of 2026-08-24**). Per
+`049b_deploy_single_page.sh`'s own header, if you pass a `reason` (e.g. `section_data_resolved`)
+and **any** section has NULL `content_data`, *"the whole page escalates to the content writer and
+the copy IS regenerated"*. **Assemble-only (no reason) does not escalate**, which is what was used
+here — but anyone re-rendering these three pages *with* a reason would silently have their copy
+rewritten. Two of the three are the pages the RFC_034 lane's `instance_scope_conversion` items
+called *"SERVING BROKEN"* on 08-19 and then closed having changed nothing, and the third is
+`e781118c`'s missing-headline page. **That cluster is worth someone's attention; it is not this
+lane's to chase today.**
+
+### Also worth recording: assemble-only DOES pick up new chrome
+
+The script's header warns that assemble-only *"stitches the STORED rendered_html and therefore
+cannot pick up a component template change"* — true of **component templates**, and it reads as
+though it covers chrome too. **It does not: chrome is injected at assembly, so the new footer
+landed via the no-`reason` route with zero LLM calls.** Tested rather than assumed, on one page,
+before committing to 28.
