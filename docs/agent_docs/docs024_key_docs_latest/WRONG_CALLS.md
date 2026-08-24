@@ -47008,3 +47008,45 @@ I edited. It existed in my own morning transcript; I ran it once and believed it
 mechanism whose author never saw them — routed to the 357 lane by CONTRIB, 2026-08-24); a
 rejected verdict standing on a live commit until the resubmission; and a permanent commit
 message that asserts a scope its own diff exceeds.
+
+## 2026-08-24 — `bugs_open/345` close-out, SECOND instance in one session: I validated a change with `go test -run '<the names I expected>'` and called the package coherent
+
+**The claim:** that an ownerless candidate-2 change was *"internally coherent and there is nothing
+half-typed to wait for"* — sent to two lanes and written into `bugs_closed/345`, on the strength of
+`go build` exiting 0 plus `go test ./platform/orchestration/actions/ -run 'Ladder|Repeat|Terminat'`
+passing.
+
+**What was true:** the change is **red on three existing tests** (10 subtests) —
+`TestUpdateWorkItemStatus_RecordsRoutedStepError`, `_OwnedPageRefusalIsNotAFailure`,
+`_RefusalBlockIsCrashSafeForEveryCaller`. It adds a sixth bind parameter to the counting-ladder
+`UPDATE`; `update_work_item_status_error_test.go:73,77` declares that mock **positionally** with
+five. Full package on clean HEAD: **ok, 3.875s**. Full package with the trio overlaid: **FAIL**.
+
+**Why the check couldn't fail:** `-run 'Ladder|Repeat|Terminat'` cannot match `TestUpdateWorkItemStatus_*`.
+The filter was drawn around the tests I expected to be relevant, so the only failures it could
+surface were ones I had already thought of. **`go build` compounded it** — a positional `sqlmock`
+declaration is a contract with no compiler behind it, so an arity change that breaks it compiles
+perfectly and fails only at run time, in a file the change never names.
+
+**What caught it:** the `bugfix_206_directory_build_handler` lane, running the full suite in a
+three-arm overlay (clean HEAD / HEAD+their files / HEAD+their files+the trio) to establish whose the
+failures were before reporting them.
+
+**The cheap check that would have:** `go test ./<pkg>/` with **no `-run`**, on both arms. Seconds
+slower than the filtered run.
+
+**The transferable shape, and it is the reason this entry exists rather than being folded into the
+one above:** *this is the SAME error as the demand-control entry logged hours earlier in this same
+session, in a different costume.* There, a control shared the instrument's channel but not its
+predicate. Here, a test filter was the predicate, drawn to the expected answer. I wrote *"a demand
+control must exercise the FILTER, not the delivery"* into a bug file and then, the same afternoon,
+trusted a filter I had drawn myself. **Knowing the rule did not help; the rule names a property of
+instruments, and neither time did I ask the question that operationalises it — of this green, what
+shape of failure was it incapable of showing me?** A rule you can quote and still walk past is not
+yet a habit, and the tally is the evidence: twice in one session.
+
+⚠ **Sub-lesson worth its own line:** `go build` passing is not evidence about tests when the
+contract is positional. `sqlmock` `WithArgs`, positional `Scan` column lists, and any
+`fmt.Sprintf`-built SQL are all arity contracts the compiler cannot see — the estate has already
+been bitten on the `Scan` side of exactly this change (345's Go half updated two sibling tests for a
+new SELECT column; the writer side missed three).

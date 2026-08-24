@@ -834,3 +834,49 @@ cleared that bar; M2 did not, while still being red.
 > path-shaped at all.** The lesson is not "read the digest" (I did) but: when you find yourself
 > writing "this ought to assert X directly", grep `LANDMINES.md` for the *shape* before proposing a
 > remedy, because the estate has usually already solved it and named the file.
+
+### ⚠ CORRECTION 2026-08-24 — the candidate-2 trio is **RED on three existing tests**. It is an INCOMPLETE change, not a complete one awaiting an owner
+
+**My "the package builds clean … nothing half-typed to wait for" was wrong, and I told two lanes
+it.** `go build` is not `go test`, and my test run was `-run 'Ladder|Repeat|Terminat'` — a filter
+that **cannot** match `TestUpdateWorkItemStatus_*`. Caught by the
+`bugfix_206_directory_build_handler` lane. Re-measured here, full package, two arms:
+
+| arm | result |
+|---|---|
+| clean HEAD, full package | **ok**, 3.875s |
+| HEAD + the trio only (no 206 files), full package | **FAIL — 3 tests, 10 subtests** |
+
+`TestUpdateWorkItemStatus_RecordsRoutedStepError` (4 subtests) ·
+`TestUpdateWorkItemStatus_OwnedPageRefusalIsNotAFailure` (2) ·
+`TestUpdateWorkItemStatus_RefusalBlockIsCrashSafeForEveryCaller` (1), plus siblings.
+
+**Root cause, and it is small, mechanical and certain.** The failure is
+`arguments do not match: expected 5, but got 6 arguments` on the counting-ladder `UPDATE`. The trio
+added a sixth bind parameter (`$4::boolean`, the repeat-termination flag) to `writeCountingLadder`.
+`update_work_item_status_error_test.go:73,77` declares the expectation **positionally** —
+`WithArgs(itemID, captureArg{…}, AnyArg, AnyArg, AnyArg)` — five args. **That file is clean, still
+HEAD's version: the author never opened it.**
+
+**This is the trap the author had ALREADY HIT ONCE in this very bug and fixed on the other side.**
+345's Go half records: *"Two existing sqlmock tests were updated because a new SELECT column breaks
+a positionally-declared column list."* Same class — a positional declaration in a sibling test file
+— on the **reader** side, found and fixed. On the **writer** side, three files over, missed. A
+positionally-declared mock is a contract with no compiler behind it, so it fails at run time in a
+file the change never names.
+
+**What this does to the handback.** The change is **not** "finished, tested, ownerless". It is:
+compiling · mutation-proven on its own two properties · **and red on three pre-existing tests it did
+not update**. Landing it as-is puts HEAD red on tests, not merely dependent on ordering. The
+remedy is mechanical — widen three `WithArgs` declarations to six positions — but it is real work,
+it is unwritten, and *nobody can confirm the author considered it*. **Whoever adopts this owns that
+fix and should run the FULL package, not a `-run` filter, before and after.**
+
+> **⚠ My own error, recorded because it is the same shape I had just written up.** One entry above I
+> wrote that a demand control *"must exercise the FILTER, not the delivery"* — and then validated
+> this change with `go test -run 'Ladder|Repeat|Terminat'`, **a filter scoped to the names I
+> expected**, and reported the result as though it covered the package. A `-run` regex is exactly a
+> predicate, and I never asked whether it could see a failure outside itself. The control was green
+> because it could only ever have been green. Second instance in one session, hours apart, in a
+> lesson I had authored. **The habit is not "know the rule" — it is asking, of every green, what
+> shape of failure this instrument was incapable of showing me.**
