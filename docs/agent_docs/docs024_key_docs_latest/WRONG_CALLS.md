@@ -48345,3 +48345,57 @@ instance. The generalisation was already written down for me; I read it and impl
 **Fourth instrument failure of this arc** — after `grep -i` defeating a capitalisation test, a
 harness printing clean footers for queries that had errored, and a monitor reporting a failed `curl`
 as an empty apex. **All four reported success in a state they had never been tested in.**
+
+---
+
+## 2026-08-24 (`bugs_open/378`) — I measured what REMOVING a term does, then used that number to license REPLACING it. They are different changes, and the numbers were 0 and 3,246.
+
+**The claim.** `content_components.usage_count` feeds a `* 0.1` term in the component selector's
+score. I wanted to know whether the term ever decides anything, so I simulated both selector queries
+over every `(section_type, site_type, page_type)` context the live library presents and compared the
+winner with and without the term: **0 changes across 4,888 contexts.** I ran the control too — grant
+the weakest candidate a full 50 uses and **52** contexts flip — so the instrument had power and the
+zero was real. All of that was sound and I still think it was good work.
+
+**Then I wrote, in a bug file, a lane doc and a message to another lane:** *"a change that removes or
+replaces the term cannot regress any current selection."*
+
+**"Removes **or replaces**" is the error, and I typed it without noticing.** The measurement compared
+`base + term` against `base`. It says what happens if the term goes away. It says **nothing** about
+substituting a *different, working* term — which is exactly what I then spent the session building.
+When I finally ran the real comparison against the fix I had written, it was **3,246 of 4,888
+contexts, across 3 section_types** — `features` → `differentiators-section`, `hero`'s winner moving
+from `case-studies-hero` to `contact-hero`, and one more. Not "cannot regress": the single largest
+behavioural change available in this bug, and I had been describing it as free.
+
+**Why it survived so long.** The zero was *hard-won* — it had a counterfactual control, I was pleased
+with it, and I had already quoted it to another lane. A number you had to work for feels like it has
+earned broader scope than it has. The old term's inertness has a specific cause (every candidate in
+every contest reads `0`, because the 12 counted components are all the sole candidate for their own
+section_type), and that cause **only** licenses deletion. The moment the term carries real numbers it
+is a different function of the same shape.
+
+**What caught it.** Not a review and not a test — **running the query I had just written against the
+live database and reading the output.** The five `hero` candidates came back scoring 27 / 22 / 18 /
+6 / 4 sites where the old column had them all at `0`, and the spread was visible on the row. Had I
+trusted `go build` (which passed) and the unit tests, this ships as "provably no behaviour change".
+
+**The cheap check, and it is a sentence not a script:** *state the two versions the number actually
+compares, in the claim itself.* "Removing the term changes 0 winners" cannot be stretched; "removing
+or replacing it" only reads as supported because the two verbs sit in one sentence. **A measurement
+licenses exactly the diff it simulated — write the diff into the claim and the overreach becomes
+unsayable.**
+
+**Consequence, and it turned out to be the useful part.** Being forced to measure the replacement
+honestly is what killed it. A *working* usage term is a preferential-attachment loop — selected →
+count rises → scores higher → selected again — and `bugs_open/107` ("every site gets the same
+homepage skeleton") is the standing complaint about that exact outcome, citing this very file. So the
+accurate version of the term makes the estate more homogeneous, which is why the fix now **removes
+the term from the score** rather than repairing it. **The wrong call produced the right design**: had
+the overreach not been caught, I would have shipped the larger change under the smaller change's
+evidence, and made an open bug worse while closing this one.
+
+**Second entry in this family this month** — after `bugs_open/357`'s lane, in the same afternoon,
+recommending a filter on the strength of what it *rejects* having never counted what it *keeps*.
+Both are the same shape: **a measurement that answers a question adjacent to the one being decided,
+and reads as though it answered the one being decided.**
