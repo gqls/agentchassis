@@ -572,3 +572,66 @@ armed**, so nothing is stopping the mint yet. Phase 3 is written and unapplied.
 **What is now true that was not: the evidence the fix is made of is real and
 checkable.** A stamped row means its component provably produced its bytes; every
 one of the 22 is unstamped, and structurally cannot become stamped.
+
+---
+
+## 2026-08-24 — ARMED. The producer is fixed; the 22 existing rows are not.
+
+Owner instruction: *"arm it"*. Applied by hand in order — `577` (seed the
+`adopted-fragment` component, verified `{{.body}}` exactly) then `579` (arm). Both
+verify blocks RAISE rather than SELECT, so a wrong result aborts instead of
+committing; `579` additionally refuses unless the seed exists AND all six steps come
+back armed.
+
+**Independently re-read after applying** (recursive walk, not the migration's own
+output): six live `save_page_sections` steps, all `adopt_unidentified_fragments =
+true`.
+
+### ⚠ Armed WIDER than this lane's runbook proposed, and the reason is a measurement
+
+The runbook said arm one canary — `tool-recreation-handler`, the obvious producer,
+the one declaring `expects_no_sections_metadata`. **Enumerating the surface first
+overturned that.** The mint occurs on the HTML-parsing path (where the no-`<section>`
+fallback lives), and the save falls through to HTML parsing whenever the metadata
+path yields nothing — so **five of the six carriers have an `html_field` and can
+mint**, not one:
+
+| carrier | can mint | armed |
+|---|---|---|
+| page-build-handler, pageflow-builder, page-rebuild, site-work-orchestrator, tool-recreation-handler | yes | ✔ |
+| page-rerender (no `html_field`) | no | ✔ — carry half only |
+
+Arming the obvious one would have left four minting: the *"one call site of a shared
+mechanism gets the rigorous fix while the mechanism stays generic elsewhere"* shape
+that migration `575`'s own `bug_historian` objection names, and that gated this
+lane's phase 2 round 1.
+
+**Why arming wide is safe, in one checkable sentence:** adoption fires only on a
+section produced by the no-`<section>` fallback (`SectionData.FallbackAdopted`, set
+nowhere else) that *also* declares no `data-component`. An ordinary page has
+`<section>` blocks, so the branch is unreachable for it — arming a whole-site builder
+cannot change what a normal page stores.
+
+### State at arming [MEASURED 2026-08-24 16:15Z]
+
+population **22** · adopted rows **0** · population rows stamped **0** · per-page row
+counts and slot lists for all 22 pages captured to
+`scratchpad/baseline_before_arming.txt`, because the landmine's tell is a row COUNT
+and that is only checkable against a before.
+
+### What has NOT happened yet, and must not be assumed
+
+**No adoption has been observed.** Arming is a config change; the first real proof is
+a page coming through the path and landing correctly typed. Until then this is
+"armed", not "working" — the same distinction that cost this lane a day when a
+council-approved, rolled mechanism turned out to be writing nothing.
+
+The three STOP conditions, each invisible to *"is the tool still there?"*:
+- a page's row count goes **UP by one** (the landmine fired);
+- a population row acquires a stamp (the splice hygiene failed);
+- a new fragment lands with `component_id` NULL (adoption is refusing — read the
+  `adopt fragment:` log lines, which name the arm that refused).
+
+**The 22 existing rows are untouched and still wrong.** `578` repairs them, is
+committed, and remains unapplied — it enforces its own preconditions rather than
+trusting a runbook.

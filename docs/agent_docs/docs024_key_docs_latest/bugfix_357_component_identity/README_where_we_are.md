@@ -357,3 +357,37 @@ asked.
 **What I would like from you, unchanged from yesterday and now the only thing
 holding it up:** whether to turn the second half on, and whether the six pages
 marked as claimed by a human should be repaired along with the rest.
+
+## 2026-08-24 (later) — it is switched on
+
+You said arm it, so it is armed. The component it needs was created first, then the
+switch was turned on, and I read the result back independently rather than trusting
+the script's own "done".
+
+**One thing I did differently from my own written plan, and I want to be upfront
+about it.** This morning I wrote that we should turn it on for one pipeline first and
+watch — the obvious one, the one that rebuilds tools. Before doing that I listed
+which pipelines can actually produce these bad rows, and the answer was **five of the
+six, not one**. The route that creates them is reached by any page-builder whose
+normal data comes back empty, not just the tool rebuilder. Turning on the obvious one
+would have left four others still making the problem, which is a pattern this
+platform's reviewers keep catching — fix one door properly and leave the rest open.
+So I turned it on everywhere it can matter, and wrote down why, and marked my own
+earlier advice as wrong rather than quietly ignoring it.
+
+**Turning it on cannot affect ordinary pages.** The new behaviour only triggers on a
+page that arrives as one unlabelled blob with no sections in it at all. A normal page
+has sections, so the code path is unreachable for it. That is checkable in one line
+rather than something you have to take on trust.
+
+**What is true now:** new tool pages should stop being mislabelled. **What is not yet
+true:** I have not seen one come through. Arming is a setting; the proof is a real
+page landing correctly, and I have a watch running for it along with three specific
+things that would mean stop. I am being careful about the difference because this lane
+already lost a day to a mechanism that was approved, shipped and doing nothing.
+
+**The twenty-two existing bad pages are untouched.** Their repair is written and
+still deliberately not run — it checks its own preconditions and will refuse until a
+real page has come through correctly. And six of those twenty-two are the ones marked
+as claimed by a human, which is still a decision I would like from you rather than
+one I should take.
