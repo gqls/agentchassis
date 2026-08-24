@@ -391,3 +391,41 @@ still deliberately not run — it checks its own preconditions and will refuse u
 real page has come through correctly. And six of those twenty-two are the ones marked
 as claimed by a human, which is still a decision I would like from you rather than
 one I should take.
+
+## 2026-08-24 — correction: those six pages are not "yours", and that changes the answer
+
+You said you did not mark those six pages as owned. **You are right, and I was wrong
+in a way worth spelling out, because I told you the same thing three times.**
+
+I read a field called `rebuild_policy = 'owned'` and took "owned" to mean a person
+had claimed the page. It does not. The platform's own guard says such a page
+*"belongs to a tool/widget or is a runtime-fill shell"* — it is a category the code
+assigns to pages that a tool produces, and the code writes it outright when it
+creates one. **172 of the 704 pages on the estate carry it.** Nobody chose it page by
+page, and certainly not you.
+
+What I did was infer a meaning from a field's name, never check what writes it, and
+then bring you a decision built on that inference. The decision I offered you was not
+a real one.
+
+**And the correction turns the conclusion round completely.** I had treated those six
+as the pages I was least willing to touch. They are in fact **the only six that
+cannot possibly fix themselves.** The producer fix we armed this afternoon lives
+inside the save routine — and for a page in this category that routine refuses at the
+door, two hundred lines before the new code is reached. Every other bad page will be
+repaired by an ordinary rebuild now. These six never will be. A migration is their
+only route, which makes them the *most* deserving of the repair rather than the
+least.
+
+They are also the safest to repair, once you see it that way: because the pipeline
+refuses them, a row fixed here stays fixed. There is no rebuild waiting to undo it.
+
+So: **they are now included.** The repair targets all twenty-two, and it prints each
+of these six by name as it goes with the reason it is touching them, rather than
+skipping them behind a condition nobody would read.
+
+One thing I want to be straight about: repairing them does not defeat the guard. That
+guard exists to stop the generic page pipeline deleting and rebuilding a tool page's
+contents. The repair does not delete or rebuild anything — it corrects three fields
+and leaves the actual markup untouched. It is not the operation the guard is there to
+prevent.

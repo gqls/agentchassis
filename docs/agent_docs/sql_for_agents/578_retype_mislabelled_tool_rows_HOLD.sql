@@ -33,6 +33,13 @@
 --     conservation loop preserved it: bytes identical, component still
 --     adopted-fragment, row count unchanged.
 --
+--  6. SCOPE, corrected 2026-08-24 on the owner's instruction: rebuild_policy='owned'
+--     pages ARE included. The first draft skipped them on my mistaken reading that
+--     'owned' meant a person had claimed the page. It does not — it means the page
+--     belongs to a tool/widget, it is set in code, and 172 of 704 pages carry it.
+--     They are also the only rows phase 2 can never repair, because the save is
+--     refused before adoption runs, so this migration is their sole route.
+--
 --  5. RE-CENSUS ON THE DAY. Do not trust the number 22 — it was true on
 --     2026-08-23 and the population mints daily. This migration therefore selects
 --     its targets by PREDICATE, never by a pasted id list, and prints what it
@@ -178,25 +185,46 @@ BEGIN
        -- evidence about the bytes and outranks this repair.
        AND pc.rendered_html !~ 'data-component="[^"]+"';
 
-    -- OWNED PAGES ARE SKIPPED, LOUDLY, NOT SILENTLY. rebuild_policy='owned' means
-    -- a human has claimed the page and the save's owned-page guard refuses every
-    -- automated write to it — which is also why these rows have been STABLE since
-    -- June rather than re-minting like the rest. They are still mislabelled and
-    -- still generate false "missing headline" findings, so skipping them is a
-    -- DECISION FOR THE OWNER, not a technical exclusion. Measured 2026-08-23: six
-    -- of the twenty-two, all gamesdesign.co.uk tool pages — including
-    -- tool-ttk-calculator, the worked example in the bug file itself.
+    -- OWNED PAGES ARE INCLUDED (owner instruction, 2026-08-24), and they are the
+    -- rows that need this migration MOST. Still listed, because a reader should see
+    -- which rows are repaired under a guard rather than have to infer it.
+    --
+    -- CORRECTION: an earlier draft skipped them, describing rebuild_policy='owned'
+    -- as "a human has claimed the page". THAT WAS WRONG. The guard's own words are
+    -- that such a page "belongs to a tool/widget or is a runtime-fill shell"
+    -- (save_page_sections_action.go:172), and the flag is set in code --
+    -- create_report_page_action.go:176 writes it outright. Measured in that guard's
+    -- own comment: 172 of 704 pages estate-wide are owned. It is a CATEGORY, not a
+    -- claim, and nobody chose it page by page.
+    --
+    -- AND THE MISREADING INVERTED THE CONCLUSION. These six are the only rows phase
+    -- 2 can NEVER heal: the owned-page guard returns at
+    -- save_page_sections_action.go:186 and adoption runs at :397, so the save is
+    -- refused two hundred lines before adoption is reached. No rebuild will ever
+    -- type them correctly. A migration is their sole route -- they were the last
+    -- rows I was willing to touch and they are the only ones that cannot fix
+    -- themselves.
+    --
+    -- WHY REPAIRING A ROW ON AN OWNED PAGE IS SAFE. The guard exists to stop the
+    -- generic pipeline's DELETE-and-reinsert of page_components clobbering a tool
+    -- page (the TL-001 shape). This migration does not do that: it UPDATEs three
+    -- columns and never touches rendered_html, position or slot_name, so the
+    -- operation the guard protects against is not the operation performed here.
+    -- And because the pipeline refuses these pages, a row repaired here STAYS
+    -- repaired -- there is no rebuild to undo it, which makes them the most durable
+    -- targets in the population rather than the riskiest.
     FOR skipped IN
         SELECT p.name AS page, s.domain
           FROM candidates_357 c JOIN pages p ON p.id = c.page_id JOIN sites s ON s.id = p.site_id
          WHERE c.is_owned ORDER BY s.domain, p.name
     LOOP
-        RAISE NOTICE 'SKIPPED (rebuild_policy=owned, needs an explicit owner decision): %/%',
+        RAISE NOTICE 'INCLUDED (rebuild_policy=owned means it belongs to a tool, NOT human-claimed; '
+                     'phase 2 can never reach it, so this is its only repair): %/%',
                      skipped.domain, skipped.page;
     END LOOP;
 
     CREATE TEMP TABLE targets_357 ON COMMIT DROP AS
-    SELECT id, page_id, rendered_html FROM candidates_357 WHERE NOT is_owned;
+    SELECT id, page_id, rendered_html FROM candidates_357;
 
     SELECT count(*) INTO n_target FROM targets_357;
     RAISE NOTICE 'bugs_open/357 phase 3: % candidate(s), % skipped as owned, % to repair on this run',

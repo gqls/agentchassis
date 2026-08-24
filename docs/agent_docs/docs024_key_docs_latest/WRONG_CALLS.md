@@ -49239,3 +49239,47 @@ it to the artefact in front of you are separate acts, and only the second one co
 > while the *truncation* step was still free to undo it. **A rule that fixes one stage of a pipeline
 > does not protect the stages after it** — and three seats had to tell me so before I looked at where
 > the cut actually landed.
+
+### 9 — 2026-08-24: I read a column's NAME, inferred what it meant, and escalated the inference into a decision for the owner
+
+`pages.rebuild_policy = 'owned'`. Six of `bugs_open/357`'s twenty-two rows sit on
+such pages. I read "owned" as **a human has claimed this page**, excluded those six
+from the repair migration on that basis, wrote the exclusion into the migration, the
+bug file, the lane README and the summary — and then presented it to the owner three
+times as *"a decision for you: should we repair pages someone has claimed?"*
+
+The owner's reply was one line: *"I don't think I marked them as owned."*
+
+**They had not, and nobody had.** The guard's own comment, forty lines from code I had
+edited repeatedly that day, says such a page *"belongs to a tool/widget or is a
+runtime-fill shell"*. `create_report_page_action.go:176` writes the value outright —
+`Col("rebuild_policy", "owned")`. The same guard's comment carries the census:
+**172 of 704 pages estate-wide are 'owned'.** It is a category the platform assigns,
+not a claim a person makes, and a quarter of the estate has it.
+
+**The expensive part is not the wrong label — it is that the misreading INVERTED the
+conclusion.** I had treated those six as the rows least safe to touch. They are the
+only six that *cannot fix themselves*: the owned-page guard returns at
+`save_page_sections_action.go:186` and the new adoption code runs at `:397`, so for
+these pages the save is refused two hundred lines before the fix is reached. Every
+other bad row will be repaired by an ordinary rebuild; these never will. A migration
+is their sole route. I had put the rows most needing the repair into the "too
+dangerous, ask the owner" bucket.
+
+**What caught it:** the owner, from domain knowledge, on a single sentence. No check
+of mine was pointed at it, because I did not know there was a question — the field
+name had already answered it for me.
+
+**The cheap check, and it is the same one either way:** before attributing intent to
+a data value, `grep` for **what writes it**. One command —
+`grep -rn "rebuild_policy" --include=*.go | grep -E "= *'owned'|Col\("` — names the
+writer and settles whether a value records a human decision or a code path. And when
+a value's meaning is load-bearing for a decision you are about to hand upward, read
+the definition at the guard that consumes it rather than the noun in the column name.
+
+**The transferable half:** a plausible-sounding field name is a hypothesis, and I
+treated it as a finding. This is the same family as entries 7 and 8 — a real thing
+(the column exists, the exclusion worked, the guard is genuine) used to answer a
+question it was never about. The three differ only in what stood in for the evidence:
+a filter's correctness for its selectivity, a tree's cleanliness for authorship, and
+here a column's name for its semantics.

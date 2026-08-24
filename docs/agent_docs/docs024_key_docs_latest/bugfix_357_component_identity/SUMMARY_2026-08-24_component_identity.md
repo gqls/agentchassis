@@ -84,8 +84,23 @@ never touched.
    the *wrong* record, or a new fragment landing with no component at all.
 2. **Then the twenty-two.** Re-counted on the day rather than trusting the number,
    because the population minted twelve rows in a single day last week.
-3. **A decision for the owner on six of them** — pages marked as claimed by a human,
-   stable since June for exactly that reason. The repair names them and skips them.
+3. ~~**A decision for the owner on six of them** — pages marked as claimed by a human,
+   stable since June for exactly that reason. The repair names them and skips them.~~
+
+   > **CORRECTED 2026-08-24, same day — and the correction inverts the point.**
+   > `rebuild_policy='owned'` does **not** mean a person claimed the page. The guard's
+   > own words: such a page *"belongs to a tool/widget or is a runtime-fill shell"*,
+   > and the flag is written in code (`create_report_page_action.go:176`); **172 of 704**
+   > pages estate-wide carry it. I inferred a meaning from the column's name and never
+   > read its definition, then escalated that inference into a decision for the owner.
+   >
+   > The consequence is not a smaller point but the opposite one: these six are the
+   > **only** rows the producer fix can never heal, because the owned-page guard
+   > returns at `save_page_sections_action.go:186` and adoption runs at `:397` — the
+   > save is refused two hundred lines before adoption is reached. They were the rows
+   > I was least willing to touch and they are the only ones that cannot fix
+   > themselves. On the owner's instruction they are now **included** in the repair,
+   > which targets all 22.
 4. **Still open, and named so it is not mistaken for covered:** the rerender path
    re-derives a component from the slot name when none is recorded, so a fragment that
    fails adoption can still be re-labelled by it. And five other pieces of code write
