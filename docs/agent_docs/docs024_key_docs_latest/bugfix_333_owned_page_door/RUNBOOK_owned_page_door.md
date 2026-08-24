@@ -83,3 +83,55 @@ go test ./platform/orchestration/actions/ -run 'OwnedPage|UnregisteredHandler|Re
 scripts/verify-head-builds.sh --with <changed files> --test     # build against HEAD before committing
 ```
 ⚠ Do NOT hand-roll `git archive HEAD | tar` — that recipe is why this machine runs out of space.
+
+## Monitored literal: `OWNED_PAGE_DOOR_PROBE_FAILED`
+
+The door FAILS OPEN — if either probe errors it logs and carries on, so a finding is never lost to a pod log.
+That means policy enforcement can be quietly disabled by a transient fault, and the council's `guardian` seat
+asked (round 2, low) that the literal be named here as a **monitored** string rather than left as a grep-only
+trail. It is emitted by both stand-down branches.
+
+```bash
+# Is the door standing down in production? (nonzero = enforcement is off for those writes)
+kubectl -n ai-persona-system logs -l app=agent-chassis --since=24h \
+  | grep -c OWNED_PAGE_DOOR_PROBE_FAILED
+```
+⚠ A count of zero here is only meaningful with a demand control — see the parked-rows query above. And note
+this is a LOG line, not a durable row: it is deliberately NOT written to `agent_error_log`, because that write
+would ride the same transaction and so could not survive the one failure it exists to report.
+
+## Does any LIVE CONFIG branch on `raiseToolContentItem`'s return value?
+
+Asked by `guardian` (round 2, low): a Go grep proves no Go caller switches on it, but a workflow step's
+`condition` could match the string without appearing in Go.
+
+```sql
+-- branches naming the output field
+SELECT ad.type, s.key AS step, s.value->>'condition'
+FROM agent_definitions ad, LATERAL jsonb_each(COALESCE(ad.default_config#>'{workflow,steps}','{}'::jsonb)) s
+WHERE ad.deleted_at IS NULL AND ad.is_active AND COALESCE(ad.is_snapshot,false)=false
+  AND s.value->>'condition' ILIKE '%content_item%';
+
+-- and any config mentioning the return VALUES at all
+SELECT type FROM agent_definitions
+WHERE deleted_at IS NULL AND is_active AND COALESCE(is_snapshot,false)=false
+  AND (default_config::text ILIKE '%skipped_no_prose_sections%'
+    OR default_config::text ILIKE '%deduped_open_item%'
+    OR default_config::text ILIKE '%parked_owned_page%');
+```
+[MEASURED 2026-08-24] Both return **zero live branches**. ⚠ A broader `ILIKE` over the whole config *does* hit
+`experience-planner` on the literal `insert_failed` — that is a **false positive**: the string sits inside an
+`execute_llm_prompt` prompt body in its `review_contracts` step, not in a condition. **Match on
+`s.value->>'condition'`, not on the whole config blob**, or a prompt's prose will read as a branch.
+
+## Consumer notifications sent (owner ruling 2026-07-29 §3)
+
+The artefact the `guardian` seat asked for. Told, with the mechanism and what changes for each — not merely
+measured:
+
+| lane | what they were told | what came back |
+|---|---|---|
+| `bugs_open/326` | collides in `writeWorkItem`; agreed sequencing, sent the exact shape of the hunks | landed on top (`f16c87beb`), pinned both my constraints in their own tests |
+| `bugs_open/367` | their `from_rfm` rows now park rather than fail; `row_status` is the honest field | verified my claims first-hand, froze their "28 of 31 failed" figure in five documents, and returned the `close_converted` finding |
+| webdesign tool-rebuilds | largest producer; `content_item: parked_owned_page` replaces a false "raised" | — |
+| `staged_component_build` / `bugs_open/353` | their backfill's 8 owned-page rows now park; three-bucket warning for the acceptance count | **returned a demand-control warning: cross-link emission is ZERO since 08-21, so an empty parked bucket will not mean the door is inert** |
