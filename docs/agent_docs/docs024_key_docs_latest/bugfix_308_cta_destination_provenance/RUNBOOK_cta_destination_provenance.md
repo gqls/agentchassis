@@ -184,3 +184,65 @@ for i, e in enumerate(plan["edits"]):
 This is the same class as `check_literal_markdown`'s `walkContentDataStrings` skipping `_`-prefixed
 keys: **a literal scanner makes your commentary load-bearing.** Two rounds were spent on it here,
 and neither cost credits — both failed before any seat was dispatched.
+
+## 12. Inducing a `cta_links_stale` repair by hand — and the key that silently no-ops it
+
+This is how the fix was proven at the artefact on 2026-08-24. **The page id and the `spec` nesting
+are both load-bearing.**
+
+```bash
+SITE_ID=$(psql -tAc "SELECT id FROM sites WHERE domain='finetuning.uk'")
+PAGE_ID=$(psql -tAc "SELECT id FROM pages WHERE site_id='$SITE_ID' AND name='ai-for-uk-small-business'")
+ORCH=$(cat /proc/sys/kernel/random/uuid); CORR=$(cat /proc/sys/kernel/random/uuid)
+
+kubectl -n kafka run -i --rm kcat-$(date +%s) --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -c 1 -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests \
+  -H correlation_id=$CORR -H orchestration_id=$ORCH \
+  -H request_id=$(cat /proc/sys/kernel/random/uuid) -H message_id=$(cat /proc/sys/kernel/random/uuid) \
+  -H message_type=request -H client_id=demo_client -H action=orchestrate \
+  -H sender_agent_type=cli -H sender_agent_id=cli-user \
+  -H responses_topic=system.agent.generic.responses -H timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ") <<JSON
+{"action":"orchestrate","config":{"agent_type":"page-rerender"},"input_data":{"site_id":"${SITE_ID}","domain":"finetuning.uk","page_id":"${PAGE_ID}","spec":{"reason":"cta_links_stale","page_name":"ai-for-uk-small-business"}}}
+JSON
+```
+
+### ⚠ `input_data.reason` IS THE WRONG KEY, AND IT FAILS AS A CONVINCING NO-OP
+
+The `page-rerender` agent's `check_rerender_mode` step is a conditional whose condition reads
+**`input_data.spec.reason`**:
+
+```
+input_data.spec.reason == 'image_landed' OR ... OR input_data.spec.reason == 'cta_links_stale' ...
+   then_step: rerender_sections     else_step: render_page
+```
+
+Put `reason` at the top level of `input_data` and the condition is **false**, so the run takes
+`render_page` — a whole-page assemble from the stored `content_data` — and then **deploys it**.
+`rerender_page_sections` never executes, so no CTA is recomputed.
+
+**What you see: `status=COMPLETED`, `current_step=complete`, no error, a fresh deploy — and the
+button unchanged.** That is *indistinguishable from bug 308's own symptom*, and I spent a round
+believing I had found a live defect before checking my own payload. The rerender ACTION does read
+a top-level `reason` (it is in its InputSpec), which is what makes the mistake so easy — the action
+would have honoured it, but the workflow never routes there.
+
+**The check that separates the two, in one query:**
+
+```sql
+SELECT collected_data->'check_rerender_mode'->>'next_step_override' AS mode,
+       (collected_data ? 'rerender_sections')                       AS recompute_ran
+FROM orchestration_states WHERE orchestration_id='<ORCH>';
+```
+`mode=rerender_sections` and `recompute_ran=t` is a real repair attempt. `mode=render_page` means
+your payload never asked for one.
+
+### Then verify in three places, in this order
+
+1. **The row** — `page_components.content_data->>'cta_url'` moved, and `__cta_minted` names the new
+   value (both slots, if the component has two).
+2. **The committed bytes** — `git -C ~/projects/sites show origin/master:<domain>/<page>.html`. The
+   deploy step's `deploy_result.response.data.commit_sha` names the commit.
+3. **The served page** — and only now. `COMPLETED` is the git commit, not the bytes; the B2 sync
+   runs afterwards, so an early fetch returns the PREVIOUS deployment and looks like a regression
+   (its own LANDMINES entry).

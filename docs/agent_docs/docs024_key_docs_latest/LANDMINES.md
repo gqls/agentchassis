@@ -16043,3 +16043,21 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the `099` roster-mirror trap and the dedup-index/Go-list lockstep (the same two-copies-must-agree class this estate keeps filing) · `bugs_open/314` (which created the single-sourcing) · MEMORY [[a-pass-from-a-blind-check-outlives-the-blindness]]
 - **source:** 2026-08-23, `bugfix_358_unread_finding_codes` lane, found while checking that a `Council-Submitted:` trailer had been credited after an approved verdict. It had — the commit was simply not in the report. Fixed the same day in both files, with a pointer at the widening site because that is where the next person works.
 - **added:** 2026-08-23, bugfix_358_unread_finding_codes lane
+
+### A hand-fired `page-rerender` with `reason` at the wrong nesting level renders and DEPLOYS the page without running the repair — and completes green
+
+- **footprint:** `page-rerender`, `check_rerender_mode`, `rerender_page_sections`, `input_data.spec.reason`, `cta_links_stale`, `image_landed`, `section_data_resolved`, `template_changed`, `literal_markdown`, any hand-built `orchestrate` payload for a rerender
+- **fires when:** you induce a rerender by hand to prove a section-level repair — a CTA recompute, a literal-markdown strip, an image landing — and put `reason` at the top level of `input_data`, which is where the ACTION's own InputSpec declares it.
+- **the trap:** the workflow decides the mode BEFORE the action runs, and its conditional reads **`input_data.spec.reason`** (the shape the work-item path produces, where the item's `spec` is passed whole). A top-level `reason` leaves the condition false, so the run takes `else_step: render_page` — a whole-page assemble from stored `content_data` — **and then deploys it**. `rerender_page_sections` never executes and nothing is recomputed.
+- **why it is worse than a plain no-op:** the run reports `status=COMPLETED`, `current_step=complete`, no `__step_error`, and a genuine fresh deploy with a new commit. `[MEASURED 2026-08-24, bugfix_308 lane]` verifying a CTA fix this way produced exactly the symptom of the bug under test — *"the repair ran, reported success, and the button did not move"* — and cost a round of believing a live defect had been found. **If the thing you are proving IS a silent-no-op bug, this trap forges your own evidence.**
+- **the check, one query, before you conclude anything:**
+  ```sql
+  SELECT collected_data->'check_rerender_mode'->>'next_step_override' AS mode,
+         (collected_data ? 'rerender_sections')                       AS recompute_ran
+  FROM orchestration_states WHERE orchestration_id = '<ORCH>';
+  ```
+  `render_page` / `f` means your payload never asked for a repair. Correct shape:
+  `"input_data":{"site_id":…,"domain":…,"page_id":…,"spec":{"reason":"cta_links_stale","page_name":…}}`
+- **generalises:** the ACTION's InputSpec and the WORKFLOW's routing condition read the same field name at **different nesting levels**, and only the action's is documented in Go. Before hand-firing any agent whose workflow has a `conditional` step, read the condition string out of `agent_definitions` — it is the thing your payload has to satisfy, and `ExtractActionInputs`' nested lookup makes the action forgiving in a way the conditional is not.
+- **source:** 2026-08-24, `bugfix_308_cta_destination_provenance` lane, proving Phase B at the artefact
+- **added:** 2026-08-24, `bugfix_308_cta_destination_provenance` lane
