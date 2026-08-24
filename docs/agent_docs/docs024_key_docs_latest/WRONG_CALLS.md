@@ -50084,3 +50084,13 @@ was true and the implication was not.
 > verify. I verified the file existed and stopped — **existence is not execution.** Fixed the same
 > day: the hook now runs the actions package when a staged actions file carries `ErrorCode:`,
 > proven in a scratch tree with the registry untouched.
+
+## 2026-08-24 — `bugfix_384_page_list_invalidation` lane: I committed with an EMPTY `Council-Submitted:` trailer because a piped validator hid its failure
+
+**What I wrote.** Commit `50f9b13c4`, message ending `Council-Submitted: ` — nothing after the colon. The line claims a submission had been made for that commit; none had.
+
+**What was true.** The round-2 dry run had failed the gate's 64 KB cap (71,389 bytes of full-file sketches). Its non-zero exit went through `| tail -2`, so `set -e` saw `tail`'s zero; the dispatch step then produced no correlation, and the commit message — composed from `$CORR2` in a heredoc — went in with the variable empty. The honest state (submitted under the SAME correlation as round 1, `2005a846`, because `RESUBMIT_CORR` keeps one trail) only reached git in the following docs commit.
+
+**What caught it.** Reading the commit hook's own output after the fact: `CORR2=` with nothing after it, printed two lines above a successful commit.
+
+**The cheap check that would have.** Never pipe the validator (`cmd > log; test $? -eq 0`, then read the log); guard the correlation explicitly — `[ -n "$CORR" ] || exit 1` — BEFORE composing the message, not after; and on a resubmit expect the OLD correlation back (the trail is the point), so an empty one is unambiguous. A trailer is a claim: build it from a value you have just asserted non-empty.
