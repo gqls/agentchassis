@@ -46,6 +46,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **read the SCHEMA before naming a column — a Go map key is not a column, and a CHECK constraint's allowed set is not guessable from the column name** | **3** |
 | **enumerate the SIBLING instances before quantifying — "generic"/"fleet-wide"/"the listings all X" needs a count, in EITHER direction: a defect that generalises, or a safeguard that does** | **2** |
 | **verify a control by what the USER perceives, not that the handler fired — an invisible-in-context effect is a dead control** | **1** |
+| **resolve a numbered artefact by its SLUG — a migration number on this tree is NOT unique, and the rule is already written down** | **1** |
 | **verify the runtime that will EXECUTE the code — a deployment pod-grep is a false green for spawn-class agents, AND for the right pod running the wrong code path** | **2** |
 | **bound the BEHAVIOUR, not the function — "X has exactly one caller" is true and does not answer "what else does this job without calling X"; a verified scoping claim closes the question hardest** | **1** |
 | **check an example you write against the artifact it constrains** | **2** |
@@ -49041,3 +49042,91 @@ and either alone would have killed the check before it reached two documents.
 page appear and prove nothing. **The proof is the MINT** — a fresh item carrying
 `handler_agent='directory-build-handler'`, filed by reconcile with no hand routing. When a check is
 about *routing*, the artefact to inspect is the routed record, not the page it eventually produces.
+
+
+## 2026-08-24 — bugs_open/333 lane: I wrote a parity test that resolved migration 488 by NUMBER, and it confidently failed against a migration that had nothing to do with my change
+
+- **The claim, encoded in a test rather than in prose:** `TestOwnedPageRefusalPathMatchesMigration488` asserted
+  *"migration 488 writes a `{workflow,steps,<step>,config,refuse_owned_page}` path, and the door's jsonpath must
+  match it"*. It selected the file with `strings.HasPrefix(name, "488_")` and took the first hit.
+- **What it actually did:** the tree holds **two** migration 488s — `488_meta_description_backfiller_agent.sql`
+  and `488_page_build_handler_refuses_owned_pages_before_the_writer.sql`. `os.ReadDir` returned the
+  meta-description one first. The test then reported, in a confidently-worded failure message I had written
+  myself: *"migration 488 no longer writes a {workflow,steps,…,refuse_owned_page} path — the door reads … and
+  would now match nothing."* Every word of that was false. The migration it names does write the path; the file
+  the test read was a different migration entirely.
+- **What caught it:** the test failing on its first run, which is the good case — I had one file to open. Had
+  the two 488s sorted the other way it would have PASSED, on the right file, by luck, and gone on passing until
+  someone added a third 488 or the directory order changed. **A parity test that picks its counterparty by an
+  ambiguous key is not a parity test; it is a coin toss with an assertion attached.**
+- **The part that makes this a WRONG_CALLS entry rather than an ordinary bug: the rule was already written
+  down, in the file I am required to re-read.** `CLAUDE.md` says it in terms — *"several numbers name two
+  unrelated cases … so a bare number is ambiguous and most commit messages saying '083' mean the other one.
+  **Resolve by slug**, and `git log` the FILE PATH, not the number."* I had read that sentence this session. I
+  still wrote a prefix match on the number, because the number was in the name of the thing I was testing and
+  it did not occur to me that "migration 488" was not an identifier.
+- **The cheap check, and it costs nothing:** `ls docs/agent_docs/sql_for_agents/ | grep '^488'` — one command,
+  and it prints four files. Do it before writing any code that resolves a migration, and select on the SLUG
+  (`strings.Contains(name, "refuses_owned_pages")`), excluding `_ROLLBACK`/`_VERIFY`/`_SUPERSEDED`, which are
+  not the change.
+- **The transferable half:** a duplicated identifier does not announce itself at the point of use. The estate
+  already knows its migration numbers collide and says so in the standing instructions — what it cannot do is
+  make the collision visible at the moment you type `488_` into a `HasPrefix`. **When a rule exists because an
+  identifier is ambiguous, the rule has to be applied at every site that resolves that identifier, including
+  the ones inside tests, and a test is exactly where it will not be noticed** — because a test that reads the
+  wrong file still runs, still passes or fails deterministically, and still looks like evidence.
+
+## 2026-08-24 — bugs_open/333 lane: I nearly shipped a park that nothing could ever close, by copying a convention's shape without its lifecycle
+
+Recorded here in one line because the full account is in `LANDMINES.md` and in the lane's NOTES: my first design
+re-typed a parked work item to `capability_gap`, following `bugs_closed/077`'s convention, which has a live
+consumer and had been endorsed by two council seats on a neighbouring bug the day before. It was still wrong —
+`resolveWorkItems` retracts a finding by `(item_type, item_key)`, so re-typing orphans the row from the only
+mechanism that could ever close it, and the row then holds its dedup slot for ever so the detector cannot
+re-file either. **Caught by a red-team pass over the plan, before any code existed** — which is the cheapest
+place this class can be caught, and the reason it never reached a shared doc. The check: before changing a row's
+type or key, grep for who CLOSES rows of that type and ask whether the new identity still matches.
+
+---
+
+## 2026-08-24 — I cited a file that did not exist, for two days, through a council round and into the concept register
+
+**The claim.** `cmd/config-key-audit/findingcodes.go`, shipped 2026-08-22 and quoted since:
+*"A conservative Go source scan is kept as an EARLY WARNING at commit time
+(`findingcodes_scan_test.go` in the actions package), and it is explicitly not the guarantee."*
+
+**`findingcodes_scan_test.go` did not exist.** Not renamed, not moved — never written. The sentence
+was written while planning to write it, and then it read like a description of something real. It
+passed a council round (`be1fd678`), was carried into `DBG-075`, and was repeated in this lane's
+handoff. **Nobody, me included, ever ran `ls` on the path.**
+
+**What was actually standing in for it** was `TestPackageErrorCodeConstantsAreRegistered`, walking a
+hand-written list of **eleven** constants — so it could only catch a code somebody had remembered to
+add to the list, which is precisely the case that does not need catching. A third hand-maintained
+roster, inside the change whose register entry boasts of retiring two.
+
+**What caught it: the mechanism this lane built, on its first live run.** The CronJob deployed
+2026-08-24 exited 1 on `[undeclared] LINK_CONTEXT_UNAVAILABLE` — a code added to that very package
+about two hours earlier, which had walked straight past the "early warning". Nothing else would have
+found it; the claim was self-certifying prose sitting in a header nobody had cause to doubt.
+
+**The cheap check I skipped, and it is embarrassing how cheap:** `ls <the path you just named>`.
+More generally — **a comment that names a file, a test, a script or a table is a claim, and it is
+the one class of claim that costs one command to verify.** I applied `[MEASURED]` discipline to
+every number in this lane and none of it to a filename.
+
+**The second, quieter wrong call in the same paragraph.** It also said the live-table check's blind
+spot (codes that have not fired in 30 days) "is harmless BY CONSTRUCTION — an unfired code produces
+no unread findings and costs nothing". Measured 2026-08-24: **13 codes** are written by that package
+and declared nowhere, all with zero rows. The honest claim is that the blind spot is **bounded and
+short-lived** — about a day, until the code first fires. "Harmless by construction" made a
+population of thirteen sound like a population of zero, and `LINK_CONTEXT_UNAVAILABLE` is what the
+difference looks like: written, fired two hours later, red check the same afternoon.
+
+**And a near-miss worth recording because it went the right way.** Having found the hand list, my
+first instinct was to delete it outright as the redundant roster. Checking first showed **ten of its
+eleven** are discoverable by the new scan and the eleventh, `deployStampRefusedErrorCode`, is
+**not** — it is passed positionally, which no `ErrorCode:` scan can see. Deleting it would have
+silently dropped a code's coverage while looking like a tidy-up. **The check that saved it was
+asking, per entry, "would the replacement actually find this one?" rather than "is the replacement
+broadly better?"**
