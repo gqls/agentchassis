@@ -15,6 +15,7 @@
 > | **661-row two-strike landfill** (247 keys) | deliberately untouched; growth through the within-cycle arm ends when D rolls | RFC_010 / `bugs_open/033` D2 — already the owner's open decision |
 > | **230 detector rows / fixer-lies class** | not this lane's | `bugs_open/352` |
 > | **`retry_after` dual-meaning residual** | named in RFC_048 §4 and D's submission; a live-DB skip-then-serve test is the part sqlmock cannot supply | whoever next touches a `retry_after` reader |
+> | **If D ever grows a STATUS change** (today it sets only `retry_after`) | the `architecture` seat ruled on 333's round (`9813dec8`, APPROVED): `deferred` is now overloaded THREE ways (general defer, 291's registration park, 333's ownership park), disambiguated only by error-string prefixes — **a fourth must introduce a real reason-code column, not another string convention.** Register entry **WII-028** | whoever extends the deferral — read WII-028 before touching status |
 > | **Kill switches near this column — THREE, all armed** | `DISABLE_ANTI_CHURN_DEFERRAL` (D: restores the silent drop), `DISABLE_WORK_ITEM_RETRY_BACKOFF` (failure ladder), `DISABLE_OWNED_PAGE_DOOR_DEMOTION` (333's door). Three writers gated; the shared READ predicate is unswitched | operators: reach for the right lever — the D one is the 326 rollback |
 >
 > The bug file itself stays in `bugs_open/` until D and E are **live on a roll** and the
