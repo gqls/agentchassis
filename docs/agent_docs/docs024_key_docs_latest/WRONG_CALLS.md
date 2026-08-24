@@ -47199,6 +47199,50 @@ writing differs from yours in a field you did not think about, that difference i
 population lacks, and this control varied a field the population is uniform on. Both are
 "my instrument could not have returned the disconfirming answer".)*
 
+## 2026-08-24 — `web_admin_console` — I invented a defect in another session's correct design, twice, because I never read a row my pattern matched
+
+Sizing the `bugs_open/099` landmine for the build-steps screen (`status` can read COMPLETED
+while a step failed; the truth is a `__step_error` key in `collected_data`). The plan I was
+reviewing proposed testing for it with the jsonb operator `collected_data ? '__step_error'`, and
+hedged that the key spelling should be verified. I set out to verify it and produced two false
+findings in a row, both stated confidently, both about a design that was right all along.
+
+**False finding 1 — the count.** I counted matching rows with
+`collected_data::text LIKE '%__step_error%'` and got **315**, against **67** for the top-level
+key test. **In SQL `LIKE`, `_` is a single-character wildcard**, so the pattern actually asked
+for "any two characters followed by `step_error`". Re-run as a literal with `strpos`, the count
+is **176**. The key whose entire distinguishing feature is a leading double underscore is
+precisely the key `LIKE` cannot be trusted with — the wildcards land exactly on the evidence.
+
+**False finding 2 — the explanation.** With 176 vs 67 I concluded the gap was **nesting**, and
+wrote that the plan's top-level test "misses 109 of 176 real errors" — dressing it up as this
+estate's own grep-approximating-a-parser defect class. Wrong. One query extracting 320
+characters around the literal settled it: the 109 are **workflow configuration naming the
+field**, `"note_body_field": "__step_error.message"` inside an `append_doc_note` step's config.
+There is no nesting at all — every real `"__step_error":` key is top-level, 67 = 67 — so the
+operator the plan chose is **exact**, and the "improvement" I was about to recommend would have
+marked **109 clean builds as failed**.
+
+**Cost:** none — both were caught before the correction was written, so the plan doc records the
+direction that survived (`web_admin_console/PLAN_2026-08-24_build_steps_screen.md` §6b) rather
+than either draft. What it nearly cost is the expensive part: a confident, well-formatted
+correction sent to another lane, retracting a correct decision and replacing it with a
+false-positive generator, over a signature the reviewing session had already flagged as
+needing care.
+
+**The cheap check, and it is one line: read ONE row your pattern matched before quoting any
+count derived from it.** Both errors die instantly to it — the first because the matched text
+would not have contained a literal `__step_error`, the second because the row is visibly a
+config block. I had run four aggregate queries and not one `SELECT` of an actual matching value.
+
+**The transferable half:** an aggregate over a pattern is two claims wearing one number — *this
+pattern means what I think* and *this many rows satisfy it* — and the count validates neither.
+Where the pattern language shares metacharacters with the string you are hunting (`_` in `LIKE`,
+`.` and `?` in regex, `*` in globs), assume it is lying until a sampled row says otherwise.
+Related, and the reason this is its own entry rather than a note on the existing family: the
+usual failure here is a control that *could not* have come out differently. **This one could
+have, easily, and did — I simply never looked at it.**
+
 ## 2026-08-24 — `bugfix_206_directory_build_handler` (sixth entry) — I read the 090 budget landmine's own file-size check, applied it, and it gave me the false all-clear the landmine's CORRECTION banner exists to warn about
 
 Having written into `bugs_open/206` that a reader wanting independent structural confirmation
