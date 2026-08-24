@@ -183,17 +183,62 @@ evidence-BEARING site            : with gate 151, without 151  -> excludes nothi
 `[VERIFIED 2026-08-24]` Both arms were run. A gate tested only on the site it should filter
 cannot distinguish "correctly filtering" from "filtering everything".
 
-### Arm B is HELD, and held mechanically
+### Arm B was held, then RELEASED the same day — and the method that dated the blocker
 
-`594` and `595` are renamed `*_HOLD.sql` so `SIDECAR_RE` excludes them from the runner — because
-the runner has no scope, a documented "do not apply yet" would not have survived another session's
-`--apply`. **Release condition: the `bugs_open/305` lane's `714789d7b` (`</th`/`</tr` sentence
-boundaries) must be live in the chassis.** How to check — and how not to:
-```bash
-kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
-git merge-base --is-ancestor 714789d7b <the stamped commit> && echo LIVE
+`594`/`595` were briefly renamed `*_HOLD.sql` (so `SIDECAR_RE` kept the runner off them — a
+documented "do not apply yet" does not survive another session's `--apply`). The release condition
+was the `bugs_open/305` lane's `714789d7b` being live. **It was, and both are now applied and
+recorded.**
+
+**THE ONLY RELIABLE WAY TO DATE A DEPLOYED COMMIT — the binary's own record, which has no shelf
+life** (`platform/buildcapability`, RFC_040):
+```sql
+SELECT git_commit FROM service_binary_capabilities
+ WHERE service = 'agent-chassis' AND kind = 'build'
+ ORDER BY last_seen_at DESC LIMIT 1;
+-- 70fd163c24eae0c444bae7a425bb3d3c3096f7e4   [VERIFIED 2026-08-24]
 ```
-⚠ **Do NOT use `grep -a <sha> /proc/1/exe` for this.** Tried here: the 40-zeros control came back
-**PRESENT** (it matches Go's internal digit table), so the probe cannot discriminate. And a pod's
-`.status.startTime` dates the ROLL, not the IMAGE — ours started 15:39Z, minutes after the fix was
-committed at 14:39:30Z, which proves nothing either way.
+Then ask git the ancestry question, **with a control in each direction**:
+```bash
+git merge-base --is-ancestor <your commit>  <that sha> && echo LIVE
+git merge-base --is-ancestor <a later commit> <that sha> || echo "control fails, good"
+git merge-base --is-ancestor <an old commit>  <that sha> && echo "control passes, good"
+```
+
+⚠ **Three methods that DO NOT work for this, all tried here first:**
+1. **`grep -a <sha> /proc/1/exe` cannot answer it at all.** `buildinfo.GitCommit` is **one string,
+   not an ancestry**, so a binary that certainly contains your commit reports it **absent**. Two
+   lanes were burned by this (`bugs_open/215` on v1.0.1288, `bugs_open/299` on v1.0.1316).
+2. **The 40-zeros "must be absent" control comes back PRESENT** — Go's internal digit table matches
+   a run of zeros. A control that cannot fail is worse than none: it converts *"I did not check"*
+   into *"I checked and it passed"*.
+3. **A pod's `.status.startTime` dates the ROLL, not the IMAGE.** Ours started 15:39Z, an hour
+   *after* the fix was committed at 14:39:30Z — which feels like evidence and is not; a tag can be
+   built before a commit and rolled after it.
+The startup `build provenance` line is honest but **scrolls** — gone from a full `kubectl logs`
+within hours, and already past `--since-time` here.
+
+### Post-apply checks for arm B
+
+```sql
+-- the LITERAL type, because DeclaredTypeSatisfied is default-TRUE and could never tell you
+SELECT function,
+       input_schema->'fields'->'content'->>'type'         AS declared,
+       length(input_schema->'fields'->'content'->>'llm_guidance') AS guidance_len
+FROM content_components WHERE is_active
+  AND function IN ('generic-text-block','about-content','illustrated-text-block','article-body');
+-- all four: html, 401-826 chars.  report-dossier stays type=text — deliberately excluded.
+
+-- the second-order effect the two arms exist for
+SELECT function, component_expresses(html_template, input_schema) FROM content_components
+WHERE is_active AND function = 'generic-text-block';
+-- {html-block,list,table}  (was {} before 594)   [VERIFIED 2026-08-24]
+```
+And on the prompt, all five in one row — `rule10_html`, `rich_text_gone`, `rule9_narrowed`,
+**`md_ban_intact`** (304's markdown ban must have survived the replace) and `img_forbidden`:
+all true `[VERIFIED 2026-08-24]`.
+
+⚠ **Forward note from the 305 lane:** `</blockquote`, `</dd`, `</dt`, `</caption`, `</section` are
+still absent from their sentence-boundary set, deliberately, because RULE 10 does not emit them.
+**Adding any of those to the guidance or to RULE 10 obliges you to tell that lane** so they can
+probe and fixture it — guessing at prefixes is how the `</th`/`</td` asymmetry arose.

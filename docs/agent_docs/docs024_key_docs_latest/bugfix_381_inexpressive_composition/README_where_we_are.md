@@ -110,3 +110,36 @@ the end of table data cells but not table header cells, so its repair could have
 the table's own tags. Another thread caught me reusing an identifier that was already taken.
 A third refuted a guess of mine with better evidence than I had. **None of that came from anyone
 having a symptom.** It came from saying out loud what I was about to change.
+
+**2026-08-24, end of the afternoon — it is all live.** Both halves are applied and working, and
+the fleet is now building pages differently from an hour ago.
+
+What that means in practice: when the planner lays out a page it can now see, for every component,
+whether that component can actually produce a list, a table, a set of cards, or only paragraphs —
+worked out from the component itself rather than typed in by anyone. And the four text blocks that
+carry most of the prose on the estate now tell the writer to use subheadings, lists and bold where
+the content genuinely has that shape, instead of saying nothing at all and getting paragraphs by
+default.
+
+The single most satisfying number: the general-purpose text block that produced your wall of text
+used to appear in the planner's list as "paragraphs only". It now appears as capable of headings,
+lists and tables. That component is used on 181 pages.
+
+**One delay, and it turned out to be an hour rather than days.** I held the writer half back because
+another thread had just fixed a bug in a copy-checking tool that our change could have triggered —
+their fix was written but I could not tell whether it was actually running yet. Two of the obvious
+ways to check turned out to be worthless (one of them gives the same answer no matter what is true,
+which is worse than no check at all). That thread then handed me the right method, I verified it
+myself rather than taking their word, and released the same afternoon.
+
+**What is still true, and I would rather say it than let it be discovered later.** The framework
+still has no general-purpose calendar, checklist, comparison-table or step-list component. So a page
+promising "month by month" will now be planned by something that *knows* it has nothing ideal to
+hand — better than choosing blind, and the writer can now at least render a twelve-item list inside
+an ordinary text block, which it could not before. But a purpose-built calendar component would be
+better, and that is the next piece of work rather than something I have quietly finished.
+
+**And the honest caveat on the evidence.** I know the mechanism works — I checked it at every layer,
+including the parts that would have failed silently. What I have not yet seen is a page built under
+the new instructions, because no build has happened since. That still needs one build to watch, and
+it is still your call which.
