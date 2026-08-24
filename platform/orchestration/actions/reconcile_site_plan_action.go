@@ -310,6 +310,37 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 			// of a needs_page that cannot succeed. Same item_key shape as
 			// WriteBuildItemsAction's capability_gap arm, so the two producers
 			// co-dedup on the partial unique index.
+			//
+			// OPERATOR NOTE — this removes a row people were using. The
+			// documented escape hatch for an unbuildable typed page (proven
+			// twice: guides-index 2026-08-08, vetcomparison practice
+			// 2026-08-24) was "re-aim the page, then re-point its parked
+			// needs_page row at a handler that works". After this change
+			// there is no parked needs_page to re-point — deliberately, since
+			// it only existed because a doomed dispatch had been minted. The
+			// replacement recipe, in order:
+			//
+			//   1. DECIDE what the page is and write that down first — title,
+			//      meta_description, content_direction on the `pages` row.
+			//      Never skip this: a re-route without a re-aim is the
+			//      fabrication setup (a builder handed a bare entity page
+			//      invents facts about a real business — the bug-020 class).
+			//   2. If the decision changes what the page IS, set pages.page_type
+			//      to match (an explainer is `content`; a list of siblings is
+			//      `section-index`). Routing then follows on the next reconcile,
+			//      with no hand SQL at all — this is the preferred path.
+			//   3. Only if the page must keep an unbuildable type: promote this
+			//      row in place — its spec carries page_name, page_type,
+			//      builder_needed, plan_id and reason, which is everything the
+			//      dispatcher needs — by setting item_type='needs_page',
+			//      status='triaged' and handler_agent to a handler that can
+			//      actually build it.
+			//
+			// KNOWN GAP, stated rather than hidden: step 2's `content` lands on
+			// page-build-handler, which has NO layout-filling step, so a page
+			// with no layout from any source still no-ops there. That is the
+			// same defect this bug is about, one type over, and it is why
+			// section-index routes here instead. Not fixed in this round.
 			gapKey := fmt.Sprintf("capability_gap:%s:%s", routeType, name)
 			gapSpec, _ := json.Marshal(map[string]interface{}{
 				"page_name":      name,
