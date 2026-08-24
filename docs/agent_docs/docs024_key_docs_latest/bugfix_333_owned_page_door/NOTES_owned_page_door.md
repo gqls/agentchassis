@@ -95,3 +95,70 @@ Page policy read: `pages_pkey` index scan, **2.7 ms** execution.
 noindex` was queued behind it, and every `pages` read in the fleet was waiting on that lock. **Execution time
 is what the door pays; wall clock that day measured someone else's DDL.** Flagged to the owner in
 `README_where_we_are.md`.
+
+## 2026-08-24 — built, tested, committed, submitted
+
+**Committed `6ab0b3434`** (code + tests + lane docs) and **`68734b771`** (register WII-028, two landmines,
+016b §9, the bug file). Council round dispatched, corr `9813dec8-5ce1-48ab-bb77-e3f601f9f64c`; commit carries
+`Council-Submitted:`, not `Council-Reviewed:` — **the verdict is not read yet and must not be claimed.**
+
+### What is in the code
+
+Door at the TOP of `writeWorkItem`, before the anti-churn brake, behind `DISABLE_OWNED_PAGE_DOOR_DEMOTION`
+(ships ARMED). Declaration probe first (indexed, 0.278 ms), page policy read second — so the common case pays
+one lookup and never touches `pages`. On a hit, `ownedPageParkedItem` (pure) rewrites the item; the error text
+rides the existing conditional `extraCols/argN` slot, so 16-arg callers are byte-identical.
+
+### Mutation proofs — both directions, run, not asserted
+
+| mutation | result |
+|---|---|
+| `if false && …` on the door's guard | positives FAIL (row lands at requested status with the handler intact) |
+| re-type + re-key the parked row | `TestOwnedPageParkedItem_KeepsIdentityTakesTheSignal` FAILS on both item_type and item_key |
+
+Tree restored from a scratchpad copy after each; package green at the end of both.
+
+### MISSTEP 3 — my parity test resolved migration 488 by NUMBER, and there are two 488s
+
+`TestOwnedPageRefusalPathMatchesMigration488` matched `488_` and took the first hit, which is
+`488_meta_description_backfiller_agent.sql` — a completely unrelated migration. It failed with a message I had
+written asserting that "migration 488 no longer writes the path", which was false about the migration it named.
+Caught on the first run. **Had the directory sorted the other way it would have PASSED by luck.** Fixed to select
+on the SLUG (`refuses_owned_pages`) and exclude `_ROLLBACK`/`_VERIFY`/`_SUPERSEDED`. The rule was already in
+CLAUDE.md — *"a bare number is ambiguous … resolve by slug"* — and I had read it this session. Filed in
+`WRONG_CALLS.md`; the cheap check is `ls docs/agent_docs/sql_for_agents/ | grep '^488'`, which prints four files.
+
+### MISSTEP 4 — I inserted the door's test expectation after EVERY `ExpectBegin()`
+
+Blanket insertion by script across 8 files broke 4 tests whose FIRST transaction is a page-conflict resolve that
+never reaches the write seam (`apply_gap_plan`). The helper belongs after the `ExpectBegin()` of the transaction
+that actually contains the `INSERT INTO site_work_items`. Reverted with `git checkout --` (the 8 files were
+clean, verified first) and re-applied per test function, then per transaction. The placement rule is now in the
+LANDMINES entry so the next person does not rediscover it.
+
+### The vacuity sweep — the number, and how it was got
+
+Instrumented the door's probe-error branch with a **print** (not a panic — a panic aborts the run at the first
+offender and you fix one and believe you are done), ran `go test -v` over the whole package, and collected test
+names with `awk '/^=== RUN/{n=$3} /VACUITYPROBE/{print n}'`. **21 test cases across 8 files** were reaching the
+door with an unscripted probe and passing anyway. All re-scripted; two shared helpers left behind for the next
+author. Instrumentation removed and the tree rebuilt before committing.
+
+### Another lane's work in the tree, twice
+
+1. `flag_page_image_rebuild_action.go` is dirty with `+4` lines adding `recurrenceExpected: true` (the comment
+   cites `bugs_open/326`), which makes the two-strike COUNT unreachable while
+   `TestFlagPageImageRebuild_PlanMemberWithoutSections_StillEmits` still expects it. **Not mine**, proved by
+   re-running with my door disarmed via the kill switch — still fails. Not committed; told the 326 lane.
+2. The `bugs_open/326` session messaged mid-work to sequence: their deferral change edits the same three regions
+   of `writeWorkItem`. Agreed option 1 (I land first), told them the exact shape of my hunks, and messaged again
+   at commit. Their `retry_after` and my park cannot interact, because a parked row sets `recurrenceExpected` and
+   so skips the brake entirely.
+
+### Verification against HEAD, not against the working tree
+
+`scripts/verify-head-builds.sh --test --with <16 files> ./platform/orchestration/...` → **OK against HEAD
+`f1f0adb8f`**, all `platform/orchestration/*` packages green. This is the check that separates my change from the
+two other lanes' WIP sitting in the same tree. ⚠ Running it without a package argument fails on `test/website_builder`
+(Kafka at localhost) and a pre-existing `test/unit/orchestration` build failure — neither is a statement about
+the change under test, and reading it as one would have been a false red.

@@ -41,3 +41,42 @@ against the page-components table for the best part of an hour, and somebody els
 noindex` was queued behind it — which meant every read of the pages table across the whole fleet was stuck behind
 that queue, including the page builds. It had cleared by the time I finished. Flagging it because "the database
 felt slow this afternoon" has a specific cause and it is worth knowing the shape of it.
+
+## 2026-08-24, later — it is built and committed
+
+The fix is in (`6ab0b3434`), along with its documentation (`68734b771`). It will not do anything until the
+chassis is next rolled out, because Go changes only take effect when a new image ships — the owner runs those,
+and they go out fleet-wide.
+
+**What it does, in one line:** when a defect is found on a page that belongs to a tool, and the worker it would
+be sent to has declared that it refuses such pages, the finding is now set aside visibly instead of being sent
+to that worker and thrown away.
+
+Three things I want to record plainly, because they are the interesting parts rather than the code.
+
+**The design I started with was wrong, and the review caught it, not the tests.** My first plan re-labelled the
+set-aside finding as a generic "capability gap", copying a convention we already use. It looked right and had
+precedent. But our detectors withdraw their own findings when a problem goes away, and they find them again by
+the original label — so re-labelling would have meant nothing could ever withdraw it. Every one of those notes
+would have sat in the queue for ever, and worse, would have blocked the detector from re-reporting the problem
+if it came back. I only found this because I had the plan adversarially reviewed before writing code. That is
+the cheapest possible place to be wrong.
+
+**Adding the check silently broke other people's tests without failing any of them.** This is the one worth
+knowing about. The new check is deliberately forgiving: if it cannot reach the database it shrugs and carries on,
+so a finding is never lost. But our test framework reports an unexpected database query as an *error on that
+query* — which is exactly the thing the check shrugs off. So twenty-one existing tests carried on passing while
+quietly no longer testing anything. Nothing went red. I found them by temporarily making the check shout every
+time it was in that state, running the whole suite, and collecting the names. All twenty-one are fixed, and I
+have left two ready-made helpers and a written warning so the next person does not spend the hour I did.
+
+**Two other sessions were working in the same file.** One messaged me before touching it, which is the reason
+this went smoothly — we agreed I would land first, and I sent them the exact shape of my changes so they can
+write theirs on top. While testing I also found that a third piece of someone's unfinished work in the shared
+tree breaks one of its own tests; I checked it was not caused by my change (by turning my change off and seeing
+it still fail), left it alone, and told them.
+
+**What this does not do, and I want to be honest about it:** the owned pages still are not being repaired. The
+defects on them are real. What has changed is that they are now visibly waiting with a note saying what would
+work, instead of being recorded as "we decided not to fix this". That was the whole point of splitting this from
+the repair question, which is a different bug and someone else's.
