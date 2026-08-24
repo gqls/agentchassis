@@ -1551,3 +1551,16 @@ for the first time, so any future hero_about/hero_contact regeneration picks up 
 direction seeded today — desired, but a behaviour change on that path. Their false-alarm census
 against my design_intent supersede was their own SQL precedence bug, self-caught and WRONG_CALLS-
 logged; my fix stands (0 refusal-shaped directions fleet-wide, properly parenthesised).
+
+**382 CLOSED 2026-08-24 — now at `bugs_closed/382_HANDOFF_2026-08-24_empty_kind_image_requests_still_route_to_sdxl_silently.md`
+(every `bugs_open/382` reference above is stale by path; the file moved).** The v1.0.1334 roll
+carried the code half, proven per-service at the artefact by the 382 lane (both adapter replicas
+on one digest, provenance `70fd163c2` with `da21ae20f` an ancestor, `MISSING_IMAGE_KIND` in
+`/proc/1/exe` with a positive and a fake-needle control). My negative control held: 124 banana
+generations since 08-15, 0 SDXL. **Their transferable finding, the mirror of my own WRONG_CALLS
+entry today:** the variant path is DEMAND-EXHAUSTED fleet-wide (0 `hero_<page>` prompts without
+an active asset), so "no new SDXL since 08-11" was never the bug going quiet — it was the producer
+finishing its backlog. Same number, opposite meaning; the fix cannot be proved by waiting, and
+they retracted that close condition in writing rather than manufacture an image to tick it. For
+this site: the first new page planned with a `hero_<page>` prompt will be the first real exercise
+of the fixed path, and it will read the photographic `imagery_direction` seeded today.
