@@ -45,6 +45,42 @@ dirs; never a loose file, never a session directory, never anything it cannot po
 > "passes" while protecting nothing.
 
 > **⚠ A dry run takes ~2 min** — it walks ~750 session directories computing sizes. Not a hang.
+> A `--reap` of ~100 GB took **~7 minutes** end to end (2026-08-24). Run it in the background; a
+> 2-minute foreground timeout kills it *during the scan*, before it deletes anything, which is
+> harmless but wastes the scan.
+
+> **⚠ Its free-space figure and `df`'s disagree by ~5%, and both are right.** The script uses
+> `shutil.disk_usage`, which ignores ext4's reserved-blocks pool; `df` counts that pool as
+> unavailable. On 2026-08-24: script `235.7G free (69% used)`, `df` `231G avail (75% used)`. Don't
+> chase it.
+
+> **⚠ An absent `=== <root> ===` header used to be the tell for a broken root arm. It no longer
+> exists as a signal** — since 2026-08-24 every root prints, with an explicit line when it has
+> nothing. That was deliberate: after a reap, `/tmp` legitimately has nothing over the gate, so
+> silence would have meant both "clean" and "broken". **Never leave a missing row as a signal.**
+
+## The schedule (owner-approved 2026-08-24)
+
+```
+41 6 * * * /home/ant/projects/agentchassis/scripts/scratch-report.py --days 2 --summary >> /home/ant/scratch-report.log 2>&1
+```
+
+**Dry run only — it deletes nothing.** Promote by adding `--reap` once a week of output looks
+right. Read the trend, not one entry: the rate is what says whether the recipe fix is holding.
+
+> **⚠ A MISSING block in the log means the job did not run.** It must not read as "nothing is
+> wrong" — that is the same failure the estate's `optional-key-budget-check` cron was given a
+> written note about, for the same reason.
+
+> **⚠ Test a cron command in a cron-like environment BEFORE arming it, not after.** cron gives you
+> almost no environment, and a job that dies on a missing `PATH` looks exactly like a quiet machine:
+> ```bash
+> env -i HOME=/home/ant PATH=/home/ant/.local/bin:/usr/local/bin:/usr/bin:/bin:/snap/bin \
+>   SHELL=/bin/sh /bin/sh -c '<the exact command from the crontab>'
+> ```
+> **Back the crontab up first** (`crontab -l > backup`) — it is shared state on this box and
+> `crontab -` replaces the whole file, so a read-modify-write that drops a line takes another
+> lane's job with it.
 
 ## Measuring the actual producer (the numbers in PLAN §1)
 

@@ -129,3 +129,55 @@ with. I've fixed it — `/tmp` now shows up, with 2.7 GB of leftovers in it.
    Either way it leaves the 14.8 GB of actual session work completely alone — that's the part of
    the design I'd most want you to trust, and it's the same in both tools independently.
 2. **The crontab line.** Without it we are back here in a fortnight, and this is now the fifth time.
+
+## 2026-08-24 (end of day) — done, and the number that did *not* move is the interesting one
+
+You chose the two-day setting and a nightly report that deletes nothing. Both are in place.
+
+**The clear-out freed 98.7 GB.** The disk went from 87% full to **75%** — from 124 GB free to
+**231 GB**. The scratch folder went from 147 GB to 38 GB. It took about seven minutes.
+
+**Three things it deliberately did not touch, which is how I'd judge whether it was the right
+tool:**
+
+The **14.8 GB of actual session work** — notes, analysis, half-finished files belonging to other
+sessions — is untouched, because the tool identifies what it deletes by looking inside it, not by
+how old it is. That is the part of the design I'd most want kept if anyone ever changes it.
+
+**`/tmp` didn't move at all.** Everything in there is about a day and a half old, and your setting
+was two days. A tool that had helpfully cleared it anyway would have been the wrong tool.
+
+**Every system folder survived** — the five named ones plus all eleven of the private ones. That
+exclusion list has now earned its keep twice.
+
+**And the number that didn't move: swap is still completely full.** That's worth a line, because it
+settles something. Yesterday's clear-out freed 11 GB from `/tmp` and gave the machine back 6.9 GB
+of swap, which made it look as though scratch files were the cause of the memory pressure. Today I
+deleted **nine times as much** — and swap did not shift by a single megabyte. The difference is
+that `/tmp` is memory and the disk is not.
+
+So the memory pressure on this box is not scratch and never was, beyond that one episode. It is the
+roughly **fifty Claude sessions holding about 25 GB between them**. That is not something this lane
+can fix, and I'd rather say so plainly than leave a tidy story standing that today refuted.
+
+**What's now running by itself:** a nightly report at 06:41 that lists what could be cleared and
+deletes nothing, appending one short timestamped block to `/home/ant/scratch-report.log`. I tested
+the exact command in a stripped-down environment like cron's *before* switching it on, because a
+cron job that quietly dies looks identical to a quiet machine. Your two existing crontab entries are
+untouched — I backed the file up first and checked all three afterwards.
+
+**One thing I got wrong and had to undo within the hour**, since it's the sort of thing worth
+recording. I'd found that the older tool's blind spot showed up as a *missing heading* in its
+report, and I wrote that up everywhere as the thing to watch for. Then the clear-out ran, `/tmp`
+legitimately dropped below the threshold, and the heading disappeared for a perfectly innocent
+reason. The same silence now meant both "all clear" and "broken". So I fixed the tool instead of
+the documentation: every location now always prints a line, even when it has nothing to say. The
+lesson I'd already written down and then walked straight into is that **you should never make an
+absence carry meaning** — if something matters, print it.
+
+**Where this leaves us.** At the recent rate the pile rebuilds by about 10 GB a day, but that rate
+should now fall, because the pointer to the right command finally sits in the file every session
+reads rather than in eight documents only their own lanes read. The nightly log will tell us which,
+and that's the measurement I'd want before touching anything else — including whether `/tmp` should
+be a memory-backed folder on this box at all, which is still open and still needs your root
+password.

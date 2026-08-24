@@ -201,3 +201,59 @@ gate" cannot be confused with "never identified in the first place".
 | free on `/` | 120–123 GB |
 
 Nothing deleted. That is the owner's call.
+
+## 2026-08-24 (later) — the reap ran, and what it did and did not move
+
+Owner chose the 2-day gate and a daily dry-run cron. Both done.
+
+**The reap, `scratch-report.py --days 2 --reap`:**
+
+```
+254 marker-verified extraction dir(s) older than 2.0d = 98.7G
+...
+freed 98.7G
+```
+
+| | before | after |
+|---|---|---|
+| `/` | 766 G used, **87%**, 124 G free | 659 G used, **75%**, **231 G free** |
+| `~/.claude-scratch` | **147 G** | **38 G** |
+| `/tmp` | 4.9 G / 32% | 4.9 G / 32% — unchanged, correctly |
+| irreplaceable session work | 14.8 G | **14.8 G — untouched** |
+| Swap free | 380 KiB | **380 KiB — unchanged** |
+
+Four things worth reading in that table rather than skimming.
+
+1. **`/tmp` did not move, and that is the right answer.** Its contents are ~1.7 days idle, under a
+   2-day gate. A tool that had "helpfully" taken them would have been the wrong tool.
+2. **The 14.8 GB of real session work was not touched.** That is the design holding: shape, not
+   age. It is also the number I would want re-checked by anyone who changes the identification
+   test.
+3. **Swap did not budge**, and this is the disconfirmable half. The 2026-08-23 episode freed 11 GB
+   of *tmpfs* (RAM-backed) and returned 6.9 GB of swap. Today freed 98.7 GB of *disk* files and
+   returned nothing — exactly what handoff §10's correction predicts, and the opposite of what the
+   original single-cause story would have predicted. **Memory pressure on this box is the ~50
+   concurrent sessions (25 GiB), not scratch.** Nine times the bytes, none of the effect.
+4. **System directories all survived**: 5 of 5 named ones plus all 11 `systemd-private-*`. The
+   exclusion list earned its place for the second time.
+
+**The estate's own build check, run afterwards with no `TMPDIR` override:**
+`scripts/verify-head-builds.sh ./cmd/config-key-audit/` → `OK — HEAD 85c258c95 builds.`
+
+**The cron entry**, foreground-tested in a stripped cron environment (`env -i`, cron's `PATH`,
+`/bin/sh`) **before** arming it — exit 0, log block written. Crontab backed up first; both
+pre-existing entries verified present afterwards (3 of 3), because `crontab -` replaces the whole
+file and a careless read-modify-write takes another lane's job with it.
+
+### A signal I created and then had to remove
+
+I wrote up "an absent `=== /tmp ===` header is the tell for a broken root arm" as the finding of
+the morning — into LANDMINES, WRONG_CALLS, the register and this file. Then the reap ran, `/tmp`
+legitimately dropped below the gate, and the header vanished for an entirely innocent reason. **The
+same silence now meant both "clean" and "broken".** A tell that fires on two opposite conditions is
+not a tell.
+
+Fixed properly rather than re-documented: every root now prints a header unconditionally, with an
+explicit line when it has nothing. The generalisable version is the one I had already written down
+and then walked straight into — **never leave a missing row as a signal**; if absence carries
+meaning, emit something.
