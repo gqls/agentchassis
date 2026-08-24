@@ -47805,3 +47805,51 @@ way did; it was the ones I never framed as questions that went wrong.**
   `complete` 08-18) and reads as a one-off. The already-lost repairs outnumber the at-risk rows
   (73) by half again — and a file that records one instance of a class gives you no way to feel
   the difference between 1 and 108.
+
+---
+
+## 2026-08-24 — I attributed a whole symptom to the mechanism I had just found, and ~60% of it was a different mechanism eight lines away (`bugfix_305_negation_gate`)
+
+- **The claim:** `bugs_open/305` §26, written 2026-08-23 and quoted into a handoff, a commit
+  message and a council submission the same day: *"**Cause, first-hand:** `runNegationRepair`'s loop
+  ranges over `decodeReplacements(parsed)` — the model's answer — not over `plan.targets`. Every
+  branch inside accounts for its target, so a target the answer never mentions is visited by no
+  branch and recorded nowhere."* Filed against a measured `15 of 49` markers not reconciling. Stated
+  as *the* cause, singular.
+- **What caught it:** measuring the fix. When I split the marker population at the two change
+  points a day later, raising the output ceiling **alone** — accounting code untouched — took
+  non-reconciling from **40.5%** (37 markers) to **15.3%** (137). Only the last 15.3% was the loop.
+  So roughly **three-fifths of the symptom I had explained was the model running out of room**, not
+  the loop's shape.
+- **The error:** the mechanism was real, the code reading was correct, the fix was necessary, and
+  the attribution was still wrong — **I had found *a* sufficient cause and written it up as *the*
+  cause.** Both live in the same function; the ceiling failure is five early returns *above* the
+  line I was staring at. Nothing about the loop bug felt partial, because a loop that cannot see
+  omitted targets explains 100% of the observations on its own.
+- **Why I believed it:** the symptom was *fully* explained. That is the trap. A sufficient
+  explanation feels complete, and there is no residual to prompt you to keep looking — the
+  arithmetic reconciles under the single-cause theory just as well as under the two-cause one. It
+  also had every corroboration a reading can have: I traced the branches, wrote three
+  mutation-proven tests, and the council approved it 10/10.
+- **The cheap check, and it costs one query:** before writing *"the cause is X"*, ask what else
+  could produce the same rows, and **look for a second population** — here, `SELECT status, count(*)`
+  over the same markers. The answer was sitting in a column I had already selected: 2 markers with
+  `status='repair_unavailable'` holding **19 targets**, *more* than the 12 the loop bug lost. I had
+  the number and read past it, because I was counting the markers my theory explained rather than
+  the targets that were missing.
+- **The transferable half — the phrase to distrust in your own writing is "Cause, first-hand".**
+  First-hand reading establishes that a mechanism *can* produce the symptom, never that it produced
+  *all* of it. Those are different claims and the same sentence carries both. **A single-cause
+  attribution is a quantitative claim, so it needs the quantitative check: what fraction does this
+  mechanism account for?** If the answer is "all of it, obviously", that is the moment to look for
+  the second population, not the moment to file. Where possible, get the arithmetic by **staging the
+  fixes and measuring between them** — one fix, one measurement, is the only thing that tells you
+  the split, and it is free if you were going to ship them separately anyway.
+- **A second, smaller wrong call in the same file, same week:** the code comment I wrote for the
+  fix promised `targets == len(rewritten) + len(rejected)` *"holds for every marker"*. It is false in
+  **both** directions — early returns under-count, and a hallucinated replacement
+  (`no_such_sentence`) over-counts. I had reasoned my way to the over-count case on 08-23, queried
+  it, found it had never once fired, and recorded it as hypothetical; it fired the next day, 1 marker
+  in 122. **A branch that has never fired is not a branch that cannot fire, and "measured 0 today" is
+  a date-stamped observation, not a property.** The invariant is now stated precisely in the comment
+  and pinned by a mutation-proven test.
