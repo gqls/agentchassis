@@ -49,6 +49,7 @@ const (
 var verifierCall struct {
 	ran      bool
 	resolved bool
+	target   checks.VerifyTarget
 }
 
 // installTestVerifier points the gate's lookup at a fixture for the duration of
@@ -65,6 +66,7 @@ var verifierCall struct {
 func installTestVerifier(t *testing.T, itemType string) {
 	t.Helper()
 	verifierCall.ran, verifierCall.resolved = false, false
+	verifierCall.target = checks.VerifyTarget{}
 	prev := verifierLookup
 	verifierLookup = func(lookedUp string) (checks.ItemVerifier, checks.VerifierPolicy) {
 		if lookedUp != itemType {
@@ -72,6 +74,7 @@ func installTestVerifier(t *testing.T, itemType string) {
 		}
 		return func(ctx context.Context, db *sql.DB, tgt checks.VerifyTarget, l *zap.Logger) (checks.VerifyResult, error) {
 			verifierCall.ran = true
+			verifierCall.target = tgt
 			return checks.VerifyResult{Resolved: verifierCall.resolved, Detail: "test predicate"}, nil
 		}, checks.VerifierPolicy{}
 	}
@@ -107,9 +110,20 @@ func TestVerifierLookupIsNotASwitchInProduction(t *testing.T) {
 	}
 }
 
+// verifyRowReadSQL is the column list loadWorkItemVerifyRow must actually SELECT,
+// as a regex for sqlmock's query matcher.
+//
+// ⚠ IT IS THE EXPECTATION, NOT THE RETURNED ROWS, THAT GUARDS THIS. sqlmock hands
+// back whatever rows the test queued no matter what the statement says, so a test
+// asserting only on the VALUES proves the plumbing and nothing about the query —
+// exactly the "a mock's own bookkeeping cannot assert a NEGATIVE" trap, one level
+// along. Measured: with a values-only assertion, replacing the spec column with a
+// literal '{}' failed no test in this package. Matching the text is what closes it.
+const verifyRowReadSQL = `SELECT item_type, COALESCE\(spec, '\{\}'::jsonb\), site_id, page_id`
+
 // expectVerifyRowRead queues the single row read both arms share.
 func expectVerifyRowRead(mock sqlmock.Sqlmock, itemType string) {
-	mock.ExpectQuery("SELECT item_type").
+	mock.ExpectQuery(verifyRowReadSQL).
 		WillReturnRows(sqlmock.NewRows([]string{"item_type", "spec", "site_id", "page_id"}).
 			AddRow(itemType, []byte(`{}`), uuid.New(), nil))
 }
@@ -329,6 +343,58 @@ func TestUpdateWorkItemStatus_NonCompleteStatusesSkipTheGateEntirely(t *testing.
 	}
 	if verifierCall.ran {
 		t.Error("a non-complete status has no defect claim to verify")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The item's SPEC must actually reach the verifier — the column the shared row read
+// exists to fetch.
+//
+// ⚠ THIS TEST EXISTS BECAUSE A MUTATION FOUND NOTHING. The council's guardian seat
+// objected (corr 7a6add95, medium) that factoring loadWorkItemVerifyRow out of
+// verifyBeforeComplete touches a helper the widest set of live agents depends on, and
+// asked for mutation proof that the existing callers are unaffected. Two mutations
+// were run. Emptying ItemType failed six tests, three of them pre-existing
+// TestVerifyBeforeComplete_* ones — the extraction IS guarded. But replacing the spec
+// column with a literal '{}' failed NOTHING: no test in this package had ever asserted
+// that a verifier receives the item's real spec, so that column could be dropped
+// silently by any future edit. The gap predates this change (it was the same when the
+// SELECT was inline) and is closed here because the objection is what surfaced it.
+func TestVerifyBeforeUpdateStatusComplete_ArmedPassesTheItemsSpecToTheVerifier(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	installTestVerifier(t, testVerifiedItemType)
+	verifierCall.resolved = true
+
+	itemID, siteID, pageID := uuid.New(), uuid.New(), uuid.New()
+	mock.ExpectQuery(verifyRowReadSQL).
+		WillReturnRows(sqlmock.NewRows([]string{"item_type", "spec", "site_id", "page_id"}).
+			AddRow(testVerifiedItemType, []byte(`{"component_id":"abc","reason":"empty"}`), siteID, pageID))
+
+	if _, mayComplete := verifyBeforeUpdateStatusComplete(context.Background(), db, itemID, true, zap.NewNop()); !mayComplete {
+		t.Fatal("resolved predicate must permit completion")
+	}
+	if !verifierCall.ran {
+		t.Fatal("the predicate must have run")
+	}
+	if got := verifierCall.target.Spec["component_id"]; got != "abc" {
+		t.Errorf("the verifier was handed spec %v — it must receive the ITEM's spec, or it grades a defect it cannot locate", verifierCall.target.Spec)
+	}
+	// The scoping ids travel with it: bugs_open/213's Grades predicate reads these to
+	// decide whether it speaks for this item at all.
+	if verifierCall.target.SiteID != siteID {
+		t.Errorf("SiteID = %v, want %v", verifierCall.target.SiteID, siteID)
+	}
+	if verifierCall.target.PageID == nil || *verifierCall.target.PageID != pageID {
+		t.Errorf("PageID = %v, want %v", verifierCall.target.PageID, pageID)
+	}
+	if verifierCall.target.ItemID != itemID {
+		t.Errorf("ItemID = %v, want %v", verifierCall.target.ItemID, itemID)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
