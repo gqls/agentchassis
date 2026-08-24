@@ -657,11 +657,33 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 	}
 
 	// Every target we asked about and did not hear back on. Recorded as a
-	// rejection with its own reason rather than silently dropped, so that
-	// `targets == len(rewritten) + len(rejected)` holds for every marker and a
-	// census can tell "the model declined this shape" from "the model never saw
-	// it". It is deliberately NOT a failure: the copy stands as written, exactly
-	// as it does for any other rejection, and `hits_after` already said so.
+	// rejection with its own reason rather than silently dropped, so a census can
+	// tell "the model declined this shape" from "the model never saw it". It is
+	// deliberately NOT a failure: the copy stands as written, exactly as it does
+	// for any other rejection, and `hits_after` already said so.
+	//
+	// ⚠ THE RECONCILIATION INVARIANT, STATED PRECISELY — an earlier version of
+	// this comment claimed `targets == len(rewritten) + len(rejected)` holds "for
+	// every marker", and that is FALSE in two directions. Both are now measured in
+	// production, so a census written against the loose form flags healthy markers:
+	//
+	//	targets == len(rewritten) + len(rejected) - count(reason="no_such_sentence")
+	//	                    ... and ONLY for a marker whose status is "repaired"
+	//
+	//  (1) UNDER-COUNT. The five early returns above (no ai_service, no client,
+	//      call error, output ceiling, unparseable answer) all return BEFORE this
+	//      line, so a `repair_unavailable` marker accounts for none of its targets
+	//      by design. Its `error` field names which one fired. Segment by status.
+	//  (2) OVER-COUNT. A replacement naming a sentence that is in no target is
+	//      rejected as `no_such_sentence` — an entry with NO target behind it, so
+	//      it pushes the sum ABOVE `targets`. Measured 2026-08-24: 1 marker in 122
+	//      post-roll (`targets=5, rewritten=4, rejected=2`, the 2 being one
+	//      `no_answer_for_target` and one `no_such_sentence`) — all 5 targets
+	//      correctly accounted, plus one hallucinated sentence correctly logged.
+	//
+	// `TestReconciliationExcludesHallucinatedReplacements` pins (2); the whole
+	// point is that a census must not be "fixed" until it reads zero, because
+	// doing so hides the ceiling failures of (1). See bugs_open/305 §27a, §29.
 	rejected = append(rejected, unansweredTargetRejections(plan.targets, answered)...)
 	return rewritten, rejected, ""
 }

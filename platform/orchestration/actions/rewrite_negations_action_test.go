@@ -431,3 +431,61 @@ func TestTargetKeySeparatorPreventsFieldSentenceCollision(t *testing.T) {
 		t.Fatalf("expected exactly B unanswered, got %d entries: %v", len(got), got)
 	}
 }
+
+// The marker's reconciliation invariant is NOT `targets == rewritten + rejected`.
+// A replacement naming a sentence that is in no target is rejected as
+// `no_such_sentence` — an entry with NO target behind it — so it pushes the sum
+// ABOVE `targets`. The precise form, and the one a census must test, is:
+//
+//	targets == len(rewritten) + len(rejected) - count(reason="no_such_sentence")
+//
+// This is not hypothetical. Measured in production 2026-08-24, the first day the
+// target-accounting fix was live: exactly 1 marker of 122 over-counted, with
+// `targets=5, rewritten=4, rejected=2` — the 2 being one `no_answer_for_target`
+// (the 5th target, correctly recorded) and one `no_such_sentence` (a sentence the
+// model invented, correctly logged). All five targets accounted for; the sum is
+// six because the model said six things.
+//
+// What this test defends is the DISCRIMINATION. The tempting "fix" when a census
+// reads non-zero is to loosen matchTarget until every replacement finds a target
+// — which would silently splice a rewrite into copy the model was not talking
+// about. If that happens, this test fails first. See bugs_open/305 §27a, §29.
+func TestReconciliationExcludesHallucinatedReplacements(t *testing.T) {
+	content := map[string]interface{}{
+		"headline": "We ship in days, not months.",
+		"content":  "<p>The two systems overlap rather than compete.</p>",
+	}
+	plan := planNegationRepairs(content, nil, 0, 0)
+	if len(plan.targets) < 2 {
+		t.Fatalf("fixture must produce at least 2 targets, got %d", len(plan.targets))
+	}
+
+	// A sentence the page does not contain, in a field that does exist — the
+	// shape a model produces when it paraphrases instead of quoting.
+	const invented = "Our platform is the definitive source for orchestration truth."
+	if _, found := matchTarget(plan.targets, "content", invented); found {
+		t.Fatal("matchTarget matched a sentence that is in NO target — a rewrite would be spliced into copy the model was not describing")
+	}
+
+	// The real ones must still match, or the guard above is just a broken matcher.
+	for i, tgt := range plan.targets {
+		got, found := matchTarget(plan.targets, tgt.Field, tgt.Sentence)
+		if !found {
+			t.Fatalf("target %d did not match its own sentence — the discrimination is not selective, it is blind", i)
+		}
+		if got.Sentence != tgt.Sentence {
+			t.Errorf("target %d matched the wrong target: %q", i, got.Sentence)
+		}
+	}
+
+	// NO ARITHMETIC ASSERTION HERE, deliberately. The obvious closer is to compute
+	// `rewritten + hallucinated - hallucinated == len(targets)` — but every term of
+	// that is a constant this test chose, so it holds whatever the code does. It
+	// would read as coverage of the census formula and check nothing, which is the
+	// vacuous-assertion shape a council seat correctly flagged at this lane on
+	// 2026-08-23. The formula is documented at the `unansweredTargetRejections`
+	// call site and is verified where it can actually fail: against production
+	// markers (bugs_open/305 §29, 1 over-count in 122). What is testable in a unit
+	// is the DISCRIMINATION above, and a mutation dropping the containment check in
+	// matchTarget makes it fail.
+}
