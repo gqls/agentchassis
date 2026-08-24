@@ -268,8 +268,17 @@ If (1) is zero → ship the refusal unconditional, citing all three numbers in t
 > `id=""`, and **155 of 155** of its rows written since it began spelling that (2026-08-23
 > 12:32:24+00) carry a bound token, 0 empty. (c) BLAST RADIUS: **0** chrome templates (header 4 /
 > footer 1 / site 6 / element 1) spell the token, so the refusal cannot fail a header, footer or
-> `<head>` render. On those three the refusal SHIPPED UNCONDITIONAL, as this rule's "zero" branch
-> intended; the substitution, not the conclusion, is what changed.
+> `<head>` render. ~~On those three the refusal SHIPPED UNCONDITIONAL, as this rule's "zero" branch
+> intended; the substitution, not the conclusion, is what changed.~~ **CORRECTED again 2026-08-24,
+> hours later (council round 1 on `661bcf00`, guardian gating HIGH; commit `c5a0c831e`): the
+> refusal lasted ONE commit and is WITHDRAWN.** The guardian's ground: a census of TODAY's callers
+> cannot bound tomorrow's, so unconditional refusal on a shared seam needs an explicit sign-off,
+> not a footnote — and `RFC_044` is the precedent for what happens if that is re-argued rather
+> than contained. `RenderTemplate` now PUBLISHES `RenderContext.UnboundInstanceToken` (the same
+> shape as `AbsentRequiredFields`, which is what the owner ruling this section cites actually did
+> on this function), and the arming question is the owner's:
+> `architecture_review/RFC_050_may_the_render_seam_refuse_an_unbound_instance_token.md`. The
+> measurements above stand as facts; what changed is what they are allowed to license.
 >
 > **A fourth thing the plan did not anticipate, and it is the one that would have bitten.** Arming
 > the refusal **breaks `cmd/component-render-check`**, and no test in the repo would have said so.
@@ -278,7 +287,11 @@ If (1) is zero → ship the refusal unconditional, citing all three numbers in t
 > and an unanalysed component's baseline keys count as **UNCOVERED, which fails the run**
 > (`rendercheck.go:784`). All **140** `{{.InstanceID}}` templates would have gone that way. Fixed
 > in the same commit by skipping the key **by name and reporting it** (`skipped_seam_refusal`),
-> never silently. Whoever builds Half A: `RenderTemplate`'s consumers are not only the callers
+> never silently. **CORRECTED 2026-08-24, round 2: that skip is REVERTED (byte-identically) in
+> `c5a0c831e` — with the refusal withdrawn the absence probe renders normally again, so the
+> coverage loss never shipped. The skip now exists only in history
+> (`git show 120131549:cmd/component-render-check/rendercheck.go`); the LESSON stands — read the
+> tools, not just the actions, before arming any refusal in this seam.** Whoever builds Half A: `RenderTemplate`'s consumers are not only the callers
 > `pattern-check` enumerates — read the tools too.
 >
 > **The gate branch's own pre-roll number, which the row in §B1 asks for, is measured and it is

@@ -16241,7 +16241,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **fires when:** you add or tighten ANY refusal in the shared render seam — a new required field, a stricter parse, a guard on a missing binding. `scripts/pattern-check.py`'s `COMPONENT_RENDER_RE` census names the production callers, and it is complete; the trap is that the seam's **hardest consumer is an offline audit tool that renders on purpose with things missing**.
 - **the trap:** `cmd/component-render-check` renders every active component **twice** — once with every referenced field supplied, once with **one field removed** — to find elements that go empty when content is absent. `rendercheck.go:691`'s probe branch handles a render error correctly by recording the field as `unanalysed`… and `unanalysedNames[c.Name]` then makes that component's baseline keys count as **UNCOVERED at `:784`, which fails the run**. So a refusal on a field the probe removes turns a *passing* audit into a *failing* one, component by component. `contextKeys()` exempts only fields supplied by `RenderContext`'s own json tags — anything living in `ContentData` (which is where `InstanceID` is bound) is **not** exempt. `[MEASURED 2026-08-24]` arming the unbound-`{{.InstanceID}}` refusal would have put **140 of 297 active templates** into that state.
 - **why the wrong answer looks exactly like the right one:** every test in the repo passes, `go build ./...` is clean, `pattern-check` is silent, and the seam's own new test proves the refusal works. The tool that breaks is not run by the test suite; it is run against a baseline, later, by someone else — and its failure reads as *"these components lost coverage"*, which points at the components, not at your seam. Its own code carries the warning in a comment — *"⚠ THE DETECTOR CAN BE BLINDED BY ITS OWN FIX"* — written about a previous instance of exactly this.
-- **the check:** before arming any refusal in `RenderTemplate`, grep the tools, not just the actions — `grep -rn 'RenderTemplate' cmd/` — and for each, ask **what that caller deliberately renders with something missing**. If a field you now require is one the tool removes on purpose, exempt it **by name and print the exemption** (`skippedSeam` / `skipped_seam_refusal` is the worked example) — never let it fall into `unanalysed`, which silently converts a guard's improvement into another guard's blind spot.
+- **the check:** before arming any refusal in `RenderTemplate`, grep the tools, not just the actions — `grep -rn 'RenderTemplate' cmd/` — and for each, ask **what that caller deliberately renders with something missing**. If a field you now require is one the tool removes on purpose, exempt it **by name and print the exemption** (~~`skippedSeam` / `skipped_seam_refusal` is the worked example~~ — **corrected 2026-08-24, same day: that code was REVERTED hours later when the council took the refusal itself off (`c5a0c831e`), so the worked example now lives only in history: `git show 120131549:cmd/component-render-check/rendercheck.go`. The trap this entry guards is unchanged — it fires the moment anyone ADDS a refusal to the seam, which is exactly what `RFC_050` may yet decide**) — never let it fall into `unanalysed`, which silently converts a guard's improvement into another guard's blind spot.
 - **relations:** MEMORY [[declaring-a-key-silences-your-own-detector]] (same family: your own action disabling a detector) · [[your-fix-invalidates-a-peers-pending-test]] · [[a-pass-from-a-blind-check-outlives-the-blindness]] · this file's `INSTANCE_TOKEN_ALLOWED` entries · `bugs_open/260` §13g (the *other* render seam, `RenderTemplateWithMap`, which has none of these checks at all)
 - **source:** 2026-08-24, `bugfix_283_component_instance_scope` Half B, commit `120131549`. Found by reading the consumer, not by any test — nothing in the repo would have failed.
 - **added:** 2026-08-24, `bugfix_283_component_instance_scope` lane
@@ -16435,3 +16435,78 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the transferable shape:** a fallback that is correct for every caller today is a **silent** default for every caller tomorrow. When a fix's safety case is "the fallback is never worse than what shipped", check whether the fallback is also *indistinguishable* from success — here it is, so the only thing standing between a future workflow and the reintroduced bug is this entry and the parity test in `platform/orchestration/loop_item_contract_parity_test.go`.
 - **source:** `bugs_open/383` / RFC_032 step 3, fix `364e80b7f`, council `3fd0d026-8966-44c6-b0d8-bd8c0dfba187`; the plan superseded by this design named the first-build case as its own irreducible residue
 - **added:** 2026-08-24, `bugfix_283_component_instance_scope` lane (Half A building thread)
+
+---
+
+## `content_shape` and `visual_density` look like the component-capability metadata you want, and BOTH are dead — read `component_expresses()` instead
+
+- **footprint:** `content_components.content_shape` · `content_components.visual_density` · `docs/agent_docs/sql_for_tables/005_content_components.sql` (the "component selection metadata" block, ~line 9081-9210) · `platform/orchestration/actions/component_selector.go` · `platform/orchestration/actions/store_generated_component_action.go` (the birth INSERT) · `component_expresses(text, jsonb)`
+- **fires when:** you need to know what a component can express — for a planner menu, a selector score, a report, an audit — and you find a column whose own `COMMENT` says exactly that: *"What kind of content structure the component expects: prose, structured_list, structured_card, key_value_pairs"*. It reads as the answer, and it is documented, constrained-looking and sitting in the obvious table.
+- **why the wrong result looks exactly right:** the column is **populated on the rows you are most likely to spot-check by hand**. `[MEASURED 2026-08-24]` 23 of 151 active section components carry a non-NULL `content_shape`, and the hand-written seeds that set it (`074`, `151`, `247`, `250`) set it correctly — so a sample of two or three looks like live, maintained metadata. Three things are true underneath and none of them shows in a spot check:
+  1. **Zero Go readers, repo-wide.** `grep -rn "content_shape\|visual_density" --include="*.go" .` returns **nothing**. Same for `visual_density`. `suitable_site_types`/`suitable_page_types` from the same metadata block ARE read (`component_selector.go:254-258, 307-311`) — so the block is half-live, which is why "it's selector metadata" survives a glance.
+  2. **It is not written at birth.** `store_generated_component_action.go:634` INSERTs 19 columns including `section_type`, `suitable_site_types`, `suitable_page_types` and `semantic_tags`, and **omits `content_shape` and `visual_density` entirely**. Every `created_from='generated'` row is therefore permanently NULL — and generated rows are most of the library.
+  3. **Where it IS set it has drifted, and 12 rows are actively WRONG.** No CHECK constraint exists on `content_shape` (unlike `visual_density`, which has `chk_visual_density_valid`), so the live vocabulary now includes `series`, `sequence` and `mixed` alongside the four the COMMENT names. And **12 rows declare `structured_list` while their `html_template` contains no `<ul` or `<ol` at all** — i.e. trusting the column would tell you a prose component can render a list.
+- **the check — ask the TEMPLATE, never the column:**
+  ```sql
+  -- what the column claims vs what the template can actually do
+  SELECT content_shape, count(*) AS rows,
+         count(*) FILTER (WHERE html_template ~* '<(ul|ol)[\s>]') AS really_can_list
+  FROM content_components WHERE is_active AND component_level = 'section'
+  GROUP BY 1 ORDER BY 2 DESC;
+  -- structured_list: 12 rows, 0 of which can actually render a list  [MEASURED 2026-08-24]
+
+  -- the live answer, derived from the template and schema (bugs_open/381, migration 591)
+  SELECT function, component_expresses(html_template, input_schema) FROM content_components WHERE is_active;
+  ```
+  ⚠ **In that first query, `\b` would silently break it** — see the sibling entry below; use `[\s>]`.
+- **what to do instead:** call `component_expresses(html_template, input_schema)` (IMMUTABLE, added by `591`). It returns `{html-block,list,table,items}` or `{}`, derived from the template's literal markup and the schema's declared field types, so it cannot drift from the component it describes. If you need an axis it does not cover, **extend the function** — do not revive the column. Reviving it recreates exactly this trap for the next reader.
+- **⚠ the count above goes stale BY ADDITION.** "12 wrong rows" and "23 populated" are as of 2026-08-24; every new hand-written seed can set the column again. The *structural* facts (no Go reader, absent from the birth INSERT, no CHECK) are the durable half — check those, not the numbers.
+- **the transferable shape:** a column with a good name, a correct COMMENT, and a handful of correctly-populated rows is **indistinguishable from a live mechanism** until you grep for its readers. The concept register said as much (`TLIB-003`: the scorer is "not exercised"; `TLIB-016` carried an open *verify-later* asking whether any Go reads these columns) — and that verify-later stood unanswered for weeks because answering it takes one grep that nobody had a reason to run. **Before building on any metadata column, grep for its readers and check its birth INSERT.**
+- **source:** `bugs_open/381` lane, 2026-08-24; remedy shipped as `component_expresses()` in migration `591`; answers `TLIB-016`'s verify-later
+- **added:** 2026-08-24, `bugfix_381_inexpressive_composition` lane
+
+---
+
+## A PostgreSQL regex `\b` is BACKSPACE, not a word boundary — the query matches NOTHING, raises nothing, and returns a clean zero
+
+- **footprint:** any `~` / `~*` / `regexp_match` / `regexp_replace` predicate in psql, a migration, a `_VERIFY.sql`, or a shell heredoc against `clients_db` — especially markup censuses over `page_components.rendered_html`, `content_components.html_template`, and `agent_definitions.default_config`
+- **fires when:** you carry a regex over from Go, Python, `grep -P`, JavaScript or your own memory, where `\b` means "word boundary". In PostgreSQL's ARE syntax `\b` is the **backspace character (U+0008)**. The boundary operators are `\y` (either end), `\m` (start of word), `\M` (end of word).
+- **why the wrong result looks exactly right:** it is not a syntax error. `'<ul\b'` is a perfectly valid pattern that asks for a literal backspace after `<ul`, which no HTML contains, so the predicate is simply always false. You get **0 rows, exit 0, no warning** — and zero is a plausible, publishable answer. `[MEASURED 2026-08-24]` a fleet structure census using `~* '<(ul|ol)\b'` returned 0 for every component in the result set; the same census with `[\s>]` returned **116 of 153** for `article-body`. The false version was one paragraph from being written into a bug file as a `[MEASURED]` finding.
+- **the check — a POSITIVE CONTROL in the same query, one you verified by hand:**
+  ```sql
+  -- Use a character class, not \b:
+  SELECT count(*) FILTER (WHERE rendered_html ~* '<(ul|ol)[\s>]') AS lists,
+         count(*) FILTER (WHERE rendered_html ~* '<p[\s>]')       AS control_must_be_nonzero
+  FROM page_components WHERE updated_at > now() - interval '30 days';
+  ```
+  **If the control reads zero, the instrument is broken and no other number in that result set means anything.** The tell in the wild is a *uniform* zero across a heterogeneous population — that is an instrument reading, not a finding.
+- **the transferable shape:** this is the "control that matches everything" trap (`LANDMINES.md`, the 40-zeros sha probe) in its mirror image — a predicate that matches **nothing**. Both return the same answer regardless of what is true, and both survive the `[MEASURED]` marker rule intact, because dating and marking a figure does nothing to make it disconfirmable. Before recording any count, name what the disconfirming result would have looked like — and if the answer is "the same number", you have measured your instrument.
+- **source:** `bugs_open/381` lane, 2026-08-24; full incident in `WRONG_CALLS.md` ("a PostgreSQL `\b` is BACKSPACE")
+- **added:** 2026-08-24, `bugfix_381_inexpressive_composition` lane
+
+---
+
+## A component field's DECLARED TYPE is inert — the type checker is default-TRUE, so a typo'd type behaves exactly like a correct one, for ever
+
+- **footprint:** `content_components.input_schema` (`fields.<name>.type`) · `platform/orchestration/datahelpers/content_type_violations.go` (`DeclaredTypeSatisfied`, `declaresArray`, `declaredTypeOf`) · `platform/orchestration/actions/mistyped_llm_fields_gate.go` · any migration that writes or changes a field `type`
+- **fires when:** you add or change a declared field type — `text`, `html`, `url`, `number`, `image_url` — and reason that the platform will enforce it, or that a mistake would surface somewhere downstream.
+- **why the wrong result looks exactly right:** `DeclaredTypeSatisfied` switches on the declared type and its `default` branch **returns true**. Only `array` and `list` are ever really checked (deliberately — a non-array under `{{range}}` destroys the render, and that narrowness is documented in the function's own comment). Everything else is waved through. So `hmtl`, `HTML`, `tekst` and `""` all behave **identically** to a correct value: the field renders, the page builds, every check passes. `declaredTypeOf` is a bare map lookup with no validation either. There is no point at which a typo'd type surfaces.
+- **and the type is not decorative, which is what makes this bite:** the writer prompt prints each field as `` `name` (TYPE, required) `` and its rules are addressed **by type** ("For fields of type `html`: …"). So the declared type is a **routing key into the prompt's rulebook** — a typo silently routes the field to no rule at all, and the writer falls back on whatever the field's `llm_guidance` says, or on nothing.
+- **the check — read the LITERAL back after any write, in the migration itself:**
+  ```sql
+  -- in the migration's DO/RAISE verify block, never as a bare SELECT
+  IF (SELECT input_schema->'fields'->'content'->>'type'
+        FROM content_components WHERE function = '<fn>' AND is_active) IS DISTINCT FROM 'html' THEN
+    RAISE EXCEPTION 'type did not read back as the literal html';
+  END IF;
+  ```
+  Fleet sweep for types nothing is addressed to:
+  ```sql
+  SELECT f.value->>'type' AS declared, count(*)
+  FROM content_components cc CROSS JOIN LATERAL jsonb_each(COALESCE(cc.input_schema->'fields','{}'::jsonb)) f
+  WHERE cc.is_active AND f.value->>'source' = 'llm' GROUP BY 1 ORDER BY 2 DESC;
+  ```
+  `[MEASURED 2026-08-24]` that sweep is also how the reverse defect was found: the writer's RULE 10 addressed types `rich_text` and `content`, which **zero** components declare — a rule that had been addressed to nobody for its whole life, while 940 `text` fields fell under a rule forbidding markup.
+- **the transferable shape:** "the platform validates it" is a claim about code, not a property of a schema. When a value is only ever *read*, never *checked*, the only verification available is reading it back and asserting the literal — and a migration that writes a type without that assertion has no way of ever being wrong out loud. Related: [[mutate-the-code-to-prove-the-guard]] — a check that cannot return false is not a check.
+- **source:** flagged by the `staged_component_build` lane to the `bugs_open/381` lane, 2026-08-24; acted on in migration `594`'s verify block
+- **added:** 2026-08-24, `bugfix_381_inexpressive_composition` lane

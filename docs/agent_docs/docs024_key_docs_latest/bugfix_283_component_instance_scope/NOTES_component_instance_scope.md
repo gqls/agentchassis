@@ -1766,3 +1766,68 @@ neither of us had asked.
   to a SHARED append-only file is not finished until it is committed"**, because those files
   attract everyone's pathspec at once. `git diff --numstat <file>` reading empty is the tell, and
   it looks exactly like "my edit did not save".
+
+## 2026-08-24 (session 13, self-review pass) — the Fable review died on a session limit, so this is the Opus SELF-review, marked as such
+
+The owner asked for a Fable review of the Half B work. The Fable agent failed on its FIRST step —
+"session limit, resets 7:30pm Europe/London" — with nothing reviewed. Rather than hold four hours,
+the same adversarial brief was run by this session itself. **A self-review is weaker evidence than
+an independent one** (the reviewer knows where it hid the bodies, and also where it *thinks* it
+didn't); it is recorded here with that label, and the Fable pass can be re-dispatched after the
+reset if the owner wants the independent read.
+
+### Findings (all fixed in this commit, most-severe first)
+
+1. **REFUTED — `RFC_050` said the seam has "12 call sites"; the measured number is 15** (2026-08-24,
+   `grep -rn '\bRenderTemplate(' …`, defs and `RenderTemplateWithMap` excluded), **and the 12 was
+   undated** — violating the dated-count rule in the same document that dates its other censuses.
+   Corrected visibly in the RFC. The §3 per-caller table (7 sites that can reach an InstanceID
+   template) was re-derived and is right; the wrong figure was the headline one.
+2. **FALSE CURRENT STATE ×4 after the round-2 withdrawal** — commit `c5a0c831e` withdrew the
+   refusal, and four records written hours earlier still asserted it as shipped:
+   - `component_instance_conversion.go:~355` — a comment stating "DetectInstanceCollisions cannot
+     report [empty ids]" and naming the detector fix as a DEFERRAL, when the same file's gate now
+     carries that very fix ~80 lines below. A reader would have concluded the blind spot is open.
+   - register `component-lifecycle.md` CLC-014 — "RenderTemplate stopped logging and started
+     REFUSING … Unconditional". Struck, with the withdrawal, the published field, and RFC_050.
+   - the PLAN's §B2 correction block — "the refusal SHIPPED UNCONDITIONAL" and "fixed … by
+     skipping the key (`skipped_seam_refusal`)", both now false (the skip is reverted). Corrected
+     again, dated.
+   - LANDMINES ("Making RenderTemplate REFUSE anything…") — cited `skippedSeam` as "the worked
+     example"; that code now exists only at `git show 120131549:…rendercheck.go`. Corrected struck,
+     verifier re-armed.
+   **The shape:** docs written between round 1 and round 2 froze round 1 as the present tense.
+   The round-2 commit corrected NOTES and README but not the register, the plan, the landmine or
+   the code comment — the correction reached the documents I was already editing and missed the
+   ones I wasn't.
+3. **Round-2 submission left three round-1 objections unanswered** (none gating): editquality's
+   LOW (instanceaudit `--gate` is scope beyond the minimal fix — true; kept, with the reason now
+   only implicit), prior_art_librarian's MEDIUM (the dormant-machinery claim about
+   component_library.go:1103-1110 "cannot be verified from the code index" — it is verifiable from
+   `git show 120131549~1:…`, which round 2 never says), and prior_art's LOW (confirm the tools
+   pre-exist — they do: instanceaudit since 08-17, rendercheck since 08-20). **If round 2 comes
+   back REVISE, answer these three explicitly in round 3.**
+
+### Checked and sound (so the coverage is visible, not just the failures)
+
+- `UnboundInstanceToken` has **zero readers** outside its writer — as claimed, and as RFC_050
+  states as the honest cost of answer (a).
+- The rerender sweep serialises `Summary()` + `DuplicateElementIDs`, never the struct — adding the
+  field changes **no stored shape**. An empty-id page IS recorded (Summary names the class;
+  `instance_collision_ids` stays empty for it — a nil list, not a lie).
+- The restored test is **byte-identical** to its `120131549` body; both test files' `^func Test`
+  inventories show only additions vs pre-Half-B.
+- The `rendercheck.go` revert is byte-identical to `120131549~1` (re-diffed).
+- RFC_050's guardian/editquality quotes match the DB verdict text (ellipses marked).
+- No RFC number collision (051 exists, taken by another lane; 050 has one author).
+- Known pre-existing, NOT introduced here, left alone deliberately: `reElementID` matches only
+  double-quoted ids, so a single-quoted duplicate id is invisible to the duplicate class while the
+  empty class sees both quote styles. A detector-regex change has blast radius across every caller
+  and belongs in its own round, not in a review-fix commit.
+
+### Half A note
+
+The peer session's Half A is COMMITTED (`364e80b7f`) — the build path counts its own loop's items,
+no config key. Their `component_instance_occurrence.go` references the widened detector in a
+comment; nothing of theirs reads `UnboundInstanceToken`. Their lane's review is theirs; not
+re-reviewed here.

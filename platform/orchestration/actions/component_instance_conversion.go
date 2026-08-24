@@ -352,26 +352,31 @@ func ConvertTemplateToInstanceScope(tpl string) (string, InstanceConversionRepor
 	// concatenation around it — survives, and it survives INVISIBLY: the gate
 	// renders with InstanceID bound and nothing else, so a leftover
 	// {{.ComponentID}} resolves through missingkey=zero to "" and is stripped,
-	// leaving id="" on every instance. DetectInstanceCollisions cannot report
-	// that, because reElementID requires at least one non-brace character. So
-	// two instances would read CLEAN at the gate while serving colliding empty
-	// ids — a half-conversion with the warning light removed, which is exactly
-	// what this file's stated failure direction exists to prevent.
+	// leaving id="" on every instance. When this was written,
+	// DetectInstanceCollisions could not report that (reElementID requires at
+	// least one non-brace character), so two instances would read CLEAN at the
+	// gate while serving colliding empty ids — a half-conversion with the
+	// warning light removed, which is exactly what this file's stated failure
+	// direction exists to prevent.
+	//
+	// CORRECTED 2026-08-24: the detector blind spot named above IS now closed —
+	// InstanceCollisions.EmptyElementIDs (component_instance_scope.go) counts
+	// empty ids and GateConvertedTemplate hard-errors on them via
+	// ErrEmptyElementID, both in this same file's gate ~80 lines below. This
+	// refusal is therefore no longer the only guard on the class; it remains
+	// the CHEAPER one (it refuses before a render, and names the construct).
 	//
 	// Measured 2026-08-22: 0 active templates mix a literal id with
 	// {{.ComponentID}} (control: 87 active templates carry a literal id at
 	// all), so this refuses nothing today. It is here for the arrival that
 	// half-learns the convention, not for the current corpus.
 	//
-	// ⚠ DELIBERATE DEFERRAL, named because leaving it implicit is what the
-	// council's editquality seat objected to (round 1 on this change): the
-	// blind spot itself — reElementID's brace exclusion at
-	// component_instance_scope.go:215 — is NOT patched here. This refusal
-	// closes THIS defect's route to it; it does not close the blind spot, so
-	// any other future cause of an empty id still passes the gate unseen. That
-	// is a detector fix, with its own blast radius across every caller of
-	// DetectInstanceCollisions, and it belongs in RFC_032's track rather than
-	// riding in on a converter change.
+	// ⚠ DELIBERATE DEFERRAL AT THE TIME (since executed — see the correction
+	// above): the blind spot itself was NOT patched here because a detector fix
+	// has its own blast radius across every caller of DetectInstanceCollisions
+	// and belonged in RFC_032's track rather than riding in on a converter
+	// change. RFC_032 §10's building thread did exactly that on 2026-08-24
+	// (commit 120131549), which is where EmptyElementIDs came from.
 	if loc := reComponentIDAnywhere.FindString(out); loc != "" {
 		rep.ComponentIDUnswappable = true
 		rep.RefusedReason = fmt.Sprintf(
