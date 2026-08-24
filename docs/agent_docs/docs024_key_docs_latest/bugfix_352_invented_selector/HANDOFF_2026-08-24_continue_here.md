@@ -271,7 +271,7 @@ Written 2026-08-24 19:25 UTC, after §4's two items closed. In rough order of va
    MEASURED window, not a guarantee, and it is now falsifiable: from **2026-09-07**, any of those 13
    sites with no re-filed `contrast_failure` and a visible contrast fault is a defect in this
    promise. The recovery query in RUNBOOK §10 gives the 73 to check against.
-4. **Not ours, and worth someone's grep of `/bugs_open/` before it is filed twice:** `render-audit-agent`
+4. **Not ours. THE GREP HAS NOW BEEN DONE — it is unfiled, and I did not file it.** `render-audit-agent`
    fails more often than it succeeds — [MEASURED 2026-08-24 19:08 UTC] **11 of 20** runs over 7 days
    ended `complete_error`, every one on `Request timed out (code: TIMEOUT)` at almost exactly 3
    minutes, and that rate **predates this lane's change**. It is also the clock on item 3: a
@@ -279,3 +279,12 @@ Written 2026-08-24 19:25 UTC, after §4's two items closed. In rough order of va
    ⚠ And the post-roll sample is **3 runs (2 errored)** — that cannot distinguish 55% from 67%, so
    "no regression from our change" is **unproven, not established**. Re-check after ~20 post-roll
    runs (≈ a day at the current cadence).
+   **Prior-art search, 2026-08-24 19:40 UTC, so nobody repeats it:** nothing in `/bugs_open/` or
+   `/bugs_closed/` covers it — the nearest is `bugs_open/296`, which mentions both the render audit
+   and a timeout but is about parked contrast findings, not the audit's own failure rate. The
+   `needs_diagnosis` queue holds **no open item at all** (49 complete / 8 failed / 5 cancelled, none
+   naming the render audit). **So it is genuinely unfiled**, and I left it that way deliberately: I
+   have a symptom count and no cause, and this estate's rule is that a cross-cutting root cause goes
+   through `090` *before* it is asserted, not after. Whoever picks it up should run
+   `090_TRIGGER_needs_diagnosis_v1.sh` rather than write a mechanism into a bug file from these
+   numbers. Re-measure first — the figures above are 7-day and will have moved.
