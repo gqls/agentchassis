@@ -719,3 +719,24 @@ can be repaired now, and repairing them works even on today's code; what today's
 that the repair *holds*. The defect also now has its own entry in the open-bugs folder, which it
 did not before — it had been living inside an architecture document where nobody grepping for
 "duplicate ids" would find it.
+
+## 2026-08-24, evening — the independent review ran after all, and the new build is live
+
+The independent reviewer (the one that couldn't run at lunchtime) ran this evening over the
+finished work, including checking my own self-review. Twelve findings, none serious, all real,
+all now fixed. The two worth telling you about: the "second render path" I'd guarded turns out to
+be dead code — nothing can currently reach it, so my guard protects a future revival rather than
+today's traffic, and the decision document you'll read now says so honestly. And one mechanism I
+added had no test at all — deleting it wholesale left every test green. It has one now, proven by
+deleting the mechanism and watching the test go red.
+
+The reviewer also re-ran every measurement I'd made, independently, and they all held.
+
+**The new build you deployed is live and carries everything**: both halves of the fix and the
+tidy-up, proven by asking the running binaries themselves — including one instructive wobble
+where the probe tool on the pod quietly gives wrong "not there" answers on big binaries, which is
+now written up so nobody trusts it again.
+
+**The one thing still waiting on you is unchanged: the decision document** (may the drawing
+machinery refuse, and for which jobs). Everything else on this lane is done, reviewed twice,
+approved, and running.

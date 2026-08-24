@@ -1917,3 +1917,51 @@ is locked (`locked_at IS NULL`, the trigger's own precondition); and there is si
 `triaged` backlog** drained at `max_items: 5` per site per pass. Nothing was wrong. The
 `detected-item-promoter` sweep had already promoted my rows four minutes after filing, which is
 also the answer to NEAR-MISS 2's sibling worry above.
+
+## 2026-08-24 (session 13, evening) — the REAL Fable pass ran; every finding dispositioned; the roll is LIVE and proven at the binary
+
+The independent Fable review ran after the session-limit reset (its full report is in this
+session's transcript; the disposition below is the durable record). **12 findings, none HIGH, all
+real, all now closed** — and it independently confirmed every self-review fix plus the mutation
+proofs, re-running them itself in a worktree.
+
+| # | finding | disposition |
+|---|---|---|
+| F1 | the "second door" (`RenderTemplateWithMap`) is LINKER-DEAD — its only caller chain ends at `RerenderSitePagesAction`, in no registry entry (320 handlers, checked 2026-08-19); RFC_050 §4 costed enforcement on it without saying so | comments corrected at both write sites + RFC_050 §4 (`5a6e0b3b2`, docs commit) — the report guards the REVIVAL case and the records now say so |
+| F2 | the second-door report had NO test — deleting its whole block left the package green | `TestRenderTemplateWithMap_reportsUnboundInstanceToken` (observer idiom), 2 positive controls; mutation-proven — **first mutant DIDN'T COMPILE (syntax error), which proves nothing; redone with a compile-valid mutant: test FAILS, restore PASSES** |
+| F3 | RFC_050 option (b) omitted that it RE-BREAKS `component-render-check` (the skip was reverted); §3 table covered 9 of 15 sites without saying which | both added to RFC_050 |
+| F4 | register CLC-014 named `RenderTemplateReportingMissing` as live — folded away in the 2026-08-21 one-spelling unification | struck, dated |
+| F5 | PLAN §B2: ":235 every caller handles this" stood unmarked-false; :307 named the renamed test | both corrected, dated |
+| F6 | RFC_050 :10 carried a literal unfilled `<containment commit>` placeholder | filled: `c5a0c831e` |
+| F7 | RFC_050 §3 line citations drifted (`:419`→`:445`, `:1113/:1277`→`:1117/:1284` — one moved by the self-review's own edit) | refreshed, old numbers kept struck |
+| F8 | "tool_birth refuses" is armed-mode-only (unarmed records and proceeds) | precision added; armed on both live birth configs, DB 2026-08-24 |
+| F9 | CLC-014's status field carried an 08-16 "inert, 0 of 243" figure reading as current | superseded in place: 139/297 active templates spell the token, 374 bound rows, both 2026-08-24 |
+| F10 | the round-2 submission JSON was staged, never committed — a passenger-in-waiting | committed in `5a6e0b3b2` |
+| F11 | close-out mis-attributed editquality's zero-readers advisory as MEDIUM — **it is LOW; bug_historian holds the only zero-readers medium** (editquality's medium is the second-path one). Also two round-2 `missing` checks weren't in the not-actioned list: reuse_agent's sentinel-convention question (answered by Fable: `ErrEmptyElementID` is the actions package's first exported sentinel; nearest estate precedent `platform/kafka/producer.go:27` — benign) and prior_art's RFC_044-quote verification (verbatim at RFC_044:13) | **this table IS the correction** to the close-out entry above; nothing else changes |
+| F12 | `UnboundInstanceToken` LATCHES (set-true-only) on a reused context — same as its precedent | note added to RFC_050 for any future reader under answers (c)/(d) |
+
+Fable also re-measured every DB census (all reproduce within same-day drift: 139 active spell the
+token vs the morning's 140 — one row deactivated during the day; 2,009 vs 2,020 page_components),
+re-ran all mutations, verified both byte-identical claims, verified the RFC quotes and RFC_044's
+veto quote against the DB and file text, and confirmed the "checked and sound" list 6-for-6.
+
+### The roll: LIVE, proven at the artefact, and the instrument bit back once
+
+Fresh chassis pods 2026-08-24 18:31:55Z / 18:32:19Z. The provenance startup line had already
+scrolled (~1h of landmine-sync noise), so proof is by binary probe — and the first probe produced
+an INTERNALLY CONTRADICTORY result worth its own record: `grep -aq <literal> /proc/1/exe` on the
+pod reported the round-2 sentinel ABSENT **while both a present-control and an absent-control
+passed**. The image is **BusyBox v1.37** (not debian-slim as CLAUDE.md's build section assumes),
+and BusyBox grep line-buffers the binary — a specific string inside an over-long "line" reads as
+absent while controls on other lines pass. **A control in the same breath is NOT enough here; the
+control must ride the same pipeline.** Remedy that works:
+```sh
+tr '\0' '\n' < /proc/1/exe | grep -Fc '<literal>'   # + present AND absent controls through the SAME tr|grep
+```
+Through that: R2 gate tail `addressable by neither instance: ` = 1 and R1 tail = 0 (⇒ ≥
+`c5a0c831e`); sentinel `an id binding resolved to nothing` = 1; `DeriveAndBindInstanceToken` = 2
+and retired `BindSingleSectionInstanceToken` = **0** (⇒ ≥ `9ba3293e7`). The "second-door log
+absent" is EXPECTED — that function is linker-dead (F1), and its absence from the shipped binary
+is F1 confirmed at the artefact. **So: Half B (contained shape), Half A, and the retirement are
+all LIVE on both replicas.** Later commits are comments/tests/docs — nothing a binary carries.
+LANDMINES entry appended for the BusyBox trap.

@@ -7,7 +7,7 @@ a request to leave anything armed while it is discussed.
 **Provenance:** council correlation `661bcf00-131d-4e4c-9815-218647812907`, round 1 → REVISE,
 decided by a **gating HIGH from the `guardian` seat**, with the `architecture` seat naming this
 document as the remedy in the same round. Commits: `120131549` (the change, refusal included),
-`<containment commit>` (refusal → published report, everything else kept).
+`c5a0c831e` (refusal → published report, everything else kept).
 
 ---
 
@@ -65,7 +65,7 @@ Four answers, costed:
 | | answer | cost |
 |---|---|---|
 | **a** | **Publish only** (today's contained state) | The field has **no reader**. A published fact nobody consumes is a mechanism that rots — this estate's own repeated finding. The section editor still writes `id=""` to a live page. |
-| **b** | **Refuse fleet-wide, unconditional** (what was withdrawn) | Answers the defect completely. Is new authority on a seam with **15** non-test call sites as of 2026-08-24 (`grep -rn '\bRenderTemplate(' --include=*.go platform/ cmd/`, defs and `RenderTemplateWithMap` excluded; an earlier draft of this row said 12 — miscounted, and undated, which is its own rule violation; §3's per-caller table is the load-bearing census), licensed only by a survey that cannot bound a future caller — the guardian's objection, unaddressed. |
+| **b** | **Refuse fleet-wide, unconditional** (what was withdrawn) | Answers the defect completely. Is new authority on a seam with **15** non-test call sites as of 2026-08-24 (`grep -rn '\bRenderTemplate(' --include=*.go platform/ cmd/`, defs and `RenderTemplateWithMap` excluded; an earlier draft of this row said 12 — miscounted, and undated, which is its own rule violation; §3's per-caller table is the load-bearing census), licensed only by a survey that cannot bound a future caller — the guardian's objection, unaddressed. **And it re-breaks `cmd/component-render-check`** (Fable review F3, 2026-08-24): that lint deliberately renders all ~139 token-bearing templates with fields removed; a refusal turns each probe into `unanalysed` → UNCOVERED → the run FAILS. The mitigation (skip the key, report it) was byte-identically reverted with the withdrawal, so answer (b) requires re-adding it — `git show 120131549:cmd/component-render-check/rendercheck.go` is the worked example. |
 | **c** | **Refuse where the caller opts in**, via the existing `enforce_instance_scope` key | Uses machinery that already exists (`enforceInstanceScope`, `instanceScopeEnforceConfigKey`, armed today on `tool-generator`/`tool-deployer`). But `RenderTemplate` takes no step config, so the flag must reach it through `RenderContext` — which the §10 plan explicitly forbade, on the ground that a per-caller flag re-creates the per-call-site wiring the seam exists to remove. |
 | **d** | **Refuse only on the ungated live-page routes**, i.e. the two section-editor call sites | Smallest blast radius, targets the actual damage (those two write `rendered_html` to an already-live page with **no `validate_content` between**). Leaves the build and rerender paths reporting. Is still per-call-site wiring, but only two sites, both of which already refuse on a render error. |
 
@@ -96,14 +96,16 @@ are section (30) or tool (110) level.
 is the guardian's second objection and it was correct. Read on 2026-08-24, of the **7** call sites
 that can reach an `{{.InstanceID}}` template:
 
+(This table covers the **9 of 15** call sites that matter to the decision — the 7 that can reach a token-bearing template plus the 2 chrome-softening callers. The other 6, all census-0 for the token as of 2026-08-24: `component_library.go:1860/:1935/:2222` and `rerender_pages_actions.go:538` render chrome/head; `cmd/component-render-check/rendercheck.go:658/:691` is the offline lint that answer (b)'s cost row now names. — added after the Fable review, F3.)
+
 | call site | on a render error |
 |---|---|
 | `assemble_from_library.go:303` | returns wrapped error — step fails |
-| `section_editor_actions.go:1113` (content edit) | returns error, **live section left unchanged** |
-| `section_editor_actions.go:1277` (component swap) | returns error, **live section left unchanged** |
+| `section_editor_actions.go:1117` (content edit; was :1113 — moved by Half A's commits) | returns error, **live section left unchanged** |
+| `section_editor_actions.go:1284` (component swap; was :1277) | returns error, **live section left unchanged** |
 | `v3_site_actions.go:2465` | returns error — step fails |
-| `component_instance_conversion.go:419` | returns error (this is the gate itself) |
-| `tool_birth_instance_scope.go:67` | returns error — birth refuses |
+| `component_instance_conversion.go:445` (was :419 — moved by comment corrections) | returns error (this is the gate itself) |
+| `tool_birth_instance_scope.go:67` | returns error — birth refuses **when armed** (unarmed it records in `info` and proceeds, :83-99; armed today on both live birth configs, `tool-generator`/`tool-deployer`, DB 2026-08-24) |
 | **`rerender_page_sections_action.go:661`** | **CARRIES the stored HTML and continues** — deliberate: this action *is* the repair vehicle, and *"a re-render that refuses on the state it was dispatched to fix would deadlock its own remedy"* |
 
 Two further callers soften a render error and **cannot** reach such a template (chrome census 0):
@@ -118,7 +120,7 @@ does not share this one's `FuncMap` (`bugs_open/260` §13g). It had no instance-
 The `bug_historian` seat objected, at medium, that a chrome-only census is *"a snapshot, not a
 guard — nothing detects if a section/tool template ever reaches that second path in future"*.
 
-Correct, and fixed: that path now carries the same report. It is log-only there (no `RenderContext`
+Correct, and fixed: that path now carries the same report — **with a caveat the first draft omitted (Fable review F1, 2026-08-24): the path is currently DEAD CODE.** Its only caller chain ends at `RerenderSitePagesAction`, which is in no `GlobalActionRegistry` entry (320 handlers, checked 2026-08-19), so the linker eliminates it — `RenderTemplateWithMap = 0` was measured in a live binary. The report (now pinned by `TestRenderTemplateWithMap_reportsUnboundInstanceToken`) therefore guards the REVIVAL case: the day the action is registered, the class is visible from the first render. It stops no damage today. It is log-only there (no `RenderContext`
 to publish onto), so **whatever this RFC decides must cover both paths** or the invariant is
 enforced on one and not the other — which is precisely the `016b` §9 shape (*"one call site of a
 shared judgement gets the rigorous fix, the sibling stays heuristic"*) that the seat named.
@@ -150,6 +152,8 @@ birth (armed today on `tool-generator`/`tool-deployer`), and both render paths l
 happens is the render being stopped — so a caller added tomorrow that forgets to bind will ship a
 page whose instances all answer to `id=""`, and we will find it in the next census rather than at
 the moment it was written.
+
+**A note for any reader wired under (c)/(d)** (Fable review F12): `UnboundInstanceToken` is set-true-only — a reused `RenderContext` LATCHES it, exactly as its precedent `AbsentRequiredFields` does. A consumer must treat it as per-context, not per-render, or bind fresh contexts per render as `assembleComponents` already does.
 
 **Related:** `RFC_044` (the same shape, on the same kind of seam, vetoed) · `RFC_022` (the
 narrowing that does NOT cover this: it exempts opt-in-default-OFF fields with no live consumer, and

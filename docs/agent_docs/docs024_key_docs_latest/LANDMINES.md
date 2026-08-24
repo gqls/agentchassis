@@ -16653,3 +16653,21 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/378` (the worked case; the counter is now derived, live on chassis `48f55f21` 2026-08-24) · `bugs_closed/060` (the same column name on `agent_definitions`, the dead-counter version, fixed with a durable `agent_run_stats` table) · `bugs_open/107` (the homogeneity outcome an accurate term would feed) · `016b` §9 (the transferable pattern entry) · `RFC_008` (the census-goes-stale-by-addition shape)
 - **source:** 2026-08-24, `bugfix_378_usage_count_derived` lane. Found sideways by the `bugs_open/351` lane while answering a *different* question — "which of the two paths resolved this component?" — for which the counter's side-effect was the convenient positive signal. **A side-effect you are about to use as evidence is worth one query about its own completeness first**, because the property that makes it good evidence (it fires on exactly one path) IS the defect.
 - **added:** 2026-08-24, `bugfix_378_usage_count_derived` lane
+
+### BusyBox `grep` over `/proc/1/exe` reports FALSE ABSENCES — and your present/absent controls PASS while it does it
+
+- **footprint:** `/proc/1/exe`, `kubectl exec`, `grep -aq`, BusyBox, binary probe, build provenance, `agent-chassis` image
+- **fires when:** you probe a running pod's binary for a string literal to prove which commit is deployed — the estate's prescribed check when the provenance startup line has scrolled. The prescribed discipline (a present-control and an absent-control in the same breath) is what makes this one vicious: **both controls can pass while a specific target string reads falsely absent.**
+- **the trap:** the fleet's images are **BusyBox v1.37** (`grep -b`: "unrecognized option" — CLAUDE.md's build section says debian-slim; that is stale). BusyBox grep processes the binary line-by-line, and a "line" of a Go binary can be enormous; strings inside an over-long line read as NOT FOUND with exit 1 and no error. Which strings are affected depends on where they sit, so per-string results are incoherent. `[MEASURED 2026-08-24]` on `agent-chassis-855587d4dc-pn2t8`: `grep -aq` said a round-2 sentinel literal was ABSENT while the round-2 gate-message literal 40 bytes of source away was PRESENT — same binary, same commit, both literals provably in the build — and the positive control (`InstanceID`) and negative control (nonsense string) both behaved. The reading "gate present + sentinel absent" matches NO commit state, which was the only tell.
+- **why the wrong answer looks exactly like the right one:** absence is the very signal the probe exists to measure ("my change is/is not in this build"), the exit codes are clean, and the recommended controls pass. A session dating a deploy from it would confidently place the build at a commit that never existed.
+- **the check:** split on NULs so every "line" is short, and run BOTH controls **through the same pipeline**, not merely in the same breath:
+  ```sh
+  kubectl -n ai-persona-system exec <pod> -- sh -c \
+    'tr "\0" "\n" < /proc/1/exe | grep -Fc "<literal>"'
+  # present-control and absent-control via the SAME tr|grep — a control on a
+  # different instrument validates the wrong thing (measured: it did).
+  ```
+  An incoherent result set (two literals from one commit disagreeing) means the INSTRUMENT, not the binary — stop and re-probe before concluding anything. Function names work as literals too (pclntab): `DeriveAndBindInstanceToken` = 2 / retired `BindSingleSectionInstanceToken` = 0 dated this build ≥ `9ba3293e7` when the log line was long gone.
+- **relations:** the standing `strings`/discovery-grep binary-probe entries in this file (this is their third variant: right command, wrong grep implementation) · MEMORY [[a-post-fix-zero-needs-a-demand-control]] · [[prove-a-deploy-at-the-artefact-index]] · [[never-extract-keys-probe-from-the-pod]] (BusyBox wget dropping 4xx bodies — same busybox-tools-lie family)
+- **source:** 2026-08-24, `bugfix_283_component_instance_scope` lane, proving the evening chassis roll. Caught only because the contradictory pair could not both be true.
+- **added:** 2026-08-24, `bugfix_283_component_instance_scope` lane
