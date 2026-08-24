@@ -78,11 +78,13 @@ func TestParseCriteriaFacts_UnreadableFenceWithoutFactsStillFailsOpen(t *testing
 // refuses what the sweep ignores, or the sweep acts on what the gate never saw.
 func TestFactsKeyMentioned_MatchesTheSQLPrefilter(t *testing.T) {
 	cases := map[string]bool{
-		`{"facts":["a"]}`:                  true,
-		`{"facts": []}`:                    true,
-		`{"profiles":["desktop"]}`:         false,
-		`{"checks":[{"facts_note":"no"}]}`: false, // not the "facts" key
-		``:                                 false,
+		`{"facts":["a"]}`:                                   true,
+		`{"facts": []}`:                                     true,
+		`{"profiles":["desktop"]}`:                          false,
+		`{"checks":[{"facts_note":"no"}]}`:                  false, // not the "facts" key
+		`{"checks":[{"id":"mentions \"facts\" in prose"}]}`: false, // guardian objection: a VALUE quoting the word must not trip it
+		`{"facts" : ["a"]}`:                                 true,  // whitespace before the colon is still key position
+		``:                                                  false,
 	}
 	for criteria, want := range cases {
 		if got := factsKeyMentioned(criteria); got != want {
@@ -213,14 +215,17 @@ func TestNoteBrokenFactDeclarations_FilesOneNotePerSubject(t *testing.T) {
 
 	// Subjects are visited in sorted order so the expectations are stable:
 	// "annuity" (unresolved id) then "stamp-duty" (malformed).
+	site := uuid.New()
 	for _, subject := range []string{"annuity", "stamp-duty"} {
-		mock.ExpectQuery("SELECT EXISTS").WithArgs(subject).
+		// (subject, site): ONE fleet-global PLAN resolves on many sites, and the
+		// unresolved-ids half of the finding is per-site.
+		mock.ExpectQuery("SELECT EXISTS").WithArgs(subject, site).
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 		mock.ExpectExec("INSERT INTO doc_notes").
 			WillReturnResult(sqlmock.NewResult(1, 1))
 	}
 
-	noteBrokenFactDeclarations(context.Background(), db, uuid.New(),
+	noteBrokenFactDeclarations(context.Background(), db, site,
 		factDriftIndexWithProblems(), false, zap.NewNop())
 
 	// MUTATION THAT MUST GO RED: delete the noteBrokenFactDeclarations call from
@@ -241,12 +246,13 @@ func TestNoteBrokenFactDeclarations_CooldownSuppressesARepeat(t *testing.T) {
 
 	// Both subjects already noted inside the 30-day window: no INSERT may run.
 	// A daily sweep over a fence that stays broken must not mint thirty notes.
+	site := uuid.New()
 	for _, subject := range []string{"annuity", "stamp-duty"} {
-		mock.ExpectQuery("SELECT EXISTS").WithArgs(subject).
+		mock.ExpectQuery("SELECT EXISTS").WithArgs(subject, site).
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	}
 
-	noteBrokenFactDeclarations(context.Background(), db, uuid.New(),
+	noteBrokenFactDeclarations(context.Background(), db, site,
 		factDriftIndexWithProblems(), false, zap.NewNop())
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -322,7 +328,7 @@ func TestPlanSiteFactDrift_MalformedDeclarationReachesTheDurableSurface(t *testi
 	// The durable surface, in the order planSiteFactDrift reaches it: cooldown
 	// probe, then the note. sqlmock is ordered and strict, so dropping the call
 	// leaves both unmet and this test red.
-	mock.ExpectQuery("SELECT EXISTS").WithArgs("stamp-duty").
+	mock.ExpectQuery("SELECT EXISTS").WithArgs("stamp-duty", fdSiteID).
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	mock.ExpectExec("INSERT INTO doc_notes").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery(regexp.QuoteMeta(factDriftLastItemQuery)).WithArgs(fdSiteID).

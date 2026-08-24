@@ -41,6 +41,7 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -86,16 +87,33 @@ func criteriaFactsFromValue(raw interface{}) (ids []string, issues []string) {
 	return ids, issues
 }
 
-// factsKeyMentioned reports whether a raw criteria fence mentions the `facts`
-// key at all. THIS IS THE SAME PREDICATE AS THE FAN-OUT'S SQL PREFILTER
-// (factDriftIndexQuery's `dp.body LIKE '%"facts"%'`, refresh_evidence_fact_drift.go)
-// and the write-time gate in write_doc_plan_action.go, deliberately: three
-// places decide "does this document have anything to say about facts", and if
-// they disagree the write gate refuses what the sweep ignores, or worse the
-// reverse. One spelling, three callers — the reason criteriaFactsFromValue
-// exists at all (see its comment).
+// factsKeyRe matches `facts` in JSON KEY POSITION — the quoted name followed by
+// a colon. It cannot be a map lookup, because the whole point is to classify
+// text that FAILED to parse as JSON; and it deliberately is not a bare
+// `strings.Contains(criteria, "\"facts\"")`, which the council's guardian seat
+// objected to (medium) as a soft match guarding a hard refusal: prose, a nested
+// string value, or a check id quoting the word would all trip it.
+//
+// RELATION TO THE FAN-OUT'S SQL PREFILTER, stated precisely because the first
+// version of this comment overclaimed it and the editquality seat caught that.
+// The prefilter is `dp.body LIKE '%"facts"%'` over the WHOLE document; this runs
+// over the EXTRACTED fence and requires key position. So this predicate is a
+// strict SUBSET of the SQL's, which is the safe direction: the SQL over-selects
+// rows and Go decides, so nothing the write gate refuses can be a document the
+// sweep would silently ignore. It is NOT exact parity and must not be described
+// as such.
+//
+// Residual, unfixed and worth knowing: `extractCriteriaBlock` has its own
+// documented landmine (prose naming the criteria fence in backticks hijacks
+// fence extraction, load_doc_context_action.go). A mis-extraction upstream can
+// still hand this function the wrong text. The guardian seat's point that two
+// soft-matching layers feed one refusal stands; tightening THIS layer to key
+// position removes the one of the two that was in scope here.
+var factsKeyRe = regexp.MustCompile(`"facts"\s*:`)
+
+// factsKeyMentioned reports whether a raw criteria fence declares a `facts` key.
 func factsKeyMentioned(criteria string) bool {
-	return strings.Contains(criteria, `"facts"`)
+	return factsKeyRe.MatchString(criteria)
 }
 
 // parseCriteriaFacts reads the fence-level `facts` list off a raw criteria

@@ -441,9 +441,31 @@ func planFactDriftFanOut(res *siteRefreshResult, factsByID map[string]map[string
 	if idx == nil {
 		return nil
 	}
+	// ONE FACT CAN NOW PRODUCE TWO ENTRIES. Since RFC_025 stage 2b a fact may
+	// carry both a primary source (citation/sql/attested) and a secondary
+	// artifact_check, and each appends its own evidenceFactRefresh under the same
+	// FactID. "Last entry per id wins" was safe while that was impossible; it is
+	// not safe now — a PASSING artifact check appended after a DRIFTED citation
+	// would hide the citation drift from classifyFactDrift's evidence_drift arm,
+	// and a lost citation on a declared fact would stop reaching a human. So
+	// select by severity, not by order: drifted beats error beats anything else.
+	// For a fact with one entry this is behaviourally identical.
+	entryRank := func(outcome string) int {
+		switch outcome {
+		case "drifted":
+			return 3
+		case "error":
+			return 2
+		default:
+			return 1
+		}
+	}
 	entryIdx := map[string]int{}
 	for i, e := range res.Facts {
-		entryIdx[e.FactID] = i // last entry per id wins
+		if prev, seen := entryIdx[e.FactID]; seen && entryRank(res.Facts[prev].Outcome) >= entryRank(e.Outcome) {
+			continue
+		}
+		entryIdx[e.FactID] = i
 	}
 	factIDs := make([]string, 0, len(idx.byFact))
 	for id := range idx.byFact {
@@ -582,10 +604,24 @@ func planSiteFactDrift(ctx context.Context, db *sql.DB, siteID uuid.UUID, eb map
 // 2026-08-17 which were still untouched seven days later. Filing a fourteenth
 // would be routing a real finding into a place we have measured nobody reads.
 //
-// 30-day per-subject cooldown, the shape ToolAcceptanceCheck.noteNeedsCriteria
-// already uses (discovery_checks/check_tool_acceptance.go): a fence stays broken
-// until someone fixes it, and a daily sweep must not turn one defect into thirty
-// notes a month.
+// 30-day cooldown per (subject, SITE), the shape
+// ToolAcceptanceCheck.noteNeedsCriteria already uses, plus a site scope it does
+// not have: a fence stays broken until someone fixes it, and a daily sweep must
+// not turn one defect into thirty notes a month.
+//
+// ⚠ THE SITE SCOPE WAS ADDED AFTER THE COUNCIL ROUND (editquality medium,
+// debug_historian soft, corr 67643b47) AND THE SEATS WERE RIGHT FOR A DIFFERENT
+// REASON THAN THEY GAVE. Their scenario was "two sites with a same-named tool
+// would silence each other"; that cannot happen — `doc_plans` has a unique index
+// on (subject_type, subject_key) WHERE is_current, and MEASURED 2026-08-24 it
+// holds: 134 current tool PLANs, 134 distinct subject keys. But the real axis is
+// the other one: ONE fleet-global PLAN resolves to pages on MANY sites (measured
+// the same day: **6** tool subjects resolve on more than one site), and the
+// `unresolved` half of this finding — ids the SWEPT SITE's register does not
+// carry — is a per-site fact. Unscoped, site A's note would silence site B's
+// genuinely different finding for thirty days: the same silent-suppression shape
+// this whole change exists to remove, one axis over. An objection can be sound
+// and its stated premise still wrong; check the premise and keep the fix.
 //
 // Writes nothing on a dry run — the caller runs before the action's own dry-run
 // return, so this is the only place that can honour it.
@@ -609,10 +645,10 @@ func noteBrokenFactDeclarations(ctx context.Context, db *sql.DB, siteID uuid.UUI
 		if err := db.QueryRowContext(ctx, `
 			SELECT EXISTS (
 				SELECT 1 FROM doc_notes
-				WHERE subject_type='tool' AND subject_key=$1
+				WHERE subject_type='tool' AND subject_key=$1 AND site_id=$2
 				  AND categories ? 'fact_declaration_broken'
 				  AND created_at > NOW() - INTERVAL '30 days')
-		`, subject).Scan(&recent); err != nil {
+		`, subject, siteID).Scan(&recent); err != nil {
 			logger.Warn("refresh_evidence_base: fact-declaration note cooldown check failed",
 				zap.String("tool", subject), zap.Error(err))
 			continue

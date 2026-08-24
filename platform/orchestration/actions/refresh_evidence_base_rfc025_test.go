@@ -86,7 +86,7 @@ func TestArtifactCheck_MatchingPatternDoesNotFlag(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}).AddRow(syntheticDropRateSimulatorHTML))
 
 	fact := gdTrialsLikeFact(gdTrialsComponentID, `Math\.min\(val,\s*10000\)`, true)
-	entry := refreshArtifactCheckFact(context.Background(), db, gdTrialsSiteID, fact, "2026-08-12")
+	entry := refreshArtifactCheckFact(context.Background(), db, gdTrialsSiteID, fact, "2026-08-12", true)
 
 	if entry.Outcome != "fresh" {
 		t.Fatalf("a pattern that DOES match the real artefact must not flag: got outcome %q, detail %q", entry.Outcome, entry.Detail)
@@ -122,7 +122,7 @@ func TestArtifactCheck_MismatchedPatternFlagsDrift(t *testing.T) {
 	// uses randomness" that the original false claim implied and the real
 	// artefact never supported.
 	fact := gdTrialsLikeFact(gdTrialsComponentID, `Math\.random`, true)
-	entry := refreshArtifactCheckFact(context.Background(), db, gdTrialsSiteID, fact, "2026-08-12")
+	entry := refreshArtifactCheckFact(context.Background(), db, gdTrialsSiteID, fact, "2026-08-12", true)
 
 	if entry.Outcome != "drifted" {
 		t.Fatalf("a pattern absent from the real artefact must flag as drifted: got outcome %q", entry.Outcome)
@@ -156,7 +156,7 @@ func TestArtifactCheck_MustBeAbsentButPresentFlagsDrift(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}).AddRow(syntheticDropRateSimulatorHTML))
 
 	fact := gdTrialsLikeFact(gdTrialsComponentID, `Math\.min`, false) // asserts Math.min is ABSENT — it is not
-	entry := refreshArtifactCheckFact(context.Background(), db, gdTrialsSiteID, fact, "2026-08-12")
+	entry := refreshArtifactCheckFact(context.Background(), db, gdTrialsSiteID, fact, "2026-08-12", true)
 
 	if entry.Outcome != "drifted" {
 		t.Fatalf("must_be_present:false with the pattern actually present must drift: got %q", entry.Outcome)
@@ -179,7 +179,7 @@ func TestArtifactCheck_UnresolvedComponentFailsClosed(t *testing.T) {
 		WillReturnError(sql.ErrNoRows)
 
 	fact := gdTrialsLikeFact(missingID, `Math\.min\(val,\s*10000\)`, true)
-	entry := refreshArtifactCheckFact(context.Background(), db, gdTrialsSiteID, fact, "2026-08-12")
+	entry := refreshArtifactCheckFact(context.Background(), db, gdTrialsSiteID, fact, "2026-08-12", true)
 
 	if entry.Outcome != "error" {
 		t.Fatalf("an unresolved component_id must fail CLOSED (RFC_017), got outcome %q — a check that could not run must never silently pass", entry.Outcome)
@@ -195,7 +195,7 @@ func TestArtifactCheck_UnresolvedComponentFailsClosed(t *testing.T) {
 // proves that: a nil dereference would panic the test if the code tried.
 func TestArtifactCheck_InvalidComponentIDFailsClosedWithoutTouchingDB(t *testing.T) {
 	fact := gdTrialsLikeFact("not-a-uuid", `Math\.min\(val,\s*10000\)`, true)
-	entry := refreshArtifactCheckFact(context.Background(), nil, gdTrialsSiteID, fact, "2026-08-12")
+	entry := refreshArtifactCheckFact(context.Background(), nil, gdTrialsSiteID, fact, "2026-08-12", true)
 
 	if entry.Outcome != "error" {
 		t.Fatalf("a malformed component_id must fail CLOSED, got outcome %q", entry.Outcome)
@@ -207,7 +207,7 @@ func TestArtifactCheck_InvalidComponentIDFailsClosedWithoutTouchingDB(t *testing
 // DB must not panic.
 func TestArtifactCheck_InvalidRegexFailsClosedWithoutTouchingDB(t *testing.T) {
 	fact := gdTrialsLikeFact(gdTrialsComponentID, `Math\.min(val,`, true) // unbalanced paren
-	entry := refreshArtifactCheckFact(context.Background(), nil, gdTrialsSiteID, fact, "2026-08-12")
+	entry := refreshArtifactCheckFact(context.Background(), nil, gdTrialsSiteID, fact, "2026-08-12", true)
 
 	if entry.Outcome != "error" {
 		t.Fatalf("a pattern that fails to compile must fail CLOSED, got outcome %q", entry.Outcome)
@@ -315,7 +315,7 @@ func TestArtifactCheck_CrossSiteComponentRefusedNotSilentlyMatched(t *testing.T)
 		WillReturnError(sql.ErrNoRows)
 
 	fact := gdTrialsLikeFact(gdTrialsComponentID, `Math\.min\(val,\s*10000\)`, true)
-	entry := refreshArtifactCheckFact(context.Background(), db, otherSiteID, fact, "2026-08-12")
+	entry := refreshArtifactCheckFact(context.Background(), db, otherSiteID, fact, "2026-08-12", true)
 
 	if entry.Outcome != "error" {
 		t.Fatalf("a component belonging to a DIFFERENT site must fail CLOSED, not verify: got outcome %q", entry.Outcome)

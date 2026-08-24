@@ -89,6 +89,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -321,6 +322,39 @@ func refreshOneSiteEvidence(
 		if !ok {
 			continue
 		}
+		// RFC_025 STAGE 2b (bugs_open/288 §5.6) — artifact_check is now reachable
+		// for EVERY source kind, not only for a fact whose sole source is `artifact`.
+		//
+		// THE DEFECT THIS CLOSES: the citation arm below `continue`s before the
+		// artifact_check test seventeen lines further down, and every fact holding a
+		// legislated figure IS a citation fact (185 of 294 current facts, measured
+		// 2026-08-24). So an artifact_check written beside an SDLT band was never
+		// evaluated — the one reader in the estate on the raw-bytes surface could not
+		// be pointed at the class of fact it was needed for.
+		//
+		// A PRE-PASS, deliberately, rather than a restructure of the arms below: the
+		// existing branches and their `continue` are untouched, so every path taken
+		// today is taken identically. It fires only for a fact carrying
+		// artifact_check AND another source — a combination that exists ZERO times on
+		// the live fleet (0 of 294 facts carry artifact_check at all, against 185
+		// carrying citation as the control), so the blast radius today is provably
+		// nil, and the no-op test pins it.
+		if src, ok := fact["source"].(map[string]interface{}); ok {
+			if _, hasAC := src["artifact_check"]; hasAC && factHasNonArtifactSource(fact, src) {
+				if entry := refreshArtifactCheckFact(ctx, db, siteID, fact, today, false); entry != nil {
+					res.FactsChecked++
+					switch entry.Outcome {
+					case "drifted":
+						res.Drifted++
+						res.ArtifactCheckDrifted++
+					case "error":
+						res.Errors++
+					}
+					// Deliberately NOT setting `changed` — see ownsVerifiedAt.
+					res.Facts = append(res.Facts, *entry)
+				}
+			}
+		}
 		// V5: citation facts are re-verified by re-fetching their source and
 		// matching the stored verbatim quote (SPEC_V5_researched_citations §3c).
 		if src, ok := fact["source"].(map[string]interface{}); ok {
@@ -350,8 +384,16 @@ func refreshOneSiteEvidence(
 			// ratified constraint: the whole point of this design over the
 			// rejected typed-field alternative is to avoid touching an exported
 			// symbol other packages depend on).
-			if _, has := src["artifact_check"]; has {
-				entry := refreshArtifactCheckFact(ctx, db, siteID, fact, today)
+			// `&& !factHasNonArtifactSource` is load-bearing, not defensive. Without
+			// it a fact carrying attested_by (or source.sql) PLUS an artifact_check
+			// is checked TWICE — once by the stage-2b pre-pass above as a secondary,
+			// then again here as a primary — appending two entries under one FactID
+			// and bumping verified_at from the second. The citation arm is safe only
+			// because its `continue` happens to intervene. Found by asking what an
+			// end-to-end test of the loop would do, which is also how the pre-pass
+			// itself came to be pinned.
+			if _, has := src["artifact_check"]; has && !factHasNonArtifactSource(fact, src) {
+				entry := refreshArtifactCheckFact(ctx, db, siteID, fact, today, true)
 				if entry != nil {
 					res.FactsChecked++
 					switch entry.Outcome {
@@ -670,7 +712,18 @@ func refreshCitationFact(ctx context.Context, fact map[string]interface{}, today
 // datahelpers rather than growing a second exported symbol for a shape with
 // one reader.
 type artifactCheckSpec struct {
-	ComponentID   string
+	ComponentID string
+	// SubjectKey addresses the artefact by the TOOL that owns it instead of by a
+	// page_components row id (RFC_025 stage 2b, bugs_open/288 §5.6). Mutually
+	// exclusive with ComponentID.
+	//
+	// WHY: a component_id dies. bugs_closed/225's own component (55682bc8-…) no
+	// longer exists — the page was decomposed into prose-0 / tool-1 / prose-2 —
+	// so an artifact_check written when that bug was filed would today resolve
+	// to nothing and fail closed for ever, which reads exactly like a check
+	// working. A subject key survives decomposition because it is resolved
+	// through the platform's own name rule every pass.
+	SubjectKey    string
 	Pattern       string
 	MustBePresent bool
 }
@@ -700,12 +753,22 @@ func parseArtifactCheck(src map[string]interface{}) (*artifactCheckSpec, error) 
 	}
 	spec := &artifactCheckSpec{
 		ComponentID:   strings.TrimSpace(datahelpers.GetStringField(raw, "component_id", "")),
+		SubjectKey:    strings.TrimSpace(datahelpers.GetStringField(raw, "subject_key", "")),
 		Pattern:       datahelpers.GetStringField(raw, "pattern", ""),
 		MustBePresent: datahelpers.GetBoolField(raw, "must_be_present", true),
 	}
+	// Exactly one address. Both is ambiguous and neither is unrunnable, and both
+	// fail CLOSED rather than picking a winner — RFC_017, and the same posture
+	// the ErrNoRows arm below already takes.
+	if spec.ComponentID != "" && spec.SubjectKey != "" {
+		return spec, fmt.Errorf(
+			"artifact_check carries BOTH component_id (%s) and subject_key (%s) — exactly one address, "+
+				"or the check silently proves a different artefact than its author meant",
+			spec.ComponentID, spec.SubjectKey)
+	}
 	var missing []string
-	if spec.ComponentID == "" {
-		missing = append(missing, "component_id")
+	if spec.ComponentID == "" && spec.SubjectKey == "" {
+		missing = append(missing, "component_id or subject_key")
 	}
 	if spec.Pattern == "" {
 		missing = append(missing, "pattern")
@@ -721,6 +784,93 @@ func parseArtifactCheck(src map[string]interface{}) (*artifactCheckSpec, error) 
 				"(as in \"Math\\.min\\(val,\\s*%s\\)\")", spec.Pattern, spec.Pattern, spec.Pattern+"0", spec.Pattern, spec.Pattern)
 	}
 	return spec, nil
+}
+
+// factHasNonArtifactSource reports whether this fact already has a PRIMARY
+// verification mechanism, i.e. one of the arms after the pre-pass will handle
+// it. Only then is an artifact_check a SECONDARY check that must not own
+// verified_at. A fact whose only mechanism is artifact_check keeps taking the
+// original branch, unchanged.
+func factHasNonArtifactSource(fact map[string]interface{}, src map[string]interface{}) bool {
+	if _, has := src["citation"]; has {
+		return true
+	}
+	if _, has := src["attested_by"]; has {
+		return true
+	}
+	return factSQLSource(fact) != ""
+}
+
+// artifactCheckSubjectSurfaceQuery collects the stored HTML of every active
+// component on every page THIS SITE has for a tool subject key.
+//
+// Same join family as the fact-drift fan-out's factDriftIndexQuery, and for the
+// same reason: it reuses discovery_checks.ToolSubjectKeyExpr (the platform's own
+// name rule, which Tier 4 already uses to find a tool's URL) rather than the
+// acceptance ladder's toolEligibilityWhere. Measured 2026-08-16 and unchanged
+// since: that predicate's sole-component clause admits NEITHER of the two SDLT
+// tools this mechanism exists for, so addressing through it would produce a
+// check that can never run on the artefacts that motivated it — and would read
+// as a clean pass.
+//
+// The archived-AND-never-deployed exclusion is the AUDIT predicate, not the
+// liveness one: an archived page that was deployed is still being served, and
+// judging only p.status='active' pages is the mistake the council's
+// debug_historian seat caught in the fan-out.
+var artifactCheckSubjectSurfaceQuery = `
+	SELECT COALESCE(string_agg(COALESCE(pc.rendered_html, ''), E'\n' ORDER BY p.name, pc.position), '')
+	FROM pages p
+	JOIN page_components pc ON pc.page_id = p.id
+	JOIN content_components cc ON cc.id = pc.component_id AND cc.is_active = true
+	WHERE p.site_id = $1
+	  AND ` + discovery_checks.ToolSubjectKeyExpr + ` = $2
+	  AND NOT (p.status = 'archived' AND ` + datahelpers.NeverDeployedPagePredicateFor("p") + `)`
+
+// resolveArtifactCheckSurface returns the stored bytes the pattern is matched
+// against, plus a human-readable name for the address (for the drift detail),
+// or an error that the caller turns into outcome=error — never a pass. RFC_017:
+// a check that cannot run must not be reported as one that ran.
+func resolveArtifactCheckSurface(ctx context.Context, db *sql.DB, siteID uuid.UUID, spec *artifactCheckSpec) (string, string, error) {
+	if spec.SubjectKey != "" {
+		var surface string
+		err := db.QueryRowContext(ctx, artifactCheckSubjectSurfaceQuery, siteID, spec.SubjectKey).Scan(&surface)
+		if err != nil && err != sql.ErrNoRows {
+			return "", "", fmt.Errorf("artifact_check: reading the surface for tool %q failed: %v", spec.SubjectKey, err)
+		}
+		// An EMPTY surface is an error, not an absence. Both readings are
+		// "the pattern is not there", and only one of them is about the artefact:
+		// a renamed page or a deactivated component must not be reported as a
+		// drifted claim, and must certainly not be reported as fresh.
+		if strings.TrimSpace(surface) == "" {
+			return "", "", fmt.Errorf(
+				"artifact_check.subject_key %q resolves to no stored component HTML on THIS site (%s) — "+
+					"the page may have been renamed, or its components deactivated; refused rather than read as absent",
+				spec.SubjectKey, siteID)
+		}
+		return surface, fmt.Sprintf("tool %q", spec.SubjectKey), nil
+	}
+
+	componentID, err := uuid.Parse(spec.ComponentID)
+	if err != nil {
+		return "", "", fmt.Errorf("artifact_check.component_id %q is not a valid id: %v", spec.ComponentID, err)
+	}
+	var rendered sql.NullString
+	err = db.QueryRowContext(ctx, `
+		SELECT pc.rendered_html
+		FROM page_components pc
+		JOIN pages p ON p.id = pc.page_id
+		WHERE pc.id = $1 AND p.site_id = $2
+	`, componentID, siteID).Scan(&rendered)
+	switch {
+	case err == sql.ErrNoRows:
+		return "", "", fmt.Errorf(
+			"artifact_check.component_id %s does not resolve to a page_components row on THIS site (%s) — "+
+				"either it does not exist, or it belongs to a different site and is refused rather than trusted",
+			componentID, siteID)
+	case err != nil:
+		return "", "", fmt.Errorf("artifact_check: reading component %s failed: %v", componentID, err)
+	}
+	return rendered.String, fmt.Sprintf("component %s", componentID), nil
 }
 
 // refreshArtifactCheckFact re-proves one artifact_check fact against its named
@@ -744,7 +894,16 @@ func parseArtifactCheck(src map[string]interface{}) (*artifactCheckSpec, error) 
 // $1` would let a fact "verify" against another site's component — a false
 // PASS on the exact re-verification machinery this RFC exists to strengthen).
 // Joined through pages, the one table that actually carries site_id.
-func refreshArtifactCheckFact(ctx context.Context, db *sql.DB, siteID uuid.UUID, fact map[string]interface{}, today string) *evidenceFactRefresh {
+// ownsVerifiedAt distinguishes the two callers. TRUE for a fact whose ONLY
+// verification mechanism is this one (the original, sole-reachable case —
+// behaviour unchanged): it owns fact["verified_at"]. FALSE when this runs as a
+// SECONDARY check beside a citation/sql/attested primary (stage 2b): the primary
+// arm owns verified_at and `changed`, and a PASSING artifact check must not bump
+// the date on a fact whose citation was just lost, nor flip `changed` and
+// thereby open shouldRaiseStaleEvidence for unrelated citation drift. Leaving
+// that gate's semantics alone for existing callers is exactly what RFC_025's
+// ratification was scoped to guarantee.
+func refreshArtifactCheckFact(ctx context.Context, db *sql.DB, siteID uuid.UUID, fact map[string]interface{}, today string, ownsVerifiedAt bool) *evidenceFactRefresh {
 	entry := &evidenceFactRefresh{
 		FactID:    datahelpers.GetStringField(fact, "id", ""),
 		Claim:     datahelpers.GetStringField(fact, "claim", ""),
@@ -758,13 +917,6 @@ func refreshArtifactCheckFact(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 		return entry
 	}
 
-	componentID, err := uuid.Parse(spec.ComponentID)
-	if err != nil {
-		entry.Outcome = "error"
-		entry.Detail = fmt.Sprintf("artifact_check.component_id %q is not a valid id: %v", spec.ComponentID, err)
-		return entry
-	}
-
 	re, err := regexp.Compile(spec.Pattern)
 	if err != nil {
 		entry.Outcome = "error"
@@ -772,43 +924,31 @@ func refreshArtifactCheckFact(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 		return entry
 	}
 
-	var rendered sql.NullString
-	err = db.QueryRowContext(ctx, `
-		SELECT pc.rendered_html
-		FROM page_components pc
-		JOIN pages p ON p.id = pc.page_id
-		WHERE pc.id = $1 AND p.site_id = $2
-	`, componentID, siteID).Scan(&rendered)
-	switch {
-	case err == sql.ErrNoRows:
+	surface, addr, err := resolveArtifactCheckSurface(ctx, db, siteID, spec)
+	if err != nil {
 		entry.Outcome = "error"
-		entry.Detail = fmt.Sprintf(
-			"artifact_check.component_id %s does not resolve to a page_components row on THIS site (%s) — "+
-				"either it does not exist, or it belongs to a different site and is refused rather than trusted",
-			componentID, siteID)
-		return entry
-	case err != nil:
-		entry.Outcome = "error"
-		entry.Detail = fmt.Sprintf("artifact_check: reading component %s failed: %v", componentID, err)
+		entry.Detail = err.Error()
 		return entry
 	}
 
-	found := re.MatchString(rendered.String)
+	found := re.MatchString(surface)
 	switch {
 	case found == spec.MustBePresent:
 		entry.Outcome = "fresh"
-		fact["verified_at"] = today
-		entry.VerifiedAt = today
+		if ownsVerifiedAt {
+			fact["verified_at"] = today
+			entry.VerifiedAt = today
+		}
 	case spec.MustBePresent:
 		entry.Outcome = "drifted"
 		entry.Detail = fmt.Sprintf(
-			"artifact_check: pattern %q no longer found in component %s — the artefact this fact cites may have changed; the published claim needs a human ruling",
-			spec.Pattern, componentID)
+			"artifact_check: pattern %q no longer found in %s — the artefact this fact cites may have changed; the published claim needs a human ruling",
+			spec.Pattern, addr)
 	default:
 		entry.Outcome = "drifted"
 		entry.Detail = fmt.Sprintf(
-			"artifact_check: pattern %q is now PRESENT in component %s, but the fact asserts it must be absent — the published claim needs a human ruling",
-			spec.Pattern, componentID)
+			"artifact_check: pattern %q is now PRESENT in %s, but the fact asserts it must be absent — the published claim needs a human ruling",
+			spec.Pattern, addr)
 	}
 	return entry
 }
