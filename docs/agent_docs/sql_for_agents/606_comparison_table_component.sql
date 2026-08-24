@@ -273,6 +273,21 @@ BEGIN
   IF sch::text ~* '"(price|rating|score|rank|stars|percent|count|number|weight)' THEN
     RAISE EXCEPTION '606 VERIFY: the schema declares a figure-shaped field — the one structural control this component has is that none exists';
   END IF;
+  -- ⚠ CORRECTED 2026-08-24, hours after this file was written: THE PLATFORM ALREADY
+  -- STRIPS "<no value>". `RenderTemplate` does
+  -- `strings.ReplaceAll(result, "<no value>", "")` (component_library.go:1258) on the
+  -- live path (`RenderComponentAction` -> v3_site_actions.go:2459), and immediately
+  -- above it `missingBareFields` REPORTS the fields that rendered empty, at Error
+  -- level, by name (bugs_open/018), while `missingRequiredLLMFields` gates an absent
+  -- required field (bugs_open/342). So an unguarded interpolation does NOT reach a
+  -- visitor, and the guards below are HYGIENE, not a defect being prevented: they
+  -- render a deliberate empty element instead of relying on a downstream string
+  -- replace, and they keep the intent visible in the template. The earlier framing in
+  -- this header — that an unguarded field publishes "<no value>" onto a live page —
+  -- was WRONG. The measurement behind it (0 live occurrences, control 1,907) was
+  -- right; the explanation was not: it is 0 because the platform strips, not because
+  -- writers fill every key. Kept as a guard because it is still better, corrected
+  -- because the reason was false. Full incident in WRONG_CALLS.md.
   -- ⚠ EVERY INTERPOLATION MUST BE {{if}}-GUARDED — asserted per field, and the guard
   -- may be INLINE ({{if .x}}{{.x}}{{end}}) or wrap the whole element
   -- ({{if .x}}<p>{{.x}}</p>{{end}}); both are correct and the second is preferred where
@@ -287,25 +302,25 @@ BEGIN
   -- "<section"), so this is a hazard not to introduce, not damage to repair. The render
   -- harness in the lane RUNBOOK is what actually proves it; this is the cheap sentry.
   IF position($i${{.section_title}}$i$ in tpl) > 0 AND position($g${{if .section_title}$g$ in tpl) = 0 THEN
-    RAISE EXCEPTION '606 VERIFY: {{.section_title}} is interpolated with NO {{if .section_title}} guard anywhere — an absent key renders the literal <no value> onto a live page';
+    RAISE EXCEPTION '606 VERIFY: {{.section_title}} is interpolated with NO {{if .section_title}} guard anywhere — an absent key renders <no value>, which the platform strips (component_library.go:1258) — this is hygiene, not a live-page defect';
   END IF;
   IF position($i${{.option_column_label}}$i$ in tpl) > 0 AND position($g${{if .option_column_label}$g$ in tpl) = 0 THEN
-    RAISE EXCEPTION '606 VERIFY: {{.option_column_label}} is interpolated with NO {{if .option_column_label}} guard anywhere — an absent key renders the literal <no value> onto a live page';
+    RAISE EXCEPTION '606 VERIFY: {{.option_column_label}} is interpolated with NO {{if .option_column_label}} guard anywhere — an absent key renders <no value>, which the platform strips (component_library.go:1258) — this is hygiene, not a live-page defect';
   END IF;
   IF position($i${{.column_two_label}}$i$ in tpl) > 0 AND position($g${{if .column_two_label}$g$ in tpl) = 0 THEN
-    RAISE EXCEPTION '606 VERIFY: {{.column_two_label}} is interpolated with NO {{if .column_two_label}} guard anywhere — an absent key renders the literal <no value> onto a live page';
+    RAISE EXCEPTION '606 VERIFY: {{.column_two_label}} is interpolated with NO {{if .column_two_label}} guard anywhere — an absent key renders <no value>, which the platform strips (component_library.go:1258) — this is hygiene, not a live-page defect';
   END IF;
   IF position($i${{.name}}$i$ in tpl) > 0 AND position($g${{if .name}$g$ in tpl) = 0 THEN
-    RAISE EXCEPTION '606 VERIFY: {{.name}} is interpolated with NO {{if .name}} guard anywhere — an absent key renders the literal <no value> onto a live page';
+    RAISE EXCEPTION '606 VERIFY: {{.name}} is interpolated with NO {{if .name}} guard anywhere — an absent key renders <no value>, which the platform strips (component_library.go:1258) — this is hygiene, not a live-page defect';
   END IF;
   IF position($i${{.cell_two}}$i$ in tpl) > 0 AND position($g${{if .cell_two}$g$ in tpl) = 0 THEN
-    RAISE EXCEPTION '606 VERIFY: {{.cell_two}} is interpolated with NO {{if .cell_two}} guard anywhere — an absent key renders the literal <no value> onto a live page';
+    RAISE EXCEPTION '606 VERIFY: {{.cell_two}} is interpolated with NO {{if .cell_two}} guard anywhere — an absent key renders <no value>, which the platform strips (component_library.go:1258) — this is hygiene, not a live-page defect';
   END IF;
   IF position($i${{.cell_three}}$i$ in tpl) > 0 AND position($g${{if .cell_three}$g$ in tpl) = 0 THEN
-    RAISE EXCEPTION '606 VERIFY: {{.cell_three}} is interpolated with NO {{if .cell_three}} guard anywhere — an absent key renders the literal <no value> onto a live page';
+    RAISE EXCEPTION '606 VERIFY: {{.cell_three}} is interpolated with NO {{if .cell_three}} guard anywhere — an absent key renders <no value>, which the platform strips (component_library.go:1258) — this is hygiene, not a live-page defect';
   END IF;
   IF position($i${{.cell_four}}$i$ in tpl) > 0 AND position($g${{if .cell_four}$g$ in tpl) = 0 THEN
-    RAISE EXCEPTION '606 VERIFY: {{.cell_four}} is interpolated with NO {{if .cell_four}} guard anywhere — an absent key renders the literal <no value> onto a live page';
+    RAISE EXCEPTION '606 VERIFY: {{.cell_four}} is interpolated with NO {{if .cell_four}} guard anywhere — an absent key renders <no value>, which the platform strips (component_library.go:1258) — this is hygiene, not a live-page defect';
   END IF;
   IF position('{{.InstanceID}}' in tpl) = 0 THEN
     RAISE EXCEPTION '606 VERIFY: template does not carry {{.InstanceID}} (RFC_032)';

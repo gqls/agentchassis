@@ -16984,27 +16984,47 @@ code change owed at the next roll, tracked in RFC_015 §5.
 
 ---
 
-## `missingkey=zero` does NOT protect a component template — an absent key renders the literal `<no value>` onto the live page, and the option's NAME is why you will not check
+## ~~`missingkey=zero` does NOT protect a component template — an absent key renders the literal `<no value>` onto the live page~~ **RETRACTED THE SAME DAY — THE PLATFORM ALREADY STRIPS IT**
 
-- **footprint:** `content_components.html_template` · any `{{.field}}` inside a `{{range}}` in a component template · `platform/orchestration/actions/call_agent.go` (`executeGoTemplate`) · `platform/orchestration/actions/component_library.go` (`RenderTemplate`) · `page_components.rendered_html` · any new component seed under `docs/agent_docs/sql_for_agents/`
-- **fires when:** you write or edit a component template and rely on `missingkey=zero` — which `executeGoTemplate` sets — to make an absent field render as nothing. It is the reasonable reading of the option, it is what the name says, and it is wrong for the data shape this estate actually uses.
-- **why the wrong result looks exactly right:** the option returns *the zero value of the map's element type*. Component data arrives as `map[string]interface{}`, whose element zero value is **`nil`** — and `text/template` prints `nil` as the four-word literal **`<no value>`**. So a writer omitting one optional key publishes `<no value>` into the served HTML. **Nothing anywhere reports it:** the LLM returned valid JSON, the schema is satisfied, `DeclaredTypeSatisfied` only checks arrays, the render succeeds, the page deploys, and the row in `page_components` is structurally perfect. The only place the defect exists is in the bytes a visitor reads. It survives review too, because the template *looks* correct — the guard you are missing is invisible by construction.
-- **the check — RENDER IT, with a case where the key is ABSENT (not empty, absent):**
-  ```go
-  // the same engine and option the chassis uses
-  t, _ := template.New("component").Option("missingkey=zero").Parse(tpl)
-  t.Execute(&buf, map[string]interface{}{"section_title": "T",
-      "items": []interface{}{ map[string]interface{}{"detail": "no title key at all"} }})
-  // assert: !strings.Contains(out, "<no value>")  &&  !strings.Contains(out, "{{")
-  ```
-  An empty-string value is NOT the same test and passes cleanly — the key must be **missing**. Fleet check, and it is cheap:
-  ```sql
-  SELECT count(*) FROM page_components WHERE rendered_html LIKE '%<no value>%';
-  -- 0 as of 2026-08-24. CONTROL in the same breath, or the zero means nothing:
-  SELECT count(*) FROM page_components WHERE rendered_html LIKE '%<section%';   -- 1,907
-  ```
-- **the remedy:** guard every interpolation — `{{if .x}}{{.x}}{{end}}` inline, or `{{if .x}}<p>{{.x}}</p>{{end}}` around the whole element where an empty element would otherwise render (the second is better and both are correct). Do this for **required** fields too: "required" is a statement to the writer in the schema, not an enforcement at render time.
-- **⚠ exposure, and it goes stale by ADDITION:** `[MEASURED 2026-08-24]` **49** active section templates contain a `{{range}}` and share the exposed shape; **0** live `page_components` carry the string today. So this is a hazard not to introduce rather than damage to repair — but every new component and every template edit is a fresh chance to introduce it, and the fleet count only tells you about writers who happened to fill every key.
-- **the transferable shape:** an option, flag or setting whose NAME describes the behaviour you want is the least likely thing you will verify. `missingkey=zero` reads as "missing keys become the zero value", and for `map[string]string` it would be — the estate just never uses that type here. Before relying on any such setting, render/run the case it is supposed to handle. Found 2026-08-24 by rendering three brand-new component templates that had already PASSED their SQL verify blocks: the SQL could check the markup, and could not execute the template.
-- **source:** `bugs_open/381` lane, 2026-08-24, migrations 604/605/606 (each carries a per-field guard assertion, mutation-proven); the render harness and its 11 cases are in that lane's RUNBOOK
-- **added:** 2026-08-24, `bugfix_381_inexpressive_composition` lane
+> **⚠ RETRACTED 2026-08-24, hours after filing, by the lane that filed it. The central claim was
+> FALSE and this entry is kept — not deleted — because the next person who sees `<no value>` in a
+> template render will come looking for exactly this and must find the correction rather than
+> silence.**
+>
+> **What I claimed:** an unguarded `{{.field}}` in a component template publishes the literal
+> `<no value>` onto a live page whenever the writer omits that key, with nothing to report it.
+>
+> **What is actually true:** `RenderTemplate` (`platform/orchestration/actions/component_library.go`
+> :1258) does `strings.ReplaceAll(result, "<no value>", "")` on every render, and that is the
+> function `RenderComponentAction` calls (`v3_site_actions.go:2459`) — i.e. the live path. It is
+> stripped before anything is persisted. **The estate handles this, and at a better layer than a
+> per-template guard:** immediately above the strip, `missingBareFields` reports the fields that
+> rendered empty **at Error level with their names**, deliberately greppable, because a blanked
+> `href=`/`src=` is a dead control shipped to a live page (`bugs_open/018`: 30 shipped silently on
+> idea.uk under a count-only Warn that named nothing). Separately `missingRequiredLLMFields`
+> gates an absent REQUIRED field (`bugs_open/342`), because a missing required field means the
+> content did not arrive at all rather than arriving broken.
+>
+> **How I got it wrong, and it is the instructive part.** I measured correctly — 0 live
+> `page_components` contain `<no value>`, control 1,907 contain `<section` — and then explained the
+> zero with the wrong mechanism: I read it as *"writers reliably fill every key"* when it is
+> *"the platform strips it."* **The number was right and the story was wrong**, which is the same
+> error this lane logged twice already today. The check I skipped costs one command:
+> `grep -rn '<no value>' --include=*.go platform internal` — which returns the strip, the
+> reporting, and two tests that assert the behaviour
+> (`render_seam_no_fallback_test.go:376,387`). **Before filing a FLEET-WIDE landmine, grep for
+> whether the platform already handles the thing.** A landmine that warns about a solved problem
+> is worse than no entry: it is the phantom-miss failure — a warning people learn to ignore.
+>
+> **What survives, much smaller and not landmine-grade:** `{{if}}`-guarding an interpolation is
+> still marginally better hygiene than relying on a downstream string replace — it renders a
+> deliberate empty element rather than a stripped artefact, and it keeps the intent visible in the
+> template. Migrations 604/605/606 guard for that reason and their headers now say so. That is a
+> style preference, **not** a defect being prevented.
+>
+> **Also corrected: the "49 exposed templates" figure.** Those 49 active section templates do use
+> `{{range}}`, but they are not *exposed* to anything — they are rendering through the same strip.
+> The number was real and the word "exposed" was not.
+>
+> — `bugs_open/381` lane, 2026-08-24. Full incident in `WRONG_CALLS.md`.
+

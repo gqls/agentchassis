@@ -241,6 +241,21 @@ BEGIN
     RAISE EXCEPTION '604 VERIFY: the schema declares a numeric-shaped field — see design rule 1';
   END IF;
   -- Rule 5: per-instance scope from birth.
+  -- ⚠ CORRECTED 2026-08-24, hours after this file was written: THE PLATFORM ALREADY
+  -- STRIPS "<no value>". `RenderTemplate` does
+  -- `strings.ReplaceAll(result, "<no value>", "")` (component_library.go:1258) on the
+  -- live path (`RenderComponentAction` -> v3_site_actions.go:2459), and immediately
+  -- above it `missingBareFields` REPORTS the fields that rendered empty, at Error
+  -- level, by name (bugs_open/018), while `missingRequiredLLMFields` gates an absent
+  -- required field (bugs_open/342). So an unguarded interpolation does NOT reach a
+  -- visitor, and the guards below are HYGIENE, not a defect being prevented: they
+  -- render a deliberate empty element instead of relying on a downstream string
+  -- replace, and they keep the intent visible in the template. The earlier framing in
+  -- this header — that an unguarded field publishes "<no value>" onto a live page —
+  -- was WRONG. The measurement behind it (0 live occurrences, control 1,907) was
+  -- right; the explanation was not: it is 0 because the platform strips, not because
+  -- writers fill every key. Kept as a guard because it is still better, corrected
+  -- because the reason was false. Full incident in WRONG_CALLS.md.
   -- ⚠ EVERY INTERPOLATION MUST BE {{if}}-GUARDED — asserted per field, and the guard
   -- may be INLINE ({{if .x}}{{.x}}{{end}}) or wrap the whole element
   -- ({{if .x}}<p>{{.x}}</p>{{end}}); both are correct and the second is preferred where
@@ -255,10 +270,10 @@ BEGIN
   -- "<section"), so this is a hazard not to introduce, not damage to repair. The render
   -- harness in the lane RUNBOOK is what actually proves it; this is the cheap sentry.
   IF position($i${{.section_title}}$i$ in tpl) > 0 AND position($g${{if .section_title}$g$ in tpl) = 0 THEN
-    RAISE EXCEPTION '604 VERIFY: {{.section_title}} is interpolated with NO {{if .section_title}} guard anywhere — an absent key renders the literal <no value> onto a live page';
+    RAISE EXCEPTION '604 VERIFY: {{.section_title}} is interpolated with NO {{if .section_title}} guard anywhere — an absent key renders <no value>, which the platform strips (component_library.go:1258) — this is hygiene, not a live-page defect';
   END IF;
   IF position($i${{.title}}$i$ in tpl) > 0 AND position($g${{if .title}$g$ in tpl) = 0 THEN
-    RAISE EXCEPTION '604 VERIFY: {{.title}} is interpolated with NO {{if .title}} guard anywhere — an absent key renders the literal <no value> onto a live page';
+    RAISE EXCEPTION '604 VERIFY: {{.title}} is interpolated with NO {{if .title}} guard anywhere — an absent key renders <no value>, which the platform strips (component_library.go:1258) — this is hygiene, not a live-page defect';
   END IF;
   IF position('{{.InstanceID}}' in tpl) = 0 THEN
     RAISE EXCEPTION '604 VERIFY: template does not carry {{.InstanceID}} (RFC_032)';

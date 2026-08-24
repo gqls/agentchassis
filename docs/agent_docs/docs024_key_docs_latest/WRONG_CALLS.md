@@ -49973,3 +49973,99 @@ exactly the same reason.
 distinction carefully, published the reasoning, and then walked straight into the
 second. Fixing one axis of a class does not fix the class, and having just written
 about it is not protection; it may be the opposite, because the fix felt finished.
+
+---
+
+## 2026-08-24 — `bugs_open/364` lane, four wrong calls in one session, three caught by a control and one by a peer
+
+**1. I grepped a tool's output for the check's INTERNAL name, and read the false zero as a result.**
+`cmd/claimscan` prints the label `NUMBER`; the check is called `unregistered_number` everywhere
+else — in the Go source, in `agent_error_log`, in the work-item rows. I ran
+`claimscan … | grep -c 'unregistered_number'`, got **0**, and briefly believed the fleet was clean.
+It was not: the same corpus held **44** findings. **What caught it:** printing the raw output
+instead of only its count — the findings were on screen the whole time.
+**The cheap check:** never `grep -c` a tool's stdout for a needle you have not seen that tool
+print. Run it once with `| head` first. A zero from a wrong needle is indistinguishable from a
+zero from a clean corpus, and it arrives with the same authority.
+
+**2. I asserted a mechanism I had not tested, in a plan the owner then approved.**
+I wrote that the page-type exclusion's measured cost was zero "because the register's `4068 gte /
+"orchestration"` fact already vouches for" the CTA figures. That is a coherent mechanism, it is
+the mechanism this bug's own §2 documents, and it was **wrong**. The real reason is that
+`businessClaimContextRe` carries `orchestration` **singular with no `s?`** while the copy says
+"orchestration**s**", so the number never reaches the register comparison at all.
+**What caught it:** writing the test. The control arm failed, which it could not have done if my
+explanation had been right. **The cheap check:** an explanation for why something does NOT happen
+is a hypothesis; the test that would fail if it were wrong costs about four lines. I had already
+marked the claim in the plan as measured-adjacent prose rather than `[INFERRED]`, which is the
+whole failure — the marker rule exists for exactly this and I did not apply it to my own reasoning.
+
+**3. I described a stored defect as live public damage without curling the URL.**
+I told the owner that `model-directory`'s hero "serves the literal text `NNN+ AI agents` to the
+public right now", from `page_components.rendered_html` plus `build_status='deployed'` and a
+`deployed_at` two hours old. **The page 404s.** All three tracker pages do.
+**What caught it:** curling the target before filing — with an invented-URL control, because a
+parked domain 200s every path and would have made the check meaningless in the other direction.
+**The cheap check:** `curl -o /dev/null -w '%{http_code}'` on the real URL plus one URL that must
+not exist, before the words "live", "public" or "serving" appear in a bug file. Cost: one command.
+This also produced something better than the correction — `bugs_open/387`, a deployed-vs-404
+divergence worth more than the placeholder I set out to file.
+
+**4. A `kubectl exec … psql` export truncated silently, and the scan under-reported.**
+An identical export of the same site returned **101 of 115 rows** on one run and 115/115 on
+another, with no error on stdout and exit 0. The findings fell 36 → 26 — a plausible-looking
+number that would have gone into a bug file as fact. **What caught it:** asserting the exported
+row count against `SELECT count(*)` on every run, which a peer lane (`bugs_open/380`) had hit the
+same day and warned me about unprompted. **The cheap check:** count the rows in the DB and compare
+before scanning; treat a mismatch as a retry, not a result. **And the wider point: the peer's
+unprompted warning is what made me build the assertion in at all.**
+
+**The tally this file exists for:** three of the four were caught by a control that cost one
+command, and none by re-reading. The one I did NOT have a control for (#2) is the one that reached
+an owner-approved plan.
+
+## 2026-08-24 — `bugs_open/381` lane: I filed a FLEET-WIDE landmine about a problem the platform already solves, and my own correct measurement is what convinced me
+
+Rendering three new component templates showed that an absent per-item key produces the literal
+`<no value>` in the output. I measured the fleet — **0** live `page_components` contain that
+string, control **1,907** contain `<section` — guarded every interpolation, wrote it into three
+migration headers, filed a **`LANDMINES.md` entry**, and put it in a council submission's
+`grounded_in` as a defect found.
+
+**It is not a defect. `RenderTemplate` strips it** — `strings.ReplaceAll(result, "<no value>", "")`
+at `component_library.go:1258`, on the live path (`RenderComponentAction` → `v3_site_actions.go:2459`).
+Immediately above the strip, `missingBareFields` **reports** the empty fields by name at Error
+level, deliberately greppable, because a blanked `href=` is a dead control shipped to a page
+(`bugs_open/018`: 30 shipped silently on idea.uk under a count-only Warn). `missingRequiredLLMFields`
+separately gates an absent required field (`bugs_open/342`). The estate handles this at a *better*
+layer than a per-template guard, and has two tests asserting it.
+
+**The instructive part is that my measurement was RIGHT and my explanation was WRONG.** Zero live
+occurrences is exactly what you see when the platform strips the string. I read it as *"writers
+reliably fill every key"* — a story about writer behaviour — and never asked the other question the
+same zero raises: *does something remove it?* **A number is consistent with every mechanism that
+would produce that number**, and I had already logged this exact error twice today (reasoning from
+my change's intent instead of measuring; and taking an absence as evidence about an instrument).
+Third time, third costume.
+
+**The check I skipped costs one command**, and I ran a dozen more expensive ones that day:
+```bash
+grep -rn '<no value>' --include=*.go platform internal   # returns the strip, the reporting, and two tests
+```
+**Before filing a FLEET-WIDE landmine, grep for whether the platform already handles the thing.**
+The bar for a landmine is "would a session touching this get it wrong without the entry" — and here
+they would *not*, because the platform protects them. **A landmine about a solved problem is worse
+than no entry:** it is the phantom-miss failure the `305` lane described the same day — a warning
+people learn to skip, which costs the entries that are real.
+
+**What I did about it:** retracted the entry in place rather than deleting it — the next person who
+sees `<no value>` in a render will come looking for exactly this and must find the correction, not
+silence — corrected all three migration headers and their exception messages, and recorded that one
+`grounded_in` item in the in-flight council submission (`c134b0e9`) is false. The `{{if}}` guards
+stay, downgraded from "prevents a live defect" to "hygiene": a deliberate empty element beats
+relying on a downstream string replace, and that is a style preference, not a fix.
+
+⚠ **Also corrected: "49 exposed templates".** Those 49 do use `{{range}}`; they are not *exposed* to
+anything, because they render through the same strip. The number was real and the word was not —
+the same shape as this lane's earlier "34 list-capable components sat available", where the count
+was true and the implication was not.
