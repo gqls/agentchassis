@@ -54,28 +54,43 @@ echo "  Orchestration:  ${ORCHESTRATION_ID}"
 echo "  Request:        ${REQUEST_ID}"
 echo "  Time:           ${TIMESTAMP}"
 echo ""
-echo "  SAVE THIS: CORRELATION_ID=${CORRELATION_ID}"
 echo ""
 
-kubectl -n kafka run -i --rm kcat-rerender-noted-$(date +%s) \
-  --image=edenhill/kcat:1.7.1 \
-  --restart=Never -- \
-  kcat -P -c 1 \
-  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
-  -t system.agent.generic.requests \
-  -H correlation_id=$CORRELATION_ID \
-  -H orchestration_id=$ORCHESTRATION_ID \
-  -H request_id=$REQUEST_ID \
-  -H message_id=$MESSAGE_ID \
-  -H message_type=request \
-  -H client_id=$CLIENT_ID \
-  -H action=orchestrate \
-  -H sender_agent_type=cli \
-  -H sender_agent_id=cli-user \
-  -H responses_topic=system.agent.generic.responses \
-  -H timestamp=$TIMESTAMP <<JSON
+# Payload lifted from the heredoc; delimiter left UNQUOTED so ${VAR} still expands.
+PAYLOAD_327=$(cat <<JSON
 {"action":"orchestrate","config":{"agent_type":"rerender-pages"},"input_data":{"site_id":"$SITE_ID","domain":"$DOMAIN","refresh_site_components":false}}
 JSON
+)
+
+REPO_ROOT_PUB="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "$REPO_ROOT_PUB" ] || [ ! -f "$REPO_ROOT_PUB/scripts/kafka-publish-lib.sh" ]; then
+  echo "ERROR: scripts/kafka-publish-lib.sh not found — refusing to publish unverified (bugs_open/327)." >&2
+  return 1 2>/dev/null || exit 1
+fi
+. "$REPO_ROOT_PUB/scripts/kafka-publish-lib.sh"
+
+PUBLISH_RC=0
+kafka_publish_checked \
+  --topic system.agent.generic.requests \
+  --correlation "$CORRELATION_ID" \
+  --payload "$PAYLOAD_327" \
+  --header "orchestration_id=$ORCHESTRATION_ID" \
+  --header "request_id=$REQUEST_ID" \
+  --header "message_id=$MESSAGE_ID" \
+  --header "message_type=request" \
+  --header "client_id=$CLIENT_ID" \
+  --header "action=orchestrate" \
+  --header "sender_agent_type=cli" \
+  --header "sender_agent_id=cli-user" \
+  --header "responses_topic=system.agent.generic.responses" \
+  --header "timestamp=$TIMESTAMP" || PUBLISH_RC=$?
+
+if [ "$PUBLISH_RC" -ne 0 ]; then
+  echo "NOT DISPATCHED — no site rerender will run (bugs_open/327)." >&2
+  exit "$PUBLISH_RC"
+fi
+
+echo "  SAVE THIS: CORRELATION_ID=${CORRELATION_ID}"
 
 cat <<'NOTES'
 

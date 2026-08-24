@@ -56,14 +56,35 @@ msg = {"headers": {"correlation_id": corr, "orchestration_id": orch, "request_id
 print(json.dumps(msg, separators=(",", ":"), ensure_ascii=False))
 PY
 )
-  kubectl -n kafka run -i --rm --quiet "kcat-em-$(date +%s)-$RANDOM" \
-    --image=edenhill/kcat:1.7.1 --restart=Never -- \
-    kcat -P -c 1 -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
-    -t system.agent.generic.requests \
-    -H correlation_id=$C -H orchestration_id=$O -H request_id=$R -H message_id=$M \
-    -H message_type=request -H client_id=$CLIENT_ID -H action=process \
-    -H sender_agent_type=cli -H sender_agent_id=cli-user \
-    -H responses_topic=system.agent.generic.responses -H timestamp=$T >/dev/null <<<"$BODY"
+  REPO_ROOT_PUB="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -z "$REPO_ROOT_PUB" ] || [ ! -f "$REPO_ROOT_PUB/scripts/kafka-publish-lib.sh" ]; then
+    echo "ERROR: scripts/kafka-publish-lib.sh not found — refusing to publish unverified (bugs_open/327)." >&2
+    return 1 2>/dev/null || exit 1
+  fi
+  . "$REPO_ROOT_PUB/scripts/kafka-publish-lib.sh"
+
+  PUBLISH_RC=0
+  kafka_publish_checked \
+    --topic system.agent.generic.requests \
+    --correlation "$C" \
+    --payload "$BODY" \
+    --header "orchestration_id=$O" \
+    --header "request_id=$R" \
+    --header "message_id=$M" \
+    --header "message_type=request" \
+    --header "client_id=$CLIENT_ID" \
+    --header "action=process" \
+    --header "sender_agent_type=cli" \
+    --header "sender_agent_id=cli-user" \
+    --header "responses_topic=system.agent.generic.responses" \
+    --header "timestamp=$T" || PUBLISH_RC=$?
+
+  if [ "$PUBLISH_RC" -ne 0 ]; then
+    # In-function, inside the per-target sweep: fail THIS target and let the caller
+    # decide, rather than tearing down a sweep that may have already done real work.
+    echo "NOT DISPATCHED — this email-sweep edit will not run (bugs_open/327)." >&2
+    return "$PUBLISH_RC"
+  fi
   for i in $(seq 1 40); do
     st=$("${PSQL[@]}" -c "SELECT status||'/'||current_step FROM orchestration_states WHERE correlation_id='${C}'::uuid LIMIT 1;" 2>/dev/null | tr -d '[:space:]')
     case "$st" in COMPLETED/*) echo "    -> $st"; return 0;; FAILED/*) echo "    -> $st"; return 1;; esac
