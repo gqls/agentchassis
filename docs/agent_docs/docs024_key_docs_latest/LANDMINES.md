@@ -2899,6 +2899,29 @@ stage-2 template as well, or the exposure returns silently on the next rebuild.
 > the dropped symbol was **2 KB**, and it was dropped because the *others had already eaten
 > the budget*. So `wc -c` on each named file can come back clean, in this case by a factor
 > of two, while the run is already doomed.
+> **⚠ FURTHER CORRECTED 2026-08-24 — CHECKING AFTER THE FIRST BUNDLE IS NOT ENOUGH EITHER.**
+> The 2026-08-12 banner's remedy ("read the budget line after the first bundle") is necessary
+> and still not sufficient, because **the loop widens its OWN scope between iterations**: a run
+> can pass the check at bundle 1 and exhaust the budget at bundle 3, on symbols you never named.
+> Measured this date (`bugfix_206`, run `0f5a40da-68aa-4d89-a957-3694882c268b`), a **single-symbol**
+> symptom — exactly what the banner above prescribes — produced bundle 1 at 55,682 chars clean,
+> bundle 2 at 118,055 clean, and **bundle 3 truncated** (`10172 chars, and 57580 of the 60000
+> already spent`). The item then reached `status='complete'` with **zero** non-bundle artifacts:
+> no verdict, no iteration_note, nothing. So a one-symbol scope does not guarantee a verdict, and
+> a green check at bundle 1 is a snapshot, not a licence.
+> **What this means in practice: budget exhaustion is a property of the RUN, not of your symptom,
+> and you cannot predict or prevent it from the trigger side.** Re-check the budget line at EVERY
+> new bundle if you are waiting, and treat `status='complete'` with no non-bundle artifact as the
+> terminal answer — the query that settles it in one line:
+> ```sql
+> SELECT (SELECT count(*) FROM diagnosis_artifacts WHERE correlation_id='<RUN_CORR>' AND kind <> 'bundle') AS verdict_artifacts,
+>        (SELECT status FROM site_work_items WHERE spec->>'dispatch_correlation_id'='<RUN_CORR>') AS item_status;
+> ```
+> `0 | complete` ⇒ the run is over and produced nothing. **Two runs on this symptom, two no-verdicts**
+> (the first multi-symbol and doomed at bundle 1, the second single-symbol and doomed at bundle 3),
+> so for a mechanism living in these files, plan on the owner ruling's declared-substitute path from
+> the start rather than budgeting time for a verdict that may not be obtainable at all.
+
 > **The check that actually discriminates is the budget line itself, and it is only
 > readable AFTER the first bundle lands (~2 min), not before:**
 > ```sql
