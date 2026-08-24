@@ -116,6 +116,30 @@ it left `value` null and put the range in the writer_line, rather than picking a
 as "the" figure. That is the correct handling of a range, and it is inconsistent with run 5 — so
 it is a behaviour to verify per run, not to rely on.
 
+#### REACHABILITY GATE: PASSED, measured 2026-08-24
+
+The defect this rebuild was commissioned to fix, verified with the same crawl used to measure the
+retired site:
+
+| explainer | on the hub | inbound links |
+|---|---|---|
+| hydroponic-solution-chemistry | yes | 1 |
+| insect-bioconversion | yes | 1 |
+| seaweed-and-the-carbon-question | yes | 1 |
+| stacking-agricultural-scheme-actions | yes | 4 |
+| the-physics-of-horticultural-lighting | yes | 3 |
+| vapour-pressure-deficit-and-transpiration | yes | 3 |
+
+**Six of six listed on `/guides/index.html`. Zero orphans.** Compare the retired site on the same
+measure: `/guides/vapor-pressure-deficit.html` reachable from no index at all, three calculators
+absent from the tools index, one absent from the home page, and eleven live pages missing from the
+sitemap.
+
+Getting here cost three corrections, all recorded in NOTES: a list component paired with the wrong
+page type (my depth decision), an edit to `pages.sections` that the pipeline reverted because the
+authority is `site_plan_sections`, and a rerender that could never work because `blog-listing`
+caches its resolved article list in `content_data`.
+
 #### DEPTH GATE: PASSED, measured 2026-08-24
 
 All six built and `deployed`, three components each. Word counts of rendered components against
