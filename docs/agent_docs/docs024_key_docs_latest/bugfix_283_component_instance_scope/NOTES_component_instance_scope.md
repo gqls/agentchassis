@@ -1891,3 +1891,29 @@ else on Half B is committed, approved, and inert until the next image roll.
   not the whole pipeline; there was a triage sweep between the two states.** Reading one arm of
   a system and inferring the whole is what the estate's own "cite the ARM, not the function"
   lesson is about, and I nearly spent a hand-written UPDATE on it.
+
+### ⚠ NEAR-MISS 3 — I was one step from reporting "the dispatch trigger has stopped", and the clock was mine
+
+The three repair items sat at `triaged` for 95 minutes. Investigating rather than waiting, I read
+`scheduled_tasks` and saw `build-pipeline-trigger` with `last_completed_at` at **16:59** against a
+shell clock reading **18:00** — a 60-second-interval task apparently an hour dead. That is a
+fleet-level incident and I was about to say so.
+
+**The database reports UTC and this machine's shell is BST.** 16:59 UTC *is* 17:59 local; the
+trigger had completed **34 seconds** earlier. The tell was in the same row and I had not asked for
+it: `age(now(), last_completed_at)`, computed inside the database, which is immune to whose clock
+you are holding. Selecting `last_completed_at::time(0)` and eyeballing it against `date` compares
+two different frames and looks perfectly reasonable.
+
+**The check:** never eyeball a DB timestamp against a local clock — ask the database for the
+interval. `SELECT age(now(), last_completed_at)` or `now() - last_completed_at`. And if a
+scheduled task looks dead, confirm with a second, independent signal before escalating: here it
+was *"85 `page_rerender` items completed fleet-wide in the last 20 minutes"*, which settles
+"is the pipeline moving" without reference to any clock at all.
+
+**What was actually true, measured:** the trigger fires every 60s and is healthy; my items are
+correctly shaped (`pipeline='build'`, matching the 820 items that completed today); neither site
+is locked (`locked_at IS NULL`, the trigger's own precondition); and there is simply a **225-item
+`triaged` backlog** drained at `max_items: 5` per site per pass. Nothing was wrong. The
+`detected-item-promoter` sweep had already promoted my rows four minutes after filing, which is
+also the answer to NEAR-MISS 2's sibling worry above.
