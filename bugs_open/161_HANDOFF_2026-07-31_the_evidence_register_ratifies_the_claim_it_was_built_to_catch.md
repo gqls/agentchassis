@@ -4,6 +4,64 @@
 §1 (149's C1 recognition gap). It answers §1's question and **falsifies two of its three
 fix candidates**, so read this before acting on that file.
 
+> ## STATUS 2026-08-24 — thread resumed; step 6 VERIFIED AT THE SERVED URL; the structural fix went and came back ratified, built, live and (today) driven
+>
+> The 07-31 thread went quiet after the status block below; no commit has touched this
+> file since. Resumed 2026-08-24. What has happened since 07-31, verified today rather
+> than carried forward:
+>
+> **1. Step 6 (the served pages) is DONE — verified at the served URL, with controls.**
+> All 6 affected pages have `deployed_at` between 2026-08-19 and 2026-08-23, well past
+> the 15:28 repair. Curled the live site 2026-08-24: the false claim ("10,000 Monte
+> Carlo trials per query" / any 10,000-adjacent Monte Carlo attribution) is absent from
+> all six. Controls: an invented URL returns **404** (the domain genuinely serves — not
+> parked); the deliberately-spared `tool-loot-table-balancer-guide` still carries its
+> honest technique-teaching mentions ("Run Monte Carlo simulations across at least
+> 10,000 simulated players" — reader advice, not a claim about our tools), proving the
+> grep sees what is there; and `tool-spawn-rate-balancer-guide`'s one remaining mention
+> is the corrected copy stating the tools compute the distribution exactly *rather
+> than* sampling. So the per-site defect is fixed AND live AND served.
+>
+> **2. Fix candidate 3 became RFC_025 and is ratified, council-approved, and live.**
+> `architecture_review/RFC_025_artifact_sourced_facts_are_trusted_once_registered.md`
+> (opened and RATIFIED 2026-08-12 by the portfolio_positioning lane; council APPROVED
+> round 2, corr `9fd94852-ff79-496b-96b5-78a8d3619162`) shipped BOTH halves of
+> candidate 3: **stage 1** — the `stale_evidence`-style cadence item for prose-sourced
+> facts, as a 180-day `stale_attestation` nudge on `attested_by` facts; **stage 2** —
+> `source.artifact_check`, the grep-shaped assertion (`component_id` + `pattern` +
+> `must_be_present`) that lets an artifact-sourced fact fail like a sql-sourced one.
+> Live on the fleet since chassis v1.0.1295, 2026-08-13, pod-verified per that RFC's
+> §10. The council's round-1 REVISE also closed this file's own landmine *inside* the
+> mechanism: a bare-numeric pattern (the `10000`-matches-`100000` trap from "Traps this
+> cost me") is refused at parse time.
+>
+> **3. The residual found on resumption: the mechanism had never been driven.** Measured
+> 2026-08-24: **zero** facts fleet-wide carried `artifact_check`, and no
+> `stale_attestation` item has ever been raised (expected — every attested fact is
+> younger than 180 days; earliest possible firing ~2027-01). RFC_025 §5.3's own staged
+> plan names the canary: retype `gd-trials` itself with a real check on the input-clamp
+> line. **Migration `585_bug161_arm_artifact_check_canary_on_gd_trials.sql`** (this
+> session, council corr `a9e1a0de-ff04-4193-83dc-ad67f2d4d83d`) does exactly that:
+> pattern `Math\.min\(val,\s*10000\)` against tool-drop-rate-simulator's hero component
+> `15f1f798-51fb-41d0-8a07-18148b39a293` (still untouched since 2026-06-05; still zero
+> `Math.random` — the decisive negative holds). The daily `evidence-freshness` sweep
+> covers gamesdesign despite its zero sql facts (`resolveEvidenceSites` has no sql
+> filter — the "structurally blind to 4 of 9 registers" finding below was about what
+> the sweep could *check*, not which sites it visits, and stage 2 is what makes the
+> visit able to check something). `verified_at` is deliberately left at 2026-07-31 so
+> the first sweep's bump is a demand-control proof the check ran.
+>
+> **4. Blast radius re-censused, because the 07-31 count is stale by growth: 19
+> registers, 294 facts as of 2026-08-24** (was 9/102). Of the 262 non-sql facts, 185
+> are `citation`-sourced (machine-reverified every sweep via V5), 133 `attested_by`
+> (nudged at 180 days via stage 1), and **28 are `artifact`-sourced with no
+> `artifact_check` yet** — the remaining adoption surface, deliberately human-paced
+> per the ratified RFC ("facts are retyped per-site, not migrated in bulk").
+>
+> **CLOSE CRITERIA: apply 585 after its council verdict, dispatch/await one
+> evidence-freshness pass on gamesdesign, confirm `verified_at` bumped (check ran,
+> passed), then move this file to `bugs_closed/` and mark RFC_025 IMPLEMENTED.**
+
 > ## STATUS 2026-07-31 (later) — FIXED AT SOURCE AND ARMED. Open only until the served pages catch up.
 >
 > Owner authorised the repair ("take on bugs_open/161") and chose the **coherent rewrite**
