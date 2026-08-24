@@ -342,3 +342,61 @@ trigger** (only `trg_cc_refuse_null_section_type`) and no schema history, so **t
 date or attribute a change** — a writer that omits the stamp is invisible for ever. That is now a
 fleet-wide `LANDMINES.md` entry filed by the editorial lane with this lane's trigger census
 credited, and it was true whichever hypothesis won.
+
+## 2026-08-24 — the second half: building the three components, and a fourth that reuse deleted
+
+The owner asked for the missing components. Three built, one deliberately not.
+
+**`mechanism-flow` (VIZ-006) removed the "steps" component before I wrote a line of it.** It already
+draws an ordered process with decision branches. A checklist is a different shape — unordered, each
+item independently true, no flow between them — and a calendar is a third: **periods do not cause
+one another**, and a reader jumps straight to the one they are in, so rendering a calendar as a
+mechanism would imply a dependency that is not there. Reading the closest neighbour first is what
+turned four components into three, and it took one query.
+
+**247's header is the best template in the estate for this kind of work** and I followed its three
+rules: no numeric slot where a number would be invented (the absence IS the control); text as HTML
+never `<svg>` (text inside an svg is invisible to the claims gate); contrast measured against the
+ACTUAL background, with `--color-border` failing 3.0 on a real palette. The third could not be
+applied literally — these ship fleet-wide, so there is no single palette to measure — and the
+substitute is stated in the headers rather than skipped: comprehension never depends on a hairline.
+
+**The comparison table is where the honesty problem lives, and I could not design it away.** 247's
+rule 1 says remove the slot that invites invention — but a comparison component with no comparable
+cells is not a comparison component. So: no price/rating/score/rank field exists (asserted by
+regex over the schema in the verify block), cells are free text under rule 14, the guidance repeats
+the prohibition at the point of writing, and a `source_note` field makes an unsourced comparison
+*visible*. The header says plainly that a prompt instruction is not a control and that the real
+dependency is `bugs_open/380`. **That is the most I could do at this layer and the header says so
+rather than implying more.**
+
+## 2026-08-24 — ⚠ MISSTEP 4, and the worst-shaped one: I filed a fleet-wide landmine about a solved problem
+
+Rendering the templates showed an absent per-item key producing the literal `<no value>`. I measured
+the fleet — 0 live occurrences, control 1,907 — guarded everything, wrote it into three migration
+headers, **filed a `LANDMINES.md` entry**, and put it in a council submission as a defect found.
+
+**`RenderTemplate` strips it** (`component_library.go:1258`), on the live path, and
+`missingBareFields` reports the empty fields **by name at Error level** immediately above the strip
+(`bugs_open/018`: 30 dead controls shipped on idea.uk under a count-only Warn), with
+`missingRequiredLLMFields` gating an absent required field (`bugs_open/342`). Two tests assert it.
+The estate handles this **better than my per-template guards do**.
+
+**My measurement was right and my explanation was wrong.** Zero live occurrences is exactly what
+you see when the platform strips the string. I read it as *"writers reliably fill every key"* — a
+story about writer behaviour — and never asked the other question the same zero raises: **does
+something remove it?** A number is consistent with every mechanism that would produce that number.
+
+**Third time today, third costume.** Reasoning from my change's intent instead of measuring; taking
+an absence as evidence about a peer's instrument; and now taking a zero as evidence about writers.
+The check I skipped costs one command — `grep -rn '<no value>' --include=*.go platform internal` —
+and I ran a dozen dearer ones that afternoon.
+
+**Retracted in place, not deleted.** The next person who sees `<no value>` in a render will come
+looking for exactly that entry and must find the correction rather than silence. The guards stay,
+downgraded from "prevents a live defect" to hygiene. And the `305` lane's warning from the same day
+turned out to be about me: **a landmine about a solved problem is the phantom-miss failure** — a
+warning people learn to skip, which costs the entries that are real.
+
+⚠ One `grounded_in` item in the in-flight council submission (`c134b0e9`) asserts the false version.
+It cannot be amended mid-round, so it is recorded here, in `WRONG_CALLS.md` and in the commit.

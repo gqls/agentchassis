@@ -143,3 +143,36 @@ better, and that is the next piece of work rather than something I have quietly 
 including the parts that would have failed silently. What I have not yet seen is a page built under
 the new instructions, because no build has happened since. That still needs one build to watch, and
 it is still your call which.
+
+---
+
+**2026-08-24, evening — the components you asked for.** Three built: a **checklist**, a
+**month-by-month calendar** (generic over any period — months, quarters, seasons), and a
+**comparison table** that turns into readable stacked blocks on a phone instead of a squashed grid.
+
+**One I did not build, and that is the useful part.** I was going to build four. Before writing
+anything I read the closest existing component and found `mechanism-flow` already draws a
+step-by-step process. So a "steps" component would have been a near-duplicate — the exact thing that
+makes a library harder to choose from rather than easier. Three components, not four, because I
+looked first.
+
+**The thing I want to flag honestly is the comparison table.** A table is where a writer most wants
+to invent a price or a star rating, and about two-thirds of our sites have no verified-facts record
+for anything to be checked against. So I built it with **no price field, no rating field, no score
+field — none exists to fill** — and the instructions tell the writer at the point of writing not to
+state figures it has not been given. That is genuinely the most the component itself can do. It is
+not a guarantee, and I have written that into the file rather than letting it read as solved. The
+real answer to that problem is another thread's work, and I have said so.
+
+**A mistake worth telling you about, because it is the same one three times.** While testing, I
+found the templates producing a stray placeholder string when a field was missing, measured that it
+never appears on any live page, and concluded our writers must simply be reliable. Wrong: it never
+appears because **the platform already strips it**, which one command would have told me. I had the
+number right and the story wrong — and I had made that same error twice earlier in the day. I have
+withdrawn the warning I filed about it, kept the correction where the next person will find it, and
+written up why the check I skipped was the cheap one.
+
+**Where this leaves you.** The framework can now plan a month-by-month page, know it has a calendar
+to build it with, and have the writer fill twelve real months instead of four seasons of prose. What
+has not happened is a real build using any of it — the components are seeded and reviewed, not yet
+exercised on a live site. That is still the one thing I need from you: a build to watch.
