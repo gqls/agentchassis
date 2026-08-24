@@ -6472,3 +6472,55 @@ nothing" into the acceptance record and then defend it. `GOLDEN_2026-08-17` also
 for a second, unrelated reason the 08-23 notes already found (FAQ headings changed in the
 08-17 19:00 re-deploy). **Re-baseline after the page is repaired, not before** — the order is
 not a preference, it is the gate.
+
+### The repair landed, and the golden is re-baselined — with one wrong call of my own on the way
+
+Owner ruled: repair by hand now, re-baseline after. Both done, both verified at the artefact.
+
+**The delete.** One row (`3fd2639d…`), inside a transaction whose `WHERE` asserted every
+distinguishing property (`component_id IS NULL AND locked_at IS NULL AND position=6 AND
+slot_name='tool-2' AND md5(rendered_html)='be85284e…'`) so it could not reach the locked row,
+followed by a `DO`/`RAISE` block — deliberately not a block of `SELECT`s, which
+`ON_ERROR_STOP` ignores and which therefore cannot stop a `COMMIT`. Guards: 5 rows remain, the
+locked row still locked, its bytes unchanged, its `updated_at` still `2026-08-02
+23:01:02.947526+00`. `DELETE 1`, all guards passed.
+
+**Recoverability was verified, not assumed:** `trg_page_component_artefact_archive_del` wrote
+the row to `page_component_history` (`op=delete`, `source=artefact_archive_trigger`, md5
+`be85284e…`).
+
+**A check worth copying, made BEFORE the redeploy ran:** `pages.sections` is a materialised
+cache that LOCK-008 merges locked rows into, so a stale sixth entry there would have let the
+assemble re-materialise the duplicate and made the repair look done. [MEASURED] it held **5**.
+
+**Then the assemble-only redeploy** (`98529d02…`, **no `spec.reason`** — `section_data_resolved`
+is the route `bugs_closed/189` warns reproduces this, and it would rewrite 51 prose rows here).
+Completed 19:04:33, commit `e1becb2a` to `gqls/sites`.
+
+⚠ **AND HERE I GOT SOMETHING WRONG, recorded in `WRONG_CALLS.md`.** I curled at ~19:06, saw the
+old bytes and `last-modified: 16:51:46`, and told the owner *"the bucket wasn't updated"*. It
+had been: the `Deploy to B2` workflow logged `upload tools/loan-vs-savings.html` at
+**19:04:57**. I sampled inside the propagation window. What made it persuasive is worth
+keeping: every OTHER page read `19:04:5x` and this one alone read `16:51:46`, which looks like
+*"the sync touched all of them and skipped mine"* — and is actually **position in the sweep**.
+A one-shot comparison against peers who share the confound is not a control. The lane's own
+standing caution (*"a single 404 sampled during a rerender wave proves nothing; re-sample"*)
+covers this exactly; I had read it that morning and applied it only to status codes.
+
+**Verified state, [MEASURED 2026-08-24]:**
+
+```
+served bytes  sha256 e3d2da2b… == the committed file, exactly     (was d30d112c…, 57,349 B)
+duplicate ids 0        (was 11)
+harness       react=5  vary=5  12 fields — identical to the 08-17 golden's own record
+divergences   8, ALL the cosmetic c-faq container rename; zero controls, zero numeric
+```
+
+**Re-baselined:** `acceptance/GOLDEN_2026-08-24_post_385_repair_tool_values.json`, all 11 URLs,
+written only after `--selftest` passed. **Proven to reproduce: a fresh `--compare` against it
+returns `all 11 tools reproduce their golden values exactly`, exit 0.** A golden that has not
+been compared against once is a file, not a baseline.
+
+⚠ **The 08-17 golden is superseded but NOT wrong** — keep it. It is the only record of the
+pre-rebuild values, and it is what proved `385` was a regression rather than a long-standing
+fault (`react=5` there against `react=0` live).

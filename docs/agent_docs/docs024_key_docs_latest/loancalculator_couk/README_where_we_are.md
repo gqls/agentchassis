@@ -2381,3 +2381,45 @@ the page is repaired, not before.
 
 **So there is one thing I would like a decision on**, and it is in the next message: whether
 to repair that page now by hand, or wait for the diagnosis to name the cause first.
+
+**Later the same day — the page is fixed and the reference snapshot is retaken.**
+
+The repair went through as you approved it. I removed the duplicate copy of the calculator
+from the database — with guards written so the command could not possibly have hit the
+protected copy instead, and having first confirmed the deleted row is recoverable if it ever
+needed to be — and then asked the framework to republish the page.
+
+**"Pay Off Loan or Save?" now has one calculator on it, and it works.** The page the public
+gets is byte-for-byte the file the system generated, it has no duplicated parts, and the
+checking tool now reads it exactly as it read it before the damage: five outputs responding,
+all five moving when the inputs change. Nothing about the page's sums has changed — the only
+difference the checker reports against the old snapshot is a cosmetic renaming of the FAQ
+box's internal label, which every page on the site has.
+
+**The reference snapshot has been retaken** across all eleven calculators, and — this is the
+part that makes it worth anything — I then ran the checker back against the new snapshot and
+got eleven out of eleven exact matches. A snapshot nobody has ever compared against is just a
+file.
+
+**One thing I got wrong, and I would rather tell you than let it sit in a log.** After the
+republish I checked the live page too quickly, saw the old version still being served, and
+told you the publishing step had failed. It had not — it had succeeded about ninety seconds
+earlier and I caught the site mid-update. I then spent a few minutes investigating a problem
+that did not exist before re-checking and finding the page correct. What made me confident was
+that every other page showed a fresh timestamp and this one did not, which looked like the
+update had skipped it; it actually just meant my file had not come up in the queue yet. It is
+written up properly in the lane's wrong-calls log, because the useful lesson is small and
+general: **when you are checking whether something published, the check has a clock on it —
+look twice before concluding.**
+
+**Where that leaves the site.** Twenty-eight pages, all loading, no broken addresses, the
+Guides link everywhere, and all eleven calculators verified to compute exactly what they
+computed before — this time with a checking tool that can prove it is working before it
+passes judgement on anything.
+
+**What is still open** is *why* the duplicate was created in the first place. The rebuild that
+did it got the other nine pages right, and the obvious explanation — a bug we closed three
+days ago — I have tested and ruled out. That is written up as `bugs_open/385` for whoever
+picks it up, with the damage fully measured and the cause honestly marked unknown rather than
+guessed at. Nothing is broken while it stays open; the risk is that the next rebuild of a
+protected calculator page could do the same thing again.

@@ -49589,3 +49589,44 @@ independent ways to get a zero that means nothing.
   entries are about a check you RAN that could only return one answer. This is about a check you never
   ran because somebody else's confidence stood in for it. Same outcome — a false belief wearing the
   clothes of a verified one — different door in.
+
+## 2026-08-24 — I diagnosed a publish-pipeline failure that had already succeeded ninety seconds earlier (`loancalculator_couk`, `bugs_open/385` repair)
+
+**The claim, written in chat to the owner:** *"The git commit landed but the origin object is
+from 16:51 — two hours before. The bucket wasn't updated."*
+
+**What was true:** the commit landed at 19:04:29, the `Deploy to B2` workflow ran at 19:04:31,
+and it logged `upload tools/loan-vs-savings.html` at **19:04:57**. My `curl` was at ~19:06 and
+returned the OLD object — `last-modified: 16:51:46`, old bytes, the duplicate calculator still
+there. Re-fetched a few minutes later: the served bytes were sha256-identical to the committed
+file, `last-modified: 19:04:57`, zero duplicate ids. **Nothing was wrong with the pipeline. I
+sampled inside the propagation window and read the snapshot as a state.**
+
+**What caught it:** re-sampling, eventually — but only after I had spent four tool calls
+diagnosing a publish fault, including reading the workflow definition and its logs. The log is
+what refuted me, and it was the third place I looked rather than the first.
+
+**The cheap check that would have:** the lane's OWN standing caution, in the handoff I had read
+at the start of the session — *"a single 404 sampled during a rerender wave proves nothing;
+re-sample."* I applied it to 404s and did not generalise it to bytes. **Re-sample before
+diagnosing the pipeline, not after.**
+
+**Why the false reading was so persuasive, which is the transferable part.** I had a
+discriminating-looking measurement: every OTHER page showed `last-modified: 19:04:5x` and this
+one alone showed `16:51:46`. That asymmetry reads as *"the sync touched all of them and skipped
+mine"* — a specific, mechanical-sounding fault. It was actually just **ordering**: the sync
+uploads file by file, and I caught the bucket mid-sweep with my file not yet rewritten. **A
+difference between one item and its peers, sampled once during a sweep, is evidence of POSITION
+IN THE SWEEP before it is evidence of exclusion from it.** The comparison against peers felt
+like a control and was not one — every peer shared the confound (they were all mid-sweep too),
+so the reading could not have come out any other way at that instant.
+
+**Also worth stating: `cf-cache-status: DYNAMIC` did not mean I was seeing current origin.** I
+read that header as proof the response was not cached, and therefore as proof the origin itself
+was stale. It licenses neither.
+
+**Tally note:** this is another instance of the standing family *"trust the rendered artefact,
+not the status"* — but inverted, and the inversion is why it is worth its own row. The usual
+failure is believing a green status over a bad artefact. Here the status (`complete`,
+`success`) was **right** and my artefact reading was **wrong**, because I sampled the artefact
+at the wrong moment. **An artefact check has a clock on it too.**
