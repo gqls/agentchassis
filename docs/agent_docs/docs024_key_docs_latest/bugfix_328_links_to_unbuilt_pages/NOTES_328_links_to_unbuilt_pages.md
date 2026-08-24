@@ -494,3 +494,75 @@ spot (no `ActionInputSpec`, so migration 575 arms a key nothing audits); the cro
 (**RFC_049**'s subject); and `bugs_open/049`, which `bug_historian` notes is titled almost identically
 to this bug's premise and which I cited but never reconciled in detail — worth ten minutes from
 whoever picks this up.
+
+## 2026-08-24 — the roll landed: Go proven live, 575 applied, canary fired
+
+**Chassis `v1.0.1334`**, both pods created 2026-08-24 15:39Z.
+
+### The Go is live, and the instrument was controlled
+
+The `build provenance` startup line had already scrolled out of `--tail=3000` — expected, and per
+CLAUDE.md an empty result there means *"not in range"*, not *"unstamped"*. So the binary probe, on
+**both** replicas, with a control pair in the same run:
+
+| probe | fr8dn | xl2zk | meaning |
+|---|---|---|---|
+| `repairOutboundPageLinks` | PRESENT | PRESENT | positive control — must be present |
+| `suppressUnshippedOutboundLinks` | **PRESENT** | **PRESENT** | the fix |
+| `PageLinkRefusedPredicateFor` | **PRESENT** | **PRESENT** | the fix |
+| `CONTENT_LINK_SUPPRESSED_UNSHIPPED` | **PRESENT** | **PRESENT** | the fix |
+| `zzzNotARealSymbol328zzz` | absent | absent | negative control — must be absent |
+
+The controls are the point: without them a PRESENT on every line is indistinguishable from a grep
+that matches everything, and an absent is indistinguishable from a blind instrument.
+
+### 575 applied by hand, and read back independently
+
+`SELECT 5` (all five runtime rows found) → 5 snapshots captured → `UPDATE 2` + `UPDATE 1` +
+`UPDATE 2` → `$post$` passed → `COMMIT`. Recorded in `schema_migrations` as `record-only`.
+
+Then read back with a query the migration does not contain — all five seam steps carry
+`suppress_unshipped_links=true`, and `page-rerender.rerender_sections` correctly carries **ABSENT**
+(it is not a seam; it flows onward to `render_page`).
+
+### ⚠ THE CENSUS GREW OVERNIGHT, exactly as the bug file predicted
+
+| measured | 2026-08-23 | 2026-08-24 |
+|---|---|---|
+| anchors suppressed | 36 | **48** |
+| referring pages | 24 | **28** |
+| unservable targets | 14 | **16** |
+| anchors kept (control) | 3,193 | **3,379** |
+
+**+12 dead anchors in a day**, and a site that did not exist in yesterday's census —
+`garden-tools.uk` — arrives with **9 of them across 4 pages**. This is the bug file's self-fuelling
+property measured on this lane's own numbers: *"the count is not stable; it grows with
+productivity."* Anyone quoting the 36 without re-running it is already wrong.
+
+### Phase 1c reshaped by what the data said — 28 dispatches were not needed
+
+The plan said "file `page_rerender` for the 24 pages". Before doing it I looked at how stale they
+actually are, because **re-rendering a page pulls in every platform change since it last rendered,
+not just mine** — a real risk on customer sites. The spread:
+
+- **26 of 28 rendered TODAY**, most within the last two hours.
+- 2 are stale: `leopardessconsulting/case-study-data-pipeline-companies-house` (114 days,
+  `needs_rebuild`) and `pool-ai-agents.internal/about` (never deployed, so not serving anyway).
+
+So the fleet's own cadence will carry almost all of this within a day, and a 28-page dispatch would
+be churn plus 26 unnecessary chances to pull in unrelated drift. **Every one of those renders
+happened BEFORE the flag went live at 16:07Z**, so none of them has had suppression applied yet —
+which is exactly what makes the next natural render the test.
+
+Canary instead: **loanzy.uk `index`** — the bug's headline instance, rendered today at 14:08Z, so
+minimal accumulated drift. Item `b18a0287`, filed at `triaged` with `spec.page_name` present (the
+landmine: *a page-rerender dispatched without `spec.page_name` throws away everything it
+re-renders*), honest provenance (`source='manual'`, `created_by='bugs_open/328 lane'`).
+
+**Served BEFORE state, captured for the comparison:**
+
+```
+5 href="/calculators.html"        <- positive control, must SURVIVE
+2 href="/your-rights.html"        <- must GO
+1 href="/guides/index.html"       <- must GO
+```

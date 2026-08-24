@@ -114,3 +114,42 @@ the one thing I expect them to object to: this is the third time we have solved 
 problem with a purpose-built piece rather than a general one, and our own records flagged after the
 second time that the third should probably prompt a wider rethink. I do not think that should stop
 this fix, but it should be said by me rather than found by them.
+
+## 2026-08-24 — the new build is out, the switch is on, and the first test page is queued
+
+The platform rebuild landed this afternoon, so the three things that were waiting on it have now
+happened.
+
+**First, I checked the new code is genuinely running** rather than assuming it because a build went
+out. The service normally announces which version it is at startup, but that message had already
+scrolled off, so I asked the running program directly on both machines — and, importantly, asked it
+two control questions in the same breath: one thing that must be there and one thing that cannot
+possibly be there. Both machines answered correctly on all five checks. Without those controls a
+row of "yes" answers is worthless, because a broken instrument says yes to everything.
+
+**Second, I switched it on.** That is a small database change I had deliberately held back so it
+could not go live before the code that reads it. It backed up all five affected settings first, made
+the change, checked its own work, and I then read the result back with a different query than the one
+inside it. All five are on.
+
+**Third, the problem got measurably worse overnight, which is the clearest evidence yet that this
+needed fixing.** Yesterday there were 36 dead links across 24 pages. Today there are **48 across 28**
+— and a site that did not exist in yesterday's count, garden-tools.uk, arrives with nine of them on
+four pages. The bug report predicted exactly this: the count grows with how much work the platform
+does, because every new page the framework writes can add another link to a page that was never
+built. It is not a backlog that sits still while you fix it.
+
+**One judgement call worth explaining.** My plan said to re-publish all 24 affected pages so the fix
+reaches what is already live. Before doing that I checked how recently each had been published — and
+26 of the 28 were published *today*. Re-publishing a page brings in every change the platform has
+made since it last ran, not only mine, so doing 28 of them would have been a lot of unnecessary
+churn on customer sites for something the normal publishing cycle will carry within a day anyway. So
+I have queued exactly one: the loanzy.uk home page, which is the original example in the bug report
+and was published two hours ago, so it carries almost no accumulated drift.
+
+I have recorded what that page serves right now, so the comparison is honest: three bad links to
+remove, and — the part that actually matters — five good links to the calculators page that must
+still be there afterwards. A change that simply deleted every link would pass a test that only looked
+for the bad ones disappearing.
+
+The page is in the publishing queue and I am waiting for it to run.
