@@ -203,3 +203,41 @@ then `git merge-base --is-ancestor e6350e74b <stamp>`.
 - **ADM-002 register entry**: B2 bullet updated (fix committed, open-until-roll).
 - HEAD verified building after the backend commit (`verify-head-builds.sh` OK at `e4d20d97a`
   — HEAD had already moved past my commits; shared tree as usual).
+
+### 2026-08-24 ~16:35Z — verdict on `45b3c93f`: APPROVED round 1; the three advisory objections answered
+
+**APPROVED, 3 advisory objections, none high-severity, 8 seats abstained** (report:
+`diagnosis_artifacts` kind=`council_report`, correlation `45b3c93f…`). Objections, each
+re-checked against the code/DB rather than argued with:
+
+1. **editquality (medium): does the INSERT write raw bytes or a re-marshalled struct?**
+   (A landmine exists on round-tripping ParseEvidenceBase — the typed struct drops fields
+   it does not model.) **Answered at the code: raw bytes.** `site_admin_handlers.go:282`
+   inserts `body.Data` (the original `json.RawMessage`); the parsed struct is used ONLY for
+   validation and counts. The landmine is not reproduced. The seat was right that the plan
+   never said so — this note is the statement.
+2. **bug_historian (medium): `WriteSiteSpecAction` (platform path, higher volume) has no
+   shape guard.** **Checked, and the hazard is REAL but NARROWER there** `[MEASURED
+   2026-08-24]`: the action deep-MERGES the partial over the current doc, so a wrong-shape
+   KEY (`bannedClaims`) is additive — the existing `banned_claims` survives and the register
+   still parses non-nil. Whole-register silent-disarm needs the admin door's REPLACE
+   semantics, which is now guarded. BUT `siteSpecDeepMerge` overwrites non-map values
+   wholesale (`site_spec_actions.go:554`), so a partial carrying `"banned_claims": []`
+   DOES empty the array — and the highest-volume evidence_base writer is `source='scheduled'`
+   (214 of 319 all-history rows; automated). **Follow-up owed, own council round:** decide
+   whether a merge whose RESULT shrinks banned_claims below current needs a flag, remembering
+   the scheduled refresher may legitimately shrink registers — census the shrink history
+   before designing the guard (memory: census-the-write-history rule).
+3. **guardian (medium): terminate is DB-label-only — it does not interrupt a running step.**
+   True and pre-existing (it was the endpoint's semantics before the table-name fix made it
+   reachable). **Closed the honest half in `1a8db99f9`:** the SPA terminate confirm now says
+   exactly that. The status written is `FAILED`, the same literal the platform's own
+   updateWorkflowStatus path has always used. Whether a real cancel/interrupt mechanism is
+   wanted is an owner-scoped question, not smuggled in here.
+4. Lows recorded, not acted on: `aspect` still has no allow-list (named by me in the plan;
+   architecture seat wants a follow-up ticket, and agrees fixing it here would be
+   scope-creep); constitution notes ParseEvidenceBase itself could distinguish
+   "genuinely empty" from "wrong shape" for ALL callers — deferred, stated.
+5. **debug_historian's gap, now an owed verification step:** after core-manager rolls a
+   build carrying `e6350e74b`, smoke-test terminate against a real non-terminal correlation
+   (expect 200 + row status FAILED, not 500) — sqlmock proves the SQL shape, not the table.

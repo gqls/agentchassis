@@ -52,9 +52,19 @@ infrastructure proofs) and §2/§3 (owner box steps) remain the reference — re
 
 ## 1. Open / owed (delta against the morning handoff's §5)
 
-1. **Read the `45b3c93f` council verdict** (item 0.1 above) — the only owed action of mine.
+1. ~~**Read the `45b3c93f` council verdict**~~ **READ — APPROVED round 1** (16:35Z, 3
+   advisory objections, none high-severity; all three re-checked against code/DB and
+   answered in NOTES 2026-08-24 ~16:35Z — raw-bytes question moot at
+   `site_admin_handlers.go:282`, guardian's terminate caveat shipped in `1a8db99f9`).
+   **One real follow-up spun out, its own council round when taken:** `WriteSiteSpecAction`'s
+   deep-merge lets a partial with `"banned_claims": []` empty the array (arrays overwrite
+   wholesale, `site_spec_actions.go:554`), and `source='scheduled'` is the highest-volume
+   evidence_base writer (214 of 319 rows all-history, counted 2026-08-24) — census the
+   legitimate-shrink history BEFORE designing any guard there.
 2. **Deploy pair** per §0.2 when the roll lands — then eyeball `admin.apis.uk` → a site →
-   Builds against the apis.uk chain (PLAN §6d table is the expected shape, ~67 min build).
+   Builds against the apis.uk chain (PLAN §6d table is the expected shape, ~67 min build),
+   and smoke-test terminate against a real non-terminal correlation (expect 200 + FAILED,
+   not 500 — debug_historian's owed verification; sqlmock proved the shape, not the table).
 3. Architecture boundary review when `links.webdesign.uk` goes live (morning §5.1) — unmet
    until the owner applies §2.
 4. Morning §5.3–§5.7 unchanged (mail-scanner residual, HOLD ban, webdesign lane items, VPN
