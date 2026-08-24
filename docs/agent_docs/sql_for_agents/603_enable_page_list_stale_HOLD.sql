@@ -12,8 +12,24 @@
 -- Apply by hand AFTER the roll is proven at the binary:
 --   kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
 --   git merge-base --is-ancestor <the 384 Phase-2 commit> <that stamp>
--- and confirm the name is in the binary's capability list before applying:
---   SELECT capabilities ? 'page_list_stale' FROM service_binary_capabilities ... (see build-pipeline.md BLD-*)
+-- and confirm the ROLLED binary registers the name, with a positive AND a
+-- negative control in the same query (round 2005a846, debug_historian: never a
+-- discovery grep, never `strings`; a control that cannot fail proves nothing).
+-- service_binary_capabilities is written by each pod at startup from the
+-- registry (kind='discovery_check' rows come from checks.Names()):
+--
+--   SELECT name, count(DISTINCT pod_name) AS pods, min(left(git_commit,12)) AS commit
+--     FROM service_binary_capabilities
+--    WHERE service='agent-chassis' AND kind='discovery_check'
+--      AND last_seen_at > now() - interval '1 hour'
+--      AND name IN ('page_list_stale',      -- must be PRESENT after the roll
+--                   'orphan_pages',         -- positive control: registered for months
+--                   'no_such_check_xyz')    -- negative control: must be ABSENT
+--    GROUP BY 1 ORDER BY 1;
+--
+-- Expected: two rows (orphan_pages, page_list_stale) on the same commit, no
+-- third. Measured 2026-08-24 before the roll: orphan_pages on 594 + 61 pods
+-- across two commits, page_list_stale absent, no_such_check_xyz absent.
 --
 -- WHAT THE CHECK DOES (see the file header): for every page on the site whose
 -- component consumes a page-IMAGE query source (blog_posts, pages_where_type:*,

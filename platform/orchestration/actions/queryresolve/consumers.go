@@ -38,9 +38,13 @@
 // The LIKE pre-filter is a cheap narrowing only; the decision is made in Go
 // against datahelpers.SchemaContentFields (both schema dialects) and
 // SourceReadsPageImages (the declared set beside queryHandlers). The
-// renders-image predicate is SQL (`html_template ~ '\.image\y'`): `{{.image}}`,
+// renders-image predicate is SQL (`html_template ~* '\.image\y'`): `{{.image}}`,
 // `{{if .image}}`, `{{$it.image}}` all match; `.image_url` does not (`\y` is a
-// word boundary and `_` is a word character).
+// word boundary and `_` is a word character). Case-insensitive (`~*`) on the
+// council's point (round 2005a846, editquality): a template spelling it
+// `.Image` would not read the resolver's lowercase key and so renders nothing
+// today, but a silently case-sensitive filter is the kind of bound that
+// defeats itself without a tell, and the match costs nothing.
 
 package queryresolve
 
@@ -111,7 +115,7 @@ const pageListConsumerSQL = `
 	   AND COALESCE(p.rebuild_policy, 'generic') <> 'owned'
 	   AND cc.input_schema IS NOT NULL
 	   AND cc.input_schema::text LIKE '%query.%'
-	   AND cc.html_template ~ '\.image\y'
+	   AND cc.html_template ~* '\.image\y'
 	 ORDER BY p.name, cc.name`
 
 // PageListConsumerPages returns the site's pages that consume a page-image

@@ -195,3 +195,43 @@ func TestPageListStaleIsRegisteredUnderItsConfigName(t *testing.T) {
 		t.Fatal("page_list_stale is not registered — the checks array in migration 603 would warn-and-skip it")
 	}
 }
+
+// Round 2005a846, bug_historian: a component whose content_data is not a JSON
+// object used to be skipped with a bare `continue`, which read as "nothing
+// stored" — one layer down from the unknown/current collapse the summary
+// finding exists to prevent. It must count the page UNKNOWN (and file nothing).
+func TestPageListStale_UnparseableContentDataIsUnknownNotCurrent(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID, pageID := uuid.New(), uuid.New()
+	expectConsumers(mock, siteID, pageID)
+	// TWO components on the page: one unreadable, one current. Without the
+	// unknown mark the current one would carry the page to "current" — that is
+	// the discriminating shape (a single unreadable component is already caught
+	// by compared == 0, which is why the first cut of this test could not kill
+	// the mutation: a guard in series).
+	mock.ExpectQuery("SELECT cc.name, COALESCE\\(pc.content_data::text").
+		WithArgs(pageID).
+		WillReturnRows(sqlmock.NewRows([]string{"name", "content_data"}).
+			AddRow("content-listing", `not json at all`).
+			AddRow("content-listing", `{"articles":[{"url":"/a.html","image":"`+storage.DeployedWebPath("card_a", "card")+`"}]}`))
+	// The source resolves fine — the page is unknown because of ITS data, not the source's.
+	mock.ExpectQuery("FROM pages p").
+		WillReturnRows(freshRows().AddRow("a", "A", "/a.html", "", "A", "card_a", "", ""))
+
+	res, err := (&PageListStaleCheck{}).Run(DiscoveryCheckContext{
+		Ctx: context.Background(), DB: db, SiteID: siteID, AgentType: "t", BatchID: uuid.New(), Logger: zap.NewNop(),
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res.WorkItems) != 0 {
+		t.Fatalf("nothing can be filed on data that could not be read, got %+v", res.WorkItems)
+	}
+	if s := sweepSummary(t, res); s["unknown"] != 1 || s["current"] != 0 {
+		t.Fatalf("unparseable content_data must count the page UNKNOWN, not current: %v", s)
+	}
+}

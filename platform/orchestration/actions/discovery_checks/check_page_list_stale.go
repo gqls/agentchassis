@@ -131,7 +131,7 @@ func (c *PageListStaleCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, erro
 
 	pagesStale, pagesCurrent, pagesUnknown := 0, 0, 0
 	for _, page := range consumers {
-		stored, err := loadStoredPageLists(dctx, page.ID)
+		stored, unparseable, err := loadStoredPageLists(dctx, page.ID)
 		if err != nil {
 			logger.Warn("page_list_stale: could not read stored arrays — page UNKNOWN this run",
 				zap.String("page", page.Name), zap.Error(err))
@@ -141,6 +141,15 @@ func (c *PageListStaleCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, erro
 
 		var stale []staleEntry
 		compared, unknown := 0, false
+		if len(unparseable) > 0 {
+			// A component whose content_data is not a JSON object cannot be
+			// compared, and "could not read" must not read as "matches" (round
+			// 2005a846, bug_historian): the page is UNKNOWN unless some OTHER
+			// component on it proves stale below.
+			logger.Warn("page_list_stale: component content_data is not a JSON object — that component is skipped and the page counts as UNKNOWN unless another component is stale",
+				zap.String("page", page.Name), zap.Strings("components", unparseable))
+			unknown = true
+		}
 		for _, f := range page.Fields {
 			images, ok := freshImages(f.Source)
 			if !ok {
@@ -233,8 +242,14 @@ func (c *PageListStaleCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, erro
 
 // loadStoredPageLists returns, for one page, component name → field name →
 // the stored array's (url, image) pairs, reading only array-typed values whose
-// elements are objects. A field the page has no stored value for is absent.
-func loadStoredPageLists(dctx DiscoveryCheckContext, pageID uuid.UUID) (map[string]map[string][]storedPageListEntry, error) {
+// elements are objects with a url. A field the page has no stored value for is
+// absent. Components whose content_data is not a JSON object are returned by
+// name in `unparseable` — the caller counts the page unknown and logs them,
+// rather than this function silently treating them as "nothing stored".
+// Non-array fields and non-object elements are not defects: a section's
+// content_data legitimately carries strings, numbers and nested objects
+// beside its list field, so those are skipped without comment.
+func loadStoredPageLists(dctx DiscoveryCheckContext, pageID uuid.UUID) (stored map[string]map[string][]storedPageListEntry, unparseable []string, err error) {
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT cc.name, COALESCE(pc.content_data::text, '{}')
 		  FROM page_components pc
@@ -243,7 +258,7 @@ func loadStoredPageLists(dctx DiscoveryCheckContext, pageID uuid.UUID) (map[stri
 		   AND pc.build_status <> 'removed'
 	`, pageID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer rows.Close()
 
@@ -251,10 +266,11 @@ func loadStoredPageLists(dctx DiscoveryCheckContext, pageID uuid.UUID) (map[stri
 	for rows.Next() {
 		var component, raw string
 		if err := rows.Scan(&component, &raw); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		var data map[string]interface{}
 		if err := json.Unmarshal([]byte(raw), &data); err != nil {
+			unparseable = append(unparseable, component)
 			continue
 		}
 		for field, v := range data {
@@ -284,5 +300,5 @@ func loadStoredPageLists(dctx DiscoveryCheckContext, pageID uuid.UUID) (map[stri
 			out[component][field] = entries
 		}
 	}
-	return out, rows.Err()
+	return out, unparseable, rows.Err()
 }
