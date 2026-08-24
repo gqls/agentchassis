@@ -81,22 +81,53 @@ ENDMSG
 
 echo "CORRELATION_ID=$CORRELATION_ID  SOURCE=$SOURCE"
 
-kubectl -n kafka run -i --rm kcat-landmine-verify-$(date +%s) \
-  --image=edenhill/kcat:1.7.1 \
-  --restart=Never -- \
-  kcat -P \
-  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
-  -t system.agent.generic.requests \
-  -H correlation_id=$CORRELATION_ID \
-  -H orchestration_id=$ORCHESTRATION_ID \
-  -H request_id=$REQUEST_ID \
-  -H message_id=$MESSAGE_ID \
-  -H message_type=request \
-  -H client_id=$CLIENT_ID \
-  -H action=process \
-  -H sender_agent_type=cli \
-  -H sender_agent_id=cli-user \
-  -H responses_topic=system.agent.generic.responses \
-  -H timestamp=$TIMESTAMP <<ENDKAFKA
-${MESSAGE_BODY}
-ENDKAFKA
+# ---------------------------------------------------------------------------
+# PUBLISH — via the shared, receipt-asserting publisher (bugs_open/327).
+#
+# WHAT THIS REPLACED, AND WHY IT MATTERED PARTICULARLY HERE. This was
+# `kubectl -n kafka run -i --rm … kcat -P … <<ENDKAFKA`: the payload on stdin, which
+# `kubectl run -i` attaches ASYNCHRONOUSLY. Lose that race and kcat sees EOF, publishes
+# NOTHING and exits 0, and `--rm` deletes the evidence.
+#
+# The reason this file was the first migration after the filed case: its caller,
+# scripts/landmines-verify-dispatch.sh:45-62, increments FAILED **only when this script
+# returns non-zero**, and then prints "Dispatched N, 0 failed to publish." On the silent
+# arm the old form returned 0 — so the landmine system reported success about its own
+# dispatch using the one signal that is always absent when a publish is lost, and a
+# verdict that never arrived was indistinguishable from the async wait that script's own
+# closing message tells you to expect.
+#
+# That caller now gets a truthful count for free: kafka_publish_checked returns 10 (not
+# published) or 11 (indeterminate), both non-zero, so FAILED counts what it claims to.
+# ---------------------------------------------------------------------------
+REPO_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "$REPO_ROOT" ] || [ ! -f "$REPO_ROOT/scripts/kafka-publish-lib.sh" ]; then
+  echo "ERROR: scripts/kafka-publish-lib.sh not found (repo root: ${REPO_ROOT:-<not in a git repo>})." >&2
+  echo "       Refusing to publish unverified — an unverified dispatch is bugs_open/327." >&2
+  exit 1
+fi
+. "$REPO_ROOT/scripts/kafka-publish-lib.sh"
+
+# The body is already single-line (WORKFLOW_COMPACT strips newlines); the library refuses
+# it outright if that ever stops being true, rather than letting `kcat -P` publish it as
+# one message per line.
+PUBLISH_RC=0
+kafka_publish_checked \
+  --topic system.agent.generic.requests \
+  --correlation "$CORRELATION_ID" \
+  --payload "$MESSAGE_BODY" \
+  --header "orchestration_id=$ORCHESTRATION_ID" \
+  --header "request_id=$REQUEST_ID" \
+  --header "message_id=$MESSAGE_ID" \
+  --header "message_type=request" \
+  --header "client_id=$CLIENT_ID" \
+  --header "action=process" \
+  --header "sender_agent_type=cli" \
+  --header "sender_agent_id=cli-user" \
+  --header "responses_topic=system.agent.generic.responses" \
+  --header "timestamp=$TIMESTAMP" || PUBLISH_RC=$?
+
+if [ "$PUBLISH_RC" -ne 0 ]; then
+  echo "VERIFICATION NOT DISPATCHED for $SOURCE — no verdict will ever arrive for this run." >&2
+  exit "$PUBLISH_RC"
+fi
