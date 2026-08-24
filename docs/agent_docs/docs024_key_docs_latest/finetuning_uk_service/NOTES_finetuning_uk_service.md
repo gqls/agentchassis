@@ -1777,3 +1777,40 @@ running copy-editor rather than assuming.
   LEFT — that text is `operator:fleet_honest_20260812`, the call is copy_quality/305's, and
   the CONTRIB hands them the counts. **Post-roll rebuild is the controlled test**: survivors
   should drop toward the residual demonstrations if the instruction-as-exemplar reading holds.
+
+## 2026-08-24 (evening) — the fix ROLLED, the page is LIVE, and the rebuild answered the round-2 question cleanly
+
+- 18:32Z fleet roll carries `9094bc65c` (377 fix): proven at the chassis binary with the
+  NUL-split probe from the NEW BusyBox landmine (added literal 1, nonsense control 0, same
+  pipeline) — plain `grep -aq` is no longer trusted on `/proc/1/exe`.
+- Item reset needs_human_review→triaged 19:09; rebuild claimed 19:11, writer 19:14:42
+  (`llm_call_log a0355b80`), **deployed 19:19:43**. ⚠ The item now reads `complete` while its
+  `error` column still carries BUILD 1's validation error — terminal-state decay in the flesh;
+  the build-2 orchestration (COMPLETED, no `__step_error`) and the SERVED page are the proof.
+- **Served page verified** (200 at `/your-own-model.html`; invented-URL control 404): hero =
+  the ratified proposition + £99; three-step journey; honest "who is actually running this"
+  ("someone here runs the training personally… That won't scale forever, and we'll say plainly
+  if that changes") — the banned promise ABSENT; glossary-FAQ with GGUF defined; 3 links to
+  /contact.html (required_links intact through the build); only £99 + footer chrome as numerals;
+  0 exemplar lift.
+- **Tell comparison, build 1 → build 2** (round-2 de-demonstration between them; NOTE the 305
+  repair gate also went fully live in the same roll, so gate-marker attribution matters):
+  `X, not Y` **3 → 0** (the class whose demonstrations we removed, incl. the mandated safe-form
+  phrase). `rather than` **6 → 8** (the class the fleet instructional text still demonstrates
+  7×). Owner-tier tells (em dash / not-just / does-not-simply) **0 → 0**. isnt-family 0 → 1
+  ("That won't scale forever" — honest, human). TOTAL 9 → 9. Gate marker
+  `copy_gate_page_hits` = **9 on BOTH builds** with matching field lists — the gate detects
+  them and ships them (its `still_rather_than` rejection class; their D3 question, deferred to
+  the owner, is exactly whether rather-than is worth repairing). Several build-2 instances are
+  genuinely contrastive ("published rather than locked inside") — house rule 12 territory;
+  0 is not obviously the right target. Their call, our data.
+- **copy-editor run 6 dispatched** (hand-fired path, `scripts/fire-copy-editor.sh` — the
+  operator script another session migrated at 19:51; it now self-checks rollout, endpoint
+  health, and parked-work races). Correlation `a504d92d-745b-45e3-9607-84ed632be386`; watcher
+  armed; proposal will park at `copy_edit_proposed`/needs_human_review for the OWNER (D2).
+  Grade with `gate_stage2_edit.py --item <id>` BEFORE acting.
+- Side observations, not chased: 2× `component-creator`/`component_selector` FAILED at
+  `store_component` 18:59 (no error recorded — 099 shape) on this site, not on our build path;
+  the 18:57 `complete_error` was the old ai-guides `empty_section` item (testimonials component
+  missing fields), pre-existing. aiao CONTRIB (carousel opt-in, default OFF, our pages verified
+  0 markers) needs nothing from us.
