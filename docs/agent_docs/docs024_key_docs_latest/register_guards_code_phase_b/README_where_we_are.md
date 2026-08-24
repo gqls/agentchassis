@@ -84,3 +84,87 @@ statistics in a commit message from a research assistant's summary rather than
 checking them myself; they were about ten percent out. The conclusion they supported
 was still true, which is precisely what makes that kind of error easy to leave in
 place. It's written up in our wrong-calls log.
+
+---
+
+## 2026-08-24 — what we found and what we built
+
+The problem this lane exists for, in one line: the site's list of checked facts governs
+what a page can **say**, and it has never governed what a **calculator works out**. The
+case that started it was a stamp duty tool that used a tax threshold which expired
+sixteen months earlier, while the correct figure sat in the register a few feet away,
+re-checked that very morning, and every check we own passed the page.
+
+Back in August we built the first half of the answer: a calculator can now declare which
+registered facts it uses, and the nightly sweep tells it when one of them moves. That
+part works and is proven. I picked the lane up after it had been quiet for a week.
+
+**The first thing I did was re-count, and the counts had moved a lot.** When the bug was
+filed there were 143 facts across 12 sites. Today there are 294 across 15 — the register
+has more than doubled in eight days. In that same period the number of calculators that
+actually declare anything went from nought to **one**, and that one only because we asked
+another team to add it by hand. There are 178 calculator pages sitting on sites that have
+a register. So the machinery works and almost nothing is plugged into it, and the gap is
+getting wider rather than narrower.
+
+**The second thing was that the nightly sweep had never once looked at a calculator.** It
+asks "has this figure changed, and who says they use it". It does not ask "does this
+calculator actually contain that figure". On the one tool that had adopted it, the sweep
+filed thirteen requests on 17 August asking a person to confirm the figures by hand.
+Seven days later all thirteen were still sitting there, untouched. So the honest position
+was: we had built something that asks a question nobody answers.
+
+**The near-miss worth telling you about.** I set out to make the machine answer that
+question itself, by looking for the registered number inside the calculator's code. My
+first check said all thirteen figures were present — which sounds like the idea works.
+It doesn't prove anything at all. Four of those thirteen "figures" are 5, 2, 10 and 12,
+and any page of HTML contains those digits somewhere. I only found out because I then
+went looking for numbers that ought to be **missing**: the expired threshold from the
+original bug, and two numbers I invented. All three were absent, which is what made the
+present ones mean something — and two more digits I picked at random turned out to be
+present too, despite not being registered facts at all.
+
+**And then a trap that would have wasted the whole thing.** The obvious way to look for
+the figure is to search the page. But our own system writes the registered figure into
+the page's **wording** — that is what the register is for. So on the original bug's page,
+the text says "£500,000" (correct, because the register put it there) while the code
+underneath still says the old number. A check that searches the page finds the right
+figure in the prose and declares the calculator healthy. **It would have passed the exact
+bug it was built to catch, every day, for sixteen months.** The fix is to read only the
+code, and to ignore the prose entirely.
+
+**What is now built, in four pieces:**
+
+1. A declaration that can no longer fail silently. We had a rule that was supposed to
+   reject a badly-written declaration — it turned out that rule had never once run on
+   these documents, in the place they are actually written. And a formatting slip in the
+   declaration made the whole thing quietly do nothing, *including* the warning whose job
+   was to say it was doing nothing. Both fixed.
+2. The one existing tool that reads a calculator's raw code can now be pointed at the
+   facts that matter. It could not be before, and its address was a reference that dies
+   whenever a page gets rebuilt.
+3. A check that looks in the calculator's code for the registered figure. **It only
+   reports for now — it changes no decisions.** It runs for a month, we see how often it
+   is right, and only then do we let it act. That is deliberate: an earlier plan rejected
+   this kind of check precisely because nobody had measured how often it cries wolf.
+4. The adoption piece. Rather than asking people to hand-write 178 declarations, the
+   sweep now proposes them: it finds calculators whose code already contains registered
+   figures and files a ready-to-paste suggestion. Fifteen of these exist today across
+   three calculators — one of which is our **second** stamp duty calculator, which is
+   currently protected by nothing at all.
+
+**What this still does not do, and I would rather say it plainly:** none of it can tell a
+correct figure from a confidently wrong one. Everything here assumes the register is
+right. If the register and the calculator are wrong in the same direction they agree, and
+every check stays silent. That remains a separate piece of work, and it needs a proper
+design review before it is built.
+
+**One thing I got wrong three times in a day**, because it is the sort of thing worth
+recording: I wrote tests for each fix, they all passed, and then when I deliberately
+broke the code to check the tests would notice — they didn't. Three times. Each time the
+test was checking the piece of machinery in isolation and could not see whether anything
+actually called it. The third time was the worst, because it was the test guarding the
+most important rule in the whole change. It is fixed, and the pattern is written down.
+
+**Nothing is live yet.** All of this is code, and code on this system does nothing until
+the next fleet build goes out. The first real test is the day after that.

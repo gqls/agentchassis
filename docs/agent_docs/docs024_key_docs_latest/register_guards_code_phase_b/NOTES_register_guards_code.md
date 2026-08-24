@@ -245,3 +245,106 @@ matched that lane (its transcript stopped at 11:41, as the current sessions star
 the ask now sits at the top of their newest handoff — the file a fresh session there reads
 first — with three options and no preference. The CONTRIB had been sitting unread since
 08-16, which is why the handoff was the right channel and the CONTRIB alone was not.
+
+---
+
+## 2026-08-24 — session 2: the lane resumed, and four phases landed
+
+Picked up cold after seven days idle (last lane commit 2026-08-17 19:30). Ownership
+checked three ways before assuming it: `who-owns.py`, a grep of every lane dir for
+`288`/`CLM-022`/`fact_drift`/`artifact_check` dated ≥08-18, and yesterday's live
+process-table roster (`RESTART_2026-08-23_open_threads.md`) — no session on it in any
+of them. The mcalc lane discharged its arm on 08-17 and had moved to guides and
+`bugs_open/348`.
+
+### What the live system said before I touched anything
+
+| | 2026-08-16 (as filed) | 2026-08-24 (re-measured, same queries, same controls) |
+|---|---|---|
+| register facts / sites | 143 / 12 | **294 / 15** |
+| facts carrying `artifact_check` | 0 | **0** (control: 185 carry `citation`) |
+| tool PLANs declaring `facts` | 0 of 90 | **1 of 132** — and later the same day, **1 of 134** |
+| `fact_drift_review` items | 13, filed 08-17 | **13, still `needs_human_review`, untouched** |
+
+**The register more than doubled in eight days while adoption of the one mechanism on
+the right surface stayed at zero.** That is the finding that shaped the whole session:
+the gap is widening, not closing, and the binding constraint is adoption rather than
+the checker. It is also a clean instance of the count-carries-its-date rule — every
+figure in the bug file had gone stale by ADDITION and still read as current.
+
+### The measurement that decided the design, and the control that saved it
+
+The obvious census — "do the 13 declared SDLT values appear in the tool's stored
+HTML?" — returned **13 of 13 present**, which reads like the design is validated.
+
+It is worthless. Four of the thirteen values are `5`, `2`, `10`, `12`. The probes that
+made it mean something were the ones that had to come out FALSE: `625000` (bug 225's
+own expired cap) **absent**, `777000` and `314159` **absent** — and then the noise
+controls `99` and `7`, **both present and neither registered**. Recorded in
+`WRONG_CALLS` 2026-08-24 §1.
+
+Then the surface. Two design agents independently said "script text, not the whole
+page", so I tested it on the live page rather than taking it:
+
+```
+15,111 bytes = 6,132 script + 8,962 non-script
+  "500,000"  script YES  prose YES     <- the register's own writer_line put it there
+  "500000"   script YES  prose no
+  "625000"   script no   prose no
+```
+
+**A whole-page check matching the comma form would have passed bug 225's page every
+day for sixteen months.** That is the single most important line in this lane.
+
+### Four phases, in the order they close doors
+
+1. **The declaration stops failing silently.** Two defects the bug file recorded as
+   already handled: P11 had never validated a tool fence (one production caller, and
+   it is the experience-pattern register), and `parseCriteriaFacts` failed open on a
+   fence that DID declare — which also disarmed the round-3 zero-rows warning, since
+   that is gated on `issues` being non-empty. Council **APPROVED at round 1**.
+2. **RFC_025 stage 2b.** `artifact_check` reachable for every source kind (the citation
+   arm `continue`d before it, and every legislated figure is a citation fact), and
+   addressable by `subject_key` instead of a component id that dies on decomposition.
+3. **The byte probe**, annotation only, script text only, floor measured at 1000.
+4. **Adoption**: propose the bindings already visible — 15 across 3 tools, one of them
+   the estate's second SDLT calculator.
+
+### The missteps, which are the useful part
+
+**Nine mutations across the change; three passed and were worthless.** All three are
+the same family — a check that cannot tell the world it is testing from the world it is
+not — and all three are in `WRONG_CALLS` 2026-08-24.
+
+- **Phase 1**: four tests of the note writer stayed green when the CALL to it was
+  deleted, because every one invoked the writer directly.
+- **Phase 2**: eight tests stayed green when the pre-pass itself was deleted, for the
+  same reason. Writing the end-to-end test then **found a real defect no unit test
+  could see**: an `attested_by` fact carrying an `artifact_check` was evaluated TWICE,
+  once by the pre-pass and once by the original branch, appending two entries under one
+  fact id and bumping `verified_at` from the second.
+- **Phase 3a, the worst one**: the headline test for the headline rule. Mutating the
+  probe to read the whole page left it GREEN — the prose writes the comma form and the
+  code surface is searched for raw literals, so both readings failed the raw search and
+  agreed. **The test asserted the right answer for the wrong reason.** Fixed with a
+  fixture carrying `data-relief-cap="500000"` in markup against `625000` in code, plus
+  three premise assertions so it cannot silently stop discriminating.
+
+**I knew this lesson. It is this lane's own, from 2026-08-16, and its register entry
+sits three bullets above the code I was editing.** Knowing it did not stop me repeating
+it twice more in one sitting. The mechanical version that would have: *for every guard,
+delete the CALL and not just the body.*
+
+### Two more traps worth the ink
+
+- **The guard's own first version was wrong.** Excluding every trailing comma to avoid
+  matching `1,500,000` made `{ upTo: 1500000, rate: 0.10 }` invisible — the real band
+  table, on the very page the rule was written for. A trailing comma is a list
+  separator; it is only a thousands separator when a digit follows. And **Go's RE2 has
+  no lookaround**, so the rule is hand-rolled byte checks, not a regexp.
+- **An objection can be sound with the wrong reason attached.** Two seats said an
+  unscoped note cooldown would let two same-named tools on different sites silence each
+  other. That cannot happen — 134 current tool PLANs, 134 distinct subject keys. But
+  **one fleet-global PLAN resolves on many sites (6 do)**, and half the finding is
+  per-site, so site A really would have silenced site B. Checked the premise, kept the
+  fix.

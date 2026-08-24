@@ -189,3 +189,91 @@ kubectl -n ai-persona-system exec $POD -- grep -ac stale_attestation /proc/1/exe
 
 Never `strings` (absent from the image), never a discovery grep for "some 40-hex
 string", and always run the control in the same exec.
+
+---
+
+## 2026-08-24 additions — and one command in this file is now FORBIDDEN
+
+### ⚠ `git archive HEAD | tar -x` is banned — use the script
+
+The build-and-test recipe at the top of this RUNBOOK is the hand-rolled form CLAUDE.md
+now forbids: each extract is ~450 MB and the pasted copies filled the box (one session
+left six trees, ~2.8 GB, in a morning). Use instead:
+
+```bash
+scripts/verify-head-builds.sh --test --with <file> [--with <file> ...] ./platform/orchestration/...
+KEEP_TREE=1 scripts/verify-head-builds.sh --with <file> ...   # keep it for mutation work
+```
+`KEEP_TREE=1` prints the path; **`rm -rf` it yourself when done** — it is the only form
+that does not clean up. `scripts/scratch-report.py [--reap]` finds what you left behind.
+
+### Measuring the probe's false-positive rate (the number that sets the floor)
+
+The floor is not a judgement call and must not be re-chosen by argument. Re-derive it:
+
+```bash
+# 1. export tool-page HTML, TSV, one row per (site, page)
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At -F $'\t' -c "
+WITH reg AS (SELECT DISTINCT site_id FROM site_specs WHERE aspect='evidence_base' AND is_current)
+SELECT p.site_id::text, p.name,
+       replace(replace(string_agg(coalesce(pc.rendered_html,''),' ' ORDER BY pc.position),E'\n',' '),E'\t',' ')
+FROM pages p JOIN reg USING (site_id) JOIN page_components pc ON pc.page_id=p.id
+WHERE p.page_type='tool' GROUP BY p.site_id, p.name;" > $SC/toolpages.tsv
+```
+Then, per digit length, probe with **INVENTED** values so that *every match is a false
+positive by construction*. **This is the whole point** — a census of real values that hit
+tells you nothing, because it cannot come out false. Measured 2026-08-24 over the 161
+tool pages that have script text, 40 probes each: **1 digit 32.75% · 2 digits 3.79% ·
+3 digits 0.06% · 4 digits 0.03% · 5+ 0.00%.**
+
+⚠ **Use the guarded matcher, not `LIKE '%…%'`.** An unguarded match gave a materially
+different (and wrong) answer, and it is what produced the discarded "15 of 27" yield
+figure. The guard: not preceded/followed by `[0-9A-Za-z_]`, and not by `[.,]` that has a
+digit on its other side — a trailing comma is a **list separator**, not a thousands
+separator, and excluding it hides `{ upTo: 1500000, rate: 0.10 }`.
+
+### Proving the surface rule (the one that matters)
+
+```bash
+# split a real page at the script boundary and probe both halves
+python3 - <<'PY'
+import re
+h=open('page.html').read()
+scripts="\n".join(re.findall(r'<script[^>]*>(.*?)</script>',h,re.S|re.I))
+prose=re.sub(r'<script[^>]*>.*?</script>','',h,flags=re.S|re.I)
+for v in ["500000","500,000","625000"]:
+    print(v, "script:", v in scripts, "prose:", v in prose)
+PY
+```
+On mortgagecalculator's `stamp-duty`, 2026-08-24: `500,000` is in **both**; `500000` in
+the script only; `625000` in neither. **That is why the probe reads script text only** —
+the register's own `writer_line` put the comma form in the copy, so a whole-page check
+finds the current figure whatever the code does.
+
+### ⚠ Never tokenize a `string_agg` of `rendered_html`
+
+`page_components.rendered_html` rows are **partial fragments**. One unbalanced `<script>`
+leaves the tokenizer's `inScript` set across the join and the next component's prose is
+collected as script. Read one row per component and extract each separately; combine the
+RESULTS. (A stateless literal search over the join is fine and is what the markup arm
+does.) Found by the council at severity high, corr `041b3026`.
+
+### After the roll — prove it at the binary, with controls
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+for s in fact_declaration_broken fact_binding_suggested present_in_markup_only \
+         stale_attestation ZZZ_must_be_absent; do
+  printf '%-28s ' "$s"; kubectl -n ai-persona-system exec "$POD" -- grep -ac "$s" /proc/1/exe
+done
+```
+The first three are this session's; `stale_attestation` is the positive control and the
+last must read 0. **An empty result is "not in range", not "unstamped".**
+
+### Reading the sweep's output — the nesting trap still applies
+
+`fact_drift` is **per site and nested**: `refresh_result->'results'->N->'fact_drift'`.
+There is no top-level key, and top-level `total_drifted` counts **citation** drift and
+reads 0 while the array is full. New in this session: `fact_binding_suggestions` (a count)
+sits on the same per-site result object, and the probe's verdict is on each emission as
+`evidence` / `evidence_form` / `evidence_detail`.
