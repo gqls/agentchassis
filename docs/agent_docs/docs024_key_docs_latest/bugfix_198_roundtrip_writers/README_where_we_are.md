@@ -229,3 +229,58 @@ status line has stopped the very thing it was describing.
 
 **Nothing needed from you.** Bug 352 is in better hands than mine, the corrections are committed,
 and the survey from 5 August is still outstanding and still honestly outstanding.
+
+---
+
+## Sunday 24 August, evening — the survey we owed since 5 August is done, and the answer is reassuring
+
+The one thing genuinely left on this lane was a survey the reviewers asked for on 5 August. The
+question was: *bug 198 happened because an AI model was asked to return a whole stylesheet and
+returned a fragment, which we then saved over the real one. Where else in the system could that
+same thing happen?* Nobody had answered it. I have now.
+
+**The answer is nine places, and all the dangerous ones are already protected.**
+
+Nine points in the system take something an AI model produced and write it somewhere permanent.
+Only three of those nine are the shape that caused 198 — where the model's own output *is* the
+thing we save. The other six feed the model's output into our own code, which then builds the
+final file; if the model returns nonsense there, our code notices, rather than saving it.
+
+Of the nine, three **replace** something that already exists — which is the only situation where
+198's damage is possible, because you can only gut a file that was already there. All three of
+those now have a guard, and I checked all three are actually running in the deployed system
+rather than merely written down. The other writers *create* new things, where there is nothing to
+overwrite; those have different protections, which check the output is structurally complete.
+
+So: the class of bug is closed on everything I can see. I am not claiming it is closed
+absolutely, and the reason is worth stating plainly.
+
+**Two things about how I did it, both of which changed the answer.**
+
+The method the lane had written down for this survey was wrong, and wrong in an embarrassing
+direction: **it could not have found bug 198 itself.** It looked for places where a writer takes
+its content directly from the model. But in 198 the stylesheet went from the model, into the
+database, and only *then* into the file — three steps, not two. A search that only looks one step
+back sees nothing. When I followed the chain properly, the count went from one to nine, and six
+of the nine were only visible because of that fix.
+
+The second thing is the limit of what I can promise. I built the map by reading the system's
+configuration. Some parts of our code take their input without the configuration mentioning it —
+the instruction is inside the program instead. Those connections are invisible to any search of
+the configuration, however careful. I found one and it happened not to matter. I cannot promise
+there is not another that does. So nine is a floor, not a total, and closing that gap is a
+different piece of work that I have written down rather than pretended to have done.
+
+**One trap I have flagged loudly, because it would waste someone's week.** There are twenty
+places in the system that commit files to git, and exactly one of them has the size guard we
+built for 198. That looks like nineteen bugs. It is not — most of those twenty write files our own
+code generated, or write new files where there is nothing to shrink from. One of them looks
+almost exactly like the 198 case and isn't: it writes CSS from a template, with no AI model
+involved at all, despite the name suggesting otherwise. Anyone reading "1 of 20" without that
+context would go and file nineteen bugs and then spend days finding out they were not real.
+
+**Where this leaves the lane.** The two things it owed are now both discharged as far as they can
+be: the guard from the earlier work is confirmed live after today's deployment, and this survey
+is written up. What is left is honest residue rather than unfinished business — the floor caveat
+above, and a one-line observation that can only be made the next time the system actually repairs
+a stylesheet, which has not happened since the deployment.
