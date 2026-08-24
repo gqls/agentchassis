@@ -6,7 +6,27 @@
 **Severity** medium. Nothing false is published; the cost is that a page asserting **nothing
 about the business** is refused, and the refusal reads like a real honesty finding.
 **Class** false positive in the claims layer / allow-list exclusion.
-**Status** FIX WRITTEN AND TESTED IN THIS COMMIT — **inert until the next fleet roll** (Go).
+**Status** ⚠ **CORRECTED 2026-08-24 — the clock-time fix is LIVE, and the line below was stale
+for two days.** Original text, left as written: *"FIX WRITTEN AND TESTED IN THIS COMMIT — inert
+until the next fleet roll (Go)."* It shipped. Proven two independent ways, neither of which has a
+shelf life:
+
+- the running chassis binary (v1.0.1334) carries the post-fix regex form `fps|am\b|pm\b` (1 hit),
+  does **not** carry the pre-fix form `fps|st\b` (0 hits), and the positive control
+  `px|rem|em|vh|vw` passes (1) — the absent negative is what makes this a real probe rather than a
+  promiscuous grep;
+- `SELECT git_commit FROM service_binary_capabilities WHERE service='agent-chassis'` gives
+  `48f55f21`, and `git merge-base --is-ancestor ebe8f4323 48f55f21` returns true.
+
+**Why this mattered enough to write out:** an "inert until the roll" line makes the correct next
+action look premature. A detector elsewhere on this estate sat switched off for nine days for
+exactly this reason. Do not leave a status like this to be discovered.
+
+**Status of the RESIDUAL (§5), which is now the live half of this bug:** interim fix committed
+`a9002793b` (page-type gate extended to the three tracker/directory types; council submission
+`b8df25dc-7d19-48b9-9b52-b93b25523d4a`, verdict pending). **Inert until the next chassis roll** —
+and that claim is checkable by the same probe above, not by a date. Phase 2 (component-grain
+`ClaimSurface`) is filed, not built.
 
 ## 1. The symptom
 
@@ -89,9 +109,86 @@ without the fix, whole package passes with it.
 
 ## 5. What is NOT fixed
 
-- The allow-list is still an allow-list. The structural fix — deciding by *what the number
-  measures* rather than by suffix — is not attempted here and is the standing residual from 073.
-  Candidates not yet met: `%` in non-business prose, `k`/`m` magnitude suffixes, ISO durations.
+> **CORRECTED AND WIDENED 2026-08-24** (`bugs_open/364` lane, resuming this bug). The paragraph
+> below framed the residual as *units the allow-list has not met*. That framing is too narrow and
+> it sent the next reader looking in the wrong place. Measured, the residual is that **the scan
+> cannot tell WHOSE number it is** — the unit suffix is one symptom of that, and not the biggest.
+> Original text kept verbatim:
+>
+> - *"The allow-list is still an allow-list. The structural fix — deciding by what the number
+>   measures rather than by suffix — is not attempted here and is the standing residual from 073.
+>   Candidates not yet met: `%` in non-business prose, `k`/`m` magnitude suffixes, ISO durations."*
+
+### 5a. What the residual actually is `[MEASURED 2026-08-24]`
+
+`cmd/claimscan` over live `rendered_html`, each of the 19 opted-in sites against its **own current**
+register, export **asserted row-for-row against the DB** (115/115 on ai-agent-orchestration.com —
+the export truncates silently, see WRONG_CALLS): **44 findings fleet-wide.** Read in ≥300 chars of
+context, not from the 100-char snippet (CLM-019's landmine):
+
+| class | n | example | verdict |
+|---|---|---|---|
+| third-party figures in aggregated listings | **20** | `rollout_scope Over 80% of Fortune 500 deploying active agents` · `200,000 onboarded users` (someone else's) · `JSON-RPC 2.0` (a version) · the `2` inside **A2A** | false, **0% precision** |
+| genuine first-person claims on content pages | 16 | "170+ Agents Running in Production" · the Kafka case study's 40-agent figures | **true — the layer working** |
+| stale counter facts | 5 | page renders `11513`, register now holds `11646` | true-but-drift → `bugs_open/386` |
+| formula / legal threshold / hypothetical | 3 | `throughput = 3600 / cycle time` · "anyone under the age of 16" (privacy policy) · "assuming 100% uptime" | false |
+
+⚠ **This census can only see copy that PASSED the gate** — a refusal writes nothing, so the refused
+copy was never stored. It systematically **under-counts**. The damage is better read from
+`agent_error_log`: **70 refused build attempts across 23 distinct pages on 8 sites in 60 days**,
+still occurring daily; `model-directory` alone refused 20 times since 2026-07-29. The refusals are
+*intermittent* (the writer regenerates copy each attempt), so **a later success is not evidence the
+bug is fixed** — check the build stamp.
+
+### 5b. The mechanism, restated
+
+`businessClaimContextRe` is a **lexical** gate: it asks whether business-ish words sit near a number.
+On a site *about* agents, `agents`, `uptime`, `verified`, `collected` and `items` are in every
+sentence, so it cannot separate a claim about **us** from a statistic about **Microsoft**. Each fix
+so far has bolted another exclusion underneath it — 073 → 102 → 364 are one defect three times.
+
+**And the lexical gate is itself an allow-list, of NOUNS, with the same unbounded-miss property.**
+Found while writing the test for the interim: the gate carries `orchestration` **singular, no `s?`**,
+while the live copy says "orchestration**s**" — so *"We run over 1,600 orchestrations a day across 13
+live production systems"*, a first-person quantified claim on a live CTA, **has never been scanned at
+all**. A plural, synonym or hyphenation the gate has not met is a silent miss anywhere on the fleet.
+Not fixed here; widening it is a precision change that needs its own measurement in both directions.
+
+### 5c. Two designs measured and REJECTED — recorded so they are not re-attempted
+
+- **Slot-name rule** (`*-listing` ⇒ third-party). **Refuted:** `case-studies-list` on the same site
+  is a list of *our own* work ("orchestrates 30+ specialised agents", "under 4 hours"). The suffix
+  does not discriminate, and keying on it would have blinded three real claims.
+- **Attribution-cue subtraction** reusing `namedSourceRe`. **Refuted on evidence already in the
+  tree:** `claims_attributed.go:49-57` records a near-identical arm that looked like nine true
+  positives and evaporated when read in full paragraphs; and `namedSourceRe` is deliberately tuned
+  generous for *exoneration*, so reusing it as a *classifier* inherits a one-way false-positive
+  profile.
+- **A marker in the rendered HTML** (`data-claims-scope="third-party"`). Rejected without measuring:
+  the HTML is LLM-generated, so the thing being policed could emit its own exemption. The
+  declaration has to come from trusted DB-side structure.
+
+### 5d. What was done about it, and what was not
+
+**Interim, committed `a9002793b`** (council `b8df25dc-7d19-48b9-9b52-b93b25523d4a`, pending): the
+three tracker/directory page types added to `editorialPageTypes`. Result: **36 → 16** findings on
+ai-agent-orchestration.com, zero survivors on any tracker page, all 16 genuine claims retained.
+Mutation-proven both ways.
+
+**It knowingly fails** the second half of that map's own membership bar ("a body that is never
+marketing") — the ground `section-index` was refused on. Those pages carry a marketing `hero` and
+`call-to-action`, and page-grain gating blinds them too. Measured loss today is zero **only because
+of the plural blindness in 5b**, which is a second defect, not a safety property.
+`TestTrackerPagesGiveUpTheirFirstPersonClaims` pins the cost; `LANDMINES.md` carries the blind spot.
+
+**Phase 2, filed not built:** widen `ClaimSurface` from page-grain to **component-grain** so `hero`
+and `call-to-action` stay scanned while the listing does not — the mechanism `claims.go`'s own
+`report` note asks for when it says excluding a page type *"would fix those by coincidence, not by
+mechanism"*. Traced: 4 of the 5 `ClaimSurface` construction points can pass component identity in
+**one line**; only `validate_page_content.go` — the gate that actually refuses — needs real work, and
+`sections_metadata` in `CollectedData` is the reachable signal there. Likely **not** architecture-scope
+under RFC_022's 2026-08-11 narrowing (opt-in, unsafe side default-OFF, no live consumer names it) —
+but that must be asserted **with the consumer enumeration**, not without it.
 - **This is Go, so it is inert until the next fleet roll.** Until then the workaround is that the
   copy is regenerated on each attempt and will not always contain a clock time — the same
   non-determinism recorded in the `pricing` shrink investigation. Do not read a later success as
@@ -122,6 +219,22 @@ adds this section instead, which records the verdict but does not retroactively 
 that holds the code. The lesson is the ordering, not the trailer: **submit before or alongside the
 commit**, which is exactly what CLAUDE.md's `Council-Submitted:` trailer exists for.
 
+## 6c. Found by this bug's census, filed separately (2026-08-24)
+
+Both were turned up by the fleet claims run for §5a and are **not** this bug's mechanism.
+Named here so the next reader does not re-find them, and so they are not conflated with 364.
+
+- **`bugs_open/386`** — refreshing a **counting fact** turns every page that already rendered the
+  previous value into an "unregistered claim". fundamentallyai.com renders `11513/10194/428/483`
+  while the register now holds `11646/10416/437/503`. Framework-wide, periodic, and it convicts
+  honest pages at `error` severity.
+- **`bugs_open/387`** — the three tracker pages report `build_status='deployed'` with timestamps
+  from earlier today and **404 on the live site** (with an invented-URL control proving the
+  domain discriminates). ⚠ **This bears directly on how you read §5a**: the 20 false positives
+  this bug's interim removes are on pages that are *not currently served*. The **refusals** in
+  `agent_error_log` are real regardless — a refusal is recorded at build time — but do not
+  describe the tracker findings as live public damage. I did, before I curled, and was wrong.
+
 ## 7. Relations
 
 - `bugs_closed/073` (same regex, previous unit), `bugs_closed/102` (page-type gate),
@@ -131,3 +244,7 @@ commit**, which is exactly what CLAUDE.md's `Council-Submitted:` trailer exists 
   `557_aiao_evidence_base_stops_mandating_a_phrase_its_own_facts_cannot_validate.sql`.
   **Different cause, same page, same day; do not conflate them.**
 - Lane notes: `docs/agent_docs/docs024_key_docs_latest/site_ai_agent_orchestration/NOTES_site_improvement.md`.
+- The 2026-08-24 residual work: interim commit `a9002793b`, council `b8df25dc-7d19-48b9-9b52-b93b25523d4a`,
+  concept register **CLM-016** (extended, and its index status corrected from a month-stale "INERT until roll"),
+  `LANDMINES.md` entry "The claims number scan is now SILENT on three whole page types",
+  and the two spin-offs `bugs_open/386` / `bugs_open/387`.

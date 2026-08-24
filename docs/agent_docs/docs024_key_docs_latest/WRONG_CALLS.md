@@ -50069,3 +50069,18 @@ relying on a downstream string replace, and that is a style preference, not a fi
 anything, because they render through the same strip. The number was real and the word was not —
 the same shape as this lane's earlier "34 list-capable components sat available", where the count
 was true and the implication was not.
+
+> **ADDENDUM 2026-08-24, later — the SAME wrong call, one level up, caught by the review I asked
+> for.** Yesterday's entry: I cited a scan test that did not exist. I wrote it. Its header says it
+> catches a new code *"when you commit rather than when the CronJob goes red the next morning"* —
+> and **no hook ran it.** `check-finding-code-registry.sh` tested `./cmd/config-key-audit/`, never
+> the actions package, and its relevance predicate never named an actions file. So the test was
+> real and the claim that it *ran* was the false one. Fable (independent review, 2026-08-24):
+> *"The scan works when run by hand; the claim that it runs at commit is not delivered by any
+> automation."*
+>
+> **The check, which is the same check as yesterday with one word changed:** a comment claiming a
+> test RUNS at commit time is a claim about a *hook*, and it costs one `grep` of `.githooks/` to
+> verify. I verified the file existed and stopped — **existence is not execution.** Fixed the same
+> day: the hook now runs the actions package when a staged actions file carries `ErrorCode:`,
+> proven in a scratch tree with the registry untouched.
