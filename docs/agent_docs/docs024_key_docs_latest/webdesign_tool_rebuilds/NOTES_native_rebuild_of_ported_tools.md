@@ -2920,3 +2920,33 @@ the pid, the ALTER completed instantly (pages.noindex verified present), lock-wa
 Read-only export, nothing durable lost; owner unidentified (bare psql over the local socket).
 Incident file + LANDMINES entry belong to the 380 lane; recorded here because our queue was blocked
 and because the cancel-vs-terminate distinction will bite anyone clearing a stall.
+
+## 2026-08-24 ~20:30Z — every hand-filed add_tool ever (0 of 58) omitted `related_pages`; runbook fixed by the 353 lane; council round 2 submitted on c6b9a382; a near-miss logged
+
+**Cross-mentions (353 lane's find, their commit `d5dafd6a7` edits OUR runbook — verified, kept
+as-is):** the recipe's five-key spec never carried `related_pages`, so no hand-filed tool ever chose
+its cross-mention targets. Two eras: pre-516 the resolver substituted ANOTHER tool's list (`bugs_open/330`
+— why nine of our tools all cite the two Bayesian articles); post-516 (08-21 16:55Z) the omission
+yields NO mentions, recorded only as `tool_crosslink_not_emitted:no_related_pages` at `info` while
+everything reads green. From the next filing: 1–3 ACTIVE non-tool `pages.name` values by topic
+(non-resolving names skip SILENTLY; `tool-` names refused by design); post-build check one
+`tool_crosslink:` item per named page. Sibling (active filer, lane now 33/63 per their commits)
+notified directly. Backfill of ~30 mention-less tools + the nine wrong-era crosslinks: OPEN, owned by
+nobody yet; the ask-when-absent mechanism is the 353 lane's (owner ruled 2026-08-24).
+
+**Council trail:** `b8bdd4b3` (third writer) **APPROVED round 1**. `c6b9a382` (writers 1+2) came back
+**REVISE** — its gating HIGH (reuse_agent) PREDICTED the third writer from the landmine corpus at
+11:43Z, three hours before DBG-076 measured it live; the seat was right and events fixed it.
+**Round 2 submitted on the same correlation** with: the measured compile-proof the editquality seat
+demanded (mutant BUILDS, scan test fails on its own message); a FULL dated census — **seven
+`rendered_html` writers at HEAD as of 2026-08-24: five guarded, two allow-listed with measured
+reasons, ZERO open** (every seat-named suspect resolved; `update_component_html` and
+`store_generated_component` write `build_status` only); the LNK-029 509-page/0-loss citation
+(register link-management.md); the sibling-count correction (two callers at submission, not
+"three"); and the resolved staged-removal coordination. Code unchanged — `3a3a612d5`'s trailer
+resolves on approval. **OWED: read the round-2 verdict.**
+
+**Near-miss (WRONG_CALLS 2026-08-24):** a reaped scratch dir turned a mutation test into an edit of
+the REAL tree (`cd` failed, tail ran in the repo). Recovered in two minutes because the diff was
+exactly the two mutated lines, read before `git checkout --`. The rule now on file: `cd "$dir" ||
+exit 1` in every compound scratch command, and a scratch path from a previous day is a prophecy.
