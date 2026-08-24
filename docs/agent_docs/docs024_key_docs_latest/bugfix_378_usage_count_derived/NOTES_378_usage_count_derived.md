@@ -673,3 +673,81 @@ process"*. The blocker had already gone between my measurement and my command. T
 (**83 of 91** backends waiting → **0 of 9**), **but not by my action.** Either it ended on its own or
 another session cancelled it first. Claiming the fix here would be exactly the kind of
 post-hoc-ergo-propter-hoc this lane spent the day arguing against.
+
+---
+
+## 2026-08-24 (post-roll) — LIVE and proven at the binary; the last two objections resolved, one of them INVERTED
+
+### The fix is live — proven three ways, each with a control
+
+Chassis build stamp `48f55f21834ac3e2d95aa43716f6e63e40ac12ee` (pod started 18:55:21Z), read from
+`service_binary_capabilities` (`kind='build'`) because the `build provenance` startup line had
+already scrolled out of `--tail=400`.
+
+1. **Ancestry.** `git merge-base --is-ancestor 5074367f7 48f55f218` → **YES**.
+   ⚠ **My first control was worthless and I nearly recorded it** — I picked `5f7d32e4f`, which also
+   predates the build, so both arms returned YES and the test proved nothing. Replaced with
+   `4ad5b10fb` (committed 19:55, after the build), which correctly reports **NOT an ancestor**. The
+   test discriminates.
+2. **The new SQL is in the binary.** `grep -aq 'count(DISTINCT p.site_id)' /proc/1/exe` → **PRESENT**.
+3. **The old SQL is gone.** `grep -aq 'usage_count, 0)::float / 50.0' /proc/1/exe` → **ABSENT**,
+   with a positive control (`component_selector: selected` → PRESENT) proving the grep is not blind
+   on this binary.
+
+### ⚠ NOT demand-proven, and the control is what says so
+
+`usage_count` values are **byte-identical** to the 13:30Z snapshot — nothing has incremented. That is
+the expected post-fix observation and **it is currently worth nothing**, because the demand control
+fails: `SELECT count(*) FROM page_components WHERE created_at > '2026-08-24 18:55:21+00'` → **0**.
+No page has been built since the roll, so the old code would also have incremented nothing.
+`[UNMEASURED — no demand yet]`. **The frozen counter becomes evidence only once a page build has run.**
+
+### `bug_historian`'s medium objection — INVERTED, not merely answered
+
+The objection: changing `load_existing_component`'s ORDER BY switches which row is authoritative and
+could silently re-shape the enforced schema for pages bound to the old winner. Right family
+(the schemas really do differ — `hero` 7 fields vs `about-hero` 2), **but the direction is backwards,
+and reading the file's own fallback is what showed it.**
+
+`resolveContractViaStorageIdentity`'s doc comment states the design intent: the function name is
+derived *"exactly as `store_generated_component_action.go` derives it"* so that **"the prediction and
+the enforcement agree by construction rather than by coincidence"**. The store resolves what it will
+overwrite by **function name** = `NormaliseToKebab(section_type)`. So the right question is not "does
+the new winner differ from the old" but **"does the winner's `function` equal the section_type the
+store will enforce"**.
+
+`[MEASURED 2026-08-24]`, over all 117 section_types with a section-level candidate:
+
+| ordering | predictions agreeing with what the store enforces |
+|---|---|
+| OLD (`usage_count DESC, updated_at DESC`) | **88** of 117 |
+| NEW (derived sites DESC, `updated_at DESC`) | **90** of 117 |
+
+And both changed types moved **from disagree to agree**:
+
+| section_type | old predicted `function` | new predicted `function` | store enforces |
+|---|---|---|---|
+| `hero` | `hero-about` ❌ | `hero` ✅ | `hero` |
+| `tool-archetype-taster-quiz` | `archetype-taster-quiz` ❌ | `tool-archetype-taster-quiz` ✅ | `tool-archetype-taster-quiz` |
+
+**So the change REDUCED a pre-existing prediction/enforcement mismatch; it did not create one.** The
+old ordering was the mismatched one.
+
+**New finding falling out of that, unrelated to this bug and worth someone's time: 27 of 117
+section_types (117 − 90) still predict a contract the store would not enforce.** The advisory tells
+`component-creator` to preserve one row's field names while the store overwrites a different row.
+That is latent, pre-existing, and not created by this change — **not filed as a bug yet.**
+
+### `reuse_agent`'s objection — VALID, I had not checked, and prior art does exist
+
+They asked whether an equivalent "sites using component X" aggregation already existed. I had not
+looked. It does:
+
+- `component_write_guard.go:437` — `SELECT count(DISTINCT pc.page_id), count(DISTINCT p.site_id)`
+- `store_generated_component_action.go:1179` — `SELECT DISTINCT p.site_id::text`
+
+**Not reused, deliberately, and the reason is stated rather than assumed:** those compute a *write
+fence* blast radius (how much would this overwrite affect) over all rows; mine is a *merit* signal
+that excludes `build_status='removed'` and counts sites only. Same SQL shape, different question and
+a different predicate — sharing them would couple a scoring input to a safety guard. **But the seat
+was right that I did not check, and "I didn't look" is the answer, not "there was nothing".**
