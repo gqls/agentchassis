@@ -760,3 +760,97 @@ different direction.**
 > `page-rerender` does it too). No other session's entry was touched. Recorded here rather
 > than left to an auditor, because "the removal was mine" is exactly the claim that check
 > exists to make someone prove.
+
+## 2026-08-24 — footer removed, solitary-bee images corrected, three subjects filed for the framework
+
+Owner asked for three things. All three are below, including the wrong turns.
+
+### 1. Footer removed — and I aimed at the wrong function twice first
+
+**The footer is NOT produced by `InjectFooter`.** That is the obvious candidate, it is in
+`component_library.go`, it has a documented skip (`page already contains site-footer` →
+early return), and I spent two render cycles exploiting that skip. It never fired, because
+**`page-rerender` runs `rerender_single_page` (`rerender_single_page_action.go`), which
+never calls `InjectFooter` at all.** The chassis log had no skip line, which was the tell I
+should have read first instead of reasoning about the markup.
+
+**The actual source is the `site_components` table** — site-level chrome, one row per slot:
+
+| slot_name | rendered_html |
+|---|---|
+| `footer` | **969 chars, contained the email** |
+| `head` | 48,051 (this is the 51KB of inline CSS) |
+| `header` | 2,024 |
+
+`rerender_single_page_action.go:609` resolves `footer` from `site_components` and
+`:710` writes it **only `if footer != ""`**. So emptying that row is the supported way to
+have no footer, and it worked first time. **Read the action the agent definition actually
+names before theorising about the markup** — `page-rerender`'s `render_page` step maps to
+`rerender_single_page`, and one query would have said so.
+
+**The email lived in FOUR places** and clearing them one at a time produced three renders
+with byte-identical output, which looked like the render ignoring me and was actually me
+removing copies that nothing read: `sites.email`, `sites.company_name`,
+`sites.content_data->'email'`, and `site_specs.briefing->…->'contact_email'` (plus a stale
+copy in `submission`). The one the footer actually read was the `site_components.footer`
+row's already-rendered HTML — a **cached render**, not a live lookup. Same shape as the
+`page_components.rendered_html` trap from 08-23.
+
+**⚠ Clearing an address is not automatically safe.** `multipage_actions.go:417` and
+`section_editor_actions.go` **synthesise `ctx.Email = "info@" + Domain`** when a site has
+none — so on those paths, removing the real address invents a fake one. The rerender path
+has no such synthesis (checked: zero `info@` hits in `rerender_pages_actions.go` and
+`v3_site_actions.go`), which is why it was safe *here*. A future multipage build on this
+site could still print `info@apis.uk`.
+
+**Compensating control, applied BEFORE removing the data:** `bugs_open/063` records that
+the hallucinated-email check **fails open** on a site with no contact email. So
+`evidence_base` gained an any-email-address ban (**38** bans as of 2026-08-24) first, so
+removing the check's input did not leave a hole.
+
+**Verified:** `<footer>` tags **0**, email in source **0**, "rights reserved" **0**,
+images **7**, served bytes == repo commit `0479cf487`.
+
+### 2. Solitary-bee images regenerated for anatomical accuracy
+
+Owner: *"they tend to look slightly different to honey bees, please research this"*. He is
+right, and the original four were drawn as honey bees on soil.
+
+Researched rather than guessed. The decisive difference is **how pollen is carried**:
+a honey bee packs it into a **corbicula** — a smooth compacted pellet on the *outside* of
+the hind tibia; a mining bee (Andrena) has **no pollen basket at all** and carries it dry
+and loose on a **scopa**, dense hairs on the upper inner hind legs and dusted through the
+thoracic fur. Supporting tells: dark brown/black body rather than amber; densely furry
+thorax, often foxy-red or buff; stockier and slightly smaller; wings faintly brownish with
+darker tips; at most subtle pale abdominal bands, never bold yellow-and-black stripes.
+
+All of that went into the prompts verbatim, including an explicit "do not draw a pollen
+basket". Four regenerated under the same `asset_key`s, so the filenames and every page
+reference are unchanged: `illustration_solitary_bee`, `illustration_nest_cutaway`,
+`illustration_hive_vs_solitary`, `illustration_beetle_hole`.
+
+**Checked by looking at them, not by trusting the pipeline.** The contrast image now shows
+honey bees on comb with a visible packed pollen pellet on the hind leg, and beside them a
+dark, foxy-thoraxed mining bee with pollen as a loose dusty scatter through its leg hairs.
+The lone mining bee is correct too, at a nest hole with its spoil mound.
+`cf-cache-status: BYPASS` on all four, so visitors get the new files immediately.
+
+### 3. Waggle dance / swarm / pollination — filed where the framework acts on them
+
+The roadmap_brief already names all three subjects. What it lacked was anything that makes
+a writer act, because **`pages.sections` is a flat array of component names with nowhere to
+put a per-section subject** (established over three builds on 08-23).
+
+The framework's own per-suggestion content mechanism is the **`content_rewrite` work item**
+handled by `page-build-handler` — 108 complete fleet-wide, most recent 2026-08-23, so it is
+live and not folklore. Filed three, each carrying a `suggestion`, a `description` naming the
+already-generated unused illustration, and an **`acceptance_test`** stating both what the
+section must say and that no other section may cover the same subject.
+
+**⚠ THE TENSION, STATED PLAINLY: `page-build-handler` is the agent that deleted the
+embedded images on 08-23.** Hand-embedded `<figure>` markup lives in `content_data`, and a
+content build rewrites `content_data`. So running these three items is expected to cost the
+images, and they will need re-embedding afterwards. That is why one was dispatched as a
+**canary** rather than all three, and why the images are being watched while it runs.
+**The durable fix is not more hand-embedding** — it is a component with an image slot, or
+image markup the writer is told to preserve. Recorded as the open question it is.
