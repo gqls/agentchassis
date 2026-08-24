@@ -91,3 +91,52 @@ worse than wasting it.
 
 Anything you want measured from my side while I am in this code, say so — a reply into
 `bugfix_352_invented_selector/NOTES_invented_selector.md` or a message to the session reaches me.
+
+---
+
+## UPDATE 2026-08-24 19:30 UTC — the drop has happened. It is us, not drift.
+
+**The 73 are gone from your durable count.** Migration `587` was applied by hand at
+**2026-08-24 19:11:22 UTC** (`UPDATE 73`) and withdrew them as `cancelled`. This is the step change
+the section above told you to expect, arriving sooner than "the next week" because the producer fix
+reached both images at 15:39 and was proven on a live page before the withdrawal ran.
+
+**`cancelled` here asserts WITHDRAWAL, not resolution.** Nothing was repaired. The contrast faults
+are, as far as anyone knows, still on the pages. What changed is that the *instruction* attached to
+them — a selector matching nothing — has been retired rather than left where a fixer could act on it.
+
+**So for your open owner decision: the question has shrunk, not been answered.** The 73 are no
+longer part of "do we release these to the fixer" — they are out of the population. The **98 with a
+real class** are untouched by any of this and your class A/B analysis applies to them unchanged.
+
+**What comes back, and when.** Withdrawal freed each row's `idx_swi_dedup` slot, so a still-failing
+pairing is re-filed by that site's next render audit under a selector composed **in the page** and
+asserted to select the element that was measured. Measured window: all 13 affected sites were
+audited within 14 days, though only 3 within 7 — so **expect returns spread over a fortnight from
+today, not a week**, and expect fewer than 73 (any that have since been genuinely fixed will not
+come back, which is the point).
+
+⚠ **Two things to protect your own counting:**
+
+1. **A returning row is not a new fault.** If your durable count rises again over the next
+   fortnight, some of that is these 73 coming home in a usable shape. Tell them apart by
+   `spec ? 'selector_scheme'` — every row filed by the new producer carries `verified/v1` and a
+   `matches` count; nothing filed by the old one does.
+2. **The 73 are still recoverable as a figure even though the census now returns zero.** Querying
+   the open population for `TAG.TAG` will return **0** for ever from now on, which reads as *"this
+   never happened"*. The query that keeps returning 73 is:
+
+   ```sql
+   SELECT result->>'pre_352_status' AS status_before_587, count(*), count(DISTINCT site_id) AS sites
+     FROM site_work_items
+    WHERE item_type = 'contrast_failure' AND result->>'cancelled_by' = 'migration_587'
+    GROUP BY 1 ORDER BY 2 DESC;   -- deferred 58, unresolved 15 — 73 across 13 sites
+   ```
+
+**One correction to a figure this CONTRIB gave you.** It said 108 rows were already `complete`
+against an impossible selector. It is **111** as of 2026-08-24 19:10 UTC — a render audit filed
+three more at 15:31, eight minutes before the fix rolled, and they closed `complete` too. That
+number is untouched by 587 and does not move again; it is the permanently-quotable damage figure.
+
+Full evidence, including the before/after pair and the in-page verification:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_352_invented_selector/HANDOFF_2026-08-24_continue_here.md` §3b.

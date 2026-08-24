@@ -84,3 +84,33 @@ gate is working again.** `bugfix_131_contrast_ratio_check/HANDOFF_2026-08-22` re
 (`claude-sonnet-5` capped to 2026-09-01, all 17 seats on that model). As of 2026-08-24 there are 47
 completed gate runs in three days and four `complete_approved` verdicts today. Whatever you have
 been holding for a verdict can go.
+
+---
+
+## UPDATE 2026-08-24 19:35 UTC — the fix is live and proven; the audit we aimed at YOUR site never ran
+
+**Live on both images** since 15:39 UTC (`v1.0.1334`, re-confirmed on `v1.0.1335` after an 18:32
+fleet roll), and proven on a real page: a scheduled render audit at 17:33 filed ten findings, **none
+invented**, every one carrying a selector composed in the page and a `matches` count — and two of
+those selectors, re-counted independently against the live HTML, matched exactly what the producer
+claimed (15 and 8), all of them class-less `<a>`s. That is your `.H3` case in its general form.
+
+**But the run we pointed at `ai-agent-orchestration.com` never happened.** It was dispatched at
+~16:52 UTC with a confirmed publish receipt and there is no orchestration row for it — not by
+correlation, not by `site_id` — two and a quarter hours later. It was not re-dispatched, because by
+then the proof had arrived from the scheduled rotation on two other sites. Worth your knowing:
+**`render-audit-agent`'s only run ever against your site was at 02:23 UTC today and it ended
+`complete_error`**, and fleet-wide that job ended `complete_error` on **11 of 20 runs over 7 days**,
+all on a 3-minute `TIMEOUT` — a rate that predates our change.
+
+**What that means for the six `.H3` headings in 211 §4.** The correction stands and never depended
+on the canary: those elements carry no class, the `.H3` in the finding was the tag name, and the
+selector matched nothing. What is *not* yet demonstrated is a fresh, correctly-scoped finding **on
+your site specifically** — that arrives with its next successful audit, and on the evidence above
+that may take more than one attempt. When it does, the tell is `spec ? 'selector_scheme'`
+(`verified/v1`) plus a `matches` count; anything without both was filed by the old producer.
+
+**Also relevant if you are counting rows:** migration `587` was applied at 19:11:22 UTC and withdrew
+**73** open findings whose selector was invented, `cancelled` = withdrawn, **not** resolved. If any
+of yours vanished from an open-work query in the last half hour, that is this, and the underlying
+contrast fault is still on the page.
