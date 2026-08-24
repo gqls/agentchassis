@@ -61,6 +61,30 @@
 // pages of robot-hands.com. Nav needs the served page, so it waits for an
 // instrument that reads one.
 //
+// WHY NOT datahelpers/claims.go's MATCHER, which owns the nearest-looking shape
+// ("does this text contain this phrase") and was raised by the council's
+// reuse_agent seat (corr ef482d1c). Its compiler is
+// `regexp.Compile("(?i)" + p)` over a pattern an AUTHOR wrote into an evidence
+// base — a REGEX, deliberately, with boundaries the author's business, and a
+// QuoteMeta fallback when it will not compile. The needles here are LITERAL
+// phrases an LLM emitted. Feeding one to that compiler makes "(beta)" a capture
+// group and "3.5" match "375", or silently changes semantics via the fallback,
+// and it drops the word boundaries that stop "we" matching inside "web". Same
+// sentence, opposite contract: one interprets, this one quotes.
+//
+// AND WHY THIS IS NOT THE REVALIDATION FAMILY (revalidate_unverified_claims.go /
+// check_unverified_claims.go / ScanDeployedClaims), which the same seat named as
+// the closer precedent — correctly, and the boundary is worth stating so a third
+// parallel mechanism does not grow here. That family asks "does the DEPLOYED
+// component HTML still assert something the site's own evidence register does not
+// support", over a fleet-wide register, to RETRACT a finding the page no longer
+// supports. This asks "is the condition THIS finding says would make the page
+// right false of the page's metadata today", over a per-finding author-supplied
+// clause, to decide whether that clause may be STORED. ⚠ The two do converge at
+// one point that is NOT built here: a completion-time consumer of these
+// predicates would be asking a revalidation-shaped question, and whoever builds
+// it should look at `reviewRevalidators` before writing a third loop.
+//
 // Config:
 //   - site_id        (required) path to the site uuid
 //   - findings_field (optional, default "audit_result.result") path to the
@@ -556,6 +580,22 @@ func VerifyAcceptancePredicatesAction(ctx context.Context, params ActionParams) 
 			zap.Error(err))
 		subjects = nil
 	}
+	// ⚠ AN EMPTY SUBJECT SET IS THE GATE'S OWN SILENT-INERT FAILURE MODE, and it
+	// gets its own signal rather than arriving as N ordinary "page not found"
+	// rejections. If the surface query ever stops matching — a lifecycle
+	// vocabulary change, a site whose pages are all archived, a site_id that
+	// resolves to the wrong row — every predicate is refused for a reason that
+	// reads like the model's fault. Raised by two council seats (editquality,
+	// debug_historian, corr ef482d1c) as the one thing rule 2 could not protect
+	// against, because it fails toward "nothing was storable today", which is a
+	// legitimate outcome. `subjects_loaded` is returned on EVERY run, including
+	// the clean ones, so "0 pages" is a positive statement in the record rather
+	// than an absence a reader has to notice.
+	if len(subjects) == 0 {
+		logger.Warn("verify_acceptance_predicates: NO pages loaded for this site — every predicate will be refused as unevaluable, and that is a fault here, not a model error",
+			zap.String("site_id", siteID.String()),
+			zap.Bool("query_errored", err != nil))
+	}
 
 	out := make([]interface{}, 0, len(items))
 	var kept, rejected int
@@ -599,8 +639,11 @@ func VerifyAcceptancePredicatesAction(ctx context.Context, params ActionParams) 
 		subject, found := subjects[page]
 		if !found {
 			reason := fmt.Sprintf("page %q is not on this site's active surface, so the predicate cannot be evaluated", page)
-			if subjects == nil {
-				reason = "page metadata could not be read, so the predicate could not be evaluated"
+			if len(subjects) == 0 {
+				// Deliberately NOT phrased as "page %q is not on the surface":
+				// no page is, and blaming the named one sends the next reader
+				// to the model when the fault is this step's.
+				reason = "no pages were loaded for this site at all, so NO predicate could be evaluated — this is a fault in the gate's page query or its site_id, not in the predicate"
 			}
 			rej := AcceptancePredicateRejection{
 				Verdict: string(PredicateInapplicable), Reason: reason, Predicate: pred,
@@ -655,6 +698,7 @@ func VerifyAcceptancePredicatesAction(ctx context.Context, params ActionParams) 
 		"rejected":          rejected,
 		"rejections":        rejections,
 		"findings_resolved": true,
+		"subjects_loaded":   len(subjects),
 	}, nil
 }
 
@@ -694,17 +738,36 @@ func predicatePageName(pred, item map[string]interface{}) string {
 // loadAcceptancePredicateSubjects reads the metadata of every page on the site's
 // surface.
 //
-// ⚠ THE WHERE CLAUSE IS COPIED FROM THE OFFER SURFACE'S OWN QUERY, deliberately.
-// The model authors predicates against the page list it was shown; evaluating
-// them over a DIFFERENT population would let a predicate be rejected for naming a
-// page that was on the surface, or evaluated against a page that was not. If that
-// query changes, this one has to change with it.
+// ⚠ THE WHERE CLAUSE IS THE OFFER SURFACE'S OWN, deliberately. The model authors
+// predicates against the page list it was shown; evaluating them over a DIFFERENT
+// population would let a predicate be rejected for naming a page that WAS on the
+// surface, or evaluated against a page that was not. The surface query lives in
+// `load_offer_surface`'s step config (agent_definitions), so no compiler can hold
+// the two together — if it changes, this must change with it.
+//
+// The lifecycle arm is PageWantedLivePredicateFor rather than a hand-written
+// `status = 'active'`, on the landmine's own instruction ("prefer the helper"):
+// pages.status has two live values and two of the spellings in circulation are
+// INERT — `<> 'deleted'` excludes nothing, `IN ('active','deployed')` works only
+// by accident. Two council seats (editquality, debug_historian) raised exactly
+// that risk against the hand-written form, on the ground that a filter matching
+// nothing would make every predicate "page not on this site's surface" and take
+// the whole gate silently inert.
+//
+// [MEASURED 2026-08-24] the premise of that risk does not hold on this table
+// today — `SELECT status, count(*) FROM pages GROUP BY 1` returns exactly
+// `active` 805 / `archived` 66, and this query returns 35-137 rows for each of
+// the five enrolled sites, never zero. The helper is used anyway, because it is
+// the single place the vocabulary is written down, and because the measurement
+// above is true of TODAY and the helper stays true after a vocabulary change.
+// The silent-inert failure mode is separately made LOUD below — a measurement
+// that a hazard is not live today is not a guard against it.
 func loadAcceptancePredicateSubjects(ctx context.Context, params ActionParams, siteID uuid.UUID) (map[string]AcceptancePredicateSubject, error) {
 	rows, err := params.DB.QueryContext(ctx, `
 		SELECT name, COALESCE(title, ''), COALESCE(meta_description, '')
 		FROM pages
 		WHERE site_id = $1
-		  AND status = 'active'
+		  AND `+datahelpers.PageWantedLivePredicateFor("")+`
 		  AND NOT (deployed_at IS NULL AND COALESCE(build_status, '') = 'planned')
 	`, siteID)
 	if err != nil {

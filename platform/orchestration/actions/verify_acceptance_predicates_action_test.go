@@ -27,6 +27,7 @@ import (
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	orchtypes "github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
@@ -552,5 +553,66 @@ func TestFindingsFromListPopulatesEveryTaggedField(t *testing.T) {
 		if v.Field(i).IsZero() {
 			t.Errorf("findingsFromList dropped %q: the struct has the field, the hand-written map path does not", tag)
 		}
+	}
+}
+
+// TestAnEmptySubjectSetIsReportedAsAFaultHere is the council's medium objection
+// made mechanical (editquality + debug_historian, corr ef482d1c): if the page
+// query ever stops matching, every predicate is refused and the gate goes inert
+// while reading exactly like "the model wrote nothing storable today". The
+// measured premise of that risk does not hold on `pages` right now — status is
+// `active` 805 / `archived` 66 as of 2026-08-24, and the query returns 35-137
+// rows per enrolled site — so this test MUTATES the state the objection is about
+// rather than waiting for it: an empty subject set must produce a rejection that
+// blames the gate, and a `subjects_loaded` of 0 in the record.
+func TestAnEmptySubjectSetIsReportedAsAFaultHere(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	// The mutation: the query matches nothing.
+	mock.ExpectQuery("FROM pages").WillReturnRows(
+		sqlmock.NewRows([]string{"name", "title", "meta_description"}))
+
+	params := predicateParams(t, nil, []interface{}{
+		map[string]interface{}{
+			"category": "content", "page": "index", "acceptance_test": "prose",
+			"acceptance_predicate": orderPred("", []interface{}{"no account"}, []interface{}{cardinalNeedle}),
+		},
+	}, nil)
+	params.DB = db
+
+	out, err := VerifyAcceptancePredicatesAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("an empty page set must not fail the run — the findings still deserve filing: %v", err)
+	}
+	res := out.(map[string]interface{})
+	if res["subjects_loaded"] != 0 {
+		t.Errorf("subjects_loaded = %v, want 0 stated positively in the record", res["subjects_loaded"])
+	}
+	if res["kept"] != 0 || res["rejected"] != 1 {
+		t.Fatalf("kept=%v rejected=%v", res["kept"], res["rejected"])
+	}
+	f := res["findings"].([]interface{})[0].(map[string]interface{})
+	rej := f[acceptancePredicateRejectedKey].(AcceptancePredicateRejection)
+	if strings.Contains(rej.Reason, "\"index\"") || !strings.Contains(rej.Reason, "fault in the gate") {
+		t.Errorf("the refusal must blame this step, not the named page: %q", rej.Reason)
+	}
+	// And the finding itself still goes through.
+	if f["acceptance_test"] != "prose" {
+		t.Errorf("the finding was damaged: %v", f)
+	}
+}
+
+// TestTheLifecycleArmIsTheSharedHelper pins the query's lifecycle predicate to
+// datahelpers.PageWantedLivePredicateFor rather than a hand-written literal.
+// `pages.status` has two live values and two of the spellings in circulation are
+// INERT (`<> 'deleted'` excludes nothing; `IN ('active','deployed')` works by
+// accident) — the helper is where that vocabulary is written down once.
+func TestTheLifecycleArmIsTheSharedHelper(t *testing.T) {
+	if got := datahelpers.PageWantedLivePredicateFor(""); got != "status = 'active'" {
+		t.Fatalf("the helper now returns %q — this action's query embeds it, so re-read the "+
+			"offer surface's own filter and confirm the two still select the same population", got)
 	}
 }
