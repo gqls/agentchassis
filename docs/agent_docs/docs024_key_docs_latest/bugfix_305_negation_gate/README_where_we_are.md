@@ -392,3 +392,49 @@ One thing I would **not** do yet: settle the "rather than" question. That was al
 from the rejection log, and the log only became trustworthy today. There are five entries so far. Give
 it a week — and it matters more than it sounds, because "rather than" is **71%** of everything the gate
 rewrites.
+
+---
+
+**2026-08-24, evening — both your decisions are live, and the second one proved itself within twenty minutes**
+
+The last piece went out on the new build. Both things you decided today are now running.
+
+**The tagline.** It says "in days" now instead of "in days, not months". Doing it turned out to be more
+work than it sounds, for a reason worth knowing: the sentence was written into the brief in **five
+places**, not one. If I'd corrected only the obvious one it would have looked done and changed nothing,
+because the gate checks the whole brief before deciding what to leave alone — one surviving copy keeps
+the old sentence protected. I also found the sentence wasn't where every previous note in this lane
+said it was, and it is *not* in the fields actually called "tagline" — those hold something else
+entirely. Anyone following the old notes would have edited the wrong thing.
+
+The nice part is what happens next without anyone doing anything. Correcting the instruction
+automatically **removed the protection** from the old wording, so the pages carrying it are now
+ordinary things for the gate to fix on their next rebuild. Nobody edits a page by hand. That was the
+whole point of building the machinery.
+
+One caveat I'd rather say plainly: **you won't see the pages change yet.** That site's rebuilds are
+stuck behind about thirty unrelated items in another team's queue. If you look tomorrow and the old
+line is still there, that isn't a failed change — check the brief, not the page.
+
+**"A little bit of a tic."** This one I got wrong first and had to correct in front of you, so it's
+worth saying what the fix actually turned out to be. I'd described the gate as having a limited number
+of repairs to hand out. It doesn't. It has a limited amount of **forgiveness** — it lets a page keep
+two of these constructions and fixes the rest. And until today, which two it kept was decided by
+nothing more than **where they happened to appear on the page**. A page could keep both of its worst
+lines simply because they sat near the top, and the gate would spend its effort rewriting two mild
+"rather than"s further down.
+
+So your ruling had an obvious home once I'd read it properly: the mild one is what gets forgiven, and
+the sharp ones always get fixed. That's live now, and it proved itself in the first twenty minutes of
+traffic — across 38 pages, not once did a sharp construction take forgiveness it wasn't entitled to.
+Sharp lines are being fixed at a rate they weren't before.
+
+**Where that leaves the whole thing.** Finished. The bug is closed, every fix is live and demonstrated
+on real traffic rather than assumed from a deploy, and all eight reviews came back approved. What's
+left isn't work on this — it's one page waiting in someone else's queue.
+
+Two honest notes to close on. I was wrong twice today and both were caught by measuring rather than by
+anyone objecting: I said a defect was "newly reachable" when it had in fact been live for a fortnight
+(it never once fired, which I can now show rather than assume), and I explained the budget backwards
+before re-reading the code. Neither changed what got built, but both would have gone into the record
+as fact if I hadn't checked, so they're written down as corrections where the claims were made.
