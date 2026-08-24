@@ -47243,6 +47243,45 @@ Related, and the reason this is its own entry rather than a note on the existing
 usual failure here is a control that *could not* have come out differently. **This one could
 have, easily, and did — I simply never looked at it.**
 
+## 2026-08-24 — `web_admin_console` (second entry, same session) — the query was honest, re-publishing it two days later was not, and the invented part was arithmetic
+
+I told two audiences — the owner in chat, and the `apis_uk_bees_homepage` lane by message — that
+his `apis.uk` build had **"been sitting at `needs_vertical_research` triaged since 12:26 on the
+22nd — about two days now, not progressing"**, and put the same three-row table into
+`web_admin_console/PLAN_2026-08-24_build_steps_screen.md` §6d as the worked example arguing what a
+build-steps screen should be built on.
+
+**It had not stalled.** That lane re-read the queue and pushed back; I re-ran the query rather
+than take it on trust, and they were right. `needs_vertical_research` completed at **12:37:26 —
+eleven minutes after I looked** — and the whole fresh-build cascade finished the same afternoon,
+12:18 → 13:25, ~67 minutes across twelve stages. The `site_unreachable` row I reported as
+outstanding went `complete` on its own at 16:21 that day.
+
+**The measurement never went wrong. Re-publishing it did.** This session opened on 2026-08-22 and
+the date rolled to 08-24 while it stayed open. The three-row snapshot was accurate at ~12:26 on
+the 22nd. I carried it forward into documents written on the 24th without re-running it.
+
+**And the sentence that made it a false claim was never measured at all.** *"About two days now,
+not progressing"* was me subtracting a stored `updated_at` from today's date — arithmetic on a
+stale row, presented in the same voice as the row itself. The stale table was merely old; the
+derived duration was fabrication, and it is the half that sounded most like evidence.
+
+**Cost:** none reached production — caught within the hour by the neighbouring lane, corrected
+visibly in the plan (§6d, with the corrected twelve-row timeline, which is a *better* worked
+example than the wrong one), in `README_where_we_are.md`, and in a reply to that lane. But it was
+said to the owner about his own live build, which is the audience least able to check it.
+
+**The cheap check**: **re-run any state query before quoting it in a document dated later than
+the day you ran it** — and never compute an age from a stored timestamp without re-reading the
+row. `git log`-style *events* keep; `status = 'triaged'` does not.
+
+*(Second entry this session, and the pairing is the finding. The first was believing a pattern
+without reading a row it matched; this was believing a snapshot without re-running it. Both are
+the same move — an old or unexamined result that agreed with what I already expected, promoted to
+evidence because nothing prompted me to look again. The memory index already carried the rule for
+this one — "a `[MEASURED]` claim about STATE expires while a DATED EVENT does not" — so it is a
+known rule violated, not a missing one. Both were caught by other lanes, neither by me.)*
+
 ## 2026-08-24 — `bugfix_206_directory_build_handler` (sixth entry) — I read the 090 budget landmine's own file-size check, applied it, and it gave me the false all-clear the landmine's CORRECTION banner exists to warn about
 
 Having written into `bugs_open/206` that a reader wanting independent structural confirmation

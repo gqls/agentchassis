@@ -77,10 +77,12 @@ empty on every single row, and for a given site most of the ones that *are* atta
 be its routine overnight checks rather than its build. What you would actually call a build is a
 chain of work items with names like "needs domain research", "needs strategy", "needs briefing",
 "needs site plan", "needs design", then one per page. That chain reads like a build. Your own
-apis.uk build is a three-line example of it: research finished at 12:26 on the 22nd, and it has
-been sitting waiting on vertical research ever since. I have not acted on this — it is that
-lane's call, not mine — but I have put it in front of them, because building the screen on the
-wrong thing is a week nobody gets back.
+apis.uk build is a clean example of it — twelve stages, each handing to the next within seconds
+of the last, the whole thing finished in about an hour on the afternoon of the 22nd. (I first
+told you it had stalled two days ago waiting on one of those stages. It had not. See the
+correction at the foot of this file.) I have not acted on this — it is that lane's call, not
+mine — but I have put it in front of them, because building the screen on the wrong thing is a
+week nobody gets back.
 
 **Three.** There is a known trap where a build step can fail while the record still says
 "completed" and the error column stays empty. The plan already builds around it, correctly. I
@@ -113,4 +115,37 @@ instruction that would have produced that outcome, and joined them up — withou
 anything else could produce it. Something else did. So: the *result* is fine and needs nothing
 from you, but you should not read "it works" as "the step was done", and if you do apply that
 instruction, expect it to change nothing.
+
+## 2026-08-24, later — correction: the apis.uk build had not stalled
+
+Earlier today I told you your apis.uk build had been sitting for two days, stuck waiting on one
+of its stages. **That was wrong, and I want to be plain about it because I said it to you twice —
+here and in a message to another lane.**
+
+It had not stalled. The stage I named finished eleven minutes after I looked at it, and the whole
+build ran start to finish in about an hour on the afternoon of the 22nd: research, vertical
+research, strategy, briefing, site plan, composition, page, design, imagery, re-render. There was
+also an alarm saying the site could not be reached, which I reported as outstanding; it cleared
+itself at 16:21 that same afternoon once the page started serving.
+
+The lane working on that site checked and told me so. I re-ran the query myself rather than take
+their word for it, and they were right.
+
+**What went wrong is worth you knowing, because it is a failure mode rather than a typo.** I
+looked at that build on the 22nd, when this session started. The session then stayed open across
+two days. When I wrote it up today I reused the old result — and, worse, added a detail that was
+never measured at all: "about two days now, not progressing" was me subtracting the row's
+timestamp from today's date. The original reading was honest. The arithmetic I bolted onto it
+turned a stale note into a false statement about a live build of yours.
+
+The rule I broke is one this project had already written down: a measurement of *what something
+was doing* goes out of date, while a measurement of *what happened at a moment* does not. So the
+check is simply to re-run anything about current state before repeating it on a later day, and
+never to compute an age from a timestamp without re-reading the row.
+
+Two corrections in one afternoon, both caught by other lanes rather than by me, and both of the
+same family — seeing something that fitted what I already believed and not asking what else could
+explain it. I would rather you saw that written down than tidied away. The upshot for the work is
+small and slightly better than before: that build is now a *complete* twelve-stage example to
+design the screen against, instead of a half-finished one.
 
