@@ -811,3 +811,24 @@ Final: 16/18 items complete (2 = OWNED_PAGE_GUARD pages, no covered findings on 
 exhaust retries), **23/23 tick-list buttons verified in the served bytes**, including
 who-we-help's pair after its roll-dropped dispatch was re-picked. Detection → served ≈ 25 min
 for the bulk.
+
+### 12. ai-agent-orchestration.com — 20/22 moved; and a THIRD "complete and unchanged" class [MEASURED 2026-08-24 ~20:10Z]
+
+Corr `ba594f7b-a3c1-4e4e-ad12-0912bd6ddaeb`, filed 19:15Z. 16 items; 15 complete, 1 retrying
+(`tool-automation-savings-estimator`, `save_page_sections: SECTION COMPONENT…`, attempt 2/3 —
+an uncovered-only page, so nothing tick-listed depends on it).
+
+**Tick-list: 20/22 at the served page.** 17 exact; 3 read as "gone" until the DB showed the
+writer had **rewritten label AND url together** (e.g. news: "See the Adoption Tracker" became
+"See the Enterprise AI Agent Adoption Tracker" → /adoption-tracker.html) — a tick-list keyed on
+the OLD label under-counts repairs.
+
+**The 2 unchanged (blog hero + call-to-action) are a class worth naming: EMPTY `content_data`,
+`rendered_html` frozen since 2026-04-14.** The recompute writes CTA fields into resolved data —
+with no stored data and no section plan, the rerender carries the stored HTML byte-identical and
+the item completes. So "complete and unchanged" now has THREE faces: uncovered component,
+OWNED_PAGE_GUARD page, and data-less legacy component. All three belong to Phase C's verifier.
+Today's pair points at real pages (/services.html, /contact.html) — mismatch, not breakage.
+
+lendzy.co.uk fired 20:01:42Z (corr `5484e5df-d539-41d5-8315-a39282e8cf22`), 20 FIX / 7 SKIP
+expected, monitor armed.
