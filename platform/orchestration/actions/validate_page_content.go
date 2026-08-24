@@ -366,7 +366,18 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 			}
 			blocks := datahelpers.ExtractAssertionText(htmlStr)
 			issues = append(issues, checkBannedClaims(blocks, eb, claimsFleetWide, siteIDStr, logger)...)
-			if eb != nil {
+			// Practice claims (bugs_open/380): first-person physical practice on a
+			// site with no recorded operating history. RECORDED at warning by
+			// default — never a refusal; the step config key practice_claims_severity
+			// (warning|error|blocker) is the per-pipeline escalation lever, and a
+			// fleet-wide flip is RFC_003 Q1 (architecture review), not a config edit.
+			issues = append(issues, checkPracticeClaims(blocks, eb,
+				practiceClaimsSeverity(config, logger), siteIDStr, logger)...)
+			// HasScannableRegister, not eb != nil: an attestation-only register
+			// (regulated / operating_history) parses non-nil but holds no facts,
+			// and arming the number scan against it would refuse every figure on
+			// the site at error severity (bugs_open/380; zero live instances 2026-08-24).
+			if eb.HasScannableRegister() {
 				// The page's structural type gates the PROSE number heuristic
 				// only (bugs_open/102) — banned claims are scanned on every
 				// page type. Unresolved page type means "unknown", which
@@ -1216,6 +1227,52 @@ func checkBannedClaims(blocks []string, eb *datahelpers.EvidenceBase, fleetWide 
 			Location:    f.Snippet,
 			Value:       f.Matched,
 			Description: fmt.Sprintf("Banned claim %q (%s) — %d occurrence(s)", f.Matched, f.Reason, f.Occurrences),
+		})
+	}
+	return issues
+}
+
+// practiceClaimsSeverity reads the escalation lever for the practice-claims
+// family. Default "warning" (owner decision 2026-08-24, bugs_open/380): a
+// warning never affects validity, is persisted with the result, and is what
+// cmd/claimscan reports. Anything outside warning|error|blocker falls back to
+// warning and says so — a typo must not silently become a refusal.
+func practiceClaimsSeverity(config map[string]interface{}, logger *zap.Logger) string {
+	sev := "warning"
+	if raw, ok := config["practice_claims_severity"].(string); ok && strings.TrimSpace(raw) != "" {
+		switch strings.ToLower(strings.TrimSpace(raw)) {
+		case "warning", "error", "blocker":
+			sev = strings.ToLower(strings.TrimSpace(raw))
+		default:
+			logger.Warn("claims gate: practice_claims_severity is not warning|error|blocker — using warning",
+				zap.String("configured", raw))
+		}
+	}
+	return sev
+}
+
+// checkPracticeClaims reports first-person practice claims on a site with no
+// operating-history attestation (datahelpers.ScanPracticeClaims). Suppressed
+// matches (negated, hedged) are logged, never issues — the same visibility
+// rule checkBannedClaims applies to the negation guard.
+func checkPracticeClaims(blocks []string, eb *datahelpers.EvidenceBase, severity, siteID string, logger *zap.Logger) []ValidationIssue {
+	var issues []ValidationIssue
+	found, suppressed := datahelpers.ScanPracticeClaimsWithSuppressed(blocks, eb)
+	for _, f := range suppressed {
+		logger.Info("claims gate: practice-claim match suppressed",
+			zap.String("site_id", siteID),
+			zap.String("why", f.Reason),
+			zap.String("matched", f.Matched),
+			zap.String("snippet", f.Snippet))
+	}
+	for _, f := range found {
+		issues = append(issues, ValidationIssue{
+			Type:        "practice_claim",
+			Category:    "claims",
+			Severity:    severity,
+			Location:    f.Snippet,
+			Value:       f.Matched,
+			Description: fmt.Sprintf("Practice claim %q (%s) — %d occurrence(s)", f.Matched, f.Reason, f.Occurrences),
 		})
 	}
 	return issues

@@ -614,7 +614,13 @@ func scanComponentClaims(html, slotName string, eb *datahelpers.EvidenceBase,
 			Severity: "high", Source: "rendered_html",
 		})
 	}
-	for _, f := range eb.ScanUnregisteredNumbers(blocks, surface) {
+	// Gated on register CONTENT, not on eb != nil: an attestation-only register
+	// must not arm the number scan against an empty fact list (bugs_open/380).
+	var numberFindings []datahelpers.ClaimFinding
+	if eb.HasScannableRegister() {
+		numberFindings = eb.ScanUnregisteredNumbers(blocks, surface)
+	}
+	for _, f := range numberFindings {
 		out = append(out, unverifiedClaimFinding{
 			Check: f.Check, SlotName: slotName, Matched: f.Matched,
 			Reason: f.Reason, Snippet: f.Snippet, Occurrences: f.Occurrences,

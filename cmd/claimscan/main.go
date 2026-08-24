@@ -105,7 +105,7 @@ func main() {
 	scanner := bufio.NewScanner(in)
 	scanner.Buffer(make([]byte, 1024*1024), 16*1024*1024)
 
-	var total, suppressedTotal, attribTotal, componentsScanned, withoutPageType int
+	var total, suppressedTotal, attribTotal, practiceTotal, practiceSuppressed, componentsScanned, withoutPageType int
 	// Keyed by page: the attributed scan's unit is the document (see below).
 	attribBlocks := map[string][]string{}
 	attribSlot := map[string]string{}
@@ -158,11 +158,35 @@ func main() {
 					page, slot, f.Matched, f.Reason, f.Snippet)
 			}
 		}
-		for _, f := range eb.ScanUnregisteredNumbers(blocks,
-			datahelpers.ClaimSurface{PageType: pageType}) {
+		// Same gate as the platform (bugs_open/380): the number scan arms on
+		// register CONTENT, so an attestation-only -evidence file scans like an
+		// unarmed site, exactly as the gate would treat it.
+		var numberFindings []datahelpers.ClaimFinding
+		if eb.HasScannableRegister() {
+			numberFindings = eb.ScanUnregisteredNumbers(blocks, datahelpers.ClaimSurface{PageType: pageType})
+		}
+		for _, f := range numberFindings {
 			total++
 			fmt.Printf("NUMBER   %-45s %-22s %-30q ×%d  %s\n    …%s…\n",
 				page, slot, f.Matched, f.Occurrences, f.Reason, f.Snippet)
+		}
+		// Practice claims (bugs_open/380): first-person physical practice with no
+		// operating_history attestation. Printed and counted SEPARATELY, and
+		// EXCLUDED from the exit code, exactly like ATTRIB: the platform records
+		// these at warning and refuses on none of them, so a dry run must not
+		// assert an authority the gate does not have.
+		practice, practiceGone := datahelpers.ScanPracticeClaimsWithSuppressed(blocks, eb)
+		for _, f := range practice {
+			practiceTotal++
+			fmt.Printf("PRACTICE %-45s %-22s %-30q ×%d  %s\n    …%s…\n",
+				page, slot, f.Matched, f.Occurrences, f.Reason, f.Snippet)
+		}
+		for _, f := range practiceGone {
+			practiceSuppressed++
+			if *showSuppressed {
+				fmt.Printf("practice-suppressed %-34s %-22s %-30q      %s\n    …%s…\n",
+					page, slot, f.Matched, f.Reason, f.Snippet)
+			}
 		}
 		// The attributed scan's unit is the DOCUMENT, not the component: a
 		// citation routinely lives in a different component from the figure it
@@ -212,6 +236,8 @@ func main() {
 	}
 
 	fmt.Printf("\nclaimscan: %d finding(s) across %d component(s)\n", total, componentsScanned)
+	fmt.Printf("claimscan: %d practice claim(s) recorded (warning — not in the exit code), %d suppressed\n",
+		practiceTotal, practiceSuppressed)
 	if *attributed {
 		fmt.Printf("claimscan: %d attributed-uncited-stat finding(s) (bugs_open/123; not counted above, not in the exit code)\n",
 			attribTotal)

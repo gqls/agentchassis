@@ -268,6 +268,12 @@ type EvidenceBase struct {
 	// legitimate way for a site to describe itself as an authorised firm.
 	// Absent or incomplete means NOT exempt; see RegulatedAttestation.Attested.
 	Regulated *RegulatedAttestation `json:"regulated,omitempty"`
+
+	// OperatingHistory, when present AND complete, exempts this site from the
+	// fleet-wide practice-claims family (claims_practice.go) — the one
+	// legitimate way for a site to state that it tests, buys, measures or is
+	// sent products. Absent or incomplete means NOT exempt (bugs_open/380).
+	OperatingHistory *OperatingHistoryAttestation `json:"operating_history,omitempty"`
 }
 
 // ParseEvidenceBase decodes the site_specs data JSONB into an EvidenceBase and
@@ -288,7 +294,11 @@ func ParseEvidenceBase(data []byte) (*EvidenceBase, error) {
 	// exemption would never fire — the caller would see "site not opted in" and
 	// apply the regulated family anyway. Failing safe is right; failing safe
 	// while the operator believes they have recorded an attestation is not.
-	if len(eb.Facts) == 0 && len(eb.BannedClaims) == 0 && eb.Regulated == nil {
+	// The same holds for an operating-history attestation (bugs_open/380): an
+	// attestation-only base must parse non-nil or the practice-claims exemption
+	// silently never fires. Neither attestation makes the base SCANNABLE — see
+	// HasScannableRegister, which is what the register-comparison scans key on.
+	if len(eb.Facts) == 0 && len(eb.BannedClaims) == 0 && eb.Regulated == nil && eb.OperatingHistory == nil {
 		return nil, nil
 	}
 	for i := range eb.BannedClaims {
@@ -799,6 +809,21 @@ func (s ClaimSurface) ProseNumbersAreClaims() bool {
 // behaviour" default parameter would let a new caller silently inherit the
 // page-type-blind scan, which is the shape of bugs_open/093 — one guarded call
 // site and one nobody remembered.
+// HasScannableRegister reports whether this base carries CONTENT the
+// deterministic register-comparison scans can work against — facts or banned
+// claims. A base that parses non-nil only because it carries an attestation
+// (regulated, operating_history) is NOT scannable: arming the unregistered-
+// number scan against an empty fact list reports every number on the site at
+// error severity and refuses the build (the bugs_open/364 class). The Regulated
+// widening carried that latent hazard; measured 2026-08-24, zero live
+// attestation-only registers, so this changes no live site (bugs_open/380).
+func (eb *EvidenceBase) HasScannableRegister() bool {
+	return eb != nil && (len(eb.Facts) > 0 || len(eb.BannedClaims) > 0)
+}
+
+// Callers gate this on HasScannableRegister() (the gate, the discovery check
+// and claimscan do); the function itself keeps its nil-only contract so a test
+// or tool may still scan against a deliberately empty register.
 func (eb *EvidenceBase) ScanUnregisteredNumbers(blocks []string, surface ClaimSurface) []ClaimFinding {
 	if eb == nil || !surface.ProseNumbersAreClaims() {
 		return nil
