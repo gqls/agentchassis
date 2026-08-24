@@ -2,9 +2,16 @@
 --
 -- bugs_open/243-anthropic-cap. Council-Reviewed: 82f07fa6-1c42-46ad-bdf6-1d58892c44a7
 --
--- WHAT: (a) a council review seat whose LLM call errors costs ONE SEAT instead of
--- the whole round; (b) the claude endpoint is re-probed every 60s instead of every
--- 3600s.
+-- WHAT: a council review seat whose LLM call errors costs ONE SEAT instead of the
+-- whole round.
+--
+-- ⚠ AMENDED 2026-08-24: this file ORIGINALLY also cut the claude re-probe interval
+-- from 3600s to 60s. That half was SPLIT OUT into
+-- `596_claude_probe_interval_60s.sql` and APPLIED on the owner's instruction the
+-- same day, because it has no dependency on the Go writer this file waits for, and
+-- holding it here would have left a measured 60-minute fleet stall in place for no
+-- reason. Do NOT re-add it: applying it twice is harmless but the ledger would then
+-- carry two files claiming the same change, and 596 is the one that is recorded.
 --
 -- ─────────────────────────────────────────────────────────────────────────────
 -- ⚠ _HOLD — DO NOT LET THE MIGRATION RUNNER APPLY THIS. APPLY BY HAND, AND ONLY
@@ -35,7 +42,7 @@
 
 BEGIN;
 
--- (a) Each seat's error_step becomes that seat's OWN next_step, so a failed seat
+-- Each seat's error_step becomes that seat's OWN next_step, so a failed seat
 -- is skipped and the chain continues to the next reviewer.
 --
 -- The filter is on error_step='complete_invalid' with the two terminals named as
@@ -64,26 +71,11 @@ WHERE ad.type = 'council-gate'
   AND s.k NOT IN ('persist_submission', 'council_decide')
   AND COALESCE(s.v->>'next_step', '') <> '';
 
--- (b) The claude endpoint's re-probe interval. 3600s meant one refused call
--- stopped fleet-wide work-item dispatch for up to an hour (measured 60m25s on
--- 2026-08-17). 60s is the value the cpu-ollama row in this same table already
--- carries, so it is an established setting for this mechanism rather than a
--- number picked for this migration.
---
--- NOTE this bounds the damage; it does not remove the mechanism. The prober
--- CANNOT detect a usage cap at all — pingClaude returns healthy for any non-auth
--- status and the cap is a 400 — so for this condition it is a timer that clears
--- the flag, not a health check. The removal is the Go half's symmetric writer.
-UPDATE ai_endpoint_health
-   SET check_interval_seconds = 60, updated_at = NOW()
- WHERE name = 'claude';
-
 -- Verify INSIDE the transaction. A block of bare SELECTs cannot stop a COMMIT —
 -- ON_ERROR_STOP ignores a non-empty result — so this must RAISE.
 DO $$
 DECLARE
   still_invalid int;
-  probe_interval int;
 BEGIN
   SELECT count(*) INTO still_invalid
     FROM agent_definitions, LATERAL jsonb_each(default_config #> '{workflow,steps}') AS s(k, v)
@@ -102,11 +94,6 @@ BEGIN
          AND k IN ('persist_submission', 'council_decide')
          AND v->'config'->>'error_step' = 'complete_invalid') <> 2 THEN
     RAISE EXCEPTION 'persist_submission/council_decide must KEEP complete_invalid — one of them was rewritten';
-  END IF;
-
-  SELECT check_interval_seconds INTO probe_interval FROM ai_endpoint_health WHERE name = 'claude';
-  IF probe_interval IS DISTINCT FROM 60 THEN
-    RAISE EXCEPTION 'claude check_interval_seconds is %, expected 60', probe_interval;
   END IF;
 END $$;
 
