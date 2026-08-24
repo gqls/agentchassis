@@ -5,7 +5,10 @@ LIVE smoke of the Noted editor at https://app.noted.co.uk/tools/write/.
 What it proves that the local suite cannot: the real page, served by the real
 nginx, calling the real engine over the open internet — register, save, reopen
 from a SECOND independent browser session (the product's whole promise), plus
-the induced-outage degraded path against the live service.
+the induced-outage degraded path against the live service. Since 2026-08-24
+(pasteboard stage 1) it also proves media end to end: a real PNG uploaded
+through the picker, decoded back by the second session (naturalWidth > 0 — the
+bytes, not just the tag), then removed there via the live DELETE.
 
 The outage is induced IN THE BROWSER (Playwright route.abort on POST /api/notes)
 — the server is never touched, broken, or even aware. This is the half the
@@ -31,6 +34,10 @@ URL = BASE + "/tools/write/"
 EMAIL = f"noted-smoke-{int(time.time())}@example.invalid"
 PASSWORD = f"smoke-{int(time.time())}-0123456789"
 NOTE_TITLE = "Live smoke"
+# A real 1x1 PNG: the second-session check is that it DECODES, not just appears.
+PNG_1PX = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "0000000d49444154789c626001000000ffff03000006000557bfabd40000000049454e44ae426082")
 NOTE_TEXT = "written by the live smoke probe; survived an induced outage"
 
 FAILS = []
@@ -81,6 +88,15 @@ def main():
             timeout=20000)
         check("recovery: Saved ✓ from the real engine", True)
         check("recovery: banner gone", not page.locator("#nw-failure").is_visible())
+
+        # media: a real upload through the real engine (stage 1)
+        page.set_input_files("#nw-file", files=[{
+            "name": "smoke.png", "mimeType": "image/png", "buffer": PNG_1PX}])
+        page.wait_for_selector("#nw-media img", timeout=20000)
+        check("media: stored item renders from /api/media/",
+              "/api/media/" in page.locator("#nw-media img").get_attribute("src"))
+        page.wait_for_selector("#nw-storage:not([hidden])", timeout=10000)
+        check("media: storage meter live", "of" in page.locator("#nw-storage").inner_text())
         ctx.close()
 
         # ---------- session 2: a different browser finds the note ----------
@@ -97,6 +113,18 @@ def main():
         page2.click("#nw-list li a")
         check("second session: same text came back",
               page2.locator("#nw-content").input_value() == NOTE_TEXT)
+        page2.wait_for_selector("#nw-media img", timeout=10000)
+        page2.wait_for_function(
+            "() => { const i = document.querySelector('#nw-media img');"
+            " return i && i.complete && i.naturalWidth > 0; }", timeout=15000)
+        check("second session: the image DECODED from the live engine", True)
+
+        # remove it there — the live DELETE — leaving the account one text note
+        page2.once("dialog", lambda d: d.accept())
+        page2.click(".noted-write__mremove")
+        page2.wait_for_function(
+            "() => document.querySelectorAll('#nw-media img').length === 0", timeout=15000)
+        check("second session: removed via live DELETE", True)
         ctx2.close()
         browser.close()
 

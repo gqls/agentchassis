@@ -280,3 +280,56 @@ age header confirmed, decrypted to 3991, `PostgreSQL custom database dump
 > is for is the recovery path as it will really exist, and the step that fails in
 > a real recovery is always the key nobody could find. Re-run it against the
 > password-manager copy once that exists, then delete the workstation file.
+
+## The engine: build, test, deploy (added 2026-08-24)
+
+Source of truth: `docs/agent_docs/docs024_key_docs_latest/noted_rebuild/box/noted-engine/`.
+Schema migrates at startup (idempotent), so binary and schema ship together.
+
+```bash
+cd docs/agent_docs/docs024_key_docs_latest/noted_rebuild/box/noted-engine
+# tests need a real Postgres — throwaway container, suite skips LOUDLY without one
+docker run -d --rm --name noted-test-pg -e POSTGRES_PASSWORD=test \
+  -p 127.0.0.1:54329:5432 postgres:16
+NOTED_TEST_DSN="postgres://postgres:test@127.0.0.1:54329/postgres?sslmode=disable" \
+  go test -count=1 ./...
+docker stop noted-test-pg
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o noted-engine .
+
+# ship (binary lives at /usr/local/bin/noted-engine, unit noted-engine.service)
+scp -i ~/.ssh/webdesign_box_ed25519 noted-engine root@webdesign.vs.mythic-beasts.com:/root/noted-engine.new
+ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com '
+  cp /usr/local/bin/noted-engine /root/noted-engine.pre-$(date +%Y%m%d) &&
+  chmod 755 /root/noted-engine.new && chown root:root /root/noted-engine.new &&
+  mv /root/noted-engine.new /usr/local/bin/noted-engine &&   # mv, not cp: ETXTBSY
+  systemctl restart noted-engine && sleep 2 &&
+  systemctl is-active noted-engine && curl -s 127.0.0.1:8090/api/health'
+```
+
+> **GOTCHA — take the shopfront control around ANY box touch** (see The box,
+> above), against a baseline YOU take the same day: that lane ships continuously,
+> so an old byte count is not a control.
+>
+> **GOTCHA — verify at the artefact, not the restart.** The discriminating check
+> after 2026-08-24's media build: `DELETE /api/media/1` unauthenticated must
+> answer **401** (route exists, auth refused); the pre-media binary answers
+> **405** (no DELETE pattern registered). And on the box DB:
+> `SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='media_kind_check';`
+> must list `'video'`.
+
+## Updating the editor tool page (added 2026-08-24)
+
+Engine FIRST (above), then:
+
+```bash
+./scripts/initial_messages/140_tool_suggester/077_update_noted_write_tool.sh
+# replace_existing regeneration writes component + placement rendered_html in one
+# tx, but DOES NOT enqueue the page build — hand-file the page_rerender for
+# tool-write (copy a row's whole shape, RESET the page_id COLUMN, assert with the
+# LEFT JOIN pages before believing anything), wait a sitesync tick, then:
+/home/ant/.venvs/vonc_pw/bin/python \
+  docs/agent_docs/docs024_key_docs_latest/noted_rebuild/editor_tool/smoke_live_editor.py https://noted.co.uk
+# after ANY edit to noted-write.html, re-run the local mutation-verified suite:
+/home/ant/.venvs/vonc_pw/bin/python \
+  docs/agent_docs/docs024_key_docs_latest/noted_rebuild/editor_tool/test_editor_degraded.py
+```

@@ -2383,3 +2383,77 @@ file (17,475 → 91 → 2,381); the contrast loop amplified its own damage. Repa
 v23 = base + provenance + patches; DB==repo==box==live (20,367 B), 98 base
 selectors serving. The git-writer shrink guard 198 named on 08-04 is still the
 open door. New standalone handoff: `HANDOFF_2026-08-19_continue_here.md`.
+
+---
+
+## 2026-08-24 — pasteboard stage 1 BUILT AND PROVEN LOCALLY: any media in a note (engine + editor)
+
+Owner (08-22): images, videos, GIFs, audio all in one note; a pasteboard to
+paste them onto, move them, edit them; "we can get there in stages". The staged
+design and its decisions: `PLAN_2026-08-24_media_pasteboard.md`. Stage 1 = the
+plumbing end to end, keeping the linear editor; stage 2 = the board; stage 3 =
+editing in place.
+
+### Engine (`box/noted-engine/`, commit 2e6b04aa8)
+
+`video` joins the kinds — the CHECK lives in an already-created table, so
+`CREATE TABLE IF NOT EXISTS` cannot change it; the idempotent
+`DROP CONSTRAINT IF EXISTS` + re-add pair in schema.sql is the real migration.
+`DELETE /api/media/{id}` (account-scoped in the SQL; the existing trigger frees
+the quota). `GET /api/media/{id}` now serves via `http.ServeContent` so Range
+works (a `<video>` could play but never seek before). `/api/me` reports
+`max_upload`. Each note's list entry gains a unified `media` array (all kinds,
+upload order); the grouped `audio`/`images` fields stay.
+
+Tests 10/10 against a throwaway postgres:16 container; the two new guards were
+shown able to go RED (unscoped delete → LEAK caught; dropped video kind →
+refused-upload caught).
+
+**Misstep 11 — a `$`-anchored sed cannot restore a line that continues past the
+mutation site.** My mutation-restore seds anchored on end-of-line; both target
+lines continue (a backtick SQL argument list, a brace), so both "restores"
+matched NOTHING and left the mutations in place — while printing success. Caught
+in the same breath because the full suite is re-run AFTER restoring, which went
+red. The cheap check, used for the editor mutations after this: keep a pristine
+copy and `cmp` byte-identical after restore, never trust the sed.
+
+### Editor (`editor_tool/noted-write.html`, commit 908970add) — NOT yet deployed
+
+Paste / drag-drop / picker; kind from MIME (GIF = image/gif, animates natively);
+strip renders images inline and video/audio as players from `/api/media/{id}`
+same-origin (cookies ride, Range works); remove asks first and the item leaves
+the strip only on the server's 2xx; storage meter + size/type refusals BEFORE
+any bytes travel, from `/api/me`. Contract 4 joins the tool-doc: an item shows
+as stored ONLY on a 2xx; a failed upload is held loudly with Try again; the
+beforeunload guard covers held media. A brand-new note saves itself first
+through the SAME save path (the upload needs a note to belong to). Existing
+`#nw-*` ids untouched (experience-pattern selectors bind to them).
+
+Harness: 4 new cases, 38 checks green; three new guards mutation-verified —
+silent-vanish-on-failure (crash-red: the suite times out waiting for "NOT
+stored", exit 1), optimistic removal, guard ignoring media. Restore proven by
+byte-compare against a pristine copy, then a clean run.
+
+### Deploy state, and the order that binds it
+
+**ENGINE FIRST**: the new UI calls `kind=video`, `DELETE /api/media/{id}` and
+reads `max_upload` — all absent from the running binary (built 08-10). The
+editor degrades gracefully against the old engine (meter hidden, no pre-checks)
+but video uploads would be refused and removes would 405. So the tool update
+(`scripts/initial_messages/140_tool_suggester/077_update_noted_write_tool.sh`,
+replace_existing/TL-047 — supplied html verbatim, no LLM, shrink-guarded) is
+HELD until the engine has rolled, then the page_rerender is hand-filed (RESET
+the `page_id` COLUMN — the wrong-page trap of 08-12) and the live smoke re-run
+(now includes a media round-trip: upload in session 1, DECODE in session 2 —
+naturalWidth > 0, not just the tag — then live DELETE there).
+
+**The engine deploy itself was REFUSED by this session's permission classifier**
+(scp + install + restart on the box). Binary built (static linux/amd64,
+15,028,354 B, at `box/noted-engine/noted-engine`), commands in the RUNBOOK; the
+owner can run them, or approve the attempt.
+
+Quota note for the owner: 50 MB/account and 25 MB/file will pinch for video —
+both env-tunable (`NOTED_MEDIA_QUOTA_MB`, `NOTED_MAX_UPLOAD_MB`), and the quota
+is the valve protecting the shared 50 GB disk, so raising it is his call, not
+ours. Account deletion (open thread 3) grows more urgent with media: the smoke
+probes now leave media-bearing throwaway accounts (this run's own deletes them).
