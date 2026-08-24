@@ -26,7 +26,7 @@
 >
 > **The residuals are filed, not forgotten** — this file closes because none of them is this
 > bug's mechanism:
-> * **`bugs_open/367`** (FILED today): the router's `classify` filters `build_status='deployed'`,
+> * **`bugs_closed/367`** (filed 2026-08-23, **CLOSED 2026-08-24** — migrations 574+576, observed on the real item; the router now closes only on POSITIVE evidence of absence and parks the rest): the router's `classify` filtered `build_status='deployed'`,
 >   so it closes as `stale` the non-deployed population this producer uniquely reaches. ⚠ **It
 >   also means a claim this file used to make is too strong** — reaching a population and being
 >   able to ACT on it are different; corrected here and in `STY-057`.

@@ -8,9 +8,12 @@
 > `bugs_open/342` → `bugs_closed/342`.
 > Fixed, live on **v1.0.1330**, and proven at the artefact on every mechanism it owns. The whole
 > file below is now HISTORY — read it for the traps in §6 and the reasoning, not for state.
-> **Successor: `bugs_open/367`** (the router only sees deployed rows, so it closes as `stale` the
+> **Successor: `bugs_closed/367` — ALSO CLOSED 2026-08-24** (migrations 574+576; the router now
+> closes only on POSITIVE evidence of absence, and the population this lane's producer reaches
+> PARKS with its facts instead. Not repaired — visible and honest. Lane:
+> `docs024_key_docs_latest/bugfix_367_router_remit/`.) ~~(the router only sees deployed rows, so it closes as `stale` the
 > population this producer uniquely reaches — filed with the evidence, and it corrects a claim
-> 342 used to make). Also still open elsewhere: `bugs_open/344` (a refused edit's driving item may
+> 342 used to make).~~ Also still open elsewhere: `bugs_open/344` (a refused edit's driving item may
 > read `complete` — UNEXERCISED, not verified benign), and the chrome refusal built and
 > deliberately unarmed with its trigger named. Nothing here needs picking up.
 
