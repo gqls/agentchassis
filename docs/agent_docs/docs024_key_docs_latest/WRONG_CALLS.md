@@ -49283,3 +49283,64 @@ treated it as a finding. This is the same family as entries 7 and 8 — a real t
 question it was never about. The three differ only in what stood in for the evidence:
 a filter's correctness for its selectivity, a tree's cleanliness for authorship, and
 here a column's name for its semantics.
+
+---
+
+## 2026-08-24 — my verification loop could not report success for ANY state of the system, and it produced a false "the mechanism is broken" about code I had shipped that morning (`bugfix_243_provider_cap_resilience`)
+
+Proving MDL-044 (a successful LLM call now clears `ai_endpoint_health.healthy`, so one refused
+call stops pinning the fleet's dispatch gate down). The test: force the row false, wait for a
+successful call, watch it clear.
+
+Attempt 1 had real demand — **5 successful calls** in the window — and my loop reported
+**"DID NOT FLIP in 40s"**. I began diagnosing my own change: read the insertion point, mapped
+every `LogLLMCall` site in the function, checked whether the agents involved took a different
+code path, queried whether `api_url` was configured anywhere that would send the UPDATE at the
+wrong endpoint, checked whether spawned pods were on an older image. All of it careful, all of
+it looking for a defect that was not there.
+
+**The comparison was against the wrong string, and it could never have matched.**
+
+```sql
+SELECT healthy, healthy||'', (healthy)::text FROM ai_endpoint_health WHERE name='claude';
+-- t | true | true
+```
+
+`psql -t -A` prints a bare boolean column as **`t`**. Concatenate it — which I did, to fetch
+several fields in one round trip (`healthy||'|'||last_checked||…`) — and the cast renders
+**`true`**. My loop then tested `[ "$H" = "t" ]`. **There is no state of the database in which
+that is true.** The test was not flaky and it did not fail; it was incapable.
+
+It gets worse in a way that is the actual lesson: **attempts 2 and 4 returned "still false"
+too, and those were vacuous for a completely different reason** — zero successful calls in
+either window, so there was no demand for a clear-on-success writer to answer. Three failing
+runs, two distinct reasons, and **not one of them was evidence about the mechanism.** Three
+consistent negatives felt like convergence. They were one broken instrument and two empty
+rooms.
+
+What actually caught it was not the harness. It was noticing, in a state dump I pulled out of
+suspicion, that **`last_healthy` was 61 seconds LATER than `last_checked`** — an ordering no
+other writer in the system can produce, because every other one sets both columns in a single
+`NOW()`. The mechanism had been working the whole time.
+
+**I was one commit away from writing "MDL-044 does not fire" into `bugs_open/243`** — a false
+claim about my own code, on the day it shipped, in the file the next session reads first, and
+it would have been supported by a test transcript that looked rigorous.
+
+**The two cheap checks, and both now live in the experiment rather than in my memory:**
+
+1. **Print the rendering control beside the comparison.** One
+   `SELECT healthy, healthy||''` shows the two forms are different strings. Better: never
+   depend on a driver's rendering at all — make the query answer in a vocabulary you chose,
+   `CASE WHEN healthy THEN 'YES' ELSE 'NO' END`, so the value cannot change under you.
+2. **Put the demand control INSIDE the same query as the observation**
+   (`(SELECT count(*) FROM llm_call_log WHERE success AND created_at > t0)` alongside the row),
+   so a zero-demand window is self-labelling. "Remember to check traffic afterwards" is what I
+   was relying on, and I forgot twice in ten minutes.
+
+**The transferable shape, which is why this is worth a row rather than a shrug: a test that
+can only return one answer looks identical to a test that keeps returning that answer.** The
+tally in this file is full of measurements that could not come out otherwise; this is the same
+error one level down — not the *measurement* that could not discriminate, but the *assertion
+that reads it*. Before believing a negative about your own change, make the harness produce a
+positive on something you know is true.

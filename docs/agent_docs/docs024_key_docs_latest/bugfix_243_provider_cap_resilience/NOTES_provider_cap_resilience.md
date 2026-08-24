@@ -456,3 +456,81 @@ task's 60s tick — not lowering the endpoint interval alone, which cannot beat 
 **Two things I got to check because I distrusted a green reading**, both worth keeping:
 the first "PROBE MOVED" was a 37½-minute gap (the old schedule coming due) and proved nothing;
 and the corrected figure came from asking *how often*, not *whether*.
+
+## 2026-08-24 (evening) — MDL-044 is PROVEN on live traffic, after four attempts of which three proved nothing
+
+Forced the endpoint unhealthy by hand and watched whether a successful live call would clear
+it. Took five attempts. **Attempt 5 is the proof; attempts 1–4 are the lesson.**
+
+### The proof `[MEASURED 2026-08-24 16:51:32 → 16:52:34 Z]`
+
+```
+t0 (forced healthy=false)  : 2026-08-24 16:51:31.969
+probe last ran BEFORE t0   : 2026-08-24 16:51:07.419
+CLEARED after ~39s         : healthy=YES
+                             last_checked  = 2026-08-24 16:51:33.504   <- my forced write, UNMOVED since
+                             last_healthy  = 2026-08-24 16:52:34.402   <- 61s LATER than last_checked
+                             error         = NULL                       <- was my forced message
+                             ok_calls_since_t0 = 1                      <- the demand control
+```
+
+**Attribution is airtight, on four independent grounds, and the disconfirming result was
+available:**
+
+1. **`last_healthy` is 61 seconds LATER than `last_checked`.** Every other writer in the
+   system sets the two together — the prober's UPDATE assigns
+   `last_checked = NOW(), last_healthy = CASE WHEN $2 THEN NOW() END` in one statement, and so
+   does `update_endpoint_health`. **Only the new writer sets `last_healthy` without touching
+   `last_checked`**, so that ordering is a signature no other code path can produce.
+2. **`last_checked` never moved from my own forced write**, so **no probe ran** in the window.
+   The prober cannot be the cause.
+3. **`error` went to NULL** — the new writer's `error = NULL`, against the message the forced
+   write had put there.
+4. **The demand control fired: exactly one successful call**, and the clear coincides with it.
+
+Had the prober been responsible, `last_checked` would have moved and `last_healthy` would
+equal it. That is the result this test could have produced and did not.
+
+### ⚠ Attempts 1–4: three of them proved nothing, in two different ways, and I nearly filed the second as a broken mechanism
+
+**Attempts 2 and 4 were VACUOUS — zero demand.** Both reported "still false after 50s", which
+reads exactly like a broken mechanism. Then I checked traffic: **0 successful LLM calls in
+either window.** There was nothing for a clear-on-success writer to react to. This is
+`a-post-fix-zero-needs-a-demand-control` from the memory index, walked into twice in ten
+minutes — and the fix was to move the control *inside* the experiment
+(`ok_calls_since_t0` in the same query as the row), not to remember to check afterwards.
+
+**Attempt 1 and my detector: the check was STRUCTURALLY INCAPABLE of reporting success.**
+Attempt 1 had real demand — 5 successful `landmine-verifier` / `council-gate` calls — and my
+loop reported "DID NOT FLIP". It had not failed; **my test could not see it.**
+
+```sql
+SELECT healthy, healthy||'', (healthy)::text FROM ai_endpoint_health WHERE name='claude';
+-- t | true | true
+```
+
+`psql -t -A` renders a bare boolean column as **`t`**, but the moment it is concatenated
+(`healthy||'|'||…`) the cast renders **`true`**. My loop built a concatenated row and then
+tested `[ "$H" = "t" ]`. **That comparison can never be true**, for any state of the system.
+So attempt 1's negative was manufactured, attempt 3's positive came only from a DB read I did
+*afterwards* out of suspicion, and attempt 4's `case "$R" in t\|*)` carried the same defect.
+
+**I was one step from writing "the mechanism did not fire" into `bugs_open/243`** — a false
+claim about my own shipped code, on the day it shipped, supported by a test that could only
+ever say no. What caught it was not the harness: it was noticing that
+`last_healthy > last_checked` in a state dump, which is impossible unless the writer *had*
+fired.
+
+**The cheap check, and it is now the first line of the experiment: print the rendering control
+next to the comparison.** One `SELECT healthy, healthy||''` shows the two forms are different
+strings. Better still, make the query answer in a vocabulary you chose —
+`CASE WHEN healthy THEN 'YES' ELSE 'NO' END` — so the value can never depend on a driver's
+boolean rendering. Logged in `WRONG_CALLS.md`.
+
+### Status after this
+
+**MDL-044: LIVE + PROVEN on live traffic** (chassis v1.0.1334). The register entry's
+verify-later is discharged; its "may not claim the mechanism has ever fired" caveat is lifted,
+and only for this half.
+
+**WFA-023 is unchanged: reader live and inert, writer still absent, 588 still held.**
