@@ -48685,3 +48685,39 @@ legitimate use for any caller. Arm B (two-strike → `unresolved`) is a designed
 rows are 65% classification failures and 35% the brake working correctly on a fixer that lies
 about completing (`bugs_open/352`). The RFC I wrote yesterday conflated them, which is why its
 options were mis-costed. Corrected in place in the brief and in RFC_048.
+
+## 2026-08-24 — bugs_open/198 lane: I explained why a pattern held, and the pattern did not hold
+- **The claim (sent to a peer lane as a measured finding):** of the three `_HOLD` migrations that
+  mutate data, only `587` stamps a per-row marker; `455` and `578` do not — and *"587 is the only
+  one of the three with a working `_ROLLBACK`, and that is not a coincidence — it is downstream of
+  the stamp."*
+- **What caught it:** the `bugs_open/352` lane, by opening the three files. Both halves are false.
+  `455_..._HOLD.sql:106-113` stamps **richer** than 587 does — `_repaired_by`, plus the **entire**
+  prior `result` under `_replaced_spawn_record`, plus the true pre-repair completion time. And all
+  three have a `_ROLLBACK` sidecar.
+- **The error, mechanically:** my predicate was
+  `grep -E "migration_[0-9]+|'mig_?[0-9]+'|applied_by.*[0-9]{3}"` — **a key-name SHAPE**. The
+  question was *does this migration preserve each row's prior state*. 455 answers yes with a
+  free-text key, so the grep scored it unstamped. The measurement answered the question I encoded.
+- **The error, and this is the transferable half: I then EXPLAINED the artefact.** "Not a
+  coincidence — it is downstream of the stamp" is a causal story invented to account for a
+  correlation that did not exist, and **writing it is what made me believe it.** An explanation is
+  generated *from* the finding, so it can never disconfirm the finding; it only raises confidence.
+  The moment of rendering a cause feels like the payoff and is in fact the highest-risk moment in
+  the whole procedure.
+- **The cheap check:** when you catch yourself writing *why* a pattern holds — especially the words
+  "that is not a coincidence" — go back and re-verify that the pattern holds. Here it was three
+  `ls` results and one `sed`.
+- **Second lesson, on a thing I got half right:** restricting a denominator is often **two** moves,
+  not one. Going 17 `_HOLD` migrations → the 3 that mutate data correctly killed a false alarm
+  about config migrations (whose "did it run" is answerable from the config). But only **reading
+  the 3** killed the second false alarm — about the 3. I stopped one step early and published. The
+  true finding is the *opposite* of mine: **per-row recoverability is already the house norm, 3 of
+  3**, by two valid mechanisms (per-row stamp; full backup table). Nobody should go "fix" 578.
+- **Third of the day for me, and the family is one thing:** a true, cheap fact standing in for the
+  true, expensive one — three bug-file instances for a population of 181; a verified *code* claim
+  for an unverified *live* one; a key-name grep for the property it approximates. All three were
+  caught by someone else, because in each case the substitute fact is true, so re-reading confirms
+  it. **Re-reading is the wrong instrument for this class; asking is the right one** — and the ask
+  must carry a number the other side can independently re-derive. Every correction in this
+  exchange came from a concrete mismatch; none came from a request for scrutiny.
