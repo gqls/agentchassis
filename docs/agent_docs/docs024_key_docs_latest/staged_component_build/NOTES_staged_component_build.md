@@ -7907,6 +7907,19 @@ Round 2 in flight on the same trail.
 
 ### ⚠ THE BACKFILL IS DONE AT THE DATA LAYER AND UNFINISHED AT THE SERVING LAYER
 
+> **⚠ CORRECTED 2026-08-24 — EVERYTHING IN THIS BLOCK IS RETRACTED. The links WERE being served
+> all along.** I **constructed** the page URLs (`/barrel-shapes.html`) instead of reading
+> `pages.url` (`/blog/barrel-shapes.html`), so every zero — **including the control** — was a miss
+> on a URL that does not exist. The `deployed_at < completed_at` join was a red herring
+> (`deployed_at` is not stamped by that path), and the "51 of 51" consistency I cited as proof was
+> the tell I misread: **a 100% result should prompt "what makes this true trivially?" before a
+> mechanism story.** Re-measured at DB-read URLs with controls: **12 of 12 backfilled pages across
+> 8 domains serving, 1–4 hits each**, negative control 0. The 51-page redeploy was **CANCELLED,
+> not run** (one harmless page went first, and re-checking its control is what exposed the error).
+> This is `bugs_closed/029`'s own defect committed inside 029's own file. Full retraction:
+> `bugs_open/353` §11; `WRONG_CALLS.md` 2026-08-24. **The text below is kept unedited as the
+> record of the wrong turn — do not act on it.**
+
 61 of 74 items `complete`, and the links **are** in `page_components.rendered_html` — but
 `curl` says the pages do not serve them (with a control page that correctly has none). The reason
 is not the writer: **51 of 51 pages carrying a completed rewrite deployed BEFORE their rewrite
@@ -7922,3 +7935,72 @@ stale" in one query.
 as the backfill and wants the owner's word. Flagged in `bugs_open/353` §10 and the new handoff.
 
 **New primary handoff:** `docs/agent_docs/docs024_key_docs_latest/staged_component_build/HANDOFF_2026-08-24_continue_here.md`
+
+## 2026-08-24 (later) — the fix went LIVE while I was not looking; round 2 objected to my own STALE TEXT; the gap it found is now a test
+
+Picked up from `HANDOFF_2026-08-24_continue_here.md` §6. Three findings, in the order they landed.
+
+### 1. The forward fix SHIPPED — and I would have missed it by reading the handoff alone
+
+The handoff and `bugs_open/353` §11 both said the fix was "inert until a roll". It is not: pods
+`agent-chassis-8bbb57765-{6q6vp,j5gdd}` are on **v1.0.1332**, rolled **09:39Z today**, and the
+binary carries the new arm.
+
+The `build provenance` startup line had already **scrolled out of `--tail=3000`** — exactly the
+shelf-life trap CLAUDE.md warns about — so this is a **capability probe**, which has none:
+
+| literal | expected | got |
+|---|---|---|
+| `emitted_ungated_build_enqueued_by_caller` | present iff shipped | PRESENT |
+| `tool_page_will_not_go_live` (control **+**) | must be present | PRESENT |
+| `zzz_synthetic_literal_that_cannot_exist` (control **−**) | must be absent | ABSENT |
+
+**Lesson for this lane's cold-starts: an "inert until the roll" line in a handoff makes the correct
+next action look premature.** The roll happened between the handoff being written and being read.
+Re-probe; do not inherit a deploy status from prose.
+
+### 2. ⚠ The arm is LIVE and UNEXERCISED — and I nearly wrote the zero up as success
+
+Since the roll: **0** withholds (against **5** on 08-23) and **0** rows of the new INFO code. The
+tempting read is "the fix works". It is not available, and the **demand control** is why: all
+**3** tool births since the roll recorded `no_related_pages`, which returns **before** Guard 2 is
+ever reached. Nothing since the roll could have exercised the new arm whatever it does.
+
+`tool-generator` runs since the roll = 3, all COMPLETED — so there was birth demand and **no
+Guard-2 demand**. **Live-and-unexercised** is the honest state; the first non-zero
+`emitted_ungated_build_enqueued_by_caller` row is what would close it, and nothing else.
+
+*(Adjacent: 3 of 3 births with no `related_pages` at all may be the same generation-side thing as
+handoff §3.4's refusal rate. Two points is not a trend — noted, not claimed, not filed.)*
+
+### 3. Council round 2: REVISE, and the objection was to MY TEXT, not my code
+
+`decided_by`: gating objection from **editquality**. 11 reviewers, 6 abstained, not truncated.
+
+Edit 3's sketch still read `crossLinkEmitDecision(false, …)` — the round-1 defect — while the
+committed code has passed the real `pageLive` since round 2. **I fixed the code and left the
+sketch describing the old code.** The reviewer named the exact check that settles it and framed
+the objection to cover both possibilities, which is why this cost one round and not a wrong
+verdict. Logged in `WRONG_CALLS.md`. **The check: paste the sketch FROM the committed file
+(`git show HEAD:<file>`), never from memory of the change you intended.**
+
+**The `missing` item was the one that mattered**, and it is 353's own failure mode recurring:
+nothing pinned the CALL SITE's arguments, so a literal there was invisible to every test in the
+file — just as the original bug lived 19 days in a branch no unit test could reach while its
+inputs' tests stayed green.
+
+`TestCrossLinkCallSitePassesTheRealPageLive` (`027461e3d`) drives the emitter through sqlmock with
+the only discriminating setup — **page SERVED, opt-in OFF**. It asserts the **EFFECT**
+(`created == 1`), never the absence of a query; that shape passes vacuously the moment the call
+fails for any other reason. **Mutation-proved in a `git archive HEAD` copy** (the shared tree is
+never left mutated): restoring the literal fails exactly this test and leaves **both** older tests
+PASSING — the reviewer's claim demonstrated, not argued.
+
+Round 3 submitted on the same correlation (`642ecc3c`), running as `53e3812f` from 11:30:58Z.
+
+### Standing lesson worth carrying out of this session
+
+**A pure function's test table proves the function, never the call.** Extraction made 353's
+decision testable and that was right — but extraction moves the untested seam rather than removing
+it, and the seam lands on the arguments. If a fix's whole value is "this branch is now reachable",
+something must assert reachability THROUGH the caller.
