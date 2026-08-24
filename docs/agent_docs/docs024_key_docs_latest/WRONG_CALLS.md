@@ -47198,3 +47198,38 @@ writing differs from yours in a field you did not think about, that difference i
 *(Third same-session entry in this family: the false-zero census filtered on a key the
 population lacks, and this control varied a field the population is uniform on. Both are
 "my instrument could not have returned the disconfirming answer".)*
+
+## 2026-08-24 — `bugfix_206_directory_build_handler` (sixth entry) — I read the 090 budget landmine's own file-size check, applied it, and it gave me the false all-clear the landmine's CORRECTION banner exists to warn about
+
+Having written into `bugs_open/206` that a reader wanting independent structural confirmation
+"should run `090`", I ran it. The symptom named several symbols across three files. I did **not**
+run the discriminating check first — the one the landmine's own corrected banner names — because
+I had already reasoned about file size and felt covered.
+
+The run produced two bundles and no verdict, and the budget line said exactly why:
+
+> `_(body omitted — 25397 chars, and 35233 of the 60000-char body budget is already spent. It was
+> found; it did not fit. Put THIS SYMBOL ALONE in next_scope to read it whole.)_`
+
+`WriteBuildItemsAction` — the symbol the whole question turned on — was never read by the
+diagnoser in any iteration. **The landmine predicts this in terms, and its 2026-08-12 CORRECTION
+says in bold that the per-file size check is a proxy that gives a false all-clear**, because the
+budget is cumulative across everything in scope. I had the file sizes (82,669 / 27,768 bytes) and
+let one big file dominate my thinking, which is precisely the reasoning the correction retires.
+
+Cheap checks, in the order they should have run:
+
+1. **Name ONE symbol per `090` run.** The landmine says it outright: naming several "to give the
+   diagnoser context" is what spends the budget. There is no version of this where more scope
+   helps.
+2. **After the first bundle lands (~2 min), run the budget query before waiting any longer** —
+   `SELECT substring(body from '_\(body omitted[^)]*\)_') FROM diagnosis_artifacts WHERE
+   correlation_id='<RUN_CORR>' AND kind='bundle' AND body LIKE '%body omitted%';` Non-empty means
+   stop waiting; nothing is coming. This costs seconds and is the only check that discriminates.
+3. **When a landmine carries a CORRECTION banner, the banner is the entry** — the body below it
+   is kept for history. I read the entry and acted on the superseded half of it.
+
+Not a wasted run in one respect: the trap firing exactly as documented, on a different lane and a
+different file set, is a live confirmation that the entry is still accurate. Re-filed with one
+symbol; the doomed item was cancelled with its reason in `error` rather than left `diagnosing`
+for the next reader to wonder about.
