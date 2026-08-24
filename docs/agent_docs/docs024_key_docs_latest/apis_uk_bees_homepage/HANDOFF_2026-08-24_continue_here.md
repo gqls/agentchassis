@@ -84,6 +84,25 @@ SELECT s.domain FROM sites s WHERE s.status IN ('active','deployed')
 ⚠ **Do NOT gate on `build_status <> 'deployed'`** — 25 of 28 sites have unsettled pages at any
 moment because `needs_rebuild` is a standing queue, so that filter skips almost everything.
 
+### 3a. ROLL-OUT FIRED 2026-08-24 — 24 sites, 680 pages
+
+All **24** eligible sites dispatched (`rerender-pages`, `refresh_site_components:false`).
+**3 held back by the mid-change gate**, correctly: `remortgagecalculator.uk` (orchestration in
+flight), `robot-hands.com` (components touched <10 min), `apis.uk` (already done as the canary).
+**Verified live before the fleet run:** apis.uk and cookly.uk both serve `GTM-PQ3WCTBD`.
+
+**Re-run the three held-back sites** once they settle — same envelope, same gate.
+
+⚠ **THE ROLL-OUT SILENTLY DID 1 OF 24 ON THE FIRST ATTEMPT.** `kubectl exec -i` inside the
+`while read` loop **consumed the loop's own stdin** (the site list), so it ran one iteration and
+exited **0**, with a normal success line last. Landmined 2026-08-24. **If you re-run any batch
+here, assert the COUNT:**
+```bash
+echo "list: $(grep -c . list.txt)  fired: $(grep -c '^FIRED' run.log)"   # must match
+```
+Use `mapfile -t` into an array — no stdin involved at all. A heredoc does **not** protect you:
+the dispatch call had one and was fine; the offender was a second `-i` call in the same body.
+
 ## 4. DECISION + BUILD — per-site tag, because third-party sites need their own or none
 
 Owner: *"When we build third party sites, they will need different tags or none at all. Go change
