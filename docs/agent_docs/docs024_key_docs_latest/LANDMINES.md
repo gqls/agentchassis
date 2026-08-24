@@ -16339,3 +16339,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the rolling-window entry above (its companion — this join only works against the archive) · `bugs_open/382` §7e (the case) · `WRONG_CALLS.md` 2026-08-24, where I made exactly this error on 9 of 14 assets and another lane caught it · MEMORY [[a-subagent-report-is-another-doc]] (no seam shows where measuring stopped)
 - **source:** 2026-08-24, found by the `agritec.uk` lane checking whether its own site was in `bugs_open/382`'s affected population. It was not.
 - **added:** 2026-08-24, `bugs_open/382` lane
+
+---
+
+## A committed `_HOLD` migration is INDISTINGUISHABLE from an applied one from inside the repo — and the tell is in the FILENAME, not in anything you would query
+
+- **footprint:** `docs/agent_docs/sql_for_agents/*_HOLD.sql` · `scripts/run-migrations.sh` · `schema_migrations` · any bug file, handoff, register entry or commit message asserting what a migration "does" to live rows · `site_work_items` counts quoted either side of a data migration
+- **fires when:** you read a migration in the tree — or, far more often, read *someone else's write-up* of one — and reason about live data as though it has run. It fires hardest on `_HOLD` files, whose whole purpose is to be committed and **applied by hand later** for ordering, so the gap between "in the repo" and "in the database" is deliberate, open-ended, and invisible.
+- **why the wrong result looks exactly right:** every repo-side signal is identical. The file exists, `git log` shows it committed, the SQL reads as an accomplished fact ("withdraw the 73 rows"), and a commit message written in the imperative mood — as commit messages are — reads as past tense to the next person. **Nothing in the SQL, the history or the diff says whether it ran.** `_HOLD` is the only marker and it is a filename suffix, so a reader who is handed a quoted line, a summary, or a bug-file banner never sees it at all. Worked case, 2026-08-24: the `bugs_open/198` lane committed *"migration 587 **withdraws** the 73 as `cancelled`"*, present tense, into two files, taken from a peer's accurate description of a file that had never been applied. **[MEASURED the same day] `withdrawn_by_587 = 0`, rows carrying `pre_352_status` = 0, the 73 still live and still holding their dedup slots.**
+- **the asymmetry that made it happen, which is the transferable part:** in the same message that lane *did* verify a repo claim (opening `load_work_item_actions.go:1519-1523` to check a `7 days` interval) and did *not* verify the cluster claim. **Effort followed convenience rather than risk — exactly backwards.** A repo claim is re-checkable by any reader in seconds and rots slowly; a live-state claim rots fast and nobody re-checks it. Spend the check on the expensive one.
+- **the check — one query, and it must name a marker the migration itself writes:**
+  ```sql
+  -- Did it RUN? Not "does it exist". Key on something the UPDATE stamps.
+  SELECT count(*) FILTER (WHERE result->>'cancelled_by' = 'migration_587') AS applied_rows,
+         max((result->>'cancelled_at')::timestamptz)                       AS applied_at
+    FROM site_work_items WHERE item_type = 'contrast_failure';
+  ```
+  A data migration that stamps nothing cannot be asked this question at all — **so stamp one** (`result.<something>_by = 'migration_NNN'` is the estate's shape) and the answer becomes a query instead of an inference. And before quoting any figure across a data migration, ask **which side of it you are on**: a post-migration zero is the success condition, a pre-migration zero refutes the premise, and the census predicate alone cannot tell them apart.
+- **⚠ the companion trap, opposite cause and same direction:** a census that goes to **zero** because a migration DID run reads as *"this never happened"* rather than *"we fixed it"* — staleness by SUBTRACTION, where the usual dated-count rule only guards against ADDITION. So a withdrawal that has not been applied reads as one that has, and one that has been applied reads as though the population never existed. Both are answered by the same stamped-marker query above.
+- **source:** `bugs_open/352` / migration `587`, 2026-08-24; the error is logged in `WRONG_CALLS.md` by the `bugs_open/198` lane, the recovery queries are in `docs024_key_docs_latest/bugfix_352_invented_selector/RUNBOOK_invented_selector.md` §10
+- **added:** 2026-08-24, bugfix_352_invented_selector lane

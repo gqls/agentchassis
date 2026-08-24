@@ -211,6 +211,17 @@ lagging, and it took seconds. → `WRONG_CALLS.md`.
 
 Raised by the `bugs_open/198` lane, 2026-08-24, and it is the sharpest trap this lane leaves behind.
 
+> **⚠ STATE AS OF 2026-08-24: 587 IS COMMITTED AND *NOT APPLIED*. The 73 are LIVE.**
+> [MEASURED 2026-08-24, after both lanes independently ran it] `withdrawn_by_587 = 0`,
+> `carrying_prior_status = 0`, `contrast_failure` total **452**, `open_invented_now` **73**.
+> So **73 is the CURRENT figure, not a historical one**, and everything below about recovering it
+> "after the fact" is future tense until someone applies the file by hand.
+>
+> **A committed migration is indistinguishable from an applied one from inside the repo**, and that
+> is how the 198 lane came to write *"587 withdraws the 73"* in the present tense into two files
+> without checking the cluster. `_HOLD` is the only tell, and it lives **in the filename** — not in
+> the SQL, not in `git log`, not in any query you would think to run. See LANDMINES.
+
 The estate's dated-count rule exists because a census goes stale **by ADDITION** and keeps reading
 as current. This is the **SUBTRACTION** case, and it is worse, because the number does not merely
 drift — it goes to **zero**, which reads as *"this never happened"* or *"the earlier census was
@@ -232,8 +243,8 @@ SELECT count(*) FILTER (WHERE result->>'cancelled_by' = 'migration_587') AS with
 -- withdrawn_by_587 > 0  → post-migration; §2 returning 0 is the SUCCESS condition.
 ```
 
-**To recover the historical population after the fact** — the rows are withdrawn, not deleted, and
-each carries the status it held:
+**To recover the population ONCE 587 HAS BEEN APPLIED** (it has not been, as of 2026-08-24) — the
+rows are withdrawn rather than deleted, and each carries the status it held:
 
 ```sql
 SELECT result->>'pre_352_status' AS status_before_587, count(*), count(DISTINCT site_id) AS sites
