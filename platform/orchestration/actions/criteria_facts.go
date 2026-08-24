@@ -86,6 +86,18 @@ func criteriaFactsFromValue(raw interface{}) (ids []string, issues []string) {
 	return ids, issues
 }
 
+// factsKeyMentioned reports whether a raw criteria fence mentions the `facts`
+// key at all. THIS IS THE SAME PREDICATE AS THE FAN-OUT'S SQL PREFILTER
+// (factDriftIndexQuery's `dp.body LIKE '%"facts"%'`, refresh_evidence_fact_drift.go)
+// and the write-time gate in write_doc_plan_action.go, deliberately: three
+// places decide "does this document have anything to say about facts", and if
+// they disagree the write gate refuses what the sweep ignores, or worse the
+// reverse. One spelling, three callers — the reason criteriaFactsFromValue
+// exists at all (see its comment).
+func factsKeyMentioned(criteria string) bool {
+	return strings.Contains(criteria, `"facts"`)
+}
+
 // parseCriteriaFacts reads the fence-level `facts` list off a raw criteria
 // string. Returns (nil, nil) for empty or unparseable criteria (fail-open, see
 // the file header), and (ids, issues) otherwise — a present-but-malformed
@@ -96,6 +108,24 @@ func parseCriteriaFacts(criteria string) (ids []string, issues []string) {
 	}
 	var doc criteriaFactsDoc
 	if err := json.Unmarshal([]byte(criteria), &doc); err != nil {
+		// ⚠ FAIL-OPEN ONLY FOR A FENCE THAT NEVER MENTIONED FACTS.
+		//
+		// This used to return (nil, nil) unconditionally — no ids AND no issues
+		// — which contradicted this file's own header contract ("a fence that
+		// DID say something, malformed, is reported as issues") and did real
+		// damage two rungs down: planSiteFactDrift's zero-rows warning, added at
+		// the council's bug_historian seat's request, is gated on issues or
+		// unresolved being non-empty. So one trailing comma in a fence edit
+		// disarmed the declaration AND the warning that exists to say a
+		// declaration was disarmed, leaving no signal anywhere. Measured
+		// 2026-08-24: 1 of 132 current tool PLANs declares anything, so
+		// "silently declared nothing" is indistinguishable from the fleet norm.
+		// bugs_open/288 defect B.
+		if factsKeyMentioned(criteria) {
+			return nil, []string{
+				"criteria fence is not valid JSON, so its facts declaration is being IGNORED: " + err.Error(),
+			}
+		}
 		return nil, nil
 	}
 	if len(doc.Facts) == 0 || string(doc.Facts) == "null" {

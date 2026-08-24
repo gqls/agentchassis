@@ -25,6 +25,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
@@ -65,6 +66,36 @@ func WriteDocPlanAction(ctx context.Context, params ActionParams) (interface{}, 
 	body := datahelpers.ExtractNestedFieldString(params.CollectedData, bodyField)
 	if body == "" {
 		return nil, fmt.Errorf("write_doc_plan: empty PLAN body at %q", bodyField)
+	}
+
+	// THE WRITE DOOR VALIDATES THE FACTS DECLARATION IT ACCEPTS (bugs_open/288
+	// defect A). Until 2026-08-24 nothing did: bugs_open/288, its lane PLAN and
+	// its council submission all stated that "validator rule P11 refuses a
+	// malformed declaration where it is written", and P11 lives in
+	// ValidateExperienceCriteria (experience_criteria.go), whose only production
+	// caller is write_experience_pattern_action.go — the EXPERIENCE-PATTERN
+	// register. Tool PLANs come through here, and here did no validation of any
+	// kind, so P11 had never once seen a tool fence.
+	//
+	// Deliberately NOT ValidateExperienceCriteria: that validator judges a whole
+	// experience-criteria template and would reject a tool PLAN for absent
+	// `checks`/`binding_schema`, which are not this document's business. It
+	// shares the part that matters instead — criteriaFactsFromValue, whose own
+	// comment says it exists "so the two cannot disagree on what a well-formed
+	// declaration is". This is its third caller, not a third spelling of the rule.
+	//
+	// Scoped to tool subjects whose fence actually mentions facts, so every
+	// other PLAN write is byte-identical to before. Refusing rather than
+	// logging, because the whole defect being closed is that a declaration
+	// nobody can read looked exactly like a document that declared nothing.
+	if subjectType == "tool" {
+		if criteria := extractCriteriaBlock(body); factsKeyMentioned(criteria) {
+			if _, issues := parseCriteriaFacts(criteria); len(issues) > 0 {
+				return nil, fmt.Errorf(
+					"write_doc_plan: refusing PLAN for tool %q — its criteria fence declares facts that cannot be read: %s",
+					subjectKey, strings.Join(issues, "; "))
+			}
+		}
 	}
 
 	source := datahelpers.GetStringField(config, "plan_source", "")

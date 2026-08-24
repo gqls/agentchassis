@@ -136,6 +136,15 @@ type factDriftIndex struct {
 	byFact     map[string][]factDriftTool
 	unresolved []string
 	issues     []string // malformed declarations, "<subject_key>: <issue>"
+
+	// The same two facts again, grouped by the subject that owns them, so a
+	// broken declaration can be reported TO THE DOCUMENT'S OWNER rather than
+	// only to a log line nobody reads (bugs_open/288 defect B). The flat slices
+	// above are left exactly as they were: res.FactDeclarationsUnresolved and
+	// every existing log field must keep their shape, so a pass over a site
+	// that declares nothing marshals byte-identically to before.
+	issuesBySubject     map[string][]string
+	unresolvedBySubject map[string][]string
 }
 
 // factDriftIndexQuery resolves every current tool PLAN whose fence mentions
@@ -191,7 +200,11 @@ func loadFactDriftIndex(ctx context.Context, db *sql.DB, siteID uuid.UUID, regis
 	}
 	defer rows.Close()
 
-	idx := &factDriftIndex{byFact: map[string][]factDriftTool{}}
+	idx := &factDriftIndex{
+		byFact:              map[string][]factDriftTool{},
+		issuesBySubject:     map[string][]string{},
+		unresolvedBySubject: map[string][]string{},
+	}
 	any := false
 	for rows.Next() {
 		var t factDriftTool
@@ -203,6 +216,7 @@ func loadFactDriftIndex(ctx context.Context, db *sql.DB, siteID uuid.UUID, regis
 		ids, issues := parseCriteriaFacts(t.Criteria)
 		for _, is := range issues {
 			idx.issues = append(idx.issues, t.SubjectKey+": "+is)
+			idx.issuesBySubject[t.SubjectKey] = append(idx.issuesBySubject[t.SubjectKey], is)
 		}
 		if len(ids) == 0 {
 			continue
@@ -211,6 +225,7 @@ func loadFactDriftIndex(ctx context.Context, db *sql.DB, siteID uuid.UUID, regis
 		for _, id := range ids {
 			if !registerFactIDs[id] {
 				idx.unresolved = append(idx.unresolved, t.SubjectKey+":"+id)
+				idx.unresolvedBySubject[t.SubjectKey] = append(idx.unresolvedBySubject[t.SubjectKey], id)
 				continue
 			}
 			t.DeclaredFacts = append(t.DeclaredFacts, id)
@@ -513,6 +528,11 @@ func planSiteFactDrift(ctx context.Context, db *sql.DB, siteID uuid.UUID, eb map
 	for _, is := range idx.issues {
 		logger.Warn("refresh_evidence_base: malformed facts declaration ignored", zap.String("site_id", siteID.String()), zap.String("issue", is))
 	}
+	// A LOG LINE REACHES NOBODY. Until 2026-08-24 the two lines above were the
+	// only trace that a declaration had been ignored — and the pass that ignored
+	// it went on to report success. Give the finding a durable surface addressed
+	// to the party that can act: the lane that owns the PLAN.
+	noteBrokenFactDeclarations(ctx, db, siteID, idx, dryRun, logger)
 	if len(idx.byFact) == 0 {
 		// Council bug_historian seat (advisory): "zero rows ends the pass with no
 		// signal at all". A site whose fences DO declare facts but whose pages no
@@ -547,6 +567,88 @@ func planSiteFactDrift(ctx context.Context, db *sql.DB, siteID uuid.UUID, eb map
 	}
 	plan.Emissions = ems
 	return plan
+}
+
+// noteBrokenFactDeclarations records, per tool subject, that its fence's facts
+// declaration could not be read — a malformed declaration, or ids this site's
+// register does not carry.
+//
+// A doc_note AND NOT A WORK ITEM, deliberately. The fence's author is the lane
+// that owns the PLAN, and doc_notes are keyed on exactly that subject and are
+// already loaded into every builder/improver context by load_doc_context, so the
+// finding arrives where the next edit happens. The review queue is the wrong
+// destination on today's evidence: bugs_open/033 records that it has no working
+// surface, and this mechanism's own first firing put 13 items into it on
+// 2026-08-17 which were still untouched seven days later. Filing a fourteenth
+// would be routing a real finding into a place we have measured nobody reads.
+//
+// 30-day per-subject cooldown, the shape ToolAcceptanceCheck.noteNeedsCriteria
+// already uses (discovery_checks/check_tool_acceptance.go): a fence stays broken
+// until someone fixes it, and a daily sweep must not turn one defect into thirty
+// notes a month.
+//
+// Writes nothing on a dry run — the caller runs before the action's own dry-run
+// return, so this is the only place that can honour it.
+func noteBrokenFactDeclarations(ctx context.Context, db *sql.DB, siteID uuid.UUID, idx *factDriftIndex, dryRun bool, logger *zap.Logger) {
+	if idx == nil || dryRun {
+		return
+	}
+	subjects := make([]string, 0, len(idx.issuesBySubject)+len(idx.unresolvedBySubject))
+	for k := range idx.issuesBySubject {
+		subjects = append(subjects, k)
+	}
+	for k := range idx.unresolvedBySubject {
+		if _, dup := idx.issuesBySubject[k]; !dup {
+			subjects = append(subjects, k)
+		}
+	}
+	sort.Strings(subjects)
+
+	for _, subject := range subjects {
+		var recent bool
+		if err := db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM doc_notes
+				WHERE subject_type='tool' AND subject_key=$1
+				  AND categories ? 'fact_declaration_broken'
+				  AND created_at > NOW() - INTERVAL '30 days')
+		`, subject).Scan(&recent); err != nil {
+			logger.Warn("refresh_evidence_base: fact-declaration note cooldown check failed",
+				zap.String("tool", subject), zap.Error(err))
+			continue
+		}
+		if recent {
+			continue
+		}
+
+		var b strings.Builder
+		fmt.Fprintf(&b, "## Facts declaration cannot be read — %s\n", subject)
+		b.WriteString("Observed: the daily evidence sweep resolved this tool's PLAN and could not act on its `facts` declaration.\n")
+		for _, is := range idx.issuesBySubject[subject] {
+			fmt.Fprintf(&b, "  - MALFORMED: %s\n", is)
+		}
+		if ids := idx.unresolvedBySubject[subject]; len(ids) > 0 {
+			fmt.Fprintf(&b, "  - NOT IN THIS SITE'S REGISTER: %s\n", strings.Join(ids, ", "))
+		}
+		b.WriteString("Root cause: the declaration is in the PLAN's ```criteria fence; ids resolve against the SWEPT SITE's register, never against the PLAN (doc_plans has no site_id).\n")
+		b.WriteString("Fix: repair the fence via the lane's own installer — never hand-edit the doc_plans row. " +
+			"A malformed declaration is now refused at write time (write_doc_plan), so a fence that got here predates that gate.\n")
+		b.WriteString("Verified: n/a — this note records that the declaration was IGNORED, not that a figure is wrong.\n")
+		b.WriteString("Categories: fact_declaration_broken")
+
+		if _, err := db.ExecContext(ctx, `
+			INSERT INTO doc_notes (subject_type, subject_key, site_id, body, categories,
+			                       source, source_agent, created_by)
+			VALUES ('tool', $1, $2, $3, '["fact_declaration_broken"]'::jsonb,
+			        'refresh_evidence_base', 'evidence-freshness', 'evidence-freshness')
+		`, subject, siteID, b.String()); err != nil {
+			logger.Warn("refresh_evidence_base: fact-declaration note insert failed",
+				zap.String("tool", subject), zap.Error(err))
+			continue
+		}
+		logger.Info("refresh_evidence_base: filed fact_declaration_broken note",
+			zap.String("site_id", siteID.String()), zap.String("tool", subject))
+	}
 }
 
 // factDriftSourceURL pulls the citation URL off a fact for the item body.
