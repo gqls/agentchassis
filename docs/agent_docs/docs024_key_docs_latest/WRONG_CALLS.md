@@ -49580,6 +49580,11 @@ independent ways to get a zero that means nothing.
   not just the sentences.** They applied it to their own files and found exactly two, both
   load-bearing; both re-measured and held. **Both holding is the unremarkable outcome — the value is
   that either could have failed and nothing in either file would have said so.**
+- **WHY it fails, which is the part that generalises** (same lane, and better than the rule alone): a
+  re-read hunting for claims is **pattern-matching on GRAMMAR, and load-bearing content does not
+  respect grammar.** The parenthetical, the "which"-clause and the em-dash aside are exactly where a
+  writer puts what they consider **settled** — *"which is precisely the set worth re-opening."* A rule
+  without this reason gets applied as a literal grep for assertions and misses the whole class.
 - **Distinct from the neighbouring family, and worth keeping separate:** the "control that cannot fail"
   entries are about a check you RAN that could only return one answer. This is about a check you never
   ran because somebody else's confidence stood in for it. Same outcome — a false belief wearing the

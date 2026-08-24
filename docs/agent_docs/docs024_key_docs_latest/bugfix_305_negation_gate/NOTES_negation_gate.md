@@ -997,3 +997,29 @@ That is why its caller set was unknowable without grepping, and why a reviewer h
 carries one, naming the 2 callers, the single owning agent, and the recursive-walk query — so the next
 reviewer does not have to ask the same question. **A generically-named function with no comment is a
 question a reviewer is entitled to ask, and the answer belongs in the file rather than in a reply.**
+
+---
+
+## 2026-08-24 (late) — I verified my own commits by content, and the VERIFICATION had two defects
+
+Prompted by the `bugs_open/381` lane: a python heredoc that raises after writing the first of two
+files lands a commit of **fewer files than intended**, and that looks exactly like a commit. I used
+that pattern ~15 times today. ⚠ **A clean `git status` cannot catch it** — a file that was never
+modified is not dirty — so the only real check is **content present in HEAD**.
+
+**Result: 22 of 22 substantive edits present, 0 missing** (code, both migrations + rollbacks, LANDMINES,
+three WRONG_CALLS entries, 016b §9, two register edits, three bug-file sections, the lane docs, and
+the cross-lane note), plus two controls: a needle that must not exist returned 0, and `bugs_open/305`
+is absent from HEAD.
+
+**But the sweep first reported 2 false misses, and both were defects in MY CHECK:**
+
+1. **Case.** `grep -F` is case-sensitive; the rollback banner is uppercase (`RE-ARMS A MEASURED`).
+2. **Hard wrapping.** The phrase spanned a line break, so a line-oriented grep reported a **false
+   absence** — the exact trap `MEMORY.md` documents for these files, applied to a context I had not
+   thought of. Unwrap first: `tr '\n' ' ' | tr -s ' ' | grep -c "…"`.
+
+⚠ **This matters more than a tidy-up.** A verification that reports phantom misses is one people stop
+running, and the two false alarms looked exactly like real ones — I would have spent the next ten
+minutes chasing edits that were already committed. **Prefer a needle that cannot wrap** (a heading, a
+symbol name, a single distinctive token) over a quoted phrase, and unwrap when you must use prose.
