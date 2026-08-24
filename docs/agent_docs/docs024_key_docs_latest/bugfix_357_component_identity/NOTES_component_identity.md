@@ -693,3 +693,57 @@ cleanup half never fired even though it was in every command. CLAUDE.md gained
 `scripts/verify-head-builds.sh` and an explicit prohibition on the hand-rolled
 recipe on 2026-08-24 — the same day, from the same class of waste. Reaped; use the
 script.
+
+---
+
+## 2026-08-24 — ⚠ CORRECTION: F1's line shipped in ANOTHER lane's commit, twelve minutes before mine
+
+Filed to this lane by the `283`/RFC_032 session as a CONTRIB, checked by me rather
+than accepted:
+
+| commit | time | contains |
+|---|---|---|
+| `024303681` (283 lane, "retire the ComponentID bindings") | **08-23 18:56:55** | **my** `entry["rendered_template_sha"]` block |
+| `a2e2fbac2` (mine, "357 phase 0") | 08-23 19:08:12 | everything else in phase 0 |
+
+`git log -S'entry["rendered_template_sha"] = rc.RenderedTemplateSHA' -- rerender_page_sections_action.go`
+names **theirs**. So F1 reached HEAD as a same-file passenger in their commit and
+went live on **v1.0.1332 (rolled 08-24 09:39)** — which is precisely the step change
+I measured at ~09:00Z, so the two records agree.
+
+Nothing is lost, forward-only holds, and the code in HEAD is exactly what I wrote.
+But **my phase-0 commit message claims F1 and the commit does not contain it** — the
+file was already at its final content when my pathspec commit took it.
+
+### ⚠ MISSTEP: "my files show clean" is not "my commit carries my change"
+
+My end-of-session check was `git status --porcelain` over my files. It read clean —
+**for the wrong reason.** The file was clean because *someone else had committed my
+change*, not because I had. On a shared tree those are different facts and the
+status output cannot tell them apart.
+
+The check that discriminates is the one the other lane used:
+`git log -S'<a literal from your change>' -- <file>` — it names the commit that
+actually introduced the line. Logged in `WRONG_CALLS.md` (8).
+
+### The four HIGH objections in council `e8c7414c` are answered, and were already covered
+
+Because my hunk appeared context-free inside their reviewed diff, five seats read it
+as an undisclosed mechanism and the round was vetoed. Four HIGH objections were about
+**my** seam and addressed to nobody:
+
+- *"why a third provenance field, when `content_hash` and `rendered_html_digest` exist"* —
+  it is not a third field. `rendered_template_sha` is an in-flight out-field resolved
+  into the pre-existing, dormant `component_version_id` (0 of 1,930 rows, no reader,
+  no writer, measured 08-22). The siblings answer *"are these bytes reproducible from
+  this content"*; neither answers *which template text produced them*, which is the
+  fact that vanishes when a template is edited (`bugs_closed/277`: 15 rows permanently
+  unrepairable for exactly that absence).
+- *"targets a column that does not exist on `page_components`, so the write fails or is
+  silently dropped"* ×3 — correct that no such column exists, and nothing writes one.
+
+**Already reviewed:** trail `62aac6c2` (phase 1) put this exact design — "REUSE, NOT
+ADDITION" — and was **APPROVED 08-22 18:02Z**, a day BEFORE `e8c7414c`. Plus `73a638c7`
+(phase 0) and `74e4c1fd` (phase 2), both approved. Three approved rounds; that round's
+seats saw a bare hunk and objected to the only reading available to them. Disposition
+sent to the 283 lane for their resubmission.

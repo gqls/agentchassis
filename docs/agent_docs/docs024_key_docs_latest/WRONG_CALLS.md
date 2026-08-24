@@ -48516,3 +48516,33 @@ in the shape of the input, and every fixture I wrote had the wrong shape.
   population of 181; a verified code claim for an unverified live one. Related: the 352 lane's
   own entry above (audits *run* standing in for per-site *coverage*). Three instances, one shape,
   one day, three different lanes.
+
+### 8 — 2026-08-24: "my files show clean" is not "my commit carries my change", and on a shared tree those come apart
+
+I ended a session by checking `git status --porcelain` over every file I had
+touched. Blank. I reported everything committed, and moved on.
+
+It was blank **for the wrong reason.** Another lane's pathspec commit had swept one
+of my then-uncommitted hunks twelve minutes before my own commit
+(`024303681` at 18:56:55 vs my `a2e2fbac2` at 19:08:12), so the file was clean
+because *they* had committed my change. My commit message claims that change and the
+commit does not contain it.
+
+Nothing was lost — forward-only holds and HEAD has exactly the code I wrote. What was
+wrong was my **record**: anyone reconstructing when the mechanism reached which binary
+from my commit would land twelve minutes and one image tag off.
+
+**What caught it:** the other lane told me, having noticed at their end. Nothing in my
+own workflow would have. `git status` answers "is the working tree dirty", and I was
+asking it "did my commit do what I think" — an adjacent question it cannot answer and
+does not claim to.
+
+**The cheap check:** `git log -S'<a literal from your change>' -- <file>` names the
+commit that actually introduced the line. One command, and it discriminates exactly
+where `git status` cannot.
+
+**The transferable half, and it is the same shape as entry 7 two hours earlier:** I
+used a real check to answer a question it was not about. There the filter's
+correctness stood in for its selectivity; here the tree's cleanliness stood in for
+authorship. Both times the check passed honestly and the conclusion did not follow —
+which is worse than a check that fails, because nothing prompts you to look again.
