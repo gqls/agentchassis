@@ -447,15 +447,45 @@ func classifyFinding(f auditFinding, pages map[string]pageInfo, siteID uuid.UUID
 				}
 
 			case "tone":
+				// A tone finding is a STYLISTIC adjustment to copy that already
+				// exists, and it used to be filed `tone_shift` at
+				// page-build-handler — which regenerates the page. That is the
+				// wrong instrument, and the estate has the incident to prove it:
+				// `save_page_sections` DELETEs and re-INSERTs the row, so
+				// finetuning.uk's homepage "lost all 11 of its non-llm URL keys to
+				// one tone_shift and served five <img src=""> plus six vanished
+				// controls" (plan_sections_action.go's carry-stored comment,
+				// bugs_open/238). Asking for a better sentence should not be able
+				// to empty an image tag.
+				//
+				// copy-editor (CQ-024, stage 2) is the surgical alternative: it
+				// reads the whole page, emits `field_updates` for named fields on
+				// named components, and STRUCTURALLY cannot write to a page —
+				// migration 447 RAISEs if any page-writing step is added to it.
+				// Its output parks at `copy_edit_proposed`/`needs_human_review`
+				// for a human, so this routes an auto-PROPOSAL, never an
+				// auto-edit, and owner decision D2 is untouched.
+				//
+				// A NEW item_type rather than re-pointing `tone_shift`: this is a
+				// new (item_type, handler) pair and is held for a human canary,
+				// and silently changing what an existing type means would misread
+				// the 33 `tone_shift` rows already in history.
+				//
+				// Volume is why this is safe to land as a canary: `tone` is rare —
+				// 33 `tone_shift` items lifetime across live and archive as of
+				// 2026-08-24, versus 1,893 `content_rewrite`. Roughly one a week
+				// cannot flood the review queue that `bugs_open/033` is about
+				// (1,079 items parked as of 2026-08-24). Do NOT extend this to
+				// `content_rewrite` on the strength of this comment.
 				return classifiedFinding{
-					ItemType:     "tone_shift",
-					HandlerAgent: "page-build-handler",
+					ItemType:     "needs_copy_edit",
+					HandlerAgent: "copy-editor",
 					Severity:     severity,
 					Priority:     priority,
 					PageID:       &pageID,
 					PageName:     pageName,
 					Spec:         spec,
-					DedupKey:     fmt.Sprintf("%s_tone_shift_%s_%s", auditSource, pageName, siteID),
+					DedupKey:     fmt.Sprintf("%s_needs_copy_edit_%s_%s", auditSource, pageName, siteID),
 				}
 
 			default:

@@ -573,19 +573,19 @@ func TestWriteAuditFindings_UngatedProducerPathIsUnchanged(t *testing.T) {
 	// the regex AND the args proves the clause and the value are both in the
 	// query this action actually runs.
 	mock.ExpectQuery(`SELECT EXISTS[\s\S]*spec->>'audit_source'`).
-		WithArgs(siteID, "tone_shift", pageID, "visual-design-audit").
+		WithArgs(siteID, "needs_copy_edit", pageID, "visual-design-audit").
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	mock.ExpectQuery("SELECT EXISTS").
-		WithArgs(siteID, "visual-design-audit_tone_shift_index_"+siteID.String()).
+		WithArgs(siteID, "visual-design-audit_needs_copy_edit_index_"+siteID.String()).
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	// `status` became a parameter (position 10) when the bugs_open/279 fix let
 	// the capability_gap fallback file as 'deferred'; a routed finding still
 	// inserts 'detected', and this control pins that.
 	mock.ExpectExec("INSERT INTO site_work_items").
-		WithArgs(siteID, "discovery", "tone_shift", "medium", sqlmock.AnyArg(),
+		WithArgs(siteID, "discovery", "needs_copy_edit", "medium", sqlmock.AnyArg(),
 			argJSONContains{`"audit_source":"visual-design-audit"`}, pageID, sqlmock.AnyArg(),
-			"page-build-handler", "detected", "visual-design-audit",
-			"visual-design-audit_tone_shift_index_"+siteID.String(), sqlmock.AnyArg()).
+			"copy-editor", "detected", "visual-design-audit",
+			"visual-design-audit_needs_copy_edit_index_"+siteID.String(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	// The retraction pass still runs — and asks about dark_section_audit ONLY.
@@ -612,7 +612,10 @@ func TestWriteAuditFindings_UngatedProducerPathIsUnchanged(t *testing.T) {
 		t.Fatalf("the ungated producer must still file its item: %#v", m)
 	}
 	stats, _ := m["classification_stats"].(map[string]int)
-	if stats["tone_shift"] != 1 {
+	// `tone` files needs_copy_edit at copy-editor since 2026-08-24 (was tone_shift
+	// at page-build-handler). The property under test is the ungated PRODUCER
+	// path, not the category's destination — only the expected type moved.
+	if stats["needs_copy_edit"] != 1 {
 		t.Fatalf("classification_stats lost the ungated type: %#v", m["classification_stats"])
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {

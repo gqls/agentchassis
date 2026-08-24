@@ -204,8 +204,18 @@ var classifyEmittableItemTypes = map[string]string{
 	// component-template-fixer) until 2026-08-19; that handler refuses both by
 	// design and nothing read the refusal (bugs_open/323). Rule 3 now files
 	// capability_gap for them — see TestNoHandlerCategoriesFileACapabilityGap.
-	"needs_content_page":     "page-build-handler (Rule 4)",
-	"tone_shift":             "page-build-handler (Rule 4)",
+	"needs_content_page": "page-build-handler (Rule 4)",
+	// `tone` no longer emits tone_shift: a stylistic finding routed at
+	// page-build-handler REGENERATES the page, and save_page_sections DELETEs and
+	// re-INSERTs the row — finetuning.uk's homepage "lost all 11 of its non-llm
+	// URL keys to one tone_shift and served five <img src=\"\"> plus six vanished
+	// controls" (plan_sections_action.go, bugs_open/238). It now files
+	// needs_copy_edit at copy-editor, which emits field_updates for named fields
+	// and structurally cannot write to a page (migration 447 RAISEs). tone_shift
+	// stays declared: 33 rows of it exist in history and the type is still valid
+	// for anything that files it directly.
+	"needs_copy_edit":        "copy-editor (Rule 4, stage 2 — parks a proposal at needs_human_review; migration 579 gave it the dispatched entry path)",
+	"tone_shift":             "page-build-handler (Rule 4) — no longer emitted by the router; retained for the 33 historical rows",
 	"content_rewrite":        "page-build-handler (Rule 4)",
 	"needs_content_planning": "content-gap-planner (Rules 5/6)",
 	"capability_gap":         "deliberately non-dispatchable roadmap row (deferred, no handler) — read by diagnose_triage (bugs_closed/077)",
@@ -324,7 +334,11 @@ func TestUnknownCategoryFilesACapabilityGapNotAMintedType(t *testing.T) {
 	routed := classifyFinding(auditFinding{
 		Category: "tone", Page: "index", Severity: "high", Description: "x",
 	}, pages, siteID, "test-audit")
-	if routed.ItemType != "tone_shift" || routed.Status != "" || routed.HandlerAgent == "" {
+	// `tone` files needs_copy_edit at copy-editor since 2026-08-24 (it used to be
+	// tone_shift at page-build-handler — see the map above for why). The property
+	// under test is unchanged: a ROUTABLE category keeps an empty Status and a
+	// real handler, unlike the capability_gap fallback.
+	if routed.ItemType != "needs_copy_edit" || routed.Status != "" || routed.HandlerAgent == "" {
 		t.Errorf("routable category 'tone' got item_type=%q status=%q handler=%q — the "+
 			"capability_gap overrides must be confined to the fallback",
 			routed.ItemType, routed.Status, routed.HandlerAgent)
