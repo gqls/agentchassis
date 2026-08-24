@@ -128,3 +128,43 @@ the running services rather than at git; then apply the held database change tha
 impossible tickets; then take the measurements that would show it worked — including the one that
 could show it did not. The second half of the original bug, where a correct instruction still fails
 for a different reason, is untouched and stays open with its own note.
+
+---
+
+## 2026-08-24 (evening) — it is live, and the proof is in the post
+
+**Both halves shipped.** The fresh build went out at 15:39 this afternoon and, unusually, it carried
+*both* pieces — the measuring half and the ticket-filing half — because the browser-runner image was
+rebuilt in the same round. I had expected to have to ask for a second build; I didn't.
+
+**I checked it properly rather than trusting the version number.** Two of the three services will
+tell you what they are running if you ask them; the third had already scrolled its answer off the
+end of its log, exactly as our own notes warn, so I read it out of the running binary instead. Then
+I did the more useful check: rather than asking *"is this the right version"*, I asked *"does this
+binary contain the new behaviour"* — and confirmed a made-up string was **absent**, so the test could
+actually fail. All three came back clean.
+
+**One thing I got wrong and caught.** I paired that check with what I called a control — a second
+version marker that "must not" be present. It was present. For a moment that looked like the test
+being broken; in fact I had simply picked the wrong marker, because a change I made earlier in the
+day turned out to predate the build rather than follow it. The control wasn't discriminating, it was
+just badly chosen. Had it come back the other way, for the same wrong reason, I'd have recorded a
+passing control and believed a result that proved nothing. Redone with a genuine one. It's logged,
+because the lesson isn't "check your work" — it's that **a control is only a control if you check
+the thing that makes it one**, and here that was a clock, not code.
+
+**What I have not done, deliberately.** There is a database change ready that withdraws the 73
+impossible tickets. Its precondition — both images live — is now met, so I could apply it. I have
+not, because no page has been re-measured since the build, and I would rather see the system file
+*one* correct ticket before I clear out the old ones on the strength of an argument. So I have
+kicked off a re-measurement of a single site to watch. It queues behind everything else on the
+fleet, so it is roughly half an hour before there is anything to read.
+
+The site I picked is the one from the *other* team's bug — the one whose evidence describes "six
+`.H3` headings" that are nothing of the sort. If the fix works, that site is where it will show
+most plainly.
+
+**Where a new session picks this up:**
+`docs/agent_docs/docs024_key_docs_latest/bugfix_352_invented_selector/HANDOFF_2026-08-24_continue_here.md`
+— it has the two remaining jobs, the queries that decide them, and the ways each could come out
+false.
