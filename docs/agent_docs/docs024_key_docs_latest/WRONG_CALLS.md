@@ -47541,3 +47541,60 @@ bytes would have caught it.
    markdown-bullet landmine already prescribes for a neighbouring case.
 3. **Read tool output for what it refutes, not for what it confirms** — and specifically read the
    lines you did not expect, which is where all three of today's refutations were sitting.
+
+---
+
+## 2026-08-24 — `tmpfs_exhaustion` lane: I measured the fix at the place the symptom used to be
+
+**The claim, written 2026-08-23 in `tmpfs_exhaustion/HANDOFF_..._tmp_is_ram_not_disk.md` §10:**
+*"+0.5 GB/day, against a prior rate of ~3 GB/day … That settles the deferred janitor as genuinely
+low priority — the recipe was the mechanism, and removing it removed most of the pressure."*
+
+**What was true:** the +0.5 GB/day figure. It was measured, dated, marked, and correct.
+
+**What was false:** everything concluded from it. The recipe did not stop — it **relocated**. The
+same handoff's §3 records that `CLAUDE_CODE_TMPDIR` had moved session scratch onto the disk on
+2026-08-03. So the producer carried on at full rate, on the other filesystem, where nobody looked.
+`[MEASURED 2026-08-24]` `~/.claude-scratch` held **147 GB**, of which **130 GB was 308 abandoned
+`git archive HEAD` extracts**, growing **73 GB in 7 days (10.4 GB/day)** against **123 GB free** —
+**~12 days to a full root filesystem**, sooner than the `/tmp` problem it replaced, and a worse
+failure mode (a full `/` breaks git, builds and every session; a full tmpfs gives a recoverable
+`ENOSPC`).
+
+**What caught it:** re-measuring rather than re-reading, on the second day, because the lane had
+already caught itself over-claiming once in the same document (§10's own correction to §8) — and a
+lane that has just been wrong about a single-cause story is one to re-measure. Nothing external
+caught this; there was no failure row and no sweep, because the machine had not broken yet.
+
+**The cheap check, and it is one command:** `df -h /tmp /`. **Both filesystems, in one breath.**
+The whole error is a `df -h /tmp` where a `df -h /tmp /` was needed.
+
+**The generalisable half — this is the entry's point, not the arithmetic.** *A bigger container is
+not a bound.* Redirecting an unreaped producer somewhere roomier buys time in proportion to the
+size ratio and changes nothing else — **and it costs you the symptom that was telling you the
+producer existed.** After the redirect the old meter reads green *because* the pressure moved. So:
+**when a fix works by relocation, the post-fix measurement must be taken at the DESTINATION**, and
+a green reading at the origin is the expected result of both success and failure, which makes it
+worthless as evidence either way.
+
+**Two further statements of fact in the same document, both corrected in place today:**
+
+- **"9 documents"** carry the recipe. `[MEASURED 2026-08-24]` it is **73**, of which **66** never
+  delete anything; 8 were fixed. This is CLAUDE.md's own 2026-08-22 rule — *a census goes stale by
+  ADDITION and reads as current for ever* — biting the document written to stop a recurrence, two
+  days after the rule was added. The count now carries its date.
+- **"Nothing reaps idle scratch"** is false as stated: `systemd-tmpfiles-clean.timer` is active and
+  runs **daily**, at a **10-day** gate (`/usr/lib/tmpfiles.d/tmp.conf:11`), against a `/tmp` that
+  went empty-to-full in about **four**. A janitor that **by construction cannot fire before the
+  failure**. The distinction is not pedantry: "nothing reaps" says *build a janitor*, "nothing
+  reaps in time" says *shorten the existing gate* — one root-owned drop-in. Both turned out worth
+  having, but only because the second was checked.
+
+**And one of mine, on the same day, in the tool built to fix all this.** `scratch-janitor.sh
+--self-test` plants each hazard and asserts the guard fires. Its first run reported two guards
+broken. Both were the harness: the tests were shaped `"$0" … | grep -q '…'` and the script is
+`set -o pipefail`, so a **successful** refusal (exit 2) made the pipeline fail even though grep had
+matched — **a correct refusal reported as a broken guard.** It failed in the safe direction, but
+the general form does not: with pipefail off (the default) the same shape reports **success**
+whenever the last stage passes. **A red test is a claim like any other and needs the same check as
+a green one** — I only knew the guards were fine because I ran the refusal by hand and read it.

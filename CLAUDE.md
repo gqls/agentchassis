@@ -80,6 +80,24 @@ If a paragraph needs a second read to find the one number that mattered, it is d
   thread's work was an unremarkable 16 files), so it reports rather than judges.
   It cannot see a *same-file* passenger — if two sessions edit one file, whoever
   commits takes both edits, and no hook can prevent that.
+- **Checking that committed HEAD still builds: `scripts/verify-head-builds.sh`
+  (OPP-008). Do NOT hand-roll `git archive HEAD | tar` — that recipe is why this
+  machine keeps running out of space.** Each extract is ~450 MB, and the `rm -rf`
+  in every pasted copy is the **setup** half: it clears the tree the run is about
+  to use, so it reclaims a tree of *the same name*, and every run picks a new one
+  (one session left `headtree`, `headtree2`, `headtree3`, `headfinal`, `ht5`,
+  `ht6` — ~2.8 GB in a morning). **73 documents as of 2026-08-24** still spell the
+  recipe out; 66 of them never delete anything. The script writes to disk, points
+  the Go linker at disk, refuses a tmpfs target *by filesystem type*, and deletes
+  its tree on exit.
+  `scripts/verify-head-builds.sh [targets]` after committing;
+  `--with <file> [--test]` to build your change against HEAD *before* committing.
+  **`/tmp` is a 16 GB tmpfs, i.e. RAM** — a full one presents as
+  `link: mapping output file failed: no space left on device`, which reads like a
+  compiler fault and is not one. Reap abandoned scratch on **both** filesystems
+  with `scripts/scratch-janitor.sh` (dry-run by default; `--self-test` proves its
+  guards). Why the disk half matters as much as `/tmp`, and the standing figures:
+  `docs/agent_docs/docs024_key_docs_latest/tmpfs_exhaustion/`.
 
 ## Council review of platform changes (advisory, live 2026-07-17)
 

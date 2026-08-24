@@ -16169,3 +16169,26 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** MEMORY [[a-doc-comment-is-not-an-enforcement-mechanism]] (same shape one layer down — prose that reads as a control), [[prompt-text-poisons-its-own-detector]] (the opposite failure: a ban list quoting the phrase it bans, which DOES trip the detector); CQ-021 `ScanDeployedClaims`, CQ-020 `ScanVoiceTells`
 - **source:** 2026-08-24, `apis_uk_bees_homepage` lane — found because a peer session (`web_admin_console`) pointed at an unrelated open work item, and checking it meant reading the `<h1>` in isolation for the first time. The peer's proposed mechanism (write-time-only checks) was measured and refuted; the real one is above.
 - **added:** 2026-08-24, `apis_uk_bees_homepage` lane
+
+### The `rm -rf` in the HEAD-check recipe is the SETUP half — it clears the tree the run is ABOUT to use, so a self-cleaning-looking recipe reclaims nothing
+
+- **footprint:** `git archive HEAD | tar`, `scripts/verify-head-builds.sh`, `scripts/scratch-janitor.sh`, `CLAUDE_CODE_TMPDIR`, `GOTMPDIR`, `~/.claude-scratch`, `/tmp`, `~/.claude/settings.json`
+- **fires when:** you paste any variant of the HEAD-verification recipe — the one the estate tells you to run after committing, to prove the shared branch still compiles. It is in **73 documents as of 2026-08-24**, and **66 of them leave the tree behind**.
+- **the trap:** every pasted copy *contains* an `rm -rf`, which is why nobody has ever read one as leaky:
+  ```bash
+  rm -rf $SP/headtree && mkdir -p $SP/headtree && git archive HEAD | tar -x -C $SP/headtree
+  ```
+  That `rm` runs **before** the extract. It reclaims a tree of **the same name** — and each run picks a new name. `[MEASURED 2026-08-24]` one session left `headtree`, `headtree2`, `headtree3`, `headfinal`, `ht5`, `ht6` in a single morning: **six live copies, ~2.8 GB**, each one's `rm` faithfully clearing only itself. Fleet-wide the same morning: **308 abandoned extracts, 130 GB**, at **+10.4 GB/day**.
+- **why the wrong answer looks exactly like the right one:** the recipe *works*. It answers "does HEAD build" correctly every time, exits 0, and visibly deletes something on the way in. Nothing in the output, the exit code or the command's own text distinguishes it from a recipe that cleans up. The cost lands on a **different session, days later**, as a machine with no space.
+- **AND THE OBVIOUS DIAGNOSIS IS WRONG — `df -h /tmp` will tell you it is fixed.** `CLAUDE_CODE_TMPDIR` (set 2026-08-03) moved session scratch onto disk, so `/tmp` now reads healthy (4.9 G / 32%, 2026-08-24) while the producer runs **unchanged, on the disk, at 20× the volume it ever reached in RAM**. The 2026-08-23 lane measured `/tmp` refilling at +0.5 GB/day, correctly concluded the recipe fix had worked, and was wrong — the recipe had **relocated**. **A bigger container is not a bound**, and it costs you the symptom that was telling you the producer existed. Check `df -h /` and `du -xsh ~/.claude-scratch` in the same breath, always, or you will re-derive this.
+- **the check, and it is two commands:**
+  ```bash
+  df -h /tmp /                                        # BOTH filesystems, never one
+  scripts/scratch-janitor.sh                          # dry run: what is abandoned, and how much
+  ```
+  **Use `scripts/verify-head-builds.sh` (OPP-008) instead of pasting the recipe** — it writes to disk, points `GOTMPDIR`/`TMPDIR` at disk, refuses a tmpfs target *by filesystem type* rather than by path spelling, and traps EXIT. `scripts/scratch-janitor.sh` reaps what is already there, on **both** roots; dry-run by default, `--self-test` proves its guards fire against planted hazards.
+- **the second trap, which makes it look like a compiler fault:** `go env GOTMPDIR` empty means Go falls back to `TMPDIR`, i.e. `/tmp`. `CLAUDE_CODE_TMPDIR` means nothing to the Go toolchain. A full tmpfs then presents as `link: mapping output file failed: no space left on device` — and the prescribed way to diagnose it is the recipe that filled the disk, so the check you reach for fails first and for the same reason.
+- **do NOT reap the disk scratch by age.** A session scratchpad holds the disposable extract **and** the session's real work — notes, analysis files — in the same directory. Reap by **shape** (a `go.mod` carrying *this repo's* module line, and no `.git`). `[MEASURED]` a plain `-name go.mod` sweep returns 329 hits of which **21 are throwaway modules a session wrote** (`module tmplcheck`, `module authprobe`); only 308 are extracts.
+- **relations:** MEMORY [[zero-adoption-means-read-the-mechanism]] (the 2026-08-23 fix shipped a correct script into 8 lane documents while `CLAUDE.md`, the file every session loads, said nothing — 0 of 50 later extracts used it) · [[a-stale-status-line-prevents-the-thing-it-describes]] · earlier `/tmp` entries in this file (~2005, ~2501, ~4567, ~4760) — this is the **fifth** recorded occurrence · `docs024_key_docs_latest/tmpfs_exhaustion/` (the standing five) · OPP-008
+- **source:** 2026-08-24, `tmpfs_exhaustion` lane, re-measuring its own previous day's fix rather than re-reading it. The `/tmp` figure it went in expecting was correct and was the wrong filesystem.
+- **added:** 2026-08-24, `tmpfs_exhaustion` lane
