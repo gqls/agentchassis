@@ -1129,3 +1129,27 @@ self-check (mutated on a snapshot, restored by `cp`).
 generator applied a fixed line cap regardless of the byte budget. Yesterday's runbook rule (strip
 comments before truncating) was followed and was not the point: **do not truncate at all when the
 plan is under the cap.** Print the byte count first; cap only what the number forces. Rule amended.
+
+### Council on the Fable fixes, round 2: APPROVED — 8 seats, 9 abstained, no gating objection
+
+`4d5c1523`, 2026-08-24 evening. Four advisory objections, none needing a change:
+
+- **[medium, guardian]** confirm the pipe→here-string swap in the fleet-critical helper was
+  re-proved for both callers. It was — healthy/real-failure/unbuildable, for both scripts, in a
+  scratch tree from `verify-head-builds.sh`; recorded above under "The Fable pass, second attempt"
+  and in the round-1 commit message. Stated again here so the answer is where the question is.
+- **[low]** the reader-check comment edit is comment-only — correct, carried over from round 1 as
+  context, and shown so the reviewer could confirm no logic moved.
+- **[low]** a commit touching BOTH relevance sets runs two package tests (~17–20s each, compile-
+  dominated). Accepted: that commit is by construction one that touches both the checker and the
+  actions package's finding-code writes, which is rare and is exactly when both checks matter.
+- **[low]** the convention check names exactly two files, so a third registry-grading test file
+  under another name escapes both the `-run` filter and the check. Stated in the test's own
+  comment and in the handoff; the daily live-table check remains the authority for anything that
+  fires.
+
+**Close of the Fable thread.** Five findings → five fixes → one REVISE round the guardian was
+right about → approved. Across the whole lane the council has now approved three correlations
+(`be1fd678`, `be252395`, `2e5f687d`) plus this one, and every gating objection it raised in eight
+rounds was about what the submission *showed*, never about the code — which is its own lesson and
+is in `WRONG_CALLS.md` five times over.

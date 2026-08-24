@@ -116,7 +116,8 @@ fixed and mutation-proven the same day.** The one that matters:
 The other four (const aliases dropped silently → now resolved and every unresolvable site
 REPORTED; function-local vars misattributed → file-scope consts only; a vacuous `-run` control →
 one shared `scanOrFatal`; an overstated comment → corrected) and what Fable verified HOLDS are in
-NOTES under "The Fable pass, second attempt". **Nothing in this lane needs a further review pass.**
+NOTES under "The Fable pass, second attempt". **Nothing in this lane needs a further review pass, and nothing is awaiting a verdict** — every
+correlation this lane opened (`be1fd678`, `be252395`, `2e5f687d`, `4d5c1523`) is APPROVED.
 
 **If you run the scan verbosely** (`go test ./platform/orchestration/actions/ -run
 TestEveryErrorCode -v`) you will see four `UNRESOLVED ErrorCode:` lines. Those are the stated
@@ -206,10 +207,9 @@ Full command set with gotchas: `RUNBOOK_unread_finding_codes.md`.
   unrelated flake; measured 86/411 commits would trigger). **Round 2 submitted** with the hook
   scoped to `-run '^TestFindingCode'`, a naming convention ENFORCED by
   `TestFindingCodeTestsFollowTheHookConvention`; all four proofs in NOTES. Commits `bce49226a`
-  (round 1) + `71c4081cc` (round 2). **Read the verdict:** `SELECT created_at, metadata->>'decision'
-  FROM diagnosis_artifacts WHERE correlation_id='4d5c1523-2453-4799-b828-25379affc41b' AND
-  kind='council_report' ORDER BY created_at;` — the code is on the shared branch; a further
-  REVISE means a follow-up commit, never a revert.
+  (round 1) + `71c4081cc` (round 2). **Round 2 APPROVED 2026-08-24**, 8 seats, 9 abstained; the
+  four advisory objections are all already-stated limits (NOTES, "round 2: APPROVED").
+  **Nothing in this lane is awaiting a verdict.**
 - `090` `c965bfec…` — UNVERIFIABLE (scope-not-narrowing), **not a refutation**: its static tier is
   `.go`-only, so the SQL writer was outside its corpus.
 
