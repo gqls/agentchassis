@@ -116,6 +116,31 @@ it left `value` null and put the range in the writer_line, rather than picking a
 as "the" figure. That is the correct handling of a range, and it is inconsistent with run 5 — so
 it is a behaviour to verify per run, not to rely on.
 
+#### DEPTH GATE: PASSED, measured 2026-08-24
+
+All six built and `deployed`, three components each. Word counts of rendered components against
+the floor taken from the live retired site on 2026-08-21:
+
+| # | subject | floor | achieved | ratio | destination | status |
+|---|---|---|---|---|---|---|
+| G1 | physics-of-light | 453 | **1803** | ×4.0 | `/blog/the-physics-of-horticultural-lighting.html` | deployed |
+| G2 | elms-stacking | 441 | **1648** | ×3.7 | `/blog/stacking-agricultural-scheme-actions.html` | deployed |
+| G3 | insect-bioconversion | 409 | **1400** | ×3.4 | `/blog/insect-bioconversion.html` | deployed |
+| G4 | hydroponic-chemistry | 324 | **1726** | ×5.3 | `/blog/hydroponic-solution-chemistry.html` | deployed |
+| G5 | seaweed-carbon | 319 | **1498** | ×4.7 | `/blog/seaweed-and-the-carbon-question.html` | deployed |
+| G6 | vapour-pressure-deficit | 315 | **1717** | ×5.5 | `/blog/vapour-pressure-deficit-and-transpiration.html` | deployed |
+
+**Every one clears its floor by roughly four times**, and all six land in the 1,400–1,803 band
+the `blog-post` measurement predicted (~1,600). The owner's instruction — "the same level of
+detail and greater" — is met on the measure it was set against, and it is the `page_type` choice
+that did it: the `guide` shape measured ~511 words.
+
+Two of them only built after **two of my own `banned_claims` patterns were narrowed** — the
+ticker ban was matching the citation "Carbon Brief, May 2025", and the management-payment ban was
+matching the honest past-tense sentence it was written to permit. Both failures presented as a
+page refusing to build, which is the good failure mode; a ban that quietly suppressed the sentence
+would never have surfaced.
+
 **Every explainer additionally owes:** at least one code-rendered infographic (the whole current
 guide set has exactly one diagram between them), a sourced figure for every number, and the
 equation/table count preserved or exceeded.
