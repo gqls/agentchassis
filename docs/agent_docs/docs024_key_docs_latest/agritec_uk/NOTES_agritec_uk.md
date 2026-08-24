@@ -510,3 +510,44 @@ Corroborating on the unaffected path: all 17 are `banana/gemini-3-pro-image-prev
 and 16 of 17 `origin_prompt` values carry this site's seeded palette hex verbatim — which appears
 in no `site_plan_imagery.prompt` row, so the style guide was applied at generation time, not at
 plan time. Seeding it before submission (PLAN Phase 1) did the job it was seeded for.
+
+---
+
+## 2026-08-24 — the queue stall was environmental, and I was about to blame my own item
+
+The guides-hub rebuild sat at `triaged` for 12+ minutes while earlier items were claimed in
+seconds. I worked down the obvious path — is my hand-written item malformed? — and found the
+dispatcher's real selector in `load_work_item_actions.go:709`, then ran its exact predicate
+against agritec:
+
+    needs_page:guides-index-relist   priority 50  attempts 0/3  approval_mode auto  depends_on NULL
+    needs_page:the-physics-...       priority 58  attempts 1/3  approval_mode auto  depends_on NULL
+
+**My item is returned FIRST.** It satisfies every clause: status in (triaged, approved),
+attempt_count < max_attempts, the 307 retry stamp, `approval_mode='auto'`, no unmet `depends_on`,
+and `ORDER BY priority ASC` puts 50 ahead of everything else queued. So the item was never the
+problem.
+
+The owner then said a fresh chassis is being built and will shortly deploy. That is the answer,
+and CLAUDE.md already carries it: **no orchestration dispatch within ~300s of a chassis pod
+(re)start — the spawn is silently dropped.** Fleet-wide, 26 dispatch loops had completed in 20
+minutes with **nothing claimed on any site**, which is the shape of a fleet that is cycling rather
+than a queue with a bad row in it.
+
+**The misstep I nearly made** was not a wrong conclusion — it was continuing to look in one place
+because that place was mine. Three of the earlier failures this session WERE my own doing (two
+over-broad bans, one projection edit), and that built a prior that the next one would be too. The
+cheap disconfirming check was already available and I ran it late: **is anything being claimed
+anywhere?** Nothing fleet-wide claimed is environmental by construction; only-my-item-stuck is
+mine. One query separates them and it should have been the first one, not the fifth.
+
+Recorded because the queue will stall again on the next roll, and the next session should reach
+for the fleet-wide check before reading its own item's columns.
+
+Nothing to fix. The item is well-formed and will be claimed when the loop resumes.
+
+### Also this session
+- Wrote to the `bugs_open/288` lane with agritec's SFI calculator as a worked case (2 of 9
+  revenue lines correct) and the visible-rate-table control I am using, asking whether their fix
+  reaches the constant inside the JS — if it does, my control is redundant scaffolding and I would
+  rather drop it than run two half-controls that each look sufficient.
