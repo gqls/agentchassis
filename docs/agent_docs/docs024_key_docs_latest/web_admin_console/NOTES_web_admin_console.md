@@ -66,8 +66,27 @@ state it was written in, not the state you are in.
 
 - `https://admin.apis.uk/` → **302** to `billowing-smoke-5ed4.cloudflareaccess.com`; the meta
   JWT decodes to `auth_status: NONE`, `hostname: admin.apis.uk`. Live and gated. CONFIRMED.
-- `https://www.apis.uk/` → **301**, `location: https://apis.uk/`. §3's redirect rule **is
-  applied** — the handoff still lists it as owner-pending. One falsifier closed.
+- ~~`https://www.apis.uk/` → **301**, `location: https://apis.uk/`. §3's redirect rule **is
+  applied** — the handoff still lists it as owner-pending. One falsifier closed.~~
+  > **CORRECTED 2026-08-24, same session, by the `apis_uk_bees_homepage` lane within the hour.**
+  > The 301 is real; **the attribution was invented.** It is served by the
+  > `portfolio-sites-router` **Worker** — `scripts/cloudflare/worker.js:23`,
+  > `if (hostname.startsWith('www.'))` → `Response.redirect(url, 301)` — reached because the
+  > `apis.uk` zone carries a `www.apis.uk/*` **worker route** (LANDMINES 2026-08-23: the zone has
+  > `apis.uk/*` and `www.apis.uk/*`, **2** routes as of 2026-08-22). **A worker route intercepts
+  > before DNS is consulted**, so §3's dashboard Redirect Rule is not what fires, and this
+  > measurement says **nothing** about whether §3 was applied. That falsifier is NOT closed.
+  >
+  > **The mechanism of my error, because it is not "stale data" and will recur:** I observed the
+  > outcome §3 predicted, found §3 listed as pending, and joined them — without asking what else
+  > could produce a `www`→apex 301. Something else did, and it predates the handoff. This is the
+  > memory index's *"a believable cause explaining an observation is when to doubt the
+  > instrument"* — a pending instruction that would explain what you see is the **weakest**
+  > moment to credit it, because it is exactly when you stop looking.
+  >
+  > **The check: a redirect is not evidence of the rule you have in mind unless you can name the
+  > thing serving it.** For a Cloudflare zone that means enumerating worker routes before
+  > crediting a DNS or Rules change — routes win, silently.
 - `https://links.webdesign.uk/c/x` → **could not resolve host**. §2's box steps are **not**
   applied, so `/c/` has not moved off the shopfront and the parking-page-rule landmine is still
   the only thing holding it. Still owner-pending, correctly listed.
