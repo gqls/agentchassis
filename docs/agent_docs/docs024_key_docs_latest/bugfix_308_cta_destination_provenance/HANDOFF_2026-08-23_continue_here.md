@@ -20,6 +20,17 @@ the org the fleet's key belongs to, so it read `0% used` while the API refused c
 measured at `llm_call_log`. Council rounds run normally again — one was dispatched and answered
 inside an hour today.
 
+## ✅ 0b. PROVEN AT THE ARTEFACT, 2026-08-24 (chassis v1.0.1332)
+
+A button moved on a served page: `finetuning.uk/ai-for-uk-small-business`, "Book a Discovery Call",
+`/tools/password-entropy.html` → `/contact.html`, in the row, in the committed bytes and live.
+Four buttons on that page; all destinations 200. Detector re-run on the same site: findings
+169 → 70, the false `"how we work"` → `/about.html` family **15 → 0**, self-suggesting findings
+**7 → 0**, and the correct member of the family survived. **Bar #1 is met for one page.**
+All three council correlations are APPROVED. Full account: `NOTES` §2026-08-24, `SUMMARY_2026-08-24`.
+
+**The open decision is the BACKLOG** — see §5 item 0.
+
 ## 1. State in one paragraph
 
 **Phase A (the provenance record, LNK-035) is LIVE and proven at the artefact. Phase B (the
@@ -108,7 +119,20 @@ A stale record cannot vouch for a value it does not name.
 
 ## 5. What to do next, in order
 
-1. **After the next fleet roll, verify at the artefact.** Capability probe with a control
+0. **THE BACKLOG IS THE OPEN DECISION, and it splits in two** [MEASURED 2026-08-24]:
+   - **New findings drain themselves.** Fleet-wide `cta_links_stale` page_rerenders: 344 `complete`,
+     and **zero** items stuck in `detected` for more than two days. Today's 32 will be triaged and
+     will now actually repair.
+   - **215 items are stuck in `unresolved`** (2026-07-16 → 2026-08-18) and will not move on their
+     own. That is the population `555_requeue_misdirected_cta_stock.sql` exists for.
+   - ⚠ **The requeue must set `triaged`, not `detected`** — `load_work_item_actions.go:711` takes
+     `status IN ('triaged','approved')` only. This resolves the `[UNVERIFIED]` that stood in item 4.
+   - **It is an owner decision, not a lane one:** releasing 215 rewrites buttons across 11 client
+     sites in one wave. A per-site release costs only patience and the mechanism is proven on
+     finetuning.uk.
+
+1. ~~**After the next fleet roll, verify at the artefact.**~~ **DONE 2026-08-24 — see §0b.**
+   The recipe is kept because the POPULATION still needs it: Capability probe with a control
    (`LoadCTALabelUniverse` present, a string the change did not add absent, same exec, every
    replica), then induce a discovery run and a `cta_links_stale` rerender on **finetuning.uk** (55
    of the 188 findings) and load the page. Watch **both** directions: utility-destination CTA rows
@@ -131,9 +155,10 @@ A stale record cannot vouch for a value it does not name.
    have the repair execute the stored `suggested_target`: a work item's spec is data written by an
    earlier binary.
 4. **Migration `555_requeue_misdirected_cta_stock.sql` is Phase C only**, and only after the Phase B
-   image is stamp-verified per service. A status flip is live instantly; flipping under the old
-   binary re-runs the broken repair and burns strikes. `[UNVERIFIED]` that `unresolved` is
-   non-dispatchable and `detected` is — read the dispatch loop's status predicate first.
+   image is stamp-verified per service — **that gate is now SATISFIED** (both replicas probed
+   2026-08-24, §0b). A status flip is live instantly. **`[UNVERIFIED]` RESOLVED:** `detected` is NOT
+   dispatchable and neither is `unresolved`; the loader takes `triaged`/`approved` only. So the
+   requeue writes `triaged`. See item 0 for the decision that gates it.
 
 ## 6. Traps this lane hit (full text in `LANDMINES.md` / `WRONG_CALLS.md`)
 
