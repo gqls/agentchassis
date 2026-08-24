@@ -1503,3 +1503,11 @@ Fix in flight: `undeployed_asset` item 987bdde0 → asset-deployer, **spec.s3_ur
 the deploy-by-purpose landmine (four active hero-purpose assets on this site make purpose
 resolution a lottery). hero_about/hero_contact regens DROPPED — no live page references either
 path (grepped all main pages); their stale SDXL assets are inert.
+**FINAL OUTCOME, hero image:** the explicit-s3_uri redeploy (987bdde0) landed — sites-repo commit
+`2a3fc224`, sha256 `341e3445…`, 162,002 bytes; the plain live URL `/assets/images/hero-home.jpg`
+now serves it (byte-identical to `/assets/images/hero.jpg`, both inspected by eye: the Gemini
+waiting-room image, no faces, no artefacts). My first post-deploy fetch raced propagation by
+~20s and read the OLD bytes off a completed item — one more instance of "verify at the artefact"
+needing a re-fetch after the deploy's own timestamp, not before it. Asset bookkeeping settled:
+old SDXL row 8d5e6495 → `superseded`; new row e1bc3b66 → `asset_key='hero_home'`, url
+hero-home.jpg, both verified. The SDXL nurse no longer serves from any path on this site.
