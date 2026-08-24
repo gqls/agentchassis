@@ -172,3 +172,55 @@ verification status is: strong first-hand, loop-unverified, stated as such where
   node autoscale is the missing piece; LLM tier is the true burst ceiling).
 - **D16 RULED: review retention/archival** — "a small database is an easily managed
   database"; proposal owed.
+
+## 2026-08-24 — PHASE 2 EXECUTED: N=2 live via migrations 582→583→584
+
+Fleet context first: fresh chassis roll this morning — **v1.0.1332**, both pods started
+09:39Z (was 1314 at my 08-19 reads). Nothing of this lane's rides that image (config-only
+lane); the provenance startup line had already scrolled, tag+time recorded instead.
+
+**Pre-change baseline [MEASURED 10:3x UTC]:** completions 629/24h; dispatchable backlog
+141 across 6 sites (modest demand — the N=2 gain will show in WAIT TIMES more than raw
+completions at this depth; demand control noted for the 24h comparison).
+
+**The PLAN's migration B was incomplete and the live config said so:** THREE notify
+stamps carry the hardcode (trigger `notify_scheduler` + `notify_scheduler_idle` + loop
+`notify_scheduler` — occurrence count **3** as of 2026-08-24; one md5
+`64db3df8551b60a2098443ce00569604`), not the PLAN's two. The idle path would have
+released the original row on every idle sibling tick. Found by counting occurrences
+before writing, not by reading the PLAN's list. Also verified before writing: the
+scheduler DOES deliver input_data for fire_message tasks (`main.go:192`, `fireTrigger`;
+the scary "never sent anywhere" comment at :195 applies to CTE-only tasks), and
+`QueryDatabaseAction` params error on nil — hence strict A→B ordering.
+
+**Applied 2026-08-24 ~10:38Z, in order, each ON_ERROR_STOP clean:**
+- 582 (inert task_name seed): UPDATE 1.
+- 583 (parameterise all three + call_dispatch mapping): snapshot_agent both agents,
+  4× UPDATE 1, post-check DO/RAISE clean. **Ordering guard INDUCED before applying** —
+  ran 583's pre-flight against the pre-582 row and it RAISEd as designed.
+- 584 (sibling insert): INSERT 1, shape post-check clean.
+
+**Artefact verification [MEASURED 10:40Z]:**
+- `build-pipeline-trigger-2` last_triggered_at = last_completed_at = 10:40:08 — **its
+  stamps land on ITS OWN row**; original 10:40:39 on its own. The stamp trap is dead.
+- **Two `call_dispatch` orchestrations in AWAITING_RESPONSES simultaneously** — two
+  concurrent dispatch turns, directly observed.
+- Idle path exercised live through the parameterised query (multiple `complete_idle`
+  COMPLETED, `error IS NULL` on every recent trigger/loop run) — the nil-param hazard
+  did not fire.
+- Per-minute distinct-sites meter still reads 1 at this backlog (141 items / 6 sites,
+  many idle ticks) — expect 2 in busy minutes; 24h throughput comparison owed, with
+  backlog depth held beside it.
+
+**Council:** migrations are gate-scope since 08-19 — submitted, `Council-Submitted:
+db9b7cbf-7b94-471a-a4cf-26a6679fa47f` (schema note: `plan` is an OBJECT
+{summary, edits[{file,symbol,operation,rationale,sketch}], grounded_in, risks} — my
+first attempt used a bare edits array and was refused client-side).
+
+**Register:** WDS-002 gains the concurrency-lever paragraph (same commit).
+
+**OWED / next:** (a) the same-site double-pick induction (two manual dispatches at one
+site → confirm wasted-spawn-not-double-handle at claimed_by/attempt_count); (b) 24h
+throughput + wait-time comparison with demand control; (c) do NOT add sibling #3 —
+gated on adapter decision + D4 governor; (d) Phase 3 (batch 8 + timeout 600, D3
+lockstep ruled) after the 24h read.
