@@ -49937,3 +49937,39 @@ unit test were all downstream within about twenty minutes. **When you hand a pee
 them the query too**, which I did not do the first time and did the second. They can then re-run it
 against the population *they* care about, and the correction costs one query instead of an
 excavation.
+
+### 12 — 2026-08-24: my alarm's exit code was the same one bash uses for a syntax error, and I edited the script while it was running
+
+Two mistakes that only bite together, and they did.
+
+**The stop condition exited 2.** So did the interpreter, when the script broke. Those
+are the two things a watcher must never conflate: *"the thing I am watching has gone
+wrong"* and *"I have gone wrong"*.
+
+**And I edited the file while an older copy was still running.** Bash reads a script
+**incrementally**, not into memory — so the live process read half the old file and
+half the new one, hit a line that no longer parsed, and exited 2. The notification
+that arrived was my worst-case alarm: *a mislabelled row acquired a wrong provenance
+stamp on four live sites.* It had not. The guard was intact throughout, verified
+directly within a minute.
+
+**This is the SAME defect I had fixed six hours earlier, one level up.** That morning
+this very watcher raised the same false alarm because an empty string is `!= "0"`, and
+I rebuilt it around a principle I wrote down at the time: *an unmeasured value is a
+third state, and code with only two files it under whichever is cheaper.* I applied
+that to the **values** and never asked the same question about the **process**. A
+script that cannot run is also a third state, and I had filed it under "disaster" for
+exactly the same reason.
+
+**The cheap checks, both one-liners:**
+- give an alarm an exit code the interpreter cannot generate — `42`, not `1`, `2`,
+  `126`, `127` or `128+n`. Then a stop condition and a crash are never the same
+  notification.
+- kill a running script before editing its file. `bash -n` after editing tells you the
+  file parses; it tells you nothing about the process already reading it.
+
+**The transferable half:** every guard has two failure axes — *it did not measure* and
+*it did not run* — and both must be distinguishable from *it fired*. I built the first
+distinction carefully, published the reasoning, and then walked straight into the
+second. Fixing one axis of a class does not fix the class, and having just written
+about it is not protection; it may be the opposite, because the fix felt finished.
