@@ -339,3 +339,56 @@ failures above) still record nothing, and that's by design, since they're flagge
 reason. The right check is to read the two groups separately. Anyone running the balance check and
 seeing a non-zero number should **not** tune the check until it reads zero — that would hide exactly
 the failures that turned out to be the expensive ones.
+
+---
+
+**2026-08-24 — the build went out, everything works, and the two bugs turned out to be one and a half**
+
+The new chassis is live and I've checked both fixes at the machine rather than taking the deploy's word
+for it. The repair-log fix is genuinely in the running binary on both copies of the service (I checked
+for a marker that should be there, one that shouldn't, and one I knew was there already — all three
+came out right). The size-limit fix has now had a real workout: **124 repair calls since yesterday, not
+one of them cut off**, where before roughly one in eight was. Pages with six, seven and eight phrases to
+fix all repaired cleanly — those are the sizes that used to sit right on the edge.
+
+**The interesting part is that the two problems turned out to be the same problem, mostly.** I split the
+data at the two moments things changed. Before either fix, 40% of repair runs didn't add up. After
+raising the size limit *alone* — with the accounting code completely untouched — that dropped to 15%.
+After the accounting fix as well, zero.
+
+So what I'd described as "the model ignored some of the sentences we asked about" was, about
+three-fifths of the time, really "the model ran out of room and stopped part-way". I diagnosed the
+symptom correctly and pinned all of it on the wrong cause. Both fixes were still needed — the 15% that
+survived the size fix was real — but if I'd found the size limit first, the second bug would have
+looked much smaller than it did.
+
+**One thing I want to be straight about.** That final zero doesn't yet *prove* the accounting fix
+works in production. It records sentences the model skips — and since the new build went out, the model
+hasn't skipped any. So there's been nothing for it to catch. The fix is proven by tests and by review;
+what's missing is seeing it fire on real traffic. I've written down the check for whoever looks next,
+including the note that if it *never* fires that's worth investigating rather than celebrating.
+
+**On the owner's three pages.** I re-ran the real scanner over the live copy. When this started there
+were seven instances, six of them worth fixing. Now there are three, and only **two** are worth fixing:
+
+- **model-directory** — the page with both sentences you actually quoted — is **completely clean**.
+- **adoption-tracker** has nothing left to fix. Its one remaining instance is the company tagline,
+  which the gate deliberately leaves alone because it comes from the brief. Changing that means
+  changing the brief, and that's your call, not the system's.
+- **protocol-tracker** still has two. It hasn't been rebuilt since the 17th.
+
+That last page isn't waiting on me. It already has a rebuild request sitting in the queue awaiting
+review, and it's held up behind a separate issue on the same site — three numbers in its copy that
+aren't in the evidence register. That's the other team's work, and firing a rebuild now would just
+duplicate what's queued and fail on the way through.
+
+**So: can we close it? I think yes.** The rule here is "fixed and live", and everything this piece of
+work owns is now both, with nothing sitting inert waiting for a build. What's left isn't broken code —
+it's one page waiting on somebody else's queue, plus two decisions that are yours to make (the tagline,
+and whether "rather than" is a genuine tic or just ordinary English). I'd close it and leave those
+filed. Say the word and I'll move it.
+
+One thing I would **not** do yet: settle the "rather than" question. That was always meant to be decided
+from the rejection log, and the log only became trustworthy today. There are five entries so far. Give
+it a week — and it matters more than it sounds, because "rather than" is **71%** of everything the gate
+rewrites.

@@ -985,3 +985,81 @@ is why the check is `IF n <> 1`, not `IF n = 0`.
 
 Worth recording anyway: the seat was pointing at a genuine trap on a genuine footprint, and "my guard
 happens to cover it" is a weaker answer than "I enumerated the rows". Both are now on file.
+
+## §28. 2026-08-24 — EVERY DEFECT THIS LANE OWNS IS NOW FIXED, LIVE AND DEMAND-PROVEN
+
+Chassis **`v1.0.1332`** rolled 09:39Z. `[MEASURED 2026-08-24 ~10:35Z]`
+
+**§26's accounting fix is LIVE.** Binary probe, both replicas: `no_answer_for_target` **1**; control
+`no_answer_for_targez` **0**; known-present `rewrite_negations` **8**. It could have come out otherwise.
+
+**§27's ceiling fix is DEMAND-PROVEN.** Since `569` applied: **124 repair calls at `max_tokens=16000`,
+`cut = 0`** — against 4 of 34 (11.8%) before. **Zero `repair_unavailable` markers since the apply**;
+the only one in the window is from 11:52Z on 08-23, *before* it. Densest pages now repairing: **6, 7
+and 8 targets, all `repaired`** — the band that sat inside the old 5-to-9 wall.
+
+### §28a. The two defects were CAUSALLY LINKED, which neither bug file predicted
+
+Splitting the marker population at the two change points gives a natural experiment
+(`status='repaired'` only):
+
+| era | markers | non-reconciling |
+|---|---|---|
+| **A** — old ceiling, old accounting | 37 | **40.5%** |
+| **B** — NEW ceiling (`569`), old accounting | 137 | **15.3%** |
+| **C** — new ceiling + NEW accounting (`v1.0.1332`) | 22 | **0.0%** |
+
+**Raising the ceiling ALONE cut the non-reconciling rate from 40.5% to 15.3%** — with the accounting
+code untouched. So a large share of what §26 called "the model ignored a target" was really **the model
+running out of room**: at 2000 tokens it was answering about *some* targets and silently dropping the
+rest. §26 read the symptom correctly and attributed all of it to the loop's shape; **about
+three-fifths of it was the ceiling.** Both fixes were still needed — B's residual 15.3% is real
+omission, and C takes it to zero.
+
+### §28b. ⚠ The honest limit on era C, and it is a DEMAND-CONTROL gap
+
+**C's 0.0% does NOT yet prove the accounting fix in production.** Post-roll rejection reasons are
+`still_rather_than` (4) and `still_x_not_y` (1) — **judged** rejections. **No `no_answer_for_target`
+has fired.** So era C had no omissions *to record*: the zero means nothing went wrong, not that the
+recording path was exercised. The mechanism is proven by three mutation-proven properties and council
+`f3046f0c`; what is outstanding is a production sighting. Expect one as traffic accumulates —
+**and if `no_answer_for_target` never appears at all, that is itself worth investigating**, because era
+B says omissions were running at 15.3% under the same ceiling.
+
+### §28c. The damage half — the canary, re-run today
+
+Shipped scanner (`WalkContentStrings` → `ScanDefineByNegation` → `NegationExempt`) over the three
+pages' real `content_data`, with the site's 21 current specs (679 strings) as the exemption corpus:
+
+| page | total | exempt | repairable | vs 2026-08-20 |
+|---|---|---|---|---|
+| `model-directory` | **0** | — | **0** | was the page carrying BOTH quoted sentences |
+| `adoption-tracker` | 1 | 1 | **0** | the tagline, `exempt:brief_supplied_sentence` — **D2** |
+| `protocol-tracker` | 2 | 0 | **2** | components untouched since 2026-08-17 |
+| **ALL THREE** | **3** | 1 | **2** | baseline was **7 / 1 / 6** |
+
+**Repairable went 6 → 2, and both sentences the owner quoted are gone.** `adoption-tracker` has
+nothing repairable left — its single hit is the brief-supplied tagline the gate exempts **by design**,
+which is `D2` and an owner decision, not a defect. The scanner still found and correctly split 3 hits,
+so it is not blind.
+
+**`protocol-tracker` is blocked, and NOT on this lane.** It already carries a filed
+`needs_page` re-render item (`needs_human_review`, plus one `failed`) **and** a `claims_unverified`
+item naming **3 unregistered numbers**. A rerender fired now would fail at the claims gate and read as
+this bug. The site has 30+ open `needs_human_review` items — its own lane's work.
+
+### §28d. Recommendation: 305 CAN CLOSE, with the residual filed
+
+Against the estate's bar — *fixed AND live* — every defect this lane owns now qualifies, and nothing
+is inert. The residuals are **not defects and not this lane's**:
+
+1. `protocol-tracker`'s 2 repairable hits — one ordinary rerender, **already queued**, blocked behind
+   another lane's claims validation. Holding `305` open does not make it happen sooner.
+2. **`D2`** (the tagline the gate exempts by design) — an owner decision about a brief.
+3. **`D3`** (is `rather than` a tic or ordinary English?) — **must still not be decided.** It was to be
+   settled from the rejection log, and that log only became trustworthy today. Five judged rejections
+   exist post-roll; give it a week. ⚠ `rather_than` is 71% of all rewrites, so this decision is the
+   one with real reach.
+4. `D4`, `D5` — unchanged.
+
+Precedent for closing with a residual filed: `bugs_open/198` → `352`.
