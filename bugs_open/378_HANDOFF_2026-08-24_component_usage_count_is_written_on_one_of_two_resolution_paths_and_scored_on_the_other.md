@@ -8,7 +8,70 @@ direction that always favours the same kind of component.
 cost is a selection input that is silently biased, and a figure that reads as evidence in bug files
 and hand queries when it is not.
 
-**Status: OPEN, not started.** Diagnosis below is first-hand and complete; no code written.
+~~**Status: OPEN, not started.** Diagnosis below is first-hand and complete; no code written.~~
+
+> ## STATUS 2026-08-24 — FIXED IN CODE, NOT YET LIVE. Read this block before the body.
+>
+> Commit `5074367f7`, council **`ca01b81a`** (`Council-Submitted:`, **verdict not yet read**).
+> Inert until the next chassis image is built and rolled, so the defect is still reproducible on
+> the fleet and this file stays in `bugs_open/`. Lane:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_378_usage_count_derived/`.
+>
+> **The body below is kept as written and is the record of what was believed when it was filed. Four
+> of its structural claims are wrong or incomplete, and one of its ranked candidates is refuted.**
+>
+> 1. **THREE resolution paths, not two.** Path 0 (the page's stored `page_components.component_id`,
+>    `bugs_open/204`) is tried *first*, before the name/function match. So the population least
+>    likely to be counted is also the most settled one. The body's framing of "two ways" is wrong.
+> 2. **THREE readers, not two — and the missed one matters more.**
+>    `load_existing_component_action.go:170` orders by `usage_count DESC NULLS LAST` to pick the
+>    **canonical contract row** — by its own comment, *"the row the store will overwrite and
+>    enforce"*. That is a heavier decision than the 0.1 score, and the body does not mention it.
+> 3. **The counter OVER-counts as well as under-counting, so candidate 2 is REFUTED.** The
+>    increment fires inside `resolveSectionComponent` *before* `planSection` decides
+>    ready/deferred/skipped and before any binding is written, and again on every re-plan — so it
+>    counts *resolution attempts*, not usages. `[MEASURED 2026-08-24]` the column's two largest
+>    values are both components with **zero** page bindings: `testimonials-modern` (created
+>    2026-08-23, `usage_count=12`, no `page_components` row ever, checked including
+>    `build_status='removed'`) and `bayesian-ranking-hero-tool_pre_037` (a retired backup copy, 20).
+>    **"Call `IncrementUsageCount` on Path 1 too" would spread a definition that is already wrong in
+>    both directions.**
+> 4. **Both `[UNMEASURED]` items are now measured.**
+>    - *Has the 0.1 term ever flipped a selection?* **No — 0 of 4,888** contested
+>      `(section_type, site_type, page_type)` contexts, with a counterfactual control granting the
+>      weakest candidate 50 uses that flips **52**, so the instrument had power. The cause is
+>      mechanical: only **4** section_types have >1 candidate and every candidate in all four reads
+>      `0`; the 12 counted components are all the sole candidate for their own type.
+>    - *Do the other levels share the asymmetry?* **Worse.** `tool` is **0 of 115** — dead, exactly
+>      `bugs_closed/060`'s case. `header`/`footer`/`site`/`element` all 0. Only `section` counts.
+>    - The `[INFERRED]` "no third writer" **holds, and is now measured**: no DB trigger, function or
+>      view touches the column; the birth INSERT at `store_generated_component_action.go:639` writes
+>      the literal `0`.
+>
+> **What shipped, and the one decision a reviewer should go at.** The counter and its only call site
+> are deleted; "how proven is this component" is derived from `page_components` (DISTINCT SITES,
+> excluding `build_status='removed'`) in **one** named constant, `ComponentUsageSitesSQL`. That
+> constant now orders the **contract row** (2 of 4 contested types move, both corrections:
+> `about-hero`→`hero`, `archetype-taster-quiz`→`tool-archetype-taster-quiz`).
+>
+> **The scoring term is REMOVED, not repaired — this is candidate 3, not candidate 1.** Repairing it
+> was built first and withdrawn on measurement: removing changes **0** of 4,888 winners, feeding it
+> the corrected number changes **3,246** across 3 section_types. And a *working* usage term is a
+> preferential-attachment loop — selected → count rises → scores higher → selected again — which is
+> precisely what `bugs_open/107` ("every site gets the same homepage skeleton") is the standing
+> complaint about, citing this very file. **A term that cannot be made accurate without making the
+> estate more homogeneous is not worth keeping in the score.** The derived figure is still SELECTed
+> and logged; nothing scores on it.
+>
+> ⚠ **The column `content_components.usage_count` still exists**, now written by nothing and read by
+> nothing in Go. Dropping it is a follow-up migration once this code is live, so the code cannot roll
+> back onto a missing column. **Until then it still reads as a maintained figure — do not quote it.**
+>
+> **Known contamination in the new substrate, stated not filtered:** `bugs_open/357`'s mis-bound rows
+> (**22** as of 2026-08-24, all declaring `hero` while storing a tool page) become bindings. Under the
+> DISTINCT SITES unit they collapse to **3 of hero's 27 sites**, so they are functionally inert — but
+> 357's mint is still open (their phase 2 ships default-OFF), so treat it as a floor with a growth
+> rate. Their phase 3 migration `578_HOLD` retypes the population and this self-corrects.
 
 ## The finding in one paragraph
 
