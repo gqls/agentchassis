@@ -1853,3 +1853,41 @@ re-reviewed here.
 
 Owner decision outstanding: **RFC_050** (may the seam refuse, and on which callers). Everything
 else on Half B is committed, approved, and inert until the next image roll.
+
+### Session 14, close — verdict, repair, retirement, and two more near-misses
+
+- **Council `3fd0d026` APPROVED round 1**, 4 advisories none high. Verdict READ, not just its
+  label; each objection and its disposition is in `bugs_open/383` §9. Two of the four are
+  objections to my SUBMISSION rather than to the code (the 8-edit cap made me fold three real
+  rewires into prose; the post-roll pod check was in the bug file but not in the submission).
+  The guardian's asked for a **confirmation**, so I ran it: `loadStoredSections` has **exactly
+  one** production caller, which is the canonical walk this change fixes.
+- **The retirement went same-day, not tracked.** The architecture seat wanted the deferred
+  `BindSingleSectionInstanceToken` removal to be a tracked item rather than a file-header
+  comment, citing that RFC_032's `ComponentID` binding rotted through two deferrals — which is
+  this lane's own history, since `364e80b7f` deletes that very binding. The Half B lane reported
+  clean within hours, so it was taken (`9ba3293e7`).
+- **⚠ NEAR-MISS 1, and it would have been invisible: `pattern-check.py`'s finding TEXT still told
+  authors to call the function I had just deleted.** The regex alternation was the obvious edit;
+  the remediation string was the load-bearing one, printed by the very check that fires when
+  someone forgets to bind. Found by grepping the retired name across `.go` **and** `.py`, not
+  just the package.
+- **⚠ NEAR-MISS 2, caught before applying: my first draft of the repair SQL invented
+  `spec.reason: 'instance_scope_383'`, and it would have repaired NOTHING while completing
+  successfully.** `page-rerender`'s `check_rerender_mode` is a conditional over an allow-list of
+  exactly five reasons; anything else takes `else_step: render_page` = `rerender_single_page` =
+  *"simple concatenation, no template re-rendering"*, which re-ships the stored broken bytes.
+  `template_changed` is the right one and the only one with **no Go branch keyed on it**
+  (`cta_links_stale` triggers a CTA recompute with its own clobber landmine;
+  `section_data_resolved`/`image_landed` get scoped to one component when a component_id is
+  present). The applied file carries a control asserting all three items route to the sections
+  branch. **The transferable half: a work item's `spec` is not decoration — a value outside an
+  allow-list routes to a DIFFERENT handler that succeeds and does nothing.**
+- **⚠ AND ONE THING I NEARLY GOT WRONG IN THE OTHER DIRECTION.** The three items filed at status
+  `detected`, and `LoadWorkItemsAction` selects `status IN ('triaged','approved')` — so I
+  concluded they would never dispatch and was about to promote them by hand. Measured first: no
+  `page_rerender` row has EVER been in `detected` (whole-table group-by), and mine were
+  auto-triaged four minutes after filing (16:21:20 → 16:25:34). **A predicate I read in Go is
+  not the whole pipeline; there was a triage sweep between the two states.** Reading one arm of
+  a system and inferring the whole is what the estate's own "cite the ARM, not the function"
+  lesson is about, and I nearly spent a hand-written UPDATE on it.
