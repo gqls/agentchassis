@@ -140,6 +140,30 @@ still occurring daily; `model-directory` alone refused 20 times since 2026-07-29
 *intermittent* (the writer regenerates copy each attempt), so **a later success is not evidence the
 bug is fixed** — check the build stamp.
 
+### 5a-note. No `090` run — the substitution, stated plainly (owner ruling 2026-07-31)
+
+§5b below asserts a **structural** root cause, so CLAUDE.md requires either a diagnosis-loop run or
+a stated reason for substituting equivalent first-hand verification. **No `090` was run.** What was
+done instead, and why it is equivalent for this specific claim:
+
+- the claim is about a **regex and a control-flow gate in one package**, not about a cause living
+  somewhere unexpected — the failure mode `090` exists to catch. The scan, its gate and its
+  exclusions were read end to end (`claims.go:650-953`);
+- the mechanism was **executed**, not reasoned about: `cmd/claimscan` runs the *same shared scan
+  engine* as the deploy gate, over live `rendered_html`, per site against its own register. 44
+  findings were read individually in ≥300 chars of context;
+- both directions were **mutation-proven** — every new fixture fails with the fix reverted and
+  passes with it restored;
+- consumers were **enumerated** rather than assumed (`editorialPageTypes` → one reader → one caller);
+- and it was **independently reviewed**: 13 council seats, round `b8df25dc`, of which two found real
+  defects that changed the code (§6d).
+
+⚠ **Where that substitution did NOT hold, it is marked as such.** `bugs_open/387`'s root cause is
+explicitly **not established** — that file names three candidate causes and the cheap discriminator
+instead of picking one. And one structural claim in this lane *was* wrong and was caught by a test
+rather than by reasoning (the `gte`-vouching explanation — `WRONG_CALLS.md` 2026-08-24 #2), which is
+the honest argument for running `090` next time the claim is about a cause I cannot execute.
+
 ### 5b. The mechanism, restated
 
 `businessClaimContextRe` is a **lexical** gate: it asks whether business-ish words sit near a number.
