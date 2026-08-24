@@ -16805,19 +16805,74 @@ code change owed at the next roll, tracked in RFC_015 §5.
   ```
   **`(site_id, item_key)`. `item_type` is not a column.** So the key space is GLOBAL across every type on a site. Two different types that compute the same string for the same site are one dedup slot: whichever inserts first owns it, and the second either raises a unique violation or `ON CONFLICT`-updates a row **of the other type** — a `page_rerender` producer silently editing a `needs_page` row.
 - **why the wrong result looks exactly right:** almost every key in the estate happens to be type-prefixed (`contrast_failure:<path>#<sel>`, `needs_page:<name>`), so the namespace *looks* partitioned by construction and has never had to be. Nothing enforces the convention, no test asserts it, and a key that omits or varies the prefix passes review because reviewers check it against **their own** type's keys.
-- **[MEASURED 2026-08-24 19:30 UTC] the surface is real and has simply never been hit.** `item_key LIKE 'page_rerender%'` is carried by **two** `item_type`s — **4,809** `page_rerender` rows and **150** `needs_page` rows (`image-build-handler` 64, `render_directory` 63, `bugfix_311_redrive` 13, `loancalc_owner_release_20260823` 10). Estate-wide, **four** key prefixes are shared by two types (`needs_page`, `page_rerender`, `cta_nonpage`, `placeholder_image_in_use`). And **zero** `(site_id, item_key)` pairs have ever carried two types — the suffixes have always differed. **A clean history here is not a guard; it is a coincidence that has held.**
+- ~~**[MEASURED 2026-08-24 19:30 UTC] the surface is real and has simply never been hit.** … And **zero** `(site_id, item_key)` pairs have ever carried two types — the suffixes have always differed.~~
+  > ⚠ **CORRECTED 2026-08-24 19:50 UTC, 20 minutes after this entry was filed, by the same lane. THE "ZERO, EVER" WAS FALSE: IT IS 20 — and I had already relayed the wrong figure to a peer who was writing it into a helper's doc comment.**
+  > **`site_work_items_archive` exists** — 25,281 rows, 25,070 keyed, 2026-02-22 → 2026-08-17 — and I queried only the live table. `site_work_items` is a ROLLING WINDOW; this estate says so repeatedly, including in the RUNBOOK of the very lane that filed this entry. **A live-table count cannot answer an "ever" question**, and the answer it gives instead is silently smaller and reads as decisive.
+  > **[MEASURED 2026-08-24 19:50 UTC, live ∪ archive] 20 `(site_id, item_key)` pairs carry more than one `item_type`**: `needs_content_page + needs_page` ×14, `content_rewrite + cta_improvement` ×2, `hardcoded_section_colors + needs_design_review`, `needs_design_review + responsive_fix`, `needs_page + needs_tool_recreation` (`needs_page:game-jelly-invaders`, the only one spanning archive **and live**), and `needs_page + page_rerender` (`page_rerender:llm-cost-calculator`).
+  > ⚠ **But do not over-correct either: these are NOT proven index violations.** `idx_swi_dedup` constrains only LIVE rows with non-terminal status, so an archived row has freed its slot and a later row of a different type may take that key legitimately. What the 20 establish is that **the key space is shared across types in practice** — the surface is occupied, not theoretical. Whether two rows ever held one slot *simultaneously* is a separate question the archive alone cannot settle.
+  > **So the check below is a RATCHET, not a zero-invariant: baseline 20 as of 2026-08-24 19:50 UTC, and a 21st is the signal.**
+- **[MEASURED 2026-08-24 19:50 UTC, live ∪ archive] the shape conventions that have kept the two prefixes apart, and where the one real collision came from.** `needs_page` has used the **colon** shape exclusively — 337 archive + 154 live — and the **underscore** shape **zero** times in six months. `page_rerender` is overwhelmingly underscore (11,282 archive + 4,815 live) but **46 rows use colon** (36 archive + 10 live: `bugfix-238-contact-block`, `235-portfolio-logo-residual`, `agritec-workstream`, `bugfix-238-demand-control`) — and that is `needs_page`'s namespace. The one recorded `needs_page`/`page_rerender` collision is colon-on-colon. **The hazard is not the dominant convention; it is the minority of rows that opted out of it**, and those are lane one-offs, which no lane reviews.
+- ⚠ **A COUNT OF PRODUCERS TAKEN FROM THE LIVE TABLE UNDER-COUNTS THE SAME WAY.** Same lane, same hour, same error: `page_rerender` / `spec.reason='section_data_resolved'` shows **10** distinct `created_by` over 198 rows live, and **53** over 1,289 rows across live ∪ archive. The owner ruling of 2026-08-02 §1 makes naming the producer set the CONDITION for converging producers onto one key without an RFC — so a register entry deriving that set from the live table alone is wrong by ~5× and reads as complete. Union the archive, and state the rule separating standing automated producers from one-off lane inserts, because most of the 53 are the latter.
 - **the check — one query, before you ship a new keyed producer.** Not "is my key unique among my type's rows", which is the question that returns the reassuring answer:
   ```sql
   -- has this key space EVER been used by another item_type? (run per prefix you mint)
   SELECT item_type, created_by, count(*)
     FROM site_work_items WHERE item_key LIKE '<your prefix>%'
    GROUP BY 1,2 ORDER BY 3 DESC;
-  -- and the estate-wide invariant this entry asserts — it must stay 0 rows:
+  -- the estate-wide ratchet. ⚠ IT MUST UNION THE ARCHIVE — see the correction above;
+  -- against site_work_items alone it returns 0 and that 0 means nothing.
+  WITH allrows AS (
+    SELECT site_id, item_key, item_type FROM site_work_items         WHERE item_key IS NOT NULL AND item_key <> ''
+    UNION ALL
+    SELECT site_id, item_key, item_type FROM site_work_items_archive WHERE item_key IS NOT NULL AND item_key <> ''
+  )
   SELECT site_id, item_key, string_agg(DISTINCT item_type, ', ')
-    FROM site_work_items WHERE item_key IS NOT NULL
-   GROUP BY 1,2 HAVING count(DISTINCT item_type) > 1;
+    FROM allrows GROUP BY 1,2 HAVING count(DISTINCT item_type) > 1;
   ```
-  ⚠ **The second query is the one worth keeping.** It is an invariant, it is cheap, and today it returns nothing — so if it ever returns a row, that row IS the incident, already in production, with no other symptom.
+  ⚠ **The second query is the one worth keeping, as a RATCHET against its dated baseline of 20** (2026-08-24 19:50 UTC), not as a zero-invariant. A 21st pair is the signal. Read against the live table only it returns **0**, which is the failure this entry's own first draft committed.
 - **relations:** WII-005 (`idx_swi_dedup` itself) · the `workItemTerminalStatuses` ↔ index-predicate lockstep entries in this file (same index, its OTHER half — get *those* wrong and every keyed insert fails fleet-wide with 42P10; get THIS wrong and one row is silently owned by the wrong producer) · owner ruling 2026-08-02 §1 (converging N producers onto one `item_type`/`item_key` is fine **provided** the producer set and key shape are stated in the register — that entry is where a reader would learn a key is shared, and it is per-type, so it cannot warn about this) · VIZ-016 (`contrast_failure`'s key shape) · MEMORY [[dedup-index-go-list-lockstep]]
 - **source:** 2026-08-24, `bugfix_352_invented_selector` lane, measured while answering a `bugs_open/384` cross-session query about whether its new `page_list_stale` check — a **fourth** producer minting keys in the `page_rerender` space — could conflict with 352's design. It could not; this could. **Found because a peer asked a narrow question and the honest answer needed the index definition read rather than recalled.**
 - **added:** 2026-08-24, `bugfix_352_invented_selector` lane
+
+### A `query.*`-fed array in `page_components.content_data` is a SNAPSHOT — an assemble-mode re-render re-affirms it, so "the page was re-rendered after the data changed" is not evidence the change is on the page
+
+- **footprint:** `platform/orchestration/actions/queryresolve/queryresolve.go` (`pageImageJoins`, `pageImageProjection`, `queryHandlers`), `page_components.content_data` (`articles`, `items` arrays), `content_components.input_schema.fields.*.source` = `query.*`, `assets.entity_id` / `purpose='card'`, `derive_card_asset_action.go`, `flag_page_image_rebuild_action.go`, `rerender_single_page_action.go`, `site_work_items` `item_type='page_rerender'`
+- **fires when:** you (a) write a PRODUCER of data that a page-list query source reads — a card, a hero, a page title/nav_label, a new page of a listed type — and reason "the listing gets re-rendered all the time, it'll pick this up"; or (b) diagnose a stale listing and see `page_rerender` items COMPLETED on it after your data landed and conclude the data must not be there. Both are the 2026-08-24 `bugs_open/384` filing: the mechanism was written as "nothing re-renders the listing" while three completed re-renders sat in the table, and it took the fix to show they were all the wrong MODE.
+- **the trap:** `plan_sections` resolves `query.*` fields ONCE, at section-resolve time, and stores the items — image path included — in `content_data`. `page-rerender` has two modes and branches on `spec.reason` alone (`check_rerender_mode`): `image_landed | section_data_resolved | cta_links_stale | template_changed | literal_markdown` → `rerender_page_sections` (re-runs the query); **anything else, including no reason, → `rerender_single_page`, "simple concatenation — no template re-rendering"**, which re-ships the stored array byte for byte. Every routine chrome propagation is assemble mode, so a stale listing looks freshly built — new `deployed_at`, new `updated_at`, same empty `image`.
+- **why the wrong result looks exactly right:** the served page IS fresh (chrome, footer, timestamps), the asset IS deployed (200), the asset IS entity-linked (the join would find it), and `site_work_items` shows completed re-renders newer than the asset. Four true facts, and the listing still shows text-only cards. The variable nobody looks at is `spec->>'reason'` on those completed rows.
+- **the check:**
+  ```sql
+  -- which mode were the re-renders you are crediting? (no reason = assemble = cannot pick data up)
+  SELECT created_at, status, coalesce(spec->>'reason','(none: assemble)') AS mode, created_by
+    FROM site_work_items WHERE page_id='<listing page id>' AND item_type IN ('page_rerender','needs_page')
+   ORDER BY created_at DESC LIMIT 10;
+  -- and is the stored array actually stale? compare it to what the source resolves NOW
+  SELECT e->>'url', e->>'image' FROM page_components pc, jsonb_array_elements(pc.content_data->'articles') e WHERE pc.page_id='<listing page id>';
+  ```
+  As a producer: do not reason about consumers by name — call `requestPageListReresolve` (PBP-048) with your cause, or for a non-image source add the base to `queryresolve.pageImageSources`' sibling declaration and let the lockstep test tell you what else reads it. To force one page by hand: `page-rerender` with `spec.reason='section_data_resolved'` AND `spec.page_name` (the section branch escalates the WHOLE page to the writer if any section lacks a required `source:"llm"` field — check first; STY-048).
+- **relations:** REB-002 (the reason gate), STY-048, PBP-048 (the seam that closes it for page images), PLAN-009 (`reconcile_section_data` re-fires only MISSING fields, never stale ones), the "A data repair RACES the sweep that publishes it" entry above (the same two modes from the repair side), `bugs_open/384`
+- **source:** 2026-08-24, `bugs_open/384` — filed with the wrong mechanism, corrected by its own filer an hour later after the fix proved it ("the listing IS re-rendered, in the mode that structurally cannot pick the change up"); seam built by the `bugfix_384_page_list_invalidation` lane
+- **added:** 2026-08-24, `bugfix_384_page_list_invalidation` lane
+
+---
+
+### A marker in an error string has a BIRTH DATE — classify history by it and the census silently splits into "before the marker" and "after", with the before-half reading as a different defect
+
+- **footprint:** `ownedPageSkipReasonPrefix` / `OWNED_PAGE_GUARD` (`platform/orchestration/actions/owned_page_guard.go`), `site_work_items.error`, `site_work_items_archive.error`, any `error LIKE '%<MARKER>%'` census, `016b` §9's "classify refusals by the guard's own error text"
+- **fires when:** you census historical failures by matching a literal that the code emits — a guard prefix, an error code, a `[tag]` — over a window longer than the literal has existed. Especially when a standing rule TELLS you to classify by the error text rather than by a mutable join, which is correct advice that does not mention this.
+- **the trap:** the literal was added on some date D. Rows before D carry the same failure with different wording, so they fall on the `false` side of your predicate and look like a distinct population. **Measured 2026-08-24:** `OWNED_PAGE_GUARD` was added to `SavePageSectionsAction`'s refusal on 2026-08-19 (`bugs_open/301`). A census of `page-rerender` failures on owned pages by that marker returned **4 ownership refusals and 82 "something else"**. Classified by CAUSE (`error LIKE '%rebuild_policy=owned%'`, wording that predates the marker) it is **85 of 95** — one defect, not two. The 82 were the same refusal, older than the prefix.
+- **why the wrong answer looks exactly like the right one:** it is a clean, plausible split with a coherent story — "a small recent guard population, and a larger older unexplained one" reads as a discovery, not an artefact. Both numbers are real counts of real rows. Nothing errors, and the aggregate is internally consistent; only a second view of the same population disagrees with it.
+- **the tell, and it is decisive:** group by DATE as well as by the predicate. **A clean temporal boundary with zero overlap is the fingerprint of a classifier measuring an artefact's introduction rather than a property of the data** — here 4 rows 08-22→08-24 against 82 rows 07-17→08-18, split on the day the marker shipped.
+- **the check:**
+  ```sql
+  -- 1. does the split fall on one date?  (if yes, suspect the literal, not the data)
+  SELECT (error LIKE '%<MARKER>%') AS matched, count(*), min(updated_at)::date, max(updated_at)::date
+  FROM <table> WHERE <population> GROUP BY 1;
+  -- 2. when was the literal born?
+  --    git log -S'<MARKER>' --diff-filter=A -- <path>     (or read the emitter's comment)
+  -- 3. re-classify on the CAUSE wording, which predates the marker, or union both
+  ```
+  And before writing "a different defect", run the **cross-axis control**: the same item type on the other side of the axis. Here `cta_links_stale` was 0.7% failed on generic pages against 37% on owned ones — a fiftyfold gap that refutes "unrelated" without further work.
+- **relations:** `016b` §9 "classify refusals by the guard's own error text, never by joining `pages.rebuild_policy`" — correct and INCOMPLETE, this is its missing corollary · register **WII-028** · MEMORY [[a-pass-from-a-blind-check-outlives-the-blindness]] · [[measurement-discipline-index]]
+- **source:** 2026-08-24, `bugfix_333_owned_page_door` lane, while "correcting" the `bugs_open/384` lane's count — the full misstep is in `WRONG_CALLS.md` under the same date.
+- **added:** 2026-08-24, `bugfix_333_owned_page_door` lane
