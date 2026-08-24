@@ -105,8 +105,21 @@ BEGIN
     FROM site_specs
     WHERE site_id = 'e33263f4-74f8-494f-b191-546845dbbddf'
       AND aspect = 'evidence_base' AND is_current;
-    IF nfacts <> 4 THEN
-        RAISE EXCEPTION 'bug161/RFC_025 canary: expected 4 facts in the register, found %. Re-read before applying.', nfacts;
+    IF nfacts IS DISTINCT FROM 4 THEN
+        RAISE EXCEPTION 'bug161/RFC_025 canary: expected 4 facts in the register, found %. Re-read before applying.', coalesce(nfacts::text, '(null)');
+    END IF;
+
+    -- council advisory (debug_historian, 2026-08-24): jsonb_set(f,'{source,artifact_check}',...)
+    -- silently no-ops if the fact has no 'source' OBJECT — assert the parent
+    -- exists as a checked precondition, not an assumption about migration 270.
+    SELECT count(*) INTO n
+    FROM site_specs, jsonb_array_elements(data->'facts') f
+    WHERE site_id = 'e33263f4-74f8-494f-b191-546845dbbddf'
+      AND aspect = 'evidence_base' AND is_current
+      AND f->>'id' = 'gd-trials'
+      AND jsonb_typeof(f->'source') = 'object';
+    IF n <> 1 THEN
+        RAISE EXCEPTION 'bug161/RFC_025 canary: gd-trials has no source OBJECT — jsonb_set into {source,artifact_check} would silently no-op. Re-read before applying.';
     END IF;
 END $$;
 
@@ -188,6 +201,11 @@ BEGIN
         RAISE EXCEPTION 'bug161/RFC_025 canary: expected exactly 1 current row after the write, found %', n_current;
     END IF;
 
+    -- council advisory (debug_historian + guardian, 2026-08-24): jsonb_set is
+    -- STRICT, and jsonb_agg over zero rows is NULL, not '[]' — a nulled
+    -- document must fail LOUD here. Every comparison below is IS DISTINCT
+    -- FROM (NULL-proof), never <>, so the guard cannot be blinded by the very
+    -- failure it exists to catch.
     SELECT jsonb_array_length(data->'facts'),
            (SELECT f->'source'->'artifact_check'->>'pattern'
               FROM jsonb_array_elements(data->'facts') f WHERE f->>'id'='gd-trials'),
@@ -201,8 +219,8 @@ BEGIN
     FROM site_specs
     WHERE site_id='e33263f4-74f8-494f-b191-546845dbbddf' AND aspect='evidence_base' AND is_current;
 
-    IF n_facts <> 4 THEN
-        RAISE EXCEPTION 'bug161/RFC_025 canary: fact count changed to % — this file adds a key to one fact, never adds or drops a fact', n_facts;
+    IF n_facts IS DISTINCT FROM 4 THEN
+        RAISE EXCEPTION 'bug161/RFC_025 canary: fact count changed to % — this file adds a key to one fact, never adds or drops a fact (NULL here means jsonb_set nulled the document)', coalesce(n_facts::text, '(null)');
     END IF;
     IF pat IS DISTINCT FROM 'Math\.min\(val,\s*10000\)' THEN
         RAISE EXCEPTION 'bug161/RFC_025 canary: pattern did not land as written, got %', coalesce(pat, '(null)');
