@@ -693,3 +693,29 @@ two-part *"cheap checks"*. So the three lines were **replaced, not lost**, and m
 carried their improvement. Nothing to undo. **The check earned its place here**: appending only, I
 would never have looked, and the one shape it cannot distinguish — a rewrite from a deletion — is
 exactly the one where looking is cheap and being wrong is unrecoverable.
+
+### ⚠ The landmine verifier returned STILL_VALID — and it CANNOT have checked the number I got wrong
+
+Verdicts on `LANDMINES.md#idxswidedup-…` landed 2026-08-24 19:52:40 UTC, both **STILL_VALID**. Read
+what they actually cover before quoting them:
+
+- **What was verified, and it is the useful half:** the footprint resolves (`work_items_common.go`,
+  `insertWorkItem` at `load_work_item_actions.go:1491`, `workItemTerminalStatuses:42`,
+  `discovery_checks/`, `pageRerenderItemKey` in `create_rerender_items_action.go`) and **21+ Go
+  files reference `idx_swi_dedup` as `(site_id, item_key)` without `item_type`** — an independent
+  confirmation of the entry's structural claim from code comments, arrived at without my query.
+- **What was NOT and could not be:** every data claim. The corpus is **Go only — 8,700 symbols, no
+  `.sql`, no database access** — and it says so itself (`1 NOT ANSWERABLE by this index`, and
+  `site_work_items.item_key` column existence "not verifiable"). **The 20 cross-type pairs, the
+  491/0 and 16,097/46 shape counts, the 53 producers: none of them were checked by anything here.**
+- ⚠ **And it ran against indexed commit `e347c5ad`, 2026-08-23 12:21 UTC — a day old, and PRIOR to
+  the correction.** So the STILL_VALID is stamped on the entry as it stood *before* I discovered the
+  "zero, ever" was 20.
+
+**So a green verdict beside this entry means "the symbols still exist and the index shape claim
+matches the code", not "the entry is right".** That distinction matters more than usual here,
+because the headline of the first draft was false and the verdict cannot tell the difference — the
+one claim a reader would most want vouched for is precisely the one outside the instrument's scope.
+Same family as everything else in this file today: **an instrument's PASS is scoped to what it can
+see, and nothing in the pass says what that was** unless, as here, the tool prints its own corpus.
+Credit where due: this one does.
