@@ -1,6 +1,6 @@
--- 599_page_content_writer_no_register_arm_HOLD.sql
+-- 599_page_content_writer_no_register_arm.sql (was _HOLD until the owner read the v5 plaintext)
 --
--- *** _HOLD: DO NOT APPLY until the owner has read the v5 plaintext. ***
+-- *** OWNER APPROVED the v5 plaintext 2026-08-24 evening ("approved") — released from _HOLD and applied the same evening. ***
 -- RFC_016 §5.2: the owner's 2026-08-09 approval of the v4 writer prompt attaches to that
 -- text; any later edit voids it and needs a fresh read (compliance seat's round-1 ask).
 -- The full post-598 plaintext is committed for that read at:

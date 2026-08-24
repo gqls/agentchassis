@@ -51,3 +51,14 @@ One thing I got wrong today and caught: I generated your read-copy of the writer
 the committed migration file, and the live prompt had moved on by 1,700 characters since. The
 copy you will read is regenerated from the live database, and the migration counts its
 anchors on the live text at apply time, so the file-vs-live gap cannot bite the apply.
+
+## 2026-08-24 evening — you approved the writer prompt; it is live
+
+You said "approved". Before switching it on I checked that the text you read still matched the live
+prompt: the only difference was another lane's change to the formatting rules (rules 9 and 10),
+made an hour after I took my copy and reviewed separately — nothing in the part you approved had
+moved. So the writer now carries the no-register arm: on a site with no verified facts and no
+recorded operating history it is told, in plain words, not to describe testing, buying, measuring or
+receiving samples as things we do, and that "say what we do" means only how the content is sourced.
+That closes the third of the three fail-open paths at the source. Everything in the config half is
+now live; the deterministic Go detector still waits for the next image roll.

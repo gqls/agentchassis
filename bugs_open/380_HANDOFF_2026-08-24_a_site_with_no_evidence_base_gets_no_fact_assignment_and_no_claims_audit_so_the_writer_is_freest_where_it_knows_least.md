@@ -246,3 +246,9 @@ family is inert until the next roll.** Stays in `bugs_open/` until 599 applies a
 more" — unattended research breaks agritec RUNBOOK §9's mandatory review; owner decision); the LLM item's
 missing `spec.page_id` (parks under `spec_no_page_id`); discovery-check wiring of the practice family
 (slice 2b); RFC_003 Q1 (escalation to refusal); `bugs_open/033` (the queue the findings feed).
+
+**2026-08-24 evening — 599 APPLIED** after the owner read and approved the v5 plaintext ("approved"). The
+writer's no-register / no-operating-history arm is live (verified by needle on the live row). All three
+mechanisms are now closed at the source in config; the Go practice family (commit c9cd817d9, council
+APPROVED 1d87615f) remains inert until the next chassis image rolls. **Bar for `bugs_closed/`: that roll,
+plus one greenfield build showing the writer arm in `llm_call_log.prompt_rendered`.**

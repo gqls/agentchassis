@@ -148,3 +148,19 @@ the image rolls. guardian (low) — the mutation test passes `nil` into `ScanAll
 compiles and passes (nil-safe receivers). architecture (low) — CLM-026 should list every nil-rule
 widening: it names both (`regulated`, `operating_history`). Docs commit 171ffed55; index rows for
 CLM-025/026/027 added in the next commit (the pattern check caught the missing rows).
+
+## 2026-08-24 evening — 599 RELEASED: the owner approved the v5 plaintext ("approved")
+
+Before applying I regenerated the v5 text from the CURRENT live row and diffed it against the file the
+owner read: 34 hunks, ALL inside rules 9/10 — the bugs_open/381 lane's migration 595 (applied 16:58Z,
+after my 16:20Z dump, council-reviewed under their submission). My three anchors still ×1 on live. So
+the approval covers my arm's wording exactly; the delta is theirs. Renamed `_HOLD` off, applied
+(`599 OK: writer no-register arm live.`, snapshot pre-update on source_version 2), recorded. Needles on
+the live row after apply: `## Operating history: NONE RECORDED` ×2 (both guard levels), `so nothing
+carries them anywhere` ×1, `ONLY how the content is sourced` ×1, the `operating_history` conditional ×1.
+The live template as it now runs is committed as `brochure_component_library/sql/
+page_content_writer_prompt_v5b_2026-08-24_live_after_599.txt` (header explains the 595 delta); the
+approved v5 file is untouched so the approval still attaches to the text that was read.
+**All four slices of the fix are now live in config; only the Go family waits for an image roll.**
+Demand control for 599: the next greenfield build's writer calls — `llm_call_log.prompt_rendered LIKE
+'%Operating history: NONE RECORDED%'` on a register-less site, absent on a site with an attestation.
