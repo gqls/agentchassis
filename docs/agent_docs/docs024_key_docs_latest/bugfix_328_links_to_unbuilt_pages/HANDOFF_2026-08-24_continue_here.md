@@ -12,7 +12,19 @@
 > bytes.** A canary re-render is queued (item `b18a0287`, loanzy.uk `index`). When it completes,
 > run §1. That is the whole remaining task.
 >
-> **Nothing is blocked. Nothing needs a decision.**
+> **⚠ BLOCKED ON ONE THING, AND IT IS NOT THIS FIX: the kubeconfig token expired at ~16:40Z
+> 2026-08-24.** Every `kubectl` call returns `You must be logged in to the server (Unauthorized)`,
+> fleet-wide (`kubectl get nodes` fails too, so it is expiry, not a query fault). **The owner
+> refreshes it** — that is the standing arrangement; do not go looking for credentials.
+>
+> Until it is refreshed, §1 cannot run: it needs both a DB read and the item's status. The canary
+> was still `triaged` at ~16:15Z with 3 items ahead of it and that site's dispatch loop running
+> roughly every 30 minutes, so it has most likely dispatched in the meantime — **check its status
+> first, do NOT re-file it.** Its `item_key` is
+> `page_rerender_index_55213ded-03ec-40f7-8fc1-169de05e05c8_assemble`; a second row with that key
+> would be refused by the dedup index anyway while the first is non-terminal.
+>
+> **Nothing else is blocked, and nothing needs a decision.**
 
 ## 1. THE ONE THING OWED — the acceptance check
 
