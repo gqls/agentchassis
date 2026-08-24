@@ -1290,3 +1290,53 @@ folder.
 What's left is one bug (the nine mislabelled tool pages, cause still unknown — the automated
 diagnosis came back honestly unable to narrow it) and one decision you've already effectively made by
 closing 277: the fifteen pages built from vanished templates stay as they are.
+
+---
+
+## 2026-08-24 — I was asked to pick 277 back up, so I checked whether what we told you was true
+
+277 is closed and stays closed. Being asked to resume it two days on is a good opportunity to do the
+one thing that's actually useful at that point: go back and test the promises the closing note made,
+rather than re-read it.
+
+**The promise we made kept.** When we closed, three pages had just had their missing text recovered
+and written back, and we deliberately didn't mark them fixed by hand — we said the nightly checker
+should notice on its own, and that if it didn't, we were wrong. It noticed, at 16:02 on the 22nd,
+about an hour after we said it would. Nothing else has touched those three pages since, which also
+means the risk we were most worried about — a rebuild wiping the rest of the page — hasn't happened.
+
+**Something better happened that we said couldn't.** We told you fifteen pages were stuck for good:
+they were built by page templates that no longer exist, so their text can't be worked backwards, and
+the only way to fix them would be to let today's template rebuild them — which changes what those
+pages show, so you ruled: leave them alone for now.
+
+On the 23rd, one of those pages — the pricing page on ai-agent-orchestration.com — got rebuilt anyway,
+by some other piece of the system. **It came out better, not worse.** Every section on the page grew
+rather than shrank, nothing went blank, and the page is live and healthy. The rebuilt call-to-action
+is the exact example we used when we told you this couldn't be fixed. It also quietly cleaned up a
+separate blemish: the old version had a raw, unformatted link sitting in the middle of a sentence, the
+kind of thing this lane built a tool to fix elsewhere. So the stuck list is twelve now, not fifteen.
+
+I want to be careful about how much that proves. It's **one** page. It worked because the rebuild
+brought **new writing with it** — it didn't try to re-use the half-missing text, which is the thing
+that would have been destructive. So it isn't permission to go and do the other twelve; it's evidence
+that a route exists which we hadn't costed, and that on the one case we can see, it produced a better
+page. Worth knowing when you decide about the rest. I also can't tell you who ran it: the system's
+record of what it was doing only goes back about a day, and this happened just under two hours before
+that window starts.
+
+**And a mistake of ours, which is the part I'd want you to see.** When we closed 277 we left behind a
+"here's how to check we were right" query. Running it today, it gave a clean answer — and it turns out
+it could *never* have given a dirty one. It was looking in one place for a piece of information that
+gets written in three different places depending on which part of the system filed the item, and it
+was filtering to a set of items that, by definition, had already been handled correctly. The good news
+is the underlying claim was true — I checked properly, across all sixty-four items and both filing
+systems, and nothing is unclassified. The bad news is we'd shipped a test with no way to fail, and
+anyone auditing us later would have been reassured by it. Fixed in the file, and written into the
+fleet-wide traps list so the next person hits the corrected version.
+
+**One thing I noticed and did not act on.** Eighty-nine page sections across three unrelated sites
+send visitors to the same "password strength" tool — including from the pricing page above. Every one
+of those links works, so it's not broken; it just looks like an odd destination for an AI consultancy
+or a finetuning company. I haven't filed it as a bug, because "that seems off to me" isn't evidence,
+and it's outside what 277 was about. Say the word and I'll look into whether it's deliberate.

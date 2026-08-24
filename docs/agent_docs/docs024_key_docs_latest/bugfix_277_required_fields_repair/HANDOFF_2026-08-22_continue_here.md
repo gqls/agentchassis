@@ -1,5 +1,15 @@
 # HANDOFF — 2026-08-22. **THE LANE IS CLOSED.** `083` and `277` are both in `bugs_closed/`; the successor is `bugs_open/357`
 
+> ⚠ **APPENDED 2026-08-24 by a later session, read this first.** A post-close re-verification is now
+> `bugs_closed/277` **§10**, and it changes two numbers below. (1) **Prediction (b) in §2 RESOLVED —
+> CONFIRMED**: the three `540` rows retracted at `2026-08-22 16:02Z` by the daily revalidator, exactly
+> as forecast; do not re-check it. (2) **The parked residual is 21, not 24, and the drift-blocked
+> group is 12, not 15** — `ai-agent-orchestration.com/pricing` was rebuilt on 08-23 and its three rows
+> resolved. §3 below ("the 15 stay as they are") is therefore about **12** pages, and §10.4 records
+> what that unplanned rebuild showed: every slot grew, nothing blanked. Prediction (a) (`learn-index`,
+> ~08-25) was still pending at that check. **Also: the verify query in 277's close was blind and is
+> amended in §10.5 — do not run the old one.**
+>
 > **If you are picking this up cold: there is no work left in this lane.** Go to `bugs_open/357`
 > (nine tool pages mislabelled as `hero` components — cause UNVERIFIABLE, precedent to copy named)
 > or read `SUMMARY_2026-08-22_lane_closed.md` for the whole arc. Everything below is the closing state.

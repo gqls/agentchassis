@@ -3059,3 +3059,60 @@ verify RAISEs before COMMIT. Adopted for future migrations rather than amended i
 **`prior_art_librarian` low — "evidence the 27 with a query, not an assertion".** Re-measured at
 verdict time: `27` `no_content_data` of `30` parked. It is one line and it should have been in the
 submission.
+
+---
+
+## 2026-08-24 — post-close re-verification (lane reopened for one session to check its own predictions, not reopened as work)
+
+Asked to "resume 277". It is closed; this is what resuming honestly consists of — re-running the
+close's own checks. **Everything the close claimed holds. Two things it got wrong are corrected in
+`bugs_closed/277` §10, and neither reopens the bug.**
+
+### 1. The prediction CONFIRMED [MEASURED 2026-08-24]
+The three rows `540` wrote retracted at **`2026-08-22 16:02Z`** — the daily revalidator, ~16:01Z as
+forecast, `resolution_path='auto:revalidated'`, nobody's hand on it. The `page_components` rows are
+untouched since 09:49 on 08-22 and still hold their recovered keys. **The regeneration hazard has not
+fired in two days.**
+
+### 2. The parked count is 21, not 24 — and the 3 that left were DRIFT-BLOCKED, which we said was impossible
+`ai-agent-orchestration.com/pricing` carried three of the 15. On **2026-08-23 17:39Z** it was rebuilt:
+`save_page_sections_overwrite` wrote 5 slots WITH content_data, the archive trigger deleted the old 5
+(**every one with `content_data='{}'`**), five fresh rows were created. Every slot **grew**
+(hero 2,709→3,666, faq 852→3,258, cta 2,355→3,059); the page serves 200/49,339 bytes with zero empty
+headings; the revalidator then resolved all three findings on 08-24 16:02Z.
+
+**The drift resolved forward**: §9's worked case was this very `call-to-action`, stored as
+`var(--color-primary, #1a1a2e)` against a live template on `var(--color-cta-bg, …)`. The new component
+renders the current template, so the row is not drifted any more — it is current. A `literal_markdown`
+defect went with it, unremarked: the old prose shipped a raw `[label](/url)` in served HTML.
+
+⚠ **What this does NOT license.** n=1. It supplied **complete fresh** content_data; it did **not**
+regenerate from a partial one, so `ContentDataCanFillTemplate`-returns-true-on-any-one-field is still
+the trap and the byte-identity gate still stands. What it adds is a **third route** we never costed:
+a full section rebuild. **Who ran it is NOT established and can no longer be** — `orchestration_states`
+retains ~25h (oldest row 08-23 19:34Z) and the 17:39 rebuild aged out of it by under two hours.
+
+### 3. ⚠ MY OWN CLOSE SHIPPED A VERIFY QUERY THAT CANNOT FAIL — the misstep worth recording
+The close's "Verify the close" block reads `COALESCE(result->>'route','(UNROUTED)')` filtered to
+`status='needs_human_review'`. Two faults:
+
+- **the route lives in three places by producer** — `result->>'route'` (32 rows, router, `discovery`),
+  `result->'response'->'triage'->>'route'` (29, nested under the awaited response, all `partial`),
+  `spec->>'route'` (2, **pre-declared by `section_editor`** before any router saw them). A top-level
+  read calls those 29 `(UNROUTED)`.
+- **the status filter removes every possible counter-example.** The router is what *parks* a row at
+  `needs_human_review`, so the filter selects the router's own output; `(UNROUTED)` cannot come out
+  non-zero. The 2 genuinely unrouted-at-top-level rows born on the day of close are `failed`, hence
+  invisible.
+
+**The claim was TRUE and is now better evidenced than it was at close** — all three shapes, all 64
+rows, both producers: genuinely unrouted = **0**. But I proved it with an instrument that had no
+failure mode, and that is the lesson: *the false alarm (29 phantom unrouted) is what exposed the false
+clean.* Query amended in place in the bug file; landmine appended with the footprint.
+
+### 4. Observed in passing, NOT filed, NOT this lane's
+89 `page_components` across three unrelated domains point a CTA at `/tools/password-entropy.html`
+(`ai-agent-orchestration.com` 43, `leopardessconsulting.co.uk` 25, `finetuning.uk` 21). All targets
+return 200 — no broken links — so this is a topicality question, not a defect I can assert. The same
+URL appears in `bugs_open/033` (~line 458) as incidental evidence in a different argument. Raised with
+the owner; deliberately not filed on one session's taste.

@@ -1,6 +1,14 @@
 # 277 — `required_fields_missing` has no repair handler anywhere in the fleet, so a page with no plan strands its items at `needs_human_review` forever
 
-## STATUS: OPEN — OWNER RULED 2026-08-15: "we should create a repair handler fleet wide." Not yet built.
+## STATUS: **CLOSED 2026-08-22** (owner ruling). The close is at the END of this file — read it before acting on anything above.
+
+> ⚠ **CORRECTED 2026-08-24.** This line read **`STATUS: OPEN — OWNER RULED 2026-08-15: "we should
+> create a repair handler fleet wide." Not yet built.`** for the two days after the bug closed, so the
+> first thing anyone opening this file saw flatly contradicted its own ending. The handler was built
+> on 2026-08-15 (a router, §"TAKEN UP") and the bug closed on 2026-08-22. **§10 is a post-close
+> re-verification**: every claim still holds, the parked residual has shrunk 24 → 21, and this file's
+> own verify query is corrected there. The original ruling is preserved verbatim in this correction so
+> nothing is lost by the edit.
 
 Filed by the `staged_component_build` lane while closing `bugs_closed/248`, because the worked
 example (`tool-gas-unit-converter`) has been parked on this gap since before 2026-08-12 and the
@@ -872,9 +880,18 @@ tool.
 
 ```sql
 -- the router still classifies everything (zero unrouted)
-SELECT COALESCE(result->>'route','(UNROUTED)') AS route, count(*)
-FROM site_work_items WHERE item_type='required_fields_missing' AND status='needs_human_review'
-GROUP BY 1 ORDER BY 2 DESC;         -- 27 no_content_data / 2 asset_sourced / 1 no_plan_owned at close
+-- ⚠ AMENDED 2026-08-24 (§10.5). The original read ONLY result->>'route' AND filtered to
+-- status='needs_human_review', which made it unable to fail: the route lives in three places
+-- depending on producer, and the status filter selects exactly the rows the router already parked.
+-- Read all three shapes, and do NOT filter by status. '(GENUINELY UNROUTED)' must be 0.
+SELECT COALESCE(result->>'route',
+                result->'response'->'triage'->>'route',
+                spec->>'route', '(GENUINELY UNROUTED)') AS route, source, status, count(*)
+FROM site_work_items WHERE item_type='required_fields_missing'
+GROUP BY 1,2,3 ORDER BY 4 DESC;
+--  at close 08-22, needs_human_review only: 27 no_content_data / 2 asset_sourced / 1 no_plan_owned
+--  at 08-24, all 64 rows: 29 partial(complete) / 21+8 no_content_data / 2 content_edit(section_editor)
+--                         / 1 target_not_dispatchable / 2 asset_sourced / 1 no_plan_owned / 0 unrouted
 -- the three recovered rows hold data covering the fields their findings named
 SELECT id, jsonb_object_keys(content_data) FROM page_components
 WHERE id IN ('e50a9dbc-569c-41c5-ac01-bc564dc9a53a','bd1f5219-c230-4143-93d7-7ece0f4d8e9f',
@@ -889,3 +906,128 @@ curl -s "https://gaswholesalers.com/tools/tool-gas-unit-converter.html?cb=$(date
 **Council trail:** router `7b0e2833` (r5) · transform `b72a4029` (r2) · recovery `cd8e555d` (r1).
 **Register:** CQ-028 (the transform), CQ-029 (the recovery). **Successors:** `bugs_open/357`, and the
 drift decision recorded in §8.4/§8.5 for whoever picks it up.
+
+---
+
+# 10. 2026-08-24 — post-close re-verification: every claim holds, the parked residual has SHRUNK by 3, and this file's own verify query cannot fail
+
+Run two days after the close by a session asked to "resume 277". Nothing here reopens the bug. Three
+things are recorded: the close's claims re-measured against the live system, a **confirmed**
+disconfirmable prediction, and a **correction to this file's own verify recipe**.
+
+## 10.1 Clause 1 still holds at the served bytes [MEASURED 2026-08-24 ~20:0xZ]
+
+```
+cubic-bezier  <code>ease-in-out</code>  = 1   (expected 1)
+gas-unit-converter  <tr                 = 6   (expected 6)
+control: stray prose backticks on cubic-bezier = 0
+```
+Still holding across every chassis roll since 2026-08-21. The CQ-028 transform has not regressed.
+
+## 10.2 The disconfirmable prediction is CONFIRMED — at the predicted time, by the predicted mechanism
+
+§9 predicted: *"the next `review-queue-revalidate-daily` pass should stop reporting 'carries no
+content_data' for these three."* All three retracted at **`2026-08-22 16:02Z`** — the daily pass,
+~16:01Z as forecast. `resolution_path='auto:revalidated'`, verdict `resolved`, reason *"every field
+this item reports missing is populated on the deployed component"*. **No session hand-closed them.**
+
+The three `page_components` rows migration `540` wrote are **untouched since 09:49 on 08-22** and
+still hold their recovered keys (`headline,subheadline,use_cases` · `features,headline,subheadline` ·
+`case_studies,headline,subheadline`), all `build_status='deployed'`. **The regeneration hazard §9
+warned about has not fired in two days** — nothing has blanked them under `missingkey=zero`.
+
+## 10.3 The parked population is **21**, not 24 — and the three that left were drift-blocked
+
+| | at close (08-22) | now (08-24) |
+|---|---|---|
+| `no_content_data` @ `needs_human_review` | 27 | **21** |
+| `asset_sourced` @ `needs_human_review` | 2 | 1 |
+| `no_plan_owned` @ `needs_human_review` | 1 | 1 |
+| `target_not_dispatchable` @ `needs_human_review` | 0 | **1** (new, born 08-23, `section_editor`) |
+
+The 6 that left `no_content_data`: **3** were `540`'s recoveries (§10.2) and **3** were drift-blocked
+rows that resolved themselves (§10.4). The residual now decomposes **exactly**:
+
+- **12 — the drift-blocked remainder** (was 15). `finetuning.uk` blog · careers · our-position-on-ai ·
+  use-cases (2 each), `gaswholesalers.com` client-case-studies (2), `ai-agent-orchestration.com`
+  blog (2).
+- **9 — `bugs_open/357`**, every one a `hero` slot on a tool/game page: `gamesdesign.co.uk` ×8
+  (tool-lanchester-sim, tool-progression-architect, tool-ttk-calculator, tool-drop-rate-simulator,
+  tool-ehp-calculator, tool-jump-physics, game-p2p-networking, game-pathfinding) and
+  `mortgagecalculator.co.uk` tool-simple.
+
+**So the close's "24 of 27 stay parked … 15 blocked by vanished templates" reads 21 and 12 today.**
+The close was correct when written; it is stale by three rows, in the good direction.
+
+## 10.4 ⚠ The experiment the close said would be needed HAS happened — once, unplanned, and it was safe
+
+The close deferred one question: *"do the 15 drift-blocked components get re-rendered?"*, ruled
+**not now**, because *"the only route to a rebuildable state is letting the CURRENT template render
+them, which changes what those pages serve."* **On 2026-08-23 17:39Z that happened to one of them**
+— `ai-agent-orchestration.com/pricing`, which carried three of the 15.
+
+What the archive shows [MEASURED 2026-08-24, `page_component_history`]:
+
+1. `save_page_sections_overwrite` wrote **5 rows carrying content_data** at `17:39:53.909`;
+2. `artefact_archive_trigger` archived the **old 5** as `op='delete'` at `17:39:54.713` — **every one
+   with `content_data = '{}'`**, i.e. exactly the parked no-content_data population;
+3. five fresh `page_components` rows were created at `17:39:55–56`.
+
+| slot | old bytes | new bytes |
+|---|---|---|
+| hero | 2,709 | 3,666 |
+| generic-text-block | 2,307 | 2,666 |
+| faq | 852 | 3,258 |
+| differentiators | 5,430 | 5,863 |
+| call-to-action | 2,355 | 3,059 |
+
+**Every slot grew; nothing was blanked.** The live page serves `HTTP 200`, 49,339 bytes, one `<h1>`,
+four `<h2>`, and **zero empty headings**. The disconfirming result was fully available — a shrunken
+component, an empty heading, a dropped section — and did not occur.
+
+**The drift itself is resolved forward.** §9's worked case was `call-to-action`, whose stored HTML
+held `var(--color-primary, #1a1a2e)` while the live template had moved to `var(--color-cta-bg, …)`.
+The new component renders the **current** template: `background: var(--color-cta-bg, var(--color-primary))`.
+The row is no longer drifted, so it is no longer unrecoverable — it is simply current.
+
+**A defect went with it, unremarked.** The old CTA prose shipped a raw markdown link —
+`[LLM Provider Cost Comparison Calculator](/tools/tool-llm-cost-calculator.html)` — in served HTML;
+that is the `literal_markdown` class CQ-028 exists to repair. The new prose has none.
+
+**⚠ Read the limits before quoting this as a licence.** [n=1, and one page is not a population]
+- It does **not** license the partial backfill §9 refused. This rebuild supplied **complete, fresh**
+  content_data; it did not regenerate from a partial one. `ContentDataCanFillTemplate` returning true
+  on **any one** field is still the trap, and the byte-identity gate still stands.
+- What it establishes is that a **third route** exists to the drift-blocked class, which the close did
+  not cost: not data recovery, not a stale-data re-render, but a **full section rebuild that supplies
+  new content**. On the one case measured it produced a better page than the one it replaced.
+- **Who ran it is NOT established.** `orchestration_states` retains ~25 hours (oldest row
+  `2026-08-23 19:34Z` against 6,112 rows on 08-24) — the 17:39 rebuild aged out of it by **under two
+  hours**. `page_component_history.application_name` gives only `app - 10.20.161.253:60262`. So
+  whether the remaining 12 are on someone's list, or this was incidental, is **unknown** — and it
+  cannot be recovered from that table now.
+
+## 10.5 ⚠ CORRECTION to this file's own "Verify the close" query — it cannot report the failure it checks for
+
+The block below (now amended) read `COALESCE(result->>'route','(UNROUTED)')` **filtered to
+`status='needs_human_review'`**. Two independent faults, both of which make a green result worthless:
+
+1. **The route lives in three different places**, by producer. Only the first is the top-level key:
+
+   | shape | rows (08-24) | who writes it |
+   |---|---|---|
+   | `result->>'route'` | 32 | the router, on `discovery` findings |
+   | `result->'response'->'triage'->>'route'` | 29 (all `route='partial'`, all `complete`) | the awaited triage response |
+   | `spec->>'route'` | 2 (`content_edit`) | `section_editor`, **pre-declared by the producer** |
+
+   Read only the first and **29 correctly-routed rows report `(UNROUTED)`**.
+
+2. **The status filter excludes every row that could evidence the fault.** As measured, *every*
+   row lacking a top-level route is `complete` or `failed`; *every* `needs_human_review` row has one —
+   because the router is what parks a row there. So the filter selects the router's own output and the
+   `(UNROUTED)` count **cannot come out non-zero**. The 2 genuinely top-level-unrouted rows born on the
+   day of the close (`section_editor`, `failed`) are invisible to it.
+
+**The claim itself is TRUE and now better evidenced than it was at close**: reading all three shapes
+across **all 64 rows and both producers**, *genuinely* unrouted = **0**.
+

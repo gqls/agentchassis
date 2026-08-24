@@ -17028,3 +17028,21 @@ code change owed at the next roll, tracked in RFC_015 §5.
 >
 > — `bugs_open/381` lane, 2026-08-24. Full incident in `WRONG_CALLS.md`.
 
+
+### A work item's ROUTE lives in one of THREE places depending on its producer — a single-shape read calls correctly-routed rows `(UNROUTED)`, and adding `status='needs_human_review'` makes the count unable to come out non-zero
+- **footprint:** `site_work_items` (`result->>'route'`, `result->'response'->'triage'->>'route'`, `spec->>'route'`), `item_type='required_fields_missing'`, `bugs_closed/277` §10.5, the `required-fields-missing-handler` router
+- **fires when:** you audit whether a router or triage classified everything it was given — verifying a "zero unrouted" claim, writing any census keyed on a work item's route, or judging whether a handler has coverage. No symptom is needed and none appears.
+- **the tell:** none, and it misleads in **both** directions from the same column. Measured 2026-08-24 on 64 rows of one item_type: `result->>'route'` holds the route for **32** rows (the router's own writes on `discovery` findings); **29** more carry it at `result->'response'->'triage'->>'route'` (the awaited triage response nests it a level down); **2** carry it at `spec->>'route'`, **pre-declared by the producer** (`section_editor`) before any router saw them. Read only the top-level key and 29 correctly-routed rows report `(UNROUTED)` — a false alarm on a working router.
+- **the deeper half, which is the one that costs you:** the obvious fix — filter to `status='needs_human_review'` so you are "looking at the parked ones" — produces a **structurally green** answer. **The router is what parks a row at `needs_human_review`**, so that filter selects exactly the rows it already handled. As measured, every row missing a top-level route is `complete` or `failed` and every `needs_human_review` row has one, so `(UNROUTED)` **cannot** be non-zero. `bugs_closed/277`'s own close shipped this query as its verification, and it was incapable of reporting the fault it existed to detect.
+- **the check — read all three shapes, drop the status filter, and keep a positive control:**
+  ```sql
+  SELECT COALESCE(result->>'route',
+                  result->'response'->'triage'->>'route',
+                  spec->>'route', '(GENUINELY UNROUTED)') AS route, source, status, count(*)
+  FROM site_work_items WHERE item_type='<your item_type>'
+  GROUP BY 1,2,3 ORDER BY 4 DESC;
+  ```
+  Group by `source` as well as route: **a second producer is how the third shape arrives**, and the producer that pre-declares its own route is invisible in any query grouped on route alone. Before believing a zero, name the rows that would have shown up had it been non-zero — on `required_fields_missing` those are the two `section_editor`/`failed` rows, which no status filter of the parked set can ever reach.
+- **relations:** owner ruling 2026-08-02 §1 (a shared `item_type` must name its producer set — this is the cost of not doing so: each producer invented its own route slot) · the "a post-fix ZERO needs a DEMAND control" family in MEMORY · `bugs_closed/277` §10.5, where the amended query lives · `site_work_items` is a rolling window, so union the archive if you are counting history
+- **source:** 2026-08-24, a session asked to resume `bugs_closed/277`. Found by re-running the close's own verify block two days after the close: it printed a reassuring zero while 29 rows sat in the `(UNROUTED)` bucket of the same output — **the false alarm is what exposed the false clean.** The bug's central claim ("zero unrouted") turned out to be TRUE; it was the recipe that could not show it.
+- **added:** 2026-08-24, resuming `bugs_closed/277`. ⚠ **Appended TWICE**: the first append (20:13Z) was lost when a concurrent session wrote the whole file back from a copy that predated it — the file went 17,010 → 17,028 (mine) → 17,030 (theirs, mine absent). Nothing of theirs was lost; the `doc_notes` rows from the first sync survived because delivery had already run.
