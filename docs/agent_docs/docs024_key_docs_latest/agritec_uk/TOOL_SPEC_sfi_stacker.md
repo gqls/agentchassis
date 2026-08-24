@@ -108,6 +108,29 @@ numeric `value` — a compound rate reduced to one number loses the qualifier.
 A stacking calculator blind to these totals up figures the scheme would never pay, which is the
 single most damaging thing this tool could do.
 
+## 6b. Every rate carries a link to its source (owner instruction, 2026-08-24)
+
+Each action row shows its rate **and an anchor to the document that states it** — for all 71,
+that is the SFI26 scheme rules on GOV.UK, with the capture date shown. Every fact in the register
+now resolves a structured URL at `source.citation.url`, so the tool builds the link from data
+rather than from a hard-coded string.
+
+Three constraints on how, each earned:
+
+- **HTML anchor, never markdown.** No markdown renderer exists in this platform, and
+  `check_literal_markdown` strips `[text](url)` from text-typed fields as a defect. A markdown
+  citation disappears silently and leaves the figure looking sourced when it is not. A tool's
+  `html_template` is raw HTML, so this is free here — but it is the reason the same rule must be
+  stated for the explainers.
+- **This is also the `bugs_open/288` control.** A figure a calculator encodes is checked by
+  nothing; the claims scanner reads a page's visible words, never its code. Putting each rate and
+  its source in the *visible* rate table is what brings the tool's numbers inside the gate at all.
+- **Show the capture date next to the link.** Rates move — that is the whole reason this rebuild
+  exists — and a link with no date invites the reader to assume it is current for ever.
+
+Do not attach a confidence claim to the citations. They let a reader check us; they do not make
+us right, and the site says so.
+
 ## 7. Output
 
 Per-action subtotal, a stack total, and — separately and prominently — **which caps bound the
@@ -128,6 +151,7 @@ For `tool-acceptance-agent` (Tier 4, headless Chromium). Steps limited to fill/c
 - fill total agricultural area with 2; the tool shows the 3 hectare eligibility floor is not met
 - select action CHRW2 and confirm the displayed unit reads "per 100m for one side"
 - build a stack exceeding 100000 and confirm the payable total is capped at 100000 and the cap is named
+- confirm each visible rate row carries an anchor whose href points at gov.uk, and that the capture date appears on the page
 ```
 
 The second and third are the regression tests for this whole exercise: £382 must not come back,

@@ -76,6 +76,27 @@ yet verified.
   must be especially careful: it explains how the mechanism works and never tells a reader what
   they are entitled to.
 
+## Sourcing, and how it must appear on the page
+
+Every figure carries a visible link to its source. This is a build requirement, not a stylistic
+preference, and it applies to prose, tables and calculators alike.
+
+- **The link is an HTML anchor**, inside a field that carries markup. It is never written as
+  markdown: nothing in this platform renders markdown, and the literal-markdown check treats a
+  bracket-and-parenthesis link in a text field as a defect to strip — so a markdown citation is
+  silently deleted and the figure is left looking sourced when it is not.
+- **Name the publisher and the capture date** next to the figure or in the link text. Every fact
+  in the evidence register already carries both, along with the URL.
+- **A calculator's rate table is the natural place for this**, one link per rate. It is also the
+  only way a figure inside a calculator becomes checkable at all: the publishing checks read the
+  visible words on a page and never the code behind them.
+- Where a figure is not verified, say so in place of citing it. An unsourced number is not
+  published on this site in any form.
+
+State the posture honestly and do not overclaim on it. A citation shows where a number came from;
+it does not show that we read the source correctly or that the source is right. The site cites
+everything so a reader can check it — not so the reader can stop checking.
+
 **contact** — a plain contact page. No form fields beyond what is genuinely handled, and no
 promises about response times.
 
