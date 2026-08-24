@@ -7877,3 +7877,48 @@ backfill: the control was asking WHICH pages, not counting rows.
 
 **NOT closeable:** a created item is a **REQUEST, not a link**. The bar is the artefact — named
 pages actually serving an inline link — and the forward fix is inert until a roll.
+
+## 2026-08-24 (~10:3xZ) — **THE GATE IS CLOSED AND THE LANE'S DELIVERABLE IS DONE.** 571 approved+applied; 353 round 1 REVISE answered in the code; the backfill's links are stored but NOT SERVED
+
+**Gate close-out** (full record: `HANDOFF_2026-08-20_continue_here.md` §2.11, which is the gate's
+home): window 08-22 08:45Z → 08-24 08:45Z, **0 `1-resolve-and-warn` ⇒ NO REGRESSION** across three
+rolls and **3,957 orchestrations / 64 agent types**; **5 `2-refuse`**; recorder alive (914 rows /
+26 classes). `v1.0.1332` (up 09:39Z today) re-verified with both controls after the window closed.
+**The close-out states first what the zero cannot prove** — the table was already near-silent, so a
+clean 48 h was expected either way; the tests + probe carry the behaviour claim, and the day-one
+`improvement-loop` catch is what makes the flip worth having.
+
+**571 APPROVED (`5ae2147d`) and APPLIED 2026-08-24** — both `improvement-loop` `create_work_item`
+steps now declare `page_id?`/`component_id?` → `input_data.<field>`; verified live, no unmarked
+twin. Applied BY HAND and `--record-only`'d: the runner's `--apply` takes **every** pending file,
+and 498 (another lane's) is currently failing its own guard.
+
+**353 round 1 came back REVISE and both objections were RIGHT** — recorded because both were
+mine to have caught:
+1. `crossLinkEmitDecision(false, …)` — a **literal** false for `pageLive`, which made the
+   function's first branch **dead code**. I extracted the decision to make it testable and then
+   called it in a way that could never exercise a third of it. Fixed: the outer `if` now guards only
+   the gate-item QUERY; the DECISION takes the real `pageLive`. **Mutation-proved both arms.**
+2. The `replace_existing` reroute returns before the emitter, so a regeneration emits nothing —
+   and I had not said so. Checked (regenerate calls neither the emitter nor `related_pages`) and
+   stated AT THE REROUTE. **That same reroute has now cost three separate things** (a peer's
+   invalid control, 19 days of masking, and this objection) — it earned its landmine.
+Round 2 in flight on the same trail.
+
+### ⚠ THE BACKFILL IS DONE AT THE DATA LAYER AND UNFINISHED AT THE SERVING LAYER
+
+61 of 74 items `complete`, and the links **are** in `page_components.rendered_html` — but
+`curl` says the pages do not serve them (with a control page that correctly has none). The reason
+is not the writer: **51 of 51 pages carrying a completed rewrite deployed BEFORE their rewrite
+landed** — a ~7-second gap repeated 51 times, which is an ordering property, not a race.
+
+**This is this lane's own standing lesson landing on its own work: "a `complete` work item is not a
+repaired artefact."** I had written the §9.3 bar into the bug file the day before — *"do not close
+353 on the 74"* — and the check it demanded is exactly what found this. The cheap discriminator
+worth carrying: **stored HTML vs `deployed_at`** separates "the writer failed" from "the page is
+stale" in one query.
+
+**Not fired unilaterally:** redeploying 51 pages across ~19 live sites is the same class of action
+as the backfill and wants the owner's word. Flagged in `bugs_open/353` §10 and the new handoff.
+
+**New primary handoff:** `docs/agent_docs/docs024_key_docs_latest/staged_component_build/HANDOFF_2026-08-24_continue_here.md`
