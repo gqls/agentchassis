@@ -54,7 +54,12 @@ var DeployToolToSiteInputSpec = datahelpers.ActionInputSpec{
 	// tool's cross-link items can be emitted from THIS path, which knows the
 	// page's real URL, instead of at suggestion time where it can only be
 	// guessed (bugs_open/029).
-	Optional:   []string{"page_name", "page_title", "related_pages"},
+	// related_pages_fallback: the workflow picker's choice, used only when the
+	// item named no pages. See create_tool_component_action.go's spec for the
+	// full note — this action carries the identical wire to the identical
+	// helper, and 516's lesson is that leaving one of two identical armed wires
+	// unmarked is how a class gets fixed and then rediscovered.
+	Optional:   []string{"page_name", "page_title", "related_pages", "related_pages_fallback"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
 	// enforce_instance_scope: arms the instance-scope guard on the FORK path
@@ -284,15 +289,17 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 			// page row, never constructed, and dedup makes the repeat harmless.
 			crossLinks := 0
 			if toolPageID, toolPageURL, found := resolveToolPageURL(ctx, params.DB, siteID, toolFunction); found {
+				relatedPages, relatedPagesSource := relatedPagesFromInputs(inputs, params.CollectedData)
 				crossLinks = emitToolCrossLinkItems(ctx, params, logger, toolCrossLinkRequest{
-					siteID:       siteID,
-					toolFunction: toolFunction,
-					toolName:     toolDisplayName,
-					toolDesc:     toolDescription.String,
-					toolPageID:   toolPageID,
-					toolPageURL:  toolPageURL,
-					relatedPages: relatedPagesFromInputs(inputs, params.CollectedData),
-					emittedBy:    "tool-deployer",
+					siteID:             siteID,
+					toolFunction:       toolFunction,
+					toolName:           toolDisplayName,
+					toolDesc:           toolDescription.String,
+					toolPageID:         toolPageID,
+					toolPageURL:        toolPageURL,
+					relatedPages:       relatedPages,
+					relatedPagesSource: relatedPagesSource,
+					emittedBy:          "tool-deployer",
 				})
 			}
 
@@ -571,15 +578,17 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 	// page is live. tool-suggester used to emit these at suggestion time from a
 	// constructed /tools/{function}.html, which matched no page on any of the
 	// three URL shapes this platform produces.
+	relatedPages, relatedPagesSource := relatedPagesFromInputs(inputs, params.CollectedData)
 	crossLinksAdded := emitToolCrossLinkItems(ctx, params, logger, toolCrossLinkRequest{
-		siteID:       siteID,
-		toolFunction: toolFunction,
-		toolName:     toolDisplayName,
-		toolDesc:     toolDescription.String,
-		toolPageID:   pageID,
-		toolPageURL:  pageURL,
-		relatedPages: relatedPagesFromInputs(inputs, params.CollectedData),
-		emittedBy:    "tool-deployer",
+		siteID:             siteID,
+		toolFunction:       toolFunction,
+		toolName:           toolDisplayName,
+		toolDesc:           toolDescription.String,
+		toolPageID:         pageID,
+		toolPageURL:        pageURL,
+		relatedPages:       relatedPages,
+		relatedPagesSource: relatedPagesSource,
+		emittedBy:          "tool-deployer",
 	})
 
 	// --- 7. Create companion guide article ---

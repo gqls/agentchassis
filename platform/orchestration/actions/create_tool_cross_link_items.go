@@ -69,6 +69,13 @@ type toolCrossLinkRequest struct {
 	toolPageID   uuid.UUID
 	toolPageURL  string
 	relatedPages []string
+	// relatedPagesSource says WHERE relatedPages came from: "spec" (the
+	// requester named them), "suggested" (nobody named any, so the workflow's
+	// picker step chose them) or "" (none at all). Recorded on every skip row
+	// and on every item created, because "cross-mentions resumed" is otherwise
+	// unattributable: without it, a fix that makes the picker work and a week
+	// where requesters happened to fill the field in look identical.
+	relatedPagesSource string
 	// emittedBy names the actor for the source/created_by columns, e.g.
 	// "tool-deployer". Cross-link rows are identified by their item_key
 	// prefix (tool_crosslink:), not by source — see itemKey below.
@@ -354,10 +361,12 @@ func emitToolCrossLinkItems(ctx context.Context, params ActionParams, logger *za
 				"Page contains at least one inline link to %s with anchor text referencing the tool",
 				req.toolPageURL,
 			),
-			"source":            req.emittedBy,
-			"cross_link":        true,
-			"tool_function":     req.toolFunction,
-			"tool_display_name": req.toolName,
+			"source":     req.emittedBy,
+			"cross_link": true,
+			// Which source chose this page — see relatedPagesFromInputs.
+			"related_pages_source": req.relatedPagesSource,
+			"tool_function":        req.toolFunction,
+			"tool_display_name":    req.toolName,
 			// The URL machine-readably, so a sweep can check the link without
 			// parsing prose (the prose copy above is what the writer obeys).
 			"tool_page_url":    req.toolPageURL,
@@ -521,6 +530,8 @@ func recordCrossLinkSkip(
 			"skip_reason":     code,
 			"bug_reference":   "bugs_open/029",
 			"related_pages_n": len(req.relatedPages),
+			// "" when there were none — the case this code path exists for.
+			"related_pages_source": req.relatedPagesSource,
 		},
 	)
 }
@@ -554,12 +565,48 @@ func relatedPagesFromSpec(raw interface{}) []string {
 // into both build steps' config (resolved by ExtractActionInputs Strategy 0);
 // the direct read is the fallback for a config that predates it, so the fix
 // works on an unmigrated agent definition too.
-func relatedPagesFromInputs(inputs *datahelpers.ActionInputs, collected map[string]interface{}) []string {
+// relatedPagesFromInputs resolves the pages a tool should be cross-mentioned
+// from, and says which source supplied them.
+//
+// THE ORDER IS THE MEANING, and the requester always wins. `related_pages` is
+// what the add_tool item asked for; `related_pages_fallback` is what the
+// workflow's picker step chose when the item asked for nothing. A picker must
+// never be able to overrule a human (or a suggester) who named pages
+// explicitly, so it is consulted only when the first two paths are empty.
+//
+// Both keys are OPTIONAL-EXPLICIT: each names exactly one declared path in the
+// step config, so neither can be filled by the whole-tree search. That is
+// migration 516 / bugs_open/330 — an absent `related_pages` used to fall
+// through to a tree search that returned ANOTHER tool's list, and nine tools on
+// one site were cross-linked to the same two articles. Absence must stay
+// absence here; the fix for absence is to ASK, which is what the fallback is.
+//
+// Returns ("", nil) shaped as (nil, "") when nothing supplies pages — the
+// caller records that at info, and it is not a defect: a site may genuinely
+// have no page a tool belongs on.
+func relatedPagesFromInputs(inputs *datahelpers.ActionInputs, collected map[string]interface{}) ([]string, string) {
 	if pages := relatedPagesFromSpec(inputs.GetRaw("related_pages")); len(pages) > 0 {
-		return pages
+		return pages, relatedPagesSourceSpec
 	}
-	return relatedPagesFromSpec(datahelpers.ExtractNestedField(collected, "input_data.spec.related_pages"))
+	if pages := relatedPagesFromSpec(datahelpers.ExtractNestedField(collected, "input_data.spec.related_pages")); len(pages) > 0 {
+		return pages, relatedPagesSourceSpec
+	}
+	// bugs_open/330 §12: measured 2026-08-24, 0 of 58 hand-filed add_tool items
+	// have ever carried the key, against 11 of 11 from tool-suggester. The
+	// requester is not going to remember; the workflow asks instead.
+	if pages := relatedPagesFromSpec(inputs.GetRaw("related_pages_fallback")); len(pages) > 0 {
+		return pages, relatedPagesSourceSuggested
+	}
+	return nil, ""
 }
+
+// The two sources, as constants because they are written into durable rows
+// (agent_error_log context and every emitted item's spec) and read back by
+// census queries — a typo would be invisible until someone counted.
+const (
+	relatedPagesSourceSpec      = "spec"
+	relatedPagesSourceSuggested = "suggested"
+)
 
 // resolveToolPageURL looks up the page a tool is deployed on. The join through
 // page_components is the only reliable route: pages.name and pages.url both
@@ -707,7 +754,9 @@ func CreateToolCrossLinkItemsAction(ctx context.Context, params ActionParams) (i
 			toolPageID:   toolPageID,
 			toolPageURL:  toolPageURL,
 			relatedPages: relatedPages,
-			emittedBy:    "tool-suggester",
+			// The suggester named these explicitly; nothing was picked for it.
+			relatedPagesSource: relatedPagesSourceSpec,
+			emittedBy:          "tool-suggester",
 		})
 	}
 
@@ -764,6 +813,8 @@ func EmitToolCrossLinksForBackfill(ctx context.Context, params ActionParams, log
 		toolPageID:   req.ToolPageID,
 		toolPageURL:  req.ToolPageURL,
 		relatedPages: req.RelatedPages,
-		emittedBy:    "backfill-353",
+		// A backfill repairs pages the ORIGINAL request named; it never picks.
+		relatedPagesSource: relatedPagesSourceSpec,
+		emittedBy:          "backfill-353",
 	})
 }

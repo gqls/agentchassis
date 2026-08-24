@@ -51,7 +51,12 @@ var CreateToolComponentInputSpec = datahelpers.ActionInputSpec{
 	// taking the already_exists short-circuit. Mapped STRICTLY by the generator
 	// seed ("replace_existing!": "input_data.spec.replace_existing") so the
 	// whole-tree search (RFC_029) can never supply it; absent ⇒ today's path.
-	Optional:   []string{"description", "category", "related_pages", "replace_existing"},
+	// related_pages_fallback (owner ruling 2026-08-24, bugs_open/330 §12): the
+	// pages the WORKFLOW's picker step chose when the add_tool item named none.
+	// Consulted only when related_pages is empty — the requester always wins.
+	// Optional-explicit like its sibling, so neither can be filled by the
+	// whole-tree search; absent ⇒ exactly today's behaviour.
+	Optional:   []string{"description", "category", "related_pages", "related_pages_fallback", "replace_existing"},
 	Defaults:   map[string]interface{}{"category": "interactive"},
 	Deprecated: map[string]string{},
 	// enforce_instance_scope: arms the instance-scope birth guard
@@ -584,15 +589,17 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	// rewrite instruction carries the page's real URL and only runs once the
 	// page is live. This path's URL shape (CanonicalisePage → /tools/x/index.html)
 	// is one of the three that the old suggestion-time constructor got wrong.
+	relatedPages, relatedPagesSource := relatedPagesFromInputs(inputs, params.CollectedData)
 	crossLinksAdded := emitToolCrossLinkItems(ctx, params, logger, toolCrossLinkRequest{
-		siteID:       siteID,
-		toolFunction: function,
-		toolName:     displayName,
-		toolDesc:     description,
-		toolPageID:   pageID,
-		toolPageURL:  pageURL,
-		relatedPages: relatedPagesFromInputs(inputs, params.CollectedData),
-		emittedBy:    "tool-generator",
+		siteID:             siteID,
+		toolFunction:       function,
+		toolName:           displayName,
+		toolDesc:           description,
+		toolPageID:         pageID,
+		toolPageURL:        pageURL,
+		relatedPages:       relatedPages,
+		relatedPagesSource: relatedPagesSource,
+		emittedBy:          "tool-generator",
 		// bugs_open/353. This action creates the page row above with
 		// build_status='planned', and tool-generator's NEXT step
 		// (`enqueue_rerender` → create_rerender_items) files the page_rerender
