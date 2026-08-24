@@ -616,3 +616,60 @@ shared locks even though the ALTER has not started.
 Neither is mine — this lane has run no DDL and no export. Not touched, not killed: cancelling another
 session's hour-long export or migration is destructive and is the owner's call, not a side-effect of
 my measurement. Surfaced to the owner instead.
+
+---
+
+## 2026-08-24 — the guardian's cost objection, now MEASURED (it was the last thing owed)
+
+The DB cleared, so the `EXPLAIN` that was blocked above has been run. **The objection is answered and
+the answer is favourable, but the honest version includes the ratio, not just the absolute.**
+
+`EXPLAIN (ANALYZE, BUFFERS)` against the live database, `[MEASURED 2026-08-24]`:
+
+| query | execution |
+|---|---|
+| single-section (`queryCandidates`, `section_type='hero'`, 7 candidates) | **11.3 ms** |
+| batch (`queryCandidatesBatch`, 10 section_types — a full homepage — 15 candidates, 903 page lookups) | **10.7 ms** |
+| the OLD stored-column read, same batch | **0.36 ms** |
+
+**So it is ~30x the old query in relative terms, and ~10 ms in absolute terms.** Both numbers belong
+in the record: quoting only "10 ms" would hide a real regression ratio, and quoting only "30x" would
+imply a problem that does not exist at this scale.
+
+**Why 10 ms is the number that matters here:** the batch form runs **once per page build**, and a page
+build is dominated by LLM calls measured in seconds. The plan is fully index-backed on both sides —
+`Bitmap Index Scan on idx_page_components_template` for the binding lookup and
+`Index Scan using pages_pkey` for the site join — so it scales with *bindings for the candidates on
+this page*, not with the table. The guardian's specific question ("confirm candidate-set sizes stay
+small enough that the subquery is a non-issue") is answered: **15 candidates and 903 page lookups for
+a ten-section homepage, in 10.7 ms.**
+
+⚠ **What would change this, i.e. the disconfirming condition to watch:** the cost is linear in
+bindings-per-candidate, and `hero` alone already carries 105 bindings. If `page_components` grows by
+an order of magnitude, or if a single component reaches many thousands of bindings, re-measure. The
+remedy would then be a pre-aggregated CTE or `LATERAL` — **not** a revert to a stored counter, which
+is the defect this bug is about. Recorded so a future session re-measures rather than reverts.
+
+### Council objections — final state
+
+| seat | objection | state |
+|---|---|---|
+| `editquality` | test call sites would break | **ANSWERED** — none exist; `go vet` clean |
+| `bug_historian` | contract-row swap re-shapes enforced schema | **PARTLY ANSWERED** — bounded (consumer is a prompt + store-time backstop); residual owed post-roll |
+| `guardian` | correlated subquery cost on a hot path | **ANSWERED** — 10.7 ms batch, index-backed, once per build |
+| `prior_art_librarian` | CLC-026 coverage figures unverified | **ANSWERED** — mine, with control; register bullet is commit `1103c5cbd` |
+| `architecture` | wants an in-code CLC-026 TODO | **ALREADY SATISFIED** in the shipped comment; seat read the sketch |
+| `reuse_agent` | was an existing "sites per component" query missed? | **OPEN** — not searched; low |
+
+**Still owed after the roll:** the `bug_historian` residual (does the store-time guard fail loudly or
+silently when the new contract row's schema differs from what a bound page carries?), and the
+`reuse_agent` search. Neither blocks the fix; both are written down rather than closed by assertion.
+
+### Note on the DB incident above — I did NOT fix it
+
+For the record, because it would be easy to read the sequence as a fix: with the owner's approval I
+ran `pg_cancel_backend(2007330)` and it returned **false** — *"PID is not a PostgreSQL backend
+process"*. The blocker had already gone between my measurement and my command. The pile-up cleared
+(**83 of 91** backends waiting → **0 of 9**), **but not by my action.** Either it ended on its own or
+another session cancelled it first. Claiming the fix here would be exactly the kind of
+post-hoc-ergo-propter-hoc this lane spent the day arguing against.
