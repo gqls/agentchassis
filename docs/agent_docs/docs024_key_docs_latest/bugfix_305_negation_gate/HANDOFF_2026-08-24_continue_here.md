@@ -109,6 +109,38 @@ oversight.
 5. Not ours: the accounting-loop **sibling audit** a council seat asked for
    (`evidence_citations.go`, `revalidate_unverified_claims.go`) — open and unowned.
 
+## 4a. ⚠ POST-CLOSURE: one NEW defect in this mechanism, fixed but INERT until the next roll
+
+Found 2026-08-24 **after** closing, by answering a question from the `bugs_open/381` lane rather than
+from a symptom. Recorded here because the lane's own bar says an inert fix means the defect is still
+reproducible.
+
+**`negationSentenceSpans` did not close a sentence span at `</th`.** It closes at `</p`, `<br`,
+`</li`, `</h`, `</div`, `</td` — and `</th` is **not** reachable via the `</h` arm, because `"</th>"`
+is `<`,`/`,`t`,`h` and the third character already differs. Its sibling `</td` was present from the
+start, so table **data** cells split and **header** cells did not:
+
+```
+<table><tr><th>Real, not simulated</th><th>Throughput</th></tr></table>
+  -> sentence = "Real, not simulated</th><th>Throughput"
+```
+
+**Worse than a missed hit:** the captured sentence is exactly the span a repair splices over
+(`strings.Replace(base, t.Sentence, replacement, 1)`), so a rewrite would have replaced the cell tags
+with prose and broken the table. `AcceptNegationRewrite` compares prose shape and would not refuse it.
+
+- **Fixed** `714789d7b` (adds `</th` + `</tr`), two tests, **mutation-proven**; council `bccf772a`
+  submitted. **INERT until the next chassis roll** — it is Go.
+- **Newly reachable** because `381`'s migrations `594`/`595` retype five prose slots to `type: html`
+  and tell the writer to emit `<table>` in them. If those land before the roll, a define-by-negation
+  construction in a `<th>` is exposed in that window. Lists, subheads and `<td>` are fine and always were.
+- **The peer's actual question, answered and now pinned by a test:** the scanner splits on **both**
+  punctuation and tag boundaries, so a run of `<li>` items with no full stops is many sentences, not
+  one — probed, 1 clean hit.
+- **Scope deliberately not widened:** this is a prefix list, not an HTML grammar. `</blockquote`,
+  `</dd`, `</dt`, `</caption`, `</section` remain absent because RULE 10 does not emit them into these
+  slots. **Guessing at prefixes is how the `</th`/`</td` asymmetry arose** — probe and add a fixture.
+
 ## 5. Standing cautions (carried + new)
 
 - **The reconciliation census MUST be segmented by `status`**, and must **not** be tuned until it reads
