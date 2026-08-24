@@ -361,3 +361,44 @@ Nothing was deleted. The old app still exists in three places — on the server'
 disk, in the source repository, and in the bucket — it just isn't served any more.
 The "being refreshed" notice is gone from everywhere a visitor can reach, which is
 right, because the refresh has happened.
+
+---
+
+## 2026-08-24 — photos, video and audio in a note: built and tested, one step from live (written by the assistant)
+
+You asked (on the 22nd) for images, videos, GIFs and audio all in one note, with
+a sort of pasteboard to paste them onto, move them around, even edit them — in
+stages. The stages are written down now: first get every kind of file into a
+note and safely back out; then the board you arrange them on; then editing in
+place. The first stage is what got built today.
+
+What it does: on the Write page you can paste a picture straight from the
+clipboard, drag files in, or use a button — photos, GIFs, video clips, voice
+recordings. They appear on the note (pictures shown, video and audio playable),
+each with a remove button that asks first. The same honesty rules as the text
+apply: nothing ever claims to be stored until the server has actually said so; a
+failed upload stays visible with a Try again; closing the tab warns you if
+something hasn't finished. A little line shows how much of your storage you've
+used. And a nice side effect: anyone who imported from the old app finally SEES
+their old photos and recordings — until now the service kept them but showed
+them nowhere.
+
+All of it is tested the strict way this page has always been: the checks were
+deliberately broken to prove they can fail, then restored. The service tests all
+pass too, including one that proves one person cannot delete another's files.
+
+Where it stands: NOT live yet, deliberately. The service on the box has to be
+updated before the page, and this session wasn't permitted to copy files onto
+the box — so the update needs your hand (the exact commands are in the runbook,
+two blocks, five minutes). Once the service is updated I fire the page update
+through the framework and re-run the live checks end to end.
+
+Two numbers are yours to set when you like: each account gets 50 MB for files
+and each single file can be at most 25 MB. Fine for photos and voice notes,
+small for video. Both are one-line settings on the box — but the 50 MB is also
+what protects the shared disk under the webdesign shopfront, so raising it is
+your call, not ours. And the missing "delete my account" button matters a bit
+more now that accounts can hold real files.
+
+One piece of tidy news: the formal review of the Get Started button change came
+back approved, so that thread is closed.
