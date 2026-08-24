@@ -153,3 +153,40 @@ still be there afterwards. A change that simply deleted every link would pass a 
 for the bad ones disappearing.
 
 The page is in the publishing queue and I am waiting for it to run.
+
+## 2026-08-24, evening — it works, on the real website
+
+The test page republished and the dead links are gone.
+
+The loanzy.uk home page had three links to two pages that were never built. It now has none of them
+— and, the part that actually matters, it still has all five links to the calculators page and every
+other link it had before, at exactly the same counts. A change that had simply stripped links out
+would have failed that second half, which is why it was written down in advance.
+
+There is a record in the system, timestamped six seconds before the page went out, listing the three
+links it removed and how it treated each. Two were inside cards, so the whole card link came out,
+label and arrow together, leaving the card's headline and text intact. One was a link inside a
+sentence, so only the link came off and the words stayed. That is the two-way behaviour we agreed
+on, working on real pages rather than in a test.
+
+I checked the obvious alternative explanations rather than assuming. The two missing pages are still
+missing — so the links were removed, not quietly fixed by the pages appearing. The page was not
+rewritten, because every other link count is unchanged to the digit. And the site did not lose its
+internal linking, because nine other links are still there.
+
+**Then something better happened, which I did not ask for.** A second site, remortgagecalculator.uk,
+republished two of its own pages on its normal schedule with nothing prompted by me — and both came
+out clean: no dead links, and seventeen and fifteen ordinary links respectively still in place. That
+is the thing I argued for yesterday when I decided not to force 28 pages through the publisher: the
+ordinary publishing cycle carries the fix on its own. It is now demonstrated rather than predicted.
+
+Across the whole estate since the switch went on, six pages on five sites have republished and
+fifteen dead links have come off the web.
+
+**What is left is waiting, not working.** Five of the twenty-eight affected pages have republished;
+the other twenty-three have not yet, and until they do they still serve their dead links. They will
+clean themselves up as they republish over the next day or so. I am deliberately not forcing them,
+for the reason above.
+
+The bug stays open until the last of them is clean, which is the honest bar — "fixed" here means
+fixed on the website, not fixed in the code. I would expect to close it inside a couple of days.
