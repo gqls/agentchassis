@@ -92,7 +92,10 @@ signature). A new racing publisher now draws an advisory `check_kcat_stdin_race`
 
 **It stays OPEN, deliberately.** `[MEASURED 2026-08-23]` of **218** `kcat -P` publishers, **201**
 still use the racing form — **178 of them runnable** (23 are scrapbooks that do not parse) — and
-**one** caller has been migrated. The customer path this bug names is closed; the class is not.
+**two** callers have been migrated (2026-08-24: `scripts/trigger-landmine-verifier.sh`, whose
+caller counted dispatch failures from the one signal absent on the silent arm). The customer
+path this bug names is closed; the class is not, and **this file tracks the class** (owner,
+2026-08-24) — so it stays open until the runnable racing publishers are gone, not until 082 works.
 
 **Also corrected here:** this file's evidence (`8fa2a4a6…` → 0 rows) can no longer be
 re-verified — `orchestration_states` retains **~2 days** and holds nothing for 2026-08-18, so that

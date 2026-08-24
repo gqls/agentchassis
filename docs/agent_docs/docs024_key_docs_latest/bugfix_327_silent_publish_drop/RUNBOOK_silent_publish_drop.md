@@ -116,6 +116,15 @@ kubectl -n kafka run "kcat-$(date +%s)-$RANDOM" --rm --restart=Never \
 DRY_RUN=1 ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh <submission.json>
 ```
 
-⚠ Scope is `^(platform|internal|pkg)/|^cmd/config-key-audit/` plus appliable migrations
-(`scripts/council-scope.sh`). **A fix living only in `scripts/` is refused client-side** and
-never reaches the council.
+⚠ Scope is `^(platform|internal|pkg)/|^cmd/config-key-audit/|^scripts/pattern-check\.py$` plus
+appliable migrations (`scripts/council-scope.sh`).
+
+> **UPDATED 2026-08-24 (owner ruling).** `scripts/pattern-check.py` is now IN scope, so this
+> lane's submission — refused exit 2 on 08-23 — is admitted exit 0 today. **The rest of
+> `scripts/` is still refused**, including `kafka-publish-lib.sh`, so the publisher itself
+> remains unreviewable.
+>
+> ⚠ **Widening scope means editing TWO files.** `098_REPORT` carries `SCOPE_PATHS`, a hand-kept
+> pathspec array, as a pre-filter — `git log` takes pathspecs, not regexes. A path in the regex
+> but not the array is **invisible** to the coverage report (absent, not unreviewed). That cost
+> 22 hidden commits on 2026-08-23.
