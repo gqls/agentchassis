@@ -302,3 +302,59 @@ build the declaration without the auditor arm.
   enumerate its call sites or judge the merge. `bugs_closed/284` is still cited by shape.
 - **The `image_url_404` undispatched population** the handoff observed (42 rows, 38
   `detected`, all with an empty `handler_agent`). Untouched, unfiled, still not this bug.
+
+---
+
+## 8. CORRECTION — the census in §3a AND §7a read a ROLLING WINDOW `[2026-08-24, post-council]`
+
+**The council APPROVED this lane's fix round 1 (corr `7a6add95-30e9-4576-85e5-df5bad0f7119`,
+12 reviewers, 5 abstained), and its `prior_art_librarian` seat objected — severity MEDIUM — that
+the blast-radius figures were drawn from a table that cannot answer historical questions. It was
+right, and I had the landmine for it in my own memory index and did not apply it.**
+
+`site_work_items` is a **rolling window**: `work-item-archiver` moves terminal rows out to
+`site_work_items_archive`, which holds **25,281** rows and which neither §3a nor my re-run
+queried. The corrected census is over `site_work_items` **UNION** `site_work_items_archive`:
+
+| | §3a and §7a said | live ∪ archive says |
+|---|---|---|
+| item types the four agents handle | **5** | **7** |
+| completions all-history | **134** | **578** |
+| positive control | 10 distinct types with rows | **11** of 13, 1,320 rows |
+
+**The two types that were invisible had been completed ENTIRELY into the archive:**
+
+| item_type | rows (∪) | completed | why the live table missed it |
+|---|---|---|---|
+| `unfulfilled_hero_variant` | 18 | 18 | 18 of 18 archived — a type nobody in this lane's history had named |
+| `image_url_404` | 3 | 3 | 3 of 3 archived |
+
+Corrected full set, live ∪ archive: `needs_imagery` 565/469 · `required_fields_missing` 78/52 ·
+`needs_hero_image` 24/21 · `unfulfilled_hero_variant` 18/18 · `needs_logo` 15/13 ·
+`image_url_404` 3/3 · `image_source_unsatisfiable` 17/2.
+
+### What survives, and what got lucky
+
+- **The headline SURVIVES: the intersection with registered verifiers is still ZERO.** All
+  **seven** types are unverified, re-checked mechanically over the union. So "the defect is
+  LATENT" holds, `RFC_022`'s third condition still holds, and the fix does not change.
+- **But it survived by luck, not by the measurement.** Had either archived-only type carried a
+  verifier, the census would have reported a clean zero and the design rationale would have
+  rested on it. **The conclusion being right does not make the method right** — this is the
+  shape `WRONG_CALLS` exists for, and the seat that caught it did so from the landmine index,
+  not from the data.
+
+### A correction this also forces on the handoff, and on §6 of it
+
+`HANDOFF_2026-08-24_start_here.md` §6 records, marked `[MEASURED 2026-08-24 19:00Z]`, that
+`image-url-404-handler` *"has handled **0 rows, ever**"*. **That is false, for the same reason:
+it handled 3, all completed, all archived.** The rest of that finding stands — 42 `image_url_404`
+rows with an empty `handler_agent`, 38 still `detected`, nothing routing them — and it is still
+not this bug. But "0 ever" was a rolling-window artefact and should not be requoted.
+
+### The check, so this does not need finding a third time
+
+**Any "all-history", "ever", or "lifetime" claim about `site_work_items` must UNION the archive.**
+The RUNBOOK's queries are corrected. The disconfirming question to ask before writing such a
+figure: *would a row that already completed and got archived be in my result?* If the query names
+only `site_work_items`, the answer is no, and the figure means "recently" however it is worded.
