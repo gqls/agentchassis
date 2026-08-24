@@ -343,6 +343,20 @@ number" is a fact with a shelf life of minutes.** Check it again in the same bre
 did not reach (a `COMMENT ON FUNCTION` body and an internal `RAISE` tag), and a migration that names
 the wrong number in its own error messages is a bad afternoon for whoever reads the log.
 
+> **⚠ ADDENDUM — misstep 5 was ALREADY IN `LANDMINES.md`, three times over, and I did not look.**
+> *"The next free migration number is only free until someone commits — two sessions can hold the
+> same NNN for hours and the ledger will happily apply both"* (line ~11243), plus two more entries
+> at ~3479 and ~12287, one of which names the exact command I used (`ls … | tail`). It cost me only
+> a rename, but I had the answer on disk before I had the problem.
+>
+> **Why I did not see it, which is the transferable part:** the `SessionStart` hook only surfaces
+> landmines whose footprint matches a file **already dirty** in the tree, and
+> `docs/agent_docs/sql_for_agents/` was clean when this session started. A landmine for a directory
+> you are about to write your *first* file into is structurally invisible to that hook. The standing
+> remedy is the one in MEMORY — **grep LANDMINES for the path, table or symbol you are about to
+> touch, before you touch it** — and "I am about to create a numbered file in a shared directory" is
+> exactly the shape that deserves it.
+
 ### MISSTEP 6 — the trailer gate stopped me writing a join key of `pending`
 
 I drafted the commit with `Council-Submitted: pending`, intending to fill it in. The `commit-msg`
