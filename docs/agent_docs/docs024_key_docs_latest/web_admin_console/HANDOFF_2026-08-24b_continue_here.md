@@ -67,8 +67,10 @@ infrastructure proofs) and §2/§3 (owner box steps) remain the reference — re
    not 500 — debug_historian's owed verification; sqlmock proved the shape, not the table).
 3. Architecture boundary review when `links.webdesign.uk` goes live (morning §5.1) — unmet
    until the owner applies §2.
-4. Morning §5.3–§5.7 unchanged (mail-scanner residual, HOLD ban, webdesign lane items, VPN
-   parked, ADM-002 staleness — B2 now fixed-committed, B3/B4 still `[UNVERIFIED]`).
+4. Morning §5.4–§5.7 unchanged (HOLD ban, webdesign lane items, VPN parked, ADM-002
+   staleness — B2 now fixed-committed, B3/B4 still `[UNVERIFIED]`). ~~§5.3 mail-scanner
+   residual: owner's call~~ **RULED — see §3.2 below: second click required, delivery
+   email blocked on it.**
 
 ## 2. Falsifiers for THIS handoff
 
@@ -80,3 +82,77 @@ infrastructure proofs) and §2/§3 (owner box steps) remain the reference — re
   SPA for a "Builds" button before rebuilding.
 - `customer_access_tokens` and handed_over counts — 0 as of 2026-08-24; any non-zero expires
   the "nothing at risk" claims inherited from the morning handoff.
+
+---
+
+## 3. EVENING ADDITIONS (2026-08-24, same session, after owner questions) — start HERE
+
+1. **Deploy check DONE: core-manager does NOT carry `e6350e74b`.** Both pods (checked
+   individually) stamp `70fd163c2`, built 15:37Z — an ancestor check fails. So: backend
+   fixes committed+approved but NOT live; the dashboard image deploy stays blocked on the
+   next core-manager roll (§0.2 ordering unchanged and still the first action when the
+   roll lands).
+
+2. **OWNER RULING (2026-08-24): the mail-scanner residual is NOT accepted — a second
+   click is required.** *"We can't have email scanners clicking the accept button so
+   we'll need a separate page."* Recorded with the full mechanics and build sketch in
+   `../webdesign_uk_build_service/DECISION_2026-08-24_confirmation_needs_a_second_click.md`;
+   the `links.webdesign.uk.nginx` header comment updated (its "owner's open call" line was
+   stale the moment this was said). Consequences: `GET /c/<token>` must become
+   render-only, the confirm moves to a POST from the page's button, and **no delivery
+   email may be sent before that page is live** — this is now a hard dependency on the
+   webdesign lane's delivery-email item. New build item: `handlers/delivery.go` split +
+   POST route + council round. The owner's §2 box steps (links vhost + DNS) are NOT
+   blocked by this — the vhost passes GET and POST alike, and exposing the hostname early
+   is safe (`customer_access_tokens` = 0, prefetch guard live).
+
+3. **Route census — the "second public cluster route" claim, measured properly**
+   (owner asked whether noted.co.uk / robot-hands.com / idea.uk etc. are also cluster
+   routes; they are not):
+   - **Portfolio site domains (noted.co.uk, idea.uk, robot-hands.com — live and 200ing,
+     apis.uk, the ~39 zones) never touch the cluster at serve time.** They are
+     Cloudflare-fronted static sites — served from the B2 `portfolio-sites` bucket via
+     the portfolio-sites-router Worker, or from the git-hosted route — the cluster
+     BUILDS and uploads them; no visitor request reaches a cluster service.
+   - **Paths that DO reach the cluster** (via box nginx → WireGuard): `admin.apis.uk` →
+     admin-dashboard (Access-gated, deliberate, live); `webdesign.uk/c/` → core-manager
+     and `webdesign.uk/stripe/webhook` → auth-service — **both currently swallowed by the
+     parking 302 to webdesign.co.uk (measured: both return 302)**, i.e. TODAY zero
+     ungated public cluster paths are actually reachable.
+   - After the §2 move: `links.webdesign.uk/c/` becomes the FIRST deliberately public
+     UNGATED cluster path (admin.apis.uk being the gated one). The stripe webhook becomes
+     the next when the shopfront unparks — **⚠ flag for the webdesign lane: a Stripe
+     webhook configured today would have its events 302-bounced by the parking redirect
+     (non-2xx = failed delivery + retries); the webhook cannot go live before the parking
+     rule excludes that path or the shopfront unparks.**
+   - The architecture-seat boundary review (§1.3 / morning §5.1) stays owed when the
+     links host goes live; this census is input to it.
+
+4. **Foot-gun list for the links move, with consequences** (the security-relevant ones
+   first; all are inline in `box/links.webdesign.uk.nginx` and the runbook, gathered here
+   because the owner asked):
+   - **Widening `location /c/`** (or removing the `location / { return 404; }`
+     catch-all): whatever prefix is added becomes a public unauthenticated door into
+     core-manager — e.g. `/api/v1/site-facts/:domain` would expose every site's evidence
+     facts; the admin surface would face the internet with only its own JWT check.
+     SECURITY. The prefix IS the exposure.
+   - **Rate-limit key is `CF-Connecting-IP`** — trustworthy only while traffic can ONLY
+     arrive via the tunnel. Any path that exposes the box directly makes the key
+     attacker-chosen. SECURITY (posture-dependent). Keep loopback-bind + ufw deny.
+   - **`cloudflared tunnel route dns`** puts the record in the WRONG ZONE and reports
+     success (measured 2026-08-23, LANDMINES): links stays dead while believed live, plus
+     a stray record in another zone. AVAILABILITY + confusion. Dashboard only.
+   - **Ingress rule below the 404 catch-all**: cloudflared takes first match → every
+     customer link 404s. AVAILABILITY (fail-closed).
+   - **Static `proxy_pass` resolves at nginx start**: a changed core-manager ClusterIP →
+     timeouts that read as core-manager down, until `systemctl reload nginx` on the box.
+     AVAILABILITY.
+   - **WireGuard egress fence**: core-manager:8088 must stay on
+     `networkpolicy-wireguard-egress.yaml`'s allowlist; narrowing it produces the same
+     "core-manager looks down" timeout. AVAILABILITY.
+   - (apis.uk zone, if touched for www: do NOT delete the `*.apis.uk` wildcard — it
+     feeds the island probe. The www 301 is served by the Worker regardless.)
+
+5. **kubectl token EXPIRED mid-session (~16:50Z)** — fleet-wide `Unauthorized`, the known
+   3-day expiry; owner refreshes. Every DB/pod check above predates the expiry; anything
+   needing the cluster from here waits on the refresh.

@@ -17,8 +17,11 @@
 # speculative fetches refused, 412 + no-store), and customer_access_tokens
 # holds 0 rows, so there is no token to guess and no state to corrupt. The
 # RESIDUAL still stands and moving hostname does not touch it: a mail
-# scanner's plain GET is indistinguishable from a real click; the remedy is a
-# second click and that is the owner's open call (DECISION_2026-08-21b §4).
+# scanner's plain GET is indistinguishable from a real click. RULED 2026-08-24:
+# the second click IS required — GET /c/ becomes a render-only confirmation
+# page, the mutation moves to a POST from its button, and NO delivery email is
+# sent before that page ships (DECISION_2026-08-24_confirmation_needs_a_second_click.md).
+# This vhost needs no change for it: `location /c/` passes GET and POST alike.
 #
 # Same posture as every vhost on this box: loopback only, tunnel dials out,
 # ufw default-deny. Same tunnel caveats as webdesign.uk.nginx: no X-Real-IP,

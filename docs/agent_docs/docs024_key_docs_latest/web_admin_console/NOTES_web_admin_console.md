@@ -241,3 +241,24 @@ re-checked against the code/DB rather than argued with:
 5. **debug_historian's gap, now an owed verification step:** after core-manager rolls a
    build carrying `e6350e74b`, smoke-test terminate against a real non-terminal correlation
    (expect 200 + row status FAILED, not 500) — sqlmock proves the SQL shape, not the table.
+
+### 2026-08-24 evening — owner ruled the residual, the route census, and a token expiry
+
+- **Owner RULED the mail-scanner residual: second click required** ("We can't have email
+  scanners clicking the accept button so we'll need a separate page"). Decision doc:
+  `../webdesign_uk_build_service/DECISION_2026-08-24_confirmation_needs_a_second_click.md`.
+  Blocks the first delivery email; GET /c/ becomes render-only, confirm moves to POST.
+- **Deploy check: core-manager does NOT carry `e6350e74b`** — both pods stamp `70fd163c2`
+  (15:37Z), ancestor check fails. Dashboard deploy stays blocked.
+- **Route census** (owner challenged "second public cluster route" — right to): portfolio
+  domains (noted.co.uk, idea.uk, robot-hands.com — live, apis.uk, ~39 zones) are
+  Cloudflare-fronted static sites (B2 bucket via the Worker / git route) — NOT cluster
+  routes. Cluster-reaching paths: admin.apis.uk (Access-gated, live);
+  webdesign.uk/{c/,stripe/webhook} — **both measured 302-parked to webdesign.co.uk right
+  now**, so today zero ungated cluster paths are reachable; links.webdesign.uk/c/ will be
+  the first. ⚠ flagged to webdesign lane: Stripe webhook events would 302-bounce today.
+  One instrument note: `?debug=1` on noted.co.uk returned site HTML, not the Worker's
+  debug JSON — the deployed Worker may differ from the repo copy (live-and-committed are
+  independent facts), so "Worker or git route" is stated, not which.
+- **kubectl token expired ~16:50Z** (fleet-wide Unauthorized, the 3-day cycle; owner
+  refreshes). All figures above predate it.
