@@ -67,7 +67,7 @@ the step declares it takes.
 
 ---
 
-## 4. `bugs_open/353` — THE ONE THING WITH A PENDING OWNER DECISION
+## 4. `bugs_open/353` — **the damage half is CLOSED. There is NO pending decision; the redeploy this section used to ask for was based on a WRONG measurement of mine**
 
 Fixed (opt-in field, unsafe default OFF; decision extracted and mutation-proved) and **backfilled:
 74 cross-link items restored across 34 tools / 19 sites**, driven through the real emitter so the
@@ -75,17 +75,23 @@ item shape cannot fork. Council round 1 REVISE — **both objections were right 
 the code** (a literal `false` had made the decision's `pageLive` arm dead; and the
 `replace_existing` reroute's exclusion was unstated) — **round 2 in flight, corr `642ecc3c`**.
 
-**⚠ THE BACKFILL IS DONE AT THE DATA LAYER AND UNFINISHED AT THE SERVING LAYER.** 61 of 74 items
-are `complete` and the links ARE in `page_components.rendered_html` — **but 51 of 51 pages carrying
-a completed rewrite deployed BEFORE their rewrite landed (a ~7-second gap, repeated 51 times: an
-ordering property, not a race), so visitors do not see them.** Verified by `curl` with a control.
+**✅ THE BACKFILL IS COMPLETE AT THE ARTEFACT.** 74 items created, 61 `complete`, **and the links
+are live on the pages**: a random sample of **12 backfilled pages across 8 domains, every URL read
+from `pages.url`, is 12/12 serving** (1–4 hits each) against a negative control that correctly
+returns 0.
 
-**THE DECISION: redeploy those 51 pages?** It is a real fleet action across ~19 live sites, the
-same class as the backfill, and it is deliberately **not** being fired without the owner's word.
-⚠ When it is run, remember a re-render carries **every** improvement since each page last
-rendered — do not size it by this change. Whether the pages redeploy on their own is **unproven in
-both directions** (none has in ~17 h); do not write "they will pick it up naturally" without
-measuring it.
+> ⚠ **AN EARLIER VERSION OF THIS SECTION SAID THE OPPOSITE AND ASKED FOR A 51-PAGE REDEPLOY. It
+> was WRONG, the owner approved it on that wrong premise, and it was CANCELLED before running.**
+> I had **constructed** the page URLs (`/barrel-shapes.html`) instead of reading `pages.url`
+> (`/blog/barrel-shapes.html`), so every zero — **including my control** — was a miss on a URL that
+> does not exist. **That is `bugs_closed/029`'s own defect** ("a page URL cannot be CONSTRUCTED, it
+> must be looked up"), made inside 029's own file. The `deployed_at < completed_at` join that
+> produced "51 of 51" was a red herring: `deployed_at` is not stamped by that path, and **the 100%
+> should have prompted "what makes this true trivially?" instead of a mechanism story.**
+> What caught it: firing the canary redeploy and then **re-checking the control** — the page I had
+> never touched was already serving its link. Full retraction: `bugs_open/353` §11;
+> `WRONG_CALLS.md` 2026-08-24.
+> **One page was redeployed (dartsonline `barrel-shapes`, harmless). The other 50 were not.**
 
 ---
 
@@ -95,8 +101,13 @@ measuring it.
    mode is a PASS.** `replace_existing` reroutes `create_tool_component` into a different function
    that returns before the emitter; it invalidated a peer's "free" control, then masked 353 for 19
    days, then drew a council objection. Split on the arm before comparing.
-2. **A complete work item is not a repaired artefact** — 61 completions, 0 pages serving the link.
-   The check that separates "writer failed" from "page is stale" is stored-HTML vs `deployed_at`.
+2. **NEVER CONSTRUCT A SITE URL — read `pages.url`.** I curled `/barrel-shapes.html` for a page
+   living at `/blog/barrel-shapes.html`, declared 51 pages broken, and had a fleet redeploy
+   authorised on it. Every zero, control included, was a miss on a URL that does not exist. This is
+   `bugs_closed/029`'s own defect, made inside 029's file. **And when a result is 100%, ask what
+   would make it true TRIVIALLY before writing a mechanism for it** — "51 of 51" was the tell.
+   Corollary: **a control built the same wrong way is not a control**; prove the checker can return
+   non-zero. (`bugs_open/353` §11, `WRONG_CALLS.md` 2026-08-24.)
 3. **A residual is discharged by what is ABSENT SINCE, not by a falling count** — retention makes
    rows vanish and that proves nothing.
 4. **A bare bug number routes to the wrong owner** — 029 is ambiguous; resolve by slug.
@@ -114,6 +125,7 @@ measuring it.
    (§2.11's method): flip literal present · a known literal present · a synthetic literal absent.
 2. **The gate is CLOSED — do not re-run a window.** Its result is recorded in
    `HANDOFF_2026-08-20_continue_here.md` §2.11.
-3. Read the `642ecc3c` verdict (353 round 2) and act on it.
+3. Read the `642ecc3c` verdict (353 round 2) and act on it. **Do NOT run the 51-page redeploy**
+   that an earlier version of §4 asked for — its premise is retracted (§4, `bugs_open/353` §11).
 4. Council/ownership: `5ae2147d` APPROVED + applied; `26186633`, `e05ea6f9` APPROVED + live;
    `642ecc3c` pending. Nothing else owed.
