@@ -811,3 +811,22 @@ copy for the old tells before anything else happens.
 Still waiting on: the benefit-ordering thread (no reply yet — the question has shrunk to
 "what is the first differentiator, written as a gain", and we've made that call for now),
 and your three Phase 1 decisions (playground booking shape, sample datasets, Stripe posture).
+
+Later the same day. The builder wrote the page — and a quality gate then blocked it, wrongly.
+The gate keeps a list of "template leftovers" to catch (things like "[Your Company]" that a
+lazy template forgets to fill in), and one entry on that list was simply the bare words "your
+company" — which is also the second word-pair of our agreed headline, and of half the privacy
+copy on this site. We pulled the records: that entry has fired 46 times in its life, every
+single one a false alarm, 41 of them on this site — it has been quietly killing our page
+builds for three weeks and nobody saw, because blocked builds land in a review queue with no
+screen. We fixed the list (the genuinely-suspicious forms are still caught), the review
+council approved it first time, and the fix ships with the next release; the page then
+rebuilds on its own.
+
+The good news is the writing itself. We checked the blocked page's copy word by word: the
+constructions you flagged as AI-sounding are at zero, none of our example sentences were
+copied onto the page, the only number on the page is £99, and the promise we agreed not to
+make isn't there. One habit survived — sentences shaped like "X rather than Y" — and we could
+trace it directly: the instructions we hand the writer USE that shape twenty-one times while
+telling it not to. We've cleaned up the instructions we own; the shared fleet wording is the
+copy team's call and we've sent them the numbers.
