@@ -236,3 +236,42 @@ window is too short to call it. Do not record "they will pick it up naturally" w
 **353 therefore stays OPEN** on: (a) the forward fix, inert until a roll (council round 2 in
 flight, corr `642ecc3c` — round 1's two objections were both right and are answered in the code);
 (b) these 51 pages serving their links; (c) `tool-deployer` still unexercised.
+
+## 11. ⚠ **§10 IS WRONG AND IS RETRACTED — the links WERE being served all along.** The backfill is COMPLETE at the artefact (2026-08-24 ~11:0xZ)
+
+> **CORRECTED 2026-08-24:** §10 claimed "51 of 51 pages hold the link in stored HTML and have not
+> redeployed", and recommended a 51-page fleet redeploy. **That finding was an artefact of MY OWN
+> MEASUREMENT and the recommendation was withdrawn before it ran.**
+
+**What I did wrong: I CONSTRUCTED the page URLs instead of reading `pages.url`.** I curled
+`https://dartsonline.com/barrel-shapes.html`; the page's real URL is **`/blog/barrel-shapes.html`**.
+Every "0 hits" in §10 — including its *control* — was a 404-shaped miss on a URL that does not
+exist. **This is precisely the defect `bugs_closed/029` exists for** ("a tool page's URL CANNOT be
+constructed from its name — it has to be LOOKED UP from `pages.url`"), committed while working
+inside that very file, on the bug that file's guard caused.
+
+**The re-measurement, using `pages.url` read from the database, with controls:**
+
+| page (real URL) | tool | hits |
+|---|---|---|
+| dartsonline.com `/blog/barrel-shapes.html` (rerendered) | tungsten-diameter-visualiser | **1** |
+| dartsonline.com `/blog/barrel-weight.html` (**never rerendered by me**) | tungsten-diameter-visualiser | **2** |
+| negative control (same page, a fake tool slug) | — | **0** |
+
+The second row is the decisive one: **a page I never touched was already serving its link**, so
+nothing was waiting on a redeploy. A random sample of **12 backfilled pages across 8 domains, all
+at their DB-read URLs: 12 of 12 serving, 1–4 hits each.**
+
+**The `deployed_at < completed_at` comparison that produced §10 was a red herring**, and the very
+consistency I cited as proof ("51 of 51 — an ordering property, not a race") was the tell I
+misread: `deployed_at` is simply not stamped by the rewrite's own deploy path. **A 100% result
+should have prompted "what would make this true trivially?" rather than a mechanism story.**
+
+**So §9.3's bar is MET and the damage half of 353 is CLOSED:** 74 items created, 61 complete, and
+the links are live on the pages. What remains open is only **(a)** the forward fix, inert until a
+roll (council round 2, corr `642ecc3c`), and **(b)** `tool-deployer`'s unexercised path.
+
+**One redeploy was fired before the correction** (dartsonline `barrel-shapes`, corr `c0fd334d`,
+COMPLETED) — harmless, and it is what exposed the error: it "fixed" nothing because nothing was
+broken, and re-checking the control is what showed the control had been serving all along.
+**The 50-page redeploy was NOT run.**

@@ -47086,3 +47086,41 @@ by `bugs_open/220`. The council's unscoped check found it in one query.
    somewhere you did not look.
 3. **Run one census with NO type filter before the scoped one.** The unscoped count is what tells
    you whether your hypothesis is the main class or a corner of it.
+
+## 2026-08-24 — I CONSTRUCTED a page URL instead of reading `pages.url`, declared 51 pages broken, and got a fleet redeploy authorised on it (staged_component_build lane)
+
+**The claim.** `bugs_open/353` §10: *"51 of 51 pages carrying a completed backfill rewrite deployed
+BEFORE their rewrite landed … so visitors do not see them"*, with a recommended remedy of
+redeploying 51 pages across ~19 live sites. I took it to the owner as the one pending decision.
+**They approved it. It was wrong.**
+
+**What was actually wrong.** I verified at the artefact by curling
+`https://dartsonline.com/barrel-shapes.html`. The page's real URL is **`/blog/barrel-shapes.html`**
+(`pages.url`). Every zero I measured — **including the control** — was a miss on a URL that does not
+exist. Re-measured with URLs read from the database: **12 of 12 sampled pages across 8 domains are
+serving their tool links**, 1–4 hits each, against a negative control that correctly returns 0. The
+links had been live the whole time.
+
+**This is the exact defect of the bug whose guard caused 353.** `bugs_closed/029` exists because *"a
+tool page's URL CANNOT be constructed from the tool's function name — it has to be LOOKED UP from
+`pages.url`"*. I made that error inside `create_tool_cross_link_items.go`'s own blast radius, on the
+same day I quoted 029's rule approvingly in a council submission.
+
+**The tell I explained away instead of testing.** 51 of 51, a clean 100%. I wrote *"a ~7-second gap
+repeated 51 times is an ORDERING property, not a coincidence"* — dressing a suspiciously total
+result as a mechanism. **A 100% result is the moment to ask "what would make this true trivially?"**
+The trivial answer was there: `deployed_at` is not stamped by that path, and my URL was wrong.
+
+**What caught it.** Running the canary redeploy the finding recommended, and then **re-checking the
+CONTROL** — the page I had NOT touched. It was serving the link. A remedy that changes nothing, on
+a control that already passes, refutes the diagnosis rather than the remedy.
+
+**The cheap check, and it is one line:** `SELECT url FROM pages WHERE id = …` before curling
+anything. Never assemble a site URL from a page NAME. And when a check returns zero everywhere,
+**prove the checker can return non-zero** — my negative control was a second fabricated URL, so it
+could not have discriminated either.
+
+**Cost:** a wrong section in a bug file, a wrong section in a handoff, one unnecessary page
+redeploy, and an owner decision taken on a false premise. **Nothing was destroyed** — the redeploy
+was harmless and the 50 remaining were never fired — but the owner authorised a fleet action on my
+wrong measurement, which is the part that matters.
