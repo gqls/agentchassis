@@ -91,7 +91,10 @@ attempted), a **non-zero exit** naming what did not land, and a landing check th
 signature). A new racing publisher now draws an advisory `check_kcat_stdin_race` at commit time.
 
 **It stays OPEN, deliberately.** `[MEASURED 2026-08-23]` of **218** `kcat -P` publishers, **201**
-still use the racing form — **178 of them runnable** (23 are scrapbooks that do not parse) — and
+still use the racing form — but that figure counts COMMENTS. `[MEASURED 2026-08-24]` **183** race
+in code and **160** race *and* parse (23 are scrapbooks; 18 more match only inside comments
+warning about this very trap, including the ones written into each file as it was migrated). So
+**160** is the exposure, not 178 — and
 **three** callers have been migrated (2026-08-24: `scripts/trigger-landmine-verifier.sh`, whose
 caller counted dispatch failures from the one signal absent on the silent arm; and
 `097_TRIGGER_council_review_v1.sh`, closing all three halves of its own landmine — the

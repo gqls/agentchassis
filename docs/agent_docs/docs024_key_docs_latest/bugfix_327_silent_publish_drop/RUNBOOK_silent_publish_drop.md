@@ -73,18 +73,32 @@ grep -rl "PUBLISH_OK" --include="*.sh" . | while read f; do
   grep -qE 'grep .*PUBLISH_OK|if .*PUBLISH_OK|\[\[ .*PUBLISH_OK' "$f" && echo "$f"; done
 ```
 
-`[MEASURED 2026-08-23]` 218 / 201 / 25 / **2**.
+`[MEASURED 2026-08-23]` 218 / 201 / 25 / **2** — but see the corrections below; the racing figure counts comments.
 
-⚠ **A file containing the pattern is NOT a publisher that can run, and the gap is ~2×.** Of
-the 201 racing-form files, **178 parse** (`bash -n`), **106** are executable, **105** are
-both — the other **23 are scrapbooks with a `.sh` extension** (pasted SQL, no shebang, or a
-syntax error), e.g. `020_build_pipeline/076_trigger_build_pipeline.sh` and
-`077_submit_domain.sh`. Quote **178** as the exposure, not 201:
+⚠ **TWO corrections make the naive census wrong in the same direction. Use the command below,
+not a bare grep.**
+
+1. **A file containing the pattern is not a publisher that can RUN** — 23 are scrapbooks with a
+   `.sh` extension (pasted SQL, no shebang, or a syntax error), e.g.
+   `020_build_pipeline/076_trigger_build_pipeline.sh` and `077_submit_domain.sh`.
+2. **A COMMENT describing the trap matches a grep for the trap.** `[MEASURED 2026-08-24]` **18
+   files** carry `run -i` + `kcat -P` only inside comments — warnings *about* this very hazard,
+   including the ones this lane wrote into every file it migrated. **A migrated file keeps
+   matching a naive census for ever**, so the number stops moving exactly when the work starts
+   working. (`pattern-check.py`'s detector was never fooled: it strips comments. Only this
+   one-liner was.)
+
+**Strip comments AND require it to parse:**
 
 ```bash
-grep -rl "kcat -P" --include="*.sh" . | while read f; do grep -q "run -i" "$f" && echo "$f"; done \
-  | while read f; do bash -n "$f" 2>/dev/null && echo "$f"; done | wc -l
+grep -rl "kcat -P" --include="*.sh" . \
+  | while read f; do sed 's/#.*//' "$f" | grep -q "run -i" && bash -n "$f" 2>/dev/null && echo "$f"; done \
+  | wc -l
 ```
+
+`[MEASURED 2026-08-24]` **219** publishers · **183** racing in code (201 if you count comments)
+· **160** racing *and* parsing — **quote 160 as the exposure** · **4** callers on the checked
+library.
 
 Per CLAUDE.md's counting rule, quote these with the date; check for additions since with:
 

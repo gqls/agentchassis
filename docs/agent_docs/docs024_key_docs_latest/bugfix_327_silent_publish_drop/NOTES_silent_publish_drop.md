@@ -669,3 +669,58 @@ through the migrated `trigger-landmine-verifier.sh` → `PUBLISHED` with a recei
 confirmed at `EXECUTING_STEP|spawn_verifier`.
 
 **Adoption: 3 of ~178.**
+
+---
+
+## 2026-08-24 — my census was wrong in a way my own fix made worse, and a stranger adopted the library
+
+### > **CORRECTED: the exposure figure is 160, not 178 — and migrating a file made the naive count go UP**
+
+`[MEASURED 2026-08-24]`, comments stripped:
+
+| | count |
+|---|---|
+| `kcat -P` publishers | **219** |
+| racing form, **counting comments** (what I quoted) | 201 |
+| racing form **in code** | **183** |
+| racing in code **and** parses — *the exposure* | **160** |
+| callers on the checked library | **4** |
+
+**Two independent inflations, both upward, and I only caught the first yesterday.** 23 files are
+scrapbooks that cannot run (found 2026-08-23). A further **18 match only inside comments** —
+warnings *about* this very hazard, written by people trying to help.
+
+**The part that is my own doing:** every file I migrate gets a comment block explaining what the
+racing form was and why it went. **That comment keeps matching a naive census for ever.** So the
+three migrations I made today moved the naive count by **zero** — the number stops moving exactly
+when the work starts working, and it does so in the direction that flatters nothing and confuses
+everything.
+
+This is `check_stdin_eater`'s documented lesson one level up: *a detector that flags its own
+warning text teaches people to ignore it.* I honoured that rule inside the **detector** —
+`pattern-check.py` strips comments and was never fooled — and then broke it in the **census
+one-liner** I published in the RUNBOOK for everyone else to use. The rule was in my hands and I
+applied it to one of the two instruments.
+
+**Corrected command** (`RUNBOOK`, now authoritative):
+
+```bash
+grep -rl "kcat -P" --include="*.sh" . \
+  | while read f; do sed 's/#.*//' "$f" | grep -q "run -i" && bash -n "$f" 2>/dev/null && echo "$f"; done \
+  | wc -l
+```
+
+Figures corrected in the RUNBOOK, OPP-009 and the bug file. Logged in `WRONG_CALLS`.
+
+### A different lane adopted the library within a day, unprompted
+
+`scripts/initial_messages/140_tool_suggester/077_update_noted_write_tool.sh`, commit
+`caa55f04f` (2026-08-24): *"077: publish via kafka_publish_checked instead of the racing
+kubectl-run stdin form."* Nobody asked them, and this lane never spoke to them.
+
+**That is the evidence for the central decision of this whole piece of work.** The safe form had
+been documented in `LANDMINES.md` for a month and had **2 assertions** to show for it. It became
+*callable* on the 23rd and a stranger reached for it on the 24th. The thing that was missing was
+never the knowledge — it was the absence of something to call.
+
+**Adoption: 4 of 160, one of them not mine.**
