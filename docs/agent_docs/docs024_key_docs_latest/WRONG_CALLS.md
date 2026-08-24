@@ -49874,6 +49874,16 @@ the crux is inside.
   (12 runs vs my 4 items — both true for their units, as they worked out themselves), and I replaced it with a
   wrong one plus an instruction to go and look for a defect that does not exist. Retracted in full before they
   acted; they had already written it into two of their own documents.
+- **AND A THIRD FRAMING ERROR IN THE SAME THREAD, which they caught after my retraction.** Correcting the count,
+  I told them their exclusion was "worth substantially more than either of us said — it prevents the dominant
+  cause of that population". **It does not.** Their exclusion governs THEIR new emitter's items; the 84
+  `cta_links_stale` failures are the DISCOVERY CHECKS' population, filed by a different producer that their
+  change never touches. Same page, same handler, same refusal text — different producer. Their own framing is
+  the precise one: *"prevents the dominant cause of that population's SHAPE"*, not "prevents 84 failures".
+  **The check: a producer-side exclusion prevents the items IT files, not every item that shares the symptom —
+  before crediting a fix with a population, confirm the fix's own producer is what emits it.** Three corrections
+  deep, each one narrower than the last, and the peer caught the last two. Nothing of this reached the repo; the
+  over-credit lived only in the message, which is why it is recorded here rather than as a doc correction.
 
 ## 2026-08-24 — `bugfix_352_invented_selector` lane: I answered an "has this EVER happened" question from a table I knew was a ROLLING WINDOW, said zero, and relayed it to a peer who was writing it into a doc comment
 
