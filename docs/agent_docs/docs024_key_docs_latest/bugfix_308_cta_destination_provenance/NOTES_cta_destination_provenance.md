@@ -592,3 +592,110 @@ deployed the page, and completed green **with the button unchanged** — which i
 symptom. I got as far as inspecting the workflow for a live defect before checking my own payload.
 Filed as a LANDMINE, because when the thing under test IS a silent no-op, a malformed dispatch
 manufactures a false positive that looks like the bug.
+
+---
+
+## 2026-08-24b — the stuck backlog re-measured against the CURRENT artefact, not against itself
+
+Question asked: the 215 `unresolved` items, "some since 16 July" — do those sites still need
+fixing? Answer: **mostly no, and the backlog is a bad map of what IS broken.**
+
+### 1. Method — the detector's own predicate, re-run read-only over today's `rendered_html`
+
+Not an eyeball comparison of the filed `href` against `content_data`. A standalone program
+(scratchpad, not committed) that imports the REAL `datahelpers` — `CTALabelCandidateRow`,
+`ExtractAnchors`, `ClassifyLinkScope`, `BestLabelMatchForPage`, `NormalizePagePath`,
+`NewPageURLSet` — and copies `ctaClassifyAnchor`'s six-line body and the unknown-destination
+switch verbatim. Data pulled by psql using `CTALabelUniverseSQL` and `ctaComponentScanQuery`
+verbatim. Every query a SELECT; nothing dispatched.
+
+**CONTROL, and it could have come out otherwise.** `robot-hands.com / electric-vs-pneumatic-economics`
+was filed by the LIVE detector at 2026-08-24 12:49 and is still `triaged` (unrepaired), and its
+page HTML last changed 08-21 — so the probe must reproduce it exactly. It did: same slot, text,
+href, `suggested_target` AND `suggested_target_title`. The negative half also holds — the same
+site's 16 repaired items are gone from the probe's output.
+
+⚠ **Two data-extraction traps, both silent.**
+- `kubectl exec … | psql` **truncated at 708 of 893 rows** with only an "unexpected EOF" on stderr.
+  Per-site dumps with a row-count assertion against a `count(*)` taken separately; three retries.
+  Without the assertion this whole measurement would have been 79% of the corpus, reported as all.
+- `COPY … TO STDOUT` **text format escapes backslashes**, so a title containing `\"` arrives as
+  `\\"` and a JSON newline inside `rendered_html` arrives as `\\n`. One line failed to parse and
+  gave it away; the newline corruption would NOT have — it would have silently split anchors.
+  Fixed by `translate(encode(convert_to(row_to_json(t)::text,'UTF8'),'base64'), E'\n','')`.
+
+### 2. What became of the 215 [all figures MEASURED 2026-08-24]
+
+215 rows are only **325 distinct findings** (`domain`,`page`,`slot`,`text`) — the rest are the same
+key re-filed, up to 5×, which `unresolved` permits (see §4).
+
+| | |
+|---|---|
+| repaired — the href now agrees with the copy | **124** |
+| the CTA is no longer on the page at all (copy rewritten, slot gone) | **65** |
+| unchanged button, detector now REFUSES to judge (copy names its own page) | **10** |
+| unchanged button, detector now refuses (ambiguous — Phase B's tie refusal) | **54** |
+| copy reworded, now names no page | **(in the 65 above)** |
+| **still live damage, and auto-repairable** | **65** |
+| still flagged, but only to the human-review arm | **7** |
+
+**78% of the backlog is obsolete.** Note the two refusal rows (64 findings): those buttons are
+UNCHANGED on the page. "Gone from the detector" is not "fixed" — Phase B's self-link and ambiguity
+refusals make them invisible on purpose, because the platform decided a label naming its own page
+is a CONTENT defect, not a destination to guess at.
+
+### 3. The July stock is one site, and none of it is machine-fixable damage
+
+All 15 July items are **vonc.com**, and they are 3 distinct pages / 7 distinct findings:
+4 CTAs no longer exist (verified at the served page: `/about.html` now offers "Find Your
+Archetype" → the clash calculator and "Enter the Gauntlet" → the gauntlet round, both sensible),
+2 are unchanged buttons on `/archetypes.html` ("Explore All Archetypes" and "Explore Your
+Archetypes", both → `/tools/gauntlet/index.html`) whose copy names the page they sit on — the
+class the detector now declines, and 1 is ambiguous. vonc.com's live total today is **1**
+misdirected CTA, in a slot the repairer cannot touch.
+
+### 4. The backlog is not blocking anything, and releasing it is the weaker lever
+
+- `idx_swi_dedup`'s predicate and `workItemTerminalStatuses` BOTH contain `unresolved` (checked
+  in the same breath — they are the lockstep pair). So a stuck row **holds no dedup slot**: a
+  fresh discovery pass files a new item for the same page. Verified in the data — vonc.com holds
+  5 rows under one `item_key`.
+- `suggested_target` still has **no consumer** (`grep -rn` → 4 hits, all in the two detectors).
+  `rerender_page_sections_action.go` never reads `spec.findings`. So **releasing a stale item
+  cannot write its stale suggestion** — it triggers a recompute against today's data with today's
+  code. The risk in a release is the re-render wave, not the stale content.
+- Releasing all 215 would address **65** of the **301** live findings.
+
+### 5. What is actually broken, fleet-wide [MEASURED 2026-08-24]
+
+**301 misdirected CTAs on 182 pages across 22 live sites** — of which **171** sit in a slot the
+repairer can rewrite (`ctaFieldNames`: hero, call-to-action, archetype-grid,
+archetype-combinations, gauntlet-cta, content-block-about) and **130** do not (`article-body` 37,
+`ported-page` 31, `info-card-grid` 16, `tool-cta` 15, …) and escalate to human review.
+
+Worst live case, confirmed in the served bytes, not the DB:
+`gaswholesalers.com/how-it-works.html` serves **"Contact Our Sales Team" → the fuel budget
+forecaster** and **"Review Supply Terms" → the break-even calculator**; `/fuel-supply-by-industry.html`
+serves **"Contact our sales team" → the break-even calculator**. 25 findings on that site, all 25
+machine-fixable.
+
+### 6. The pattern that names the remedy
+
+Last CTA sweep per site vs machine-fixable findings left today: **finetuning.uk (swept 08-24) → 0**
+and **robot-hands.com (swept 08-24) → 1**; every site last swept 08-17/18/19/22 — i.e. before Phase B
+went live — still carries a stack (gaswholesalers 25, leopardess 23, ai-agent-orchestration 22,
+lendzy 20, dartsonline 19, …).
+
+robot-hands.com is the clean before/after: **17 findings filed 12:49, 16 `complete` by 13:18, no
+human involved**, and the probe now sees 3 — one still in the queue and two in `info-card-grid`,
+which is the known non-repairable class. A completeness sweep is DB-queries-only (no LLM):
+`./scripts/initial_messages/170_work_item_flow_build/075_trigger_discovery.sh <domain> completeness`
+(the `misdirected_cta` check is on `completeness-discovery-agent`, verified in `agent_definitions`).
+
+### 7. Stale figures corrected
+
+- The handoff's "**11 client sites**" for the stuck stock is **7 as of 2026-08-24**
+  (webdesign.co.uk 108, gaswholesalers.com 55, finetuning.uk 20, vonc.com 15, dartsonline.com 12,
+  gamesdesign.co.uk 4, leopardessconsulting.co.uk 1).
+- Migration `555_requeue_misdirected_cta_stock.sql` is aimed at a population that is 78% obsolete
+  and 0% blocked. Do not build it on the "these are the broken pages" premise.

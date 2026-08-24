@@ -185,3 +185,61 @@ site somebody can load in a browser, and that needs the next build.
 **And a correction to my own caution from this morning:** I said the check that finds these broken
 buttons had not run since 19 August. It ran on **22 August** and filed 40 items. The count is 188
 today, not 200 — it moved down because items changed status, not because anything was fixed.
+
+---
+
+**2026-08-24, later — I went and looked at the old broken sites, and the backlog turned out to be
+the wrong thing to be worrying about.**
+
+You asked whether the sites broken back in July still need fixing. The short answer is no, and the
+longer answer is that the queue of 215 stuck repair jobs is not a list of what is broken. It is a
+list of what *was* broken, and most of it has since been overtaken by events.
+
+Here is how I checked. Rather than trust the old records, I took the actual check the platform uses
+to find these broken buttons, and re-ran it — read-only, changing nothing — over every page as it
+stands today. To make sure my copy of the check behaved like the real one, I found a page the live
+system had flagged two hours earlier and had not yet repaired, and confirmed my version produced
+exactly the same result down to the suggested destination. It did.
+
+**July.** Every one of the July jobs is the same site, vonc.com, and it comes to seven distinct
+broken buttons on three pages. Four of them simply no longer exist — the copy was rewritten at some
+point in August, and I loaded the live pages to confirm it: the About page now offers "Find Your
+Archetype" and "Enter the Gauntlet", both pointing somewhere sensible. Two more are unchanged, but
+they are the odd case where the button's wording names the very page it is sitting on ("Explore All
+Archetypes", on the archetypes page). The platform now deliberately refuses to guess at those,
+because it decided that is a wording problem rather than a link problem, and I agree with that. The
+last one is a genuine coin-toss between two pages, which it also now declines. So: nothing from July
+needs a repair job. There may be a couple of buttons there whose *wording* you would want changed,
+but no machine is going to decide that.
+
+**The backlog as a whole.** Of the 215 stuck jobs — which are really 325 distinct findings, because
+the same page gets re-filed over and over — 124 have already been fixed by other means, 65 describe
+buttons that no longer exist, and 64 are unchanged buttons the platform now declines to judge. That
+leaves 65 that are still real, still live, and still fixable automatically.
+
+**But 301 buttons are wrong across the estate right now, and only 65 of them are in that backlog.**
+So releasing the backlog would fix about a fifth of the problem while re-rendering eleven sites'
+worth of pages to do it. That is a poor trade.
+
+**What I think is actually going on.** The last time the platform swept the whole fleet for these
+was 17-18 August, which was before the fix went live. Two sites have been swept since the fix:
+finetuning.uk and robot-hands.com. Those two now have essentially nothing left — nought and one
+respectively. Every site last swept before the fix still has a pile. robot-hands.com is the clearest
+picture of it: seventeen bad buttons found at ten to one this afternoon, sixteen of them repaired by
+twenty past, nobody involved. The remaining one was still in the queue and two others sit in a kind
+of component the repairer is not allowed to touch.
+
+So the remedy is not to release the old jobs. It is to sweep each site again, now that the fix is
+live, and let the same drain happen. The sweep itself is cheap — it is database queries, no AI
+involved — and it can be done one site at a time, which is the per-site caution you wanted.
+
+**One thing you should see regardless of what you decide.** gaswholesalers.com is serving, right
+now, a button that says "Contact Our Sales Team" that takes the visitor to a fuel budget forecaster,
+and another saying "Review Supply Terms" that goes to a break-even calculator. On the industries
+page, "Contact our sales team" goes to the break-even calculator too. I checked those on the live
+site, not in the database. That site has 25 wrong buttons and every one of them is the automatically
+fixable kind. If you want one site done first, it should be that one.
+
+**And a correction to the handoff I picked this up from:** it says releasing the backlog would touch
+eleven client sites. It is seven, as of today. Counts like that go stale by addition and subtraction
+both, which is why they now get written with the date they were taken.
