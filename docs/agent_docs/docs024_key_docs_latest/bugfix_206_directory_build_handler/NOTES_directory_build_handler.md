@@ -514,3 +514,31 @@ cannot hold two items — and refuse to close it the wrong way. **I will not lan
 unowned, measured-red, shared-seam change to tidy up my own submission**, and the round-3
 rationale offers the council the contained alternative (drop the section-index entry until the
 swap is possible) rather than assuming my answer.
+
+### Stopping rule for the council rounds (written BEFORE round 4's verdict, so it is not a rationalisation)
+
+Four rounds is a lot, and each has been productive, so "keep going" has been the right call each
+time. But it can stop being right, and the decision is worth pre-committing rather than making
+after reading a verdict I dislike. **Round 4 will be resolved as follows:**
+
+- **A gating objection naming a real defect** → fix it and resubmit. This has happened twice
+  (the deferred row's non-empty `handler_agent`; the held edit sitting in the executable
+  `edits[]` array) and both were worth the round on their own.
+- **A gating objection whose premise is checkable and false** → answer it once more with the
+  query, as with the `DELETE+INSERT` premise that the estate's own shared helper contradicts.
+  Answering is not defending, provided the answer is evidence rather than argument.
+- **Another objection to the two questions I have explicitly asked the council to RULE on** —
+  the `capability_gap` arm versus `bugs_closed/187`'s deliberate decision, and the transient
+  split-brain — **then stop asking and take the contained option myself.** Those are judgement
+  calls, not defects; if a round keeps objecting without ruling, the objection *is* the answer,
+  and the contained option was mine to take from the start: **revert the `capability_gap` arm,
+  keep the routing half.** The routing half is where the measured win is (an `entity-directory`
+  page parked fifteen days while its builder ran), nothing has objected to it on substance, and
+  it is untouched by 187's decision. The gap arm is an improvement to how a *known-unbuildable*
+  page is recorded — real, but not worth a fifth round or a fight with another lane's ruling.
+
+The forcing consideration: this is an ADVISORY gate on a shared tree, and the code is already
+committed and inert. The cost of another round is not "the fix is delayed" — it is my own time
+and the fleet's credits, against a decreasing return. The cost of shipping something a seat has
+flagged three times without resolution is worse: it is exactly the "one lane overrides another
+lane's ruling because it had more stamina" failure this estate has no defence against.
