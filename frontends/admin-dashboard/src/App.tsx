@@ -309,7 +309,7 @@ function LoginScreen({ onLogin }) {
 }
 
 // ── Sites Overview ───────────────────────────────────────────────────────────
-function SitesOverview({ sites, token, onSelectSite, onSelectPages, onSelectSpecs, onSelectMedia, onRefresh }) {
+function SitesOverview({ sites, token, onSelectSite, onSelectPages, onSelectSpecs, onSelectMedia, onSelectBuilds, onRefresh }) {
     const [actionLoading, setActionLoading] = useState(false);
 
     const handleToggleSiteLock = async (site) => {
@@ -367,6 +367,9 @@ function SitesOverview({ sites, token, onSelectSite, onSelectPages, onSelectSpec
                             ))}
                         </div>
                         <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                            <button onClick={() => onSelectBuilds(site)} style={{
+                                ...btnSecondary, fontSize: 12, padding: "6px 14px", flex: 1,
+                            }}>Builds</button>
                             <button onClick={() => onSelectSite(site)} style={{
                                 ...btnSecondary, fontSize: 12, padding: "6px 14px", flex: 1,
                             }}>Work Items</button>
@@ -1287,6 +1290,7 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [message, setMessage] = useState("");
+    const [divergenceCounts, setDivergenceCounts] = useState({});
 
     // Load pages
     const loadPages = useCallback(async () => {
@@ -1302,6 +1306,41 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
     }, [token, siteId]);
 
     useEffect(() => { loadPages(); }, [loadPages]);
+
+    // How often has each slot been silently overwritten by a rebuild? An
+    // unlocked component with a non-zero count is exactly the state that is
+    // about to lose someone's hand edit again — the rebuild keeps a locked
+    // copy but discards an unlocked one, filing page_divergence_overwritten
+    // per component per rebuild, visible until now only in the work-item queue.
+    const loadDivergenceCounts = useCallback(async () => {
+        try {
+            const data = await apiFetch(
+                `/work-items?pipeline=all&status=all&site_id=${siteId}&item_type=page_divergence_overwritten&limit=${MAX_PAGE_SIZE}`,
+                token);
+            const counts = {};
+            (data.items || []).forEach(item => {
+                const s = item.spec || {};
+                if (!s.page_id || !s.slot_name) return;
+                const exact = `${s.page_id}|${s.slot_name}|${s.position}`;
+                const bySlot = `${s.page_id}|${s.slot_name}`;
+                counts[exact] = (counts[exact] || 0) + 1;
+                counts[bySlot] = (counts[bySlot] || 0) + 1;
+            });
+            setDivergenceCounts(counts);
+        } catch (err) {
+            console.error(err);
+            setDivergenceCounts({});
+        }
+    }, [token, siteId]);
+
+    useEffect(() => { loadDivergenceCounts(); }, [loadDivergenceCounts]);
+
+    const divergenceCountFor = (comp) => {
+        if (!selectedPage) return 0;
+        const exact = divergenceCounts[`${selectedPage.id}|${comp.slot_name}|${comp.position}`];
+        if (exact !== undefined) return exact;
+        return divergenceCounts[`${selectedPage.id}|${comp.slot_name}`] || 0;
+    };
 
     // Load site-wide components
     const loadSiteComponents = useCallback(async () => {
@@ -1798,6 +1837,19 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
                                                     {comp.is_empty && (
                                                         <span style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", padding: "1px 6px", borderRadius: 4 }}>empty</span>
                                                     )}
+                                                    {divergenceCountFor(comp) > 0 && (
+                                                        <span
+                                                            title={comp.locked
+                                                                ? "Past rebuilds overwrote hand edits here; this component is now locked, so its bytes are kept."
+                                                                : "A rebuild has overwritten hand edits on this component before, and it is NOT locked — the next rebuild will overwrite it again. Lock it to keep hand-patched bytes."}
+                                                            style={{
+                                                                fontSize: 11, padding: "1px 6px", borderRadius: 4, fontWeight: 700,
+                                                                color: comp.locked ? "#92400e" : "#991b1b",
+                                                                background: comp.locked ? "#fef3c7" : "#fee2e2",
+                                                            }}>
+                                                            ⚠ overwritten ×{divergenceCountFor(comp)}{!comp.locked && " — unlocked"}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 {comp.html_preview && !comp.is_empty ? (
                                                     <div style={{
@@ -1863,6 +1915,40 @@ function PageBrowser({ token, siteId, siteDomain, onBack }) {
 }
 
 // ── Spec Editor (Direction Control) ──────────────────────────────────────────
+// Two kinds of aspect share this editor and the same save gesture, and they are
+// not the same kind of thing. evidence_base is a CONTROL: its banned_claims and
+// facts are checked against built and served pages by the claims lanes. The
+// prose aspects are PROMPT TEXT — instructions to a writer, enforced by nothing.
+// "Never say X" typed into content_direction is a wish; the same sentence as a
+// banned_claims pattern is a control. The labels below exist so an operator can
+// tell which one they are editing.
+const ENFORCED_ASPECTS = new Set(["evidence_base"]);
+const ADVISORY_ASPECTS = new Set([
+    "content_direction", "briefing", "strategy", "mission_brief",
+    "roadmap_brief", "writer_block", "vertical_research", "domain_research",
+]);
+const PROHIBITION_RE = /\b(never|must not|mustn't|do not say|don't say|unacceptable|forbidden|banned)\b/i;
+
+function AspectChip({ aspect }) {
+    if (ENFORCED_ASPECTS.has(aspect)) {
+        return (
+            <span title="banned_claims and facts in this register are checked against built and served pages"
+                  style={{ fontSize: 10, fontWeight: 700, color: "#065f46", background: "#d1fae5", padding: "1px 8px", borderRadius: 4, letterSpacing: 0.5 }}>
+                ENFORCED
+            </span>
+        );
+    }
+    if (ADVISORY_ASPECTS.has(aspect)) {
+        return (
+            <span title="Prompt text: instructions a writer reads. Nothing checks the output against it — prohibitions here are wishes, not controls."
+                  style={{ fontSize: 10, fontWeight: 600, color: "#64748b", background: "#f1f5f9", padding: "1px 8px", borderRadius: 4, letterSpacing: 0.5 }}>
+                advisory — prompt text
+            </span>
+        );
+    }
+    return null;
+}
+
 function SpecEditor({ token, siteId, siteDomain, onBack }) {
     const [specs, setSpecs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1890,19 +1976,48 @@ function SpecEditor({ token, siteId, siteDomain, onBack }) {
         setEditData(JSON.parse(JSON.stringify(spec.data)));
     };
 
-    const handleSaveSpec = async () => {
+    const handleSaveSpec = async (confirmEmpty = false) => {
         if (!selectedSpec || !editData) return;
         setActionLoading(true);
         try {
-            await apiFetch(`/sites/${siteId}/specs/${selectedSpec.aspect}`, token, {
+            const result = await apiFetch(`/sites/${siteId}/specs/${selectedSpec.aspect}`, token, {
                 method: "PATCH",
-                body: JSON.stringify({ data: editData }),
+                body: JSON.stringify({ data: editData, confirm_empty: confirmEmpty === true }),
             });
-            setMessage(`Spec '${selectedSpec.aspect}' updated`);
+            let msg = `Spec '${selectedSpec.aspect}' updated`;
+            if (selectedSpec.aspect === "evidence_base") {
+                // The counts come from the server re-parsing what it stored — the
+                // one signal a wrong-shape save cannot fake. A zero here means
+                // claims checking found nothing to enforce.
+                msg = `evidence_base saved — ${result.banned_claims_count} banned claims, ${result.facts_count} facts`;
+                if (result.banned_claims_count === 0 && result.facts_count === 0) {
+                    msg += " — REGISTER IS EMPTY: claims checking is now OFF for this site";
+                }
+            } else if (ADVISORY_ASPECTS.has(selectedSpec.aspect) && PROHIBITION_RE.test(JSON.stringify(editData))) {
+                msg += ". This text contains a prohibition, and this aspect is prompt text — nothing enforces it. To make it a control, add a matching pattern under evidence_base → banned_claims.";
+            }
+            setMessage(msg);
             setSelectedSpec(null);
             setEditData(null);
             loadSpecs();
-        } catch (err) { setMessage("Save failed: " + err.message); }
+        } catch (err) {
+            let refusal = null;
+            try { refusal = JSON.parse(err.message); } catch { /* not JSON */ }
+            if (refusal && refusal.code === "EMPTY_EVIDENCE_BASE") {
+                if (confirm(
+                    `This save would replace a register holding ${refusal.current_facts_count} facts and ` +
+                    `${refusal.current_banned_claims_count} banned claims with one that parses to NOTHING — ` +
+                    `claims checking for this site would silently stop.\n\n` +
+                    `Usually this means a key is misspelt or the JSON is nested one level too deep, ` +
+                    `not that you meant to empty it.\n\nReplace it anyway?`)) {
+                    setActionLoading(false);
+                    return handleSaveSpec(true);
+                }
+                setMessage("Save cancelled — the existing register is untouched.");
+            } else {
+                setMessage("Save failed: " + err.message);
+            }
+        }
         finally { setActionLoading(false); }
     };
 
@@ -1968,12 +2083,21 @@ function SpecEditor({ token, siteId, siteDomain, onBack }) {
                 /* ── Spec edit panel ── */
                 <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 20 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-                        <h3 style={{ margin: 0, fontSize: 16, color: "#0f172a" }}>
+                        <h3 style={{ margin: 0, fontSize: 16, color: "#0f172a", display: "flex", alignItems: "center", gap: 8 }}>
                             Edit: {selectedSpec.aspect}
-                            {selectedSpec.pinned && <span style={{ fontSize: 12, color: "#7c3aed", marginLeft: 8 }}>🔒 Pinned</span>}
+                            <AspectChip aspect={selectedSpec.aspect} />
+                            {selectedSpec.pinned && <span style={{ fontSize: 12, color: "#7c3aed" }}>🔒 Pinned</span>}
                         </h3>
                         <span onClick={() => { setSelectedSpec(null); setEditData(null); }} style={{ cursor: "pointer", color: "#94a3b8", fontSize: 18 }}>✕</span>
                     </div>
+
+                    {ADVISORY_ASPECTS.has(selectedSpec.aspect) && (
+                        <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, padding: "8px 12px", fontSize: 12, color: "#64748b", marginBottom: 12 }}>
+                            This aspect is prompt text — a writer reads it, nothing checks the output against it.
+                            A prohibition ("never say X") only becomes a control as a pattern under
+                            <b> evidence_base → banned_claims</b>; add it there in the same edit.
+                        </div>
+                    )}
 
                     <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12 }}>
                         Source: {selectedSpec.source_agent || selectedSpec.source || "unknown"}
@@ -1988,7 +2112,7 @@ function SpecEditor({ token, siteId, siteDomain, onBack }) {
                     </div>
 
                     <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={handleSaveSpec} disabled={actionLoading} style={btnPrimary}>
+                        <button onClick={() => handleSaveSpec()} disabled={actionLoading} style={btnPrimary}>
                             Save Spec
                         </button>
                         <button onClick={() => handlePropagate(selectedSpec)} disabled={actionLoading} style={{
@@ -2011,6 +2135,7 @@ function SpecEditor({ token, siteId, siteDomain, onBack }) {
                                 <div>
                                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                         <span style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>{spec.aspect}</span>
+                                        <AspectChip aspect={spec.aspect} />
                                         {spec.pinned && (
                                             <span style={{ fontSize: 11, color: "#7c3aed", background: "#ede9fe", padding: "1px 8px", borderRadius: 4 }}>
                                                 🔒 Pinned
@@ -2051,6 +2176,348 @@ function SpecEditor({ token, siteId, siteDomain, onBack }) {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ── Builds view ──────────────────────────────────────────────────────────────
+// A website build on this platform is a chain of site_work_items, not an
+// orchestration: orchestration_states stores no step sequence (execution_path
+// is empty on every row) and a site's tagged orchestrations are mostly its
+// periodic sweeps. So the timeline below renders an EXPLICIT stage vocabulary
+// — the 082_submit_domain_unified.sh cascade, as measured live — rather than
+// "whatever rows the site has", which would bury the build in repeat-noise.
+const BUILD_STAGES = [
+    ["needs_domain_research", "Domain research"],
+    ["needs_vertical_research", "Vertical research"],
+    ["needs_strategy", "Strategy"],
+    ["needs_briefing", "Briefing"],
+    ["needs_site_plan", "Site plan"],
+    ["needs_composition", "Composition"],
+    ["needs_design", "Design"],
+    ["needs_content_planning", "Content planning"],
+    ["needs_page", "Page builds"],
+    ["needs_content_page", "Page content"],
+    ["needs_imagery", "Imagery"],
+    ["needs_rerender", "Re-render"],
+];
+const BUILD_STAGE_SET = new Set(BUILD_STAGES.map(([t]) => t));
+
+function fmtDuration(startIso, endIso) {
+    if (!startIso || !endIso) return "";
+    const ms = new Date(endIso).getTime() - new Date(startIso).getTime();
+    if (ms < 0) return "";
+    const m = Math.round(ms / 60000);
+    if (m < 1) return "<1m";
+    if (m < 120) return `${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 48) return `${h}h ${m % 60}m`;
+    return `${Math.round(h / 24)}d`;
+}
+
+function BuildsView({ token, siteId, siteDomain, onBack }) {
+    const [items, setItems] = useState([]);
+    const [typeCounts, setTypeCounts] = useState({});
+    const [truncated, setTruncated] = useState(false);
+    const [workflows, setWorkflows] = useState([]);
+    const [selectedWorkflow, setSelectedWorkflow] = useState(null);
+    const [expandedStage, setExpandedStage] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [message, setMessage] = useState("");
+
+    const loadAll = useCallback(async () => {
+        try {
+            const data = await apiFetch(`/work-items?pipeline=all&status=all&site_id=${siteId}&limit=${MAX_PAGE_SIZE}`, token);
+            const rows = data.items || [];
+            // The window is newest-first and the build-stage rows are usually the
+            // OLDEST rows a site has — on a truncated window fetch each stage type
+            // directly, or a busy site's timeline silently loses its build.
+            if (data.truncated) {
+                const perStage = await Promise.all(BUILD_STAGES.map(([type]) =>
+                    apiFetch(`/work-items?pipeline=all&status=all&site_id=${siteId}&item_type=${type}&limit=200`, token)
+                        .then(r => r.items || []).catch(() => [])
+                ));
+                const seen = new Set(rows.map(i => i.id));
+                perStage.flat().forEach(i => { if (!seen.has(i.id)) { rows.push(i); seen.add(i.id); } });
+            }
+            setItems(rows);
+            setTypeCounts(data.type_counts || {});
+            setTruncated(!!data.truncated);
+            const wf = await apiFetch(`/workflows?site_id=${siteId}&limit=50`, token);
+            setWorkflows(wf.workflows || []);
+        } catch (err) {
+            setMessage("Load failed: " + err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [token, siteId]);
+
+    useEffect(() => { loadAll(); }, [loadAll]);
+    // Builds move on minute timescales; poll rather than stream.
+    useEffect(() => {
+        const t = setInterval(() => { if (!document.hidden) loadAll(); }, 10000);
+        return () => clearInterval(t);
+    }, [loadAll]);
+
+    const stageGroups = BUILD_STAGES.map(([type, label]) => {
+        const rows = items.filter(i => i.item_type === type)
+            .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        if (rows.length === 0) return null;
+        const statuses = rows.map(r => r.status);
+        const allComplete = statuses.every(s => s === "complete");
+        const anyFailed = statuses.some(s => s === "failed");
+        const rollup = anyFailed ? "failed" : allComplete ? "complete" : (statuses.find(s => s !== "complete") || "detected");
+        const started = rows[0].created_at;
+        const completedTimes = rows.map(r => r.completed_at).filter(Boolean).sort();
+        const finished = allComplete && completedTimes.length === rows.length ? completedTimes[completedTimes.length - 1] : null;
+        return { type, label, rows, rollup, started, finished };
+    }).filter(Boolean);
+
+    const otherTypes = Object.entries(typeCounts)
+        .filter(([t]) => !BUILD_STAGE_SET.has(t))
+        .sort((a, b) => Number(b[1]) - Number(a[1]));
+    const divergenceCount = Number(typeCounts["page_divergence_overwritten"] || 0);
+
+    const openWorkflow = async (wf) => {
+        try {
+            const detail = await apiFetch(`/workflows/${wf.correlation_id}`, token);
+            setSelectedWorkflow(detail);
+        } catch (err) { setMessage("Load workflow failed: " + err.message); }
+    };
+
+    const handleWorkflowAction = async (action) => {
+        if (!selectedWorkflow) return;
+        const verb = action === "terminate" ? "Terminate" : "Resume";
+        if (!confirm(`${verb} workflow ${selectedWorkflow.correlation_id}?`)) return;
+        setActionLoading(true);
+        try {
+            await apiFetch(`/workflows/${selectedWorkflow.correlation_id}/resume`, token, {
+                method: "POST",
+                body: JSON.stringify({ action }),
+            });
+            setMessage(`Workflow ${action} sent for ${selectedWorkflow.correlation_id}`);
+            setSelectedWorkflow(null);
+            loadAll();
+        } catch (err) { setMessage(`${verb} failed: ` + err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    const stepErrors = selectedWorkflow
+        ? Object.entries(selectedWorkflow.collected_data || {}).filter(([k]) => k.startsWith("__step_error"))
+        : [];
+    const reconstructedSteps = selectedWorkflow
+        ? Object.keys(selectedWorkflow.collected_data || {}).filter(k => !k.startsWith("__"))
+        : [];
+    const workflowTerminal = selectedWorkflow &&
+        ["COMPLETED", "FAILED", "CANCELLED"].includes(String(selectedWorkflow.status || "").toUpperCase());
+
+    return (
+        <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                <button onClick={onBack} style={btnSecondary}>← Sites</button>
+                <h2 style={{ ...sectionTitle, margin: 0, flex: 1 }}>
+                    Builds <span style={{ fontWeight: 400, color: "#64748b" }}>— {siteDomain}</span>
+                </h2>
+            </div>
+
+            {message && (
+                <div style={{
+                    background: "#fef3c7", color: "#92400e", padding: "8px 14px", borderRadius: 6,
+                    fontSize: 13, marginBottom: 12, display: "flex", justifyContent: "space-between",
+                }}>
+                    {message}
+                    <span onClick={() => setMessage("")} style={{ cursor: "pointer" }}>✕</span>
+                </div>
+            )}
+
+            {loading ? (
+                <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>Loading build history…</div>
+            ) : selectedWorkflow ? (
+                /* ── Workflow detail ── */
+                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                        <h3 style={{ margin: 0, fontSize: 15, color: "#0f172a", fontFamily: "monospace" }}>
+                            {selectedWorkflow.correlation_id}
+                        </h3>
+                        <span onClick={() => setSelectedWorkflow(null)} style={{ cursor: "pointer", color: "#94a3b8", fontSize: 18 }}>✕</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 12, fontSize: 13, flexWrap: "wrap" }}>
+                        <Badge status={String(selectedWorkflow.status || "").toLowerCase() === "completed" ? "complete" : String(selectedWorkflow.status || "").toLowerCase()} />
+                        <span style={{ color: "#64748b" }}>current step: <b>{selectedWorkflow.current_step || "—"}</b></span>
+                        <span style={{ color: "#94a3b8" }}>
+                            {selectedWorkflow.created_at && new Date(selectedWorkflow.created_at).toLocaleString()}
+                        </span>
+                    </div>
+
+                    {/* The status column lies by omission: a step can fail, have its
+                        output discarded, and the row still read COMPLETED with error
+                        NULL (bugs_open/099). The __step_error entries are the truth. */}
+                    {stepErrors.length > 0 && (
+                        <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "#991b1b", marginBottom: 6 }}>
+                                ⚠ Step errors — a step failed even if the status above reads complete
+                            </div>
+                            {stepErrors.map(([k, v]) => (
+                                <pre key={k} style={{ fontSize: 11, color: "#7f1d1d", whiteSpace: "pre-wrap", margin: "4px 0", maxHeight: 160, overflow: "auto" }}>
+                                    {k}: {typeof v === "string" ? v : JSON.stringify(v, null, 2)}
+                                </pre>
+                            ))}
+                        </div>
+                    )}
+                    {selectedWorkflow.error && (
+                        <div style={{ background: "#fee2e2", borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 12, color: "#991b1b" }}>
+                            error: {selectedWorkflow.error}
+                        </div>
+                    )}
+
+                    <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>
+                        Steps (reconstructed from outputs — the platform stores no step sequence):
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                        {reconstructedSteps.length === 0 ? (
+                            <span style={{ fontSize: 12, color: "#94a3b8" }}>no step outputs recorded</span>
+                        ) : reconstructedSteps.map(s => (
+                            <span key={s} style={{ fontSize: 11, background: "#f1f5f9", color: "#475569", padding: "2px 8px", borderRadius: 4, fontFamily: "monospace" }}>{s}</span>
+                        ))}
+                    </div>
+                    {Array.isArray(selectedWorkflow.awaited_steps) && selectedWorkflow.awaited_steps.length > 0 && (
+                        <div style={{ fontSize: 12, color: "#92400e", marginBottom: 12 }}>
+                            awaiting: {selectedWorkflow.awaited_steps.join(", ")}
+                        </div>
+                    )}
+
+                    {[["initial_request_data", "Initial request"], ["collected_data", "Collected data"], ["final_result", "Final result"]].map(([key, label]) => (
+                        <details key={key} style={{ marginBottom: 8 }}>
+                            <summary style={{ fontSize: 12, color: "#475569", cursor: "pointer" }}>{label}</summary>
+                            <pre style={{
+                                fontSize: 11, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6,
+                                padding: 10, maxHeight: 300, overflow: "auto", whiteSpace: "pre-wrap",
+                            }}>{JSON.stringify(selectedWorkflow[key], null, 2)}</pre>
+                        </details>
+                    ))}
+
+                    {!workflowTerminal && (
+                        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                            <button onClick={() => handleWorkflowAction("resume")} disabled={actionLoading} style={btnPrimary}>
+                                Resume
+                            </button>
+                            <button onClick={() => handleWorkflowAction("terminate")} disabled={actionLoading} style={{
+                                ...btnSecondary, color: "#991b1b", borderColor: "#fca5a5",
+                            }}>
+                                Terminate
+                            </button>
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <div>
+                    {/* ── Stage timeline ── */}
+                    {stageGroups.length === 0 ? (
+                        <div style={{ textAlign: "center", padding: 30, color: "#94a3b8" }}>
+                            No build-stage work items recorded for this site
+                            {truncated && " (window truncated — older rows may exist)"}
+                        </div>
+                    ) : (
+                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 0", marginBottom: 16 }}>
+                            {stageGroups.map((sg, idx) => (
+                                <div key={sg.type}>
+                                    <div onClick={() => setExpandedStage(expandedStage === sg.type ? null : sg.type)} style={{
+                                        display: "flex", alignItems: "center", gap: 12, padding: "10px 18px",
+                                        cursor: "pointer",
+                                        borderTop: idx > 0 ? "1px solid #f1f5f9" : "none",
+                                    }}>
+                                        <span style={{ fontSize: 12, color: "#94a3b8", width: 18, textAlign: "right" }}>{idx + 1}</span>
+                                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", width: 170 }}>
+                                            {sg.label}{sg.rows.length > 1 && <span style={{ color: "#94a3b8", fontWeight: 400 }}> ×{sg.rows.length}</span>}
+                                        </span>
+                                        <Badge status={sg.rollup} />
+                                        <span style={{ fontSize: 12, color: "#64748b", flex: 1 }}>
+                                            {new Date(sg.started).toLocaleString()}
+                                            {sg.finished && <> → {new Date(sg.finished).toLocaleTimeString()} <b>({fmtDuration(sg.started, sg.finished)})</b></>}
+                                        </span>
+                                        <span style={{ fontSize: 12, color: "#94a3b8" }}>{expandedStage === sg.type ? "▾" : "▸"}</span>
+                                    </div>
+                                    {expandedStage === sg.type && sg.rows.map(row => (
+                                        <div key={row.id} style={{ padding: "6px 18px 6px 48px", fontSize: 12, color: "#475569", background: "#f8fafc" }}>
+                                            <Badge status={row.status} />{" "}
+                                            <span style={{ marginLeft: 6 }}>{row.summary || row.item_type}</span>
+                                            <span style={{ color: "#94a3b8", marginLeft: 8 }}>
+                                                {new Date(row.created_at).toLocaleString()}
+                                                {row.completed_at && <> → {fmtDuration(row.created_at, row.completed_at)}</>}
+                                                {row.error && <span style={{ color: "#991b1b" }}> · {String(row.error).slice(0, 160)}</span>}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* ── Divergence warning (silent-overwrite counter) ── */}
+                    {divergenceCount > 0 && (
+                        <div style={{ background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#92400e" }}>
+                            ⚠ <b>{divergenceCount}</b> hand-edited component{divergenceCount === 1 ? " was" : "s were"} overwritten by
+                            rebuilds on this site. An unlocked component that has been overwritten before is about to lose
+                            someone's edit again — lock components you have hand-patched (Pages → Lock).
+                        </div>
+                    )}
+
+                    {/* ── Other activity ── */}
+                    {otherTypes.length > 0 && (
+                        <div style={{ marginBottom: 16 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                                Other activity (all work items, not build stages)
+                            </div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                {otherTypes.map(([t, n]) => (
+                                    <span key={t} style={{
+                                        fontSize: 11, padding: "3px 10px", borderRadius: 9999,
+                                        background: t === "page_divergence_overwritten" ? "#fef3c7" : "#f1f5f9",
+                                        color: t === "page_divergence_overwritten" ? "#92400e" : "#475569",
+                                    }}>
+                                        {t} · {String(n)}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── Orchestrations (drill-down) ── */}
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        Orchestrations tagged to this site ({workflows.length}) — mostly periodic sweeps, not the build
+                    </div>
+                    {workflows.length === 0 ? (
+                        <div style={{ fontSize: 13, color: "#94a3b8", padding: 12 }}>None recorded</div>
+                    ) : (
+                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
+                            {workflows.map((wf, idx) => (
+                                <div key={wf.correlation_id} onClick={() => openWorkflow(wf)} style={{
+                                    display: "flex", alignItems: "center", gap: 12, padding: "8px 16px",
+                                    cursor: "pointer", fontSize: 12,
+                                    borderTop: idx > 0 ? "1px solid #f1f5f9" : "none",
+                                }}>
+                                    <span style={{ color: "#64748b", width: 140 }}>{new Date(wf.created_at).toLocaleString()}</span>
+                                    <Badge status={String(wf.status || "").toLowerCase() === "completed" ? "complete" : String(wf.status || "").toLowerCase()} />
+                                    {wf.has_step_error && (
+                                        <span title="A step failed even though the status may read complete (bugs_open/099)" style={{
+                                            fontSize: 11, color: "#991b1b", background: "#fee2e2", padding: "1px 8px", borderRadius: 4, fontWeight: 700,
+                                        }}>step error</span>
+                                    )}
+                                    <span style={{ color: "#475569", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                        {wf.current_step || "—"}
+                                    </span>
+                                    <span onClick={e => { e.stopPropagation(); navigator.clipboard?.writeText(wf.correlation_id); }}
+                                          title={`${wf.correlation_id} (click to copy)`}
+                                          style={{ fontFamily: "monospace", color: "#94a3b8" }}>
+                                        {String(wf.correlation_id).slice(0, 8)}…
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -2319,7 +2786,7 @@ export default function App() {
     const [token, setToken] = useState(() => sessionStorage.getItem("admin_token") || "");
     const [user, setUser] = useState(null);
     const [sites, setSites] = useState([]);
-    const [view, setView] = useState("sites"); // sites | items | all-items | pages | specs | media
+    const [view, setView] = useState("sites"); // sites | items | all-items | pages | specs | media | builds
     const [selectedSite, setSelectedSite] = useState(null);
     const [error, setError] = useState("");
 
@@ -2371,8 +2838,8 @@ export default function App() {
                             { key: "customers", label: "Customers" },
                         ].map(({ key, label }) => (
                             <button key={key} onClick={() => { setView(key); setSelectedSite(null); }} style={{
-                                background: view === key || (["items", "pages", "specs", "media"].includes(view) && key === "sites") ? "#1e293b" : "transparent",
-                                color: view === key || (["items", "pages", "specs", "media"].includes(view) && key === "sites") ? "#f1f5f9" : "#94a3b8",
+                                background: view === key || (["items", "pages", "specs", "media", "builds"].includes(view) && key === "sites") ? "#1e293b" : "transparent",
+                                color: view === key || (["items", "pages", "specs", "media", "builds"].includes(view) && key === "sites") ? "#f1f5f9" : "#94a3b8",
                                 border: "none", padding: "6px 12px", borderRadius: 4,
                                 fontSize: 12, fontWeight: 500, cursor: "pointer",
                             }}>
@@ -2409,7 +2876,17 @@ export default function App() {
                         onSelectPages={(site) => { setSelectedSite(site); setView("pages"); }}
                         onSelectSpecs={(site) => { setSelectedSite(site); setView("specs"); }}
                         onSelectMedia={(site) => { setSelectedSite(site); setView("media"); }}
+                        onSelectBuilds={(site) => { setSelectedSite(site); setView("builds"); }}
                         onRefresh={loadSites}
+                    />
+                )}
+
+                {view === "builds" && selectedSite && (
+                    <BuildsView
+                        token={token}
+                        siteId={selectedSite.id}
+                        siteDomain={selectedSite.domain}
+                        onBack={() => { setView("sites"); setSelectedSite(null); loadSites(); }}
                     />
                 )}
 
