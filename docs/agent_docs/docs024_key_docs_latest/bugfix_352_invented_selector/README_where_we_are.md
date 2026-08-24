@@ -168,3 +168,61 @@ most plainly.
 `docs/agent_docs/docs024_key_docs_latest/bugfix_352_invented_selector/HANDOFF_2026-08-24_continue_here.md`
 — it has the two remaining jobs, the queries that decide them, and the ways each could come out
 false.
+
+---
+
+## 2026-08-24, evening — it works, we watched it work on a real page, and the old tickets are gone
+
+**The test I set up never ran, and it turned out not to matter.** I had kicked off a re-measurement
+of one hand-picked site and gone away to wait for it. Two and a quarter hours later there was still
+no trace of it anywhere — not queued, not running, not failed, simply absent. I did not fire off
+another one. By then I had something better, and a second attempt would only have cost money.
+
+**What I had instead was an accident of the timetable.** The system re-measures sites on a rotation
+of its own, roughly one an hour. Two of those runs happened to fall either side of the moment the
+new code went live. The one at 15:31 — eight minutes before the changeover — filed forty-seven
+tickets, three of them naming the impossible selectors this whole job is about. The one at 17:33,
+two hours after, filed ten, and **not one of them was impossible**. Every one carried the new stamp
+saying the selector had been checked inside the page, and every one recorded how many things it
+actually matched.
+
+Nobody set that up. That is what makes it worth more than the test I designed: the "before" half
+proves the measurement could have come out badly, because it *did*, that same afternoon.
+
+**Then I stopped trusting the system's own homework and went and looked at the pages.** The
+software claims its new selector matches fifteen things on one page and eight on another. Those are
+its numbers, and a claim cannot vouch for itself. So I downloaded both pages and counted with my
+own small program: fifteen, and eight. Exactly. And all twenty-three of the things it found are
+links with no styling name of their own — precisely the case that used to produce a selector
+matching nothing at all.
+
+For completeness I did the same to two of the bad tickets from the morning run. Their selectors
+match **zero** things on the live pages, while the pages plainly contain twenty-two and six of the
+elements in question. Both of those tickets are already marked *fixed*. That is two more repairs
+recorded today that never touched anything — filed eight minutes before the cure arrived.
+
+**So I cleared out the old tickets.** Seventy-three of them, withdrawn at 19:11 this evening.
+Withdrawn is not the same as fixed, and the wording on each one says so: the fault may well still be
+on the page, and it will be found again and re-filed properly the next time that site is measured —
+within a fortnight, on the current rotation. Every check afterwards came back the way it should,
+including the one designed to catch us having quietly marked anything as fixed.
+
+**Three things I want to flag rather than bury.**
+
+The first is a number. We have been quoting "108 repairs recorded that could never have worked". It
+is **111**. It grew this afternoon, from those three tickets filed minutes before the fix rolled.
+
+The second is how a figure went stale without looking stale. A count in this morning's handover was
+labelled with the time it was *written up*, not the time it was *measured* — about ninety minutes
+apart, with a re-measurement in between. Everything about it looked current. It has been corrected,
+and the general lesson is written down where the next person will hit it.
+
+The third is not ours, and it is the more serious of the two facts I found by accident: **the
+re-measurement job fails more often than it succeeds.** Over the past week, eleven of twenty runs
+timed out after exactly three minutes — and that was true well before we changed anything. It
+matters here because that job is what will find the seventy-three faults again. I have written it
+down rather than filing it, because it deserves a proper look at whether someone already has.
+
+**Where things stand.** The half of this bug we set out to fix is fixed, live, and proven on a real
+page. The other half — a correct rule that still loses because of the order the stylesheets load in
+— is untouched and still biting, which is why the bug file stays open.

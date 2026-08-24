@@ -49,11 +49,22 @@ FROM site_work_items WHERE item_type='contrast_failure' GROUP BY status ORDER BY
 
 -- (b) the OPEN, still-failing population — the brochure lane's "durable 185"
 --     ⚠ use workItemClosedStatuses, NOT workItemTerminalStatuses. They differ.
+--     ⚠ AND READ THE COLUMN NAMES: `sites` below counts sites across the WHOLE open
+--       population, not across the `invented` subset in the FILTER next to it. Two
+--       counts in one row and only one of them filtered. Run 2026-08-24 it returned
+--       181 / 73 / **16** — while this lane has always quoted **13**, which is the
+--       invented subset's site count and needs the second query below.
 SELECT count(*) AS open_still_failing,
        count(*) FILTER (WHERE spec->>'selector' ~ '^([A-Za-z0-9]+)\.\1$') AS invented,
-       count(DISTINCT site_id) AS sites
+       count(DISTINCT site_id) AS sites_ALL_OPEN_not_just_invented
 FROM site_work_items WHERE item_type='contrast_failure'
   AND status NOT IN ('complete','verified','rejected','wont_fix','cancelled');
+
+-- (b2) the invented subset's OWN site count — this is the 13
+SELECT count(*) AS open_invented, count(DISTINCT site_id) AS sites_invented
+FROM site_work_items WHERE item_type='contrast_failure'
+  AND status NOT IN ('complete','verified','rejected','wont_fix','cancelled')
+  AND spec->>'selector' ~ '^([A-Za-z0-9]+)\.\1$';
 
 -- (c) is it still PRODUCING, or is this history? A count with no date is unanswerable.
 SELECT min(created_at)::date, max(created_at)::date,
@@ -211,11 +222,32 @@ lagging, and it took seconds. → `WRONG_CALLS.md`.
 
 Raised by the `bugs_open/198` lane, 2026-08-24, and it is the sharpest trap this lane leaves behind.
 
-> **⚠ STATE AS OF 2026-08-24: 587 IS COMMITTED AND *NOT APPLIED*. The 73 are LIVE.**
-> [MEASURED 2026-08-24, after both lanes independently ran it] `withdrawn_by_587 = 0`,
-> `carrying_prior_status = 0`, `contrast_failure` total **452**, `open_invented_now` **73**.
-> So **73 is the CURRENT figure, not a historical one**, and everything below about recovering it
-> "after the fact" is future tense until someone applies the file by hand.
+> ## ⚠ STATE AS OF **2026-08-24 19:11:22 UTC — 587 IS APPLIED**. You are on the FAR side.
+>
+> **The whole of the rest of this section has switched tense.** It was written in advance,
+> in the future tense, for the reader who would apply the file. That reader has been: the
+> migration was applied by hand at **2026-08-24 19:11:22 UTC** and reported `UPDATE 73`.
+>
+> **So the open-population census in §2 now returns 0, and that is the SUCCESS condition,
+> not a refutation of the earlier numbers.** Use the recovery query below — it is the one
+> that keeps returning 73 for ever. Post-application checks, all fresh:
+> `open_invented = 0`, `withdrawn = 73`, `withdrawn_without_prior_status = 0`,
+> `falsely_completed = 0`, and the recovery query returns **deferred 58 + unresolved 15 = 73
+> across 13 sites**, matching the pre-application census exactly.
+>
+> **The superseded banner, kept because the trap it describes is still real for anyone
+> reading an older copy of this lane's docs:**
+>
+> > ~~**STATE AS OF 2026-08-24: 587 IS COMMITTED AND *NOT APPLIED*. The 73 are LIVE.**~~
+> > ~~[MEASURED 2026-08-24, after both lanes independently ran it] `withdrawn_by_587 = 0`,
+> > `carrying_prior_status = 0`, `contrast_failure` total **452**, `open_invented_now` **73**.~~
+> >
+> > ⚠ **And one figure in that superseded banner was already wrong when written: the total was
+> > not 452 at the time it was labelled.** 452 was the total as of *before* 15:31:50 UTC; by
+> > 16:55, when the banner was dated, a pre-roll audit had filed 47 more and the true total was
+> > 499. The measurement was sound and the LABEL carried the writing time, not the measuring
+> > time. Arithmetic that pins it: today's total 509 − the 10 post-roll rows − those 47 = 452.
+> > → `WRONG_CALLS.md` 2026-08-24. **Date a figure when you MEASURE it, not when you write it up.**
 >
 > **A committed migration is indistinguishable from an applied one from inside the repo**, and that
 > is how the 198 lane came to write *"587 withdraws the 73"* in the present tense into two files

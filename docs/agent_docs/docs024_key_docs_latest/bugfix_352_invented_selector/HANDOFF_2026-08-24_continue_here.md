@@ -6,14 +6,19 @@
 
 ---
 
-## 0. One-paragraph state
+## 0. One-paragraph state — UPDATED 2026-08-24 19:20 UTC
 
-**Arm 1 is FIXED, council-APPROVED, COMMITTED, and LIVE ON BOTH IMAGES as of 2026-08-24 15:39 UTC
-(`v1.0.1334`).** Arm 2 is untouched and reproducible, which is why 352 stays in `/bugs_open/`.
-**Two things remain and neither is blocked:** (1) a canary render audit is IN FLIGHT and must be
-read — it is the only artefact-level proof that the producer now files a browser-verified selector;
-(2) migration **587** is committed, **deliberately not applied**, and should be applied by hand once
-that canary proves out. Its ordering gate ("both images rolled") is **already satisfied**.
+**Arm 1 is FIXED, council-APPROVED, LIVE ON BOTH IMAGES, and now PROVEN ON A LIVE PAGE.** Migration
+**587 was applied by hand at 2026-08-24 19:11:22 UTC** (`UPDATE 73`), so both of the items this
+handoff was written to hand over are **DONE**. Arm 2 is untouched and reproducible, which is why 352
+stays in `/bugs_open/` — **it is now the only reason.** Nothing here is blocked and nothing is owed
+to another lane. What a new session can usefully pick up is in §10 at the bottom, which is the part
+of this document still in the future tense.
+
+> ⚠ **§4 and §5 below are SUPERSEDED and kept for the trail.** §4 asked for two things that have
+> since happened; §5 is a census taken on the near side of 587 and every one of its open-population
+> figures is now **0 by design**. Read §3b for what replaced §4(a), and RUNBOOK §10 for which side
+> of 587 you are on and the query that keeps returning 73 for ever.
 
 ## 1. What the bug is, in three sentences
 
@@ -56,7 +61,55 @@ is absent from both, so the probe is not over-matching.
 build and it did not. See `WRONG_CALLS.md` 2026-08-24. If you re-run any of this, print the
 timestamps of control, subject and build side by side **before** interpreting either result.
 
-## 4. THE TWO OPEN ITEMS
+## 3b. THE ARTEFACT-LEVEL PROOF (this replaced §4(a), and it is better than what §4(a) asked for)
+
+**The driven canary never ran.** Correlation `c2fce02e-…` has no orchestration row of any kind —
+checked by correlation, by `site_id`, and by substring over `initial_request_data` and
+`collected_data` — **2 h 15 min** after publish. It was NOT re-dispatched: by then the proof existed
+and a second audit would only have cost credits. (Context: `render-audit-agent`'s only run ever
+against that site was `16781a84-…` at 02:23 UTC, which ended `complete_error`.)
+
+**What replaced it, unstaged.** `render-audit-agent` runs ~hourly across the estate, cycling sites.
+Two runs straddle the 15:39 UTC roll:
+
+| | run `6dc00a26`, **15:31:50** (old image) | run `e0bd33d0`, **17:33:16** (new image) |
+|---|---|---|
+| rows filed | 47 | 10 |
+| invented `TAG.TAG` | **3** | **0** |
+| `spec.selector_scheme` | absent on all 47 | `verified/v1` on all 10 |
+| `spec.matches` | absent | present on all 10 |
+
+⚠ Different sites, so **not** a controlled A/B — but the pre-roll arm is what makes the post-roll
+zero mean anything: a bare `still_invented = 0` could not have come out otherwise if no class-less
+element happened to be measured. The post-roll selectors are `.ported-page-content A` — ancestor
+anchor, bare-tag leaf — i.e. **exactly** the class-less case the old code turned into `A.A`.
+
+**Settled in the page, because `spec.matches` is the producer vouching for itself.** Fetched the
+live pages over HTTPS (invented-path control per domain → 404, so a 200 is a real page) and counted
+with an independent stdlib `HTMLParser` that walks the open-element stack:
+
+| selector | page | producer said | independently measured |
+|---|---|---|---|
+| `.ported-page-content A` | `loancash.co.uk/guides/index.html` | 15 | **15**, all class-less |
+| `.ported-page-content A` | `loancash.co.uk/guides/jargon-buster.html` | 8 | **8**, all class-less |
+| `SPAN.SPAN` (pre-roll row, already `complete`) | `loanzy.uk/tools/loan-repayment-calculator/` | — | **0**, against 22 real `<span>`s |
+| `LABEL.LABEL` (pre-roll row, already `complete`) | `loanzy.uk/tools/loan-comparison-calculator/` | — | **0**, against 6 real `<label>`s |
+
+Parser controls: non-existent class → 0; same selector on the 404 body → 0; `class="A"` and
+`class="H3"` occur **nowhere** in the markup. Script kept at `scratchpad/sel_check.py`.
+
+**587 then applied** — `_VERIFY` arms 1–3 re-run fresh first (66 distinct keys, all `<path>#TAG.TAG`;
+false-positive arm 0 of 31 with the positive control at 166 of 173), then
+`UPDATE 73` at **19:11:22 UTC**, then arms 4–5: `open_invented = 0`, `withdrawn = 73`,
+`withdrawn_without_prior_status = 0`, `falsely_completed = 0`.
+
+⚠ **The fleet re-rolled at 18:32 UTC to `v1.0.1335` (`48f55f218…`) while this was going on, and the
+fix survived** — `merge-base --is-ancestor ffa6e1c3d 48f55f218` YES with `HEAD` as a control that
+correctly returns NO, plus a capability probe of the running binary (three symbols present, an
+invented control string absent, build sha present, nonsense sha absent). Timestamps were printed
+side by side **before** interpreting either result, which is the correction §3's warning is about.
+
+## 4. ~~THE TWO OPEN ITEMS~~ — **BOTH DONE 2026-08-24 19:11 UTC. Superseded by §3b; kept for the trail.**
 
 ### (a) READ THE CANARY — in flight, this is the real proof
 
@@ -116,7 +169,22 @@ resolution** — freeing their dedup slots so still-failing pairings return unde
 - ⚠ `run-migrations.sh --apply` takes **every** pending file including other lanes' backlog. Scope
   it, or apply this one by hand.
 
-## 5. State of the data RIGHT NOW [MEASURED 2026-08-24 ~16:55 UTC]
+## 5. ~~State of the data RIGHT NOW~~ — **SUPERSEDED: this is the NEAR side of 587**
+
+> ⚠ **Two corrections to the table below, and one of them is about the date on it.**
+>
+> 1. **It is pre-587.** Every open-population figure in it now reads **0**, by SUBTRACTION, which
+>    looks like "this never happened" rather than "we fixed it". RUNBOOK §10 has the which-side
+>    query and the recovery query that keeps returning **73** for ever.
+> 2. **`452` was never true at the time this table claims.** The label carried the time the handoff
+>    was *written*, not the time the census was *run*, and a scheduled audit filed 47 rows in
+>    between. `509 − 10 post-roll − 47 = 452`, so 452 was the total before 15:31:50; at 16:55 it was
+>    499. → `WRONG_CALLS.md` 2026-08-24. **Date a figure when you measure it, not when you write it.**
+> 3. **The damage figure is 111, not 108** [MEASURED 2026-08-24 19:10 UTC] — the 15:31 audit filed
+>    three more invented rows and they closed `complete`. 111 is the permanently-quotable number;
+>    587 never touches it.
+
+### The superseded table [measured ~15:30 UTC, mis-labelled 16:55]
 
 | | |
 |---|---|
@@ -179,6 +247,35 @@ rather than append a rule that cannot win. And completion should consult the spe
   filed in their directory. **Their count will step-change when 587 applies; that is this lane, not
   drift.**
 - **`bugfix_122_contrast_ink_slots`** (`bugs_open/211`): the "six `.H3` headings" correction. CONTRIB
-  filed and a dated line added to 211 §4. **Their site is the canary.**
+  filed and a dated line added to 211 §4. ~~**Their site is the canary.**~~ **The canary on their
+  site never ran** (§3b) and the proof came from the scheduled rotation on two other sites instead.
+  Their `.H3` correction is unaffected — it never depended on the canary.
 - **`bugs_open/198`**: filed this bug and released it; eight corrections passed between us and every
   one was found by the other side. Closed out.
+
+## 10. WHAT IS ACTUALLY LEFT — the only part of this document still in the future tense
+
+Written 2026-08-24 19:25 UTC, after §4's two items closed. In rough order of value:
+
+1. **Arm 2** (§7). Still live, still reproducible, **not designed**. This is the reason 352 is open
+   and the only thing here that changes what a user sees. §7 is a sketch, not a plan — the
+   measurable precondition and the `checks.GetVerifier` choke point both need a real design pass,
+   and `bugs_open/296` §10.5 reaches the same finding from the other end, so read it first.
+2. **Give the two counters a reader** (§8). They now certainly *fire* — the composition path is
+   live and producing — but nothing surfaces them, and the 18:32 fleet roll demonstrated the cost:
+   the 17:33 audit's `write_render_audit_findings: complete` line, counters and all, was gone from
+   the chassis logs within an hour. **A counter whose only sink is a log line on a service that
+   restarts is not bookkeeping, it is a hope.**
+3. **Re-check the withdrawal actually re-detects.** 587 freed 73 dedup slots on 13 sites on the
+   promise that still-failing pairings return under verified selectors within ~14 days. That is a
+   MEASURED window, not a guarantee, and it is now falsifiable: from **2026-09-07**, any of those 13
+   sites with no re-filed `contrast_failure` and a visible contrast fault is a defect in this
+   promise. The recovery query in RUNBOOK §10 gives the 73 to check against.
+4. **Not ours, and worth someone's grep of `/bugs_open/` before it is filed twice:** `render-audit-agent`
+   fails more often than it succeeds — [MEASURED 2026-08-24 19:08 UTC] **11 of 20** runs over 7 days
+   ended `complete_error`, every one on `Request timed out (code: TIMEOUT)` at almost exactly 3
+   minutes, and that rate **predates this lane's change**. It is also the clock on item 3: a
+   re-detection window measured in audits is only as good as the audits landing.
+   ⚠ And the post-roll sample is **3 runs (2 errored)** — that cannot distinguish 55% from 67%, so
+   "no regression from our change" is **unproven, not established**. Re-check after ~20 post-roll
+   runs (≈ a day at the current cadence).

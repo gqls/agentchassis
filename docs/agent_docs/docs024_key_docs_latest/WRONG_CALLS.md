@@ -49712,3 +49712,37 @@ non-unique predicate should read as a bug on sight**, the same way `count(*)` wi
 population** — my own pre-fix rows — where it returns FAIL for the two entity pages and `n/a` for the
 other eleven. **That is the first instrument on this bug demonstrated to produce the disconfirming
 answer**, and it is the discipline all four earlier versions lacked.
+
+## 2026-08-24 — `bugfix_352_invented_selector` lane: a `[MEASURED <date>]` figure carried the time I WROTE IT UP, not the time I RAN IT — and nothing about it looked stale
+
+**The claim.** This lane's handoff published a state table headed
+`[MEASURED 2026-08-24 ~16:55 UTC]` whose first row read `contrast_failure total | **452**`. Correctly
+marked, correctly dated to the minute, in a lane that had spent the day being careful about exactly
+this. The figure is quoted onward in five of its own documents.
+
+**It was wrong by 47 at the moment it was dated.** [MEASURED 2026-08-24 19:05 UTC] the total is
+**509**, of which only **10** rows postdate the 15:39 roll. That does not reconcile until you find
+the audit run that filed **47** rows at 15:31:50. `509 − 10 − 47 = 452` — so 452 was the total as of
+*before* 15:31:50, and by the 16:55 the label claims it was already **499**.
+
+**How.** The census was run early in the session and the marker was written when the handoff was
+composed, roughly ninety minutes later — with a scheduled render audit landing in between. No step
+was skipped and no query was wrong. **The date and the number came from different moments, and the
+notation cannot express that**, because `[MEASURED <date>]` is read as "this was true at <date>".
+
+**Why the estate's existing rules do not catch it.** The marker rule (`[INFERRED]` / `[UNMEASURED]`)
+distinguishes checked from unchecked, and this claim *was* checked. The dated-count rule (owner,
+2026-08-22) exists so staleness is mechanically checkable via `--since` — but it assumes the date is
+the measurement's. **A wrong date defeats the very mechanism the date exists to enable:** anyone
+re-deriving with `--since 16:55` would find only the 10 post-roll rows and conclude the census held.
+
+**The cheap check, and it costs one keystroke:** *paste the figure and the timestamp in the same
+action.* Run the census with `SELECT now(), count(*) …` and copy both columns. A number that arrives
+already carrying its own clock cannot be re-dated by the paragraph you later wrap around it.
+
+**What generalises.** We have a rule for "is it measured?" and a rule for "when?", and no rule for
+*"is the when the measurement's, or the prose's?"* — the second is invisible in the artefact, which
+is what makes it worse than an unmarked figure. **An unmarked claim advertises its own weakness; a
+mis-dated one advertises strength it does not have.** Cost here was small — one number in five
+documents, caught by arithmetic that happened not to add up. It would not have been caught at all
+had the intervening audit filed nothing.

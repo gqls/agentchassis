@@ -1,14 +1,44 @@
 # 352 — contrast findings name a selector that matches NOTHING, so the fix is authored, deployed and inert: a class-less element is filed with `Class` = its TAG NAME
 
-> ## STATUS 2026-08-24 — ARM 1 IS FIXED AND COMMITTED; ARM 2 IS STILL LIVE
+> ## STATUS 2026-08-24 19:15 UTC — ARM 1 IS **LIVE AND PROVEN AT THE ARTEFACT**; ARM 2 IS STILL LIVE
 >
 > **This file stays OPEN, and the reason is arm 2.** Read this banner before quoting
 > anything below it.
 >
 > | arm | state |
 > |---|---|
-> | **Arm 1 — the producer invents the selector** | **FIXED at source**, `ffa6e1c3d`, council-approved round 1 (`acadbe8b-f131-4d4b-b4de-5b61f0898f93`). **INERT until BOTH images roll** — see "two images" below. |
+> | **Arm 1 — the producer invents the selector** | **FIXED, SHIPPED, AND PROVEN ON A LIVE PAGE.** `ffa6e1c3d`, council-approved round 1 (`acadbe8b-f131-4d4b-b4de-5b61f0898f93`), live on both images since `v1.0.1334` (15:39 UTC) and re-confirmed on `v1.0.1335` (18:32 UTC). Proof below. |
 > | **Arm 2 — a correct rule still loses on source order** | **LIVE, reproducible, untouched.** Nothing in this change addresses it. |
+> | the 73 legacy rows | **WITHDRAWN.** Migration `587` applied by hand **2026-08-24 19:11:22 UTC**, `UPDATE 73`. |
+>
+> ### The proof, at the artefact — a before/after pair from the SAME producer, 2 hours apart
+>
+> Two scheduled render audits straddle the 15:39 UTC roll. Nothing was staged for this; the
+> rotation simply ran, which is why it is worth more than the driven canary it replaced.
+>
+> | | pre-roll run, **15:31:50 UTC** | post-roll run, **17:33:16 UTC** |
+> |---|---|---|
+> | rows filed | 47 | 10 |
+> | invented (`TAG.TAG`) | **3** | **0** |
+> | `spec.selector_scheme` | absent on all 47 | `verified/v1` on all 10 |
+> | `spec.matches` | absent | present on all 10 |
+>
+> **Then settled in the page itself, not in the database.** Fetched the live pages over HTTPS
+> (invented-path control on each domain returned 404, so a 200 means a real page) and counted
+> matches with an independent stdlib parser that walks the open-element stack:
+>
+> - post-roll `.ported-page-content A` on `/guides/index.html` → **15 matches**, and on
+>   `/guides/jargon-buster.html` → **8**. Both agree **exactly** with the `matches` the producer
+>   recorded, and **all 23 matched elements are class-less `<a>`s** — precisely the population the
+>   old code filed as `A.A`. Controls: a non-existent class → 0; the same selector on the 404 body
+>   → 0; `class="A"` and `class="H3"` appear **nowhere** on the page.
+> - pre-roll `SPAN.SPAN` on `loanzy.uk/tools/loan-repayment-calculator/` → **0 matches**, while
+>   **22** `<span>`s genuinely exist. `LABEL.LABEL` → **0**, against **6** real `<label>`s. Both
+>   rows are already `complete`: two more false repairs, recorded today, eight minutes before
+>   the fix rolled.
+>
+> The measurement could have come out otherwise, which is the point: the pre-roll arm *did*
+> produce invented selectors, on the same day, from the same code path.
 >
 > ### ⚠ CORRECTION TO THIS FILE'S OWN CANDIDATE (1) — the naive fix is a REGRESSION
 >
@@ -57,12 +87,21 @@
 > and the consumer half rides `agent-chassis`. **"The chassis rolled" is not evidence
 > this is live.**
 >
-> ### The 73 legacy rows
+> ### The 73 legacy rows — **WITHDRAWN 2026-08-24 19:11:22 UTC**
 >
 > `docs/agent_docs/sql_for_agents/587_retire_invented_contrast_selectors_HOLD.sql`
-> **withdraws** them as `cancelled` — withdrawal, **not** resolution — freeing the dedup
-> slot so still-failing pairings return under verified selectors. Held until both images
-> are confirmed at the artefact. Re-detection window is **up to a fortnight** (measured:
+> **withdrew** them as `cancelled` — withdrawal, **not** resolution — freeing the dedup
+> slot so still-failing pairings return under verified selectors. Its ordering gate (both
+> images confirmed at the artefact) was met, and it was applied by hand: `UPDATE 73`.
+> Post-checks: `open_invented = 0`, `withdrawn = 73`, every row carrying its prior status,
+> `falsely_completed = 0`.
+>
+> ⚠ **So every census in this lane's docs now returns ZERO for the open population — by
+> design, by SUBTRACTION, which reads as "this never happened".** The figure that keeps
+> returning 73 for ever is the recovery query in the lane's RUNBOOK §10; use that one.
+> The **`complete` + invented** count is untouched by 587 and is the permanently-quotable
+> damage figure: **111 as of 2026-08-24 19:10 UTC** — it was 108 earlier the same day and
+> grew by the three false repairs the 15:31 audit filed while the fix was minutes from rolling. Re-detection window is **up to a fortnight** (measured:
 > all 13 sites audited within 14 days, only 3 within 7) — an earlier draft said "weekly"
 > and that was an overstatement, caught by the council's prior-art seat.
 >

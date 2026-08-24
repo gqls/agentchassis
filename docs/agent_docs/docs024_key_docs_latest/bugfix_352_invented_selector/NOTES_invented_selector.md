@@ -387,3 +387,147 @@ Expect ~30 min publish→start under fleet load. **587 is NOT applied and should
 canary proves the producer files a verified, anchored selector** — the gate in the file is "both
 images rolled", which is now met, but seeing one good row first costs nothing and is the difference
 between an argument and a measurement.
+
+---
+
+## 2026-08-24 (evening) — the canary never ran, the rotation proved it anyway, and 587 is APPLIED
+
+### The canary was dead and it did not matter
+
+The correlation the last session dispatched at ~16:52 UTC — `c2fce02e-2fe7-489f-bc22-edcfa75b0761`,
+site `2a8ebf9c-…` — has **no orchestration row of any kind**, checked by correlation, by site_id and
+by a substring sweep of `initial_request_data` and `collected_data`, **2 h 15 min** after publish.
+The handoff's warning ("a missing row is LATENCY, not a dropped dispatch, ~29 min under load") is
+sound and I did **not** re-dispatch, for a better reason than patience: by then the proof already
+existed and a second audit would only have cost credits.
+
+Context that makes the dead canary unsurprising rather than alarming: `render-audit-agent`'s only
+run **ever** against that site was `16781a84-…` at 02:23 UTC today, and it ended `complete_error`.
+
+### What replaced it — a before/after pair nobody staged
+
+`render-audit-agent` runs roughly **hourly** across the estate (13:28, 14:29, 15:29, 16:30, 17:30,
+18:31 today), cycling sites; *per site* it is the ~fortnightly rotation this lane measured. Two of
+those runs straddle the 15:39 UTC roll, and that is the experiment:
+
+| | run `6dc00a26`, **15:29→15:31:50** (old image) | run `e0bd33d0`, **17:30→17:33:16** (new image) |
+|---|---|---|
+| site | `55213ded` (loanzy.uk) | `ee4a8199` (loancash.co.uk) |
+| rows filed | 47 | 10 |
+| invented `TAG.TAG` | **3** | **0** |
+| `spec.selector_scheme` | absent, all 47 | `verified/v1`, all 10 |
+| `spec.matches` | absent | present, all 10 |
+
+⚠ **Different sites, so this is not a controlled A/B** — it is the same producer and the same code
+path two hours apart, and the pre-roll arm is what makes the post-roll zero mean something. A
+`still_invented = 0` on its own could not have come out otherwise if no class-less element happened
+to be measured; the post-roll selectors are `.ported-page-content A` — an ancestor anchor with a
+bare-tag leaf, i.e. **exactly** the class-less case the old code turned into `A.A`. The new path
+fired on the very population at issue.
+
+### Then settled in the page, because the producer's own `matches` cannot vouch for the producer
+
+Quoting `spec.matches` back as proof is circular. So: fetched the live pages over HTTPS and counted
+independently, with a stdlib `HTMLParser` that tracks the open-element stack (so "descendant" means
+descendant, not "appears later in the file"). Script kept at
+`scratchpad/sel_check.py` for the next reader; it is not a CSS engine, it handles the one
+`.ANCESTOR TAG` shape this producer emits.
+
+⚠ **Domain control first** (the parked-domain landmine): an invented path on `loancash.co.uk` and on
+`loanzy.uk` both returned **404** with a different body, so a 200 on the real page is a real page.
+
+| selector | page | producer said | I measured | class-less among them |
+|---|---|---|---|---|
+| `.ported-page-content A` | `loancash.co.uk/guides/index.html` | 15 | **15** | 15 of 15 |
+| `.ported-page-content A` | `loancash.co.uk/guides/jargon-buster.html` | 8 | **8** | 8 of 8 |
+| `SPAN.SPAN` (pre-roll) | `loanzy.uk/tools/loan-repayment-calculator/` | — | **0** | 22 real `<span>`s exist |
+| `LABEL.LABEL` (pre-roll) | `loanzy.uk/tools/loan-comparison-calculator/` | — | **0** | 6 real `<label>`s exist |
+
+Parser controls, all discriminating: a class that does not exist → 0; the same selector against the
+404 body → 0; `class="A"` and `class="H3"` occur **nowhere** in the markup.
+
+Those two pre-roll rows are both already `complete`. **Two more false repairs were recorded today,
+eight minutes before the fix rolled** — which is why the damage figure moved (below).
+
+### A figure in my predecessor's handoff carried the wrong date, and the arithmetic pins it
+
+The handoff's §5 table says `contrast_failure` total **452** `[MEASURED 2026-08-24 ~16:55 UTC]`.
+The total now is **509**, and only **10** rows have been created since 15:39. That does not add up
+until you notice the 47 rows the 15:31:50 audit filed: **509 − 10 − 47 = 452**. So 452 was the total
+as of *before* 15:31:50, and by 16:55 it was already 499.
+
+Nothing was measured wrongly. **The label carried the time the sentence was written, not the time
+the query was run**, and a `[MEASURED <date>]` marker makes that indistinguishable from a fresh
+figure. This lane's own rule — mark the unverified ones too — does not cover it, because the claim
+*was* verified, just earlier than it says. → `WRONG_CALLS.md`. **Date a figure when you measure it.**
+
+### ⚠ The RUNBOOK's own §2(b) `sites` column is not the number this lane quotes
+
+`count(DISTINCT site_id)` in that query ranges over the **whole open still-failing population**, not
+over the invented subset in the `FILTER` beside it. Run today it returns `open 181 / invented 73 /
+sites **16**` — and this lane has always quoted **13**, which is the invented subset's site count and
+needs its own query. Two counts in one row, only one of them filtered, and the column name says
+neither. Fixed in the RUNBOOK.
+
+### Fresh census immediately before applying 587 [MEASURED 2026-08-24 19:10 UTC]
+
+| status | rows | of which invented |
+|---|---|---|
+| complete | 327 | **111** |
+| deferred | 145 | 58 |
+| unresolved | 26 | 15 |
+| needs_human_review | 10 | 0 |
+| cancelled | 1 | 0 |
+
+**111, not 108** — the three the 15:31 audit filed and closed. The 73 open (58 + 15, 13 sites) is
+unchanged and matched 587's premise exactly.
+
+### 587 applied
+
+`_VERIFY` arms 1–3 re-run read-only first, all fresh, all passing: 66 distinct keys, **every one**
+of the form `<path>#TAG.TAG` with identical uppercase halves (eyeballed, not sampled); false-positive
+arm **0 of 31** tag tokens present as real classes with the positive control at **166 of 173** (it
+was 154/161 in the morning — the control still discriminates).
+
+```
+NOTICE:  587: withdrawing 73 open invented-selector contrast_failure row(s)
+BEGIN / DO / UPDATE 73 / INSERT 0 1 / COMMIT
+```
+
+Applied **2026-08-24 19:11:22 UTC**. Arms 4–5 after: `open_invented = 0`, `withdrawn = 73`,
+`withdrawn_without_prior_status = 0`, `falsely_completed = 0`. The recovery query returns
+`deferred 58 / unresolved 15`, 13 sites — the figure that keeps returning 73 for ever.
+
+### Two things found on the way that are NOT this lane's, recorded so they are not lost
+
+- **The render audit times out more often than it succeeds.** [MEASURED 2026-08-24 19:08 UTC]
+  Over 7 days, `render-audit-agent`: **11 of 20 pre-roll runs** ended `complete_error`, all on
+  `{"message": "Request timed out (code: TIMEOUT)", "failed_step": "audit"}` at almost exactly
+  **3 minutes**. That is a **55% failure rate before this lane touched anything**, and it is the
+  clock on 587's re-detection window. Not filed as a bug here — it wants its own grep of
+  `/bugs_open/` first.
+- **No evidence either way that my change affected that rate, and the sample cannot tell.**
+  Post-roll: **2 of 3** runs errored. Three runs cannot distinguish 55% from 67%; naming the
+  detectable effect size is the honest version of "no regression observed". Re-check after ~20
+  post-roll runs (≈ a day at the current cadence).
+
+### The fleet re-rolled underneath me at 18:32 and the fix survived — checked, not assumed
+
+Chassis pods restarted **18:32 UTC** on `v1.0.1335`, built from `48f55f218…` (19:01:51 BST). Which
+is why the 17:30 run's `write_render_audit_findings: complete` log line — and its two new counters —
+were already gone when I looked: **605 lines of chassis log in five hours is a restarted pod, not a
+quiet service.**
+
+Timestamps printed side by side **before** interpreting anything, which is the correction this lane
+wrote up this morning:
+
+```
+ffa6e1c3d (fix)          2026-08-24T14:45:03+01:00
+48f55f218 (v1.0.1335)    2026-08-24T19:01:51+01:00
+HEAD                     2026-08-24T20:12:28+01:00
+```
+
+`merge-base --is-ancestor ffa6e1c3d 48f55f218` → **YES**; control `HEAD` → correctly **NOT** an
+ancestor. Capability probed on the running chassis binary too: `skipped_unverified_selector`,
+`skipped_unanchored_selector`, `selector_scheme` all **present**, an invented control string
+**absent**, the build sha **present** and a nonsense sha **absent**.
