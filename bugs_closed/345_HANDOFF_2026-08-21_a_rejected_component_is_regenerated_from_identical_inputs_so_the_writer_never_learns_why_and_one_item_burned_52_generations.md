@@ -806,3 +806,31 @@ has since confirmed from its own tree that it is **not theirs** (their three cod
 and clean; no commit of that lane has ever touched the ladder; their 08-23 handoff contemporaneously
 disclaimed any uncommitted work), which strengthens the `bugfix_311_component_keys` inference without
 establishing it.
+
+### The M2 caveat has a worked remedy already in the tree — copy it, don't invent it
+
+The caveat above (M2 fails through `sqlmock` accounting rather than an asserted outcome) does not
+need a new pattern. **`platform/orchestration/actions/nav_rebuild_request_test.go`,
+`TestNavRebuildRequestSkipsTheTwoStrikeRule`** is the same species solved the direct way — verified
+present 2026-08-24: the doc comment at `:76–84` states the chain, and `:100–102` pins it with
+`ExpectExec(…).WithArgs(navRebuildInsertArgsRequiringStatus("triaged")…)`. A **`WithArgs` mismatch
+fails the Exec, which fails the call, which fails the test** — so the failure arrives as the property
+being wrong, not as bookkeeping. That comment also records why `ExpectationsWereMet` is deliberately
+**not** asserted there: on the correct path the COUNT query is never issued, so requiring it would
+invert the test. An adopter asserting `TerminatedOnRepeat` can lift this wholesale.
+
+**The general rule both lanes converged on this week, worth more than either instance:** *a pass can
+be vacuous and a fail can be incidental — only an **asserted-outcome** fail is load-bearing.* M1
+cleared that bar; M2 did not, while still being red.
+
+> **⚠ And a misstep of my own worth recording, because it is about the corpus rather than the code.**
+> That worked example was in **this session's own SessionStart landmine digest**, surfaced in the
+> first minute because `load_work_item_actions.go` was already dirty in the tree — *"assert the
+> mechanism's EFFECT, never the absence of a call … Worked example:
+> `nav_rebuild_request_test.go:TestNavRebuildRequestSkipsTheTwoStrikeRule`"*. I read it, then three
+> hours later wrote the M2 caveat describing exactly that defect in a **different** file's test and
+> did not connect the two; another lane had to point at it. **The hook matches on PATHS, so it
+> showed me the entry because of the file it guards — and the transferable half of an entry is not
+> path-shaped at all.** The lesson is not "read the digest" (I did) but: when you find yourself
+> writing "this ought to assert X directly", grep `LANDMINES.md` for the *shape* before proposing a
+> remedy, because the estate has usually already solved it and named the file.
