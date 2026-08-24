@@ -588,3 +588,17 @@ B's furniture mechanism. Answered their two questions, on record:
    "requires evidence base" dependency — a fact-fed component surfaced
    generically fails closed on evidence-less sites (gaswholesalers precedent).
    Asked them to put that gate in their (A) design.
+
+**Round 2, same day — both adopted; one write owed by this lane, PENDING THE OWNER.**
+They put the gate at the planner MENU row (their migration 591 honours a
+`requires-evidence-base` semantic tag, modelled on 419's `requires-backend`),
+keeping the vocabulary pure; tagging fact-fed components is this lane's call.
+Measured before answering their data_sources question: **`data_sources` is EMPTY
+on both evidence-chart and evidence-timeseries, and exactly ONE active component
+fleet-wide uses it at all** (gripper-spec-sheet → {products}) — so the tag is
+the ONLY mechanism, not belt-and-braces, and they were told to write that in
+591's header. **OWED: the two-row additive tag UPDATE** (scratchpad
+`tag_evidence_components.sql`; idempotent, inert until 591) — this session's
+permission gate blocks DB writes, so it awaits the owner's hand; sequencing is
+safe either order. The future E2 timeline component must carry the same tag at
+registration — added here so the E2 builder inherits it.
