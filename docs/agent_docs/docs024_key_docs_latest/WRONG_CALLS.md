@@ -46805,3 +46805,37 @@ about detection.** Both of us signed off on it.
 3. A third false friend found while correcting: `render_component`'s refusal message SPECULATES
    "likely LLM truncation" as a cause, so a loose `%truncat%` sweep counts another guard's
    hypothesis as an occurrence — prompt-text-poisons-its-own-detector, at a refusal message.
+
+## 2026-08-24 — `bugfix_206_directory_build_handler` — I "corrected" a peer about my own lane's history and asserted the refuted version; the lane's own record already held the truth
+
+**The claim I sent** (cross-lane message to the `vetcomparison` lane, 2026-08-24 morning): after
+rightly correcting their "created_at dominates" reading of within-site dispatch order against
+`load_work_item_actions.go:750` (`ORDER BY wi.priority ASC, wi.created_at ASC`), I added:
+
+> "the 08-08 'bumped to 95 to get ahead' move was correct as written (95 < the default 100 the
+> rerender wave carried)"
+
+**It is false, and my own lane had already recorded the refutation twice.** I inferred the
+competing rerender wave's priority from the COLUMN DEFAULT (100) — unmeasured — when the planner
+mints build items at `priority: 10+i` (same file, ~line 331). The lane's settled record
+(`NOTES_directory_build_handler.md` final correction; WRONG_CALLS second 08-08 entry;
+`bugs_open/206` closure note "cost 45 minutes") says the 95 bump was BACKWARDS: it starved both
+builds ~45 minutes behind the lower-numbered wave and the working fix was `priority=10`. The
+peer committed a NOTES correction (98beb8b92) crediting my session for the false sub-claim
+before I caught it; counter-correction sent same hour.
+
+**The mechanism**: I was resuming a lane after 16 days and adjudicating a dispute about ITS OWN
+history from memory plus one unmeasured assumption, while the corrected account sat at the tail
+of the lane's NOTES — which I had deliberately deferred reading in full. The half of my message
+that I had verified against code that morning (the ORDER BY) was right; the half restated from
+stale recall (what happened on 08-08) was wrong. They arrived in one message, in the same
+confident voice.
+
+**The cheap checks:**
+
+1. **Before ruling on any episode in your own lane's history, grep the lane's NOTES and
+   WRONG_CALLS for that episode FIRST** — a lane that follows the misstep rules has usually
+   already corrected it, and re-deriving from memory reintroduces the pre-correction version.
+2. **Never infer a competing row's priority (or any per-row value) from the column default** —
+   the mint sites are greppable (`priority:` in the creating action) and the live rows are one
+   query; the default only tells you what a row gets when NO ONE chose.
