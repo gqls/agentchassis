@@ -66,12 +66,31 @@ print(json.dumps({"headers":{"correlation_id":corr,"orchestration_id":orch,"requ
 PY
 [ "$(wc -l < "$MSG_F")" -eq 1 ] || { echo "envelope not one line — refusing" >&2; exit 5; }
 echo "$SLOT  CORR=$CORR"
-kubectl -n kafka run -i --rm "kcat-apply-$(date +%s)" --image=edenhill/kcat:1.7.1 --restart=Never -- \
-  kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
-  -t system.agent.generic.requests \
-  -H correlation_id=$CORR -H orchestration_id=$ORCH -H request_id=$REQ -H message_id=$MSG \
-  -H message_type=request -H client_id=demo_client -H action=process \
-  -H sender_agent_type=cli -H sender_agent_id=cli-user \
-  -H responses_topic=system.agent.generic.responses -H timestamp=$TS \
-  < "$MSG_F" >/dev/null 2>&1
+REPO_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "$REPO_ROOT" ] || [ ! -f "$REPO_ROOT/scripts/kafka-publish-lib.sh" ]; then
+  echo "ERROR: scripts/kafka-publish-lib.sh not found — refusing to publish unverified (bugs_open/327)." >&2
+  exit 1
+fi
+. "$REPO_ROOT/scripts/kafka-publish-lib.sh"
+
+PUBLISH_RC=0
+kafka_publish_checked \
+  --topic system.agent.generic.requests \
+  --correlation "$CORR" \
+  --payload "$(cat "$MSG_F")" \
+  --header "orchestration_id=$ORCH" \
+  --header "request_id=$REQ" \
+  --header "message_id=$MSG" \
+  --header "message_type=request" \
+  --header "client_id=demo_client" \
+  --header "action=process" \
+  --header "sender_agent_type=cli" \
+  --header "sender_agent_id=cli-user" \
+  --header "responses_topic=system.agent.generic.responses" \
+  --header "timestamp=$TS" || PUBLISH_RC=$?
+
+if [ "$PUBLISH_RC" -ne 0 ]; then
+  echo "NOT DISPATCHED — no section edit will run (bugs_open/327)." >&2
+  exit "$PUBLISH_RC"
+fi
 echo "$CORR" > "/tmp/last_corr_$ITEM" 2>/dev/null || true

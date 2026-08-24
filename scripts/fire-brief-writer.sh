@@ -12,10 +12,14 @@
 # dispatcher cannot pick up (it selects `status IN ('triaged','approved')`). So this
 # writes a brief and BUILDS NOTHING. Releasing the build is a separate, human act.
 #
-# ⚠ `kcat -P` EXITS 0 HAVING SENT NOTHING (LANDMINES). The publish is therefore not
-# evidence. This script prints the correlation id and the query that reads the
-# durable record; a run that produced no orchestration row was not dispatched,
-# however cleanly the command exited.
+# ⚠ `kcat -P` EXITS 0 HAVING SENT NOTHING (LANDMINES) — FIXED 2026-08-24, bugs_open/327.
+# This script used to carry that warning and publish through the racing form anyway,
+# with `>/dev/null 2>&1` discarding both streams so there was no receipt in either
+# direction. It now publishes through `scripts/kafka-publish-lib.sh`, which asserts the
+# receipt and EXITS NON-ZERO when nothing was sent. The correlation id below is printed
+# only after a confirmed publish, so it names something.
+# The durable-record queries still stand: a receipt proves the broker took the bytes,
+# never that the work happened.
 #
 # ⚠ The site row must exist — `write_site_spec` needs a site_id. For a test domain,
 # create it LOCKED (`locked_at = now()`), so that even if something else tries to
@@ -74,21 +78,35 @@ PY
 echo "query:  $QUERY"
 [ -n "$DIRECTION" ] && echo "direction: $DIRECTION"
 
-kubectl -n kafka run -i --rm "kcat-brief-$(date +%s)" --image=edenhill/kcat:1.7.1 --restart=Never -- \
-  kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
-  -t system.agent.generic.requests \
-  -H correlation_id=$CORR -H orchestration_id=$ORCH -H request_id=$REQ -H message_id=$MSG \
-  -H message_type=request -H client_id=cli-brief-writer -H action=process \
-  -H sender_agent_type=cli -H sender_agent_id=cli-user \
-  -H responses_topic=system.agent.generic.responses -H timestamp=$TS \
-  < "$MSG_F" >/dev/null 2>&1
+REPO_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "$REPO_ROOT" ] || [ ! -f "$REPO_ROOT/scripts/kafka-publish-lib.sh" ]; then
+  echo "ERROR: scripts/kafka-publish-lib.sh not found — refusing to publish unverified (bugs_open/327)." >&2
+  exit 1
+fi
+. "$REPO_ROOT/scripts/kafka-publish-lib.sh"
+
+PUBLISH_RC=0
+kafka_publish_checked \
+  --topic system.agent.generic.requests \
+  --correlation "$CORR" \
+  --payload "$(cat "$MSG_F")" \
+  --header "orchestration_id=$ORCH" --header "request_id=$REQ" --header "message_id=$MSG" \
+  --header "message_type=request" --header "client_id=cli-brief-writer" --header "action=process" \
+  --header "sender_agent_type=cli" --header "sender_agent_id=cli-user" \
+  --header "responses_topic=system.agent.generic.responses" --header "timestamp=$TS" || PUBLISH_RC=$?
+
+if [ "$PUBLISH_RC" -ne 0 ]; then
+  echo "NOT DISPATCHED — no brief will be written for ${DOMAIN}." >&2
+  exit "$PUBLISH_RC"
+fi
 
 cat <<EOF
 
 CORRELATION_ID=$CORR
 ORCHESTRATION_ID=$ORCH
 
-Exit 0 proves nothing — kcat -P can send nothing and still exit 0. Read the durable record:
+Published (receipt asserted). That proves the broker took it, not that the work happened —
+read the durable record:
 
   # did it start?
   kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \\
