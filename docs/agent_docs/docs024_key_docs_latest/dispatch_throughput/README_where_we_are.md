@@ -158,3 +158,19 @@ maintenance (your ruling), temporarily raise the dispatch and worker concurrency
 (config), and let the governor put the whole budget behind client builds. The machines
 have roughly five-fold headroom before nodes matter; the true burst ceiling is the AI
 account, which is why the governor plus the tier request are the two burst enablers.
+
+## 2026-08-24 — the second dispatch lane is live
+
+Today the fleet stopped taking work strictly one site at a time. The change we planned
+last week (a second dispatcher slot, N=2) is applied and verified working: two dispatch
+turns were observed running at the same moment, and each slot correctly books its own
+completions — including the subtle idle path the original plan had missed (there were
+three places stamping the ledger, not two; we found the third by counting rather than
+trusting the plan). Rollback, if ever needed, is a single switch. The change went to the
+review council (which now covers database migrations too) and is awaiting its verdict.
+Nothing else was raised: we deliberately stop at two lanes until the spending governor
+exists and the one-at-a-time adapters are addressed, because we measured things starting
+to fail at five simultaneous pieces of work back in July. Still owed from here: a
+deliberate test of two dispatchers picking the same site at the same instant (the design
+says the loser walks away cheaply — we want to see it), a day-long before/after
+throughput comparison, and then the batch-size increase as the next small step.
