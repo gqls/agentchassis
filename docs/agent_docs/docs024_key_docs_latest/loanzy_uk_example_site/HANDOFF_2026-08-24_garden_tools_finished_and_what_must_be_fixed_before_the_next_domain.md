@@ -226,6 +226,34 @@ promises.** Any future after-test needs a promise-vs-delivery check; mine had no
 **Standing instruction unchanged: the working garden-tools site can wait.** He said so explicitly.
 Do not repair it.
 
+## 3c. AN OPEN DECISION FOR THE OWNER — the canary. Do not resolve it on your own authority.
+
+Three lanes now want the same thing and none of them may create it: a **post-fix greenfield build**.
+
+| lane | what it needs the build for |
+|---|---|
+| `bugs_open/381` | does the structure fix produce lists/tables? (migrations 591-595, config-only) |
+| `bugs_open/380` | does a build still hallucinate practice claims with no evidence base? |
+| `bugs_open/206` | does `brand-directory-index` build once their fix rolls? (**this one does NOT need a new domain** — it is testable on `garden-tools.uk` as-is) |
+
+**The `381` session has written the decision into its plan as the owner's, with three options and the
+safest as default:** (i) an authorised new greenfield domain; (ii) one owner-named page for a single
+`page-content-writer` run; (iii) **no dedicated canary — read whatever builds next naturally
+(default).** It has stated it will not dispatch a build or rerender a live site on its own authority.
+**Neither should you.**
+
+**What is already available without any authorisation**, so nobody needs to wait:
+- **A dated pre-fix baseline**: `garden-tools.uk`, 2026-08-24 — 7 served pages, **0 tables, 0 content
+  lists, 0 `<strong>`**, longest `<p>` 104 words. Any post-fix build compares against this.
+- **The measurement**: `after_test.sh` §3, including `PROMISE vs DELIVERY` (validated: fires on
+  `seasonal-planner`, silent on the other 11).
+- ⚠ **`orchestration_states` reaps on a sliding ~24h clock** — a post-fix build's rendered prompts
+  must be read **inside that window** or they are gone. This build's are already unreadable.
+
+⚠ **One draw is not a closure.** If a single post-fix build comes back structured, that is one site
+in one vertical. This lane converted a run of identical observations into a mechanism twice in one
+day and was wrong both times.
+
 ## 4. Falsifiers for this handoff
 
 - `376` or `206` closing, or the crawl step gaining an `on_error`.
