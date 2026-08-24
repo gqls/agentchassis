@@ -1332,3 +1332,44 @@ is live and behaving. The one thing still not shown is the check *catching* some
 run four times across three sites and removed nothing, because the instruction is stopping the bad
 sentences before they are written. That is the good outcome, but it does mean the safety net itself
 is still only proven by tests rather than in the wild.
+
+---
+
+**2026-08-24 (later) — the job is done and the bug is closed**
+
+The fresh build you deployed carries both halves of the fix, and I checked that at the running
+service rather than assuming it, with two control questions either side.
+
+I then ran the analyser across **all five** sites that carry these records, so the evidence is the
+whole estate rather than the one site that had the problem. Every run completed, every one shows the
+new check actually executed, and **not one of them produced an unsupported number**. The false
+"eight live sites" sentence is still gone from leopardess — and worth noting, the pages on that site
+*still* carry the phrase in their metadata, so the thing that caused the problem is still sitting
+there and the analyser no longer picks it up.
+
+**The test I had been missing finally happened.** Until today every clean result was clean because
+the analyser happened to write no numbers at all — which proves nothing, since a rule about numbers
+is trivially satisfied by prose that has none. Today robot-hands **kept** its number: "across six
+actuation types", which is drawn word-for-word from that site's own strategy record. That is the
+first time the check has been shown leaving a legitimate figure alone on real data.
+
+I have closed the bug.
+
+**Three things I have written down rather than quietly dropped**, because they are conditions on
+whoever touches this next rather than problems today:
+
+1. **The check has still never actually caught anything** — it has removed nothing, ever, because the
+   instruction stops the bad sentences being written in the first place. That is the outcome we want,
+   but it means the safety net itself is proven by tests rather than in the wild. Nobody should point
+   at a clean run and call that proof the net works.
+2. **When the check does remove something, it writes that into the record but nothing reads it.**
+   Fine while nothing else consumes these records — which is true today — but that must be fixed
+   before anything starts to.
+3. A small known gap in how numbers are recognised: "GPT-4" is still read as the number 4. I have
+   pinned it with a test that will fail if anyone fixes it, so the note cannot go stale.
+
+**And I corrected myself again.** Earlier today I told you the numbers disappearing was possibly the
+new instruction being too cautious. It was not, and the answer was in the same records I was already
+reading. I have written that up properly in the fleet-wide log of wrong calls, because the pattern is
+worth more than the incident: when my own change is the obvious explanation for something, I should
+spend one query looking for an instruction that was already there before me.
