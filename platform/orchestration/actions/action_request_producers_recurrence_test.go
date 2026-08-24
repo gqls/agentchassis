@@ -155,9 +155,15 @@ func TestActionRequestProducers_TheStripperIsNotFooledByProse(t *testing.T) {
 // ExpectationsWereMet is deliberately NOT asserted — on the correct path the
 // COUNT is never issued and that expectation is legitimately unused.
 //
-// expectWorkItemDoorStandsDown is bugs_open/333's owned-page door, consulted in
-// writeWorkItem AFTER the brake for every dispatchable row; unscripted, the door
-// fails open and the test silently stops exercising its own statement sequence.
+// bugs_open/333's owned-page door is NOT consulted on this path, and saying so
+// is load-bearing: emit_design_items sets no pageID, and the door's guard
+// requires one (`item.pageID != nil && *item.pageID != uuid.Nil`). An earlier
+// version of this test called expectWorkItemDoorStandsDown twice "for safety" —
+// two expectations the code could never consume, green only because
+// ExpectationsWereMet is not asserted here, under a comment claiming the door
+// was consulted. That is the mirror of the vacuity trap: do not script probes
+// the item cannot reach, and do not "fix" an unmet door expectation by giving
+// the item a page id — that quietly changes what the test exercises.
 // ---------------------------------------------------------------------------
 
 func emitDesignInsertArgsRequiringStatus(status string) []driver.Value {
@@ -195,7 +201,6 @@ func TestEmitDesignItems_StageHandoffsSurviveATwoStrikeHistory(t *testing.T) {
 
 	mock.ExpectBegin()
 	// needs_composition → site-design-planner
-	expectWorkItemDoorStandsDown(mock)
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO site_work_items")).
 		WithArgs(emitDesignInsertArgsRequiringStatus("triaged")...).
 		WillReturnResult(sqlmock.NewResult(1, 1))
@@ -204,7 +209,6 @@ func TestEmitDesignItems_StageHandoffsSurviveATwoStrikeHistory(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta("FROM site_work_items")).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New().String()))
 	// needs_design → webdesign-agent
-	expectWorkItemDoorStandsDown(mock)
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO site_work_items")).
 		WithArgs(emitDesignInsertArgsRequiringStatus("triaged")...).
 		WillReturnResult(sqlmock.NewResult(1, 1))
@@ -225,5 +229,14 @@ func TestEmitDesignItems_StageHandoffsSurviveATwoStrikeHistory(t *testing.T) {
 	}
 	if m, ok := out.(map[string]interface{}); !ok || m["design_emitted"] != true {
 		t.Fatalf("expected design_emitted=true, got %#v", out)
+	}
+	// Assertable now that no dead expectations are registered: everything
+	// scripted above except the two-strike COUNT must be consumed. The COUNT is
+	// legitimately unused on the correct path (the flag skips it), so it is
+	// checked the other way round — by the $12 pin, which fails if it runs.
+	if err := mock.ExpectationsWereMet(); err != nil {
+		if !strings.Contains(err.Error(), "SELECT COUNT") {
+			t.Errorf("unmet expectations beyond the deliberately-unused COUNT: %v", err)
+		}
 	}
 }

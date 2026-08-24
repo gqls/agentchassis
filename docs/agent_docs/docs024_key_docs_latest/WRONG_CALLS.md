@@ -49344,3 +49344,37 @@ tally in this file is full of measurements that could not come out otherwise; th
 error one level down — not the *measurement* that could not discriminate, but the *assertion
 that reads it*. Before believing a negative about your own change, make the harness produce a
 positive on something you know is true.
+
+---
+
+## 2026-08-24 — I scripted door probes an item could never reach, under a comment saying the door was consulted — hours after warning about the mirror (`bugs_open/326` E)
+
+Writing E's effect test I called `expectWorkItemDoorStandsDown(mock)` twice — "the 333 lane said
+any new `writeWorkItem` test needs it" — and wrote above it: *"bugs_open/333's owned-page door,
+consulted in writeWorkItem AFTER the brake for every dispatchable row."*
+
+**The items in that test can never reach the door.** Its guard requires a page id
+(`item.pageID != nil && *item.pageID != uuid.Nil`) and `emit_design_items` sets none. So both
+expectations were DEAD — never consumed, green only because `ExpectationsWereMet` was not
+asserted — under a comment stating, in a committed test (`e4d20d97a`), a sequence that does not
+exist.
+
+**The sharp part: I described this exact failure myself, the same day, in the other direction.**
+D's test header warns that someone might "fix" an unmet door expectation by giving the fixture a
+page id, quietly changing what the test exercises — written while E's committed test sat there
+with the dual defect. Knowing the trap's mirror image did not protect me from its original.
+
+**What caught it:** the 333 lane reporting their helper had changed shape and adding "nothing in
+your file needs editing" — which sent me to look at what my file actually consumed. Without that
+message the false comment survives until someone asserts `ExpectationsWereMet` and gets an
+"unmet expectation" they then fix the wrong way.
+
+**The cheap check, both directions, now in the landmine beside 333's original:** read the door's
+GUARD against your fixture before scripting or omitting its probes, and state in the test which
+side of the guard the fixture sits on. A helper another lane tells you to call still has a
+precondition, and "call it in any new test" was their shorthand, not the contract — the contract
+is the guard.
+
+**Fixed:** dead expectations removed, comment rewritten to state the guard and which side the
+fixture is on, and `ExpectationsWereMet` now asserted (with the deliberately-unused two-strike
+COUNT exempted the honest way — by name, with the reason).
