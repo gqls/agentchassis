@@ -98,7 +98,25 @@ call-to-action    -> --section-heading: var(--color-cta-text, var(--color-primar
 - **Ruled out:** staleness relative to the feature. `buildTokenAliases` landed
   `568205c31`, **2026-07-06**; the site's pages last deployed **2026-08-06 02:07**.
   A month apart, so the stylesheet does not predate the mechanism.
-- **The six `.H3`s specifically. [UNRESOLVED]** They are in
+- **The six `.H3`s specifically. [UNRESOLVED]**
+  > **CORRECTION 2026-08-24, from the `bugs_open/352` lane (which is not this lane —
+  > this note corrects a LABEL in the evidence and leaves the diagnosis below
+  > untouched):** **`H3` is not a class.** It is the element's tag name, uppercased by
+  > the DOM, printed by `scripts/render_audit.py` in the slot where it prints a class,
+  > because the probe falls back to `el.tagName` when an element has **no `class`
+  > attribute at all** (`render_audit.py:139`, the `|| el.tagName`). So the correct
+  > reading of §1's evidence is **six CLASS-LESS `<h3>` elements**, not six elements
+  > carrying `class="H3"`. **Anyone following the pointer below into devtools will grep
+  > the markup for `class="H3"` and find nothing, and that absence means nothing.**
+  > This makes the cascade question *narrower*, and in this file's favour: a class-less
+  > `<h3>` has no class hook at all, so the `--section-heading` reasoning below is the
+  > only path that could colour it. The `.section-heading` on the next line **is** a
+  > real class — which is exactly why the two are impossible to tell apart on sight.
+  > The producer defect is fixed at source (`ffa6e1c3d`) and the probe now prints a
+  > browser-verified selector instead. Fuller note:
+  > `docs/agent_docs/docs024_key_docs_latest/bugfix_122_contrast_ink_slots/CONTRIB_2026-08-24_the_six_H3s_in_211_are_not_a_class.md`
+
+  They are in
   `differentiators-section`, which does **not** set `--section-heading`
   (measured). It is in the renderer's own section-defaults selector list, which
   sets `--section-heading: #8B949E` at `body` scope — so by the cascade those

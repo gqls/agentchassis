@@ -1,5 +1,87 @@
 # 352 — contrast findings name a selector that matches NOTHING, so the fix is authored, deployed and inert: a class-less element is filed with `Class` = its TAG NAME
 
+> ## STATUS 2026-08-24 — ARM 1 IS FIXED AND COMMITTED; ARM 2 IS STILL LIVE
+>
+> **This file stays OPEN, and the reason is arm 2.** Read this banner before quoting
+> anything below it.
+>
+> | arm | state |
+> |---|---|
+> | **Arm 1 — the producer invents the selector** | **FIXED at source**, `ffa6e1c3d`, council-approved round 1 (`acadbe8b-f131-4d4b-b4de-5b61f0898f93`). **INERT until BOTH images roll** — see "two images" below. |
+> | **Arm 2 — a correct rule still loses on source order** | **LIVE, reproducible, untouched.** Nothing in this change addresses it. |
+>
+> ### ⚠ CORRECTION TO THIS FILE'S OWN CANDIDATE (1) — the naive fix is a REGRESSION
+>
+> Candidate (1) below says to omit the class component so the selector reads `h3`
+> rather than `H3.H3`, and names only the dedup interaction as the risk. That is right
+> about the producer and **wrong about the consequence.**
+>
+> Today `p.P { color:#fff }` matches **nothing**, so it is inert and harmless.
+> Corrected to `p`, it matches — and css-patch-agent's own live prompt says *"The
+> platform APPENDS your rules to the END of the stylesheet"*, one stylesheet per site.
+> So the "fix" would recolour **every paragraph on the site**. [MEASURED 2026-08-24]
+> `P.P` (77) and `A.A` (44) are **121 of the 181** invented selectors: the two
+> commonest cases are the two worst possible bare selectors, across 13 sites.
+>
+> The shipped fix therefore composes the selector **in the page** — class → own id →
+> nearest ancestor carrying an id or class → bare tag — and **asserts it selects the
+> very element that was measured**. A bare tag is refused and counted. The invariant
+> is not "stop lying", it is "prove it": any *future* composition defect is now
+> self-disclosing, not just this one. (The `bugs_open/198` lane, which wrote the
+> original candidate, has accepted this correction against its own text.)
+>
+> ### What the numbers actually were [MEASURED 2026-08-24]
+>
+> 181 of 452 `contrast_failure` rows carried an invented selector; **108 of them were
+> already `complete`** — repairs recorded against rules that could never apply. 92
+> filed in the last 7 days, so it was actively producing, not history. Of the **171
+> open, still-failing** rows (the `brochure_component_library` lane's "durable 185"),
+> **73 (43%) across 13 of 15 sites** were the invented kind — that lane had an open
+> owner decision to release them to the fixer and has been told.
+>
+> ### Two hazards the obvious fix creates, both designed for
+>
+> 1. **False retraction.** `item_key` embeds the selector and `retractResolvedContrastFindings`
+>    builds its still-failing set the same way, so a key-shape change would close **73 open
+>    rows** stamped *"no longer below its contrast threshold"* — false, on a path that has
+>    **already closed 79 rows** for real. Ordering cannot fix it (the window is symmetric), so
+>    the legacy composition is inserted as an **alias key** and a **scheme guard** stops an old
+>    adapter grading a new-shape row.
+> 2. **Blast radius**, above.
+>
+> ### ⚠ TWO IMAGES — a chassis roll ships only half of this
+>
+> `internal/adapters/browserrunner` compiles into `cmd/browser-runner-adapter` and
+> nothing else; `render-audit-adapter` runs that same image (makefile:107). So the
+> producer half needs `make build-browser-runner-adapter` **and** the overlay `newTag`,
+> and the consumer half rides `agent-chassis`. **"The chassis rolled" is not evidence
+> this is live.**
+>
+> ### The 73 legacy rows
+>
+> `docs/agent_docs/sql_for_agents/587_retire_invented_contrast_selectors_HOLD.sql`
+> **withdraws** them as `cancelled` — withdrawal, **not** resolution — freeing the dedup
+> slot so still-failing pairings return under verified selectors. Held until both images
+> are confirmed at the artefact. Re-detection window is **up to a fortnight** (measured:
+> all 13 sites audited within 14 days, only 3 within 7) — an earlier draft said "weekly"
+> and that was an overstatement, caught by the council's prior-art seat.
+>
+> ### Arm 2 — what it would take, so it is not lost
+>
+> Before planning a patch, css-patch-agent's workflow needs a **measurable precondition**:
+> grep the editable stylesheet (`css_themes`) for a declaration governing the filed
+> selector's property; if the offending declaration lives in page-level component CSS
+> emitted *after* it, **refuse and park** with a `parked_by` marker (198's
+> `mark_base_unsafe` shape) rather than append a rule that cannot win. And completion
+> should consult the spec's own `acceptance_test` at the `checks.GetVerifier` /
+> `verifyBeforeComplete` choke point — which `write_audit_findings_verifier_join_test.go:85`
+> confirms **nothing reads today**. Not designed further; that is the next session's work.
+>
+> **Working record:** `docs/agent_docs/docs024_key_docs_latest/bugfix_352_invented_selector/`
+> (PLAN, RUNBOOK, NOTES, README_where_we_are, council submission). Register: **VIZ-016**,
+> and **WII-016** for the key-shape statement.
+
+
 Filed 2026-08-22 by the bugfix-198 lane, spun out of `bugs_open/198` candidate (6) at close-out.
 198's own defect (the stylesheet clobber) is fixed, live and closed; **this is the other thing
 that lane's evidence turned up, and it is a different defect with a different cause.**

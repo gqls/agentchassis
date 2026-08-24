@@ -136,10 +136,26 @@ AUDIT_JS = r"""
     var size=parseFloat(cs.fontSize),weight=parseInt(cs.fontWeight,10)||400;
     var large=size>=24||(size>=18.66&&weight>=700),need=large?3.0:4.5;
     if(r>=need)continue;
+    /* cls keeps the tag-name fallback for output parity with older runs. It is
+       NOT a class when the element has none, and printing it as ".H3" misled a
+       real investigation (bugs_open/211 §4 built an UNRESOLVED item around "six
+       .H3 headings" that are six CLASS-LESS h3 elements — grepping the markup
+       for class="H3" finds nothing). Print `selector` instead; see bugs_open/352. */
     var cls=(typeof el.className==='string'?el.className:'')||el.tagName;
+    var first=(typeof el.className==='string'&&el.className.trim())?el.className.trim().split(/\s+/)[0]:'';
+    var sel=el.tagName;
+    if(first){sel=el.tagName+'.'+first;}
+    else if(el.id){sel=el.tagName+'#'+CSS.escape(el.id);}
+    else{for(var an=el.parentElement;an&&an.nodeType===1;an=an.parentElement){
+      if(an.id){sel='#'+CSS.escape(an.id)+' '+el.tagName;break;}
+      var at=(typeof an.className==='string'&&an.className.trim())?an.className.trim().split(/\s+/)[0]:'';
+      if(at){sel='.'+CSS.escape(at)+' '+el.tagName;break;}}}
+    var nodes;try{nodes=document.querySelectorAll(sel);}catch(e){nodes=[];}
+    var selVerified=Array.prototype.indexOf.call(nodes,el)!==-1;
     var key=cls+'|'+cs.color+'|'+txt.slice(0,40);
     if(seen[key])continue; seen[key]=1;
-    out.contrast.push({cls:cls,tag:el.tagName,text:txt.slice(0,80),fg:cs.color,
+    out.contrast.push({cls:cls,tag:el.tagName,selector:sel,matches:nodes.length,selectorVerified:selVerified,
+      text:txt.slice(0,80),fg:cs.color,
       bg:'rgb('+Math.round(eb.bg.r)+','+Math.round(eb.bg.g)+','+Math.round(eb.bg.b)+')',
       ratio:Math.round(r*100)/100,need:need,overImage:eb.overImage,px:Math.round(size)});
   }
@@ -303,8 +319,16 @@ def main():
                 continue
             for f in sorted(res["contrast"], key=lambda x: x["ratio"])[:8]:
                 note = "  (over an image — ratio approximate)" if f["overImage"] else ""
-                print("       %5.2f:1 need %.1f  %-22s on %-18s .%s%s" % (
-                    f["ratio"], f["need"], f["fg"], f["bg"], f["cls"][:34], note))
+                # Print the VERIFIED selector, not ".<cls>" — cls falls back to the
+                # tag name for a class-less element, so the old line printed ".H3"
+                # for something carrying no class at all (bugs_open/352, and it
+                # cost bugs_open/211 an UNRESOLVED item). A selector the browser
+                # did not agree with is marked, never printed as if it were real.
+                sel = f.get("selector") or ("." + f["cls"])
+                if f.get("selector") and not f.get("selectorVerified", True):
+                    note = "  (SELECTOR MATCHED NOTHING — producer defect, not a page defect)" + note
+                print("       %5.2f:1 need %.1f  %-22s on %-18s %s%s" % (
+                    f["ratio"], f["need"], f["fg"], f["bg"], sel[:34], note))
                 print("               %r" % f["text"][:70])
             for im in res["images"]:
                 print("       BROKEN IMAGE  %s  -> HTTP %s   (alt: %s)" % (
