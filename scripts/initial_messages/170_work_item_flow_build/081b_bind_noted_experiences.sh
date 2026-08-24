@@ -22,16 +22,40 @@ bind() {
         R=$(cat /proc/sys/kernel/random/uuid) M=$(cat /proc/sys/kernel/random/uuid) \
         T=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   echo "--- bind ${pattern}   corr=${C}"
-  kubectl -n kafka run -i --rm --quiet "kcat-bind-$(date +%s)-$RANDOM" \
-    --image=edenhill/kcat:1.7.1 --restart=Never -- \
-    kcat -P -c 1 -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
-    -t system.agent.generic.requests \
-    -H correlation_id=$C -H orchestration_id=$O -H request_id=$R -H message_id=$M \
-    -H message_type=request -H client_id=$CLIENT_ID -H action=process \
-    -H sender_agent_type=cli -H sender_agent_id=cli-user \
-    -H responses_topic=system.agent.generic.responses -H timestamp=$T >/dev/null <<EOF
+  # Payload lifted out of the heredoc so it can be published with an asserted receipt
+  # (bugs_open/327). Delimiter left UNQUOTED, exactly as before, so ${VAR} still expands.
+  PAYLOAD_327=$(cat <<EOF
 {"headers":{"correlation_id":"$C","orchestration_id":"$O","request_id":"$R","message_id":"$M","message_type":"request","client_id":"$CLIENT_ID","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"$T"},"config":{"workflow":{"start_step":"bind","processing_mode":"orchestrator","timeout_seconds":300,"steps":{"bind":{"action":"bind_site_experience","config":{"created_by":"noted-lane 2026-08-15","bindings_field":"input_data.experience_bindings"},"output_field":"bind_result","next_step":"complete"},"complete":{"action":"complete_workflow","config":{"output_fields":["bind_result"]}}}}},"input_data":{"site_id":"$SITE_ID","pattern_name":"$pattern","experience_bindings":$bindings}}
 EOF
+  )
+
+  REPO_ROOT_PUB="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -z "$REPO_ROOT_PUB" ] || [ ! -f "$REPO_ROOT_PUB/scripts/kafka-publish-lib.sh" ]; then
+    echo "ERROR: scripts/kafka-publish-lib.sh not found — refusing to publish unverified (bugs_open/327)." >&2
+    return 1 2>/dev/null || exit 1
+  fi
+  . "$REPO_ROOT_PUB/scripts/kafka-publish-lib.sh"
+
+  PUBLISH_RC=0
+  kafka_publish_checked \
+    --topic system.agent.generic.requests \
+    --correlation "$C" \
+    --payload "$PAYLOAD_327" \
+    --header "orchestration_id=$O" \
+    --header "request_id=$R" \
+    --header "message_id=$M" \
+    --header "message_type=request" \
+    --header "client_id=$CLIENT_ID" \
+    --header "action=process" \
+    --header "sender_agent_type=cli" \
+    --header "sender_agent_id=cli-user" \
+    --header "responses_topic=system.agent.generic.responses" \
+    --header "timestamp=$T" || PUBLISH_RC=$?
+
+  if [ "$PUBLISH_RC" -ne 0 ]; then
+    echo "NOT DISPATCHED — the experience binding will not run (bugs_open/327)." >&2
+    return "$PUBLISH_RC"
+  fi
   for i in $(seq 1 30); do
     st=$("${PSQL[@]}" -c "SELECT status||'/'||current_step||' '||COALESCE(left(error,300),'') FROM orchestration_states WHERE correlation_id='$C'::uuid;" 2>/dev/null)
     case "$st" in
