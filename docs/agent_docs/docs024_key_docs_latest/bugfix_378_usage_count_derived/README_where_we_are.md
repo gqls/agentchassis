@@ -204,3 +204,51 @@ the record as a correction.
 
 The council has not returned a verdict yet either. The code is on the shared branch, so if the review
 comes back asking for changes I act on it there.
+
+---
+
+## 2026-08-24, after the build — it is live, and the reviewer who worried most turned out to be wrong in a useful way
+
+The new chassis went out at 18:55 and the change is in it. I checked that three separate ways rather
+than trusting the deployment, and each check had a control designed to fail if I was fooling myself:
+the running binary contains the new query, it no longer contains the old one, and the commit is an
+ancestor of what was built.
+
+**One of those controls was worthless and I nearly wrote it down.** To prove "my fix is in the build"
+I compared it against another commit that was supposed to *fail* the test — except I picked one that
+also predated the build, so both came back "yes" and the test proved nothing. I only noticed because
+the answer was too convenient. Replaced it with a commit made after the build, which correctly
+reports "no". Worth mentioning because it is the same mistake in a smaller form as the one earlier
+today: a check that cannot come out the other way is not a check.
+
+### The reviewer's objection was right in shape and backwards in direction
+
+The most serious concern from the review council was about a second, quieter change I made: which
+component counts as the official template for a given kind of section — the one that gets overwritten
+and enforced when the platform regenerates it. The reviewer's point was that changing that could
+silently re-shape the contract for pages already built against the old one. It is a fair worry; that
+family of mistake has bitten this platform before.
+
+I went and checked, and **the change fixes that problem rather than causing it.** The regeneration
+machinery decides what to overwrite by the component's *function name*. Across all 117 kinds of
+section, the old ordering's answer matched what the machinery actually enforces in 88 cases; the new
+ordering matches in 90. Both of the two that changed moved from disagreeing to agreeing.
+
+**And that check turned up something nobody was looking for: 27 of those 117 still disagree.** For a
+quarter of section types, the platform tells the component writer to preserve one template's fields
+while the storage layer overwrites a different one. That is not caused by this change and it is not
+mine to fix, but nobody owns it and it should probably be its own bug.
+
+### What is still missing, and it is the reason I am not closing this
+
+The fix is live but it has not yet *done* anything, because **nothing has been built since the roll.**
+The broken counter has stopped moving, which is what I want to see — but that is worthless as evidence
+right now, because with no page builds the old code would not have moved it either.
+
+So the honest position is: proven present, not yet proven working. One page build settles it, and the
+recipe is written down. I would rather leave it open one more day than record a pass from a check that
+could not have failed — which is exactly the trap I fell into twice today and caught twice.
+
+### Where to pick this up
+
+`docs/agent_docs/docs024_key_docs_latest/bugfix_378_usage_count_derived/HANDOFF_2026-08-24_continue_here.md`
