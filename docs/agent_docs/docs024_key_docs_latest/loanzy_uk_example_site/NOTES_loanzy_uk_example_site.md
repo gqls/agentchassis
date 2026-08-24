@@ -1562,3 +1562,49 @@ section. Recorded in `381` §7 pending a composition decision rather than filed 
 `visual-designer`. And a designer is the wrong layer for the structural arm: it cannot add a `<ul>`
 to a component whose template has none, so routing there yields a better-looking wall of text. His
 alternative hypothesis — *"a missing step in the workflow"* — is the correct one.
+
+### 2026-08-24 18:0xZ — the `206` PRE-FIX observation was in my own build data all along, and the row-clearing I was authorised to do is INERT-or-DESTRUCTIVE
+
+**Recorded here so it does not depend on anyone remembering it.** `bugs_open/206`'s pre-fix
+behaviour — reconcile minting an `entity-directory` page at the generic handler — is captured in
+this lane's own unaided greenfield build `[MEASURED 2026-08-24, from `site_work_items`]`. All 13
+items carry `created_at = 2026-08-23 20:15:50.199268+00`, **byte-identical to that site's
+`last_reconciled_at`**, and `created_by='reconcile_site_plan'`:
+
+| page | item_type | handler_agent | |
+|---|---|---|---|
+| `brand-directory-index` | needs_page | **`page-build-handler`** | ← entity-directory, WRONG |
+| `brand-profile` | needs_page | **`page-build-handler`** | ← entity-page, WRONG |
+| `buying-guides-index` / `buying-guide-post` | needs_page | `page-build-handler` | |
+| `tool-finder` | owned_page_review | *(empty)* | ← correctly gated |
+| the 7 content/landing pages | needs_page | `page-build-handler` | correct for those types |
+
+**That is the bug caught in the act on a real build, by a lane that was not looking for it** — better
+evidence than a contrived reproduction, and it existed before either lane thought to ask for one.
+
+**Why the authorised row-clearing is NOT going ahead** (owner said "let's free the parked row"; I am
+taking the correction back to him rather than executing on a premise I now know is false):
+
+1. **Clearing alone is inert.** `reconcile_site_plan` is carried by **exactly one** agent —
+   `build-site-planner` — swept across every live agent's steps, one row `[MEASURED]`. There is no
+   timer. Reconcile only runs inside a build/publish, so a quiet site never re-reaches it.
+2. **Making it non-inert means a full RE-PLAN.** `build-site-planner`'s order is `plan_site` (LLM) →
+   `write_site_plan` → `sync_pages` → design/imagery/nav → *then* reconcile. `sync_pages` overwrites
+   `pages.sections`; design and imagery are re-emitted. That is `bugs_closed/001`'s hazard and it
+   would destroy this lane's clean measurement — the dead-link census, the 7-of-12 record, and the
+   dated pre-fix structure baseline (0 tables / 0 lists / 0 `<strong>`) that `bugs_open/381` is
+   holding as its comparison point.
+3. **The benefit is zero, because the pre-fix half already exists** (above) and the post-fix half
+   needs a **future** build, which this is not. Cost high, benefit nil.
+
+> **The transferable bit: I advised the owner to authorise an action whose mechanism I had not
+> read.** I proposed "free the row, trigger a build, watch the link go live" — three steps, and I had
+> checked none of them against the code that would have to execute them. The 206 lane checked, found
+> step 2 does not exist as a discrete action, and retracted its own request. **An authorisation
+> obtained on a wrong premise is not permission to act; it is a correction owed.**
+
+**Also caught, in their closure query:** it reads `spec->>'page_type'`, and a reconcile-minted spec
+carries only `{domain, page_id, filename, page_name}` — **no `page_type`**. The query would have
+returned NULL for every row and reported PASS/FAIL identically for an entity-directory and a content
+page. Told them; the fix is a join to `pages` on `spec->>'page_id'`. **Second check on this one bug
+that could not have come out otherwise.**
