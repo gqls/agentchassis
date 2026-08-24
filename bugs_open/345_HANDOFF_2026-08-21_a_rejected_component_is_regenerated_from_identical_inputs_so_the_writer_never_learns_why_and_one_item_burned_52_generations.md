@@ -954,3 +954,71 @@ not per fleet.** Once present, 345 is fixed-and-live on both candidates and can 
 cannot fire until an `item_type` is added to a dispatcher's `stop_on_repeat_failure_item_types`. Until
 then a zero in the field means "unopted", not "working" — the same trap candidate 1 spent a day inside.
 The signal is a work item reaching `failed` with `TerminatedOnRepeat` set, before its budget is spent.
+
+---
+
+## 2026-08-24 (evening) — CANDIDATE 2 IS LIVE on `v1.0.1334`, council **APPROVED round 1**, and every checkable advisory has been run
+
+### 1. Live at the artefact — the close condition from the section above, executed
+
+Chassis rolled to **`v1.0.1334`** (pods started 2026-08-24 15:39:22Z / 15:39:53Z). Probed the
+**capability, not a sha**, on **both** replicas:
+
+| string | pod `…fr8dn` | pod `…xl2zk` |
+|---|---|---|
+| `stop_on_repeat_failure` | **PRESENT** | **PRESENT** |
+| `DISABLE_WORK_ITEM_REPEAT_TERMINATION` | **PRESENT** | **PRESENT** |
+| `retry_feedback` (candidate 1) | **PRESENT** | **PRESENT** |
+| control `zz_no_such_symbol_345` | **absent** ✅ | **absent** ✅ |
+
+⚠ `TerminatedOnRepeat` probes **absent** on both, and that is **expected, not a failure**: it is a Go
+struct field, and field names reach the binary only through reflection or a struct tag. **Do not use
+a field name as a liveness probe** — probe a string *literal* the code actually contains, which is
+what the two config/env names are.
+
+### 2. Council: APPROVED at round 1, 2 advisory objections, none high
+
+`Council-Reviewed: f1f1fc37-35e9-45fd-88d7-fcc3ddcf9eb0` — **verdict READ**, not assumed. 7 seats
+abstained; `guidelines`, `constitution`, `mission`, `architecture`, `prior_art_librarian`,
+`debug_historian`, `adoption_guardian`, `reuse_agent` approved; `editquality` and `guardian` objected
+advisorily. The `architecture` seat recorded **`ARCHITECTURE_SIGNAL: point_fix`** and explicitly found
+this to be **RFC_022's narrow exception applied correctly** — package-private symbol, both non-test
+callers edited in the same commit, unsafe side OFF by default, absence measured with a working
+positive control.
+
+**Every checkable advisory was run rather than banked:**
+
+| seat / severity | objection | what I did |
+|---|---|---|
+| `guardian` med | *"the `LIKE '%stop_on_repeat_failure%'` inertness measurement is unreliable — `_` is a single-char wildcard"* | **RIGHT about the method, and I re-ran it.** Underscore-safe form (`strpos`, no wildcards): **0**. `LIKE` form: **0**. So the wildcard did not change the answer — but it could have, and the query is now literal. Both controls run: `last_error_code` → **2** (present), `zz_no_such_key_345` → **0** (absent). |
+| `guardian` med | *"has this symbol been through council before? show precedent"* | **Yes, and it is approving, not contradicting.** WII-024 records council corr `4cdec68b` **APPROVED at round 2** for this same ladder (`bugs_open/307`'s failure-write contract). |
+| `prior_art_librarian` | *"'only two non-test callers' is an absence claim the code index cannot settle — grep it"* | **Grepped directly.** Exactly two: `load_work_item_actions.go:1312`, `v3_site_actions.go:6205`. Plus the definition at `:313`. |
+| `architecture` | *"run `audit-optional-key-budget.sh` before merge if the count is near N=10"* | **Ran it: `budget: 10 — 0 shared action(s) over it`.** |
+| `reuse_agent` low | *"no evidence of a search for other 'is-this-a-repeat' primitives"* | **Searched.** No pre-existing repeat/same-error comparator exists (`stopOnRepeatFailure` is the only hit); `normSigFragment` exists and was explicitly rejected with reasoning. Nothing was duplicated. |
+| `editquality` low | *"the sketch `if envArmed(envDisableRepeatTermination)` reads inverted from the 'disarm only' claim"* | **Right about the SKETCH, wrong about the CODE — and I had checked this before submitting.** `envArmed(key)` is `os.Getenv(key) == ""`, so it reads *"no disable var present"*. The same idiom governs `envDisableRetryBackoff` in the next block. My submission should have shown the helper; the objection is a fair criticism of what I gave them. |
+| `editquality` med | *"the safety-critical ordering (repeat-check strictly after the transient arm declines) is asserted in prose, not shown in any sketch"* | **Fair, same cause.** Verified by reading: the repeat block sits after the transient arm at `work_item_failure_ladder.go:470`. Not a code defect; a submission defect. **Lesson: a sketch that omits the line ABOVE it cannot evidence an ordering claim.** |
+
+### 3. Two advisories NOT closed, recorded as follow-ups rather than silently carried
+
+- **`guidelines` (soft): the opt-in key is not registered via `RegisterActionInputSpec`,** so it is
+  invisible to the RFC_022 optional-key-budget tooling. **This is the exact failure CLAUDE.md names** —
+  two actions once *"entered the registry counted as ZERO and were invisible to the check until
+  2026-08-17"*. Harmless today (**0 of 10** used), and it becomes wrong the moment someone counts.
+- **`guardian` (low): 8 positional parameters on a shared internal function** wants a struct/options
+  pattern before the next addition. **This is not hypothetical — it is precisely what broke two
+  sibling `sqlmock` files this afternoon**, and the next parameter will do it again.
+
+### 4. ⚠ WHAT IS STILL NOT TRUE: nothing opts in, so candidate 2 SAVES NOTHING YET
+
+`stop_on_repeat_failure_item_types` is empty fleet-wide [MEASURED 2026-08-24, underscore-safe, with
+both controls]. The mechanism is **live and unexercised by design**. So of the bug's two harms:
+
+- *"the writer never learns why"* → **FIXED, LIVE, DEMAND-PROVEN** (candidate 1; item `b0ba3e3a`).
+- *"one item burned 52 generations"* → **the remedy is live but dormant.** No budget is being saved
+  today, because no item type has been opted in.
+
+**The one-line completion** is adding `needs_new_component` — the item type that burned the 52 — to a
+dispatcher's `stop_on_repeat_failure_item_types`. **Its demand bar, so the next reader does not read
+dormancy as success:** a work item reaching `failed` with `TerminatedOnRepeat` set *before* its
+budget is spent. Until then a zero in that field means **unopted, not working** — the identical trap
+candidate 1 spent a day inside, and the reason this section exists.
