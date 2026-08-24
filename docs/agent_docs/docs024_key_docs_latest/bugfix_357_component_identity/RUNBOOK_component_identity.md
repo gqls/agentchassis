@@ -193,3 +193,64 @@ exclusion.
 
 **Do not run phase 3 before phase 2 is armed:** the population refilled 12 rows on
 08-23, so repairing it first is repairing a set that immediately renews.
+
+### ARMED 2026-08-24 — what was actually done, and how to undo it
+
+Owner instruction: "arm it". Applied by hand, in this order:
+
+```bash
+# 1. seed (idempotent; verify block RAISEs, it does not merely SELECT)
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/577_seed_adopted_fragment_component_HOLD.sql
+# 2. arm — refuses to commit unless the seed exists AND all six steps come back armed
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/579_enable_adopt_unidentified_fragments_HOLD.sql
+```
+
+**⚠ THE SECTION ABOVE SAID "ARM ONE CARRIER, NOT ALL EIGHT". THAT ADVICE WAS WRONG
+AND IS SUPERSEDED — read this before following it.** It was written before the
+surface was enumerated. Enumerating it (recursively; three of six steps are nested
+in `sub_workflow`s and a top-level `jsonb_each` misses them):
+
+| carrier | path | `html_field`? | armed |
+|---|---|---|---|
+| page-build-handler | `workflow,steps,save_sections` | yes | ✔ |
+| pageflow-builder | `…build_pages_loop,config,sub_workflow,steps,save_sections` | yes | ✔ |
+| page-rebuild | `…build_pages_loop,config,sub_workflow,steps,save_sections` | yes | ✔ |
+| site-work-orchestrator | `…build_items_loop,config,sub_workflow,steps,save_sections` | yes | ✔ |
+| tool-recreation-handler | `workflow,steps,save_sections` | yes | ✔ |
+| page-rerender | `workflow,steps,save_sections` | **no** | ✔ (carry half only) |
+
+**FIVE can mint, not one.** The mint happens on the HTML-parsing path, and the save
+falls through to it whenever the metadata path yields nothing — so any carrier with
+an `html_field` can reach it. `tool-recreation-handler` is merely the most obvious
+(it declares `expects_no_sections_metadata`), not the only one. Arming it alone
+would have left four minting: the "one call site gets the rigorous fix while the
+mechanism stays generic elsewhere" shape that migration 575's own `bug_historian`
+objection names, and that gated this lane's phase 2 round 1.
+
+`page-rerender` cannot mint (no `html_field`) and is armed for the carry half alone —
+without it an adopted row loses its identity the first time a rerender carries its
+bytes.
+
+**Verify the armed state independently rather than trusting the migration's output:**
+```sql
+SELECT ad.type, COALESCE(step.value->'config'->>'adopt_unidentified_fragments','(unset)') AS armed
+  FROM agent_definitions ad,
+       LATERAL jsonb_path_query(ad.default_config, 'strict $.**') AS step(value)
+ WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+   AND jsonb_typeof(step.value)='object' AND step.value->>'action'='save_page_sections'
+ ORDER BY 1;   -- expect six rows, all `true`
+```
+
+**To undo:** `579_..._HOLD_ROLLBACK.sql` removes the key from all six paths; absent
+means OFF and there is no third state. ⚠ It does NOT un-adopt rows already adopted —
+those are true, regenerable, and their bytes were never touched. They simply stop
+having their identity carried, so they drift back toward the mislabelling one
+rebuild at a time rather than reverting at once.
+
+**Baseline captured before arming**, for the row-count comparison the landmine
+requires: `scratchpad/baseline_before_arming.txt` — population 22, and the per-page
+row counts and slot lists for all 22 affected pages. **A page whose row count goes UP
+by one is the landmine firing**, and it is invisible to any check that only asks
+whether the tool is still present.
