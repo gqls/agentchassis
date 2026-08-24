@@ -47598,3 +47598,38 @@ matched — **a correct refusal reported as a broken guard.** It failed in the s
 the general form does not: with pipefail off (the default) the same shape reports **success**
 whenever the last stage passes. **A red test is a claim like any other and needs the same check as
 a green one** — I only knew the guards were fine because I ran the refusal by hand and read it.
+
+## 2026-08-24 — `bugfix_206_directory_build_handler` (tenth entry) — I left **3.2 GB** of `git archive HEAD` extracts on a shared machine, and another session had to write a CLAUDE.md rule about it while I was still doing it
+
+Seven times today I verified "does HEAD plus my files still build?" by hand-rolling the recipe
+that appears in dozens of this estate's documents:
+
+```bash
+D=<scratch>/headtree; rm -rf $D && mkdir -p $D && git archive HEAD | tar -x -C $D
+```
+
+Each extract is ~450 MB. **The `rm -rf` in that recipe is the SETUP half, not cleanup** — it
+clears the tree the run is about to use, so it only ever reclaims a directory of the *same name*,
+and I picked a new name every time (`headtree`, `headtree2`, `headtree3`, `headfinal`, `ht5`,
+`ht6`, `htfinal2`). Nothing deleted anything. I noticed only when a CLAUDE.md edit landed in my
+working tree naming those exact directory names as the worked example. Measured after cleanup:
+**3.2 GB → 88 KB.**
+
+**The check I actually did have**, and this is the uncomfortable part: I ran that command seven
+times and read its output seven times, and the output was always the thing I was looking for
+(`ok`, `BUILD_EXIT=0`). Disk was never in the answer, so I never asked. Same mechanism as this
+session's other entries — reading a result for what it confirms.
+
+**The cheap checks:**
+
+1. **Use `scripts/verify-head-builds.sh` (OPP-008).** It writes to disk not tmpfs, refuses a
+   tmpfs target by filesystem type, and **deletes its tree on exit** — all three of which the
+   pasted recipe does not. `--with <file> [--test]` builds your change against HEAD *before* you
+   commit, which is exactly what I was hand-rolling.
+2. **If you do create a scratch tree, delete it in the same command that creates it** — a trailing
+   `rm -rf "$D"` after the build, not a leading one before the next.
+3. **`du -sh` your own scratch directory before you finish.** One command; mine would have read
+   3.2 GB at any point after mid-morning.
+4. **A recipe copied from a doc inherits the doc's assumptions, not your situation.** 73 documents
+   spell this one out and 66 of them never delete anything; the recipe is fine for one run and I
+   ran it seven times in a session.
