@@ -1,7 +1,7 @@
 # 375 — `update_work_item_status` stamps `complete` without ever consulting the verifier framework, so one of the three completion writers has no false-completion guard at all
 
 **Filed 2026-08-23** by the `bugfix_367_router_remit` lane, found while tracing why a router's
-wrong close was silent. **Status: OPEN, UNOWNED.** Deliberately NOT fixed inside `bugs_open/367`:
+wrong close was silent. **Status: OPEN — CLAIMED 2026-08-24 by `docs/agent_docs/docs024_key_docs_latest/bugfix_375_completion_verifier_gap/` (read `HANDOFF_2026-08-24_start_here.md` there first).** Deliberately NOT fixed inside `bugs_open/367`:
 this changes what a **shared completion path** guarantees, which is architecture-scope under the
 owner ruling of 2026-07-29, and `bugs_closed/124` drew a REJECTED verdict for exactly that shape
 of change arriving inside a bug patch.
