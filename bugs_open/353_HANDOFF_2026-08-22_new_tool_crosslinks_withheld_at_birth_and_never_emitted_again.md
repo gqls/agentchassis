@@ -275,3 +275,101 @@ roll (council round 2, corr `642ecc3c`), and **(b)** `tool-deployer`'s unexercis
 COMPLETED) — harmless, and it is what exposed the error: it "fixed" nothing because nothing was
 broken, and re-checking the control is what showed the control had been serving all along.
 **The 50-page redeploy was NOT run.**
+
+## 12. 2026-08-24 — **the forward fix is LIVE** (open item (a) discharged), round 2 came back REVISE on a STALE SKETCH OF MINE, and the call-site gap it named is now a test
+
+### 12.1 The fix SHIPPED — probed at the artefact, with both controls
+
+Chassis pods `agent-chassis-8bbb57765-{6q6vp,j5gdd}`, both `v1.0.1332`, started 09:39:19Z /
+09:39:50Z, one replicaset. The startup `build provenance` line had already scrolled out of
+`--tail=3000`, so this is the **capability probe**, not a commit inference:
+
+| literal probed | expected | result |
+|---|---|---|
+| `emitted_ungated_build_enqueued_by_caller` (the new arm) | present if shipped | **PRESENT** |
+| `tool_page_will_not_go_live` (**control +**, old literal) | must be present | **PRESENT** |
+| `zzz_synthetic_literal_that_cannot_exist` (**control −**) | must be absent | **ABSENT** |
+
+**So §11's open item (a) — "the forward fix, inert until a roll" — is DISCHARGED.**
+
+### 12.2 ⚠ But LIVE is not PROVEN, and the zero here proves nothing — the demand control says why
+
+`agent_error_log` since the roll: **0** `tool_page_will_not_go_live`, **0**
+`emitted_ungated_build_enqueued_by_caller`, and **3** rows all `no_related_pages`
+(10:19:50Z–11:12:00Z). The withhold count was **5 on 08-23** and is **0 today**.
+
+**Do not read that as the fix working.** Demand control: `orchestration_states` with
+`owner_agent_type='tool-generator'` since the roll = **3 runs, 3 COMPLETED** — so there WAS birth
+demand, but all three recorded `no_related_pages`, which short-circuits **before** Guard 2 is ever
+reached. Nothing since the roll could have exercised the new arm whatever it does. **The correct
+statement is live-and-unexercised.** The INFO row exists precisely so this stays measurable — the
+first non-zero is the proof, and it has not happened yet.
+
+*(Adjacent, unfiled: 3 of 3 births carrying no `related_pages` at all may be the same
+generation-side degradation as the `tool_birth_instance_scope_refused` rate in the lane handoff §3.4.
+Two data points is not a trend — noted, not claimed.)*
+
+### 12.3 Council round 2: **REVISE**, `decided_by` = gating objection from editquality
+
+Run `9a6e4350`, 2026-08-24 10:28:53Z → 10:35:17Z; 11 reviewers, 6 abstained, not truncated.
+
+**The high-severity objection was RIGHT ABOUT MY TEXT AND WRONG ABOUT THE CODE — and that is my
+defect, not a reviewer error.** It read edit 3's sketch, which still said
+`crossLinkEmitDecision(false, err == nil, …)`, and objected that if that ships the `pageLive`
+branch is dead in production. I had fixed the code in round 2 and **left the sketch describing the
+old code**. The reviewer set exactly the right clearing condition ("…or a code_check confirms the
+committed code differs from the sketch") and named the check. Run:
+
+```
+create_tool_cross_link_items.go:245  pageLive := toolPageLive(buildStatus)
+create_tool_cross_link_items.go:264  switch crossLinkEmitDecision(pageLive, gateItemFound, req.pageBuildIsEnqueuedByThisWorkflow) {
+```
+
+The code was right; the submission was not. **From outside, a sketch that contradicts the diff is
+indistinguishable from an unfixed defect.**
+
+The low-severity objection (edit 6 is a comment-only change on the `replace_existing` return) is
+**agreed and not contested**: it is disclosure of a residual, not a fix, and is credited as nothing
+more. The residual it names — **a regeneration whose spec ADDS a related page never emits a
+cross-link for it** — is recorded here rather than left in a comment alone, and is open and unowned.
+
+### 12.4 The `missing` item was the substantive one, and it is answered with a test
+
+> "No test or wiring change proves the production caller of `crossLinkEmitDecision` passes the real,
+> computed `pageLive` rather than a literal — `TestCrossLinkEmitDecision` only pins the pure
+> function's table, not the call site's argument."
+
+Correct, and it is **this bug's own failure mode recurring**: 353 survived 19 days in a
+DB-dependent branch no unit test could reach while its inputs' tests stayed green. Answering that in
+prose would have repeated the mistake.
+
+**`TestCrossLinkCallSitePassesTheRealPageLive`** (commit `027461e3d`) drives
+`emitToolCrossLinkItems` through sqlmock with the one setup that discriminates — **tool page
+SERVED, opt-in OFF**. Correct wiring reads `deployed` → `pageLive` TRUE → emit. The literal-`false`
+wiring falls to withhold and creates nothing. The assertion is the **EFFECT** (`created == 1`),
+never the absence of a query — that shape passes vacuously the moment the call fails for any other
+reason.
+
+**MUTATION-PROVED** in a `git archive HEAD` copy (the shared tree is never left mutated): restoring
+`crossLinkEmitDecision(false, …)` fails **exactly** this test while **both pre-existing tests keep
+PASSING** — the reviewer's point demonstrated rather than argued. Reverted; full
+`./platform/orchestration/actions` green (3.815s).
+
+### 12.5 Round 3 submitted — corr `642ecc3c` (same correlation, `RESUBMIT_CORR`, so the trail accumulates)
+
+Seven edits: substance unchanged from round 2, edit 3's sketch replaced with the committed shape
+verbatim, and the call-site test added as edit 7. Submission file:
+`docs/agent_docs/docs024_key_docs_latest/staged_component_build/COUNCIL_SUBMISSION_2026-08-24_bug353_crosslink_withhold_round3.json`
+
+### 12.6 What 353 is still open on
+
+- **(b) The new arm is live but UNEXERCISED** (§12.2). First non-zero
+  `emitted_ungated_build_enqueued_by_caller` row closes it; nothing else does.
+- **(c) `tool-deployer` still has 0 runs in retained history** — the emitter's second caller remains
+  an unexercised path, unchanged by any of this work.
+- **(d) The regeneration residual** (§12.3): `replace_existing` returns before the emitter, so a
+  regeneration that ADDS a related page never emits for it. Unowned.
+- Round 3's verdict.
+
+**Item (a) — the forward fix pending a roll — is CLOSED (§12.1). The damage half stays CLOSED
+(§11).**
