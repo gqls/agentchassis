@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
@@ -138,31 +139,46 @@ func TestInsertWorkItem_TwoCompletedPredecessors_PoisonTheKey(t *testing.T) {
 	}
 }
 
-// Within-cycle suppression drops the item ENTIRELY (returns false, no row).
-// For an action request that is the most damaging branch: a fix lands, its
-// re-render completes, a second fix lands an hour later — and the re-render
-// that would deploy it is silently discarded.
-func TestInsertWorkItem_WithinCycleSuppression_DropsItem(t *testing.T) {
+// Within-cycle: a fix lands, its re-render completes, a second fix lands an
+// hour later. The brake used to drop that second request ENTIRELY — no row, no
+// error, Inserted:false, indistinguishable from a genuine dedup.
+//
+// REWRITTEN 2026-08-24 (bugs_open/326 option D, owner ruling "D + E now").
+// Formerly ..._DropsItem, and it asserted the drop. The row is now written at
+// the caller's own status with retry_after set to the REMAINDER of the window,
+// so the brake holds the key quiet exactly as long as before while the request
+// survives it. The old drop is pinned as the KILL SWITCH's behaviour in
+// anti_churn_deferral_test.go, not deleted.
+func TestInsertWorkItem_WithinCycleWindow_DefersRatherThanDrops(t *testing.T) {
 	db, mock := newInsertMock(t)
 	defer db.Close()
 
 	mock.ExpectBegin()
-	// 1 terminal row, 1h old — inside the 3h window.
+	// 1 terminal row, 1h old — inside the window, so 2h of it remain.
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
 		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(1, 1.0))
-	// No INSERT expected: the item is suppressed.
+	expectDeferredInsert(mock,
+		"Re-render page after tool improvement", "triaged",
+		withinOf(time.Now().Add(2*time.Hour), 5*time.Minute))
 
 	tx, err := db.Begin()
 	if err != nil {
 		t.Fatalf("begin: %v", err)
 	}
 
-	inserted, err := insertWorkItem(context.Background(), tx, baseItem(), zap.NewNop())
+	w, err := writeWorkItem(context.Background(), tx, baseItem(), dropOnConflict, zap.NewNop())
 	if err != nil {
-		t.Fatalf("insertWorkItem: %v", err)
+		t.Fatalf("writeWorkItem: %v", err)
 	}
-	if inserted {
-		t.Fatal("expected within-cycle suppression to drop the item")
+	if !w.Inserted {
+		t.Fatal("within-cycle arrival must be RECORDED and delayed, never dropped (bugs_open/326)")
+	}
+	if !w.Deferred {
+		t.Error("Deferred must be true: the caller cannot otherwise tell this row will not dispatch yet")
+	}
+	if got := time.Until(w.DeferredUntil); got > 2*time.Hour+5*time.Minute || got < 2*time.Hour-5*time.Minute {
+		t.Errorf("DeferredUntil is %v away, want ~2h (the REMAINDER of a %vh window entered at 1h)",
+			got.Round(time.Minute), antiChurnWindowHours)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("expectations: %v", err)

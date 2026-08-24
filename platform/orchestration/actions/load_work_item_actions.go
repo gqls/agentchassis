@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
@@ -1628,6 +1629,13 @@ const (
 //
 // Recorded() is what a caller usually wants ("does a durable record now describe
 // my finding?"). Inserted is what a field NAMED "created" must be set from.
+// antiChurnWindowHours is the brake's quiet period: how long after a terminal
+// sibling on the same (site_id, item_key) a repeat is held back rather than
+// dispatched. It was an unnamed 3.0 inside a comparison; naming it is what lets
+// the deferral compute the REMAINDER of the window instead of parking a flat
+// interval, and what lets a test state the boundary without re-deriving it.
+const antiChurnWindowHours = 3.0
+
 type workItemWrite struct {
 	// Inserted: a NEW row was written.
 	Inserted bool
@@ -1655,6 +1663,24 @@ type workItemWrite struct {
 	// routed, and a producer telling its step result "raised at
 	// page-build-handler" would be stating a falsehood either way.
 	OwnedPageParked bool
+
+	// Deferred: the row WAS written, at the status the caller asked for, but
+	// with retry_after in the future because the anti-churn brake's
+	// within-cycle arm decided this key was worked too recently
+	// (bugs_open/326, option D of the owner ruling of 2026-08-24). Inserted
+	// stays true — the request is durably recorded and WILL dispatch, later.
+	//
+	// This field exists because its absence was the bug: the old arm returned
+	// workItemWrite{}, nil — no row, no error — and the caller could not tell
+	// "your work is already in hand" from "your request was destroyed".
+	Deferred bool
+	// DeferredUntil is when the deferred row becomes dispatchable. Zero unless
+	// Deferred.
+	DeferredUntil time.Time
+	// PriorAttempts is the number of terminal siblings on this (site_id,
+	// item_key) inside the brake's 7-day window — the number the brake acted
+	// on. Zero when the brake did not fire.
+	PriorAttempts int
 }
 
 // Recorded reports whether a durable record now describes this finding, however
@@ -1767,10 +1793,38 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 		}
 	}
 
-	// --- Two-strike rule: suppress within-cycle, label unresolved after 2 attempts ---
+	// --- The anti-churn brake: two arms, two DIFFERENT dispositions (bugs_open/326, option D) ---
 	// Skipped entirely for recurrence-expected items (see workItem.recurrenceExpected):
 	// for an action request a terminal predecessor is a SUCCESS, not a strike, and
 	// suppressing the re-request drops the very work that success depends on.
+	//
+	// WITHIN-CYCLE (newest terminal sibling under antiChurnWindowHours old, and
+	// fewer than two strikes): the request is DEFERRED, no longer dropped. The
+	// old arm returned workItemWrite{}, nil — no row, no error, and a
+	// caller-visible value byte-identical to a genuine open-item dedup, which is
+	// how a re-submitted customer build reported COMPLETED and queued nothing.
+	// The row is now written at the status the caller asked for, with
+	// retry_after set to the REMAINDER of the window — so the brake holds the
+	// key quiet for exactly as long as it always did (the claim, the dispatch
+	// loader and the completion verifier all honour retry_after through the one
+	// renderer, workItemRetryNotPendingSQL), and the deferred row HOLDS the
+	// dedup slot, so re-finds inside the window collapse onto it via
+	// idx_swi_dedup instead of each being separately swallowed. The old arm had
+	// no legitimate use: no caller of any kind wants its request destroyed with
+	// nothing recording that it existed.
+	//
+	// TWO-STRIKE (>=2 terminal siblings in 7 days): DELIBERATELY UNCHANGED —
+	// the asymmetry IS the ruling (owner 2026-08-24, option D over option A;
+	// RFC_048 §6b). Of the rows this arm parks, a third are detectors
+	// re-finding a fault whose fixer reports done without fixing
+	// (bugs_open/352's class), and deferring those would re-dispatch a futile
+	// fix every cycle. Its landfill and duplication questions belong to
+	// RFC_010 / bugs_open/033 D2, not here. ONE sub-case does change: a
+	// two-striker arriving INSIDE the window used to be dropped by the early
+	// return above the brand; it now falls through and is branded — recorded,
+	// like every other two-striker, instead of vanishing.
+	var deferUntil *time.Time
+	var priorAttempts int
 	if item.itemKey != "" && !item.recurrenceExpected {
 		var terminalCount int
 		var newestAge float64 // hours since most recent terminal item
@@ -1786,13 +1840,33 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 		`, item.siteID, item.itemKey).Scan(&terminalCount, &newestAge)
 
 		if err == nil && terminalCount > 0 {
-			// Within-cycle suppress: most recent terminal item is < 3h old
-			if newestAge < 3.0 {
-				logger.Info("insertWorkItem: suppressed — terminal item too recent",
-					zap.String("item_key", item.itemKey),
-					zap.Float64("age_hours", newestAge),
-				)
-				return workItemWrite{}, nil
+			priorAttempts = terminalCount
+
+			if newestAge < antiChurnWindowHours {
+				// The disarm lever, not an opt-in: it ships ARMED (the owner
+				// has ruled against default-OFF switches that rot unexercised)
+				// and restores the pre-326 drop EXACTLY, including for the
+				// two-striker sub-case — the DISABLE_UNREGISTERED_HANDLER_DEMOTION
+				// posture, one mechanism over.
+				if os.Getenv("DISABLE_ANTI_CHURN_DEFERRAL") != "" {
+					logger.Info("insertWorkItem: suppressed — terminal item too recent",
+						zap.String("item_key", item.itemKey),
+						zap.Float64("age_hours", newestAge),
+					)
+					return workItemWrite{}, nil
+				}
+				if terminalCount < 2 {
+					// The REMAINDER of the window, not a flat interval: an
+					// arrival at 2h59m waits a minute, not three hours, so the
+					// total quiet period per key is unchanged.
+					t := time.Now().Add(time.Duration((antiChurnWindowHours - newestAge) * float64(time.Hour)))
+					deferUntil = &t
+					logger.Info("writeWorkItem: deferred — terminal item too recent (bugs_open/326)",
+						zap.String("item_key", item.itemKey),
+						zap.Float64("age_hours", newestAge),
+						zap.Time("retry_after", t),
+					)
+				}
 			}
 
 			// Two strikes: handler had 2 chances and the issue persists.
@@ -1917,6 +1991,18 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 		extraVals += fmt.Sprintf(", $%d", argN)
 		args = append(args, ownedParkedError)
 	}
+	// retry_after joins the SAME conditional-column discipline for the SAME
+	// reason (bugs_open/326): a caller the brake did not touch sends the
+	// identical statement with the identical arguments it always sent, so no
+	// sqlmock expectation in any other lane changes shape. It can co-occur with
+	// the 291 error arm above (a recent repeat whose handler is unregistered),
+	// in which case it is $18; alone it is $17.
+	if deferUntil != nil {
+		argN++
+		extraCols += ", retry_after"
+		extraVals += fmt.Sprintf(", $%d", argN)
+		args = append(args, *deferUntil)
+	}
 
 	insertSQL := fmt.Sprintf(`
 		INSERT INTO site_work_items (
@@ -1948,7 +2034,17 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 			zap.String("status", item.status),
 			zap.Int("priority", item.priority),
 		)
-		return workItemWrite{Inserted: true, BornBlocked: demotedUnroutable, OwnedPageParked: ownedParked}, nil
+		w := workItemWrite{
+			Inserted:        true,
+			BornBlocked:     demotedUnroutable,
+			OwnedPageParked: ownedParked,
+			Deferred:        deferUntil != nil,
+			PriorAttempts:   priorAttempts,
+		}
+		if deferUntil != nil {
+			w.DeferredUntil = *deferUntil
+		}
+		return w, nil
 	}
 
 	// Nothing was inserted: an OPEN item already holds this key. Under the

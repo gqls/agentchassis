@@ -62,6 +62,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -424,7 +425,18 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 		// successes can tell "filed and dispatchable" from "filed and parked"
 		// without re-querying. Both additive.
 		"owned_page_parked": w.OwnedPageParked,
-		"row_status":        effectiveRowStatus(status, w),
+
+		// deferred / retry_after / prior_attempts: the row EXISTS and WILL
+		// dispatch, but not yet — the anti-churn brake's within-cycle arm held it
+		// back (bugs_open/326, option D). Additive, on the born_blocked precedent:
+		// no live definition branched on this action's output when these were
+		// added (0 conditional steps reference deduped/inserted, 2026-08-24).
+		// Before them, `deduped: true` had two meanings — "an open item covers
+		// this" and "the brake ate your request" — and the second was the bug.
+		"deferred":       w.Deferred,
+		"retry_after":    deferredUntilString(w),
+		"prior_attempts": w.PriorAttempts,
+		"row_status":     effectiveRowStatus(status, w),
 	}, nil
 }
 
@@ -467,4 +479,14 @@ func shouldWarnLoopDedup(config map[string]interface{}, inserted bool) (fire boo
 	loopVar, _ = config["loop_var_name"].(string)
 	suffixField, _ := config["item_key_suffix_field"].(string)
 	return true, loopVar, suffixField != ""
+}
+
+// deferredUntilString renders the deferral boundary for the result map, and
+// empty when there is none. A zero time.Time formats as a real-looking RFC3339
+// timestamp in the year 1, which is exactly the kind of value a reader trusts.
+func deferredUntilString(w workItemWrite) string {
+	if !w.Deferred || w.DeferredUntil.IsZero() {
+		return ""
+	}
+	return w.DeferredUntil.UTC().Format(time.RFC3339)
 }
