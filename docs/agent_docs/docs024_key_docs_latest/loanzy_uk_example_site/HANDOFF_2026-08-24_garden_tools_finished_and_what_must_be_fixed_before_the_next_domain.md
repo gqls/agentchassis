@@ -214,10 +214,23 @@ re-triage it replaces precisely because nothing here was contrived to succeed:
 >    `handler_agent='directory-build-handler'`, filed by reconcile with no hand routing. A hand
 >    re-triage would fix the page and prove nothing.
 >
-> ⏳ **There is a clean WINDOW, and it closes.** `bugs_open/381`'s migrations **591-595 are NOT
-> applied** as of 2026-08-24 (`generic-text-block.content` still types `text`). So a rebuild **now**
-> tests 206 alone and leaves 381's pre-fix baseline intact. Once 591-595 apply, a rebuild becomes a
-> joint test of both and neither result isolates cleanly.
+> ⏳ ~~**There is a clean WINDOW** … a rebuild now tests 206 alone~~ **— THAT WINDOW CLOSED at
+> 16:53Z on 2026-08-24, about twenty minutes after I wrote it.** `bugs_open/381`'s **planner half is
+> now LIVE** (migrations **591/592/593** applied 16:53Z; SQL function `component_expresses` exists;
+> all three planner menus now print list / table / items / html-block / [prose only] per component).
+> **Its writer half is deliberately HELD** — `594_prose_slots_get_structure_guidance_HOLD.sql` and
+> `595_writer_rules_9_and_10_name_html_HOLD.sql`, renamed so no `--apply` takes them early; release
+> condition is the `bugs_open/305` lane's `</th` sentence-boundary fix being live, because 594/595
+> are what first let the writer emit a `<table>` and thereby make 305's latent defect reachable.
+> Verified here: `generic-text-block.content` is still `type: text` with **no `llm_guidance` key**.
+>
+> **So a rebuild today is a JOINT test of 206 + 381-arm-A, and arm A moves a different needle.**
+> `bugs_open/381`'s owner is explicit: what changes on arm A alone is **WHICH COMPONENTS THE PLANNER
+> CHOOSES** (or informed-refuses), **not how much markup appears** — the writer will still produce
+> paragraphs inside whatever it picks, because its field carries no guidance yet.
+> **⚠ Do NOT read flat structure numbers from such a build as "381 didn't work."** The
+> PROMISE-vs-DELIVERY check should be expected to keep firing until arm B lands. Measure the plan's
+> component choices, not the page's tag counts.
 
 ⚠ **`buying-guides-index` will STILL 404 after that roll.** That is the council's deliberate
 narrowing, not a failed fix. Do not report it as one.

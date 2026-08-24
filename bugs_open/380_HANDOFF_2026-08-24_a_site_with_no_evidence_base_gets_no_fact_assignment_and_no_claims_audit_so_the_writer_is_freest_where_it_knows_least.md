@@ -138,6 +138,41 @@ into a number someone can watch.
 ⚠ **A COUNT OF THINGS CARRIES ITS DATE (owner ruling 2026-08-22)** — the sites-with-an-evidence-base
 list above is **as of 2026-08-24** and this class grows by ADDITION with every greenfield build.
 
+## 6a. TAKEN AND PARTLY FIXED THE SAME DAY — and the fixing lane's diagnosis is STRONGER than mine
+
+`597_claims_auditor_runs_cold_and_fails_closed.sql` **applied 2026-08-24 16:50Z**, its header citing
+*"bugs_open/380 slice S2"*, alongside `598_build_site_planner_distinct_no_facts_arms.sql`. Verified at
+the live config: **`check_opted_in` no longer exists** on `claims-auditor` — the skip-to-`complete`
+gate is gone and the auditor is posture-changed to run cold.
+
+**Three corrections to this file from that lane's work, all verified here:**
+
+1. **My predicate was too narrow. Use 33, not 29.** I counted sites with *no evidence spec at all*
+   (**29 of 48**). The gate branched on a `string_agg` over `facts[]`, which is **NULL for a site with
+   no register AND for one with an empty register** — so the right population is *nothing attested*:
+   **33 of 48** `[MEASURED 2026-08-24]`. Both numbers are correct; only theirs answers the question
+   the code asks. **Counting the thing I could see rather than the thing the predicate tests.**
+2. **The mechanism is worse than "the gate fails open": the auditor is essentially UNDRIVEN.** Their
+   header records no seed file (migration 350 notes it), no schedule, and — at the time they wrote it
+   — **one `llm_call_log` row in its entire history** (2026-07-18, returning `[]`), with
+   `request_claims_review` never having fired. So this was not a guard that leaked on 60% of sites;
+   it was a guard that had **run once, ever**. **I should have checked drive before framing severity**
+   — my own memory index carries *"a silent mechanism is usually UNDRIVEN, not missing"* and I did not
+   apply it to the mechanism I was filing about.
+3. ⚠ **Their own "one row ever" figure is now stale, changed by their own verification.** Re-measured
+   here after their migration: `llm_call_log` for `claims-auditor` is **3 rows** (latest
+   2026-08-24 16:53:06Z) and `claims_llm%` items are **2**, not 0. The figures were true when written.
+   **Anyone re-running those queries to confirm the diagnosis will get different numbers and may
+   doubt a sound finding** — the fix's own test populated the table cited as empty. Same family as
+   *your action moves you to the back of the selector*: **verifying a fix can erase the evidence for
+   the bug.** Quote the figures with their date, or re-derive from `created_at < '2026-08-24'`.
+
+**What remains open in this bug after S2:** the planner's fact-assignment arm (598 addresses the
+`no_facts` arms — needs its own verification), and **fix candidate 2 — gating PRACTICE claims
+independently of the evidence base.** The invented copy on `garden-tools.uk` is claims about *us*
+(*"we buy the tool at the same price a reader would pay"*), not claims about the world, and an
+evidence register of world-facts cannot cover them however cold the auditor runs.
+
 ## 7. Provenance
 
 Live run `garden-tools.uk`, submitted 2026-08-23 17:17Z with no prompt, no mission and no seed.
