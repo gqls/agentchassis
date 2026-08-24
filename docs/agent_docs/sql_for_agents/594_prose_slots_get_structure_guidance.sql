@@ -162,9 +162,18 @@
 -- BLAST RADIUS. Four shared library rows, `[MEASURED 2026-08-24]` 181 + 153 + 27 + 6 =
 -- 367 live instances. Existing instances are NOT rewritten by this file — stored
 -- rendered_html and content_data are untouched; only future writes change. It touches
--- `input_schema` ONLY and never `html_template` (confirmed disjoint with the
--- RFC_032/bugs_open/283 lane, which has never edited input_schema and inserts no
--- content_components rows).
+-- `input_schema` ONLY and never `html_template`. Disjoint with the RFC_032/`bugs_open/283`
+-- lane — stated by them, and RE-MEASURED HERE rather than taken on trust, because it is a
+-- claim about THIS change's blast radius and this file is what carries it
+-- `[MEASURED 2026-08-24]`: of that lane's 5 `SQL_*.sql` files, **0** mention
+-- `input_schema`, **0** contain `INSERT INTO content_components`, and 3 carry
+-- `SET html_template`. Their footprint on this table therefore cannot disturb the
+-- pre-state guards below.
+-- ⚠ Re-measured deliberately — see `WRONG_CALLS.md` 2026-08-24 (`7071876b0`): a
+-- peer-supplied fact about your own code's reachability or blast radius reads as
+-- corroboration the moment you write it down, and two lanes can end up holding one belief
+-- on a single measurement of zero. The check, so the next reader need not trust this either:
+--     grep -l 'input_schema\|INSERT INTO content_components' <their dir>/*.sql
 --
 -- PAIRS WITH 595 AND SHOULD LAND WITH IT. Guidance alone works (article-body proves
 -- it) but leaves RULE 9 contradicting the guidance on a now-`html` field. Neither
