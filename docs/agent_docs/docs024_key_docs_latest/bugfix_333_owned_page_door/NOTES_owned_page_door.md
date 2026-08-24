@@ -253,3 +253,40 @@ emitted nothing — 8 stopped before the emitter's Guard 2, 5 at it), because `a
 the door is inert** — on the current producer mix nothing reaches that emitter's write at all. Their stated
 discriminating setup: an `add_tool` item whose spec DOES carry `related_pages` naming an owned page. Folded into
 the verification section.
+
+## 2026-08-24 — APPROVED, and a last false negative worth naming
+
+**Council round 2: APPROVED** (corr `9813dec8`, 15 reviewers, 2 abstained, no high-severity objections).
+`098_REPORT` credits both code commits automatically via the `Council-Submitted:` trailer
+(`6ab0b3434`, `1789489bf` — *"[9813dec8, by correlation, via submitted]"*), so the pre-verdict commits needed no
+amend, which is exactly what that trailer exists for.
+
+Three approval advisories, all low, all acted on in `358ea1493`:
+- **the one that was a claim of mine a Go grep could not settle** — "no caller switches on
+  `raiseToolContentItem`'s return" was verified against Go call sites only, and a workflow step's `condition`
+  could match the string without appearing in Go. Checked against live config: **zero** branches on any return
+  value, **zero** conditions naming `content_item`. ⚠ A broad `ILIKE` over the whole config *does* hit
+  `experience-planner` on `insert_failed` — **false positive**, the string is inside an `execute_llm_prompt`
+  prompt body in its `review_contracts` step. **Match on `s.value->>'condition'`, not the config blob, or a
+  prompt's prose reads as a branch.**
+- `OWNED_PAGE_DOOR_PROBE_FAILED` named in the RUNBOOK as a monitored literal with its query.
+- The consumer-notification artefact written up as a table (who, what they were told, what came back).
+
+### MISSTEP 5 — a doc edit that reported success from the EDITOR rather than from the FILE
+
+The commit recording the approval claimed three files and landed **two**. `str.replace` with no match writes the
+file unchanged and returns silently, and my script printed *"register: approval recorded"* from a line that had
+done nothing — the register's warning was parenthesised and my anchor was not. **Caught by the commit-scope
+block**, which listed two files where the message said three. Fixed in `05ca64aa0`. The check: grep the file for
+the NEW text after any scripted edit, and read the scope block rather than the tail of git's summary.
+
+### The landmine verifier's NEEDS_HUMAN_REVIEW is a STALE-INDEX false negative
+
+Both entries came back `NEEDS_HUMAN_REVIEW`, reason: core footprint confirmed but
+`work_item_owned_page_door_test.go` and the helpers "not found". They exist, are committed (`1789489bf`), and
+both helpers are present at HEAD (`git show HEAD:<path> | grep -c` → 2). **The code index was last built
+2026-08-24 08:40Z and the file was created ~16:00Z.** So the verdict is a statement about the index's age, not
+about the tree. Noted inside both landmine entries, because a future reader meeting NEEDS_HUMAN_REVIEW with no
+explanation would reasonably read it as "this landmine is wrong". **Check `max(created_at)` on the index before
+believing an absence it reports** — the same shape as the estate's standing "a record goes stale faster than its
+reader can tell".
