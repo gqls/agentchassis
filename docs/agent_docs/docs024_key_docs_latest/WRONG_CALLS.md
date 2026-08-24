@@ -48721,3 +48721,65 @@ options were mis-costed. Corrected in place in the brief and in RFC_048.
   it. **Re-reading is the wrong instrument for this class; asking is the right one** — and the ask
   must carry a number the other side can independently re-derive. Every correction in this
   exchange came from a concrete mismatch; none came from a request for scrutiny.
+
+### 10 — 2026-08-24: I told another lane their entry "does not exist anywhere". It did. I had OR'd a common word into the search and truncated with `| head`
+
+Twenty minutes after entry 9, I checked whether the peer session's `WRONG_CALLS`
+entry had reached the file. My commit-message reading said it should be there; my
+grep said it was not. I reported the absence to them, in a message with three
+independent-looking "checks" and the sentence **"Your entry does not exist
+anywhere."**
+
+It existed. It was at line 48552, in the same commit as my own entry, which had
+added **two** headings. `git show <sha> --numstat` reads `98  0` and I read those 98
+lines as mine because my entry is about that size — the arithmetic slip that let the
+conclusion form.
+
+**The command, which is the whole lesson:**
+
+```bash
+grep -n 'swallowed\|TestTemplateNeedsInstanceID\|reduced set\|smaller corpus\|inventory of' WRONG_CALLS.md | head
+```
+
+That returns **22** matches. Six of them (48557–48578) are the entry I said did not
+exist. I saw ten, and all ten were lines 1240–17755 — early hits of `swallowed`, a
+word that appears **17** times in a 48,000-line file and which I had OR'd in beside
+four rare, decisive phrases. **The common term consumed the entire `head` window
+before the search ever reached the answer.** Nothing was truncated silently: `head`
+did exactly what it is for.
+
+Two things made it worse than a slip:
+
+1. **I wrote the interpretation into the command before running it** — the next line
+   of my own shell was `echo "(empty above = their entry is NOT in the file)"`. The
+   output was not even empty; it was ten irrelevant lines, and the pre-written label
+   is what I read them as. A conclusion authored before the evidence will survive
+   evidence that does not match it.
+2. **I was correcting someone else's record at the time.** The cost of a false
+   absence is not symmetric: telling a peer "you did not file it" spends their
+   attention and their trust in their own account, and I did it with more confidence
+   than any of the three checks carried.
+
+**The peer's own diagnosis of my error was wrong too, and that is worth recording
+separately:** they proposed the documented hard-wrap trap (a line-oriented `grep -F`
+reporting false absences on a phrase split across a wrap, MEMORY.md's opening note).
+Reasonable, and it is a real trap on this file — but not this one. Verified: every
+phrase I searched matches on a single line, and the unwrapped `tr` remedy returns
+exactly the same counts. **The wrap was innocent; `| head` was the culprit.** A
+plausible known trap is a comfortable place to put an error and is not evidence.
+
+**The cheap checks, in order of how much they would have bought:**
+- `| wc -l` before `| head` — one word, and 22-vs-10 is the entire finding.
+- Search the **rare** term alone. A multi-pattern OR is a search for the most
+  common member; adding rare terms to a common one cannot make the common one
+  rarer.
+- `git show <sha> -- <file> | grep '^+#'` — lists the headings a commit added, and
+  would have printed **both** on one line each. It is the inventory form of the
+  check, and it cannot be fooled by term frequency or by a truncation.
+
+**The transferable half, and it is the same one as entries 7, 8 and 9 — fourth
+instance in one day, three lanes:** a check that passed honestly, answering a
+question adjacent to the one asked. `grep | head` answers *"show me some matches"*.
+I asked it *"are there any matches"*. Those differ exactly when the matches you want
+are not the matches you get first — which is precisely when you are searching a long
+append-only file for the newest entry, i.e. **always, for this file.**
