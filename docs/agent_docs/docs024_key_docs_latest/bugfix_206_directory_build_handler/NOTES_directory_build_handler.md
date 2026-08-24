@@ -469,3 +469,48 @@ non-tool typed items and must not be read as fixing the tool class.
   My new file kept me clear of it entirely.
 - Method worth reusing: **establish WHOSE a failure is before reporting it.** Three overlays, one
   message, actionable rather than accusatory.
+
+### Council rounds 1–3 (same session), and what each round actually bought
+
+Worth recording in full, because the lane's own experience is that a REVISE is cheaper than the
+defect it finds — and all three rounds found something real rather than a formatting quibble.
+
+**Round 1 → REVISE, gating from `editquality`.** It caught the phantom
+`site_plan_pages.page_type` column. I had already caught it myself (by trying to USE the column
+and getting `ERROR: column spp.page_type does not exist`) so the code never carried the defect —
+but the submission text did, and the seat found it independently from the schema alone. Its
+checks also returned **87 items across 16 sites** against my "five", which is what sent me to the
+unscoped census, which is what found `bugs_closed/187`, which is what turned this from "I found a
+new bug" into "I re-found a closed decision". **That single discrepancy was worth the round.**
+
+**Round 2 → REVISE, gating from `bug_historian`, plus two more HIGHs.** All three were
+"you asserted, you did not query", and all three were answerable in one psql call each:
+- Is `directory-build-handler` actually a live agent, or am I minting items into dormant
+  machinery? → `is_active=t, is_snapshot=f, deleted_at IS NULL`. Live.
+- Are `tool-builder`/`entity-page-builder` genuinely absent, or am I parking buildable pages? →
+  **0 rows.** The absence is real, which is exactly what makes the gap arm right.
+- Does a `deferred` row with a non-empty `handler_agent` really stay undispatched? → **this one
+  changed the code**, see the WRONG_CALLS entry: my 262-row demand control passed and was blind
+  on the axis the objection was about. Row now carries an empty `handler_agent`, matching 47 of
+  47 existing `capability_gap` rows.
+
+Two other round-2 objections I did NOT simply comply with, because the premise was checkable:
+- `guidelines` cited a "DELETE+INSERT, not ON CONFLICT" rule for dedup-covered inserts. The
+  estate's own shared helper `insertWorkItem` uses `ON CONFLICT (site_id, item_key) WHERE … DO
+  NOTHING`, and reconcile's three pre-existing INSERTs use the bare form. Hand-writing the
+  index-matching WHERE would couple this call site to `workItemTerminalStatuses` — the 42P10
+  lockstep trap. Kept the bare form and flagged the premise rather than quietly complying.
+- `editquality` on minimality (the suffix widening is a different mechanism): **conceded**, it
+  is off the causal path. Removed from the plan; it ships separately. Note the honest wrinkle —
+  it is already committed, so the separation is of the REVIEW, not of the shipping, and the
+  round-3 submission says so rather than implying a clean split.
+
+**The split-brain objection came from FOUR seats** (guardian, reuse_agent, editquality,
+bug_historian) and is the one I could not close: `WriteBuildItemsAction` still holds its inline
+maps, so two producers can route the same `page_type` differently. That is genuinely the shape of
+the bug being fixed, appearing a third time, and the seats are right to say so. What I could do
+was bound it — one page_type, one path, no regression on that path, shared dedup key so a page
+cannot hold two items — and refuse to close it the wrong way. **I will not land another lane's
+unowned, measured-red, shared-seam change to tidy up my own submission**, and the round-3
+rationale offers the council the contained alternative (drop the section-index entry until the
+swap is possible) rather than assuming my answer.
