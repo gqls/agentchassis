@@ -49164,3 +49164,28 @@ useless for dating. This is the other half: even a faithfully stamped column is 
 *specific* write, because it only ever holds the most recent one. **A timestamp column answers "when
 was this row last touched", and every question I have ever wanted it for was "when was it touched in
 the way I care about" — which it cannot answer and will not decline to answer.**
+
+## 2026-08-24 — "the scratch tree I extracted two days ago is still there" (webdesign-tool-rebuilds)
+
+**The claim, implicit in a compound command:** `cd $SCRATCH_DIR` then mutate-and-test — written as
+newline-separated statements, so when the directory turned out to have been REAPED (the new
+scratch-report reaper, plus the CLAUDE.md rule against exactly these hand-rolled extracts), the `cd`
+failed and every subsequent command ran IN THE REPOSITORY WORKING TREE: a perl one-liner deleted a
+committed repair call from the REAL `deploy_tool_action.go`.
+
+**What caught it:** the harness's changed-on-disk notice plus the command's own output reading wrong
+(`No such file or directory` four times before "results" that looked plausible). Recovery cost two
+minutes ONLY because the file's diff-vs-HEAD was exactly the two mutated lines — `git diff` read
+before `git checkout --`, per the read-before-restore rule; on a file carrying another session's
+uncommitted work, that checkout would have destroyed it.
+
+**The cheap check, two halves:** (1) a compound command whose later statements assume an earlier
+`cd`/mkdir succeeded writes `cd "$dir" || exit 1` (or `set -e`) — the failure mode is not an error,
+it is the whole tail executing somewhere else; (2) a scratch path from a previous day is a PROPHECY,
+not a fact — the reaper runs now, so re-`mkdir`/re-extract (via `scripts/verify-head-builds.sh`, not
+a hand-rolled archive) before every use.
+
+**The accidental silver lining, recorded so nobody repeats the method on purpose:** the mutation
+landing on the real (committed-clean) tree produced exactly the compile-proof a council seat had
+demanded — mutant builds, scan test fails on the scan — but on a dirtier tree the same accident
+would have been a mess measured in other sessions' lost work.
