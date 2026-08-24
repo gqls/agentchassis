@@ -165,6 +165,27 @@ type RenderContext struct {
 	// precedent here. `json:"-"` for the same reason as InputSchema above.
 	AbsentRequiredFields []string `json:"-"`
 
+	// UnboundInstanceToken is an OUTPUT: RenderTemplate writes it, callers read
+	// it. True means the template namespaces its element ids with
+	// {{.InstanceID}} and NO per-instance token was bound, so every instance on
+	// the page just rendered IDENTICAL ids under missingkey=zero — the exact
+	// silent failure bugs_open/283 exists to remove.
+	//
+	// It is a report, not a refusal, and that is a decision under review rather
+	// than a preference: see the long note at the write site. The seam cannot
+	// escalate (no database handle, no site identity) and cannot invent a token
+	// that would be right, so it publishes and a caller with authority acts —
+	// the same shape as AbsentRequiredFields above, which is the remedy the
+	// owner ruling on THIS function chose for the same "a named log is not
+	// escalation" problem.
+	//
+	// ⚠ NOTHING READS IT YET. That is the honest state as of 2026-08-24: the
+	// arming question (which callers refuse, and whether fleet-wide) is
+	// architecture_review/RFC_050, awaiting the owner. A field with no reader is
+	// a mechanism that can rot — so if RFC_050 is answered "do not arm", DELETE
+	// this field rather than leaving it as decoration.
+	UnboundInstanceToken bool `json:"-"`
+
 	// RenderedTemplateSHA is an OUTPUT: RenderTemplate writes it, callers read it.
 	// It is the SHA-256 of the template text this call actually executed, and it
 	// exists so that the bytes a render produces can be tied back to the exact
@@ -1093,68 +1114,80 @@ func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) 
 	// every one of them arrives, and mirrors the form_action seeding above: the
 	// guarantee is made mechanical rather than left to each caller remembering.
 	//
-	// It refuses and does not substitute. There is no value this layer could
+	// It reports and does not substitute. There is no value this layer could
 	// invent that would be right: it cannot see the page, so any token it made up
 	// would either collide (no better than empty) or disagree with the token the
 	// page's other render paths use for the SAME instance — which is worse than
 	// empty, because the ids would then depend on which action last touched the
 	// section.
 	//
-	// ARMED FROM LOG-ONLY TO REFUSAL, 2026-08-24 (plan §B2, RFC_032 §10). It
-	// stood here as a named logger.Error for eight days, and this estate has an
-	// owner ruling — cited at the dead-control report below — that a named log
-	// is not escalation. The output is structurally wrong for EVERY instance,
-	// which is the bugs_open/260 class: execute, or fail; there is no third
-	// state. It is deliberately unlike the absent-content report further down,
-	// which does not refuse because that content legitimately renders today.
+	// ⚠ THIS WAS A HARD REFUSAL FOR ONE COMMIT (120131549) AND IS NOW A
+	// PUBLISHED REPORT. Council round 1 on 661bcf00 came back REVISE on a HIGH
+	// from the guardian seat: converting this seam's log-only defect path into a
+	// hard error is new authority on a shared seam with (then) 6 binding callers
+	// across several pipelines, shipped unconditional on the strength of a census
+	// of TODAY's templates — "a census of TODAY's live templates cannot bound
+	// tomorrow's caller; this needs an explicit council sign-off on the authority
+	// question, not a footnote". The seat is right, and the estate has already
+	// litigated this exact shape once: RFC_044 shipped a default-ON annotation on
+	// two shared render actions, drew the same HIGH, and was VETOED on the next
+	// round with "routing a scope objection to architecture review does not
+	// license deploying the disputed change". So the disputed half is CONTAINED
+	// here rather than re-argued, and the authority question goes to the owner in
+	// architecture_review/RFC_050 with the blast-radius data already gathered.
 	//
-	// UNCONDITIONAL, NOT OPT-IN, and the measurements are why. The owner ruling
-	// of 2026-08-02 §2 requires new authority on a shared seam to ship opt-in
-	// with the unsafe default OFF *or* to be measured inert; the second arm is
-	// satisfied here, and a per-caller flag would re-create exactly the
-	// per-call-site wiring this seam exists to remove. What was measured, all
-	// dated 2026-08-24 and all disconfirmable:
+	// AND THE CONTAINED SHAPE IS THE ONE THE PRECEDENT I CITED ACTUALLY USED.
+	// The editquality seat caught this: the submission quoted the owner ruling
+	// below ("a named log is NOT escalation", bugs_open/054) as licence to
+	// refuse, when that ruling's own remedy on this very function was to
+	// PUBLISH — ctx.AbsentRequiredFields, written here, read by a caller that
+	// has the database handle and site identity this seam does not. Following
+	// the precedent I cited means doing the same thing: publish the fact, let a
+	// caller with authority act. That is strictly more than the log it replaced,
+	// because a log is not readable by code.
 	//
-	//   - STATIC, tree-wide: 11 non-test files call a RenderTemplate* helper;
-	//     6 bind a token, 5 are allow-listed in pattern-check.py's
-	//     INSTANCE_TOKEN_ALLOWED as slots that occur once per document. Zero
-	//     unbound. Demand control: deleting the bind call from each of the 6
-	//     flips it to an unscoped-component-render finding, so the zero could
-	//     have come out otherwise.
-	//   - AT THE ARTEFACT: of 2,020 page_components rows, ZERO carry the
-	//     unbound-token shape id="-…"; 374 carry a bound id="c-…". In the
-	//     window since generic-text-block began spelling id="{{.InstanceID}}"
-	//     exactly (2026-08-23 12:32), 155 of its rows were written and 155 of
-	//     155 carry a bound token, 0 empty. That template is the one where an
-	//     unbound render is visible as id="" rather than id="-…", so it is the
-	//     sharpest available detector, and it says the live paths all bind.
-	//   - BLAST RADIUS: zero chrome-level templates (header 4, footer 1, site
-	//     6, element 1 — all active) spell {{.InstanceID}}, so the refusal
-	//     cannot fail a header, footer or <head> render. All 140 that do spell
-	//     it are section (30) or tool (110) level.
-	//   - NOT MEASURED, stated rather than implied: the fleet log census the
-	//     plan asked for is a BLIND instrument on this cluster and its zero is
-	//     worth nothing — there is no log aggregator, spawned job pods carry
-	//     ttlSecondsAfterFinished=3600, and across all 181 live and completed
-	//     pods (176k log lines) not one line names component_library.go at all.
-	//     The artefact census above is the substitute, because it can come out
-	//     non-zero.
+	// WHAT THE MEASUREMENTS DO AND DO NOT LICENSE, all dated 2026-08-24 and all
+	// disconfirmable. They establish that NOTHING RENDERS UNBOUND TODAY — 0 of
+	// 972 non-test .go files render without binding (demand control: deleting
+	// the bind from each of the 6 binders flips it to a pattern-check finding);
+	// 0 of 2,020 page_components rows carry the unbound shape id="-…" against
+	// 374 carrying a bound id="c-…"; and 155 of 155 generic-text-block rows
+	// written since that template began spelling id="{{.InstanceID}}" exactly
+	// (2026-08-23 12:32) carry a bound token. They do NOT establish what a
+	// caller added next month will do, which is the whole of the guardian's
+	// objection and is not answerable by measurement at all.
 	//
-	// SECOND DOOR, unclosed on purpose: RenderTemplateWithMap
-	// (rerender_pages_actions.go:818) is a separate render path with no such
-	// check (bugs_open/260 §13g — it does not even share this one's FuncMap).
-	// Its callers render chrome only, and the chrome census above is zero, so
-	// arming it would guard nothing today. If a section or tool template ever
-	// reaches it, this refusal will not fire.
+	// PER-CALLER, BECAUSE THE SUBMISSION ASSERTED THIS AND HAD NOT CHECKED IT.
+	// The claim was "every caller already handles this error channel correctly
+	// since bugs_open/260". Read on 2026-08-24, that is not true as stated. Of
+	// the 7 call sites that can reach an {{.InstanceID}} template: 6 fail loudly
+	// (assemble_from_library:303, section_editor_actions:1113 and :1277 — both
+	// leaving the live section untouched, v3_site_actions:2465,
+	// component_instance_conversion:419, tool_birth_instance_scope:67) and ONE
+	// does not — rerender_page_sections_action:661 CARRIES the stored HTML and
+	// continues, deliberately, because that action is the repair vehicle and a
+	// re-render that refused on the state it was dispatched to fix would
+	// deadlock its own remedy. Two further callers soften a render error
+	// (render_site_components_action:1074 leaves working chrome in place;
+	// adopt_fragment_section:123 warns and returns false) and neither can reach
+	// such a template — 0 chrome-level templates spell the token (header 4,
+	// footer 1, site 6, element 1, all active). So the contract across callers
+	// is NOT uniform, exactly as the guardian said.
+	//
+	// THE SECOND DOOR IS NOW REPORTED TOO, not merely documented.
+	// RenderTemplateWithMap (rerender_pages_actions.go) is an independent render
+	// path that does not share this one's FuncMap (bugs_open/260 §13g); it
+	// carries the same report, so the class is visible on BOTH paths and neither
+	// enforces pending the ruling. bug_historian's objection was that a
+	// chrome-only census is a snapshot and not a guard — correct, and a report
+	// on the path itself is the guard a snapshot cannot be.
 	if TemplateNeedsInstanceID(templateStr) {
 		token, _ := ctx.ContentData[InstanceContentKey].(string)
 		if token == "" {
-			logger.Error("RenderTemplate: template namespaces ids with {{."+InstanceContentKey+"}} but no per-instance token was bound — refusing rather than rendering identical element ids",
+			ctx.UnboundInstanceToken = true
+			logger.Error("RenderTemplate: template namespaces ids with {{."+InstanceContentKey+"}} but no per-instance token was bound — every instance on this page will render identical element ids",
 				zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
 			)
-			return "", nil, nil, fmt.Errorf(
-				"template namespaces ids with {{.%s}} but no per-instance token is bound — bind via BindInstanceToken/BindSingleSectionInstanceToken (bugs_open/283 seam)",
-				InstanceContentKey)
 		}
 	}
 

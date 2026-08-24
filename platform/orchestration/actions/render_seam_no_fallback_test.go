@@ -22,6 +22,7 @@
 package actions
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -214,53 +215,102 @@ func TestContactInfoSeamRejectsTheComponentLibraryFuncMap(t *testing.T) {
 	}
 }
 
-// ARMED 2026-08-24 (plan §B2). A template that namespaces its ids with
-// {{.InstanceID}}, rendered by a path that bound no token, gets missingkey=zero
-// — an empty string — so every instance on the page lands back on IDENTICAL
-// ids. That was a named logger.Error here for eight days, and this estate has
-// an owner ruling that a named log is not escalation: the output is
-// structurally wrong for EVERY instance, which is this file's own class.
+// CONTAINED 2026-08-24, ROUND 2 (council 661bcf00, guardian HIGH). For one
+// commit this seam REFUSED an {{.InstanceID}} template with no token bound. The
+// guardian seat objected that converting a shared render seam's log-only defect
+// path into a hard error is new authority shipped unconditional, licensed only
+// by a census of today's callers — and RFC_044 is the estate's precedent for
+// what happens next if that is re-argued rather than contained. So it PUBLISHES
+// now: ctx.UnboundInstanceToken, the same shape as AbsentRequiredFields, which
+// is the remedy the owner ruling the submission cited actually used on this
+// same function.
 //
-// The positive controls are the load-bearing half, exactly as the file header
-// says. A refusal that also fired on the ~100 components with no {{.InstanceID}}
-// in them would take the fleet down, so both must be asserted here.
-func TestRenderTemplate_refusesUnboundInstanceToken(t *testing.T) {
+// The test asserts the PUBLICATION, not the log. A log line is not readable by
+// code, which is the whole reason the field exists; asserting a logger.Error
+// here would pin the thing that was already insufficient.
+func TestRenderTemplate_publishesUnboundInstanceToken(t *testing.T) {
 	const needsToken = `<section id="{{.InstanceID}}"><button id="{{.InstanceID}}-go"></button></section>`
 
-	out, _, _, err := RenderTemplate(needsToken, &RenderContext{}, zap.NewNop())
-	if err == nil {
-		t.Fatalf("an {{.InstanceID}} template with no token bound must be REFUSED, "+
-			"got output %q — rendering it ships an element addressable by nothing "+
-			"and, on a second instance, two elements answering to one id", out)
+	rc := &RenderContext{}
+	out, _, _, err := RenderTemplate(needsToken, rc, zap.NewNop())
+	if err != nil {
+		t.Fatalf("the seam REPORTS this rather than refusing (see the write site's "+
+			"note, and RFC_050) — a render error here means the containment was "+
+			"undone without updating this test: %v", err)
 	}
-	// The message has to send the reader to the seam, not just say "no".
-	if !strings.Contains(err.Error(), "BindInstanceToken") {
-		t.Errorf("the refusal must name the binder a caller is supposed to use, got: %v", err)
+	if !rc.UnboundInstanceToken {
+		t.Fatal("an {{.InstanceID}} template rendered with no token bound must PUBLISH " +
+			"the fact on the context — otherwise the only signal is a log line, and " +
+			"this estate has an owner ruling that a named log is not escalation")
 	}
-	if out != "" {
-		t.Errorf("a refused render must return no output, got %q", out)
+	// And the damage the flag is reporting must actually be there, or the flag
+	// is reporting something that is not happening.
+	if !strings.Contains(out, `id=""`) {
+		t.Errorf("CONTROL FAILED: the unbound render should have produced an EMPTY id "+
+			"under missingkey=zero, got: %s", out)
+	}
+	if DetectInstanceCollisions(out + out).Clean() {
+		t.Error("CONTROL FAILED: two copies of an unbound render must be reported by " +
+			"the detector — otherwise nothing downstream sees this either")
 	}
 
-	// POSITIVE CONTROL 1 — bound, it renders. Without this the assertion above
-	// would pass against a seam that refuses every template with an id in it.
-	rc := &RenderContext{}
-	BindInstanceToken(rc, InstanceToken("faq", 0))
-	bound, _, _, err := RenderTemplate(needsToken, rc, zap.NewNop())
+	// POSITIVE CONTROL 1 — bound, it renders and the flag stays FALSE. Without
+	// this the assertion above would pass against a seam that sets the flag
+	// unconditionally.
+	bc := &RenderContext{}
+	BindInstanceToken(bc, InstanceToken("faq", 0))
+	bound, _, _, err := RenderTemplate(needsToken, bc, zap.NewNop())
 	if err != nil {
 		t.Fatalf("CONTROL FAILED: a BOUND render must succeed: %v", err)
+	}
+	if bc.UnboundInstanceToken {
+		t.Error("CONTROL FAILED: a bound render must not report an unbound token")
 	}
 	if !strings.Contains(bound, `id="c-faq"`) {
 		t.Errorf("CONTROL FAILED: bound render lost the token: %s", bound)
 	}
 
 	// POSITIVE CONTROL 2 — a template that does not use the token must render
-	// with nothing bound. This is the majority of the corpus (140 of the active
-	// templates spell {{.InstanceID}} as of 2026-08-24; the rest do not), and
-	// refusing them would be a fleet-wide outage rather than a guard.
-	plain := `<section id="static-thing"><p>{{.body}}</p></section>`
-	if _, _, _, err := RenderTemplate(plain, &RenderContext{}, zap.NewNop()); err != nil {
-		t.Fatalf("CONTROL FAILED: a template with no {{.InstanceID}} must still "+
-			"render unbound: %v", err)
+	// with nothing bound and must not be reported. This is the majority of the
+	// corpus (140 of 297 active templates spell {{.InstanceID}} as of
+	// 2026-08-24; the rest do not), and reporting them all would make the field
+	// meaningless.
+	pc := &RenderContext{}
+	if _, _, _, err := RenderTemplate(`<section id="static"><p>{{.body}}</p></section>`, pc, zap.NewNop()); err != nil {
+		t.Fatalf("CONTROL FAILED: a template with no {{.InstanceID}} must render unbound: %v", err)
+	}
+	if pc.UnboundInstanceToken {
+		t.Error("CONTROL FAILED: a template that never spells the token must not be reported")
+	}
+}
+
+// The empty-id refusal must be routable as a VALUE, not by matching its message.
+// Two council seats objected to the first cut classifying it with
+// strings.Contains(err.Error(), "rendered EMPTY"), both citing this file's own
+// landmine: a converter's refusal REASON is a routing signal callers grep for,
+// and rewording it makes a defect ride the renamed reason. This test is what
+// makes the sentinel load-bearing rather than decorative — it reworders the
+// message and requires the routing to survive.
+func TestGate_emptyIdRefusalIsRoutableAsAValue(t *testing.T) {
+	const residue = `<section id="{{.InstanceID}}-wrap"><div id="{{.category_slug}}">x</div></section>`
+
+	_, err := GateConvertedTemplate("category-listing", residue, zap.NewNop())
+	if err == nil {
+		t.Fatal("expected the empty-id refusal")
+	}
+	if !errors.Is(err, ErrEmptyElementID) {
+		t.Fatalf("the empty-id refusal must be identifiable with errors.Is, not by "+
+			"message text — a caller routing on it breaks silently the next time "+
+			"the wording changes. got: %v", err)
+	}
+	// The sentinel must DISCRIMINATE, or errors.Is would be worthless: another
+	// hard refusal from the same function must NOT match it.
+	const mangled = `<div id="{{.InstanceID}}-wrap">{{if .x}}<b>y</b></div>`
+	if _, err := GateConvertedTemplate("tool-x", mangled, zap.NewNop()); err == nil {
+		t.Fatal("CONTROL FAILED: an unparseable template must still be refused")
+	} else if errors.Is(err, ErrEmptyElementID) {
+		t.Fatalf("CONTROL FAILED: a parse failure must not classify as an empty id — "+
+			"the sentinel is matching everything: %v", err)
 	}
 }
 

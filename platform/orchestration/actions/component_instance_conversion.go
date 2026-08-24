@@ -33,6 +33,7 @@
 package actions
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -395,6 +396,26 @@ func RepairConvertedTemplateBindings(converted string) (string, BindingPassRepor
 	return out, rep, nil, true
 }
 
+// ErrEmptyElementID is the gate's empty-id refusal AS A VALUE, so a caller can
+// route on it with errors.Is instead of matching the message text.
+//
+// It exists because the first cut of this branch shipped with its only consumer
+// (cmd/instanceaudit --gate) classifying by strings.Contains(err.Error(),
+// "rendered EMPTY"), and two council seats caught it in the same round
+// (reuse_agent at medium, debug_historian at medium). They were pointing at
+// this file's OWN landmine — "a converter's REFUSAL REASON is a routing signal
+// a caller greps for; reword it and a defect starts riding the renamed reason".
+// I created exactly that dependency while holding the entry that warns about it.
+//
+// Read 2026-08-24, no OTHER caller string-matches this function's errors: all
+// five non-test call sites (fix_component_template_action.go:1272/:1470/:1613,
+// component_instance_judged.go:196, tool_birth_instance_scope.go:56) branch on
+// `err != nil` and on the needsJudged bool, and the one that formats the error
+// (%v at component_instance_judged.go:197) puts it in a human-readable issues
+// list, not a routing decision. So this sentinel is being added BEFORE the
+// pattern spreads, not after — which is the only cheap time to add one.
+var ErrEmptyElementID = errors.New("an id binding resolved to nothing")
+
 // GateConvertedTemplate decides whether a converted template may SHIP. It is
 // the acceptance gate the owner's ruling names: render two instances through
 // the REAL render layer with the REAL token derivation, then ask the REAL
@@ -450,7 +471,8 @@ func GateConvertedTemplate(function, converted string, logger *zap.Logger) (need
 		// supplied. That is a transform defect, and shipping it would put the
 		// empty-id class into the corpus through the very gate that exists to
 		// keep it out.
-		return false, fmt.Errorf("gate: %d id attribute(s) rendered EMPTY across a real-token render — an id binding resolved to nothing, so the element is addressable by neither instance", report.EmptyElementIDs)
+		return false, fmt.Errorf("gate: %d id attribute(s) rendered EMPTY across a real-token render — the element is addressable by neither instance: %w",
+			report.EmptyElementIDs, ErrEmptyElementID)
 	}
 	if report.UnscopedInlineScripts > 0 || report.WindowOnloadAssignments > 1 {
 		// The §2.1 refusal: ids are clean, the script half is not. Shipping

@@ -67,6 +67,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -227,7 +228,13 @@ func auditGate(rows []row) {
 		considered++
 		needsJudged, err := actions.GateConvertedTemplate(r.Function, r.Tpl, logger)
 		switch {
-		case err != nil && strings.Contains(err.Error(), "rendered EMPTY"):
+		// errors.Is, NOT a message match. The first cut of this classified on
+		// strings.Contains(err.Error(), "rendered EMPTY") and two council seats
+		// objected in the same round, both citing the standing landmine that a
+		// refusal REASON on this very function is a routing signal callers grep
+		// for. A reworded message must not silently reclassify a hard refusal as
+		// "other".
+		case errors.Is(err, actions.ErrEmptyElementID):
 			emptyID = append(emptyID, fmt.Sprintf("%s: %v", strings.TrimSpace(r.Function), err))
 		case err != nil:
 			otherHard = append(otherHard, fmt.Sprintf("%s: %v", strings.TrimSpace(r.Function), err))

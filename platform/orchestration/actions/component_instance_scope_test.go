@@ -229,56 +229,27 @@ func TestRenderLayer_twoInstancesOnOnePageGetDifferentIDs(t *testing.T) {
 	// same template through a path that binds NOTHING (any of the five call
 	// sites that did not, before this change).
 	//
-	// UPDATED 2026-08-24 (plan §B2): the seam now REFUSES that render rather
-	// than returning colliding ids, so the control asserts the refusal. The
-	// control's job is unchanged — prove the clean result above is produced by
-	// the binding and not by the template happening to be harmless — but the
-	// evidence moved one layer earlier, from "the output collides" to "there is
-	// no output". Both arms are kept: the refusal (this seam), and a collision
-	// control on hand-built bytes below (the detector), so neither half can go
-	// inert without a test failing.
-	if _, _, _, err := RenderTemplate(tmpl, &RenderContext{}, logger); err == nil {
+	// UPDATED TWICE ON 2026-08-24, and the second update is the honest one. It
+	// first asserted the output collides; commit 120131549 made the seam REFUSE,
+	// so it briefly asserted a refusal; council 661bcf00 contained that back to
+	// a published report (guardian HIGH — see the write site and RFC_050), so it
+	// now asserts BOTH halves of what containment actually leaves: the seam
+	// publishes the fact, and the bytes it still returns collide.
+	//
+	// Keeping both is the point. If the flag were asserted alone, a future
+	// change that started returning safe output would leave this passing while
+	// testing nothing; if the collision were asserted alone, the publication
+	// could rot away unnoticed.
+	unboundCtx := &RenderContext{}
+	unboundOut := mustRender(t, tmpl, unboundCtx, logger)
+	if !unboundCtx.UnboundInstanceToken {
 		t.Fatal("CONTROL FAILED: rendering an {{.InstanceID}} template with no token " +
-			"bound must be REFUSED — the seam is inert and every instance would " +
-			"again take identical ids")
+			"bound must PUBLISH UnboundInstanceToken — with no refusal and no " +
+			"publication, the only signal left is a log line nothing can read")
 	}
-
-	// The detector half of the same control, on bytes the render layer will no
-	// longer produce: two copies of what an unbound render USED to emit must
-	// still read as a collision. Without this, arming the refusal above would
-	// have quietly retired the only test that exercises the duplicate-id path
-	// end to end.
-	unboundShape := strings.ReplaceAll(tmpl, "{{.InstanceID}}", "")
-	if DetectInstanceCollisions(unboundShape + unboundShape).Clean() {
-		t.Fatal("CONTROL FAILED: two copies of an unbound render must collide — " +
-			"the detector is inert")
-	}
-}
-
-// The shared layer cannot invent a token, so its job is to make the absence
-// loud. Assert the predicate that drives that, since it is what decides whether
-// any of the eleven call sites is reported at all.
-func TestTemplateNeedsInstanceID_matchesTheSpellingsGoAccepts(t *testing.T) {
-	for _, tmpl := range []string{
-		`<input id="{{.InstanceID}}-loanAmount">`,
-		`<input id="{{ .InstanceID }}-loanAmount">`,
-		`<input id="{{- .InstanceID -}}-loanAmount">`,
-	} {
-		if !TemplateNeedsInstanceID(tmpl) {
-			t.Fatalf("must detect the token in %q — an undetected reference renders "+
-				"empty and silently collides", tmpl)
-		}
-	}
-	// Must not fire on a template that does not use it, or every render of the
-	// other 238 components logs an error nobody can act on.
-	for _, tmpl := range []string{
-		`<input id="loanAmount">`,
-		`<div id="{{.ComponentID}}">`,
-		`<div>{{.InstanceIDs}}</div>`,
-	} {
-		if TemplateNeedsInstanceID(tmpl) {
-			t.Fatalf("must not fire on %q", tmpl)
-		}
+	if DetectInstanceCollisions(unboundOut + unboundOut).Clean() {
+		t.Fatal("CONTROL FAILED: two unbound renders must collide — either the " +
+			"detector or this test is inert")
 	}
 }
 

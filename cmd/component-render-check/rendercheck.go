@@ -623,7 +623,6 @@ func main() {
 	var hardcoded []finding  // empty even with every field present
 	var overfiring []finding // positive control failed: marker never reached output
 	var skippedCtx []string  // component.field skipped for context collision
-	var skippedSeam []string // component.field skipped because the render seam refuses its absence
 	var unanalysed []string  // components whose template failed to parse
 	unanalysedNames := map[string]bool{}
 	checked, runtimeFillComps := 0, 0
@@ -677,22 +676,6 @@ func main() {
 		for _, f := range fields {
 			if ctxKeys[f] {
 				skippedCtx = append(skippedCtx, c.Name+"."+f)
-				continue
-			}
-			// InstanceID is supplied by the RENDER PIPELINE, not by content
-			// (actions.BindInstanceToken writes it into ContentData), so
-			// "what does this component render if the content omits it?" is
-			// not a question about content gating — and since 2026-08-24 the
-			// seam REFUSES that render outright rather than answering it.
-			// Probing it anyway would push every one of the 140 active
-			// templates that spell {{.InstanceID}} into `unanalysed`, and an
-			// unanalysed component's baseline keys count as UNCOVERED, which
-			// fails the run. That would be this audit losing coverage to
-			// another guard's fix — the exact blinding the probe-error branch
-			// below was written to prevent — so it is skipped by NAME and
-			// REPORTED, never silently dropped.
-			if f == actions.InstanceContentKey {
-				skippedSeam = append(skippedSeam, c.Name+"."+f)
 				continue
 			}
 			// Positive control: the field's markers must reach the baseline.
@@ -811,8 +794,7 @@ func main() {
 	if *emitJSON {
 		out := map[string]interface{}{
 			"findings": findings, "hardcoded_empties": hardcoded, "positive_control_failures": overfiring,
-			"skipped_context_collisions": skippedCtx, "skipped_seam_refusal": skippedSeam,
-			"unanalysed":         unanalysed,
+			"skipped_context_collisions": skippedCtx, "unanalysed": unanalysed,
 			"components_checked": checked,
 		}
 		if comparing {
@@ -943,10 +925,6 @@ func main() {
 			fmt.Printf("  %-38s .%s\n", f.Component, f.Field)
 		}
 		fmt.Println()
-	}
-	if len(skippedSeam) > 0 {
-		fmt.Printf("skipped (%d) — the render seam refuses an absent %s, so its absence is not probeable: %s\n",
-			len(skippedSeam), actions.InstanceContentKey, strings.Join(skippedSeam, ", "))
 	}
 	if len(skippedCtx) > 0 {
 		fmt.Printf("skipped (RenderContext supplies the key — absence not testable via ContentData): %s\n", strings.Join(skippedCtx, ", "))

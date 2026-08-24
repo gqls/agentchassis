@@ -837,6 +837,31 @@ func RenderTemplateWithMap(templateStr string, data map[string]interface{}, logg
 
 	result := buf.String()
 
+	// THE SECOND DOOR ON THE SAME DEFECT CLASS (bugs_open/283, council 661bcf00,
+	// bug_historian at medium). This is an independent render path — no FuncMap,
+	// no missingkey=zero, see the parse-error note above — so the instance-token
+	// report that lives in component_library.go's RenderTemplate never ran here.
+	// Its objection was precise: the submission's blast-radius census (chrome
+	// only, 0 templates spelling the token as of 2026-08-24) is a SNAPSHOT and
+	// not a guard, and nothing would detect a section or tool template reaching
+	// this path later — "the same defect class can silently recur there with no
+	// error surface at all". A report ON the path is the guard a census cannot
+	// be, and it costs nothing while the census holds.
+	//
+	// Reports, does not refuse, and deliberately matches the other seam's
+	// current containment rather than its committed-then-reverted refusal: the
+	// arming question for BOTH paths is architecture_review/RFC_050. There is no
+	// RenderContext here to publish onto, so this is log-only — which is why the
+	// RFC's question covers this path too rather than treating it as done.
+	if TemplateNeedsInstanceID(templateStr) {
+		tok, _ := data[InstanceContentKey].(string)
+		if tok == "" {
+			logger.Error("RenderTemplateWithMap: template namespaces ids with {{."+InstanceContentKey+"}} but no per-instance token was bound — every instance rendered through THIS path takes identical element ids (bugs_open/283 second seam)",
+				zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
+			)
+		}
+	}
+
 	missing, inURLAttr := missingBareFields(templateStr, data)
 	if strings.Contains(result, "<no value>") {
 		result = strings.ReplaceAll(result, "<no value>", "")
