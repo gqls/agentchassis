@@ -2892,3 +2892,30 @@ case-insensitive in its own right, so offsets stay in the original string and st
   **committed HEAD**, and this work was uncommitted at the time — so **that roll does not carry the
   action**, and 601 must not be applied on the strength of it. Probe the capability, per the file's
   own step 1.
+
+### 8. The token came back, and the four blocked things all ran (2026-08-24 ~19:20 BST)
+
+- **Council SUBMITTED: `SUBMISSION_CORR = ef482d1c-b36d-40c0-a40c-772656116016`.** ⚠ The code commit
+  `7b875b08f` was already made and carries **no trailer**, so it will list as un-reviewed in the `098`
+  report for ever — forward-only forbids the amend. Recorded rather than papered over; the correlation
+  is the link a human needs.
+- **RFC_022's third condition, MEASURED not asserted:** `strpos(default_config::text,
+  'acceptance_predicate') > 0` over every live, non-snapshot, non-deleted definition → **0 rows**. So
+  "no live consumer names the new key" is a query result. `strpos` deliberately, not `LIKE` (`_` is a
+  LIKE wildcard; it gave this lane 3 apparent consumers where there was 1).
+- **Capability probe on BOTH replicas: `verify_acceptance_predicates` ABSENT**, positive control
+  `verify_cited_cardinals` PRESENT, negative control `…_NOPE` absent. So the probe discriminates and
+  the answer is real: **today's roll does not carry this**, exactly as predicted from `make build-*`
+  taking committed HEAD. 601 stays held.
+- **`check.py`'s optional-key literal — the parity test earned its place.** `[MEASURED]`
+  `OPTIONAL_KEY_COUNTS["verify_acceptance_predicates"] = 0` against a registry declaring **1**. A new
+  action with a non-empty `Optional` list enters that literal as ZERO and is invisible to the daily
+  budget check — the same way `retract_asset_files` and `publish_site` were until 2026-08-17.
+  Regenerated with the documented command rather than hand-inserted, so the whole literal was
+  re-derived: **123 → 124 entries, exactly one added, nothing else drifted.** Then applied, because
+  the repo being right does not move the cluster: the live CronJob was still pointing at configmap
+  `…-tfcc5249cc`; it now points at `…-22g749974d` and `kubectl get configmap … -o jsonpath` confirms
+  that script carries the new action. **Verified at the artefact, not at the apply's exit code.**
+- **LANDMINE synced and its verifier armed** (`landmines-verify-dispatch.sh`, corr
+  `0f05ee18-5675-4877-88c7-84eca5be766d`) — *not* `landmines-sync.py --apply`, which consumes the
+  "new entry" status so the verifier never checks it.
