@@ -175,9 +175,21 @@ with prose and broken the table. `AcceptNegationRewrite` compares prose shape an
   natural one — it needs a define-by-negation construction inside a `<th>`. The defect is not
   reproducible (the path is fixed and mutation-proven), which is the estate's bar; do **not** hold
   anything open waiting for the rare input.
-- **Newly reachable** because `381`'s migrations `594`/`595` retype five prose slots to `type: html`
-  and tell the writer to emit `<table>` in them. If those land before the roll, a define-by-negation
-  construction in a `<th>` is exposed in that window. Lists, subheads and `<td>` are fine and always were.
+- ⚠ **CORRECTED 2026-08-24 17:00Z — "newly reachable via `594`/`595`" was WRONG, and I had it from
+  the producing lane rather than from the data.** `<th>` markup has been in `page_components` since the
+  week of **2026-08-10**: 2 components that week, **14** the week of 08-17, 1 this week — **17 total**,
+  and the one I inspected rendered as a REAL table, not escaped text, so the render path already passed
+  markup through. **The bug was live for about a fortnight**, not prospective. `594`/`595` raise the
+  RATE; they did not open the path.
+- **But it never once fired, and that is now measured rather than assumed:** **0 of 76** `<th>` cells
+  fleet-wide, all history, carry a define-by-negation construction. Header cells are LABELS — "Action",
+  "Payment", "Rate (£/ha)" — not prose. So the damage is **zero**, the fix is correct and prospective,
+  and the reason a natural demand control may never arrive is a property of table headers rather than a
+  guess. ⚠ **Do not hold anything open waiting for it.**
+- **What this cost me methodologically:** I took "newly reachable" from the lane shipping the migration
+  and repeated it without querying the artefact. It was a reasonable thing for them to believe about
+  their own change and it was still wrong, and one `GROUP BY date_trunc('week')` settled it. **A
+  reachability claim about your own code is yours to measure, whoever hands it to you.**
 - **The peer's actual question, answered and now pinned by a test:** the scanner splits on **both**
   punctuation and tag boundaries, so a run of `<li>` items with no full stops is many sentences, not
   one — probed, 1 clean hit.
