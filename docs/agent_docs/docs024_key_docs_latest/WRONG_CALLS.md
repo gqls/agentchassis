@@ -50148,3 +50148,55 @@ learned there is a THIRD writer of `complete` (the `claimed-item-timeout` sweep,
 solved by declaration + lockstep + a live-drift auditor. That is the same class as `375` and the
 shape its candidate 4 should copy — now written up as §7c of the bug file. Had I silenced the
 guard, I would have lost the finding along with the noise.
+
+---
+
+## 2026-08-24 — I published a "134 completions all-history" figure from a table my own memory index calls a rolling window
+
+**Lane:** `bugfix_375_completion_verifier_gap` (`bugs_open/375`).
+
+**What I wrote.** That the unguarded completion writer's blast radius was **5 item types and 134
+completions all-history**, marked `[MEASURED 2026-08-24, live DB]`, with a positive control
+attached. It went into the bug file, the register entry `WII-030`, the concept index, a new
+LANDMINES entry, a council submission, and **two Go file headers** — six places, in the same
+confident voice, inside about two hours.
+
+**What was true.** `site_work_items` is a **rolling window**: `work-item-archiver` moves terminal
+rows to `site_work_items_archive`, which holds 25,281 rows and which I never queried. Over the
+union it is **7 item types and 578 completions**. Two whole item types — `unfulfilled_hero_variant`
+(18 rows, 18 complete) and `image_url_404` (3 of 3) — had completed **entirely** into the archive
+and were invisible to every query I ran.
+
+**What caught it.** The council's `prior_art_librarian` seat, on an **APPROVED** round, severity
+medium: *"site_work_items is repeatedly landmined … as a rolling ~7-DAY WINDOW, not a history … if
+the 134-count and the 'zero intersection' enumeration were drawn from live site_work_items alone,
+the 'all-history' framing is likely an undercount."* It reached that from the landmine index, not
+from the data.
+
+**The cheap check that would have.** It was already loaded in front of me. My own auto-loaded
+memory index carries **"a closer census cannot see what it SUCCEEDED at — `site_work_items` is a
+ROLLING WINDOW; closing a row archives it out of the table you queried"**, and notes that three of
+four revalidators carry the same false "ZERO ever" claim from it. I am the fourth. One command:
+`SELECT to_regclass('public.site_work_items_archive')`.
+
+**The three things worth taking from this, in order of how much they cost.**
+
+1. **A control does not make a census right — it only makes it self-consistent.** I ran a positive
+   control, wrote up why an uncontrolled zero would be untrustworthy, and the control had the
+   *identical* blind spot, because it queried the same table. **A control drawn from the same
+   source as the measurement tests the spelling, not the window.**
+2. **The conclusion survived and that is not vindication.** All seven types are unverified, so the
+   zero intersection held and the fix did not change. Had either archived-only type carried a
+   verifier, the census would have returned the same reassuring zero and the entire design
+   rationale — including an `RFC_022` scope claim made to a review board — would have rested on
+   it. **Being right by luck is a finding about the method, not a defence of it.**
+3. **A `[MEASURED]` marker propagates faster than a correction does.** Between writing the figure
+   and being corrected, it reached six files including two shipped Go headers and a submission to
+   a review board. The marker rule made every copy *look* checked. Correcting it meant editing all
+   six; two were code, where a stale `[MEASURED]` comment outlives every doc.
+
+**And the sibling error, same day, same table, same shape:** the handoff I was working from
+recorded `[MEASURED]` that `image-url-404-handler` had *"handled **0 rows, ever**"*. It handled 3 —
+all completed, all archived. Two sessions, independently, made the same window mistake about the
+same table on the same day. That is not a slip; it is a table whose name promises more than it
+holds, and the fix is the query, not the care.
