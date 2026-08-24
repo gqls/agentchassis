@@ -1814,3 +1814,33 @@ running copy-editor rather than assuming.
   the 18:57 `complete_error` was the old ai-guides `empty_section` item (testimonials component
   missing fields), pre-existing. aiao CONTRIB (carousel opt-in, default OFF, our pages verified
   0 markers) needs nothing from us.
+
+## 2026-08-24 (late evening) — copy-editor graded, nav queued, technical page dispatched, licences verified
+
+- **copy-editor run 6 COMPLETED**; proposal `8003c51a` parked needs_human_review 19:25:08. It
+  found REAL cross-section repetition (two sections restating the three-step journey) that the
+  subject-per-section brief did not prevent — brief and stage 2 are complementary, n=1 more.
+  `gate_stage2_edit.py` FAILs it: (a) the `required_links` arm grades the PAGE-level
+  declaration per-FIELD (a plain-text heading fails for lacking /contact.html; caveat B's
+  inverse — reported precisely in the CONTRIB 2nd addendum), (b) one genuine call: h3 2→0 /
+  p 4→2 where the rewrite converts a subheaded recap to a list. Owner summary in README;
+  NOTHING APPLIED (D2). The proposal itself also ADDS the required /contact.html into body
+  copy and keeps /approach.html.
+- **nav_drift `dc3fe53c` still `triaged`** at last look — watcher armed (30-min cap). If it
+  ages out, next session: check the dispatcher's sweep covers `nav-updater`-handled items on
+  this site (prior art: bugfix_149_nav_membership).
+- **Licences verified IN WRITING** (WebFetch, source pages, 2026-08-24) and REGISTERED as
+  `evidence_base.facts` `ft-licence-llama33` / `ft-licence-mistral7b` / `ft-licence-phi35mini`;
+  `writer_block` extended: licence terms stated only as facts record them, VERSION-PINNED
+  (Llama licences differ per version — 3.3 is what we verified; verify 3.2 separately if the
+  offer ends up using it).
+- **Technical page dispatched**: `technical-details` / `/technical-details.html`, in_header
+  FALSE (behind the front door, per ratified principle 3), in_footer true, required_links
+  ["/your-own-model.html","/contact.html"], item
+  `gap_plan_new_technical-details_<site>`. The brief self-checks CLEAN (0 rather-than,
+  0 X-not-Y, 0 em dash) — with `formatted` still demonstrating 7× rather-than, this build is
+  the NEXT instruction-as-exemplar data point: count the built copy's tells against the offer
+  page's 8.
+- **Terms question list written for the owner** (README 08-24d): retention, deletion, data
+  location during training, playground-hour terms. No terms invented; the four commitments are
+  his.
