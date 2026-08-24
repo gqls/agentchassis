@@ -628,3 +628,38 @@ it carries neither; check the `build provenance` stamp per service, never infer 
 **Still open, unchanged:** decision 2 (`on_dedup`/573 — separable, unruled; 573 stays `_HOLD`
 and its gate grep still correctly returns empty, since D deliberately did not add the key) and
 the 14 undeclared config steps (their lanes; census recorded).
+
+## 2026-08-24 evening — verdicts: D APPROVED round 1; E REVISE round 1 (conceded), round 2 in flight
+
+**D (`74d4fa7d`): APPROVED, 2 advisories, none high.** Acted on, not banked:
+- *tooling_provenance:* the doc_notes decision row is written (subject `action/create_work_item`,
+  category `decision`) — the D/E split, why the two-strike arm stays, flagged AND refused sites,
+  the three kill switches, the post-roll recipes.
+- *guardian (census shape):* my "0 consumers" figure had come from a **top-level-only** walk —
+  the documented blind shape. Re-run recursively, including `deferred`/`born_blocked`: **still
+  0**. The round-1 figure happened to be right; this one could have disagreed.
+- *editquality (kill-switch naming):* the shipped name is `DISABLE_ANTI_CHURN_DEFERRAL`
+  everywhere in code; the prose "DISABLE_UNREGISTERED_HANDLER_DEMOTION posture" was an analogy.
+  The three-lever relationship (with `DISABLE_WORK_ITEM_RETRY_BACKOFF`, which reuse_agent asked
+  about and which does exist, `work_item_failure_ladder.go:101`) is now in the decision row and
+  the handoff table.
+- *debug_historian:* D's new log line is the probeable literal; recipe in the handoff.
+
+**E (`7710367e`): REVISE, gating objection from editquality (high) — and it was right.** I put a
+ninth real edit (the shared-helper split) in the risks block instead of the edit list, "for the
+8-edit cap". Two seats called it a process violation; conceded without argument. **Round 2
+resubmitted** (same corr, run `751ff90e`): the hidden edit is now edit 1; the cap-forced overflow
+is instead the smallest shape-identical edit with its FULL diff quoted verbatim in the rationale;
+and every objection answered with measurements —
+- the `page_rerender:%s` key has exactly **three** writers at HEAD, the third
+  (`render_directory_action.go:435`) already flagged; no discovery check shares the shape;
+- the `bugs_closed/024` citation is the flag's own origin comment, verbatim at
+  `load_work_item_actions.go:1427`;
+- the "mechanism stays generic" meta-pattern objection is answered by D being APPROVED the same
+  day — E is alongside the mechanism fix, not instead of it;
+- the 333-ordering build-break risk is moot by events (sequence of five shas listed);
+- `recurrenceExpected: true` count at HEAD: **17** grep lines non-test, one of which is prose —
+  stated so the count is honest.
+
+**The lane is ready to close** pending: E round 2's verdict (successor reads it), the roll, and
+the post-roll checks in the handoff table.

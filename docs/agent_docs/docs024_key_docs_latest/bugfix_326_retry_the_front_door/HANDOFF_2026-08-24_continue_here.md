@@ -1,5 +1,25 @@
 # HANDOFF — start here: `bugs_open/326`, and the `345` adoption
 
+> ## ⚠ CLOSE-OUT UPDATE, 2026-08-24 evening — read THIS table first; the sections below hold the reasoning
+>
+> The owner's ruling ("D + E now, census alongside") is **executed**. Everything below the
+> table is context; the table is the whole remaining estate of this lane.
+>
+> | item | state | who owes what |
+> |---|---|---|
+> | **Migration 572** (customer path) | **LIVE + PROVEN end to end** (garden-tools.uk ran to `page_rerender complete` off a re-submission inside the window) | nobody — done |
+> | **D** — within-cycle arm DEFERS (`f16c87beb`) | committed; **council APPROVED round 1** (`74d4fa7d`, 2 advisories, both acted on: doc_notes decision row written; recursive census re-run, still 0; the three-kill-switch relationship recorded). Inert until a roll | post-roll: binary-grep the NEW literal `deferred — terminal item too recent` (must-present) beside a must-absent control, per service |
+> | **E** — 8 `recurrenceExpected` flags (`e4d20d97a` + `69dc4b653`) | committed; round 1 **REVISE** (process: I disclosed the ninth edit in risks instead of the edit list — conceded, it was a violation); **ROUND 2 IN FLIGHT**, same corr `7710367e`, run `751ff90e`, every objection answered with measurements | **the successor's ONE active duty: read round 2's verdict** (`SELECT body FROM doc_notes WHERE categories ? 'council-gate' AND body LIKE '%7710367e%' ORDER BY created_at DESC LIMIT 1`) and act on it — the code is on the shared branch either way. Post-roll E check is BEHAVIOURAL (a bool leaves no literal): a within-window repeat through a flagged producer inserts with `retry_after` NULL; through an unflagged one, defers |
+> | **Migration 573 / `on_dedup`** (decision 2) | **UNRULED. 573 stays `_HOLD`.** The gate grep (`grep -rn '"on_dedup"' …/create_work_item_action.go`) still returns empty and MUST before any apply | the owner — yes (one small council round ships the key, then apply 573 after a roll) or no (delete 573) |
+> | **14 undeclared config steps** | census recorded in NOTES, names listed; protected meanwhile by D's floor (delayed, never destroyed) | the owner names who tells the lanes (decision 3); the lanes classify |
+> | **661-row two-strike landfill** (247 keys) | deliberately untouched; growth through the within-cycle arm ends when D rolls | RFC_010 / `bugs_open/033` D2 — already the owner's open decision |
+> | **230 detector rows / fixer-lies class** | not this lane's | `bugs_open/352` |
+> | **`retry_after` dual-meaning residual** | named in RFC_048 §4 and D's submission; a live-DB skip-then-serve test is the part sqlmock cannot supply | whoever next touches a `retry_after` reader |
+> | **Kill switches near this column — THREE, all armed** | `DISABLE_ANTI_CHURN_DEFERRAL` (D: restores the silent drop), `DISABLE_WORK_ITEM_RETRY_BACKOFF` (failure ladder), `DISABLE_OWNED_PAGE_DOOR_DEMOTION` (333's door). Three writers gated; the shared READ predicate is unswitched | operators: reach for the right lever — the D one is the 326 rollback |
+>
+> The bug file itself stays in `bugs_open/` until D and E are **live on a roll** and the
+> post-roll checks above pass — the estate's fixed-AND-live bar.
+
 **Written 2026-08-24 by the `bugs_open/326` session.** Cold-start doc for this lane.
 Read this first; the detail is in `NOTES_326_retry_the_front_door.md` (technical log, newest at
 the bottom) and `README_where_we_are.md` (plain prose).
