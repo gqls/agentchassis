@@ -168,3 +168,74 @@ filed and patched, and a lock is a human's "hands off".
    47 `fix_correlation_id` runs COMPLETED in the last 3 days, and today alone produced
    `complete_approved` at 13:01, 13:00, 11:55 and 11:30 plus two `complete_revise`. So submitting
    is available and the 131 lane's blocked round-3 resubmit is now unblocked — told them.
+
+---
+
+## 2026-08-24 (later) — three things the LANDMINES grep gave me that I would not have found
+
+Grepped `LANDMINES.md` for my symbols before writing any code (the SessionStart hook only matches
+files already DIRTY, so a shared helper is never shown). Four entries sit on this footprint. Two
+changed the design.
+
+### (a) The retraction path is NOT theoretical — it has already fired 79 times
+
+LANDMINES entry *"A PARKED (`deferred`) work item is retractable"* names my exact hazard from the
+other end, and made me measure the path's actual traffic rather than reason about it:
+
+```sql
+SELECT status, count(*) AS n, count(batch_id) AS with_batch_id,
+       count(*) FILTER (WHERE result ? 'resolved_at') AS retracted
+FROM site_work_items WHERE item_type='contrast_failure' GROUP BY status ORDER BY status;
+```
+
+| status | n | with batch_id | retracted |
+|---|---|---|---|
+| `cancelled` | 1 | 0 | 0 |
+| `complete` | 280 | 200 | **79** |
+| `deferred` | 145 | **0** | 0 |
+| `unresolved` | 26 | 26 | 0 |
+
+**79 contrast rows have been closed by a retraction.** This is live, exercised machinery — so the
+false-retraction hazard is a change to a path that demonstrably fires, not a latent one. **This
+measurement could have come out zero** (the path never fires, hazard is theoretical) and it did
+not, which is the only reason it is worth writing down.
+
+### (b) That landmine's own figure is now STALE, and the staleness is by ADDITION
+
+It records **`contrast_failure` 0 of 226 rows carried a `batch_id`** [MEASURED 2026-08-12]. Today
+**226 of 452 carry one** — the filer sets `batchID` on the item it builds
+(`write_render_audit_findings_action.go:~331`), so every row filed since carries one, and only the
+older population does not. Exactly the failure mode CLAUDE.md's dated-count rule exists for: the
+census was right when taken and wrong by arrival.
+
+**But the entry's conclusion still holds where it matters, and this is the sharp bit:** the
+**145 `deferred` rows — the migration-389 park, the population my transition endangers — carry 0
+batch_ids**, so for precisely those rows `resolveWorkItems`' self-protection guard
+(`batch_id IS DISTINCT FROM $6`, and `NULL IS DISTINCT FROM <uuid>` is TRUE) is **inoperative**.
+The overall figure improved; the guard's coverage of the at-risk set did not. → I owe LANDMINES a
+dated correction that says both halves, because "226 of 452 now carry one" read alone would retire
+a live trap.
+
+### (c) The wire contract is MIRRORED, not imported — so the fix is four structs, not one
+
+`platform/` does not depend on `internal/adapters`, so `renderAuditContrast`
+(`write_render_audit_findings_action.go:133`) is a hand-kept copy of `ContrastFinding`
+(`render_audit_action.go:83`), and the JSON tags are the coupling point. Adding a field means all
+of: the in-page `out.contrast.push({…})`, the adapter's anonymous `pageAudit.Contrast` struct, the
+adapter's exported `ContrastFinding`, and the orchestrator's `renderAuditContrast`. Miss the last
+one and the field arrives, unmarshals into nothing, and reads as absent — **with no error**, which
+on the version-skew branch is indistinguishable from an un-rolled adapter.
+
+This is also why the old-shape reply must stay *inert rather than wrong*: the two halves are
+separate images (see §6 of the RUNBOOK) and will be un-rolled relative to each other for a window.
+
+### (d) Two more entries on this footprint, noted so I do not measure into them
+
+- **`render_audit.py`'s total understates ~100× without `--sitemap`** (`dartsonline.com` 1 → 125),
+  and **~8.5% of rows are the probe's own `rgb(128,128,128)` guess** (`overImage`). If I quote any
+  per-site contrast figure to prove this fix worked, it must say whether `--sitemap` was passed and
+  must discount `overImage`. The filer already excludes `over_image` from filing, so the *work
+  item* population is clean — the trap is in the probe output I might paste as evidence.
+- **A `090` run on a symbol in a file over ~60 KB returns bundles and no verdict**, and that looks
+  exactly like a run still in progress. `render_audit_action.go` is over that. So no 090 on this
+  file — which is consistent with 352 already having stated its 090 substitution.
