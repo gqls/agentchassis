@@ -593,3 +593,38 @@ fire on it, and D's deferral must stay out of `deferred`-status ambiguity.
 
 **Census alongside:** 14 undeclared config steps (list above from today's run). Decision 3 —
 who tells their lanes — remains with the owner; not acting on other lanes' steps from here.
+
+## 2026-08-24 — D LANDED (f16c87beb). The ruling is executed: D + E both at HEAD
+
+**D:** the within-cycle arm defers (`retry_after` = window remainder, row at the caller's own
+status, dedup slot held) instead of dropping. Two-strike arm verbatim-unchanged — the asymmetry
+is the ruling. One sub-case changed and pinned: a two-striker INSIDE the window used to vanish
+via the early return; it now falls through to the existing brand. Kill switch
+`DISABLE_ANTI_CHURN_DEFERRAL` armed, restores the drop exactly, both sub-cases tested.
+
+**Sequencing worked as agreed:** 333 landed their door first (`6ab0b3434`), I wrote D against
+their landed state, and their two constraints held — a parked row sets `recurrenceExpected`
+itself so it can never reach the deferral arm, and `deferred`+`retry_after` cannot co-occur from
+their path. Their vacuity warning shaped the test header the other way round: `baseItem` has no
+`pageID`, so the door never fires in D's tests, and the header says so to stop anyone adding the
+helper "for safety" and then chasing an unmet expectation.
+
+**Proof:** five mutations, all caught by NAMED tests — drop the column append; restore the
+unconditional drop; delete the kill switch; flat interval instead of remainder; **defer
+two-strikers too (option A by the back door)**. Gate: `verify-head-builds.sh` on HEAD
+`fb1b8a9be` + only D's four files, full package `ok`. Council round `74d4fa7d`, dispatch
+verified at the orchestration row, live at `review_editquality` at commit time.
+
+**Named residual (RFC_048 §4, and in the submission's risks):** `retry_after` now carries two
+causal meanings — RFC_043's post-failure cooldown and this deferral-at-birth. The three readers
+need not distinguish them (both mean "not before T") and the single-renderer test pins the
+predicate at all three statements; a live-DB skip-then-serve test is the part sqlmock
+structurally cannot supply.
+
+**Go changes are inert until an image is rebuilt and rolled** — D and E ride the NEXT chassis
+build after `f16c87beb`. If the fresh chassis the owner mentioned was built before that sha,
+it carries neither; check the `build provenance` stamp per service, never infer from the roll.
+
+**Still open, unchanged:** decision 2 (`on_dedup`/573 — separable, unruled; 573 stays `_HOLD`
+and its gate grep still correctly returns empty, since D deliberately did not add the key) and
+the 14 undeclared config steps (their lanes; census recorded).

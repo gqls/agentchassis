@@ -162,3 +162,33 @@ not mine.
 
 So the customer path is fixed and demonstrated rather than merely believed. What is still open
 is everything outside that path, which is what the refused proposal is about.
+
+## 2026-08-24, afternoon — your ruling is carried out, and the council was faced honestly
+
+You ruled "D and E now, with the census running alongside", and both halves are in.
+
+E first, because it was independent: the eight places in the code that ask for the next stage
+of work — re-adopting a site, re-running the design stage, re-requesting an image, re-seeding a
+build — now say so explicitly, so the churn brake leaves their repeats alone. I read every
+candidate before touching it and refused three, including one whose own comments had already
+decided the opposite and one that shares its identity with a fault detector. The refusals are
+written down next to the changes so nobody later "completes" the list.
+
+D was the delicate one, because this council rejected its wider form yesterday and the rejection
+was right. So it went back through the council as its own submission, opening with the veto
+rather than burying it, answering each of its three grounds with measurements rather than
+argument. The change itself is narrow: the three-hour arm that used to destroy a repeated
+request now writes it down with a "not before" time — waiting out exactly the remainder of the
+same three hours — while the two-strike arm is left alone on purpose, because a third of what it
+stops is a fixer that keeps claiming success without fixing, and hurrying that along would help
+nobody. There is an off switch, shipped on, that restores the old behaviour exactly, and it is
+itself tested.
+
+One deliberate courtesy that paid for itself twice: another session was mid-flight in the same
+function, so I asked rather than raced, they landed first, and their work and mine compose
+cleanly — their parked rows can never even reach my new code, by their design and my check.
+
+None of this is live yet. Code changes wait for the next build and roll; the five build-chain
+declarations from yesterday are config and have been live since they were applied. The one
+standing warning is unchanged: the held migration 573 must not be applied — the code it needs
+was part of the un-ruled remainder, and applying it early would stop the front door entirely.

@@ -1,5 +1,22 @@
 # RFC_048 — should the anti-churn brake be allowed to destroy a work request, and if not, what should stop it?
 
+> ## ✅ RULED AND EXECUTED, 2026-08-24 — owner: "D + E now, census alongside"
+>
+> **Option D landed as `f16c87beb`** (within-cycle arm defers by the window remainder; two-strike
+> arm deliberately unchanged; kill switch armed; five mutations proven; sequenced after 333's
+> door). **Option E landed as `e4d20d97a`** (eight `recurrenceExpected` declarations across seven
+> Go producers, three candidates read and refused; comment-stripped ratchet + effect test).
+> Council rounds `74d4fa7d` (D) and `7710367e` (E); migration 572 had already closed the customer
+> path. **The patch beside this file is now HISTORICAL** — it is the vetoed A-shaped version,
+> kept as the record of what the guardian refused; D was re-implemented on the landed tree, not
+> applied from it.
+>
+> **What remains open here:** §4's residual (the `retry_after` dual meaning and the live-DB
+> skip-then-serve test sqlmock cannot supply), and nothing else — options A/B/C are settled by
+> the ruling, the two-strike landfill stays with RFC_010 / `bugs_open/033` D2, the detector
+> population with `bugs_open/352`, and decision 2 (`on_dedup`/573) is separable and still
+> unruled.
+
 **Raised 2026-08-23** by the `bugs_open/326` fix lane, **because the council gate REJECTED the
 change on a guardian hard veto and named this route as the safest contained alternative.**
 Council corr `f610741f-5054-41e8-b0b7-54915d79ba92`, round 1.

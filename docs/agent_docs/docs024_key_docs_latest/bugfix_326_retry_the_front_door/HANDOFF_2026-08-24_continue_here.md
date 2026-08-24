@@ -67,7 +67,18 @@ file.
 
 ---
 
-## The one decision waiting on the owner: `RFC_048`
+## `RFC_048`: RULED AND EXECUTED (2026-08-24, later the same day)
+
+> **SUPERSEDES the section below, which is kept for the reasoning.** The owner ruled
+> **"D + E now, census alongside"**. Both are landed: **D** = `f16c87beb` (within-cycle arm
+> defers, two-strike unchanged, kill switch `DISABLE_ANTI_CHURN_DEFERRAL` armed, council round
+> `74d4fa7d`); **E** = `e4d20d97a` (eight `recurrenceExpected` declarations on Go action-request
+> producers, council round `7710367e`). Go is inert until a roll — check the service's
+> `build provenance` stamp before assuming either is live. The DO-NOT-APPLY on 573 above is
+> UNCHANGED: decision 2 was not ruled, D deliberately did not add `on_dedup`, and the gate grep
+> still returns empty.
+
+## The decision that WAS waiting on the owner: `RFC_048` (historical)
 
 `docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_048_the_anti_churn_brake_may_delay_work_but_may_not_destroy_it.md`
 with `RFC_048_proposed_deferral.patch` beside it.
