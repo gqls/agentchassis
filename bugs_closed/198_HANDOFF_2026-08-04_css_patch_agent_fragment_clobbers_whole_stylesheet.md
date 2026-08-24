@@ -1226,6 +1226,12 @@ carrier agents). Exactly one step opts in, at 0.5.
     one-off. Caught by the 352 lane; my account is in
     `docs/agent_docs/docs024_key_docs_latest/bugfix_198_roundtrip_writers/NOTES_198_roundtrip_writers.md`
     (2026-08-24).
+    > **UPDATED 2026-08-24 (later) — arm 1 FIXED, council-APPROVED r1 (`acadbe8b`), commit
+    > `ffa6e1c3d`; 352 stays OPEN for arm 2.** ⚠ What shipped is NOT the remedy this file
+    > implies: the selector is composed **in the page** and asserted to select the element that
+    > was measured, with a bare tag refused and counted — **"prove it", not "stop lying"**.
+    > Migration **587** withdraws the 73 as `cancelled` (frees the dedup slot; still-failing
+    > pairings return under verified selectors), so the 08-24 census will not re-derive after it.
   - **The round-trip-writer inventory**, owed since council round `5249320e` (2026-08-05).
     Still owed; explicitly not absorbed by this work.
   - **Owner decision:** per-site theme split for finetuning.uk + gaswholesalers.com.

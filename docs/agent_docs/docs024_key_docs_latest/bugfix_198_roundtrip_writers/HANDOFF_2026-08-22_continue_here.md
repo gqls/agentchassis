@@ -86,6 +86,19 @@ before concluding a probe was refused rather than held (§11).
    > **The check I skipped:** census the selector population and ask what the corrected selector
    > MATCHES, not just whether it matches. Full account: `NOTES_198_roundtrip_writers.md`,
    > 2026-08-24 entry.
+   > **UPDATED 2026-08-24 (later) — ARM 1 IS FIXED and council-APPROVED round 1
+   > (`acadbe8b`), committed `ffa6e1c3d`. `bugs_open/352` stays OPEN: arm 2 is untouched and
+   > reproducible.** ⚠ **What shipped is NOT the remedy described above, and a reader
+   > implementing my version would build the weaker thing.** I said "produce a scoped selector".
+   > What shipped composes the selector **in the page** and asserts it selects the element that
+   > was actually measured, refusing and counting a bare tag. The invariant is **"prove it", not
+   > "stop lying"** — so the next composition defect of this class reports itself instead of
+   > minting another 108 false completions. ⚠ Also: migration **587** WITHDRAWS the 73 as
+   > `cancelled` (withdrawal, not resolution — it frees the dedup slot so still-failing pairings
+   > return under verified selectors), so re-running my census after 587 will NOT reproduce 73.
+   > The rekey it replaced was dropped because the two-strike counter reads only
+   > `complete`/`failed` **within 7 days** (`load_work_item_actions.go:1519-1523`, verified by
+   > me) and the park dates from 08-11 — there was no attempt history left to preserve.
 3. **The round-trip-writer inventory** — owed since council round `5249320e` (2026-08-05).
    Which other `agent_definitions` workflows round-trip a whole artefact through an LLM into an
    unguarded writer. **Not absorbed by this work**: a guard for one seam is not the class survey
