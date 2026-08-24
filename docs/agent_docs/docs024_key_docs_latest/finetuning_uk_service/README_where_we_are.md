@@ -774,3 +774,40 @@ analysis** thread has been asked to rank the benefits — which one leads, which
 true claim would be the wrong opener, and whether process-transparency really
 answers "£99? what's the catch". Their trades, their call; our facts are
 attached. The page won't be seeded until both answer.
+
+---
+
+2026-08-24. The offer page is on its way. Three things happened today, in order.
+
+First, the homework other threads left us paid off. The copy team's answer told us where
+wording guidance actually lands (worked examples beat rules, and the writer reads one
+particular formatted field), and a sister site (apis.uk) ran the experiment we would
+otherwise have run blind: example sentences get COPIED ONTO THE PAGE as content unless you
+add an explicit "these are style samples, not content" note — and with that note plus a
+named subject for every section, the AI-sounding constructions the owner dislikes went
+from 12 to 0 on their served page. We took all of that as given rather than rediscovering it.
+
+Second, the seeding itself. The site's brief was quietly working against us: four of its
+five "write like this" examples were themselves built on the "X, not Y" pattern we're trying
+to stamp out, and the site's own quality checker had flagged four such phrases on 08-20.
+All cleared today: the examples are rewritten positive-first with the style-samples note
+attached, the key differentiators are rewritten as gains with the agreed lead ("your
+company's voice, in a model you own") in first position, two dead spec fields nothing reads
+are retired, and — a thing that would have bitten later — the site's claims register said
+"no numbers may be stated on this site", which would have stopped the offer page naming its
+own price. The £99 (owner's decision) and the ~$5,000 market anchor (from the research) are
+now registered, so the page may say them and nothing else numeric.
+
+Third, the page. We found the old "don't add new pages" warning had expired (the bug behind
+it was fixed and closed), so the offer page went in through the framework's normal route: a
+planned page plus a work order for the builder, with a brief that gives each of the six
+sections one named subject — the offer, how it works (send examples, trained overnight,
+chat with it next day), exactly what you get, why £99 can be enough, a small glossary, and
+a gentle book-a-call ending. The brief explicitly forbids the "a real person checks every
+run" line you flagged; the safe form "run by people, not left to a queue" is in. The
+builder picks work up on a one-minute tick; we're watching it and will check the finished
+copy for the old tells before anything else happens.
+
+Still waiting on: the benefit-ordering thread (no reply yet — the question has shrunk to
+"what is the first differentiator, written as a gain", and we've made that call for now),
+and your three Phase 1 decisions (playground booking shape, sample datasets, Stripe posture).
