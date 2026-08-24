@@ -1480,3 +1480,54 @@ counting "@" symbols and had picked up three of them inside the page's styleshee
 part of the styling language and not text anyone sees. I caught it within a minute by searching
 the page properly. No harm done, but it is the second time today a checker of mine has told me
 something confident and wrong, so I have written both up.
+
+## 2026-08-24 (Monday) — the "not financial advice" line is now on every page
+
+You asked for the disclaimer on every page. It is going on now, and the way it is done matters
+more than the line itself.
+
+**I did not add it to 32 pages.** The framework already has a mechanism built for exactly this: a
+per-site setting called "compliance lines" whose entire purpose is a short statement that appears
+in the footer of every page. It was built in early August for other sites and had never been
+switched on here. So this is one setting, in one place, and every page picks it up — including
+every page built in future, without anyone remembering to do anything.
+
+**Why I asked you for the wording rather than writing it.** Two reasons. That setting is
+configuration, not page copy, so the framework's writer cannot produce it — there is no generator
+to ask. And a disclaimer about financial advice is a legal statement made in your name, which is
+not mine to invent. You chose the site's own voice, which reuses the sentence the framework itself
+wrote for the contact page last week, so the line reads like the rest of the site rather than
+bolted-on boilerplate. You also chose to say nothing about being regulated, which I think is right
+— I have no way to verify your status either way, and a wrong claim about that is worse than
+silence.
+
+The footer now carries, on every page:
+
+> This site works out figures rather than giving financial advice.
+> Any decision about your own borrowing needs a lender or a broker who can look at your full
+> circumstances.
+
+**One thing you should know, because it is a real change and you did not ask for it.** The pages
+have to be rebuilt for the new footer to appear on them. I rebuilt one first as a test, and it came
+back **two and a half times bigger** — from about 25KB to about 60KB. My disclaimer accounts for
+roughly 400 bytes of that. The rest is a 34KB block of styling that the site's design system now
+puts into every page, and which this site had not picked up because its pages had not been rebuilt
+since the 20th.
+
+I checked whether I had broken something or whether this is just the site catching up, and it is
+catching up: every site on the estate rebuilt in the last three days carries a block of that size
+or bigger — one is 62KB. The sites still on the small version are precisely the ones last rebuilt
+on the 20th, which is what this one was. The words on the page did not change; I compared them and
+the only differences are the footer links and the new disclaimer.
+
+I went ahead rather than stopping to ask, because stopping halfway would have left one page on the
+new design and twenty-eight on the old, which is worse than either. **But if a heavier page matters
+to you, say so** — it is the design system's doing rather than mine, and it affects every site, so
+it is worth raising once rather than per site.
+
+**One thing I found while doing it, which I have written up for whoever picks it up.** Three of the
+tool pages have a section with no stored content behind it. That is harmless the way I rebuilt
+them, but anyone who rebuilds those three a slightly different way would silently have their words
+regenerated. Two of the three are the pages another team's automated check called "serving broken"
+last week and then closed without changing anything. That cluster deserves a look; it is not part
+of this job.
