@@ -513,3 +513,32 @@ number looks healthy: all four templates converted, 244 of 275 page sections car
 naming. Those numbers stay healthy while pages break, because two sections with the *same* new name
 still count as two sections with the new naming. The only check that sees the problem is asking a
 served page whether its names are actually different from each other.
+
+**2026-08-24, morning.** The new build is out and I checked it the hard way: the running system
+provably no longer contains the old naming machinery — the retired phrase is absent from the
+binary itself, with a check that would have caught me if I'd been wrong. Everything we shipped
+this week is live.
+
+**The review came back against us, and the reason is embarrassing but instructive.** The
+reviewers rejected Saturday evening's cleanup — not for the cleanup, which they called sound,
+but because my submitted change carried a chunk of *someone else's* half-finished work without
+saying so. Another team was editing the same file at the same time; I'd checked the file was
+clean at midday and didn't re-check before committing in the evening. Their code rode along
+into my commit, into my review, and into production — and it compiled and worked, which is
+exactly why nothing flagged it. The reviewers read it as me sneaking in an undisclosed feature
+and vetoed the lot. Fair, on what they could see.
+
+What I've done about it: told the other team their code shipped under my name and that a review
+panel discussed their mechanism without them; written the mistake into the permanent log with
+the ten-second check that prevents it; closed the one loose end the reviewers were right about
+on the merits (two old setup files that could have silently undone Monday's fix are now
+formally marked as done, so they can never re-run); and resubmitted the cleanup for review as
+exactly what it is, nothing more. That verdict is pending.
+
+**One piece of housekeeping keeps refusing to die.** The third and last connection to the old
+naming still exists in one file. It's harmless — nothing uses the old naming any more — but I
+can't remove it yet, because that file *again* has someone else's unfinished work sitting in it,
+and committing it would repeat Saturday's exact mistake the day after it cost us a veto. On top
+of that, the removal I'd drafted on Saturday was wiped out overnight when another team
+overwrote the file — a known hazard of how we share this codebase. It stays on the list with
+precise instructions for whoever finds the file clean.

@@ -46968,3 +46968,43 @@ minutes later; corrected source is `COALESCE(NULLIF(pages.page_type,''), site_pl
 verdict. **The cheap check**: one `-c` per fact when the output feeds a claim — or a `\echo`
 separator between them; and any column you are about to cite in a design costs one
 `SELECT <col> FROM <table> LIMIT 0` to prove it exists.
+
+---
+
+## 2026-08-24 — I checked my hunks at midday, not at 18:56, and committed another session's WIP into a COUNCIL-REVIEWED diff (bugs_open/283 lane, RFC_032)
+
+**The claim, implicit but load-bearing:** that the `git diff` I used as my council sketch, and
+the file I then committed by pathspec, contained only my edits. My commit message even said so
+by structure — it enumerated my two deletions and named the third file I was *refusing* to
+commit precisely because it carried another session's WIP.
+
+**What was true:** `rerender_page_sections_action.go` had gained a second uncommitted hunk —
+the 357 lane's RFC_046 provenance stamp — between my midday hunk check and my 18:56 commit.
+The diff I submitted to the council carried it; commit `024303681` carried it; v1.0.1332
+shipped it. The council round was **REJECTED on a hard guardian veto aimed almost entirely at
+that hunk**, read as me smuggling an undisclosed schema-touching mechanism into a
+claimed-minimal cleanup. Five seats objected HIGH at a change whose author wasn't in the room.
+
+**Why every signal said I was safe, which is the reusable part:**
+- The build from a clean HEAD extract PASSED — because the passenger's struct field was
+  already committed; only its call site was riding. A green build proves compilability, not
+  authorship.
+- I had run the hunk check that morning and found "every hunk is mine" — true then. **A
+  same-file passenger check is a snapshot with a shelf life of minutes on this tree**, exactly
+  like the session-start `git status` warning in CLAUDE.md, and I treated it as a property of
+  the day.
+- The commit-scope hook listed the file, which I expected — it cannot see same-file
+  passengers, and says so in its own documentation.
+- And the irony that makes this worth logging: I spent the same commit REFUSING to commit
+  `v3_site_actions.go` *because* it carried another session's WIP. I applied the lesson to the
+  file where the hazard was visible in the build error, and not to the file where it was
+  invisible in a green one.
+
+**The cheap check that would have caught it:** `git diff -U0 <file> | grep '^@@'` immediately
+before `git commit` — hunk count and line ranges, ten seconds, compared against what I believe
+I edited. It existed in my own morning transcript; I ran it once and believed it twice.
+
+**Cost:** one council round burned (the verdict's useful objections were addressed to a
+mechanism whose author never saw them — routed to the 357 lane by CONTRIB, 2026-08-24); a
+rejected verdict standing on a live commit until the resubmission; and a permanent commit
+message that asserts a scope its own diff exceeds.

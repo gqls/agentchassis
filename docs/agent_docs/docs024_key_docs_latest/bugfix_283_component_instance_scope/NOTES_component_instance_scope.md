@@ -1416,3 +1416,66 @@ resolve a component. 31 placements remain unconverted across 8 domains — a mix
 failures plus pages whose rerender completed without rewriting (the escalate-to-writer path,
 including the four idea.uk pages serving `<section id="">` since 2026-08-12). **Fixing the cause did
 not repair the casualties**, and the casualties are named rather than assumed to heal.
+
+## 2026-08-24 (session 12) — v1.0.1332 verified at the artefact; the veto read; the veto's cause was MY commit carrying a PASSENGER
+
+### 12. The roll, proven properly
+
+v1.0.1332 (pods 09:39Z) carries the whole retirement. Two artefact proofs, because my first probe
+was structurally wrong: I grepped the binary for a comment marker — **comments are not compiled;
+that probe returns 0 against a binary that carries the change**. The honest pair:
+- **Absence probe with a presence control**: the deleted literal `{{.ComponentID}}` is GONE from
+  `/proc/1/exe` (0) while `{{.InstanceID}}` reads 11. `024303681` deleted the only compiled
+  occurrence, so absence + control is decisive.
+- The typed-field guard's refusal string (a compiled literal) reads 1; nonsense control 0.
+- Ancestry: all four retirement-era commits are ancestors of `ad63160a8`, the last pre-roll commit.
+
+### 13. The retirement round was REJECTED — and the veto convicted the wrong author, because of me
+
+`e8c7414c` came back **rejected, hard veto from guardian** (18:07, ~1min after submission).
+Every HIGH objection aims at ONE thing: an `entry["rendered_template_sha"]` hunk in my edit-1
+sketch, read as me smuggling an undisclosed schema-touching mechanism into a claimed-minimal
+cleanup. **That hunk was the 357/RFC_046 lane's uncommitted WIP**, sitting in
+`rerender_page_sections_action.go` when I generated the sketch (a live `git diff`) and when I
+committed by pathspec at 18:56. My commit `024303681` carries it; v1.0.1332 shipped it. I had
+verified "every hunk is mine" at midday and never re-checked — a snapshot check treated as a
+property of the day, on a tree where it has a shelf life of minutes. Full anatomy in
+WRONG_CALLS 2026-08-24, including why every signal read safe (the clean-extract build PASSED,
+because the passenger's struct field was already committed — **a green build proves
+compilability, not authorship**).
+
+The bitter symmetry, recorded because it generalises: in the same commit I REFUSED to commit
+`v3_site_actions.go` because it visibly carried another session's WIP. I applied the lesson
+where the hazard broke the build, and missed it where the hazard compiled.
+
+### 14. Acted on, per objection
+
+- **Guardian's named alternative** (resubmit edit 1 as the deletion hunk alone; provenance as its
+  own plan): DONE — round 2 resubmitted on the same correlation 2026-08-24 with my hunks verbatim
+  from the commit; the provenance half already had its own plan from its owner (`bbe178309`,
+  RFC_046 phase 1, owner ruled 2026-08-22).
+- **Guardian edit-3** (247/250 unrecorded, replay hazard persists): CLOSED at the ledger —
+  both recorded via the runner's own `--record-only`, artifact check first (components exist,
+  active, converted), check quoted in the notes column.
+- **editquality edit-2** (`<no value>` vs empty string, unreconciled): reconciled at
+  `component_library.go:1170-1171` — missingkey=zero emits `<no value>`, the library strips it
+  to `""`. One path, two stages; both my round-1 descriptions were right about different stages.
+- **Four seats' HIGH objections about the mechanism itself** (nonexistent column; no reuse check
+  against `content_hash`/`rendered_html_digest`): NOT mine to answer — routed to the owner lane by
+  `bugfix_357_component_identity/CONTRIB_2026-08-24_from_283_lane_…`. Their design resolves the
+  sha to the dormant `component_version_id` (32 of 2001 rows populated as of this morning), so
+  "column does not exist" is answered by their architecture, in their trail.
+- **bug_historian HIGH** (missingkey=zero + `reElementID` blindness left live): the standing
+  RFC_032 owner decision (§9c/9d), not settled by the resubmission and said so in its risks.
+
+### 15. The third binding: my edit was OVERWRITTEN overnight; the blocker changed shape
+
+`section_metadata_keys.go` is now tracked (their session committed), but my uncommitted deletion
+of the `v3_site_actions.go:2385` binding is gone from the working tree — overwritten by another
+session, exactly as CLAUDE.md warns uncommitted work can be. The file today carries a NEW
+uncommitted occupant (the 345 lane's `applyWorkItemFailureLadder` call-site hunk), so redoing and
+committing the deletion now would take a passenger — the precise failure §13 just cost a veto.
+Deferred again, deliberately: the binding is INERT (census re-run today: 0 templates spell the
+placeholder). The exact edit, for whoever finds the file clean: delete
+`renderCtx.ContentData["ComponentID"] = comp.ID` and fold its comment into the retirement note,
+mirroring the committed rerender hunk.
