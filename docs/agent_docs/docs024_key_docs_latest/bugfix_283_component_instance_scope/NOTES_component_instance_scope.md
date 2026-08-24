@@ -1499,3 +1499,81 @@ Final state, verified this session: retirement live on v1.0.1332 (absence probe 
 census 0 templates spell the placeholder; 249/280 placements converted; ledger closed on 247/250;
 6 empty-id rows (3 causes) each owned; every residual carries a named owner in the CONTINUE
 file's table. **Lane closed.**
+
+## 2026-08-24 (session 13, the building thread) — Half B BUILT AND COMMITTED (`120131549`); the plan's own log census was refused as a blind instrument
+
+Picked up `PLAN_2026-08-24_occurrence_derivation_and_empty_id_detector.md` as the section-10
+building thread. **Scoped to Half B only, deliberately.** Half A's `v3_site_actions.go` edit (now
+also carrying the third-binding deletion, folded in by `291607d40`) sits in a file that is dirty
+AGAIN today — the 345 lane's uncommitted hunk at `:6212`, second occupant in two days. Committing
+Half A today would mint the same same-file passenger that cost the veto on `e8c7414c`. Half B
+touches no contested file, so it goes first. Half A is still owed.
+
+### What shipped (commit `120131549`, `Council-Submitted: 661bcf00-131d-4e4c-9815-218647812907`)
+
+| edit | what |
+|---|---|
+| `component_instance_scope.go` | `reEmptyElementID`, `InstanceCollisions.EmptyElementIDs`, `Clean()`, `Summary()`, `DetectInstanceCollisions` |
+| `component_instance_conversion.go` | `GateConvertedTemplate` hard-errors on an empty id (never judged-pool) |
+| `component_library.go` | `RenderTemplate` REFUSES an `{{.InstanceID}}` template with no token bound |
+| `cmd/component-render-check/rendercheck.go` | absence probe skips `InstanceID`, reported not silent |
+| `cmd/instanceaudit/main.go` | `emptyIfDoubled` column + new `--gate` mode |
+| two test files | four mechanisms, each mutation-proven |
+
+### The misstep worth recording: I set out to run the plan's §B2 measurement and it cannot come out otherwise
+
+The plan gated arming the refusal on a fleet **log census** of the Error string at
+`component_library.go:1106` — "expected 0 since the 283 binder work completed". I ran it. It
+returned 0. **That 0 is worth nothing and I nearly cited it.** What the sweep actually showed:
+
+```
+96 running + 87 completed pods, 176,006 log lines, 2026-08-24
+  target string "no per-instance token was bound"        0
+  lines naming component_library.go AT ALL               0   <- the tell
+  agent-page-rerender pods (39 render lines each)        500 info / 11 warn / 0 error
+```
+
+Zero lines from that file **anywhere**, including in pods that had just rendered. Then the
+supporting facts: no aggregator in any of the cluster's 16 namespaces (no loki/fluent/vector/
+elastic/promtail/otel/datadog pod), and spawned agent jobs carry `ttlSecondsAfterFinished=3600`.
+The codebase says so itself at `platform/agentbase/agent.go:309` — *"a ~90s pod log cannot carry a
+48h+ observation window"* — which is why the resolver's WARNs are persisted to `agent_error_log`
+and this Error is not. **A `[MEASURED]` zero from an instrument that cannot register a one is the
+exact shape CLAUDE.md's marker rule warns about**, and it was written into a plan by a careful
+agent and re-verified by a careful supervisor. Neither of them ran it.
+
+Replaced with three measurements that CAN come out non-zero, each with a demand control — the
+detail is in `RUNBOOK_component_instance_scope.md` and the numbers are in the council submission.
+Sharpest: `generic-text-block` spells `id="{{.InstanceID}}"` EXACTLY, so an unbound render of it
+is visible as `id=""`; **155 of its rows written since it began spelling that (2026-08-23 12:32),
+155 of 155 bound, 0 empty.**
+
+### The consumer that would have broken, found by reading rather than by a test
+
+Arming the refusal would have **broken `cmd/component-render-check`** and no test in the repo
+would have said so. `InstanceID` lives in `ContentData`, so `contextKeys()` does not exempt it;
+the lint's absence probe removes each referenced field and re-renders; a probe error is recorded
+as `unanalysed`; and `unanalysedNames` makes that component's baseline keys **UNCOVERED, which
+fails the run** (`rendercheck.go:784`). All 140 `{{.InstanceID}}` templates would have gone that
+way. The probe now skips the key by name and prints it (`skipped_seam_refusal` in the JSON too).
+Its own code anticipated this class in a comment — *"⚠ THE DETECTOR CAN BE BLINDED BY ITS OWN
+FIX"* — one guard's fix silently costing another guard its coverage.
+
+### Corrections to earlier claims in this lane's own files
+
+- The 4 idea.uk `id=""` rows are **not** an unbound render of today's `generic-text-block`: the
+  bytes are dated `2026-08-12 17:06–17:11`, ELEVEN DAYS before that template began spelling
+  `{{.InstanceID}}` (`content_components.updated_at 2026-08-23 12:32:24+00`), and they carry no
+  `c-` token, no uuid id and no unrendered braces. The shape MATCHES today's template (`id` first
+  in the `<section>`), which is exactly why I checked instead of pattern-matching — this lane's
+  own `WRONG_CALLS` entry from 08-24 is about believing a pattern without reading a row.
+- `TemplateNeedsInstanceID`'s doc comment still says *"EIGHT non-test files hold FOURTEEN calls"*,
+  measured 2026-08-16. **It is 11 files as of 2026-08-24** — stale by addition, the exact class
+  CLAUDE.md's dated-count rule exists for. Left in place (not my commit's scope) and recorded here.
+
+### Not written this session, and why
+
+No new `SUMMARY_`. Half B is **committed and INERT** — Go changes need an image roll. The five
+headings would answer much as `SUMMARY_2026-08-20` does for "where we are now", and the milestone
+that would genuinely move them is the roll plus the artefact check. Held deliberately, per the
+rarity rule.

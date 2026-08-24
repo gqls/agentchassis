@@ -565,3 +565,57 @@ has a named owner and a written record: the build team has its plan, the idea.uk
 repair note, the provenance team has theirs, and the review trail knows what it is waiting for.
 The week's whole story is in this file; the technical trail is in NOTES; the next thread starts
 from the plan.
+
+---
+
+## 2026-08-24, afternoon — the build has started, and the first half of it is done
+
+The plan you asked for has a building thread now, and the second of its two halves is written,
+tested and committed. It is not live yet: this is Go code, so it does nothing until the next
+image roll.
+
+**What the half that is done actually fixes.** We had a detector whose job is to spot pages where
+two copies of a component fight over the same name. It turned out it could not see the worst case
+at all — a name that came out completely blank. Not "saw it and let it through": could not see
+it. Six live pages across two sites have a blank one sitting in them right now, and every check we
+own read those pages as fine. A blank name is worse than a repeated one, because nothing on the
+page can find that element at all. It is now its own category of fault, kept separate from the
+repeated-name one on purpose, because the two have different causes and a reader needs to be sent
+to the right one.
+
+**And a warning that was only ever a warning is now a refusal.** The bit of the system that draws
+a component has been able to tell, for over a week, when it was about to draw one with no name
+supplied — and it wrote a line in a log nobody reads and drew it anyway. It now stops instead.
+That is the house rule here: a log is not an escalation.
+
+**The part I want to flag, because it is a lesson rather than a fix.** The plan told me to decide
+whether to arm that refusal by counting how often the warning had fired across the fleet. I ran
+that count. It came back zero. **That zero was meaningless and I nearly used it.** We have no
+central log store, and the short-lived pods that do the drawing are deleted about an hour after
+they finish — so I swept every pod we have, 176,000 lines of log, and found not a single line from
+that part of the code, including in pods that had just finished drawing pages. The count could not
+have come back as anything other than zero whatever was true. Our own codebase says as much in a
+comment elsewhere: a ninety-second pod log cannot answer a question about the last two days.
+
+So I threw the measurement away and used three that could have come out badly, each with a
+deliberate check that they were capable of it. The best of them: one component was changed on
+Saturday to use the new naming, and it is the one where a failure would show up as a blank. It has
+been drawn 155 times since. All 155 correct, none blank. That is evidence. The log count was not.
+
+**Something that would have broken quietly, and did not.** Turning the warning into a refusal
+would have broken a completely different tool — an offline checker that deliberately re-draws each
+component with one piece of information removed, to see what happens. Removing the name is now a
+refusal, so that checker would have marked 140 components "could not analyse", and "could not
+analyse" makes its whole run fail. Nothing would have told us; no test covers it. I found it by
+reading the tool rather than trusting that it was unrelated, and it now skips that one case and
+says out loud that it is skipping it. Its own code had a comment warning about exactly this shape
+of accident — one guard's fix costing another guard its eyesight.
+
+**Where that leaves us.** The change is committed and has gone to the reviewer council; the
+verdict is pending. The other half — the actual name-collision fix, which is the bigger one — is
+still waiting, for the same tedious reason as the last two days: the one file it has to touch has
+another team's unfinished work sitting in it, and committing it would sweep their work up under
+our name. That is the second time this week. I have not forced it.
+
+Nothing here repairs the six pages that already have a blank name in them. Those are stored bytes;
+they will be picked up and reported the next time each of them is re-drawn.

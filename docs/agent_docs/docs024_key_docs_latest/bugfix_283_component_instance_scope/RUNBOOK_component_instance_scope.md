@@ -291,3 +291,93 @@ reporting a clean fleet over one (`exit 2`) — induced and verified.
 ⚠ **Two independent counts agree, which is why the number is trustworthy**: the Go detector reports
 1,345 duplicate ids when each template is doubled; an unrelated SQL regex census counts 1,346
 literal `id=` attributes. Different code paths, agreeing within one.
+
+---
+
+## Measuring the empty-id / unbound-binding class (added 2026-08-24, Half B)
+
+### ⚠ Do NOT use a fleet log census on this cluster. Its zero cannot become a one.
+
+The obvious instrument — count how often a `logger.Error` has fired — **cannot register a hit
+here**, so a zero measures the instrument. Prove it to yourself before trusting any log-derived
+number, with the control in the same breath:
+
+```bash
+# target + PRESENCE CONTROL in one pass. If the control column is 0 everywhere,
+# your census is blind and the target's 0 means nothing.
+for p in $(kubectl -n ai-persona-system get pods --field-selector=status.phase=Running -o name \
+          | sed 's#pod/##'); do
+  L=$(kubectl -n ai-persona-system logs "$p" --tail=100000 --all-containers=true 2>/dev/null)
+  printf '%s\ttotal=%s\tCONTROL_file=%s\ttarget=%s\n' "$p" \
+    "$(printf '%s' "$L" | wc -l)" \
+    "$(printf '%s' "$L" | grep -c 'component_library.go')" \
+    "$(printf '%s' "$L" | grep -c 'no per-instance token was bound')"
+done
+# repeat with --field-selector=status.phase=Succeeded — completed job pods still hold logs,
+# but only for ttlSecondsAfterFinished (3600s), which IS the whole retention window.
+```
+Measured 2026-08-24: 96 running + 87 completed pods, 176,006 lines, **0 target and 0 control**.
+No aggregator exists (`kubectl get pods -A | grep -iE 'loki|fluent|vector|elastic|promtail|otel'`
+→ empty). Only errors explicitly written to `agent_error_log` survive; a bare zap `Error` does not
+(`platform/agentbase/agent.go:309` says so).
+
+### Use the artefact instead. Dollar-quote the regex or psql will eat the quotes.
+
+`'\sid='''''` is the correct-but-unwritable SQL literal for the regex `\sid=''`; `$re$…$re$`
+avoids the whole problem. **Always pair the census with its denominator** — a count of the shape
+you are looking for is not evidence unless a related shape comes back non-zero.
+
+```sql
+-- the unbound-{{.InstanceID}} signature, with its demand control in the same query
+SELECT count(*) FILTER (WHERE rendered_html ~ $re$\sid="-$re$)  AS leading_hyphen,   -- expect 0
+       count(*) FILTER (WHERE rendered_html ~ $re$\sid="c-$re$) AS bound_token,      -- CONTROL, must be >0
+       count(*) AS total_rows
+FROM page_components;
+
+-- the whole-value-empty signature (id="{{.InstanceID}}" spelled ALONE, or any other field)
+SELECT s.domain, p.url, cc.function, pc.updated_at::date
+FROM page_components pc
+JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+JOIN content_components cc ON cc.id=pc.component_id
+WHERE pc.build_status IS DISTINCT FROM 'removed'
+  AND pc.rendered_html ~ $re$(\sid="")|(\sid='')$re$
+ORDER BY 1,2;
+```
+⚠ `pages` has **no `slug` column** — the page identifier is `p.url`. `content_components` has **no
+`deleted_at`** — filter on `is_active` alone.
+
+**Which signature applies depends on how the template spells the id, so check that first:**
+```sql
+SELECT m[1] AS id_attr_spelling, count(*) FROM content_components cc,
+  LATERAL regexp_matches(cc.html_template, $re$(id="[^"]*\{\{\.InstanceID\}\}[^"]*")$re$, 'g') AS m
+WHERE cc.is_active GROUP BY 1 ORDER BY 2 DESC;
+```
+2026-08-24: 140 active templates spell the token; **134 as `id="{{.InstanceID}}-suffix"`** (unbound
+→ `id="-suffix"`) and **6 as `id="{{.InstanceID}}"` exactly** (unbound → `id=""`, indistinguishable
+in shape from a content field rendering empty). `generic-text-block` is in the second group, which
+makes it the **sharpest available detector** for a live unbound render.
+
+### Run the REAL gate over the live corpus before changing it
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tAc \
+"SELECT coalesce(json_agg(json_build_object('id', id::text, 'function', function,
+        'tpl', html_template))::text,'[]') FROM content_components WHERE is_active;" > templates_active.json
+go run ./cmd/instanceaudit templates_active.json --gate      # exit 3 if any row is hard-refused
+```
+It refuses a zero-considered export rather than printing a clean result over nothing. **Prove the
+zero could have come out otherwise** — append one `<div id="{{.some_absent_field}}">x</div>` to a
+single row of the same JSON and re-run: 139 clean / 1 EMPTY-ID / exit 3.
+
+### Prove a change against COMMITTED HEAD, not this shared working tree
+
+Three `TestUpdateWorkItemStatus_*` tests fail in the tree today from another lane's uncommitted
+pair. Do not debug them and do not assume your change is innocent either — diff the failure sets:
+
+```bash
+scripts/verify-head-builds.sh --test ./... 2>&1 | grep -E '^(FAIL|---)' | sort > pure.txt
+scripts/verify-head-builds.sh --test --with <each changed file> ./... 2>&1 \
+  | grep -E '^(FAIL|---)' | sort > mine.txt
+diff pure.txt mine.txt        # identical except timing digits ⇒ your change adds no failure
+```
+Never `git archive HEAD | tar` by hand — CLAUDE.md's build section says why (~450 MB per extract).

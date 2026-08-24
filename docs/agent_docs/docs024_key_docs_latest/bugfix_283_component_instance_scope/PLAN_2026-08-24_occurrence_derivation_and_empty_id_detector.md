@@ -146,6 +146,17 @@ Explicitly rejected inputs (do not re-litigate): slot-name-derived tokens (counc
 
 ## Half B — detector sees empty ids; the seam fails loud on an unbound identity binding
 
+> **STATUS 2026-08-24: HALF B IS BUILT AND COMMITTED — `120131549`, `Council-Submitted:
+> 661bcf00-131d-4e4c-9815-218647812907`. Go, so INERT until the next image roll.** It was split
+> from Half A deliberately and shipped first: Half A's only `v3_site_actions.go` edit (which since
+> `291607d40` also carries the third-binding deletion) sits in a file the **345 lane is dirty in
+> again today** at `:6212` — second occupant in two days — and committing it would mint exactly
+> the same-file passenger that cost the veto on `e8c7414c`. **Half A is still owed**, unchanged by
+> anything below. Verified at committed HEAD rather than the working tree: `verify-head-builds.sh
+> --test` with only the 7 changed files overlaid gives an IDENTICAL full-suite failure set to pure
+> HEAD, so the 3 `TestUpdateWorkItemStatus_*` failures visible in the shared tree are the 345
+> lane's uncommitted atomic pair, not this change.
+
 ### B1. Detector widening (`component_instance_scope.go`)
 
 Do NOT widen `reElementID` (`([^"{}]+)`, :215) — folding `""` into `DuplicateElementIDs` would only fire at ≥2, would print an empty string in `Summary()`, and would mis-diagnose (empty = binding failure; duplicate = occurrence failure). Instead add a class:
@@ -177,6 +188,53 @@ The check ALREADY EXISTS as a log-only Error at `component_library.go:1103-1110`
 3. The 6 stored empty-id pages are STORED bytes, never re-rendered by themselves — they cannot trip a render-time check.
 
 If (1) is zero → ship the refusal unconditional, citing all three numbers in the council submission. If non-zero → keep log-only, fix the discovered unbound caller(s) in this same change, re-measure, and only then arm (do NOT invent a RenderContext opt-in bool — a per-caller flag re-creates the per-call-site wiring this seam exists to remove).
+
+> **CORRECTED 2026-08-24 by the building thread (commit `120131549`) — MEASUREMENT (1) WAS RUN AND
+> REFUSED AS EVIDENCE, AND THE DECISION RULE ABOVE IS THEREFORE UNUSABLE AS WRITTEN.** The log
+> census is a **blind instrument on this cluster**: its zero cannot be distinguished from a one.
+> Measured 2026-08-24 — no log aggregator in any of the 16 namespaces (no loki/fluent/vector/
+> elastic/promtail/otel/datadog pod); spawned agent jobs carry `ttlSecondsAfterFinished=3600`; and
+> a sweep of **all 96 running + 87 completed pods, 176,006 log lines**, found 0 hits on the target
+> string *and* **0 log lines naming `component_library.go` at all** — including in the four
+> `agent-page-rerender` pods that had just done render work (500 info / 11 warn / **0 error**
+> each). The codebase already says why: `platform/agentbase/agent.go:309` — *"a ~90s pod log
+> cannot carry a 48h+ observation window"* — which is precisely why the resolver's WARNs are
+> persisted to `agent_error_log` and **this Error is not persisted anywhere**.
+>
+> This is CLAUDE.md's own trap ("a `[MEASURED]` figure is only evidence if the measurement could
+> have come out otherwise") reaching a plan that was authored carefully and independently
+> re-verified. **Neither party ran it.** Naming what the disconfirming result would have looked
+> like — a non-zero count in a log that demonstrably carries nothing from that file — is the check
+> that would have caught it in one command.
+>
+> **What replaced it: three measurements that CAN come out non-zero, each with its own demand
+> control.** (a) STATIC, tree-wide: 11 of 972 non-test `.go` files call a `RenderTemplate*`
+> helper — 6 bind, 5 allow-listed, **0 unbound**; control: deleting the bind from each of the 6
+> flips it to a finding, 6 of 6. (b) AT THE ARTEFACT: **0 of 2,020** `page_components` rows carry
+> the unbound shape `id="-…"`, against **374** carrying a bound `id="c-…"`; and the sharp arm —
+> `generic-text-block` spells `id="{{.InstanceID}}"` EXACTLY, so its unbound render is visible as
+> `id=""`, and **155 of 155** of its rows written since it began spelling that (2026-08-23
+> 12:32:24+00) carry a bound token, 0 empty. (c) BLAST RADIUS: **0** chrome templates (header 4 /
+> footer 1 / site 6 / element 1) spell the token, so the refusal cannot fail a header, footer or
+> `<head>` render. On those three the refusal SHIPPED UNCONDITIONAL, as this rule's "zero" branch
+> intended; the substitution, not the conclusion, is what changed.
+>
+> **A fourth thing the plan did not anticipate, and it is the one that would have bitten.** Arming
+> the refusal **breaks `cmd/component-render-check`**, and no test in the repo would have said so.
+> `InstanceID` lives in `ContentData`, so `contextKeys()` does not exempt it; the lint's absence
+> probe removes each referenced field and re-renders; a probe error is recorded as `unanalysed`;
+> and an unanalysed component's baseline keys count as **UNCOVERED, which fails the run**
+> (`rendercheck.go:784`). All **140** `{{.InstanceID}}` templates would have gone that way. Fixed
+> in the same commit by skipping the key **by name and reporting it** (`skipped_seam_refusal`),
+> never silently. Whoever builds Half A: `RenderTemplate`'s consumers are not only the callers
+> `pattern-check` enumerates — read the tools too.
+>
+> **The gate branch's own pre-roll number, which the row in §B1 asks for, is measured and it is
+> zero.** `instanceaudit --gate` (added in the same commit) runs the REAL `GateConvertedTemplate`
+> over the live corpus: of 297 active templates, the 140 spelling the token all **ship as-is** —
+> 0 refused by the new empty-id branch, 0 by anything else, 0 judged-pool (2026-08-24). Demand
+> control: injecting one `<div id="{{.some_absent_field}}">` into a single row of the same export
+> gives 139 clean / **1 EMPTY-ID** and exit 3.
 
 Division of labour, stated: the seam refusal covers the deterministic identity-binding case; the widened detector covers every OTHER cause of an empty id (e.g. `id="{{.SomeUnboundField}}"` as a whole value — the live dartsonline `category_slug` case) at gate/sweep time. No new ctx publication field and no new work-item type — the sweep's recorded output is the queue-adjacent surface (trade-off stated for the council).
 
