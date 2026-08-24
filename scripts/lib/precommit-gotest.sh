@@ -70,7 +70,17 @@ precommit_run_gotest() {
   rc=$?
   [ "$rc" -eq 0 ] && return 0
 
-  if printf '%s' "$out" | grep -qE 'build failed|cannot find|undefined:|redeclared|syntax error'; then
+  # THE CLASSIFIER IS THE TOOLCHAIN'S OWN MARKER, not a bag of words. `go test`
+  # prints "FAIL\t<pkg> [build failed]" on every compile/vet failure and
+  # "[setup failed]" on a missing import or module — both unambiguous, both
+  # absent from any ordinary test failure. The first cut matched
+  # 'cannot find|undefined:|syntax error' instead, which a test's OWN failure
+  # message can contain (a reader-file check saying "cannot find …" is the
+  # obvious one), and a real failure matching it would have been swallowed as
+  # NOT CHECKED — silently, which is the one thing this helper exists to
+  # prevent. Measured 2026-08-24: no test in scope emits those tokens today;
+  # tightened before one does.
+  if printf '%s' "$out" | grep -qE '^FAIL[[:space:]].*\[(build|setup) failed\]'; then
     printf '\n\033[2m── %s: NOT CHECKED (the tree does not build — not a claim about your change) ──\033[0m\n' "$subject"
     printf '\033[2m   run it yourself once the tree compiles: go test %s\033[0m\n' "$pkg"
     return 0

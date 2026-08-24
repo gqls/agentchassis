@@ -1021,3 +1021,33 @@ docs and a proposal, and the chain of effects is worth seeing whole):
 
 **A Fable review pass over the shipped code is running** at the owner's request; findings, if
 any, land below.
+
+### The Fable review pass DID NOT COMPLETE — and what I checked myself instead
+
+The owner asked for a second pass by Fable. The agent hit the API session limit mid-review (resets
+23:50 London) and returned **no findings** — its last message was *"now let me replicate the AST
+scan mechanically"*. **Nothing below is Fable's verdict; it is owed, and the relaunch is in the
+handoff.** I ran the three items on its checklist a reviewer would most plausibly catch:
+
+1. **Could a real test failure be swallowed as "NOT CHECKED"?** The shared hook helper classified a
+   build failure by a bag of words — `cannot find|undefined:|syntax error` — which a test's OWN
+   failure message can contain. `[MEASURED]` no test in scope emits those tokens today, so no live
+   exposure; **tightened anyway** to the toolchain's unambiguous `FAIL <pkg> [build failed]` /
+   `[setup failed]` marker, with the reason at the line. Re-proved all three cases for both callers
+   in a scratch tree from `verify-head-builds.sh --with` (`KEEP_TREE=1`, removed after).
+2. **Are all 13 `_scan_baseline` codes genuine `agent_error_log` writes, or could the scan be
+   collecting some other struct's `ErrorCode:` field?** Six sites showed no `agenterrors` marker
+   within 8 lines; on reading, all six are `agenterrors.Finding{…}` literals batched through
+   `LogActionFindings`. **All 13 are real.** (And that is a second struct type the scan correctly
+   sees — `Finding` as well as `Entry`.)
+3. **Prefix collisions between the baseline and the declared set.** `[MEASURED]` exactly one:
+   **`UNKNOWN` is a prefix of `UNKNOWN_HANDLER_VERDICT`.** No live `LIKE 'UNKNOWN%'` exists, so it
+   is not a query hazard today — but the checker's prefix rule is unconditional (pairwise over every
+   declared code), so **the day someone declares `UNKNOWN_HANDLER_VERDICT` the check exits 1 on
+   `prefix-collision`**, and they will not know why. Two remedies, neither mine to pick: rename the
+   code (the writer is `complete_work_item_verification.go:394`), or scope the rule to family
+   prefixes. Recorded in the handoff as known friction rather than fixed by relaxing a rule that
+   exists because live `LIKE` families are real.
+
+Not checked here and still owed to Fable: an independent read of the AST walk for edge cases I am
+too close to see, and the `--no-source` guard's completeness.
