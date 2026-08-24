@@ -49630,3 +49630,41 @@ not the status"* — but inverted, and the inversion is why it is worth its own 
 failure is believing a green status over a bad artefact. Here the status (`complete`,
 `success`) was **right** and my artefact reading was **wrong**, because I sampled the artefact
 at the wrong moment. **An artefact check has a clock on it too.**
+
+## 2026-08-24 — `bugfix_206_directory_build_handler` (thirteenth entry) — THREE instruments on one bug, each of which would have returned the same answer whether the fix worked or not; and the third used the exact key I had already logged as blind
+
+Same day, same bug, three checks that could not discriminate:
+
+1. **The census** (entry two) — filtered on `swi.spec->>'page_type'`, a key reconcile never
+   writes. Returned a confident **zero** for the population it existed to count.
+2. **The closure test** (entry eleven) — "the page should go 404 → 200 after the roll". Could not
+   fire at all: reconcile has no timer, and the parked row blocks its own re-mint. Two lanes
+   agreed it was good.
+3. **The corrected closure query** — and this is the one that stings: I wrote
+   `swi.spec->>'page_type'` back into it, **hours after logging entry two about that exact key
+   being absent from that exact producer's rows.** Measured now: present on **0 of 134**
+   reconcile-minted rows. The peer lane caught it.
+
+**The repeat is the finding.** I did not forget that `page_type` is missing from the spec — I
+wrote the entry, and my own fix adds the key precisely because it was missing. What I failed to do
+was connect a fact I had established about *the data* to a query I was writing about *the same
+data*, in a different document, three hours apart. Knowing a thing and applying it at the moment
+it bears are different acts, and only the second one is worth anything.
+
+**The peer's remedy was also wrong, which is the second lesson.** They proposed joining on
+`spec->>'page_id'` — absent, 0 of 134 — and the `page_id` **column** is also unpopulated, 0 of
+134. Their reported spec shape (`{domain, page_id, filename, page_name}`) belongs to a different
+producer's rows entirely; the real shape is `{reason, plan_id, page_name, page_role}`. **A correct
+finding does not make the accompanying fix correct**, and taking the fix on the strength of the
+finding would have shipped a third blind query. I measured both before accepting either.
+
+**The check that finally worked, and the practice worth keeping:** join `pages` on
+`(site_id, spec->>'page_name')` for the authority, fall back to `spec->>'page_role'` (present
+134/134, same vocabulary) — **and then RUN IT AGAINST A KNOWN-FAIL POPULATION BEFORE SHIPPING
+IT.** Over the pre-fix rows it returns `FAIL` for the two typed pages and `n/a` for the other
+eleven. That single step — demonstrating the instrument can produce the disconfirming answer, on
+real data, before trusting it — is what all three failures were missing, and it costs one query.
+
+**Standing check, from three instances in one day:** *before recording any measurement, run the
+instrument against a case whose answer you already know and which should come out the OTHER way.*
+If you cannot name such a case, you do not yet have a test.
