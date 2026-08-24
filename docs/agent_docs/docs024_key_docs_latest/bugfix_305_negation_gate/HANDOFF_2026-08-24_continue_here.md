@@ -109,7 +109,7 @@ oversight.
 5. Not ours: the accounting-loop **sibling audit** a council seat asked for
    (`evidence_citations.go`, `revalidate_unverified_claims.go`) — open and unowned.
 
-## 4a. ⚠ POST-CLOSURE: one NEW defect in this mechanism, fixed but INERT until the next roll
+## 4a. ~~POST-CLOSURE defect, INERT until the roll~~ — **RESOLVED 2026-08-24 15:52Z: LIVE AND APPROVED**
 
 Found 2026-08-24 **after** closing, by answering a question from the `bugs_open/381` lane rather than
 from a symptom. Recorded here because the lane's own bar says an inert fix means the defect is still
@@ -130,7 +130,26 @@ start, so table **data** cells split and **header** cells did not:
 with prose and broken the table. `AcceptNegationRewrite` compares prose shape and would not refuse it.
 
 - **Fixed** `714789d7b` (adds `</th` + `</tr`), two tests, **mutation-proven**; council `bccf772a`
-  submitted. **INERT until the next chassis roll** — it is Go.
+  **APPROVED** (`unreadable=0`, 9 in body, 9 voted, **0 objections**).
+- **✅ LIVE on `v1.0.1334`** (rolled 15:39Z), and proven by ANCESTRY rather than by a grep — which is
+  the point, because grepping a binary for your own commit returns ABSENT for a binary that certainly
+  contains it (two lanes burned by exactly that; see `platform/buildcapability`). The running binary
+  reports its own commit in **`service_binary_capabilities`** (`kind='build'`, `name='provenance'`) —
+  **no shelf life, unlike the startup log line, which had already scrolled out of `--tail=6000` twelve
+  minutes after the roll.**
+  ```sql
+  SELECT git_commit FROM service_binary_capabilities
+   WHERE service='agent-chassis' AND kind='build' ORDER BY last_seen_at DESC LIMIT 1;
+  ```
+  → `70fd163c24…`, and `git merge-base --is-ancestor 714789d7b 70fd163c24…` **passes**. So do
+  `996eb2267` and `6e9cb411d`. **Control:** current `HEAD` postdates the build and correctly reads
+  NOT live — so the test could have come out otherwise.
+- **Health on the new build**, 15:40–15:52Z: 3 markers / 4 targets, all `repaired`,
+  `not_reconciling` **0**, `over_counted` **0**; 2 repair calls at `max_tokens=16000`, `cut` **0**.
+- ⚠ **No production demand control for the `</th` case specifically**, and there may never be a
+  natural one — it needs a define-by-negation construction inside a `<th>`. The defect is not
+  reproducible (the path is fixed and mutation-proven), which is the estate's bar; do **not** hold
+  anything open waiting for the rare input.
 - **Newly reachable** because `381`'s migrations `594`/`595` retype five prose slots to `type: html`
   and tell the writer to emit `<table>` in them. If those land before the roll, a define-by-negation
   construction in a `<th>` is exposed in that window. Lists, subheads and `<td>` are fine and always were.
