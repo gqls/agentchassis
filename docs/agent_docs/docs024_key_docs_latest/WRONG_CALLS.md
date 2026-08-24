@@ -48889,3 +48889,106 @@ sentences said "dead". Mine said "quiet". **A lesson phrased against one conclus
 on a differently-worded conclusion drawn from the identical evidence.** Cross-refs:
 [[a-post-fix-zero-needs-a-demand-control]], and the sibling entry above about a naming convention
 read as provenance — same day, same lane, same root: *no marker shows where the evidence stopped.*
+
+---
+
+## 2026-08-24 — `bugs_open/381` lane: a PostgreSQL `\b` is BACKSPACE, and the tell was that EVERY row read zero
+
+I measured how many rendered sections carry a list with `rendered_html ~* '<(ul|ol)\b'` and got
+**0 for every single component**, across a 30-day fleet window. I was one paragraph away from
+writing up "no pass-through slot has ever carried a list" as the finding of the day.
+
+In PostgreSQL regex, `\b` is a **backspace character**, not a word boundary. The word-boundary
+operators are `\y` (either end), `\m` (start), `\M` (end). The predicate matched nothing and raised
+nothing — no error, no warning, just a clean, dramatic, entirely false zero. Re-run as
+`'<(ul|ol)[\s>]'`, the same query returns **116 of 153** for `article-body`.
+
+**What caught it:** not suspicion of the regex, but the *shape* of the answer. A uniform zero
+across a heterogeneous population, including a component whose HTML I had read by hand ten minutes
+earlier, is an **instrument reading, not a finding**. This is the same shape as the "control that
+matches everything" trap already in `LANDMINES.md` for the 40-zeros sha probe — a predicate that
+cannot discriminate returns the same answer regardless of what is true.
+
+**The cheap check, and it costs one line:** put a **positive control row in the same query** — one
+you have verified by hand and that MUST match. If the control reads zero, the instrument is broken
+and no other number in that result set means anything. I had one available (`article-body`, whose
+list-bearing HTML I had already looked at) and did not use it.
+
+⚠ **The near-miss is the point.** This number was on its way into a bug file, a council submission
+and a commit message as `[MEASURED]`. It would have been dated, marked, and completely wrong — and
+the marker rule that this estate relies on would have made it look *more* trustworthy, not less.
+A `[MEASURED]` figure is only evidence if the measurement could have come out otherwise; a broken
+predicate makes every possible world produce the same number.
+Cross-refs: [[a-post-fix-zero-needs-a-demand-control]] (a zero needs a control that could have been
+non-zero), and `LANDMINES.md` "a control that matches everything".
+
+## 2026-08-24 — `bugs_open/381` lane: I explained a difference by a mechanism, without checking the case that has the SAME mechanism and the OPPOSITE outcome
+
+I wrote — into a plan, a bug file, and messages to four other sessions — that the page writer emits
+only `<p>` because `generic-text-block.content` is declared `type: text` and the writer's RULE 9
+forbids HTML in text fields. It is tidy, it fits the symptom, the code path supports it, and I had
+read every relevant line. It is **wrong**.
+
+`article-body.content` is **also** `type: text`, under the **same** RULE 9, rendered by the **same**
+engine — and it carries a list in **116/153 = 76%** of instances against `generic-text-block`'s
+**12/173 = 7%**. The declared type cannot be the cause of a difference between two things that
+share it. The actual difference: `article-body.content` has an `llm_guidance` string asking for
+headings and lists, and `generic-text-block.content` **has no guidance at all**. So the field's own
+guidance is the lever, and RULE 9 — a rule I had treated as binding — is routinely ignored where a
+field's guidance contradicts it.
+
+**What caught it:** nothing about my hypothesis. I opened `article-body`'s `input_schema` for an
+unrelated **scope** reason — deciding whether to include it in a migration — and the disproof was
+sitting in the first field. It had been in the same table, two rows away, the entire time.
+
+**The cheap check:** when you explain a difference by a mechanism, **find the case that has the
+same mechanism and the opposite outcome, and explain that too.** One query. If a shared cause
+produces both outcomes, it is not the cause. I had already computed both numbers in the same
+result set and read them as "one slot is worse than another" instead of as "these two disagree
+under my hypothesis".
+
+⚠ **The expensive part is that I had already told four other sessions.** A wrong mechanism travels
+at the speed of coordination, and it travels stated as settled — the messages did not say
+"hypothesis". The correction went back to each of them, but the general lesson is that **the
+cheapest moment to test a mechanism is before you explain it to someone else**, because after that
+you are correcting a shared belief rather than your own.
+
+## 2026-08-24 — `bugfix_206_directory_build_handler` (eleventh entry) — two lanes independently wrote the same closure test, agreed it was good, and it was incapable of firing
+
+The `loanzy_uk_example_site` lane and this one converged on a closure proof we both liked, because
+it was measured on a site nobody had arranged to succeed: *after the roll,
+`garden-tools.uk/brand-directory/index.html` should go 404 → 200 with nobody touching the site.*
+They wrote it into their handoff as §3a with the exact procedure; I wrote it into this lane's
+RUNBOOK; we each told the other it was better than what we had.
+
+**It cannot fire, for two reasons, and both were one query away.**
+
+1. **`reconcile_site_plan` has no timer.** It runs inside a build/publish pipeline, so a site with
+   no pipeline activity never re-reaches the fixed code. `sites.last_reconciled_at` for the target
+   was **2026-08-23 20:15**, the day before the roll, and four of the five parked pages sit on
+   sites quiet for days to weeks.
+2. **The parked row blocks its own re-mint.** The fix routes what is MINTED; `loadOpenPageItems`
+   counts `needs_human_review` as OPEN, so reconcile skips the page as "queued" and the new
+   routing never reaches it. I had *read that filter earlier the same day* and written about it in
+   this very bug file — in the context of "the existing parked rows are not touched by this
+   change" — without connecting it to the test I was designing to prove the change.
+
+**What makes this worth a row of its own rather than a footnote: peer agreement felt like
+verification and was not.** Every other entry in this session's run is a solo error caught by
+someone else. This one is the opposite shape — two lanes reviewing each other, both pleased with
+the test, and the agreement supplied the confidence that stopped either of us checking the
+mechanism. A second reader is a good defence against a wrong *claim* and no defence at all
+against a shared *assumption*, because the thing neither of us questioned is exactly the thing we
+had in common.
+
+**The cheap checks:**
+
+1. **Before adopting a test, ask what makes it RUN** — not just what it would show. "What
+   schedules this?" and "what state must exist for it to trigger?" are two queries
+   (`last_reconciled_at`, and the producer's own skip predicate) and either would have caught it.
+2. **A proof of a routing change must assert on the ROUTING DECISION, not its downstream effect.**
+   The page going live is several mechanisms away and can be blocked or faked by any of them; the
+   fresh `needs_page` row carrying the right `handler_agent` is the fix's actual output. I had
+   this right in the code tests and lost it in the live test.
+3. **When a peer agrees with your design, note what you both assumed** — the shared premise is
+   the unexamined one, and it is invisible precisely because agreement feels like evidence.
