@@ -1177,10 +1177,16 @@ func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) 
 	// THE SECOND DOOR IS NOW REPORTED TOO, not merely documented.
 	// RenderTemplateWithMap (rerender_pages_actions.go) is an independent render
 	// path that does not share this one's FuncMap (bugs_open/260 §13g); it
-	// carries the same report, so the class is visible on BOTH paths and neither
-	// enforces pending the ruling. bug_historian's objection was that a
-	// chrome-only census is a snapshot and not a guard — correct, and a report
-	// on the path itself is the guard a snapshot cannot be.
+	// carries the same report. bug_historian's objection was that a chrome-only
+	// census is a snapshot and not a guard — correct, and a report on the path
+	// itself is the guard a snapshot cannot be.
+	//
+	// CORRECTED 2026-08-24 (Fable review, F1): "visible on BOTH paths" needs its
+	// caveat — that second path is currently LINKER-DEAD (its only caller chain
+	// ends at an unregistered action; see the REACHABILITY note at its own call
+	// site), so its report guards the revival case rather than watching live
+	// traffic. The live surface for this class today is THIS function plus the
+	// detector at assembly; RFC_050 records the same.
 	if TemplateNeedsInstanceID(templateStr) {
 		token, _ := ctx.ContentData[InstanceContentKey].(string)
 		if token == "" {

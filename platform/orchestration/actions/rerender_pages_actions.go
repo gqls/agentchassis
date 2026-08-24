@@ -853,6 +853,15 @@ func RenderTemplateWithMap(templateStr string, data map[string]interface{}, logg
 	// arming question for BOTH paths is architecture_review/RFC_050. There is no
 	// RenderContext here to publish onto, so this is log-only — which is why the
 	// RFC's question covers this path too rather than treating it as done.
+	//
+	// CORRECTED 2026-08-24 (Fable review, F1): this path is currently DEAD
+	// CODE — the only caller chain ends at RerenderSitePagesAction, which is in
+	// no GlobalActionRegistry entry (320 handlers, checked 2026-08-19; see the
+	// REACHABILITY note ~100 lines above — the linker eliminates the function,
+	// measured as `RenderTemplateWithMap = 0` in a live binary). So this report
+	// guards the REVIVAL case: the day someone registers the action, the class
+	// is visible here from the first render. It stops no damage today, and any
+	// claim that the class is "visible on both paths" must carry that caveat.
 	if TemplateNeedsInstanceID(templateStr) {
 		tok, _ := data[InstanceContentKey].(string)
 		if tok == "" {
