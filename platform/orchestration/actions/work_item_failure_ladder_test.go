@@ -84,6 +84,29 @@ type ladderWrite struct {
 	backoffArg  int64
 	newStatus   string
 	rowsMatched bool
+	// resultArg is $6 (the jsonb result merge) as the driver saw it — ""
+	// when the caller passed nil. The repeat tests assert the durable
+	// terminated_on_repeat marker here, because the outcome struct's flag
+	// never reaches the DB and a marker only asserted in memory would be
+	// the F2b defect all over again.
+	resultArg string
+}
+
+// captureNilableText records a text argument that is legitimately nil on some
+// paths (jsonbTextOrNil returns nil for an empty merge). captureTextArg in the
+// sibling file matches only string/[]byte; this one treats nil as "".
+type captureNilableText struct{ got *string }
+
+func (c captureNilableText) Match(v driver.Value) bool {
+	switch t := v.(type) {
+	case string:
+		*c.got = t
+	case []byte:
+		*c.got = string(t)
+	case nil:
+		*c.got = ""
+	}
+	return true
 }
 
 // captureSQL records the statement text so a test can assert on the clauses
@@ -104,7 +127,7 @@ func expectLadderUpdate(mock sqlmock.Sqlmock, w *ladderWrite, newStatus string, 
 		// terminateNow boolean, which shifted backoff to $5 and resultMerge
 		// to $6.
 		WithArgs(sqlmock.AnyArg(), captureArg{got: &w.errorArg}, captureArg{got: &w.agentArg},
-			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+			sqlmock.AnyArg(), sqlmock.AnyArg(), captureNilableText{got: &w.resultArg}).
 		WillReturnRows(rows)
 }
 
@@ -1095,10 +1118,18 @@ func TestFailureLadder_RepeatOfTheRecordedFailureTerminatesEarly(t *testing.T) {
 	st.attemptCount = 1 // a prior attempt happened, and left its failure below
 	st.priorError = repeatFailureMsg
 
-	out, _ := runLadderWithConfig(t, st, repeatFailureMsg, optedIn("needs_new_component"), false)
+	out, w := runLadderWithConfig(t, st, repeatFailureMsg, optedIn("needs_new_component"), false)
 
 	if !out.TerminatedOnRepeat {
 		t.Fatal("an identical repeat did not terminate — the item will spend its remaining attempts reproducing a refusal that has already proved it cannot learn (345's 52-generation case)")
+	}
+	// THE DURABLE HALF (Fable review F2b): the flag above lives only in
+	// memory, and the Info log scrolls. The row's result merge is the only
+	// record that survives the archiver, so a firing must be visible there
+	// — asserted at the SQL argument, not at the outcome struct, because
+	// the struct saying so is exactly what F2b showed proves nothing.
+	if !strings.Contains(w.resultArg, `"terminated_on_repeat":true`) {
+		t.Fatalf("termination fired but left no durable marker in the result merge — got %q; after the archiver drains the row (~7 days) this firing becomes unprovable", w.resultArg)
 	}
 }
 
@@ -1126,12 +1157,15 @@ func TestFailureLadder_ADifferentFailureKeepsTheBudget(t *testing.T) {
 	st.attemptCount = 1
 	st.priorError = repeatFailureMsg
 
-	out, _ := runLadderWithConfig(t, st,
+	out, w := runLadderWithConfig(t, st,
 		`step store_component failed: generated template for "x" rejected by pre-store validation: field "cta_primary_url" declares source "site_specs.ctas.primary_url"`,
 		optedIn("needs_new_component"), true)
 
 	if out.TerminatedOnRepeat {
 		t.Fatal("a DIFFERENT rejection was treated as a repeat — the writer changed its answer, which is exactly the signal 345 says means the feedback is working")
+	}
+	if strings.Contains(w.resultArg, "terminated_on_repeat") {
+		t.Fatalf("no termination, yet the marker was written: %q — a marker on a surviving item would make every later census of firings a lie", w.resultArg)
 	}
 }
 

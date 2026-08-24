@@ -83,6 +83,7 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -486,6 +487,28 @@ func applyWorkItemFailureLadder(
 		backoff = backoffMinutesFor(ctx, db, logger, itemType) * (attemptCount + 1)
 		if backoff > maxBackoffMinutes {
 			backoff = maxBackoffMinutes
+		}
+	}
+
+	if repeatTermination {
+		// Durable firing marker (bugs_open/345, Fable review F2b). Without
+		// this, TerminatedOnRepeat lives only in the in-memory outcome and
+		// the Info log below — which scrolls — so "has it ever fired?" is
+		// unanswerable from the DB, and even the attempt_count<max_attempts
+		// proxy expires when the archiver drains terminal rows (~7 days,
+		// WII-024). Merged in Go rather than bound as a new SQL parameter:
+		// a seventh positional arg is exactly the sqlmock arity trap that
+		// broke two sibling test files when the sixth was added, and the
+		// statement text must not vary with the flag (the 42P18 pin).
+		m := map[string]interface{}{}
+		if len(resultMerge) > 0 {
+			// Best-effort: an unparseable caller merge must not turn a
+			// terminal write into an error; the marker then rides alone.
+			_ = json.Unmarshal(resultMerge, &m)
+		}
+		m["terminated_on_repeat"] = true
+		if b, jerr := json.Marshal(m); jerr == nil {
+			resultMerge = b
 		}
 	}
 

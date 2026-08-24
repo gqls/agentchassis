@@ -227,33 +227,46 @@ func scoreComponent(componentID, function, template, schemaJSON, componentLevel 
 		// Direction 1: every template var must be declared somewhere
 		// (top-level OR in a sub-schema). Strict — a {{.X}} in the
 		// template that has no schema declaration anywhere is a bug.
+		// EXHAUSTIVE, not first-hit (bugs_open/345, Fable review F4): the
+		// old `break` reported ONE offender per run, so the rejection
+		// message could never name the full mismatch and — because
+		// Direction 2 walked a map — could name a DIFFERENT field on each
+		// attempt, which would defeat byte-identical repeat detection the
+		// moment the message carries field names. tmplVars is already
+		// sorted (extractTemplateVariables), so this direction is
+		// deterministic by construction.
 		for _, v := range tmplVars {
 			_, inTopLevel := schemaFields[v]
 			_, inSubSchema := subSchemaFields[v]
 			if !inTopLevel && !inSubSchema {
 				synced = false
 				issues = append(issues, fmt.Sprintf("template var {{.%s}} has no schema entry", v))
-				break
 			}
 		}
 		// Direction 2: every TOP-LEVEL schema field must appear as a
 		// template var. Sub-schema fields are NOT required here — the
 		// LLM may declare nav_label in an array's items catalog and
 		// choose not to render it in this particular template.
-		if synced {
-			for f := range schemaFields {
-				found := false
-				for _, v := range tmplVars {
-					if v == f {
-						found = true
-						break
-					}
-				}
-				if !found {
-					synced = false
-					issues = append(issues, fmt.Sprintf("schema field %q has no template variable", f))
+		// Direction 2 runs UNCONDITIONALLY now (it used to be gated on
+		// `synced`, so a Direction-1 miss hid every Direction-2 orphan),
+		// iterates in SORTED order (map range order varies run to run),
+		// and reports every orphan rather than the first.
+		orphaned := make([]string, 0, len(schemaFields))
+		for f := range schemaFields {
+			orphaned = append(orphaned, f)
+		}
+		sort.Strings(orphaned)
+		for _, f := range orphaned {
+			found := false
+			for _, v := range tmplVars {
+				if v == f {
+					found = true
 					break
 				}
+			}
+			if !found {
+				synced = false
+				issues = append(issues, fmt.Sprintf("schema field %q has no template variable", f))
 			}
 		}
 	}

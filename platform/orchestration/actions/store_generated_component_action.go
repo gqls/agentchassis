@@ -322,7 +322,7 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			preStoreScore.SchemaFieldCount))
 	}
 	if !preStoreScore.SchemaTemplateSynced && preStoreScore.TemplateVariableCount > 0 {
-		blockingIssues = append(blockingIssues, "template variables and schema fields do not match")
+		blockingIssues = append(blockingIssues, describeSchemaTemplateMismatch(preStoreScore))
 	}
 
 	// Substantive template with no placeholders at all. Catches the case
@@ -1388,6 +1388,33 @@ func healRejectedComponentSectionType(
 
 // orphanSchemaFieldPattern extracts the field name from a Direction-2
 // sync issue like:  schema field "card_link_label" has no template variable
+// describeSchemaTemplateMismatch names the fields behind a schema/template
+// mismatch instead of the bare "do not match" (bugs_open/345, Fable review F4:
+// the bare form gave the retry prompt nothing to act on — "change exactly what
+// it says was wrong" was unsatisfiable, and item 2396218a burned three FED
+// attempts against it on 2026-08-24). The per-field wording is reused VERBATIM
+// from QualityIssues — the same strings the classifier below parses — so there
+// is one wording with one source, not two implementations of one rule
+// (bugs_closed/034). Sorted, because the enriched message now feeds the
+// byte-identical repeat detector (345 candidate 2): a message whose field
+// order varied between attempts would silently defeat it.
+func describeSchemaTemplateMismatch(score ComponentQualityResult) string {
+	const bare = "template variables and schema fields do not match"
+	mismatch := []string{}
+	for _, iss := range score.QualityIssues {
+		if orphanSchemaFieldPattern.MatchString(iss) || unknownTemplateVarPattern.MatchString(iss) {
+			mismatch = append(mismatch, iss)
+		}
+	}
+	if len(mismatch) == 0 {
+		// Sync computed false but no per-field issue matched — keep the old
+		// message rather than inventing a second wording for an unknown shape.
+		return bare
+	}
+	sort.Strings(mismatch)
+	return bare + ": " + strings.Join(mismatch, "; ")
+}
+
 var orphanSchemaFieldPattern = regexp.MustCompile(`^schema field "([^"]+)" has no template variable$`)
 
 // unknownTemplateVarPattern extracts the field name from a Direction-1
