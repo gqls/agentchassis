@@ -144,25 +144,78 @@ is deliberately NOT a real command and must never become one** — it exists for
 verification and is thrown away with the scratch tree. The pattern checker flags the path as a proposed
 new capability surface; this paragraph is the answer to that flag.
 
+> **⚠ CORRECTED 2026-08-24 — the recipe that stood here extracted the WHOLE TREE (459 MB measured)
+> and never deleted it.** CLAUDE.md now names this class directly: 73 documents spell out
+> `git archive HEAD | tar`, and **66 of them never delete anything** — which is why this machine keeps
+> hitting `link: mapping output file failed: no space left on device`. This lane's own copy was one of
+> the 66; I left a 459 MB tree behind this morning before reaping it. **The canary needs three
+> packages, not the estate.** Targeted extract measured at **1.7 MB — 287x smaller — and it reproduces
+> the full-tree result exactly** (`TOTAL 3 | exempt 1 | repairable 2`, verified 2026-08-24).
+
 ```bash
-SP=<your scratch dir>
-rm -rf $SP/verify && mkdir -p $SP/verify && git archive HEAD | tar -x -C $SP/verify
-mkdir -p $SP/verify/cmd/gatecanary && cat > $SP/verify/cmd/gatecanary/main.go <<'EOF'
+SP=<your scratch dir>/cy ; REPO=/home/ant/projects/agentchassis
+trap 'rm -rf "$SP"' EXIT            # <-- the half the 66 documents omit
+rm -rf $SP && mkdir -p $SP/gotmp
+
+# Only what the scanner needs, from COMMITTED HEAD (never the working tree, which
+# is the union of every session's WIP). If the import set grows, the go build
+# below names what is missing — add it and re-run; one round was enough today.
+git -C $REPO archive HEAD go.mod go.sum \
+    platform/orchestration/datahelpers pkg/models platform/orchestration/types \
+  | tar -x -C $SP
+
+mkdir -p $SP/cmd/gatecanary && cat > $SP/cmd/gatecanary/main.go <<'GO'
 package main
-// pulls: the site's content_direction.formatted + identity.key_differentiators as the exemption
-// corpus, and every page_component of the three pages; then, per hit:
+// SCRATCH-ONLY. Per component, per string field, per hit:
 //   datahelpers.WalkContentStrings -> ScanDefineByNegation -> NegationExempt(hit, brief)
-//   + IsHeadlineField(path)   (a headline hit is repaired regardless of budget)
-// prints shape | field | verdict | the sentence, and a TOTAL / exempt / repairable line.
-EOF
-cd $SP/verify && go run ./cmd/gatecanary
+//   + IsHeadlineField(path)  (a headline hit is repaired regardless of budget)
+// Import is platform/orchestration/datahelpers -- NOT platform/datahelpers.
+// The brief corpus is every string in the site's current site_specs rows,
+// flattened recursively (679 strings on aiao, 2026-08-24).
+GO
+
+cd $SP && TMPDIR=$SP/gotmp go run ./cmd/gatecanary <components.json> <brief.json>
 ```
 
-**Expected, and this is what "working" looks like** `[MEASURED 2026-08-20]`:
+⚠ **`TMPDIR` must point at disk, not `/tmp`** — `/tmp` is a 16 GB **tmpfs (RAM)**, and a full one
+presents as `link: mapping output file failed: no space left on device`, which reads like a compiler
+fault and is not one.
 
+⚠ **Getting the two inputs is where the time goes.** `content_direction` is a column on **`pages`**,
+not `sites`; the site brief lives in **`site_specs`** keyed on **`aspect`** (not `spec_type`), and you
+want `WHERE is_current`. Dump both with `jsonb_pretty(jsonb_object_agg(...))` via
+`kubectl exec … psql`, so the Go program needs no DB connectivity at all:
+
+```sql
+-- brief.json
+SELECT jsonb_pretty(jsonb_object_agg(ss.aspect, ss.data)) FROM site_specs ss
+  JOIN sites s ON s.id=ss.site_id WHERE s.domain='<domain>' AND ss.is_current;
+-- components.json
+SELECT jsonb_pretty(jsonb_agg(jsonb_build_object('url',p.url,'slot',pc.slot_name,
+       'updated_at',pc.updated_at,'content_data',pc.content_data)))
+  FROM pages p JOIN sites s ON s.id=p.site_id JOIN page_components pc ON pc.page_id=p.id
+ WHERE s.domain='<domain>' AND p.url ~ '(model-directory|adoption-tracker|protocol-tracker)';
+```
+
+**Two readings, and the DIFFERENCE is the point.** The first is the baseline this lane started from;
+the second is where the gate has got the pages to. ⚠ **Do not read the baseline as "what working looks
+like" any more** — it was, on 2026-08-20, and quoting it today would report a fixed gate as broken.
+
+`[MEASURED 2026-08-20]` — the baseline, before the gate reached these pages:
 ```
 TOTAL 7 | exempt (brief-supplied or regulatory) 1 | repairable 6, of which headline-class 6
 ```
+
+`[MEASURED 2026-08-24]` — after the gate, the ceiling fix (`569`) and the site's own rebuilds:
+```
+/adoption-tracker.html     TOTAL 1 | exempt 1 | repairable 0
+/protocol-tracker.html     TOTAL 2 | exempt 0 | repairable 2
+ALL THREE                  TOTAL 3 | exempt 1 | repairable 2
+```
+`model-directory` does not appear because it has **ZERO** hits — it is the page that carried both
+sentences the owner quoted. `protocol-tracker`'s 2 are the whole remaining residual of this bug, and
+they are waiting on a rerender that is **already queued** behind another lane's `claims_unverified`
+item; they are NOT evidence of a gate defect.
 
 - both sentences the owner quoted are REPAIRABLE — *"The registry shows you what's possible, not what
   survives production."* (`x_not_y`, headline) and *"It doesn't tell you how they hold up under real
