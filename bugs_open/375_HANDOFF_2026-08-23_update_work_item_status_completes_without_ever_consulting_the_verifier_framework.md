@@ -209,3 +209,96 @@ call on that path confirmed by grep over the package. **What is NOT established 
 radius** — §3 says so and gives the query. A thread taking this on should run that census before
 choosing between the candidates, and should file `090` if it intends to assert a cause beyond
 "the call is absent".
+
+---
+
+## 7. WHAT THIS LANE DID `[2026-08-24, docs024_key_docs_latest/bugfix_375_completion_verifier_gap/]`
+
+**Candidates 1 and 3 are SHIPPED (committed, inert until the next chassis roll).
+Candidate 2 is untouched and still the structural fix. Candidate 4 is NOT built —
+and §7c below is the concrete shape for whoever takes it, which the file did not have.**
+
+Commits: `c735bfd9c` (the gate + tests), `c94212ad3` (the documents).
+Council: `Council-Submitted: 7a6add95-30e9-4576-85e5-df5bad0f7119`.
+Register: **`WII-030`** (`register/work-item-integrity.md`). Landmine appended and synced.
+
+### 7a. The census was re-run before anything was built, and it holds
+
+Identical on the headline: **4** agents of **200**, **6** `complete` arms, **5** item types,
+**134** completions, **ZERO** intersection with the **13** registered verifiers, controlled.
+Two corrections to §3a, both about the *neighbouring* numbers, not the bug's own:
+
+- §3a's control reports "**12 of 13** types with real rows". That is **12 `(item_type,
+  handler_agent)` PAIRS from 10 DISTINCT types** — `literal_markdown` alone has three
+  handlers, and `orphan_element_refs` / `page_canonical_collision` / `revenue_shape_cta`
+  have **no rows at all**. The control still passes; the figure was a row count read as a
+  type count.
+- The census query in §4 walks `$.workflow.steps`, which **cannot see a step nested inside
+  a loop-step config**. On `update_work_item_status` it happens to be complete (a recursive
+  `strict $.**{0 to last}` scan returns the same 22 steps) — but on the *other* writer it
+  finds only **2** of the **4** live `complete_work_item` callers. **Use the recursive form**
+  (RUNBOOK in this lane's directory).
+- ⚠ A third, not previously noted: `status` **defaults to `complete`** when the key is
+  absent, so `WHERE config->>'status'='complete'` cannot see a step that omits it. All 22
+  name it explicitly as of 2026-08-24; `COALESCE` it or that stops being visible.
+
+### 7b. The finding that decided the design: `CQ-023`'s landmine was FALSE
+
+`CQ-023` warns whoever registers a `required_fields_missing` verifier that it *"would
+fail-closed the `converted` arm's completion"*. **All three of that router's `complete` arms
+(`close_converted`, `close_resolved`, `close_stale`) are `update_work_item_status` steps** —
+so registering it would not fail-close anything; it would do **nothing at all, silently**,
+while `verifier_coverage_test.go` went green.
+
+So the trap in §3a is worse than "nobody warned them": **they were warned, and warned wrong.**
+And it rules out the tempting fix — making the consult automatic would make that sentence
+come true, i.e. break a live route as a side effect of arming a guard nobody asked for.
+Hence opt-in **per step**. `CQ-023` is corrected in place; the warning is now true per arm,
+once that arm is armed.
+
+### 7c. Candidate 4, made concrete — and the class is ALREADY SOLVED ONCE, for a THIRD writer
+
+The file (and the handoff) framed candidate 4 as "teach the coverage guard that *has a
+verifier* ≠ *is verified*". Half of that shipped as documentation. **The enforcing half has a
+precedent nobody in this lane's history had noticed, and it is the shape to copy.**
+
+**There is a THIRD writer of `complete`.** The `claimed-item-timeout` sweep auto-completes a
+claimed item past its timeout **by writing the row directly, so NEITHER completion gate runs**
+(`bugs_closed/317`). Its protection is:
+
+1. a **declaration** in Go — `livespec.ClaimedItemTimeoutExclusions`;
+2. a **build-enforced lockstep** — `platform/orchestration/actions/claim_timeout_exclusion_lockstep_test.go`,
+   asserting **both directions**: `excluded ⇔ (has a verifier) OR (has a noChangeGates entry)`.
+   Forward, so a gated type cannot be swept past its gate; reverse, so an exclusion that no
+   gate can earn does not create the `bugs_open/006` §C churn;
+3. a **live-drift auditor** for the declaration-vs-production half —
+   `cmd/config-key-audit --live-declaration-drift` (`bugs_open/363` phase 2).
+
+That guard is what caught this lane's own fixture defect (§misstep 3 in NOTES), which is the
+best possible evidence that it works.
+
+**So candidate 4 is: the same three parts, for THIS writer.** A declaration of which
+`(agent, step)` pairs complete through an **unarmed** `update_work_item_status`, a lockstep
+asserting that no type with a registered verifier is reachable by one, and the drift auditor
+comparing the declaration to live `agent_definitions`. What it buys over what shipped: the
+runtime record (`result._verification.status='verifier_not_consulted'`) fires only **after** a
+live item has already completed unverified, whereas a lockstep fails **the build**, at the
+moment somebody writes `RegisterVerifier(…)`. They are complements, not alternatives.
+
+⚠ **What that costs, stated rather than discovered:** a hand-maintained declaration that goes
+stale by ADDITION — a new agent completing through this writer is invisible until somebody
+refreshes it. That is exactly the criticism the council levelled at the first cut of
+`verifier_coverage_test.go` ("a guard against *someone must remember* that itself relies on
+someone remembering"), and `--live-declaration-drift` is the estate's answer to it. Do not
+build the declaration without the auditor arm.
+
+### 7d. What is still NOT established
+
+- **Whether any of the five types should have a verifier.** Unchanged from §6 of the handoff.
+- **Whether the 134 unguarded completions contain false completions.** Nobody has re-run
+  those predicates. Still its own measurement, and probably its own `090`.
+- **Whether candidate 2 is feasible.** I read `CompleteWorkItemAction` end to end and the two
+  paths now share the gate and the row read, which is its first half — but I did **not**
+  enumerate its call sites or judge the merge. `bugs_closed/284` is still cited by shape.
+- **The `image_url_404` undispatched population** the handoff observed (42 rows, 38
+  `detected`, all with an empty `handler_agent`). Untouched, unfiled, still not this bug.

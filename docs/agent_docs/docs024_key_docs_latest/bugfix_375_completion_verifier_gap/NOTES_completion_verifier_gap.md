@@ -114,3 +114,60 @@ side effect of a guard nobody asked to be armed. Opt-in per step is not just the
   as **ZERO** and would not see a tenth key either. That is the same blind spot CLAUDE.md records
   for `retract_asset_files` / `publish_site`, and it is not this lane's to fix — recorded here so it
   is not discovered a third time.
+
+### Misstep 3 — my test fixture broke a real guard, and my first instinct was the wrong fix
+
+My first version of `update_work_item_status_verification_test.go` registered a synthetic
+verifier into the process-wide registry from `init()`:
+
+```go
+func init() { checks.RegisterVerifier("test_375_verified_type", func(...) {...}) }
+```
+
+The package's own tests passed. `go test ./platform/orchestration/actions/...` then failed —
+in a test I had never heard of:
+
+```
+--- FAIL: TestClaimTimeoutExclusionCoversBothCompletionGates
+    item_type "test_375_verified_type" has a registered verifier (gate 2) but is NOT
+    declared in livespec.ClaimedItemTimeoutExclusions.
+```
+
+**The guard was right and my fixture was wrong**, and the tempting fix — add the test type to
+`livespec.ClaimedItemTimeoutExclusions` so the guard goes quiet — is *fixing the checker to
+agree with the fixture*, with a production declaration as collateral. I did not take it, but I
+considered it for long enough to be worth writing down.
+
+The correct fix was to stop touching the shared registry at all: `verifierLookup` is now a
+package variable defaulting to `checks.GetVerifier`, the test swaps it under `t.Cleanup`, and
+`TestVerifierLookupIsNotASwitchInProduction` asserts there is exactly one assignment to it in
+the package's non-test source (mutation-proven: adding a second makes it fail).
+
+**And the failure was worth more than the inconvenience.** It is how I learned there is a
+THIRD writer of `complete` — the `claimed-item-timeout` sweep, which writes the row directly
+so neither gate runs, and is held off a type only by a declaration plus a lockstep test
+(`bugs_closed/317`). That is **the same class as 375, already solved once, by the shape
+candidate 4 should copy.** It is now written up as §7c of the bug file. Nothing in `375`, in
+the handoff, or in my own reading had pointed at it.
+
+**Cheap check that would have caught the fixture problem first time:** before registering
+anything into a package-level registry from a test, grep for who READS that registry —
+`grep -rn 'RegisteredVerifierItemTypes()' platform/` returns two callers, and one of them is a
+cross-package contract test. One command.
+
+### Where the change ended up `[2026-08-24 ~22:00Z]`
+
+- `c735bfd9c` — the gate (`update_work_item_status_verification.go`), the wiring in
+  `UpdateWorkItemStatusAction`, the shared row read factored into `loadWorkItemVerifyRow`,
+  and the tests. Four mutations, each failing the right tests: **M1** wiring removed → 4 fail;
+  **M2** `mayComplete` forced true → only the defect-persists test; **M3** unarmed payload
+  nulled → only the bypass-record test; **M4** seam re-pointed in production source → only the
+  seam guard. Run against **committed HEAD** via `scripts/verify-head-builds.sh`, because
+  another session's uncommitted WIP in `discovery_checks/check_page_list_stale.go` did not
+  compile for about ten minutes in the middle of this — a working-tree `go test` failure that
+  was not mine and would have read as mine.
+- `c94212ad3` — `verifier_coverage_test.go`'s header, `CQ-023`'s corrected landmine,
+  `WII-030`, the index row, the `102_coverage_ratchet.txt` line dropped (it explicitly asked
+  to be, once candidate 1 shipped with a register entry), and the new LANDMINES entry.
+- Council: `7a6add95-30e9-4576-85e5-df5bad0f7119`, dispatched 20:26:42Z and executing within
+  minutes rather than the ~29 the runbook budgets for.
