@@ -6105,6 +6105,43 @@ literally named `success` inside the step's own output.
 the true one. Then verify at the artefact the step was supposed to produce (did the spec row appear?),
 never at the step's self-report.
 
+### A work item's terminal state decays in BOTH directions — `complete` outlives work that never happened, and `needs_human_review` outlives the condition it named (2026-08-24, `garden-tools.uk` greenfield build)
+
+**Why this is worth its own entry when "trust the artefact, not the status" is already a house rule.**
+That rule is usually heard as *"`complete` might be optimistic"* — a one-directional worry, and one a
+careful reader compensates for by treating `complete` with suspicion and open items as real work.
+**One site falsified both halves of that compensation on the same afternoon.**
+
+**Direction 1 — `complete` on work that did not happen.** Twelve `page_rerender` items reported
+`complete`. Five of them named pages that were `build_status='planned'`, had `deployed_at IS NULL`,
+and returned **404** at the served URL. The rerender handler ran, found nothing to render, and
+terminated successfully. A "did the site finish rendering?" audit reads `12 complete, 0 failed`.
+
+**Direction 2 — `needs_human_review` on work that DID happen.** Eight `unresolved_cta` items sat at
+`needs_human_review`, every `updated_at` predating the rerender wave. At least one
+(`about | call-to-action`) was provably stale: the CTA it named now rendered and resolved to a live
+200 page. Nothing re-opened, re-checked or closed the item when the condition cleared.
+
+**So the queue said "12 rerenders done, 8 CTAs broken". The artefacts said 7 rerenders real and at
+least 6 CTAs fine. Both numbers wrong, in opposite directions, from the same table.**
+
+**The general rule.** A work item's terminal state records *what the handler believed when it last
+ran*. It is a **latched** value: nothing re-evaluates it when the world changes underneath, and
+handlers latch it on paths where they did nothing at all. So:
+- **an open item is not evidence the problem persists** — it is evidence nobody has looked since;
+- **a closed item is not evidence the work landed** — it is evidence a handler exited without error.
+
+**The check, and it is the same one in both directions:** never count items to describe a site. Fetch
+the URL. `SELECT status, count(*)` over `site_work_items` answers *"what do the handlers think?"*,
+which is a legitimate question and is not the question anyone asking about a site actually has. Where
+you must use the queue (scale, no served artefact yet), pair every status with the artefact column
+that would contradict it — `deployed_at IS NULL` alongside `complete`, `updated_at` alongside an open
+review item — and print them together so staleness is visible rather than inferred.
+
+**Related but distinct:** `bugs_open/315`'s status-column family is about ONE column disagreeing with
+reality. This is about the disagreement being **bidirectional and simultaneous**, which defeats the
+usual mitigation of "distrust the optimistic direction".
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
