@@ -13728,3 +13728,43 @@ second does not license the first's conclusion. The nine cut calls WERE a determ
 refusal — retrying those unchanged could not have succeeded — and they were still 11% of the
 population. "This failure cannot be retried away" and "this failure is why the work item
 died" are different claims needing different evidence.
+
+### A field that names its own SOURCE is a claim about provenance, and an LLM will fill it in confidently for a value the named source never contained — the honesty machinery then vouches for the fabrication (2026-08-24, `bugs_closed/335`)
+
+**The shape.** An artefact where each item carries prose **plus the name of the field it was drawn
+from** — `from_field`, `cited_field`, `source_key`, `derived_from`. The name exists so a later reader
+can check the claim by opening the field it names. That is exactly what makes the failure expensive:
+**an auditing reader sees a sourced claim.**
+
+**The tell — and there is none until you check the pairing.** On `offer_ordering.lead_with[0]` the
+model wrote *"the same stack that runs **eight live sites** built by this team"* and stamped
+`from_field: "trust_threshold"`. Every structural check passed: the object was well-formed, the key
+was populated, the `why` clause reasoned correctly *about* `trust_threshold`, and rank 1 is what a
+downstream writer consumes first. The cited field contained **no number at all**; the figure had been
+lifted from a page `meta_description` that the surface query passes into the prompt. True count 23.
+
+**Why this is not "the LLM hallucinated a number".** It didn't invent the figure — it *relocated* a
+real one, from an unverified layer (page copy) into a verified-looking one (the premise/spec layer),
+and then attributed it. The prompt's own honesty constraints were all obeyed. **The defect is the
+ATTRIBUTION, not the staleness**: a stale number in a page is a content bug; a stale number wearing a
+provenance stamp is a *trust* bug, because it survives the audit that would have caught it.
+
+**What to check, wherever this shape exists.**
+- **Pair the value against the field it names, mechanically.** *"Does the specific, checkable part of
+  this prose actually appear in the field this item cites?"* is a query, not a review. Nothing else
+  in a well-formed artefact will ask it.
+- **Enumerate what else the prompt is fed.** The fabrication's source is usually a legitimate input
+  serving a different purpose — here page metadata, load-bearing for the surface's real job, so
+  removing it would have blunted a working check to fix an attribution bug.
+- **A self-attributing field is only as good as its weakest citable source.** If the model may cite
+  any key of a document it is shown whole, the guarantee is bounded by the *least* verified key in
+  it, not by the one you had in mind.
+
+**And the trap when you go to fix it: a gate over "specifics" is trivially passed by prose containing
+none.** Every clean run on this estate for two days was clean because the model emitted no numbers at
+all — a measurement that could not have come out otherwise. The negative control has to be an item
+whose specific IS legitimately sourced and must **survive** (`robot-hands`: *"across six actuation
+types"*, verbatim in the cited field). A control with no specific in it passes any rule, including
+one that bans every numeral — which is what the original bug file proposed, and it would have read as
+a clean pass. See LANDMINES for the two shapes that bite once you build the checker: digits-only
+tokenisers miss spelled-out numerals, and un-anchored digit regexes read `B2B` as the quantity 2.
