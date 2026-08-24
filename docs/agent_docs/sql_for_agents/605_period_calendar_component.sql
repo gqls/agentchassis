@@ -25,8 +25,15 @@
 -- mechanism would imply a dependency that is not there. `faq` and `features` are
 -- unordered card sets. Nothing periodised exists.
 --
--- ⚠ NOT A TIMELINE, AND THIS BOUNDARY IS AGREED WITH THE `editorial_design_uplift`
--- LANE. Their Phase E timeline is FACT-FED: dated real-world events, each carrying
+-- ⚠ NOT A TIMELINE. The boundary below is DERIVED FROM the `editorial_design_uplift`
+-- lane's own description of their Phase E (2026-08-24: substrate-first, dated cited
+-- events, fails closed without an evidence base) — it is NOT a boundary they have
+-- confirmed. An earlier draft of this header said "AGREED WITH" that lane, which was
+-- false: I inferred it and wrote it as agreement before asking them. Corrected the same
+-- day, and they have been asked; if they draw it differently this header changes.
+-- (Recorded rather than quietly fixed because claiming corroboration you have not
+-- obtained is the exact failure this lane logged twice on 2026-08-24 — see
+-- WRONG_CALLS.md, "a premise handed to a peer comes back as agreement".) Their Phase E timeline is FACT-FED: dated real-world events, each carrying
 -- its own citation from the evidence register, failing closed on a site with no
 -- evidence base. This component is the opposite by design — authored guidance about
 -- a RECURRING cycle ("what to do in March", not "what happened in March 2024"), with
