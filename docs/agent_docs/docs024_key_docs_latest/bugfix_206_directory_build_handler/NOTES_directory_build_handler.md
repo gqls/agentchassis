@@ -542,3 +542,53 @@ committed and inert. The cost of another round is not "the fix is delayed" — i
 and the fleet's credits, against a decreasing return. The cost of shipping something a seat has
 flagged three times without resolution is worse: it is exactly the "one lane overrides another
 lane's ruling because it had more stamina" failure this estate has no defence against.
+
+### Round 4 → the fix got SMALLER, and that was the right outcome
+
+My pre-committed stopping rule said a third objection to a question I had asked the council to
+*rule* on means taking the contained option instead of a fifth round. Round 4 met that test on
+the split-brain — `reuse_agent` HIGH, plus `guardian` — but it also did something the rule did
+not anticipate: **it converted the judgement call into a measurable defect**, which changed what
+the contained option should be.
+
+The seats' standing objection was "two implementations of one decision is an anti-pattern".
+I had answered twice with a bound: one page_type, one path, no regression, and a shared
+`item_key` so a page cannot hold two items with different handlers. Round 4's `guardian` took
+that last clause — my own mitigation — and showed it cuts the other way: because both producers
+mint the same key under `idx_swi_dedup`, **whichever fires first wins and the other is silently
+dropped**. So a page `WriteBuildItemsAction` reaches first keeps the wrong handler and my fix
+never fires for it, with nothing anywhere saying so. My "no page gets two rows" was true and was
+not the reassurance I was using it as.
+
+**The option neither I nor the council had named**: `section-index` was the *only* line on which
+the two maps differed. Remove it and they are byte-identical — the divergence stops existing,
+rather than being tolerated or documented. And the case that motivated the whole lane survives,
+because `entity-directory` was **already** in `WriteBuildItemsAction`'s map: routing reconcile
+through the shared authority fixes `garden-tools.uk/brand-directory-index` with no disagreement
+at all. What it costs is two `section-index` pages staying parked, no worse than today.
+
+Worth keeping as a pattern: **when several rounds object to the same shape, look for the input
+that is causing the divergence rather than arguing about the divergence.** I spent two rounds
+defending a bound and one line deleted the thing being bounded.
+
+Also from round 4, both measured rather than argued:
+- **HIGH refuted**: `directory-build-handler` reads no `item_type` in any of its four workflow
+  steps (`jsonb_path_query_array` for a step config carrying `item_type` or `handler_agent`
+  returns `[]`), so it cannot dispatch on one — which was the premise of the objection.
+- **The historical rows cannot be produced at all**: `2f50bfda` and `715ec305` return NO ROWS
+  today. `site_work_items` is a rolling window and completed rows are archived out. I said so
+  rather than quoting rows I could not show.
+- **One objection was factually wrong and I said so with the test name** (the role fallback *is*
+  pinned, and mutation-proven). Answering is not defending when the answer is a test.
+- **One implied fix would have been a live defect**: binding `route.itemType` in reconcile's
+  INSERT would mint `needs_content_page`, which `loadOpenPageItems` (`:683`) does not select —
+  so the action's own dedup check would go blind and re-emit the page every run.
+
+### The 090 loop was not available for this mechanism, twice
+
+Run 1 multi-symbol: doomed at bundle 1. Run 2 **single-symbol** — exactly what the landmine
+prescribes — passed at bundles 1 and 2 and blew the budget at bundle 3, because the loop widens
+its own scope between iterations. Ended `complete` with zero verdict artifacts. **The landmine
+has been further-corrected with that measurement and re-verified**: checking after the first
+bundle is necessary and not sufficient, and for a mechanism in these files you should plan on the
+owner ruling's declared-substitute path from the start.
