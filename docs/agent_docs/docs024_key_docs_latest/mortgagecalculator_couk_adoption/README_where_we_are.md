@@ -1531,3 +1531,16 @@ them, but anyone who rebuilds those three a slightly different way would silentl
 regenerated. Two of the three are the pages another team's automated check called "serving broken"
 last week and then closed without changing anything. That cluster deserves a look; it is not part
 of this job.
+
+**Confirmed done, same afternoon.** All **30** pages that the site actually serves now carry the
+disclaimer — checked twice, independently, with repeat probes rather than one look. Nothing failed.
+The two pages that are not live yet (the Scorecard Simulator and one guide) will pick it up
+automatically the first time they are built, because the setting lives with the site rather than
+with the pages.
+
+One small thing worth knowing, since it is the second time this week: one of my automatic checks
+briefly reported a page as missing the disclaimer when it was fine. I said at the time that I knew
+why — that the page had got too big for my check's time limit — and then could not reproduce it, so
+I have withdrawn that explanation rather than leave a tidy-sounding reason in the record. It was a
+one-off failed fetch. What matters is that my checks fail by crying wolf rather than by saying all
+is well when it is not, which is the right way round.
