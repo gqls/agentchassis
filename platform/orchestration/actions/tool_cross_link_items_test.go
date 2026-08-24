@@ -11,7 +11,16 @@
 
 package actions
 
-import "testing"
+import (
+	"context"
+	"regexp"
+	"testing"
+
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
+	orchtypes "github.com/gqls/agentchassis/platform/orchestration/types"
+	"go.uber.org/zap"
+)
 
 func TestRelatedPagesFromSpec(t *testing.T) {
 	cases := []struct {
@@ -141,5 +150,95 @@ func TestCrossLinkOptInDefaultsToWithhold(t *testing.T) {
 	}
 	if got := crossLinkEmitDecision(false, false, req.pageBuildIsEnqueuedByThisWorkflow); got != crossLinkWithhold {
 		t.Errorf("a zero-valued request on an unbuilt page must withhold, got %v", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The CALL SITE. bugs_open/353, council round 2 (corr 642ecc3c, editquality).
+// ---------------------------------------------------------------------------
+//
+// TestCrossLinkCallSitePassesTheRealPageLive exists because of an objection the
+// two tests above CANNOT answer, and the reviewer was right to raise it: pinning
+// crossLinkEmitDecision's table proves the function is correct, not that the
+// production caller hands it real values. An earlier cut of this fix called it
+// as `crossLinkEmitDecision(false, ...)` — a literal — which made the pageLive
+// branch dead in production while every test above stayed green. A pure
+// function's table can never see that; only an assertion through the DB-facing
+// caller can.
+//
+// The setup is the discriminating one: the tool page is SERVED, and the opt-in
+// is OFF. Correct wiring reads build_status='deployed' → pageLive TRUE → the
+// first branch → emit. The literal-false wiring reaches the third branch with
+// no gate item and no promise → withhold, and creates NOTHING.
+//
+// The assertion is the EFFECT — one item created — not the absence of a query.
+// A test that asserted "the gate query was not issued" would pass vacuously the
+// moment the call errored for any other reason (LANDMINES: a test asserting a
+// query is NOT issued passes vacuously). Here the return value is the claim: 1
+// on correct wiring, 0 on the defect this fix removes.
+func TestCrossLinkCallSitePassesTheRealPageLive(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+
+	siteID := uuid.New()
+	toolPageID := uuid.New()
+	relatedPageID := uuid.New()
+
+	// Guard 2's read: the tool page is already deployed.
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT COALESCE(build_status, '') FROM pages WHERE id = $1`)).
+		WithArgs(toolPageID).
+		WillReturnRows(sqlmock.NewRows([]string{"build_status"}).AddRow("deployed"))
+
+	// The gate-item lookup is deliberately UNREGISTERED. It is wasted work on a
+	// served page, so correct code never issues it. This is not the assertion —
+	// it is what makes the defect fail loudly rather than silently: the
+	// literal-false path issues it, gets an error, and falls to withhold.
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT name, id FROM pages`)).
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"name", "id"}).AddRow("services", relatedPageID))
+
+	// insertWorkItem's two-strike history check. Registered so it SUCCEEDS with
+	// a history that suppresses nothing (0 priors), rather than erroring and
+	// being swallowed into a false negative.
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*)")).
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age_hours"}).AddRow(0, 0.0))
+
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO site_work_items")).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	params := ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		CollectedData:    map[string]interface{}{},
+		ExecutionContext: &orchtypes.ExecutionContext{StepName: "save_tool"},
+	}
+
+	created := emitToolCrossLinkItems(context.Background(), params, zap.NewNop(), toolCrossLinkRequest{
+		siteID:       siteID,
+		toolFunction: "tool-worked-case",
+		toolName:     "Worked Case",
+		toolDesc:     "a tool",
+		toolPageID:   toolPageID,
+		toolPageURL:  "/tools/worked-case/",
+		relatedPages: []string{"services"},
+		emittedBy:    "tool-generator",
+		// THE OPT-IN IS OFF. The emit below is licensed by the page being
+		// served, and by nothing else — so this test fails if the call site
+		// stops passing the real pageLive, whatever the opt-in is doing.
+		pageBuildIsEnqueuedByThisWorkflow: false,
+	})
+
+	if created != 1 {
+		t.Fatalf("emitToolCrossLinkItems created %d items for a SERVED tool page with the opt-in OFF, want 1. "+
+			"That is the literal-false defect: the call site is not passing the real pageLive to "+
+			"crossLinkEmitDecision, so a deployed page falls through to the withhold arm and every "+
+			"cross-link for an already-live tool page is dropped", created)
 	}
 }
