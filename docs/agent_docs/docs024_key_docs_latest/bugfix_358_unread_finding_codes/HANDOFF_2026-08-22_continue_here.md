@@ -1,4 +1,12 @@
-# HANDOFF 2026-08-22 — bugs_open/358, continue here
+# HANDOFF 2026-08-22 — bugs_open/358 ~~continue here~~ SUPERSEDED
+
+> **⚠ SUPERSEDED 2026-08-24 by `HANDOFF_2026-08-24_continue_here.md` in this directory. Read that
+> one.** This file is kept because its §3 traps still hold and are worth reading, but two things in
+> it are now WRONG: §0's counts have moved, and §2 says "Phase 2, the daily CronJob — mine to build,
+> not started". **Phase 2 is BUILT, LIVE since 2026-08-24, and council-approved** (`be252395`,
+> round 4). It also cites a source-side early warning in `findingcodes_scan_test.go` which **did not
+> exist when this was written** — it does now, and it works differently (discovers rather than
+> lists). A stale "not started" line is how a finished thing gets built twice.
 
 **Read this first, then `SUMMARY_2026-08-22_unread_finding_codes.md` if you want the owner-facing
 read-out.** Everything below is `[MEASURED]` on 2026-08-22 unless marked otherwise. **Re-measure
