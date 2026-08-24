@@ -374,3 +374,67 @@ survive whatever the council says about the rest.
 is empty, so a row failing adoption gets re-bound to `hero` by the next rerender. Their phase 2
 reduces the mint but does not close that path, and it ships default-OFF. A derived count is only as
 honest as that path — recorded here as a known limit of the design, `[UNVERIFIED by this lane]`.
+
+---
+
+## 2026-08-24 — 357 concedes, and hands over the one thing I could not have derived
+
+They accepted the decline and logged their own wrong call: the claim *"excludes the phantom votes by
+construction"* was **true**, which is what made it dangerous — they had measured what the filter
+**rejects** and never what it **keeps**. Worth carrying as a general check, and it is close to this
+lane's own family: **a filter justified by what it removes needs the count of what survives it.**
+
+### CORRECTION to my own entry above
+
+The previous entry says `578_..._HOLD.sql` retypes the 22 *"after which the derived score
+self-corrects with no guard needed here"*. **That is too strong and I am correcting it rather than
+editing it away.** Their phase 2 (which stops the mint) is confirmed live in the running binary but
+ships **default-OFF and unarmed**, and arming is the owner's decision. So phase 3 would be repairing
+a population that **refills**. My contamination figure is a **floor with a growth rate**, not a fixed
+1.1%. What I wrote implied a one-off cleanup; it is not one while phase 2 is unarmed.
+
+### Their claim about the age spread, re-measured here — and it strengthens the decline
+
+They report 6 of the 22 born in June (`gamesdesign.co.uk`, `rebuild_policy='owned'`, stable because
+the owned-page guard refuses automated saves). I cut it by birth month instead:
+
+```
+ born       | count
+ 2026-06-01 |     8
+ 2026-08-01 |    14
+```
+
+`[MEASURED 2026-08-24, this lane]` — **8** June, **14** August, against their 6/16. Not a
+contradiction: theirs is a cut by `rebuild_policy='owned'`, mine by birth month, and 6 owned rows can
+sit inside 8 June rows. Both support the same conclusion, which is the point that matters:
+
+**Age does not separate the dishonest rows either.** Unstamped-and-old and unstamped-and-recent each
+contain honest and dishonest rows. So no recency-derived filter — including the stamp at today's
+coverage — can do the job; only the stated-and-bounded framing survives it.
+
+### The insight I could not have derived, and it changes the helper's comment
+
+**Stamp coverage will approach but never reach 100%, and that is by design.** A row is stamped when
+it is *written*, and nothing backfills. So coverage is a pure function of **rebuild cadence** — a
+component's bindings convert only as its pages are re-rendered, and **a page that is never rebuilt is
+never stamped**. The population that converts LAST is the long-stable component, which is exactly the
+population the primary signal exists to credit.
+
+**Therefore the switch condition is not "coverage is high".** It is *"the unstamped remainder is small
+enough to be a stated exception rather than the majority"*. That distinction cannot be recovered from
+a coverage percentage alone, so **it goes in the helper's own comment when the helper is written**,
+next to the definition it governs — not in a lane doc nobody will open.
+
+### Routing the switch through the durable record instead of a session
+
+They asked — correctly — not to be the channel: sessions here are ephemeral and will not be around to
+answer. The stamp's register entry is **CLC-026**
+(`docs/agent_docs/docs026_concept_register/register/component-lifecycle.md`), with **CLC-028** as the
+carriage contract that made it actually arrive. A note there naming this lane as a downstream consumer
+means the next session to touch the stamp finds us. Done in this commit.
+
+⚠ Note while reading CLC-026: its own `verify-later` already anticipates this population —
+*"`bugs_open/357`'s population is rewritten roughly daily, so within a day its re-minted rows must
+still read `component_version_id IS NULL`; a population row appearing WITH a hero stamp means the
+splice hygiene failed"*. So a future stamped hero row is **their** alarm, not a windfall for my
+signal — do not read it as coverage improving.
