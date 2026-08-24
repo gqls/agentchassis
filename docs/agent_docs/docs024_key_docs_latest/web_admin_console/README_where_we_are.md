@@ -149,3 +149,45 @@ explain it. I would rather you saw that written down than tidied away. The upsho
 small and slightly better than before: that build is now a *complete* twelve-stage example to
 design the screen against, instead of a half-finished one.
 
+
+## 2026-08-24, evening — the Builds screen is built
+
+The screen you asked for — following the steps of each website build — is written and
+committed. It is not on the console yet; there is an ordering step below.
+
+Each site's card gets a "Builds" button. It shows the build as a numbered timeline in the
+order the pipeline actually runs: research, strategy, briefing, site plan, composition,
+design, pages, imagery, re-render — each stage with when it started, when it finished and
+how long it took. Your apis.uk build reads as about an hour, stage by stage. Everything
+else the site has been doing (the periodic checks, the image jobs) is kept out of the way
+in a separate list, so the build is not buried in routine noise.
+
+One honesty rule shaped it: on this platform a build step can fail and still be recorded
+as complete. The screen never trusts that label — where a step left an error behind, a red
+panel says so at the top, whatever the status column claims.
+
+Two smaller things came along because they were cheap and worth more than they cost.
+
+First: when someone hand-edits a section through the console and does not lock it, the
+next rebuild silently throws their edit away. That has already happened 25 times on one
+site. Sections that have suffered this now carry a warning badge, red if the section is
+still unlocked — that is, still set to lose the next edit too.
+
+Second: the Direction editor now tells you which kind of thing you are editing. Most of
+those documents are instructions a writer reads — typing "never say X" there is a wish,
+nothing enforces it. One of them, the evidence register, is enforced. They now carry
+labels saying which is which. And I closed a genuinely nasty hole: a save to the register
+that was valid JSON but the wrong shape used to silently switch the site's claims checking
+off while reporting success. The console now refuses that save unless you explicitly
+confirm it, and after every save it tells you the counts it actually stored — "40 banned
+claims, 12 facts" — because a zero there is the one warning a broken save cannot fake.
+
+The ordering step: the backend half must reach the cluster before the console half is
+deployed, or the new screen would show misleading data against the old backend. The
+backend rides the next core-manager roll; the console image gets built and deployed after
+that. Nothing for you to do — whichever session deploys next follows the note in NOTES.
+
+Also closed today: the reviewers approved the confirmation-link guard from the 23rd, first
+round. And one correction to something I told you this morning has already been recorded —
+the www redirect works but not because your redirect rule was applied; a piece of code in
+front of the whole zone does it. If you apply that rule anyway, expect no visible change.

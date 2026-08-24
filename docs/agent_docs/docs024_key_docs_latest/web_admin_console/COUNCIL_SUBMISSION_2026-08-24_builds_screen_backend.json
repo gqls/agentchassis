@@ -1,0 +1,52 @@
+{
+  "rationale": "Backend half of the admin console's build-steps screen (web_admin_console lane, PLAN_2026-08-24_build_steps_screen.md §6 corrections). Three defects closed, all measured 2026-08-24 against clients_db: (1) GET /admin/workflows cannot filter by site, so a per-site screen would page through the whole fleet's rows client-side; orchestration_states HAS an indexed site_id column (2,136 of 4,410 rows non-NULL, three indexes), so the filter is a plain WHERE, not the JSON extraction the original plan assumed. (2) bugs_open/099 exposure: a COMPLETED row with error NULL can still carry a failed step — 67 of 4,359 COMPLETED rows in 7 days had a top-level __step_error key while 0 set the error column; any screen rendering status verbatim shows green builds that discarded their design. The list now returns has_step_error via the jsonb key operator (exact: key-test 67 = strpos-on-quoted-key 67; a substring test would also hit 109 rows of workflow CONFIG naming the field). (3) The terminate arm of POST /workflows/:id/resume UPDATEs table orchestrator_state, which does not exist (to_regclass → NULL) — ADM-002 B2, a guaranteed 500 on the operator button the screen exposes. Separately, HandleUpdateSiteSpec can silently switch a site's claims checking OFF: it validates only that the body is JSON, while the reading end (datahelpers.ParseEvidenceBase) returns nil with NO error for well-formed JSON of the wrong shape — so a misspelt key supersedes the good register with a 200 and every claims lane silently no-ops, with the good row already is_current=false. loadEvidenceBase is a live read (validate_page_content.go:1281), so the wrong-shape save takes effect immediately. The guard parses evidence_base before writing, refuses (409 + confirm_empty escape) to replace a non-nil-parsing register with a nil-parsing one, and returns the stored counts — the one signal a wrong-shape save cannot fake. confirm_empty is opt-in with the unsafe side OFF. All routes are admin-only behind AdminOnly() + Cloudflare Access; no shared-seam guarantee changes: the evidence_base CONTRACT is untouched, only the admin door refuses silent self-disarm.",
+  "submitter": "web_admin_console lane (build-steps screen backend)",
+  "plan": {
+    "summary": "Admin API backend for the builds screen plus one hazard guard: (a) HandleListWorkflows gains a site_id filter (validated UUID, hits existing indexes) and a per-row has_step_error boolean from collected_data ? '__step_error', so the SPA can show per-site orchestrations and mark bugs_open/099's green-but-failed rows; (b) updateWorkflowStatus's table name is corrected from the nonexistent orchestrator_state to orchestration_states, un-breaking the terminate action (ADM-002 B2), with a 0-rows-affected result now surfacing as an error; (c) HandleUpdateSiteSpec parses an incoming evidence_base through the same ParseEvidenceBase the claims lanes read with, 400s on unparseable data, 409s (code EMPTY_EVIDENCE_BASE, opt-in confirm_empty override) when a nil-parsing body would supersede a non-nil-parsing register, and reports stored counts plus a superseded flag on every spec save; (d) sqlmock tests covering the guard's whole contract in the package's existing test convention.",
+    "edits": [
+      {
+        "file": "internal/core-manager/admin/system_handlers.go",
+        "symbol": "WorkflowListRequest / HandleListWorkflows / listWorkflows",
+        "operation": "modify",
+        "rationale": "Per-site filtering for the builds screen: orchestration_states.site_id exists and is indexed (idx_orch_site, idx_orch_site_id, idx_orch_site_active) — a WHERE clause, not JSON extraction. site_id is validated as a UUID at the handler so a bad value is a 400, not a driver-level 500.",
+        "sketch": "WorkflowListRequest gains SiteID `form:\"site_id\"`; HandleListWorkflows rejects non-UUID site_id with 400; listWorkflows adds `AND site_id = $n` when set and selects site_id::text, returned per row when non-NULL."
+      },
+      {
+        "file": "internal/core-manager/admin/system_handlers.go",
+        "symbol": "listWorkflows (has_step_error)",
+        "operation": "modify",
+        "rationale": "bugs_open/099: status+error rendered verbatim shows 67 green-but-failed builds per week (67 of 4,359 COMPLETED rows carry __step_error while 0 set the error column). The jsonb ? operator is the exact test — the key never appears nested (key-test 67 = strpos-on-'\"__step_error\":' 67), while a bare substring test would mark 109 clean builds failed because workflow config names the field (note_body_field: __step_error.message).",
+        "sketch": "SELECT adds (collected_data ? '__step_error') AS has_step_error; every returned row carries \"has_step_error\": bool."
+      },
+      {
+        "file": "internal/core-manager/admin/system_handlers.go",
+        "symbol": "updateWorkflowStatus",
+        "operation": "modify",
+        "rationale": "ADM-002 B2, still live: the UPDATE names orchestrator_state, which does not exist in clients_db (to_regclass('public.orchestrator_state') IS NULL) — every terminate action 500s. Every other query in this file uses orchestration_states with these exact columns (status, error, updated_at, correlation_id all appear in its own SELECTs). Also: RowsAffected()==0 now returns sql.ErrNoRows so a mutation that touched nothing cannot report success.",
+        "sketch": "UPDATE orchestration_states SET status=$2, error=$3, updated_at=NOW() WHERE correlation_id=$1; then res.RowsAffected()==0 → return sql.ErrNoRows."
+      },
+      {
+        "file": "internal/core-manager/admin/site_admin_handlers.go",
+        "symbol": "HandleUpdateSiteSpec",
+        "operation": "modify",
+        "rationale": "The handler supersedes-then-inserts with no shape validation, while ParseEvidenceBase (claims.go:291) returns (nil, nil) for well-formed JSON with no facts, no banned_claims and no regulated attestation — so one wrong-shape save (misspelt key, pasted fragment, one level of extra nesting) silently disables claims checking for the site, reports success, and leaves the good register is_current=false. This is bugs_open/105's lesson one layer out: an unrecognised evidence_base SHAPE must announce itself. The guard is admin-door-local; the aspect's read contract is unchanged.",
+        "sketch": "Body gains ConfirmEmpty `json:\"confirm_empty\"` (default false). aspect==evidence_base → ParseEvidenceBase(body.Data): unmarshal error → 400; parses nil while current register parses non-nil and !ConfirmEmpty → 409 {code: EMPTY_EVIDENCE_BASE, current counts}. UPDATE's RowsAffected captured; response gains superseded (a typo'd :aspect — no allow-list exists — now reads created-not-updated) and, for evidence_base, facts/banned_claims/allowed_entities counts + regulated_attestation bool."
+      },
+      {
+        "file": "internal/core-manager/admin/spec_update_guard_test.go",
+        "symbol": "TestEvidenceBase* / TestOtherAspectsBypassTheGuard",
+        "operation": "add",
+        "rationale": "sqlmock tests in the package's existing convention (work_item_list_paging_test.go). The wrong-shape test arms ONLY the guard's SELECT, so a guard that fails to fire hits an unexpected Begin and fails loudly — proven live during development: the first run used a fixture whose current register did not parse, the guard correctly stood down, and the test caught it as a 500.",
+        "sketch": "Six tests: wrong-shape-over-good-register → 409 and nothing written; confirm_empty=true proceeds and reports zero counts; empty-over-absent proceeds; good save returns counts and superseded=true; a JSON array → 400 with nothing executed; a prompt-text aspect bypasses the guard and gains the superseded flag."
+      }
+    ],
+    "grounded_in": [
+      "PLAN §6a [MEASURED 2026-08-24]: \\d orchestration_states lists site_id uuid; pg_indexes shows idx_orch_site, idx_orch_site_id, idx_orch_site_active; site_id non-NULL on 2,136 of 4,410 rows; initial_request_data->>'site_id' matches 0 rows.",
+      "PLAN §6b/§6c [MEASURED 2026-08-24]: collected_data ? '__step_error' → 67 COMPLETED rows; strpos '\"__step_error\":' any depth → 67; bare literal → 176 (the extra 109 are workflow configuration naming the field). error column non-NULL on 0 of 4,359 COMPLETED rows.",
+      "PLAN §6e [MEASURED 2026-08-24]: SELECT to_regclass('public.orchestrator_state') → NULL; every other query in system_handlers.go uses orchestration_states.",
+      "platform/orchestration/datahelpers/claims.go:291: if len(eb.Facts) == 0 && len(eb.BannedClaims) == 0 && eb.Regulated == nil { return nil, nil }",
+      "PLAN §6h Q2 [re-verified 2026-08-24]: loadEvidenceBase (validate_page_content.go:1281) is a plain live read of site_specs aspect='evidence_base' AND is_current=true — no cache, no seed step; a wrong-shape save takes effect immediately."
+    ],
+    "risks": "(1) The evidence_base guard changes admin-API save semantics: a caller that deliberately empties a register must now send confirm_empty=true — the SPA is updated in the same working set to do so behind a confirm dialogue; no other caller of PATCH /admin/sites/:id/specs/evidence_base exists in the SPA (SpecEditor is the only reference). Agent/seed writers write site_specs via SQL, not this route, and are untouched. (2) has_step_error adds a jsonb existence test per returned row (LIMIT-bounded, default 50) — negligible against the existing unindexed ORDER BY created_at. (3) The terminate fix makes a previously-500ing path actually mutate: it sets status=FAILED on the named correlation, which is the documented intent of the action and remains behind AdminOnly(). Reviewers should check: no other code path depends on updateWorkflowStatus failing, and no caller of the workflows list relies on rows lacking site_id/has_step_error keys."
+  }
+}

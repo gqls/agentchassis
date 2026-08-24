@@ -122,3 +122,84 @@ one that may reshape the screen: `execution_path` is empty on **100%** of rows, 
 recorded step sequence, and a site's `site_id`-tagged orchestrations are mostly its periodic
 sweeps rather than its build — the thing the owner calls a build is a `site_work_items` chain
 (`082_submit_domain_unified.sh`). I did **not** act on that; it is this lane's call.
+
+---
+
+## 2026-08-24 (later) — the build-steps screen is BUILT and COMMITTED; verdicts, falsifiers, and one near-miss
+
+Session picked up `HANDOFF_2026-08-24_continue_here.md` and built §4. State changes, evidence inline:
+
+- **Council verdict on the prefetch guard (`6b1726ab…`): APPROVED, round 1**, 2026-08-23 12:07Z,
+  one advisory objection, none high-severity (doc_notes, categories ? 'council-gate'). Commit
+  `0e9cb31ee` carries `Council-Submitted:`, so 098 credits it automatically. §5.2 CLOSED.
+- **Falsifiers re-run:** `links.webdesign.uk/c/x` → no connection (curl 000) — §2 still
+  owner-pending. `customer_access_tokens` = **0 rows**. `www.apis.uk` → 301 to apex — and I
+  **nearly re-made the exact attribution error this file documents two entries up**: my first
+  in-session note said "§3 is APPLIED". It is served by the `portfolio-sites-router` Worker;
+  the 301 says nothing about the dashboard Redirect Rule. Caught by re-reading these NOTES
+  before writing the summary — which is what the read-order exists for.
+- **Owner FYI mid-session: a fresh chassis build/deploy is in flight.** Consequences honoured:
+  council submission timed before it (dispatch may still race a chassis restart's ~300s dead
+  window — verify the orchestration row by payload before assuming it ran), and the transient
+  `psql … unexpected EOF` during `landmines-verify-dispatch.sh` (17:23Z) was retried clean.
+
+### What was built (commits `e6350e74b` backend, `b3fbfdd02` frontend)
+
+**Backend** (`internal/core-manager/admin/`, council `Council-Submitted:
+45b3c93f-7937-474d-8234-31c39bab033b`, read the verdict when it lands):
+1. `GET /admin/workflows` gains `site_id` filter (validated UUID; plain `WHERE site_id = $n`
+   against the indexed column, per PLAN §6a — NOT the JSON extraction §2 proposed) and per-row
+   `has_step_error` = `collected_data ? '__step_error'` (exact per §6b: 67 = 67), plus
+   `site_id` in each row.
+2. `updateWorkflowStatus` table name fixed `orchestrator_state` → `orchestration_states`
+   (ADM-002 B2; register entry updated with the commit and the fixed-AND-live caveat). A
+   0-rows UPDATE now returns `sql.ErrNoRows` instead of silent success.
+3. `HandleUpdateSiteSpec` evidence_base guard (§6h hazard): parse incoming through
+   `datahelpers.ParseEvidenceBase` before writing — unparseable → 400; parses-nil over a
+   register that parses non-nil → 409 `EMPTY_EVIDENCE_BASE` unless `confirm_empty:true`;
+   response returns stored counts (facts/banned_claims/allowed_entities/regulated) and a
+   `superseded` flag (false = the save CREATED an aspect — the no-allow-list typo tell).
+4. `spec_update_guard_test.go` — six sqlmock tests. **Worth recording: the wrong-shape test
+   failed on first run (500, "Begin was not expected") because my `goodRegister` fixture used
+   a string `value` where `EvidenceFact.Value` is `*float64` — the CURRENT register failed to
+   parse, so the guard correctly stood down. The test design (arm ONLY the guard's SELECT)
+   caught a non-firing guard by construction — an accidental live mutation test.**
+
+**Frontend** (`frontends/admin-dashboard/src/App.tsx`, vite build proven in the Docker
+builder stage): `BuildsView` — per-site stage timeline over `site_work_items` in the 082
+cascade order with durations (PLAN §6d shape: the build IS the work-item chain; explicit
+`BUILD_STAGES` vocabulary; if the 1000-row window is truncated, per-stage-type refetch so the
+oldest rows — the build — cannot silently fall out), other-activity rollup, divergence-count
+warning, and an orchestrations drill-down whose detail panel surfaces `__step_error` entries
+in red above whatever `status` says, marks steps as "reconstructed from outputs", and gates
+resume/terminate behind confirms naming the correlation id. Plus §6g: `⚠ overwritten ×N`
+badges on components with `page_divergence_overwritten` history (keyed
+`page_id|slot_name|position`, slot fallback), red + "unlocked" when the next rebuild would
+eat a hand edit again. Plus §6h SPA half: ENFORCED/advisory chips, counts echoed on
+evidence_base saves ("REGISTER IS EMPTY: claims checking is now OFF" on 0/0), the 409 →
+explicit confirm → `confirm_empty` resend flow, and a prohibition-worded-save nudge toward
+`banned_claims`. One self-caught bug: the Save button passed the click EVENT as
+`confirmEmpty` (truthy) — fixed to `() => handleSaveSpec()` plus `=== true` coercion.
+
+### Deploy ordering — DO NOT deploy the dashboard image first
+
+**New SPA + old core-manager is the misleading combo**: old gin ignores the unknown
+`site_id` query param, so BuildsView would render the WHOLE FLEET's workflows labelled as
+the site's, with no `has_step_error`; and `confirm_empty` would be ignored while the counts
+read `undefined`. Old SPA + new backend is harmless. So: **core-manager must roll a build
+carrying `e6350e74b` BEFORE `make admin-dashboard`** (build/push/deploy — dashboard builds
+from the working tree, so make sure the tree's App.tsx is at/after `b3fbfdd02` when
+building). Check with the provenance stamp:
+`kubectl -n ai-persona-system logs -l app=core-manager --tail=300 | grep -m1 'build provenance'`
+then `git merge-base --is-ancestor e6350e74b <stamp>`.
+
+### Also this session
+
+- **LANDMINES entry appended** (uncommitted — the file carries another lane's WIP entries;
+  whoever commits takes both, append-only makes that safe): the evidence_base wrong-shape
+  silent-off trap, footprinted on `site_specs`/`ParseEvidenceBase`/SQL seeds, with the
+  read-back-counts check. Synced + verifier dispatched (2 runs published; `landmines-sync.py
+  --check` clean).
+- **ADM-002 register entry**: B2 bullet updated (fix committed, open-until-roll).
+- HEAD verified building after the backend commit (`verify-head-builds.sh` OK at `e4d20d97a`
+  — HEAD had already moved past my commits; shared tree as usual).

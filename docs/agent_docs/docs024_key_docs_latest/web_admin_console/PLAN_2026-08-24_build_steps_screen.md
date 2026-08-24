@@ -1,6 +1,12 @@
 # PLAN — the build-steps screen ("Builds" tab in the admin console)
 
-**Status: PLANNED, not built.** Owner asked 2026-08-24. This is the feature the whole
+~~**Status: PLANNED, not built.**~~ **BUILT AND COMMITTED 2026-08-24** — backend `e6350e74b`
+(workflows site filter + `has_step_error`, terminate table fix, §6h evidence_base save guard;
+`Council-Submitted: 45b3c93f-7937-474d-8234-31c39bab033b`), frontend `b3fbfdd02` (BuildsView
+per §6d's work-item-chain shape, §6g divergence badges, §6h SPA half). **NOT LIVE until
+core-manager rolls a build carrying `e6350e74b`; deploy the dashboard image only AFTER that**
+(new-SPA/old-backend shows the whole fleet's workflows as the site's — NOTES 2026-08-24
+"Deploy ordering"). Owner asked 2026-08-24. This is the feature the whole
 admin-console workstream exists for: *"follow and contribute to the steps of each website
 build."* "Contribute" already has screens (specs, components, work items — and the owner is
 now logged in and using them at `admin.apis.uk`, as `uk@websy.uk`). "Follow" is this.
