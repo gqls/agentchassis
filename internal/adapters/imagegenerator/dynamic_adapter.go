@@ -536,7 +536,7 @@ func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, stri
 	// bugs_open/011 §4 residual — the same flags, as condition records the
 	// chassis persists to agent_error_log. The Warn logs below stay: logs
 	// are for live tailing, the response field is the durable record.
-	conditions := reportedConditions(decision, data.Kind, data.ProviderHint, len(data.ReferenceImageURIs))
+	conditions := reportedConditions(decision, data.Kind, data.ProviderHint, data.Prompt, len(data.ReferenceImageURIs))
 
 	var p provider.Provider
 	switch decision.Provider {
@@ -563,6 +563,22 @@ func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, stri
 			zap.String("kind", data.Kind),
 			zap.String("provider", p.Name()),
 			zap.Strings("routed_kinds", knownRoutedKinds()))
+	}
+
+	// bugs_open/382 — the ABSENT kind. Sibling of the guard above and the
+	// other half of the same defect class: that one catches a kind nobody
+	// added to the table, this one catches a caller that sends no kind at
+	// all. It used to be exempt on the premise that such callers were legacy
+	// and deliberate; the premise was measured and refuted (routing.go,
+	// MissingKind). The request is served by the strong provider — this is
+	// not a degradation any more — but the caller is still wrong and must be
+	// findable.
+	if decision.MissingKind {
+		a.logger.Warn("generateImage: NO KIND supplied — the routing table could not decide, so this request was served by the strong default provider; the CALLER needs fixing: a call_agent step reaches generate_image only through its input_mapping, so `kind` must be mapped there (a `default_kind` key in the step config is read by nothing)",
+			zap.String("provider", p.Name()),
+			zap.String("provider_hint", data.ProviderHint),
+			zap.Strings("routed_kinds", knownRoutedKinds()),
+			zap.String("bug", "bugs_open/382"))
 	}
 
 	// Fail loud when anchors are about to be silently dropped — the same
