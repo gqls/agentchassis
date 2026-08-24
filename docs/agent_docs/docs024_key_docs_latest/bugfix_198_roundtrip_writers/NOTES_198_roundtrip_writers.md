@@ -356,3 +356,49 @@ part worth keeping:
 The first two would each have let me write "no css deploys have happened" or "the guard is
 silent on live traffic" with a number attached. Same lesson as this morning's, third time today:
 **the measurement answers the question you ENCODED.**
+
+## 2026-08-24 (later still) — the owed inventory: STARTED, and its documented method has a FOURTH blindness that hides 198 itself
+
+First real pass at the round-trip-writer inventory owed since council round `5249320e`
+(2026-08-05). Not finished. What follows is the population work (method steps 1–3) and one
+correction to the method itself.
+
+**Step 1 — LLM output ground truth.** `execute_llm_prompt` **140** steps across **66** active
+definitions, plus `generate_html` 4/2, and one each of `execute_vision_prompt`,
+`fetch_llm_news`, `generate_provocations`, `ch_llm_review`. (`as of 2026-08-24`.)
+
+**Step 3 — the join, and how it moved.**
+- Matching writer refs against LLM **`output_field` names** reproduces the handoff's floor
+  exactly: **1 row**, css-patch-agent's own `save_css_to_db`. Confirms the floor; adds nothing.
+- Matching against LLM **step names** instead — because workflow refs usually name the STEP —
+  gives **20** writer steps across 19 definitions. That looks like 20× the floor.
+- ⚠ **It is not.** Filtering to steps whose query actually starts `UPDATE`/`INSERT` collapses it
+  to **2**, because most matched `query_database` steps are SELECTs. And one of those two,
+  `component-template-fixer/create_section_edit_delivery`, writes `site_work_items` — a work
+  item, not an artefact, so not the 012/198 class at all. **I nearly reported 20.**
+
+**⚠ THE METHOD'S FOURTH BLINDNESS — it cannot see 198 itself, which is the bug it exists to
+generalise.** The handoff lists three known blind spots. Here is a fourth, verified:
+
+```
+deploy_css   :: git_commit      :: content_field = css_saved.css_content
+save_css_to_db :: query_database :: (UPDATE, from the LLM step)
+```
+
+`deploy_css` — the git writer that actually gutted nine stylesheets — references
+**`css_saved.css_content`, the output of the SAVE step, not the LLM step.** The artefact travels
+**LLM → DB row → git commit**, and a one-hop join from LLM steps to writer refs cannot see the
+second hop. So the documented method under-reports precisely the multi-hop shape that motivated
+the survey, and a `git_commit` count of **0** from that join reads as "no git writers are
+exposed" when the motivating incident was a git writer.
+
+**What the method needs:** transitive closure. Follow each writer's referenced field back through
+intermediate steps until it either reaches an LLM `output_field` or a non-LLM source — not a
+single join. Until that is built, any population figure from this survey is a FLOOR, and I have
+not built it yet.
+
+**Not asserted:** I am NOT claiming a fleet-wide count today. The honest state is: ground truth
+enumerated (140/66), the one-hop join characterised and its yield shown to be misleading in both
+directions (1 too low, 20 too high, 2 after filtering, of which 1 is out of class), and a fourth
+structural blindness found and verified. Step 4 (read each candidate's PROMPT for a
+whole-artefact vs fragment contract) is untouched.

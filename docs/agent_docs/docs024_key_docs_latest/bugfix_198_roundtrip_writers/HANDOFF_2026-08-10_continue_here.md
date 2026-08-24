@@ -61,6 +61,14 @@ It is blind three ways (a grep proves absence only for its spelling):
    with real Go-side guards (claims floor on save_page_sections, F1 field-contract
    guard on component store), some without.
 3. `files_field` (map-of-files) references are not matched by `content_field` LIKE.
+4. **⚠ ADDED 2026-08-24 — MULTI-HOP, and this one hides 198 ITSELF.** A one-hop join from LLM
+   steps to writer refs misses `LLM → DB row → git commit`. Verified: css-patch-agent's
+   `deploy_css` (the git writer that gutted nine stylesheets) has
+   `content_field = css_saved.css_content` — the SAVE step's output, not the LLM step's. So a
+   `git_commit` yield of **0** from that join reads as "no git writers exposed" while the
+   motivating incident WAS a git writer. **The method needs transitive closure** — follow each
+   writer's field back through intermediate steps until it reaches an LLM `output_field` or a
+   non-LLM source. Not built. Until it is, any population figure from this survey is a FLOOR.
 
 **Method that actually answers it:**
 1. Enumerate ALL steps with `action='execute_llm_prompt'` (and vision/generate
