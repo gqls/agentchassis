@@ -46908,3 +46908,29 @@ cannot distinguish "nothing happened" from "I cannot see what happened" is not a
 46,194 rows). The 08-19 evidence **ages out around 2026-09-19**, after which a log-only sweep reads 0
 for a reason unrelated to the class. A dated baseline on a retention-bounded table needs a second
 arm on a table whose rows persist.
+
+## 2026-08-24 — `bugfix_206_directory_build_handler` (same session, second entry) — a fleet census filtered on `spec->>'page_type'` returned a false ZERO; the filter is evaded by the census's own motivating item
+
+**The claim** (written into the lane PLAN addendum and sent to the vetcomparison lane): "fleet
+census as of 2026-08-24: ZERO open needs_page/capability_gap items fleet-wide for
+entity-directory/entity-page/section-index." Used to justify "entity-page stays parked — demand
+is zero."
+
+**It is false.** The WHERE was `swi.spec->>'page_type' IN (...)` — but `reconcile_site_plan`'s
+mint writes a spec of `{page_name, page_role, plan_id, reason}` with NO `page_type` key, so
+every reconcile-minted item is invisible to that filter. The corrected census (join
+`pages.page_type` via `page_id` OR `(site_id, spec->>'page_name')`) found FIVE parked items for
+the three types, one parked for 35 days, all carrying the exact bugs_open/206 no-op signature —
+and their existence redirected the whole fix (the live door is `reconcile_site_plan`'s hardcoded
+handler, not the builder map alone).
+
+**What caught it**: the 345 session's tripwire lesson, relayed the same hour — "take a
+known-real occurrence and run your own WHERE against it." The known-real item (`3cce980c`,
+needs_page:practice, an entity-page build) has `spec->>'page_type'` = '' — my own earlier query
+output in the SAME SESSION had already printed that empty column and I read past it.
+
+**The cheap check**: a census over a JSONB field needs a DEMAND CONTROL — one row known to
+belong to the population must match the WHERE before the count means anything. Different
+producers write different spec shapes for the same population (that heterogeneity is itself the
+finding); the join to the first-class column is the filter that cannot be evaded by a producer's
+spec-shape choice.
