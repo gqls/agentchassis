@@ -517,3 +517,40 @@ fifth draw intact. Twice today that lane turned a run of identical observations 
 "structurally incapable", broken in 30), and **neither was caught by a check or by me — the
 system kept running and contradicted them.** That is luck standing in for method, and it is the
 most useful thing either of us learned today.
+
+## 2026-08-24 — I burned 5.0 GB on a recipe that already had a script, and taught it in my own RUNBOOK
+
+The entries above describe using `git archive HEAD` + an overlay to build around a
+non-compiling shared tree. **The technique was right and the implementation was harmful. Do not
+copy those lines** — `scripts/verify-head-builds.sh` already does it properly:
+
+```bash
+scripts/verify-head-builds.sh                          # does committed HEAD still build?
+scripts/verify-head-builds.sh --with <file> [--test]   # build YOUR change against HEAD
+```
+
+**Measured 2026-08-24:** each extract is ~450 MB, and the `rm -rf` in the pasted recipe is the
+*setup* half — it clears the tree that run is about to use, so it only reclaims a tree of the
+**same name**, and every variant picks a new one. This lane left **eleven**: `ov`, `ov2`, `base`,
+`mut`, `verify`, `headonly`, `headtest`, `trio`, `all3`, `pairtest`, `headkfTT` — **5.0 GB**,
+reaped down to 108 KB once CLAUDE.md's new note pointed at the script. `/` was at 75%.
+
+**The part that stings, and is the reason this is a NOTES entry and not just a tidy-up:** I wrote
+the harmful recipe into `RUNBOOK_326_retry_the_front_door.md` as a helper function for the next
+session, complete with a rationale for why it was necessary. CLAUDE.md says **73 documents** still
+spell it out and **66 never delete anything** — I authored one of the 73 yesterday, in a lane
+whose whole subject is a mechanism that quietly destroys things. The RUNBOOK section is now
+replaced with the script and a correction banner.
+
+**What I did not know and could not have inferred:** the script existed the whole time. CLAUDE.md
+gained the note between my last read and this morning. **The check that would have found it is one
+`ls scripts/ | grep -i head` before writing a build helper** — the same shape as "grep LANDMINES
+for the symbol you are about to trust", and the same failure: I reached for a technique without
+asking whether the estate already owned it. The `reuse_agent` council seat approved this lane's
+plan on exactly that ground, which is a little sharp in hindsight — it was reviewing the change,
+not my scaffolding.
+
+**Also settled 2026-08-24:** the tree compiles again (`go build ./platform/orchestration/actions/`
+exits 0 — `applyCTARecompute` landed), so the workaround is not needed for compilation at all any
+more. The only reason left to isolate from HEAD is the honest one the script exists for: checking
+that a commit does not lean on another session's untracked work.

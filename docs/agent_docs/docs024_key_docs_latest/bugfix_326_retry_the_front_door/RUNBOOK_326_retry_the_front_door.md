@@ -3,58 +3,71 @@
 Every command that was hard to get right, with its gotcha attached. When one
 changes, change it HERE.
 
-## Build and test while the shared tree does not compile
+## Building your change against committed HEAD — USE THE SCRIPT
 
-**The working tree did not compile for the whole of 2026-08-23** — another session's
-mid-signature-change to `applyCTARecompute` (`rerender_page_sections_action.go:550,552`).
-`make build-*` is unaffected because it builds committed HEAD, so **anyone building an
-image will not notice**, while anyone running `go test` on that package is blocked. That
-asymmetry reads exactly like "my test setup is broken".
+> **⚠ CORRECTED 2026-08-24 — THIS SECTION USED TO PASTE `git archive HEAD | tar` AND THAT WAS
+> ACTIVELY HARMFUL. Do not restore it; the sanctioned tool already exists.**
+>
+> ```bash
+> scripts/verify-head-builds.sh                          # does committed HEAD still build?
+> scripts/verify-head-builds.sh --with <file> [--test]   # build YOUR change against HEAD first
+> ```
+>
+> **What the hand-rolled recipe cost, measured in this lane.** Each extract is ~**450 MB**, and
+> the `rm -rf` in every pasted copy is the *setup* half — it clears the tree that run is about to
+> use, so it only ever reclaims a tree of the *same name*, and each variant picks a new name. This
+> session left **eleven** of them (`ov`, `ov2`, `base`, `mut`, `verify`, `headonly`, `headtest`,
+> `trio`, `all3`, `pairtest`, `headkfTT`) = **5.0 GB**, reaped only when CLAUDE.md's new
+> `scripts/verify-head-builds.sh` note pointed it out. **73 documents still spell the recipe out;
+> 66 of them never delete anything.** This RUNBOOK was one of them.
+>
+> `/tmp` here is a **16 GB tmpfs, i.e. RAM**. A full one presents as
+> `link: mapping output file failed: no space left on device`, which reads like a compiler fault
+> and is not one. The script writes to disk, refuses a tmpfs target by filesystem type, and
+> deletes its tree on exit. Reap abandoned scratch on **both** filesystems with
+> `scripts/scratch-report.py [--days N] [--reap]`.
+
+**Why you need HEAD at all, rather than `go build`:** the working tree is the union of every
+concurrent session's uncommitted work. A commit that leans on another session's *untracked* file
+compiles perfectly for you and breaks HEAD for everyone — and `make build-<service>` builds
+committed HEAD, so the gap is invisible exactly when the missing piece is someone else's.
+
+**Worked example from this lane, 2026-08-23.** The tree would not compile at all
+(`applyCTARecompute`, mid-signature-change by another session — since landed, tree builds clean
+as of 2026-08-24 09:00). Separately, my own copy of `load_work_item_actions.go` carried another
+lane's **half-written** hunk: their caller passed an 8th argument to `applyWorkItemFailureLadder`
+while HEAD's callee still took 7. So `--with` on that file fails against HEAD **through no fault
+of your own change** — that is the tool working, and the answer is to coordinate, not to strip
+their hunk and pretend. Confirm whose it is before you conclude anything:
 
 ```bash
-go build ./platform/orchestration/actions/   # exit 1 — theirs
-D=$(mktemp -d); git archive HEAD | tar -x -C "$D"
-(cd "$D" && go build ./platform/orchestration/actions/)   # exit 0 — so it is not yours
+git diff --numstat platform/orchestration/actions/<file>   # in the SAME breath as the commit
+git show HEAD:<file> | sed -n '/^func <symbol>(/,/^) /p'   # what HEAD actually declares
 ```
 
-The workaround is `git archive HEAD` + overlay only your own files:
-
-```bash
-mkoverlay() {           # usage: mkoverlay <outdir> <repo-relative files...>
-  OUT=$1; shift
-  rm -rf "$OUT"; mkdir -p "$OUT"
-  git archive HEAD | tar -x -C "$OUT"
-  for f in "$@"; do mkdir -p "$OUT/$(dirname "$f")"; cp "$f" "$OUT/$f"; done
-}
-```
-
-⚠ **Your own copy of a shared file carries the OTHER session's uncommitted hunk**, so
-overlaying it onto HEAD can *still* fail to build — on 2026-08-23 the `bugs_open/345`
-hunk in `load_work_item_actions.go` was **half-written** (caller updated to 8 args,
-callee still at 7 in HEAD). Strip their hunk **from the build copy only, never from the
-tree**.
-
-⚠ **`cd` PERSISTS BETWEEN COMMANDS in this harness.** A `cd` into a subdirectory for one
-check leaves every later relative path wrong. Combined with `2>/dev/null` on a `grep`,
-that produces "no matches" from a file that was never opened — which is how the coverage
-ratchet got a false all-clear here before being redone. **Never `2>/dev/null` a grep whose
-absence you intend to believe**, and `cd /home/ant/projects/agentchassis` at the top of
-any command that follows one.
+⚠ **`cd` PERSISTS BETWEEN COMMANDS in this harness.** A `cd` for one check leaves every later
+relative path wrong. Combined with `2>/dev/null` on a `grep`, that yields "no matches" from a file
+that was never opened — how the coverage-ratchet check got a false all-clear here before being
+redone. **Never `2>/dev/null` a grep whose absence you intend to believe**, and prefix with
+`cd /home/ant/projects/agentchassis &&` after any `cd`.
 
 ## Mutation-proving a test (the only thing that makes a green run mean anything)
 
 Apply the mutation in the OVERLAY, never in the tree:
 
+Mutate the file **in the working tree**, run the test, then revert the mutation — the tree
+compiles again as of 2026-08-24, so no extract is needed for this at all. (If you must isolate
+from HEAD, use `scripts/verify-head-builds.sh --with <file> --test`; never a hand-rolled extract.)
+
 ```bash
-mkoverlay /tmp/mut platform/orchestration/actions/load_work_item_actions.go ...
-python3 - /tmp/mut/platform/orchestration/actions/load_work_item_actions.go <<'PY'
+python3 - platform/orchestration/actions/load_work_item_actions.go <<'PY'
 import sys; p=sys.argv[1]; s=open(p).read()
 old = "case newestAge < antiChurnWindowHours:\n\t\t\t\tif legacy {"
 new = "case newestAge < antiChurnWindowHours:\n\t\t\t\tif true {"
 assert old in s, "MUTATION DID NOT APPLY — pattern absent"   # <-- the check that matters
 open(p,'w').write(s.replace(old,new,1))
 PY
-(cd /tmp/mut && go test ./platform/orchestration/actions/ -run '...' -count=1)
+go test ./platform/orchestration/actions/ -run '...' -count=1   # then REVERT the mutation
 ```
 
 **Assert the pattern applied.** A mutation that silently fails to apply produces a
