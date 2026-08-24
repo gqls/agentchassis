@@ -2560,3 +2560,25 @@ since it is a real discrepancy someone could try to repair and time.
 **No action is claimed or owed here.** If the lane takes it, item 1 is a new entry and item 2 is a
 correction to an existing one; if it declines, this note is still the record that the gap was seen on
 2026-08-24 and by whom.
+
+**ADDENDUM, same day, 2026-08-24 — the `agent_error_log` drift now has a named cause, found by
+re-reading the live row an hour later.** The row changed again at 12:31Z (another lane; my own
+`566` predicate is untouched and both arms still read the vocabulary — checked, not assumed). The
+new text carries a comment block explaining the retention that DBI-014 records as `14/30 days`:
+
+> *"Retention is BY FINDING CODE since migration 567: codes in the list below … expire at 30 days;
+> EVERY OTHER CODE LIVES 365 DAYS, because a deliberate finding outlives the plumbing it shares this
+> table with. `resolved` does NOT shorten a row any more (it used to halve it to 14 days, which was
+> backwards …)"*
+
+So DBI-014's `14/30 days` was **correct when written** and was deliberately superseded by migration
+`567` (`docs/agent_docs/sql_for_agents/567_finding_codes_outlive_the_plumbing.sql`, the
+`bugs_open/358` lane). That is the more useful framing than "the entry is wrong": the entry did not
+rot, a mechanism changed underneath it, and the lane that changed it documented the reasoning **in
+the `pre_query` itself** rather than anywhere a register reader would look. Worth a glance when
+repairing DBI-014 — the `resolved`-halves-retention premise is the part that inverted.
+
+It also sharpens the note above: two of DBI-014's four checkable figures have now been superseded by
+**two different lanes in two different weeks** (`567` for the log arm, `566` for the orchestration
+arms), neither of which knew the entry existed. That is the register's own case for existing, and it
+is a cleaner example than a single stale number.
