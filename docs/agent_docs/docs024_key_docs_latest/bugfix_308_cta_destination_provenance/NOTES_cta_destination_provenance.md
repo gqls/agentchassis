@@ -752,3 +752,28 @@ are real (vonc "Enter the Gauntlet" → `/tools/gauntlet/round.html`). **"0 rema
 findings, **0** with only uncovered findings (no no-op rerenders → no stock growth); 1 key with a
 single strike, 160 h old (no suppression, no birth-unresolved); 25/25 findings covered; last sweep
 08-17 22:37Z. It is the clean first case as well as the worst one.
+
+### 9. Per-site release, day 1 — gaswholesalers.com REPAIRED AT THE SERVED PAGE [MEASURED 2026-08-24]
+
+Owner chose the worst-5 sequence (gaswholesalers → leopardess → ai-agent-orch → lendzy →
+dartsonline) over releasing the 215. Pre-flight per site before firing (strikes_7d per key,
+3h-suppression window, uncovered-only pages), sweep via
+`scripts/initial_messages/170_work_item_flow_build/075_trigger_discovery.sh <domain> completeness`.
+
+- **gaswholesalers.com** (corr `9917776c-3c75-4ab1-9a43-774086abe3f3`, fired ~15:06Z): discovery
+  COMPLETED, 12 items filed `detected` → all `triaged` by ~15:50Z → repairs landed unattended.
+  **Verified at the served bytes ~18:35Z: 8/8 of the morning's worst buttons now point where the
+  copy says, and all 6 destinations 200** ("Contact Our Sales Team" → /contact.html on
+  how-it-works; "Review Supply Terms" → /supply-terms-and-eligibility.html; "Contact our sales
+  team" → /contact.html and "See who we serve" → /who-we-serve.html on fuel-supply-by-industry;
+  all three news/pricing CTAs on fuel-industry-insights). **Detection → served fix ≈ 3.5 h,
+  nobody involved.** The 25-finding DB re-probe is owed when cluster access returns.
+- **dartsonline.com DEFERRED to after 2026-08-29 ~18:40Z**: 18 keys at 2 strikes (created
+  08-22 18:37Z, the pre-Phase-B no-op sweep) — a sweep before they age out births `unresolved`
+  rows instead of repairs (§8's mechanism, observed prospectively this time).
+- ⚠ **The kubeconfig token expired MID-DRAIN (18:07 local)** and the DB-polling monitor's
+  `|| echo 0` fallback turned auth failure into "no items filed" warnings — an instrument
+  failure that read exactly like a dropped dispatch. The drain itself was unaffected (it runs
+  in-cluster); the served page was the observability that survived. Next time: make the poll
+  distinguish QUERY_ERR from zero (it did in one arm and not the other), and remember the
+  3-day expiry hits observers, not the fleet.

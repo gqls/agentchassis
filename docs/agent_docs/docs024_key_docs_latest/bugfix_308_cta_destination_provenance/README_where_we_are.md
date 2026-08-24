@@ -271,3 +271,18 @@ there.
 One more thing to hold onto: about 500 buttons across the estate are ones the platform now
 deliberately declines to judge because the wording could mean two pages equally. That is by design,
 but it means "nothing left to fix" on a site does not mean every button is right.
+
+**Evening, same day.** You picked the worst-five, one at a time. The first is done: gaswholesalers.
+The sweep ran at four o'clock, the platform filed twelve repair jobs, repaired them itself, and by
+half past six the live site was serving the right buttons — I checked all eight of the worst ones
+in the actual pages a visitor gets, and every destination they now point at loads. "Contact Our
+Sales Team" goes to the contact page. Three and a half hours, detection to fixed-in-production,
+nobody involved.
+
+Two notes. My window into the cluster went dark at six — the three-day access token expired, the
+usual one you refresh — so until you next refresh it I can't fire the remaining sweeps
+(leopardess, then ai-agent-orchestration, then lendzy). The repairs themselves don't need my
+access, which is why gaswholesalers finished anyway. And dartsonline has to wait until after
+Friday the 29th: it was swept two days ago by the old broken code, and the platform's
+two-strikes rule would file anything found now straight into the "gave up" pile rather than
+repairing it.
