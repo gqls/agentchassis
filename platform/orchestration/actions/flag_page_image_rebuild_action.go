@@ -195,6 +195,13 @@ func FlagPageImageRebuildAction(ctx context.Context, params ActionParams) (inter
 	//    now has a content hero and no card yet (bugs_open/114). See
 	//    emitContentCardDerive for why this cannot wait for the sweep.
 	cardEmit := emitContentCardDerive(ctx, tx, siteID, pageName, batchID, logger)
+	// 4. Tell the LISTINGS that render this page (bugs_open/384), in the same
+	//    transaction. The needs_page above re-renders the article; the pages
+	//    that list it hold its image in a stored array that only a
+	//    section_data_resolved re-render refreshes. Unless a card derive was
+	//    just raised — then the card supersedes this image in the projection,
+	//    and derive_card_asset makes the request when the card lands.
+	listEmit := reresolvePageListsAfterPageImage(ctx, tx, siteID, pageName, cardEmit, batchID, logger)
 
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
@@ -204,11 +211,14 @@ func FlagPageImageRebuildAction(ctx context.Context, params ActionParams) (inter
 		zap.String("site_id", siteID.String()), zap.String("page", pageName),
 		zap.String("sections_source", sectionSource),
 		zap.String("card_derive", cardEmit),
+		zap.String("page_list_reresolve", listEmit),
 		zap.Int("declared_sections", len(declared)))
 	return map[string]interface{}{
-		"rebuilt":         true,
-		"page_name":       pageName,
-		"needs_page_emit": "raised",
-		"sections_source": sectionSource,
+		"rebuilt":             true,
+		"page_name":           pageName,
+		"needs_page_emit":     "raised",
+		"sections_source":     sectionSource,
+		"card_derive":         cardEmit,
+		"page_list_reresolve": listEmit,
 	}, nil
 }

@@ -177,6 +177,48 @@ var queryHandlers = map[string]queryHandler{
 	},
 }
 
+// pageImageSources names the query bases whose resolvers splice pageImageJoins
+// — i.e. whose items carry an `image` computed from the page's CARD asset
+// (assets.entity_type='page', purpose='card') with the current plan hero as
+// the fallback. Declared beside queryHandlers, and pinned to it by
+// TestPageImageSourcesMatchTheResolversThatReadCards (page_image_sources_test.go),
+// which DRIVES every handler and records which SQL actually reads the card
+// join: a resolver that starts reading cards without declaring itself here
+// fails that test, and so does a stale declaration. Not a source scan.
+//
+// Why it exists (bugs_open/384): a component field fed by one of these sources
+// stores the resolved items in page_components.content_data, and every
+// assemble-mode re-render re-ships that stored array verbatim. When the data
+// behind the source changes — a card lands, a hero lands — the pages that
+// consume it must be told to re-resolve, and a producer of that change has no
+// other way to learn which sources (and, via PageListConsumerPages, which
+// pages) that is. section_index_for is deliberately absent: it returns a URL,
+// not items, and reads no assets.
+var pageImageSources = map[string]bool{
+	"pages_where_type":    true,
+	"pages_under_section": true,
+	"blog_posts":          true,
+}
+
+// SourceReadsPageImages reports whether a `query.*` source — the part after
+// "query.", optional `:arg` included, the same string QueryRequest.Name
+// carries — projects its items' image from the page card/hero join. Same
+// normalisation as Resolve, answered from the same base.
+func SourceReadsPageImages(name string) bool {
+	base, _ := parseQueryName(strings.ToLower(strings.TrimSpace(name)))
+	return pageImageSources[base]
+}
+
+// PageImageSources returns the declared bases, sorted, for messages and tests.
+func PageImageSources() []string {
+	bases := make([]string, 0, len(pageImageSources))
+	for base := range pageImageSources {
+		bases = append(bases, base)
+	}
+	sort.Strings(bases)
+	return bases
+}
+
 // Resolve dispatches the request to a registered query handler. Returns
 // nil + error on unknown query name or DB failure. Returns the resolved
 // data on success — currently always []map[string]interface{} but the

@@ -394,12 +394,17 @@ func TestFlagPageImageRebuild_SectionedPage_StillEmits(t *testing.T) {
 	defer db.Close()
 	mock.MatchExpectationsInOrder(false)
 
+	siteID := uuid.New()
 	mock.ExpectExec("UPDATE pages").WillReturnResult(sqlmock.NewResult(0, 1))
 	expectPlanTableSections(mock, "hero", "article-body", "call-to-action")
 	expectPlanMembership(mock, false)
 	expectNeedsPageInsertActionRequest(mock, "image-build-handler")
+	// bugs_open/384: the card-derive probe is unscripted here (it reads as
+	// skipped_lookup_failed, i.e. no derive raised), so the listings must be
+	// told in this same transaction — one consumer page, one reasoned item.
+	expectPageListReresolve(mock, "image-build-handler", siteID)
 
-	out, err := FlagPageImageRebuildAction(context.Background(), flagRebuildParams(db, uuid.New(), "board-setup"))
+	out, err := FlagPageImageRebuildAction(context.Background(), flagRebuildParams(db, siteID, "board-setup"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -413,6 +418,9 @@ func TestFlagPageImageRebuild_SectionedPage_StillEmits(t *testing.T) {
 	if m["sections_source"] != "site_plan_tables" {
 		t.Errorf("sections_source = %v, want site_plan_tables — a page that DECLARES sections must not be credited to the membership arm", m["sections_source"])
 	}
+	if m["page_list_reresolve"] != "queued" {
+		t.Errorf("page_list_reresolve = %v, want queued — the listing that renders this page's image was not told (bugs_open/384)", m["page_list_reresolve"])
+	}
 }
 
 // The conservative edge, end to end: declares nothing, but the plan names it, so
@@ -422,18 +430,23 @@ func TestFlagPageImageRebuild_PlanMemberWithoutSections_StillEmits(t *testing.T)
 	defer db.Close()
 	mock.MatchExpectationsInOrder(false)
 
+	siteID := uuid.New()
 	mock.ExpectExec("UPDATE pages").WillReturnResult(sqlmock.NewResult(0, 1))
 	expectNoDeclaredSections(mock)
 	expectPlanMembership(mock, true)
 	expectNeedsPageInsertActionRequest(mock, "image-build-handler")
+	expectPageListReresolve(mock, "image-build-handler", siteID) // bugs_open/384
 
-	out, err := FlagPageImageRebuildAction(context.Background(), flagRebuildParams(db, uuid.New(), "brands-index"))
+	out, err := FlagPageImageRebuildAction(context.Background(), flagRebuildParams(db, siteID, "brands-index"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	m, _ := out.(map[string]interface{})
 	if m["needs_page_emit"] != "raised" {
 		t.Errorf("needs_page_emit = %v, want raised — the guard must not out-guess the handler's sibling synthesis", m["needs_page_emit"])
+	}
+	if m["page_list_reresolve"] != "queued" {
+		t.Errorf("page_list_reresolve = %v, want queued (bugs_open/384)", m["page_list_reresolve"])
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)

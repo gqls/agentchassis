@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -110,11 +111,13 @@ func singlePageFromScalars(collected map[string]interface{}, config map[string]i
 // Scoping the key by mode preserves dedup WITHIN a mode (two concurrent site-wide
 // refreshes still collapse to one assemble-only item per page) while ensuring the
 // two modes can never suppress each other.
+//
+// The string itself lives in discovery_checks.PageRerenderItemKey (exported
+// 2026-08-24, bugs_open/384) so the page_list_stale sweep — which cannot import
+// this package — files a byte-identical key and dedups against the event
+// emitters here. This is a delegate, not a second spelling.
 func pageRerenderItemKey(pageName string, siteID uuid.UUID, keyReason string) string {
-	if keyReason == "" {
-		keyReason = "assemble"
-	}
-	return fmt.Sprintf("page_rerender_%s_%s_%s", pageName, siteID, keyReason)
+	return discovery_checks.PageRerenderItemKey(pageName, siteID, keyReason)
 }
 
 // insertPageRerenderItem is THE one INSERT for page_rerender work items — the

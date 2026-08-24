@@ -265,6 +265,21 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 		"source_asset_id": sourceAssetID,
 		"file_size":       len(cardBytes),
 	}
+
+	// ── Tell the listings (bugs_open/384). This card is what queryresolve's
+	// pageImageJoins projects into every page-list item on the site, and those
+	// items live in stored arrays that only a section_data_resolved re-render
+	// refreshes — an assemble-mode re-render re-ships them verbatim, which is
+	// how a listing was re-rendered three times after its cards landed and
+	// showed none of them. No sweep asks "is the listing's rendering of this
+	// page current?" (the orphan check keys on membership, the image checks on
+	// the asset), so the request is made here, at the event. Skipped when the
+	// provenance row was lock-suppressed: the join reads the row, and the row
+	// did not change. Never fails the action — see page_list_reresolve.go. ──
+	for k, v := range reresolvePageListsAfterCard(ctx, params.DB, siteID, pageName, provenanceRecorded, logger) {
+		result[k] = v
+	}
+
 	if !provenanceRecorded {
 		result["provenance_recorded"] = false
 		result["locked"] = true
