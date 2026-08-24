@@ -1,3 +1,5 @@
+> # ⚠ SUPERSEDED same day (evening) — read `HANDOFF_2026-08-24b_continue_here.md`. This file's state lines are stale (the page is LIVE, 377 is ROLLED); kept for the seeding detail, the 377 story and the morning traps.
+
 # HANDOFF 2026-08-24 — register SEEDED + £99 REGISTERED + offer page DISPATCHED; next = verify the built copy, run copy-editor once, report to copy_quality
 
 **COLD-START for the merged finetuning.uk lane.** Supersedes `HANDOFF_2026-08-18_continue_here.md`
