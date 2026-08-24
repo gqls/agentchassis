@@ -253,6 +253,46 @@ func TestRenderLayer_twoInstancesOnOnePageGetDifferentIDs(t *testing.T) {
 	}
 }
 
+// ⚠ RESTORED 2026-08-24 (commit c5a0c831e deleted it by accident — see below).
+// This function was swallowed by an over-wide programmatic edit while updating the
+// mutation control above, and NOTHING FAILED: deleting a test removes assertions,
+// it does not break a build or a suite, so `go test ./...` stayed green over the
+// hole. It was caught by the pre-commit architecture signal reporting a removed
+// exported symbol, one commit later. The check that would have caught it at the
+// time is one line and is now in the RUNBOOK: diff the `^func Test` list before and
+// after any scripted edit to a _test.go file.
+//
+// It matters more now than when it was written: TemplateNeedsInstanceID drives the
+// unbound-token report on BOTH render seams as of this session (RenderTemplate and
+// RenderTemplateWithMap), so a spelling it fails to match is a report that never
+// fires on either.
+// The shared layer cannot invent a token, so its job is to make the absence
+// loud. Assert the predicate that drives that, since it is what decides whether
+// any of the eleven call sites is reported at all.
+func TestTemplateNeedsInstanceID_matchesTheSpellingsGoAccepts(t *testing.T) {
+	for _, tmpl := range []string{
+		`<input id="{{.InstanceID}}-loanAmount">`,
+		`<input id="{{ .InstanceID }}-loanAmount">`,
+		`<input id="{{- .InstanceID -}}-loanAmount">`,
+	} {
+		if !TemplateNeedsInstanceID(tmpl) {
+			t.Fatalf("must detect the token in %q — an undetected reference renders "+
+				"empty and silently collides", tmpl)
+		}
+	}
+	// Must not fire on a template that does not use it, or every render of the
+	// other 238 components logs an error nobody can act on.
+	for _, tmpl := range []string{
+		`<input id="loanAmount">`,
+		`<div id="{{.ComponentID}}">`,
+		`<div>{{.InstanceIDs}}</div>`,
+	} {
+		if TemplateNeedsInstanceID(tmpl) {
+			t.Fatalf("must not fire on %q", tmpl)
+		}
+	}
+}
+
 func TestDetect_todaysShapeCollidesOnAllThreeClasses(t *testing.T) {
 	// One instance of today's shape is already unscoped, but does not yet
 	// duplicate anything — the defect is latent, not live. Assert that

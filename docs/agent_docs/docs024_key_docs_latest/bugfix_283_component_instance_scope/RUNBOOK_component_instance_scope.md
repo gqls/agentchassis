@@ -381,3 +381,20 @@ scripts/verify-head-builds.sh --test --with <each changed file> ./... 2>&1 \
 diff pure.txt mine.txt        # identical except timing digits ⇒ your change adds no failure
 ```
 Never `git archive HEAD | tar` by hand — CLAUDE.md's build section says why (~450 MB per extract).
+
+### After ANY scripted edit to a `_test.go` file, diff the test inventory
+
+A scripted edit that locates its region by string index can swallow a whole neighbouring
+function, and **nothing will fail**: deleting a test removes assertions, so the build, `gofmt`,
+the suite and even `verify-head-builds.sh --test` all stay green over the hole. This cost a real
+test on 2026-08-24 (`WRONG_CALLS.md`, same date) and was caught by the pre-commit hook a commit
+later, not by any check I ran.
+
+```bash
+diff <(git show HEAD:platform/orchestration/actions/<file>_test.go | grep -o '^func Test[A-Za-z_]*') \
+     <(grep -o '^func Test[A-Za-z_]*' platform/orchestration/actions/<file>_test.go)
+# expect ONLY additions (lines starting '>'). Any '<' line is a test you destroyed.
+```
+
+⚠ And do not `| tail -N` a `git commit`: the pre-commit hook prints its advisories FIRST and git
+prints the commit summary LAST, so tailing keeps the summary and cuts the warning.

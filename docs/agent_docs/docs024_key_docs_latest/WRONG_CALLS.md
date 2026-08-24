@@ -48546,3 +48546,101 @@ used a real check to answer a question it was not about. There the filter's
 correctness stood in for its selectivity; here the tree's cleanliness stood in for
 authorship. Both times the check passed honestly and the conclusion did not follow —
 which is worse than a check that fails, because nothing prompts you to look again.
+
+---
+
+## 2026-08-24 — `bugfix_283_component_instance_scope` §10 Half B: I deleted a test with a scripted edit, ran the suite, and it came back GREEN
+
+**The claim:** implicit, and it is the one that matters — *"the tests pass, so my edit did what
+I intended."* Round 2 of the council response rewrote a mutation control inside
+`component_instance_scope_test.go` with a Python edit that located its replacement region by
+string index. The end index overran, and the edit **silently swallowed the whole of
+`TestTemplateNeedsInstanceID_matchesTheSpellingsGoAccepts`** — the test that pins which
+spellings of `{{.InstanceID}}` the predicate matches, and which it must NOT fire on.
+
+**Why nothing failed.** *Deleting a test removes assertions; it does not break a build or a
+suite.* `go build ./...` was clean, `go test ./platform/orchestration/actions/` was green,
+`gofmt` was happy, and `verify-head-builds.sh --test` — run against committed HEAD with my
+files overlaid, precisely to be careful — **also passed, because it ran the same reduced set.**
+Every instrument I reached for reported success, honestly, on a smaller corpus than the one I
+believed I was testing. That is the same shape as
+`MEMORY/a-quiet-test-passes-when-the-rule-is-gone.md`, one rung up: there the rule was gone,
+here the *test* was.
+
+**What caught it:** the **pre-commit architecture signal**, one commit later —
+`exported symbol removed/changed — 1 line(s), e.g. -func TestTemplateNeedsInstanceID_…`. It
+fires on the diff, which is the only artefact that can see a deletion; and it nearly did not
+reach me either, because the hook prints FIRST and `git` prints its summary LAST, so my
+`| tail -18` had cut it off. A `PostToolUse` advisory re-delivered it. **Two mechanisms had to
+work for me to find out.**
+
+**The cheap check, and it is one line:** before and after ANY scripted edit to a `_test.go`
+file, diff the inventory of test functions and expect only additions.
+
+```bash
+diff <(git show HEAD:<path> | grep -o '^func Test[A-Za-z_]*') \
+     <(grep -o '^func Test[A-Za-z_]*' <path>)
+```
+
+Same principle as the LANDMINE about `git diff | grep '^-[^-]'` being unable to see a deleted
+markdown bullet: **gate on a COUNT or an INVENTORY, which no content can fool, rather than on
+whether anything looks wrong.**
+
+**The transferable half.** A green suite is evidence about the tests that RAN, and I read it as
+evidence about the tests I *thought* existed. Every other check in this session was built
+around the opposite instinct — I refused a log census that morning for exactly this reason,
+because its zero could not have come out otherwise, and filed a landmine about it. **I then
+accepted a green test run that could not have come out otherwise either**, four hours later, on
+my own edit. Knowing the rule is not applying it; the rule only fires if something in the
+workflow makes it fire, which is the whole argument for the check above being a command rather
+than a resolution.
+
+**Restored** forward-only in the commit that records this, verbatim from `120131549`, with the
+note at the restoration site rather than only here — the deletion happened at the file, so the
+warning belongs at the file.
+
+### 9 — 2026-08-24: I reported a documented trap as a defect in the plan, having not grepped LANDMINES for the footprint
+
+Picking up the `283` lane's Half A, I measured that a top-level
+`jsonb_each(default_config->'workflow'->'steps')` finds **zero** `render_component`
+steps fleet-wide, ran a demand control (1,322 steps with an `action`, so the query
+shape works), and found the two real steps nested at
+`process_sections_loop.config.sub_workflow.steps.{render_section,render_from_template}`.
+
+That measurement is correct. **What I did with it was not.** I messaged the peer
+session that "the plan's §A4 config instruction is **wrong**", and that "anyone
+writing that migration from the plan's wording would have produced a no-op
+`jsonb_set` that reports success."
+
+Both overstate it. The plan names the two steps correctly; it omits the nesting —
+and the estate already documents the nesting in at least six places, including
+**this lane's own RUNBOOK §6** ("⚠ A top-level-only census told me `render_component`
+was executed by no live workflow"), and **`LANDMINES.md:5811`**, which spells the
+exact path I "found": *"the render steps live inside
+`process_sections_loop.config.sub_workflow.steps`"*. LANDMINES carries four more
+entries on the same shape (:5270, :5504, :6359) with the `jsonb_path_query('$.**.steps')`
+form. A builder following the plan's own linked RUNBOOK would have got it right.
+
+So I presented a **rediscovery as a discovery**, and priced a document's silence as
+its error. The finding's real residue is much smaller and I should have led with it:
+the plan says "add `slot_name_from` to `render_from_template` if absent" and **both
+steps already carry it** — only `page_id_from` is missing. That part is new.
+
+**What caught it:** reading the lane's RUNBOOK section list for an unrelated reason
+(I wanted its verification commands) twenty minutes after I had sent the message.
+Nothing in what I was doing would have caught it otherwise — I had already "verified"
+my claim, against the live DB, and it was true.
+
+**The cheap check, and I have it in my own memory index:** `grep -n '<symbol>'
+LANDMINES.md` **before** asserting that a document owes a correction. One command;
+it returns :5783/:5811 on `render_component`. The index line reads *"grep LANDMINES
+for the SYMBOL you are about to trust"* — I applied it to symbols I was about to
+trust and not to the claim I was about to make, which is the same file and the
+opposite direction.
+
+**The transferable half:** a measurement being sound says nothing about whether it is
+NEW. "I verified it against the live system" answers *is this true*, and I used it to
+answer *does this need saying* — an adjacent question, and the estate's whole
+LANDMINES/016b/register apparatus exists precisely because the second question has a
+different and cheaper check. Same shape as entries 7 and 8: a true, cheap fact
+standing in for the true, expensive one actually needed.
