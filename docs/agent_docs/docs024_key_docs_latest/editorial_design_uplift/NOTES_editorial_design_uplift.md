@@ -635,3 +635,14 @@ table-level fact (no `updated_at` trigger — sole trigger is
 a LANDMINES entry, verifier dispatched (corr `967dc071`), committed via a
 same-file passenger ride on the 333 lane's `68734b771` — noted here since the
 commit message crediting it is theirs.
+
+**Gate LIVE and both-ways proven (381 lane, 2026-08-24).** Migrations 591/593
+applied: a `requires-evidence-base` component is excluded from a planner's menu
+unless the site has a current evidence spec — proven to discriminate in both
+directions (excludes exactly our two components on an evidence-less site,
+excludes nothing on an evidence-bearing one). **Consequence for Phase E2: tag
+the timeline component at registration and the gating is done** — no further
+mechanism owed. Also kept, their closing lesson worth reusing: when an absence
+needs explaining, "someone did something you did not see" beats "the other
+session's instrument was wrong" on a tree with this many hands — ask first what
+would have to be true for the OTHER measurement to be right.
