@@ -191,6 +191,7 @@ OPTIONAL_KEY_COUNTS = {
     "training_data_export": 6,
     "update_site_spec_from_item": 2,
     "update_source_timestamps": 1,
+    "verify_acceptance_predicates": 1,
     "verify_site_experience": 7,
     "write_audit_findings": 1,
     "write_build_items": 2,
