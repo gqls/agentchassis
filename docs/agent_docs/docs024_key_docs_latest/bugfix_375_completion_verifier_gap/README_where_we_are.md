@@ -60,3 +60,35 @@ paths share one implementation of the check itself.
 
 Next: write the code, prove the guard is load-bearing by deliberately breaking it and requiring
 the test to fail, and put it through the reviewer council.
+
+---
+
+**2026-08-24, later.** Done and committed. Two commits: the code, and the documents that were
+telling people the wrong thing. Both carry the council submission id, so they get credited
+automatically when the verdict lands — no rewriting history, which isn't allowed here anyway.
+
+Two things worth your time out of the day.
+
+**The first is that the warning was worse than the silence.** I said earlier that the trap here
+is that somebody will write one of these re-checks and it will protect nothing. What I found
+afterwards is that our own register *warns* that person — and warns them wrong. It tells them
+to expect a specific side effect that cannot happen, precisely because of the bug. So they'd
+plan around a fail-close, get a silent no-op, and have no reason to look. A wrong warning is
+more expensive than none, because it stops you asking.
+
+**The second is a bit of an embarrassment that turned into the most useful finding of the day.**
+I got a test fixture wrong — registered a fake problem type into a shared registry — and a guard
+I'd never heard of failed the build. My first instinct was to make the guard stop complaining by
+adding my fake type to a real production list. I didn't, but I thought about it for longer than
+I'd like, and I've written that up honestly in the fleet-wide log of wrong calls, because "a
+guard is objecting to me, therefore the guard needs adjusting" is a reliable way to break
+something.
+
+What the guard turned out to be protecting is the interesting part. There is a **third** thing
+that stamps rows done — a timeout sweep — and it bypasses *both* checks. Somebody solved that,
+months ago, with a written-down list plus a test that fails the build if the list and reality
+disagree. Same problem as ours, already solved once, and nobody had joined the two up. That's
+now written down as the exact shape for the piece of work still outstanding here.
+
+So: the fix is in, the documents are honest, the mechanism is registered so the next lane can
+find it, and the remaining work has a known-good pattern to copy rather than a design question.
