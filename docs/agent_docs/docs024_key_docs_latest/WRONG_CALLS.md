@@ -48644,3 +48644,44 @@ answer *does this need saying* — an adjacent question, and the estate's whole
 LANDMINES/016b/register apparatus exists precisely because the second question has a
 different and cheaper check. Same shape as entries 7 and 8: a true, cheap fact
 standing in for the true, expensive one actually needed.
+
+---
+
+## 2026-08-24 — the decision brief I wrote for the owner carried a rate I had not measured and a cost I had inflated ~70× (`bugs_open/326`)
+
+Asked to lay out the RFC_048 decision, I wrote *"the damage is growing ~26/day"* and, as option
+A's cost, *"~570 keys become live work"*. The owner asked me to review before deciding. Both
+numbers fell over on re-measurement.
+
+**The rate.** I had two snapshots of `count(*) … status='unresolved' AND summary LIKE
+'[unresolved after%'`, a day apart: 635 and 661. I subtracted and called it a rate. Grouped by
+`created_at` and `item_type`, the 26 are **one** type (`contrast_failure`), **two** sites, **two**
+sweeps — 22 rows stamped `12:29:23` and 4 stamped `22:23:49`, same second each. Over the 7-day
+window the true rate is ~8/day, and only ~3.4/day is the class this bug is about. **I had adopted
+"if the evidence is a count, the claim must contain the count" the evening before, in writing,
+and broke it the next morning in a document addressed to the person deciding.**
+
+**The cost.** 570 is the number of keys *armed* to two-strike if a repeat arrives. I presented it
+as the volume of work option A would create. Exposure is not volume: the real extra load is the
+rows that would otherwise be born dead, ~8/day, each dispatching once. And the landfill would
+*shrink* under A (a deferred row holds the dedup slot; today's dead rows do not, which is why one
+key has 91 of them).
+
+**What caught it:** nothing but the owner asking for a second look. No peer, no check. Had they
+decided on the first version, the ~26/day figure argued for urgency and the 570 figure argued
+against the option that addresses it — the two errors pulled in *opposite* directions, which is
+worse than one error, because it reads as a balanced brief.
+
+**The cheap checks, both known to me already:**
+- a rate needs a **date-bounded** query, never a subtraction of snapshots — `WHERE created_at >
+  NOW() - INTERVAL '7 days' GROUP BY item_type` was ten seconds and turned "26/day" into "one
+  detector, one sweep";
+- **exposure ≠ volume** — before writing "N things will happen", ask what event has to occur for
+  each of the N, and count the events instead.
+
+**And the structural finding the re-measurement produced, which the brief had missed entirely:**
+the two brake arms are different problems. Arm A (drop under 3h) is 326's bug and has no
+legitimate use for any caller. Arm B (two-strike → `unresolved`) is a designed landfill whose 661
+rows are 65% classification failures and 35% the brake working correctly on a fixer that lies
+about completing (`bugs_open/352`). The RFC I wrote yesterday conflated them, which is why its
+options were mis-costed. Corrected in place in the brief and in RFC_048.

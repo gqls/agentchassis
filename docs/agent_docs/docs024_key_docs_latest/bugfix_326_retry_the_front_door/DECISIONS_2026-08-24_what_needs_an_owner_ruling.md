@@ -1,139 +1,152 @@
 # What needs your ruling — `bugs_open/326` and its neighbours
 
-**Written 2026-08-24.** Five decisions. Only the first is hard; the rest mostly follow from it or
-need a name attached. Each is written as: what the thing is → what the rule says → how this case
-measures against it.
+**Rewritten 2026-08-24 (second version) after you asked for a review before deciding.**
+The first version, written the same day, contained three errors that would have pushed you
+towards the wrong option. They are listed first, because you should know what changed and why.
+Every count below carries the date it was counted.
 
 ---
 
-## 1. The one that matters: should the work-item door be allowed to DESTROY a request?
+## What the first version got wrong
 
-### What the thing is
+**1. "The damage is growing ~26/day" — false.** I subtracted two snapshots taken a day apart
+(635 → 661) and called the difference a rate. Re-measured by `created_at`: all 26 are ONE item
+type (`contrast_failure`), on TWO sites, from TWO detector sweeps — 22 rows on `noted.co.uk` at
+`12:29:23` and 4 on `idea.uk` at `22:23:49`, **same-second timestamps, one sweep each**. Over the
+brake's own 7-day window the rate is **~8/day across all types**, and the part that belongs to
+this bug (action requests) is **~3.4/day**. This is exactly the error the other lane named
+yesterday — *if the evidence is a count, the claim must contain the count* — reproduced in a
+document addressed to you.
 
-When an agent finishes a stage it files a **work item** — a durable row saying "somebody do the
-next thing". A brake sits in front of that filing to stop the same request being made over and
-over: if an identical request finished within the last three hours, or finished twice in a week,
-the brake acts.
+**2. "~570 keys become live work" (option A's cost) — wrong by about 70×.** 570 is the number of
+keys *armed* to two-strike if a repeat arrives. It is exposure, not volume. The actual extra load
+under A is the rows that would otherwise be born dead — **~8/day** — each dispatching once after a
+12-hour delay. And the landfill would **shrink**, not grow, for a reason below.
 
-**Today, when the brake acts, the request is destroyed.** Under three hours it writes nothing at
-all and reports success. Past two attempts it writes the row into a status nothing ever picks
-up. Either way the caller is told the same thing it is told when the work is genuinely already in
-hand, so nothing downstream can tell "you're covered" from "I threw it away".
+**3. "Option B is close to a no-op" — wrong for detectors.** A detector that *wants* the brake but
+not the burial has no lever today; B would give it one. B is still useless for the population
+326 is about (callers nobody has classified), but it is not a no-op.
 
-### What the rule says
-
-Your ruling of 2026-08-02 §2: new authority on a shared mechanism ships as an **opt-in field with
-the unsafe default OFF**, so the decision sits where a reviewer of the *caller* can see it — not
-as a global switch and not as a comment.
-
-### How this case measures against it
-
-I proposed making both brake arms **delay** instead of destroying: the row is written, marked
-"not before <time>", and picked up later. It reuses machinery that already exists and is already
-honoured in three places, changes no status list and no index, and ships with an off-switch.
-
-**The council's guardian vetoed it**, on two grounds, and both are right:
-
-- it changes **default** behaviour for every caller at once (**36** non-test call sites as of
-  2026-08-24) with only a global env switch to revert — which is the shape your §2 ruling exists
-  to refuse;
-- the customer bug **was already fixed without it**, by the config change. So the wider change
-  was riding on someone else's urgency.
-
-I have not contested it, and I am not asking you to overrule it. I am asking which of three
-shapes you want, because the veto named the alternative but the alternative has a cost nobody has
-weighed.
-
-### The three options, costed
-
-| | what it does | what it buys | what it costs |
-|---|---|---|---|
-| **A** | ship the deferral as proposed | every unclassified caller protected at once, including the 36 Go sites nobody will audit one by one | one day of fleet-wide behaviour change; ~**570** keys (2026-08-24) become live work that previously vanished; dashboards and "is this site clean" counters see rows they did not see before |
-| **B** | opt-in per caller, as the guardian suggested | satisfies §2 exactly; blast radius is incremental | **I think this is close to a no-op.** It protects only callers someone has already thought about — which is precisely the set the existing `recurrence_expected` flag already covers. It adds a second lever doing the first lever's job, and the 14 undeclared steps stay unprotected |
-| **C** | leave the brake alone; drive the census to zero and make the declaration *mandatory* | the strongest end state — the unclassified case stops being possible | slowest; protects nobody in the meantime; and it cannot reach the 36 Go call sites at all, because the census only sees config |
-
-### The number that should probably decide it
-
-The damage is **growing measurably**: rows born into the dead status went **635 → 661 in one
-day** (2026-08-23 → 2026-08-24), i.e. roughly **26/day**. That is the cost of choosing C alone,
-per day, until the census is driven to zero.
-
-**My view, offered as a view:** A as an interim with C as the destination, keeping the off-switch
-as the retreat. But the veto's whole point is that this should not be decided under bug-fix
-urgency, so it is genuinely yours and I have not pre-committed anything to it.
-
-**Where it lives:** `architecture_review/RFC_048_the_anti_churn_brake_may_delay_work_but_may_not_destroy_it.md`,
-with the working patch beside it (`RFC_048_proposed_deferral.patch`, applies clean to HEAD, whole
-package green, five mutations proven).
+**4. The RFC conflates two mechanisms with different problems.** This is the one that reshapes
+the decision, so it gets its own section.
 
 ---
 
-## 2. Migration 573 — and it becomes a hazard if you decline decision 1
+## The picture after re-measurement: two arms, two different problems
 
-### What the thing is
+The brake in front of every keyed work-item insert has two arms. Yesterday's RFC treated them as
+one thing. They are not.
 
-`573_domain_submitter_refuses_to_report_success_over_nothing_HOLD.sql` makes the front door
-**fail loudly** when a submission genuinely queues nothing, instead of reporting success. It
-depends on code that only exists in RFC_048's patch.
+### Arm A — "finished under 3 hours ago" → the request is DROPPED. No row, no error.
 
-### What the rule says
+**This is 326's bug.** The customer re-submission that reported success and did nothing hit this
+arm at 2h28m. It is unconditionally bad: **no caller, of any kind, wants its request destroyed
+with nothing recording that it existed.** Its damage is structurally unmeasurable after the fact,
+because it leaves no row.
 
-A `_HOLD` migration is held back from the runner *for ordering* and applied by hand once its
-condition is met. It is not a parking space.
+- Customer path: **fixed** (migration 572, five build-chain steps declared).
+- Still exposed: **14** config steps (2026-08-24, the census names them) and roughly **10** Go
+  producers that file action requests with a key and no declaration (`emit_*`, `flag_*`,
+  `seed_*`, `render_*`, `rerender_*` — 25 files call the helper, 4 set the flag; the rest split
+  between action requests and detectors, and I have not audited each one).
 
-### How this case measures against it
+### Arm B — "finished twice this week" → the row is born `unresolved`, which nothing picks up.
 
-- **If you accept decision 1:** 573 applies by hand after the roll that carries the code. Normal.
-- **If you decline decision 1:** its condition can never be met, and it becomes a permanently
-  stale `_HOLD` file — **exactly the trap that was just cleaned up on migration 524 today**, where
-  a stale held twin sat at HEAD telling readers to hold something that had been live for three
-  days.
+**This is the landfill, and it is two problems, not one:**
 
-**So a decline is not "do nothing" — it should be "delete 573".** Say the word and I will, or
-leave it to the fresh session with this doc.
+| | rows (2026-08-24) | what it actually is |
+|---|---|---|
+| action requests born dead | **431** (65%) | a *classification* failure — the brake should never have run on these |
+| detector findings born dead | **230** (35%) | the brake **working as designed**: a detector re-found a fault the fixer said it fixed |
 
----
+The 431 splits again by who filed them:
+- `improve_tool` **205** — `tool-auditor`. **Historical.** Newest 08-15; the step now carries a
+  per-item key suffix (the `bugs_open/321` fix), so the collision that fed this stopped.
+  `[dates MEASURED; causal link INFERRED]`
+- `page_rerender` **212** — the **discovery sweep, in Go** (`created_by`
+  `completeness-discovery-agent` / `generic`). **Ongoing, ~3.4/day.** The config census cannot
+  see it; only a code change reaches it.
 
-## 3. Who tells the other 14 lanes?
+The 230 detector rows are a different bug entirely. `contrast_failure`: **200 `complete` + 26
+`unresolved`** by `css-patch-agent` in 7 days — the fixer reports done, the fault persists, the
+detector re-finds it, the brake fires. That is the brake doing its job, and the defect underneath
+is **`bugs_open/352`** (the finding names a selector that matches nothing, so the patch applies
+to nothing and reports success). Neither option here fixes it, and option A would re-dispatch that
+futile patch every 12 hours.
 
-**14 keyed steps** (2026-08-24) have never declared whether the item they file is a *request*
-(repeat is normal) or a *detection* (repeat means the fix is not working). For any of them a
-repeat request can still be silently destroyed.
-
-`./scripts/audit-undeclared-recurrence.sh` names them. I deliberately did **not** classify them —
-that means judgement calls inside lanes I do not own, and the draft that swept thirteen of them
-found its own counter-example (`claims-auditor` genuinely needs the counter; setting it would have
-broken it silently).
-
-**The decision is only who does the telling:** one sweep by one lane with the owners consulted, or
-each lane told to run the audit for itself. Nothing technical is blocked either way.
-
----
-
-## 4. The 661 dead rows — already yours, still open
-
-Rows already born into the undispatchable status: **661** as of 2026-08-24, largest populations
-`page_rerender` and `improve_tool`.
-
-I did **not** touch them, deliberately: re-promoting them would fire hundreds of renders at once,
-and what to do with that landfill is already **your** open decision from RFC_010 / `bugs_open/033`
-D2. Overruling it from inside a bug patch is what the failure-ladder header explicitly warns
-against.
-
-Flagging only that it is still open, and now growing at ~26/day.
+**And the duplication is the landfill's real disease:** 661 rows over only **247** distinct keys
+— **2.68 dead rows per key**, worst key **91 rows in two days** (`audit_fix_gamesdesign.co.uk`).
+Because `unresolved` sits *outside* the dedup index, every re-detection lands a fresh corpse.
+That is why the pile grows even where the brake is right.
 
 ---
 
-## 5. The `bugs_open/345` ownership collision
+## The decision, re-costed
 
-Two sessions were instructed to take the same ownerless change — one told to *adopt* it, one
-(me) told to *claim* it, about an hour apart. Given the shared account, parallel instruction is
-the likely explanation.
+**What it is.** Whether the door that files work should be allowed to destroy a request, and
+whether the row it parks should hold the dedup slot.
 
-The code is committed, verified green against HEAD, and inert. The other session remains the
-council submitter and their correlation is cited on the commit.
+**What your rule says.** New authority on a shared mechanism ships opt-in per caller, unsafe side
+OFF (2026-08-02 §2). The council's guardian vetoed the original change on exactly that shape,
+and because 572 had already closed the customer bug without it. Both grounds stand.
 
-**Nothing is broken and nothing is blocked.** The decision is only whether you want one of us
-named as owner going forward, so the next instruction does not fork the same way. Their close
-condition (345 stays open until the capability is *live*, not merely committed) is the right one
-and I would not change it.
+**How the options measure now:**
+
+| | fixes Arm A (326's class) | stops action-request landfill growth | fixes duplication | touches detector semantics | shape vs §2 |
+|---|---|---|---|---|---|
+| **A** defer both arms, fleet-wide | ✅ all callers | ✅ | ✅ (deferred row holds the slot) | ⚠ re-dispatches genuinely failed fixes every 12h | default change — the vetoed shape |
+| **B** opt-in defer per caller | ❌ unclassified stay exposed | ❌ | only where opted in | ✅ gives detectors a choice | ✅ exactly §2 |
+| **C** census → zero, then mandatory | config only | config only — **Go `page_rerender` bleed continues** | ❌ | ✅ untouched | ✅ no mechanism change |
+| **D** defer **Arm A only** | ✅ all callers | ❌ | ❌ | ✅ untouched | narrower default change; **Arm A has no legitimate use, so the "safe side" is unambiguous** |
+| **E** set the flag on the ~10 Go action-request producers | Go sites only | ✅ stops `page_rerender` | ❌ | ✅ untouched | ✅ per-caller, exactly §2 |
+
+**None of A–E fixes the 230 detector rows** — that is `bugs_open/352`'s class. **Only A fixes the
+duplication.**
+
+**My view, as a view:** **D + E now, C alongside** — D is the smallest change that ends silent
+destruction for everyone and has the strongest safe-side argument (nobody wants Arm A's
+behaviour); E is the §2 shape and stops the only live action-request bleed. That leaves the
+duplication for `RFC_010` / `033` D2, where it already lives, and the detector rows for `352`. If
+you would rather take the duplication too, that is A, and its cost is ~8 extra dispatches a day —
+not 570 of anything.
+
+Where it lives: `architecture_review/RFC_048_…`, with the patch beside it. The patch is A-shaped;
+D is a subset of it (delete the two-strike branch of the deferral, keep the within-cycle one).
+
+---
+
+## Decision 2 — migration 573 is SEPARABLE from decision 1, and I had that wrong too
+
+**What it is.** `573_…_HOLD.sql` makes the front door fail loudly when a submission genuinely
+queues nothing. It needs one config key (`on_dedup`) that only exists in the RFC_048 patch.
+
+**What I said yesterday:** decline decision 1 ⇒ delete 573. **Wrong.** `on_dedup` was the RFC's
+*second* edit, and it is independent of the deferral. The guardian objected to it at **low**
+severity (that "zero consumers" was asserted, not shown); the architecture seat said it
+**passes RFC_022 cleanly**. The objection is now answered with a query: **0** live workflow
+conditions branch on `deduped`/`inserted` (2026-08-24).
+
+**So 573's real options:** resubmit `on_dedup` alone as an ordinary opt-in field (a small council
+round, likely approved), then apply 573 after the roll; **or** decide you do not want a loud front
+door, and delete 573. **It does not wait on decision 1.** What it must never do is sit as a stale
+`_HOLD` — that is the trap cleaned up on 524 yesterday.
+
+---
+
+## Decision 3 — the 14 undeclared config steps: only a name needed
+
+`./scripts/audit-undeclared-recurrence.sh` lists them. I did not classify them — it is judgement
+inside other lanes, and the draft that tried found its own counter-example (`claims-auditor`
+genuinely needs the counter). One lane sweeps with owners consulted, or each lane runs the audit.
+Nothing is blocked.
+
+## Decision 4 — the 661 dead rows: already yours, now better understood
+
+Still `RFC_010` / `033` D2's decision. What is new: 205 are historical and safe to close; 212 are
+`page_rerender` a re-render would trivially resolve; 230 belong to `352`. And the pile is 247
+keys wearing 661 rows, so "drain it" is a smaller job than the headline number suggests.
+
+## Decision 5 — the `345` ownership collision: nothing broken
+
+Code committed, green, inert. The other session is the council submitter. Only question: name one
+owner so the next instruction does not fork.

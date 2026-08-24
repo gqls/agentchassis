@@ -232,6 +232,40 @@ sentence long — **does the mechanism I am proposing to change actually appear 
 and I skipped it while writing an RFC whose whole subject is a mechanism being blamed for damage
 it did not do. The peer ran it for me. `WRONG_CALLS.md`, same date.
 
+## 6b. CORRECTION 2026-08-24 — this RFC conflates two arms with different problems, and the options are mis-costed as a result
+
+Re-measured when the owner asked for a review before ruling. Full figures in
+`bugfix_326_retry_the_front_door/DECISIONS_2026-08-24_what_needs_an_owner_ruling.md` (second
+version); the corrections that change this document:
+
+- **Arm A (drop under 3h) and Arm B (two-strike → `unresolved`) are not one problem.** Arm A is
+  326's bug and has **no legitimate use for any caller** — nothing wants its request destroyed
+  with no record. Arm B is a designed landfill. Of its 661 rows (2026-08-24), **431** are action
+  requests that should never have been braked (a classification failure: 205 historical
+  `improve_tool`, 212 ongoing `page_rerender` from the **Go** discovery sweep at ~3.4/day) and
+  **230** are the brake working correctly on a fixer that reports done without fixing
+  (`bugs_open/352`). Deferring Arm B would re-dispatch that futile fix every 12h.
+- **The duplication is the landfill's real disease, and only the deferral fixes it:** 661 rows
+  over **247** keys, 2.68 per key, worst key 91 rows in two days — because `unresolved` sits
+  outside the dedup index and every re-detection lands a fresh corpse. A deferred row holds the
+  slot.
+- **§3's cost of option A was wrong by ~70×.** "~529 keys armed" is exposure, not volume; the
+  actual extra dispatch under A is ~8/day. §3's "B collapses into a second spelling of
+  `recurrenceExpected`" is also wrong for detectors, which today have no lever between "brake
+  me" and "bury me".
+- **Two options were missing.** **D:** defer Arm A only — the smallest change that ends silent
+  destruction for everyone, with an unambiguous safe side (the patch minus its two-strike branch).
+  **E:** set `recurrenceExpected: true` on the ~10 Go action-request producers — per-caller,
+  exactly the 2026-08-02 §2 shape, no mechanism change, and the only thing that stops the
+  `page_rerender` bleed the config census cannot see.
+- **`on_dedup` (edit 2) is separable from the deferral** and its low-severity objection is now
+  answered by query (0 live workflow conditions branch on `deduped`/`inserted`, 2026-08-24). It
+  can be resubmitted alone; migration 573 does not wait on this RFC.
+
+The author's view moves accordingly: **D + E now, the census alongside; the duplication to
+RFC_010 where it already lives; the detector rows to 352.** A remains the only option that also
+fixes duplication, at ~8 dispatches/day, not 570.
+
 ## 7. What this RFC is NOT asking for
 
 - **Not** a decision on the 635 existing `unresolved` rows. Draining that landfill is RFC_010 /
