@@ -335,9 +335,79 @@ prohibition ("never", "must not", "do not say", "unacceptable"), prompt for the 
 **when you write "must never X" into a brief, add the matching `banned_claims` pattern in the
 same edit**, then prove the pair fires on the forbidden string and stays silent on the live page.
 
-⚠ **`[UNVERIFIED]`** whether `SpecEditor` renders `evidence_base` usefully (313 rows, large JSON),
+~~⚠ **`[UNVERIFIED]`** whether `SpecEditor` renders `evidence_base` usefully (313 rows, large JSON),
 and whether a hand-edited `banned_claims` entry is picked up without a re-seed. Check both before
-building anything on this.
+building anything on this.~~ **BOTH RESOLVED 2026-08-24** — raised by the `apis_uk_bees_homepage`
+lane, re-verified here. And one of them turned up a hazard that outranks everything else in this
+plan.
+
+**Q2 — does a hand-edited ban take effect without a re-seed? YES, immediately.** `loadEvidenceBase`
+(`platform/orchestration/actions/validate_page_content.go:1281`) is a plain live read of
+`site_specs … aspect='evidence_base' AND is_current = true`. No cache, no seed step, no rebuild;
+`is_current` resolves at call time. **So "add the ban in the same save" is genuinely available
+from the console** and the §6h remedy keeps its shape.
+
+**Q1 — sizes, and a correction to my own figure above.** ~~`evidence_base` (**313** rows)~~ —
+**313 is ALL rows including superseded history; only 19 are current** `[MEASURED 2026-08-24]`:
+
+| | |
+|---|---|
+| rows with a **current** `evidence_base` | **19** |
+| largest current | **95,730 bytes** |
+| average current | **17,850 bytes** |
+
+> **That is the same error I logged twice today, a third time.** I quoted a row count from a
+> supersede-then-insert table as if it were a population of live registers. `site_specs` keeps
+> history — every aspect count in §6h above (`content_direction` 94, `briefing` 64, …) is a
+> history count, not 94 live content directions. The counts still make the point they were cited
+> for (both kinds of aspect are in live use, edited through one editor) but **no figure in §6h
+> should be read as "how many sites have this".** Filter `is_current` before quoting any
+> `site_specs` count. Caught by the same lane, not by me.
+
+So a naive JSON textarea is ~17KB typical, ~94KB worst case. The hard element is not the array:
+`apis.uk`'s current register holds 40 bans, 41 allowed entities **and a 3,733-character
+`writer_block` — one multi-paragraph prose field inside the JSON.** A generic key/value editor
+makes that field close to unusable.
+
+#### ⚠⚠ THE HAZARD: the console can switch a site's claims checking OFF, silently, with a 200
+
+This is the sharpest thing in this document and it is live today — it needs no new screen.
+
+`HandleUpdateSiteSpec` (`site_admin_handlers.go:203-238`) binds `data` as `json.RawMessage` and,
+in one transaction, **supersedes the current row and inserts the new one**. It validates
+**nothing about the shape** — only that the envelope is JSON.
+
+Now the receiving end, and it is quieter than "malformed JSON gets logged":
+
+- `ParseEvidenceBase` (`datahelpers/claims.go:278`) returns an **error** only on `json.Unmarshal`
+  failure — the case a `jsonb` column would reject anyway.
+- **It returns `(nil, nil)` — no error — when the parsed object has no facts, no banned claims
+  and no regulated attestation** (`claims.go:291`).
+- So valid JSON of the **wrong shape** — a misspelt `bannedClaims`, a pasted fragment, an object
+  nested one level too deep — unmarshals cleanly into an empty struct and comes back `(nil, nil)`.
+- `loadEvidenceBase` then never reaches its warn branch (`err == nil`), and returns **nil with no
+  log line at all**. `UnrecognisedKinds()`/`AliasedKinds()` are nil-safe (`claims.go:230-233`,
+  with a test asserting it), so there is no panic either.
+
+**Net effect: one save of well-formed-but-wrong JSON supersedes a good register, returns 200 and
+a success toast, and every claims lane on that site silently no-ops from then on. The site then
+reports clean — because nothing is checking.** The good register is already `is_current = false`
+by the time anyone could notice, recoverable only from history.
+
+**What the editor owes, before it is trusted with this aspect** — none of it needs backend work
+beyond the handler:
+1. **Parse-and-reload on save**, not just a 200: re-read the row through `ParseEvidenceBase` and
+   fail the request if it comes back nil for an aspect that previously parsed non-nil.
+2. **Show the counts back** — "40 banned claims, 12 facts saved" — because a zero there is the
+   whole signal, and it is the one number a wrong-shape save cannot fake.
+3. **Refuse to supersede a non-empty register with an empty one** without an explicit confirm.
+4. The aspect is a free string with **no allow-list**, so a typo creates a fourteenth aspect that
+   nothing reads (13 distinct current aspects on `apis.uk` alone) — the same silent-no-op class
+   one level up. An allow-list, or a warning on an unknown aspect, closes it.
+
+**This is `bugs_open/105`'s own lesson repeating one layer out**: that fix made an unrecognised
+fact *kind* announce itself rather than behave as a default. An unrecognised evidence_base
+*shape* still does not announce itself at all.
 
 ### 6i. Falsifiers for everything above
 
