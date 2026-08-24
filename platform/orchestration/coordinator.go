@@ -3958,6 +3958,49 @@ func (s *SagaCoordinator) routeToErrorStep(ctx context.Context, state *Orchestra
 		"message":     errorMsg,
 	}
 
+	// bugs_open/243: `__step_error` above is a SINGLE key and it is OVERWRITTEN on
+	// every routed failure, so in a workflow where two steps fail the first is
+	// erased and no downstream step can ask "did MY predecessor fail?". The
+	// council gate needs exactly that question answered: a review seat whose call
+	// failed leaves its result field absent, which is indistinguishable from a
+	// seat the relevance filter skipped — and diagnose_council_decide must not
+	// conflate "an opinion we were owed and lost" with "not applicable".
+	//
+	// Accumulate per step, ALONGSIDE the key above rather than replacing it: every
+	// existing reader of `__step_error` is unaffected, and nothing reads
+	// `__step_errors` until a consumer opts in.
+	stepErrors, _ := state.CollectedData["__step_errors"].(map[string]interface{})
+	if stepErrors == nil {
+		stepErrors = map[string]interface{}{}
+	}
+	// BOUNDED, because this path is fleet-wide and not council-scoped (the
+	// guardian seat's objection on correlation 82f07fa6). routeToErrorStep is hit
+	// by every routed step failure in every workflow, and a loop that expands into
+	// many failing iterations produces a DISTINCT step name per iteration — so an
+	// unbounded map would grow `collected_data` without limit on exactly the runs
+	// that are already going badly. At the cap we stop admitting NEW steps and
+	// record that we did; re-failures of a step already present still update in
+	// place, and `__step_error` above continues to carry the latest failure
+	// whatever happens here, so the single-failure case (which is every council
+	// round) is unaffected.
+	const maxStepErrors = 50
+	if _, alreadyPresent := stepErrors[failedStepName]; alreadyPresent || len(stepErrors) < maxStepErrors {
+		stepErrors[failedStepName] = map[string]interface{}{
+			"message": errorMsg,
+			"at":      time.Now().UTC().Format(time.RFC3339),
+		}
+	} else if _, noted := stepErrors["__truncated"]; !noted {
+		// Never silently: a consumer must be able to tell "this step did not fail"
+		// from "we stopped recording". Without this, a seat whose failure fell off
+		// the end would read as an abstention — the exact conflation this record
+		// exists to prevent.
+		stepErrors["__truncated"] = map[string]interface{}{
+			"message": fmt.Sprintf("step-error record capped at %d entries; later distinct steps are not listed", maxStepErrors),
+			"at":      time.Now().UTC().Format(time.RFC3339),
+		}
+	}
+	state.CollectedData["__step_errors"] = stepErrors
+
 	// Log to agent_error_log for persistent error tracking
 	entry := s.buildErrorEntry(state, failedStepName, errorMsg)
 	entry.Severity = "error" // routed to error_step, not fatal
@@ -4454,6 +4497,32 @@ func (s *SagaCoordinator) completeWorkflow(ctx context.Context, state *Orchestra
 		zap.String("owner_agent_type", state.OwnerAgentType))
 
 	state.Status = StatusCompleted
+
+	// bugs_open/354: a run that ends at a terminal its author declared to be an
+	// ERROR terminal, having suffered a routed step failure, used to be recorded
+	// with error NULL — indistinguishable from a run that executed every step.
+	// Record the failure on the row. The status stays COMPLETED and the parent is
+	// still told success: changing either is authority on a shared seam and
+	// belongs to 354's architecture RFC (bugs_closed/344 deferred exactly this
+	// twice; RFC_023 is a hard guardian veto on scope for re-typing COMPLETED on
+	// this table). See error_route_completion.go for why the discriminator is a
+	// declaration and not a structural rule — three structural rules were tried
+	// and measured, the best reaching 36% of the real population.
+	if errMsg, endedOnErrorTerminal := errorRouteTermination(state); endedOnErrorTerminal {
+		state.Error = errMsg
+		state.ProcessingHistory = append(state.ProcessingHistory, ProcessingRecord{
+			PodName:   s.podName,
+			StepName:  state.CurrentStep,
+			Action:    "completed_on_error_route",
+			Timestamp: time.Now(),
+			Details:   errMsg,
+		})
+		s.logger.Warn("WORKFLOW_COMPLETION: run ended at a declared error terminal — recording the failure on the row (bugs_open/354)",
+			zap.String("orchestration_id", state.OrchestrationID),
+			zap.String("terminal_step", state.CurrentStep),
+			zap.String("owner_agent_type", state.OwnerAgentType),
+			zap.String("error", errMsg))
+	}
 
 	state.ProcessingHistory = append(state.ProcessingHistory, ProcessingRecord{
 		PodName:   s.podName,
