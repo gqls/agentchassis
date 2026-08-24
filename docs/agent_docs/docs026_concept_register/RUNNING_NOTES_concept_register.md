@@ -2582,3 +2582,23 @@ It also sharpens the note above: two of DBI-014's four checkable figures have no
 **two different lanes in two different weeks** (`567` for the log arm, `566` for the orchestration
 arms), neither of which knew the entry existed. That is the register's own case for existing, and it
 is a cleaner example than a single stale number.
+
+**CORRECTION to the note above, 2026-08-24 — I said I would not file the entry, and then I filed
+it. Stating that plainly rather than leaving the two in contradiction.** Item 1 above says the
+mechanism belongs to the `465`/`466` lane and that the register bar excludes bug fixes, so the
+entry was theirs to write. That reasoning held while I was only *fixing* the mechanism. It stopped
+holding when the owner asked me to go ahead with the terminal/pausable guards (`589`), because I am
+now *altering* what the mechanism guarantees — and the 2026-07-28 owner ruling's condition (2)
+requires such a seam to be **registered in the same commit that ships it**, with its landmine and
+open review question. That obligation is mine, not this lane's.
+
+So `DBI-026` exists as of commit `9e0b0daa9`, in `register/database-and-infrastructure.md` with its
+index row, no DBI drift. **What it does NOT do is close item 2** — `DBI-014`'s drifted figures are
+untouched and still that entry's own repair, and `DBI-026` deliberately points at it in `relations`
+rather than quietly restating it. **`DBI-026`'s status line says `589` is written but NOT YET
+APPLIED**, which was true when written; if you are reading this later, check
+`pg_constraint` for `chk_status_not_terminal_and_pausable` rather than believing the entry.
+
+The change of circumstance is the only thing that changed. If the lane would rather own `DBI-026`
+outright, or fold it into `DBI-014`, treat mine as a first draft written by the session that had
+the mechanism open — not as a fait accompli.
