@@ -309,3 +309,50 @@ are real.
 
 Second-order: this is the same shape as the estate's "your own action can silence your own
 detector" family, one step earlier — the sample that motivated the fix also flattered it.
+
+## 2026-08-24 (later) — the fresh chassis roll: DGH-016 re-verified live, and the observation is owed for a MEASURED reason
+
+Fleet rolled today. Re-checked both halves of DGH-016 rather than assuming the roll preserved
+what 08-22 verified.
+
+**Both services run commit `70fd163c2`**, of which the shipping commit `4ee9bfff6` is a proven
+ancestor:
+- **git-adapter** — its own `build provenance` line, `git_commit: 70fd163c2…`.
+- **chassis** — the provenance line had already scrolled (absent from `--tail=400`, which per
+  LANDMINES means "not in range", NOT "unstamped"), so in-pod
+  `grep -aq <sha> /proc/1/exe`: **present**, with a **fabricated sha correctly absent** as the
+  negative control.
+- ⚠ Worth recording because it narrows an existing landmine: the in-pod probe **does** work for
+  the commit sha, even though DGH-016's own entry records it giving FALSE NEGATIVES for the
+  message constants on 08-22. Different sections of the binary. "In-pod grep is unreliable" is
+  too broad a lesson to carry forward from that incident.
+
+**Two controls, both directions, on the ancestry method itself.** My first negative control
+FAILED — and the control was wrong, not the method. I picked my own newest commit (`db7781409`,
+15:10 BST) expecting it to be absent; the build is `70fd163c2` at **16:11 BST**, so my commit is
+legitimately IN it. A negative control has to be something that *cannot* be in the build: I
+re-ran with `313421727` (17:15 BST, after the build) → correctly FALSE, and `4ee9bfff6` →
+correctly TRUE. **A control that cannot come out the other way is not a control** — and picking
+one that predates the artefact is an easy way to build that mistake.
+
+⚠ **Timezone nearly manufactured an anomaly.** The pod log stamps `Z`; git stamps `+0100`. The
+pod's `15:39:46Z` is **16:39 BST**, i.e. AFTER the 16:11 BST build commit — consistent. Read
+naively as the same clock it reads as a pod running code that did not yet exist, which is the
+kind of "impossible" finding that sends you hunting a deploy bug that is not there.
+
+**Item 1 (the live enforcement observation) is still owed — and now for a reason I have
+measured rather than assumed.** `grep -c 'shrink floor'` over the adapter's last 3,000 lines is
+**0**. That zero is explained by demand, not by a broken guard: **0** commits in that window
+carry a file key ending `.css`, against **253** commit/push lines for other file types.
+
+⚠ **The demand control took three attempts and the first two PASSED WHILE BLIND**, which is the
+part worth keeping:
+1. *"any commit activity"* → 253. Licenses nothing: the guard fires on stylesheet writes, not
+   commits in general.
+2. *"any payload containing CSS"* → hundreds of matches, all of them **inline `<style>` blocks
+   inside ordinary HTML page commits**. Looks like exactly the right control and is not.
+3. *"file KEY ends in `.css`"* → **0**. This is the axis the guard actually varies on.
+
+The first two would each have let me write "no css deploys have happened" or "the guard is
+silent on live traffic" with a number attached. Same lesson as this morning's, third time today:
+**the measurement answers the question you ENCODED.**

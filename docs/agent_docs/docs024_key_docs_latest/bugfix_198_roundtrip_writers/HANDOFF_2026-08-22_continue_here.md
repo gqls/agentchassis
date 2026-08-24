@@ -60,6 +60,18 @@ before concluding a probe was refused rather than held (§11).
    `kubectl -n ai-persona-system logs -l app=git-adapter --tail=500 | grep 'commit passed the shrink floor'`
    That one line proves the field crossed the wire, the guard measured, AND a healthy commit
    still passes — none of which a binary probe can show. Then update DGH-016's status line.
+
+   > **UPDATED 2026-08-24 (after the fleet roll) — STILL OWED, and now for a MEASURED reason.**
+   > Both services re-verified on commit `70fd163c2` with `4ee9bfff6` a proven ancestor
+   > (git-adapter by its own provenance line; chassis by in-pod `grep -aq <sha> /proc/1/exe`
+   > with a fabricated-sha negative control). DGH-016's status line and the concept index are
+   > updated. **Why the observation has not happened:** `grep -c 'shrink floor'` = **0**, and
+   > **0** commits in the adapter's last 3,000 lines carry a `.css` file key, against **253**
+   > commit/push lines for other types — zero demand, not a silent guard. ⚠ Two demand controls
+   > PASSED WHILE BLIND before that one: "any commit" (253) and "any payload containing CSS"
+   > (matches inline `<style>` in ordinary HTML commits). The axis that must vary is the
+   > **`.css` FILE PATH**. Nothing here can be forced: my own notes deliberately declined to
+   > induce a css-patch deploy, because the only sites that exercise the refusal arm are live.
 2. **Candidate 6 — FILED as `bugs_open/352` (2026-08-22) and OWNED by another lane since
    2026-08-24. Not this lane's work any more — do not start a competing fix.** css-patch writes
    rules against selectors that do not exist: `H3.H3` (dartsonline), `p.P` ×2
