@@ -697,3 +697,56 @@ The independent two-armed proof in the council section above (NULL cannot match 
 - *"A writer hunt is probably a dead class … check whether the manual/adoption route is scheduled to
   run again"* → **answered**: dormant since 2026-08-15 across three batches, **not** proven dead.
   The trigger closes it without a hunt.
+
+---
+
+## CLOSED 2026-08-24 — both halves live and proven at the artefact
+
+**The bar is fixed AND live, and both halves now meet it.** Recording the closing evidence here
+before this file moves to `bugs_closed/`.
+
+### Half 1 — the predicate (the bug as filed)
+
+`sectionTemplateValid` is structural, `endsCleanly` tolerates trailing `{{end}}`. Committed
+`97c337371`, **live** (chassis `v1.0.1332` = `0b262ed5e`, and its predecessor `f5eaabe33`; ancestry
+checked with a control that correctly reports NOT an ancestor). Council **`7b662d65` APPROVED**
+round 1; both advisories acted on, and one of them found 12 rows at other component levels my
+calibration had never covered — **6 more rescued, 0 regressed**, taking the fleet total to
+**28 rescued, 0 regressed** as of 2026-08-23.
+
+**Demand-proven**: three cross-site reuses on `loanzy.uk` on 2026-08-23 (13:57Z, 14:07Z, 14:23Z) of
+`section_type IS NULL` incumbents born on another site, with **no `needs_new_component` filed** —
+and the dedup-window argument stated, so the absence actually discriminates.
+
+### Half 2 — the birth door
+
+Migration **`581`** / register **CLC-029**, council **`f0cd2420` APPROVED** round 1 (two medium
+advisories acted on: the UPDATE mutation path closed, and idempotency fixed). **Applied 2026-08-24**
+and recorded in `schema_migrations` the same minute. **Proven behaviourally on the live table:**
+
+| probe | result |
+|---|---|
+| birth with NULL `section_type` | **refused** (23514) |
+| clearing `section_type` on a real row (`faq`) | **refused** (23514) |
+| repair UPDATE to a standing NULL row (`824e3309`) | **succeeded** — the carve-out holds |
+| labelled section birth | **succeeded** |
+
+All inside rolled-back transactions; nothing persisted.
+
+### What is deliberately NOT fixed, and is not a residual to chase
+
+- **The 25 standing NULL rows are not backfilled**, by the recorded ruling of 2026-08-23. They are
+  bound and in service via Paths 0/1, and a backfill would harm two consumers. ⚠ **The reason this
+  file originally gave for declining the backfill is SPENT** — do not re-derive "it must be safe
+  now" from it; read the ruling section instead.
+- **`content_components.usage_count` is written on one of the two resolution paths and scored on the
+  other.** Found here; **filed separately as `bugs_open/378`** with its own evidence, candidates and
+  a `[UNMEASURED]` list. Not a 351 residual — a different defect that 351 merely walked past.
+
+### For whoever greps this later
+
+This file moves to `bugs_closed/` in the same commit as this section, so **`git log` on the
+`bugs_open/` path will not find the closure** — search by content or by the `bugs_closed/` path. The
+lane's working record stays at
+`docs/agent_docs/docs024_key_docs_latest/bugfix_351_section_template_predicate/` (HANDOFF with a
+current-state block at the top, NOTES with six recorded missteps, README in plain prose).
