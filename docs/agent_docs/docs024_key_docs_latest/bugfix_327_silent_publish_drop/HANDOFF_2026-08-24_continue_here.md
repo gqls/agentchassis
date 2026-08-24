@@ -3,6 +3,12 @@
 **Read this first, then `NOTES_silent_publish_drop.md` (evidence + every misstep) and
 `RUNBOOK_silent_publish_drop.md` (the commands, with their gotchas).**
 
+**For the read-aloud version — what this is and why it matters — take the SUMMARY SERIES in
+order:** `SUMMARY_2026-08-23_…` then `SUMMARY_2026-08-24_…`. The second exists because two of
+the first's headline claims **inverted** (the fix became reviewable; the remaining-work figure
+was corrected and re-scoped). **Read both — the 08-23 file is deliberately not amended**, and
+the pair is the record of how the understanding moved.
+
 > ⚠ **TWO BUGS SHARE THE NUMBER 327. Resolve by SLUG.** This lane is
 > `bugs_open/327_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md`.
 > The other — `bugs_closed/327_..._a_partial_spec_write_silently_shrinks_the_brief...` — was
