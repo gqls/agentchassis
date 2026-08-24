@@ -854,3 +854,67 @@ images, and they will need re-embedding afterwards. That is why one was dispatch
 **canary** rather than all three, and why the images are being watched while it runs.
 **The durable fix is not more hand-embedding** — it is a component with an image slot, or
 image markup the writer is told to preserve. Recorded as the open question it is.
+
+## 2026-08-24 — the mechanism: a component that carries its own image (CLC-030), and what it does not fix
+
+Owner: *"create the component with an image slot and/or a section plan that can carry
+per-section subjects … it's the mechanism that would be good to fix here."*
+
+### The component-hierarchy route is NOT available — checked before building on it
+
+The owner thought `features_open/035`'s "component containing other components" was built
+but unused. **It is less built than that.** `page_components.parent_instance_id` is read by
+**zero** Go files and set on **0 of 2,005** rows as of 2026-08-24, and that lane's own
+summary says *"Nothing is built; the plan is staged."* Its P1 is council-gated and was
+deferred on another lane's uncommitted WIP. So it is **a column and a design, not a
+mechanism**, and building it here would duplicate an owned, gated project. Recorded in
+CLC-030's relations so the next reader does not repeat the assumption.
+
+### The component-creator produced something unusable
+
+Fired the framework's own `component-creator` first, since the owner asked for this to go
+through the framework. It returned a **`hero-headline`** component — CTA buttons, "trust
+signals", `company_name` — filed under `section_type='illustrated-text-block'`. It ignored
+the brief completely, and commercial boilerplate is the exact opposite of what a page with
+no offer needs. Deactivated per the trigger script's own cleanup note, and the component
+was written as a library row instead. **The component library IS the framework's extension
+point; the generator is not the only door into it.**
+
+### CLC-030 — `illustrated-text-block`
+
+Five fields — `heading`, `content`, `image_url`, `image_alt`, optional `image_caption` —
+with figure and caption **separately** gated, so with no image it degrades to plain prose
+with no empty figure and no blank space (`bugs_open/111`'s rule). Keeps
+`.section/.container/.section__title/.section__content` so the existing stylesheet applies
+unchanged, ships its own scoped `<style>`, and satisfies all four component-creator
+contracts (`data-component`, `<function>-section` class, a `--color-` var, an `@media`).
+
+**Why it matters, in one line:** an image expressed as a component FIELD is data the writer
+does not own; an image expressed as body HTML is prose the writer will overwrite. The six
+hand-embedded images were deleted by a content rewrite four minutes after shipping on
+08-23. That is the defect this closes.
+
+**Live:** all six sections on apis.uk/index now render through it,
+`data-component="illustrated-text-block"` ×6, every image 200, served bytes == repo commit.
+
+### Two mistakes I made getting there
+
+1. **I destroyed the images with a bad extraction.** Pulling section text out of psql with a
+   `\x1f` field separator and splitting on LINES — the content contains newlines, so rows
+   were truncated, the image regex matched **0 of 6**, and I wrote back six sections with
+   the figures stripped. **A row-oriented parse of a field that can contain newlines is a
+   silent truncation.** Redone entirely in SQL with `jsonb_build_object` and no text
+   round-trip, which is what I should have done first.
+2. **The canary did land, late, and rewrote everything.** The `content_rewrite` for the
+   waggle dance first failed on the shrink guard, then succeeded — and rewrote **all six
+   sections about the waggle dance**. So a single-subject suggestion regenerates the whole
+   page. Content restored from the still-live attempt-2 orchestration (`7304b797`).
+
+### What is STILL not fixed, stated plainly
+
+**Subject allocation.** `pages.sections` is parsed as `[]string` (`PlannedSections`), so the
+plan has nowhere to carry a per-section subject, and every slot gets the same brief. Making
+it object-shaped is a Go change to the parse, with blast radius over every page the renderer
+assembles — architecture-scope, its own register entry, not something to slip in beside a
+site fix. **Four builds have now demonstrated the defect; none of them was a wording
+problem.** CLC-030 makes imagery survive a rewrite. It does not make six sections differ.
