@@ -627,7 +627,9 @@ hypothesis neither lane had named: the OWNER ran the scratchpad file
 out-of-band before the in-session rerun.** Every forensic detail matches the
 file to the letter — append-at-END on chart, create-from-NULL on timeseries, no
 `updated_at` set (the file doesn't set it) — and the owner was the one hand
-holding it. Asked directly; answer pending. **Fallout banked either way:** the
+holding it. Asked directly; **CONFIRMED 2026-08-24: the owner "may have run
+that twice" — attribution CLOSED as the owner's out-of-band first run of the
+idempotent script. No unattributed writer existed.** **Fallout banked either way:** the
 table-level fact (no `updated_at` trigger — sole trigger is
 `trg_cc_refuse_null_section_type`; no history for non-template columns) is now
 a LANDMINES entry, verifier dispatched (corr `967dc071`), committed via a
