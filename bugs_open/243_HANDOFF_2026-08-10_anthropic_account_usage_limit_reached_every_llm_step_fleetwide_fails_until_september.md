@@ -587,3 +587,134 @@ replicas; it simply has not been reached.
 **Recovery check (from §6, unchanged):** `SELECT max(created_at) FROM llm_call_log WHERE success;`
 — it must move, and keep moving, before declaring it over. Last time the owner added credit and the
 fleet came back in ≈3h20m, 21 days before the stated calendar date.
+
+---
+
+## 2026-08-24 — THIS FILE NOW HAS AN OWNER, and three of its standing claims need correcting
+
+Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_243_provider_cap_resilience/`
+(opened today, commit `9dd907e20`). Taken up because the file says "OPEN, unowned" and six
+lanes have contributed occurrences without any of them owning the *platform's response* to the
+condition. The cap itself remains the owner's to clear; nothing in this lane touches it.
+
+### 1. The rate is roughly double what this file's narrative implies
+
+This file counts **narrated incidents** — the occasions on which somebody happened to be
+present. Counting **days on which the refusal actually arrived** `[MEASURED 2026-08-24]`:
+
+| day | cap failures | ok | all failures |
+|---|---|---|---|
+| 08-10 | 7 | 457 | 7 |
+| 08-14 | 28 | 751 | 38 |
+| 08-17 | 4 | 867 | 6 |
+| 08-19 | 5 | 914 | 13 |
+| 08-21 | 3 | 1223 | 6 |
+| 08-22 | **113** | 1063 | 116 |
+| 08-23 | 32 | 1109 | 36 |
+| 08-24 | 0 | 750 | 2 |
+
+**Seven of the last fifteen days**, not three occurrences in 22. On 08-22 the cap was 113 of
+the 116 failures of *any kind* that day. The query is in the lane's RUNBOOK §3.
+
+Also: the refusal always quotes a reset on the **1st**, so this is a **monthly** limit, and the
+events cluster toward month-end as spend accumulates `[INFERRED from the reset-date shape plus
+the clustering, not from any billing API]`. It makes a falsifiable prediction — **expect
+recurrence between now and 08-31**, and expect early September to be quiet regardless of what
+anyone fixes.
+
+### 2. ⚠ `bugs_open/244` IS FIXED AND LIVE — and it did NOT prevent this
+
+This file tells the reader in **four** places that 244 is "the actionable prevention", "the
+cheaper prevention", and that fixing it makes this bug's trigger "largely go away". **244 has
+been fixed and live since 2026-08-10 evening** (its own banner; `3d6851d9b`, `071adc44c`,
+migration 376). It worked, and it was not enough:
+
+| day | full-price input | cache read | cache write |
+|---|---|---|---|
+| 08-09 (pre-cache) | 42,716,865 | 0 | 0 |
+| 08-21 | 5,708,697 | 121,127,386 | 12,338,987 |
+| 08-22 | 6,664,088 | 102,528,376 | 9,972,791 |
+
+Full-price input fell ~7×. But total prompt volume grew several-fold, so on the standard
+weighting (reads 0.1×, writes 1.25×) **effective input spend fell only ~30%** — and **the two
+worst cap days in the entire record are after the fix.** So: the prevention landed and the bug
+got worse. **Anyone reading this file to decide what to do next should stop waiting for 244.**
+
+### 3. ⚠ CORRECTION to the 08-17 "Falsifier resolved" section — the probe cannot see this condition
+
+That section poses two branches — (a) intermittent cap, the probe lost a coin-flip; (b) the cap
+bites the probe's model specifically — and resolves to (a) on the evidence that *"the
+12:09:53Z-due probe ran at 12:10:18Z and returned `healthy=true`"*.
+
+**That evidence cannot discriminate between the branches.** `ai_endpoint_health.claude` has
+`ping_path='claude_ping'`, so the probe runs `pingClaude`, whose status switch
+(`check_endpoint_health_action.go:220-231`) is: 200→true, 402→false, 401→false, 529→true,
+**default→true** (*"any non-auth error means API is reachable"*). **The cap is a 400** — this
+file's own §1 emphasises that. So a capped probe and a healthy probe write the identical row.
+**The probe cannot lose that coin-flip**, because it cannot fail on this condition at all.
+
+The conclusion may still be true — the *other* evidence in the same addendum (93 of 99 live
+calls succeeding) does support an intermittent cap — but the probe result contributes nothing
+to it, and the "lost coin-flip" framing is wrong. Two consequences:
+
+- **The probe is a TIMER, not a health check**, for this condition: it clears the flag on its
+  next tick whether or not the provider is still refusing us. That is why the wedge is bounded
+  by `check_interval_seconds`, not by the outage.
+- **The addendum's first suggested fix — "require N consecutive failures before marking
+  unhealthy" — is aimed at the wrong place.** The probe is not the writer of `false`. Live
+  traffic is, via the single `update_endpoint_health` caller at `ai_actions.go:634`. Building
+  that suggestion as written would harden a path that never fires for this condition.
+
+### 4. The asymmetry that makes seam A worse than the addendum states
+
+`grep -rn "update_endpoint_health" --include=*.go platform/ internal/ pkg/` → **exactly one
+hit**, `ai_actions.go:634`, which **only ever passes `false`**. No SQL trigger on the table
+(`pg_trigger` → 0 rows) and it is the only `pg_proc` mentioning it. The **sole** writer of
+`healthy=true` is the probe (`check_endpoint_health_action.go:138`).
+
+**So live traffic can mark the fleet's claim gate DOWN, and nothing that succeeds can mark it
+UP.** The 08-17 addendum attributes the wedge to the probe's lost sample; the more common
+trigger is ordinary traffic, and the recovery path is unrelated to the failure that set it.
+`check_interval_seconds` for claude is **still 3600 today** — this is unfixed.
+
+### 5. Submitted, with the fix shaped around one non-obvious hazard
+
+Council `SUBMISSION_CORR = 82f07fa6-1c42-46ad-bdf6-1d58892c44a7` (2026-08-24). Four edits:
+a symmetric health writer on the success path; per-step failure records in `routeToErrorStep`;
+the council classifying an errored seat as **unreadable**; and a `_HOLD` migration repointing
+the 17 seats' `error_step` to their own `next_step` and cutting the claude probe interval
+3600→60.
+
+**The hazard, recorded here because it is the trap in the obvious fix.** The 08-19 contribution
+proposes pointing the seats' `error_step` "at a tolerate-this-seat path". Doing *only* that
+makes the failed seat's field **absent**, and `diagnose_council_decide` counts an absent field
+as an **abstention**. Its own comment (`:311-318`) says why that is wrong: *"an abstention is a
+seat the relevance filter skipped, which is information; an unreadable seat is an opinion we
+were owed and lost… Conflating them would let a lost opinion read as a considered
+non-objection."* An `unreadable` seat downgrades an approval to REVISE (`:460`); an abstention
+does not. **So the config-only fix trades "the round dies" for "the round can APPROVE with a
+seat we never heard from, silently"** — worse, because the first failure is loud. The Go half
+must be live before the config half is applied; hence `_HOLD`.
+
+### 6. What a 090 on this returns, so the next lane does not spend one
+
+Run `6c834cc7-de0d-4b1f-b283-d6b82b8dffda`: **UNVERIFIABLE**, stopped on its **iteration cap**,
+5 bundles, **0 verdict artifacts**. Neither confirmed nor refuted. Note the LANDMINES
+discriminator (the body-omission line) came back **clean on all five bundles** — this is a
+third no-verdict shape, and the conclusion lives on `site_work_items.result`, not in
+`diagnosis_artifacts`. Declared substitute taken per the owner ruling of 2026-07-31; every link
+cited first-hand in the lane's NOTES.
+
+### 7. Still not fixed here, and still the owner's
+
+Candidate 1 (add credit) remains the only thing that restores service, and candidate 2 (a
+second provider) remains undecided — **127 of 127 configured LLM steps across 55 live agents
+name `anthropic` and the same key**, so it is a real build, not a config flip. What this lane
+changes is only how much damage each refusal does on our side.
+
+**And add to §5 candidate 1 the finding that cost ~16 hours on 08-22/23:** the fleet's key is
+**not** on the Anthropic org that `platform.claude.com` opens by default for the owner's
+address. Billing read `$0.00 spent / 0% used` against a $2,000 limit *while* the API was
+refusing. The decisive column is **Organization settings → API keys → `Last used`** — a live
+key can never read "30+ days ago", because a failed call is still a use. Full signature:
+`~/.claude/projects/*/memory/the-fleet-key-is-not-on-the-default-console-org.md`.
