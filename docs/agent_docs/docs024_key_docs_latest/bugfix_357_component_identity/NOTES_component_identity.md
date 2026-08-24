@@ -652,3 +652,44 @@ them is an **owner decision**, not a technical exclusion, and it is now a per-ro
 - phase 2 — committed, `Council-Submitted: 74e4c1fd`, verdict pending at time of writing.
 - `b702e9d04` phase 3 — written, HELD, not applied.
 - Diagnosis `1ca712e3` — **5 bundles, no verdict**; the same scope-not-narrowing shape as this lane's earlier `090`. The root cause rests on first-hand measurement with controls, declared as the owner ruling of 2026-07-31 allows, not on the loop.
+
+---
+
+## 2026-08-24 — the stamp is LIVE AND WRITING, verified with its controls; phase 2 approved on round 2
+
+Phase 0 rolled overnight (~09:00Z, visible as a step change: hours before it are
+0-stamped, hours after are 46/48, 117/119, 24/24, **58/58**).
+
+Controls, because a non-zero count is not a working mechanism:
+- **pre-roll cohort 0 of 987** — nothing backfills, as designed;
+- **churn 1.00 versions per component** (39 rows / 39 components) — it settles;
+- **stamp truth**: 239 of 245 name the component's current template. The 6 that do
+  not are all `Illustrated Text Block`, whose component was edited at **11:15**
+  against rows written at **10:55** from a version born **10:17**. The rows are
+  right and the component drifted — a STALE ROW, which PLAN §4 predicted and which
+  is the first live demonstration of the stamp's value.
+
+### ⚠ The F2 guard's zero is currently VACUOUS, and I nearly recorded it as a pass
+
+0 of the 22 population rows are stamped — the required answer. But the demand
+control says **0 of them were born since stamping started**, so the guard has had
+no opportunity to fail. PENDING, not passed. This is the
+[[a-post-fix-zero-needs-a-demand-control]] shape and I caught it only by putting
+the demand count in the same query as the result — which is now the recorded
+re-run.
+
+### Council
+
+Phase 2 round 1 REVISE → both findings real (identity carry too broad; the
+"serves identically either way" claim unchecked against the rerender path). Round 2
+**APPROVED**. Phase 0 APPROVED. Both trails: `73a638c7`, `74e4c1fd`.
+
+### ⚠ MISSTEP (housekeeping, but it cost real disk): I hand-rolled `git archive HEAD | tar` six times
+
+Six ~450 MB trees, **2.7 GB**, left behind in one session — `head357`, `t357`,
+`headcheck`, `headcheck2`, `finalhead`, `closehead`. Each `rm -rf` in my pasted
+recipe cleared the tree that run was about to USE, never the previous one, so the
+cleanup half never fired even though it was in every command. CLAUDE.md gained
+`scripts/verify-head-builds.sh` and an explicit prohibition on the hand-rolled
+recipe on 2026-08-24 — the same day, from the same class of waste. Reaped; use the
+script.

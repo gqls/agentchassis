@@ -509,3 +509,66 @@ the fact the fix is made of actually reach the database, and stops that fact bei
   `slot_name`, `position`, `rendered_html`, `rendered_html_digest` and `pages.sections` untouched.
   **Re-census on the day** — the population mints daily, so the target is that day's query result,
   not the number 22 — and exclude the three loancash verbatim pages and the two unrelated defects.
+
+---
+
+## 2026-08-24 — VERIFIED AT THE ARTEFACT: the stamp fires. Both phases council-APPROVED. The mint is not yet stopped.
+
+Phase 0 rolled overnight. Every check from the plan, with the disconfirming result
+it was written against:
+
+| check [MEASURED 2026-08-24 ~13:30Z] | result | reads as |
+|---|---|---|
+| rows born since the 08-22 roll, stamped | **239 / 1051**, rising to near-100% per hour after 09:00Z (46/48, 117/119, 24/24, **58/58**) | the carriage is repaired |
+| **control:** pre-roll cohort stamped | **0 / 987** | nothing backfills, exactly as designed |
+| `component_versions` with `change_source='render_stamp'` | 39 rows across **39 distinct components — 1.00 each** | it settles; it has NOT become a log |
+| the stamp is TRUE: stamped version's template = component's current text | 239 of 245 match | see below — the 6 are the mechanism WORKING |
+| **the F2 guard:** 357 population rows stamped | **0 of 22** | ⚠ PENDING, not passed — see below |
+
+**The step change is the evidence, not the count.** Rows born 02:00–08:00Z carry no
+stamp; from ~09:00Z every hour is at or near 100%. That is the roll landing, and it
+is not a number a backfill or a coincidence produces.
+
+### The 6 "mismatches" are the stamp doing its job
+
+All six are one component, `Illustrated Text Block`, and the timestamps settle it:
+the version was born 10:17:06, the rows at 10:55:21, and **the component was edited
+at 11:15:21 — after the rows existed**. So the rows correctly name the template
+that produced them, and the component has drifted since. Before this change those
+six were indistinguishable from rows rendered with the new template. **That is the
+first live demonstration of what the stamp is FOR**, and a "mismatch" of this shape
+is a stale row, not a detector fault (PLAN §4 said so in advance).
+
+### ⚠ The F2 guard reads ZERO, and that zero is currently VACUOUS
+
+0 of the 22 population rows carry a stamp — the required answer. But the demand
+control says why that is not yet evidence: **0 of them were born after stamping
+started.** No population row has been minted since ~09:00Z, so the guard has had
+no opportunity to fail. It is **PENDING**, and the check to re-run is:
+
+```sql
+SELECT count(*) FILTER (WHERE pc.created_at > '2026-08-24 09:00:00Z') AS demand,
+       count(pc.component_version_id) AS stamped_must_be_zero
+  FROM page_components pc JOIN content_components cc ON cc.id = pc.component_id
+ WHERE cc.name='hero'
+   AND position(left(cc.html_template, position('{{' in cc.html_template)-1) in pc.rendered_html)=0;
+```
+Non-zero `demand` with `stamped = 0` is the pass. **Any population row appearing
+WITH a stamp means the splice hygiene failed — stop and fix before arming phase 2.**
+
+### Council
+
+- Phase 0 (`73a638c7`) — **APPROVED**, 3 advisory objections, two answered in code.
+- Phase 2 (`74e4c1fd`) — round 1 REVISE (both findings real: the identity carry was
+  broader than the bug; and I had asserted "the page serves identically either way"
+  without checking the rerender path). Round 2 **APPROVED**, 3 advisory, none high.
+
+### State: the bug is NOT fixed
+
+Population **22** as of 2026-08-24, one born today (12 were born on 08-23 — a rate,
+not a total). Phase 2 is committed and approved but ships **default OFF and is not
+armed**, so nothing is stopping the mint yet. Phase 3 is written and unapplied.
+
+**What is now true that was not: the evidence the fix is made of is real and
+checkable.** A stamped row means its component provably produced its bytes; every
+one of the 22 is unstamped, and structurally cannot become stamped.

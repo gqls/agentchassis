@@ -327,7 +327,7 @@ _Concept count retired 2026-08-09 — derived, not stored; run the drift pair in
 
 ### CLC-026 — Component provenance stamp: `RenderedTemplateSHA` → `page_components.component_version_id` (RFC_046 phase 1)
 
-- **status:** ~~**BUILT 2026-08-22, INERT BY CONSTRUCTION, NOT YET ROLLED.**~~ → **ROLLED 2026-08-22 15:10:31Z AND COUNCIL-APPROVED 18:02Z — AND IT WROTE NOTHING.** See the correction immediately below before using this entry. The write half only.
+- **status:** **LIVE AND PROVEN WRITING 2026-08-24** — after a day inert. ~~BUILT 2026-08-22, INERT BY CONSTRUCTION, NOT YET ROLLED~~ → rolled 2026-08-22 15:10:31Z, council-approved 18:02Z, **and it wrote nothing for a day** until CLC-028 repaired the carriage. [MEASURED 2026-08-24] rows born after the ~09:00Z roll are stamped at near-100% per hour (58/58, 24/24, 117/119); **control: 0 of 987 pre-roll rows** — nothing backfills. `component_versions` gained 39 `render_stamp` rows across **39 distinct components, 1.00 each**, so it settles rather than becoming a log. **And the stamp is TRUE, not merely present:** of 245 stamped rows, 239 name their component's current template and the 6 that do not are one component edited AFTER those rows were written (version 10:17, rows 10:55, component edited 11:15) — a stale row, which is the mechanism WORKING and the first live demonstration of what it is for. The write half only. See the correction below for the day it spent inert.
 
 > **CORRECTED 2026-08-23 — THIS MECHANISM WAS LIVE FOR A DAY AND STAMPED ZERO ROWS.**
 > [MEASURED 2026-08-23] **820** `page_components` rows born since the roll, **0** stamped;

@@ -48030,3 +48030,32 @@ still a minority" and carried on. **A rate difference that large is telling you 
 are under different RULES; it is a prompt to go and find the branch, not a number to caveat.**
 Had I followed the 12× instead of hedging it, it would have led straight to
 `isSelfContainedSection`.
+
+### 6 — 2026-08-24, same lane: I hand-rolled `git archive HEAD | tar` six times and left 2.7 GB behind, with a cleanup line in every command
+
+To test against committed HEAD (right instinct — another lane's untracked WIP
+reddens the working-tree suite) I extracted `git archive HEAD` into a scratch tree,
+six times over one session: `head357`, `t357`, `headcheck`, `headcheck2`,
+`finalhead`, `closehead`. About **450 MB each, 2.7 GB total.**
+
+**Every one of those commands contained `rm -rf`.** It did not help, and the reason
+is worth stating because it is invisible when you write it: the `rm -rf` is the
+**setup** half — it clears the tree the run is about to use, so it reclaims a tree
+of the *same name*, and each run picks a *new* name. A recipe that looks
+self-cleaning cleans nothing at all across runs.
+
+**What caught it:** not a disk alarm — CLAUDE.md itself, re-read at the start of the
+next session, having gained `scripts/verify-head-builds.sh` and an explicit
+prohibition on the hand-rolled recipe **that same day**, noting that **73 documents
+still spell the recipe out and 66 of them never delete anything**. So this was a
+fleet-wide pattern I contributed 2.7 GB to, on the same day someone else was
+measuring it.
+
+**The cheap check:** `du -sh` your own scratch directory before you finish. Mine
+read 2.7 GB and I had never once looked. And use the script — it writes to disk,
+refuses a tmpfs target by filesystem type, and deletes its tree on exit, which is
+three properties my copy-pasted recipe had none of.
+
+**The transferable half:** a cleanup step positioned at the START of a run is not a
+cleanup step, it is an initialisation step. If the thing you are reclaiming is named
+per-run, nothing you write at the top of the run will ever reclaim it.
