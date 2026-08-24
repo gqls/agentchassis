@@ -160,11 +160,34 @@ Owner-approved 2026-08-24. Remediation followed `bugs_closed/189`'s own worked r
 2. **The delete is recoverable and that was verified, not assumed:**
    `trg_page_component_artefact_archive_del` wrote the row to `page_component_history`
    (`op=delete`, `source=artefact_archive_trigger`, md5 `be85284e…`).
-3. **Filed an ASSEMBLE-ONLY redeploy** — `page_rerender` with **no `spec.reason`**, which
+3. **Checked `pages.sections` BEFORE redeploying** — it is a materialised cache that
+   LOCK-008 merges locked rows into, so a stale sixth entry there would have let the
+   assemble re-materialise the duplicate and made the repair look done. It held **5**.
+4. **Filed an ASSEMBLE-ONLY redeploy** — `page_rerender` with **no `spec.reason`**, which
    takes the `render_page` branch and stitches the stored `rendered_html`. Deliberately not
    `section_data_resolved`: that re-renders every section from `content_data`, which is the
    route `bugs_closed/189` warns reproduces the duplication, and it would rewrite 51 prose
-   rows on a decomposed page. Item `98529d02-6e12-47af-968b-47a29d0a3962`.
+   rows on a decomposed page. Item `98529d02-6e12-47af-968b-47a29d0a3962`, completed
+   19:04:33, commit `e1becb2a` to `gqls/sites`.
+
+**VERIFIED AT THE ARTEFACT `[MEASURED 2026-08-24]`** — the damage is gone:
+
+```
+served sha256   e3d2da2b… == the committed file, exactly   (was d30d112c…, 57,349 B)
+duplicate ids   0                                          (was 11)
+harness         react=5  vary=5  12 fields  —  identical to what GOLDEN_2026-08-17
+                recorded for this page BEFORE the damage
+divergences     8, all the cosmetic c-faq container rename; zero controls, zero numeric
+```
+
+Re-baselined afterwards: `GOLDEN_2026-08-24_post_385_repair_tool_values.json`, all 11 URLs,
+and proven to reproduce (a fresh `--compare` returns 11/11, exit 0).
+
+⚠ **If you re-verify and see the OLD page, RE-SAMPLE before concluding.** I read one `curl`
+taken ~90 s after the B2 sync had logged its upload and told the owner the publish had
+failed. It had not. `WRONG_CALLS.md` `## 2026-08-24` has why the false reading was
+persuasive — a page differing from its peers mid-sweep looks *skipped* and usually means
+*not yet reached*.
 
 **NOT done:** no code change, because no cause is established. **Deleting one row is not a
 class fix** — the writer that produced it is still live, and the next rebuild of any locked
