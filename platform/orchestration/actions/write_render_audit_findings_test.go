@@ -919,3 +919,343 @@ func TestWriteRenderAuditFindings_UntruncatedSweepAddsNoKeys(t *testing.T) {
 		t.Fatalf("unmet expectations: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// bugs_open/352 — the invented selector. Six tests, each named for the mutation
+// it catches. All pin an OBSERVABLE EFFECT (an INSERT's own args, or an
+// unexpected exec failing ExpectationsWereMet) rather than the absence of a
+// call: this package's landmine records that a test asserting a query is NOT
+// issued passes VACUOUSLY against insertWorkItem, which swallows the mock's
+// error.
+// ---------------------------------------------------------------------------
+
+// The verified selector must be what the row is KEYED on, not merely what the
+// spec records. Regress filingSelector to contrastSelector(tag,class) and the
+// key becomes "#H3.H3", which fails the two-strike pre-check's WithArgs.
+func TestWriteRenderAuditFindings_VerifiedSelectorIsFiledAndKeyed(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").WithArgs(siteID).WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	mock.ExpectQuery("INTERVAL '7 days'").
+		WithArgs(siteID, "contrast_failure:/pricing.html#.wrap H3").
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
+	mock.ExpectExec("INSERT INTO site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery("item_type = 'contrast_failure'").WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "item_key", "status", "spec", "result"}))
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB: db, Logger: zap.NewNop(), ExecutionContext: &types.ExecutionContext{},
+		StepConfig: models.Step{Config: map[string]interface{}{}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id": "run-352a",
+			"contrast": []map[string]interface{}{{
+				"url": "https://example.com/pricing.html", "tag": "H3",
+				// class carries the TAG NAME — the legacy echo. The verified
+				// selector is what must win.
+				"class": "H3", "selector": ".wrap H3", "matches": 3, "selector_verified": true,
+				"fg": "#111111", "bg": "#0f0f0f", "ratio": 1.2, "need": 4.5,
+				"font_px": 20, "over_image": false,
+			}},
+			"summary": map[string]interface{}{
+				"pages": 1, "pages_audited": []string{"https://example.com/pricing.html"},
+				"selector_scheme": "verified/v1",
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	if m := out.(map[string]interface{}); m["inserted"] != 1 {
+		t.Fatalf("want inserted=1, got %#v", m)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// A selector the BROWSER disagreed with must never reach a fixer, and the skip
+// must be COUNTED. Delete the guard and an unexpected INSERT fails the mock.
+func TestWriteRenderAuditFindings_UnverifiedSelectorIsSkippedAndCounted(t *testing.T) {
+	m := runContrastFinding(t, map[string]interface{}{
+		"url": "https://example.com/pricing.html", "tag": "H3", "class": "H3",
+		"selector": ".wrap H3", "matches": 0, "selector_verified": false,
+		"fg": "#111111", "bg": "#0f0f0f", "ratio": 1.2, "need": 4.5,
+		"font_px": 20, "over_image": false,
+	}, "verified/v1")
+	if m["skipped_unverified_selector"] != 1 {
+		t.Errorf("want skipped_unverified_selector=1, got %#v", m["skipped_unverified_selector"])
+	}
+	if m["inserted"] != 0 {
+		t.Errorf("an unverified selector must not be filed, got inserted=%#v", m["inserted"])
+	}
+}
+
+// A BARE TAG is a site-wide patch: css-patch-agent appends to the one site
+// stylesheet, so `p { … }` recolours every paragraph on the site. Refused and
+// counted. This is reachable on an OLD-shape reply too (a whitespace-only
+// className survives the adapter's `||` fallback as " ", and strings.Fields(" ")
+// is empty), which is why the fixture here sends no selector at all.
+func TestWriteRenderAuditFindings_UnanchoredBareTagIsSkippedAndCounted(t *testing.T) {
+	m := runContrastFinding(t, map[string]interface{}{
+		"url": "https://example.com/pricing.html", "tag": "P", "class": " ",
+		"fg": "#111111", "bg": "#0f0f0f", "ratio": 1.2, "need": 4.5,
+		"font_px": 20, "over_image": false,
+	}, "")
+	if m["skipped_unanchored_selector"] != 1 {
+		t.Errorf("want skipped_unanchored_selector=1, got %#v", m["skipped_unanchored_selector"])
+	}
+	if m["inserted"] != 0 {
+		t.Errorf("a bare-tag selector must not be filed, got inserted=%#v", m["inserted"])
+	}
+}
+
+// runContrastFinding drives the action with ONE contrast finding that is
+// expected to be SKIPPED, so the transaction carries no INSERT. If a guard is
+// deleted the INSERT happens, the mock has no expectation for it, and
+// ExpectationsWereMet fails — the effect, not the absence of a call.
+func runContrastFinding(t *testing.T, finding map[string]interface{}, scheme string) map[string]interface{} {
+	t.Helper()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").WithArgs(siteID).WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	mock.ExpectQuery("item_type = 'contrast_failure'").WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "item_key", "status", "spec", "result"}))
+	mock.ExpectCommit()
+
+	summary := map[string]interface{}{
+		"pages": 1, "pages_audited": []string{"https://example.com/pricing.html"},
+	}
+	if scheme != "" {
+		summary["selector_scheme"] = scheme
+	}
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB: db, Logger: zap.NewNop(), ExecutionContext: &types.ExecutionContext{},
+		StepConfig: models.Step{Config: map[string]interface{}{}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id": "run-352s", "contrast": []map[string]interface{}{finding}, "summary": summary,
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations (a guard was deleted and something was filed): %v", err)
+	}
+	return out.(map[string]interface{})
+}
+
+// THE ROW-PROTECTING TEST. A class-less element that is STILL FAILING keys
+// differently now (".wrap H3") than it did when the legacy row was filed
+// ("H3.H3"). Without the legacy alias in stillFailing, the legacy row reads as
+// absent, its page WAS audited, and it is closed as RESOLVED with a false
+// reason. 73 live rows across 13 sites were exposed to exactly this.
+// Delete the alias insertion and an unexpected UPDATE fails the mock.
+func TestWriteRenderAuditFindings_LegacyKeyedRowSurvivesStillFailingClasslessFinding(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").WithArgs(siteID).WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	mock.ExpectQuery("INTERVAL '7 days'").
+		WithArgs(siteID, "contrast_failure:/pricing.html#.wrap H3").
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
+	mock.ExpectExec("INSERT INTO site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery("item_type = 'contrast_failure'").WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "item_key", "status", "spec", "result"}).
+			// The legacy row, filed before the producer verified its selectors.
+			AddRow(uuid.New(), "contrast_failure:/pricing.html#H3.H3", "deferred", "{}", "{}"))
+	// NO UPDATE EXPECTED — that is the whole assertion.
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB: db, Logger: zap.NewNop(), ExecutionContext: &types.ExecutionContext{},
+		StepConfig: models.Step{Config: map[string]interface{}{}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id": "run-352b",
+			"contrast": []map[string]interface{}{{
+				"url": "https://example.com/pricing.html", "tag": "H3", "class": "H3",
+				"selector": ".wrap H3", "matches": 3, "selector_verified": true,
+				"fg": "#111111", "bg": "#0f0f0f", "ratio": 1.2, "need": 4.5,
+				"font_px": 20, "over_image": false,
+			}},
+			"summary": map[string]interface{}{
+				"pages": 1, "pages_audited": []string{"https://example.com/pricing.html"},
+				"selector_scheme": "verified/v1",
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	if m := out.(map[string]interface{}); m["retracted"] != 0 {
+		t.Fatalf("a still-failing legacy-keyed row must NOT be retracted, got %#v", m)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// THE PAIRED CONTROL, and it is what stops the guard above being "satisfied" by
+// never retracting anything. A guard that blocks everything is a silent false
+// BLOCK — the same defect wearing the other sign. When the pairing is genuinely
+// repaired there is NO finding, hence neither key, and the legacy row must close.
+func TestWriteRenderAuditFindings_RepairedClasslessPairingRetractsLegacyRow(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+	legacyKey := "contrast_failure:/pricing.html#H3.H3"
+
+	mock.ExpectQuery("locked_at IS NOT NULL").WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").WithArgs(siteID).WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	mock.ExpectQuery("item_type = 'contrast_failure'").WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "item_key", "status", "spec", "result"}).
+			AddRow(uuid.New(), legacyKey, "deferred", "{}", "{}"))
+	mock.ExpectExec("UPDATE site_work_items").
+		WithArgs("render_audit", sqlmock.AnyArg(), siteID, "contrast_failure", legacyKey, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB: db, Logger: zap.NewNop(), ExecutionContext: &types.ExecutionContext{},
+		StepConfig: models.Step{Config: map[string]interface{}{}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id": "run-352c", "contrast": []map[string]interface{}{},
+			"summary": map[string]interface{}{
+				"pages": 1, "pages_audited": []string{"https://example.com/pricing.html"},
+				"selector_scheme": "verified/v1",
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	if m := out.(map[string]interface{}); m["retracted"] != 1 {
+		t.Fatalf("a genuinely repaired pairing must still retract its legacy row, got %#v", m)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// SKEW, THE OTHER DIRECTION. A row filed with a VERIFIED selector must not be
+// graded by an adapter too old to verify one: that adapter composes the legacy
+// shape, so the verified row's key is absent from its observations for a reason
+// that has nothing to do with the page being repaired. Delete the scheme guard
+// and an unexpected UPDATE fails the mock.
+func TestWriteRenderAuditFindings_SchemeStampedRowNotRetractedByOldShapeReply(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").WithArgs(siteID).WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	mock.ExpectQuery("item_type = 'contrast_failure'").WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "item_key", "status", "spec", "result"}).
+			AddRow(uuid.New(), "contrast_failure:/pricing.html#.wrap H3", "deferred",
+				`{"selector_scheme":"verified/v1"}`, "{}"))
+	// NO UPDATE EXPECTED.
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB: db, Logger: zap.NewNop(), ExecutionContext: &types.ExecutionContext{},
+		StepConfig: models.Step{Config: map[string]interface{}{}},
+		// An OLD adapter: findings present, but no selector_scheme on the summary.
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id": "run-352d", "contrast": []map[string]interface{}{},
+			"summary": map[string]interface{}{
+				"pages": 1, "pages_audited": []string{"https://example.com/pricing.html"},
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	if m := out.(map[string]interface{}); m["retracted"] != 0 {
+		t.Fatalf("an old-shape reply must not retract a scheme-stamped row, got %#v", m)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// THE DISCRIMINATING LOCK FIXTURE. The locked markup is LOWERCASE, so the legacy
+// token "H3" would NOT substring-match it and the finding would be filed —
+// editing a locked component's look by the back door. The anchored selector's
+// token ".locked-sec" does match. Feed c.Class instead of the selector's tokens
+// and this test fails on the unexpected INSERT.
+func TestWriteRenderAuditFindings_LockedAnchorSkips(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").
+		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}).
+			AddRow(`<section class="locked-sec"><h3>Deployed on Kubernetes</h3></section>`))
+	mock.ExpectQuery("FROM pages").WithArgs(siteID).WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	mock.ExpectQuery("item_type = 'contrast_failure'").WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "item_key", "status", "spec", "result"}))
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB: db, Logger: zap.NewNop(), ExecutionContext: &types.ExecutionContext{},
+		StepConfig: models.Step{Config: map[string]interface{}{}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id": "run-352e",
+			"contrast": []map[string]interface{}{{
+				"url": "https://example.com/pricing.html", "tag": "H3", "class": "H3",
+				"selector": ".locked-sec H3", "matches": 1, "selector_verified": true,
+				"fg": "#111111", "bg": "#0f0f0f", "ratio": 1.2, "need": 4.5,
+				"font_px": 20, "over_image": false,
+			}},
+			"summary": map[string]interface{}{
+				"pages": 1, "pages_audited": []string{"https://example.com/pricing.html"},
+				"selector_scheme": "verified/v1",
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	m := out.(map[string]interface{})
+	if m["skipped_locked"] != 1 {
+		t.Errorf("want skipped_locked=1 (the anchor names a locked component), got %#v", m["skipped_locked"])
+	}
+	if m["inserted"] != 0 {
+		t.Errorf("a finding anchored on a LOCKED component must not be filed, got %#v", m["inserted"])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}

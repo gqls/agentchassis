@@ -79,18 +79,48 @@ type RenderAuditRequest struct {
 	Truncated  bool `json:"truncated,omitempty"`
 }
 
+// selectorSchemeVerifiedV1 is the value of RenderAuditResult.Summary.
+// SelectorScheme for every reply this binary produces. It is a CAPABILITY
+// DECLARATION, not a version number: a consumer reads it to decide whether the
+// reply's selectors have been browser-verified, and its ABSENCE (an older
+// adapter) is the signal to fall back to composing a selector itself. Bump it
+// only if the composition's meaning changes, never for an unrelated edit —
+// a consumer keying on equality would then silently stop trusting a good reply.
+const selectorSchemeVerifiedV1 = "verified/v1"
+
 // ContrastFinding is one text element whose contrast is below its threshold.
+//
+// Class is a LEGACY ECHO and is not what a fixer should be aimed at. For an
+// element with no class it carries the element's TAG NAME, because that is what
+// the in-page sweep has always sent and an un-rolled agent-chassis still reads
+// it (bugs_open/352). Selector is the field that is true: composed in the page
+// and VERIFIED there to select the very element that was measured.
 type ContrastFinding struct {
-	URL       string  `json:"url"`
-	Tag       string  `json:"tag"`
-	Class     string  `json:"class"`
-	Text      string  `json:"text"`
-	FG        string  `json:"fg"`
-	BG        string  `json:"bg"`
-	Ratio     float64 `json:"ratio"`
-	Need      float64 `json:"need"`
-	FontPx    int     `json:"font_px"`
-	OverImage bool    `json:"over_image"` // backdrop unknown; ratio is approximate
+	URL   string `json:"url"`
+	Tag   string `json:"tag"`
+	Class string `json:"class"`
+	// Selector is browser-verified and safe to hand a fixer: the class form
+	// when the element has one (byte-identical to what contrastSelector composed
+	// before this field existed, so keyed rows are undisturbed), else an id
+	// form, else anchored on the nearest ancestor carrying an id or class, else
+	// a bare tag. Absent on an old-shape reply.
+	Selector string `json:"selector,omitempty"`
+	// Matches is how many elements Selector actually selects — the blast radius
+	// of any rule written against it. 0 is only possible when SelectorVerified
+	// is false.
+	Matches int `json:"matches,omitempty"`
+	// SelectorVerified is the invariant: document.querySelectorAll(Selector)
+	// contained THIS element, asked in the same page session that measured the
+	// failure. False means the composition produced something the browser does
+	// not agree with, which is a producer defect and must never reach a fixer.
+	SelectorVerified bool    `json:"selector_verified,omitempty"`
+	Text             string  `json:"text"`
+	FG               string  `json:"fg"`
+	BG               string  `json:"bg"`
+	Ratio            float64 `json:"ratio"`
+	Need             float64 `json:"need"`
+	FontPx           int     `json:"font_px"`
+	OverImage        bool    `json:"over_image"` // backdrop unknown; ratio is approximate
 }
 
 // BrokenImage is an <img> the browser could not load.
@@ -147,6 +177,20 @@ type RenderAuditResult struct {
 		// behaviour, never to a wrong number.
 		PagesTotal int  `json:"pages_total,omitempty"`
 		Truncated  bool `json:"truncated,omitempty"`
+		// SelectorScheme names the selector contract this reply speaks, and is
+		// set UNCONDITIONALLY — including on a run that found nothing — because
+		// a consumer must be able to tell "this adapter verifies its selectors"
+		// from "this adapter is too old to", and a clean page would otherwise be
+		// indistinguishable from an un-rolled one. Absent means an old-shape
+		// reply, which is what makes the consumer's fallback inert rather than
+		// wrong (bugs_open/352: the two halves are separate images and roll
+		// independently).
+		SelectorScheme string `json:"selector_scheme,omitempty"`
+		// SelectorsUnverified counts findings whose composed selector did NOT
+		// select the element that was measured. It is reported rather than
+		// silently dropped (the no-silent-caps rule): a non-zero here is a
+		// producer defect in this very file, and the only place it can be seen.
+		SelectorsUnverified int `json:"selectors_unverified,omitempty"`
 		// PagesAudited names the pages this run SUCCESSFULLY MEASURED. It is
 		// the identity half of Pages, and the two deliberately disagree:
 		// Pages counts every page ATTEMPTED (it increments before the
@@ -199,10 +243,26 @@ const auditJS = `() => {` + contrastMathsJS + `
     var size=parseFloat(cs.fontSize),weight=parseInt(cs.fontWeight,10)||400;
     var large=size>=24||(size>=18.66&&weight>=700),need=large?3.0:4.5;
     if(r>=need)continue;
+    /* cls is a FROZEN LEGACY ECHO — do not "clean up" the ||el.tagName fallback.
+       It is what an un-rolled agent-chassis reads (bugs_open/352): removing it
+       would make that binary compose bare TAG keys and falsely retract every
+       legacy TAG.TAG row. The TRUTH ships in selector/matches/selectorVerified
+       below, and the filer prefers those whenever they are present. */
     var cls=(typeof el.className==='string'?el.className:'')||el.tagName;
+    var first=(typeof el.className==='string'&&el.className.trim())?el.className.trim().split(/\s+/)[0]:'';
+    var sel=el.tagName;
+    if(first){sel=el.tagName+'.'+first;}
+    else if(el.id){sel=el.tagName+'#'+CSS.escape(el.id);}
+    else{for(var an=el.parentElement;an&&an.nodeType===1;an=an.parentElement){
+      if(an.id){sel='#'+CSS.escape(an.id)+' '+el.tagName;break;}
+      var at=(typeof an.className==='string'&&an.className.trim())?an.className.trim().split(/\s+/)[0]:'';
+      if(at){sel='.'+CSS.escape(at)+' '+el.tagName;break;}}}
+    var nodes;try{nodes=document.querySelectorAll(sel);}catch(e){nodes=[];}
+    var selVerified=Array.prototype.indexOf.call(nodes,el)!==-1;
     var key=cls+'|'+cs.color+'|'+txt.slice(0,40);
     if(seen[key])continue; seen[key]=1;
-    out.contrast.push({cls:cls,tag:el.tagName,text:txt.slice(0,80),fg:cs.color,
+    out.contrast.push({cls:cls,tag:el.tagName,selector:sel,matches:nodes.length,selectorVerified:selVerified,
+      text:txt.slice(0,80),fg:cs.color,
       bg:'rgb('+Math.round(eb.bg.r)+','+Math.round(eb.bg.g)+','+Math.round(eb.bg.b)+')',
       ratio:Math.round(r*100)/100,need:need,overImage:eb.overImage,px:Math.round(size)});
   }
@@ -232,9 +292,12 @@ func NewRenderAuditAction(logger *zap.Logger, store screenshotStore) *RenderAudi
 // pageAudit mirrors the probe's return shape.
 type pageAudit struct {
 	Contrast []struct {
-		Cls       string  `json:"cls"`
-		Tag       string  `json:"tag"`
-		Text      string  `json:"text"`
+		Cls              string  `json:"cls"`
+		Tag              string  `json:"tag"`
+		Selector         string  `json:"selector"`
+		Matches          int     `json:"matches"`
+		SelectorVerified bool    `json:"selectorVerified"`
+		Text             string  `json:"text"`
 		FG        string  `json:"fg"`
 		BG        string  `json:"bg"`
 		Ratio     float64 `json:"ratio"`
@@ -261,6 +324,11 @@ func (a *RenderAuditAction) Execute(ctx context.Context, req RenderAuditRequest)
 	res := &RenderAuditResult{RunID: req.RunID}
 	res.Summary.PagesTotal = req.PagesTotal
 	res.Summary.Truncated = req.Truncated
+	// Stamped here, before any page is opened, so it is present on EVERY reply —
+	// including a run that finds nothing and a run where every page is
+	// unreachable. A scheme declared only alongside a finding would make "clean"
+	// and "too old to verify" the same reply (bugs_open/352).
+	res.Summary.SelectorScheme = selectorSchemeVerifiedV1
 	failedPages := map[string]bool{}
 	capture := req.CaptureRenders && a.store != nil
 	if req.CaptureRenders && a.store == nil {
@@ -307,9 +375,14 @@ func (a *RenderAuditAction) Execute(ctx context.Context, req RenderAuditRequest)
 		}
 		for _, c := range pa.Contrast {
 			res.Contrast = append(res.Contrast, ContrastFinding{
-				URL: url, Tag: c.Tag, Class: c.Cls, Text: c.Text, FG: c.FG, BG: c.BG,
+				URL: url, Tag: c.Tag, Class: c.Cls,
+				Selector: c.Selector, Matches: c.Matches, SelectorVerified: c.SelectorVerified,
+				Text: c.Text, FG: c.FG, BG: c.BG,
 				Ratio: c.Ratio, Need: c.Need, FontPx: c.Px, OverImage: c.OverImage,
 			})
+			if !c.SelectorVerified {
+				res.Summary.SelectorsUnverified++
+			}
 			if !c.OverImage {
 				res.Summary.ContrastFirm++
 				failedPages[url] = true

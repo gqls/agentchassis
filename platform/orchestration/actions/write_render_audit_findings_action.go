@@ -130,16 +130,67 @@ func init() {
 // render_audit_action.go). Mirrored rather than imported: platform/ does not
 // depend on internal/adapters, and the JSON contract is the coupling point.
 type renderAuditContrast struct {
-	URL       string  `json:"url"`
-	Tag       string  `json:"tag"`
-	Class     string  `json:"class"`
-	Text      string  `json:"text"`
-	FG        string  `json:"fg"`
-	BG        string  `json:"bg"`
-	Ratio     float64 `json:"ratio"`
-	Need      float64 `json:"need"`
-	FontPx    int     `json:"font_px"`
-	OverImage bool    `json:"over_image"`
+	URL   string `json:"url"`
+	Tag   string `json:"tag"`
+	Class string `json:"class"`
+	// Selector/Matches/SelectorVerified are the adapter's browser-VERIFIED
+	// selector and its blast radius (bugs_open/352). Absent on an old-shape
+	// reply, which is the whole reason filing falls back to contrastSelector:
+	// the adapter and this binary are separate images and roll independently,
+	// so every skew order must be inert rather than wrong.
+	//
+	// ⚠ This struct is a HAND-KEPT MIRROR — platform/ must not import
+	// internal/adapters, so the JSON tags are the only coupling. A field added
+	// to ContrastFinding and forgotten here unmarshals into nothing and reads as
+	// "old adapter", with no error anywhere.
+	Selector         string  `json:"selector"`
+	Matches          int     `json:"matches"`
+	SelectorVerified bool    `json:"selector_verified"`
+	Text             string  `json:"text"`
+	FG               string  `json:"fg"`
+	BG               string  `json:"bg"`
+	Ratio            float64 `json:"ratio"`
+	Need             float64 `json:"need"`
+	FontPx           int     `json:"font_px"`
+	OverImage        bool    `json:"over_image"`
+}
+
+// filingSelector is the ONE place that decides what selector a finding is filed
+// and keyed under, so the filing path and the retraction path cannot drift.
+//
+// A verified selector from the adapter wins. Its absence means an old-shape
+// reply, and the fallback then reproduces today's behaviour EXACTLY — including
+// the TAG.TAG defect, deliberately: an un-rolled adapter must keep filing and
+// keying the way the rows already in the table were keyed, or retraction starts
+// closing live rows on a key-shape mismatch.
+func filingSelector(c renderAuditContrast) string {
+	if c.Selector != "" {
+		return c.Selector
+	}
+	return contrastSelector(c.Tag, c.Class)
+}
+
+// selectorLockTokens returns the tokens to test against locked components'
+// markup. It reads the SELECTOR rather than Class because Class carries a TAG
+// NAME for a class-less element (bugs_open/352) — and a bare tag as a lock
+// token is actively harmful: "P" substring-matches any capital P in any locked
+// component's HTML, so a class-less <p> finding could be dropped as
+// skipped_locked for no reason. An anchored selector's tokens are real class
+// and id names, which is what the containment test was always meant to receive.
+func selectorLockTokens(c renderAuditContrast, selector string) string {
+	if c.Selector == "" {
+		return c.Class // old-shape reply: today's behaviour, unchanged
+	}
+	var tokens []string
+	for _, part := range strings.Fields(selector) {
+		for _, tok := range strings.FieldsFunc(part, func(r rune) bool { return r == '.' || r == '#' }) {
+			// The tag component is never a lock token — see the doc comment.
+			if tok != "" && !strings.EqualFold(tok, c.Tag) {
+				tokens = append(tokens, tok)
+			}
+		}
+	}
+	return strings.Join(tokens, " ")
 }
 
 type renderAuditBrokenImage struct {
@@ -167,6 +218,11 @@ type renderAuditPayload struct {
 		PagesTotal   int      `json:"pages_total"`
 		Truncated    bool     `json:"truncated"`
 		PagesAudited []string `json:"pages_audited"`
+		// SelectorScheme is the adapter's capability declaration, present on
+		// every reply from an adapter that verifies its selectors and absent
+		// from every older one. Retraction reads it to refuse to grade a
+		// new-shape row against an old-shape observation (bugs_open/352).
+		SelectorScheme string `json:"selector_scheme"`
 	} `json:"summary"`
 }
 
@@ -261,18 +317,38 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 	var toFile []pending
 	skippedLocked := 0
 	overImage := 0
+	skippedUnverified := 0
+	skippedUnanchored := 0
 
 	for _, c := range payload.Contrast {
 		if c.OverImage {
 			overImage++
 			continue
 		}
-		if htmlCorpusContainsClass(lockedHTML, c.Class) {
+		selector := filingSelector(c)
+		// A selector the BROWSER disagreed with is a producer defect, and
+		// handing it to a fixer is what bugs_open/352 measured: 108 items
+		// completed against rules that could never match. Counted, never silent.
+		if c.Selector != "" && !c.SelectorVerified {
+			skippedUnverified++
+			continue
+		}
+		// A bare tag is a SITE-WIDE patch. css-patch-agent appends to the one
+		// site stylesheet ("The platform APPENDS your rules to the END of the
+		// stylesheet" — its own prompt), so `p { color: … }` recolours every
+		// paragraph on the site. That is a worse outcome than the inert TAG.TAG
+		// rule it would replace, and it is reachable TODAY on an old-shape reply
+		// too: a whitespace-only className is truthy in JS, survives the
+		// adapter's `||` fallback as " ", and strings.Fields(" ") is empty.
+		if !strings.ContainsAny(selector, ".#") {
+			skippedUnanchored++
+			continue
+		}
+		if htmlCorpusContainsClass(lockedHTML, selectorLockTokens(c, selector)) {
 			skippedLocked++
 			continue
 		}
 		pagePath := urlPath(c.URL)
-		selector := contrastSelector(c.Tag, c.Class)
 		severity := "medium"
 		if c.Ratio < 2.0 {
 			severity = "high"
@@ -306,6 +382,20 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 			"acceptance_test":  fmt.Sprintf("computed contrast for elements matching %s on %s is at least %.1f:1 — a single-selector, single-page measurement, not a site re-audit", selector, pagePath, c.Need),
 			"max_fix_attempts": 2,
 			"run_id":           payload.RunID,
+		}
+		// matches is the blast radius the fixer is about to take on: how many
+		// elements its rule will hit. Carried rather than enforced as a
+		// threshold — the two real hazards (selects nothing, selects the site)
+		// are categorical and already refused above, and a tunable N here would
+		// be a number nobody owns.
+		if c.Selector != "" {
+			spec["matches"] = c.Matches
+		}
+		// selector_scheme marks this row as one whose selector was verified, so
+		// a later run by an OLDER adapter cannot grade it against an unverified
+		// observation (see retractResolvedContrastFindings).
+		if payload.Summary.SelectorScheme != "" {
+			spec["selector_scheme"] = payload.Summary.SelectorScheme
 		}
 		specJSON, mErr := json.Marshal(spec)
 		if mErr != nil {
@@ -425,15 +515,21 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 	}
 
 	result := map[string]interface{}{
-		"inserted":            inserted,
-		"deduped":             deduped,
-		"skipped_locked":      skippedLocked,
-		"over_image_reported": overImage,
-		"overflow_reported":   len(payload.Overflow),
-		"unattributed_images": unattributedImages,
-		"findings_capped":     dropped > 0,
-		"findings_dropped":    dropped,
-		"run_id":              payload.RunID,
+		"inserted":       inserted,
+		"deduped":        deduped,
+		"skipped_locked": skippedLocked,
+		// The two bugs_open/352 refusals. Reported unconditionally (not
+		// omitted when zero) because a key that appears only on a bad run
+		// makes its ABSENCE ambiguous between "none" and "this binary is too
+		// old to count them" — the same trap selector_scheme exists to avoid.
+		"skipped_unverified_selector": skippedUnverified,
+		"skipped_unanchored_selector": skippedUnanchored,
+		"over_image_reported":         overImage,
+		"overflow_reported":           len(payload.Overflow),
+		"unattributed_images":         unattributedImages,
+		"findings_capped":             dropped > 0,
+		"findings_dropped":            dropped,
+		"run_id":                      payload.RunID,
 	}
 	// A truncated sweep must not report as a whole-site verdict: stamp the
 	// cap's bite here, in the one result on this workflow that persists
@@ -470,7 +566,10 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 	}
 	logger.Info("write_render_audit_findings: complete",
 		zap.Int("inserted", inserted), zap.Int("deduped", deduped),
-		zap.Int("skipped_locked", skippedLocked), zap.Int("dropped", dropped),
+		zap.Int("skipped_locked", skippedLocked),
+		zap.Int("skipped_unverified_selector", skippedUnverified),
+		zap.Int("skipped_unanchored_selector", skippedUnanchored),
+		zap.Int("dropped", dropped),
 		zap.Int("retracted", retracted), zap.Int("retracted_parked", retractedParked),
 		zap.Int("retraction_scope_pages", len(payload.Summary.PagesAudited)))
 	return result, nil
@@ -565,10 +664,29 @@ func retractResolvedContrastFindings(
 
 	// Every pairing this run measured as failing — firm and over_image alike,
 	// before the locked-component skip and before the max_items cap. See (2).
+	//
+	// ⚠ TWO KEYS PER FINDING, AND THE SECOND ONE IS LOAD-BEARING (bugs_open/352).
+	// A row's key embeds the selector, and this producer's selector composition
+	// CHANGED: a class-less element used to key as "#H3.H3" (the tag name filed
+	// as a class) and now keys on a verified, anchored selector. Insert ONLY the
+	// new key and every legacy row on a still-failing page reads as absent from
+	// this set — its page WAS audited, so it would be retracted as RESOLVED and
+	// stamped with a reason that is false. Measured 2026-08-24: 73 open rows
+	// across 13 sites were exposed to exactly that, on a path that has already
+	// closed 79 rows for real.
+	//
+	// So the legacy composition is inserted alongside. For a CLASSED finding the
+	// two are identical and the second insert is a harmless no-op — which is why
+	// this costs nothing for the ~271 rows that were never affected. A genuinely
+	// repaired pairing produces no finding at all, hence neither key, and still
+	// retracts honestly. This is not a migration window to be timed: the fix has
+	// to live here, because the adapter and this binary roll independently and
+	// the skew window is symmetric.
 	stillFailing := map[string]bool{}
 	for _, c := range payload.Contrast {
-		stillFailing[workItemKey("contrast_failure",
-			urlPath(c.URL)+"#"+contrastSelector(c.Tag, c.Class))] = true
+		page := urlPath(c.URL)
+		stillFailing[workItemKey("contrast_failure", page+"#"+filingSelector(c))] = true
+		stillFailing[workItemKey("contrast_failure", page+"#"+contrastSelector(c.Tag, c.Class))] = true
 	}
 
 	// The load, the closed-status predicate, the per-row resolve and the parked
@@ -606,8 +724,23 @@ func retractResolvedContrastFindings(
 				// Not a page this run measured — leave it alone.
 				return retractionOutOfScope, ""
 			}
+			// SKEW GUARD (bugs_open/352). A row filed with a VERIFIED selector
+			// must not be graded by an adapter too old to verify one: that
+			// adapter composes the legacy TAG.TAG shape, so a verified row's key
+			// is absent from its observations for a reason that has nothing to
+			// do with the page being repaired. Reading the candidate's own spec
+			// is the precedent this helper was built for — see
+			// auditRetractionCandidate's doc comment on why Spec is carried raw.
+			if payload.Summary.SelectorScheme == "" && candidateHasSelectorScheme(c.Spec) {
+				return retractionOutOfScope, ""
+			}
+			// Deliberately says SELECTOR PAIRING, not "this pairing". This run
+			// observed that nothing matching the filed selector is failing on
+			// that page; it did not observe the ELEMENT, which may have been
+			// re-anchored under a different selector. The old wording asserted
+			// the stronger fact and the retraction cannot support it.
 			reason := fmt.Sprintf(
-				"render audit re-measured %s and this pairing is no longer below its contrast threshold", page)
+				"render audit re-measured %s and the pairing keyed by this selector no longer reproduces", page)
 			if payload.RunID != "" {
 				reason += fmt.Sprintf(" (run %s)", payload.RunID)
 			}
@@ -801,4 +934,25 @@ func truncateString(s string, n int) string {
 		return s
 	}
 	return s[:n]
+}
+
+// candidateHasSelectorScheme reports whether an open row was filed by a producer
+// that verified its selector in the browser (bugs_open/352). It is the half of
+// the skew guard that reads the ROW; the other half reads the reply.
+//
+// A malformed or absent spec answers false, which is the safe direction: the row
+// is then treated as legacy, and a legacy row is already protected by the alias
+// key in stillFailing. Erring the other way would make a row unretractable for
+// ever on a parse slip.
+func candidateHasSelectorScheme(spec []byte) bool {
+	if len(spec) == 0 {
+		return false
+	}
+	var s struct {
+		SelectorScheme string `json:"selector_scheme"`
+	}
+	if err := json.Unmarshal(spec, &s); err != nil {
+		return false
+	}
+	return s.SelectorScheme != ""
 }

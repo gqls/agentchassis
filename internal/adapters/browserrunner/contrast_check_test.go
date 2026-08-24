@@ -233,18 +233,27 @@ func TestContrastRatio_WiredIntoTheLadder(t *testing.T) {
 	}
 }
 
-// TestAuditJSComposition guards the refactor that moved the WCAG maths into
-// contrastMathsJS: the composed auditJS must be BYTE-IDENTICAL to the literal
-// that was running in production before the split. Identity to the previously
-// executing string is a stronger guarantee than any substring or syntax check
-// — a join-point defect (lost semicolon, duplicate binding, scope collision)
-// cannot survive equality with a string that demonstrably executed (council
-// 7e2391ec round 1: string-contains proves inclusion, not behaviour). The
-// golden was extracted MECHANICALLY from git (b32aa9cd9~1), not transcribed.
-// A deliberate future change to the audit's JS updates the golden in the same
-// commit, which is exactly the review visibility the audit deserves — it is
-// live fleet machinery on two separately-deployed services (browser-runner-
-// adapter and render-audit-adapter).
+// TestAuditJSComposition guards the audit's live JS against the literal that was
+// running in production before the contrastMathsJS split. It began life as a
+// BYTE-IDENTITY test; bugs_open/352 changed the selector composition on purpose,
+// so the guarantee is now CONFINEMENT — the JS differs from that literal in ONE
+// contiguous region, and that region is pinned by content on both sides.
+//
+// WHY NOT SIMPLY REPOINT AT A NEW GOLDEN. The digest below was taken from the
+// COMPILER'S view of the PRE-REFACTOR const — go/parser + strconv.Unquote over
+// b32aa9cd9~1 — precisely so that "a golden silently regenerated from the
+// post-refactor code" could not prove the change against itself (council
+// 7e2391ec round 2, editquality). A new golden plus a new digest computed from
+// MY OWN new code would discard exactly that property: two artefacts derived
+// from one source are one artefact. So the 2026-08-22 golden and its historical
+// digest STAY, anchored outside this commit, and what changes is what is
+// asserted about them.
+//
+// ⚠ A naive `!strings.Contains(auditJS, "||el.tagName")` tripwire would be WRONG
+// here: the legacy `cls` echo deliberately KEEPS that expression, because an
+// un-rolled agent-chassis still reads it. Confinement is what distinguishes
+// "the echo still exists" (correct) from "the selector still derives from it"
+// (the bug).
 func TestAuditJSComposition(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("testdata", "audit_js_golden_2026-08-22.txt"))
 	if err != nil {
@@ -252,29 +261,63 @@ func TestAuditJSComposition(t *testing.T) {
 	}
 	golden := strings.TrimSuffix(string(raw), "\n")
 
-	// The golden is pinned by CONTENT, not merely by filename (council 7e2391ec
-	// round 2, editquality advisory): a golden silently regenerated from the
-	// post-refactor code would otherwise "prove" the refactor against itself.
-	// This digest was taken from the COMPILER'S view of the pre-refactor const
-	// — go/parser + strconv.Unquote over b32aa9cd9~1, not an awk approximation
-	// — so trailing-whitespace or line-ending drift in the extraction cannot
-	// hide here either. Changing the audit's JS deliberately means updating
-	// BOTH the golden and this digest, in the same commit, on purpose.
 	const preRefactorSHA = "4ec6cb73d2481686087c636820ffe3198025e796841a9ed8e845f53757258da7"
 	if got := fmt.Sprintf("%x", sha256.Sum256([]byte(golden))); got != preRefactorSHA {
 		t.Fatalf("golden no longer matches the pre-refactor const (sha %s, want %s) — it has been regenerated, not verified", got, preRefactorSHA)
 	}
-	if auditJS != golden {
-		i := 0
-		for i < len(auditJS) && i < len(golden) && auditJS[i] == golden[i] {
-			i++
-		}
-		lo := i - 40
-		if lo < 0 {
-			lo = 0
-		}
-		t.Fatalf("composed auditJS diverges from the pre-refactor literal at byte %d: %q", i, auditJS[lo:min(i+40, len(auditJS))])
+
+	// The shared maths kernel is NOT part of the 352 change, so it keeps the
+	// original identity guarantee in full: byte-present in both strings.
+	if !strings.Contains(golden, contrastMathsJS) {
+		t.Fatal("the pre-refactor golden no longer contains contrastMathsJS — the kernel or the golden has moved")
 	}
+	if !strings.Contains(auditJS, contrastMathsJS) {
+		t.Fatal("auditJS no longer embeds contrastMathsJS byte-for-byte — a join-point defect is possible again")
+	}
+
+	// One contiguous divergence: common prefix, common suffix, one region between.
+	p := 0
+	for p < len(auditJS) && p < len(golden) && auditJS[p] == golden[p] {
+		p++
+	}
+	sfx := 0
+	for sfx < len(auditJS)-p && sfx < len(golden)-p &&
+		auditJS[len(auditJS)-1-sfx] == golden[len(golden)-1-sfx] {
+		sfx++
+	}
+	oldRegion := golden[p : len(golden)-sfx]
+	newRegion := auditJS[p : len(auditJS)-sfx]
+
+	// The divergence must sit where 352 changed the JS. If a later edit changes
+	// the probe somewhere else as well, the two edits merge into one region and
+	// these assertions fail — which is the point: an unreviewed second change
+	// cannot hide inside the reviewed one.
+	if !strings.Contains(oldRegion, "||el.tagName") {
+		t.Fatalf("the divergence from the pre-refactor literal is NOT the selector block —\n"+
+			"something else in the probe has changed and must be reviewed on its own merits.\nold region: %q", oldRegion)
+	}
+	if !strings.Contains(newRegion, "indexOf.call(nodes,el)") {
+		t.Fatalf("the in-page selector verification is missing from the changed region — a filed\n"+
+			"selector would no longer be proven to select the element that was measured (bugs_open/352).\nnew region: %q", newRegion)
+	}
+	if !strings.Contains(newRegion, "selector:sel") {
+		t.Fatalf("the composed selector is no longer emitted on the finding; the consumer would fall\n"+
+			"back to the TAG.TAG composition for every element.\nnew region: %q", newRegion)
+	}
+	// The legacy echo must survive: removing it makes an un-rolled chassis
+	// compose bare-tag keys and falsely retract every legacy row.
+	// ⚠ Assert the whole EXPRESSION, not the substring "||el.tagName": the
+	// comment immediately above that line in the source says "do not clean up the
+	// ||el.tagName fallback", so a substring check matches the COMMENT and passes
+	// while the CODE is gone. Caught by mutating the line out and watching this
+	// test still pass — see WRONG_CALLS 2026-08-24.
+	const clsEcho = `var cls=(typeof el.className==='string'?el.className:'')||el.tagName;`
+	if !strings.Contains(newRegion, clsEcho) {
+		t.Fatalf("the legacy cls echo has been removed or altered — an un-rolled agent-chassis reads\n"+
+			"that field, and without it retraction closes live rows on a key-shape mismatch\n"+
+			"(bugs_open/352 D1).\nnew region: %q", newRegion)
+	}
+
 	if strings.Count(auditJS, "function effBG") != 1 {
 		t.Errorf("effBG must appear exactly once in the composed probe")
 	}
