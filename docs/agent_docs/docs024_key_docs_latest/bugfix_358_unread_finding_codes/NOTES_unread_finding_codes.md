@@ -861,3 +861,93 @@ tidy.
 **Handed on, not left undone:** phase 2 (the daily CronJob) and the remaining 25 rulings belong to
 the thread the owner moved 358 to. The ratchet is what makes leaving them safe — the count can go
 down at that lane's pace and cannot climb back.
+
+---
+
+## 2026-08-24 — DEPLOYED, and it caught two on its first live day. One of them exposed a false claim of mine
+
+**The CronJob is live.** The fleet release rolled it out; `kubectl get cronjob
+finding-code-registry-check` shows it at `docker.io/aqls/finding-code-registry-check:v1.0.1334` —
+the release's `sed` rewrote my overlay's `v1.0.1331` pin, exactly as the makefile does it. Verified
+at the artefact, never at the make target.
+
+**Never wait for the schedule.** A manual Job (`kubectl create job --from=cronjob/...`) is how this
+was proven, and it is why the finding arrived today rather than tomorrow morning.
+
+### It exited 1 on its first run, and the finding was real
+
+```
+[undeclared] LINK_CONTEXT_UNAVAILABLE
+```
+
+`[MEASURED 2026-08-24]` 2 rows, both 14:21Z — the CronJob caught it at 16:05Z, **about two hours
+after the code's first row.** Not bookkeeping either: both rows are `page-content-writer` hitting a
+**query timeout (SQLSTATE 08P01)** while loading linkable pages, `severity=error`, `degraded=true`,
+outcome *"writer instructed to emit NO internal links"*. **Two pages were written with no internal
+links because of a DB timeout, and nothing reads the row that says so.** That belongs to
+`bugfix_092_writer_link_constraints` (quiet 14d), not to this lane, but it is the strongest argument
+in the registry for giving a code a real reader.
+
+A second arrived within the hour: `CONTENT_LINK_SUPPRESSED_UNSHIPPED`. Its own doc comment
+introduces it as *"a FOURTH code beside CONTENT_LINK_REPAIR_DETAIL, CONTENT_LINK_REPAIR_SKIPPED and
+CONTENT_DATA_LINK_AUDIT"* and reasons from their record shape — **which is §3.1 happening live**:
+the record shape propagates, and the missing reader propagates with it. Three of those four are
+`human-evidence` today.
+
+Both declared `human-evidence` on a measurement (no reader anywhere: Go, SQL, python, shell, live
+`agent_definitions` 0, `scheduled_tasks` 0), **by this lane rather than by their authors**, and the
+entries say so. The owner may overrule; the measurement is not in doubt. Declaring them `unruled`
+would have taken the backlog to 27 against a cap of 25 and left the job red on a different finding.
+
+> **A design observation for the owner, not acted on.** The cap conflates two populations: the
+> INHERITED backlog (should shrink — that is the ratchet's point) and NEWLY-BORN codes arriving from
+> other lanes at an unpredictable rate (must be ruled promptly, not parked). With the cap sitting
+> exactly at the count, any new code is an immediate breach, and the only compliant moves are "rule
+> it now" or "raise the cap" — neither available to whoever happens to see the red job. It worked
+> out here because the measurement was decisive. It will not always be.
+
+### The finding inside the finding: a file I cited for two days did not exist
+
+`findingcodes.go` has said since 2026-08-22 that a source scan *"is kept as an EARLY WARNING at
+commit time (`findingcodes_scan_test.go` in the actions package)"*. **That file did not exist.** It
+passed a council round, went into `DBG-075`, and was repeated in this lane's handoff. Nobody ran
+`ls` on the path.
+
+What stood in for it was `TestPackageErrorCodeConstantsAreRegistered`, walking a hand-written list
+of **eleven** constants — catching only codes someone remembered to add, i.e. the one case that does
+not need catching. A **third hand-maintained roster**, inside the change whose register entry boasts
+of retiring two. `LINK_CONTEXT_UNAVAILABLE` walked straight past it.
+
+**Now built, and it DISCOVERS rather than lists** (`findingcodes_scan_test.go`, submitted
+`2e5f687d-5753-441b-91f3-406c84a98394`): go/ast over every non-test file in the package, collecting
+each `ErrorCode:` value and **resolving constant identifiers** — §3.2's own trap ("grep the CONSTANT,
+not just the literal") applied to the scanner instead of to a human. Both codes that caught the
+package out are `ErrorCode: <const>`, so a literal-only scanner would have been silent on them while
+looking like it worked; a test pins exactly that.
+
+**It ratchets.** `[MEASURED]` 13 codes are written by the package and declared nowhere — **all 13
+with zero rows in the window**, so the live-table authority is blind to them by construction and
+they are precisely the population that blind spot leaves. Failing on them would be red-on-day-one,
+which this mode's own design refuses. They sit in `_scan_baseline`; only a code in neither list
+fails; the list may only shrink; a baseline entry that becomes declared is reported, never failed.
+
+> **THE NEAR-MISS, and it went the right way.** My first instinct was to delete the eleven-name list
+> outright as the redundant roster. Checking per entry first: **ten** are discoverable by the scan,
+> and the eleventh — `deployStampRefusedErrorCode` — is **not**, because it is passed
+> **positionally** at `page_build_failure_guard.go:111`, which no `ErrorCode:` scan can see.
+> Deleting it would have dropped a code's coverage while looking like a tidy-up. It survives,
+> narrowed **11 → 1**, and is now itself checked: `TestTheHandListHoldsOnlyWhatTheScanCannotSee`
+> fails if an entry becomes discoverable. **The question that saved it was "would the replacement
+> actually find THIS one?", per entry — not "is the replacement broadly better?".**
+
+Also corrected in that header: *"that blind spot is harmless BY CONSTRUCTION"*. An unfired code
+costs nothing **today**, a weaker claim. The population is thirteen, not zero. Both retractions are
+in `WRONG_CALLS.md`.
+
+### Housekeeping, from the CLAUDE.md rule that landed today
+
+I had hand-rolled `git archive HEAD | tar` five times this session — **2.6 GB** of scratch trees,
+the exact pattern the new "Checking that committed HEAD still builds" section describes. Reaped to
+244 KB. Everything since uses `scripts/verify-head-builds.sh`, which takes repeated `--with <file>`
+(needed here: the test and the registry had to be overlaid together, and with only the test the
+baseline read as missing).
