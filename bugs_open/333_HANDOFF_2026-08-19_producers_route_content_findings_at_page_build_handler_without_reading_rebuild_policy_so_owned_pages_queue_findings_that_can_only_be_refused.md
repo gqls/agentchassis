@@ -438,6 +438,10 @@ row fails the retraction-contract assertions.
 - **The 142 legacy rows are untouched.** A one-off data move is the owner's call; offered as a follow-up
   `_HOLD` migration. Until they drain, legacy `detected` rows are still promoted and still refused — so
   post-roll verification must split by `created_at` against the roll time or it will read as a failure.
+- **Resolving the page by NAME at the door is not done.** The door reads the `page_id` column; 1,438 rows at
+  that handler carry `spec.page_name` and no column. Those are name-only action requests (`needs_page`), a
+  different kind of item from the content findings this bug is about — but it is a real 6%-of-population gap
+  with a number on it, raised by the council's gating objection, and it is the obvious next widening.
 - **Nine raw-`INSERT` writers bypass the seam** as of 2026-08-24 (`write_audit_findings_action.go`,
   `apply_adoption_plan_action.go`, `deploy_tool_action.go`, `create_tool_component_action.go`,
   `create_blog_posts_action.go`, and four core-manager admin handlers). The handler's own cheap refusal
@@ -446,6 +450,33 @@ row fails the retraction-contract assertions.
 - **The tool lane's design conflict** (`raiseToolContentItem` asking the generic builder for prose on a page
   the same pipeline marked owned — this file's candidate 2, and the largest single producer) is NOT taken.
   It is now COUNTABLE per finding, which is the precondition for that lane deciding it.
+
+### Council round 1 → REVISE → round 2 (corr `9813dec8`), and what it changed
+
+**Two objections changed the code** (`1789489bf`): the probe order is inverted so the novel
+`jsonb_path_exists` runs only for an owned page rather than on every page-bearing write through a shared seam
+(`guardian`), and both fail-open branches now log the stable literal `OWNED_PAGE_DOOR_PROBE_FAILED` so a
+transient probe failure is countable (`bug_historian`).
+
+**The gating HIGH was about coverage, and it improved this file.** `editquality` asked whether the door — which
+keys on the `page_id` COLUMN — actually intersects the population, given a standing landmine that the column is
+often NULL. Measured: **72.6%** of all rows at that handler carry it, but the CONTENT-finding producers are at
+97–100% and the 0% producers are name-only ACTION REQUESTS (`needs_page` for a page identified by name). On the
+measured defect population the door sees **83 of 88**. **1,438 of the 1,440 `page_id`-NULL rows carry
+`spec.page_name`**, so resolving by name is a bounded gap with a number on it — added to the non-scope list below.
+
+**One claim of mine was refuted by check rather than argument.** `prior_art_librarian` objected that the
+jsonpath `$.workflow.steps.*.config…` is blind to `sub_workflow`-nested config, so *"exactly ONE live agent
+declares it"* was unverified. Re-run with the widest possible probe — `$.**.refuse_owned_page ? (@ == true)`, no
+`is_active`, no snapshot filter — it returns the **same single agent**. The control holds, but it was asserted on
+the narrow path before it was checked on the wide one.
+
+⚠ **A DEMAND-CONTROL WARNING FROM THE 353 LANE, which changes how the verification below must be read.**
+Cross-link emission has been at **ZERO since 2026-08-21** (13 tool births 08-22→08-24, 13 of 13 emitted nothing:
+8 stopped before the emitter's Guard 2, 5 at it) because `add_tool` specs carry `related_pages` only when
+`tool-suggester` wrote them. **So an empty parked bucket after the roll will NOT mean the door is inert** — on
+the current producer mix nothing reaches that emitter's write. Their discriminating setup: an `add_tool` item
+whose spec DOES carry `related_pages` naming an owned page.
 
 ### How to verify after the roll (this file's original section, made runnable)
 

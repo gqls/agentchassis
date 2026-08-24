@@ -162,3 +162,94 @@ author. Instrumentation removed and the tree rebuilt before committing.
 two other lanes' WIP sitting in the same tree. ⚠ Running it without a package argument fails on `test/website_builder`
 (Kafka at localhost) and a pre-existing `test/unit/orchestration` build failure — neither is a statement about
 the change under test, and reading it as one would have been a false red.
+
+## 2026-08-24 — council round 1: REVISE, and it was worth the round
+
+Verdict `9813dec8`: **REVISE**, 15 reviewers, 2 abstained, `decided_by: gating objection from editquality`.
+Round 2 resubmitted on the same correlation (run `7efd5471`). **Two objections changed the code; five more were
+checkable and were CHECKED rather than argued.** The gating one asked a question I had not asked myself.
+
+### The gating HIGH — and it was RIGHT about the column and WRONG about the coverage
+
+`editquality`: the door keys on `item.pageID != nil`, i.e. on the `site_work_items.page_id` COLUMN, and a
+standing landmine says that column is NULL on most rows even when the page exists. If the ~26 producers mostly
+identify their target by `affected_url`/`entity_id`/`spec` instead, *"the door silently skips the majority of the
+population the diagnosis measured"*.
+
+**[MEASURED 2026-08-24, live + archive, all history at `page-build-handler`]** — 3,819 of 5,259 carry `page_id`
+(**72.6%**), so the landmine is right. But the split by producer is the answer:
+
+| producer | rows | with page_id |
+|---|---|---|
+| design-audit | 1,508 | 97% |
+| completeness-discovery-agent | 597 | 100% |
+| content-gap-planner | 433 | 100% |
+| generic (discovery) | 247 | 100% |
+| tool-generator | 230 | 100% |
+| tool-suggester / tool-deployer / backfill-353 / quality-discovery / offer-analysis | 126 / 77 / 74 / 57 / 41 | 100% |
+| **page-rerender** | 399 | **0%** |
+| **reconcile_site_plan** | 384 | **0%** |
+| **image-build-handler** | 262 | **0%** |
+| render_directory / render_news_section / plan_sections | 92 / 80 / 33 | **0%** |
+
+The 0% producers are a **different kind of item**: name-only ACTION REQUESTS filing `needs_page` for a page
+identified by name. The content findings this bug is about carry the column ~100% of the time. On the measured
+defect population the door sees **83 of 88 (94%)**, which matches the 08-19 figure exactly. Of the 1,440
+`page_id`-NULL rows, **1,438 carry `spec.page_name`** — so the gap is bounded, quantified, and now a named
+non-scope item instead of an unstated assumption.
+
+The same objection's medium — *does the door's column match the join behind the [MEASURED] figures?* — is
+answered by construction: the figures join `pages p ON p.id = w.page_id`, the column the door reads.
+
+**What I take from this:** I had the 83-of-88 measurement in my own plan and did NOT put it in the submission.
+The reviewer could not see it, asked exactly the right question, and the answer took one query I should have
+included. **An objection about coverage is cheap to pre-empt and expensive to leave to a round.**
+
+### The two that changed the code
+
+- **`guardian` [medium] — the novel SQL was on the hot path.** The declaration probe (`jsonb_path_exists` over
+  `default_config`) ran for every page-bearing dispatchable write through a seam ~26 producers share; a bad
+  jsonpath on an older Postgres or a permissions change aborts the transaction for **all** of them.
+  **Inverted: the boring statement now gates the novel one.** A `pages` PK read runs first; the jsonpath only for
+  an owned page (176 estate-wide). Cost: 2.7 ms PK read on the common path instead of a 0.278 ms index scan.
+  ⚠ I had chosen the original order on COST grounds and never weighed FAILURE MODE. Both probes are cheap; only
+  one of them is novel, and novelty is what belongs off a shared hot path.
+- **`bug_historian` [low] — fail-open was uncountable.** Both stand-down branches now log the stable literal
+  `OWNED_PAGE_DOOR_PROBE_FAILED`. Deliberately not an `agent_error_log` row: that write rides the same
+  transaction, so the one failure it must survive is the one that would break it.
+
+### The five that were checkable — all checked, one refuted a claim of mine
+
+- **`prior_art_librarian` [medium]: the jsonpath is blind to `sub_workflow`-nested config, so "exactly ONE live
+  agent declares it" may be false.** REFUTED by the widest probe available: `$.**.refuse_owned_page ? (@ == true)`
+  with no `is_active` and no snapshot filter returns the **same single agent**. The positive control survives a
+  probe that could not have missed a nested declaration. (The seat was right that I had asserted it on the narrow
+  path only — the check was one query.)
+- **`guardian` [medium]: does anything switch on `raiseToolContentItem`'s new return string?** No. Both call
+  sites assign it and pass it into a result map key `content_item` — verified by grepping every use of the
+  variable, not just the call.
+- **`reuse_agent` [medium]: is there an existing generic "handler declares boolean flag X" helper?** No —
+  grepped `jsonb_path_exists` and `workflow,steps` across `platform/`, `internal/`, `cmd/`. First of its kind;
+  the register now says a SECOND flag must parameterise it rather than copy it.
+- **`constitution` [low]:** `handlerExpr` is a placeholder or column reference at every call site, never user
+  data — same posture as the helper it mirrors.
+- **`architecture` [medium]:** `deferred` is now overloaded a third way. Recorded in the register in the seat's
+  own terms: **a fourth overload must introduce a real reason-code column, not another string convention.**
+
+### The one I answered with a record rather than code, and said so
+
+`bug_historian` [medium]: the 9 raw-INSERT bypassers keep the identical failure mode, and *"disclosure in the
+risks section is good practice but is not a fix"*. Agreed — it is not. It is now a named non-scope item with its
+measured size, and the register lists the bypassers BY PATH with the warning that the set grows unobserved. The
+real remedy is a promoter-side backstop for the ones born `detected`, and taking it inside a REVISE on the seam
+itself would widen a shared-seam change mid-review.
+
+### A demand-control warning from a consumer, which I did not have
+
+The `staged_component_build`/353 lane replied to my notification with a measurement that changes how I must read
+my own verification: **cross-link emission has been at ZERO since 08-21** (13 tool births 08-22→08-24, 13 of 13
+emitted nothing — 8 stopped before the emitter's Guard 2, 5 at it), because `add_tool` specs carry
+`related_pages` only when `tool-suggester` wrote them. So **an empty parked bucket after the roll will not mean
+the door is inert** — on the current producer mix nothing reaches that emitter's write at all. Their stated
+discriminating setup: an `add_tool` item whose spec DOES carry `related_pages` naming an owned page. Folded into
+the verification section.
