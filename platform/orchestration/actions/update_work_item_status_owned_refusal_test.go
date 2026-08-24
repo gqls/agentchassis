@@ -103,6 +103,9 @@ func runStatusUpdate(t *testing.T, config map[string]interface{}, collected map[
 			WithArgs(itemID,
 				captureArg{got: &got.errCol},
 				sqlmock.AnyArg(),
+				// bugs_open/345 candidate 2's `terminateNow`, inserted at $4.
+				// The result-merge capture MUST stay last: it moved $5 -> $6.
+				sqlmock.AnyArg(),
 				sqlmock.AnyArg(),
 				captureTextArg{got: &got.resultJSN}).
 			WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("failed", 0))

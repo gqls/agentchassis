@@ -101,6 +101,11 @@ const (
 	envDisableRetryBackoff     = "DISABLE_WORK_ITEM_RETRY_BACKOFF"
 	envDisableTransientRelease = "DISABLE_WORK_ITEM_TRANSIENT_RELEASE"
 	envDisableBurstRelease     = "DISABLE_WORK_ITEM_BURST_RELEASE"
+	// bugs_open/345 candidate 2. A fleet-wide disarm for the repeat rule, in
+	// this file's existing idiom, so it can be switched off without a config
+	// migration on every opted-in dispatcher. It disarms only; it can never
+	// arm the rule, because arming is per-item-type and lives in step config.
+	envDisableRepeatTermination = "DISABLE_WORK_ITEM_REPEAT_TERMINATION"
 )
 
 // ── Tunables. Defaults are the measured ones; env overrides are for an
@@ -281,6 +286,12 @@ type failureLadderOutcome struct {
 	Skipped       bool   // the guard refused: a deliberate decision was already recorded
 	SkipReason    string
 	BackoffMins   int // 0 = claimable immediately
+	// bugs_open/345 candidate 2: the budget was ended EARLY because this
+	// failure was byte-identical to the one already on the row, i.e. the
+	// feedback did not change the outcome. Reported rather than inferred from
+	// NewStatus, because "failed at the ceiling" and "failed because retrying
+	// is pointless" are different facts and only one of them is a cost saving.
+	TerminatedOnRepeat bool
 }
 
 func envInt(key string, def int) int {
@@ -307,6 +318,13 @@ func applyWorkItemFailureLadder(
 	errorMsg string,
 	agentType string,
 	resultMerge []byte,
+	// bugs_open/345 candidate 2: the CALLING STEP's config, read only for the
+	// repeat-termination opt-in (stopOnRepeatFailure). nil is a valid, complete
+	// answer meaning "not opted in" — every caller that has no opinion passes
+	// nil and gets byte-identical behaviour. It is deliberately the whole step
+	// config rather than a pre-extracted bool so the opt-in stays visible where
+	// a reviewer of the CALLER reads it, which is the RFC_010 §2 ruling.
+	stepConfig map[string]interface{},
 ) (failureLadderOutcome, error) {
 	var out failureLadderOutcome
 	if db == nil {
@@ -324,13 +342,17 @@ func applyWorkItemFailureLadder(
 		maxAttempts          int
 		itemType             string
 		transientReleasesRun int
+		// bugs_open/345 candidate 2: the failure ALREADY on the row, so the
+		// incoming one can be recognised as a repeat of it. NullString because
+		// the column is NULL on every item that has not failed yet.
+		priorError sql.NullString
 	)
 	readQ := fmt.Sprintf(`
-		SELECT status, attempt_count, max_attempts, item_type, %s
+		SELECT status, attempt_count, max_attempts, item_type, %s, error
 		FROM site_work_items WHERE id = $1`,
 		fmt.Sprintf(jsonbIntFragment, "spec->'transient_releases'", "spec->>'transient_releases'"))
 	if err := db.QueryRowContext(ctx, readQ, itemID).
-		Scan(&curStatus, &attemptCount, &maxAttempts, &itemType, &transientReleasesRun); err != nil {
+		Scan(&curStatus, &attemptCount, &maxAttempts, &itemType, &transientReleasesRun, &priorError); err != nil {
 		if err == sql.ErrNoRows {
 			return out, fmt.Errorf("work item %s not found", itemID)
 		}
@@ -390,12 +412,77 @@ func applyWorkItemFailureLadder(
 		return out, nil
 	}
 
+	// ── bugs_open/345 candidate 2: has the feedback demonstrably failed to
+	// change anything? If so, stop paying for the rest of the budget.
+	//
+	// REACHED ONLY AFTER the transient arm has declined this failure, and that
+	// ordering is the contract, not a convenience. A burst, an AI outage or a
+	// classified-transient fault repeats identically BY DEFINITION, and it
+	// repeats because the world is broken, not because the writer failed to
+	// learn. Terminating those would convert every outage into a wave of
+	// permanently failed items. So: release first, and only classify a repeat
+	// among the failures nobody has excused.
+	//
+	// WHY THIS EXISTS. 345's evidence was 99 rejections in which EVERY item with
+	// more than one had exactly one distinct reason (count(DISTINCT
+	// md5(error_message)) = 1), from 2 repeats up to 52 on a single item. That
+	// was the disconfirming test for "a stochastic writer will eventually differ"
+	// and it failed to disconfirm. Candidate 1 fixed the cause by feeding the
+	// refusal back, and it works — item ceea0c07 on 2026-08-22 was refused at
+	// 12:18:43Z, re-dispatched at 12:51 carrying the text, and completed at
+	// 12:53:07. This is the OTHER half: when the feedback has been supplied and
+	// the answer is byte-identical anyway, the remaining attempts cannot help.
+	//
+	// ⚠ NOT the bug file's candidate 2 as written. That said "park on the FIRST
+	// rejection", whose premise ("it cannot succeed unchanged") was true only
+	// while the retry was blind. Implementing it now would disable the mechanism
+	// that just started working. The rule here can never fire on a first
+	// failure: it needs a prior recorded failure to compare against.
+	//
+	// EXACT EQUALITY, deliberately, and NOT normSigFragment. That signature
+	// exists for burst detection and strips quoted strings, so two DIFFERENT
+	// invented field names — "currency_symbol" and "ctas.primary_url", both real
+	// examples from this bug — collapse to one signature and a writer that was
+	// genuinely converging would be killed. The bug's own evidence used exact
+	// message identity, so that is the evidence-grounded threshold, and it errs
+	// toward false negatives (a volatile substring makes two "same" failures
+	// differ and the rule simply stays silent), which is the safe direction.
+	//
+	// Compared in Go, not SQL: because the comparison is exact there is no
+	// normalisation to drift, so the "applied in SQL on both sides on purpose"
+	// rule above does not bind here — and Go is what makes it unit-testable.
+	// ⚠ GATED ON A NON-BLANK RECORDED FAILURE, **NOT** ON attempt_count — and
+	// that is this bug's own round-2 lesson, applied in the mirror position.
+	// The council refuted an `attempt_count > 0` gate on the READER half (corr
+	// 67b07528) with the measurement that the 52-rejection item was 52 DISTINCT
+	// orchestrations while attempt_count reached only 3, because the transient
+	// arm above returns an item to the queue with `error` WRITTEN and the
+	// attempt deliberately NOT consumed. An attempt gate here would exempt
+	// exactly those uncounted re-dispatches — the majority population — from the
+	// rule meant to stop them.
+	//
+	// A first-ever failure is excluded anyway, and by the honest discriminator:
+	// a fresh item's `error` is NULL, so there is nothing to have repeated. I
+	// wrote the attempt gate first and MUTATION-TESTING removed it: deleting it
+	// broke no test, which said it was redundant, and reading why said it was
+	// also wrong.
+	repeatTermination := false
+	if envArmed(envDisableRepeatTermination) && stopOnRepeatFailure(stepConfig, itemType) {
+		prev := strings.TrimSpace(priorError.String)
+		if prev != "" && prev == strings.TrimSpace(errorMsg) {
+			repeatTermination = true
+		}
+	}
+
 	// ── The counting ladder. Backoff minutes come from reaper_policies
 	// (RFC_018's invitation: "adopt reaper_policies for its numbers first,
 	// executor second"), scaled linearly by attempt exactly as its first
 	// consumer does (20 × (retry_count+1) in reap_stale_collection_tasks).
 	backoff := 0
-	if envArmed(envDisableRetryBackoff) && attemptCount+1 < maxAttempts {
+	// !repeatTermination: a backoff stamps "not claimable before T" on a row we
+	// are about to make terminal. Harmless but incoherent, and it would make a
+	// terminated row look like a scheduled retry to every reader of retry_after.
+	if envArmed(envDisableRetryBackoff) && attemptCount+1 < maxAttempts && !repeatTermination {
 		backoff = backoffMinutesFor(ctx, db, logger, itemType) * (attemptCount + 1)
 		if backoff > maxBackoffMinutes {
 			backoff = maxBackoffMinutes
@@ -403,7 +490,7 @@ func applyWorkItemFailureLadder(
 	}
 
 	newStatus, attemptsLeft, affected, err := writeCountingLadder(
-		ctx, db, itemID, errorMsg, agentType, backoff, resultMerge, guard)
+		ctx, db, itemID, errorMsg, agentType, backoff, resultMerge, guard, repeatTermination)
 	if err != nil {
 		return out, err
 	}
@@ -414,6 +501,19 @@ func applyWorkItemFailureLadder(
 		return out, nil
 	}
 	out.NewStatus, out.AttemptsLeft, out.BackoffMins = newStatus, attemptsLeft, backoff
+	out.TerminatedOnRepeat = repeatTermination
+	if repeatTermination {
+		// Info, not Warn: this is the mechanism working. It is logged loudly
+		// because it is the ONLY place the saving is visible — the row just
+		// shows 'failed', exactly as it would at the ceiling, and 345's whole
+		// difficulty was that a wasteful loop looked identical to a normal one.
+		logger.Info("work item failure ladder: TERMINATED ON REPEAT — this failure is byte-identical to the one already recorded, so the feedback did not change the outcome and the remaining attempts cannot either",
+			zap.String("item_id", itemID.String()),
+			zap.String("item_type", itemType),
+			zap.String("new_status", newStatus),
+			zap.Int("attempts_that_would_have_run", maxAttempts-attemptCount-1))
+		return out, nil
+	}
 	logger.Info("work item failure ladder: attempt counted",
 		zap.String("item_id", itemID.String()),
 		zap.String("new_status", newStatus),
@@ -432,10 +532,11 @@ func applyWorkItemFailureLadder(
 // matches the existing AI-unavailable branch. Stated in the submission as a
 // behaviour change: retried rows become reapable at 48h.
 func writeCountingLadder(ctx context.Context, db *sql.DB, itemID uuid.UUID,
-	errorMsg, agentType string, backoffMins int, resultMerge []byte, guard string) (string, int, int64, error) {
+	errorMsg, agentType string, backoffMins int, resultMerge []byte, guard string,
+	terminateNow bool) (string, int, int64, error) {
 
 	q, args := countingLadderStatement(itemID, errorMsg, agentType, backoffMins, resultMerge,
-		guard, retryAfterColumnPresent.Load())
+		guard, retryAfterColumnPresent.Load(), terminateNow)
 
 	var newStatus string
 	var attemptsLeft int
@@ -446,7 +547,7 @@ func writeCountingLadder(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 	}
 	if err != nil {
 		if noteMissingRetryAfterColumn(err) {
-			return writeCountingLadder(ctx, db, itemID, errorMsg, agentType, backoffMins, resultMerge, guard)
+			return writeCountingLadder(ctx, db, itemID, errorMsg, agentType, backoffMins, resultMerge, guard, terminateNow)
 		}
 		return "", 0, 0, fmt.Errorf("failed to apply work item failure ladder: %w", err)
 	}
@@ -474,14 +575,24 @@ func writeCountingLadder(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 // The zero-backoff special case lives IN the CASE ($4::int <= 0 → NULL) so the
 // statement text is identical whichever value is bound.
 func countingLadderStatement(itemID uuid.UUID, errorMsg, agentType string, backoffMins int,
-	resultMerge []byte, guard string, withRetryAfter bool) (string, []interface{}) {
+	resultMerge []byte, guard string, withRetryAfter bool, terminateNow bool) (string, []interface{}) {
 
-	args := []interface{}{itemID, errorMsg, agentType}
+	// $4 is ALWAYS bound and ALWAYS referenced, whichever way it goes — the
+	// discipline this function's header exists to enforce. bugs_open/345
+	// candidate 2 adds it: when the incoming failure is byte-identical to the
+	// one already on the row, the remaining attempts cannot help, so the item
+	// goes terminal now. Expressed as "force the ceiling" rather than as a new
+	// status: idx_swi_dedup and workItemTerminalStatuses are ONE contract, and
+	// inventing a status here is a fleet-wide 42P10.
+	args := []interface{}{itemID, errorMsg, agentType, terminateNow}
 
 	retryAfter := ""
 	if withRetryAfter {
-		retryAfter = `retry_after = CASE WHEN attempt_count + 1 >= max_attempts OR $4::int <= 0 THEN NULL
-			                 ELSE NOW() + make_interval(mins => $4::int) END,`
+		// A terminated row must not carry a not-claimable-before stamp: it is
+		// not being retried, and retry_after is how every other reader tells
+		// "scheduled" from "done".
+		retryAfter = `retry_after = CASE WHEN attempt_count + 1 >= max_attempts OR $4::boolean OR $5::int <= 0 THEN NULL
+			                 ELSE NOW() + make_interval(mins => $5::int) END,`
 		args = append(args, backoffMins)
 	}
 	args = append(args, jsonbTextOrNil(resultMerge))
@@ -508,7 +619,7 @@ func countingLadderStatement(itemID uuid.UUID, errorMsg, agentType string, backo
 		    -- those queries mid-stream. The identity is not lost: that action
 		    -- already stamps result.completed_by_step.
 		    handled_by = COALESCE(NULLIF($3, ''), handled_by),
-		    status = CASE WHEN attempt_count + 1 >= max_attempts THEN 'failed' ELSE 'triaged' END,
+		    status = CASE WHEN attempt_count + 1 >= max_attempts OR $4::boolean THEN 'failed' ELSE 'triaged' END,
 		    ` + retryAfter + `
 		    claimed_by = NULL,
 		    claimed_at = NULL,
@@ -708,4 +819,62 @@ func jsonbTextOrNil(b []byte) interface{} {
 		return nil
 	}
 	return string(b)
+}
+
+// stopOnRepeatFailure reads the CALLER's opt-in for bugs_open/345 candidate 2.
+//
+// THE SHAPE IS AN OWNER RULING, not a preference (2026-08-02, RFC_010 §2): new
+// authority on a shared seam ships as an OPT-IN FIELD whose UNSAFE default is
+// OFF, because "a comment is not a control on a tree this many sessions share".
+// Ending a retry budget early IS new authority, and this ladder is as shared as
+// a seam gets — [MEASURED 2026-08-22] 799 items fleet-wide currently carry a
+// non-blank error across ~30 item types. Absent or empty config therefore means
+// today's behaviour, byte for byte.
+//
+// WHY IT IS A LIST OF ITEM TYPES AND NOT A BOOLEAN. The natural place to put a
+// boolean would be the dispatcher's `mark_failed` step — but `component-creator`
+// has no error_step of its own (read from the live agent_definitions row,
+// 2026-08-22), so the item's failure is written by build-dispatch-loop's
+// `mark_failed`, which is ONE step shared by every item type that dispatcher
+// handles. A boolean there would silently arm the rule for all of them. Naming
+// the types keeps the blast radius visible to a reviewer of the caller, which is
+// the whole point of the ruling:
+//
+//	"mark_failed": {
+//	    "action": "fail_work_item",
+//	    "config": { "stop_on_repeat_failure_item_types": ["needs_new_component"] }
+//	}
+//
+// The ladder already reads item_type for the backoff policy, so honouring it
+// costs nothing extra.
+//
+// Unknown or misspelled type names are inert by construction: they simply never
+// match. That is a deliberate silent-failure, and it is the safe direction — a
+// typo disarms the rule rather than arming it for something unintended.
+func stopOnRepeatFailure(stepConfig map[string]interface{}, itemType string) bool {
+	if stepConfig == nil || itemType == "" {
+		return false
+	}
+	raw, ok := stepConfig["stop_on_repeat_failure_item_types"]
+	if !ok {
+		return false
+	}
+	// []interface{} is what JSON config arrives as; []string is what a Go
+	// caller or a test would pass. Both are accepted so the seam behaves the
+	// same whichever side reaches it.
+	switch v := raw.(type) {
+	case []interface{}:
+		for _, e := range v {
+			if s, ok := e.(string); ok && strings.TrimSpace(s) == itemType {
+				return true
+			}
+		}
+	case []string:
+		for _, s := range v {
+			if strings.TrimSpace(s) == itemType {
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -39,6 +39,10 @@ type ladderState struct {
 	maxAttempts       int
 	itemType          string
 	transientReleases int
+	// bugs_open/345 candidate 2: the failure ALREADY on the row. Empty is the
+	// commonest state (an item that has not failed yet) and is what every
+	// pre-existing test in this file gets, so their behaviour is unchanged.
+	priorError string
 }
 
 func defaultLadderState() ladderState {
@@ -46,9 +50,17 @@ func defaultLadderState() ladderState {
 }
 
 func expectStateRead(mock sqlmock.Sqlmock, st ladderState) {
+	// Declared POSITIONALLY, so adding a column to the ladder's read query
+	// breaks every test in this file at once. That breakage is the feature: a
+	// scan misalignment on this path returns "expected N destination arguments"
+	// and turns the whole failure write into an error.
+	var prior interface{}
+	if st.priorError != "" {
+		prior = st.priorError
+	}
 	mock.ExpectQuery(`SELECT status, attempt_count, max_attempts, item_type`).
-		WillReturnRows(sqlmock.NewRows([]string{"status", "attempt_count", "max_attempts", "item_type", "releases"}).
-			AddRow(st.status, st.attemptCount, st.maxAttempts, st.itemType, st.transientReleases))
+		WillReturnRows(sqlmock.NewRows([]string{"status", "attempt_count", "max_attempts", "item_type", "releases", "error"}).
+			AddRow(st.status, st.attemptCount, st.maxAttempts, st.itemType, st.transientReleases, prior))
 }
 
 // expectBurstProbe arms the agent_error_log read. Passing counts below the
@@ -88,8 +100,11 @@ func expectLadderUpdate(mock sqlmock.Sqlmock, w *ladderWrite, newStatus string, 
 		rows = rows.AddRow(newStatus, attemptsLeft)
 	}
 	mock.ExpectQuery(`UPDATE site_work_items`).
+		// Five before bugs_open/345, six now: $4 is the always-bound
+		// terminateNow boolean, which shifted backoff to $5 and resultMerge
+		// to $6.
 		WithArgs(sqlmock.AnyArg(), captureArg{got: &w.errorArg}, captureArg{got: &w.agentArg},
-			sqlmock.AnyArg(), sqlmock.AnyArg()).
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(rows)
 }
 
@@ -108,7 +123,7 @@ func runLadder(t *testing.T, st ladderState, errMsg string, arm func(sqlmock.Sql
 	arm(mock, w)
 
 	out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
-		uuid.New(), errMsg, "build-dispatch-loop", nil)
+		uuid.New(), errMsg, "build-dispatch-loop", nil, nil)
 	if mErr := mock.ExpectationsWereMet(); mErr != nil {
 		t.Fatalf("expectations: %v", mErr)
 	}
@@ -217,7 +232,7 @@ func TestFailureLadder_FallsBackToTheCodeDefaultWhenNoPolicyRowExists(t *testing
 	expectLadderUpdate(mock, w, "triaged", 2, true)
 
 	out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
-		uuid.New(), "boom", "build-dispatch-loop", nil)
+		uuid.New(), "boom", "build-dispatch-loop", nil, nil)
 	if err != nil {
 		t.Fatalf("a missing policy table must not break the failure path: %v", err)
 	}
@@ -308,7 +323,7 @@ func TestFailureLadder_TheGuardIsActuallyInTheStatement(t *testing.T) {
 	mock.ExpectQuery(`UPDATE site_work_items`).
 		WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("triaged", 2))
 	_, _ = applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
-		uuid.New(), "boom", "build-dispatch-loop", nil)
+		uuid.New(), "boom", "build-dispatch-loop", nil, nil)
 	_ = gotSQL
 
 	// sqlmock's regexp matching is the readable way to assert on statement
@@ -327,7 +342,7 @@ func TestFailureLadder_TheGuardIsActuallyInTheStatement(t *testing.T) {
 	mock2.ExpectQuery(regexp.QuoteMeta(`AND status NOT IN (` + sqlInList(workItemDecisionStatuses) + `)`)).
 		WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("triaged", 2))
 	if _, err := applyWorkItemFailureLadder(context.Background(), db2, zap.NewNop(),
-		uuid.New(), "boom", "build-dispatch-loop", nil); err != nil {
+		uuid.New(), "boom", "build-dispatch-loop", nil, nil); err != nil {
 		t.Fatalf("the ladder UPDATE does not carry the decision-status guard: %v", err)
 	}
 	if err := mock2.ExpectationsWereMet(); err != nil {
@@ -344,10 +359,10 @@ func TestFailureLadder_RetryAfterIsActuallyStamped(t *testing.T) {
 	expectStateRead(mock, st)
 	expectBurstProbe(mock, 1, 1, 1)
 	expectPolicyLookup(mock, 30)
-	mock.ExpectQuery(regexp.QuoteMeta(`retry_after = CASE WHEN attempt_count + 1 >= max_attempts OR $4::int <= 0 THEN NULL`)).
+	mock.ExpectQuery(regexp.QuoteMeta(`retry_after = CASE WHEN attempt_count + 1 >= max_attempts OR $4::boolean OR $5::int <= 0 THEN NULL`)).
 		WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("triaged", 2))
 	if _, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
-		uuid.New(), "boom", "build-dispatch-loop", nil); err != nil {
+		uuid.New(), "boom", "build-dispatch-loop", nil, nil); err != nil {
 		t.Fatalf("the ladder UPDATE does not stamp retry_after: %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -373,7 +388,7 @@ func TestFailureLadder_BurstReleasesWithoutConsumingAnAttempt(t *testing.T) {
 
 	out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(), uuid.New(),
 		`failed to get latest commit/base tree for branch "master": github API request failed with status: 404 Not Found`,
-		"build-dispatch-loop", nil)
+		"build-dispatch-loop", nil, nil)
 	if err != nil {
 		t.Fatalf("ladder: %v", err)
 	}
@@ -413,7 +428,7 @@ func TestFailureLadder_ALonePermanentFailureStillDiesInThreeAttempts(t *testing.
 
 	out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(), uuid.New(),
 		`failed to get latest commit/base tree for branch "master": github API request failed with status: 404 Not Found`,
-		"build-dispatch-loop", nil)
+		"build-dispatch-loop", nil, nil)
 	if err != nil {
 		t.Fatalf("ladder: %v", err)
 	}
@@ -441,7 +456,7 @@ func TestFailureLadder_ReleaseIsCappedSoItCanNeverBeInfinite(t *testing.T) {
 	expectLadderUpdate(mock, w, "failed", 0, true)
 
 	out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(), uuid.New(),
-		"github API request failed with status: 404 Not Found", "build-dispatch-loop", nil)
+		"github API request failed with status: 404 Not Found", "build-dispatch-loop", nil, nil)
 	if err != nil {
 		t.Fatalf("ladder: %v", err)
 	}
@@ -469,7 +484,7 @@ func TestFailureLadder_AOneShotLaneIsNeverReleased(t *testing.T) {
 	expectLadderUpdate(mock, w, "failed", 0, true)
 
 	out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(), uuid.New(),
-		"connection refused", "diagnose-dispatch-loop", nil)
+		"connection refused", "diagnose-dispatch-loop", nil, nil)
 	if err != nil {
 		t.Fatalf("ladder: %v", err)
 	}
@@ -542,7 +557,7 @@ func TestFailureLadder_ABrokenBurstProbeFallsThroughToTheLadder(t *testing.T) {
 	expectLadderUpdate(mock, w, "failed", 0, true)
 
 	out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(), uuid.New(),
-		"adapter exploded", "build-dispatch-loop", nil)
+		"adapter exploded", "build-dispatch-loop", nil, nil)
 	if err != nil {
 		t.Fatalf("a failed burst probe must not fail the write: %v", err)
 	}
@@ -638,7 +653,7 @@ func TestFailureLadder_EachNewBehaviourDisarmsIndependently(t *testing.T) {
 		mock.ExpectQuery(`WHERE id = \$1 RETURNING`).
 			WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("failed", 0))
 		if _, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
-			uuid.New(), "boom", "build-dispatch-loop", nil); err != nil {
+			uuid.New(), "boom", "build-dispatch-loop", nil, nil); err != nil {
 			t.Fatalf("disarm did not remove the guard: %v", err)
 		}
 	})
@@ -654,7 +669,7 @@ func TestFailureLadder_EachNewBehaviourDisarmsIndependently(t *testing.T) {
 		w := &ladderWrite{}
 		expectLadderUpdate(mock, w, "triaged", 2, true)
 		out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
-			uuid.New(), "boom", "build-dispatch-loop", nil)
+			uuid.New(), "boom", "build-dispatch-loop", nil, nil)
 		if err != nil {
 			t.Fatalf("ladder: %v", err)
 		}
@@ -677,7 +692,7 @@ func TestFailureLadder_EachNewBehaviourDisarmsIndependently(t *testing.T) {
 		w := &ladderWrite{}
 		expectLadderUpdate(mock, w, "failed", 0, true)
 		out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
-			uuid.New(), "connection refused", "build-dispatch-loop", nil)
+			uuid.New(), "connection refused", "build-dispatch-loop", nil, nil)
 		if err != nil {
 			t.Fatalf("ladder: %v", err)
 		}
@@ -702,7 +717,7 @@ func TestFailureLadder_EachNewBehaviourDisarmsIndependently(t *testing.T) {
 		mock.ExpectQuery(`UPDATE site_work_items`).
 			WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("triaged", 1))
 		out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
-			uuid.New(), "connection refused by the endpoint", "build-dispatch-loop", nil)
+			uuid.New(), "connection refused by the endpoint", "build-dispatch-loop", nil, nil)
 		if err != nil {
 			t.Fatalf("ladder: %v", err)
 		}
@@ -854,8 +869,15 @@ func TestLadderStatementPlaceholdersMatchBindList(t *testing.T) {
 	var variants []variant
 	for _, withCol := range []bool{true, false} {
 		for _, backoff := range []int{0, 30} {
-			q, args := countingLadderStatement(id, "boom", "loop", backoff, nil, "", withCol)
-			variants = append(variants, variant{fmt.Sprintf("counting/col=%v/backoff=%d", withCol, backoff), q, args})
+			// bugs_open/345 candidate 2 added the terminateNow boolean, which is
+			// ALWAYS bound. It is audited on both values for the same reason the
+			// backoff is: a parameter that leaves the TEXT on one branch while
+			// staying in the BIND LIST is precisely the 42P18 above.
+			for _, terminateNow := range []bool{false, true} {
+				q, args := countingLadderStatement(id, "boom", "loop", backoff, nil, "", withCol, terminateNow)
+				variants = append(variants, variant{
+					fmt.Sprintf("counting/col=%v/backoff=%d/terminate=%v", withCol, backoff, terminateNow), q, args})
+			}
 		}
 		q, args := transientReleaseStatement(id, "boom", "ai_unavailable", 15, nil, "", withCol)
 		variants = append(variants, variant{fmt.Sprintf("transient/col=%v", withCol), q, args})
@@ -881,16 +903,25 @@ func TestLadderStatementPlaceholdersMatchBindList(t *testing.T) {
 }
 
 // TestLadderStatementTextIsValueInvariant pins the repair's shape itself: the
-// zero-backoff case lives IN the SQL (`$4::int <= 0` → NULL), never in a
+// zero-backoff case lives IN the SQL (`$5::int <= 0` → NULL; $4 is 345's
+// always-bound terminateNow boolean), never in a
 // Go-side text branch — a statement whose TEXT depends on a bound VALUE is the
 // exact construction that produced the 42P18, because only one of its shapes
 // ever meets the test suite.
 func TestLadderStatementTextIsValueInvariant(t *testing.T) {
 	id := uuid.New()
-	q0, _ := countingLadderStatement(id, "boom", "loop", 0, nil, "", true)
-	q30, _ := countingLadderStatement(id, "boom", "loop", 30, nil, "", true)
+	q0, _ := countingLadderStatement(id, "boom", "loop", 0, nil, "", true, false)
+	q30, _ := countingLadderStatement(id, "boom", "loop", 30, nil, "", true, false)
 	if q0 != q30 {
 		t.Fatal("counting-ladder SQL text varies with the backoff VALUE — the 42P18 construction is back")
+	}
+	// The same invariant for bugs_open/345 candidate 2's flag. Forcing the
+	// ceiling is expressed IN the CASE (`OR $4::boolean`), never as a Go-side
+	// branch that swaps the statement — if this ever fails, the terminate path
+	// has become a shape the rest of the suite never executes.
+	qT, _ := countingLadderStatement(id, "boom", "loop", 30, nil, "", true, true)
+	if q30 != qT {
+		t.Fatal("counting-ladder SQL text varies with the terminateNow VALUE — the 42P18 construction is back on the repeat-termination path")
 	}
 }
 
@@ -901,7 +932,7 @@ func TestLadderStatementTextIsValueInvariant(t *testing.T) {
 // pre-fix, the kill switch shipped as the SAFE way to quiet a misbehaving
 // backoff broke EVERY failure write instead), and a reaper_policies row of 0
 // (operator-set, live-editable, no build needed to trigger). Each case asserts
-// the UPDATE carries the value-invariant CASE text (`OR $4::int <= 0`): the
+// the UPDATE carries the value-invariant CASE text (`OR $5::int <= 0`): the
 // pre-fix code emitted `retry_after = NULL,` on all three, which is the
 // dropped-$4 statement that died with SQLSTATE 42P18 in production.
 func TestFailureLadder_ZeroBackoffTriggersAllReachTheSameStatement(t *testing.T) {
@@ -950,10 +981,10 @@ func TestFailureLadder_ZeroBackoffTriggersAllReachTheSameStatement(t *testing.T)
 			defer db.Close()
 			expectStateRead(mock, tc.state)
 			tc.arm(t, mock)
-			mock.ExpectQuery(regexp.QuoteMeta(`OR $4::int <= 0 THEN NULL`)).
+			mock.ExpectQuery(regexp.QuoteMeta(`OR $5::int <= 0 THEN NULL`)).
 				WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow(tc.want, 0))
 			if _, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
-				uuid.New(), "boom", "build-dispatch-loop", nil); err != nil {
+				uuid.New(), "boom", "build-dispatch-loop", nil, nil); err != nil {
 				t.Fatalf("ladder errored on a zero-backoff trigger: %v", err)
 			}
 			if err := mock.ExpectationsWereMet(); err != nil {
@@ -980,14 +1011,15 @@ func TestFailureLadder_MissingColumnRecoveryNowFires(t *testing.T) {
 	expectStateRead(mock, defaultLadderState())
 	expectBurstProbe(mock, 1, 1, 1)
 	expectPolicyLookup(mock, 30)
-	mock.ExpectQuery(regexp.QuoteMeta(`OR $4::int <= 0 THEN NULL`)).
+	mock.ExpectQuery(regexp.QuoteMeta(`OR $5::int <= 0 THEN NULL`)).
 		WillReturnError(errors.New(`pq: column "retry_after" of relation "site_work_items" does not exist (SQLSTATE 42703)`))
 	mock.ExpectQuery(`UPDATE site_work_items`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("triaged", 2))
 
 	if _, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
-		uuid.New(), "boom", "build-dispatch-loop", nil); err != nil {
+		uuid.New(), "boom", "build-dispatch-loop", nil, nil); err != nil {
 		t.Fatalf("the 42703 recovery did not complete: %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -995,5 +1027,256 @@ func TestFailureLadder_MissingColumnRecoveryNowFires(t *testing.T) {
 	}
 	if retryAfterColumnPresent.Load() {
 		t.Fatal("the latch did not flip on a genuine undefined-column error")
+	}
+}
+
+// ── bugs_open/345 candidate 2: terminate when the feedback changed nothing ───
+//
+// 345's evidence: 99 rejections in which EVERY item with more than one had
+// exactly ONE distinct reason (count(DISTINCT md5(error_message)) = 1), from 2
+// repeats up to 52 on a single item. Candidate 1 fixed the CAUSE by feeding the
+// refusal back, and it works (item ceea0c07, 2026-08-22: refused 12:18:43Z,
+// re-dispatched 12:51 with the text, completed 12:53:07). This is the other
+// half: when the feedback HAS been supplied and the answer is byte-identical
+// anyway, the remaining attempts cannot help either.
+//
+// ⚠ NOT the bug file's candidate 2 as written ("park on the FIRST rejection").
+// That premise held only while the retry was blind; implementing it now would
+// disable the mechanism that just started working. Hence TheFirstFailureIsNever
+// Terminated below, which is the property that keeps the two halves compatible.
+
+const repeatFailureMsg = `step store_component failed: generated template for "x" rejected by pre-store validation: field "currency_symbol" declares source "site_specs.locale.currency_symbol"`
+
+// optedIn is the CALLER's opt-in, in the shape a live step config carries it
+// (JSON decodes to []interface{}, which is why stopOnRepeatFailure accepts it).
+func optedIn(itemTypes ...string) map[string]interface{} {
+	v := make([]interface{}, 0, len(itemTypes))
+	for _, t := range itemTypes {
+		v = append(v, t)
+	}
+	return map[string]interface{}{"stop_on_repeat_failure_item_types": v}
+}
+
+// expectPolicy says whether the reaper_policies lookup should be reached. It is
+// SKIPPED when the rule fires, and that is itself a property worth pinning: a
+// backoff stamps "not claimable before T" on a row about to become terminal,
+// which would make a terminated item read as a scheduled retry to every reader
+// of retry_after. So a test that expects termination must NOT expect the
+// lookup, and one that expects survival MUST.
+func runLadderWithConfig(t *testing.T, st ladderState, errMsg string,
+	cfg map[string]interface{}, expectPolicy bool) (failureLadderOutcome, *ladderWrite) {
+	t.Helper()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	w := &ladderWrite{}
+	expectStateRead(mock, st)
+	expectBurstProbe(mock, 1, 1, 1) // a healthy fleet: no transient release
+	if expectPolicy {
+		expectPolicyLookup(mock, 30)
+	}
+	expectLadderUpdate(mock, w, "failed", 0, true)
+
+	out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
+		uuid.New(), errMsg, "build-dispatch-loop", nil, cfg)
+	if err != nil {
+		t.Fatalf("ladder: %v", err)
+	}
+	return out, w
+}
+
+// THE POINT OF THE RULE.
+func TestFailureLadder_RepeatOfTheRecordedFailureTerminatesEarly(t *testing.T) {
+	st := defaultLadderState()
+	st.itemType = "needs_new_component"
+	st.attemptCount = 1 // a prior attempt happened, and left its failure below
+	st.priorError = repeatFailureMsg
+
+	out, _ := runLadderWithConfig(t, st, repeatFailureMsg, optedIn("needs_new_component"), false)
+
+	if !out.TerminatedOnRepeat {
+		t.Fatal("an identical repeat did not terminate — the item will spend its remaining attempts reproducing a refusal that has already proved it cannot learn (345's 52-generation case)")
+	}
+}
+
+// THE PROPERTY THAT KEEPS CANDIDATE 1 ALIVE. A first failure has nothing to
+// compare against and must never be terminated: that is precisely the bug
+// file's original candidate 2, which is now the wrong behaviour.
+func TestFailureLadder_TheFirstFailureIsNeverTerminated(t *testing.T) {
+	st := defaultLadderState()
+	st.itemType = "needs_new_component"
+	st.attemptCount = 0
+	st.priorError = "" // nothing recorded yet
+
+	out, _ := runLadderWithConfig(t, st, repeatFailureMsg, optedIn("needs_new_component"), true)
+
+	if out.TerminatedOnRepeat {
+		t.Fatal("a FIRST failure was terminated — this is the bug file's original candidate 2, and it would kill the retry before the feedback it now receives has ever been tried")
+	}
+}
+
+// A DIFFERENT failure means the feedback DID change something. The writer is
+// converging and must keep its budget.
+func TestFailureLadder_ADifferentFailureKeepsTheBudget(t *testing.T) {
+	st := defaultLadderState()
+	st.itemType = "needs_new_component"
+	st.attemptCount = 1
+	st.priorError = repeatFailureMsg
+
+	out, _ := runLadderWithConfig(t, st,
+		`step store_component failed: generated template for "x" rejected by pre-store validation: field "cta_primary_url" declares source "site_specs.ctas.primary_url"`,
+		optedIn("needs_new_component"), true)
+
+	if out.TerminatedOnRepeat {
+		t.Fatal("a DIFFERENT rejection was treated as a repeat — the writer changed its answer, which is exactly the signal 345 says means the feedback is working")
+	}
+}
+
+// THE OPT-IN, which is an owner ruling (RFC_010 §2, 2026-08-02): new authority
+// on a shared seam ships as a field whose UNSAFE default is OFF. The ladder is
+// as shared as a seam gets — 799 items fleet-wide carry a non-blank error.
+func TestFailureLadder_RepeatTerminationIsOffUnlessTheCallerOptsIn(t *testing.T) {
+	base := defaultLadderState()
+	base.itemType = "needs_new_component"
+	base.attemptCount = 1
+	base.priorError = repeatFailureMsg
+
+	cases := []struct {
+		name string
+		cfg  map[string]interface{}
+	}{
+		{"no config at all", nil},
+		{"config present, key absent", map[string]interface{}{"work_item_id": "x"}},
+		{"opted in for a DIFFERENT item type", optedIn("content_rewrite")},
+		{"empty list", optedIn()},
+	}
+	for _, c := range cases {
+		out, _ := runLadderWithConfig(t, base, repeatFailureMsg, c.cfg, true)
+		if out.TerminatedOnRepeat {
+			t.Errorf("%s: the rule fired without an opt-in — the unsafe default must be OFF", c.name)
+		}
+	}
+}
+
+// AN OUTAGE REPEATS IDENTICALLY BY DEFINITION, and it repeats because the world
+// is broken, not because the writer failed to learn. The transient arm must win,
+// or every outage becomes a wave of permanently failed items. This is the
+// ordering contract, not an incidental.
+func TestFailureLadder_AnOutageIsReleasedNotTerminated(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	st := defaultLadderState()
+	st.itemType = "needs_new_component"
+	st.attemptCount = 1
+	st.priorError = "boom"
+
+	expectStateRead(mock, st)
+	expectBurstProbe(mock, 50, 5, 5) // the fleet is on fire
+	mock.ExpectQuery(`UPDATE site_work_items`).
+		WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("triaged", 2))
+
+	out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
+		uuid.New(), "boom", "build-dispatch-loop", nil, optedIn("needs_new_component"))
+	if err != nil {
+		t.Fatalf("ladder: %v", err)
+	}
+	if out.TerminatedOnRepeat {
+		t.Fatal("an item was terminated during a detected burst — identical repeats under an outage are the outage, and terminating them turns one incident into a fleet of dead items")
+	}
+	if !out.Released {
+		t.Fatal("the burst arm did not release — the ordering contract (release before repeat) has been broken")
+	}
+}
+
+// The opt-in reader itself, including the two shapes it must accept.
+func TestStopOnRepeatFailure_AcceptsBothConfigShapes(t *testing.T) {
+	if !stopOnRepeatFailure(map[string]interface{}{
+		"stop_on_repeat_failure_item_types": []interface{}{"a", "needs_new_component"}}, "needs_new_component") {
+		t.Error("[]interface{} (how JSON config arrives) was not honoured")
+	}
+	if !stopOnRepeatFailure(map[string]interface{}{
+		"stop_on_repeat_failure_item_types": []string{"needs_new_component"}}, "needs_new_component") {
+		t.Error("[]string (how a Go caller or test passes it) was not honoured")
+	}
+	if stopOnRepeatFailure(nil, "needs_new_component") {
+		t.Error("nil config must mean OFF")
+	}
+	if stopOnRepeatFailure(map[string]interface{}{
+		"stop_on_repeat_failure_item_types": []interface{}{"needs_new_componant"}}, "needs_new_component") {
+		t.Error("a misspelled type matched — a typo must DISARM the rule, never arm it for something unintended")
+	}
+}
+
+// THE UNCOUNTED RE-DISPATCH, and it is the majority population. The transient
+// arm returns an item to the queue with `error` written and the attempt
+// deliberately NOT consumed, so 345's worst item showed attempt_count=3 while
+// producing 52 distinct orchestrations. An `attempt_count > 0` gate on this rule
+// would exempt precisely those — the same defect the council refuted on the
+// READER half in round 2 (corr 67b07528), in the mirror position.
+//
+// This test is why that gate is absent. It was present in the first cut and
+// mutation-testing exposed it as redundant; reading WHY it was redundant showed
+// it was also wrong.
+func TestFailureLadder_UncountedRedispatchStillTerminatesOnRepeat(t *testing.T) {
+	st := defaultLadderState()
+	st.itemType = "needs_new_component"
+	st.attemptCount = 0 // released transiently: the attempt was never consumed
+	st.priorError = repeatFailureMsg
+
+	out, _ := runLadderWithConfig(t, st, repeatFailureMsg, optedIn("needs_new_component"), false)
+
+	if !out.TerminatedOnRepeat {
+		t.Fatal("an uncounted re-dispatch repeated identically and was NOT terminated — this is the 49-of-52 population, and an attempt_count gate is what would hide it")
+	}
+}
+
+// TWO EMPTY MESSAGES ARE NOT A REPEAT. An empty errorMsg is a real, documented
+// occurrence — bugs_closed/040 candidate 2 exists because "a literal-less error
+// step left site_work_items.error EMPTY while agent_error_log held the real
+// message", which is also why the counting arm writes
+// COALESCE(NULLIF($2,”), error). Without the non-blank check, "" == "" and a
+// first-ever failure carrying no text would terminate the item on the spot,
+// having learned nothing about anything.
+//
+// This test exists because MUTATION-TESTING found the gap: deleting the
+// non-blank check broke nothing, because every other test supplies text on at
+// least one side.
+func TestFailureLadder_TwoEmptyMessagesAreNotARepeat(t *testing.T) {
+	st := defaultLadderState()
+	st.itemType = "needs_new_component"
+	st.attemptCount = 0
+	st.priorError = "" // nothing recorded
+
+	// Mocked by hand rather than through runLadderWithConfig: with an EMPTY
+	// message detectFailureBurst short-circuits before it queries
+	// agent_error_log, so the shared helper's burst expectation would go
+	// unmatched. Worth knowing in its own right — the burst probe is skipped
+	// for exactly the failures that carry no text to signature.
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	w := &ladderWrite{}
+	expectStateRead(mock, st)
+	expectPolicyLookup(mock, 30)
+	expectLadderUpdate(mock, w, "triaged", 2, true)
+
+	out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
+		uuid.New(), "", "build-dispatch-loop", nil, optedIn("needs_new_component"))
+	if err != nil {
+		t.Fatalf("ladder: %v", err)
+	}
+
+	if out.TerminatedOnRepeat {
+		t.Fatal("an empty incoming message matched an empty recorded one and terminated the item — a literal-less error step (bugs_closed/040) would kill items on their first failure")
 	}
 }

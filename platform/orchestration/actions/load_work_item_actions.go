@@ -1307,7 +1307,10 @@ func FailWorkItemAction(ctx context.Context, params ActionParams) (interface{}, 
 	// classification, burst detection, and the guard — now lives in
 	// work_item_failure_ladder.go, which update_work_item_status's `failed` arm
 	// also calls. One mechanism, one guarantee.
-	outcome, err := applyWorkItemFailureLadder(ctx, params.DB, logger, itemID, errorMsg, agentType, nil)
+	// params.StepConfig.Config carries bugs_open/345 candidate 2's opt-in
+	// (stop_on_repeat_failure_item_types). Absent = today's behaviour exactly.
+	outcome, err := applyWorkItemFailureLadder(ctx, params.DB, logger, itemID, errorMsg, agentType, nil,
+		params.StepConfig.Config)
 	if err != nil {
 		return nil, err
 	}

@@ -70,7 +70,10 @@ func captureStatusUpdate(t *testing.T, config map[string]interface{}, collected 
 			expectBurstProbe(mock, 1, 1, 1)
 		}
 		mock.ExpectQuery(`UPDATE site_work_items`).
-			WithArgs(itemID, captureArg{got: &gotError}, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+			// SIX positions: bugs_open/345 candidate 2 inserted `terminateNow`
+			// at $4, shifting backoff and the result merge along. The captured
+			// error stays at $2 and is unaffected by the insertion.
+			WithArgs(itemID, captureArg{got: &gotError}, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 			WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("failed", 0))
 	} else {
 		mock.ExpectExec(`UPDATE site_work_items`).

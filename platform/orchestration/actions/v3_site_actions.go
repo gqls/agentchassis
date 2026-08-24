@@ -6209,7 +6209,11 @@ func UpdateWorkItemStatusAction(ctx context.Context, params ActionParams) (inter
 	// that `failed` implies "not a decision".
 	if newStatus == "failed" && !ownedPageRefusal {
 		outcome, lerr := applyWorkItemFailureLadder(ctx, params.DB, params.Logger,
-			workItemID, errorMessage, "", resultJSON)
+			workItemID, errorMessage, "", resultJSON,
+			// bugs_open/345 candidate 2's opt-in, read from THIS step's config.
+			// No live update_work_item_status step opts in today, so this arm is
+			// byte-identical until one does.
+			params.StepConfig.Config)
 		if lerr != nil {
 			return nil, lerr
 		}
