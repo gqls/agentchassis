@@ -47720,3 +47720,17 @@ retraction in the handoff's §10 — memory pressure on this box is ~50 concurre
 ~25 GiB, not scratch — and it came out the way the *corrected* model predicted and the way the
 original single-cause story did not. **Both my measurements today that could have come out either
 way did; it was the ones I never framed as questions that went wrong.**
+
+## 2026-08-24 — vetcomparison lane: "the prompt contamination is a relic, do not file" — the mechanism was live and fired on my own next request
+- **The claim (published in NOTES):** the "None — text-only" prefix on image prompts was called a
+  07-17 relic — census showed 3 affected assets, all created 2026-07-17, none since.
+- **What caught it:** my own hero regeneration 2h later — the handler prepended the same refusal
+  to the prompt I supplied (item fee55dc0's result records it verbatim).
+- **The error:** an OUTPUT census cannot date a MECHANISM. Assets only accrue when generation
+  runs, and no generation had run on that site since 07-17 — so "no contaminated assets after
+  07-17" was evidence of no OPPORTUNITY, not of no mechanism. Same family as "a post-fix zero
+  needs a demand control": my zero had no demand behind it.
+- **The cheap check:** before calling a mechanism dead from its outputs, name the last time it
+  had an opportunity to fire; if opportunities stopped when the outputs stopped, the census says
+  nothing. One extra query (last generation attempt per site) or one induced run settles it —
+  the induced run is what accidentally settled mine.
