@@ -188,10 +188,36 @@ re-triage it replaces precisely because nothing here was contrived to succeed:
 > home page, on a site nobody set up for the purpose.** Their fix is inert until the next image roll.
 > **After that roll the link should go live with nobody touching the site.**
 
-**When a roll lands:** fetch `https://garden-tools.uk/index.html` cache-busted and confirm
-`/brand-directory/index.html` returns **200** rather than 404. Verify at the served page — **not** at
-`build_status`, **not** at the work item (§2.4). Tell `bugfix_206_directory_build_handler` either way;
-a negative result is as useful to them as a positive one.
+> **⚠ THE ROLL LANDED (v1.0.1334, 2026-08-24 15:39Z) AND THIS CHECK CANNOT FIRE. Do not run it and
+> do not read its 404 as a failed fix.** Both lanes wrote the same check and neither asked what
+> re-triggers a build on a quiet site. Two independent blockers, both measured here:
+>
+> 1. **Reconcile has not run and will not run on its own.** `sites.last_reconciled_at` for
+>    garden-tools.uk is **2026-08-23 20:15:50** — before the roll. There is no timer for
+>    `reconcile_site_plan`; it runs *inside* a build/publish pipeline, so **a quiet site never
+>    re-reaches the fixed code.**
+> 2. **The parked row blocks its own re-mint.** `loadOpenPageItems`
+>    (`reconcile_site_plan_action.go:707`) selects open items with
+>    `status NOT IN ('complete','verified','rejected','wont_fix','failed','cancelled')` —
+>    **`needs_human_review` is not excluded**, so reconcile sees `needs_page:brand-directory-index`
+>    as already queued and skips the page, taking the corrected routing with it.
+>
+> **So the fix routes what is MINTED and cannot re-route what is already FILED.** A 404 here is
+> evidence of nothing.
+>
+> **A real proof needs three steps, and step 1 is an operator action on a deliberately unrepaired
+> site — it requires the OWNER's authorisation, not a lane's convenience:**
+> 1. Release the key by moving the parked row to a **terminal** status — `cancelled` or `wont_fix`,
+>    reason in `error`. **Never `complete`**: that asserts work that did not happen.
+> 2. Trigger a build/publish so reconcile actually runs.
+> 3. **The proof is the MINT, not the page** — a fresh `needs_page:brand-directory-index` carrying
+>    `handler_agent='directory-build-handler'`, filed by reconcile with no hand routing. A hand
+>    re-triage would fix the page and prove nothing.
+>
+> ⏳ **There is a clean WINDOW, and it closes.** `bugs_open/381`'s migrations **591-595 are NOT
+> applied** as of 2026-08-24 (`generic-text-block.content` still types `text`). So a rebuild **now**
+> tests 206 alone and leaves 381's pre-fix baseline intact. Once 591-595 apply, a rebuild becomes a
+> joint test of both and neither result isolates cleanly.
 
 ⚠ **`buying-guides-index` will STILL 404 after that roll.** That is the council's deliberate
 narrowing, not a failed fix. Do not report it as one.
