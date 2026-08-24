@@ -9,6 +9,15 @@ is still the reference for the **pre-flight recipe** and the DNS/zone setup; not
 Site `16784842-f7d8-4467-bb5b-eb1fb5c1caba`. Two submissions: the first (17:17Z) **died** at hop two;
 the second (19:23Z) completed. **Do not read the first submission's dead items as current.**
 
+> **⚠ CORRECTED 2026-08-24 after the owner reviewed the served pages. "7 of 12 serving" is true and
+> MISLEADING, and I wrote the misleading version.** I reported these pages as *"substantial and read
+> well"* on the strength of byte counts and a skim. **Byte count cannot see a page that promises a
+> thing and does not deliver it.** `seasonal-planner` is 66,999 bytes and its own `<h2>` says
+> *"What your shed needs, month by month"* — there is no calendar, no month list, and three month
+> names on the whole page. **Some of the seven that "built" are hollow too.** The honest headline is
+> **7 pages serve; fewer than 7 deliver what they promise**, and my after-test had no check that
+> could tell the difference. See `bugs_open/381` and §2a.
+
 | serving (7) | bytes | | never built (5) | why |
 |---|---|---|---|---|
 | `/index.html` | 66,395 | | `/buying-guides/index.html` | section-index — no sections ready |
@@ -31,6 +40,34 @@ it ends that. If the owner wants a working garden-tools site, that is a differen
 explicitly and start a new lane doc, do not quietly fix this one.
 
 ## 2. WHAT MUST BE FIXED BEFORE THE NEXT DOMAIN BUILD — ordered by what stops a site being usable
+
+### 0a. `bugs_open/380` — a site with NO evidence base gets no fact assignment AND no claims audit. **UNOWNED. Highest priority of all.**
+The owner reviewed the copy and found invented practice claims: *"we buy the tool at the same price a
+reader would pay"*, *"Manufacturers do occasionally send review samples"*, *"We garden ourselves, and
+we test what we can get our hands on"*. **None of it has happened — no tool has been tested or
+bought.** Root cause, read from live config: this site has **no `evidence_base`**, and three
+mechanisms all fail open on that one condition — nothing in the greenfield path creates one; the
+planner then tells the writer *"No verified facts are registered for this site — use plain string
+section entries and no facts keys"*; and `claims-auditor.check_opted_in` branches straight to
+**`complete`** (*"Skip entirely when the site has no evidence base"*) without reading a page.
+**So the writer is least constrained exactly where it knows least**, and a skipped audit is
+indistinguishable from a clean one. **29 of 48 live sites (60%) have no evidence base**, so fleet
+claims coverage is ~40%, silently. This is the mechanism behind loanzy's credit broker too —
+`CGV-032` gates the *vertical*, nothing gates the *practice claims*.
+
+### 0b. `bugs_open/381` — the planner composes pages from components that cannot express the page it planned. **UNOWNED.**
+`seasonal-planner` promises *"month by month"* and was built from four components — `hero`,
+`generic-text-block`, `info-card-grid`, `call-to-action` — **none of which can render a list or a
+table**. Site-wide the content has **0 tables, 0 lists, 0 `<strong>`**. Meanwhile **34 list-capable
+and 10 table-capable components sat available** among 151 active. The planner's component listing
+never states what markup a component can produce, so it chooses blind on expressiveness. Two arms
+with different fixes: **(a) writer-side/cheap** — the owner's wall-of-text paragraph is in
+`generic-text-block`, a **pass-through** that would have accepted `<h3>`/`<ul>`/`<strong>` unchanged;
+**(b) composition-side/structural** — `differentiators`/`faq`/`hero` hard-wrap in `<p>` and no writer
+or designer change can add a list to them.
+⚠ **There is no `vigilant_designer` agent** (live: `brand-designer`, `feature-designer`,
+`visual-designer`) **and a designer is the wrong layer for (b)** — it would produce a better-looking
+wall of text. The owner's other hypothesis, *"a missing step in the workflow"*, is the right one.
 
 ### 1. `bugs_open/376` — a refused exemplar can kill the build outright. **UNOWNED. Highest priority.**
 `vertical-exemplar-researcher` crawls three LLM-nominated exemplars; Firecrawl refuses some hosts
@@ -144,6 +181,34 @@ a negative result is as useful to them as a positive one.
 narrowing, not a failed fix. Do not report it as one.
 
 ⚠ **Do not repair this site to make the check pass.** Its entire value is that it is unassisted.
+
+## 3b. THE OWNER'S REVIEW, 2026-08-24 — what he asked for and what is still open
+
+Read this before doing anything to the site. His three points, each traced to a mechanism:
+
+1. **"A wall of text… would be much better with typographic and copy structure."** → `bugs_open/381`,
+   arm (a). His guess that it might be `vigilant_designer`'s job or *"a missing step in the
+   workflow"*: **the second is right, the first names an agent that does not exist.**
+2. **"A lot of unverified claims… we need to stop this sort of hallucination."** → `bugs_open/380`.
+   His framing is the important part and should survive into any fix: **these are aspirations stated
+   as present-tense practice.** He explicitly does NOT want them deleted as ambitions — *"when we get
+   a feed in we can look at what information we DO have and go and research for some more… product
+   spec sheets and customer posts online"*. So the fix is **not** "write less"; it is **say only what
+   is sourced, and source more.** The FAQs carry the same defect.
+3. **"The carousel… restrict the cards to just 3 per component."** → measured, **not filed**. There is
+   **no carousel** on this site: `scroll-snap` count **0**, no `.carousel`/`.slider` class. It is a
+   CSS card grid collapsing to one column on mobile. `index` carries **14** cards in markup,
+   `seasonal-planner` 12, `care` 8; the one identified grid already holds exactly 3. **So "3 per
+   component" is already true and does not fix it** — the wall comes from the NUMBER OF CARD SECTIONS
+   per page. Needs a composition decision before it is worth a bug. `bugs_open/381` §7 records it.
+
+**And the escalation he added:** *"the missing pages is not just one, but almost all of them."* He is
+right and it is worse than the 5-of-12 figure — see the correction at the top of §1. **A page can
+deploy, serve 67KB, pass every check in the harness, and not contain the thing its own heading
+promises.** Any future after-test needs a promise-vs-delivery check; mine had none.
+
+**Standing instruction unchanged: the working garden-tools site can wait.** He said so explicitly.
+Do not repair it.
 
 ## 4. Falsifiers for this handoff
 
