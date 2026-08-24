@@ -777,3 +777,22 @@ dartsonline) over releasing the 215. Pre-flight per site before firing (strikes_
   in-cluster); the served page was the observability that survived. Next time: make the poll
   distinguish QUERY_ERR from zero (it did in one arm and not the other), and remember the
   3-day expiry hits observers, not the fleet.
+
+### 10. Day 1 continued — leopardessconsulting.co.uk, and a fleet roll mid-drain [MEASURED 2026-08-24 ~19:20Z]
+
+- **gaswholesalers.com FINAL: 12/12 complete, detector findings 25 → 0** (fresh dump, count-asserted,
+  probe re-run). Both verifications now on record: served bytes (§9) and DB.
+- **leopardessconsulting.co.uk** (corr `9b52142b-0e25-4a40-b108-bde1bc0805db`, filed 18:14:23Z):
+  18 items, **15 complete within ~25 min**, 16/23 tick-list buttons confirmed moved at the served
+  page. Residual: 2 items `OWNED_PAGE_GUARD` (llm-cost-calculator, tool-ai-vendor-trust-checklist —
+  both were on the uncovered-only list anyway, so no repairable damage lost); 1 item
+  (`who-we-help`) at `attempt_count 0` — its dispatch fell in the roll window below. 5 tick-list
+  buttons repaired IN THE ROW (18:32-18:38Z) but the served page not yet synced — the known
+  B2-lag; watcher armed.
+- **Fleet rolled to v1.0.1335 mid-drain** (pods 18:31:55/18:32:19Z). Observed effects, all
+  recoverable: in-flight `claimed` items fell back to `triaged` and re-dispatched; one `triaged`
+  item's spawn was silently dropped (the ~300s post-restart rule, seen live) and waits for the
+  loop's next pass. No item was lost.
+- ⚠ **Tick-list gotcha (mine): a label truncated to 40 chars fails its own exact-match check** —
+  9 buttons read as "gone from page" until re-checked with full labels. Truncate for display,
+  never in the comparison key.
