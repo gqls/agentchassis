@@ -1538,3 +1538,16 @@ Owner reported broken CSS and half-remembered `bugs_open/198` as prior art. Find
   sibling of the "grep proves absence only for the spelling it searches" family. Not logged in
   WRONG_CALLS (never published; caught by continuing to read), logged here so the next reader of
   this entry sees why "0 rules for .section--generic" is NOT evidence of an unstyled section.
+
+**382 addendum 2026-08-24 (from the bugfix_382 lane, verified against the updated bug file):**
+root cause FOUND same day — `image-build-handler.call_variant_gen` forwarded no `kind` (its
+`default_kind` config key was read by NOTHING — a call_agent callee sees only input_mapping), and
+migration 390's own header FALSELY asserted that branch "already forwards kind". Fix: migration
+586 (LIVE — kind + site_id now mapped) + commit da21ae20f (empty kind → banana + a
+MISSING_IMAGE_KIND condition; inert until the image-generator adapter rolls). Two corrections to
+carry: (a) my "15 heroes" figure decomposes 14 variant-path + 1 pre-390 legacy — do not quote "15
+live"; (b) for THIS site: 586 makes `design_intent.imagery_direction` reachable for hero VARIANTS
+for the first time, so any future hero_about/hero_contact regeneration picks up the photographic
+direction seeded today — desired, but a behaviour change on that path. Their false-alarm census
+against my design_intent supersede was their own SQL precedence bug, self-caught and WRONG_CALLS-
+logged; my fix stands (0 refusal-shaped directions fleet-wide, properly parenthesised).
