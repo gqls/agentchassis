@@ -46871,3 +46871,40 @@ The landmine has been updated so the warning does not rest on my figure.
 whether the set is drawn from the same distribution. I had the exemplars in front of me and never
 asked whether they resembled the ones I had sampled. **An average is a claim about a population; the
 council's question was about a payload.**
+
+## 2026-08-24 — `bugs_open/345` close-out: I validated a zero with a demand control that shared the instrument's CHANNEL but not its PREDICATE
+
+**The claim:** that a tripwire reading `0 / 0` was trustworthy, because "**that zero has a passing
+demand control** — the same column carries 14 rows of the `:477` path's own message shape, so the
+instrument is sensitive". I wrote that into `bugs_closed/345` and signed off the tripwire built on it.
+
+**What was true:** the tripwire could not fire at all. Its `ILIKE` patterns watched two store-side
+literals that have never occurred, and missed the only face of the class that has —
+`execute_llm_prompt` failing at `generate_template` with `response truncated: stop_reason=max_tokens`,
+wording that matches neither pattern. **18 real occurrences existed in the very table being swept**,
+newest 2026-08-19 00:24:20Z. The `bugfix_337_token_cap` lane found it by going back over its own
+evidence, and I confirmed it: old predicate against a known-real row → **0**; corrected predicate →
+**18**.
+
+**Why the control passed anyway:** it proved the **column receives text**. It never once exercised
+the **patterns**, which were the broken half. A control on the channel calibrates *delivery* and is
+silent about the *filter* — and a filter is the only part of a tripwire that can be wrong in a way
+that still returns a clean-looking number.
+
+**What caught it:** not me, and not the control. The instrument's own author re-reading their
+evidence a day later. I had already re-verified their figures once and still missed it, because I
+re-ran their query rather than testing their predicate.
+
+**The cheap check that would have:** *the one-row test.* Take a known-real occurrence of the class
+and run the tripwire's own `WHERE` against it. One query, no setup. It fails instantly on a blind
+predicate and is the only check here that could have come out either way.
+
+**The transferable shape, and it sharpens a rule already in the index:** "a post-fix ZERO needs a
+DEMAND control" was followed to the letter and still produced a blind instrument. The rule needs its
+second clause — **the demand control must exercise the FILTER, not the delivery.** A control that
+cannot distinguish "nothing happened" from "I cannot see what happened" is not a control.
+
+⚠ Related trap recorded at the same time: `agent_error_log` retains ~31 days (2026-07-24 → 2026-08-24,
+46,194 rows). The 08-19 evidence **ages out around 2026-09-19**, after which a log-only sweep reads 0
+for a reason unrelated to the class. A dated baseline on a retention-bounded table needs a second
+arm on a table whose rows persist.
