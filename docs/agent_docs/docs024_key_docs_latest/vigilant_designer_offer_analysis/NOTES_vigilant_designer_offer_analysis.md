@@ -2919,3 +2919,37 @@ case-insensitive in its own right, so offsets stay in the original string and st
 - **LANDMINE synced and its verifier armed** (`landmines-verify-dispatch.sh`, corr
   `0f05ee18-5675-4877-88c7-84eca5be766d`) — *not* `landmines-sync.py --apply`, which consumes the
   "new entry" status so the verifier never checks it.
+
+### 9. The first council round was KILLED BY A CHASSIS ROLL, 10 minutes in — re-fired on the same trail
+
+`[MEASURED 2026-08-24]` round 1 on corr `ef482d1c` froze at `review_guardian`, last `updated_at`
+**18:30:18Z**, `status='EXECUTING_STEP'`, `error` NULL. The chassis replicaset changed
+`7f4d5f9fff` → `855587d4dc` with both new pods starting **~18:32Z**. That is the arithmetic in
+`LANDMINES.md`'s *"A chassis roll KILLS an in-flight council"* entry, to the minute, for at least the
+third recorded time — a run frozen seconds before a pod younger than the stall.
+
+**A stalled council is indistinguishable from a slow one, and CLAUDE.md's own advice pushes the wrong
+way:** a missing verdict row *"is almost always latency, not a dropped dispatch — do not retry on that
+evidence"*. True, and it is exactly what makes a roll-killed round invisible. The discriminator is the
+pod-age comparison, not patience.
+
+⚠ **One thing I tried that does NOT corroborate it, recorded because it looks like it should.** I
+reached for a fleet-wide freeze signature — *"if a roll killed mine it must have killed others"*:
+
+```sql
+SELECT date_trunc('minute', updated_at) AT TIME ZONE 'UTC', count(*), count(DISTINCT owner_agent_type)
+  FROM orchestration_states
+ WHERE status='EXECUTING_STEP' AND updated_at < now() - interval '20 minutes'
+   AND updated_at > now() - interval '4 hours' GROUP BY 1 ORDER BY 1;
+```
+
+**One row: mine.** A roll kills whatever is in flight, and with `improvement-sweep` disabled that is
+often a single run — so a lone casualty is the EXPECTED shape and reads as *"the roll was not the
+cause, keep waiting"*. Appended to the landmine so the next reader does not spend the round I nearly
+spent. Re-fired unchanged with `RESUBMIT_CORR=ef482d1c-…` (an infra death, not a judgement), which
+also keeps the trail id stable — the handoff and the register already name it.
+
+**And the second roll does not carry this work either.** Probed both new replicas
+(`855587d4dc-h4hcg`, `-pn2t8`): `verify_acceptance_predicates` **absent**, positive control
+`verify_cited_cardinals` present, negative control absent. So two rolls have now gone past without it,
+both from a build point earlier than commit `7b875b08f`. `601` stays held.
