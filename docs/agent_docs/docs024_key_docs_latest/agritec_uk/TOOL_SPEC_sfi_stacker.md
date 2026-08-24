@@ -163,6 +163,30 @@ is 50 of 222 script-bearing pages (23%). Another reason this tool must be built 
 `page_type='tool'` with a `component_level='tool'` component, not as a script inside a
 `blog-post`.
 
+### THIS MUST BE A REAL TOOL PAGE — three independent reasons, one of them structural
+
+Added 2026-08-24. It was already the plan on design grounds; there are now three, and the third
+is the one that would have bitten quietly.
+
+1. **Design.** A calculator is a tool, and the framework's tool pipeline builds the page, the nav
+   declaration, the companion guide and the cross-links.
+2. **Their suggester cannot see it otherwise.** Population predicate is
+   `page_type='tool' OR component_level='tool'`; a script inside an article is never selected.
+3. **`artifact_check.subject_key` cannot ADDRESS it otherwise.** The fan-out that files the drift
+   finding resolves declaring plans to pages by the platform's own name rule, and a calculator
+   living inside an article is not addressed by that rule either. So the tool page is not merely
+   how we get a helpful suggestion — **it is the precondition for the sub-1000 rate checking in
+   the next section working at all.** Build it as a `blog-post` with an embedded script and the
+   whole of §6c is inert.
+
+Related, from the same lane: their per-fragment extraction fix (approved round 2, `041b3026`)
+matters here specifically, because **this stacker will very likely be multi-component** — a rate
+table, an inputs panel, a results panel. The pre-fix version tokenised a `string_agg` of every
+component's `rendered_html`, so one unbalanced `<script>` carried parser state into the next
+component and collected its *prose* as script text — reporting a figure as present-in-code when
+it was only in the copy. That is the same false certification this whole exercise is against, one
+level down, and it was at its least trustworthy on exactly our shape.
+
 ### What we DO gain: a per-fact `artifact_check` on each rate
 
 `artifact_check` became reachable for **citation facts** in their Phase 2 (RFC_025 stage 2b) —
