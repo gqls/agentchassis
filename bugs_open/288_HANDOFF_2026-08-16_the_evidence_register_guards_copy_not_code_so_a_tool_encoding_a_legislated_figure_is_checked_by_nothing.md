@@ -261,6 +261,42 @@ whose Piece 1 has been live since migration 366 (CLM-021).
    not, but RFC_025 stays short of IMPLEMENTED until one real fact is retyped. That is
    the first item in §6.
 
+## §5b — LIVE AND PROVEN AT THE ARTEFACT, 2026-08-24 18:49–18:55Z (post-roll)
+
+**All four phases are in the running binary**, each probed with a string first confirmed to
+exist in the source (so a zero would have meant something), with both controls:
+
+| probe | count | |
+|---|---|---|
+| `fact_declaration_broken` (Phase 1) | **4** | |
+| `resolves to no stored component HTML`, `carries BOTH component_id`, `component_id or subject_key` (Phase 2) | **1 each** | |
+| `present_in_markup_only` (Phase 3a) | **1** | |
+| `fact_binding_suggested` (Phase 4) | **4** | |
+| `stale_attestation` | **5** | positive control |
+| `ZZZ_must_be_absent` | **0** | negative control |
+
+**RFC_025 STAGE 2b IS PROVEN ON LIVE DATA, BOTH DIRECTIONS.** `sdlt-ftb-relief-cap` on
+mortgagecalculator.co.uk now carries
+`artifact_check{subject_key:"stamp-duty", pattern:"FTB_RELIEF_CEILING\s*=\s*500000"}` — the
+constant name read off today's bytes, not from memory, and context-bearing so it clears
+`bareNumericPattern`. Written by supersede with a `DO`/`RAISE` verify block that would have
+aborted the transaction on any other change; `pinned=t` carried; 13 facts before and after; every
+other fact byte-identical.
+
+| dry run | result |
+|---|---|
+| baseline | **TWO entries for one fact**: `tolerance:"artifact_check"` outcome `fresh`, AND `tolerance:"citation"` outcome `fresh`. **Before stage 2b the first could not exist** — the citation arm `continue`d before the artifact test. |
+| the artifact entry's `verified_at` | **absent** — the `ownsVerifiedAt=false` rule holds live: a secondary check does not bump the date the primary arm owns |
+| induced (pattern → the EXPIRED `625000`, which the tool does not contain) | `outcome: drifted`, detail *"pattern … no longer found in **tool \"stamp-duty\"**"* — so the durable `subject_key` addressing resolves live |
+| the citation arm during the induced run | **`fresh`, undisturbed** — a drifted artifact check does not perturb the primary arm |
+| restore | **byte-identical to the pre-image (md5 match)**, restore armed in a `trap … EXIT` before the change |
+| written by any dry run | **nothing**: 13 `fact_drift_review` items before and after, newest still 2026-08-17; 1 current spec row; 0 doc_notes |
+
+⚠ **`gd-trials` (gamesdesign.co.uk) also carries an `artifact_check` as of 11:07 today, added by
+another lane** — so RFC_025's first consumer is theirs, not this lane's. Ours is the first on a
+**citation** fact and the first using **`subject_key`**, which are the two things stage 2b
+unlocked. Say it that way; do not claim the first consumer.
+
 ## §6 — what is owed now, in order (2026-08-24)
 
 1. **The roll.** All of Phases 1 and 2 is Go and therefore inert. Verify at the binary,
@@ -268,14 +304,11 @@ whose Piece 1 has been live since migration 366 (CLM-021).
    RUNBOOK. Strings unique to this work: `fact_declaration_broken`,
    `artifactCheckSubjectSurfaceQuery` is a var not a literal so grep
    `subject_key %q resolves to no stored component HTML` instead.
-2. **Retype ONE real fact**, so RFC_025 finally has a consumer and stage 2b is proven on
-   live data rather than in fixtures: `sdlt-ftb-relief-cap` with
-   `artifact_check{subject_key:"stamp-duty", pattern:<a CONTEXT-bearing form, never bare
-   digits>}`. A CONTRIB to the `mortgagecalculator_couk_adoption` lane — the site is
-   theirs, and their `install_fences.py` rewrites whole bodies, so never hand-edit the row.
-   **Then induce**: make the pattern unmatchable inside a `trap … EXIT` restore window and
-   assert the dry run says so. *A dry run that reports nothing after an induced change is
-   the failure, and it is the only result that separates this from an inert check.*
+2. ~~**Retype ONE real fact.**~~ **DONE 2026-08-24 at the owner's direction, and induced both
+   ways — see §5b.** ⚠ The register edit was made on **another lane's site**
+   (`mortgagecalculator_couk_adoption`) on the owner's instruction, not on that lane's
+   agreement; they have been told. It touches the `evidence_base` row only — no fence, no
+   page, no `doc_plans` row — so their `install_fences.py` is unaffected.
 3. **Phase 3a — the probe, annotation-only.** Prove a declared figure is actually in the
    tool's **script text**, and measure the present/absent/markup-only distribution over a
    full fleet sweep before anything acts on it. **Script text, never whole-page** — see §0
