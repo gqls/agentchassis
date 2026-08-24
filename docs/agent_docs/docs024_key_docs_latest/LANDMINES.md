@@ -2945,6 +2945,29 @@ stage-2 template as well, or the exposure returns silently on the next rebuild.
 - **source:** 2026-08-01, `bugs_open/170` (`docs024_key_docs_latest/bugfix_170_chrome_pin_eligibility/`), run `ce9bcd92-7be7-4819-bdf8-f8a57622128f`, `WRONG_CALLS.md` same date
 - **added:** 2026-08-01, bugfix_170_chrome_pin_eligibility lane
 
+> **ADDENDUM 2026-08-24, `staged_component_build` lane — the `wc -c` check PASSES and you can still
+> get no verdict. There is a second, independent route to the same silence, and it looks identical.**
+> Run `0b5695a4-a09d-4895-b4ab-652ce88a991a` (intake `5dbead0b`): target file
+> `create_tool_cross_link_items.go` is **32,928 bytes**, comfortably under the ~60,000 bar this entry
+> tells you to check. `orchestration_states` → `COMPLETED`, work item → `complete`, **4 bundles, no
+> `iteration_note`, no verdict, no `doc_note`** — the exact tell above.
+> **What differs:** only iteration 2 hit the budget (`_(body omitted — 840 chars, and 59882 of the
+> 60000-char body budget is already spent…)_`, 2 symbols omitted); iterations 3 and 4 rendered
+> **12 of 12** in-scope symbols with `truncated: false` at 23,501 body chars. So the diagnoser DID
+> see the functions, twice, and still wrote nothing. Iterations 3 and 4 are byte-identical in
+> `body_chars`/`symbol_count` — the loop re-requested the same scope and then stopped, i.e. an
+> **iteration cap reached without convergence**, not a rendering failure.
+> **Consequence for the check above:** `wc -c < 60000` is necessary, not sufficient. Read
+> `metadata->>'truncated'` and the omitted-marker per ITERATION (`SELECT iteration, metadata FROM
+> diagnosis_artifacts WHERE correlation_id='<RUN>' ORDER BY iteration;`) — an all-`false` result with
+> no verdict means the budget was NOT the problem and re-filing with a narrower symbol will not help.
+> **And ⚠ `metadata.truncated` is about the SYMBOL budget, not the document:** bundle 4 reads
+> `truncated: false` while its own body says a sibling file *"exceeds the 60000-char body budget"* and
+> lists 5 elided handles. Two different budgets, one flag.
+> **The ruling's escape hatch is what remains open, and this entry's advice on taking it is right:**
+> the claim in `bugs_open/330` §12 rests on declared first-hand verification, and every place it is
+> asserted says so. Do not let "090 filed" stand as "090 confirmed".
+
 ### `page_components` count > `pages.sections` length is NO LONGER a clean defect signal — RFC_015 preserves rows ON PURPOSE
 
 - **footprint:** `page_components`, `pages.sections`, the declared-vs-present census `HAVING count(pc.id) > jsonb_array_length(p.sections)`, `save_sections_decision_gate.go`, `build_status='removed'`, any audit asking "does this page carry more sections than it declares?"

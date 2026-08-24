@@ -328,3 +328,36 @@ SELECT status, count(*) FROM site_work_items
 Whether an owned tool page *should* receive a cross-link at all is an open design question. 333
 deliberately does not take it; it stops the answer being "silently refused and forgotten". If this
 lane picks it up, that is where it belongs — not in 333.
+
+---
+
+## 9. ⚠ ADDED SAME EVENING — the `090` in §7.2 returned **NO VERDICT**. §7.2 stands on first-hand verification, and says so.
+
+Run `0b5695a4-a09d-4895-b4ab-652ce88a991a` (intake `5dbead0b`) went `COMPLETED`, work item
+`complete`, **4 bundles, no `iteration_note`, no verdict, no `doc_note`.** It neither confirmed nor
+refuted the producer split. **Do not quote "090 filed" as "090 confirmed"** — the 2026-07-31 owner
+ruling allows declared first-hand verification instead, and `bugs_open/330` §12's correction block is
+that declaration.
+
+⚠ **It is NOT the truncation case `LANDMINES.md` tells you to predict, so do not re-file narrower.**
+The target file is **32,928 bytes** (under the ~60,000 bar the entry says to check with `wc -c`), and
+iterations 3 and 4 rendered **12 of 12** in-scope symbols with `truncated: false`. Only iteration 2
+hit the budget (840 chars omitted at 59,882 of 60,000). Iterations 3 and 4 are identical in
+`body_chars` and `symbol_count` — the loop re-requested the same scope and stopped: **an iteration cap
+without convergence**, a second and previously undocumented route to the same silence. Addendum
+appended to that landmine entry.
+
+**Trap 14: `orchestration_states` COMPLETED plus bundles and no verdict is a KNOWN silent failure of
+the diagnosis loop, and its documented predictor (`wc -c` the target file) does not cover all of it.**
+Check `metadata->>'truncated'` per iteration before concluding the budget was the cause — all-`false`
+with no verdict means narrowing the scope is wasted effort.
+
+### 9.1 Also owed, and unfixable forward-only: the 353 code commits carry NO council trailer
+
+The round-3 verdict for corr `642ecc3c` (run `53e3812f`) was **APPROVED** (§5), but none of
+`323b63a00`, `8ae7aceae`, `027461e3d` carries `Council-Reviewed:` or `Council-Submitted:`, so the
+`098` coverage report lists `027461e3d` under **UNREVIEWED** (checked 2026-08-24, 2-day window).
+**That is a false negative caused by a missing trailer, not a missing review.** Forward-only forbids
+an amend, and writing the trailer onto some unrelated later commit would be a false claim — so the
+record is here and in `bugs_open/353` §13. **Do not resubmit `642ecc3c`**; the verdict exists and is
+approved.

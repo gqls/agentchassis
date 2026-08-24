@@ -8174,3 +8174,20 @@ a spec, not in the emitter where the symptom is recorded. ⚠ The loop reads
 firing that both symbols the symptom names are present there unchanged
 (`relatedPagesFromInputs` at :443, the `no_related_pages` arm at :143-149), and the claim returns
 before the part of the file that differs.
+
+> **CORRECTED 2026-08-24 ~16:4xZ, same session — the `090` produced NO VERDICT, and this section must
+> not be read as "confirmed".** Run `0b5695a4` went `COMPLETED` (work item `complete`) with **4
+> bundles and no `iteration_note`, no verdict, no `doc_note`** — the failure shape `LANDMINES.md`
+> already records for this loop. **It neither confirmed nor refuted anything.**
+> ⚠ And it is not the truncation case that entry tells you to predict: the target file is **32,928
+> bytes**, under the ~60,000 bar, and iterations 3 and 4 rendered **12 of 12** in-scope symbols with
+> `truncated: false`. Only iteration 2 hit the budget (840 chars omitted at 59,882 of 60,000).
+> Iterations 3 and 4 are identical in `body_chars` and `symbol_count`, so the loop re-requested the
+> same scope and stopped — an iteration cap without convergence.
+> **So the claim in §3 rests on declared first-hand verification, and I am taking the owner ruling's
+> escape hatch explicitly rather than quietly:** the producer split is one query with a control
+> (11/11 against 0/66, and the two spec key-sets read directly); the emitter arm was read in the
+> source; 516's apply time came from the lane's own written record. Nothing here is "confirmed by the
+> loop", and the phrase does not appear in any of the three files where this is asserted.
+> Addendum written into the `090`-no-verdict entry in `LANDMINES.md` — the second route to that
+> silence was not documented.

@@ -2633,3 +2633,26 @@ I have put this into the diagnosis loop for an independent read rather than just
 since it is the kind of claim other people will inherit. Nothing here needs a decision from you
 today — but if you want tools to carry cross-mentions when you order them by hand, that is a real
 choice and I would rather you made it than I assumed it.
+
+**Later the same evening — the independent check came back empty, and I am not going to dress that
+up.**
+
+I said above that I had put the finding into our diagnosis loop for an independent read rather than
+just asserting it. It ran, and it produced no answer at all — four rounds of gathering evidence and
+then nothing, no conclusion either way. That is a known way for that tool to fail: it finishes
+cleanly, so from outside it looks exactly like a run that worked.
+
+It did not refute anything. It simply did not speak. So the finding stands on my own checking, and I
+have written that plainly in all three places it appears rather than leaving "sent for review" doing
+the work of "reviewed".
+
+The checking itself is solid and it is one query: eleven requests out of eleven from the automatic
+route carry the missing information, and none of the sixty-six from every other route do. I also read
+the relevant code directly, and I took Friday's change date from our own written record rather than
+from a database timestamp — which is what caught my one wrong turn today.
+
+One more thing worth logging while I remember. There is a known failure mode in that tool where it
+goes quiet because the file it is reading is too big, and we have a written check for it: measure the
+file first. That check passed here — the file is well under the limit — and it went quiet anyway, for
+a different reason. I have added that to the warning so the next person does not spend a round
+narrowing something that was never the problem.

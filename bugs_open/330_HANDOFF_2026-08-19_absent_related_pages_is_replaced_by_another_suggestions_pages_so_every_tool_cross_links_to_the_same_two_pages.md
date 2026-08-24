@@ -425,3 +425,18 @@ here lives in the *producers* of a spec rather than in the emitter that records 
 the verdict before acting on §12.3. ⚠ The loop reads `origin/087_towards_multiple_domains`, 641
 commits behind local HEAD at dispatch — both symbols the symptom names were checked present there
 unchanged first.
+
+> **CORRECTED 2026-08-24 ~16:4xZ (same session that wrote §12) — the `090` returned NO VERDICT.**
+> Run `0b5695a4-a09d-4895-b4ab-652ce88a991a` completed with 4 bundles and no `iteration_note`, no
+> verdict and no `doc_note`: the loop neither confirmed nor refuted §12. **Read §12 as declared
+> first-hand verification, which the 2026-07-31 owner ruling permits provided the substitution is
+> stated — this is that statement.** What it rests on: the producer split is a single query with the
+> counts split by `source` (11/11 against 0/66) and both spec key-sets read directly; the emitter's
+> early-return arm was read in the source at `create_tool_cross_link_items.go:143-151`; 516's apply
+> time (2026-08-21 16:55Z) came from the lane's written record, not from a timestamp column
+> (`schema_migrations` holds **no** row for 516 — the runner refuses `--record-only` on a `_HOLD`
+> sidecar; `515%` returns 1 as a control).
+> ⚠ Not the truncation case `LANDMINES.md` tells you to predict: the file is 32,928 bytes and
+> iterations 3–4 rendered 12 of 12 symbols with `truncated: false`. An iteration cap without
+> convergence, so **re-filing with a narrower symbol will not help** — addendum appended to that
+> landmine entry.
