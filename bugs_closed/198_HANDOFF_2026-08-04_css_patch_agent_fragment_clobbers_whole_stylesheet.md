@@ -1212,7 +1212,20 @@ carrier agents). Exactly one step opts in, at 0.5.
     (`"file_shrink_floor: commit passed the shrink floor"`) on a real deploy. Lane RUNBOOK §7.
   - **Candidate 6** — refuse and re-file when the offending declaration is not in the file
     the agent can edit (`H3.H3`, `p.P` ×2 — three sites' evidence in this file now).
-    Untouched, and the next coherent task here.
+    ~~Untouched, and the next coherent task here.~~ **UPDATED 2026-08-24: FILED as
+    `bugs_open/352` and OWNED by another lane — no longer this file's work.** That lane is
+    closing arm 1 (the producer emits a tag name in a `Class` field) and scoping arm 2 (a
+    correct rule losing on source order) out explicitly, so 352 stays OPEN.
+    ⚠ **The remedy this file implies is INCOMPLETE.** "Emit `h3` not `H3.H3`" is right about
+    the producer and wrong about the consequence: `p.P` matches nothing today and is inert,
+    but a bare `p` recolours every paragraph on the site. The fix must yield a **scoped**
+    selector. Census as of **2026-08-24**: of 452 `contrast_failure` rows, **181** carry a
+    `TAG.TAG` selector, commonest `P.P` ×**77** and `A.A` ×**44** — so the modal case is the
+    dangerous one. Of those 181, **108 are already falsely `complete`**; the single `H3` row
+    this file records at §"The `H3` row is the instance this file needs" is one of 108, not a
+    one-off. Caught by the 352 lane; my account is in
+    `docs/agent_docs/docs024_key_docs_latest/bugfix_198_roundtrip_writers/NOTES_198_roundtrip_writers.md`
+    (2026-08-24).
   - **The round-trip-writer inventory**, owed since council round `5249320e` (2026-08-05).
     Still owed; explicitly not absorbed by this work.
   - **Owner decision:** per-site theme split for finetuning.uk + gaswholesalers.com.

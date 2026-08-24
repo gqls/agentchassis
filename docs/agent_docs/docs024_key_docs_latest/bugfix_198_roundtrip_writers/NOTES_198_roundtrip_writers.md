@@ -252,3 +252,60 @@ induce may already have been witnessed by someone else.
 
 19 PASS / 3 REFUSE (542) → 21 / 1 (547) → **22 / 0** (548). Every linked theme row is a
 plausible, unshared stylesheet, and 543 maintains that at every render.
+
+## 2026-08-24 — my candidate-6 remedy was INCOMPLETE, and the naive version is worse than the bug
+
+The `bugs_open/352` lane picked up the spun-out candidate (6) today, and its first measurement
+corrected the fix I had written down. Recording it here because the error is mine and it was
+caught by a peer, not by me.
+
+**What I wrote** (`bugs_open/352` fix candidate 1, and implied by this lane's handoff §4 item 2):
+emit the class when there is one and omit the class component when there is not, so the finding
+says `h3` not `H3.H3` — "this makes the bad selector unrepresentable at source and is a few
+lines". I flagged the `item_key`/dedup interaction as the thing to check before applying.
+
+**What is wrong with it.** The dedup interaction was the *lesser* risk and I named only that.
+Today `p.P {…}` matches nothing, so it is **inert**. Lowercased to `p`, css-patch-agent appends
+it to the **site** stylesheet and recolours every paragraph on the site. The fix as I stated it
+converts a dead rule into a live site-wide restyle — a worse outcome than the defect. The
+remedy has to produce a **scoped** selector (ancestor- or id-anchored), not merely a lowercase
+one.
+
+**The scale, measured by me against the live DB on 2026-08-24** (the 352 lane's figures, which
+I reproduced independently rather than quoting — all four matched exactly):
+
+| | count as of 2026-08-24 |
+|---|---|
+| `contrast_failure` rows, all statuses | 452 |
+| …carrying a `TAG.TAG` selector | **181** |
+| commonest: `P.P` / `A.A` | **77** / **44** |
+| then `H2.H2` 16, `H3.H3` 16, `LEGEND.LEGEND` 7, `H1.H1` 6 | |
+
+Predicate: `split_part(sel,'.',1)=split_part(sel,'.',2)` on `split_part(item_key,'#',2)`. So the
+two commonest cases are precisely the two most dangerous bare selectors, which is why "just
+lowercase it" fails on the majority of the population rather than an edge of it.
+
+**Status breakdown of those 181** — and this is the figure I would have missed:
+`complete` **108**, `deferred` 58, `unresolved` 15. Two readings:
+
+- **108 are already falsely `complete`.** This file recorded exactly ONE instance (the
+  dartsonline `H3` row, §562-571, marked `complete` 08-18). It generalises to 108 fleet-wide.
+  The already-lost repairs outnumber the at-risk ones.
+- **73 sit outside `workItemClosedStatuses`** (`platform/orchestration/actions/work_items_common.go:85-91`
+  = complete/verified/rejected/wont_fix/cancelled), so a key-shape change would let the
+  retraction path close them stamped "no longer below its contrast threshold" — false. The 352
+  lane estimated this at "~84"; the measured value is **73**, which I fed back.
+  ⚠ `unresolved` IS in `workItemTerminalStatuses` (line 42-48) but NOT in the closed set; the
+  asymmetry is deliberate and documented at line 97 — do not "tidy" it while fixing this.
+
+**The check that would have caught me.** Before writing a selector-shape fix candidate, census
+the selector population and ask what the corrected selector MATCHES, not just whether it
+matches. One `GROUP BY` would have shown `P.P` ×77 at the top and made the blast radius
+unmissable. I reasoned from the three sites this file happened to contain — `H3.H3` on
+dartsonline and `p.P` ×2 on remortgagecalculator — where `h3` is a narrow selector and the
+sample hid that the modal case is `p`. **A fix candidate derived from the instances a bug file
+collected inherits that file's sampling bias**, and the bias is invisible because the instances
+are real.
+
+Second-order: this is the same shape as the estate's "your own action can silence your own
+detector" family, one step earlier — the sample that motivated the fix also flattered it.

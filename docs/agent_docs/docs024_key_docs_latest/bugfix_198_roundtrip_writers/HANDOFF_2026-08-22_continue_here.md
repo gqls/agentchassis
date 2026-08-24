@@ -60,12 +60,32 @@ before concluding a probe was refused rather than held (§11).
    `kubectl -n ai-persona-system logs -l app=git-adapter --tail=500 | grep 'commit passed the shrink floor'`
    That one line proves the field crossed the wire, the guard measured, AND a healthy commit
    still passes — none of which a binary probe can show. Then update DGH-016's status line.
-2. **Candidate 6 — a separate defect, deserves its own bug file.** css-patch writes rules
-   against selectors that do not exist: `H3.H3` (dartsonline), `p.P` ×2 (remortgagecalculator) —
-   `render_audit.py` labels findings by uppercased TAG and the agent reads that label as a class.
-   Three sites' evidence. Also: even a correct rule loses on source order when the offending
-   declaration sits in page-level component CSS emitted after the stylesheet. Measurable
-   precondition: grep the theme for the selector before planning.
+2. **Candidate 6 — FILED as `bugs_open/352` (2026-08-22) and OWNED by another lane since
+   2026-08-24. Not this lane's work any more — do not start a competing fix.** css-patch writes
+   rules against selectors that do not exist: `H3.H3` (dartsonline), `p.P` ×2
+   (remortgagecalculator) — `render_audit.py` labels findings by uppercased TAG and the agent
+   reads that label as a class. Also: even a correct rule loses on source order when the
+   offending declaration sits in page-level component CSS emitted after the stylesheet.
+   Measurable precondition: grep the theme for the selector before planning. That second arm is
+   `bugs_open/352` §"The SECOND arm"; the owning lane is closing **arm 1 (the producer) only**
+   and scoping arm 2 out explicitly, so 352 stays OPEN with an arm banner.
+
+   > **CORRECTED 2026-08-24 — the remedy I wrote for this was incomplete, and the naive version
+   > is WORSE than the defect.** I wrote "omit the class component so the selector is `h3`",
+   > calling it "unrepresentable at source", and flagged only the `item_key`/dedup interaction.
+   > Today `p.P` matches nothing and is **inert**; lowercased to `p` it recolours every paragraph
+   > on the site. The fix must yield a **scoped** selector (ancestor/id-anchored), not merely a
+   > lowercase one. Caught by the `bugs_open/352` lane's census, not by me. Measured by me
+   > against the live DB **as of 2026-08-24**: of 452 `contrast_failure` rows, **181** carry a
+   > `TAG.TAG` selector and the two commonest are `P.P` **×77** and `A.A` **×44** — the two most
+   > dangerous possible bare selectors, i.e. the modal case, not an edge. Of those 181,
+   > **108 are already falsely `complete`** (this file's dartsonline `H3` row was one instance;
+   > it generalises) and **73** sit outside `workItemClosedStatuses`
+   > (`platform/orchestration/actions/work_items_common.go:85-91`), so a key-shape change
+   > would let the retraction path close them stamped "no longer below its contrast threshold".
+   > **The check I skipped:** census the selector population and ask what the corrected selector
+   > MATCHES, not just whether it matches. Full account: `NOTES_198_roundtrip_writers.md`,
+   > 2026-08-24 entry.
 3. **The round-trip-writer inventory** — owed since council round `5249320e` (2026-08-05).
    Which other `agent_definitions` workflows round-trip a whole artefact through an LLM into an
    unguarded writer. **Not absorbed by this work**: a guard for one seam is not the class survey
