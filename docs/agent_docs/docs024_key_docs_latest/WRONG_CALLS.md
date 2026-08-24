@@ -47,6 +47,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **enumerate the SIBLING instances before quantifying — "generic"/"fleet-wide"/"the listings all X" needs a count, in EITHER direction: a defect that generalises, or a safeguard that does** | **2** |
 | **verify a control by what the USER perceives, not that the handler fired — an invisible-in-context effect is a dead control** | **1** |
 | **resolve a numbered artefact by its SLUG — a migration number on this tree is NOT unique, and the rule is already written down** | **1** |
+| **check a MARKER's birth date before classifying history by it — a literal added on date D splits any census spanning D into before and after, and the 'before' half reads as a different defect** | **1** |
 | **verify the runtime that will EXECUTE the code — a deployment pod-grep is a false green for spawn-class agents, AND for the right pod running the wrong code path** | **2** |
 | **bound the BEHAVIOUR, not the function — "X has exactly one caller" is true and does not answer "what else does this job without calling X"; a verified scoping claim closes the question hardest** | **1** |
 | **check an example you write against the artifact it constrains** | **2** |
@@ -49819,3 +49820,57 @@ the same wasted round-severity, and both come from treating the sketch as a summ
 rather than as the evidence the reviewer actually reads. **The sketch IS the submission for anything
 the reviewer cannot open.** Paste it from the committed file (trap 8), and paste enough of it that
 the crux is inside.
+
+## 2026-08-24 — `bugfix_384_page_list_invalidation` lane: I wrote "12 FAILED page-rerender runs = the owned-page guard" into three peer messages and my NOTES, and the number was RUNS — the items were 4
+
+**What I wrote.** *"page-rerender's save_sections fails OWNED_PAGE_GUARD on those pages — 12 FAILED page-rerender runs in the last 14d are exactly that shape"* — sent to the `bugs_open/333`, `326` and `352` sessions as the sizing for excluding owned pages from a new emitter, and written into the lane NOTES as `**12 OWNED_PAGE_GUARD on save_sections**`.
+
+**What was true.** My query grouped `orchestration_states` rows (one per RUN, and a work item retries up to `max_attempts=3`). The 333 lane re-measured at the work-item level with the guard's own error text: **4** items carry `OWNED_PAGE_GUARD`; the larger owned-page failure population (10 in 14d, 82 all-history) is `cta_links_stale` failing earlier at `rerender_sections` for a non-ownership reason — a different defect. 4 items × up to 3 attempts reconciles the two numbers exactly. The exclusion I built is still right; it prevents 4 failures, not 12, and had I verified it post-roll against "12" I would have read a mostly-unchanged count as the fix not working.
+
+**What caught it.** A peer session that re-ran the measurement in a different table and by a different classifier (error text, not a `rebuild_policy` join) before agreeing with me.
+
+**The cheap check that would have.** State the UNIT next to every count — `12 runs` is a different claim from `12 items` — and when a count is about a work-item population, count `site_work_items`, not `orchestration_states`, which multiplies by retries. `SELECT count(DISTINCT w.id)` beside `count(*)` costs nothing and would have printed 4 next to 12. (Same family as the owner's 2026-08-22 ruling that a count carries its date: a count also carries its unit.)
+
+
+## 2026-08-24 — bugs_open/333 lane: I "corrected" a peer's count with a classifier that was measuring a marker's birthday, and told them 82 real refusals were a different bug
+
+- **The claim, sent to the `bugs_open/384` lane as a correction of THEIR measurement:** of 95 `page-rerender`
+  failures on `rebuild_policy='owned'` pages, *"**4** are ownership refusals; the other 82 are `cta_links_stale`
+  failing earlier at `rerender_sections` for an unrelated reason — a different, bigger defect that your change
+  does not touch."* I gave them a query, and they recorded it in their NOTES and their own WRONG_CALLS.
+- **It is 85 of 95, and there is no second defect.** `cta_links_stale` alone is 84 of its 86.
+- **The mechanism.** I classified with `error LIKE '%OWNED_PAGE_GUARD%'`. That marker was added to
+  `SavePageSectionsAction`'s refusal on **2026-08-19** (`bugs_open/301`). Before that date the identical refusal
+  was emitted with no prefix: `step save_sections failed: … page llm-cost-calculator is rebuild_policy=owned …`.
+  **So the classifier was answering "was this row written after the marker shipped?", not "was this an ownership
+  refusal?"** The split is exact and that is what makes it conclusive: 4 marked rows spanning 08-22→08-24, 82
+  unmarked rows spanning 07-17→**08-18**, zero overlap, boundary on the marker's birthday.
+- **I had the fact in front of me the same morning.** `owned_page_guard.go`'s comment says in terms:
+  *"EMITTERS (errors that LEAD with it, added 2026-08-19, bugs_open/301)"*. I read that file at the start of the
+  session, quoted its matcher list in my own register entry, and then built a census on the literal without
+  asking when it started existing.
+- **What caught it:** pulling three sample rows to characterise "the other defect" before writing it up — and
+  finding all three carried `OWNED_PAGE_GUARD`, contradicting my own count. The samples were ordered
+  `updated_at DESC`, so they were post-marker; the count was dominated by pre-marker rows. **Two views of one
+  population disagreeing is the signal; had I only run the aggregate, I would have shipped it.**
+- **The control I never ran, and it would have refuted the claim on sight:** `cta_links_stale` is **1,072
+  complete / 9 failed (0.7%)** on GENERIC pages and **121 / 86 (37%)** on OWNED ones. A failure rate that jumps
+  fiftyfold on precisely the axis under discussion is not an unrelated defect. **I asserted a second cause
+  without checking the one comparison that discriminates between one cause and two.**
+- **The cheap checks, in order of what they would have bought:**
+  - `git log -S'OWNED_PAGE_GUARD' --diff-filter=A` — or just reading the comment I had already read — dates the
+    marker in seconds. **Any literal used to classify history needs its birth date checked against the window.**
+  - Group the census BY DATE as well as by the predicate. A clean temporal split at one date is the fingerprint
+    of a classifier measuring an artefact's introduction rather than a property of the data.
+  - Run the cross-axis control (owned vs generic) before writing the words "a different defect".
+- **The transferable half, and it sharpens a rule I had just quoted at someone else.** `016b` §9 says *classify
+  refusals by the guard's own error text, never by joining `pages.rebuild_policy`, which is mutable*. That is
+  right, and it is **incomplete**: an error text is only stable AFTER the code that emits it shipped. A marker
+  has a birth date and a `rebuild_policy` join does not — so for a census spanning the marker's introduction the
+  "worse" method is the more complete one, and the right answer is to match on the CAUSE wording
+  (`rebuild_policy=owned`) which predates the marker, or to union both. **I applied a correct rule with a literal
+  younger than most of my data, while telling someone else to apply it.**
+- **Worse than an ordinary wrong call because it was aimed at a peer's work.** They had a defensible number
+  (12 runs vs my 4 items — both true for their units, as they worked out themselves), and I replaced it with a
+  wrong one plus an instruction to go and look for a defect that does not exist. Retracted in full before they
+  acted; they had already written it into two of their own documents.

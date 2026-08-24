@@ -555,11 +555,21 @@ which hits the guard, or `render_page`, which does not). A per-agent declaration
 reasons". For a producer targeting such a handler, a consumer-side exclusion mirroring `ownedPageExclusionSQL`
 is the only place the distinction can be made.
 
-**And their sizing was wrong in the direction that matters.** "12 failed page-rerender runs in 14d are exactly
-that shape" came from a `rebuild_policy='owned' AND status='failed'` join. Classified by the guard's own error
-text: **4** of 17 carry `OWNED_PAGE_GUARD`; 10 are `cta_links_stale` failing earlier at `rerender_sections` for
-an unrelated reason. All-history: **4 of 95**. Told them, because verifying against 12 would read a
-mostly-unchanged count as the fix failing — and the other ~80 are a different, larger defect.
+**And then I got the sizing wrong myself, worse than they had.** I told them "4 of 95 are ownership refusals;
+the other 82 are a different, bigger defect".
+
+> **CORRECTED 2026-08-24, same session, before they acted on it — it is 85 of 95 and there is NO second defect.**
+> I classified by the literal `OWNED_PAGE_GUARD`, which was only added to `SavePageSectionsAction`'s refusal on
+> **2026-08-19** (`bugs_open/301`; `owned_page_guard.go`'s own comment says so, and I had read it that morning).
+> Before that date the identical refusal carried no prefix. My classifier was answering *"was this row written
+> after the marker shipped?"*, not *"was this an ownership refusal?"* The split is exact: **4 marked rows
+> 08-22→08-24, 82 unmarked rows 07-17→08-18**, zero overlap, boundary on the day the marker landed.
+> Re-classified by CAUSE (`error LIKE '%rebuild_policy=owned%' OR '%OWNED_PAGE_GUARD%'`): **85 of 95**, and
+> `cta_links_stale` alone is **84 of its 86**. The real remainder is 10.
+> **The control I should have run before asserting a second defect:** `cta_links_stale` is 1,072 complete / 9
+> failed (0.7%) on GENERIC pages against 121 / 86 (37%) on OWNED ones. A fiftyfold jump on exactly the axis in
+> question refutes "unrelated defect" on sight. Retracted to the 384 lane in full; filed in `WRONG_CALLS.md`
+> and as a landmine.
 
 ### Consumers told (ruling 2026-07-29 §3)
 
