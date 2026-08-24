@@ -1006,3 +1006,36 @@ the compliance deadline calculator page (held deliberately — it must never pri
 until the CMA Order is actually made). One small thing to remember: this page, like the
 independent-practices guide, talks about "the remedies Order" in the present tense; when the Order
 is actually made, both pages deserve one pass to check the wording against the final text.
+
+## 2026-08-24, afternoon — claim intake by email, the first real request, and the nurse with the odd eyes
+
+You asked whether practices need a form to claim a listing. My answer was no, and you agreed:
+the whole value of a claimed listing is that we've verified the person speaks for the practice,
+and an email from the practice's own domain does that verification for us — a web form would just
+collect unverified text and we'd have to email them anyway. You ruled that a practice-domain email
+is good enough evidence, and that we ask for a company number as a second check. The claim page
+now has a "Claim your listing by email" button at the top and bottom that opens a pre-filled
+email asking for exactly what we need, plus the same list written out on the page in case the
+button doesn't work in someone's email program.
+
+The first real request arrived the same morning — Vet Home Certs, a mobile network of vets doing
+animal health certificates, asking to be added. I checked them before doing anything: they're a
+real registered company (Companies House SC786251) and genuinely not in our directory. One
+caution I flagged: their email came through a relay service, so the "from their own domain" check
+isn't fully proven until they reply — which they have to do anyway to send us their locations and
+prices. Their listing record exists but cannot publish until that data arrives and is verified;
+you sent the reply asking for it.
+
+The image with the odd eyes: it was made by an older image model (the 2023-era one) on 17 July —
+one day before the framework switched hero images to a much better model. So it was a leftover,
+not a live fault. I regenerated it (a calm clinic waiting room, dog and cat, nobody's face in
+shot — I looked at it myself before calling it done) and, because the site's stored design brief
+still said "no imagery at all" from the July clean-up, I replaced that with a real direction: white
+and teal, photographic, and no close-up generated faces ever. Along the way I found the old model
+was still being used for some other sites' images through a gap in the routing; I filed that as
+bug 382, another thread found the cause and fixed it the same day, and it went out in the
+afternoon's release. That's closed.
+
+Finally, the "CSS is broken" moment: nothing on the server changed between when you saw it broken
+and when you saw it fixed — you caught the page mid-update while my edits were landing back to
+back. Not bug 198 (that one is fixed and stayed fixed), nothing to change.
