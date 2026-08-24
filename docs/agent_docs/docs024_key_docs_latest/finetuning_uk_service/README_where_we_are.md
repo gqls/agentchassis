@@ -854,3 +854,23 @@ in a database row, say so and we'll stage it somewhere readable.
 
 Still on the list, in your order: the playground booking shape, sample datasets, the terms
 questions — and Stripe last, as you said.
+
+One more thing prepared tonight so it's ready when you are: the terms questions. Extending the
+site's terms and privacy pages for customer training data needs four decisions that are yours,
+because each one is a commitment we then have to keep:
+
+1. **Retention** — after a customer's model is trained and handed over, how long do we keep
+   their training documents, and the trained file? (Options range from "deleted once the
+   playground hour is done" to "kept while they remain a customer". Whatever you pick, the
+   terms will say it and the page copy can then say it too.)
+2. **Deletion on request** — do we promise deletion on request at any time, and how fast?
+3. **Where the data lives during training** — the honest sentence today is: it goes to a rented
+   GPU machine for the training run and to our storage for the handover. Are you happy for the
+   terms to name that plainly?
+4. **Playground hours** — are they part of the product in the terms (one booked hour included,
+   more purchasable), and do unused hours expire?
+
+The licence side needed no decision: we verified the three model families' licences in writing
+today (Llama's community licence, Mistral's Apache 2.0, Phi's MIT) and registered them, so the
+new technical page can state them exactly. Nothing in the terms work blocks the site as it
+stands — the £99 page is live without it — but the first paying customer makes it due.
