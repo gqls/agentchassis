@@ -775,3 +775,61 @@ Five advisory objections. **Checked, not waved past:**
    trap is readable by agents. The `--no-source` shape itself is recorded in the concept register
    (**DBG-075**), which is this estate's sanctioned home for "what exists and is callable" — and
    CLAUDE.md forbids hand-writing landmine rows into `doc_notes` directly.
+
+---
+
+## 2026-08-24 — closing out: 570 APPROVED, 566 landed, batch 1 ratified, and one defect this lane left behind
+
+**570 APPROVED round 1** (`cf916059-39ff-4c20-8e66-7a8d326344e9`, 10 seats, 7 abstained, 0
+unreadable). Two `low` objections, and **one of them is factually wrong in a way worth recording
+because it is a submission-practice lesson, not a reviewer error:**
+
+> *[debug_historian, low]* "this migration … ships no rollback script."
+
+**It does** — `570_agent_error_log_indexes_its_own_code_ROLLBACK.sql`, written and committed in the
+same commit as the forward file. The seat could not see it: `_ROLLBACK` files are **out of council
+scope** (`scripts/council-scope.sh`), so I did not list one as an edit, and **an artefact excluded
+from scope is invisible to the reviewer, who then reasonably reads its absence as a defect.**
+⚠ **So: name the rollback in the RATIONALE even though it cannot be an edit.** Costs one sentence
+and prevents a whole objection built on a true absence from the submission and a false absence from
+the tree. The other objection (non-`CONCURRENTLY` `CREATE INDEX` taking a SHARE lock) was my own
+risk 1 handed back, correctly, and was sub-second in practice.
+
+**566 landed, and the order-independent design paid for itself.** Another session adopted the
+orphan (`ccc851a42`, *"354 remainder: adopt and APPLY the orphaned 566"*) using the post-567 md5
+`7f4321d4…` this lane handed over, applied it, and recorded it. Arm 3 now reads the vocabulary; my
+arm 1 is untouched beside it. **Both migrations edit one 90-line row and neither had to re-derive
+anything** — which was the entire point of accepting either known text instead of pinning one.
+
+**Batch 1 is ratified** (by the thread the owner carried 358 to): `25 unruled, exactly at the cap`.
+The ratchet behaved as designed — seven codes ruled, cap lowered in step, and the count cannot now
+climb back without a finding.
+
+### The defect I left behind, and fixed: `580`
+
+567 replaced arm 1's rule and **left the comment above it**, so until today the live sweep read
+`-- 1. Clean agent_error_log (resolved errors > 14 days, unresolved > 30 days)` — false in both
+halves. Fixed by `580` (applied, recorded, `Council-Submitted: a105d04a`).
+
+Worth stating why a *comment* earned a migration: `pre_query` is a **text column**, not source you
+read beside the code that contradicts it. An operator inspecting `database-cleanup` sees the
+comment and the SQL together with nothing else to check it against. A stale comment in a repo file
+is corrected by the diff below it; **a stale comment in a live config row is the only description of
+the row there is.** And it is precisely this lane's own subject — a record that misleads its reader.
+
+**A fourth vacuous first-attempt, same shape as the other three.** My first mutant for 580's
+behaviour guard added a second `SET` clause and failed on `ERROR: multiple assignments to same
+column "pre_query"` — a **syntax** error, which proves nothing about the guard. The valid mutant
+nests the rewrite inside the same call — `replace(replace(pre_query, <comment>, <new>), '365 days',
+'30 days')` — which is syntactically fine and hides a real behaviour change inside a comment-only
+migration. That one **is** caught. The standing check: *a mutant that fails must fail for the
+reason under test — read the error, do not read the exit code.*
+
+### And a false alarm of my own, worth the same treatment
+
+My close-out check for "did 567 survive the chassis roll" was
+`pre_query LIKE '%365 days%' AND pre_query NOT LIKE '%14 days%'` → it reported **GONE**. It had not
+gone: `'14 days'` matched the **stale comment**, not a live rule. I tested a proxy (the string
+anywhere in the row) instead of the thing (a live 14-day predicate). Ironically the false alarm is
+what found `580`'s real defect — but it could as easily have sent someone re-applying a migration
+that was already in place.
