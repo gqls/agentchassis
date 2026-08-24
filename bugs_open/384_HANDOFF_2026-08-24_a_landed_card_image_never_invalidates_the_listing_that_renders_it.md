@@ -122,3 +122,71 @@ re-render is already queued. Both belong in the first cluster-enabled session.
   cards now land promptly and correctly, so the stale listing is the remaining hop.
 - `bugs_open/083` — detected findings never reach a handler (why candidate 2 alone is not enough).
 - `LANDMINES.md` — "a stale PAGE holds every improvement since it rendered".
+
+---
+
+## ⚠ CORRECTED 2026-08-24, same session, ~1 hour later — the mechanism above is WRONG in its central claim, and the fix proved it
+
+**What I filed:** *"nothing re-renders the listing when a card lands"*, and *"the two that show do
+so because an unrelated 34-page assemble wave re-rendered the listings after their cards landed"*.
+
+**Both are false, and my own timeline refutes them.** Measured after filing:
+
+```
+listing re-renders since the four cards landed (all page_rerender on `index`):
+  2026-08-23 11:41:45   (assemble: no reason)   complete
+  2026-08-23 14:27:24   (assemble: no reason)   complete
+  2026-08-24 14:59:43   (assemble: no reason)   complete
+```
+
+The listing was re-rendered **three times** after the cards landed and still showed nothing. So
+"nothing re-renders the listing" is wrong, and the coincidence I built the "why two show" story
+on was just that — a coincidence.
+
+**The actual mechanism, and it is one layer down.** The listing's items live in the
+`content-listing` component's `content_data->'articles'`, and that array is written by exactly
+one thing — `save_page_sections_overwrite`, i.e. a **section re-resolve**
+(`page_component_history` shows no other writer for this page). Its `articles` field declares
+`"source": "query.blog_posts"` (`content_components.input_schema.fields`), so the images come
+from `queryresolve`'s `pageImageProjection` — which joins the card correctly:
+
+```sql
+LEFT JOIN assets ca ON ca.site_id = p.site_id AND ca.entity_type = 'page'
+                   AND ca.entity_id = p.id AND ca.purpose = 'card' AND ca.status = 'active'
+```
+
+**Assemble-mode re-render (`page_rerender` with NO `spec.reason`) re-assembles the STORED array
+verbatim, empty `image` strings included.** Only a re-render carrying
+`spec.reason='section_data_resolved'` re-runs the query and refreshes the array. So the defect is
+sharper than filed:
+
+> **The listing IS re-rendered, in the mode that structurally cannot pick the change up, and
+> nothing in the card-landing chain ever requests the mode that can.**
+
+That is worse than "no trigger", because every routine chrome propagation — the assemble mode
+this estate rightly prefers, since it cannot escalate a page to the content writer — re-renders
+the listing and silently re-affirms the stale data. The page looks freshly built and is not.
+
+**Proven by fixing it.** Dispatched `page-rerender` with `spec.reason='section_data_resolved'` for
+`index` and `guides-index` at 2026-08-24 ~19:25Z, after checking the escalation precondition
+(no schema-required `source:"llm"` field missing on either page — the check the leopardess
+runbook's header warns about). Result within 90 seconds:
+
+```
+stored array:  0 empty image fields of 12   (was 4 of 12)
+served page:   12 cards, 12 with an image, 0 without   (was 8 of 12)
+```
+
+**What survives from the original filing:** the symptom, the evidence that the assets were all
+correctly derived/linked/keyed (`asset_key` matches `contentCardKey`, `entity_id` matches the
+page, all `active`), the four-checks-miss-it analysis, and fix candidate 1 — which is now better
+targeted: the card-landing chain should emit a **section re-resolve for the consuming listings**,
+not merely "a re-render", because a re-render of the wrong mode is what has been happening all
+along.
+
+**What this cost, recorded because it is the lesson:** I built a mechanism out of a plausible
+timeline (cards landed, then a wave, then they showed) without checking whether that wave's MODE
+could have caused the effect. The check that would have caught it is one query —
+`spec->>'reason'` on the re-renders I was crediting — and I ran it only after the file was
+committed. **A correlation that explains two cases is not a mechanism; the mode was the variable
+I never looked at.**
