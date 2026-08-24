@@ -48848,3 +48848,44 @@ CANONICALITY") because it fires on touch, with no symptom.
   it took seconds and gave a real control (HEAD, 16:47 UTC, correctly NOT an ancestor). Generally:
   **when you choose a control, state the property that makes it a control and verify THAT property**
   — "made after" is a claim about time, so look at the clock.
+
+---
+
+## 2026-08-24 — TWO lanes read "no outputs" as "no problem" on the same day, from opposite directions (vetcomparison + bugs_closed/382)
+
+**Not a new incident — a pairing**, filed because the tally is the point of this file and these two
+arrived independently, hours apart, on the same table family, and neither lane spotted the other's
+shape until we compared notes.
+
+- **vetcomparison, morning.** Called a prompt-contamination mechanism *a relic*: three affected
+  assets, all 2026-07-17, none since. The mechanism was **live** — their own regeneration that
+  afternoon had the refusal prepended verbatim. Assets only accrue when generation RUNS, and none
+  had run on that site since 07-17.
+- **`bugs_closed/382`, afternoon.** I read a frozen SDXL row count (15 assets, none since
+  2026-08-11) as *the defect going quiet*, and built a close condition on watching the next one.
+  There will not be a next one: `hero_<page>` prompts with no active asset are **ZERO fleet-wide**,
+  so that producer had simply **finished its backlog**. The queue was empty, not the bug fixed.
+
+**One shape, two directions.** vetcomparison inferred a mechanism was DEAD from absent output;
+I inferred a mechanism was DORMANT from absent output. **Absent output measures OPPORTUNITY, not
+health** — and in both cases the opportunity count was zero for a reason that had nothing to do
+with the defect.
+
+**The cheap check, stated once for both** (it is vetcomparison's, from their own entry above):
+**name the last time the mechanism had an OPPORTUNITY to fire.** If you cannot, your output census
+has no denominator and cannot distinguish "fixed", "dormant" and "never asked". Two forms of it:
+
+```sql
+-- how many chances did it have?  (the denominator an output census silently assumes is >0)
+SELECT count(*), max(updated_at) FROM site_work_items_archive WHERE item_type = '<the producer>';
+-- is there any demand left at all?  (zero means the census can never move again)
+SELECT count(*) FROM <the thing that would trigger it> WHERE <not yet satisfied>;
+```
+
+**Why it earns a row rather than a footnote:** both of us already knew the lesson in its usual
+form — *an output census cannot date a mechanism* — and both of us walked into it anyway inside
+twelve hours, because the usual form warns about calling something DEAD and neither of our
+sentences said "dead". Mine said "quiet". **A lesson phrased against one conclusion does not fire
+on a differently-worded conclusion drawn from the identical evidence.** Cross-refs:
+[[a-post-fix-zero-needs-a-demand-control]], and the sibling entry above about a naming convention
+read as provenance — same day, same lane, same root: *no marker shows where the evidence stopped.*
