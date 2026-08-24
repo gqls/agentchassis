@@ -195,6 +195,10 @@ Full command set with gotchas: `RUNBOOK_unread_finding_codes.md`.
   10 seats, 7 abstained, no gating objection. All four advisory objections say one thing: the sketch
   was truncated over the logic. Cause was mechanical (42 lines of header comment, cap applied in file
   order), fix is a RUNBOOK rule — strip comments before truncating. No code change owed.
+- Council `4d5c1523-2453-4799-b828-25379affc41b` — the Fable-findings fixes (commit `bce49226a`),
+  **submitted 2026-08-24 evening; read the verdict** (`SELECT metadata->>'decision' FROM
+  diagnosis_artifacts WHERE correlation_id='4d5c1523-…' AND kind='council_report'`). The code is
+  already on the shared branch; a REVISE means a follow-up commit, never a revert.
 - `090` `c965bfec…` — UNVERIFIABLE (scope-not-narrowing), **not a refutation**: its static tier is
   `.go`-only, so the SQL writer was outside its corpus.
 

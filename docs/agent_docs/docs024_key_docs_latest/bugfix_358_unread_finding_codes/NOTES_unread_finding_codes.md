@@ -1093,3 +1093,8 @@ window.
 **The unresolved report, on the real package** (`-v`): exactly the four sites Fable named —
 `component_write_guard.go:501`, `log_action_error.go:252`, `v3_site_actions.go:4197`, `:4261` — all
 local variables, i.e. the stated runtime blind spot, now *visible* as such rather than silent.
+
+*(Housekeeping: the `WRONG_CALLS.md` addendum for the repeat wrong call was swept into the `364`
+lane's commit `0fe414745` as a same-file passenger before my pathspec commit reached it — the
+documented shared-tree behaviour. It is at HEAD, nothing is lost, forward-only holds. Code fixes
+for Fable's findings: `bce49226a`, council `4d5c1523`.)*
