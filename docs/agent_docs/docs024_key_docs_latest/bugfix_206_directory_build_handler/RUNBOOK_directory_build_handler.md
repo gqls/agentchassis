@@ -43,6 +43,24 @@ FROM noop GROUP BY 1 ORDER BY 2 DESC;
 > an unrelated reason — 28 of 29 `content`-type hits were that. Split on `layoutless` before
 > theorising.
 
+> ⚠ **`spec->>'page_name'` IS NOT A UNIQUE PREDICATE — always filter by producer too.** Several
+> producers file rows for the same page, with **different spec shapes**, and an unordered
+> `LIMIT 1` over a page-name predicate is a *sampling method, not a lookup*. `[MEASURED
+> 2026-08-24]` on one page of one site it matches **3 rows from 2 producers**:
+>
+> | producer | item_type | spec keys |
+> |---|---|---|
+> | `reconcile_site_plan` | `needs_page` | `page_name, page_role, plan_id, reason` |
+> | `rerender-pages` | `page_rerender` | `domain, filename, page_id, page_name` |
+>
+> This is not hypothetical: a peer lane read the `rerender-pages` shape and reported it as the
+> reconcile shape, then proposed a closure-test fix built on `spec->>'page_id'` — a key present
+> on the rerender rows and on **0 of 134** reconcile rows. Add `AND created_by='<producer>'` to
+> every lookup, and **when you describe a population, put the population in the `WHERE`.**
+>
+> The reconcile-side type discriminator is **`spec->>'page_role'`** (present 134/134); the
+> authority is `pages.page_type` via a join on `(site_id, spec->>'page_name')`.
+
 **Prior art before you file anything**: grep by the SYMPTOM, not the bug number — this population
 is named under four different numbers, and `who-owns.py` cannot find it.
 
