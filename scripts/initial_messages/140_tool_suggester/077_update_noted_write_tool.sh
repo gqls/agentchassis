@@ -113,21 +113,28 @@ PYEOF
 
 echo "message: $(wc -c < "$BODY_FILE") bytes"
 
-kubectl -n kafka run -i --rm "kcat-tool-write-upd-$(date +%s)" \
-  --image=edenhill/kcat:1.7.1 --restart=Never -- \
-  kcat -P -c 1 \
-  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
-  -t system.agent.generic.requests \
-  -H correlation_id=$CORRELATION_ID -H orchestration_id=$ORCHESTRATION_ID \
-  -H request_id=$REQUEST_ID -H message_id=$MESSAGE_ID \
-  -H message_type=request -H client_id=$CLIENT_ID -H action=process \
-  -H sender_agent_type=cli -H sender_agent_id=cli-user \
-  -H responses_topic=system.agent.generic.responses \
-  -H timestamp=$TIMESTAMP < "$BODY_FILE"
+# Publish with a RECEIPT (bugs_open/327): the payload travels in the container
+# command, so the kubectl-run stdin race cannot silently send nothing at exit 0.
+# The library refuses a multi-line payload; json.dumps above is compact.
+. "${REPO_ROOT}/scripts/kafka-publish-lib.sh"
+kafka_publish_checked \
+  --topic system.agent.generic.requests \
+  --correlation "$CORRELATION_ID" \
+  --header "orchestration_id=$ORCHESTRATION_ID" \
+  --header "request_id=$REQUEST_ID" \
+  --header "message_id=$MESSAGE_ID" \
+  --header "message_type=request" \
+  --header "client_id=$CLIENT_ID" \
+  --header "action=process" \
+  --header "sender_agent_type=cli" \
+  --header "sender_agent_id=cli-user" \
+  --header "responses_topic=system.agent.generic.responses" \
+  --header "timestamp=$TIMESTAMP" \
+  --payload "$(cat "$BODY_FILE")"
 
 cat <<NOTES
 
-=== Verify (kcat exit 0 is not delivery) ===
+=== Verify (PUBLISHED receipt is not CONSUMED — check the orchestration row) ===
 
   SELECT owner_agent_type, status, current_step, error
   FROM orchestration_states WHERE correlation_id='${CORRELATION_ID}';
