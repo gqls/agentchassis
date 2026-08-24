@@ -176,6 +176,12 @@ type siteRefreshResult struct {
 	// the no-op site's JSON does not change.
 	FactDrift                  []factDriftEmission `json:"fact_drift,omitempty"`
 	FactDeclarationsUnresolved []string            `json:"fact_declarations_unresolved,omitempty"`
+
+	// FactBindingSuggestions is Phase 4's count of NON-declaring tools on this
+	// site whose script text carries one or more of the site's own registered
+	// values — an adoption signal, not a defect count. omitempty, so a site with
+	// nothing to suggest marshals exactly as before.
+	FactBindingSuggestions int `json:"fact_binding_suggestions,omitempty"`
 }
 
 func RefreshEvidenceBaseAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -535,9 +541,21 @@ func refreshOneSiteEvidence(
 	factDrift := planSiteFactDrift(ctx, db, siteID, eb, res, dryRun, logger)
 	res.FactDrift = factDrift.Emissions
 
+	// Phase 4 (bugs_open/288) — ADOPTION. Measured 2026-08-24: 1 of 132 current
+	// tool PLANs declares anything, and 178 tool pages sit on sites that have a
+	// register, so a mechanism gated on hand-authoring covers ~0% of the fleet
+	// for ever. Propose the bindings that are already visible: probe each
+	// NON-declaring tool's script text for this site's own registered values and
+	// file a paste-ready suggestion. Read-only here; the write is below and is
+	// suppressed on a dry run.
+	factSuggestions := planFactBindingSuggestions(ctx, db, siteID, eb, factDrift.declaringSubjects, logger)
+	res.FactBindingSuggestions = len(factSuggestions)
+
 	if dryRun {
 		return res, nil // report only — write nothing, raise nothing
 	}
+
+	writeFactBindingSuggestions(ctx, db, siteID, factSuggestions, dryRun, logger)
 
 	if changed {
 		if err := writeRefreshedEvidenceBase(ctx, db, siteID, specRowID, eb, pinned, res, logger); err != nil {

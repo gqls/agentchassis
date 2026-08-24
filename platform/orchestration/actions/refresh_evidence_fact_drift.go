@@ -517,6 +517,11 @@ type factDriftPlan struct {
 	Emissions  []factDriftEmission
 	factsByID  map[string]map[string]interface{}
 	toolsByKey map[string]factDriftTool // key: subjectKey + "|" + pageID
+
+	// declaringSubjects is Phase 4's skip-set: a tool that already declares gets
+	// no binding SUGGESTION, because the suggester is an adoption lever and not a
+	// re-audit of what is already bound.
+	declaringSubjects map[string]bool
 }
 
 // planSiteFactDrift is the glue refreshOneSiteEvidence calls once per site,
@@ -524,7 +529,7 @@ type factDriftPlan struct {
 // Any DB failure here is logged and yields no emissions — the sweep's existing
 // work must not be aborted by the fan-out.
 func planSiteFactDrift(ctx context.Context, db *sql.DB, siteID uuid.UUID, eb map[string]interface{}, res *siteRefreshResult, dryRun bool, logger *zap.Logger) factDriftPlan {
-	plan := factDriftPlan{toolsByKey: map[string]factDriftTool{}}
+	plan := factDriftPlan{toolsByKey: map[string]factDriftTool{}, declaringSubjects: map[string]bool{}}
 	factsRaw, _ := eb["facts"].([]interface{})
 	factsByID := make(map[string]map[string]interface{}, len(factsRaw))
 	registerIDs := make(map[string]bool, len(factsRaw))
@@ -603,6 +608,11 @@ func planSiteFactDrift(ctx context.Context, db *sql.DB, siteID uuid.UUID, eb map
 		}
 	}
 	plan.Emissions = ems
+	for _, tools := range idx.byFact {
+		for _, t := range tools {
+			plan.declaringSubjects[t.SubjectKey] = true
+		}
+	}
 	return plan
 }
 
