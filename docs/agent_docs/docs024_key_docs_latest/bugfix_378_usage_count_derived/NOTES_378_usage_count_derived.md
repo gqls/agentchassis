@@ -517,3 +517,102 @@ compiled** — `go build` cannot parse SQL, and in this change the SQL *is* the 
 - A `LANDMINES.md` entry for the "increments before the outcome is decided, and again on every
   re-plan" shape — held deliberately until the fix is live so the entry can name the remedy
   (agreed with the 357 lane).
+
+---
+
+## 2026-08-24 — council verdict APPROVED, and what I owe against the objections
+
+**`ca01b81a` — APPROVED round 1**, "approved with 2 advisory objection(s) — none high-severity".
+Trailer already on the commit as `Council-Submitted:`, so `098` credits it automatically; no amend
+(forward-only). Reading the full report, more seats objected than the headline counts. Answering
+each, because an approved verdict is not a reason to leave a medium objection unanswered.
+
+### ANSWERED — `editquality` (low): "removing IncrementUsageCount may break test call sites"
+
+**No test ever called it.** `grep -rn "IncrementUsageCount" --include="*.go" .` across the whole repo
+returns exactly one hit today: my own replacement comment. `go vet ./platform/orchestration/actions/`
+(which type-checks the test files too) is clean apart from a pre-existing `unreachable code` warning
+in `load_component_library_actions.go:207`, which is not mine. The objection was reasonable — my
+submission said *"the only non-test call site"*, which describes the grep filter I used and reads as
+implying test callers exist. Wording fault, not a defect.
+
+### ANSWERED — `bug_historian` (medium): the contract-row swap re-shapes the enforced schema
+
+The sharpest objection in the round, and it is **partly right**. The schemas genuinely differ:
+
+| component | fields |
+|---|---|
+| `hero` (new contract) | **7** |
+| `about-hero` (old contract) | **2** |
+| `tool-archetype-taster-quiz` (new) | **22** |
+| `archetype-taster-quiz` (old) | **1** |
+
+So this is not a cosmetic re-ordering. **What bounds it:** `LoadExistingComponentAction`'s only
+consumer is the `component-creator` agent (confirmed — one `agent_definitions` row names it), and the
+action feeds a **prompt** (`field_names`, `function`, `field_count`, behind a
+`{{if .existing_component.field_names}}` guard). Its own doc comment says it must
+*"never block generation on a lookup problem (the store-time guard is the backstop)"*. So it steers
+what the creator generates; it does not itself overwrite a stored component or re-type a bound page.
+The change points that guidance at the row most sites actually use rather than the most recently
+touched one, which is the intent.
+
+⚠ **Residual, stated not closed:** steering the creator at a 7-field contract where it previously saw
+a 2-field one can still change what gets generated for pages bound to the old winner. I have not
+traced the store-time guard's behaviour on that mismatch. **This is the first thing to verify after
+the roll**, and it is recorded as owed rather than argued away.
+
+### BLOCKED, NOT ANSWERED — `guardian` (medium): correlated-subquery cost on a hot path
+
+Fair objection: this converts a stored-column read into `count(DISTINCT p.site_id)` over a join,
+per candidate, in the path every page build takes. I tried to answer it with `EXPLAIN (ANALYZE)`
+and **could not, for a reason that has nothing to do with this change** — see the incident note
+below. `[UNMEASURED — instrument blocked]`. **Owed before this is called done.**
+
+What is known and does not need the DB: `page_components` is 2,038 rows with
+`idx_page_components_template btree(component_id)`, `queryCandidates` is `LIMIT 5`, and the batch
+query is bounded by the section_types on one page. The earlier live `PREPARE`/`EXECUTE` of the real
+selector query returned in well under a second, and the 4,888-context simulation (which evaluates the
+subquery far more often than production will) completed inside 300s. That is suggestive, **not** the
+plan the guardian asked for. If the plan turns out badly, the fix is a pre-aggregated CTE or a
+`LATERAL`, not a revert.
+
+### ANSWERED — `prior_art_librarian` (medium): the CLC-026 coverage figures are unverified
+
+They are mine and they carry their own control: `[MEASURED 2026-08-24]` **0 of 1,795** pre-roll rows
+stamped vs **245 of 249** post-roll. And the register claim is now true because I made it true —
+CLC-026 carries the downstream-consumer bullet as of commit `1103c5cbd`. Checkable, and checked.
+
+### ALREADY SATISFIED — `architecture` (low): "add an in-code TODO about CLC-026"
+
+The seat read the plan sketch, not the code. `ComponentUsageSitesSQL`'s doc comment already carries
+the whole CLC-026 handoff, including the switch condition. Nothing owed.
+**`ARCHITECTURE_SIGNAL: point_fix`** — so the commit hook's RFC prompt on the removed exported symbol
+is answered by the seat itself.
+
+### OPEN — `reuse_agent` (low): was an existing "sites per component" aggregation missed?
+
+Not searched before authoring. Cheap to check and honest to record as not done.
+
+---
+
+## 2026-08-24 — ⚠ LIVE DB INCIDENT, not caused by this lane, blocking every reader of `pages`
+
+Found while trying to run the `EXPLAIN` above. **`SELECT count(*) FROM pages` alone times out at
+15s**, which is what told me the problem was not my query.
+
+```
+pid 2007330  active  ClientWrite   01:01:30  COPY (SELECT translate(encode(convert_to(row_to_json(t)...base64...
+pid 2016837  active  Lock relation 00:23:46  ALTER TABLE pages ADD COLUMN noindex boolean NOT NULL DEFAULT false;
+pid 2016865  active  Lock relation 00:23:36  SELECT ... FROM pages p JOIN page_components pc ...
+   ... and every other reader of `pages`, all 21-24 minutes, all waiting on Lock/relation
+```
+
+**The chain:** a `COPY` export has been running **over an hour** stuck on `ClientWrite` — it is
+blocked writing to a client that has stopped reading, so it is not progressing and not releasing.
+Behind it an `ALTER TABLE pages ADD COLUMN` is queued for an ACCESS EXCLUSIVE lock, and **behind that
+every single reader of `pages` is queued**, because a pending ACCESS EXCLUSIVE request blocks new
+shared locks even though the ALTER has not started.
+
+Neither is mine — this lane has run no DDL and no export. Not touched, not killed: cancelling another
+session's hour-long export or migration is destructive and is the owner's call, not a side-effect of
+my measurement. Surfaced to the owner instead.
