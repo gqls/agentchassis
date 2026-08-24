@@ -246,3 +246,46 @@ move toward `article-body`'s 76%, then §8b's comparison was confounded by WHICH
 field** (`article-body` on the blog path, `generic-text-block` by `page-content-writer`) and the
 prompt, not the guidance, is load-bearing. `595` hedges that by fixing the prompt half too, so the
 two arms fail independently rather than together.
+
+---
+
+## 9. THE VOCABULARY GAP IS CLOSED — three generic components built and LIVE (2026-08-24, on the owner's instruction)
+
+§8d recorded that the fix "adds no component, and §7's promise-vs-delivery gap is therefore NOT
+closed", and named the missing generic vocabulary as open work. **The owner then asked for those
+components. They are built, council-approved (`c134b0e9`) and LIVE.**
+
+| component | expresses | for |
+|---|---|---|
+| `checklist` (604) | `items, list` | criteria, standards, what-we-check — real `<ul>` |
+| `period-calendar` (605) | `items, list` | month-by-month, quarters, seasons — real `<ol>` |
+| `comparison-table` (606) | `items, table` | options × criteria — real `<table>`, stacks on mobile |
+
+`[VERIFIED 2026-08-24]` All three carry the `section_type` the 581 birth gate demands, and **all
+three appear in the live `build-site-planner` menu for `garden-tools.uk`** — the site that could not
+compose a month-by-month page this morning. Generic structural vocabulary moved 39→42 list-capable,
+15→17 table-capable.
+
+**A fourth was NOT built, and that is the useful part.** `mechanism-flow` (VIZ-006) already draws an
+ordered process with decision branches, so a "steps" component would have been a near-duplicate —
+the thing that makes a library harder to choose from. A checklist is unordered; a calendar's periods
+do not cause one another. Reading the nearest neighbour first turned four components into three.
+
+**⚠ §7's card-wall point is NOT closed either, and is not addressed by these.** The owner's third
+complaint was the NUMBER of card sections per page. `period-calendar` renders compact rows rather
+than cards precisely so twelve periods do not become twelve cards — but that is one component
+declining to make it worse, not a fix for page composition.
+
+**⚠ THE CLAIMS RISK ON `comparison-table` IS STATED, NOT SOLVED, and the figures are worse than the
+council's own seat believed.** `[MEASURED 2026-08-24]` `banned_claims` is a KEY INSIDE the
+`evidence_base` spec, not a separate aspect — so the two are one opt-in. **48 sites; 19 have an
+evidence base; 15 of those have a non-empty `banned_claims[]`; 29 of 48 have NEITHER.** No
+price/rating/score/rank field exists in the component, but cells are free text and on those 29 sites
+nothing audits them. The gating machinery exists (591's `requires-evidence-base` tag) and was
+deliberately NOT applied, because it would withhold the component from exactly the sites that need
+it most — including this bug's own site. That is a judgement, it is one line to reverse, and it is
+recorded in 606's header. **The real fix is `bugs_open/380`.**
+
+**Still not evidenced: no page has been built with any of them.** Everything above is verified at
+the seed, the schema, the rendered template (11 cases, engine-exact harness) and the live planner
+menu. The outcome remains unproven until a build runs — see §8f.
