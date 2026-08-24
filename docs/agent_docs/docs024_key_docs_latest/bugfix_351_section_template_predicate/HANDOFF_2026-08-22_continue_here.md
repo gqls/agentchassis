@@ -36,10 +36,25 @@
 > And **`usage_count` is not the reuse signal here**: all 22 incumbents still read `0` while three are
 > bound to live pages. Read `page_components`, or you will conclude the opposite of the truth.
 >
-> **7. WHAT IS ACTUALLY LEFT:** the `section_type` half (§3's "NOT DONE, deliberately") — **25** of
-> **149** active non-forked section rows are NULL as of 2026-08-23, all `created_from='manual'`, last
-> manual write 2026-08-15 (dormant, not proven dead) — plus §6.3's migration `541` and §6.4's ordering
-> decision. A new `LANDMINES.md` entry from this lane covers the retention-window trap in item 1's table.
+> **7. ⚠ UPDATED 2026-08-24 — the `section_type` question is DECIDED and the birth door is WRITTEN.**
+> The backfill is **DECLINED** (ruling recorded in `bugs_open/351`, "incumbents stay Path-1-only"):
+> it adds no reachability any live caller uses, and it harms two — `load_existing_component`'s
+> primary query deliberately relies on the NULL miss, and the selector's `ORDER BY score DESC` has no
+> secondary key. ⚠ **The reason the bug file originally gave for declining it is SPENT** (the guard
+> no longer drops them), so do not re-derive "the backfill is now safe" from it.
+> Instead: **migration `581_refuse_selector_invisible_section_birth.sql` + register **CLC-029**,
+> committed `a99049669`, `Council-Submitted: f0cd2420-8687-4d6d-80cd-6627dc57788d`, and
+> **DELIBERATELY NOT APPLIED** — a migration is live the instant it applies with no image to roll
+> back, so it waits for the verdict. Tested against the live DB with `COMMIT`→`ROLLBACK` (verify
+> passed, nothing left behind) and mutation-proven both ways.
+> ⚠ Two traps if you touch it: `forked_from IS NULL` is **load-bearing** (`deploy_tool`'s fork INSERT
+> omits `section_type`, so a fork is legitimately born NULL — widening it breaks tool deployment at
+> runtime), and it is **INSERT-only** (a CHECK, even `NOT VALID`, is enforced on UPDATE and would
+> break template repairs to the 25 standing rows).
+> **Still genuinely open:** apply `581` once the verdict is read; §6.3's migration `541`; and the
+> `usage_count` path-blindness found on 08-23 (incremented only on Path 2, read as a Path-2 scoring
+> input; 96 of 149 read 0 despite live bindings, 1,802 bindings invisible) — **not filed as a bug
+> yet**, and it is a separate defect from 351.
 
 
 **This lane began as "the CSS is broken on remortgagecalculator.uk" and ended up owning a platform
