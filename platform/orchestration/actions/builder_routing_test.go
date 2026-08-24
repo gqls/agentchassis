@@ -58,6 +58,54 @@ func TestBuilderForPageType(t *testing.T) {
 	}
 }
 
+// Every handler this function can return as a ROUTE must be an agent that
+// actually exists. A route naming an unregistered agent mints items that
+// dispatch to nothing — bugs_closed/078's shape (an unroutable handler_agent
+// livelocking the dispatcher), and the exact hazard two council seats raised
+// against this change on 2026-08-24.
+//
+// The allow-list is deliberately a LITERAL rather than a DB lookup: this is a
+// unit test with no cluster, and the point is that adding a route to a new
+// handler should FAIL here until someone has confirmed that handler is seeded
+// and active. Both entries were verified live on 2026-08-24 —
+// `SELECT type, is_active, is_snapshot, deleted_at FROM agent_definitions`
+// returns `directory-build-handler|t|f|<null>` and `page-build-handler|t|f|<null>`.
+// If you add a route, run that query for your handler and add it here in the
+// same commit; if you cannot, your page_type belongs in unavailableBuilders
+// instead, which is what that map is for.
+func TestEveryRoutedHandlerIsAKnownRegisteredAgent(t *testing.T) {
+	registered := map[string]bool{
+		"page-build-handler":      true,
+		"directory-build-handler": true,
+	}
+	// Every key the function routes, plus the unknown-type default.
+	for _, pageType := range []string{
+		"content", "index", "landing", "blog-index", "blog-post",
+		"entity-directory", "section-index",
+		"entity-page", "tool", // gap arms — must yield NO handler at all
+		"never-heard-of-it",
+	} {
+		info, needed, _ := builderForPageType(pageType)
+		if needed != "" {
+			// A capability gap must not also name a dispatch handler: that is
+			// the combination that would put an unregistered name on a row.
+			if info.handler != "" {
+				t.Errorf("builderForPageType(%q) reports a capability gap (%q) AND a handler (%q) — "+
+					"a gap must yield no handler, or an unregistered name reaches a work item",
+					pageType, needed, info.handler)
+			}
+			continue
+		}
+		if !registered[info.handler] {
+			t.Errorf("builderForPageType(%q) routes to %q, which is not in this test's list of "+
+				"handlers verified to exist as active agent_definitions rows. Confirm it is seeded "+
+				"and active, then add it here in the same commit — or put the page_type in "+
+				"unavailableBuilders so it files a capability_gap instead of an undispatchable item",
+				pageType, info.handler)
+		}
+	}
+}
+
 // The routing is only reachable through normalizePageType at every producer,
 // so pin the composition: spelling variants of section-index must reach the
 // directory-build-handler route, not the unknown-type default.
