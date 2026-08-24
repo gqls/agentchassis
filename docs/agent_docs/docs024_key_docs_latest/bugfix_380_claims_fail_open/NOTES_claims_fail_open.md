@@ -134,3 +134,17 @@ formulation is not a third copy.
 validate_page_content result on garden-tools (and re-run claimscan against the served pages);
 slice 2b (discovery-check wiring) with the 12/1,867 number in hand; the shared visible-text
 function; the LLM item's missing `page_id`.
+
+**Go slice council verdict (19:29Z): APPROVED round 1, 1 advisory objection, none high** (corr 1d87615f).
+Seats and what they said: editquality (medium) — my claimscan SKETCH omitted the third call-site guard
+(`if eb.HasScannableRegister()` before `ScanUnregisteredNumbers`); the CODE has it (c9cd817d9,
+`cmd/claimscan/main.go`) — a submission-writing omission, not a code gap. guardian (medium) — the
+`ParseEvidenceBase` widening is a shared parse path and the consumer enumeration should be re-verified by
+a human, not asserted: the list is in the submission's risks §4 (gate, save floor, section editor,
+negation rewriter, meta-description action, discovery check, tool_backend_provision, content-duplication
+check); each either scans banned claims (nil-safe; an attestation adds no patterns) or is now guarded by
+`HasScannableRegister()`; `tool_backend_provision` keys on `data ? 'facts'`. Owner: worth a read when
+the image rolls. guardian (low) — the mutation test passes `nil` into `ScanAllBannedClaimsWithSuppressed`:
+compiles and passes (nil-safe receivers). architecture (low) — CLM-026 should list every nil-rule
+widening: it names both (`regulated`, `operating_history`). Docs commit 171ffed55; index rows for
+CLM-025/026/027 added in the next commit (the pattern check caught the missing rows).
