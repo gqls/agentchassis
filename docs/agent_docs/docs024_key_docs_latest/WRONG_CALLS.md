@@ -46934,3 +46934,24 @@ belong to the population must match the WHERE before the count means anything. D
 producers write different spec shapes for the same population (that heterogeneity is itself the
 finding); the join to the first-class column is the filter that cannot be evaded by a producer's
 spec-shape choice.
+
+---
+
+## 2026-08-24 — finetuning lane: I attributed census rows to a build I never checked them against
+
+**The claim** (written into `bugs_open/377` and committed): "The page carried FIVE further
+'your company' sentences in its written copy, so a re-block would be immediate and loud."
+
+**It is false.** The five quoted sentences came from `agent_error_log` rows dated
+2026-08-03..08-16 — older builds of OTHER finetuning.uk pages. Today's written copy
+(preserved in the build orchestration, `llm_call_log 774ca9c5`) carries ZERO; the one
+conviction was the assembled hero headline, which the writer never wrote.
+
+**What caught it**: running the register checks on the preserved copy itself (a check run
+for a different purpose — the copy-quality report), which returned `'your company': 0` and
+contradicted the file within the hour.
+
+**The cheap check**: a census location is evidence about the ROW it sits in, dated by that
+row's `occurred_at` — before writing "this page carries N", filter the census to the build
+in question (occurred_at window or orchestration_id), or read the artefact. Same family as
+"a cap census cannot say WHO was cut": the aggregate was right, the attribution was invented.
