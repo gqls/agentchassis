@@ -531,3 +531,40 @@ HEAD                     2026-08-24T20:12:28+01:00
 ancestor. Capability probed on the running chassis binary too: `skipped_unverified_selector`,
 `skipped_unanchored_selector`, `selector_scheme` all **present**, an invented control string
 **absent**, the build sha **present** and a nonsense sha **absent**.
+
+### ⚠ Misstep: I ran the binary probe BEFORE grepping LANDMINES for the instrument I was using
+
+The probe above (`kubectl exec … grep -aq "<literal>" /proc/1/exe`) is the estate's prescribed
+check, and I ran it with the prescribed discipline — a present control and an absent control in the
+same breath. **Then**, while correcting a different landmine entry, I found this one, added earlier
+today by the `bugfix_283_component_instance_scope` lane:
+
+> **BusyBox `grep` over `/proc/1/exe` reports FALSE ABSENCES — and your present/absent controls PASS
+> while it does it.** The fleet images are BusyBox v1.37; its grep is line-oriented and a "line" of a
+> Go binary can be enormous, so a literal inside an over-long line reads as NOT FOUND, exit 1, no
+> error. Measured on **`agent-chassis-855587d4dc-pn2t8`** — a pod of the same replicaset I probed.
+
+**My result survives, but not because I was careful — because of which way the instrument fails.**
+Everything load-bearing in my probe was a **presence** (three capability symbols, the build sha);
+the only absences were nonsense controls whose absence is true either way. A false-*presence* would
+have broken the conclusion and that is not the described failure mode. Note what that means about my
+controls, though: **on this instrument a nonsense-string control cannot discriminate**, because it
+reads ABSENT whether it is genuinely absent or merely inside a long line. I recorded two passing
+controls that could not have failed — the exact family this lane wrote up this morning about a
+mis-chosen commit, one rung along.
+
+Re-run on the instrument the entry prescribes (NUL-split so every line is short, **both** controls
+through the same pipeline), and the result set is coherent:
+
+```
+tr '\0' '\n' < /proc/1/exe | grep -Fc '<literal>'      # on agent-chassis-855587d4dc-h4hcg
+skipped_unverified_selector   1     InstanceID (positive control)          25
+skipped_unanchored_selector   1     ZZZ_not_a_real_symbol_352_control       0
+selector_scheme               4     0123…4567 (nonsense sha)                0
+48f55f21834ac3e2d95aa43716f6e63e40ac12ee   3
+```
+
+**The transferable bit is the ordering, not the grep.** MEMORY says *grep LANDMINES for the SYMBOL
+you are about to trust* — and the SessionStart hook cannot help here, because it matches entries
+against files **already dirty in the tree**, and `/proc/1/exe` is not a file in the tree. An
+instrument has a footprint too. I grepped the entry an hour after I had already banked its answer.
