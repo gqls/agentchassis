@@ -47415,3 +47415,51 @@ message body is not markdown to anything that reads it.
 *(Tally note for whoever automates from this file: this lane logged eight entries today, and the
 two that repeat a KNOWN, WRITTEN-DOWN trap are these — which is a different and more automatable
 class than the six that were novel measurement errors.)*
+
+---
+
+## 2026-08-24 — I used a marker that was already in the text, and briefly exonerated the bug I was hunting (`bugs_open/358` lane)
+
+**The setting.** A council objection said migration `580` "provides no standalone rollback script".
+It does. I went to run it in order to prove the objection wrong — and **it failed.** Both of this
+lane's rollbacks (`567`, `580`) used `regexp_replace(..., 'n')` over a pattern spanning several
+lines, and in PostgreSQL `'n'` means newline-**sensitive** matching, which stops `.` matching a
+newline. The replace matched nothing, the `UPDATE` still printed `UPDATE 1`, and only the verify
+block noticed.
+
+**The wrong call.** To confirm the flag was the cause I ran:
+
+```sql
+regexp_replace(pre_query, '<pattern>', 'X', 'n') LIKE '%X%'   -- "did the replace fire?"
+```
+
+Both arms — with the flag and without — returned **MATCHED**, so I wrote off the flag and went
+looking elsewhere. **The sweep contains `MAX(id)`.** `LIKE '%X%'` was true whether or not anything
+was replaced. The test could not distinguish its two cases, and its answer was "no difference"
+because it could not see any difference, not because there wasn't one.
+
+Re-run with `ZZMARKERZZ` **plus a control asserting the marker was absent to begin with**, the
+result inverted immediately: `with 'n' → NO MATCH`, `without → MATCHED`.
+
+**The cheap check that would have caught it:** one line, and it is now in the landmine —
+`CASE WHEN pre_query LIKE '%ZZMARKERZZ%' THEN 'CONTROL INVALID' ELSE 'control ok' END`. **A marker
+that can occur naturally is not a marker**, and a single-character marker in a body of SQL is
+almost certainly present already.
+
+**What it cost, and what it did not.** Nothing shipped wrong: the live rows were untouched, both
+rollbacks are fixed and now dry-run clean. What it cost was a wrong intermediate conclusion held
+for two queries, in the middle of diagnosing a defect that had already reached production twice.
+
+**The tally this file exists for.** That is the **fifth** vacuous measurement from this lane in
+three days, all one shape — *a check run somewhere it could not fail*:
+
+1. a control comparing two columns that are 100% NULL for the population;
+2. a migration verify block asserting against its own hard-coded copy of the list it was checking;
+3. a discriminator computed on daily buckets over an effect that lasts hours;
+4. a mutation test whose `sed` never matched, so it graded the unmodified file;
+5. this one — a marker already present in the subject.
+
+**Four of the five were caught only because something else forced a second look**, and the fifth
+(the mutant that never applied) was caught by a gate I had added *after* number four. The gate
+generalises and is the one durable output of this list: **before believing a check, name the result
+that would have come out differently — and if you cannot, the check has not run yet.**
