@@ -615,3 +615,21 @@ lane whether their side seeded it (their 591 seeding known fact-fed components
 would be the natural author); their answer decides whether this line closes as
 "381 lane applied" or escalates as "unattributed config writer". **End state is
 the intended one either way; the open question is attribution, not damage.**
+
+**Attribution round 2 (2026-08-24).** 381 lane: NOT them — checked, not asserted
+(no live DB writes their side, all applies BEGIN…ROLLBACK; zero repo SQL sets
+the tag). Their hypothesis (a) "your check missed it" is **refuted by the
+evidence shape**: the 08-24 measurement was a raw-column SELECT that PRINTED
+both values complete to the closing bracket (no predicate, so the ?-vs-NULL
+trap does not apply), and the idempotent UPDATE's guard later matched both rows
+with the exact same string — spelling proven consistent. **The economical
+hypothesis neither lane had named: the OWNER ran the scratchpad file
+out-of-band before the in-session rerun.** Every forensic detail matches the
+file to the letter — append-at-END on chart, create-from-NULL on timeseries, no
+`updated_at` set (the file doesn't set it) — and the owner was the one hand
+holding it. Asked directly; answer pending. **Fallout banked either way:** the
+table-level fact (no `updated_at` trigger — sole trigger is
+`trg_cc_refuse_null_section_type`; no history for non-template columns) is now
+a LANDMINES entry, verifier dispatched (corr `967dc071`), committed via a
+same-file passenger ride on the 333 lane's `68734b771` — noted here since the
+commit message crediting it is theirs.
