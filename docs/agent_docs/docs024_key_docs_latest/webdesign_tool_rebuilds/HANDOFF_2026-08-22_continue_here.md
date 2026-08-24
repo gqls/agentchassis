@@ -1,5 +1,7 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-22 ~13:00Z. Supersedes `HANDOFF_2026-08-21_continue_here.md`.
 
+**UPDATED 2026-08-24 10:25Z: 29 of 63 (image-optimizer PASS); 360 CLOSED (guard live+proven, probe `5fafef84`); 558 APPROVED r2; tombstone re-read now hygiene, not mandatory; Phase C remainder 11, next `tool-bayesian-rank`. Original state line follows.**
+
 **STATE: 28 of 63 rebuilt and serve-graded (DB-corrected count — the old docs' "28" was 27; today's
 blueprint-compiler makes it a true 28). Phase A complete. Phase C (13 external-script tools) is OPEN
 with #1 DONE end to end. 35 remain: 12 Phase C + 23 Phase B (≥8 KB self-contained; five rich apps

@@ -124,3 +124,23 @@ import/export `pageComponentNotRemovedSQL` rather than writing a third copy. bug
 asked whether the filer gap has an open tracking item: it does — `bugs_open/356` §6-B names
 `check_literal_markdown` (page axis), this file's candidates (2)/(3) name the component axis, and
 CONTRIBs are delivered to the 277 and 283 lanes.
+
+## CLOSED 2026-08-24 — fixed AND live AND behaviourally proven at the door
+
+- **Fixed:** commit `1cd184f6e` (council APPROVED r1, corr `4007ce96`, trailer credited).
+- **Live:** the 2026-08-24 roll (~09:45Z pods) carries the guard — probed at the binary
+  (the skip-result literal present, junk control absent).
+- **Proven, the file's own §How-to-verify recipe:** section_edit item `46477c9b` (content_edit at
+  the REMOVED aspect-ratio ported slot `f32583ed`) dispatched 10:11Z, orchestration `5fafef84`
+  COMPLETED with `apply_edit = {success:true, skipped:true, tombstoned:true, reason:
+  "…build_status='removed'…an automated edit would resurrect it…"}` — and the row afterwards is
+  byte-identical (md5 `22edea99…`) with its ORIGINAL 2026-08-16 updated_at: no write reached it.
+- **Two-day negative control:** zero resurrections across all 29 tombstoned rebuilt pages between
+  the incident (08-21) and the roll (08-24), measured 2026-08-24 — and the four repaired pages
+  survived multiple sweep re-assembles.
+- **Residuals, named and owned elsewhere:** (a) `check_literal_markdown` still SCANS tombstones —
+  its items now complete as tombstone-skips (nuisance, not damage); 277 lane, `bugs_open/356`
+  §6-B. (b) Migration 486's `create_section_edit_delivery` still SELECTS removed placements — its
+  batch now lands on the guard and skips; 283 lane. (c) The reuse seat's convergence question
+  (fold the predicate into the shared writable helper, cover the **5** other page_components
+  writers as of 2026-08-22) stands recorded above for whoever takes (a)/(b).

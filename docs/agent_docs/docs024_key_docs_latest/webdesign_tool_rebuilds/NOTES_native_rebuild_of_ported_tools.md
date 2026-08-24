@@ -2779,3 +2779,26 @@ PASS; the START HERE is now their `HANDOFF_2026-08-22_continue_here.md` — the 
 superseded. `bugs_open/365`: `retract_asset_files` refuses `/tools/` paths BY DESIGN — do not
 re-diagnose during Phase C asset retirement. This session's open tail: verdicts `c6b9a382` and
 `b8bdd4b3`, 362 §9 census post-roll.
+
+## 2026-08-24 10:20Z — resumed after a 2-day gap (workstation DNS died mid-poll on 08-22): #29 image-optimizer PASS (29 of 63); 360 CLOSED at the door with the live proof; 558 APPROVED r2
+
+- **The gap:** the 08-22 session lost cluster DNS at 12:34Z mid-attendance (retire was already done
+  — no race exposure existed, only the serve-grade wait). The interval was quiet: NO resurrections
+  across all 29 tombstones (measured today, the two-day negative control), no lane commits by others.
+- **#29 `tool-image-optimizer` SERVE-GRADE PASS** (owed since 08-22): 200 / 25,399 B / last-modified
+  2026-08-24 02:43 — a later sweep re-assembled with the tombstone honoured; standard 0·0·0·0;
+  negatives all 0 (`dropZone`, `processBtn`, `qualityRange`, **`src="optimizer.js"`**,
+  `savingsBadge`); positives present (max-width-error, format-fallback-note, download label,
+  megapixels). Component mechanisms were verified 08-22 (NOTES above): `toBlob`+`blob.type`
+  actual-format honesty (extension follows the REAL encoding), three-message maxWidth guard,
+  30 MP warning, reload-another-image, PNG quality note. **Orphan #2 recorded:**
+  `/tools/image-optimizer/optimizer.js` (refusal corr `1acae77f`, bugs_open/365 list).
+- **560 nope — 558 council: APPROVED on the resubmission** (same corr `a367b63e`; the r1 REVISE's
+  gating objection answered with the one-active-row census + the loud-abort analysis + the
+  behavioural pin; file carries a comments-only template warning: pin `version` next time).
+- **360 CLOSED → `bugs_closed/`**: today's roll carries `1cd184f6e`; probe item `46477c9b` at the
+  aspect-ratio tombstone returned `{skipped:true, tombstoned:true}` (orch `5fafef84`) and the row
+  kept md5 AND its 2026-08-16 updated_at. LANDMINES entry corrected in place; the RUNBOOK's
+  post-retire re-read demoted from mandatory to cheap hygiene (the filer still scans tombstones —
+  277/283 residuals stand in 360's close block).
+- **Phase C remainder (11): bayesian-rank next** (8,749), then community-growth, head-architect …
