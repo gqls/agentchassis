@@ -103,6 +103,13 @@ type Queryer interface {
 
 // pageListConsumerSQL is the ONE definition of the candidate set. Alias `p`
 // for pages, `pc` for page_components, `cc` for content_components.
+//
+// `p.status IN ('active','deployed')` is the SAME set resolvePagesWhereType and
+// resolvePagesUnderSection select from (a consumer page is chosen by the rule
+// its own items are chosen by). Kept for PARITY with the resolvers, not because
+// both values occur: [MEASURED 2026-08-24] `pages.status` holds `active` 805 and
+// `archived` 66 — `deployed` does not occur today, and dropping it here while the
+// resolvers keep it would let the two disagree the day it does.
 const pageListConsumerSQL = `
 	SELECT p.id, p.name, COALESCE(p.url, ''), s.domain, cc.name, cc.input_schema::text
 	  FROM page_components pc
