@@ -1235,8 +1235,13 @@ carrier agents). Exactly one step opts in, at 0.5.
     > **⚠ CORRECTED same day — 587 is `_HOLD` and UNAPPLIED.** Measured 2026-08-24: 0 rows carry
     > `cancelled_by='migration_587'`, total still 452, census still 108/58/15. **The 73 are LIVE.**
     > I took the withdrawal from a peer's message without checking the cluster.
-  - **The round-trip-writer inventory**, owed since council round `5249320e` (2026-08-05).
-    Still owed; explicitly not absorbed by this work.
+  - **The round-trip-writer inventory**, ~~owed since council round `5249320e` (2026-08-05).
+    Still owed; explicitly not absorbed by this work.~~ **DELIVERED 2026-08-24 (population pass)
+    → `docs/agent_docs/docs024_key_docs_latest/bugfix_198_roundtrip_writers/INVENTORY_2026-08-24_round_trip_writers.md`.**
+    9 writer steps / 6 definitions reach an LLM output; 6 of 9 multi-hop, so the method this file's
+    lane documented could not see **this bug's own writer** (`deploy_css` references the SAVE
+    step's output). 3 replace-paths, all guarded and live. Remaining: the graph is built from
+    config text, so Go-side implicit inputs leave no edge — the population is a floor.
   - **Owner decision:** per-site theme split for finetuning.uk + gaswholesalers.com.
 
 ### 5. Where the working record lives

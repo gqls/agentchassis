@@ -121,7 +121,19 @@ before concluding a probe was refused rather than held (§11).
    > The rekey it replaced was dropped because the two-strike counter reads only
    > `complete`/`failed` **within 7 days** (`load_work_item_actions.go:1519-1523`, verified by
    > me) and the park dates from 08-11 — there was no attempt history left to preserve.
-3. **The round-trip-writer inventory** — owed since council round `5249320e` (2026-08-05).
+3. **The round-trip-writer inventory** — ~~owed since council round `5249320e` (2026-08-05)~~
+   **POPULATION PASS DONE 2026-08-24 → `INVENTORY_2026-08-24_round_trip_writers.md`.**
+   Result: **9** writer steps across 6 active definitions reach an LLM output transitively
+   (`as of 2026-08-24`); **6 of the 9 are MULTI-HOP** and so invisible to the one-hop join this
+   handoff's 08-10 sibling documents — which cannot see 198 itself. The class splits: **3** steps
+   where the LLM's returned bytes ARE the artefact, 6 where a deterministic Go composer produces
+   them (2 of those write work items, not artefacts). **3 writers REPLACE an incumbent and all 3
+   carry a live guard** (542+318; DGH-016 at 0.5; `enforceSectionShrinkFloor`, confirmed in the
+   RUNNING build `70fd163c2`). So the class is CLOSED on the measured population.
+   ⚠ **It is a FLOOR, not a count, and this is the residual:** the graph is built from config
+   TEXT, so an action with an empty `config` that reads its input in Go leaves no edge
+   (`webdesign-agent/generate_css`). Closing that needs Go-side input edges — no config query can
+   supply them. ⚠ Also in there: why "20 git_commit steps, 1 shrink floor" is NOT 19 bugs.
    Which other `agent_definitions` workflows round-trip a whole artefact through an LLM into an
    unguarded writer. **Not absorbed by this work**: a guard for one seam is not the class survey
    the architecture seat asked for. Method is in `HANDOFF_2026-08-10_continue_here.md` §"the
