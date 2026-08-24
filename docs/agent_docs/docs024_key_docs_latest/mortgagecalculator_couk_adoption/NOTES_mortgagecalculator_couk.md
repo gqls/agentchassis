@@ -4257,3 +4257,28 @@ cannot pick up a component template change"* — true of **component templates**
 though it covers chrome too. **It does not: chrome is injected at assembly, so the new footer
 landed via the no-`reason` route with zero LLM calls.** Tested rather than assumed, on one page,
 before committing to 28.
+
+### Near-miss: I built the page list from `build_status='deployed'` and would have missed the CONTACT page
+
+**My own landmine, recorded in this file three days ago, caught me.** The 08-21 entry says:
+
+> ⚠ **Watch the stored-vs-served split here.** `contact-index` is `build_status='needs_rebuild'`
+> with `deployed_at` NULL, and it still serves a healthy 1,267-word page from its previous build.
+> "Not deployed" in the `pages` row does not mean "not serving".
+
+The propagation list was `WHERE build_status='deployed'` → **29 pages**. `contact-index` is
+`needs_rebuild` with `deployed_at` NULL, so it was excluded — while serving **HTTP 200**. It would
+have been the single page on the site without the disclaimer, and it is the page most obviously
+about what the site will and will not do for you.
+
+Caught before completion, not after: re-probed the row, confirmed 200 with 2 components and **0**
+NULL `content_data` sections (so assemble-only is safe on it), dispatched it, and added it to the
+verification set so the completion check covers **30 serving pages**, not the 29 the `pages` table
+calls deployed.
+
+**The check, generalised:** on this site the set of pages that SERVE is not the set the `pages`
+table calls `deployed` — it is a superset. Any fan-out that must reach "every live page" should be
+built from a **probe** or from `deployed ∪ needs_rebuild`, never from `build_status='deployed'`
+alone. The two `planned` pages (`scorecard-simulator`, `guide-market-structure`) are genuinely not
+live and need nothing — they will pick the footer up when they are first built, because the chrome
+is now in the store.
