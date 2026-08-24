@@ -397,3 +397,75 @@ bugs_open/206 (stays there, owner direction 08-06). BLD-017 status +
 verify-later discharged in the register, index row updated. The owner's
 original complaint (homepage "Search the directory" → 404) is resolved on
 the live site.
+
+---
+
+## 2026-08-24 — lane resumed (16 days quiet). Re-verify → a live re-fire of the class → three of my own errors caught by other people's checks
+
+**Task**: pick the lane back up, confirm the bug is still valid, prefer a framework-wide fix
+over the individual case, check the council, check other threads.
+
+### What I verified first (artefacts, not statuses)
+
+Both 08-08 pages still serve: `/directory/index.html` 200/52,699 B with 49 postcodes and the
+alphabetical practice list; `/guides/index.html` 200 with `guide-list`. **Both were re-rendered
+by a fleet wave on 08-23 and the listings survived** — the pipeline reproduces the result, it is
+not a preserved artefact. The `vetcomparison` lane (live, in parallel) proved a THIRD page shape
+on `directory-build-handler` the same morning: `practice`, deployed 10:17:38Z first attempt.
+
+### The finding, and it is not where I was looking
+
+I went looking for the residual I expected (`entity-page` builder, `section-index` map entry) and
+found instead that **the 08-08 fix was never fleet-wide, because the fleet has more than one
+door**. `reconcile_site_plan_action.go`'s emit hardcodes `handler_agent='page-build-handler'`
+and never consults the builder map. Five items parked with this bug's exact signature; the one
+that settles it is garden-tools.uk's `brand-directory-index` — an `entity-directory` page
+**parked 15 days while its builder was live**. Two copies of one decision, disagreeing. Fixed by
+making the decision exist once (`builder_routing.go`), in a NEW file specifically so it needed
+nothing from `load_work_item_actions.go`, which is uncommittable (below). Committed `d1aa231aa`.
+
+### Three of my own errors, all caught by someone else's check, all in WRONG_CALLS
+
+1. **I adjudicated my own lane's history from memory and asserted the pre-correction version** to
+   the vetcomparison lane (that the 08-08 "bump to 95" was correct). It was not — my own NOTES
+   above hold the correction. They had already committed a NOTES entry crediting me before I
+   caught it. Counter-correction sent; their chain `a0c8fa18b → 98beb8b92 → aa26df458`.
+2. **A census that returned a false ZERO.** I filtered on `spec->>'page_type'`; reconcile-minted
+   items carry no such key, so the population was invisible to the very query meant to count it.
+   Caught by the `345` session relaying its own tripwire lesson that morning — *take a
+   known-real occurrence and run your own WHERE against it*. The corrected census (join
+   `pages.page_type`) found the five items and **redirected the entire fix**. One check, and the
+   bug turned out to be the producer rather than the map.
+3. **A phantom column in a council submission.** Two `psql -c` outputs concatenated and I read
+   the second query's single result as the last column of the first — "`site_plan_pages` has
+   `page_type`". It does not. **The council's round-1 gating objection was exactly this**, found
+   independently by the `editquality` seat. The shipped code never had the defect (it reads
+   `pages.page_type` with a fallback to the plan's `role`); the submission text did.
+
+### And the one that matters most: I re-found a closed decision
+
+`bugs_closed/187` measured this exact population on **2026-08-03**, names these very rows, and
+its shipped fix states *"`reconcile_site_plan` deliberately NOT guarded (015-shape gaps are real
+findings)"*. So my `capability_gap` arm touches another lane's considered, council-directed
+decision. **`who-owns.py` and "grep before you file" both key on the bug's IDENTITY; this
+defect's identity was a symptom string**, and a number-keyed search cannot find symptom-keyed
+prior art. I only got there by chasing the discrepancy between my census ("five") and the
+council's unscoped check ("87 across 16 sites"). Contribution recorded in 187's file, the
+contested arm put to the council as round 2's headline question, revert offered.
+
+Corrected class census (dedup, 08-24): **87 items / 16 sites**, 79 parked. **69 are tool pages**
+(67 layout-less), 42 of them `unbuilt_internal_link` rows from `bugs_open/220` — the bug this
+lane itself filed — so that tail is being refilled faster than it drains. My change reaches ~11
+non-tool typed items and must not be read as fixing the tool class.
+
+### Cross-lane, worth keeping
+
+- The `345`/`326`/`311` trio sitting dirty in `load_work_item_actions.go` is **ownerless**. I
+  measured it and told the `345` session: it compiles but **fails three existing
+  `UpdateWorkItemStatus` tests** (three-arm git-archive overlay: clean HEAD green; HEAD + my six
+  files green; HEAD + trio red). They reproduced it and diagnosed the cause — a positionally
+  declared sqlmock `WithArgs` that the trio's new bind parameter breaks. So it is not "finished
+  and unowned" but **incomplete and red**, which is a materially different thing to hand a human.
+  My new file kept me clear of it entirely.
+- Method worth reusing: **establish WHOSE a failure is before reporting it.** Three overlays, one
+  message, actionable rather than accusatory.
