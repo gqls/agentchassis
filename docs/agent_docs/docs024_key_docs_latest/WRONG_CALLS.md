@@ -48482,3 +48482,37 @@ test for the third.
 Running tally for this change: **13 mutations, 4 of which passed and were worthless**,
 and one REVISE round that found a real defect the 13 could not — because the defect was
 in the shape of the input, and every fixture I wrote had the wrong shape.
+
+## 2026-08-24 — bugs_open/198 lane: I verified the peer claim I could check in the repo and took on trust the one that needed the cluster — and it was the cluster one that was false
+- **The claim (committed to two files, `6608022c2`):** *"migration **587** WITHDRAWS the 73 as
+  `cancelled` … so re-running my census after 587 will NOT reproduce 73."* Written from the
+  `bugs_open/352` lane's handover message.
+- **What caught it:** the same lane's NEXT message, which described its RUNBOOK §10 around
+  "which side of 587 am I on". That framing made me ask which side *I* was on — and I had never
+  looked.
+- **The error:** `587_retire_invented_contrast_selectors_HOLD.sql` is a **`_HOLD` migration —
+  committed, held back for ordering, applied BY HAND — and it has not been applied.** Measured:
+  0 rows carry `cancelled_by='migration_587'`, 0 carry `pre_352_status`, `contrast_failure` total
+  still **452**, census still **108 / 58 / 15**. The 73 are live and still holding their dedup
+  slots. My sentence describes a withdrawal that has not happened, in the present tense.
+- **The asymmetry is the lesson, and it is the uncomfortable part.** In the same message I DID
+  verify the peer's other claim — that the two-strike counter reads only `complete`/`failed`
+  within 7 days — by opening `load_work_item_actions.go:1519-1523`. So I was not being lazy in
+  general. **I checked the claim that was cheap from the repo and trusted the claim that needed
+  the cluster**, which is exactly backwards: repo claims are the ones a reader can re-check in
+  seconds, and live-state claims are the ones that rot and that nobody re-checks. Effort followed
+  convenience, not risk.
+- **The cheap check:** a peer's report about **live state** is not verified by verifying their
+  **code** claims. One query, and for a migration specifically: **`_HOLD` in the filename means
+  committed-but-NOT-running.** `ls docs/agent_docs/sql_for_agents/NNN*` shows the suffix, and one
+  `count(*) FILTER (WHERE result->>'cancelled_by'='migration_NNN')` shows whether it ran.
+- **Why it nearly travelled:** the sentence was *forward-looking in grammar* ("after 587 … will
+  not reproduce") and so read as a caveat rather than an assertion, while "587 WITHDRAWS" in the
+  present tense did the actual damage. A reader would have concluded 73 was historical. It is the
+  current figure.
+- **Same day, hours after I wrote the lesson "a bug file is a biased sample" about not letting a
+  convenient sample stand for the population.** The general form of both: **a true, cheap fact
+  substituting for the true, expensive one you actually needed** — three real instances for a
+  population of 181; a verified code claim for an unverified live one. Related: the 352 lane's
+  own entry above (audits *run* standing in for per-site *coverage*). Three instances, one shape,
+  one day, three different lanes.

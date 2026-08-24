@@ -96,6 +96,16 @@ before concluding a probe was refused rather than held (§11).
    > minting another 108 false completions. ⚠ Also: migration **587** WITHDRAWS the 73 as
    > `cancelled` (withdrawal, not resolution — it frees the dedup slot so still-failing pairings
    > return under verified selectors), so re-running my census after 587 will NOT reproduce 73.
+   > **⚠ CORRECTED 2026-08-24 (same day, my error) — 587 IS `_HOLD` AND HAS NOT BEEN APPLIED.**
+   > I wrote the clause above from the 352 lane's message without checking the cluster, and
+   > "587 WITHDRAWS the 73" reads as done. It is not. Measured just now:
+   > `count(*) FILTER (WHERE result->>'cancelled_by'='migration_587')` = **0**, rows carrying
+   > `pre_352_status` = **0**, `contrast_failure` total still **452**, and the census still
+   > returns **`complete` 108 / `deferred` 58 / `unresolved` 15** — the 73 are LIVE and still
+   > holding their dedup slots. `587_retire_invented_contrast_selectors_HOLD.sql` is committed
+   > and held back for ordering, applied BY HAND. **So 73 is the CURRENT figure, not a
+   > historical one**, and the "will not reproduce" warning takes effect only once someone
+   > applies it. A `_HOLD` migration is committed code that is NOT running.
    > The rekey it replaced was dropped because the two-strike counter reads only
    > `complete`/`failed` **within 7 days** (`load_work_item_actions.go:1519-1523`, verified by
    > me) and the park dates from 08-11 — there was no attempt history left to preserve.

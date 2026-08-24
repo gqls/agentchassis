@@ -1232,6 +1232,9 @@ carrier agents). Exactly one step opts in, at 0.5.
     > was measured, with a bare tag refused and counted — **"prove it", not "stop lying"**.
     > Migration **587** withdraws the 73 as `cancelled` (frees the dedup slot; still-failing
     > pairings return under verified selectors), so the 08-24 census will not re-derive after it.
+    > **⚠ CORRECTED same day — 587 is `_HOLD` and UNAPPLIED.** Measured 2026-08-24: 0 rows carry
+    > `cancelled_by='migration_587'`, total still 452, census still 108/58/15. **The 73 are LIVE.**
+    > I took the withdrawal from a peer's message without checking the cluster.
   - **The round-trip-writer inventory**, owed since council round `5249320e` (2026-08-05).
     Still owed; explicitly not absorbed by this work.
   - **Owner decision:** per-site theme split for finetuning.uk + gaswholesalers.com.
