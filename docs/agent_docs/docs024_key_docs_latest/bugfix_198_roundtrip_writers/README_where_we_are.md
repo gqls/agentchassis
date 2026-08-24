@@ -177,3 +177,55 @@ closed one.
 5 August — which other parts of the system send a whole document through an AI model and write
 the result back without checking it. The guard we built covers one place; the survey is about
 the whole class. I did not do it and did not pretend otherwise.
+
+---
+
+## Sunday 24 August — someone else took bug 352 off my hands, and immediately found my fix was wrong
+
+Another session picked up bug 352 — the one I filed on Friday about repairs aimed at elements
+that don't exist. It asked, properly, whether I was still working on it before it started. I
+wasn't, so it's theirs now, and I've written that into the files so nobody else starts a
+competing fix.
+
+**It then found that the fix I had written down would have done real damage.** This is worth
+explaining because the shape of the mistake is more interesting than the mistake.
+
+The problem, as a reminder: when a page element has no styling name of its own, the system
+records the element's *type* where its *name* should go, so the repair agent writes a fix aimed
+at nothing. My proposed fix was to stop putting the type there, so the instruction would come out
+as "all headings of this level" instead of the nonsense version. I described it as a few lines
+that made the bad case impossible.
+
+What I missed is what the *corrected* instruction would then hit. The broken version matches
+nothing, so it does nothing — it is inert. The corrected version, for the most common case, is
+"every paragraph on the site", and it would have been published straight into the site-wide
+stylesheet. My fix would have converted a dead instruction into a live site-wide restyle. That is
+worse than the bug.
+
+**The reason I got it wrong is the part I want on record.** Every example in my bug file was safe
+under my fix. I had three: one heading case and two paragraph cases on sites where the fix
+happened to be narrow. So the fix looked safe because the evidence I had gathered *was* safe. The
+other session did the thing I hadn't: it counted the whole population instead of reading my
+examples. Of 452 recorded contrast problems, 181 have this defect, and the two commonest by a
+wide margin are the two most dangerous ones to correct — paragraphs (77) and links (44). The
+dangerous case was the *normal* case, and my sample contained none of it.
+
+A bug file is a collection of things that reproduced, not a fair sample of the problem, and
+nothing about the examples in it looks thin — they're all real. I've written that up as a general
+lesson, because I don't think it's specific to this bug.
+
+**One number in the other direction, which nobody had counted either.** Of those 181, **108 have
+already been marked "complete"** — the false repair has already happened on three-fifths of
+them. My bug file recorded exactly one instance of that and it reads like a one-off. It is not; it
+is 108.
+
+**A separate thing I fixed while I was in there.** A note in our shared memory — the file that
+loads automatically for every new session — said a review system was unavailable until 9
+September because of a billing cap. That was true of one run, on one day. I checked: 47 reviews
+have completed in the last four days, including approvals an hour before I looked. The note had
+another eight days left to run, quietly telling every session not to bother submitting work for
+review. Struck, with the measurement attached. This is the second time in this lane a stale
+status line has stopped the very thing it was describing.
+
+**Nothing needed from you.** Bug 352 is in better hands than mine, the corrections are committed,
+and the survey from 5 August is still outstanding and still honestly outstanding.
