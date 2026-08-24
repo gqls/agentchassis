@@ -138,7 +138,16 @@ var placeholderPatterns = []struct {
 	{"name@example", "example email"},
 	{"123 main st", "placeholder address"},
 	{"your name here", "placeholder prompt"},
-	{"your company", "placeholder prompt"},
+	// Note: bare "your company" was previously in this list and is removed
+	// for the same reason as bare "placeholder" above: it is ordinary
+	// second-person B2B prose ("your company data stays private"), and every
+	// one of its 46 recorded convictions (agent_error_log,
+	// CONTENT_VALIDATION_BLOCKER_DETAIL, 2026-08-03..2026-08-24, 6 domains,
+	// counted 2026-08-24) was a false positive — 41 of them serial re-blocks
+	// of finetuning.uk, whose ratified proposition literally opens "Your
+	// company's voice". Real template residue keeps its guards: the bracketed
+	// forms ("[your ", "[company") above, and the unambiguous prose form here.
+	{"your company name here", "placeholder prompt"},
 	{"acme corp", "placeholder company"},
 	{"todo:", "todo marker"},
 	{"fixme:", "fixme marker"},

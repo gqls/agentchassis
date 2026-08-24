@@ -92,6 +92,15 @@ func TestPlaceholderScanIgnoresNonProseContexts(t *testing.T) {
 			"non-prose meta content ignored",
 			`<html><head><meta name="generator" content="builder [name] v2"></head><body><p>Fine prose.</p></body></html>`,
 		},
+		{
+			// Second-person B2B prose. Bare "your company" was removed from
+			// the pattern list 2026-08-24: all 46 of its recorded convictions
+			// were sentences like these (finetuning.uk was serially blocked on
+			// its own ratified proposition). Killed by: re-adding the bare
+			// pattern.
+			"second-person company prose is not a placeholder",
+			`<html><body><h1>Your company's voice, in a model you own</h1><p>Your company data stays private. Fill in the form with your company details.</p></body></html>`,
+		},
 	}
 
 	for _, tc := range cases {
@@ -123,6 +132,12 @@ func TestPlaceholderScanStillCatchesProse(t *testing.T) {
 			"lorem ipsum in prose",
 			`<html><body><p>Lorem ipsum filler that never got replaced.</p></body></html>`,
 			"lorem ipsum",
+		},
+		{
+			// The unbracketed residue form that replaced bare "your company".
+			"unambiguous company-name prompt still convicts",
+			`<html><body><h1>Your Company Name Here</h1><p>Real content.</p></body></html>`,
+			"your company name here",
 		},
 		{
 			// A claim split across inline markup still reads as one block, so
