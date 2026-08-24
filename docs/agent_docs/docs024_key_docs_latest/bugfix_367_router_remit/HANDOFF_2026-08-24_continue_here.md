@@ -54,6 +54,43 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 this router closing anything would satisfy the defect case and break a real route. C2 (retired
 component) and C3 (page gone) must **still close**.
 
+### ⚠ One thing changed UNDER this lane after it closed (2026-08-24)
+
+`bugs_open/333` shipped its owned-page door (`6ab0b3434`, **INERT until the next chassis
+roll**). A finding whose page is `rebuild_policy='owned'` and whose handler declares
+`refuse_owned_page` is now parked **at creation** — `status='deferred'`, `handler_agent=''`,
+`error` prefixed `OWNED_PAGE_GUARD`. **`page-build-handler` declares it** (verified live
+2026-08-24 — it is the only agent that does), and this router's `file_rewrite`/`file_recreate`
+go through `create_work_item` → `writeWorkItem`, so **this router's conversions are inside that
+door's coverage.**
+
+Three things follow, and they matter to whoever watches this router next:
+
+1. **The `28 of 31 failed` figure quoted throughout this lane is now FROZEN.** New owned-page
+   conversions will be `deferred`, not `failed`. **A health query counting `failed` on this
+   item type will show an improvement that neither lane made** — the finding is still not
+   repaired, it is merely no longer misfiled. Add a
+   `status='deferred' AND error LIKE 'OWNED_PAGE_GUARD:%'` arm.
+2. ⚠ **That `error` prefix now has TWO producers** — the door (on `deferred` rows) and the
+   handler (on refused ones). A census meaning *refusals* needs `AND status <> 'deferred'`.
+3. **`close_converted`'s note is rosier than the truth**, and now more visibly so. It closes
+   the original `complete`/`converted` saying *"repair filed as a follow-on item at
+   page-build-handler"*, and after the roll that follow-on may be born undispatchable.
+   **This is not a regression** — the pre-door behaviour was a conversion that FAILED, and a
+   `deferred` row is *more* legible (the roadmap sweep reads it) — but the ORIGINAL's note
+   reads like a dispatched repair either way. `create_work_item`'s step result now carries
+   `row_status` and `owned_page_parked`; `row_status` is the field that tells the truth.
+   `handler_agent` in that result still reports what the config ASKED for.
+
+The 333 lane also confirmed, independently, that **this lane's volume prediction held**: nothing
+new was filed at `page-build-handler` on an owned page since 08-19, so the 28 are all pre-`574`
+and nothing rose. That was the stated failure signal for `574`, and it did not fire.
+
+They **declined** the `triage.component_id` item this lane handed them, with reasons recorded in
+`bugs_open/333`'s fix section as a named non-scope item — it re-opens `CQ-023`'s
+council-settled key design for a population of 3 items that no longer reaches the broken shape.
+Correct call, and it is a decision on the record rather than a silence.
+
 ---
 
 ## 3. The proof, because it is the most reusable thing here

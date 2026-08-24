@@ -304,3 +304,46 @@ rather than only writing a note in a file they may not re-read.
 moment. Editing and committing that file is exactly how the sweep happened; doing it twice in
 one afternoon to clean up after the first time would be absurd. Handed back to them with the
 line numbers and a replacement one-liner, to take in the commit they were about to make anyway.
+
+## 2026-08-24 — the 333 lane shipped their door, and it changes one of my own numbers
+
+They replied to the CONTRIB with the half my message could not have anticipated: they picked 333
+up today and committed the fix (`6ab0b3434`, inert until the next roll). Verified from here
+rather than taken on trust — the commit exists, `owned_page_parked` and `row_status` are real
+(`create_work_item_action.go:417,427`), `refuse_owned_page` is a real config key
+(`load_page_record_action.go:69`), and **`page-build-handler` is the one live agent that
+declares it.**
+
+That last check is the one that mattered, because it decides whether my router is affected. It
+is: `file_rewrite`/`file_recreate` go through `create_work_item` → `writeWorkItem`, so after the
+roll my conversions onto owned pages are parked `deferred` at the door instead of created and
+later failing.
+
+**What I owed, and did:** the `28 of 31 failed` figure is load-bearing in five of my documents —
+it is half the reason I parked rather than converted. It is still true as measured, and it is
+now **frozen**: new filings will be `deferred`, not `failed`. Anyone reading a `failed` count
+later would see an improvement neither lane made. Annotated in `CQ-023` and the handoff with the
+`status='deferred' AND error LIKE 'OWNED_PAGE_GUARD:%'` arm, and with their landmine that the
+prefix now has two producers.
+
+**What I found while checking, which they had not raised:** `close_converted` closes the
+original `complete`/`converted` with the note *"repair filed as a follow-on item at
+page-build-handler"*, and after the roll that follow-on may be born undispatchable. I sat with
+whether this is a new 367-shaped defect in my own router and concluded **it is not a
+regression** — before the door, the conversion was created and then FAILED, so the original's
+note was exactly as rosy, and a `deferred` row is *more* legible than a `failed` one because the
+roadmap sweep reads it. But the ORIGINAL's note reads like a dispatched repair in both worlds,
+and that is worth someone's attention rather than mine to fix on a closed lane. Recorded in
+`CQ-023` and the handoff, and sent back to them since they had offered `row_status` as precisely
+the field that reveals it.
+
+**They confirmed my prediction held.** I had written into the CONTRIB: *"your inbound volume
+from this producer should not increase — if you see it rise, something has gone wrong with
+574."* Their independent census: nothing new filed at `page-build-handler` on an owned page
+since 08-19, so all 28 are pre-`574`. **A stated failure signal that did not fire is worth more
+than a success claim**, because it could have gone the other way and I would have heard about it.
+
+**And they declined the thing I handed them**, in writing, in their own bug file's fix section —
+`triage.component_id` re-opens a council-settled key design for a population of 3 items that no
+longer reaches the broken shape. That is the right answer and, more to the point, it is now a
+**decision on the record** rather than an item that quietly never happened.
