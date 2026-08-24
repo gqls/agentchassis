@@ -513,3 +513,37 @@ that trap is written in this same handoff.
 - §3c (does Arm A raise the orphan rate?) **run, not carried**: 0/48 pre-fix vs 1/10 post-fix,
   which decides nothing at n=1. Recorded with the sample size that *would* decide it, so the
   next session can skip it knowingly instead of re-discovering that it is underpowered.
+
+---
+
+## 2026-08-24 — closing the 345 loop surfaced a wrong call of mine from yesterday: the build-tripwire I gave them was blind, and I had the disconfirming rows in my own query when I vouched for it
+
+Asked to confirm nothing was still open with the 345 lane, I re-checked the tripwire they had
+recorded on my word before sending a closing message — and it cannot fire. Full account:
+`bugs_closed/345` (dated correction at the foot), `WRONG_CALLS.md` 2026-08-24, commit
+`1d693b72e`. The compressed version for this lane's record:
+
+- The tripwire watched the two **store-side** check literals — which have genuinely never fired —
+  and missed the class's real face: `execute_llm_prompt` failing at `generate_template` with
+  `response truncated: stop_reason=max_tokens`. That face fired 08-19 00:24Z and its record sat
+  in **both** swept tables when we published 0/0.
+- Both of the class's work items died in **my own 12:33:13Z supersede batch** on 08-23 — the
+  truncation population's drain was 100% administrative, 0% success. (Their file half-knew this;
+  now fully attributed.)
+- **My compounding error**: I told them "my independent sweep agrees — the only truncat hits are
+  RENDER_AUDIT_TRUNCATED", while the generate_template truncation rows sat in my own result set
+  under `error_code=UNKNOWN`. I summarised a sweep by the rows I recognised. That is the same
+  failure the 305 lane named in `bugs_open/253` — a disconfirming sample present in my own data —
+  which I have now committed **twice in one week**, once by writing below their correction and
+  once here. The check that stops it: classify every distinct `(error_code, step)` in a sweep
+  result before writing "the only".
+- The subtler half, pushed to memory (`a-post-fix-zero-needs-a-demand-control.md` §5): their
+  demand control validated the **channel** (14 rows of the :477 shape in the column), never the
+  **predicate** (the ILIKE patterns). The one-row test — run the instrument's own WHERE against a
+  known-real occurrence — fails instantly and costs one query.
+- Also narrowed the closed file's "reversal is an hour" claim: moving the recorder wires the
+  store-side face only; the firing face needs a writer at the step-failure path.
+
+**The don't-build decision stands** on the corrected baseline (dormant since 08-19, with the 337
+work in between). WII-026's relations line corrected in step. Messaged the 345 lane with the
+one-row test as their re-verification handle; nothing open between the lanes.
