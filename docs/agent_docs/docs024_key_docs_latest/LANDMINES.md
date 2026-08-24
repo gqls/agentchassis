@@ -16919,3 +16919,51 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the dedup-index ↔ Go-list lockstep note in the auto-memory index (which names the contract without enumerating either side, so it has nothing to omit) · `bugs_open/384` · RFC_010
 - **source:** 2026-08-24 — surfaced by the `bugs_open/384` lane, which hit the misread, flagged it rather than acting on it, and corrected its own notes; verified and filed from the `bugfix_357_component_identity` lane
 - **added:** 2026-08-24, `bugfix_357_component_identity` lane
+
+---
+
+## A retraction arm closes rows by `(site_id, item_type, item_key)` and **NEVER looks at who FILED them** — so adding one to a shared item type closes other producers' live requests, and your own tests cannot see it
+
+- **footprint:** `platform/orchestration/actions/work_items_common.go` (`resolveWorkItems`, `resolved_by`), `platform/orchestration/actions/discovery_checks/registry.go` (`checks.ResolvedFinding`, `ItemKey`, `AllOfType`), `platform/orchestration/actions/discovery_checks.go:274`, `platform/orchestration/actions/work_item_retraction.go:194`, `CheckResult.Resolved`, any new `check_*.go` returning a `ResolvedFinding`, `site_work_items.result->>'resolved_by'`
+- **fires when:** you give a check or action the authority to **close** the work items it files — the WII-009 / WII-016 seam, which reads as an obviously good idea (the thing that measured the defect is the thing best placed to notice it is gone) and which 17 call sites across 12 checks already use.
+- **the trap, readable at the call site:** `resolveWorkItems` (`work_items_common.go:492-505`) is
+  ```sql
+  UPDATE site_work_items SET status='complete', result = result || {resolved_by, reason, resolved_at}
+   WHERE site_id=$3 AND item_type=$4 AND ($5='' OR item_key=$5)
+     AND status NOT IN (<workItemClosedStatuses>) AND batch_id IS DISTINCT FROM $6
+  ```
+  **There is no `created_by` predicate and there is no producer predicate.** It closes every open row of that `item_type` matching the key, whoever filed it and whatever they filed it for. `resolved_by` is set to your `checkName` — so the row records who closed it, and nothing records that you had no standing to.
+- **why the wrong result looks exactly right:** the `batch_id IS DISTINCT FROM $batch` guard is there and works — it stops you closing what *this run* just raised, and it is the guard everyone notices. It does the opposite of protecting you here: **another producer's row necessarily carries a different `batch_id`, which makes it ELIGIBLE.** Your own tests pass, because a fixture files the row you then resolve; the rows you should not touch belong to a producer that does not appear in your test at all. In production your counter says "resolved 1" and it is right — about the wrong row.
+- **the condition that makes the seam safe, stated because the seam itself does not state it:** **you may retract on an `item_type` only if you become its SOLE RETRACTION AUTHORITY, and only if you can recognise every other producer's rows as legitimately yours to judge.** Not "sole producer" — that is merely the easy case.
+- **[MEASURED 2026-08-24 20:15 UTC, `site_work_items` ∪ `site_work_items_archive`] the estate has been obeying this and it is not written down anywhere:**
+
+  | `item_type` | rows | distinct `created_by` (filers) | rows retracted | distinct `resolved_by` |
+  |---|---|---|---|---|
+  | `page_rerender` | 18,360 | **122** | **0** | — |
+  | `needs_page` | 1,418 | 46 | 4 | 1 |
+  | `contrast_failure` | 513 | **1** | 79 | 1 |
+  | `empty_section` | — | 2 | 23 | **1** (`empty_sections`) |
+  | `literal_markdown` | — | 2 | 21 | **1** (`literal_markdown`) |
+  | `needs_rerender` | — | 2 | 17 | **1** (`missing_structure`) |
+  | `canonical_mismatch` | — | 2 | 2 | **1** (`canonical_mismatch`) |
+
+  **No `item_type` in this estate has two competing retraction authorities**, and **nothing has ever retracted a `page_rerender`** — across 18,360 rows and 122 filing producers. A first retractor there would be deciding on behalf of 121 others.
+- ⚠ **`created_by` is NOT the column that answers this.** It is free text written by whoever filed the row; it says what WROTE a row, never what may CLOSE one. Four item types show two filers *and* live retractions, which reads instantly as "two retractors, already broken" — one further query on `result->>'resolved_by'` says single, every time. **Both halves of the check, or you get a false alarm as readily as a false clean.**
+- **the check — before you add `Resolved` to a check, or an `AllOfType` to an existing one:**
+  ```sql
+  WITH allrows AS (
+    SELECT item_type, created_by, result FROM site_work_items         UNION ALL
+    SELECT item_type, created_by, result FROM site_work_items_archive )
+  SELECT count(*) AS rows,
+         count(DISTINCT created_by)                                  AS filers,
+         count(*) FILTER (WHERE result ? 'resolved_at')              AS retracted,
+         count(DISTINCT result->>'resolved_by')
+           FILTER (WHERE result ? 'resolved_at')                     AS retractors,
+         string_agg(DISTINCT result->>'resolved_by', ' | ')          AS who
+    FROM allrows WHERE item_type = '<your item_type>';
+  ```
+  **`filers > 1` and `retractors = 0` is the STOP case, not the green one** — it means you would be the first, and the estate's restraint on that type is evidence, not an oversight. `retractors = 1` and it is not you: you would be the second; do not. ⚠ Union the archive or the counts are silently small (`site_work_items` is a rolling window).
+- **the wide branch:** `AllOfType: true` closes **every** open row of the type for the site and is used **exactly once** on purpose (`check_site_unreachable.go:233`, documented as the field's canonical example). `write_render_audit_findings_action.go:626` documents refusing it. Treat a second use as an architecture-scope change, not a flag.
+- **relations:** WII-016 (the seam; `contrast_failure` satisfies the condition by having exactly one producer — VIZ-016 states so, which is *why* it is safe) · WII-009 (the discovery-check original) · owner ruling 2026-08-02 §1 (naming the producer set on a shared `item_key`) and §2 (new authority on a shared seam ships opt-in, unsafe default OFF — `resolveWorkItems`' own refusals cite it) · the `idx_swi_dedup` entry in this file (the key namespace is global across types, which is what makes "who else files this" a live question)
+- **source:** 2026-08-24, `bugfix_352_invented_selector` lane, from a `bugs_open/384` cross-session exchange. **They found it, not me:** their `page_list_stale` check shipped a `Resolved` arm, they reversed it unprompted on the reasoning that a `page_rerender` key is shared with every other `section_data_resolved` producer for that page, and told me so my notes would not carry the stale claim. I measured the estate afterwards and it agreed with them. **A peer's unprompted reversal is worth more attention than a peer's agreement.**
+- **added:** 2026-08-24, `bugfix_352_invented_selector` lane
