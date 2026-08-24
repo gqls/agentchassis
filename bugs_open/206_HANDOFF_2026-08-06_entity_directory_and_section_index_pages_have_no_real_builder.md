@@ -182,3 +182,81 @@ dispatch of the ORIGINAL parked work items — no manual dispatch, which was the
 
 Operator note that cost 45 minutes: the dispatcher orders `priority ASC` — LOWER dispatches
 first (`load_work_item_actions.go:683`; WRONG_CALLS 2026-08-08 second entry).
+
+---
+
+# RE-VERIFICATION 2026-08-24 — the 08-08 fix HOLDS; the CLASS does not. Bug stays OPEN, and why
+
+Lane resumed 2026-08-24 at the owner's request. Three findings, in descending order of what
+they change.
+
+## 1. The 08-08 fix is still live and still correct (verified at the artefacts)
+
+- `https://vetcomparison.uk/directory/index.html` — HTTP 200, 52,699 B, `last-modified`
+  **2026-08-23**; 49 postcode-shaped strings, "24 Hour Vetcare" … "608 Equine & Farm Vets"
+  present. `/guides/index.html` — HTTP 200, `guide-list` component serving.
+- **Both pages were re-rendered by a fleet wave on 08-23 and the real listings SURVIVED it** —
+  so this is not a stale artefact from August 8th; the pipeline reproduces it.
+- A **third page shape** was proven on `directory-build-handler` today by the `vetcomparison`
+  lane (not this session): `needs_page:practice` (`3cce980c`) re-routed 10:11Z, deployed
+  **10:17:38Z first attempt** — a plain content page via `ensure_page_section_layout`'s default
+  branch, with human-authored `content_direction` rails. Their commits `a0c8fa18b`,
+  `98beb8b92`, `aa26df458`.
+
+## 2. The defect CLASS is live today, through a producer this file never examined
+
+`reconcile_site_plan_action.go`'s emit **hardcodes `handler_agent='page-build-handler'`** for
+every page and never consults the builder map that `WriteBuildItemsAction` has used since 08-08.
+So the routing decision had two copies that disagreed. Parked right now with this file's exact
+signature (`page-build-handler no-op: no sections ready to build`), each having burned an attempt:
+
+| site | page | page_type | parked since |
+|---|---|---|---|
+| garden-tools.uk | `brand-directory-index` | **entity-directory** | 2026-08-23 |
+| garden-tools.uk | `brand-profile` | entity-page | 2026-08-23 |
+| garden-tools.uk | `buying-guides-index` | section-index | 2026-08-23 |
+| dartsonline.com | `brand-detail` | entity-page | **2026-07-20** |
+| loanzy.uk | `guides-index` | section-index | 2026-08-18 |
+
+The first row is the sharp one: an `entity-directory` page **sat unbuilt while its builder had
+been live for fifteen days**, purely because a second copy of the routing decision didn't know
+the builder existed. This file's own "Impact" section said the fleet question was "not surveyed
+here — scope this before generalising"; that survey is now done and the answer is that the fix
+was never fleet-wide, because the fleet has more than one door.
+
+**Fix committed `d1aa231aa`** (council corr `52dbd067-10ed-4a6e-84eb-3fbf47d099dd`): the routing
+decision now exists ONCE (`builder_routing.go:builderForPageType`), `reconcile_site_plan` asks
+it, `section-index` gets the map entry that two hand re-routes had been standing in for, and a
+page whose type has no builder files a **deferred `capability_gap`** instead of a dispatch item
+that cannot succeed. Six tests over a decision that had **zero** coverage; four mutations each
+kill their own test. Go-only — **inert until the next image roll**.
+
+## 3. Prior art this lane should have found first, and one open question
+
+**`bugs_closed/187`** measured this same population on **2026-08-03**, names these very rows
+(`reconcile_site_plan | needs_page | needs_human_review | 9`), and its shipped fix
+**deliberately left this emitter unguarded** — *"015-shape gaps are real findings"*. So the
+`capability_gap` arm above touches another lane's considered, council-directed decision. It is
+in front of the council as round 2's headline question, the notice is recorded in 187's own file,
+and **if that lane's view is that reconcile's unbuildable-type emits must stay `needs_page`, the
+routing half stands alone and the gap arm gets reverted.** (I found this only because the
+council's round-1 check returned "87 across 16 sites" against my "five" — see WRONG_CALLS
+2026-08-24, four entries, including grepping the bug NUMBER instead of the ERROR STRING.)
+
+**Corrected class census, 2026-08-24, deduplicated** — 87 items / 16 sites carry the signature,
+79 still parked. **69 are tool pages** (67 layout-less, 11 sites), of which 42 are
+`unbuilt_internal_link` items from `bugs_open/220` — this lane's own filing — so the tail is
+being *refilled* by a different bug faster than it drains. This change reaches the ~11 non-tool
+typed items and **must not be read as fixing the tool class**.
+
+## Status: STAYS OPEN (deliberate)
+
+The original defect is fixed and live, which would normally move this file to `bugs_closed/`
+under the owner's restored fixed-AND-live bar (2026-08-12). It stays open because **the class is
+reproducible on the fleet today**: garden-tools.uk's `brand-directory-index` is parked, right
+now, for exactly the reason this file names, and the fix for it is committed but **inert until
+the next roll** — which is precisely the case CLAUDE.md says keeps a bug open ("a fix committed
+but inert until the next roll stays OPEN, because the defect is still reproducible until it
+ships"). **Move it when:** the roll lands (check build provenance, per service), a
+`reconcile_site_plan` run mints a typed page's item carrying the right `handler_agent`, and the
+five parked rows above are re-triaged and build. Not before.
