@@ -164,3 +164,24 @@ approved v5 file is untouched so the approval still attaches to the text that wa
 **All four slices of the fix are now live in config; only the Go family waits for an image roll.**
 Demand control for 599: the next greenfield build's writer calls — `llm_call_log.prompt_rendered LIKE
 '%Operating history: NONE RECORDED%'` on a register-less site, absent on a site with an attestation.
+
+## 2026-08-24 late — two interactions reported by the `bugs_open/364` lane (their commit a9002793b)
+
+1. **The practice family does NOT lean on the numeric scan's lexical gate.** 364 found that
+   `businessClaimContextRe` (the noun allow-list in front of `ScanUnregisteredNumbers`) carries
+   `orchestration` singular, so "We run over 1,600 orchestrations a day" has never reached the register
+   comparison — an unbounded-miss allow-list, same shape as their unit list. `ScanPracticeClaims` runs its
+   own patterns over `ExtractAssertionText` blocks and never consults that gate, so a plural or synonym it
+   has not met is a MISS for the number scan only. D3's "364 is the false-positive cost" still holds; the
+   mechanism behind their case is an allow-list miss, not a broad `gte` fact (their correction).
+2. **`bugs_open/386` interacts with the rotation (CLM-027).** Refreshing a counting fact convicts every
+   page still rendering the old value (fundamentallyai renders 11513, register holds 11646). The auditor's
+   ROSTER arm is unchanged by this lane, but 600 now runs it every 7 days on every site with a register,
+   so an aged figure becomes a `claims_unverified` finding on a clock — an amplifier for 386's class, not
+   a new defect. The finding carries `nearest_fact_id` + a suggestion, so a human can tell "stale render"
+   from "invented"; the durable fix is 386's (re-render on fact refresh), which is unowned. Recorded here
+   and in CLM-027's relations so the next reader of a rotation finding checks the register's `verified_at`
+   before treating the page as dishonest.
+3. Their fleet census (19 opted-in sites, ~1,457 components, 44 `unregistered_number` findings on four
+   sites; 20 third-party listings at zero precision) is the number-scan side of the same corpus my
+   practice dry run measured; the two censuses are complementary, not overlapping.
