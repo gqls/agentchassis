@@ -133,6 +133,12 @@ improves:
 | match only inside COMMENTS | 18 | not publishers — warnings *about* this trap, including the ones added by each migration |
 | **`scripts/` and touched within 30d** | **11** | **the real queue** |
 
+> **ALL THREE CONDITIONS MET, 2026-08-24.** The 11 live `scripts/` publishers are migrated
+> and induced-failure tested; the live queue re-derives to **ZERO**; `check_kcat_stdin_race`
+> is in place; and the scope statement above stands. **21 callers** now use the library, all
+> parsing, self-test green. **The residual is DATA — dormant and historical files — not an
+> open defect. Closing is the owner's call.**
+
 **Close this bug when:** (1) those 11 are migrated and induced-failure tested; (2) the
 commit-time detector `check_kcat_stdin_race` remains in place — it is what bounds the class, and
 it fires only on *newly added* racing publishers; (3) this scope statement stands. The residual

@@ -64,7 +64,25 @@ test. The recipe is in §5.
 **So the class is bounded by a detector, not by finishing a sweep.** What is left is the
 *shipped, still-used* surface.
 
-## 3. The actual remaining queue — 11 files
+## 3. THE QUEUE IS DONE (2026-08-24, later)
+
+> **All 11 migrated. `[MEASURED 2026-08-24]` the live queue re-derives to ZERO**, and there are
+> **21 adopters** of the library, all parsing, self-test green. The three closing conditions in
+> §4 are therefore MET — the decision to close is the owner's, and it is the one open item.
+>
+> Migrated in four batches: the five `fire-*` operator tools; the file/herestring group
+> (`backfill-`/`regen-meta-descriptions`, the two `140_tool_suggester` creators, `074b`); the
+> heredoc group (`081b`, `081_reconcile_plan_noted`, `081f`, `074_cta`); and the last two
+> (`082_trigger_rerender_site_noted`, `074c` email sweep).
+>
+> Three judgements made per file rather than by rule, worth knowing if you extend this:
+> **(a)** in-function publishers `return` instead of `exit`, so one undispatched item does not
+> tear down a sweep that may already have done real work (`081b`, `074_cta`, `074c`);
+> **(b)** heredoc delimiters were left **unquoted** when lifting the payload into a variable —
+> quoting one would silently ship literal `${VAR}` placeholders; **(c)** every `SAVE:` /
+> `CORRELATION_ID` print was moved below the receipt, and verified absent on the failing path.
+
+## 4. (historical) The queue as it stood — 11 files
 
 ```
 scripts/backfill-meta-descriptions.sh
@@ -89,7 +107,7 @@ grep -rl "kcat -P" --include="*.sh" . \
   | while read f; do d=$(git log -1 --format=%at -- "$f"); [ "$d" -gt "$(date -d '30 days ago' +%s)" ] && echo "$f"; done
 ```
 
-## 4. Can the lane close? — recommendation
+## 5. Can the lane close? — recommendation
 
 **Yes, and the bar is the 11 above, not 155.** Suggested closing conditions:
 
@@ -104,7 +122,7 @@ DATA, not an open defect — the same disposition the other 327 took.
 **What would NOT justify keeping it open:** the raw 155. That number is dominated by files nobody
 runs, and treating it as a backlog will keep this bug open for ever while nothing improves.
 
-## 5. How to migrate one (the recipe, proven 10×)
+## 6. How to migrate one (the recipe, proven 19×)
 
 ```bash
 REPO_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null || true)"
@@ -136,7 +154,7 @@ indeterminate (verify first) · 2 usage. `kafka_verify_landing`: 0 landed · **1
 REFUSED** · **13 published, not landed (wait)**. They start at 10 because callers own 1 and 2
 (`097`'s documented contract).
 
-## 6. Traps specific to THIS work
+## 7. Traps specific to THIS work
 
 - **⚠ A census of this trap counts the WARNING COMMENTS about it — including the ones you add
   when you migrate a file.** 18 files match on comments alone. **Migrating a file does not move a
@@ -156,7 +174,7 @@ REFUSED** · **13 published, not landed (wait)**. They start at 10 because calle
   that induction cannot come out false. The real arm is empty stdin against a *healthy* broker:
   zero messages, **exit 0**, no output.
 
-## 7. Open decisions for the owner
+## 8. Open decisions for the owner
 
 1. **Run the council on this lane's submission?** It is now **legitimately in scope** (the
    2026-08-24 widening admitted `scripts/pattern-check.py`), so it is no longer a `FORCE`
@@ -167,7 +185,7 @@ REFUSED** · **13 published, not landed (wait)**. They start at 10 because calle
    than detected, and close the ~2-day forensic window. Filed proposed-and-unbuilt in OPP-009.
 3. **Close the bug after the 11?** See §4.
 
-## 8. Verify the lane in 60 seconds
+## 9. Verify the lane in 60 seconds
 
 ```bash
 bash scripts/kafka-publish-lib.sh --self-test              # expect ALL PASS (11/11)
@@ -176,7 +194,7 @@ DRY_RUN=1 ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_T
 python3 scripts/pattern-check.py --commit HEAD             # detector loads, 22 checks
 ```
 
-## 9. What this lane is really about (for whoever picks it up)
+## 10. What this lane is really about (for whoever picks it up)
 
 The safe publish form had been documented in `LANDMINES.md` **for a month**. On 2026-08-23,
 **25** scripts printed the `PUBLISH_OK` receipt it prescribes and **2** asserted on it. Twenty-three
