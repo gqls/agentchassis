@@ -918,3 +918,68 @@ it object-shaped is a Go change to the parse, with blast radius over every page 
 assembles — architecture-scope, its own register entry, not something to slip in beside a
 site fix. **Four builds have now demonstrated the defect; none of them was a wording
 problem.** CLC-030 makes imagery survive a rewrite. It does not make six sections differ.
+
+## 2026-08-24 — the platform had already diagnosed me 25 times, and it prescribed the fix I built
+
+A peer session (web_admin_console) flagged apis.uk as a stalled build. **Checked before
+accepting it: wrong.** `needs_vertical_research` completed 08-22 12:37, eleven minutes after
+it was created, and the whole cascade finished by 13:25; `site_unreachable` self-resolved at
+16:21 once the page served. They were reading an 08-22 snapshot. Corrected to them directly.
+
+**But their prompt made me look at the work queue for this site, which I had not done since
+filing my own items — and it was carrying 27 open human-review rows.** My earlier look showed
+three because `head` truncated the list. **A truncated listing is not a count**, and I had
+treated it as one.
+
+### 25 × `page_divergence_overwritten`
+
+Twenty-five records, newest 08-24 10:55, each one the platform noticing that a rebuild
+overwrote hand-patched bytes on this page and archiving the outgoing HTML to
+`page_component_history`. **Every one of them is this lane, and every one was right.** That
+is the measured cost of embedding illustrations as raw markup in `content_data.content`
+instead of declaring them: I generated twenty-five divergence records over two days.
+
+**And the item's own `fix` text names both remedies, one of which I had already built and the
+other I had missed:**
+
+> *"if the patched content should exist, re-declare it in content_data **or lock the
+> component (058)** — do not paste it back into rendered_html, which only re-arms this same
+> loss."*
+
+The first half is exactly CLC-030. The second half I had not done, so I did it: **all 7
+`page_components` on this page now carry `lock_type='permanent'`, `locked_by='apis-uk-bees-lane'`.**
+`save_page_sections_action.go:460` documents the locked-slot path — the human-locked copy is
+kept and the incoming copy discarded — which is what finally stops a `build-dispatch-loop`
+sweep destroying the illustrated sections. **43 components across 6 other lanes already use
+this**; it is established practice I simply had not found. All 25 records resolved with that
+explanation; nothing was lost, each was archived at the time.
+
+### `brief_supplies_negation` — a detector firing on my own prohibition
+
+A live check reported *"apis.uk's brief hands the writer 2 phrase(s) built on
+define-by-negation (0 mandated onto pages)"*, naming the `not_x_but_y` and `rather_than`
+shapes in `content_direction.formatted`.
+
+Both were present because I **banned** them — `mandated: false`, and the check says so. This
+is the known shape from MEMORY ([[prompt-text-poisons-its-own-detector]]): a ban list
+containing the banned phrase trips the detector that greps for the phrase.
+
+**One instance was a genuine defect and is fixed:** `things_to_avoid` quoted both phrases
+verbatim inside a rule. Given this lane MEASURED on 08-23 that exemplars get lifted, printing
+a bad phrase in the brief is a real exposure, so it now describes the shape without printing
+it. Whole `content_direction` object written, never a patch (`bugs_open/327`: a partial write
+shrinks the brief the writer reads).
+
+**The rest were left in place deliberately**, and the item was **annotated, not closed**,
+because its spec says the decision is the SITE OWNER's: the remaining hits are ordinary
+English use of "rather than", plus `example_phrases.would_never_say`, a contrast list whose
+whole purpose is holding bad examples. Evidence it is working rather than leaking: after
+those entries went in, the constructions the owner objected to went from **12** on the served
+page to **0**. Stripping them would trade a measured benefit for a better detector score.
+
+### Final state
+
+Live: **67,464 bytes**, 6 sections rendered through `illustrated-text-block`, 7 images all
+200, no footer, no email, `build_status='deployed'`, **7 components permanently locked**,
+`tools.apis.uk` 200. Open review rows on this site: **2** — the negation item (owner's call)
+and one historical `save_refused_incomplete` from 08-22.
