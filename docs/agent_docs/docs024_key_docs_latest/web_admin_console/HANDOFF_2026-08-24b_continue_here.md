@@ -195,3 +195,32 @@ infrastructure proofs) and §2/§3 (owner box steps) remain the reference — re
      fence (peers reach exactly kube-dns/core-manager:8088/auth-service:8081/
      admin-dashboard:8080 — postgres proven blocked, with control), zero Ingress
      objects in the cluster, the prefetch guard, and the second-click page once built.
+
+7. **Cloudflare rate-limit walkthrough for `links.webdesign.uk`** (owner asked 2026-08-24;
+   dashboard is owner-side so recorded here, not applied). The rule lives in the
+   **webdesign.uk ZONE** (links is a hostname inside it); it can be created before the
+   DNS record exists and simply starts matching when traffic flows.
+   - Dashboard → webdesign.uk zone → **Security → WAF → Rate limiting rules → Create**.
+   - Name `links-host-limit`. Custom filter expression: field **Hostname** · operator
+     **equals** · value **links.webdesign.uk**. Deliberately the WHOLE host, not `/c/` —
+     the 404 catch-all paths are exactly what probes hammer.
+   - "With the same characteristics": **IP** (the only choice on the free plan).
+   - "When rate exceeds": **10 requests per 10 seconds** → action **Block** (free plan
+     fixes the period at 10s and a short block timeout; that is fine — a continuing
+     flood re-trips the counter, and a customer clicks once, so 10-in-10s is far above
+     any legitimate use, incl. a mail scanner fetching a link once). Paid plans can
+     lengthen the block; not required.
+   - Deploy. **Verify once DNS is live**: `for i in $(seq 1 40); do curl -s -o /dev/null
+     -w "%{http_code}\n" https://links.webdesign.uk/c/x; done` — expect 404s giving way
+     to **429** once the threshold trips, then recovery after the timeout. A single
+     manual click in a browser must still work.
+   - Where it sits: BEFORE the tunnel, so a flood never reaches the box; the vhost's own
+     20 req/min per-IP limit stays as the finer layer behind it. The rule cannot touch
+     webdesign.uk itself (Hostname filter) and is unrelated to the parking redirect.
+   - Free plan carries ONE rate-limiting rule per zone — if it is ever spent on
+     something else, the fallback is a WAF custom rule (managed challenge on that
+     hostname), which is weaker but free-tier-unlimited.
+
+8. **`SUMMARY_2026-08-24_web_admin_console.md` written** — the lane's first milestone
+   read-out (Builds screen built+approved, exposure posture settled). Series rule: next
+   summary is a NEW file, only at the next real inflection.
