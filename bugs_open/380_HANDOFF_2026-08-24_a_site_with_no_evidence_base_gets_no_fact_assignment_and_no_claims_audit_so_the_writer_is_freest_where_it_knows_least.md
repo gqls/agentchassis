@@ -119,10 +119,21 @@ testing that has not occurred.
 
 `[MEASURED 2026-08-24]` `garden-tools.uk`: no evidence base, no claims work item ever, and practice
 claims on at least 3 of 7 served pages (`how-we-assess`, `about`, `index`).
-**Open, and worth a sweep:** how many live sites have **no** `evidence_base`? Every one of them has
-had its claims audit silently skipped for its whole life, and the audit's own records cannot tell you
-— a skipped run and a clean run are both `complete`. The population is countable in one query and I
-have not run it; do that before sizing the fix.
+**SWEPT, and the number is large** `[MEASURED 2026-08-24]`:
+
+```sql
+SELECT count(*) FILTER (WHERE ev.site_id IS NULL) AS no_evidence_base, count(*) AS total
+FROM sites s LEFT JOIN (SELECT DISTINCT site_id FROM site_specs
+                        WHERE aspect ILIKE '%evidence%' AND is_current) ev ON ev.site_id = s.id;
+-- 29 no_evidence_base | 19 has_one | 48 total
+```
+
+**29 of 48 live sites — 60% — have no evidence base**, and every one of them has had its claims
+audit branch to `complete` without reading a page, for its entire life. **The audit's own records
+cannot distinguish that from a clean pass**: both are `complete`, both leave no work item. So the
+fleet's claims-checking coverage is not 100% with some failures; it is **~40%, silently**, and no
+report anywhere says so. Fix candidate 1 (make the skip loud) is what turns this from unknowable
+into a number someone can watch.
 
 ⚠ **A COUNT OF THINGS CARRIES ITS DATE (owner ruling 2026-08-22)** — the sites-with-an-evidence-base
 list above is **as of 2026-08-24** and this class grows by ADDITION with every greenfield build.
