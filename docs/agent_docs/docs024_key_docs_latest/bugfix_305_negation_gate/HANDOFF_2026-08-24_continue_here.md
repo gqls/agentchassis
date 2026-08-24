@@ -66,7 +66,12 @@ rerender (`needs_human_review`, plus one `failed`) **and** a `claims_unverified`
 unregistered numbers. The site has 30+ open `needs_human_review` items. **Do not fire a rerender** —
 it would duplicate a queued item and fail at the claims gate.
 
-To re-run the canary: `RUNBOOK` §7 (scratch tree; `cmd/gatecanary` must never become a real command).
+To re-run the canary: `RUNBOOK` §7. ⚠ **`cmd/gatecanary` must NEVER become a real command** — it is
+written into a scratch copy of the tree for the length of one verification and thrown away with it. Any
+`.go` file under the module root joins the build, so a throwaway left in the repo breaks
+`go build ./...` for everyone. The pattern checker flags the path as a proposed new capability surface
+on every commit naming it; **this paragraph is the answer to that flag**, and it is deliberate, not an
+oversight.
 ⚠ Two things that cost time today: the import is
 `platform/orchestration/datahelpers`, **not** `platform/datahelpers`; and the brief lives in
 `site_specs` keyed on **`aspect`** (not `spec_type`), with `content_direction` on `pages`, not `sites`.
