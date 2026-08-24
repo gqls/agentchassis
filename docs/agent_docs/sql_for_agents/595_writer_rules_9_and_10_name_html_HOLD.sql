@@ -1,5 +1,42 @@
 -- 595 — page-content-writer: RULE 10 is addressed to a type that exists (bugs_open/381, arm B2)
 --
+-- ⚠⚠ HELD — DO NOT LET THE RUNNER TAKE THIS. Renamed to `_HOLD.sql` on 2026-08-24 so
+-- `run-migrations.sh` excludes it by SIDECAR_RE, because the runner has no directory
+-- scope and ANY session's `--apply` would otherwise sweep it in. Apply BY HAND, as a
+-- pair with its sibling, once the release condition below is met.
+--
+-- THE RELEASE CONDITION. The `bugs_open/305` lane's sentence-boundary fix (`714789d7b`,
+-- 2026-08-24 14:39:30Z) must be LIVE in the chassis. It adds `</th`/`</tr` to the
+-- define-by-negation scanner's boundary list; without it a define-by-negation
+-- construction inside a table HEADER cell is captured as a markup-bearing "sentence",
+-- and the repair splices over exactly that span — replacing `</th><th>` with prose and
+-- breaking the table. These two files are what first let the writer emit a `<table>`
+-- into these slots, so they are what turns that latent defect into a reachable one.
+--
+-- HOW TO CHECK IT, and how NOT to. The chassis pods rolled at 2026-08-24 15:39Z to
+-- v1.0.1334, i.e. AFTER the fix was committed — but a pod's start time does not date the
+-- IMAGE, and the startup `build provenance` line had already scrolled out of range when
+-- this was written. ⚠ Do NOT settle it with `grep -a <sha> /proc/1/exe`: tried here, and
+-- the 40-zeros control came back PRESENT (it matches Go's internal digit table), so that
+-- probe cannot discriminate — the LANDMINES entry on exactly this says so. Ask a
+-- freshly-started pod instead:
+--     kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+--     git merge-base --is-ancestor 714789d7b <the stamped commit> && echo LIVE
+-- An empty grep means "not in range", never "unstamped".
+--
+-- WHY HELD RATHER THAN WEAKENED. Dropping the `<table>` clause from the guidance would
+-- have removed the dependency, but tables are a real part of what this fix exists to
+-- restore (0 content tables across 741 fleet pages), and the council approved the
+-- vocabulary as written. Waiting costs nothing: the defect this fixes has been live for
+-- months and nothing is degrading while these two sit held.
+--
+-- APPLY AS A PAIR, 594 THEN 595, BY HAND:
+--     kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+--       psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < <this file>
+-- then record it so the ledger does not go stale:
+--     ./scripts/migration/run-migrations.sh --record-only <this file> --note "held for 305's roll; released <date>"
+--
+--
 -- WHY. The writer's rulebook has exactly two sentences about markup, and between them
 -- they instruct every prose slot on the estate into paragraphs:
 --
@@ -67,7 +104,7 @@
 -- (their anchors: the evidence_base writer_block block; mine: rules 9 and 10 — disjoint,
 -- agreed 2026-08-24).
 --
--- ROLLBACK: 595_writer_rules_9_and_10_name_html_ROLLBACK.sql
+-- ROLLBACK: 595_writer_rules_9_and_10_name_html_HOLD_ROLLBACK.sql
 
 BEGIN;
 

@@ -133,3 +133,67 @@ WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
 **Gotcha (from the `305` lane, 2026-08-24): a fleet roll KILLS an in-flight council run, and a
 killed run is indistinguishable from a queued one.** The tell is the run's `updated_at` against
 the pod's `.status.startTime`.
+
+## 8. APPLIED — arm A live 2026-08-24, arm B HELD
+
+**Applied by hand, NOT by the runner, and that was deliberate.** `run-migrations.sh` has **no
+directory or file scope** — `--apply` takes EVERY pending file — and at the time `600_claims_audit_rotation.sql`
+was pending from another lane. So:
+```bash
+for f in 591_component_expresses_and_build_site_planner_menu \
+         592_site_planner_menu_capability \
+         593_content_gap_planner_menu_capability; do
+  kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+    psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < docs/agent_docs/sql_for_agents/$f.sql
+done
+# then, because recording is a separate human act:
+./scripts/migration/run-migrations.sh --record-only docs/agent_docs/sql_for_agents/<f>.sql --note "..."
+```
+**Gotcha: the runner's default dry run re-executes every pending file inside a doomed transaction**,
+which took longer than a 300s timeout here. `--no-probe` skips that; or read the ledger directly
+(`SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 10;`) and diff it against the
+non-sidecar files on disk.
+
+### The post-apply checks that actually mean something
+
+```sql
+-- 1. the function discriminates — POSITIVE and NEGATIVE control in one breath
+SELECT function, component_expresses(html_template, input_schema)
+FROM content_components WHERE is_active AND function IN ('ported-prose','call-to-action');
+-- ported-prose {html-block,list,table} | call-to-action {}   [VERIFIED 2026-08-24]
+
+-- 2. each menu query RUNS, bound as the chassis binds it (a query that fails at runtime
+--    fails the whole planner step, and nothing in the migration would have caught it)
+DO $t$ DECLARE q text; n int; BEGIN
+  SELECT default_config#>>'{workflow,steps,load_components,config,query}' INTO q
+    FROM agent_definitions WHERE type='build-site-planner' AND is_active
+      AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  EXECUTE 'SELECT count(*) FROM ('||q||') z' INTO n USING '<a site id>'::uuid;
+  RAISE NOTICE 'rows: %', n;
+END $t$;
+-- build-site-planner 149 | content-gap-planner 149 | site-planner 151   [VERIFIED 2026-08-24]
+```
+
+**3. THE GATE MUST DISCRIMINATE IN BOTH DIRECTIONS — "the clause is present" is not a check.**
+Strip the clause from the live query text and compare counts on two sites:
+```
+evidence-LESS site  (garden-tools): with gate 149, without 151  -> excludes exactly 2   ✓
+evidence-BEARING site            : with gate 151, without 151  -> excludes nothing      ✓
+```
+`[VERIFIED 2026-08-24]` Both arms were run. A gate tested only on the site it should filter
+cannot distinguish "correctly filtering" from "filtering everything".
+
+### Arm B is HELD, and held mechanically
+
+`594` and `595` are renamed `*_HOLD.sql` so `SIDECAR_RE` excludes them from the runner — because
+the runner has no scope, a documented "do not apply yet" would not have survived another session's
+`--apply`. **Release condition: the `bugs_open/305` lane's `714789d7b` (`</th`/`</tr` sentence
+boundaries) must be live in the chassis.** How to check — and how not to:
+```bash
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+git merge-base --is-ancestor 714789d7b <the stamped commit> && echo LIVE
+```
+⚠ **Do NOT use `grep -a <sha> /proc/1/exe` for this.** Tried here: the 40-zeros control came back
+**PRESENT** (it matches Go's internal digit table), so the probe cannot discriminate. And a pod's
+`.status.startTime` dates the ROLL, not the IMAGE — ours started 15:39Z, minutes after the fix was
+committed at 14:39:30Z, which proves nothing either way.
