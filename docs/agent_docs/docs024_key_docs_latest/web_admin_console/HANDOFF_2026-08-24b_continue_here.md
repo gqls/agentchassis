@@ -229,3 +229,22 @@ infrastructure proofs) and §2/§3 (owner box steps) remain the reference — re
 8. **`SUMMARY_2026-08-24_web_admin_console.md` written** — the lane's first milestone
    read-out (Builds screen built+approved, exposure posture settled). Series rule: next
    summary is a NEW file, only at the next real inflection.
+
+9. **Verify expectations for the links host — CORRECTED after the hardening pass**
+   (2026-08-24 ~21:00; the owner ran the 429 loop and got 40× `000` — measured cause:
+   `links.webdesign.uk` is NXDOMAIN at 1.1.1.1 while the zone control resolves, i.e. the
+   CNAME is not created yet; `000` is DNS failure, not a rate-limit or tunnel result).
+   The morning handoff §2 verify predates the hardened vhost and is now wrong in one
+   place: **`curl https://links.webdesign.uk/c/x` will 404 at the BOX** — `x` fails the
+   token-shape regex (min 20 chars), which is the hardening working, not a fault. The
+   corrected sequence, run only AFTER the box steps AND the CNAME exist:
+   - `curl -s -o /dev/null -w "%{http_code}\n" https://links.webdesign.uk/other` → **404** (box catch-all)
+   - `curl -s -o /dev/null -w "%{http_code}\n" https://links.webdesign.uk/c/x` → **404** (regex refuses non-token shapes)
+   - `curl -s -o /dev/null -w "%{http_code}\n" "https://links.webdesign.uk/c/$(printf 'a%.0s' {1..43})"`
+     → **200** (token-SHAPED, crosses WireGuard, core-manager serves the uniform
+     "no longer active" page — this is the one that proves the full path)
+   - the 40× loop on any of the above → **429**s partway through (the edge rate limit
+     counts every request on the hostname, 404s included)
+   Order still: box nginx files (CURRENT committed copies) → cloudflared ingress above
+   the catch-all → CNAME `links` → `81f59f78-dda8-40a0-984b-cfadb36bc891.cfargotunnel.com`,
+   Proxied, in the DASHBOARD.
