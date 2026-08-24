@@ -47700,3 +47700,23 @@ the same evening on `LANDMINES.md`. Here I skipped straight to `git commit | tai
 **Third instrument failure of the session** — after `grep -i` defeating a capitalisation test, and a
 harness printing "(no lines = nothing found)" for three checks whose query had errored. The pattern
 across all three: **the tool reported success in a state it had never been tested in.**
+
+**Postscript, same day, ~1 hour later — and it is the fifth of the day, from the same habit.** I
+wrote the "absent section header" lesson above into four documents as *the* thing to watch for.
+Then the clear-out ran, `/tmp` legitimately fell below its threshold, and the header vanished for
+an entirely innocent reason. **The signal I had just canonised now fired on two opposite
+conditions** — "this root is clean" and "this root's scan is structurally broken" — which makes it
+not a signal. Fixed the tool rather than the documentation: every root now prints unconditionally.
+
+The uncomfortable part is that the remedy was already written, by me, in the same paragraph:
+*never leave a missing row as a signal*. I recorded the rule and then, in the act of recording it,
+relied on the very absence it warns about. **Writing a lesson down is not the same as applying it**,
+and the gap between those two is measured in minutes here, not months.
+
+One genuinely disconfirmable result to end on, because the day needed one. Reaping **98.7 GB of
+disk** returned **zero** swap; reaping **11 GB of tmpfs** the day before returned **6.9 GB**. Nine
+times the bytes, none of the effect. That is the cleanest possible confirmation of the 2026-08-24
+retraction in the handoff's §10 — memory pressure on this box is ~50 concurrent sessions holding
+~25 GiB, not scratch — and it came out the way the *corrected* model predicted and the way the
+original single-cause story did not. **Both my measurements today that could have come out either
+way did; it was the ones I never framed as questions that went wrong.**
