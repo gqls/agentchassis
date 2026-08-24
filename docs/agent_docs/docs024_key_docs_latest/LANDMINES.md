@@ -13533,6 +13533,18 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **why prospective:** the wrong version passes every test you would write, refuses nothing in CI, and only bites the one live page shaped like the exception — after the gate is armed, on a rebuild nobody connects to the check.
 - **relations:** `bugs_open/260` (the seam this diagnoses for) · register `STY-057` (coverage + absent-field landmines) · `RFC_041` §5 · `WRONG_CALLS.md` 2026-08-20 ("what would this refuse today" is the only estate-wide test) · MEMORY [[declaring-a-key-silences-your-own-detector]] — same family: your own check can be blind or over-eager, and only the live population tells you which
 - ⚠ **the verifier's `NEEDS_HUMAN_REVIEW` on this entry (2026-08-20 09:17Z) is the INDEX being behind, not a fault in the entry.** It reports `content_type_violations.go` and its three functions as "0 rows", and says why in its own evidence line: it answers for indexed commit `c2ccc345`, **"the last pushed tip, not the present tree"** (2026-08-18 21:02Z), while this file and its functions are in local commits `80b9c6235`/`1763bc4e5` on an unpushed branch. It confirmed the half it *could* see (`missingRequiredLLMFields` L451-474, `isEmptyContentValue` L478-490). **The general form, worth more than this instance: a landmine-verifier verdict on a brand-new entry is a statement about the pushed tip.** Re-verify after a push; do not "fix" a footprint the index simply cannot see yet.
+- ⚠ **THE OTHER HALF, 2026-08-24: `DeclaredTypeSatisfied` is DEFAULT-TRUE, so declaring a type name is NOT validated and a TYPO passes exactly like a correct type.** The entry above warns this check can be too STRICT; this is the same function being unable to be strict at all outside one case:
+  ```go
+  switch declared {
+  case "array", "list": _, ok := v.([]interface{}); return ok
+  default:              return true   // <- everything else
+  }
+  ```
+  Only `array`/`list` are examined. `text`, `html`, `hmtl`, `HTML`, `""` and any string a component author invents all return true, and `declaredTypeOf` is a bare `def["type"].(string)` map read with no validation behind it either. **So "my new field type passes the type check" is NEVER evidence the type name is recognised — nothing recognises type names.**
+  - **fires when:** you introduce or retype a field type in `content_components.input_schema`, or read a passing type check as confirmation that a schema edit landed correctly. Live case: a peer lane's migration retyping **5** pass-through prose slots from `type: text` to `type: html` on the strength of "DeclaredTypeSatisfied passes html untouched" — true, and true for a reason that grants no safety.
+  - **the check, and it is the only one that discriminates:** after any such migration read the values back LITERALLY — `SELECT function, jsonb_path_query_array(input_schema, '$.**.type') FROM content_components WHERE ...` — and assert the string equals what you intended. The type checker cannot fail on a typo, so the assertion has to be on the STORED LITERAL. Corollary for reviewers: an author citing a passing type check as evidence their retype is correct has cited nothing.
+  - **[UNMEASURED]** how many distinct `type:` strings exist fleet-wide, i.e. whether typo'd types are already live. One `jsonb_path_query` census would answer it; nobody has run one.
+  - **added:** 2026-08-24, staged_component_build lane (surfaced answering a cross-session question from the `bugs_open/381` lane; I read the function, not their migration)
 - **added:** 2026-08-20, bugs_open/260 renderer-half lane
 
 ### An ARRAY OF OBJECTS in a `content_direction` spec is discarded silently — the write succeeds, the document keeps it, and it reaches no prompt
