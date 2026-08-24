@@ -243,3 +243,35 @@ someone else's fortnight later.
 **What I did NOT claim, and it is worth repeating at the close:** the population is visible and
 honest, **not repaired**. It parks for a human with three named resolutions on the row. Repair
 needs `bugs_open/333` plus a producer that writes the convert arm's read-set.
+
+## 2026-08-24 — MISSTEP 4: I swept another lane's register entry into my own commit
+
+Committing `content-quality.md` by pathspec for a one-line CQ-023 status update, I also took
+the `bugfix_381_inexpressive_composition` lane's entire new `### CQ-028` entry, which was
+sitting uncommitted in the shared tree. It is at HEAD in `0a5c6b08e`, under a message about
+bug 367 that says nothing about it.
+
+**This is the one case a pathspec commit cannot prevent**, and CLAUDE.md says so in terms:
+*"It cannot see a same-file passenger — if two sessions edit one file, whoever commits takes
+both edits, and no hook can prevent that."* Yesterday my own `WRONG_CALLS` entries were swept
+by someone else; today I did the sweeping. Same file class — a shared, append-heavy document
+that many lanes touch.
+
+**It also created a real collision**, which the pattern-check flagged *on my commit* — so it
+reads as mine. `CQ-028` was already held by the 277 lane's `rendered_html_transform` entry
+(`af0f00bb5`, 2026-08-20), referenced from ~10 files including `LANDMINES.md`, the concept
+index, `bugs_open/333` and two council submissions. The incumbent keeps the id; next free is
+`CQ-031`.
+
+**What I did NOT do: renumber it.** Their entry names `bugs_open/381` and migrations `594`/`595`
+as sources, that lane was mid-flight (four other register files dirty in the tree at that
+moment), and renaming from outside would desync work I cannot see. I flagged it in place above
+their heading, committed the correction separately (`3f6f5fcea`), and **messaged the 381
+session directly** — because a note in a file they may not re-read is weaker than telling them,
+and from their side the entry looks uncommitted.
+
+**The check I should have run, and it is cheap:** `git status --short <file>` immediately before
+a pathspec commit on any shared document, and read the diff you are about to make — `git diff
+--cached <file>` after `git add`, or `git diff <file>` before. I had run `git status` minutes
+earlier and treated it as current. On this tree it is a snapshot with a half-life of minutes,
+which CLAUDE.md also says, and which I have now demonstrated in both directions in two days.
