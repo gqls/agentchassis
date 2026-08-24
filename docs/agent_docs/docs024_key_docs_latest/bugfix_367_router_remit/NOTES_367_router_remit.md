@@ -192,3 +192,54 @@ transferable bit: *grep the closed bugs for the SHAPE, not just the mechanism* �
 improvement — but it is a change to how submissions are *tagged*, not to what shipped, and
 retagging an approved round's plan after the fact would make the record less accurate, not more.
 Worth doing on the next submission.
+
+## 2026-08-24 — the fix survived the roll, and the last criterion was met by DRIVING it
+
+**v1.0.1334 rolled 15:39Z.** The fix is DB config so a roll cannot carry or drop it, but a
+re-seed of `410` would silently revert it — so the first thing I did was run the `_VERIFY`
+sidecar against the live row. All three controls green. That is the whole point of having
+built it: the post-roll check is one command instead of a re-derivation.
+
+**No new item had been filed since 574 went in.** Zero `required_fields_missing` rows created
+after 2026-08-23 18:00Z, and the router had not run since the wrong close at 17:09Z. That is
+not a fault — the render-time producer only fires on a section edit, and the post-deploy check
+on discovery rotation. But it meant the bug's closure criterion ("observed on a real item")
+could sit unmet indefinitely while looking like patience.
+
+**So I drove it, and it was a repair rather than a test.** I re-checked the finding first:
+`headline` and `trust_note` still absent from `content_data`, component `0a1498b3` still
+`pending`, still unlocked, still 9,220 chars, `updated_at` untouched since 2026-07-17. The row
+was a **false negative sitting in the "actioned" bucket** — precisely the damage this bug
+describes — so re-opening it is the correct disposal, not an experiment staged on production.
+
+Guards checked before writing anything: the dedup key was free (0 non-terminal rows — the
+wrong close had released it), and no other session had open `required_fields_missing` work on
+that page (the 7 open items there are other types, none routed at this handler).
+
+**Result, and the two runs are each other's control — same item, same component:**
+
+| orchestration | when | `route` | `target_state` | `component_id` | `html_len` |
+|---|---|---|---|---|---|
+| `ab2cf74e` | 08-23 17:09Z | `stale` → closed `complete` | *(none)* | *(empty)* | 0 |
+| `e2a6bb94` | 08-24 16:08Z | `target_not_dispatchable` → parked | `pending` | `0a1498b3…` | **9220** |
+
+Lifecycle observed live: `triaged` → `claimed` → `needs_human_review` in about 100 seconds.
+`attempt_count 1`, `triaged_by` the router, and — the part I care about most — **it HOLDS its
+dedup key** (1 non-terminal row on the key). The close released it; the park holds it. That is
+the anti-churn property as data rather than as intent.
+
+**The canary is a committed, guarded file**
+(`CANARY_2026-08-24_reopen_the_wrongly_closed_item.sql`), not a paste. It refuses if the
+finding is no longer true, if any non-terminal row already holds the dedup key, or if the item
+is not `complete`. So the next thread can re-run it, and it cannot file noise if the world has
+moved on.
+
+**367 → `bugs_closed/`.** Then I grepped `bugs_open/367` across the tree and retracted the four
+places still calling it a live open defect (STY-057's landmine, the concept index row,
+`bugs_closed/342`'s banner, the 342 lane's handoff). That is the estate's own lesson about a
+closed blocker still being obeyed, and it costs one grep on the day you close rather than
+someone else's fortnight later.
+
+**What I did NOT claim, and it is worth repeating at the close:** the population is visible and
+honest, **not repaired**. It parks for a human with three named resolutions on the row. Repair
+needs `bugs_open/333` plus a producer that writes the convert arm's read-set.

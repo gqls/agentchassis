@@ -92,3 +92,49 @@ them never consults that safety net** — the one this sorter uses. That is why 
 close was possible at all. It affects far more than this bug, so changing it inside a bug fix
 would be the wrong way to do it. I've written it up as its own thing for someone to take a
 proper decision on.
+
+## 2026-08-24, afternoon — it worked on the real thing, and the note that was wrongly filed away is back
+
+Yesterday I changed the sorter so it can only close a note when it has actual proof the thing
+is gone. I checked it thoroughly, but all that checking was me asking the changed sorter
+questions. What I hadn't seen was the sorter doing it by itself, to a real note, in production.
+
+A new build went out this afternoon. The change I made lives in the database rather than in the
+code, so a new build can't carry it or lose it — but someone re-running an older setup script
+*could* quietly undo it. So the first thing I did was run the one-command check I built
+yesterday for exactly this moment. All three answers came back right.
+
+Then the awkward part: **nothing had happened.** No new notes of this kind had been written
+since I made the change, because they only get written when someone edits a page section. So
+the last thing I wanted to see — the sorter parking a real note instead of closing it — could
+have sat there unseen for days while looking like patience.
+
+So I went and got it. I re-opened the exact note the bug had wrongly filed away yesterday.
+
+**That's a repair, not a demo.** I checked first: the two bits of text are still missing, the
+chunk is still unpublished, and nothing has touched it since mid-July. So that note was a true
+finding sitting in the "handled" pile — which is the damage this whole bug is about. Putting it
+back is the right thing to do regardless of what it proves.
+
+About a hundred seconds later the sorter picked it up and parked it, with the chunk found and
+its state written on it.
+
+**The before and after are now sitting side by side in the record, on the same note:**
+
+- yesterday, 17:09 — *couldn't find it, closed as gone,* no content, nothing to see
+- today, 16:08 — *found it, it's unpublished, 9,220 characters, two fields genuinely empty —
+  parked for a person*
+
+One more detail I was watching for and got: the parked note **keeps its place in the queue**,
+where the closed one had given it up. That's what stops the same problem being found, closed,
+found again, closed again, forever.
+
+The bug is closed. I also went round and corrected the four other places that still described
+it as an open problem — that sounds like tidying, but it's the thing that stops the next person
+treating a fixed problem as a live blocker, which has cost this project weeks before.
+
+**What I'd still say out loud:** these notes are now honestly labelled, not fixed. They wait for
+a person, with the three things that would resolve them written on the row. Making them fix
+themselves needs the other team's bug done first. Nobody should read this as "we now repair
+those" — I've said so in every document that touches it, because that's exactly the kind of
+overstatement that got us here in the first place.
