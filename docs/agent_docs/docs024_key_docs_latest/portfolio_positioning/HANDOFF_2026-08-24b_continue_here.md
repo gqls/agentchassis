@@ -9,55 +9,62 @@ load-bearing: `git log --since=<date> --diff-filter=A -- <dir>` is what the date
 
 ---
 
-# 1. ⏭ START HERE — apply migration `590`. It is the ONLY thing between here and done.
+# 1. ✅ DONE — `590` is applied and PROVEN AT THE ARTEFACT. Next task is §1b.
 
-Everything else in the previous handoff's §1 is built, tested, committed and submitted.
-The live-DB write was refused by a session tool-permission classifier — **not by any check
-of ours** — so it is the one step left.
+Applied by the owner 2026-08-24 15:31. **First tick fired at 15:32:14 and COMPLETED**,
+selecting `robot-hands.com` — one of the 20 sites that had no sitemap.
 
-```bash
-SCR=$(mktemp -d) && cp docs/agent_docs/sql_for_agents/590_wire_render_sitemap_into_a_rotation.sql "$SCR"/
-MIGRATIONS_DIR="$SCR" ./scripts/migration/run-migrations.sh          # dry run first
-MIGRATIONS_DIR="$SCR" ./scripts/migration/run-migrations.sh --apply
-```
+**The close condition is met, judged by body and not by status code:**
 
-⚠ **Scope the dir — this is load-bearing, not hygiene.** A bare `--apply` does not merely risk
-applying other lanes' work: **it would never reach `590` at all.** A fleet-wide dry run
-2026-08-24 shows three pending files whose own pre-flight guards REFUSE —
+| | before (census ~14:00) | after (15:32) |
+|---|---|---|
+| `robot-hands.com/sitemap.xml` | **HTTP 404**, 0 `<loc>` | **HTTP 200**, `application/xml`, 4,427 B, **35 `<loc>`** |
 
-    562_repair_poisoned_site_hero_url.sql        P0001: gate_is_live is not set to 'v1.0.1326+'
-    582_dispatch_sibling_A_task_name…            P0001: build-pipeline-trigger input_data is no longer {}
-    583_dispatch_sibling_B_parameterise…         P0001: trigger row drifted from the shapes this was written against
+**35 of 35 locs match a real `pages` row** — the discriminating test from §5 trap 1, at its
+strongest possible score. `probe_dropped: 0`, `candidate_count` 35 = `url_count` 35.
+`git_commit` resolved `repo_name: "sites"` per-domain, as designed. Fleet figure moves
+**8 → 9 of 28**.
 
-— and the runner applies in filename order and **stops on the first failure** ("a failed file
-stops the run — nothing after it is attempted"). `562` sorts before `590`, so the run aborts there
-and `590` is never attempted. The failure would look like someone else's migration breaking, and
-your sitemap wiring would silently not be applied. Three more (`574`, `576`, `584`) report LIKELY
-ALREADY APPLIED and want `--record-only`, which is a different lane's job.
+⚠ **The homepage lists `https://robot-hands.com/index.html`, the NON-canonical form. That is
+expected, not a defect in the wiring:** this ran on chassis **v1.0.1333**, which predates the
+canonicalisation fix (`5c9acf1bd`). The fix is in HEAD and rides the next roll; the rotation
+re-selects each site every 3 days and will correct it with no intervention. **This is also the
+cleanest possible before/after for proving the fix once the roll lands** — re-fetch this exact
+URL and the homepage loc should read `https://robot-hands.com/`.
 
-**Already rehearsed, do not redo:** scoped dry run clean; the probe transaction ran to its
-own COMMIT and rolled back; and all four verify guards were **induced** to fail —
-typo'd action name, a conditional default that never reaches the commit step, the
-`locked_at` guard removed, and `files_field` pointing at a field `render_sitemap` never
-writes. Each raised the right exception.
+# 1b. ⏭ START HERE — RECONCILE THE STAMPS AFTER THE CHASSIS ROLL
 
-## Then prove it at the artefact — the close condition, unchanged
+A fresh chassis was being built as this was written. **`CLAUDE.md`: no orchestration dispatch
+within ~300s of a chassis pod (re)start — the spawn is silently dropped.** The rotation fires
+every 30 minutes, so a tick can easily land inside that window.
 
-Not "the migration applied". **A site that did not have a sitemap has one, fetched and
-read.** First tick lands within 30 minutes; watch a site come round:
+**Why that is worse than a missed tick.** The pre_query **stamps `site_discovery_rotation`
+BEFORE the Kafka fire** — it is fire-and-forget, so the stamp proves SELECTION, never EXECUTION
+(the standing landmine: *"`last_triggered_at` keeps advancing while nothing runs"*). A site
+stamped by a dropped dispatch is **not re-selected for 3 days** and nothing anywhere says so.
+
+**The check — run it after the roll settles.** A stamp with `runs = 0` is a dropped dispatch:
 
 ```sql
-SELECT s.domain, r.last_selected_at FROM site_discovery_rotation r
-JOIN sites s ON s.id = r.site_id WHERE r.agent_type='sitemap-refresh'
-ORDER BY r.last_selected_at DESC LIMIT 5;
+SELECT s.domain, r.last_selected_at,
+       (SELECT count(*) FROM orchestration_states o
+         WHERE o.owner_agent_type='sitemap-refresh'
+           AND o.created_at BETWEEN r.last_selected_at - interval '2 min'
+                               AND r.last_selected_at + interval '10 min') AS runs
+FROM site_discovery_rotation r JOIN sites s ON s.id = r.site_id
+WHERE r.agent_type='sitemap-refresh' ORDER BY r.last_selected_at DESC;
 ```
 
-Then fetch that domain's `/sitemap.xml` and **read the body** (§5, trap 1). The
-before-figure to beat is **8 of 28** live sites serving a sitemap of ours, as of
-2026-08-24.
+**The remedy is one line** — clear the stamp so the site returns to the front of the queue
+(`ORDER BY last_selected_at ASC NULLS FIRST`) instead of waiting 3 days:
 
-⚠ **A commit to the repo is not a file on the CDN.** Confirm the fetch, not the commit —
-`sitemap_commit_result` says the git step returned, nothing more.
+```sql
+DELETE FROM site_discovery_rotation
+ WHERE agent_type='sitemap-refresh' AND site_id='<the site with runs=0>';
+```
+
+⚠ Only for a stamp you have PROVEN had no run. Clearing a stamp whose run did happen just
+re-does work. Verified clean at 15:35: `robot-hands.com`, runs = **1**.
 
 # 2. WHAT SHIPPED TODAY (all committed to `087_towards_multiple_domains`)
 
