@@ -27,6 +27,8 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // The live shape: mechanism-flow ranges over steps, and each step may range
@@ -343,5 +345,71 @@ func TestGate_refusesEmptyIdResidue(t *testing.T) {
 	if needsJudged, err := GateConvertedTemplate("category-listing", sound, zap.NewNop()); err != nil || needsJudged {
 		t.Fatalf("CONTROL FAILED: a soundly converted template must pass "+
 			"(err=%v needsJudged=%v)", err, needsJudged)
+	}
+}
+
+// F2 of the 2026-08-24 Fable review: the second-door report was the ONLY new
+// mechanism nothing could kill — deleting its whole block left the package
+// green, because a log line is asserted by nothing. This pins it with an
+// observed logger (the refused_link_targets_test.go idiom).
+//
+// The path is currently LINKER-DEAD (RerenderSitePagesAction is registered
+// nowhere — see the REACHABILITY note at the call site), so this test is the
+// only executor the report has: it guards the revival case, and without it the
+// report could rot to nothing before the path ever came back.
+func TestRenderTemplateWithMap_reportsUnboundInstanceToken(t *testing.T) {
+	const needsToken = `<section id="{{.InstanceID}}"><p>{{.title}}</p></section>`
+	report := "no per-instance token was bound"
+	count := func(logs *observer.ObservedLogs) int {
+		n := 0
+		for _, e := range logs.All() {
+			if strings.Contains(e.Message, report) {
+				n++
+			}
+		}
+		return n
+	}
+
+	core, logs := observer.New(zapcore.ErrorLevel)
+	out, err := RenderTemplateWithMap(needsToken, map[string]interface{}{"title": "x"}, zap.New(core))
+	if err != nil {
+		t.Fatalf("this seam renders a missing map key as <no value> and strips it — no error expected: %v", err)
+	}
+	if got := count(logs); got != 1 {
+		t.Fatalf("an unbound {{.InstanceID}} through the SECOND render path must be "+
+			"reported exactly once, got %d — this path has no RenderContext to "+
+			"publish onto, so the log IS its whole error surface (bugs_open/283, "+
+			"council 661bcf00 round 2 edit 2)", got)
+	}
+	// And the damage the report names must actually be in the output.
+	if !strings.Contains(out, `id=""`) {
+		t.Errorf("CONTROL FAILED: the unbound render should carry an EMPTY id after "+
+			"<no value> stripping, got: %s", out)
+	}
+
+	// CONTROL 1 — token supplied: renders with the token, no report. Without
+	// this the assertion above would pass against a report that fires always.
+	core2, logs2 := observer.New(zapcore.ErrorLevel)
+	bound, err := RenderTemplateWithMap(needsToken,
+		map[string]interface{}{"title": "x", InstanceContentKey: InstanceToken("faq", 0)}, zap.New(core2))
+	if err != nil {
+		t.Fatalf("CONTROL FAILED: a bound render must succeed: %v", err)
+	}
+	if !strings.Contains(bound, `id="c-faq"`) {
+		t.Errorf("CONTROL FAILED: bound render lost the token: %s", bound)
+	}
+	if got := count(logs2); got != 0 {
+		t.Errorf("CONTROL FAILED: a bound render must not be reported, got %d", got)
+	}
+
+	// CONTROL 2 — a template that never spells the token must not be reported,
+	// or every contact-info render logs an error nobody can act on.
+	core3, logs3 := observer.New(zapcore.ErrorLevel)
+	if _, err := RenderTemplateWithMap(`<div class="contact"><p>{{.email}}</p></div>`,
+		map[string]interface{}{"email": "x@y.z"}, zap.New(core3)); err != nil {
+		t.Fatalf("CONTROL FAILED: plain template must render: %v", err)
+	}
+	if got := count(logs3); got != 0 {
+		t.Errorf("CONTROL FAILED: a token-free template must not be reported, got %d", got)
 	}
 }
