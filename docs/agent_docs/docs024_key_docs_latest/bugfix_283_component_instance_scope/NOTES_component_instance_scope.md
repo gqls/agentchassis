@@ -1577,3 +1577,87 @@ No new `SUMMARY_`. Half B is **committed and INERT** — Go changes need an imag
 headings would answer much as `SUMMARY_2026-08-20` does for "where we are now", and the milestone
 that would genuinely move them is the roll plus the artefact check. Held deliberately, per the
 rarity rule.
+
+## 2026-08-24 (session 13, round 2) — the council took the refusal off me, and it was right to
+
+Round 1 on `661bcf00` = **REVISE**, gating HIGH from `guardian`. Acted on, not argued. Commits
+`c5a0c831e` (containment) and `aa1e2665a` (a restore, below). Resubmitted on the same correlation
+(run `a367d358`). Full objection set and my answers: `COUNCIL_SUBMISSION_RFC032_halfB_round2_2026-08-24.json`.
+
+### The gating objection, and why I withdrew rather than re-argued
+
+> *"A census of TODAY's live templates cannot bound tomorrow's caller; this needs an explicit
+> council sign-off on the authority question, not a footnote."*
+
+I went looking for precedent before deciding, and found it against me: **`RFC_044`** shipped a
+default-ON change on two shared render actions, drew the same HIGH, and was **VETOED** next round —
+*"routing a scope objection to architecture review does not license deploying the disputed change."*
+Plus CLAUDE.md 2026-07-28: a veto on SCOPE is not answered by resubmitting with better measurements.
+So the refusal is **withdrawn**; `RenderTemplate` publishes `RenderContext.UnboundInstanceToken`; the
+question goes to the owner as `architecture_review/RFC_050_…md` with four answers costed.
+
+**`editquality`'s medium was the sharper objection and I had it backwards.** I cited the owner ruling
+at `component_library.go:1216` — *"a named log is NOT escalation"* — as licence to REFUSE. Read
+properly, that ruling's own remedy **on this same function** was to **PUBLISH** (`ctx.AbsentRequiredFields`),
+*"because the seam still cannot escalate — it has no database handle and no site identity"*. I quoted
+a precedent and then did the opposite of what it did. The contained shape is that shape, and the new
+field sits four lines from the one it copies.
+
+### The claim I asserted and had not checked (guardian, medium) — CORRECTED
+
+I wrote *"every caller already handles this error channel correctly since bugs_open/260"*. **Not true
+as stated.** Read 2026-08-24, of the **7** `RenderTemplate` call sites that can reach an
+`{{.InstanceID}}` template, **6 fail loudly and one does not**: `rerender_page_sections_action.go:661`
+**CARRIES the stored HTML and continues**, deliberately — *"this action IS the repair vehicle, and a
+re-render that refuses on the state it was dispatched to fix would deadlock its own remedy."* Two
+further callers soften a render error (`render_site_components_action.go:1074`,
+`adopt_fragment_section.go:123`) and cannot reach such a template (chrome census 0). Table now in the
+code comment and `RFC_050` §3. **This is the "a CITATION is not a READ" shape — I inherited the
+sentence from the plan and passed it on.**
+
+### I built the exact defect this file's own landmine warns about
+
+`reuse_agent` and `debug_historian`, same round, both citing the standing entry: *a converter's
+REFUSAL REASON is a routing signal a caller greps for; reword it and a defect rides the renamed
+reason.* My `instanceaudit --gate` classified with `strings.Contains(err.Error(), "rendered EMPTY")`.
+Now `ErrEmptyElementID` + `errors.Is`, mutation-proven **both ways** — rewording the message must
+still PASS (proving `errors.Is` is message-independent), dropping the `%w` must FAIL (proving the
+sentinel is load-bearing). Checked before adding: **no other caller string-matches this function** —
+all five branch on `err != nil` and the `needsJudged` bool, and the one formatting `%v` puts it in a
+human issues list. So it lands before the pattern spreads.
+
+### Containment paid for itself
+
+The `rendercheck.go` skip existed **only** to survive a refusal. With a report there is no error, the
+absence probe renders normally, and the ~140 components keep their coverage — so the change is
+**byte-identically reverted** (verified with `diff`), which also dissolves `guardian`'s low about
+bundling two separable things. **A contained change was smaller, not just safer.**
+
+### The misstep of the round: I destroyed a test and every check I ran was green
+
+A scripted edit located its region by string index, overran, and swallowed
+`TestTemplateNeedsInstanceID_matchesTheSpellingsGoAccepts`. `go build`, `go test`, `gofmt` and
+**`verify-head-builds.sh --test` — run against committed HEAD specifically to be careful** — all
+passed, because they ran the same reduced set. Caught by the **pre-commit architecture signal one
+commit later**, which my `| tail -18` had cut off and a `PostToolUse` advisory re-delivered. Restored
+verbatim in `aa1e2665a`; `WRONG_CALLS.md`; check now in the RUNBOOK.
+
+**Same-day tally, and the pairing is the finding:** I refused a fleet log census that morning
+*because* its zero could not have come out otherwise, filed a LANDMINE saying so — then accepted a
+green test run that could not have come out otherwise either. Then a third: I wrote *"WRONG_CALLS
+entry filed"* in a commit message from having composed the text rather than read it back. That one
+happened to be true, but the check that would have confirmed it (`--numstat` on my own commit) would
+also have caught the thing I **did** get wrong — `aa1e2665a` took the Half A lane's uncommitted
+`WRONG_CALLS` append as a **same-file passenger**, because I ran the hunk check on my seven code
+files and skipped it on the docs. Same trap that cost this lane a veto on Saturday.
+
+### Half A is with another session, and the division is agreed
+
+A peer opened on `bugs_open/283`, we split explicitly: **they own** `component_instance_occurrence.go`,
+`v3_site_actions.go`, `section_editor_actions.go`, `rerender_page_sections_action.go`; **I own**
+`component_instance_scope.go`, `component_instance_conversion.go`, `component_library.go`,
+`cmd/instanceaudit`. The `BindSingleSectionInstanceToken` move is deferred until my files are clean.
+They confirmed `v3_site_actions.go` came clean (the 345 lane committed `d14eae8ab`→`9206a60fe`), and
+they are adjudicating a design that may drop the plan's DB lookup entirely in favour of the loop's
+own `loop_item_index`. **⚠ For them and for anyone reading round 1: `RenderTemplate` NO LONGER
+RETURNS AN ERROR for an unbound token.**
