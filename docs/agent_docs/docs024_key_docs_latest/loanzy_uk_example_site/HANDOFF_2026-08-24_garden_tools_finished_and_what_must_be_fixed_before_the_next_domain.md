@@ -58,13 +58,29 @@ claims coverage is ~40%, silently. This is the mechanism behind loanzy's credit 
 ### 0b. `bugs_open/381` — the planner composes pages from components that cannot express the page it planned. **UNOWNED.**
 `seasonal-planner` promises *"month by month"* and was built from four components — `hero`,
 `generic-text-block`, `info-card-grid`, `call-to-action` — **none of which can render a list or a
-table**. Site-wide the content has **0 tables, 0 lists, 0 `<strong>`**. Meanwhile **34 list-capable
-and 10 table-capable components sat available** among 151 active. The planner's component listing
-never states what markup a component can produce, so it chooses blind on expressiveness. Two arms
-with different fixes: **(a) writer-side/cheap** — the owner's wall-of-text paragraph is in
-`generic-text-block`, a **pass-through** that would have accepted `<h3>`/`<ul>`/`<strong>` unchanged;
+table**. Site-wide the content has **0 tables, 0 lists, 0 `<strong>`**. The planner's component
+listing never states what markup a component can produce, so it chooses blind on expressiveness.
+
+> **⚠ TWO OF MY CLAIMS IN THIS ENTRY WERE CORRECTED 2026-08-24 by the session that took the bug —
+> verified here, and both change the fix. Read `bugs_open/381` §3-§4, not the original wording.**
+> - ~~"34 list-capable and 10 table-capable components sat available"~~ — **true and misleading.**
+>   All 44 are special-purpose (directories, trackers, quizzes, calculators, `pricing`,
+>   `product-details`, and `site-footer`, which is chrome). **There is no generic
+>   checklist/steps/table/calendar component**, so a planner told what each can express still has
+>   nothing to compose a seasonal planner from. My error: **counting CAPABILITY without checking
+>   SUITABILITY.**
+> - ~~"(a) writer-side/cheap — the writer would have been free to emit `<ul>`"~~ — **wrong.**
+>   `generic-text-block.content` is typed **`{"type":"text"}`** and the writer's RULE 9 forbids HTML
+>   in text fields. It was instructed not to emit markup. (Wrinkle I flagged back to them: that field
+>   **already stores `<p>` today**, so the constraint may be a porous prompt rule rather than an
+>   enforced type — which decides whether their retype alone is enough.)
+>
+> **Owning session's fix (config-only): migrations 591-593** derive an `expresses` capability onto
+> the planner menus; **594/595** retype five prose slots to `html` and rewrite RULE 10. A per-section
+> `brief` carried plan→writer (PLAN-025) is a later phase.
+
 **(b) composition-side/structural** — `differentiators`/`faq`/`hero` hard-wrap in `<p>` and no writer
-or designer change can add a list to them.
+or designer change can add a list to them. That half stands.
 ⚠ **There is no `vigilant_designer` agent** (live: `brand-designer`, `feature-designer`,
 `visual-designer`) **and a designer is the wrong layer for (b)** — it would produce a better-looking
 wall of text. The owner's other hypothesis, *"a missing step in the workflow"*, is the right one.
