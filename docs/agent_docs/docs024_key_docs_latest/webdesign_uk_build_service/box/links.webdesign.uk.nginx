@@ -1,0 +1,60 @@
+# /etc/nginx/sites-available/links.webdesign.uk — the emailed-links origin.
+#
+# OWNER RULING 2026-08-24: /c/ moves OFF the shopfront hostname. The trap it
+# closes (LANDMINES: "A CLOUDFLARE PAGE RULE PUT THERE FOR PARKING..."): the
+# apex vhost carried /c/, and the only thing keeping it off the internet was
+# the page rule parking webdesign.uk — so shipping the shopfront would have
+# exposed a state-changing route as a side effect. This hostname is public ON
+# PURPOSE instead: customers click these links from the delivery email, and
+# the exposure is exactly one path, chosen, not inherited.
+#
+# WHY "links.": it reads honestly in an email, and it is where /d/<token>
+# (the ZIP download, still blocked on its own design) will live when built —
+# one hostname for everything a customer is sent, nothing else on it.
+#
+# SAFE TO EXPOSE NOW, measured 2026-08-24: the prefetch guard is LIVE in the
+# running core-manager (v1.0.1332 carries 0e9cb31ee — HEAD/announced
+# speculative fetches refused, 412 + no-store), and customer_access_tokens
+# holds 0 rows, so there is no token to guess and no state to corrupt. The
+# RESIDUAL still stands and moving hostname does not touch it: a mail
+# scanner's plain GET is indistinguishable from a real click; the remedy is a
+# second click and that is the owner's open call (DECISION_2026-08-21b §4).
+#
+# Same posture as every vhost on this box: loopback only, tunnel dials out,
+# ufw default-deny. Same tunnel caveats as webdesign.uk.nginx: no X-Real-IP,
+# rate-limit keyed on CF-Connecting-IP, static proxy_pass resolves at reload.
+#
+# ⚠ THE PREFIX IS THE EXPOSURE. `location /c/` proxies EXACTLY the
+# confirm-transfer path. Do NOT widen it to `/` or add a longer prefix of
+# core-manager's routes — sitefacts.go's "no public exposure" reasoning is
+# what you would be silently falsifying, for every site's data.
+#
+# ⚠ THE UPSTREAM RIDES THE WIREGUARD EGRESS FENCE. core-manager:8088 is on
+# the allowlist (networkpolicy-wireguard-egress.yaml). Narrow that policy and
+# this vhost times out in a way that reads as core-manager being down.
+
+limit_req_zone $http_cf_connecting_ip zone=links_rl:10m rate=20r/m;
+
+server {
+    listen 127.0.0.1:8084;
+    server_name links.webdesign.uk;
+
+    location /c/ {
+        limit_req zone=links_rl burst=3 nodelay;
+        proxy_pass              http://core-manager.ai-persona-system.svc.cluster.local:8088;
+        proxy_http_version      1.1;
+        proxy_set_header Host   $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout      15s;
+        proxy_send_timeout      15s;
+    }
+
+    # There is deliberately NO /d/ block yet — the download link's design is
+    # settled but blocked on the refresh mechanism (DECISION_2026-08-21b).
+    # When it is built, it belongs HERE, not on the shopfront.
+
+    location / {
+        return 404;
+    }
+}

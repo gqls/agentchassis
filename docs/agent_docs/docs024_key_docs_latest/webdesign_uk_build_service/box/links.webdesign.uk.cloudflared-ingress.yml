@@ -1,0 +1,9 @@
+# Fragment for the BOX's /etc/cloudflared/config.yml — the emailed-links host.
+# Add ABOVE the http_status:404 catch-all (first match wins).
+# DNS: create the CNAME in the DASHBOARD, not with `tunnel route dns` — that
+# command put admin.apis.uk's record into the noted.co.uk zone on 2026-08-23
+# and reported success (LANDMINES). webdesign.uk zone -> DNS -> Add record:
+#   CNAME  links  ->  81f59f78-dda8-40a0-984b-cfadb36bc891.cfargotunnel.com  (Proxied)
+ingress:
+  - hostname: links.webdesign.uk
+    service: http://127.0.0.1:8084
