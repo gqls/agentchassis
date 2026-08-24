@@ -1731,11 +1731,22 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 	// 291's registration block, which runs after both, then sees `deferred` and
 	// correctly skips (workItemStatusRequiresRegisteredHandler excludes it).
 	//
-	// PROBE ORDER IS DECLARATION FIRST, POLICY SECOND. The agent_definitions
-	// probe is a 0.28 ms indexed lookup and gates the pages read, so the common
-	// case — a page-bearing item at a handler that does not refuse — pays one
-	// index scan, not two. Reversing them would read `pages` for every such
-	// insert fleet-wide to answer a question the second probe usually moots.
+	// PROBE ORDER IS POLICY FIRST, DECLARATION SECOND — and it was the other way
+	// round until the council's `guardian` seat objected (medium, round 1,
+	// corr 9813dec8): the declaration probe is the NOVEL SQL here
+	// (`jsonb_path_exists` over `default_config`), and running it on every write
+	// through a seam ~26 producers share injects a new systemic failure mode into
+	// a hot shared path — a bad jsonpath on an older Postgres, or a permissions
+	// change, would abort the transaction for ALL of them, not just owned-page
+	// cases. The `pages` read is a primary-key lookup of one column: the most
+	// boring statement in the file, and it cannot fail in a novel way.
+	//
+	// So the boring read gates the novel one. [MEASURED 2026-08-24] owned pages
+	// are 176 of the estate's pages, so the jsonpath now runs for a small
+	// minority of page-bearing inserts instead of all of them. The cost of the
+	// swap is a PK read (2.7 ms measured, cold) where there was an index scan
+	// (0.278 ms) — paid on the common path to keep the uncommon SQL off it,
+	// which is the trade the objection was asking for.
 	//
 	// DEMOTE, NEVER REFUSE (291's rule): a refusal here would lose the finding to
 	// a pod log, because discovery sweeps log-and-continue on insert error and
@@ -1760,27 +1771,38 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 		workItemStatusHeadsForDispatch(item.status) &&
 		os.Getenv("DISABLE_OWNED_PAGE_DOOR_DEMOTION") == "" {
 
-		var refusesOwned bool
-		if probeErr := tx.QueryRowContext(ctx,
-			"SELECT "+workItemHandlerRefusesOwnedPagesSQL("$1"), item.handlerAgent,
-		).Scan(&refusesOwned); probeErr != nil {
-			logger.Warn("writeWorkItem: owned-page declaration probe failed, skipping policy door",
-				zap.String("handler_agent", item.handlerAgent),
-				zap.Error(probeErr))
-		} else if refusesOwned {
-			pagePolicy, policyErr := readRebuildPolicy(ctx, tx, *item.pageID)
-			switch {
-			case errors.Is(policyErr, sql.ErrNoRows):
-				// A page_id that does not resolve is ORDINARY at this seam —
-				// create_work_item takes whatever input_data.spec.page_id says —
-				// and a page that does not exist cannot be owned. Debug, not
-				// Warn: the composition guards keep the stricter posture.
-				logger.Debug("writeWorkItem: policy door — page_id does not resolve, treating as generic",
-					zap.String("page_id", item.pageID.String()))
-			case policyErr != nil:
-				logger.Warn("writeWorkItem: rebuild_policy read failed, skipping policy door",
-					zap.String("page_id", item.pageID.String()), zap.Error(policyErr))
-			case pagePolicy == ownedRebuildPolicy:
+		pagePolicy, policyErr := readRebuildPolicy(ctx, tx, *item.pageID)
+		switch {
+		case errors.Is(policyErr, sql.ErrNoRows):
+			// A page_id that does not resolve is ORDINARY at this seam —
+			// create_work_item takes whatever input_data.spec.page_id says — and a
+			// page that does not exist cannot be owned. Debug, not Warn: the
+			// composition guards keep the stricter posture.
+			logger.Debug("writeWorkItem: policy door — page_id does not resolve, treating as generic",
+				zap.String("page_id", item.pageID.String()))
+		case policyErr != nil:
+			// OWNED_PAGE_DOOR_PROBE_FAILED is a stable literal so a fail-open is
+			// COUNTABLE in the logs rather than merely commented about (council
+			// round 1, `bug_historian`, low: "an unreadable config computes to
+			// HEALTHY … worth a metric/log on fail-open triggering"). Deliberately
+			// a log line and not an agent_error_log row: that write would go
+			// through this same transaction, so the one failure mode it must
+			// survive is exactly the one that would break it.
+			logger.Warn("writeWorkItem: OWNED_PAGE_DOOR_PROBE_FAILED rebuild_policy unreadable — "+
+				"policy door standing down, handler's own refusal remains the backstop",
+				zap.String("page_id", item.pageID.String()), zap.Error(policyErr))
+		case pagePolicy == ownedRebuildPolicy:
+			// Only now — for an owned page, a small minority of writes — do we run
+			// the novel SQL. See the ordering note above.
+			var refusesOwned bool
+			if probeErr := tx.QueryRowContext(ctx,
+				"SELECT "+workItemHandlerRefusesOwnedPagesSQL("$1"), item.handlerAgent,
+			).Scan(&refusesOwned); probeErr != nil {
+				logger.Warn("writeWorkItem: OWNED_PAGE_DOOR_PROBE_FAILED declaration probe failed — "+
+					"policy door standing down, handler's own refusal remains the backstop",
+					zap.String("handler_agent", item.handlerAgent),
+					zap.Error(probeErr))
+			} else if refusesOwned {
 				logger.Warn("writeWorkItem: OWNED PAGE — finding parked, not routed to a handler that refuses it",
 					zap.String("handler_agent", item.handlerAgent),
 					zap.String("item_type", item.itemType),

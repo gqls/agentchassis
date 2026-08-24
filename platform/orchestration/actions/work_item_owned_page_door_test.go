@@ -13,6 +13,13 @@
 // so the second distinct defect on a reviewed page leaves no trace at all.
 // 83 findings ended that way between 2026-08-19 and 2026-08-24 alone.
 //
+// PROBE ORDER: policy read (a `pages` PK lookup) FIRST, declaration probe (the
+// jsonb_path_exists over agent_definitions) SECOND and only for an owned page —
+// swapped from the reverse after the council's guardian seat objected that
+// running the novel SQL on every write through a shared seam injects a new
+// systemic failure mode into a hot path. Tests scripting only ONE expectation
+// are therefore the generic-page cases, not oversights.
+//
 // HOW THESE TESTS ARE BUILT, and why it matters more than usual here. Both probe
 // expectations are rendered FROM the shared renderers
 // (workItemHandlerRefusesOwnedPagesSQL / readRebuildPolicy's statement), the same
@@ -56,15 +63,16 @@ const rebuildPolicyReadSQL = `
 		SELECT COALESCE(rebuild_policy, 'generic') FROM pages WHERE id = $1
 	`
 
-// expectOwnedPageDeclarationProbe scripts the door's first question: does this
-// handler declare that it refuses owned pages?
+// expectOwnedPageDeclarationProbe scripts the door's SECOND question, reached only
+// for an owned page: does this handler declare that it refuses owned pages?
 func expectOwnedPageDeclarationProbe(mock sqlmock.Sqlmock, handler string, declares bool) {
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT " + workItemHandlerRefusesOwnedPagesSQL("$1"))).
 		WithArgs(handler).
 		WillReturnRows(sqlmock.NewRows([]string{"declares"}).AddRow(declares))
 }
 
-// expectRebuildPolicyRead scripts the door's second question: is this page owned?
+// expectRebuildPolicyRead scripts the door's FIRST question, run for every
+// page-bearing write: is this page owned?
 func expectRebuildPolicyRead(mock sqlmock.Sqlmock, pageID uuid.UUID, policy string) {
 	mock.ExpectQuery(regexp.QuoteMeta(rebuildPolicyReadSQL)).
 		WithArgs(pageID).
@@ -94,22 +102,20 @@ func expectRebuildPolicyReadError(mock sqlmock.Sqlmock, pageID uuid.UUID, err er
 // Neither uses WithArgs: these tests are not about WHICH handler or page, only
 // that the door was consulted and stood down.
 
-// expectWorkItemDoorStandsDown scripts a handler that does NOT declare
-// refuse_owned_page — the common case (nav-updater, css-patch-agent,
-// page-rerender, section-editor…). One indexed probe, and the door stops: the
-// page is never read, which is why the declaration is asked first.
+// expectWorkItemDoorStandsDown scripts a GENERIC page — the common case, and the
+// point at which the door stops for the overwhelming majority of writes. One
+// primary-key read and nothing else: the declaration probe (the novel SQL) is
+// never reached, which is the whole reason the policy read goes first.
 func expectWorkItemDoorStandsDown(mock sqlmock.Sqlmock) {
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT " + workItemHandlerRefusesOwnedPagesSQL("$1"))).
-		WillReturnRows(sqlmock.NewRows([]string{"declares"}).AddRow(false))
+	mock.ExpectQuery(regexp.QuoteMeta(rebuildPolicyReadSQL)).
+		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("generic"))
 }
 
-// expectWorkItemDoorGenericPage scripts a DECLARING handler (page-build-handler)
-// on a page that is not owned — the ordinary, and by far the most common, path
-// through the door for the generic content producers. Both probes run and the
-// row routes exactly as it always did.
+// expectWorkItemDoorGenericPage is expectWorkItemDoorStandsDown by another name,
+// kept as a separate call so a test says WHICH fact makes the door stand down.
+// Since the policy read gates everything, a generic page needs one expectation
+// whatever its handler declares.
 func expectWorkItemDoorGenericPage(mock sqlmock.Sqlmock) {
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT " + workItemHandlerRefusesOwnedPagesSQL("$1"))).
-		WillReturnRows(sqlmock.NewRows([]string{"declares"}).AddRow(true))
 	mock.ExpectQuery(regexp.QuoteMeta(rebuildPolicyReadSQL)).
 		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("generic"))
 }
@@ -176,8 +182,8 @@ func TestWriteWorkItem_OwnedPage_ParkedAtDeferred(t *testing.T) {
 			item := doorItem(status, "page-build-handler", &pageID)
 
 			mock.ExpectBegin()
-			expectOwnedPageDeclarationProbe(mock, "page-build-handler", true)
 			expectRebuildPolicyRead(mock, pageID, "owned")
+			expectOwnedPageDeclarationProbe(mock, "page-build-handler", true)
 			expectParkedInsert(mock, "content_rewrite", "content_rewrite:tool-mortgage-calculator",
 				ownedPageSkipReasonPrefix+": page-build-handler declares refuse_owned_page and page "+
 					pageID.String()+" is rebuild_policy=owned — content_rewrite finding parked at "+
@@ -220,9 +226,8 @@ func TestWriteWorkItem_OwnedPage_NonDeclaringHandler_Untouched(t *testing.T) {
 	item := doorItem("triaged", "page-rerender", &pageID)
 
 	mock.ExpectBegin()
+	expectRebuildPolicyRead(mock, pageID, "owned")
 	expectOwnedPageDeclarationProbe(mock, "page-rerender", false)
-	// NO policy read: the declaration probe gates it, so a non-declaring handler
-	// costs one indexed lookup and never touches `pages`.
 	expectHandlerRegisteredProbe(mock, "page-rerender", true)
 	expectInsertWithSummaryAndStatus(mock, item.summary, "triaged")
 
@@ -254,7 +259,6 @@ func TestWriteWorkItem_GenericPage_DeclaringHandler_Untouched(t *testing.T) {
 	item := doorItem("triaged", "page-build-handler", &pageID)
 
 	mock.ExpectBegin()
-	expectOwnedPageDeclarationProbe(mock, "page-build-handler", true)
 	expectRebuildPolicyRead(mock, pageID, "generic")
 	expectHandlerRegisteredProbe(mock, "page-build-handler", true)
 	expectInsertWithSummaryAndStatus(mock, item.summary, "triaged")
@@ -288,7 +292,6 @@ func TestWriteWorkItem_PageDoesNotResolve_RoutesNormally(t *testing.T) {
 	item := doorItem("triaged", "page-build-handler", &pageID)
 
 	mock.ExpectBegin()
-	expectOwnedPageDeclarationProbe(mock, "page-build-handler", true)
 	expectRebuildPolicyReadError(mock, pageID, sql.ErrNoRows)
 	expectHandlerRegisteredProbe(mock, "page-build-handler", true)
 	expectInsertWithSummaryAndStatus(mock, item.summary, "triaged")
@@ -321,7 +324,6 @@ func TestWriteWorkItem_PolicyReadFails_FallsThroughToHandlerRefusal(t *testing.T
 	item := doorItem("triaged", "page-build-handler", &pageID)
 
 	mock.ExpectBegin()
-	expectOwnedPageDeclarationProbe(mock, "page-build-handler", true)
 	expectRebuildPolicyReadError(mock, pageID, errors.New("connection reset"))
 	expectHandlerRegisteredProbe(mock, "page-build-handler", true)
 	expectInsertWithSummaryAndStatus(mock, item.summary, "triaged")
@@ -371,8 +373,8 @@ func TestWriteWorkItem_ShapesTheDoorMustNotTouch(t *testing.T) {
 			mock.MatchExpectationsInOrder(false)
 
 			mock.ExpectBegin()
-			expectOwnedPageDeclarationProbe(mock, tc.item.handlerAgent, true)
 			expectRebuildPolicyRead(mock, pageID, "owned")
+			expectOwnedPageDeclarationProbe(mock, tc.item.handlerAgent, true)
 			mock.ExpectExec("INSERT INTO site_work_items").
 				WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -405,8 +407,8 @@ func TestWriteWorkItem_KillSwitch_DisarmsThePolicyDoor(t *testing.T) {
 	item := doorItem("triaged", "page-build-handler", &pageID)
 
 	mock.ExpectBegin()
-	expectOwnedPageDeclarationProbe(mock, "page-build-handler", true) // tripwire
 	expectRebuildPolicyRead(mock, pageID, "owned")                    // tripwire
+	expectOwnedPageDeclarationProbe(mock, "page-build-handler", true) // tripwire
 	expectHandlerRegisteredProbe(mock, "page-build-handler", true)
 	expectInsertWithSummaryAndStatus(mock, item.summary, "triaged")
 
@@ -434,8 +436,8 @@ func TestWriteWorkItem_OwnedPage_DedupedRowStillReportsThePark(t *testing.T) {
 	item := doorItem("triaged", "page-build-handler", &pageID)
 
 	mock.ExpectBegin()
-	expectOwnedPageDeclarationProbe(mock, "page-build-handler", true)
 	expectRebuildPolicyRead(mock, pageID, "owned")
+	expectOwnedPageDeclarationProbe(mock, "page-build-handler", true)
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 0)) // ON CONFLICT DO NOTHING
 
