@@ -292,3 +292,54 @@ pushed; the job will not run until the fleet release goes:
     date; make release redeploy-agents ENVIRONMENT=production REGION=uk001; date
 
 Please run the whole thing rather than a deploy on its own — that is precisely the trap above.
+
+---
+
+**2026-08-24 — it is running, it found something on day one, and what it found was partly my own
+sloppiness.**
+
+The daily check is live. I did not wait for its 7:30 slot — I ran it by hand, which is the whole
+point of the "never let the schedule tell you it works" rule, and it is why we know all this today
+instead of tomorrow.
+
+**It failed on its first run, and it was right to.** A brand-new error code had appeared in the
+system about two hours earlier with nobody having declared what it is for. That is exactly the
+thing this whole piece of work exists to notice, so the failure is the mechanism working, not a
+fault.
+
+**And what it caught is not paperwork.** That new code was recording something real: twice today,
+the part of the system that writes page content could not load the list of pages it is allowed to
+link to — a database timeout — so it was told to write those pages **with no internal links at
+all**. Two pages went out degraded, the system dutifully wrote down that it had happened, and
+nothing anywhere reads that note. That belongs to another workstream, but it is the clearest
+example we have of why this matters: the record existed, and it was going to expire unread in
+thirty days.
+
+A second new code turned up within the hour. Its own comment says it is "a fourth code beside" three
+existing ones and copies their shape — which is precisely the spreading pattern the original bug
+report described: the habit of writing a finding down propagates, and the habit of not reading it
+propagates with it.
+
+**Now the part that is on me.** Chasing how those codes got in without being declared, I found that
+a safeguard I have been citing for two days **does not exist**. A comment in our own code says a
+check runs "at commit time" and names the file it lives in. That file was never written. The
+sentence was composed while I was planning to write it, and after that it read like a description of
+something real — it went through a review, into the concept register, and into the handoff for this
+work, and nobody, me included, ever checked that the file was there. The check that *was* running
+instead was a hand-typed list of eleven names, which can only catch mistakes somebody remembered to
+add to it.
+
+It is written now, and properly: it reads the code and works out for itself which error codes exist,
+rather than being told. I have also gone back and marked the false claim as false where it was made,
+and logged it in the shared record of wrong calls, because "a comment naming a file is a claim" is a
+lesson worth more than the fix.
+
+**One thing I nearly got wrong and did not.** Having found the hand-typed list, my instinct was to
+delete it as redundant. I checked it entry by entry first — and one of the eleven is written in a
+way the new automatic check genuinely cannot see. Deleting the list would have quietly dropped that
+one while looking like tidying up. It is kept, cut from eleven entries to one, and there is now a
+test that complains if it ever grows back.
+
+**Nothing needs deciding by you right now.** The two new codes are recorded as "human evidence,
+nothing reads them" — which is measurably true — and you can overrule either. The review of the new
+check is with the reviewers as I write this.
