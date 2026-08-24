@@ -114,3 +114,65 @@ knows how to handle, rather than as "not applicable".
 
 Next: a plan, ranked by what actually closes the door rather than what is quickest, then the
 council, then commit.
+
+## Sunday 24 August 2026, later — reviewed, approved, and two thirds of it shipped
+
+The council approved it first time, with four advisory comments. Two of them were right in a
+way that changed the code, and I want to record that plainly because it is the argument for
+bothering with the review at all.
+
+The **guardian** seat pointed out that the place I was adding the new failure record is not the
+council's code — it is the shared error path that *every* workflow in the estate goes through.
+It was right: a workflow that loops and keeps failing would have grown that record without
+limit, on exactly the runs that are already going badly. So it is now capped, with a marker
+saying when the cap was hit, so nobody can mistake "we stopped recording" for "nothing failed".
+
+The **reuse** seat asked why I was adding a second key beside the existing one instead of just
+widening the existing one — which would be tidier — and suggested it had "few readers". So I
+counted: **39** things read it, 33 in code and 6 in live agent configuration. That settles it,
+and it settles it with a number rather than my preference, which is the useful part.
+
+A third comment claimed a gap that turned out not to exist — it said work items would still
+burn through their retry budget on a refused call. They do not; that was already handled
+elsewhere. I checked rather than argued.
+
+### What has actually shipped, and what has not
+
+**Shipped:** the change that lets a successful call clear the "endpoint is unhealthy" flag, and
+the change that makes the council record a reviewer whose call *failed* as an opinion we lost
+rather than as one that was never wanted. Both are committed. Neither is live yet — our Go code
+only takes effect when a new image rolls out.
+
+**Not shipped, and this is the annoying one.** The third piece is about twenty lines in a file
+called `coordinator.go`. It is written and it is correct. I have not committed it, because
+another session is part-way through their own change in that same file — and the function their
+change calls lives in a file they have not committed at all. Because of how commits work on this
+shared tree, if I commit that file I take their half-finished work with it, without the piece
+that makes it compile, and I break the build for everyone.
+
+So I have left it, told them, and offered two ways to clear it. The piece I *did* ship is
+written to do nothing at all until that lands, so there is no half-working state — and the
+database change that goes with it is deliberately held back too.
+
+### One thing I would like your steer on
+
+Part of the fix is a single database setting: how often we re-check whether Anthropic is
+answering. It is currently **once an hour**, and that hour is exactly how long the whole fleet's
+work queue can sit stopped after one refused call. Changing it to **once a minute** is one
+statement, instantly reversible, and it is the value we already use for our other endpoints.
+
+It does not depend on the blocked piece above. I have not applied it, because it changes live
+production settings across the fleet and you did not ask me to do that. Given the refusals
+cluster towards the end of the month and we are a week out, **say the word and I will apply it**
+— or tell me to leave it and it goes in with the rest.
+
+### Also worth knowing
+
+While reading the code I found that the hourly check **cannot actually detect this problem**.
+The refusal comes back as an HTTP 400, and the checking code treats any 400 as "the service is
+reachable, all fine". So it is not really a health check for this; it is a timer that clears the
+flag after an hour whether or not we are still being refused. That matters because the fix
+everyone was about to build — making that check less trigger-happy — would have aimed at a piece
+of code that never fires for this problem, shipped, and looked like a fix. I nearly did it
+myself. It is written up as my own mistake in the shared log, because I repeated the claim from
+another thread's notes without reading the function.

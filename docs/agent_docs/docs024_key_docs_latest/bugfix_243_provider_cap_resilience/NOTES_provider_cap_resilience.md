@@ -289,3 +289,72 @@ the ruling's named escape hatch explicitly rather than silently:
 > `:460`); and `pingClaude`'s 400→`true` branch (`:220-231`). **No inferred link.** The two
 > claims that are NOT first-hand are marked as such above: the monthly-limit shape `[INFERRED]`
 > and the effective-spend arithmetic `[MEASURED input, DERIVED weighting]`.
+
+## 2026-08-24 — council APPROVED round 1; two of three halves shipped; the third is blocked by a shared-tree hazard
+
+**Verdict: APPROVED, round 1** — `82f07fa6-1c42-46ad-bdf6-1d58892c44a7`, *"approved with 4
+advisory objection(s) — none high-severity"*, 6 abstained, **0 unreadable** (so not
+truncation-gated, and no seat was lost — which is worth noting given what this fix is about).
+
+### All four objections answered by QUERY, and two of them changed the code
+
+| seat | sev | objection | answer |
+|---|---|---|---|
+| editquality | med | the migration's `review\_%` name filter could miss a `gate_*` seat | **Right in principle. Measured:** the 19 steps with `error_step='complete_invalid'` are the 17 `review_*` seats plus `council_decide` and `persist_submission` — so no `gate_*` seat is affected today. **Adopted anyway**: the migration now filters on `error_step` with those two named as exceptions, so a *future* `gate_*` seat is covered automatically. Their version closes the door; mine only happened to be standing in front of it |
+| editquality | low | the field→step mapping is an unverified assumption | **Measured:** all 17 `review_fields`' first segments name a real step, 0 misses. Code splits on the first `.` (not `TrimSuffix(".result")`, which is what the sketch said) and the test pins the derivation |
+| guardian | med | `routeToErrorStep` is fleet-wide, not council-scoped | **Right, and it produced a real change.** The map is now **capped at 50** with a `__truncated` marker: a loop expanding into many failing iterations makes a distinct step name per iteration, so an unbounded map would grow `collected_data` without limit on exactly the runs already going badly |
+| reuse_agent | med | why a sibling key rather than making `__step_error` itself the map, "with a migration path for its few readers"? | **"Few" is the load-bearing word and it is wrong. Measured: 33 Go references outside tests + 6 live agent configs = 39 readers.** Changing its shape breaks all of them. Additive is the cheaper correct choice — and it is now a number, not a preference |
+
+**And the one "missing" item was REFUTED by reading**, which is worth recording because it was
+the most serious-sounding of the five: editquality said the `AIUnavailableError` consumer for
+work-item retries is still absent, so *"work items still accrue attempt_count on a transient
+400"*. They do not. `work_item_failure_ladder.go:378` already classifies this and issues a
+transient release with a cooldown (`reason: ai_unavailable`). The consumer exists; it reads the
+classifier by **string** rather than by **type**, which is untidy but not the defect claimed.
+Scoped out with the citation rather than argued.
+
+### The test is mutation-proven in BOTH directions
+
+Not "it passed". `reviewStepFailed` forced to always-false → the *lost opinion* arm fails with
+its own message; forced to always-true → the *skipped seat* arm fails with its own message.
+Both reverted, suite green. A test that only failed in one direction would have permitted the
+opposite defect, which here is "every gated-off seat blocks every approval".
+
+### ⚠ THE THIRD HALF IS NOT COMMITTED, and the reason is a live hazard for the whole tree
+
+`coordinator.go` in the shared working tree carries the **`bugs_open/354` lane's uncommitted**
+call to `errorRouteTermination`, whose definition lives in `error_route_completion.go` —
+**untracked** (`??`). Measured: HEAD's `coordinator.go` has **0** references, the working tree
+has **1**.
+
+```
+$ ./scripts/verify-head-builds.sh --with platform/orchestration/coordinator.go
+platform/orchestration/coordinator.go:4489:37: undefined: errorRouteTermination
+verify-head-builds: FAILED
+```
+
+A pathspec commit takes the whole file, so committing my ~20-line `routeToErrorStep` hunk would
+take their half-written change **without** the callee and break HEAD for the estate. **So I did
+not commit it.** Consequences, all deliberate:
+
+- the council-side reader shipped and is **inert** — `reviewStepFailed` fails closed with no
+  `__step_errors`, giving exactly today's behaviour;
+- migration `588` stays `_HOLD` and **must not be applied** until the writer lands;
+- `bugs_open/354` now carries a note with the two ways out. **It is their change; I have
+  touched none of their files**, including the untracked ones.
+
+This is not only my problem and that is why it was worth writing down: **any** session that
+commits `coordinator.go` for **any** reason breaks HEAD, and nothing at commit time would warn
+them — the commit-scope report cannot see a same-file passenger, and their `git status` will
+not volunteer another lane's untracked file.
+
+### What shipped, and what it may NOT be said to have proven
+
+`e521cde3e` — `Council-Reviewed: 82f07fa6…`. Registered as **MDL-044** (symmetric health
+write) and **WFA-023** (`__step_errors`), both entered with their limits stated.
+
+**Neither has a behavioural proof and neither may be described as working.** The estate was
+quiescent all day (`llm_call_log`: 0 cap failures across 750 successful calls), so the
+discriminating case has not occurred, and Go is inert until the next chassis roll anyway. The
+proofs owed are in `PLAN` C1 and C4 — and both need a **demand control**: a green reading on a
+day with no refusals is exactly what the pre-fix binary would also produce.
