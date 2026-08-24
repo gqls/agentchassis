@@ -47141,3 +47141,22 @@ wrong measurement, which is the part that matters.
 - **Same family:** `bugs_open/303` (tool-birth guard counted tag substrings), the lane's own
   cubic-bezier/regex-tester shared-string control traps. Markup questions need a markup-context
   scanner, never a bare regex over mixed html+JS.
+
+## 2026-08-24 — bugs_open/161 close-out: a DO/RAISE guard written with `<>` was NULL-blind against the exact failure it guarded
+
+- **The claim:** migration 585's header and council submission said the post-guards "assert the
+  outcome before committing" — specifically that a `jsonb_set`-nulled document (jsonb_agg over
+  zero rows returns NULL, not `[]`; jsonb_set is STRICT) would abort the transaction.
+- **What was wrong:** the fact-count arm was `IF n_facts <> 4 THEN RAISE` — and if the document
+  had been nulled, `jsonb_array_length(NULL->'facts')` is NULL, `NULL <> 4` is NULL, and the IF
+  does not fire. The guard's other arms (`IS DISTINCT FROM` on pattern/component/verified_at)
+  would still have aborted, so no damage was reachable — but the count arm, the one whose error
+  message names the nulled-document case, could never have raised on it.
+- **What caught it:** the council gate (debug_historian, medium severity, round 1 of corr
+  a9e1a0de) — reading the sketch, not the file, which is the point: the shape alone was enough.
+- **The cheap check:** in any DO/RAISE guard, write every comparison `IS DISTINCT FROM` /
+  `IS NOT DISTINCT FROM`, never `<>` or `=`, unless a NULL operand is provably impossible. A
+  guard comparison that can evaluate to NULL is a guard that silently passes the failure case —
+  the same class as `a-quiet-test-passes-when-the-rule-is-gone`, in SQL.
+- **Cost:** none reached production — caught pre-apply, fixed in `eab400cd6` alongside a second
+  named precondition (`jsonb_typeof(f->'source')='object'`) the same seat asked for.
