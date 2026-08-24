@@ -1026,3 +1026,59 @@ rather than composed by me. Live and verified: `<h1>A closer look at bees</h1>`.
 **Final live state:** 67,457 bytes · `<h1>A closer look at bees</h1>` · 6 sections through
 `illustrated-text-block` · 7 images all 200 · no footer · no email · 7 components permanently
 locked · `build_status='deployed'` · `tools.apis.uk` 200.
+
+## 2026-08-24 (owner session) — GTM fleet-wide, and option D landed inside a typed struct
+
+### Google Tag Manager
+
+Owner: use `GTM-PQ3WCTBD`, make it standard for new builds, and backfill existing sites.
+
+**Corrected my own earlier count:** I told the owner "three sites" carry a Google tag. Measured
+properly: **14 of 27** sites with a `head` component already had `GTM-PQ3WCTBD` — I had sampled
+three domains by curl and reported the sample as the population. **A sample is not a census.**
+
+Backfilled the remaining **13** by inserting the canonical snippet (copied verbatim from
+vonc.com's head, not re-typed) immediately after `<meta charset>`. All **27** heads now carry it
+**exactly once**, 0 duplicated — asserted inside the transaction by counting occurrences, not by
+eyeballing.
+
+⚠ **The stored head is not the served page.** GTM reaches visitors only when a page re-renders:
+**695 deployed pages across 28 sites**. Not fired — a fresh chassis was mid-build and a spawn
+within ~300s of a restart is silently dropped. Owner decision on batching.
+
+⚠ **"Standard for new builds" is a CODE change, not data.** `ChromeSlotFunction("head")` asks the
+library for `function='head'`; the only two such components are **inactive**, and `Document Head`
+is deliberately ineligible (`component_level='section'` — using it would render a page section as
+`<head>`). So every site's head comes from **`RenderFallbackHead`**, a Go function. Two routes,
+both platform-scope: amend that function (small, precise, needs council + a roll), or activate an
+eligible library head component carrying GTM (no code, but it changes head rendering for **every**
+site at once). Put to the owner rather than chosen.
+
+### Option D — and it would have silently failed the obvious way
+
+`imageryStyleGuide` is a **typed struct**: `palette`, `medium`, `mood`, `avoid`, `provider`,
+`reference_asset_keys`, `kinds`. **An added key such as `subject_accuracy` is dropped on
+unmarshal — no error, no log, and the prompt would simply never carry it.** Same family as the
+`input_schema`-fallback landmine. Checked the existing spec for unknown keys first: none.
+
+So accuracy went into the fields that are actually read, and the split is better than a single
+blob:
+
+- **Negatives → `avoid`**, which the adapter routes to the **negative prompt**. That is a
+  *separate channel*, so ~1KB of "no corbicula on a mining bee, no amber-and-black stripes on a
+  solitary bee, wrong species for the stated subject" costs the length-limited main prompt
+  **nothing**. This is the direct answer to the owner's context-length constraint.
+- **Positives → the FRONT of `kinds.illustration.medium`**, because `medium` heads the composed
+  prompt (the file header states the composition is medium+mood+palette, and every stored
+  `origin_prompt` on this site opens with guide text). Vital detail therefore survives truncation.
+- Scoped to the `illustration` kind so hero and logo generation are untouched.
+
+### `visual-design-auditor` cannot see images — but the platform can
+
+Its steps are `query_database` → `execute_llm_prompt` → `write_audit_findings`: **text only.**
+But `execute_vision_prompt` is a **registered, live action** (`registry.go:1208`,
+`execute_vision_prompt_action.go`), backed by `aiservice.VisionCapable` /
+`GenerateWithImages` on both Anthropic and Gemini — **and `tool-acceptance-agent` already uses
+it in production.** So option C (generate → vision critique → regenerate) is reachable as
+**agent configuration, not new code**, which makes it far cheaper than I first told the owner.
+Inputs it takes: `images_field`, `max_images`, `prompt_template`, `output_type`.
