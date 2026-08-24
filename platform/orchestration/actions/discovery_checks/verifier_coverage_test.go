@@ -27,11 +27,15 @@
 //     (bugs_closed/317, lockstep-guarded in claim_timeout_exclusion_lockstep_test.go).
 //
 // So registering a verifier turns THIS list green, and protects the type only on
-// the paths that ask. [MEASURED 2026-08-24, live DB] 4 of 200 live agent
-// definitions complete through update_work_item_status across 6 arms, over 5 item
-// types — needs_imagery, required_fields_missing, image_source_unsatisfiable,
-// needs_hero_image, needs_logo, 134 completions all-history. NONE of the five has
-// a verifier today, so the gap is LATENT rather than active. Two of them
+// the paths that ask. [MEASURED 2026-08-24, live DB UNION ARCHIVE] 4 of 200 live
+// agent definitions complete through update_work_item_status across 6 arms, over
+// SEVEN item types — needs_imagery, required_fields_missing, needs_hero_image,
+// unfulfilled_hero_variant, needs_logo, image_url_404,
+// image_source_unsatisfiable; 578 completions all-history. NONE of the seven has
+// a verifier today, so the gap is LATENT rather than active.
+// ⚠ Read that census over `site_work_items` UNION `site_work_items_archive`: the
+// live table is a ROLLING WINDOW, and over it alone this said FIVE types and 134
+// completions — two types had been completed entirely into the archive. Two of them
 // (required_fields_missing :237, image_source_unsatisfiable :240) sit in the
 // catMechanical backlog below, which means the first person to work that backlog
 // is the person this bites. Census + controls:

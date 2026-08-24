@@ -37,32 +37,52 @@ as of 2026-08-24 — but the query must be able to tell you when that stops bein
 
 ## 2. The item types those agents handle, with the control
 
+⚠ **UNION THE ARCHIVE, or the answer is "recently" however you word it.** `site_work_items` is a
+ROLLING WINDOW — `work-item-archiver` moves TERMINAL rows to `site_work_items_archive` (25,281
+rows as of 2026-08-24), which is precisely where COMPLETED rows go. Measured: over the live table
+alone this census reported **5 item types / 134 completions**; over the union it is **7 / 578**,
+and the two missing types (`unfulfilled_hero_variant`, `image_url_404`) had completed ENTIRELY
+into the archive. Caught by the council's `prior_art_librarian` seat, not by me — `bugs_open/375`
+§8.
+
 ```sql
-SELECT handler_agent, item_type, count(*) AS rows,
+WITH allrows AS (
+  SELECT handler_agent, item_type, status, created_at FROM site_work_items
+  UNION ALL
+  SELECT handler_agent, item_type, status, created_at FROM site_work_items_archive
+)
+SELECT item_type, count(*) AS rows,
        count(*) FILTER (WHERE status='complete') AS completed,
        max(created_at)::date AS last_filed
-FROM site_work_items
+FROM allrows
 WHERE handler_agent IN ('image-build-handler','image-source-unsatisfiable-handler',
                         'image-url-404-handler','required-fields-missing-handler')
-GROUP BY 1,2 ORDER BY 1,2;
+GROUP BY 1 ORDER BY 3 DESC, 1;
 ```
+⚠ `WITH` must start the statement — a `WITH` after a blank line in a heredoc following another
+statement is a syntax error, not a silent wrong answer, so you will notice this one.
 
 ⚠ **Control the zero.** The headline is "the intersection with registered verifiers is ZERO", and a
 zero produced by a mis-spelled item type in an `IN` list is indistinguishable from a real one. Run
 the same registered-type list *without* the handler filter and require real rows back:
 
 ```sql
+WITH allrows AS (
+  SELECT handler_agent, item_type FROM site_work_items
+  UNION ALL SELECT handler_agent, item_type FROM site_work_items_archive
+)
 SELECT item_type, handler_agent, count(*) AS rows
-FROM site_work_items
+FROM allrows
 WHERE item_type IN ('content_duplication','dead_fragment_link','decision_regression','empty_section',
                     'hardcoded_section_colors','literal_markdown','missing_conversion_path',
                     'needs_brand_head_assets','orphan_element_refs','page_canonical_collision',
                     'revenue_shape_cta','truncated_component','unbuilt_internal_link')
 GROUP BY 1,2 ORDER BY 1,2;
 ```
-Expected 2026-08-24: **12 rows, 10 distinct types**, and **no handler among the four above**.
-⚠ 12 rows is not 12 types — it is (type, handler) pairs; `literal_markdown` has three handlers.
-The handoff quoted the row count as a type count; do not repeat that.
+Expected 2026-08-24 over the union: **11 of 13 distinct types with rows** (1,320 rows), and **no
+handler among the four above**. Over the live table alone it is 12 rows / 10 types.
+⚠ A row count is not a type count — these are (type, handler) pairs, and `literal_markdown` has
+three handlers. The handoff quoted the row count as a type count; do not repeat that.
 
 ## 3. Enumerate the registered verifiers
 

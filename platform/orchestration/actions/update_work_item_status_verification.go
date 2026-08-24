@@ -20,14 +20,27 @@
 // of 200 live agent definitions, 6 name `update_work_item_status` across 22
 // steps, and 4 of them reach `complete` across 6 arms — image-build-handler,
 // image-source-unsatisfiable-handler, image-url-404-handler and
-// required-fields-missing-handler (3 arms). Those four handle five item types
-// (needs_imagery, required_fields_missing, image_source_unsatisfiable,
-// needs_hero_image, needs_logo; 134 completions all-history) and NONE of the five
+// required-fields-missing-handler (3 arms). Those four handle SEVEN item types
+// (needs_imagery, required_fields_missing, needs_hero_image,
+// unfulfilled_hero_variant, needs_logo, image_url_404,
+// image_source_unsatisfiable; 578 completions all-history) and NONE of the seven
 // has a registered verifier. So no verifier is bypassed today: the defect is
 // LATENT. (Controlled: the same 13-type registered list run without the handler
-// filter returns real rows under handlers disjoint from those four, so the zero
-// is not a mis-spelled IN list. Re-run both from RUNBOOK_completion_verifier_gap.md
-// — a census does not go wrong, it goes stale by addition.)
+// filter returns 11 of 13 with rows, under handlers disjoint from those four, so
+// the zero is not a mis-spelled IN list. Re-run both from
+// RUNBOOK_completion_verifier_gap.md — a census does not go wrong, it goes stale
+// by addition.)
+//
+// ⚠ THE TYPE AND COMPLETION COUNTS ABOVE MUST BE READ FROM
+// `site_work_items` UNION `site_work_items_archive`, AND THE FIRST VERSION OF THIS
+// COMMENT DID NOT. `site_work_items` is a ROLLING WINDOW — the archiver moves
+// terminal rows out — so a census over it alone answers "recently", not
+// "all-history". Corrected after the council's prior_art_librarian seat objected on
+// exactly that ground (corr 7a6add95, medium): the live table alone reported FIVE
+// types and 134 completions; the union reports SEVEN and 578. The two extra types
+// (unfulfilled_hero_variant, image_url_404) had been completed entirely into the
+// archive and were invisible. The CONCLUSION survived — all seven are unverified,
+// so the zero intersection holds — but it survived by luck, not by the measurement.
 //
 // WHY IT IS STILL A BUG. verifier_coverage_test.go maintains the list of types
 // that ought to get verifiers and calls it, in its own words, "the actionable
