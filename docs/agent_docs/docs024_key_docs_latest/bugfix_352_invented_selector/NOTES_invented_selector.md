@@ -568,3 +568,50 @@ selector_scheme               4     0123…4567 (nonsense sha)                0
 you are about to trust* — and the SessionStart hook cannot help here, because it matches entries
 against files **already dirty in the tree**, and `/proc/1/exe` is not a file in the tree. An
 instrument has a footprint too. I grepped the entry an hour after I had already banked its answer.
+
+### A peer's narrow question turned up a trap neither lane was looking for (`bugs_open/384`, 19:30 UTC)
+
+The 384 lane sent an FYI: its Phase 2 adds a discovery check `page_list_stale` that files
+`page_rerender` / `spec.reason='section_data_resolved'` keyed with
+`PageRerenderItemKey(name, site, 'section_data_resolved')`, closing its own rows via
+`CheckResult.Resolved`. It framed this as "a detector filing a remedy — exactly the class you own"
+and asked only whether it conflicts with 352.
+
+**It does not, and the reason is worth stating rather than waving through.** 352's failure mode is a
+remedy that is *inert*: the instruction was an address (a CSS selector) naming nothing, so the fix
+was authored, deployed and completed while touching nothing. Their remedy is "rerender this page" —
+**no address to get wrong**, so 352's invariant is satisfied by construction. Different `item_type`,
+disjoint key namespace, no shared code path.
+
+**But answering it properly meant reading the index rather than recalling it, and that found two
+things.** ⚠ Neither is in 384's code — their check is not in the tree yet, so everything below is
+measured off the live DB and `pg_indexes`, not off their source.
+
+1. **They are the FOURTH producer on `section_data_resolved`, not the second.** [MEASURED
+   2026-08-24 19:30 UTC] `render_news_section` 182 · `bugfix-238-contact-block-2026-08-21` 6 ·
+   `rerender-pages` 3. That triggers the owner ruling of 2026-08-02 §1: converging producers onto
+   one `item_type`/`item_key` needs no RFC **provided** the producer set and the key shape are
+   stated in the register entry. Told them, and told them to date the count — this lane published
+   "108" this morning and it was 111 by evening for exactly that reason.
+
+2. **`idx_swi_dedup` is `(site_id, item_key)` — `item_type` is NOT a column**, so the key space is
+   global across every type on a site. Every existing LANDMINES entry about this index discusses
+   its *status* predicate; **none mentions its columns**, and the natural mental model ("it dedups
+   within my type") is wrong. Measured: `item_key LIKE 'page_rerender%'` is already carried by two
+   types (4,809 `page_rerender` + 150 `needs_page`), four prefixes estate-wide are shared by two
+   types, and **zero** `(site_id, item_key)` pairs have ever carried two — the suffixes have always
+   differed. **A clean history is not a guard; it is a coincidence that has held.** Filed as a
+   landmine with the estate-wide invariant query as its keepable form (it returns nothing today, so
+   a row appearing in it *is* the incident, already live, with no other symptom).
+
+**Verifier armed:** `./scripts/landmines-verify-dispatch.sh` dispatched correlation
+`97e80561-1094-4822-aa70-a22122256c33` for the new entry. ⚠ Only **2** entries needed verification,
+not the eight I had braced for — the other lanes' recent entries had already been synced by their
+own lanes, so my earlier worry about spending their dispatches was unfounded. ⚠ And read any
+`NEEDS_HUMAN_REVIEW` verdict against the known stale-INDEX false negative (commit `b2e1006d3`)
+before believing it.
+
+**The transferable bit:** the useful answer to *"does this conflict with your thing?"* was not about
+my thing at all. Checking the disjointness claim honestly meant reading a shared index definition,
+and that is where the finding was. **A narrow question from a peer is a cheap prompt to re-read a
+shared mechanism you have been quoting from memory.**
