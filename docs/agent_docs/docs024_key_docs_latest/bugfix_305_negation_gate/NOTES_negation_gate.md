@@ -963,3 +963,37 @@ instructed to put it there.
 descriptions (the "where appropriate" clause was not taken up). `content_direction` does separately
 carry the construction in nine keys — which is real, and is the *general* half of D2 — but the single
 mandated sentence the owner objected to is in `identity`.
+
+---
+
+## 2026-08-24 — D3 APPROVED with one objection, and the objection was RIGHT about my submission
+
+`c72ef85c`: **approved**, `unreadable=0`, 9 in body, 9 voted, **1 objected**. All three of that seat's
+objections were the same shape, and it is a shape this estate has a standing ruling about:
+
+> *"planNegationRepairs gains a new parameter … but the plan never states how many call sites this
+> internal function has."* · *"the plan doesn't confirm stampCopyGate's caller set — it just asserts
+> the parallel holds."* · *"No pipeline/agent is named as the owner of this change … so blast radius
+> across agents is unstated."*
+
+**I had checked all three while implementing and stated none of them.** The 2026-07-28 ruling is
+explicit: *"Measure the blast-radius claim before you submit; do not ask the reviewer to."* I did the
+measuring and then wrote the submission as though the conclusion were self-evident, which is the same
+defect in a different coat. Enumerated now, on file:
+
+| question | answer `[MEASURED 2026-08-24]` |
+|---|---|
+| `planNegationRepairs` call sites, fleet-wide | **18** — 1 production + 17 test, **all in this lane's own two files**. No external caller, so no silent signature break |
+| `stampCopyGate` callers | **2**, both in `rewrite_negations_action.go`. Not a shared utility |
+| agents dispatching `rewrite_negations` | **exactly 1** — `page-content-writer` |
+
+⚠ **The agent enumeration needs the RECURSIVE walk** (`jsonb_path_query(default_config,'$.**.steps')`).
+The step is nested in a loop `sub_workflow`, so a top-level `workflow.steps` query returns **zero rows
+and reads as "no agent dispatches this"** — the inverse error, and worse, because it would have made
+my blast radius look like nothing at all.
+
+**And the seat found a real gap, not just a missing sentence:** `stampCopyGate` had **no doc comment**.
+That is why its caller set was unknowable without grepping, and why a reviewer had to ask. It now
+carries one, naming the 2 callers, the single owning agent, and the recursive-walk query — so the next
+reviewer does not have to ask the same question. **A generically-named function with no comment is a
+question a reviewer is entitled to ask, and the answer belongs in the file rather than in a reply.**

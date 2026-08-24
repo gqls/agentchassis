@@ -103,7 +103,7 @@ oversight.
 | decision | ruling | state |
 |---|---|---|
 | **D2** — the nine briefs | *"correct that instruction narrowly"* | **DONE + LIVE.** Migration `597`, council `941ca857` |
-| **D3** — is `rather than` a tic? | *"a little bit of a tic"* | **BUILT, mutation-proven, INERT until the next roll.** Council `c72ef85c` |
+| **D3** — is `rather than` a tic? | *"a little bit of a tic"* | **BUILT, mutation-proven, INERT until the next roll.** Council `c72ef85c` **APPROVED** (9/9, 1 objection — answered, see NOTES) |
 
 **D2, and the part worth knowing:** the mandated tagline dropped its negation clause
 (`in days, not months` → `in days`), and it was in **five keys across three aspects**, not one —
@@ -184,6 +184,24 @@ with prose and broken the table. `AcceptNegationRewrite` compares prose shape an
 - **Scope deliberately not widened:** this is a prefix list, not an HTML grammar. `</blockquote`,
   `</dd`, `</dt`, `</caption`, `</section` remain absent because RULE 10 does not emit them into these
   slots. **Guessing at prefixes is how the `</th`/`</td` asymmetry arose** — probe and add a fixture.
+
+## 4b. Cross-lane: `594`/`595` were held for this lane's fix, and the hold can now LIFT
+
+The `bugs_open/381` lane renamed migrations `594`/`595` to `_HOLD` pending `714789d7b` (the `</th`
+boundary fix) being live — those are the migrations that first let the writer emit `<table>` into five
+prose slots. **`714789d7b` IS live** (ancestry-proven against the running commit, with a control), and
+they have been told, so expect `<table>` markup in those slots shortly.
+
+⚠ **Their `_HOLD` rename was a better call than my advice.** I suggested they land after the roll; they
+pointed out — correctly — that `run-migrations.sh` has **no file or directory scope**, so a documented
+"do not apply yet" does not survive another session's `--apply`. Only `SIDECAR_RE` enforces it. A
+documented intention is not a control on this tree.
+
+⚠ **They could not verify my fix and both obvious methods failed them**, which is worth knowing before
+you try either: `grep -a <sha> /proc/1/exe` returned a **false PRESENT on a 40-zeros control** (Go's
+internal digit table matches a run of zeros, so that control can never fail — worse than no control,
+because it converts "I didn't check" into "I checked and it passed"), and pod `.status.startTime` dates
+the **roll**, not the image. Use `service_binary_capabilities` (§4a).
 
 ## 5. Standing cautions (carried + new)
 

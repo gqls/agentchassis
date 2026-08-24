@@ -346,6 +346,25 @@ func recordPageHits(params ActionParams, hits int) {
 	m["page_hits"] = hits
 }
 
+// stampCopyGate merges this section's marker into the page-level one.
+//
+// NOT a shared marker utility, despite the generic name: 2 callers as of
+// 2026-08-24, both in THIS file. A council seat reading the D3 submission
+// reasonably assumed otherwise and objected that adding a skipped key might
+// affect other pipelines — it cannot, and the absence of this comment is why the
+// question had to be asked. `rewrite_negations` is dispatched by exactly ONE
+// agent (`page-content-writer`); enumerate with the RECURSIVE walk, because the
+// step is nested in a loop sub_workflow and a top-level `workflow.steps` query
+// returns zero rows and reads as "no agent dispatches this":
+//
+//	FROM agent_definitions a,
+//	     LATERAL jsonb_path_query(a.default_config,'$.**.steps') AS steps,
+//	     LATERAL jsonb_each(steps) AS s(key,value)
+//	WHERE s.value->>'action' = 'rewrite_negations'
+//
+// The `page_hits` / `mild_hits` keys are skipped here because they are owned
+// per-section by recordPageHits / recordMildHits; letting a section's marker
+// overwrite them would reset the per-PAGE budget on every section.
 func stampCopyGate(params ActionParams, marker map[string]interface{}) {
 	m, ok := params.CollectedData[copyGateMarkerKey].(map[string]interface{})
 	if !ok {
