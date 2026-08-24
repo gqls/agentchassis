@@ -1,9 +1,11 @@
 # 382 — image requests with an EMPTY `kind` still route to SDXL, silently — 15 heroes on 5 sites since the routing fix, none of them chosen
 
-**Filed:** 2026-08-24, vetcomparison lane. **Status:** OPEN — evidenced symptom + measured blast
-radius + a named candidate mechanism; the caller-side half is DELIBERATELY not diagnosed to a
-root cause here (see §5 — it needs one read the filing lane did not do, per the diagnosis-before-
-debugging rule this file is complying with).
+**Filed:** 2026-08-24, vetcomparison lane. **Status:** OPEN — **root cause FOUND and both halves
+FIXED; the config half is LIVE, the code half is committed and inert until the image-generator
+adapter rolls.** Stays OPEN per CLAUDE.md's bar (fixed AND live): the defect is still reproducible
+through the two orchestrator doors named in §7b until that roll. Close condition in §8.
+~~the caller-side half is DELIBERATELY not diagnosed to a root cause here (see §5)~~ — done
+2026-08-24 by the `bugfix_382_empty_kind_routing` lane, §7 below.
 **Parent:** `bugs_open/011` (hero routing — fixed 2026-07-18 by the routing table). This is the
 door 011's fix left open, by documented design, that production traffic is still walking through.
 
@@ -81,3 +83,123 @@ detector was pointed at the field's wrong VALUES, not its absence. Related censu
 `docs/agent_docs/docs024_key_docs_latest/vetcomparison/NOTES_vetcomparison.md` 2026-08-24 (third
 entry): the "None — text-only" prompt-contamination relic is **3 assets, all vetcomparison,
 all 07-17** — site-local, NOT part of this bug.
+
+---
+
+# 7. ROOT CAUSE — found 2026-08-24 (`docs/agent_docs/docs024_key_docs_latest/bugfix_382_empty_kind_routing/`)
+
+The read §5.1 asked for, done. **Two independent defects, one symptom.**
+
+## 7a. The caller: `image-build-handler.call_variant_gen` forwards no `kind`, and its
+`default_kind` config key is read by nothing
+
+`kind` reaches the adapter only if it is in the callee's `input_data`. `resolveKind`
+(`generate_image_actions.go:115-123`) reads `inputData["kind"]`, then `inputData["default_kind"]`,
+else `""`. For a `call_agent` step, `input_data` is built **solely** from the step config's
+`input_mapping` — `extractDataForAgent` (`call_agent.go:974-1018`) resolves the mapping and
+returns. **A `default_kind` key at the step CONFIG level is therefore never in `input_data`.**
+
+Migration `390` (2026-08-11) diagnosed exactly this and wrote it down — *"`default_kind` here has
+never done anything"* — fixed `call_hero_gen` and `call_logo_gen` with
+`"kind?": "input_data.spec.purpose"`, and then asserted in its own blast-radius paragraph:
+
+> "The Phase-2E branches (call_imagery_gen, call_variant_gen) already forward kind."
+
+**False for `call_variant_gen`, and still false in the live row until today.** Its
+`input_mapping` was `{prompt, site_plan}` — no `kind`, no `site_id` — beside a
+`"default_kind": "hero"` that reads exactly like the safety net it is not. `call_variant_gen` is
+the **only** handler of `unfulfilled_hero_variant` items (`check_item_type` routes them there),
+i.e. **every per-page hero**.
+
+**The evidence, and it settles the ordering.** 390 was applied 2026-08-11 **13:42 BST**
+(`8bb2194d6`). Later that same day, on ai-agent-orchestration.com:
+
+| `unfulfilled_hero_variant` item completed | SDXL hero asset created | asset_key |
+|---|---|---|
+| 16:28:33 | 16:28:04 | hero_about |
+| 16:37:23 | 16:36:53 | hero_services |
+| 16:38:33 | 16:38:08 | hero_contact |
+| 16:39:58 | 16:39:30 | hero_tools |
+| 16:42:01 | 16:41:21 | hero_case_studies |
+
+Each item completes ~30 s after the asset it made. All five post-390. That is the variant branch,
+still empty-kind. **14 of the 15 assets in §2 are per-page hero variants and belong to this
+mechanism. The 15th (mortgagecalculator.co.uk, plain `hero`, 10:35) is PRE-390 and is the case
+390 fixed** — so the live door count was smaller than §2 implies, and 390's fix is genuinely good
+as far as it went.
+
+*(Both rows above came from `site_work_items_archive`, not `site_work_items` — see §7d.)*
+
+## 7b. The other empty-kind doors, live in `agent_definitions` **as of 2026-08-24**
+
+`pageflow-builder` and `site-work-orchestrator` each carry `generate_hero_image` and
+`call_logo_generation` with **no kind and no default_kind at all** — four steps. Their
+reachability is **[UNMEASURED]** beyond one day: neither appears in `orchestration_states`
+(a ~1-day window), and `llm_call_log` has 0 rows for them, which proves nothing because an
+orchestrator makes no LLM call. **They cannot be fixed in config** the way `call_variant_gen`
+was: `input_mapping` resolves data paths, not literals, and their collected_data carries no
+field whose value is the string `hero` or `logo`. This is the concrete reason the fix had to be
+in code as well.
+
+## 7c. The silence was a documented exemption, and three artefacts agreed with each other
+
+`routing.go` exempted the absent case in a comment (*"legacy callers that predate the field are a
+documented, deliberate Stability path, not an oversight"*); `routing_test.go` PINNED it
+(`TestRouteProviderEmptyKindIsLegacyNotUnmigrated`); and **016b §9 PRESCRIBED it** to future
+sessions (*"an empty kind is a documented legacy path that legitimately uses the fallback, so it
+must not warn"*). The reasoning was sound — a constant warning is a dead warning — and only the
+*classification* was wrong. Nobody had ever enumerated the callers. All three are corrected, the
+guide with a dated block rather than an edit.
+
+## 7d. A measurement trap this bug sits on top of
+
+`site_work_items` is a rolling window; closing a row archives it out. A census of
+`unfulfilled_hero_variant` over the live table returns **0** while the archive holds 18 completed
+rows. Anyone re-deriving §7a must query **both**. Filed in `LANDMINES.md` and `WRONG_CALLS.md`.
+
+# 8. THE FIX, as shipped
+
+**Config half — migration `586`, APPLIED + RECORDED 2026-08-24, live on apply, no roll.**
+`call_variant_gen` gains `"kind?": "input_data.spec.purpose"` (390's shape and source;
+`store_variant_asset` already reads the same field, so the value is proven present) and
+`"site_id": "site_record.site_id"` (**a second defect** — variant heroes were generated with no
+style guide, no `provider` preference, no `avoid` terms, no reference anchors and no
+`design_intent.imagery_direction`, while the canonical hero on the same site got all of them).
+All **three** dead `default_kind` keys deleted. Verified live: all four image branches now map
+kind and site_id; **0** `default_kind` keys remain fleet-wide.
+
+**Code half — `da21ae20f`, committed, INERT until the image-generator adapter rolls.**
+`routeProvider` sends an absent `kind` to **Banana** and sets a new `MissingKind` flag, kept
+separate from `UnmigratedKind` because the fixes differ (map kind at the caller vs add a row to
+the table). A `MISSING_IMAGE_KIND` condition joins the existing three, so the chassis persists it
+to `agent_error_log`; the message names the real remedy, because the dead `default_kind` key is
+what a reader would otherwise reach for. The record carries a bounded opening slice of the prompt
+— the row lands on the image-generator's own orchestration, whose collected_data holds nothing
+`buildErrorContext` recognises, and `orchestration_states` is reaped in ~1 day, so "walk up to
+the parent" stops working overnight.
+
+Safety checked rather than assumed: `banana.New` refuses an empty `APIKey` and
+`NewDynamicImageAdapter` aborts on that error, so a **running** adapter always has a working
+Banana client — the new default cannot turn a degraded success into a failure. Exactly one place
+in the repo publishes to `system.adapter.image-generator.requests`, so the producer set is
+enumerable. The escape hatch is untouched and pinned by a test: an explicit `provider:"stability"`
+still wins, and fleet-wide exactly one site sets `provider` at all — idea.uk, to `"banana"`.
+
+Council: `Council-Submitted: e53f57ae-3bb1-442c-8e7b-742a1c2bb0ad`.
+Diagnosis loop, run correlation `bdea8252-aa93-44b6-be59-9a6c43fed858`.
+
+## 8b. Close condition
+
+1. The image-generator adapter rolls carrying `da21ae20f` — proven at the **artefact**
+   (`build provenance` line or a binary probe with both controls), not at git or the tag.
+2. Re-run §2's census with the roll date substituted for `'2026-07-18'`, **with the demand
+   control** (RUNBOOK §5): an empty SDXL row set only means something if hero/variant items
+   actually ran in the window.
+3. A `MISSING_IMAGE_KIND` row appears in `agent_error_log` from one of §7b's orchestrator doors,
+   OR those four steps are shown never to run. Either answers the open question; a permanent
+   absence of rows answers neither on its own.
+
+**Cross-refs added by this lane:** `LANDMINES.md` — *a key in a `call_agent` step's config is read
+by nothing* and *`site_work_items` is a rolling window*; `WRONG_CALLS.md` (2026-08-24, two
+entries); 016b §9's dated correction; lane docs in
+`docs/agent_docs/docs024_key_docs_latest/bugfix_382_empty_kind_routing/`.
