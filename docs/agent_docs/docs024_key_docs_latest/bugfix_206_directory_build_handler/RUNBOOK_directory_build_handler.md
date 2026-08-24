@@ -185,6 +185,14 @@ curl -s -o /dev/null -w '%{http_code}\n' https://garden-tools.uk/brand-directory
 ```
 404 before the roll, 200 after, with no hand re-triage — that is the closure proof, and it is
 stronger than re-triaging a page yourself because nothing about it was arranged to succeed.
+
+> **OWNERSHIP: this check is THIS lane's, and it is deliberately double-owned.** The
+> `loanzy_uk_example_site` lane also carries it (their handoff §3a, with the same procedure) and
+> will run it if that session is still alive when the roll lands. **Do not treat that as
+> delegation and drop it here** — their own docs record a handoff outliving the work it asked
+> for, and a session ending is exactly the failure mode that leaves an owed action unowned. Two
+> owners on a one-command check is cheap; nought owners is how this lane's original bug sat for
+> fifteen days. Verify at the SERVED page, never at `build_status` or the work item.
 ⚠ Its `/buying-guides/index.html` is `section-index` and will STILL 404 after the roll — that is
 the deliberate narrowing, not a failure of the fix.
 

@@ -514,7 +514,17 @@ This file's amendment says of the two `section-index` pages left unrouted:
 dead links from three different live pages**, one of them `/index.html`. **A visitor meets a 404
 from the front page.** Nothing suppresses a link when its target parks (that is `bugs_open/328`,
 a separate defect — but it is the mechanism through which this fix's cost is *paid*). Full set on
-that site: 9 dead-link instances, 4 distinct targets.
+that site: 9 dead-link instances, 4 distinct targets, settled composition —
+`/tools/finder/` ×4, `/buying-guides/` ×3, `/brand-directory/` ×1,
+`/blog/buying-guide-post.html` ×1, with 3 of the 9 instances sitting on the home page.
+
+> **Why the composition is recorded and not just the total** (the lane corrected its own figures
+> to me, 2026-08-24): these numbers MOVED DURING THE BUILD, and **the total did not move with
+> them.** Mid-build the count was 9; on the finished site it was still 9 — but `seasonal-planner`
+> came live in between, which removed one dead link (it was itself a dead target) and contributed
+> two of its own. **A stable total is not evidence of a stable population**, and a dead-link
+> census taken while a build is still running measures a different site from the one that ships.
+> Quote the composition and the timestamp, or quote nothing.
 
 So the honest cost sentence is: **leaving `section-index` unrouted costs a 404 from the home page
 per greenfield site.** That does not make the narrowing wrong — a dead link is *visible* where a
