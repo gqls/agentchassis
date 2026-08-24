@@ -295,3 +295,49 @@ somewhere else entirely, which is the specific thing the diagnosis loop is good 
 lane has already been burned once today by a check that could not return the disconfirming
 answer. A reader who wants that assurance should run `090` on the symptom string rather than
 treat this list as equivalent.
+
+## Producer census 2026-08-24 — "is the cause anywhere ELSE?", asked properly and answered NO
+
+The one thing this lane's first-hand verification could not do was rule out a *different* producer
+with the same shape. So it was asked as a census rather than left as a caveat. **Five code sites
+mint page-build work items. Only one had the defect.**
+
+| producer | handler choice | verdict |
+|---|---|---|
+| `WriteBuildItemsAction` (planner) | consults the builder map | **correct by design** — but still lacks the `section-index` entry until the held swap lands |
+| `ReconcileSitePlanAction` | `'page-build-handler'` as a SQL literal | **the defect** — fixed, `d1aa231aa` |
+| `check_sectionless_pages` | `'page-build-handler'`, **with a stated reason** | not the defect — scoped to pages a same-role sibling can repair, and that fallback lives in *that* workflow (its own header says so) |
+| `check_componentless_pages` | `'page-build-handler'`, **with a stated reason** | not the defect — *"the page's own sections array is intact, so page-build-handler can build it"* (`:55`) |
+| `check_incomplete_page_group` | `'page-build-handler'`, **no stated reason**, consults only `role` (the TP-004 tool guard) | **suspected, then REFUTED by measurement** — see below |
+
+The fifth looked like a second instance: it mints `needs_page` for a page that may well have no
+layout, and unlike the two above it offers no reasoning for the handler choice. The disconfirming
+query — `spec->>'reason'` across every row carrying the no-op signature:
+
+```
+(none)                  70    ← overwhelmingly tool pages, created_by generic/discovery (bugs_open/220's class)
+not_built                9    ← reconcile_site_plan's own reason string
+image_landed             4
+content_data_backfill    3
+sectionless_pages idiom  1
+incomplete_page_group    0    ← the suspicion, refuted
+```
+
+**Zero.** Every typed-page instance of this defect carries reconcile's `not_built`, and the large
+remainder is the tool class with a different cause. So the fix's scope is not an assumption — the
+alternative was enumerated, one candidate was suspected on structure, and the evidence said no.
+
+**What this does NOT rule out**, stated because the census can only see failures the platform has
+already recorded: `check_incomplete_page_group` retains the *shape* (a hardcoded generic handler,
+blind to `page_type`) and would produce this defect the first time it mints a typed, layout-less
+page. It has not yet. That is a latent instance, not a live one — worth a comment pointing at
+`builderForPageType` when someone next touches that file, not a fix ahead of demonstrated need.
+
+> **Correction to this lane's own 2026-08-08 account, found by the same read:** the
+> `HANDOFF_2026-08-08b` says the improvement loop *"re-routed directory-index to
+> `directory-build-handler` **via the builder map**"*. `check_incomplete_page_group` hardcodes
+> `page-build-handler` and consults no map, so the map cannot be what re-routed it — the handler
+> on that row came from this lane's own earlier hand-update, which `refreshOpenWorkItem` then
+> preserved. The loop genuinely did revive the row (that part stands); it did not choose the
+> handler. `[The mechanism of the preservation is INFERRED from the hardcode — I have not read
+> refreshOpenWorkItem's field-merge behaviour.]`
