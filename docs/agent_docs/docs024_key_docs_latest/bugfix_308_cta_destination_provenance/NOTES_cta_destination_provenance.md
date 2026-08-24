@@ -699,3 +699,56 @@ which is the known non-repairable class. A completeness sweep is DB-queries-only
   gamesdesign.co.uk 4, leopardessconsulting.co.uk 1).
 - Migration `555_requeue_misdirected_cta_stock.sql` is aimed at a population that is 78% obsolete
   and 0% blocked. Do not build it on the "these are the broken pages" premise.
+
+### 8. Independent audit (Fable, 2026-08-24, read-only, own probe, did not open my dumps) — corrections
+
+Owner asked for a second model to check §§1-7 before anything was dispatched. All ten claims
+held; three carry corrections, and it found the mechanism I had not named.
+
+> **CORRECTED 2026-08-24 (audit):** §3 said "Explore Your Archetypes" was an *unchanged* button.
+> Its href moved `/provocations/index.html` → `/tools/gauntlet/index.html`; it is the self-page
+> refusal that hides it now, not immobility. Conclusion unchanged.
+> **CORRECTED:** §6 said two sites were swept since Phase B. `orchestration_states` shows FOUR
+> `completeness-discovery-agent` runs today: finetuning.uk 10:43Z, remortgagecalculator.uk 11:49Z
+> (0 misdirects), robot-hands.com 12:49Z, cookly.uk 13:49Z (1 finding, repaired 14:05Z).
+> **CORRECTED:** §6 said robot-hands.com had 1 machine-fixable finding left. That item is
+> `triaged` at `attempt_count 2/3` with `error = OWNED_PAGE_GUARD` (page is `rebuild_policy=owned`,
+> two rerenders FAILED at `save_sections`) — it will not be machine-fixed. Effective: **0**. Of the
+> fleet's 171 covered findings, 1 is on an owned page → **170** writable.
+
+**The reframing that matters — the 215 were never stuck jobs.** 212 of 215 carry the summary
+`[unresolved after N attempts]`: `load_work_item_actions.go:1507-1547`, the two-strike rule,
+writes a fresh finding *born* `unresolved` when its `item_key` already has ≥2 `complete`/`failed`
+rows in the last 7 days. They were never dispatchable. "Release the backlog" was never releasing
+held repairs; it would have re-triaged labels whose repair had already run twice and not stuck.
+The other 3 are stale-reaper rows.
+
+**And that is the mechanism that MANUFACTURES the stock, and it regrows under a sweep.** The
+detector files one `page_rerender` per page whatever the slot; a page whose only findings sit in
+an uncovered component (`article-body`, `ported-page`, `info-card-grid`, `tool-cta` … — **130** of
+301 fleet-wide today) gets a rerender that completes as a no-op, strikes twice, and the third
+sweep inside 7 days births an `unresolved` row. finetuning.uk has **32 keys at 2 strikes** in the
+window right now. So: (a) space sweeps of a site more than 7 days apart, or the third one
+manufactures stock; (b) **a re-sweep within 3 h of a terminal row is SUPPRESSED at Info level
+(`:1526`) and reads as clean** — do not read a fast second sweep as "0 remaining"; (c) the real
+fix is Phase C — the detector should not file a rerender for a page with zero covered findings,
+and a completion verifier should refuse "complete and unchanged". This is `bugs_open/308` §Phase C,
+not a new bug.
+
+**Two caveats on my own claims.** C5 (a released item cannot write a stale target) holds, but a
+released item is not a no-op on a page whose finding is gone: the recompute visits every
+`ctaFieldNames` field on the page and can move any covered CTA whose label now matches elsewhere.
+And C4 (an `unresolved` row holds no dedup slot) is true of the running code but contradicts an
+owner ruling on record — `RFC_010` Decision 2 (line 173): "`unresolved` IS OPEN. Not terminal …
+deduplication must be able to reach it." Unimplemented (87 duplicate rows block the index change).
+**If someone builds Decision 2, a stuck row WILL hold the slot and a sweep will no longer refile.**
+
+**500 AMBIGUOUS anchors are discarded unrecorded fleet-wide** — more than the 301 misdirects (Phase
+B design choice, `check_misdirected_cta.go:110-119`; the third return is dropped on purpose). Some
+are real (vonc "Enter the Gauntlet" → `/tools/gauntlet/round.html`). **"0 remaining" is not
+"healthy".** gaswholesalers.com: 22 of them.
+
+**gaswholesalers.com against every trap above [MEASURED 2026-08-24 ~15:00Z]:** 12 pages with
+findings, **0** with only uncovered findings (no no-op rerenders → no stock growth); 1 key with a
+single strike, 160 h old (no suppression, no birth-unresolved); 25/25 findings covered; last sweep
+08-17 22:37Z. It is the clean first case as well as the worst one.

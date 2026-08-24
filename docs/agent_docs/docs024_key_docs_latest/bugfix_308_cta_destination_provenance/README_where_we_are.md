@@ -243,3 +243,31 @@ fixable kind. If you want one site done first, it should be that one.
 **And a correction to the handoff I picked this up from:** it says releasing the backlog would touch
 eleven client sites. It is seven, as of today. Counts like that go stale by addition and subtraction
 both, which is why they now get written with the date they were taken.
+
+**Same day, after you asked for a second opinion.** I had a second model re-derive all of it from
+scratch — its own program, its own queries, without looking at mine — and told it to try to prove
+me wrong. Everything held, with three small corrections (one button had moved rather than stayed
+put; four sites have been swept since the fix, not two; the one "still queued" robot-hands button is
+actually stuck behind a page-ownership guard and won't be machine-fixed). None of that changes the
+picture.
+
+What it did find is the thing I had not named, and it changes how to say this. Those 215 "stuck
+jobs" were never jobs waiting to run. The platform has a two-strikes rule: if it has already tried
+to repair a page twice in a week and the problem is still there, the next finding is filed straight
+into a "gave up" pile so a human can see it. That is what the 215 are — labels saying "tried twice,
+didn't stick" — and the reason they didn't stick is the one this whole bug is about: the repairer
+could not reach the page the button named. So "releasing the backlog" would have been re-triaging
+labels, not unblocking work. It was the wrong picture all along, and I'm glad we did not act on it.
+
+Two practical consequences for the sweep. First, a page whose broken links are all in a kind of
+component the repairer is not allowed to touch will "complete" without changing anything, and if
+you sweep the same site three times inside a week it manufactures new "gave up" rows. So sweeps of
+one site should be more than a week apart until that is fixed properly, which is the next piece of
+work on this bug. Second, sweeping the same site again within three hours is silently ignored and
+looks like a clean result. Neither applies to gaswholesalers.com today — every one of its 25 broken
+buttons is the fixable kind, and it was last swept a week ago — which is one more reason to start
+there.
+
+One more thing to hold onto: about 500 buttons across the estate are ones the platform now
+deliberately declines to judge because the wording could mean two pages equally. That is by design,
+but it means "nothing left to fix" on a site does not mean every button is right.
