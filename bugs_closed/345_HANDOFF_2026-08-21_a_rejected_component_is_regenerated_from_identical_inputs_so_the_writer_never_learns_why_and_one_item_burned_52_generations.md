@@ -684,3 +684,84 @@ step-failure path, which is more than the stated hour. §3 said this correctly (
 since 08-19 00:24Z with the 337 cap/contract work in between, rather than "zero ever" — and on an
 instrument that can actually fire. WII-026's relations line, which quoted the blind literals, is
 corrected in the same commit.
+
+---
+
+## ⚠ CORRECTION 2026-08-24 — candidate 2's retargeted form is NOT hypothetical: it EXISTS, tested and compiling, uncommitted in the shared tree
+
+My strike on candidate 2 (above) ended *"if the spend argument is still wanted, the surviving form
+is **park on the SECOND rejection when the reason is byte-identical to the first**"* — written as a
+suggestion for some future session. **It was already built when I wrote it.** Found 2026-08-24 only
+because two other lanes independently asked me to commit it, both believing it was mine.
+
+**What exists** [MEASURED 2026-08-24 ~09:00, working tree]: `applyWorkItemFailureLadder` gains an
+8th parameter (`stepConfig map[string]interface{}`), an opt-in `stop_on_repeat_failure_item_types`,
+a `TerminatedOnRepeat` outcome field, an env disarm (`DISABLE_WORK_ITEM_REPEAT_TERMINATION`), and
+the prior failure read from the row for exact-equality comparison. Both non-test call sites updated;
+**16** references in `work_item_failure_ladder_test.go`; `go build ./platform/orchestration/actions/`
+**exits 0**.
+
+**It is the RIGHT form, and its author reached that independently.** Its own comment says: *"⚠ NOT
+the bug file's candidate 2 as written. That said 'park on the FIRST rejection', whose premise was
+true only while the retry was blind. Implementing it now would disable the mechanism that just
+started working."* Same conclusion as the strike above, arrived at separately. It also argues
+**exact equality rather than `normSigFragment`**, because that signature strips quoted strings and
+would collapse `"currency_symbol"` and `"ctas.primary_url"` — two real examples from this bug — into
+one, killing a writer that was genuinely converging. That is a sharper point than anything in the
+strike, and it is grounded in this file's own evidence.
+
+**Why it is still uncommitted, and why that is now a problem rather than a detail.** HEAD's ladder
+still takes 7 params, so committing any one of the three files alone breaks HEAD — verified by
+`git archive HEAD` + overlaying `load_work_item_actions.go`, which fails with *"too many arguments
+in call to applyWorkItemFailureLadder"*. Two lanes (`bugs_open/326`, `bugfix_206_directory_build_handler`)
+are each holding an unrelated edit to `load_work_item_actions.go` waiting for the author to land it.
+**Neither is the author, and neither am I.** [INFERRED, not established] it is the
+`bugfix_311_component_keys` lane: ladder mtime `2026-08-22 19:21`, twenty-two minutes after that
+lane committed candidate 1 at 18:59, comments citing item `ceea0c07` and RFC_010 §2 in its idiom.
+That lane moved to garden-tools/311 after-tests and nothing has been touched since 19:20 on 08-23.
+There is still **no lane doc** — `stop_on_repeat_failure_item_types` appears in zero markdown outside
+`bugfix_326_retry_the_front_door/NOTES_326…:294`, where 326 records preserving *"their"* hunk.
+
+**Does this reopen 345? No** — and the reason is worth stating rather than assumed. Candidate 2 is a
+**cost** control (stop paying for a budget that cannot help), not a repair of the filed defect (a
+retry regenerated from identical inputs), which is fixed, live and proven. The bar is fixed AND
+live, and it is still met. But this file must not read as though the spend half is unbuilt, because
+it is built and one commit away.
+
+**The transferable shape, and it is the third instance in two days:** *ownership inferred from `git
+log` is not ownership.* The newest commit on the ladder is titled `fix(345 part 1)`, so two separate
+lanes read "345" and routed the work to whoever was holding 345 — me, a session that arrived a day
+later and has written no Go. **On this tree a bug number in a commit message names the WORK, not the
+session.** The sibling failure is already recorded above (`who-owns.py` reads commits and cannot see
+a session mid-fix); this is the same blindness from the opposite end — the commit *can* be seen, and
+it names the wrong party.
+
+### The corrected tripwire, INDEPENDENTLY VERIFIED — including the one-row test its author asked for
+
+Checked 2026-08-24 by the session that closed this bug, because a correction to an instrument is
+itself an instrument claim. **All five checks pass; the corrected tripwire is sighted.**
+
+| check | result | reads |
+|---|---|---|
+| the known-real occurrence exists | 3 rows, newest **2026-08-19 00:24:20Z**, `generate_template … execute_llm_prompt` | ✅ as described |
+| **ONE-ROW TEST — old predicate vs that row** | **0** | ✅ confirmed **blind** |
+| **ONE-ROW TEST — corrected Face-A predicate vs that row** | **18** all-time | ✅ confirmed **sighted** |
+| corrected tripwire as written, run now | **0 / 0 / 0** | ✅ dated baseline holds |
+| the 2 items' attribution | created 08-18 15:17:32Z / 22:47:48Z, **both** `updated_at = 2026-08-23 12:33:13.889675Z` | ✅ 100% administrative cancellation |
+
+**And the same adversarial check applied to THEIR fix, since a widened pattern is how a tripwire
+gets re-blinded:** all **18** Face-A matches carry `stop_reason=max_tokens` (6 on 08-15, 8 on 08-18,
+4 on 08-19); **zero** are the diagnosis loop's `step verdict failed`, and **zero** are
+`render_component`'s speculative *"likely LLM truncation"*. The `generate_template` conjunct does
+the work claimed of it. **Retention confirmed too:** `agent_error_log` spans 2026-07-24 → 2026-08-24
+(**46,194** rows), i.e. ~31 days — so the 08-19 rows **will age out of the log arm around
+2026-09-19**, which is precisely why the `site_work_items` arm is not redundant. ⚠ **After that
+date the log arm alone would read 0 for a reason that has nothing to do with the class.**
+
+**The lesson, which is sharper than the fix:** my 0/0 carried a demand control and was still blind,
+because *the control shared the instrument's CHANNEL but not its PREDICATE*. Fourteen rows proved
+the column receives text; nothing proved the `ILIKE` patterns could match the thing being watched
+for. **A demand control must exercise the filter, not the delivery** — and the cheapest form of that
+is the one-row test above: take a known-real occurrence of the class and run the tripwire's own
+`WHERE` against it. Both lanes signed off a blind instrument; one query would have caught it, and
+neither of us ran it until the author went back on their own evidence.
