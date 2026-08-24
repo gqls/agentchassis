@@ -1426,3 +1426,9 @@ morning's finding that our 07-17 item went first). Outcome recorded below when i
 fields + price URLs on their own domain (provenance rule unchanged by a claim), carries the
 consent line, and the operator notes: OV-qualification claim is THEIR statement not our fact;
 verify price URLs in a browser (bot wall); model locations as rows under group_name.
+**OUTCOME:** section_edit `74d2600d` complete, err NULL — and verified at the artefact: live page
+200 (23,376 bytes), headline "Ready to claim your listing?", primary CTA "Claim your listing by
+email" carrying the full encoded template (subject `Claim listing: [your practice name]`, body =
+the five RUNBOOK fields + the from-your-own-domain line), secondary CTA (CMA self-assessment)
+intact, plain mailto in the text block untouched. The 115-item queue estimate was pessimistic —
+the dispatch loop batches; landed within ~15 min of filing.
