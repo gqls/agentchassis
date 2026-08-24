@@ -438,3 +438,82 @@ means the next session to touch the stamp finds us. Done in this commit.
 still read `component_version_id IS NULL`; a population row appearing WITH a hero stamp means the
 splice hygiene failed"*. So a future stamped hero row is **their** alarm, not a windfall for my
 signal — do not read it as coverage improving.
+
+---
+
+## 2026-08-24 — the fix, and the misstep that produced it
+
+**Shipped in code, inert until the next chassis roll.** Commit `5074367f7`, council
+`ca01b81a` (`Council-Submitted:`, verdict unread). HEAD verified to build with
+`scripts/verify-head-builds.sh` (HEAD had already moved to `7d18c8c83` — another session
+committed in between; the working tree was red from a third lane's WIP, which is what the
+commit hook's "the tree does not build" line was about, **not** this change).
+
+### The misstep, which is the most useful thing in this file
+
+I measured *"what happens if the term is REMOVED"* — 0 of 4,888 contexts — and then wrote,
+in three places, *"a change that removes **or replaces** the term cannot regress any current
+selection."* The measurement compared `base + term` against `base`. **It licenses deletion and
+nothing else.** When I finally ran the comparison against the replacement I had actually built,
+it was **3,246 of 4,888** winners across 3 section_types.
+
+What caught it was not a test and not a review — it was **running the query I had just written
+against the live database and reading the output**. The five `hero` candidates came back at
+27 / 22 / 18 / 6 / 4 sites where the old column had them all at `0`, and the spread was visible on
+the row. `go build` passed throughout. Logged in `WRONG_CALLS.md` with the cheap check: **state the
+two versions the number compares, inside the claim** — "removing changes 0 winners" cannot be
+stretched; "removing or replacing" only reads as supported because both verbs sit in one sentence.
+
+### And it inverted the design, for the better
+
+Being forced to measure the replacement honestly is what killed it. **A *working* usage term is a
+preferential-attachment loop** — selected → count rises → scores higher → selected again — and
+`bugs_open/107` is the standing complaint about exactly that outcome, citing this file. So the
+accurate version of the term makes the estate *more* homogeneous. Repairing the measurement would
+have closed this bug while making an open one worse, under the smaller change's evidence.
+
+**So the fix is bug-file candidate 3 (stop scoring on it), not candidate 1.**
+
+| | winners changed, of 4,888 contested contexts |
+|---|---|
+| remove the term | **0** |
+| repair the term with the derived number | **3,246**, across 3 section_types |
+
+### What actually shipped
+
+1. `IncrementUsageCount` **deleted**, and its only call site in `resolveSectionComponent` replaced
+   with the reason (it fired before `planSection` decided anything).
+2. `ComponentUsageSitesSQL` — **one** named constant, `count(DISTINCT p.site_id)` over
+   `page_components` joined to `pages`, excluding `build_status='removed'`. Distinct **sites**, not
+   binding rows: `[MEASURED 2026-08-24]` raw bindings run max 414 / median 1 (a near-binary signal
+   reporting "is this on a big site"), distinct sites max 27 / p90 9.
+3. **The scoring term is gone** from both selector queries. The derived figure is still SELECTed as
+   `usage_count` so it is logged and honest — nothing scores on it.
+4. `load_existing_component_action.go`'s **contract-row** `ORDER BY` uses the constant. This is the
+   reader the bug file missed and the only place with a real behavioural change: **2 of 4** contested
+   section_types move, **both corrections** — `about-hero`→`hero`, and
+   `archetype-taster-quiz`→`tool-archetype-taster-quiz`.
+
+**Both rewritten queries were executed against the live DB via `PREPARE`/`EXECUTE`, not merely
+compiled** — `go build` cannot parse SQL, and in this change the SQL *is* the change.
+
+### Owed, and deliberately not done
+
+- **The column still exists**, written by nothing and read by nothing in Go. Dropping it is a
+  follow-up migration *after* this code is live, so the code cannot roll back onto a missing column.
+  ⚠ **Until then it still reads as a maintained figure.**
+- **Read the council verdict** (`ca01b81a`) and act on a REVISE/REJECTED — the code is already on the
+  shared branch. The commit hook also raised an **architecture signal** for the removed exported
+  symbol; the submission argues this is a point fix (`IncrementUsageCount` had one non-test call site
+  and no other consumer, verified by grep across `platform/ internal/ pkg/ cmd/`), but the
+  architecture seat may disagree and that is its call, not mine.
+- **The `090` run never returned a verdict** — `1c62c1f7-cb06-4482-933e-8c08a622b5c1`, still
+  `diagnosing` with an empty `result` after ~1 hour. So this fix rests on first-hand evidence only,
+  which the 2026-07-31 ruling permits provided the substitute is stated plainly: the writer claim is
+  an exhaustive grep of four Go trees plus `pg_proc`/`pg_trigger`/views/agent config, the reader
+  claims are the three queries quoted verbatim, and every behavioural claim is a simulation over the
+  live library with a disconfirming control named. **If that verdict lands and refutes anything, it
+  is a `WRONG_CALLS.md` entry and a correction here.**
+- A `LANDMINES.md` entry for the "increments before the outcome is decided, and again on every
+  re-plan" shape — held deliberately until the fix is live so the entry can name the remedy
+  (agreed with the 357 lane).
