@@ -2505,3 +2505,24 @@ drain ~152/h (completions in the last hour) ⇒ ~3 h. Queue alive, so the
 single-page bypass (whose condition is a DEAD queue) is not invoked; a watcher
 polls the row every 5 min. Remaining when it lands: bytes on the box, live page,
 `smoke_live_editor.py https://noted.co.uk` (now with the media round-trip).
+
+### Stage 1 IS LIVE — the queue landed, the chain verified, the smoke passed
+
+The rerender item completed 18:13 UTC (~2.5 h queued — inside the ~3 h
+estimate). The watcher's own record carries an instrument note: 13 consecutive
+polls 17:08–18:08 returned EMPTY (stderr was discarded, so the cause is lost —
+likely transient exec/API failures), then recovered unaided. An empty poll is
+"instrument down", not "status unchanged" — a watcher that asserts on emptiness
+would have died an hour early. Keep stderr next time.
+
+Chain verified at every artefact: item result deployed exactly
+`tools/write/index.html` to **vm-sites** (commit `2ac2eed8cd…`); box file
+updated 17:41, `nw-add-media` present, old doc line absent; live page carries
+the UI. Then `smoke_live_editor.py https://noted.co.uk` — **ALL 15 PASSED**,
+incl. the new media round-trip: upload via the real picker → storage meter live
+→ SECOND independent browser session decodes the image (`naturalWidth > 0`,
+bytes not tags) → live DELETE removes it there. The throwaway account holds one
+text note; its media was deleted by the smoke's own final step.
+
+**Stage 1 (PLAN_2026-08-24) is DONE: built, deployed, live-proven.** Next:
+stage 2, the pasteboard proper (notes.layout JSONB + the board view).

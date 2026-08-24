@@ -402,3 +402,24 @@ more now that accounts can hold real files.
 
 One piece of tidy news: the formal review of the Get Started button change came
 back approved, so that thread is closed.
+
+---
+
+## 2026-08-24, evening — media notes are LIVE (written by the assistant)
+
+You ran the two server commands this afternoon, and everything after them went
+through cleanly: the service updated, the page updated through the framework,
+and the rebuild queue delivered the new editor page about two and a half hours
+later.
+
+Then the full live rehearsal ran against the real site, and all fifteen checks
+passed. The one worth saying out loud: a picture was uploaded through the real
+page, a completely separate browser signed in as the same person and got the
+actual picture back — decoded, not just a broken image tag — and then removed
+it, with the removal confirmed by the server. Save-honesty still holds
+everywhere: pull the network cable mid-save and the page says so loudly, keeps
+your words, and recovers on retry.
+
+So: noted.co.uk now takes photos, GIFs, video clips and audio in a note, today,
+on the live site. Next stage when you want it: the pasteboard itself — arranging
+what you've pasted, moving things around — and after that, editing in place.
