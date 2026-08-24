@@ -30,3 +30,11 @@ The reviewer council approved the main fix (13 reviewers, none unreadable). Two 
 The safety-net sweep is also built now: a discovery check that compares each stored list against a fresh answer and files a re-render when a picture differs. It deliberately never "closes" anyone else's re-render request — I measured that no producer has ever retracted a re-render on this item type across 18,360 of them, so this would have been the first, judging 121 other producers' requests. Turning the sweep on is a held migration (603), to be applied by hand only after the build that carries the check has rolled.
 
 Everything is committed (three commits) and the second review round is running. Nothing is live until the next chassis build rolls; after that, the proof is an induced card landing producing exactly the expected re-render requests — written up in the lane RUNBOOK.
+
+## 2026-08-24, end of session — both reviews approved; nothing live until the next build
+
+The safety-net sweep went through three review rounds tonight. Each round found something real: first, a place where an unreadable stored record could have been mistaken for "nothing to compare" (fixed and tested with a case that actually proves it); then two numbers I had written from memory instead of measuring — the migration now measures its own starting point when it is applied, and one status value I described as live does not in fact occur. Third round approved.
+
+Where this leaves things: five commits on the branch, all reviewed, the build proven from a clean copy. None of it does anything until the next chassis build rolls. After that roll there are four things to do, written up in the lane's RUNBOOK: prove the roll, run the induced card-landing test, switch the sweep on by hand (migration 603 — it checks its own preconditions and tells you what to watch), and re-read the escalation number a week later.
+
+Two open questions for you, neither urgent: RFC 052 asks whether the two older "tell my one listing page" mechanisms should move onto the new shared lookup; and the `rebuild_blog_listing` step still writes empty images into blog listings — harmless today (no blog index lists a page with a card) and now caught by the sweep when it fires.
