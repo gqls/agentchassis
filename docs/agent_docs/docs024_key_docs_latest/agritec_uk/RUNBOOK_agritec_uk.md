@@ -253,3 +253,62 @@ overwriting their work. Worked examples: `SEED_2026-08-22_sfi26_bans.sql`,
 **Do not run two evidence-researcher dispatches concurrently.** Each one supersedes and rewrites
 `evidence_base` wholesale; two in flight is a lost-update race, and the loser's facts vanish with
 no error anywhere. Fire them one at a time and read each before the next.
+
+---
+
+## 11. Rerender or rebuild? They are not interchangeable, and the difference is a cached list
+
+**Rerender ASSEMBLES. Rebuild RE-RESOLVES.** Getting this wrong wastes a cycle and looks like the
+fix simply not working.
+
+A listing component stores its resolved item set in `page_components.content_data`. The guides
+hub's `blog-listing` holds `content_data.articles`, a snapshot of the six explainers taken at
+build time. `rerender_single_page` re-assembles the page from that snapshot — so if two more
+articles have deployed since, **a rerender cannot see them, however many times it runs.** Only a
+`needs_page` rebuild through `page-build-handler` re-resolves the list.
+
+    SELECT left(pc.content_data::text,300)
+      FROM pages p JOIN page_components pc ON pc.page_id=p.id
+      LEFT JOIN content_components cc ON cc.id=pc.component_id
+     WHERE p.url='/guides/index.html' AND cc.function='blog-listing';
+
+If you see an `articles` / `items` array in there, it is a **cache**, and a rerender will honour it.
+
+This is the same shape as the `pages.sections` trap in §12 below, one layer down: something that
+looks like live state is a resolved snapshot, and the tool you reach for treats it as input.
+
+## 12. `pages.sections` is DERIVED — the authority is `site_plan_sections`
+
+Editing `pages.sections` appears to work and is then silently undone: `page-build-handler`
+rebuilds a page from the plan and rewrites `pages.sections` from it. Measured 2026-08-24 — a
+section swap plus a component tombstone were both reverted inside five minutes by the rebuild the
+change itself triggered.
+
+    -- the authority, one row:
+    SELECT sps.page_name, sps.ordering, sps.component_name
+      FROM site_plan_sections sps JOIN site_plans sp ON sp.id=sps.plan_id
+      JOIN sites s ON s.id=sp.site_id
+     WHERE s.domain='agritec.uk' AND sps.page_name='guides-index' ORDER BY sps.ordering;
+
+**The general tell: when a change is REVERTED rather than REJECTED, you edited a projection
+instead of a source.** A failed write tells you where the constraint is. A reverted one tells you
+nothing unless you go looking for who else writes that column.
+
+Related, and it fired the same day: a `build_status='removed'` tombstone is not durable —
+LANDMINES records that an automated section edit writes the row back to a live status. The rebuild
+you trigger to apply a fix can be the thing that undoes it.
+
+## 13. Hand-written work items: get the spec shape from a real one
+
+A hand-rolled `page_rerender` failed with
+
+    page_id not found in input and could not be resolved (site_id="..." page_name="")
+
+because the action reads `page_name` from somewhere other than where I put it. Copy the `spec`
+shape from an existing item the framework itself produced rather than inventing one:
+
+    SELECT item_type, item_key, spec FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+     WHERE s.domain='agritec.uk' AND wi.item_type='<the type>' AND wi.source <> 'operator' LIMIT 1;
+
+And the NOT NULL columns without defaults, found one failed INSERT at a time so you do not have
+to: **site_id, source, item_type, summary, created_by**.
