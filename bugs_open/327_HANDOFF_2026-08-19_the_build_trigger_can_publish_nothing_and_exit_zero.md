@@ -118,3 +118,32 @@ same run the **drop did not reproduce** — 0 of 10 — which excludes the histo
 not.**
 
 Full trail: `docs/agent_docs/docs024_key_docs_latest/bugfix_327_silent_publish_drop/`.
+
+## Scope of what remains, and the bar for closing this (2026-08-24)
+
+`[MEASURED 2026-08-24]` **155** runnable racing publishers — but that number is dominated by
+files nobody runs, and treating it as a backlog would keep this bug open for ever while nothing
+improves:
+
+| slice | count | disposition |
+|---|---|---|
+| under `docs/` — lane one-offs | 86 | **OUT OF SCOPE.** Rewriting them falsifies the record, and a `*_TRIGGER_*` script **publishes on every invocation**, so editing and testing one risks a live dispatch |
+| dormant (untouched 30d+) | 102 | not work |
+| literal duplicates `(1)`,`(2)`,`(4)` | 6 | download artefacts |
+| match only inside COMMENTS | 18 | not publishers — warnings *about* this trap, including the ones added by each migration |
+| **`scripts/` and touched within 30d** | **11** | **the real queue** |
+
+**Close this bug when:** (1) those 11 are migrated and induced-failure tested; (2) the
+commit-time detector `check_kcat_stdin_race` remains in place — it is what bounds the class, and
+it fires only on *newly added* racing publishers; (3) this scope statement stands. The residual
+is then **DATA**, not an open defect.
+
+Adoption `[MEASURED 2026-08-24]`: **10 callers**, of which **two are lanes this one never spoke
+to** — `140_tool_suggester/077_update_noted_write_tool.sh` (`caa55f04f`) and
+`bugfix_380_claims_fail_open/TRIGGER_claims_audit.sh`. That is the evidence for shipping the
+remedy as something callable rather than as more documentation: the safe form had been written
+down for a month and had **2** assertions to show for it.
+
+Continue here:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_327_silent_publish_drop/HANDOFF_2026-08-24_continue_here.md`
+
