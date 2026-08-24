@@ -358,3 +358,101 @@ quiescent all day (`llm_call_log`: 0 cap failures across 750 successful calls), 
 discriminating case has not occurred, and Go is inert until the next chassis roll anyway. The
 proofs owed are in `PLAN` C1 and C4 — and both need a **demand control**: a green reading on a
 day with no refusals is exactly what the pre-fix binary would also produce.
+
+## 2026-08-24 (later) — chassis v1.0.1334 carries both shipped halves; the probe interval is APPLIED; the writer is still absent
+
+### The roll: capability-probed, not inferred, on BOTH replicas
+
+Chassis `v1.0.1334`, pods up 15:39Z. The `build provenance` startup line had already **scrolled**
+out of `--tail=3000` — the documented case, and an empty result there means "not in range", not
+"unstamped". So the check was a **capability probe** against `/proc/1/exe`, which has no shelf
+life, with **both controls in the same breath** `[MEASURED 2026-08-24 ~16:0x Z]`:
+
+| probe string | fr8dn | xl2zk | meaning |
+|---|---|---|---|
+| `failed to clear endpoint health after a successful call` | **1** | **1** | C1 / MDL-044 **PRESENT** |
+| `recorded as unreadable, NOT abstained` | **1** | **1** | C4a **PRESENT** |
+| `diagnose_council_decide` | 15 | 15 | present-control ✓ (the probe can find things) |
+| `__step_errors_absent_control_xyz` | 0 | 0 | absent-control ✓ (it is not matching everything) |
+
+Both controls behaved, so the two 1s mean something. **MDL-044 and the council-side reader are
+LIVE on both replicas.**
+
+### And the writer is confirmed ABSENT — which is the reading that gates migration 588
+
+The reader and the writer both mention `__step_errors`, so that literal **cannot** discriminate
+between them — probing it would return 1 either way and read as "the writer shipped". The
+writer has its own literal (the cap marker), and that is the one to ask for:
+
+| probe string | result | meaning |
+|---|---|---|
+| `step-error record capped at` | **0** | the coordinator **WRITER is absent** (still uncommitted) |
+| `__step_errors` | 1 | the reader's key literal only — **not** evidence of a writer |
+
+So the shipped state is exactly the designed one: the reader is live and **inert**, failing
+closed with no `__step_errors` to read. **588's council half stays held.** Recorded because the
+obvious probe here is the wrong one, and it fails in the direction that would have licensed
+applying the migration.
+
+### Migration 596 applied — the interval half, split out on the owner's instruction
+
+`596_claude_probe_interval_60s.sql`, applied by hand and recorded `--record-only`.
+**Deliberately not `--apply`**, which takes EVERY pending file fleet-wide — not just mine.
+
+- pre-state: `claude` / `check_interval_seconds = 3600`, ledger rows for 588/596: **none**
+- post-state: `claude` / **60**, matching the `cpu-ollama` row that already carried 60
+- `BEGIN / UPDATE 1 / DO / COMMIT`, exit 0; the `DO` block RAISEs rather than SELECTs, so a
+  bad state aborts the COMMIT
+
+**588 was AMENDED rather than merely trimmed**: its header now records that the interval half
+moved and where to. Without that a future reader could re-add it, and the ledger would carry
+two files claiming one change — which is the shape the "a committed `_HOLD` migration is
+indistinguishable from an applied one" landmine warns about, one step along.
+
+### ⚠ The first "it moved" reading was NOT evidence, and I nearly took it as such
+
+After applying, `last_checked` moved from `15:45:07` to `16:22:38`. My watcher reported
+`PROBE MOVED` and exited, and the natural reading is "the new interval is working".
+
+**That gap is 37½ minutes.** It is the OLD 3600s schedule finally coming due, and it is exactly
+what the pre-change system would have produced. **One movement is consistent with BOTH
+intervals**, so it discriminates nothing — the same shape as this lane's own finding about the
+08-17 probe result, and the same shape as `two-clean-runs-cannot-establish-stability`.
+
+The measurement that *can* come out otherwise is the **tick RATE**: sample `last_checked`
+repeatedly over ~3 minutes and count distinct values. A 60s interval gives ~3–4; a 3600s
+interval gives exactly 1. Result recorded below.
+
+### The tick-rate measurement, and a correction it forced on my own migration `[MEASURED 2026-08-24 16:22–16:26Z]`
+
+Sampled `last_checked` every 15s for 3 minutes and counted distinct values:
+
+```
+2026-08-24 16:22:38.297329+00
+2026-08-24 16:24:12.988514+00
+2026-08-24 16:25:44.134144+00
+--- distinct ticks in ~3 min: 3 ---
+```
+
+**3 ticks, so the new interval IS being honoured** — a 3600s interval would have produced
+exactly 1, which is what makes this measurement able to come out otherwise.
+
+**But the gaps are 94s and 92s, not 60s** — and my own migration comment said the change
+"bounds that worst case to about a minute". That was wrong, and it is now corrected in the
+file (the applied SQL is untouched; only the prose claim changed).
+
+**Why ~92s and not 60s:** the probe fires only when the scheduled task
+`ai-endpoint-health-check` ticks **and** the endpoint's own `check_interval_seconds` has
+elapsed since `last_checked`. That task's own `interval_seconds` is **also 60**
+(`scheduled_tasks`, enabled, last_triggered 16:27:07Z), so the two compose: a tick at T only
+probes if `last_checked + 60s <= T`, which in practice means roughly every other tick.
+
+**So the honest bound is one to two minutes, phase-dependent.** Still a ~39× improvement on
+3600s, which is the whole point — but "one minute" is the kind of round number that gets
+quoted forward for ever, and it is not what the system does. If a tighter bound is ever
+wanted, the lever is **this row at 30s** (the value `gpu-ollama` already carries) against the
+task's 60s tick — not lowering the endpoint interval alone, which cannot beat the tick.
+
+**Two things I got to check because I distrusted a green reading**, both worth keeping:
+the first "PROBE MOVED" was a 37½-minute gap (the old schedule coming due) and proved nothing;
+and the corrected figure came from asking *how often*, not *whether*.

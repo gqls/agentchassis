@@ -21,7 +21,17 @@
 -- ai_endpoint_health.healthy, and until chassis v1.0.1334 the only writer of `true` was this
 -- probe. One refused LLM call therefore stopped ALL dispatch until the next tick — measured
 -- 60m25s on 2026-08-17 while 93 of 99 live Anthropic calls in the same window succeeded.
--- 3600s -> 60s bounds that worst case to about a minute.
+-- 3600s -> 60s bounds that worst case to a MINUTE OR TWO — see the correction below.
+--
+-- ⚠ CORRECTED 2026-08-24, same day, AFTER MEASURING (the SQL applied is unchanged; only this
+-- claim was wrong). "About a minute" overstates it. The probe fires when the scheduled task
+-- `ai-endpoint-health-check` ticks AND the endpoint's own check_interval_seconds has elapsed
+-- since last_checked. That task's own interval_seconds is ALSO 60, so the two compose and the
+-- observed cadence is ~90s, not 60s: measured ticks 16:22:38 -> 16:24:12 -> 16:25:44, gaps of
+-- 94s and 92s. So the honest bound is roughly ONE TO TWO MINUTES, phase-dependent — still a
+-- ~39x improvement on 3600s, which is the point, but do not quote "one minute".
+-- If a tighter bound is ever wanted, the lever is this row at 30s (the value gpu-ollama
+-- carries) against the task's 60s tick, NOT lowering this further on its own.
 --
 -- 60 is not a number picked for this migration: it is the value the `cpu-ollama` row in this
 -- same table already carries, so it is an established setting for this mechanism.
