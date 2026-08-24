@@ -259,3 +259,51 @@ all true `[VERIFIED 2026-08-24]`.
 still absent from their sentence-boundary set, deliberately, because RULE 10 does not emit them.
 **Adding any of those to the guidance or to RULE 10 obliges you to tell that lane** so they can
 probe and fixture it — guessing at prefixes is how the `</th`/`</td` asymmetry arose.
+
+## 9. The render harness — the check that found what SQL could not
+
+The migration verify blocks can read a template's markup; they **cannot execute it**. Three real
+defects in these components survived passing verify blocks and were caught by rendering. If you add
+or edit a component, render it before you apply it.
+
+```bash
+# Build once (scratchpad, not the repo — it is a verification tool, not shipped code)
+mkdir -p $SCRATCH/rendertest && cd $SCRATCH/rendertest
+# main.go: parse with template.New("component").Option("missingkey=zero"), Execute with a
+# map[string]interface{}, then assert: no "<no value>", no leftover "{{", and balanced
+# open/close counts for section ul ol li table thead tbody tr td th div p h2 h3 header.
+go mod init rendertest && go build -o rendertest .
+```
+**Use the chassis's own options** — `text/template` (NOT `html/template`) with
+`Option("missingkey=zero")`, matching `executeGoTemplate` (`call_agent.go:1170`). Extract the
+template from the seed with `re.search(r'\$tmpl\$(.*?)\$tmpl\$', src, re.S)`.
+
+**The cases that matter are the DEGRADED ones.** The happy path passes almost by construction; every
+defect found here came from a case where something was missing:
+
+| case | what it catches |
+|---|---|
+| optional column labels **absent from the map entirely** | conditional column logic, `$.` root access inside `{{range}}` |
+| a row omitting a cell for a column that **is** declared | the misalignment a positional grid would hide |
+| column label present but **empty string** | `on_missing: skip_field` near-miss — an empty header cell |
+| **required** item field absent | what actually happens when the writer skips a required key |
+| the whole array absent | an empty `<ul>`/`<ol>`/`<tbody>` rather than a crash |
+
+⚠ **An empty-string value is NOT the same test as an absent key** and passes cleanly. The key must
+be **missing** from the map.
+
+**Results `[VERIFIED 2026-08-24]`:** 11 cases, all pass — checklist `li=4 ul=1`, period-calendar
+**`li=12 ol=1`** (the bug's motivating case, delivered), comparison-table `table=1 tr=5 td=12 th=8`,
+all balanced. Three of those 11 **failed before** the `{{if}}` guards were added and pass after —
+same harness, same cases, which is what makes the fix provable rather than asserted.
+
+> **⚠ CORRECTED 2026-08-24, hours later: the thing the harness "found" was not a live defect.**
+> The unguarded interpolations rendered the literal `<no value>`, and I read that as reaching the
+> served page. It does not: `RenderTemplate` strips it (`component_library.go:1258`) on the live
+> path, and `missingBareFields` reports the empty fields by name at Error level immediately above
+> the strip (`bugs_open/018`), with `missingRequiredLLMFields` gating an absent required field
+> (`bugs_open/342`). **The harness is still worth running** — it catches parse failures, execution
+> failures, unbalanced tags and leftover `{{`, any of which WOULD break a page — but the
+> `<no value>` assertion in it is a hygiene check, not a defect detector. Full incident in
+> `WRONG_CALLS.md`; the retracted `LANDMINES.md` entry carries the correction for anyone who
+> arrives at it from the other direction.
