@@ -1665,3 +1665,82 @@ as `bugs_open/302` with the declared-verification statement (owner ruling
 07-31), fix candidates ordered by door-closing, and the blob question left
 explicitly undiagnosed. 016b §9 pattern added. A REFUTED verdict is a success:
 it stopped a wrong mechanism reaching a bug file with my confidence attached.
+
+## 2026-08-24 — register seeded, £99 registered, offer page dispatched (fresh chassis `0b262ed5e`)
+
+Session start state: chassis pods 25 min old, provenance `0b262ed5e` (read from the pod's own
+startup line, per-pod; the `-l app=` aggregate tail missed it). Offer-analysis lane: still no
+reply to our 08-18 CONTRIB (their last handoff 08-21; their finetuning mentions are incidental).
+Copy-quality lane: moved a lot — and an apis.uk CONTRIB (08-23, in their dir, with two same-day
+addenda) materially updated the seeding plan this lane was about to execute:
+
+- **Exemplars get lifted AS CONTENT** unless guarded: a vivid on-topic example sentence is read
+  as "good material", not "write like this" (verbatim hero subheadline, three sections opening
+  on one exemplar's subject). Mitigation that worked there: `example_phrases.how_to_use_these`
+  saying in terms these are STYLE SAMPLES, NOT CONTENT.
+- **Prompt-level rules DID clear the owner-named constructions 12 → 0** on the served page
+  (their 2nd addendum RETRACTS their own "not reachable by prompt" claim). Which change did it
+  is confounded (guard + one-claim-per-section rule + per-section subjects), best guess the guard.
+- **A section plan of N identical `generic-text-block`s with no per-section subjects produces
+  topic duplication** independent of style; the brief must name one subject per slot and the
+  COUNT must match the slot count.
+
+Also new since 08-19: the 305 lane's writer-side gate FIRED on this site —
+`brief_supplies_negation` item `5ff2355f-de45-49f1-aa11-ba3e3b320f7d` (needs_human_review,
+08-20) names 4 define-by-negation phrases our brief hands the writer: 1 in
+`content_direction.formatted` (lives in `content_depth.explanation_pattern`'s example sentence)
++ 3 in `identity.key_differentiators`. Its fix text says: whole-object write (327), verify by
+label presence. That item is the detector's view of exactly what today's seeding fixes.
+
+### What was done (all verified at the artefact, i.e. read back from the live rows)
+
+1. **Round-trip control first** (apis.uk's orphan check): reimplemented `FormatContentDirection`
+   (sorted keys, `HumaniseKey`, `Label:` shapes) in Python; stored `formatted` (11,260 B) matches
+   the rebuild as a LINE MULTISET (119=119, identical) — the only difference was ordering,
+   because the stored copy predates the 08-19 sorted-keys fix. So no orphaned instructions; safe
+   to regenerate. Script: scratchpad `fmt_cd.py`.
+2. **content_direction superseded + reinserted whole** (`source=operator:finetuning_lane_20260824`,
+   `created_by=claude-finetuning-uk-lane`): `example_phrases.characteristic` → 3 positive-first
+   friendly-expansive exemplars; NEW `example_phrases.how_to_use_these` guard;
+   `content_depth.explanation_pattern` example rephrased fact-first; `sentence_style`'s "use
+   em-dashes" instruction retired; 2 house rules appended (fact-first / no em-dash asides, from
+   REVERSE_ENGINEERED_STYLE_PROMPT_v3 rules 2+3); one friendly-expansive+glossary sentence
+   appended to `voice`; `formatted` regenerated (12,209 B). Verified: live row byte-identical to
+   what was built; labels present; all 4 flagged phrases + the em-dash instruction GONE.
+3. **identity superseded + reinserted whole**: ONLY `key_differentiators` changed — 7 items,
+   all gains-framed, `[0]` now carries the offer lead ("Your company's voice, in a model you
+   own…") exactly where copy-quality's answer said the LEAD comes from. Old [0]/[4]/[5] carried
+   the flagged ", not just" constructions. `unique_selling_points` left alone deliberately: the
+   detector did not flag it and no evidence names it as writer-reaching.
+4. **Dead voice aspects retired**: `tone_of_voice` + `voice_and_tone` set is_current=false with a
+   dated note (zero readers, copy-quality CONTRIB 08-18). `voice` KEPT — it feeds
+   `check_voice_tells.go`.
+5. **evidence_base superseded + reinserted**: `facts[]` was empty and `writer_block` said "no
+   numbers registered" — the offer page could not have stated its own price. Registered
+   `ft-price-99` (£99, attested by the owner's 08-18 pricing decision) and `ft-market-anchor`
+   (~$5,000 done-for-you consultancy anchor, attested by RESEARCH 08-18); writer_block first
+   sentence updated to name both. Everything else verbatim.
+6. **Offer page dispatched through the framework.** The 07-31 PLAN's "no new pages" constraint
+   is EXPIRED — `bugs_open/001` is in `bugs_closed/` (the a-closed-blocker-keeps-being-obeyed
+   trap; checked before obeying it). This site has NO `site_plans` row, so reconcile_site_plan
+   is not its birth path; the live path is a `pages` row at `build_status='planned'` + a
+   `needs_content_page` item for `page-build-handler` (mirrored `gapPlanWorkItem` exactly:
+   status `triaged`, priority 40, item_key `gap_plan_new_your-own-model_<site>`; the brief goes
+   in `spec.suggestion` — `content_guidance` was the DEAD spelling, bugs_open/271, aliased since).
+   Page: `your-own-model` / `/your-own-model.html`, sections
+   `[hero, generic-text-block ×3, faq, call-to-action]`, `pages.content_direction.required_links
+   = ["/contact.html"]` (copy-editor gate caveat B). The suggestion names ONE SUBJECT PER SECTION
+   (count-matched, the apis.uk counting defect), bans the unverified "a real person checks every
+   run" claim (owner 08-18 correction; safe form "run by people, not left to a queue" is in),
+   and restates the register + fact-first + no-em-dash rules. `build-pipeline-trigger` ticks
+   every 60s and is live (fired 10:18); background watcher armed on the item.
+7. `generic_theme` ran on this site today (complete 02:00); `design_intent.palette.
+   reference_values` pin IS present (the colour-churn landmine's remedy), so not chased.
+
+**Still open in this session's plan**: when the build lands — verify sections RENDERED (not
+carried), count negation tells on the built copy (305: check the OUTPUT, never assume the spec
+suppresses), check exemplar lift (did any of the 3 new exemplars appear verbatim?), date the copy
+via `llm_call_log`, re-check `required_links` survived the build, then run `copy-editor` ONCE
+deliberately and report the exemplar outcome to copy_quality either way (their §4 ask).
+[INFERRED] the builder may overwrite `pages.content_direction` at build time — re-check before
+running copy-editor rather than assuming.
