@@ -99,12 +99,29 @@ Dry run first, scoped to this lane's files (`--apply` takes EVERY pending file o
 # per session, and again after any roll
 python3 scripts/apply-migrations.py --dir docs/agent_docs/sql_for_agents   # verify flag names first
 ```
-Then read the agents themselves, never the migration's exit code:
+Then read the agents themselves, never the migration's exit code — **but read the CONTENT, not
+`updated_at`:**
 ```sql
-SELECT type, updated_at FROM agent_definitions
-WHERE type IN ('build-site-planner','site-planner','content-gap-planner','page-content-writer')
+-- ⚠ THIS IS THE WRONG CHECK, and it was in this runbook until 2026-08-24:
+--     SELECT type, updated_at FROM agent_definitions WHERE type IN (...);
+-- `[MEASURED 2026-08-24]` 199 of the 200 live agent rows share ONE updated_at value, to the
+-- microsecond (2026-08-24 18:31:14.450827+00) — some bulk write touches the whole table, and it
+-- took no snapshot and left no agent_definitions_backup row. So updated_at is DEGENERATE as a
+-- per-lane change signal: it moves for rows nobody edited, and a lane checking "did my migration
+-- land?" gets an answer that is true for everyone and evidence for no one.
+-- Ask instead whether YOUR OWN needle is in the live text:
+SELECT type,
+       default_config#>>'{workflow,steps,plan_site,config,prompt_template}' LIKE '%19. MATCH STRUCTURE TO PROMISE%' AS my_rule_present,
+       default_config#>>'{workflow,steps,load_components,config,query}'     LIKE '%component_expresses%'            AS my_menu_present
+FROM agent_definitions
+WHERE type = 'build-site-planner'
   AND is_active AND COALESCE(is_snapshot,false) = false AND deleted_at IS NULL;
 ```
+**And on a shared agent, check the OTHER lane's needle in the same query** — two lanes edited
+`build-site-planner` and `page-content-writer` today (591/595 here, 598/599 from the `bugs_open/380`
+lane). Both sets survived `[VERIFIED 2026-08-24]`, because both used anchored `replace()` with
+exact-count guards rather than a wholesale rewrite. A whole-prompt `jsonb_set` from either side
+would have silently reverted the other, and **`updated_at` could not have told you**.
 **Gotcha: the id-scoped `UPDATE` is a silent no-op if a second active row exists** — which is why
 every migration here opens with a `count(*) = 1` guard that RAISEs. And a verify block made of
 bare `SELECT`s **cannot stop the COMMIT** (`ON_ERROR_STOP` ignores a non-empty result): use

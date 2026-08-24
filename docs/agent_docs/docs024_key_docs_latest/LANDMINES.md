@@ -16671,3 +16671,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the standing `strings`/discovery-grep binary-probe entries in this file (this is their third variant: right command, wrong grep implementation) · MEMORY [[a-post-fix-zero-needs-a-demand-control]] · [[prove-a-deploy-at-the-artefact-index]] · [[never-extract-keys-probe-from-the-pod]] (BusyBox wget dropping 4xx bodies — same busybox-tools-lie family)
 - **source:** 2026-08-24, `bugfix_283_component_instance_scope` lane, proving the evening chassis roll. Caught only because the contradictory pair could not both be true.
 - **added:** 2026-08-24, `bugfix_283_component_instance_scope` lane
+
+---
+
+## `agent_definitions.updated_at` is DEGENERATE — 199 of 200 live rows share one microsecond, so it cannot tell you your migration landed
+
+- **footprint:** `agent_definitions.updated_at` · any migration under `docs/agent_docs/sql_for_agents/` that ends `SET default_config = …, updated_at = now()` · post-apply verification of an agent-config change · `agent_definitions_backup` / `snapshot_agent`
+- **fires when:** you apply a config migration to one agent and then check that it landed — or check *when* it landed, or *whether someone else has edited the row since* — by reading `updated_at`. It is the obvious column, every migration in this estate writes it, and the check reads as conclusive.
+- **why the wrong result looks exactly right:** `[MEASURED 2026-08-24]` **199 of the 200 live agent rows carry the identical `updated_at`, to the microsecond** (`2026-08-24 18:31:14.450827+00`); exactly one row differs. Some bulk write touches essentially the whole table, and it is **invisible to the usual forensics**: it created **zero** snapshot rows, left **zero** `agent_definitions_backup` entries, and did not reset `version` (values 1,2,3,4,5,7,21 survive across the affected set). So a lane that applied a migration hours earlier still sees a *recent-looking* `updated_at` and concludes its change is live — an answer that is **true for every row and evidence for none**. The reverse error is just as available: "this row changed after my apply, someone has edited it" is the default state of the table, not a signal.
+- **the check — ask for YOUR OWN NEEDLE in the live text, never for the timestamp:**
+  ```sql
+  SELECT type,
+         default_config#>>'{workflow,steps,<step>,config,prompt_template}' LIKE '%<a literal your migration inserted>%' AS mine_present
+  FROM agent_definitions
+  WHERE type = '<agent>' AND is_active AND COALESCE(is_snapshot,false) = false AND deleted_at IS NULL;
+  ```
+  And **on a shared agent, put the other lane's needle in the same query.** Two lanes edited `build-site-planner` and `page-content-writer` on 2026-08-24 (591/595 and 598/599); both sets survived because both used anchored `replace()` with exact-count guards. A wholesale `jsonb_set` of a whole `prompt_template` from either side would have silently reverted the other, and **no timestamp could have revealed it** — the surviving row would look freshly updated either way.
+- **⚠ the count goes stale by ADDITION and the mechanism may not:** "199 of 200" is as of 2026-08-24. Re-measure with `SELECT updated_at, count(*) FROM agent_definitions WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL GROUP BY 1 ORDER BY 1 DESC;` — **if one bucket holds nearly every row, the column is degenerate right now** regardless of what wrote it. Whatever performs the bulk touch was not identified; that is open.
+- **the transferable shape:** this is the SECOND table found on 2026-08-24 whose `updated_at` cannot attribute a change — `content_components` has no trigger at all and no history, so a writer omitting the stamp is invisible for ever (entry above, editorial lane). Opposite mechanism, identical consequence: **a timestamp column is only evidence if it moves for your write and NOT for everyone else's.** Before using one as proof, check its distribution.
+- **source:** `bugs_open/381` lane, 2026-08-24, found while verifying that two lanes' concurrent edits to the same two agents had both survived; it also invalidated an instruction in that lane's own RUNBOOK, which had said to verify by `updated_at`
+- **added:** 2026-08-24, `bugfix_381_inexpressive_composition` lane
