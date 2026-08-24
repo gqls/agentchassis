@@ -240,13 +240,13 @@ func scanOrFatal(t *testing.T) (codes []string, unresolved []string) {
 	return codes, unresolved
 }
 
-// TestEveryErrorCodeThisPackageWritesIsRegistered is the early warning proper.
+// TestFindingCodeScanEveryWriteIsRegistered is the early warning proper.
 //
 // It replaces TestPackageErrorCodeConstantsAreRegistered's hand-written list of
 // eleven names. That list could only ever catch a code somebody remembered to
 // add to it — the one case that does not need catching — and it had already gone
 // stale twice over by the time this was written.
-func TestEveryErrorCodeThisPackageWritesIsRegistered(t *testing.T) {
+func TestFindingCodeScanEveryWriteIsRegistered(t *testing.T) {
 	codes, _ := scanOrFatal(t)
 
 	// THE RATCHET. Failing flat over the codes this package already writes and
@@ -323,13 +323,13 @@ func scanBaseline(t *testing.T) map[string]bool {
 	return out
 }
 
-// TestTheScanFindsCodesReachedThroughAConstant pins the half that a literal-only
+// TestFindingCodeScanResolvesConstants pins the half that a literal-only
 // scanner gets wrong, and which is why the original census missed a real reader
 // (bugs_open/358 §3.2). Both of the codes that caught this package out on
 // 2026-08-24 are of exactly this shape — `ErrorCode: linkContextUnavailableCode`
 // — so a scanner without constant resolution would have stayed silent on them
 // while looking like it worked.
-func TestTheScanFindsCodesReachedThroughAConstant(t *testing.T) {
+func TestFindingCodeScanResolvesConstants(t *testing.T) {
 	codes, _ := scanOrFatal(t)
 	got := map[string]bool{}
 	for _, c := range codes {
@@ -351,7 +351,7 @@ func TestTheScanFindsCodesReachedThroughAConstant(t *testing.T) {
 	}
 }
 
-// TestTheHandListHoldsOnlyWhatTheScanCannotSee keeps the two mechanisms in a
+// TestFindingCodeScanHandListHoldsOnlyTheInvisible keeps the two mechanisms in a
 // CHECKED relationship rather than a hoped-for one.
 //
 // codesInvisibleToTheScan (finding_code_roster_test.go) exists only for codes
@@ -365,7 +365,7 @@ func TestTheScanFindsCodesReachedThroughAConstant(t *testing.T) {
 // above: a redundant entry here costs nothing today but re-establishes exactly
 // the hand-maintained surface bugs_open/358 spent a round retiring, and the fix
 // is deleting one line.
-func TestTheHandListHoldsOnlyWhatTheScanCannotSee(t *testing.T) {
+func TestFindingCodeScanHandListHoldsOnlyTheInvisible(t *testing.T) {
 	codes, _ := scanOrFatal(t)
 	found := map[string]bool{}
 	for _, c := range codes {
@@ -391,5 +391,54 @@ func TestTheHandListHoldsOnlyWhatTheScanCannotSee(t *testing.T) {
 		t.Log("codesInvisibleToTheScan is EMPTY — every finding code this package writes is now " +
 			"discoverable by the scan. If that is true, say so where the list was; if it is not, " +
 			"the list was deleted rather than emptied.")
+	}
+}
+
+// ─── THE HOOK'S -run FILTER IS A CONVENTION, AND THIS IS WHAT ENFORCES IT ──────
+//
+// scripts/check-finding-code-registry.sh runs this package with
+// `-run '^TestFindingCode'` rather than whole. The council's guardian seat was
+// right that a whole-package run on the estate's most concurrently-edited
+// package — measured 2026-08-24: 86 of 411 commits touching it in 14 days would
+// have triggered — turns any unrelated flake into a headline claiming "this
+// package writes an undeclared code", which is a misattribution, and this
+// lane's own class of defect.
+//
+// But this lane also holds that A FILTER IS A ROSTER: a new registry-grading
+// test whose name did not match would silently never run at commit time. So
+// the filter is a NAMING CONVENTION, and this test is what stops it rotting: it
+// parses the two files that grade the finding-code registry from this package
+// and fails if any Test function in them falls outside the prefix. A test can
+// still be written in a THIRD file under a different name — that is the stated
+// limit, and the reason the two file names are spelled out here rather than
+// discovered.
+func TestFindingCodeTestsFollowTheHookConvention(t *testing.T) {
+	const prefix = "TestFindingCode"
+	files := []string{"findingcodes_scan_test.go", "finding_code_roster_test.go"}
+	fset := token.NewFileSet()
+	found := 0
+	for _, name := range files {
+		f, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatalf("cannot parse %s: %v", name, err)
+		}
+		for _, d := range f.Decls {
+			fn, ok := d.(*ast.FuncDecl)
+			if !ok || fn.Recv != nil || !strings.HasPrefix(fn.Name.Name, "Test") {
+				continue
+			}
+			found++
+			if !strings.HasPrefix(fn.Name.Name, prefix) {
+				t.Errorf("%s: %s does not start with %q — the pre-commit hook runs this package with "+
+					"-run '^%s', so this test would NEVER run at commit time. Rename it, or it is a "+
+					"roster entry nobody added. bugs_open/358.", name, fn.Name.Name, prefix, prefix)
+			}
+		}
+	}
+	// Vacuity: the two files carry several tests; zero means the parse silently
+	// saw nothing and the assertion above never ran.
+	if found < 5 {
+		t.Fatalf("found only %d Test functions across %v — the convention check is not looking "+
+			"at what it thinks it is", found, files)
 	}
 }

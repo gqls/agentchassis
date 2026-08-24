@@ -137,8 +137,22 @@ if [ "$RELEVANT_CHECKER" -eq 1 ]; then
    Re-check by hand:  ./scripts/audit-finding-codes.sh'
 fi
 
+# SCOPED WITH -run, and here is why that does not contradict the "a filter is a
+# roster" rule above. The council's guardian seat (corr 4d5c1523, round 1, HIGH)
+# was right that a whole-package run here is a blast-radius cost: this is the
+# estate's most concurrently-edited package, and measured 2026-08-24, 86 of the
+# 411 commits touching it in 14 days would have triggered the run — so any
+# unrelated flake would print "this package writes an undeclared code" on ~6
+# commits a day, fleet-wide, which is a MISATTRIBUTION. The filter is therefore
+# a NAMING CONVENTION — every test that grades the finding-code registry from
+# this package is TestFindingCode* — and it is ENFORCED:
+# TestFindingCodeTestsFollowTheHookConvention (itself under the prefix) parses
+# the two registry-grading files and fails on any Test outside it. A filter a
+# test polices is a contract; a filter nobody polices is the roster this lane
+# keeps retiring. Compile cost is unchanged by the filter (~20s wall warm,
+# measured) and is inherent to testing anything in this package.
 if [ "$RELEVANT_SCAN" -eq 1 ]; then
-  precommit_run_gotest ./platform/orchestration/actions/ '' \
+  precommit_run_gotest ./platform/orchestration/actions/ '^TestFindingCode' \
     'finding-code scan' \
     'finding-code scan: this package writes a code the registry does not declare (bugs_open/358)' \
     '   A staged file in platform/orchestration/actions writes an ErrorCode: that is

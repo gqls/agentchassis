@@ -124,7 +124,7 @@ func assertFindingCodeIsRegistered(t *testing.T, code string) {
 // findingCodeDistinctnessProblems is the PURE predicate — the whole of the
 // judgement, with no file access and no *testing.T. It is split out so its
 // discrimination can be mutation-proved against a fixture roster
-// (TestDistinctnessPredicateDiscriminates below) rather than by editing the
+// (TestFindingCodeDistinctnessPredicateDiscriminates below) rather than by editing the
 // shipped registry, which is a shared file several sessions have open at once
 // (WRONG_CALLS.md 2026-08-22: a session mutated a shared file in place to prove
 // a guard, and another session committed it mid-window).
@@ -160,7 +160,7 @@ func assertFindingCodeDistinct(t *testing.T, code string) {
 // The predicate must be able to come out BOTH ways, or repointing the two tests
 // at it would have quietly replaced two stale-but-working checks with one that
 // always passes — the exact shape bugs_open/358 is about.
-func TestDistinctnessPredicateDiscriminates(t *testing.T) {
+func TestFindingCodeDistinctnessPredicateDiscriminates(t *testing.T) {
 	// A real prefix relation, in the direction that bit the estate: a live
 	// `component_validation_%` query would sweep both of these into one
 	// population.
@@ -239,14 +239,14 @@ func TestFindingCodeRosterIsMutuallyDistinct(t *testing.T) {
 // the codes that need it.
 //
 // ⚠ THIS LIST IS ITSELF CHECKED, so it cannot quietly become a second roster:
-// TestTheHandListHoldsOnlyWhatTheScanCannotSee (findingcodes_scan_test.go) fails
+// TestFindingCodeScanHandListHoldsOnlyTheInvisible (findingcodes_scan_test.go) fails
 // if an entry here IS discoverable by the scan. Convert a positional write to an
 // `ErrorCode:` field and this list must shrink in the same commit.
 var codesInvisibleToTheScan = []string{
 	deployStampRefusedErrorCode, // positional — page_build_failure_guard.go:111
 }
 
-func TestPackageErrorCodeConstantsAreRegistered(t *testing.T) {
+func TestFindingCodeInvisibleToScanAreRegistered(t *testing.T) {
 	for _, code := range codesInvisibleToTheScan {
 		assertFindingCodeIsRegistered(t, code)
 	}
