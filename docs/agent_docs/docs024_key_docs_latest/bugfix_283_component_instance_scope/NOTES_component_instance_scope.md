@@ -1831,3 +1831,25 @@ The peer session's Half A is COMMITTED (`364e80b7f`) — the build path counts i
 no config key. Their `component_instance_occurrence.go` references the widened detector in a
 comment; nothing of theirs reads `UnboundInstanceToken`. Their lane's review is theirs; not
 re-reviewed here.
+
+## 2026-08-24 (session 13, close) — round 2 APPROVED; the advisories not actioned, named
+
+`661bcf00` round 2: **APPROVED 14:18:29Z**, "2 advisory objection(s) — none high-severity",
+5 abstained. The `Council-Submitted:` trailer on commits `120131549`/`c5a0c831e`/`aa1e2665a`/
+`c708f5491` resolves to this approval at 098 report time automatically; no amend, per forward-only.
+
+**The advisories, NOT actioned, and why — so silence doesn't read as oversight:**
+1. `UnboundInstanceToken` has zero readers (editquality medium, bug_historian medium, +3 lows) —
+   self-disclosed as risk 1; it is precisely RFC_050's question, the field carries its own
+   delete-if-not-armed instruction, and wiring a reader ahead of the owner's ruling would be the
+   round-1 mistake with a different spelling.
+2. The second path is log-only where the first got a code-readable field (editquality medium,
+   bug_historian medium) — the seats are right that this is asymmetric; `RenderTemplateWithMap`
+   has no RenderContext to publish onto, so a symmetric fix means changing that seam's signature
+   or threading a report struct — a shared-contract change that belongs with RFC_050's answer,
+   not ahead of it. If RFC_050 lands on "arm", both paths get their mechanism in the same change.
+3. bug_historian's low asking a human to confirm the byte-identical revert: confirmed twice this
+   session (`diff` against `120131549~1` — identical), recorded in the self-review section above.
+
+Owner decision outstanding: **RFC_050** (may the seam refuse, and on which callers). Everything
+else on Half B is committed, approved, and inert until the next image roll.
