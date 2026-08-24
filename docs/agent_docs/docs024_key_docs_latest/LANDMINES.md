@@ -16362,3 +16362,38 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **⚠ the companion trap, opposite cause and same direction:** a census that goes to **zero** because a migration DID run reads as *"this never happened"* rather than *"we fixed it"* — staleness by SUBTRACTION, where the usual dated-count rule only guards against ADDITION. So a withdrawal that has not been applied reads as one that has, and one that has been applied reads as though the population never existed. Both are answered by the same stamped-marker query above.
 - **source:** `bugs_open/352` / migration `587`, 2026-08-24; the error is logged in `WRONG_CALLS.md` by the `bugs_open/198` lane, the recovery queries are in `docs024_key_docs_latest/bugfix_352_invented_selector/RUNBOOK_invented_selector.md` §10
 - **added:** 2026-08-24, bugfix_352_invented_selector lane
+
+---
+
+## A 200 on `/sitemap.xml` is not evidence the site has YOURS — and there are at least THREE ways to be fooled, two of which return 200
+
+- **footprint:** `/sitemap.xml` · `/robots.txt` · `/llms.txt` · `scripts/site-discovery-files.py` · `platform/orchestration/actions/render_sitemap_action.go` · register `SEO-002` / `SEO-007` · any "N of M sites serve X" coverage census over live domains
+- **fires when:** you measure discovery-file coverage across the fleet — before building a generator, to size the work; or after wiring one, to prove it worked. The natural instrument is `curl -o /dev/null -w '%{http_code}'`, and it is wrong in the direction that makes you *stop looking*.
+- **why the wrong result looks exactly right:** a 200 is the success condition you were testing for, so the census terminates satisfied. **[MEASURED 2026-08-24 across all 28 live sites]** three sites answer 200-or-3xx with something that is not ours: `adversecreditmortgage.co.uk` serves the **parking provider's** file (171 bytes, a single `<loc>` for `/lander`, and there is no `pages` row named `lander`); `noted.co.uk` serves **27,414 bytes of `text/html`** — its own homepage, returned for any path, so it has zero `<loc>` elements and still scores 200; `webdesign.uk` **302s** to `webdesign.co.uk`. A status-code census reports 11 and the true figure is **8 of 28**. The parking case had already cost one session a wrong count and is recorded in the action's own header; the `text/html` homepage case is a **second** shape neither that header nor `SEO-002` mentions, so knowing about the first does not protect you.
+- **the check — judge the BODY, and judge it against something only YOUR site can satisfy.** Counting `<loc>` elements is better than a status code and still not enough (a parking file has one). Match the loc PATHS against that site's own `pages` rows:
+  ```bash
+  rm -f body.tmp   # a failed curl leaves the PREVIOUS body in place and it reads as a fresh result
+  curl -s -o body.tmp --max-time 20 "https://$domain/sitemap.xml"
+  grep -o '<loc>[^<]*</loc>' body.tmp | sed 's|<loc>||;s|</loc>||' | sed 's|^https\?://[^/]*||'
+  # then: how many of those paths exist in `pages` for this site_id?
+  ```
+  The separation is decisive rather than marginal: ours score **17/18 to 98/98**, the parking file scores **0/1**. `content_type` is a cheap second signal — `text/html` on a `.xml` path means a catch-all, not a sitemap.
+- **the transferable shape:** when you probe a third party's URL for evidence that YOUR mechanism ran, a status code tests whether *something* answered, not whether *your thing* is there. Pick an assertion only your own artefact can pass — and re-read [a parked domain 200s EVERY path], which is the same trap arriving through a different door.
+- **source:** portfolio_positioning lane, 2026-08-24, establishing the before-figure for wiring `render_sitemap` (council correlation `8a004aab-be85-4d6d-bdb1-4fb114f1d64b`)
+- **added:** 2026-08-24, portfolio_positioning lane
+
+---
+
+## A URL probe proves FETCHABILITY, never CANONICALITY — and the duplicate you should not be listing returns 200 every time
+
+- **footprint:** `platform/orchestration/actions/render_sitemap_action.go` (`absoluteURL`, `probeOK`) · `scripts/site-discovery-files.py:132` · `pages.url` · any generator that emits a URL list (sitemap, `llms.txt`, nav, link-graph, JSON-LD `@id`) from `pages.url`
+- **fires when:** you build or trust a generator that reads `pages.url`, emits `https://{domain}{path}`, and validates each entry by fetching it. Every emitted URL returns 200, the generator reports a clean run, and the file is wrong.
+- **why the wrong result looks exactly right:** the probe is the only validation in the pipeline and it is answering a different question. `/index.html` and `/` are the **same resource** — **[MEASURED 2026-08-24]** they served byte-identical 92,822-byte bodies on `dartsonline.com` — so the duplicate passes the probe as convincingly as the canonical would. Nothing downstream disagrees either: the file is well-formed, the URLs resolve, and only the page's own `<link rel="canonical">` says which form is authoritative. Both `scripts/site-discovery-files.py:132` and `render_sitemap_action.go` shipped this, and the action's header **states the rule it was breaking** ("a sitemap should carry the canonical URL") while applying it only to redirects.
+- **the asymmetry that makes a naive fix worse than the bug:** the root canonicalises and a SECTION index does not. **[MEASURED 2026-08-24, by fetching the pages and reading their canonical tags]** `https://dartsonline.com/` declares `https://dartsonline.com/`, but `https://dartsonline.com/guides/` declares `https://dartsonline.com/guides/index.html` — **10 of 10 sites checked agree, across all three builders (B2, vm-sites, git-hosted)**. So `strings.TrimSuffix(p, "index.html")` "fixes" **27** rows and breaks **228** (the listable population on that date), each against its own canonical tag. Match the WHOLE PATH.
+- **the check — ask the artefact what it claims to be, never the generator:**
+  ```bash
+  curl -s "https://$domain/$path" | grep -o '<link[^>]*rel=["'"'"']canonical["'"'"'][^>]*>'
+  ```
+  Run it on a ROOT and on a SECTION INDEX in the same breath — one alone gives you a rule that is exactly half right, which is worse than no rule because it generalises confidently. If a generator's output disagrees with the canonical the site serves, the generator is wrong even though every URL it emitted returns 200.
+- **source:** portfolio_positioning lane, 2026-08-24; fixed in `5c9acf1bd`, pinned by `TestRootIndexIsCanonicalisedButSectionIndexIsNot` (mutation-proven in both directions with changes that still compile); register `SEO-007`
+- **added:** 2026-08-24, portfolio_positioning lane
