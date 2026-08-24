@@ -951,3 +951,33 @@ the exact pattern the new "Checking that committed HEAD still builds" section de
 244 KB. Everything since uses `scripts/verify-head-builds.sh`, which takes repeated `--with <file>`
 (needed here: the test and the registry had to be overlaid together, and with only the test the
 baseline read as missing).
+
+### The scan's council round: APPROVED — and all four objections say my sketch was truncated over the logic
+
+`2e5f687d-5753-441b-91f3-406c84a98394`, 2026-08-24: **approved**, 10 seats, 7 abstained, no gating
+objection. Three seats independently made the same point, and it is a fair hit:
+
+> *[medium, editquality]* "The sketch … is heavily truncated **right at the point where it would show
+> the constant-resolution pass, the baseline-comparison/ratchet logic, and the vacuity guard — the
+> three mechanisms the rationale cites as the actual fix**. None of that logic is visible to verify
+> against the diagnosis; only the header comment and a directory-walk stub are shown."
+
+**Mechanically diagnosed, because it has a mechanical cause rather than a judgement one.** The file
+opens with **42 lines of header comment**; my sketch generator truncated the diff at 95 lines in
+FILE ORDER. So roughly half the budget went to prose, and what got cut was exactly the code under
+review. **The fix is not "be more careful": strip comment lines before truncating, or emit the logic
+first.** Recorded in the RUNBOOK as a rule, because this is the FOURTH round in two days lost to
+"the plan did not show what the tree contains" — and the first three were omissions, while this one
+is a truncation POLICY. Same family, new door.
+
+**The second medium — `_scan_baseline` is load-bearing and not an edit** — is answered by a control
+I had already run rather than by argument. `scanBaseline` does `t.Fatalf` when the key is absent
+(`findingcodes_scan_test.go:237`), so the seat's "either fails flat on day one or silently no-ops"
+cannot happen silently; and I hit that exact message earlier the same day, when I overlaid the test
+without the registry. It is shown verbatim in `grounded_in` because the registry lives under `docs/`
+and a comment-only sketch is refused client-side — but the seat is right that shown-in-evidence is
+weaker than shown-as-edit, and that is the same lesson as above.
+
+**The low one** — `TestTheHandListHoldsOnlyWhatTheScanCannotSee` is referenced by edit 2's comment
+but lives in edit 1's truncated tail — is the same cause a third time. No code change owed on any of
+the four; what was owed was a better sketch, and that is now a rule rather than an intention.

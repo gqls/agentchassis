@@ -249,3 +249,40 @@ go test ./cmd/config-key-audit/ -run 'TestShippedRegistryIsSelfConsistent' -v -c
 GOTCHA — **to test the hook, use an isolated scratch repo, and restore with `git checkout HEAD --`,
 not `git checkout --`.** The latter restores from the INDEX, which still holds the broken copy you
 just staged, so your control reports a failure and reads like a real one.
+
+## Submitting to the council: generate sketches, and truncate COMMENTS not CODE
+
+Two rules, both bought with lost rounds (`WRONG_CALLS.md` 2026-08-23 and 2026-08-24).
+
+**1. Generate every sketch from the tree — never hand-assemble, never append to last round's JSON.**
+
+```bash
+git diff <base> HEAD -- <file>     # or: git show HEAD:<file>
+```
+
+A hand-kept sketch can disagree with what you committed, and on a resubmit it silently does: round 3
+of `be252395` showed the PRE-refactor body of a file, so the shared helper read as *dead code with
+no caller* and was gated HIGH on that. The runbook says it in terms — *"On a resubmit, update the
+sketch fields — not just the rationale. Reviewers judge the sketch."*
+
+**2. When a sketch must be truncated for the 32KB plan cap, DROP COMMENT LINES FIRST.**
+
+This lane's files carry long headers by house style — `findingcodes_scan_test.go` opens with **42
+comment lines**. Truncating the diff in file order spent half the budget on prose and cut the
+constant resolution, the ratchet and the vacuity guard: **the three mechanisms the rationale was
+claiming**. Three seats objected, independently, to not being able to see them.
+
+```python
+# strip comment-only lines from the diff BEFORE applying any line cap
+keep = [l for l in diff.split("\n")
+        if l.strip() and not l.lstrip("+- ").startswith(("//", "#", "--"))]
+```
+
+⚠ but do **not** strip them to nothing: 097 refuses a sketch whose every non-blank line is a comment
+(*"a fix plan proposes changes, not observations"*). The target is code-first, comments-last, cap
+applied to the tail.
+
+**3. Every file the change touches goes in `edits`** — whatever its council scope. Scope governs
+what gets REVIEWED, not what a reviewer may SEE, and an out-of-scope path listed as an edit costs
+nothing. For files the 8-edit cap genuinely excludes, paste them **verbatim** into `grounded_in`;
+that is weaker than an edit and a seat may still say so, but it is far better than prose.
