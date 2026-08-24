@@ -2758,3 +2758,99 @@ brief.
 `brief-writer` — `created_by` bottoms out at that literal when an agent does not set
 `config["source"]` (LANDMINES). So brief-writer spend cannot be separated from anything else's
 until the step sets a source. Worth fixing before 1,500 runs make the question interesting.
+
+
+---
+
+## 2026-08-24 (b) — wiring `render_sitemap`, and the second defect that fell out of measuring the first
+
+### The before-figure, and why the handoff's own number needed re-deriving
+
+The handoff set the close condition as *"a site that did not have a sitemap has one, fetched and
+read"*, with **8 of 25** as the before-figure. Re-measured today across every live site:
+
+- **8 of 28** live sites serve a sitemap of ours. The NUMERATOR held; the DENOMINATOR had grown
+  by three since 08-20. This is the staleness-by-addition shape the counts ruling exists for.
+- Judged by BODY, not status code, and the difference is three sites:
+  - `adversecreditmortgage.co.uk` — 200, 171 bytes, one `<loc>` for `/lander`. Parking provider's
+    file. The handoff warned about this one and it is real.
+  - `noted.co.uk` — 200, **27,414 bytes, `content-type: text/html`**. Its own homepage, served for
+    any path. **A second instance of the same trap, which no document recorded.**
+  - `webdesign.uk` — **302** to `webdesign.co.uk/`.
+- The discriminating test, which is mechanical and could have come out otherwise: extract every
+  `<loc>`, strip the origin, match the path against that site's `pages` rows. Ours score **17/18
+  to 98/98**; the parking file scores **0/1**. That separation is what makes it evidence rather
+  than a judgement call.
+
+### The wiring decision, with the cost measured rather than left as a risk
+
+Round 1's submission listed probe cost at fleet scale as a risk for the reviewers to check. That
+is not evidence, so it was measured first: **735 listable pages across 28 live sites, avg 26.3,
+max 135** (`webdesign.co.uk`).
+
+| | per firing | when it fires |
+|---|---|---|
+| rotation, one site/tick | ~26 GETs | 1800s tick, site due after 3 days → ~245 GETs/day |
+| page-deploy path | whole site (135 for webdesign.co.uk) | every page change |
+
+Rotation first, on two grounds: it is the only one that reaches the **20 sites with no sitemap at
+all** (the deploy path only helps a site that gets rebuilt), and it is bounded. The deploy-path
+half stays open — a new page waiting up to 3 days is a real cost, just a smaller one than
+re-probing a 135-page site on every edit.
+
+### The misstep: I confirmed the canonical defect from ONE page and nearly shipped a fix 8× too wide
+
+Comparing the served sitemaps against `pages` rows showed `/` in every existing sitemap and
+`/index.html` in what the action would emit. I fetched `dartsonline.com`'s homepage, read
+`<link rel="canonical" href="https://dartsonline.com/">`, and called it confirmed. **That is one
+data point, and the obvious fix from it — `TrimSuffix(p, "index.html")` — would have been wrong.**
+
+Fetching a section index in the next breath gave the opposite convention:
+`https://dartsonline.com/guides/` declares canonical `.../guides/index.html`. The listable
+population is **27** rows of exactly `/index.html` against **228** of `<section>/index.html`, so
+the suffix fix repairs 27 and breaks 228, each against its own canonical tag — and **every broken
+URL would still return 200 and pass the generator's own probe**, so nothing downstream would have
+objected.
+
+⚠ The counter-example was already in data I had fetched: the existing sitemaps I was comparing
+against contained `/guides/index.html` next to a bare `/`, one column over. Logged in
+`WRONG_CALLS.md`. The check that generalises: **when a rule is about a pattern in paths, sample it
+at two different depths before generalising.** 10 of 10 sites checked agree on both halves, across
+all three builders (B2, vm-sites, git-hosted).
+
+Fixed in `5c9acf1bd` by whole-path match. `TestRootIndexIsCanonicalisedButSectionIndexIsNot`
+pins the asymmetry and was mutation-proven **in both directions with changes that still compile**:
+suffix-match → 5 section cases fail; delete the canonicalisation → root and both-forms cases fail.
+
+### What is committed, and the one thing that is not done
+
+- `5c9acf1bd` — the canonicalisation fix + tests (Go: **inert until the next fleet roll**)
+- `0bce1db39` — migration `590`: the `sitemap-refresh` agent + `sitemap-refresh-rotation` task
+- `ff55133ac` — register **SEO-007** (`render_sitemap` had **no register entry at all** —
+  `bugs_open/106`'s exact failure mode)
+- `5f67b977a` — two LANDMINES entries; `WRONG_CALLS.md` row
+
+**Migration 590 is NOT applied.** The live-DB write was refused by this session's tool-permission
+classifier, not by any check of ours. Everything up to the write is done: scoped dry run clean,
+probe transaction ran to its own COMMIT and rolled back, and all four verify guards were INDUCED
+to fail (typo'd action name; conditional default that never reaches the commit; `locked_at` guard
+removed; `files_field` pointing at a field `render_sitemap` never writes). **So the close
+condition is NOT met — no site has gained a sitemap yet.** Applying 590 is the next action.
+
+### Three things checked so they are not re-derived
+
+- **The action is live in the running chassis** (v1.0.1333), binary-probed with controls: registry
+  description PRESENT, invented string ABSENT, a known older action PRESENT. So the wiring needs no
+  image roll — only the canonicalisation fix does.
+- **`locked_at IS NULL` is load-bearing.** `adversecreditmortgage.co.uk` is locked by the owner
+  HALT of 08-18. A sitemap commit **is** a deploy; the sweep must not drive one against a halt.
+- **The other consumer of the stamp table was checked, not assumed** (owner ruling 07-29 §3):
+  `site-discovery-staleness-check` CROSS JOINs its own three `DISCOVERY_AGENTS` and its findings
+  loop iterates that same list, so a fourth `agent_type` in `site_discovery_rotation` cannot create
+  a false finding there. `render-audit-agent` is already precedent for a non-discovery type.
+
+Council round 2 submitted on the same correlation `8a004aab-be85-4d6d-bdb1-4fb114f1d64b`
+(`RESUBMIT_CORR`), running at `review_reuse_agent` when last checked. Round 1's REVISE — *"a
+registered-but-uncalled action reproduces the diagnosed defect in a new form"* — is what this round
+answers.
+

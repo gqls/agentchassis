@@ -854,3 +854,67 @@ submitted when it had not. Counting them is a one-line check. It is submitted no
 
 **To pick this up in a fresh session:**
 `docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/HANDOFF_2026-08-20_continue_here.md`
+
+
+---
+
+**2026-08-24 (later) — the sitemap generator now has something that actually calls it, except for
+the last step, which needs you.**
+
+Back on 20 August you ruled that all future sites should have sitemaps. A sitemap is the file a
+site publishes listing its own pages, so a search engine can find them all without guessing. We
+built the generator on the 21st. The review panel then failed it, and was right to: the generator
+worked, and nothing in the system ever called it. A tool nobody runs is exactly the situation your
+ruling was meant to end.
+
+So today's job was to give it a caller. It now has one: a scheduled sweep that picks one site
+every half hour, regenerates that site's sitemap, and commits it. A site comes round again after
+three days.
+
+**Why a sweep and not "regenerate whenever a page changes".** Both are worth having eventually.
+The sweep goes first for a plain reason: it is the only one that helps the sites that have no
+sitemap **today**. Regenerating on page-change only ever helps a site that gets edited. There is
+also a cost: before listing a page, the generator fetches it to check it really is there, so a
+sitemap for our biggest site means 135 fetches. On a sweep that happens once every three days. On
+the page-change version it would happen every time anyone touched a page.
+
+**A second problem turned up while I was measuring the first, and it is the more interesting one.**
+To prove the work later, I first needed the "before" number — how many sites serve a sitemap now.
+The answer is 8 out of 28. Getting that number right was harder than it sounds, in two ways.
+
+First, three sites *look* like they have a sitemap and do not. One returns the file left behind by
+the company the domain was parked with. One returns its own homepage for any address you ask for,
+so asking for a sitemap gets you a web page with no page list in it at all. A third quietly
+forwards you somewhere else. All three would count as successes if you only checked whether the
+request succeeded rather than reading what came back.
+
+Second — and this is the one I nearly got wrong — I found that our generator was listing the wrong
+address for every site's front page. It listed `/index.html`, while each site itself declares that
+its front page is plain `/`. Same page, two addresses; search engines want to be told which one is
+official.
+
+I checked one site's homepage, saw the mismatch, and was ready to strip `index.html` everywhere.
+That would have been a mistake, and a bigger one than the bug. I checked a *section* page next —
+and the sites use the opposite convention there, keeping the `index.html`. Stripping it everywhere
+would have fixed 27 addresses and broken 228. What makes that worth writing down is that nothing
+would have complained: every broken address still works when you fetch it, so the generator's own
+checking step would have passed them all. I have written the trap down in the shared traps file
+and logged the near-miss in the mistakes log, because the lesson is general — if you are making a
+rule about a pattern, check the pattern in two places before you trust it.
+
+**Where this stands, and the one thing I could not finish.** The fix and the sweep are both written,
+tested and committed, and I have sent the whole thing back to the review panel. But the final step —
+switching the sweep on, which means one write to the live database — was refused by this session's
+own safety permissions. Everything short of it is done and rehearsed: I ran the change against the
+live database inside a transaction that throws itself away, and I deliberately broke each of its
+four safety checks in turn to confirm they each stop it.
+
+So, plainly: **no site has gained a sitemap yet.** The machinery is ready and one approval away. If
+you are happy for me to apply it, say so and it is about a minute's work, after which sites start
+picking up sitemaps at one every half hour.
+
+One thing I have deliberately left alone: `adversecreditmortgage.co.uk` is still under your halt
+from the 18th, and the sweep skips it. Publishing a sitemap means committing a file to the site,
+which is a deployment, and I did not want a background job quietly deploying to a site you have
+stopped.
+
