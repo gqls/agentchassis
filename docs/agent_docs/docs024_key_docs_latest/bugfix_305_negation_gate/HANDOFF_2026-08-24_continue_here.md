@@ -98,13 +98,38 @@ oversight.
 `platform/orchestration/datahelpers`, **not** `platform/datahelpers`; and the brief lives in
 `site_specs` keyed on **`aspect`** (not `spec_type`), with `content_direction` on `pages`, not `sites`.
 
+## 3a. OWNER DECISIONS TAKEN 2026-08-24 — D2 and D3 are both DONE
+
+| decision | ruling | state |
+|---|---|---|
+| **D2** — the nine briefs | *"correct that instruction narrowly"* | **DONE + LIVE.** Migration `597`, council `941ca857` |
+| **D3** — is `rather than` a tic? | *"a little bit of a tic"* | **BUILT, mutation-proven, INERT until the next roll.** Council `c72ef85c` |
+
+**D2, and the part worth knowing:** the mandated tagline dropped its negation clause
+(`in days, not months` → `in days`), and it was in **five keys across three aspects**, not one —
+correcting fewer would have achieved **nothing observable**, because the exemption is computed over the
+flattened brief corpus. ⚠ It was in **`identity.core_value_proposition`**, NOT `content_direction` as
+every earlier doc in this lane said. ⚠ And **not** in the fields named `tagline` — those held a
+different sentence. **Demand control:** `adoption-tracker`'s hero went from
+`exempt:brief_supplied_sentence` to **`REPAIRABLE`**, so the gate repairs the stored copy itself on the
+next render. ⚠ **The pages will not change until they re-render, and this site's re-render is blocked
+on 30+ unrelated review items — measure the SPEC, not the page, to check `597` landed.**
+
+**D3:** only a **mild** shape may spend the page budget. The budget is **forgiveness, not a repair
+cap**, and until now who got forgiven was **document order** — a page could keep both its `x_not_y`
+constructions and have the gate rewrite two `rather than`s instead. Now `rather_than` is mild and may
+be tolerated; sharp shapes are always repaired. `rather than` stays fully detected and still counts
+toward density. ⚠ `mild_hits` is carried across sections **separately** from `page_hits`, or a sharp
+hit in one section eats a later one's forgiveness. Mutation-proven both directions. Full reasoning:
+`NOTES` and register **CQ-026**.
+
 ## 4. What is left — none of it a defect, none of it blocking
 
 1. `protocol-tracker`'s 2 hits — one rerender, already queued, another lane's claims work first.
 2. **`D2`** — the exempt tagline: an owner decision about a brief.
-3. **`D3` — still must NOT be decided.** The rejection log only became trustworthy today; 5 judged
-   rejections so far. Give it a week. ⚠ `rather_than` is **71% of all rewrites**, so this is the
-   decision with real reach.
+3. ~~**`D3` — still must NOT be decided.**~~ **RULED 2026-08-24 and BUILT** — see §3a. The log-first
+   plan was overtaken by the owner's decision, which is his call; the log is now useful for
+   *calibrating* the mild set, not for revisiting the ruling.
 4. `D4` (`negation_density` threshold), `D5` (`brief_supplies_negation` routing) — unchanged.
 5. Not ours: the accounting-loop **sibling audit** a council seat asked for
    (`evidence_citations.go`, `revalidate_unverified_claims.go`) — open and unowned.
