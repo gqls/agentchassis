@@ -69,3 +69,24 @@ WHERE correlation_id='e8c7414c-426d-4aee-a0ca-3e2e2400cbec' AND kind='council_re
   literal WITH a presence control.
 - The DB "pages with a repeated component" count (19 today) is a PROXY — serving truth diverges
   three ways (content-supplied ids, 404s, parked domains). Fetch before quoting.
+
+---
+
+## UPDATED same day (afternoon) — owner ruled on all four decisions; the plan EXISTS; round 3 in flight
+
+1. **OWNER RULINGS 2026-08-24**: build the §9c occurrence fix NOW; fold the detector/empty-id
+   fix into the SAME change; repair the idea.uk casualties on their lane; verdict read.
+2. **THE INITIAL PLAN IS COMMITTED** (Fable Plan agent, measurements re-verified):
+   `docs/agent_docs/docs024_key_docs_latest/bugfix_283_component_instance_scope/PLAN_2026-08-24_occurrence_derivation_and_empty_id_detector.md`
+   — **a building thread picks this up**; its Open Questions section is the starting work list,
+   and its dated measurements must be re-run on build day. RFC_032 §10 records the ruling.
+3. **The resubmission came back REVISE** (gating: bug_historian — root fix "deferred"), which
+   the ruling converts to a build; **round 3 submitted** citing the plan, the formal empty-id
+   census (**6 rows / 6 pages / 2 sites as of 2026-08-24** — 4 idea.uk + 2 dartsonline, the
+   dartsonline pair a THIRD cause: `id="{{.category_slug}}"`, a content field, rendering
+   empty), and the fake-edit fix. Read the verdict (query above).
+4. **idea.uk casualties filed on their lane**: `idea_uk_section_data_missing/CONTRIB_2026-08-24_…`
+   (commit `fbcec763e`) — their `content_data` is INTACT, so try one correctly-shaped rerender
+   before content generation; the lane's own stuck items are referenced.
+5. The third binding: STILL deferred — v3 now carries the 345 lane's uncommitted hunk (second
+   occupant in two days), and my previous uncommitted deletion was overwritten overnight.
