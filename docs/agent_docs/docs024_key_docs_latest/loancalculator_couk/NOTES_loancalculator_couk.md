@@ -6338,3 +6338,137 @@ already been caught by once.
 
 **Bookkeeping done:** 10 review tickets closed; credit-roadmap's 3 tickets cancelled with the
 page.
+
+## 2026-08-24 — the harness was never down, and the first thing it said when it worked was that a live calculator is broken
+
+Sent here for two things: continue `HANDOFF_2026-08-23_continue_here.md`, and *"fix the
+calculation verification harness that you said is broken"*.
+
+### The harness: an environment fault wearing a broken-calculator costume
+
+`toolgolden.py` failed today with **`RuntimeError: chromium did not start`** — not the
+`timeout waiting for Runtime.evaluate` the 08-23 notes recorded. Both are start/attach-layer
+faults; only the first is reproducible now, so only the first is measured below.
+
+[MEASURED 2026-08-24] The cause is one line in `toolprobe.start_chrome`, which launches
+chromium with `--user-data-dir=tempfile.mkdtemp(...)`. **`mkdtemp` honours `$TMPDIR`**, and
+this session's `TMPDIR` is `/home/ant/.claude-scratch/gotmp`. The snap-confined chromium
+cannot write under a **hidden** top-level directory of `$HOME` (snapd's `home` interface
+grants `owner @{HOME}/[^.]*/**` only), so it aborts at ProcessSingleton before opening the
+DevTools port. Discriminating launch, all three arms in one run (scratchpad `t1.py`):
+
+```
+HIDDEN-HOME  /home/ant/.claude-scratch/gotmp/tg-hidden-test  -> NO START in 30.1s, rc=21
+SLASH-TMP    /tmp/tg-tmp-test                                -> UP in 3.0s
+VISIBLE-HOME /home/ant/tg-visible-test                       -> UP in 0.5s
+```
+
+rc=21's own last line names it exactly — *"Failed to create a ProcessSingleton for your
+profile directory"* — and **we were sending it to `DEVNULL`**. The poll also could not tell
+"still starting" from "exited 200ms ago", so it burned the full 30 s and then said nothing
+useful. Two blindfolds in six lines.
+
+**This is a shared seam, which is why it matters beyond this lane.** `start_chrome` is
+imported by `toolgolden.py`, `toolaudit.py`, `evalpage.py`, `defect_vectors.py`,
+`investor_golden.py` and `oracle_driver.py` — **6** scripts across **4** lanes as of
+2026-08-24 — so one `$TMPDIR` takes all of them down together, and each reports it in the
+vocabulary of the *page it was pointed at*.
+
+Fixed in `start_chrome` (commit `0aafce405`): fall back to a profile dir the confinement
+permits (`/tmp`, then a non-hidden `$HOME`) saying which and why; fail fast on `poll()`
+carrying chromium's own stderr; and **refuse a port that already serves DevTools**.
+That last one is not tidiness — attaching to a browser this run did not start gives you a
+browser whose targets are not yours, and the first `Runtime.evaluate` then hangs. `[INFERRED]`
+that this is how the 08-23 wording arose; that environment is gone and I cannot re-measure it,
+so it stays inferred.
+
+### `--selftest`, because the 08-23 session was saved by a control it had to think of
+
+That session only knew the failure was environmental because it re-ran against a page it had
+**not** rebuilt and saw the identical failure. That is exactly right, and it should not depend
+on someone thinking of it. `toolgolden.py --selftest` drives a fixture whose answer is known
+in advance through the **same** `Runner.capture()` — same navigate, settle, `DRIVE_JS` scaling,
+`SNAP_JS` read, press.
+
+The expected values are computed **by hand from the driver's own rules** (each numeric field's
+`value` attribute × the vector's factor; `ASYM` = 1.7 then 0.6), not read back from a recorded
+run — a fixture whose expectations came from the harness could not fail if the harness were
+wrong about everything. All four vectors land exactly: `1050.00 · 2200.00 · 512.50 · 1751.00`.
+
+**Proven disconfirmable by mutation**, per [[mutate-the-code-to-prove-the-guard]]: perturbing
+the fixture's arithmetic (`r/100` → `r/200`) turns all 8 value checks red and exits 1 — while
+**gates A and B stay green**. That is the whole argument for asserting values: a wrong-but-
+responsive calculator satisfies both gates, and the gates are what the platform's other
+instruments already check.
+
+### Then it worked, and immediately convicted a live page
+
+Full 11-URL `--compare` against `GOLDEN_2026-08-17_post_rebuild`. Ten captured normally.
+`/tools/loan-vs-savings.html` came back **`react=0` — INERT**, and the inert gate refused the
+run before any diff printed (correct: it will not certify from a broken tool).
+
+It is not a harness artefact. Three independent measurements, [MEASURED 2026-08-24]:
+
+1. **The 08-17 golden for this page records it WORKING** — 4 controls, `react=5`
+   (`results`, `loan-panel`, `save-panel`, `loan-benefit`, `save-benefit`), `vary=5`.
+   Today: **8** controls, four ids each appearing twice, `react=0`.
+2. **The served page** has every one of that tool's ids **twice** — `loan-rate`, `save-rate`,
+   `spare-cash`, `tax-bracket`, `results`, `loan-panel`, `save-panel`, `loan-benefit`,
+   `save-benefit` — plus `function compare` and `function copy` twice. A site-wide census of
+   all 28 served pages found duplicate ids on **exactly this one**.
+3. **The rows say why.** `page_components` for the page:
+
+```
+pos slot_name     component_id  locked  html_len  created
+ 2  tool-2        448422ce…     t       11845     08-02   <- the locked calculator
+ 6  tool-2        NULL          f       11845     08-23 14:14  <- an unlinked COPY
+```
+
+Both blobs md5 `be85284e7f61e452ea19178f4502713f`; both `content_data` md5
+`f65a0b6e82cd5b1e43e44563d400f35e`. **Byte-identical, same slot name, one locked, one
+orphaned.** It was written by the owner-released rebuild that finished 14:15:19 — the same
+wave that got the other nine right.
+
+**Why the served page is dead rather than merely doubled:** `SNAP_JS` keys the fingerprint by
+`e.id`, so duplicate ids collapse and the **last** copy wins; the script's
+`getElementById` writes to the **first**. The harness reads copy #2, which never changes. A
+visitor sees the same thing — the lower calculator does nothing visible.
+
+### A plausible cause, refuted in one query — which is why this went to `090` and not into a bug file
+
+The obvious story was `bugs_closed/189` (*"resolving a locked positional slot duplicates it"*),
+which was filed **on this very page** and closed 08-21 as fixed and live. Its population is
+locked sections whose `slot_name` is positional rather than the component's function. So:
+did loan-vs-savings duplicate because its locked slot is called `tool-2`?
+
+**No.** [MEASURED] **all 11** locked tool sections on this site are positionally named and
+none matches its function (`tool-1`…`tool-4`), ten of them went through the same wave, and
+only this one duplicated. Positional naming is not the discriminator. 189's shape also
+differs: its duplicate carried the **same** `component_id` as the locked row; today's carries
+**NULL**.
+
+I nearly wrote the 189 story down. It is exactly the shape CLAUDE.md sends to the loop —
+cross-cutting, cause plausibly not where the symptom is, and a durable assertion about a
+shared write path. Filed: intake `0a53b04e-e06e-48c8-ad11-4845d8ee96d5`, run correlation
+**`b53c355b-7bfc-4202-b61d-89f16decffe2`**.
+
+Fleet context, dated because a census goes stale by addition: `component_id IS NULL` rows on
+**active** pages number **11 across 6 domains as of 2026-08-24**, and **two were created on
+08-23** (`gamesdesign.co.uk/games/jelly-invaders`, slot `section`; this one). Not a
+loancalculator-only shape, and not historic.
+
+### The 08-23 handoff's open tail is CLOSED
+
+[MEASURED 2026-08-24, curling all 28 active URLs] **28/28 serve 200**, **28/28 carry the
+`/guides/index.html` link**, **0/28 still reference `credit-roadmap`**. The chrome drain the
+08-23 session left in flight (15 of 28 at hand-off) has finished, so the "sampling one page
+misreports it either way" caution no longer applies to this site.
+
+### What the golden is NOT
+
+**No re-baseline was written, deliberately.** The harness refuses to record a golden while any
+tool is inert, and it is right to: a golden captured now would pin "loan-vs-savings answers
+nothing" into the acceptance record and then defend it. `GOLDEN_2026-08-17` also remains stale
+for a second, unrelated reason the 08-23 notes already found (FAQ headings changed in the
+08-17 19:00 re-deploy). **Re-baseline after the page is repaired, not before** — the order is
+not a preference, it is the gate.

@@ -2319,3 +2319,65 @@ One thing to be aware of for next time: the tool that checks the calculators sti
 correctly is currently broken — it times out. That is the tool, not the calculators; it fails
 the same way on pages we never touched. It will need fixing before it can vouch for anything
 again, and the reference snapshot it compares against is also out of date.
+
+---
+
+## 2026-08-24 — the checking tool is fixed, and the first thing it found was a real fault
+
+**The Guides link has finished spreading.** All twenty-eight pages now load, all twenty-eight
+carry the Guides link in the menu, and none of them still points at the Credit Roadmap page we
+removed. The caveat in the last entry — link on some pages, missing on others — is over.
+
+**The tool that checks the calculators is working again.** It was never really broken. What it
+does is drive each calculator in a real browser and compare the answers against a saved
+snapshot, and to do that it starts a private copy of Chrome. Chrome is installed here as a
+confined package, and confined packages are not allowed to write into folders whose names
+begin with a dot. My session hands out temporary folders in exactly such a place. So Chrome
+refused to start, and because we were throwing away Chrome's own error message, all anyone
+saw was "did not start" after a thirty-second silence.
+
+That is a small fault with an outsized reach: the same start-up code is shared by six
+different checking tools across four projects, so one setting takes all of them out at once
+and each one reports it as a problem with whatever page it happened to be pointed at. It is
+now fixed where it is shared, so all six benefit.
+
+**I also gave it a way to test itself.** The tool now has a `--selftest`: it builds a tiny
+calculator whose answer is known in advance, drives it exactly as it drives the real pages,
+and says plainly whether it is fit to be trusted. This matters because of how the last session
+found the problem — it only knew the fault was in the tool rather than the pages because it
+happened to think of re-running it against a page nobody had touched. That was the right
+instinct, and it should not depend on someone having it. Green means a problem it reports is a
+real problem with the page. Red means nothing it said today is worth quoting. I also checked
+the self-test can actually fail, by deliberately breaking the fixture's sums and confirming it
+goes red — a check that cannot fail is not a check.
+
+**Then it immediately found something, and it is a genuine fault on a live page.**
+`/tools/loan-vs-savings.html` — "Pay Off Loan or Save?" — has the calculator on it **twice**,
+and the lower of the two does nothing when you type in it. The upper one still works.
+
+This happened during yesterday's rebuild of the ten tool pages. Nine of them came out right.
+On this one the framework moved the protected calculator up the page as intended, and then
+also left a second, unattached copy of it at the bottom. The two copies are identical to the
+byte. Because both copies use the same internal names for their boxes, the working script
+writes its answers into the first copy, which is why the second just sits there.
+
+Worth being clear about what this means for yesterday's report. The ten rebuilds were checked
+by looking at the *order* of the sections on each page, and by that measure all ten were
+correct — this one included. Section order cannot see a calculator that has been duplicated,
+and the tool that could see it was the one that was down. So it was not a careless check; it
+was the only check available at the time, and it was blind to exactly this.
+
+**I have not guessed at the cause.** The obvious explanation is a bug we closed three days
+ago, which was originally found on this very page. I tested that explanation and it does not
+hold: every one of the eleven protected calculators on this site has the naming pattern that
+bug was about, ten of them went through the same rebuild, and only this one duplicated. So
+I have put it through the diagnosis loop rather than write down a story that sounds right.
+
+**What I have deliberately not done:** re-recorded the reference snapshot of correct answers.
+The tool refuses to record one while any calculator on the site is answering nothing, and that
+is the correct behaviour — a snapshot taken now would record "this calculator produces no
+answer" as the expected result and then defend it for ever. The snapshot gets re-taken after
+the page is repaired, not before.
+
+**So there is one thing I would like a decision on**, and it is in the next message: whether
+to repair that page now by hand, or wait for the diagnosis to name the cause first.
