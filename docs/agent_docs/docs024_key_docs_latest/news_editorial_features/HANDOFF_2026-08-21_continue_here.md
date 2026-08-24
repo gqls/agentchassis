@@ -1,4 +1,11 @@
-# HANDOFF — news editorial features, 2026-08-21. START HERE.
+# HANDOFF — news editorial features, 2026-08-21. ~~START HERE.~~
+
+> **SUPERSEDED 2026-08-24 by `HANDOFF_2026-08-24_continue_here.md` — start
+> THERE.** This file stays authoritative for §3 (the recipe, proven three
+> times) and §9 (the traps, every one paid for), which the new handoff points
+> at rather than restates. State tables below are as of 08-21 and several rows
+> have moved — the 08-24 file carries the deltas (035 written + P0 proven + P1
+> unblocked, the robot-hands misfire, the 381 gate, new open items).
 
 Written at a context checkpoint. Everything below is measured unless marked
 otherwise. **Read §1 and §9 before doing anything.**
