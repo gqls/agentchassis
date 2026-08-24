@@ -53,6 +53,50 @@
 -- owns prose STRUCTURE, the component system owns design, and a class name in
 -- guidance is a comment, not a control.
 --
+-- ⚠ THE CONTAINER CHECK — the objection this file was nearly wrong about, now CLEARED
+-- (council `ca400ba6`, bug_historian seat, severity medium; the sharpest objection of the
+-- round). If any of these four templates wrapped its `{{.content}}` slot in a literal
+-- `<p>`, then writer output containing `<h3>`/`<ul>`/`<table>` would be nested inside a
+-- paragraph: invalid HTML, repaired inconsistently by each browser, and INVISIBLE
+-- everywhere we look — the DB row is schema-valid, no check fails, and only the served
+-- page is wrong. That is the platform's most-repeated failure family (016b §9, the
+-- `<style>`-in-the-wrong-half case).
+-- `[MEASURED 2026-08-24, live DB]` all four put the slot in a `<div>`, none in a `<p>`:
+--     generic-text-block      <div class="section__content">{{.content}}</div>
+--     about-content           <div class="about-text">{{.content}}</div>
+--     illustrated-text-block  <div class="section__content">{{.content}}</div>
+--     article-body            <div class="article-body__content sprite-bullets">{{.content}}</div>
+-- Query, for re-checking after ANY template edit (the 283 lane is rewriting this column
+-- fleet-wide, so this fact has a shelf life):
+--     SELECT function, html_template ~* '<p[^>]*>\s*\{\{\s*\.?\s*[Cc]ontent\s*\}\}'
+--     FROM content_components
+--     WHERE function IN ('generic-text-block','about-content','illustrated-text-block','article-body')
+--       AND is_active;
+-- All four must read false. `about-content` DOES contain `<p>` elsewhere (in its
+-- highlights block) — which is why the predicate must test the CONTAINER of the slot, not
+-- the presence of a `<p>` anywhere in the template.
+--
+-- ⚠ NO GO PATH BRANCHES ON A FIELD TYPE OF `html` (council `ca400ba6`, guardian seat,
+-- severity medium). Checked exhaustively rather than assumed: the only readers of a
+-- schema field's declared type are `DeclaredTypeSatisfied` / `declaredTypeOf` /
+-- `declaresArray` (`content_type_violations.go:261-285`, array/list only) and
+-- `component_schema_fields.go:111-115`, which COPIES the type through into the writer's
+-- field spec — i.e. into the prompt, which is the routing effect this file intends. Every
+-- other `"html"` literal in platform/ and internal/ is a map key, an LLM step
+-- `output_format`, a content-type sniff or a payload field, none of them a component field
+-- type. So this retype changes what the WRITER is told and nothing else in the platform.
+--
+-- WHY THE FOUR GUIDANCE BLOCKS ARE NOT ONE SHARED STRING (council `ca400ba6`, reuse_agent
+-- seat, severity low — a fair maintenance concern). They are deliberately NOT copies:
+-- `about-content` must say "the separate highlights field already holds the short punchy
+-- items, do not duplicate them here"; `illustrated-text-block` must forbid inline images
+-- SPECIFICALLY because it owns image_url/image_alt/image_caption fields that an inline
+-- <img> would bypass; `article-body` keeps <h2> because it is a whole article body rather
+-- than a section slot. The shared half — what structure to use and what is forbidden —
+-- IS centralised, in RULE 10 (595). Per-field guidance carries only what is true of that
+-- field. A single shared string would have to drop all three of those clauses to be
+-- shareable, and each one is the part that prevents a specific defect.
+--
 -- BLAST RADIUS. Four shared library rows, `[MEASURED 2026-08-24]` 181 + 153 + 27 + 6 =
 -- 367 live instances. Existing instances are NOT rewritten by this file — stored
 -- rendered_html and content_data are untouched; only future writes change. It touches

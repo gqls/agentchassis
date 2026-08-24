@@ -23,6 +23,27 @@
 -- template. A hand-maintained capability column is the failure mode being fixed, so
 -- this file adds no column and backfills nothing.
 --
+-- WHY REVIVING content_shape WAS REJECTED, not merely worked around (council `ca400ba6`,
+-- prior_art_librarian seat — a fair objection: replacing named existing machinery needs
+-- the rejection argued, not implied). Reviving it means (a) backfilling 128 NULL rows,
+-- (b) CORRECTING 12 rows that claim `structured_list` with no list markup, (c) adding the
+-- CHECK constraint it never had, (d) teaching the birth INSERT to write it
+-- (store_generated_component_action.go — a Go change, so a chassis roll), and then (e)
+-- keeping all of that in step for ever, by hand, against a `html_template` column another
+-- lane is rewriting fleet-wide this week. Every one of those five is a place to drift, and
+-- (b) is the proof that drift already happened unnoticed. The derivation needs none of
+-- them and cannot disagree with the component it describes. The column is left in place,
+-- unread — dropping it is a separate decision with its own blast radius, and TLIB-016 now
+-- records that it is dead so the next reader does not rediscover it as live metadata.
+--
+-- OTHER CAPABILITY HELPERS CHECKED FIRST (council `ca400ba6`, reuse_agent seat):
+-- `datahelpers.SchemaContentFields` / `component_schema_fields.go` walk `input_schema` to
+-- build the writer's field list, and `compute_component_quality.go`'s
+-- `extractTemplateVariables` walks the template's parse tree for variable NAMES. Neither
+-- answers "what markup can this produce", both are Go (so behind a roll) and neither is
+-- reachable from a `query_database` step, which is where the menu lives. Extending either
+-- would have put the answer on the wrong side of the SQL/Go line from its only consumer.
+--
 -- READ TIME, NOT STORED. `component_expresses()` is IMMUTABLE and called from the
 -- menu query. No ALTER TABLE, no trigger, no generated column — deliberate: the
 -- RFC_032/bugs_open/283 lane is rewriting html_template fleet-wide (140 of 297 active
@@ -76,6 +97,15 @@ SELECT snapshot_agent('build-site-planner',
 -- html-block : an llm-sourced field declared `html` — the writer may emit subheads,
 --              lists, tables and emphasis into it, so the component can express all
 --              three (this is what 594 turns on for the four prose slots).
+--              ⚠ THE PREMISE, STATED BECAUSE RULE 19 TELLS THE PLANNER TO TRUST THESE
+--              TAGS (council `ca400ba6`, editquality seat): an `html` field credits its
+--              component with BOTH `list` AND `table`, regardless of what that field's
+--              own llm_guidance actually asks for. That is deliberate — the slot is a
+--              pass-through and the markup is reachable — but it means the tag describes
+--              what the slot CAN hold, not what its guidance currently requests. If a
+--              future `html` field is guided away from tables, this function will still
+--              say `table`. The honest reading of the vocabulary is CAPABILITY, never
+--              intent.
 -- list       : the template contains literal <ul/<ol markup.
 -- table      : the template contains literal <table markup.
 -- items      : the template ranges over an llm array field — a repeating card, FAQ
@@ -111,7 +141,13 @@ COMMENT ON FUNCTION component_expresses(text, jsonb) IS
   'schema — never declared. Read by the planner menu queries (591/592/593). Supersedes '
   'the dead content_shape column in intent; that column has no readers and is wrong on '
   '12 rows. Regex note: a PostgreSQL \b is BACKSPACE, not a word boundary — the '
-  'character classes here are deliberate.';
+  'character classes here are deliberate. '
+  '⚠ THE OUTPUT VOCABULARY IS A SHARED CONTRACT WITH NO VERSION TAG (council ca400ba6, '
+  'architecture seat): three planner prompts read these tokens, so changing what a token '
+  'MEANS moves all three at once with nothing to distinguish old from new. Adding a token '
+  'is safe (the prompts print whatever they get); redefining one is not — do that in a '
+  'migration that edits the three prompts in the same breath. '
+  'An html-block field credits BOTH list and table: the tag is CAPABILITY, not intent.';
 
 -- ── Pre-state ───────────────────────────────────────────────────────────────
 DO $$

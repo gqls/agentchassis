@@ -48,6 +48,16 @@
 -- ROLL. The exposure is narrow (it needs the construction inside a <th> specifically),
 -- lists and subheads were already safe, and nothing here is unsafe on its own.
 --
+-- ⚠ THE ANCHOR GUARDS ABORT THE TRANSACTION, THEY DO NOT WARN (council `ca400ba6`,
+-- debug_historian seat, severity medium — the objection was that the submission's sketch
+-- did not SHOW the guard failing). It does: the pre-state block below RAISEs EXCEPTION
+-- unless RULE 9 and RULE 10 each appear EXACTLY ONCE verbatim, inside the same transaction
+-- as the UPDATE, so a `replace()` that would silently no-op on a moved anchor while still
+-- reporting `UPDATE 1` can never reach COMMIT. Mutation-proven 2026-08-24: with RULE 10
+-- edited to a different spelling, this file refuses with
+-- '595: RULE 10 does not appear exactly once verbatim'. Same discipline in 594, whose
+-- per-field pre-state loop runs inside its own transaction for the same reason.
+--
 -- PAIRS WITH 594. Guidance is the lever that moves behaviour (see 594's header); this
 -- file removes the rulebook's contradiction of it. Neither ordering is unsafe.
 --
