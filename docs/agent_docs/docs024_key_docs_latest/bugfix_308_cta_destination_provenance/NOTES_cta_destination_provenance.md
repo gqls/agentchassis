@@ -796,3 +796,18 @@ dartsonline) over releasing the 215. Pre-flight per site before firing (strikes_
 - ⚠ **Tick-list gotcha (mine): a label truncated to 40 chars fails its own exact-match check** —
   9 buttons read as "gone from page" until re-checked with full labels. Truncate for display,
   never in the comparison key.
+
+### 11. leopardessconsulting.co.uk FINAL — 23/23 at the served page; and §10's "B2 sync lag" was MY URL BUG
+
+> **CORRECTED 2026-08-24 ~20:00Z:** §10 attributed 5 unverified buttons to B2 sync lag. FALSE —
+> the deploy had landed. My tick-list built page URLs from the page NAME
+> (`/<name>.html`); those pages live at `pages.url = /guides/<name>.html`. A wrong URL fetched
+> *something* (a 404/fallback page with no matching anchors) and read as "button gone" — the
+> same shape as the parked-domain lesson: **a URL census needs the page's OWN url column, never
+> a URL derived from its name.** Checked at the real URLs: committed bytes AND served page
+> both carry all 5 repairs.
+
+Final: 16/18 items complete (2 = OWNED_PAGE_GUARD pages, no covered findings on them, left to
+exhaust retries), **23/23 tick-list buttons verified in the served bytes**, including
+who-we-help's pair after its roll-dropped dispatch was re-picked. Detection → served ≈ 25 min
+for the bulk.
