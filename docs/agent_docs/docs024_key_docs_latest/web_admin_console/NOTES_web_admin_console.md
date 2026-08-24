@@ -262,3 +262,14 @@ re-checked against the code/DB rather than argued with:
   independent facts), so "Worker or git route" is stated, not which.
 - **kubectl token expired ~16:50Z** (fleet-wide Unauthorized, the 3-day cycle; owner
   refreshes). All figures above predate it.
+
+### 2026-08-24 ~20:55 — edge rate limit DEPLOYED by the owner
+
+The Cloudflare rate-limiting rule for `links.webdesign.uk` is created and deployed
+(owner, at the dashboard, via the Edit-expression route — the free-plan builder has no
+Hostname field; handoff §3.7 carries the corrected recipe). `(http.host eq
+"links.webdesign.uk")`, IP characteristic, 10-per-10s → Block. **Its 429 verify CANNOT
+run yet** — `links.webdesign.uk` still does not resolve (curl exit 6, re-checked
+immediately after), so the rule sits armed and matching nothing until the owner's box
+steps + the DNS record land (morning handoff §2). Run the 40-curl loop from handoff
+§3.7 as part of the §2 verify when that happens.
