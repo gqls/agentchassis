@@ -1,5 +1,12 @@
 # HANDOFF — portfolio_positioning — 2026-08-20. **START HERE IN A FRESH SESSION.**
 
+> **⚠ SUPERSEDED 2026-08-24 by `HANDOFF_2026-08-24_continue_here.md` — start there.**
+> Since this file: **`bugs_open/311` is CLOSED** (fixed, live, and the originating page verified
+> healed at the artefact), so the fleet precondition is gone and `remortgagecalculator.uk` is
+> unlocked — **this file's claim that the halt turns on one unfixed defect is no longer true.**
+> `render_sitemap` was built but the council objected, rightly, that nothing calls it; wiring it
+> is the next task.
+
 Supersedes `HANDOFF_2026-08-19_continue_here.md`. Owner read-out:
 **`SUMMARY_2026-08-21_the_machine_that_writes_the_brief.md`** (the 08-19 summary is still worth
 reading — two of its three "where we are now" statements have since been overtaken, and the
