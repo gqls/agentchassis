@@ -460,3 +460,58 @@ right / 6 wrong. The sample I printed showed each row's page *name*, and I compa
 the proposed *URL* — but on this fleet a page's name is frequently not its URL stem, so five
 self-links read as correct. **A sample judged against a field the defect does not live in reads as
 clean.** The census caught it, not the reading.
+
+---
+
+## ✅ CONTRIB 2026-08-24 — PROVEN AT THE ARTEFACT. A button moved on a served page.
+
+Chassis **v1.0.1332** (deployed 2026-08-24 09:39Z) carries Phase B and the self-link refusal.
+Capability-probed on **both** replicas with a control that must be absent, in the same exec:
+
+| probe | 6q6vp | j5gdd |
+|---|---|---|
+| `LoadCTALabelUniverse` (Phase B) | PRESENT | PRESENT |
+| `BestLabelMatchForPage` (self-link refusal) | PRESENT | PRESENT |
+| `LoadCTALabelUniverseNOTREAL` (control) | absent | absent |
+
+### 1. Verification bar #1 — the button reaches the contact page, checked at the SERVED page
+
+**`finetuning.uk/ai-for-uk-small-business`**, this bug's headline case. Before: a hero button
+reading **"Book a Discovery Call"** pointing at `/tools/password-entropy.html` — a password-strength
+tool. A `cta_links_stale` rerender was induced (payload and its trap in the lane RUNBOOK §12):
+
+| where | after |
+|---|---|
+| `page_components.content_data` | `cta_url` = **`/contact.html`**, `__cta_minted` = `{"cta_url":"/contact.html","secondary_cta_url":"/use-cases.html"}` — **both slots recorded** |
+| the deployed bytes (`gqls/sites`, commit `07f664323`) | `<a href="/contact.html" class="btn btn-primary">Book a Discovery Call</a>` |
+| **the served page** | **the same** — fetched live |
+
+**Four buttons on that one page were repaired** (hero primary + secondary, call-to-action primary +
+secondary) and **all four destinations return 200**. Phase A's record and Phase B's widening are
+working together on live data.
+
+### 2. The DETECTOR half, same site, before-and-after under one query
+
+A `completeness-discovery-agent` run was induced on finetuning.uk under the new binary:
+
+| | old runs | **new run (v1.0.1332)** |
+|---|---|---|
+| `misdirected_cta` findings | 169 | 70 |
+| copy `"how we work"` suggesting `/about.html` (the FALSE family) | **15** | **0** |
+| findings suggesting **the page they sit on** | **7** | **0** |
+
+Both false classes are gone from live output, and the *correct* member of the same family survived:
+`"See how we work with clients from first call to…"` → `/how-we-work.html`, which is right, and which
+the old alphabetical tie-break would have sent to `/about.html`.
+
+### 3. What is NOT proven, and it matters for whoever closes this
+
+- **One page was repaired, not the population.** This file's bar #1 says "the 149 findings' pages"
+  — plural. 32 fresh `page_rerender` items were filed for finetuning.uk alone; whether they dispatch
+  on their own or need the Phase C requeue is the open question.
+- **The out-of-scope class is now visible in live output.** The one finding still on the repaired
+  page is on slot `generic-text-block` — a prose link, which no CTA writer touches. That is the
+  documented 41-of-188 class, not a regression.
+- **`suggested_target` still has no consumer and there is still no completion verifier**, so a
+  repair that changes nothing can still complete green. That is the same shape as this bug and it
+  outlives it.
