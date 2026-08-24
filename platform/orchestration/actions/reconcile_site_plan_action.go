@@ -304,7 +304,23 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 		if routeType == "" {
 			routeType = normalizePageType(plan.Role)
 		}
-		route, neededBuilder, _ := builderForPageType(routeType)
+		route, neededBuilder, known := builderForPageType(routeType)
+		if !known {
+			// Council round 4, bug_historian: discarding `known` made this
+			// the 016b §9 "a dispatch table's default branch is a silent bug
+			// factory" shape — an unmapped page_type took the generic
+			// handler with no gap row, no log line and no way to notice.
+			// A log is the right weight here rather than a capability_gap:
+			// the generic handler is a legitimate answer for an unrecognised
+			// type (it is what happens today), so this is not a gap in
+			// capability — it is a gap in the MAP, and the person who needs
+			// to see it is whoever added the type.
+			logger.Info("ReconcileSitePlanAction: page_type not in the builder map, using the generic builder",
+				zap.String("page", name),
+				zap.String("page_type", routeType),
+				zap.String("handler", route.handler),
+			)
+		}
 		if neededBuilder != "" {
 			// Known type, no builder yet: file a VISIBLE deferred gap instead
 			// of a needs_page that cannot succeed. Same item_key shape as
@@ -411,6 +427,18 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 
 		summary := fmt.Sprintf("Build %s page (%s)", name, decision)
 		priority := 50 + emitted // simple monotonic for ordering; not load-balancing
+
+		// route.itemType is deliberately NOT bound here — the INSERT keeps
+		// its literal 'needs_page'. Council round 4 (editquality) read the
+		// unused field as half the shared struct being dead, which is fair;
+		// binding it would be a live defect. loadOpenPageItems (:683) filters
+		// `item_type IN ('needs_page','owned_page_review','page_build_failed')`,
+		// so a row minted here as 'needs_content_page' would be INVISIBLE to
+		// this action's own open-item dedup check on the next run — it would
+		// re-emit the page every reconcile, unbounded, which is the failure
+		// bugs_open/210 closed. The itemType field is meaningful to
+		// WriteBuildItemsAction, which files into a different key namespace;
+		// here the namespace is needs_page: and the type must match it.
 
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO site_work_items (

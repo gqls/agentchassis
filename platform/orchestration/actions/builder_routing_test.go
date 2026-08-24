@@ -8,8 +8,11 @@
 // items the map would have routed or gap-filed).
 //
 // The table covers every map entry AND both non-entries, so the extraction
-// cannot silently change an existing route, and removing the section-index
-// entry (the 2026-08-24 addition) fails the test.
+// cannot silently change an existing route. It also pins the deliberate
+// ABSENCE of section-index: that entry is held out until WriteBuildItemsAction
+// calls this function, because until then the two producers would disagree
+// about one page_type and the dedup index would silently pick a winner
+// (council round 4). Adding it here without doing the swap fails this table.
 
 package actions
 
@@ -23,9 +26,14 @@ func TestBuilderForPageType(t *testing.T) {
 		wantNeeded   string
 		wantKnown    bool
 	}{
-		// The 2026-08-24 addition: proven live twice by hand re-routes
-		// (guides-index 08-08, practice 08-24) before the map learned it.
-		{"section-index", "directory-build-handler", "needs_content_page", "", true},
+		// section-index is DELIBERATELY not in the map (round-4 decision):
+		// it must stay byte-identical to WriteBuildItemsAction's inline copy
+		// until that copy calls this function, or the two producers race on
+		// one itemKey and whichever fires first silently wins. So it takes
+		// the generic default, exactly as it does today at both producers.
+		// When the swap lands, add the entry and change this row — one line
+		// then moves both doors at once, which is the point.
+		{"section-index", "page-build-handler", "needs_content_page", "", false},
 
 		// Pre-existing routes — must be byte-identical to the inline map.
 		{"entity-directory", "directory-build-handler", "needs_directory", "", true},
@@ -107,13 +115,13 @@ func TestEveryRoutedHandlerIsAKnownRegisteredAgent(t *testing.T) {
 }
 
 // The routing is only reachable through normalizePageType at every producer,
-// so pin the composition: spelling variants of section-index must reach the
+// so pin the composition: spelling variants of entity-directory must reach the
 // directory-build-handler route, not the unknown-type default.
 func TestBuilderForPageTypeNormalizeComposition(t *testing.T) {
-	for _, raw := range []string{"Section Index", "section_index", "SECTION-INDEX", "Section_Index"} {
+	for _, raw := range []string{"Entity Directory", "entity_directory", "ENTITY-DIRECTORY", "Entity_Directory"} {
 		info, needed, known := builderForPageType(normalizePageType(raw))
 		if !known || needed != "" || info.handler != "directory-build-handler" {
-			t.Errorf("builderForPageType(normalizePageType(%q)) = ({%q %q}, %q, %v), want the section-index route",
+			t.Errorf("builderForPageType(normalizePageType(%q)) = ({%q %q}, %q, %v), want the entity-directory route",
 				raw, info.handler, info.itemType, needed, known)
 		}
 	}

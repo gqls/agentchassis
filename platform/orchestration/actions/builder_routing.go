@@ -53,13 +53,33 @@ func builderForPageType(pageType string) (info builderRouteInfo, neededBuilder s
 		// agent_definitions seed 001_directory_build_handler.sql and
 		// migrations 336/337 (the seed alone does NOT match the live row).
 		"entity-directory": {handler: "directory-build-handler", itemType: "needs_directory"},
-		// section-index: proven on this route twice by HAND re-routes of the
-		// item row before any map learned it (guides-index 2026-08-08,
-		// practice 2026-08-24, bugs_open/206) — this entry retires that
-		// operator recipe. itemType reuses needs_content_page per the
-		// check_componentless_pages precedent ("rather than adding a 78th
-		// type"); the dedup itemKey namespace is unchanged either way.
-		"section-index": {handler: "directory-build-handler", itemType: "needs_content_page"},
+
+		// ── DELIBERATELY ABSENT: "section-index" ────────────────────────
+		// It belongs here — the route is proven, twice, at the artefact
+		// (vetcomparison guides-index is page_type='section-index', built by
+		// directory-build-handler, sections ["hero","guide-list"], serving).
+		// It is NOT here because this map must stay byte-identical to
+		// WriteBuildItemsAction's inline copy while that copy still exists.
+		//
+		// Council round 4 (2026-08-24) is why: with the entry present, the
+		// two producers disagreed about exactly one page_type — and the
+		// guardian seat showed the disagreement is not merely untidy. Both
+		// mint the same itemKey (needs_page:<name>) under idx_swi_dedup, so
+		// whichever fires FIRST wins and the other is silently dropped. A
+		// page the planner reaches first would keep the wrong handler and
+		// this fix would never fire for it, with no signal anywhere. Four
+		// seats over three rounds called the divergence an anti-pattern;
+		// the guardian gave it a mechanism.
+		//
+		// So the entry waits for the swap rather than racing it. ADD IT
+		// WHEN WriteBuildItemsAction CALLS THIS FUNCTION — at that moment
+		// one line here changes both doors at once, which is the whole
+		// point of the consolidation. Until then section-index falls to the
+		// generic default below, exactly as it does today at both
+		// producers: no regression, no divergence, nothing to reconcile.
+		// (Measured 2026-08-24: 2 of the 5 parked pages are section-index
+		// and stay parked until then — loanzy guides-index, garden-tools
+		// buying-guides-index. That is the price of not racing.)
 	}
 	// Known page types whose builders don't exist yet. entity-page is a
 	// DECISION, not an oversight: the two parked entity-page builds as of
