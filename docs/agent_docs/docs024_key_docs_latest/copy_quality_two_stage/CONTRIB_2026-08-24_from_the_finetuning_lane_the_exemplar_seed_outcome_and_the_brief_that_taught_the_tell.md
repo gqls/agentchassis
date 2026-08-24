@@ -112,3 +112,28 @@ second data point.
 (Stage 2 note: run 6 was hand-fired against this page at ~19:35Z, correlation
 `a504d92d-745b-45e3-9607-84ed632be386`, via `scripts/fire-copy-editor.sh`. Whatever it
 proposes parks for the owner per D2.)
+
+## SECOND ADDENDUM, same evening — run 6 completed; the proposal is GOOD, the gate FAILs it, and two of the FAIL arms look like gate scope, not copy
+
+Run 6 (correlation `a504d92d…`) completed and parked proposal `8003c51a` (needs_human_review,
+with the owner as designed). Substance: it found sections 2/3 restating the "How it works"
+three-step story — **cross-section repetition on a page whose brief named one subject per
+section**, so per-section subjects reduced but did not eliminate the section-blind fault;
+stage 2 caught the remainder. Brief + stage 2 compose, n=1 more.
+
+`gate_stage2_edit.py` grades it FAIL, and for your lane the decomposition matters:
+
+1. **The `links (page's declared set)` arm applies the PAGE-level `required_links`
+   declaration to EVERY edited FIELD** — a plain-text `heading` FAILs for not containing
+   `/contact.html`, and edit 2's content FAILs although edit 1's content ADDS the link and
+   the untouched CTA section already carries it (the served page has 3). This is the inverse
+   of your caveat B: a declared set graded per-field turns a page-scoped truth into per-field
+   false alarms. One page-scoped pass over the post-edit assembly would grade it truly.
+2. **`markup (structure)` counts h3 2→0, p 4→2** on an edit that deliberately converts a
+   subheaded recap into a `<ul>` list — a REAL judgement call, correctly surfaced; just
+   noting the two arms fail for different classes of reason and the owner summary we wrote
+   separates them.
+
+Not asking you to change anything — the proposal waits for our owner either way — but if the
+required-links arm is meant to be page-scoped, this run is a clean specimen of the per-field
+reading misfiring.
