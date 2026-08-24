@@ -16096,3 +16096,42 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** MEMORY [[a-post-fix-zero-needs-a-demand-control]] and [[a-plausible-external-cause-is-when-to-doubt-your-instrument]] (same class: the instrument, not the subject) · [[mutate-the-code-to-prove-the-guard]] (the selftest is proven disconfirmable by mutation) · `loancalculator_couk/NOTES` `## 2026-08-24`
 - **source:** 2026-08-24, `loancalculator_couk` lane, sent to fix "the calculation verification harness you said is broken"
 - **added:** 2026-08-24, `loancalculator_couk` lane
+
+### `regexp_replace(..., 'n')` over a multi-line pattern SILENTLY replaces nothing — and the UPDATE still reports `UPDATE 1`
+
+- **footprint:** `regexp_replace`, `scheduled_tasks.pre_query`, `database-cleanup`, `stale-orchestration-reaper`, `build-pipeline-trigger`, `claimed-item-timeout`, `sql_for_agents/*_ROLLBACK.sql`, `UPDATE scheduled_tasks`
+- **fires when:** you rewrite part of a **live config text column** with `regexp_replace` and the pattern spans more than one line — which every `pre_query` edit does, because those queries are 90-line formatted SQL. Overwhelmingly this is a migration or its `_ROLLBACK`.
+- **the trap:** in PostgreSQL the `'n'` flag means **newline-SENSITIVE** matching, which makes `.` stop matching a newline. It reads like "n for newline, so newlines are handled" and means the opposite. The pattern then matches nothing, `regexp_replace` returns the input **unchanged**, and the enclosing `UPDATE ... WHERE name = '<task>'` **still prints `UPDATE 1`** because a row *was* matched and rewritten — with identical content. Nothing anywhere says the edit did not happen.
+- **why the wrong answer looks exactly like the right one:** `UPDATE 1` is the success signal every other migration in this directory prints. `[MEASURED 2026-08-24, bugs_open/358 lane]` **two shipped rollback scripts — `567_..._ROLLBACK.sql` and `580_..._ROLLBACK.sql` — carried this and neither would have worked.** Both had been committed as the documented undo for a live migration. The estate believed it had a rollback for two changes to its hourly cleanup sweep and had none.
+- **the check, and it is one query — do it BEFORE trusting a rollback you have not run:**
+  ```sql
+  SELECT CASE WHEN regexp_replace(pre_query, '<your pattern>', 'ZZMARKERZZ', 'n') LIKE '%ZZMARKERZZ%'
+              THEN 'MATCHED' ELSE 'NO MATCH' END,
+         CASE WHEN pre_query LIKE '%ZZMARKERZZ%' THEN 'CONTROL INVALID' ELSE 'control ok' END
+    FROM scheduled_tasks WHERE name = '<task>';
+  ```
+  **The control line is not optional.** `[MEASURED]` the first run of this test used `X` as the marker; `MAX(id)` in the sweep contains an X, so `LIKE '%X%'` was true whether or not the replace fired, **both arms returned MATCHED, and the flag was briefly cleared of causing the bug it was causing.** A marker that can occur naturally is not a marker.
+- **the fix is to DELETE the flag**, not to change it: with no flag argument `.` matches newlines, which is what a multi-line pattern needs. `'s'` is not required and `'g'` is a different axis (all matches vs first).
+- **what saved it, and is the transferable half:** both rollbacks failed **loudly**, because their verify blocks assert the **effect** (`IF q LIKE '%<the thing that should be gone>%' THEN RAISE`) rather than trusting the `UPDATE`'s own row count. A rollback that checked only `UPDATE 1` would have reported success and left the row untouched. **Assert what changed, never that a statement ran.**
+- **relations:** MEMORY [[mutate-the-code-to-prove-the-guard]] and [[a-mutation-that-passes-may-have-hit-a-guard-in-series]] · [[a-post-fix-zero-needs-a-demand-control]] (the marker-control failure above is that shape exactly) · `WRONG_CALLS.md` 2026-08-24 · the sibling trap that a migration's verify block of bare `SELECT`s cannot stop a `COMMIT` (use `DO`/`RAISE`)
+- **source:** 2026-08-24, `bugs_open/358` lane, found while testing a rollback in order to refute a council objection that said it did not exist. The objection was wrong about the file and right about the capability.
+- **added:** 2026-08-24, `bugs_open/358` lane
+
+### A prohibition written into a BRIEF has no detector — the deployed sweep reads your page fine, it just has no rule to apply
+
+- **footprint:** `site_specs.roadmap_brief`, `content_direction`, `evidence_base.writer_block`, `evidence_base.banned_claims`, `discovery_checks/check_unverified_claims.go` (`ScanDeployedClaims`), `check_voice_tells.go`, any "the page must never say X" instruction
+- **fires when:** you forbid something by writing it into a brief — *"a bare label such as 'A page about bees' is not a headline and is not acceptable"*, *"never mention the other service"*, *"assert no quantities"* — and then assume the estate's claims machinery will catch a breach. It will not, and the reason is not the one you would guess.
+- **the trap:** **`roadmap_brief`, `content_direction` and `writer_block` are PROMPT TEXT — they are instructions to a writer, enforced by nothing.** The only enforced layer is `evidence_base.banned_claims`, a list of patterns. A rule that exists only as prose in a brief has **no detector at all**: if the writer obeys it you never notice, and if the writer ignores it nothing anywhere flags the result. `[MEASURED 2026-08-24, apis.uk]` `roadmap_brief` names the exact string `A page about bees` as unacceptable; that string served as the page's own `<h1>` for **two days**; and **0 of the 38 banned_claims patterns matched it**. The rule and the breach coexisted, both in the database, with nothing to join them.
+- **⚠ AND THE OBVIOUS DIAGNOSIS IS WRONG.** It is tempting to conclude the checks only intercept WRITES and cannot see a violation that arrives once and persists. **They can.** `ScanDeployedClaims` reads **deployed** `rendered_html` AND `content_data` (`Source` field is literally `rendered_html | content_data`), and its own header says it exists *because* the build-time gate is not enough. The sweep was working the whole time. **It had nothing to apply.** Do not "fix" this by building a persisted-content scanner; one exists.
+- **the second half, which is why it lasts:** a render reads **stored** `rendered_html` and does not re-derive a headline from the brief. So a breach that arrives in one build **survives every later render unchanged**, and "the next rebuild will sort it out" is false. Two days and roughly a dozen renders did not touch it.
+- **the check, and it is the cheap half of your own rule:** **whenever you write "must never X" into a brief, add the matching `banned_claims` pattern in the same edit.** Then prove the pair:
+  ```python
+  # the rule must fire on the thing it forbids, and stay silent on the live page
+  hit  = [b['pattern'] for b in eb['banned_claims'] if re.search(b['pattern'], "<the forbidden string>", re.I)]
+  live = [b['pattern'] for b in eb['banned_claims'] if re.search(b['pattern'], served_page_text,        re.I)]
+  assert hit and not live
+  ```
+  **An instruction removed from — or added to — a prompt is a decision no future reader can see; a ban is.** This lane wrote that sentence on 2026-08-23 while removing an infrastructure disclosure, applied it correctly there, and then failed to apply it to a headline the next day. Knowing the rule is not applying it.
+- **relations:** MEMORY [[a-doc-comment-is-not-an-enforcement-mechanism]] (same shape one layer down — prose that reads as a control), [[prompt-text-poisons-its-own-detector]] (the opposite failure: a ban list quoting the phrase it bans, which DOES trip the detector); CQ-021 `ScanDeployedClaims`, CQ-020 `ScanVoiceTells`
+- **source:** 2026-08-24, `apis_uk_bees_homepage` lane — found because a peer session (`web_admin_console`) pointed at an unrelated open work item, and checking it meant reading the `<h1>` in isolation for the first time. The peer's proposed mechanism (write-time-only checks) was measured and refuted; the real one is above.
+- **added:** 2026-08-24, `apis_uk_bees_homepage` lane
