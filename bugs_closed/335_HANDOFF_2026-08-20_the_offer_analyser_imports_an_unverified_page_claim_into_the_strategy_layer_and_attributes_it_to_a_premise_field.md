@@ -1,5 +1,16 @@
 # 335 — the offer analyser imports an unverified PAGE claim into the strategy layer and stamps it `from_field`, so the field built to prove sourcing vouches for a number the premise never contained
 
+> # ✅ CLOSED 2026-08-24 — FIXED AND LIVE, proven across the whole enrolled estate.
+> Both halves live on chassis `v1.0.1332` (gate + prompt via migration `537`, applied 2026-08-22
+> 11:03Z; the `B2B` false-positive fix rolled 2026-08-24). Council **APPROVED** round 3
+> (`9a8f1283`). **6 post-537 runs across all 5 enrolled sites as of 2026-08-24**, every one
+> COMPLETED with the gate demonstrably executed (`dropped_unsourced` key present on all five current
+> orderings). **Zero unsourced cardinals estate-wide**, and the motivating false claim is gone from
+> leopardess across 2 independent re-runs of the same site, same premise, same pages.
+> **Three residuals are STATED, not silently absorbed — read "What is still owed" before extending
+> this.** The most important: the gate's ENFORCEMENT arm has never fired in production (nothing to
+> catch), so it is proven by mutation-tested unit tests only.
+
 **Filed 2026-08-20** by the `vigilant_designer_offer_analysis` lane — **this is a defect in this
 lane's own agent (`offer-analyser`, BIZ-032).** Found because the **leopardess lane caught it and
 held the findings** rather than letting them reach a writer. **OPEN, owned by this lane.**
@@ -297,7 +308,31 @@ unaffected, pinned by tests. **Stated residual:** `GPT-4` still yields 4, pinned
 if anyone fixes it. **The running binary still has the bug** — do not hand-fire B4 before the next
 roll without accepting that a legitimate technology-name point may vanish.
 
-### What is still owed
+### 2026-08-24 — CLOSURE EVIDENCE: the whole enrolled estate, re-run under the gate
+
+| site | ordering written | points | dropped | gate ran |
+|---|---|---|---|---|
+| leopardessconsulting.co.uk | 2026-08-22 11:17 | 6 | 0 | yes |
+| robot-hands.com | 2026-08-24 10:11 | 6 | 0 | yes |
+| webdesign.co.uk | 2026-08-24 10:13 | 6 | 0 | yes |
+| gamesdesign.co.uk | 2026-08-24 10:18 | 6 | 0 | yes |
+| gaswholesalers.com | 2026-08-24 10:18 | 6 | 0 | yes |
+
+- **"gate ran" is the `dropped_unsourced` key being PRESENT**, which only the new code writes — so it
+  is positive evidence the step executed, not an inference from the run completing. It is present on
+  **5 of 5** current orderings as of 2026-08-24.
+- **Zero unsourced cardinals estate-wide.** The only word numeral surviving anywhere is
+  robot-hands rank 4, *"across **six** actuation types"* — and its cited `value_proposition` contains
+  that phrase **verbatim**, so it is correctly retained. That is the negative control passing on live
+  data, which the 08-22 runs could not demonstrate because they emitted no cardinals at all.
+- **The motivating claim is gone and stayed gone** — leopardess re-run twice (08-22, and unchanged
+  since), same premise, same pages still carrying *"eight live sites"* in their `meta_description`.
+  The input that produced the defect is still live; the output no longer carries it.
+- **13 successful `run_offer_analysis` calls, 2 failed as of 2026-08-24** — both failures were an
+  Anthropic API usage-limit burst on 08-22 18:34/18:40, unrelated to this change (⚠ that error's
+  *"regain access on 2026-09-01"* is the billing reset, **not** an outage window — see LANDMINES).
+
+### What is still owed (residuals, stated rather than absorbed)
 
 - **Read the council verdict** and act on it.
 - **After the roll:** apply `537`, then re-run against leopardess (positive) **and** webdesign +
@@ -319,3 +354,30 @@ BIZ-032 (register: *"its inputs are unverified prose … until then this ceiling
 shows the ceiling is lower than stated, because the inputs include unverified PAGE copy, not only
 premise prose) · NOTES 2026-08-14 honest limit 1 (the surface carries metadata; that limit was
 framed as *findings may be hypotheses*, and this is the sharper consequence)
+
+---
+
+## Residuals carried forward at closure (2026-08-24)
+
+**None of these reopen the defect. All three are conditions on the NEXT change here.**
+
+1. **The gate's ENFORCEMENT arm has never fired in production.** `dropped_unsourced` is `[]` on every
+   run to date; total drops estate-wide, ever: **0 as of 2026-08-24**. The false claim stopped
+   appearing because the *prompt* half prevents it, so the gate has had nothing to catch. Enforcement
+   is proven by unit tests built from the verbatim live strings and mutation-proven (delete the word
+   vocabulary and the suite fails), **not** by a live firing. A run containing no cardinals passes
+   this gate trivially — do not quote a clean run as evidence the gate works.
+2. **`dropped_unsourced` has no automated consumer** (`bug_historian`, council round 2, medium).
+   Tolerable only while `offer_ordering` itself has none — **measured 2026-08-24: `strpos` finds the
+   literal `lead_with` in `offer-analyser` alone, and no Go file reads it.** ⚠ **Before
+   `offer_ordering` gains its first automated consumer, drop-mode must surface as a work item rather
+   than an in-document note**, and the seat's wider point stands: that requirement belongs in the
+   ACTION, because any future caller opting into `drop` inherits the gap. Recorded in CLM-023.
+3. **The digit rule has a stated blind spot:** `GPT-4` still yields `4`, because the character before
+   the digit is `-` and not a letter. Pinned by a test that FAILS if someone fixes it, so the doc
+   comment cannot rot. `B2B`, `S3`, `IPv6`, `Web3` are handled.
+
+**Also settled here, and worth not re-deriving:** the over-suppression scare of 2026-08-22 was
+**refuted** — see the struck-through block above. The two sites split exactly along their own
+`avoid_leading_with` lists (inventory counts dropped, categorical counts kept), and webdesign's
+pre-537 baseline was the internally inconsistent one.

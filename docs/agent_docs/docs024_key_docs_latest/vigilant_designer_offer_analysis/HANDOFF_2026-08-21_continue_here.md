@@ -11,6 +11,25 @@
 
 ## The one-line state
 
+> # ✅ 2026-08-24 — `335` IS CLOSED (`bugs_closed/335`). FIXED AND LIVE, proven estate-wide.
+> Chassis `v1.0.1332` carries both the gate and the `B2B` false-positive fix (capability-probed with
+> two controls). **6 post-537 runs across all 5 enrolled sites as of 2026-08-24**, gate executed on
+> every one, **zero unsourced cardinals estate-wide**, false claim gone from leopardess and stayed
+> gone. Negative control finally passed on live data — robot-hands KEPT *"six actuation types"*.
+>
+> **THE OVER-SUPPRESSION SCARE IS REFUTED** (see `WRONG_CALLS.md` 2026-08-24). The two sites split
+> along their own `avoid_leading_with` lists; webdesign's pre-537 baseline was the inconsistent one.
+>
+> **THREE RESIDUALS, all conditions on the next change, none reopening the defect** — full text in
+> `bugs_closed/335`: (1) the gate's **enforcement arm has never fired** (0 drops ever), so it is
+> unit-proven only — never quote a clean run as evidence it works; (2) `dropped_unsourced` has **no
+> automated consumer**, so drop-mode must surface as a work item *in the ACTION* before a second
+> caller opts in; (3) `GPT-4` still yields `4`, pinned by a test that fails if fixed.
+>
+> **NEXT WORK for this lane is the v2 batch** — `features_open/030` §10, plus **v2(d)**, which ⚠ is
+> NOT in §10 (it lives in `NOTES` ~line 2214 and the 08-17/08-18 handoffs).
+
+
 > **UPDATE 2026-08-22 ~11:20Z — RE-PROOF RUN. The false claim is GONE; the gate itself has NEVER
 > FIRED.** Both authorised runs COMPLETED (`dde16c30` webdesign, `dd2e3433` leopardess), both kept 6
 > points and dropped **0**. *"eight live sites"* is gone from leopardess — but because the **prompt**
