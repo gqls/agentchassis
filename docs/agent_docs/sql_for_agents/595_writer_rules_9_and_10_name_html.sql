@@ -31,6 +31,33 @@
 -- guidance or to RULE 10, tell that lane so it can probe and fixture them** — guessing at
 -- prefixes is exactly how the `</th`/`</td` asymmetry arose.
 --
+--
+-- > **⚠ CORRECTED 2026-08-24 by the `bugs_open/305` lane, after this file was applied — the
+-- > premise for the hold above was WRONG, and the correction matters more than the hold did.**
+-- > I said these two migrations were "what first let the writer emit a `<table>` into these
+-- > slots", i.e. what made the `</th` scanner defect reachable. **Not so.** `[MEASURED
+-- > 2026-08-24 by that lane]` `<th>` markup has been reaching `page_components` since **10
+-- > August** — 2 components the week of 08-10, 14 the week of 08-17, 1 the week of 08-24, **17
+-- > total** — and an inspected instance shows `rendered_has_real_table=true`, `escaped=false`.
+-- > **The render path was already passing markup through at `type: text`.** These migrations
+-- > raise the RATE; they did not open the path. That lane's fix was closing a fortnight-old live
+-- > defect, not a prospective one. (Damage from that fortnight: **zero** — 0 of 76 `<th>` cells
+-- > fleet-wide, all history, ever carried a define-by-negation construction, because header
+-- > cells are labels like "Rate (£/ha)", not prose.)
+-- >
+-- > **The consequence for VERIFYING this migration, and it is a trap:** because that slot already
+-- > rendered real tables before the retype, **looking for a `<table>` in `rendered_html` would
+-- > show one either way and prove nothing.** It is a check that cannot fail — the same disease as
+-- > the 40-zeros control described above, arriving from the other direction. **The demand control
+-- > that DOES discriminate** is the one in the RUNBOOK: the planner's capability distribution
+-- > moving 96/2 → 93/6 (`component_expresses` reading `{html-block,list,table}` where it read
+-- > `{}`), plus each field's `llm_guidance` and declared type read back literally. Verify there,
+-- > never at the served table.
+-- >
+-- > The hold itself cost about an hour and was harmless; the reasoning that a hold must be
+-- > ENFORCED (`_HOLD.sql`) rather than documented still stands, since another session's `--apply`
+-- > has no file scope. What was wrong was only my claim about what this change made reachable.
+--
 -- Applied by hand (the runner has no file or directory scope) and then recorded with
 -- `--record-only`. See the lane RUNBOOK §8.
 --

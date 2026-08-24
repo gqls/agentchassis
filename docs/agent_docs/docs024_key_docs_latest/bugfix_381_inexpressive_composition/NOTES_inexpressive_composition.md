@@ -273,3 +273,44 @@ reasoning is in the header so a later reader does not "simplify" the hold away.
 planner menu, because arm B has not landed. That is correct, not a bug — and it is why both the
 loanzy lane and this file now warn that a build in this window measures arm A alone (which
 components get CHOSEN), not markup volume.
+
+## 2026-08-24 — ⚠ CORRECTED by the 305 lane: my reason for the hold was wrong, and the obvious way to verify my own change is a FALSE PASS
+
+Two corrections from that lane after my release, both revising premises **I** supplied.
+
+**(1) `594`/`595` did NOT make the `</th` defect reachable.** I said they were "what first let the
+writer emit a `<table>` into these slots". `[MEASURED 2026-08-24 by that lane]` `<th>` markup has
+been reaching `page_components` since **10 August** (2 / 14 / 1 by week, **17 total**), and an
+inspected instance reads `rendered_has_real_table=true`, `escaped=false`. **The render path was
+already passing markup through at `type: text`.** My change raises the rate; it did not open the
+path. Their fix was closing a fortnight-old *live* defect, not a prospective one — and the
+fortnight did zero damage, because 0 of 76 `<th>` cells fleet-wide have ever carried a
+define-by-negation construction (header cells are labels, not prose).
+**How I got it wrong: I reasoned from my own change's intent instead of measuring the population.**
+I knew `generic-text-block` showed 1 table in 173 instances — I had that number in my own baseline
+— and read it as noise rather than as evidence the path was already open. The lane then took my
+framing at face value, so my unmeasured premise propagated into *their* reasoning too. **An
+unmeasured premise handed to a peer comes back as agreement, not as a check** — the same shape
+`WRONG_CALLS.md` records from the vetcomparison/agritec pair.
+
+**(2) The one that would have cost something: verifying this change at `rendered_html` is a check
+that cannot fail.** The obvious next verification — *"look at a page and confirm a table appears"* —
+would have shown a table **either way**, because that slot rendered real tables before the retype.
+A clean pass, proving nothing, exactly like this morning's 40-zeros control and this morning's `\b`
+that matched nothing. **Third instance of the same disease in one session, in a third costume.**
+
+**The demand control that DOES discriminate** — and, luckily, the one I actually ran: the planner's
+capability distribution moving **96/2 → 93/6** (`component_expresses` returning
+`{html-block,list,table}` where it returned `{}`), plus each field's declared type and
+`llm_guidance` read back literally. That is a value that could only change *because of this
+migration*. Recorded in both migration headers and in the RUNBOOK so the next reader does not
+"improve" the verification by going to the served page.
+
+**What still stands:** that a hold must be ENFORCED (`_HOLD.sql`) rather than documented, because
+another session's `--apply` has no file scope. Only my claim about what the change made reachable
+was wrong — the hold cost an hour and was harmless.
+
+**Lane status:** `bugs_open/305` is now CLOSED → `bugs_closed/305_HANDOFF_2026-08-18_v2_voice_does_not_suppress_define_by_negation.md`;
+their closing handoff is `docs/agent_docs/docs024_key_docs_latest/bugfix_305_negation_gate/HANDOFF_2026-08-24b_continue_here.md`,
+and it carries the `</th` boundary set plus the "ping me if RULE 10 widens" note, so that survives
+their session.
