@@ -1206,7 +1206,14 @@ func loadStoredSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logge
 		FROM page_components
 		WHERE page_id = $1
 		  AND build_status IS DISTINCT FROM 'removed'
-		ORDER BY position ASC
+		-- (position, id), not position alone: this walk is what assigns
+		-- per-instance element-id occurrences (InstanceCounter), and the
+		-- single-section paths now count predecessors with the same
+		-- (position, id) comparison (component_instance_occurrence.go). A tie
+		-- ordered arbitrarily by Postgres would let the two derivations
+		-- disagree on the same page. 2 live ties fleet-wide as of 2026-08-24,
+		-- both cross-function, so no instance token changes value today.
+		ORDER BY position ASC, id ASC
 	`, pageID)
 	if err != nil {
 		return nil, err

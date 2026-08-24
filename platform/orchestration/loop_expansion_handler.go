@@ -199,7 +199,7 @@ func (s *SagaCoordinator) handleLoopExpansion(
 		}
 
 		// Store item in a predictable location for this iteration
-		itemKey := fmt.Sprintf("%s_item_%d", loopName, iterIdx)
+		itemKey := datahelpers.LoopItemKey(loopName, iterIdx)
 		state.CollectedData[itemKey] = item
 	}
 
@@ -348,7 +348,7 @@ func (s *SagaCoordinator) setLoopVariable(
 	loopName, _ := loopMetadata["loop_name"].(string)
 
 	// Get the item for this iteration
-	itemKey := fmt.Sprintf("%s_item_%d", loopName, iterIdx)
+	itemKey := datahelpers.LoopItemKey(loopName, iterIdx)
 	item, exists := state.CollectedData[itemKey]
 	if !exists {
 		logger.Error("setLoopVariable: loop item not found",

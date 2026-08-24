@@ -665,7 +665,7 @@ COMPONENT_RENDER_RE = re.compile(r"\bRenderTemplate\w*\s*\(")
 # manufacture a finding, and the raw body lets a comment merely MENTIONING the
 # seam silence a genuinely unbound writer.
 INSTANCE_BIND_SEAM_RE = re.compile(
-    r"(?:BindInstanceToken|BindSingleSectionInstanceToken)\s*\(")
+    r"(?:BindInstanceToken|BindSingleSectionInstanceToken|DeriveAndBindInstanceToken)\s*\(")
 
 
 def _binds_instance_token(raw):

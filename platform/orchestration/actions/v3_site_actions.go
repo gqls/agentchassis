@@ -2381,27 +2381,21 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		// for this section (e.g. an all-LLM section with no resolved_data).
 	}
 
-	// Before calling RenderTemplate, set ComponentID in context
-	renderCtx.ContentData["ComponentID"] = comp.ID
-	// InstanceID is per-INSTANCE, unlike ComponentID above, which is the same
-	// value for every instance of a component.
+	// Per-instance element-id token. This path renders ONE section, but it is
+	// always a loop iteration, and loop expansion puts this step's index and the
+	// pass's items where we can read them — so the occurrence is counted from the
+	// sections already rendered in this pass rather than assumed to be 0.
+	// Derivation, fallbacks and the honest blind spots:
+	// component_instance_occurrence.go (bugs_closed/283, RFC_032 step 3).
+	// Outside a loop it binds occurrence 0, exactly as this call site did before.
 	//
-	// THIS PATH CANNOT SEE THE WHOLE PAGE. It renders one section at a time, and
-	// during a build the page_components rows may not exist yet, so there is
-	// nothing to count against. It therefore supplies occurrence 0 to the SAME
-	// rule every other path uses, rather than deriving a token of its own.
-	//
-	// An earlier version derived the token from the slot name instead
-	// (InstanceTokenFromSlot, removed 2026-08-16). The council's reuse_agent
-	// seat was right to object: that wrote the same KEY under a weaker
-	// GUARANTEE and a different SHAPE, so one instance's ids depended on which
-	// action last rendered it — reproducing, under a new name, the ComponentID
-	// trap this whole seam exists to remove. A possibly-wrong occurrence is not
-	// the same defect: it agrees with the canonical token wherever the component
-	// appears once (every interactive component on every live page today), and
-	// where it does not, the result is a COLLISION, which is precisely what
-	// DetectInstanceCollisions reports at assembly.
-	BindSingleSectionInstanceToken(renderCtx, comp.Function)
+	// The retired `renderCtx.ContentData["ComponentID"]` binding stood here until
+	// 2026-08-24. It was the last of RFC_032 §8's three; a component-wide value
+	// cannot namespace a per-instance id, which is what {{.InstanceID}} replaced
+	// it with. Census before deleting: 0 active AND 0 inactive templates spell
+	// {{.ComponentID}}, against a control of 140 spelling {{.InstanceID}}.
+	DeriveAndBindInstanceToken(ctx, params.DB, renderCtx, comp.Function,
+		PlacementFromLoopStep(config, params.CollectedData), params.Logger)
 
 	// Fail loud rather than ship a silently-empty section. If the component's
 	// schema marks a content field required (source:"llm") and it never arrived

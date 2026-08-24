@@ -517,7 +517,7 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 		}
 
 		// Get page/section name from loop item
-		itemKey := fmt.Sprintf("%s_item_%d", loopName, i)
+		itemKey := datahelpers.LoopItemKey(loopName, i)
 		item := params.CollectedData[itemKey]
 		pageName := extractPageNameFromItem(item)
 		if pageName == "" {

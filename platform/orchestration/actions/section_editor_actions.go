@@ -1097,11 +1097,15 @@ func applyContentEdit(
 	}
 
 	// --- Render ---
-	// One section, so the page's other instances are not in scope — occurrence 0
-	// into the canonical rule (bugs_open/283, component_instance_scope.go). Without
-	// this the template's {{.InstanceID}} renders as "" under missingkey=zero and
-	// every instance on the page lands back on identical element ids.
-	BindSingleSectionInstanceToken(renderCtx, getStringVal(componentData, "function"))
+	// One section — but this path holds the STORED ROW, so it knows its page and
+	// its 1-based position and can count its same-function predecessors exactly
+	// (component_instance_occurrence.go, bugs_closed/283 / RFC_032 step 3).
+	// Before this it bound occurrence 0 unconditionally, which put every instance
+	// on a multi-instance page back on identical element ids after any edit.
+	// If the count cannot be taken it still binds 0 — never worse than before,
+	// and it cannot fail the edit.
+	DeriveAndBindInstanceToken(ctx, db, renderCtx,
+		getStringVal(componentData, "function"), PlacementFromStoredRow(pcData), logger)
 	// bugs_open/342 — loadComponentForEdit already selects input_schema, so this
 	// path has the contract in hand. It matters MORE here than anywhere: this
 	// route writes rendered_html straight to an already-live page with no
@@ -1271,8 +1275,11 @@ func applyComponentSwap(
 		return sectionEditOutcome{}, fmt.Errorf("failed to build render context for swap: %w", err)
 	}
 
-	// Same single-section case as applyContentEdit above.
-	BindSingleSectionInstanceToken(renderCtx, comp.Function)
+	// Same stored-row case as applyContentEdit above. The function is the NEW
+	// component's: counting ITS same-function predecessors is what the page will
+	// look like after the swap, which is the page this render belongs to.
+	DeriveAndBindInstanceToken(ctx, db, renderCtx, comp.Function,
+		PlacementFromStoredRow(pcData), logger)
 	renderCtx.InputSchema = comp.InputSchema // bugs_open/342 — same live-page exposure as applyContentEdit
 	rendered, _, _, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
 	emitRequiredFieldsMissing(ctx, db, siteID,
