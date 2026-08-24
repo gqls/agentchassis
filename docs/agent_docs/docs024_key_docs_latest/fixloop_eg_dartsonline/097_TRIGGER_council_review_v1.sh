@@ -257,28 +257,63 @@ echo "  Orchestration:                          ${ORCHESTRATION_ID}"
 echo "  Orchestration name:                     ${ORCH_NAME}"
 echo "  Plan bytes:                             ${BYTES}"
 echo "========================================="
-echo "SAVE: SUBMISSION_CORR=${FIX_CORR}  RUN_ORCH_ID=${ORCHESTRATION_ID}"
 echo ""
 
-printf '%s\n' "$PAYLOAD" | kubectl -n kafka run -i --rm "kcat-cgate-$(date +%s)" \
-  --image=edenhill/kcat:1.7.1 \
-  --restart=Never -- \
-  kcat -P \
-  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
-  -t system.agent.council-gate.requests \
-  -H "correlation_id=$CORRELATION_ID" \
-  -H "request_id=$REQUEST_ID" \
-  -H "message_id=$MESSAGE_ID" \
-  -H "orchestration_id=$ORCHESTRATION_ID" \
-  -H "orchestration_name=$ORCH_NAME" \
-  -H "step_name=start" \
-  -H "client_id=$CLIENT_ID" \
-  -H "message_type=request" \
-  -H "action=orchestrate" \
-  -H "from_agent_type=user" \
-  -H "from_agent_id=cli" \
-  -H "responses_topic=system.agent.generic.responses"
+# ---------------------------------------------------------------------------
+# PUBLISH — via the shared, receipt-asserting publisher (bugs_open/327).
+#
+# THIS BLOCK CLOSES ALL THREE HALVES OF ITS OWN LANDMINE ("097_TRIGGER_council_review
+# prints its SAVE: SUBMISSION_CORR= receipt BEFORE it publishes — and the publish can
+# fail on a one-second pod-name collision"):
+#
+#  1. THE RECEIPT WAS PRINTED FIRST. `SAVE: SUBMISSION_CORR=` used to print immediately
+#     above this, so the operator recorded a trail id for a submission that might never
+#     have been sent — and any error appeared BELOW the summary and the "if APPROVED,
+#     commit with…" advice, where the eye has already read success and stopped. It now
+#     prints only after a confirmed receipt.
+#  2. THE PAYLOAD RODE ON STDIN. `printf … | kubectl run -i` attaches stdin
+#     asynchronously; lose the race and kcat sees EOF, publishes nothing, exits 0.
+#  3. THE POD NAME CARRIED ONLY SECOND RESOLUTION (`kcat-cgate-$(date +%s)`), so two
+#     sessions submitting in the same second collided with AlreadyExists and the
+#     container never started. The library's names carry `$RANDOM` as well.
+#
+# ⚠ EXIT-CODE CONTRACT PRESERVED. This script owns 1 (hard error / validation) and
+# 2 (REFUSED, out of scope), documented at :111-114 and mirrored in council-scope.sh.
+# The library's publish codes deliberately start at 10, so they cannot collide; a
+# publish failure surfaces as 10/11 and is passed straight through.
+# ---------------------------------------------------------------------------
+if [ ! -f "$REPO_ROOT/scripts/kafka-publish-lib.sh" ]; then
+  echo "ERROR: scripts/kafka-publish-lib.sh not found — refusing to publish unverified." >&2
+  echo "       An unverified dispatch is bugs_open/327, and this gate's whole value is the trail." >&2
+  exit 1
+fi
+. "$REPO_ROOT/scripts/kafka-publish-lib.sh"
 
+PUBLISH_RC=0
+kafka_publish_checked \
+  --topic system.agent.council-gate.requests \
+  --correlation "$CORRELATION_ID" \
+  --payload "$PAYLOAD" \
+  --header "request_id=$REQUEST_ID" \
+  --header "message_id=$MESSAGE_ID" \
+  --header "orchestration_id=$ORCHESTRATION_ID" \
+  --header "orchestration_name=$ORCH_NAME" \
+  --header "step_name=start" \
+  --header "client_id=$CLIENT_ID" \
+  --header "message_type=request" \
+  --header "action=orchestrate" \
+  --header "from_agent_type=user" \
+  --header "from_agent_id=cli" \
+  --header "responses_topic=system.agent.generic.responses" || PUBLISH_RC=$?
+
+if [ "$PUBLISH_RC" -ne 0 ]; then
+  echo "" >&2
+  echo "SUBMISSION NOT SENT — no council round will run, and SUBMISSION_CORR ${FIX_CORR} names nothing." >&2
+  echo "Nothing was spent. Re-run the same command; the submission file is unchanged." >&2
+  exit "$PUBLISH_RC"
+fi
+
+echo "SAVE: SUBMISSION_CORR=${FIX_CORR}  RUN_ORCH_ID=${ORCHESTRATION_ID}"
 echo ""
 echo "Submitted. Watch the run:"
 echo "  SELECT new_current_step, new_status, changed_at FROM orchestration_state_audit"
