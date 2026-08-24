@@ -667,7 +667,32 @@ var numberCandidateRe = regexp.MustCompile(`\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\
 // plural, while singular "business" is descriptive ("business hours",
 // "business functions") and false-positived on calculator help text
 // ("22 for business hours") in the first live run.
-var businessClaimContextRe = regexp.MustCompile(`(?i)\b(clients?|customers?|records?|businesses|compan(y|ies)|agents?|sites?|users?|subscribers?|departments?|awards?|employees?|staff|engagements?|projects?|deployments?|case\s+stud(y|ies)|definitions?|orchestration|integrations?|providers?|items?|uptime|verified|enrich(ed|ment)|scored|collected|processed|deployed|delivered|years\s+of\s+experience|uniques?)\b`)
+//
+// `orchestration` GAINED ITS PLURAL 2026-08-24 (bugs_open/364), and the reason
+// is worth more than the character: it was the ONLY countable noun in this list
+// without one (audited all 35 alternatives — the rest are already `s?`/`(y|ies)`
+// grouped, or are mass nouns (`staff`, `uptime`), verbs (`verified`, `collected`)
+// or fixed phrases). Because this gate uses `\b…\b` while numberSupported's
+// ContextTerms use strings.Contains, a registered fact whose term is
+// "orchestration" HAPPILY VOUCHES for a number next to "orchestrations" that
+// this gate never let through in the first place — so the register looked like
+// it was doing the work and the gate was simply blind. Live copy on
+// ai-agent-orchestration.com reads "We run over 1,600 orchestrations a day
+// across 13 live production systems": a first-person quantified claim that had
+// NEVER been scanned.
+//
+// MEASURED before changing it, both directions: fleet-wide, exactly ONE site's
+// components contain "orchestrations" at all (11 components, all
+// ai-agent-orchestration.com) and adding the plural changes the finding count by
+// ZERO — the values there are already supported by that site's registered
+// `4068 gte` fact. So this closes a silent blind spot at no measured cost.
+//
+// ⚠ THE GENERAL POINT, which is the durable half: this list is an ALLOW-LIST OF
+// NOUNS with the same unbounded-miss property as unitSuffixRe's allow-list of
+// units. A plural, synonym or hyphenation it has not met is a SILENT MISS
+// anywhere on the fleet — and unlike a false positive, nothing reports it.
+// bugs_open/364 §5b.
+var businessClaimContextRe = regexp.MustCompile(`(?i)\b(clients?|customers?|records?|businesses|compan(y|ies)|agents?|sites?|users?|subscribers?|departments?|awards?|employees?|staff|engagements?|projects?|deployments?|case\s+stud(y|ies)|definitions?|orchestrations?|integrations?|providers?|items?|uptime|verified|enrich(ed|ment)|scored|collected|processed|deployed|delivered|years\s+of\s+experience|uniques?)\b`)
 
 // Phone-context exclusion — phone numbers are validated separately and their
 // digit groups must not reach the number scan.

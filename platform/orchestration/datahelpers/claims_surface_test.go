@@ -284,3 +284,35 @@ func TestTrackerPagesGiveUpTheirFirstPersonClaims(t *testing.T) {
 		}
 	}
 }
+
+// TestThePluralOfOrchestrationReachesTheGate pins bugs_open/364 §5b.
+//
+// businessClaimContextRe is an allow-list of NOUNS, and it carried
+// `orchestration` singular with no `s?` — so "We run over 1,600 orchestrations a
+// day across 13 live production systems" (verbatim live copy, protocol-tracker
+// call-to-action, ai-agent-orchestration.com) was never scanned at all. Nothing
+// reported that: a false NEGATIVE in this layer is silent by construction.
+//
+// The council raised it as a fast-follow on the interim (correlation
+// b8df25dc, bug_historian and compliance seats): leaving it unfixed meant the
+// interim's "measured loss is zero" rested on a SECOND bug staying unfixed,
+// which is luck, not a safety property.
+//
+// The empty register is deliberate, for the usual reason — a populated one would
+// support the value and the assertion would hold whatever the gate did.
+func TestThePluralOfOrchestrationReachesTheGate(t *testing.T) {
+	const claim = "We run over 1,600 orchestrations a day across 13 live production systems."
+
+	empty := &EvidenceBase{}
+	if f := empty.ScanUnregisteredNumbers([]string{claim}, ClaimSurface{PageType: "content"}); len(f) == 0 {
+		t.Error("the plural 'orchestrations' must reach businessClaimContextRe — " +
+			"a first-person quantified claim went unscanned because the gate carried only the singular")
+	}
+
+	// The singular must keep working — this is the direction that was never broken,
+	// and a fix graded only on the new case cannot see if it broke the old one.
+	const singular = "Our orchestration count reached 4,200 last week."
+	if f := empty.ScanUnregisteredNumbers([]string{singular}, ClaimSurface{PageType: "content"}); len(f) == 0 {
+		t.Error("regression: the singular 'orchestration' no longer reaches the gate")
+	}
+}
