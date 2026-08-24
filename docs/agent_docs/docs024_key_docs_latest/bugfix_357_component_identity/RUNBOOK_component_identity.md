@@ -187,9 +187,12 @@ SELECT position, slot_name, md5(rendered_html), component_id FROM page_component
 
 `578_retype_mislabelled_tool_rows_HOLD.sql` re-types the existing rows. It refuses to
 run until an organically adopted row with a stamp exists, so steps 1–3 are its
-precondition and it enforces that itself rather than trusting this runbook. It skips
-the six `rebuild_policy='owned'` pages by name — an owner decision, not a technical
-exclusion.
+precondition and it enforces that itself rather than trusting this runbook. It targets
+**all 22**, the six `rebuild_policy='owned'` pages INCLUDED (owner instruction
+2026-08-24, correcting my earlier reading that 'owned' meant a person had claimed the
+page — it means the page belongs to a tool, it is set in code, and 172 of 704 pages
+carry it). Those six are the ONLY rows phase 2 can never heal: the owned-page guard
+returns at `save_page_sections_action.go:186` and adoption runs at `:397`.
 
 **Do not run phase 3 before phase 2 is armed:** the population refilled 12 rows on
 08-23, so repairing it first is repairing a set that immediately renews.

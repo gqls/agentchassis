@@ -205,6 +205,26 @@ BEGIN
     -- rows I was willing to touch and they are the only ones that cannot fix
     -- themselves.
     --
+    -- AND THEY ARE NOT VERBATIM PAGES, which is the one thing that WOULD make this
+    -- unsafe -- checked rather than assumed [MEASURED 2026-08-24]. A page ships
+    -- verbatim when THREE things hold: rebuild_policy='owned' AND exactly one
+    -- component row AND that row carries content_data->>'deploy_mode'='verbatim'
+    -- (the rule this file's own addendum records from the loancalculator_couk
+    -- decompose lane). All six are owned with exactly one row -- two of three -- and
+    -- every one reads deploy_mode = NONE. They are ASSEMBLED pages that work because
+    -- assembly emits the single row's stored HTML, which is what the bug file says.
+    --
+    -- That distinction is load-bearing because the flip between verbatim and
+    -- assembled IS THE ROW COUNT, not a flag: adding a row beside a verbatim one
+    -- silently switches the page to assembly with the old full document still in the
+    -- mix, producing a document nested inside a document. This migration adds no
+    -- rows and sets no deploy_mode, so it cannot flip anything either way.
+    --
+    -- The three genuinely verbatim loancash pages are excluded STRUCTURALLY, not by
+    -- luck: none is bound to the `hero` component at all, so the predicate's first
+    -- clause rules them out. Verified 2026-08-24 rather than inferred from the
+    -- earlier lane's exemption note.
+    --
     -- WHY REPAIRING A ROW ON AN OWNED PAGE IS SAFE. The guard exists to stop the
     -- generic pipeline's DELETE-and-reinsert of page_components clobbering a tool
     -- page (the TL-001 shape). This migration does not do that: it UPDATEs three
