@@ -441,3 +441,57 @@ are on that one page**. Home and about are clean. Pricing still cannot be rebuil
 stale claim away, and I found and fixed a genuine flaw in the checker along the way (it was reading
 the "2" in "2am" as a business statistic). That fix is written and tested but only takes effect at
 the next fleet deployment.
+
+---
+
+## 2026-08-24 — the readability work is finished, and the last of it fixed itself
+
+**Every page now passes. 44 failures at the start, then 32, then 8, now zero.**
+
+I checked before claiming anything, because this conversation was two days old and a new build had
+gone out in the meantime. Three things had moved while I was away, and one of them finished the job
+for me.
+
+### The pricing page repaired itself
+
+You'll remember pricing was the last one — 8 failures, and it couldn't be rebuilt because its
+content had been lost back in April. The fix I made on Friday to the site's instruction sheet
+cleared the real blocker. **The rebuild then went through on its own on Friday evening**, a few
+hours after I stopped, and something else added a tool reference to it on Saturday. All five
+sections have their content back and the page is clean.
+
+Two things I want to be straight about. **I did not fix the last 8 failures — the change I made on
+Friday did, hours later, without me.** And the reason it worked on the retry is the same
+non-determinism I flagged as a problem earlier in the week: the writer produces slightly different
+copy each time, and this time it happened not to trip the other checker. That cut in our favour
+here; it is still the thing that makes this pipeline hard to predict.
+
+The broken markdown link I found on that page — the one showing raw `[text](link)` syntax to
+visitors — is gone as well. The rebuild wrote it properly as prose.
+
+### Two findings left, and I don't think they're yours to worry about
+
+The tool reports two remaining items, both where text sits **on top of an image**. The tool itself
+says those readings are approximate, because it cannot know what is behind the text at that pixel.
+Every number I have quoted you all week has excluded them for that reason. If you want them looked
+at, it is a separate and much fuzzier job than the one just finished.
+
+### The carousels and pictures came through unchanged
+
+Both survived the new deployment and two days: the case-study cards still slide, and all ten
+pictures still load.
+
+### I told the other two sites about the carousel
+
+Two other sites share that component. I have written to both explaining what changed, showing that
+their pages are switched off by design rather than by luck (I checked their live pages, not just the
+database), and how to turn it on if they want it. That is a house rule — measuring that I didn't
+break someone's site is not the same as them agreeing to the change.
+
+### One honest loose end
+
+There is a batch of 17 old readability items still sitting in a queue marked "parked". They are not
+new problems and they are not evidence anything is wrong — they can only be cleared by an automatic
+audit that has not run on this site since 10 August. Now that every page genuinely passes, that
+audit should clear them when it next runs. If it clears none of them, that tells us something is
+wrong with the clearing mechanism, and someone else already owns that question.

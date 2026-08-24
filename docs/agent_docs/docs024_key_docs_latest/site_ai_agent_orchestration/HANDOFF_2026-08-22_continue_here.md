@@ -1,4 +1,33 @@
-# HANDOFF — ai-agent-orchestration.com. START HERE. Written 2026-08-22 ~12:40Z.
+# HANDOFF — ai-agent-orchestration.com. START HERE. Written 2026-08-22, UPDATED 2026-08-24.
+
+> ## ✅ UPDATE 2026-08-24 — CONTRAST IS AT **ZERO** ON ALL FOUR PAGES. The lane's original ask is COMPLETE.
+>
+> | was (08-22) | now (08-24) |
+> |---|---|
+> | 8 firm failures, all on `pricing` | **0 firm failures on index / about / pricing / services** |
+> | `pricing` blocked, awaiting the roll | **rebuilt itself 2026-08-22 16:02Z** — 5/5 components have `content_data` again |
+> | `bugs_open/364` fix inert | **LIVE** on `v1.0.1332` (stamp `0b262ed5e`, `merge-base` confirmed) |
+> | pricing CTA served literal markdown | **gone** — the rebuild wrote it as prose |
+>
+> **The last 8 failures were NOT closed by me.** Migration `557` cleared the real blocker; my own
+> `aiao-557-verify` item then completed on its own hours after I stopped, because the retry drew
+> copy without a clock time. The `364` Go fix was **not yet live** when that happened — so do not
+> credit it for this page.
+>
+> ⚠ **Two `overImage` findings remain** (index ×1, pricing ×1). They are approximate by the
+> adapter's own admission and are excluded from every figure this lane has ever quoted. They are a
+> different, fuzzier problem — do not report them as a regression.
+>
+> ⚠ **Before asking "did my Go change ship?" read `platform/buildcapability/buildcapability.go`**
+> (RFC_040, ratified 2026-08-20). Grepping the binary for your own commit returns ABSENT for a
+> binary that certainly contains it — two lanes have been burned (`bugs_open/215`, `299`). The
+> `build provenance` log line scrolls within ~4 minutes here. The working query is
+> `service_binary_capabilities` (one row per pod carrying `git_commit`, 15-min heartbeat, 2-hour
+> retention), then `git merge-base --is-ancestor <your commit> <stamp>`.
+>
+> **What is left is small and none of it blocks anything** — see §5, items 2-5. The two consumer
+> lanes have been told about the carousel (CONTRIBs filed 2026-08-24 in `finetuning_uk_service/`
+> and `docs/leopardessconsulting/`), so §5 item 2 is DONE.
 
 **Supersedes `HANDOFF_2026-08-18_continue_here.md`** for current state. Read that one second, and
 treat its §4 (images) and §5 (carousels) as **superseded plans, not just stale figures** — both

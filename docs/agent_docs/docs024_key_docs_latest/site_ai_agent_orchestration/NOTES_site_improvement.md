@@ -1117,3 +1117,103 @@ this lane's files — `559`, `560`, `364` and my `LANDMINES` entry. ⚠ That edi
 own entry's heading and mechanism line, replaced with dated versions** — the in-place dated
 correction the ruling asks for, not another session's content. I should have said so in the commit
 message; recording it here instead.
+
+---
+
+## 2026-08-24 — CONTRAST IS AT ZERO. The last 8 closed themselves, and I did not do it
+
+Checked the ground first, as the thread was two days old and a chassis build had rolled. **Three
+things had changed underneath this lane, and one of them finished the job.**
+
+### 1. `bugs_open/364`'s fix IS live — verified by capability, not by grep
+
+The roll happened: chassis pods run `v1.0.1332`, started 2026-08-24 09:39Z.
+
+⚠ **I nearly used the trap.** My instinct was `grep` the binary for my own commit sha. That is the
+documented wrong answer, and `platform/buildcapability/buildcapability.go` (RFC_040, owner-ratified
+2026-08-20 — *after* my last session) says why in as many words: *"buildinfo.GitCommit is ONE
+string, not an ancestry, so grepping the binary for your own commit returns ABSENT for a binary that
+certainly contains it. Two lanes have now been burned by exactly this (`bugs_open/215` on
+v1.0.1288; `bugs_open/299` on v1.0.1316)."* The `build provenance` log line was also already gone —
+retention here is ~4 minutes, so a startup line is unreadable within the hour.
+
+The mechanism that works is new since I last looked: **`service_binary_capabilities`**, one row per
+pod carrying `git_commit`, heartbeated every 15 min with a 2-hour retention window. So the question
+is a proper query:
+
+```sql
+SELECT DISTINCT git_commit FROM service_binary_capabilities
+WHERE service='agent-chassis' AND last_seen_at > now() - interval '30 minutes';
+--> 0b262ed5e1702127c7e1b8b035eae9e33bdc90f8   (ONE distinct stamp)
+```
+```bash
+git merge-base --is-ancestor ebe8f4323 0b262ed5e   # ✅ contains the 364 fix
+```
+
+**Read `buildcapability.go` before ever asking "did my Go change ship?" again.**
+
+### 2. `pricing` rebuilt itself on 2026-08-22, hours after I stopped
+
+All five components carry new `rendered_html` and **non-NULL `content_data`** (they were 5/5 NULL
+since April, which was the whole reason the page could not re-render). Two items did it:
+
+- `aiao-557-verify` — **my own evidence item**, which I left at `needs_human_review` with the
+  `2am` false positive. It **completed 2026-08-22 16:02:21**. Migration `557` had cleared the `170`
+  blocker; the retry drew copy without a clock time and went through. **That is the
+  non-determinism I documented, working in my favour for once** — and it means the page was fixed
+  by the source change, not by the Go fix, which was not yet live.
+- `backfill-353` — added a tool reference on 2026-08-23 17:40.
+
+### 3. The result: **0 firm contrast failures on all four pages**
+
+```
+page              firm 08-22   firm now
+about.html                 0          0
+index.html                 0          0
+pricing.html               8          0     <-- the whole remaining backlog
+services.html              0          0
+TOTAL FIRM                 8          0
+```
+
+Two findings remain and both are `overImage` (approximate by the adapter's own admission, and
+excluded from every figure this lane has quoted): one on `index`, one on `pricing`
+(`.btn btn-secondary`, white on grey, 3.95:1 over an image). **If anyone wants those, they are a
+different piece of work — an over-image backdrop is unknowable to this instrument, not a measured
+failure.**
+
+**The arc, end to end: 44 → 32 → 8 → 0 firm failures.**
+
+### 4. The literal markdown is gone too
+
+The pricing CTA used to serve `[LLM Provider Cost Comparison Calculator](/tools/…)` as visible
+text. The rebuild regenerated it as prose and the page now has **0** markdown-link artefacts. So
+the contribution I sent `copy_quality_two_stage` on 08-19 — *"the shrink floor is defending
+defective copy"* — is now historical for this page: the floor let a better draft through and the
+defect went with it. Worth them knowing; the mechanism they care about is unchanged.
+
+### 5. Carousel and images survived two days and a roll
+
+`index` and `enterprise-reference-deployment` both still carry the carousel markup and **5 card
+images each, all resolving**. `carousel_enabled` still set on 2 placements, 10 image URLs still
+bound, migrations `469`/`557`/`559` all still in force. ⚠ The rebuild that touched `pricing` did
+**not** touch these — the durability risk recorded in `559` has still never actually fired, which
+is not the same as it being safe.
+
+### 6. Told the two other consumers, per the owner ruling of 2026-07-29 §3
+
+`finetuning.uk` and `leopardessconsulting.co.uk` place `case-studies-grid`. CONTRIB filed in both
+lanes: what changed, that their sites are OFF by construction (guard + verified at their live
+pages), how to opt in, and the three traps — the flag is not durable against a rebuild, the arrows
+hide on overflow not card count, and **the experience register is not how you ship this**.
+Measuring that nothing broke is not the same as their having agreed.
+
+### 7. Still open, and none of it blocks anything
+
+- **The 17 parked `contrast_failure` items are STILL `deferred`, untouched since 2026-08-11.** The
+  site's render audit has not run here since 08-10, so the retraction cannot fire — their presence
+  remains *not* evidence of a live defect. Now that all four pages measure 0, this site is a clean
+  disconfirmable test for `bugs_open/296`: the next rotation should retract them. If it retracts
+  none, §9 of that file is wrong.
+- **`composeWriterBlock` must learn to carry negative guidance** before any site sets
+  `writer_block_managed: true` — otherwise opting in deletes the NEVER-STATE list. Unchanged.
+- `overImage` findings (2) — a different instrument problem, not this lane's contrast defect.
