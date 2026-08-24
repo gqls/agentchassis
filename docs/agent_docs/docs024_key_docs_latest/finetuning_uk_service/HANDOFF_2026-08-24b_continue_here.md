@@ -18,6 +18,27 @@ sections. Owner prose: README 08-24 entries. Outcome report + addendum for the c
 | Consultations | copy_quality: outcome + addendum DELIVERED (their reciprocal option: de-demonstrate the 7 fleet `rather than`s and re-render for the second data point — THEIR call). offer-analysis: never replied; our differentiator-[0] call stands. aiao carousel CONTRIB: courtesy, no action |
 | Owner calls OPEN | playground booking shape · sample datasets · **Stripe LAST (user 08-24)** · copy-editor proposal review when it parks · (new, small) whether "Your Own Model" staying in the site-wide header is the wanted nav shape — declared in_header=true, nav-updater will ship it |
 
+> ## DELTA ~20:00 UTC, closing the session — BOTH pages are LIVE and verified; what's left is a draining wave and owner decisions
+>
+> - **`/technical-details.html` LIVE** (deployed 19:38:17, served 200): licences stated exactly
+>   as the registered facts, version-pinning honoured in the copy itself ("terms would need
+>   checking on their own merits"), both required links present, banned promise absent, tells 6
+>   (third data point in the CONTRIB series: zero-demonstration brief → 6, from 9).
+> - **copy-editor proposal `8003c51a`** parked for the OWNER (gate FAIL decomposed in NOTES/CONTRIB;
+>   the rewrite itself is good). The chrome rerender wave does NOT dangle its component ids
+>   (empty-reason rerenders assemble STORED html).
+> - **Nav: mechanism proven, artefact pending.** `site_nav_items` has the page; nav-updater
+>   spawned a 52-item `page_rerender` wave (empty reason = chrome-only). At 20:00 the wave was
+>   still fully `triaged` — site unlocked, zero claimed items, pre-query conditions all pass, and
+>   the dispatcher processed this site minutes earlier, so this is FLEET QUEUE PACE, not a fault.
+>   **Verify later**: `SELECT count(*) FROM pages WHERE site_id='1368e337…' AND rendered_header
+>   LIKE '%your-own-model%'` should climb toward ~54, and the served /index.html header shows
+>   "Your Own Model". If the wave is still untouched after several hours, THEN investigate the
+>   dispatcher's site rotation — not before.
+> - Licence facts registered (`ft-licence-llama33/mistral7b/phi35mini`), terms question list in
+>   README 08-24d. **Remaining work is owner-gated** (proposal review, booking shape, sample
+>   datasets, terms answers) **except Stripe, which the user ordered LAST (2026-08-24).**
+
 ## Next work, in order
 
 1. **When copy-editor run 6 lands**: read the proposal, run `gate_stage2_edit.py --item <id>`,
