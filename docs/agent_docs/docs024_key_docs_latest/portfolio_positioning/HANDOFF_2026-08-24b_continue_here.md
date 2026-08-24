@@ -21,8 +21,19 @@ MIGRATIONS_DIR="$SCR" ./scripts/migration/run-migrations.sh          # dry run f
 MIGRATIONS_DIR="$SCR" ./scripts/migration/run-migrations.sh --apply
 ```
 
-⚠ **Scope the dir.** A bare `--apply` takes EVERY pending file, and other lanes have
-`_HOLD` migrations queued (`587`, `588`) that are held deliberately.
+⚠ **Scope the dir — this is load-bearing, not hygiene.** A bare `--apply` does not merely risk
+applying other lanes' work: **it would never reach `590` at all.** A fleet-wide dry run
+2026-08-24 shows three pending files whose own pre-flight guards REFUSE —
+
+    562_repair_poisoned_site_hero_url.sql        P0001: gate_is_live is not set to 'v1.0.1326+'
+    582_dispatch_sibling_A_task_name…            P0001: build-pipeline-trigger input_data is no longer {}
+    583_dispatch_sibling_B_parameterise…         P0001: trigger row drifted from the shapes this was written against
+
+— and the runner applies in filename order and **stops on the first failure** ("a failed file
+stops the run — nothing after it is attempted"). `562` sorts before `590`, so the run aborts there
+and `590` is never attempted. The failure would look like someone else's migration breaking, and
+your sitemap wiring would silently not be applied. Three more (`574`, `576`, `584`) report LIKELY
+ALREADY APPLIED and want `--record-only`, which is a different lane's job.
 
 **Already rehearsed, do not redo:** scoped dry run clean; the probe transaction ran to its
 own COMMIT and rolled back; and all four verify guards were **induced** to fail —
