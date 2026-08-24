@@ -1610,6 +1610,18 @@ source document and the entry points at it.
   `7a1887e31`, seconds apart (so a fleet release does roll the adapter with the chassis — one
   release, not two); a commit made minutes later sat **3 commits ahead of the build point** and
   was not in it. Read the stamp, do not infer it from the timing of a roll you watched happen.
+- **recurred 2026-08-24, same arithmetic, and with ONE NEW WARNING about how you confirm it**
+  (`vigilant_designer_offer_analysis` lane, corr `ef482d1c`): last `updated_at` **18:30:18Z**,
+  new chassis pods started **~18:32Z** (replicaset `7f4d5f9fff` → `855587d4dc`), stuck at
+  `review_guardian`, still `EXECUTING_STEP` and NULL-error 82 minutes later. Check and remedy
+  above both worked unchanged. ⚠ **The new warning: do NOT try to confirm the diagnosis by
+  looking for a fleet-wide freeze signature — there may not be one.** The obvious corroboration
+  is *"if a roll killed mine it must have killed others"*, and here `SELECT date_trunc('minute',
+  updated_at), count(*) FROM orchestration_states WHERE status='EXECUTING_STEP' AND updated_at <
+  now() - interval '20 minutes'` over four hours returned **exactly one row: mine.** A roll kills
+  whatever happens to be in flight, and on a tree whose sweep is disabled that is often a single
+  run — so a lone casualty is the EXPECTED shape, not a reason to doubt the cause and keep
+  waiting. The pod-age comparison is the check; a peer census is not a second opinion.
 - **source:** 2026-07-31, gauntlet_dead_cta lane; killed runs `45d143e0` (re-fired as
   `e4f81e61`, approved) and `0be8c542` (re-fired as `afd50fd4`)
 - **added:** 2026-07-31, gauntlet_dead_cta lane
