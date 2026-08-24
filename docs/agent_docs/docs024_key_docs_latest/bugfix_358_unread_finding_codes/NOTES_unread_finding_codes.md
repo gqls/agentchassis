@@ -981,3 +981,43 @@ weaker than shown-as-edit, and that is the same lesson as above.
 **The low one** — `TestTheHandListHoldsOnlyWhatTheScanCannotSee` is referenced by edit 2's comment
 but lives in edit 1's truncated tail — is the same cause a third time. No code change owed on any of
 the four; what was owed was a better sketch, and that is now a rule rather than an intention.
+
+## 2026-08-24, evening — the fresh roll closes the day-one arc, and the owner's decisions restated
+
+**v1.0.1335 verified at the artefact.** The CronJob's pinned image carries build stamp
+`48f55f218…`; `git merge-base --is-ancestor` confirms both the declaration commit (`2f6a36124`)
+and the scan/baseline commit (`fb1b8a9be`) are ancestors — so the deployed registry is the
+55-code one, not yesterday's. A manual in-cluster Job: **exit 0, 0 findings, 43 observed / 55
+declared, retention parity checked, clean row written.** The arc is closed: red on day one →
+declared same day → next roll ships the declarations → green, with every hop verified at the
+artefact rather than inferred from the tag.
+
+**The owner's decisions in this lane, restated in one place** (they are scattered across four
+docs and a proposal, and the chain of effects is worth seeing whole):
+
+1. **Propose-and-ratify (2026-08-22):** the session proposes dispositions with evidence attached;
+   he ratifies in batches. A disposition is a decision about what the estate *accepts losing* —
+   sessions can measure, only the owner can accept. Effect: batch 1 was one word to ratify and one
+   commit to apply.
+2. **"Cap it" (the unruled backlog):** implemented as a RATCHET because a flat cap below the live
+   backlog is red from day one, and his instruction was about stopping growth, not about
+   punishing history. Effect: the backlog cannot grow, and every batch he ratifies lowers the cap
+   in the same commit.
+3. **Phase 2 first, then batch 1 (2026-08-23):** the clock before more rulings. Effect: the check
+   went live a day sooner — and caught two new codes on its first day, which no amount of
+   batch-ruling would have seen. The ordering refinement (batch 1 committed *before* the image
+   build) is why the deployed image was current on arrival.
+4. **Batch 1 ratified in full:** seven codes to human-evidence, recording today's truth rather
+   than ambition. 32 → 25.
+5. **`reader_sink` approved:** `consumed` must name the table its reader actually reads. Effect:
+   `component_validation_rejected` cannot wear a green badge over an unread row.
+6. **Standing rulings of his that shaped the build:** opt-in-default-OFF (2026-08-02) is why
+   `--no-source` has the shape it has; review-after-the-fact (2026-07-29) is why we committed and
+   reviewed without pretending we could hold; whole-fleet release is why the deploy waited for
+   him — and is exactly the discipline the IMAGE_TAG landmine documents; the dated-census rule
+   (2026-08-22) is why the hand list's staleness was legible as a class; and his council-scope
+   widening (2026-08-23) is what made these commits reviewable at all — and finding 098 blind to
+   the widened class fell straight out of it.
+
+**A Fable review pass over the shipped code is running** at the owner's request; findings, if
+any, land below.
