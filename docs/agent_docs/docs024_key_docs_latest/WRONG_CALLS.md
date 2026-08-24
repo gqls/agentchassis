@@ -49378,3 +49378,34 @@ is the guard.
 **Fixed:** dead expectations removed, comment rewritten to state the guard and which side the
 fixture is on, and `ExpectationsWereMet` now asserted (with the deliberately-unused two-strike
 COUNT exempted the honest way — by name, with the reason).
+
+## 2026-08-24 — `bugs_open/381` lane: I walked into a landmine another lane had logged THAT MORNING, because I only read the ones matching my dirty files
+
+I renamed four migrations with `git mv` (`*_HOLD.sql` → plain names, releasing a hold), then
+committed with a pathspec naming **only the four plain-named files**. A pathspec commit takes what
+you name; `git mv` is a delete plus an add; so the commit recorded the four creations and **not the
+four deletions**. Result: all eight filenames at HEAD, the four `_HOLD` copies still carrying the
+old *"DO NOT LET THE RUNNER TAKE THIS"* banner for a migration that was by then applied and live.
+
+**`SIDECAR_RE` is exactly why nothing would ever have complained** — the runner skips `_HOLD.sql`
+by design, so the stale copies were invisible to every mechanism that might have flagged them, and
+the only cost would have been a future reader believing a live migration was held.
+
+**What makes this a WRONG_CALLS row rather than a tidy-up:** the trap was already written down.
+`LANDMINES.md` gained *"a git mv committed by one pathspec leaves BOTH names at HEAD — and on a
+HOLD migration…"* **the same morning**, from another lane. The `SessionStart` hook only surfaces
+entries matching files **already dirty in the tree**, and at session start these files did not
+exist. So the entry was there, it was recent, it was about my exact operation, and I never saw it.
+
+**The cheap check, two seconds after any `git mv`:**
+```bash
+git status --porcelain | grep '^D '                       # staged deletions you did not commit
+git ls-tree -r --name-only HEAD -- <dir> | grep <old-name>   # must return nothing
+```
+**The transferable lesson is about the hook, not the mv.** CLAUDE.md already says to grep
+`LANDMINES.md` yourself for *table, command and symbol* footprints because those cannot match a
+path — I did that, for `content_components` and `agent_definitions`. What I did not do is grep it
+for the **commands I was about to run** (`git mv`, `--record-only`, `run-migrations.sh`). A
+path-matching hook is silent on a file you are about to create, and silent on a verb.
+Cross-refs: [[a-pathspec-commit-still-takes-a-same-file-passenger]], and this session's own entry
+above about a resolved warning left in place.
