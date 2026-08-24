@@ -2825,3 +2825,22 @@ explicit tie message element; 0·0·0 counts, 6 listeners.
 (tie-message, stars-fill ×2, result-summary). Tombstone re-read: removed/10:21:07 ✓.
 **Orphan #3:** `/tools/bayesian-rank/bayes.js` (dry-run corr `7f88d441`, expected refusal — 365 list).
 **Phase C remainder (10): community-growth (8,771) next, then head-architect, seo-schema…**
+
+## 2026-08-24 11:10Z — CENSUS CORRECTION: "13 external-script tools" was an INSTRUMENT error; the true class is 12 (as of 08-16) and head-architect was never in it
+
+Preparing #32 `tool-head-architect`, its "external script" turned out to be the literal text
+`<script src="...">` inside a JS COMMENT in its own inline code (the tool builds `<head>` markup, so
+its code talks about script tags). The 08-16 census (`regexp_matches(rendered_html,
+'<script[^>]+src=','gi')`) counts tag SUBSTRINGS wherever they appear — the `bugs_open/303` class,
+one surface over. **Corrected census (sequential parser, script bodies excluded, run 2026-08-24):
+8 remaining tools carry real sidecars** — csp-builder(policy-generator.js),
+fluid-typography(app.js), micro-cms(4 files), performance-budget(budget-engine.js),
+recommender-engine(recommender.js), seo-schema(generator.js), smart-contrast(color-engine.js),
+vibe-equalizer(state.js+script.js). With the 4 already rebuilt (all real sidecars, each verified by
+FETCHING the file), the true Phase C class was **12 as of 08-16**, not 13; `tool-head-architect`
+(9,212 B, self-contained) moves to Phase B. ⚠ My first "fixed" census was ALSO broken — stripping
+whole `<script>` elements removed the very `src=` tags being counted, returning 0 for everything;
+caught by the disconfirmability rule (a normal `<script src>` element could never have counted).
+The check that settles any single case: FETCH the src URL — a real sidecar returns 200 with JS.
+WRONG_CALLS row appended. Remaining: **8 Phase C (as of 2026-08-24) + 24 Phase B** = 32 after #31.
+Next: #32 `tool-seo-schema` (9,495, generator.js).

@@ -47124,3 +47124,20 @@ could not have discriminated either.
 redeploy, and an owner decision taken on a false premise. **Nothing was destroyed** — the redeploy
 was harmless and the 50 remaining were never fired — but the owner authorised a fleet action on my
 wrong measurement, which is the part that matters.
+
+## 2026-08-24 — webdesign_tool_rebuilds: "13 external-script tools" (carried in PLAN, three handoffs and bugs_open/365 since 08-16) was an instrument artefact; the true count was 12
+
+- **The claim:** the lane's Phase C class = 13 tools whose logic lives in external `<script src>`
+  files, from the 08-16 scope census `regexp_matches(pc.rendered_html,'<script[^>]+src=','gi')`.
+- **What was wrong:** the regex counts tag substrings ANYWHERE — including inside JS comments and
+  string literals. `tool-head-architect`'s inline code contains the comment text
+  `<script src="...">` (it is a head-markup builder); it has no sidecar. The class was 12.
+- **What caught it:** preparing the rebuild, the extracted "src" was literally `...` — unfetchable.
+- **The cheap check that would have caught it at census time:** fetch each extracted src URL
+  (200+JS = real; anything else = artefact), or exclude script BODIES before counting. ⚠ And the
+  first attempted fix (regex-strip whole script elements, then count) returned ZERO for every row —
+  it removed the tags it was counting; a census that cannot come out non-zero is not a measurement
+  (the disconfirmability rule, applied live).
+- **Same family:** `bugs_open/303` (tool-birth guard counted tag substrings), the lane's own
+  cubic-bezier/regex-tester shared-string control traps. Markup questions need a markup-context
+  scanner, never a bare regex over mixed html+JS.

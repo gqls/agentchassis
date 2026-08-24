@@ -5,7 +5,7 @@ Capability gap, not a code defect — every guard involved behaved as designed.
 
 ## The requirement it blocks
 
-TL-032 / the lane PLAN: **13** ported tools as of 2026-08-22 (the lane scope query; 1 rebuilt today, 12 remain) on webdesign.co.uk keep their logic in external
+TL-032 / the lane PLAN: ~~**13** ported tools as of 2026-08-22~~ **CORRECTED 2026-08-24: 12** — the 13th (head-architect) was a census artefact (regex counted a `<script src>` substring inside a JS comment; WRONG_CALLS 2026-08-24). **8** remain as of 2026-08-24 (4 rebuilt, each sidecar verified by fetching it) on webdesign.co.uk keep their logic in external
 `<script src>` files under `/tools/<slug>/` (plus the shared `/tools/assets/webdesign-couk-header.js`
 used by every ported page). The lane's standing rule: **the external asset must be retired with the
 slot.** The slot half works (retire + rerender; the served page drops the `src` reference — proven
@@ -22,8 +22,8 @@ has no owner:
 - **`cmd/webdesignport`** (which UPLOADED these files) is import-only; no retire/cleanup mode.
 
 So after each Phase C rebuild the old `script.js` stays in the bucket, publicly fetchable
-(200, e.g. 7,067 B at `/tools/blueprint-compiler/script.js` today), referenced by nothing. Thirteen
-of these accumulate by Phase C's end, plus the shared header when the LAST ported page goes. Same
+(200, e.g. 7,067 B at `/tools/blueprint-compiler/script.js` today), referenced by nothing. Twelve
+of these accumulate by Phase C's end (count corrected 2026-08-24), plus the shared header when the LAST ported page goes. Same
 family as `bugs_open/359` (retired content still publicly serving) — stale, defective-by-audit code
 at URLs crawlers may hold.
 
