@@ -1351,3 +1351,15 @@ contact mid-build; answered with my scope (their mechanism USED, not modified), 
 re-scoping consequence for their entity-page-builder planning, and P1 figures I could attest.
 Per-practice profile pages (P3) remain future work behind an entity-page builder — that lane's
 call, not this one's.
+
+> **CORRECTED 2026-08-24 (caught by the bugfix_206 session, verified first-hand before recording):**
+> the "selector gotcha" above conflates TWO queries with OPPOSITE dominant keys, and its jab at the
+> 206 lane was wrong. The SITE selector (`find_dispatchable_site`, agent config) orders
+> `created_at ASC, priority ASC` — oldest item anywhere wins the site choice. The ITEM loader
+> within the chosen site (`load_work_item_actions.go:750`, read 2026-08-24) orders
+> `wi.priority ASC, wi.created_at ASC` — priority DOMINATES, low number first, default 100. So the
+> 206 lane's "bumped to 95 to get ahead" was CORRECT as written (95 < the wave's default 100), and
+> my own 54→90 bump moved my item BACKWARD in both orderings — it cost nothing only because the
+> item was the sole triaged one on the site and the site selection keyed on its 07-17 created_at.
+> Site choice and within-site order have different keys; keep them distinct — this is the
+> "two queries decide dispatchability and they disagree" landmine wearing its other face.
