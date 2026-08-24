@@ -174,3 +174,46 @@ I first wrote that `586` closed the attribution gap the guardian seat flagged. *
 image-generator's workflow is one `generate` step with no site load — so those columns stay NULL
 whatever the caller maps. Caught while writing §9a, which is an argument for writing the answers
 down rather than nodding at them.
+
+## 2026-08-24 — session 1, third part: the roll landed, and the lane closes
+
+**The code half is LIVE.** `v1.0.1334`, adapter started 15:39:36Z, both replicas on ONE digest
+`sha256:d7a1d219…` (so not the same-tag-cached-image trap). Provenance `70fd163c2`;
+`git merge-base --is-ancestor da21ae20f 70fd163c2` → YES with the must-pass control (`6896ce22e`)
+passing and the must-fail control (`HEAD`) failing; `MISSING_IMAGE_KIND` present in `/proc/1/exe`,
+with `UNROUTED_IMAGE_KIND` present as a method control and a fake needle absent.
+
+**Label trap, cost about a minute:** `kubectl get pods -l app=image-generator` returns **nothing**.
+The deployment is `image-generator-adapter`. An empty pod list reads exactly like "the service is
+not running", which is a much more alarming conclusion than "you guessed the label".
+
+### The close condition I wrote this morning could not be met, and finding out why was the useful part
+
+§8b asked for the post-roll census with a demand control. At 15:51Z: 0 SDXL — and 0 assets of any
+kind. The demand control voided its own headline, exactly as designed.
+
+Then the real finding: **the variant path is DEMAND-EXHAUSTED.** Across every current `site_plan`,
+`hero_<page>` prompts with no active asset = **ZERO fleet-wide** (query in `bugs_closed/382` §10b).
+So no `unfulfilled_hero_variant` will arise until a site plans a new page. That also
+retro-explains the frozen SDXL row set since 08-11 — a producer that had finished its backlog, not
+a bug lying in wait. **I had been reading a static row count as "the bug is quiet"; it was
+"the queue is empty", which is a different fact with a different meaning for the close.**
+
+Meeting my own condition would have meant generating an unwanted image on a customer site to
+satisfy a checklist. Retracted in §10b as a correction rather than dropped, and replaced by a
+standing three-query check whose third query is the demand line.
+
+### Housekeeping worth recording
+
+- **Repointed only the LIVE pointers** to `bugs_closed/382` — 016b, LANDMINES (9), RFC_051 (4);
+  numstat 1/1, 9/9, 4/4, a pure path substitution. Left alone deliberately: Go comments and
+  migration 586's header (historical, and the number resolves) and three other lanes' append-only
+  NOTES (a dated addition is the rule there, never an edit).
+- **The `shared-ledger-not-appended` pattern check fired** on those 9 removed LANDMINES lines,
+  correctly — it cannot tell an in-place correction from a deletion of someone else's entry.
+  Verified before moving on: all 9 removed lines contain `382` and sit inside the three entries
+  this lane added today; **0** removed lines lack the bug number. If you do an in-place correction
+  on a shared ledger, expect this check and do that verification rather than waving it through.
+- The `git mv` to `bugs_closed/` named **both** paths on the commit, and `git ls-tree -r HEAD` was
+  checked afterwards: exactly one path, in `bugs_closed/`. That is the session-start landmine, and
+  it fires by default on this tree's pathspec rule.
