@@ -47050,3 +47050,39 @@ contract is positional. `sqlmock` `WithArgs`, positional `Scan` column lists, an
 `fmt.Sprintf`-built SQL are all arity contracts the compiler cannot see — the estate has already
 been bitten on the `Scan` side of exactly this change (345's Go half updated two sibling tests for a
 new SELECT column; the writer side missed three).
+
+## 2026-08-24 — `bugfix_206_directory_build_handler` (fourth entry, same session) — I grepped the bug NUMBER and not the SYMPTOM, and re-found a population another lane had measured, ruled on, and closed three weeks earlier
+
+I ran `who-owns.py 206`, grepped `/bugs_open/` and `/bugs_closed/` for **206**, and read my own
+lane's docs — then filed a fix for five parked work items as a fresh finding. The five are
+`bugs_closed/187`'s population. 187 was filed 2026-08-03 *at the council's own direction*,
+measured the same error signature, and its table names the exact rows —
+`reconcile_site_plan | needs_page | needs_human_review | 9`. Worse: its shipped close-out states
+**"`reconcile_site_plan` deliberately NOT guarded (015-shape gaps are real findings)"**. So the
+emitter I called an unnoticed defect had been examined by a dedicated lane which decided, on
+stated grounds, to leave it alone. I only found this because the council's round-1 checks
+returned "87 across 16 sites" against my "five", and chasing that discrepancy led to the
+signature grep I should have run at the start.
+
+**Why the standard checks missed it.** "Grep before you file" and `who-owns.py` are both keyed on
+the bug's IDENTITY (number, slug, lane). This defect's identity was a **symptom string**
+(`no-op: no sections ready to build`) that appears in four bug files under four different
+numbers. A number-keyed search cannot find a symptom-keyed prior art, and mine was the third lane
+to walk into this population.
+
+**Second, subtler**: my census also under-measured by 8× (five vs 87) because I filtered on the
+three page types I already suspected. A census scoped to your hypothesis cannot discover that
+the dominant class is something else — here 69 tool pages, 79% of the population, being refilled
+by `bugs_open/220`. The council's unscoped check found it in one query.
+
+**The cheap checks:**
+
+1. **Grep `/bugs_open/` and `/bugs_closed/` for the ERROR STRING, not just the bug number** —
+   `grep -rln "<the literal error text>" bugs_open/ bugs_closed/`. One command, and it would have
+   returned 187 (plus 220 and 328) before any code was written.
+2. **Before calling an emitter's behaviour a defect, grep the closed cases for the emitter's own
+   NAME** (`grep -rn "reconcile_site_plan" bugs_closed/`) — a deliberate decision not to fix
+   something looks exactly like nobody having noticed it, and the only difference is written down
+   somewhere you did not look.
+3. **Run one census with NO type filter before the scoped one.** The unscoped count is what tells
+   you whether your hypothesis is the main class or a corner of it.
