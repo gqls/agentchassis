@@ -16300,3 +16300,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the check:** before changing ANY selector composition on this path, ask what it does to the KEY, not only to the string — `SELECT count(*) FROM site_work_items WHERE item_type='contrast_failure' AND status NOT IN ('complete','verified','rejected','wont_fix','cancelled');` is the population you are about to re-key. If you must change it, the shape that works is the one `bugs_open/352` shipped: insert BOTH compositions into `stillFailing` as alias keys, and stamp `spec.selector_scheme` so an older producer cannot grade a newer row. **`item_key` embeds a derived, versionable value — that is the trap, and it is not visible from either probe.** Two schemes here is deliberate and permanent (council `acadbe8b`, reuse_agent seat); the divergence is recorded in register **VIZ-016** and the key-shape rule in **WII-016**.
 - **source:** `bugs_open/352`, 2026-08-24, `bugfix_352_invented_selector` lane; the reuse objection that asked for this entry is in council report `acadbe8b-f131-4d4b-b4de-5b61f0898f93`
 - **added:** 2026-08-24, bugfix_352_invented_selector lane
+
+### `kubectl exec -i` inside a `while read` loop EATS THE LOOP'S INPUT — the loop runs once, exits 0, and looks like it ran
+
+- **footprint:** `kubectl exec -i`, `kubectl run -i`, `ssh`, `psql`, any `while IFS= read -r … done < file` or `… | while read` that shells out to a stdin-forwarding command, fleet sweeps, per-site or per-page batch dispatch
+- **fires when:** you iterate a list of sites/pages/rows and call something with `-i` inside the loop — a safety re-check, a status query, a dispatch. The obvious shape, and the one this estate's batch work naturally takes.
+- **the trap:** **`-i` forwards stdin, and inside the loop stdin IS the list.** `kubectl exec -i pod -- psql -c "…"` needs no stdin and ignores it, but kubectl still *drains* it, so the first iteration swallows the remaining lines. **The loop performs one iteration and exits 0.** No error, no warning, and the last log line is a normal success line — so a 24-site roll-out that did one site is indistinguishable at a glance from one that did all 24. `[MEASURED 2026-08-24]` a GTM roll-out over a 24-line list fired **1** site; the list file was verified afterwards to hold **24** lines and the loop body was correct.
+- **why it survives review:** every part looks right. The list is right, the loop is right, the command is right, the exit code is 0, and the one site it *did* process worked perfectly — so the natural next move is to believe the mechanism and go looking for why the *other* sites were "skipped", i.e. to debug a filter that never ran.
+- **the tell, and it is a count:** the number of iterations, not the outcome of one. `printf` a line per iteration and **assert the count equals the input line count** before believing anything downstream:
+  ```bash
+  echo "list: $(grep -c . list.txt)   fired: $(grep -c '^FIRED' run.log)"   # must match
+  ```
+- **the fix — any one of these, and the array is the safest:**
+  ```bash
+  mapfile -t ROWS < list.txt; for r in "${ROWS[@]}"; do …; done   # no stdin involved at all
+  while read -r x; do …; done < list.txt 3<&0                      # or read on a spare FD
+  kubectl exec -i pod -- psql -c "…" < /dev/null                   # or starve the inner command
+  ```
+- **⚠ a heredoc does NOT protect you.** `kubectl run -i … <<JSON` looks safe because the heredoc supplies stdin — and the dispatch call in the measured case *did* have one. The offender was the *other* call in the same loop body: a `kubectl exec -i` re-check with `-c` and no heredoc. **One un-starved `-i` anywhere in the body is enough**, so audit the whole body, not the command you were thinking about.
+- **relations:** MEMORY [[shell-tool-traps-committing]] (same family: shell constructs that fail at exit 0), and the `$?`-after-a-pipe trap — both are "the instrument answered a narrower question than you asked".
+- **source:** 2026-08-24, `apis_uk_bees_homepage` lane, during the fleet GTM roll-out
+- **added:** 2026-08-24, `apis_uk_bees_homepage` lane
