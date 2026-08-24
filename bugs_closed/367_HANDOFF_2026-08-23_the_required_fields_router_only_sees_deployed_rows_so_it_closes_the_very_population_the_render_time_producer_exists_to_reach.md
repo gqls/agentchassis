@@ -4,12 +4,34 @@
 routability fix. **Status: OPEN, UNOWNED.** The mechanism belongs to `bugs_closed/277`'s router,
 which is closed — hence a new file rather than a contribution.
 
+> # ✅✅ CLOSED 2026-08-24 — FIXED, LIVE, AND OBSERVED ON A REAL ITEM IN PRODUCTION.
+> The item this bug was filed about — `562788c3`, closed `complete` by the defect on
+> 2026-08-23 17:09Z — was re-opened on 2026-08-24 (the finding was still true: `headline`
+> and `trust_note` still absent, component still `pending`, still 9,220 chars, untouched
+> since 2026-07-17) and the live router picked it up and **parked** it.
+>
+> **The two orchestration rows sit side by side and are each other's control** — same item,
+> same component, before and after:
+>
+> | orchestration | when | `route` | `target_state` | `component_id` | `html_len` |
+> |---|---|---|---|---|---|
+> | `ab2cf74e` | 2026-08-23 17:09Z | **`stale`** → closed `complete` | *(none)* | *(empty)* | 0 |
+> | `e2a6bb94` | 2026-08-24 16:08Z | **`target_not_dispatchable`** → parked | `pending` | `0a1498b3…` | **9220** |
+>
+> Item now `needs_human_review`, `attempt_count 1`, route `target_not_dispatchable`,
+> `triaged_by` the router — **and it HOLDS its dedup key** (1 non-terminal row on the key,
+> where the wrong close had released it). That is the anti-churn property working, and it is
+> the difference between the two rows above stated as data.
+>
+> **Survived the v1.0.1334 roll** (2026-08-24 15:39Z) — the fix is DB config, and the
+> `_VERIFY` sidecar passes on the live row after it.
+>
 > # ✅ FIXED AND LIVE 2026-08-23 — migration `574`, config only, applied and verified at the route.
 > `docs/agent_docs/sql_for_agents/574_required_fields_router_stops_closing_what_it_cannot_resolve.sql`
 > (+ `_ROLLBACK`). Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_367_router_remit/`.
-> Council `d48c0a89-9ff8-4286-bfe9-2690dc13d5bc`. **Kept OPEN** until the parked disposition is
-> observed on a real item in production — the fix is proven at the ROUTE, which is this file's
-> own §6 bar, but no render-time item has been re-filed since it went in.
+> Council `d48c0a89-9ff8-4286-bfe9-2690dc13d5bc`. ~~Kept OPEN until the parked disposition is
+> observed on a real item in production.~~ **That criterion was met 2026-08-24 — see the banner
+> above.**
 >
 > **§5's ordering was right about candidate 1 being first, and wrong about what it buys.**
 > Widening the `comp` CTE alone does NOT repair anything, for two measured reasons this file did
