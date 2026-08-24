@@ -1466,3 +1466,50 @@ twelve** pages, including the five that never built. Measured at the artefact:
 read `page-rerender`'s workflow, and "rerender a page that has nothing to render" may be a legitimate
 no-op that simply reports the wrong terminal status. Not asserting a defect in the handler; asserting
 that **the status is uninformative**, which is measured.
+
+### 2026-08-24 09:05Z — BUILD COMPLETE. Prediction C resolves GOOD; and the site proves status is unreliable in BOTH directions
+
+The build finished overnight. Final state: **7 of 12 pages serving**, 5 never built, all imagery and
+both rerender waves complete, `site_unreachable` closed itself when the site came up.
+
+**PREDICTION C — resolved, and the frightening branch is REFUTED.** I predicted that if the rerender
+did not restore the gated CTAs, then *build ORDER silently determines page quality on every
+greenfield build* — nastier than `328` because the page looks finished. **It does restore them, and
+it restores them correctly** `[MEASURED 09:05Z]`:
+
+| page | before (21:03Z) | after | CTA href | target |
+|---|---|---|---|---|
+| `about` | cta-anchors 0 | **1** | `/how-we-assess.html` | **200** |
+| `care` | cta-anchors 0 | **1** | `/seasonal-planner.html` | **200** |
+
+Both point at pages that **exist**. The rerender did not "resolve" them by aiming at a 404 — which
+was the plausible bad outcome and is the one I would have reported as serious. The remaining pages
+still show 0 because their CTA destinations are the hubs that never built, so the gate correctly
+renders nothing rather than a broken button. **The mechanism works. Build order costs a page nothing
+permanent, provided a rerender follows.**
+
+**NEW FINDING, and it completes a pair.** The 8 `unresolved_cta` items are **all still
+`needs_human_review`**, every `updated_at` between 20:20 and 20:56 — i.e. **before** the rerenders
+ran. `about | call-to-action` is provably stale: the CTA it describes now renders and resolves to a
+live page, and its item has not been touched since 20:20:47.
+
+> **So this one site demonstrates the status columns being wrong in BOTH directions at once:**
+> - **`complete` on work that did not happen** — 5 `page_rerender` items complete against pages that
+>   are `planned`, have NULL `deployed_at`, and 404.
+> - **`needs_human_review` on work that DID happen** — an `unresolved_cta` item still open after the
+>   rerender fixed the very CTA it names.
+>
+> An operator reading the queue sees "12 rerenders complete, 8 CTAs need attention". The truth is
+> 7 rerenders real and at least 6 CTAs fine. **Neither direction of error is detectable from the
+> queue; both are one `curl` away.** This is the strongest single-site evidence for the house rule,
+> and it belongs in `016b` §9: *a work item's terminal state is a claim about the last thing the
+> handler believed, not about the artefact — and it decays in both directions.*
+
+**Final `328` measurement: 9 dead-link instances, 4 distinct dead targets** — `/tools/finder/`
+(from about, care, index, seasonal-planner), `/buying-guides/` (care, index, seasonal-planner),
+`/brand-directory/` (index), `/blog/buying-guide-post.html` (seasonal-planner). `brand-profile`
+remains unbuilt **and unlinked** — the orphan case, a separate milder defect.
+
+**Everything else clean at the artefact:** `311` collateral 8/8 UNCHANGED (guard **NOT EXERCISED** —
+report as such); `260` zero template tokens on all pages; no invented email, phone or byline
+anywhere; `contact.html` serves a working 2-input form.
