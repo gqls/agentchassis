@@ -273,6 +273,22 @@ genuinely unanimous 8-seat approval that reads as "every seat abstained".
   (`editProblems`, the per-edit shape gate; contributed 2026-08-15, bugfix-281 round 1 died
   at `persist_submission` on `"a.go + b.go"` and `"425_x.sql (+_ROLLBACK)"`). Name the
   companion file in the edit's `rationale`, not its `file`. Cheap pre-check:
+  - **⚠ AND THE RULE UNDER THAT ONE, learned the expensive way on two consecutive rounds
+    (2026-08-23 `9d23ccd9`, 2026-08-24 `fbf9bcc2`): `editquality` compares your RATIONALE
+    against your EDIT LIST, and objects at MEDIUM to anything the rationale claims you did
+    that the list does not show.** Round 1 it was a `_ROLLBACK` sidecar; I answered that one
+    specifically. Round 2 it was a concept-register entry — cited in the rationale because the
+    2026-07-28 ruling requires the seam registered in the same commit — and it drew the
+    identical objection, correctly: *"Unlike the rollback sidecar (excluded for a stated
+    client-side scope reason), there is no analogous reason given for omitting the register
+    entry."* Both files were genuinely excluded for the SAME reason (council scope refuses
+    prose and `_ROLLBACK`/`_VERIFY` sidecars client-side, so listing them spends the round
+    without ever showing the reviewer the file), and in both rounds the work had actually been
+    done. **The defect was answering the instance instead of the class** — the general shape in
+    `MEMORY.md` as "an objection naming one file is naming a CATEGORY".
+    **So, before submitting: list every path your rationale MENTIONS, subtract the paths in
+    `plan.edits`, and give each survivor one clause saying why it is absent.** One sentence per
+    file, in the edit's `rationale`. It is cheaper than a round.
   `all(re.fullmatch(r"[A-Za-z0-9_./-]+", e["file"]) for e in plan["edits"])`.
   `fixPlan` (diagnose_persist_fix_plan_action.go): `risks` is a **single
   string**, not an array (an array kills the whole unmarshal:
