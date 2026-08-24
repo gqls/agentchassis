@@ -2531,3 +2531,54 @@ the gate is doing its job; the question is only whether the code being generated
 
 **Where that leaves us: nothing waits on you.** The watch closes Sunday, one small verification
 still needs somebody to queue a tool build, and the remaining follow-ons belong to other lanes.
+
+## Sunday 24 August, later — the fix quietly went live, and the reviewers caught me being sloppy about my own paperwork
+
+Three things happened this afternoon, and the middle one is the interesting one.
+
+**First: the fix is live.** The change we made to stop new tools losing their cross-links had been
+sitting finished but not shipped — it only takes effect when the system's software is rebuilt and
+restarted, and that hadn't happened yet when the last note was written. It has now. The restart
+went out at about half past nine this morning.
+
+Worth saying how I checked, because the obvious way would have failed. Each service announces
+which version of the code it is running when it starts up, but that announcement scrolls away
+within hours on a busy service, and it had already gone. Rather than guess, I asked the running
+program directly whether it contains the new behaviour — and, importantly, asked it two control
+questions at the same time: one thing that must be there, and one thing that cannot possibly be
+there. Both answered correctly, so the answer to the real question can be trusted. A check that
+would say "yes" no matter what is not a check.
+
+**Second, and this is the one to hold on to: live is not the same as proven, and I nearly wrote it
+up as if it were.** Since the restart there have been no failures of the kind we fixed. Yesterday
+there were five. It is very tempting to call that a result. It isn't one — and the reason is worth
+a sentence. Three new tools have been built since the restart, and all three had no related pages
+listed at all, so they never got as far as the part we changed. The new code has not actually been
+put to the test yet; it has simply not had the opportunity to fail. So the honest position is
+"live, and waiting for its first real case", and I have written it that way everywhere rather than
+banking the zero.
+
+I mention this because it is the same shape as the mistake I made yesterday with the page
+addresses — a number that looks like good news, believed too quickly. The difference is that this
+time the question "could this result have come out any other way?" got asked before it was written
+down rather than after.
+
+**Third: the review panel sent the fix back a second time, and it was right to — but the fault was
+in my description, not the code.** When you submit a change for review you attach a sketch of what
+you changed. The panel spotted that my sketch still showed the old, faulty version of one line —
+the very line the previous round had told me to fix. I *had* fixed it in the actual code; I just
+never updated the description of it. From the reviewer's side those two situations look identical,
+so objecting was the right call, and they even said explicitly which check would tell the two
+apart. That cost a round, and I have written it into the shared log of mistakes with the fix, which
+is nearly free: copy the sketch out of the actual file rather than from memory of what you meant
+to do.
+
+**The genuinely useful thing the review found** was a second point I had no good answer to. We had
+proved the new decision-making function gives the right answer for every combination of inputs —
+but nothing at all proved that the real code hands it the right inputs in the first place. That is
+precisely how this bug survived nineteen days in the first place: the pieces were all tested, the
+join between them was not. So rather than argue the point I wrote the missing test, and then
+deliberately broke the code to check the test actually notices — it does, and the two older tests
+carry on passing while it fails, which is exactly the reviewer's point made concrete.
+
+That has gone back for a third round of review. Nothing here needs a decision from you.
