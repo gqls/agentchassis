@@ -354,3 +354,28 @@ and whatever is added next. These are ordinary, high-volume operations, which me
 
 Standing repro, no setup required: re-fetch `gaswholesalers.com/pricing-transparency.html` and
 `vetcomparison.uk/how-it-works.html` and count distinct `<section id>`.
+
+## 10. OWNER RULED 2026-08-24: BUILD §9c NOW, with the detector/empty-id fix IN THE SAME CHANGE — initial plan exists
+
+Decisions of 2026-08-24: (1) the occurrence-derivation fix is built now, not deferred; (2) the
+detector's `id=""` blindness and the render-time fail-loud (bug_historian's HIGH on council
+`e8c7414c`) go into the same change; (3) the four idea.uk empty-id pages are repaired on their
+own lane (CONTRIB filed in `idea_uk_section_data_missing/`, 2026-08-24) — even at the cost of
+content generation, though their intact `content_data` suggests a plain rerender suffices.
+
+**The initial plan is at
+`docs024_key_docs_latest/bugfix_283_component_instance_scope/PLAN_2026-08-24_occurrence_derivation_and_empty_id_detector.md`**
+(authored by a Fable 5 Plan agent at the owner's direction; its load-bearing measurements
+independently re-verified; to be built up by a dedicated thread). Headlines: occurrence counted
+from `page_components` under the canonical walk's exact key equality, position-exact on the
+editor path and slot+rank on the build path (16 of 30 multi-instance pairs repeat a slot_name,
+killing slot-only keys); constant-0 is the universal fallback so no branch is ever worse than
+today; `id=""` becomes its own detector class rather than a widened `reElementID`; the
+render-time refusal arms an Error log that already exists at `component_library.go:1103`,
+conditional on a measured-zero log census per the 2026-08-02 §2 ruling.
+
+New evidence folded in: the formal empty-id census is **6 rows on 6 pages across 2 sites (as of
+2026-08-24)** — the 4 idea.uk pages (retired-placeholder cause) plus 2 dartsonline pages whose
+cause is a THIRD shape: `category-listing` declares `id="{{.category_slug}}"`, a content field,
+which rendered empty. Any unbound field in an id attribute produces this class; the fail-loud
+half is general for exactly that reason.
