@@ -33,7 +33,40 @@ parked.
 
 ## What is LEFT — three items, in priority order
 
-### 1. Prove the fix at the artefact. BLOCKED on another lane's authorisation.
+### 1. Prove the fix at the artefact. NOT BLOCKED ANY MORE — it is FREE, and it needs no site touched.
+
+**CORRECTED 2026-08-24 (later): do NOT clear a parked row and do NOT dispatch a reconcile.**
+`reconcile_site_plan` runs in exactly ONE agent — `build-site-planner` — and nothing schedules
+it (`scheduled_tasks` targeting it: **0**). That agent's steps run `plan_site` (LLM),
+`write_site_plan`, `sync_pages`, design/imagery/nav emission **before** reaching reconcile, i.e.
+a **full re-plan** (`bugs_closed/001`'s hazard). So clearing a row achieves nothing on its own
+(reconcile never runs) and clearing-plus-re-planning destroys the `loanzy_uk_example_site` lane's
+clean greenfield measurement. The owner authorised clearing the job; the authorisation was
+deliberately **not spent**, because the action it enables is either inert or harmful.
+
+**The proof arrives for free on the NEXT GREENFIELD BUILD of any site carrying an
+`entity-directory` or `entity-page` page.** Reconcile runs at plan time on every new site — which
+is exactly when this bug was committed: `garden-tools.uk`'s 13 work items were born at
+`2026-08-23 20:15:50.199268`, byte-identical to its `last_reconciled_at`, minted by its own
+greenfield build at the hardcoded generic handler. Same producer, same moment, opposite outcome
+expected now.
+
+**Assert on the MINT:**
+```sql
+SELECT s.domain, swi.spec->>'page_name', swi.spec->>'page_type', swi.item_type,
+       swi.handler_agent, swi.status, swi.created_at
+FROM site_work_items swi JOIN sites s ON s.id=swi.site_id
+WHERE swi.created_by='reconcile_site_plan' AND swi.created_at > '<the build>'
+ORDER BY swi.created_at DESC;
+```
+PASS = an `entity-directory` page at `handler_agent='directory-build-handler'`, and/or an
+`entity-page` as a `capability_gap` at status `deferred` with an **EMPTY** handler_agent.
+FAIL = either at `page-build-handler`, which is yesterday's behaviour.
+
+The `loanzy_uk_example_site` lane runs greenfield builds as its route and has been told; whoever
+picks this up should ask them when the next one is, rather than manufacturing one.
+
+### 1b. (superseded) The original plan, kept so nobody re-derives it
 
 **The closure test both lanes originally wrote CANNOT FIRE** — see the POST-ROLL section of
 `bugs_open/206` and `WRONG_CALLS` (eleventh entry). Two reasons: `reconcile_site_plan` has no
