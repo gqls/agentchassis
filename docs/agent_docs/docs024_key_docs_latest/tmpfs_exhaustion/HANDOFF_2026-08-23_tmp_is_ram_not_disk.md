@@ -338,3 +338,67 @@ its own supersede note pointing at `verify-head-builds.sh`, without being asked.
 > can pull. Recorded rather than quietly edited, because the overclaim is the interesting part: a
 > number that moved 6.9 GB in the right direction made a single-cause story feel proven, and one
 > day's re-measurement was enough to break it.
+
+---
+
+## 11. 2026-08-24 (later) — §10's conclusion is REFUTED, and the refutation is in §10's own blind spot
+
+> **⚠ CORRECTED 2026-08-24. §10 concluded "the recipe was the mechanism, and removing it removed
+> most of the pressure", and on that basis called the deferred janitor "genuinely low priority".
+> The measurement behind it was sound and the conclusion does not follow: it only looked at
+> `/tmp`.** The recipe did not stop. It **relocated** — onto the disk, where §3's own
+> `CLAUDE_CODE_TMPDIR` change had pointed session scratch, and where nothing was watching.
+
+`[MEASURED]` 2026-08-24 ~12:00 UTC, commands in `RUNBOOK_tmpfs_exhaustion.md`:
+
+| | |
+|---|---|
+| `/home/ant/.claude-scratch` (born **2026-08-03**, the day of the §3 change) | **147 GB** |
+| of which bare `git archive HEAD` extracts of this repo | **130 GB / 308 dirs** |
+| created in the last 7 days | **73 GB → 10.4 GB/day** |
+| free on `/` | **123 GB** |
+| **time to a full root filesystem** | **~12 days** |
+| `/tmp` | 4.9 G / 32% — §10's figure, still true, still not the story |
+
+**So the remedy in §4 moved a bounded failure into an unbounded one, and the new one now fills
+sooner than the old one — ~12 days against ~22.** A full root filesystem breaks git, builds and
+every session on the box; a full tmpfs gives a recoverable `ENOSPC`. This is the same trade §1
+refused to make in the other direction, made accidentally.
+
+**Two corrections to statements of fact in this file:**
+
+1. **§3's "9 documents" is wrong by 8×.** `[MEASURED]` 2026-08-24: **73 documents** carry a
+   hand-rolled `git archive HEAD | tar`, **66 of them with no cleanup**. §9 updated 8. This is
+   CLAUDE.md's own *"a census goes stale by ADDITION and reads as current for ever"* rule biting
+   the document written to stop a recurrence — so the count now carries its date, per that rule.
+2. **§4.3's "nothing reaps idle scratch" is false as stated.** `systemd-tmpfiles-clean.timer` is
+   active and runs **daily**, with `q /tmp 1777 root root 10d` (`/usr/lib/tmpfiles.d/tmp.conf:11`).
+   Its gate is 10 days; `/tmp` went empty-to-full in about four. It is a janitor that **by
+   construction cannot fire before the failure**. The true statement is "nothing reaps it *in
+   time*", and only that version suggests the cheap fix (shorten the gate — a root-owned
+   `/etc/tmpfiles.d/` drop-in). It would not help the disk side, which is now 88% of the volume.
+
+**Why §9's documentation fix did not take.** `grep -c 'verify-head-builds' CLAUDE.md` → **0**; same
+for `MEMORY.md`. The correction landed in eight lane documents, i.e. only where the lanes that
+already knew would look, while the file every session loads unasked says nothing. Of the 50
+extracts created since the script shipped, **none** use its layout. `verify-head-builds.sh` is
+sound; it is **undriven**.
+
+**And the mechanism §4.1 half-saw.** Every pasted variant *contains* an `rm -rf`, which is why it
+reads as self-cleaning — but it is the **setup** half, clearing the tree the run is about to use,
+so it only ever reclaims a tree of the same name. Each run picks a new name. One session on
+2026-08-24 left `headtree`, `headtree2`, `headtree3`, `headfinal`, `ht5`, `ht6` — six trees,
+~2.8 GB, one morning, each `rm` faithfully clearing only itself. §4.1's added trailing `rm -rf` is
+the right fix; what it needed was to reach more than 8 of 73 documents.
+
+**Shipped in response:** `scripts/scratch-janitor.sh` (`abf9b7485`) — reaps both roots, disk side
+by **shape** rather than age (a session scratchpad holds the disposable extract and the session's
+real work in the same directory), dry-run by default, `--self-test` proves each guard fires.
+Current dry run: **261 directories, 108 GB**, not applied — the owner's call.
+
+**The generalisable finding, which is why this is written up rather than quietly fixed:** *a bigger
+container is not a bound.* Redirecting an unreaped producer somewhere roomier buys time in
+proportion to the size ratio and changes nothing else — and it costs you the symptom that was
+telling you the producer existed. §10 was right to distrust its own single-cause story about swap;
+it distrusted the wrong half. **The lane now lives in `PLAN_2026-08-24_tmpfs_exhaustion.md`,
+`NOTES_`, `RUNBOOK_` and `README_where_we_are.md` in this directory.**
