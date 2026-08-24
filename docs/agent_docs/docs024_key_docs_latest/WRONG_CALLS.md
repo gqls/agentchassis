@@ -49189,3 +49189,38 @@ a hand-rolled archive) before every use.
 landing on the real (committed-clean) tree produced exactly the compile-proof a council seat had
 demanded — mutant builds, scan test fails on the scan — but on a dirtier tree the same accident
 would have been a mess measured in other sessions' lost work.
+
+---
+
+## 2026-08-24 — 327 lane: I published a census one-liner that counts COMMENTS, so migrating a file made the "remaining work" number go UP
+
+I fixed a class of silent Kafka publish failure and quoted the size of the class throughout —
+in the bug file, the concept register, a landmine and a RUNBOOK others are meant to re-run:
+*"201 scripts still use the racing form, 178 of them runnable."*
+
+The command behind it was `grep -rl "kcat -P" … | grep -q "run -i"`. **It matches comments.**
+`[MEASURED 2026-08-24]` **18 files** carry that pattern only inside comments — warnings *about*
+this exact hazard, written by people trying to help. Strip comments and the racing count is
+**183**; require the file to parse as well and the exposure is **160**, not 178.
+
+**The half that is genuinely my own doing, and it is the interesting half.** Every file I
+migrate gets a comment block explaining what the racing form was and why it went. **That comment
+matches the census for ever.** So the three files I migrated today moved the published number by
+**zero** — the metric freezes at the exact moment the work starts succeeding, and anyone reading
+it concludes nothing is happening.
+
+**What caught it:** a final sweep asserting that my migrated files no longer contain the racing
+form. They still matched. I assumed my grep was wrong (it was — a `^\s*#` filter defeated by
+grep's own `NNN:` line prefix), and checking *that* is what exposed the same flaw sitting in the
+census I had shipped for everyone else.
+
+**The cheap check:** `sed 's/#.*//'` before matching, and — the general form — **before
+publishing a census command, run it against a file you have already fixed and confirm the count
+goes DOWN.** A metric that cannot register the remedy is not measuring the problem.
+
+**Why I should have caught this immediately:** `pattern-check.py`'s `check_stdin_eater` carries
+this exact lesson in a comment I read and quoted the same day — *"a detector that flags its own
+warning text teaches people to ignore the whole script"* — and I honoured it **in the detector**,
+where `SH_COMMENT` strips comments and it was never fooled. Then I broke it in the **census**.
+Same rule, same session, two instruments, one of them done properly. Knowing a trap and applying
+it to the artefact in front of you are separate acts, and only the second one counts.
