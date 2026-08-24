@@ -629,3 +629,43 @@ edited — the thing that silently did not happen yesterday.
 
 **Adoption: 2 of ~178.** `097` is next; its exit codes **1 and 2 are reserved** by a documented
 contract, so a publish failure must take a distinct code there.
+
+---
+
+## 2026-08-24 — Phase 1c: `097` migrated, and its landmine closed in all three halves
+
+`097_TRIGGER_council_review_v1.sh` was the last of the three named hot dispatchers. Its own
+LANDMINES entry listed three defects; the migration closes each:
+
+1. **`SAVE: SUBMISSION_CORR=` printed before the publish** — so the operator recorded a trail
+   id for a submission that might never have been sent, and any error appeared **below** the
+   summary and the "if APPROVED, commit with…" advice, where the eye has already read success
+   and stopped. It now prints only after an asserted receipt.
+2. **The payload rode on `kubectl run -i` stdin** — the race itself.
+3. **The pod name carried only second resolution** (`kcat-cgate-$(date +%s)`), so two sessions
+   submitting in the same second collided with `AlreadyExists` and nothing published. The
+   library's names carry `$RANDOM` too.
+
+**The exit-code contract is why the library's codes start at 10, and it is now verified rather
+than assumed:**
+
+| arm | expected | got |
+|---|---|---|
+| `DRY_RUN=1`, in scope | 0 | **0** |
+| missing submission file | 1 | **1** |
+| out-of-scope submission | 2 REFUSED | **2** |
+| publish failure | 10 | **10**, and **no `SAVE:` line** |
+
+The failure message names the fact that decides whether re-running is safe — *"Nothing was
+spent. Re-run the same command; the submission file is unchanged."*
+
+**The landmine entry is updated, not retired.** The reading habit it taught — read the tail of
+the output, verify at the row — is still correct on the ~175 unmigrated triggers, where an error
+still prints below the summary and a silent drop still exits 0. Generalising this fix to a
+trigger that has not had it is the mistake the entry now warns against.
+
+**End-to-end proof through the migrated chain:** arming the verifier for that very entry went
+through the migrated `trigger-landmine-verifier.sh` → `PUBLISHED` with a receipt → landing
+confirmed at `EXECUTING_STEP|spawn_verifier`.
+
+**Adoption: 3 of ~178.**

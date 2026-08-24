@@ -92,8 +92,11 @@ signature). A new racing publisher now draws an advisory `check_kcat_stdin_race`
 
 **It stays OPEN, deliberately.** `[MEASURED 2026-08-23]` of **218** `kcat -P` publishers, **201**
 still use the racing form — **178 of them runnable** (23 are scrapbooks that do not parse) — and
-**two** callers have been migrated (2026-08-24: `scripts/trigger-landmine-verifier.sh`, whose
-caller counted dispatch failures from the one signal absent on the silent arm). The customer
+**three** callers have been migrated (2026-08-24: `scripts/trigger-landmine-verifier.sh`, whose
+caller counted dispatch failures from the one signal absent on the silent arm; and
+`097_TRIGGER_council_review_v1.sh`, closing all three halves of its own landmine — the
+pre-publish receipt, the stdin race, and a second-resolution pod name that made two same-second
+submissions collide). The customer
 path this bug names is closed; the class is not, and **this file tracks the class** (owner,
 2026-08-24) — so it stays open until the runnable racing publishers are gone, not until 082 works.
 
