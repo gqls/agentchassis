@@ -48308,3 +48308,40 @@ as a measurement that supports a claim ([[measurement-discipline-index]]).
 > `sql_for_agents/`). **Grep the landmines for the PATHS in the diff, not only for the operation
 > you think you are performing.** The right entry was there, titled almost exactly for the
 > situation, and I reached it by accident.
+
+## 2026-08-24 — `loanzy_uk_example_site` lane: I was handed the general lesson, built a check from it, and scoped the check to the one EXAMPLE it arrived with
+
+**The claim.** I reported a finished greenfield build as **"7 of 12 pages serving… substantial and
+read well."** The owner then found that `seasonal-planner` — 66,999 bytes, `deployed`, serving 200 —
+carries an `<h2>` reading *"What your shed needs, month by month"* over **no calendar, no month list,
+and three month names on the entire page**. Several of the seven are hollow. My headline was wrong in
+the reassuring direction.
+
+**What makes it a wrong call rather than bad luck: I had the lesson in writing and narrowed it.** The
+handoff I was working from said `loanzy.uk` had shipped a calculator page with **zero `<input>`
+elements**, and stated the general form explicitly — *"a stored, linked, selector-visible component
+that still renders no tool is a different failure and must not be reported as success."* I quoted
+that sentence approvingly, built an `<input>`-count check from it, **and applied it only to
+`page_type='tool'`.** `seasonal-planner` is `page_type='content'`, so it received no completeness
+check of any kind.
+
+**The failure mode, and it is distinct from the others in this file:** the lesson arrived attached to
+an example (a calculator with no inputs), and I implemented **the example** rather than **the
+lesson** (a page that does not contain what it promises). The example's shape — count `<input>` —
+silently carried the example's scope with it. Nothing looked wrong: the check was present, specific,
+derived from real evidence, and green.
+
+**The cheap check: a page's own headings are a PROMISE — test the promise against the markup.**
+`<h2>month by month</h2>` over a page with 0 tables and 3 month names is machine-detectable, needs no
+knowledge of the vertical, and costs one grep. Now implemented in the harness (`after_test.sh`,
+"PROMISE vs DELIVERY"): distinct month names for calendar promises, `<li>` count for checklist and
+step-by-step promises, `<table>` presence for comparison promises.
+
+**And the meta-check I owe every borrowed lesson from now on:** when adopting a finding from another
+lane, ask **"is the check I just wrote testing the principle, or the instance?"** If it names a tag,
+a page_type or a component that the original incident happened to involve, it is probably the
+instance. The generalisation was already written down for me; I read it and implemented under it.
+
+**Fourth instrument failure of this arc** — after `grep -i` defeating a capitalisation test, a
+harness printing clean footers for queries that had errored, and a monitor reporting a failed `curl`
+as an empty apex. **All four reported success in a state they had never been tested in.**
