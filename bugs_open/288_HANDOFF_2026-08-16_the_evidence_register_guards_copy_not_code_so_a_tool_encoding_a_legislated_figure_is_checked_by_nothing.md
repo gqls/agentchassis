@@ -289,7 +289,24 @@ whose Piece 1 has been live since migration 366 (CLM-021).
    unbounded set; this probes for REGISTERED values, a finite per-site set already vouched
    for — the direction is inverted, and the submission must say so rather than hope nobody
    notices the resemblance).
-6. **Standing, and not this lane's to close: `bugs_open/033`.** The council's `architecture`
+6. **The probe's floor and the suggester's population are BOTH narrower than the class, and the
+   `agritec_uk` lane's live case falls outside both.** Their SFI Revenue Stacker computes a
+   subsidy DEFRA abolished, with two of nine revenue lines correct — 288 with money attached.
+   `[MEASURED 2026-08-24 against their live rows]`: **75 of their 105 registered facts are below
+   the probe's floor of 1000** (SFI rates are 2–3 digit: 382, 224, 20, 13, 10), and their
+   calculator sits on a `page_type='blog-post'` page on a site with **zero** tool-level
+   components, so the Phase 4 predicate does not select it — fleet-wide that class is **50 of
+   222** script-bearing pages on register-bearing sites. Their own mitigation (require every
+   applied constant to be a registered fact AND appear in the tool's visible rate table) is
+   therefore **not redundant with this work** and should stay: it covers the displayed-rate
+   shape, Phase 3a covers the ≥1000 code-constant shape, and **the residual — an internal
+   constant, below 1000, that nothing displays — is reached by neither.** That residual is
+   Piece 4's, and the honest per-fact answer available today is a human-authored
+   `artifact_check` with a context-bearing pattern, which Phase 2 made reachable for citation
+   facts. ⚠ Their tool is not yet in stored `rendered_html` (11 pages, 1 with any `<script>`,
+   0 containing `Math.min` or `382`), so neither lane may quote a probe verdict on it yet.
+   Told to them 2026-08-24 rather than left to be inferred.
+7. **Standing, and not this lane's to close: `bugs_open/033`.** The council's `architecture`
    seat objected (medium, advisory) that Phase 1's doc_note surface is the **second**
    bespoke durable surface invented to route around the dead `needs_human_review` queue,
    after `noteNeedsCriteria` — and that each such bypass makes the eventual triage fix
