@@ -8059,3 +8059,118 @@ and both ends are already closed by work done this week.
 across two truncated and one retention-bounded source lost to one `GROUP BY source`. Provenance
 columns exist on this estate precisely because reconstruction is unreliable — and the reconstruction
 that *looked* best (site overlap) was the one that would have produced a confident wrong answer.
+
+## 2026-08-24 (evening) — handoff §6.4 is ANSWERED: the `no_related_pages` rise is not a defect and not a trend, it is migration 516 working — and underneath it sits a producer split nobody had measured
+
+The 08-24b handoff left one thing marked "worth someone's morning": `no_related_pages` had **12**
+rows all-time and **4** of them were that day. It was flagged `[UNMEASURED]` as a rate, because
+births/day had never been established. Establishing it changes the reading completely.
+
+### 1. The denominator, and why this one is evidence rather than a number
+
+Births come from `content_components` where `component_level='tool'` — one row per tool per site
+(the names are domain-suffixed: `tool-bayesian-rank-webdesign-co-uk`). **What makes it usable is
+that the accounting closes exactly**, so it could have come out otherwise:
+
+| day | tool births | `no_related_pages` | `tool_page_will_not_go_live` | cross-link items emitted |
+|---|---|---|---|---|
+| 08-17 | 4 | 0 | 0 | 4 tools |
+| 08-18 | 5 | 0 | 0 | 5 tools |
+| 08-19 | 12 | 0 | 5 | 6 tools |
+| 08-20 | 8 | 0 | 0 | 8 tools |
+| 08-21 | 7 | 2 | 0 | 5 tools |
+| 08-22 | 4 | 3 | 1 | **0** |
+| 08-23 | 5 | 0 | 5 | **0** |
+| 08-24 | 4 | 4 | 0 | **0** |
+
+[MEASURED 2026-08-24 ~17:0xZ] For 08-22 → 08-24 the last three columns account for **13 of 13**
+births with nothing left over — 8 stopped at `no_related_pages`, 5 at Guard 2 — and `tool-generator`
+has created **zero** `tool_crosslink:%` items since 08-21. A denominator that leaves a remainder
+would have told me the proxy was wrong; this one does not.
+
+```sql
+-- births
+SELECT created_at::date, count(*) FROM content_components
+ WHERE component_level='tool' AND created_at > '2026-08-16' GROUP BY 1 ORDER BY 1;
+-- emissions, by the caller the emitter stamps
+SELECT created_at::date, source, count(DISTINCT split_part(item_key,':',2))
+  FROM site_work_items WHERE item_key LIKE 'tool_crosslink:%' GROUP BY 1,2 ORDER BY 1;
+```
+
+### 2. The boundary is migration 516, applied 2026-08-21 16:55Z — not "today"
+
+The first `no_related_pages` row of the new regime is **08-21 18:49Z**, i.e. after the apply, and
+every row since. Pre-516 the whole-tree search substituted `suggestions[0]`'s pages for any spec
+that lacked the key — that is `bugs_open/330`'s damage, nine tools sharing one tool's two pages. So
+the rise is **the mask coming off**, not a new failure. 516 traded *wrong* cross-links for *no*
+cross-links on that path, which is the right trade and was the stated design (330 §10).
+
+> **MY OWN WRONG TURN, and it took two minutes to make.** I dated the apply from
+> `agent_definitions.updated_at`, which read **2026-08-24 15:38:27Z** on both tool agents — after
+> today's four occurrences, which would have refuted 516 as the cause. `updated_at` is bumped by
+> **any** later write to the row; a different migration touched both agents this afternoon. The
+> apply time was in this very file (`## 2026-08-21 (~19:1xZ)`) and in `bugs_open/330` §10.
+> **A row's `updated_at` dates the LAST write, never the write you are asking about** — when a lane
+> records an apply in prose because the runner refuses `--record-only` on a `_HOLD` sidecar, the
+> prose IS the ledger. Read it before reconstructing the date from a timestamp column.
+
+### 3. The thing underneath, which nobody had looked at: `related_pages` has exactly ONE producer
+
+[MEASURED 2026-08-24 ~17:1xZ] `add_tool` work items created since 08-17, split by `source`:
+
+| source | items | carry `related_pages` |
+|---|---|---|
+| `tool-suggester` | 11 | **11** |
+| `owner-request` | 58 | **0** |
+| `automated_check` | 7 | **0** |
+| `operator` | 1 | **0** |
+
+```sql
+SELECT created_at::date, source, count(*),
+       count(*) FILTER (WHERE spec ? 'related_pages') AS has_key
+  FROM site_work_items WHERE item_type='add_tool' AND created_at > '2026-08-16'
+ GROUP BY 1,2 ORDER BY 1,2;
+```
+
+It is not a compliance rate — it is a **clean split by producer**, 11/11 against 0/66. The two spec
+shapes are visibly different objects:
+
+- `tool-suggester`: `complexity, description, experience_plan, function, library_source, name,
+  priority, related_pages, target_page, tool_component_id`
+- hand-authored (`created_by` = `webdesign-tool-rebuilds`, `283-owner-rebuilds`,
+  `agritec-workstream-2026-08-24`): `complexity, description, function, name, priority`
+
+`tool-suggester`'s prompt does ask for the field on every suggestion ("include related_pages: a list
+of 1-3 existing page names"), and the one LLM call it made since 08-20 returned it — so the LLM half
+is working. **The gap is that every other route into `add_tool` writes a spec by hand from a
+template that has never carried the key**, and there is no default, no validation and no warning.
+`grep -rn "owner-request"` over Go/SQL/shell finds no producer at all: these rows are INSERTed by
+lanes directly. The admin handler
+(`internal/core-manager/admin/tool_admin_handlers.go:318`) is the one code producer and it builds a
+three-key spec literal — also without `related_pages`.
+
+### 4. Why this matters more than the count did
+
+The emitter's own comment says absence is *"Not a defect: a suggestion may legitimately name no
+related pages."* That is true of a suggester run that considered the site and chose none. It is
+**false** of an item no suggester ever saw — and the emitter cannot tell the two apart, so it
+records the reassuring one. This is `bugs_open/330`'s root cause one layer up: *"I tried and found
+nothing"* and *"I was never asked"* stored identically, first in the resolver's `strategy0Resolved`
+bookkeeping, now in the skip row's prose.
+
+**And it explains why `bugs_open/353` item (b) cannot close by waiting.** Every birth since the
+forward fix rolled is `owner-request`, so it returns at `no_related_pages` *before* Guard 2 is
+reached. The new arm is not merely unexercised; on the current mix of producers it is
+**unreachable**. Exercising it needs a `tool-suggester` item on a page not yet live — which is
+exactly the shape dartsonline's 08-23 births had, one day too early.
+
+### 5. Filed
+
+`090` diagnosis fired 2026-08-24 (intake `5dbead0b`, run `0b5695a4`, `FORCE=1` after reading the
+one covering item — an unrelated `claims_unverified` row on the tool-blueprint-compiler page). Filed
+per the 2026-07-31 owner ruling: this asserts a cross-cutting cause that lives in the *producers* of
+a spec, not in the emitter where the symptom is recorded. ⚠ The loop reads
+`origin/087_towards_multiple_domains`, which is **641 commits behind local HEAD** — checked before
+firing that both symbols the symptom names are present there unchanged
+(`relatedPagesFromInputs` at :443, the `no_related_pages` arm at :143-149), and the claim returns
+before the part of the file that differs.

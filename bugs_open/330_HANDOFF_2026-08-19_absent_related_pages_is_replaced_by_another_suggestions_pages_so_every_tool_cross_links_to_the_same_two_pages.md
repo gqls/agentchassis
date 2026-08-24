@@ -352,3 +352,76 @@ wire supplies the right pages; the pipeline drops them one stage later.
 of the three targets here are `rebuild_policy='owned'` pages, so completions may legitimately
 sit in review — "3 created, 1 completed" is the owned-page control working, not a partial
 failure of either fix.
+
+## 12. ADDENDUM 2026-08-24 ~17:2xZ — the absence 516 leaves behind has exactly ONE cause, and it is a PRODUCER SPLIT, not an LLM compliance rate
+
+By the `staged_component_build` lane, following the `no_related_pages` count the `bugs_open/353`
+handoff had flagged as unexplained. **This does not reopen anything above** — §10 and §11 are
+unchanged and the resolver halves stay proven. What it adds is the answer to the question §10 left
+implicit: *when a spec has no `related_pages`, why doesn't it?*
+
+### 12.1 The measurement
+
+[MEASURED 2026-08-24 ~17:1xZ] `site_work_items` where `item_type='add_tool'`, created since 08-17,
+by `source`:
+
+| source | items | carry `related_pages` |
+|---|---|---|
+| `tool-suggester` | 11 | **11** |
+| `owner-request` | 58 | **0** |
+| `automated_check` | 7 | **0** |
+| `operator` | 1 | **0** |
+
+```sql
+SELECT created_at::date, source, count(*),
+       count(*) FILTER (WHERE spec ? 'related_pages') AS has_key
+  FROM site_work_items WHERE item_type='add_tool' AND created_at > '2026-08-16'
+ GROUP BY 1,2 ORDER BY 1,2;
+```
+
+11/11 against 0/66 is not a rate, it is a split. The two spec shapes are different objects:
+`tool-suggester` writes ten keys including `related_pages`, `target_page` and `experience_plan`;
+every hand-authored row (`created_by` = `webdesign-tool-rebuilds`, `283-owner-rebuilds`,
+`agritec-workstream-2026-08-24`) writes the same five — `complexity, description, function, name,
+priority`.
+
+**The LLM half is not the problem.** `tool-suggester`'s live prompt asks for the field on every
+suggestion, and the single `llm_call_log` reply it produced since 08-20 contains it. The one code
+producer, `internal/core-manager/admin/tool_admin_handlers.go:318`, builds a three-key spec literal
+and also omits it. `grep -rn "owner-request"` over Go/SQL/shell finds no producer: those 58 rows are
+INSERTed by lanes directly, from a template that has never carried the key.
+
+### 12.2 What this means for THIS bug's fix
+
+516 is correct and stays. But it converted a **wrong-value** failure into an **absence** failure on
+the hand-authored path, and nothing on that path was told. [MEASURED 2026-08-24] since 08-22,
+**13 of 13** tool births emitted zero cross-links; the accounting closes exactly (8 stopped at
+`no_related_pages`, 5 at `bugs_open/353`'s Guard 2) and `tool-generator` has created no
+`tool_crosslink:%` item since 08-21.
+
+### 12.3 The shape is this bug's own root cause, one layer up
+
+§2 found the defect in `ExtractActionInputs`' `strategy0Resolved` bookkeeping: *"I tried and found
+nothing"* and *"I was never asked"* are recorded identically. The emitter's skip row does the same
+thing in prose — it records *"a suggestion may legitimately name no related pages"* for an item no
+suggester ever saw. True of a suggester run that chose none; false of a hand-written spec; and the
+emitter cannot distinguish them, so it writes the reassuring one at `info`.
+
+**Candidate fix, ordered by what closes the door** (not actioned here — see §12.4):
+
+1. **Make the two states distinguishable at the emitter.** The item knows its own `source`; a skip
+   row that says *"no suggester produced this item"* is a different fact from *"the suggester named
+   none"*, and only the first is worth chasing. Closes the door on the misreading permanently.
+2. **Give the hand-authored path a documented spec template that includes `related_pages`.** Cheap,
+   but it is "operators must remember X", which this repo's own ordering rule ranks last.
+3. Default the field from the site's pages at build time — rejected on sight: that is the
+   whole-tree substitution this bug exists to remove, wearing a different hat.
+
+### 12.4 Filed for diagnosis, not asserted
+
+`090` fired 2026-08-24 (intake `5dbead0b-fb46-4225-9bc7-e934a3073a8f`, run
+`0b5695a4-a09d-4895-b4ab-652ce88a991a`) per the 2026-07-31 owner ruling, because the cause named
+here lives in the *producers* of a spec rather than in the emitter that records the symptom. Read
+the verdict before acting on §12.3. ⚠ The loop reads `origin/087_towards_multiple_domains`, 641
+commits behind local HEAD at dispatch — both symbols the symptom names were checked present there
+unchanged first.

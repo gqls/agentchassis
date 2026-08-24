@@ -2582,3 +2582,54 @@ deliberately broke the code to check the test actually notices — it does, and 
 carry on passing while it fails, which is exactly the reviewer's point made concrete.
 
 That has gone back for a third round of review. Nothing here needs a decision from you.
+
+---
+
+**2026-08-24, evening — the "worth a look" item from this morning turned out to be our own fix
+working, and underneath it was something we had never looked at.**
+
+This morning's note flagged something odd: a particular "nothing to link here" message had been
+recorded twelve times ever, and four of those were today. A third of all occurrences on one day
+looks like something starting to go wrong.
+
+It isn't. It is a change we made ourselves on Friday evening, doing exactly what we designed it to
+do.
+
+The background: when a new tool is built for a site, we try to add a mention of it on a couple of
+related pages, so people can find it. Which pages those should be is meant to come from the request
+that asked for the tool. Until Friday, if the request didn't say, the system quietly went looking
+elsewhere and grabbed *another* tool's list — which is why nine tools on webdesign.co.uk all ended
+up pointing at the same two pages. Friday's change stopped it guessing. Now, if the request doesn't
+name any pages, we add no mentions and record why.
+
+So the count going up is the cover coming off, not a new fault. We swapped wrong links for no
+links, which was the whole point.
+
+**What I did not expect was the next question: why does the request so often not say?**
+
+The answer is clean enough to be worth stating plainly. There are two ways a tool gets requested.
+One is the automatic route, where the system looks at a site and proposes tools — and that route
+fills in the related pages **every single time**: eleven for eleven. The other is by hand, which is
+how we and the owner have been ordering tools all week — and that one has **never once** included
+them. Fifty-eight requests, none of them.
+
+It isn't a case of the automatic route being unreliable. The two routes write genuinely different
+requests, and the hand-written one grew from a template that simply never had that field in it.
+Nobody was told, because nothing complains: the tool builds, the page goes live, and the only trace
+of the missing mentions is an informational line that says "no related pages were named" — which
+reads like a decision somebody made, rather than a question nobody was asked.
+
+The practical effect is that for the last three days, every tool we have built has got no
+cross-mentions at all. Thirteen out of thirteen.
+
+**One consequence for the bug we closed this morning.** I had written that the last remaining check
+on it was "a wait" — we just needed a real case to come through and prove the new code works. That
+was wrong, and I have corrected it. Because every request we are making by hand stops earlier than
+the code we fixed, the case we are waiting for cannot arrive on its own. It needs either the
+automatic route to run on a new site, or one hand-written request that includes the pages. So it is
+a small task, not a wait.
+
+I have put this into the diagnosis loop for an independent read rather than just asserting it,
+since it is the kind of claim other people will inherit. Nothing here needs a decision from you
+today — but if you want tools to carry cross-mentions when you order them by hand, that is a real
+choice and I would rather you made it than I assumed it.

@@ -231,3 +231,100 @@ but it has outgrown "two points is not a trend".
 suggestive and worthless) all failed or misled. The emitter stamps `source` and `emitted_by` on
 everything it writes, and **one `GROUP BY source` answered in a single query what three joins could
 not.** Before reconstructing who did something, check whether the artefact already says.
+
+---
+
+## 7. ADDED 2026-08-24 evening — §6.4 is ANSWERED, and the answer removes it from the open list while adding a better question underneath
+
+**Read this before acting on §6.3 or §6.4: both change.**
+
+### 7.1 The `no_related_pages` rise is migration 516 working, not a trend
+
+§6.4 flagged "4 of 12 occurrences in one day" as having outgrown *two points is not a trend*. With a
+denominator it is neither a trend nor a defect. Tool births come from `content_components`
+(`component_level='tool'`, one row per tool per site), and for 08-22 → 08-24 the accounting closes
+**exactly**: **13 births, 13 accounted** — 8 stopping at `no_related_pages`, 5 at Guard 2 — and
+`tool-generator` has created **zero** `tool_crosslink:%` items since 08-21.
+
+The boundary is **migration 516, applied 2026-08-21 16:55Z** (recorded in the lane NOTES, because the
+runner refuses `--record-only` on a `_HOLD` sidecar). The first row of the new regime is 08-21
+18:49Z. Pre-516 the whole-tree search substituted `suggestions[0]`'s pages into any spec that lacked
+the key — `bugs_open/330`'s damage. **516 traded wrong cross-links for none, which is the right
+trade and was the stated design.** Nothing to file on the count itself.
+
+⚠ **Do not date the apply from `agent_definitions.updated_at`.** It read **08-24 15:38:27Z** on both
+tool agents — three hours *after* today's occurrences, which would have refuted 516 as the cause. It
+dates the last write to the row, not the write you are asking about; a different migration touched
+both agents this afternoon. I made this mistake and the correct date was in two files I already had.
+
+### 7.2 The real finding: `related_pages` has exactly ONE producer
+
+[MEASURED 2026-08-24 ~17:1xZ] `add_tool` items since 08-17, by `source`: `tool-suggester` **11 of
+11** carry the key; `owner-request` **0 of 58**, `automated_check` **0 of 7**, `operator` **0 of 1**.
+A clean split by producer, not a compliance rate. The suggester's prompt asks for the field and its
+one LLM reply since 08-20 returned it — the LLM half works. Every other route writes the spec by
+hand from a five-key template (`complexity, description, function, name, priority`) that has never
+carried it, with no default, no validation and no warning. Filed: `bugs_open/330` §12, and a `090`
+diagnosis (intake `5dbead0b`, run `0b5695a4`).
+
+### 7.3 ⚠ This corrects §6.3: item (b) is NOT "a wait"
+
+§6.3 called 353's remaining item *"a wait, not a task"* — first non-zero
+`emitted_ungated_build_enqueued_by_caller` row closes it. **On the current producer mix that row
+cannot arrive.** Every birth since the forward fix rolled is `owner-request`, so it returns at
+`no_related_pages` *before* Guard 2 is reached; the new arm is not merely unexercised but
+**unreachable**. Waiting is not a strategy that terminates.
+
+**What would exercise it:** a `tool-suggester`-sourced `add_tool` item (so the spec carries
+`related_pages`) whose tool page is not yet live and has no gate item. dartsonline's five births on
+08-23 were exactly that shape — one day before the fix rolled. So either wait for the next suggester
+run on a fresh site, or hand-author one `add_tool` spec **with** `related_pages` and let it build.
+
+### 7.4 Corrected open list for 353
+
+- **(b)** live, unexercised, and **unreachable on the current producer mix** (§7.3) — needs a
+  suggester-sourced birth, not patience.
+- ~~(c′)~~ CLOSED (§6.2).
+- ~~(d)~~ → `bugs_open/379`, unowned.
+- **NEW:** the producer split — `bugs_open/330` §12, `090` run `0b5695a4` pending.
+
+### 7.5 Trap 13
+
+**A denominator is what turns a count into a reading, and the good ones close.** "4 today out of 12
+all-time" and "13 of 13 births emitted nothing" are the same fleet-day described with and without
+the denominator, and they point at opposite conclusions — the first at a spike to chase, the second
+at a design change working as intended plus a producer nobody had audited. The test that the
+denominator is sound is that the accounting leaves **no remainder**: births = skips + emissions. A
+proxy that leaves one is measuring something else.
+
+---
+
+## 8. CONSUMER NOTICE FROM THE `bugs_open/333` LANE (received 2026-08-24 evening) — the 353 acceptance census gains a THIRD bucket after the next roll
+
+Recorded here because it arrived in chat and would otherwise be lost. **No action owed by this
+lane**, but it changes how the backfill's numbers must be read.
+
+The 333 lane (owned-page routing) reports that this lane's `backfill-353` run on 08-23 filed **8**
+cross-link items at `page-build-handler` on pages whose `rebuild_policy` is `'owned'` (17:15–17:17Z).
+`page-build-handler` is forbidden to touch an owned page, so today it refuses, the item terminates
+`wont_fix`, and the detector re-files it later. That is the mechanical half of the caveat
+`bugs_open/353` already carries at its lines 128 and 213.
+
+**Their change (`6ab0b3434`, INERT until the next chassis roll):** `emitToolCrossLinkItems` now goes
+through `withWorkItemTx` → `writeWorkItem`, so it sits inside the owned-page door's coverage. From
+the roll, a cross-link finding onto an owned page is **parked** rather than routed —
+`status='deferred'`, no handler, `error` leading `OWNED_PAGE_GUARD`, keeping its own `item_type` and
+`item_key`. Nothing about the emitter, the 029 URL guard or the 353 gate changed.
+
+⚠ **The trap for whoever re-runs the acceptance census:** "74 created, N completed" becomes three
+buckets, and a ratio computed as `complete / (complete + failed)` will silently exclude the deferred
+ones and **read higher than the work actually done**.
+
+```sql
+SELECT status, count(*) FROM site_work_items
+ WHERE item_key LIKE 'tool_crosslink:%' GROUP BY 1;   -- expect a 'deferred' bucket post-roll
+```
+
+Whether an owned tool page *should* receive a cross-link at all is an open design question. 333
+deliberately does not take it; it stops the answer being "silently refused and forgotten". If this
+lane picks it up, that is where it belongs — not in 333.
