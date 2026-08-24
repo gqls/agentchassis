@@ -16,8 +16,10 @@ v2 batch's contents; everything it says about v2(d) being unbuilt is now out of 
 > `601` by hand.** A finding can now carry a refute-only, machine-checkable half of its own acceptance
 > test; the gate that decides whether one may be stored is `verify_acceptance_predicates`.
 > **Council: SUBMITTED, `SUBMISSION_CORR = ef482d1c-b36d-40c0-a40c-772656116016`** — dispatched
-> 2026-08-24 ~19:20 BST once the token came back; read the verdict before treating the design as
-> settled. **Capability-probed 2026-08-24 19:2xZ: the action is ABSENT from both running replicas**
+> 2026-08-24 18:20Z, **killed 10 minutes in by a chassis roll** (frozen at `review_guardian`
+> 18:30:18Z; new pods 18:32Z — the `LANDMINES.md` arithmetic exactly), and **re-fired unchanged on
+> the same trail at 19:54Z**, which is why the correlation above is still the one to read. Read the
+> verdict before treating the design as settled. **Capability-probed 2026-08-24 19:2xZ: the action is ABSENT from both running replicas**
 > (positive control `verify_cited_cardinals` PRESENT, negative control absent) — as expected, since
 > the running image predates commit `7b875b08f`. **So 601 must NOT be applied yet.**
 
