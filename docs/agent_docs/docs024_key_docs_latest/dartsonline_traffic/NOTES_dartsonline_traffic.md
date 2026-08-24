@@ -1262,3 +1262,68 @@ described a queue in motion as a finished result.** Same family as reading a 404
 as a failed deploy: a mid-flight system sampled once reads as a final state, and the reassuring
 sample is the one nobody re-takes. The check is to name what would change if you looked again in
 five minutes — and if the answer is "the numbers", say so in the report or take the second look.
+
+## 2026-08-24 — THE FIRST REAL TRAFFIC MEASUREMENT, and 28.5% of it is us
+
+The owner added **Zone → Analytics → Read**; it is live on two tokens
+(`~/.config/cloudflare/portfoliotoken` and, confusingly, `~/.config/cloudflare/token.expired-2026-08`
+— the filename is now wrong, it works). Zone `79797324fe7423429f5a91178406bd79`, Free plan,
+`httpRequests1dGroups` returns 30 days.
+
+### The headline figure, and why it is not the answer
+
+**30 days, 2026-07-26 → 08-24: 5,631 page views, 89,655 requests, mean 188 page views/day**
+`[MEASURED 2026-08-24]`. Page views are **6.3%** of requests; the rest are assets and non-HTML.
+
+Classified by `browserMap.uaBrowserFamily`:
+
+| class | page views | share | per day |
+|---|---|---|---|
+| real browsers (Chrome, Safari, Firefox, Edge, mobile) | 1,890 | 33.6% | 63.0 |
+| **our own tooling** (Curl 1,467 + ChromeHeadless 139) | **1,606** | **28.5%** | 53.5 |
+| Unknown UA | 2,041 | 36.2% | 68.0 |
+| search crawlers (GoogleBot 54, Bing, Yandex…) | 83 | 1.5% | 2.8 |
+
+### ⚠ The trap: total page views 2.6×'d and NONE of it is growth
+
+Split first-15-days vs last-15-days:
+
+```
+TOTAL   105.4/day -> 270.0/day     (2.6x — what I nearly reported as growth)
+human    57.6/day ->  68.4/day     (+19%)
+OURS     18.5/day ->  88.6/day     (4.8x)
+```
+
+**The rise is this lane measuring the site.** Every `curl` in the card audit, every `render_audit.py`
+pass, every screenshot, plus the news_editorial lane's checks — 1,467 page views of Curl and 139 of
+ChromeHeadless in 30 days. I ran the classification only because "traffic doubled while we did the
+work" was too flattering to publish unchecked; the honest number was one query away and would have
+gone into a Webgains re-application otherwise.
+
+This is the measurement-index family — **your own action inflates your own metric** — in the most
+expensive place it could land: the figure an affiliate network is asked to judge.
+
+### The number that actually matters, and it is not the page views
+
+**GoogleBot: 54 page views in 30 days**, across 24 live URLs — under 2/day. Bing 8, Yandex 3.
+Search engines are barely visiting. That is consistent with the Webgains rejection and it is the
+constraint the whole plan turns on.
+
+**Sitemap effect: UNMEASURABLE, and stated as such.** Crawler page views were 2.72/day in the 25
+days before `sitemap.xml` shipped (08-20) and 3.00/day in the 5 days after — with two of those five
+days at zero. Five days cannot separate that from noise, and quoting it either way would be the
+disconfirmability failure this file keeps logging. Re-measure at 30 days.
+
+### Honest bounds on the human figure
+
+63/day is an **upper** estimate: it includes the owner's own browsing (he was on the site today),
+possibly the other lane's, and any team traffic. "Unknown" at 36% may also hide more of our own
+tooling where no recognisable UA is set. **So: ~1,900 real-browser page views/month, of which an
+unmeasured share is us.** For an affiliate application, quote it with that caveat or not at all.
+
+### Reproduce
+
+`~/.config/cloudflare/portfoliotoken` → GraphQL `httpRequests1dGroups` with
+`sum{browserMap{pageViews uaBrowserFamily}}`. **Free plan cannot use `httpRequestsAdaptiveGroups`
+beyond a 1-day window**, so per-path and bot-score splits are not available; `browserMap` is the
+best available proxy and it is a UA-string classification, not a bot score.
