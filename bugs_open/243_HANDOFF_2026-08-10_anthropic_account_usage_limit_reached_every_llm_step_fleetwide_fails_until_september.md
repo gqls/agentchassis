@@ -718,3 +718,79 @@ address. Billing read `$0.00 spent / 0% used` against a $2,000 limit *while* the
 refusing. The decisive column is **Organization settings → API keys → `Last used`** — a live
 key can never read "30+ days ago", because a failed call is still a use. Full signature:
 `~/.claude/projects/*/memory/the-fleet-key-is-not-on-the-default-console-org.md`.
+
+---
+
+## 2026-08-24 (evening) — TWO OF THE THREE FIXES ARE LIVE, ONE IS PROVEN, AND THE PROBE INTERVAL IS APPLIED
+
+Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_243_provider_cap_resilience/`.
+Council `82f07fa6-1c42-46ad-bdf6-1d58892c44a7` **APPROVED round 1** (4 advisory objections,
+none high; two of them changed the code).
+
+### Live on chassis `v1.0.1334`, capability-probed on BOTH replicas with both controls
+
+The `build provenance` startup line had already scrolled out of `--tail=3000` — the documented
+case, where an empty result means "not in range", not "unstamped" — so presence was established
+at the binary, which has no shelf life:
+
+| probe | fr8dn | xl2zk |
+|---|---|---|
+| `failed to clear endpoint health after a successful call` (**MDL-044**) | 1 | 1 |
+| `recorded as unreadable, NOT abstained` (council reader) | 1 | 1 |
+| `diagnose_council_decide` (present-control) | 15 | 15 |
+| a deliberately absent string (absent-control) | 0 | 0 |
+
+### MDL-044 is PROVEN on live traffic `[MEASURED 16:51:32 → 16:52:34 Z]`
+
+Forced `healthy=false` by hand; **one successful call cleared it in ~39s.** Attribution rests
+on four independent grounds and the disconfirming result was available:
+
+- **`last_healthy` (16:52:34.402) is 61 seconds LATER than `last_checked` (16:51:33.504)** — an
+  ordering **no other writer can produce**, because the prober and `update_endpoint_health`
+  both assign the two columns in a single `NOW()`;
+- `last_checked` never moved from the forced write, so **no probe ran** — the prober cannot be
+  the cause;
+- `error` went to `NULL`, which is this writer's own statement;
+- the **demand control** read exactly 1 successful call, in the same query as the row.
+
+Had the prober done it, `last_checked` would have moved and `last_healthy` would equal it.
+Observed a **second** time independently at 16:54:11 on a `council-gate` call.
+
+**So the specific damage this bug's 08-17 addendum measured — up to an hour of fleet-wide
+dispatch loss from one refusal — is closed at the mechanism, not merely shortened.**
+
+### Migration applied: the probe interval, 3600s → 60s
+
+`596_claude_probe_interval_60s.sql`, applied by hand on the owner's instruction and recorded
+`--record-only` (**not** `--apply`, which takes every pending file fleet-wide). Split out of
+`588_..._HOLD.sql` because it has no dependency on the Go half that file waits for.
+
+⚠ **CORRECTED before it could be quoted: this does NOT give a one-minute bound.** The probe
+fires only when the scheduled task `ai-endpoint-health-check` ticks **and** the endpoint's own
+interval has elapsed — and that task's `interval_seconds` is **also 60**, so the two compose.
+Measured ticks 16:22:38 → 16:24:12 → 16:25:44: gaps of **94s and 92s**. The honest bound is
+**one to two minutes**, still ~39× better than 3600s. If a tighter one is wanted the lever is
+this row at 30s against the task's 60s tick, not lowering the row alone.
+
+### ⚠ STILL HELD: the council half. Do not apply `588`.
+
+The `__step_errors` **writer** is not in the build — probed, not assumed, on both replicas:
+`step-error record capped at` = **0**. Its reader IS live and **inert by design** (fails closed
+with no key to read).
+
+**Probe the writer's own literal, never `__step_errors`** — the reader mentions that key too,
+so grepping it returns **1** either way and reads as if the writer landed.
+
+The writer is ~20 lines in `routeToErrorStep`, written and green against HEAD in isolation, and
+**deliberately uncommitted**: `coordinator.go` carries the **`bugs_open/354`** lane's
+uncommitted call to `errorRouteTermination`, whose definition is in an **untracked** file. A
+pathspec commit takes the whole file, so committing it would break HEAD for the estate. Note in
+`bugs_open/354` with two ways out. **Any session that commits `coordinator.go` while that
+stands breaks HEAD**, and nothing at commit time would warn them.
+
+### What is still the owner's, unchanged
+
+Candidate 1 (add credit) is still the only thing that restores service under a real cap, and
+candidate 2 (a second provider) is still undecided — **127 of 127 configured LLM steps across
+55 live agents name `anthropic` and the same key.** This lane only reduces what each refusal
+costs us.
