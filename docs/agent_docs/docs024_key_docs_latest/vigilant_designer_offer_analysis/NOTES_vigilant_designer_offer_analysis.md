@@ -2745,3 +2745,150 @@ already had **three** entries covering the last two (`retention is PER STATUS`, 
 them cover — the wrong SPELLING shipped in three runbook comments, which fails *before* you get a
 count at all — and cross-referenced the rest. Grepping first is cheap; I did it for the snapshot
 trap immediately after, and it correctly stopped me filing a second duplicate.
+
+---
+
+## 2026-08-24 (session 2, afternoon) — v2(d) BUILT: findings can carry a machine-checkable half of their own acceptance test
+
+Picked up from `HANDOFF_2026-08-24_continue_here.md`, which names v2(d) as the strongest item in the
+v2 batch and says START HERE. This entry is the working record; the design lives in the register
+(**CLM-024**, `docs026_concept_register/register/claims-verification.md`) and the feature's own
+§10 entry is updated.
+
+### 1. The census is BIGGER than the handoff's, and I re-ran it rather than inheriting it
+
+The feature file's census is **22** acceptance tests read 2026-08-17. `[MEASURED 2026-08-24]` there
+are now **37** — the 08-22 and 08-24 re-proof runs added 15. So the distribution the design rests on
+was a week stale, and re-reading it is what produced the design (below). Query:
+
+```sql
+SELECT wi.id, s.domain, wi.item_type, wi.status, wi.created_at::date,
+       COALESCE(wi.spec->>'page_name', wi.spec->>'page',''), wi.spec->>'acceptance_test'
+  FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+ WHERE wi.spec->>'audit_source'='offer-analysis' ORDER BY s.domain, wi.created_at;
+```
+
+⚠ **`site_work_items` has no `audit_source` COLUMN** — it is `spec->>'audit_source'`. The column
+form errors rather than returning zero, so behind a `2>/dev/null` it reads as "no findings".
+
+### 2. THE MEASUREMENT THAT DECIDED THE DESIGN — three items marked `complete` whose own acceptance test is refuted today
+
+`[MEASURED 2026-08-24 ~16:5xZ, live DB + `curl` of the served page]`:
+
+| item | status | its own test | what the artefact says |
+|---|---|---|---|
+| webdesign.co.uk / index (created **and completed 08-24**, 10:13→10:34Z, `page-build-handler`, `commit_sha 38117b4f`, deployed) | **complete** | *"the meta description must state the zero-data or zero-account promise **before** any catalogue count or category list"* | `Sixty-three browser tools for web design and development. No account, no upload, everything runs in your browser.` |
+| webdesign.co.uk / index (08-22) | **complete** | same clause, different wording | same string |
+| robot-hands.com / gripper-catalog-index (08-24, completed 10:35Z) | **complete** | *"appears as a clickable link in the site header navigation on every page"* | absent from the served header (9 anchors, none of them it) |
+| webdesign.co.uk / about | wont_fix | *"must not contain the word 'curated'"* | `Curated guides and tools for modern web development…` |
+
+**The served `<meta name="description">` on `https://webdesign.co.uk/` is byte-identical to
+`pages.meta_description`** — checked, because a DB-side predicate is only honest about the served
+page if that holds. The page was re-deployed at **12:12Z**, i.e. *after* the item was closed, and
+still violates.
+
+So the fourth row is not a false green (nobody claimed it was fixed), but the first three are:
+**the platform rebuilt the page, deployed it, closed the item `complete`, and the criterion the item
+itself stated is refuted by one line of text arithmetic over the exact field the test names.** That
+is the case for v2(d), and it is a *count*, not an argument. It could have come out zero.
+
+### 3. The design, and the one idea that dissolves the feature's stated trap
+
+`features_open/030` §10 warns: *"never let the model emit a predicate for a JUDGEMENT test … worse
+than the prose it replaced, because it carries a green tick"*, and calls the SILENCE arm load-bearing.
+Reading the 37, the real shape is not "expressible vs not" — **24 of 37 are COMPOUND**: a checkable
+clause welded to a judgement clause. A predicate over the cheap half of one of those is exactly the
+green tick the feature fears.
+
+The answer is to change what a predicate MEANS:
+
+1. **REFUTE-ONLY.** A predicate is a NECESSARY condition, never sufficient. Satisfying it means
+   *"not refuted"*, never *"the test is met"*. There is no green to be false. This is the same
+   asymmetry `complete_work_item_no_change.go` already runs on (*"It cannot confirm a repair — only
+   refuse a completion that provably is not one"*), and it raises coverage instead of cutting it,
+   because a necessary condition exists even where the whole test does not.
+2. **IT MUST REFUTE AT EMISSION OR IT IS DISCARDED.** The finding says the page is wrong *today*, so
+   a condition that expresses the finding must fail *today*. This is the only property of a predicate
+   checkable at the moment it is written, and it excludes the vacuous case — a needle present
+   nowhere, a clause already satisfied — which is what would grade green for ever.
+
+Rule 2 is strict and it throws away useful predicates (a necessary condition that already holds
+could still refute later if a rewrite broke it). Taken deliberately, on `335`'s evidence: `from_field`
+was a field built to prove sourcing and it vouched for a number the premise never held. A predicate
+is the same kind of self-attributing artefact, and the only version we can *prove* is coupled to the
+finding in front of us is one that fails in front of us. **The discard is recorded per finding**
+(`acceptance_predicate_rejected`), so the cost of the rule is countable rather than invisible.
+
+Vocabulary, derived from the 37 rather than invented: `text_absent`, `text_present` (with `min`),
+`text_order` — over `pages.meta_description` and `pages.title` of one named page, nothing else.
+`text_order` takes the reserved needle `$cardinal`, resolved through **CLM-023's own** word-aware
+scanner, because *"…before any count of tools"* is the commonest ordering clause in the corpus and
+names no string. That reuse is why the worked case works at all: the offending token is
+*"Sixty-three"*, spelled out, and the digits-only precedent (`verify_report_prose`) cannot see it.
+
+### 4. THE NEAR-MISS THAT MATTERS MOST — I nearly shipped a nav predicate that FALSELY refutes
+
+My first pass had a nav atom (3 of the 37 tests are about the header) and I "measured" a fourth false
+green with it: leopardess's *"the header nav contains no more than seven items"*, `complete`, against
+`SELECT count(*) … WHERE in_header` = **13**. Decisive-looking. Then I curled the site:
+
+```
+nav links in the rendered <header>: 9  → logo + 7 destinations + a "Get Started" CTA
+```
+
+**The test HOLDS. `pages.in_header` is not the rendered nav** — the renderer filters it, and four
+`tool-*` pages carrying `in_header=true` never appear. Had I not checked the artefact I would have
+written "4 false greens" into this file, the register and the council submission, and shipped an atom
+whose failure mode is *refuting a passing page with a mechanical air* — the precise harm this whole
+design exists to prevent, arriving through the door I built to prevent it.
+
+The obvious escape route is also shut: `pages.rendered_header` is **`''` on all 35 active pages** of
+robot-hands.com. **So nav is OUT of the vocabulary** until an instrument reads the served page, and
+that is now a LANDMINE (footprint `pages.in_header`) plus a paragraph in the file's own header, so the
+next person does not re-derive it from scratch.
+
+### 5. A second thing my own test caught, worth recording because the fix is a rule
+
+First cut of the evaluator reported `"$cardinal" appears at 0, before "no account" at 58`. My own
+assertion refused it: **a verdict that quotes the NEEDLE is not evidence** — a reader cannot check
+`$cardinal` against anything. It now returns the text that actually matched, in the page's own case
+(`"Sixty-three" appears at 0`), which also let the case-folding go: every matcher is
+case-insensitive in its own right, so offsets stay in the original string and stay quotable.
+
+### 6. Where the two write-side traps were, both pre-existing and both in `write_audit_findings`
+
+- **An empty findings array is not an unresolvable findings path.** A *recognised* empty list is the
+  auditor saying "nothing is wrong here" and it **arms silence retraction** (`parseAuditFindings`'
+  third return, `bugs_open/213` D1 half two). Since the gate now supplies the array the write reads,
+  it would have been trivial to hand over `[]` when its own input failed to resolve — and quietly
+  retract live findings. It omits the key instead, which leaves the write on exactly the nil branch
+  it takes today. Two tests, both directions.
+- **That action decodes findings TWICE** — struct tags for a JSON string, a hand-written map in
+  `findingsFromList` for a native list — and the native list is the shape an upstream *action* hands
+  over, i.e. the only path this feature uses. A field added to the struct and forgotten there is
+  dropped in silence. There was no lockstep test; there is now (`TestFindingsFromListPopulates
+  EveryTaggedField`, reflection over the json tags), and it fails the build if the fixture is not
+  extended too.
+
+### 7. State at the end of the session
+
+- **Go:** built, 26 new tests, full `actions` package green, and proven against **committed HEAD**
+  (`scripts/verify-head-builds.sh --test`, HEAD `35832a9fa` — note HEAD moved from `47d9d9198`
+  during the session; hundreds of commits a day).
+- ⚠ **The working tree does NOT compile as a whole**: `platform/livespec/livespec.go` is dirty from
+  another lane and renamed `DeferredDeclarations`, which breaks `cmd/config-key-audit`'s test build.
+  Not mine — and a reminder that `go test ./...` on this tree answers a question about the union of
+  every session's WIP, not about my change.
+- **Config:** `601_offer_analyser_acceptance_predicates_HOLD.sql` (+ `_ROLLBACK`) written, **NOT
+  applied** — the action must be in a rolled image first or the whole workflow is rejected.
+- **Council:** submission JSON written and `DRY_RUN=1` **passed all client-side validation and the
+  scope admission check** (6 edits, 29,342 plan bytes). **NOT dispatched:** the kubeconfig token
+  expired mid-session (fleet-wide `Unauthorized`), and firing a publish through a dead connection is
+  how you get a printed correlation id with no dispatch behind it. It is queued for whoever has
+  access next, and the JSON is **committed with the lane** rather than left in a session-local
+  scratchpad (which is where I first wrote it — a file the next session cannot read is not a handoff):
+  `docs/agent_docs/docs024_key_docs_latest/vigilant_designer_offer_analysis/SUBMISSION_2026-08-24_v2d_acceptance_predicates.json`.
+- **The owner said mid-session that a fresh chassis is being built and deployed.** That build takes
+  **committed HEAD**, and this work was uncommitted at the time — so **that roll does not carry the
+  action**, and 601 must not be applied on the strength of it. Probe the capability, per the file's
+  own step 1.

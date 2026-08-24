@@ -16608,3 +16608,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/330` §12 (the producer split, measured) · `bugs_open/353` (Guard 2, the other reason a birth emits nothing — and its item (b) is unreachable while every birth stops here) · `bugs_open/379` (the regeneration residual) · `090` run `0b5695a4-a09d-4895-b4ab-652ce88a991a` · MEMORY [[writes-the-field-is-not-reads-the-field]], [[a-post-fix-zero-needs-a-demand-control]]
 - **source:** 2026-08-24, `staged_component_build` lane, from the denominator behind the `no_related_pages` count the 08-24b handoff flagged (lane NOTES 08-24 evening)
 - **added:** 2026-08-24, `staged_component_build` lane
+
+---
+
+## `pages.in_header` is NOT the rendered nav — a check phrased "the header contains…" that reads the column FALSELY refutes a site that passes, and `pages.rendered_header` is empty everywhere
+
+- **footprint:** `pages.in_header` · `pages.nav_order` · `pages.nav_label` · `pages.rendered_header` · any detector, acceptance test or predicate phrased *"the header nav contains / does not contain / has no more than N items"* · `load_offer_surface`'s `nav=header|footer|not-in-nav` column
+- **fires when:** you write, or evaluate, a check about the site's navigation from the database — the obvious and only cheap source — with no symptom and no reason to doubt it. It does NOT fire on a check about which pages EXIST; only on ones about what the visitor can see in the menu.
+- **the trap:** the renderer publishes a FILTERED SUBSET of `in_header=true`, and the filter is invisible in the row. `[MEASURED 2026-08-24]` **leopardessconsulting.co.uk: 13 active pages carry `in_header=true`; the served `<header>` renders 7 destinations** (plus a logo link and a "Get Started" CTA, so 9 anchors in total). Four `tool-*` pages with `in_header=true` — one of them carrying the nav_label `"Tools / AI Automation Time Savings Estimator"` — appear nowhere in the menu. Same shape on **robot-hands.com: 11 rows with `in_header=true`, 9 anchors served, and `gripper-technology-comparison` (nav_order 100) plus three `tool-*` pages absent.**
+- **why the wrong result looks exactly like the right one:** the query succeeds, returns a clean integer, and the integer is a true fact about the column. Nothing errors and nothing is NULL. `count(*) WHERE in_header` = 13 against a criterion of "no more than seven" is as decisive-looking as a measurement gets — and the criterion **HOLDS at the artefact**. This is the direction that fails toward ALARM: it convicts a passing page with a mechanical air, so it is believed, and it is believed hardest by whoever wrote the check.
+- **the check, BEFORE you trust any nav claim:** count the anchors in the SERVED header, not the rows.
+  ```bash
+  curl -s --max-time 25 https://<domain>/ -o /tmp/nav.html
+  python3 - <<'EOF'
+  import re; h=open('/tmp/nav.html',encoding='utf-8',errors='replace').read()
+  m=re.search(r'<header.*?</header>',h,re.S|re.I) or re.search(r'<nav.*?</nav>',h,re.S|re.I)
+  seg=m.group(0) if m else ''
+  for href,txt in re.findall(r'<a\s[^>]*href="([^"]*)"[^>]*>(.*?)</a>',seg,re.S|re.I):
+      print(href,'|',re.sub(r'<[^>]+>','',txt).strip()[:40])
+  EOF
+  ```
+  Then compare with `SELECT name, nav_order, nav_label FROM pages WHERE site_id=$1 AND status='active' AND in_header ORDER BY nav_order;`. **A difference is the normal case, not a fault.** ⚠ And do not reach for the column that looks like the honest answer: `[MEASURED 2026-08-24]` **`pages.rendered_header` is `''` on ALL 35 active pages of robot-hands.com** — a populated-looking column name over an empty column, so a check reading it gets "no links in the header" for every site and refutes everything.
+- **the transferable shape:** an INTENT column read as an OUTCOME. `in_header` is what the planner asked for; the menu is what the renderer decided. The same distinction is why this estate keeps saying *"trust the rendered artefact, not the status"* — this is that rule applied to a column nobody thinks of as a status.
+- **relations:** CLM-024 (`verify_acceptance_predicates` — nav is deliberately EXCLUDED from its vocabulary for exactly this reason, and the exclusion is documented in the action's own file header so it is not re-added by someone who has not measured it) · `bugs_open/308` / LNK-036 / LNK-037 (the CTA-destination lane, which reasons about nav membership from the DB for a different purpose) · `features_open/030` §10 v2(d)
+- **source:** 2026-08-24, `vigilant_designer_offer_analysis` lane. Hit while measuring: the column-based check "found" a fourth broken work item (leopardess, *"no more than seven items"*, status `complete`) and `curl` refuted my own finding before it reached any document. Lane NOTES 2026-08-24 session 2, §4.
+- **added:** 2026-08-24, `vigilant_designer_offer_analysis` lane

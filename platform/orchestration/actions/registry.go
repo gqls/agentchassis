@@ -1466,6 +1466,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Deterministic attribution gate: every cardinal (digits OR words) in a self-attributing item's prose must appear in the source field that item cites (bugs_open/335)",
 		IsLocal:     true,
 	},
+	"verify_acceptance_predicates": {
+		Handler:     VerifyAcceptancePredicatesAction,
+		Category:    "validation",
+		Description: "Deterministic gate on a finding's optional machine-checkable acceptance predicate: refute-only, and kept only where it already refutes the page as it stands (features_open/030 v2(d))",
+		IsLocal:     true,
+	},
 	"create_report_page": {
 		Handler:     CreateReportPageAction,
 		Category:    "site",

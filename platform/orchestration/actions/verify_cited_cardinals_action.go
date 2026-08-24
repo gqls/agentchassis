@@ -128,7 +128,26 @@ var cardinalDigitRe = regexp.MustCompile(`\d[\d,]*\.?\d*`)
 // defect warrants. A point naming "GPT-4" against a premise with no 4 will be
 // dropped. Fix it when a live case appears, not before.
 func digitCardinalsIn(text string) []string {
-	var out []string
+	spans := digitCardinalSpans(text)
+	out := make([]string, 0, len(spans))
+	for _, loc := range spans {
+		out = append(out, normaliseCardinal(text[loc[0]:loc[1]]))
+	}
+	return out
+}
+
+// digitCardinalSpans is the letter-adjacency rule itself, returning the BYTE
+// SPANS of the digit runs that survive it.
+//
+// Split out of digitCardinalsIn 2026-08-24 so that
+// verify_acceptance_predicates_action.go can ask WHERE the first quantity in a
+// string is, not merely which quantities are in it, without a second copy of
+// this rule. The rule is subtle and each clause was paid for by a live defect
+// (see the comment above); two implementations of it would drift. Behaviour is
+// unchanged, and the 18 tests in verify_cited_cardinals_action_test.go — three of
+// which exist specifically for this rule — are the proof of that.
+func digitCardinalSpans(text string) [][2]int {
+	var out [][2]int
 	runes := []rune(text)
 	for _, loc := range cardinalDigitRe.FindAllStringIndex(text, -1) {
 		before := []rune(text[:loc[0]])
@@ -139,7 +158,7 @@ func digitCardinalsIn(text string) []string {
 		if afterIdx < len(runes) && unicode.IsLetter(runes[afterIdx]) {
 			continue
 		}
-		out = append(out, normaliseCardinal(text[loc[0]:loc[1]]))
+		out = append(out, [2]int{loc[0], loc[1]})
 	}
 	return out
 }

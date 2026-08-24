@@ -239,6 +239,17 @@ type auditFinding struct {
 	CurrentValue   string `json:"current_value"`
 	AcceptanceTest string `json:"acceptance_test"`
 	MaxFixAttempts int    `json:"max_fix_attempts"`
+	// The optional machine-checkable half of the acceptance test, and the
+	// record of one this platform refused (features_open/030 v2(d)).
+	//
+	// PASSTHROUGH ONLY. This action neither validates nor evaluates either key:
+	// verify_acceptance_predicates does that, upstream, and a producer whose
+	// workflow does not carry that step will never populate them. Absent → both
+	// keys are omitted from the spec and this file behaves byte-for-byte as it
+	// did before. That is the 2026-08-02 shared-seam shape: an opt-in field with
+	// the unsafe side off, on an action with many producers.
+	AcceptancePredicate         map[string]interface{} `json:"acceptance_predicate"`
+	AcceptancePredicateRejected map[string]interface{} `json:"acceptance_predicate_rejected"`
 }
 
 // ============================================================================
@@ -317,6 +328,12 @@ func classifyFinding(f auditFinding, pages map[string]pageInfo, siteID uuid.UUID
 	}
 	if f.MaxFixAttempts > 0 {
 		spec["max_fix_attempts"] = f.MaxFixAttempts
+	}
+	if len(f.AcceptancePredicate) > 0 {
+		spec["acceptance_predicate"] = f.AcceptancePredicate
+	}
+	if len(f.AcceptancePredicateRejected) > 0 {
+		spec["acceptance_predicate_rejected"] = f.AcceptancePredicateRejected
 	}
 
 	// If fix_type still not set, derive from category for component-template-fixer compatibility
@@ -634,6 +651,19 @@ func findingsFromList(items []interface{}) (findings []auditFinding, recognised 
 				CurrentValue:      getStringFromMap(m, "current_value"),
 				AcceptanceTest:    getStringFromMap(m, "acceptance_test"),
 				MaxFixAttempts:    getIntFromMap(m, "max_fix_attempts"),
+			}
+			// ⚠ TWO DECODE PATHS, AND THIS IS THE ONE THAT MATTERS HERE.
+			// findingsFromString unmarshals into the struct, so its json tags
+			// are enough; this path maps keys BY HAND, so a field added to the
+			// struct and not to this block is silently dropped — and native
+			// maps are exactly what an upstream ACTION hands over, which is how
+			// verify_acceptance_predicates' output arrives. Held by
+			// TestFindingsFromListPopulatesEveryTaggedField.
+			if p, ok := m["acceptance_predicate"].(map[string]interface{}); ok {
+				f.AcceptancePredicate = p
+			}
+			if p, ok := m["acceptance_predicate_rejected"].(map[string]interface{}); ok {
+				f.AcceptancePredicateRejected = p
 			}
 			if ap, ok := m["affected_pages"].([]interface{}); ok {
 				for _, p := range ap {

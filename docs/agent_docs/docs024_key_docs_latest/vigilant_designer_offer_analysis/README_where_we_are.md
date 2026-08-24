@@ -1373,3 +1373,74 @@ new instruction being too cautious. It was not, and the answer was in the same r
 reading. I have written that up properly in the fleet-wide log of wrong calls, because the pattern is
 worth more than the incident: when my own change is the obvious explanation for something, I should
 spend one query looking for an instruction that was already there before me.
+
+---
+
+## 2026-08-24, later the same day — the analyser can now write a test a machine can check, and I found three pages we had already called finished
+
+Picking up where the handoff pointed: the next job on the list was to let each finding carry a small,
+checkable version of its own "how would we know this was fixed" test, instead of only a sentence.
+
+**First I went to see whether it was worth doing, and the answer was uncomfortable.** Every finding
+the analyser writes comes with a test in plain English — *"the meta description must state the
+no-account promise before any mention of how many tools there are"*, that sort of thing. Nothing has
+ever checked one. So I read all thirty-seven of them we have, and then went and looked at the actual
+pages.
+
+Three of them are sitting on jobs we have marked **done**. The page was rebuilt, deployed, the job
+closed. And the thing the job itself said would make it right is still not true — checkable in one
+line, against the exact words on the page.
+
+The clearest is our own webdesign.co.uk front page. The test asks for the reader benefit *before* any
+count of tools. The description we are serving right now opens **"Sixty-three browser tools for web
+design and development. No account, no upload…"**. The count comes first. That page has been rebuilt
+twice since the job was closed and it still reads that way. Another is a robot-hands page whose test
+says it should appear in the header menu; it does not appear there at all.
+
+Nobody was careless. There is simply nothing in the platform that reads the test back after the work
+is done, so "the handler finished" and "the page now passes" are the same word — *complete*.
+
+**What I have built is the first half of fixing that.** A finding may now carry, next to the English
+sentence, a small structured condition: *this phrase must be absent*, *at least two of these three
+must appear*, *this must come before that*. Only over a page's title and description, only the three
+shapes, and it is entirely optional — most findings will carry none, which is the right answer.
+
+**Two rules make it safe, and they are the whole design.**
+
+The first is that a condition can only ever say **no**. Passing it means "not caught", never "this is
+fixed" — the English sentence stays the authority. That matters because two thirds of these tests
+bolt a checkable clause onto a matter of judgement, and a tick against the easy half would be worse
+than no tick at all.
+
+The second is that the condition has to **already fail today**. The finding says the page is wrong
+now, so a condition that genuinely captures it must fail now. It is the only thing we can check at
+the moment the condition is written, and it throws out the useless case — a rule about a word that
+appears nowhere, which would pass for ever and look like verification. When one is thrown out we
+write down why, so the cost of that rule is visible rather than silent.
+
+**I nearly shipped the exact mistake this is designed to prevent.** My first version also checked the
+header menu, and it "found" a fourth broken job: leopardess's test says the menu should have no more
+than seven items, and our database says thirteen. Decisive-looking. Then I loaded the actual page —
+the menu shows seven. The database column is not the menu; the site quietly leaves four of those out.
+The test was passing all along, and I had a check ready to declare it broken with an air of
+arithmetic. I have dropped menus from this feature entirely and written the trap down where the next
+person will hit it, because the obvious alternative source turned out to be an empty column.
+
+**Where it stands.** The code is written, tested twenty-six ways, and proven to build against the
+committed shared branch rather than just my own copy. It is **not yet switched on**: the database
+change that turns it on has to wait for a rebuilt service, or it would break the analyser outright.
+I have written that change and its undo, and left the switch-on instructions in the file itself.
+
+**Two things I could not finish, and why.** The review-council submission is written and passed every
+local check, but the cluster login expired part way through the afternoon (everything comes back
+"Unauthorized"), so it has not been sent — I would rather leave it queued than fire it down a dead
+connection and be told a review is running when it is not. And you mentioned a fresh service being
+built and deployed: that build takes the last *committed* code, and this work was not committed yet
+when it started, so **that deployment will not contain it** and the switch must not be flipped on the
+strength of it.
+
+**One honest limit.** Nothing automatic reads these conditions yet, so today this prevents no false
+"done" — it turns a sentence into something a machine *can* check. The piece that would actually stop
+a job closing while its own test fails is a separate change at the closing step, and it changes
+behaviour for handlers other lanes own, so it deserves its own review rather than riding in on this
+one. I have named it, in the place the next person will look.

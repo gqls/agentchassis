@@ -319,6 +319,40 @@ re-proof that files ~5 more non-parkable items somewhere for no new information.
 
 ### v2(d) — B4 emits a MACHINE-CHECKABLE ACCEPTANCE PREDICATE where it can, and stays silent where it cannot
 
+> **STATUS 2026-08-24 — BUILT AND TESTED, NOT LIVE. Register entry `CLM-024`.** Go committed and
+> proven against committed HEAD (26 tests); config is
+> `docs/agent_docs/sql_for_agents/601_offer_analyser_acceptance_predicates_HOLD.sql`, **held** until a
+> chassis carrying `verify_acceptance_predicates` has rolled — a step naming an unregistered action is
+> rejected whole, so applying it early does not degrade, it breaks the agent. Council submission
+> written and `DRY_RUN`-admitted, **not dispatched** (the kubeconfig token expired mid-session):
+> `vigilant_designer_offer_analysis/SUBMISSION_2026-08-24_v2d_acceptance_predicates.json`.
+>
+> **THE CENSUS BELOW IS STALE AND THE DESIGN CHANGED BECAUSE OF IT.** `[MEASURED 2026-08-24]` there
+> are now **37** live acceptance tests, not 22, and re-reading them moved the classification: the
+> dominant shape is not "expressible vs not" but **COMPOUND — 24 of 37 weld a checkable clause to a
+> judgement clause.** A predicate over the cheap half of a compound test is precisely the green tick
+> the trap paragraph below fears, so the trap is answered by changing what a predicate MEANS rather
+> than by only emitting on the 8 fully-expressible ones:
+> **(1) REFUTE-ONLY** — a NECESSARY condition, never sufficient; satisfying it means *"not refuted"*,
+> so there is no green to be false, and the prose stays the authority. **(2) IT MUST REFUTE AT
+> EMISSION OR IT IS DISCARDED** — the finding says the page is wrong *today*, so a condition that
+> expresses it must fail *today*. That is the only property checkable when the predicate is written,
+> and it excludes the vacuous predicate that would pass for ever. Discards are recorded per finding.
+>
+> **AND THE CASE IS NOW A COUNT, NOT AN ARGUMENT.** `[MEASURED 2026-08-24, live DB + served pages]`
+> **three** work items marked `complete` — page rebuilt, deployed, `commit_sha` in the result — have
+> their own stated criterion refuted by one line over the exact field the test names. The worked case
+> below is one of them and it is still live: webdesign.co.uk's served meta description opens
+> *"Sixty-three browser tools…"* against a test demanding the promise *before any catalogue count*,
+> and the page was re-deployed **after** the item was closed.
+>
+> ⚠ **NAV IS DELIBERATELY OUT OF THE VOCABULARY, and the reason is a trap this file should carry.**
+> 3 of the 37 tests are about the header, and the obvious source is WRONG: `[MEASURED 2026-08-24]`
+> leopardessconsulting.co.uk has **13** pages with `pages.in_header=true` and its **served** header
+> renders **7** destinations. A predicate over the column would have refuted a test that HOLDS —
+> a confident FALSE REFUTATION, which is the same harm one rung along. `pages.rendered_header`, the
+> obvious escape route, is **empty on all 35** active pages of robot-hands.com.
+
 > **⚠ FOLDED IN 2026-08-24, and the reason matters more than the content.** v2(d) has been the
 > **strongest** item in this batch since 2026-08-17 and it was **NOT IN THIS FILE** — it lived only
 > in `NOTES` (the *"v2(d) CENSUS"* entry) and in the 08-17/08-18 handoffs, while the handoffs
