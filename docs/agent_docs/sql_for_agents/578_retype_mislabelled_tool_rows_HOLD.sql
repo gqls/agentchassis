@@ -63,6 +63,18 @@
 -- rendered_html_digest stays valid and becomes HONEST: the row genuinely is
 -- reproducible from its content_data once body holds the bytes.
 --
+-- AND IT CANNOT TRIP THE DIVERGENCE GUARDS — verified 2026-08-24 at their source,
+-- prompted by the bugs_open/283 lane, because this was an unexamined risk here.
+-- Both readers of rendered_html_digest compare the stored digest against the
+-- STORED bytes, never against a fresh render:
+--   page_component_divergence.go:68   pc.rendered_html_digest <> md5(pc.rendered_html)
+--   site_component_divergence.go:70/120  SELECT rendered_html_digest, md5(rendered_html)
+--   livespec.go:203/215                OLD.rendered_html_digest = md5(OLD.rendered_html)
+-- What they detect is a HAND-EDITED row: bytes changed without the digest
+-- following. This migration moves NEITHER, so the pair stays in lockstep and the
+-- guards see nothing — which is the property that makes a byte-preserving re-type
+-- invisible to them, rather than something they would report as tampering.
+--
 -- ============================================================================
 
 BEGIN;
