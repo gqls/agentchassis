@@ -191,3 +191,23 @@ Also closed today: the reviewers approved the confirmation-link guard from the 2
 round. And one correction to something I told you this morning has already been recorded —
 the www redirect works but not because your redirect rule was applied; a piece of code in
 front of the whole zone does it. If you apply that rule anyway, expect no visible change.
+
+## 2026-08-24, night — the links address is live, and it held up to prodding
+
+You applied the box steps and the DNS record this evening, and I tested it from the
+outside rather than taking the clean terminal output on trust. Everything behaves as
+designed: random paths get nothing, malformed links get nothing, a properly-shaped link
+travels the whole way through to the cluster and comes back with our page, and hammering
+the address gets you blocked by Cloudflare after a handful of requests — I watched the
+blocking kick in. The admin console rode out the restart without trouble, and the old
+shopfront address still parks exactly as before.
+
+So the customer-links address exists, is deliberately public, and is wrapped in every
+layer we planned. Nothing can be confirmed through it yet — there are no live links, and
+the button-press page you asked for gets built before the first email goes out.
+
+Two things wait on other events: the new Builds screen still needs the cluster's next
+routine software roll before it appears in your console, and the reviewers owe us a pass
+over the overall exposure picture now that this second public door exists — that review
+fires once the cluster access key is refreshed (it expired on schedule this evening; the
+usual three-day cycle, yours to renew whenever convenient).
