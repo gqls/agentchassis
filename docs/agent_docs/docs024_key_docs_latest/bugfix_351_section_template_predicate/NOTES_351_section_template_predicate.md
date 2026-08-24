@@ -371,3 +371,40 @@ there is no second chance at it.
 `v1.0.1332` = `0b262ed5e`, pods started 2026-08-24 09:37Z. `git merge-base --is-ancestor 97c337371
 0b262ed5e` → yes, with a control that correctly reports NOT an ancestor. The demand proof of
 2026-08-23 was taken on `f5eaabe33`; the predicate half remains live on the successor build.
+
+---
+
+## 2026-08-24 (close) — 581 applied, 351 closed
+
+Council `f0cd2420` **APPROVED** round 1, 3 advisory objections. Two were medium and **both changed
+the SQL** — recorded in `bugs_closed/351` and CLC-029, not repeated here. The short version is that
+the reviewers found a door I had reasoned about and then not closed (an UPDATE could clear
+`section_type`, reproducing the defect through another write path) and a re-run failure I had made
+*worse* with my own guard.
+
+**Applied by hand, then recorded the same minute** — `--apply` takes every pending file and two other
+sessions' `_HOLD` halves were sitting in the directory. `--record-only` with the provenance in its
+`--note`, because a hand `psql` run writes no ledger row and the number stays unclaimed for ever
+(the ledger confirmed `581` was unclaimed before I applied, and `580` was **not** mine).
+
+**Proven behaviourally on the live table, which is the whole point of the verify-later:** birth
+refusal induced, clear refusal induced on a real row (`faq`), a repair UPDATE to standing row
+`824e3309` **succeeded**, a labelled birth **succeeded**. All rolled back.
+
+Post-check: `pg_trigger` shows `trg_cc_refuse_null_section_type` enabled (`tgenabled = 'O'`), and
+`schema_migrations` carries the row.
+
+### The one thing I would tell the next person
+
+**Five of the six missteps in this file are the same mistake wearing different clothes: a number or a
+result that could not have come out otherwise.** The vacuous `0/22`, the flip *count* that could not
+distinguish a rescue from a substitution, the field-blind grep whose wrong answer was in the
+plausible range, the pruned table that answered a question about the past with the present, and the
+census that reconciled only against itself. The council's medium objection was the same shape from
+outside: I had calibrated the population the *bug* was about, not the population the *changed
+function* serves.
+
+The habit that actually caught things here was not care — it was **arranging for a wrong answer to
+look different from a right one**: printing the total beside the breakdown, asserting the flip SET
+instead of its size, running a control that had to fail, and inducing every refusal rather than
+asserting a guard exists.
