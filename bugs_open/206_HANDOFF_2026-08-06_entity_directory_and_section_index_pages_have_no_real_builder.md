@@ -260,3 +260,38 @@ but inert until the next roll stays OPEN, because the defect is still reproducib
 ships"). **Move it when:** the roll lands (check build provenance, per service), a
 `reconcile_site_plan` run mints a typed page's item carrying the right `handler_agent`, and the
 five parked rows above are re-triaged and build. Not before.
+
+## Diagnosis method for the 2026-08-24 structural claim (declared, per the owner ruling of 2026-07-31)
+
+The claim above — *the routing decision has two copies and one of them never consults the map* —
+is cross-cutting and structural, so it owes either a `090` diagnosis run or a plain statement of
+the equivalent first-hand verification substituted for it. **`090` was not run. The substitute,
+stated so a reader can judge it rather than take it on trust:**
+
+1. **The code path was read, not grepped**: `reconcile_site_plan_action.go`'s emit
+   (`'page-build-handler'` as a SQL literal at ~:297), both dispatch predicates
+   (`claim_work_item_action.go:102`, `load_work_item_actions.go:711`), and
+   `WriteBuildItemsAction`'s map.
+2. **The population was measured live and the first measurement was WRONG and corrected** — the
+   `spec->>'page_type'` filter returned a false zero; the corrected census (join `pages.page_type`)
+   returned 87/16 with the per-type and per-producer breakdown quoted above. A census that could
+   only ever have agreed with me is what the marker rules exist to catch, and this one did not
+   survive its own demand control.
+3. **Four independent mutations kill their own tests** (hardcoded handler restored, gap arm
+   deleted, ownership guard reordered, role fallback dropped) — so the mechanism is pinned by
+   something that fails when it is absent, not merely asserted.
+4. **The council gate ran THREE rounds against it** (corr `52dbd067`) and each round found
+   something real: a phantom column, then three "you asserted, you did not query" HIGHs, one of
+   which changed the code. That is adversarial review by readers who could not see my working —
+   the property `090` is valued for.
+5. **The `landmine-verifier` independently confirmed the structure**, unprompted by my prose:
+   *"Both `needs_page` producers (`WriteBuildItemsAction` and `ReconcileSitePlanAction`) confirmed
+   present with the dual-producer structure described"* — verdict **STILL_VALID**
+   (`doc_notes`, `categories ? 'landmine-verification'`, 2026-08-24).
+
+**Where that substitute is weaker than a `090` run, said plainly:** every one of those checks was
+aimed at the mechanism I had already named. None of them could have told me the cause was
+somewhere else entirely, which is the specific thing the diagnosis loop is good at — and this
+lane has already been burned once today by a check that could not return the disconfirming
+answer. A reader who wants that assurance should run `090` on the symptom string rather than
+treat this list as equivalent.
