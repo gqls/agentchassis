@@ -10,6 +10,33 @@
 // defect), one level up: 017 stops a saga that says it FAILED from being stamped
 // complete; a verifier is what stops one that says it SUCCEEDED but did nothing.
 //
+// ⚠ WHAT "VERIFIED" DOES NOT MEAN HERE — read this before working the backlog
+// below (bugs_open/375, added 2026-08-24).
+//
+// "Has a registered verifier" is not "is verified". The verifier is consulted by
+// the code that stamps the row, and there are THREE such writers, of which only
+// one has always asked:
+//
+//   - CompleteWorkItemAction — consults it (complete_work_item_verification.go).
+//   - UpdateWorkItemStatusAction — consults it only when that STEP's config sets
+//     `verify_before_complete: true`. Unarmed, it completes and records the bypass
+//     at result._verification (status "verifier_not_consulted"). Opt-in per step
+//     because register CQ-023 shows one router's arms want different answers.
+//   - the claimed-item-timeout sweep — consults NEITHER gate; it writes the row
+//     directly, and is held off a type only by livespec.ClaimedItemTimeoutExclusions
+//     (bugs_closed/317, lockstep-guarded in claim_timeout_exclusion_lockstep_test.go).
+//
+// So registering a verifier turns THIS list green, and protects the type only on
+// the paths that ask. [MEASURED 2026-08-24, live DB] 4 of 200 live agent
+// definitions complete through update_work_item_status across 6 arms, over 5 item
+// types — needs_imagery, required_fields_missing, image_source_unsatisfiable,
+// needs_hero_image, needs_logo, 134 completions all-history. NONE of the five has
+// a verifier today, so the gap is LATENT rather than active. Two of them
+// (required_fields_missing :237, image_source_unsatisfiable :240) sit in the
+// catMechanical backlog below, which means the first person to work that backlog
+// is the person this bites. Census + controls:
+// docs024_key_docs_latest/bugfix_375_completion_verifier_gap/RUNBOOK_completion_verifier_gap.md.
+//
 // WHAT THIS TEST DOES. Every item_type the platform produces must be either
 // verified or listed below with a category and a reason. Adding a new item type
 // without doing one of those breaks the build. The gap becomes a decision on the
