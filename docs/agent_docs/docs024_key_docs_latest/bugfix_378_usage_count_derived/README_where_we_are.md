@@ -146,3 +146,61 @@ in one place, so that switch is a one-line change later instead of three.
 
 Nothing has been changed in the platform yet. The independent diagnosis check I commissioned is still
 running, and I have not submitted anything to the council.
+
+---
+
+## 2026-08-24 — the fix is written, and I ended up doing the opposite of what I set out to do
+
+The change is committed and will go live with the next chassis build. It is with the review council
+now.
+
+**What I set out to do was repair the number. What I actually shipped removes it from the decision.**
+The reason is worth reading, because I nearly got it wrong and the thing that caught me was mundane.
+
+I had measured that the broken number currently changes nothing — no selection anywhere comes out
+differently because of it. I then wrote, in three separate places, that "removing **or replacing**"
+it was therefore free. That is not what I measured. I measured what happens if it is taken *away*. I
+never measured what happens if it is replaced with a *working* number, which is precisely what I then
+spent the afternoon building.
+
+When I finally ran my own new query against the live database, the answer was that it changes the
+chosen component in **3,246** of the 4,888 situations I could test — against **0** for simply
+removing it. The largest change available in this bug, and I had been calling it free. What caught it
+was not a test or a review: it was running the query and looking at the numbers on the screen. The
+code compiled perfectly throughout.
+
+**And then the mistake turned out to be the useful part.** Being forced to look honestly at what a
+*working* version of the number does is what killed the idea. The number rewards components that have
+already been used a lot. Make it accurate and you get a loop: chosen → score rises → chosen again. We
+have an open complaint — bug 107 — that every site comes out looking like the last one. **A working
+"prefer what we already use" rule is an engine for exactly that.** Repairing the number would have
+closed this bug while quietly making that one worse.
+
+So: the number is no longer part of choosing a component. It is still calculated honestly and written
+to the logs, so we can see it — we just do not decide on it. If we ever want a "prefer proven
+components" rule back, it is one line away, and we would be adding it deliberately, knowing what it
+costs.
+
+### Something worth your attention about bug 107
+
+While measuring this I found something that may matter more than anything in this bug.
+
+The reason the sameness complaint exists is probably **not** that a scorer keeps picking the same
+favourite from a rich field of options. It is that **for almost every slot on a page, there is only
+one option to pick.** Of all the section types in the library, only **four** have more than one
+candidate at all. The chooser is not choosing badly; most of the time it is not choosing.
+
+That means no amount of adjusting the scoring will fix the sameness. Only having more things to
+choose from will. I have written that into bug 107 for whoever picks it up, along with the warning
+that adding variety is exactly what would have switched the old rule on, in favour of whatever was
+already popular.
+
+### Honest about what is not settled
+
+The independent diagnosis check I commissioned this morning never came back — it is still running
+after an hour with nothing in it. So this rests on my own evidence, which I have set out in full,
+with the controls that could have proved me wrong. If that check lands and contradicts me, it goes on
+the record as a correction.
+
+The council has not returned a verdict yet either. The code is on the shared branch, so if the review
+comes back asking for changes I act on it there.
