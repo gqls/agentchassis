@@ -77,12 +77,12 @@ empty on every single row, and for a given site most of the ones that *are* atta
 be its routine overnight checks rather than its build. What you would actually call a build is a
 chain of work items with names like "needs domain research", "needs strategy", "needs briefing",
 "needs site plan", "needs design", then one per page. That chain reads like a build. Your own
-apis.uk build is a clean example of it — twelve stages, each handing to the next within seconds
-of the last, the whole thing finished in about an hour on the afternoon of the 22nd. (I first
-told you it had stalled two days ago waiting on one of those stages. It had not. See the
-correction at the foot of this file.) I have not acted on this — it is that lane's call, not
-mine — but I have put it in front of them, because building the screen on the wrong thing is a
-week nobody gets back.
+apis.uk build is a ~~three-line example of it: research finished at 12:26 on the 22nd, and it has
+been sitting waiting on vertical research ever since.~~ **[That struck-out claim is WRONG — the
+build had not stalled. It ran twelve stages in about an hour on the afternoon of the 22nd. The
+correction, and how I got it wrong, are at the foot of this file.]** I have not acted on this —
+it is that lane's call, not mine — but I have put it in front of them, because building the
+screen on the wrong thing is a week nobody gets back.
 
 **Three.** There is a known trap where a build step can fail while the record still says
 "completed" and the error column stays empty. The plan already builds around it, correctly. I
