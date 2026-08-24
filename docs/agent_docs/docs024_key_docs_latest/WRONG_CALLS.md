@@ -47734,3 +47734,74 @@ way did; it was the ones I never framed as questions that went wrong.**
   had an opportunity to fire; if opportunities stopped when the outputs stopped, the census says
   nothing. One extra query (last generation attempt per site) or one induced run settles it —
   the induced run is what accidentally settled mine.
+
+## 2026-08-24 — bugs_open/352 lane: `who-owns.py` said OWNED, and the "owner" it had found was the lane that FILED the bug
+- **The claim it made:** `scripts/who-owns.py 352` → *"OWNED or recently active … Do not start a
+  competing fix."* Taken at face value that ends the session before it starts — the tool's own
+  verdict text tells you not to proceed.
+- **What caught it:** messaging the `bugs_open/198` session and asking. Reply: *"352 is yours. Not
+  working it, not planning to."* It had run the same command itself and reached the same wrong
+  verdict about its own lane, so it volunteered the caveat independently.
+- **The error:** the only evidence the tool had was commit `6475c3eea` — **the commit that FILED
+  352** — plus cross-references inside the filing lane's own directory. **A filing commit is
+  indistinguishable from an ownership commit to anything that reads `git log`.** The tool is not
+  broken; it is being asked a question its input cannot answer, and it fails in the direction that
+  looks authoritative. Note the existing memory entry covers the *other* direction (who-owns is
+  blind to UNCOMMITTED sessions, i.e. false NEGATIVES); this is the false POSITIVE, and the fix is
+  the same one message.
+- **The cheap check:** when who-owns says OWNED, read the commit it cites and ask what that commit
+  DID. If it is the commit that created the bug file, the "owner" is the reporter. Then message the
+  lane — `ListAgents` and one `SendMessage` cost seconds and are the only source that is not
+  lagging. Do not skip the message just because the file's own header names the filing lane.
+
+## 2026-08-24 — bugs_open/352 lane: I added two numbers off my own table and got 84 instead of 73
+- **The claim (written into lane NOTES):** "~84 rows are live retraction candidates" for the
+  key-shape transition.
+- **What caught it:** the `bugs_open/198` session, which reproduced all four of my selector figures
+  against the live DB before entering them in its own record — and checked the addition, which I
+  had not. It is **73** (58 `deferred` + 15 `unresolved`).
+- **The error:** not measurement — **arithmetic on my own output**. I had just printed a table
+  giving `unresolved` 26 **total** and 15 **`X.X`**, and then added the 26. Every input was correct
+  and on screen; the derived figure was not. The `~` made it look like a deliberate estimate rather
+  than a slip, which is the part that would have let it travel: a hedged number reads as
+  *approximately right* when it is simply wrong.
+- **The cheap check:** a figure you DERIVED from other figures is not covered by having measured
+  the inputs. Either re-derive it in the query (`count(*) FILTER (WHERE status NOT IN (…))`, one
+  clause, no mental arithmetic) or state the addends next to the sum so the next reader can check
+  it in one glance. And do not put `~` on an exact integer — the tilde should mean "I did not
+  measure this precisely", never "I did the sum in my head".
+
+## 2026-08-24 — bugs_open/198 lane: my fix candidate was safe on the three instances my own bug file had collected, and dangerous on the 178 it had not
+- **The claim (written into `bugs_open/352` fix candidate 1, and implied by `bugs_closed/198`):**
+  emit the class when there is one and omit the class component when there is not, so a contrast
+  finding says `h3` instead of `H3.H3` — *"this makes the bad selector unrepresentable at source
+  and is a few lines"*. I named one risk to check first: the `item_key`/dedup interaction.
+- **What caught it:** the `bugs_open/352` lane, on the day it took the bug over, before writing
+  any code. It censused the selector population instead of reading my candidate list.
+- **The error:** the remedy is right about the producer and **wrong about the consequence**, and
+  the consequence is worse than the defect. `p.P` matches nothing today, so it is **inert**;
+  corrected to a bare `p`, css-patch-agent appends it to the **site** stylesheet and recolours
+  every paragraph on the site. I had converted a dead rule into a live site-wide restyle and
+  called it "unrepresentable at source". The dedup interaction I *did* flag was the lesser of the
+  two risks.
+- **Why I believed it:** every instance in my bug file was safe under the naive fix. Three sites'
+  evidence — `H3.H3` on dartsonline, `p.P` ×2 on remortgagecalculator — and `h3` is a narrow
+  selector, so the sample never showed me the hazard. The census (mine, live DB, **2026-08-24**):
+  of 452 `contrast_failure` rows, **181** carry a `TAG.TAG` selector, and the two commonest are
+  `P.P` ×**77** and `A.A` ×**44** — the two most dangerous possible bare selectors. **The modal
+  case was the dangerous one and my sample contained none of it.**
+- **The cheap check:** before proposing a fix to the SHAPE of a value, `GROUP BY` the value's
+  population and ask what the corrected version **MATCHES**, not merely whether it matches. One
+  clause, and `P.P ×77` sits at the top of the output.
+- **The transferable half — a bug file is a biased sample and the bias is invisible, because
+  every instance in it is real.** A fix candidate derived from the instances a file happened to
+  collect inherits that file's sampling bias, and nothing about the instances looks unusual: they
+  were gathered because they *reproduced*, not because they were representative. This is the
+  estate's "your own action silences your own detector" family one step earlier — the sample that
+  motivated the fix also flattered it. **So: the population that the fix will RUN against is a
+  different query from the evidence that made you file.** Run both.
+- **Second finding from the same census, which the sample also hid:** of those 181 rows, **108 are
+  already falsely `complete`**. `bugs_closed/198` records exactly ONE (`H3` on dartsonline,
+  `complete` 08-18) and reads as a one-off. The already-lost repairs outnumber the at-risk rows
+  (73) by half again — and a file that records one instance of a class gives you no way to feel
+  the difference between 1 and 108.
