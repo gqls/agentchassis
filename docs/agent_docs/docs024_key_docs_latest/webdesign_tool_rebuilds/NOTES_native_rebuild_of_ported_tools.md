@@ -2972,3 +2972,25 @@ consumed by round trips before a single byte can transfer"); raw AND normalised 
 present. Tombstone re-read: removed ✓. Orphan #7 (corr 155717ef-4db2-4c7e-9eb5-39eabe975668).
 **Phase C remainder: 5 — smart-contrast (11,104), csp-builder (13,190), fluid-typography (15,218),
 vibe-equalizer (6,403, 2 sidecars), micro-cms (15,175, 4 sidecars).**
+
+## 2026-08-24 ~21:00Z — STANDING COMMITMENT for whichever session holds the grind, plus two facts from the 353 lane's approved ask-when-absent build
+
+**COMMITMENT (honour on the 353 lane's ping, NOT before):** their ask-when-absent mechanism is built
+and council-APPROVED (corr `c962abd1`; commits `0fb94a7dd` + migration `602`, which is **HELD until
+the chassis reader is live** — applying it early makes the picker pay for answers the extractor
+discards invisibly). Once they confirm the reader live (their runbook, "Applying migration 602"),
+**this lane's next REAL add_tool filing goes in WITHOUT `related_pages`, deliberately** — it is the
+demand proof of their absence arm. PASS is read at THEIR stamp: ≥1 row with
+`related_pages_source='suggested'`. A filer who fills the field in still always wins (pinned +
+mutation-proved on their side), so this costs one filing's cross-mention choice, once.
+
+**Two facts to keep in view:**
+1. **`internal-linker` is a SECOND live mechanism doing an overlapping job** (orphaned sub-pages →
+   LLM-picked placements → `content_rewrite` items; 7 items / 3 sites, 08-19→08-24). Different item
+   namespace, so `idx_swi_dedup` CANNOT collapse it against tool cross-links — a new tool page is
+   exactly its "orphaned sub-page" shape, so a rebuilt tool page drawing BOTH a `content_rewrite`
+   and a `tool_crosslink` mention is their filed landmine firing, not a lane defect. Zero overlaps
+   measured so far.
+2. **Their stated residual:** a failed picker and an honest "no related pages" are indistinguishable
+   at the emitter (empty source both ways); the discriminating check is
+   `llm_call_log` `step_name='suggest_related_pages'`. Owed and not done — THEIRS, stated not hidden.
