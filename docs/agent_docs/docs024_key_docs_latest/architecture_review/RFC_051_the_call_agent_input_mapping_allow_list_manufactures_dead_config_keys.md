@@ -1,6 +1,6 @@
 # RFC_051 — `call_agent`'s `input_mapping` allow-list silently manufactures dead config keys, and the recurrence rate is now the argument
 
-**Status:** OPEN — filed 2026-08-24 by the `bugs_open/382` lane, at the direction of the council
+**Status:** OPEN — filed 2026-08-24 by the `bugs_closed/382` lane, at the direction of the council
 gate's `architecture` seat, which raised it as an on-record objection while approving the fix it
 was objecting past. This is not a proposal to change anything today; it is the design pass the
 seat asked for, with the recurrence measured rather than asserted.
@@ -41,7 +41,7 @@ config, one line above a working `input_mapping`, on a step that has never faile
 hypothetical reviewer — it is what happened to migration `390`, which diagnosed this exact class,
 wrote *"`default_kind` here has never done anything"* into its own header, fixed two of the three
 branches, and then asserted in its blast-radius paragraph that the third *"already forward[s] kind"*.
-It did not. That false sentence is the direct cause of `bugs_open/382`.
+It did not. That false sentence is the direct cause of `bugs_closed/382`.
 
 ## 3. The recurrence, measured
 
@@ -49,7 +49,7 @@ It did not. That false sentence is the direct cause of `bugs_open/382`.
 |---|---|---|---|
 | 1 | 2026-07-18 | `bugs_open/011` — the routing `switch`'s silent `default:` (the ancestor of the class, not an `input_mapping` case itself) | a human looked at a gibberish diagram on a client homepage |
 | 2 | 2026-08-11 | migration `390` — `call_hero_gen` / `call_logo_gen` carry a config-level `default_kind` that nothing reads | a `needs_logo` slug investigation; an owner-rejected hero |
-| 3 | 2026-08-24 | `bugs_open/382` — `call_variant_gen`, same shape, missed by 390's own blast-radius claim | the owner noticed a face |
+| 3 | 2026-08-24 | `bugs_closed/382` — `call_variant_gen`, same shape, missed by 390's own blast-radius claim | the owner noticed a face |
 
 **Three in about six weeks, all on the same file family, and not one found by a check.** Every one
 was found by a person looking at an image. That is the seat's point: the class does not produce
@@ -116,7 +116,7 @@ landed since.
 
 ## 7. Cross-refs
 
-`bugs_open/382` §7a (the case) · `docs/agent_docs/sql_for_agents/390` (the migration whose own
+`bugs_closed/382` §7a (the case) · `docs/agent_docs/sql_for_agents/390` (the migration whose own
 header both diagnosed the class and mis-stated its blast radius) · `586` (deleted the last three
 dead keys) · `LANDMINES.md`, *"A key in a `call_agent` step's `config` is read by NOTHING"* ·
 `bugs_open/231` (the parent class: a static config value for a field the spec was meant to supply

@@ -1825,7 +1825,7 @@ when it isn't. Adding a value stays a code change; **forgetting to stops being s
   documented legacy path that legitimately uses the fallback, so it must not warn~~ — a warning
   that fires constantly is one nobody reads, which is how you lose the signal you just built.
 
-  > **CORRECTED 2026-08-24 (`bugs_open/382`) — the struck clause was this entry's own worked
+  > **CORRECTED 2026-08-24 (`bugs_closed/382`) — the struck clause was this entry's own worked
   > example, and it was the whole remaining defect. Read the rule that replaces it before you
   > apply this bullet to your own guard.**
   >
