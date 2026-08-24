@@ -48992,3 +48992,52 @@ had in common.
    this right in the code tests and lost it in the live test.
 3. **When a peer agrees with your design, note what you both assumed** — the shared premise is
    the unexamined one, and it is invisible precisely because agreement feels like evidence.
+
+## 2026-08-24 — two lanes agreed on a closure check that COULD NOT FIRE, and the agreement is what made it feel safe
+
+**The claim.** The `bugs_open/206` lane and this one independently wrote the same closure test for
+206's fix, in two documents, and confirmed it to each other:
+
+> *"`garden-tools.uk/brand-directory/index.html` is an `entity-directory` page linked from its own
+> home page on a site nobody contrived — so post-roll that link should go live **without anyone
+> touching the site**."*
+
+I recorded it as §3a of my handoff, with a procedure, a warning not to verify at `build_status`, and
+an instruction to report the result either way. The other lane recorded it as RUNBOOK step 5. We each
+praised it as better than a contrived test **because** nothing had been set up to succeed.
+
+**It cannot fire.** The roll landed (v1.0.1334) and the page is still 404, for two reasons that were
+measurable before either of us wrote the check:
+
+1. **Reconcile never re-runs on a quiet site.** `sites.last_reconciled_at` for garden-tools.uk is
+   still **2026-08-23 20:15**. There is no timer for `reconcile_site_plan` — it runs *inside* a
+   build/publish pipeline. A site with no activity never re-reaches the new code, so "post-roll the
+   link goes live on its own" describes something the system does not do.
+2. **The parked row blocks its own re-mint.** `loadOpenPageItems`
+   (`reconcile_site_plan_action.go:707`) treats anything not in
+   `('complete','verified','rejected','wont_fix','failed','cancelled')` as OPEN.
+   `needs_human_review` is not in that list, so even when reconcile does run it skips the page as
+   already-queued — **taking the corrected routing with it.** The fix routes what is MINTED; it
+   cannot re-route what is already FILED.
+
+**What caught it:** the other lane, after the roll, asking what would actually re-trigger a build.
+Not the check itself — a 404 was its expected pre-roll state *and* its post-roll failure state, so it
+returns the same result whether the fix works or not. **Textbook could-not-have-come-out-otherwise**,
+and this file already holds four entries of that shape from this arc alone.
+
+**The new thing, and the reason this is worth its own entry:** the previous four were solo errors.
+**This one was produced BY the cross-check.** Two lanes reviewed each other's reasoning, agreed, and
+the agreement raised both parties' confidence without either testing the premise. **Peer agreement
+substituted for a control.** I had already told the owner that cross-checking caught much of the
+day's error — this is the counter-example, and it is the more important half: *a check both parties
+like is not a check either party has falsified.*
+
+**The cheap check, and it is one question:** before writing any "X should happen on its own" test,
+ask **"what process makes X happen, when does it run, and what would stop it?"** Here that is two
+lookups — a `last_reconciled_at` column and one SQL predicate in the action that would do the work —
+and either alone would have killed the check before it reached two documents.
+
+**Corollary for how the proof must now be built:** a hand re-triage of the parked row would make the
+page appear and prove nothing. **The proof is the MINT** — a fresh item carrying
+`handler_agent='directory-build-handler'`, filed by reconcile with no hand routing. When a check is
+about *routing*, the artefact to inspect is the routed record, not the page it eventually produces.
