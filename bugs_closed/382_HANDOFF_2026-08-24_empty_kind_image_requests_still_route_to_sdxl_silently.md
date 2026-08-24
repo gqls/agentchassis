@@ -1,9 +1,11 @@
 # 382 — image requests with an EMPTY `kind` still route to SDXL, silently — 15 heroes on 5 sites since the routing fix, none of them chosen
 
-**Filed:** 2026-08-24, vetcomparison lane. **Status:** OPEN — **root cause FOUND and both halves
-FIXED; the config half is LIVE, the code half is committed and inert until the image-generator
-adapter rolls.** Stays OPEN per CLAUDE.md's bar (fixed AND live): the defect is still reproducible
-through the two orchestrator doors named in §7b until that roll. Close condition in §8.
+**Filed:** 2026-08-24, vetcomparison lane. **Status: CLOSED 2026-08-24** — root cause found, both
+halves fixed, and **both now LIVE and proven at the artefact** (§10). The code half rode the
+`v1.0.1334` roll; `da21ae20f` is an ancestor of the adapter's own stamped commit and
+`MISSING_IMAGE_KIND` is present in the running binary, both with controls. The defect as filed —
+an absent `kind` served silently by SDXL — is no longer reproducible on any path. Residuals named
+and routed in §10c.
 ~~the caller-side half is DELIBERATELY not diagnosed to a root cause here (see §5)~~ — done
 2026-08-24 by the `bugfix_382_empty_kind_routing` lane, §7 below.
 **Parent:** `bugs_open/011` (hero routing — fixed 2026-07-18 by the routing table). This is the
@@ -339,3 +341,96 @@ which the owner ruling of 2026-07-31 permits provided the substitution is *decla
 silently omitted. This paragraph is that declaration. What independent scrutiny the claim did get
 came from the council (six seats engaged with the 390 falsity as established fact) and from the
 `agritec.uk` lane, which found a real defect in the *warrant* for part of it (§7e).
+
+---
+
+# 10. CLOSED 2026-08-24 — the deploy, proven; and a correction to §8b
+
+## 10a. The code half is live, proven at the artefact with controls
+
+The `v1.0.1334` fleet roll landed at **2026-08-24 15:39:36Z**. Both `image-generator-adapter`
+replicas run **one** image digest (`sha256:d7a1d219…`), so this is not the same-tag-cached-image
+trap.
+
+- **Provenance, from the service's own mouth:** `git_commit 70fd163c24eae0c444bae7a425bb3d3c3096f7e4`.
+- **Ancestry, with both controls:** `git merge-base --is-ancestor da21ae20f 70fd163c2` → **YES**.
+  Control that must pass: `6896ce22e` (011's routing fix) → YES. Control that must fail: `HEAD`
+  (newer than the stamp) → NO. Both behaved.
+- **Capability probe on the running binary, with both controls:** `grep -aq MISSING_IMAGE_KIND
+  /proc/1/exe` → **PRESENT**. Method control `UNROUTED_IMAGE_KIND` (pre-existing) → PRESENT.
+  Negative control `MISSING_IMAGE_KIND_XYZZY_NOTREAL` → ABSENT. So the probe can fail, and it
+  didn't.
+
+Note the label trap for whoever repeats this: `kubectl get pods -l app=image-generator` returns
+**nothing**. The deployment is `image-generator-adapter`.
+
+## 10b. §8b condition 2 was UNMEETABLE as written, and here is why — a correction, not a quiet drop
+
+§8b asked for the census re-run "with the demand control" as a close condition. Run at 15:51Z:
+**0 SDXL assets since the roll — and 0 assets of ANY kind since the roll.** The demand control did
+exactly its job and voided its own headline number: that zero measures twelve quiet minutes, not a
+fix. Left there, it would have been the `[[a-post-fix-zero-needs-a-demand-control]]` failure with
+the control present and ignored.
+
+**And the demand will not arrive on the path this bug is about.** Measured 2026-08-24: across every
+current `site_plan`, the number of `hero_<page>` image prompts with no active asset is **ZERO**
+fleet-wide. The variant path is **demand-exhausted** — every site that asked for a per-page hero
+has one. That also retro-explains why the SDXL row set has been frozen since 2026-08-11: not a
+dormant bug waiting to bite, but a producer that had finished its backlog.
+
+So a behavioural proof through `call_variant_gen` needs a **newly planned page carrying a
+`hero_<page>` prompt**, which is days-to-weeks away and belongs to whichever site lane plans it.
+Manufacturing one would mean generating an unwanted image on a customer site to satisfy a
+checklist. **Holding a bug open on a condition that cannot be met is how `/bugs_open/` stops
+answering "what is biting prod right now"** — so the condition is retracted here rather than
+carried, and what replaces it is §10d's standing check.
+
+The one condition that DID hold cleanly is the negative control the vetcomparison lane supplied:
+the healthy path is untouched — **124** banana generations since 2026-08-15, **0** SDXL, latest
+2026-08-24 13:03Z.
+
+## 10c. Why this closes, and what it does NOT claim
+
+CLAUDE.md's bar is **fixed AND live** — *"a fix committed but inert until the next roll stays OPEN,
+because the defect is still reproducible until it ships."* It has shipped, and the defect as filed
+is not reproducible: in the running binary an absent `kind` resolves to Banana and emits a durable
+condition. There is no path left on which a request with no kind is silently served by SDXL.
+
+**What this does not claim:** the new branch has not been *observed* executing in production, and
+cannot be until a caller omits `kind` again. That is by design — the code half is a guard that
+should now rarely fire, and its correctness rests on the mutation-tested unit suite compiled into
+the binary this section proves is running, not on a production sighting.
+
+**Residuals, all now harmless-and-loud rather than silent, and all named elsewhere:**
+
+| residual | where it lives now |
+|---|---|
+| `pageflow-builder` / `site-work-orchestrator` — 4 steps with no `kind`, reachability UNMEASURED beyond 1 day; cannot be fixed in config (`input_mapping` resolves paths, not literals) | §7b; `imagery` lane's `RUNNING_NOTES` |
+| `image-source-unsatisfiable-handler` files kind-less `needs_imagery` specs; 33 rows pending in `needs_human_review` | §7f, **with the obvious fix refused and the reason recorded** |
+| `call_agent`'s `input_mapping` allow-list keeps manufacturing dead config keys — 3 incidents in 6 weeks | `architecture_review/RFC_051` (raised by the council's architecture seat) |
+| `MISSING_IMAGE_KIND` rows will carry NULL `site_id`/`domain`/`work_item_id`; the clean fix touches every `agent_error_log` row | §9a; re-check trigger in `102_coverage_ratchet.txt` |
+| `error_step` inside `config` on 7 `call_agent` steps, `prompt` on 1 — both **[UNVERIFIED]** | `LANDMINES.md`, the `call_agent` config-key entry |
+
+## 10d. The standing check that replaces the close condition
+
+A regression here is now a query rather than a complaint about a face. Either row set being
+non-empty is worth reading; both being empty means nothing on its own without the demand line.
+
+```sql
+-- 1. Did anything reach SDXL after the roll?  (0 expected)
+SELECT s.domain, a.purpose, a.asset_key, a.created_at
+FROM assets a JOIN sites s ON s.id=a.site_id
+WHERE a.origin_model='stability/stable-diffusion-xl-1024-v1-0'
+  AND a.created_at > '2026-08-24 15:39:36+00';
+
+-- 2. Did any caller reach the adapter with no kind?  (this is the NEW detector)
+SELECT occurred_at, agent_type, step_name, context->'reported'->>'prompt_opening' AS producer_hint
+FROM agent_error_log WHERE error_code='MISSING_IMAGE_KIND' ORDER BY occurred_at DESC;
+
+-- 3. THE DEMAND LINE — without it, 1 and 2 measure a quiet fleet.
+SELECT origin_model, count(*), max(created_at) FROM assets
+WHERE origin_type='generated' AND created_at > '2026-08-24 15:39:36+00' GROUP BY 1;
+```
+
+A non-empty row in query 2 names the broken caller via `prompt_opening`; the fix is always the
+same — map `kind` into that step's `input_mapping`, never into its `config`.
