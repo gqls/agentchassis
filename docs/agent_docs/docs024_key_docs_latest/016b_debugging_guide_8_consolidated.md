@@ -6312,6 +6312,52 @@ Cross-refs: `bugs_closed/305` §26–§29, `LANDMINES.md` (the `llm_call_log` st
 `bugs_open/110` (why the census must pin `provider`).
 
 
+### FIVE of six closure checks written for ONE bug could not produce the disconfirming answer — validate every check against a KNOWN-FAIL population before you trust a pass (2026-08-24, `bugs_open/206`, two lanes)
+
+**The measurement, and it is the entry.** Over one afternoon, two independent lanes wrote **six**
+instruments to verify a single fix. **Five were incapable of returning the disconfirming answer**:
+
+| # | the check | why it could not fail |
+|---|---|---|
+| 1-3 | three successive `bugs_open/206` census/closure queries | wrong or absent discriminating column |
+| 4 | *"post-roll the dead link goes live on its own"* — written **jointly**, each lane confirming the other's wording | reconcile never runs on a quiet site, **and** the parked row blocks its own re-mint. 404 was both the pre-roll state and the post-roll failure state |
+| 5 | the *correction* to #1-3: "join `pages` on `spec->>'page_id'`" | that key is absent on **134/134** rows — the join returns NULL for everything, so PASS and FAIL render identically |
+| 6 | `spec->>'page_role'` + a `pages` join | **the one that worked** — and only because it was first run against a known-FAIL population |
+
+**Three things this says that no single incident does.**
+
+**(a) The ratio is the finding.** Not one careless query — five of six, from two lanes that were
+actively checking each other, on a bug whose whole subject was routing. If the base rate of
+non-discriminating checks is anywhere near this, **"the check passed" carries far less information
+than anyone acts as though it does.**
+
+**(b) Peer agreement substituted for a control, and made it worse.** Check #4 was written by one lane,
+confirmed by the other, and praised by both **because** nothing had been contrived to make it
+succeed. Agreement raised confidence without either party testing the premise. **A check both parties
+like is not a check either party has falsified.**
+
+**(c) A CORRECTION inherits the trust of the thing it corrects.** Check #5 was supplied by the lane
+that had just caught #4 — so it arrived with earned credibility, at the moment it had most leverage,
+and got less scrutiny than the original. It was caught only because the receiving lane had spent the
+day being wrong in the same family and measured fleet-wide out of habit. **Correcting someone else's
+instrument is when to be most careful, not least.**
+
+**The remedy, and it is one step, cheap, and it is what separated #6 from the rest:**
+
+> **Before trusting a check, run it against a population you KNOW fails, and confirm it says so.**
+
+For #6 that meant running the closure query over the pre-fix rows captured on a real greenfield build
+and showing it returned FAIL for the two mis-routed entity pages and `n/a` for the other eleven. Then
+**write that into the runbook as step one**: *re-run on those rows first; if it does not say FAIL
+there, the query is broken, not the fix.* A check with no demonstrated failing case is a check with
+no demonstrated output range — you have observed one of its two possible answers and inferred the
+other exists.
+
+**Corollary for bug files:** a **dated pre-fix observation captured in the wild** is worth more than
+any reproduction you can build afterwards, precisely because it is the known-FAIL population every
+later check can be validated against. Here it came from a lane that was not looking for the bug —
+`entity-directory` and `entity-page` minted at the generic handler on an unaided build.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
