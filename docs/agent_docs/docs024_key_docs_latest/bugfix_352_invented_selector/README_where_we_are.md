@@ -77,3 +77,54 @@ the commit of someone working on it. One message settled it in seconds.
 **Where this is going.** The plan is being drafted properly and will go to the review council
 before it ships, because it touches a shared measurement path and a live database. Nothing is
 committed yet beyond notes and the warnings to other teams.
+
+---
+
+## 2026-08-24 (end of session) — it is built, reviewed and committed, and it is not yet live
+
+**Where it got to.** The fix is written, tested, approved by the review council first time round,
+and committed. It is **not working yet**, and that is not a hedge — the code sits in two images
+that have to be rebuilt and rolled before anything changes. I have been explicit about that in the
+bug file, because "the chassis rolled" would otherwise read as "the fix is live" when the half that
+does the measuring lives somewhere else entirely.
+
+**What the fix actually does, in one line.** The system no longer *describes* the faulty bit of the
+page and hope for the best — it now **asks the browser, on the spot, whether its description
+actually picks out the thing it just measured**, and refuses to file the repair ticket if the answer
+is no. That is a stronger promise than fixing the one mistake we found: it means the *next* mistake
+of this kind reports itself instead of quietly producing another hundred false repairs.
+
+**The council found four things worth having, and one of them corrected me.** I had written, in
+three places, that the withdrawn tickets would come back "at the next weekly audit". A reviewer
+asked what evidence there was that the audit runs weekly. There wasn't any — I had checked that
+audits happen at all and quietly let that stand in for how often each individual site gets one.
+Measured properly: every affected site is re-checked within a fortnight, but only three of thirteen
+within a week. So the honest word is "fortnight", and it now says fortnight everywhere. Small, but
+it is precisely the kind of number that gets repeated by the next person as though someone had
+checked it.
+
+The reviewers also asked me to prove something I had assumed rather than tested — that an older
+component would ignore the new fields rather than choke on them. It does; I have checked it rather
+than argued it. And one objection I have deliberately **not** closed: the fix counts the findings it
+refuses to act on, but nothing automatically reads that count yet. That is honest bookkeeping with
+no reader, and I have written it down as owed rather than quietly claiming it as done.
+
+**A mistake worth telling you about, because it is a nice one.** I wrote a test to make sure nobody
+later deletes an important line. The test looked for a distinctive piece of that line in the source
+file. Then I deleted the line to check the test would notice — and it didn't. The reason: I had
+also written a *comment* just above that line explaining why it must not be deleted, and my comment
+quoted the very text the test was searching for. So the test found my explanation and concluded the
+code was still there. **The better I explained it, the more reliably the test lied.** Fixed, and
+written up — it is the sort of thing that is obvious once seen and invisible beforehand.
+
+**Two other teams have been given real numbers.** The one holding a decision for you about
+releasing 171 long-standing unreadable-text findings now knows that 73 of them, across 13 of their
+15 sites, cannot be acted on at all until this ships — and that releasing them straight afterwards
+without the scoping work would have been worse than leaving them parked. The other has a correction
+to a bug file whose central piece of evidence was mislabelled.
+
+**What is left, and none of it can be done today.** Rebuild and roll the two images; then confirm at
+the running services rather than at git; then apply the held database change that withdraws the 73
+impossible tickets; then take the measurements that would show it worked — including the one that
+could show it did not. The second half of the original bug, where a correct instruction still fails
+for a different reason, is untouched and stays open with its own note.
