@@ -46713,3 +46713,52 @@ trap inside an hour on the same evening. That is not two careless readers — it
 table-footprinted landmine has no delivery path, and it is the strongest argument yet for D10
 (footprinted corpus) actually shipping. Recorded here rather than as a new landmine, because
 **duplicating the entry would not fix the thing that is broken, which is that nobody reads it.**
+
+---
+
+## 2026-08-24 — "the prompt rule is over-suppressing legitimate numbers", from counting one key while the answer sat two keys away (`vigilant_designer_offer_analysis`)
+
+**The claim.** After the `bugs_open/335` gate went live, I compared the new `offer_ordering` artefacts
+with the superseded ones and wrote, into the bug file, the concept register, the lane handoff **and
+the owner's plain-prose log**: *"the prompt half may be over-suppressing — both new orderings carry
+zero word-numerals across 12 points, where the superseded ones each carried one … trading useful
+specificity for safety."* I marked it *"unmeasured at n=2; watch it"*, which made it feel disciplined.
+
+**It was false, and the disconfirming evidence was in the same rows I was already reading.**
+`avoid_leading_with` is written by the same run, two keys away from the `lead_with` array I was
+counting. It says, on webdesign.co.uk, in **all three** orderings — *including the pre-537 one of
+2026-08-15* — that the site should not lead with a count of its tools or articles. The prompt has
+carried that instruction (*"avoid … our own catalogue or page count"*) since long before my change.
+So the 2026-08-15 run led with *"any of the sixty-three tools"* **while its own avoid-list said not
+to**: the artefact I was treating as the healthy baseline was internally inconsistent, and the runs I
+was calling suppressed are the consistent ones.
+
+**What settled it — a case that could come out either way, which the original comparison could not.**
+`robot-hands.com` **kept** its legitimately-sourced word numeral (*"across six actuation types"*, one
+before and one after). A rule that suppressed cardinals generally could not have done that. And the
+two sites split exactly along their own avoid-lists: robot-hands disclaims *"the number of gripper
+models or manufacturers in the catalog as a headline metric"* — an **inventory** count — and kept its
+**categorical** one; webdesign disclaims an inventory count and dropped one. Neither site lost a
+cardinal its own avoid-list had not already disclaimed.
+
+**The cheap check that would have caught it.** **Before attributing a missing phrase to your own
+change, read the rest of the object the phrase went missing from.** One query:
+
+```sql
+SELECT created_at::date, jsonb_array_elements_text(data->'avoid_leading_with')
+  FROM site_specs WHERE site_id='<id>' AND aspect='offer_ordering' ORDER BY created_at;
+```
+
+It costs nothing, it was on the row I already had open, and it names the competing explanation in
+plain English. Two lines of the same JSON document.
+
+**Transferable, and it is the sharper edge of a rule I already knew.** *"A `[MEASURED]` figure is only
+evidence if the measurement could have come out otherwise"* is usually read as a warning about the
+instrument. This is the other half: **my count was fine — I had simply not looked for the competing
+cause, and an n=2 caveat is not a substitute for looking.** Hedging a claim ("watch it") makes it feel
+provisional while it propagates at full strength: this one reached four documents, one of them the
+owner's log, in the voice of a finding. The generalisation: **when your own change is the obvious
+explanation for a difference, spend one query looking for an instruction that predates you.**
+Related: [[a-plausible-external-cause-is-when-to-doubt-your-instrument]] (the mirror image — there, a
+believable outside cause should have made me doubt the meter; here, a believable *inside* cause
+should have made me look for an outside one).

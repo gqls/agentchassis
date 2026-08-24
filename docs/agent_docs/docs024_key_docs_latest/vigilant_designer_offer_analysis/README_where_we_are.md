@@ -1294,3 +1294,41 @@ improvement loop, and that loop promotes every queued item on the site into live
 of them on webdesign, 37 on leopardess, including work other people had queued. To test one check,
 that would have been wildly disproportionate, and it was not what you agreed to. I wrote a small
 dispatcher that runs only the analyser instead.
+
+---
+
+**2026-08-24 — I was wrong about the numbers disappearing, and the answer was in front of me**
+
+Two days ago I told you the new instruction might be making the analyser shy of numbers in general,
+and that webdesign had lost "any of the sixty-three tools" as a result. I said it was worth watching.
+I have now watched it, and **I was wrong** — the instruction is not doing that.
+
+Two things settled it. First, I ran the analyser on robot-hands, and it **kept** its number: the
+fourth line still reads "across six actuation types", which is drawn straight from that site's own
+strategy record. Something that suppressed numbers generally could not have left that alone.
+
+Second — and this is the part I should have checked before saying anything — every version of these
+records also contains a short list of things the site should *not* open with. Webdesign's list has
+said "a count of how many tools or articles the site contains" in **all three** versions, including
+the one from before my change. So the old version that led with "sixty-three tools" was contradicting
+its own advice on the same page; the new ones simply stop doing that. If anything it is tidier now,
+not poorer.
+
+The two sites divide exactly along that line: robot-hands avoids an *inventory* count and kept a
+*categorical* one ("six actuation types" — you cannot say the sentence without the number); webdesign
+avoids an inventory count and dropped one. Nothing was lost that the site had not already said it did
+not want.
+
+**Why I am making a point of this rather than quietly moving on.** The claim reached four documents,
+including this one, and it read like a finding because I had attached a number to it. Adding "only
+two runs, worth watching" made it feel careful without making it true. The check that would have
+caught it was one query against data I already had open. I have written it up in the fleet-wide log
+of wrong calls, because the useful part is the pattern: **when my own change is the obvious
+explanation for something that changed, I should spend one query looking for an instruction that was
+already there before me.**
+
+**Where that leaves the actual job.** The false "eight live sites" sentence is still gone. The check
+is live and behaving. The one thing still not shown is the check *catching* something — it has now
+run four times across three sites and removed nothing, because the instruction is stopping the bad
+sentences before they are written. That is the good outcome, but it does mean the safety net itself
+is still only proven by tests rather than in the wild.

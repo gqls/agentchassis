@@ -255,12 +255,34 @@ To prove one gate that is the wrong instrument by two orders of magnitude.
 > passes this gate trivially, which is exactly the "measurement that could not have come out
 > otherwise" trap.
 
-**⚠ AND THE PROMPT HALF MAY BE OVER-SUPPRESSING — a real cost, measured.** Both new orderings carry
-**zero** word-numerals across 12 points. The superseded ones each carried one: webdesign's rank 1 was
-*"any of the **sixty-three** tools"* — legitimately premise-sourced, and exactly the specificity this
-artefact exists to supply. It is now gone. So the prompt rule appears to suppress cardinals
-generally rather than unsourced ones, trading useful specificity for safety. **Unmeasured at n=2;
-watch it across the next few runs before concluding.**
+~~**⚠ AND THE PROMPT HALF MAY BE OVER-SUPPRESSING — a real cost, measured.** Both new orderings carry
+zero word-numerals across 12 points … the prompt rule appears to suppress cardinals generally rather
+than unsourced ones, trading useful specificity for safety.~~
+
+> **CORRECTED 2026-08-24 — REFUTED. There is no evidence of over-suppression, and the alternative
+> explanation was sitting in the same artefact I was reading.** I asserted this on n=2 without
+> checking `avoid_leading_with`, which is written by the same run, two keys away from the points I
+> was counting.
+>
+> **What the evidence actually shows (4 post-537 runs across 3 sites, 2026-08-22 and 2026-08-24):**
+> - **robot-hands.com KEPT its legitimately-sourced word numeral** — rank 4 still reads *"across
+>   **six** actuation types"*. Word-numeral count unchanged, 1 before → 1 after. A blanket suppressor
+>   could not have done that.
+> - **webdesign.co.uk dropped *"sixty-three tools"* in 2 of 2 runs — because the model was obeying a
+>   PRE-EXISTING instruction, not my new one.** The prompt has always said to avoid leading with
+>   *"our own catalogue or page count"*, and **webdesign's own `avoid_leading_with` names a tool
+>   /article count in ALL THREE orderings — including the pre-537 one of 2026-08-15.** That run led
+>   with *"any of the sixty-three tools"* **while its own avoid-list said not to**: the pre-537
+>   output was internally inconsistent, and the post-537 ones are consistent. That is arguably an
+>   improvement, and it is certainly not my rule suppressing sourced specificity.
+> - **The two sites split exactly along their own avoid-lists.** robot-hands avoids *"the number of
+>   gripper models or manufacturers in the catalog as a headline metric"* — an **inventory** count —
+>   and kept its **categorical** one. webdesign avoids an inventory count and dropped one. Neither
+>   site lost a cardinal its own avoid-list did not already disclaim.
+>
+> **The cheap check I skipped:** read `avoid_leading_with` from the same row before attributing a
+> missing phrase to the prompt change. It is two keys away in the object I already had open. Logged
+> in `WRONG_CALLS.md`.
 
 ### ⚠ A LIVE FALSE POSITIVE FOUND BY THESE RUNS — fixed in Go, INERT until the next roll
 

@@ -20,9 +20,10 @@
 > **⚠ TWO THINGS TO CARRY FORWARD.** (1) A **live false positive** — `B2B` is read as the quantity 2
 > (`S3`→3, `IPv6`→6). Fixed in Go (`590fb1f5b`) but **the running binary still has it**, so a
 > hand-fired B4 can silently drop a legitimate technology-name point until the next roll.
-> (2) The prompt may be **over-suppressing**: both new orderings carry zero word-numerals across 12
-> points where the superseded ones each carried one — webdesign lost *"sixty-three tools"*, which was
-> legitimately sourced. Watch it over the next few runs.
+> (2) ~~The prompt may be over-suppressing~~ — **REFUTED 2026-08-24.** robot-hands KEPT its sourced
+> word numeral (*"six actuation types"*); webdesign's loss of *"sixty-three tools"* is the model
+> obeying the **pre-existing** *"avoid our own catalogue or page count"* rule, which its own
+> `avoid_leading_with` names in **all three** orderings including the pre-537 one. No suppression.
 > **⚠ FIRE B4 WITH `scripts/fire-offer-analyser.sh`, NOT `run_improvement_sweep_once.sh`** — the
 > latter fires the whole loop and promotes every `detected` item into live handler dispatches
 > ([MEASURED] 111 on webdesign, 37 on leopardess, including other lanes').
