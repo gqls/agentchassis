@@ -613,3 +613,62 @@ action-level constraints**, including the cross-action one (AHW2's ceiling depen
 area). So every mechanism the spec requires is still exercised; what is deferred is breadth of
 choice, not any structural property. The remaining 47 actions can be added once one build has
 demonstrably landed.
+
+---
+
+## 2026-08-24 — the SFI26 calculator is BUILT, and it is correct on the things that were wrong
+
+Scoped brief (24 actions, 4,870 chars) built cleanly: `tool-sfi26-revenue-stacker`,
+`component_level='tool'`, 16,060 chars, active. Page `/tools/sfi26-revenue-stacker/index.html` at
+`page_type='tool'`, `in_header=true`.
+
+### Acceptance, read at the artefact
+
+| check | result |
+|---|---|
+| herbal leys is **224**, and 382 appears nowhere | pass |
+| CHRW2 at 13 | pass |
+| no £20-per-hectare entitlement figure | pass |
+| £100,000 agreement cap modelled | pass |
+| 3 ha eligibility floor | pass |
+| 25% limited-area cap | pass |
+| one-side / both-sides distinction present | pass |
+| all seven unit tokens present | pass |
+| AHW2 cross-action dependency on CAHL2 | pass |
+| WBD1 pond cap, AHW4 minimum 2 plots | pass |
+| gov.uk source anchor + capture date | pass |
+| visible rate table (the `bugs_open/288` control) | pass — 1 table, rows rendered in a loop |
+| template ends cleanly, script tags balanced | pass |
+| **24 of 24 action codes present** | pass |
+
+**£382 is gone and £224 is in. That is the thing this whole exercise was for.**
+
+### MISSTEP 9 — my acceptance check flagged the tool for being right
+
+One check failed: "no abolished management payment line". The phrase *is* in the template — once,
+in the tool-doc header, reading **"no SFI management payment line exists"**. A statement of
+absence.
+
+I tested for the PHRASE and not for the ASSERTION, which is precisely the error that made two of
+my `banned_claims` over-broad four days running. Third instance of one mistake in one lane: a
+string match cannot distinguish a claim from its denial, and the denial is often the sentence you
+most want. **Read the context before believing your own check** — a failing check is a hypothesis,
+not a finding.
+
+### The predicted wrinkle arrived exactly as written
+
+The tool pipeline auto-created a companion guide at
+`/guides/tool-sfi26-revenue-stacker-guide.html`, which is the redundant stub the roadmap brief
+predicted. It does not collide with the six subject-led explainers because the names differ, so
+the site would carry a thin "Understanding the SFI26 Revenue Stacker" beside the real
+"Stacking agricultural scheme actions". Reconcile deliberately: retire the stub or repoint the
+tool's CTA at the real explainer. **Do not solve it by writing the explainer as a companion
+guide** — that was the instruction and it still holds.
+
+### Next
+
+Both pages are `build_status='planned'`. Once deployed: write the `artifact_check` fence on the
+rate facts (`HERBAL_LEYS_RATE\s*=\s*224` shape, addressed by the tool's `subject_key`) and tell
+the `bugs_open/288` lane, who are waiting on this as the first live proof of their mechanism.
+Their caution goes in the spec verbatim: their sweep has not run for real yet, so **a zero from it
+means "it has not run", not "nothing to find"** until the 09:05 pass tomorrow.
