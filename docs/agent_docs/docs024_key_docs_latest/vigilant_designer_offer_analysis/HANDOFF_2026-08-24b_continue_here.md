@@ -64,11 +64,44 @@ unregistered action makes the workflow validator reject the WHOLE workflow ("req
 printed correlation id and no dispatch behind it. Save `SUBMISSION_CORR`, budget ~30 minutes, and
 record the verdict in `features_open/030` §10 and in `CLM-024`.
 
-### 3. Sync the LANDMINE (needs cluster access)
+### 3. Re-apply the optional-key-budget kustomize overlay (needs cluster access)
+
+`check.py`'s `OPTIONAL_KEY_COUNTS` literal has learned `verify_acceptance_predicates: 1`
+(`9ba6c2ae1`) — the parity test caught it counted as **zero**, which is how two actions stayed
+invisible to the daily budget check until 2026-08-17. **The repo is right and the CronJob is not
+until the overlay is applied:**
+`kubectl apply -k deployments/kustomize/services/optional-key-budget-check/overlays/production/uk_001`
+(check the overlay path against the tree first). Nothing is at risk in the meantime — one optional
+key on one action is nowhere near N=10 — but the literal is the thing that goes stale silently.
+
+### 4. Sync the LANDMINE (needs cluster access)
 
 `./scripts/landmines-verify-dispatch.sh` — **not** `landmines-sync.py --apply`, which consumes the
 "new entry" status so the verifier never checks it. Owed for the `pages.in_header` entry appended
 2026-08-24.
+
+### 5. Two checks this session could not run, both blocked on the same expired token
+
+- **The RFC_022 consumer enumeration, which the ruling requires be QUERIED rather than asserted.**
+  The claim that makes this not-architecture-scope is *"zero live consumers name the new key"*. The
+  repo side is established (before commit `7b875b08f` the string `acceptance_predicate` appeared
+  nowhere outside `write_audit_findings`'s own prose), but the owner's ruling is explicit that
+  *"enumerate the consumers — asserting it without the query is itself the objection"*. Run it:
+  ```sql
+  SELECT type, count(*) FROM agent_definitions
+   WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
+     AND strpos(default_config::text, 'acceptance_predicate') > 0
+   GROUP BY 1;
+  ```
+  ⚠ `strpos`, not `LIKE '%acceptance_predicate%'` — `_` is a LIKE wildcard and it matched reviewer
+  prose the last time this lane used it (it read 3 consumers where there was 1). Expect **1** row
+  after 601 is applied (`offer-analyser` itself) and **0** before.
+- **The commit's own architecture signal.** The pre-commit hook flagged *"migration + platform code in
+  one commit — needs a staged rollout order"*. It has one, and the file states it (`_HOLD`, image
+  first). The judgement recorded here is that this is not architecture-scope under RFC_022's
+  narrowing — opt-in, unsafe side default OFF, no live consumer — **and the third condition is the
+  query above, which is owed.** If it comes back non-zero for anything other than `offer-analyser`,
+  that judgement was wrong and the council round is the place to say so.
 
 ## What this feature does, in three sentences, because the shape is the whole design
 
