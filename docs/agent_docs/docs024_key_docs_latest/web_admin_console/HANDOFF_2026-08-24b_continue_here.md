@@ -201,9 +201,14 @@ infrastructure proofs) and §2/§3 (owner box steps) remain the reference — re
    **webdesign.uk ZONE** (links is a hostname inside it); it can be created before the
    DNS record exists and simply starts matching when traffic flows.
    - Dashboard → webdesign.uk zone → **Security → WAF → Rate limiting rules → Create**.
-   - Name `links-host-limit`. Custom filter expression: field **Hostname** · operator
-     **equals** · value **links.webdesign.uk**. Deliberately the WHOLE host, not `/c/` —
-     the 404 catch-all paths are exactly what probes hammer.
+   - Name `links-host-limit`. ~~Custom filter expression: field **Hostname** · operator
+     **equals** · value **links.webdesign.uk**.~~ **CORRECTED 2026-08-24 at the live
+     form: the free-plan rule builder's Field dropdown has NO Hostname entry** (it
+     offers URI Path / bot fields) — click **Edit expression** instead and type
+     `(http.host eq "links.webdesign.uk")`, which is the same match in expression
+     form. Deliberately the WHOLE host, not `/c/` — the 404 catch-all paths are
+     exactly what probes hammer. (Fallback if a plan gates `http.host`: URI Path
+     starts_with `/c/`, coarser but adequate.)
    - "With the same characteristics": **IP** (the only choice on the free plan).
    - "When rate exceeds": **10 requests per 10 seconds** → action **Block** (free plan
      fixes the period at 10s and a short block timeout; that is fine — a continuing
