@@ -159,3 +159,46 @@ bulk-editing old one-off scripts risks firing live triggers, and about two dozen
 out to be notes files that cannot run at all. There's a better end state we've costed but not
 built — sending from inside the cluster, where the message broker itself confirms receipt.
 That would make a silent loss impossible rather than merely visible.
+
+---
+
+## 2026-08-24 — your four decisions, done
+
+**The council now covers `pattern-check.py`.** That's the file holding the 22 checks that run
+on every commit in every session. The measurement that justifies it: 2,058 lines in that one
+file, against 2,220 lines for every other audit script in the repo put together — so it is
+about half our checking machinery, and the half that runs most often. It is now reviewable;
+the rest of `scripts/` deliberately isn't, so this didn't loosen a whole directory.
+
+Proof it took, rather than my word for it: this lane's own submission was refused yesterday
+and is accepted today, and a commit of mine that was previously in *no* bucket of the coverage
+report now shows up as unreviewed.
+
+**One thing here is worth knowing about**, because it nearly bit me. Widening the scope means
+editing two files, not one — the coverage report has to list candidate commits before it can
+judge them, and it keeps its own separate copy of the scope for that. Get only one of them and
+commits don't appear as unreviewed, they simply vanish from the report. That happened on the
+23rd and hid 22 commits across four lanes.
+
+I only avoided it because the lane that got caught wrote the warning next to the *scope
+definition* rather than in the report — reasoning that a warning in the report gets read by
+whoever edits the report, who isn't the person with the problem. I was the person with the
+problem, one day later. That's the system working.
+
+**The landmine verifier is fixed.** This is the tool that checks our own hazard documentation,
+and it was reporting "0 failed to publish" using the one signal that's always missing when a
+message is lost. It now exits with an error and says "no verdict will ever arrive for this
+run". Its caller needed no changes — it was already counting failures correctly, it just never
+had a real failure reported to it.
+
+I proved it on a live dispatch that was also useful: it armed the verification for the entry I
+edited yesterday, which is the thing that silently didn't happen.
+
+**I did not run the council**, as you asked. Worth noting the widening changes the nature of
+that choice: this lane's submission is now legitimately in scope rather than needing an
+override, so it's a straightforward question of whether the credits are worth it, whenever you
+want to decide. Nothing is waiting on it.
+
+**The bug stays open and now says so explicitly** — it tracks the class, not the one incident.
+Two of about 178 scripts are migrated. Next is the council trigger itself, which needs a little
+care because its exit codes 1 and 2 already mean specific things.
