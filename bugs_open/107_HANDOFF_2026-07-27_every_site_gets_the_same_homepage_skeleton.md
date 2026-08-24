@@ -6,6 +6,45 @@ site looks like "the standard looking site that it has produced before".
 builds successfully and they all look like each other.
 **Status** OPEN.
 
+> ### ⚠ NOTE FROM THE `bugs_open/378` LANE, 2026-08-24 — one engine of this sameness has just been removed, and your fix would have switched it back on
+>
+> Not a claim to have fixed 107. One contributing mechanism is gone, and the interaction is
+> something this file's fixing thread needs before it designs anything.
+>
+> **What was there.** `component_selector.go`'s score carried
+> `LEAST(COALESCE(usage_count,0)::float / 50.0, 1.0) * 0.1` — an explicit *"battle-tested components
+> score higher"* term. That is a **preferential-attachment loop**: get selected → count rises →
+> score rises → get selected again. A rich-get-richer term in the component chooser is a homogeneity
+> engine by construction, and §4 of this file already points at the neighbouring line.
+>
+> **Why it was not, in fact, causing your symptom — and this is the part that matters to you.**
+> `[MEASURED 2026-08-24]` the term changed **nothing**: 0 winners across 4,888 contested
+> `(section_type, site_type, page_type)` contexts (control: granting the weakest candidate 50 uses
+> flips 52, so the instrument had power). The cause is that the platform almost never *has* a
+> contest — only **4** section_types have more than one active non-forked candidate
+> (`hero` 7, `tool-archetype-taster-quiz` 2, `tool-gripper-payload-calculator` 2, `features` 2), and
+> every candidate in all four read `usage_count = 0`.
+>
+> **That is itself a finding for this bug, and possibly the main one.** The homepages in your table
+> are not similar because a scorer keeps picking the same winner from a rich field. They are similar
+> because for almost every slot **there is only one thing to pick.** A scoring change cannot fix
+> that; only more candidates per `section_type` can. Worth testing before any selector work.
+>
+> **And here is the trap.** The moment you add candidate variety per `section_type` — which is what
+> any fix for this bug must do — a usage term stops being inert and starts deciding, **in favour of
+> whichever component is already the incumbent.** Your fix would have partly undone itself as it
+> started working. Measured directly: feeding that same term an accurate number changes **3,246** of
+> those 4,888 contexts.
+>
+> **So the term has been removed from the score rather than repaired** (commit `5074367f7`, council
+> `ca01b81a`, inert until the next chassis roll). Removing it changes 0 selections today, and it
+> means a 107 remedy that adds candidates will not be fighting an incumbency bonus. The honest usage
+> figure is still computed and logged, just not scored — so if you *want* a proven-component
+> preference back, it is one constant away, and you would be re-adding it deliberately with the
+> homogeneity cost visible.
+>
+> Evidence and the full census: `docs/agent_docs/docs024_key_docs_latest/bugfix_378_usage_count_derived/NOTES_378_usage_count_derived.md`.
+
 ## The measurement
 
 The palette is not the issue. oufe.com has its own style collection
