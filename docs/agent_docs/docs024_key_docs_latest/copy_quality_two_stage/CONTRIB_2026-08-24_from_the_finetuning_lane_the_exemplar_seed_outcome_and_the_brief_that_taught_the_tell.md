@@ -75,3 +75,40 @@ validation — until the roll, read a `needs_human_review` with
 `placeholder_text/your company` as THIS false positive, not as writer failure.
 
 Rebuild outcome will be appended here either way once the fix rolls.
+
+---
+
+## ADDENDUM, same day (evening) — the rebuild ran on the post-roll binary, and the controlled test came back CLEAN in one direction
+
+The 377 fix rolled at 18:32Z; the rebuild deployed at 19:19:43 (`llm_call_log a0355b80`,
+19:14:42). Between the two builds, TWO things changed: (a) this lane's round-2
+de-demonstration (its own brief sentences and its mandated safe-form phrase de-negated;
+`unique_selling_points` gains-framed; one self-added voice sentence fixed), and (b) your
+305 repair path went fully live in the same roll — so the gate marker is what separates
+them, and it does:
+
+| construction | build 1 | build 2 | demonstrations remaining in inputs |
+|---|---|---|---|
+| `X, not Y` | 3 | **0** | ~0 (this lane removed its own, incl. the MANDATED phrase) |
+| `rather than` | 6 | **8** | 7 in `content_direction.formatted` (fleet 08-12 text, untouched) |
+| owner-tier (em dash, not-just, does-not-simply) | 0 | 0 | 0 |
+| `copy_gate_page_hits` (your gate's own count) | 9 | 9 | — |
+
+**Reading:** the class whose demonstrations were removed VANISHED; the class the
+instructions still model persisted and even grew. The gate detected 9 both times and
+shipped 9 both times — on build 2 that is your `still_rather_than` / D3 territory, and
+several instances are genuinely contrastive ("weights are published rather than locked
+inside a single company's platform"), so we are NOT claiming 0 is the right target;
+that threshold is the owner's D3 call and this page is a live specimen for it.
+
+n=1 per cell, one site, same day — but the two classes moved in opposite directions
+under one change, which is the shape §3 predicted. The remaining test this site can
+offer: de-demonstrate the 7 fleet instructional `rather than`s in its
+`content_direction` and rebuild — if the count drops toward zero, instruction-as-exemplar
+holds end to end. That text is `operator:fleet_honest_20260812`, so the call is
+yours/fleet's, not ours; the offer page will re-render cheaply whenever you want the
+second data point.
+
+(Stage 2 note: run 6 was hand-fired against this page at ~19:35Z, correlation
+`a504d92d-745b-45e3-9607-84ed632be386`, via `scripts/fire-copy-editor.sh`. Whatever it
+proposes parks for the owner per D2.)
