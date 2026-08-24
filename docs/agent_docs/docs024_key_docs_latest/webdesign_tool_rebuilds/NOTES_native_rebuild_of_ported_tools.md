@@ -2907,3 +2907,16 @@ re-fetch at 12:39+ shows LM 12:38:35 > 12:38:16. Grade: 200 / 21,552 B; `ported-
 negatives all 0 (r0, simA, mathLog, **src="recommender.js"**, finalPrediction); positives present
 (error-scifi, prediction-output, 'Predicted Documentary rating' ×2). Orphan #6 dispatched
 (corr c7891cdc-4dd7-4633-8ebd-8eea4d085e89). **Phase C remainder: 6. Next: performance-budget (9,662, budget-engine.js).**
+
+## 2026-08-24 14:55Z — fleet DB stall (not ours, resolved by this session): an abandoned COPY export held a `pages` lock 1h07m; cancel was insufficient, terminate cleared 85 blocked backends in 10 s
+
+The bugs_open/380 session flagged a COPY export (pid 2007330, `row_to_json` claimscan shape, NOT
+this lane's — backend_start 13:41Z, after our last DB touch) stuck in `ClientWrite` behind a dead
+client, blocking migration 352's `ALTER TABLE pages` and 85 backends incl. this lane's rerender
+pipeline. Verified at pg_stat_activity first, then acted: **`pg_cancel_backend` returned `t` and
+did NOTHING — a backend blocked writing to a dead client socket cannot process the cancel until
+the write returns. For a ClientWrite stall, `pg_terminate_backend` is the remedy** — it cleared
+the pid, the ALTER completed instantly (pages.noindex verified present), lock-waiters 85 → 0.
+Read-only export, nothing durable lost; owner unidentified (bare psql over the local socket).
+Incident file + LANDMINES entry belong to the 380 lane; recorded here because our queue was blocked
+and because the cancel-vs-terminate distinction will bite anyone clearing a stall.
