@@ -51,17 +51,53 @@ is exactly when this bug was committed: `garden-tools.uk`'s 13 work items were b
 greenfield build at the hardcoded generic handler. Same producer, same moment, opposite outcome
 expected now.
 
-**Assert on the MINT:**
+**Assert on the MINT. Use THIS query — the first version could not discriminate.**
+
+> ⚠ **CORRECTED 2026-08-24 (caught by the `loanzy_uk_example_site` lane).** The original read
+> `swi.spec->>'page_type'`, which is **absent from every reconcile-minted row** — `[MEASURED]`
+> 0 of 134 fleet-wide — so it returned NULL for every page and could not tell an
+> `entity-directory` from a content page. That is the same key, and the same blindness, this
+> lane already logged in `WRONG_CALLS` earlier the same day.
+> **Their proposed remedy does not work either**: `spec->>'page_id'` is also absent (0 of 134),
+> and so is the `page_id` **column** (0 of 134). What IS present on every row is
+> **`spec->>'page_role'`** (134 of 134), which carries the same vocabulary as `pages.page_type`.
+> Join `pages` for the authority and fall back to `page_role`:
+
 ```sql
-SELECT s.domain, swi.spec->>'page_name', swi.spec->>'page_type', swi.item_type,
-       swi.handler_agent, swi.status, swi.created_at
-FROM site_work_items swi JOIN sites s ON s.id=swi.site_id
-WHERE swi.created_by='reconcile_site_plan' AND swi.created_at > '<the build>'
-ORDER BY swi.created_at DESC;
+SELECT s.domain,
+       swi.spec->>'page_name'                        AS page,
+       COALESCE(p.page_type, swi.spec->>'page_role') AS page_type,
+       swi.item_type,
+       COALESCE(NULLIF(swi.handler_agent,''),'(empty)') AS handler,
+       swi.status,
+       (swi.spec ? 'page_type')                      AS spec_stamped,
+       CASE
+         WHEN COALESCE(p.page_type, swi.spec->>'page_role')='entity-directory'
+              AND swi.handler_agent='directory-build-handler' THEN 'PASS'
+         WHEN COALESCE(p.page_type, swi.spec->>'page_role')='entity-page'
+              AND swi.item_type='capability_gap' AND COALESCE(swi.handler_agent,'')='' THEN 'PASS'
+         WHEN COALESCE(p.page_type, swi.spec->>'page_role') IN ('entity-directory','entity-page')
+           THEN 'FAIL'
+         ELSE 'n/a'
+       END AS verdict
+FROM site_work_items swi
+JOIN sites s ON s.id = swi.site_id
+LEFT JOIN pages p ON p.site_id = swi.site_id AND p.name = swi.spec->>'page_name'
+WHERE swi.created_by='reconcile_site_plan'
+  AND swi.created_at > '<the build start>'
+ORDER BY verdict DESC, page;
 ```
-PASS = an `entity-directory` page at `handler_agent='directory-build-handler'`, and/or an
-`entity-page` as a `capability_gap` at status `deferred` with an **EMPTY** handler_agent.
-FAIL = either at `page-build-handler`, which is yesterday's behaviour.
+
+**This query is VALIDATED against a known-FAIL population** — run over `garden-tools.uk`'s
+pre-fix rows it returns `FAIL` for `brand-directory-index` (entity-directory) and `brand-profile`
+(entity-page) and `n/a` for the other eleven. A test that has been shown to produce the
+disconfirming answer is the thing both earlier versions of this check lacked. **Re-run it on
+those same rows first**: if it does not say FAIL there, the query is broken, not the fix.
+
+`spec_stamped` is a second, independent corroborator: this lane's change also adds `page_type` to
+the spec, so `f` on every row means the OLD code minted them. Do not use it as the primary
+discriminator — it is absent exactly when the fix has not shipped, which is when you most need
+the test to work.
 
 The `loanzy_uk_example_site` lane runs greenfield builds as its route and has been told; whoever
 picks this up should ask them when the next one is, rather than manufacturing one.
