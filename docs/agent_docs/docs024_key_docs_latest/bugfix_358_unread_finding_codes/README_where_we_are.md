@@ -343,3 +343,55 @@ test that complains if it ever grows back.
 **Nothing needs deciding by you right now.** The two new codes are recorded as "human evidence,
 nothing reads them" — which is measurably true — and you can overrule either. The review of the new
 check is with the reviewers as I write this.
+
+---
+
+**2026-08-24, evening — the loop is closed, and here is what your decisions did.**
+
+The fresh build you rolled out carries yesterday's declarations, and I proved it rather than
+assumed it: the running job names the exact commit it was built from, your two new codes are in
+that commit's history, and a hand-triggered run in the cluster came back clean — zero findings,
+fifty-five codes declared. So the full story of the first thing this check ever caught is: it went
+red within two hours of a new code appearing, the code got declared the same day, your next
+release carried the declaration, and the check went green. That is the whole design working end to
+end, on its first real case.
+
+Since you asked me to explain your decisions — here is what each one actually did, because the
+effects are worth seeing joined up:
+
+**You chose to ratify in batches rather than delegate the rulings.** Right call, and not as a
+formality: a disposition is a decision about what the business accepts losing — "nothing reads
+this and we accept that" — and a session can measure what is true but cannot accept a loss on
+your behalf. The mechanics honour that split: I propose with the evidence attached, you say yes
+or no, one commit applies it.
+
+**You said "cap it".** I built that as a one-way gate rather than a fixed ceiling: the undecided
+pile can never grow, and every batch you ratify locks the new, lower number in the same commit.
+A fixed ceiling below the existing pile would have made the check fail every day from day one,
+and a check that is always red is a check everyone learns to ignore — that is this project's
+founding observation, so the cap could not be allowed to recreate it.
+
+**You said "Phase 2 first, then batch 1".** That ordering is the reason we caught anything at
+all: the clock went live a day earlier than it otherwise would have, and it was the clock — not
+any ruling — that noticed two brand-new codes arriving unread. If we had spent that day ruling
+the backlog instead, both would have sat invisible.
+
+**You ratified batch 1 in full.** Seven codes now honestly say "a human wrote this deliberately
+and nothing reads it", each with its reason and the retention window it accepts written down.
+The undecided pile went from thirty-two to twenty-five.
+
+**You approved the sink rule.** "Consumed" now has to name the table the reader actually reads.
+Without that, one code would today be wearing a green "consumed" badge over a row nothing has
+ever read — the exact defect this whole effort exists to end, dressed in its own compliance.
+
+**And your standing rules did quiet work throughout.** Your whole-fleet release rule is why the
+deploy waited for you — and it turns out to be load-bearing: deploying one service alone in that
+window would have silently broken thirty-two others. Your rule that new switches ship OFF by
+default is why the one new flag here cannot change anyone else's behaviour. And your widening of
+review scope last week is the only reason any of this code was reviewable — and following that
+thread found the coverage report had been blind to the whole widened area, which is now fixed.
+
+**Still open, both yours, no urgency:** the remaining twenty-five undecided codes (batch at a
+time, as before), and the thirteen codes that are written in the source but have never fired —
+same treatment when you want it. A second review pass by another model is running at your
+request; if it finds anything real I will fix it and say so.
