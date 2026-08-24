@@ -174,8 +174,22 @@ done
 > is indistinguishable from "not stamped". ⚠ **Check every replica**, not one: a partial roll
 > makes them disagree. ⚠ Per SERVICE, not per fleet.
 
-Then the behavioural proof, which is the one that counts: a `reconcile_site_plan` run that mints
-a typed page's item carrying the right handler.
+**The best behavioural proof is on a site nobody set up for it.** `garden-tools.uk` is a live,
+unaided greenfield build (the `loanzy_uk_example_site` lane, 2026-08-23/24), deliberately left
+unrepaired: its `/brand-directory/index.html` is an `entity-directory` page **linked from its own
+home page**, and that link is one of 9 measured dead links on the site. Post-roll, that link
+should go live **without anyone touching the site**:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://garden-tools.uk/brand-directory/index.html
+```
+404 before the roll, 200 after, with no hand re-triage — that is the closure proof, and it is
+stronger than re-triaging a page yourself because nothing about it was arranged to succeed.
+⚠ Its `/buying-guides/index.html` is `section-index` and will STILL 404 after the roll — that is
+the deliberate narrowing, not a failure of the fix.
+
+Then the queue-side proof: a `reconcile_site_plan` run that mints a typed page's item carrying
+the right handler.
 
 ```sql
 SELECT spec->>'page_name', spec->>'page_type', handler_agent, item_type, status, created_at

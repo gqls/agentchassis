@@ -80,3 +80,28 @@ ruled out — and one of them left three gigabytes of temporary files on the sha
 another team had to write a rule about while I was still doing it. The review process caught what
 my own checking did not, four separate times. That is the argument for the review process, and it
 is also the argument for writing the mistakes down.
+
+---
+
+> **CORRECTED 2026-08-24, same day, by a measurement from the `loanzy_uk_example_site` lane.**
+> Above I wrote that the two pages the narrowing leaves out *"stay exactly as they are today"*.
+> That is true of the pages and **false of the sites**, and the difference matters to a reader
+> deciding whether the narrowing was worth it.
+>
+> That lane ran an unaided greenfield build of `garden-tools.uk` overnight and measured the
+> finished site: the parked page is the target of **three dead links from three live pages, one
+> of them the home page**. So a visitor meets a 404 from the front door. Nothing suppresses a
+> link when its target fails to build — that is a separate known defect, but it is the mechanism
+> through which this decision's cost is actually paid.
+>
+> The narrowing still looks right to me, and to that lane: a dead link is *visible*, where a
+> silently mis-routed page is not, and the reviewer's argument was precisely that the alternative
+> fails without telling anyone. But "stays as it is" undersells it, and the honest version is:
+> **leaving those pages unrouted costs a 404 from the home page on each greenfield site, until
+> the follow-up lands.**
+>
+> The same lane also found that this problem is wider than the three page types this bug names:
+> blog pages fail the same way, for a subtly different reason — their page type *is* mapped
+> correctly, to a builder that simply cannot create a layout from nothing. That is the larger
+> and better fix, it is not what shipped, and it is now written down as the next step rather
+> than quietly folded into an approved change.
