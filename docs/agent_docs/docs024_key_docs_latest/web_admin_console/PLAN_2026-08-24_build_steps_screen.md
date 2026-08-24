@@ -256,7 +256,39 @@ That inverts §1 and §2. I have NOT acted on it.
   which has no `/admin/users` route. So a user-admin screen is not buildable without an nginx
   location change. Not needed for the build-steps screen — recorded so nobody plans one blind.
 
-### 6g. Falsifiers for everything above
+### 6g. A one-line addition worth more than the screen: the silent-overwrite counter
+
+From correspondence with the `apis_uk_bees_homepage` lane, 2026-08-24, who lived it.
+
+**The trap the console itself opens.** The SPA already exposes `regenerate`, `restore-section`
+and `lock` on the same screen (`App.tsx`, the `/sites/:id/pages/:page/components/...` calls). An
+operator who hand-patches a component through that UI and does **not** lock it has armed a silent
+loss: the next rebuild overwrites their bytes, archives the old copy to `page_component_history`,
+and files a `page_divergence_overwritten` work item. Nothing in the UI says this happened.
+
+**The measured case.** On `apis.uk`, that fired **25 times over two days** — same lane, same
+cause, every one correct — and stayed invisible until somebody read the work-item queue by hand.
+`[MEASURED 2026-08-24 11:31Z]` all 25 now `complete`, one shared `updated_at` of `11:29:48`, i.e.
+resolved in a single sweep once noticed. **25 of that site's 70 work items were this.**
+
+**The fix is a pair, and knowing only half of it is what cost them two days** — the work item's
+own fix text names both: *re-declare it in `content_data` **or lock the component (058)** — do not
+paste it back into `rendered_html`, which only re-arms this same loss.* They had re-declared and
+not locked. `save_page_sections_action.go:460` documents the locked-slot path (locked copy kept,
+incoming discarded), and **43 components across 6 other lanes** already use `lock_type='permanent'`
+— established practice, not a new mechanism.
+
+**What the screen should do, and it needs NO backend work**: beside the regenerate button, show
+the component's `page_divergence_overwritten` count from `site_work_items`. The rows already
+exist and already carry `site_id`; this is a `GROUP BY` on data the admin API can already reach.
+An unlocked component with a non-zero count is the exact state that is about to lose someone's
+edit again.
+
+> This is the highest value-per-line item in this plan. The build-steps view tells the owner what
+> happened; this tells him what is **about to** go wrong, and it is cheaper than any other item
+> here. If only one thing gets built, consider making it this.
+
+### 6h. Falsifiers for everything above
 
 - All counts are a 7-day window read on **2026-08-24** and move daily; `orchestration_states`
   took ~50 new rows during the ~20 minutes these queries ran (4,353 → 4,410 across passes).
