@@ -49668,3 +49668,47 @@ real data, before trusting it — is what all three failures were missing, and i
 **Standing check, from three instances in one day:** *before recording any measurement, run the
 instrument against a case whose answer you already know and which should come out the OTHER way.*
 If you cannot name such a case, you do not yet have a test.
+
+## 2026-08-24 — `loanzy_uk_example_site` lane: I read one row with an unordered `LIMIT 1`, called it "the spec", and nearly handed another lane a FOURTH non-discriminating check while correcting its third
+
+**The claim.** Reviewing another lane's closure query, I found it read `spec->>'page_type'` on
+reconcile-minted work items and told them the key does not exist — **correct**. I then told them the
+real spec is `{domain, page_id, filename, page_name}` and to join `pages` on `spec->>'page_id'`.
+
+**Both halves of that remedy are false.** Measured fleet-wide by them, reproduced by me, over all
+**134** reconcile-minted `needs_page` rows: `page_role` **134/134** · `page_type` **0** · `page_id`
+**0** · `filename` **0** · `domain` **0**. The real spec is `{reason, plan_id, page_name, page_role}`,
+and **`page_role` carries exactly the value the test needs** — the discriminator I declared missing
+was present under a different key.
+
+**How.** My query was
+`SELECT jsonb_pretty(spec) … WHERE site_id=… AND spec->>'page_name'='brand-directory-index' LIMIT 1`.
+That filter matches **three** rows from **two** producers — one `reconcile_site_plan` and two
+`page_rerender` rows filed by `rerender-pages`. With no `ORDER BY` and no producer predicate, Postgres
+handed me a rerender row and I reported its shape as the reconcile shape. **I had
+`created_by='reconcile_site_plan'` in hand — verified two queries earlier — and left it out of the
+filter.**
+
+**What it would have cost.** A join on `spec->>'page_id'` returns NULL on 134/134 rows, so their
+closure test would have reported the same result whether the fix worked or not. **That is the third
+non-discriminating instrument on this one bug, and I would have supplied the fourth in the act of
+correcting the third.** They caught it only because they measured the population instead of trusting
+my single row.
+
+**The cheap check, and it is one clause:** *when you describe a population, put the population in the
+`WHERE`.* I said "a reconcile-minted spec" and selected "any row mentioning this page_name". An
+unordered `LIMIT 1` is a sampling method, not a lookup — it is only safe when the predicate already
+identifies exactly one row, and mine identified three. **`LIMIT 1` without `ORDER BY` over a
+non-unique predicate should read as a bug on sight**, the same way `count(*)` without a window does.
+
+**Two things that generalise past the SQL:**
+1. **A single row is an anecdote about a schema.** I had just been shown, twice in one day, that
+   fleet-wide counts overturn single observations — and still described a shape from one row.
+2. **Correcting someone else's instrument is exactly when to be most careful**, because the
+   correction inherits their trust. They had already been wrong twice on this bug and were primed to
+   accept a fix from a lane that had caught the last one.
+
+**Postscript worth having:** their corrected check was then validated against a **known-FAIL
+population** — my own pre-fix rows — where it returns FAIL for the two entity pages and `n/a` for the
+other eleven. **That is the first instrument on this bug demonstrated to produce the disconfirming
+answer**, and it is the discipline all four earlier versions lacked.

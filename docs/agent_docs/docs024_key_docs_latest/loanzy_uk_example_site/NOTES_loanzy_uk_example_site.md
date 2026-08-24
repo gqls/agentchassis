@@ -1603,8 +1603,34 @@ taking the correction back to him rather than executing on a premise I now know 
 > step 2 does not exist as a discrete action, and retracted its own request. **An authorisation
 > obtained on a wrong premise is not permission to act; it is a correction owed.**
 
-**Also caught, in their closure query:** it reads `spec->>'page_type'`, and a reconcile-minted spec
-carries only `{domain, page_id, filename, page_name}` — **no `page_type`**. The query would have
-returned NULL for every row and reported PASS/FAIL identically for an entity-directory and a content
-page. Told them; the fix is a join to `pages` on `spec->>'page_id'`. **Second check on this one bug
-that could not have come out otherwise.**
+**Also caught, in their closure query:** it reads `spec->>'page_type'`, which **is** absent (0 of 134
+reconcile-minted rows fleet-wide). So the query could not discriminate an entity-directory from a
+content page. **Second check on this one bug that could not have come out otherwise.**
+
+> **⚠ CORRECTED 2026-08-24 — THE REMEDY I OFFERED WAS WRONG, AND SO WAS THE SPEC SHAPE I QUOTED.**
+> I told them a reconcile spec is `{domain, page_id, filename, page_name}` and to join on
+> `spec->>'page_id'`. **Neither exists on a reconcile row.** Measured fleet-wide over all 134
+> reconcile-minted `needs_page` rows: `page_role` **134/134**, `page_type` **0**, `page_id` **0**,
+> `filename` **0**, `domain` **0**.
+>
+> **The real spec is `{reason, plan_id, page_name, page_role}`** — and `page_role` carries exactly the
+> value the test needs (`"entity-directory"` on the row in question, same vocabulary as
+> `pages.page_type`). **The discriminator I said was missing was present under a different key, in
+> the row I failed to select.**
+>
+> **How I got it: an unordered `LIMIT 1` over a filter that matches three rows from two producers.**
+> `spec->>'page_name'='brand-directory-index'` matches the `reconcile_site_plan` row **and two
+> `page_rerender` rows** filed by `rerender-pages`. I read one of the rerender rows and reported its
+> shape as "the reconcile spec". **I had `created_by='reconcile_site_plan'` in hand — I had verified
+> it two queries earlier — and did not put it in the filter.** The query described one population and
+> selected from another.
+>
+> **What it would have cost:** joining on `spec->>'page_id'` returns NULL on 134/134 rows, so their
+> closure test would have reported PASS/FAIL identically for everything. **I would have handed them a
+> fourth non-discriminating instrument while correcting their third.** They caught it by measuring
+> fleet-wide instead of taking my single row.
+>
+> **The working test** is `spec->>'page_role'`, with a `pages` join on `(site_id, page_name)` as the
+> authority. They have since validated it against a known-FAIL population — my pre-fix rows — where
+> it correctly returns FAIL for `brand-directory-index` and `brand-profile` and `n/a` for the other
+> eleven. **That is the first check on this bug shown to produce the disconfirming answer.**
