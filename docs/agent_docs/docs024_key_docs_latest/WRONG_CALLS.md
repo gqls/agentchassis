@@ -49536,3 +49536,42 @@ as retention held; a table records what happened. **The transferable half:** bef
 trusting any absence, ask what a PRESENCE would have had to survive to reach you —
 here, the right pod, the right level, the retention window and the tail limit, four
 independent ways to get a zero that means nothing.
+
+---
+
+## 2026-08-24 — I repeated a peer's unmeasured premise, and my repeating it is what made it look checked (`bugfix_305_negation_gate`)
+
+- **The claim:** that a sentence-boundary defect in the copy gate was *"newly reachable"* because
+  another lane's migrations (`594`/`595`) were about to let the writer emit `<table>` into five prose
+  slots. I wrote it into a commit message, a bug-file section, a handoff and a council submission's
+  risks block, all on the same day.
+- **Where it came from:** the `bugs_open/381` lane, describing the intended effect of its own change.
+  It was entirely reasonable for them to believe, and I had no reason to doubt it.
+- **What caught it:** measuring the artefact after their release, for an unrelated reason — I was
+  checking whether a demand control had become reachable. `GROUP BY date_trunc('week')` over
+  `page_components`: `<th>` markup had been arriving since the week of **2026-08-10** — 17 components
+  over three weeks — and the one I opened rendered as a REAL table, not escaped text. **The path had
+  been open for a fortnight.** Their migrations raised the rate; they did not open it.
+- **The error, and it is not "I trusted a peer":** it is that **my repetition became evidence.** They
+  stated an unmeasured premise; I echoed it in four places; it then came back to them as *agreement*
+  rather than as a check. Their words for it are better than mine: *"an unmeasured premise of mine came
+  back to me as agreement rather than as a check."* Two lanes then held the same belief, each partly
+  because the other did, and nothing in either record showed that only one measurement (zero) sat
+  underneath it.
+- **Why it is worth a row rather than a shrug:** cross-session checking has been working *unusually
+  well* on this tree this week — three lanes caught real defects in each other's work in one day. That
+  raises the volume of peer-supplied premises, which makes this failure mode **more** likely, not less.
+  A corroboration culture manufactures exactly this: the same claim in two places with one source.
+- **The cheap check:** when a peer hands you a fact about **your own** code's reachability, behaviour
+  or blast radius, **measure it before you write it down**, however plausible and however well-placed
+  they are to know. It is your file that will carry it. Here it was one `GROUP BY` and it answered both
+  halves at once — when the path opened, and whether it had ever carried the input that would trip it
+  (0 of 76 header cells, ever).
+- **The tell to look for in your own writing:** a durable claim whose provenance is a *conversation*
+  rather than a query. Grep your own draft for the ones you could not name a query for. Mine was
+  distinctive — I had written "Newly reachable because `381`'s migrations…", which names a **cause**
+  and cites **no measurement**, in a file whose own house style is to put the figure next to the claim.
+- **Distinct from the neighbouring family, and worth keeping separate:** the "control that cannot fail"
+  entries are about a check you RAN that could only return one answer. This is about a check you never
+  ran because somebody else's confidence stood in for it. Same outcome — a false belief wearing the
+  clothes of a verified one — different door in.
