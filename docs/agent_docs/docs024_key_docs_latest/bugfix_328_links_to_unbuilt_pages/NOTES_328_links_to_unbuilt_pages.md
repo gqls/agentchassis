@@ -566,3 +566,84 @@ re-renders*), honest provenance (`source='manual'`, `created_by='bugs_open/328 l
 2 href="/your-rights.html"        <- must GO
 1 href="/guides/index.html"       <- must GO
 ```
+
+## 2026-08-24 — PROVEN AT THE ARTEFACT, on two sites, with both arms and the positive control
+
+### The canary passed, both halves
+
+`https://loanzy.uk/` fetched cache-busted after the re-render (item `b18a0287` → `complete`
+17:21:23; page `deployed_at` 17:21:17):
+
+| href | before | after | verdict |
+|---|---|---|---|
+| `/your-rights.html` | 2 | **0** | gone ✓ |
+| `/guides/index.html` | 1 | **0** | gone ✓ |
+| `/calculators.html` | 5 | **5** | **positive control survived** ✓ |
+| every other href (9 distinct) | — | **identical counts** | untouched ✓ |
+
+**Every single other link count is byte-identical to the before-state.** That is stronger than the
+test required, and it is the signature of a post-assembly string operation that removes only
+matching anchors — an LLM re-write would have drifted the counts.
+
+### The audit row is the proof it was THIS mechanism, and it caught both arms on one page
+
+`agent_error_log`, `CONTENT_LINK_SUPPRESSED_UNSHIPPED`, **17:21:10** — six seconds before the page
+deployed:
+
+```
+agent=page-rerender step=render_page action=rerender_single_page
+[{"href": "/your-rights.html",  "action": "drop_control_unshipped"},
+ {"href": "/guides/index.html", "action": "suppress_unshipped"},
+ {"href": "/your-rights.html",  "action": "suppress_unshipped"}]
+```
+
+Exactly three anchors, matching the before-state exactly — and **both arms fired on the same page,
+discriminating correctly within one document**: one `/your-rights.html` was a classed control
+(dropped whole), the other was prose (unlinked, words kept), and `/guides/index.html` was prose.
+That is the two-armed design working on real markup, which no fixture could have proven.
+
+### The alternative explanations are ruled out, not argued away
+
+- **"The targets got built, so the links became valid."** No: `/guides/index.html` is still
+  `planned`/`deployed_at` NEVER and `/your-rights.html` still `needs_rebuild`/NEVER. The links were
+  **removed**, not validated.
+- **"The page was rewritten and simply omitted them."** No: every other href count is identical, and
+  the audit row names the three hrefs and the arm used on each.
+- **"It stopped emitting internal links"** (`bugs_open/313`'s failure mode). No: 9 distinct internal
+  hrefs survived at unchanged counts.
+
+### SECOND, INDEPENDENT CONFIRMATION — a different site, unprompted
+
+`remortgagecalculator.uk` re-rendered on its **own cadence** (nothing dispatched by this lane):
+
+| page | dead anchors after | internal anchors surviving |
+|---|---|---|
+| `/index.html` | **0** | **17** |
+| `/mortgage-lenders.html` | **0** | **15** |
+
+Both targets confirmed 404 on the wire, so the removed links were genuinely dead. This is the
+prediction in §"Phase 1c reshaped" coming true: **the fleet's own re-render cadence carries the
+fix, with no dispatch.**
+
+### Fleet-wide since the flag went live at 16:07Z
+
+| domain | render passes | prose unlinked | controls dropped |
+|---|---|---|---|
+| remortgagecalculator.uk | 2 | 0 | 9 |
+| loanzy.uk | 1 | 2 | 1 |
+| leopardessconsulting.co.uk | 1 | 1 | 0 |
+| mortgagecalculator.co.uk | 1 | 1 | 0 |
+| webdesign.co.uk | 1 | 1 | 0 |
+
+**6 renders across 5 sites, 15 dead anchors off the wire**, all but the loanzy canary unprompted.
+
+### What remains, and why the bug stays OPEN
+
+**5 of the 28 referring pages have re-rendered since the flag; 23 have not.** Their STORED
+`rendered_html` still holds all 48 anchors — **by design**, since suppression is outbound-only and
+the authored href must survive so the link can return when a target ships. Those 23 pages go clean
+as they re-render on their own cadence (measured: 24 of 25 touched within 7 days). Nothing is
+dispatched for them deliberately — see §"Phase 1c reshaped".
+
+**The bug closes when the served population is clean, not now.** The FIX is proven; the estate's bar
+is fixed AND live, and 23 pages are still serving.

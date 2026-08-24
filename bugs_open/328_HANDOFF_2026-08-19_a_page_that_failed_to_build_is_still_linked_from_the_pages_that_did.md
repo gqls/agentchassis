@@ -336,3 +336,53 @@ acceptance test is at the **served bytes with a positive control in the same fet
 href="/your-rights.html"` and `1 × href="/guides/index.html"` must be **gone**, and `5 ×
 href="/calculators.html"` must **remain**. Without that second half, a fix that stopped emitting
 internal links altogether would pass.
+
+---
+
+## ✅ 2026-08-24 — THE FIX IS PROVEN AT THE ARTEFACT, on two sites, with the positive control
+
+**Acceptance test passed, both halves**, on this bug's own headline instance. `https://loanzy.uk/`,
+cache-busted, after the canary re-render (item `b18a0287` complete 17:21:23; page deployed 17:21:17):
+
+| href | before | after |
+|---|---|---|
+| `/your-rights.html` | 2 | **0** |
+| `/guides/index.html` | 1 | **0** |
+| `/calculators.html` | 5 | **5** ← the positive control |
+| every other href (9 distinct) | — | **byte-identical counts** |
+
+**The audit row proves it was this mechanism**, and catches both arms on one page —
+`CONTENT_LINK_SUPPRESSED_UNSHIPPED`, 17:21:10, six seconds before deploy:
+
+```
+[{"href": "/your-rights.html",  "action": "drop_control_unshipped"},
+ {"href": "/guides/index.html", "action": "suppress_unshipped"},
+ {"href": "/your-rights.html",  "action": "suppress_unshipped"}]
+```
+
+One `/your-rights.html` was a classed control (dropped whole), the other prose (unlinked, words
+kept). The two-armed design discriminating correctly inside a single document, on real markup.
+
+**The alternative explanations are ruled out:** both targets are still unbuilt (`/guides/index.html`
+`planned`/NEVER, `/your-rights.html` `needs_rebuild`/NEVER), so the links were **removed, not
+validated**; every other count is identical, so the page was not rewritten; and 9 distinct internal
+hrefs survived, so it did not stop emitting internal links — §"How to verify a fix"'s own trap, and
+`bugs_open/313`'s failure mode.
+
+**Second, independent, UNPROMPTED confirmation.** `remortgagecalculator.uk` re-rendered on its own
+cadence with nothing dispatched by this lane: `/index.html` and `/mortgage-lenders.html` both serve
+**0** dead anchors while keeping **17** and **15** internal anchors, and both targets return 404 on
+the wire. Fleet-wide since 16:07Z: **6 renders across 5 sites, 15 dead anchors off the wire.**
+
+### This bug stays OPEN, and here is the honest reason
+
+**5 of the 28 referring pages have re-rendered since the flag; 23 have not.** Their stored
+`rendered_html` still holds all 48 anchors — **by design**: suppression is outbound-only so the
+authored href survives and the link returns by itself when a target ships. Those pages go clean as
+they re-render on their own cadence (measured: 24 of 25 touched within 7 days). **Nothing is
+dispatched for them deliberately** — a re-render carries every platform change since a page last
+rendered, and 26 of the 28 had rendered the same day, so firing them would be churn plus 26 chances
+to ship unrelated drift onto customer sites.
+
+**Close it when the SERVED population is clean** — the estate's bar is fixed AND live, and 23 pages
+are still serving. Re-run the census first; it grew 36 → 48 in a single day.

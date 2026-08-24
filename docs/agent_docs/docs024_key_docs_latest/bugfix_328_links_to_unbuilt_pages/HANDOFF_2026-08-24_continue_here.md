@@ -1,35 +1,37 @@
-# HANDOFF 2026-08-24 — bug 328: LIVE and proven in the binary; ONE acceptance check outstanding
+# HANDOFF 2026-08-24 — bug 328: LIVE, and PROVEN ON THE WIRE. Nothing owed but time.
 
-**Read this box, then §1. Everything else is background.**
+**Read this box. Everything else is background — §1 is now the record of the passing test, not a task.**
 
-> ## STATE
+> ## STATE — PROVEN AT THE ARTEFACT 2026-08-24 18:5xZ
 >
-> **The fix is LIVE.** Chassis `v1.0.1334`, Go binary-proven on **both** replicas; migration `575`
-> applied by hand 16:07Z and read back. Council **APPROVED at round 4**, corr
-> `21c19c1f-e614-49bd-82ac-0bb5b58082e0`. Register **LNK-038**. `RFC_049` opened.
+> **The fix is LIVE and PROVEN on the wire, on two sites, with both arms and the positive control.**
+> Chassis `v1.0.1334` (binary-proven, both replicas); migration `575` applied 16:07Z; council
+> **APPROVED r4** `21c19c1f-e614-49bd-82ac-0bb5b58082e0`; register **LNK-038**; `RFC_049` opened.
 >
-> **The bug is NOT closed, and exactly one thing is owed: the acceptance check at the served
-> bytes.** A canary re-render is queued (item `b18a0287`, loanzy.uk `index`). When it completes,
-> run §1. That is the whole remaining task.
+> The acceptance test passed both halves. loanzy.uk: `/your-rights.html` 2 → **0**,
+> `/guides/index.html` 1 → **0**, `/calculators.html` **still 5**, and every other href count
+> byte-identical. The audit row (`CONTENT_LINK_SUPPRESSED_UNSHIPPED`, 17:21:10) names the three
+> hrefs and shows **both arms firing on one page**. Both targets are still unbuilt, so the links
+> were removed, not validated. Second, unprompted confirmation on `remortgagecalculator.uk` (0 dead,
+> 17 and 15 internal anchors surviving) — the fleet's own cadence carrying it, exactly as predicted.
 >
-> **⚠ BLOCKED ON ONE THING, AND IT IS NOT THIS FIX: the kubeconfig token expired at ~16:40Z
-> 2026-08-24.** Every `kubectl` call returns `You must be logged in to the server (Unauthorized)`,
-> fleet-wide (`kubectl get nodes` fails too, so it is expiry, not a query fault). **The owner
-> refreshes it** — that is the standing arrangement; do not go looking for credentials.
+> **Nothing is blocked. Nothing needs a decision. No dispatch is owed.**
 >
-> Until it is refreshed, §1 cannot run: it needs both a DB read and the item's status. The canary
-> was still `triaged` at ~16:15Z with 3 items ahead of it and that site's dispatch loop running
-> roughly every 30 minutes, so it has most likely dispatched in the meantime — **check its status
-> first, do NOT re-file it.** Its `item_key` is
-> `page_rerender_index_55213ded-03ec-40f7-8fc1-169de05e05c8_assemble`; a second row with that key
-> would be refused by the dedup index anyway while the first is non-terminal.
+> ## THE ONLY THING LEFT: wait, then close
 >
-> **Nothing else is blocked, and nothing needs a decision.**
+> **5 of the 28 referring pages have re-rendered since the flag; 23 have not**, and their stored
+> HTML still holds all 48 anchors *by design* (outbound-only, so the authored href survives and the
+> link returns when a target ships). They go clean as they re-render on their own cadence —
+> measured, 24 of 25 within 7 days. **Do NOT dispatch them** (§2).
+>
+> **To close the bug:** re-run the census in §3 until the *served* population is clean, then move
+> `bugs_open/328` → `bugs_closed/` per the fixed-AND-live bar. Re-measure; do not trust the numbers
+> in these docs (§3).
 
-## 1. THE ONE THING OWED — the acceptance check
+## 1. THE ACCEPTANCE CHECK — ✅ PASSED 2026-08-24 (kept as the recipe, and as the record)
 
-The canary item re-renders loanzy.uk's home page, the bug's headline instance. When it reaches a
-terminal status, fetch the page and assert **both halves in the same fetch**:
+The canary (`b18a0287`) completed 17:21:23; the page deployed 17:21:17. This is the check that was
+run, and it is the one to re-run on any further page. **Assert both halves in the same fetch:**
 
 ```bash
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At \
@@ -38,11 +40,12 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user 
 curl -s --max-time 20 "https://loanzy.uk/?cb=$RANDOM" | grep -o 'href="[^"]*"' | sort | uniq -c | sort -rn
 ```
 
-| assertion | before (captured 2026-08-24 ~16:10Z) | required after |
-|---|---|---|
-| `href="/your-rights.html"` | 2 | **0** |
-| `href="/guides/index.html"` | 1 | **0** |
-| `href="/calculators.html"` | 5 | **still 5** ← THE POSITIVE CONTROL |
+| assertion | before (16:10Z) | required | ACTUAL |
+|---|---|---|---|
+| `href="/your-rights.html"` | 2 | **0** | **0** ✅ |
+| `href="/guides/index.html"` | 1 | **0** | **0** ✅ |
+| `href="/calculators.html"` | 5 | **still 5** ← THE POSITIVE CONTROL | **5** ✅ |
+| every other href (9 distinct) | — | unchanged | **byte-identical** ✅ |
 
 ⚠ **The third row is not optional and is the whole test.** Without it, a fix that stopped emitting
 internal links altogether passes — a state `bugs_open/313` (closed 2026-08-19) shows this platform
@@ -56,13 +59,25 @@ WHERE error_code = 'CONTENT_LINK_SUPPRESSED_UNSHIPPED'
 ORDER BY created_at DESC LIMIT 5;
 ```
 
-**If it passes:** append the proof to `bugs_open/328`, NOTES and `README_where_we_are`, and let the
-fleet's own cadence carry the remaining pages (see §2). The bug then closes when the served
-population is clean.
+It returned, at **17:21:10**, six seconds before the page deployed:
 
-**If the canary FAILED to build** (not "suppressed nothing" — actually failed): read `error`. The
-predicate was pre-flighted against loanzy's real rows and is correct (§4), so a failure is more
-likely the re-render path than the suppression.
+```
+[{"href": "/your-rights.html",  "action": "drop_control_unshipped"},
+ {"href": "/guides/index.html", "action": "suppress_unshipped"},
+ {"href": "/your-rights.html",  "action": "suppress_unshipped"}]
+```
+
+**Both arms fired on one page**, discriminating correctly within a single document — one
+`/your-rights.html` was a classed control (dropped whole), the other prose (unlinked, words kept).
+
+**The alternatives are ruled out, not argued away:** both targets are STILL unbuilt (so the links
+were removed, not validated); every other href count is byte-identical (so the page was not
+rewritten); and 9 distinct internal hrefs survived (so it did not stop emitting internal links —
+`bugs_open/313`'s failure mode).
+
+**Second, unprompted confirmation:** `remortgagecalculator.uk` re-rendered on its own cadence —
+`/index.html` and `/mortgage-lenders.html` both serve **0** dead anchors while keeping **17** and
+**15** internal anchors respectively, and both targets return 404 on the wire.
 
 ## 2. Why 28 dispatches were NOT fired — do not "finish the job" by firing them
 
