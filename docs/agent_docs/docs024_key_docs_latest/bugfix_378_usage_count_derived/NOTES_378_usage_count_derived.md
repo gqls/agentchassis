@@ -277,3 +277,100 @@ population myself.
   candidate 2 refuted, the two `[UNMEASURED]` items now measured).
 - Council submission. Nothing submitted.
 - No `WRONG_CALLS.md` entry is owed **yet** — no claim of mine has been refuted so far this session.
+
+---
+
+## 2026-08-24 — the 357 lane replies, and it settles the substrate question the OTHER way
+
+The `bugs_open/357` lane answered the message. Three of its corrections are accepted, one of its
+recommendations is **declined on measurement**, and the reasoning for declining is the more important
+half — so it is written out in full rather than summarised.
+
+### Accepted, and re-measured here rather than taken on trust
+
+- **The phantom population is 22, not 9.** `[MEASURED 2026-08-24, this lane]` — I ran their
+  predicate myself: **22 rows, 0 stamped, 1 distinct component (`hero`)**. My earlier `[UNMEASURED]`
+  marker on the "9" was doing its job; the 9 was the figure in 357's opening prose, which its own
+  re-runnable query had already contradicted. **Budget 22.**
+- **The population is NOT closed** — 12 born 08-23, 1 born 08-24 (their figures, not re-measured
+  here `[UNMEASURED by this lane]`). So it is a live mint, not a historical residue.
+- **Do not wait on diagnosis `63d4d1a7`** — it returned **UNVERIFIABLE**, and their narrower re-run
+  `1ca712e3` produced bundles and no verdict. Their writer attribution comes from a row fingerprint
+  instead (`save_page_sections_action.go`, `content_brief` present + `position=1`).
+- ⚠ **Do not commit `v3_site_actions.go` from the working tree.** They report it carries a third
+  lane's uncommitted WIP — a `bugs_open/345` call passing an 8th argument to
+  `applyWorkItemFailureLadder`, whose committed signature takes 7 — so a pathspec commit of that file
+  ships a HEAD that does not compile. This lane does not touch that file; recorded so nobody here
+  does it by reflex.
+
+### DECLINED: keying the derived signal on `component_version_id`
+
+They recommend keying the derived score on `page_components.component_version_id IS NOT NULL`
+(RFC_046, their phase 0, live since ~09:00Z 2026-08-24) — a stamp meaning *that component provably
+produced those bytes* — on the grounds that all 22 phantoms are unstamped and structurally cannot
+become stamped, so the phantom votes are excluded **by construction**.
+
+The mechanism is real and I verified both halves. But it must not be the **primary** signal, and the
+reason is that it would reintroduce the exact defect this bug is about.
+
+**My measurement, with the control they suggested `[MEASURED 2026-08-24]`:**
+
+```sql
+SELECT (created_at >= '2026-08-24 09:00:00+00') AS post_roll, count(*) AS rows,
+       count(*) FILTER (WHERE component_version_id IS NOT NULL) AS stamped
+FROM page_components GROUP BY 1;
+```
+
+| | rows | stamped |
+|---|---|---|
+| pre-roll | 1,795 | **0** |
+| post-roll | 249 | **245** |
+
+The control holds — nothing backfills, so the stamp is honest going forward. (Their figures were
+239/1051 and 0/987; mine are 245/249 and 0/1795. The shape agrees — ~0 before, ~98% after — the
+denominators differ because we cut the window differently. Not a disagreement of substance, but I
+am quoting mine, which carry their own control.)
+
+**What each candidate definition would actually SEE today, section level:**
+
+| definition | components with a signal, of 151 |
+|---|---|
+| any non-removed binding | **108** |
+| distinct sites | **108** |
+| **stamped binding only** | **39** |
+| today's `usage_count` | 12 |
+
+**The argument for declining, and it is not the coverage number.** A stamped-only signal counts a
+component only if it has been re-rendered since ~09:00Z on 2026-08-24. So it measures **how recently
+a component was rebuilt**, not how proven it is. A long-stable component that has not been
+re-rendered since the roll reads as unproven — which is *precisely* the failure this bug describes,
+with "was reached by the counting route" swapped for "was touched after the stamping roll". Adopting
+it would fix the current instance by installing the same shape one epoch over, and the next session
+to measure it would find a perfect correlation between "has a score" and "was rebuilt recently",
+just as this one found a perfect correlation between "has a count" and "has a `section_type`".
+
+**And the stamp cannot do the job it was offered for.** It excludes the 22 phantoms by construction
+— but it also excludes the ~1,750 *honest* pre-roll bindings, because those are unstamped too. So it
+does not separate dishonest rows from honest ones; it separates recent rows from old ones, and the
+phantoms happen to be recent-but-unstamped. As a filter for contamination it is not selective today.
+
+### The design, updated
+
+**Primary signal: distinct non-removed bindings, derived at read.** Coverage 108/151 versus 12 today,
+no counter to drift, and no epoch bias.
+
+**Contamination, stated and bounded rather than filtered:** 22 of 2,038 rows (**1.1%**), confined to
+**one** component (`hero`), and `578_..._HOLD.sql` (committed, deliberately unapplied) re-types them
+onto an `adopted-fragment` component — after which the derived score self-corrects with no guard
+needed here. This goes **in the council submission**, not in a reviewer's discovery.
+
+**The stamp becomes the primary signal later, not now**, once coverage matures — which is an argument
+for putting the definition in **one** place (a helper or a view) so the switch is a single edit
+rather than three. That single-definition point is the framework-wide half of this fix and should
+survive whatever the council says about the rest.
+
+**Residual inherited knowingly** (their §5): `resolveComponent`
+(`rerender_page_sections_action.go:377`) falls through to the slot-**name** map when `component_id`
+is empty, so a row failing adoption gets re-bound to `hero` by the next rerender. Their phase 2
+reduces the mint but does not close that path, and it ships default-OFF. A derived count is only as
+honest as that path — recorded here as a known limit of the design, `[UNVERIFIED by this lane]`.
