@@ -570,3 +570,68 @@ single shared chooser both paths would use.**
 lane's headline case, on a site nobody contrived for it. **Post-roll closure check gains a step:
 that link should go live on `garden-tools.uk` without anyone touching the site.** That is a
 better proof than re-triaging a page by hand, because nothing about it was set up to succeed.
+
+## POST-ROLL 2026-08-24 (v1.0.1334) — the code is LIVE and verified; the closure test as written CANNOT fire, for two independent reasons
+
+### The code is live, at the artefact
+
+`[MEASURED 2026-08-24, fleet on v1.0.1334, both `agent-chassis` replicas]` — binary probe, not
+build provenance, with controls in the same breath:
+
+| probe | fr8dn | xl2zk | expected |
+|---|---|---|---|
+| `builderForPageType` | 2 | 2 | > 0 |
+| `page_type not in the builder map` (the round-4 log literal) | 1 | 1 | > 0 |
+| `builderForPageTypeXYZZY` (**negative control**) | **0** | **0** | 0 |
+
+The round-4 log literal is the useful one: it is unique to this change and postdates the
+round-2 revision, so its presence dates the binary to the final version, not merely to "some
+206 code".
+
+### …and it will not do anything yet. Both halves of the closure test are blocked.
+
+**Reason 1 — reconcile has not run on any affected site since the roll.** `sites.last_reconciled_at`:
+`garden-tools.uk` **2026-08-23 20:15** (the roll was 15:39 today), `loanzy.uk` 08-18,
+`dartsonline.com` 07-22, `vetcomparison.uk` 07-17. There is no timer that runs
+`reconcile_site_plan` on a cadence — it runs inside a build/publish pipeline. **So a site with no
+pipeline activity never re-reaches the fixed code**, and four of the five parked pages are on
+sites that have been quiet for days to weeks.
+
+**Reason 2 — and this is the one that matters — the parked row BLOCKS its own re-mint.** The fix
+routes what is minted; it does not touch rows already filed. `loadOpenPageItems` treats
+`needs_human_review` as OPEN (its filter excludes only
+complete/verified/rejected/wont_fix/failed/cancelled), so when reconcile does next run for
+`garden-tools.uk` it will find `needs_page:brand-directory-index` already held and skip the page
+as "queued" — **taking the correct new routing with it.**
+
+### Consequence: a shared expectation was wrong, and it was wrong in BOTH lanes' docs
+
+The `loanzy_uk_example_site` lane's handoff §3a and this lane's RUNBOOK both said, in substance,
+*"post-roll `garden-tools.uk/brand-directory/index.html` should go 404 → 200 with nobody touching
+the site"*. **It will not.** Confirmed at the artefact just now: still `404` (and
+`buying-guides/index.html` also `404`, which IS expected — that is the deliberate narrowing).
+`vetcomparison.uk`'s two pages remain `200`, so nothing regressed.
+
+Neither of us checked what actually re-triggers a build for a quiet site, or whether an existing
+parked row would suppress the new mint. **The check was designed to prove the fix and was
+incapable of firing** — which is this estate's own recurring shape (a control that cannot
+produce the disconfirming result), reached this time by two lanes agreeing with each other.
+
+### What an honest live proof requires
+
+Freeing the key, then giving the site a reconcile — in that order:
+
+1. Close the parked row to a **terminal** status so `idx_swi_dedup` and `loadOpenPageItems` both
+   release the key (`cancelled` or `wont_fix`; **never** `complete`, which would assert work that
+   did not happen), with the reason in `error`.
+2. Trigger a build/publish pipeline for the site so `reconcile_site_plan` actually runs.
+3. Then the proof is the MINT, not the page: a fresh `needs_page:brand-directory-index` carrying
+   `handler_agent='directory-build-handler'`, filed by `reconcile_site_plan`, with no hand
+   routing — followed by the page building and the home-page link going live.
+
+**Step 1 is an operator action on another lane's deliberately-unrepaired greenfield site**, so it
+is theirs to authorise, not this lane's to take. Asked, not assumed.
+
+**Re-triaging by hand instead (the RUNBOOK's step 4) fixes the PAGE but proves nothing about this
+fix** — setting `handler_agent` yourself demonstrates only that `directory-build-handler` works,
+which has been known since 08-08. Distinguish the two before reporting either as closure.
