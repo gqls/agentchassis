@@ -40,8 +40,13 @@ notice.**
 | shared hook mechanics | `scripts/lib/precommit-gotest.sh` — ⚠ **fleet-critical, see §4** |
 | register | `docs026_concept_register/register/debugging.md` → **DBG-075** |
 
-**LIVE READING 2026-08-24:** 42 codes observed, **0 findings**, **25 unruled** (cap 25),
-12 registered-but-unobserved, retention parity 0 disagreements, `_scan_baseline` 13.
+**LIVE READING 2026-08-24 evening, after the v1.0.1335 roll:** 43 codes observed, **55 declared**,
+**0 findings**, **25 unruled** (cap 25), 12 registered-but-unobserved, retention parity 0
+disagreements, `_scan_baseline` 13. **The day-one loop is CLOSED and proven at the artefact**: the
+deployed image's build stamp (`48f55f218…`) has both the declaration commit and the scan/baseline
+commit as ancestors (`git merge-base --is-ancestor`), and a manual in-cluster Job exits 0 with a
+clean row. First *scheduled* fire: 07:30 UTC 2026-08-25 — worth one glance at the doc_notes row
+that morning, then leave it alone.
 
 ### What is NOT done — in order of who decides
 
@@ -89,6 +94,21 @@ disposition is the owner's to overrule, the measurement (no reader anywhere) is 
 **If you take one thing from this lane to another: that row is the best argument in the registry
 for giving a code a real reader.**
 
+*(Loop status: both day-one codes were declared the same day, the v1.0.1335 roll carried the
+declarations, and the in-cluster run is green. The DEGRADATION itself — writers losing their link
+context on DB timeouts — remains unfixed and unowned-in-practice; it is a candidate for a fresh
+bug file routed at the 092 lane, not for silent adoption.)*
+
+## 3a. OWED: a Fable review pass that did not complete
+
+The owner asked (2026-08-24 evening) for a second review pass over this lane's shipped code by
+Fable. The agent hit the API session limit mid-review (resets 23:50 London) and returned **no
+findings**. **Do not read anything in this lane as Fable-reviewed.** To relaunch, the brief is in
+NOTES (2026-08-24 evening, "The Fable review pass DID NOT COMPLETE"): read-only, the eight files
+listed there, findings with file:line + failure scenario, verified against the code before
+reporting. What I checked myself in its place is in the same NOTES entry — three items, all
+resolved, one of which produced a fix (the hook classifier) and one a trap (below).
+
 ## 4. Traps this lane created or found — read before touching
 
 - **⚠ `scripts/lib/precommit-gotest.sh` runs on EVERY session's commit** (via the pre-existing
@@ -100,6 +120,17 @@ for giving a code a real reader.**
   the tag an overlay names — it **`sed`s every overlay to `$(IMAGE_TAG)`** and applies. Between a
   new service's birth commit and the next release, one image exists at the new tag and ~32 do not.
   Run the **whole** `make release`, never `deploy-` alone. LANDMINES entry, measured.
+- **⚠ `UNKNOWN` is a PREFIX of `UNKNOWN_HANDLER_VERDICT`** (a `_scan_baseline` code, writer
+  `complete_work_item_verification.go:394`). The checker's prefix-collision rule is pairwise and
+  unconditional over every declared code, so **the day that code is declared, the daily check
+  exits 1 on `prefix-collision` and its author will not know why.** No live `LIKE 'UNKNOWN%'`
+  exists (measured 2026-08-24), so it is a rule artefact today, not a query hazard. Remedies:
+  rename the code, or scope the rule to family prefixes — the owner's call, because the rule
+  exists for real `LIKE` families and relaxing it is a guarantee change.
+- **The hook helper's build-failure classifier is now the toolchain marker** (`[build failed]` /
+  `[setup failed]`), not `cannot find|undefined:|syntax error`. If a real failure ever reads as
+  "NOT CHECKED", that is the first place to look — and the old bag-of-words is the reason it was
+  changed.
 - **⚠ `.dockerignore` excludes `docs/`** with one `!` un-ignore per shipped file. A new
   registry/acks-shipping check needs a line there or the `COPY` fails at build — the loud direction,
   and why the registry is a COPY not a mount.
