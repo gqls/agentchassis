@@ -49458,3 +49458,45 @@ unmeasured value is a third state, and code that has only two will silently file
 under whichever one is cheaper to write. Mine filed "unknown" under "disaster";
 the more common version of this bug files it under "fine", which is how a dead
 detector reads green for months.
+
+## 2026-08-24 — `bugfix_206_directory_build_handler` (twelfth entry) — I asked for authorisation to run an action, got it, and only then checked what the action would actually do
+
+I told the owner that one thing was blocking this lane's only live proof: a stuck work item on
+another lane's test site, needing his call. He authorised clearing it. **Then** I looked at what
+would have to happen next for the clearing to mean anything, and the answer was that it either
+does nothing or does harm:
+
+- `reconcile_site_plan` — the routine my fix corrects — runs in **exactly one** agent
+  (`build-site-planner`) and **nothing schedules it** (`scheduled_tasks` targeting it: 0).
+- That agent runs `plan_site` (an LLM), `write_site_plan`, `sync_pages_to_db`, and design,
+  imagery and nav emission **before** it reaches reconcile. It is a **full site re-plan**.
+
+So clearing the row leaves it inert (reconcile never runs on a quiet site), and making reconcile
+run means re-planning a site another lane is holding as a clean measurement — `bugs_closed/001`'s
+named hazard, and the destruction of that lane's dead-link census. The authorisation was not
+spent. It should never have been requested in that form.
+
+**The shape of the error: I escalated a DECISION before establishing that the decision was
+actionable.** Everything I told the owner was true — the row is stuck, it does block the re-mint,
+it is on someone else's site, it is his call — and the conclusion "authorise this and we get the
+proof" was false, because I had not asked what runs the code. That put a real decision in front
+of him that could only be answered wrongly: yes was harmful, no was correct for reasons neither
+of us had.
+
+It also wasted the owner's own recollection: he thought he had already cleared it (he was
+thinking of a different lane's page, on a different site, which had genuinely been actioned).
+A request that shouldn't have existed drew a good-faith answer about work that hadn't happened.
+
+**The cheap checks:**
+
+1. **Before asking anyone to authorise an action, trace the action to its outcome.** One query —
+   which agent's steps carry this action, and what else is in that workflow — would have closed
+   it. "Who can approve this?" is the wrong first question when "does this do what I think?" is
+   still open.
+2. **An action that requires a heavyweight side effect to have any effect is not the action you
+   described.** "Clear a stuck row" and "re-plan a live site" are different asks, and only the
+   second was ever on the table.
+3. **The good news is the same query answered the real question:** reconcile runs at PLAN time, so
+   this fix protects every future build and was never going to rescue already-parked pages. That
+   is a narrower and truer claim than the one I had been making all day, and it came from finally
+   asking what invokes the code I had changed.
