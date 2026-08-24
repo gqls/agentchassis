@@ -48213,3 +48213,98 @@ Tally note: the check that would have caught it — `grep -n "func pingClaude" -
 same one that eventually did, run for a different reason (I was designing the fix, not
 auditing the claim). It cost nothing. It just needed to happen ~40 minutes earlier, before I
 wrote the sentence.
+
+---
+
+## 2026-08-24 — I read a rolling window as a producer's whole history, and nearly went hunting for a producer that does not exist (bugs_open/382 lane)
+
+**The claim.** Every per-page hero asset (`hero_about`, `hero_services`, …) is created by an
+`unfulfilled_hero_variant` work item — `classifyPromptKey` in
+`discovery_checks/check_unfulfilled_image_prompt.go` says so, and it is right. So I queried
+`site_work_items` for that item type to find the producer of the 15 SDXL heroes.
+
+**Zero rows.** For a few minutes I held that as evidence the assets came from *some other*
+producer, and started composing a search for one.
+
+**What caught it.** `site_work_items_archive` — 18 completed `unfulfilled_hero_variant` rows,
+five of them matching my assets minute for minute. `site_work_items` is a ROLLING WINDOW:
+closing a row archives it out of the table.
+
+**The cheap check.** `SELECT count(*) FROM site_work_items_archive WHERE item_type = …` — the
+same query against the other table, three seconds. **The rule that makes it automatic: an
+item-type census over `site_work_items` alone measures the LAST DAY, not the history. Query
+both, always, or say which one you queried.**
+
+**Why it is worth a row here even though nothing shipped.** I already had this exact lesson in
+my own memory index — [[a-closer-census-cannot-see-what-it-succeeded-at]], written by another
+lane about this very table — and I walked into it anyway, because the memory names the *closing*
+case ("a closer census cannot see what it SUCCEEDED at") and I was not closing anything. **A
+lesson filed under one symptom does not fire on a different one.** The general form is: the
+archive exists, therefore the live table is a window, therefore ANY historical question asked of
+it is asked of the window. Filed in `LANDMINES.md` too, footprinted on the table name, so the
+next session gets it from the path rather than from having read this file.
+
+---
+
+## 2026-08-24 — an unparenthesised AND/OR in a pre-apply safety census returned a row its own predicate excludes (bugs_open/382 lane)
+
+**The setting.** Before applying migration 586 — which newly makes each site's
+`design_intent.imagery_direction` reachable for hero-variant generation — I ran a safety census
+for pathological directions, the class the vetcomparison lane had found and fixed that morning:
+
+```sql
+WHERE di.aspect='design_intent' AND di.is_current
+  AND (di.data->>'imagery_direction') ILIKE 'none%' OR (di.data->>'imagery_direction') ILIKE '%do not introduce%'
+```
+
+It returned vetcomparison.uk — the very row that lane had superseded hours earlier. Read
+literally, that says the fix did not take and I must not apply the migration.
+
+**It was my query.** `AND` binds tighter than `OR`, so Postgres read it as
+`(aspect AND is_current AND ILIKE 'none%') OR (ILIKE '%do not introduce%')` — the second arm
+carries **no `is_current` and no `aspect` filter at all**, and matched the superseded row.
+Parenthesised properly, the census returns **0 rows** and the migration is safe.
+
+**What it would have cost.** Not a wrong write — a wrong *block*. I would have stopped a
+correct migration on the strength of a row that my own predicate excludes, and most likely gone
+and told the vetcomparison lane their fix had failed. A false alarm from your own SQL is
+expensive in a different currency: it spends another lane's attention on a defect that is not
+there.
+
+**The cheap check: put brackets round every OR arm in a WHERE clause the moment there is also an
+AND — and when a safety census comes back POSITIVE, re-run it in a form that could come back
+negative before you act on it.** The second half is the transferable one. I only found the bug
+because the answer was surprising; had the same query returned 0 rows for a bad reason, nothing
+would have made me look. A census that gates an action deserves the same disconfirmability test
+as a measurement that supports a claim ([[measurement-discipline-index]]).
+
+> **CORRECTION 2026-08-24, same day, to the entry above.** The process error stands: a
+> pathspec-less `git commit --allow-empty` took another lane's staged deletion, and the
+> attribution is wrong. **But my reasoning about the CONTENT was hedged for the wrong reason,
+> and the outcome was correct — better than I knew.**
+>
+> I wrote that I did not restore the `_HOLD` files because reversing another lane's lifecycle
+> step *on a guess* was worse than leaving it visible. That framed it as an unresolved
+> uncertainty. **It was already resolved, in this tree, in a landmine filed the same day**
+> (`LANDMINES.md`, *"A `git mv` committed by ONE pathspec leaves BOTH names at HEAD"*), which I
+> had not read before deciding — I found it only because an unrelated `grep` over pod logs
+> happened to print its title.
+>
+> That entry measured exactly this case: HEAD carried **all four** `524_*` names; the `_HOLD`
+> pair was deleted on disk with the deletion **staged and uncommitted**; the two are not a pure
+> rename (**11,716 B** vs **7,192 B**); and the `_HOLD` banner reads *"⚠⚠ _HOLD — DO NOT APPLY
+> YET"* about a migration **applied 2026-08-21 18:44:22Z**. Its sharpest line: **"A stale
+> duplicate that says 'wait' will never be questioned by the person it stops."**
+>
+> So the staged deletion was the **correct completion of an un-hold rename**, and my accidental
+> commit **closed a live trap** rather than damaging anything. Verified after the fact: HEAD now
+> carries only `524_..._cooldown.sql` and its `_ROLLBACK`, and that landmine's own sweep command
+> returns **no** `BOTH FORMS` lines — the trap is closed and `524` was its only live instance.
+>
+> **The lesson I take is not "it worked out".** It is that I made a content judgement about
+> another lane's files while a document in this very repo already contained the measured answer,
+> and my `grep` of `LANDMINES.md` before acting had been keyed to my own footprint
+> (`git commit`, pathspec) rather than to the **files I was touching** (`_HOLD`, `524`,
+> `sql_for_agents/`). **Grep the landmines for the PATHS in the diff, not only for the operation
+> you think you are performing.** The right entry was there, titled almost exactly for the
+> situation, and I reached it by accident.
