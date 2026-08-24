@@ -44,6 +44,25 @@ builds successfully and they all look like each other.
 > homogeneity cost visible.
 >
 > Evidence and the full census: `docs/agent_docs/docs024_key_docs_latest/bugfix_378_usage_count_derived/NOTES_378_usage_count_derived.md`.
+>
+> **ADDENDUM, same day — the `bugs_open/381` lane measured the other half of this, and together the
+> two say what to build.** My census counts *contests*: how many `section_type`s have more than one
+> candidate (**4**). Theirs counts *kinds*: of the 44 structural components, almost all are
+> site-specific — directories, calculators, quizzes — and there is **no generic checklist, table,
+> steps or timeline component anywhere in the library** `[MEASURED 2026-08-24 by that lane, not
+> re-run here]`.
+>
+> Those are two different measurements and neither implies the other, which is why the pair is worth
+> more than either. Mine says the chooser is usually not choosing. Theirs says *what is missing from
+> the shelf* — and it is not "more heroes", it is the ordinary structural furniture any page might
+> want. **That is the concrete shopping list this bug has never had.**
+>
+> ⚠ **And a scope correction to my own note above, so nobody over-applies it.** 381's fix works at
+> the **planner** level (which named components enter a page's `sections[]`) — components resolved by
+> *name*, which is Path 1. The incumbency trap I describe is a property of Path 2, the `section_type`
+> selector's scored contest. **So the trap does not bite 381's change**; my warning applies to any
+> remedy that adds competing candidates *under one `section_type`*, which theirs does not. The term is
+> removed either way, so this is a clarification, not a dependency.
 
 ## The measurement
 
