@@ -538,6 +538,29 @@ your inbound volume from this producer rises, something has gone wrong with `574
 08-24 found nothing new filed from that producer at `page-build-handler` on an owned page since 08-19 — the
 28 are all pre-`574`. A stated failure signal that does not fire is worth more than a success claim.
 
+### 2026-08-24 — a stated LIMIT, found by the `bugs_open/384` lane asking before they built
+
+They were adding a `page_rerender` emitter through the raw canonical INSERT (`insertPageRerenderItem`), which
+bypasses the door, and asked whether every `page_rerender` producer should route through it instead.
+
+**Ruling: no — and the bypass is not what excludes them.** The door parks only when the target handler DECLARES
+`refuse_owned_page`. `page-rerender` does not (verified under `$.**` with no active/snapshot filter: exactly one
+live agent matches, `page-build-handler`), so routing through `writeWorkItem` would be a **no-op**. And it must
+never declare it: [MEASURED 2026-08-24] `page-rerender` is **5,216 complete** on owned pages — the estate's
+principal owned-page route, deliberately ungated by migration 164.
+
+**The structural limit this exposes, now in WII-028:** the door's unit of decision is the AGENT, while
+`page-rerender`'s ownership behaviour varies by BRANCH (`spec.reason` selects `rerender_sections → save_sections`,
+which hits the guard, or `render_page`, which does not). A per-agent declaration cannot express "…for these
+reasons". For a producer targeting such a handler, a consumer-side exclusion mirroring `ownedPageExclusionSQL`
+is the only place the distinction can be made.
+
+**And their sizing was wrong in the direction that matters.** "12 failed page-rerender runs in 14d are exactly
+that shape" came from a `rebuild_policy='owned' AND status='failed'` join. Classified by the guard's own error
+text: **4** of 17 carry `OWNED_PAGE_GUARD`; 10 are `cta_links_stale` failing earlier at `rerender_sections` for
+an unrelated reason. All-history: **4 of 95**. Told them, because verifying against 12 would read a
+mostly-unchanged count as the fix failing — and the other ~80 are a different, larger defect.
+
 ### Consumers told (ruling 2026-07-29 §3)
 
 `bugs_open/326` (collides in `writeWorkItem` — sequenced, they land after me), `bugs_open/367` (their
