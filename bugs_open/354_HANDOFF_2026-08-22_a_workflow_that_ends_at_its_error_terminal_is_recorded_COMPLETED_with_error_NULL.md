@@ -338,3 +338,72 @@ One thing worth knowing for your own change while you are in there: `routeToErro
 with two failing steps keeps only the last one. If `354`'s discriminator ever needs to know
 *which* step failed rather than *that* one did, that is the same gap my held hunk fills — worth
 coordinating rather than both of us solving it.
+
+## 2026-08-24 (evening) — YOUR WORK IS COMMITTED. I swept it in, with the owner's approval, and here is exactly what I did and what you still owe
+
+Following my note above, which went unanswered. **`error_route_completion.go` and its test are
+now at HEAD** (`893a12d47`), and your `completeWorkflow` hunk went in with the next commit
+(`dbd865ee8`) as a declared same-file passenger. **It is recorded as yours, not mine**, in both
+messages.
+
+**Why I did it rather than waiting longer.** Both files had been untracked since **2026-08-22
+19:20–19:21** — two days — with no commit touching this lane since, while a *tracked* file
+(`coordinator.go`) called into them. That is not a lane mid-edit; it is a trap. Any session
+committing `coordinator.go` for any reason would have taken the call without the callee and
+broken HEAD for the whole estate, and nothing at commit time could have warned them. The owner
+approved the sweep explicitly.
+
+**What I verified before vouching for code I did not write** (I would not have committed it
+otherwise):
+
+- **builds** — `verify-head-builds` with all three files, OK against HEAD; and HEAD builds
+  green after both commits;
+- **your tests pass in full** in a clean HEAD tree — declared-terminal recorded, recovered run
+  untouched, skip untouched, undeclared untouched, outcome read strictly, malformed marker
+  inert across five shapes, prefix not doubled;
+- **read in full**, including the body: `errorRouteTermination` returns false unless the ending
+  step declares `config.outcome == "error"` **and** a non-empty `__step_error.message` exists.
+  Both halves must hold, so it is inert by construction.
+
+### ⚠ THE FINDING YOU MOST NEED, and it is why the sweep was tolerable
+
+**Your file's measurement table reads as if the declaration were live. It is not.**
+
+> `36 dishonest (declared terminal + marker) -> recorded 100%`
+
+Checked today at **all three placements**, because this is exactly the nesting trap that bites
+on this estate:
+
+| where | live count |
+|---|---|
+| `v->'config'->>'outcome' = 'error'` | **0** |
+| step-level `v->>'outcome' = 'error'` | **0** |
+| the string `"outcome"` anywhere in any live `default_config` | **0** |
+
+**So your code cannot fire on any live agent today.** It is the code half of a code-half /
+config-half split, and the config half — a migration adding `outcome: "error"` to the terminals
+you measured — **does not exist yet**. Until it lands, `bugs_open/354` is not fixed and must not
+be recorded as fixed; the discriminator is present and unreachable.
+
+That is the same shape the 243 lane is running for its own council fix, so the sequencing advice
+transfers: ship the migration as `_HOLD`, gate it on a **pod-grep of a literal unique to the
+code half** (not one the other half also mentions), and apply by hand after the roll.
+
+### What you still owe, which this commit does NOT discharge
+
+- **A council round.** The only `Council-Reviewed:` line in this file is mine, from my note, and
+  it belongs to the 243 correlation. **Your change has never been submitted.** Committing it
+  does not launder that, and I said so in the commit message. `completeWorkflow` writing
+  `state.Error` is a shared seam; submit it.
+- **The config half**, above.
+- **A concept-register entry**, if this discriminator is meant to be reusable — nothing in
+  `docs026_concept_register` names it.
+
+### One thing of mine that touches yours, so you are not surprised
+
+`routeToErrorStep` now also accumulates `collected_data.__step_errors`, a map keyed by failed
+step name, capped at 50 (`dbd865ee8`, register **WFA-023**). `__step_error` is **untouched** and
+all its readers are unaffected — including your `ExtractNestedFieldString` reads of
+`__step_error.message` and `.failed_step`, which I deliberately did not disturb. If your
+discriminator ever needs to know *which* step failed rather than *that* one did, that map is
+already there and you should read it rather than build a second one.
