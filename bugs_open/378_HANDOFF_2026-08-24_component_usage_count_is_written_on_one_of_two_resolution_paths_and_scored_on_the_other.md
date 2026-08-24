@@ -10,7 +10,27 @@ and hand queries when it is not.
 
 ~~**Status: OPEN, not started.** Diagnosis below is first-hand and complete; no code written.~~
 
-> ## STATUS 2026-08-24 — FIXED IN CODE, NOT YET LIVE. Read this block before the body.
+> ## STATUS 2026-08-24 (updated post-roll) — **FIXED AND LIVE.** Read this block before the body.
+>
+> **Live on chassis `48f55f21834ac3e2d95aa43716f6e63e40ac12ee`** (pod started 18:55:21Z). Proven three
+> ways, each with a control: ancestry (`5074367f7` IS an ancestor; a later commit correctly is NOT),
+> the new SQL `count(DISTINCT p.site_id)` PRESENT in `/proc/1/exe`, and the old `/ 50.0` scoring term
+> ABSENT with a positive control proving the grep is not blind. Council **`ca01b81a` APPROVED** round 1.
+>
+> ⚠ **NOT yet demand-proven, and that is why this file is still in `bugs_open/`.** `usage_count` has
+> frozen — but `page_components` rows created since the roll = **0**, so nothing has exercised the path
+> and the old code would have incremented nothing either. **The frozen counter is not evidence until a
+> page build has run.** Recipe: `docs024_key_docs_latest/bugfix_378_usage_count_derived/HANDOFF_2026-08-24_continue_here.md` §4.
+>
+> **One correction to the block below:** it said the contract-row change was a risk needing post-roll
+> verification. It has been verified and the result is the **opposite** of the concern. The store
+> resolves what it overwrites by `function = NormaliseToKebab(section_type)`; measured over all 117
+> section_types, the OLD ordering's prediction agreed with that in **88**, the NEW ordering agrees in
+> **90**, and both changed types moved from disagree to agree. **The change reduced a pre-existing
+> mismatch rather than creating one.** A separate finding falls out: **27 of 117** section_types still
+> predict a contract the store would not enforce — pre-existing, unowned, and arguably its own bug.
+>
+> ## (original post-fix block, kept as written)
 >
 > Commit `5074367f7`, council **`ca01b81a`** (`Council-Submitted:`, **verdict not yet read**).
 > Inert until the next chassis image is built and rolled, so the defect is still reproducible on
