@@ -47657,3 +47657,46 @@ to read.** Check for the section you expected, not just the numbers in the secti
 its own default gate** and no evidence of ever having been run. The 130 GB did not accumulate for
 want of a tool. It accumulated because nothing scheduled the tool we had. *A silent mechanism is
 usually undriven, not missing* — and I spent a morning proving that by writing the missing one.
+
+## 2026-08-24 — `loanzy_uk_example_site` lane: I truncated a handoff to ZERO BYTES and committed it, with a read-after-open-for-write
+
+**What happened.** Applying two edits to a freshly written handoff in one `python3 - <<'PY'` heredoc:
+
+```python
+io.open(p,"w",encoding="utf-8").write(s.replace(old,new))                       # edit 1 — fine
+io.open(p,"w",encoding="utf-8").write(io.open(p,encoding="utf-8").read()        # edit 2 — DESTROYS IT
+                                        .replace(old2,new2))
+```
+
+`io.open(p,"w")` **truncates immediately**, and Python evaluates it before the inner read. So the
+inner `read()` returned **empty string**, and the file was written back as 0 bytes. The script printed
+its success message ("handoff corrected + closure check added") because nothing raised — both
+`.replace()` calls succeeded on an empty string.
+
+**I then committed it.** `1 file changed, 117 deletions(-)` — no insertions.
+
+**What caught it:** the commit summary line, read rather than skimmed. `117 deletions(-)` with no
+`insertions(+)` is impossible for an edit that adds two sections. Nothing else would have — the
+script exited 0, `bash -n` is irrelevant, and the next session would have found an empty cold-start
+document with a confident filename.
+
+**Recovered at zero cost because git had it** — `git show <prev-sha>:<path> > <path>`, the exact
+recovery CLAUDE.md describes for the auto-memory clobber. This is what "commit each task the moment
+it is coherent" buys: I had committed the handoff four minutes earlier, so the loss was four minutes.
+Had I written both edits before the first commit, the file would have been unrecoverable.
+
+**The cheap check, and I already knew it — I just ran it in the wrong order.** `git diff --numstat
+<path>` before committing, not after. The LANDMINES entry on deleted markdown bullets prescribes
+exactly this (*"gate on the COUNT, which no content can fool"*), and I had used it correctly earlier
+the same evening on `LANDMINES.md`. Here I skipped straight to `git commit | tail -3`.
+
+**Two things that generalise beyond the Python bug:**
+1. **A script's own success message is not evidence it did the right thing.** Mine printed "both
+   edits applied" over an empty file, because operating on nothing succeeds.
+2. **One read at the top, one write at the bottom.** Never re-open a path you have already opened for
+   writing in the same script. If two edits are needed, chain the `.replace()` calls on the in-memory
+   string.
+
+**Third instrument failure of the session** — after `grep -i` defeating a capitalisation test, and a
+harness printing "(no lines = nothing found)" for three checks whose query had errored. The pattern
+across all three: **the tool reported success in a state it had never been tested in.**
