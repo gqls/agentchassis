@@ -4282,3 +4282,59 @@ built from a **probe** or from `deployed ∪ needs_rebuild`, never from `build_s
 alone. The two `planned` pages (`scorecard-simulator`, `guide-market-structure`) are genuinely not
 live and need nothing — they will pick the footer up when they are first built, because the chrome
 is now in the store.
+
+### Result: 30/30 serving pages carry the disclaimer — and the two canaries disagreed, informatively
+
+**Coverage confirmed twice, independently** (2026-08-24): a rigorous pass (3 attempts per page,
+25 s timeout) and a separate hand check (2 attempts) both returned **30/30**. 28 pages dispatched
+assemble-only, **0 dispatch failures, 0 FAILED orchestrations** (23+ COMPLETED on this site in the
+window).
+
+**The two-canary rule paid off exactly as memory says it does — they disagreed:**
+
+| | `guides-index` (STALE, last deployed 08-16) | `guide-lender-restrictions` (FRESH, 08-23) |
+|---|---|---|
+| bytes | 25,173 → 59,961 | 22,064 → 56,955 |
+| `<head>` | 9,110 → 43,960 | 9,587 → 44,061 |
+| visible words | 315 → 351 | 451 → **480** |
+| visible-text changes | nav/footer links **+** the disclaimer | **the disclaimer, and nothing else** |
+
+**That difference is the finding.** The fresh page's ONLY visible change is the two disclaimer
+lines (+29 words). The stale page additionally picked up eight days of nav changes — because its
+nav was eight days old, not because of anything I did. **Had I canaried only the stale one I would
+have reported "re-rendering also churns the nav" as a property of this change; had I canaried only
+the fresh one I would have reported "nothing changes but the disclaimer" and been surprised later.**
+Both are true, of different pages.
+
+And both took the **same** ~34.5 KB head, which settles what that is: uniform chrome, independent
+of page age — consistent with the fleet control rather than with anything page-specific.
+
+### Verification discipline: a single probe under-reported, and I nearly explained it wrongly
+
+`investor-index` read as MISSING the disclaimer on one probe, minutes after I had watched it render
+correctly. **I said out loud that the cause was my `--max-time 8` truncating a now-71 KB response —
+and then could not reproduce it**: the same page returns complete at `--max-time 2`. So the
+timeout explanation is **withdrawn**; it was a single transient failed fetch, cause not established.
+
+The remedy does not depend on the cause and this lane already had it written down: *"a single 404
+in a fast scan is not evidence"* (08-18 handoff §4). Six consecutive probes showed the page fine.
+**Measured proof that single-probe checks under-report here:** at the same instant, the
+single-probe watcher reported **28/30** while the 3-attempt pass reported **30/30**. The weaker
+check is conservative (it can produce false ABSENCES, never false presences), so it is safe to run —
+but its number must never be the one quoted.
+
+That is the third checker-of-mine to give a confident wrong reading in this lane in four days
+(08-21: a terminal-state watcher matching retained error text; 08-21: an `@`-count matching CSS
+`@media`; today: this). All three were caught within a minute, all three by re-reading the whole
+line rather than the verdict. **The pattern worth carrying: my watchers fail toward FALSE ALARM,
+not false calm — which is the safe direction, and is worth preserving deliberately when writing
+the next one.**
+
+### Final state
+
+- **30 serving pages, 30 carrying the disclaimer.** The `pages` table calls 29 of them `deployed`;
+  `contact-index` serves while flagged `needs_rebuild`.
+- Two pages are genuinely not live (`scorecard-simulator`, `guide-market-structure`, both
+  `planned`). They need nothing — the chrome is in the store, so they inherit the disclaimer the
+  first time they are built.
+- Site unlocked, nothing armed by this lane, no work items left open by this task.
