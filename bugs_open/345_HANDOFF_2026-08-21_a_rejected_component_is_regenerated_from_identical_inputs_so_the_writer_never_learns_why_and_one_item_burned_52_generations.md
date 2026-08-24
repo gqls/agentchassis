@@ -1143,3 +1143,47 @@ spec call.
    marker or the dated proxy query** — not from `TerminatedOnRepeat`, which never reaches the DB.
 4. Follow-ups: spec registration must cover **both** actions; concept-register entry for candidate 2;
    the F7 admin-door trap belongs in LANDMINES if the update door survives review.
+
+---
+
+## 2026-08-24 (late) — ALL THREE PIECES BUILT, COMMITTED AND (WHERE CONFIG) APPLIED. The close condition is now one dated query
+
+Owner-directed ("please build all three") after the Fable review. Commit **`7ec5d4f23`** (7 files),
+`Council-Submitted: cf086b8d-a7fb-438e-8805-fb53a1474242` (round pending — I am the submitter and
+will read the verdict). Committed HEAD verified green post-commit: package tests ok (8.2s, full
+suite, no `-run`), whole-repo build OK — both via `scripts/verify-head-builds.sh`.
+
+| piece | state | evidence |
+|---|---|---|
+| **1. durable firing marker** — `result.terminated_on_repeat` merged in Go before the terminal write (no new bind param: the 42P18 pin and the sqlmock arity trap both forbid one) | **COMMITTED, INERT until the next roll** | mutation: `true→false` fails only the repeat test's marker assertion; the different-failure test pins the marker ABSENT on survivors |
+| **2. the rejection names every offender** — `describeSchemaTemplateMismatch` + `scoreComponent`'s sync loops made exhaustive, ungated, Direction 2 sorted | **COMMITTED, INERT until the next roll** | mutations: restored break fails on the unnamed second orphan; removed sort fails the two-layer determinism test |
+| **3. the opt-in** — migration `607`, nested `mark_failed` path | **APPLIED 2026-08-24 20:23:00Z, LIVE** | key read back independently: `{work_item_id, error_message, stop_on_repeat_failure_item_types: ["needs_new_component"]}`; snapshot taken (`source_id 099b51e0…`); `Handler failed` count at apply: **0** |
+
+**A defect the mutation round itself caught, kept because it transfers:** removing the helper's
+sort **PASSED** the first determinism test — the producer's now-sorted iteration was a **guard in
+series** masking it (the estate's `a-mutation-that-passes-may-have-hit-a-guard-in-series` lesson,
+hit live). The test gained a layer that hands the helper shuffled issues directly; the same
+mutation now fails. And the first marker mutation **broke the build** — an invalid kill, discarded:
+*a mutant that does not compile proves nothing.*
+
+**⚠ THE MESSAGE-TRANSITION WINDOW (stated so the first census is not misread):** piece 2 changes
+the byte-content of the mismatch class's error text. An item whose attempt N was rejected under the
+OLD wording and attempt N+1 under the NEW will **not** match and will not terminate — one
+transition attempt per in-flight item, self-resolving after the roll, and in the safe direction.
+
+**⚠ HOW TO READ A FIRING UNTIL THE MARKER ROLLS:**
+```sql
+SELECT count(*) FROM site_work_items
+ WHERE item_type='needs_new_component' AND status='failed'
+   AND attempt_count < max_attempts AND updated_at > '2026-08-24 20:23:00+00';
+```
+Baseline at opt-in: **0**. ⚠ Three blind spots, stated: (a) ~7-day archiver shelf life; (b) a
+firing at the LAST attempt (e.g. `030eadb7`, triaged at 2/3 with feedback and a recorded failure)
+reaches the ceiling anyway, so the proxy cannot see it — only the Info log can, until the marker
+rolls; (c) a firing means *feedback-failed* **only** when the terminal error carries one of the 3
+producer codes (F2a) — on any other class it means *no feedback channel exists*.
+
+**CLOSE CONDITION, final form:** after the next chassis roll, (1) capability probe with control
+(`terminated_on_repeat` string literal now exists in the binary — probe THAT, not the Go field
+name), and (2) either one marker row or one proxy row. The bug is then fixed-and-live on every
+piece, with the spend half both live and *measurable*, and can move to `bugs_closed/`.
