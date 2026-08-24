@@ -175,3 +175,59 @@ this session and still wrote the retention false floor. A TABLE-footprinted entr
 through a hook that matches dirty FILE paths, and `kubectl exec … psql` touches no file — so the
 delivery moment is the query itself. **Grep the table name before any `count(*)`, `min()`, or the
 word "never".** (Third recorded instance; appended to the entry's own tally.)
+
+---
+
+## 6. FINAL UPDATE, 2026-08-24 after the `v1.0.1334` roll — **item (c′) is CLOSED. Only (b) remains, and it is a wait, not a task.**
+
+### 6.1 Deploy state re-probed on the new build
+
+`v1.0.1334` (chassis pods rolled 15:39Z; 58 of 61 per-run agent pods on 1334, 3 still on 1333).
+Probed with both controls: fix arm **PRESENT**, control **+** present, control **−** absent.
+**The 353 forward fix is live on the current build.**
+
+### 6.2 ⚠ `tool-deployer` is NOT broken and NOT unexercised — §5.2's question is answered, and the answer removes work rather than adding it
+
+**It ran, it reached the emitter, it emitted successfully 12 times, and it never once withheld.**
+`site_work_items` where `item_key LIKE 'tool_crosslink:%'` by `source`: `tool-deployer` **12 items,
+5 tools, 08-03 → 08-19**. `agent_error_log` has **no** crosslink skip row attributed to it at all.
+
+**And one of those 5 tools is in the withheld set** — `tool-automation-savings-estimator`, 08-11.
+That is one of the two "exceptions" `bugs_open/353` §3 had recorded since filing as coming from
+"a later rebirth". Wrong attribution: **the path the bug file called dead had already repaired one
+of the bug's own casualties, eight days before the bug was filed.**
+
+**So there is nothing to fix in the deployer.** `deploy_tool_action.go` emits on both arms and its
+early-return arm documents itself as the supported backfill route. What was missing was a TRIGGER —
+nothing re-runs the deployer for a tool whose birth withheld — and both ends of that are already
+closed (forward fix stops new withholds; the backfill repaired the historical 30).
+
+**The 10 `agent_error_log` rows were never a deployer defect:** all are *"workflow completed but its
+result could not be delivered to the parent"*, i.e. `bugs_closed/274`, a CLOSED fleet-wide class
+(`page-rerender` alone has 5,869). ⚠ And because only DELIVERY-FAILED runs leave a row, **10 is a
+floor, not a total** — do not quote it as how often the deployer has run.
+
+### 6.3 Corrected open list for 353
+
+- **(b)** new arm **live but still UNEXERCISED**. Re-checked post-roll: **4** births since the first
+  roll, **all 4** `no_related_pages`, **0** cross-link items created today — Guard 2 has not been
+  reached once. **A wait, not a task.** First non-zero `emitted_ungated_build_enqueued_by_caller`
+  row closes it.
+- ~~(c′)~~ **CLOSED** — `bugs_open/353` §14.
+- ~~(d)~~ → `bugs_open/379` (unowned).
+
+### 6.4 The one thing worth someone's morning
+
+`no_related_pages` has **12** rows all-time since 07-31 and **4 are today** — a third of every
+occurrence ever, on the same day tool births stopped reaching Guard 2 entirely. Pairs with §3.4's
+tool-birth refusal rate. **[UNMEASURED]** as a rate (births/day not established), and still unfiled,
+but it has outgrown "two points is not a trend".
+
+### 6.5 Trap 12
+
+**A path's own OUTPUT identifies its caller; its RUNS may not.** Three separate attempts to answer
+"did `tool-deployer` do this?" via `orchestration_states` (24 h retention), log descriptions
+(truncated at 150 chars, matching no component) and site/time overlap (7 of 8 sites overlapped —
+suggestive and worthless) all failed or misled. The emitter stamps `source` and `emitted_by` on
+everything it writes, and **one `GROUP BY source` answered in a single query what three joins could
+not.** Before reconstructing who did something, check whether the artefact already says.

@@ -83,6 +83,18 @@ also why the class stayed invisible: **repeat births of established tools pass G
 already-deployed page**, and repeat births are most of the traffic (e.g. the rebuild lanes —
 whose `replace_existing` arm, separately, never reaches the emitter at all).
 
+> **⚠ CORRECTED 2026-08-24 — the attribution in the sentence above is WRONG, and the true source
+> refutes this file's central mechanism claim.** `tool-automation-savings-estimator`'s 3 items did
+> NOT come from "a LATER rebirth". They were emitted by **`tool-deployer`** on **2026-08-11**
+> (`site_work_items` where `item_key LIKE 'tool_crosslink:%'`, `source='tool-deployer'`).
+> **So the re-emission path this file calls dead did run, did reach the emitter, and did repair one
+> of the withheld tools.** The exception §3 records as a curiosity was the proof all along.
+> Measured in §14. (The other exception, `tool-affordability-complaint-checker`, has no
+> `tool_crosslink` rows in `site_work_items` today — **not evidence of absence**: that table is a
+> rolling window and completed items archive out of it, so its original source is now unrecoverable
+> from this table. Do not read the missing row as a contradiction of §3.)
+
+
 ## 4. Why it was invisible for 19 days
 
 The damage is an **absence**: no failed item, no error above `warning`, the orchestration
@@ -470,3 +482,97 @@ defect parked inside this bug's open list, where it would close when 353 closes.
 
 **CLOSED:** the damage half (§11), and item (a), the forward fix (§12.1, method corrected in §13.1).
 **The forward fix is APPROVED (round 3) and LIVE** — nothing further to ship.
+
+## 14. 2026-08-24 (later) — **item (c′) is ANSWERED and CLOSES: `tool-deployer` is not broken and not unexercised. It ran, it emitted, and it repaired one of the withheld tools itself.**
+
+Measured after the `v1.0.1334` roll. This retires the last mechanism question on this bug.
+
+### 14.1 The question
+
+§13.2 restated open item (c) as: *`tool-deployer` ran at least 10 times inside the damage window and
+the 30 withheld tools still have zero cross-links — did it run for OTHER tools, or for THESE and
+withhold again?* The discriminator named there was "whether any of those 10 runs names a withheld
+tool".
+
+### 14.2 The answer: **for other tools, and it worked — plus one of the withheld ones**
+
+The decisive instrument was not the runs at all; it was the emitter's own output, which records its
+caller. Two queries, both against durable tables:
+
+```sql
+-- who called the emitter, and did it ever withhold for them?
+SELECT context->>'emitted_by', context->>'skip_reason', count(*) FROM agent_error_log
+ WHERE error_code LIKE 'tool_crosslink%' GROUP BY 1,2;
+-- tool-generator | tool_page_will_not_go_live | 37
+-- tool-generator | no_related_pages           | 12
+--   *** NO ROW FOR tool-deployer — it never withheld, not once ***
+
+-- what did it actually produce?
+SELECT source, count(*), min(created_at)::date, max(created_at)::date
+  FROM site_work_items WHERE item_key LIKE 'tool_crosslink:%' GROUP BY 1;
+-- backfill-353   | 74 | 08-23 | 08-23
+-- tool-generator | 56 | 08-17 | 08-21
+-- tool-deployer  | 12 | 08-03 | 08-19   <-- the "dead" path
+-- tool-suggester |  5 | 04-08 | 07-24
+```
+
+**`tool-deployer` emitted 12 cross-link items for 5 tools between 08-03 and 08-19, and produced ZERO
+withhold rows.** Every one of its calls into the emitter succeeded.
+
+| tool the deployer emitted for | first item | in the withheld set? |
+|---|---|---|
+| `tool-model-approach-selector` | 2026-08-03 | no |
+| `tool-ab-test-calculator` | 2026-08-05 | no |
+| `tool-llm-cost-calculator` | 2026-08-05 | no |
+| **`tool-automation-savings-estimator`** | **2026-08-11** | **YES** |
+| `tool-archetype-clash-calculator` | 2026-08-19 | no |
+
+**The fourth row is the finding.** It is one of the two "exceptions" §3 has recorded since filing as
+having got its items *"from a LATER rebirth that found the page already live"*. That attribution was
+wrong: the items came from `tool-deployer`. **The path this file declared dead had already repaired
+one of this bug's own casualties, eight days before the bug was filed.**
+
+### 14.3 What this means for the bug — and it is a simplification, not a new defect
+
+`deploy_tool_action.go` calls the emitter on **both** its arms, and the early-return arm says so in
+its own comment: *"Cross-links are emitted even on this early return: re-running the deployer is the
+supported way to backfill them for a tool that was deployed before `bugs_open/029` was fixed."*
+
+**So the re-emission path was never the problem.** It exists, it is exercised, it succeeds, and it is
+documented as the supported repair route. What was missing was a **TRIGGER**: nothing re-runs the
+deployer for a tool whose birth withheld, and a withheld tool emits no signal that would prompt one.
+
+**Both ends are now closed by work already done** — the forward fix stops new withholds at birth
+(§12.1/§13.1, live in `v1.0.1334`), and the backfill repaired the historical 30 (§9.2/§11). **There
+is nothing to build here.**
+
+### 14.4 What the 10 `agent_error_log` rows actually were — a known, CLOSED, fleet-wide class
+
+Every one reads *"workflow completed but its result could not be delivered to the parent
+(failed_transient)"*. That is **not** a deployer defect and has nothing to do with cross-links: it is
+`bugs_closed/274_…_completed_workflows_cannot_deliver_their_result_to_the_parent_fleetwide.md`, and
+fleet-wide it dwarfs this lane (`page-rerender` **5,869**, `build-dispatch-loop` **2,954**,
+`feed-ingester` **1,218** …). `tool-deployer`'s 10 are an unremarkable tail.
+
+⚠ **Consequence for the count, and it cuts the right way:** those rows only capture runs whose
+DELIVERY failed. Successful runs leave no error row at all, so **10 is a floor, not a total** — the
+12 emitted items across 5 tools are an independent lower bound on successful runs. Do not quote
+"10 runs" as the number of times `tool-deployer` has executed.
+
+### 14.5 353's open list after this
+
+- **(b)** the new arm is **live but STILL UNEXERCISED** — re-checked after the `v1.0.1334` roll:
+  **4** tool births since the first roll, **all 4** `no_related_pages`, **0** cross-link items
+  created today. Guard 2 has still not been reached once. The zero remains uninformative for the
+  same reason as §12.2; the first non-zero
+  `emitted_ungated_build_enqueued_by_caller` row is what closes it.
+- ~~(c′) `tool-deployer`~~ → **CLOSED, §14. Not a defect.**
+- ~~(d) regeneration residual~~ → moved to `bugs_open/379`.
+
+**Everything on this bug is now closed except (b), which is a wait, not a task.**
+
+⚠ **Sharpening on the adjacent generation-side concern** (handoff §3.4, still unfiled): `no_related_pages`
+has **12** rows all-time since 07-31 and **4 of them are today**. A third of every occurrence ever
+recorded landed in one day, and it is the same day tool births stopped reaching Guard 2 entirely.
+Still **[UNMEASURED]** as a rate — births/day is not established — but it has moved from "two data
+points is not a trend" to worth someone's morning.
