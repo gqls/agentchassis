@@ -23,7 +23,11 @@ UPDATE scheduled_tasks
    SET pre_query = regexp_replace(pre_query,
          '-- 1\. Clean agent_error_log\. Retention is BY FINDING CODE since migration 567:.*?--    --finding-codes; see bugs_open/358\.',
          '-- 1. Clean agent_error_log (resolved errors > 14 days, unresolved > 30 days)',
-         'n'),
+         ''),   -- NO 'n' FLAG. In PostgreSQL 'n' means newline-SENSITIVE matching, which
+                -- stops `.` matching a newline — and this pattern spans lines. With 'n' the
+                -- replace silently no-ops, the UPDATE reports "UPDATE 1" having changed
+                -- nothing, and only the verify block below catches it. Measured 2026-08-24
+                -- against the live row: with 'n' NO MATCH, without it MATCHED.
        updated_at = now()
  WHERE name = 'database-cleanup';
 

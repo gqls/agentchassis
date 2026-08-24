@@ -40,7 +40,11 @@ UPDATE scheduled_tasks
          'WHERE \(occurred_at < NOW\(\) - INTERVAL ''30 days''.*?OR occurred_at < NOW\(\) - INTERVAL ''365 days''',
          'WHERE (resolved = true AND occurred_at < NOW() - INTERVAL ''14 days'')' || chr(10) ||
          '           OR (resolved = false AND occurred_at < NOW() - INTERVAL ''30 days'')',
-         'n'),
+         ''),   -- NO 'n' FLAG. In PostgreSQL 'n' means newline-SENSITIVE matching, which
+                -- stops `.` matching a newline — and this pattern spans lines. With 'n' the
+                -- replace silently no-ops, the UPDATE reports "UPDATE 1" having changed
+                -- nothing, and only the verify block below catches it. Measured 2026-08-24
+                -- against the live row: with 'n' NO MATCH, without it MATCHED.
        updated_at = now()
  WHERE name = 'database-cleanup';
 
