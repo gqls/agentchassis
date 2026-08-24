@@ -1377,3 +1377,17 @@ call, not this one's.
 > wrong whenever a producer mints its own values — compare against the COMPETING ROWS, and when
 > adjudicating an episode, re-read the episode's own record before ruling on it** (both sessions
 > violated the second half today, in opposite directions, and each was caught by the other).
+
+**2026-08-24, closing hygiene:** flipped `pages.page_type` for `practice` from `entity-page` to
+`content` (row b789e801; URL untouched — `CanonicalisePage` derives URLs only at creation, and
+the only pages UPDATE in the gap-plan file touches title/sections; live re-check 200 after the
+flip). Reason: the page IS a content explainer now, and the stale type is what future routing and
+censuses key on — the 206 lane's corrected census (which found 5 parked items its spec-keyed first
+census missed) joins on exactly this column, and their new shared routing authority (council corr
+52dbd067, in flight) would have parked any future re-minted item for this page as a
+`capability_gap`. This is their documented step 2 ("set page_type to match; routing follows with
+no hand SQL", commit 0baa8a107) applied to the page that motivated it. Their named caveat — a
+layoutless `content` page still no-ops on page-build-handler — does not bite here: the page has
+its 3 plan rows and a populated sections cache. If the entity-page builder lands and the owner
+wants per-practice profiles at this URL, the re-decision is deliberate (retype back is one
+precedented UPDATE, bugs_open/015 class), not an accident of a stale column.
