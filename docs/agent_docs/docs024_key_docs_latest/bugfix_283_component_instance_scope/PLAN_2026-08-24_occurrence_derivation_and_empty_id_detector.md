@@ -114,6 +114,13 @@ Also tighten `loadStoredSections`'s `ORDER BY position ASC` to `ORDER BY positio
       PlacementFromRenderStep(config, params.CollectedData), params.Logger)
   ```
   (~10 changed lines total in the heavily contested file; everything else lives in the new seam file.)
+  **Include in the SAME edit: delete the retired `renderCtx.ContentData["ComponentID"] = comp.ID`
+  binding at :2385, twenty lines above this call site** — the third and last binding of RFC_032 §8's
+  retirement, twice deferred because this contested file kept carrying other sessions' uncommitted
+  hunks (2026-08-23: the 357 lane's, which became a council-veto passenger; 2026-08-24: the 345
+  lane's, left uncommitted at their lane's close). It is inert (census 2026-08-24: 0 templates spell
+  the placeholder) and belongs in this change because this change edits the same function anyway —
+  one reviewed diff, no passenger risk that isn't already being managed for the call-site rewire.
 - `section_editor_actions.go:1104` (applyContentEdit) and `:1275` (applyComponentSwap) — build `SectionPlacement{PageID: <pcData "page_id">, Position: <pcData "position">, RowID: <pcData "id">}` and call. `pcData` carries all three (`LoadEditContextAction`, section_editor_actions.go:206-214). Handle `position` arriving as `float64` after workflow-state persistence. For the swap, `function` is the NEW component's — the count-predecessors query is correct for it by construction.
 - Delete the old two-line body from `component_instance_scope.go` (function moves); no pattern-check change needed since the name survives.
 - Workflow config (DB, applied post-roll — a numbered file under `docs/agent_docs/sql_for_agents/`): add `"page_id_from": "input_data.current_page.id"` to the `render_section` AND `render_from_template` step configs of the live `page-content-writer` agent_definitions row. `slot_name_from: "current_section.name"` is already present on `render_section` (verified live); add it to `render_from_template` if absent. Include a rollback SQL. Until this config lands, the v3 path binds occurrence 0 exactly as today — the wiring is the opt-in.

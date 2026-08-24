@@ -379,3 +379,31 @@ New evidence folded in: the formal empty-id census is **6 rows on 6 pages across
 cause is a THIRD shape: `category-listing` declares `id="{{.category_slug}}"`, a content field,
 which rendered empty. Any unbound field in an id attribute produces this class; the fail-loud
 half is general for exactly that reason.
+
+### 10a. The INTERIM EXPOSURE WINDOW, recorded formally (2026-08-24, per council `e8c7414c` round 3)
+
+Round 3 on the retirement correlation returned REVISE (the second), gating seat `bug_historian`,
+whose position is accepted rather than argued with: **a plan document is not code**, and the
+round's own census proved the silent-empty-id mechanism is broader than the retired placeholder
+(the `category_slug` third cause). The seat named two acceptable exits: ship a minimal guard
+with the retirement, or *"explicitly accept and record the interim exposure window as a known,
+monitored risk with an owner and expiry — not just a risk-section sentence."* This section is
+that record:
+
+- **The exposure**: until the §10 build ships, any template field used as an id attribute's
+  whole value that resolves unbound renders `id=""` silently; `DetectInstanceCollisions` cannot
+  see it (`reElementID` requires a non-empty id) and no render path refuses it. The class is
+  general — three distinct causes are already on record (retired placeholder ×4 pages,
+  section-editor-era unbound renders, `category_slug` ×2 pages).
+- **Known damage, bounded by measurement**: 6 stored rows / 6 pages / 2 sites (formal census
+  2026-08-24, query in the round-3 submission's grounded_in). The idea.uk 4 are owned by their
+  lane (owner ruling, CONTRIB 2026-08-24); the dartsonline 2 wait on the build's detector, which
+  will surface them at their next rerender.
+- **OWNER of the window**: the §10 building thread (its starting document is the committed
+  PLAN). **EXPIRY**: the build's image roll plus its config activation — the plan's rollout
+  steps 3–4. The plan's Open Question 6 already requires re-running the empty-id census on
+  build day, which is the check that the window did not widen while open.
+- **What is deliberately NOT happening meanwhile**: no round 4 on `e8c7414c`. Two REVISE
+  verdicts have said plan-is-not-code; the next submission on that correlation is the build
+  itself, which closes the gating objection with edits rather than framing. The correlation's
+  arc (REJECTED → REVISE → REVISE) is honest history, not a failure to be tidied.

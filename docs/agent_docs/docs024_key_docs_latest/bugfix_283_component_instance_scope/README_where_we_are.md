@@ -542,3 +542,26 @@ and committing it would repeat Saturday's exact mistake the day after it cost us
 of that, the removal I'd drafted on Saturday was wiped out overnight when another team
 overwrote the file — a known hazard of how we share this codebase. It stays on the list with
 precise instructions for whoever finds the file clean.
+
+**2026-08-24, evening — closing the lane.** Three answers to your three questions, then the sign-off.
+
+**Is lane 345 still blocking us? No — but not because they cleared it.** Their lane says closed,
+yet their actual code change — both halves of it — was never committed; the "built" commit
+contains only a write-up. The two files have to go in together or the build breaks for everyone.
+That is their loose end to tie, and I have flagged it rather than committed their work under our
+name (we were burned for exactly that on Saturday). Meanwhile our last bit of cleanup that was
+stuck behind their file simply moves into the new build's change, which edits that same function
+anyway — one extra line in a diff that will be properly reviewed. Nothing waits on anybody now.
+
+**The verdict: revise, again — and the reviewer is right.** They said a plan is not code, and our
+own evidence agrees with them: we found a third way pages can end up with blank names, unrelated
+to the one we retired. So instead of arguing a fourth round, I did the thing their ruling offers:
+the gap that remains is now formally recorded — what it is, who owns it (the build team), and
+when it closes (the build going live). The review file will be answered next by the build itself.
+
+**Can we close the lane? Closed.** The original bug has been fixed and live for two days. The
+retirement is done, live, and proven against the running system. Every remaining piece of work
+has a named owner and a written record: the build team has its plan, the idea.uk team has its
+repair note, the provenance team has theirs, and the review trail knows what it is waiting for.
+The week's whole story is in this file; the technical trail is in NOTES; the next thread starts
+from the plan.

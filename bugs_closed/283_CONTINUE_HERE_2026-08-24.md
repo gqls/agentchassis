@@ -90,3 +90,42 @@ WHERE correlation_id='e8c7414c-426d-4aee-a0ca-3e2e2400cbec' AND kind='council_re
    before content generation; the lane's own stuck items are referenced.
 5. The third binding: STILL deferred — v3 now carries the 345 lane's uncommitted hunk (second
    occupant in two days), and my previous uncommitted deletion was overwritten overnight.
+
+---
+
+## LANE CLOSED (2026-08-24, evening) — everything remaining is owned elsewhere; the successor is the §10 building thread
+
+**Round 3 verdict: REVISE again** (gating: bug_historian — "a plan document is not code", and the
+census's own third-cause finding proves the class is general). Accepted, not argued:
+**no round 4 will be submitted on `e8c7414c`**; the next submission on that correlation is the
+BUILD itself. The seat's named alternative (b) is executed instead: the interim exposure window
+is formally recorded in **RFC_032 §10a** with an owner (the building thread) and an expiry (the
+build's roll + config activation). The correlation's arc — REJECTED → REVISE → REVISE — is
+honest history; the two deletions it reviews have been live since v1.0.1332 either way.
+
+**The 345 blocker is DISSOLVED, not cleared** — and their lane's close left a loose end that is
+NOT this lane's: lane 345 reports closed, but BOTH halves of their candidate-2 code (the
+`applyWorkItemFailureLadder` config param in `work_item_failure_ladder.go` AND its call site in
+`v3_site_actions.go`) are **uncommitted in the shared tree** — their "BUILT" commit
+(`b705cb109`) shipped only a doc. The two files are an atomic pair (committing either alone
+breaks HEAD's build). This lane stops waiting on it: **the third-binding deletion is folded into
+the building thread's change** (PLAN §A4, updated — that change edits the same function anyway,
+so it costs one line in an already-reviewed diff and no passenger risk beyond what A4 already
+manages).
+
+**Where every residual lives now:**
+| residual | owner | record |
+|---|---|---|
+| The build (occurrence derivation + empty-id detector + fail-loud + third binding) | the §10 building thread | `PLAN_2026-08-24_occurrence_derivation_and_empty_id_detector.md` |
+| Interim silent-empty-id exposure | building thread, expiry = the roll | RFC_032 §10a |
+| Council correlation `e8c7414c` (2× REVISE) | rides the build's submission | round-3 JSON + §10a |
+| idea.uk 4 empty-id pages | `idea_uk_section_data_missing` lane | their CONTRIB, 2026-08-24 |
+| dartsonline 2 (`category_slug`) | surfaced by the build's detector | PLAN Half B + §10a |
+| `rendered_template_sha` objections | `bugfix_357_component_identity` lane | their CONTRIB, 2026-08-24 |
+| 345's uncommitted atomic pair | lane 345 / the owner — NOT this lane | this section; flagged to the owner 2026-08-24 |
+
+**The bar this close meets**: the closed defect (283, literal ids) is fixed AND live since
+2026-08-22. The RFC_032 §8 retirement — this lane's follow-on scope — is executed and live on
+v1.0.1332, binary-proven, with every remaining piece of work carrying a named owner and a
+written record. Nothing here is finished-by-assertion; each row above points at the document
+that carries the evidence.

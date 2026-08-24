@@ -1479,3 +1479,23 @@ Deferred again, deliberately: the binding is INERT (census re-run today: 0 templ
 placeholder). The exact edit, for whoever finds the file clean: delete
 `renderCtx.ContentData["ComponentID"] = comp.ID` and fold its comment into the retirement note,
 mirroring the committed rerender hunk.
+
+## 2026-08-24 (session 12, close) — round 3 REVISE accepted; the 345 "blocker" dissolved into the build; LANE CLOSED
+
+Round 3: REVISE, same gating seat, and it is right — a plan is not code, and its own point is
+sharpened by our census (the `category_slug` cause proves the class is general). No round 4:
+the build's submission is the next round on `e8c7414c`. Its alternative (b) executed instead —
+RFC_032 §10a records the interim exposure with owner + expiry.
+
+The 345 check the owner asked for: their lane says closed, but **both halves of candidate 2 are
+uncommitted in the shared tree** — `b705cb109` ("candidate 2 is BUILT") committed only a doc,
+and the ladder-signature + call-site files are an atomic pair (either alone breaks HEAD). So the
+v3 file was never going to come clean by waiting. Rather than sweep-committing another lane's
+code the day after a passenger cost a veto, the third-binding deletion moves INTO the building
+thread's A4 edit (same function, one extra line, one reviewed diff). Their uncommitted pair is
+flagged to the owner as 345's loose end, not ours.
+
+Final state, verified this session: retirement live on v1.0.1332 (absence probe + control);
+census 0 templates spell the placeholder; 249/280 placements converted; ledger closed on 247/250;
+6 empty-id rows (3 causes) each owned; every residual carries a named owner in the CONTINUE
+file's table. **Lane closed.**
