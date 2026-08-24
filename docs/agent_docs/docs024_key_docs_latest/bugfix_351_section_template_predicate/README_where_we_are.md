@@ -80,3 +80,56 @@ had printed beside them.
 account had hit its usage limit that evening — so I have resubmitted it with today's proof attached
 and it is working through the reviewers now. Once that comes back I will take the remaining
 decision in writing, one way or the other, rather than leaving it open a third time.
+
+---
+
+## 2026-08-24 — the reviewers found something I had missed, and the door is now closed
+
+Three things happened since the last entry: the formal review came back, it caught a real gap in my
+own checking, and you chose to close the birth door.
+
+**The review approved it, and the useful part was the objection.** One reviewer asked whether I had
+checked every kind of component the changed function serves, not just the ones the bug was about.
+I had not. The function has two branches — "tools" and *everything else* — and I had only measured
+tools and page sections. Twelve other components (site headers, footers, a page head) go through the
+same branch, and it turns out **six of those were also being wrongly rejected**, and had been all
+along. Nobody had noticed because the symptom is invisible: the platform just quietly acts as though
+the component isn't there. Re-measured across everything: 28 rescued, nothing broken.
+
+The lesson I have written down for myself is that I checked the population the *bug* was about
+rather than the population the *changed code* serves, and those are not the same set. A catch-all
+branch is the easiest place for that gap to hide.
+
+**A second reviewer objected that I had asserted something rather than shown it** — that the library
+calculators were being found by name rather than by label. Fair. I had flagged it as unproven, but
+flagging is not proving, and the proof was two minutes away: a label that is empty can never match a
+search for a specific label, and the platform's own usage counter (which only ticks on the other
+route) is still sitting at zero for those components. Both check out, and I confirmed the counter
+behaves as expected on components that *were* found the other way, so the test could have failed.
+
+**On your decision to close the door.** It is written, tested and committed, but deliberately **not
+switched on yet** — a database change like this goes live the instant it is applied and there is no
+build to roll back, so it waits for its review to come back. What it does is refuse, at the moment of
+creation, a section component that arrives without the label the platform searches by. It refuses
+only that; it repairs nothing and touches none of the existing components.
+
+Two details I want on record because they were nearly wrong. First, it must *not* apply to copies —
+the tool-deployment code makes copies without that label on purpose, so a slightly broader rule would
+have broken tool deployment in production while looking perfectly reasonable in review. I proved that
+by deliberately breaking my own rule and confirming the test caught it. Second, it applies only when
+a component is *created*, never when one is edited — the more obvious way of writing it would have
+started rejecting ordinary repairs to the twenty-five existing components.
+
+**What I decided not to do, and why it is the more interesting half.** The tempting fix was to fill
+in the missing labels on those twenty-five. I have declined it. The reason the bug file originally
+gave for declining it had actually expired, which is a trap — anyone noticing that would conclude
+filling them in was now safe. It is not, for two reasons I found by reading the code rather than
+assuming: another part of the platform deliberately *relies* on that label being absent, and treats
+its absence as a signal to be more careful about what it tells the component writer. Filling the
+labels in would switch that caution off and re-open a fault we fixed separately last week. And the
+platform's tie-breaking between two near-identical components has no tie-breaker at all — it would
+come down to chance.
+
+**Where it stands.** The original problem is fixed, live, proven on a real site, and formally
+approved. The door-closing change is written and awaiting its own review. Nothing is outstanding
+that I am aware of and not telling you about.
