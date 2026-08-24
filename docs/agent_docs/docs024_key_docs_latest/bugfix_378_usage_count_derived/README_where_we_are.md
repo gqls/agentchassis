@@ -98,3 +98,51 @@ this first would partly undo itself. I have raised it with that lane.
 I have a diagnosis run in flight for an independent check on the mechanism, and a plan being drawn
 up. Nothing has been changed yet. Next: get the plan reviewed by the council before committing
 anything, because this touches a shared mechanism every site build goes through.
+
+---
+
+## 2026-08-24 later — another lane offered me a better number, and I turned it down
+
+I had flagged this to the lane working bug 357, because their bug is about page rows that name the
+wrong component, and my whole plan is to start trusting those rows. They came back quickly and
+usefully, and corrected me on three things.
+
+The one that mattered: the bad population is **22 rows, not 9**. The 9 was the figure in the opening
+line of their bug file, which their own query had already outgrown. I re-ran their query myself
+rather than take the number, and got 22 — all on a single component, the shared `hero`.
+
+Then they offered me something better. As of about ten this morning, page rows carry a stamp proving
+which component actually produced the bytes on the page. All 22 of their bad rows are unstamped and
+cannot become stamped. So if I counted only stamped rows, their problem would vanish from my numbers
+automatically, for free.
+
+**I have declined it, and I think the reason is worth you knowing, because it is the whole point of
+this bug.**
+
+The stamp only exists on pages rebuilt since this morning. So counting only stamped rows would mean
+counting only components that happen to have been rebuilt recently. A component that has been sitting
+happily on twenty pages for two months, untouched because nothing was wrong with it, would read as
+unproven — and the components that look best would be the ones that were rebuilt most recently.
+
+That is the same mistake as the one I am here to fix. Today the number measures *which route found
+the component*; the stamp version would measure *how recently it was rebuilt*. Both are facts about
+the plumbing wearing the costume of a quality judgement. I would have fixed this instance and
+reinstalled the identical shape one layer over, and whoever measured it in six weeks would find the
+same suspicious perfect correlation I found this week.
+
+The numbers, for the record: counting any real page binding gives me a signal on **108** of 151
+components. Counting only stamped ones gives me **39**. Today's broken counter gives **12**.
+
+It also turns out the stamp cannot do the specific job it was offered for. It excludes their 22 bad
+rows, but it excludes about 1,750 perfectly good older rows too, because those are unstamped as well.
+So it does not separate honest from dishonest — it separates recent from old.
+
+So: I count real page bindings, and I declare their 22 bad rows openly as a known contamination
+(about 1% of rows, all on one component) rather than quietly filtering them out. Their own pending
+migration retypes those rows anyway, at which point my number corrects itself with no work from me.
+
+The stamp *should* become the better signal once most pages carry it. So I am putting the definition
+in one place, so that switch is a one-line change later instead of three.
+
+Nothing has been changed in the platform yet. The independent diagnosis check I commissioned is still
+running, and I have not submitted anything to the council.
