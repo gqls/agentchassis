@@ -133,3 +133,46 @@ come down to chance.
 **Where it stands.** The original problem is fixed, live, proven on a real site, and formally
 approved. The door-closing change is written and awaiting its own review. Nothing is outstanding
 that I am aware of and not telling you about.
+
+---
+
+## 2026-08-24 (later) — done, and switched on
+
+The door-closing change passed its review and is now live. I applied it, checked it by hand on the
+real database, and closed the bug.
+
+**What "checked it by hand" means here, because "it's installed" is not the same as "it works".** I
+tried, on the live table, to create a section component without its label — refused. I tried to strip
+the label off a real existing component — refused. Then the two that had to *succeed*: an ordinary
+repair to one of the twenty-five older components with no label went through fine, and creating a
+properly labelled component went through fine. Everything was rolled back afterwards, so nothing was
+actually changed. That third check is the one I cared about most: it is the difference between
+closing a door and locking twenty-five people in a room.
+
+**The reviewers earned their keep again.** One pointed out that I had only blocked the *creation* of
+an unlabelled component, and nothing stopped someone later *removing* a label from a good one —
+same problem, different door. It asked whether that was a real risk or a theoretical one, and said
+it couldn't tell. I could: nothing in the codebase ever removes one of those labels, so it was
+theoretical. I closed it anyway, because it cost one line. A second reviewer caught that re-running
+the change would have failed with an error instead of doing nothing — a small thing that becomes an
+unpleasant surprise at the wrong moment.
+
+**One thing I found along the way that I have written up separately.** The platform keeps a
+"how often has this been used" number against each component and uses it to prefer well-proven ones.
+That number is only ever incremented on one of the two ways a component can be chosen. Ninety-six of
+our hundred and forty-nine components show zero despite being live on pages, and about eighteen
+hundred uses are invisible to it. So a score that is meant to mean "this is proven" currently means
+"this happened to be found the counting way". It is not breaking anything today and I have not fixed
+it — it is filed as its own item with the evidence and, importantly, with a list of the things I
+have *not* measured, including whether it has ever actually changed which component got picked. That
+last one is the question worth answering before anyone touches it.
+
+**Where this leaves the original complaint.** Sites can reuse the calculators we already own instead
+of paying to have near-identical ones written; that is proven on a real site, not just in a test. New
+components can no longer be created in the state that caused it. The twenty-five older ones are
+deliberately left as they are, for reasons I have written down twice because the original reason for
+leaving them expired and I did not want the next person to reach the opposite conclusion from a
+stale note.
+
+One loose end that is not mine and not this bug: the `stylesheet_gutted` check this lane built back
+on the 22nd is still waiting to be released.

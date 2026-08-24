@@ -1,5 +1,31 @@
 # HANDOFF — `bugfix_351_section_template_predicate`, 2026-08-22 (cold start: read this file top to bottom, then §"What to do next")
 
+> ## ✅ LANE COMPLETE, 2026-08-24 — `bugs_open/351` is CLOSED. Read this, then stop.
+>
+> **Both halves are live and proven at the artefact. There is no outstanding 351 work.** The
+> 2026-08-23 block below and the whole body are kept as the record of what was believed on the way;
+> nothing in them is a to-do any more.
+>
+> - **Predicate half** — live on chassis `v1.0.1332` (`0b262ed5e`, ancestry checked with a control).
+>   Council **`7b662d65` APPROVED**. **28 rescued / 0 regressed** fleet-wide as of 2026-08-23, after
+>   an objection found 12 rows at other component levels the original calibration never covered
+>   (6 of them were also being wrongly dropped). Demand-proven: 3 cross-site reuses on `loanzy.uk`.
+> - **Birth half** — migration **`581`** applied and ledger-recorded 2026-08-24, register
+>   **CLC-029**, council **`f0cd2420` APPROVED** (2 medium advisories acted on: the UPDATE mutation
+>   path closed, idempotency fixed). Proven *behaviourally* on the live table, not merely present.
+> - **The file moved**: `bugs_closed/351_HANDOFF_2026-08-21_…`. `git log` on the old `bugs_open/`
+>   path will not find the closure.
+>
+> **The two things that are deliberately NOT done, so nobody re-opens them as gaps:**
+> 1. The **25 standing NULL rows are not backfilled**, by the ruling of 2026-08-23.
+>    ⚠ The reason the bug file *originally* gave for declining it is **spent** — read the ruling
+>    section, not the old paragraph, or you will conclude the backfill is now safe. It is not.
+> 2. **`usage_count` path-blindness** is a *different* defect, filed as **`bugs_open/378`** with its
+>    own evidence and `[UNMEASURED]` list. Not a 351 residual.
+>
+> **Still owed by someone, unrelated to 351:** §6.3's migration `541` (the `stylesheet_gutted`
+> check), which this lane built but never released.
+
 > ## ⚠ CURRENT STATE, 2026-08-23 — read this before anything below it
 >
 > **Everything under §3, §4 and §6.1–6.2 has moved. The body of this file is left as written**
