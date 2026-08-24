@@ -248,3 +248,19 @@ infrastructure proofs) and §2/§3 (owner box steps) remain the reference — re
    Order still: box nginx files (CURRENT committed copies) → cloudflared ingress above
    the catch-all → CNAME `links` → `81f59f78-dda8-40a0-984b-cfadb36bc891.cfargotunnel.com`,
    Proxied, in the DASHBOARD.
+
+10. **`links.webdesign.uk` IS LIVE — box steps + DNS applied by the owner, VERIFIED from
+    outside (2026-08-24 ~21:20, this session's own curls, not the terminal transcript):**
+    `/other` → 404 · `/c/x` → 404 (token-shape regex) · 43-char token-shaped → **200**
+    (core-manager's page — the full tunnel→nginx→WireGuard→cluster path works) ·
+    `admin.apis.uk` → 302 to Access (healthy after the cloudflared restart) · apex
+    `/c/x` → 302 parked (unchanged) · 40-loop → **8× 404 then 32× 429** (the edge rate
+    limit fires at ~the 10-in-10s threshold). Morning handoff **§2 is CLOSED**.
+    Consequences now live:
+    - **The architecture boundary-review condition (§1.3) is MET** — run one council
+      round over the exposure posture. Inputs ready: §3.3 census + §3.6 delivery-only
+      listener candidate. ⚠ Blocked on the kubectl token refresh (expired ~16:50Z) —
+      the 097 trigger needs the cluster.
+    - `links.webdesign.uk` is the canonical emailed-links host from this moment; the
+      delivery-email builder mints there — still gated on the second-click page (§3.2).
+    - Lane entry added to MEMORY_workstreams (`web-admin-console-workstream.md`).

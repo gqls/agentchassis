@@ -273,3 +273,14 @@ run yet** — `links.webdesign.uk` still does not resolve (curl exit 6, re-check
 immediately after), so the rule sits armed and matching nothing until the owner's box
 steps + the DNS record land (morning handoff §2). Run the 40-curl loop from handoff
 §3.7 as part of the §2 verify when that happens.
+
+### 2026-08-24 ~21:20 — links.webdesign.uk LIVE, all arms verified from this machine
+
+Owner applied the runbook (`../webdesign_uk_build_service/RUNBOOK_links_host_box_steps.md`)
+and reported clean; re-verified here rather than trusted: 404 (/other), 404 (/c/x — the
+hardening), 200 (43-char token-shape — proves the full path to core-manager:8088), 302→
+Access (admin.apis.uk healthy post-restart), 302→webdesign.co.uk (apex still parked),
+and the 40-loop returned 8×404 then 32×429 — the edge rate-limit rule blocks at the
+threshold. Morning §2 CLOSED. Boundary-review condition MET; council round owed, blocked
+on the kubectl token refresh. Second public-facing milestone of the day after the Builds
+screen; SUMMARY_2026-08-24 already covers both.
