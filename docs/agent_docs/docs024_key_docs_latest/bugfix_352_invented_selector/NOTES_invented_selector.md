@@ -666,3 +666,30 @@ by the pre-commit pattern check, not by me. Restored verbatim.
 supply-chain defect, and it compounds at the speed of a competent peer — register entry, doc comment
 and unit test were downstream inside twenty minutes. **Hand over the query with the number.** I did
 not the first time and did the second, so their re-check costs one query instead of an excavation.
+
+### Closing the loop: 384 re-measured independently and we reconcile — plus two housekeeping notes
+
+**384 caught it in time.** Their doc comment, `PBP-048` and the council rationale were corrected
+before commit and dispatch. They re-ran the union query themselves rather than taking my second
+number on trust, and every figure matches: **20** cross-type pairs live ∪ archive; `needs_page`
+**491 colon / 0 underscore**; `page_rerender` **16,097 underscore / 46 colon**. Their helper's
+comment now records the 20 as a dated ratchet and names the hazard as colon-shaped hand dispatches.
+Their producer census: **1,289** rows / **53** `created_by`, split by a stated rule (an agent or
+action name = standing producer) rather than a bare count.
+
+⚠ **One off-by-one worth flagging back, measured here 2026-08-24 ~20:05 UTC.** Their split reads
+"`render_news_section` 795, `rerender-pages` 203, `completeness-discovery-agent` 2 … the other **49**
+`created_by` / 289 rows are hand dispatches". The rows reconcile exactly (795+203+2 = 1,000; +289 =
+1,289) but the producer count does not: excluding those three names leaves **50** distinct
+`created_by`, not 49. `3 + 50 = 53`. Trivial in itself — and this whole exchange is about numbers
+that get enshrined with a date, so it goes back.
+
+**Housekeeping: my WRONG_CALLS commit carried a same-file passenger, and the pre-commit pattern check
+is what told me.** It flagged *"3 lines removed from WRONG_CALLS.md, a fleet-wide append-only
+ledger"* — I had only appended. Checked: another session had **rewritten** an existing entry in
+place (the `orchestration_states` runs-vs-items one), expanding *"What was true"* into *"What was
+true — in three steps, because the correction was itself wrong once"* and *"The cheap check"* into a
+two-part *"cheap checks"*. So the three lines were **replaced, not lost**, and my pathspec commit
+carried their improvement. Nothing to undo. **The check earned its place here**: appending only, I
+would never have looked, and the one shape it cannot distinguish — a rewrite from a deletion — is
+exactly the one where looking is cheap and being wrong is unrecoverable.
