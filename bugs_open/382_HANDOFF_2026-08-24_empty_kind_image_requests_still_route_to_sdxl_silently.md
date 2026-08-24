@@ -152,10 +152,15 @@ has twelve `hero_*` keys — hero_about, hero_contact, hero_guides, hero_sfi, he
 **This matters because it is the check a site lane will actually reach for.** "Do I have per-page
 heroes generated before today?" returns a confident **false positive** on a site that was never
 affected. **The discriminator is the work item type, not the key.** agritec also supplied a
-corroborating control on the unaffected path: 16 of its 17 `origin_prompt` values carry that
-site's seeded palette hex verbatim, and that string appears in no `site_plan_imagery.prompt` row —
-so the style guide was reaching `call_imagery_gen` at generation time, which is exactly the thing
-`call_variant_gen` was missing.
+corroborating control on the unaffected path, and then sharpened it unprompted: 16 of its 17
+`origin_prompt` values carry that site's `imagery_style_guide.palette` hexes, and the site's OTHER
+palette (`design_intent.palette.reference_values`) shares **no hex at all** with them — so the
+attribution is unambiguous rather than merely consistent, and it could have come out the other way.
+**The honest form of the claim, in their words, is that the style guide reaches the prompt IN
+ABRIDGED FORM, not that it is passed through** — the guide's palette string ends with a
+warm-off-white clause that the prompt drops, so something composes or shortens it on the way. That
+does not weaken the point (the guide demonstrably reaches `call_imagery_gen`, which is exactly what
+`call_variant_gen` was missing) and the abridging mechanism is unexamined by either lane.
 
 ## 7f. A SECOND live empty-kind producer, measured — and the obvious fix for it is REFUSED
 
@@ -268,3 +273,69 @@ Diagnosis loop, run correlation `bdea8252-aa93-44b6-be59-9a6c43fed858`.
 by nothing* and *`site_work_items` is a rolling window*; `WRONG_CALLS.md` (2026-08-24, two
 entries); 016b §9's dated correction; lane docs in
 `docs/agent_docs/docs024_key_docs_latest/bugfix_382_empty_kind_routing/`.
+
+---
+
+# 9. The two verdicts, and what each is worth
+
+## 9a. Council gate — **APPROVED, round 1**, `e53f57ae-3bb1-442c-8e7b-742a1c2bb0ad`
+
+Ten seats reviewed, eight abstained on relevance; *"approved with 1 advisory objection — none
+high-severity"*. The objections are recorded here with their answers, because an approval whose
+objections are never answered is a rubber stamp.
+
+- **`bug_historian` (MEDIUM) — "'ships alongside' is not a fact this council can verify."** The
+  seat noted, correctly and pointedly, that this platform has *"direct, specific precedent of
+  exactly this failure mode on this exact table"* — 390's false "already forwards kind" — and
+  refused to treat the caller-side fix as done until seen. **ANSWERED: migration `586` is applied,
+  recorded and verified live** (§8); all four image branches now map `kind`, and **0**
+  `default_kind` keys remain fleet-wide. The seat was right to demand it rather than accept it.
+- **`architecture` (MEDIUM, `object` inside an approved round) — the seam underneath.** Third
+  incident on one file family in six weeks; `extractDataForAgent` still silently drops non-mapped
+  config and will manufacture a fourth. **ROUTED, not answered:** filed as
+  `architecture_review/RFC_051_the_call_agent_input_mapping_allow_list_manufactures_dead_config_keys.md`
+  with the recurrence table, the live surface, and four costed options — including the one this
+  lane rejects and does not want re-proposed.
+- **`reuse_agent` (LOW) — `promptOpening` may duplicate `webscrape/truncation.go`.** **CHECKED,
+  and it does not.** That file is a 50 KB-per-field Kafka-transport cap whose whole purpose is
+  substituting a real S3 URI into the truncation marker, it exports nothing, and it is
+  package-private to `webscrape`. Different problem, different bound, not reachable. The seat was
+  right to ask; the check was ~2 minutes and this is the record of it.
+- **`guardian` (LOW) — enumerate other Go callers of `reportedConditions`, not just Kafka
+  publishers.** **CHECKED: none.** `grep -rn "reportedConditions(" --include=*.go .` returns hits
+  only inside `internal/adapters/imagegenerator/`. The widened signature has no cross-package
+  blast radius.
+- **`guardian` / `editquality` (LOW) — the new rows are hard to attribute until the config half
+  lands.** Partly true and now partly closed, but **be precise about what `586` did and did not
+  fix**: `buildErrorEntry` reads `site_record.site_id` from the CHILD's collected data, and the
+  image-generator's workflow is a single `generate` step with no site load — so `site_id`,
+  `domain` and `work_item_id` on a `MISSING_IMAGE_KIND` row will be **NULL regardless of `586`**.
+  The bounded `prompt_opening` in the condition context is what makes such a row answerable at all.
+  The clean fix (fall `buildErrorEntry` back to `input_data.site_id`) touches every
+  `agent_error_log` row and `diagnose_load_runtime_action.go` filters on that column, so it is a
+  shared-seam change and deliberately **not** taken here — recorded in `102_coverage_ratchet.txt`
+  as a re-check trigger.
+- **`prior_art_librarian` (LOW) — "only handler" / "one publisher" are self-reported.** Fair.
+  Both are now re-derivable from RUNBOOK §2 and the grep in §7a; the "only handler" claim is
+  additionally corroborated by the `agritec.uk` lane's independent read of a site where the
+  variant branch never ran (§7e).
+
+## 9b. Diagnosis loop — **UNVERIFIABLE**, `bdea8252-aa93-44b6-be59-9a6c43fed858`
+
+**Not a confirmation, and it must not be quoted as one.** The run stopped on `iteration-cap`
+after 5 bundles with `is_fix: false` and *"Diagnosis NOT confirmed … Hand to a human with the full
+trail; do NOT auto-conclude."* None of the bundles was budget-truncated (checked — no
+`body omitted` line), so this is not the >60 KB landmine; the three gaps it named are all
+**harness reach**, not disagreement:
+
+| the loop could not get | how this lane answered it first-hand |
+|---|---|
+| `routeProvider`'s body — the bundle showed only its `strings.TrimSpace` call | read the file; the empty-kind fall-through is `routing.go`'s own documented comment, and the behaviour is pinned by `routing_test.go` |
+| the live `call_agent` step's config — its data_request was truncated and returned unrelated steps (`complete`, `flag_rebuild`, `populate_nav`) | RUNBOOK §2's query, run directly, returning all 8 image-generator `call_agent` steps and their mappings |
+| an `assets` × `site_work_items_archive` join with a `purpose` filter and explicit time-matching | §7a and §7e — all 14 assets matched to their own variant work item, ~25-30 s apart, per site |
+
+**So the loop neither confirmed nor refuted, and this file rests on first-hand verification**,
+which the owner ruling of 2026-07-31 permits provided the substitution is *declared* rather than
+silently omitted. This paragraph is that declaration. What independent scrutiny the claim did get
+came from the council (six seats engaged with the 390 falsity as established fact) and from the
+`agritec.uk` lane, which found a real defect in the *warrant* for part of it (§7e).
