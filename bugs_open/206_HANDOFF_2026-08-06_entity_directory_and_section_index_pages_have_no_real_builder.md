@@ -703,3 +703,32 @@ where `garden-tools.uk` got `page-build-handler` yesterday. Same producer, same 
 pipeline, opposite outcome.
 
 **That is what this bug now waits on, and it costs nobody anything.**
+
+## The PRE-FIX baseline, captured in the wild (the `loanzy_uk_example_site` lane, 2026-08-23)
+
+The FAIL condition of this bug's closure test, observed on a real unaided greenfield build by a
+lane that was not looking for it — **the best single piece of evidence either lane produced**.
+`garden-tools.uk`, all 13 items filed by `reconcile_site_plan` at `20:15:50.199268`:
+
+```
+brand-directory-index | needs_page        | page-build-handler   ← entity-directory, WRONG handler
+brand-profile         | needs_page        | page-build-handler   ← entity-page,      WRONG handler
+buying-guides-index   | needs_page        | page-build-handler
+buying-guide-post     | needs_page        | page-build-handler
+tool-finder           | owned_page_review | (empty)              ← correctly gated by the role guard
+about / care / index / contact / how-we-assess / seasonal-planner / affiliate-disclosure
+                      | needs_page        | page-build-handler   ← correct for content/landing
+```
+
+Two things this pins that no test of mine could:
+
+1. **The bug, in the act, at plan time** — an `entity-directory` and an `entity-page` both routed
+   to the generic builder by the producer, with no hand involvement, on a site built from nothing.
+2. **The owned-page role guard working correctly in the same run** (`tool-finder` →
+   `owned_page_review`, no handler), which is the control: the producer is not simply broken, it
+   is broken *specifically* on the type axis. That is the discriminating detail.
+
+It is recorded as a dated observation in that lane's `NOTES_loanzy_uk_example_site.md` as well, so
+it does not depend on either lane remembering it. **Re-run the corrected closure query in the
+handoff over these exact rows before trusting it on new ones** — it must return `FAIL` for the
+first two and `n/a` for the rest. It does, as of 2026-08-24.
