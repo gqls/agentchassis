@@ -4,10 +4,12 @@
 Read that one for the council rounds and how the ceiling was found; read this one for state.
 
 > ## ▶ ONE-LINE STATE
-> **Every defect this lane owns is fixed, LIVE and demand-proven on chassis `v1.0.1332`.** The
-> recommendation is **CLOSE `bugs_open/305`** with the residual filed — the only repairable copy left
-> is on ONE page, blocked behind ANOTHER lane's claims work, with its rerender already queued.
-> **Nothing here is inert and nothing is waiting on a build.**
+> **`305` is CLOSED** →
+> `bugs_closed/305_HANDOFF_2026-08-18_v2_voice_does_not_suppress_define_by_negation.md`.
+> Every defect this lane owned is fixed, LIVE and **demand-proven** (re-probed on `v1.0.1333`).
+> Nothing here is inert. The residuals are filed and owned elsewhere: ONE page needing a rerender
+> that is already queued behind another lane's claims work, plus decisions `D2`–`D5`.
+> **`D3` must still NOT be decided** — see §4.
 
 ---
 
@@ -19,6 +21,8 @@ Read that one for the council rounds and how the ceiling was found; read this on
 | §27 ceiling fix (`569`) | **LIVE + DEMAND-PROVEN** | **124 calls at `max_tokens=16000`, `cut = 0`** (was 4/34 = 11.8%). Zero `repair_unavailable` since the apply. 6-, 7- and 8-target pages now `repaired` |
 | post-roll reconciliation | **22/22 markers reconcile** | 0 not-reconciling, 0 account-for-none, 0 over-counted — see §2 for the honest limit |
 | the three pages | **repairable 6 → 2** | shipped-scanner canary, §3 |
+| **the demand control §2 flagged as MISSING** | **SATISFIED 14:00Z** — `no_answer_for_target` fired **43** times | see §2a; the gap closed itself in four hours |
+| fix present on the 13:12Z roll (`v1.0.1333`) | **re-probed, still live** | `no_answer_for_target` 1, control 0, known-present 8 |
 | council `f3046f0c` / `4829bd48` | both **APPROVED** | `unreadable=0`, all seats voted, on both |
 
 ## 2. ⚠ THE ONE THING THAT IS *NOT* PROVEN, AND IT IS A DEMAND-CONTROL GAP
@@ -40,7 +44,25 @@ ignored a target" was **the model running out of room**.
 there was nothing for it to record. The mechanism is proven by three mutation-proven properties plus a
 council round; the production sighting is outstanding.
 
-**The check to run:**
+### §2a. ⚠ RESOLVED 2026-08-24 14:00Z — it fired, and it brought a second finding
+
+**43 `no_answer_for_target` records** post-roll, so the recording path IS exercised: 122 markers, 247
+targets, `account_for_none` **0**, `not_reconciling` **1**. Everything below this line is kept as the
+record of the gap, not as a live task.
+
+**And the 1 is the over-count this lane predicted** (RUNBOOK §9, 08-23): `targets=5, rewritten=4,
+rejected=2`, reasons `no_such_sentence` + `no_answer_for_target` — all five targets accounted, plus one
+invented sentence correctly refused. **Not a defect.** The precise invariant is now in the code comment
+and pinned by a mutation-proven test:
+
+```
+targets == rewritten + rejected - count(reason='no_such_sentence')   -- status='repaired' only
+```
+
+⚠ **Expect a small non-zero `over_counted` and do NOT chase it**, and never close the gap by loosening
+`matchTarget` — that would splice rewrites into copy the model was not describing.
+
+**The check that was to be run (kept for the method):**
 ```sql
 SELECT r->>'reason', count(*) FROM orchestration_states os,
   LATERAL jsonb_each(os.collected_data) AS e(key,val),
