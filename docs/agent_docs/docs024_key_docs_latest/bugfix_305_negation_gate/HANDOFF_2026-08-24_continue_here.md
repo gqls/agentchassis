@@ -121,4 +121,10 @@ oversight.
 - Everything in the 08-22 handoff §6 still stands (`\y` not `\b`; brief-supplied is exempt BY DESIGN).
 
 **Migrations owned:** `509`, `517`, `548`, `569` — all applied and recorded.
-**Council:** `c48b7612`, `a696e2a3`, `f3046f0c`, `4829bd48` — all APPROVED.
+**Council:** `c48b7612`, `a696e2a3`, `f3046f0c`, `4829bd48` — all **APPROVED**.
+⚠ `52a4a50f` (the §29 invariant correction, comment + test) was **KILLED MID-RUN by the 13:12Z roll**
+— frozen at `review_debug_historian`, `updated_at` 13:11:31Z, pods restarted 13:11:58Z. **Resubmitted
+as `022169af-9274-48b0-a302-571229c73ba2`; read that one.** Commit `996eb2267` names the dead
+correlation and forward-only forbids an amend, so `098` will list it unresolved for ever — that is
+honest, not a reporting fault. **Nothing about the closure depends on this verdict** (comment + test,
+no behaviour change), which is why it was scoped that way.

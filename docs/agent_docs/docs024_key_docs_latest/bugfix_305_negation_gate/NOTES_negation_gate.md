@@ -885,3 +885,36 @@ never been seen to fail is not a guard. The dry run then rehearsed the whole fil
 `no space left on device`: `/tmp` is a 16G tmpfs at **100%**, shared with every other session on this
 tree. I did not clear it — pointed `TMPDIR` at this session's scratchpad (on `/`, 136G free) instead.
 Worth knowing before assuming a build failure is your code.
+
+---
+
+## 2026-08-24 — closed, and a roll ate a council run on the way out
+
+**`305` CLOSED** → `bugs_closed/305_HANDOFF_2026-08-18_v2_voice_does_not_suppress_define_by_negation.md`.
+Full criteria in the bug file §29b. The two things worth keeping here:
+
+**The demand control closed itself in four hours.** At 10:35Z I recorded that era C's 0.0%
+non-reconciling proved nothing, because `no_answer_for_target` had never fired — there was nothing
+for the fix to record. By 14:00Z it had fired **43** times. **Saying "this is not yet proven" cost
+nothing and was true for exactly four hours**; claiming the win at 10:35Z would have been wrong for
+those four hours and indistinguishable from right afterwards.
+
+**⚠ A FLEET ROLL KILLS AN IN-FLIGHT COUNCIL RUN, and the corpse looks like latency.** Submission
+`52a4a50f` (the invariant correction) sat at `review_debug_historian` / `EXECUTING_STEP` with
+`updated_at` frozen at **13:11:31Z**. The chassis pods restarted at **13:11:58Z** and **13:12:23Z**
+for `v1.0.1333`. It never moved again.
+
+- **The tell is `updated_at`, not `status`.** The row still reads `EXECUTING_STEP` for ever, which is
+  the same thing a queued-behind-the-fleet run reads. CLAUDE.md's standing advice — *"a missing
+  orchestration row is almost always latency, not a dropped dispatch — do not retry"* — is about a
+  **missing** row and does not apply to a **stalled** one. Compare `updated_at` against pod
+  `.status.startTime`: if the pods are younger than the last step transition, the run died in the roll.
+- **Cost of getting this wrong in either direction:** retrying a merely-slow run costs a duplicate
+  council round; *not* retrying a killed one waits for ever. The check that separates them is one
+  `kubectl get pods -o custom-columns=START:.status.startTime`.
+- **Resubmitted as `022169af-9274-48b0-a302-571229c73ba2`.** The commit (`996eb2267`) carries
+  `Council-Submitted: 52a4a50f…`, a correlation that can now never resolve — forward-only forbids an
+  amend, so the live correlation is recorded here and in the handoff instead. **`098` will show that
+  commit as unresolved for ever; that is the honest state, not a reporting bug.**
+- This is why the change was deliberately kept to a comment and a test: **nothing about the closure
+  depended on the verdict.** Had it been behavioural, the roll would have cost a day.
