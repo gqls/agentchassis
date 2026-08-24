@@ -49784,3 +49784,38 @@ had the intervening audit filed nothing.
 **What it cost.** A duplicate diagnosis written up as a discovery; a LANDMINES entry that had to be amended to credit the prior art; and, had I read 518 first, 601 could have reused a shared text definition instead of adding a third formulation.
 
 **The cheap check.** Before writing "found by …" about a mechanism, grep the migrations directory for the MECHANISM's nouns (`string_agg`, `regexp_replace`, `per component`) — not the regex — and `git log --since=<a week ago> -- docs/agent_docs/sql_for_agents/ | grep -i strip`. A literal grep finds copies; a mechanism grep finds the person who already fixed it.
+
+## 2026-08-24 — `staged_component_build` lane: I truncated a council sketch at 900 characters, and THREE of the round's four objections were about what the truncation hid
+
+**The claim.** Submission `c962abd1` (the related-pages picker) included migration 602 as an edit
+whose `sketch` I built programmatically: `mig[i:i+900] + "\n…"`. A tidy excerpt of a 350-line file.
+
+**What it cost.** The round came back **APPROVED with 4 advisory objections, and three of them are
+the same objection**: `editquality` (medium) — *"migration 602's rollback WHERE clause only patches
+type='tool-generator' … no edit visibly extends the same picker mechanism to a tool-deployer
+workflow"*; `editquality` (low) — *"the migration sketch is truncated ('…') before showing how the
+picker step's output is mapped into save_tool.config.related_pages_fallback … the crux of whether the
+fallback ever fires is not visible"*; `guardian` (medium) — *"the sketch is truncated mid-jsonb_set
+and never shows the WHERE clause scoping the UPDATE"*.
+
+**Every one of them is false about the file and correct about the submission.** 602 patches BOTH
+agents — a second `UPDATE … WHERE type='tool-deployer'` block, and the rollback has two UPDATEs as
+well — and it does show the wiring. My 900 characters ended in the middle of the first `jsonb_set`.
+The reviewers judged what they could see, which is the only thing they can do.
+
+**What caught it.** Reading the advisory objections of an APPROVED round instead of filing the
+verdict away — this lane's own Trap 10, earned on 2026-08-24 the same morning, on a different round.
+
+**The cheap check that would have.** Ask of every sketch: *does this excerpt contain the line that
+makes the change work?* For 602 that is the second `UPDATE`, the `WHERE type=…` on each, and the
+`related_pages_fallback?` jsonb_set — none of which were in the first 900 bytes. A programmatic
+prefix cannot know where the crux is; a first-and-last excerpt, or the whole file for anything under
+a few hundred lines, would have.
+
+**The transferable shape, and note it is the SECOND sketch defect this lane has logged in one day.**
+The other (corr `642ecc3c`, round 2) was a sketch showing code I had already changed — *stale*. This
+one is a sketch showing code I had written but *cut*. Both produce the same reviewer experience and
+the same wasted round-severity, and both come from treating the sketch as a summary of the change
+rather than as the evidence the reviewer actually reads. **The sketch IS the submission for anything
+the reviewer cannot open.** Paste it from the committed file (trap 8), and paste enough of it that
+the crux is inside.

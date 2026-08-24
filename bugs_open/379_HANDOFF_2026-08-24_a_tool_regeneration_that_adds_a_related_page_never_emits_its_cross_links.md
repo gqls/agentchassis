@@ -67,3 +67,28 @@ before starting, announce the claim in this file, and grep 353 §13.3 for the co
 
 **Adjacent, do not conflate:** `bugs_open/362` also touches `replace_existing` but is about tool
 writers persisting `rendered_html` without link repair — a different defect on a nearby path.
+
+
+## ADDENDUM 2026-08-24 (evening) — the related-pages PICKER does not help this bug, and here is why
+
+By the `staged_component_build` lane. Migration 602 (council `c962abd1`, APPROVED r1) makes both tool
+workflows ASK an LLM for `related_pages` when the request names none, and commit `0fb94a7dd` teaches
+the emitter to accept that answer as a fallback. **None of it reaches this bug.**
+
+The picker feeds `related_pages_fallback` into `create_tool_component` / `deploy_tool_to_site`, and
+both of those reach the emitter. A **regeneration** does not: `replace_existing` returns from
+`regenerateToolComponentInPlace` roughly 270 lines before `emitToolCrossLinkItems` is ever called
+(`LANDMINES.md`, the `no_related_pages` entry). So a regeneration whose spec ADDS a related page still
+emits nothing, and now it will do so on a site where every OTHER tool birth is getting cross-mentions
+— which makes the gap harder to notice, not easier.
+
+**This was raised on the record.** The council's `bug_historian` seat objected (advisory, medium) that
+the change patches 2 of 3 producers of the same shared mechanism and names the third here rather than
+tracking it: *"Disclosed transparently, but disclosure isn't a fix."* That is correct. This addendum is
+the tracking it asked for.
+
+**Still UNOWNED.** Its size is `[UNMEASURED]` on purpose — the first task is counting how many
+regenerations changed their `related_pages` set, not guessing. Whoever picks it up: the picker
+mechanism is now available to reuse (`suggest_related_pages` → `related_pages_fallback?`), so the
+regeneration path could gain the same wire cheaply IF someone first decides whether a regeneration
+should re-emit at all.

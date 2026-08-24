@@ -415,3 +415,69 @@ then submitted, then committed the migration — so only the migration carries `
 amend, and a trailer on a later unrelated commit would be a false claim. The submission asserts
 nothing and costs nothing until the verdict, so there is no reason to commit first. Second trailer gap
 this lane has recorded today (§9.1 is the other).
+
+---
+
+## 11. COUNCIL VERDICT: **APPROVED, round 1** (corr `c962abd1`), 4 advisory objections — two were real, and one of them is a residual this lane still owes
+
+*"approved with 4 advisory objection(s) — none high-severity"*. The code is committed and the
+migration is HELD; nothing to ship on the verdict itself. **Trap 10 applies: the advisory objections
+are where the substance was.**
+
+### 11.1 Three of the four were one mistake of mine, and it was not in the code
+
+`editquality` ×2 and `guardian` ×1 all objected that migration 602 patches only `tool-generator`,
+never shows its `WHERE` clause, and never shows how the picker's output reaches the fallback key.
+**All false about the file, all correct about the submission**: I truncated the SQL sketch at 900
+characters, mid-`jsonb_set`, before the second `UPDATE … WHERE type='tool-deployer'` and before the
+`related_pages_fallback?` wiring. Logged in `WRONG_CALLS.md` — second sketch defect this lane has
+recorded in one day (the other was a *stale* sketch; this one a *cut* one). **The sketch IS the
+submission for anything the reviewer cannot open.**
+
+### 11.2 The one real design gap: a failing picker is indistinguishable from an honest "none"
+
+`bug_historian` (medium): both new steps route `error_step` **to** the saving step, so a picker that
+fails every time leaves no durable record — the emitter writes `no_related_pages` with an empty
+source, which is exactly what a picker that ran and correctly answered "none" produces. The source
+stamp separates *spec* from *suggested*; it does **not** separate *declined* from *never ran*.
+
+**Partly answered, and the rest is stated rather than closed.** The RUNBOOK now carries "did the
+picker actually RUN?" — `llm_call_log` filtered to `step_name='suggest_related_pages'`, read beside
+the skip rows. ⚠ That query cannot see a failure of `load_site_page_names`, which runs before any
+model call; its signature is skips with no picker calls at all. **Closing it properly needs a durable
+record on the picker's own failure path (`bugs_open/034`'s argument). Not done, and owed.**
+
+### 11.3 The reuse objection sent me looking, and there IS something there
+
+`reuse_agent` (medium) asked whether an existing mechanism already picks related pages. It does:
+**`internal-linker`** — *"finds existing pages that should contextually link to an orphaned sub-page…
+uses LLM to pick natural link placements, creates content_rewrite items"* — and it is LIVE, with
+**2 LLM calls today** and **7 items across 3 sites, 08-19 → 08-24** [MEASURED 2026-08-24].
+
+**But its proposed remedy is not available.** That agent CREATES the items itself, so routing tool
+cross-links through it bypasses `bugs_open/029`'s never-construct-a-URL guard, `bugs_open/353`'s
+Guard 2, and the `tool_crosslink:` dedup namespace — and it returns items, not a page list, so there
+is no field to wire a fallback to. The overlap is real and the obvious fix is wrong.
+
+What came out of it is a **LANDMINE**: two live LLM mechanisms answer "which pages should mention
+this new thing", writing into namespaces `idx_swi_dedup` cannot collapse against each other. Overlap
+today: **0** targets in common (measured — re-run the INTERSECT before quoting that, since a new tool
+page IS "an orphaned sub-page"). A third similarly-named thing, `resolve_internal_links`, does
+something else entirely and is the name most likely to mislead you.
+
+### 11.4 `bugs_open/379` now carries the tracking the council asked for
+
+`bug_historian` also objected that this patches 2 of 3 producers and names the third out of scope —
+*"disclosed transparently, but disclosure isn't a fix"*. Correct. `bugs_open/379` gained an addendum
+explaining why the picker does **not** reach a regeneration (`replace_existing` returns ~270 lines
+before the emitter) and why the gap gets *harder* to notice once every other birth is cross-mentioned.
+Still unowned.
+
+### 11.5 The small ones, confirmed rather than assumed
+
+- `guidelines`: both tool agents are `processing_mode=orchestrator` — checked live.
+- `reuse_agent`: `load_site_pages` is a registered action (`registry.go:1932`), not a name I invented.
+- `guardian`: `relatedPagesFromInputs` has no callers outside the actions package; the signature
+  change compiles fleet-wide (`go build ./platform/...`).
+- `debug_historian`: `schema_migrations` holds 0 rows for `516%` against 1 for `515%` — run live, with
+  the present-control, not from memory.

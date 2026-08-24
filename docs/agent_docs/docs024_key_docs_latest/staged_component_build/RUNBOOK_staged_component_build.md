@@ -1001,3 +1001,37 @@ field in. The source stamp exists precisely so this stays measurable rather than
 not that it failed** — the requester named pages and won, which is correct. Check which case you are
 in before concluding anything: `SELECT count(*) FILTER (WHERE spec ? 'related_pages') FROM
 site_work_items WHERE item_type='add_tool' AND created_at > '<apply time>';`
+
+### 602 follow-up: "did the picker actually RUN?" — the check the council asked for (2026-08-24)
+
+The `bug_historian` seat's advisory objection on round 1 was the sharpest one and it is right: both new
+steps route `error_step` **to** the saving step, so a picker that fails every time is invisible in the
+emitter's own records. The skip row reads `no_related_pages` with `related_pages_source` empty — which
+is **exactly what a picker that ran and honestly answered "none" produces.** The source stamp
+separates *spec* from *suggested*; it does NOT separate *declined* from *never ran*.
+
+**So check the picker at its own surface, not at the emitter's:**
+
+```sql
+-- 1. is the picker being asked at all, and does it succeed?
+SELECT date_trunc('day', created_at)::date AS day, success, count(*), sum(output_tokens)
+  FROM llm_call_log
+ WHERE agent_type IN ('tool-generator','tool-deployer') AND step_name='suggest_related_pages'
+ GROUP BY 1,2 ORDER BY 1;
+
+-- 2. beside the skips, over the same window. A no_related_pages row with NO picker call
+--    on that run means the step never executed — a config or routing fault, not an honest 'none'.
+SELECT occurred_at, context->>'tool_function', context->>'related_pages_source'
+  FROM agent_error_log
+ WHERE error_code='tool_crosslink_not_emitted:no_related_pages' AND occurred_at > '<apply time>'
+ ORDER BY occurred_at;
+```
+
+⚠ **Query 1 cannot see a failure of the `load_site_page_names` step**, which runs BEFORE any model
+call and whose `error_step` also falls through — that failure leaves no `llm_call_log` row at all, so
+its signature is *skips with no corresponding picker calls whatsoever*. If query 1 returns zero rows
+while tool builds are happening, the picker is not running; do not read it as "no demand".
+
+**This is a stated residual, not a fix.** Closing it properly means a durable record on the picker's
+own failure path — the same argument `bugs_open/034` makes about dropped validation errors. It is
+worth doing and it is not done.
