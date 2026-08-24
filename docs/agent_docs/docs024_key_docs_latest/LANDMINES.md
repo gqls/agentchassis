@@ -16981,3 +16981,30 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **what removes it:** Phase 2 of `bugs_open/364` — a COMPONENT-grain `ClaimSurface`, so hero and CTA stay scanned while the listing does not. `TestTrackerPagesGiveUpTheirFirstPersonClaims` pins the current cost and must be **INVERTED, not deleted**, when that lands.
 - **source:** 2026-08-24, `bugs_open/364` lane; council submission `b8df25dc-7d19-48b9-9b52-b93b25523d4a`; concept register CLM-016
 - **added:** 2026-08-24, `bugs_open/364` lane
+
+---
+
+## `missingkey=zero` does NOT protect a component template — an absent key renders the literal `<no value>` onto the live page, and the option's NAME is why you will not check
+
+- **footprint:** `content_components.html_template` · any `{{.field}}` inside a `{{range}}` in a component template · `platform/orchestration/actions/call_agent.go` (`executeGoTemplate`) · `platform/orchestration/actions/component_library.go` (`RenderTemplate`) · `page_components.rendered_html` · any new component seed under `docs/agent_docs/sql_for_agents/`
+- **fires when:** you write or edit a component template and rely on `missingkey=zero` — which `executeGoTemplate` sets — to make an absent field render as nothing. It is the reasonable reading of the option, it is what the name says, and it is wrong for the data shape this estate actually uses.
+- **why the wrong result looks exactly right:** the option returns *the zero value of the map's element type*. Component data arrives as `map[string]interface{}`, whose element zero value is **`nil`** — and `text/template` prints `nil` as the four-word literal **`<no value>`**. So a writer omitting one optional key publishes `<no value>` into the served HTML. **Nothing anywhere reports it:** the LLM returned valid JSON, the schema is satisfied, `DeclaredTypeSatisfied` only checks arrays, the render succeeds, the page deploys, and the row in `page_components` is structurally perfect. The only place the defect exists is in the bytes a visitor reads. It survives review too, because the template *looks* correct — the guard you are missing is invisible by construction.
+- **the check — RENDER IT, with a case where the key is ABSENT (not empty, absent):**
+  ```go
+  // the same engine and option the chassis uses
+  t, _ := template.New("component").Option("missingkey=zero").Parse(tpl)
+  t.Execute(&buf, map[string]interface{}{"section_title": "T",
+      "items": []interface{}{ map[string]interface{}{"detail": "no title key at all"} }})
+  // assert: !strings.Contains(out, "<no value>")  &&  !strings.Contains(out, "{{")
+  ```
+  An empty-string value is NOT the same test and passes cleanly — the key must be **missing**. Fleet check, and it is cheap:
+  ```sql
+  SELECT count(*) FROM page_components WHERE rendered_html LIKE '%<no value>%';
+  -- 0 as of 2026-08-24. CONTROL in the same breath, or the zero means nothing:
+  SELECT count(*) FROM page_components WHERE rendered_html LIKE '%<section%';   -- 1,907
+  ```
+- **the remedy:** guard every interpolation — `{{if .x}}{{.x}}{{end}}` inline, or `{{if .x}}<p>{{.x}}</p>{{end}}` around the whole element where an empty element would otherwise render (the second is better and both are correct). Do this for **required** fields too: "required" is a statement to the writer in the schema, not an enforcement at render time.
+- **⚠ exposure, and it goes stale by ADDITION:** `[MEASURED 2026-08-24]` **49** active section templates contain a `{{range}}` and share the exposed shape; **0** live `page_components` carry the string today. So this is a hazard not to introduce rather than damage to repair — but every new component and every template edit is a fresh chance to introduce it, and the fleet count only tells you about writers who happened to fill every key.
+- **the transferable shape:** an option, flag or setting whose NAME describes the behaviour you want is the least likely thing you will verify. `missingkey=zero` reads as "missing keys become the zero value", and for `map[string]string` it would be — the estate just never uses that type here. Before relying on any such setting, render/run the case it is supposed to handle. Found 2026-08-24 by rendering three brand-new component templates that had already PASSED their SQL verify blocks: the SQL could check the markup, and could not execute the template.
+- **source:** `bugs_open/381` lane, 2026-08-24, migrations 604/605/606 (each carries a per-field guard assertion, mutation-proven); the render harness and its 11 cases are in that lane's RUNBOOK
+- **added:** 2026-08-24, `bugfix_381_inexpressive_composition` lane
