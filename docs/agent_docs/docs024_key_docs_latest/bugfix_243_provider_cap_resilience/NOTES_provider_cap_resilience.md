@@ -573,3 +573,62 @@ session neither repeats my inference nor mistakes my two-minute sample for a bou
 `51293533e` ("333 round-2 record") before I committed it. The content is at HEAD and nothing is
 lost; forward-only holds. It is the exact scenario CLAUDE.md describes — committing per task
 stops *me* sweeping *others'* work, and cannot stop theirs sweeping mine.
+
+## 2026-08-24 (night) — UNBLOCKED. All three halves are committed; the writer awaits the next roll
+
+The `bugs_open/354` blocker was cleared by an **owner-approved sweep**, after establishing it
+was **parked, not in progress**: both untracked files last modified **2026-08-22 19:20–19:21**
+(two days), and no commit touching that lane since — the only 354-related commit in the window
+was my own note.
+
+**What I verified before committing code I did not write** (the bar for vouching, not a
+formality):
+
+- builds — `verify-head-builds` with all three files, OK; and HEAD green after both commits;
+- **their own tests pass in full** in a clean HEAD tree (declared-terminal recorded, recovered
+  untouched, skip untouched, undeclared untouched, outcome read strictly, malformed marker
+  inert across 5 shapes, prefix not doubled);
+- **read in full**, including the body: `errorRouteTermination` returns false unless the ending
+  step declares `config.outcome == "error"` **AND** a non-empty `__step_error.message` exists —
+  inert by construction.
+
+**Two commits, so no intermediate state fails to compile:**
+
+1. `893a12d47` — `sweep:` their two callee files alone. HEAD's `coordinator.go` had no call at
+   that point, so HEAD still built.
+2. `dbd865ee8` — my `routeToErrorStep` writer, **declaring their `completeWorkflow` hunk as a
+   same-file passenger**. A pathspec commit takes the whole file; the alternative was editing
+   another lane's hunk out and back on a shared tree, which is worse.
+
+### ⚠ A finding for THEM that I nearly accepted at face value
+
+Their file's measurement table reads `36 dishonest (declared terminal + marker) -> recorded
+100%`, which reads as measured against live config. **It is not live.** Checked at all three
+placements today — `v->'config'->>'outcome'='error'` = **0**, step-level `v->>'outcome'='error'`
+= **0**, and the string `"outcome"` anywhere in any live `default_config` = **0**.
+
+So their change is the **code half of a code/config split whose config half does not exist**,
+and `bugs_open/354` is **not fixed** — the discriminator is present and unreachable. Told them,
+with the sequencing advice from this lane transferred. I checked all three placements
+specifically because the `error_step` nesting trap bit this lane earlier today; one placement
+would have returned a confident 0 that happened to be right for the wrong reason.
+
+### Where 243 stands now
+
+| half | state |
+|---|---|
+| **MDL-044** symmetric health writer | **LIVE + PROVEN TWICE** on v1.0.1334 |
+| probe interval 3600→60 (mig 596) | **APPLIED**, measured cadence 92–94s |
+| **WFA-023** reader | **LIVE** on v1.0.1334, inert by design |
+| **WFA-023** writer | **COMMITTED** (`dbd865ee8`), **inert until the next roll** |
+| mig `588_..._HOLD` (council repoint) | **STILL HELD** — gate below |
+
+**The gate before 588 may be applied, and it is a threshold not a glance:**
+`grep -ac "step-error record capped at" /proc/1/exe` must read **≥ 1 on EVERY replica**, with a
+known-absent control in the same breath. **Never probe `__step_errors`** — the reader mentions
+it too, so it returns 1 whether or not the writer shipped.
+
+**The proof still owed after that:** a council round in which one seat errors must reach a
+verdict, report that seat under `unreadable` (not `abstained`), and — if the rest would have
+approved — return **REVISE** naming the lost seat. A round approving with zero unreadable is
+the negative control.

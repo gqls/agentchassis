@@ -232,3 +232,37 @@ genuinely not there. Nothing is half-applied.
 And the two big questions remain yours, unchanged: topping up is still the only thing that
 restores service under a real cap, and whether we add a second AI provider is still undecided —
 every one of our 127 configured AI steps points at the same account and the same key.
+
+## Sunday 24 August 2026, night — unblocked, and all three pieces are now committed
+
+You approved the sweep, so that is done and the blockage is gone.
+
+Before touching another thread's work I checked it was genuinely parked rather than in
+progress: both files had sat untouched since Friday evening, two days, with nothing committed
+for that thread since. And before committing code I did not write, I made sure it was safe —
+it builds, its own tests all pass, and I read it properly. It cannot do anything at all on our
+live system yet, which is what made it tolerable to land.
+
+I did it as two commits so the build never passes through a broken state, and both messages say
+plainly which work is theirs.
+
+**A useful thing fell out of it.** Their notes contain a table that reads as though their fix
+had been measured working against our live configuration. It has not — the setting their code
+keys on does not appear anywhere in any live agent, which I checked in all three places it
+could have been hiding. So their bug is not actually fixed: the code is there and nothing can
+reach it. I have told them, and passed on how we handled the same situation here.
+
+### Where the whole job stands
+
+- The **main fix** — a successful call clearing the unhealthy flag — is live and proven twice on
+  real traffic.
+- The **probe interval** is applied, at a measured 92–94 seconds rather than the hour it was.
+- The **council fix** is now fully committed, but it is Go, so it does nothing until the next
+  build goes out. The database change that finishes it stays held back until then, and I have
+  written the exact check into that file so whoever applies it cannot get it wrong.
+
+The last thing owed is a proof I cannot force: a council round where one reviewer's call fails,
+which should now cost that one reviewer instead of the whole round. That will happen on its own.
+
+Your two decisions remain open and unchanged: topping up is still the only thing that restores
+service under a real cap, and whether we add a second AI provider is still undecided.
