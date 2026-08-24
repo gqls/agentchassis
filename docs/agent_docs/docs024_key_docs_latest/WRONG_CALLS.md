@@ -50094,3 +50094,12 @@ was true and the implication was not.
 **What caught it.** Reading the commit hook's own output after the fact: `CORR2=` with nothing after it, printed two lines above a successful commit.
 
 **The cheap check that would have.** Never pipe the validator (`cmd > log; test $? -eq 0`, then read the log); guard the correlation explicitly — `[ -n "$CORR" ] || exit 1` — BEFORE composing the message, not after; and on a resubmit expect the OLD correlation back (the trail is the point), so an empty one is unambiguous. A trailer is a claim: build it from a value you have just asserted non-empty.
+
+> **ADDENDUM 2026-08-24, evening — fifth time, and the mechanism was a number I never looked at.**
+> The Fable-fixes submission drew two more "sketch truncated over the logic" objections. The plan
+> was **14,861 bytes against a 32,768-byte cap.** I had 17KB to spare and cut the code anyway,
+> because the generator carried a fixed per-edit line cap that ran regardless of the total.
+> Yesterday's rule — strip comments before truncating — was obeyed and was beside the point.
+> **The check: print the plan's byte count before deciding to truncate anything; if it is under
+> the cap, nothing gets cut.** A safeguard with a hard-coded limit will fire below the real limit
+> for ever, and it will look like prudence while it does.

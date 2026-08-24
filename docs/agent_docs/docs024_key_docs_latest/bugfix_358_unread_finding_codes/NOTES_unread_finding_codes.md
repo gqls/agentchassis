@@ -1098,3 +1098,34 @@ local variables, i.e. the stated runtime blind spot, now *visible* as such rathe
 lane's commit `0fe414745` as a same-file passenger before my pathspec commit reached it — the
 documented shared-tree behaviour. It is at HEAD, nothing is lost, forward-only holds. Code fixes
 for Fable's findings: `bce49226a`, council `4d5c1523`.)*
+
+### Council on the Fable fixes, round 1: REVISE — the guardian was right, and the measurement made it sharper
+
+`4d5c1523`, 8 seats, 9 abstained. Gated by **guardian, HIGH**: running the WHOLE actions package
+from the hook *"converts a targeted registry check into a broad commit-time cost for other sessions
+who happen to touch an ErrorCode: site for unrelated reasons"*, and any unrelated flake in the
+estate's most concurrently-edited package would surface under this hook's headline.
+
+**Measured before answering**, because the seat's numbers were mine and quoted back:
+- whole package, warm: **20.4s wall** (5.8s tests); scan tests only via `-run`: **25.1s wall**
+  (0.77s tests). So wall time is COMPILE either way — the filter does not buy latency;
+- **86 of 411 commits** touching `actions/` in 14 days staged a file carrying `ErrorCode:` — 21%,
+  ~6 a day fleet-wide — so the exposure is real;
+- and the part that decided it: with a whole-package run, an unrelated failing test prints
+  *"this package writes a code the registry does not declare"*. **That is a misattributed
+  headline**, and misattribution is this lane's own class of defect.
+
+**Resolution that honours both the objection and my "a filter is a roster" rule:** the filter is
+a NAMING CONVENTION, enforced by a test. Every registry-grading test in the two files is now
+`TestFindingCode*`; the hook runs `-run '^TestFindingCode'`; and
+`TestFindingCodeTestsFollowTheHookConvention` parses both files and fails on any `Test*` outside
+the prefix. A filter a test polices is a contract. Proven three ways: the filter selects all seven
+tests; the hook still reports a new code (16.6s wall); **a declared code plus an unrelated flake is
+now SILENT** — the guardian's case, closed; and a test renamed outside the prefix FAILS the
+self-check (mutated on a snapshot, restored by `cp`).
+
+**Two objections were about truncated sketches, and this one is an own goal.** The plan was
+**14,861 bytes against a 32,768 cap** — 17KB of headroom — and I truncated anyway, because my
+generator applied a fixed line cap regardless of the byte budget. Yesterday's runbook rule (strip
+comments before truncating) was followed and was not the point: **do not truncate at all when the
+plan is under the cap.** Print the byte count first; cap only what the number forces. Rule amended.
