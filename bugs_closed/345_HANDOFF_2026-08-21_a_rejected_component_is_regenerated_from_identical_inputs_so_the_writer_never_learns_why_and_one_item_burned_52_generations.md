@@ -614,3 +614,73 @@ which is `bugs_open/362`'s territory and never produced a rejection to feed.
 lane's own contributed sections (left as they wrote them), now resolve to
 `bugs_closed/337_HANDOFF_2026-08-20_one_section_type_reliably_exceeds_the_16000_token_component_cap_and_parks_the_page_hollow_on_every_site_that_plans_it.md`.
 **Resolve by slug, not number** — several numbers name two unrelated cases.
+
+---
+
+## ⚠ CORRECTION 2026-08-24 (`bugfix_337_token_cap` lane — the tripwire's author) — the tripwire as recorded CANNOT FIRE on the class it guards: its patterns watch the two faces that have never occurred and miss the one that has
+
+**What is wrong.** §2's tripwire counts `%truncated by token limit%` / `%no HTML structure%` in
+`agent_error_log` and `site_work_items.error`. Those are the STORE-side check literals
+(`:176–180`/`:186–193`) — the face that has **never fired**, and that zero is real. The face that
+HAS fired is upstream: `execute_llm_prompt` fails at `generate_template` with
+**`response truncated: stop_reason=max_tokens`** — wording that matches neither pattern. So the
+tripwire reads 0/0 for ever while the class it guards recurs, and "build when this stops being
+zero" can never trigger.
+
+**The class has fired, and its record sat in BOTH swept tables when the tripwire was written**
+[MEASURED 2026-08-24]:
+
+- `agent_error_log`: `step generate_template failed … response truncated: stop_reason=max_tokens`
+  — newest **2026-08-19 00:24Z** (an `UNKNOWN` + `CHILD_ORCHESTRATION_FAILED` pair).
+- `site_work_items`: **2** `needs_new_component` rows carrying that wording (created 08-18 15:17Z
+  and 22:47Z) — the very "**2** failed at `generate_template`" §3 counts. **Both died at
+  12:33:13.889675Z on 08-23 — the exact timestamp of the 337 lane's 9-row supersede batch.** So
+  the truncation population's drain, which §1 already half-attributes, is now fully attributed:
+  **100% administrative cancellation (mine), 0% success.**
+
+**Why both verification passes agreed with a blind instrument — this is the transferable part.**
+The 0/0 "has a passing demand control", but the control (14 rows of the `:477` path's
+`generated template for %q` shape) proves the COLUMN receives text — it never exercises the
+PATTERNS. **A demand control must share the instrument's predicate, not just its channel**; a
+control on the channel calibrates delivery and says nothing about the filter. And the "337 lane's
+independent 14-day sweep agrees" credit is worse than worthless: my sweep **returned the 08-19
+`generate_template` truncation rows** and I summarised the result as "only
+`RENDER_AUDIT_TRUNCATED`", never reading past the rows I recognised. Both in `WRONG_CALLS.md`
+2026-08-24.
+
+**The corrected tripwire — two faces, dated baseline:**
+
+```sql
+-- Face A (HAS fired; newest 2026-08-19 00:24Z; 0 since): the LLM call itself is cut.
+SELECT (SELECT count(*) FROM agent_error_log
+         WHERE error_message ILIKE '%generate_template%'
+           AND error_message ILIKE '%response truncated%'
+           AND occurred_at > '2026-08-19 01:00+00') AS new_in_log,   -- ⚠ ~1-month retention
+       (SELECT count(*) FROM site_work_items
+         WHERE item_type='needs_new_component' AND error ILIKE '%response truncated%'
+           AND created_at  > '2026-08-19 01:00+00') AS new_items;    -- terminal rows persist
+-- Face B (never fired; keep watching): truncated-but-parseable output reaching the store gate.
+SELECT count(*) FROM agent_error_log
+ WHERE error_message ILIKE '%truncated by token limit%'
+    OR error_message ILIKE '%no HTML structure%';
+```
+
+**0 / 0 / 0 as of 2026-08-24.** False friends, named so the next reader does not widen the
+patterns and re-import them: `RENDER_AUDIT_TRUNCATED` (audit pagination, not truncation);
+`step verdict failed … response truncated` (the **diagnosis loop's** own 32k output cap, 08-19 —
+the `generate_template` conjunct excludes it); and
+`render_component … refusing to render an empty section (likely LLM truncation or an unparseable
+response)` — a guard whose refusal message **speculates** truncation as a cause (the `238`/`355`
+resolver-keys family). A loose `%truncat%` sweep counts that hypothesis as an occurrence — a
+message *about* truncation scoring as truncation.
+
+**One narrowing of §2's "that is the whole change".** Moving the recorder above `:176–193` wires
+**Face B only**. Face A dies inside `execute_llm_prompt` at `generate_template` and never reaches
+`store_generated_component_action.go` at all — feeding it back needs a writer at the
+step-failure path, which is more than the stated hour. §3 said this correctly ("a
+`generate_template` failure feeds nothing at all"); §2's price tag did not carry it over.
+
+**Net: the don't-build decision STANDS**, now on the corrected baseline — the class is dormant
+since 08-19 00:24Z with the 337 cap/contract work in between, rather than "zero ever" — and on an
+instrument that can actually fire. WII-026's relations line, which quoted the blind literals, is
+corrected in the same commit.

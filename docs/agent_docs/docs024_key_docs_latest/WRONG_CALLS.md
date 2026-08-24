@@ -46762,3 +46762,46 @@ explanation for a difference, spend one query looking for an instruction that pr
 Related: [[a-plausible-external-cause-is-when-to-doubt-your-instrument]] (the mirror image — there, a
 believable outside cause should have made me doubt the meter; here, a believable *inside* cause
 should have made me look for an outside one).
+
+---
+
+## 2026-08-24 — `bugfix_337_token_cap` — I characterised my own sweep's results by the rows I recognised, and the summary reversed what the data said; a lane then built a tripwire on my false summary
+
+**The claim I sent** (cross-lane message to the `345` lane, 2026-08-23 evening):
+
+> "my 14-day sweep of agent_error_log agrees — the only 'truncat' hits are RENDER_AUDIT_TRUNCATED
+> (1 on 08-18, 1 on 08-21), a different thing."
+
+**It is false, and the disconfirming rows were IN MY OWN QUERY OUTPUT when I wrote it.** The
+sweep's result set included `step generate_template failed … response truncated:
+stop_reason=max_tokens` (2026-08-19 00:24Z) — the truncation class itself, the exact thing the
+sweep existed to look for — sitting under `error_code='UNKNOWN'` and
+`CHILD_ORCHESTRATION_FAILED`. I recognised `RENDER_AUDIT_TRUNCATED` as a named truncation code,
+called it "the only hits", and never read the messages of the codes I did not recognise. The
+class I reported absent was present; my summary inverted the evidence.
+
+**The damage compounded before it was caught**: the `345` lane recorded a build-tripwire on the
+strength of that agreement, watching the two store-side literals — which have genuinely never
+fired — so the tripwire read 0/0 for ever while the class it guards had fired four days earlier
+and its record sat in BOTH swept tables. Corrected 2026-08-24 at the foot of `bugs_closed/345`
+and in WII-026's relations line.
+
+**Second, subtler miss in the same episode, and it is the transferable one: the tripwire's
+demand control validated the CHANNEL, not the PREDICATE.** The recorded zero "had a passing
+demand control" — 14 rows of the `:477` path's message shape in the same column — which proves
+the column receives text. It never exercised the ILIKE patterns, which is what was broken. **A
+demand control that does not share the instrument's filter calibrates delivery and says nothing
+about detection.** Both of us signed off on it.
+
+**The cheap checks:**
+
+1. **Before summarising a pattern-sweep, classify EVERY distinct `(error_code, step)` in the
+   result — a "the only hits are X" sentence must be derived from that classification, not from
+   scanning for names you know.** Reading the two `UNKNOWN` rows' messages was one query and
+   would have caught this at the source.
+2. **A tripwire's demand control must be a row the PATTERNS match** — take a known-real
+   occurrence of the class, run the tripwire's own WHERE clause against it, and require a hit.
+   Here that test fails instantly: the 08-19 row matches neither literal.
+3. A third false friend found while correcting: `render_component`'s refusal message SPECULATES
+   "likely LLM truncation" as a cause, so a loose `%truncat%` sweep counts another guard's
+   hypothesis as an occurrence — prompt-text-poisons-its-own-detector, at a refusal message.
