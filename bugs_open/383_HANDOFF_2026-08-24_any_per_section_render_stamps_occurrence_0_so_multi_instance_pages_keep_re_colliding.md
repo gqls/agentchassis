@@ -156,7 +156,20 @@ credited automatically now the correlation is approved — **no amend** (forward
 | **architecture** (low) | wants the binder retirement as a **tracked item**, not only a file-header comment — *"so it doesn't rot the way RFC_032's ComponentID binding did (two deferrals already)"* | Tracked here as §10. That precedent is exact: the binding this very commit deletes had been deferred twice. |
 | **reuse_agent** (missing) | *did it reuse the existing loop-config reader rather than write new parsing?* | It reuses `datahelpers.GetIntField` (the helper `loop_actions.go:324` uses) via `placementInt`, and `datahelpers.LoopItemKey`, which this change created **by single-sourcing three existing literals**. There is no existing item-shape reader to extend. |
 
-## 10. TRACKED FOLLOW-UP — retire `BindSingleSectionInstanceToken` (architecture seat, 2026-08-24)
+## 10. ~~TRACKED FOLLOW-UP~~ — **DONE the same day**: `BindSingleSectionInstanceToken` is RETIRED
+
+> **CLOSED 2026-08-24.** The Half B lane reported its files clean, so the deferral's only
+> condition was met within hours and the retirement was taken immediately rather than tracked.
+> Deleted from `component_instance_scope.go` (a RETIRED note stands in its place, naming the
+> false licence it shipped under); the seam regex drops it; the one remaining caller,
+> `component_instance_scope_test.go:126`, is retargeted onto `DeriveAndBindInstanceToken` with an
+> EMPTY placement — which is exactly the no-context fallback, so that test still asserts the
+> property it always asserted. **A census of "single-section binders" now returns ONE.**
+> Also fixed in the same commit: `pattern-check.py`'s finding text still told authors to *call*
+> the retired function — a remediation pointing at a deleted symbol, which is the stale-advice
+> shape the architecture seat's "don't let it rot in a file header" objection was about.
+
+### The original entry, kept because the deferral is the lesson
 
 `component_instance_scope.go` still defines it; **no production code calls it** after `364e80b7f`.
 It was left in place only because that file was dirty in the concurrent Half B lane and moving a

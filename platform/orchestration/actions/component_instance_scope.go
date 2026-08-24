@@ -172,20 +172,16 @@ func BindInstanceToken(rc *RenderContext, token string) {
 	rc.ContentData[InstanceContentKey] = token
 }
 
-// BindSingleSectionInstanceToken binds the token for a path that renders ONE
-// section and cannot see the rest of the page — the section editor, and
-// RenderComponentAction during a build where the page's rows may not exist yet.
-//
-// It supplies occurrence 0 to the canonical rule rather than inventing a second
-// rule for the single-section case. Right whenever the component appears once on
-// the page, which is every interactive component on every live page today
-// (measured 2026-08-15: no component that binds by getElementById is
-// instantiated twice anywhere). Where it is wrong, the two instances take the
-// same token and DetectInstanceCollisions reports it at assembly — a detectable
-// wrong answer, not a silent one, and not a second guarantee.
-func BindSingleSectionInstanceToken(rc *RenderContext, function string) {
-	BindInstanceToken(rc, InstanceToken(function, 0))
-}
+// RETIRED 2026-08-24 — `BindSingleSectionInstanceToken` lived here and is gone.
+// It supplied a CONSTANT occurrence 0 to the canonical rule, licensed by a
+// comment claiming the component "appears once per page, which is every
+// interactive component on every live page today (measured 2026-08-15)". That
+// measurement was about getElementById TOOL components and was never true of the
+// repeatable section templates, so every per-section render re-collided every
+// multi-instance page (bugs_open/383). Its replacement derives the real
+// occurrence: `DeriveAndBindInstanceToken` in component_instance_occurrence.go,
+// which still binds occurrence 0 as its universal fallback — the constant is now
+// the last resort rather than the only answer.
 
 // reTemplateInstanceID matches a template's reference to the per-instance
 // token, in either of Go's spacings and with or without a trim marker.

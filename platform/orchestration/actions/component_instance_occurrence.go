@@ -62,13 +62,11 @@ import (
 // already merged, never create a new collision. (The one cross-path exception is
 // the errs-high editor case documented on storedPredecessorCount.)
 //
-// ⚠ THE OLD BINDER IS STILL PRESENT AND IS NO LONGER CALLED BY PRODUCTION CODE.
-// BindSingleSectionInstanceToken (component_instance_scope.go) is retained
-// deliberately, not by oversight: that file is being edited concurrently by the
-// lane finishing RFC_032's Half B, and moving a function out from under it would
-// mint exactly the same-file passenger that cost this lane a guardian veto on
-// 2026-08-23. It is retired in a follow-up commit once that lane is clean. Until
-// then, a census of "single-section binders" honestly returns two.
+// THE OLD BINDER IS GONE. BindSingleSectionInstanceToken was deleted from
+// component_instance_scope.go on 2026-08-24, once the Half B lane's files were
+// clean — it had been kept alive for one commit only because moving a function
+// out from under a concurrently-edited file is how this lane earned a guardian
+// veto on 2026-08-23. A census of "single-section binders" now returns ONE.
 
 // SectionPlacement is what a single-section render path can know about WHICH
 // placement it is rendering. The zero value means "nothing is known", which

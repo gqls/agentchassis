@@ -665,7 +665,7 @@ COMPONENT_RENDER_RE = re.compile(r"\bRenderTemplate\w*\s*\(")
 # manufacture a finding, and the raw body lets a comment merely MENTIONING the
 # seam silence a genuinely unbound writer.
 INSTANCE_BIND_SEAM_RE = re.compile(
-    r"(?:BindInstanceToken|BindSingleSectionInstanceToken|DeriveAndBindInstanceToken)\s*\(")
+    r"(?:BindInstanceToken|DeriveAndBindInstanceToken)\s*\(")
 
 
 def _binds_instance_token(raw):
@@ -741,10 +741,14 @@ def check_unscoped_component_render(files, ref, findings):
             "ids, so getElementById hands each lookup to the first copy: the second "
             "calculator answers from the first one's inputs, with no error anywhere. "
             "Bind it before rendering — BindInstanceToken(rc, counter.Next(fn)) if you "
-            "walk the whole page in order, BindSingleSectionInstanceToken(rc, fn) if "
-            "you render one section and cannot see the rest. If this slot genuinely "
-            "occurs once per document, add it to INSTANCE_TOKEN_ALLOWED with the "
-            "measured reason.",
+            "walk the whole page in order; DeriveAndBindInstanceToken(ctx, db, rc, fn, "
+            "placement, log) if you render ONE section, passing "
+            "PlacementFromLoopStep(config, collected) inside a section loop or "
+            "PlacementFromStoredRow(pcData) when editing a stored row. Do NOT bind a "
+            "constant occurrence 0: that was BindSingleSectionInstanceToken, RETIRED "
+            "2026-08-24 because it re-collided every multi-instance page it touched "
+            "(bugs_open/383). If this slot genuinely occurs once per document, add it "
+            "to INSTANCE_TOKEN_ALLOWED with the measured reason.",
         ))
 
 

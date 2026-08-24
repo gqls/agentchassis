@@ -8,6 +8,7 @@
 package actions
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -119,13 +120,21 @@ func TestInstanceTokensForPage_repeatedComponentGetsDistinctTokens(t *testing.T)
 	}
 }
 
-// The single-section paths (RenderComponentAction, the section editor) cannot
-// see the page, so they supply occurrence 0. Assert that this AGREES with the
-// canonical token in the common case — the whole reason it is not a second
-// rule — and that where it does not, the guard is what catches it.
+// The single-section paths (RenderComponentAction, the section editor) now derive
+// their real occurrence, but when they can derive NOTHING they still fall back to
+// occurrence 0. This asserts the FALLBACK — the branch that used to be the whole
+// behaviour — still agrees with the canonical token for a once-per-page
+// component, which is the whole reason it is not a second rule; and that where it
+// is wrong, the guard is what catches it.
+//
+// Retargeted 2026-08-24 from the retired BindSingleSectionInstanceToken onto
+// DeriveAndBindInstanceToken with an EMPTY placement, which is exactly the
+// no-context fallback. The derived branches are covered in
+// component_instance_occurrence_test.go.
 func TestSingleSectionToken_agreesWithCanonical_andCollidesDetectably(t *testing.T) {
 	rc := &RenderContext{}
-	BindSingleSectionInstanceToken(rc, "mortgages-repayment")
+	DeriveAndBindInstanceToken(context.Background(), nil, rc,
+		"mortgages-repayment", SectionPlacement{}, zap.NewNop())
 	single, _ := rc.ContentData[InstanceContentKey].(string)
 
 	canonical := InstanceTokensForPage([]string{"hero", "mortgages-repayment"})[1]
