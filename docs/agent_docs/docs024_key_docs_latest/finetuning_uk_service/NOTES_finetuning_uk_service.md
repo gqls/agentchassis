@@ -1744,3 +1744,36 @@ via `llm_call_log`, re-check `required_links` survived the build, then run `copy
 deliberately and report the exemplar outcome to copy_quality either way (their §4 ask).
 [INFERRED] the builder may overwrite `pages.content_direction` at build time — re-check before
 running copy-editor rather than assuming.
+
+## 2026-08-24 (later) — the build ran, was blocked by a validator false positive (now 377, fixed + APPROVED), and the copy itself measured WELL
+
+- Build dispatched 10:19, claimed 10:22:55, writer output 10:24:23 (`llm_call_log 774ca9c5`),
+  **blocked at `validate_content`: 1 blocker** — `placeholderPatterns`' bare `"your company"`
+  entry convicting the assembled hero line "Your company's voice, in a model you own". Detail
+  came from `agent_error_log` `error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'` (the generic
+  error hides it by design). Census: **46/46 recorded firings of that pattern are false
+  positives, 41 of them THIS site since 08-03** — three weeks of serial re-blocks nobody saw
+  because blocked builds park at needs_human_review (033: no surface).
+- **Filed `bugs_open/377…` + fixed** (pattern removed, `"your company name here"` added,
+  regression pair; proven against `git archive HEAD` + only my two files — the tree's
+  `TestUpdateWorkItemStatus` failures are another session's dirty `load_work_item_actions.go`).
+  Council **APPROVED round 1, all reviewers** (`8dd767ed`, ~7 min — no queue today). Committed
+  `9094bc65c` with `Council-Submitted:` trailer. **INERT until a post-`9094bc65c` chassis
+  roll** — then reset item `gap_plan_new_your-own-model_…` from needs_human_review → `triaged`
+  and let the 60s sweep rebuild. 016b §9 entry added; WRONG_CALLS row added (I attributed
+  older census rows' sentences to today's build; the artefact check caught it; 377 carries the
+  visible correction).
+- **The written copy, measured** (full table + traceability in
+  `copy_quality_two_stage/CONTRIB_2026-08-24_from_the_finetuning_lane_…`): em dash 0,
+  not-just 0, isn't-family 0, does-not-simply 0, exemplar lift 0/3, numerals beyond £99 none,
+  unverified promise absent — **but `rather than` ×6 + `X, not Y` ×3 survived, and they match
+  1:1 the shapes the INPUTS still demonstrate** (formatted 8+8 instructional; my brief 2+3,
+  including the owner-safe form "run by people, not left to a queue" which I MANDATED in
+  X-not-Y shape and got back near-verbatim twice). An instruction is also an example.
+- **Round 2 applied same day** (spec history has both): my voice addition de-demonstrated,
+  `unique_selling_points` gains-framed (was 4/7 negation-built, untouched this morning —
+  apis.uk precedent), the item's `spec.suggestion` de-demonstrated (1 quoted meta-mention
+  remains, intended). Fleet instructional lines in `formatted` (7+8 remaining) deliberately
+  LEFT — that text is `operator:fleet_honest_20260812`, the call is copy_quality/305's, and
+  the CONTRIB hands them the counts. **Post-roll rebuild is the controlled test**: survivors
+  should drop toward the residual demonstrations if the instruction-as-exemplar reading holds.
