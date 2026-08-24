@@ -635,3 +635,60 @@ The three STOP conditions, each invisible to *"is the tool still there?"*:
 **The 22 existing rows are untouched and still wrong.** `578` repairs them, is
 committed, and remains unapplied — it enforces its own preconditions rather than
 trusting a runbook.
+
+### 2026-08-24 17:00Z — the six `owned` pages are INCLUDED, and the seam has not run since arming
+
+**Scope corrected on the owner's instruction.** `578` now targets all **22**
+(dry-checked read-only: `targets_now=22`). The six `rebuild_policy='owned'` pages are
+in, and the reason they were ever out was a misreading of mine:
+
+> **`owned` does NOT mean "a human claimed this page".** The guard's own comment:
+> such a page *"belongs to a tool/widget or is a runtime-fill shell"*
+> (`save_page_sections_action.go:172`), and `create_report_page_action.go:176` writes
+> the value in code. **172 of 704** pages estate-wide carry it. I read the column's
+> name, inferred its meaning, and escalated that inference into a decision for the
+> owner. `WRONG_CALLS.md` (9).
+
+**And the misreading inverted the conclusion.** These six are the ONLY rows phase 2
+can never heal — the owned-page guard returns at `:186`, adoption runs at `:397`, so
+the save is refused two hundred lines before the new code is reached. Every other bad
+row will now be repaired by an ordinary rebuild; these never will. A migration is
+their sole route. They were the rows I was least willing to touch and they are the
+only ones that cannot fix themselves. They are also the most durable targets: because
+the pipeline refuses these pages, a row repaired here stays repaired.
+
+**Checked before including them, because one condition would have made it unsafe.**
+A page ships VERBATIM only when THREE things hold — `owned` ∧ exactly one component
+row ∧ `content_data->>'deploy_mode'='verbatim'`. All six are owned with one row (two
+of three) and **every one reads `deploy_mode` = NONE** [MEASURED 2026-08-24]: they are
+assembled pages that work because assembly emits the single row's stored HTML, exactly
+as §"Why this changes fix candidate 1" already recorded. Had the third condition held,
+touching them would have risked the verbatim↔assembled flip, which **is the row count,
+not a flag**. This migration adds no rows and sets no `deploy_mode`.
+The three genuinely verbatim `loancash.co.uk` pages are excluded **structurally** —
+none is bound to `hero`, so the predicate's first clause rules them out. Verified, not
+inherited from the earlier lane's exemption note.
+
+### ⚠ NOTHING IS PROVEN IN PRODUCTION YET, and the demand control says why
+
+| check [17:00Z, ~45 min after arming] | value |
+|---|---|
+| adopted rows | **0** |
+| population | 22 (unchanged) |
+| population rows stamped | 0 (the F2 guard — still no demand) |
+| **`SavePageSectionsAction` invocations, last 6h** | **0** |
+
+**The seam has not executed since arming.** The 20 `page_components` rows written this
+afternoon came from other writers (there are seven), and all of them were stamped —
+6 of 6 in the 16:00 hour, 11 of 11 in 15:00 — so phase 0 continues to work. But the
+adoption path has had no traffic at all, which means **the zero adoptions carry no
+information about correctness.** Not a failure; no qualifying page was built.
+
+That distinction is the whole reason the watch now reports
+`seam_invocations_5m` alongside the counts: v1 could not tell *"armed, working, and
+nothing qualified"* from *"seam never ran"*, and those demand identical follow-ups
+from a reader and opposite ones from an operator.
+
+**What to do with a zero next time:** read the demand control first. All-zero
+invocations ⇒ keep waiting. Non-zero invocations with zero adoptions ⇒ that is a real
+signal, and the `adopt fragment:` log lines name which arm refused.
