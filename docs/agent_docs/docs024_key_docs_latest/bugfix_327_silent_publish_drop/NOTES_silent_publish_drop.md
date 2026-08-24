@@ -553,3 +553,79 @@ symbol you are about to trust; I did not, in a session about landmines.**
 knew the landmine I was working on. The entries that would have helped were about
 `orchestration_states` and `097` — neither of which is the symbol I thought I was studying.
 **Grep for the symbols you TOUCH, not the ones your task is named after.**
+
+---
+
+## 2026-08-24 — owner rulings applied: council scope widened, verifier trigger migrated
+
+### 1. `scripts/pattern-check.py` enters council scope (OWNER RULING 2026-08-24)
+
+The 2026-08-23 widening admitted `cmd/config-key-audit` because *the detector logic for the
+check fleet had accumulated where the gate could not see it*. The owner accepted that the same
+argument applies to `pattern-check.py`.
+
+`[MEASURED 2026-08-24]` **2,058 lines carrying 22 checks**, against **2,220 lines for every
+other `audit-*`/`check-*` script under `scripts/` combined**. So one file is roughly half the
+non-Go detector surface — and the half that runs **on every commit in every session** via
+`.githooks/pre-commit`, rather than once a night.
+
+**Targeted, anchored with `$` to the one file.** Verified across eight paths:
+`scripts/kafka-publish-lib.sh` stays **out**, and so does `scripts/audit-advisory-findings.py`
+(429 lines) even though it **imports the `CHECKS` tuple** — it reports on findings rather than
+deciding them, and a reporting bug cannot block a commit. That coupling is written down at the
+definition site so it can be revisited rather than rediscovered.
+
+### > The trap I would have walked into, caught by a warning placed there one day earlier
+
+**Widening the regex is NOT enough.** `098_REPORT` must *enumerate* candidate commits before
+`in_council_scope` can judge them, and `git log` takes pathspecs, not regexes — so it carries
+`SCOPE_PATHS`, a hand-kept array, as a **pre-filter**. A path added to the regex and not to
+that array is **invisible** to the coverage report: not listed as unreviewed, *absent*, which
+reads as nothing to report.
+
+That failed on 2026-08-23 — the day `cmd/` was added — hiding **22 in-scope commits across four
+lanes**. The lane that found it wrote the warning **beside the regex**, on the reasoning that
+*"a warning only in 098 would be read by whoever edits 098, who is not the person with the
+problem."* I was the person with the problem, one day later, and it worked exactly as intended.
+
+**Both halves changed in one commit, and proven end to end:**
+
+| check | 2026-08-23 | 2026-08-24 |
+|---|---|---|
+| `DRY_RUN=1 097` on this lane's submission | **REFUSED, exit 2** | **admitted, exit 0**, nothing dispatched |
+| `d000f07c5` (a `pattern-check.py` commit) in the `098` report | **no bucket at all** | listed under **UNREVIEWED** |
+
+`CLAUDE.md` was corrected too: it did not mention the 08-23 widening at all, and its line
+*"097, the commit-msg nudge and the 098 report all read it, so do not re-hardcode it"* is
+exactly what let 098's second copy stay invisible. It now says single-sourced for the
+**decision**, and *widen both, in one commit*.
+
+**The council was NOT run** (owner: do not force). Note the widening makes this lane's own
+submission legitimately admissible now rather than forced — spending the credits remains the
+owner's call, and `DRY_RUN` proved admission for free.
+
+### 2. `scripts/trigger-landmine-verifier.sh` migrated (Phase 1b)
+
+Migrated ahead of `097` because its failure is invisible **by construction**: the caller counts
+a dispatch failure only on this script's non-zero exit, and the old form exited 0 on the silent
+arm — so `Dispatched N, 0 failed to publish` was computed from the one signal that is always
+absent when a publish is lost.
+
+**The caller needed no change.** `kafka_publish_checked` returns 10 or 11, both non-zero, so
+`FAILED` now counts what it claims to.
+
+Proven both ways:
+
+```
+unreachable broker → exit 10
+  VERIFICATION NOT DISPATCHED for <slug> — no verdict will ever arrive for this run.
+
+healthy → exit 0, PUBLISHED
+  kafka_verify_landing → LANDED  EXECUTING_STEP|spawn_verifier
+```
+
+The healthy run was a real dispatch, and it arms the verifier for the kcat entry this lane
+edited — the thing that silently did not happen yesterday.
+
+**Adoption: 2 of ~178.** `097` is next; its exit codes **1 and 2 are reserved** by a documented
+contract, so a publish failure must take a distinct code there.
