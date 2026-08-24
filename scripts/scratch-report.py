@@ -308,21 +308,44 @@ def main():
                     help="actually delete marker-verified extraction dirs older than --days")
     ap.add_argument("--self-test", action="store_true", dest="self_test",
                     help="plant each hazard and assert the guard refuses it")
+    ap.add_argument("--summary", action="store_true",
+                    help="totals and a one-line verdict only, timestamped -- for a cron log. "
+                         "Suppresses the ~750-row per-session table and the per-directory list, "
+                         "which are what make an appended daily log unreadable.")
     args = ap.parse_args()
 
     if args.self_test:
         return self_test()
 
     now = time.time()
+    if args.summary:
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S %Z", time.localtime(now))
+        try:
+            du = shutil.disk_usage("/")
+            free = f"{human(du.free)} free on / ({100*du.used//du.total}% used)"
+        except OSError:
+            free = "disk usage unavailable"
+        print(f"\n===== {stamp} · {free} · gate {args.days}d · "
+              f"{'REAPING' if args.reap else 'dry run'} =====")
     grand_total = grand_extract = 0
     reapable = []
 
     for root in ROOTS:
         rows = list(scratch_dirs(root))
         loose = list(loose_reapables(root, now, args.days))
-        if not rows and not loose:
-            continue
+        # EVERY root gets a header, even an empty one. Until 2026-08-24 this was
+        # `if not rows: continue`, and the /tmp arm was structurally incapable of
+        # producing rows -- so the ONLY evidence of a broken root was an ABSENT
+        # header, which is indistinguishable from a root that is simply clean.
+        # A missing row is the hardest refutation to notice; so never emit one.
         print(f"\n=== {root} ===")
+        if not os.path.isdir(root):
+            print("  root does not exist on this machine.")
+            continue
+        if not rows and not loose:
+            print(f"  nothing reapable, and no session directories here "
+                  f"(gate {args.days}d).")
+            continue
         try:
             du = shutil.disk_usage(root)
             print(f"filesystem: {human(du.used)} used of {human(du.total)}, "
@@ -331,8 +354,9 @@ def main():
             pass
         # The scratch git repo lives at the claude-<uid> level, which is the root
         # the snapshot hook derives from a written path.
-        print(f"{'session':10} {'age':>7} {'total':>8} {'extract':>8} {'keep':>7} "
-              f"{'tracked':>7}  project")
+        if not args.summary:
+            print(f"{'session':10} {'age':>7} {'total':>8} {'extract':>8} {'keep':>7} "
+                  f"{'tracked':>7}  project")
         for sdir, proj, sess in rows:
             total, newest = dir_stats(sdir)
             if total == 0 and newest == 0:
@@ -354,8 +378,9 @@ def main():
             trk = tracked_count(repo_root, sdir)
             grand_total += total
             grand_extract += ext_bytes
-            print(f"{sess[:8]:10} {age_d:6.1f}d {human(total):>8} "
-                  f"{human(ext_bytes):>8} {human(total-ext_bytes):>7} {trk:>7}  {proj[:28]}")
+            if not args.summary:
+                print(f"{sess[:8]:10} {age_d:6.1f}d {human(total):>8} "
+                      f"{human(ext_bytes):>8} {human(total-ext_bytes):>7} {trk:>7}  {proj[:28]}")
             for cand, b, mt in ext_dirs:
                 if (now - mt) / 86400.0 >= args.days:
                     reapable.append((cand, b))
@@ -381,8 +406,9 @@ def main():
     total_reap = sum(b for _, b in reapable)
     print(f"\n{len(reapable)} marker-verified extraction dir(s) older than "
           f"{args.days}d = {human(total_reap)}:")
-    for cand, b in reapable:
-        print(f"   {human(b):>8}  {cand}")
+    if not args.summary:
+        for cand, b in reapable:
+            print(f"   {human(b):>8}  {cand}")
 
     if not args.reap:
         print("\ndry run. Re-run with --reap to delete these. Nothing else is ever "
