@@ -37,6 +37,7 @@ USAGE
 """
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -54,6 +55,20 @@ ROOTS = [
 # fin, final, h184, hc3, headcheck, headtree… — no pattern to match on. Any of
 # these markers at the top of the directory identifies an agentchassis tree.
 MARKERS = ("go.mod", "platform", "CLAUDE.md")
+
+# System directories in /tmp. They hold 0 bytes, so excluding them costs nothing
+# and deleting them breaks running services (.X11-unix, the 11 systemd-private-*,
+# snap-private-tmp). Idle time is the right gate for SCRATCH; it is not a filter
+# for WHAT a directory is.
+PROTECTED_RE = re.compile(
+    r"^(\.X11-unix|\.ICE-unix|\.XIM-unix|\.font-unix|\.Test-unix|systemd-private-.*"
+    r"|snap-private-tmp|snap\..*|pulse-.*|ssh-.*|dbus-.*|tmux-.*|\.?claude.*|\.X[0-9]+-lock)$")
+
+# Go's LINKER work dirs. Dead the moment the build ended, and invisible to the
+# marker test because they contain no repo files at all. Go ignores
+# CLAUDE_CODE_TMPDIR, so before GOTMPDIR was set these landed in /tmp — i.e. RAM
+# — and were 3.1 GB of the 15.3 GB that filled it on 2026-08-23.
+GOBUILD_RE = re.compile(r"^go-build[0-9]+$")
 
 
 def dir_stats(path):
@@ -84,6 +99,62 @@ def is_extraction(path):
         return False
     hits = sum(1 for m in MARKERS if os.path.exists(os.path.join(path, m)))
     return hits >= 2
+
+
+def loose_reapables(root, now, days):
+    """Yield (path, bytes) for reapable scratch sitting at the TOP LEVEL of a
+    root, i.e. NOT inside a <root>/claude-*/<proj>/<uuid>/ session directory.
+
+    WHY THIS EXISTS (2026-08-24). `ROOTS` has always listed /tmp, and the OPP-005
+    register entry says "both tools read BOTH roots ... a check that inspects
+    only one will be confidently wrong". That was FALSE for this tool: every
+    candidate came from scratch_dirs(), which requires the claude-*/<proj>/<uuid>
+    layout, and /tmp has never had a claude-* directory in it — measured
+    2026-08-24, `ls -d /tmp/claude-*` finds nothing and the report prints no
+    "=== /tmp ===" section at all. So the /tmp arm was inert while looking
+    covered, for three weeks, which is the worst of both.
+
+    Two shapes only, both regenerable by construction: a marker-verified repo
+    extraction, and a Go linker work dir. Anything else at the top of a root is
+    left alone however old it is -- same rule as the session side.
+    """
+    if not os.path.isdir(root):
+        return
+
+    def candidate(path, name):
+        if PROTECTED_RE.match(name):
+            return False
+        if not os.path.isdir(path) or os.path.islink(path):
+            return False
+        if os.path.exists(os.path.join(path, ".git")):
+            return False      # a working tree is not disposable
+        return bool(is_extraction(path) or GOBUILD_RE.match(name))
+
+    for name in sorted(os.listdir(root)):
+        path = os.path.join(root, name)
+        if PROTECTED_RE.match(name) or not os.path.isdir(path) or os.path.islink(path):
+            continue
+        if name.startswith("claude-"):
+            continue          # session layout: scratch_dirs() owns that arm
+        if candidate(path, name):
+            b, mt = dir_stats(path)
+            if mt and (now - mt) / 86400.0 >= days:
+                yield path, b
+            continue
+        # One level down, and no further. A holding directory such as
+        # ~/.claude-scratch/gotmp or .../adhoc is not itself scratch, but the
+        # linker dirs and extracts sit directly inside it. Descending further
+        # would start walking the insides of real work.
+        try:
+            children = sorted(os.listdir(path))
+        except OSError:
+            continue
+        for cname in children:
+            cpath = os.path.join(path, cname)
+            if candidate(cpath, cname):
+                b, mt = dir_stats(cpath)
+                if mt and (now - mt) / 86400.0 >= days:
+                    yield cpath, b
 
 
 def scratch_dirs(root):
@@ -126,13 +197,121 @@ def human(n):
         n /= 1024.0
 
 
+def self_test():
+    """PROVE the deletion guards refuse, by planting the hazard.
+
+    A guard that has never refused anything is indistinguishable from a guard
+    that CANNOT refuse anything, so each destructive case below is paired with a
+    control that must be CAUGHT -- otherwise "refused" could just mean the
+    candidate was never built in the first place.
+    """
+    import tempfile
+    fails = []
+
+    def ok(msg):
+        print(f"  PASS  {msg}")
+
+    def bad(msg):
+        print(f"  FAIL  {msg}")
+        fails.append(msg)
+
+    print("scratch-report --self-test")
+    now = time.time()
+    old = now - 10 * 86400
+
+    with tempfile.TemporaryDirectory(prefix="scratch-selftest-") as td:
+        def mk(name, markers=(), git=False):
+            d = os.path.join(td, name)
+            os.makedirs(d, exist_ok=True)
+            for mkr in markers:
+                open(os.path.join(d, mkr), "w").close()
+            if git:
+                os.makedirs(os.path.join(d, ".git"), exist_ok=True)
+            for dp, _, fn in os.walk(d):
+                os.utime(dp, (old, old))
+                for f in fn:
+                    os.utime(os.path.join(dp, f), (old, old))
+            os.utime(d, (old, old))
+            return d
+
+        # CONTROL: a genuine extraction IS found. Without this every refusal
+        # below is vacuous.
+        mk("realextract", markers=("go.mod", "CLAUDE.md"))
+        found = {os.path.basename(p) for p, _ in loose_reapables(td, now, 2.0)}
+        if "realextract" in found:
+            ok("control: a marker-verified extraction reaches the reap list")
+        else:
+            bad("control: a real extraction was NOT found -- every result below is vacuous")
+
+        # GUARD: a working tree is not disposable, however old.
+        mk("worktree", markers=("go.mod", "CLAUDE.md"), git=True)
+        found = {os.path.basename(p) for p, _ in loose_reapables(td, now, 2.0)}
+        if "worktree" in found:
+            bad("guard: a directory holding .git was offered for deletion")
+        else:
+            ok("guard: refuses a directory holding a .git")
+
+        # GUARD: one marker is not enough -- ambiguity must mean keep.
+        mk("onemarker", markers=("go.mod",))
+        found = {os.path.basename(p) for p, _ in loose_reapables(td, now, 2.0)}
+        if "onemarker" in found:
+            bad("guard: a single marker was treated as a positive identification")
+        else:
+            ok("guard: requires >=2 markers, so an ambiguous dir is kept")
+
+        # GUARD: real work with no markers is never touched.
+        mk("realwork", markers=("NOTES.md", "analysis.tsv"))
+        found = {os.path.basename(p) for p, _ in loose_reapables(td, now, 2.0)}
+        if "realwork" in found:
+            bad("guard: unidentifiable real work was offered for deletion")
+        else:
+            ok("guard: leaves unidentifiable directories alone however old")
+
+        # GUARD: the age gate. The same real extraction, freshly touched.
+        d = os.path.join(td, "realextract")
+        os.utime(d, (now, now))
+        for dp, _, fn in os.walk(d):
+            os.utime(dp, (now, now))
+            for f in fn:
+                os.utime(os.path.join(dp, f), (now, now))
+        found = {os.path.basename(p) for p, _ in loose_reapables(td, now, 2.0)}
+        if "realextract" in found:
+            bad("guard: a freshly-touched extraction passed the age gate")
+        else:
+            ok("guard: age gate holds back a fresh extraction (same dir as the control)")
+
+    # GUARD: the protected-name list, with a control that must NOT match --
+    # an exclusion matching everything would "pass" while deleting nothing.
+    for n in (".X11-unix", ".ICE-unix", "systemd-private-abc", "snap-private-tmp",
+              "claude-1000", ".claude-scratch"):
+        if not PROTECTED_RE.match(n):
+            bad(f"guard: protected name {n!r} does NOT match the exclusion")
+    for n in ("headcheck", "headtree", "go-build123", "ht6", "final2"):
+        if PROTECTED_RE.match(n):
+            bad(f"guard: exclusion wrongly matches disposable name {n!r}")
+    if not fails:
+        ok("guard: exclusion matches all 6 system names and none of 5 scratch names")
+
+    print()
+    if fails:
+        print(f"scratch-report --self-test: {len(fails)} FAILED.")
+        return 1
+    print("scratch-report --self-test: all guards fire.")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=float, default=2.0,
                     help="age threshold for reaping extractions (default 2)")
     ap.add_argument("--reap", action="store_true",
                     help="actually delete marker-verified extraction dirs older than --days")
+    ap.add_argument("--self-test", action="store_true", dest="self_test",
+                    help="plant each hazard and assert the guard refuses it")
     args = ap.parse_args()
+
+    if args.self_test:
+        return self_test()
 
     now = time.time()
     grand_total = grand_extract = 0
@@ -140,7 +319,8 @@ def main():
 
     for root in ROOTS:
         rows = list(scratch_dirs(root))
-        if not rows:
+        loose = list(loose_reapables(root, now, args.days))
+        if not rows and not loose:
             continue
         print(f"\n=== {root} ===")
         try:
@@ -179,6 +359,14 @@ def main():
             for cand, b, mt in ext_dirs:
                 if (now - mt) / 86400.0 >= args.days:
                     reapable.append((cand, b))
+
+        if loose:
+            loose_bytes = sum(b for _, b in loose)
+            grand_total += loose_bytes
+            grand_extract += loose_bytes
+            print(f"  + {len(loose)} loose extraction/linker dir(s) outside any "
+                  f"session dir = {human(loose_bytes)}")
+            reapable.extend(loose)
 
     print(f"\ntotal in scratchpads : {human(grand_total)}")
     print(f"  reproducible extractions: {human(grand_extract)}"
