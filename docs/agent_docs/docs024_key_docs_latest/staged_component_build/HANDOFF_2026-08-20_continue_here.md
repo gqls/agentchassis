@@ -667,6 +667,54 @@ present-value half cannot be observed. State that limit rather than assuming 537
 
 **The gate closes 2026-08-24 ~08:45Z.** Record the result here whether clean or not.
 
+## ✅✅ GATE CLOSE-OUT — 2026-08-24, window COMPLETE (2026-08-22 08:45:00Z → 2026-08-24 08:45:00Z)
+
+**VERDICT: PASS on the only signal a gate can give — NO REGRESSION — and the flip demonstrably
+WORKING. Read the two paragraphs after the table before quoting any of it.**
+
+| observation | value (window-bounded, both ends) |
+|---|---|
+| `phase='1-resolve-and-warn'` post-boundary | **0** ⇒ ✅ **no regression: nothing ran pre-flip code across 3 rolls** |
+| `phase='2-refuse'` | **5** ⇒ ✅ the flip refused 5 real conflicts in production |
+| demand control | **3,957** orchestrations / **64** agent types |
+| instrument alive | **914** rows / **26** error classes |
+
+**WHAT THIS DOES *NOT* PROVE, and the close-out says so first because the temptation is strongest
+here:** the conflict table was ALREADY near-silent before the roll (537 and 516 killed both live
+classes hours earlier). **A clean 48 h is what we would have seen whether or not the flip works.**
+The behaviour claim is carried by the 13 tests that fail on a one-line revert and by the capability
+probe at the binary — repeated on every roll that crossed the window (`v1.0.1323`, `1326`, `1328`,
+and `1332` after it closed), each time with BOTH controls: the flip literal present, a known
+literal present proving the probe reads, a synthetic literal correctly absent. The retirement, a
+pure deletion with no literal, was confirmed the other way each time (`git log -S 'stepKey != key'`
+returns only the removing commit; 0 occurrences at HEAD).
+
+**WHAT IT DOES PROVE, and it is more than the zero:** the flip **caught a real silent-substitution
+defect on day one** — `improvement-loop` asked for a bare `page_id` against a tree holding **80+
+candidate paths that were elements of ONE findings array** (`findings[0..64].page_id`), and pre-flip
+that resolved to `findings[0]`: one finding's page silently attached to work about another. Both
+runs COMPLETED after the refusal, so absence beat the wrong value exactly as the owner ruled on
+2026-08-15. **That single catch is worth more than the window's silence**, and it is the answer to
+"what did step 5 buy us".
+
+**The five pairs, all traced, none dismissed:**
+| agent | field | shape | disposition |
+|---|---|---|---|
+| improvement-loop | `page_id` ×2 | 80+ paths, one findings array | **FIXED — migration 571, council `5ae2147d` APPROVED, applied+verified 2026-08-24** |
+| improvement-loop | `component_id` | 4 paths, `findings[0].components[*]` | **FIXED — same migration** |
+| site-work-orchestrator | `result` | 11 agents under one bare key | OPEN — needs a declaration; steps are dynamically generated (`fix_items_loop_iter_N_*`), so 537's static method does not reach them |
+| site-work-orchestrator | `commit_sha` | 4 deploy-step paths | OPEN — 537's collision class on a second agent, same addressing problem |
+
+**Residual DISCHARGED:** the `allow_reinstall` failure class flagged at interim read 1 had no
+occurrence after 2026-08-22 12:18Z — a burst, not a trend. Discharged on absence-since, **not** on
+its falling row count (that fall was per-status retention and proves nothing).
+
+**Consequence control:** 312 of 371 completed items still recorded `result.commit_sha` at interim
+read 1 — no fleet-wide field loss from the refusals.
+
+**THE GATE IS CLOSED. The lane's deliverable is live, approved, proven not to have regressed, and
+demonstrated to catch the class it was built for.**
+
 ### ✅ INTERIM READ 2026-08-22 ~18:0xZ (~9¼ h in) — **THE GATE FIRED. 2 × `2-refuse`, 0 × `1-resolve-and-warn`**
 
 Recorded here per the ownership-independent design. Full evidence: lane NOTES

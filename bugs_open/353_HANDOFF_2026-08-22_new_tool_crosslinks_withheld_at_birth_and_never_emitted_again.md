@@ -196,3 +196,43 @@ control working, not a partial failure.
 **Still open:** (a) the forward fix is inert until a chassis roll; (b) the 74 items must dispatch
 and be verified at the artefact; (c) `tool-deployer` still has 0 runs in retained history — the
 second emitter caller remains an unexercised path, unchanged by this work.
+
+## 10. 2026-08-24 — the rewrites LANDED but are NOT SERVED: 51 pages hold the link in stored HTML and have not redeployed
+
+**61 of the 74 backfilled items are `complete`** (8 `wont_fix`, 3 `needs_human_review`, 2 `failed`
+— those 13 are the ordinary handler outcomes, not a backfill defect). So the writers did the work.
+
+**And the pages do not serve it.** Checked at the artefact per this file's own §9.3 bar, with a
+control:
+
+```
+curl https://dartsonline.com/barrel-shapes.html | grep -c /tools/tungsten-diameter-visualiser/  -> 0
+curl https://dartsonline.com/barrel-weight.html | grep -c /tools/tungsten-diameter-visualiser/  -> 0
+control: /about.html (no backfill item)                                                         -> 0
+```
+
+**The writer is NOT at fault — the link IS in `page_components.rendered_html`** (1 component on
+barrel-shapes, 4 on barrel-weight). The page simply has not redeployed since:
+
+| page | deployed_at | rewrite completed | order |
+|---|---|---|---|
+| barrel-shapes | 2026-08-23 18:32:57Z | 18:33:04Z | deploy **7 s BEFORE** the rewrite |
+| barrel-weight | 2026-08-23 18:29:13Z | 18:29:20Z | deploy **7 s BEFORE** the rewrite |
+
+**Fleet-wide it is systematic, not a race on two pages: of 51 pages carrying a completed backfill
+rewrite, 51 deployed BEFORE their rewrite landed and 0 after** (2 are already `needs_rebuild`).
+A ~7-second gap repeated 51 times is an ORDERING property of the rewrite path, not a coincidence.
+
+**So the backfill is DONE AT THE DATA LAYER AND UNFINISHED AT THE SERVING LAYER.** The remaining
+step is a redeploy of those 51 pages. That is a real fleet action across ~19 live sites and is
+**NOT being fired unilaterally** — it is the same class of decision as the backfill itself and
+wants the owner's word, exactly as the backfill did. Note the standing caveat when it is run: a
+re-render carries **every** improvement made since each page last rendered, so it must not be
+sized by this change alone.
+
+**Whether they redeploy on their own is UNPROVEN in both directions** — none has in ~17 h, and the
+window is too short to call it. Do not record "they will pick it up naturally" without measuring it.
+
+**353 therefore stays OPEN** on: (a) the forward fix, inert until a roll (council round 2 in
+flight, corr `642ecc3c` — round 1's two objections were both right and are answered in the code);
+(b) these 51 pages serving their links; (c) `tool-deployer` still unexercised.
