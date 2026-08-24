@@ -1022,3 +1022,124 @@ dispatcher's `stop_on_repeat_failure_item_types`. **Its demand bar, so the next 
 dormancy as success:** a work item reaching `failed` with `TerminatedOnRepeat` set *before* its
 budget is spent. Until then a zero in that field means **unopted, not working** — the identical trap
 candidate 1 spent a day inside, and the reason this section exists.
+
+---
+
+## 2026-08-24 (night) — ADVERSARIAL SECOND-OPINION REVIEW (Fable-model subagent, owner-requested): two HIGH findings correct the decision summary the owner was given, and one decision was MISSING from it
+
+A Fable-model reviewer was tasked to refute, read-only, with live DB access. **Its two HIGH findings
+and every load-bearing figure below were re-verified first-hand by this session before recording**
+(a subagent's report is another doc); the MED/LOW findings are the reviewer's measurements, marked
+as such where not independently re-run.
+
+### F1 (HIGH, verified) — the "population shrunk" premise INVERTED within 24 hours: identical repeats resumed TODAY, fed and failing
+
+Item **`2396218a`** (`ai-guides-category`): 3 attempts on 2026-08-24 (11:29 → 13:05), dispatches 2
+and 3 **carried `last_error` + `last_error_code`** (`input_data ? 'last_error_code'` = true), all
+three FAILED, item now `failed 3/3`. Per attempt the failure is **byte-identical where the ladder
+reads**: the row's `error` is one md5 (`d759b58c…`, 241 B) — the 6-rows/2-reasons shape in
+`agent_error_log` is the recorder's two codes per event (3× validation code + 3× wrapped `UNKNOWN`),
+not differing attempts. `00568d9f` is the same shape at n=2. **Three items sit `triaged` right now**
+(`5240fd28` att 2, `030eadb7` att 1, `00568d9f` att 2) and will burn again.
+
+**So: fed-and-failed-identically is now n=2 items against the n=1 success (`b0ba3e3a`)** — the
+demand story for candidate 2 flipped sign for this class within a day of being measured, and the
+owner decided on the stale version. Candidate 2's saving is **immediate, not residual**.
+
+### F2 (HIGH, verified) — the summary's instrument claim was wrong twice
+
+**(a) "Each firing proves feedback failed" is class-conditional and the summary did not say so.**
+The prompt renders only for the 3 producer codes (migration 563); a failure class outside them
+repeats identically **without feedback ever being shown**. Live proof on the very type to be opted
+in: **`eb38ae2b`** — `retry_feedback` says `component_validation_orphan_schema_field`, its actual
+terminal error is a **DB insert failure** (`failed to insert component: …` — the reviewer traced it
+to the `chk_section_type_kebab_case` constraint). A firing there measures *"un-fed deterministic
+failure"*. Corrected claim: **a firing = feedback-failed ONLY when the terminal error is one of the
+3 validation codes; otherwise it means the class has no feedback channel.**
+
+**(b) The stated demand bar is UNMEASURABLE as built.** `TerminatedOnRepeat` exists only in the
+in-memory outcome struct (`:294`, set `:504`); **neither caller's return map carries it** (verified:
+`FailWorkItemAction` returns `released`/`backoff_minutes`, not the flag) and the terminal write
+stamps **no row marker** (contrast the transient arm's `last_transient_release`). The Info log is,
+by the code's own comment, "the ONLY place the saving is visible" — and it scrolls. **Cheapest real
+fix: merge `{"terminated_on_repeat": true}` into `result` in the terminal write — one line in the
+statement the change already owns.** Interim proxy: `status='failed' AND attempt_count <
+max_attempts` on an opted-in type after the opt-in timestamp — ⚠ **~7-day shelf life** (the
+archiver drains terminal rows, WII-024).
+
+### F3 (MED-HIGH, reviewer; code order re-verified) — "guards outages" is true but BOUNDED
+
+The transient arm (`:375–413`) does run before the repeat check (`:469–475`) — but the whole arm
+sits inside `envArmed && maxAttempts>1 && transientReleasesRun < cap` (cap 10). Two windows where an
+outage error IS repeat-terminated: **cap exhaustion** (~2.5 h at the 15-min cooldown; the 08-17
+outage ran 2h43m) and the **outage tail** (the release writes the outage text into `error`; once the
+burst decays below the point-in-time threshold, the same text terminates). Damage bounded to
+opted-in types failing early rather than at ceiling. Correct phrasing: *guarded up to the release
+cap and while the burst is statistically visible.*
+
+### F4 (MED, reviewer) — THE DECISION THE OWNER WAS NOT GIVEN: the dominant rejection message is vacuous, and candidate 2 will now be terminating exactly that class
+
+The live rejection text is literally **"template variables and schema fields do not match"**
+(`store_generated_component_action.go:325`) — it names **no** variable and no field, so the retry
+prompt's *"change exactly what it says was wrong"* is unsatisfiable. The recorder **already
+computes** `orphan_schema_fields` and `unknown_template_vars` into `agent_error_log.context`; making
+the message name them is roughly one `fmt.Sprintf`. **Without this, the steady state with candidate
+2 ON is: one fed-but-unactionable retry, then early termination — spend saved, page still hollow,
+and the firing log blaming "feedback" for a message that carried no information.** This is the
+actual repair path for the class now firing daily; candidate 2 alone is only the tourniquet.
+
+### F5–F8 (MED, reviewer; F5's per-attempt identity re-verified here)
+
+- **F5 byte-identity:** safe for the firing classes (12 of 13 historical multi-rejection items have
+  exactly 1 distinct message; the 13th differs only site-scoped-vs-bare name). Truncations embed
+  varying counts → **zero savings on that class** (safe direction). Latent false-positive channel:
+  `mark_failed`'s constant fallback `"Handler failed"` makes *different* failures byte-identical —
+  **0 rows today**, latent only.
+- **F6 "one config migration" is TRUE but the path is NESTED:** the key must land at
+  `build-dispatch-loop → workflow.steps.process_item.config.sub_workflow.steps.mark_failed.config`
+  (a top-level walk does not see it). `site-work-orchestrator` is unreachable for this type (its
+  loop filters `handler_agent='page-content-writer' AND pipeline='build'`; all 37
+  `needs_new_component` rows carry `component-creator`; 21/21 ladder failures are
+  `handled_by='build-dispatch-loop'`). **Census: 1 covering step as of 2026-08-24** — per-call-site
+  by design, so a future `fix_items_loop` failure step would NOT inherit the opt-in.
+- **F7 two staleness traps:** the admin **update** door's `triaged` branch resets `attempt_count=0`
+  **without clearing `error`** (`site_admin_handlers.go:869`) → an un-parked item can be
+  repeat-terminated on its *first* post-park failure (the retry door `:949–958` clears both — safe).
+  And `retry_feedback` is never superseded by a non-validation failure → stale-feedback
+  misattribution inside the typed channel, **live on `eb38ae2b`** (verified above).
+- **F8 honest benefit size:** with 307/344's ladder already bounding attempts at 3, candidate 2
+  saves **~1 generation per repeat-failing item** (`2396218a` would have saved exactly 1 of 3). The
+  52-burn was the pre-307 uncounted loop and cannot recur; the 52 must not do rhetorical work.
+
+### F9 (LOW→acted on) — THE PRE-FIX COHORT IS NOW PINNED, because the denominator evaporates ~mid-September
+
+`agent_error_log` retains ~31 days, so the "3 of 15 completed" base rate becomes unrecomputable as
+the 08-15→08-21 rows age out. The cohort, pinned by item id [MEASURED 2026-08-24, first rejection <
+2026-08-22 18:05Z]: **completed (3):** `1b57fff2`, `bceb02e0`, `ceea0c07` · **cancelled (12):**
+`2eb3dc6b`, `0480e896`, `f9ba7fab`, `8c8f5de5` (the 52), `05fb7659`, `77dfd0e1`, `ba603655`,
+`85aeafd3`, `7a2219bc`, `64587850`, `09d2ca26`, `95fe67da`. These `site_work_items` rows are the
+durable record once the log arm is blind.
+
+### F10 (LOW, reviewer) — follow-up list was short
+
+`update_work_item_status` has **no `ActionInputSpec` registered at all** (only `fail_work_item` is),
+so registering the key on one action leaves the other invisible to the RFC_022 counter — and
+`FailWorkItemInputSpec`'s Optional list already omits live keys (`error_message`,
+`status_override`), so that counter's zero was an undercount before candidate 2. And **candidate 2
+is in no concept-register entry** — WII-024 predates it; a register update is owed, not just the
+spec call.
+
+### Also verified: the fleet rolled AGAIN (`v1.0.1335`, pods 18:32Z) — re-probed both replicas: `stop_on_repeat_failure` PRESENT, control ABSENT. The close-condition probe survives the newer roll.
+
+### Revised recommendations (superseding the set the owner was given earlier today)
+
+1. **Opt in `needs_new_component` — YES, strengthened by F1 — but land the F2b one-line durable
+   marker WITH or BEFORE it**, or accept that "fired" is a pod-log/7-day fact. The migration targets
+   the **nested** `mark_failed` path (F6).
+2. **The F4 message fix is the decision that was missing** — without it candidate 2 converts daily
+   burns into daily early-terminations of a still-hollow page. It is small (the data is already
+   computed at the rejection site) and it, not candidate 2, is the repair path.
+3. **Close condition revised:** capability probe (done, twice) + first firing **read from a durable
+   marker or the dated proxy query** — not from `TerminatedOnRepeat`, which never reaches the DB.
+4. Follow-ups: spec registration must cover **both** actions; concept-register entry for candidate 2;
+   the F7 admin-door trap belongs in LANDMINES if the update door survives review.
