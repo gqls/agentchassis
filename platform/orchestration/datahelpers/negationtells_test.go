@@ -329,3 +329,50 @@ func TestRewriteRejectsInventedSuperlatives(t *testing.T) {
 		t.Errorf("a plain rewrite was rejected as %q", why)
 	}
 }
+
+// A sentence span must close at a table CELL boundary, header cells included.
+//
+// `</td` was in the boundary list from the start and `</th` was not, because
+// "</th>" does not match the `</h` heading arm — it is `<`,`/`,`t`,`h`, so the
+// third character already differs. The consequence was not a missed hit but a
+// CORRUPT one: a header row scanned as a single sentence CONTAINING RAW MARKUP
+// ("Real, not simulated</th><th>Throughput"). The captured sentence is exactly
+// what a repair splices over, so a rewrite of that span would have replaced the
+// cell tags with prose and broken the table.
+//
+// Reachable because migrations 594/595 retype five pass-through prose slots to
+// `html` and instruct page-content-writer to emit <table> in them.
+func TestSentenceSpansCloseAtEveryTableCellBoundary(t *testing.T) {
+	for _, tc := range []struct{ name, html, want string }{
+		{"header cells", "<table><tr><th>Real, not simulated</th><th>Throughput</th></tr></table>", "Real, not simulated"},
+		{"data cells", "<table><tr><td>Ships in days, not months</td><td>Kubernetes</td></tr></table>", "Ships in days, not months"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			hits := ScanDefineByNegation(tc.html)
+			if len(hits) != 1 {
+				t.Fatalf("got %d hits, want 1: %+v", len(hits), hits)
+			}
+			if hits[0].Sentence != tc.want {
+				t.Errorf("sentence = %q, want %q", hits[0].Sentence, tc.want)
+			}
+			if strings.Contains(hits[0].Sentence, "<") || strings.Contains(hits[0].Sentence, ">") {
+				t.Errorf("sentence carries RAW MARKUP (%q) — a repair splices over this span and would eat the tags", hits[0].Sentence)
+			}
+		})
+	}
+}
+
+// The peer question that prompted the above (bugs_open/381, 2026-08-24): does the
+// scanner split on tag boundaries or on punctuation only? On BOTH — so a run of
+// list items with no full stops is many sentences, not one. Pinned because the
+// 594/595 pair makes lists and subheads common in these slots for the first time.
+func TestListItemsWithoutTerminatorsAreSeparateSentences(t *testing.T) {
+	html := "<ul><li>Built for production, not demos</li><li>Kubernetes native</li><li>Kafka backed</li></ul>"
+	hits := ScanDefineByNegation(html)
+	if len(hits) != 1 {
+		t.Fatalf("got %d hits, want exactly 1 — the construction is in the FIRST item only: %+v", len(hits), hits)
+	}
+	if hits[0].Sentence != "Built for production, not demos" {
+		t.Errorf("sentence = %q — it bled across </li>, so the later items joined the first", hits[0].Sentence)
+	}
+}

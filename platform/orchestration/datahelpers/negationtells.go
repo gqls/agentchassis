@@ -281,9 +281,19 @@ func negationSentenceSpans(text string) [][2]int {
 		if c == '<' {
 			if m := htmlTagRe.FindStringIndex(text[i:]); m != nil && m[0] == 0 {
 				tag := strings.ToLower(text[i : i+m[1]])
+				// ⚠ `</th` is NOT covered by the `</h` arm — "</th>" is `<`,`/`,`t`,`h`
+				// so it fails HasPrefix("</h"). It was absent until 2026-08-24 while
+				// its sibling `</td` was present, so a table's HEADER row read as one
+				// sentence that CONTAINED RAW MARKUP: the probe returned
+				// "Real, not simulated</th><th>Throughput" as a single x_not_y hit.
+				// That is worse than a missed hit — the captured sentence is what a
+				// repair splices over, so a rewrite would have eaten the cell tags.
+				// Newly reachable via the 594/595 pair, which retypes five prose slots
+				// to html and tells the writer to emit <table>.
 				if strings.HasPrefix(tag, "</p") || strings.HasPrefix(tag, "<br") ||
 					strings.HasPrefix(tag, "</li") || strings.HasPrefix(tag, "</h") ||
-					strings.HasPrefix(tag, "</div") || strings.HasPrefix(tag, "</td") {
+					strings.HasPrefix(tag, "</div") || strings.HasPrefix(tag, "</td") ||
+					strings.HasPrefix(tag, "</th") || strings.HasPrefix(tag, "</tr") {
 					spans = appendSentenceSpan(spans, text, start, i)
 					start = i
 				}
