@@ -229,6 +229,16 @@ func TestDefaultSectionsForPage_IndexListingsByName(t *testing.T) {
 		{"guide-index", "section-index", []string{"hero", "guide-list"}},
 		{"tools-index", "section-index", []string{"hero", "tool-list"}},
 		{"tool-index", "content", []string{"hero", "tool-list"}},
+		// Suffix widening (2026-08-24): garden-tools.uk's planned
+		// buying-guides-index is the live case — same archetype, prefixed
+		// name. Query-backed lists render empty on a false-positive match,
+		// never fabricated entries.
+		{"buying-guides-index", "section-index", []string{"hero", "guide-list"}},
+		{"developer-tools-index", "section-index", []string{"hero", "tool-list"}},
+		// The deliberate boundary: an unmatched-name section-index keeps the
+		// generic shape — no fake listing layout is invented for a page whose
+		// archetype we cannot name (the honesty line bugs_open/206 drew).
+		{"brands-index", "section-index", []string{"hero", "generic-text-block", "call-to-action"}},
 	}
 	for _, c := range cases {
 		got := defaultSectionsForPage(c.name, c.pageType)

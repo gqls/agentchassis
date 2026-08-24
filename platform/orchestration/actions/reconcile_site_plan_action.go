@@ -21,6 +21,8 @@
 //     plan_id: <uuid>,
 //     pages_total: <int>,           total plan pages considered
 //     pages_emitted: <int>,         needs_page items written
+//     capability_gaps_emitted: <int>, pages whose typed builder doesn't exist
+//                                   → deferred capability_gap, no dispatch item
 //     pages_skipped_built: <int>,   deployed & unchanged (includes re-stamped)
 //     pages_restamped: <int>,       deployed, older plan, composition unchanged
 //                                   → built_from_plan_version carried forward
@@ -39,7 +41,14 @@
 //          generic builder clobbers owned pages (TP-004 / TL-001; guard
 //          rail 1 of the experience loop)
 //   4. existing open item for the key               → skip (queued)
-//   5. otherwise                                    → emit needs_page
+//   5. page_type routes through builderForPageType (builder_routing.go —
+//      bugs_open/206 closure hardening 2026-08-24; the hardcoded
+//      'page-build-handler' this replaced minted five doomed no-op items):
+//        builder exists   → emit needs_page at that handler
+//        known type, no builder (entity-page, tool) → emit a deferred
+//          capability_gap naming the needed builder — never a dispatch item
+//          that burns an attempt and parks needs_human_review
+//        unknown type     → emit needs_page at page-build-handler (as before)
 //
 // "Open" = status NOT IN ('complete','verified','rejected','wont_fix','failed').
 // Same set the dedup index uses; consistent semantics.
@@ -87,6 +96,12 @@ type realisedPageRecord struct {
 	BuildStatus          string
 	BuiltFromPlanVersion uuid.NullUUID
 	RebuildPolicy        string
+	// PageType feeds builderForPageType at emit time (bugs_open/206 closure
+	// hardening, 2026-08-24). Empty when the page has no pages row yet — the
+	// emit falls back to the plan row's role, which carries the same
+	// vocabulary (measured 2026-08-24: role == pages.page_type for every
+	// current-plan page probed, including all five parked no-op items).
+	PageType string
 }
 
 // ReconcileSitePlanAction handler.
@@ -188,6 +203,7 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 
 	emitted := 0
 	emittedReview := 0
+	emittedGap := 0
 	skippedBuilt := 0
 	restamped := 0
 	skippedQueued := 0
@@ -276,9 +292,64 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 			continue
 		}
 
+		// Route by page_type through the shared authority (bugs_open/206
+		// closure hardening, 2026-08-24). The previous hardcoded
+		// 'page-build-handler' here minted five doomed items across three
+		// sites — every one no-op'd ("no sections ready to build"), burned an
+		// attempt and parked needs_human_review, including an entity-directory
+		// page whose builder was live the whole time. The realised page's type
+		// wins; a page with no pages row yet falls back to the plan role
+		// (same vocabulary, measured 2026-08-24).
+		routeType := normalizePageType(real.PageType)
+		if routeType == "" {
+			routeType = normalizePageType(plan.Role)
+		}
+		route, neededBuilder, _ := builderForPageType(routeType)
+		if neededBuilder != "" {
+			// Known type, no builder yet: file a VISIBLE deferred gap instead
+			// of a needs_page that cannot succeed. Same item_key shape as
+			// WriteBuildItemsAction's capability_gap arm, so the two producers
+			// co-dedup on the partial unique index.
+			gapKey := fmt.Sprintf("capability_gap:%s:%s", routeType, name)
+			gapSpec, _ := json.Marshal(map[string]interface{}{
+				"page_name":      name,
+				"page_type":      routeType,
+				"page_role":      plan.Role,
+				"builder_needed": neededBuilder,
+				"plan_id":        planID.String(),
+				"reason":         decision,
+			})
+			// idx_swi_dedup covers 'deferred', so a gap already on file is
+			// suppressed here — count what was WRITTEN, not what was
+			// attempted (bugs_open/091's lesson: "no error" is not "a record
+			// was created"). A repeat run therefore reports 0 and skips
+			// silently, which is the correct steady state.
+			gapRes, gerr := tx.ExecContext(ctx, `
+				INSERT INTO site_work_items (
+					site_id, source, pipeline, item_type, severity, summary,
+					spec, priority, handler_agent, status, created_by,
+					item_key, batch_id
+				) VALUES ($1, 'reconcile_site_plan', 'build', 'capability_gap',
+				          'low', $2, $3::jsonb, 200, $4,
+				          'deferred', 'reconcile_site_plan', $5, $6)
+				ON CONFLICT DO NOTHING
+			`, siteID, fmt.Sprintf("Page '%s' needs %s (not yet available)", name, neededBuilder),
+				string(gapSpec), neededBuilder, gapKey, batchID)
+			if gerr != nil {
+				return nil, fmt.Errorf("emit capability_gap for %q: %w", name, gerr)
+			}
+			if n, _ := gapRes.RowsAffected(); n > 0 {
+				emittedGap++
+			} else {
+				skippedQueued++
+			}
+			continue
+		}
+
 		// emit
 		spec := map[string]interface{}{
 			"page_name": name,
+			"page_type": routeType,
 			"page_role": plan.Role,
 			"plan_id":   planID.String(),
 			"reason":    decision,
@@ -294,10 +365,10 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 				spec, priority, handler_agent, status, created_by,
 				item_key, batch_id
 			) VALUES ($1, 'reconcile_site_plan', 'build', 'needs_page',
-			          'medium', $2, $3::jsonb, $4, 'page-build-handler',
-			          'triaged', 'reconcile_site_plan', $5, $6)
+			          'medium', $2, $3::jsonb, $4, $5,
+			          'triaged', 'reconcile_site_plan', $6, $7)
 			ON CONFLICT DO NOTHING
-		`, siteID, summary, string(specJSON), priority, itemKey, batchID)
+		`, siteID, summary, string(specJSON), priority, route.handler, itemKey, batchID)
 		if err != nil {
 			return nil, fmt.Errorf("emit needs_page for %q: %w", name, err)
 		}
@@ -352,6 +423,7 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 		zap.Int("pages_total", len(planPages)),
 		zap.Int("pages_emitted", emitted),
 		zap.Int("pages_review_emitted", emittedReview),
+		zap.Int("capability_gaps_emitted", emittedGap),
 		zap.Int("pages_skipped_built", skippedBuilt),
 		zap.Int("pages_restamped", restamped),
 		zap.Int("pages_skipped_queued", skippedQueued),
@@ -359,15 +431,16 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 	)
 
 	return map[string]interface{}{
-		"plan_id":              planID.String(),
-		"pages_total":          len(planPages),
-		"pages_emitted":        emitted,
-		"pages_review_emitted": emittedReview,
-		"pages_skipped_built":  skippedBuilt,
-		"pages_restamped":      restamped,
-		"pages_skipped_queued": skippedQueued,
-		"rerender_emitted":     rerenderEmitted,
-		"batch_id":             batchID.String(),
+		"plan_id":                 planID.String(),
+		"pages_total":             len(planPages),
+		"pages_emitted":           emitted,
+		"pages_review_emitted":    emittedReview,
+		"capability_gaps_emitted": emittedGap,
+		"pages_skipped_built":     skippedBuilt,
+		"pages_restamped":         restamped,
+		"pages_skipped_queued":    skippedQueued,
+		"rerender_emitted":        rerenderEmitted,
+		"batch_id":                batchID.String(),
 	}, nil
 }
 
@@ -458,7 +531,7 @@ func loadPlanPages(ctx context.Context, db *sql.DB, planID uuid.UUID) (map[strin
 func loadRealisedPages(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[string]realisedPageRecord, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT name, COALESCE(build_status, ''), built_from_plan_version,
-		       COALESCE(rebuild_policy, 'generic')
+		       COALESCE(rebuild_policy, 'generic'), COALESCE(page_type, '')
 		FROM pages
 		WHERE site_id = $1
 	`, siteID)
@@ -471,7 +544,7 @@ func loadRealisedPages(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[s
 	for rows.Next() {
 		var name string
 		var r realisedPageRecord
-		if err := rows.Scan(&name, &r.BuildStatus, &r.BuiltFromPlanVersion, &r.RebuildPolicy); err != nil {
+		if err := rows.Scan(&name, &r.BuildStatus, &r.BuiltFromPlanVersion, &r.RebuildPolicy, &r.PageType); err != nil {
 			return nil, err
 		}
 		out[name] = r

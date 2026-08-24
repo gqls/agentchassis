@@ -1022,13 +1022,17 @@ func defaultSectionsForPage(pageName, pageType string) []string {
 		return []string{"hero", "pricing", "faq", "call-to-action"}
 	case key == "about":
 		return []string{"hero-about", "about-content", "call-to-action"}
-	case key == "guides-index" || key == "guide-index":
+	case strings.HasSuffix(key, "guides-index") || key == "guide-index":
 		// Matches the ALREADY-PROVEN fleet pattern exactly (verified live,
 		// bugs_open/206): mortgagecalculator.co.uk, idea.uk, gamesdesign.co.uk
 		// and relojistas.com all deploy this layout for this page shape,
 		// backed by guide-list's own query.pages_where_type:guide.
+		// Suffix, not equality (2026-08-24): garden-tools.uk plans a
+		// 'buying-guides-index' — same archetype, prefixed name. guide-list
+		// is per-site query-backed, so a false-positive name match renders an
+		// empty list, never fabricated content.
 		return []string{"hero", "guide-list"}
-	case key == "tools-index" || key == "tool-index":
+	case strings.HasSuffix(key, "tools-index") || key == "tool-index":
 		// Same proven pattern, tool-list's sibling case (gamesdesign.co.uk,
 		// robot-hands.com, finetuning.uk, ai-agent-orchestration.com).
 		return []string{"hero", "tool-list"}
