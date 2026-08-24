@@ -2844,3 +2844,36 @@ caught by the disconfirmability rule (a normal `<script src>` element could neve
 The check that settles any single case: FETCH the src URL — a real sidecar returns 200 with JS.
 WRONG_CALLS row appended. Remaining: **8 Phase C (as of 2026-08-24) + 24 Phase B** = 32 after #31.
 Next: #32 `tool-seo-schema` (9,495, generator.js).
+
+## 2026-08-24 11:45Z — #31 community-growth and #32 seo-schema DONE (32 of 63)
+
+**#31 `tool-community-growth`** (item `8b434ec1`): the ported tool's central teaching ("k > 1 =
+exponential growth") was FALSE in its own chart — the code silently applied `k * 0.1` (a comment
+admitted the dampening; sighting #13 of the self-misdescription class, the strongest yet) — plus
+unused dead `viralGrowth` code, NaN verdicts from blank fields, hardcoded verdict hexes. RUN
+complete/adopted, component `5532082a` (13,567); retire `UPDATE 1` 10:42:10 (~30 s after build, md5
+`c0cc3d9a…` intact); rerender `74f546ef` complete 11:11:06. **COMPONENT by mechanism:** the
+recurrence IS the taught model — `members + organic + members*k − members*churn`, floored at 0, no
+dampening (0 hits for `* 0.1`); four per-field error elements; null-guard pauses the simulation;
+start=0 handled in words ("starting from zero, no percent applies"); formula stated in page text.
+**SERVE-GRADE PASS:** 200 / 20,677 / LM 11:11:20 > 11:11:06; negatives 0 (`startUsers`, `kRate`,
+`barChart`, **`src="simulator.js"`**, `finalUserCount`); positives present. Orphan #4 dispatched
+(corr `b1b095b9`).
+
+**#32 `tool-seo-schema`** (item `6deb4702`): ported defects — user text through JSON.stringify into
+**innerHTML** (markup in a headline corrupts the schema box), copy strips the first literal "Copy"
+from the copied JSON (a Copyright headline gets silently corrupted), unconditional "Copied!",
+placeholder data (Your Headline / SKU 12345 / price 0.00 / TODAY'S date) silently emitted as real
+schema, half-filled FAQ pair dropped, availability hard-claimed InStock. RUN complete/adopted,
+component `3ea6687f` (21,650); retire `UPDATE 1` ~1 min after build (md5 `caa8350a…` intact);
+rerender `0c3c0e81` complete 11:38:28. **COMPONENT by mechanism:** 0 innerHTML — output via
+textContent; copy copies `currentJsonString` (the variable, never scraped DOM) with then/catch +
+distinct failure text; `placeholderNotice` NAMES the placeholder-filled fields with a do-not-publish
+warning; half-pair inline message; price must parse non-negative; **availability has NO default —
+the visitor must choose** (further than briefed, in the honest direction). **SERVE-GRADE PASS:**
+200 / 28,611 / LM 11:38:41 > 11:38:28; negatives 0 (`outputCode`, `artHeadline`,
+**`src="generator.js"`**, `form-article`); positives present (placeholder-notice, copy-button,
+OutOfStock). Tombstone re-reads: both removed ✓. Orphan #5 dispatched (corr `953cbf06`).
+
+**Phase C remainder (7 as of 11:45Z): recommender-engine, performance-budget, smart-contrast,
+csp-builder, fluid-typography, vibe-equalizer(2 sidecars), micro-cms(4 sidecars).**
