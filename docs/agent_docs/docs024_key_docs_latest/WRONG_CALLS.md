@@ -47853,3 +47853,51 @@ way did; it was the ones I never framed as questions that went wrong.**
   in 122. **A branch that has never fired is not a branch that cannot fire, and "measured 0 today" is
   a date-stamped observation, not a property.** The invariant is now stated precisely in the comment
   and pinned by a mutation-proven test.
+
+## 2026-08-24 — `apis_uk_bees_homepage`: I ran a pathspec-less `git commit` and swept another lane's staged deletion into a commit about my own typo
+
+**What I did.** I wrote a follow-up commit to correct a mangled commit message, and reached for
+`git commit --allow-empty -F /tmp/cmsg.txt`. **No pathspec.** Another session had staged the
+deletion of two files, and my commit took them:
+
+```
+2 files changed, 255 deletions(-)
+ delete mode 100644 docs/agent_docs/sql_for_agents/524_claimed_item_timeout_honours_the_cooldown_HOLD.sql
+ delete mode 100644 docs/agent_docs/sql_for_agents/524_claimed_item_timeout_honours_the_cooldown_HOLD_ROLLBACK.sql
+```
+
+So a migration-lifecycle change belonging to the `bugfix_341`/`344` lane is now recorded in the
+history under the message *"correction to b4701bb10: the swallowed word is 'avoid'"*. **That is
+the precise harm CLAUDE.md names** — not breadth, but *"four threads' work arriving under one
+thread's message"*, which is what destroys review, bisect and revert.
+
+**`--allow-empty` is what fooled me.** I reasoned that an empty commit cannot carry anything, so a
+pathspec was pointless. **`--allow-empty` permits an empty commit; it does not make one.** It
+lifts the "nothing to commit" refusal — which is the one thing that would otherwise have stopped
+a pathspec-less commit on a tree with someone else's staged work. **The flag I added to make the
+commit harmless is the flag that removed the guard.**
+
+**What I did NOT do, and why.** I did not restore the files. Measured first: the surviving
+`524_..._cooldown.sql` (7,192 bytes) and its `_ROLLBACK` are present in the tree and in HEAD, and
+`schema_migrations` records **`524_claimed_item_timeout_honours_the_cooldown.sql` applied
+2026-08-21**. The deleted `_HOLD` variant was **11,716 bytes** — *not* byte-identical, so ~4.5KB
+(its hold banner, guards, verify blocks) existed only there. Re-adding a `_HOLD` twin of an
+already-applied migration risks exactly the duplicate-declaration class the migration guards
+exist to catch. **Reversing another lane's lifecycle step on a guess is worse than leaving it
+visible**, so it is recorded instead.
+
+**Recovery, if that lane wants it back:**
+`git show 'eef3438b9^:docs/agent_docs/sql_for_agents/524_claimed_item_timeout_honours_the_cooldown_HOLD.sql'`
+(same for `_HOLD_ROLLBACK`). Nothing is lost; only the attribution is wrong.
+
+**The cheap check, and I had it written down.** CLAUDE.md: *"The pathspec on **`commit`** is the
+load-bearing part… a bare `git commit -m` sweeps their staged files in no matter how careful your
+`add` was."* Every other commit I made this session used an explicit pathspec. **The one that did
+not was the one I had decided in advance could not matter** — a message-only correction. The
+rule has no exception for commits you believe are empty, and `git status --short` before the
+commit costs nothing.
+
+**Compounding detail worth keeping:** this happened *inside* a commit correcting a different
+silent-substitution failure — backticks in `git commit -m` executing as a command and swallowing
+a word. Two shell traps from the same MEMORY family, in consecutive commits, one while writing
+about the other.
