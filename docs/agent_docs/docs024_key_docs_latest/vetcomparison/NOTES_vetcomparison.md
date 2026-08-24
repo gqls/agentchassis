@@ -1391,3 +1391,38 @@ layoutless `content` page still no-ops on page-build-handler — does not bite h
 its 3 plan rows and a populated sections cache. If the entity-page builder lands and the owner
 wants per-practice profiles at this URL, the re-decision is deliberate (retype back is one
 precedented UPDATE, bugs_open/015 class), not an accident of a stale column.
+
+## 2026-08-24 (second session-turn) — owner rulings landed: email evidence rule, structured intake, first real claim actioned
+
+Owner: (1) build the structured email route; (2) **RULING: email from the practice's own domain
+is sufficient claim evidence**; (3) action the first real request — Vet Home Certs
+(team@vethomecerts.co.uk "via websy.uk", 09:10 today) asking for INCLUSION of their mobile AHC
+network + £99 pricing.
+
+**Verified before acting:** VET HOME CERTS LTD is real — `SC786251`, active, already in our
+`ch_vet_companies` SIC-75000 snapshot; genuinely absent from `businesses` (name + website_url
+both 0 rows); their site 403s curl (bot wall) so the £99 stays uncorroborated until their reply
+names the page it lives on. The "via websy.uk" relay means From-domain without DKIM alignment —
+recorded in `evidence_note`; the reply round-trip (needed anyway for their data) completes the
+domain check. RUNBOOK "Additions 2026-08-24" now carries the ruling + the relay caveat + the
+inclusion flow as a worked example.
+
+**DB (one txn):** businesses `02d63be6` — `verification_status='unverified'`, which the exporter
+excludes at every arm (`directory_export_action.go:275/338/434`, read today), so nothing can
+publish until their per-location data arrives and is verified; claim_requests `4752ed91` —
+`'claim'`, `'pending'`, `email_domain_match`, full email verbatim in `requester_message`.
+NOT marked claimed; consent not snapshotted — both happen on the verified reply per RUNBOOK.
+
+**Page intake:** section_edit item `74d2600d` (priority 10 — the corrected direction), literal
+`field_updates` on the practice page's call-to-action component `d2f140fb`: primary CTA becomes
+a prefilled mailto template matching the RUNBOOK step-1 fields, with the from-your-own-domain
+instruction; CMA self-assessment demoted to secondary. `__cta_minted` updated in the same edit so
+the mint record stays consistent (the 357 lane's rerender-re-mints-the-mismatch finding is why).
+Dispatch note: at insert time **115 dispatchable items ahead on 2 sites** (fleet site-selection
+is created_at ASC, so a NEW item queues behind every older one fleet-wide — the flip side of this
+morning's finding that our 07-17 item went first). Outcome recorded below when it lands.
+
+**Reply draft** for the owner: `REPLY_DRAFT_2026-08-24_vet_home_certs.md` — asks per-location
+fields + price URLs on their own domain (provenance rule unchanged by a claim), carries the
+consent line, and the operator notes: OV-qualification claim is THEIR statement not our fact;
+verify price URLs in a browser (bot wall); model locations as rows under group_name.

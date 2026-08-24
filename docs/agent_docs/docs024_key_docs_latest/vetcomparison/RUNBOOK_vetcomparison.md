@@ -282,3 +282,31 @@ ORDER BY s.collected_at DESC;
   own. Then assert `variants_found > prices_stored` on the new `med_scrape_evidence` row
   and grep the spawned worker's log for `fidelity guard dropped variant` — capture that pod's
   logs while it lives, the pod is ephemeral and GC'd shortly after.
+
+### Additions 2026-08-24 (owner rulings + the live intake route)
+
+- **OWNER RULING 2026-08-24: an email from the practice's own domain IS sufficient claim
+  evidence** (`evidence_method='email_domain_match'`). Caveat that keeps it honest: a message
+  showing "via <relay>" (e.g. via websy.uk) has its From at the practice domain but no DKIM
+  alignment with it — for those, the reply round-trip to the practice-domain address completes
+  the check (you have to reply anyway to get their data), THEN upgrade the request to
+  `verified`. Do not mark `verified` on a relayed From alone.
+- **The intake route is now the claim page, not the old homepage `#claim` routes** (those died
+  in the 07-18 rebuild). `/entities/practice.html`'s primary CTA is a prefilled mailto template
+  whose fields match step 1 above (practice name, postcode, requester name+role, website, action
+  wanted, details) and instructs sending from the practice's own domain.
+- **Inclusion requests (business NOT in the directory) — worked example: Vet Home Certs,
+  2026-08-24.** `request_type` has no 'inclusion' value; the flow is: (1) corroborate the company
+  exists (`ch_vet_companies` / Companies House — VET HOME CERTS LTD SC786251 was already in our
+  SIC-75000 snapshot); (2) create the `businesses` row with
+  `verification_status='unverified'` — the exporter excludes anything not 'verified' at every
+  arm (`directory_export_action.go:275/338/434`, checked 2026-08-24), so nothing publishes
+  early; (3) file the `claim_requests` row as `'claim'`, `status='pending'`, with the full
+  received email in `requester_message` and what you checked in `evidence_note`; (4) on the
+  data-bearing reply from their domain: upgrade to `verified`, snapshot consent, create
+  per-location rows, enter prices per the steps above — each price still needs a
+  `product_url` on THEIR domain (the provenance rule is unchanged by a claim).
+  Live example rows: business `02d63be6`, claim request `4752ed91`.
+- **A claimant's qualification claims are THEIR statements, not our facts.** "All our vets hold
+  OV qualifications" is publishable only as an attributed statement or after checking the
+  APHA/RCVS registers — do not fold it into directory fields.
