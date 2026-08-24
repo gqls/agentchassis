@@ -1272,3 +1272,82 @@ would actually need to render correctly.
 `tool-compliance-deadline-calculator` (separate mechanism, real legal stakes around calendar
 dates — left for a session that will give it proper attention), P1/P2 (another session's active
 lanes, untouched).
+
+## 2026-08-24 — /entities/practice.html re-aimed as the claim-listing page and dispatched through the proven 206 chain
+
+Owner reported: "There is a page missing 'Claim your practice listing' (entities/practice.html)."
+Verified live 2026-08-24 10:05Z: the URL 404s while TWO live pages link to it — the homepage
+`info-card-grid` card ("Claim your practice listing" → "Claim your listing") and
+`/guides/independent-strategy/index.html` ("claim your practice's profile"). The immune system had
+already filed both (`unbuilt_internal_link` f1eb2266, `dead_internal_link_live` 1836b92d).
+
+**State found:** page row `b789e801` — `entity-page`, `build_status='planned'`, 0 sections, 0 plan
+rows, no page_spec, no content_direction, title "Practice Profile", untouched since 2026-07-17.
+Work item `3cce980c` (needs_page:practice) `needs_human_review`, attempt 1/3, error = page-build-handler
+no-op (empty spec sections). `entity-page` is still in `unavailableBuilders`
+(`load_work_item_actions.go:261` **as of 2026-08-24**) — the per-practice profile builder remains
+unbuilt (bugs_open/206 follow-on, deliberately held).
+
+**Decision: build the page as the claim-your-listing explainer, NOT a practice profile.** Grounds:
+(a) every live link into this URL names the claim function, not a profile; (b) the
+HANDOFF_2026-07-26 §4 "minimum honest version" (explain claiming + contact route, NO form) was the
+recommended safe default, and the form's blocker — the claimant-verification owner decision — only
+binds the form version; (c) the live site already solicits claims in framework-written copy
+(homepage card + independent-strategy guide, live since 08-18, naming
+vetcomparison@contactforsales.com), so "do we solicit claims before the Order" is answered by the
+live site the owner has seen; (d) the owner's message today asks for this page by its claim name.
+The per-practice profile ambition (P3) stays where it was — future work behind the entity-page
+builder; when that exists it takes over this URL and the claim CTA moves onto the profile, per §4.
+
+**HAZARD AVOIDED:** dispatching the build with the page still titled "Practice Profile" would have
+directed the writer to fabricate a practice profile — the exact bug-020 fabrication class this site
+was remediated for. So the page identity was re-aimed FIRST (config, live immediately):
+title/nav_label/meta_description → claim-listing; `content_direction` (bug-025 mechanism, reaches
+the writer as `.current_page.content_direction`) with must_cover (what claiming is, what it
+enables under the provenance rule, email/contact route), must_not (no invented practice data, no
+draft-Order figures/dates as settled, no promised form/login, no "proprietary"), and
+`required_links`/link_rules pinned to pages that exist (the webdesign.uk idiom).
+
+**Mechanism:** re-routed item `3cce980c` to `directory-build-handler` (status='triaged',
+error=NULL, priority 90) — the guides-index precedent from the 206 lane: its
+`ensure_page_section_layout` writes the plan rows for a page with none from any source
+(for name=practice, type=entity-page it resolves the DEFAULT layout
+`[hero, generic-text-block, call-to-action]` — read `defaultSectionsForPage`,
+`apply_gap_plan_action.go:1000-1038`), then delegates to page-build-handler with the
+337-corrected mapping (verified on the live agent_definitions row before dispatch: spec, domain,
+site_id, page_name, current_page all present). Pre-flight: no depends_on, approval auto, page NOT
+in nav (in_header/in_footer false), chassis pods 32 min old (outside the ~300s spawn-drop window),
+no other session on the lane (git log since 08-08 + dirty tree checked; vetcomparison lane and
+bugfix_206 lane both quiet 14d; the 08-23 bump on the item was the terminal-state revalidator, arm
+`unreported:needs_page`, not a session).
+
+Outcome + artefact verification: recorded below once the build lands.
+**OUTCOME 2026-08-24 10:2xZ — LIVE AND VERIFIED AT THE ARTEFACT.** Dispatch chain worked first
+time: trigger pass 10:13 selected the site, item claimed 10:13:59Z, `ensure_page_section_layout`
+wrote the predicted `[hero, generic-text-block, call-to-action]` plan rows, item `complete`
+attempt 1 err NULL, page `deployed` 10:17:38Z, 3 sections. Artefact check (curl, not the row):
+HTTP 200, 23,068 bytes, title "Claim Your Practice Listing | VetComparison.uk". Copy sweep:
+**0 monetary figures, 0 calendar dates, 0 named practices, 0 practice counts, 0 "proprietary",
+no form/login/dashboard promises**; the key sentence is verbatim-right ("We do not invent figures
+and we will not publish a price we cannot attribute to a source"); every href resolves to a
+deployed page (about, contact, how-it-works, independent-strategy guide, both tools, index) plus
+`mailto:vetcomparison@contactforsales.com`. Deviations from content_direction, both minor,
+neither worth a regeneration (a content edit REGENERATES, it does not edit): (a) no
+`/directory/index.html` link despite required_links; (b) present-tense "Under the remedies
+Order" — same register as the already-live independent-strategy guide, so not a new claim class,
+but both pages will need the same sweep when the Order is actually made.
+Closed with evidence: `unbuilt_internal_link` f1eb2266 + `dead_internal_link_live` 1836b92d
+(both were findings about this exact 404).
+
+**Selector gotcha worth keeping:** `find_dispatchable_site` orders `created_at ASC, priority ASC`
+— LOW priority number wins, and created_at dominates anyway. My priority bump 54→90 was the wrong
+direction for that ORDER BY (harmless here: the 07-17 created_at put the item at the front of the
+fleet queue on its own). The 206 lane's "bumped to 95 to get ahead" phrasing suggests the same
+misreading. Also: while an item is `claimed`, the selector skips the ENTIRE site — a mid-build
+site looks starved to any concurrent dispatcher.
+
+**Coordination:** `bugfix_206` session resumed today (owner-directed, separate thread) and made
+contact mid-build; answered with my scope (their mechanism USED, not modified), the practice-page
+re-scoping consequence for their entity-page-builder planning, and P1 figures I could attest.
+Per-practice profile pages (P3) remain future work behind an entity-page builder — that lane's
+call, not this one's.

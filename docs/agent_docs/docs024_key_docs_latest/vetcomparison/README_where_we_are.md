@@ -981,3 +981,28 @@ the fix we're planning would actually work. One real run answers it.
 
 Worth naming the pattern: I'd just been caught over-claiming in one direction, and immediately
 over-claimed in the other. Being corrected about one thing tells you nothing about the next thing.
+
+## 2026-08-24 — the "Claim your practice listing" page exists now
+
+You reported that the page behind "Claim your practice listing" was missing — the homepage card
+and the independent-practices guide both pointed at a page that showed "not found". That page had
+been sitting half-planned since mid-July: the system had a slot for it but nothing that knew how
+to build it, because it was originally imagined as a per-practice profile page, and the machinery
+for those was never built (that's the separate bug 206, which another thread is looking at).
+
+What I did: rather than wait for the profile machinery, I re-aimed the page as what the links
+actually promise — a page that explains what claiming your listing means and how to do it. I gave
+the build system a clear brief first (what to cover, and hard rules: invent nothing, no prices, no
+dates from the draft CMA Order, only link to pages that exist), then sent it through the same
+build route that successfully built the directory page earlier this month.
+
+It built first time and is live: https://vetcomparison.uk/entities/practice.html — it says
+claiming is free, explains that we never publish a price we can't attribute to a source, and gives
+the email route (vetcomparison@contactforsales.com). I read the whole page: no invented figures,
+no fake claims, all links work. The two automatic "dead link" alarms about this page are closed.
+
+Still open, unchanged: the per-practice profile pages (needs the bug-206 thread's machinery), and
+the compliance deadline calculator page (held deliberately — it must never print a calendar date
+until the CMA Order is actually made). One small thing to remember: this page, like the
+independent-practices guide, talks about "the remedies Order" in the present tense; when the Order
+is actually made, both pages deserve one pass to check the wording against the final text.
