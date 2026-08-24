@@ -321,6 +321,26 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 			// so it does not gate. Tolerate it, and count it so the decision
 			// stays auditable. (edit-quality and guardian are always-on and
 			// never skipped, so a council can never end up with zero opinions.)
+			//
+			// bugs_open/243: an absent field has TWO causes and they decide
+			// differently. The relevance filter skipping a seat is information
+			// ("not applicable") — an abstention. A seat whose STEP FAILED (the
+			// provider refusing us on a usage cap is the live case, but any step
+			// error qualifies) is an opinion we were owed and LOST, which is the
+			// absence of information. The comment above says why conflating them
+			// is unsafe, and it is not cosmetic: `unreadable` blocks an approval
+			// below, `abstained` does not. Without this branch, pointing a seat's
+			// error_step at the next seat — the obvious way to stop one transient
+			// discarding a whole round — would silently convert a lost seat into a
+			// considered non-objection. The coordinator records the per-step
+			// failure in `__step_errors` (coordinator.go, routeToErrorStep).
+			if failedStep, why := reviewStepFailed(params.CollectedData, field); failedStep {
+				unreadable = append(unreadable, field)
+				logger.Warn("diagnose_council_decide: reviewer STEP FAILED — recorded as unreadable, NOT abstained; an approval cannot stand alongside it",
+					zap.String("field", field),
+					zap.String("step_error", why))
+				continue
+			}
 			abstained++
 			logger.Debug("diagnose_council_decide: reviewer abstained (field absent — skipped by relevance filter)",
 				zap.String("field", field))
@@ -803,4 +823,47 @@ func decideCouncil(reviews []councilReview, hardVeto map[string]bool) (decision,
 		return "approved", fmt.Sprintf("approved with %d advisory objection(s) — none high-severity", advisory), false
 	}
 	return "approved", "all reviewers approve", false
+}
+
+// reviewStepFailed reports whether the step that should have produced `field`
+// routed to its error_step, using the per-step record the coordinator writes to
+// `__step_errors` (bugs_open/243). It returns the recorded message so the seat's
+// loss is attributable in the log rather than merely counted.
+//
+// `field` is a collected-data path like "review_editquality.result"; the step
+// name is its first segment. Splitting on the FIRST "." rather than trimming a
+// ".result" suffix keeps this correct if a seat is ever configured with a
+// different output field.
+//
+// FAILS CLOSED BY DESIGN, in the direction that costs a reviewer's attention
+// rather than a silent approval: if `__step_errors` is absent (an older
+// coordinator, or a state written before this shipped) it returns false and the
+// seat counts as an abstention — the behaviour before this change — so the
+// config half of the fix must not be applied until this is live.
+//
+// The coordinator caps that map (see routeToErrorStep) and marks a capped record
+// with a `__truncated` entry. A capped record would make an absent seat
+// ambiguous again — but it cannot arise here: a council round has 17 seats and
+// the cap is 50, so the record can never be truncated on this path. If a future
+// panel ever approaches the cap, this helper must start treating a truncated
+// record as "unknown, therefore lost" rather than as an abstention.
+func reviewStepFailed(collected map[string]interface{}, field string) (bool, string) {
+	stepErrors, ok := collected["__step_errors"].(map[string]interface{})
+	if !ok || len(stepErrors) == 0 {
+		return false, ""
+	}
+	stepName := field
+	if i := strings.Index(field, "."); i > 0 {
+		stepName = field[:i]
+	}
+	entry, ok := stepErrors[stepName]
+	if !ok {
+		return false, ""
+	}
+	if m, ok := entry.(map[string]interface{}); ok {
+		if msg, ok := m["message"].(string); ok {
+			return true, msg
+		}
+	}
+	return true, ""
 }

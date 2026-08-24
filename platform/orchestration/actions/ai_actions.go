@@ -703,6 +703,44 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	params.Logger.Info("LLM response received",
 		zap.String("result_preview", datahelpers.TruncateString(result, 200)))
 
+	// ── Endpoint health: the SYMMETRIC half of the failure write above ──
+	// bugs_open/243. Until this existed, `update_endpoint_health` had exactly one
+	// caller — the isAIUnavailable branch above — and it only ever passed FALSE.
+	// The sole writer of `true` was the hourly prober. So live traffic could mark
+	// the endpoint down but nothing succeeding could mark it up, and
+	// claim_work_item (claim_work_item_action.go, the AI-endpoint-health gate)
+	// gates EVERY work-item claim fleet-wide on that one boolean. One refused call
+	// therefore stopped all dispatch until the prober's next tick — measured at
+	// 60m25s on 2026-08-17 while 93 of 99 live calls in the same window succeeded.
+	//
+	// The prober cannot close this itself: pingClaude returns healthy for ANY
+	// non-auth status (check_endpoint_health_action.go), and a usage cap is a 400,
+	// so for this condition the prober is a timer, not a health check. A real
+	// successful call is the only signal that actually observes recovery.
+	//
+	// `AND NOT healthy` is load-bearing, not an optimisation: it makes this a
+	// zero-row no-op on the primary key in the normal case, and it stops
+	// last_healthy being rewritten on every call in the fleet.
+	if params.DB != nil {
+		apiURL, _ := aiServiceConfig["api_url"].(string)
+		if apiURL == "" && provider == "anthropic" {
+			apiURL = "https://api.anthropic.com/v1/messages"
+		}
+		if apiURL != "" {
+			go func() {
+				rctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				if _, uerr := params.DB.ExecContext(rctx, `
+					UPDATE ai_endpoint_health
+					   SET healthy = true, last_healthy = NOW(), error = NULL, updated_at = NOW()
+					 WHERE endpoint_url = $1 AND NOT healthy`, apiURL); uerr != nil {
+					params.Logger.Warn("failed to clear endpoint health after a successful call",
+						zap.String("endpoint", apiURL), zap.Error(uerr))
+				}
+			}()
+		}
+	}
+
 	// Log the successful LLM call
 	llmLatencyMs := int(time.Since(llmCallStart).Milliseconds())
 	inputTokens := 0
