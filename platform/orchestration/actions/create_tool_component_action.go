@@ -284,6 +284,21 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		// tool it knows the site already has — regenerate the incumbent in place
 		// (create_tool_component_regenerate.go). Without the flag the
 		// short-circuit below stands: it is the per-site throttle.
+		// ⚠ THIS RETURN IS BEFORE THE CROSS-LINK EMITTER (below, ~line 559), so
+		// a REGENERATION emits no cross-links at all — checked, not assumed:
+		// create_tool_component_regenerate.go contains no call to
+		// emitToolCrossLinkItems and no reference to related_pages
+		// (grep, 2026-08-23). That is OUT OF SCOPE for bugs_open/353, which is
+		// about tools whose FIRST birth lost its cross-links, and it is stated
+		// here rather than left to be rediscovered (council round 1, corr
+		// 642ecc3c, editquality — a fair objection: the same `replace_existing`
+		// reroute invalidated a control on this bug two days earlier).
+		//
+		// It is NOT nothing, though: a regeneration whose spec ADDS a related
+		// page will never emit for it. Dedup makes re-emission harmless, so the
+		// safe fix if that becomes real is to call the emitter from the
+		// regenerate path too — with the opt-in left FALSE, because a
+		// regeneration of an existing tool does not enqueue that page's build.
 		if replaceExistingRequested(inputs) {
 			return regenerateToolComponentInPlace(ctx, params, logger, toolRegenerateRequest{
 				siteID:       siteID,

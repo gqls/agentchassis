@@ -230,9 +230,18 @@ func emitToolCrossLinkItems(ctx context.Context, params ActionParams, logger *za
 		return 0
 	}
 
+	// The decision is made ONCE, below, from real inputs — pageLive included.
+	// An earlier cut short-circuited the live case with an outer `if` and then
+	// passed a literal `false` for pageLive, which made the function's first
+	// branch dead code and its decision table only partly real (council round 1,
+	// corr 642ecc3c, editquality). The gate-item QUERY stays conditional, because
+	// a served page needs no gate item and the lookup would be wasted work; the
+	// DECISION does not.
 	var dependsOn []uuid.UUID
-	if !toolPageLive(buildStatus) {
-		var gateID uuid.UUID
+	var gateID uuid.UUID
+	pageLive := toolPageLive(buildStatus)
+	gateItemFound := false
+	if !pageLive {
 		// The gate item may be filed under ANY of the channels that actually
 		// build a page. `needs_content_page` was the only one when this guard
 		// was written; fix 177 (2026-08-03) stopped raising it for pure-tool
@@ -249,32 +258,36 @@ func emitToolCrossLinkItems(ctx context.Context, params ActionParams, logger *za
 			ORDER BY created_at DESC
 			LIMIT 1
 		`, sqlInList(crossLinkFailedStatuses)), req.siteID, req.toolPageID).Scan(&gateID)
+		gateItemFound = err == nil
+	}
 
-		switch crossLinkEmitDecision(false, err == nil, req.pageBuildIsEnqueuedByThisWorkflow) {
-		case crossLinkEmitGated:
-			dependsOn = []uuid.UUID{gateID}
-			logger.Info("emitToolCrossLinkItems: gating cross-links behind the tool page build",
-				zap.String("build_status", buildStatus),
-				zap.String("depends_on", gateID.String()))
+	switch crossLinkEmitDecision(pageLive, gateItemFound, req.pageBuildIsEnqueuedByThisWorkflow) {
+	case crossLinkEmitGated:
+		dependsOn = []uuid.UUID{gateID}
+		logger.Info("emitToolCrossLinkItems: gating cross-links behind the tool page build",
+			zap.String("build_status", buildStatus),
+			zap.String("depends_on", gateID.String()))
 
-		case crossLinkEmitUngated:
-			// No gate item EXISTS YET. On the build path that is an ordering
-			// artefact, not a verdict: the page's build item is filed by a
-			// LATER step of the same workflow. bugs_open/353's fix.
+	case crossLinkEmitUngated:
+		// Either the page is already served — the ordinary case, and the reason
+		// this arm must be reachable with pageLive TRUE — or no gate item exists
+		// yet and the caller owns the build. The second is an ordering artefact,
+		// not a verdict: the page's build item is filed by a LATER step of the
+		// same workflow. bugs_open/353's fix.
+		if !pageLive {
 			logger.Info("emitToolCrossLinkItems: no gate item yet, but this workflow enqueues the page build — emitting ungated",
 				zap.String("build_status", buildStatus),
 				zap.String("tool", req.toolFunction))
 			recordCrossLinkSkip(ctx, params, logger, req, "emitted_ungated_build_enqueued_by_caller", "info",
 				fmt.Sprintf("tool page build_status=%q with no gate item yet; caller guarantees the build is enqueued in this workflow, so cross-links were emitted without a depends_on (bugs_open/353)", buildStatus))
-
-		default: // crossLinkWithhold
-			logger.Info("emitToolCrossLinkItems: tool page is not live and has no open build item — not emitting cross-links",
-				zap.String("build_status", buildStatus),
-				zap.Error(err))
-			recordCrossLinkSkip(ctx, params, logger, req, "tool_page_will_not_go_live", "warning",
-				fmt.Sprintf("tool page build_status=%q and no open build item (needs_content_page/page_rerender/needs_page) to gate on — cross-links withheld rather than pointed at a page that may never deploy", buildStatus))
-			return 0
 		}
+
+	default: // crossLinkWithhold
+		logger.Info("emitToolCrossLinkItems: tool page is not live and has no open build item — not emitting cross-links",
+			zap.String("build_status", buildStatus))
+		recordCrossLinkSkip(ctx, params, logger, req, "tool_page_will_not_go_live", "warning",
+			fmt.Sprintf("tool page build_status=%q and no open build item (needs_content_page/page_rerender/needs_page) to gate on — cross-links withheld rather than pointed at a page that may never deploy", buildStatus))
+		return 0
 	}
 
 	// --- Resolve related page names to ids ---
