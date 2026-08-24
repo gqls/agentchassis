@@ -11,6 +11,9 @@
 
 BEGIN;
 
+DROP TRIGGER IF EXISTS trg_cc_refuse_null_section_type ON content_components;
+DROP FUNCTION IF EXISTS refuse_selector_invisible_section();
+-- Pre-revision names, in case an older build of 581 was the one applied.
 DROP TRIGGER IF EXISTS trg_cc_refuse_null_section_type_birth ON content_components;
 DROP FUNCTION IF EXISTS refuse_selector_invisible_section_birth();
 
@@ -21,7 +24,7 @@ BEGIN
     FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
    WHERE c.relname = 'content_components'
      AND NOT t.tgisinternal
-     AND t.tgname = 'trg_cc_refuse_null_section_type_birth';
+     AND t.tgname IN ('trg_cc_refuse_null_section_type', 'trg_cc_refuse_null_section_type_birth');
   IF n <> 0 THEN
     RAISE EXCEPTION '581 ROLLBACK: the trigger is still present after DROP.';
   END IF;

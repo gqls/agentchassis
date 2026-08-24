@@ -61,47 +61,112 @@
 -- regex requires at least one character. NULL (this trigger) and '' (that
 -- CHECK) together leave only a valid kebab value admissible.
 --
+-- ── REVISED 2026-08-24 after council `f0cd2420` (APPROVED, 3 advisory objections) ──
+--
+-- Two medium advisories were acted on rather than banked, and both changed the SQL:
+--
+-- A. `bug_historian`: BEFORE INSERT alone leaves a MUTATION PATH open — nothing
+--    stopped a later UPDATE setting section_type back to NULL on an
+--    already-valid row, reproducing the identical invisibility through a
+--    different door. It asked whether that was live or theoretical and noted it
+--    could not be answered from the schema. ANSWERED: it is theoretical today.
+--    No Go writer and no migration sets section_type to NULL — the only UPDATE
+--    of the column anywhere is store_generated_component_action.go:1365,
+--    `SET section_type = COALESCE(section_type, $1)`, which is a HEAL and can
+--    never null it (grep over platform/ internal/ pkg/ cmd/ and
+--    sql_for_agents/, 2026-08-24).
+--    Closed anyway, because it costs one branch and the door is the point:
+--    the trigger now also fires BEFORE UPDATE, and refuses ONLY the
+--    NOT NULL -> NULL transition. It deliberately still allows an UPDATE of a
+--    row whose section_type was ALREADY NULL, which is what preserves the
+--    original reason for excluding UPDATE — the 25 standing rows stay freely
+--    repairable by every template-repair writer.
+--
+-- B. `debug_historian`: CREATE TRIGGER is not idempotent (Postgres has no
+--    CREATE TRIGGER IF NOT EXISTS), so a replay or partial-apply retry died on
+--    "trigger already exists". The pre-check made it worse, not better: it
+--    asserted ZERO triggers, so a re-run failed at MY OWN guard. Now the guard
+--    ignores this migration's own trigger and a DROP ... IF EXISTS precedes the
+--    CREATE, so re-applying is a no-op.
+--
+-- A third advisory (`editquality`, low) noted that adding a row to
+-- 000_concept_index.md trips a documented landmine. Checked with that
+-- landmine's own PAIR check rather than the row count it warns about: entries
+-- with no index row = empty, rows with no entry = empty, CLC-029 present in
+-- both.
+--
 -- ROLLBACK: 581_refuse_selector_invisible_section_birth_ROLLBACK.sql
 
 BEGIN;
 
--- Guard 1: this table has NO non-internal triggers as of 2026-08-23, so there is
+-- Guard 1: this table had NO non-internal triggers as of 2026-08-23, so there is
 -- nothing to interact with. If that has changed, stop and look before adding one.
+--
+-- ⚠ It excludes THIS migration's own trigger, so a replay is a no-op rather than
+-- a failure at the guard. That was the shape of the first version and it is the
+-- opposite of idempotent: it made re-running fail EARLIER and more confusingly.
 DO $$
-DECLARE n int;
+DECLARE n int; names text;
 BEGIN
-  SELECT count(*) INTO n
+  SELECT count(*), string_agg(t.tgname, ', ') INTO n, names
     FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
-   WHERE c.relname = 'content_components' AND NOT t.tgisinternal;
+   WHERE c.relname = 'content_components' AND NOT t.tgisinternal
+     AND t.tgname <> 'trg_cc_refuse_null_section_type';
   IF n <> 0 THEN
-    RAISE EXCEPTION '581: content_components has % non-internal trigger(s); expected 0. Read them before adding another.', n;
+    RAISE EXCEPTION '581: content_components has % other non-internal trigger(s) (%); expected 0. Read them before adding another.', n, names;
   END IF;
 END $$;
 
-CREATE OR REPLACE FUNCTION refuse_selector_invisible_section_birth()
+CREATE OR REPLACE FUNCTION refuse_selector_invisible_section()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  IF NEW.component_level = 'section'
-     AND NEW.forked_from IS NULL
-     AND NEW.section_type IS NULL
+  -- Not the shape we guard: a tool, a fork, or a row that declares its type.
+  IF NEW.component_level <> 'section'
+     OR NEW.forked_from IS NOT NULL
+     OR NEW.section_type IS NOT NULL
   THEN
+    RETURN NEW;
+  END IF;
+
+  -- Reaching here, NEW is a section-level, non-forked row with section_type NULL.
+  --
+  -- ⚠ THE ONE ALLOWED CASE, and it is the whole reason this is not a CHECK:
+  -- an UPDATE of a row that was ALREADY NULL. That is a template repair to one
+  -- of the standing rows (fix_hardcoded_colours, fix_forced_text_colours, the
+  -- rerender writers …), none of which touch section_type. Refusing it would
+  -- freeze exactly the rows most in need of maintenance.
+  IF TG_OP = 'UPDATE' AND OLD.section_type IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    RAISE EXCEPTION
+      'content_components: refusing to CLEAR section_type on a section-level library component (function=%, was %). The component selector queries "WHERE section_type = $1", so nulling this makes the row silently unreachable while it stays healthy-looking in every listing — the same defect as birthing it without one. If a component is being retired, set is_active = false instead. See bugs_open/351 and migration 581.',
+      COALESCE(NEW.function, '(null)'), quote_literal(OLD.section_type)
+      USING ERRCODE = '23514';
+  ELSE
     RAISE EXCEPTION
       'content_components: a section-level library component must declare section_type (got NULL for function=%). Without it the component selector cannot see this row: it queries "WHERE section_type = $1", so the row would be silently unreachable while looking healthy in every listing. Supply section_type (kebab-case; usually the same string a page plan would ask for). Forks and component_level=''tool'' rows are exempt. See bugs_open/351 and migration 581.',
       COALESCE(NEW.function, '(null)')
       USING ERRCODE = '23514';
   END IF;
-  RETURN NEW;
 END $$;
 
-COMMENT ON FUNCTION refuse_selector_invisible_section_birth() IS
-  'bugs_open/351 / migration 581: refuses a section-level, non-forked component born without section_type — the state that is invisible to the component selector but healthy-looking everywhere else. INSERT-only by design so the 25 pre-existing NULL rows stay repairable.';
+COMMENT ON FUNCTION refuse_selector_invisible_section() IS
+  'bugs_open/351 / migration 581: refuses a section-level, non-forked component that would be INVISIBLE to the component selector — born without section_type, or updated to clear it. Deliberately ALLOWS an UPDATE of a row that was already NULL, so the 25 pre-existing such rows stay repairable; that carve-out is why this is a trigger and not a CHECK.';
 
-CREATE TRIGGER trg_cc_refuse_null_section_type_birth
-  BEFORE INSERT ON content_components
+-- Postgres has no CREATE TRIGGER IF NOT EXISTS, so the DROP is what makes a
+-- replay or partial-apply retry a no-op instead of an error.
+DROP TRIGGER IF EXISTS trg_cc_refuse_null_section_type ON content_components;
+DROP TRIGGER IF EXISTS trg_cc_refuse_null_section_type_birth ON content_components;  -- the pre-revision name
+DROP FUNCTION IF EXISTS refuse_selector_invisible_section_birth();                    -- ditto
+
+CREATE TRIGGER trg_cc_refuse_null_section_type
+  BEFORE INSERT OR UPDATE ON content_components
   FOR EACH ROW
-  EXECUTE FUNCTION refuse_selector_invisible_section_birth();
+  EXECUTE FUNCTION refuse_selector_invisible_section();
 
 -- ── VERIFY: INDUCE the refusal, then prove it does NOT fire where it must not ──
 --
@@ -112,6 +177,7 @@ CREATE TRIGGER trg_cc_refuse_null_section_type_birth
 DO $$
 DECLARE
   refused    boolean := false;
+  cleared    boolean := false;
   fork_src   uuid;
   standing   uuid;
   tag        text := 'zz-581-probe-' || replace(gen_random_uuid()::text, '-', '');
@@ -159,6 +225,22 @@ BEGIN
       RAISE NOTICE '581 VERIFY: no standing NULL row to UPDATE-probe (the set may have healed) — control (5) skipped.';
     END IF;
 
+    -- (6) INDUCE the UPDATE arm — clearing a SET section_type must be refused.
+    --     This is the mutation path council f0cd2420's bug_historian seat named:
+    --     BEFORE INSERT alone left it open. Row -b (control 2) has a section_type,
+    --     so nulling it is exactly the transition the arm exists to refuse.
+    --     Disconfirming result: the UPDATE succeeds, i.e. the arm is inert and the
+    --     door is still open through a different write path.
+    cleared := false;
+    BEGIN
+      UPDATE content_components SET section_type = NULL WHERE name = tag || '-b';
+    EXCEPTION WHEN check_violation THEN
+      cleared := true;
+    END;
+    IF NOT cleared THEN
+      RAISE EXCEPTION '581 VERIFY: clearing section_type on a section-level row was ACCEPTED — the UPDATE arm is inert.';
+    END IF;
+
     -- Undo controls (2)(3)(4). This always fires; it is the rollback, not a failure.
     RAISE EXCEPTION 'ZZ581_PROBE_ROLLBACK';
   EXCEPTION
@@ -168,7 +250,7 @@ BEGIN
       END IF;
   END;
 
-  RAISE NOTICE '581 VERIFY: PASS — refusal induced, and 4 controls (labelled, fork, tool, standing-row UPDATE) all behaved as required.';
+  RAISE NOTICE '581 VERIFY: PASS — BOTH refusals induced (birth, and clearing), and 4 controls (labelled, fork, tool, standing-row UPDATE) all behaved as required.';
 END $$;
 
 -- Record what the standing population was when the door closed, so a later
