@@ -202,3 +202,49 @@ want to decide. Nothing is waiting on it.
 **The bug stays open and now says so explicitly** — it tracks the class, not the one incident.
 Two of about 178 scripts are migrated. Next is the council trigger itself, which needs a little
 care because its exit codes 1 and 2 already mean specific things.
+
+---
+
+## 2026-08-24, later — what "the remaining publishers" actually is, and when this can close
+
+**On the fresh chassis build: it changes nothing here.** Everything this lane produced is shell
+and Python, which is live the moment it's committed. We shipped no Go at all, so there was
+nothing waiting on a roll. I checked rather than assumed.
+
+**Now the number, because "156 remaining" was misleading and it was my figure.**
+
+There are 155 scripts that could still publish the unsafe way. But that number is doing almost
+no useful work:
+
+- **86 of them live in lane folders under `docs/`** — one-off scripts recording what somebody
+  did once. Rewriting those falsifies the record, and worse, several are triggers that *fire
+  something* every time they run, so editing and testing one risks setting off a real dispatch.
+- **102 haven't been touched in a month.** Dormant.
+- **Six are literal duplicate copies** — `(1)`, `(2)`, `(4)` — download artefacts.
+- **Eighteen aren't publishers at all.** They only match because they contain a *warning* about
+  this hazard. That includes every file I've fixed, because fixing one adds a comment explaining
+  what was removed.
+
+**The real remaining work is eleven files** — the shipped tools under `scripts/` that people
+still actually run. They're listed in the handoff.
+
+**So yes, this can close, and the bar is those eleven, not 155.** My recommendation: migrate
+them, leave the commit-time detector in place so no new ones appear, and write into the bug file
+that the dormant lane scripts are explicitly out of scope. Then close it. Keeping it open against
+the raw number would mean it never closes while nothing actually improves.
+
+**Today I migrated five more** — the `fire-*` operator tools. These are worth a mention because
+of what they contained: `fire-brief-writer.sh` carried the line *"⚠ kcat -P EXITS 0 HAVING SENT
+NOTHING. The publish is therefore not evidence"* in its own header — and then published the
+unsafe way with both output streams thrown away, so there was no evidence in either direction.
+Someone understood the problem exactly, wrote it down for the next person, and shipped the bug
+anyway.
+
+**And the thing I'd most want you to know:** two more lanes have picked up the shared publisher
+without anyone asking them to — one committed, one in progress right now. The safe method had
+been written down for a month and had two users. It became something you could *call* yesterday,
+and strangers started using it today. That's the argument against ever answering this kind of
+problem by writing the warning down more clearly.
+
+**Handoff for a fresh chat:**
+`docs/agent_docs/docs024_key_docs_latest/bugfix_327_silent_publish_drop/HANDOFF_2026-08-24_continue_here.md`
