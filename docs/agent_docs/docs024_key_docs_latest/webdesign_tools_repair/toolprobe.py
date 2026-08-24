@@ -20,19 +20,111 @@ import http.client
 CHROMIUM = "/snap/bin/chromium"
 
 
-def start_chrome(port, profile):
-    p = subprocess.Popen(
-        [CHROMIUM, "--headless=new", f"--remote-debugging-port={port}",
-         f"--user-data-dir={profile}", "--no-sandbox", "--disable-gpu",
+# WHERE A PROFILE CAN ACTUALLY LIVE, and why this helper now chooses rather than
+# obeys. The snap-confined chromium cannot write under a HIDDEN top-level
+# directory of $HOME: snapd's `home` interface grants `owner @{HOME}/[^.]*/**`
+# only, so a profile at /home/x/.anything/p fails at ProcessSingleton creation
+# and chrome ABORTS (rc 21) before the DevTools port is ever opened.
+#
+# Every consumer of this helper passes `tempfile.mkdtemp()`, which honours
+# $TMPDIR -- so a runner that exports TMPDIR into such a directory breaks all of
+# them at once, in four different lanes, with nothing in common but this line.
+# [MEASURED 2026-08-24] TMPDIR=/home/ant/.claude-scratch/gotmp -> rc 21 on every
+# attempt; /tmp and a non-hidden $HOME path -> DevTools up in <3s. Discriminating
+# test, all three in one run: scratchpad t1.py, NOTES 2026-08-24.
+#
+# The old code reported this as a bare "chromium did not start" after a silent
+# 30-second poll, with chromium's own stderr sent to DEVNULL -- a message that
+# names neither the cause nor even the fact that chrome had already exited. That
+# is why an environment fault was readable as "the acceptance harness is down".
+def _profile_candidates(profile):
+    """The caller's directory first, then two the confinement permits."""
+    yield profile
+    # /tmp before $HOME: the snap gets a PRIVATE /tmp, so a fallback profile
+    # there is invisible to the host, unique per run and cleared with the
+    # namespace -- it cannot accumulate in anyone's home directory. Nothing is
+    # lost by not being able to read it: chromium's own output is captured on an
+    # inherited fd in _launch(), which is the part with diagnostic value.
+    tag = "%d-%s" % (os.getpid(), os.urandom(4).hex())
+    yield "/tmp/chromium-harness-%s" % tag
+    home = os.path.expanduser("~")
+    if home and not home.startswith("~"):
+        yield os.path.join(home, "chromium-harness-profiles", tag)
+
+
+def _devtools_up(port, timeout=1.0):
+    try:
+        urllib.request.urlopen("http://127.0.0.1:%d/json/version" % port,
+                               timeout=timeout).read()
+        return True
+    except Exception:
+        return False
+
+
+def _launch(port, profile, wait):
+    """One attempt. Returns (proc, None) or (None, why) -- and fails FAST.
+
+    Polling blindly for 30s cannot tell "still starting" from "exited 200ms
+    ago", so it always spent the full budget and then said nothing useful.
+    Watching `poll()` turns the aborting case into a sub-second answer that
+    carries chromium's own last line of stderr.
+    """
+    try:
+        os.makedirs(profile, exist_ok=True)
+    except OSError as e:
+        return None, "cannot create profile directory: %s" % e
+    log = tempfile.TemporaryFile()
+    proc = subprocess.Popen(
+        [CHROMIUM, "--headless=new", "--remote-debugging-port=%d" % port,
+         "--user-data-dir=%s" % profile, "--no-sandbox", "--disable-gpu",
          "--disable-dev-shm-usage", "--window-size=1280,900", "about:blank"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    for _ in range(60):
-        try:
-            urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version", timeout=1).read()
-            return p
-        except Exception:
-            time.sleep(0.5)
-    raise RuntimeError("chromium did not start")
+        stdout=log, stderr=subprocess.STDOUT)
+    # The log handle is parked on the process so it outlives this frame: a
+    # closed TemporaryFile is an unlinked one, and chromium would then be
+    # writing to nowhere again the moment the browser is actually useful.
+    proc._toolprobe_log = log
+    end = time.time() + wait
+    while time.time() < end:
+        if _devtools_up(port):
+            return proc, None
+        rc = proc.poll()
+        if rc is not None:
+            log.seek(0)
+            said = log.read().decode("utf-8", "replace").strip().splitlines()
+            return None, "chromium exited rc=%s: %s" % (
+                rc, said[-1][:300] if said else "(no output)")
+        time.sleep(0.25)
+    proc.kill()
+    return None, "no DevTools endpoint within %.0fs (process still alive)" % wait
+
+
+def start_chrome(port, profile, wait=30.0):
+    # A browser ALREADY answering on this port is not one we started, and
+    # attaching to it is worse than failing: its targets are not ours, so the
+    # first Runtime.evaluate hangs and the run dies as "timeout waiting for
+    # Runtime.evaluate" -- a message that points at the PAGE under test.
+    if _devtools_up(port):
+        raise RuntimeError(
+            "port %d already serves DevTools -- refusing to attach to a browser "
+            "this run did not start (its targets are not ours, and the symptom "
+            "downstream is a 'timeout waiting for Runtime.evaluate' that reads "
+            "as a broken page). Clear it: pkill -f 'remote-debugging-port=%d'"
+            % (port, port))
+    tried = []
+    for cand in _profile_candidates(profile):
+        proc, why = _launch(port, cand, wait)
+        if proc is not None:
+            if cand != profile:
+                sys.stderr.write(
+                    "toolprobe: profile %s is unusable by the snap-confined "
+                    "chromium (%s); fell back to %s\n"
+                    % (profile, tried[-1][1], cand))
+            return proc
+        tried.append((cand, why))
+    raise RuntimeError(
+        "chromium did not start. Tried %d profile director%s:\n%s"
+        % (len(tried), "y" if len(tried) == 1 else "ies",
+           "\n".join("   %s\n      %s" % (c, w) for c, w in tried)))
 
 
 class CDP:

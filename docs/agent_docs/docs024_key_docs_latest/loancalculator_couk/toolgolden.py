@@ -45,9 +45,14 @@ the inert/partial gates below have passed, because criteria emitted from a broke
 tool would pin the broken answer into the acceptance record and defend it.
 
 Usage:
+  python3 toolgolden.py --selftest
   python3 toolgolden.py --out golden.json  <url> [<url> ...]
   python3 toolgolden.py --compare golden.json <url> [<url> ...]
   python3 toolgolden.py --emit-criteria <dir> <url> [<url> ...]
+
+--selftest drives a fixture with a KNOWN answer through the identical code path.
+Run it before quoting any --compare result: a harness fault and a broken tool
+produce the same output, and only this tells them apart.
 
 Exit 1 on any numeric/textual divergence in --compare mode.
 """
@@ -530,6 +535,105 @@ def emit_criteria(url, page):
     return {"checks": checks}, None
 
 
+# --- the harness's own control -------------------------------------------
+#
+# WHY THIS EXISTS. On 2026-08-23 this harness failed on every page it was
+# pointed at, and the failure was reported in the lane's notes as "THE
+# ACCEPTANCE HARNESS IS DOWN" -- correct, but only because that session
+# happened to re-run it against a page it had NOT rebuilt and noticed the
+# failure was identical. Without that control the same output reads as "the
+# rebuild broke the calculator", which is a false conviction of live code.
+#
+# A control should not depend on someone thinking to construct one. So:
+# --selftest drives a fixture whose arithmetic is known in advance, through the
+# SAME Runner.capture() the real pages go through -- same navigate, same
+# settle(), same DRIVE_JS scaling, same SNAP_JS read, same press. If it passes,
+# a divergence on a real page is about that page. If it fails, nothing the
+# harness said about any page today is worth quoting.
+#
+# The expected values are computed BY HAND from the driver's own rules
+# (each numeric field's `value` attribute x the vector's factor; ASYM = 1.7 for
+# the first numeric field, 0.6 for the second), not read back from a recorded
+# run -- a fixture whose expectations came from the harness could not fail if
+# the harness were wrong about everything, which is the failure it exists to
+# catch.
+SELFTEST_HTML = """<!doctype html><meta charset=utf-8><title>toolgolden selftest</title>
+<main>
+  <label>Amount <input id="p" type="number" value="1000"></label>
+  <label>Rate % <input id="r" type="number" value="5"></label>
+  <button id="go" onclick="calc()">Calculate</button>
+  <div id="answer">-</div>
+</main>
+<script>
+function calc() {
+  var p = parseFloat(document.getElementById('p').value);
+  var r = parseFloat(document.getElementById('r').value);
+  document.getElementById('answer').textContent = 'total ' + (p * (1 + r / 100)).toFixed(2);
+}
+document.addEventListener('input', calc);
+calc();
+</script>"""
+
+# vector -> (amount, rate) after the driver scales each field's own default,
+# and the total the fixture must then display.
+SELFTEST_EXPECT = {
+    "defaults": "total 1050.00",   # 1000 x 1.05
+    "double":   "total 2200.00",   # 2000 x 1.10
+    "half":     "total 512.50",    # 500 x 1.025
+    "asym":     "total 1751.00",   # 1700 x 1.03  (ASYM 1.7 then 0.6)
+}
+
+
+def selftest():
+    """Returns 0 if this harness is fit to be quoted, 1 if it is not."""
+    import urllib.parse
+    url = "data:text/html;charset=utf-8," + urllib.parse.quote(SELFTEST_HTML)
+    r = Runner()
+    try:
+        page = r.capture(url)
+    except Exception as e:
+        print("SELFTEST FAILED — capture raised: %s" % e)
+        print("\nThe harness cannot drive a page it wrote itself. Any result it\n"
+              "produced against a real URL today says nothing about that URL.")
+        return 1
+    finally:
+        r.close()
+
+    bad = []
+    for vec, _ in VECTORS:
+        for phase in ("after_input", "after_press"):
+            got = (page.get(vec, {}).get(phase, {}).get("ids", {})
+                   .get("answer", "")).split("|")[0]
+            want = SELFTEST_EXPECT[vec]
+            mark = "ok " if got == want else "BAD"
+            if got != want:
+                bad.append((vec, phase, want, got))
+            print("  %s %-9s %-12s expected %-14s got %s"
+                  % (mark, vec, phase, want, got or "(nothing)"))
+
+    react = reacted(page)
+    moved = moved_between_vectors(page)
+    if not react:
+        bad.append(("gate A", "reacted", "some id changes when driven", "none"))
+    if not moved:
+        bad.append(("gate B", "varies", "output depends on input", "identical"))
+    print("  %s gate A    reacted        %d id(s) changed when driven"
+          % ("ok " if react else "BAD", len(react)))
+    print("  %s gate B    varies         %d id(s) differ between vectors"
+          % ("ok " if moved else "BAD", len(moved)))
+
+    if bad:
+        print("\nSELFTEST FAILED — %d check(s):" % len(bad))
+        for vec, phase, want, got in bad:
+            print("   %-9s %-11s expected %r, got %r" % (vec, phase, want, got))
+        print("\nThe harness is not measuring what it claims to. Do NOT read a\n"
+              "--compare result from this run as evidence about any page.")
+        return 1
+    print("\nSELFTEST PASSED — drive, settle, scale, read and press all behave.\n"
+          "A divergence reported against a real URL is about that URL.")
+    return 0
+
+
 def slug_for(url):
     tail = url.rstrip("/").rsplit("/", 1)[-1] or "index"
     return re.sub(r"[^a-z0-9-]+", "-", tail.replace(".html", "").lower()).strip("-")
@@ -537,6 +641,8 @@ def slug_for(url):
 
 def main():
     args = sys.argv[1:]
+    if "--selftest" in args:
+        sys.exit(selftest())
     out_path = cmp_path = crit_dir = None
     if "--out" in args:
         i = args.index("--out"); out_path = args[i + 1]; del args[i:i + 2]
