@@ -274,3 +274,86 @@ the two are not distinguishable by tone.
 a **same-file passenger** — roughly ten minutes after I read this bug file's own implementation note
 warning to expect exactly that. Nothing is lost: the text is committed and correct, just under
 someone else's message. Recorded because the file's warning is evidently not folklore.
+
+---
+
+## 2026-08-24 — the birth guard: migration 581 / CLC-029, written and HELD
+
+The owner chose to close the birth door (option 1 of four put to them). Written, tested against the
+live DB, council-submitted, **not applied**.
+
+### What it is, and the one line that decides its shape
+
+```sql
+IF NEW.component_level = 'section' AND NEW.forked_from IS NULL AND NEW.section_type IS NULL
+```
+
+`BEFORE INSERT` on `content_components`, `ERRCODE 23514` (the class the table's existing kebab CHECKs
+already use). **It is a trigger and not Go because the producer is unreachable from Go**: all 28 such
+rows ever born are `created_from='manual'`, the `generated` route has produced zero, and the three Go
+INSERT sites are each provably outside the predicate.
+
+### Three scoping decisions, each verified rather than reasoned about
+
+1. **`forked_from IS NULL` is load-bearing and looks like decoration.** `deploy_tool_action.go:326`'s
+   fork INSERT lists 16 columns and **`section_type` is not among them** — so a section-level fork is
+   *legitimately* born NULL. Widen the predicate and tool deployment breaks at runtime.
+2. **INSERT-only, which is also why it is not a CHECK.** A CHECK — even `NOT VALID` — is enforced on
+   UPDATE of pre-existing rows, so every template-repair write to the 25 standing rows would start
+   failing.
+3. **Not a generated column, not a `COALESCE(section_type, function)` default.** 35 active rows
+   deliberately carry a `section_type` that differs from `function`; and `function` DEFAULTs to
+   `generic-text-block`, so a silent COALESCE would pour unlabelled rows into the commonest selector
+   pool — where a wrong match is least likely to be noticed.
+
+### The verify block INDUCES, and it is mutation-proven
+
+A verify of bare `SELECT`s cannot stop a `COMMIT`, so it is `DO`/`RAISE`: attempt the refused INSERT
+and **fail the migration if it is accepted**, then four controls that must all succeed (labelled
+section, fork born NULL, tool, and an UPDATE of a standing NULL row — the NOT-VALID-CHECK trap,
+induced). All probe rows are written inside a subtransaction deliberately aborted.
+
+Run against the **live** DB with `COMMIT` → `ROLLBACK`:
+
+```
+NOTICE:  581 VERIFY: PASS — refusal induced, and 4 controls ... all behaved as required.
+NOTICE:  581: 25 active section-level non-forked rows still carry a NULL section_type ...
+ROLLBACK
+```
+then `0` triggers present and `0` probe rows left behind.
+
+**Two mutations, each caught by the assertion that should catch it** — and this is the part that
+makes the verify block evidence rather than ceremony:
+
+| mutation | caught by |
+|---|---|
+| predicate made inert (`IF FALSE AND …`) | the induce probe: *"a section-level row with NULL section_type was ACCEPTED — the trigger is inert"* |
+| `forked_from IS NULL` dropped (too wide) | the **fork control**, failing with the trigger's own refusal text naming `function=zz-probe-fork` |
+
+The unmutated file still passes. Mutation 2 is the important one: it demonstrates the fork trap is
+real *and* that the control detects it, which is the only reason to trust the scoping.
+
+### MISSTEP 5 — I took migration number 580 and so did someone else, one minute earlier
+
+Wrote `580_refuse_selector_invisible_section_birth.sql` at 11:32; `580_database_cleanup_…` had been
+created at 11:30 by another session. Caught by `ls` immediately after writing, and renumbered to
+**581**. The number was checked *before* writing and was free then — **on this tree "the next free
+number" is a fact with a shelf life of minutes.** Check it again in the same breath as the write, and
+`grep` the renamed file for the old number afterwards: mine had **two** stragglers the filename sed
+did not reach (a `COMMENT ON FUNCTION` body and an internal `RAISE` tag), and a migration that names
+the wrong number in its own error messages is a bad afternoon for whoever reads the log.
+
+### MISSTEP 6 — the trailer gate stopped me writing a join key of `pending`
+
+I drafted the commit with `Council-Submitted: pending`, intending to fill it in. The `commit-msg`
+hook refused: the trailer is a **join key** for the 098 coverage report, a non-UUID resolves to
+nothing, and forward-only forbids the amend that would fix it. Correct behaviour, and the right
+order is simply the other one — submit first (the trigger prints `SUBMISSION_CORR` in seconds), then
+commit with the real id. Recorded because "I'll fill it in after" is a natural thing to type and
+there is no second chance at it.
+
+### Fresh chassis build — the fix is still live on it
+
+`v1.0.1332` = `0b262ed5e`, pods started 2026-08-24 09:37Z. `git merge-base --is-ancestor 97c337371
+0b262ed5e` → yes, with a control that correctly reports NOT an ancestor. The demand proof of
+2026-08-23 was taken on `f5eaabe33`; the predicate half remains live on the successor build.
