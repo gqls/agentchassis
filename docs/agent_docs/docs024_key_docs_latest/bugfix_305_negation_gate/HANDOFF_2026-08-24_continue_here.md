@@ -156,7 +156,8 @@ with prose and broken the table. `AcceptNegationRewrite` compares prose shape an
 **Council:** `c48b7612`, `a696e2a3`, `f3046f0c`, `4829bd48` — all **APPROVED**.
 ⚠ `52a4a50f` (the §29 invariant correction, comment + test) was **KILLED MID-RUN by the 13:12Z roll**
 — frozen at `review_debug_historian`, `updated_at` 13:11:31Z, pods restarted 13:11:58Z. **Resubmitted
-as `022169af-9274-48b0-a302-571229c73ba2`; read that one.** Commit `996eb2267` names the dead
+as `022169af-9274-48b0-a302-571229c73ba2` → APPROVED, and the cleanest round this lane has had:
+`unreadable=0`, 11 in body, 11 voted, ZERO objections.** Commit `996eb2267` names the dead
 correlation and forward-only forbids an amend, so `098` will list it unresolved for ever — that is
 honest, not a reporting fault. **Nothing about the closure depends on this verdict** (comment + test,
 no behaviour change), which is why it was scoped that way.
