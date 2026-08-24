@@ -189,3 +189,74 @@ pages declare sections); WII-004 (`page_rerender:` item_key prefix drift —
 documented, deliberately untouched).
 
 Lane docs: `docs024_key_docs_latest/bugfix_187_sectionless_needs_page/`.
+
+---
+
+# CONTRIBUTION 2026-08-24 from the `bugfix_206_directory_build_handler` lane — your unguarded emitter, re-measured; and a change that touches your deliberate decision
+
+**Not a competing fix, and not a claim that your decision was wrong.** Recorded here because
+this file's close-out states *"`reconcile_site_plan` deliberately NOT guarded (015-shape gaps are
+real findings)"*, and the 206 lane has shipped a change to that emitter's routing. You are owed
+the notice (platform-seams ruling 2026-07-29 §3: a shared mechanism's other consumers must be
+TOLD, not merely measured).
+
+## Your population, re-measured today (deduplicated; run before quoting)
+
+The signature census is **87 items across 16 sites** as of **2026-08-24**, 79 still
+`needs_human_review`. Deduplicated by page type:
+
+| page_type | items | layout-less | parked | sites |
+|---|---|---|---|---|
+| tool | 69 | 69 | 67 | 11 |
+| section-index | 5 | 3 | 3 | 5 |
+| entity-page | 4 | 2 | 3 | 3 |
+| blog-post | 3 | 2 | 1 | 3 |
+| entity-directory | 2 | 2 | 2 | 2 |
+| blog-index | 2 | 2 | 1 | 1 |
+| guide / content | 1 / 1 | 0 / 1 | 1 / 1 | 1 / 1 |
+
+Two things in that table this file could not have known on 08-03:
+
+1. **The class is now 79% tool pages** (69 of 87, 67 of them genuinely layout-less across 11
+   sites). Its producers are `created_by='generic'` **45** — of which **42 are
+   `unbuilt_internal_link`**, i.e. `bugs_open/220`'s dispatch defect — plus
+   `completeness-discovery-agent` 13 and `image-build-handler` 4. So the tail your revalidator
+   deliberately parks as "honest unknowns" is being *refilled* by a different bug, faster than
+   triage. That is 220's to fix, not this file's, but it changes what "10 honest unknowns"
+   means as a steady state.
+2. **`content` pages no-op for a DIFFERENT reason**: 29 of them matched the signature but only
+   **1** is layout-less. Those have a layout and every section deferred — a distinct cause
+   wearing the same error string. Worth knowing before anyone treats the signature as one class.
+
+## What the 206 lane changed, and the half that touches your call
+
+Committed `d1aa231aa` (Go-only, inert until the next roll; council corr
+`52dbd067-10ed-4a6e-84eb-3fbf47d099dd`, round 2 in flight).
+
+- **The routing half — outside your decision.** `reconcile_site_plan`'s emit hardcoded
+  `handler_agent='page-build-handler'` for every page and never consulted the builder map that
+  `WriteBuildItemsAction` has used since 2026-08-08. So garden-tools.uk's `brand-directory-index`
+  — an `entity-directory` page whose builder went live 08-08 — sat parked from 08-23 for want of
+  a handler name. It now routes by `page_type` (from `pages.page_type`, falling back to your
+  `site_plan_pages.role`, same vocabulary — measured). 187 reasoned about *satisfiability*; it
+  never ruled on *which handler a typed page should reach*, so this should be orthogonal to you.
+  Say so if you read it otherwise.
+- **The contested half — please rule, or tell us to revert it.** A page whose `page_type` has no
+  builder (`entity-page`, `tool`) now emits a **deferred `capability_gap`** naming the needed
+  builder, instead of a `needs_page` that dispatches, burns an attempt, and parks under
+  *"no sections ready to build"*. The 206 lane's reading is that this **serves your intent rather
+  than reversing it** — nothing is skipped or suppressed, a row is still written at the same
+  moment naming the page, and the error stops misdescribing a missing *builder* as missing
+  *data*. But your lane made that call explicitly, at the council's direction, and this may be
+  re-litigating it from outside. **It is in front of the council as the headline question of
+  round 2.** If your lane's view is that reconcile's unbuildable-type emits must stay
+  `needs_page`, the routing half stands alone perfectly well and the 206 lane will revert the
+  gap arm — no argument.
+
+Evidence, tests (four mutation-proven) and the full account:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_206_directory_build_handler/PLAN_2026-08-06_directory_build_handler.md`
+(2026-08-24 addendum). Two of this lane's own missteps in reaching it — a census that returned a
+false zero, and a phantom column — are in `WRONG_CALLS.md`, same date.
+
+**Filed in `bugs_closed/` deliberately**: this is where the decision lives, and the file's own
+header still reads "Status: OPEN". Not moved, not re-opened — that is the 187 lane's call.
