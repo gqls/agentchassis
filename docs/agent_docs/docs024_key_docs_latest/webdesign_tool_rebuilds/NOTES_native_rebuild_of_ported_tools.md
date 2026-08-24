@@ -2950,3 +2950,25 @@ resolves on approval. **OWED: read the round-2 verdict.**
 the REAL tree (`cd` failed, tail ran in the repo). Recovered in two minutes because the diff was
 exactly the two mutated lines, read before `git checkout --`. The rule now on file: `cd "$dir" ||
 exit 1` in every compound scratch command, and a scratch path from a previous day is a prophecy.
+
+## 2026-08-24 19:30Z — #34 `tool-performance-budget` DONE (34 of 63) — FIRST filing carrying `related_pages`, and the crosslink emission is PROVEN
+
+Item `48613c09` (19:07Z, spec includes `related_pages: [learn-performance-physics-of-latency,
+learn-operations-scaling]` per the 08-24 recipe fix relayed by [ac1f33]/353 lane, both names
+verified resolving pre-file). **Crosslink proof at the items:** `tool_crosslink:tool-performance-budget…`
+= TWO rows, one per named page (status `deferred` at their normal gate) — the 0-of-58 omission class
+ends here for this lane's filings.
+Ported defects (sighting #14: the page taught `Time = Latency + Size/Bandwidth` while the code
+applied an undisclosed ×0.85; sliders showed raw % while bars showed normalised shares; all-zero
+allocations → NaN; latency ≥ target showed a bare 0 KB). RUN complete/adopted, component `d8d274d5`
+(16,129); retire `UPDATE 1` ~30 s post-build (slot `67db4a10` md5 `89c775cb…` intact); rerender
+`85170beb` complete 19:25:58. **COMPONENT by mechanism:** the 0.85 overhead factor is STATED in the
+page text (×3 incl. "15%" and "overhead") so the displayed number is derivable from the displayed
+math; the latency-consumes-target arm exists with the teaching phrasing ("entire time budget is
+consumed by round trips before a single byte can transfer"); raw AND normalised values per slider
+(`css-raw-value` / `css-normalised-value` ids); `allocation-zero-message` element; 0·0·0 counts,
+6 listeners. **SERVE-GRADE PASS:** 200 / 23,058 / LM 19:26:26 > 19:25:58; negatives 0
+(networkType, jsAlloc, warningBox, **src="budget-engine.js"**, totalBudgetDisplay); positives
+present. Tombstone re-read: removed ✓. Orphan #7 (corr 155717ef-4db2-4c7e-9eb5-39eabe975668).
+**Phase C remainder: 5 — smart-contrast (11,104), csp-builder (13,190), fluid-typography (15,218),
+vibe-equalizer (6,403, 2 sidecars), micro-cms (15,175, 4 sidecars).**
