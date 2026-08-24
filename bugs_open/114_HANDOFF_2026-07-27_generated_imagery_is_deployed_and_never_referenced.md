@@ -584,3 +584,20 @@ exactly this bug's symptom — the two were indistinguishable after the fact.
   `page_type='content'` (fleet-wide generation spend); and the disposition of the five
   parked rows whose pages resolve no sections.
 
+
+
+---
+
+## POINTER 2026-08-24 — the sibling failure, filed as `bugs_open/384`
+
+`dartsonline_traffic` lane. This file's cases are assets that are **not referenceable** — entity
+link NULL, or a hero mapping that resolves to the site fallback. **384 is the case where the
+asset IS derived, IS linked and IS joinable, and the listing still does not show it**, because
+nothing re-renders the listing when a card lands: `derive_card_asset_action.go` has no rebuild
+emission of any kind, and `check_orphan_pages` keys on membership rather than card freshness.
+
+Worth knowing here because **this file's own fix created that exposure**: once
+`emitContentCardDerive` made cards land promptly at the landing event rather than waiting for a
+sweep, the stale listing became the remaining hop rather than a rarity hidden behind slow
+derivation. Live instance: 4 of 12 homepage cards on dartsonline.com with the bytes served and
+the page stale `[MEASURED 2026-08-24]`.
