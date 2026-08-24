@@ -150,13 +150,24 @@ WHERE site_id = '<site>' AND name = '<page>';
 binary, and the `build provenance` startup line scrolls out of reach within hours). Ask the
 running binary for this change's own symbols, with controls in the same breath:
 
+> ⚠ **Enumerate the pods properly — a label selector can miss most of them** (council round 6,
+> `debug_historian`; the documented case is `-l app=<x>` returning 2 pods of 41 that actually run
+> the binary, because one image serves many labels). Count what you got before trusting a clean
+> grep, and check **every** pod it returns, not the first:
+
 ```bash
-POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
-# must be PRESENT
-kubectl -n ai-persona-system exec ${POD#pod/} -- grep -ac 'builderForPageType' /proc/1/exe
-kubectl -n ai-persona-system exec ${POD#pod/} -- grep -ac 'directory-build-handler' /proc/1/exe
-# NEGATIVE CONTROL — must be ABSENT, or your probe proves nothing
-kubectl -n ai-persona-system exec ${POD#pod/} -- grep -ac 'builderForPageTypeXYZZY' /proc/1/exe
+# see what you are actually about to check — and how many there are
+kubectl -n ai-persona-system get pods -o custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image \
+  | grep agent-chassis
+# then probe EVERY one, not `head -1`
+for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name); do
+  P=${POD#pod/}; echo "== $P"
+  # must be PRESENT (the symbol, and the route literal it writes)
+  kubectl -n ai-persona-system exec $P -- grep -ac 'builderForPageType' /proc/1/exe
+  kubectl -n ai-persona-system exec $P -- grep -ac 'directory-build-handler' /proc/1/exe
+  # NEGATIVE CONTROL — must be 0, or a probe that matches everything proves nothing
+  kubectl -n ai-persona-system exec $P -- grep -ac 'builderForPageTypeXYZZY' /proc/1/exe
+done
 ```
 
 > ⚠ **Never `strings`** — absent from the debian-slim image, and behind `2>/dev/null` its failure

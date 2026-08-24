@@ -452,3 +452,47 @@ the reason this file names, and the fix is inert until the roll. The closure tes
 probe the running pod, watch a reconcile-minted `entity-directory` item carry
 `directory-build-handler`, then re-triage the parked rows per the RUNBOOK — **after** the roll,
 never before.
+
+## COUNCIL VERDICT — **APPROVED**, round 6 (corr `52dbd067-10ed-4a6e-84eb-3fbf47d099dd`)
+
+Six rounds on one correlation: REVISE ×5, then **approved with 4 advisory objections, none
+high-severity**. The five earlier rounds are not overhead — each changed something real, and two
+changed the code:
+
+| round | gating seat | what it actually found |
+|---|---|---|
+| 1 | `editquality` | a `site_plan_pages.page_type` column that does not exist (in my text, not my code) — and its checks returned **87 items / 16 sites** against my "five", which is what led to `bugs_closed/187` |
+| 2 | `bug_historian` | three "you asserted, you did not query" HIGHs. **Changed the code**: a `deferred` row with a non-empty `handler_agent` naming a non-existent agent is the `bugs_closed/078` shape |
+| 3 | `guardian` | I had put the HELD swap in the submission's **executable** `edits[]` array to document that it must not ship — an applier would have patched a file I had measured as red |
+| 4 | `bug_historian` | **Changed the code, and shrank the fix**: the two-producer divergence is not untidiness — shared `item_key` + `idx_swi_dedup` means the first writer silently wins |
+| 5 | `editquality` | my submission had gone **stale against my own code** — sketches still showed the pre-round-2 and pre-round-4 versions |
+| 6 | — | **APPROVED** |
+
+**Re-measured at approval time**, because two advisories rightly flagged load-bearing facts as
+having been measured several rounds earlier:
+
+- `tool-builder` / `entity-page-builder` — **still ZERO rows**. The absence the gap arm rests on is real *now*, not just at round 2.
+- `directory-build-handler` — **still `active=true, snapshot=false, deleted=false`**.
+- the "47 of 47 `capability_gap` rows carry an empty `handler_agent`" claim — now **49 of 49**. Two arrived during the session and both are empty, so the shape this change matched is confirmed rather than drifting.
+
+**Advisories NOT actioned, named so the silence is not mistaken for oversight:**
+
+- **`guardian` / `reuse_agent` / `bug_historian` (medium, ×3): the second authority.**
+  `builderForPageType` and `WriteBuildItemsAction`'s inline map are byte-identical duplicates, and
+  the swap that removes one is blocked on another lane's ownerless, measured-red file. Recorded in
+  the code header, **BLD-027**, `LANDMINES.md` and here. Whoever finds that file clean owes it.
+- **`guardian` (medium): the `capability_gap` arm reverses `bugs_closed/187`'s explicit decision
+  and "should not ship silently".** It has not shipped silently — notice is filed in 187's own
+  file, the question was put to the council in every round, and the revert is still offered. **If
+  the 187 lane objects, that arm comes out and the routing half stands alone.**
+- **`editquality` (low): the ownership-guard test uses `role='tool'`, which the guard catches by
+  ROLE, so it does not exercise the guardian's actual edge case** (`role='landing'` +
+  `page_type='tool'`). Correct — and that case is untestable at the emit level because the one
+  such page fleet-wide (`idea.uk/report`) is `deployed`, so `decideEmit` never reaches emit.
+  Measured: **78 of 79** tool-type pages are taken by the role guard first.
+- **`debug_historian` (low): the pod-enumeration recipe.** ACTIONED — the RUNBOOK now enumerates
+  every pod with its image and probes each, rather than `head -1`, with the "a selector can return
+  2 of 41" trap stated.
+
+The code commits carry `Council-Submitted:`; `098` credits them automatically now the correlation
+is approved, with no amend (forward-only).
