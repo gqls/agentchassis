@@ -176,11 +176,13 @@ func TestReconcileFilesCapabilityGapForUnbuildableType(t *testing.T) {
 		pageType: "entity-page", buildStatus: "planned",
 	}
 	err := f.run(t, func(mock sqlmock.Sqlmock) {
-		// $4 is handler_agent (0-based 3), $5 item_key (0-based 4) in the gap INSERT.
+		// $4 is item_key (0-based 3) in the gap INSERT — handler_agent is an
+		// inline '' literal, NOT a bind parameter, so a regression that
+		// re-introduces a bound handler_agent changes the arity and fails
+		// here (5 args expected, 6 supplied). Round-2 bug_historian HIGH.
 		mock.ExpectExec(regexp.QuoteMeta("'reconcile_site_plan', 'build', 'capability_gap'")).
-			WithArgs(reconcileInsertArgs(6, map[int]driver.Value{
-				3: "entity-page-builder",
-				4: "capability_gap:entity-page:brand-detail",
+			WithArgs(reconcileInsertArgs(5, map[int]driver.Value{
+				3: "capability_gap:entity-page:brand-detail",
 			})...).
 			WillReturnResult(sqlmock.NewResult(1, 1))
 	})

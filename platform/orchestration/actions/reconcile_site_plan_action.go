@@ -355,17 +355,39 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 			// attempted (bugs_open/091's lesson: "no error" is not "a record
 			// was created"). A repeat run therefore reports 0 and skips
 			// silently, which is the correct steady state.
+			// handler_agent is left EMPTY, deliberately — the builder's name
+			// lives in spec.builder_needed (above), which is where a reader
+			// looks anyway. Council round 2, `bug_historian` HIGH: a row at
+			// status='deferred' with a NON-EMPTY handler_agent naming an agent
+			// that does not exist is the shape of bugs_closed/078
+			// (an unroutable handler_agent livelocking the dispatcher), and
+			// "deferred parks it" would be the only thing standing between us
+			// and that. Measured 2026-08-24 rather than argued:
+			//   - both dispatch gates filter status IN ('triaged','approved')
+			//     — claim_work_item_action.go:102 and
+			//     load_work_item_actions.go:711 — so 'deferred' is excluded
+			//     twice over, independently;
+			//   - 262 rows already sit at deferred with a non-empty
+			//     handler_agent across 16 distinct handlers, and ZERO have a
+			//     non-zero attempt_count (the one claimed_at is a stale stamp
+			//     from before the row was deferred, attempt_count 0);
+			//   - but every one of those 16 handlers IS a registered agent,
+			//     so "deferred + an UNREGISTERED handler" would be a genuinely
+			//     novel shape, and all 47 existing capability_gap rows carry
+			//     an EMPTY handler_agent.
+			// Two live gates make it safe; matching the established shape
+			// means we are not relying on them. Cheaper than being right.
 			gapRes, gerr := tx.ExecContext(ctx, `
 				INSERT INTO site_work_items (
 					site_id, source, pipeline, item_type, severity, summary,
 					spec, priority, handler_agent, status, created_by,
 					item_key, batch_id
 				) VALUES ($1, 'reconcile_site_plan', 'build', 'capability_gap',
-				          'low', $2, $3::jsonb, 200, $4,
-				          'deferred', 'reconcile_site_plan', $5, $6)
+				          'low', $2, $3::jsonb, 200, '',
+				          'deferred', 'reconcile_site_plan', $4, $5)
 				ON CONFLICT DO NOTHING
 			`, siteID, fmt.Sprintf("Page '%s' needs %s (not yet available)", name, neededBuilder),
-				string(gapSpec), neededBuilder, gapKey, batchID)
+				string(gapSpec), gapKey, batchID)
 			if gerr != nil {
 				return nil, fmt.Errorf("emit capability_gap for %q: %w", name, gerr)
 			}
