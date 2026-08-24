@@ -171,3 +171,58 @@ cross-package contract test. One command.
   to be, once candidate 1 shipped with a register entry), and the new LANDMINES entry.
 - Council: `7a6add95-30e9-4576-85e5-df5bad0f7119`, dispatched 20:26:42Z and executing within
   minutes rather than the ~29 the runbook budgets for.
+
+### Council verdict: APPROVED round 1 — and the two medium objections were both worth acting on
+
+`7a6add95-30e9-4576-85e5-df5bad0f7119`, dispatched 20:26:42Z, `complete_approved` 20:40:52Z.
+**12 reviewers, 5 abstained, "approved with 2 advisory objection(s) — none high-severity".**
+Seats: editquality, bug_historian, reuse_agent, guidelines, guardian (object), diagnosis_guardian,
+improvement_guardian, debug_historian, constitution, mission, prior_art_librarian (object),
+architecture.
+
+**An APPROVED verdict is not a verdict with nothing in it.** The two objecting seats each named
+something real, and one of them found a false measurement I had already published to six places.
+
+| seat | severity | what it said | what I did |
+|---|---|---|---|
+| `prior_art_librarian` | **medium** | the blast-radius figures may be drawn from `site_work_items`, a rolling window, so "all-history" is likely an undercount | **CONFIRMED and corrected** — §8 of the bug file, and see misstep 4 below |
+| `guardian` | **medium** | factoring `loadWorkItemVerifyRow` touches the widest-used existing path; mutation-prove the existing callers | **DONE, and it found a real gap** — see misstep 5 |
+| `guardian` | low | confirm `failUnverifiedCompletion` assumes nothing about `CompleteWorkItemAction`'s call context | **CHECKED**: it takes db/itemID/agentType/resultJSON/errorMsg/reason/logger explicitly and issues one UPDATE. The only context it reads is the row's own `retry_after` (`workItemRetryNotPendingSQL`), which is correct from either caller — it stops an attempt being double-charged when the ladder has already ruled |
+| `architecture` + `guidelines` | low | confirm `verify_before_complete` does not push the action past RFC_022's N=10 optional-key budget | **MEASURED**: `update_work_item_status` reads **7** step-config keys today (6 in the action + `stop_on_repeat_failure_item_types` in the ladder) → **8**. Under N=10. ⚠ And the honest part: the action declares **no `RegisterActionInputSpec`**, so `--optional-key-budget` counts it as **ZERO** and would not see a tenth key either — the same blind spot CLAUDE.md records for `retract_asset_files`/`publish_site`. Not this lane's to fix, recorded so it is not found a third time |
+| `prior_art_librarian` | low | the "gate 1b cannot apply" argument was asserted from behaviour, not an existence check | **ANSWERED**: `noChangeGates` holds exactly one type, `dark_section_audit`, and none of the seven. Read, not inferred |
+| `editquality` + `bug_historian` | low/missing | edit 5 is comment-only; and `CQ-023` itself is not corrected, so a reader consulting it directly still inherits the wrong warning | **ALREADY DONE** before the verdict landed (`c94212ad3`). The submission's edit list is council-scope files only, and register prose is refused by the gate client-side — so the correction was invisible to the reviewers. Worth knowing: **a seat can only object to what the submission can carry** |
+| `bug_historian` | low | nothing arms it; the mechanism may rot unexercised | the named trade-off. The bypass record is the answer to it, and §7c is the enforcing half |
+
+### Misstep 4 — I published a rolling-window figure to six files, with a control that shared its blind spot
+
+Full account in `WRONG_CALLS.md`. In short: `site_work_items` is a rolling window, the archive
+holds 25,281 rows, and over the union the blast radius is **7 item types / 578 completions**, not
+5 / 134. Two types (`unfulfilled_hero_variant`, `image_url_404`) had completed **entirely** into
+the archive. **The landmine for this is in my own auto-loaded memory index** and I did not apply it.
+
+Three things I want the next session in this lane to take:
+- **The positive control did not help, and I had been relying on it.** It queried the same table,
+  so it tested my spelling and not my window. A control drawn from the same source as the
+  measurement cannot see a source-shaped error.
+- **The conclusion survived — all seven types are still unverified — and that is luck, not
+  method.** Had either archived-only type carried a verifier, the census would have printed the
+  same reassuring zero and an `RFC_022` scope claim to a review board would have rested on it.
+- **A `[MEASURED]` marker travels faster than its correction.** The figure reached two Go headers,
+  where a stale marker outlives every doc. Both are corrected at source.
+
+### Misstep 5 — the guardian's mutation request found a gap, and my first fix for it was vacuous
+
+Mutating the extracted `loadWorkItemVerifyRow` to return an empty `ItemType` failed six tests,
+**three of them pre-existing `TestVerifyBeforeComplete_*` ones** — so the extraction is guarded and
+the guardian's objection is answered.
+
+But a second mutation — replacing the `spec` column with a literal `'{}'` — **failed nothing.** No
+test in the package had ever asserted that a verifier receives the item's real spec.
+
+**My first attempt to close that was itself vacuous**, and instructively so. I wrote a test
+asserting the values that arrive at `VerifyTarget` — and it *passed the mutation*, because sqlmock
+returns whatever rows the test queued regardless of what the statement says. **A mock cannot assert
+anything about SQL TEXT**; that is the "a mock's own bookkeeping cannot assert a NEGATIVE" trap one
+level along, and I walked into it while explicitly trying to avoid it. The fix is to put the column
+list in the **expectation** (`verifyRowReadSQL`), which sqlmock matches against the real statement.
+Dropping either `spec` or `page_id` now fails six tests.
