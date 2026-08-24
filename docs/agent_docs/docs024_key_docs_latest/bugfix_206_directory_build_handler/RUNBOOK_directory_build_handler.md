@@ -183,8 +183,30 @@ should go live **without anyone touching the site**:
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://garden-tools.uk/brand-directory/index.html
 ```
-404 before the roll, 200 after, with no hand re-triage — that is the closure proof, and it is
-stronger than re-triaging a page yourself because nothing about it was arranged to succeed.
+> **⚠ CORRECTED 2026-08-24 POST-ROLL — this check as written CANNOT FIRE, and it was wrong in
+> two lanes' docs at once.** Measured after v1.0.1334 went live: the page is still 404 and will
+> stay so. (1) **Reconcile does not run on a cadence** — it runs inside a build/publish
+> pipeline, and `sites.last_reconciled_at` for garden-tools.uk was 2026-08-23 20:15, i.e. a
+> quiet site never re-reaches the fixed code. (2) **The parked row blocks its own re-mint** —
+> the fix routes what is MINTED, and `loadOpenPageItems` counts `needs_human_review` as OPEN, so
+> reconcile skips the page as "queued" and the new routing never applies to it.
+>
+> **The honest proof is the MINT, not the page, and it needs the key freed first:**
+> 1. close the parked row to a TERMINAL status (`cancelled`/`wont_fix` — never `complete`, which
+>    asserts work that did not happen), reason in `error`, which releases the `item_key` from
+>    both `idx_swi_dedup` and `loadOpenPageItems`;
+> 2. trigger a build/publish for the site so `reconcile_site_plan` actually runs;
+> 3. assert on the NEW ROW: a fresh `needs_page:<page>` carrying
+>    `handler_agent='directory-build-handler'`, `created_by='reconcile_site_plan'`, with nobody
+>    having set the handler by hand. The page building and the link going live follow from it.
+>
+> **A hand re-triage (step 4 above) fixes the PAGE and proves NOTHING about this fix** — setting
+> `handler_agent` yourself only re-demonstrates that `directory-build-handler` works, which has
+> been known since 2026-08-08. Do not report one as the other.
+>
+> Step 1 is an operator action on another lane's site — ask, do not assume.
+
+~~404 before the roll, 200 after, with no hand re-triage — that is the closure proof.~~
 
 > **OWNERSHIP: this check is THIS lane's, and it is deliberately double-owned.** The
 > `loanzy_uk_example_site` lane also carries it (their handoff §3a, with the same procedure) and
