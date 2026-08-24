@@ -84,3 +84,20 @@ archive-HEAD baseline passing them.)
    in the list (`"coming soon"`, `"not provided"`, `"tbd"` unbracketed). They
    were NOT measured here and are not this fix's scope; census them the same
    way before touching them.
+
+---
+
+> **CORRECTED 2026-08-24, same session:** §"what is owed after the roll" step 2 said
+> the page carried *"FIVE further 'your company' sentences in its written copy"*.
+> **Wrong — the written copy carries ZERO.** The five sentences quoted in the census
+> came from OLDER firings (08-03..08-16 rows on other finetuning.uk pages); I read
+> them as belonging to today's page. Measured against the writer's actual output
+> (preserved in the build orchestration's `page_content.response.page_html`,
+> `llm_call_log 774ca9c5` 10:24:23): 0 occurrences in the written prose; the one
+> conviction was the ASSEMBLED hero headline ("Your company's voice, in a model you
+> own" — sourced from the seeded proposition, not from the writer's sections). The
+> re-drive after the roll is still the right verification — the hero line alone
+> re-blocks if the fix did not ship — but it is one loud sentence, not six. What
+> caught it: running the register checks on the preserved copy instead of trusting
+> my reading of the census locations. The cheap check: filter the census by
+> `occurred_at`/orchestration before attributing rows to a specific build.
