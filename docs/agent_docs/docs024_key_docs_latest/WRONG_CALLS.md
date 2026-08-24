@@ -48783,3 +48783,45 @@ question adjacent to the one asked. `grep | head` answers *"show me some matches
 I asked it *"are there any matches"*. Those differ exactly when the matches you want
 are not the matches you get first — which is precisely when you are searching a long
 append-only file for the newest entry, i.e. **always, for this file.**
+
+
+## 2026-08-24 — portfolio_positioning lane: I called a canonicalisation defect "confirmed" from ONE page, and the fix that read would have broken 228 rows to fix 27
+
+**The claim.** Wiring `render_sitemap`, I noticed every existing sitemap lists the
+homepage as `/` while the action emits `/index.html`. I fetched `dartsonline.com`'s
+homepage, read `<link rel="canonical" href="https://dartsonline.com/">`, and reported
+**"Confirmed a real defect"** — correctly, as far as it went.
+
+**What was wrong.** Nothing I stated was false. The problem is what the evidence
+LICENSED. One root canonical supports "the root should be `/`". It does not support
+anything about `index.html` in general, and the obvious one-line fix from that reading
+is `strings.TrimSuffix(p, "index.html")`. I very nearly wrote it.
+
+**What caught it.** Fetching a SECTION index in the next breath —
+`https://dartsonline.com/guides/` declares canonical
+`https://dartsonline.com/guides/index.html`, the **opposite** convention. **[MEASURED
+2026-08-24]** the listable population was **27** rows of exactly `/index.html` against
+**228** of `<section>/index.html`, so the suffix fix would have broken eight times more
+than it repaired, each against that page's own canonical tag, and every broken URL
+would still have returned 200 and passed the generator's probe.
+
+**The cheap check that would have caught it, and it costs one extra `curl`:** when a
+rule is about a PATTERN in paths, sample the pattern at **two different depths** before
+generalising. I had sampled it at one, and the site's convention changes with depth.
+
+**The transferable half.** A single confirming instance tends to be read as confirming
+the RULE you had in mind, not the narrower fact it actually establishes — and the
+narrower fact is all you have. The tell was available and I did not use it: the
+existing sitemaps I was comparing against **already contained** `/guides/index.html`
+alongside a bare `/`, so the counter-example to my generalisation was sitting in the
+data I had already fetched, one column over. **Before writing a fix whose scope is
+wider than your evidence, state what the evidence would look like if the wider rule
+were FALSE — here, "a section index whose canonical keeps the extension" — and then go
+and look for exactly that.** It took one command.
+
+⚠ Related but distinct from the probe entries elsewhere in this file: the probe was not
+blind here, it was **answering a different question**. `/index.html` returns 200 whether
+or not it is canonical, so no amount of probing could have refuted either version of the
+fix. Logged as a landmine (`LANDMINES.md`, "A URL probe proves FETCHABILITY, never
+CANONICALITY") because it fires on touch, with no symptom.
+
