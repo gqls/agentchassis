@@ -324,7 +324,9 @@ re-proof that files ~5 more non-parkable items somewhere for no new information.
 > `docs/agent_docs/sql_for_agents/601_offer_analyser_acceptance_predicates_HOLD.sql`, **held** until a
 > chassis carrying `verify_acceptance_predicates` has rolled — a step naming an unregistered action is
 > rejected whole, so applying it early does not degrade, it breaks the agent. Council submission
-> written and `DRY_RUN`-admitted, **not dispatched** (the kubeconfig token expired mid-session):
+> **APPROVED** (corr `ef482d1c-b36d-40c0-a40c-772656116016`, 14 seats, none high; round 1 killed by a
+> chassis roll and re-fired on the same trail). Objections acted on in `ccb35e74d` — the gate's own
+> silent-inert failure mode is now loud, and the lifecycle filter is the shared helper. Submission:
 > `vigilant_designer_offer_analysis/SUBMISSION_2026-08-24_v2d_acceptance_predicates.json`.
 >
 > **THE CENSUS BELOW IS STALE AND THE DESIGN CHANGED BECAUSE OF IT.** `[MEASURED 2026-08-24]` there

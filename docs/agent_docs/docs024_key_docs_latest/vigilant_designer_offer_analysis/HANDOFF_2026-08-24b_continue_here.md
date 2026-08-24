@@ -15,11 +15,11 @@ v2 batch's contents; everything it says about v2(d) being unbuilt is now out of 
 > **v2(d) is BUILT, TESTED and NOT LIVE. Exactly TWO things are owed: an image roll, then applying
 > `601` by hand.** A finding can now carry a refute-only, machine-checkable half of its own acceptance
 > test; the gate that decides whether one may be stored is `verify_acceptance_predicates`.
-> **Council: SUBMITTED, `SUBMISSION_CORR = ef482d1c-b36d-40c0-a40c-772656116016`** — dispatched
-> 2026-08-24 18:20Z, **killed 10 minutes in by a chassis roll** (frozen at `review_guardian`
-> 18:30:18Z; new pods 18:32Z — the `LANDMINES.md` arithmetic exactly), and **re-fired unchanged on
-> the same trail at 19:54Z**, which is why the correlation above is still the one to read. Read the
-> verdict before treating the design as settled. **Capability-probed 2026-08-24 19:2xZ: the action is ABSENT from both running replicas**
+> **Council: APPROVED** — `ef482d1c-b36d-40c0-a40c-772656116016`, 14 seats, 9 objections raised of
+> which 3 counted as advisory, **none high**. ⚠ Round 1 was **killed 10 minutes in by a chassis roll**
+> (frozen at `review_guardian` 18:30:18Z; new pods 18:32Z — `LANDMINES.md`'s arithmetic exactly) and
+> re-fired unchanged on the same trail. **All the objections worth acting on were acted on**
+> (`ccb35e74d`, which carries the `Council-Reviewed:` trailer). **Capability-probed 2026-08-24 19:2xZ: the action is ABSENT from both running replicas**
 > (positive control `verify_cited_cardinals` PRESENT, negative control absent) — as expected, since
 > the running image predates commit `7b875b08f`. **So 601 must NOT be applied yet.**
 
@@ -66,19 +66,31 @@ own three steps — step 2 is *"what did I break?"*, not *"did it work?"*.
 ⚠ **Applying it before the roll does not degrade — it breaks the agent.** A step naming an
 unregistered action makes the workflow validator reject the WHOLE workflow ("requires a topic").
 
-### 2. Read the council verdict — `ef482d1c-b36d-40c0-a40c-772656116016`
+### 2. ~~Read the council verdict~~ — DONE: APPROVED, and here is what it changed
 
-```sql
-SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
- WHERE correlation_id='ef482d1c-b36d-40c0-a40c-772656116016' AND kind='council_report' ORDER BY created_at;
-SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
-```
+**The objections were worth the round, which is the usual finding on this trail.** Two seats
+(`editquality`, `debug_historian`) independently found the same real hole: the gate's page query
+filtering `pages` on a hand-written `status = 'active'` sits inside a named landmine, and a filter
+matching nothing would refuse every predicate as *"page not on this site's surface"* — **the gate
+silently inert, wearing the face of its own acceptable outcome** ("the model wrote nothing storable").
+`[MEASURED 2026-08-24]` the premise is not live (`status` is `active` **805** / `archived` **66**;
+35–137 rows per enrolled site, never zero) — **but a measurement that a hazard is not live is not a
+guard against it**, so both arms were taken: the lifecycle predicate is now
+`datahelpers.PageWantedLivePredicateFor`, and an empty subject set is now loud (distinct `Warn`, a
+`subjects_loaded` count on every run, and a rejection that blames this step rather than the named
+page). Mutation-tested. Two reuse objections (`claims.go`'s matcher; the revalidation family) are
+answered in the action's own file header — read those before proposing either again. The
+third-consumer search was done: exactly one struct-decoder of a work-item spec exists and it carries
+nothing.
 
-⚠ **The code commit `7b875b08f` predates the submission and carries NO trailer, so it will list as
-un-reviewed in the `098` report for ever** — forward-only forbids the amend that would fix it. That is
-the price of the token outage and it is recorded here rather than papered over: the correlation above
-is the link a human needs. On REVISE, resubmit with `RESUBMIT_CORR=ef482d1c-…` so the trail
-accumulates, and update the **sketches**, not just the rationale.
+⚠ **ONE OBJECTION IS WRONG AND IS RECORDED AS WRONG in `CLM-024`.** The `architecture` seat counted
+the two new FINDING fields against `write_audit_findings`' N=10 optional-key budget; that budget
+counts an action's `ActionInputSpec.Optional` **step-config** keys, which is unchanged at 1.
+
+⚠ **The original code commit `7b875b08f` predates the submission and carries no trailer, so it will
+list as un-reviewed in the `098` report for ever** — forward-only forbids the amend. The follow-up
+`ccb35e74d` carries `Council-Reviewed:`, so the trail is recoverable by a human, but the report will
+show a gap and that is honest rather than fixable.
 
 ## The architecture-scope judgement, and the query that supports it
 

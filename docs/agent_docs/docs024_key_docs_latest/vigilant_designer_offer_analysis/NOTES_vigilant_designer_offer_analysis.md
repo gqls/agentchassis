@@ -2953,3 +2953,49 @@ also keeps the trail id stable — the handoff and the register already name it.
 (`855587d4dc-h4hcg`, `-pn2t8`): `verify_acceptance_predicates` **absent**, positive control
 `verify_cited_cardinals` present, negative control absent. So two rolls have now gone past without it,
 both from a build point earlier than commit `7b875b08f`. `601` stays held.
+
+### 10. The verdict: APPROVED — and the two seats that agreed with each other found the real hole
+
+Round 2 (the re-fire) ran 12 minutes end to end, 14 seats, **APPROVED**, 9 objections raised of which
+3 counted as advisory, none high.
+
+**`editquality` and `debug_historian` independently landed on the same thing, which is the signal
+worth trusting:** `loadAcceptancePredicateSubjects` filtered `pages` on a hand-written
+`status = 'active'`, and `LANDMINES.md` carries an entry saying a `pages` status filter may be
+filtering on NOTHING (two spellings in circulation are inert). If it matched zero rows, **every**
+predicate would be refused as *"page not on this site's surface"* — the gate inert, with no error,
+wearing exactly the face of its acceptable outcome ("the model wrote nothing storable today").
+
+`[MEASURED 2026-08-24]` the premise is **not live**: `SELECT status, count(*) FROM pages GROUP BY 1`
+→ `active` **805** / `archived` **66**, and my query returns **35–137** rows for each of the five
+enrolled sites, never zero. My spelling was also not either of the two inert ones the landmine names.
+**So the objection's stated mechanism was wrong and its worry was right** — and the useful move was
+not to reply with the measurement. A measurement that a hazard is not live today is not a guard
+against it, and this gate's whole design is about not trusting a green that has never been able to go
+red. Both arms taken: the lifecycle predicate is `datahelpers.PageWantedLivePredicateFor` (the
+landmine's own *"prefer the helper"*), and an empty subject set is now LOUD — distinct `Warn`,
+`subjects_loaded` returned on every run including clean ones, and a rejection reason that **blames
+this step rather than the named page**, because "page X is not on the surface" sends the next reader
+to the model when the fault is mine. Proven by mutating the mock to return zero rows.
+
+**The two reuse objections were both worth answering in the FILE, not in a reply**, since the next
+author will have the same thought: `datahelpers/claims.go`'s matcher compiles its input as a REGEX an
+author wrote (with a `QuoteMeta` fallback), which is the opposite contract to a literal needle an LLM
+emitted — it would make `"(beta)"` a capture group and drop the boundaries that stop `"we"` matching
+inside `"web"`. And the revalidation family is genuinely the closer precedent: it asks whether
+deployed HTML still asserts something the register does not support, to RETRACT. ⚠ **They converge at
+the piece not built here** — a completion-time consumer of predicates is asking a revalidation-shaped
+question, so whoever builds it should read `reviewRevalidators` first rather than write a third loop.
+
+**`bug_historian` and `guardian` both asked for a third-consumer search rather than a claim.** Done:
+exactly one Go reader unmarshals a work-item spec into a struct (`specAuditSource` in
+`write_audit_findings_retraction.go`), it decodes one named key and carries nothing; everything else
+extracts named keys from the jsonb, which is additive-safe. No third decoder exists to lose the new
+fields.
+
+**And one objection is FACTUALLY WRONG, recorded rather than absorbed.** The `architecture` seat
+wrote that `write_audit_findings` *"gains 2 more optional keys"* against the ruled N=10 budget. That
+budget counts an action's `ActionInputSpec.Optional` **step-config** keys; `WriteAuditFindingsInputSpec.Optional`
+is unchanged at **1**. The new keys are fields of the LLM's finding objects — a DATA surface, not a
+config one. The seat reached for the right trigger and counted the wrong thing, and the distinction is
+what keeps that budget meaningful.
