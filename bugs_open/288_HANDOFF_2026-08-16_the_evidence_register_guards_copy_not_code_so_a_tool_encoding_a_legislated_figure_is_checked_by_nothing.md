@@ -6,16 +6,57 @@ and live; this file is what 225's own section *"Why no existing check could ever
 caught this"* was pointing at, written down as a tracked defect instead of a remark
 inside a closed case.
 
-**Status: PARTIALLY FIXED 2026-08-16, council-APPROVED at round 3** (`cff364b8`, 13 of
-15 seats, 2 advisory objections both acted on). Pieces 2+3 of the existing plan are
-built and committed, **inert until the next chassis roll and until a fence declares**.
-The residual is named in §5 and is why this stays open.
+**Status: PARTIALLY FIXED. Phases 1 and 2 landed 2026-08-24** (commits `995b5fbbe`,
+`eecd99b0a`; council corr `67643b47`, **APPROVED at round 1**, both real advisories acted
+on rather than banked). Pieces 2+3 landed 2026-08-16 (`cff364b8`, round 3). **All Go is
+inert until the next chassis roll.** §5 carries the residual and §6 the two phases still
+owed.
+
+⚠ **THREE CLAIMS IN THIS FILE WERE WRONG AND ARE CORRECTED BELOW — read §0 first.**
 
 ⚠ **Two REVISE rounds preceded the approval and each found a REAL defect — read the
 council section below before trusting anything here.** Round 1: the mechanism was blind
 to its own motivating bug. Round 2: **the round-1 fix was inert**, defeated by a
 baseline fallback onto register history. A green after one round would have shipped a
 check that could never fire.
+
+## §0 — CORRECTIONS, 2026-08-24 (this file asserted three things that were not true)
+
+**C1 — "Validator rule P11 refuses a malformed declaration where it is written" was
+FALSE for every document that carries one.** §"What was built" says it below, the lane
+PLAN says it, and the round-3 council submission says it. P11 is real, tested and
+correct — and it lives in `ValidateExperienceCriteria` (`experience_criteria.go:320-333`),
+whose **only** production caller is `write_experience_pattern_action.go:217`, the
+*experience-pattern* register. Tool PLANs are written by `WriteDocPlanAction`, which was
+a pure supersede-write of a body string with **no criteria validation of any kind**. P11
+had never once seen a tool fence. **The lesson is not the fix — it is that three
+documents asserted a control's existence and none of them enumerated its callers.**
+FIXED 2026-08-24: a tool PLAN whose fence declares `facts` is parsed before the
+transaction and refused if unreadable.
+
+**C2 — the parser FAILED OPEN on a fence that DID declare something, and that disarmed a
+safeguard this council asked for.** `parseCriteriaFacts` returned `(nil, nil)` on a
+whole-fence JSON error — no ids **and no issues** — against `criteria_facts.go`'s own
+header contract. It propagated: `planSiteFactDrift`'s zero-rows warning (added at the
+`bug_historian` seat's request in round 3) is gated on `issues`/`unresolved` being
+non-empty. **So one trailing comma in a fence edit disarmed the declaration AND the
+warning whose whole job is to say a declaration was disarmed** — on the ONE live
+declaration, which guards a UK stamp-duty tax calculator. FIXED 2026-08-24, and the
+finding now files a `fact_declaration_broken` doc_note per (tool, site).
+
+**C3 — §5.5's deferral cites `bugs_open/093`, which CLOSED on 2026-08-17** — the day
+after this file was written. It is `bugs_closed/093` now, and **the way it closed is the
+template for the work this file defers**: its fix was not a second scanner but a second
+SURFACE for the existing one, inside the existing post-deploy audit
+(`check_unverified_claims_stats.go`). So the prose half of the class needs re-grounding
+on that precedent, not silent inheritance of a blocker that no longer exists.
+(`a-closed-blocker-keeps-being-obeyed` — grepping `bugs_open/NNN` while NNN is closed.)
+
+**C4 — §5.4's "the `improve_tool` arm may be unreachable on today's fleet" is too
+pessimistic, and the measurement is cheap.** `[MEASURED 2026-08-24]` **91 of 178** tool
+pages on register-bearing sites carry a tool-level component, so `isFork()` holds for
+just over half the exposed population. The arm is unreachable **for the two SDLT tools**
+(both multi-component, both `no_auto_fix`), not for the fleet. Say the former.
 
 ## Diagnosis provenance (2026-07-31 owner ruling)
 
@@ -63,14 +104,31 @@ the estate on the right surface. It was unreachable for this class:
    plain `artifact` source, which is checked for presence in the register and never
    re-proved. RFC_025 §10 predicted this ("still short of IMPLEMENTED… no real fact
    anywhere has actually been retyped").
-2. **Unreachable for the facts that hold legislated figures.** The per-fact loop
-   handles `source.citation` and `continue`s **before** the `artifact_check` test. Every
-   SDLT fact on mortgagecalculator.co.uk is a citation fact, so an `artifact_check`
-   added beside one would never be evaluated. `[read directly]`
-3. **Addressed by a component id that dies.** `artifact_check.component_id` names a
-   `page_components` row. **225's own component (`55682bc8-…`) no longer exists** — the
-   page was decomposed into `prose-0` / `tool-1` / `prose-2`. A binding written when
-   the bug was filed would today resolve to nothing.
+   > **RE-MEASURED 2026-08-24, same query, same control:** **294** current facts across
+   > **15** registers, still **0** carrying `source.artifact_check`, against **185**
+   > carrying `source.citation`. The register more than DOUBLED in eight days while
+   > adoption of the one mechanism on the right surface stayed at zero — the census went
+   > stale by ADDITION, exactly as the count-carries-its-date rule predicts, and the
+   > direction of travel is the finding: **the gap is widening, not closing.**
+2. ~~**Unreachable for the facts that hold legislated figures.**~~ **FIXED 2026-08-24
+   (Phase 2 / RFC_025 stage 2b, `eecd99b0a`).** The per-fact loop handled
+   `source.citation` and `continue`d **before** the `artifact_check` test seventeen lines
+   below; every SDLT fact is a citation fact, so an `artifact_check` beside one was never
+   evaluated. `[read directly]` The `sql` and `attested_by` arms sat below the same
+   `continue` and were equally unreachable for a dual-source fact. Now a **pre-pass**
+   evaluates it for every source kind, leaving the existing branches and their `continue`
+   untouched. **A secondary check never touches `verified_at` or `changed`**, so the
+   RFC_025 raise gate is unchanged for existing callers.
+3. ~~**Addressed by a component id that dies.**~~ **FIXED 2026-08-24 (same commit).**
+   `artifact_check.component_id` names a `page_components` row, and **225's own component
+   (`55682bc8-…`) no longer exists** — the page was decomposed into `prose-0` / `tool-1` /
+   `prose-2` — so a binding written when the bug was filed would today resolve to nothing
+   and fail closed **for ever, which reads exactly like a working check**. A fact may now
+   carry `artifact_check.subject_key` instead, resolved through the platform's own name
+   rule every pass (`discovery_checks.ToolSubjectKeyExpr` plus the audit page predicate,
+   the same join family as the fan-out). Exactly one address; both, or neither, fails
+   closed. Verified viable: `(site_id, name)` is unique across all **178** tool pages
+   `[MEASURED 2026-08-24]`.
 
 ## What was built 2026-08-16 (Pieces 2+3), and what it does NOT do
 
@@ -195,10 +253,50 @@ whose Piece 1 has been live since migration 366 (CLM-021).
    NOT built here: it is a second scanner over the same components, which is
    `bugs_open/093`'s shape, and it deserves its own measurement of the false-positive
    rate first (the plan's §3 rejects the blanket form for exactly that reason).
-6. **RFC_025 stage 2b is still owed** — `artifact_check` reachable for every source
-   kind and addressable by `page_name` rather than a component id that dies. Small,
-   same seam, would give RFC_025 its first consumer; not bundled here because it
-   changes an existing mechanism's semantics and deserves its own round.
+6. ~~**RFC_025 stage 2b is still owed**~~ → **DONE 2026-08-24** (`eecd99b0a`, council
+   corr `67643b47` covers Phase 1; stage 2b rides the same lane and is registered under
+   CLM-022). Reachable for every source kind, addressable by `subject_key` rather than a
+   component id that dies. ⚠ **It still has no consumer: 0 of 294 facts carry
+   `artifact_check`** — the mechanism is now *usable* for a legislated fact, which it was
+   not, but RFC_025 stays short of IMPLEMENTED until one real fact is retyped. That is
+   the first item in §6.
+
+## §6 — what is owed now, in order (2026-08-24)
+
+1. **The roll.** All of Phases 1 and 2 is Go and therefore inert. Verify at the binary,
+   never at the tag, with a positive control in the same exec — recipe in the lane
+   RUNBOOK. Strings unique to this work: `fact_declaration_broken`,
+   `artifactCheckSubjectSurfaceQuery` is a var not a literal so grep
+   `subject_key %q resolves to no stored component HTML` instead.
+2. **Retype ONE real fact**, so RFC_025 finally has a consumer and stage 2b is proven on
+   live data rather than in fixtures: `sdlt-ftb-relief-cap` with
+   `artifact_check{subject_key:"stamp-duty", pattern:<a CONTEXT-bearing form, never bare
+   digits>}`. A CONTRIB to the `mortgagecalculator_couk_adoption` lane — the site is
+   theirs, and their `install_fences.py` rewrites whole bodies, so never hand-edit the row.
+   **Then induce**: make the pattern unmatchable inside a `trap … EXIT` restore window and
+   assert the dry run says so. *A dry run that reports nothing after an induced change is
+   the failure, and it is the only result that separates this from an inert check.*
+3. **Phase 3a — the probe, annotation-only.** Prove a declared figure is actually in the
+   tool's **script text**, and measure the present/absent/markup-only distribution over a
+   full fleet sweep before anything acts on it. **Script text, never whole-page** — see §0
+   and `WRONG_CALLS` 2026-08-24: the register's own `writer_line` puts the figure in the
+   page's PROSE, so a whole-page check would have passed bug 225 daily for sixteen months.
+4. **Phase 3b — arm it**, on 3a's measured numbers, as its own council round.
+5. **Phase 4 — adoption.** `[MEASURED 2026-08-24]` **15 of the 27** distinctive (≥5-digit)
+   register facts already appear verbatim in a tool on their own site, across 7 sites — so
+   declarations are machine-*suggestible* without hand-authoring 178 fences and without the
+   blanket JS scan `PLAN_2026-08-09 §3` refused (that scan hunts UNREGISTERED numbers, an
+   unbounded set; this probes for REGISTERED values, a finite per-site set already vouched
+   for — the direction is inverted, and the submission must say so rather than hope nobody
+   notices the resemblance).
+6. **Standing, and not this lane's to close: `bugs_open/033`.** The council's `architecture`
+   seat objected (medium, advisory) that Phase 1's doc_note surface is the **second**
+   bespoke durable surface invented to route around the dead `needs_human_review` queue,
+   after `noteNeedsCriteria` — and that each such bypass makes the eventual triage fix
+   harder to land, because by then there will be N ad-hoc doc_notes conventions instead of
+   one queue. The seat agreed doc_notes is the right call given measured reality
+   (**345+** stuck items) and asked for the objection to be **recorded rather than silently
+   absorbed by another well-built bypass**. It is recorded here.
 
 ## The council round, and the defect it caught (2026-08-16)
 

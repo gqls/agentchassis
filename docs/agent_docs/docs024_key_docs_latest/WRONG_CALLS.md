@@ -47901,3 +47901,98 @@ commit costs nothing.
 silent-substitution failure — backticks in `git commit -m` executing as a command and swallowing
 a word. Two shell traps from the same MEMORY family, in consecutive commits, one while writing
 about the other.
+
+---
+
+## 2026-08-24 — A PRESENCE CENSUS THAT COULD NOT HAVE COME OUT FALSE, and then TWICE writing tests that could not see the wiring (bugs_open/288)
+
+Three related misses in one session, all of the same family: **a check that cannot
+distinguish the world it is testing from the world it is not.**
+
+### 1. "All 13 declared facts are present in the tool's bytes" — a figure with no disconfirming case
+
+Designing a mechanism to prove a registered figure is actually encoded in a
+calculator, I ran the obvious census: for mortgagecalculator's `stamp-duty` page, does
+each of the 13 declared SDLT fact values appear in the stored HTML? **All 13 present.**
+That number reads like validation of the whole design.
+
+It is worthless, and I nearly recorded it. Four of the 13 values are `5`, `2`, `10` and
+`12` — percentage rates. **Any 15KB of HTML contains those digits.** I only found out
+because I then probed values that must NOT match:
+
+| probe | result | what it establishes |
+|---|---|---|
+| `625000` — bug 225's own expired cap | **absent** | the test discriminates at 6 digits |
+| `777000`, `314159` — invented | absent | a 6-digit hit is not noise |
+| `99`, `7` — **not registered facts** | **present** | below ~5 digits it matches everything |
+
+So the honest figure is not 13 of 13. Fleet-wide, of 294 current register facts
+**[MEASURED 2026-08-24]**, only **27 (9%)** are ≥5 digits and therefore provable this
+way at all; 110 are below 100. That reshaped the design — from "match the value" to
+"match a pattern with context" — and it is why the platform's existing
+`bareNumericPattern` refusal was already right.
+
+**The cheap check: before recording a presence figure, name the value that MUST be
+absent and probe it in the same breath.** A census of hits with no miss in it answers
+"does this string occur", never "does this mechanism discriminate". This is the
+`[MEASURED]`-but-not-disconfirmable trap CLAUDE.md already names, and the marker rule
+would not have caught it: the figure was measured, dated, and inert.
+
+### 2. The same session: the whole-page probe would have PASSED bug 225 for sixteen months
+
+Having fixed (1), I still had the surface wrong. Two design agents independently said
+"probe script text, not the whole page", so I tested it on the live page rather than
+taking it:
+
+| form | in `<script>` | in prose |
+|---|---|---|
+| `500,000` (comma) | yes | **yes** |
+| `500000` (raw) | yes | no |
+
+The register's own `writer_line` machinery **puts the registered figure into the page's
+copy**. So a whole-page check matching the comma form finds it in the prose whatever the
+JavaScript computes — and bug 225 was exactly "correct register, correct copy, stale
+code". **A mechanism built to catch 225 would have certified 225's page daily.** The
+generalisable form: *when a check reads a surface, ask what ELSE writes to that surface.*
+Here the answer was "the very mechanism this check reports to".
+
+### 3. Then, twice in one change, tests that asserted the UNIT and could not see the WIRING
+
+Both fixes came with tests. Both test sets passed. Both were satisfied by the bug.
+
+- **Phase 1.** Four tests of `noteBrokenFactDeclarations` — one note per subject,
+  cooldown, dry-run, clean site. Deleting the CALL to it from `planSiteFactDrift` left
+  **all four green**, because every one of them invoked the writer directly.
+- **Phase 2.** Eight tests of the stage-2b pre-pass — the resolver, the gate, entry
+  selection, the secondary-check rules. Deleting **the pre-pass itself** left the
+  **entire suite green**, for the same reason.
+
+The fix in both cases was a test that drives the real entry point (`planSiteFactDrift`,
+`refreshOneSiteEvidence`) and asserts the query is issued. **And writing the second one
+found a real defect the unit tests could never have seen**: a fact with `attested_by`
+plus an `artifact_check` was checked TWICE — once by the pre-pass, once by the original
+branch — appending two entries under one fact id and bumping `verified_at` from the
+second. The citation arm escaped only because its `continue` happens to intervene.
+
+**This lane had already written this lesson down** — `WRONG_CALLS` 2026-08-16, three
+mutations to prove one fix, two of which passed and were worthless — and the register
+entry it produced is three bullets above the code I was editing. Knowing the lesson did
+not stop me repeating it twice in one sitting, which is the actual finding.
+
+**The cheap check, and it is mechanical: for every guard, delete the CALL and not just
+the body.** A mutation of the callee proves the callee works. Only a mutation of the
+call site proves anything reaches it. If deleting the call leaves the suite green, the
+guard is untested however many tests name it.
+
+### And one honest note on the council round
+
+Phase 1 came back APPROVED at round 1, with two medium advisories I could have banked.
+Both were real, and one was **right for a reason the seat did not give**: `editquality`
+and `debug_historian` said an unscoped note cooldown would let two sites with a
+same-named tool silence each other. That cannot happen — `doc_plans` has a unique index
+on `(subject_type, subject_key) WHERE is_current`, and it holds (**134** current tool
+PLANs, **134** distinct keys, 2026-08-24). But **one fleet-global PLAN resolves to pages
+on many sites** (**6** do), and half the finding is per-site, so site A's note really
+would have silenced site B's different finding for thirty days — the same silent
+suppression the change exists to remove, one axis over. **Check an objection's premise
+AND keep its fix; a sound conclusion can arrive with the wrong reason attached.**
