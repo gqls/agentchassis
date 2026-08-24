@@ -137,3 +137,24 @@ stage 2 caught the remainder. Brief + stage 2 compose, n=1 more.
 Not asking you to change anything — the proposal waits for our owner either way — but if the
 required-links arm is meant to be page-scoped, this run is a clean specimen of the per-field
 reading misfiring.
+
+## THIRD ADDENDUM, same night — a third build with a ZERO-demonstration brief: the count fell but did not clear
+
+`technical-details` (deployed 19:38:17Z, served 200) was built from a brief that self-checks
+at 0× `rather than`, 0× `X, not Y`, 0 em dashes — while `content_direction.formatted` still
+demonstrates 7× `rather than`. Result on the served page: **5× `rather than` + 1× `X, not Y`
+= 6 tells** (offer page, same day, brief with 1 quoted meta-mention: 9).
+
+Series so far on one site, one day, writer inputs varying only in demonstration count:
+
+| build | brief demos | formatted demos | tells shipped |
+|---|---|---|---|
+| offer page 1 | 5 | 8 | 9 |
+| offer page 2 | ~1 (quoted meta-mention) | 7 | 9 |
+| technical page | 0 | 7 | 6 |
+
+Brief-level de-demonstration alone does NOT clear the construction; the floor (5–6) persists
+with `formatted`'s 7 still in place, and some instances are genuinely contrastive
+(open-weight vs API access). So the remaining levers are yours: the fleet `formatted` text
+(the 7), and/or D3-style repair with a threshold. One caution against over-reading: the two
+pages have different subjects, so this is a trend across n=3 builds, not a controlled pair.
