@@ -194,3 +194,86 @@ moment it starts working. 378 should land before or with it. Raised with that la
 **`1c62c1f7-cb06-4482-933e-8c08a622b5c1`**. Framed at `component_selector.go` (13.7KB) and
 `load_existing_component_action.go` (15.7KB) rather than `plan_sections_action.go` (114KB),
 per the LANDMINE that a `090` on a symbol in a file over ~60KB returns bundles and no verdict.
+
+---
+
+## 2026-08-24 later — session checkpoint (usage limit), state as it actually stands
+
+**Nothing has been changed in `platform/`. No code written, no migration written, no council
+submission made.** Only the two lane docs exist. Recording this plainly so the next session does not
+go looking for work that was never done.
+
+### In flight when this session stopped
+
+- **`090` diagnosis run — STILL RUNNING, no verdict.** Run correlation
+  `1c62c1f7-cb06-4482-933e-8c08a622b5c1` (intake `d2072b88-67ac-48ca-a319-6be6d543aae7`). Last
+  observed at `current_step='route'`, work item `status='diagnosing'`, `result` still `{}`.
+  Read it before acting on the design:
+  ```sql
+  SELECT status, jsonb_pretty(result) FROM site_work_items
+  WHERE spec->>'dispatch_correlation_id'='1c62c1f7-cb06-4482-933e-8c08a622b5c1';
+  ```
+  ⚠ Its verdict is an **independent check on the mechanism**, not on the fix. My claims 1–8 above are
+  first-hand and stand on their own evidence whatever it says — but if it REFUTES any of them, that
+  is a `WRONG_CALLS.md` entry and a correction here, not something to argue with.
+
+- **The `fable` planning agent DIED before delivering.** It failed on an API session limit with its
+  last step reported as *"store tests pinning the INSERT, the pages→site_id join shape, and the
+  register's latest CLC number"*. **There is no plan document from it and nothing of its output was
+  read.** `[UNVERIFIED — no artefact]`. Do not quote it, and do not assume its conclusions matched
+  mine. The design thesis below is **mine, from the measurements above**, and has had no independent
+  review of any kind yet.
+
+### The design thesis, stated as a thesis and not as a decision
+
+**A usage figure must be derived from the durable record of the usage, never maintained by whichever
+code path happened to notice.** Concretely: stop reading `content_components.usage_count` in all
+three readers; derive the signal from `page_components`; stop writing the column; decide separately
+what happens to the column itself.
+
+Why this shape rather than the bug file's ranking:
+- Candidate 2 (increment on the other paths too) is **refuted** — finding 3. The increment's
+  definition is wrong, so spreading it spreads the error.
+- Candidate 1's *"or a counter maintained where the binding is written"* variant is the
+  seven-writer trap — finding 6. Derive-at-read has no counter to drift.
+- Finding 5 says the swap is **free today**: 0 selection changes over 4,888 contexts, with a control
+  that detects 52. That window is the argument for doing it now rather than after the library grows.
+
+### Open design questions the next session must answer, NOT yet answered
+
+1. **What counts as one "use"** — a raw `page_components` row, a DISTINCT page, or a DISTINCT SITE?
+   Distinct sites is the truest reading of "battle-tested" and resists a single page being rebuilt,
+   but `page_components` has **no `site_id`** — it joins `page_id` → `pages` → `site_id`. That join
+   shape needs checking before any SQL is written.
+2. **Whether `build_status='removed'` rows count.** A removed binding is arguably not a use.
+3. **The normalisation.** The term is `LEAST(count/50.0, 1.0) * 0.1`. If the unit changes from
+   "resolutions" to "distinct sites", `/50` is certainly wrong — no component is on 50 sites.
+4. **Shape of the query** — correlated subquery vs LATERAL vs pre-aggregated CTE in the batch
+   selector, which runs per page build with an `IN` list. `idx_page_components_template
+   btree(component_id)` exists and the table is only 2,038 rows, so this is a correctness-and-clarity
+   choice more than a performance one.
+5. **The column and the helper** — leave, neutralise, or drop. A drop is a migration, which is
+   council-scope here.
+6. **The other component levels** — `tool` is 0 of 115 and has no reader today. Fix now or leave?
+
+### A dependency found while notifying other lanes — record it in the design
+
+**`bugs_open/357` is a data-quality dependency on this design.** It documents `page_components` rows
+whose `component_id` is dishonest — *"a whole tool page stored in a slot that claims to be the shared
+`hero` component"*, 9 rows as of its filing. Making `page_components` the usage substrate turns those
+into **phantom votes**, and `hero` is the most contested `section_type` in the library (**7** active
+non-forked candidates as of 2026-08-24). This does not sink the design — the status quo is wrong for
+96 section components and counts 12 uses for a component with no bindings at all — but it must be
+**stated in the submission**, not discovered by a reviewer. That lane has been messaged; its own root
+cause is still in the diagnosis loop (`63d4d1a7-ffec-4570-866b-8a0a41e3c69d`), so whether the
+population is closed or growing is **not yet known**. `[UNMEASURED]` — I did not re-count 357's
+population myself.
+
+### Not yet done, owed by this lane
+
+- Cross-thread note into `bugs_open/107` (the preferential-attachment interaction, finding 8) —
+  **messaged nobody, written nowhere yet.** 107 has no live session.
+- The correction block on `bugs_open/378` itself (three paths not two, third reader, overcount,
+  candidate 2 refuted, the two `[UNMEASURED]` items now measured).
+- Council submission. Nothing submitted.
+- No `WRONG_CALLS.md` entry is owed **yet** — no claim of mine has been refuted so far this session.
