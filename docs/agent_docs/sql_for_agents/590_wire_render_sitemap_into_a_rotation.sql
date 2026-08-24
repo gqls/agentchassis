@@ -82,6 +82,17 @@ SELECT
             'conditions', jsonb_build_object('0', 'complete'),
             'default', 'commit_sitemap')),
 
+        -- ⚠ DO NOT ADD 'repo_name' TO THIS CONFIG. Its ABSENCE is what makes the
+        -- step correct for all 28 sites. resolveGitRepoNameDB (helpers.go:232)
+        -- tries explicit config['repo_name'] FIRST, then site_record, then
+        -- sites.github_repo by domain, then 'sites'. 4 of the 28 live sites are
+        -- vm-sites (idea.uk, noted.co.uk, relojistas.com, webdesign.uk as of
+        -- 2026-08-24) and the other 24 have an empty github_repo. Omitting the key
+        -- lets each site resolve its own repo; setting it to 'sites' would send
+        -- those 4 to the WRONG repo, and LANDMINES records exactly that failure
+        -- for the hand-run script that hardcodes it — kcat exits 0, the adapter
+        -- logs no error, GitHub shows the commit, and the served file never
+        -- changes. Raised by the council's guardian seat, corr 8a004aab.
         'commit_sitemap', jsonb_build_object(
           'action', 'git_commit',
           'description', 'Commit sitemap.xml. Reaches B2 sites as well as git-hosted ones: resolveGitRepoNameDB (helpers.go:236-246) reads sites.github_repo and defaults to `sites` when empty, which is what every B2 domain has.',

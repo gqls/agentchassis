@@ -63,21 +63,28 @@ controls (registry description PRESENT, invented string ABSENT, known older acti
 PRESENT). **So §1 needs no image roll.** Only the canonicalisation fix does, and the
 rotation regenerates every site on a 3-day cycle, so it self-heals once the roll lands.
 
-# 3. THE COUNCIL ROUND — read the verdict, it was still running when this was written
+# 3. THE COUNCIL ROUND — **APPROVED**. All 7 advisory objections already run down.
 
-Round 2 submitted on the same correlation via `RESUBMIT_CORR`. Last seen at
-`review_architecture`, EXECUTING_STEP.
+Round 2, correlation `8a004aab-be85-4d6d-bdb1-4fb114f1d64b`, **approved 2026-08-24 14:26:40**,
+*"approved with 7 advisory objection(s) — none high-severity"*.
 
-```sql
-SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
-WHERE correlation_id='8a004aab-be85-4d6d-bdb1-4fb114f1d64b' AND kind='council_report'
-ORDER BY created_at;                      -- the 2026-08-22 'revise' row is ROUND 1
-SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
-```
+Every commit carries `Council-Submitted: 8a004aab-...`, so `098` credits them automatically now
+the correlation is approved — **no amend, and none is allowed.** Do NOT hand-write
+`Council-Reviewed:` on the existing commits; that trailer belongs on commits made *after* reading
+an approved verdict, and `098` resolves the submitted ones by itself.
 
-All five commits carry `Council-Submitted: 8a004aab-...`, so `098` credits them
-automatically **once it turns approved** — no amend needed, and none is allowed. **If it
-comes back REVISE, act on it: the code is already on the shared branch.**
+**The objections and what came of them are in `NOTES_portfolio_positioning.md` under
+"2026-08-24 (c)".** Three are worth carrying here:
+
+- ✅ **vm-sites routing is SAFE, but only because of a key that is ABSENT.** 4 of 28 live sites
+  are `vm-sites`. `git_commit` → `resolveGitRepoNameDB` resolves per-domain, **but its first
+  branch is an explicit `config['repo_name']`** — adding that key would send those 4 to the wrong
+  repo with every log line green. The migration now carries a `DO NOT ADD 'repo_name'` comment.
+- ✅ **Do NOT swap `absoluteURL`'s rule for `datahelpers.NormalizePagePath`.** It exists and it
+  looks like the right helper. It maps `/tools/index.html -> /tools` — it strips SECTION indexes
+  too, because it is a normaliser for **comparison**, not for **emission**. Using it reproduces
+  exactly the mutation the test catches. The seat was right to ask; the answer is "must not".
+- ⚠ **ONE OBJECTION IS ACCEPTED AND NOT FIXED — see §6.**
 
 # 4. WHAT ROUND 1 OBJECTED TO, AND WHAT ANSWERS IT
 
@@ -124,6 +131,16 @@ Both new entries are in `LANDMINES.md` with their footprints; the near-miss on t
 
 - **The deploy-path half of SEO-002's question** — a new page waits up to 3 days for the
   rotation. Now the *only* remaining half. Do it after §1 is proven, not before.
+- ⚠ **`check_has_urls` collapses two opposite cases into one silent no-op** (council
+  `bug_historian`, medium, ACCEPTED). `url_count = 0` routes to `complete` whether the site
+  **opted out** or the pages query **unexpectedly returned nothing** — and sites carry 26–135
+  pages, so the second is almost certainly a defect. Nothing files a work item or error row.
+  Inherited from `check_has_rss`, which `590` deliberately copies. **Not "permanent" as the
+  objection says** — the rotation re-selects every 3 days, so a site recovers on its own; the cost
+  is the missing SIGNAL, not a stuck state. **The fix is designed in NOTES "2026-08-24 (c)"**: give
+  `render_sitemap` a machine-readable `skip_reason` (`opted_out` | `no_listable_urls`) and branch
+  on it, rather than on the prose `reason` string. Go change + follow-up migration = its own round,
+  and it cannot be applied before `590`.
 - **Whether 3 days is right**, once real probe cost is observed rather than projected.
 - **`scripts/site-discovery-files.py:132` still has the canonicalisation defect** the action
   no longer has. Left deliberately: it is a hand-run script and fixing it was out of scope

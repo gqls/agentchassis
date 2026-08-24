@@ -2854,3 +2854,77 @@ Council round 2 submitted on the same correlation `8a004aab-be85-4d6d-bdb1-4fb11
 registered-but-uncalled action reproduces the diagnosed defect in a new form"* — is what this round
 answers.
 
+
+### 2026-08-24 (c) — council round 2: **APPROVED**, 7 advisory objections, every one run down
+
+Verdict at 14:26:40, correlation `8a004aab-be85-4d6d-bdb1-4fb114f1d64b`, *"approved with 7
+advisory objection(s) — none high-severity"*. Approval is not a reason to skip the objections;
+two of them were real and one is still open.
+
+| seat | objection | resolution |
+|---|---|---|
+| editquality (med) | agent seeded without `description` cannot be spawned | **Sketch elision only.** The migration's column list (line 58) includes `description`. Verified against the landmine's own query. No change |
+| editquality (med) | is `scripts/site-discovery-files.py` still driven? A second writer would race | **VERIFIED DEAD as a driver.** 0 `scheduled_tasks` reference it; no CronJob, no CI. Hand-run only, so no two-writer race. It still has the canonicalisation defect — recorded, out of scope |
+| editquality (low) | pre_query alias `sid` undefined | Sketch shorthand. Real SQL is `SELECT s.id AS sid`. No change |
+| **bug_historian (med)** | **`url_count=0` collapses "opted out" and "unexpectedly zero" into one silent no-op** | **ACCEPTED, NOT FIXED — see below** |
+| reuse_agent (med) | did you look for an existing path normaliser before writing one? | **Right to ask, and the answer is MUST NOT REUSE** — see below |
+| tooling_provenance (med) | the canonicalisation decision has no travelling-docs row | Partly addressed: `LANDMINES.md` (which syncs into `doc_notes`), register **SEO-007**, and this file |
+| **guardian (med)** | **pre_query has no vm-sites/B2 distinction; grounding only showed B2 routing** | **VERIFIED SAFE, and the reason is now pinned in the migration** — see below |
+| guardian (low) | a THIRD periodic git-committer against the shared repo | Named. RSS commit is the precedent at the same cadence class |
+| debug_historian (med) | `sites.status` is informational; enumerate the distribution before scoping on it | **Enumerated 2026-08-24:** `deployed` 26, `pool` 17, `active` 2, `test` 2, `system` 1. `IN ('active','deployed')` selects exactly the **28** the before-figure was measured over, and `pool` (unbuilt domains) is correctly excluded. Matches all three existing rotations |
+| prior_art (med) | the `DISCOVERY_AGENTS` safety claim needs a fresh grep, not a citation | **Fresh grep run:** `check.py:49-53`, exactly 3 hardcoded. Claim holds |
+
+#### reuse_agent's objection is the most useful thing in the round, because the answer inverts it
+
+`datahelpers.NormalizePagePath` (`links.go:215`) **does exist** and it **does** strip `index.html`.
+Reusing it would have been wrong, and its own doc comment says why:
+
+```
+//	/tools/index.html    -> /tools
+//	/index.html  /  ""   -> /
+```
+
+It strips the suffix from **section indexes too**, because it exists to make two hrefs
+**comparable for equality** — the link checker needs `/guides/` and `/guides/index.html` to match.
+That is the opposite of emitting a canonical URL. Calling it from `absoluteURL` produces **exactly
+the mutation `TestRootIndexIsCanonicalisedButSectionIndexIsNot` catches**, and would have rewritten
+all 228 section indexes against their own canonical tags.
+
+**So the transferable point is not "reuse the helper" but "a normaliser for COMPARISON and a
+normaliser for EMISSION are different functions that look identical".** The seat could not have
+known that without reading it, and asking was correct.
+
+#### guardian's vm-sites objection: safe, but only by an ABSENCE, so the absence is now load-bearing
+
+4 of the 28 live sites are `vm-sites` (`idea.uk`, `noted.co.uk`, `relojistas.com`, `webdesign.uk`);
+the other 24 have an empty `github_repo`. The rotation will hit all of them.
+
+Routing is correct **by construction**: `git_commit` calls `resolveGitRepoNameDB`
+(`git_deployer_actions.go:170` → `helpers.go:232`), which reads `sites.github_repo` per domain.
+⚠ **But its FIRST branch is an explicit `config['repo_name']`** — so adding that key to the step
+config would send those 4 sites to the wrong repo, and `LANDMINES.md` records exactly that failure
+for the hand-run script which hardcodes it: **kcat exits 0, the adapter logs no error, GitHub shows
+the commit, and the served file never changes.** The migration now carries a `DO NOT ADD
+'repo_name'` comment at the step, because the correctness here lives in a key that ISN'T there,
+which is invisible to anyone reading the config.
+
+#### bug_historian's objection is REAL and is NOT fixed — the one thing this round leaves open
+
+`check_has_urls` routes `url_count = 0` to `complete` for two opposite cases: the site opted out,
+and the pages query returned nothing. Given sites carry **26–135** pages, the second is almost
+certainly a defect, and nothing files a work item or error row. This is 016b §9's *"page build
+completes having built nothing"* shape, inherited from `check_has_rss` which this deliberately
+copies.
+
+**One correction to the objection, stated because it changes the priority:** it says the site would
+*"silently and permanently"* stop being maintained. **Not permanently** — the rotation re-selects
+every 3 days regardless, so a site recovers as soon as its pages come back. The real cost is the
+**absence of a signal**, not a stuck state.
+
+**The fix, designed here so the next session does not re-derive it:** the action already
+distinguishes the cases in its `reason` string, but routing config on a prose literal is its own
+trap. Give `render_sitemap` a machine-readable `skip_reason` (`opted_out` | `no_listable_urls`),
+then branch: `opted_out` → `complete`, `no_listable_urls` → record an error row before completing.
+That is a Go change plus a follow-up migration, so it is a separate round — and it cannot be
+applied before `590` anyway.
+
