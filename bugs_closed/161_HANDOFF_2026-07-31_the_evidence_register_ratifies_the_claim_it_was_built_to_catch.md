@@ -62,6 +62,37 @@ fix candidates**, so read this before acting on that file.
 > evidence-freshness pass on gamesdesign, confirm `verified_at` bumped (check ran,
 > passed), then move this file to `bugs_closed/` and mark RFC_025 IMPLEMENTED.**
 
+> ## CLOSED 2026-08-24 — fixed AND live AND driven; every close criterion met the same day
+>
+> - **585 council-APPROVED round 1** (corr `a9e1a0de-ff04-4193-83dc-ad67f2d4d83d`, 2
+>   advisories, both answered with edits: every guard comparison made NULL-proof via
+>   `IS DISTINCT FROM`, `jsonb_typeof(source)='object'` added as a named precondition,
+>   `_ROLLBACK` sidecar written — the NULL-blind `<>` arm is logged in `WRONG_CALLS.md`).
+>   Applied by hand ~11:20Z after a doomed-transaction rehearsal ran the whole file to
+>   its own COMMIT; recorded in the ledger via `--record-only`.
+> - **The canary ran and PASSED, live, the same day.** A single-site
+>   `evidence-freshness` dispatch (orch `ac49d67e-3f86-4034-a666-64737ed1b001`,
+>   `sites_checked=1`, published with an asserted kcat receipt) executed the check:
+>   per-fact outcome `fresh` / tolerance `artifact_check`, `verified_at` bumped
+>   `2026-07-31 → 2026-08-24` (the demand control this migration deliberately built
+>   in), register rewritten by `evidence-refresher` — **and the `artifact_check` key
+>   survived that rewrite**, verified at the artefact, so the check re-arms daily.
+> - **Binary capability probed, not assumed:** both chassis replicas carry the
+>   `artifact_check.pattern` literal in `/proc/1/exe` (present=2 each, absent-string
+>   control=0), answering the council's prior_art_librarian.
+> - **What closes with this bug:** the self-ratifying-register defect (per-site fix
+>   served; structural mechanism live and now exercised on the motivating case). The
+>   fact that motivated the mechanism is the first fact the mechanism guards.
+> - **What does NOT close with it, and where it lives:** the fail-direction of the
+>   check live (unit-proven only; the council's bug_historian noted a follow-up
+>   induced-drift test would be worth an owner-sanctioned run); RFC_025 stage 2b
+>   (`page_name` addressing) and the prose half of the encoded-figure class —
+>   both tracked in `bugs_open/288`; the qualitative-credential gap ("built BY a
+>   shipped designer") — tracked in `bugs_open/149`; the remaining **28** (as of
+>   2026-08-24) artifact-sourced facts with no check — adoption is per-site and
+>   human-paced by ratified design; the attestation nudge's first possible firing
+>   is ~2027-01 (all attested facts younger than 180 days).
+
 > ## STATUS 2026-07-31 (later) — FIXED AT SOURCE AND ARMED. Open only until the served pages catch up.
 >
 > Owner authorised the repair ("take on bugs_open/161") and chose the **coherent rewrite**
