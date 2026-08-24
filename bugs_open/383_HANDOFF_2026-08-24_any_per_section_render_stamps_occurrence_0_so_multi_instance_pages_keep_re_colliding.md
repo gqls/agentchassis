@@ -197,3 +197,44 @@ one with no Go branch keyed on it (`cta_links_stale` triggers a CTA recompute wi
 landmine; `section_data_resolved`/`image_landed` get scoped to one component when a component_id
 is present). The applied file carries a control asserting all three items route to the sections
 branch, so this cannot recur silently.
+
+---
+
+## 12. REPAIR RESULT 2026-08-24 — 3 of 3 repaired in the DATABASE, 2 of 3 at the SERVED page
+
+All three items completed (`build-dispatch-loop`, 17:58–18:33; backlog drained 225 → 21).
+Verified at the artefact rather than at the status, and the two do not agree:
+
+| page | stored `page_components` | **served page** |
+|---|---|---|
+| vetcomparison.uk `/how-it-works.html` | `c-generic-text-block` ×1, `-2` ×1 ✅ | ✅ repaired |
+| gaswholesalers.com `/wholesale-pricing-explained.html` | ✅ | ✅ repaired |
+| gaswholesalers.com `/pricing-transparency.html` | ✅ | ❌ **still serves `c-generic-text-block` ×2** |
+
+**This is exactly why `complete` is not proof.** The work item says complete, the stored bytes are
+right, and the page a visitor gets is still wrong.
+
+**What is ruled out, measured:**
+- **Not a bad repair.** Raw rows for that page: position 2 → `c-generic-text-block`, position 4 →
+  `c-generic-text-block-2`, every row `build_status='deployed'`, all written 18:32:55. The
+  canonical walk did its job.
+- **Not an edge cache.** `cf-cache-status: DYNAMIC` on both pages, and a cache-busted query-string
+  fetch returns the same duplicated ids.
+- **Not "the deploy hasn't happened yet".** The served file's `last-modified` is **18:38:21**,
+  i.e. *after* the 18:32:55 repair — so a deploy ran and shipped pre-repair bytes.
+
+**The open question, and the lead.** Both gaswholesalers pages were also hit by **reason-less**
+`page_rerender` items (`created_by='rerender-pages'`, created 17:46:44) that completed at
+**18:51:03** and **18:51:38**. A reason-less item is assemble-only (`rerender_single_page`,
+"simple concatenation, no template re-rendering") — see §11. `pages.updated_at` moved to 18:51:02
+for the broken page, but the served file's `last-modified` stayed at 18:38:21, so **that assemble
+updated the database row and did not rewrite the served file.** Its sibling, assembled 35 seconds
+later, serves correctly.
+
+**This is NOT the occurrence-0 defect** — that one is fixed at source by `364e80b7f` and the
+stored bytes prove the repair worked. It is a delivery/assembly gap between correct stored HTML
+and the file on the bucket, on one page of two treated identically. **Do not fold it into 383.**
+Next step for whoever picks it up: establish whether the 18:38 deploy read a stale snapshot or
+the 18:51 assemble silently skipped the write, and check the `single-page deploy bypasses stalled
+queue` route as the direct repair (a `page_rerender` **with** `reason: template_changed` on this
+one page would both re-render and re-deploy).
