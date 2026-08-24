@@ -12,10 +12,14 @@ v2 batch's contents; everything it says about v2(d) being unbuilt is now out of 
 
 ## The one-line state
 
-> **v2(d) is BUILT, TESTED and NOT LIVE.** A finding can now carry a refute-only, machine-checkable
-> half of its own acceptance test; the gate that decides whether one may be stored is
-> `verify_acceptance_predicates`. **Three things are owed before it does anything: an image roll, a
-> hand-applied `_HOLD` migration, and a council submission that is written but undispatched.**
+> **v2(d) is BUILT, TESTED and NOT LIVE. Exactly TWO things are owed: an image roll, then applying
+> `601` by hand.** A finding can now carry a refute-only, machine-checkable half of its own acceptance
+> test; the gate that decides whether one may be stored is `verify_acceptance_predicates`.
+> **Council: SUBMITTED, `SUBMISSION_CORR = ef482d1c-b36d-40c0-a40c-772656116016`** — dispatched
+> 2026-08-24 ~19:20 BST once the token came back; read the verdict before treating the design as
+> settled. **Capability-probed 2026-08-24 19:2xZ: the action is ABSENT from both running replicas**
+> (positive control `verify_cited_cardinals` PRESENT, negative control absent) — as expected, since
+> the running image predates commit `7b875b08f`. **So 601 must NOT be applied yet.**
 
 ## What is DONE
 
@@ -28,80 +32,73 @@ v2 batch's contents; everything it says about v2(d) being unbuilt is now out of 
 | migration `601_offer_analyser_acceptance_predicates_HOLD.sql` (+ `_ROLLBACK`) | **written, NOT applied** |
 | register `CLM-024` + index row | **written** (same commit as the seam, per the 2026-07-28 ruling) |
 | LANDMINE — `pages.in_header` is not the rendered nav | **appended**, sync/dispatch OWED (see below) |
-| council submission | **written + `DRY_RUN` admitted, NOT dispatched** — `SUBMISSION_2026-08-24_v2d_acceptance_predicates.json` in this directory |
+| council submission | **DISPATCHED 2026-08-24, corr `ef482d1c-b36d-40c0-a40c-772656116016`** — JSON in this directory |
+| `check.py`'s optional-key literal (`9ba6c2ae1`) | **committed AND applied** — live CronJob repointed at configmap `…-22g749974d`, verified to carry the new action |
+| LANDMINE sync + verifier dispatch | **done** — corr `0f05ee18-5675-4877-88c7-84eca5be766d` |
+| RFC_022's consumer enumeration | **DONE, 0 rows** (`strpos` over every live `default_config`) — so the not-architecture-scope judgement is measured, not asserted |
 
-## The three things owed, in order
+## What is owed, in order
 
 ### 1. Confirm the action is in the running binary, THEN apply 601 by hand
 
-⚠ **The chassis build the owner started on 2026-08-24 afternoon does NOT carry this** — `make build-*`
-takes **committed HEAD**, and this work was uncommitted when that build began. So the roll that
-matters is the first one after commit `<this commit>`.
+⚠ **Probed 2026-08-24 19:2xZ: ABSENT from both replicas** (`agent-chassis-7f4d5f9fff-fr8dn`,
+`-xl2zk`, both ~158m old), with the positive control PRESENT and the negative control absent — so the
+probe was working and the answer is real. The chassis build the owner started on 2026-08-24 afternoon
+does **not** carry this: `make build-*` takes **committed HEAD**, and this work was uncommitted when
+that build began. The roll that matters is the first one after `7b875b08f`.
 
-Probe the **capability**, not the commit, with a control in the same breath, on **every replica**:
+Re-probe before applying, with the control in the same breath, on **every replica**:
 
 ```bash
-POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
-kubectl -n ai-persona-system exec "$POD" -- grep -aq "verify_acceptance_predicates"      /proc/1/exe && echo PRESENT-ok
-kubectl -n ai-persona-system exec "$POD" -- grep -aq "verify_acceptance_predicates_NOPE" /proc/1/exe && echo CONTROL-FAILED
+for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[*].metadata.name}'); do
+  echo -n "$POD: "
+  kubectl -n ai-persona-system exec "$POD" -- grep -aq "verify_acceptance_predicates" /proc/1/exe && echo -n "PRESENT " || echo -n "absent "
+  kubectl -n ai-persona-system exec "$POD" -- grep -aq "verify_cited_cardinals"       /proc/1/exe && echo -n "| control ok " || echo -n "| CONTROL FAILED "
+  kubectl -n ai-persona-system exec "$POD" -- grep -aq "verify_acceptance_predicates_NOPE" /proc/1/exe && echo "| NEGATIVE CONTROL FAILED" || echo "| neg ok"
+done
 ```
 
-Expect `PRESENT-ok` and no second line. Then apply 601 **by hand** (`--apply` would sweep other
-lanes' pending files) and follow the file's own three steps — they are written to be followed, and
-step 2 is *"what did I break?"*, not *"did it work?"*.
+Then apply 601 **by hand** (`--apply` would sweep other lanes' pending files) and follow the file's
+own three steps — step 2 is *"what did I break?"*, not *"did it work?"*.
 
 ⚠ **Applying it before the roll does not degrade — it breaks the agent.** A step naming an
 unregistered action makes the workflow validator reject the WHOLE workflow ("requires a topic").
 
-### 2. Fire the council submission
+### 2. Read the council verdict — `ef482d1c-b36d-40c0-a40c-772656116016`
 
-`./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
-  docs/agent_docs/docs024_key_docs_latest/vigilant_designer_offer_analysis/SUBMISSION_2026-08-24_v2d_acceptance_predicates.json`
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+ WHERE correlation_id='ef482d1c-b36d-40c0-a40c-772656116016' AND kind='council_report' ORDER BY created_at;
+SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
+```
 
-`DRY_RUN=1` already passed every client-side validation and the scope admission check (6 edits,
-29,342 plan bytes). It was not dispatched because the **kubeconfig token expired mid-session**
-(fleet-wide `Unauthorized`) — and firing a publish through a dead connection is how you end up with a
-printed correlation id and no dispatch behind it. Save `SUBMISSION_CORR`, budget ~30 minutes, and
-record the verdict in `features_open/030` §10 and in `CLM-024`.
+⚠ **The code commit `7b875b08f` predates the submission and carries NO trailer, so it will list as
+un-reviewed in the `098` report for ever** — forward-only forbids the amend that would fix it. That is
+the price of the token outage and it is recorded here rather than papered over: the correlation above
+is the link a human needs. On REVISE, resubmit with `RESUBMIT_CORR=ef482d1c-…` so the trail
+accumulates, and update the **sketches**, not just the rationale.
 
-### 3. Re-apply the optional-key-budget kustomize overlay (needs cluster access)
+## The architecture-scope judgement, and the query that supports it
 
-`check.py`'s `OPTIONAL_KEY_COUNTS` literal has learned `verify_acceptance_predicates: 1`
-(`9ba6c2ae1`) — the parity test caught it counted as **zero**, which is how two actions stayed
-invisible to the daily budget check until 2026-08-17. **The repo is right and the CronJob is not
-until the overlay is applied:**
-`kubectl apply -k deployments/kustomize/services/optional-key-budget-check/overlays/production/uk_001`
-(check the overlay path against the tree first). Nothing is at risk in the meantime — one optional
-key on one action is nowhere near N=10 — but the literal is the thing that goes stale silently.
+The pre-commit hook flagged *"migration + platform code in one commit — needs a staged rollout
+order"*. It has one, and the file states it (`_HOLD`, image first). The recorded judgement is that
+this is **not architecture-scope** under RFC_022's narrowing (owner ruling 2026-08-11): the new
+authority ships as an **opt-in field**, its **unsafe side is the default OFF** (absent
+`acceptance_predicate` → `write_audit_findings` behaves byte-for-byte as before, for every producer),
+and **no live consumer names it**. That third condition is the one the ruling insists must be
+QUERIED — *"asserting it without the query is itself the objection"* — so it was:
 
-### 4. Sync the LANDMINE (needs cluster access)
+```sql
+SELECT type, count(*) FROM agent_definitions
+ WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
+   AND strpos(default_config::text, 'acceptance_predicate') > 0
+ GROUP BY 1;
+```
 
-`./scripts/landmines-verify-dispatch.sh` — **not** `landmines-sync.py --apply`, which consumes the
-"new entry" status so the verifier never checks it. Owed for the `pages.in_header` entry appended
-2026-08-24.
-
-### 5. Two checks this session could not run, both blocked on the same expired token
-
-- **The RFC_022 consumer enumeration, which the ruling requires be QUERIED rather than asserted.**
-  The claim that makes this not-architecture-scope is *"zero live consumers name the new key"*. The
-  repo side is established (before commit `7b875b08f` the string `acceptance_predicate` appeared
-  nowhere outside `write_audit_findings`'s own prose), but the owner's ruling is explicit that
-  *"enumerate the consumers — asserting it without the query is itself the objection"*. Run it:
-  ```sql
-  SELECT type, count(*) FROM agent_definitions
-   WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
-     AND strpos(default_config::text, 'acceptance_predicate') > 0
-   GROUP BY 1;
-  ```
-  ⚠ `strpos`, not `LIKE '%acceptance_predicate%'` — `_` is a LIKE wildcard and it matched reviewer
-  prose the last time this lane used it (it read 3 consumers where there was 1). Expect **1** row
-  after 601 is applied (`offer-analyser` itself) and **0** before.
-- **The commit's own architecture signal.** The pre-commit hook flagged *"migration + platform code in
-  one commit — needs a staged rollout order"*. It has one, and the file states it (`_HOLD`, image
-  first). The judgement recorded here is that this is not architecture-scope under RFC_022's
-  narrowing — opt-in, unsafe side default OFF, no live consumer — **and the third condition is the
-  query above, which is owed.** If it comes back non-zero for anything other than `offer-analyser`,
-  that judgement was wrong and the council round is the place to say so.
+**0 rows, 2026-08-24.** ⚠ `strpos`, not `LIKE '%acceptance_predicate%'` — `_` is a LIKE wildcard and
+it matched reviewer prose the last time this lane used it (3 apparent consumers where there was 1).
+**Re-run it after 601 is applied: the correct answer then is exactly one row, `offer-analyser`.** More
+than that means someone else has started naming the key and the judgement above needs revisiting.
 
 ## What this feature does, in three sentences, because the shape is the whole design
 
