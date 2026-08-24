@@ -238,3 +238,13 @@ truncation-shaped checks at `:176-180` and `:186-193` return ~300 lines *before*
 write neither `agent_error_log` nor the channel — the path this lane implied does not exist.
 **Unstarted, spans both lanes, and they have asked to agree it rather than build it
 unilaterally.** Seat WII-026 in `work-item-integrity.md`.
+
+**RESOLVED 2026-08-24 — declined by both lanes, with a corrected tripwire.** The truncation
+class stays unbuilt by decision (dormant since 08-19 00:24Z; its only two work items died in this
+lane's own 12:33Z supersede batch, so the drain proves nothing). The tripwire first recorded for
+it was **blind** — my error, corrected at the foot of `bugs_closed/345` (commit `1d693b72e`,
+verified by the 345 lane's one-row test in `b705cb109`). ⚠ **Date that matters when re-running
+it: `agent_error_log` retains ~31 days, so the 08-19 Face-A rows age out of the log arm around
+2026-09-19** — after that a clean log arm means retention, not absence, and only the
+`site_work_items` arm carries the history. The §3c orphan-rate re-check (~08-30) lands before
+that cliff; anything later must read the items arm.
