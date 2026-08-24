@@ -570,3 +570,21 @@ Also noted for P1's design when it resumes: the walk goes through
 `RenderTemplate` (the reporting form), never a new executor path — the AST
 tests from `2817f6661` enforce exactly that, and they found a third rogue
 executor the day they landed.
+
+## 2026-08-24 — coordination with the `bugs_open/381` lane (writer html vocabulary)
+
+Their fix (five prose slots `type: text` → `type: html`; RULE 10 rewritten to
+permit h3/ul/ol/strong/table) is writer-seam, not CSS — no overlap with Phase
+B's furniture mechanism. Answered their two questions, on record:
+
+1. **Plain vocabulary, no furniture classes in llm_guidance** — under 035 a
+   pull-quote is a child component instance, not a writer emission; a class
+   name in guidance is a comment, not a control; structure-in-the-blob is the
+   238 class. Bare `<blockquote>` fine. **Hard request made: the html-slot
+   guidance must EXPLICITLY forbid `<img>`/`<figure>`/`<iframe>`** — otherwise
+   their change re-enables the in-blob imagery loss class fleet-wide.
+2. **Phase E timeline**: will register when E2 exists (substrate-first stands);
+   welcome on `component_expresses` menus ONLY if their derivation can carry a
+   "requires evidence base" dependency — a fact-fed component surfaced
+   generically fails closed on evidence-less sites (gaswholesalers precedent).
+   Asked them to put that gate in their (A) design.
