@@ -534,3 +534,42 @@ verify-later is discharged; its "may not claim the mechanism has ever fired" cav
 and only for this half.
 
 **WFA-023 is unchanged: reader live and inert, writer still absent, 588 still held.**
+
+## 2026-08-24 (evening, last) — a second independent firing, and a claim I nearly made off ONE observation
+
+**Second independent proof of MDL-044, unprompted by me** `[MEASURED 2026-08-24 16:54Z]`: a
+routine state read showed `healthy=f`, and moments later `healthy=t` with
+`last_checked = 16:54:00.987` but `last_healthy = 16:54:11.817` — the same
+`last_healthy > last_checked` signature, matching a successful `council-gate` call at
+`16:54:11.836` to **19 milliseconds**. Nobody forced anything; the probe had set the row false
+and a live call healed it in ~11s. That is the mechanism doing its job in production.
+
+**And here is where I nearly overclaimed.** From that single event I formed the reading *"the
+probe is intermittently marking claude unhealthy, so the pre-fix system was losing fleet
+dispatch far more often than the 7-cap-days figure suggests"* — which would have been a
+striking finding, and would have gone in the bug file.
+
+So I sampled the row every 3s for 2 minutes before writing it:
+
+```
+samples: 40      healthy=T: 40      healthy=F: 0
+```
+
+**Zero false readings.** The claim is **not supported**, and the sample also cannot refute it —
+at a ~92s probe cadence, two minutes covers barely one or two probe ticks, and any false the
+writer healed inside my 3s sampling gap is invisible to it. **So the honest statement is: one
+probe-induced `false` was observed, and the rate is `[UNMEASURED]`** — my sample was
+structurally incapable of bounding it in either direction.
+
+What it *does* establish, and this is the useful part: the row was false and **self-healed in
+seconds without anyone acting**. Before MDL-044 that same event would have held the fleet's
+claim gate shut until the next probe tick — up to an hour before today's migration, and one to
+two minutes after it. **Measuring the rate properly needs a sampler at ~1s over hours, or a
+history table; neither exists, and inventing one is not this lane's job.** Recorded so the next
+session neither repeats my inference nor mistakes my two-minute sample for a bound.
+
+**Also for the record — a same-file passenger, in the direction that lands on me.** My edit to
+`docs026_concept_register/register/000_concept_index.md` was swept into another session's commit
+`51293533e` ("333 round-2 record") before I committed it. The content is at HEAD and nothing is
+lost; forward-only holds. It is the exact scenario CLAUDE.md describes — committing per task
+stops *me* sweeping *others'* work, and cannot stop theirs sweeping mine.

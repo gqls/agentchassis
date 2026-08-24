@@ -176,3 +176,59 @@ everyone was about to build — making that check less trigger-happy — would h
 of code that never fires for this problem, shipped, and looked like a fix. I nearly did it
 myself. It is written up as my own mistake in the shared log, because I repeated the claim from
 another thread's notes without reading the function.
+
+## Sunday 24 August 2026, evening — the interval is in, and the main fix is proven working
+
+You asked for the shorter probe interval, so that is done. It was bundled inside the held-back
+database change, so I split it out into its own file, applied it by hand, checked it, and
+recorded it properly. The re-check now happens every minute or two instead of once an hour.
+
+**One correction, made before it could get quoted at anyone.** I had written that this brings
+the worst case down to "about a minute". It does not. The check only happens when a background
+task ticks *and* the endpoint's own timer has elapsed, and that task also runs on a minute — so
+the two compose. I measured the actual gaps: 94 and 92 seconds. So it is one to two minutes.
+Still about forty times better than an hour, which is the point, but "one minute" is the kind of
+round number that gets repeated for years and it is not what the system does.
+
+**The main fix is live and I have proven it works on real traffic.** The new build carries it —
+I checked the actual running binary on both machines rather than trusting the version number,
+with two control checks to make sure the test could tell the difference.
+
+Then I proved the behaviour: I marked the endpoint unhealthy by hand, and a single real
+successful call cleared it within about forty seconds. I can attribute that to our new code
+rather than to the old hourly check with certainty, because our code updates one timestamp and
+not the other — and the two came out sixty-one seconds apart, which nothing else in the system
+can produce. It then did it again on its own a couple of minutes later, healing a genuine blip
+in about eleven seconds. **So the hour-long fleet stall this bug was really about is now closed
+at the cause, not just shortened.**
+
+### I have to tell you about a bad half-hour in the middle
+
+My first attempt to prove it reported failure. I spent a good while diagnosing my own
+freshly-shipped code — reading the insertion point, checking whether those agents take a
+different route, checking whether the pods were running an older image.
+
+**The fault was in my test.** The database prints a true/false column one way on its own and a
+different way when you join it onto other text, and I was comparing against the wrong one. My
+check could never have reported success, for any state of the system. Two further attempts
+"failed" for an unrelated reason: there simply were no calls happening in those windows, so
+there was nothing for a fix that reacts to successful calls to react to.
+
+Three failures, two different causes, none of them about the code. Three consistent negatives
+felt like confirmation; they were one broken instrument and two empty rooms. **I was one commit
+from writing "this does not work" into the bug file — about my own code, on the day it shipped.**
+What caught it was noticing an impossible pair of timestamps in a state dump.
+
+It is written up in the shared mistakes log, and both checks now sit inside the experiment
+rather than in my memory.
+
+### Still outstanding
+
+The third piece is still blocked on the other thread's uncommitted file, exactly as this
+morning — I re-checked, it has not landed. So the database change that depends on it stays held
+back, and I have confirmed by inspecting the running binary that the piece it waits for is
+genuinely not there. Nothing is half-applied.
+
+And the two big questions remain yours, unchanged: topping up is still the only thing that
+restores service under a real cap, and whether we add a second AI provider is still undecided —
+every one of our 127 configured AI steps points at the same account and the same key.
