@@ -1,6 +1,6 @@
 # RFC 025 — Artifact- and attestation-sourced evidence facts are trusted once registered, and 72% of the fleet's facts are in that class
 
-**Status: RATIFIED 2026-08-12** (owner; answers in §9) · opened 2026-08-12 by the
+**Status: IMPLEMENTED 2026-08-24** (see §11; RATIFIED 2026-08-12, owner; answers in §9) · opened 2026-08-12 by the
 `portfolio_positioning` build-out session,
 per the explicit self-classification in `bugs_open/161_HANDOFF_2026-07-31_the_evidence_register_ratifies_the_claim_it_was_built_to_catch.md`
 ("a new shared vocabulary key on a shared mechanism — architecture scope under CLAUDE.md's
@@ -394,3 +394,30 @@ of the stamp via `git merge-base --is-ancestor`. The one remaining condition for
 real register (the daily evidence sweep will now exercise stage 1 automatically —
 attested facts older than 180 days will begin raising `stale_attestation` items without
 further action).
+
+## 11. IMPLEMENTED — the §5.3 canary armed and proven live, 2026-08-24
+
+The bugs_open/161 close-out session executed the §5.3 step eleven days after go-live
+(zero facts had used either mechanism in between — measured, with `citation` as the
+positive control returning 61+). Migration
+`docs/agent_docs/sql_for_agents/585_bug161_arm_artifact_check_canary_on_gd_trials.sql`
+(council APPROVED round 1, corr `a9e1a0de-ff04-4193-83dc-ad67f2d4d83d`) attached the
+first real `artifact_check` fleet-wide to `gd-trials` itself: pattern
+`Math\.min\(val,\s*10000\)` against tool-drop-rate-simulator's hero component
+`15f1f798-51fb-41d0-8a07-18148b39a293`, `verified_at` deliberately left at `2026-07-31`
+as the demand control. A single-site `evidence-freshness` dispatch the same day
+(orch `ac49d67e-3f86-4034-a666-64737ed1b001`, `sites_checked=1`) proved the loop end to
+end: per-fact outcome **`fresh`**, tolerance `artifact_check`, `verified_at` bumped
+`2026-07-31 → 2026-08-24`, register rewritten by `evidence-refresher` **with the
+`artifact_check` key surviving the rewrite** (the §10 round-1 write-back question,
+now verified at the artefact rather than by code-reading). The fact that motivated this
+RFC is the first fact its mechanism guards, checked daily from now on.
+
+Still open elsewhere, not here: the drift/error branch is unit-proven only (the 585
+council round's bug_historian suggests an owner-sanctioned induced-drift test);
+stage 2b (`page_name` addressing) and the encoded-figure prose half are tracked in
+`bugs_open/288`; stage 1's earliest possible firing is ~2027-01 (every attested fact
+is younger than 180 days as of 2026-08-24). Adoption beyond the canary stays per-site
+and human-paced by this RFC's own design — **27** artifact-sourced facts (as of
+2026-08-24) carry no check yet, and §7's expectation stands: a slow count is not
+failure.
