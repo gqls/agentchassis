@@ -7,6 +7,7 @@ package main
 // themselves, so there is no second, subtly different auth path to get wrong.
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -41,6 +42,7 @@ func (s *Server) Routes() http.Handler {
 
 	mux.HandleFunc("POST /api/notes/{id}/media", s.auth(s.uploadMedia))
 	mux.HandleFunc("GET /api/media/{id}", s.auth(s.getMedia))
+	mux.HandleFunc("DELETE /api/media/{id}", s.auth(s.deleteMedia))
 
 	mux.HandleFunc("POST /api/import", s.auth(s.importBackup))
 
@@ -197,6 +199,10 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request, a *Account) {
 		"email":       a.Email,
 		"media_bytes": a.MediaBytes,
 		"media_quota": s.Store.QuotaBytes,
+		// The per-file cap lives in this process's environment; reporting it
+		// here is what lets the editor refuse an oversized file BEFORE the
+		// upload, without hardcoding a number that can drift from the truth.
+		"max_upload": s.MaxUploadBytes,
 	})
 }
 
@@ -253,8 +259,8 @@ func (s *Server) uploadMedia(w http.ResponseWriter, r *http.Request, a *Account)
 		return
 	}
 	kind := r.URL.Query().Get("kind")
-	if kind != "audio" && kind != "image" {
-		writeErr(w, http.StatusBadRequest, "kind must be audio or image")
+	if kind != "audio" && kind != "image" && kind != "video" {
+		writeErr(w, http.StatusBadRequest, "kind must be audio, image or video")
 		return
 	}
 	mime := r.Header.Get("Content-Type")
@@ -308,7 +314,23 @@ func (s *Server) getMedia(w http.ResponseWriter, r *http.Request, a *Account) {
 	// browser: an uploaded file is attacker-controlled bytes.
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Disposition", "inline")
-	_, _ = w.Write(data)
+	// ServeContent for the Range handling: without it a <video> can play but
+	// never seek. Zero modtime on purpose — Cache-Control forbids caching, so
+	// a Last-Modified would only invite conditional requests it then refuses.
+	http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(data))
+}
+
+func (s *Server) deleteMedia(w http.ResponseWriter, r *http.Request, a *Account) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad media id")
+		return
+	}
+	if err := s.Store.DeleteMedia(r.Context(), a.ID, id); err != nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 // --- import ---------------------------------------------------------------
@@ -318,9 +340,9 @@ func (s *Server) getMedia(w http.ResponseWriter, r *http.Request, a *Account) {
 // migration path off the local-only app, so the shape is fixed by what is
 // already on people's disks — it cannot be tidied up later.
 type backupFile struct {
-	Format  string            `json:"format"`
-	Version int               `json:"version"`
-	Notes   []backupNote      `json:"notes"`
+	Format  string              `json:"format"`
+	Version int                 `json:"version"`
+	Notes   []backupNote        `json:"notes"`
 	Audio   map[string][]string `json:"audio"`
 	Images  map[string][]string `json:"images"`
 }

@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS media (
     id          BIGSERIAL PRIMARY KEY,
     note_id     BIGINT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
     account_id  BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-    kind        TEXT NOT NULL CHECK (kind IN ('audio','image')),
+    kind        TEXT NOT NULL CHECK (kind IN ('audio','image','video')),
     mime        TEXT NOT NULL DEFAULT 'application/octet-stream',
     bytes       BYTEA NOT NULL,
     byte_len    BIGINT NOT NULL,
@@ -73,6 +73,13 @@ CREATE TABLE IF NOT EXISTS media (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_media_note ON media(note_id, kind, ordering);
+
+-- 2026-08-24: 'video' joins the kinds (owner ask — the media pasteboard, stage 1).
+-- The CHECK above only applies to a freshly created table; on an existing
+-- database CREATE TABLE IF NOT EXISTS is a no-op, so this pair is the real
+-- migration. Idempotent like everything else here, re-run at every startup.
+ALTER TABLE media DROP CONSTRAINT IF EXISTS media_kind_check;
+ALTER TABLE media ADD CONSTRAINT media_kind_check CHECK (kind IN ('audio','image','video'));
 
 -- Keep accounts.media_bytes true no matter which code path writes media. A
 -- quota enforced only in the handler is a quota that the next handler forgets.

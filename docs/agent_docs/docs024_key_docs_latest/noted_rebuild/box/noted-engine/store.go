@@ -40,9 +40,9 @@ const (
 )
 
 var (
-	ErrNoAccount    = errors.New("no such account")
-	ErrEmailTaken   = errors.New("email already registered")
-	ErrBadPassword  = errors.New("incorrect password")
+	ErrNoAccount     = errors.New("no such account")
+	ErrEmailTaken    = errors.New("email already registered")
+	ErrBadPassword   = errors.New("incorrect password")
 	ErrQuotaExceeded = errors.New("media quota exceeded")
 )
 
@@ -66,6 +66,10 @@ type Note struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	Audio     []Media   `json:"audio,omitempty"`
 	Images    []Media   `json:"images,omitempty"`
+	// Every kind, in upload order — the shape the editor (and the coming
+	// pasteboard) consumes. Audio/Images above remain for anything that
+	// already reads the grouped form.
+	Media []Media `json:"media,omitempty"`
 }
 
 type Media struct {
@@ -239,9 +243,12 @@ func (s *Store) ListNotes(ctx context.Context, accountID int64) ([]Note, error) 
 
 	// Media metadata in one query rather than N — the bytes themselves are
 	// fetched separately, per item, so a note list never carries megabytes.
+	// Ordered by id, which is insert order both within a kind (ordering and
+	// id advance together) and across kinds — the unified array wants the
+	// order things were added, not audio-then-images.
 	mrows, err := s.DB.QueryContext(ctx,
 		`SELECT id, note_id, kind, mime, byte_len FROM media
-		  WHERE account_id=$1 ORDER BY note_id, kind, ordering, id`, accountID)
+		  WHERE account_id=$1 ORDER BY note_id, id`, accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -253,9 +260,11 @@ func (s *Store) ListNotes(ctx context.Context, accountID int64) ([]Note, error) 
 			return nil, err
 		}
 		if idx, ok := byID[noteID]; ok {
-			if m.Kind == "audio" {
+			notes[idx].Media = append(notes[idx].Media, m)
+			switch m.Kind {
+			case "audio":
 				notes[idx].Audio = append(notes[idx].Audio, m)
-			} else {
+			case "image":
 				notes[idx].Images = append(notes[idx].Images, m)
 			}
 		}
@@ -350,6 +359,20 @@ func (s *Store) AddMedia(ctx context.Context, accountID, noteID int64, kind, mim
 		return 0, err
 	}
 	return id, tx.Commit()
+}
+
+// DeleteMedia is account-scoped in the SQL like every other query here; the
+// media_bytes trigger hands the freed bytes back to the quota.
+func (s *Store) DeleteMedia(ctx context.Context, accountID, mediaID int64) error {
+	res, err := s.DB.ExecContext(ctx,
+		`DELETE FROM media WHERE id=$1 AND account_id=$2`, mediaID, accountID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNoAccount
+	}
+	return nil
 }
 
 func (s *Store) GetMedia(ctx context.Context, accountID, mediaID int64) (string, []byte, error) {

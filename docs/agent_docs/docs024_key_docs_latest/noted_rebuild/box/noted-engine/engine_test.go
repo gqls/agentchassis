@@ -266,3 +266,96 @@ func TestPasswordHashingRoundTrips(t *testing.T) {
 		t.Fatal("identical hashes for the same password — salt is not being applied")
 	}
 }
+
+// Stage 1 of the media pasteboard (PLAN_2026-08-24): video joins the kinds,
+// media can be deleted (freeing quota), and Range requests work so a <video>
+// can seek. Each property below was absent before 2026-08-24.
+
+func TestVideoKindAcceptedAndUnknownKindRefused(t *testing.T) {
+	s := newTestServer(t)
+	c := signUp(t, s, "video@example.com")
+	rec := do(t, s, "POST", "/api/notes", c, `{"title":"clip","content":""}`)
+	var n Note
+	json.Unmarshal(rec.Body.Bytes(), &n)
+
+	rec = do(t, s, "POST", fmt.Sprintf("/api/notes/%d/media?kind=video", n.ID), c, "mp4 bytes")
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("video upload refused: %d %s", rec.Code, rec.Body.String())
+	}
+	rec = do(t, s, "POST", fmt.Sprintf("/api/notes/%d/media?kind=document", n.ID), c, "pdf bytes")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("unknown kind accepted: %d %s", rec.Code, rec.Body.String())
+	}
+
+	// The unified array carries every kind, in the order things were added.
+	do(t, s, "POST", fmt.Sprintf("/api/notes/%d/media?kind=audio", n.ID), c, "ogg bytes")
+	rec = do(t, s, "GET", "/api/notes", c, "")
+	var listed struct{ Notes []Note }
+	json.Unmarshal(rec.Body.Bytes(), &listed)
+	if len(listed.Notes) != 1 || len(listed.Notes[0].Media) != 2 {
+		t.Fatalf("unified media array wrong: %s", rec.Body.String())
+	}
+	if listed.Notes[0].Media[0].Kind != "video" || listed.Notes[0].Media[1].Kind != "audio" {
+		t.Fatalf("unified media order wrong: %+v", listed.Notes[0].Media)
+	}
+}
+
+func TestMediaDeleteIsAccountScopedAndFreesQuota(t *testing.T) {
+	s := newTestServer(t) // 1 MB quota
+	alice := signUp(t, s, "del-a@example.com")
+	bob := signUp(t, s, "del-b@example.com")
+	rec := do(t, s, "POST", "/api/notes", alice, `{"title":"quota","content":""}`)
+	var n Note
+	json.Unmarshal(rec.Body.Bytes(), &n)
+
+	big := strings.Repeat("x", 800*1024) // 800 KB — two cannot fit in 1 MB
+	rec = do(t, s, "POST", fmt.Sprintf("/api/notes/%d/media?kind=image", n.ID), alice, big)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("first upload: %d %s", rec.Code, rec.Body.String())
+	}
+	var up struct{ ID int64 }
+	json.Unmarshal(rec.Body.Bytes(), &up)
+	if rec = do(t, s, "POST", fmt.Sprintf("/api/notes/%d/media?kind=image", n.ID), alice, big); rec.Code != http.StatusInsufficientStorage {
+		t.Fatalf("second 800 KB should have hit the 1 MB quota: %d", rec.Code)
+	}
+
+	// Bob may not delete alice's media, and his attempt must not free her quota.
+	if rec = do(t, s, "DELETE", fmt.Sprintf("/api/media/%d", up.ID), bob, ""); rec.Code == http.StatusOK {
+		t.Fatalf("LEAK: bob deleted alice's media")
+	}
+	if rec = do(t, s, "GET", fmt.Sprintf("/api/media/%d", up.ID), alice, ""); rec.Code != http.StatusOK {
+		t.Fatalf("alice's media gone after bob's refused delete: %d", rec.Code)
+	}
+
+	// Alice deletes; the bytes come back to her quota and the row is gone.
+	if rec = do(t, s, "DELETE", fmt.Sprintf("/api/media/%d", up.ID), alice, ""); rec.Code != http.StatusOK {
+		t.Fatalf("alice delete: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec = do(t, s, "GET", fmt.Sprintf("/api/media/%d", up.ID), alice, ""); rec.Code != http.StatusNotFound {
+		t.Fatalf("deleted media still served: %d", rec.Code)
+	}
+	if rec = do(t, s, "POST", fmt.Sprintf("/api/notes/%d/media?kind=image", n.ID), alice, big); rec.Code != http.StatusCreated {
+		t.Fatalf("delete did not free the quota: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestMediaRangeRequestsSeek(t *testing.T) {
+	s := newTestServer(t)
+	c := signUp(t, s, "range@example.com")
+	rec := do(t, s, "POST", "/api/notes", c, `{"title":"seek","content":""}`)
+	var n Note
+	json.Unmarshal(rec.Body.Bytes(), &n)
+	rec = do(t, s, "POST", fmt.Sprintf("/api/notes/%d/media?kind=video", n.ID), c, "0123456789")
+	var up struct{ ID int64 }
+	json.Unmarshal(rec.Body.Bytes(), &up)
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/api/media/%d", up.ID), nil)
+	req.AddCookie(c)
+	req.Header.Set("Range", "bytes=5-8")
+	out := httptest.NewRecorder()
+	s.Routes().ServeHTTP(out, req)
+	if out.Code != http.StatusPartialContent || out.Body.String() != "5678" {
+		t.Fatalf("range not honoured: %d %q (Content-Range %q)",
+			out.Code, out.Body.String(), out.Header().Get("Content-Range"))
+	}
+}
