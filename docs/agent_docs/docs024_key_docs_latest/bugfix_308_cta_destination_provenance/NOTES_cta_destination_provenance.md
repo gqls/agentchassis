@@ -536,3 +536,59 @@ without an amend (forward-only forbids one anyway).
   handoff and in `RFC_047`; not resolved here.
 - **`prior_art_librarian` (medium)** — wanted the three-call-site enumeration shown rather than
   asserted. Fair; it is now in the code comment above, with the command that produces it.
+
+## 2026-08-24 — PROVEN AT THE ARTEFACT, and the backlog question is answered
+
+### 1. The build
+
+Chassis **v1.0.1332**, deployed 09:39Z. Both replicas probed for `LoadCTALabelUniverse` (Phase B)
+and `BestLabelMatchForPage` (the self-link refusal) with `LoadCTALabelUniverseNOTREAL` as a control
+that must come out absent — all six readings as required, in the same exec each time.
+
+### 2. The repair, at the served page
+
+`finetuning.uk/ai-for-uk-small-business`, hero: **"Book a Discovery Call"** →
+`/tools/password-entropy.html` became `/contact.html`, in the row, in the committed bytes
+(`gqls/sites` `07f664323`) and on the live page. `__cta_minted` records **both** slots. Four
+buttons on that page repaired; all four destinations 200. Detail in the bug file.
+
+### 3. The detector, before and after, on one query
+
+| | old runs | new run (v1.0.1332) |
+|---|---|---|
+| findings on finetuning.uk | 169 | 70 |
+| bare `"how we work"` → `/about.html` (FALSE) | **15** | **0** |
+| findings suggesting the page they sit on | **7** | **0** |
+
+And the correct member of the same family survived: `"See how we work with clients from first call
+to…"` → `/how-we-work.html`. That is the discriminating result — a change that silenced the whole
+family would have taken this one too.
+
+### 4. `detected` is NOT dispatchable — the handoff's `[UNVERIFIED]` is now resolved
+
+`load_work_item_actions.go:711` (read at HEAD, because the file is dirty from another lane):
+
+```sql
+AND wi.status IN ('triaged', 'approved')
+AND wi.attempt_count < wi.max_attempts
+AND (COALESCE(wi.approval_mode,'auto') = 'auto' OR wi.status = 'approved')
+```
+
+So a freshly-`detected` item waits for triage. **It does get triaged** — fleet-wide, `cta_links_stale`
+page_rerenders sit at 344 `complete`, and **zero** items have been stuck in `detected` for more than
+two days. Today's 32 will drain on their own, and will now actually repair rather than completing
+unchanged.
+
+**The stuck pool is `unresolved`: 215 items, 2026-07-16 → 2026-08-18.** Those will NOT drain by
+themselves, and they are what the Phase C requeue (`555_requeue_misdirected_cta_stock.sql`) exists
+for. ⚠ **The requeue must set `triaged`, not `detected`** — this is exactly the fact the migration
+needed and did not have.
+
+### 5. My own error this session, and it forged evidence for the bug I was testing
+
+My first induced rerender put `reason` at the top level of `input_data`. The workflow's
+`check_rerender_mode` conditional reads **`input_data.spec.reason`**, so the run took `render_page`,
+deployed the page, and completed green **with the button unchanged** — which is precisely bug 308's
+symptom. I got as far as inspecting the workflow for a live defect before checking my own payload.
+Filed as a LANDMINE, because when the thing under test IS a silent no-op, a malformed dispatch
+manufactures a false positive that looks like the bug.
