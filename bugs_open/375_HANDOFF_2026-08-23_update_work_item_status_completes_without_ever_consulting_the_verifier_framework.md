@@ -76,6 +76,91 @@ it refuses to enumerate producers in code.
   Then cross that against the registered verifier list. **Do not size this from `bugs_open/367`
   alone** — that is one router, found by accident.
 
+## 3a. THE OWED CENSUS, RUN `[MEASURED 2026-08-24 18:49Z, live DB + live code]`
+
+Run by a reader from the (closed) `bugfix_367_router_remit` lane, at the invitation of the ⚠
+above. **The ⚠ is now ANSWERED — it stays on the page because the warning it carries about
+sizing is still right, and because the answer changes the priority order in §4.**
+
+### The blast radius is FOUR agents and SIX `complete` arms — of **200** live agent definitions
+
+`update_work_item_status` is named by **6** live agents; `complete_work_item` by **4**. Only these
+four reach `complete` through the unguarded writer (`$.workflow.steps.*` where
+`action='update_work_item_status'` and `config.status='complete'`):
+
+| agent | step(s) setting `complete` |
+|---|---|
+| `image-build-handler` | `mark_work_item_complete` |
+| `image-source-unsatisfiable-handler` | `close_complete` |
+| `image-url-404-handler` | `close_complete` |
+| `required-fields-missing-handler` | `close_converted`, `close_resolved`, `close_stale` ← `bugs_open/367`'s router |
+
+The other two agents naming the action (`css-patch-agent`, `page-build-handler`) use it **only for
+`failed` and `needs_human_review`** — statuses a verifier has no opinion about, since the framework
+exists to stop a saga that *claims success*. `page-build-handler` matters here: it handles four
+VERIFIED types and completes them, but its completions do **not** go through this writer.
+
+### The intersection with registered verifiers is **ZERO**, and that is the headline
+
+Those four agents handle exactly five item types, all history:
+
+| item_type | rows | completed | last filed |
+|---|---|---|---|
+| `needs_imagery` | 183 | 92 | 2026-08-24 |
+| `required_fields_missing` | 64 | 38 | 2026-08-23 |
+| `image_source_unsatisfiable` | 15 | **0** | 2026-08-09 |
+| `needs_hero_image` | 5 | 3 | 2026-08-24 |
+| `needs_logo` | 3 | 1 | 2026-08-22 |
+
+**None of the five has a registered verifier.** So **no verifier is being bypassed today** — the
+defect is LATENT, not active. **134** completions all-history have taken the unguarded path
+(92+38+3+1); every one of them was unverifiable by any writer, guarded or not.
+
+⚠ **This zero is disconfirmable and was controlled**, because a zero from a mis-spelled `IN` list
+looks identical to a real one. Positive control: the same 13-type list run without the handler
+filter returns **12 of 13 types with real rows** (`unbuilt_internal_link` 89, `empty_section` 56,
+`literal_markdown` 52+10+8, `needs_brand_head_assets` 14, …), every one of them handled by an agent
+NOT in the table above. The spellings are right and the separation is real.
+
+**Correction to §3's first bullet, same measurement:** the registered count is **13** as of
+2026-08-24, not "12+". And the grep in that bullet **under-reports by construction** —
+`RegisterVerifier(` does not match `RegisterVerifierWithPolicy(`, which is how
+`hardcoded_section_colors` and `needs_brand_head_assets` are registered even though §3 lists them.
+Use `grep -rhn 'RegisterVerifier\(WithPolicy\)\?('`. (I hit this myself: my first census returned
+11 and I only caught it because §3 named two types my own grep had not found.)
+
+### What makes it a real bug anyway: it is a trap laid for the NEXT person, by name
+
+`verifier_coverage_test.go` classifies every unverified type and says of one category, in its own
+words: *"catMechanical: the defect has a re-runnable predicate and the item carries enough identity
+to locate it. **These SHOULD get verifiers — this is the actionable backlog, not an excuse list.**"*
+
+Two of the five are on that backlog — `required_fields_missing` (`:237`, catMechanical) and
+`image_source_unsatisfiable` (`:240`, catMechanical) — and the other three are `catCreation`,
+*"verifiable in principle by an existence check"*. **So the framework's own maintained list invites
+somebody to write exactly the verifier that this action will silently ignore.** They will register
+it, the coverage test will go green, and the type will be no more protected than before.
+
+And `CQ-023` already warns that the `required_fields_missing` one *"would fail-close the `converted`
+arm's completion"* — so the first person to work that backlog walks into a trap from both sides at
+once: the guard that will not fire, and the arm that will over-fire if it ever does.
+
+### What this does to §4's ordering
+
+- **Candidate 1 gets cheaper and less urgent at the same time.** Less urgent because no verifier is
+  being skipped today. Cheaper because **`RFC_022`'s narrowing (owner ruling 2026-08-11) applies
+  squarely**: an opt-in field whose unsafe default is OFF and which **no live consumer names** is
+  NOT architecture-scope — and the enumeration is now done, above, rather than asserted. On this
+  measurement candidate 1 can go through the **normal council gate**.
+- **Candidate 3 is now provable rather than merely honest.** The overstatement in the coverage
+  guard's promise has a number: 4 agents, 6 arms, 5 types, 134 completions.
+- **Candidate 2 (unify the writers) is unchanged** — still the structural fix, still squarely
+  architecture-scope.
+- **A fourth candidate the file did not have:** teach the coverage guard that *"has a verifier"* is
+  not *"is verified"* unless every completer of that type consults one. That is the change that
+  keeps the zero above TRUE instead of merely true-today, and it is the only one that protects the
+  person the trap is set for.
+
 ## 4. Fix candidates, ordered by what makes the bad state unrepresentable
 
 1. **Consult the verifier on this path too**, behind an **opt-in step-config key whose unsafe
