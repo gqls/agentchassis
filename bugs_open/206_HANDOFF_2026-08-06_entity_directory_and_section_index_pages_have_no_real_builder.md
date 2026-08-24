@@ -635,3 +635,71 @@ is theirs to authorise, not this lane's to take. Asked, not assumed.
 **Re-triaging by hand instead (the RUNBOOK's step 4) fixes the PAGE but proves nothing about this
 fix** — setting `handler_agent` yourself demonstrates only that `directory-build-handler` works,
 which has been known since 08-08. Distinguish the two before reporting either as closure.
+
+## 2026-08-24 — the authorisation was NOT spent, and why. Where this fix actually fires.
+
+The owner authorised clearing the stuck job on `garden-tools.uk`. **It was not cleared**, because
+checking what would have to happen next showed the action would either do nothing or do harm.
+
+### First, the state was not what anyone thought
+
+The owner recalled having already cleared it in another lane. Measured: **all three
+`garden-tools.uk` rows are untouched** — `needs_human_review`, `handler_agent='page-build-handler'`,
+born 2026-08-23 20:15, and `sites.last_reconciled_at` unchanged at the same timestamp. (The likely
+source of the recollection is the `vetcomparison` `practice` page, which a different lane re-typed
+this morning — a real action on a different site.)
+
+### Second, and decisively: `reconcile_site_plan` runs in ONE place, and it is a full re-plan
+
+`[MEASURED 2026-08-24]` — every agent whose steps carry the action:
+
+```sql
+SELECT ad.type, st.key FROM agent_definitions ad, jsonb_each(ad.default_config->'workflow'->'steps') st
+WHERE st.value->>'action' = 'reconcile_site_plan'
+  AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL;
+-- build-site-planner | reconcile_site_plan     ← the ONLY row
+```
+
+and **no scheduled task targets it** (`SELECT count(*) FROM scheduled_tasks WHERE
+target_agent_type='build-site-planner'` → **0**). `build-site-planner`'s step order is:
+
+> `plan_site` (LLM) → `read_specs` → `sync_pages` → `emit_design` → `ensure_site` → `load_styles`
+> → `emit_imagery` → `populate_nav` → `validate_plan` → `load_components` → `write_site_plan` →
+> `load_existing_pages` → **`reconcile_site_plan`**
+
+So reaching the fixed code on an existing site means re-running the LLM planner, rewriting the
+site plan, overwriting `pages.sections` via `sync_pages`, and re-emitting design, imagery and nav
+— i.e. **a full re-plan**, which is `bugs_closed/001`'s named hazard, on a site another lane is
+deliberately holding as a clean measurement of the unaided route. **Clearing the row without that
+achieves nothing** (reconcile never runs, so nothing re-mints); **clearing it with that** destroys
+the measurement and re-plans someone's site. The authorisation covered clearing a stuck job, not
+re-planning a site — *"an approval covers the action as DESCRIBED, not its side effects"*.
+
+### What this means for the fix — stated plainly, because it narrows the claim
+
+**This fix corrects the routing at the moment a site is PLANNED — which is exactly when the bug
+is committed, and is why it is worth having.** Proof, from the same site: **13 work items were
+born at `2026-08-23 20:15:50.199268`, byte-identical to `last_reconciled_at`** — the greenfield
+build's own reconcile run minted them, and minted them at the hardcoded generic handler. **That
+is this bug caught in the act, on a real greenfield build, by a lane that was not looking for
+it.**
+
+So:
+
+- **New and re-planned sites get correct routing from now on.** That is the fix's real delivery
+  and it needs nothing from anybody.
+- **Existing sites with already-parked pages do NOT self-heal**, and are not worth a re-plan to
+  rescue. Those five rows are legacy damage; the operator action for them is a re-triage, which
+  fixes the pages and — say it again — **proves nothing about this fix**.
+
+### The live proof is now FREE and needs no site touched
+
+The `loanzy_uk_example_site` lane runs greenfield builds; that is its route. **The next greenfield
+build of any site carrying an `entity-directory` or `entity-page` page is the proof**, with no
+re-plan, no cleared rows, and nothing pristine disturbed: the assertion is that
+`reconcile_site_plan` mints `needs_page:<name>` with `handler_agent='directory-build-handler'`
+(entity-directory) or files a deferred `capability_gap` with an EMPTY handler (entity-page),
+where `garden-tools.uk` got `page-build-handler` yesterday. Same producer, same moment in the
+pipeline, opposite outcome.
+
+**That is what this bug now waits on, and it costs nobody anything.**
