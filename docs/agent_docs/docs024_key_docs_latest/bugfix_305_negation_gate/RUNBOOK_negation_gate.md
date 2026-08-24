@@ -313,10 +313,21 @@ the five early returns in `runNegationRepair` (lines 454, 458, 540, 559, 570) al
 this query until the total reads zero** — that hides the ceiling failures, which are the expensive
 half (§27).
 
-⚠ **`over_counted` is the column that would catch a REGRESSION.** A replacement matching no target
-appends a `no_such_sentence` rejection with no target behind it, which would push `rw + rj` above
-`targets`. Measured 2026-08-23: **0**, and `no_such_sentence` has never fired in a live window — so a
-non-zero reading there is new information, not the known hole.
+⚠ **`over_counted` is NOT a regression — it is the hallucination case, and it FIRED.** A replacement
+matching no target appends a `no_such_sentence` rejection with no target behind it, pushing `rw + rj`
+above `targets`. **CORRECTED 2026-08-24**: this section previously said `no_such_sentence` had never
+fired and that a non-zero reading would be "new information". It fired the day the accounting fix went
+live — 1 marker of 122 (`targets=5, rewritten=4, rejected=2`; all five targets accounted, plus one
+invented sentence correctly logged). **So expect a small non-zero `over_counted`, and do NOT chase it.**
+The invariant to test is:
+
+```
+targets == rewritten + rejected - count(reason='no_such_sentence')     -- status='repaired' only
+```
+
+⚠ **Never close the gap by loosening `matchTarget`.** Making every replacement find a target would
+splice rewrites into copy the model was not describing — a silent content defect.
+`TestReconciliationExcludesHallucinatedReplacements` fails if anyone tries (mutation-proven).
 
 ## 10. IS ANY STEP HITTING ITS OUTPUT CEILING? (fleet-wide, and it found §27)
 

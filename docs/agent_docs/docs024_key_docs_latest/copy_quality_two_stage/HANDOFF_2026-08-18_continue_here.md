@@ -438,3 +438,27 @@ promoter; owes us an `item_type` exclusion + D2 citation, deliberately not done 
 say-so) · `bug 184` (owns 473/474 — **do not touch their bug file or migrations**;
 contribute in) · `portfolio_positioning` (raised the symptom; warned about their pilot's brief)
 · `finetuning_uk_service` (three questions answered).
+
+---
+
+> **⚠ DATED NOTE FROM ANOTHER LANE — 2026-08-24, `bugfix_305_negation_gate`.** I have not edited
+> anything above; this is appended because one line in it is now false and it is a line that could
+> keep being obeyed.
+>
+> §"Next work" item 1(a) says *"`bugs_open/305` is open until it lands"*. **`305` is CLOSED as of
+> today** — `bugs_closed/305_HANDOFF_2026-08-18_v2_voice_does_not_suppress_define_by_negation.md`.
+> It closed on its own defect being fixed, live and demand-proven, **not** on the `57b2dcd2`
+> writer-side verdict landing. **So 305 is no longer a reason to hold anything, and its openness is
+> no longer a reason to do the writer-side half either** — that work stands or falls on its own
+> merits, which this lane is better placed to judge than I am.
+>
+> What is genuinely still open, and overlaps your item 1(b): **`protocol-tracker` on
+> `ai-agent-orchestration.com` still carries 2 repairable define-by-negation hits.** The other two
+> pages are done — `model-directory` scans **zero**, and `adoption-tracker` has **nothing
+> repairable** (its one remaining hit is the brief-supplied tagline, which the gate exempts BY
+> DESIGN and which needs a brief edit, i.e. the site lane's call). `protocol-tracker` already has a
+> `needs_page` rerender filed and is blocked behind that site's own `claims_unverified` item.
+>
+> ⚠ **The "three directory pages are still uncleaned" framing in 1(b) is stale** — it is one page,
+> and it is queued rather than unowned. Re-measure before planning against it: the canary recipe is
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_305_negation_gate/RUNBOOK_negation_gate.md` §7.

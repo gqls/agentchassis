@@ -6173,6 +6173,61 @@ OTHER prose-plausible entry ("coming soon", "not provided", "tbd"), run the same
 `placeholder_text`, check the pattern's history before rewriting the copy.
 
 
+### A loop over the model's ANSWER cannot account for what the answer OMITS — and an output ceiling too small for an O(N) answer is usually what is doing the omitting (2026-08-24)
+
+**Symptom.** An LLM-driven repair/accept-reject step reports success and its own bookkeeping
+looks total — every branch inside the loop records its item — yet the counts do not add up:
+`asked_for != accepted + rejected`. Nothing errors, no log line fires, and the artefact the step
+produced is genuinely correct, so the defect is invisible from the outcome. Worked case:
+`bugs_closed/305` — the copy gate's `copy_gate_*` markers, where **15 of 49** did not reconcile
+and **12 accounted for NONE** of their targets.
+
+**Diagnose.** Two queries, and run them in this order because the second changes what the first
+means. (1) Reconcile the step's own accounting over live rows, segmented by its status field —
+`count(*) FILTER (WHERE asked <> accepted + rejected)`, plus a separate
+`FILTER (WHERE asked < accepted + rejected)`, because under- and over-count have different
+causes and averaging them hides both. (2) Ask whether the model was ever given room to answer:
+`SELECT step_name, max_tokens, count(*), count(*) FILTER (WHERE output_tokens >= max_tokens)
+FROM llm_call_log WHERE provider='anthropic' GROUP BY 1,2` — the estate's rule that
+**`output_tokens == max_tokens` means the completion was CUT** is the detector. ⚠ `step_name` in
+that table is the **loop-expanded** name (`<loop>_iter_N_<step>`), so an equality filter returns
+zero rows and reads as "never truncated" (`LANDMINES.md`).
+
+**Root cause, and it is two defects wearing one symptom.** (a) The loop ranges over
+`decodeReplacements(answer)` — what the model returned — not over the set of things asked about,
+so a target the answer never mentions is visited by no branch and is recorded nowhere. The
+accounting *looks* complete precisely because every branch that runs does account for its item.
+(b) The model was omitting those items because it had run out of room: `max_tokens` was 2000 on
+an answer that is **O(targets)** (the model echoes both the original and the replacement for
+each), and the failure is **TOTAL rather than partial** — the round is discarded whole, so a page
+with 10 items repaired ZERO while a page with 1 repaired its one. Measured: every marker with ≤5
+targets succeeded, both with ≥9 failed, **no exceptions either side** — a hard wall, not
+flakiness. The aggregate hid it because 36 of 44 markers had a single target.
+
+**The measurement that separated them, and the reason to do it.** Splitting the marker population
+at each change point turned "which fix worked" into arithmetic: 40.5% non-reconciling before
+either fix → **15.3% after raising the ceiling ALONE, accounting code untouched** → 0% after both.
+So **about three-fifths of what looked like a loop-shape defect was the ceiling**, and the first
+bug file attributed all of it to the loop. Both fixes were still needed. Had the ceiling been
+found first, the second bug would have looked far smaller than it did.
+
+**Fix.** Account for the ASKED-FOR set after the loop, not inside it — one entry per unanswered
+item, with its own distinguishable reason (`no_answer_for_target`), keyed off the matched item
+itself so the key cannot diverge from the matcher. Then raise the ceiling to fit the O(N) answer,
+anchored on a sibling step rather than a guess. Transferable checks: **(1)** any accept/reject loop
+over an LLM answer — grep for `range decodeX(parsed)` / `for _, r := range response` — is this
+class until it also iterates the request; **(2)** `max_tokens` is *"an enforced per-response
+ceiling the model is not aware of"*, so it cannot pace itself to fit, and on a current model with
+no `thinking` block set **adaptive thinking draws on the same budget** (a run recovering **0 chars**
+of text is the tell); **(3)** state the reconciliation invariant precisely or a census flags healthy
+rows — `asked == accepted + rejected − count(hallucinated)`, and only for rows whose status says the
+call actually ran, because early returns before the accounting line are a legitimate under-count;
+**(4)** when a post-fix census reads zero, check the new path FIRED (a reason code appearing) before
+claiming it works — and never tune the census until it reads zero, which hides the ceiling half.
+Cross-refs: `bugs_closed/305` §26–§29, `LANDMINES.md` (the `llm_call_log` step-name entry),
+`bugs_open/110` (why the census must pin `provider`).
+
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs

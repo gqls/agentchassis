@@ -1063,3 +1063,68 @@ is inert. The residuals are **not defects and not this lane's**:
 4. `D4`, `D5` — unchanged.
 
 Precedent for closing with a residual filed: `bugs_open/198` → `352`.
+
+## §29. 2026-08-24 afternoon — THE DEMAND CONTROL FIRED, and it brought the over-count with it
+
+`[MEASURED 2026-08-24 ~14:00Z]` §28b recorded an outstanding gap: era C's 0.0% non-reconciling
+proved nothing, because `no_answer_for_target` had never fired and there was therefore nothing for
+the fix to record. **That gap is now closed by traffic, within four hours.**
+
+Post-roll rejection reasons: **`no_answer_for_target` 43**, `still_rather_than` 8,
+`still_negative_reveal` 4, **`no_such_sentence` 1**, `still_x_not_y` 1.
+
+So the recording path is exercised: **43 targets that would previously have vanished are now on
+record.** Census over the same window: **122 markers, 247 targets, `account_for_none` 0,
+`not_reconciling` 1.**
+
+### §29a. The 1 is the OVER-COUNT this lane predicted, and it is not a defect
+
+RUNBOOK §9, written 2026-08-23, said of the `over_counted` column: *"Measured 2026-08-23: 0, and
+`no_such_sentence` has never fired in a live window — so a non-zero reading there is new
+information, not the known hole."* **It fired today.** The single marker:
+
+```
+targets=5  rewritten=4  rejected=2   reasons: no_such_sentence, no_answer_for_target
+```
+
+4 rewritten + 1 `no_answer_for_target` accounts for **all five** targets; the sixth entry is one
+`no_such_sentence` — a sentence the model invented that matched no target, correctly refused and
+correctly logged. **The accounting is right. The sentence describing it was wrong.** The invariant,
+stated precisely (now in the code comment, and pinned by
+`TestReconciliationExcludesHallucinatedReplacements`, mutation-proven):
+
+> `targets == len(rewritten) + len(rejected) − count(reason="no_such_sentence")`, and **only** for a
+> marker whose `status` is `repaired`.
+
+⚠ **Do not "fix" a census until it reads zero.** Loosening `matchTarget` until every replacement
+finds a target would splice rewrites into copy the model was not describing — a silent content
+defect. That is what the new test defends, and `no_such_sentence` had **zero** coverage before it.
+
+### §29b. CLOSING — every criterion met, residuals filed
+
+| criterion | state |
+|---|---|
+| gate detects / selects / rewrites / changes pages | proven at the artefact 2026-08-22 |
+| §26 accounting hole | **fixed, LIVE (probed both replicas), DEMAND-PROVEN** (43 records) |
+| §27 ceiling | **fixed, LIVE, DEMAND-PROVEN** (124 calls at 16000, `cut=0`, zero `repair_unavailable`) |
+| §29 invariant | corrected in code + test, council `52a4a50f` submitted |
+| both sentences the owner quoted | **GONE** — `model-directory` scans **0** hits |
+| `adoption-tracker` | **0 repairable**; its 1 hit is the brief-supplied tagline, exempt BY DESIGN |
+| councils | `c48b7612`, `a696e2a3`, `f3046f0c`, `4829bd48` all **APPROVED** |
+| 016b §9 transferable pattern | **filed** — the loop-over-the-answer + O(N)-ceiling class |
+
+**Residuals, none of them a defect and none of them this lane's:**
+
+1. **`protocol-tracker`'s 2 repairable hits** — one ordinary rerender, **already filed** as a
+   `needs_page` item, blocked behind that site's own `claims_unverified` item (3 unregistered
+   numbers) among 30+ open `needs_human_review` rows. Holding `305` open does not advance it.
+2. **`D2`** — the exempt tagline: an owner decision about a brief, which the gate is *designed* to
+   leave alone.
+3. **`D3`** — ⚠ **still must NOT be decided.** The rejection log only became trustworthy today;
+   13 judged rejections exist. `rather_than` is **71%** of all rewrites, so this has real reach.
+4. **`D4`**, **`D5`** — unchanged.
+5. Not ours: the accounting-loop **sibling audit** a council seat asked for
+   (`evidence_citations.go`, `revalidate_unverified_claims.go`) — open and unowned.
+
+Closed on the `bugs_open/198` → `352` precedent: fixed AND live AND demand-proven, with the
+residual filed and owned elsewhere.
