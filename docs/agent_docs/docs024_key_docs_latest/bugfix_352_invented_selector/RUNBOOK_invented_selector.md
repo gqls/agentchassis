@@ -206,3 +206,49 @@ non-empty result). Use `DO` / `RAISE`, and **induce the failure once** to prove 
 evidence it cites is the commit that **FILED** the bug. Read the commit it names and ask what that
 commit did; then `ListAgents` + one `SendMessage` to the lane. That is the only source that is not
 lagging, and it took seconds. → `WRONG_CALLS.md`.
+
+## §10 ⚠ AFTER 587 APPLIES, EVERY CENSUS IN THIS LANE RETURNS ZERO — BY DESIGN, NOT BY DRIFT
+
+Raised by the `bugs_open/198` lane, 2026-08-24, and it is the sharpest trap this lane leaves behind.
+
+The estate's dated-count rule exists because a census goes stale **by ADDITION** and keeps reading
+as current. This is the **SUBTRACTION** case, and it is worse, because the number does not merely
+drift — it goes to **zero**, which reads as *"this never happened"* or *"the earlier census was
+wrong"* rather than *"we fixed it"*.
+
+**Five documents of mine, plus two of the 198 lane's and one of the brochure lane's, quote `73`**
+(and `181`, and `108`). The moment `587_retire_invented_contrast_selectors_HOLD.sql` is applied,
+§2's predicate returns **0** for the open population, permanently. Neither figure was ever wrong.
+
+**So: any figure in this lane is `<n> as of 2026-08-24, BEFORE migration 587`.** If you are checking
+one of them, the question is *which side of 587 are you on*, and that is answerable:
+
+```sql
+-- WHICH SIDE OF 587 AM I ON? Run this FIRST, before any census below.
+SELECT count(*) FILTER (WHERE result->>'cancelled_by' = 'migration_587') AS withdrawn_by_587,
+       max((result->>'cancelled_at')::timestamptz)                       AS applied_at
+  FROM site_work_items WHERE item_type = 'contrast_failure';
+-- withdrawn_by_587 = 0  → pre-migration; §2's numbers should still reproduce.
+-- withdrawn_by_587 > 0  → post-migration; §2 returning 0 is the SUCCESS condition.
+```
+
+**To recover the historical population after the fact** — the rows are withdrawn, not deleted, and
+each carries the status it held:
+
+```sql
+SELECT result->>'pre_352_status' AS status_before_587, count(*), count(DISTINCT site_id) AS sites
+  FROM site_work_items
+ WHERE item_type = 'contrast_failure' AND result->>'cancelled_by' = 'migration_587'
+ GROUP BY 1 ORDER BY 2 DESC;
+-- EXPECT, if the census held: deferred 58, unresolved 15 — 73 across 13 sites.
+```
+
+That query is the one to quote in future, because it **keeps returning 73 for ever** while the
+open-population census correctly falls to zero. ⚠ Note the two answer different questions and only
+one of them is stable — do not substitute one for the other, which is the whole error this section
+exists to prevent.
+
+**The `complete` population (108) is NOT touched by 587** and stays queryable by §2's predicate
+without the status filter. It is the larger and more damaging number — already-recorded false
+repairs, against 73 that were only ever *at risk* — and it never moves, because those rows were
+closed long before this lane existed.
