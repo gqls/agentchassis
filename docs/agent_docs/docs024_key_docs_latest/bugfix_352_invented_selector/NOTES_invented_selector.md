@@ -766,3 +766,34 @@ producer count truncated by a `LIMIT`, once as a proxy for retraction authority.
 label, written by whoever filed the row, and it answers *"what wrote this"*, never *"what may close
 this"*. The column that answers the second question is `result->>'resolved_by'`, and it took one
 query.
+
+### Their re-run caught my third wrong number of the evening — and three of the four were right by luck
+
+384 re-ran the retraction census independently rather than accepting mine, and reported
+`needs_rerender 635 / 21 / 17`. **I had published that filer count as 2.**
+
+The landmine's table has a `filers` column. The top three rows are whole-type `created_by` counts.
+The bottom four I filled from a *different* query — one that grouped `created_by` **among retracted
+rows only**, because that is the query I happened to have on screen from checking whether any type
+had two retractors. Two populations, one column, one header.
+
+⚠ **Three of the four were correct anyway** — `empty_section`, `literal_markdown` and
+`canonical_mismatch` each have 2 filers by either measure, because every filer of those types files
+rows that get retracted. **That is worse than four wrong.** A wholly wrong column gets noticed; a
+column that is 75% right by coincidence reads as verified, and the one wrong cell was the one
+carrying the most weight (21 producers is a far stronger illustration than 2).
+
+**And the correction supplied what the entry had been missing.** With `needs_rerender` at **2**
+filers, every row in the table pointed the same way and the rule read as *"do not retract on a
+shared type"*. At **21** — 21 producers, 17 retractions, **one** authority — it is the estate's
+clearest SAFE case, and the rule becomes discriminating: retraction on a many-producer type is fine
+*precisely when* there is a single authority. Passed back to them for the Phase 2 council rationale,
+which had only the STOP case and would have invited "so is this just blanket caution?".
+
+**Tally for the evening, since the point of this file is the missteps and not the wins:** three
+figures published wrong, all three to a peer, none of them caught by me first —
+`0 collisions ever` (was 20, found by re-reading their reply), `fourth producer` (was 53rd-ish,
+found the same way), and `needs_rerender 2 filers` (was 21, found by **their** re-run). Every one
+came from running a query I already had against a question I had just changed. **The common cause is
+not carelessness with SQL; it is reusing a result whose population was chosen for a different
+question** — and the tell is always the same, that the query was already on screen.
