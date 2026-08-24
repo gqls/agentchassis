@@ -239,3 +239,88 @@ separate images (see §6 of the RUNBOOK) and will be un-rolled relative to each 
 - **A `090` run on a symbol in a file over ~60 KB returns bundles and no verdict**, and that looks
   exactly like a run still in progress. `render_audit_action.go` is over that. So no 090 on this
   file — which is consistent with 352 already having stated its 090 substitution.
+
+---
+
+## 2026-08-24 (implementation) — what the council asked that I had not, and the guard that guarded nothing
+
+### The misstep worth reading: my test matched my own COMMENT
+
+I wrote a confinement assertion pinning the legacy `cls` echo —
+`strings.Contains(newRegion, "||el.tagName")` — then mutated the echo line out to prove the guard
+fired. **It passed.** The line I was protecting has an explanatory comment directly above it saying
+*"do not 'clean up' the `||el.tagName` fallback"*, **which I had written myself minutes earlier to
+protect that very line.** So the source contained the needle twice — once in prose, once in code —
+and the prose occurrence survives deleting the code. **The better my comment, the more reliably the
+test lied.**
+
+Fixed by asserting the whole expression, which no comment would ever spell out. The general check:
+`grep -c` the needle before trusting a source-scanning assertion — **if the count is above one, the
+second hit is usually your own explanation of why the first one matters.**
+
+The part that nearly hid it: the other two mutations (removing the in-page verification, removing
+`selector:sel`) failed correctly, so the set *looked* mutation-proven. **One vacuous guard in a set
+of three is invisible if you report the set.** → `WRONG_CALLS.md`.
+
+### Mutation results, in full — all seven guards
+
+| mutation | test that must fail | result |
+|---|---|---|
+| in-page verification → `true` | `TestAuditJSComposition` | FAIL ✓ |
+| legacy `cls` echo removed | `TestAuditJSComposition` | FAIL ✓ (only after the fix above) |
+| `selector:sel` dropped from the push | `TestAuditJSComposition` | FAIL ✓ |
+| legacy alias key dropped from `stillFailing` | `…LegacyKeyedRowSurvivesStillFailingClasslessFinding` | FAIL ✓ |
+| scheme skew guard dropped | `…SchemeStampedRowNotRetractedByOldShapeReply` | FAIL ✓ |
+| `selectorLockTokens` reverted to `c.Class` | `…LockedAnchorSkips` | FAIL ✓ |
+| bare-tag refusal dropped | `…UnanchoredBareTagIsSkippedAndCounted` | FAIL ✓ |
+
+⚠ A `sed` mutation with `|` as the delimiter **silently did not apply** against `||el.tagName`, and
+the resulting "ok" read exactly like a passing guard. Mutations are now applied with a python
+snippet that **asserts the anchor was found and the text actually changed** before running the test.
+A mutation you did not apply is a guard you did not test.
+
+### Two council objections answered by measurement, one of which corrected me
+
+- **`bug_historian`, medium — "the plan ASSUMES an old chassis drops unknown JSON keys."** Fair: I
+  had asserted it. Now verified — `write_render_audit_findings_action.go:785` is a plain
+  `json.Unmarshal` (lenient), and the tree's only three `DisallowUnknownFields` calls are in
+  `provocation_gate_action.go:549`, `provocation_generator_action.go:238` and
+  `internal/tools-api/gripper/prompt.go:146`, none on this path.
+- **`prior_art_librarian`, medium — "no evidence the audit runs on a live schedule."** This one
+  **changed a number I had published.** I had checked that audits *run* (8 distinct days in the last
+  21, 67 rows today) and let that stand in for *per-site coverage*, which is a different question.
+  Measured properly: of the 13 affected sites, **all 13** audited within 14 days, **3** within 7,
+  **2** within 3, oldest last-audit 2026-08-10. So the honest window is **a fortnight**, not "the
+  next weekly audit" as I had written in three places. Corrected in the plan, the migration and the
+  bug-file banner. → the seat asked for the check I had skipped, not for reassurance.
+
+### The migration's premise, measured with a control
+
+Before withdrawing 73 rows on the grounds that their selectors match nothing, I tested whether any
+affected site *genuinely* uses `class="H3"` on an `<h3>` — 352's own candidate-4 caution, and the
+one theoretical false positive.
+
+- **0 of 31** (site, tag-token) pairs have that class anywhere in `page_components` +
+  `site_components` rendered_html.
+- **POSITIVE CONTROL, because a zero with no control could not have come out otherwise:** the same
+  predicate against **real** class tokens from non-`X.X` findings finds **154 of 161**.
+
+Both arms are in `587_..._VERIFY.sql` so the next reader re-runs them rather than trusting this
+paragraph, and the VERIFY file has been **executed against the live DB**, not merely written: 66
+distinct keys listed, `open_invented=73` matching the census exactly, `falsely_completed=0` as the
+pre-ship baseline.
+
+### Things that went wrong operationally, recorded so the RUNBOOK stays true
+
+- **Migration 586 was taken by another lane between my writing the submission and my writing the
+  file.** Shipped as **587**. The RUNBOOK already said to re-check the number immediately before
+  writing; it went stale inside a single session, which is a sharper version of the same warning.
+- **`go test` failed mid-session on `refresh_evidence_fact_drift.go:608`** — another session's
+  uncommitted WIP arriving in the shared tree between my build and my test. Settled the right way:
+  `scripts/verify-head-builds.sh ./cmd/agent-chassis/... ./cmd/browser-runner-adapter/...` →
+  **OK**, so HEAD is clean and the breakage was never mine. ⚠ That script takes **package paths**;
+  bare service names give `package agent-chassis is not in std`, which reads like a build failure
+  and is a usage error.
+- **`doc_notes.categories` is `jsonb`, not `text[]`**, and `subject_type`/`subject_key` are NOT
+  NULL. My first INSERT used an `ARRAY[...]` literal and would have failed at apply time. Schema
+  first, every time — the shape came from live rows in the end, not from memory.
