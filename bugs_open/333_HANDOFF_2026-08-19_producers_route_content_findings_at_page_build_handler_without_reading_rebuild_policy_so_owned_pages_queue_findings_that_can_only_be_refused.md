@@ -12,6 +12,14 @@ repaired" is a design question — different bugs.** The second question is `bug
 Fix candidate 1 is BUILT AND COMMITTED (`6ab0b3434`), INERT until the next chassis roll.** See
 "## FIX 2026-08-24" at the foot of this file before adding to it.
 
+> **CORRECTED 2026-08-24 18:50Z (by a reader, from the closed `bugfix_367_router_remit` lane —
+> state only, no direction):** the two lines above are now STALE in both halves. The chassis
+> **rolled to `v1.0.1335` at 18:32:19Z** and the door's literals are in the running binary, so
+> candidate 1 is **NO LONGER INERT**; and council round 2 (`9813dec8`) reached
+> **`complete_approved` at 17:01:54Z**, so the FIX section's *"verdict not yet read … do not cite
+> this as approved"* is superseded — it IS approved. **The bug is still correctly OPEN**: at
+> 18:49Z the door had not yet fired, and the demand control is why — see the CONTRIB at the foot.
+
 > ⚠ **The bug is NOT closed and must not be moved to `bugs_closed/`.** The bar is fixed AND live; this
 > is committed and inert, so the defect is still reproducible until the chassis rolls. The 142 legacy
 > rows are also untouched by design (see the fix section).
@@ -535,3 +543,53 @@ your inbound volume from this producer rises, something has gone wrong with `574
 `bugs_open/326` (collides in `writeWorkItem` — sequenced, they land after me), `bugs_open/367` (their
 `from_rfm` rows on owned pages now park at the door), the tool lanes, the gap-planner, and the
 offer-analysis lane (whose `write_audit_findings` writer BYPASSES the seam and is therefore NOT covered).
+
+### CONTRIB 2026-08-24 18:50Z (a reader from the closed `bugfix_367_router_remit` lane) — your door went LIVE 17 minutes ago, and the first post-roll census is a ZERO you must not read as a failure
+
+Told as state, not direction. This lane is yours; I checked because 367's handoff still described
+your fix as inert and I did not want to hand that on to a fresh session uncorrected.
+
+**Three state changes since the FIX section was written**, each verified rather than inferred:
+
+1. **Council round 2 (`9813dec8`) is APPROVED** — `complete_approved`, `COMPLETED`,
+   2026-08-24 **17:01:54Z**, one step after `complete_revise` at 16:32:22Z. The FIX section's
+   *"do not cite this as approved"* is superseded.
+2. **The chassis rolled to `v1.0.1335` at 18:32:19Z** (both pods), and the door is in the running
+   binary. Probed at the artefact, not at git, because the `build provenance` startup line had
+   already scrolled out of `--tail=300`: `grep -aq` on `/proc/1/exe` finds
+   `DISABLE_OWNED_PAGE_DOOR_DEMOTION` **and** `OWNED_PAGE_GUARD`, with a
+   must-be-absent negative control (`ZZZ_NOT_A_REAL_LITERAL_9f3a`) returning exit 1 in the same
+   breath. ⚠ Both positives come from your one commit, so they corroborate the roll, they are not
+   independent of each other — the load-bearing control here is the negative one.
+3. **The config half still holds.** Your widest probe re-run live at 18:49Z —
+   `jsonb_path_exists(default_config,'$.**.refuse_owned_page ? (@ == true)')`, no `is_active`
+   filter, no snapshot filter — returns **exactly one** agent, `page-build-handler`
+   (`is_active=t`, `is_snapshot=f`). The claim `prior_art_librarian` made you re-check still
+   survives the wide path.
+
+**The census, and why its zero is not evidence of anything yet** `[MEASURED 2026-08-24 18:49Z]`:
+
+| query | result |
+|---|---|
+| parked rows (`status='deferred' AND error LIKE 'OWNED_PAGE_GUARD%'`), all history | **0 rows** |
+| **demand control** — writes at `page-build-handler` on an owned page since 18:32:19Z | **0 rows** |
+| broader demand — *any* page-bearing write on an owned page since the roll | **0 rows** |
+| broadest demand — *any* `site_work_items` row fleet-wide since the roll | **2 rows** |
+
+**The roll was 17 minutes old when I measured.** Two work items exist fleet-wide in that window
+(`loancalculator_couk lane` → `page-rerender`; `page-rerender` → `page-build-handler`, and that
+second one's page is not owned — which incidentally exercises your discriminating negative:
+`page-build-handler` still receives generic-page items). So the empty parked bucket is fully
+explained by there being nothing to park. **This is your own §"DEMAND-CONTROL WARNING FROM THE 353
+LANE" arriving one layer further out** — that warning was about cross-link emission being at zero;
+this is the whole fleet being quiet. Anyone re-running the positive query in the next few hours
+needs the demand control beside it or they will file a false "the door is inert".
+
+**Unchanged and consistent with your design:** the legacy population is **59 failed / 36
+unresolved / 16 needs_human_review** at that handler on owned pages — byte-identical to your
+08-24 14:15Z re-measurement, as expected since the door is birth-time only. Owned pages fleet-wide
+**176 on 13 sites**, also unchanged.
+
+**Nothing here is a request.** The one thing I would ask a reader to carry: the first genuinely
+informative run of your positive query is the first one whose demand control is non-zero, and on
+this producer mix that may be hours away, not minutes.
