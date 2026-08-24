@@ -1511,3 +1511,30 @@ waiting-room image, no faces, no artefacts). My first post-deploy fetch raced pr
 needing a re-fetch after the deploy's own timestamp, not before it. Asset bookkeeping settled:
 old SDXL row 8d5e6495 → `superseded`; new row e1bc3b66 → `asset_key='hero_home'`, url
 hero-home.jpg, both verified. The SDXL nurse no longer serves from any path on this site.
+
+## 2026-08-24 (fourth session-turn) — "the css is broken": investigated, ruled out, resolved as a transient client-side view
+
+Owner reported broken CSS and half-remembered `bugs_open/198` as prior art. Findings, in order:
+- **198 (css-patch-agent fragment clobbers whole stylesheet) did NOT recur** — it is in
+  `bugs_closed/` (fixed AND live), and the live `styles.css` is healthy: 165 selectors, braces
+  balanced 165/165, the two `:root` tails are the DOCUMENTED renderer alias blocks (see
+  bugs_closed/211's aliases), and the file's last sites-repo commit is **2026-08-11** — untouched
+  for 13 days, untouched today.
+- **Nothing changed server-side across the whole episode**: the practice page byte-identical
+  from my 13:0x verification through the report and after the owner said "fixed"
+  (24,988B every fetch), stylesheet byte-identical, no vetcomparison commits in gqls/sites after
+  13:09:44. The post-roll rerender wave visible in the repo (13:08–13:18) was ALL robot-hands.com.
+- **Conclusion: transient client-side view.** The owner's load almost certainly fell inside the
+  12:59–13:10 window when this lane's three section edits + two hero deploys landed back-to-back
+  — a page fetched mid-deploy, or a one-off failed stylesheet request, renders unstyled once and
+  is fine on reload. Owner confirmed fixed with zero server-side change, which is the
+  discriminating fact: **when "broken" and "fixed" bracket a byte-identical artefact, the defect
+  was in the viewing, not the artefact.**
+- **My own near-miss, caught pre-publication:** mid-investigation I concluded the
+  generic-text-block section renders as an unstyled wall of text, from
+  `grep '.section (h2|p|ul)|.section--generic'` returning 0 — a SCOPED-selector grep. The
+  styling lives at BASE level (`h2 {…}`, `p, li { margin: 0 0 1rem }`, styles.css:78-91), so the
+  section was always fine. A coverage grep proves absence only for the SCOPE it searches —
+  sibling of the "grep proves absence only for the spelling it searches" family. Not logged in
+  WRONG_CALLS (never published; caught by continuing to read), logged here so the next reader of
+  this entry sees why "0 rules for .section--generic" is NOT evidence of an unstyled section.
