@@ -8004,3 +8004,58 @@ Round 3 submitted on the same correlation (`642ecc3c`), running as `53e3812f` fr
 decision testable and that was right — but extraction moves the untested seam rather than removing
 it, and the seam lands on the arguments. If a fix's whole value is "this branch is now reachable",
 something must assert reachability THROUGH the caller.
+
+## 2026-08-24 (later still) — the `tool-deployer` question, answered: the path was never dead, and this file's own §3 exception was the proof
+
+New build `v1.0.1334` (15:39Z). Fix re-probed present with both controls.
+
+### The question, and why my first three attempts to answer it were all wrong
+
+*Did `tool-deployer` run for the withheld tools and withhold again, or for other tools?*
+
+Three reconstructions, all dead ends, and the pattern in them is the lesson:
+
+1. **`orchestration_states`** — 24 h sliding retention. Cannot answer anything about 08-03→08-19.
+2. **The log's `description` field** — truncated at exactly 150 chars + `...`, and matched **no**
+   `content_components.description` even on the corrected prefix. Still unexplained; not pursued.
+3. **Site + time overlap** — **7 of 8** deployer sites overlapped withheld sites, and **11** deployer
+   runs post-dated a withhold on the same site. **This looked like an answer and is worthless**: a
+   site hosts many tools, so overlap at site granularity cannot distinguish "ran for this tool" from
+   "ran for its neighbour". I nearly wrote it up.
+
+### What actually answered it, in one query
+
+**The emitter stamps its caller on everything it writes.** `site_work_items.source` on the
+`tool_crosslink:` namespace, and `context->>'emitted_by'` on every skip row:
+
+- `tool-deployer`: **12 items, 5 tools, 08-03 → 08-19**, and **zero** skip rows of any kind.
+- Every one of the 37 withholds and 12 `no_related_pages` rows is `tool-generator`.
+
+**So the path ran, reached the emitter, and succeeded every time.**
+
+### The row that turns this from housekeeping into a correction
+
+One of those 5 tools — `tool-automation-savings-estimator`, 08-11 — **is in the withheld set**. It is
+one of the two "exceptions" `bugs_open/353` §3 has recorded since filing as getting its items
+*"from a LATER rebirth"*. **Wrong: it was `tool-deployer`.** The re-emission path this bug file
+declares dead had already repaired one of the bug's own casualties, **eight days before the bug was
+filed**, and the file recorded the evidence as a curiosity while asserting the opposite in the
+paragraph above it.
+
+`deploy_tool_action.go` emits on both arms, and the early-return arm's own comment says re-running
+the deployer *is* the supported backfill route. **Nothing to fix.** The missing piece was a TRIGGER,
+and both ends are already closed by work done this week.
+
+### Two corrections to my own earlier claims in this file
+
+- The 10 `agent_error_log` rows are **not** deployer defects — all are `bugs_closed/274`'s fleet-wide
+  "result could not be delivered to the parent" class (`page-rerender` alone: **5,869**).
+- **"10 runs" is a FLOOR, not a total.** Only delivery-FAILED runs leave a row; successful ones leave
+  none. I used it as a count in §13.2's framing and it cannot bear that weight.
+
+### Standing lesson
+
+**Before reconstructing WHO did something, check whether the artefact already says.** Three joins
+across two truncated and one retention-bounded source lost to one `GROUP BY source`. Provenance
+columns exist on this estate precisely because reconstruction is unreliable — and the reconstruction
+that *looked* best (site overlap) was the one that would have produced a confident wrong answer.
