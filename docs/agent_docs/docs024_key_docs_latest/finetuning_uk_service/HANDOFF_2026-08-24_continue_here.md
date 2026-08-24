@@ -21,6 +21,27 @@ said). Statistics of record: `RESULTS_2026-08-15…`. Market + positioning:
 | brief_supplies_negation item | `5ff2355f-de45-49f1-aa11-ba3e3b320f7d` still `needs_human_review` — substance addressed by today's seeding; left for the owner/next sweep to confirm clean. Do NOT hand-close |
 | Owner calls open | playground booking shape · sample datasets · Stripe posture (Phase 1 payment link blocked on these) |
 
+> ## DELTA, same day ~11:00 — the build RAN and was BLOCKED by a validator false positive; that is now `bugs_open/377`, FIXED + council-APPROVED (r1, `8dd767ed`), committed `9094bc65c`, INERT until a post-`9094bc65c` chassis roll
+>
+> The blocker: `placeholderPatterns`' bare `"your company"` convicting the hero line — 46/46
+> of that pattern's recorded firings were ordinary prose, 41 of them this site since 08-03.
+> The WRITTEN copy measured well (`llm_call_log 774ca9c5`): owner tells 0, exemplar lift 0/3,
+> only £99 stated, unverified promise absent — but `rather than` ×6 + `X, not Y` ×3 survived,
+> matching 1:1 the shapes the writer's inputs still demonstrate (an instruction is also an
+> example). Round-2 de-demonstration applied to what this lane owns (brief, own voice line,
+> unique_selling_points); fleet instructional text left for copy_quality/305 with the counts.
+> Outcome CONTRIB delivered:
+> `copy_quality_two_stage/CONTRIB_2026-08-24_from_the_finetuning_lane_the_exemplar_seed_outcome_and_the_brief_that_taught_the_tell.md`.
+>
+> **So step 1 below is now: WAIT for a chassis roll carrying `9094bc65c`** (ancestry check:
+> `git merge-base --is-ancestor 9094bc65c <pod's stamped sha>`), **then reset item
+> `gap_plan_new_your-own-model_…` from `needs_human_review` to `triaged`** (attempt_count 0
+> stands) and let the 60s sweep rebuild. Then run step 1's verification as written — and
+> compare the negation-tell counts against build 1 (the controlled test of the
+> instruction-as-exemplar finding). The re-block signature if the fix did NOT ship: one
+> `placeholder_text/your company` blocker on the hero line, in
+> `agent_error_log(CONTENT_VALIDATION_BLOCKER_DETAIL)`.
+
 ## The next work, in order
 
 1. **Verify the built offer page** (the watcher/loop may already have the terminal status):
