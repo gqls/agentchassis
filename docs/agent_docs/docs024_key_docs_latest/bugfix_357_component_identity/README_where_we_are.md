@@ -282,3 +282,78 @@ reported about, because I had written my own narrower version of a rule the
 platform already had. Both were caught by running the check against the real
 database instead of trusting what I had written, which is now the only way I am
 willing to accept one of these.
+
+## 2026-08-24 — it went live overnight and it works, and I can show you rather than tell you
+
+Yesterday I said the fix would go out with the next release and then had to be
+*checked* rather than assumed, because the whole lesson of the day before was that
+approved-and-shipped does not mean working. The release went out overnight. I
+checked. **It works.**
+
+**How I know, rather than believe it.** Sections written before about nine this
+morning carry no record. Every hour after it is at or near everything — forty-six
+out of forty-eight, then a hundred and seventeen of a hundred and nineteen, then
+twenty-four of twenty-four, then fifty-eight of fifty-eight. The step is the
+evidence, not the total. And the control holds in the other direction: of the
+nine-hundred-odd sections written *before* the release, **none** has a record,
+which is exactly right — nothing goes back and fills them in, by design. A number
+that only moves forward from a known moment is hard to explain any other way.
+
+**Something better than a passing test: the mechanism earned its keep on day one.**
+Six sections looked wrong at first glance — they name a template that is not what
+their component says today. Opening them up: the version was created at 10:17, the
+sections at 10:55, and **somebody edited that component at 11:15**. So the sections
+are right and the component moved afterwards. Before this change those six were
+indistinguishable from sections built with the new version. That is precisely the
+confusion this was built to end, and it turned up within two hours of going live.
+
+**One thing I nearly recorded as good news and is not.** The check that would tell
+us the worst case had happened reads zero — no mislabelled page has picked up a
+*wrong* record. But no mislabelled page has been rebuilt since the release either,
+so the check has had nothing to judge. **A zero with nothing to count is not a
+pass.** It is still pending, and I have written down the version of the query that
+shows both numbers together so the next person cannot make the same mistake I
+nearly did.
+
+**Both halves are now approved by the review council.** The second one came back
+for revision first, and both of its objections were right: one part of my change
+reached wider than the problem it was for (narrowed), and I had claimed a page
+"serves the same either way" without actually checking one of the two paths it
+could go down (it doesn't, and that limit is now written down instead of glossed).
+
+**What has not changed: the mislabelling is still happening.** The half that stops
+it is live but switched off, and turning it on is your decision, not mine. The
+procedure is written out in order now — seed first, then arm one pipeline rather
+than all eight, then three specific things to watch for, each of which is invisible
+to the obvious "is the tool still there?" check. It is a decision you can take in
+one sitting rather than a piece of research.
+
+**Two other lanes came to us today and both exchanges were worth having.**
+
+One is replacing a component-quality score and asked whether to use our new record
+to filter out our bad rows. I said yes and **I was wrong** — it excludes our
+twenty-two, but at four hours old it excludes about seventeen hundred honest ones
+too, so it would have measured *how recently something was rebuilt* rather than how
+sound it is. They declined it, correctly. I had justified a filter by what it
+throws away and never counted what survives it.
+
+The other told me something I would never have found: **a change of mine went out
+inside their commit**, twelve minutes before my own, because we were both editing
+the same file. Nothing was lost — the code in production is exactly what I wrote —
+but my own check for "have I committed everything?" had said yes for the wrong
+reason: the file looked clean because *they* had committed my work, not because I
+had. Their message also surfaced four serious objections about our mechanism that
+had been sitting in a rejected review under someone else's name, addressed to
+nobody. They are answered, and the answer was already on record from an earlier
+approved round.
+
+And a question I asked them came back at me: I warned them their change might upset
+a stored checksum, and it turned out **the same question was unanswered about our
+own repair migration** — which I had been calling "changes no bytes" all day without
+checking what reads that checksum. It is safe, now verified at the source rather
+than assumed. The useful part was not the answer; it was that neither of us had
+asked.
+
+**What I would like from you, unchanged from yesterday and now the only thing
+holding it up:** whether to turn the second half on, and whether the six pages
+marked as claimed by a human should be repaired along with the rest.
