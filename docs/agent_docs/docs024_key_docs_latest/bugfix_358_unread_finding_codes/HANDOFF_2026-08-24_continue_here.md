@@ -135,6 +135,12 @@ sees what those sites write.
   the tag an overlay names — it **`sed`s every overlay to `$(IMAGE_TAG)`** and applies. Between a
   new service's birth commit and the next release, one image exists at the new tag and ~32 do not.
   Run the **whole** `make release`, never `deploy-` alone. LANDMINES entry, measured.
+- **The hook runs the actions package with `-run '^TestFindingCode'`, and that prefix is a
+  CONTRACT, not a roster:** `TestFindingCodeTestsFollowTheHookConvention` fails on any `Test*` in
+  `findingcodes_scan_test.go` or `finding_code_roster_test.go` outside the prefix. If you add a
+  registry-grading test, name it `TestFindingCode…` — in one of those two files, or it is unseen
+  at commit time (stated limit). Whole-package was rejected by the guardian for a reason this lane
+  agrees with: an unrelated flake would surface as "this package writes an undeclared code".
 - **⚠ A comment saying a test runs "at commit time" is a claim about a HOOK.** Verify it with
   `grep -n 'go test' .githooks/pre-commit scripts/check-*.sh` — not by confirming the test file
   exists. This lane got it wrong both ways in two days (file did not exist; then file existed and
@@ -195,10 +201,15 @@ Full command set with gotchas: `RUNBOOK_unread_finding_codes.md`.
   10 seats, 7 abstained, no gating objection. All four advisory objections say one thing: the sketch
   was truncated over the logic. Cause was mechanical (42 lines of header comment, cap applied in file
   order), fix is a RUNBOOK rule — strip comments before truncating. No code change owed.
-- Council `4d5c1523-2453-4799-b828-25379affc41b` — the Fable-findings fixes (commit `bce49226a`),
-  **submitted 2026-08-24 evening; read the verdict** (`SELECT metadata->>'decision' FROM
-  diagnosis_artifacts WHERE correlation_id='4d5c1523-…' AND kind='council_report'`). The code is
-  already on the shared branch; a REVISE means a follow-up commit, never a revert.
+- Council `4d5c1523-2453-4799-b828-25379affc41b` — the Fable-findings fixes. **Round 1 REVISE**
+  (guardian HIGH: the hook ran the whole actions package — a misattributed headline on any
+  unrelated flake; measured 86/411 commits would trigger). **Round 2 submitted** with the hook
+  scoped to `-run '^TestFindingCode'`, a naming convention ENFORCED by
+  `TestFindingCodeTestsFollowTheHookConvention`; all four proofs in NOTES. Commits `bce49226a`
+  (round 1) + `71c4081cc` (round 2). **Read the verdict:** `SELECT created_at, metadata->>'decision'
+  FROM diagnosis_artifacts WHERE correlation_id='4d5c1523-2453-4799-b828-25379affc41b' AND
+  kind='council_report' ORDER BY created_at;` — the code is on the shared branch; a further
+  REVISE means a follow-up commit, never a revert.
 - `090` `c965bfec…` — UNVERIFIABLE (scope-not-narrowing), **not a refutation**: its static tier is
   `.go`-only, so the SQL writer was outside its corpus.
 
