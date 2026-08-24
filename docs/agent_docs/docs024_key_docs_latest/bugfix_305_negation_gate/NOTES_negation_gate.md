@@ -918,3 +918,48 @@ for `v1.0.1333`. It never moved again.
   commit as unresolved for ever; that is the honest state, not a reporting bug.**
 - This is why the change was deliberately kept to a comment and a test: **nothing about the closure
   depended on the verdict.** Had it been behavioural, the roll would have cost a day.
+
+---
+
+## 2026-08-24 — OWNER RULING on D3, and a factual correction to D2 that would have sent an editor to the wrong object
+
+**OWNER RULING, D3 (2026-08-24): "`rather than` is a little bit of a tic."**
+
+⚠ **This is neither of the two options D3 was framed with**, and the difference matters. D3 offered
+"a tic" (keep it a full trip) or "ordinary English" (drop it from the trip family, keep it as a
+density signal only). The ruling is **in between**, and it should be implemented as a **ranking**, not
+as a keep/drop:
+
+- `rather_than` is **71% of all rewrites** and appears in **43%** of writer sections.
+- The per-page budget is **2**. So at full weight, `rather_than` **crowds out** the sharper shapes —
+  a page whose two repairs both go to `rather than` leaves an `x_not_y` or a `negative_reveal`
+  standing, and those are the ones that actually read as the owner's complaint.
+- **Proposed implementation** (NOT yet built, needs the owner's nod): keep `rather_than` in the
+  detected family, but **rank it last when the budget binds** — the harder shapes take budget first,
+  and `rather than` is repaired only with room to spare. That encodes "a little bit" literally.
+
+⚠ **I had advised waiting a week for the rejection log before deciding this. The owner decided
+anyway, which is his call** — recorded so nobody "corrects" the ruling back to the log-first plan.
+The log remains useful for *calibrating* the ranking, not for revisiting the ruling.
+
+### ⚠ CORRECTION — D2's tagline is NOT in `content_direction`
+
+Every prior doc in this lane (the 08-21, 08-22 and 08-23 handoffs, and `§5` of the closed bug file)
+says the fix for D2 is to edit **`content_direction`**, whole-object. **That is wrong and an editor
+following it would change the wrong spec.** `[MEASURED 2026-08-24]`
+
+The tagline lives in **`site_specs.aspect='identity'`, key `core_value_proposition`**:
+
+> "Multi-agent systems deployed to production in days, not months — on Kubernetes, Kafka, and
+> Postgres. **This should be the canonical tagline used consistently in:** site footer across all
+> pages, homepage hero section, services page hero, about page, meta descriptions where appropriate,
+> and any page-level hero subheadlines. Do not use softer or more generic variants…"
+
+So it is **not merely a phrase the brief happens to contain — it is an ORDER to repeat it**, naming
+six placements. That is why the gate exempting it is correct behaviour and not a miss: the writer was
+instructed to put it there.
+
+**Where it actually landed** `[MEASURED 2026-08-24]`: **7 components across 5 pages**; **0** meta
+descriptions (the "where appropriate" clause was not taken up). `content_direction` does separately
+carry the construction in nine keys — which is real, and is the *general* half of D2 — but the single
+mandated sentence the owner objected to is in `identity`.
