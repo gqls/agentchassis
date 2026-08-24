@@ -496,3 +496,67 @@ having been measured several rounds earlier:
 
 The code commits carry `Council-Submitted:`; `098` credits them automatically now the correlation
 is approved, with no amend (forward-only).
+
+## CORRECTION + a fourth and fifth casualty type, from the `loanzy_uk_example_site` lane's greenfield build (2026-08-24, post-approval)
+
+That lane ran an unaided greenfield build of `garden-tools.uk` overnight and measured the
+finished site. Two things it found that this file had wrong or missing.
+
+### 1. CORRECTION — "no worse off than today" understated the cost of the narrowing
+
+This file's amendment says of the two `section-index` pages left unrouted:
+
+> ~~"They are no worse off than today; they simply are not fixed yet."~~
+
+**True of the PAGES, false of the SITES.** Measured on the finished build
+`[MEASURED 2026-08-24 09:05Z, served pages, cache-busted, by the loanzy_uk_example_site lane]`:
+`garden-tools.uk/buying-guides/index.html` — a parked `section-index` — is the target of **three
+dead links from three different live pages**, one of them `/index.html`. **A visitor meets a 404
+from the front page.** Nothing suppresses a link when its target parks (that is `bugs_open/328`,
+a separate defect — but it is the mechanism through which this fix's cost is *paid*). Full set on
+that site: 9 dead-link instances, 4 distinct targets.
+
+So the honest cost sentence is: **leaving `section-index` unrouted costs a 404 from the home page
+per greenfield site.** That does not make the narrowing wrong — a dead link is *visible* where a
+silent mis-route is not, which is exactly the guardian's argument — but the next reader should
+price it correctly rather than read "no worse off".
+
+### 2. `blog-post` and `blog-index` are the same defect, and this file had not counted them
+
+The lane asked whether `blog-post` is in the map. **It is — and so is `blog-index`, and both are
+mapped to `page-build-handler`, which has no layout-filling step.** So a layout-less page of
+either type no-ops identically. Measured 2026-08-24:
+
+| site | page | type | layout-less | status | producer |
+|---|---|---|---|---|---|
+| garden-tools.uk | `buying-guide-post` | blog-post | yes | needs_human_review | reconcile_site_plan |
+| lendzy.co.uk | `blog-post` | blog-post | yes | rejected | reconcile_site_plan |
+| leopardessconsulting.co.uk | `blog` | blog-index | yes | needs_human_review | offer-analysis |
+| leopardessconsulting.co.uk | `blog` | blog-index | yes | cancelled | required-fields-missing-handler |
+
+**This changes the shape of the residual, and it is worth stating precisely because it is the
+framework-level version of this bug.** There are two different failures wearing one error string:
+
+- **(a) a type with no builder, or the wrong one** — what `bugs_open/206` is about, and what
+  `builderForPageType` fixes at the reconcile door.
+- **(b) a type mapped to a handler that CANNOT FILL A MISSING LAYOUT** — which is every type
+  routed to bare `page-build-handler`, because `ensure_page_section_layout` exists **only** in
+  `directory-build-handler`'s workflow. The map is "correct" here: it names a real, live handler.
+  The handler simply cannot do the layout-less case.
+
+**(b) is the larger class and the better fix, and it is NOT what shipped.** Routing more types to
+`directory-build-handler` is the wrong shape for it — the right one is for the layout-ensuring
+step to be reachable from the generic build path itself (either a step in `page-build-handler`'s
+workflow, or a fallback in `load_page_sections_from_spec` to `defaultSectionsForPage` when every
+source is empty). That is a bigger blast radius than an approved point fix should absorb, so it
+is recorded here as the named next step rather than smuggled in. **Whoever takes it: the census
+in this file's producer section is the population, and `defaultSectionsForPage` is already the
+single shared chooser both paths would use.**
+
+### 3. A real greenfield verification case, offered and accepted
+
+`garden-tools.uk` is a live, unaided, deliberately unrepaired build. Its
+`/brand-directory/index.html` is an `entity-directory` page linked from its home page — i.e. this
+lane's headline case, on a site nobody contrived for it. **Post-roll closure check gains a step:
+that link should go live on `garden-tools.uk` without anyone touching the site.** That is a
+better proof than re-triaging a page by hand, because nothing about it was set up to succeed.
