@@ -273,7 +273,7 @@ the `review_mission` seat enforce) · `portfolio_positioning` (owns premise→wr
 new builds; this feature owns the read-back side of the same spec fields — **do not collide**)
 · owner ruling 2026-08-02 / RFC_010 §1 (the second-producer rule that governs §5.2).
 
-## 10. v2 backlog — three specified changes, to batch into ONE migration and ONE re-proof
+## 10. v2 backlog — ~~three~~ **FOUR** specified changes, to batch into ONE migration and ONE re-proof
 
 Added 2026-08-17. v1 is built, live, enrolled (migration 409) and now proven **sweep-driven onto a
 site it had never seen** (gamesdesign.co.uk, 70s, 5 findings → 5 items, no truncation). These are
@@ -314,3 +314,55 @@ re-proof that files ~5 more non-parkable items somewhere for no new information.
   classification for a site is what the echo-the-recorded-value rule exists to stop, and this
   estate already carries one site whose recorded shape is ahead of what the platform supports
   (dartsonline.com, `affiliate`).
+
+---
+
+### v2(d) — B4 emits a MACHINE-CHECKABLE ACCEPTANCE PREDICATE where it can, and stays silent where it cannot
+
+> **⚠ FOLDED IN 2026-08-24, and the reason matters more than the content.** v2(d) has been the
+> **strongest** item in this batch since 2026-08-17 and it was **NOT IN THIS FILE** — it lived only
+> in `NOTES` (the *"v2(d) CENSUS"* entry) and in the 08-17/08-18 handoffs, while the handoffs
+> pointed at *"`features_open/030` §10"* for it. So a session doing exactly the right thing — read
+> the feature file's backlog — would have found three items, concluded v2(d) did not exist, and
+> quietly dropped the best one. The section heading said "three" for a week. **This is the shape to
+> watch for: a pointer that names a canonical home the content never reached.**
+
+**The gap.** B4's findings carry an `acceptance_test` written as prose, and the prompt already
+demands it be *"concrete enough that a DIFFERENT agent could check it without reading this
+analysis"*. Nothing checks it mechanically, so a finding is graded by judgement even when the
+database already knows the answer.
+
+**The census that decides it — all 22 live B4 acceptance tests, read in full 2026-08-17.**
+⚠ `[CLASSIFIED BY ME 2026-08-17]`, a judgement of expressibility, not a measurement — a second
+reader would move one or two either way. **The worked case at the end is not a judgement.**
+
+| class | count as of 2026-08-17 | examples |
+|---|---|---|
+| **Fully/near-fully expressible** as a text or DB predicate | **8 of 22** | nav membership (*"the header contains Tools, Learn and About only, with no News item"*); page existence (*"exactly one non-redirecting insights/blog index page"*); substring absence over `pages.title`/`meta_description` (*"no instance of 'we' or 'our'"*); an enumerated word list over titles (*"no guide title contains Stop, Tame, Master, Unlock, Discover…"*); click-distance (*"reach fleet-fuel-services in exactly one click from the header"*) |
+| **Partly** — a checkable clause welded to a judgement clause | **6 of 22** | *"at least one specific operational claim … **before** any abstract brand statement"* — "abstract brand statement" is judgement, the **ordering relation** is not |
+| **Judgement only** | **8 of 22** | *"does not read as a generic 'contact us' button"*; *"framing is consistent with the one-founder model"*; *"within the visible output area of the tool"* (rendering, not DB) |
+
+**The load-bearing finding: the test that actually FAILED is in the expressible set.**
+webdesign.co.uk's index test reads *"…both mention at least two of the following three properties
+**before any count of tools or articles**"*, and the live hero opened *"Sixty-three browser
+tools…"*. That is an **ordering assertion over two positions in one string** —
+`position(first cardinal) > position(first property mention)` — ordinary text arithmetic, not
+judgement. **A predicate would have caught the exact failure that shipped**, and this one case is
+known independently of the classification above, because the artefact was read.
+
+**The shape, settled by that census.** B4 emits a structured predicate **only when it can**,
+alongside the prose, and stays silent otherwise — **per-finding opt-in, unsafe default OFF**. That
+is both the 2026-08-02 shared-seam ruling's prescribed shape and exactly the *"producer-side
+contract change"* that `complete_work_item_no_change.go` records the deferred fleet-wide grading job
+as waiting on. **It does NOT require all 15 fleet values to become assessable first — it requires
+one producer to start**, which is the argument for doing it here.
+
+⚠ **THE TRAP, and it is the whole risk: do NOT let the model emit a predicate for a judgement
+test.** Two-thirds of these cannot be expressed. A plausible-looking predicate over a judgement
+clause grades confidently and wrongly — **worse than the prose it replaced, because it carries a
+green tick**. The silence arm is the load-bearing half of this feature, not the emission arm.
+
+⚠ **And it inherits `bugs_closed/335`'s lesson directly:** a predicate is a *self-attributing*
+artefact of exactly the shape 016b §9 now warns about — it asserts its own checkability. Whatever
+emits one must be verifiable against the thing it claims to check, or it is `from_field` again one
+layer up.

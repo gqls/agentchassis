@@ -1,5 +1,12 @@
 # HANDOFF — vigilant designer + offer analyser (2026-08-21)
 
+> # ⛔ SUPERSEDED 2026-08-24 → `HANDOFF_2026-08-24_continue_here.md`
+> **Do not cold-start from this file.** `bugs_open/335` is now **CLOSED** (`bugs_closed/335`), the
+> gate is live and proven estate-wide, and the lane's next work is the **v2 batch** — whose
+> strongest item, **v2(d)**, this file correctly warned was missing from `features_open/030` §10 and
+> which has since been folded in. Kept for its record of the three council rounds.
+
+
 **COLD-START = this file + `bugs_open/335` (fix built today, still OPEN) + `features_open/030` §10
 (the v2 backlog) + `features_open/034`.**
 **This supersedes `HANDOFF_2026-08-20_continue_here.md`.**
