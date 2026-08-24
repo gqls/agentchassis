@@ -16400,6 +16400,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
   **What a data migration owes** is therefore per-row recoverability in one of those two shapes — not a particular key. A migration leaving only a `doc_notes` row or a log line answers *"did it run"* and cannot answer *"which rows, and what were they before"*, and that second question is the one a rollback needs.
   And before quoting any figure across a data migration, ask **which side of it you are on**: a post-migration zero is the success condition, a pre-migration zero refutes the premise, and the census predicate alone cannot tell them apart.
 - **⚠ the companion trap, opposite cause and same direction:** a census that goes to **zero** because a migration DID run reads as *"this never happened"* rather than *"we fixed it"* — staleness by SUBTRACTION, where the usual dated-count rule only guards against ADDITION. So a withdrawal that has not been applied reads as one that has, and one that has been applied reads as though the population never existed. Both are answered by the same stamped-marker query above.
+- ⚠ **STATUS OF THE WORKED CASE, 2026-08-24 19:11:22 UTC: `587` HAS NOW BEEN APPLIED** (`UPDATE 73`). The entry's `[MEASURED]` line above — `withdrawn_by_587 = 0`, the 73 still live — was true when written and is **now false**, and it is exactly the shape this file warns about: a status quoted as evidence outliving its truth. Run the query, do not read this paragraph: `withdrawn_by_587` returns **73** today and `applied_at` returns the timestamp. **The lesson is untouched by any of this** — a committed `_HOLD` migration still looks identical to an applied one from inside the repo, and the 198 lane's present-tense sentence was still written before the fact. It has simply, belatedly, come true. *(dated correction added 2026-08-24 by the `bugfix_352_invented_selector` lane, which applied it)*
 - **source:** `bugs_open/352` / migration `587`, 2026-08-24; the error is logged in `WRONG_CALLS.md` by the `bugs_open/198` lane, the recovery queries are in `docs024_key_docs_latest/bugfix_352_invented_selector/RUNBOOK_invented_selector.md` §10
 - **added:** 2026-08-24, bugfix_352_invented_selector lane
 
@@ -16691,3 +16692,72 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the transferable shape:** this is the SECOND table found on 2026-08-24 whose `updated_at` cannot attribute a change — `content_components` has no trigger at all and no history, so a writer omitting the stamp is invisible for ever (entry above, editorial lane). Opposite mechanism, identical consequence: **a timestamp column is only evidence if it moves for your write and NOT for everyone else's.** Before using one as proof, check its distribution.
 - **source:** `bugs_open/381` lane, 2026-08-24, found while verifying that two lanes' concurrent edits to the same two agents had both survived; it also invalidated an instruction in that lane's own RUNBOOK, which had said to verify by `updated_at`
 - **added:** 2026-08-24, `bugfix_381_inexpressive_composition` lane
+
+---
+
+## A PostgreSQL regex takes the GREEDINESS OF ITS FIRST QUANTIFIER — so `<style[^>]*>.*?</style>` is greedy as a whole, and a tag-strip over an aggregate eats every component's body text between the first `<style` and the last `</style>`
+
+- **footprint:** `regexp_replace(` in any `query_database` step or SQL migration that strips `<style>`/`<script>` blocks or tags; `string_agg(pc.rendered_html …)` without `ORDER BY`; `claims-auditor.load_page_text` (fixed by migration 601); any SQL text extraction copied from it
+- **fires when:** you strip HTML to text in SQL before handing it to a model or a scan, and the page is assembled from several components each carrying its own balanced `<style>…</style>` block
+- **the trap:** PostgreSQL ARE rule — *"a branch has the same greediness as the first quantified atom in it"*. `[^>]*` is greedy, so the `.*?` after it is NOT lazy; the match runs from the first `<style` to the LAST `</style>` in the string. Per component (one block each) the result is identical to lazy, so every hand test passes; over a `string_agg` of four components it removes the body text of the middle two. And with no `ORDER BY` in the aggregate, WHICH text survives depends on aggregation order — the same query returned the owner's quoted sentence in one hand-run and not in the auditor's run minutes apart. Measured 2026-08-24 on garden-tools.uk: how-we-assess 14,762 chars html → 3,732 chars "text" (8,269 per-component), `index` → ONE character.
+- **why the wrong answer looks exactly like the right one:** the extraction returns a plausible-length, well-formed text for every page; the model then audits what it was given and returns findings, so `[]` or a short list reads as "clean", not "unread". Go's RE2 has no such rule, so the identical regex in a Go test is fine and proves nothing about the SQL.
+- **the check:** before trusting a SQL text extraction, run it PER ROW and IN AGGREGATE on one multi-component page and compare lengths; and assert a sentence you KNOW is on the page is inside the extracted text (`position('<sentence>' in page_text) > 0`). Fix shape: strip each component alone, make the first quantifier lazy too (`<style[^>]*?>.*?</style>`), aggregate with `ORDER BY pc.position, pc.slot_name`.
+- **relations:** LANDMINES "the auditor's page cap audits the top third of a long page" (same query, other defect); 016b §9 "silent-noop-success"
+- **source:** 2026-08-24, `bugfix_380_claims_fail_open` lane — found by the first live cold audit's demand control (the owner's sentence was in `rendered_html` and absent from `prompt_rendered`), NOT by any test
+- **added:** 2026-08-24, `bugfix_380_claims_fail_open` lane
+
+---
+
+## `string_agg` over an EMPTY jsonb array is NULL — a workflow condition on `facts_text` gates on FACTS, not on the register, so an empty-but-present register is skipped exactly like an absent one
+
+- **footprint:** `evidence_facts.facts_text`, `jsonb_array_elements(ss.data->'facts')`, any `conditional_branch` whose `condition` is a `string_agg`/aggregate output; `site_specs.aspect='evidence_base'` with `facts: []`
+- **fires when:** you reason "this site HAS an evidence base, so the gate fires" — or you mint an empty register expecting it to flip a fail-open branch to fail-closed (bugs_open/380 candidate 3, refuted)
+- **the trap:** `string_agg(...) FROM jsonb_array_elements('[]')` returns NULL, `conditional_branch` treats NULL/"" as falsy (`valueIsTruthy`), and `ParseEvidenceBase` returns nil for a base with no facts and no bans (CLM-005). So "register present" and "register absent" are indistinguishable to every consumer that keys on facts. Measured 2026-08-24: all four zero-fact registers (remortgagecalculator.uk, adversecreditmortgage.co.uk, noted.co.uk, apis.uk) returned `facts_text IS NULL`; the population the old `check_opted_in` skipped was 33/48 sites, not the 29/48 with no row.
+- **the check:** count the population the PREDICATE tests, not the thing you can see: `SELECT count(*) FROM sites s WHERE NOT EXISTS (SELECT 1 FROM site_specs ss WHERE ss.site_id=s.id AND ss.aspect='evidence_base' AND ss.is_current AND jsonb_array_length(COALESCE(ss.data->'facts','[]')) > 0)`. And never make "the row exists" the fix when the gate reads the row's CONTENT.
+- **relations:** CLM-005 (writer_block-only register parses nil); RFC_003 §8 Q2 (owner 2026-08-24: no shells — absence IS the cold posture)
+- **source:** 2026-08-24, `bugfix_380_claims_fail_open` lane, correcting the bug file's own fix candidate; the `loanzy_uk_example_site` lane reproduced both counts
+- **added:** 2026-08-24, `bugfix_380_claims_fail_open` lane
+
+---
+
+## Two textually IDENTICAL `{{else}}` arms are ONE anchor — count the composite, not the sentence
+
+- **footprint:** `build-site-planner.plan_site.config.prompt_template` (migration 329's Verified Facts block; fixed by 598); any anchored `replace()` splice on a prompt whose fall-through arms repeat a sentence
+- **fires when:** you write an exact-count guard (`n <> 1 → RAISE`) on a sentence that a template author pasted into two arms; the guard fails with `found 2`, and the tempting fix is `replace()` on the bare sentence — which rewrites BOTH arms identically and loses the distinction you were adding
+- **the check:** anchor on the composite that contains both copies (`{{end}}{{end}}{{else}}<sentence>{{end}}{{else}}<sentence>{{end}}`), assert it once, and assert the `{{if `/`{{else}}`/`{{end}}` counts are unchanged (or changed by exactly what you added) after the splice. A replacement that carries `{{`-structure must be balance-checked, not just length-checked.
+- **source:** 2026-08-24, `bugfix_380_claims_fail_open` lane (migration 598)
+- **added:** 2026-08-24, `bugfix_380_claims_fail_open` lane
+
+---
+
+## The committed migration text is NOT the live prompt — a plaintext generated from the migration file for a human read can be 1,700 characters behind the row it claims to show
+
+- **footprint:** `docs/agent_docs/sql_for_agents/330_page_content_writer_prompt_v4_scoped_facts.sql` (its base64), `brochure_component_library/sql/page_content_writer_prompt_v*.txt`, any "read this plaintext and approve it" gate (RFC_016 §5.2)
+- **fires when:** you produce the text a human will approve by decoding the last migration that shipped the prompt, instead of dumping the live `agent_definitions` row
+- **the trap:** `[MEASURED 2026-08-24]` the writer's live template is 12,118 chars; 330's base64 decodes to 13,836 — two later insertions (a no-invented-commitments clause, rule 19) and the House Voice tail removed, by migrations that did not update the plaintext. The anchors you count on the file can still all be ×1 on live (mine were), so the migration APPLIES cleanly — and the human has approved a text that is not what will run. PBP-035's warning, one level up.
+- **the check:** `SELECT length(default_config #>> '{…prompt_template}')` on live vs `len(decoded file)`; if they differ, generate the read-copy from the live dump and say so in its header. The lane's helper: dump base64 via psql, decode, apply the migration's replacements in Python, assert every anchor count on the LIVE text, write the file.
+- **source:** 2026-08-24, `bugfix_380_claims_fail_open` lane — caught by a length diff before the owner read it (WRONG_CALLS entry of the same date)
+- **added:** 2026-08-24, `bugfix_380_claims_fail_open` lane
+
+---
+
+## A `COPY … TO STDOUT` whose client died holds its locks FOR EVER in `ClientWrite` — `pg_cancel_backend` cannot reach it, only `pg_terminate_backend` can — and 80 fleet queries queue silently behind it
+
+- **footprint:** `pg_stat_activity` `wait_event = ClientWrite`; `kubectl exec … psql … COPY (…) TO STDOUT`; any `ALTER TABLE` waiting on `pages`/`page_components`; every session's "my trivial query timed out"
+- **fires when:** an export's reader goes away (a `| head`, a shell `timeout`, a closed terminal) while Postgres still has output to write. The backend blocks in the socket write, never returns to the executor, and holds ACCESS SHARE on every table in the query. The next DDL (an `ALTER TABLE … ADD COLUMN`) queues for ACCESS EXCLUSIVE behind it, and — this is the part that stalls the fleet — every ordinary reader then queues behind the PENDING exclusive request even though the ALTER never runs. Measured 2026-08-24 16:xx: one orphaned webdesign.co.uk component export (1h05m, `in_state == runtime` to the second: zero progress since it started), migration 352's ALTER waiting 29 min, **85 backends waiting on locks**, build-pipeline-trigger and page-build-handler among them.
+- **why the wrong answer looks exactly right:** each stalled session sees ITS OWN query time out and blames its own SQL (the 378 lane nearly redesigned a fix for that reason). A shell `timeout` around `kubectl exec psql` kills only the CLIENT — the server backend stays queued (five of this lane's did) and ADDS to the convoy.
+- **the check:** `SELECT pid, wait_event_type, wait_event, now()-query_start, pg_blocking_pids(pid), left(query,80) FROM pg_stat_activity WHERE wait_event_type IN ('Lock','Client') ORDER BY query_start;` — the root is the oldest row with an EMPTY `pg_blocking_pids` and `ClientWrite`. Then: `pg_cancel_backend` returns `t` and does NOTHING (the backend cannot process a cancel while blocked in a write); `pg_terminate_backend(<pid>)` clears it within seconds (verified: 85 → 0 waiters). Time `SELECT count(*) FROM <table>` before believing your own query is the slow one. And put the timeout on the SERVER: `PGOPTIONS='-c statement_timeout=60000' psql …`, not `timeout 60 kubectl …`.
+- **relations:** LANDMINES "kubectl exec -i inside a while-read loop eats the loop's input"; `scripts/scratch-report.py`'s class (an export nobody drains)
+- **source:** 2026-08-24, diagnosed by the `bugfix_380_claims_fail_open` lane, terminated by the `webdesign-tool-rebuild` session, independently confirmed by `bugfix_378`
+- **added:** 2026-08-24, `bugfix_380_claims_fail_open` lane
+
+---
+
+## A `kubectl exec … psql` export can END EARLY with the error on stderr and a plausible row count on stdout — count the rows against the DB before trusting a dry run over them
+
+- **footprint:** `cmd/claimscan` TSV exports, any `kubectl exec -i … psql -At -c "SELECT …" > file.tsv`, fleet censuses fed from a file
+- **fires when:** the exec stream drops mid-transfer (`"Copying stdout failed" err="read message: unexpected EOF"` on stderr); stdout has N well-formed rows and every downstream tool is happy
+- **the trap:** `[MEASURED 2026-08-24]` the first fleet export for the practice-claims dry run wrote 1,453 rows; the DB predicate returns 1,867. The missing 414 included the motivating site's pages, so the dry run reported 6 findings where the full corpus has 12 — a calibration number that would have gone into a file header as fact.
+- **the check:** run `SELECT count(*) …` with the identical predicate and compare to `wc -l`; export with an `ORDER BY` so a re-run is diffable; keep stderr (`2> file.err`) and treat any bytes in it as "the file is incomplete", not as noise.
+- **source:** 2026-08-24, `bugfix_380_claims_fail_open` lane
+- **added:** 2026-08-24, `bugfix_380_claims_fail_open` lane
