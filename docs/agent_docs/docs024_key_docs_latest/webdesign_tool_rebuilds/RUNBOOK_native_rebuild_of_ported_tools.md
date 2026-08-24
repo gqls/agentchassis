@@ -60,13 +60,45 @@ SELECT p.site_id, 'owner-request', 'add_tool', 'medium',
   ' as a native framework tool at the same URL. After deploy, retire the ported-page slot and re-render.',
   jsonb_build_object('name', split_part(p.title,' | ',1), 'function', p.name,
                      'priority', 1, 'complexity', 'simple',
-                     'description', '<WRITE THIS from the live tool''s actual behaviour — open the page>'),
+                     'description', '<WRITE THIS from the live tool''s actual behaviour — open the page>',
+                     -- ADDED 2026-08-24 (staged_component_build lane) — see the gotcha below.
+                     -- WITHOUT THIS KEY THE TOOL GETS NO CROSS-MENTIONS AND NOTHING SAYS SO.
+                     'related_pages', jsonb_build_array('<page-name-1>','<page-name-2>')),
   p.id, p.url, 60, 'tool-generator', 'triaged',
   'webdesign-tool-rebuilds', 'add_tool_novel_webdesign.co.uk', 'build'
 FROM pages p WHERE p.site_id='6b49db8e-d447-4467-8277-4f3018af9897' AND p.name='<page_name>'
 ON CONFLICT DO NOTHING;
 ```
 Gotchas learned the hard way:
+- **`related_pages` — NEW 2026-08-24, and omitting it silently costs the tool its cross-mentions.**
+  A cross-mention is the one-sentence, in-context reference to the new tool that gets woven into a
+  related article (live example, dartsonline `barrel-shapes`: *"…the tungsten percentage vs barrel
+  diameter visualiser lets you compare percentages against weight…"*). One is emitted per page you
+  name here, and **only** for pages you name here.
+  **Every hand-filed `add_tool` on this estate has omitted the key — 0 of 58 since 08-17 carried it,
+  against 11 of 11 from `tool-suggester`** (measured 2026-08-24). Until migration 516 (live
+  2026-08-21 16:55Z) the omission was masked: the resolver substituted another tool's list, which is
+  why nine webdesign.co.uk tools all pointed at the same two articles (`bugs_open/330`). 516 removed
+  the substitution — correctly — so the omission now means **no cross-mentions at all**, recorded
+  only as an `info` row: `agent_error_log.error_code='tool_crosslink_not_emitted:no_related_pages'`.
+  The build succeeds, the page deploys, the tool works. Nothing complains.
+  **Name 1–3 EXISTING, ACTIVE, NON-TOOL page names** (`pages.name`, not titles, not URLs — a name
+  that does not resolve is skipped silently, and a `tool-`-prefixed one is refused by design):
+  ```sql
+  SELECT name FROM pages
+   WHERE site_id='6b49db8e-d447-4467-8277-4f3018af9897' AND status='active'
+     AND name NOT LIKE 'tool-%' ORDER BY name;   -- 37 candidates as of 2026-08-24
+  ```
+  Pick by topic, not by convenience — the writer is told to place the mention "where it's most
+  contextually relevant", so an unrelated page produces a worse sentence, not a neutral one.
+  `tool-bayesian-rank` → `learn-algorithms-bayesian-theory` is the shape.
+  **Verify after the build, at the artefact rather than the item status:**
+  ```sql
+  SELECT status, spec->>'page_name' FROM site_work_items
+   WHERE item_key LIKE 'tool_crosslink:<function>%';   -- expect one row per page you named
+  ```
+  This is the interim. The owner ruled on 2026-08-24 that the system should ASK when the key is
+  absent rather than rely on it being remembered — tracked by the `staged_component_build` lane.
 - `function` = the page name (keeps the `tool-` prefix). **CHECK THE FLEET-WIDE UNIQUE INDEX AND
   STOP IF IT IS NOT EMPTY — CORRECTED 2026-08-17 after this line's imprecise version cost a build.**
   The gate is `idx_cc_tool_function_unique`, and it is NOT the generator's `already_exists` probe:
