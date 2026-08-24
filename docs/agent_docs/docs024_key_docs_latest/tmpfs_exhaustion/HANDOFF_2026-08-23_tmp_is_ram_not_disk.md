@@ -303,3 +303,38 @@ lane had not made.
   again, the recipe was not the whole story.
 - **A `pattern-check.py` rule** for a tenth document spelling out its own command — deferred with
   it, and the cheaper of the two.
+
+---
+
+## 10. 2026-08-24 — the refill measurement, and a CORRECTION to §8's strongest claim
+
+### The recipe fix worked, measured
+
+| | `/tmp` |
+|---|---|
+| immediately after the cleanup, 2026-08-23 | 4.4 G / 29% |
+| ~24 h later, 2026-08-24 | **4.9 G / 32%** |
+
+**+0.5 GB/day**, against a prior rate that took it from cleared to 100% in about four days
+(~3 GB/day). At this rate it is ~22 days from full. **That settles the deferred janitor as genuinely
+low priority** — the recipe was the mechanism, and removing it removed most of the pressure.
+Evidence the fix propagated beyond the eight documents: the `bugfix_351` lane independently wrote
+its own supersede note pointing at `verify-head-builds.sh`, without being asked.
+
+> **⚠ CORRECTED 2026-08-24 — §8 says the swap recovery is "the disconfirmable proof that `/tmp` was
+> the CAUSE of this machine's memory pressure and not merely correlated with it". That is too
+> strong, and today refutes the general form of it.**
+>
+> Measured now: `/tmp` holds **4.9 G** (only 2.0 GiB of it resident) — and **swap is back to
+> 7.8 GiB used, 179 MiB free**. So memory pressure returned *without* `/tmp` refilling.
+>
+> What actually dominates: **49 `claude` processes holding 17.65 GB of RAM**, against 636 MB for
+> the next-largest consumer (firefox). The machine is oversubscribed on *sessions*.
+>
+> **What still stands:** on 2026-08-23, deleting 11 GB of tmpfs returned 6.9 GB of swap. That
+> measurement is real and it was causal *for that episode* — `/tmp` was a large contributor.
+> **What does not stand:** the implication that fixing `/tmp` fixes memory pressure on this box. It
+> does not, and the lever that would is fewer concurrent sessions, which is not a thing this lane
+> can pull. Recorded rather than quietly edited, because the overclaim is the interesting part: a
+> number that moved 6.9 GB in the right direction made a single-cause story feel proven, and one
+> day's re-measurement was enough to break it.
