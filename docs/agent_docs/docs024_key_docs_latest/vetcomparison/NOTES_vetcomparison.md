@@ -1432,3 +1432,46 @@ email" carrying the full encoded template (subject `Claim listing: [your practic
 the five RUNBOOK fields + the from-your-own-domain line), secondary CTA (CMA self-assessment)
 intact, plain mailto in the text block untouched. The 115-item queue estimate was pessimistic —
 the dispatch loop batches; landed within ~15 min of filing.
+
+## 2026-08-24 (third session-turn) — owner's four asks: page refinements filed + the weird-eyes question ANSWERED with a fleet finding
+
+Owner: email CTA more prominent + directly after the copy; requirements spelled out on-page
+(mailto fallback); company number as a second verification point; and "is the nurse image's
+weird eyes a model or prompt choice? fix permanently in the framework".
+
+**Page refinements — three section_edits filed** (all priority 10, literal field_updates):
+`fc60ff0f` text-block append — "How to claim: what to include in your email" list (all template
+fields + company number + copy-the-list fallback + the inclusion case); `0f062c4c` hero primary
+CTA → the claim mailto (prominence at the top); `7bc5e0be` CTA template + hero template gain
+"Company number (if you have one):". The owner's "a component of its own straight after the copy"
+is satisfied by the EXISTING order — copy (now ending in the requirements list) → the claim CTA
+section — no new section machinery minted. RUNBOOK: company number cross-checks
+`ch_vet_companies` (`evidence_method='companies_house'` is already a legal value).
+
+**The image question — it is a MODEL choice, and the framework already fixed it on 2026-07-18;
+this site's heroes predate the fix by ONE DAY.** Evidence: asset `8d5e6495` (hero_home) has
+`origin_model='stability/stable-diffusion-xl-1024-v1-0'` (SDXL, 2023 — face artefacts are its
+signature failure), created 2026-07-17; `internal/adapters/imagegenerator/routing.go` routes
+kind `hero` → banana (`gemini-3-pro-image-preview`) since 2026-07-18 (bugs_open/011); every hero
+generated 08-15→24 fleet-wide is banana (8/8). Filed `needs_hero_image` regen for hero_home
+(`fee55dc0`, image-build-handler — the path proven banana today on agritec). hero_about +
+hero_contact to follow SEQUENTIALLY — deliberately not concurrent, because of the
+`deploy_image_asset` resolves-by-PURPOSE landmine (all three share purpose 'hero'); verify each
+deploy by sha256 + eyeballing the artefact before triaging the next.
+
+**Fleet finding out of the census — FILED `bugs_open/382`:** SDXL still generated 15 heroes on 5
+sites AFTER the routing fix (latest 08-11), and none chose it — the only sanctioned route
+(`provider:"stability"` in imagery_style_guide) is absent on all 5 (3 have no guide at all; 0
+live agent defs pin a stability model). Candidate mechanism, in routing.go's own comment: an
+EMPTY `kind` falls back to Stability silently, warning deliberately not set ("legacy callers …
+deliberate"). Root cause NOT asserted — the caller identification is one read the fixing lane
+must do; the file says so (07-31 owner-ruling-compliant shape).
+
+**Incidental relics, this site only:** (a) the three heroes' origin_prompt begins "None — the
+site is intentionally text-only. Do not introduce stock photography…" then a full photo prompt —
+prompt-assembly contamination, **3 assets fleet-wide, all vetcomparison, all 07-17** (censused —
+NOT a live fleet bug, do not file); (b) live hero-home.jpg 404s at origin while the DB asset is
+`active` — the owner still SEES a nurse (CDN/browser cache serving a dead origin file), so the
+regen must confirm the live URL actually serves the new bytes, not just that deploy reported
+success. (c) contact page references hero.jpg which was never an asset_key — that is the open
+`image_url_404` item from 08-01, not new.
