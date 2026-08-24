@@ -47309,3 +47309,38 @@ challenged it as an extrapolation. **State evidence at the strongest level you a
 — "this page_type was built by this handler and the served page is right" is a different claim
 from "we did this by hand twice and it worked", and only one of them answers "does the handler
 render correct content for this type?".
+
+## 2026-08-24 — `staged_component_build` / `bugs_open/353` — my council submission's SKETCH described code I had already replaced, so a fixed defect read as unfixed for a whole round
+
+Round 2's gating objection (editquality, HIGH) was not about my code either — and it lands one
+entry below a different lane's same-day entry about the same seam. **Two lanes, one day, one
+class: the submission text drifting from the committed code.** Worth noticing that the `edits[]`
+array is where both went wrong.
+
+Round 1 had objected, correctly, that the call site passed a literal `false` for `pageLive`,
+making the extracted decision's first branch dead in production. **I fixed the code and did not
+fix the sketch describing it.** Round 2 read the unchanged sketch and objected again:
+
+> "edit 3's own sketch reproduces the literal-false defect it claims to have resolved — either the
+> sketch is stale (author should correct it) or the fix is incomplete… Object until the sketch/text
+> agree that pageLive is real at the call site, or a code_check confirms the committed code differs
+> from the sketch."
+
+The committed code had read `crossLinkEmitDecision(pageLive, …)` since round 2. **The reviewer had
+no way to know that**, and framed the objection to cover both possibilities — which is the right
+way to object, and is why this cost one round rather than a wrong verdict.
+
+**The cheap check, and it is nearly free: paste the sketch FROM the committed file, never from
+your memory of the change you intended.** `git show HEAD:<file> | sed -n '<range>p'` costs seconds.
+I had run the equivalent grep to verify my own fix and then wrote the submission from recollection
+of the plan rather than from the artefact. **A sketch is a claim about what the code says, and it
+decays the moment you edit the code** — the same class as a stale `[MEASURED]` figure, but with a
+reviewer downstream who cannot see the drift and must assume the worst.
+
+**What it cost, and what it bought.** One council round (~7 minutes of council, ~30 of queue) —
+and the round's *other* finding was real and unreachable any other way: nothing pinned the call
+site's ARGUMENTS, so a literal there was invisible to every test in the file. That is 353's own
+failure mode recurring (the bug lived 19 days in a branch no unit test could reach while its
+inputs' tests stayed green), and it is now `TestCrossLinkCallSitePassesTheRealPageLive`,
+mutation-proved: restoring the literal fails it and leaves both older tests PASSING. **A REVISE
+round that finds a real defect is not a cost, and this is the fourth in this lane's tally.**
