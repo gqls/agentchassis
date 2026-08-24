@@ -393,3 +393,62 @@ next roll, probe the running pod for `builderForPageType` with a negative contro
 `reconcile_site_plan` run mint a typed page's item at the right handler, then re-triage the five
 parked rows using the RUNBOOK's recipe — **not before the roll**, because until then the rows
 still name `page-build-handler` and a re-triage burns an attempt of three for nothing.
+
+## AMENDMENT — the fix was NARROWED on the council's evidence (round 4), and the diagnosis runs produced nothing
+
+Two changes to what the sections above describe. Both are the record correcting itself; nothing
+above has been edited.
+
+### 1. `section-index` is no longer routed. The divergence was the defect, not the untidiness.
+
+Rounds 2–4 saw four seats (`guardian`, `reuse_agent`, `editquality`, `bug_historian`) object to
+the same thing: `builderForPageType` was called by *one* producer while `WriteBuildItemsAction`
+kept its own inline copy. I answered twice that the divergence was bounded and harmless — one
+page_type, one path, no regression, and a shared dedup key so a page cannot hold two items.
+
+**Round 4's `guardian` turned that last point against me, correctly.** Both producers mint the
+same `item_key` (`needs_page:<name>`) and `idx_swi_dedup` is UNIQUE over non-terminal statuses, so
+whichever fires **first** wins and the other is dropped by `ON CONFLICT`. A page
+`WriteBuildItemsAction` reaches first therefore keeps the *wrong* handler and this fix never fires
+for it — **with no signal anywhere**. That is not tidiness; it is a silent no-op, which is this
+estate's most-recurring failure shape.
+
+`section-index` was the **only** line on which the two maps differed. It is now removed, and the
+maps are byte-identical (verified: both sort to the same 8 entries). So:
+
+- **The divergence does not exist** — no page_type can route differently depending on which
+  producer files first. The race has nothing to race over.
+- **The headline case still lands.** `garden-tools.uk/brand-directory-index` is
+  `entity-directory`, a type `WriteBuildItemsAction` *already* mapped correctly — routing
+  reconcile through the shared authority fixes it with no divergence at all.
+- **The cost, stated where it is decided:** two of the five parked pages are `section-index` and
+  **stay parked** — `loanzy.uk/guides-index` and `garden-tools.uk/buying-guides-index`. They are
+  no worse off than today; they simply are not fixed yet.
+- **The entry goes in with the swap**, when one line moves both doors at once — which is what the
+  consolidation was for. Re-adding it early fails two tests, and the producer test's failure
+  message says so in terms.
+
+### 2. The `090` runs produced no verdict — twice — so nothing here rests on one
+
+Declared plainly because the owner ruling of 2026-07-31 makes the loop the route by which a
+structural claim becomes "filed", and it was **not available** for this mechanism:
+
+- **Run 1** (`edcbc57b`), multi-symbol: doomed at bundle 1 — `WriteBuildItemsAction` (25,397
+  chars) never fitted, 35,233 of the 60,000 budget already spent. Cancelled with the reason in
+  its `error` column rather than left `diagnosing`.
+- **Run 2** (`0f5a40da`), **single symbol**, i.e. exactly what the landmine prescribes: bundle 1
+  clean, bundle 2 clean, **bundle 3 truncated** — the loop widens its own scope between
+  iterations. Ended `status='complete'` with **zero** non-bundle artifacts.
+
+So the declared first-hand substitute above is the whole of the verification, plus what the
+council found — and the council found more than either run would have. **The landmine has been
+further-corrected with this measurement** (checking after the first bundle is necessary and not
+sufficient), and re-verified.
+
+### What still stands unchanged
+
+The bug stays **OPEN** — `garden-tools.uk/brand-directory-index` is parked right now for exactly
+the reason this file names, and the fix is inert until the roll. The closure test is unchanged:
+probe the running pod, watch a reconcile-minted `entity-directory` item carry
+`directory-build-handler`, then re-triage the parked rows per the RUNBOOK — **after** the roll,
+never before.
