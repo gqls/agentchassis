@@ -2656,3 +2656,49 @@ goes quiet because the file it is reading is too big, and we have a written chec
 file first. That check passed here — the file is well under the limit — and it went quiet anyway, for
 a different reason. I have added that to the warning so the next person does not spend a round
 narrowing something that was never the problem.
+
+---
+
+**Later still — both halves of your decision are built. One is working now; the other is waiting on
+a deploy.**
+
+You asked for the third option with the second as a stopgap. Here is where each stands.
+
+**The stopgap is live and already in someone's hands.** The tool-ordering recipe several of us copy
+from now includes the "which pages should mention this tool" field, with a note explaining what it
+costs to leave it out and a query listing the pages you can choose from. I edited that document in
+the lane that owns it rather than just telling them, because that lane is midway through rebuilding
+sixty-three tools and every one they filed today was quietly losing its mentions. They have picked it
+up, confirmed it, and passed it to the session actually doing the filing.
+
+**The real fix is written, tested and committed, but deliberately not switched on yet.** It comes in
+two pieces, and they have to arrive in that order.
+
+The first piece teaches the system to accept an answer from a second source. It is live and doing
+nothing, which is correct — nothing is asking yet. The important property is the order: if the person
+ordering the tool named pages, those win, always. A system that can quietly overrule the field you
+filled in is worse than one that never asks, because you would have no way of knowing it happened.
+
+The second piece is the asking itself: before saving a new tool, the workflow now looks up the site's
+existing pages and picks one to three the tool genuinely helps with. It is allowed to answer "none",
+and I have made that explicit — a mention shoved onto an unrelated page reads as an advert and is
+worse than no mention. There is a check that refuses to install the change if that permission is ever
+edited out of the instructions.
+
+That second piece is held back until the first has been deployed. If it went first, it would ask the
+question, pay for the answer, and have it thrown away, with nothing anywhere saying so.
+
+**Two things I want to be straight about.**
+
+It costs one extra model call per tool built, including the small minority where you already named the
+pages and the answer gets discarded. I chose that over the cleverer version that only asks when
+needed, because we have a bug on record where exactly that cleverness went wrong and silently skipped
+an agent's only thinking step on every run for four months while reporting success. A wasted call
+shows up in our logs. A skipped one does not.
+
+And I have built in a way to tell whether it is actually working. Every mention now records whether
+the pages came from the person ordering or from the system's own suggestion. Without that, "mentions
+are happening again" would be indistinguishable from "people happened to fill the field in this week",
+and I would not be able to tell you which.
+
+It has gone to the review panel. Nothing here needs a decision from you.

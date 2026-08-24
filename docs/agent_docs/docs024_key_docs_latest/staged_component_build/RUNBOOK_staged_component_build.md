@@ -936,3 +936,68 @@ SELECT type,
 -- The LIKE prefilter also surfaces agents matching only in prose (prompts) — they read 0/0, which
 -- is itself the confirmation the key is not config on them.
 ```
+
+## Applying migration 602 (the tool workflows' related-pages picker) — 2026-08-24
+
+`602_tool_workflows_ask_for_related_pages_HOLD.sql` is HELD on its **reader** being live, not on a
+migration ordering. Commit `0fb94a7dd` declares `related_pages_fallback` on both tool actions; on a
+binary without it the extractor drops the key before the resolver sees it, so the picker step would
+run, cost a model call, and change nothing — invisibly. That is `bugs_closed/336`'s shape.
+
+**1. Probe the artefact, with both controls, and NOT only the two labelled pods.**
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec $POD -- grep -aq "related_pages_fallback"     /proc/1/exe; echo "fix=$?"      # want 0
+kubectl -n ai-persona-system exec $POD -- grep -aq "tool_page_will_not_go_live" /proc/1/exe; echo "ctl+=$?"     # want 0
+kubectl -n ai-persona-system exec $POD -- grep -aq "zzz_cannot_exist"           /proc/1/exe; echo "ctl-=$?"     # want 1
+```
+
+⚠ `-l app=agent-chassis` matches **2** pods; ~68 pods run this binary as per-run `agent-*` pods, and
+**`tool-generator` is one of those** — it spawns per run, so no such pod exists at rest. Probe a
+per-run pod on a different node too before believing the roll is complete (this is §5.1 of
+`HANDOFF_2026-08-24b`, an advisory council objection that turned out to be right).
+
+**2. Apply by hand — the runner refuses `--record-only` on a `_HOLD` sidecar, and `--apply` would
+take every pending file from every lane.**
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -v ON_ERROR_STOP=1 -U clients_user -d clients_db \
+  < docs/agent_docs/sql_for_agents/602_tool_workflows_ask_for_related_pages_HOLD.sql
+```
+Expect `NOTICE: 602 VERIFY: both tool workflows ask for related pages…`. The verify block RAISEs, so
+a partial apply aborts the transaction rather than committing a broken workflow. **Record the apply
+in this lane's NOTES** — there will be no `schema_migrations` row, and that absence is not evidence
+it never ran (the same trap that made me date 516 from `agent_definitions.updated_at`).
+
+**Rehearse first if anything has moved** — the whole file, then its rollback, inside one transaction
+you abort:
+```bash
+{ echo "BEGIN;"; sed '/^BEGIN;$/d;/^COMMIT;$/d' <migration>; \
+  sed '/^BEGIN;$/d;/^COMMIT;$/d' <rollback>; echo "ROLLBACK;"; } \
+| kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -v ON_ERROR_STOP=1 -U clients_user -d clients_db
+```
+
+**3. Verify the FIX, not the apply — and it needs demand.**
+
+The apply is verified in-transaction; what is not is whether the picker ever supplies pages. The
+discriminating case is a hand-filed `add_tool` **without** `related_pages` from a real producer; the
+`webdesign-tool-rebuilds` lane has offered to supply one on request. Then:
+
+```sql
+SELECT context->>'related_pages_source' AS src, context->>'related_pages_n' AS n, count(*)
+  FROM agent_error_log
+ WHERE error_code LIKE 'tool_crosslink_not_emitted:%' AND occurred_at > '<apply time>'
+ GROUP BY 1,2;
+SELECT spec->>'related_pages_source' AS src, count(*) FROM site_work_items
+ WHERE item_key LIKE 'tool_crosslink:%' AND created_at > '<apply time>' GROUP BY 1;
+```
+**PASS = at least one row of either kind carrying `suggested`.** "Cross-mentions resumed" is NOT the
+test: it cannot distinguish a working picker from a week in which requesters happened to fill the
+field in. The source stamp exists precisely so this stays measurable rather than inferred.
+
+⚠ **An empty `suggested` bucket with a non-empty `spec` bucket means the picker was never REACHED,
+not that it failed** — the requester named pages and won, which is correct. Check which case you are
+in before concluding anything: `SELECT count(*) FILTER (WHERE spec ? 'related_pages') FROM
+site_work_items WHERE item_type='add_tool' AND created_at > '<apply time>';`

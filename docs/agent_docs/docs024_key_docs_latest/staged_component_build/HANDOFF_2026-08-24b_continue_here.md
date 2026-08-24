@@ -361,3 +361,57 @@ The round-3 verdict for corr `642ecc3c` (run `53e3812f`) was **APPROVED** (§5),
 an amend, and writing the trailer onto some unrelated later commit would be a false claim — so the
 record is here and in `bugs_open/353` §13. **Do not resubmit `642ecc3c`**; the verdict exists and is
 approved.
+
+---
+
+## 10. OWNER RULING 2026-08-24 (evening) — the picker is BUILT. One half live-inert, one HELD. **This is the live work; read it before §7.**
+
+Owner's answer to §7.2's open question: *"Do the third and the second as a stop gap please."*
+
+### 10.1 State of each half
+
+| half | commit | state | what it needs next |
+|---|---|---|---|
+| stopgap: `related_pages` in the hand-order recipe | `d5dafd6a7` | **LIVE** (a doc) | nothing — the owning lane has it |
+| reader: `related_pages_fallback` on both tool actions | `0fb94a7dd` | **live-inert** once a build ships it | a chassis roll |
+| wire: migration 602 | `c64bbbd03` | **HELD** | apply AFTER the reader is live |
+
+Council `c962abd1-87e4-473f-9990-3985322050af`, submitted 19:1xZ, verdict not yet read.
+
+### 10.2 The apply is NOT "after the next roll" — it is after the reader is PROVEN live
+
+Full procedure, with the binary probe and both controls:
+`RUNBOOK_staged_component_build.md`, "Applying migration 602". ⚠ Two traps it carries:
+`-l app=agent-chassis` matches **2** pods of the ~68 running this binary, and `tool-generator` is a
+**per-run** pod, not one of the two; and there will be **no `schema_migrations` row** for 602, because
+the runner refuses `--record-only` on a `_HOLD` sidecar — so record the apply in the lane NOTES, and
+do not later read that absence as "it never ran". (That is exactly the trap that made me date 516 from
+`agent_definitions.updated_at`; see §7.1.)
+
+### 10.3 The verification is a DEMAND problem, and the demand has been offered
+
+The apply verifies itself in-transaction. What it cannot verify is that the picker ever supplies
+pages. The discriminating case is a hand-filed `add_tool` **without** the key from a real producer —
+**the `webdesign-tool-rebuilds` lane has offered to supply one on request.** Take them up on it.
+
+**PASS = at least one row carrying `related_pages_source='suggested'`**, in either
+`agent_error_log.context` or the emitted items' `spec`. "Cross-mentions resumed" is not the test, and
+an empty `suggested` bucket beside a non-empty `spec` one means the picker was never REACHED (the
+requester named pages and won), not that it failed.
+
+### 10.4 This also gives 353's item (b) its route
+
+§7.3 established that item (b) is unreachable on the current producer mix, because every birth stops
+at `no_related_pages` before Guard 2. **Once 602 is applied, hand-ordered births will carry pages
+again and will therefore REACH Guard 2** — so the first non-zero
+`emitted_ungated_build_enqueued_by_caller` row becomes reachable as a side effect. It is still a wait,
+but it is now a wait on something that can actually happen.
+
+### 10.5 Trap 15, learned by doing it wrong today
+
+**On a two-commit change, SUBMIT TO THE COUNCIL BEFORE THE FIRST COMMIT.** I committed the reader,
+then submitted, then committed the migration — so only the migration carries `Council-Submitted:`, and
+`0fb94a7dd` will list as unreviewed for ever even when this round approves. Forward-only forbids an
+amend, and a trailer on a later unrelated commit would be a false claim. The submission asserts
+nothing and costs nothing until the verdict, so there is no reason to commit first. Second trailer gap
+this lane has recorded today (§9.1 is the other).

@@ -8191,3 +8191,77 @@ before the part of the file that differs.
 > loop", and the phrase does not appear in any of the three files where this is asserted.
 > Addendum written into the `090`-no-verdict entry in `LANDMINES.md` — the second route to that
 > silence was not documented.
+
+## 2026-08-24 (late) — the owner ruled: DO the picker, with the recipe as a stopgap. Both halves are built; one is live, one is HELD
+
+Owner's answer to the three options in `README_where_we_are`: *"Do the third and the second as a
+stop gap please."*
+
+### 1. The stopgap, shipped first because it works today (`d5dafd6a7`)
+
+`related_pages` added to the hand-order recipe in the `webdesign_tool_rebuilds` lane's
+`RUNBOOK_native_rebuild_of_ported_tools.md` — the producer of **58 of the 66** hand-filed `add_tool`
+items, and a lane mid-programme at 33 of 63 rebuilds, so every further build was losing its
+cross-mentions silently. Edited their doc rather than only reporting it; messaged both the lane and
+its sibling. Their reply confirms the ACTIVE filer is the sibling session
+(`webdesign-tool-rebuild`, no trailing `s`) and that the finding is going into their NOTES.
+
+Recipe SQL proven against the live DB, and the array shape checked against `relatedPagesFromSpec`,
+which takes `jsonb_build_array`'s output through its `[]interface{}` arm unchanged.
+
+### 2. The reader (`0fb94a7dd`) — live-inert
+
+A second optional-explicit key, `related_pages_fallback`, on BOTH tool actions.
+`relatedPagesFromInputs` now returns `([]string, source)` and consults: `related_pages` →
+`input_data.spec.related_pages` → the fallback. **The requester always wins** — a picker that can
+overrule an explicit choice makes the field the requester filled in silently advisory, which is
+worse than no picker at all.
+
+The `relatedPagesSource` stamp (`"spec"` / `"suggested"`) goes onto every skip row's context and
+every emitted item's spec. **That stamp is the demand control for this entire change:** without it
+"cross-mentions resumed" cannot distinguish a working picker from a week in which requesters
+happened to fill the field in.
+
+Mutation-proved in a `git archive HEAD` copy via `scripts/verify-head-builds.sh --with … --test`
+with `KEEP_TREE=1`, then mutating inside the kept tree — which is how to do this on a shared tree
+without a mutation window in the real working copy:
+- precedence reversed → `TestRelatedPagesPrecedenceAndSource/requester wins` fails, other two pass;
+- fallback arm deleted → the `picker used` case fails;
+- `related_pages_fallback` dropped from `DeployToolToSiteInputSpec` → the declaration guard fails.
+
+### 3. The wire (`c64bbbd03`, migration 602, HELD)
+
+`load_site_pages` → `execute_llm_prompt` ahead of each saving step, plus
+`"related_pages_fallback?": "suggest_related_pages.result"`. Reused `load_site_pages` rather than
+writing a query — it already returns `page_names`.
+
+**No conditional gate on the picker, deliberately.** The obvious design is a `conditional` step that
+runs the picker only when the key is absent. `bugs_open/313` is what that costs when the condition
+does not resolve: it silently evaluated false and skipped an agent's only LLM step **on every run
+for four months**, with the run reporting success throughout. The price of not gating is one wasted
+model call on the ~14% of builds that already name pages. **A wasted call is visible in
+`llm_call_log`; a skipped one is not.**
+
+Both `error_step`s fall through **to** the saving step, so a picker failure degrades to exactly
+today's behaviour and can never fail a tool build.
+
+Proven against the LIVE database in a transaction and rolled back: verify passed, the ROLLBACK file
+applied cleanly after it with 516 intact, and **four induced mutations each ABORTED** with the
+intended message — fallback repointed, an unmarked twin added, prompt rule 5 removed, `error_step`
+diverted. The unmarked-twin and rule-5 assertions are the two that matter: the first is 330 coming
+back, the second is absence ceasing to be representable.
+
+Council: `c962abd1-87e4-473f-9990-3985322050af`, submitted 19:1xZ.
+
+### 4. My own misstep, and it is a cheap one to avoid
+
+**I committed the reader BEFORE submitting to the council, so `0fb94a7dd` can never carry a
+trailer.** Forward-only forbids an amend, and putting `Council-Reviewed:` on some later unrelated
+commit would be a false claim. Only the migration commit carries `Council-Submitted:`, so `098` will
+list the Go half as unreviewed for ever even when this round approves.
+
+**The rule that falls out: on a two-commit change, SUBMIT FIRST.** The submission costs nothing until
+the verdict and `Council-Submitted:` asserts nothing, so both commits can carry it. Submitting
+between the halves is what strands the first one. This is the second trailer gap this lane has
+recorded today — §9.1 of the handoff records the other, where an APPROVED round has no trailer on
+any of its three code commits.
