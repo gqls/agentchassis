@@ -95,8 +95,9 @@ If a paragraph needs a second read to find the one number that mattered, it is d
   **`/tmp` is a 16 GB tmpfs, i.e. RAM** — a full one presents as
   `link: mapping output file failed: no space left on device`, which reads like a
   compiler fault and is not one. Reap abandoned scratch on **both** filesystems
-  with `scripts/scratch-janitor.sh` (dry-run by default; `--self-test` proves its
-  guards). Why the disk half matters as much as `/tmp`, and the standing figures:
+  with `scripts/scratch-report.py [--days N] [--reap]` (OPP-005; dry-run by
+  default, `--self-test` proves its guards). Why the disk half matters as much as
+  `/tmp` — and why `df -h /tmp` alone will tell you it is fixed when it is not:
   `docs/agent_docs/docs024_key_docs_latest/tmpfs_exhaustion/`.
 
 ## Council review of platform changes (advisory, live 2026-07-17)

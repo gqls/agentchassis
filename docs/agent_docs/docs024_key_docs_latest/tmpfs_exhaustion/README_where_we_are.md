@@ -83,3 +83,49 @@ days", and `/tmp` used to fill up in four, so it could never fire in time. Not "
 watching" but "the watchman is set too slow", and those two point at different fixes. Shortening it
 is a one-line system file and needs your root password; it would only help `/tmp` though, and 88%
 of the volume is now on the disk side where that tidier doesn't look.
+
+## 2026-08-24 (later) — I built something we already had, and that turned out to be the finding
+
+An hour after writing the above I went to register the new cleaner-upper in the estate's catalogue
+of reusable parts, and read the entries either side of where mine would go. **We already had one.**
+
+`scripts/scratch-report.py`, built on 3 August — the same day as the change that started all this —
+does what I spent the morning building. Same idea, same safety rules, three weeks older, and in one
+respect better designed than mine. When I ran it, it said:
+
+> **250 folders, 97.1 GB, safe to delete.**
+
+At its own default settings. It has been able to say that for weeks. Nothing has ever run it.
+
+So the honest correction is that **my headline was wrong in an interesting way**. I told you the
+problem was that nothing cleans up. It isn't. We built the cleaner-upper three weeks ago and then
+never scheduled it. The pile did not grow for want of a tool; it grew because the tool has no alarm
+clock. That changes what I'm asking you for: not "shall I build a janitor" but **"shall I put one
+line in the crontab"** — which is a much smaller thing, next to the two entries already there.
+
+I've deleted mine. Two cleaner-uppers that drift apart is a problem this place files bugs about
+most weeks, and the older one is better.
+
+**Why I didn't find it first, since that's the part worth learning from.** Our own rules say to
+check the catalogue before deciding something doesn't exist. I checked it before deciding to *tell
+you* about it — which is a completely different and much later moment, by which point the thing was
+written and tested. The symptom felt new, so I never asked whether the machinery was.
+
+**One genuinely useful thing did come out of building the duplicate.** Comparing the two showed the
+existing tool has a blind spot that has been hiding in plain sight. It is *supposed* to cover both
+places — memory and disk — and its own documentation says so in as many words. It doesn't. It only
+ever looked at the disk, because of how it goes hunting: it expects a particular folder structure
+that the `/tmp` side has never had. Three weeks looking covered and covering half.
+
+What makes that one worth telling you about is **how it hid**. There was no error, no wrong number,
+no zero. The report just quietly printed one heading where there should have been two. A missing
+line is the hardest kind of mistake to spot, because there's nothing there to read and disagree
+with. I've fixed it — `/tmp` now shows up, with 2.7 GB of leftovers in it.
+
+**So, unchanged, the two things I need from you:**
+
+1. **The ~100 GB.** Delete it, or don't. The existing tool at its normal setting says 97 GB across
+   250 folders; with the `/tmp` fix included and a slightly keener setting it's 106 GB across 272.
+   Either way it leaves the 14.8 GB of actual session work completely alone — that's the part of
+   the design I'd most want you to trust, and it's the same in both tools independently.
+2. **The crontab line.** Without it we are back here in a fortnight, and this is now the fifth time.

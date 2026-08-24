@@ -16,23 +16,35 @@ du -xsh "${CLAUDE_CODE_TMPDIR:-$HOME/.claude-scratch}"
 > fine (+0.5 GB/day) while the disk scratch was taking 10.4 GB/day. The producer had moved, not
 > stopped. **Check both or check neither.**
 
-## The janitor
+## The reaper — `scripts/scratch-report.py` (OPP-005)
 
 ```bash
-scripts/scratch-janitor.sh                      # DRY RUN — what would go, and how much
-scripts/scratch-janitor.sh --apply              # delete
-scripts/scratch-janitor.sh --self-test          # prove the guards still fire
-scripts/scratch-janitor.sh --scratch-hours 168  # only reap disk scratch idle >7d
+scripts/scratch-report.py --days 2              # DRY RUN — what would go, and how much
+scripts/scratch-report.py --days 2 --reap       # delete
+scripts/scratch-report.py --self-test           # prove the guards still fire
+scripts/scratch-report.py --days 7              # more cautious gate
 ```
 
-Gates default to `/tmp` >24h and disk scratch >48h; it refuses any gate under 2h. It deletes
-nothing without `--apply`.
+Dry run by default. It deletes **only** marker-verified repo extractions and `go-build*` linker
+dirs; never a loose file, never a session directory, never anything it cannot positively identify.
 
-> **⚠ Run `--self-test` after editing it, and read the control line.** The first PASS asserts an
-> ordinary idle directory *reaches* the delete list. Without it every refusal below is vacuous —
-> a guard that never sees a candidate "passes" while protecting nothing.
+> **⚠ THIS TOOL ALREADY EXISTED AND HAD NEVER BEEN RUN.** Deployed 2026-08-03, correct, and
+> 97.1 GB was sitting reapable at its own default gate on 2026-08-24. **Check the concept register
+> before building a reaper** — this lane built a duplicate first (`scratch-janitor.sh`, deleted the
+> same day). *A silent mechanism is usually undriven, not missing.*
 
-> **⚠ A dry run takes ~40s** — it stats ~750 session directories. That is not a hang.
+> **⚠ Its `/tmp` arm was INERT until 2026-08-24, while looking covered.** `ROOTS` listed `/tmp` and
+> the register entry claimed both roots were read. Every candidate came from `scratch_dirs()`,
+> which requires a `<root>/claude-*/<proj>/<uuid>` layout — and `/tmp` has never had a `claude-*`
+> directory. **The tell was a missing section header**: the report printed no `=== /tmp ===` at
+> all. Fixed by `loose_reapables()`. If you change the roots, check the header prints.
+
+> **⚠ Run `--self-test` after editing it, and read the CONTROL line first.** The opening PASS
+> asserts a real extraction *reaches* the reap list; the age-gate case then holds back **the same
+> directory**. Without that pairing every refusal is vacuous — a guard that never sees a candidate
+> "passes" while protecting nothing.
+
+> **⚠ A dry run takes ~2 min** — it walks ~750 session directories computing sizes. Not a hang.
 
 ## Measuring the actual producer (the numbers in PLAN §1)
 

@@ -71,10 +71,27 @@ Two reasons, both structural rather than anybody's fault:
 
 ## 4. What this lane will do, in order of leverage
 
-1. **A janitor that reaps both filesystems.** ✅ SHIPPED — `scripts/scratch-janitor.sh`, commit
-   `abf9b7485`. This is the handoff's deferred §4.3, and the deferral was made on the `/tmp`-only
-   measurement above. It is the only item that **bounds** anything; 1 and 3 reduce the rate.
-   Design decisions and their reasons in §5.
+1. ~~**A janitor that reaps both filesystems.** ✅ SHIPPED — `scripts/scratch-janitor.sh`.~~
+   > **⚠ CORRECTED 2026-08-24, hours after writing it. The janitor already existed and I did not
+   > check.** `scripts/scratch-report.py --reap` — **OPP-005, deployed 2026-08-03**, in the concept
+   > register the whole time: marker-verified, dry-run by default, both roots by design. It had
+   > **97.1 GB reapable at its own default gate** and no evidence of ever having been run. My
+   > duplicate is deleted (`0097d25de`) and its one genuine gap folded into the original.
+   >
+   > **So the handoff's §4.3 was not asking for a janitor. It was asking for a SCHEDULE, and did
+   > not know it** — because it too concluded from the symptom rather than from the register.
+   > *A silent mechanism is usually undriven, not missing.* The remaining work here is a crontab
+   > entry, not code.
+
+   **What the fold-in fixed, which is a real defect in OPP-005.** `ROOTS` listed `/tmp`, and the
+   register entry claimed *"both tools read BOTH roots … a check that inspects only one will be
+   confidently wrong"*. `[MEASURED 2026-08-24]` **it read one.** Every candidate came from
+   `scratch_dirs()`, which requires a `<root>/claude-*/<proj>/<uuid>` layout, and `/tmp` has never
+   had a `claude-*` directory. Inert for three weeks while looking covered. **The tell was an
+   absent section header** — no `=== /tmp ===` in the output — not a wrong figure. `loose_reapables()`
+   now scans a root's top level and one level below it for the two regenerable shapes
+   (marker-verified extraction, `go-build[0-9]+`), and `/tmp` reports for the first time: 7 dirs,
+   2.7 GB.
 2. **Put the pointer where sessions actually load it** — `CLAUDE.md`, and the memory index. This is
    the "a silent mechanism is usually UNDRIVEN, not missing" pattern: the mechanism exists and
    nothing drives it.
@@ -86,7 +103,14 @@ Two reasons, both structural rather than anybody's fault:
 5. **NOT: raise the tmpfs, and NOT: assume disk is free.** §1 of the handoff still stands on the
    first. The second is the mistake this plan is correcting.
 
-## 5. The janitor's design decisions, and why
+## 5. The reaper's design decisions, and why
+
+> **⚠ This section was written about `scratch-janitor.sh`, which no longer exists.** The reasoning
+> survives because `scratch-report.py` had independently reached the same three conclusions in
+> 2026-08-03 — shape not age, positive identification only, dry run by default. **That agreement is
+> the strongest argument that the design is right, and the sharpest evidence that I should have
+> read the register before writing code.** Kept as written, with the tool renamed where it is a
+> command rather than a claim.
 
 - **The disk side reaps by SHAPE, not by age.** A session scratchpad holds the disposable extract
   *and* the session's real work product — its notes, its analysis files — in the same directory.
@@ -105,7 +129,10 @@ Two reasons, both structural rather than anybody's fault:
 - **Dry run by default.** It deletes on shared ground; `--apply` is a deliberate act.
 - **`--self-test` plants each hazard and asserts the guard fires**, with a control proving the
   candidate list was non-empty first — otherwise every refusal could just mean "nothing was ever a
-  candidate". See NOTES for what that test caught on its first run, which was itself.
+  candidate". Ported onto `scratch-report.py`, which had no test at all. Six cases; the age-gate
+  case deliberately re-uses **the same directory** as the control, so "held back" cannot be
+  confused with "never found". See NOTES for what that test caught on its first run, which was
+  itself.
 
 ## 6. Open questions for the owner
 

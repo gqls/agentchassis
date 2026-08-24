@@ -130,3 +130,74 @@ having — the drop-in cannot cover the disk scratch, which is where 88% of the 
   excluded by name. Dry run by default; refuses a gate under 2h; `--self-test` proves the guards.
 - Dry run at the shipped gates: **261 directories, 108 GB**. Not applied — that is other sessions'
   data on shared ground and the last cleanup was done on the owner's instruction for that reason.
+
+### Misstep, the larger one: I built a reaper that already existed
+
+Went to write the concept-register entry for `scratch-janitor.sh` and read the neighbouring
+entries first, as you do. **OPP-005 — "Session scratchpads: versioned by a snapshot hook, reaped by
+content class", deployed 2026-08-03** — ships `scripts/scratch-report.py --reap`: both roots,
+marker-verified identification, dry run by default, refuses anything it cannot positively identify.
+It is the tool I spent the morning writing, three weeks older, and slightly better designed.
+
+```
+$ ./scripts/scratch-report.py --days 2
+250 marker-verified extraction dir(s) older than 2.0d = 97.1G
+```
+
+**97.1 GB reapable at its own default gate, and no evidence it had ever been run.** So the whole
+framing in PLAN §4.1 was wrong. The estate did not lack a reaper; it lacked a *schedule*. The
+remaining work is one crontab line, not 250 lines of bash.
+
+CLAUDE.md says to consult the register *"before concluding something does not exist"*. I consulted
+it before **announcing** — which is a different and much later moment, and by then the code was
+written, tested and committed. The check costs one `grep` of
+`docs026_concept_register/register/*.md` and I did not spend it because the diagnosis felt novel.
+**Novel symptom, existing machinery** is exactly the case the register is for.
+
+Deleted `scratch-janitor.sh` (`0097d25de`) rather than keeping two reapers, which is the drift
+class this estate files bugs about weekly.
+
+### What the fold-in found, and it is the sharper half
+
+`scratch-report.py`'s `ROOTS` lists `~/.claude-scratch` **and** `/tmp`, and OPP-005's own landmine
+says: *"Both tools read both roots for this reason; a check that inspects only one will be
+confidently wrong for as long as the old sessions live."*
+
+`[MEASURED 2026-08-24]` **it read one.** Every candidate came from `scratch_dirs(root)`, which
+yields `<root>/claude-*/<proj>/<uuid>/` — and `/tmp` has never had a `claude-*` directory in it
+(handoff §8 recorded exactly that fact on 2026-08-23, as *reassurance* that no scratchpads were in
+`/tmp`; the same fact is why the tool could not see `/tmp` at all). Control:
+
+```
+$ ls -d /tmp/claude-*
+ls: cannot access '/tmp/claude-*': No such file or directory
+$ ls -d /home/ant/.claude-scratch/claude-*
+/home/ant/.claude-scratch/claude-1000
+/home/ant/.claude-scratch/claude-7dd0-cwd
+```
+
+**The tell was an absent section header.** The report prints `=== <root> ===` per root; it printed
+one. Nothing errored, no figure was wrong, no zero appeared — a heading simply was not there, and
+an early `continue` on "no session rows" skipped the root silently. **A missing row is the hardest
+refutation to notice because there is nothing to read.** Worth generalising: check for the section
+you *expected*, not only the numbers in the sections you got.
+
+Fixed with `loose_reapables()` — a root's top level plus exactly one level below it (holding
+directories like `gotmp/` and `adhoc/` are not themselves scratch, but the linker dirs sit inside
+them; deeper would start walking real work). Two shapes only, both regenerable by construction:
+marker-verified extraction, and `go-build[0-9]+`. `/tmp` now reports **7 dirs, 2.7 GB**.
+
+Also ported the self-test onto it — `scratch-report.py` had none. Six guards, all firing, with the
+age-gate case deliberately re-using **the same directory** as the control so that "held back by the
+gate" cannot be confused with "never identified in the first place".
+
+### Where the numbers stand at the end of the session
+
+| | |
+|---|---|
+| reapable, existing tool, 2-day gate | **250 dirs / 97.1 GB** |
+| reapable, after the `/tmp` fold-in, 1-day gate | **272 dirs / 106.0 GB** |
+| irreplaceable session work (never reaped, and correctly so) | 14.8 GB |
+| free on `/` | 120–123 GB |
+
+Nothing deleted. That is the owner's call.

@@ -47633,3 +47633,27 @@ session's other entries — reading a result for what it confirms.
 4. **A recipe copied from a doc inherits the doc's assumptions, not your situation.** 73 documents
    spell this one out and 66 of them never delete anything; the recipe is fine for one run and I
    ran it seven times in a session.
+
+**A fourth, mine, an hour after the three above — I built a tool that already existed.**
+`scripts/scratch-janitor.sh`, written this morning to reap abandoned scratch, duplicated
+`scripts/scratch-report.py --reap` — **OPP-005, deployed 2026-08-03, in the concept register the
+whole time**, covering both roots by design, dry-run by default, marker-verified. I found it only
+when I went to write my own register entry and read the neighbouring ones. CLAUDE.md says to
+consult the register *"before concluding something does not exist"*; I consulted it before
+**announcing**, which is a different and much later moment. Deleted the duplicate; folded its one
+genuine gap into the original.
+
+**And the gap is the more interesting half, because it is how the original hid.** `scratch-report.py`
+listed `/tmp` in `ROOTS` and OPP-005's own landmine claimed *"Both tools read **both** roots … a
+check that inspects only one will be confidently wrong"*. `[MEASURED 2026-08-24]` **it read one.**
+Every candidate came from `scratch_dirs()`, which requires a `<root>/claude-*/<proj>/<uuid>`
+layout, and `/tmp` has never had a `claude-*` directory in it. The arm was inert for three weeks
+while looking covered — **and the tell was an ABSENT section header**, not a wrong number: the
+report simply never printed `=== /tmp ===`. Nothing errored, nothing was zero, a heading just was
+not there. **A missing row is the hardest possible refutation to notice, because there is nothing
+to read.** Check for the section you expected, not just the numbers in the sections you got.
+
+**The compounding fact, and the one that actually mattered:** the reaper had **97.1 GB reapable at
+its own default gate** and no evidence of ever having been run. The 130 GB did not accumulate for
+want of a tool. It accumulated because nothing scheduled the tool we had. *A silent mechanism is
+usually undriven, not missing* — and I spent a morning proving that by writing the missing one.

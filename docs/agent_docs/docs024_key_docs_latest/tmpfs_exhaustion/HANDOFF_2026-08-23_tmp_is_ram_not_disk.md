@@ -402,3 +402,36 @@ proportion to the size ratio and changes nothing else — and it costs you the s
 telling you the producer existed. §10 was right to distrust its own single-cause story about swap;
 it distrusted the wrong half. **The lane now lives in `PLAN_2026-08-24_tmpfs_exhaustion.md`,
 `NOTES_`, `RUNBOOK_` and `README_where_we_are.md` in this directory.**
+
+### 11b. CORRECTION to §11, same day — §4.3 did not need a janitor built, it needed the existing one SCHEDULED
+
+> **⚠ §11 above says "Shipped in response: `scripts/scratch-janitor.sh`". That file was deleted
+> hours later (`0097d25de`) and this correction is why.**
+
+`scripts/scratch-report.py --reap` — **OPP-005, deployed 2026-08-03, the same day as §3's
+`CLAUDE_CODE_TMPDIR` change** — already reaps abandoned scratch: marker-verified identification,
+dry run by default, refuses anything it cannot positively identify, both roots by design. It is in
+the concept register. `[MEASURED 2026-08-24]` it reported **250 extraction dirs / 97.1 GB reapable
+at its own default 2-day gate**, with no evidence of ever having been run.
+
+**So §4.3's framing — "A janitor, because (1) and (2) reduce the rate but do not bound it" — was
+one word wrong, and the word matters.** The janitor existed. What did not exist was a schedule.
+The remaining work is one crontab line, not a new tool, and the estate has been carrying an unrun
+reaper for three weeks while filing this as a recurring incident. *A silent mechanism is usually
+undriven, not missing* — and the way to have known was to grep the concept register before
+concluding the machinery was absent, which neither the 2026-08-23 pass nor this one did until
+after writing code.
+
+**One real defect did fall out of the comparison, and it is in OPP-005.** Its `ROOTS` lists `/tmp`
+and its register entry states *"Both tools read **both** roots … a check that inspects only one
+will be confidently wrong"*. It read one: every candidate came from `scratch_dirs()`, which
+requires a `<root>/claude-*/<proj>/<uuid>` layout, and `/tmp` has never had a `claude-*` directory
+— the very fact §8 recorded on 2026-08-23 as reassurance. Inert for three weeks while looking
+covered. **The tell was an absent section header, not a wrong number**: the report printed
+`=== /home/ant/.claude-scratch ===` and simply never printed `=== /tmp ===`. Fixed by
+`loose_reapables()` (root top level + one level down; marker-verified extractions and
+`go-build[0-9]+` only). `/tmp` now reports **7 dirs, 2.7 GB**, and a `--self-test` proves six
+guards fire against planted hazards, with the age-gate case re-using the control's own directory.
+
+**Standing figures, 2026-08-24, nothing deleted:** 272 dirs / 106.0 GB reapable at a 1-day gate ·
+14.8 GB of irreplaceable session work correctly untouched · 120–123 GB free on `/`.
