@@ -42,6 +42,27 @@ error anywhere. The only trace is one `agent_error_log` row,
    When the page later deploys via the ordinary page-build path, no crosslink emission happens
    — emission is a birth-time one-shot that already fired into the withhold.
 
+> **⚠ CORRECTED 2026-08-24 — "`tool-deployer` has never run" is FALSE, and the query cited could
+> never have shown otherwise.** `orchestration_states` retention is **24 hours, sliding** — measured
+> today, oldest COMPLETED row **24.5 h**, oldest FAILED **23.5 h**, and no non-reaped status to lift
+> the floor. So `owner_agent_type='tool-deployer' → 0` meant *"none in the last day"*, never
+> *"none ever"*, and the "retention reaches 2026-07-19" figure quoted in the round-3 submission was
+> the documented FALSE FLOOR (non-reaped `CANCELLED`/`RUNNING` rows), not a real window.
+> **Re-sourced from a table with no retention job:** `agent_error_log` holds **10** `tool-deployer`
+> rows spanning **2026-08-03 17:55:49Z → 2026-08-15 00:08:28Z** — so it ran **at least 10 times**
+> during the damage window, every one logging *"workflow completed but its result could not be
+> delivered to the parent (failed_transient)"*. **The workflow COMPLETED**; only the reply to its
+> parent failed.
+> **What this does and does not change.** The DAMAGE is untouched — it was measured from durable
+> rows (32 withheld tools, 30 with zero cross-links ever), not from this table. What changes is the
+> MECHANISM sentence: the correct statement is not "the re-emission path has never run" but
+> **"it ran, and the withheld tools still have no cross-links"** — which is a sharper and so far
+> UNANSWERED question (did it run for other tools, or run for these and withhold again?).
+> **[UNMEASURED]** — and it is now open item (c'), restated in §13.2.
+> Caught by the round-3 council's `prior_art_librarian` seat citing this estate's own retention
+> landmine. Do not restate the old claim.
+
+
 ## 3. Damage, measured (2026-08-22 ~09:2xZ)
 
 ```sql
@@ -373,3 +394,79 @@ verbatim, and the call-site test added as edit 7. Submission file:
 
 **Item (a) — the forward fix pending a roll — is CLOSED (§12.1). The damage half stays CLOSED
 (§11).**
+
+## 13. 2026-08-24 — council round 3 **APPROVED**, and its three advisory objections found two real defects in my own evidence
+
+Run `53e3812f`, `complete_approved`, *"approved with 3 advisory objection(s) — none high-severity"*.
+Corr `642ecc3c` throughout (rounds 1–3 on one correlation).
+
+**Advisory objections are not decoration.** All three were about EVIDENCE rather than code, two were
+right, and one of those refutes a claim that had stood in this file since filing. Recording them in
+full because "APPROVED" is exactly the moment they stop being read.
+
+### 13.1 `debug_historian` (medium) — my deploy probe was too narrow. **Right about the method; the conclusion survives on wider evidence.**
+
+> "Deploy verification checked `/proc/1/exe` on only the two pods matching `-l app=agent-chassis` …
+> a per-run agent runs in its OWN EPHEMERAL POD … If `tool-generator` spawns as a per-run pod, the
+> binary probe proves nothing about the pod that matters."
+
+**Correct, and §12.1 as written did not establish what it claimed.** I inferred completeness from
+"one replicaset" on a **two**-pod label selector. The namespace holds **159** pods, of which **68**
+run this binary as per-run `agent-*` pods — and `tool-generator` is one of those (no
+`agent-tool-generator-*` pod exists at rest; it spawns per run).
+
+**Re-checked properly, and it holds:** all **68** per-run agent pods are on `v1.0.1332`, and a
+per-run pod **on a different node** from the two chassis pods probes clean —
+`emitted_ungated_build_enqueued_by_caller` **present**, control **+** present, control **−** absent.
+Node-level check matters here because a same-tag rebuild can serve a stale cached image per node.
+
+**The lesson is the reviewer's, not mine:** `-l app=<service>` answers "which pods carry this label",
+never "which pods run this binary", and on this estate those differ by a factor of 34.
+
+### 13.2 `prior_art_librarian` (medium) — **THE REAL ONE. "`tool-deployer` has never run" is refuted.** See the correction banner in §2.
+
+> "This is exactly the documented landmine pattern for this column … A 0-row result on this predicate
+> does not establish the claimed absence."
+
+Retention is **24 h sliding** (measured today: oldest COMPLETED **24.5 h**). Re-sourced from
+`agent_error_log`, which has no reaper: **10 `tool-deployer` rows, 08-03 → 08-15**, every one
+*"workflow completed but its result could not be delivered to the parent"*. **It ran. The workflow
+completed.**
+
+**Open item (c) is therefore RESTATED, and it is now a better question than the one it replaces:**
+
+> ~~(c) `tool-deployer` still has 0 runs in retained history — an unexercised path.~~
+> **(c′) `tool-deployer` RAN at least 10 times inside the damage window and the 30 withheld tools
+> still have zero cross-links. Did it run for other tools, or for these and withhold again?**
+> **[UNMEASURED]** — the discriminator is whether any of those 10 runs names a withheld tool.
+
+The damage figures are untouched: they came from durable rows, never from `orchestration_states`.
+
+⚠ **This is the landmine's own predicted failure mode, third recorded instance.** The entry says a
+TABLE-footprinted landmine cannot reach anyone via the `SessionStart` hook (which matches dirty
+FILE paths), so its delivery moment is the first query — and it names two other lanes it failed to
+reach on 08-23. I read this file, then queried the table, and still restated the false floor.
+Logged to `WRONG_CALLS.md` and appended to the landmine's own tally.
+
+### 13.3 `bug_historian` (medium) — the regeneration residual must not ride this bug's closure. **Agreed; now filed separately.**
+
+> "A comment pointing at `bugs_open/353` is not durable tracking for a DIFFERENT residual than the
+> one 353 is about — recommend a distinct work item so it doesn't silently ride the parent bug's
+> closure."
+
+**Right, and it matches this estate's documented recurring shape** ("one call site of a shared
+judgement gets the rigorous fix; the sibling stays heuristic"). §12.6(d) is exactly a different
+defect parked inside this bug's open list, where it would close when 353 closes.
+
+**Filed as `bugs_open/379`.** Removed from 353's open list — see §13.4.
+
+### 13.4 353's open list, restated
+
+- **(b)** the new arm is **live but UNEXERCISED** — first non-zero
+  `emitted_ungated_build_enqueued_by_caller` row closes it; the zero today is uninformative (§12.2).
+- **(c′)** `tool-deployer` ran ≥10× in the damage window and the withheld tools still have nothing —
+  **[UNMEASURED]**, §13.2.
+- ~~(d) the regeneration residual~~ → **moved to `bugs_open/379`**, no longer gated on this file.
+
+**CLOSED:** the damage half (§11), and item (a), the forward fix (§12.1, method corrected in §13.1).
+**The forward fix is APPROVED (round 3) and LIVE** — nothing further to ship.
