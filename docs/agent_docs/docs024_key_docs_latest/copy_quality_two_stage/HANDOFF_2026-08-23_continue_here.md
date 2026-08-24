@@ -31,6 +31,40 @@ wrong about the two things that matter most: `bugs_open/327` is **closed**, and 
 - **The writer-side gate is `bugfix_305_negation_gate`'s**, built on our diagnosis with
   `audit_writer_brief.py` as its specification. Item 6 (scheduling the brief detector) is theirs now.
 
+## ⚠ UPDATED 2026-08-24 — THE WIRING IS DONE (both halves), and item 1 below is superseded
+
+**Register CQ-030.** Stage 2 is now dispatchable, and audit `tone` findings route to it.
+
+- **Half 1 — migration `579`, APPLIED AND LIVE.** `copy-editor` gained a dispatched entry path.
+  A claimed handler receives only `work_item_id`, while `load_page_target` bound
+  `input_data.page_id`, and a single dual-source step is impossible because `QueryDatabaseAction`
+  **errors** on a param path resolving to nil. So: branch on entry (truthy on
+  `input_data.work_item_id`), converge both paths on `page_ref.page_id`. ⚠ **This changed a LIVE
+  agent's entry** — the hand-fired path was re-proven immediately after applying, and must be
+  re-proven after any further change to that branch, because both entries now share one
+  `load_page_target` binding.
+- **Half 2 — the router, committed, `Council-Submitted: c1931fa1-5a98-4874-9730-b9ef3519c0d4`,
+  inert until a roll.** `tone` files `needs_copy_edit` at `copy-editor` instead of `tone_shift` at
+  `page-build-handler`. The reason is an incident, not a preference: page-build-handler
+  REGENERATES, and one `tone_shift` cost finetuning.uk's homepage 11 non-llm URL keys, five empty
+  `<img src="">` and six controls (`bugs_open/238`).
+- **The safety argument is VOLUME and it is measured:** `tone_shift` **33** lifetime (live+archive)
+  as of 2026-08-24 vs **1,893** `content_rewrite`, into a review queue holding **1,079** items with
+  no working surface (`bugs_open/033`, still open). ~1/week cannot flood it. **Do not extend this
+  to the high-volume categories** — the code comment says so in terms.
+- **D2 is untouched:** copy-editor cannot write to a page (447 RAISEs), so this routes an
+  auto-PROPOSAL, never an auto-edit.
+
+**What remains before this is finished:**
+1. **A roll**, then **the first DISPATCHED run** — none has happened. Verify it behaves as a
+   hand-fired one does.
+2. ⚠ **Convergence is untested.** Run 5 (2026-08-24, hand-fired) chose 2 of 3 components run 4 had
+   just edited. Checked: **not oscillation** — it cut further on restatement that survived, and
+   found a new fault class (a 175/170 figure conflict between sections). But repeated runs keep
+   proposing on a diffuse page, so **unbounded auto-dispatch there is untested**.
+3. **Run 5's proposal `b0dea48e` is PARKED** at `needs_human_review` and needs the owner: it cuts
+   the CTA a second time (496 → 245) and flags the figure conflict.
+
 ## Next work, in the order that closes doors
 
 1. **Dispatch — the last unbuilt half, and now the only one.** Nothing routes work to `copy-editor`;
