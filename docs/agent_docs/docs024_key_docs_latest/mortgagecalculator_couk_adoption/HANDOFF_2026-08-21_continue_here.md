@@ -37,12 +37,24 @@ items armed, no uncommitted work.
   (every site rendered in the last 3 days carries 43–62 KB; the ~8.5 KB heads are exactly the sites
   last rendered 08-20, as this one was). Raised with the owner as a **fleet-level** question.
 
-⚠ **Hazard, unowned:** three deployed pages have a section with **NULL `content_data`** —
-`tool-bridging-compound`, `tool-rate-scenarios`, `tool-simple` (as of 2026-08-24). Re-rendering
-them **with** a `reason` escalates to the content writer and **regenerates their copy**;
-assemble-only does not. Two of the three are the pages the RFC_034 lane's
-`instance_scope_conversion` items called *"SERVING BROKEN"* on 08-19 and then closed having changed
-nothing.
+⚠ **Hazard, unowned — ONE page, not three (this line CORRECTED 2026-08-24, same day).**
+`tool-simple`'s **`hero`** has NULL `content_data` with a 1,300-char `input_schema`, so re-rendering
+that page **with** a `reason` escalates to the content writer and **regenerates its copy**;
+assemble-only does not. It is the same component as open item `e781118c` (hero missing its
+schema-required `headline`) — note the live page nevertheless shows a proper `<h1>`, so "the page
+looks right" and "the stored record is incomplete" are both true.
+
+> ~~"three deployed pages … `tool-bridging-compound`, `tool-rate-scenarios`, `tool-simple`"~~ —
+> **wrong for the two tool pages.** `rerender_page_sections_action.go:~400` exempts a
+> **self-contained tool section** explicitly (`isSelfContainedSection`, `:1361` = empty
+> `input_schema` AND `component_level=='tool'`); both tool components qualify, and for them NULL
+> `content_data` **is the correct shape**, not a defect. The error came from trusting
+> `049b_deploy_single_page.sh`'s HEADER COMMENT, which states the general rule and omits the
+> exemption, instead of opening the action. `WRONG_CALLS.md` 2026-08-24.
+
+Separately and still true: `tool-bridging-compound` and `tool-rate-scenarios` are the pages the
+RFC_034 lane's `instance_scope_conversion` items called *"SERVING BROKEN"* on 08-19 and then closed
+having changed nothing — that remains unexplained and is not this lane's.
 
 Full record: `NOTES_mortgagecalculator_couk.md` `## 2026-08-24` and `## 2026-08-21`;
 `README_where_we_are.md` 2026-08-21 and 2026-08-24.

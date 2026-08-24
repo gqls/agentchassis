@@ -47996,3 +47996,37 @@ on many sites** (**6** do), and half the finding is per-site, so site A's note r
 would have silenced site B's different finding for thirty days — the same silent
 suppression the change exists to remove, one axis over. **Check an objection's premise
 AND keep its fix; a sound conclusion can arrive with the wrong reason attached.**
+
+## 2026-08-24 — `mortgagecalculator_couk_adoption`: I sourced a hazard from a SCRIPT'S HEADER COMMENT and put it in a handoff; the code has an exemption that made it wrong for 2 of the 3 cases
+
+**The claim:** *"Three deployed pages have a section with NULL `content_data` … anyone re-rendering
+these three pages with a `reason` would silently have their copy rewritten."* Written into the lane
+NOTES, into `HANDOFF_2026-08-21_continue_here.md` as an unowned hazard, and told to the owner.
+
+**Where it came from:** the header comment of
+`docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/scripts/049b_deploy_single_page.sh` —
+*"if ANY section has NULL content_data the whole page escalates to the content writer and the copy
+IS regenerated"*. I quoted it as the rule and never opened the action it summarises.
+
+**What is actually true:** `rerender_page_sections_action.go` exempts a self-contained tool section
+before that check runs — `isSelfContainedSection` (`:1361`) = empty `input_schema` **AND**
+`component_level == 'tool'` — with a comment saying a tool's `content_data` being empty *"is its
+correct shape, not the missing-content defect this pre-check exists to catch"*. Two of my three
+qualify. **The hazard is ONE page** (a `hero`, `component_level='section'`, 1,300-char schema).
+
+**What caught it:** the owner asked me to explain the claim. Nothing else would have — it was
+already committed in a handoff written for a stranger.
+
+**The cheap check that would have caught it, and it is one I have written down before:** a doc
+comment is not the code (`MEMORY: a-doc-comment-is-not-an-enforcement-mechanism`). **A comment that
+states a rule with no exceptions is exactly where to expect the exception.** Open the function the
+comment describes before putting the rule in a durable document — `grep -n "content_data" <the
+action>` was ten seconds.
+
+**A second, subtler miss in the same claim — I had the disconfirming evidence and averaged over
+it.** My own control measured NULL `content_data` at **15.9% of `tool-*` components (36/226)**
+versus **1.3% of everything else (24/1807)** — a 12× gap. I wrote that up as "a known-ish pattern,
+still a minority" and carried on. **A rate difference that large is telling you the two populations
+are under different RULES; it is a prompt to go and find the branch, not a number to caveat.**
+Had I followed the 12× instead of hedging it, it would have led straight to
+`isSelfContainedSection`.

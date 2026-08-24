@@ -4338,3 +4338,57 @@ the next one.**
   `planned`). They need nothing — the chrome is in the store, so they inherit the disclaimer the
   first time they are built.
 - Site unlocked, nothing armed by this lane, no work items left open by this task.
+
+### ⚠ CORRECTION 2026-08-24 — the "three pages" hazard is ONE page, and I took it from a doc comment instead of the code
+
+I wrote earlier today, and repeated it in the handoff and to the owner:
+
+> ~~"**Three deployed pages have a section with NULL `content_data`** … anyone re-rendering these
+> three pages *with* a reason would silently have their copy rewritten."~~
+
+**Wrong for two of the three.** The source of the error is exactly the thing my own memory warns
+about: I took the rule from `049b_deploy_single_page.sh`'s **header comment** —
+
+> *"if ANY section has NULL content_data the whole page escalates to the content writer and the
+> copy IS regenerated"*
+
+— and never opened the action it describes. The comment is a fair summary of the **general** rule
+and omits the **exemption**, which is in the code and is deliberate
+(`rerender_page_sections_action.go:~400`):
+
+```go
+// A self-contained TOOL section legitimately has no content_data: a tool
+// is complete HTML with no LLM-authored fields, so content_data={} is
+// its correct shape, not the missing-content defect this pre-check
+// exists to catch.
+if comp, _, ok := resolveComponent(s); ok && isSelfContainedSection(comp) { continue }
+```
+
+`isSelfContainedSection` (`:1361`) is two conditions: **empty `input_schema` AND
+`component_level == 'tool'`**. Applied to the three (measured 2026-08-24):
+
+| page | component | `component_level` | `input_schema` | verdict |
+|---|---|---|---|---|
+| `tool-rate-scenarios` | `tool-rate-scenarios` | `tool` | NULL | **EXEMPT — correct shape, no escalation** |
+| `tool-bridging-compound` | `tool-bridging-compound` | `tool` | NULL | **EXEMPT — correct shape, no escalation** |
+| `tool-simple` | `hero` | `section` | 1,300 chars | **WOULD ESCALATE — copy regenerated** |
+
+**So the hazard is ONE page — `tool-simple` — and it is a HERO, not a tool.** For the two tool
+pages, NULL `content_data` is not a defect at all; it is what a self-contained tool is supposed to
+look like, and the code says so in as many words.
+
+**The fleet control I ran actually pointed at this and I misread it.** NULL `content_data` is
+15.9% of `tool-*` components (36/226) against 1.3% everywhere else (24/1807) — **12× commoner**.
+I recorded that as "a known-ish pattern, still a minority" and treated the minority as the signal.
+The right reading was that the tool population has a *different rule*, which is what a 12× gap
+usually means. A rate difference that large is a prompt to go and find the branch, not to average
+over it.
+
+**And the ONE real case is not new** — `tool-simple`'s hero is the same component as work item
+`e781118c` ("Component 'hero' on page tool-simple is missing 1 schema-required value field(s):
+headline"), which I looked at on 08-21 and reported to the owner as *"probably not a real problem"*
+because the live page has a proper `<h1>`. Both readings can hold: the page LOOKS right, and the
+stored record is incomplete in a way that would bite a reason-driven re-render. That is worth
+saying plainly rather than picking one.
+
+**Corrected in the handoff too.** Chat correction given to the owner the same turn.
