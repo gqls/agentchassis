@@ -57,11 +57,26 @@ SELECT count(*) AS active_section_components,
 FROM content_components WHERE is_active AND component_level='section';
 -- 151 total | 34 can_list (23%) | 10 can_table (7%)
 ```
-**34 list-capable and 10 table-capable components were available and none was chosen**, on a site
-whose classification is a *buying-guide comparison hub* — a vertical whose entire value is structured
-comparison. `build-site-planner`'s prompt lists available components by `name`/`display_name`/
-`function`/`description`; **nothing in that listing states what markup a component can produce**, so
-the planner is choosing blind on expressiveness.
+~~**34 list-capable and 10 table-capable components were available and none was chosen**~~
+`build-site-planner`'s prompt lists available components by `name`/`display_name`/`function`/
+`description`; **nothing in that listing states what markup a component can produce**, so the planner
+is choosing blind on expressiveness. That part stands.
+
+> **⚠ CORRECTED 2026-08-24 by the `bugs_open/381` session, verified here. The "44 sat available"
+> premise is TRUE AND MISLEADING, and the misleading half is mine.** Enumerated, the 34 list-capable
+> components are **all special-purpose**: `model-directory`, `mortgage-lender-directory`,
+> `savings-provider-directory`, `health-insurer-directory` (+ their `-listing` twins),
+> `adoption-tracker`, `protocol-tracker`, `loans-application-tracker`, `ai-readiness-quiz`,
+> `archetype-taster-quiz`, `mortgages-repayment`, `mortgages-simple`, `pricing`, `product-details`,
+> `hero-card-carousel`, `swipeable-insight-carousel`, `content-sidebar` — and **`site-footer`**,
+> which is chrome and should never have been in a count of composable page vocabulary.
+>
+> **There is NO generic checklist, steps, table, or calendar component.** So a planner told what each
+> component can express would still have **nothing to compose a seasonal planner from**. My §6
+> candidate 1 ("tell the planner what each can express") is therefore **necessary but not
+> sufficient** — on its own it converts a blind choice into an informed refusal. The missing piece is
+> a generic structured-content component to choose. **Counting capability without checking
+> SUITABILITY is the error**: 44 is a real number that answers a question nobody asked.
 
 ## 4. A second, separable arm — and it is the cheap one
 
@@ -74,9 +89,24 @@ owner's wall-of-text paragraph is in this component** (verified: it is the only 
 So the defect has two arms with different fixes, and **the string "wall of text" cannot tell them
 apart** — the same discipline `bugs_open/206` arrived at for `no sections ready to build`:
 
-- **(a) WRITER-side, cheap.** A pass-through component given only paragraphs. Fixable today by
-  telling `page-content-writer` to use `<h3>`/`<ul>`/`<strong>` where the content has natural
-  structure, with no template or planner change. **This covers the owner's specific paragraph.**
+- ~~**(a) WRITER-side, cheap.** A pass-through component given only paragraphs. Fixable today by
+  telling `page-content-writer` to use `<h3>`/`<ul>`/`<strong>`…~~
+  > **⚠ CORRECTED 2026-08-24 by the `bugs_open/381` session, schema verified here.** The writer was
+  > **not free to choose**. `generic-text-block`'s `input_schema` types `content` as
+  > **`{"type": "text", "source": "llm", "required": true}`**, and the writer's RULE 9 forbids HTML
+  > in `text` fields. So "the writer simply chose prose" is wrong — **it was instructed not to emit
+  > markup**, and the pass-through template downstream is irrelevant to that decision. Their fix
+  > retypes five prose slots to `html` and rewrites RULE 10 (migrations 594/595); the `rich_text`/
+  > `content` types RULE 10 already describes are **declared by zero components**, so the rule
+  > documents a capability nothing uses.
+  >
+  > **One empirical wrinkle worth having, which cuts slightly against the tidy version:** the field
+  > is `type: text` and its stored value **already contains HTML** — `{"content": "<p>Some of the
+  > links on this site…</p><p>…"}`. So `<p>` is passing through a text-typed field today. Either the
+  > type is unenforced, or the rule is understood as "no *structural* markup". **Worth confirming
+  > before assuming the retype alone changes writer behaviour** — if the constraint is a prompt rule
+  > rather than an enforced type, the prompt is the load-bearing half and the retype is permission
+  > the writer may not notice it has been given.
 - **(b) COMPOSITION-side, structural.** `differentiators`, `faq`, `hero`, `info-card-grid` hard-wrap
   in `<p>` and contain no list or table markup at all. **No writer instruction and no designer pass
   can add a list to these** — the markup is not in the template. Fixing this means either the
