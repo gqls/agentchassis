@@ -16876,3 +16876,34 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `016b` §9 "classify refusals by the guard's own error text, never by joining `pages.rebuild_policy`" — correct and INCOMPLETE, this is its missing corollary · register **WII-028** · MEMORY [[a-pass-from-a-blind-check-outlives-the-blindness]] · [[measurement-discipline-index]]
 - **source:** 2026-08-24, `bugfix_333_owned_page_door` lane, while "correcting" the `bugs_open/384` lane's count — the full misstep is in `WRONG_CALLS.md` under the same date.
 - **added:** 2026-08-24, `bugfix_333_owned_page_door` lane
+
+---
+
+### `workItemTerminalStatuses` LOOKS one entry short, because a seven-line comment about the missing entry sits between it and the other six
+
+- **footprint:** `platform/orchestration/actions/work_items_common.go` (`workItemTerminalStatuses`, `workItemClosedStatuses`) · `idx_swi_dedup` · `site_work_items.status` · `insertWorkItem`'s `ON CONFLICT … WHERE` · migration 157 · any check that the Go list and the index predicate are in lockstep
+- **fires when:** you grep the var to verify the lockstep contract — which is the *right* instinct, because when those two drift every keyed insert fails with SQLSTATE **42P10** and it is fleet-wide. The trap is in what the grep returns.
+- **the trap, and it is unusually neat:** the list is
+
+  ```go
+  var workItemTerminalStatuses = []string{
+      "complete", "failed", "verified", "rejected", "wont_fix", "unresolved",
+      // "cancelled" joined the closed set in migration 157 (2026-07-16):
+      // a cancelled row must not hold the dedup slot. … Keep list and index in lockstep.
+      "cancelled",
+  }
+  ```
+  Six entries, then a **seven-line comment about `cancelled`**, then `"cancelled"`. So `grep -A 8`, a `sed` of the first few lines, or any listing capped before the comment ends returns **six entries plus someone explaining that cancelled ought to be in the set** — which reads exactly like a documented omission. **The comment warning you about the gap is what hides the fix.**
+- **the tell: none, and the misread is self-confirming.** You then check `pg_indexes`, find the index DOES exclude `cancelled`, and conclude the Go side is behind — the two observations agree with each other and both point at a drift that is not there. Measured 2026-08-24: a live session reached exactly that conclusion, and would have recorded it had it not been checked.
+- **what the wrong conclusion costs:** "fixing" it appends a duplicate `"cancelled"`, or — worse — someone decides the INDEX is the wrong half and alters the predicate, which is how you manufacture the 42P10 the entry exists to prevent.
+- **the check:** read to the closing brace, or skip the var and cite the canonical enumeration the file already provides in the doc comment above `workItemClosedStatuses`, which prints both sets side by side for this exact reason:
+  ```
+  terminal (dedup / ON CONFLICT):  complete verified rejected wont_fix cancelled failed unresolved
+  closed   (retraction):           complete verified rejected wont_fix cancelled
+  ```
+  Confirm against the live predicate rather than any doc: `SELECT indexdef FROM pg_indexes WHERE indexname='idx_swi_dedup';`
+- **and do not conflate the two lists:** `unresolved` and `failed` are in the terminal set and deliberately NOT in the closed set (RFC_010, owner ruling 2026-08-02 — *"`unresolved` is OPEN"*). A reader who takes one for the other gets retraction semantics wrong in the safe-looking direction.
+- **⚠ the docs that omit `cancelled` are not drifted, they are OLD:** the April–June 2026 handoffs enumerating a cancelled-less terminal set predate migration 157 and were correct when written. Do not "correct" them; date-check before treating an enumeration as current.
+- **relations:** the dedup-index ↔ Go-list lockstep note in the auto-memory index (which names the contract without enumerating either side, so it has nothing to omit) · `bugs_open/384` · RFC_010
+- **source:** 2026-08-24 — surfaced by the `bugs_open/384` lane, which hit the misread, flagged it rather than acting on it, and corrected its own notes; verified and filed from the `bugfix_357_component_identity` lane
+- **added:** 2026-08-24, `bugfix_357_component_identity` lane
