@@ -46955,3 +46955,16 @@ contradicted the file within the hour.
 row's `occurred_at` — before writing "this page carries N", filter the census to the build
 in question (occurred_at window or orchestration_id), or read the artefact. Same family as
 "a cap census cannot say WHO was cut": the aggregate was right, the attribution was invented.
+
+## 2026-08-24 — `bugfix_206_directory_build_handler` (same session, THIRD entry, same family) — two psql `-c` outputs read as one column list; the phantom column reached a council submission's grounded_in
+
+One kubectl exec ran two `-c` queries: (1) `site_plan_pages` columns, (2) `pages` columns LIKE
+'%type%'. The outputs concatenate with no separator; the second query's single result line
+(`page_type`) read as the last column of the first query's list. Design and council submission
+corr `52dbd067` then cited "`site_plan_pages` columns: ...nav_label, page_type" — the column
+does not exist (live error: `column spp.page_type does not exist`). Caught by USING the column
+minutes later; corrected source is `COALESCE(NULLIF(pages.page_type,''), site_plan_pages.role)`
+(measured: role == pages.page_type for all probe pages). Deviation to be recorded against the
+verdict. **The cheap check**: one `-c` per fact when the output feeds a claim — or a `\echo`
+separator between them; and any column you are about to cite in a design costs one
+`SELECT <col> FROM <table> LIMIT 0` to prove it exists.

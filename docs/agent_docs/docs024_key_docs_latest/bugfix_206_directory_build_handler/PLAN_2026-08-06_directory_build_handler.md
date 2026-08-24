@@ -112,3 +112,112 @@ committing, per the platform-seams ruling.
   any other page build.
 - Verify the DEPLOYED pages directly (curl, not status) — real business names/postcodes on
   directory-index, real guide titles on guides-index.
+
+---
+
+# ADDENDUM 2026-08-24 — lane resumed: re-verification, residual fix, closure
+
+## Re-verification (the bug as filed is fixed AND live, still)
+
+- Both pages re-verified at the ARTEFACT 2026-08-24: `/directory/index.html` HTTP 200, 49
+  postcode-shaped strings, "24 Hour Vetcare" … "608 Equine & Farm Vets" present;
+  `/guides/index.html` HTTP 200 with the `guide-list` component. Both pages were re-rendered
+  2026-08-23 by a fleet wave and the listings SURVIVED the rerender — the fix is not riding a
+  stale artefact.
+- Third page shape proven live TODAY by the vetcomparison lane (not this session):
+  `needs_page:practice` (`3cce980c`) re-routed to `directory-build-handler` 10:11Z, deployed
+  10:17:38Z first attempt — a plain content page via `ensure_page_section_layout`'s default
+  branch, with hand-authored content_direction rails. Their commits `a0c8fa18b` + `98beb8b92`
+  (the latter carries a correction chain about dispatch ordering — read both).
+- ~~Fleet census **as of 2026-08-24**: ZERO open `needs_page`/`capability_gap` items fleet-wide for
+  the three page types.~~ **CORRECTED same session (2026-08-24): the zero was measured through a
+  blind filter — `spec->>'page_type'` — which a known-real item (`3cce980c`, spec carries NO
+  page_type key) evades. The demand-control test (run your own WHERE against a known-real
+  occurrence; prompted by the 345 session's tripwire lesson) caught it. Re-measured with a join
+  to `pages.page_type`:** FIVE parked/no-op'd build items exist for the three types, ALL minted
+  by `reconcile_site_plan` (which hardcodes `handler_agent='page-build-handler'` at
+  `reconcile_site_plan_action.go:297`, bypassing the builder map entirely): garden-tools.uk
+  brand-directory-index (**entity-directory — a type the live map routes correctly when the
+  PLANNER mints it**), brand-profile + buying-guides-index (08-23), dartsonline.com brand-detail
+  (entity-page, parked since **07-20**), loanzy.uk guides-index (08-18) — every one showing the
+  exact 206 signature `page-build-handler no-op: no sections ready to build`. `section-index`
+  pages deploy broadly (12+ sites since 08-16, planner-authored layouts); `directory-listing`
+  still has exactly ONE consumer (vetcomparison).
+
+## The residual, and the decision
+
+**`section-index` never got its `availableBuilders` entry.** The 08-08 closure routed
+`guides-index` by HAND (UPDATE on the item row), and the vetcomparison lane repeated the same
+hand-reroute recipe today for `practice`. The map at HEAD routes `section-index` through the
+"unknown page_type" branch to bare `page-build-handler`, which no-ops on a layout-less page —
+the exact live refutation this lane recorded twice on 08-08. An operator recipe used three
+times is the defect (order-fix-candidates-by-what-closes-the-door).
+
+**Decision 1 — add `"section-index": {directory-build-handler, needs_section_index}` to
+`availableBuilders`.** Grounds: the routing is live-proven for two page shapes;
+`normalizePageType` passes the type through; the item loader filters on `pipeline` +
+`handler_agent` only (never `item_type`, `load_work_item_actions.go:690-750`), and dedup is on
+`itemKey` = `needs_page:<name>` regardless of type, so the new type string is metadata with
+zero consumers to update (`needs_directory` itself has exactly one occurrence in platform code
+— the map line — and 0 live rows as of today).
+
+**Decision 2 — extract the builder decision into a package-level `builderForPageType`** so the
+map becomes testable (it currently has NO test coverage at all); behaviour identical except the
+new entry. New table test pins: section-index available; entity-directory unchanged;
+entity-page/tool still unavailable (capability_gap path); unknown type falls to
+page-build-handler.
+
+**Decision 3 — widen `defaultSectionsForPage`'s name keys from equality to suffix match** for
+`guides-index`/`tools-index` (e.g. garden-tools.uk's planned `buying-guides-index` gets
+`[hero, guide-list]` instead of generic filler; `guide-list` resolves per-site
+`query.pages_where_type:guide`, so an empty result renders an empty honest list, never
+fabricated entries).
+
+**Decision 4 — `entity-page` STAYS unavailable, deliberately.** The in-code comment records the
+reasoning; ~~demand measured today is zero open items fleet-wide~~ **CORRECTED same session: TWO
+parked entity-page builds exist as of 2026-08-24** (dartsonline brand-detail since 07-20,
+garden-tools brand-profile since 08-23 — both `reconcile_site_plan`-minted, both burned an
+attempt then parked `needs_human_review`). The decision HOLDS with the corrected number: both
+are data-backed profile classes (brand/product) where auto-filled sections are the fabrication
+risk the estate's rulings exist to stop, and the corrected fix (Decision 6) turns exactly this
+shape into a VISIBLE deferred `capability_gap` instead of a burned attempt + parked review row.
+Today's practice build proves the escape hatch (re-route + human rails) works when a human has
+decided what the page IS. Building `entity-page-build-handler` ahead of demonstrated need is the
+"mechanism rotting unexercised" cost the owner's 07-29 ruling names. When real demand arrives
+(a site with entity data AND a lane that wants profiles), that is its own council round.
+
+**Decision 6 (added same session, from the corrected census) — `reconcile_site_plan` routes via
+`builderForPageType` too, and the function moves to a NEW FILE.** The five parked items were ALL
+minted by `reconcile_site_plan_action.go`, whose emit hardcodes `'page-build-handler'` (line
+~297) and never consults the builder map — the two-hand-maintained-copies drift class, live. So:
+(a) `builderForPageType` lives in a new `builder_routing.go` (not `load_work_item_actions.go`,
+which carries an OWNERLESS uncommitted hunk that makes it uncommittable today — trio verified to
+break HEAD if the file is pathspec-committed); (b) ~~`loadPlanPages` gains `page_type` (the `site_plan_pages` column exists)~~ **CORRECTED same
+session: `site_plan_pages` has NO `page_type` column — that reading came from treating two
+concatenated psql outputs as one column list (the trailing `page_type` line was the SECOND
+query's result, against `pages`). The council submission's grounded_in carries the false quote;
+deviation recorded for the verdict round. Measured instead: `site_plan_pages.role` carries the
+SAME vocabulary (role = pages.page_type exactly for all six probe pages incl. the five parked),
+so the type source is `COALESCE(NULLIF(pages.page_type,''), plan.Role)` — `loadRealisedPages`
+gains one column, `loadPlanPages` is untouched;**
+(c) reconcile's emit routes available types to their handler, unavailable types to a deferred
+`capability_gap` (mirroring WriteBuildItemsAction's shape) instead of a doomed `needs_page`, and
+unknown types to `page-build-handler` exactly as today; the owned-page ROLE guard stays first
+and outranks type routing. (d) The `WriteBuildItemsAction` swap to the shared function is HELD
+until the trio lands; until then the inline map is a documented transient duplicate — the swap
+is the follow-up, named in the new file's header.
+
+**Decision 5 — the bug file moves to `bugs_closed/`** under the owner's restored fixed-AND-live
+bar (2026-08-12, supersedes the 08-06 keep-open direction), with a dated re-verification
+section added first. The section-index map entry is HARDENING recorded in the closed file +
+BLD-017; it is inert until the next image roll and its verification note says so.
+
+## Commit sequencing constraint (measured, not assumed)
+
+`load_work_item_actions.go` carries an OWNERLESS dirty hunk (the `stop_on_repeat_failure` trio:
+ladder + two callers, author inferred to be the 311 lane, neither the 345 nor 326 session owns
+it). HEAD's ladder takes 7 params; the dirty caller passes 8 — a pathspec commit of the caller
+file alone BREAKS HEAD (verified by the 345 session via git-archive overlay build, 2026-08-24).
+So: **Commit A** (independent, now) = `apply_gap_plan_action.go` widening + retype-test rows.
+**Commit B** (held until the trio lands) = map entry + extraction + routing test. Council
+submission covers both; `Council-Submitted:` trailer on A if the verdict is not back.
