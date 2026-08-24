@@ -1,6 +1,11 @@
 # HANDOFF 2026-08-22 — `bugfix_342_absent_required`, continue here
 
-> # ✅✅ LANE CLOSED 2026-08-23 ~17:15Z. `bugs_open/342` → `bugs_closed/342`.
+> # ✅✅ LANE CLOSED. Bug closed 2026-08-23; lane wound up 2026-08-24.
+> **Re-verified on `v1.0.1332` on 2026-08-24** (the fleet rolled twice since the fix landed — a
+> "live on v1.0.NNNN" line expires, so this one is dated): all three mechanisms present on both
+> replicas with a negative control, both switches still armed. Read-out:
+> `SUMMARY_2026-08-24_lane_closed.md`. **Nothing here needs picking up.**
+> `bugs_open/342` → `bugs_closed/342`.
 > Fixed, live on **v1.0.1330**, and proven at the artefact on every mechanism it owns. The whole
 > file below is now HISTORY — read it for the traps in §6 and the reasoning, not for state.
 > **Successor: `bugs_open/367`** (the router only sees deployed rows, so it closes as `stale` the
