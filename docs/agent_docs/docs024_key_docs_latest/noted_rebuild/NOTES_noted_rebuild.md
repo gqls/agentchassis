@@ -2457,3 +2457,13 @@ both env-tunable (`NOTED_MEDIA_QUOTA_MB`, `NOTED_MAX_UPLOAD_MB`), and the quota
 is the valve protecting the shared 50 GB disk, so raising it is his call, not
 ours. Account deletion (open thread 3) grows more urgent with media: the smoke
 probes now leave media-bearing throwaway accounts (this run's own deletes them).
+
+### Open thread 1 CLOSED — the CTA override's round 2 verdict
+
+`[MEASURED]` 2026-08-24, `doc_notes`: **COUNCIL GATE — APPROVED** at 2026-08-18
+18:28 UTC under the same correlation `89f3331e-57f4-4f8f-8f58-de6222d17337`,
+"approved with 5 advisory objection(s) — none high-severity". Commit `229e14e74`
+carries `Council-Submitted:` and 098 resolves it at report time — no amend,
+nothing owed. The five advisories live in the full report
+(`diagnosis_artifacts` kind=council_report, that correlation, latest row) and
+are undispositioned — a small next-session item, not a gate.
