@@ -49571,6 +49571,15 @@ independent ways to get a zero that means nothing.
   rather than a query. Grep your own draft for the ones you could not name a query for. Mine was
   distinctive — I had written "Newly reachable because `381`'s migrations…", which names a **cause**
   and cites **no measurement**, in a file whose own house style is to put the figure next to the claim.
+- **⚠ SHARPENED 2026-08-24 by the `bugs_open/381` lane, and this is the half that makes the tell
+  actually work: THE DANGEROUS ONES ARE NOT PHRASED AS CLAIMS AT ALL — they are PARENTHESES.** Theirs
+  read *"(confirmed disjoint with the 283 lane, which has never edited `input_schema`)"*. A
+  parenthetical registers as **background**, not as an assertion, so a re-read hunting for claims walks
+  straight past it — while it is doing full load-bearing work (that one was the entire safety case for
+  a set of pre-state guards). **So grep the parentheses, the "which"-clauses and the em-dash asides,
+  not just the sentences.** They applied it to their own files and found exactly two, both
+  load-bearing; both re-measured and held. **Both holding is the unremarkable outcome — the value is
+  that either could have failed and nothing in either file would have said so.**
 - **Distinct from the neighbouring family, and worth keeping separate:** the "control that cannot fail"
   entries are about a check you RAN that could only return one answer. This is about a check you never
   ran because somebody else's confidence stood in for it. Same outcome — a false belief wearing the
