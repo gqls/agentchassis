@@ -47277,3 +47277,35 @@ Not a wasted run in one respect: the trap firing exactly as documented, on a dif
 different file set, is a live confirmation that the entry is still accurate. Re-filed with one
 symbol; the doomed item was cancelled with its reason in `error` rather than left `diagnosing`
 for the next reader to wonder about.
+
+## 2026-08-24 — `bugfix_206_directory_build_handler` (seventh entry) — I put a change I had measured as DANGEROUS into the council submission's executable `edits[]` array, as a way of documenting that it was held back
+
+Round 3's gating objection (guardian, HIGH) was not about my code. It was about the submission:
+
+> "load_work_item_actions.go is included in the `edits` array with operation:'modify' and a full
+> sketch, yet the rationale says it is HELD and NOT in the committed code… If the applier
+> processes the `edits` array mechanically (as plans are normally applied), this entry will be
+> patched onto a file the author admits is red, reproducing the build break and test failures
+> across the shared package — real cross-pipeline damage."
+
+**It is right, and the shape of the mistake is worth more than the instance.** I had measured
+that file as red (breaks HEAD's build; fails three existing tests), written that measurement into
+the bug file, the register, LANDMINES and two cross-lane messages — and then put the edit into
+the one field in the submission that is an **instruction to apply it**, in order to explain that
+it must not be applied. My reasoning was "the council should review the end state", which is a
+real need served by the wrong field: `edits[]` is executable, `risks`/`notes` are prose. Nothing
+would have caught it downstream — the applier does not read rationale.
+
+**The cheap check**: before submitting, read the `edits[]` array as if it will be applied
+verbatim by a machine that has read none of your prose — because that is exactly what it is for.
+Anything in it that you do not intend to ship does not belong in it. **A hazard you have
+documented in four places is still a hazard if you also hand someone the instruction to run it.**
+
+A second, softer lesson from the same round (bug_historian, medium): I justified the
+section-index route as "proven by two live hand re-routes" — a PROCESS fact — when what I
+actually held was an ARTEFACT fact: a `section-index` page built by that handler and serving
+three real guides, re-verified after a fleet re-render. The seat correctly read what I wrote and
+challenged it as an extrapolation. **State evidence at the strongest level you actually have it**
+— "this page_type was built by this handler and the served page is right" is a different claim
+from "we did this by hand twice and it worked", and only one of them answers "does the handler
+render correct content for this type?".
