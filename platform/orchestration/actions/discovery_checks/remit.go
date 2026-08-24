@@ -234,6 +234,66 @@ func HandlerRegisteredSQL(handlerExpr string) string {
 		" AND ad.deleted_at IS NULL)"
 }
 
+// OwnedPageRefusalDeclarationPath is the config path a handler uses to declare
+// "I refuse pages whose rebuild_policy is 'owned'", as a jsonpath over
+// agent_definitions.default_config. Migration 488 writes exactly this path for
+// page-build-handler:
+//
+//	'{workflow,steps,load_page_record,config,refuse_owned_page}' → true
+//
+// It is a CONSTANT so the renderer below and the parity test that reads 488's
+// own SQL assert on ONE string instead of two hand-kept copies.
+//
+// ⚠ `workflow.steps` is a jsonb OBJECT keyed by step name, not an array
+// (censused 2026-08-24 on the live estate: 194 live agents object-shaped, 5 with
+// no steps, ZERO arrays), which is why the wildcard sits where a step name would.
+// A declaration nested deeper — inside a sub-workflow's own steps — is NOT
+// matched. That is a stated limit, not an oversight: migration 488's own negative
+// control walks the same single level, so widening this to `.**` without widening
+// that would leave the door and its migration disagreeing about who has opted in.
+const OwnedPageRefusalDeclarationPath = `$.workflow.steps.*.config.refuse_owned_page ? (@ == true)`
+
+// HandlerDeclaresOwnedPageRefusalSQL renders "the definition that will actually
+// RUN for this handler declares that it refuses owned pages", as a SQL boolean
+// over the given handler expression (a placeholder like `$1`, or a column
+// reference). It is the second half of bugs_open/333's door, and it lives beside
+// HandlerRegisteredSQL for the same import-direction reason: `actions` imports
+// this package, never the reverse, so a renderer both must share sits here.
+//
+// ⚠ IT IS NOT A REGISTRATION CHECK, and the difference is the whole point — see
+// work_item_routability_single_definition_test.go, whose header states the scope
+// of that guard is "the contract, not the text". Registration asks *could an
+// agent of this name take the row*; this asks *does its live config opt into
+// refusing owned pages*. It returns FALSE for a perfectly registered handler
+// that has not opted in — which is exactly what makes `page-rerender` (5,040
+// completions on owned pages), `section-editor` and `tool-generator` safe to
+// leave alone while `page-build-handler` is not.
+//
+// A SCALAR SUBQUERY RATHER THAN AN `EXISTS`, deliberately: the question is the
+// VALUE of a config property, not the existence of a row. `bool_or` over the
+// matching definitions answers "does any live definition of this type declare
+// it", and COALESCE turns the no-rows NULL into a plain false, so an unknown
+// handler reads as "does not refuse" and the door stands down.
+//
+// WHY THIS ONE FILTERS is_active / is_snapshot WHEN HandlerRegisteredSQL DOES
+// NOT — read that function's comment before "fixing" the inconsistency. It is
+// deliberately wide because the claim path is wide: a snapshot or deactivated
+// definition still satisfies claim and still dispatches, so holding rows back
+// would strand them. Here the opposite is true: a snapshot is a historical copy
+// that will never run, and matching one would park real findings on the strength
+// of a config nobody executes.
+//
+// Cost, measured not asserted (EXPLAIN ANALYZE, live DB, 2026-08-24): index scan
+// on idx_agent_definitions_type_version, 0.278 ms warm / 4.2 ms cold, 33 shared
+// buffer hits over 216 rows.
+func HandlerDeclaresOwnedPageRefusalSQL(handlerExpr string) string {
+	return "COALESCE((SELECT bool_or(jsonb_path_exists(ad.default_config, '" +
+		OwnedPageRefusalDeclarationPath + "')) FROM agent_definitions ad" +
+		" WHERE ad.type = " + handlerExpr +
+		" AND ad.deleted_at IS NULL AND ad.is_active" +
+		" AND COALESCE(ad.is_snapshot, false) = false), false)"
+}
+
 // HandlerStepConfig reads the LIVE step config a handler agent would run for a
 // given action, so a check can partition against the handler's actual remit
 // rather than a plausible reading of the Go source.

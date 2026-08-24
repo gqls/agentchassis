@@ -93,6 +93,7 @@ func TestWriteRenderAuditFindings_FilesFirmContrastSkipsOverImage(t *testing.T) 
 			AddRow(pricingPageID.String(), "/pricing.html"))
 
 	mock.ExpectBegin()
+	expectWorkItemDoorStandsDown(mock) // bugs_open/333: writeWorkItem consults the policy door here
 	// Two-strike pre-check for the ONE firm finding (the over_image one must
 	// never reach here — a second pre-check would fail ExpectationsWereMet).
 	mock.ExpectQuery("INTERVAL '7 days'").

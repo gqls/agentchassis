@@ -80,6 +80,7 @@ func TestApplyNewPage_ReportsItemCreatedFalseWhenDeduped(t *testing.T) {
 	// own transaction. No anti-churn probe is expected: gap-plan items are
 	// recurrence-expected, and sqlmock fails the test if one is issued.
 	mock.ExpectBegin()
+	expectWorkItemDoorGenericPage(mock) // bugs_open/333: writeWorkItem consults the policy door here
 	// 0 rows affected — an OPEN item already holds this key.
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 0))
@@ -113,6 +114,7 @@ func TestApplyNewPage_ReportsItemCreatedTrueWhenWritten(t *testing.T) {
 	mock.ExpectQuery("INSERT INTO pages").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
 	mock.ExpectBegin()
+	expectWorkItemDoorGenericPage(mock) // bugs_open/333: writeWorkItem consults the policy door here
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
@@ -153,6 +155,7 @@ func TestApplyRetypeExisting_ReportsItemCreatedFalseWhenDeduped(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	// 0 rows affected — a build item already holds this key. Own transaction now.
 	mock.ExpectBegin()
+	expectWorkItemDoorGenericPage(mock) // bugs_open/333: writeWorkItem consults the policy door here
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()

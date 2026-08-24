@@ -141,6 +141,7 @@ func TestApplyNewPage_DeployedSameTypeStillRefreshes(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 	mock.ExpectBegin()
+	expectWorkItemDoorGenericPage(mock) // bugs_open/333: writeWorkItem consults the policy door here
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
@@ -199,6 +200,7 @@ func TestApplyNewPage_UndeployedTypeConflictStillRefreshes(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 	mock.ExpectBegin()
+	expectWorkItemDoorGenericPage(mock) // bugs_open/333: writeWorkItem consults the policy door here
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
@@ -232,6 +234,7 @@ func TestApplyNewPage_CleanCreateReportsCreated(t *testing.T) {
 	mock.ExpectQuery("INSERT INTO pages").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
 	mock.ExpectBegin()
+	expectWorkItemDoorGenericPage(mock) // bugs_open/333: writeWorkItem consults the policy door here
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()

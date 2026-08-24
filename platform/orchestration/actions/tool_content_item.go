@@ -184,7 +184,7 @@ func raiseToolContentItem(ctx context.Context, params ActionParams, logger *zap.
 	// callers that batch, and a failure here must never roll back the tool build
 	// that has already succeeded.
 	pageID := req.pageID
-	inserted, err := withWorkItemTx(ctx, params.DB, logger, workItem{
+	w, err := withWorkItemTxWrite(ctx, params.DB, logger, workItem{
 		siteID:             req.siteID,
 		source:             req.source,
 		pipeline:           "build",
@@ -205,6 +205,22 @@ func raiseToolContentItem(ctx context.Context, params ActionParams, logger *zap.
 			zap.Error(err))
 		return "insert_failed"
 	}
+	// The tool pipeline is the LARGEST single producer of owned-page findings at
+	// page-build-handler (57 of ~260 lifetime, bugs_open/333's census) — this
+	// function asks the generic builder for prose around a widget on a page the
+	// same pipeline has marked owned. That design conflict is not resolved here
+	// (it is the bug's fix candidate 2, and it belongs to the tool lane), but
+	// the step result must stop calling the filing a raise: the row is parked,
+	// nothing will dispatch it, and "raised" is what made this class look
+	// healthy while nothing happened.
+	if w.OwnedPageParked {
+		logger.Warn("raiseToolContentItem: page is rebuild_policy=owned — content item PARKED, not raised "+
+			"(bugs_open/333; the tool lane's own design conflict, bugs_open/333 candidate 2)",
+			zap.String("sections_source", sectionSource),
+			zap.String("tool_function", req.toolFunction))
+		return "parked_owned_page"
+	}
+	inserted := w.Inserted
 	if !inserted {
 		logger.Info("raiseToolContentItem: an open tool content item already holds this key",
 			zap.String("sections_source", sectionSource))

@@ -379,6 +379,7 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 		zap.String("handler_agent", handlerAgent),
 		zap.Bool("inserted", inserted),
 		zap.Bool("born_blocked", w.BornBlocked),
+		zap.Bool("owned_page_parked", w.OwnedPageParked),
 		zap.String("item_key", itemKey),
 	)
 
@@ -412,7 +413,37 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 		// because handler_agent names no registered agent (bugs_open/291).
 		// Additive key — nothing consumed item_created.* before it existed.
 		"born_blocked": w.BornBlocked,
+		// owned_page_parked: the row exists but was parked at 'deferred' with no
+		// handler, because its page is rebuild_policy='owned' and the configured
+		// handler declares it refuses owned pages (bugs_open/333).
+		//
+		// ⚠ `handler_agent` above still reports what the CONFIG asked for, not
+		// what the row carries — that is the contract every existing consumer
+		// reads, and changing it would rewrite history for the 291 case too.
+		// `row_status` is the row's ACTUAL status, so a producer counting its own
+		// successes can tell "filed and dispatchable" from "filed and parked"
+		// without re-querying. Both additive.
+		"owned_page_parked": w.OwnedPageParked,
+		"row_status":        effectiveRowStatus(status, w),
 	}, nil
+}
+
+// effectiveRowStatus reports the status the row actually carries after the write
+// door has had its say, rather than the status the caller asked for.
+//
+// It exists because bugs_open/177's lesson is that a producer whose completion
+// metric counts a FILING as a success will report 100% while filing items that
+// are unsatisfiable at birth. Both demotions are exactly that shape, and a
+// producer cannot see either one from `inserted` alone.
+func effectiveRowStatus(requested string, w workItemWrite) string {
+	switch {
+	case w.BornBlocked:
+		return "blocked"
+	case w.OwnedPageParked:
+		return ownedPageParkedStatus
+	default:
+		return requested
+	}
 }
 
 // shouldWarnLoopDedup decides whether a non-inserted (deduped) work item

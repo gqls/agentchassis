@@ -209,6 +209,7 @@ func TestCrossLinkCallSitePassesTheRealPageLive(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count", "age_hours"}).AddRow(0, 0.0))
 
 	mock.ExpectBegin()
+	expectWorkItemDoorGenericPage(mock) // bugs_open/333: writeWorkItem consults the policy door here
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO site_work_items")).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()

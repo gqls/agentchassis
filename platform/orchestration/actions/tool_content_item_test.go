@@ -275,6 +275,7 @@ func TestRaiseToolContentItem_RecurrenceExpected_SurvivesTerminalPredecessors(t 
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
 		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(2, 5.0))
 	mock.ExpectBegin()
+	expectWorkItemDoorGenericPage(mock) // bugs_open/333: writeWorkItem consults the policy door here
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WithArgs(
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),

@@ -1432,6 +1432,165 @@ type workItem struct {
 	recurrenceExpected bool
 }
 
+// ownedPageParkedPriority / ownedPageParkedGapKind mirror the values
+// bugs_closed/077's capability_gap convention uses, so a parked row groups with
+// the roadmap's existing entries instead of inventing a neighbouring shape.
+const (
+	ownedPageParkedPriority = 200
+	ownedPageParkedGapKind  = "handler_remit"
+	ownedPageParkedStatus   = "deferred"
+	ownedPageParkedPrefix   = "[owned page — no repair route] "
+	workItemSummaryMaxLen   = 250
+)
+
+// ownedPageParkedItem rewrites a finding that cannot be routed — its page is
+// owned, its handler declares it refuses owned pages — into the shape the
+// platform already uses for "work we can SEE and cannot ACT on", and returns the
+// row's `error` text alongside it.
+//
+// It is PURE, and that is deliberate: every decision it makes is checkable
+// without a database, which is the half of the door most likely to be got wrong
+// and the half sqlmock is worst at pinning.
+//
+// ── WHAT IT TAKES FROM bugs_closed/077, AND WHAT IT REFUSES TO TAKE ──
+//
+// 077's convention for a detector whose predicate is wider than its handler's
+// remit is: file the residue as `capability_gap`, `status='deferred'`, empty
+// handler, `gap_kind`, `spec.builder_needed` — and its value is that this has a
+// live CONSUMER, the roadmap sweep in diagnose_triage_action.go, which reads
+// `(item_type='capability_gap' OR status='deferred')` grouped by builder_needed.
+//
+// We take the SIGNAL — deferred, empty handler, gap_kind, builder_needed — and
+// we deliberately DO NOT take the re-typing. The finding keeps its own item_type
+// and item_key.
+//
+// ⚠ THE REASON IS THE RETRACTION CONTRACT, AND IT IS EASY TO GET WRONG — the
+// first draft of this change got it wrong. A detector withdraws its own finding
+// when it stops reproducing, and resolveWorkItems (work_items_common.go) matches
+// `item_type = $ AND item_key = $`. `deferred` is NOT in workItemClosedStatuses,
+// so a row parked HERE, keeping its identity, is retracted normally the day the
+// page is repaired by some other route. Re-type it and no retraction can ever
+// match it again: it would sit at `deferred` for ever holding its dedup slot, so
+// the detector could never re-file either — undispatchable and un-refilable at
+// once. That is the exact hole two council seats caught on bugs_open/342, one day
+// before this was written. Reusing a convention's SHAPE is not reusing its
+// LIFECYCLE.
+//
+// Keeping the key also gives the bug's stated requirement for free: the finding
+// is counted PER FINDING, not per page. The owned_page_review row that exists
+// today dedups on `owned_page_review:<page name>`, so the second distinct defect
+// on an already-reviewed page leaves no trail at all — the hole this closes.
+//
+// ── recurrenceExpected IS SET, AND IT MATTERS ──
+//
+// Retraction sets `complete`, which the two-strike block counts as a terminal
+// predecessor. Without this flag, two retract/re-detect cycles inside 7 days
+// would brand the third finding "[unresolved after 2 attempts]" — terminal, slot
+// freed, detector re-files — which is bugs_open/333's own loop wearing a new
+// label. A detector re-raising a defect that genuinely came back is an ACTION
+// REQUEST here, not a third strike against a handler that never ran.
+func ownedPageParkedItem(item workItem) (workItem, string) {
+	refusedHandler := item.handlerAgent
+	pageID := ""
+	if item.pageID != nil {
+		pageID = item.pageID.String()
+	}
+
+	parked := item
+	parked.status = ownedPageParkedStatus
+	parked.handlerAgent = ""
+	parked.priority = ownedPageParkedPriority
+	parked.recurrenceExpected = true
+
+	// A keyless item would otherwise park unbounded — idx_swi_dedup's predicate
+	// is `item_key IS NOT NULL`, so nothing collapses repeats. The only producer
+	// that reaches the door without a key is the config-driven create_work_item
+	// with no item_key_prefix. Synthesising one gives its parked form a dedup
+	// slot the original never had; that is a deliberate narrowing, stated here
+	// because it is a behaviour change and not only a routing one. The prefix is
+	// the item_type, keeping workItemKey's "{itemType}:{target}" contract.
+	if parked.itemKey == "" && pageID != "" {
+		parked.itemKey = fmt.Sprintf("%s:owned_page:%s", parked.itemType, pageID)
+	}
+
+	// Truncate the ORIGINAL, then prefix — truncating the concatenation would
+	// eat the marker that tells a human why the row is here.
+	summary := item.summary
+	if max := workItemSummaryMaxLen - len(ownedPageParkedPrefix); len(summary) > max {
+		summary = summary[:max-3] + "..."
+	}
+	parked.summary = ownedPageParkedPrefix + summary
+
+	// The producer's spec is preserved at the top level — a human reading the
+	// parked row wants the finding, not a wrapper — with the gap keys added
+	// beside it. An unparsable spec is kept verbatim rather than dropped.
+	spec := map[string]interface{}{}
+	if item.spec != "" {
+		if err := json.Unmarshal([]byte(item.spec), &spec); err != nil {
+			spec = map[string]interface{}{"spec_raw": item.spec}
+		}
+	}
+	spec["gap_kind"] = ownedPageParkedGapKind
+	// builder_needed is the roadmap sweep's GROUPING key, so it must be stable
+	// per handler rather than per finding: one line reading "N findings waiting
+	// on an owned-page route" is the evidence bugs_open/277's route question
+	// needs. A per-finding string here would produce N buckets of one.
+	spec["builder_needed"] = "owned-page content route (" + refusedHandler + " declares refuse_owned_page)"
+	spec["finding_type"] = item.itemType
+	spec["not_dispatchable"] = "status 'deferred' + empty handler_agent — deliberate; " +
+		"promoting this row dispatches work the handler is forbidden to do (bugs_open/333, bugs_closed/077)"
+	spec["owned_page_guard"] = map[string]interface{}{
+		"refused_handler":   refusedHandler,
+		"page_id":           pageID,
+		"requested_status":  item.status,
+		"original_priority": item.priority,
+		"filed_by":          "writeWorkItem policy door (bugs_open/333)",
+	}
+	spec["what_to_do"] = ownedPageParkedAdvice(item.itemType)
+
+	if encoded, err := json.Marshal(spec); err == nil {
+		parked.spec = string(encoded)
+	}
+
+	// The error LEADS with ownedPageSkipReasonPrefix so that every existing
+	// reader of an ownership refusal — and any operator grepping for one —
+	// finds this the same way it finds the handler's own (owned_page_guard.go
+	// enumerates the matcher set). 016b §9: classify refusals by the guard's own
+	// error text, never by joining pages.rebuild_policy, which is mutable.
+	parkedError := fmt.Sprintf(
+		"%s: %s declares refuse_owned_page and page %s is rebuild_policy=owned — "+
+			"%s finding parked at deferred, not dispatched (bugs_open/333)",
+		ownedPageSkipReasonPrefix, refusedHandler, pageID, item.itemType)
+
+	return parked, parkedError
+}
+
+// ownedPageParkedAdvice names the route that actually works on an owned page,
+// split by whether the finding needs an EXISTING section rewritten or a NEW one
+// added — because those have different answers and conflating them sends a human
+// to a dead end.
+//
+// The rewrite arm's route is measured, not assumed: `section_edit` →
+// `section-editor` is 44 complete / 1 failed on rebuild_policy='owned' pages,
+// live + archive, as of 2026-08-24. The add arm has no such route, and saying so
+// is the honest answer: apply_section_edit is a documented dead end for ADDING a
+// section to an owned page (bugs_closed/295's residual).
+func ownedPageParkedAdvice(itemType string) string {
+	switch itemType {
+	case "needs_content_page", "needs_page", "empty_section", "sectionless_page",
+		"incomplete_page_group", "needs_section_data":
+		return "This finding wants a section ADDED, and apply_section_edit cannot add one to an " +
+			"owned page (bugs_closed/295). Rebuild via the tool pipeline that owns the page, or — if " +
+			"the page genuinely is the generic pipeline's to compose — change pages.rebuild_policy " +
+			"to 'generic' and let the normal route re-file. Do NOT promote this row."
+	default:
+		return "This finding wants EXISTING copy rewritten. The route that works on owned pages is " +
+			"a section_edit item at section-editor (apply_section_edit): 44 complete / 1 failed on " +
+			"owned pages as of 2026-08-24. Nothing routes detector findings there automatically yet " +
+			"— that is bugs_open/277's question. Do NOT promote this row at its original handler."
+	}
+}
+
 // conflictPolicy decides what happens when a keyed item arrives and an OPEN item
 // already holds that key.
 //
@@ -1481,6 +1640,21 @@ type workItemWrite struct {
 	// Inserted stays true — and feasibility-recheck promotes the row the moment
 	// an agent of that name is registered.
 	BornBlocked bool
+
+	// OwnedPageParked: the door found the row's page is rebuild_policy='owned'
+	// and its handler declares it refuses owned pages, so the row was parked at
+	// 'deferred' with no handler instead of being routed into a guaranteed
+	// refusal (bugs_open/333).
+	//
+	// ⚠ IT IS SET ON THE DEDUP PATH TOO, where Inserted is false. Those two
+	// answer different questions and a caller that conflates them will report
+	// the wrong thing: Inserted says "a NEW row exists", OwnedPageParked says
+	// "your finding was not sent to a handler that would have refused it".
+	// When a parked row already holds the key, the second finding is genuinely
+	// deduped — nothing new is written — but it was still parked rather than
+	// routed, and a producer telling its step result "raised at
+	// page-build-handler" would be stating a falsehood either way.
+	OwnedPageParked bool
 }
 
 // Recorded reports whether a durable record now describes this finding, however
@@ -1502,6 +1676,95 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 	var batchIDPtr *uuid.UUID
 	if item.batchID != uuid.Nil {
 		batchIDPtr = &item.batchID
+	}
+
+	// --- Policy routability at the door (bugs_open/333) ---
+	// A finding whose page is rebuild_policy='owned', filed at a handler that
+	// DECLARES it refuses owned pages, can only ever be refused. Before
+	// bugs_closed/301 that cost a full LLM writer chain; since 301 it is cheap,
+	// but the outcome is worse than the cost: the item terminates `wont_fix` —
+	// "we decided not to fix this" — on a page with a real detector-found defect,
+	// `wont_fix` is excluded from idx_swi_dedup so the detector re-files it, and
+	// the only human-visible trail (owned_page_review) dedups per PAGE, so the
+	// SECOND finding on an already-reviewed page leaves no trace at all.
+	//
+	// 83 findings ended that way between 2026-08-19 and 2026-08-24 alone.
+	//
+	// WHY HERE. The routing decision "which handler repairs this?" is made per
+	// producer, from the item type alone, in ~26 places. The one fact that makes
+	// the answer wrong lives on a row every one of them has in hand (they all
+	// pass pageID) and none consults. This is the door they share; it is where
+	// the two facts meet.
+	//
+	// WHY IT RUNS FIRST, BEFORE THE TWO-STRIKE BLOCK. The item_key's history is
+	// full of this finding's own refusals — 112 `failed` rows on owned pages at
+	// this handler. Run the two-strike rule first and the third refusal is
+	// branded "[unresolved after 2 attempts]": terminal, dedup slot freed, and a
+	// label asserting we tried twice when nothing was ever tried. Parking first
+	// means the strike count is never consulted for a row we are not dispatching.
+	// 291's registration block, which runs after both, then sees `deferred` and
+	// correctly skips (workItemStatusRequiresRegisteredHandler excludes it).
+	//
+	// PROBE ORDER IS DECLARATION FIRST, POLICY SECOND. The agent_definitions
+	// probe is a 0.28 ms indexed lookup and gates the pages read, so the common
+	// case — a page-bearing item at a handler that does not refuse — pays one
+	// index scan, not two. Reversing them would read `pages` for every such
+	// insert fleet-wide to answer a question the second probe usually moots.
+	//
+	// DEMOTE, NEVER REFUSE (291's rule): a refusal here would lose the finding to
+	// a pod log, because discovery sweeps log-and-continue on insert error and
+	// config-driven create_work_item loops run continue_on_error. A parked row is
+	// durable, keyed, and countable.
+	//
+	// FAIL-OPEN, HONESTLY DESCRIBED: on a probe error we log and fall through, so
+	// the handler's own refusal (301) remains the backstop exactly as claim's
+	// branch backstops 291. That covers driver, context and scan errors. It does
+	// NOT rescue a server-side SQL error, which aborts the enclosing transaction
+	// and takes the INSERT with it — no fall-through can undo 25P02. The jsonpath
+	// literal is therefore pinned by test and verified against the live estate,
+	// rather than trusted.
+	//
+	// Kill-switch: a redeploy-free rollback lever for the door itself, per 291's
+	// council round. Ships ARMED — the owner has ruled against default-OFF
+	// switches that rot unexercised — so this exists to be disarmed in anger, not
+	// to gate the feature.
+	ownedParked := false
+	ownedParkedError := ""
+	if item.pageID != nil && *item.pageID != uuid.Nil && item.handlerAgent != "" &&
+		workItemStatusHeadsForDispatch(item.status) &&
+		os.Getenv("DISABLE_OWNED_PAGE_DOOR_DEMOTION") == "" {
+
+		var refusesOwned bool
+		if probeErr := tx.QueryRowContext(ctx,
+			"SELECT "+workItemHandlerRefusesOwnedPagesSQL("$1"), item.handlerAgent,
+		).Scan(&refusesOwned); probeErr != nil {
+			logger.Warn("writeWorkItem: owned-page declaration probe failed, skipping policy door",
+				zap.String("handler_agent", item.handlerAgent),
+				zap.Error(probeErr))
+		} else if refusesOwned {
+			pagePolicy, policyErr := readRebuildPolicy(ctx, tx, *item.pageID)
+			switch {
+			case errors.Is(policyErr, sql.ErrNoRows):
+				// A page_id that does not resolve is ORDINARY at this seam —
+				// create_work_item takes whatever input_data.spec.page_id says —
+				// and a page that does not exist cannot be owned. Debug, not
+				// Warn: the composition guards keep the stricter posture.
+				logger.Debug("writeWorkItem: policy door — page_id does not resolve, treating as generic",
+					zap.String("page_id", item.pageID.String()))
+			case policyErr != nil:
+				logger.Warn("writeWorkItem: rebuild_policy read failed, skipping policy door",
+					zap.String("page_id", item.pageID.String()), zap.Error(policyErr))
+			case pagePolicy == ownedRebuildPolicy:
+				logger.Warn("writeWorkItem: OWNED PAGE — finding parked, not routed to a handler that refuses it",
+					zap.String("handler_agent", item.handlerAgent),
+					zap.String("item_type", item.itemType),
+					zap.String("item_key", item.itemKey),
+					zap.String("page_id", item.pageID.String()),
+					zap.String("requested_status", item.status))
+				item, ownedParkedError = ownedPageParkedItem(item)
+				ownedParked = true
+			}
+		}
 	}
 
 	// --- Two-strike rule: suppress within-cycle, label unresolved after 2 attempts ---
@@ -1637,11 +1900,22 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 		extraVals += fmt.Sprintf(", $%d", argN)
 		args = append(args, *item.parentItemID)
 	}
-	if demotedUnroutable {
+	// The two demotions are mutually exclusive by construction and share this
+	// one optional column: the policy door leaves the row at `deferred`, which
+	// workItemStatusRequiresRegisteredHandler excludes, so the registration
+	// probe above never runs on a parked row. Asserting that here rather than
+	// trusting it would cost an argument slot and break the 16-arg callers.
+	switch {
+	case demotedUnroutable:
 		argN++
 		extraCols += ", error"
 		extraVals += fmt.Sprintf(", $%d", argN)
 		args = append(args, "Handler agent not registered: "+item.handlerAgent)
+	case ownedParked:
+		argN++
+		extraCols += ", error"
+		extraVals += fmt.Sprintf(", $%d", argN)
+		args = append(args, ownedParkedError)
 	}
 
 	insertSQL := fmt.Sprintf(`
@@ -1674,15 +1948,19 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 			zap.String("status", item.status),
 			zap.Int("priority", item.priority),
 		)
-		return workItemWrite{Inserted: true, BornBlocked: demotedUnroutable}, nil
+		return workItemWrite{Inserted: true, BornBlocked: demotedUnroutable, OwnedPageParked: ownedParked}, nil
 	}
 
 	// Nothing was inserted: an OPEN item already holds this key. Under the
 	// default policy that is the end of it — and the FINDING is gone with it.
+	// OwnedPageParked still travels: the caller's finding was parked rather than
+	// routed, whether or not this particular call created the row that says so.
 	if policy != refreshOnConflict {
-		return workItemWrite{}, nil
+		return workItemWrite{OwnedPageParked: ownedParked}, nil
 	}
-	return refreshOpenWorkItem(ctx, tx, item, logger)
+	w, err := refreshOpenWorkItem(ctx, tx, item, logger)
+	w.OwnedPageParked = w.OwnedPageParked || ownedParked
+	return w, err
 }
 
 // workItemHeldStatuses is the set of statuses at which a handler has actually

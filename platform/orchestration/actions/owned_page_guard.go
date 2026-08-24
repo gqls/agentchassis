@@ -169,18 +169,56 @@ func resolveGuardedPage(ctx context.Context, db *sql.DB, collectedData map[strin
 //	SELECT count(*), max(created_at) FROM agent_error_log
 //	WHERE error_code = 'OWNED_PAGE_GUARD_UNCHECKED';
 func pageIsOwnedForGuard(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) (owned bool, checked bool) {
+	// The nil test happens HERE, before db is passed as an interface value.
+	// A nil *sql.DB boxed into dbQueryer is NOT == nil, so readRebuildPolicy
+	// cannot make this check for us — it would panic instead.
 	if db == nil || pageID == uuid.Nil {
 		return false, false
 	}
-	var policy string
-	if err := db.QueryRowContext(ctx, `
-		SELECT COALESCE(rebuild_policy, 'generic') FROM pages WHERE id = $1
-	`, pageID).Scan(&policy); err != nil {
+	policy, err := readRebuildPolicy(ctx, db, pageID)
+	if err != nil {
 		logger.Error("ownedPageGuard: rebuild_policy UNREADABLE — guard standing down, page treated as generic",
 			zap.String("page_id", pageID.String()), zap.Error(err))
 		return false, false
 	}
 	return policy == ownedRebuildPolicy, true
+}
+
+// readRebuildPolicy is the ownership SQL itself, taken out of
+// pageIsOwnedForGuard so a caller holding a *sql.Tx can run the same statement
+// without opening a second connection — writeWorkItem's door (bugs_open/333)
+// reads the policy inside the caller's transaction, and a *sql.DB read there
+// would be outside it.
+//
+// Extracting the query rather than adding a second one is the whole point: the
+// comment above says this file is the ONLY place a pipeline may read ownership
+// policy, and that stays literally true — there is one statement, and both
+// postures call it.
+//
+// IT DELIBERATELY RETURNS THE ERROR INSTEAD OF A `checked` BOOL, because the two
+// callers want opposite things from `sql.ErrNoRows`:
+//
+//   - pageIsOwnedForGuard (the composition guards) treats ANY error as
+//     "unreadable" — checked=false, logged at ERROR, counted as
+//     OWNED_PAGE_GUARD_UNCHECKED. A page that a live composition step is holding
+//     and that does not resolve is a real anomaly there.
+//   - the writeWorkItem door treats ErrNoRows as "not owned", at Debug. A work
+//     item can legitimately carry a page_id that no longer resolves — the
+//     config-driven create_work_item takes whatever `input_data.spec.page_id`
+//     says (create_work_item_action.go) — and a page that does not exist cannot
+//     be owned by anything. Failing loud there would demote real findings on the
+//     strength of a stale id.
+//
+// Collapsing those two into one bool is what would make this a shared helper
+// with a wrong answer for one of its callers.
+func readRebuildPolicy(ctx context.Context, q dbQueryer, pageID uuid.UUID) (string, error) {
+	var policy string
+	if err := q.QueryRowContext(ctx, `
+		SELECT COALESCE(rebuild_policy, 'generic') FROM pages WHERE id = $1
+	`, pageID).Scan(&policy); err != nil {
+		return "", err
+	}
+	return policy, nil
 }
 
 // emitOwnedPageReviewItem records that a generic build was refused for an owned

@@ -439,19 +439,38 @@ func emitToolCrossLinkItems(ctx context.Context, params ActionParams, logger *za
 // one at a time from an action that has only a *sql.DB, and a failure here must
 // never roll back the tool build that already succeeded.
 func withWorkItemTx(ctx context.Context, db *sql.DB, logger *zap.Logger, item workItem) (bool, error) {
+	w, err := withWorkItemTxWrite(ctx, db, logger, item)
+	return w.Inserted, err
+}
+
+// withWorkItemTxWrite is withWorkItemTx with the write's full outcome returned
+// instead of collapsed to a bool.
+//
+// It exists as a SIBLING rather than as a widened signature because
+// withWorkItemTx has call sites in three files owned by other lanes, and a
+// changed signature would make this change land in their diffs for no benefit
+// to them. The bool version delegates, so there is one transaction shape, not
+// two (the drift this file's own comments already warn about).
+//
+// Callers that need it: any producer whose step result claims it "raised" work.
+// Since bugs_open/291 and bugs_open/333 a write can be recorded and NOT
+// dispatchable — born blocked, or parked as an owned-page finding — and a
+// producer reporting "raised" on those is making bugs_open/177's mistake, where
+// a filing counted as a success while being unsatisfiable at birth.
+func withWorkItemTxWrite(ctx context.Context, db *sql.DB, logger *zap.Logger, item workItem) (workItemWrite, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return false, err
+		return workItemWrite{}, err
 	}
-	inserted, err := insertWorkItem(ctx, tx, item, logger)
+	w, err := writeWorkItem(ctx, tx, item, dropOnConflict, logger)
 	if err != nil {
 		_ = tx.Rollback()
-		return false, err
+		return workItemWrite{}, err
 	}
 	if err := tx.Commit(); err != nil {
-		return false, err
+		return workItemWrite{}, err
 	}
-	return inserted, nil
+	return w, nil
 }
 
 // recordCrossLinkSkip makes a declined emit COUNTABLE. Every early return in

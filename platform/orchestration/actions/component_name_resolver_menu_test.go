@@ -581,6 +581,7 @@ func TestApplyNewPage_ADroppedSectionReachesTheDurableRecord(t *testing.T) {
 	mock.ExpectQuery("INSERT INTO pages").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
 	mock.ExpectBegin()
+	expectWorkItemDoorGenericPage(mock) // bugs_open/333: writeWorkItem consults the policy door here
 	mock.ExpectExec("INSERT INTO site_work_items").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 	// The claim under test: the unresolvable name is recorded, not merely logged.

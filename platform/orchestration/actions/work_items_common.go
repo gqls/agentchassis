@@ -200,6 +200,33 @@ func workItemStatusRequiresRegisteredHandler(status string) bool {
 	return status == "claimed"
 }
 
+// workItemStatusHeadsForDispatch reports whether a row born at this status is
+// ON ITS WAY to a handler — either already in the dispatch loop's hands, or
+// waiting for the promoter that will put it there.
+//
+// It is `workItemStatusRequiresRegisteredHandler` PLUS `detected`, and it is a
+// SEPARATE function rather than a widening of that one, deliberately. Widening
+// 291's set is the bugs_closed/284 trap: `detected` with no handler is the
+// platform's flag-only idiom, and demoting those to `blocked` is precisely the
+// regression 291's own test (TestStatusRequiresRegisteredHandler_ExactlyCheck443sList)
+// exists to catch. The two questions genuinely differ:
+//
+//   - REGISTRATION (291) is re-judged downstream. A `detected` row naming an
+//     unregistered handler is held back by the promoter's own routability test
+//     (workItemRoutableSQL, WDS-017) and released the moment the agent is
+//     seeded — so the door can safely ignore `detected` and let promotion decide.
+//   - OWNERSHIP (bugs_open/333) is re-judged by NOBODY. No promoter, no
+//     scheduled task and no claim-time branch reads pages.rebuild_policy. If the
+//     door does not look at a `detected` row, nothing ever will: it is promoted
+//     on its next tick and refused by the handler exactly as before.
+//
+// Hence `detected` is IN this set and OUT of that one. The parked idioms —
+// `needs_human_review`, `deferred`, `blocked` — stay out of BOTH: they are not
+// heading anywhere, and a row already parked cannot be parked harder.
+func workItemStatusHeadsForDispatch(status string) bool {
+	return status == "detected" || workItemStatusRequiresRegisteredHandler(status)
+}
+
 // countDispatchableWorkItems answers a question about the SITE, not about the
 // caller's own result set: how many work items are sitting in a dispatchable
 // status for this pipeline right now, whoever put them there.
@@ -363,6 +390,27 @@ func workItemRetryNotPendingSQL(alias string) string {
 func workItemRoutableSQL(alias string) string {
 	col := alias + ".handler_agent"
 	return "(COALESCE(" + col + ", '') <> '' AND " + workItemHandlerRegisteredSQL(col) + ")"
+}
+
+// workItemHandlerRefusesOwnedPagesSQL renders "this handler DECLARES that it
+// refuses owned pages" (bugs_open/333's door).
+//
+// WHY A DECLARATION AND NOT A LIST OF NAMES. The door needs to know which
+// handlers a finding must not be routed to when its page is owned. A Go slice of
+// handler names would be one more hand-maintained copy of a fact the database
+// already holds, and it would be wrong in the dangerous direction the day a
+// handler opts in: the door would keep filing at a handler that had started
+// refusing. Reading the opt-in itself means a handler that adopts
+// `refuse_owned_page` is covered by the door in the same migration that makes it
+// refuse — no code change, no roll.
+//
+// Like workItemHandlerRegisteredSQL above, this is a THIN DELEGATION to the
+// renderer in discovery_checks, for the same import-direction reason and to keep
+// one definition of the predicate. See HandlerDeclaresOwnedPageRefusalSQL for
+// why it is not an EXISTS and why its is_active/is_snapshot posture is the
+// opposite of the registration check's.
+func workItemHandlerRefusesOwnedPagesSQL(handlerExpr string) string {
+	return checks.HandlerDeclaresOwnedPageRefusalSQL(handlerExpr)
 }
 
 // workItemKey builds the canonical deduplication key for a site_work_items

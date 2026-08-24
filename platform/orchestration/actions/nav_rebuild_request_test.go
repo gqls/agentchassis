@@ -97,6 +97,7 @@ func TestNavRebuildRequestSkipsTheTwoStrikeRule(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count", "age_hours"}).AddRow(2, 100.0))
 
 	mock.ExpectBegin()
+	expectWorkItemDoorStandsDown(mock) // bugs_open/333: writeWorkItem consults the policy door here
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO site_work_items")).
 		WithArgs(navRebuildInsertArgsRequiringStatus("triaged")...).
 		WillReturnResult(sqlmock.NewResult(1, 1))
@@ -140,6 +141,7 @@ func TestNavRebuildRequestCoalescesRatherThanDuplicating(t *testing.T) {
 	db, mock := navRebuildMockDB(t)
 
 	mock.ExpectBegin()
+	expectWorkItemDoorStandsDown(mock) // bugs_open/333: writeWorkItem consults the policy door here
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO site_work_items")).
 		WillReturnResult(sqlmock.NewResult(0, 0)) // ON CONFLICT DO NOTHING
 	mock.ExpectCommit()
@@ -163,6 +165,7 @@ func TestNavRebuildRequestNeverBreaksItsCaller(t *testing.T) {
 	t.Run("insert fails", func(t *testing.T) {
 		db, mock := navRebuildMockDB(t)
 		mock.ExpectBegin()
+		expectWorkItemDoorStandsDown(mock) // bugs_open/333: writeWorkItem consults the policy door here
 		mock.ExpectExec(regexp.QuoteMeta("INSERT INTO site_work_items")).
 			WillReturnError(sql.ErrConnDone)
 		mock.ExpectRollback()
