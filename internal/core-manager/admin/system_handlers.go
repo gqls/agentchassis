@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration"
 
@@ -152,6 +153,7 @@ func (h *SystemHandlers) HandleListKafkaTopics(c *gin.Context) {
 type WorkflowListRequest struct {
 	Status    string `form:"status"`
 	ClientID  string `form:"client_id"`
+	SiteID    string `form:"site_id"`
 	StartDate string `form:"start_date"`
 	EndDate   string `form:"end_date"`
 	Limit     int    `form:"limit,default=50"`
@@ -164,6 +166,12 @@ func (h *SystemHandlers) HandleListWorkflows(c *gin.Context) {
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	if req.SiteID != "" {
+		if _, err := uuid.Parse(req.SiteID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid site_id"})
+			return
+		}
 	}
 
 	workflows, err := h.listWorkflows(c.Request.Context(), req)
@@ -425,9 +433,16 @@ func (h *SystemHandlers) getKafkaStatus(ctx context.Context) KafkaStatus {
 }
 
 func (h *SystemHandlers) listWorkflows(ctx context.Context, req WorkflowListRequest) ([]map[string]interface{}, error) {
+	// has_step_error: a row can read COMPLETED with the error column NULL while
+	// a step failed and its output was discarded — the truth is a top-level
+	// __step_error key in collected_data (bugs_open/099). The jsonb key operator
+	// is the exact test: the key never appears nested, and a substring match
+	// would also hit workflow CONFIG that merely names the field.
 	query := `
-		SELECT correlation_id, client_id, status, current_step, 
-		       created_at, updated_at, error
+		SELECT correlation_id, client_id, status, current_step,
+		       created_at, updated_at, error,
+		       site_id::text,
+		       (collected_data ? '__step_error') AS has_step_error
 		FROM orchestration_states
 		WHERE 1=1
 	`
@@ -445,6 +460,12 @@ func (h *SystemHandlers) listWorkflows(ctx context.Context, req WorkflowListRequ
 		argCount++
 		query += fmt.Sprintf(" AND client_id = $%d", argCount)
 		args = append(args, req.ClientID)
+	}
+
+	if req.SiteID != "" {
+		argCount++
+		query += fmt.Sprintf(" AND site_id = $%d", argCount)
+		args = append(args, req.SiteID)
 	}
 
 	if req.StartDate != "" {
@@ -485,10 +506,13 @@ func (h *SystemHandlers) listWorkflows(ctx context.Context, req WorkflowListRequ
 			CreatedAt     time.Time
 			UpdatedAt     time.Time
 			Error         sql.NullString
+			SiteID        sql.NullString
+			HasStepError  bool
 		}
 
 		err := rows.Scan(&w.CorrelationID, &w.ClientID, &w.Status,
-			&w.CurrentStep, &w.CreatedAt, &w.UpdatedAt, &w.Error)
+			&w.CurrentStep, &w.CreatedAt, &w.UpdatedAt, &w.Error,
+			&w.SiteID, &w.HasStepError)
 		if err != nil {
 			continue
 		}
@@ -500,10 +524,15 @@ func (h *SystemHandlers) listWorkflows(ctx context.Context, req WorkflowListRequ
 			"current_step":   w.CurrentStep,
 			"created_at":     w.CreatedAt,
 			"updated_at":     w.UpdatedAt,
+			"has_step_error": w.HasStepError,
 		}
 
 		if w.Error.Valid {
 			workflow["error"] = w.Error.String
+		}
+
+		if w.SiteID.Valid {
+			workflow["site_id"] = w.SiteID.String
 		}
 
 		workflows = append(workflows, workflow)
@@ -575,11 +604,17 @@ func (h *SystemHandlers) getWorkflowState(ctx context.Context, correlationID str
 
 func (h *SystemHandlers) updateWorkflowStatus(ctx context.Context, correlationID, status, errorMsg string) error {
 	query := `
-		UPDATE orchestrator_state 
+		UPDATE orchestration_states
 		SET status = $2, error = $3, updated_at = NOW()
 		WHERE correlation_id = $1
 	`
 
-	_, err := h.clientsDB.ExecContext(ctx, query, correlationID, status, errorMsg)
-	return err
+	res, err := h.clientsDB.ExecContext(ctx, query, correlationID, status, errorMsg)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }

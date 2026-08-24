@@ -18,6 +18,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -202,10 +203,53 @@ func (h *SiteAdminHandlers) HandleUpdateSiteSpec(c *gin.Context) {
 
 	var body struct {
 		Data json.RawMessage `json:"data" binding:"required"`
+		// ConfirmEmpty must be true to supersede an evidence_base that parses
+		// non-nil with one that parses to nothing scannable — see the guard below.
+		ConfirmEmpty bool `json:"confirm_empty"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	// evidence_base is the one aspect that is a CONTROL rather than prompt text:
+	// its banned_claims/facts are what the claims lanes enforce, read live via
+	// datahelpers.ParseEvidenceBase — which returns nil with NO error for
+	// well-formed JSON of the wrong shape (a misspelt key, a fragment, one level
+	// of extra nesting). Without this guard such a save supersedes the good
+	// register, returns 200, and claims checking for the site silently no-ops
+	// from then on, with the old register already is_current=false.
+	var eb *datahelpers.EvidenceBase
+	if aspect == "evidence_base" {
+		eb, err = datahelpers.ParseEvidenceBase(body.Data)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "evidence_base does not parse: " + err.Error()})
+			return
+		}
+		if eb == nil && !body.ConfirmEmpty {
+			var curData []byte
+			scanErr := h.db.QueryRowContext(ctx, `
+				SELECT data FROM site_specs
+				WHERE site_id = $1 AND aspect = 'evidence_base' AND is_current = true
+			`, siteID).Scan(&curData)
+			if scanErr != nil && scanErr != sql.ErrNoRows {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": scanErr.Error()})
+				return
+			}
+			if scanErr == nil {
+				if curEB, _ := datahelpers.ParseEvidenceBase(curData); curEB != nil {
+					c.JSON(http.StatusConflict, gin.H{
+						"error": fmt.Sprintf(
+							"this save would replace an evidence_base holding %d facts and %d banned claims with one that parses to nothing scannable — claims checking for this site would silently stop; resend with confirm_empty=true if that is intended",
+							len(curEB.Facts), len(curEB.BannedClaims)),
+						"code":                        "EMPTY_EVIDENCE_BASE",
+						"current_facts_count":         len(curEB.Facts),
+						"current_banned_claims_count": len(curEB.BannedClaims),
+					})
+					return
+				}
+			}
+		}
 	}
 
 	tx, err := h.db.BeginTx(ctx, nil)
@@ -215,11 +259,16 @@ func (h *SiteAdminHandlers) HandleUpdateSiteSpec(c *gin.Context) {
 	}
 	defer tx.Rollback()
 
-	_, err = tx.ExecContext(ctx, `
+	res, err := tx.ExecContext(ctx, `
 		UPDATE site_specs
 		SET is_current = false, superseded_at = NOW()
 		WHERE site_id = $1 AND aspect = $2 AND is_current = true
 	`, siteID, aspect)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	superseded, err := res.RowsAffected()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -246,7 +295,30 @@ func (h *SiteAdminHandlers) HandleUpdateSiteSpec(c *gin.Context) {
 		zap.String("aspect", aspect),
 		zap.String("new_spec_id", newID.String()))
 
-	c.JSON(http.StatusOK, gin.H{"id": newID.String(), "aspect": aspect, "updated": true})
+	resp := gin.H{
+		"id":      newID.String(),
+		"aspect":  aspect,
+		"updated": true,
+		// superseded=false means this save CREATED the aspect. The :aspect param
+		// has no allow-list, so that is also what a typo produces — an aspect
+		// nothing reads. The caller should surface it, not treat it as routine.
+		"superseded": superseded > 0,
+	}
+	if aspect == "evidence_base" {
+		// The counts are the honest signal: a wrong-shape save cannot fake them,
+		// and a zero here is the whole warning.
+		var facts, bans, allowed int
+		var regulated bool
+		if eb != nil {
+			facts, bans, allowed = len(eb.Facts), len(eb.BannedClaims), len(eb.AllowedEntities)
+			regulated = eb.Regulated != nil
+		}
+		resp["facts_count"] = facts
+		resp["banned_claims_count"] = bans
+		resp["allowed_entities_count"] = allowed
+		resp["regulated_attestation"] = regulated
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // ============================================================================
