@@ -481,3 +481,34 @@ Still unowned.
   change compiles fleet-wide (`go build ./platform/...`).
 - `debug_historian`: `schema_migrations` holds 0 rows for `516%` against 1 for `515%` — run live, with
   the present-control, not from memory.
+
+---
+
+## 12. THE 602 DEMAND CASE IS ARRANGED WITH THE `webdesign_tool_rebuilds` LANE — terms agreed, and both sides have written them down
+
+§10.3 said they had "offered" one. It is now a settled protocol, committed in **their** lane NOTES as
+well as here, so it survives either session ending. Whoever holds this lane when the reader ships owes
+only the ping.
+
+**The agreed shape, in their words as much as mine:**
+
+- **A REAL next-in-queue filing**, from their own recipe, with `related_pages` deliberately omitted.
+  **No synthetic spend** — the filing was happening anyway, so the control costs nothing extra. That
+  is what makes it a demand control rather than a staged one.
+- **On `webdesign.co.uk`** — 37 non-tool candidate pages as of 2026-08-24, so the picker has a real
+  set to choose from and an empty answer would be informative rather than forced.
+- **Only AFTER the reader is proven live** by the binary probe in
+  `RUNBOOK_staged_component_build.md` ("Applying migration 602"), and after 602 is applied. Do not
+  ask them to spend a filing on a dark path.
+- **PASS is read at the stamp**, not at the outcome: at least one row carrying
+  `related_pages_source='suggested'`, in `agent_error_log.context` or an emitted item's `spec`.
+
+Their framing of why the stamp matters is worth keeping verbatim, because it is the same rule this
+lane keeps re-deriving from the other direction: **"a result that can't distinguish 'mechanism
+worked' from 'humans happened to comply' proves neither."**
+
+**Nothing is owed by them.** Both cross-lane findings are recorded on their side with pointers here —
+the `internal-linker` overlap and the picker-failure-vs-honest-none residual. They add one useful
+per-page tell for the landmine: **if a rebuilt tool page ever draws a `content_rewrite` from
+`internal-linker` AND a `tool_crosslink:` mention, that is the landmine firing, not a defect in their
+lane.** The ~30-tool backfill remains unowned, unchanged.
