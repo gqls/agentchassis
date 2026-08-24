@@ -602,3 +602,16 @@ the ONLY mechanism, not belt-and-braces, and they were told to write that in
 permission gate blocks DB writes, so it awaits the owner's hand; sequencing is
 safe either order. The future E2 timeline component must carry the same tag at
 registration — added here so the E2 builder inherits it.
+
+**Owed write DISCHARGED — but not by us, and the actor is unconfirmed (2026-08-24).**
+The owner ran the UPDATE: **0 rows**, because both components ALREADY carry
+`requires-evidence-base` (verified: timeseries `["requires-evidence-base"]`,
+chart has it appended to its six descriptive tags). This session measured the
+tag ABSENT on both earlier the same day, so it landed in the hours between —
+by a write that did not bump `updated_at` (both values predate the
+measurement, so **`updated_at` on `content_components` is NOT evidence of when
+a tag arrived**; there is no auto-bump trigger protecting it). Asked the 381
+lane whether their side seeded it (their 591 seeding known fact-fed components
+would be the natural author); their answer decides whether this line closes as
+"381 lane applied" or escalates as "unattributed config writer". **End state is
+the intended one either way; the open question is attribution, not damage.**
