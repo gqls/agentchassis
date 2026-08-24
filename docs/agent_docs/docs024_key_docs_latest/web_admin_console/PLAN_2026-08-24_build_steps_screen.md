@@ -288,7 +288,58 @@ edit again.
 > happened; this tells him what is **about to** go wrong, and it is cheaper than any other item
 > here. If only one thing gets built, consider making it this.
 
-### 6h. Falsifiers for everything above
+### 6h. The console's spec editor makes a WISH and a CONTROL look identical
+
+This is the "contribute" half of the owner's ask, and it has the same shape as 6g: the UI offers
+an action whose effect is far weaker than it appears, and says nothing about it.
+
+**What I verified myself** `[MEASURED 2026-08-24]`:
+
+- `PATCH /admin/sites/:site_id/specs/:aspect` takes the aspect as a **free string** — the only
+  validation is `if aspect == ""` (`site_admin_handlers.go:197-199`); there is no allow-list. It
+  supersedes-then-inserts into `site_specs`. The SPA reaches it from `SpecEditor` via
+  `/sites/${siteId}/specs/${selectedSpec.aspect}`, and lists every aspect from `GET .../specs`.
+- Live aspects include both kinds side by side: `content_direction` (**94** rows),
+  `briefing` (64), `strategy` (59), `mission_brief` (21), `roadmap_brief` (8) — **and**
+  `evidence_base` (**313**).
+- The enforced prohibitions are **not a table** — `banned_claims` does not exist in `clients_db`.
+  They are a **key inside the `evidence_base` spec's JSON**: `{"facts": [], "banned_claims": []}`
+  (`platform/orchestration/actions/evidence_citations.go:222`;
+  `datahelpers/claims.go:263` types it as `BannedClaims []BannedClaim`).
+
+**What the `apis_uk_bees_homepage` lane measured, and it refuted a hypothesis of mine** — I had
+guessed the gap was a write-time-only checker. It is not: `ScanDeployedClaims`
+(`discovery_checks/check_unverified_claims.go`) reads **deployed** content, its finding carries
+`Source: rendered_html | content_data`, and its header says it exists precisely because the
+build-time gate is insufficient. **The scanner was working the whole time.** Their site served
+an `<h1>` of "A page about bees" for two days — the exact string its own `roadmap_brief` calls
+unacceptable — and **0 of the 38 `banned_claims` patterns matched it**. The rule and the breach
+sat in the same database with nothing to join them.
+
+**So the finding for this console:** `roadmap_brief`, `content_direction`, `briefing`,
+`mission_brief` and `writer_block` are **prompt text — instructions to a writer, enforced by
+nothing**. `evidence_base.banned_claims` is the only enforced layer. The console edits both
+through the same editor, with the same gesture and the same success toast. **An owner who types
+"never say X" into `content_direction` has written a wish; the identical sentence added as a
+pattern under `evidence_base.banned_claims` is a control.** Nothing on the screen distinguishes
+them, and the wish is the more natural place to type it.
+
+This is CLAUDE.md's own owner ruling of 2026-08-02 §2 in a second domain — *"a comment is not a
+control on a tree this many sessions share"* — and the same remedy applies: the enforcing
+artefact must be the thing the operator edits, not a doc the operator hopes someone reads.
+
+**Cheapest honest version, no backend work:** in `SpecEditor`, label the prompt-text aspects as
+advisory and `evidence_base` as enforced, and when an edit to a prompt-text aspect contains a
+prohibition ("never", "must not", "do not say", "unacceptable"), prompt for the matching
+`banned_claims` pattern in the same save. That lane's own prescribed check is the same pair:
+**when you write "must never X" into a brief, add the matching `banned_claims` pattern in the
+same edit**, then prove the pair fires on the forbidden string and stays silent on the live page.
+
+⚠ **`[UNVERIFIED]`** whether `SpecEditor` renders `evidence_base` usefully (313 rows, large JSON),
+and whether a hand-edited `banned_claims` entry is picked up without a re-seed. Check both before
+building anything on this.
+
+### 6i. Falsifiers for everything above
 
 - All counts are a 7-day window read on **2026-08-24** and move daily; `orchestration_states`
   took ~50 new rows during the ~20 minutes these queries ran (4,353 → 4,410 across passes).
