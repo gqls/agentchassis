@@ -719,3 +719,50 @@ one claim a reader would most want vouched for is precisely the one outside the 
 Same family as everything else in this file today: **an instrument's PASS is scoped to what it can
 see, and nothing in the pass says what that was** unless, as here, the tool prints its own corpus.
 Credit where due: this one does.
+
+### ⚠ CORRECTION to my own two entries above: 384's `page_list_stale` has NO Resolved arm
+
+Both earlier entries in this file describe that check as *"closing its own rows via
+`CheckResult.Resolved`"*, and my reply endorsed the arm's shape. **The 384 lane reversed it and told
+me so, precisely so this file would not carry the stale claim.** Their reason: a `page_rerender` is
+an action request that completes on its own, and its key is **shared with every other
+`section_data_resolved` producer for that page** — so a retraction keyed on "the images match now"
+could close `render_news_section`'s legitimate request on a page that also carries a listing. The
+"positive observation only" rule survives, moved to the **filing** side: unknown pages are counted
+in a per-run summary finding rather than silently filing nothing.
+
+**Measuring their reasoning gave a stronger version of it, and nearly gave a false alarm.**
+[MEASURED 2026-08-24 ~20:15 UTC, live ∪ archive — the union, this time]
+
+| `item_type` | rows | filing producers | rows carrying `result.resolved_at` |
+|---|---|---|---|
+| `page_rerender` | 18,360 | **122** | **0** |
+| `needs_page` | 1,418 | 46 | 4 |
+| `contrast_failure` | 513 | **1** | 79 |
+
+**Nothing has ever retracted a `page_rerender`, in 18,360 rows.** So the arm they declined would not
+have been one retractor among several — it would have been the **first**, deciding on behalf of 121
+other producers whose requests it cannot recognise.
+
+⚠ **And the near-miss, which is the part worth keeping.** Four types (`empty_section`,
+`literal_markdown`, `needs_rerender`, `canonical_mismatch`) have rows filed under **two** distinct
+`created_by` values *and* rows retracted — which reads instantly as "the hazard 384 avoided is
+already live in three places". **It is not.** One more query before sending: each of those four has
+exactly **one** distinct `result->>'resolved_by'`. Multiple filers, single retractor, every time. No
+type in this estate has two competing retraction authorities.
+
+**So the rule is not the one I was about to write.** It is not *"only a sole producer may retract"* —
+`contrast_failure` is merely the degenerate case of it. It is:
+
+> **A producer may close work items on a key only by being the SOLE RETRACTION AUTHORITY for that
+> `item_type`, and only if it can recognise every other producer's rows as legitimately its own.**
+
+That is the condition WII-016 satisfies by accident (`contrast_failure` has exactly one producer,
+and VIZ-016 states so) and the condition `page_rerender` cannot satisfy at all. **Declining the arm
+is the correct move there, not the cautious one.**
+
+⚠ **Note what saved me: I have now had `created_by` mislead me twice in one hour** — once as a
+producer count truncated by a `LIMIT`, once as a proxy for retraction authority. It is a free-text
+label, written by whoever filed the row, and it answers *"what wrote this"*, never *"what may close
+this"*. The column that answers the second question is `result->>'resolved_by'`, and it took one
+query.
