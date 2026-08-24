@@ -71,17 +71,22 @@ import (
 //
 // Same subject-key rule and same audit page predicate as the fan-out, so a
 // suggestion is addressed the way a declaration will be resolved.
+// ⚠ ONE ROW PER COMPONENT, NOT A string_agg — same reason as pageSurfaceQuery:
+// an unbalanced <script> in one partial fragment would leak the tokenizer's
+// inScript state into the next component's PROSE, and a suggestion built on that
+// would propose a binding for a figure the tool only MENTIONS. Extraction is per
+// fragment in buildFactProbeSurface. (Council debug_historian, high, corr 041b3026.)
 var factSuggestToolsQuery = `
 	SELECT ` + discovery_checks.ToolSubjectKeyExpr + ` AS subject_key,
 	       p.name,
-	       COALESCE(string_agg(COALESCE(pc.rendered_html, ''), E'\n' ORDER BY pc.position), '') AS surface
+	       COALESCE(pc.rendered_html, '') AS fragment
 	FROM pages p
 	JOIN page_components pc ON pc.page_id = p.id
 	JOIN content_components cc ON cc.id = pc.component_id AND cc.is_active = true
 	WHERE p.site_id = $1
 	  AND (p.page_type = 'tool' OR cc.component_level = 'tool')
 	  AND NOT (p.status = 'archived' AND ` + datahelpers.NeverDeployedPagePredicateFor("p") + `)
-	GROUP BY 1, 2`
+	ORDER BY 1, 2, pc.position`
 
 type factBindingSuggestion struct {
 	SubjectKey string
@@ -129,25 +134,41 @@ func planFactBindingSuggestions(ctx context.Context, db *sql.DB, siteID uuid.UUI
 	}
 	defer rows.Close()
 
-	var out []factBindingSuggestion
+	// Collect fragments per (subject, page), then extract each SEPARATELY.
+	type toolKey struct{ subject, page string }
+	order := []toolKey{}
+	frags := map[toolKey][]string{}
 	for rows.Next() {
-		var subjectKey, pageName, surface string
-		if err := rows.Scan(&subjectKey, &pageName, &surface); err != nil {
+		var subjectKey, pageName, fragment string
+		if err := rows.Scan(&subjectKey, &pageName, &fragment); err != nil {
 			logger.Warn("refresh_evidence_base: fact-binding suggestion scan failed", zap.Error(err))
-			return out
+			return nil
 		}
 		if subjectKey == "" || declaring[subjectKey] {
 			continue // already declares: this is an adoption lever, not a re-audit
 		}
-		scripts := extractScriptText(surface)
-		if strings.TrimSpace(scripts) == "" {
+		k := toolKey{subjectKey, pageName}
+		if _, seen := frags[k]; !seen {
+			order = append(order, k)
+		}
+		frags[k] = append(frags[k], fragment)
+	}
+	if err := rows.Err(); err != nil {
+		logger.Warn("refresh_evidence_base: fact-binding suggestion rows failed", zap.Error(err))
+		return nil
+	}
+
+	var out []factBindingSuggestion
+	for _, k := range order {
+		surface := buildFactProbeSurface(frags[k])
+		if strings.TrimSpace(surface.ScriptText) == "" {
 			continue // no code to look at; silence is the honest answer
 		}
-		s := factBindingSuggestion{SubjectKey: subjectKey, PageName: pageName}
+		s := factBindingSuggestion{SubjectKey: k.subject, PageName: k.page}
 		for _, pf := range probeable {
 			lits, _ := factValueLiterals(pf.val)
 			for _, lit := range lits {
-				if valueOccursGuarded(scripts, lit) {
+				if valueOccursGuarded(surface.ScriptText, lit) {
 					s.FactIDs = append(s.FactIDs, pf.id)
 					s.Detail = append(s.Detail, fmt.Sprintf("`%s` = %s, present in the script as %q",
 						pf.id, formatEvidenceNumber(pf.val), lit))
@@ -159,9 +180,6 @@ func planFactBindingSuggestions(ctx context.Context, db *sql.DB, siteID uuid.UUI
 			sort.Strings(s.FactIDs)
 			out = append(out, s)
 		}
-	}
-	if err := rows.Err(); err != nil {
-		logger.Warn("refresh_evidence_base: fact-binding suggestion rows failed", zap.Error(err))
 	}
 	return out
 }

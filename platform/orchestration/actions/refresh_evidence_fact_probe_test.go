@@ -88,7 +88,7 @@ func TestFactProbe_TheWholePageCheckWouldHavePassedBug225(t *testing.T) {
 		t.Fatal("premise broken: the stale page's SCRIPT must NOT carry the current figure")
 	}
 
-	got := probeFactValueOnSurface(probePageBug225, 500000, true)
+	got := probeFactValueOnSurface(buildFactProbeSurface([]string{probePageBug225}), 500000, true)
 	if got.Outcome != factProbeMarkupOnly {
 		t.Fatalf("the stale tool must be reported as markup-only, got %q — %s", got.Outcome, got.Detail)
 	}
@@ -98,7 +98,7 @@ func TestFactProbe_TheWholePageCheckWouldHavePassedBug225(t *testing.T) {
 }
 
 func TestFactProbe_CorrectToolIsPresentInScript(t *testing.T) {
-	got := probeFactValueOnSurface(probePageCorrect, 500000, true)
+	got := probeFactValueOnSurface(buildFactProbeSurface([]string{probePageCorrect}), 500000, true)
 	if got.Outcome != factProbePresentInScript {
 		t.Fatalf("a tool whose code carries the figure must read present_in_script, got %q — %s", got.Outcome, got.Detail)
 	}
@@ -110,7 +110,7 @@ func TestFactProbe_CorrectToolIsPresentInScript(t *testing.T) {
 // Absent from code AND copy. Consistent with a stale tool and with four benign
 // causes, so the detail must say so rather than assert a defect.
 func TestFactProbe_AbsentEverywhereSaysWhatItCannotConclude(t *testing.T) {
-	got := probeFactValueOnSurface(`<p>nothing</p><script>var x = 1;</script>`, 500000, true)
+	got := probeFactValueOnSurface(buildFactProbeSurface([]string{`<p>nothing</p><script>var x = 1;</script>`}), 500000, true)
 	if got.Outcome != factProbeAbsent {
 		t.Fatalf("want absent, got %q", got.Outcome)
 	}
@@ -131,7 +131,7 @@ func TestFactProbe_AbsentEverywhereSaysWhatItCannotConclude(t *testing.T) {
 func TestFactProbe_ShortValuesAreRefusedNotGuessed(t *testing.T) {
 	page := `<script>const RATES = [2, 5, 10, 12]; var pad = 12;</script>`
 	for _, v := range []float64{2, 5, 10, 12, 999} {
-		got := probeFactValueOnSurface(page, v, true)
+		got := probeFactValueOnSurface(buildFactProbeSurface([]string{page}), v, true)
 		if got.Outcome != factProbeNotProbed {
 			t.Fatalf("value %v is below the measured floor and must be refused, got %q", v, got.Outcome)
 		}
@@ -140,16 +140,16 @@ func TestFactProbe_ShortValuesAreRefusedNotGuessed(t *testing.T) {
 		}
 	}
 	// And the floor is not so high that it refuses the case it exists for.
-	if got := probeFactValueOnSurface(probePageCorrect, 500000, true); got.Outcome == factProbeNotProbed {
+	if got := probeFactValueOnSurface(buildFactProbeSurface([]string{probePageCorrect}), 500000, true); got.Outcome == factProbeNotProbed {
 		t.Fatal("the floor must not refuse bug 225's own fact")
 	}
 }
 
 func TestFactProbe_NoValueAndNoSurfaceAreDistinctFromAbsent(t *testing.T) {
-	if got := probeFactValueOnSurface(probePageCorrect, 0, false); got.Outcome != factProbeNotProbed {
+	if got := probeFactValueOnSurface(buildFactProbeSurface([]string{probePageCorrect}), 0, false); got.Outcome != factProbeNotProbed {
 		t.Errorf("a fact with no numeric value cannot be probed, got %q", got.Outcome)
 	}
-	if got := probeFactValueOnSurface("", 500000, true); got.Outcome != factProbeNoSurface {
+	if got := probeFactValueOnSurface(buildFactProbeSurface([]string{""}), 500000, true); got.Outcome != factProbeNoSurface {
 		t.Errorf("no stored HTML must be no_surface, never absent — nothing was read, so nothing is claimed, got %q", got.Outcome)
 	}
 }
@@ -194,7 +194,7 @@ func TestFactProbe_BoundaryRuleMatchesRealCodeAndRejectsRealTraps(t *testing.T) 
 // 10000 must not match inside 100000. It is the reason bareNumericPattern exists
 // and the reason this probe is guarded rather than a substring search.
 func TestFactProbe_TheTenThousandInsideHundredThousandCanary(t *testing.T) {
-	if got := probeFactValueOnSurface(`<script>var cap = 100000;</script>`, 10000, true); got.Outcome != factProbeAbsent {
+	if got := probeFactValueOnSurface(buildFactProbeSurface([]string{`<script>var cap = 100000;</script>`}), 10000, true); got.Outcome != factProbeAbsent {
 		t.Fatalf("10000 must not be found inside 100000, got %q — this is the estate's own documented trap", got.Outcome)
 	}
 }
@@ -233,7 +233,7 @@ func TestExtractScriptText_HandlesNoScriptAndJunk(t *testing.T) {
 // is a real population, and it is named as a limit rather than hidden.
 func TestFactProbe_ExternalScriptSrcIsNotReadAndDoesNotFakeAnAbsence(t *testing.T) {
 	page := `<p>Relief ends above &pound;500,000.</p><script src="/tools/sdlt.js"></script>`
-	got := probeFactValueOnSurface(page, 500000, true)
+	got := probeFactValueOnSurface(buildFactProbeSurface([]string{page}), 500000, true)
 	if got.Outcome != factProbeMarkupOnly {
 		t.Fatalf("with the code in an external file the figure is only in the markup, got %q", got.Outcome)
 	}
@@ -263,7 +263,7 @@ func TestPlanSiteFactDrift_AnnotatesEmissionsWithByteEvidence(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "subject_key", "new_value"}))
 	// THE PROBE'S OWN READ. bugs_closed/225's page: current copy, stale code.
 	mock.ExpectQuery(regexp.QuoteMeta(pageSurfaceQuery)).WithArgs(uuid.MustParse(pageID)).
-		WillReturnRows(sqlmock.NewRows([]string{"surface"}).AddRow(probePageBug225))
+		WillReturnRows(sqlmock.NewRows([]string{"fragment"}).AddRow(probePageBug225))
 
 	res := &siteRefreshResult{SiteID: fdSiteIDStr, Domain: "example.test"}
 	eb := map[string]interface{}{"facts": []interface{}{sdltReliefCapFact(500000)}}
@@ -298,7 +298,7 @@ func TestPlanSiteFactDrift_ProbeChangesNoRoutingDecision(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(factDriftLastItemQuery)).WithArgs(fdSiteID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "subject_key", "new_value"}))
 	mock.ExpectQuery(regexp.QuoteMeta(pageSurfaceQuery)).WithArgs(uuid.MustParse(pageID)).
-		WillReturnRows(sqlmock.NewRows([]string{"surface"}).AddRow(probePageBug225))
+		WillReturnRows(sqlmock.NewRows([]string{"fragment"}).AddRow(probePageBug225))
 
 	res := &siteRefreshResult{SiteID: fdSiteIDStr, Domain: "example.test"}
 	eb := map[string]interface{}{"facts": []interface{}{sdltReliefCapFact(500000)}}
@@ -338,5 +338,96 @@ func TestPlanSiteFactDrift_UnreadableSurfaceStillEmits(t *testing.T) {
 	}
 	if plan.Emissions[0].Evidence != factProbeNoSurface {
 		t.Fatalf("an unreadable page is no_surface, never absent, got %q", plan.Emissions[0].Evidence)
+	}
+}
+
+// ── THE MULTI-COMPONENT BOUNDARY, which the first cut did not test at all ──
+//
+// Gating objection, council debug_historian at severity HIGH (corr 041b3026):
+// every fixture above is a single synthetic page, and the real input is N
+// PARTIAL fragments from page_components. If one fragment carries an unbalanced
+// <script>, a tokenizer run over the CONCATENATION carries inScript into the
+// next fragment and collects its genuine PROSE as script text — reporting
+// present_in_script for a figure that is only in the copy. That is bug 225's
+// false certification at component granularity, inside the very mechanism built
+// to prevent it at page granularity.
+//
+// MUTATION THAT MUST GO RED: make buildFactProbeSurface join the raw fragments
+// and call extractScriptText once over the join.
+
+// prose-0 / tool-1 / prose-2 — the real decomposition of bugs_closed/225's page,
+// with the leaking fragment FIRST so its state would reach the prose after it.
+// ⚠ ORDER MATTERS AND THE PREMISE ASSERTION CAUGHT ME GETTING IT WRONG. The
+// first version put the unclosed <script> first, and the NEXT fragment's own
+// </script> closed the leak before it could reach the prose — so the naive join
+// did not leak, and the test would have "proved" per-component extraction while
+// exercising nothing. The unclosed fragment must be the one immediately before
+// the prose it would swallow.
+var probeFragmentsLeaky = []string{
+	`<div class="calc"></div><script>const FTB_RELIEF_CEILING = 625000;</script>`,
+	`<section><h2>How it works</h2><script>var partial = 1;`, // UNCLOSED — the trap
+	`<section><p>Relief disappears entirely above &pound;500,000 (500000).</p></section>`,
+}
+
+func TestFactProbe_UnclosedScriptInOneComponentCannotSwallowTheNextComponentsProse(t *testing.T) {
+	// PREMISE, asserted: the naive join really does leak, or this proves nothing.
+	naive := extractScriptText(strings.Join(probeFragmentsLeaky, "\n"))
+	if !strings.Contains(naive, "Relief disappears entirely") {
+		t.Fatal("premise broken: tokenizing the JOIN must swallow the trailing prose, or there is no leak to prevent")
+	}
+
+	surface := buildFactProbeSurface(probeFragmentsLeaky)
+	if strings.Contains(surface.ScriptText, "Relief disappears entirely") {
+		t.Fatal("per-component extraction must NOT let one fragment's unclosed <script> collect the next fragment's prose")
+	}
+
+	// And the verdict that follows: the current figure is in the COPY, the code
+	// carries the expired one. Anything but markup_only here means a stale
+	// calculator has just been certified.
+	got := probeFactValueOnSurface(surface, 500000, true)
+	if got.Outcome != factProbeMarkupOnly {
+		t.Fatalf("want markup_only, got %q — a component-boundary leak has certified a stale tool: %s", got.Outcome, got.Detail)
+	}
+}
+
+// The honest twin: a genuine multi-component page whose CODE does carry the
+// figure must still read present_in_script. Per-component extraction must not
+// have broken the normal case.
+func TestFactProbe_MultiComponentPageWithTheFigureInCodeStillReadsPresent(t *testing.T) {
+	surface := buildFactProbeSurface([]string{
+		`<section><p>Some prose about &pound;500,000.</p></section>`,
+		`<div class="calc"></div><script>const FTB_RELIEF_CEILING = 500000;</script>`,
+		`<section><p>More prose.</p></section>`,
+	})
+	if got := probeFactValueOnSurface(surface, 500000, true); got.Outcome != factProbePresentInScript {
+		t.Fatalf("want present_in_script, got %q", got.Outcome)
+	}
+}
+
+// The markup arm must still see the WHOLE page across components — a figure in
+// fragment 3's prose is markup, whichever fragment it lands in.
+func TestFactProbe_MarkupArmSeesEveryComponent(t *testing.T) {
+	surface := buildFactProbeSurface([]string{
+		`<script>var unrelated = 7;</script>`,
+		`<div data-relief-cap="500000"></div>`,
+	})
+	if got := probeFactValueOnSurface(surface, 500000, true); got.Outcome != factProbeMarkupOnly {
+		t.Fatalf("the markup arm must span components, got %q", got.Outcome)
+	}
+}
+
+// x/net/html's TagName() lower-cases in place, which is a documented footgun for
+// byte-preserving rewriters (LANDMINES; rendered_html_code_spans.go). It does not
+// bite here — this reads Text() only, never Raw() — and the lower-casing is in
+// fact what makes <SCRIPT> compare equal to "script". Pinned rather than assumed,
+// because "all our HTML is lower-case" is exactly the corpus on which the
+// opposite defect stays invisible for ever.
+func TestExtractScriptText_MixedCaseScriptTagIsStillAScript(t *testing.T) {
+	got := extractScriptText(`<p>prose</p><SCRIPT>const CAP = 500000;</SCRIPT><p>more</p>`)
+	if !strings.Contains(got, "const CAP = 500000;") {
+		t.Fatalf("a mixed-case <SCRIPT> must still be recognised, got %q", got)
+	}
+	if strings.Contains(got, "prose") {
+		t.Fatalf("and its boundaries must still hold: %q", got)
 	}
 }

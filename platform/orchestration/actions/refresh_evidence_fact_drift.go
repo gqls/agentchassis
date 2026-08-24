@@ -714,11 +714,46 @@ func noteBrokenFactDeclarations(ctx context.Context, db *sql.DB, siteID uuid.UUI
 
 // pageSurfaceQuery reads one page's stored component HTML, in render order.
 // The same bytes check_unverified_claims reads; no network, no served fetch.
+// ⚠ ONE ROW PER COMPONENT, NOT A string_agg. Each rendered_html is a PARTIAL
+// fragment, and an unbalanced <script> in one would leave the tokenizer's
+// inScript flag set across the join, collecting the NEXT component's PROSE as
+// script text — a false present_in_script, which is bug 225's certification
+// shape at component granularity. The extraction happens per fragment in
+// buildFactProbeSurface; see its comment. (Council debug_historian, high,
+// corr 041b3026.)
 const pageSurfaceQuery = `
-	SELECT COALESCE(string_agg(COALESCE(pc.rendered_html, ''), E'\n' ORDER BY pc.position), '')
+	SELECT COALESCE(pc.rendered_html, '')
 	FROM page_components pc
 	JOIN content_components cc ON cc.id = pc.component_id AND cc.is_active = true
-	WHERE pc.page_id = $1`
+	WHERE pc.page_id = $1
+	ORDER BY pc.position`
+
+// readPageProbeSurface reads one page's component fragments and extracts each
+// one SEPARATELY. A read failure yields an empty surface, which the probe reports
+// as no_surface — never as an absence, because nothing was read.
+func readPageProbeSurface(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) factProbeSurface {
+	rows, err := db.QueryContext(ctx, pageSurfaceQuery, pageID)
+	if err != nil {
+		logger.Warn("refresh_evidence_base: fact evidence probe could not read a page surface",
+			zap.String("page_id", pageID.String()), zap.Error(err))
+		return factProbeSurface{}
+	}
+	defer rows.Close()
+	var fragments []string
+	for rows.Next() {
+		var frag string
+		if err := rows.Scan(&frag); err != nil {
+			logger.Warn("refresh_evidence_base: fact evidence probe scan failed", zap.Error(err))
+			return factProbeSurface{}
+		}
+		fragments = append(fragments, frag)
+	}
+	if err := rows.Err(); err != nil {
+		logger.Warn("refresh_evidence_base: fact evidence probe rows failed", zap.Error(err))
+		return factProbeSurface{}
+	}
+	return buildFactProbeSurface(fragments)
+}
 
 // annotateFactDriftEvidence records, per emission, whether the registered figure
 // is actually in the tool's script. ANNOTATION ONLY — it never changes Kind,
@@ -732,7 +767,7 @@ func annotateFactDriftEvidence(ctx context.Context, db *sql.DB, ems []factDriftE
 	if len(ems) == 0 {
 		return
 	}
-	surfaces := map[string]string{} // pageID -> stored HTML, read at most once
+	surfaces := map[string]factProbeSurface{} // pageID -> surface, read at most once
 	for i := range ems {
 		em := &ems[i]
 		if em.PageID == "" {
@@ -740,13 +775,8 @@ func annotateFactDriftEvidence(ctx context.Context, db *sql.DB, ems []factDriftE
 		}
 		surface, seen := surfaces[em.PageID]
 		if !seen {
-			pageID, err := uuid.Parse(em.PageID)
-			if err == nil {
-				if qerr := db.QueryRowContext(ctx, pageSurfaceQuery, pageID).Scan(&surface); qerr != nil && qerr != sql.ErrNoRows {
-					logger.Warn("refresh_evidence_base: fact evidence probe could not read a page surface",
-						zap.String("page_id", em.PageID), zap.Error(qerr))
-					surface = ""
-				}
+			if pageID, err := uuid.Parse(em.PageID); err == nil {
+				surface = readPageProbeSurface(ctx, db, pageID, logger)
 			}
 			surfaces[em.PageID] = surface
 		}

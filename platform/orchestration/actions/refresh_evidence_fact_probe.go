@@ -105,6 +105,50 @@ type factProbeResult struct {
 	Detail  string
 }
 
+// factProbeSurface is a page's stored bytes, kept in the two shapes the probe
+// needs — and built PER COMPONENT, which is the whole point.
+//
+// ⚠ NEVER TOKENIZE A string_agg OF page_components.rendered_html. Each row is a
+// PARTIAL HTML FRAGMENT, not a standalone document, so an unbalanced or oddly
+// self-closed <script> in one component leaves the tokenizer's inScript flag SET
+// when it crosses into the next component — and that component's genuine PROSE
+// is then collected as "script text". The probe would report
+// present_in_script for a figure that is only in the copy, which is bug 225's
+// false certification exactly, one level down from the page-vs-script mistake
+// this file was written to avoid. It is the estate's documented multi-component
+// string_agg landmine ("stripping style/script AFTER string_agg lets one
+// component's block eat the NEXT component's prose").
+//
+// So: tokenize each fragment on its own, and concatenate the EXTRACTED SCRIPT
+// TEXT rather than the raw HTML. Tokenizer state cannot cross a boundary that
+// the tokenizer never sees. Caught by the council's debug_historian seat at
+// severity high (corr 041b3026) — every fixture in the first cut was a single
+// synthetic page, so the failure mode was untested.
+//
+// RawHTML stays a plain concatenation on purpose: the markup arm is a literal
+// search with no state to leak, and it must see the whole page.
+type factProbeSurface struct {
+	ScriptText string
+	RawHTML    string
+}
+
+// buildFactProbeSurface extracts per fragment and joins the results.
+func buildFactProbeSurface(fragments []string) factProbeSurface {
+	var scripts, raw strings.Builder
+	for _, f := range fragments {
+		if strings.TrimSpace(f) == "" {
+			continue
+		}
+		if s := extractScriptText(f); strings.TrimSpace(s) != "" {
+			scripts.WriteString(s)
+			scripts.WriteByte('\n')
+		}
+		raw.WriteString(f)
+		raw.WriteByte('\n')
+	}
+	return factProbeSurface{ScriptText: scripts.String(), RawHTML: raw.String()}
+}
+
 // extractScriptText returns the concatenated text of every <script> element.
 //
 // IN THIS PACKAGE, NOT IN datahelpers, deliberately. datahelpers/claims.go is the
@@ -115,6 +159,15 @@ type factProbeResult struct {
 // because a figure in a script is not an assertion about the business, and it is
 // right. This wants only the scripts, because the question is not "what does the
 // page claim" but "what does the code compute from".
+// ⚠ The x/net/html `TagName()` lower-cases tag bytes IN PLACE in the buffer
+// `Raw()` aliases, so a byte-preserving rewriter must Write(Raw()) BEFORE
+// calling TagName() (LANDMINES; rendered_html_code_spans.go is the estate's
+// worked case). It does NOT bite here, and the reason is worth stating rather
+// than leaving to luck: this function never calls Raw() and promises nothing
+// about byte-verbatim output — it reads Text() only, into a Builder that copies
+// at call time. The in-place lower-casing is in fact HELPFUL here, because it
+// makes `<SCRIPT>` compare equal to "script"; there is a mixed-case test for
+// exactly that, so the behaviour is pinned rather than assumed.
 func extractScriptText(pageHTML string) string {
 	if strings.TrimSpace(pageHTML) == "" {
 		return ""
@@ -289,8 +342,8 @@ func isNumIdentByte(b byte) bool {
 // The markup-only outcome is not a nicety. It is the single most useful thing
 // this probe can say, because it is bug 225's exact shape: the copy states the
 // current figure (the register put it there) while the code does not.
-func probeFactValueOnSurface(pageHTML string, value float64, hasValue bool) factProbeResult {
-	if strings.TrimSpace(pageHTML) == "" {
+func probeFactValueOnSurface(surface factProbeSurface, value float64, hasValue bool) factProbeResult {
+	if strings.TrimSpace(surface.RawHTML) == "" {
 		return factProbeResult{Outcome: factProbeNoSurface,
 			Detail: "no stored component HTML for this tool's page — nothing was read, so nothing is claimed"}
 	}
@@ -309,7 +362,7 @@ func probeFactValueOnSurface(pageHTML string, value float64, hasValue bool) fact
 				formatEvidenceNumber(value), factProbeMinValue, 3.79, 32.75)}
 	}
 
-	scripts := extractScriptText(pageHTML)
+	scripts := surface.ScriptText
 	for _, lit := range lits {
 		if valueOccursGuarded(scripts, lit) {
 			return factProbeResult{Outcome: factProbePresentInScript, Form: lit,
@@ -320,7 +373,7 @@ func probeFactValueOnSurface(pageHTML string, value float64, hasValue bool) fact
 	// the code is not — which is the motivating bug, and is worth saying out loud
 	// rather than reporting a bare absence.
 	for _, lit := range factValueDisplayLiterals(value) {
-		if valueOccursGuarded(pageHTML, lit) {
+		if valueOccursGuarded(surface.RawHTML, lit) {
 			return factProbeResult{Outcome: factProbeMarkupOnly, Form: lit,
 				Detail: fmt.Sprintf(
 					"the registered figure appears in the page as %q but NOT in its script — the COPY carries the "+

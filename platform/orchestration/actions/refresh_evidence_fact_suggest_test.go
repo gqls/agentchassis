@@ -45,7 +45,7 @@ func TestFactSuggest_ProposesTheBindingsAlreadyVisibleInTheCode(t *testing.T) {
 	site := uuid.New()
 
 	mock.ExpectQuery(regexp.QuoteMeta(factSuggestToolsQuery)).WithArgs(site).
-		WillReturnRows(sqlmock.NewRows([]string{"subject_key", "name", "surface"}).
+		WillReturnRows(sqlmock.NewRows([]string{"subject_key", "name", "fragment"}).
 			AddRow("stamp-duty", "tool-stamp-duty", suggestToolSurface))
 
 	eb := suggestEB(map[string]float64{
@@ -86,7 +86,7 @@ func TestFactSuggest_SkipsAToolThatAlreadyDeclares(t *testing.T) {
 	defer db.Close()
 	site := uuid.New()
 	mock.ExpectQuery(regexp.QuoteMeta(factSuggestToolsQuery)).WithArgs(site).
-		WillReturnRows(sqlmock.NewRows([]string{"subject_key", "name", "surface"}).
+		WillReturnRows(sqlmock.NewRows([]string{"subject_key", "name", "fragment"}).
 			AddRow("stamp-duty", "tool-stamp-duty", suggestToolSurface))
 
 	got := planFactBindingSuggestions(context.Background(), db, site,
@@ -110,7 +110,7 @@ func TestFactSuggest_ProseAloneProposesNothing(t *testing.T) {
 	site := uuid.New()
 	proseOnly := `<p>Relief ends above &pound;500,000 (500000).</p><script>var a = 1;</script>`
 	mock.ExpectQuery(regexp.QuoteMeta(factSuggestToolsQuery)).WithArgs(site).
-		WillReturnRows(sqlmock.NewRows([]string{"subject_key", "name", "surface"}).
+		WillReturnRows(sqlmock.NewRows([]string{"subject_key", "name", "fragment"}).
 			AddRow("stamp-duty", "tool-stamp-duty", proseOnly))
 
 	got := planFactBindingSuggestions(context.Background(), db, site,
