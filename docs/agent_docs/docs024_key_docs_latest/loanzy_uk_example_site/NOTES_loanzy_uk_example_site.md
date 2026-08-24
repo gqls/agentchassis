@@ -1513,3 +1513,52 @@ remains unbuilt **and unlinked** — the orphan case, a separate milder defect.
 **Everything else clean at the artefact:** `311` collateral 8/8 UNCHANGED (guard **NOT EXERCISED** —
 report as such); `260` zero template tokens on all pages; no invented email, phone or byline
 anywhere; `contact.html` serves a working 2-input form.
+
+### 2026-08-24 — the OWNER reviewed the served pages, and my after-test missed the biggest defect
+
+Three points from the owner, plus one escalation. All three traced to mechanisms; two filed.
+
+**The escalation first, because it corrects me.** *"The missing pages is not just one, but almost all
+of them. The seasonal planner says 'What your shed needs, month by month' but there is no calendar
+and no month by month list."*
+
+He is right. I reported **"7 of 12 serving… substantial and read well"**. That was measured on
+**byte count** (66,999 for `seasonal-planner`) and a skim of one page. **Byte count cannot see a page
+that promises a thing and does not deliver it**, and my harness had no check that could:
+`http`, `bytes`, `<input>`, `<button>`, `cta-anchors`, template leaks, invented identity, dead links —
+**not one of them asks whether the page contains what its own heading says it contains.**
+
+> **The specific trap, and I had been warned in writing.** The 08-23 handoff told me `loanzy.uk`
+> shipped a calculator page with **zero inputs** — *"a stored, linked, selector-visible component
+> that still renders no tool is a different failure and must not be reported as success"*. I quoted
+> that warning, built an `<input>`-count check from it, **and applied it only to `page_type='tool'`**.
+> `seasonal-planner` is `page_type='content'`, so it got no completeness check at all. **I narrowed a
+> general lesson to the one example it arrived with.** The transferable form: *a page's own headings
+> are a promise; check the promise against the markup.* An `<h2>` saying "month by month" over a page
+> with 0 tables, 0 lists and 3 month names is machine-detectable and I did not detect it.
+
+**Filed: `bugs_open/380`** — no evidence base ⇒ no fact assignment AND no claims audit. Three
+mechanisms fail open on one condition; `claims-auditor.check_opted_in` branches to **`complete`**
+without reading a page. **29 of 48 live sites (60%) have no evidence base**, so fleet claims coverage
+is ~40% and a skipped audit looks exactly like a clean one. This is the loanzy credit-broker
+mechanism generalised: `CGV-032` gates the *vertical*, nothing gates the *practice claims*.
+
+**Filed: `bugs_open/381`** — the planner composes pages from components that cannot express the page
+it planned. `seasonal-planner`'s four components have no list or table markup between them, which is
+**why** the month-by-month promise became four prose blocks: the writer had nowhere to put twelve
+months. Site-wide: 0 tables, 0 content lists, 0 `<strong>`, against **34 list-capable and 10
+table-capable components available**. Two arms — writer-side (the owner's paragraph sits in a
+**pass-through** component that would have taken `<ul>` unchanged) and composition-side (three
+components hard-wrap in `<p>` and nothing writer- or designer-side can change that).
+
+**Not filed: the cards.** Measured instead — **there is no carousel** (`scroll-snap` 0, no
+`.carousel`/`.slider`). It is a CSS grid collapsing to one column; `index` carries 14 cards, and the
+one identified grid **already holds exactly 3**. So the owner's proposed remedy is already the state
+of the world and does not address it: the wall is the number of card *sections*, not cards per
+section. Recorded in `381` §7 pending a composition decision rather than filed on a guess.
+
+**One correction to the owner's own framing, offered rather than assumed:** there is **no
+`vigilant_designer` agent** — live design agents are `brand-designer`, `feature-designer`,
+`visual-designer`. And a designer is the wrong layer for the structural arm: it cannot add a `<ul>`
+to a component whose template has none, so routing there yields a better-looking wall of text. His
+alternative hypothesis — *"a missing step in the workflow"* — is the correct one.
