@@ -692,3 +692,52 @@ from a reader and opposite ones from an operator.
 **What to do with a zero next time:** read the demand control first. All-zero
 invocations ⇒ keep waiting. Non-zero invocations with zero adoptions ⇒ that is a real
 signal, and the `adopt fragment:` log lines name which arm refused.
+
+### ⚠ CORRECTION 2026-08-24 19:00Z — "the seam has not executed since arming" was WRONG
+
+The entry immediately above states `SavePageSectionsAction` invocations in the last
+6h as **0**, and concludes the seam had no traffic. **Both are false.** That figure
+came from a `kubectl logs … | grep` and the logs did not know.
+
+The database says otherwise, and it is the authority here:
+
+| [MEASURED 2026-08-24 19:00Z] | |
+|---|---|
+| rows saved **through `save_page_sections`** since arming (16:15Z) | **209** |
+| of those, stamped | **209** |
+| latest row | 18:49Z — nine minutes before the check |
+
+Every row written this afternoon carries `content_brief`, which is that action's own
+fingerprint. The seam is not idle; it is one of the busiest things on the estate.
+
+**Why the log check lied is not worth chasing** (two pods, a fresh roll 24 minutes
+earlier, retention, level) — the point is that it was the wrong instrument. A
+`kubectl logs` grep is not a census of anything, and this file already carries that
+lesson for build provenance: *an empty result means "not in range", not "absent".*
+I applied it there this morning and not here.
+
+### The conclusion survives, on a better control
+
+Zero adoptions is still fully explained, but by the RIGHT measurement:
+
+| the demand control that actually bears on adoption | |
+|---|---|
+| adoption **candidates** since arming — pages saved with exactly one component row, no `<section`, no `data-component` | **0** |
+| rows saved since arming on single-row pages, at all | **0** |
+
+**No qualifying page has been built since arming.** Adoption fires only on the
+no-`<section>` fallback; 209 ordinary multi-section pages went through the seam and
+correctly produced no adoptions. That is the expected reading, and it is now measured
+rather than inferred.
+
+**The watcher was rebuilt twice for this** and lives at
+`bugfix_357_component_identity/watch_357_adoption.sh`: its demand control is now
+DB-based and asks *"did a qualifying page arrive?"* rather than *"did the seam run?"*
+— the seam runs constantly, so the latter answers a question nobody asked. A tick now
+reads:
+
+```
+adopted=0 population=22 population_stamped=0 adoption_candidates=0 saves_since_arming=209
+```
+
+Every number needed to interpret the zero is on the line.

@@ -49500,3 +49500,39 @@ A request that shouldn't have existed drew a good-faith answer about work that h
    this fix protects every future build and was never going to rescue already-parked pages. That
    is a narrower and truer claim than the one I had been making all day, and it came from finally
    asking what invokes the code I had changed.
+
+### 11 — 2026-08-24: I asked the LOGS a question the database could answer, and committed the answer
+
+I reported — in the bug file and in a commit message — that `SavePageSectionsAction`
+**had not executed in six hours**, and built an interpretation on it: the newly armed
+fix had seen no traffic, so its zero adoptions said nothing.
+
+The seam had run **209 times since arming**, every one of them stamped, the latest
+nine minutes before I said it was idle. The figure came from
+`kubectl logs -l app=agent-chassis … | grep -c SavePageSectionsAction` returning 0.
+The database was one query away and says every row written that afternoon carries
+`content_brief` — that action's own fingerprint.
+
+**This lane already carries the lesson, and I had applied it correctly the same
+morning.** CLAUDE.md's build-provenance section says an empty log result means
+*"not in range"*, not *"absent"*, and my own memory index says a `-l app=` selector
+may read one pod of N. I used that reasoning at 09:00 to interpret a missing
+provenance line, and at 17:00 I treated an empty grep as a measurement.
+
+**The conclusion happened to survive** — no qualifying page had been built, so zero
+adoptions was still the expected reading — but it survived on a different fact than
+the one I published, which is luck, not method.
+
+**And the check was wrong twice, which is the more useful half.** Even a correct
+answer to *"did the seam run?"* would not have borne on the question: that seam runs
+constantly on ordinary pages. What bears on adoption is *"did a page arrive that
+adoption could act on"* — the fallback signature, a page saved with exactly one
+component row, no `<section`, and no `data-component`. That reads **0**, and 0 there
+is the fact that explains the silence.
+
+**The cheap check:** when the database can answer it, do not ask the logs. Logs
+record what a process chose to say, on the pods you happened to select, for as long
+as retention held; a table records what happened. **The transferable half:** before
+trusting any absence, ask what a PRESENCE would have had to survive to reach you —
+here, the right pod, the right level, the retention window and the tail limit, four
+independent ways to get a zero that means nothing.
