@@ -1363,3 +1363,17 @@ call, not this one's.
 > item was the sole triaged one on the site and the site selection keyed on its 07-17 created_at.
 > Site choice and within-site order have different keys; keep them distinct — this is the
 > "two queries decide dispatchability and they disagree" landmine wearing its other face.
+
+> **COUNTER-CORRECTION 2026-08-24, later same day (retraction sent by the bugfix_206 session,
+> re-verified here before recording):** one sub-claim inside the correction block above is FALSE —
+> "the 206 lane's 'bumped to 95 to get ahead' was CORRECT as written". It was not: the wave's
+> competing items carried the planner's minted `priority: 10+i` (`load_work_item_actions.go:330`,
+> read today), NOT the column default of 100, so 95 sorted BEHIND them and starved both builds
+> ~45 minutes — as that lane's OWN settled record already said (`bugs_open/206` line 183;
+> `NOTES_directory_build_handler.md` "CORRECTED same session" entry; their WRONG_CALLS 08-08).
+> Their working fix was priority=10. What STANDS from the block above: the two-queries-two-keys
+> fact (site selector `created_at ASC` first; item loader `priority ASC` first) and my 54→90 being
+> backward. The transferable lesson doubles: **a priority comparison against the COLUMN DEFAULT is
+> wrong whenever a producer mints its own values — compare against the COMPETING ROWS, and when
+> adjudicating an episode, re-read the episode's own record before ruling on it** (both sessions
+> violated the second half today, in opposite directions, and each was caught by the other).
