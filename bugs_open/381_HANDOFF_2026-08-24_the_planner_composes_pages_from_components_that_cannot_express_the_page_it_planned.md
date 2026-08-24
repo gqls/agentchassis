@@ -155,3 +155,87 @@ which of two steps is missing depending on the arm.
   `care` 8. "Restrict to 3 per component" is already true of the one identified grid; the wall comes
   from the NUMBER OF CARD SECTIONS per page, not cards per section. Needs its own decision about
   page composition before it is worth filing.
+
+---
+
+## 8. FIX BUILT, COUNCIL-APPROVED, NOT YET APPLIED — and what the diagnosis changed (`bugs_open/381` lane, 2026-08-24)
+
+**Owner: the `bugs_open/381` session** (this file's filing lane marked it UNOWNED and keeps the
+account of the site; the fix lane is
+`docs/agent_docs/docs024_key_docs_latest/bugfix_381_inexpressive_composition/`).
+**Status: five config-only migrations committed and APPROVED (council `ca400ba6`, round 1, three
+advisory objections, none high). NOT APPLIED.** They are live the moment they are applied and need
+no chassis roll — but a committed migration is not an applied one, so nothing below is in
+production yet.
+
+### 8a. Still valid, and it is not site-specific `[MEASURED 2026-08-24, live DB]`
+
+Re-validated on live rows: 22 sections on `garden-tools.uk`, not one from a list/table-capable
+template. **Fleet 30d: 741 pages / 29 sites; 327 (44%) contain no list, table or `<strong>`
+anywhere in their content; 1,863 of 1,980 section placements (94%) used a prose-only template.**
+
+### 8b. ⚠ THERE ARE THREE LAYERS, AND §4's ARM (a) NAMED THE WRONG LEVER
+
+This file's amended §4 says the writer "was instructed not to emit markup" by RULE 9 and its
+`text` type. That is closer than the original, and **it is still not the lever.** The disproof was
+in the same table the whole time `[MEASURED 2026-08-24, 30d instances]`:
+
+| field | declared type | `llm_guidance`? | instances rendering `<ul>`/`<ol>` |
+|---|---|---|---|
+| `article-body.content` | **`text`** | **yes** — *"…h3 for subsections, p for paragraphs, ul/ol for lists…"* | **116 / 153 = 76%** |
+| `generic-text-block.content` | **`text`** | **none at all** | **12 / 173 = 7%** |
+
+Same declared type, same `text/template` renderer (no escaping), same RULE 9 — **eleven-fold
+difference.** So RULE 9 does not bind, and **the field's own `llm_guidance` is what produces
+structure.** The retype to `html` keeps a smaller, honest job: the prompt prints each field as
+`` `content` (TYPE, required) `` and addresses its rules BY TYPE, so the type is the **routing key**
+between RULE 9 and RULE 10 — which matters because **RULE 10 names `rich_text`/`content`, and
+`[MEASURED 2026-08-24]` ZERO components declare either** (940 llm fields are `text`, 2 are `html`).
+The one rule permitting structure has been addressed to nobody for its whole life.
+
+### 8c. `content_shape` was built for exactly §6-candidate-1 and is DEAD
+
+Zero Go readers repo-wide; **omitted from the birth INSERT** (`store_generated_component_action.go:634`
+writes 19 columns and not this one, so every generated component is permanently NULL); NULL on
+128/151 active section rows; no CHECK, so the vocabulary has drifted (`series`, `sequence`,
+`mixed`); and **12 rows declare `structured_list` while their template contains no list markup** —
+reading it would tell you a prose component can render a list. **This is why the fix derives
+capability instead of declaring it.** (Answers `TLIB-016`'s long-open verify-later; the register
+entry is amended.)
+
+### 8d. What shipped, and what it deliberately does not do
+
+`component_expresses(html_template, input_schema)` — IMMUTABLE, read at query time by all three
+planner menus (591–593), returning `html-block` / `list` / `table` / `items` / `{}`; plus a
+planning rule tying page promise to section capability. `594` gives the prose slots real
+`llm_guidance` (and retypes them); `595` re-addresses RULE 10 to `html` and narrows RULE 9 without
+touching 304's markdown ban. **`content-gap-planner` is the busiest planner by 27× (749 calls/30d
+vs 27), so most of the benefit lands there, not on the greenfield path this bug was found on.**
+
+**It adds no component, and §7's promise-vs-delivery gap is therefore NOT closed.** Confirming this
+file's own amended §3: the 44 structural components are all special-purpose, so an informed planner
+still has nothing generic to compose a month-by-month page from. **The missing generic
+checklist/steps/comparison-table/calendar component is open work and is the next thing anyone
+picking this up should weigh.**
+
+### 8e. The objection that nearly got through, recorded because the class recurs
+
+The council's `bug_historian` seat asked whether the four templates already wrap `{{.content}}` in
+a literal `<p>` — because if so, a writer emitting `<h3>`/`<ul>` would nest block elements inside a
+paragraph: invalid HTML, browser-repaired inconsistently, **and invisible at every point we look**
+(the DB row is schema-valid, no check fails, only the served page is wrong). I had verified the
+renderer and the type checker and never asked what the *container* was.
+**CLEARED `[MEASURED 2026-08-24]`: all four use a `<div>`.** The re-check query is in `594`'s header
+because the RFC_032 lane is rewriting `html_template` fleet-wide and this fact has a shelf life.
+⚠ `about-content` contains `<p>` elsewhere, so the predicate must test the **container of the
+slot**, not the presence of `<p>` anywhere in the template.
+
+### 8f. How to tell whether it worked, and what would refute it
+
+Acceptance measure and its pre-fix baseline are in the lane's `RUNBOOK`; the promise-vs-delivery
+check is the filing lane's `after_test.sh` (HANDOFF 24 §3), which fires on `seasonal-planner` and
+stays silent on the other 11. **The falsifier: if `generic-text-block`'s structure share does not
+move toward `article-body`'s 76%, then §8b's comparison was confounded by WHICH AGENT writes each
+field** (`article-body` on the blog path, `generic-text-block` by `page-content-writer`) and the
+prompt, not the guidance, is load-bearing. `595` hedges that by fixing the prompt half too, so the
+two arms fail independently rather than together.

@@ -144,3 +144,74 @@ authored by an LLM and never assembled from a template."* It is `source: llm` in
 is not written by an LLM — so it looked like a pass-through prose slot to my census and is not
 one. **Four target fields, not five.** The census predicate (an `llm` text field rendered directly
 inside a block container) cannot see that distinction; only the guidance text could.
+
+## 2026-08-24 — council APPROVED round 1, and the sharpest objection was a real gap in my verification
+
+`ca400ba6`, approved with 3 advisory objections, none high-severity. Acted on all of them rather
+than banking the approval — notes on the two worth remembering.
+
+**`bug_historian` (medium) asked the question I had not.** I had verified the renderer
+(`text/template`, no escaping) and the type checker (`DeclaredTypeSatisfied`, default-TRUE) and
+concluded the writer could safely emit `<ul>`. **I never asked what the slot's CONTAINER was.** If
+any of the four templates wrapped `{{.content}}` in a literal `<p>`, then `<h3>`/`<ul>`/`<table>`
+would nest block elements inside a paragraph — invalid HTML, repaired differently by each browser,
+and **invisible at every point we look**: the DB row stays schema-valid, no check fails, only the
+served page is wrong. That is 016b §9's most-repeated family (the `<style>`-in-the-wrong-half case).
+**CLEARED `[MEASURED 2026-08-24]`: all four use a `<div>`.** But it was cleared by the reviewer's
+question, not by my own checking, and the transferable lesson is narrow and useful: **I verified
+every layer that would ERROR and none of the one that would silently malform.** A "can the writer
+emit this?" question has two halves — is it permitted, and will its container accept it — and I
+had only done the first.
+⚠ Note `about-content` contains `<p>` elsewhere in its template, so the predicate must test the
+**container of the slot**, not the presence of `<p>` anywhere. A naive `html_template LIKE '%<p%'`
+would have produced a false positive and sent me chasing a non-problem.
+
+**`prior_art_librarian` (medium) was right that I had argued the wrong thing.** I had written at
+length that `content_shape` is dead — measurements, zero readers, the omitted birth INSERT — which
+establishes that it does not WORK, not that it should not be REVIVED. Those are different claims
+and only the second justifies building something new. The rejection is now argued explicitly in
+591's header (a 128-row backfill, correcting 12 actively-wrong rows, a CHECK it never had, a Go
+change to the birth INSERT, then hand-maintenance for ever against a column another lane is
+rewriting this week). **"The existing thing is broken" is not the same as "the existing thing
+should not be fixed", and a reuse objection is asking for the second.**
+
+Also acted on: the `html`-implies-both-list-and-table premise is now stated (the vocabulary means
+CAPABILITY, never intent); the function's COMMENT records that its output vocabulary is a shared
+contract with no version tag, read by three prompts at once; and why the four guidance blocks are
+not one shared string (each carries the clause that prevents its own component's defect —
+`about-content` must not duplicate `highlights`, `illustrated-text-block` must not bypass its own
+image fields, `article-body` keeps `<h2>` because it is a whole article body).
+
+Guardian's two checks both came back clean and are recorded in 594's header: **no Go path branches
+on a field type of `html`** (the only readers of a declared type are `DeclaredTypeSatisfied` and
+`component_schema_fields.go`, which copies it into the writer's field spec — the routing effect
+intended), and all four target agents have exactly one active row.
+
+## 2026-08-24 — three coordination outcomes worth keeping
+
+**A question found a defect in someone else's shipped code.** Asking the `305` lane whether their
+sentence scanner splits on tag boundaries — because `html` slots would start producing `<li>` —
+surfaced that `</th` was missing from their boundary list while `</td` was present. A
+define-by-negation construction in a table HEADER cell produced a markup-bearing "sentence", and
+their repair splices over exactly that span, so it would have replaced the cell tags with prose and
+broken the table. Fixed by them in `714789d7b`, mutation-proven. **Nobody had a symptom.** The
+general form: when your change alters the SHAPE of what a downstream consumer sees, ask that
+consumer what it assumes about the shape — the answer is cheap and it is occasionally a bug.
+
+**An ID collision I created and did not notice.** My register entry was `CQ-028`, which the 277
+lane already holds; the `367` lane spotted it, deliberately did not renumber it (my entry named
+sources it could not see), and left a flag. Renumbered to `CQ-031` here and in every
+cross-reference, and the now-stale flag replaced with a one-line trace — **a resolved warning left
+in place is the "stale status line makes the correct action look premature" shape.**
+
+**And a thing I could not settle, recorded as unsettled.** The `editorial` lane asked whether my
+lane had written the `requires-evidence-base` tags. It had not — my migrations only READ the tag,
+and nothing of mine has touched the live DB outside a rolled-back transaction. But in checking I
+found something more useful than the answer: **`content_components` has NO `updated_at` trigger**
+(the only trigger is `trg_cc_refuse_null_section_type`), so `updated_at` moves only when a writer
+sets it explicitly, and there is no schema history for the table. **"Who changed this component
+config, and when" is unanswerable in general**, not just for those two rows. That lane has since
+filed it as a landmine with the trigger census credited. I offered a hypothesis about their
+measurement being wrong; **they refuted it with better evidence than I had** (a raw column print,
+no predicate involved) and found the likelier explanation themselves. Recorded because my
+hypothesis was the confident one and it was wrong.
