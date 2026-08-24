@@ -47160,3 +47160,41 @@ wrong measurement, which is the part that matters.
   the same class as `a-quiet-test-passes-when-the-rule-is-gone`, in SQL.
 - **Cost:** none reached production — caught pre-apply, fixed in `eab400cd6` alongside a second
   named precondition (`jsonb_typeof(f->'source')='object'`) the same seat asked for.
+
+## 2026-08-24 — `bugfix_206_directory_build_handler` (fifth entry) — I ran a demand control, it passed, and it was blind on the one axis the objection was about
+
+Round 2 of the council raised a HIGH: my new work-item row sat at `status='deferred'` with a
+**non-empty `handler_agent` naming a builder that does not exist**, which is the shape of
+`bugs_closed/078` (an unroutable `handler_agent` livelocking the dispatcher). My answer was
+going to be a demand control, and I ran a good one: **262 rows already live at `deferred` with a
+non-empty `handler_agent`, across 16 distinct handlers, and not one has ever been attempted.**
+Both dispatch gates independently filter `status IN ('triaged','approved')`. The evidence is
+real and the conclusion — "deferred rows do not dispatch" — is true.
+
+**And it does not answer the objection.** Every one of those 16 handlers is a **registered**
+agent. The objection was not about `deferred`; it was about `deferred` + a handler name that
+**resolves to nothing**, and my 262-row population contains zero examples of that. The control
+exercised the status axis and was silent on the registration axis — so it would have returned
+262/0 whether or not the thing being asked about was dangerous.
+
+The tell I walked past: all 47 existing `capability_gap` rows carry an **empty**
+`handler_agent`. I had that number in front of me — the council's own round-1 check printed it —
+and read it as "capability_gap is an established type" (which it supports) rather than as
+"the established shape of this row is one I am not writing" (which it also supports, and which
+was the actual signal).
+
+Fixed by matching the established shape: the row now carries an empty `handler_agent` and the
+builder's name lives in `spec.builder_needed`, where a reader looks anyway. Two live gates make
+it safe; not relying on them is cheaper than being right.
+
+**The cheap check**: a demand control has to vary the axis the QUESTION is about, not the axis
+you are confident of. Write the objection as a two-part predicate (`deferred` AND
+`unregistered handler`), then check your control population against **both** parts — if it has
+no rows satisfying the second, the control is silent about it and must say so out loud.
+**Corollary, and it is the one that stings**: when the established version of a thing you are
+writing differs from yours in a field you did not think about, that difference is the finding.
+`47 of 47 do it the other way` is not background colour.
+
+*(Third same-session entry in this family: the false-zero census filtered on a key the
+population lacks, and this control varied a field the population is uniform on. Both are
+"my instrument could not have returned the disconfirming answer".)*
