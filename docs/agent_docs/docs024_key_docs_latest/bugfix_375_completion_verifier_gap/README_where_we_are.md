@@ -92,3 +92,47 @@ now written down as the exact shape for the piece of work still outstanding here
 
 So: the fix is in, the documents are honest, the mechanism is registered so the next lane can
 find it, and the remaining work has a known-good pattern to copy rather than a design question.
+
+---
+
+**2026-08-24, end of the evening.** The council approved it first time round — twelve reviewers,
+about fourteen minutes end to end. But the useful part is that "approved" did not mean "nothing to
+do", and I want to be straight with you about one of the two things it found, because it was mine.
+
+**They caught a measurement I had got wrong and already published in six places.** The whole
+argument for doing this the contained way rests on a count: how many agents use the unguarded door,
+over how many kinds of problem. I measured it, controlled it, wrote it up carefully, marked it as
+measured, and put it in the bug file, the register, the index, a landmine, the review submission
+and two source files.
+
+The table I measured it from is a **rolling window**. Completed rows get moved out to an archive
+after a while, and the archive is exactly where the completions I was counting had gone. Over both
+tables together it is **seven** kinds of problem and **578** completions, not five and 134. Two
+entire categories were invisible to every query I ran, because every one of them had finished and
+been archived.
+
+Three things about that are worth more than the correction itself.
+
+**The control I was pleased with had the same blind spot.** I'd deliberately run a check to prove
+my zero wasn't a typo — and it queried the same table, so it tested my spelling and not my window.
+A check drawn from the same place as the measurement cannot see a problem with the place.
+
+**The conclusion survived, and that is luck rather than skill.** All seven categories are still
+unprotected, so the answer didn't change and the fix didn't change. But if either of the two hidden
+ones had been protected, my query would have printed the same reassuring zero, and a claim I made
+to a review board would have been resting on it.
+
+**And the warning was already in front of me.** The note that says this exact thing about this
+exact table loads automatically at the start of every session I run. I had it and didn't apply it.
+That is now logged in the fleet-wide record of wrong calls, along with the observation that the
+handover note I was working from made the identical mistake about the same table on the same day —
+which suggests the fix is the query, not more care.
+
+Everything is corrected at source, including the two code files, because a stale "measured" comment
+in code outlives every document. The second objection — about a shared helper I'd refactored — I
+answered by deliberately breaking it, which proved the existing tests do catch drift, and in the
+process exposed a gap where a column could have been silently dropped. That's closed too, though it
+took two attempts: my first test looked right and proved nothing.
+
+Fix committed, documents honest, figures corrected, verdict read and acted on. The remaining piece
+of work has a known-good pattern to copy rather than a design question.
