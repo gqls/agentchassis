@@ -377,9 +377,9 @@ council `d48c0a89-9ff8-4286-bfe9-2690dc13d5bc`.
 
 ## FIX 2026-08-24 — candidate 1 built at the shared door, with ONE deliberate departure from the shape this file proposed
 
-**Committed `6ab0b3434`** by the `bugfix_333_owned_page_door` lane. Council SUBMITTED, corr
-`9813dec8-5ce1-48ab-bb77-e3f601f9f64c` — **verdict not yet read at the time of writing; do not cite this
-as approved.** Register **WII-028**. Two `LANDMINES.md` entries and one `016b` §9 pattern.
+**Committed `6ab0b3434`** (revised `1789489bf`) by the `bugfix_333_owned_page_door` lane. Council **APPROVED
+round 2**, corr `9813dec8-5ce1-48ab-bb77-e3f601f9f64c` — round 1 REVISE, gated on coverage; 15 reviewers,
+2 abstained, no high-severity objections at round 2. Register **WII-028**. Two `LANDMINES.md` entries and one `016b` §9 pattern.
 **INERT until the next chassis roll** — `make build-*` builds from committed HEAD, but releases are
 whole-fleet and the owner runs them.
 
@@ -459,7 +459,7 @@ row fails the retraction-contract assertions.
   the same pipeline marked owned — this file's candidate 2, and the largest single producer) is NOT taken.
   It is now COUNTABLE per finding, which is the precondition for that lane deciding it.
 
-### Council round 1 → REVISE → round 2 (corr `9813dec8`), and what it changed
+### Council round 1 → REVISE → round 2 APPROVED (corr `9813dec8`), and what it changed
 
 **Two objections changed the code** (`1789489bf`): the probe order is inverted so the novel
 `jsonb_path_exists` runs only for an owned page rather than on every page-bearing write through a shared seam
