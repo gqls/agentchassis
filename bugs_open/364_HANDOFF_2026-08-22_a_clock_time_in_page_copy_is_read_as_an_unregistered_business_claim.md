@@ -219,6 +219,48 @@ adds this section instead, which records the verdict but does not retroactively 
 that holds the code. The lesson is the ordering, not the trailer: **submit before or alongside the
 commit**, which is exactly what CLAUDE.md's `Council-Submitted:` trailer exists for.
 
+## 6d. Council verdict on the interim — APPROVED round 1, and what each objection cost
+
+`Council-Reviewed: b8df25dc-7d19-48b9-9b52-b93b25523d4a` — *"APPROVED — approved with 3 advisory
+objection(s) — none high-severity (round 1)"*. 13 seats ran, 5 abstained. **Two of the objections
+found real things and changed the code**; recording all of them, including the one that was wrong,
+because which seats were wrong is as useful as which were right.
+
+| seat | objection | what it cost |
+|---|---|---|
+| `bug_historian` (med) · `compliance` | the interim's "measured loss is zero" rests on a **second, unfixed bug** (the singular `orchestration`) — that is luck, not a safety property, and a later plural fix would make the blindness real with no signal. Asked for the one-line companion fix now. | **ACCEPTED AND FIXED** — `0f9f7f3ff`. Measured both directions first: fleet-wide only ONE site's components contain "orchestrations" (11, all aiao) and the change adds **zero** findings. Mutation-proven, and the singular direction pinned too. |
+| `architecture` (low) | third occurrence of the same interim; **file the Phase 2 RFC in `architecture_review/`, not as a commit-message promise.** | **ACCEPTED** — `RFC_053` filed. |
+| `guardian` (med) | `editorialPageTypes` also gates `ScanBannedClaims`, so this silently widens the banned-claim carve-out — unmeasured. | **REFUTED by enumeration, and the enumeration is the point.** `editorialPageTypes` has exactly ONE reader (`ProseNumbersAreClaims`) with exactly ONE caller (the guard at `claims.go:868`). `ScanBannedClaims`, `ScanAllBannedClaims(WithSuppressed)` and `ScanStatClaims` take no `ClaimSurface` and cannot consult it; `TestBannedClaimsAreStillCaughtOnEditorialPages` pins that. I checked all consumers rather than the one I remembered — an objection naming one file names a category. |
+| `guardian` (low) | other consumers (`check_unverified_claims.go`, `revalidate_unverified_claims.go`) not named. | Partly fair. They call `ScanUnregisteredNumbers` **with** a surface, so they are affected — in the intended direction: they stop raising the same 20 false positives. That is the fix working at a second seam, not an unmeasured side effect. |
+| `bug_historian` (low) | nothing forces Phase 2 to land; "interim" quietly becomes permanent. | Partly answered: `TestTrackerPagesGiveUpTheirFirstPersonClaims` must be INVERTED not deleted, and `RFC_053` now exists. **Still unanswered: there is no expiry that fails loudly.** Recorded as an open residual rather than claimed as solved. |
+| `editquality` (low ×2) | the sketch showed one test, not the six fixtures; and the rationale named doc files absent from the edits array. | Bookkeeping, and correct. The commit did contain them (`a9002793b`). The lesson is the runbook's: reviewers judge the **sketch**, so a sketch that under-shows the change draws objections about code that is actually fine. |
+| `debug_historian` (low) | no post-deploy verification named, unlike the artefact-level proof given for the am/pm fix. | **ACCEPTED** — the recipe is now §6e below. |
+
+## 6e. How to verify the interim AFTER the next chassis roll
+
+Do **not** read a later successful build as evidence — the writer regenerates copy each attempt, so
+a page can pass for reasons unrelated to this change. Probe the artefact:
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+# under test: the three new page types must be IN the binary
+kubectl -n ai-persona-system exec "$POD" -- grep -a -c -F 'adoption-tracker' /proc/1/exe
+# positive control: a page type that was always there (must be >=1 either way)
+kubectl -n ai-persona-system exec "$POD" -- grep -a -c -F 'news-index' /proc/1/exe
+# the plural fast-follow, with its own negative control (pre-fix form must be 0)
+kubectl -n ai-persona-system exec "$POD" -- grep -a -c -F 'orchestrations?|integrations?' /proc/1/exe
+kubectl -n ai-persona-system exec "$POD" -- grep -a -c -F 'orchestration|integrations?' /proc/1/exe
+```
+**Run the controls in the same breath.** A bare grep for a short literal returns a nonzero count on
+binaries that do not support it, which is why the pre-fix form is checked as a must-be-ZERO.
+The no-shelf-life alternative, and the better one:
+`SELECT git_commit FROM service_binary_capabilities WHERE service='agent-chassis'` then
+`git merge-base --is-ancestor a9002793b <that sha>`.
+
+Then, at the data: re-fire a `model-directory` build and confirm no `unregistered_number`
+in `agent_error_log` (§6's query). ⚠ **And note `bugs_open/387`** — those three pages currently 404,
+so "the page is fine now" cannot be read off the live site either.
+
 ## 6c. Found by this bug's census, filed separately (2026-08-24)
 
 Both were turned up by the fleet claims run for §5a and are **not** this bug's mechanism.
