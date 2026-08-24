@@ -2458,3 +2458,105 @@ consumes the entry's "changed" status so no verifier run fires — chosen on pur
 footprints are wholly non-Go and unchanged, it was verified on 08-16, and the verdict would be a
 byte-identical UNVERIFIABLE for the cost of a fleet run. Any genuinely new entry still gets its own
 `NEEDS_VERIFICATION`.
+
+---
+
+## 2026-08-24 — INCOMING from another lane: an unregistered shared mechanism, and DBI-014 has drifted
+
+**Not this lane's work and not written by its owner.** Left here because it is register-shaped and
+because the lane is in a quiet state with a ranked list — this is an item for that list, to take or
+decline, not a claim on the lane. Everything below carries the command that produced it and the date
+it was run; re-run before repeating any of it outward.
+
+**Where this came from.** Migration `566`
+(`docs/agent_docs/sql_for_agents/566_database_cleanup_reaps_every_terminal_status.sql`, commit
+`ccc851a42`, applied 2026-08-23 17:46Z) fixed a leak in the `database-cleanup` scheduled task. While
+verifying it I went looking for the register's account of the mechanism and could not find one. The
+full account of the fix lives in `bugs_open/354_HANDOFF_2026-08-22_a_workflow_that_ends_at_its_error_terminal_is_recorded_COMPLETED_with_error_NULL.md`
+and in `docs/agent_docs/docs024_key_docs_latest/orchestration_status_lifecycle/RUNBOOK_orchestration_status_lifecycle.md`
+— **do not re-derive it from here**; this note is only the register-facing part.
+
+### 1. `orchestration_status_vocabulary` is not in the register at all
+
+**What the thing is, plainly.** It is a small table, created by migrations `465`/`466`, that lists
+every legal value of `orchestration_states.status` — one row per status, with two boolean columns,
+`is_terminal` and `is_pausable`. Since `466` the status column has a foreign key to it, so adding a
+new orchestration status means inserting a row here first. Seven rows as of 2026-08-24.
+
+**The bar, as CLAUDE.md states it:** *another workstream could call this and would not know it
+exists.* It is met — any lane adding an orchestration status must write to this table, and the FK
+means it cannot avoid it.
+
+**The absence, measured 2026-08-24** (from `docs/agent_docs/docs026_concept_register/`):
+
+```bash
+grep -ril "orchestration_status_vocabulary" register/   # -> no files
+grep -ril "is_terminal" register/                       # -> no files
+grep -ril "is_pausable" register/                       # -> no files
+grep -in "vocabulary\|orchestration_status\|is_terminal" 102_coverage_ratchet.txt   # -> no hits
+```
+
+So it is neither registered nor ratcheted. `"status vocabulary"` does match several register files,
+but every hit is a different thing — `sites.status` (DBI-018), work-item statuses, adapter response
+statuses — which is exactly the kind of near-miss that makes a `grep` read as covered when it is not.
+
+**Why it is worth an entry now rather than whenever.** The table did not merely go unregistered; on
+2026-08-23 it acquired a **new guarantee**. Before `566`, `is_terminal` was a lifecycle/dispatch
+marker. After it, `database-cleanup`'s arm 3 deletes `status IN (SELECT status FROM
+orchestration_status_vocabulary WHERE is_terminal)` — so **`is_terminal` is now a deletion
+predicate**, and marking a status terminal also decides its retention (24h after `updated_at`). A
+reader of the table today has no way to learn that from the register.
+
+There is a live hazard attached, raised as a medium advisory objection by the council's `guardian`
+seat on `566`'s own round (correlation `9d23ccd9-c16c-422d-8bf9-7b60e8b52795`, verdict APPROVED):
+nothing prevents a row being **both** `is_terminal` and `is_pausable`, in which case arm 3 deletes it
+while arm 4 deliberately spares it. Zero rows are both today, and no pause/human-named status is
+terminal — I ran the seat's check — but there is no CHECK constraint, so it is prospective. It is
+written up in `docs/agent_docs/docs024_key_docs_latest/LANDMINES.md` ("Setting `is_terminal` … now
+ARMS a 24-hour DELETE"), which is the landmine home, not the register one.
+
+**I did not file the entry myself**, for two reasons worth stating rather than leaving implied: the
+mechanism is the `465`/`466` lane's, not mine, and CLAUDE.md's register bar explicitly excludes bug
+fixes — `566` is a bug fix. Adopting another lane's mechanism into the register under my name is the
+same move commit-per-task exists to prevent. Hence this note.
+
+### 2. `DBI-014` (`register/database-and-infrastructure.md`) has drifted — partly
+
+This is the entry that already covers `database-cleanup`, so it is where a reader would land. Its
+claims split cleanly into still-true and no-longer-true, and the split matters more than a blanket
+"stale" would. **All checked 2026-08-24 against the live `scheduled_tasks.pre_query` row**, not
+against a migration file:
+
+| DBI-014 says | measured 2026-08-24 |
+|---|---|
+| `awaited_requests 7 days` | **holds** — oldest row 2026-08-17, only 9 of 33,082 older than 7 days, and `cleanup_expired_awaited_requests` exists in `pg_proc` |
+| `orchestration_requests FK made CASCADE` | **holds** — `pg_constraint` shows `fk_orch` with `confdeltype='c'` |
+| `agent_error_log 14/30 days` | **drifted** — the live arm uses `INTERVAL '30 days'` and `INTERVAL '365 days'` |
+| `orchestrations 7 days/24h stuck` | **drifted** — the live sweep contains **no 7-day interval at all** (`grep -c "7 days"` on the dumped `pre_query` returns 0); both orchestration arms are 24h |
+| *"A uniform retention discipline"* | **was false until 2026-08-23** for one class: a status that was terminal but not named in arm 3's literal pair was reaped by *nothing*. `CANCELLED` sat in exactly that position for 35 days (24 rows, oldest 2026-07-19). `566` is what finally made the word "uniform" true |
+| *"always mark itself executed (the 'always-return-a-row HAVING fix')"* | **contradicted by this register's own `SCH-007`**, which carries a 2026-08-17 correction stating the always-return-a-row rule is no longer true and that believing it causes the opposite defect. Two entries in two files now disagree |
+
+Reproduce the whole table with one dump and then read it, rather than trusting the above:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At \
+  -c "SELECT pre_query FROM scheduled_tasks WHERE name='database-cleanup';" > /tmp/sweep.sql
+grep -n "INTERVAL\|deleted_" /tmp/sweep.sql
+```
+
+⚠ **One trap if you verify by hashing:** `length()` on that column counts CHARACTERS while `md5()`
+hashes BYTES, and the row holds a multi-byte character, so a locally-computed md5 of a `psql` dump
+does **not** match `md5(pre_query)`. Compute hashes in the database. (Known family — `LANDMINES.md`
+carries it as "`length()` on stored HTML is CHARACTERS".)
+
+**The cross-file disagreement in the last row is probably the most interesting part for this lane**,
+because it is not staleness in the sense the two shipped reports detect. `SCH-007` was corrected and
+`DBI-014` was not, so both entries are individually well-formed and internally consistent, and each
+cites its own evidence. Nothing that keys on version lag or missing citations would surface it —
+what makes it findable is that the two entries make opposite claims about the same mechanism. Offered
+as a possible worked case for the lane's open "are the reports actionable?" question (handoff item 2),
+since it is a real discrepancy someone could try to repair and time.
+
+**No action is claimed or owed here.** If the lane takes it, item 1 is a new entry and item 2 is a
+correction to an existing one; if it declines, this note is still the record that the gap was seen on
+2026-08-24 and by whom.
