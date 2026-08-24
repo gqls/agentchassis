@@ -342,6 +342,17 @@ type factDriftEmission struct {
 	Detail      string   `json:"detail,omitempty"`
 	ItemKey     string   `json:"item_key,omitempty"`
 	Outcome     string   `json:"outcome"` // planned | dry_run | inserted | refreshed | dropped | error | none
+
+	// Phase 3a (bugs_open/288) — ANNOTATION ONLY. What the byte probe saw in
+	// this tool's SCRIPT text. Nothing reads these to make a decision: no route,
+	// band or status depends on them. They exist so ONE full fleet sweep yields
+	// the measured present/absent/markup-only distribution that a later round
+	// needs before presence may settle an item — the same measure-before-arming
+	// discipline PLAN_2026-08-09 §3 applied when it refused a blanket JS scan.
+	// omitempty throughout, so a site that probes nothing marshals byte-identically.
+	Evidence       string `json:"evidence,omitempty"`
+	EvidenceForm   string `json:"evidence_form,omitempty"`
+	EvidenceDetail string `json:"evidence_detail,omitempty"`
 }
 
 // classifyFactDrift decides, for ONE (fact, tool) pair, whether anything is
@@ -580,6 +591,10 @@ func planSiteFactDrift(ctx context.Context, db *sql.DB, siteID uuid.UUID, eb map
 		return plan
 	}
 	ems := planFactDriftFanOut(res, factsByID, idx, base, siteID.String())
+	// Phase 3a: annotate each emission with what the tool's SCRIPT text actually
+	// contains. READ-ONLY, and deliberately NOT gated on dryRun — a dry run
+	// should report the evidence, which is how the induced proof reads it.
+	annotateFactDriftEvidence(ctx, db, ems, factsByID, logger)
 	if dryRun {
 		for i := range ems {
 			if ems[i].Route != "none" {
@@ -684,6 +699,54 @@ func noteBrokenFactDeclarations(ctx context.Context, db *sql.DB, siteID uuid.UUI
 		}
 		logger.Info("refresh_evidence_base: filed fact_declaration_broken note",
 			zap.String("site_id", siteID.String()), zap.String("tool", subject))
+	}
+}
+
+// pageSurfaceQuery reads one page's stored component HTML, in render order.
+// The same bytes check_unverified_claims reads; no network, no served fetch.
+const pageSurfaceQuery = `
+	SELECT COALESCE(string_agg(COALESCE(pc.rendered_html, ''), E'\n' ORDER BY pc.position), '')
+	FROM page_components pc
+	JOIN content_components cc ON cc.id = pc.component_id AND cc.is_active = true
+	WHERE pc.page_id = $1`
+
+// annotateFactDriftEvidence records, per emission, whether the registered figure
+// is actually in the tool's script. ANNOTATION ONLY — it never changes Kind,
+// Route, Reason or Outcome, and nothing downstream branches on what it writes.
+//
+// Failure here must never lose a finding: a page that cannot be read is
+// annotated no_surface and the emission goes on exactly as it would have. The
+// whole point of Phase 3a is to MEASURE before anything acts, so an error in the
+// measurement may not suppress the thing being measured.
+func annotateFactDriftEvidence(ctx context.Context, db *sql.DB, ems []factDriftEmission, factsByID map[string]map[string]interface{}, logger *zap.Logger) {
+	if len(ems) == 0 {
+		return
+	}
+	surfaces := map[string]string{} // pageID -> stored HTML, read at most once
+	for i := range ems {
+		em := &ems[i]
+		if em.PageID == "" {
+			continue
+		}
+		surface, seen := surfaces[em.PageID]
+		if !seen {
+			pageID, err := uuid.Parse(em.PageID)
+			if err == nil {
+				if qerr := db.QueryRowContext(ctx, pageSurfaceQuery, pageID).Scan(&surface); qerr != nil && qerr != sql.ErrNoRows {
+					logger.Warn("refresh_evidence_base: fact evidence probe could not read a page surface",
+						zap.String("page_id", em.PageID), zap.Error(qerr))
+					surface = ""
+				}
+			}
+			surfaces[em.PageID] = surface
+		}
+		var value float64
+		hasValue := false
+		if fact := factsByID[em.FactID]; fact != nil {
+			value, hasValue = numericField(fact["value"])
+		}
+		r := probeFactValueOnSurface(surface, value, hasValue)
+		em.Evidence, em.EvidenceForm, em.EvidenceDetail = r.Outcome, r.Form, r.Detail
 	}
 }
 

@@ -48129,3 +48129,35 @@ says — and then used that proof to answer a question about selectivity, which 
 does not address at all. **A mechanism being sound is not evidence that it is
 sufficient**, and "excludes the bad rows by construction" is a claim about the
 numerator that says nothing whatever about the denominator.
+
+### 4. Same session, same family, third time — and this one was the HEADLINE test for the HEADLINE rule
+
+Phase 3a's whole safety claim is *"probe the tool's script text, never the whole
+page"*, because the register's own `writer_line` puts the figure in the prose. I wrote
+the test for exactly that, with a fixture modelled on bug 225: prose saying
+*"relief disappears above £500,000"*, script saying `625000`. It passed.
+
+**Then I mutated the probe to read the whole page, and it still passed.**
+
+The fixture could not discriminate. Prose writes the **comma** form (`£500,000`); the
+code surface is searched for **raw** literals (`500000`); so on the whole page the raw
+search failed too, the markup-only arm answered, and both versions returned the same
+verdict. **The test asserted the right answer for the wrong reason** — it was measuring
+the form mismatch, not the surface rule it was named after.
+
+The fix is a fixture where the two readings genuinely differ: the current figure in
+**markup** (`data-relief-cap="500000"` — component markup really does carry raw values,
+in data attributes, JSON-LD and hidden inputs) against the expired one in code. The
+mutation now fails with `got "present_in_script"` — the whole-page read **certifies the
+stale calculator**, which is the sentence the test exists to prevent. Three premise
+assertions now guard the fixture so it cannot silently stop discriminating again.
+
+**The cheap check, and it is the same one three times: a test is not evidence until
+you have seen it fail for the reason it names.** Not "fail" — fail *for that reason*.
+Mutation 8 (drop the distinctiveness floor) and mutation 9 (delete the annotation call)
+both went red on the first try; only the one defending the most important rule was
+hollow, which is the pattern worth remembering: **the more load-bearing the claim, the
+more the fixture tends to be built to demonstrate it rather than to test it.**
+
+Tally for this change: **9 mutations, 3 of which passed and were worthless** — one per
+phase, each caught only because the mutation was run at all.
