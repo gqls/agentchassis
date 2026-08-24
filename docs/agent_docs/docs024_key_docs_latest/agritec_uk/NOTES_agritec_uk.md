@@ -551,3 +551,65 @@ Nothing to fix. The item is well-formed and will be claimed when the loop resume
   revenue lines correct) and the visible-rate-table control I am using, asking whether their fix
   reaches the constant inside the JS — if it does, my control is redundant scaffolding and I would
   rather drop it than run two half-controls that each look sufficient.
+
+---
+
+## 2026-08-24 — the tool build truncated, and my headroom check answered the wrong question
+
+### MISSTEP 7 — I measured a real thing and used it to settle a question it does not address
+
+Before queueing the SFI build I checked truncation risk, because CLAUDE.md is explicit that
+`output_tokens == max_tokens` means the completion was CUT. I found `max_tokens: 32000` on
+`tool-generator.generate_tool_html`, and that live tool templates average 15,462 chars with a
+maximum of 37,583. I concluded there was "ample headroom" and put all 71 SFI26 rates in the brief.
+
+It truncated:
+
+    step generate_tool_html failed: ... response truncated: stop_reason=max_tokens
+    (output_tokens=32000 reached the configured cap, 4142 chars recovered)
+
+**The measurement was sound and the inference was not.** Existing tool SIZES tell you what past
+builds produced from PAST briefs; they say nothing about what a 71-action brief would produce. I
+compared an output cap against a distribution of outputs generated under entirely different
+inputs, and read the comparison as a budget. The disconfirming question I never asked: *is any
+tool in that distribution built from a brief remotely like mine?* None is.
+
+This is the same shape as the marker rule in CLAUDE.md — a figure is only evidence if the
+measurement could have come out otherwise. Mine could not: whatever the existing tools measured,
+32,000 was always going to look roomy beside 37,583 characters.
+
+### Two things that worked, and are worth crediting
+
+**The truncation was REFUSED, not persisted.** `bugs_open/012`'s class — an agent that rewrites a
+whole artefact and saves a fragment while reporting success — did not happen. The AI service
+detected `stop_reason=max_tokens` and failed the step, and only 4,142 chars were recovered rather
+than written. That guard is doing exactly what it exists for.
+
+**But the WORK ITEM said `complete`, with `error` NULL.** The orchestration ended at
+`complete_error` and the real message was in `collected_data.__step_error`. This is the landmine
+already in MEMORY (`bugfix 099`: *a FAILED step shows COMPLETED with `error` NULL — read
+`__step_error`*), and it cost me a wrong reading for a few minutes: item complete, no error, no
+tool. **A `complete` work item is not a built artefact.**
+
+### MISSTEP 8 — my own watch reported success from a failed query
+
+The watcher broke out with "TOOL COMPONENT EXISTS" while nothing existed. Its break condition was
+`case "$r" in *"tool components: 0"*) ;; *) break;;` — so ANY output not containing that literal,
+**including the empty string**, counted as success. And the string was empty, because the query
+joined `content_components.site_id`, a column that does not exist.
+
+A watcher whose success branch is "anything else" cannot distinguish *condition met* from *query
+broken*, and it fails toward good news. The replacement tests the result is non-empty before
+interpreting it, and prints `QUERY FAILED (not a result)` otherwise.
+
+### The re-queue, and why the scoped set loses nothing
+
+24 actions instead of 71, brief down from 8,831 to 4,870 chars, plus an explicit instruction to
+hold the data in one array and render rows in a loop rather than repeating markup.
+
+The subset was chosen so that **all seven payment-unit shapes survive** — per hectare, per 100m
+one side, per 100m both sides, per square metre, per pond, per plot, per tonne — **and all three
+action-level constraints**, including the cross-action one (AHW2's ceiling depends on CAHL2's
+area). So every mechanism the spec requires is still exercised; what is deferred is breadth of
+choice, not any structural property. The remaining 47 actions can be added once one build has
+demonstrably landed.
