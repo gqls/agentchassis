@@ -222,20 +222,32 @@ func TestFindingCodeRosterIsMutuallyDistinct(t *testing.T) {
 // Anything this test misses is caught there within a day of the code first
 // firing. Its value is immediacy at commit time, not coverage — do not read a
 // pass here as "every code is declared".
+// codesInvisibleToTheScan is what remains of a hand-written list of ELEVEN, and
+// it is now ONE.
+//
+// findingcodes_scan_test.go DISCOVERS every code written as `ErrorCode: <literal
+// or const>` — ten of the original eleven — so listing those by hand was pure
+// drift surface: a roster can only catch a code somebody remembered to add to
+// it, which is the one case that does not need catching. It went stale exactly
+// that way (LINK_CONTEXT_UNAVAILABLE, 2026-08-24).
+//
+// What the scan structurally CANNOT see is a code passed POSITIONALLY, and this
+// is the live instance: page_build_failure_guard.go:111 passes
+// deployStampRefusedErrorCode as an argument, not as a field, so no `ErrorCode:`
+// scan will ever find it. Deleting this list wholesale would have silently
+// dropped that code's coverage — which is why it survives, narrowed to exactly
+// the codes that need it.
+//
+// ⚠ THIS LIST IS ITSELF CHECKED, so it cannot quietly become a second roster:
+// TestTheHandListHoldsOnlyWhatTheScanCannotSee (findingcodes_scan_test.go) fails
+// if an entry here IS discoverable by the scan. Convert a positional write to an
+// `ErrorCode:` field and this list must shrink in the same commit.
+var codesInvisibleToTheScan = []string{
+	deployStampRefusedErrorCode, // positional — page_build_failure_guard.go:111
+}
+
 func TestPackageErrorCodeConstantsAreRegistered(t *testing.T) {
-	for _, code := range []string{
-		validationDetailErrorCode,
-		linkRepairErrorCode,
-		validationWarningErrorCode,
-		contentDataEnvelopeErrorCode,
-		discoveryCheckErrorCode,
-		planRefusalErrorCode,
-		sectionDedupErrorCode,
-		contentDataLinkErrorCode,
-		contentDataRegressionErrorCode,
-		claimsFloorErrorCode,
-		deployStampRefusedErrorCode,
-	} {
+	for _, code := range codesInvisibleToTheScan {
 		assertFindingCodeIsRegistered(t, code)
 	}
 }

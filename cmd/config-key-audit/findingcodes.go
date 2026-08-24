@@ -43,13 +43,35 @@
 // nothing, so no comment can become load-bearing.
 //
 // ITS ONE BLIND SPOT, STATED. A code that has never fired inside the 30-day
-// retention window is invisible here. That blind spot is harmless BY
+// retention window is invisible here. ~~That blind spot is harmless BY
 // CONSTRUCTION — an unfired code produces no unread findings and costs nothing —
 // so the authoritative half is blind to exactly the set of cases that do not
-// matter. A conservative Go source scan is kept as an EARLY WARNING at commit
+// matter.~~ A conservative Go source scan is kept as an EARLY WARNING at commit
 // time (findingcodes_scan_test.go in the actions package), and it is explicitly
 // not the guarantee: anything it misses is caught here within a day of first
 // firing.
+//
+// > **CORRECTED 2026-08-24, and BOTH halves of that paragraph were wrong.**
+// >
+// > 1. **The scan test DID NOT EXIST.** This comment named
+// >    `findingcodes_scan_test.go` from the day it shipped; the file was written
+// >    on 2026-08-24, two days later. The claim passed a council round and was
+// >    quoted in the concept register, and nobody opened the path it named. What
+// >    existed instead was a hand-written list of eleven constants, which could
+// >    only catch a code somebody remembered to add to it. It is real now, it
+// >    DISCOVERS codes rather than listing them, and its own limits are written
+// >    at the top of it.
+// > 2. **"Harmless by construction" was too strong.** An unfired code costs
+// >    nothing *today*, which is true and is not the same claim. Measured
+// >    2026-08-24: 13 codes are written by the actions package and declared
+// >    nowhere, all with zero rows in the window — so the population this half is
+// >    blind to is not empty, it is thirteen, and each becomes a live undeclared
+// >    finding the moment it first fires. That is precisely how
+// >    LINK_CONTEXT_UNAVAILABLE arrived: written 2026-08-24, first row two hours
+// >    later, red CronJob the same afternoon. The blind spot is BOUNDED and
+// >    SHORT-LIVED — a day at most — which is the honest claim; it is not empty.
+// >    The 13 are recorded in the registry's `_scan_baseline` and that list may
+// >    only shrink.
 //
 // THE TWO DIRECTIONS ARE NOT SYMMETRIC.
 //   - observed but not registered -> FINDING, exit 1. This is the ratchet.
