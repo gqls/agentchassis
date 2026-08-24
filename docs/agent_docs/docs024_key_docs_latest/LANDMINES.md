@@ -3287,6 +3287,17 @@ no script-addressed id may land in a block classified as prose
   build-pipeline-trigger|   993 | 2026-08-22 16:22:14+00     <- what 24h actually looks like
   ```
   Two hours later that lane wrote a "never" claim the entry would have prevented. **The signal was in its own output**, in the same terminal, before the mistake — so this is cheaper than remembering to grep: **any group whose `min` is older than the group beside it by more than a day is a non-reaped status hiding in that group, and every count in the table is therefore "still retained", not a census.** Group by `status` to see which, per the check below. (Bound: a per-status query at 19:35Z showed nothing older than 08-22, so those particular rows had themselves been reaped in the interval and this exact output is not reproducible — the SHAPE is the durable part, not the dates.)
+- **THIRD DELIVERY FAILURE, 2026-08-24 — and this one had the file OPEN.** The
+  `staged_component_build` lane (`bugs_open/353`) grepped this very file during the session, for a
+  different footprint, then queried `orchestration_states` and wrote **"retention reaches
+  2026-07-19"** into a council submission — the exact false floor above. Re-sourced from
+  `agent_error_log` (no reaper): the agent claimed to have "never run" had **10 rows across 12
+  days**. Caught by an **advisory** objection in a round that returned APPROVED, i.e. by the one
+  reviewer who could not query the table and judged the claim's SHAPE instead. **So the tally is
+  now three sessions, none reached, and one of them was reading this file at the time** — which
+  makes the point sharper than "sessions do not grep": grepping for footprint A does not deliver
+  entry B, and a table footprint has no other delivery moment than the query itself. Incident in
+  `WRONG_CALLS.md` 2026-08-24 (second entry).
 - **source:** 2026-08-02, `bugs_closed/165` / `bugs_closed/092`, retiring `multipage-website-builder`. Sibling of the `bugfix 003` note that history tables are retention-clocked — record a RATE; this is the same family with a specific, much shorter number and a booby-trapped floor. **Refinement + delivery finding 2026-08-23**, jointly from the `loanzy_uk_example_site` (376) and `bugs_open/326` lanes; both incidents in `WRONG_CALLS.md`.
 - **added:** 2026-08-02, bugfix_165_reconciliation_deletes lane
 
