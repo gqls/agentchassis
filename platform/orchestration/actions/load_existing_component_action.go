@@ -158,6 +158,13 @@ func LoadExistingComponentAction(ctx context.Context, params ActionParams) (inte
 	// selector index: active, non-forked, section-level). If several exist,
 	// prefer most-used then most-recent — the row dependents are most likely
 	// bound to.
+	//
+	// "Most-used" is DERIVED from page_components (ComponentUsageSitesSQL), not read
+	// from the stored content_components.usage_count column. That column was written
+	// on only one of three resolution paths and also counted resolutions that never
+	// became bindings, so it ranked by which route found a component rather than by
+	// how established it is — and this ORDER BY is not a cosmetic tie-break: it picks
+	// the row the store will overwrite and enforce as the contract. bugs_open/378.
 	var function string
 	var schemaJSON []byte
 	err = params.DB.QueryRowContext(ctx, `
@@ -167,7 +174,7 @@ func LoadExistingComponentAction(ctx context.Context, params ActionParams) (inte
 		  AND forked_from IS NULL
 		  AND is_active = true
 		  AND component_level = 'section'
-		ORDER BY usage_count DESC NULLS LAST, updated_at DESC
+		ORDER BY ` + ComponentUsageSitesSQL + ` DESC, updated_at DESC
 		LIMIT 1
 	`, sectionType).Scan(&function, &schemaJSON)
 	if err != nil {

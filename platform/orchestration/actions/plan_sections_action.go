@@ -1953,8 +1953,16 @@ func resolveSectionComponent(
 		return nil, "selector_error"
 	}
 
-	// Increment usage count for the selected component
-	IncrementUsageCount(ctx, db, candidate.ID, logger)
+	// NO usage counter is incremented here, deliberately (bugs_open/378).
+	// This is the section_type selector — one of THREE resolution paths in the
+	// section loop above (stored component_id, name/function match, and this one).
+	// The old IncrementUsageCount lived at exactly this line, so the column it
+	// wrote recorded which ROUTE resolved a component rather than whether the
+	// component is any good, and it fired HERE — before planSection has decided
+	// ready/deferred/skipped and before any page_components row exists — so it
+	// also counted resolutions that never became a binding at all.
+	// "How proven is this component" is now derived from page_components at read
+	// time: see ComponentUsageSitesSQL in component_selector.go.
 
 	logger.Info("plan_sections: resolved via section_type selector",
 		zap.String("section_type", sectionName),

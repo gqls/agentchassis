@@ -10,7 +10,9 @@
 //   - Site type relevance (does the component declare this site type as suitable?)
 //   - Page type relevance (does the component suit this page type?)
 //   - Quality score (auditor feedback, NULL = unproven gets a neutral score)
-//   - Usage count (battle-tested components score higher, with diminishing returns)
+//   - Usage (battle-tested components score higher, with diminishing returns) — DERIVED
+//     from page_components bindings, never a stored counter; see ComponentUsageSitesSQL
+//     and bugs_open/378 for why the stored usage_count column was abandoned
 //   - Specificity bonus (components targeting fewer site types are more specialised)
 //
 // If no component matches, returns nil — the caller creates a needs_new_component
@@ -128,21 +130,97 @@ func SelectComponentsByTypes(
 	return result, nil
 }
 
-// IncrementUsageCount bumps the usage_count for a component after it's been
-// assigned to a page. Called by plan_sections after selection succeeds.
-func IncrementUsageCount(ctx context.Context, db *sql.DB, componentID string, logger *zap.Logger) {
-	_, err := db.ExecContext(ctx, `
-		UPDATE content_components
-		SET usage_count = COALESCE(usage_count, 0) + 1,
-		    updated_at = NOW()
-		WHERE id = $1
-	`, componentID)
-	if err != nil {
-		logger.Warn("component_selector: failed to increment usage_count",
-			zap.String("component_id", componentID),
-			zap.Error(err))
-	}
-}
+// ============================================================================
+// How proven is this component — ONE definition, derived, never maintained
+// ============================================================================
+
+// ComponentUsageSitesSQL is THE definition of "how proven is this component" for
+// every consumer in this estate. It is a scalar sub-select intended to be spliced
+// into a query whose FROM is (unaliased) content_components.
+//
+// It counts DISTINCT SITES the component is bound to, from page_components — the
+// durable record of the binding — and is deliberately NOT a stored counter.
+//
+// WHY DERIVED (bugs_open/378). The column it replaces, content_components.usage_count,
+// was incremented by exactly one helper reachable from exactly one of the THREE
+// resolution paths in plan_sections_action.go's section loop (stored component_id,
+// name/function match, section_type selector). A component bound to a live page by
+// either of the other two was never counted, while the same column was read as a
+// merit signal — so it recorded which ROUTE found a component, not whether it is any
+// good. It also over-counted: the increment fired before planSection decided
+// ready/deferred/skipped and again on every re-plan, so [MEASURED 2026-08-24] the two
+// largest values in the column were both components with ZERO page bindings
+// (testimonials-modern: 12 counts, born 2026-08-23, never bound; and a retired
+// _pre_037 backup copy at 20).
+//
+// A maintained counter was rejected on a census, not on taste: there were SEVEN
+// INSERT INTO page_components sites as of 2026-08-24 (save_page_sections,
+// deploy_tool, create_tool_component, create_report_page, rebuild_blog_listing,
+// adopt_verbatim, cmd/webdesignport/import). That is seven places to forget and an
+// eighth next month. Derived at read, there is no counter to drift.
+//
+// WHY DISTINCT SITES rather than raw binding rows [MEASURED 2026-08-24, section level]:
+// raw bindings run max 414 / median 1, so normalising them yields a near-binary signal
+// that mostly reports "is this on a big site". Distinct sites run max 27 / p90 9 — a
+// real spread, and it says what "battle-tested" is supposed to mean: proven across
+// different sites, not repeated down one site's pages. It also dilutes a known data
+// defect: bugs_open/357's mis-bound rows (22 rows declaring `hero` while storing a whole
+// tool page, a population still being minted) collapse to just 3 of hero's 27 sites.
+//
+// build_status='removed' is excluded — a removed binding is not a use.
+//
+// ⚠ SWITCHING THIS TO THE PROVENANCE STAMP LATER (register CLC-026). A strictly more
+// honest per-row signal exists: page_components.component_version_id, which proves the
+// component produced those bytes. It is NOT used here yet, and the reason is not doubt
+// about the mechanism — nothing backfills it, so at today's coverage it would see 39 of
+// 151 active section components against 108 for bindings, and it would measure how
+// RECENTLY a component was rebuilt rather than how proven it is. That is precisely the
+// defect above, one epoch over. The condition for switching is NOT a coverage
+// percentage: coverage approaches but never reaches 100% by design, because a page that
+// is never rebuilt is never stamped, so the last population to convert is the long-stable
+// component — exactly what a merit signal must credit. Switch when the unstamped
+// remainder is small enough to be a stated exception rather than the majority. When that
+// day comes, this constant is the only edit.
+const ComponentUsageSitesSQL = `(
+			SELECT count(DISTINCT p.site_id)
+			  FROM page_components pc
+			  JOIN pages p ON p.id = pc.page_id
+			 WHERE pc.component_id = content_components.id
+			   AND pc.build_status <> 'removed'
+		)`
+
+// THE USAGE TERM IS NO LONGER PART OF THE SCORE, and that is a deliberate decision
+// rather than an omission (bugs_open/378). The selector's SELECT list still reports the
+// derived figure — it is honest now, and worth logging — but nothing scores on it.
+//
+// The obvious fix was to keep the term and feed it the corrected number. That was built
+// first and then withdrawn on its own measurement. Simulated over the 4,888 contested
+// (section_type, site_type, page_type) contexts the live library actually presents:
+//
+//   removing the term entirely ...........   0 winners change
+//   feeding it the corrected number ....... 3,246 winners change, across 3 section_types
+//     features                    features              -> differentiators-section
+//     tool-archetype-taster-quiz  archetype-taster-quiz -> tool-archetype-taster-quiz
+//     hero                        case-studies-hero     -> contact-hero
+//
+// The old term changed nothing because every candidate in every contest read 0 — the 12
+// components carrying a count were all the sole candidate for their section_type. So
+// "repair the term" is not the conservative option here; it is by far the larger
+// behavioural change, and it is one this lane has no evidence is an improvement.
+//
+// The deeper reason is that a working version of this term is a PREFERENTIAL ATTACHMENT
+// loop: selected -> count rises -> scores higher -> selected again. bugs_open/107 ("every
+// site gets the same homepage skeleton") is the open complaint about exactly that outcome,
+// and it cites this file. Repairing the term would have switched that loop on — and it
+// switches on in favour of whichever component is already the incumbent, which is the one
+// thing 107 must not have. A term that cannot be made accurate without making the estate
+// more homogeneous is not a term worth keeping in the score.
+//
+// What remains derived, and where it still matters: load_existing_component_action.go
+// orders the CONTRACT row by ComponentUsageSitesSQL. That is a different question — which
+// stored row IS this section_type's component — where "the one most sites actually use" is
+// the right answer and no homogeneity loop exists, because it selects a row to enforce, not
+// a component to put on a page.
 
 // ============================================================================
 // Query and scoring
@@ -170,7 +248,7 @@ func queryCandidates(
 			section_type,
 			COALESCE(category, '') as category,
 			COALESCE(is_dark_section, false) as is_dark_section,
-			COALESCE(usage_count, 0) as usage_count,
+			` + ComponentUsageSitesSQL + ` as usage_count,
 			avg_quality_score,
 			(
 				CASE WHEN suitable_site_types @> to_jsonb($2::text) THEN 0.35 ELSE 0.05 END
@@ -178,7 +256,6 @@ func queryCandidates(
 				+ COALESCE(avg_quality_score, 0.3) * 0.3
 				+ CASE WHEN COALESCE(jsonb_array_length(suitable_site_types), 0) BETWEEN 1 AND 3
 				       THEN 0.1 ELSE 0.02 END
-				+ LEAST(COALESCE(usage_count, 0)::float / 50.0, 1.0) * 0.1
 			) as score
 		FROM content_components
 		WHERE section_type = $1
@@ -224,7 +301,7 @@ func queryCandidatesBatch(
 			section_type,
 			COALESCE(category, '') as category,
 			COALESCE(is_dark_section, false) as is_dark_section,
-			COALESCE(usage_count, 0) as usage_count,
+			` + ComponentUsageSitesSQL + ` as usage_count,
 			avg_quality_score,
 			(
 				CASE WHEN suitable_site_types @> to_jsonb($%d::text) THEN 0.35 ELSE 0.05 END
@@ -232,7 +309,6 @@ func queryCandidatesBatch(
 				+ COALESCE(avg_quality_score, 0.3) * 0.3
 				+ CASE WHEN COALESCE(jsonb_array_length(suitable_site_types), 0) BETWEEN 1 AND 3
 				       THEN 0.1 ELSE 0.02 END
-				+ LEAST(COALESCE(usage_count, 0)::float / 50.0, 1.0) * 0.1
 			) as score
 		FROM content_components
 		WHERE section_type IN (%s)
