@@ -10,6 +10,45 @@ items armed, no uncommitted work.
 
 ---
 
+## ⊕ UPDATE 2026-08-24 — two owner requests done since this file was written
+
+**Everything below still stands** except where this section says otherwise. Read this first.
+
+1. **The contact page was REWORDED (2026-08-21) and is live.** It had invited contact four times
+   with no email, phone or form anywhere on the site. It now says plainly that there is no form or
+   email address and routes readers to the FAQ, the guides and the assumptions page. Driven through
+   the framework (a `content_rewrite` brief, `edit_live` verified applied — the words are the
+   framework's, not a session's). **Item `07bc64cd` (wanting a business email) is deliberately still
+   OPEN** — the owner asked for a reword, which is not the same as "never".
+2. **The not-financial-advice disclaimer is now on EVERY page (2026-08-24)**, via
+   `site_specs.site_config.chrome.compliance_lines` (**STY-051**) — one per-site setting, not 32
+   page edits, so every future page inherits it too. Wording is the owner's choice (the site's own
+   voice); an FCA/regulated line was **deliberately declined** as unverified. The chrome footer and
+   all serving pages were re-rendered assemble-only (no LLM, no copy touched).
+
+⚠ **Two things this update changes for whoever comes next:**
+
+- **`build_status='deployed'` is NOT the set of pages that serve.** `contact-index` serves HTTP 200
+  while flagged `needs_rebuild` with `deployed_at` NULL. A fan-out keyed on `deployed` misses it —
+  it nearly cost this site the disclaimer on its own contact page. Use a probe, or
+  `deployed ∪ needs_rebuild`. **30 pages serve; the table calls 29 deployed** (as of 2026-08-24).
+- **Pages got ~2.4× heavier and it is not the disclaimer.** Re-rendering pulls in a 34.5 KB layout
+  stylesheet the head chrome now inlines. Verified as fleet-wide catch-up rather than damage
+  (every site rendered in the last 3 days carries 43–62 KB; the ~8.5 KB heads are exactly the sites
+  last rendered 08-20, as this one was). Raised with the owner as a **fleet-level** question.
+
+⚠ **Hazard, unowned:** three deployed pages have a section with **NULL `content_data`** —
+`tool-bridging-compound`, `tool-rate-scenarios`, `tool-simple` (as of 2026-08-24). Re-rendering
+them **with** a `reason` escalates to the content writer and **regenerates their copy**;
+assemble-only does not. Two of the three are the pages the RFC_034 lane's
+`instance_scope_conversion` items called *"SERVING BROKEN"* on 08-19 and then closed having changed
+nothing.
+
+Full record: `NOTES_mortgagecalculator_couk.md` `## 2026-08-24` and `## 2026-08-21`;
+`README_where_we_are.md` 2026-08-21 and 2026-08-24.
+
+---
+
 ## 0. Read before you touch anything
 
 - **`site-discovery-rotation-completeness` is ENABLED** and **the `stamp-duty` fence declares its
