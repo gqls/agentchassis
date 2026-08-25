@@ -101,11 +101,68 @@ func assertNoDeliveryRoutes(routes gin.RoutesInfo) error {
 // Routes come from the handler's own RegisterRoutes, which is the single
 // definition of the route table (the guardian seat's objection on council
 // ea99befa): there is no second copy here to drift.
-func newDeliveryEngine(h *handlers.DeliveryHandler) *gin.Engine {
+// It takes a registrar rather than the concrete handler for ONE reason: so a test
+// can hand it a route table that violates the shape and prove the assertion is
+// actually WIRED here. Testing assertRoutesAreBoxServable directly proves the
+// function works; it does not prove anything calls it — and unwiring the call
+// left this package's whole suite green until this seam existed.
+func newDeliveryEngine(h deliveryRouteRegistrar) (*gin.Engine, error) {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	h.RegisterRoutes(r)
-	return r
+	if err := assertRoutesAreBoxServable(r.Routes()); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// deliveryRouteRegistrar is what the delivery listener needs from a handler: the
+// single definition of its route table. *handlers.DeliveryHandler satisfies it.
+type deliveryRouteRegistrar interface {
+	RegisterRoutes(gin.IRouter)
+}
+
+// assertRoutesAreBoxServable refuses any delivery route the BOX would not pass.
+//
+// This exists because of a landmine on this exact path, and the council's
+// editquality seat was right to gate on it (council 25cd3044, round 2, high):
+// `links.webdesign.uk.nginx` proxies ONE anchored regex,
+// `^/c/[A-Za-z0-9_-]{20,128}$`. A route with a suffix — `/c/:token/confirm` is
+// the obvious one — compiles, registers, serves perfectly from inside the
+// cluster, and is answered by the box with a local 404 that never reaches this
+// service. There is no log line, no metric and no error anywhere in the cluster;
+// the failure exists only on the path a real customer takes, and only from
+// outside.
+//
+// So the shape is asserted here, where a test can see it, rather than trusted to
+// whoever next edits RegisterRoutes. It also enforces GET/POST PARITY as a
+// consequence rather than as a separate rule: both verbs can only ever be the
+// one canonical path, which is precisely what the second-click design requires
+// (the method is the security distinction, so the path must be identical).
+//
+// assertNoDeliveryRoutes cannot do this job — it asks whether a delivery path is
+// on the ADMIN router, which is prefix containment, and `/c/:token/confirm`
+// satisfies that prefix happily.
+func assertRoutesAreBoxServable(routes gin.RoutesInfo) error {
+	for _, r := range routes {
+		ok := false
+		for _, prefix := range deliveryRoutePrefixes {
+			if r.Path == prefix+":token" {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return fmt.Errorf(
+				"delivery route %s %s is not servable through the box: its vhost proxies "+
+					"exactly one anchored regex per prefix (^/c/[A-Za-z0-9_-]{20,128}$), so a "+
+					"suffix or differently-shaped path is 404'd AT THE BOX and never reaches "+
+					"this service — no log line, no metric, no error. Register it as %s:token "+
+					"or change the vhost first",
+				r.Method, r.Path, deliveryRoutePrefixes[0])
+		}
+	}
+	return nil
 }
 
 // newDeliveryServer applies the opt-in. An empty port returns nil: no listener,
@@ -115,14 +172,18 @@ func newDeliveryEngine(h *handlers.DeliveryHandler) *gin.Engine {
 // This is a function rather than an inline `if` so that the default-OFF property
 // can be asserted by a test. The safety of this whole mechanism rests on which
 // way the empty case falls, and that is not something to leave to a comment.
-func newDeliveryServer(port string, h *handlers.DeliveryHandler) *http.Server {
+func newDeliveryServer(port string, h deliveryRouteRegistrar) (*http.Server, error) {
 	if port == "" {
-		return nil
+		return nil, nil
+	}
+	engine, err := newDeliveryEngine(h)
+	if err != nil {
+		return nil, err
 	}
 	return &http.Server{
 		Addr:    ":" + port,
-		Handler: newDeliveryEngine(h),
-	}
+		Handler: engine,
+	}, nil
 }
 
 // NewServer creates a new API server instance
@@ -177,7 +238,10 @@ func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logge
 	// a 404 rather than the admin API. See config.ServerConfig.DeliveryPort.
 	deliveryHandler := handlers.NewDeliveryHandler(
 		handlers.NewDBDeliveryDeps(personaRepo.ClientsDB(), logger))
-	server.deliveryServer = newDeliveryServer(cfg.Server.DeliveryPort, deliveryHandler)
+	server.deliveryServer, err = newDeliveryServer(cfg.Server.DeliveryPort, deliveryHandler)
+	if err != nil {
+		return nil, err
+	}
 	if server.deliveryServer != nil {
 		logger.Info("Delivery listener configured (customer routes only)",
 			zap.String("address", server.deliveryServer.Addr))

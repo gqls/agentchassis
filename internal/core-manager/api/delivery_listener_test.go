@@ -46,12 +46,21 @@ func newTestDeliveryHandler() (*handlers.DeliveryHandler, *stubDeliveryDeps) {
 
 func init() { gin.SetMode(gin.TestMode) }
 
+func mustDeliveryEngine(t *testing.T, h *handlers.DeliveryHandler) *gin.Engine {
+	t.Helper()
+	e, err := newDeliveryEngine(h)
+	if err != nil {
+		t.Fatalf("newDeliveryEngine: %v", err)
+	}
+	return e
+}
+
 // TestDeliveryEngineServesDeliveryRoutesOnly is the "delivery-only" claim,
 // asserted as an exact route table rather than as a sample of paths that happen
 // to 404. A sample cannot fail when someone adds a route; a count can.
 func TestDeliveryEngineServesDeliveryRoutesOnly(t *testing.T) {
 	h, _ := newTestDeliveryHandler()
-	engine := newDeliveryEngine(h)
+	engine := mustDeliveryEngine(t, h)
 
 	got := map[string]bool{}
 	for _, r := range engine.Routes() {
@@ -77,7 +86,7 @@ func TestDeliveryEngineServesDeliveryRoutesOnly(t *testing.T) {
 // answer here.
 func TestDeliveryEngineDoesNotServeAdminPaths(t *testing.T) {
 	h, _ := newTestDeliveryHandler()
-	engine := newDeliveryEngine(h)
+	engine := mustDeliveryEngine(t, h)
 
 	for _, path := range []string{
 		"/health",
@@ -101,7 +110,7 @@ func TestDeliveryEngineDoesNotServeAdminPaths(t *testing.T) {
 // would — would pass every 404 assertion and look like perfect containment.
 func TestDeliveryEngineReachesTheHandler(t *testing.T) {
 	h, deps := newTestDeliveryHandler()
-	engine := newDeliveryEngine(h)
+	engine := mustDeliveryEngine(t, h)
 
 	const token = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" // 43 chars, token-shaped
 
@@ -131,13 +140,20 @@ func TestDeliveryEngineReachesTheHandler(t *testing.T) {
 func TestDeliveryListenerIsOptInAndDefaultsOff(t *testing.T) {
 	h, _ := newTestDeliveryHandler()
 
-	if srv := newDeliveryServer("", h); srv != nil {
+	srvOff, err := newDeliveryServer("", h)
+	if err != nil {
+		t.Fatalf("newDeliveryServer(\"\"): %v", err)
+	}
+	if srv := srvOff; srv != nil {
 		t.Errorf("an unset delivery port produced a listener on %q; the default "+
 			"must be OFF (CLAUDE.md 2026-08-02 §2: new authority on a shared seam "+
 			"ships opt-in with the unsafe default off)", srv.Addr)
 	}
 
-	srv := newDeliveryServer("8090", h)
+	srv, err := newDeliveryServer("8090", h)
+	if err != nil {
+		t.Fatalf("newDeliveryServer: %v", err)
+	}
 	if srv == nil {
 		t.Fatal("a configured delivery port produced no listener")
 	}
@@ -218,5 +234,105 @@ func TestMainRouterCarriesNoDeliveryRoute(t *testing.T) {
 	if err := assertNoDeliveryRoutes(main.Routes()); err == nil {
 		t.Error("the admin router accepted the delivery routes; NewServer would " +
 			"start with customer routes on the port that serves every site's data")
+	}
+}
+
+// TestDeliveryRoutesMustBeServableThroughTheBox is the landmine, asserted.
+//
+// The box proxies ONE anchored regex per prefix. A suffix route compiles,
+// registers, and serves perfectly from inside the cluster — and is 404'd at the
+// box, where there is no log line, no metric and no error to find. So the shape
+// is checked at construction, and GET/POST parity falls out of it: both verbs can
+// only ever be the one canonical path, which is what the second-click design
+// requires, since there the METHOD is the security distinction.
+func TestDeliveryRoutesMustBeServableThroughTheBox(t *testing.T) {
+	canonical := gin.RoutesInfo{
+		{Method: http.MethodGet, Path: "/c/:token"},
+		{Method: http.MethodPost, Path: "/c/:token"},
+	}
+	if err := assertRoutesAreBoxServable(canonical); err != nil {
+		t.Fatalf("the canonical route pair was rejected: %v", err)
+	}
+	// /d/ is not registered yet, but when it is, this shape must pass.
+	if err := assertRoutesAreBoxServable(gin.RoutesInfo{{Method: http.MethodGet, Path: "/d/:token"}}); err != nil {
+		t.Errorf("the download route's canonical shape was rejected: %v", err)
+	}
+
+	for _, tc := range []struct {
+		name  string
+		route gin.RouteInfo
+	}{
+		// The exact shape LANDMINES warns about: "POST /c/<token> must live on
+		// the SAME path as the GET — a suffix route compiles, passes every test,
+		// and 404s."
+		{"the suffix route from the landmine", gin.RouteInfo{Method: http.MethodPost, Path: "/c/:token/confirm"}},
+		{"a nested segment", gin.RouteInfo{Method: http.MethodGet, Path: "/c/confirm/:token"}},
+		{"a differently named param", gin.RouteInfo{Method: http.MethodGet, Path: "/c/:id"}},
+		{"a bare prefix with no token", gin.RouteInfo{Method: http.MethodGet, Path: "/c/"}},
+		{"an unrelated route smuggled onto the listener", gin.RouteInfo{Method: http.MethodGet, Path: "/health"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := assertRoutesAreBoxServable(gin.RoutesInfo{tc.route}); err == nil {
+				t.Errorf("%s %s was accepted, but the box would answer it with a local "+
+					"404 that never reaches this service", tc.route.Method, tc.route.Path)
+			}
+		})
+	}
+}
+
+// The parity property stated directly, because it is the one a future edit is
+// most likely to break: registering the POST at a suffix while leaving the GET
+// alone passes every inside-the-cluster test and breaks only real customers.
+func TestGetAndPostShareOneDeliveryPath(t *testing.T) {
+	h, _ := newTestDeliveryHandler()
+	engine := mustDeliveryEngine(t, h)
+
+	byMethod := map[string]string{}
+	for _, r := range engine.Routes() {
+		byMethod[r.Method] = r.Path
+	}
+	get, post := byMethod[http.MethodGet], byMethod[http.MethodPost]
+	if get == "" || post == "" {
+		t.Fatalf("expected both verbs registered, got %v", byMethod)
+	}
+	if get != post {
+		t.Errorf("GET is %q and POST is %q: they must be the SAME path. The box "+
+			"admits one anchored regex, and the second-click design makes the METHOD "+
+			"the security distinction, so differing paths break the customer flow "+
+			"while every test in this package still passes", get, post)
+	}
+}
+
+// badRegistrar registers a route the box could never serve. It exists to prove
+// the assertion is WIRED into newDeliveryEngine, not merely present in the file.
+type badRegistrar struct{ path string }
+
+func (b badRegistrar) RegisterRoutes(r gin.IRouter) {
+	r.POST(b.path, func(c *gin.Context) {})
+}
+
+// TestNewDeliveryEngineRefusesAnUnservableRouteTable is the WIRING test.
+//
+// Without it, deleting the assertRoutesAreBoxServable call from
+// newDeliveryEngine left every other test in this file passing — the direct-call
+// tests proved the function worked and nothing proved it ran. That is the same
+// shape as the config-validation mutation that passed in platform/delivery, and
+// it is why "the guard exists" and "the guard is wired" are two claims.
+func TestNewDeliveryEngineRefusesAnUnservableRouteTable(t *testing.T) {
+	if _, err := newDeliveryEngine(badRegistrar{path: "/c/:token/confirm"}); err == nil {
+		t.Error("newDeliveryEngine built an engine whose POST sits at a suffix path: " +
+			"the box would 404 it locally and the handler would never be reached")
+	}
+
+	// And the listener must refuse to exist at all, so a bad table cannot reach
+	// a port the box proxies to.
+	if _, err := newDeliveryServer("8090", badRegistrar{path: "/c/:token/confirm"}); err == nil {
+		t.Error("newDeliveryServer returned a listener for an unservable route table")
+	}
+
+	// Control: a canonical table must still build, or this test would pass for
+	// a build that refuses everything.
+	if _, err := newDeliveryEngine(badRegistrar{path: "/c/:token"}); err != nil {
+		t.Errorf("the canonical path was refused: %v", err)
 	}
 }
