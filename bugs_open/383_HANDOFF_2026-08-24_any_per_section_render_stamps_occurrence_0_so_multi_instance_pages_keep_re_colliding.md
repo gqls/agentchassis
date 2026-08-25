@@ -238,3 +238,61 @@ Next step for whoever picks it up: establish whether the 18:38 deploy read a sta
 the 18:51 assemble silently skipped the write, and check the `single-page deploy bypasses stalled
 queue` route as the direct repair (a `page_rerender` **with** `reason: template_changed` on this
 one page would both re-render and re-deploy).
+
+---
+
+## 13. POST-ROLL VERIFICATION 2026-08-25 — the fix is LIVE and WORKING at the artefact; one non-colliding discrepancy is open
+
+**The deploy is proven, not assumed.** Chassis `v1.0.1337`, both replicas, built from
+`4c996e1b5`. `git merge-base --is-ancestor` says **SHIPPED** for `364e80b7f` (Half A),
+`9ba3293e7` (binder retirement) and `120131549` (Half B). **Control**: today's HEAD is NOT an
+ancestor of the build, so the check can come out false.
+
+### The served pages — 3 of 3 now correct
+
+| page | served tokens |
+|---|---|
+| gaswholesalers.com `/pricing-transparency.html` | `c-generic-text-block` ×1, `-2` ×1 ✅ |
+| gaswholesalers.com `/wholesale-pricing-explained.html` | ✅ |
+| vetcomparison.uk `/how-it-works.html` | ✅ |
+
+**§12's stored-vs-served divergence is CLOSED by observation** — `pricing-transparency.html` now
+serves the repaired bytes. It was a delivery lag, not a defect in the repair. Nothing was done to
+it; recording that it resolved itself so nobody hunts a bug that is not there.
+
+### The build path is demonstrably fixed — this is the evidence that matters
+
+`apis.uk/index.html` carries **six** `illustrated-text-block` sections and is the standing
+self-regenerating repro. Its `page_components` rows were rewritten at **11:27:27 today**, i.e.
+**after** the 09:27 roll, by a per-section render (the build path). They carry **six DISTINCT
+tokens**. Under the old code that same path stamped occurrence 0 on every one of them and the
+page served `id="c-illustrated-text-block"` six times.
+
+**That is the defect gone at its source, on the path that caused it**, and it is the stickiness
+property too: a per-section render no longer re-collides the page.
+
+### ⚠ OPEN, and NOT a collision: the tokens start at `-2`, not at the bare token
+
+Stored and served tokens are `c-illustrated-text-block-2 … -7` = occurrences **1..6**. The
+canonical walk over this page's rows (position 1 `hero`, positions 2–7 `illustrated-text-block`)
+must assign **0..5** — bare, `-2` … `-6`. So the build-path count is **one high**, consistently.
+
+**Every token is distinct, so there is no collision and no user-visible defect** — this is byte
+drift against the canonical walk, which is the errs-safe direction the design documents
+(`storedPredecessorCount`'s comment; PLAN §A5 blind spot 2: a ready-list item that produces no
+saved row leaves later same-function instances stamped one high, self-correcting at the next full
+rerender).
+
+**But do not record that as the explanation — it is not established.** `pages.sections` plans
+exactly 6 `illustrated-text-block` and 6 rows were saved, so the obvious "a 7th was dropped" story
+is **refuted**. The build's orchestration has been reaped, so the ready list cannot be read back.
+
+**The discriminating test is filed** (`page_rerender`, `reason: template_changed`, `created_by
+bugs_open/383`, priority 60):
+- **tokens become bare + `-2`…`-6`** → the canonical walk disagreed with the build's count, the
+  build's ready list carried one extra same-function item, blind spot 2 is confirmed and it
+  self-corrects. Nothing to fix.
+- **tokens stay `-2`…`-7`** → the canonical walk itself produces them, which means the
+  disagreement is NOT ready-list drift and the derivation needs diagnosing. In that case run `090`
+  rather than guessing, and re-read `PlacementFromLoopStep` against a LIVE orchestration's
+  `loop_item_index` (0-based, verified 2026-08-24 on a 5-item loop) before touching the code.
