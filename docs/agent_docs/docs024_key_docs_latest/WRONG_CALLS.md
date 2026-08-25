@@ -50566,3 +50566,65 @@ verbatim: **"Naming a trap does not step over it."** They wrote *"a generated qu
 hypothesis about the extractor's whitespace"* in the same message in which they hand-wrote two
 quotes from the rendered page. I wrote two thousand words about controls that never run and then
 shipped a comment promising a guard I had not written, four commits later.
+
+### 11 — 2026-08-25: `::time(0)` discards the DATE, so rows written yesterday became my proof that today's deploy works
+
+A chassis roll landed. I checked the deploy properly — both replicas on `v1.0.1337`,
+`git merge-base --is-ancestor` confirming my commits were in it, **with a control**
+that could have come out false. That part was sound and it is why the next part is
+worth recording.
+
+Then I went looking for evidence the fix worked **at the artefact**, found
+`apis.uk/index.html` carrying six same-function sections with six DISTINCT element
+ids, read its rows' `updated_at::time(0)` as `11:27:27`, and wrote:
+
+> *"rows were rewritten at 11:27:27 today, i.e. after the 09:27 roll, by a
+> per-section render (the build path) … That is the defect gone at its source, on
+> the path that caused it."*
+
+**The rows were written `2026-08-24 11:27:26` — about 22 hours BEFORE the roll.**
+`::time(0)` prints the time and **throws the date away**. `bool_and(updated_at <
+roll_time)` is `true` for every row on that page.
+
+It went into a bug file, a committed handoff, and a report to the owner as the
+headline proof.
+
+**The instrument had already caught me once, the day before.** `WRONG_CALLS` isn't
+where that one lives — NEAR-MISS 3 in the lane's NOTES is — but it was the same
+`::time(0)`, on `scheduled_tasks`, where a date-and-timezone-stripped read had me
+one step from declaring a healthy dispatch trigger dead. I logged it as a
+**timezone** error and wrote a timezone check. **The generalisation I did not draw
+is that the cast destroys the DATE too, and a date is exactly what any
+before-or-after-the-deploy claim rests on.** I fixed the symptom and kept using the
+instrument, twenty hours apart, in the same lane.
+
+**What made it survive scrutiny:** the number was *plausible in the frame I had
+already adopted*. 11:27 sits neatly after a 09:27 roll — it reads as "two hours
+later", which is exactly the story I was hoping to tell. A timestamp that agrees
+with your hypothesis gets less scrutiny than one that does not, and this one agreed
+twice over: right-looking hour, right-looking gap.
+
+**The cheap checks, in order:**
+- **Never `::time(0)` a timestamp you are going to reason about.** Print it whole,
+  or better, let the database do the comparison: `updated_at < '<roll>'::timestamptz`
+  returns a boolean that carries no formatting at all. I ran exactly that in the
+  retraction and it answered in one word.
+- **State a deploy claim as a comparison, not as two numbers you compare by eye.**
+  `bool_and(updated_at < roll)` cannot be misread; "11:27 vs 09:27" can.
+- **When evidence arrives already agreeing with you, that is the moment to check the
+  units** — date, timezone, and frame — rather than the moment to write it up.
+
+**And the retraction paid for itself, which is the argument for doing them promptly.**
+Those rows carry six *distinct* tokens, which the OLD code could not produce. Once
+the date was right, that stopped being a triumph and became a question — and the
+answer is that the `apis.uk` lane hand-wrote `rendered_html` (its own register entry,
+CLC-030, says so). Which in turn dissolved a separate "open off-by-one" I had filed
+against my own derivation: hand-chosen tokens starting at `-2` were never a
+derivation defect. **One wrong date had produced one false positive and one false
+open question, and correcting it closed both.**
+
+**Standing correction to the record:** the fix is *shipped* and *well-tested*; it is
+**not yet proven at the artefact**. The three pages I repaired were repaired by the
+canonical whole-page walk, which was never broken — they prove the repair, not the
+fix. No multi-instance page has been through a build, `content_rewrite` or section
+edit since the roll.
