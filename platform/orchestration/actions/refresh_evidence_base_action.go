@@ -177,6 +177,12 @@ type siteRefreshResult struct {
 	FactDrift                  []factDriftEmission `json:"fact_drift,omitempty"`
 	FactDeclarationsUnresolved []string            `json:"fact_declarations_unresolved,omitempty"`
 
+	// MisplacedArtifactChecks names facts carrying artifact_check at the TOP
+	// LEVEL of the fact instead of inside `source`, where the code reads it. Such
+	// a check is INERT and was, until 2026-08-25, silently so. omitempty: a
+	// register with none marshals exactly as before.
+	MisplacedArtifactChecks []string `json:"misplaced_artifact_checks,omitempty"`
+
 	// FactBindingSuggestions is Phase 4's count of NON-declaring tools on this
 	// site whose script text carries one or more of the site's own registered
 	// values — an adoption signal, not a defect count. omitempty, so a site with
@@ -328,6 +334,33 @@ func refreshOneSiteEvidence(
 		if !ok {
 			continue
 		}
+		// ⚠ A MISPLACED artifact_check IS SILENTLY INERT, AND THAT IS THE SAME
+		// DEFECT AS THE ONE PHASE 1 CLOSED FOR CRITERIA FENCES, ONE TABLE OVER.
+		//
+		// RFC_025 §2.2 puts artifact_check INSIDE `source`, as a sibling of
+		// citation/artifact/attested_by — i.e. as a verification mechanism for a
+		// source kind. A perfectly reasonable author instead puts it at the TOP
+		// LEVEL of the fact, because it describes the FACT rather than the source;
+		// arguably the better data model, and the one that is not implemented.
+		// Found 2026-08-25 on agritec.uk: four fences, correct contents, correct
+		// patterns, correct subject_key, live in the register — and read by
+		// nothing, with no signal anywhere that they were inert. The author had
+		// tested the patterns and reported the fence "live".
+		//
+		// So: say so. This does not guess and does not relocate the key — the
+		// register is human-owned and a consumer must not rewrite a human's row
+		// (CLM-001). It reports, which is all a reader needs to fix it in seconds.
+		if _, misplaced := fact["artifact_check"]; misplaced {
+			if src, ok := fact["source"].(map[string]interface{}); !ok || src["artifact_check"] == nil {
+				res.MisplacedArtifactChecks = append(res.MisplacedArtifactChecks,
+					datahelpers.GetStringField(fact, "id", "(unnamed fact)"))
+				logger.Warn("refresh_evidence_base: a fact carries artifact_check at the TOP LEVEL, where nothing reads it — "+
+					"RFC_025 places it INSIDE source, beside citation/artifact/attested_by. The check is INERT until it moves.",
+					zap.String("site_id", siteID.String()),
+					zap.String("fact_id", datahelpers.GetStringField(fact, "id", "")))
+			}
+		}
+
 		// RFC_025 STAGE 2b (bugs_open/288 §5.6) — artifact_check is now reachable
 		// for EVERY source kind, not only for a fact whose sole source is `artifact`.
 		//

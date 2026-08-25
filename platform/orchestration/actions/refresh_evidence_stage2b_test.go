@@ -466,3 +466,84 @@ func TestStage2b_FactWithoutArtifactCheckTouchesNothingNew(t *testing.T) {
 		t.Fatalf("the pre-pass must issue no query for a fact that does not opt in: %v", err)
 	}
 }
+
+// ── A MISPLACED artifact_check IS REPORTED, NOT IGNORED ────────────────────
+//
+// Found in production 2026-08-25 on agritec.uk: four artifact_check objects with
+// correct contents, correct patterns and a correct subject_key, live in the
+// register — and placed at the TOP LEVEL of the fact rather than inside
+// `source`, where every reader looks. Read by nothing, with no signal anywhere.
+// The author had tested the patterns and reported the fence live.
+//
+// It is the Phase 1 defect one table over: a declaration nobody can read looking
+// identical to a document that declares nothing. And the misplacement is a
+// REASONABLE reading — artifact_check describes the fact, not the source — so
+// the answer is to say so, not to call the author wrong.
+//
+// MUTATION THAT MUST GO RED: delete the misplacement branch in
+// refreshOneSiteEvidence.
+func TestStage2b_TopLevelArtifactCheckIsReportedNotSilentlyIgnored(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	site := uuid.New()
+
+	// agritec's exact shape: citation + attested_by under source, artifact_check
+	// hoisted to the top level of the fact.
+	fact := map[string]interface{}{
+		"id":    "ATT-sfi26-CSAM3",
+		"claim": "SFI26 action CSAM3 (Herbal leys) has an annual payment of £224 per hectare.",
+		"value": float64(224),
+		"source": map[string]interface{}{
+			"attested_by": "agritec_uk lane",
+		},
+		"artifact_check": map[string]interface{}{
+			"subject_key":     "tool-sfi26-revenue-stacker",
+			"pattern":         `code:'CSAM3'[^}]*rate:224\b`,
+			"must_be_present": true,
+		},
+		"verified_at": "2026-08-22",
+	}
+	eb, _ := json.Marshal(map[string]interface{}{"facts": []interface{}{fact}})
+
+	mock.ExpectQuery("SELECT id, data, pinned FROM site_specs").WithArgs(site).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "data", "pinned"}).AddRow(uuid.New(), eb, false))
+	mock.ExpectQuery("SELECT domain FROM sites").WithArgs(site).
+		WillReturnRows(sqlmock.NewRows([]string{"domain"}).AddRow("agritec.uk"))
+	mock.ExpectQuery("SELECT to_char").
+		WillReturnRows(sqlmock.NewRows([]string{"today"}).AddRow("2026-08-25"))
+	// NO surface query expected: the misplaced check must NOT be evaluated —
+	// reporting it is not the same as quietly making it work, and relocating a
+	// human's register row is not this action's business (CLM-001).
+
+	params := ActionParams{DB: db, Logger: zap.NewNop()}
+	res, err := refreshOneSiteEvidence(context.Background(), params, site, true, zap.NewNop())
+	if err != nil {
+		t.Fatalf("refreshOneSiteEvidence: %v", err)
+	}
+	if len(res.MisplacedArtifactChecks) != 1 || res.MisplacedArtifactChecks[0] != "ATT-sfi26-CSAM3" {
+		t.Fatalf("a top-level artifact_check must be NAMED, got %v", res.MisplacedArtifactChecks)
+	}
+	if res.ArtifactCheckDrifted != 0 {
+		t.Fatalf("a misplaced check must not be evaluated, got ArtifactCheckDrifted=%d", res.ArtifactCheckDrifted)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unexpected queries: %v", err)
+	}
+}
+
+// The no-op twin: a CORRECTLY placed artifact_check must not be reported as
+// misplaced. Without this, the fix could report every working fact and nobody
+// would notice until the field was full of false accusations.
+func TestStage2b_CorrectlyPlacedArtifactCheckIsNotReportedAsMisplaced(t *testing.T) {
+	fact := sdltFactWithArtifactCheck("stamp-duty", `FTB_RELIEF_CEILING\s*=\s*500000`)
+	if _, hasTop := fact["artifact_check"]; hasTop {
+		t.Fatal("fixture wrong: the correctly-placed fixture must NOT have a top-level key")
+	}
+	src := fact["source"].(map[string]interface{})
+	if _, ok := src["artifact_check"]; !ok {
+		t.Fatal("fixture wrong: the correct placement is inside source")
+	}
+}

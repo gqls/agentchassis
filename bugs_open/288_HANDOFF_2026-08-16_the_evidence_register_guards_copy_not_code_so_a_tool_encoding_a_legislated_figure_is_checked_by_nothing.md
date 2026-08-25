@@ -331,6 +331,30 @@ exist — the exact class this lane spent two days closing, committed while clos
 (`bba8a892d`): a value carried by more than one fact is reported in the note but never proposed
 and never reaches the paste-ready fragment. **Not yet rolled.**
 
+### ⚠ A MISPLACED `artifact_check` IS SILENTLY INERT — the Phase 1 defect, one table over
+
+Found 2026-08-25 on agritec.uk, by disagreeing with another lane about their own data.
+
+They wrote four `artifact_check` objects with correct contents, correct patterns, correct
+`subject_key`, live in the register — **at the TOP LEVEL of the fact** rather than inside
+`source`, where every reader looks (`refresh_evidence_base_action.go:348`, `parseArtifactCheck:768`,
+and RFC_025 §2.2's own shape). Read by nothing. No signal anywhere. They had tested the patterns
+and reported the fence live; I had queried `f->'source' ? 'artifact_check'`, got zero from a
+populated row, and told them it had never landed.
+
+**Neither answer alone was survivable.** Accepting theirs would have closed the loop on a fence
+that could never fire; accepting mine would have had them re-apply a migration into the same
+silent hole. **The disagreement produced the real answer, and that is the transferable part** —
+more than either error is.
+
+**Their placement is a REASONABLE reading and arguably the better data model**: `artifact_check`
+describes the FACT, not the source. RFC_025 put it under `source` because it was designed as a
+sibling of `citation`/`artifact`/`attested_by`. Two defensible readings, one implemented, and the
+wrong one silent — which is exactly the defect Phase 1 closed for criteria fences and which I left
+open one table over. Fixed: the sweep now names a fact carrying a top-level `artifact_check` in
+`res.MisplacedArtifactChecks` and warns. It does **not** relocate the key — the register is
+human-owned and a consumer must not rewrite a human's row (CLM-001).
+
 ### ⚠ THE AMBIGUITY RULE MAKES THE SUGGESTER STRUCTURALLY QUIET ON A RATE-TABLE SITE
 
 `bba8a892d` refuses to propose a value carried by more than one fact. That is right, and the
