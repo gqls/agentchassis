@@ -297,3 +297,13 @@ the check in our runbook, which had been telling sessions to "verify at the arte
 handing them a query that only counted the jobs — a test that could not fail. The team that owns the
 guard has the details; whether to go and place those eight tools' mentions by hand is their call and
 yours, not mine to fire off at eight articles unasked.
+
+**Correction, 2026-08-25 15:40, to the entry just above.** The number of those cross-mention jobs is
+**eighty**, not seventy-one. I wrote seventy-one an hour earlier from a query that could only see
+part of the record — the table holding these jobs only keeps recent ones, and the older, finished
+ones move to an archive I had not asked. Another session re-ran my query rather than believing it
+and found the missing nine. Nothing about the story changes: still not one of them, in either place,
+has ever succeeded. The extra nine are more evidence, not less. I have corrected the figure in the
+paragraph above rather than leaving a wrong number sitting there, and this note is here because that
+log is meant to be added to rather than edited, and the number was in a paragraph I had written
+myself half an hour before.
