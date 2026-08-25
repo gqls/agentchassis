@@ -52624,3 +52624,16 @@ about someone else's stale claim.
 ⚠ **Note the shape of this one.** I was three paragraphs into correcting a stale retention claim in
 someone else's bug file when I wrote a stale claim of my own into the same block. Being in
 correcting mode is not a state of heightened accuracy; it felt like one.
+
+## 2026-08-25 — `bugs_open/333` lane: I routed demand evidence at a bug that closed three days ago, on a pointer I copied from my own register entry without re-verifying
+
+Relaying a peer lane's measurement, I wrote "demand evidence for YOUR question" to the session named
+`bugs_open/277` and cited `bugs_open/277` in two more messages and a NOTES entry. 277 CLOSED
+2026-08-22 (owner ruling, `bugs_closed/277`). The receiving session caught it within the hour; had it
+not been running, the citation would have sat in a closed file's orbit unread — the fate its own
+correction named. The pointer came from WII-028's relations, written 2026-08-24 when it was true.
+**The cheap check: a bug number quoted from ANY doc gets `ls bugs_open/ bugs_closed/ | grep ^NNN`
+before you route anything at it — one command, and the number-collision landmine (several numbers name
+two cases) makes the slug check part of the same look.** This is the standing class the memory index
+already carries (a closed blocker keeps being obeyed; prior-art search goes stale) — this row is the
+dual: not a deferral pointing at a closed bug, but fresh work routed at one.

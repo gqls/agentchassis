@@ -470,3 +470,11 @@ birth status) and the trade-off (check-side exclusion records nothing; door-side
 existing roadmap line). **If they choose the door, expect ~48 new parked `content_rewrite` rows** on
 the "owned-page content route" roadmap line — do not read that as a post-roll anomaly. Their 48/48
 link-less-owned-pages measurement relayed to the `bugs_open/277` session as demand evidence.
+
+> **CORRECTED 2026-08-25 (~30 min later, by the receiving session):** 277 is **CLOSED — bugs_closed/277, owner
+> ruling 2026-08-22** — and my relay pointed demand evidence at a finished lane. I quoted `bugs_open/277` from
+> WII-028's relation without re-verifying the pointer, the exact stale-pointer class the memory index warns
+> about (*closing a bug does not retract the deferrals pointing at it* — and the dual: a POINTER to a bug
+> outlives its openness). The cheap check I skipped: `ls bugs_closed/ | grep ^277`. Register relation corrected;
+> the demand evidence now lives IN WII-028 as a dated block (the roadmap line is the standing home, since the
+> repair question has no open bug). 392 told, so they don't inherit the stale pointer from my earlier message.
