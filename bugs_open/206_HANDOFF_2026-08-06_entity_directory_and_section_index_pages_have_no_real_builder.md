@@ -1114,3 +1114,68 @@ my warning would have muddied exactly that. Recorded here only so this file does
 Conditions 1–3 stand (see the 2026-08-25 morning section, plus the two-gate correction). **New
 precondition, ahead of all of them:** the build must carry an `entity-directory` or `entity-page`
 page. Without one, no amount of stamped, untouched, correctly-routed rows can close this bug.
+
+## 2026-08-25 (night) — the swap is LIVE, verified with a working control; and the closure gate no longer expires
+
+### 1. `v1.0.1339` carries the swap — ancestry, not a symbol probe
+
+`[MEASURED 2026-08-25]` both `agent-chassis` replicas (started `19:07:18Z` / `19:07:49Z`) report the
+same build provenance, read from the pods' own startup line (in range, because the pods are fresh):
+
+```
+git_commit: a7459a44b68b8c67b7d7bb0ca7c064e0729d59f5
+```
+
+| commit | ancestor of the stamp? | |
+|---|---|---|
+| `efec862f4` — the swap | **IN** | today's `section-index` routing + gap alignment |
+| `0777eb297` — the test pins | **IN** | |
+| `d1aa231aa` / `200d54bdf` — 08-24 | **IN** | |
+| `c591d8d61`, `08bfce067` (committed 20:19–20:20, after the build) | **NOT in** | ⬅ **the control** |
+
+**The control is the load-bearing part**: two commits made after the build are correctly excluded,
+so the test discriminates. This is the method §7c prescribes after yesterday's three-wrong-probes
+episode — and it worked first time.
+
+**So `section-index` now routes to `directory-build-handler` at both doors, live.**
+
+### 2. …and nothing has happened, exactly as predicted
+
+`[MEASURED 2026-08-25, post-roll]` reconcile rows created since `19:07`: **0**. Sites reconciled
+since: **0**. The six parked rows are untouched. Nothing schedules `reconcile_site_plan`, and a
+parked row holds its own `item_key` and so blocks its own re-mint. **The roll changes what happens
+on the NEXT plan; it cannot reach back.** Do not read the unchanged parked rows as the fix failing.
+
+### 3. The closure gate no longer expires (commit `1887a116b`, council `9ff151d6`)
+
+Both producers now stamp the handler they **chose** into the item's spec, so the closure check
+becomes `spec->>'handler' = swi.handler_agent`.
+
+Why this was worth a round rather than living as a query: the interim gate `updated_at < created_at
++ interval '1 second'` is sound but **expires on the first legitimate dispatcher claim** — within
+minutes, and long before anyone reads the result. A proof that dies when the system does its job is
+not one you can rely on being able to run. The stamp is permanent, and an `UPDATE` of
+`handler_agent` (the documented operator repair) cannot forge agreement because it does not touch
+the spec. **Divergence becomes the signal**: `spec.handler <> handler_agent` says *a human
+re-routed this*, which is precisely what the closure test must exclude.
+
+Both doors stamp it, deliberately — a stamp at one door only means a reader cannot tell a mint from
+a repair at the other, and the absence reads as "repaired" rather than as "not stamped". That is the
+same two-doors-disagree trap this bug is about.
+
+Mutation-proven before submitting: dropping either door's stamp fails **only** that door's test;
+making the stamp disagree with the column fails **both** — the case that matters, since a stamp
+agreeing with nothing would read as a forged repair. Baseline and restored green, tree verified free
+of mutations afterwards.
+
+> ⚠ **`1887a116b` is NOT live.** `v1.0.1339` predates it, so `spec ? 'handler'` is **FALSE on every
+> row in the database right now** and a query gated on it returns **zero** — which reads exactly
+> like the fix failing. RUNBOOK §7d carries the warning and the gate table. Until the next roll use
+> §7's gates and read the mint promptly.
+
+### 4. What actually remains
+
+Unchanged and still the only thing standing between this bug and closure: **a greenfield build of a
+site carrying an `entity-directory` or `entity-page` page.** Not schedulable by this lane, arrives
+free when a lane builds one, and §7b (iii) gives the query to check a plan for one before spending a
+build on the question.
