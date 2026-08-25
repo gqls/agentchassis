@@ -6362,6 +6362,50 @@ any reproduction you can build afterwards, precisely because it is the known-FAI
 later check can be validated against. Here it came from a lane that was not looking for the bug —
 `entity-directory` and `entity-page` minted at the generic handler on an unaided build.
 
+### A `WHERE status = 'X'` count is a LABEL, not a population — and one of the things hiding under it is usually a mechanism working exactly as designed
+
+**The shape.** You group by a status column, get a striking number, and report it as damage. The
+number is real. It is also several unrelated populations stacked under one word, and at least one of
+them is deliberate, documented and correct — so the finding, as stated, is an accusation against
+code that is right.
+
+**The worked case (2026-08-25, `bugs_open/396`).** *"297 work items are parked where nothing will
+ever pick them up"* was three populations: **98** are `deferred` with an EMPTY `handler_agent`,
+which is the estate's roadmap convention with six commented writers, two consumers and a drain that
+counts parked rows separately *precisely so the park cannot empty unnoticed* — a designed subsystem
+with both ends wired, reported as a leak. **87** were parked by a migration that stamps
+`parked_by`/`parked_reason`/`parked_from_status` on every row, still auditable a fortnight later,
+and are OWNED by another active lane. Only **114** were the finding.
+
+**Why the discriminator is not obvious in advance:** it is not a column, it is *intent*, and intent
+is recorded — when it is recorded at all — in a provenance stamp inside `spec`. One extra `GROUP BY`
+separates them.
+
+**⚠ AND THE SECOND MISTAKE IS THE SUBTLER ONE: do not TEST for the stamps you know, ENUMERATE the
+stamps that exist.** Having learned the lesson above, the same session then filtered on
+`spec ? 'parked_by'` and `spec ? 'not_dispatchable'` — the two conventions it had read about — and
+missed a **third** (`spec.deferred_reason`, an owner-sanctioned park) until the diagnosis loop
+surfaced it. **A membership test can only find members you can name, and its output is not a census
+of what exists.** The one-line fix:
+
+```sql
+SELECT k, count(*) FROM <table> t, LATERAL jsonb_object_keys(t.spec) k
+WHERE <your population> GROUP BY 1 ORDER BY 2 DESC;
+```
+
+⚠ Then read one row per key rather than pattern-matching the name: in the same run `spec.reason`
+looked like park provenance on 22 rows and was a *detection* reason, which would have shrunk the
+population on a false basis — the same error with the sign flipped.
+
+**The check, before you report any status-grouped count as damage:** ask *what else lands in this
+status, and who put it there on purpose?* Then split on the thing that separates intent from
+accident — a provenance stamp, an empty-vs-named field, the producer — and say in the report which
+sub-populations you are NOT claiming. Naming the correct ones up front is what makes the remainder
+credible; it also tells you which slice belongs to somebody else's open bug.
+
+**Kin:** §9's *"a report is not a measurement"* family; the `WRONG_CALLS.md` 2026-08-25 entries on
+publishing totals never computed, and on answering a tail question with a population statistic.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -6567,6 +6611,8 @@ See `/bugs_closed/README.md`.
 | 393 | **Every `dark_section_audit` completion is UNGRADED by the no-change gate — the handler's result shape does not parse, and the row saying so has no reader.** `[MEASURED 2026-08-25]` 11 rows, ONE item_type, so there is one concrete shape fix plus the commissioned class reader (ack-ratchet over drifting item_types). Lineage `bugs_closed/302`/`213`. | OPEN |
 | 394 | **webdesign.co.uk's render audit covers 60 of 131 pages and the tail GROWS (109→125→131 in six days) — `bugs_closed/242` made truncation loud and nothing reads it.** The writer's own message: the unaudited tail is the SAME pages every run. Reader COMMISSIONED (owner ruling 2026-08-25); best candidate is a persisted per-site rotation cursor. ⚠ one `[UNEXPLAINED]` row shows a cap of 5, not 60. | OPEN |
 | 328 → `bugs_closed/` | **A page that failed to build is still LINKED from the pages that did, so one blocked page becomes a visibly broken site.** The build knows the target failed — the item is `needs_human_review`, the `pages` row never reaches `deployed` — and **nothing tells the pages that link to it**; they ship anchors to a live 404. The item type implemented exactly ONE remedy (*build the target*), unavailable on **92%** of the live population, so the other remedy — stop the referrer advertising it — existed nowhere. ⚠ **The census is self-fuelling: it grows with productivity** (36 → 48 anchors overnight, a whole new site arriving with 9), so any number quoted from a doc is already low. ⚠ **Neither existing predicate answers it** — `NeverDeployedPagePredicate` would delist 9 pages that serve 200, and `PageMayBeLinkedPredicate` misses the `needs_rebuild`-never-built rows, which is this bug's own instance. **The discriminator is the RENDERED-COMPONENT COUNT** (20 never-shipped pages with zero components: 20/20 404; 9 with ≥1 component: 9/9 200), conjoined with never-deployed — the conjunction is load-bearing, 8 pages carry a `deployed_at` and zero components. | **CLOSED 2026-08-25. Fix `LNK-038` (`PageLinkRefusedPredicateFor` + `SuppressRefusedPageLinks`), live on chassis `v1.0.1334` since 16:07Z 08-24 via migration `575`, five seam steps, opt-in default OFF per RFC_010 §2. Council APPROVED r4 `21c19c1f`.** Suppression is **outbound-only** — the authored href stays in `content_data`/`rendered_html` so the link returns by itself when the target ships, which is why **the STORED census never reaches zero and is NOT the closure gate**. Two arms: prose unlinked (words kept), classed controls dropped whole. Closed on the SERVED census: **0 dead anchors across 19 public referring pages**, per-domain invented-URL 404 control 5/5, every changed page's internal-href total down by **exactly** its dead-anchor count and the 11 unchanged pages byte-identical, all 7 targets still unbuilt and still 404. ⚠ **The fleet's re-render cadence does NOT finish this on its own** — it runs per PAGE not per site (1,671 rerenders in 36 h while one domain had **zero** queued); 8 pages had to be dispatched, and *"24 of 25 pages touched within 7 days"* is a POPULATION statistic that cannot retire a TAIL risk (`WRONG_CALLS.md` 08-25). Follow-ups, none blocking: `RFC_049` (this question is now hand-rolled three times — `CLC-013`, `LNK-030`, `LNK-038`), the per-build N+1, and `assemble_page`/`rerender_single_page` having no `ActionInputSpec` so `575` arms a key nothing audits |
+
+| 396 | **114 work items sit at `deferred` with a NAMED `handler_agent` — undispatchable, un-promotable, un-re-filable, and with no record of who parked them or why.** Three predicates nobody reads together: dispatch claims `status IN ('triaged','approved')` (`claim_work_item_action.go:102`), the promoter takes `status='detected'`, and `idx_swi_dedup`'s exclusion list contains neither — so the row is selected by nothing **and still holds its `(site_id,item_key)` slot**, and any other session dispatching that page hits **23505**, which reads as *"already queued"* and means *"queued and abandoned"*. Worked cost: a `page_rerender` parked 22 days blocked `bugs_open/328`'s dispatch and completed **2 minutes** after being re-armed. ⚠ **`deferred` + EMPTY handler is CORRECT** — the estate's roadmap convention, six commented writers, two consumers, a drain that counts parked rows separately; 98 rows, not damage. ⚠ **87 more are migration 389's stamped contrast park and are `bugs_open/296`, OWNED** by `bugfix_131_contrast_ratio_check`. ⚠ `plan_sections_action.go`'s four `deferred` hits are a **different** `deferred` (a section-plan status, `:906`) and counting them inverts the conclusion | **OPEN, UNOWNED. ROOT CAUSE NOT ESTABLISHED and the file says so.** `090` RUN — `6061299a`, 4 iterations → **UNVERIFIABLE**, *"zero remaining named candidates in the read code … hand to a human; do NOT auto-conclude"*. **Eight candidates excluded with evidence** so nobody re-walks them, incl. the near-miss: `FailWorkItemAction`'s `status_override` writes a bare config string straight into `status` and leaves `handler_agent` untouched — exactly the shape — but stamps `handled_by`, and **0 of 114** carry it (control: `handled_by` is set on **7,114 of 7,329** `complete` rows, so the zero is a real absence). Also OUT: migration 217 (backfills to `''`, not to a name), any `handler_agent` router (none exists), `refreshOpenWorkItem` (description only), dispatched-then-parked (113 of 114 never triaged/claimed/attempted, none carries an `error`). Left OPEN and labelled: a discovery-run side effect (timing correlation only — a co-occurring actor is not a writing actor) and a hand-run `psql` UPDATE (no evidence beyond absence of alternatives). ⚠ **Do NOT chase `HandleUpdateWorkItem`** — the verdict names it and **the symbol does not exist repo-wide**; its own caveat (signature indexed, body not) is the tell, and the code index lags the branch. ⚠ **`updated_at - created_at` CANNOT tell "born deferred" from "deferred later"** (`trg_site_work_items_updated_at` bumps on every write; no status history) — a clean-looking "0 of 205 born deferred" from that query means nothing. Fix candidates ranked by what closes the door, with the `idx_swi_dedup` predicate change **rejected as a first move** (lockstep with `workItemTerminalStatuses`; migration 157 broke that pair fleet-wide with 42P10). Lane: `docs024_key_docs_latest/deferred_work_item_park/` |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26;
 > RE-MEASURED 2026-08-03).** This table is **materially behind** and a miss here is a
