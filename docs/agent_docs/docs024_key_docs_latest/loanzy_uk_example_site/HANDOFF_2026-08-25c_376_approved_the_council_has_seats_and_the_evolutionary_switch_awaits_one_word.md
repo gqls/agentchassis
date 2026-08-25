@@ -74,3 +74,18 @@ silence-retraction (RFC_056 addendum).
   `-v FILING_MODE_SHIPPED=a7459a44b68b8c67b7d7bb0ca7c064e0729d59f5`.
 - **Gate 1c interaction (vigilant lane):** record rows never reach `complete`, so gate 1c never grades
   that producer while record mode is in force — correct on both sides, stated in ADDENDUM 2.
+
+---
+
+## 6. THE WORD CAME (2026-08-25 ~21:15Z) — and was executed the same evening
+
+Owner rulings, verbatim in substance: **(a) apply 618** — DONE 21:1xZ, verified (15 steps, floor,
+probe refuses); the three §11e behavioural tests still owed on real draws. **(b) apply 623 + the
+sweep SQL** — DONE: edge → `record_audit_pass` (31 steps), `improvement-sweep` enabled **21:18:19Z**;
+PLAN §5's four queries are the standing verification (query 2 must stay 0). **(c) render-audit
+rotation stays LIVE; css-patch-agent fix routed to `bugfix_390_cascade_attribution`** (CONTRIB in
+their dir, no live session listed). **Promoter thread found**: built by the 083 lane (3c6354059,
+08-15), closed by the 277 lane — live session notified — and the structural residue filed as
+**`bugs_open/405`** (the known-good door tests the handler, never the finding's provenance).
+Remaining gates: RFC_056 round-2 verdict (trail `d1342f2a`) → then 624; the §11e tests on the next
+greenfield draws; and new domains are UNBLOCKED by 618 the moment a draw proves it live.

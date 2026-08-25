@@ -6,7 +6,13 @@ been judged to be good for the sake of aspirational improvements. It should stay
 great thing but it is causing too many bad/unexpected renders, so switch just that bit off and turn
 the improvement loop back on."*
 
-**Status: PLAN. Nothing live has been changed.** The one migration Phase 1 needs is written and
+**Status: PHASE 1 EXECUTED 2026-08-25 21:18Z on the owner's word** ("(b) apply 623 plus the sql
+change as you suggest"): migration 623 applied (edge → `record_audit_pass`, 31 steps, verified) and
+`improvement-sweep` re-enabled at **21:18:19Z**. Migration 618 (the 376 fix) applied the same minute
+under choice (a). Choice (c): the render-audit rotation STAYS LIVE; the css-patch-agent fix is routed
+to the `bugfix_390_cascade_attribution` lane (CONTRIB in their dir). The §5 verification queries are
+the standing check. ~~Nothing live has been changed.~~ (The paragraph below is the plan as put to the
+owner, kept as written.) The one migration Phase 1 needs is written and
 rehearsed as a `_HOLD` file (never taken by the runner); applying it is your word. Every figure
 below carries its date; every claim not measured says so.
 

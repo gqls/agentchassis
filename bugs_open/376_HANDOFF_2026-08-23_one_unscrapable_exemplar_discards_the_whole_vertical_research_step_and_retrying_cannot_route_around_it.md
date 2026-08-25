@@ -579,8 +579,12 @@ with dotted paths how query_database resolves binds?"* — it is the improvement
 pattern (`load_audit_state`: `params: ["site_record.site_id"]`; `record_audit_pass` binds
 `audit_state.fingerprint`), running for weeks; (2) *"the narrative names 10 steps, the rollback
 asserts 12"* — the live row HAS 12 (`read_specs` and `complete` bracket the 10 the narrative names),
-and the rehearsal proved 12 → 15 → 12. **NOT YET APPLIED: the session's harness declined the live
-apply (a fleet-state write), so it is the owner's one command:**
+and the rehearsal proved 12 → 15 → 12. ~~**NOT YET APPLIED**~~ — **APPLIED 2026-08-25 21:1xZ on the owner's explicit instruction**
+("(a) apply 618"), verified at the live row: `check_exemplar_floor` present, `crawl_exemplar_1.error_step
+= format_exemplar_1`, `format_exemplar_3.next_step = check_exemplar_floor`, **15 steps**, no parenthesis
+in the stored condition; the probe now refuses with "already applied". **Still owed: the three §11e
+behavioural tests on real draws** (refused host reaches `create_next_item`; succeeds-but-empty counts
+zero; induced below-floor run FAILS with the counts in `error`). The command that was used:**
 `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < docs/agent_docs/sql_for_agents/618_vertical_exemplar_researcher_routes_refused_crawls_and_floors_on_content.sql`
 then confirm: the live row has 15 steps and `check_exemplar_floor` present, and the runner's dry run
 lists 618 as LIKELY ALREADY APPLIED. The three §11e behavioural tests remain owed after apply.

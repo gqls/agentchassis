@@ -368,3 +368,25 @@ council, after the fact, with the rewrites removed.
 **Two choices are yours:** whether to apply Phase 1 now (I recommend yes), and what to do about the render
 audit — a separate hourly job that files contrast failures at the CSS patch agent; it is the other live
 source of bad renders (239 in a fortnight) and this plan does not touch it.
+
+## 2026-08-25, late evening — your three words, carried out
+
+(a) The research-stage fix is **applied and live**. A refused exemplar now counts as "no content"
+instead of killing the stage, and a build with fewer than two real exemplars fails loudly with the
+counts in the error. The proof on real builds — a refused host, an empty host, an induced failure —
+is owed on the next draws.
+
+(b) The loop is **back on** as of 21:18, with the four LLM reviewers off its path. What runs now:
+the mechanical checks, the news-feed and directory refreshes, and the fixers for real defects. What
+cannot run: an opinion becoming a page rewrite. The standing check is one query that must stay at
+zero; it is in the plan.
+
+(c) The contrast audit **stays live** as you asked, and the request to fix the CSS patch agent is
+recorded in the cascade-attribution thread's own folder — that is the thread that shipped the
+quick fix this morning and filed the erasure bug; it has no session open tonight, so the file is
+the hand-over.
+
+And the promoter that was dispatching rewrites while the sweep was off: it was built by the thread
+that closed "detected findings never reach a handler" on the 15th, for a good reason and with a
+blind spot — it checks whether the FIXER is competent, never who WROTE the finding. That is now
+bug 405, its living owners have been told, and the acute leak is already stopped by tonight's changes.
