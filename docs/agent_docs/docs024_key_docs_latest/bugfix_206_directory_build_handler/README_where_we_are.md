@@ -228,3 +228,72 @@ has been built since the code went live, so there is nothing to read yet.
 
 What changed today is that when that build does happen, we now have a test that can actually tell
 us the answer — which yesterday we did not, and did not know we did not.
+
+---
+
+## 2026-08-25 (later) — I had the day's work reviewed by a fresh pair of eyes, and it found four real problems. Three were mine.
+
+I asked a reviewer running on a different model to go over today's work and try to **break** it
+rather than agree with it. That was worth doing, and I want the results here rather than only in the
+technical notes, because one of them concerns your instructions and another is embarrassing in a way
+that is useful.
+
+### The one that needed fixing immediately: I told the next person to do something you had forbidden
+
+This morning I wrote a handoff document, and one section of it listed three pages on
+**garden-tools.uk** as an operator job, pointing at the recipe for clearing them.
+
+**You had retracted permission for exactly that, five minutes earlier.** Another team recorded your
+ruling — nothing is to be cleared on that site, because its whole value is that it was built with no
+human help and four teams are measuring against it. They filed that note *into this lane's own
+folder* at 11:05. I committed my handoff at 11:10 without having read it.
+
+Worse: they filed the note **because yesterday's handoff had the same flaw** — one section saying
+"do not clear these" and another eleven lines later saying "clear these". I then reproduced it in the
+document written to replace it. That is now corrected: garden-tools.uk is marked do-not-touch with
+your ruling attached, and the two pages on other sites that your ruling does *not* cover are
+separated out, which is what the other team explicitly asked for.
+
+### The embarrassing one, and the most useful
+
+This morning's headline finding was that our test for "did the fix work?" could be passed by a page
+a **person** had repaired rather than one the fix had routed. I found it, measured it, and published
+a replacement test which I described as **airtight**.
+
+It was not. The reviewer found two ways to pass it by hand — and one of them is a repair procedure
+**I wrote myself**, in the same file, in this week's work.
+
+And here is the part worth your attention: **the measurement that caught the original problem
+contains the very check that fixes it.** When I proved those three records were hand repairs, I
+proved it by looking at whether anything had touched the record since it was created. That is
+exactly the check my replacement test needed. I used it to reach the conclusion and then left it out
+of the remedy, four paragraphs later on the same page.
+
+So the lesson is not "I missed something". It is: **a correction is not exempt from the discipline
+it is enforcing.** I spent the morning writing about checks that give the right answer for the wrong
+reason, and then wrote one.
+
+Both holes are closed now, and I have written down the permanent fix — which is a small code change
+rather than a cleverer query — as a named next job rather than slipping it into an approved change.
+
+### Two smaller ones
+
+The reviewer ran experiments on my brand-new tests that I had not: it deliberately broke the code in
+ways my tests should have caught, and **two of them slipped through**. One matters — my own change
+today removed a safety check, leaving a single remaining safeguard that nothing was testing. Both are
+now tested, and I confirmed the tests fail when the code is wrong.
+
+And a "zero" I reported as proof was bounded by something I did not mention: three of the twenty-six
+records I checked predate the very error-reporting that would have shown the problem, so for those
+three, a silent failure and a success look identical. My conclusion still holds for the other
+twenty-three and for a separate reason I gave, but I presented the count as the thing that settled
+it, and it did not settle all of it.
+
+### Where this leaves us
+
+**No worse than this morning, and better instrumented.** The code change is unaffected — the
+reviewer checked it line by line against the previous version and found it exact. What was wrong was
+the *measuring*, twice over, and both are fixed. The bug is still open for the same reason as before:
+nobody has watched it work on a real page, and no new site has been built since it went live.
+
+I would rather report a review that found four things than one that found none.
