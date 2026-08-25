@@ -3192,3 +3192,43 @@ So a carousel today would be six text cards that scroll — motion applied to a 
 the opposite of what was asked for ("more **decorative and functional** carousels rather than
 just lists of cards"). **The carousel is worth having once there are card images worth
 carouselling**, which is A3. Sequencing it after A3 rather than before.
+
+### A3 groundwork — and a CORRECTION to the imagery figure I have been repeating
+
+> **CORRECTED 2026-08-25.** I have written "**29 of 36 live pages carry one image or none**"
+> into the plan, these notes, `README_where_we_are` and the 08-18 summary. **It is wrong, and
+> wrong in a way that changes the work.** The measurement was `grep -c '<img'`, which cannot
+> see a hero delivered as a CSS `background-image` — and on this site every hero is exactly
+> that. Re-measured over all 36 live pages, counting both `<img>` and
+> `url('/assets/images/…')` `[MEASURED 2026-08-25]`:
+>
+> | | |
+> |---|---|
+> | pages with **no image at all** | **0** |
+> | pages showing the **same** `hero.jpg` | **21** |
+> | pages with a distinct hero | 4 (`home`, `who-we-help`, `use-cases`, `how-we-work`) |
+> | **distinct images used site-wide** | **6** |
+>
+> So the problem is **sameness, not absence**: twenty-one pages open with the identical
+> photograph. That is a design weakness, not a broken page — the *mediocre* class, not the
+> *broken* class, which is the distinction the design critic in Part B is built around. It
+> also means no page is currently unillustrated, so nothing here is urgent.
+
+**What the 19 `image_source_unsatisfiable` items actually mean, then.** They fire because no
+`site_assets.hero` **asset row** backs the field — not because the rendered page lacks an
+image. The page falls back to `hero.jpg` and serves 200. So the queue is real but its
+severity is lower than its name suggests: it marks pages that are *sharing* rather than
+*missing*.
+
+**The archetypes are already in the data — I do not need to invent them.** The 17
+hero-wanting pages split by the platform's own `page_type`: **12 `content`** (ai-readiness-quiz,
+careers, engagement-model, faq, how-it-works, index, insights, privacy, technical-architecture,
+terms, + 2 archived) and **5 `blog-post`** (the four guides and the orchestration explainer).
+
+**And the naming convention is established and working.** Four pages already have per-page
+heroes and they follow one shape: asset_key `hero_<page>` → `/assets/images/hero-<page>.jpg`,
+all serving 200. So new heroes follow the same pattern; nothing new needs designing.
+
+**One pre-existing defect noticed in passing, not repaired:** `hero_case_studies` still holds
+a **presigned S3 URL** in `assets.url` (`bugs_open/152`'s recurrence, which this lane already
+contributed on 2026-08-16).
