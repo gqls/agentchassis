@@ -15,9 +15,9 @@ The outage is induced IN THE BROWSER (Playwright route.abort on POST /api/notes)
 platform runner cannot do (it cannot induce a failing dependency); the local
 suite proves the contract exhaustively against a stub, this proves the wiring.
 
-Accounts: one throwaway per run (noted-smoke-<epoch>@example.invalid). The engine
-has no account-deletion endpoint, so the account remains; the address is
-unroutable by design (.invalid) and holds one test note.
+Accounts: one throwaway per run (noted-smoke-<epoch>@example.invalid) — and
+since 2026-08-25 the run DELETES it at the end through the real Account panel,
+which both live-tests deletion and stops the throwaways accumulating.
 
 Run:  /home/ant/.venvs/vonc_pw/bin/python smoke_live_editor.py [base_url]
 Default base_url: https://app.noted.co.uk    (pass the apex at cutover — §6:
@@ -125,6 +125,21 @@ def main():
         page2.wait_for_function(
             "() => document.querySelectorAll('#nw-media img').length === 0", timeout=15000)
         check("second session: removed via live DELETE", True)
+
+        # self-cleanup, through the real mechanism: delete the throwaway account
+        page2.click("#nw-account")
+        page2.wait_for_selector("#nw-account-panel:not([hidden])", timeout=5000)
+        page2.fill("#nw-del-password", PASSWORD)
+        page2.once("dialog", lambda d: d.accept())
+        page2.click("#nw-del-confirm")
+        page2.wait_for_selector("#nw-auth:not([hidden])", timeout=20000)
+        check("account deleted through the live panel", page2.locator("#nw-goodbye").is_visible())
+        page2.fill("#nw-email", EMAIL)
+        page2.fill("#nw-password", PASSWORD)
+        page2.click("#nw-signin")
+        page2.wait_for_selector("#nw-auth-error:not([hidden])", timeout=15000)
+        check("the deleted account can no longer sign in",
+              "do not match" in page2.locator("#nw-auth-error").inner_text())
         ctx2.close()
         browser.close()
 
