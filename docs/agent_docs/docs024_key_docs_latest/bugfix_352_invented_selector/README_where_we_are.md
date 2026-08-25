@@ -226,3 +226,46 @@ down rather than filing it, because it deserves a proper look at whether someone
 **Where things stand.** The half of this bug we set out to fix is fixed, live, and proven on a real
 page. The other half — a correct rule that still loses because of the order the stylesheets load in
 — is untouched and still biting, which is why the bug file stays open.
+
+---
+
+## 2026-08-25, morning — a day later it still holds, and two of my own numbers were wrong again
+
+**The new build carries the fix.** Everything rolled again overnight and once more this morning, and
+all three services now report the same source version, which includes our change. That was checked
+rather than assumed, with a deliberate second test that had to come out the other way — and did.
+
+**A day of real traffic has not shaken it.** Fifteen faults have been filed since the fix went live,
+across more than one re-check run. Not one of them names an impossible address. Every one carries
+the stamp saying the address was checked inside the page, and every one records how many things it
+matched. Yesterday that was ten out of ten; today it is fifteen out of fifteen.
+
+**Two corrections, both mine, and both the same mistake wearing different clothes.**
+
+The first: I told you the re-check job "fails more often than it succeeds — eleven of twenty runs
+over the past week". Eleven of twenty is right. **"Over the past week" is not** — the table those
+runs are recorded in only keeps about a day, so the week I asked for silently became a day. Nothing
+downstream is wrong, but I can never show you that number again, because the records behind it have
+already been thrown away.
+
+The second: I told you the seventy-three withdrawn faults would come back "within a fortnight". That
+came from looking at when each site last *reported* a fault, which only happens when a check
+actually finds one — a lossy stand-in for how often the site is checked at all. The real schedule is
+**every three days**. So the promise becomes testable on **the twenty-eighth**, not the seventh of
+September.
+
+Both errors are the same shape and it is now a pattern rather than an accident: **the number was
+right and the group of things it counted was wrong.** Four times in two days. Three were caught by
+the other team re-running my query; this one only because the table refused to hold still overnight.
+I have written it up where the next person will meet it.
+
+**One thing that looked like a fault and is not.** The re-check job did not run for thirteen hours
+overnight. It works through the sites one an hour and then waits three days before coming back to
+any of them, so it had simply finished the round — twenty-eight sites, none currently due, the next
+one this afternoon. Worth knowing because the job's own status line looks exactly the same whether
+it is working or idle: it records that it ran on the hour either way.
+
+**Where that leaves us.** The half of this bug we set out to fix is fixed, live, proven on a real
+page, and has now survived a day of ordinary traffic. The other half — a correct instruction that
+still loses because of the order the stylesheets load in — is untouched, and it is the only reason
+this bug is still open.

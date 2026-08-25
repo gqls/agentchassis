@@ -80,9 +80,19 @@ person will meet it, because a wrongly-dated figure is more dangerous than an un
 advertises a confidence it has not got.
 
 **And a fault that is not ours.** The job that re-checks sites **fails more often than it
-succeeds** — eleven of twenty runs over the past week timed out after three minutes, and that was
+succeeds** — eleven of twenty runs ~~over the past week~~ timed out after three minutes, and that was
 true before we changed anything. It matters here because that job is what will find the withdrawn
 seventy-three again.
+
+> **CORRECTED 2026-08-25.** Two things in the paragraph above are wrong, and the summary is left
+> standing with the correction beneath it rather than rewritten. (1) It was eleven of twenty **in a
+> single day**, not over a week — the table those runs live in only keeps about twenty-four hours, so
+> the week-long window I asked for quietly became a one-day one. The failure rate itself is real.
+> (2) The re-check job then went thirteen hours without running at all, which looked alarming and is
+> not: it works through the sites one an hour and waits three days before returning to any of them,
+> so it had simply finished the round. That also means the seventy-three withdrawn faults should
+> come back **within days rather than a fortnight** — all thirteen sites are due to be re-checked by
+> the twenty-seventh.
 
 ## Where we are going
 
