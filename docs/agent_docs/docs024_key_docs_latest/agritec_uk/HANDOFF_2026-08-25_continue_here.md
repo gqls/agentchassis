@@ -80,13 +80,23 @@ Must return 0.
 **Then:** the 17 generated images were made against the *dark* imagery guide and will look wrong
 on a light site. They need regenerating once the CSS lands.
 
-### The seam map, so nobody re-walks it
+### The seam map — FIVE seams, and four of them report success while changing nothing
 
-| want | seam | notes |
+This is the most useful thing in this file. Getting a palette onto a live page touches five
+distinct mechanisms, and **only one of them ever refuses**.
+
+| want | seam | reality |
 |---|---|---|
-| regenerate site CSS | `needs_design` → `webdesign-agent` | reads the THEME's palette, not just the spec — useless while the theme is stale |
-| replace the site's theme/composition | `needs_composition` → `site-design-planner` | **the only owner of installation**; needs `allow_reinstall: true` in the spec if a collection already exists |
-| contribute a theme to the library | `fork_theme` | **NOT this** — its header says the site's `style_collection_id` is not modified |
+| regenerate CSS into the theme | `needs_design` → `webdesign-agent` | reads the **THEME's** palette, not just the spec — useless while the theme is stale. **And it never writes the chrome at all.** Completed 3× changing nothing |
+| replace the site's theme / composition | `needs_composition` → `site-design-planner` | **the only owner of installation**. Needs `allow_reinstall: true` if a collection already exists — **the one seam that refuses, and it names its own remedy** |
+| contribute a theme to the library | `fork_theme` | **NOT this.** Its header: the site's `style_collection_id` is *not* modified |
+| write the chrome (head/header/footer) | **`rerender-chrome`**, dispatched directly by Kafka message — no work item type routes to it | `render_site_components` is the only writer of `site_components` |
+| get it onto the served page | `page_rerender` per page | stored components can be clean while the deployed file is stale |
+
+**The lesson worth carrying past this site:** four of the five completed successfully while
+changing nothing that mattered. A silent success cost three wrong seams; the single explicit
+refusal was solved in thirty seconds. When a chain of agents all report success and the artefact
+does not move, stop trusting statuses and diff the artefacts at each hop.
 
 ## 4. Other open items, in priority order
 
