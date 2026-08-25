@@ -93,7 +93,47 @@ type EvidenceFact struct {
 	// See claims_series.go — every observation carries its OWN source and is
 	// never allowed to inherit this fact's.
 	Observations []Observation `json:"observations,omitempty"`
+	// RetainHistory opts this fact into remembering its superseded readings, and
+	// governs BOTH halves of the mechanism: the refresh only records history for
+	// an armed fact, and numberSupported only consults it for one. Default false,
+	// because the unsafe side — widening what the scan accepts — must be the side
+	// a human turns on per fact (bugs_open/386; the 2026-08-02 ruling on new
+	// authority on a shared seam). A History array with this flag absent is inert
+	// by design: seeding one must not widen support on its own.
+	RetainHistory bool `json:"retain_history,omitempty"`
+	// History carries this fact's superseded readings — the values the register
+	// actually held, each with the date it was last verified at. It is NOT a
+	// series (see claims_series.go): a series is one assertion measured
+	// repeatedly and is the page's subject, whereas this is the same single
+	// assertion's own past, kept so a page rendered while a value was current
+	// is not convicted of inventing it. Deliberately a distinct field, because
+	// IsSeries() keys on len(Observations) and reusing that slot would silently
+	// turn every armed fact into a series.
+	History []FactHistoryEntry `json:"history,omitempty"`
 }
+
+// FactHistoryEntry is one superseded reading of a fact.
+//
+// It carries no Source of its own, unlike Observation. That is not an oversight
+// and it is the reason this type is separate: an observation is evidence a human
+// or a query asserted about a point in time, and must prove itself. A history
+// entry is a record of what THIS platform's register previously held — its
+// provenance is the parent fact's source plus the date, and inventing a
+// per-entry source would imply an independent attestation nobody made.
+type FactHistoryEntry struct {
+	Value      float64 `json:"value"`
+	VerifiedAt string  `json:"verified_at"`
+}
+
+// FactHistoryMaxEntries caps a fact's retained history.
+//
+// A cap is required rather than tidy: every retained reading is a number the
+// scan will accept near this fact's context terms, so an unbounded history
+// converts a precise check into a wide one over time. 90 entries is about three
+// months at the daily refresh cadence measured 2026-08-25 — long enough to cover
+// any page still carrying a stale render, short enough that the accepted set
+// stays small and reviewable.
+const FactHistoryMaxEntries = 90
 
 // ============================================================================
 // Fact kinds (bugs_open/105)
@@ -685,8 +725,26 @@ var numberCandidateRe = regexp.MustCompile(`\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\
 // components contain "orchestrations" at all (11 components, all
 // ai-agent-orchestration.com [MEASURED 2026-08-24]) and adding the plural changes
 // the finding count by ZERO — the values there are already supported by that
-// site's registered `aao-orchestrations` gte fact. So this closes a silent blind
-// spot at no measured cost.
+// site's registered `aao-orchestrations` gte fact.
+//
+// ⚠ "AT NO MEASURED COST" IS WHAT THIS ORIGINALLY SAID, AND IT WAS TRUE ONLY OF
+// THE DAY IT WAS MEASURED. That fact is a ROLLING-WINDOW count, not a total: 35
+// recorded snapshots range **1,494 to 7,281**, it has FALLEN 17 times across 34
+// transitions, and it was **below 1,600 on 3 of the 35** (`bugs_open/386`'s
+// census, 2026-08-25). The live copy it vouches for reads *"We run over 1,600
+// orchestrations a day"*. Demonstrated by replaying the site's own historic low
+// through this scan: identical copy scores **0 findings at 7,281 and a
+// finding at 1,494** — at `error` severity, which refuses the page build.
+//
+// So the honest statement is: the plural fix costs nothing *while the counter is
+// high*, and on a low day it surfaces claims that were always unsupported and
+// merely un-scanned. Fleet-shaped: 4 such findings appear on that site at the
+// historic low, 3 of them on the tracker pages Phase 2 newly scans. That is the
+// `bugs_open/386` mechanism (a moving fact silently re-judging frozen copy) and
+// the fix belongs there, not here — 386's exact-match-against-retained-former-
+// values would keep vouching for 1,600 because 7,281 IS a value the register
+// held. Recorded rather than papered over: a `[MEASURED]` claim about a moving
+// value expires, and this one did.
 //
 // ⚠ That fact's VALUE is deliberately not quoted here any more. It read 4068 when
 // this was written on 2026-08-24 and 7281 the next day — it is a live `count(*)`
@@ -1197,6 +1255,44 @@ func (eb *EvidenceBase) numberSupported(val float64, window string) bool {
 			if math.Abs(val-*f.Value) < 1e-6 {
 				return true
 			}
+		}
+		// The fact's CURRENT value did not support this number. A value the
+		// register PREVIOUSLY held does, if this fact is armed: a page rendered
+		// while that reading was current published a true figure, and the
+		// register moving underneath it afterwards is not the page inventing
+		// anything (bugs_open/386). Deliberately INSIDE the context-term gate
+		// above and exact-only — a former reading is one specific number this
+		// fact actually held, never a range, so unlike a tolerance it cannot
+		// vouch for a number the register never carried.
+		if f.historySupports(val) {
+			return true
+		}
+	}
+	return false
+}
+
+// historySupports reports whether one of this fact's superseded readings is
+// exactly the published number.
+//
+// Ordering is not relied upon for correctness — every retained entry is equally
+// valid evidence of what the register once held — but the writer appends, so the
+// newest are last, and that is the half the cap keeps.
+func (f *EvidenceFact) historySupports(val float64) bool {
+	if f == nil || !f.RetainHistory || len(f.History) == 0 {
+		return false
+	}
+	// The cap is enforced at the READER as well as at the writer that trims.
+	// It bounds what the scan will ACCEPT, so a fact whose stored history has
+	// grown past it — by a hand seed, a migration backfill, or any writer that
+	// forgot to trim — must not be allowed to accept more than an armed fact is
+	// permitted to. A guard that lives only in the writer is not a bound.
+	h := f.History
+	if len(h) > FactHistoryMaxEntries {
+		h = h[len(h)-FactHistoryMaxEntries:]
+	}
+	for i := range h {
+		if math.Abs(val-h[i].Value) < 1e-6 {
+			return true
 		}
 	}
 	return false
