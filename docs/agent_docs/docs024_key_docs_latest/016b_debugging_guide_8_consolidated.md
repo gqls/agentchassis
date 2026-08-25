@@ -14218,10 +14218,29 @@ done, truthfully reported — and nothing on that path reads the test. So "the h
 ⚠ **It is NOT the zero-change case** (`bugs_open/213`, WII-017's `noChangeGates`): that gate refuses a
 handler reporting it changed NOTHING and is correct not to fire here, because this handler changed
 something real. The two are complements — "did nothing" versus "did something else" — and looking for
-one will not find the other. ⚠ **And the verifier seam cannot answer it:** `verifyBeforeComplete`'s
+one will not find the other. ~~⚠ **And the verifier seam cannot answer it:** `verifyBeforeComplete`'s
 `VerifyTarget` carries the SPEC, not the RESULT (the report is marshalled into
 `site_work_items.result` only AFTER the gates run), so a verifier grades the row's PREVIOUS value
-while appearing to work.
+while appearing to work.~~
+> **⚠ CORRECTED 2026-08-25 by the lane that wrote it, while BUILDING the consumer — and the
+> correction matters because the struck sentence would send the next reader down the wrong branch.**
+> That is `bugs_open/213`'s argument, and it is about **gate 1b**, which needs the handler's REPLY
+> and genuinely cannot get it from a verifier. **It does not transfer to this pattern.** Grading an
+> item's own criterion needs the SPEC (where the criterion lives) and the CURRENT artefact — and a
+> verifier has both: `VerifyTarget` carries the spec, and verifiers are handed a `*sql.DB`. Nothing
+> about the spec/result split rules a verifier out here.
+> **What actually rules it out is different and worth knowing:** `GetVerifier` is ONE verifier per
+> `item_type`, a scarce shared slot, and the type in question (`content_rewrite`) is filed into by
+> many producers — so a check that speaks only for items carrying a predicate would either grade
+> rows it has nothing to say about or have to disclaim itself back out. The completion GATES, by
+> contrast, compose. What caught it: writing the gate and noticing that every argument for its
+> placement was borrowed from a gate that answers a different question. Shipped as gate 1c
+> (register **WII-033**, `complete_work_item_acceptance_predicate.go`).
+> **⚠ AND THE TRAP THAT NEARLY MADE THE CONSUMER USELESS**, because "evaluate the stored predicate"
+> sounds like one call and is not: a STORED predicate carries emission-provenance keys the evaluator's
+> closed key set REFUSES, so feeding it back verbatim returns `inapplicable` for **every live
+> predicate** — a legitimate-looking verdict whose message names a key, reading as a fault in the
+> model's output. `LANDMINES.md` has the check.
 **The check, and it only became possible once a producer emitted something checkable:** take the
 item's own criterion, express the mechanically-checkable NECESSARY half of it, and evaluate that
 against the SERVED artefact — not against the status, and not against the stored row the handler
