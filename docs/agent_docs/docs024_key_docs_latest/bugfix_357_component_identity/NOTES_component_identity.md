@@ -961,3 +961,30 @@ it would mint has still never been demonstrated in production.
   `site_work_items`) is what survives. My log monitor was watching `-l app=agent-chassis`,
   which is the WRONG pod set for spawned agents, and its silence meant nothing until I ran a
   control that must have matched and got 0.
+
+### Two same-file passengers in one commit, in both directions — neither lost anything
+
+The commit-scope report on `b0cf6e501` flagged `shared-ledger-not-appended`: **1 line removed
+from `LANDMINES.md`**, a fleet-wide append-only ledger. I only ever appended, so this was
+worth chasing rather than waving through.
+
+**It was the `bugs_open/386` lane's in-place correction, riding in my commit.** They replaced
+one line about hand-written claim floors with a three-part dated correction block (a/b/c,
+re-attributing which facts sit inside their floors). That is the prescribed way to correct an
+append-only ledger, their content is at HEAD intact, and **nothing was lost** — my pathspec
+commit simply took the file as the working tree held it.
+
+**And the reverse happened the same hour:** my `WRONG_CALLS.md` entry was committed by
+*another* session, in `1bdcc929a` ("WRONG_CALLS: I predicted 17 failures from a page ROLE…"),
+under their message. Also fine, also nothing lost.
+
+Both are the documented shared-tree behaviour — a pathspec commit protects you from another
+session's *staged index*, never from a *same-file* edit in the working tree.
+
+⚠ **And chasing it walked me into `HEAD~1`.** My first three attempts to read the removal
+diffed `HEAD~1..HEAD` — and between my commit and my investigation another session committed
+`e273fcb2f`, so `HEAD~1` had become THEIR commit and the diff came back **empty**. An empty
+diff reads exactly like "there was no removal after all", which is the comfortable answer and
+was false. Pin the sha: `git diff b0cf6e501^ b0cf6e501 -- <file>`. This is
+[[relative-git-refs-are-not-evidence]] firing in the ten minutes after a commit, on a tree
+where HEAD moves every few minutes.
