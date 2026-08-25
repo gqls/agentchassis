@@ -99,6 +99,24 @@ sessions holding uncommitted edits to one file at once, since a pathspec commit 
 same-file passenger. **This lane holds no uncommitted edits to that file as of this
 handoff, so the window is open now.**
 
+**UPDATE, same day — DONE, and reviewed.** They committed `c17a18620` (`writer_block_guidance`
+in `composeWriterBlock` + `plan_sections_action.go` + a test, register CLM-029, council corr
+`0de22385`). Re-read by this lane rather than taken on trust, because a whole-fleet release is
+pending on this HEAD:
+
+- **one additive hunk** at `composeWriterBlock` (+19, no deletions), disjoint from every path
+  this lane touches. No same-file passenger either way. Their register edits are additive and
+  this lane's CLM-022 correction is intact beside their CLM-029.
+- **`scripts/verify-head-builds.sh ./platform/orchestration/...` → OK.** That check was owed by
+  *this* lane, not theirs: `pinned_sweep` resolves `REF=HEAD` once for the whole release, so the
+  release this lane asked for ships their commit too.
+- `bba8a892d`, `6ad4a8046` and `c17a18620` are all ancestors of HEAD.
+
+⚠ **So v1.0.1338 will carry several lanes' commits under one tag — `bugs_open/249`'s straddling
+case. Probe per SERVICE, not per fleet.** Their discriminator (`numeric stand-in placeholder`)
+and this lane's three are independent and will settle on the same roll.
+
+
 ## 6. Landmines this lane earned today (both filed, both dispatched to the verifier)
 
 - **A lane's fence installer REBUILDS the `doc_plans` body from its source files**, so a
