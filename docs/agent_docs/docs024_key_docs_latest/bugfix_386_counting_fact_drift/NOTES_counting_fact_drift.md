@@ -431,9 +431,23 @@ rather than accepting either version, and it is stronger than both.
 
 `[MEASURED 2026-08-25]` A `council-gate` `review_*` step's config carries exactly seven keys:
 `ai_service`, `error_step`, `input_fields`, `output_format`, `prompt_template`, `temperature`,
-`tolerate_truncation`. **There is no SQL key, no tool key, no query key.** And the only
-`query_database` steps in the entire workflow are `compose_verdict` and `compose_verdict_checked`,
-which run *after* the reviews to assemble the result. Nothing fetches data for a seat.
+`tolerate_truncation`. **There is no SQL key, no tool key, no query key.** No review step has any
+query capability at all — probed directly: `s.step->'config' ?| array['sql','query','tools','tool',
+'db','database','queries']` over every `review_*` step returns **0**.
+
+> **CORRECTED 2026-08-25, within the hour.** I wrote that "the only `query_database` steps in the
+> entire workflow are `compose_verdict` and `compose_verdict_checked`". **There are THREE** — I
+> missed `load_schema_hint`. Caught by the 364 lane enumerating them itself instead of taking my
+> word. **The conclusion is unchanged and is now better supported**: `load_schema_hint` injects a
+> schema *description as text* into the prompt, which is precisely why `editquality` wrote "SQL
+> checks against the given schema can't reach…" — reasoning about what a query would show, never
+> reporting one it ran. But the evidence I gave for it was false.
+> **The cause: I truncated my own output and then made a completeness claim on it.** I listed the
+> non-review steps with `| head -20`, and `load_schema_hint` sorts after the twenty `gate_*` rows.
+> A `head`/`tail` silently converts an ENUMERATION into a SAMPLE, and "the only X" built on a sample
+> is false with no tell — the row you need is exactly the one past the cut. If a claim contains the
+> word *only*, *every*, *no* or *none*, the command behind it must not contain a `head` or `tail`;
+> use `count(*) OVER ()` (or `wc -l`) so the total is in the output and disagrees with you.
 
 **So a review seat executes nothing whatsoever** — no SQL, not even read-only; no Go; no tests; no
 build. The "given schema" the seats referred to is text in a prompt template, not a query capability.

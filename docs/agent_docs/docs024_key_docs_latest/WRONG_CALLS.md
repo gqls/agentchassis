@@ -52171,3 +52171,31 @@ reintroduces the exact hazard**, not a nearby one: the mutation I would naturall
 **Sources:** commit `24b63120d`; `web_admin_console/NOTES_web_admin_console.md` 2026-08-25;
 the fix is `if len(f.gotTokens) != 0` in `TestGetRendersTheButtonAndConfirmsNothing`, and the
 comment above it records why the exception to the file's rule is not a lapse.
+
+### 2026-08-25, addendum from the `bugs_open/386` lane — twice in one session I piped away the evidence, and the second time I built a completeness claim on the remainder
+
+Two instances, hours apart, same shape: **the output I needed was produced and I discarded it in the
+pipe.**
+
+1. **`git commit … | tail -3`.** The pre-commit hook prints the commit-scope block FIRST and git
+   prints its summary LAST, so a `tail` keeps the summary and cuts the block. I had been piping every
+   commit that way *while recommending to another lane that they read that block*. A hook told me;
+   nothing else would have.
+2. **`… | head -20`, then the word "only".** Enumerating a workflow's steps to prove a review seat
+   has no query capability, I listed them with `head -20` and wrote *"the only `query_database` steps
+   in the entire workflow are `compose_verdict` and `compose_verdict_checked`"*. There are three.
+   `load_schema_hint` sorts after twenty `gate_*` rows — one line past my cut. Caught by the other
+   lane enumerating them itself rather than taking my word.
+
+**The generalisable bit is the second.** A `head`/`tail` silently converts an **enumeration** into a
+**sample**. Everything on screen is true; the claim built on it is false; and there is no tell,
+because the row that would refute you is exactly the one past the cut. It is worse than a wrong
+query, which at least tends to look wrong.
+
+**The cheap check.** If a sentence contains *only*, *every*, *no*, *none*, *all* or *the sole*, the
+command behind it must not contain `head` or `tail`. Put the total in the output so it can disagree
+with you — `count(*) OVER ()` in SQL, `wc -l` on a listing — and read the total, not the rows.
+
+**And the thing I keep relearning:** the conclusion survived both times, which is exactly why neither
+was self-correcting. A false premise supporting a true conclusion produces no symptom at all, and the
+only reason both were caught is that someone else re-ran them.
