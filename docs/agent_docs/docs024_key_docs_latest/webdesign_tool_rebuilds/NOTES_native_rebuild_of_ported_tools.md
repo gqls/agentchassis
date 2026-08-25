@@ -3036,3 +3036,20 @@ phrasing ("cannot reach…") — assembly STRIPS the tool-doc block, so it score
 the runtime string differs. **Pin literals from the CODE arm, never the tool-doc.** Tombstone
 re-read: removed ✓. Orphan #8 (corr 1c74cc97-a402-44d3-980d-865e9308d1b7).
 **Phase C remainder: 4 — csp-builder, fluid-typography, vibe-equalizer(2), micro-cms(4).**
+
+## 2026-08-25 ~10:15Z — COMMITMENT DISCHARGED: the demand proof ran and PASSED. Do not re-run it.
+
+The 2026-08-24 standing commitment is CLOSED. [31e6fe] filed item `173099d9` (tool-smart-contrast,
+real Phase C next-in-queue) deliberately keyless; the picker RAN (`llm_call_log`
+`suggest_related_pages` 09:50:53Z, in the claim window) and produced exactly TWO `tool_crosslink`
+items with **`related_pages_source='suggested'`** (`learn-accessibility-focus-states`,
+`learn-design-oklch-colors` — topically correct); neither failure tell fired; the build was
+unharmed (adopted, retired in-turn, serve PASS — **35/63**). Result relayed to the 353 lane
+([a0c24e]); their evidence trail is [31e6fe]'s NOTES 10:00Z entry, commit `8520ac554`.
+**From the next filing onward, the recipe's normal rule resumes: fill `related_pages` in by hand
+(filer always wins) — the keyless form was a one-time control, not a new normal.**
+
+**Verify-step lesson ([31e6fe]'s find, SECOND instance of the class):** assembly STRIPS the tool-doc
+comment block, so a serve-grade positive pinned from tool-doc phrasing scores 0 on a CORRECT page
+(grid's "fr-explainer" was the first instance). **Pin positives from the CODE arm's literals, never
+the doc block.**
