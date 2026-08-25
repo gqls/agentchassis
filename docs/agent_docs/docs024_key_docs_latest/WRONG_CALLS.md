@@ -51922,3 +51922,32 @@ default), the second-order trap where an ungated promise-checker prints a screen
 findings about a stub, what stays readable while a domain is parked, and the shared instrument that
 now implements the control — is merged into the 2026-08-23 entry, which keeps the account in one
 place and credits both lanes.
+
+**14. I swept a peer's in-flight mechanism into a commit about a landmine — after being warned, in
+writing, that we were both in that file.** Commit `6548e8d79`'s message is about a rolling-window
+evidence fact. It also carries the whole of `bugs_open/386`'s fact-history mechanism —
+`RetainHistory`, `History []FactHistoryEntry`, the `FactHistoryEntry` struct,
+`FactHistoryMaxEntries`, and the `historySupports` arm inside `numberSupported`. **98 lines added to
+`claims.go`** where I believed I was adding about twenty lines of comment.
+
+**The pathspec did not protect me and could not**: I NAMED `claims.go`, and a pathspec commit takes
+that file from the working tree entire. This is the same-file passenger CLAUDE.md documents — *"no
+hook can prevent that"*. What makes it mine rather than bad luck is that **the 386 lane had messaged
+me hours earlier**: *"we are both in claims.go, and a same-file passenger is the one thing a pathspec
+commit cannot exclude"*. I agreed in my reply and then committed the path without looking at it.
+
+**The check was in my SessionStart context from the first minute and I did not use it.** A landmine I
+was shown at startup says, of a different case: *"gate on the COUNT, which no content can fool —
+`git diff --numstat <file>` prints `added deleted path` and is trivially assertable"*. One command
+before committing would have printed `98 2 claims.go` against my expectation of ~20, and 98 is not a
+number you scroll past.
+
+**Note the check a peer proposed does NOT catch this one**, which is worth stating so nobody relies
+on it alone: comparing the commit-scope block against the paths you named finds a path that went
+MISSING (someone else committed it first). It cannot find a path you named that arrived **fatter than
+you thought**, because the block lists files, not lines. **Missing path → scope block. Fat path →
+`--numstat`.** Two different failures, two different checks.
+
+**Nothing was lost** — forward-only holds, the swept code is intact (each symbol once in HEAD,
+`historySupports` defined at `claims.go:1299`, both packages green fresh with `-count=1`) — but the
+commit is now a lie by omission to anyone bisecting, and the council join is skewed (below).

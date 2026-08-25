@@ -485,6 +485,45 @@ history query.
 shipped code.** "At no measured cost" was true of the day it was measured and of no other. The
 correction is in the `claims.go` comment where the claim was made.
 
+## 6k. ⚠ Commit `6548e8d79` carries `bugs_open/386`'s mechanism, and its message does not say so
+
+Recorded because a bisect or a review of that commit will otherwise be misled, and forward-only
+means it cannot be amended.
+
+**What happened.** `6548e8d79`'s message is about a rolling-window evidence fact and a landmine. It
+also contains the whole of the 386 lane's fact-history mechanism — `RetainHistory`,
+`History []FactHistoryEntry`, the `FactHistoryEntry` struct, `FactHistoryMaxEntries`, and the
+`historySupports` arm in `numberSupported`. **98 lines went into `claims.go` where I believed I was
+adding ~20 lines of comment.** Their tree was dirty in that file while they built and mutation-tested;
+my pathspec named `claims.go`, and a pathspec commit takes the named file from the working tree
+entire. That is the same-file passenger CLAUDE.md documents and no hook can prevent it.
+
+⚠ **The 386 lane reported this against the WRONG COMMIT — `001211abf` — and I have told them.**
+Verified both ways: `001211abf` added **only comment lines** to `claims.go`
+(`git show 001211abf -- <file> | grep '^+' | grep -v '^+\s*//'` is empty), while
+`git log -S 'FactHistoryEntry' -- <file>` names `6548e8d79`. **Their NOTES and CLM-028 carry the
+wrong sha for hand-tracing**, which matters more than the attribution does.
+
+**Nothing is lost.** Verified independently rather than assumed: each symbol appears exactly once in
+HEAD, `historySupports` is defined at `claims.go:1299`, and both packages pass fresh with `-count=1`.
+
+**Consequence for the council join, which is the part worth acting on.** The 386 lane's
+`Council-Submitted: 18dba069-c142-4828-8e59-03453d04f72b` sits on their commit `63d95be1f`, which now
+carries their tests but not the in-scope platform file. **The platform file landed in `6548e8d79`,
+which carries no trailer.** So `098` will list `6548e8d79` as an in-scope commit with no review, while
+the review that actually covers that code is credited to a commit holding no in-scope platform file.
+Nothing dishonest has been written — the trailer asserts a submission, and the submission is real and
+does cover the code — but **if `098` flags `6548e8d79`, the answer is correlation
+`18dba069-c142-4828-8e59-03453d04f72b` for the fact-history half and
+`3ed2b792-dbe6-4301-83ab-5df22f188c1e` for this lane's Phase 2 half.**
+
+**The check that would have caught it, which I had at session start and did not run:**
+`git diff --numstat <file>` before committing — it prints `added deleted path`, and `98 2` against an
+expectation of twenty is not a number anyone scrolls past. ⚠ **The commit-scope block does not catch
+this case**: it lists files, not lines, so it finds a path that went *missing* (someone committed it
+first) and not a path that arrived *fatter than you thought*. Two failures, two checks.
+`WRONG_CALLS.md` 2026-08-25 #14.
+
 ## 6c. Found by this bug's census, filed separately (2026-08-24)
 
 Both were turned up by the fleet claims run for §5a and are **not** this bug's mechanism.
