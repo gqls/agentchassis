@@ -80,10 +80,29 @@ worse than a missing one. **The council accepted this argument explicitly** (rou
 objection that an unregistered verifier changes nothing), so the sequence is the reviewed plan, not
 a session's preference.
 
-**What blocks it, and how to tell when it clears.** Step 1 edits `platform/livespec/livespec.go`,
-which another session has had in-flight all day — **re-checked at end of session: still dirty**
-(`livespec.go` + `livespec_test.go`). A pathspec commit of a shared file takes their half-written
-work as a passenger. **Check before starting:**
+**What blocks it, WHO holds it, and how to tell when it clears.** Step 1 edits
+`platform/livespec/livespec.go`, held by the **`live_object_declaration_drift` lane**
+(`bugs_open/363`, still OPEN) — identified from the diff's own content, since uncommitted work is
+invisible to `who-owns.py`. **Re-checked 2026-08-25 15:34Z: still dirty** (`livespec.go` since
+~10:50Z, `livespec_test.go` since 08-23). A pathspec commit of a shared file takes their
+half-written work as a passenger.
+
+⚠ **Two reasons beyond the passenger rule not to force it.** Their change introduces
+`LiveAuditOnlyDeclarations = 5`, **asserted by `livespec_test`** — appending to a file whose counted
+invariant is mid-flight is how that number goes quietly wrong. And their lane is the *authority* on
+the phase-2 fact this lane used to overturn a council objection, so letting them land first means
+the two accounts agree rather than race.
+
+**A note is already filed in their account** (`bugs_open/363`, CONTRIB 2026-08-25, commit
+`ac7c75c9b`): it states the one-line ask, says we are deliberately not making the edit, and asks
+nothing of them — `375`'s next session adds its own line once the file is free.
+
+⚠ **`go test ./platform/livespec/` FAILS, and it is NOT theirs and NOT yours.**
+`TestNoNewMigrationFileReadersOutsideTheAllowList` fails identically at committed HEAD with no WIP
+overlaid: `work_item_owned_page_door_test.go` (the `bugs_open/333` lane's file) reads a path under
+`sql_for_agents` and is not on the allow-list. A third lane's breakage. Do not debug it.
+
+**Check before starting:**
 ```bash
 git status --porcelain -- platform/livespec/     # empty = clear to proceed
 ```
