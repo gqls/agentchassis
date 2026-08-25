@@ -52637,3 +52637,49 @@ before you route anything at it — one command, and the number-collision landmi
 two cases) makes the slug check part of the same look.** This is the standing class the memory index
 already carries (a closed blocker keeps being obeyed; prior-art search goes stale) — this row is the
 dual: not a deferral pointing at a closed bug, but fresh work routed at one.
+
+---
+
+## 2026-08-25 — I turned 11 into a confident 52 by re-deriving a query instead of re-pasting it, and the missing filter was `<> ''` vs `IS NOT NULL`
+
+**Lane:** `bugs_open/392` (session `bugs_open/387`). **Caught:** by the `bugs_open/333` lane,
+within minutes, because I sent them the number as a warning to relay onward rather than acting on
+it myself. Had I messaged `bugs_open/396` directly — which I nearly did — a wrong figure would
+have landed in a third lane's census.
+
+**Claimed:** that the population of `content_rewrite` rows parked at `deferred` **with a named
+handler** had grown from 11 to **52** in a few hours, and that bug 396's "114 untraceable rows"
+was therefore drifting under an active parker.
+
+**True:** it is still exactly **11**. The extra 41 (`required-fields-missing-handler` ×28,
+`tool-generator` ×13) are the owned-page door's OWN parked rows, which have no handler at all.
+
+**The mechanism, two failures stacked:**
+
+1. **`handler_agent` is cleared to the EMPTY STRING, not to NULL.** My filter was
+   `handler_agent IS NOT NULL`, which is TRUE for `''`. **And my own earlier output had already
+   shown me this**: I ran `coalesce(handler_agent,'(cleared)')` and it printed *blank* rather than
+   `(cleared)`, which is only possible for an empty string. I read the blank as "null" because
+   the word "cleared" had primed me to. I then asserted "all 40 have `handler_agent` null" to
+   another lane, from a query whose output said the opposite.
+2. **The door preserves the PRODUCER's identity (`created_by`) while clearing the handler.** So
+   parked rows surface under the name of whatever filed them and look exactly like named-handler
+   work when grouped that way. **A population defined by an ABSENCE cannot be censused by a field
+   that is still present.**
+
+**The cheap check I skipped:** print the discriminator itself. `SELECT (handler_agent IS NULL),
+(handler_agent = ''), count(*) … GROUP BY 1,2` — one line, and it makes the empty-string case
+impossible to misread. When a population is defined by a field being *gone*, group by the ways it
+can be gone.
+
+**The transferable rule, and it is the sharper half:** *"re-running the same query" has to mean
+re-pasting the same TEXT.* Mine was re-typed from memory of what it measured, and that is exactly
+where the filter went missing. A remembered query is a **new** query wearing the old one's
+authority — and it inherits the old one's number in your head, so a changed result reads as a
+changed world rather than a changed instrument.
+
+⚠ **Note the irony, because it is the pattern:** in the very message carrying this error I warned
+396 that its population might be conflated. I was the one conflating. **Three of my four wrong
+calls today were made while correcting someone else** — that is now a measured tendency and not a
+coincidence: correcting mode supplies confidence and suppresses the check, and it did so four
+times in one afternoon.

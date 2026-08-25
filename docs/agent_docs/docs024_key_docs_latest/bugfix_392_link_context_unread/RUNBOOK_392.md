@@ -141,3 +141,33 @@ non-vacuous): `pool-energy-utilities.internal` about (2) / faq (3); cookly.uk
 Use `scripts/probe-page-url.sh` — it reads the recorded `pages.url` (it structurally cannot
 compose one) and runs both per-domain controls. ⚠ Never compose a URL from `pages.name`: that
 mistake filed bug 387 and has now happened four times.
+
+## 8. Deferred work items: the door's parked rows vs genuinely named-handler rows
+
+⚠ **`handler_agent` is CLEARED TO THE EMPTY STRING, not to NULL.** So `handler_agent IS NOT NULL`
+is TRUE for a door-parked row and silently conflates the two populations. Verified 2026-08-25:
+
+```sql
+SELECT coalesce(created_by,'(null)') AS parker,
+       (handler_agent IS NULL) AS is_null, (handler_agent = '') AS is_empty,
+       (COALESCE(handler_agent,'')<>'') AS truly_named, count(*)
+FROM site_work_items WHERE item_type='content_rewrite' AND status='deferred'
+GROUP BY 1,2,3,4 ORDER BY 5 DESC;
+-- required-fields-missing-handler | f | t | f | 28   <- door-parked
+-- tool-generator                  | f | t | f | 13   <- door-parked
+-- voiceh-rollout                  | f | f | t |  9   <- genuinely named
+-- apis-uk-bees-lane               | f | f | t |  2   <- genuinely named
+```
+
+**The discriminating predicates, use these and nothing else:**
+- genuinely named-handler rows: `COALESCE(handler_agent,'') <> ''`
+- door-parked rows: handler cleared **AND** `error LIKE 'OWNED_PAGE_GUARD%'`
+
+⚠ **The door preserves the PRODUCER's identity while clearing the handler**, so a door-parked row
+still carries its `created_by`. Grouping by `created_by` alone therefore shows parked rows sitting
+under the name of whatever filed them, which reads exactly like a named-handler population.
+**A population defined by an ABSENCE cannot be censused by a field that is still present.**
+
+⚠ **"Re-running the same query" means re-pasting the same TEXT.** Re-deriving it from memory of
+what it measured is how the filter goes missing — that is precisely how this lane turned 11 into
+a confident 52 (`WRONG_CALLS.md` 2026-08-25).
