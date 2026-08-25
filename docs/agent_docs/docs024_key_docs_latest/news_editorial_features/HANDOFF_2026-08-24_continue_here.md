@@ -50,7 +50,10 @@ platform code.**
 seams FIRST — `RenderTemplate`'s final contract (it gained a
 `RenderedTemplateSHA` output; the `2817f6661` AST tests enforce it as the ONE
 executor spelling — the walk must go through it, never a new path),
-`carryStoredSection`, and `deriveRenderMode` (:561/:639 — runs on INSERT and
+`carryStoredSection`, and `deriveRenderMode` (~~:561/:639~~ **line numbers drifted;
+re-read 2026-08-25: defined `store_generated_component_action.go:2024`, called from
+:732 and :822 — the INSERT and UPDATE paths. `carryStoredSection` is
+`rerender_page_sections_action.go:1242`** — runs on INSERT and
 UPDATE, so hand-seeded `composite` reverts). Then: walk in both render paths +
 `deriveRenderMode` third value + `check_render_mode` routing arm + register
 entry, ONE council-gated commit; recompose ONE live insights page; acceptance =
@@ -294,3 +297,36 @@ re-derived. The oufe row is covered by their CONTRIB at
 `docs/agent_docs/docs024_key_docs_latest/oufe/CONTRIB_2026-08-25_from_283_lane_thames_water_evidence_timeseries_never_took_the_scope_conversion.md`
 — **not ours to action**, and that page separately has three `lock_blocked_change` rows
 sitting at `needs_human_review` since 2026-07-29.
+
+### 8.6 P1 seam re-read — done 2026-08-25, three constraints the walk must satisfy
+
+The handoff's §1 says re-read the seams FIRST. Done; here is what they actually say, so
+the next session starts from the constraints rather than re-deriving them.
+
+1. **The walk must call `RenderTemplate`, and must not become a second executor.**
+   `render_seam_one_spelling_test.go` enforces three rules by **AST** (not grep — its own
+   prose contains the symbol names, which is why): exported `RenderTemplate*` symbols must
+   be exactly `[RenderTemplate, RenderTemplateWithMap]`, so **do not name the walk
+   `RenderTemplateComposite`** or anything matching; only `RenderTemplate` may call
+   `executeGoTemplate`; and any new function that builds AND executes a template must be
+   added to `declaredTemplateExecutors` with a justification naming its dialect. A walk that
+   calls `RenderTemplate` per node adds nothing to that map and needs no test change — which
+   is the design 035 D4 already assumes. Note the test carries its own **control** (it fails
+   if the traversal parsed too few functions), so a green result means something.
+2. **`RenderTemplate`'s signature is `(templateStr, ctx, logger) → (html, missing,
+   inURLAttr, err)`** (`component_library.go:1060`). The two reports are not optional
+   sugar: discarding them is how `bugs_open/238` shipped five `<img src="">` to a live
+   homepage. A walk that discards them must write `_, _,` visibly at each node.
+3. **`deriveRenderMode` must check `slots` BEFORE the llm-field loop.** The function
+   (`store_generated_component_action.go:2024`) returns `agent` the moment any field
+   declares `source: "llm"`, else `template`. D3's own worked example declares `slots`
+   **and** a `standfirst` llm field — so with the checks in the other order every composite
+   with an llm field derives as `agent` and never routes to the composition build. Both
+   call sites (:732 INSERT, :822 UPDATE) take the same function, so one edit covers the
+   regeneration-reverts hazard (§6.6).
+
+Plus **§6 hazard 9**, added the same day and new: one `RenderContext` reused across the
+walk forges RFC_046 provenance, because the digest is MUTATED onto the context, not
+returned. Today's code is safe only because every reader renders exactly one template per
+context — the walk is the first thing that would not. Falsifier and rule in 035 §6.9;
+the 357/RFC_046 lane has been told.
