@@ -39,6 +39,48 @@ risk, `kafka-publish-lib.sh` and the migrated trigger, are still out of scope. *
 therefore review the detector, not the publisher.** The seats would see the whole plan, but the
 thing that justifies the spend is the smallest and least dangerous part of it.
 
+### ⚠ You can review the publisher ON DEMAND — the scope gate is not the only door
+
+**Owner question, 2026-08-25: "is there a way we can only call on the publisher if we think we
+need it?" Yes — `FORCE=1`.** It overrides the scope refusal for one submission and nothing else:
+
+```bash
+FORCE=1 ./…/097_TRIGGER_council_review_v1.sh <submission.json>
+```
+
+So the publisher does **not** need permanent scope to be reviewable. It can be brought to the
+council the day there is a reason — say, if a drop is ever observed through it (which is also
+Decision B's trigger). **That is the better shape than widening scope**: a permanent widening
+taxes every future `scripts/` change, while `FORCE=1` costs exactly one round, on the day you
+want it. Decision recorded 2026-08-25: **run without the publisher for now, revisit if the current
+setup proves insufficient.**
+
+### What the scope gate is actually conserving — three different things, and only one is big
+
+Asked directly, so answered precisely rather than by feel.
+
+1. **CREDITS — the primary reason, and the one the gate states.** `council-scope.sh` refuses
+   out-of-scope submissions *client-side*: they "never spend credits". Cost is then
+   **relevance-gated** a second time — two seats always run, and the rest fire only when your
+   edited paths match their footprint, so an admitted submission does not automatically pay for
+   all **17**.
+2. **SIGNAL QUALITY — smaller, but the reason it is a scope rule and not a budget.** `RFC_005`
+   rejected putting prose through the gate partly because it would "dilute the architecture
+   seat's signal for the platform-code case that most needs it". A seat that fires constantly on
+   things it cannot judge becomes a seat people stop reading. **This is about a seat's signal
+   across many runs, not about noise inside one round.**
+3. **TIME — real but minor.** `[MEASURED 2026-08-25]` 56 completed rounds average **9.2 minutes**;
+   dispatch queues behind the fleet, so budget ~30 minutes wall-clock.
+
+**What it is NOT conserving: "too many members arguing".** That was a reasonable guess and the
+mechanism does not work that way — irrelevant seats do not fire at all, so an extra submission
+does not add voices to a debate. The decision rule also weighs objection **severity** (fixed
+2026-07-22), which is what made APPROVED reachable at all (~5% → ~80%). More seats firing means
+more coverage, not more argument.
+
+**So the honest one-line answer: you are mostly saving credits, secondarily protecting a seat's
+signal over time, and barely saving time at all.**
+
 ### What I would say
 
 **No recommendation — this one is genuinely balanced**, and I would rather say so than manufacture
@@ -69,6 +111,8 @@ correlation_id='<corr>' AND kind='council_report' ORDER BY created_at;`
 ---
 
 ## Decision B — build the in-cluster Go submit path?
+
+> **DECIDED 2026-08-25: wait**, on the trigger below. Recorded so nobody re-opens it without one.
 
 ### What the thing is
 
