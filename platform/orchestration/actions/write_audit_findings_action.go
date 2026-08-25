@@ -43,6 +43,123 @@ var WriteAuditFindingsInputSpec = datahelpers.ActionInputSpec{
 	Required:    []string{"site_id", "audit_source"},
 	Optional:    []string{"findings_field"},
 	Deprecated:  map[string]string{},
+	// filing_mode is a SETTING, not a data reference, so it lives in ConfigKeys
+	// (the conditional_branch precedent) and does not move this action's
+	// optional-key budget (RFC_022 counts len(Optional) only). Declaring it opts
+	// the action into unknown-config-key detection; every live step carries
+	// exactly site_id / audit_source / findings_field [MEASURED 2026-08-25, 5 live
+	// steps], so nothing is newly reported by that.
+	ConfigKeys: []string{"filing_mode"},
+	ConditionalKeys: map[string]string{
+		"filing_mode": "\"record\" files every routable finding as a VERDICT row (status 'deferred', handler_agent '', routing preserved in spec.routed_handler) that no promoter can dispatch; absent or \"dispatch\" is the historical behaviour",
+	},
+}
+
+// ============================================================================
+// filing_mode — record a verdict without dispatching a repair (RFC_056)
+// ============================================================================
+//
+// WHAT IT IS. An opt-in step setting. Absent (or "dispatch"), this action
+// behaves exactly as it always has: a finding becomes a 'detected' work item
+// naming the handler that will regenerate the page. "record" files the SAME
+// row — same item_type, same dedup key, same spec — but parked: status
+// 'deferred', handler_agent '', with the handler it WOULD have been routed to
+// kept in spec.routed_handler. Both promoters refuse such a row by construction
+// (detected-item-promoter: COALESCE(handler_agent,'') <> ''; triage_detected_items:
+// workItemRoutableSQL), so nothing can dispatch it until a human or a later
+// migration releases it with the recipe in spec.release_recipe.
+//
+// WHY IT EXISTS (owner, 2026-08-25). The LLM audit seats of the improvement
+// loop — visual-design, content-quality, strategic review, offer analysis,
+// brief fidelity — file findings that are OPINIONS about pages that already
+// work ("aspirational improvements"), and this router turns them into
+// content_rewrite / needs_content_page / needs_content_planning items whose
+// handlers REGENERATE the page. [MEASURED 2026-08-25, live+archive] design-audit
+// alone filed 976 content_rewrite, 399 needs_content_page and 964
+// needs_content_planning over its life, and bugs_open/238 records what one such
+// rewrite did to a page that was fine (five <img src=""> on a live homepage,
+// asked for by nobody). The owner's ruling: keep the seats — they are the site
+// acceptance council — but stop the rewrites. IMP-006 (register) is the same
+// remedy proposed four times since March and never built; this is its first
+// shipped piece, as a filing mode rather than a per-site approval column.
+//
+// WHY 'deferred' + '' AND NOT 'detected'. IMP-054 believed 'detected' was a
+// safe parking status ("a lone discovery run files findings nothing can ever
+// see"). That stopped being true on 2026-08-15: detected-item-promoter promotes
+// any 'detected' row whose (item_type, handler) pair has ever completed, every
+// 15 minutes, whether or not the improvement sweep is on. [MEASURED 2026-08-25]
+// 26 LLM-audit rows were promoted between 2026-08-20 and 2026-08-24 while the
+// sweep was disabled. 'detected' is a queue, not a shelf. 'deferred' + empty
+// handler is the estate's one parking convention nothing promotes
+// (capability_gap, bugs_closed/077; remit.go), and bugs_open/396 is exactly the
+// warning against the other shape — 'deferred' WITH a named handler, no
+// provenance — which is why the routing moves into spec rather than staying in
+// the column.
+//
+// WHAT IT DOES NOT DO. It does not change what the seat OBSERVES or how it is
+// classified; it does not touch findings the router already parks
+// (capability_gap rows are 'deferred' + '' already and pass through unchanged);
+// and it does not release anything. A record row holds the finding's dedup slot
+// like any open row, so a later dispatch-mode filing of the same finding is a
+// duplicate until the record row is released or closed — one row per finding,
+// whichever mode filed it.
+
+const (
+	filingModeDispatch = "dispatch"
+	filingModeRecord   = "record"
+)
+
+// parseFilingMode reads the literal setting. Absent or empty means dispatch.
+// Anything other than the two known values is an ERROR, deliberately: a typo
+// ("recrod") must not silently dispatch the rewrites the setting exists to
+// stop. Pure, so the precedence is unit-testable without an orchestrator.
+func parseFilingMode(config map[string]interface{}) (string, error) {
+	raw, present := config["filing_mode"]
+	if !present || raw == nil {
+		return filingModeDispatch, nil
+	}
+	mode, ok := raw.(string)
+	if !ok {
+		return "", fmt.Errorf("write_audit_findings: filing_mode must be a string, got %T", raw)
+	}
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "", filingModeDispatch:
+		return filingModeDispatch, nil
+	case filingModeRecord:
+		return filingModeRecord, nil
+	}
+	return "", fmt.Errorf("write_audit_findings: filing_mode %q is not one of dispatch|record — refusing rather than guessing, because the wrong guess dispatches a page rewrite", mode)
+}
+
+// recordOnlyFinding turns a routable classified finding into its verdict-row
+// form. A finding the router already parks (empty handler, e.g. capability_gap)
+// is returned unchanged — parking it harder would only erase the provenance the
+// fallback wrote. Pure; the transform is what the tests pin.
+func recordOnlyFinding(c classifiedFinding, auditSource string) classifiedFinding {
+	if c.HandlerAgent == "" {
+		return c
+	}
+	spec := make(map[string]interface{}, len(c.Spec)+6)
+	for k, v := range c.Spec {
+		spec[k] = v
+	}
+	routedStatus := c.Status
+	if routedStatus == "" {
+		routedStatus = "detected"
+	}
+	spec["filing_mode"] = filingModeRecord
+	spec["routed_handler"] = c.HandlerAgent
+	spec["routed_status"] = routedStatus
+	spec["deferred_by"] = auditSource
+	spec["deferred_reason"] = "filing_mode=record (RFC_056): a verdict row — the seat's finding is recorded, the repair it would have dispatched is not"
+	spec["not_dispatchable"] = "status 'deferred' + empty handler_agent — deliberate; the routing is preserved in spec.routed_handler and nothing promotes this row (bugs_closed/077 convention, bugs_open/396 provenance)"
+	spec["release_recipe"] = "UPDATE site_work_items SET status = spec->>'routed_status', handler_agent = spec->>'routed_handler', updated_at = now() WHERE id = <id> AND status = 'deferred' AND spec->>'filing_mode' = 'record'"
+	out := c
+	out.Spec = spec
+	out.HandlerAgent = ""
+	out.Status = "deferred"
+	out.Summary = "[verdict, not dispatched] " + c.Summary
+	return out
 }
 
 func init() {
@@ -836,6 +953,13 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		findingsField = f
 	}
 
+	filingMode, fmErr := parseFilingMode(config)
+	if fmErr != nil {
+		return nil, fmErr
+	}
+	recordOnly := filingMode == filingModeRecord
+	recorded := 0
+
 	findingsRaw := datahelpers.ExtractNestedField(params.CollectedData, findingsField)
 	if findingsRaw == nil {
 		for _, alt := range []string{"audit_result.response.result", "audit_result", "review_result.result"} {
@@ -880,6 +1004,16 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 	unroutedCategories := make(map[string]int)
 	for _, f := range findings {
 		c := classifyFinding(f, pages, siteID, auditSource)
+		if recordOnly && c.HandlerAgent != "" {
+			// The summary override below reuses the finding's description the
+			// way the insert loop would, so a record row reads as a verdict
+			// rather than as work.
+			if c.Summary == "" {
+				c.Summary = f.Description
+			}
+			c = recordOnlyFinding(c, auditSource)
+			recorded++
+		}
 		classified = append(classified, c)
 		observedItemTypes[c.ItemType] = true
 		if c.ItemType == "capability_gap" {
@@ -1148,6 +1282,13 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		"batch_id":              batchID.String(),
 		"audit_source":          auditSource,
 		"classification_stats":  classificationStats,
+	}
+	if recordOnly {
+		// Present only in record mode so the historical output stays
+		// byte-identical. `items_recorded_only` counts findings TRANSFORMED,
+		// not rows inserted — a recorded finding can still be a dedup skip.
+		out["filing_mode"] = filingModeRecord
+		out["items_recorded_only"] = recorded
 	}
 	if parkedOwned > 0 {
 		// Parked-not-routed is a different outcome from created-and-dispatchable;

@@ -401,6 +401,15 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"broken_nav_links":                           {catMechanical, "[INFERRED] check_broken_nav_links; never observed live"},
 	"backend_unreachable":                        {catMechanical, "[INFERRED] check_backend_unreachable, which already SELF-CLEARS on a live health probe — a verifier may be redundant here; check before writing one"},
 	"site_unreachable":                           {catMechanical, "check_site_unreachable (bugs_open/236, 522 half) SELF-CLEARS via Resolved{AllOfType} on a serving probe — the same posture as backend_unreachable, decided at birth rather than inferred later; a completion verifier would re-run the identical probe the check already re-runs every rotation pass"},
+	// ---- site acceptance council seats (RFC_056, loanzy_uk_example_site lane, 2026-08-25) ----
+	// All three are flag-only VERDICT rows (HandlerAgent ""), filed 'detected' and never
+	// promoted: the promoter and triage both require a handler. A verdict is graded by the
+	// next pass of the same check, which retracts it through CheckResult.Resolved on a
+	// positive re-observation — the same comparison a verifier would make, taken where the
+	// probe already runs. Nothing on the completion path ever claims one done.
+	"prerequisite_missing":  {catMechanical, "RFC_056 prerequisites seat (check_build_prerequisites.go): one row per missing prerequisite KIND (vertical_landscape / page_research / evidence_base / feed_sources), keyed prerequisite_missing:<kind>:<site>. Flag-only by design — bugs_open/380 D1 forbids minting a register to satisfy it, so there is no handler to verify; self-clears via Resolved when the kind is positively observed present"},
+	"heading_promise_unmet": {catMechanical, "RFC_056 promise seat (check_heading_promise.go): a served page whose own <h1>-<h3> promises a structure (calendar, checklist, comparison, top-N) the non-anchor body does not contain. Flag-only — the repair is a planner/writer judgement, and the rule NOMINATES candidates, it does not adjudicate (a keyword is not a promise). Self-clears via Resolved when the page is re-observed keeping the promise; declines to judge on a parked domain (invented-path control 200s)"},
+	"structure_floor_unmet": {catMechanical, "RFC_056 structure seat (check_structure_floor.go): fewer than N (owner ruling 2026-08-25: N = 6) distinct DELIVERED reader-facing structures across the served site and no recorded refusal. Flag-only — below the floor the seat records the shortfall and the delivered set; the refusal is a recorded planner/human verdict, not something a fixer can produce. Self-clears via Resolved when the count reaches N or a refusal is recorded"},
 	// decision_blocked_change (RFC_015 §5b, save_sections_decision_gate.go): a
 	// rebuild tried to overwrite a decision-protected slot without citing the
 	// decision; the stored content was kept and this records it. Classified on the
