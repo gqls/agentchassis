@@ -487,3 +487,91 @@ noting as the second concurrency event this lane has hit today (the first was a 
   nothing can. Stated as the open residual in WII-034 and in `bugs_open/396` §6a rather than left
   implied.
 - The Go half is **inert until an image rolls**. The SQL half is live now.
+
+## 2026-08-25 — council REVISE on the verb, and the objection is right: a site lock already exists
+
+`ed821065` → **REVISE**, gated by `prior_art_librarian` (HIGH). The allow-list round (`9c16eb83`)
+→ **APPROVED**, 1 advisory + 3 low/medium.
+
+### The gating objection, verified rather than accepted
+
+> *"Rationale's core premise — 'The platform offers NO verb for holding a site's work queue' — is
+> contradicted by an existing mechanism already in the Schema: `sites.locked_at` / `sites.locked_by`."*
+
+**It is right, and I checked every part of it myself:**
+
+- `sites.locked_at timestamptz` / `locked_by text` exist.
+- **Live on 3 of 51 sites right now**, and `locked_by` carries a real reason —
+  *"portfolio_positioning: owner HALT 2026-08-18 pending classifier register-input (RFC)"*.
+- `build-pipeline-trigger > find_dispatchable_site` gates on **`s.locked_at IS NULL`**.
+- `internal/core-manager/admin/site_admin_handlers.go:425/454` are lock/unlock endpoints.
+- **It mutates no work-item row.** Nothing is stranded, no dedup slot is held, no 23505.
+
+⚠ **So the 22-day stall that justified my whole submission could not have happened under the
+mechanism that already existed.** My verb makes the *wrong* tool tidier. Third asserted-absence
+error today — and the first one to reach an owner-approved plan and a live migration.
+
+### What is ACTUALLY missing, which is much narrower
+
+**"Hold this site's queue EXCEPT these N items."** `sites` has only `locked_at` and `locked_by` —
+no exception list, so the lock is all-or-nothing. That is exactly why the mortgagecalculator lane
+built its 15-second backstop; its own handoff labels the site lock **(a)** and item status
+**"(b) ITEM STATUS — the finer control"**, and its comment even notes *"'deferred' is NOT in
+workItemTerminalStatuses, so the row keeps its idx_swi_dedup slot and release is one UPDATE"* —
+**they knew about the slot and treated it as a feature.**
+
+### ⚠ AND THE OBVIOUS FIX IS A TRAP — the finding that makes this worth writing down
+
+The natural change is one clause on the dispatch gate:
+
+```sql
+-- find_dispatchable_site, today:
+WHERE s.locked_at IS NULL AND wi.status IN ('triaged','approved') AND ...
+-- the "obvious" extension:
+WHERE (s.locked_at IS NULL OR wi.id = ANY(s.lock_except_item_ids)) AND ...
+```
+
+**That would unlock the entire site.** `find_dispatchable_site` selects a **site**, not an item.
+The loop then calls `load_items` → `LoadWorkItemsAction(site_id, max_items: 5)` — and
+**`LoadWorkItemsAction` does not check the site lock at all**: its WHERE is `wi.site_id = $1 AND
+wi.status IN ('triaged','approved') AND …`, with no `locked_at` anywhere. So the moment one
+excepted item makes the site selectable, every dispatchable item on it is loaded and claimed.
+
+⚠ **The lock is enforced at exactly ONE gate today** (`find_dispatchable_site`). The Go check at
+`load_work_item_actions.go:134` is **not** a second gate — it is inside **`WriteBuildItemsAction`**
+(minting new build items), and **its log line misnames itself as `"LoadWorkItemsAction: site is
+locked, skipping"`**, which is how I misread it the first time. Do not trust that log string.
+
+### So the correct design, with its ordering constraint
+
+1. `sites.lock_except_item_ids uuid[]`, default NULL → `wi.id = ANY(NULL)` is NULL, never true, so
+   behaviour is **byte-identical to today** until someone lists ids. Opt-in, unsafe side OFF
+   (RFC_010 §2).
+2. **Go**: `LoadWorkItemsAction` becomes lock-aware — on a locked site it returns **only** the
+   excepted items instead of everything.
+3. **Config**: `find_dispatchable_site` gains the exception clause.
+4. ⚠ **ORDER MATTERS AND THE CONFIG HALF MUST BE HELD.** If the pre_query ships before the binary,
+   a locked site with an exception list dispatches its whole queue — the exact failure the lock
+   exists to prevent. Go first, roll, *then* apply the config as a `_HOLD.sql`. This is migration
+   `575`'s pattern and the same reason it was a `_HOLD` file.
+5. `WriteBuildItemsAction`'s lock check stays all-or-nothing: an exception list is about
+   dispatching named EXISTING items, not about minting new ones.
+
+**This is architecture-scope**: it changes what a shared dispatch gate GUARANTEES for every site,
+so it needs its own council round on its own merits, not a resubmission of the verb's.
+
+### The other three objections, all checked
+
+- **`blocked` has a live consumer** — the guardian asked and was right to. Verified with the query,
+  not the landmine I originally took it from: `scheduled_tasks` row `feasibility-recheck`,
+  `enabled = t`, `pre_query`: `UPDATE site_work_items SET status='triaged' WHERE status='blocked'
+  AND EXISTS (SELECT 1 FROM agent_definitions WHERE type = wi.handler_agent …)`. ⚠ Note the
+  condition — a `blocked` row whose `handler_agent` names no live agent is NOT promoted.
+- **A verb-park still holds the dedup slot** (editquality, medium) — correct, and I had explicitly
+  deferred that as candidate 5 while citing the 23505 as the urgency. The site-lock route fixes it
+  properly, because no row changes status at all.
+- **Retraction can silently drain a verb-park** (prior_art, medium) — correct.
+  `work_item_retraction.go:205` counts `parked += n` when it closes a `deferred` row, so an
+  automated sweep can release a deliberate hold without going through `unpark_work_items`. That
+  breaks the single-releaser guarantee the verb was built around, and it is another reason the
+  lock — which touches no row — is the better mechanism.
