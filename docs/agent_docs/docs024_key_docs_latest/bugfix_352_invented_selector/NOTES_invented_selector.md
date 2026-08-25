@@ -882,3 +882,72 @@ Earliest due **2026-08-26 21:20 UTC**, and with a 3-day window against a 1/hour 
 > last FILED*, which only happens when an audit finds something. **The rotation stamp is the actual
 > cadence and the filing date is a lossy proxy for it.** Same class as everything else this week:
 > the number was measured, and it measured the wrong population.
+
+---
+
+## 2026-08-25 ~11:20 UTC — the split: 352 CLOSED, arm 2 filed as 390, and verifying it corrected our own sketch
+
+**Owner ruling: split arm 2, close 352 against arm 1.** Done both. `352` moved to `bugs_closed/`
+with a banner stating what closing asserts and its evidence; arm 2 filed as
+`bugs_open/390_HANDOFF_2026-08-25_a_correct_contrast_selector_still_loses_the_cascade_so_the_repair_is_authored_and_inert.md`.
+
+### ⚠ I did NOT copy 352's arm-2 section across, and that turned out to matter
+
+CLAUDE.md's owner ruling of 2026-07-31 says a `bugs_open/` file asserting a **structural** root cause
+is not filed until it has been through `090`, or the filing session states plainly why it substituted
+equivalent first-hand verification. Arm 2's claim is structural, and it had been sitting in 352 as an
+**inherited sketch that nobody in this lane had ever verified**. So I verified it before filing.
+
+**It came out different in three ways, and one of them would have shipped a defect.**
+
+| 352 said | measured 2026-08-25, and what it actually is |
+|---|---|
+| "an equal-specificity rule loses on source order" | **Lower** specificity. Offender `.ported-page-section .ported-page-content a` = **(0,2,1)**; filed selector `.ported-page-content A` = **(0,1,1)**. The agent's own prompt says to repeat the filed selector verbatim, so the rule loses *before* source order is consulted — and would lose on source order too |
+| "the offending declaration lives in page CSS emitted after the theme" | **True, and confirmed**: theme linked at page offset **8562**, the declaration in an inline `<style>` at **12080**, and the served `styles.css` mentions `ported-page-content` **0** times |
+| "so: if the declaration is not in `css_themes`, refuse and park" | ⚠ **This would park a REPAIRABLE finding.** `--color-primary: #e8f5ee` **is** in the editable theme, and `#e8f5ee` is exactly the `fg` the finding recorded. The *declaration* is out of reach; the *value* is not |
+
+**The third row is the one that justifies the whole exercise.** A precondition phrased on the
+declaration answers a question adjacent to the one that matters. The reachable thing is the computed
+value's **source**, and here one token change would fix the page. Had 390 been filed by copying the
+sketch, the next session would have built a park that silently suppressed fixable work — the same
+family as everything else this week: *the check answers the question you encoded, not the one you
+asked.*
+
+⚠ **And a fourth thing the sketch never mentioned:** a pale-green link on a pale-green background is
+a **palette** defect. `--color-primary` resolving to `#e8f5ee` on `rgb(234,244,239)` is the
+`generic_theme` colour-churn family (MEMORY `webdesign-colour-churn-landmine`), not a cascade
+problem. **A rule appended to beat the cascade would paper over a bad token** — so 390 ranks the
+"make the rule win" candidate second, not first, and puts *complete-only-on-measured-improvement*
+first, because it is the only one that asserts the outcome rather than the method.
+
+### How it was verified (commands, so the next reader re-runs rather than trusts)
+
+Served page + served stylesheet, with the parked-domain control done first (invented path → 404):
+
+```bash
+curl -sS -L https://loancash.co.uk/guides/index.html -o page.html
+grep -bo '/assets/css/styles.css' page.html        # 8562  — theme link
+grep -bo 'ported-page-content a {' page.html       # 12080 — the offender, AFTER it
+curl -sS -L https://loancash.co.uk/assets/css/styles.css | grep -c ported-page-content   # 0
+curl -sS -L https://loancash.co.uk/assets/css/styles.css | grep -o -- '--color-primary[^;}]*'  # #e8f5ee
+```
+
+And the agent's write target read from the **live row**, not a seed — `css-patch-agent.save_css_to_db`
+is `UPDATE css_themes SET css_content = css_content || … || $2`, reached by
+`sites → style_collections → css_themes` in `load_current_css`. **Append to the end of one file**,
+stated by the config rather than inferred from behaviour.
+
+### Housekeeping done with the split
+
+- **Checked for live deferrals on 352 before closing** — the "a closed blocker keeps being obeyed"
+  trap. `grep -rn "bugs_open/352" | grep -iE "until|blocked|waiting|depends"` → **none**. Nothing was
+  left waiting on a bug that had closed.
+- **34 files reference `bugs_open/352`.** I updated the three that are *indexes* — `016b` §9 (now
+  names 390 as the sibling cause and says why ruling it out is not optional), VIZ-016's sources and
+  relations, WII-016's path. **The rest are historical prose and were left alone**: they were
+  accurate when written, and rewriting another lane's narrative to match today's filing is
+  revisionism, not maintenance.
+- ⚠ **Not done, and named rather than hidden:** seven Go files carry `bugs_open/352` in comments and
+  now point at a moved path. A comment-only change to `platform/` for a path string is not worth a
+  build and a council round; the cost is one `git log --follow`. If someone is editing those files
+  anyway, fix it in passing.

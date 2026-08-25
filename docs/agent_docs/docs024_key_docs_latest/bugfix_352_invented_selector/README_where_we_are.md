@@ -269,3 +269,42 @@ it is working or idle: it records that it ran on the hour either way.
 page, and has now survived a day of ordinary traffic. The other half — a correct instruction that
 still loses because of the order the stylesheets load in — is untouched, and it is the only reason
 this bug is still open.
+
+---
+
+## 2026-08-25, late morning — split done: the finished half is closed, the unfinished half has its own file
+
+You asked for the split, so: **the original bug is closed** and the remaining half now stands on its
+own as bug 390.
+
+**What closed.** The producer inventing an address that matched nothing. Fixed, live, proven on a real
+page, held through a day of ordinary traffic, and the seventy-three impossible tickets withdrawn.
+Nothing about it is outstanding. It reads as finished now because it is.
+
+**What is still open, as its own file.** Even with a correct address, the rule our agent writes can be
+**outranked** — so it is written, deployed, ticked off, and changes nothing. Same symptom as before,
+entirely different cause.
+
+**And here is the thing worth your attention: I did not simply copy the old description across.** The
+rule in this estate is that a structural claim isn't really *filed* until someone has checked it, so I
+checked it — and the description we had been carrying was wrong in three ways.
+
+We had said the two rules were of equal strength and ours lost only because it arrives later. **Ours
+is actually the weaker rule outright**, so it loses regardless of order. We had proposed that when the
+offending style isn't in the file our agent can edit, the agent should give up and park the ticket.
+**But the offending colour *is* in that file** — it is defined once, near the top, as a named colour
+the rest of the page refers to. So the proposed rule would have parked tickets we can actually fix,
+quietly, and nobody would have noticed.
+
+And a fourth thing nobody had said: a pale green link on a pale green background is a **colour scheme**
+problem, not a cascade problem. Winning the argument with the stylesheet would have hidden a bad
+colour rather than fixed it.
+
+That is the fourth time this week that checking something we already "knew" changed the answer. It is
+also the cheapest of the four, because this time it was caught before anything was built on it.
+
+**Where that leaves the work.** The new file lists four ways to fix it, ranked by which one makes the
+failure impossible rather than unlikely — the strongest being simply to stop marking a repair as done
+until someone has re-measured the page and seen it improve. That is deliberately not designed yet, and
+the file says so, along with the one number nobody has measured: how much of the existing backlog this
+explains.
