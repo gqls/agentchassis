@@ -399,3 +399,48 @@ change.** Not "a build". The check is a single query and it is written into the 
 Nothing is broken, nothing is pending on your side, and the delay costs nothing: the column is already
 documented as dead and nothing reads or writes it. It is simply not safe to remove while most of the
 estate is still running last night's code.
+
+---
+
+## 2026-08-25, ~20:20 — done. The column is gone and the lane is closed.
+
+Your instinct to point me at the makefile was the right one, and it corrected me twice.
+
+**There was never a release gap.** `agent-chassis` is listed in the release set, and `make release`
+had done its job properly. My reading last night — that the fleet was stuck half-rolled — was wrong,
+and the number I built it on was wrong too: I had asked the database's *record* of what was running
+instead of the cluster itself, and that record keeps rows for pods that have since died. I reported
+139 stale processes where there was really one.
+
+**What was actually happening** is more mundane and self-correcting. The platform spawns a short-lived
+worker for each unit of work, and each one pins whatever version was current when it started. All the
+long-lived services had moved to the new version; one long-running worker had been going since before
+the roll and was still on the old one. It finished about forty minutes later, and the condition I had
+been treating as a blocked deployment resolved itself with no intervention at all.
+
+**So the column has now been deleted**, after checking every gate: one version live, the required
+change present in it, a control that correctly failed, all workers on the new version, and the old
+code absent from three separate running processes.
+
+**The check I am most pleased with is the one after the deletion.** I ran the old version's database
+statement to confirm it now fails — and it does, with precisely the error I had predicted in the file
+weeks-of-work ago. That is the proof the caution was real rather than ceremony: had I run this last
+night while that one straggler was still going, that is exactly the error it would have hit.
+
+The platform kept building pages throughout, so nothing was disturbed.
+
+### One honest note about a tool
+
+The migration had to be applied by hand, and the tool that records applied migrations **refuses to
+record it** — files held back for manual application are treated as a category it will not log. A
+reviewer had warned me about exactly this and I had waved it off with an answer that turned out not
+to work. I recorded it the way the tool does internally and marked it clearly, and I have written the
+real behaviour into the file so the next person does not repeat my wrong answer. It is a small gap in
+the tooling worth someone fixing: the migrations that *must* be hand-applied are precisely the ones
+the ledger cannot record.
+
+### Where things stand
+
+Nothing is outstanding on this lane. The bug is closed, both migrations are applied and recorded, and
+the one thing this work turned up that is still open — the mismatch between what the component writer
+is told and what the storage layer enforces — is filed as its own bug and owned by another session.

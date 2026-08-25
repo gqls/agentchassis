@@ -15,7 +15,32 @@
 > to the pre-fix snapshot. `needs_new_component` ran **5** against **6** the prior day, so nothing
 > broke. §4 below is spent; it is kept as the record of what was owed.
 >
-> ## ⏳ THE ONE REMAINING ACTION — apply migration `610`, but NOT YET: the fleet is split
+> ## ✅ LANE FULLY COMPLETE, 2026-08-25 20:21Z — NOTHING IS OUTSTANDING. Read this, then stop.
+>
+> **`bugs_closed/378` is closed. Migration `609` applied. Migration `610` APPLIED — the column is
+> gone.** There is no remaining action on this lane.
+>
+> Verified at the artefact, not at exit codes: `information_schema` shows **0** `usage_count` columns
+> on `content_components` and **1** still on `agent_definitions` (the live one, `bugs_closed/060`,
+> correctly untouched); the new INSERT shape succeeds; **the old INSERT shape now fails with exactly
+> the predicted error**, which is the proof the hold was load-bearing rather than ceremony.
+> `610` is ledger-recorded with `applied_by='hand-recorded'`.
+>
+> **Two corrections to earlier versions of THIS file, both mine, both material:**
+> 1. ~~"the fleet is split 139/12"~~ — **wrong**. That query had no recency filter and counted DEAD
+>    pods; live it was 69 new / 1 old. And `agent-chassis` **is** in `RELEASE_IMAGES` (makefile:91)
+>    and `AGENT_DEPLOY_SERVICES` (makefile:119) — there was never a release gap.
+> 2. ~~"EVERY live build must contain the fix"~~ — the wrong *shape* of precondition. The stragglers
+>    were one-shot Kubernetes **Jobs**, each pinning the tag current at its creation, correctly
+>    outside `release`'s remit because they **drain**. One long-running Job held the old tag; it
+>    finished in ~40 minutes and the condition satisfied itself.
+>
+> **The residual that is NOT this lane's:** `bugs_open/388` (component-creator advised one row's
+> field contract while the store enforces another, 27 of 117 section types), owned by another lane.
+>
+> ### (superseded 2026-08-25 evening — kept as the record of what was believed)
+>
+> #### ⏳ THE ONE REMAINING ACTION — apply migration `610`, but NOT YET: the fleet is split
 >
 > **Checked 2026-08-25 evening against a fresh build and REFUSED.** `[MEASURED]` the fleet was
 > running **two** chassis builds at once — `4c996e1b5…` on **139** pods (does NOT contain the fix)
