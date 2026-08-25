@@ -79,6 +79,23 @@ WHERE site_id='4851f6fc-71cf-4160-a270-e03d6d3e0732'
 All six `icon-service-*.jpg` assets still serve 200 as of 2026-08-25 — the page simply no longer
 names them.
 
+### Two further instances, found the same evening (same site, different pages, same query shape)
+
+The 08-11 imagery session wired per-page heroes by merging a `background_image` key into
+`hero-about` / `hero-contact` / `hero-services` `content_data` (the plan-row route is
+schema-gated off for those components — RUNNING_NOTES ~1710) and verified all of them live.
+`page_component_history` shows the wired keys being eaten `[MEASURED 2026-08-25]`:
+
+- `about.hero-about` — `background_image` present in four consecutive generations
+  (08-11 16:50 → 08-16 16:04), **absent from the generation written 2026-08-16 16:04** onward.
+- `contact.hero-contact` — present 08-11 16:37, **absent from the generation written at that
+  timestamp** onward.
+
+Here the eaten key was not even inside an array — it was a top-level key the component's
+schema does not declare, which a wholesale regeneration of the slot's `content_data` does not
+re-emit. Same mechanism, second shape: **anything a hand writes into a slot the LLM owns —
+nested value or extra key — is unrepresentable as "authored" and therefore fair game.**
+
 ## Root cause
 
 Three facts compose, none of them individually a defect:

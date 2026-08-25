@@ -3279,3 +3279,44 @@ apply now. The trust rule to drop is element `"trust / trusted / deserves trust 
 **Next in this session:** voice pass (drop trust element + apply ready SQL + rerender 3 pages +
 served-page verify), then first per-page hero end-to-end. 403 fix design + critic design (D4)
 queued behind them; read the 090 verdict before designing the 403 fix.
+
+### Same session, later — D1 executed; A3 canary live; two heroes re-rolled
+
+**Voice pass (D1) COMPLETE and verified at the served pages.**
+- Trust rule DROPPED from `site_specs` voice → `banned_language` (element matched by content,
+  10→9 entries, in-tx DO/RAISE verify, `bak_leo_voice_20260825`).
+- ⚠ The 08-17 ready SQL **refused itself** (exit 3) — correctly: its pinned `page_components.id`
+  had been re-minted (`UPDATE 0`, the §1.1 lesson), and the portfolio aspect had GROWN two new
+  "honest" sentences (use_cases elements 4+5) since it was written. Superseded by
+  `VOICE_2026-08-25_banned_phrases_v2.sql` — content-addressed across all elements, pc addressed
+  by (page, slot). Applied clean; backups `bak_leo_portfolio_voice_20260825`,
+  `bak_leo_insights_pc_20260825`.
+- Rerendered use-cases / how-it-works / insights (rerender_page_safe, PUBLISH_OK ×3). Served
+  sweep: `earns its keep|honest(ly)?` = **0 0 0** with positive control 1 (`repetitive process`
+  still findable — the zeros are not blind).
+
+**A3 (D2) — imagery estate re-grounded, canary wired.**
+- `[MEASURED 2026-08-25]` assets: SEVEN per-page heroes already generated+active — 4 wired
+  (home, how-we-work, use-cases, who-we-help), **3 deployed but unwired** (about, contact,
+  services), 1 broken (`hero_case_studies` = presigned URL, the O5 §4 defect, needs redeploy).
+- **The unwired three are 403's mechanism again**: history shows `background_image` keys eaten —
+  about's in the generation written 08-16 16:04, contact's 08-11 16:37 (added to 403 as
+  instances 3+4; top-level undeclared keys this time, not array members).
+- Eyeball rule applied to the three existing images: **about ACCEPTED** (concentric rings);
+  **services + contact REJECTED as near-duplicates of each other** (both "line with three dots")
+  — same failure the icon batch had, and the 08-11 session had already noted the similarity.
+- **Canary: about is LIVE** — `background_image` merged (bak_leo_about_hero_pc_20260825),
+  escalation gate both branches 0 rows first, safe rerender, served page now shows
+  `hero-about.jpg`, 0 generic `hero.jpg` refs on the page. NOTE: this wiring is a 403-class
+  loan — durable only once 403's fix ships; recorded deliberately.
+- Re-rolls dispatched Route-A-safe (same asset_key overwrites): `hero_services` (diverging
+  three paths, corr `68633722`), `hero_contact` (two arcs meeting, corr `31466cbd`). Watcher
+  armed on the deployed file sizes.
+
+**090 on 403's mechanism:** run `c946b495` was at `call_diagnoser` AWAITING_RESPONSES 20:05Z.
+Read the verdict before designing the fix.
+
+**The dozen for per-page heroes (owner D2), proposed:** about✓, services, contact, how-it-works,
+tools, insights, engagement-model, technical-architecture, ai-readiness-quiz, careers +
+blog: why-most-ai-agent-projects-never-reach-production, can-you-trust-ai-with-your-data.
+(case-studies also needs its asset REDEPLOYED regardless.) Archetypes for the remainder.
