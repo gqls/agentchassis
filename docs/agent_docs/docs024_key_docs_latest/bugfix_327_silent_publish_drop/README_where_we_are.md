@@ -285,3 +285,46 @@ still contain the old pattern but haven't been touched in over a month, plus the
 that should never be rewritten. If any of them is ever picked up again, the commit-time check
 will flag it then — which is the right moment, rather than us rewriting a hundred dormant files
 today on the chance that one of them gets used.
+
+---
+
+## 2026-08-25 — nothing left but three decisions
+
+Checked the state fresh this morning rather than trusting yesterday's: no live scripts still
+publish the unsafe way, twenty-one use the shared publisher, and nobody has touched my files
+overnight.
+
+**On the new chassis build — it makes no difference here, and I re-checked rather than repeating
+myself.** Every change this lane made is shell or Python, which goes live the moment it's
+committed. Not one of them touches the Go code that a build produces. So there was never anything
+waiting on a roll, and there is nothing to re-verify after one. If anyone asks whether this has
+shipped, the honest answer is that the question doesn't apply to this work.
+
+**The automatic checker looked at my two hazard entries and returned "needs human review".** That
+sounds worrying and isn't: it means the tool *couldn't* check, because its index only covers Go
+files and everything here is shell scripts. I did the check by hand instead and wrote the results
+into both entries, so they no longer sit there looking unverified.
+
+**Doing that turned up something I want to flag, because it's the third time.** I checked that the
+council trigger now prints its reference number *after* sending rather than before — and my check
+said it didn't. It was wrong. It had found the phrase inside a *comment* I'd written explaining
+the old behaviour, not the actual line, which is further down and correct.
+
+That is the same mistake three times in four days: **in a piece of work whose subject is a trap,
+my own writing about the trap keeps fooling the tools I build to find it.** First the count of
+remaining work, which didn't move as the work got done because fixing a file adds a comment
+mentioning the problem. Then the completion check, which flagged two files I'd just fixed. Now
+this. Each time I built a fresh one-line check and didn't think of it as a measurement at all.
+
+I've written it up as a tally rather than three separate notes, because the repetition is the
+point — and the fix is a habit in how the check is written, not another thing to know.
+
+**What's left is three decisions, and no work.** Whether to close the bug (its stated conditions
+are all met, and I'd close it); whether to spend credits on a council review now that it's
+eligible (I'd genuinely leave that to you — it would review the detector, not the publisher
+itself, which is still outside scope); and whether to build the stronger in-cluster version (I'd
+wait, unless we ever see a message lost *through* the new publisher, which would be the evidence
+that the current receipt isn't enough).
+
+Handoff, updated with today's state at the top:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_327_silent_publish_drop/HANDOFF_2026-08-24_continue_here.md`
