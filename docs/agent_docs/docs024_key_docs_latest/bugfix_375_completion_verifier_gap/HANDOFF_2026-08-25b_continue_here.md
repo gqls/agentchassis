@@ -90,7 +90,7 @@ and the LANDMINE *"Registering a verifier is NOT a one-line change"* carries it 
 
 | # | step | state |
 |---|---|---|
-| **1** | **Apply** a migration amending the live `scheduled_tasks.pre_query` for `claimed-item-timeout` | **BLOCKED — see below**, and ⚠ **the ORDER changed 19:20Z** |
+| **1** | **Apply** a migration amending the live `scheduled_tasks.pre_query` for `claimed-item-timeout` | ⚠ **WRITTEN + demand-controlled, NOT APPLIED — `634_…_HOLD.sql`, commit `d6971c6b0`.** Applying is an owner call (standing permission gate). **UNBLOCKED 21:24Z** — `livespec.go` is clean |
 | **1b** | Add `required_fields_missing` to `livespec.ClaimedItemTimeoutExclusions` **in the SAME COMMIT as step 3's `RegisterVerifier` call** — either alone breaks the build | not done |
 | 2 | Scope-test licence in `write_audit_findings_verifier_join_test.go` `optedIn` | ✅ **DONE** |
 | 3 | Remove the type from `itemTypesWithoutVerifiers` | not done (correctly — it is still unregistered) |
@@ -153,12 +153,23 @@ failure with no owner is precisely the shape that gets "helpfully fixed" by some
 migration. So: keep the window short (write both halves before applying either), and say what you are
 doing — a line in `bugs_open/363`'s CONTRIB thread and a `doc_notes` row are enough.
 
-**What blocks it, WHO holds it, and how to tell when it clears.** Step 1 edits
-`platform/livespec/livespec.go`, held by the **`live_object_declaration_drift` lane**
-(`bugs_open/363`, still OPEN) — identified from the diff's own content, since uncommitted work is
-invisible to `who-owns.py`. **Re-checked 2026-08-25 15:34Z: still dirty** (`livespec.go` since
-~10:50Z, `livespec_test.go` since 08-23). A pathspec commit of a shared file takes their
-half-written work as a passenger.
+**~~What blocks it~~ — UNBLOCKED 2026-08-25 21:24Z.** The `live_object_declaration_drift` lane
+(`bugs_open/363`) landed its rename at **`65c090843`** and messaged this lane. `livespec.go` is
+**clean**, verified. Three things from their handover, all checked here rather than accepted:
+> - `LiveAuditOnlyDeclarations` is final at **6** (they absorbed `bugs_open/333`'s owed Declaration
+>   in the same commit so a second session would not collide on the counter).
+> - **Adding our line does NOT touch that counter** — `ClaimedItemTimeoutExclusions` is a plain
+>   `[]string`; the counter counts `Declarations` with `Phase == PhaseLiveAudit`. Independent.
+>   Confirmed by reading `livespec_test.go:133`.
+> - They deliberately did **not** add `required_fields_missing` for us, because the sequencing
+>   (three arms of `CQ-023`'s router) is this lane's call. Correct, and appreciated.
+>
+> They also fixed the `PhaseGoSide`/`PhaseLiveAudit` naming trap at source — the constants keep their
+> names, but the doc comment now says explicitly that the names say WHO CHECKS, not WHETHER anything
+> does. This lane and a council seat are cited as what it cost.
+>
+> ⚠ **Verify before you edit anyway** — another session may dirty it again:
+> `git status --porcelain -- platform/livespec/`
 
 ⚠ **Two reasons beyond the passenger rule not to force it.** Their change introduces
 `LiveAuditOnlyDeclarations = 5`, **asserted by `livespec_test`** — appending to a file whose counted
@@ -195,6 +206,46 @@ A third lane's breakage. Do not debug it.~~
 ```bash
 git status --porcelain -- platform/livespec/     # empty = clear to proceed
 ```
+
+### The exact two-step, ready to execute — the Go half is NOT left dirty on purpose
+
+The window between applying the migration and landing the Go commit is the one an unrelated session
+sees as an unowned red drift. **Keep it minutes, not hours.** The Go half is deliberately NOT sitting
+uncommitted in the tree — that is precisely what cost this lane nine hours when another lane did it —
+so it is written out here instead, ready to type in one go.
+
+**STEP A — apply (owner call).** Announce first: a line in `bugs_open/363`'s CONTRIB thread and,
+ideally, a message to any live session that runs the drift auditor.
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 \
+  < docs/agent_docs/sql_for_agents/634_claim_timeout_exclude_required_fields_missing_HOLD.sql
+```
+Expect `NOTICE: 634 applied … THE DRIFT AUDITOR WILL NOW FIRE …`. If it ABORTs, read which of the
+four guards fired — all four are demand-controlled and none of them is advisory.
+
+**STEP B — the Go half, ONE commit, immediately after.** Two edits:
+1. `platform/livespec/livespec.go` — add `"required_fields_missing",` to
+   `ClaimedItemTimeoutExclusions` (14 → 15). ⚠ Re-check the file is clean first.
+2. `platform/orchestration/actions/discovery_checks/verify_required_fields_missing.go` — replace the
+   commented-out block with the real registration:
+   ```go
+   func init() {
+   	RegisterVerifierWithPolicy("required_fields_missing", VerifyRequiredFieldsMissingResolved,
+   		VerifierPolicy{Grades: gradesRequiredFieldsMissing})
+   }
+   ```
+Then steps 3 and 5 fall out as build failures that tell you exactly what to do:
+`itemTypesWithoutVerifiers` must drop the type, and `WII-031`'s lockstep will name **three** arms of
+`CQ-023`'s router. ⚠ Arm `close_stale` and `close_resolved` before `close_converted`.
+
+**STEP C — prove it closed.**
+```bash
+go run ./cmd/config-key-audit --live-declaration-drift    # must return to green
+go test ./platform/orchestration/actions/ -run 'TestClaimTimeout|TestUnarmedCompleters' -count=1
+```
+⚠ **Do NOT run the whole `actions` package as your pass/fail signal** — it has been red on another
+lane's undeclared error code (trap 11a). Use `-run` and judge your own tests.
 
 **Then verify at the LIVE object, never at the Go declaration:**
 ```sql
