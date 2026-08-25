@@ -14261,3 +14261,58 @@ ask what the status is actually a statement about** — here, three different th
 the handler changed something, the criterion holds) collapse into one column, and only the first two
 have ever been recorded. Full workup, fix candidates ordered by what makes the bad state
 unrepresentable, and the census that would size it: `bugs_open/395`.
+
+### The progressive-enhancement fallback pair does NOT work for `var()` substitution — the guarded line is dead weight that reads like insurance, and the enhanced line takes the property to *inherit* rather than back to it (2026-08-25, `bugs_open/398`)
+
+**Symptom.** Text sits on its own background — white on white, or a heading on the page's own
+paper colour — in a component whose CSS visibly *does* set a background, and whose author visibly
+*did* think about fallbacks.
+
+**What it looks like in the file.** The standard two-declaration idiom, which is correct for
+unknown-property enhancement and is what everyone's eye is trained to skim past:
+
+```css
+.hero-services {
+    --hero-ink: var(--color-cta-text, var(--color-primary-text));
+    background: var(--color-cta-bg, var(--color-primary));                       /* the "safe" one */
+    background: linear-gradient(135deg, var(--color-cta-bg, ...) 0%, ...);       /* the "nice" one */
+}
+```
+
+**Why it fails.** The two mechanisms are not the same and only one of them is a cascade question.
+An *unparseable* declaration (`display: grid` on an ancient browser) is dropped at parse time and
+the earlier declaration in the same rule survives — that is the idiom working. A declaration
+containing `var()` is different: it parses fine, and substitution happens later. If what comes back
+is invalid for that property, the declaration is **invalid at computed-value time**, and the spec
+says the property becomes `unset` — *inherit* for an inherited property, *initial* for a
+non-inherited one. **It does not fall back to the earlier declaration**, which the cascade already
+discarded. So the guard line cannot fire, ever, and the failure lands one whole step further away
+than the code suggests: `background` → transparent, `color` → whatever the parent was.
+
+**When it bites here.** A design token whose contract admits more than one *type*. `cta_bg` is the
+estate's example: it may hold a colour OR a gradient (`derive_brand_head_assets_action.go:275`
+documents that, and 10 fleet themes hold a gradient `[MEASURED 2026-08-25]`). Components wrote it
+into a gradient colour-stop, into `color-mix()`, and into `color:` — all `<color>` positions. On a
+solid-`cta_bg` site every one of those is fine, which is why it survived review.
+
+**The checks, in the order that costs least.**
+
+1. **Read the measured background, not the ratio.** A contrast tool that reports white text on
+   `rgb(245,243,239)` when the rule says the band is blue has told you the declaration was
+   *discarded*, not that the colour is poor. If the number had come back as the palette's
+   *fallback* colour you would be looking at a different bug. **This is the whole diagnosis** —
+   `getComputedStyle`, and read the ground.
+2. **Find the sibling that works.** Three heroes in this package run the identical idiom against
+   `--color-primary`, which is always a colour, and are correct. A same-idiom/different-token pair
+   inside one repo is a stronger control than any amount of reasoning about the spec.
+3. **Grep by POSITION, not by token.** `grep 'color: var(--X'`, `'gradient(.*var(--X'`,
+   `'color-mix(.*var(--X'`. A census by component NAME encodes its own answer — the one here
+   returned 3 of the 4 rows, and the fourth surfaced only when the migration's `DO`/`RAISE` verify
+   block was induced against pre-migration state.
+
+**The transferable form: a token whose contract admits two TYPES needs a companion per type, not a
+fallback.** `var(--x, <default>)` guards *absence*; nothing in CSS guards *wrong type*, and the
+failure is silent in both directions. The estate's answer is the legible-ink companion pattern
+(VIZ-014) — derive a second, correctly-typed token at render time and have consumers opt in with
+`var(--companion, var(--raw))`. Full workup, controls, the two wrong fixes and why the more obvious
+one looks right on whichever site reported the bug: `bugs_open/398`.
