@@ -98,3 +98,42 @@ least" would weaken the checker for nothing. The genuinely fast-moving ones are 
 fundamentallyai and two on leopardess. That is the real size of it.
 
 Still nothing changed on any live site.
+
+## 2026-08-25, later — the fix is built, and one thing you should know about how it got committed
+
+The durable fix is written, tested and submitted for review. What it does, in one sentence: the
+register now keeps the readings it used to hold, so when a page prints "11,513 verified 23 August"
+and the counter has since moved on, the platform recognises that as something that was true when it
+was written rather than a number somebody made up.
+
+It is off by default and stays off until someone deliberately turns it on for a specific fact. That
+is on purpose — the thing being turned on is "accept more numbers", and that should never be the
+default. It also means that when this ships, nothing will change anywhere until we arm a fact, and
+a quiet result after the roll is the expected outcome rather than proof it works. I have written
+that at the top of the register entry so nobody later mistakes silence for success.
+
+Fourteen tests. More usefully, I broke the code seven different ways on purpose — in a throwaway
+copy of the repo, so no broken version ever sat in the shared tree — and checked that each break
+made the right test fail. A test you have never seen fail is not evidence of anything, and there is
+a case in our own history of a test in this exact area that passed with its fix removed.
+
+I also had to correct a colleague's session twice today, and it corrected me once, which is the
+system working. It had concluded my fix would rescue a different case — a claim like "over 1,600 a
+day" when the real figure dips below that. It does not, and it should not: making it do so would
+mean the platform vouching for the highest number we ever recorded, for ever, on every quiet day
+afterwards. The right answer for that case was already sitting in the register — the instruction
+there says "over a thousand", which is below the lowest figure we have ever seen, so it is safe
+permanently. That is the owner's own ruling working exactly as intended; the copy on the page had
+just drifted above it.
+
+The one thing worth flagging. My change to the main file was committed by another session rather
+than by me. Several of us work in one shared copy of the code, and while I was testing, a colleague's
+commit swept my half-finished work in alongside their own. Nothing is lost — I checked the code
+arrived intact and the tests still pass — but it means my commit message describes a mechanism that
+is not actually in my commit, and the review reference is attached to the wrong one. There is no way
+to correct that after the fact without rewriting history, which we do not do here, so I have written
+down where everything actually landed and told the other session. It is a known hazard of the shared
+tree rather than anything that went wrong today, and the practical cost is that an audit report will
+show a gap that has a written answer.
+
+Still nothing changed on any live site.
