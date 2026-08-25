@@ -16,6 +16,28 @@ the pair is the record of how the understanding moved.
 > `git log --grep 327` is the OTHER one.** A live handoff already conflated them; corrected in
 > `loanzy_uk_example_site/HANDOFF_2026-08-23_garden_tools_continue_here.md`.
 
+## 0. STATE AS OF 2026-08-25 — the work is DONE; what remains is three decisions
+
+`[MEASURED 2026-08-25, re-derived not assumed]` **live racing queue: 0 · adopters: 21 · library
+self-test: pass · my files untouched by other lanes.**
+
+**A fresh chassis build was deployed and is IRRELEVANT to this lane** — re-checked today across
+every commit this lane made: **zero** touch `platform/`, `internal/`, `pkg/` or `cmd/`. Everything
+here is shell and Python, live the moment it was committed. No roll was ever pending, and none can
+change anything here. (Say this explicitly to anyone who asks "has it shipped?" — the answer is
+that the question does not apply.)
+
+**The landmine-verifier verdicts came back NEEDS_HUMAN_REVIEW on both 327 entries and that means
+"cannot check", not "doubtful"** — its code index is `.go`-only and every footprint is a `.sh`.
+Answered by hand on 2026-08-25 and written into both entries.
+
+**⚠ One finding from doing that, and it is the third of its kind here:** checking that `097` prints
+its receipt *after* publishing reported **WRONG** — because the file now contains a COMMENT quoting
+the landmine's own title, and the grep found the comment before the `echo`. The claim was right.
+**In this lane, your own writing about the trap contaminates every grep you build to detect it.**
+Three occurrences in four days; `WRONG_CALLS.md` 2026-08-25 has the tally and the habit that fixes
+it (`sed 's/#.*//'` on every hazard grep, including throwaways).
+
 ## 1. State in one paragraph
 
 A shared, receipt-asserting Kafka publisher (`scripts/kafka-publish-lib.sh`, register
@@ -174,16 +196,29 @@ REFUSED** · **13 published, not landed (wait)**. They start at 10 because calle
   that induction cannot come out false. The real arm is empty stdin against a *healthy* broker:
   zero messages, **exit 0**, no output.
 
-## 8. Open decisions for the owner
+## 8. Open decisions for the owner — these are ALL that is left
 
-1. **Run the council on this lane's submission?** It is now **legitimately in scope** (the
-   2026-08-24 widening admitted `scripts/pattern-check.py`), so it is no longer a `FORCE`
-   question — just whether the credits are worth it. Submission is written and validated:
-   `COUNCIL_SUBMISSION_2026-08-23_publish_receipt.json`. `DRY_RUN=1` → admitted, exit 0.
-2. **Build Layer 3?** An in-cluster Go submit path using `platform/kafka.Producer` (already
-   `RequiredAcks: RequireAll, Async: false`) would make a silent drop **unrepresentable** rather
-   than detected, and close the ~2-day forensic window. Filed proposed-and-unbuilt in OPP-009.
-3. **Close the bug after the 11?** See §4.
+**Nothing is blocked and nothing is in flight.** The lane is complete to its stated bar; these
+three are judgement calls, not work items.
+
+1. **Close `bugs_open/327`?** All three closing conditions written into the bug file are MET
+   (11 live publishers migrated + tested · detector in place · scope statement standing). It is
+   still open only because "keep it open and track the class" was an explicit instruction and
+   reversing that is the owner's call. **Recommendation: close it.** What remains after closing is
+   not work — ~55 dormant `scripts/` files (untouched 30d+) and the `docs/` one-offs that must not
+   be rewritten — and the commit-time detector catches any of them the moment someone picks one up.
+2. **Spend credits on a council round?** It is now **legitimately in scope** (the 2026-08-24
+   widening admitted `scripts/pattern-check.py`), so this is no longer a `FORCE` question — purely
+   whether the review is worth the credits. Submission written and validated:
+   `COUNCIL_SUBMISSION_2026-08-23_publish_receipt.json`, `DRY_RUN=1` → admitted, exit 0.
+   **No recommendation either way** — the load-bearing artefact (`kafka-publish-lib.sh`) is still
+   out of scope, so a round would review the detector and not the publisher.
+3. **Build Layer 3 — the in-cluster Go submit path?** `platform/kafka.Producer` is already
+   `RequiredAcks: RequireAll, Async: false`, so it would make a silent drop **unrepresentable**
+   rather than detected, and close the ~2-day forensic window. Filed proposed-and-unbuilt in
+   **OPP-009**. **Recommendation: not now** — the receipt closes the live exposure, and this needs
+   Go, a council round, an image and a fleet roll. Revisit if a drop is ever observed *through* the
+   library, which would be the evidence that the `kubectl attach` receipt is not enough.
 
 ## 9. Verify the lane in 60 seconds
 
