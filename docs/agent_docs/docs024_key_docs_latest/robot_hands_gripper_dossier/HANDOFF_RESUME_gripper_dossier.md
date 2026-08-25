@@ -350,7 +350,7 @@ cold — identical to the afternoon state — then did everything the classifier
   script WAS permitted. Do not route around; steps 3–4 are owner-pasted commands.
 - **`landmines-sync` is broken estate-wide** — delta logic wants to rewrite all 847
   entries, payload dies in the kubectl exec stream (`unexpected EOF`), 3 runs. Filed
-  `bugs_open/401_HANDOFF_2026-08-25_landmines_sync_delta_wants_the_whole_corpus.md`.
+  `bugs_open/402_HANDOFF_2026-08-25_landmines_sync_delta_wants_the_whole_corpus.md`.
   This lane's new landmine entry is in the FILE (system of record) but NOT delivered
   to `doc_notes`, and its verifier is NOT armed — re-run
   `./scripts/landmines-verify-dispatch.sh` once 401 is fixed.

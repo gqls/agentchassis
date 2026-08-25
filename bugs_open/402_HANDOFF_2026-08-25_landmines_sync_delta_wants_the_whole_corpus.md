@@ -1,4 +1,4 @@
-# 401 — `landmines-sync.py` delta logic wants to rewrite the WHOLE corpus, so every sync now dies in the kubectl exec stream
+# 402 — `landmines-sync.py` delta logic wants to rewrite the WHOLE corpus, so every sync now dies in the kubectl exec stream
 
 Filed 2026-08-25 ~21:00Z by the gripper-dossier ("AI page 3") lane, which hit it while
 delivering one new LANDMINES entry. **Symptom report with evidence — NO root cause is
@@ -73,3 +73,10 @@ Two distinct facts in that output:
 None taken. Hand-writing `doc_notes` landmine rows is forbidden (CLAUDE.md: "append
 to the file, never hand-write a landmine row into doc_notes"), and `--full` sends the
 same payload that dies.
+
+---
+
+*Renumbered 401 → 402 within the hour of filing (2026-08-25 ~21:05Z): another
+session was concurrently filing its own 401 (`…discovery_watchdogs_driver_alarm…`,
+untracked at the time). Commit messages `4f44a4d0c`/`c65d44350` say "401" and are
+immutable (forward-only) — resolve by SLUG, as always.*
