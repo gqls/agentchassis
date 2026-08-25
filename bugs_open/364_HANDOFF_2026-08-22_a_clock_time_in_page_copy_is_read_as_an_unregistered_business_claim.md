@@ -625,6 +625,50 @@ figures that would have refused it before this fix, the gate suppressed all 19, 
 the top: the interim's own blind spot (the tracker pages' `hero` and `call-to-action` silenced along
 with the listing) is live in production until Phase 2 rolls.
 
+## 6m. ⚠ Phase 2 would have REFUSED protocol-tracker on the roll — caught in the inert window
+
+**A regression this lane introduced, found and fixed before it shipped.** Commit `35f452a0e`,
+council `Council-Submitted: 64d852b4-bd70-43a6-9c7a-82202ea5688f`.
+
+Phase 2 restores the prose scan to a tracker page's `hero` and `call-to-action` — correct, and the
+entire point of component grain. But protocol-tracker's **live** hero reads *"MCP, **A2A** and half a
+dozen other proposals are competing to become how agents pass tasks"*, and the `2` inside that
+acronym is then raised as `unregistered_number` at **error** severity, **which refuses the page
+build**.
+
+**Measured on the copy the page actually carries** — and that distinction is the whole reason this
+was caught, because a rebuild regenerates content and §6l records a case where the regenerated copy
+had nothing in it at all. protocol-tracker rebuilt 18:32Z, deployed 18:36:35Z; scanning what that
+build wrote:
+
+| binary | findings on protocol-tracker |
+|---|---|
+| Phase 1 (**live now**) | **0** — it gates the whole page, so the regression is invisible today |
+| Phase 2 as committed | **1** — the A2A digit, at error severity ⇒ **build refused** |
+| Phase 2 + this fix | **0** |
+
+**The rule: a digit with a LETTER on BOTH sides is inside an identifier, not a quantity** (A2A, W3C,
+B2B). Both-sidedness is what bounds it — a real quantity always has a word boundary in front of it,
+and one-sided forms (`3D`, `MP3`) stay scanned so the rule cannot grow into a general alphanumeric
+exemption.
+
+**Blast radius measured before keeping it**, over **all 2,042 live components** with a register that
+supports nothing so every number is reported: **347 → 346**. One finding removed fleet-wide, and it
+is the right one — `EvilHack0r`, a username in an XSS tutorial. aiao's 16 genuine claims unchanged.
+Mutation-proven on all three live shapes.
+
+⚠ **One test fixture moved, and the failure that forced it is the interesting part.** The
+component-grain table held *"Agent-to-Agent Protocol (A2A) Linux Foundation"* — whose **only** number
+is the A2A digit. Once excluded upstream it can no longer probe component-grain leakage, and my own
+negative control `TestSameTextInAnUndeclaredComponentIsStillScanned` **correctly failed** when it
+tried. It moved to the acronym test with a comment saying why re-adding it would make the surface
+test pass for the wrong reason. **A fixture whose number is excluded upstream is a test that has
+quietly stopped testing.**
+
+**The general point, which is why the inert window is worth having:** Phase 2 was council-approved
+and correct, and still carried a live build-refusal for one page. An approval does not find this;
+only running the new code against the copy the fleet actually holds does.
+
 ## 6c. Found by this bug's census, filed separately (2026-08-24)
 
 Both were turned up by the fleet claims run for §5a and are **not** this bug's mechanism.
