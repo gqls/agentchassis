@@ -1,0 +1,12 @@
+[Unit]
+Description=Report abandoned build scratch (tmpfs_exhaustion lane, owner-approved 2026-08-24)
+Documentation=file:///home/ant/projects/agentchassis/docs/agent_docs/docs024_key_docs_latest/tmpfs_exhaustion/
+
+[Service]
+Type=oneshot
+# DRY RUN — deletes nothing. Add --reap to act.
+ExecStart=/home/ant/projects/agentchassis/scripts/scratch-report.py --days 2 --summary
+StandardOutput=append:/home/ant/scratch-report.log
+StandardError=append:/home/ant/scratch-report.log
+Nice=10
+IOSchedulingClass=idle

@@ -1,0 +1,15 @@
+[Unit]
+Description=Daily scratch report
+
+[Timer]
+OnCalendar=*-*-* 06:41:00
+# THE WHOLE POINT. This is a LAPTOP and it sleeps: measured 2026-08-25 it was
+# suspended 23:15 -> 09:54, so the 06:41 crontab entry armed the day before never
+# fired and never would have. Plain cron does not replay a window it slept through
+# (anacron only covers /etc/cron.{daily,weekly,monthly}, not a user crontab line).
+# Persistent=true runs the job on resume when its window was missed.
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
