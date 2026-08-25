@@ -71,7 +71,45 @@ import (
 // long its download link lives. Owner ruling 2026-08-19 (six weeks), restated
 // 2026-08-20 as the window the ZIP link should share. ONE definition on purpose:
 // two systems agreeing on "six weeks" is two places to get it wrong.
+//
+// ⚠ THIS IS 42 DAYS AND THE CUSTOMER IS TOLD 30. THAT GAP IS DELIBERATE — DO NOT
+// "FIX" IT (owner ruling 2026-08-25).
+//
+// The attested customer-facing fact says 30 days, and it is the newer statement:
+// `delivery_live_link_and_zip` on webdesign.uk's evidence_base reads "It stays
+// live for 30 days", attested "owner, 2026-08-25, copy brief ... the month is
+// fixed at 30 days" (register row written 2026-08-25 14:51:36Z). So a reader who
+// compares the promise with this constant finds a 12-day discrepancy, dated, with
+// the register — which IS the wire — on the other side. Everything about that
+// reading says "stale constant, correct it".
+//
+// It is not stale. We PROMISE 30 and SERVE 42, on purpose: a customer must never
+// be cut off at the exact moment they were told, so the operational window is
+// deliberately longer than the advertised one. The slack absorbs a customer who
+// comes back on day 30, a clock skew, or a retraction job that runs late.
+//
+// Consequences to keep straight, because they are what makes this safe:
+//   - The delivery email and every piece of customer-facing copy state THIRTY
+//     days, sourced from the attested fact, never from this constant.
+//   - Tokens minted against this window (zip_download, confirm_transfer) outlive
+//     the promise, which is the safe direction: a link that still works after the
+//     promised date costs nothing; one that dies early is a support incident.
+//   - The retraction job (unbuilt) must retract on THIS constant, not on the
+//     promise, or it removes the slack it exists to provide.
+//
+// If the owner ever wants the two numbers equal, that is a ruling to record here
+// and in the register together — not a drift to quietly close.
 const LiveLinkWindow = 6 * 7 * 24 * time.Hour
+
+// AdvertisedLiveWindowDays is what the CUSTOMER is told, and it exists so the gap
+// above is a named thing rather than an accident nobody can see.
+//
+// It is deliberately NOT the source of the customer-facing copy — the attested
+// fact in the register is, because that is the wire and it is what the claims gate
+// checks. This constant exists so that code which needs to reason about the
+// promise (a test asserting the gap is intentional, a future retraction job
+// choosing which window to honour) can name it instead of hardcoding 30.
+const AdvertisedLiveWindowDays = 30
 
 // MaxPresignWindow is the SigV4 ceiling, expressed as a Duration for this
 // package's convenience. It is DERIVED from platform/storage's constant and is

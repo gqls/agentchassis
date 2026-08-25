@@ -85,6 +85,23 @@ func TestTheSixWeekWindowIsLongerThanAPresignCanBe(t *testing.T) {
 	if want := 42 * 24 * time.Hour; LiveLinkWindow != want {
 		t.Fatalf("LiveLinkWindow = %v, want %v (owner ruling 2026-08-19: six weeks)", LiveLinkWindow, want)
 	}
+	// The gap between what we serve and what we promise is DELIBERATE (owner
+	// ruling 2026-08-25), and it is asserted here so that closing it fails a test
+	// rather than looking like tidying up. A session comparing this constant with
+	// the attested "30 days" fact will read a 12-day drift with the newer date on
+	// the register's side; without this assertion, correcting it is the obvious
+	// and wrong move. See LiveLinkWindow's comment for why we serve longer.
+	if AdvertisedLiveWindowDays != 30 {
+		t.Fatalf("AdvertisedLiveWindowDays = %d, want 30 (attested fact "+
+			"delivery_live_link_and_zip, owner copy brief 2026-08-25)", AdvertisedLiveWindowDays)
+	}
+	if promised := time.Duration(AdvertisedLiveWindowDays) * 24 * time.Hour; LiveLinkWindow <= promised {
+		t.Fatalf("LiveLinkWindow (%v) must be LONGER than the %d days we promise (%v): "+
+			"we promise 30 and serve 42 on purpose, so a customer is never cut off at the "+
+			"exact moment they were told. Equalising these removes the slack deliberately "+
+			"put there (owner ruling 2026-08-25) — change both numbers and the register "+
+			"together, or neither", LiveLinkWindow, AdvertisedLiveWindowDays, promised)
+	}
 	if want := 604800 * time.Second; MaxPresignWindow != want {
 		t.Fatalf("MaxPresignWindow = %v, want %v (the SigV4 ceiling, measured 2026-08-20)", MaxPresignWindow, want)
 	}
