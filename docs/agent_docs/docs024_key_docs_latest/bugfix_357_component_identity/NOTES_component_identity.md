@@ -1137,3 +1137,21 @@ operation under test RAN. For any step-based rebuild that means the step's own `
 (here `save_result`) being present in `collected_data` — not the orchestration being alive,
 not the page being flagged, and not elapsed time. Nine of this lane's twelve `WRONG_CALLS`
 entries are versions of this, and I walked into it while writing up the one that fired.
+
+### Canary #1 died to the chassis roll, and the state survived it
+
+`e0c2d505-9875-4347-a718-a852f32ec6b7` ended **FAILED** with
+`"reaper: stale EXECUTING_STEP for >4h; step=build_pages_loop_iter_0_assemble_page"`. The
+chassis rolled underneath it (`agent-chassis-67fd9c76f5-*` → `669b45fdb4-*`, pods started
+19:07Z). `save_result` was never set, so **the canary tested nothing** — it is not evidence
+about the carry, in either direction.
+
+Re-measured **19:29Z, after the roll**: `adopted_rows=2 · population=22 ·
+population_stamped=0 · armed_carriers=6`. **The roll changed none of it**, and the reason is
+worth stating rather than assuming: arming lives in `agent_definitions`, so it is DB config,
+live immediately and untouched by an image change. A roll can kill work in flight; it cannot
+disarm phase 2.
+
+Canary #2 fired 19:30Z on the fresh build: `5a0cad41-fe0c-4636-9b2d-9c942486019c`, `index`
+only, `tool-example` still held as the untouched control. Pods were 22 minutes old, past the
+~300s post-restart window in which a spawn is silently dropped.

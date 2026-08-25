@@ -1,5 +1,20 @@
 # HANDOFF — `bugs_open/357`, component identity — 2026-08-25
 
+> ## ⚠ SUPERSEDED 2026-08-25 (evening) — read `HANDOFF_2026-08-25b_continue_here.md` first
+>
+> **This file's §4 ("THE OPEN QUESTION THAT MATTERS MOST") is ANSWERED and its premise was
+> wrong in an instructive way.** It said phase 2's central claim was unproven because
+> `adoption_candidates = 0` meant no page had ever arrived through the adopted route.
+>
+> **Two site adoptions that afternoon showed the route IS reached, with perfect inputs, and
+> that the SAVE is refused afterwards by `save_page_sections`' prune floor** — 1 section
+> against a 3- or 4-entry `pages.sections` plan written by the same action that chose the
+> route. So `adopted = 0` was never evidence about phase 2 at all.
+>
+> **Phase 2 has since FIRED in production (12:24Z), twice, verified and serving.** The
+> sections below on phases 0/2/3, the F2 guard, the arming state and the watch script all
+> remain accurate — only §4's conclusion is retired.
+
 **Read this first, then `bugs_open/357_HANDOFF_2026-08-22_a_whole_tool_page_is_stored_in_a_slot_that_claims_to_be_a_hero_component.md`.**
 
 > **THE LANE IS NOT CLOSEABLE.** The bug's own complaint — 22 live rows declaring
