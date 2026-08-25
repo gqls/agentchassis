@@ -51285,3 +51285,62 @@ owning lane's own words convict. Also worth keeping: the review that caught thes
 owner on work I had presented as verified — the morning's claims each carried real queries, and the queries
 were true; **the attributions layered on top of them were not queried at all**, and nothing in my message
 distinguished the two kinds of statement.
+
+---
+
+## 2026-08-25 — I wrote a verifier that would have certified an emptied schema as REPAIRED, and the landmine for it was already written
+
+**Lane:** `bugfix_375_completion_verifier_gap`.
+
+**What I wrote.** A completion verifier for `required_fields_missing`. Its predicate re-runs the
+detector's own `missingRequiredValueFields(fields, contentData)` and resolves when nothing is
+missing. I was pleased with it: it reuses the detector's function rather than reimplementing it, it
+resolves on the lifecycle axis rather than the detector's `deployed` filter (avoiding
+`bugs_closed/367`), every resolved arm rests on a positive fact, and unreadable input errors rather
+than certifying. I wrote all of that down as the design's strengths.
+
+**What was true.** `datahelpers.SchemaContentFields` returns `(map, true, false)` the moment
+`inputSchema["fields"]` type-asserts to a map — `component_schema_fields.go:78`. So a v2 schema whose
+`fields` object is **empty** comes back readable with **zero** fields. `missingRequiredValueFields`
+then finds nothing missing, and my verifier returned **Resolved: true**.
+
+A component whose field declarations had been emptied is the silent-loss class of `bugs_open/012`
+and `/021`. My guard would have called it repaired.
+
+**What caught it.** A council REVISE round (corr `c8ed18c1`) — its `reuse_agent` seat, pointing at
+the LANDMINES entry *"When your predicate is 'the CONFIG declares X and the DATA lacks X', an
+unreadable config computes to HEALTHY"*.
+
+**The cheap check that would have.** That entry existed, dated 2026-08-03, and its footprint names
+`check_required_fields_missing.go` — the file whose predicate I was reusing. **I never grepped
+LANDMINES for the function I was building on.** One command:
+`grep -n missingRequiredValueFields docs/.../LANDMINES.md`, or the standing rule I have in my own
+memory index — *grep LANDMINES for the SYMBOL you are about to trust*, which exists precisely because
+the SessionStart hook only matches files already dirty and a shared helper is therefore never shown.
+
+**The three things worth taking, in order of transferability.**
+
+1. **A DETECTOR and a VERIFIER run the same arithmetic to opposite conclusions, and only one of them
+   is safe.** The entry said it in one clause — *"there `continue` means 'do not file' and here it
+   must mean 'do not count as observed'"* — and I read that clause as being about retraction, which
+   is what it was written for. It generalises to every guard that resolves rather than files, and
+   the entry did not say so. It does now.
+2. **"I handled the unreadable case" is not the same as "I handled the EMPTY case".** I had
+   explicitly written the fail-closed branch for unparseable JSON and for `ok == false`, and cited
+   RFC_017 while doing it. `ok == true, len == 0` sat in the gap between the two conditions I had
+   thought about. **The check is to enumerate what the helper can RETURN, not what you expect it to
+   return** — three of the four shapes my new test covers were already caught; only one was the hole,
+   which is exactly why the mutation had to be run per shape rather than in aggregate.
+3. **The seat found it through a pointer that no longer exists.** `findResolvedRequiredFields`
+   returns zero grep hits — the footprint had rotted while the mechanism stayed live. So the entry
+   worked *despite* being stale, and it worked because a reviewer read the mechanism rather than
+   chasing the symbol. **Third stale-document-misleads-a-reviewer instance in this lane in two days**
+   (the others: a `phase-2 auditor has not shipped` sentence, and `CQ-023`'s fail-close warning).
+   All three were correct when written. None was wrong by anyone's carelessness.
+
+**Postscript on the round itself.** This is the second time in two days that a REVISE or an objection
+on an APPROVED round found something my own testing had not. Both times my instinct was to answer;
+both times the useful move was to go and check. The tally is now: 4 medium-or-high objections
+across three rounds, of which 2 were factually wrong about the code, 1 quoted a stale comment, and
+**1 was a real defect I had shipped past my own mutation suite.** That last one is the whole reason
+to submit.
