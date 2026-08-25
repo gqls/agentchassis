@@ -874,3 +874,30 @@ The licence side needed no decision: we verified the three model families' licen
 today (Llama's community licence, Mistral's Apache 2.0, Phi's MIT) and registered them, so the
 new technical page can state them exactly. Nothing in the terms work blocks the site as it
 stands — the £99 page is live without it — but the first paying customer makes it due.
+
+2026-08-25. Your verdict on the two new pages, recorded: the copy fails the "would a person
+actually say this" test — "very AI sounding", "so methodical like AI" — with three quoted
+specimens (the licence-summary paragraph on the technical page, the "comes down to three
+steps" line, and the whole "Who is actually running this" section). The rest you rated "not
+so bad to be fair"; facts and claims are fine. You also flagged that the front page cards are
+all negatively framed, and said the whole site could be rewritten in better language.
+
+> **CORRECTION (mine, 2026-08-25):** my note of yesterday evening praised the "Who is
+> actually running this" section as "honest in exactly the way we wanted". You've overruled
+> that, and the miss is instructive: that section passed every automated tell-check we ran
+> (zero em dashes, zero "not just", zero of the owner-named constructions) and still reads as
+> AI. The checklist is not your ear. I've said this to the copy team in the escalation, as
+> evidence their acceptance test needs to change shape.
+
+What was done with your verdict: it went, verbatim, to the copy quality lane as you asked —
+both pages were framework-written end to end, so this is their machinery's ceiling, and the
+escalation says plainly that it "will need to substantially improve", with the three
+specimens, the front-page card measurements (four of six differentiator card HEADLINES are
+built on "X, not Y" — those render from the old specs and would fix mechanically on a
+rebuild), and everything they need to reproduce it.
+
+What was deliberately NOT done: no rebuilds fired. A front-page rebuild today would fix the
+card headlines (yesterday's re-seeding) but the prose would come back in the same register —
+we measured that ceiling across three builds yesterday. Rewriting the site before the
+machinery improves would spend money to reproduce the problem at scale. The two new pages
+stay up (facts right, price right, links right) unless you'd rather they came down.
