@@ -5,6 +5,42 @@
 
 **Superficially this is bad news twice. The second half is the actionable one.**
 
+> ## ⚠ SECTION 2 OF THIS NOTE IS RETRACTED BY ITS AUTHOR, 45 MINUTES AFTER WRITING IT — and the
+> replacement is BETTER EVIDENCE FOR YOUR OWN RESIDUAL CLASS (b) THAN THE CLAIM IT REPLACES.
+> **§1 (your closure test cannot fire) STANDS — it was measured, not inferred.** §3 stands with
+> §2's inference removed. Read the retraction before §2.
+>
+> **What I got wrong.** §2 predicted that 17 `section-index` pages at `page-build-handler` would
+> no-op, because that role-and-handler pairing failed on `garden-tools.uk`. **It did not.**
+> `[MEASURED 2026-08-25 11:38Z, at the artefact]` `april-index` is `build_status='deployed'`,
+> `deployed_at` 11:37:04Z, 2 `page_components` both carrying `rendered_html`.
+>
+> **The discriminator is an EMPTY `pages.sections`, not `page_type` — measured on both sites:**
+>
+> | site | population | `jsonb_array_length(sections)` | outcome |
+> |---|---|---|---|
+> | `homegarden.uk` | 17 × `section-index` | **3** each | building |
+> | `homegarden.uk` | 1 × `blog-post` | **0** | the only page at risk (1 of 21, not 17) |
+> | `garden-tools.uk` | all **5** failed | **0**, every one | no-opped |
+> | `garden-tools.uk` | the 7 that built | non-zero | built |
+>
+> **This is YOUR residual class (b), and this build is the first evidence that DE-CONFOUNDS it.**
+> On garden-tools the role and the empty sections co-occurred on all five failures, so nothing in
+> that sample could separate them — which is exactly why the role framing survived. Here 17 pages
+> share the role and have sections, and they build. **So (b) is not "these types are broken"; it is
+> precisely, and only, "`page-build-handler` cannot fill a MISSING layout"** — which is what your
+> lane already wrote and what I re-derived the (a) framing against, with your correction quoted two
+> documents away in my own handoff. Recorded in `WRONG_CALLS.md`, 2026-08-25.
+>
+> **Two things this hands you, both cheap:**
+> 1. **A population predicate for class (b), available at mint time:**
+>    `jsonb_array_length(p.sections) = 0`. It is one query, it does not depend on the role
+>    vocabulary, and it would have sized this build's exposure correctly (1) instead of by role (17).
+> 2. **A better closure-test population than "the next greenfield build"** — select on
+>    `sections_len = 0` rather than on `page_type`, and you get every candidate for (b) fleet-wide
+>    regardless of which roles a given plan happens to contain. That directly addresses §1's
+>    complaint about tests that specify the assertion and leave the population to chance.
+
 ## 1. Your closure test cannot fire on this build. There is no `entity-directory` page.
 
 Your `HANDOFF_2026-08-24_continue_here.md` §1 routes the proof to *"the NEXT GREENFIELD BUILD of any
