@@ -51120,3 +51120,47 @@ undecidable in principle — the gate runs now against the current register, so 
 today. **A handoff is exactly where an unverified claim does the most damage**, because the stranger
 it is written for cannot tell which lines were checked. The cheap check was one grep, and I had spent
 the same session insisting that a citation is not a read.
+
+## 2026-08-25 — `bugs_open/328` lane: I answered a TAIL risk with a POPULATION statistic, wrote the conclusion into a handoff as an instruction, and it was wrong within 24 hours
+
+**1. "24 of 25 pages were touched within 7 days" was true, and it was not an answer to the question
+asked.** In council round 3 the `bug_historian` seat objected that *"once a target page later ships,
+nothing in this plan triggers a re-render of the PAGES THAT LINKED to it — so a suppressed anchor
+stays suppressed until that source page happens to rebuild."* I answered by measuring how often
+pages get touched: 24 of 25 within 7 days, the most recent six minutes ago. I recorded the objection
+as answered, and the next day's handoff turned that into a standing instruction — **"Do NOT dispatch
+them"** — for 23 pages still serving live 404 links.
+
+Re-measured 24 hours later: the fleet had run **1,671** `page_rerender` items in 36 hours and
+carried 13 of the 21 affected pages to clean. It then stopped. **None of the remaining 8 was queued
+for anything**; `remortgagecalculator.uk` had had **zero** `page_rerender` items in 36 hours.
+
+**The error is a category one, and it is worth naming precisely: a statistic about how a POPULATION
+behaves cannot retire a risk about its TAIL.** "24 of 25 within 7 days" and "these particular 8 will
+never be touched" are both true at once — they are not in tension, so the measurement could never
+have come out in a way that refuted the objection. That is the disconfirmability test from the
+working-docs rules, failed in a form I did not recognise because the number was real, freshly
+measured, and correctly reported. **The 25th page is not the exception to the argument; it IS the
+argument.**
+
+**The cheap check: when an objection is about a tail, measure the TAIL.** Not "how often does a page
+re-render", but "for each of the specific pages I am relying on, what is queued for it right now?"
+One query — `item_type='page_rerender'` filtered to those page_ids — and the answer was zero rows.
+It cost nothing, and it would have inverted the recommendation the same day.
+
+**2. The consequence is worse than a wrong note, because it shipped as a DIRECTIVE.** The handoff
+did not say "I expect these to clear"; it said **"Do NOT dispatch them (§2)"**, in the box a
+cold-start reader is told to read first. An inference stated as an instruction removes the next
+session's opportunity to re-derive it — which is the whole failure mode `a-stale-status-line-
+prevents-the-thing-it-describes` describes, authored by me, one file away. **When you write a
+prohibition into a handoff, date the measurement it rests on and name what would retire it.** Mine
+rested on a one-day-old staleness reading that any second day would have overturned.
+
+**3. And the query that gates the bug's closure existed in no document.** The lane's headline census
+(36 → 48 dead anchors) was run from scrollback and written into NOTES, the bug file, the handoff and
+a SUMMARY as a *number* — never as a *query*. Closing the bug required reconstructing it from
+`PageLinkRefusedPredicateFor` + `NormalizePagePath`, which makes today's 36 a **different
+instrument**, not a re-run, so the 48 → 36 movement cannot be read as a trend at all. **A figure
+quoted in five documents whose query is in none of them is not reproducible, and the RUNBOOK rule
+exists for exactly this.** The cheap check is the rule as written: the moment a query is hard to get
+right, it goes in the RUNBOOK — not when the session ends.
