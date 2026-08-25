@@ -1,9 +1,35 @@
-# HANDOFF — `bugs_open/381`, 2026-08-25. **Both halves are LIVE. One thing is left and it needs the owner.**
+# HANDOFF — `bugs_open/381` → **CLOSED 2026-08-25**
 
+**Bug (now closed):** `bugs_closed/381_HANDOFF_2026-08-24_the_planner_composes_pages_from_components_that_cannot_express_the_page_it_planned.md`
 **Lane:** `docs/agent_docs/docs024_key_docs_latest/bugfix_381_inexpressive_composition/`
-**Bug:** `bugs_open/381_HANDOFF_2026-08-24_the_planner_composes_pages_from_components_that_cannot_express_the_page_it_planned.md`
-**State: THE VALIDATION BUILD IS RUNNING. Everything built is applied, verified and evidenced; the
-one open item is now in flight — see §0.**
+
+## ✅ CLOSED — verified at the served bytes, 2026-08-25 13:01Z
+
+Owner pointed DNS; the fix is fixed AND live, which is `/bugs_closed/`'s bar. Full evidence in the
+bug file §12. The one-line result, with the control stated because this lane published "served" once
+when it was false (an impossible URL now **404s**):
+
+> **`garden-tools.uk` serves exactly 8 `<li>` on every page and every one is navigation — zero
+> content lists, zero `<ol>`, zero `<strong>` — on the site whose seasonal planner promised a
+> month-by-month guide. `homegarden.uk` serves 33–41 content list items per page above that same
+> baseline, and its landing page carries an `<ol>` of twelve months, January to December.**
+
+⚠ **Do not quote "20 of 20 pages carry a list"** — page nav is itself a `<ul>` on both sites, so that
+figure is confounded. The discriminators are `<ol>`, `<strong>`, and `<li>` above the nav baseline.
+
+### What is left, and none of it is this defect
+- **`checklist` was offered and never chosen** — a real negative, unexplained. Worth one
+  investigation; the mechanism is already demonstrated by `period-calendar`.
+- **`comparison-table` unexercised** — the vertical had no comparison input. Needs a
+  comparison-shaped subject.
+- **`/blog/blog-post.html` 404s** — `sections_planned=0`, `bugs_open/206`, named in advance by the
+  `loanzy_uk_example_site` lane's corrected predictor.
+- **The mobile card-wall complaint (bug file §7) is unaddressed and was never filed.**
+
+### If you are picking this lane up
+`bash ACCEPTANCE_homegarden.sh` still runs and carries every retraction inline. `evidence/` holds the
+captured planner prompt and the mint snapshot. Everything below this line is the working record from
+while the build was in flight — kept because the corrections in it are the useful part.
 
 ---
 

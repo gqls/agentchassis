@@ -211,3 +211,34 @@ never run. One build settles it. If you would rather not commission one, the hon
 to leave it open and measure whatever gets built next — that costs nothing and stays true. What I
 don't want to do is mark it done because the configuration is in place; the whole of the last two
 days has been about the difference between shipped and working.
+
+---
+
+**2026-08-25, closing.** You pointed the DNS, and that was the last thing needed. The bug is closed.
+
+**The comparison, on the live sites, is the whole story.** Garden-tools — the site that started
+this — serves exactly eight list items on every page, and every one of them is the navigation menu.
+Not one content list anywhere, including on the page that promised a month-by-month guide.
+Homegarden now serves forty to fifty list items per page on top of that same menu, and its front
+page carries a proper twelve-month calendar, January through December, each month with its own
+advice.
+
+**I checked it the careful way round.** Before believing any of those numbers I asked the site for a
+page that cannot exist. It correctly said "not found" — which matters, because two hours earlier the
+same domain was answering "yes, here it is" to every address including invented ones, and I had
+already told you the calendar was live when it wasn't. A number is only worth having if the
+instrument could have said no.
+
+**Three things I did not fix, so you have them plainly.** The checklist component was offered to the
+planner and it never picked one — I don't know why, and that's worth someone looking at. The
+comparison table never got a fair test, because the research for this subject came back with nothing
+to compare. And your third complaint from the original review — too many cards stacking up on a
+phone — I never touched; it needs a decision about page layout rather than a bug fix, and it has
+never been written down as a job.
+
+**What I'd take from the last two days, if it's useful to you.** Eight things I said turned out to be
+wrong, and not one of them was caught by me re-reading my own work. Every single one was caught by
+another thread asking a question they thought was routine. The pattern underneath most of them was
+the same: I measured something one step away from the thing I actually cared about — a status column
+instead of the page, a section count instead of the words, a clock instead of a timestamp — and each
+time it felt exactly like measuring. That's now written up where the other threads will find it.
