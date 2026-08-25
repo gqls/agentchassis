@@ -639,33 +639,50 @@ func TestBuildLegibleInkDefaults_CTAInkKeepsALegibleFirstStop(t *testing.T) {
 // THE VACUOUS-WHITE TRAP. legibleInkFor's terminal branch compares
 // worstRatioAgainst("#ffffff") with worstRatioAgainst("#000000"); with no
 // measurable ground both return 0, `0 >= 0` holds, and it hands back WHITE —
-// which on a white button face is the exact 1.00:1 defect being repaired.
-// Remove the cta_text guard in buildLegibleInkDefaults and this goes RED.
+// which on the inverted button IS the 1.00:1 defect being repaired. Remove the
+// face guard in buildLegibleInkDefaults and this goes RED with #ffffff.
 func TestBuildLegibleInkDefaults_NoCTAInkWithoutAGround(t *testing.T) {
 	p := finetuningGradientPalette()
 	delete(p, "cta_text")
+	delete(p, "primary_text")
 	css := buildLegibleInkDefaults("", p, defaultInkPolicy(), zap.NewNop())
 	if got := emittedToken(css, "--color-cta-bg-ink"); got != "" {
-		t.Errorf("emitted --color-cta-bg-ink = %s with no cta_text to measure against; "+
+		t.Errorf("emitted --color-cta-bg-ink = %s with no button face to measure against; "+
 			"an ink derived from nothing is worse than an absent one, because the "+
 			"consumer's var() fallback is today's working colour", got)
 	}
-	// The unrelated companions must still be emitted — the guard is meant to
-	// skip ONE slot, not to silence the builder.
+	// The unrelated companions must still be emitted — this is one entry, not a
+	// switch on the builder.
 	if emittedToken(css, "--color-primary-ink") == "" {
-		t.Error("the missing cta_text suppressed --color-primary-ink too; the guard is scoped wrong")
+		t.Error("the missing face suppressed --color-primary-ink too; the scoping is wrong")
 	}
 }
 
-// A stylesheet that already has an opinion keeps it — same contract as every
-// other companion, and the reason it is asserted separately is that the cta
-// entry is appended AFTER the wanted slice is built and could easily miss the
-// shared skip.
-func TestBuildLegibleInkDefaults_CTAInkRespectsAnExistingDefinition(t *testing.T) {
-	pre := ":root{--color-cta-bg-ink: #123456;}"
-	css := buildLegibleInkDefaults(pre, finetuningGradientPalette(), defaultInkPolicy(), zap.NewNop())
-	if got := emittedToken(css, "--color-cta-bg-ink"); got != "" {
-		t.Errorf("re-emitted --color-cta-bg-ink = %s over a stylesheet that already defines it", got)
+// THE CASE THAT PROVES THE GROUND IS THE BUTTON, NOT THE PAGE, AND NOT WHITE.
+// Seven live themes pair a LIGHT band with a NEAR-BLACK ink — cta_bg #e9e2d3 /
+// cta_text #1a1a1a (noted, idea, lendzy, loanzy, mortgagecalculator,
+// remortgagecalculator, webdesign.co.uk) [MEASURED 2026-08-25]. There the
+// inverted button's face is nearly black, so the ink has to be LIGHT. An
+// implementation that grounds on white (or on the page background) emits a dark
+// ink here and scores ~1.2 — a second invisible button, in the opposite
+// direction from the one this repair exists to fix.
+func TestBuildLegibleInkDefaults_CTAInkFollowsALightBandsDarkFace(t *testing.T) {
+	p := finetuningGradientPalette()
+	p["cta_bg"] = "#e9e2d3"   // light cream band
+	p["cta_text"] = "#1a1a1a" // its near-black ink, which the button inverts to a FILL
+	css := buildLegibleInkDefaults("", p, defaultInkPolicy(), zap.NewNop())
+	got := emittedToken(css, "--color-cta-bg-ink")
+	if got == "" {
+		t.Fatal("nothing emitted for the light-band/dark-ink shape")
+	}
+	ratio, err := wcagContrastRatio(got, p["cta_text"])
+	if err != nil {
+		t.Fatalf("emitted %q not measurable against the button face %s: %v", got, p["cta_text"], err)
+	}
+	if ratio < inkFloorContrast {
+		t.Errorf("--color-cta-bg-ink %s scores %.2f on the button face %s, want >= %.1f — "+
+			"grounding this slot on white or on the page background produces exactly this failure",
+			got, ratio, p["cta_text"], inkFloorContrast)
 	}
 }
 

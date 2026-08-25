@@ -798,16 +798,42 @@ func buildLegibleInkDefaults(css string, palette map[string]string, policy inkPo
 	// this whole builder exists for, so the stop is only the SOURCE and
 	// legibleInkFor still has to re-tint it.
 	//
-	// Ground is cta_text and nothing else: this ink lands on the inverted
-	// button, never on the page. Emitted only when cta_text is known — with no
-	// measurable ground legibleInkFor's terminal branch would hand back white,
-	// which is the very defect being repaired.
-	if ctaText := lookupOrFallback(palette, "cta_text", ""); ctaText != "" {
-		if ctaFill := solidCTAFill(palette); ctaFill != "" {
+	// THE GROUND IS THE INVERTED BUTTON'S FACE, which is `cta_text` — the band's
+	// own ink used as a FILL. (Read that twice before editing: the name says
+	// text and the role here is a surface.) This ink lands on that button
+	// inside the band, never on the page, so the page grounds above are the
+	// wrong measurement for it.
+	//
+	// ⚠ THIS IS ONE GROUND ONLY BECAUSE MIGRATION 619 MADE IT ONE. Until then
+	// the two consumers painted the button differently `[MEASURED 2026-08-25]` —
+	// `call-to-action` used `var(--color-cta-text, var(--color-primary-text))`
+	// and `tool-cta` a hard-coded `var(--color-white, #fff)`. Grounding on both
+	// was considered and is WRONG rather than merely costly: **7 live themes**
+	// pair a light band with a near-black ink (`cta_bg #e9e2d3` / `cta_text
+	// #1a1a1a` — noted, idea, lendzy, loanzy, mortgagecalculator,
+	// remortgagecalculator, webdesign.co.uk), so the two faces are #ffffff and
+	// #1a1a1a and NO single colour clears 4.5 on both; legibleInkFor would fall
+	// through to its terminal branch and emit black at a worst ratio of ~1.2.
+	// Two faces needed either two tokens or one converged face, and 619 converged
+	// the face — `tool-cta`'s literal white was the anomaly, not the contract
+	// (the `bugs_open/113` layout-literal shape). Raised by the council's
+	// editquality seat, round 1, which was right that the round-1 grounding did
+	// not describe the surfaces the ink actually sits on.
+	//
+	// If a future component paints this button a THIRD way, add its face here
+	// rather than re-grounding: grounds is a slice so that one variable can be
+	// right for the WORST of them, and a face nobody measured is how this
+	// started.
+	//
+	// Emitted only when the ground is measurable: with none, legibleInkFor's
+	// terminal branch compares two unmeasurable candidates, `0 >= 0` holds, and
+	// it hands back WHITE — the very 1.00:1 defect being repaired.
+	if ctaFill := solidCTAFill(palette); ctaFill != "" {
+		if face := lookupOrFallback(palette, "cta_text", lookupOrFallback(palette, "primary_text", "")); face != "" {
 			wanted = append(wanted, struct {
 				name, src string
 				grounds   []string
-			}{"--color-cta-bg-ink", ctaFill, []string{ctaText}})
+			}{"--color-cta-bg-ink", ctaFill, []string{face}})
 		}
 	}
 
