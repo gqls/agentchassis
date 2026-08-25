@@ -117,6 +117,22 @@ the `agent_snapshots` rows each migration takes, the git history of `assets/css/
    would block legitimate owner-instructed palette changes behind a queue nobody drains
    (`bugs_open/033`).
 
+## 6a. ⚠ CROSS-REFERENCE OWED TO MIGRATION 616 (council recommendation, 2026-08-25)
+
+`bugs_open/390`'s commit 1 is **migration `616_css_patch_agent_prompt_stops_instructing_the_losing_move.sql`**,
+applied 2026-08-25. It makes css-patch-agent's appended rule actually WIN the cascade.
+
+The council's `bug_historian` seat, reviewing 616 (corr `ef5f9a0d`), approved it but noted — medium
+severity — that **a fix which makes the appended rule win today has no value once
+`persist_css_to_theme` next runs on that site**, and recommended that this filing name 616
+explicitly *"so the two are not resolved independently and left disagreeing"*. That is recorded
+here as instructed.
+
+**The practical consequence for whoever fixes this bug:** 616 increases the value of fixing 396,
+it does not reduce it. Before 616 an appended repair was usually inert anyway, so erasing it cost
+little. After 616 the appended rule is expected to work — so from now on, erasure destroys repairs
+that were actually holding. **Do not close 396 by arguing that the repairs were worthless.**
+
 ## 7. Provenance
 
 - Found 2026-08-25 by the `bugfix_390_cascade_attribution` lane while measuring why contrast

@@ -179,3 +179,68 @@ re-linked — and whoever takes 396 is told to settle it first, because it is th
 The general shape, which is the reusable part: **once you have proven a mechanism, every unexplained
 absence starts looking like it.** The discriminating question is not "is this consistent with my
 mechanism" but "what else would produce exactly this, and can I rule it out" — here, one query.
+
+## 2026-08-25 (j) — council round 1 on migration 616: REVISE, and it found a real latent defect
+
+Verdict `ef5f9a0d`, gated by `debug_historian` (HIGH), with `guardian` and `editquality` raising
+the same point independently. **Three seats on one issue is a signal, not noise.** Both objections
+accepted; one was a genuine latent defect I had already made once in this same file.
+
+**Objection 1 (HIGH) — the UPDATE and the drift guard scoped on `type=… AND is_active AND NOT
+is_snapshot AND deleted_at IS NULL` with no version tie-break**, against the landmine that some
+agent types carry two active rows and only the higher version loads.
+
+I checked the landmine myself rather than taking the verdict's word, and **both halves are true**:
+
+```
+type                     | active_rows | versions
+chief-strategist         |           2 | {1,2}
+content-creator          |           2 | {1,2}
+content-creator-contact  |           2 | {1,2}
+site-component-architect |           2 | {1,2}
+-- and css-patch-agent:  |           1 | {1}
+```
+
+So the objection is right about the estate and **did not bite this agent**. It is still right about
+the SHAPE: my guards assumed a single row without asserting it, and that assumption fails silently
+the day css-patch-agent gains a second. Fixed with a row-count assertion before any read or write,
+plus `GET DIAGNOSTICS … ROW_COUNT` after the UPDATE. Mutation-proven: insert a second active row in
+a transaction and the migration raises `expected exactly ONE live css-patch-agent row, found 2`.
+
+**Objection 2 (LOW) — and it is the better catch.** The drift guard's `v_old` literal and the
+UPDATE's `$old$…$old$` literal were **two separately-authored copies of the same string**. Diverge
+by one character and the guard passes while `replace()` no-ops: `UPDATE 1`, nothing changed.
+
+Fixed **by construction rather than by detection**: guard and edit are now one `DO` block, the
+literals are declared once as variables, and both use the variable. Divergence is unrepresentable.
+
+⚠ **This is the SECOND time one restated literal has bitten this single migration** — the first was
+the `219` I typed for a 214-character string, which I caught myself. Same shape, twice, in one
+file: *a literal written down twice is a literal that will disagree with itself.* That is the
+transferable rule, and it is worth more than either fix.
+
+**Two round-1 premises that are FALSE, recorded so nobody inherits them:**
+
+1. `editquality` (medium) and `guidelines` both said a submission naming two files (migration +
+   `_ROLLBACK`) is refused server-side. **It is not.** This submission is exactly those two files;
+   it passed `DRY_RUN` admission and round 1 itself was accepted and fully reviewed. The landmine
+   they cite does not describe this gate's current behaviour.
+2. Several seats' read-only checks returned `has_old_text: false`, which reads as "the precondition
+   is already gone, so the replace would no-op". **That is my sequencing, not drift** — I applied at
+   ~16:47 BST, before the verdict, so the council observed the post-apply world.
+   `prior_art_librarian` asked specifically for that check to run *before* the replace executes.
+
+**The process lesson, which is the part I would otherwise not have noticed: applying before the
+verdict lands makes the council's own precondition checks report the precondition as ABSENT.** The
+answers then look like evidence of drift and are nothing of the kind. If you apply early, say so in
+the submission so the seats can read their own checks correctly.
+
+**What no seat objected to on the merits:** the `!important` decision. `constitution`,
+`architecture`, `render_guardian` and `reuse_agent` each examined it and approved, three noting
+explicitly that the append-only structural position leaves no alternative and that the measured
+0/812 premise is the right kind of grounding. `bug_historian` (approve) made one medium note — that
+migration 543 will erase these wins at the next design run — and recommended the separate filing
+cross-reference this migration number so the two are not resolved independently. **Done**, in
+`bugs_open/396`.
+
+Round 2 resubmitted on the same correlation `ef5f9a0d`, so the trail accumulates.

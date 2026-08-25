@@ -52997,3 +52997,32 @@ OR …) AS agent_writable` after an unlock — `t` is the only evidence the unlo
 that RETURNs the columns it just wrote can only tell you it wrote them, never that they mean what
 you think. Tally: read-the-adjacent-column-not-the-deciding-one; asserted-an-effect-by-echoing-my-own-write;
 paired-defects-that-cancel-under-test.
+
+## 2026-08-25 — `bugfix_390_cascade_attribution` (session "bug sweep"): a literal written down twice disagreed with itself — twice, in one file
+
+**The claim.** Migration 616's drift guard asserts the exact sentence it is about to replace. I
+wrote that sentence's length as a hand-typed constant (`/ 219`), and later wrote the sentence
+itself a second time as a dollar-quoted literal in the UPDATE, separate from the guard's copy.
+
+**What was true.** The sentence is **214** characters, so the first guard would have divided by the
+wrong number and compared a fraction to 1 — passing or failing for a reason unrelated to the text.
+I caught that one myself. The second one I did not: the guard's `v_old` and the UPDATE's `$old$`
+literal were two separately-authored copies, and if they ever diverged the guard would pass while
+`replace()` no-opped — `UPDATE 1`, nothing changed, success reported. The council's
+`debug_historian` seat caught it (low severity, gating round REVISE on a different objection).
+
+**What caught it.** Council round 1 on correlation `ef5f9a0d`. Worth noting the shape: this is the
+class of defect a reviewer catches cheaply and an author almost never does, because the author
+knows the two copies are the same — they typed them minutes apart.
+
+**The cheap check, skipped.** Do not restate a literal — derive it. Both fixes are the same move:
+never write a value that restates another value (a length, a copy of a string). Declare it once and
+use the variable; where the structure forbids that, restructure until it does not. The final form
+puts guard and edit in ONE `DO` block with the literals as variables, so divergence is
+unrepresentable rather than merely detectable. Tally: restated-literal-disagrees-with-itself (×2).
+
+**And a process one, in the same round.** I applied the migration before the verdict landed, so the
+council's read-only precondition checks observed the post-apply world and reported the anchor text
+as ABSENT — which reads exactly like drift. Three seats' evidence blocks now carry that artefact. If
+you apply early, say so in the submission so the seats can read their own checks correctly.
+Tally: applied-before-verdict-poisons-the-reviewers-checks.
