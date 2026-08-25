@@ -509,3 +509,28 @@ token against a real site, and confirming stamps that site as customer-confirmed
 the retract-on-schedule path. **That is a production mutation for a test and it is the owner's
 call, not a session's.** Everything up to it is proven at the live endpoint; the redemption SQL
 itself was verified against real Postgres in a rolled-back transaction on 2026-08-20.
+
+---
+
+## 2026-08-25 — post-roll review of the Builds screen (owner asked for a Fable pass; the pass was Opus)
+
+The owner asked to look the Builds-screen work over again **with Fable**. Two Fable review
+agents were launched with full hunt lists and died on launch — the Fable session limit was hit
+(resets 12:10am London). Rather than stall, this session (Opus) ran the identical review itself,
+stated plainly here so the record does not claim a second model's eyes it never had. A genuine
+Fable re-run is available after reset if the owner still wants it.
+
+Scope: the LIVE code at HEAD — `e6350e74b` (backend), `b3fbfdd02` + `1a8db99f9` + `8e5a35ef9`
+(SPA) — plus the council's three advisory objections on `45b3c93f` (APPROVED r1). Full findings
+with evidence: `PLAN_2026-08-24_build_steps_screen.md` §7 (this entry is the pointer, not a fork).
+
+Headline: the two real findings are both **pre-existing defects the new code armed or made
+visible**, not defects in the new code — terminate's blast radius is the whole correlation
+(`correlation_id` is NOT unique: 6,936 rows / 3,102 distinct, up to 19 rows share one, **5**
+terminate-eligible multi-row correlations live right now), and the drill-down `QueryRowContext`
+with no `ORDER BY` returns an arbitrary sibling. The council's sharpest open question
+(editquality: raw bytes vs re-marshaled struct) resolves CLEAN — the INSERT stores `body.Data`
+verbatim — but the sqlmock tests carry no `WithArgs`, so the exact landmine mutation would
+survive the suite. bug_historian's WriteSiteSpecAction objection: the 8d134735d refutation
+HOLDS at HEAD (aspect is a config literal; 0 live agent_definitions pair `write_site_spec`
+with `evidence_base`).

@@ -425,3 +425,114 @@ fact *kind* announce itself rather than behave as a default. An unrecognised evi
   called** (it mutates, and a live workflow is not mine to terminate).
 - 6b's 67 = 67 identity holds for this window; a future nested writer would break it. The test
   that detects that is the `'"__step_error":'` strpos count diverging from the `?` count.
+
+---
+
+## 7. POST-ROLL REVIEW — 2026-08-25, both halves live
+
+Requested by the owner ("look over this again with fable"). **Run by Opus, not Fable** — both
+Fable agents died on launch against the Fable session limit (resets 12:10am London); the hunt
+lists were executed unchanged by this session, and a genuine Fable re-run remains available.
+Scope: code AT HEAD (`e6350e74b`, `b3fbfdd02`, `1a8db99f9`, `8e5a35ef9`), live in core-manager
+`a7459a44b` (ancestry-proven) and dashboard `v1.0.1339`, cross-checked against council
+`45b3c93f`'s three advisory objections (verdict APPROVED r1, 8 abstained). All figures
+`[MEASURED 2026-08-25]`.
+
+### 7a. FINDINGS — ranked, none fixed in this pass
+
+**F1 (medium, CONFIRMED, pre-existing — ARMED by the table-name fix): Terminate relabels every
+orchestration sharing the correlation, and the UI says "the row", singular.**
+`updateWorkflowStatus` (`system_handlers.go:605-620`) UPDATEs `WHERE correlation_id = $1`.
+`correlation_id` is NOT unique: **6,936 rows / 3,102 distinct — up to 19 rows share one**, and
+**5 multi-row correlations are terminate-eligible right now**. Scenario: the operator terminates
+a stuck workflow whose correlation covers 19 rows; 18 sibling/child rows — including COMPLETED
+sub-orchestrations — are relabeled `FAILED` + "Manually terminated by admin", destroying their
+status record and skewing anything that counts FAILED (e.g. `agent_handlers.go:475`). Before
+`e6350e74b` this arm always 500'd against a nonexistent table, so the fix is what armed the
+blast radius. The `1a8db99f9` confirm text ("marks the workflow FAILED in its state row") is
+accurate about semantics and wrong about number. Cheapest honest fix shape: scope the UPDATE
+with `AND status NOT IN ('COMPLETED','FAILED')` (never relabel finished work), and/or accept an
+optional `orchestration_id` (the detail view already has it) to hit one row.
+
+**F2 (medium, CONFIRMED, pre-existing — made user-visible): the drill-down is nondeterministic
+for multi-row correlations.** `getWorkflowState` uses `QueryRowContext … WHERE correlation_id =
+$1` with **no ORDER BY**; ~40% of correlations are multi-row. The Builds drill-down can show a
+different sibling on successive opens — the `__step_error` panel can appear and disappear
+between two clicks on the same row. Fix shape: `ORDER BY (parent_orchestration_id IS NOT NULL),
+created_at LIMIT 1` (root first), or return all rows for the correlation.
+
+**F3 (low, CONFIRMED): the evidence_base guard is check-then-act.** The current-row read
+(`site_admin_handlers.go` guard block) runs outside the later transaction. Interleaving: A's
+unconfirmed empty save passes the guard while no register exists; B's good register lands in
+the window; A's tx supersedes it with no 409 — the exact silent-disarm the guard exists to
+stop. Millisecond window on an admin-only route with ~one human user; recorded, not worth a
+lock.
+
+**F4 (low, CONFIRMED): the sqlmock suite would not catch the landmine it guards adjacent to.**
+`expectWrite` (`spec_update_guard_test.go:79-87`) arms `ExpectQuery("INSERT INTO site_specs")`
+with **no `WithArgs`** — so mutating the handler to INSERT the re-marshaled `eb` struct instead
+of raw `body.Data` (the exact write path the editquality landmine describes: unmodeled fields
+silently deleted on every save) passes all six tests. One `WithArgs` asserting the stored bytes
+equal the sent bytes closes it. The other three mutations tested (drop the 409 branch, invert
+`confirm_empty`, typo the aspect comparison) ARE caught.
+
+**F5 (low, CONFIRMED): `site_id` validation accepts three forms Postgres rejects.** Go's
+`uuid.Parse` accepts `urn:uuid:…` (proven: Postgres errors on `'urn:uuid:…'::uuid`), so that
+form passes the 400 check at `system_handlers.go:170-173` and dies as a 500 in the query,
+because the RAW string — not the parsed UUID — is passed as the SQL arg. Fix: pass
+`parsed.String()`.
+
+**F6 (low, CONFIRMED — moot while versions stay matched): the deploy-ordering hazard was
+documented, never guarded.** `loadAll` consumes `wf.workflows` with no check that rows carry
+`site_id === siteId`. Against an old backend (rollback, or a stale cached image) the fleet-wide
+list renders as this site's build. One client-side filter line is both the guard and the fix.
+
+**F7 (info): divergence badge arithmetic.** The `bySlot` fallback in `divergenceCountFor`
+aggregates across positions when the exact position key misses, so a shifted component can
+inherit a neighbour's overwrite count; and `loadDivergenceCounts` fetches `limit=1000` without
+consulting `truncated`, so a site with >1000 divergence rows undercounts. Both bounded, both
+fail toward over-warning or slight undercount — acceptable, recorded.
+
+**F8 (info): §1's top-level Builds tab was not built** — entry is the site-card button only,
+and the "builds" view highlights the Sites tab. Consistent with §6d (the owner described
+arriving from the site); recorded so nobody reads §1 as shipped verbatim.
+
+### 7b. Claims verified CLEAN, with the check
+
+- **editquality's medium objection (the sharpest): resolved clean.** The INSERT stores
+  `body.Data` — the raw `json.RawMessage` — and `eb` is used only for validation and counts;
+  `ParseEvidenceBase` does not mutate its input. Response counts therefore describe the stored
+  bytes. (But see F4: the tests do not pin this.)
+- **guardian's status-vocabulary objection: clean.** Terminate writes `"FAILED"` ==
+  `orchestration.StatusFailed` (`state.go:31`), one of the platform's six constants. (The
+  retention mechanism that holds the table to ~2 days was not found in-repo — no `DELETE FROM
+  orchestration_states` outside tests, no pg function matching my query — so "FAILED rows get
+  reaped" rests on FAILED being a standard status, stated rather than proven.)
+- **bug_historian's WriteSiteSpecAction objection: the 8d134735d refutation HOLDS.** `aspect`
+  comes from step CONFIG (a workflow literal, not LLM output — `site_spec_actions.go:180`), and
+  **0** live agent_definitions pair `write_site_spec` with `evidence_base`.
+- **bugs_open/099 handling: correct end to end.** Server: exact top-level jsonb key test in the
+  SELECT list (evaluated only on returned rows; no WHERE cost). SPA: detail view surfaces
+  `__step_error` entries regardless of status (object and string forms both handled), list rows
+  use the server boolean, `error: ""` is falsy and never renders as "no error".
+- **The 409 flow: correct against apiFetch's contract.** `apiFetch` throws `Error(bodyText)`;
+  the catch `JSON.parse`s it, matches `code === "EMPTY_EVIDENCE_BASE"`, confirm-retries with
+  `confirm_empty: true`, and cancel leaves the register untouched.
+- **Terminal-status set**: COMPLETED/FAILED (+ defensive CANCELLED, not a platform constant);
+  INITIALIZED/RUNNING/EXECUTING_STEP/AWAITING_RESPONSES all treated live, pinned above the
+  fold, never truncated (`8e5a35ef9` slice arithmetic checked).
+- **The truncated-window per-stage refetch** in `loadAll` is correct and defends the real case
+  (build-stage rows are the oldest; the window is newest-first). `MAX_PAGE_SIZE` (1000) ==
+  `maxWorkItemPageSize` (1000).
+- Scan columns (`site_id` → NullString, `has_step_error` → bool), polling cleanup
+  (10s, cleared on unmount, skips hidden tabs), XSS (all React-escaped text), the prohibition
+  nudge (save-time only, informational, `\b` boundary means `banned_claims` keys cannot
+  self-trigger it — though prose-heavy briefs will fire it often, by design).
+
+### 7c. Disposition
+
+Findings only — nothing fixed in this pass, per the review's charter. F1+F2 are one small
+backend change (scope the UPDATE, order the SELECT) and are the pair worth fixing first; both
+predate this lane's work but this lane's screen is what put buttons on them. F4+F5 are
+one-liners. F6 is a one-line client filter. All are council-gate material (`internal/`), none
+RFC-shaped.
