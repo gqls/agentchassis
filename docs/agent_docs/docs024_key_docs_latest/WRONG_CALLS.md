@@ -52713,3 +52713,48 @@ evidence the handler was alive, and then argued past it to "but not for MY site"
 claims,** and only the second licenses an intervention. The estate's direct-fire remedy is written
 for a **dead** queue (`bugs_closed/029` — items orphaned at `claimed`, zero completions). Reaching
 for a documented remedy does not make the diagnosis that reached for it correct.
+
+## 2026-08-25 — `webdesign_tool_rebuilds`: I reported eight tools' cross-mentions as delivered. None of them, or of the 63 before them, had ever been written
+
+**The claim:** this lane's NOTES for 2026-08-24 19:30Z are headed *"the crosslink emission is
+PROVEN"* and record two `tool_crosslink` rows *"one per named page (status `deferred` at their
+normal gate)"*. From 08-24 to 08-25 I filed eight rebuilds on that basis, each naming one or two
+related articles, and each time recorded the crosslinks as emitted — meaning, as I and the next
+reader would take it, that the tool now gets a sentence woven into a relevant guide.
+
+**What was actually true.** `[MEASURED 2026-08-25 15:00Z]` `item_key LIKE 'tool_crosslink:%'` on
+site `6b49db8e`, all history: **41 `wont_fix`, 15 `deferred`, 13 `failed`, 2 `unresolved`, and ZERO
+`complete` across 71 rows since 2026-08-05.** Not one cross-mention has ever been written on that
+site. The 15 `deferred` are mine, parked by `bugs_open/333`'s owned-page door in the same second
+they were created — `created_at` == `updated_at`, `handler_agent` cleared, `spec.not_dispatchable`
+saying in as many words that promoting the row would dispatch work the handler is forbidden to do.
+
+**The load-bearing error is one phrase: "at their normal gate."** It is not a gate. It is a
+terminus. The word made a parked row read as a queued one, and nothing downstream ever contradicted
+it, because everything upstream of the refusal genuinely worked — the key was read, the pages were
+resolved, the rows were filed against exactly the right articles.
+
+**What caught it:** filing #41 and, for the first time, asking what the rows had DONE rather than
+whether they existed. Nothing prompted it; no symptom, no failure, no complaint. Which is the
+uncomfortable part — this could have run to 63 tools.
+
+**And it nearly un-caught itself.** Going to the three target articles, all three contained a link
+to their tool. For several minutes that read as proof the mentions were landing after all. They were
+pre-existing: `learn-data-unicode-gremlins` carries a hand-authored CTA (*"Use our Regex-powered
+cleaner… Launch Text Sanitizer →"*) in a slot last written **2026-08-15**, ten days before I filed
+anything. **A pre-existing artefact is the most convincing false positive available, because it is
+genuinely there.**
+
+**The cheap checks that would have prevented both, in the order they should have been done:**
+1. **Read the status VALUE, do not count rows.** The runbook said "verify at the artefact rather
+   than the item status" and then supplied `SELECT status, spec->>'page_name' … expect one row per
+   page you named` — a query whose only assertion is existence, which is guaranteed. **A check that
+   cannot fail is not a weak check, it is not a check.** Now fixed to print `status` and `error`.
+2. **Date the slot against your own action.** `page_components.updated_at` on the named page must be
+   LATER than your `add_tool`'s `completed_at`, or the copy you are crediting yourself with predates
+   you.
+
+**The tally line this belongs to:** this is another instance of *the receipt is not the delivery* —
+`llm_call_log`-shaped, `a-receipt-nobody-asserts-on-is-a-log-line`-shaped. The recurring skipped
+check is the same one every time: **the artefact the mechanism was supposed to CHANGE, dated.** Not
+the row it filed, not the status it reported, not the name appearing somewhere on the page.
