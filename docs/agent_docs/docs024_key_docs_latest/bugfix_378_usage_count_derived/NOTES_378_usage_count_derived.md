@@ -881,3 +881,39 @@ forward-only forbids an amend). Verdict in flight at `review_constitution`. HEAD
 **One residual remains, and it is a scheduled action rather than a question: apply `610` after the
 next chassis roll**, once a build containing the part-1 commit is live and proven at the artefact
 *with a control that must fail*. The recipe is in 610's own header.
+
+---
+
+## 2026-08-25 — a wrong migration number in the one comment that pointed at the DROP
+
+The `bugs_open/388` lane read my creation-path comment in `store_generated_component_action.go` and
+found it said *"the DROP in migration **609**"*. The DROP is **610**; `609` is the COMMENT-only
+migration. Corrected in `88ca61369`.
+
+**Why it was worth their minute and mine, rather than a shrug.** That sentence is the *only* in-code
+pointer to the pending DROP, so it is precisely what someone greps when this INSERT starts failing —
+and the wrong number sent them to a migration that never mentions the column list at all. A pointer
+that is wrong is worse than no pointer, because it terminates the search.
+
+Two things changed beyond the digit:
+
+- **It now names the FILE, not the number.** This estate already has an owner ruling (2026-08-19) that
+  a thread doc must be given with its path because names are ambiguous. **Migration numbers are worse:
+  several numbers in this repo name two unrelated things, and the number is not greppable — the
+  filename is.** I had the ruling and applied it to docs, not to a code comment pointing at a
+  migration. Same class as the `WRONG_CALLS` entry above about implementing the *example* rather than
+  the *lesson*.
+- **It gained the rule it was missing.** The comment explained the history and never actually said the
+  thing a future editor needs: *"DO NOT re-add `usage_count` to this column list. Naming a column in
+  an INSERT is enough to make every component creation fail the moment 610 runs."* Explaining why
+  something is absent is not the same as forbidding its return.
+
+**Their second point was already addressed and I told them so rather than re-fixing it** — 610's
+header has carried the must-be-PRESENT control since `6c7792ab3`; they were a commit behind. Worth
+noting the shape: on a tree this active, *"you are missing X"* and *"you fixed X twenty minutes ago"*
+are indistinguishable from the outside. Checking before agreeing cost one `grep` and avoided a
+duplicate edit to a file another lane is working in.
+
+**Cross-lane state, now closed:** they confirmed their fix does not touch the birth INSERT's column
+list and will not reintroduce `usage_count`. That was the only thing that could have broken 610's
+precondition, so there is no remaining dependency between the lanes.
