@@ -16,12 +16,29 @@
 # ── PROMOTED into this lane directory 2026-08-25 from the 08-24 session's scratchpad, per that
 #    session's own instruction in HANDOFF_2026-08-24 §3. Unchanged except this banner.
 #
-# ⚠ SECTION (a) 311 CARRIES A DATED PIN, NOT A BASELINE. The eight md5s below were taken
-#    2026-08-23. All eight incumbents moved on 2026-08-20 under bugs_open/283, and RFC_032 is
-#    rewriting html_template fleet-wide, so they will keep moving. On any run that is NOT
-#    immediately preceded by re-pinning them yourself, "*** HTML CHANGED ***" means
-#    "the pin is old", NOT "this build collided". Re-pin before a build; ignore section (a)
-#    otherwise. A handed-down pin is not a baseline.
+# ⚠ SECTION (a) 311 — RE-PIN AND CHECK. The eight md5s below were taken 2026-08-23.
+#
+#    ~~All eight incumbents moved on 2026-08-20 under bugs_open/283, and RFC_032 is rewriting
+#    html_template fleet-wide, so they will keep moving. On any run that is NOT immediately
+#    preceded by re-pinning them yourself, "*** HTML CHANGED ***" means "the pin is old", NOT
+#    "this build collided". Re-pin before a build; ignore section (a) otherwise.~~
+#
+#    ⚠ CORRECTED 2026-08-25 10:29Z — I WROTE THAT BANNER THIS MORNING AND IT WAS WRONG IN THE
+#    DANGEROUS DIRECTION. Caught by the bugs_open/381 lane, who re-pinned at 10:27:16Z; verified
+#    here independently. [MEASURED 2026-08-25 10:29Z] ALL EIGHT MATCH THE 08-23 PINS EXACTLY,
+#    8 of 8, html_md5 AND schema_md5 — and content_components.updated_at on all eight is
+#    2026-08-20, i.e. UNTOUCHED FOR FIVE DAYS. RFC_032 has not reached them.
+#
+#    So the 08-20 move is TRUE AS HISTORY and FALSE AS CURRENT STATE, and my inference from it
+#    inverted the instrument: I told the reader that "*** HTML CHANGED ***" means the pin is
+#    stale. With the pins current, a CHANGED line is a REAL COLLISION — the exact signal
+#    bugs_open/311 exists to raise — and my banner would have had someone dismiss a true
+#    positive as a documentation artefact. A caveat that reads as caution can disarm a check.
+#
+#    THE OPERATIVE INSTRUCTION: re-pin before a build if you can (it is one query), but if you
+#    have not, DO NOT DISMISS A CHANGED LINE — check whether that component moved
+#    (SELECT updated_at ... ) before deciding which of the two it is. The pins have been stable
+#    since 08-23; treat drift as news, not as noise.
 #
 set -o pipefail
 # Usage: ./after_test.sh [domain]      (default: garden-tools.uk, the 08-24 worked example)

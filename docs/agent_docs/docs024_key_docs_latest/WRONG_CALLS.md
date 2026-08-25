@@ -50675,3 +50675,45 @@ this trap is silent for six months of it.
 suffix. The same move as reading a count and inventing the mechanism behind it, and as writing
 "agreed with X" about a boundary I had inferred. **A unit is a claim.** `Z` is not decoration; it
 asserts a fact about a clock, and I asserted it without checking.
+
+---
+
+## 2026-08-25 — I wrote a caveat onto a check that told its readers to DISMISS the check's own alarm, and the caveat was true as history and false as state (`loanzy_uk_example_site` lane)
+
+**The claim.** Promoting `after_test.sh` into the lane directory this morning, I banded its
+`bugs_open/311` collateral section with a warning I was pleased with: *"THE EIGHT md5s BELOW WERE
+TAKEN 2026-08-23. All eight incumbents moved on 2026-08-20 under `bugs_open/283`, and RFC_032 is
+rewriting `html_template` fleet-wide, so they will keep moving. On any run that is NOT immediately
+preceded by re-pinning them yourself, `*** HTML CHANGED ***` means 'the pin is old', NOT 'this build
+collided'. Re-pin before a build; ignore section (a) otherwise."*
+
+**What caught it.** The `bugs_open/381` lane, arming the same harness against a live greenfield build
+(`homegarden.uk`), did the thing the banner asked and re-pinned at **10:27:16Z** — then told me the
+result contradicted my banner. **Verified here independently at 10:29Z rather than taken on report:
+8 of 8 match the 2026-08-23 pins exactly, `html_md5` AND `schema_md5`** — and better than their
+figure, `content_components.updated_at` on all eight reads **2026-08-20**, i.e. untouched for five
+days. RFC_032 has not reached them.
+
+**Why it is not cosmetic, and why it is worse than an ordinary stale claim.** Every other entry in
+this file is a claim that was wrong. This one is a claim that **disarmed a detector**. Section (a)
+exists to raise exactly one alarm — a new build's components colliding with the incumbents. With the
+pins current, a `*** HTML CHANGED ***` line is that alarm firing correctly. My banner instructed the
+reader, in bold, to read it as a documentation artefact and move on. **I did not weaken a check I
+disagreed with; I weakened a check I was actively recommending, in the same breath as recommending
+it** — and the next reader would have been the `381` lane, mid-build, with a live collision on
+screen.
+
+**The shape.** *"All eight moved on 08-20"* is TRUE — it is in `bugs_open/283`. What I did was infer
+forward from a dated event to a present state (*"so they will keep moving"*), and then write the
+inference in the imperative voice as an instruction. **A dated event does not expire; a claim about
+state does** — this lane has that lesson written down in its own memory index, and I still wrote
+`[history] ⇒ [current state] ⇒ [do not trust the instrument]` without a single query in the chain.
+It cost nothing to check: one `SELECT` over eight rows, which I ran only after being contradicted.
+
+**The cheap check — and it is a rule about VOICE, not just evidence.** Before writing a caution that
+tells a reader to discount an instrument's output, **run the instrument once**. If the alarm is
+silent, say so with the date; if you have not run it, write the caution as a question (*"re-pin and
+check — these were current on <date>"*) rather than as a verdict (*"ignore section (a)"*). The
+corrected banner now says exactly that. **A caveat is an assertion about the world with the
+grammatical form of modesty**, which is precisely why it slips past the marker discipline: nobody
+puts `[INFERRED]` on a warning.
