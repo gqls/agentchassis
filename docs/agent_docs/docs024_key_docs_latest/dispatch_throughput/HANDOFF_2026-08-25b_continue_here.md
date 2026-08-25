@@ -22,7 +22,7 @@ handlers on the deep site, 39% of claim attempts lost as cheap bounced claims. *
 `WRONG_CALLS.md` 2026-08-25. Rollback unchanged: `UPDATE scheduled_tasks SET enabled=false WHERE
 name='build-pipeline-trigger-2';`
 
-## COUNCIL — round 3 PENDING (first thing to check)
+## COUNCIL — round 3 APPROVED 2026-08-25 ~19:50Z (nothing owed here)
 
 - Correlation **`db9b7cbf-7b94-471a-a4cf-26a6679fa47f`** (rounds 1–3 accumulate on it).
   R1 REVISE (guardian: 4th-stamp fear → answered by whole-text census). R2 REVISE (guardian:
@@ -35,9 +35,11 @@ name='build-pipeline-trigger-2';`
   body LIKE '%db9b7cbf%' ORDER BY created_at DESC LIMIT 1;` — ⚠ the header says "(round 1)" on
   EVERY round; count reports, don't read the label. Full report: `diagnosis_artifacts`
   kind='council_report', same correlation, latest.
-- If APPROVED: `dc76d1c30` (the change) and the docs commit both carry `Council-Submitted:` —
-  098 credits them automatically; do nothing. If REVISE: answer with measurements, same
-  correlation. The record is already corrected either way.
+- **R3 verdict: APPROVED — "4 advisory objection(s), none high-severity", 7 abstained.** The two
+  actionable advisories were acted on the same evening (VERIFY liveness re-keyed off the
+  unreliable `owner_agent_type` column; assertion 6 added — a THIRD sibling row RAISEs;
+  mutation-proved). `dc76d1c30`/`e80561f04` carry `Council-Submitted:` (auto-credited); the
+  advisory-fix commit carries `Council-Reviewed: db9b7cbf-…` (verdict read in full). Nothing owed.
 
 ## OWED — the ordered queue
 
@@ -48,11 +50,13 @@ name='build-pipeline-trigger-2';`
    `find_dispatchable_site` to skip sites with a live dispatch turn (restores per-site
    serialisation; `idx_orch_site_active` exists for exactly that shape; agent-config change =
    council scope). **Do not flip anything without the ruling** — N=2 was owner-authorised by name.
+   **DEADLINE 2026-09-01 (set per council r3 architecture advisory): if unruled by then,
+   re-present A–D to the owner — provisional-with-no-deadline becomes permanent by default.**
 2. **Until that ruling: run the VERIFY daily** —
    `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db
    -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/584_dispatch_sibling_C_insert_trigger_2_VERIFY.sql`
-   (5 assertions: parity · identity · 0 hardcoded stamps + control · liveness · 0 double-handles;
-   passed 2026-08-25, mutation-proved). This is the monitoring commitment made to the guardian.
+   (6 assertions: parity · identity · 0 hardcoded stamps + control · liveness · 0 double-handles ·
+   no third sibling; passed 2026-08-25 post-hardening, mutation-proved twice). This is the monitoring commitment made to the guardian.
 3. **Phase 3 is now batch-ONLY**: `load_items.max_items` 5→8 + `process_item.max_iterations` 5→8
    together (one without the other is a silent no-op). The "timeout 300→600 lockstep" half is a
    NO-OP on this binary (timeout_seconds is inert — bug 398); record D3 as satisfied-vacuously,

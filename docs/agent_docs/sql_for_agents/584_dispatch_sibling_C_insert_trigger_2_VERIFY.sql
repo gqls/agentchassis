@@ -2,12 +2,14 @@
 --
 -- Answers council round 2 (corr db9b7cbf, debug_historian MEDIUM): "the migration file itself
 -- should carry a post-apply verify step … not rely solely on a manual one-off check". Run any
--- time (the migration runner's SIDECAR_RE excludes _VERIFY files, so this never auto-applies):
+-- time (the migration runner's SIDECAR_RE excludes _VERIFY files, so this never auto-applies).
+-- Hardened 2026-08-25 post-approval per council r3 advisories: liveness no longer keys on
+-- owner_agent_type (unreliable column), and assertion 6 blocks a third sibling clone:
 --
 --   kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
 --     -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/584_dispatch_sibling_C_insert_trigger_2_VERIFY.sql
 --
--- Exit 0 = all five assertions hold; a RAISE names the one that failed. Proven to fire
+-- Exit 0 = all six assertions hold; a RAISE names the one that failed. Proven to fire
 -- 2026-08-25 by inverting assertion 1's predicate on a scratch copy (RUNBOOK).
 --
 -- ⚠ On this scheduler (fire-and-forget: runTick → fireTrigger → stampCompleted sets BOTH stamps
@@ -55,9 +57,12 @@ BEGIN
   -- 4/5 LIVENESS: every ENABLED trigger row produced a trigger orchestration carrying its own
   --     task_name in the last 15 minutes (cadence is ~90 s; idle ticks still create a run).
   FOR v IN SELECT name FROM scheduled_tasks WHERE name LIKE 'build-pipeline-trigger%' AND enabled LOOP
+    -- ⚠ deliberately NOT filtered on owner_agent_type: that column reads ZERO for some
+    -- demonstrably active agents (LANDMINES; council r3 editquality advisory, 2026-08-25).
+    -- input_data.task_name is carried ONLY by the trigger's runs and the loops it spawns,
+    -- so its presence alone proves the row's fire was delivered and became an orchestration.
     SELECT count(*) INTO n FROM orchestration_states
-     WHERE owner_agent_type = 'build-pipeline-trigger'
-       AND collected_data->'input_data'->>'task_name' = v
+     WHERE collected_data->'input_data'->>'task_name' = v
        AND created_at > now() - interval '15 minutes';
     IF n = 0 THEN
       RAISE EXCEPTION '584 VERIFY 4/5 LIVENESS: enabled row % has no trigger orchestration in 15 min (scheduler down, row disabled upstream, or task_name not delivered)', v;
@@ -79,7 +84,14 @@ BEGIN
     RAISE EXCEPTION '584 VERIFY 5/5 DOUBLE-HANDLE: % overlapping handler pair(s) on one work item in 24 h — the atomic claim did not hold', n;
   END IF;
 
-  RAISE NOTICE '584 VERIFY: all 5 hold — parity across % row(s), identity, 0 hardcoded stamps (control passing), liveness, 0 double-handles in 24 h', m;
+  -- 6/6 NO THIRD SIBLING (council r3 guardian/architecture advisory, 2026-08-25): the clone
+  --     pattern must not repeat — a third trigger row means a session copied 584's shape.
+  --     The sanctioned paths are interval_seconds or the D9 per-task executions fix (bugs_open/398).
+  IF m > 2 THEN
+    RAISE EXCEPTION '584 VERIFY 6/6 THIRD-SIBLING: % build-pipeline-trigger rows exist — 584 is a stopgap awaiting bugs_open/398, not a sanctioned pattern; use interval_seconds or D9', m;
+  END IF;
+
+  RAISE NOTICE '584 VERIFY: all 6 hold — parity across % row(s), identity, 0 hardcoded stamps (control passing), liveness, 0 double-handles in 24 h, no third sibling', m;
 END $$;
 
 -- Informational, never fails: the COST of the 1 s phase lock between the two rows over 24 h —

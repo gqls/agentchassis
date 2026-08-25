@@ -386,3 +386,32 @@ Did not disable the sibling, did not touch `interval_seconds`, did not change th
 owner authorised N=2 by name on a premise that is now refuted; which lever replaces it is his call
 (options costed in README_where_we_are, this date). N=2 stays live: measured safe (0 double-handles
 in 2,579 handlers; failure rate lower with a partner), instant rollback, ~+10–15% claims.
+
+## 2026-08-25 (session 2, ~19:50Z) — council round 3: APPROVED; two advisories acted on immediately
+
+Report 19:5xZ (3rd on corr db9b7cbf): **APPROVED — "approved with 4 advisory objection(s), none
+high-severity"**, 7 abstained. The honesty held up: editquality's notes call the plan "honest and
+appropriately scoped … targets the actual causal path established in this round (fire-and-forget
+stampCompleted, not per-row single-flight)". Both commits (`dc76d1c30` change, `e80561f04` docs)
+carry `Council-Submitted:` and are auto-credited by 098; this entry's commit carries
+`Council-Reviewed:` (verdict read in full before writing the trailer).
+
+The four advisories, and what was done with each:
+1. **editquality MEDIUM (a real defect in my VERIFY, caught on its first review):** liveness keyed
+   on `orchestration_states.owner_agent_type`, a column a LANDMINE says reads ZERO for some active
+   agents — a daily check that can false-RAISE. **FIXED:** liveness now keys on
+   `input_data.task_name` alone (carried only by the trigger's runs and its loops, so presence
+   proves delivery); re-run clean.
+2. **guardian/architecture MEDIUM+LOW (no guard against sibling #3; "provisional with no deadline
+   becomes permanent by default"):** **FIXED half:** assertion 6/6 added to the VERIFY — >2 trigger
+   rows RAISEs, naming interval_seconds/D9 as the sanctioned paths; mutation-proved (inverted
+   predicate RAISEs at m=2, exit 3). **Deadline set:** if the owner has not ruled options A–D by
+   **2026-09-01**, re-present them — recorded in HANDOFF-b OWED 1 and WDS-002.
+3. **reuse/constitution MEDIUM/LOW (sibling duplicates the native interval_seconds knob):** already
+   the substance of options B/C; owner decision pending, deadline above.
+4. **debug_historian LOW (582 re-applies jsonb_set unguarded on rerun):** content-idempotent,
+   row-touch on replay only; noted, not worth a migration — the pattern to copy next time is
+   `WHERE input_data->>'task_name' IS DISTINCT FROM <value>`.
+
+VERIFY post-hardening run: **all 6 hold** (parity ×2 rows · identity · 0 hardcoded stamps with
+positive control · liveness · 0 double-handles/24h · no third sibling).
