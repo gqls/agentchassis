@@ -3127,3 +3127,68 @@ hand, and each restore has been undone by a regeneration within days. A fourth h
 buys days. The cause is upstream (`bugs_open/238` regeneration drops resolver keys, and the
 `bugs_open/248` family), and that is where the owner's attention is worth spending. Raised
 rather than quietly re-done.
+
+### A2 (part 1) — the duplicate block removed, and the section AUTHORITY repaired
+
+**The duplication, side by side, is worse than "similar":** all five `differentiators-section`
+cards restate `features` cards, and *"Approval set stage by stage"* appears in both with the
+**identical title**. Owner's call (2026-08-25): carousel the good block, drop the duplicate.
+
+**The more urgent half, found while doing it.** `site_specs.site_plan` — the section authority
+for this site (`site_plan_sections` has no rows here) — listed `index` as
+`[hero, features, generic-text-block, differentiators-section, call-to-action]`: **five
+sections, with no `stat-band` and no `evidence-chart`.** Both blocks I shipped on 08-18 were
+absent from the authority, so any rebuild reading it would have dropped them silently. There
+was already an open `section_source_drift` item saying exactly that, filed 08-24 and
+unactioned. Authority and `pages.sections` are now both the intended six.
+
+**The removal followed the recorded recipe, and its correction.** Prune the authority, prune
+`pages.sections` (a STRING array — checked before trusting `- 'name'`), set
+`build_status='removed'`, and **empty `rendered_html` while KEEPING `content_data`** — that
+column is the section's only copy. The 2026-08-10 correction to that landmine says the
+tombstone alone does not stop the light path, whose own filter was inert until a roll.
+**Probed the capability rather than the commit** `[MEASURED 2026-08-25]`:
+`grep -a "build_status IS DISTINCT FROM 'removed'" /proc/1/exe` → **PRESENT**, with
+`"build provenance"` PRESENT as a positive control and a nonsense literal ABSENT. So the
+light path filters it now and the tombstone covers the assemble-only path.
+
+> **A probe I got wrong first, worth the line.** I tried to date the running build by grepping
+> the binary for HEAD's sha and for the fix's sha. Both came back ABSENT — and so did my fake
+> control, so the probe looked sound. It was not: **a binary stamps only its OWN build commit,
+> so an ancestor is absent either way.** The question "is the fix in?" cannot be answered by
+> grepping for the fix's commit. Probe the CAPABILITY — the literal the fix added — which is
+> what finally answered it. Before that I had also read an **empty** `$STAMP` into
+> `git rev-list --count $STAMP..HEAD`, which returned `0` and read as "up to date".
+
+One rerender published the removal, the authority fix and the CTA repair together
+(`b139e622`, COMPLETED, **0** `needs_page` escalations). Served-page assertions all pass:
+duplicate block gone, `features`/`stat-band`/`evidence-chart` all kept, **3** `/contact.html`
+CTAs, **0** `/tools/` CTAs, hero-headline control present.
+
+> **CORRECTION to my own first reading of that verification.** I reported the page had *grown*
+> 8.8 KB after removing a section, and started hunting the cause. There was none: I had
+> compared today's page against **38,894 bytes measured on 2026-08-18**, not against the page
+> as it stood this morning. Measured like against like, the page went **50,941 → 47,563 B,
+> i.e. −3,378** — the duplicate block and the shortened CTA url, exactly as intended. The page
+> had grown to 50,941 through other sessions' work during the week. **A byte baseline is a
+> measurement and it expires like any other; label it with its date or do not use it.**
+
+### A2 (part 2) — the carousel is DEFERRED, and the reason is the images
+
+Converting `features` to `info-card-grid` + `carousel:true` would **downgrade** it, for two
+reasons found by reading the template and looking at the assets:
+
+1. **`info-card-grid` renders `.icon` raw** — `{{else}}{{.icon}}{{end}}`. `features` carries
+   lucide icon *names* (`file-text`, `user-check`, `shield-check`, `server`, `git-branch`,
+   `activity`) which its own component maps to SVG. Moved across, they would print as the
+   literal text "file-text".
+2. **The six orphaned `icon-service-*.jpg` cannot stand in.** Looked at, per the site rule:
+   they are **wide landscape illustrations** (~3:1) in fine gold linework on near-black. The
+   `icon_image` slot renders at **44×44 with `object-fit: contain`** — a 3:1 illustration in a
+   44px box is a few pixels of line. The `orchestration` one is genuinely good (a real
+   parent/child/grandchild hierarchy diagram); it is still not a 44px chip.
+
+So a carousel today would be six text cards that scroll — motion applied to a list, which is
+the opposite of what was asked for ("more **decorative and functional** carousels rather than
+just lists of cards"). **The carousel is worth having once there are card images worth
+carouselling**, which is A3. Sequencing it after A3 rather than before.
