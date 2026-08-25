@@ -51951,3 +51951,39 @@ you thought**, because the block lists files, not lines. **Missing path → scop
 **Nothing was lost** — forward-only holds, the swept code is intact (each symbol once in HEAD,
 `historySupports` defined at `claims.go:1299`, both packages green fresh with `-count=1`) — but the
 commit is now a lie by omission to anyone bisecting, and the council join is skewed (below).
+
+**15. I warned a lane about a defect in their fence installer, having read their NEIGHBOUR'S
+installer instead of theirs — and the wrong warning crowded out the real trap.** 2026-08-25, lane
+`register_guards_code_phase_b` (`bugs_open/288`). The CONTRIB I filed into
+`loanandmortgagecalculator_couk/` told them `install_fences.py` "will refuse, silently — its rule 2
+skips a tool that is not ladder-eligible" and sent them to the mcalc lane for `--allow-ineligible`.
+**LMC's installer is a different fork** (233 lines against mcalc's 305) with **no rule 2, no
+eligibility predicate and no such flag.** I had read the mcalc file, carried its behaviour across on
+the strength of the shared filename, and written it as a fact about theirs.
+
+**The cheap check is the whole of it: read the file you are describing.** One `grep -c
+allow-ineligible` on the path I had already typed into the CONTRIB returns 0 and refutes the
+paragraph. I never opened it, because the two files share a name and I had genuinely read *an*
+`install_fences.py` that day.
+
+**A shared filename is not a shared file — and a FORK is the shape that punishes this hardest**,
+because everything you remember about the original is still approximately true, so nothing you write
+reads as obviously wrong to you or to them. Same class as 12 above (I described a peer's fix and had
+invented the mechanism), one level out: there I invented behaviour, here I transplanted real
+behaviour from the wrong instance.
+
+**What the wrong warning COST is the part worth recording, and it is not the wasted advice.** It
+occupied the slot where the true trap should have been. LMC's installer rebuilds the fence body from
+`acceptance/criteria/<slug>.criteria.json` on every `--apply` and has no `facts` handling at all, and
+the live row's `created_by='operator:bugfix224-session'` is that script's own literal — so it is the
+writer, and **the paste-ready fragment my own sweep had just filed would have been silently deleted
+the first time they re-ran their installer.** My note told them to install "through the lane's own
+fence installer; never hand-edit the doc_plans row" — correct advice whose one failure mode I had
+not looked for. A warning that is wrong is recoverable; a warning that is wrong *and* fills the space
+where the right one goes reads as diligence.
+
+**`[MEASURED 2026-08-25]`** over all **7** `doc_plans`-writing lane scripts: 1 injects into the live
+body (agritec, safe), 1 rebuilds and carries `facts` (mcalc, safe), 1 rebuilds and drops it (LMC),
+4 write unrelated PLAN kinds. **So the population where this bites was exactly one, and I had
+warned it about the wrong thing.** Filed as a landmine (footprint: the installers), because the
+victim of it has no symptom to search on — a clean run, no error, and the key simply gone.
