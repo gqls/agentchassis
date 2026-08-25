@@ -11,9 +11,22 @@ instructions can still be refused — or worse, silently overwrite a row it was 
 
 **Status: OPEN, IN PROGRESS** — picked up 2026-08-25 by the `bugfix_388_component_contract_identity`
 lane (docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_388_component_contract_identity/`).
-Council submission `5252bee6-0e49-4e41-81fc-6acb014a4802` filed 2026-08-25. Diagnosis below is
-first-hand; no code written **at filing time** — see the corrections, which change the mechanism, the
-severity and the ranking of the fixes.
+Diagnosis below is first-hand; no code written **at filing time** — see the corrections, which change
+the mechanism, the severity and the ranking of the fixes.
+
+**FIX BUILT, COUNCIL-APPROVED AND COMMITTED 2026-08-25.** Council `5252bee6-0e49-4e41-81fc-6acb014a4802`
+— round 1 REVISE (gating premise refuted: `decideStorageIdentity` contains no INSERT/UPDATE/DELETE/Exec
+of any kind — the "scoped mint" mints a *name*), round 2 **APPROVED**. Commits: `30d223291` (the Go),
+`df4802df4` (migration 612 + CLC-032 + landmine), `66243de7b` (the fourth finding code, from round 2's
+advisory objection), `f8b529df6` (the optional-key cron literal). Registry declarations landed in
+`eb7d92371` as a same-file passenger of the `bugs_open/358` lane.
+
+**⚠ THE BUG IS NOT CLOSED, AND THE BAR IS "FIXED AND LIVE".** The Go is inert until the next chassis
+roll, and the pin needs BOTH that roll AND migration **612**, which is committed and deliberately
+**NOT APPLIED** (owner's call; no ordering constraint either way — the key is inert against a binary
+whose spec does not declare it, and the new binary without the wire runs un-pinned). The defect is
+reproducible until both land. Lane:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_388_component_contract_identity/`.
 
 > **⚠ READ THE CORRECTIONS BEFORE THE BODY.** Three claims below are wrong or incomplete, and the
 > file's own `[INFERRED]` marker pointed at the one that mattered. Nothing here has been edited away.

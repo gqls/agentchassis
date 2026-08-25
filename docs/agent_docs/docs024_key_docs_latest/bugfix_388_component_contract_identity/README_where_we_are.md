@@ -78,3 +78,73 @@ four neighbouring lanes whose work touches these files; none of them is blocked 
 back with things I'd have hit later — one has a migration waiting to drop a column I must not
 reintroduce, and another warns that its retry detector compares refusal messages byte for byte, so if
 I change the wording of an error I have to say so out loud.
+
+---
+
+## 2026-08-25, afternoon — it's built, it's been reviewed, and it's committed
+
+The fix is written and on the branch. What it does, in one sentence: **the component store no longer
+works out for itself which stored component a rewrite should overwrite — it is told, by the step that
+already worked it out, and it is told by row id rather than by name.**
+
+Why by id turned out to matter more than I expected. I had assumed the component's "function" name
+identified it. It doesn't. The lookup the store uses filters on the name and nothing else — not
+whether the component is live, not even what kind of component it is — and then takes the first row
+by recency. **Twenty-five names in the library are held by more than one component.** Two of them
+(`site-footer` and `site-header`) are held by five each, and those five span two different kinds of
+component. So the store was picking among several rows by which had been touched most recently, and
+that winner can change without anybody changing any code — someone edits a sibling, and the answer
+moves. A pin carried as a name could never have fixed that. A pin carried as an id does.
+
+**The review process earned its keep, twice.**
+
+The first round came back "revise", on the grounds that a function I was reusing writes to the
+database, so calling it earlier would create stray rows. That would have been a serious problem if
+true. It wasn't — the function creates a *name*, not a row, and one command over its body proved it.
+I said so with the evidence rather than arguing, and added a test that would go red if that ever
+stopped being true. The second round approved it.
+
+But the second round also made a point I had genuinely missed. I had added a warning for one half of
+the risky case and not the other — the half I'd covered is where a duplicate gets created, and the
+half I'd missed is where an existing component gets *overwritten* by a guess. That second one is
+worse. I've added it.
+
+**And then I caught myself writing a test that couldn't fail.**
+
+This is the bit I'd want you to know about, because it's the kind of mistake that ships. I wrote a
+test to prove the new warning *doesn't* fire when there's nothing to warn about. The way these tests
+work, anything the code does that the test didn't expect makes the test fail — so declaring "I expect
+no warning" ought to catch a warning that fires wrongly. Except the code that records warnings is
+deliberately forgiving: if writing the warning fails, it shrugs and carries on, because a failed log
+entry must never break a component build. So the unexpected warning got written, the write failed, the
+code shrugged, and **the test passed**. It had passed first time, too, which I nearly took as proof.
+
+I only found out because I deliberately broke the rule the test was guarding and re-ran it, expecting
+red. I got green. The test was decorative.
+
+The fix wasn't a better test — it was moving the rule out into a small standalone function with no
+database and no logging in it, so the question "does this fire?" can be asked directly. Now breaking
+the rule does turn the test red. The general lesson, which I've written into the fleet-wide log: in
+this part of the codebase you can prove something *did* happen, but you cannot prove something
+*didn't*, because too many things quietly forgive failure. If the "didn't" case matters, the rule has
+to live somewhere you can ask it straight.
+
+**Three things I have not done, deliberately, and one is a decision for you.**
+
+The database half — the small migration that switches the new behaviour on — is written, reviewed and
+committed, but **not applied**. Applying it is a live change to how the fleet builds components, and
+it's your call rather than mine. It's safe in either order relative to the code roll; neither has to
+go first.
+
+The code itself does nothing until the next chassis build, which you run.
+
+And there's a daily audit job that keeps a hardcoded count in step with the code. I've updated the
+file and committed it, but that file reaches the cluster through a config apply I haven't run. It's
+not urgent — the number it would correct is 6 against a limit of 10, so the stale value can't hide a
+problem — but it's outstanding and I'd rather name it than leave it.
+
+**How we'll know it worked, when it goes live.** Not by a clean sweep — by driving one case
+deliberately. Rebuild one component whose name and section label disagree (`footer` is the cheapest
+example) and check that the rewrite landed on the component the writer was actually shown, that no
+second copy appeared, and that the new warning recorded what the writer *would* have chosen. A count
+of zero problems, on a system nobody has exercised, measures nothing at all.

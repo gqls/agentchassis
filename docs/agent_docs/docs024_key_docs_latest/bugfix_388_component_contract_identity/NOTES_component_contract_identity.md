@@ -234,3 +234,106 @@ missed it. `docs026_concept_register/register/component-lifecycle.md`:
 CLC-020's landmine says the same thing from the other side: *"the DIVERTED row's `function` is
 site-suffixed while its `section_type` is not: resolve it by section_type (the selector) or exact
 function, never by assuming function == section name."* The 27 are largely that landmine's population.
+
+---
+
+## 2026-08-25 — the fix, the council rounds, and the two things that went wrong on the way
+
+### What shipped
+
+| commit | what |
+|---|---|
+| `7fc12f71f` | bug-file corrections + lane docs (no code) |
+| `30d223291` | the Go: identity split, advisory emits `component_id`, store honours it, 3 finding codes, 7 tests |
+| `f8b529df6` | the optional-key cron literal, 5 → 6 |
+| `df4802df4` | migration 612 + rollback, CLC-032, CLC-006 superseded note, landmine narrowed, wire ack |
+| `66243de7b` | the 4th finding code (council round 2's advisory objection) + the vacuous-test correction |
+
+Registry declarations for the first three codes physically landed in **`eb7d92371`**, the
+`bugs_open/358` lane's commit, as a same-file passenger — see below.
+
+### Council: REVISE then APPROVED, on one correlation
+
+`5252bee6-0e49-4e41-81fc-6acb014a4802`. Round 1 REVISE, gated by `editquality` (high):
+*"decideStorageIdentity ... performs a 'scoped mint' (a real INSERT, confirmed by the store test's
+mock flow) ... every advisory call on a foreign-dependent function now mints a new component row."*
+
+**The premise was false and it was a one-command check** — `awk '/^func decideStorageIdentity/,/^}/' …
+| grep -E 'INSERT|UPDATE|DELETE|ExecContext|Exec\('` returns nothing. The mint mints a **name**; the
+INSERT the seat saw belongs to `StoreGeneratedComponentAction`, downstream. And the advisory has
+called that same resolver since `e1951c24b` — this change calls it on the *other branch of the same
+function*, so there was never a first write site to double.
+
+**Answered rather than argued**, and every read-only check any seat asked for was run: the consumer
+census re-run recursively through `sub_workflow`/`substeps` with no `is_active` and no snapshot filter
+(still `component-creator` alone); `resolveStorageIdentity`'s callers (three, all in this change);
+`grep existing_component` in the store (two hits, both comments — so CLC-006's second verify-later
+really was unanswered); the landmine read in full; and the by-id loader search (three exist, all
+different column sets, none filtering `forked_from IS NULL`).
+
+Round 2: **APPROVED**, two advisory objections, none high.
+
+### The one objection worth acting on, and it was right
+
+`bug_historian` (medium): round 1 instrumented the un-pinned **CREATE** path and left the un-pinned
+**REGENERATE** path silent — the worse of the two, because an existing row is *overwritten* and which
+one was decided by `LIMIT 1` over a name 25 of 330 rows do not hold uniquely. Closed with a fourth
+code, `COMPONENT_UNPINNED_REGENERATION_AMBIGUOUS`, which asks **the question the resolver discarded**
+(how many were there) rather than the one it asked (which one wins).
+
+### ⚠ MISSTEP: my test for that code was VACUOUS, and the mutation is what told me
+
+I wrote `…UnambiguousRegenerationIsSilent`, declaring **no** `ExpectExec` for
+`INSERT INTO agent_error_log`, on this file's own stated idiom that sqlmock fails on any unexpected
+statement. **It does — and `LogActionFindings` swallows the write error**, so
+`ExpectationsWereMet()` passes either way. The mutation removing the `siblings <= 1` gate left the
+test **green**, and it had passed first time, which I nearly took as proof.
+
+**In this package a strict mock proves PRESENCE and cannot prove ABSENCE.** Every best-effort writer
+here — `LogActionFindings`, `recordValidationRejection`, `snapshotComponentVersion`, the quality
+persist — makes "no expectation declared" indistinguishable from "never ran", *by design*, because a
+logging failure must not fail a store.
+
+**Fixed as a design change, not a test change:** the predicate moved out into a pure
+`ambiguousRegenerationFinding(...) (Finding, bool)` — no DB, no logging — and the negative is asserted
+against it directly. The same mutation now fails on both silent sub-cases. **If a rule's negative case
+matters, the rule must be reachable without the writer that swallows.** Logged in `WRONG_CALLS.md`.
+
+### ⚠ MISSTEP: two mutation runs invalidated by somebody else's WIP
+
+Mid-run the package stopped compiling — `refresh_evidence_base_action.go:550: undefined:
+recordFactHistory`, another session's in-flight edit — so bare `go test` returned `[build failed]` for
+the mutation, the second mutation **and the revert**. Three consecutive uninterpretable results.
+`scripts/verify-head-builds.sh --with <files> --test <pkg>` overlays only your files onto a clean HEAD
+and is the correct instrument for mutation testing on this tree. **A bare red here is ambiguous until
+you read the error text.**
+
+### The same-file passenger, in both directions in one morning
+
+I held my commit rather than take the `358` lane's half-finished two-file rename (their Go half was
+uncommitted; committing only the registry half would have left HEAD declaring a baseline for a code
+HEAD does not write). They then committed by pathspec while **my** registry edit was in the tree, and
+took my three declarations as passengers into `eb7d92371`. Nothing was lost either way and both lanes
+recorded it in both directions. **The coordination prevented the split-brain HEAD; the passenger is
+the residue no discipline prevents** — which is exactly what CLAUDE.md says about same-file edits.
+
+### A measurement of mine that expired in three hours
+
+Round 1 asserted `[MEASURED 2026-08-25]` *"the unruled bucket is at its cap, exactly 25 of 25"*. True
+at ~10:20Z, false by ~11:00Z: the `358` lane ratified the entire backlog (`835ab0585`), so it is now
+0 unruled against a cap of 0. **The conclusion survived and was strengthened** — `instrumented` went
+from the better choice to the only available one — but the premise was wrong and was corrected in
+round 2 rather than quietly re-measured.
+
+### Still owed
+
+1. **Migration 612 is NOT applied.** Owner's call. No ordering constraint either way.
+2. **The Go is inert until the next chassis roll** — and the pin needs BOTH the roll and 612.
+3. **`check.py`'s overlay is not re-applied**, so the cluster keeps the old literal (5). Harmless
+   today: 6 is well inside N=10, so the stale figure under-counts one action and cannot mask a breach.
+4. **The first live exercise needs DEMAND** — regenerate ONE component whose `section_type` is among
+   the 27 (`footer` → `site-footer` is cheapest) and read the artefact. A post-fix zero with no demand
+   measures nothing.
+5. ⚠ **The `357` lane dispatched two site adoptions (cv1.co.uk, lampenkap.com) this afternoon** that
+   may create new `content_components` rows. If you re-run the 27/120 or 25/330 censuses today, those
+   are theirs and are new — do not read them as pre-existing drift.
