@@ -98,6 +98,34 @@ roll landed at **09:27:24Z**, so it predates the binary by three hours and prove
 arithmetic clears the 08-24 tracker *failures* of saying anything against the fix. `WRONG_CALLS.md`
 2026-08-25 #6.
 
+### 5.1a FIRST GENUINE POST-ROLL BUILD — and it is a WEAK datum, now measured rather than assumed
+
+`bugs_open/387` delivered it 2026-08-25, dated properly: `model-directory` rebuilt via the scheduled
+12:25Z refresh — page-build-handler `f846d061`, writer `9e5f9c48`, rerender `43dbd635`, all
+COMPLETED, page re-stamped deployed **12:41:25Z**. Build start **12:38Z**, comfortably after the
+**09:27:24Z** roll, so it genuinely ran on `v1.0.1337`. `unregistered_number` rows in the window:
+**0**. Rolling counter read in the same breath per §5.1c's protocol: **7,281** (clear).
+
+**They flagged it as weak because `model-directory` was already page-type-gated on the live binary. I
+tested WHY rather than accepting the caveat, and the test confirms them:**
+
+- the current copy, judged as the live binary judges it → **0 findings** (expected — page-type gated);
+- **the same copy with the page type NOT gated** (i.e. pre-interim behaviour, page_type rewritten to
+  `content`) → **also 0 findings**.
+
+So this build would have passed **with or without the fix**. The writer simply produced copy with no
+third-party figures this time — precisely the regeneration non-determinism `bugs_open/364` §5 warns
+about. **It confirms nothing.**
+
+⚠ **My zero needed its own control and got one.** The sed was verified to have rewritten all three
+rows' `page_type`, and the identical trick on `adoption-tracker`'s current copy returns **17
+findings** — so the ungated scan certainly fires when there is something to find. Without that
+positive control the model-directory zero would have been indistinguishable from a broken probe.
+
+**The strong datum is still the two trackers**, and this is now quantified: adoption-tracker's stored
+copy carries **17** ungated findings today. When it rebuilds post-roll, a clean pass IS discriminating
+— unlike this one. 387 will send those the same way.
+
 ### 5.1b Phase 2 is BUILT but INERT — do not read the commit as the state
 
 Commits `52958897f` (mechanism) + `fa0b513f1` (round-1 rework) + `a3a4597e6` (the record).
