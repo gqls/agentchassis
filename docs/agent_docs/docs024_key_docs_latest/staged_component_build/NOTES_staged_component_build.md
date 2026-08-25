@@ -8265,3 +8265,71 @@ the verdict and `Council-Submitted:` asserts nothing, so both commits can carry 
 between the halves is what strands the first one. This is the second trailer gap this lane has
 recorded today — §9.1 of the handoff records the other, where an APPROVED round has no trailer on
 any of its three code commits.
+
+## 2026-08-25 (~09:5xZ) — the reader is live, migration 602 is APPLIED, and the picker is now waiting on demand rather than on us
+
+### 1. Deploy state, probed rather than inherited
+
+Chassis rolled to **`v1.0.1337`** at 09:27Z. **Two tags are in flight** — [MEASURED 2026-08-25] 82
+pods on `v1.0.1336`, 16 on `v1.0.1337`, 98 total running this binary — so a `tool-generator` spawn
+could land on either. Probed **both**, each with a present-control and an absent-control:
+
+| pod | tag | node | `related_pages_fallback` | ctl **+** `tool_page_will_not_go_live` | ctl **−** synthetic |
+|---|---|---|---|---|---|
+| `agent-chassis-67fd9c76f5-2g8kw` | 1337 | `…31336` | **present** | present | absent |
+| `agent-build-dispatch-loop-4ccba5fc-nbnsh` | 1336 | `…36833` | **present** | present | absent |
+
+The second is a **per-run pod on a different node** — the §5.1 requirement, because `-l
+app=agent-chassis` matches 2 pods of the 98 running this binary.
+
+> **⚠ NEW TRAP, and I nearly recorded a false pass.** My first negative control returned **exit
+> 137** — `timeout` killing the exec on a large binary — and I read it as the `1` I wanted. **Exit 1
+> ("not found", the real pass) and exit 137 ("killed", no result at all) are both non-zero**, so any
+> check shaped `[ $? -ne 0 ]` treats a timeout as a passing control. Re-ran with a longer timeout to
+> get a genuine 1. A second attempt then hit *"cannot exec into a container in a completed pod"* —
+> per-run pods are transient, so a probe target can evaporate between choosing it and using it.
+
+### 2. 602 applied 2026-08-25 ~09:5xZ
+
+By hand, `ON_ERROR_STOP=1`. `COMMIT`, and the verify NOTICE fired: *"both tool workflows ask for
+related pages, both fall through to the saver on error, and the requester still wins."*
+
+**There is deliberately NO `schema_migrations` row** — the runner refuses `--record-only` on a
+`_HOLD` sidecar. **This paragraph is the ledger.** (Same trap that made me date 516 from
+`agent_definitions.updated_at` yesterday; see the 08-24 evening entry.)
+
+Read back **independently** after the transaction closed, not trusting the in-transaction verify:
+
+```
+type            anchor_next            picker_next   fallback_wire
+tool-deployer   load_site_page_names   deploy_tool   suggest_related_pages.result
+tool-generator  load_site_page_names   save_tool     suggest_related_pages.result
+```
+
+And the lane's own carrier census (RUNBOOK, "Counting marked vs unmarked carriers"), widened to the
+new key: **0 unmarked** on every agent; `tool-generator` and `tool-deployer` each 1 marked
+`related_pages?` + 1 marked `related_pages_fallback?`; `tool-recreation-handler` and `tool-suggester`
+read 0/0, which is the confirmation they match only in prose.
+
+### 3. State of the two open measurements — both DEMAND-STARVED, and that is now legible
+
+[MEASURED 2026-08-25 ~09:5xZ]
+- `llm_call_log` where `step_name='suggest_related_pages'`: **0 rows**.
+- Tool births today: **0**.
+- `emitted_ungated_build_enqueued_by_caller` (353 item (b)): still **0**; last crosslink skip of any
+  kind is `no_related_pages` at 2026-08-24 19:17Z.
+
+**The zero picker calls and the zero births are the same zero.** This is exactly the demand control
+the 08-24 handoff §1.2 asked for, working: nothing has asked, so nothing could have answered. Do not
+read either number as a fault.
+
+⚠ Note the 08-24 `no_related_pages` count is now **5**, not the 4 I measured at ~17:1xZ — a fifth
+arrived at 19:17Z, after my measurement and before the picker was wired. A count of a live class
+expires the moment you write it down.
+
+### 4. The demand case is pinged
+
+The `webdesign_tool_rebuilds` lane has the ping (terms in handoff §12): a real next-in-queue filing
+with `related_pages` deliberately omitted, on webdesign.co.uk. **PASS = at least one row carrying
+`related_pages_source='suggested'`.** Nothing else closes it, and nothing on our side can make it
+happen sooner.
