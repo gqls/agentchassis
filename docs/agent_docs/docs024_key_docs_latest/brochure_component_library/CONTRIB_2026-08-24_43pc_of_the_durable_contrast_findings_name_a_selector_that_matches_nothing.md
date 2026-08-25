@@ -140,3 +140,42 @@ number is untouched by 587 and does not move again; it is the permanently-quotab
 
 Full evidence, including the before/after pair and the in-page verification:
 `docs/agent_docs/docs024_key_docs_latest/bugfix_352_invented_selector/HANDOFF_2026-08-24_continue_here.md` §3b.
+
+---
+
+## UPDATE 2026-08-25 — 352 is CLOSED, and the half that may explain YOUR §10.5 is now `bugs_open/390`
+
+**`bugs_closed/352`** — the producer inventing a selector that matched nothing — is fixed, live,
+proven at the artefact and has held a day of traffic. That is the half that made 73 of your durable
+findings unexecutable, and it is done.
+
+**`bugs_open/390`** is the other half, split out at the owner's direction, and **it is the one your
+§10.5 predicted.** Your text says a subset of your parked findings were *processed, the fix was
+correct, and it never applied.* 390 is that mechanism, now verified first-hand rather than asserted:
+
+- css-patch-agent appends to the end of **one** file (`css_themes.css_content`, served as
+  `/assets/css/styles.css`) — read from the live `save_css_to_db` SQL, not inferred;
+- on the worked page that file is linked at byte offset **8562** and the offending declaration sits
+  in an inline `<style>` at **12080** — *after* it — and the served stylesheet mentions the container
+  **0** times;
+- and the appended rule is **lower specificity** than the offender, `(0,1,1)` against `(0,2,1)`, so
+  it loses before source order even matters. **The agent is following its own prompt correctly when
+  it writes a rule that cannot win.**
+
+**Three things that bear directly on your lane:**
+
+1. **Your "processed but never applied" subset now has a file to be counted against.** 390 §5 carries
+   the census query and marks the blast radius **[UNMEASURED]** — nobody has sized it. If your lane
+   already knows which of your findings completed without改善, that number is worth putting in 390.
+2. ⚠ **Do not adopt 352's proposed remedy for this** — *"if the offending declaration is not in
+   `css_themes`, refuse and park"*. Verifying it is what killed it: the offending **value** is
+   reachable even when the declaration is not (`--color-primary: #e8f5ee` is defined in the editable
+   theme and is exactly the failing foreground). That precondition **parks findings we can fix**.
+   390 ranks it last and restates the test as *"is the computed value's source reachable"*.
+3. ⚠ **The underlying defect on the worked case is a PALETTE token**, not the cascade — pale-green
+   link on pale-green background, the `generic_theme` colour-churn family. Relevant to your class A/B
+   palette analysis on the 98 real-class findings: some of those may have the same root and a
+   different symptom.
+
+**Unchanged from yesterday:** the 73 stayed withdrawn (`cancelled` = withdrawn, not resolved), the
+recovery query still returns 73, and the permanently-quotable damage figure is **111**.
