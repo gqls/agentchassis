@@ -1,5 +1,7 @@
 # HANDOFF 2026-08-25b — the canary built and served, the owner reviewed it, and the reviewer he wants already exists and is switched off
 
+> **SUPERSEDED 2026-08-25 evening by `HANDOFF_2026-08-25c_376_approved_the_council_has_seats_and_the_evolutionary_switch_awaits_one_word.md`** — §6's to-do list is done (376 submitted AND approved; RFC written; four seats built); read 25c first.
+
 **Lane:** `loanzy_uk_example_site` — the greenfield route (submit a domain, measure what the platform
 produces). **Supersedes `HANDOFF_2026-08-25_the_route_is_gated_on_376_and_the_canary_is_the_only_thing_left.md`**
 (same directory; bannered). That file's §3 (the `376` mechanism) and §5 (the harness) still stand;
