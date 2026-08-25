@@ -1751,3 +1751,53 @@ has 46 distinct producers as of 2026-08-25 and only `reconcile_site_plan` carrie
 a third of it; not filtering on `created_by` mixes five automated producers with different spec
 shapes. **It surfaced because the script prints every row with a stated reason instead of dropping
 what it cannot classify.**
+
+### 2026-08-25 12:45–13:00Z — the canary's domain, and two instrument faults found by using it
+
+**The owner asked this lane to set up `homegarden.uk` in Cloudflare and pointed the nameservers
+himself.** Zone `252c10abde85a6985392a084f68f9235`, created 12:46:20Z — **the first zone this estate
+has created via the API**. Config diffed identical to `garden-tools.uk`: two proxied A records at
+`192.0.2.1` (TEST-NET-1; the worker serves everything) and two `portfolio-sites-router` routes.
+Verified by **re-reading the stored zone, not by trusting the POST receipts**.
+
+**Fault 1 — I told the owner a new token was needed, and was wrong within 90 minutes.**
+`~/.config/cloudflare/token` is read-only (`#zone:read` etc.; `POST /zones` refused for lacking
+`com.cloudflare.api.account.zone.create`). I reported that as "issue a new token". But
+`~/.config/cloudflare/portfoliotoken` had been sitting in the same directory since 2026-08-18 with
+`#zone:edit` / `#dns_records:edit` / `#worker:edit` and account zone-create. **I checked the
+credential I knew about instead of asking what credentials exist — `ls` the directory.** Runbook
+corrected twice in one afternoon, the second correction retracting the first.
+
+> **The runbook's own token proof is also blind.** It says prove the token with `GET /zones?per_page=1`
+> (written to defeat an IP-filter trap). That call **succeeds on a token that can write nothing** —
+> it tests reachability, not capability. Read the `permissions` array on any zone object, or probe
+> the verb you actually need. Recorded in the runbook.
+
+**And the nameserver caveat earned its keep.** The runbook records the account pair as
+`alexis`/`leah` with "do not assume". `[MEASURED 2026-08-25 12:43Z]` the account's 40 zones split
+**29 × alexis/leah and 11 × betty/ivan** — so quoting the remembered pair would have been a **~28%
+chance** of handing the owner nameservers that never resolve, failing quietly. This zone did get
+alexis/leah; the point is that could not be known in advance.
+
+**Fault 2 — my own parked-domain control mislabels `000`, and I hit it the same hour I wrote it.**
+Straight after delegation, every fetch returned `000`. My inline check tested only `= "200"` and so
+printed *"control 404s — HTTP is now informative"* on an unreachable host. `000` is **its own
+bucket** — the LANDMINE entry says so in as many words and I had just extended that entry.
+The real cause was two-layered and worth separating:
+- the local resolver still held the `dan.com` delegation (public resolvers had already moved), and
+- **Cloudflare had not yet issued the certificate**, so HTTPS failed the TLS handshake
+  (`curl (35) ... handshake failure`) while **port 80 returned 200 with the real pages**.
+So for a window the site was **live over HTTP and dead over HTTPS**, and a harness fetching only
+`https://` reads that as a dead site. The mirror image of the parked-domain trap: there HTTP said
+healthy when the site was dead; here HTTPS said dead when the site was healthy. Certificate issued
+~13:00Z; `https://homegarden.uk/` now 200 and the invented-path control 404s.
+
+**The result, verified at the wire** `[MEASURED 2026-08-25 13:00Z, HTTPS, control 404]`:
+`/index.html` 77,613 bytes, **one `<ol>`, 49 `<li>`, twelve distinct month names**, under an `<h2>`
+reading *"The garden and home year, month by month"*. Against this lane's own dated baseline —
+`garden-tools.uk`'s `seasonal-planner`, which promised the same thing and served **three** incidental
+month names with **zero** content lists — that is the complaint the owner raised on 2026-08-24,
+closed and checkable. `bugs_open/381` closed by its lane on this evidence.
+
+**One page 404s: `/blog/blog-post.html`, the single page with `sections_planned = 0`** — named in
+advance by the corrected predictor and recorded by that lane as `bugs_open/206`, not as a 381 failure.
