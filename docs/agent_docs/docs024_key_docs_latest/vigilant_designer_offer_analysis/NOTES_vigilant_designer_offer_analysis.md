@@ -2999,3 +2999,152 @@ budget counts an action's `ActionInputSpec.Optional` **step-config** keys; `Writ
 is unchanged at **1**. The new keys are fields of the LLM's finding objects — a DATA surface, not a
 config one. The seat reached for the right trigger and counted the wrong thing, and the distinction is
 what keeps that budget meaningful.
+
+---
+
+## 2026-08-25 (afternoon) — the completion-time consumer: built, approved, live-inert. And three things I got wrong on the way.
+
+Picked up `HANDOFF_2026-08-25_continue_here.md` §1: `bugs_open/395`, the consumer that reads
+`acceptance_predicate` at completion time. Shipped as **gate 1c**, `69479bcf6`, council
+`064841bd-58fc-46a1-a77d-6b0a6309d0ba` **APPROVED round 1** (14 seats, 5 advisory, none high).
+Register **WII-033**. Go, so inert until a roll.
+
+### What the live state actually was, re-run rather than inherited
+
+The handoff said every number rested on one run. Still true — **no new offer-analyser run since
+2026-08-24 22:08Z.** The four items have moved though:
+
+| | |
+|---|---|
+| `b4c82ec3` | `complete`, attempt 0, no error — **395's worked case** |
+| `6ba14f5b` / `c53b4cc9` / `2a8ab0ba` | now **`wont_fix`**, attempt 1, all three with `OWNED_PAGE_GUARD` in `.error` |
+
+So of the three predicates, one sits on a false green and two sit on items the owned-page door
+refused. That door is the `CONTRIB_2026-08-25` in this directory; it is not a regression here.
+
+`[MEASURED 2026-08-25]` `content_rewrite` over `site_work_items` UNION `site_work_items_archive`:
+**1,638 complete**, 102 failed, 90 wont_fix, 54 needs_human_review. Exactly **ONE** of the 1,638
+carries an `acceptance_predicate`.
+
+### MISSTEP 1 — I inherited the handoff's reason for the design, and it was the wrong reason
+
+The handoff and `395` §4 both say candidate 1 belongs beside `noChangeGates` rather than in a
+verifier because *"`verifyBeforeComplete`'s `VerifyTarget` carries the SPEC, not the RESULT, so a
+verifier grades the row's PREVIOUS value"*. I nearly wrote that into the new file's header as the
+justification.
+
+**It is gate 1b's argument and it does not transfer.** Gate 1b needs the handler's REPLY, which only
+that position in the code has. Gate 1c needs the **spec** — where the predicate lives, and which
+`VerifyTarget` carries — plus the current page row, which a verifier can read. Nothing about the
+spec/result split rules a verifier out.
+
+The real reasons: `GetVerifier` is ONE verifier per `item_type`, a scarce shared slot on a type many
+producers file into; and the gates compose. Same conclusion, sound reasoning instead of borrowed.
+Corrected in three places, because I had propagated it: `395` §8b, the new file's header, and
+**`016b` §9, where I wrote it yesterday** — struck through in place rather than deleted.
+
+*The check: when a handoff hands you a reason as well as a conclusion, re-derive the reason. It was
+written for the change in front of its author, not the one in front of you.*
+
+### MISSTEP 2 — the trap that would have shipped the gate permanently blind
+
+**A STORED predicate cannot be fed to `EvaluateAcceptancePredicate`.** The evaluator enforces a
+closed key set per type; the emit gate stamps `verdict_at_emission` / `evidence_at_emission` AFTER
+evaluating. So the shape in `site_work_items.spec` carries two keys the evaluator refuses, and every
+live predicate returns `inapplicable` — a legitimate verdict, with a message naming a KEY, which
+reads as a fault in the model's output rather than in the reader.
+
+I found it reading the live spec beside the vocabulary table, not from a failing test — **and no test
+could have found it.** `TestTheFirstLiveEmittedPredicatesStillRefuteAfterTheFix`, which I wrote
+yesterday and which `395` §2 cites as its evidence, hand-writes the predicates WITHOUT those keys. It
+is the only test over real live data in this feature and it exercises a shape the database does not
+contain.
+
+Fixed by single-sourcing `storedPredicate` / `predicateForEvaluation` in the file that owns the
+stamping, pinned by `TestStampAndStripAreInverses` (a round trip, so a THIRD provenance key fails a
+test rather than production). **Not** by widening the key set — that would let the model write its own
+`verdict_at_emission`, which is `bugs_closed/335` exactly. `LANDMINES.md`.
+
+### MISSTEP 3 — I proved a detector silent by running it over zero files
+
+`pattern-check` fired `logged-model-output` on my new file. The rule matches nine ordinary English
+words over six raw lines from the log sink, **including string literals and comments** — my remedy
+sentence ended *"NOT the model's output"* and the call logs no model data at all.
+
+Then it went wrong twice more:
+
+1. I moved the word out of the string and wrote a comment above it explaining why. **The comment is
+   inside the six-line window and names all four words**, so it re-fired at the same line.
+2. I ran `python3 scripts/pattern-check.py`, got nothing, and was about to record that as proof.
+   **It reads `git diff --cached`; my fix was unstaged; it scanned ZERO files.** That is
+   `WRONG_CALLS.md` **2026-07-27b**, written by the author of this very rule about this very rule,
+   and I hit it from the consumer side in a session where I had read the index.
+
+Settled on a pair: staged (1 file, confirmed) the rule is silent; against `2fde4def9` the same rule
+still fires. Three commits to delete one false positive. Both halves recorded — `LANDMINES.md` for
+the prospective trap, `WRONG_CALLS.md` for my part.
+
+*The check: `git diff --cached --name-only | wc -l` before believing any pattern-check result.*
+
+### The design, and the one decision most open to challenge
+
+Gate 1c sits **between 1b and 2**, opt-in per `item_type`, three-valued (`predicateUndeclared` /
+`predicateRecords` / `predicateRefuses`; the zero value refused by the roster test). `content_rewrite`
+is armed at **RECORD-ONLY**.
+
+**Recording rather than refusing is the arguable call.** `395` §6 says a negative control is not
+optional, and there is none: all three live predicates refute, and no row exists anywhere where a
+predicate is satisfied after its fix. A gate that has only ever seen failures cannot be told apart
+from one that refuses everything. Refusing would also need a migration amending the
+claimed-item-timeout sweep's live `pre_query`, on a type with 1,638 completions.
+
+**The cost, stated: this is a THIRD instance of CLM-023's residual** — an arm proven by units and
+never fired in production. What stops it becoming permanent:
+
+- `TestClaimTimeoutExclusionCoversBothCompletionGates` now counts a gate-1c entry **only when it
+  refuses**, so promotion is a BUILD FAILURE until the exclusion ships. A *recording* entry is
+  deliberately not counted — it blocks nothing, and counting it would trip the reverse direction.
+- `PromotionOwes` on the roster entry, required by the roster test, states the debt in prose.
+- **Every evaluated predicate leaves a verdict INCLUDING `holds`.** Without a recorded permit, a gate
+  that permits is indistinguishable from one that never ran — which is the residual itself.
+
+### The council found one thing I had not measured
+
+`guardian`, medium: does a LOOP's own `mark_complete` bypass `verifyBeforeComplete`? Fair question —
+the landmine on `build-dispatch-loop.process_item.mark_complete` records it REPLACING
+`site_work_items.result` with spawn bookkeeping.
+
+**It does not bypass it.** That step declares `"action": "complete_work_item"`. At the artefact:
+`[MEASURED 2026-08-25]` **1,600 of 1,638** `content_rewrite` completions carry
+`handled_by='build-dispatch-loop'`, including 395's own case. ⚠ **38 (2.3%) carry `handled_by` NULL**,
+spread 2026-03-10 → 2026-08-23 — written by something that is neither completion action. None carries
+`_verification`; none ever carried a predicate. Nothing lost today; it is what a promotion to
+refusing would have to cover, so it is in `PromotionOwes`.
+
+`prior_art_librarian`, medium ×2: two absence claims asserted without their lookups. Both commands
+are now in the file with their results — **and the second one was wrong as first written.** I typed
+"the emit gate and this file", ran the grep, and got **seven** files. The claim survives via a
+writer/reader split the grep cannot make (2 writers, 1 action-name registration, 2 prose mentions, 2
+this gate, **0 readers**). The correction sits beside the command, because a reader who runs mine and
+sees 7 would otherwise conclude the sentence is false.
+
+*Attaching a lookup is not the same as attaching the right one.*
+
+`architecture` + `reuse_agent`, both medium, same target by different routes: this is the fourth
+hand-wired gate on one function, each with its own roster, enum and lockstep clause. Neither vetoed;
+`architecture` asked that it be **named rather than absorbed**. Filed as
+`architecture_review/RFC_055`, which recommends a **partial** — extract only the "can this gate
+refuse" registry that the claim-timeout lockstep reads, and leave the rosters and their evidence
+fields per gate, because those are the part that does not generalise.
+
+### Still open
+
+1. **No live negative control.** `outcome='permitted'` on a real row after the roll is the thing
+   `395` §6 asks for. Until then the refusal arm is unproven.
+2. **Nothing is prevented yet** — record-only.
+3. **Why the handler produces content failing its own predicate** is untouched. The `constitution`
+   seat flagged it; gate 1c is detection, not that fix.
+4. `platform/livespec`'s `TestNoNewMigrationFileReadersOutsideTheAllowList` **fails at plain HEAD**
+   (`work_item_owned_page_door_test.go` reads a path under `sql_for_agents` and is not allow-listed).
+   Not mine, not caused by this change, verified against unmodified HEAD — it belongs to the
+   owned-page-door lane.
