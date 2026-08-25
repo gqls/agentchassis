@@ -3734,3 +3734,26 @@ so the next filing establishes it; until then treat it as unverified on `v1.0.13
 > turn boundary. Today's grades stand — each compared a DB `completed_at` against a CDN
 > `last-modified`, two clocks now shown to agree. **Check the clocks against each other before
 > concluding skew; "these two numbers are far apart" is not yet evidence about instruments.**
+
+## 2026-08-25 ~20:45Z (platform seat) — the 360 tombstone guard IS on v1.0.1339: proven by ancestry, answering the grind's flagged non-verification
+
+The grind seat recorded the 360 guard as NOT re-verified post-roll (correctly — `build_status` is
+too generic a literal, and the lane's own trap list says literals cannot discriminate either way).
+Ancestry settles it, per the seat's own rule that ancestry-of-stamp is the only load-bearing proof:
+
+```
+git merge-base --is-ancestor 1cd184f6e a7459a44b   # exit 0 — the guard (all three UPDATEs + skip gate)
+git merge-base --is-ancestor 45b728b01 a7459a44b   # exit 0 — round 3's third-persist-branch widening
+```
+
+Stamp provenance: `a7459a44b` read from the chassis pod's own provenance line at ~19:20Z 08-25 by
+the previous session of this seat, corroborated by three lanes (NOTES ~19:45Z entry) — not re-read
+at 20:45Z. Any LATER forward roll only strengthens this (a descendant stamp still carries both
+ancestors); the one event that would void it is an image-tag rollback, which nothing indicates.
+The grind's behavioural post-retire re-read on their next filing remains worth doing — ancestry
+proves the code shipped, their re-read proves it fires.
+
+Also banked from their reply: **no tool on webdesign has EVER had a `tool_acceptance` row** (any
+status, all history) — stronger than my "no re-audit will run"; their 08-16 "not graded here"
+deferral is corrected in their file, with a standing rule not to defer behavioural grading to that
+pipeline while the design rotation is off.
