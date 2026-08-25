@@ -51517,3 +51517,98 @@ the n could have separated it from its neighbour. Here: **none of the five could
 about voice, continuing this file's 10:29Z entry: **I asked a peer to write my inference into their
 instrument's reading guide.** That is the strongest possible form of an unmeasured claim — it does not
 merely inform someone, it configures how they will read evidence they have not seen yet.
+
+---
+
+## 2026-08-24 22:07Z — I checked the sweep was DISABLED and treated that as proof that filing findings cannot change live pages. A page was rebuilt and deployed 17 minutes later.
+
+**Lane:** `vigilant_designer_offer_analysis` (features_open/030 v2(d) re-proof).
+
+**The claim I made, in chat and to myself, immediately before acting:** *"Sweep is disabled
+(`enabled=f`), so a single dispatch cannot cascade into page rewrites."* I then fired one
+`offer-analyser` run at webdesign.co.uk on that basis.
+
+**What actually happened.** The run filed 4 findings at 22:08:38Z. `build-dispatch-loop` picked them
+up within ~90 seconds, `page-build-handler` rebuilt and DEPLOYED the index page (commit
+`ee88ba3c`) and closed the item `complete` at 22:25Z. The page was rebuilt again at 11:23Z the next
+morning. Nothing about that needed the improvement sweep.
+
+**Why the reasoning was wrong, and it was not a lookup error — the lookup was right.** I confirmed
+the one promoter I already suspected (`improvement-sweep`, `enabled=f`, last fired 2026-08-17) and
+read that single negative as covering the whole class. The estate runs an always-on build pipeline —
+`build-pipeline-trigger` → `build-dispatch-loop` → `page-rerender` — that promotes `detected` items
+regardless of the sweep, and it fired **31 seconds** after my findings landed. I had also just read
+`fire-offer-analyser.sh`'s own header saying it does "no triage, no promotion, no handler dispatch",
+which is TRUE OF THE SCRIPT and says nothing about what else is running.
+
+**The cheap check, and it is one query — the inverse of the one I ran:**
+
+```sql
+SELECT name, enabled, interval_seconds, target_agent_type FROM scheduled_tasks WHERE enabled ORDER BY name;
+```
+
+**Enumerate what IS enabled.** I queried `WHERE name ILIKE '%sweep%'` — a filter built from my own
+hypothesis about which mechanism mattered, which can only ever confirm or deny that hypothesis. The
+unfiltered list would have shown the build pipeline in the same breath.
+
+**The general form, and it is the one worth keeping.** *Confirming that the mechanism you thought of
+is off is not evidence that nothing will happen.* A safety argument has to be a census of what could
+act, not a check on the one actor you named — and the tell is the shape of the query: **a `WHERE`
+clause naming your own suspicion cannot discover a second cause.** Same family as this file's
+"a client-side absence is not an absence", one level up: I proved the absence of the thing I looked
+for and reported the absence of the thing I cared about.
+
+**Mitigating, but not exculpating:** the outcome was a page rebuild on our own shopfront from our own
+lane's findings, i.e. the pipeline working as designed, and nothing was lost. Had I fired at
+leopardessconsulting.co.uk — whose lane is holding five of this lane's findings pending an owner
+design report, and which I deliberately avoided for a *different* reason — the same reasoning would
+have dispatched another lane's held work.
+
+## 2026-08-25 (evening) — I sent another lane a warning that was false, they adopted it into their acceptance guide, and it would have excused their own bug
+
+The `bugs_open/381` lane was mid-greenfield-build. I messaged them a warning: the live fleet lacks
+my `section-index` routing fix, so their `section-index` pages **"will no-op"** — the build
+"succeeds", the page never appears, error `page-build-handler no-op: no sections ready to build`.
+
+They took it seriously and did the right thing with it: put it in their acceptance guide, verbatim in
+substance, telling the reader to **check `handler_agent` and the error string BEFORE judging
+composition**.
+
+**It was false for their build, and I had not run the one query that would have told me.**
+
+206's no-op fires only when a page has **no layout from any source** — `page-build-handler` lacks
+`ensure_page_section_layout`, so it dies at `ready_count == 0`. It builds a page that already *has*
+sections perfectly well. `[MEASURED 2026-08-25]` on `homegarden.uk`, **all 17 `section-index` pages
+carry a 3-section layout** (`["hero","generic-text-block","content-listing"]`), and `april-index`
+had **already built and deployed** through `page-build-handler` before I sent the retraction.
+`sig_206` across all 21 `needs_page` rows: **0**.
+
+**I stated a conclusion where the truth was a conditional.** I knew the precondition — I had written
+it into `builder_routing.go`'s own comment that morning ("*the only one that can build a page whose
+layout is missing from every source*") — and then warned about the consequence without checking
+whether the condition held. One `jsonb_array_length(sections)` query, on a site whose rows I already
+had in front of me.
+
+**The harm direction is what makes this worse than a wrong prediction.** My warning gave their bug a
+ready-made alibi. `bugs_open/381` is "the planner composes pages from components that cannot express
+the page it planned" — and its live symptom here is 17 near-identical thin index pages where the plan
+promised one month-by-month structure. Nothing fails; nothing errors; every page reports success.
+With my warning in their guide, the first investigator to find a thin `-index` page would have
+checked `handler_agent`, found `page-build-handler`, and had an excuse to stop — **on a page where
+that handler is the correct one.** I would have converted their real finding into someone else's
+known bug.
+
+**Cheap checks, in the order they'd have caught it:**
+- Before warning a lane that a mechanism will fire, **check the mechanism's precondition on their
+  data** — especially when you can, because you already asked them for the rows.
+- **Look for the positive control first.** One `section-index` page was already `deployed` through
+  the handler I was warning about. That single fact refutes the warning outright and it was sitting
+  in the same table.
+- And when you hand another lane a discriminator, ask **which way it fails**. A check that stops an
+  investigation is more dangerous than one that starts a wrong one.
+
+Retracted to them within the same build, with the measurement, and their guide asked to invert the
+line — keep the error string as a discriminator (it stays valid: if you ever DO see it, it *is*
+mis-routing), drop the prediction. They also caught a stale caveat of mine in the same exchange
+(RUNBOOK §7b (i)/(ii)). **Twice in one day the thing that was wrong was my instrument, not the
+system** — and this time a peer was carrying it.
