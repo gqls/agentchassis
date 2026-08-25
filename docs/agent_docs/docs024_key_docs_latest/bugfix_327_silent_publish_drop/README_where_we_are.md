@@ -401,3 +401,33 @@ coverage, not more argument.
 
 **Decision 3: waiting, as agreed**, with the trigger written down so nobody reopens it without
 one — a message observed lost *through* the new publisher.
+
+---
+
+## 2026-08-25d — closed
+
+`327b` is in `bugs_closed/`. Git recorded it as a rename rather than a delete-and-add, so the
+history follows the file, and I checked the repository itself rather than my own working copy —
+which is the mistake I made on the earlier rename, where a half-committed move left both filenames
+live for everyone but me.
+
+The closing note on the file says what was verified at the moment of closing rather than what was
+believed: no live script still publishes the unsafe way, twenty-two now use the shared publisher,
+and every migrated script was tested by pointing it at a broken address. It also says plainly that
+what remains — about fifty-five dormant files and the lane one-offs — is data rather than a defect,
+because the commit-time check catches any of them the moment someone picks one up. **The class is
+held by a detector, not by us finishing a sweep**, and that distinction is what makes closing
+honest rather than optimistic.
+
+The commit message names *which* 327 it is, in the subject. That sounds fussy and isn't: both bugs
+numbered 327 now sit in the same folder, someone has already confused them once, and the commit log
+is where the next person will meet the pair.
+
+One last thing I found while auditing, and it's the kind of gap worth admitting: I had written the
+case file and two hazard entries, but not the entry in the shared debugging guide — the one a
+person reads when they *have* the symptom and no idea why. The two I'd written serve someone about
+to touch a file. Someone staring at a dispatch that vanished would have found neither. That's
+written now, and it's the piece most likely to save somebody a day.
+
+**Nothing is outstanding.** Two decisions are deliberately open, recorded with the triggers that
+would reopen them, in `HANDOFF_2026-08-25_open_decisions.md`.
