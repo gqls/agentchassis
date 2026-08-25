@@ -51,8 +51,17 @@ cross-package tests are mutation-proven and the binary is right, but that is a d
 
 Any ONE of these settles it:
 
-- **`apis.uk/index.html`** holds `build_status='needs_rebuild'` and is supposed to rebuild itself,
-  but has not since **2026-08-24 11:37**. Worth asking why before relying on it.
+- ~~**`apis.uk/index.html`** rebuilds itself~~ **⚠ IT DOES NOT — DO NOT WAIT ON IT.** Checked
+  2026-08-25: the site is unlocked and the page holds `needs_rebuild`, but every re-render is
+  **refused by the prune-floor guard** and nothing is written:
+  *"REFUSED for page \"index\" — this run re-confirmed too little of what is stored
+  (prune_floor_ratio=0.50): planned sections 0% (0 of 1). NOTHING was deleted; the whole save was
+  refused."* My own filed rerender died on it at `attempt_count=3`. The page also carries a
+  standing `save_refused_incomplete` and two deferred `content_rewrite` items. **This is the
+  `apis.uk` lane's business, not this one** — it is a planning/shrink problem, unrelated to
+  instance scope — but the consequence for us is that **the lane's standing self-regenerating
+  repro is dead** and every earlier document calling it "a free test case that regenerates itself"
+  is now wrong.
 - **A `content_rewrite` on any of the 30 multi-instance pages.** This is also the **stickiness**
   test — the one that actually matters, because it is the operation that undid the repairs on
   2026-08-23 — and it is still unrun.
@@ -69,10 +78,21 @@ curl -s <page> | grep -o 'id="c-[^"]*"' | sort | uniq -c   # every token must ap
 ⚠ **A canonical `page_rerender` does NOT test this.** That path was never broken. Only a
 per-section render exercises what was fixed.
 
-A canonical rerender of `apis.uk/index.html` is filed (`created_by='bugs_open/383'`,
-`reason: template_changed`) — still `triaged`, `attempt_count=2`, unclaimed as of 09:38 UTC. It
-now answers a much smaller question than the earlier version of this file claimed: whether the
-canonical walk re-canonicalises hand-written tokens. **It is not the test that matters.**
+The canonical rerender I filed for `apis.uk/index.html` **FAILED** (3 of 3 attempts, prune-floor
+refusal above). No loss: it was testing the canonical path, which was never broken. **It is not
+the test that matters and it should not be re-filed** without fixing the page's planning problem
+first.
+
+**Measured 2026-08-25, ~3.5h after the roll: ZERO `page_components` rows on any multi-instance
+(page, function) pair have been written since the roll.** So the observation is not merely
+unmade — nothing is currently on course to make it. Someone has to choose to trigger one, and
+both available triggers write to a live customer page:
+
+- a **`content_rewrite`** — regenerates copy through the LLM, so it changes what the page says;
+- a **section edit** — writes `rendered_html` straight to a serving page.
+
+Neither is a thing to fire off casually to satisfy a test. **This is an owner call**, and it is
+the only thing standing between this lane and closure.
 
 ## 4. Can we close the lane?
 
