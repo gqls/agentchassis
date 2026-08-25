@@ -1,4 +1,12 @@
-# HANDOFF — news editorial + editorial design uplift, 2026-08-24. START HERE.
+# HANDOFF — news editorial + editorial design uplift, 2026-08-24. ~~START HERE.~~
+
+> **SUPERSEDED 2026-08-25 by `HANDOFF_2026-08-25_continue_here.md` — start
+> THERE.** This file stays authoritative for **§8**, which is the full evidence
+> trail for the instance-scope acceptance and is pointed at, not restated: §8.1
+> the trace, §8.2 the dry run, **§8.5 the verification ORDER (the trap most
+> likely to bite whoever runs the scripts)**, §8.6 the P1 seam constraints. The
+> §3 state table has moved on — the two `lock_blocked_change` items were ruled
+> ACCEPT and their scripts are written but still UNRUN as of 2026-08-25.
 
 Supersedes `HANDOFF_2026-08-21_continue_here.md` for a fresh session — but that
 file is NOT dead: **its §3 recipe (proven three times) and §9 traps (every one
