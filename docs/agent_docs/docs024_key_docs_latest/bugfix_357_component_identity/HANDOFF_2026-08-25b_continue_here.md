@@ -291,6 +291,21 @@ No council trailer on any: all are docs + a site-specific data correction, none 
 
 ## 8. What the next session should do, in order
 
+0. **⚠ FIRST, THE CONTROL — because canary #2 stalled too.** As of 19:41Z canary #2 has sat
+   at `build_pages_loop_iter_0_assemble_page` for 10m37s with `save_ran = f`, exactly where
+   canary #1 was reaped. **Two attempts, same page, same step.** Before re-firing a third,
+   flag a **non-adopted** cv1 page (`request-index` or `how-it-works-index`) as
+   `needs_rebuild` and run the same rebuild:
+   - it also stalls → the stall is the rebuild path (or the `git_commit` immediately after
+     assemble), **nothing to do with 357**, and precondition 4 needs a different vehicle;
+   - it reaches `save_result` → the stall is specific to the page carrying a 17.5KB adopted
+     fragment, **which IS a 357 finding** and bears directly on whether phase 3 is safe.
+
+   I did not run it because a third concurrent rebuild on the same site would muddy both.
+   [MEASURED 19:40Z] the rolling window holds only **2** `page-rebuild` runs, both mine, so
+   "no page-rebuild ever reaches the save" is true of the window and worthless as a claim —
+   the denominator is what makes that zero unreadable.
+
 1. **Read canary #2's `save_ran` first.** If it is `f`, the canary tested nothing again —
    re-fire; do not interpret the unchanged rows.
 2. If it passed: **run 578**, then verify at the artefact per the migration's own afterword
