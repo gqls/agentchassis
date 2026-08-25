@@ -792,3 +792,85 @@ first big promotion. Execution belongs to this lane / the domain programme (own-
 already ruled GO on 08-17; the new part is CF-for-SaaS + the calendar urgency). Also
 relevant to Phase 4+: the owner wants a human review gate before each client site goes
 out (mechanism in another thread), and clients-first dispatch priority is now ruled.
+
+## 2026-08-25 — the delivery-only listener BUILT (RFC_054 Q2), and the defect it nearly shipped with
+
+Picked the lane up cold. **No thread had it open** — no session carries its name — but it is
+joint with webdesign.uk since 08-18 and four webdesign sessions were alive, three busy, so
+the shopfront copy/design work is theirs. Two other lanes hold pieces: `web_admin_console`
+built the second-click `/c/` page today and owns its close-out; `dispatch_throughput`
+explicitly routed **DNS plan B** here on 08-21 ("do not build here; check they picked it
+up") and nobody had.
+
+**State re-measured rather than carried forward.** `4c996e1b5` is the running core-manager
+(09:26Z); `fa3b665ed` (Phase 4 state) and `882622629` (presign clamp) are ancestors,
+reversed control passes; `24b63120d`/`d1a4bdcdf` (second-click, committed 12:34/12:40Z) are
+**not** — so it is built and not live, and this change lands on the same roll. Counters:
+51 sites, `handed_over_at`/`transfer_confirmed_at`/`live_link_expires_at` all **0**,
+`customer_access_tokens` **0** [MEASURED 2026-08-25].
+
+**What was built:** `/c/` (and later `/d/`) moved off `core-manager:8088` onto a second
+listener on `:8090` registering those routes and nothing else. Commit `d30917150`, register
+**SYS-095**, council `Council-Submitted: 25cd3044-23e0-4902-9686-692a42779170`. Plan:
+`PLAN_2026-08-25_delivery_only_listener.md`.
+
+### The misstep worth recording: I nearly shipped an opt-in that nothing could switch on
+
+The listener is opt-in via `server.delivery_port`, set **only** as
+`SERVICE_SERVER_DELIVERY_PORT` in the production overlay and named in no service's YAML.
+That combination does not work on this loader, and it fails **silently**: viper's
+`Unmarshal` populates from viper's known key set, and `AutomaticEnv` alone does **not** add
+a key absent from both the config file and the defaults. So the overlay would have read
+perfectly correct, `DeliveryPort` would have been `""`, no listener would have started, and
+every customer link would have 404'd at the box — with nothing wrong in the cluster and no
+error anywhere to find.
+
+I caught it only because I wrote the test **before** trusting the wiring, and it FAILED:
+
+```
+--- FAIL: TestDeliveryPortIsReadFromTheEnvironment
+    Server.DeliveryPort = "", want "8090"
+```
+
+Fixed with an explicit `v.BindEnv("server.delivery_port")` in `platform/config/loader.go`.
+**The general trap: any env-only config key on this loader has it**, and the symptom is
+indistinguishable from "the key is set to empty". Filed to `LANDMINES.md`.
+
+That is also the second time this lane has been reminded that a check only counts if it can
+come out the other way. A `[MEASURED]` marker on "the overlay sets the port" would have been
+true and worthless; the disconfirming result was the point.
+
+### What the change actually buys — and what it does not, stated here because it is easy to overstate
+
+Widening the box's `location` regex now reaches `/c/` and `/d/` and stops. But **8088 stays
+on the WireGuard egress fence**, because the chat bot's facts relay
+(`/api/v1/site-facts/:domain`) needs it and the fence's own comment records that removing it
+"stops the bot STARTING, by its own design". So **the fence is not the containment**: a NEW
+vhost written straight to `:8088` would still reach the whole admin API. Making the fence
+the control means moving the facts relay onto a box-facing listener too — a change touching
+a live customer-facing bot, and outside what the owner ruled. Recorded in the register entry,
+in the fence's own comment, and in the vhost header, so the next reader inherits the residual
+rather than the reassurance.
+
+### Guards, mutation-proved (a passing test proves nothing until a mutation kills it)
+
+| mutation | killed by |
+|---|---|
+| `assertNoDeliveryRoutes` returns nil early | the assert test **and** the main-router test |
+| empty port defaults ON instead of OFF | `TestDeliveryListenerIsOptInAndDefaultsOff` |
+| an extra `/health` added to the delivery engine | the exact-route-count test **and** the 404 sweep |
+| delivery engine registers nothing at all | the count test **and** the reach control |
+
+The fourth matters most: without `TestDeliveryEngineReachesTheHandler`, an engine serving
+**nothing** would have passed every 404 assertion and read as perfect containment.
+
+### Owed next, in order
+
+1. **After the next core-manager roll:** ancestry with reversed control, then verify **from
+   OUTSIDE** — the box's anchored regex means a cluster-internal curl proves nothing about
+   the customer path (LANDMINES, footprint `links.webdesign.uk.nginx`). Containment check is
+   `:8090/api/v1/admin/work-items` → 404 **paired with** `:8088` → not-404; the 404 alone
+   passes just as well against a typo'd hostname.
+2. **Then** the box vhost apply (owner box steps) — its header carries the
+   DO-NOT-APPLY-BEFORE-THE-ROLL gate.
+3. Read the council verdict and act on a REVISE; the code is already on the shared branch.

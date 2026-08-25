@@ -17734,3 +17734,27 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/333` (the door — correct and proven; this is not a fault in it) · `bugs_open/330` · `bugs_open/277` (closed 08-22) · the parked row's own `what_to_do`, which names the route that DOES work on an owned page (`section_edit` → `section-editor`, 44 complete / 1 failed as of 2026-08-24) · LANDMINES "Censusing work items with no handler…" (same door, opposite end) · MEMORY [[writes-the-field-is-not-reads-the-field]], [[a-receipt-nobody-asserts-on-is-a-log-line]], [[a-pass-from-a-blind-check-outlives-the-blindness]]
 - **source:** 2026-08-25, `webdesign_tool_rebuilds` lane — filing rebuild #41 I checked my own crosslinks for the first time and found eight tools' worth of mentions I had been counting as delivered had never been written, then nearly un-found it again on the pre-existing CTAs.
 - **added:** 2026-08-25, `webdesign_tool_rebuilds` lane
+
+### An env-only config key on `platform/config.Load` is SILENTLY IGNORED unless it is `BindEnv`'d — the overlay reads perfectly, the value arrives empty, and "unset" and "set to empty" are indistinguishable
+
+- **footprint:** `platform/config/loader.go` (`Load`, `v.AutomaticEnv()`, `v.Unmarshal`, `v.SetDefault`, `v.BindEnv`) · `ServiceConfig` / `ServerConfig` and every `mapstructure` struct it fills · any `SERVICE_*` environment variable set in a kustomize overlay (`deployments/kustomize/services/*/overlays/*/patch-env.yaml`) · `configs/*.yaml`
+- **fires when:** you add a config field that is set ONLY by an environment variable — typically a production-overlay `SERVICE_FOO_BAR` — and do not also name it in the service's `configs/*.yaml` or give it a `SetDefault`.
+- **the trap.** `Load` calls `SetEnvPrefix("SERVICE")` + `SetEnvKeyReplacer` + `AutomaticEnv()` and then `v.Unmarshal(&cfg)`. **`AutomaticEnv` only resolves keys viper already KNOWS about**, and viper's key set comes from the config file, explicit `SetDefault`s and explicit binds — not from your Go struct's `mapstructure` tags. A key present in none of those is never queried, so `Unmarshal` leaves the field at its zero value **however the environment is set**. Nothing errors. The variable is right there in `printenv` on the pod, the overlay diff reviews perfectly, and the struct field is `""`.
+  **What makes it worse than a normal typo: the failure is indistinguishable from the feature being switched off.** For any opt-in field — which is the shape CLAUDE.md 2026-08-02 §2 *prescribes* for new authority on a shared seam — "empty" is the legitimate OFF value. So the code does exactly what it should do with an empty value, quietly, and the only symptom is downstream and far away.
+- **the check — and it must be able to come out the other way.** Do not inspect the overlay, the pod env or the struct tag; none of them can fail. Load the config in a test with the env var set and assert the FIELD:
+  ```go
+  func TestFooIsReadFromTheEnvironment(t *testing.T) {
+      t.Setenv("SERVICE_SERVER_DELIVERY_PORT", "8090")
+      cfg, err := Load(writeMinimalConfigWithoutTheKey(t))   // mirrors configs/<svc>.yaml
+      if err != nil { t.Fatal(err) }
+      if cfg.Server.DeliveryPort != "8090" { t.Fatalf("got %q", cfg.Server.DeliveryPort) }
+  }
+  ```
+  **Run it BEFORE the fix.** It fails, and that failure is the whole evidence; written afterwards it merely agrees with you. Then bind the key explicitly next to the other env wiring:
+  `if err := v.BindEnv("server.delivery_port"); err != nil { return nil, fmt.Errorf(...) }`
+  (a `SetDefault("server.delivery_port", "")` also registers it; `BindEnv` says the intent out loud, and a default that is also the OFF value reads as if it were doing nothing).
+- **⚠ the blast radius of the miss is not the config layer.** `[MEASURED 2026-08-25]` the worked case was the delivery-only listener (SYS-095): `SERVICE_SERVER_DELIVERY_PORT` unbound would have meant no second listener, so `links.webdesign.uk/c/<token>` — every customer's confirmation link — would have 404'd **at the box**, where the anchored `location` regex means there is no log line, no metric and no error anywhere in the cluster. Two invisible failures in series, and the config half is the one nothing can see.
+- **generalises:** a value that arrives by a path your tests do not travel is unverified however carefully it was written. Env vars, ConfigMaps and secrets all have this shape — the artefact that carries them is reviewable and the DELIVERY of them is not, so assert at the reader. And when the legitimate value of a field includes the zero value, no runtime check can distinguish "not wired" from "wired off"; the test is the only place that distinction exists.
+- **relations:** SYS-095 (the listener this nearly shipped broken) · SYS-094 · LANDMINES "the customer-facing origin is not a catch-all" (the second invisible failure in the series) · MEMORY [[a-config-key-that-nothing-reads]], [[grep-the-config-key-before-calling-it-a-win]], [[a-print-statement-is-not-a-config-row]]
+- **source:** 2026-08-25, `site_delivery_and_editor` lane, building RFC_054 Q2. Found by writing `TestDeliveryPortIsReadFromTheEnvironment` before trusting the wiring; it failed with `Server.DeliveryPort = "", want "8090"`. Fixed in commit `d30917150`.
+- **added:** 2026-08-25, `site_delivery_and_editor` lane
