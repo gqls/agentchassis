@@ -3053,3 +3053,82 @@ removed the whole category.
 ⚠ **`54ba65b25` is Go and therefore INERT until the next roll.** `webdesign.uk` still serves its
 wrong sitemap until then. Verification recipe is §1 of the 08-25 handoff.
 
+
+---
+
+## 2026-08-25 (c) — chassis v1.0.1339, and the deferred objection turned out to be LIVE
+
+Roll landed 19:07 (pods `669b45fdb4-*`). `54ba65b25` (the redirect fix) is in HEAD, so it is
+carried.
+
+### The fleet grew on its own, which is the mechanism working
+
+**31 live sites**, up from 28. Three arrived since yesterday — `homegarden.uk`, `lampenkap.com`,
+`cv1.co.uk` — and the rotation picked all three up without anyone doing anything. That is the whole
+point of `590`: a new site gets a sitemap because it exists, not because someone remembered.
+
+**Census 2026-08-25 19:35: 27 of 31 serve a sitemap of ours**, every one a perfect n/n match.
+
+### ⚠ MY OWN RECONCILIATION QUERY NOW PRODUCES FALSE POSITIVES — fix it before using it
+
+The `runs = 0` query I wrote into the 08-25 handoff reported **six** sites as dropped dispatches
+today. **All six had run.** `orchestration_states` retains COMPLETED/FAILED for only ~24h
+(database-cleanup step 3), and their rows had been reaped: oldest surviving is 2026-08-24 19:05
+against stamps going back to 15:32.
+
+**And the remedy I documented is destructive when fed this.** "Clear the stamp so it re-runs"
+against six healthy sites re-probes ~150 URLs for nothing and reads as "the sweep is broken".
+
+**The query is only meaningful for stamps NEWER than the retention window.** Corrected form in the
+handoff. Same shape as MEMORY [[a-closer-census-cannot-see-what-it-succeeded-at]] — a rolling
+window makes success indistinguishable from never-happened.
+
+### ⚠ AND A SECOND BAD QUERY, caught BEFORE it reached the handoff
+
+Hunting for other affected sites I wrote `count(*) FILTER (WHERE p.deployed_at > r.last_selected_at)`
+and got **24 of 24 domains**, most with large counts — which would have read as fleet-wide
+breakage. **`pages.deployed_at` is UPDATED on every redeploy, not set once at first deploy**
+(dartsonline.com pages `created_at` 2026-07-06, `deployed_at` 2026-08-24/25). So it measured
+ordinary rerender churn.
+
+The reliable detector for this defect needs the **artefact**, not the DB: *stamped, has pages now,
+and serves no sitemap of ours*. That census found exactly two.
+
+### THE REAL FINDING — the bug_historian's objection is live, and worse than it was framed
+
+`homegarden.uk` and `cv1.co.uk` both swept successfully and both serve **404**. Not a wiring fault
+— they were selected **before their pages deployed**:
+
+| site | stamped | first page deployed | pages deployed after |
+|---|---|---|---|
+| `homegarden.uk` | 10:50:18 | 12:47:09 (**~2 h later**) | 20 of 20 |
+| `cv1.co.uk` | 12:21:48 | 13:47:04 (**~1.5 h later**) | 3 of 3 |
+
+Both sweeps did exactly the right thing — `candidate_count: 0`, `rendered: false`, refused to
+publish an empty sitemap, no commit. **The selector was the only thing wrong.** The stamp had
+already been written, so both fully-built live sites would have sat sitemap-less until **2026-08-28**
+and nothing would have said so.
+
+**The objection framed the cost as a missing signal. The live cost is the CONSUMED SLOT** — a log
+line would not have helped either site; not being selected would have. That reframing is the useful
+part, and it changed the fix: it belongs in the **selector**, not in observability.
+
+Both stamps cleared by hand. Fixed for good in **migration `622`** (applied 2026-08-25 19:45):
+an `EXISTS` guard so a site with no deployed active page is never selected and never stamped.
+
+⚠ **The guard is DELIBERATELY WEAKER than `render_sitemap`'s own filter, and `622`'s verify block
+RAISES if anyone tightens it** (it fails on `pg.noindex` or `pg.expires_at` appearing). Reasoning:
+the action also excludes noindex and expired; testing only `status` + `deployed_at` is a strict
+superset, so drift can only make the selector pick a site the action then finds nothing for — which
+is today's behaviour, no worse. A mirrored guard would need permanent lockstep and its drift mode
+is a site **silently never selected**, strictly worse than the bug. **A guard that cannot fail in
+the dangerous direction beats one that is currently exact.**
+
+⚠ Renumbered **591 → 622** mid-session: another lane took 591 while this was being written and the
+tree had moved to 621. `ls` the directory immediately before naming a migration, not when you start.
+
+Residue, named not hidden: a site whose pages are **all** noindex or **all** expired still burns its
+slot silently. Needs the machine-readable `skip_reason` (Go). Population today: **zero**.
+
+Council `c88f5c0f-cca2-4753-bd6c-9fabc93b100e` submitted for `622`.
+
