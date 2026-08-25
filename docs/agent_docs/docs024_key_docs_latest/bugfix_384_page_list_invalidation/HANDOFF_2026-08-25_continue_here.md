@@ -84,7 +84,11 @@ An induced card landing on `barrel-shapes` (one of the four originally-broken ca
 
 Spec shape as designed: `{cause: "card_landed:barrel-shapes", domain, reason, page_id, page_name, consumes: ["query.blog_posts"]}`. The acceptance item itself completed cleanly (`attempt_count=0`, no error). **N=2 equals the site's consumer count under the shipped predicate**, neither row sits on an `owned` page, and both keys are the shared `PageRerenderItemKey` spelling — so the sweep would collapse onto them.
 
-Pre-state captured for the causation leg: `index` `deployed_at` 2026-08-24 23:24:30, `guides-index` 23:27:07. The remaining leg — the two re-renders running COMPLETED with `escalated=false` and advancing `deployed_at` — is ordinary platform behaviour on an existing path; it was in flight when this was written, and the poll command is in the RUNBOOK.
+**The chain closed end-to-end on `index` `[MEASURED 2026-08-25 09:50:55–09:51:11Z]`:** item `complete`; the `page-rerender` run COMPLETED with **`escalated=false`**, `section_count=4`, `rerendered=4`, **`carried=0`**, visiting every step through `deploy_page` and `update_status`; and the stored array was rewritten at 09:50:58 (previously 2026-08-24 23:15:40), 12 entries, 0 empty images.
+
+⚠ **`deployed_at` did NOT advance, and that is correct** — the array was already current, so the re-rendered HTML is byte-identical and the deploy is a no-op. **My own first draft of this protocol told the next reader to require `deployed_at` to advance; running it disproved that, and the RUNBOOK is corrected.** The causation signals that discriminate are the `spec.cause` on the item AND on the run, plus `page_components.updated_at`.
+
+**`guides-index` did not run**, for a reason unrelated to this change: `spawn_agent: failed to create responses topic: ... dial tcp 10.20.161.251:9092: i/o timeout` — a Kafka broker dial timeout. The item returned to `triaged` with `attempt_count=0` and will be retried on dartsonline's next loop turn. (I nearly filed this as the known spawn→call handshake race from memory; **the full error text says otherwise** — read it, don't pattern-match.) Same error shape on 2 sites in 7 days, so it is infrastructure flake, not this seam.
 
 ## 7a. Protocol, and the trap I hit running it
 

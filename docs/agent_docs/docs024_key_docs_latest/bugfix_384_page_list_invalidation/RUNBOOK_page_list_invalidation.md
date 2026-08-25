@@ -117,7 +117,7 @@ SELECT p.name, COALESCE(p.rebuild_policy,'generic') AS policy, w.status, w.spec-
   FROM site_work_items w JOIN pages p ON p.id=w.page_id
  WHERE w.site_id='<site>' AND w.item_type='page_rerender' AND w.spec->>'cause'='card_landed:<page>' ORDER BY p.name;
 ```
-And the causation leg — pin `pages.deployed_at` BEFORE, then require it to advance on the back of those items:
+And the causation leg. ⚠ **Do NOT require `pages.deployed_at` to advance** — corrected 2026-08-25 by running it: on a listing whose array is already current the re-resolve produces byte-identical HTML, the deploy is a no-op, and `deployed_at` legitimately does not move (measured: `index` re-rendered 4 of 4 sections, 0 carried, deploy step visited, `deployed_at` unchanged). The causation signals that DO discriminate are (a) the item row itself carries `spec.cause`, (b) the run carries it too, and (c) `page_components.updated_at` advances when the array is rewritten:
 ```sql
 SELECT coalesce(collected_data->'input_data'->'spec'->>'page_name','?'), status,
        coalesce(collected_data->'rerender_sections'->>'escalated','n/a'), current_step
