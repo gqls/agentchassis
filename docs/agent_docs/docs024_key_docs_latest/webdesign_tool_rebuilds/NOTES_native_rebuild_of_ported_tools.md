@@ -3202,3 +3202,14 @@ drain healthy 23/10 min) — the tombstone protects the interim, same shape as #
 clean. Grade with the pinned controls + LM > completed_at when it lands.
 **After it: entropy-meter (8,325), text-sanitizer (8,607), cubic-bezier (8,754), golden-ratio
 (8,754), monolith-splitter (9,037), … (Phase B smallest-first).**
+
+## 2026-08-25 13:10Z — #39 SERVE-GRADE PASS (owed item paid in-session): 39 of 63
+
+Rerender `4f0a3002` complete 13:07:07 (~57 min in the fleet FIFO — the longest wait yet; the
+tombstone held throughout). Grade: 200 / 23,234 B / LM 13:07:20 > 13:07:07; `ported-page` 0;
+negatives all 0 (cPrimary, btnLight, output, dynamic-style, `Copied!`); positives = the exact
+code-arm literals: "set this to YOUR background colour" (the honest gap comment IN the emitted
+CSS), `var(--color-surface)` ×4 and `var(--color-text)` ×9 (each preview's own surface gap).
+Tombstone re-read: removed ✓. Self-contained — no orphan.
+**39/63. Phase B continues: entropy-meter (8,325) next, then text-sanitizer, cubic-bezier,
+golden-ratio, monolith-splitter…**
