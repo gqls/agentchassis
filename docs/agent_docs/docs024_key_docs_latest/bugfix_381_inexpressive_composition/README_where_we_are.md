@@ -176,3 +176,38 @@ written up why the check I skipped was the cheap one.
 to build it with, and have the writer fill twelve real months instead of four seasons of prose. What
 has not happened is a real build using any of it — the components are seeded and reviewed, not yet
 exercised on a live site. That is still the one thing I need from you: a build to watch.
+
+---
+
+**2026-08-25 — the first real evidence, and one thing left that only you can start.**
+
+The writer half works, and I can now show it rather than assert it. Looking at what the writer
+actually produced since the change: of the pieces of text written into the blocks we changed,
+**72% now contain a proper list, against 10% before, and every single one now has subheadings.**
+That is the wall-of-text complaint answered, measured at the point where the change applies.
+
+**A moment worth telling you about, because I nearly got it wrong.** My first look was at the
+finished pages, and there the numbers barely moved — five out of forty-eight. Had I stopped there I
+would have told you the fix had failed. It hadn't: most of those pages were *re-renders* of text
+written before the change, which never go near the writer. Two measurements of what looked like the
+same thing disagreed, and the honest answer was that they measure different things. I only knew that
+after checking, and I have written down that when that happens, neither number is the answer until
+you can explain the gap.
+
+**What is left is genuinely one thing, and it is yours to start.** The three new components — the
+checklist, the month-by-month calendar, the comparison table — are live and have **never been used
+once**. Nothing is broken; I have confirmed all three appear in the planner's own live menu. The
+problem is that the step which *chooses* components only runs when a **new site is built**, and no
+new site has been built since. So the half of the fix that was the whole point of the bug is sitting
+there untested.
+
+**So: one new site build.** The command is in the handoff. What matters more than the domain is the
+subject — pick something genuinely structured, a buying guide or a how-to or anything seasonal, and
+all three components get exercised. A two-page brochure will exercise none of them and prove
+nothing. Garden-tools stays off-limits as you asked, and it is also another thread's test case.
+
+**Can we close this off?** Not yet, and I would rather say so. Half the bug is proven and half has
+never run. One build settles it. If you would rather not commission one, the honest alternative is
+to leave it open and measure whatever gets built next — that costs nothing and stays true. What I
+don't want to do is mark it done because the configuration is in place; the whole of the last two
+days has been about the difference between shipped and working.

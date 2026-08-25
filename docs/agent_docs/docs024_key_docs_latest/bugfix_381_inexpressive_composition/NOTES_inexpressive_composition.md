@@ -400,3 +400,48 @@ warning people learn to skip, which costs the entries that are real.
 
 ⚠ One `grounded_in` item in the in-flight council submission (`c134b0e9`) asserts the false version.
 It cannot be amended mid-round, so it is recorded here, in `WRONG_CALLS.md` and in the commit.
+
+## 2026-08-25 — the first real evidence, and the page-level measure is the WRONG instrument
+
+Re-verified everything after the fresh chassis roll (`635f2d32f`): all eight migrations recorded,
+both arms live, three components expressing. Checked **by needle in the live text**, never by
+`updated_at` — that column is degenerate on this table and I filed the landmine for it yesterday.
+
+**The writer arm is PROVEN** `[MEASURED 2026-08-25, llm_call_log]`. 268 of 396 writer calls since the
+apply carry the new RULE 10, so the prompt is live and in use. Of the calls that actually offered a
+retyped prose slot — needle = the guidance string I authored, so there is no ambiguity about which
+calls those are:
+
+| | n | list | h3 | strong |
+|---|---|---|---|---|
+| `generic-text-block` slot, after | **29** | **21 (72%)** | **29 (100%)** | 18 (62%) |
+| baseline before | 173 | 17 (**10%**) | — | — |
+
+**10% → 72%.** That is the falsifier from PLAN §6 *not* firing: the confound I named (that the
+difference was really WHICH AGENT writes each field) would have shown as no movement, and the
+movement is decisive.
+
+**⚠ AND THE PAGE-LEVEL MEASURE READS FLAT — 5 of 48 rows. I nearly wrote that up as the fix
+failing.** Three separate reasons it is the wrong instrument, and I had to find all three before I
+could say anything honest:
+1. **Most of those rows are RE-RENDERS.** A rerender regenerates from `content_data` authored under
+   the OLD prompt and never calls the writer — this lane's own memory says exactly that ("a repro is
+   destroyed by the render") and I still had to be surprised by it before remembering.
+2. **Most writer output does not reach a page in the window.** Sampled 12 list-bearing responses:
+   **3 reached a page and all 3 pages carry the list**; 9 were not findable.
+3. **⚠ My correlation probe is itself confounded** — `rewrite_negations` can REWRITE a sentence
+   between the writer's response and the persisted row, so a phrase match can fail on content that
+   *did* land. **A "not found" from that probe is not evidence of loss**, and if I had stopped at
+   step 2 I would have reported a content-loss bug that does not exist.
+
+**The lesson, and it is the same one as the `<no value>` retraction yesterday in a new costume:**
+I had two numbers that disagreed — 72% at the writer, 10% at the page — and the temptation both
+times was to pick the one that told a story. The honest answer is that they measure different
+things, and the page-level one has three known dilutions I could name only after looking. **When two
+measurements of "the same thing" disagree, neither is the answer until you can explain the gap.**
+
+**The planner arm has not run ONCE.** `build-site-planner`: 0 calls since the menus changed. So the
+three components have 0 placements — not broken, unexercised. All three ARE in the live planner menu
+for garden-tools.uk (verified 3 of 3), so the wiring is proven and only the trigger is missing. That
+is now the whole of what this lane is waiting on, and it needs a new-site build, which is the owner's
+call.
