@@ -109,6 +109,23 @@ func main() {
 		}
 	}()
 
+	// The delivery listener: customer routes only, on its own port, so that the
+	// admin port above carries nothing publicly reachable (RFC_054 Q2, owner
+	// ruling 2026-08-25). Returns immediately when not configured, which is the
+	// default — see config.ServerConfig.DeliveryPort.
+	//
+	// It brings the service down if it fails, exactly as the main listener does.
+	// A delivery listener that is configured but dead is a customer clicking a
+	// link in an email and getting nothing, which must not be a state the
+	// service is willing to sit in quietly.
+	go func() {
+		if err := apiServer.StartDelivery(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			appLogger.Error("Delivery listener failed", zap.Error(err),
+				zap.String("address", apiServer.DeliveryAddress()))
+			cancel()
+		}
+	}()
+
 	// --- Step 4a: Initialize Kafka Topics ---
 	// This ensures all system topics and agent topics exist
 	if err := initializeKafkaTopics(ctx, cfg, appLogger, clientsDB); err != nil {

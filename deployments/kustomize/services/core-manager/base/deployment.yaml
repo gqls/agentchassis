@@ -23,6 +23,12 @@ spec:
           ports:
             - containerPort: 8088
               name: http
+            # The delivery listener: customer routes only (/c/, later /d/), so
+            # that the admin API on 8088 carries nothing publicly reachable.
+            # Declared here, but it only LISTENS if SERVICE_SERVER_DELIVERY_PORT
+            # is set — the opt-in lives in the production overlay's patch-env.
+            - containerPort: 8090
+              name: delivery
             - containerPort: 9091
               name: grpc
           env:

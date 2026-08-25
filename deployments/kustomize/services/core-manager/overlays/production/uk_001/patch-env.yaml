@@ -21,6 +21,25 @@ spec:
                 secretKeyRef:
                   name: personae-platform-secrets
                   key: CLIENTS_DB_PASSWORD
+            # THE DELIVERY LISTENER'S OPT-IN.
+            #
+            # Setting this starts a SECOND HTTP listener carrying only the
+            # customer delivery routes (/c/, later /d/). It is deliberately here
+            # and not in configs/core-manager.yaml: this is the one line that
+            # makes a port publicly reachable — customer clicks arrive at the
+            # webdesign.uk box and are proxied here over WireGuard — so the
+            # decision belongs where a reviewer of the DEPLOYMENT sees it.
+            #
+            # Unset it and the delivery routes are served NOWHERE: core-manager
+            # will not fall back to mounting them on 8088, which is the whole
+            # point (RFC_054 Q2, owner ruling 2026-08-25).
+            #
+            # ⚠ The box vhost (links.webdesign.uk.nginx) proxies to this port.
+            # Change it here and the vhost must change in the same breath, or
+            # every customer link 404s at the box with nothing wrong in the
+            # cluster and no error anywhere to find.
+            - name: SERVICE_SERVER_DELIVERY_PORT
+              value: "8090"
             - name: KAFKA_TOPIC_CREATION_ENABLED
               value: "true"
             - name: KAFKA_TOPIC_REPLICATION_FACTOR

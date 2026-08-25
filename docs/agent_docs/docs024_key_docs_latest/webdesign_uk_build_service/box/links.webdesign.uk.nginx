@@ -33,8 +33,33 @@
 #
 # ⚠ THE PREFIX IS THE EXPOSURE. `location /c/` proxies EXACTLY the
 # confirm-transfer path. Do NOT widen it to `/` or add a longer prefix of
-# core-manager's routes — sitefacts.go's "no public exposure" reasoning is
-# what you would be silently falsifying, for every site's data.
+# core-manager's routes.
+#
+# UPDATED 2026-08-25 — that sentence used to be the ONLY thing between the
+# internet and the admin API, and it is not any more. The upstream is now
+# core-manager:**8090**, the DELIVERY LISTENER, which serves the customer
+# routes and nothing else: no admin API, no bootstrap, no facts relay, no
+# health. Widening this location now exposes /c/ and /d/ and stops there.
+# RFC_054 Q2, owner ruling 2026-08-25; register SYS-095.
+#
+# The old reasoning still applies to anyone adding a NEW location: 8088 is
+# still reachable from this box (the chat bot's facts relay needs it), so a
+# vhost written straight to :8088 would reach the whole admin API and
+# sitefacts.go's "no public exposure" reasoning would be silently false again.
+# The containment is this location's upstream, not the fence.
+#
+# ⚠⚠ DO NOT APPLY THIS FILE BEFORE THE ROLL THAT CARRIES THE LISTENER.
+# Port 8090 does not answer until a core-manager image built from the commit
+# adding it is running. Apply this first and every customer link 404s at the
+# box, with nothing wrong in the cluster and no error anywhere to find. Check
+# before applying, and use the reversed test as a control:
+#   kubectl -n ai-persona-system logs -l app=core-manager --tail=2000 \
+#     | grep -m1 'build provenance'
+#   git merge-base --is-ancestor <the listener commit> <the stamp>
+# Harmless to be late: until this file is applied the box still proxies to
+# 8088, where the routes no longer are, so /c/ 404s either way until both
+# halves are in place. `customer_access_tokens` = 0 [MEASURED 2026-08-25], so
+# no customer can be holding a link while that is true.
 #
 # ⚠ THE UPSTREAM RIDES THE WIREGUARD EGRESS FENCE. core-manager:8088 is on
 # the allowlist (networkpolicy-wireguard-egress.yaml). Narrow that policy and
@@ -64,7 +89,9 @@ server {
         limit_except GET POST { deny all; }
         client_max_body_size    4k;
         add_header X-Robots-Tag "noindex, nofollow" always;
-        proxy_pass              http://core-manager.ai-persona-system.svc.cluster.local:8088;
+        # PORT 8090 IS THE DELIVERY LISTENER, NOT THE ADMIN API. See the
+        # ⚠ DO NOT APPLY BEFORE THE ROLL note in this file's header.
+        proxy_pass              http://core-manager.ai-persona-system.svc.cluster.local:8090;
         proxy_http_version      1.1;
         proxy_set_header Host   $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

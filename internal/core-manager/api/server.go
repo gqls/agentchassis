@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gqls/agentchassis/internal/core-manager/handlers"
 
@@ -27,6 +28,74 @@ type Server struct {
 	httpServer    *http.Server
 	personaRepo   models.PersonaRepository
 	kafkaProducer kafka.Producer
+
+	// deliveryServer is the second listener: customer delivery routes ONLY, on
+	// their own port, so a misconfiguration at the box can expose nothing but
+	// those routes. nil when server.delivery_port is unset, which is the
+	// default and means the delivery routes are mounted nowhere at all.
+	deliveryServer *http.Server
+}
+
+// deliveryRoutePrefixes are the customer-facing paths that must never appear on
+// the main (admin) router. They are short because they are read aloud and
+// retyped out of an email, and they are listed here because that shortness is
+// exactly what makes an accidental re-mount easy to miss in review.
+var deliveryRoutePrefixes = []string{"/c/", "/d/"}
+
+// assertNoDeliveryRoutes is the mechanism behind the comment in setupRoutes.
+//
+// The containment this service now buys is precisely "the admin port serves no
+// customer route". That is a property, and a property held only by review is one
+// this tree has repeatedly failed to hold — so it is checked against the real
+// route table at construction, and a violation refuses to build the server.
+//
+// Fail-closed is deliberate. The only way to trip this is to mount a customer
+// route on the admin port, which is the exact mistake it exists to catch; a roll
+// that crash-loops says so immediately, where a logged warning would be read by
+// nobody and the hole would serve traffic in the meantime.
+func assertNoDeliveryRoutes(routes gin.RoutesInfo) error {
+	for _, r := range routes {
+		for _, prefix := range deliveryRoutePrefixes {
+			if strings.HasPrefix(r.Path, prefix) {
+				return fmt.Errorf(
+					"delivery route %s %s is mounted on the main admin router: it belongs on the delivery listener only (RFC_054 Q2, owner ruling 2026-08-25)",
+					r.Method, r.Path)
+			}
+		}
+	}
+	return nil
+}
+
+// newDeliveryEngine builds the router for the delivery listener. It registers
+// the delivery routes and NOTHING else — no health endpoint, no metrics, no
+// catch-all. "Delivery-only" is the whole value of this listener, so anything
+// added here gives back some of what the change bought.
+//
+// Routes come from the handler's own RegisterRoutes, which is the single
+// definition of the route table (the guardian seat's objection on council
+// ea99befa): there is no second copy here to drift.
+func newDeliveryEngine(h *handlers.DeliveryHandler) *gin.Engine {
+	r := gin.New()
+	r.Use(gin.Recovery())
+	h.RegisterRoutes(r)
+	return r
+}
+
+// newDeliveryServer applies the opt-in. An empty port returns nil: no listener,
+// and — because these routes are mounted nowhere else — no customer route served
+// anywhere in this process.
+//
+// This is a function rather than an inline `if` so that the default-OFF property
+// can be asserted by a test. The safety of this whole mechanism rests on which
+// way the empty case falls, and that is not something to leave to a comment.
+func newDeliveryServer(port string, h *handlers.DeliveryHandler) *http.Server {
+	if port == "" {
+		return nil
+	}
+	return &http.Server{
+		Addr:    ":" + port,
+		Handler: newDeliveryEngine(h),
+	}
 }
 
 // NewServer creates a new API server instance
@@ -64,10 +133,30 @@ func NewServer(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logge
 	// Setup routes with configured auth middleware
 	server.setupRoutes(authConfig)
 
+	// The admin port must carry no customer-facing route. Checked against the
+	// real route table rather than trusted (see assertNoDeliveryRoutes).
+	if err := assertNoDeliveryRoutes(router.Routes()); err != nil {
+		return nil, err
+	}
+
 	// Create HTTP server
 	server.httpServer = &http.Server{
 		Addr:    ":" + cfg.Server.Port,
 		Handler: router,
+	}
+
+	// The delivery listener. OPT-IN: an unset delivery_port means the customer
+	// routes are served nowhere, which is the safe direction — the box then gets
+	// a 404 rather than the admin API. See config.ServerConfig.DeliveryPort.
+	deliveryHandler := handlers.NewDeliveryHandler(
+		handlers.NewDBDeliveryDeps(personaRepo.ClientsDB(), logger))
+	server.deliveryServer = newDeliveryServer(cfg.Server.DeliveryPort, deliveryHandler)
+	if server.deliveryServer != nil {
+		logger.Info("Delivery listener configured (customer routes only)",
+			zap.String("address", server.deliveryServer.Addr))
+	} else {
+		logger.Info("Delivery listener NOT configured; customer delivery routes are served nowhere",
+			zap.String("config_key", "server.delivery_port"))
 	}
 
 	return server, nil
@@ -113,33 +202,21 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 	siteFactsHandler := handlers.NewSiteFactsHandler(personaRepoImpl.ClientsDB(), s.logger)
 	s.router.GET("/api/v1/site-facts/:domain", siteFactsHandler.HandleGetSiteFacts)
 
-	// Customer handover links (NO authentication, bypasses AuthMiddleware —
-	// the token in the path IS the credential, hashed at rest, expiring, and
-	// scoped to one site and one purpose; see platform/delivery).
+	// THE CUSTOMER DELIVERY ROUTES (/c/, later /d/) ARE DELIBERATELY NOT HERE.
 	//
-	// PUBLICLY REACHABLE, unlike everything else in this service. Customer
-	// traffic arrives at the webdesign.uk box, whose nginx proxies these NAMED
-	// PATHS to this service over WireGuard (the /stripe/webhook -> auth-service
-	// shape). The exposure is exactly the paths nginx names: keep the nginx
-	// locations exact or tightly prefixed, never a catch-all, or the site-facts
-	// relay's "ClusterIP only, no ingress" reasoning three lines up silently
-	// stops being true.
+	// They live on a SECOND listener with its own router (newDeliveryEngine
+	// below), so that this port — which serves every site's data, the work-item
+	// queue and the pipeline controls — carries no publicly-reachable customer
+	// route at all. Before 2026-08-25 they were mounted here, and the only thing
+	// keeping the admin API off the internet was an anchored `location` regex in
+	// nginx on the webdesign.uk box. Widening that location by one character
+	// would have exposed this entire API, and nothing in the binary would have
+	// refused. RFC_054 Q2, owner ruling 2026-08-25.
 	//
-	// Mounted at the ROOT, not under /api/v1, on purpose: these go in an email
-	// to a customer and get read aloud and retyped, so the path is two
-	// characters. There is no /d/<token> yet — presigning needs object-store
-	// credentials that no standing service holds by owner directive
-	// (bugs_open/245); see handlers/delivery.go.
-	//
-	// TWO VERBS, ONE PATH, and the method is the whole security distinction
-	// (owner ruling 2026-08-24): GET renders a page with a button and touches no
-	// database, POST is the confirmation. Mail scanners follow links; they do
-	// not submit forms. The path must stay identical between them — the box
-	// vhost admits token-shaped /c/ paths by anchored regex and would 404 a
-	// suffix route such as /c/<token>/confirm before it ever reached here.
-	deliveryHandler := handlers.NewDeliveryHandler(
-		handlers.NewDBDeliveryDeps(personaRepoImpl.ClientsDB(), s.logger))
-	deliveryHandler.RegisterRoutes(s.router)
+	// This is enforced, not merely intended: assertNoDeliveryRoutes refuses to
+	// construct the server if a delivery path is ever mounted on this router.
+	// Adding one back here does not produce a quietly-reopened hole; it produces
+	// a core-manager that will not start.
 
 	// API v1 group with authentication
 	apiV1 := s.router.Group("/api/v1")
@@ -281,10 +358,44 @@ func (s *Server) Start() error {
 	return s.httpServer.ListenAndServe()
 }
 
+// StartDelivery starts the delivery listener. It returns http.ErrServerClosed on
+// a graceful shutdown, exactly as Start does.
+//
+// It returns nil immediately when no delivery port is configured, so the caller
+// can always launch it and does not have to mirror the opt-in decision. A caller
+// that treats a nil return as "the listener stopped" would be wrong either way —
+// the same is true of Start.
+func (s *Server) StartDelivery() error {
+	if s.deliveryServer == nil {
+		return nil
+	}
+	s.logger.Info("Starting Core Manager delivery listener (customer routes only)",
+		zap.String("address", s.deliveryServer.Addr))
+	return s.deliveryServer.ListenAndServe()
+}
+
 // Shutdown gracefully shuts down the server
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.kafkaProducer.Close()
+	if s.deliveryServer != nil {
+		// Shut the public door first, and do not let its error mask the main
+		// one: a customer mid-click is a smaller loss than an admin request
+		// killed without the error being reported.
+		if err := s.deliveryServer.Shutdown(ctx); err != nil {
+			s.logger.Error("Delivery listener shutdown failed", zap.Error(err))
+		}
+	}
 	return s.httpServer.Shutdown(ctx)
+}
+
+// DeliveryAddress returns the delivery listener's address, or "" when it is not
+// configured. Exists so a caller can log or probe what is actually listening
+// rather than assuming the configured value took effect.
+func (s *Server) DeliveryAddress() string {
+	if s.deliveryServer == nil {
+		return ""
+	}
+	return s.deliveryServer.Addr
 }
 
 // Address returns the server's address

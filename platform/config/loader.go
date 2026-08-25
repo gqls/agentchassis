@@ -27,6 +27,21 @@ type ServiceInfoConfig struct {
 
 type ServerConfig struct {
 	Port string `mapstructure:"port"`
+
+	// DeliveryPort, when set, starts a SECOND HTTP listener carrying only the
+	// customer-facing delivery routes (/c/, later /d/). Used by core-manager.
+	//
+	// IT IS OPT-IN AND ITS DEFAULT IS OFF, deliberately: the authority it grants
+	// is a listener that accepts public traffic (the box proxies customer clicks
+	// to it over WireGuard), so the unsafe side is ON. Empty means no second
+	// listener AND the delivery routes are mounted nowhere at all — the door is
+	// shut, not quietly re-opened on the admin port, which is the failure this
+	// whole mechanism exists to prevent (RFC_054 Q2, owner ruling 2026-08-25).
+	//
+	// Production opts in in the overlay, where a reviewer of the DEPLOYMENT can
+	// see the decision rather than having to read the binary (CLAUDE.md
+	// 2026-08-02 §2).
+	DeliveryPort string `mapstructure:"delivery_port"`
 }
 
 type LoggingConfig struct {
@@ -82,6 +97,23 @@ func Load(path string) (*ServiceConfig, error) {
 	v.SetEnvPrefix("SERVICE")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
+
+	// AutomaticEnv is NOT enough on its own for a key that appears in neither
+	// the config file nor a default: Unmarshal populates from viper's known key
+	// set, so such a key stays empty however the environment is set, silently.
+	//
+	// server.delivery_port is exactly that shape — it is set only by
+	// core-manager's production overlay (SERVICE_SERVER_DELIVERY_PORT) and no
+	// service's YAML names it. Without this bind the delivery listener never
+	// starts, every customer link 404s at the box, and the overlay reads
+	// perfectly correct while doing nothing. Proven by
+	// TestDeliveryPortIsReadFromTheEnvironment, which fails without this line.
+	//
+	// Binding it does nothing to any other service: unset stays empty, which is
+	// the listener's OFF default.
+	if err := v.BindEnv("server.delivery_port"); err != nil {
+		return nil, fmt.Errorf("config: unable to bind server.delivery_port: %w", err)
+	}
 
 	var cfg ServiceConfig
 	if err := v.Unmarshal(&cfg); err != nil {

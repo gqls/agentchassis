@@ -68,6 +68,24 @@ spec:
         - protocol: TCP
           port: 53
     # The box's two real upstreams.
+    #
+    # core-manager is reached on TWO ports, and they are different doors:
+    #   * 8090 — the DELIVERY listener, customer routes only (/c/, later /d/).
+    #     This is what `location ~ "^/c/..."` in links.webdesign.uk.nginx now
+    #     proxies to. Nothing else is mounted on it, so widening that location
+    #     exposes the delivery routes and nothing more (RFC_054 Q2, owner ruling
+    #     2026-08-25).
+    #   * 8088 — the ADMIN API, which the box still needs for the chat bot's
+    #     facts relay (/api/v1/site-facts/:domain, box/chat-service/facts.go).
+    #     Removing it stops the bot STARTING, by its own design.
+    #
+    # ⚠ SO THIS FENCE IS NOT THE CONTAINMENT, and it should not be read as one.
+    # Because 8088 stays reachable from the box, a NEW vhost written straight to
+    # :8088 would still reach the admin API; what the delivery listener buys is
+    # that the EXISTING customer door cannot be widened into it. Making the fence
+    # the control means moving the facts relay onto a box-facing listener too and
+    # dropping 8088 from this list — a change that touches a live customer-facing
+    # bot, and deliberately out of scope on 2026-08-25.
     - to:
         - podSelector:
             matchLabels:
@@ -75,6 +93,8 @@ spec:
       ports:
         - protocol: TCP
           port: 8088
+        - protocol: TCP
+          port: 8090
     - to:
         - podSelector:
             matchLabels:

@@ -9,6 +9,9 @@ spec:
     - port: 8088
       targetPort: http
       name: http
+    - port: 8090
+      targetPort: delivery
+      name: delivery
     - port: 9091
       targetPort: grpc
       name: grpc
