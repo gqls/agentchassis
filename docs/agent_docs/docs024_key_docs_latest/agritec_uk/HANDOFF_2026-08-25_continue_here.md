@@ -42,60 +42,51 @@ sweeps, discovery checks, imagery style and rerender, and this one had visibly s
     artifact_check fences       4 of 4 fresh
     citation arm              104 of 104 fresh, zero errors, zero drifted
 
-## 3. ⚠ THE ONE OPEN ITEM — the light palette has not rendered
+## 3. ⚠ THE ONE OPEN ITEM — the light palette is 90% in; the CSS is the last step
 
 **Owner instruction, 2026-08-25:** a lighter palette with dark text, as the default on all domains
 and on this one.
 
-Done: `design_intent.palette.reference_values` moved to `background #F7F8F5` / `text #1A202C`,
-`style_direction` to `modern-light`, and `imagery_style_guide` moved with it
-(`SEED_2026-08-25g_light_palette.sql`). Fleet default done as migration **613**, applied and
-verified, submitted to the council gate as `ca1d0f70-602d-4908-9098-632fc89bdb61`.
+### Done and verified
 
-**NOT done: the site CSS still carries the old dark `#12151F`.**
+| | |
+|---|---|
+| `design_intent.palette.reference_values` | `#F7F8F5` bg / `#1A202C` text ✓ |
+| `design_intent.style_direction` | `modern-light` ✓ |
+| `classification.suggested_style` | `modern-light` ✓ (was `professional-dark`) |
+| `imagery_style_guide` | moved to light grounds ✓ |
+| **the site's theme** | **replaced** — `site-design-planner` installed `collection-agritec-uk-819c6c8c` at 15:55, light, and repointed `sites.style_collection_id` to it ✓ |
+| fleet default | migration **613** applied + verified; council `ca1d0f70-602d-4908-9098-632fc89bdb61` ✓ |
 
-Diagnosed properly — **the first diagnosis in this file was wrong and is corrected here.** It
-said webdesign-agent "completed without regenerating the head". It did not: `generate_css`,
-`persist_css_to_theme`, `deploy_css` and `update_site` all ran. **It regenerated the same dark CSS
-and wrote it back**, which is why nothing changed and nothing errored.
+### The one thing left
 
-The real chain, read from `render_css_from_spec_action.go`:
+**The `head` slot of `site_components` is still stamped 2026-08-24 19:20 and carries `#12151F`.**
+It is the last dark artefact and it is what the pages embed.
 
-- The renderer builds `mergedPalette := buildPaletteMap(comp.Palette, specPalette)` — the
-  **theme's** palette merged with the spec's.
-- `enforceLayoutScheme(comp.LayoutScheme, …)` then compares the merged background's luminance
-  against the **layout's declared scheme**, and errors if they disagree.
-- agritec's `classification.suggested_style` was **`professional-dark`**, its
-  `style_collections` row (`collection-agritec-uk`) still carries the dark palette, unchanged
-  since 2026-08-24 11:33, and the layout is a dark variant.
+A `needs_design:regen-css-on-light-theme` item is **queued now** for `webdesign-agent`. The
+earlier attempt re-rendered dark because `render_css_from_spec` merges `comp.Palette` (the
+THEME's) with the spec's, and the theme was still dark. **The theme is light now**, so this run
+should produce light CSS. If it does not, read the merge in
+`render_css_from_spec_action.go:125` and `enforceLayoutScheme` at `:390` — the LAYOUT also
+declares a scheme and the layout may still be a dark variant.
 
-So the merged palette stayed dark, the dark background agreed with the dark layout, the guard
-passed, and it re-rendered the identical CSS. **A `design_intent` palette swap alone could never
-have moved it** — the theme and the layout scheme are the artefacts that decide.
+**Verify at the served page, never at the specs.** The specs have read "light" for hours while the
+site served dark; that gap is the whole reason this took four seams:
 
-Done since: `suggested_style` moved to `modern-light` (verified), and a `needs_composition` item
-queued for `site-design-planner`.
+    curl -sS -L "https://agritec.uk/tools/sfi26-revenue-stacker/?cb=$(date +%s)" | grep -c '#12151F'
 
-> **CORRECTED, second time — my `fork_theme` suggestion above was also wrong.**
-> `fork_theme_from_site` is **library contribution**: it inserts a new theme + collection pending
-> review and its own header states *"The site's own `style_collection_id` is NOT modified."* It
-> would never have changed this site. The same file names the right seam:
-> *"Composition installation is owned exclusively by `site-design-planner` via the
-> `install_site_composition` action. Any caller that wants to install a composition onto a site
-> must go through site-design-planner (queue a `needs_composition` work item)."*
-> That planner has exactly the steps this needs — `resolve_composition_palette`,
-> `resolve_composition_layout`, `install_site_composition`.
->
-> **Two wrong guesses in one diagnosis, both from reasoning about a step's NAME rather than
-> reading what it does.** `fork_theme` sounds like "make this site a new theme"; it means
-> "donate this theme to the library". Read the action header before queueing at it.
-
-Verify at the served artefact with a cache-buster, never at the spec:
-`curl -sS -L "https://agritec.uk/tools/sfi26-revenue-stacker/?cb=$(date +%s)" | grep -o '#12151F'`
-must return nothing.
+Must return 0.
 
 **Then:** the 17 generated images were made against the *dark* imagery guide and will look wrong
 on a light site. They need regenerating once the CSS lands.
+
+### The seam map, so nobody re-walks it
+
+| want | seam | notes |
+|---|---|---|
+| regenerate site CSS | `needs_design` → `webdesign-agent` | reads the THEME's palette, not just the spec — useless while the theme is stale |
+| replace the site's theme/composition | `needs_composition` → `site-design-planner` | **the only owner of installation**; needs `allow_reinstall: true` in the spec if a collection already exists |
+| contribute a theme to the library | `fork_theme` | **NOT this** — its header says the site's `style_collection_id` is not modified |
 
 ## 4. Other open items, in priority order
 
