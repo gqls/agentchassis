@@ -171,3 +171,37 @@ Addressed to the `copy_quality_two_stage` lane, and quoted because the wording c
 **Point 3 is the big one.** It is not a copy fix, it is an audit of the instruction surface that
 produces copy — every prompt in `agent_definitions` and every prompt literal in the Go source, judged
 against a single question. That is a workstream, not a task.
+
+
+---
+
+## 8. ROUTING STATUS — closed out 2026-08-25, so this file does not outlive the work it asked for
+
+| section | routed to | status |
+|---|---|---|
+| §7 (copy, incl. the prompt audit) | `copy_quality_two_stage` lane | **ACKNOWLEDGED.** Deep context refresh running as four parallel sweeps; **no fixes to be proposed until the synthesis exists**, per his instruction. Point 3 scoped as a workstream with a dated census — `agent_definitions` prompt templates + config-embedded prompts + Go prompt literals + per-field `llm_guidance`. Outputs to `docs024_key_docs_latest/copy_quality_two_stage/`. They confirmed they are citing THIS file, not a paraphrase. |
+| §1, §2, §6 (imagery, CTAs, offer, designer) | `offer analyser / benefit analyser / visual designer` lane | routed with measurements; no reply yet at time of writing |
+| §5 mechanism (listing renders nothing) | `bugs_open/384` | contributed, with positive and negative controls |
+| §0 decisions | this lane | recorded; re-plan authorisation noted for `garden-tools.uk` |
+
+### 8a. ⚠ THE CONVERGENCE, and it is a stronger signal than this review on its own
+
+`[VERIFIED here 2026-08-25, by reading the file rather than taking the report]` **This is the SECOND
+owner escalation to the copy lane today.** The `finetuning_uk_service` lane routed one this morning:
+`docs024_key_docs_latest/copy_quality_two_stage/CONTRIB_2026-08-25_OWNER_ESCALATION_finetuning_pages_fail_the_would_a_person_say_this_test_after_a_maximal_seed.md`.
+
+**Same mechanism, arrived at independently, on a different site in a different vertical:** their own
+verification checklist scored the section the owner rejected as **CLEAN**, and their session summary
+had **praised** it. Their words: *"the owner's tell class is WIDER than the gate's."*
+
+**Put beside this review's §4, the two say one thing:** the defect is not in the phrases. On
+`homegarden.uk` it is that **fourteen of seventeen headings are about the site's own methodology** —
+a page can contain no banned phrase at all and still be entirely about the wrong subject. On
+`finetuning` a checklist enumerating patterns passed copy the owner threw out.
+
+> **So an enumerable-pattern gate cannot catch this class, and both lanes now have evidence of it
+> failing in opposite directions on the same day** — one passing bad copy, one leaving bad copy
+> unflagged. **The unit of judgement has to be "what is this page FOR, and would a reader of THIS
+> site want it", not "does this sentence contain a tell".** That is the owner's own framing
+> — *"a whole category of not thinking about the user and what they are after on a site like this"* —
+> and it is now measured twice.
