@@ -1,5 +1,18 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-25 ~11:15Z. Supersedes `HANDOFF_2026-08-22_continue_here.md`.
 
+**STATE (updated 16:20Z): 43 of 63 SERVE-CONFIRMED (#43 golden-ratio, NOTES 16:20Z). NEXT:
+monolith-splitter (9,037), then head-architect (9,212), asset-formatter (9,222), layout-generator
+(9,223), insight-injector (9,369). NOTHING IN FLIGHT.
+⚠ **THE BRIEF RULE FROM 15:45Z IS CORRECTED** — a 2,701-char brief died inside the "safe" window.
+It is not character count, it is SURFACE AREA, and the lever is: **describe the tool to BUILD, not
+the defects to fix.** Golden-ratio built at 1,551 chars once the defect archaeology came out; keep
+that story in NOTES. RUNBOOK corrected in place.
+⚠ **TWO ITEMS OWED, both real capability gaps, both wanting their own `replace_existing` filing:**
+(1) cubic-bezier — keyboard access to the two drag handles; (2) golden-ratio — a REAL crop export
+(cropped to the ratio, guides NOT burned in). The rebuilt golden-ratio has NO download at all: I cut
+it to fit the token budget, which is a removal, not a fix. Do not let it be found later as a mystery.
+Prior line follows.**
+
 **STATE (updated 15:45Z): 42 of 63 SERVE-CONFIRMED (#42 cubic-bezier, NOTES 15:45Z). NEXT:
 golden-ratio (8,754), then monolith-splitter (9,037), head-architect (9,212), asset-formatter
 (9,222). NOTHING IN FLIGHT.
@@ -64,17 +77,20 @@ DUE at Phase C completion, not before).
 7. Dispatch the sidecar's dry-run retraction, record the refusal + orphan (bugs_open/365 list,
    **8 so far**; the shared `/tools/assets/webdesign-couk-header.js` goes with the LAST ported page).
 
-## Next up — golden-ratio (8,754), analysis NOT yet done
+## Next up — monolith-splitter (9,037), analysis NOT yet done
 
 Nothing is pre-analysed — start at step 1 of the recipe. Phase B order from the census (re-run it,
-do not trust this list): golden-ratio 8,754 · monolith-splitter 9,037 · head-architect 9,212 ·
-asset-formatter 9,222 · layout-generator 9,223 · insight-injector 9,369 · … then the FIVE rich apps
-LAST, one at a time, owner-reviewed.
+do not trust this list): monolith-splitter 9,037 · head-architect 9,212 · asset-formatter 9,222 ·
+layout-generator 9,223 · insight-injector 9,369 · … then the FIVE rich apps LAST, one at a time,
+owner-reviewed.
 
-**One item OWED from #42:** keyboard access (arrow-key nudge) for cubic-bezier's two drag handles
-was cut from the brief to fit the token budget. Real gap on a site that publishes
-`/learn/accessibility/focus-states.html`; wants its own `replace_existing` re-fix filing, not a
-fold-in to another tool's rebuild.
+**Two items OWED, from #42 and #43 — each wants its own `replace_existing` filing, not a fold-in:**
+1. **cubic-bezier — keyboard access** (arrow-key nudge) for the two drag handles, cut to fit the
+   token budget. A real gap on a site that publishes `/learn/accessibility/focus-states.html`.
+2. **golden-ratio — a REAL crop export.** The rebuild has NO download at all; the ported one had a
+   "Download Crop" button that exported the photograph with the guides burned into it and cropped
+   nothing. Wanted: the image cropped to the chosen ratio, centred on the overlay, guides NOT drawn
+   on it — which is exactly what the ported code's own comment was reaching for and never did.
 
 ## Standing rules (unchanged, load-bearing)
 

@@ -3522,3 +3522,83 @@ which starts with `tool` but not `tool-`. Nothing moved. **`tools-index` has now
 documents twice** (the RUNBOOK's census section already carries the `p.url LIKE '/tools/%'` returns
 64-not-63 trap for the same row). The rule the three lanes settled on: *a one-page delta between two
 sessions' counts is a predicate difference until the same query STRING has produced both numbers.*
+
+## 2026-08-25 16:20Z — #43 `tool-golden-ratio` DONE (43 of 63) — three filings, TWO max_tokens deaths, and the ceiling rule I wrote four hours ago is WRONG
+
+Item `b2675303` (related_pages: `learn-design-fluid-web-theory` — the closest of 37 candidates;
+this site has no photography page, and a padded second pick would have produced a worse sentence).
+
+**Ported sighting #21, and it is the richest of the twenty-one — the developer's own uncertainty
+shipped to production, in three layers:**
+- **The load-bearing one: the selector offered an option that drew NOTHING.** `<option value="phi">
+  Phi Grid</option>` existed in the dropdown; `draw()` handled `'thirds'` and `'spiral'` with **no
+  `else`**. Choosing the option named after the tool's own subject cleared the canvas, redrew the
+  photograph, set a stroke style, and drew no overlay at all — silently, no message.
+- **"Download Crop" cropped nothing**, and the code says so in its own comments:
+  *"In a real crop tool, we would crop. / For now, we download the image with the guide? / Or just
+  the image? Usually users want to CROP to this ratio. / Let's download the original for now and
+  alert."* It then did neither of the things that comment settles on — it exported
+  `canvas.toDataURL()`, i.e. the photograph **with the guide lines burned into it**, and never
+  alerted. A comment describing behaviour that is not the behaviour, beside a button describing
+  behaviour that is not the behaviour.
+- **The page apologised for itself in 0.8rem grey:** *"*For this MVP, the crop is visual. You can
+  screenshot or we can implement full crop logic later."* — developer-to-client text on a public
+  page, under an accent-coloured button promising the opposite.
+- Plus: "Golden Spiral (Fibonacci)" drew a row of rectangles, its source comment conceding *"A true
+  spiral is complex to draw … without a library"*; the flip control mirrored the vertical splits and
+  not the horizontal ones; guides were fixed white at 0.8 alpha (invisible on a bright photograph);
+  the object URL was never revoked; a non-image file left an empty canvas and no message.
+
+### The ceiling rule from 15:45Z is REFUTED by the very next tool, and I am correcting it here
+
+At 15:45Z I wrote into the RUNBOOK: *"keep the brief near 2,000–2,800 characters"*, generalising
+from cubic-bezier's 4,431-char death and 2,720-char success. **Golden-ratio's second filing was
+2,701 characters — inside that window — and died the same way, with `0 chars recovered` rather than
+20,955.** So character count is NOT the predictor and my rule was a sample of one dressed as a
+threshold. What actually binds is **the surface area of the tool you are asking for**: this one
+wanted image loading, three distinct overlay renderers, a true arc spiral, flip on both axes, crop
+geometry, two download paths, dual-stroke guides, file validation and URL lifecycle — more component
+than 32,000 output tokens can emit, at any brief length.
+
+**The real lever, found on the third filing: stop narrating the ported defects in the brief.** My
+2,701-char version spent ~1,400 characters on defect archaeology — what the old tool got wrong and
+why. **The generator does not need the history; it needs the behaviour.** Rewritten as a description
+of the tool to BUILD, with the fixes expressed as requirements rather than as corrections, the same
+core came to **1,551 characters** and built in 4m28s. Two failures, ~11 minutes and two dispatches,
+for a lesson that is cheap to state: *a brief is a specification, not a bug report.*
+RUNBOOK corrected in place — the character window stays as a rough guide with its counter-example
+named, and the actionable rule is now the surface-area one.
+
+**COMPONENT by mechanism:** `drawOverlay()` is a three-way branch with a **default `else`**, and
+`getSelectedOverlay()` falls back to `'thirds'` — so the ported defect is now *unrepresentable*:
+there is no selection state that draws nothing. `drawPhiGrid` puts lines at 0.382 and 0.618 of both
+dimensions (the golden-ratio analogue of thirds, drawn at last). `computeSpiralParts` fits a true
+golden rectangle against `PHI` on the longer axis and returns rectangles AND arcs; `drawSpiral`
+strokes the rects, then `moveTo`s the first arc's start point and chains `ctx.arc` calls into one
+continuous curve — **a real spiral, which its predecessor's comment said needed a library.** Every
+overlay goes through one `strokePathTwice(pathFn, thick, thin)` helper: black at 0.82 alpha under
+white at 0.92, so the guides read on a dark photograph and a bright one alike. Privacy stated
+(*"processed entirely in this browser tab … never uploaded to any server"*) and **true by
+construction — 0 `fetch`/`XMLHttpRequest` in the component.** Two distinct error arms (unusable
+file type; decode failure), 2 × `revokeObjectURL`. 0·0·0 counts, 7 listeners.
+**SERVE-GRADE PASS:** 200 / 20,943 B / LM 16:14:44 > completed_at 16:14:09; negatives 0 and every
+one validated **1-in-ported / 0-in-new** before the fetch (`imgCanvas`, `gridType`, `flipH`,
+`Download Crop`, `composition-guide.jpg`, **`For this MVP`**, `ported-page`, `{{.`); positives =
+code-arm literals. Retire `UPDATE 1` **24 s** after build; tombstone `removed @ 16:02:08`, re-read
+clean at 16:20Z. Self-contained — no orphan.
+**Tally 16:20Z: 43 removed + 20 deployed = 63.**
+
+### ⚠ A CAPABILITY WAS REMOVED, deliberately, and that is not the same as a defect fixed
+
+**The rebuilt tool has NO download at all** (`grep -c 'download\|toDataURL'` = 0). The ported one had
+a "Download Crop" button. I cut it from the brief to get the build under the ceiling, and the honest
+accounting is: **the visitor loses a button that did not do what it said, and gains three overlays
+that do.** I judge that a net gain — but it is a removal, it was my decision under a token
+constraint rather than a design judgement, and it must not be discovered later as a mystery.
+
+**OWED, and it is now the second owed item on this lane** (cubic-bezier's keyboard access is the
+first): a `replace_existing` re-fix adding a REAL crop — export the image cropped to the chosen
+ratio, centred on the overlay, **without the guide lines on it**, because guides burned into a
+photograph are the one artefact a photographer cannot use. That is precisely what the ported code's
+own comment was reaching for and never did. File it as its own item; do not fold it into another
+tool's rebuild.

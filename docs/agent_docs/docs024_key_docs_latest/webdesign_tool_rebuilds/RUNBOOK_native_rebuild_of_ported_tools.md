@@ -181,7 +181,19 @@ Gotchas learned the hard way:
   ```
 - The `description` is the GENERATOR'S functional brief — never put process/replacement notes
   in it (they can end up rendered into the page). Process notes go in the item summary.
-- **KEEP THE BRIEF NEAR 2,000–2,800 CHARACTERS. A longer one can kill the build (added 2026-08-25,
+- ~~**KEEP THE BRIEF NEAR 2,000–2,800 CHARACTERS.**~~ **CORRECTED 2026-08-25 16:20Z, four hours
+  after it was written, by the very next tool: `tool-golden-ratio`'s second filing was 2,701 chars —
+  inside that window — and died the same way with `0 chars recovered`. A threshold generalised from
+  one success and one failure is a sample, not a rule.** What actually binds is **the SURFACE AREA
+  of the tool you are asking for**, and the lever that works is: **describe the tool to BUILD, not
+  the defects to fix.** Golden-ratio's failing brief spent ~1,400 of its 2,701 characters on defect
+  archaeology — what the ported version got wrong and why. The generator does not need the history,
+  it needs the behaviour; rewritten as requirements rather than corrections, the same core came to
+  **1,551 chars** and built in 4m28s. Keep the defect story in NOTES where it belongs. **A brief is
+  a specification, not a bug report.** If the tool still needs more surface than one build can emit,
+  ship the core and file the rest as a `replace_existing` re-fix — and RECORD THE CUT as a removed
+  capability, because a feature dropped to fit a token budget is not a feature that was fixed.
+  The original bullet, still true as far as it goes:**A longer brief can kill the build (added 2026-08-25,
   after losing one).** `tool-cubic-bezier`'s first filing carried a **4,431-char** description with
   seven numbered fixes, and `generate_tool_html` died at
   `response truncated: stop_reason=max_tokens (output_tokens=32000 reached the configured cap,
