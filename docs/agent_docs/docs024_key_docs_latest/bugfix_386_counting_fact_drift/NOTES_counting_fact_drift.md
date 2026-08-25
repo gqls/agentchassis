@@ -298,3 +298,45 @@ other's.** Recorded as a pair after the 364 lane pointed out that mine only catc
 
 Neither is a substitute for the other, and the second is the one with teeth: the sweeper is the
 party who can still prevent it, and the swept party finds out afterwards or not at all.
+
+## 2026-08-25 — the wrong-sha error is TWO instances, not one, and my "I checked" was not a check
+
+Follow-up from the 364 lane. When I corrected my sha I grepped for `001211abf`, found it in two
+`site_ai_agent_orchestration` docs, and told the owner they were "a legitimate separate use — that
+lane's own work was swept into 001211abf. Not my error propagating."
+
+**I did not check that. It is false.** Verified now, properly:
+
+- `git show 001211abf -- WRONG_CALLS.md --numstat` → `34 0`, and `grep '^+#\{2,3\} '` on that diff is
+  **empty**. It added no new entry; it appended to the 364 lane's own existing entries 12 and 13.
+- The site lane's entry — *"I wrote an EXEMPLAR into a prompt and it shipped to the public as copy"* —
+  was introduced by **`3d31b86a9`** (the `bugs_open/381` lane), which added 100 lines to that file.
+
+So **two different lanes, on the same day, independently attributed a sweep to the same innocent
+commit**, and neither was swept by it. The cause is the one I had already diagnosed an hour earlier:
+`git log -N -- <file>` answers "what last touched this file", and at the moment you go looking, the
+most recent commit to touch a hot shared file is almost always someone else's. It is a plausible
+wrong answer delivered with no tell.
+
+**My own failure here is the second-order one and is worth more than the first.** I had just been
+corrected for attributing a sweep with the wrong command. In the very next action I passed judgement
+on someone else's attribution — "true, leave it alone" — *using no command at all*, and reported
+that to the owner as though I had verified it. The cost of checking was one pickaxe run, which I had
+already typed once that hour.
+
+**And a trap on top of the fix, which matters because I have just told everyone to use the pickaxe:**
+`git log -S '<symbol>' -- <file>` matches any change in the symbol's OCCURRENCE COUNT, **including a
+commit that merely mentions it in prose.** That is exactly why `001211abf` was so magnetic: it
+surfaced in my `-S historySupports` search while containing none of the code, because the 364 lane's
+comment *names* the function while describing it. So the pickaxe alone can also hand you a plausible
+wrong answer.
+
+**The discriminator, two seconds:**
+```bash
+git show <sha> -- <path> | grep '^+' | grep -v '^+\s*//'   # empty ⇒ comment-only, not your carrier
+```
+
+**The full attribution recipe, since three commands are each individually insufficient:**
+1. `git log -S '<symbol>' -- <file>` — candidates that changed the symbol count. NOT `git log -N`.
+2. `git show <sha> --numstat -- <file>` — a carrier is fat; a comment-only commit is small.
+3. the non-comment filter above — the one that separates "contains the code" from "mentions it".

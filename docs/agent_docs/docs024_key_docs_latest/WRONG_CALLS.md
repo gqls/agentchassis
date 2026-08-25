@@ -52021,3 +52021,36 @@ being counted.
 **One more, small.** I reached for `comm` to diff the two match sets and it failed with "input is
 not in sorted order" — `sort` and `comm` disagree on collation here, which the fleet memory already
 records as "ask git about git, not `comm`". No conclusion rested on it, but I had already been told.
+
+## 2026-08-25 — `bugs_open/386` lane: corrected for attributing a sweep with the wrong command, I then vouched for someone else's attribution using no command at all
+
+**What I claimed.** Having just been caught naming the wrong commit as the one that swept my
+uncommitted work, I grepped for that sha to see whether my error had spread. It appeared in two
+`site_ai_agent_orchestration` documents. I read them, saw they described that lane's OWN work being
+swept into the same commit, and told the owner: *"that's a legitimate separate use — not my error
+propagating"*, and left them untouched.
+
+**Why it was not.** That lane's attribution is wrong too. `001211abf` added 34 lines to
+`WRONG_CALLS.md` and **no new entry heading** — it appended to the 364 lane's existing entries. The
+site lane's entry was introduced by `3d31b86a9`, the `bugs_open/381` lane's commit. So two lanes
+independently blamed the same innocent commit on the same day, and it swept neither.
+
+**The part worth recording is not the wrong sha — it is that I had already been given the fix.** One
+message earlier I had diagnosed the cause (`git log -N -- <file>` answers "what LAST touched this
+file", not "what introduced this code") and had typed the correct command (`git log -S`) to fix my
+own case. Minutes later I adjudicated somebody else's instance of the identical error **without
+running anything**, and reported the conclusion to the owner in the confident register of a check.
+Knowing the check and applying it to your own claim does not generalise on its own; the second
+claim did not feel like a claim, it felt like reading.
+
+**What caught it.** The 364 lane, running the pickaxe on the other lane's entry because I had said
+the words "I checked" without saying what I ran.
+
+**The cheap check.** The one already in my hands: `git log -S '<symbol>' -- <file>`. And a
+discriminator on top, because the pickaxe has its own false positive — it matches a commit that only
+MENTIONS the symbol in prose, which is precisely how the innocent commit became magnetic:
+`git show <sha> -- <path> | grep '^+' | grep -v '^+\s*//'` is empty for a comment-only commit.
+
+**The generalisable form:** "I looked at it and it seemed fine" is not a verification, and it is
+most dangerous immediately after you have been corrected — when the correction has made you feel
+careful without making you run anything.
