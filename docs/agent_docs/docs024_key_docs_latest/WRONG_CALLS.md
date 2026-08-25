@@ -51373,3 +51373,147 @@ bites hardest, because the exclusion and the denominator are written minutes apa
 perfect either way, and the corrected denominator is the *stronger* claim, since 21 counted two
 pages nobody had fetched. But it went into a bug file, a handoff banner, two lane docs and two
 commit messages before the audit rows caught it, and forward-only means the commits stand.
+
+## 2026-08-25 — `bugs_open/357` lane: I predicted which builder two adopted sites would route to, from their HTML, and was wrong about both — in opposite directions
+
+Asked to run an adoption to give the 357 phase-2 mechanism its first real firing, I had to pick a
+candidate site whose pages would route to `tool-recreation-handler` — the one producer whose save
+reaches the code under test. I fetched both candidates, counted `<script>` tags and form controls,
+and put a confident comparison in front of the owner:
+
+- **`lampenkap.com`** — 1 script, 7 controls, a working lux calculator doing real arithmetic:
+  *"the least ambiguous tool… highest certainty of being classified interactive, so the surest
+  single shot at firing phase 2."*
+- **`cv1.co.uk/index`** — 0 scripts, 0 controls: *"static"*, and I said so in a table.
+
+**Both were wrong, and the errors point opposite ways.** When the adoption plans landed
+[MEASURED 2026-08-25 11:32Z, read from `site_work_items`]:
+
+| page | my prediction | what actually happened |
+|---|---|---|
+| `lampenkap.com/index` (the real calculator) | tool recreation | **`needs_content_page` → `page-build-handler`** |
+| `cv1.co.uk/index` (0 scripts, 0 controls) | static | **`needs_tool_recreation` → `tool-recreation-handler`** |
+| `cv1.co.uk/example.html` | tool recreation | `needs_tool_recreation` ✔ (1 of 3) |
+
+**What caught it:** the work items themselves, four minutes after dispatch. Nothing else would
+have. Had I run only the site I called the surest bet, phase 2 would have received **no demand at
+all**, and `adopted=0` would have looked like a broken mechanism instead of an untested one — the
+exact misreading this lane has already lost a day to.
+
+**The shape: I measured the artefact, and the decision is not made on the artefact.** The routing
+at `apply_adoption_plan_action.go:719` keys on `len(page.Features) > 0`, where `Features` comes
+from the crawl-and-analyse LLM step. `grep -c '<script'` encodes *"does this file contain a script
+tag"*. It never encoded *"will the platform call this a tool"*, and the two are not even reading
+the same artefact — one reads the served bytes, the other reads a crawl summary. My reasoning was
+correct about the markup throughout; the markup simply is not the instrument.
+
+**The cheap check that would have caught it: there isn't one in advance — and that is the finding.**
+The classification is a judgement made during the run, so it cannot be predicted, only READ. What
+I should have written to the owner is *"I cannot tell in advance which of these will route to the
+tool path; run both"* — which is, by luck rather than by reasoning, what he chose. The general
+rule: **when a routing decision is made by a model at run time, any pre-run prediction of it is an
+unmarked inference, however much measurement sits underneath it.** Mine sat in a comparison table
+next to five genuinely measured columns (byte counts, script counts, dates) and inherited their
+authority.
+
+**Cost: none, because the owner overrode me.** I offered "cv1 (recommended) / lampenkap / both" and
+he chose both. Had he taken my second option — the one I described as the surest shot — the session
+would have produced a completed adoption, a live rebuilt site, and zero progress on the thing it
+was run to test. Recorded as a landmine (`LANDMINES.md`, "An adopted page's INTERACTIVE
+classification does not track its HTML").
+
+---
+
+## 2026-08-25 — I built a URL out of a page's NAME, got a real 404, and started writing it up as damage
+
+**The claim:** checking the third placement of a shared component I was investigating, I
+fetched `https://oufe.com/thames-water.html` — because `pages.name` is `thames-water` and
+the two pages I already knew about live at `/insights/<name>.html`. It returned 2,735 bytes
+of a genuine "Page not found · oufe.com" body. I had begun recording it as a live 404 on a
+`deployed` page, and reached for `bugs_open/349` (this lane's own bug: orphan page rows on
+live sites serving 404) as the likely class.
+
+**What was actually true:** the row's `url` column says `/cases/thames-water.html`. That URL
+serves 56,899 bytes correctly and always has. There was no defect. `pages.url` is a column,
+not a convention — different sites shelve pages under different prefixes, and `name` is not
+a slug.
+
+**What caught it:** widening an unrelated query. I ran `SELECT p.name, p.url, p.status, …`
+to establish whether the page was `wanted_live`, and the `url` column was simply there,
+disagreeing with what I had typed. Nothing about the 404 itself was suspicious — it was a
+well-formed 404 page from the right domain, which is exactly why it was convincing.
+
+**The cheap check that would have:** `SELECT url FROM pages WHERE id=…` before curling
+anything. One column. I had already queried that table twice in the same investigation for
+other columns.
+
+**Why it is worth a row.** The failure mode is not "I guessed a URL" — it is that **a
+fabricated request returns a real artefact**, and the artefact is genuinely from the target
+system, so every instinct that says "trust what the server told you" points the wrong way.
+`LANDMINES.md` already carries the mirror image ("a parked domain 200s EVERY path"), where
+an invented URL returns 200 and manufactures evidence of presence. This is the same trap
+returning evidence of ABSENCE, and absence is the more dangerous direction because it reads
+as a finding worth filing rather than as noise. The 08-21 handoff §9.2 trap — *"a status
+code is not an artefact"* — is usually read as "check the body". Here the body was fine and
+**the request** was the fabrication. The generalised form: **assert on a URL you READ, not
+one you ASSEMBLED**, and if you assembled it, that is the first thing to doubt when the
+result is interesting.
+
+**Cost: about three minutes, and nothing reached a durable doc** — the correction landed
+before the write-up. Recorded because the tally is the point, and because this is the second
+distinct way this lane has been misled by inventing a request rather than reading one.
+
+---
+
+## 2026-08-25 — I predicted 17 page failures from a ROLE, on a confound my own handoff already warned was a confound. Refuted in four minutes (`loanzy_uk_example_site` lane)
+
+**The claim, sent to a peer lane mid-measurement and asked to be put in their reading guide.** The
+authorised canary `homegarden.uk` minted 21 pages, **17** of them `section-index` at
+`page-build-handler`. I told the `bugs_open/381` lane that this was *"the exact role-and-handler
+pairing that no-opped on garden-tools"*, that the site would likely serve **4 of 21**, and that the
+resulting missing calendar pages would look exactly like their fix failing.
+
+**What caught it: the build, four minutes later.** `[MEASURED 2026-08-25 11:38Z, at the artefact]`
+`april-index` — a `section-index` page at `page-build-handler` — is `build_status='deployed'`,
+`deployed_at` 11:37:04Z, two `page_components` both carrying `rendered_html`. I checked the artefact
+rather than the `complete` status, which is the one thing I did right here.
+
+**The real discriminator, measured on both sites:**
+
+| site | population | `jsonb_array_length(pages.sections)` | outcome |
+|---|---|---|---|
+| `homegarden.uk` | 17 × `section-index` | **3** each | building fine |
+| `homegarden.uk` | 1 × `blog-post` | **0** | the only page at risk |
+| `garden-tools.uk` | all **5** failed pages | **0**, every one | no-opped |
+| `garden-tools.uk` | the 7 that built | non-zero | built |
+
+**It is an empty `pages.sections`, not `page_type`.** On garden-tools the role and the empty sections
+were **totally confounded** — all five failures happened to be roles the planner gave no sections to
+— and I read the role as causal off n=5 where no observation could have separated them. The canary
+broke the confound for free: 17 same-role pages *with* sections, all fine.
+
+**Why this one is worse than an ordinary bad inference.** The correct frame was already written down
+**in my own lane's handoff**, quoting the `bugfix_206` lane verbatim: *"every type routed to bare
+`page-build-handler` no-ops identically on a **layout-less** page"*, and *"when you meet `no sections
+ready to build`, first ask which of (a) wrong/missing builder or (b) builder that cannot fill a
+missing layout — the string cannot tell you and the fixes differ."* **(b) is the layout, not the
+role.** I reasoned in the superseded (a) frame while carrying the (b) correction two documents away,
+and I had quoted it to that same peer ninety minutes earlier as a warning for *their* half.
+
+**The cheap check, and it is one query — the one I should have run before sending anything:**
+
+```sql
+SELECT p.name, p.page_type, jsonb_array_length(p.sections) AS sections_len
+FROM pages p JOIN sites s ON s.id=p.site_id WHERE s.domain='<domain>' ORDER BY sections_len, p.name;
+```
+Anything at **0** is the risk set. It cost nothing, it was available at mint time, and it would have
+turned "17 of 21 will fail" into "1 of 21 is at risk" — an overstatement by a factor of **seventeen**,
+in the direction that has a peer brace for a catastrophe that was not coming.
+
+**The general form, and it is the one I want to keep.** *A predictor learned from a population where
+two features always co-occur is not a predictor, it is a coin that has only been flipped one way.*
+Before carrying a rule off n cases, name the feature you are attributing to and ask whether any of
+the n could have separated it from its neighbour. Here: **none of the five could.** And a corollary
+about voice, continuing this file's 10:29Z entry: **I asked a peer to write my inference into their
+instrument's reading guide.** That is the strongest possible form of an unmeasured claim — it does not
+merely inform someone, it configures how they will read evidence they have not seen yet.
