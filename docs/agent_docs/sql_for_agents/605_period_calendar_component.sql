@@ -25,20 +25,33 @@
 -- mechanism would imply a dependency that is not there. `faq` and `features` are
 -- unordered card sets. Nothing periodised exists.
 --
--- ⚠ NOT A TIMELINE. The boundary below is DERIVED FROM the `editorial_design_uplift`
--- lane's own description of their Phase E (2026-08-24: substrate-first, dated cited
--- events, fails closed without an evidence base) — it is NOT a boundary they have
--- confirmed. An earlier draft of this header said "AGREED WITH" that lane, which was
--- false: I inferred it and wrote it as agreement before asking them. Corrected the same
--- day, and they have been asked; if they draw it differently this header changes.
--- (Recorded rather than quietly fixed because claiming corroboration you have not
--- obtained is the exact failure this lane logged twice on 2026-08-24 — see
--- WRONG_CALLS.md, "a premise handed to a peer comes back as agreement".) Their Phase E timeline is FACT-FED: dated real-world events, each carrying
--- its own citation from the evidence register, failing closed on a site with no
--- evidence base. This component is the opposite by design — authored guidance about
--- a RECURRING cycle ("what to do in March", not "what happened in March 2024"), with
--- no dated events and no citations. A site can legitimately have both. If you find
--- yourself putting a year in a period label, you want their component, not this one.
+-- ⚠ NOT A TIMELINE — BOUNDARY AGREED 2026-08-25 with the `editorial_design_uplift` lane.
+-- (An earlier draft of this header said "AGREED WITH" before I had asked them, which was false;
+-- I corrected it to "derived from, not confirmed" the same day and asked. They have now
+-- confirmed it. The sequence is recorded because claiming corroboration you have not obtained
+-- is a failure this lane logged twice — see WRONG_CALLS.md.)
+--
+-- Their side, quoting their source so a reader need not take mine:
+-- `docs024_key_docs_latest/editorial_design_uplift/PLAN_2026-08-20_editorial_design_uplift.md`,
+-- Phase E, lines 185-194. Their component is FACT-FED: dated real-world events, each observation
+-- carrying its OWN citation (never inherited from the series), failing closed on a site with no
+-- evidence base. This component is the opposite by design — authored guidance about a RECURRING
+-- cycle, no dates, no citations, and the verify block below refuses date- and year-shaped fields.
+-- **The discriminator they endorsed: a YEAR in a period label means you want theirs, not this.**
+--
+-- ⚠ TWO CORRECTIONS THEY ASKED FOR, both about not overstating their side:
+--   1. THEIR TIMELINE DOES NOT EXIST YET. Phase E2 is explicitly gated "once real data exists" —
+--      planned, not built. The live half is E1, collecting dated cited events into each feature's
+--      substrate as evidence facts. So this is distinguishing itself from a PLANNED component, and
+--      a reader who greps for theirs today will not find it. Do not read the paragraph above as
+--      describing something shipped.
+--   2. THEIR E2 IS SPECIFIED IN THE `mechanism-flow` IDIOM (their plan, verbatim: "which already
+--      proves a no-numeric-field component can carry a sequence honestly"). So the visual grammar
+--      this differentiates from is mechanism-flow's, not a new one — which is the same idiom whose
+--      EXISTENCE removed a fourth component from this batch. ⚠ If you go and read
+--      mechanism-flow's template, read the CURRENT one: it was instance-scope-converted in the
+--      2026-08-23 12:32-12:33 batch, so `component_versions` v1 for it is the PRE-conversion
+--      snapshot, not the live text.
 --
 -- DESIGN RULES, each from a recorded failure rather than taste:
 --

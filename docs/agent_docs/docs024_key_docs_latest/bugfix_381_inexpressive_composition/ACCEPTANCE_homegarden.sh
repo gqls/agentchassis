@@ -60,6 +60,31 @@ echo "  Q1 none + Q4 false     -> the capability never reached the prompt. That 
 echo "  Q4 'has not run yet'   -> nothing is decided; do not read Q1/Q3 as a result."
 echo "  ⚠ pages that never build are bugs_open/206, not this fix (garden-tools lost 5 of 12)."
 echo ""
+cat <<'WARN'
+
+⚠⚠⚠ THE MISATTRIBUTION THAT WOULD ACTUALLY COST US — READ BEFORE JUDGING A THIN SITE.
+   [MEASURED 2026-08-25 11:34Z, mint snapshot in evidence/] 17 of this build's 21 pages are
+   page_type=section-index, filed by reconcile_site_plan at handler_agent=page-build-handler.
+   THAT IS THE EXACT ROLE+HANDLER PAIRING THAT NO-OPPED ON garden-tools.uk.
+   page-build-handler has NO ensure_page_section_layout step — that exists only in
+   directory-build-handler's workflow — and the section-index routing fix (efec862f4,
+   09:58:33Z) is NOT in the running pods (v1.0.1337, started 09:27:48Z, 31 min earlier).
+   ⚠ SO IF THIS SITE SERVES ~4 OF 21 PAGES WITH THE MONTH PAGES MISSING, IT WILL READ AS
+     "the planner promised a month-by-month structure and did not deliver it" — which is
+     THIS BUG'S EXACT SYMPTOM SENTENCE, AND IT WOULD NOT BE THIS BUG.
+     It is bugs_open/206 residual class (b) at 17x scale. The tell: check handler_agent and
+     the error string BEFORE concluding anything about composition. The string
+     "page-build-handler no-op: no sections ready to build" is mis-ROUTING, not thin content.
+   Flagged independently by BOTH the loanzy_uk_example_site and bugfix_206 lanes.
+
+⚠⚠ THE INTERACTION NEITHER LANE PREDICTED: the planner expressed "month by month" as
+   SEVENTEEN section-index pages rather than as one page carrying period-calendar. It placed
+   period-calendar ONCE, on the landing page. So if those 17 no-op, the site ends with the
+   component placed but the calendar STRUCTURE gone — a structural promise satisfied at site
+   level, routing straight into the one page role with no builder. Whether that is a 381
+   concern, a 206 concern or a third thing is an open question, recorded not answered.
+
+WARN
 echo "⚠⚠ COMPARISON-TABLE IS UNEXERCISED ON THIS BUILD, NOT FAILED, IF IT DOES NOT APPEAR."
 echo "   [MEASURED 2026-08-25 10:53-10:54Z by the loanzy_uk_example_site lane, orchestration"
 echo "   5937f08b-63ad-4de2-a5ea-97b17cacbb04] the vertical landscape was synthesised from TWO"

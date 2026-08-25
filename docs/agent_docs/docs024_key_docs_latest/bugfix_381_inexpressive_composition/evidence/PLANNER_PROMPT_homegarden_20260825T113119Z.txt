@@ -1,0 +1,1082 @@
+### build-site-planner capture for homegarden.uk
+### captured 2026-08-25 11:31:19Z  site=5904bd0f-33fd-4212-9c1b-50b28fe72fdb
+### WHY THIS FILE: the pages show what the planner CHOSE; only this shows what it was SHOWN.
+### If the choice disappoints, those two readings have completely different remedies.
+
+=== CAPABILITY TOKENS PRESENT? (the whole point of migrations 591-593) ===
+expresses_token=true prose_only=true rule19=true | new_components_listed=true/true/true
+
+=== ORCHESTRATION LINKAGE (this row reaps in ~25h — captured for provenance) ===
+7560cf86-267e-4c18-9206-cb2d7f8aa97d|1b60ca9c-9014-4ef1-a056-daf6072501f2|COMPLETED|complete|2026-08-25 11:28:52.002903+00
+
+=== THE THREE NEW COMPONENTS AS THE MENU RENDERED THEM ===
+checklist
+
+=== FULL RENDERED PROMPT (verbatim, the irreplaceable half) ===
+Plan a website for homegarden.uk.
+ 
+## Research Data
+Identity: map[about_summary:Home Garden is a plain-language, editorial guidance site for ordinary UK homeowners and renters. It covers the seasonal rhythm of outdoor and indoor maintenance, honest comparison of common options when something needs replacing, and clear checklists of what to check before and after spending money. There is no shop, no checkout, and no product recommendations — only practical, calendar-aware advice. company_name:Home Garden competitors_found:[homesandgardens.com houseandgarden.co.uk rhs.org.uk gardenersworld.com which.co.uk] contact:map[address:<nil> email:<nil> location:United Kingdom phone:<nil>] existing_site_quality:none has_existing_site:false industry:Home and Garden Publishing key_people:[] services:[map[description:Month-by-month guidance on what genuinely needs doing in the garden, shed, yard or home — and what can safely wait. name:Seasonal maintenance guides] map[description:Side-by-side editorial comparison of common product or material categories — what each suits and what each is bad at — without named brands or prices. name:Option comparison articles] map[description:Practical checklists covering what to check before paying for a job or replacement, and what to verify once it is done. name:Pre- and post-spend checklists] map[description:Advice calibrated to UK climate, soil conditions, building types and seasons rather than generic international guidance. name:UK-specific calendar content]] social_profiles:map[] sub_industry:Practical Home and Garden Guidance for UK Households tagline:What to do, when to do it, and whether it can wait target_audience:Ordinary UK homeowners and renters aged roughly 25–65 who have a garden, yard, shed or windowsills and want practical, timely advice. They arrive with a specific problem in a specific month and want to know whether it is urgent. They are not professionals, not enthusiasts, not collectors. They want to look after what they have rather than buy their way out of a problem. unique_selling_points:[Calendar-first structure: content is organised around when a task genuinely matters, not around product categories Anti-urgency stance: explicitly tells readers when they can wait rather than manufacturing pressure No commercial conflicts: no shop, no affiliate links, no named brands — purely editorial UK-specific throughout: accounts for regional climate, soil variation, building age and local conditions Honest about uncertainty: says 'it depends on your region' rather than giving one confident wrong answer Covers both indoor and outdoor maintenance as a joined-up household discipline]]
+Classification: map[category:editorial confidence:0.93 detected_signals:[Pre-defined mission explicitly rules out shop and checkout Mission describes three editorial content pillars, not service offerings Anti-commercial positioning: no named brands, no prices, no ratings Calendar/seasonal structure implies large evergreen article library UK-specific audience narrows topic to British climate and building stock Domain currently parked — new build from scratch No existing brand equity to preserve] industry_tags:[editorial magazine-grid seasonal-content home-maintenance garden-care uk-household how-to-guides checklist-content content-hub practical-guides] page_count_estimate:12 reasoning:The mission is unambiguously editorial: no shop, no checkout, no affiliate routing, no regulated activity. Revenue will likely come from display advertising on high-traffic seasonal content — a well-established model for practical home and garden sites. The content shape (seasonal calendar, comparison articles, checklists) maps cleanly to an editorial hub with strong category navigation and a time-indexed article structure. The site is not a brochure (no company to market), not a tool platform (no calculator or interactive engine as the primary product), and not ecommerce. The best analogue is a tightly edited, UK-specific practical magazine without the lifestyle padding. recommended_builder:pageflow-builder site_type:editorial suggested_style:modern-light tone_suggestion:editorial]
+ 
+## Domain Strategy
+map[competitive_position:map[current_landscape:The primary competitors are RHS (rhs.org.uk), Gardeners World (gardenersworld.com), Homes and Gardens (homesandgardens.com), House and Garden (houseandgarden.co.uk) and Which (which.co.uk). RHS provides deep horticultural authority but uses an encyclopaedic, plant-type taxonomy rather than a calendar-first urgency structure. Gardeners World provides monthly task lists with strong search presence but carries lifestyle padding and does not consistently distinguish DIY-safe tasks from professional jobs or flag north/south regional variation. Homes and Gardens and House and Garden are aspirational lifestyle publications with weak practical utility. Which covers the spending decision well but does not address seasonal maintenance questions. None of the three credible exemplars combines all four of: urgency signal, regional calibration, DIY vs professional distinction, and pre-spend checklist within a consistent article template. defensible_moat:The moat is structural rather than institutional. The four-part article template becomes the brand identity — readers learn that any article on this site will resolve urgency, flag regional variation, distinguish DIY from professional, and provide a pre-spend checklist. No competitor currently offers this template consistently. Once the article library is large enough that readers reliably find it in search and reliably get a useful, non-urgent, regionally honest answer, the template itself becomes the competitive advantage. A new entrant would need to replicate both the template discipline and the archive depth simultaneously. gap_opportunity:The gap is a single consistent article template that serves the reader's complete decision journey across four steps: (1) is this task urgent right now or can it wait, stated in the first paragraph; (2) does timing vary by region and if so how; (3) is this DIY-safe or does it require a qualified professional; (4) a pre-spend checklist for jobs where money is likely involved. This four-part structure is absent across all three credible exemplars and maps directly to what ordinary UK homeowners and renters actually need when they arrive with a specific problem in a specific month.] content_strategy:The content library is organised around a calendar spine: twelve month-index pages each linking to articles relevant to that month's garden and home maintenance tasks. Articles follow the four-part template consistently — urgency signal first, regional variation flagged where it exists, DIY vs professional distinction made explicit, pre-spend checklist appended where money is likely involved. High-priority content targets the most-searched seasonal questions: lawn care timing, shed maintenance, pointing and damp, frost protection, pruning calendars. Cross-linking between adjacent months creates a natural navigation loop that extends time on site. Over time, a second content layer covers option-comparison articles using structured tables with explicit downside rows — membrane vs bark mulch, felt vs rubber for shed roofing — using the Which-style comparison format applied to material categories rather than named products. The content earns repeat visits because the calendar changes: a reader who found the October lawn article will return in November, February and April. The anti-urgency, honest-uncertainty voice earns repeat visits because the answer was right last time. domain_type:generic_industry domain_type_reasoning:homegarden.uk is a generic compound descriptor covering two major household domains — home maintenance and garden care — without naming any specific business, person or brand. The .uk TLD reinforces geographic scope but does not narrow the term to a locality or service. This is a high-value generic domain that carries immediate topical authority signals for search engines and readers alike. Attempting to represent a single business under this name would waste the domain's inherent breadth; the correct strategy is to use it as the definitive UK editorial reference in its category. growth_path:Phase one: build the twelve month-index pages and a core library of 40 to 60 articles covering the highest-volume seasonal questions for lawn, garden, shed and home maintenance. Prioritise articles that serve the four-part template most clearly — these establish the brand template and are most differentiated from competitors. Phase two: extend into option-comparison content using structured tables — this is a distinct content type that captures 'which is better' searches and is underserved by existing sites at the category-rather-than-product level. Phase three: build topical depth in the highest-traffic clusters (lawn care, pointing and damp, shed maintenance) with supporting articles that capture long-tail variants and cross-link to each other. Display advertising revenue scales with organic search traffic, which compounds as the article library grows and as articles accumulate backlinks from gardening forums, local authority sites and housing association resources that link to regionally honest, non-commercial guidance. money_flow:Display advertising networks pay per impression or per click against traffic to article pages; revenue accrues continuously as organic search traffic grows, with peaks in the spring and autumn seasons when garden and home maintenance search volume is highest in the UK. recommended_page_types:[map[page_type:index reasoning:The homepage serves as the primary seasonal orientation tool — the 'what month is it and what should I be doing?' entry point. It should surface the current month's most relevant content, make the calendar navigation immediately accessible, and establish the non-commercial, plain-English editorial identity in the first screenful. It is the single most important page for communicating the site's anti-urgency, UK-specific proposition to first-time visitors.] map[page_type:blog-index reasoning:Category landing pages organised by month and by topic (lawn, garden, shed, home maintenance) function as blog-index pages. These pages are essential for SEO: they aggregate related articles under a single indexable URL, give readers a browsable view of content for a given month or category, and create the calendar-navigation structure that is the site's primary editorial architecture. A month-indexed blog-index for each of the twelve calendar months is the structural backbone of the site.] map[page_type:blog-post reasoning:Individual articles are the primary product of the site. Each article follows the four-part template: urgency signal, regional calibration, DIY vs professional distinction, pre-spend checklist where relevant. Articles are the unit of search traffic capture and display advertising impression. The article library needs to be large enough and specific enough to capture long-tail searches ('when to scarify a lawn in the north of England') that broader competitors handle vaguely or not at all. This is where the bulk of page count, content investment and advertising revenue is generated.] map[page_type:content reasoning:A small number of non-article content pages are needed to establish the site's identity and editorial position: an About page that explains the non-commercial stance, the UK-specific scope and the honest-uncertainty editorial approach; a Contact page for reader queries; and possibly an Editorial Approach page that explains the four-part article template and what the site will and will not do. These pages are low traffic but high trust — a reader who finds the About page and reads that the site has no affiliate links and no named brand recommendations is more likely to trust the article content.]] recurring_value:The calendar changes every month, which means the most relevant content changes every month; a reader who found a useful October article has a reason to return in November, and again in February when lawn preparation begins — the seasonal structure creates a natural repeat-visit rhythm across the full year. revenue_models:map[affiliate:map[fit:poor_fit reasoning:The mission explicitly prohibits named brand recommendations, price points and product ratings. Affiliate links require linking to specific products, which would contradict the category-only, non-commercial editorial stance and destroy the trust that is the site's primary asset.] direct_business:map[fit:poor_fit reasoning:The site is not a business offering a service or product. It is a purely editorial publication. There is no transaction to complete, no service to sell and no company behind the domain offering its own commercial output.] display_advertising:map[fit:strong_fit reasoning:A large calendar-indexed article library targeting high-volume, recurring seasonal searches generates the consistent organic traffic that makes display advertising viable. Readers return monthly throughout the year, creating stable impressions. This model requires no commercial compromise to the editorial content and is the established revenue mechanism for practical home and garden editorial sites.] lead_generation:map[fit:poor_fit reasoning:The site's anti-commercial positioning and purely editorial mission explicitly rule out routing readers to service providers. Introducing lead generation would undermine the trust the content model depends on and create an obvious conflict of interest with the honest, non-urgent guidance the site provides.] primary_model:display_advertising saas_tools:map[fit:poor_fit reasoning:The research data and vertical landscape analysis are consistent: interactive tools are not the right priority at launch for an editorial site. The primary tool is well-structured, scannable written content. A tool product would require development resource better spent building the article library that drives search traffic.] secondary_models:[] sponsored_listings:map[fit:poor_fit reasoning:There are no business listings on the site and the model has no directory component. Sponsored placements would introduce commercial bias into a content model that earns trust precisely by having no commercial relationships.]] satisfaction_condition:A visitor has got what they came for when they leave knowing whether their specific task is urgent or can wait, what month range applies to their region, and — if money is involved — what to check before they commit to spending it. search_intent:map[high_value_terms:[garden jobs by month UK home maintenance checklist UK when to scarify lawn UK shed roof replacement guide UK seasonal garden guide UK lawn care calendar UK] likely_searches:[what to do in the garden in October when to scarify a lawn UK how to fix pointing on a brick wall when to prune roses UK shed roof replacement when needed how to overwinter tender plants UK garden jobs for November aerating a lawn when and how damp proof course signs of failure mulching when to apply UK hardening off plants UK timing fascia and soffit inspection checklist] primary_intent:informational] site_type:content-hub site_type_reasoning:The mission is unambiguously editorial: no shop, no checkout, no service to sell, no directory of businesses, no product to review. Revenue comes from display advertising on a large library of calendar-indexed, evergreen articles. The primary structural spine is the month-by-month maintenance calendar, which generates consistent repeat visits throughout the year as seasons change. A content-hub is the only site type that correctly represents a publication whose product is the articles themselves, organised by time and topic, with a homepage that orients the reader to the current seasonal moment. An authority-portal would imply a directory component that does not exist here. A review-site would imply product evaluation that the mission explicitly prohibits. tone:editorial trust_threshold:The trust threshold is low for reading an article but cumulative for returning: a first-time visitor needs only to find that the answer is specific, honest about regional variation and free of any sales pressure; after two or three such experiences the site becomes the reader's default reference for home and garden timing questions, which is the state that drives the repeat traffic on which display advertising revenue depends. value_proposition:The only UK home and garden site that tells you plainly whether your task is urgent, how timing varies by region, whether you can do it yourself, and what to check before you spend money — with no products to sell and no urgency manufactured.]
+ 
+## Briefing Answers
+map[audience:map[audience:Ordinary UK homeowners and renters, broadly aged 25 to 65, who have a garden, yard, shed or windowsills and want practical, timely advice. They arrive with a specific problem in a specific month and want to know whether it is urgent. They are not professionals, not enthusiasts, not collectors. They want to look after what they already have rather than buy their way out of a problem. They are capable adults with basic DIY literacy but no professional training — they know what a lawn mower is but may not know the difference between aerating and scarifying. They are often slightly anxious: worried they have missed their moment or are about to spend money they do not need to spend.] briefing_confidence:0.97 company_name:Home Garden contact:map[contact_email:hello@homegarden.uk contact_phone:<nil> location:United Kingdom] extras:map[examples:<nil> extra_sections:[Month index pages (January through December) Garden maintenance category Home maintenance category Shed and outbuildings category Option comparison articles About / Editorial approach Contact] has_blog:true people:<nil>] gaps:[contact_phone location people examples] industry:Home and Garden Publishing jobs:map[offerings:[map[description:Month-by-month guidance on what genuinely needs doing in the garden, shed, yard or home — and what can safely wait. Organised around a twelve-month calendar spine with index pages for each month. name:Seasonal maintenance guides] map[description:Side-by-side editorial comparison of common product or material categories — what each suits and what each is bad at — without named brands or prices. Uses structured tables with explicit downside rows. name:Option comparison articles] map[description:Practical checklists covering what to check before paying for a job or replacement, and what to verify once it is done. name:Pre- and post-spend checklists] map[description:Advice calibrated to UK climate, soil conditions, building types and seasons rather than generic international guidance. Accounts for regional variation across England, Scotland and Wales. name:UK-specific calendar content]] site_jobs:[map[detail:Tell the reader immediately whether their task is urgent right now or can safely wait — stated in the first paragraph of every maintenance article. This is the reader's primary anxiety and the site's most important function. job:Resolve urgency] map[detail:Flag where timing varies by region — north versus south of England, Scotland versus Kent — rather than giving one confident answer that is wrong for half the audience. job:Provide regionally calibrated timing] map[detail:Be explicit about which tasks an ordinary householder can safely do themselves and which genuinely require a qualified tradesperson. Do not falsely reassure readers that a job is DIY-able when it is not. job:Distinguish DIY from professional jobs] map[detail:For articles where money is likely to be involved, give the reader a structured checklist of what to check before committing to spending and what to verify once the work is done. job:Provide pre-spend and post-spend checklists] map[detail:Allow readers to orient to the current month and find all relevant garden and home maintenance tasks for that period, then move naturally to adjacent months via cross-linking. job:Support seasonal navigation] map[detail:For replacement or choice decisions, present common options side by side in a structured format that includes what each option is bad at, not just what it suits — without naming brands or prices. job:Compare options honestly]]] recommended_builder:pageflow-builder site:map[company_name:Home Garden site_purpose:A practical, calendar-first editorial site for UK homeowners and renters. It tells readers what genuinely needs doing in their home and garden, when to do it, and whether it can safely wait. It covers the seasonal rhythm of outdoor and indoor maintenance, honest side-by-side comparisons of common materials and options when something needs replacing, and clear checklists of what to check before and after spending money. There is no shop, no checkout, and no product recommendations — only practical, UK-specific, calendar-aware guidance. tagline:What to do, when to do it, and whether it can wait] site_type:editorial tagline:What to do, when to do it, and whether it can wait tone:editorial voice:map[avoid:Urgency or scarcity language ('do this now before it's too late', 'don't miss your window'). Named brand recommendations, price points or retailer references of any kind. Any implication that the site has tested, reviewed or rated a product or method. Lifestyle padding — aspirational sentences about gardens as places of joy and sanctuary that do not help the reader do anything. Generic advice that ignores UK regional variation. Falsely reassuring readers that a job is DIY-able when it genuinely requires a qualified professional. Vague time references ('in late autumn', 'towards the end of the year') when a specific month or month range is more useful. 'We recommend' constructions. Phrases such as: 'Transform your garden into a paradise this season', 'We tested six lawn mowers so you don't have to', 'Act now before the frost sets in', 'Available at all good garden centres', 'Our top pick for UK gardeners in 2025 is...'. Carousel or slider components. Dark backgrounds. Large hero images with text overlaid. Playful illustration styles. Product card layouts or basket icons. Excessive white space. Vague CTA verbs: buy, get, discover, unlock, claim, explore. voice:Plain, calm and practical — the register of a knowledgeable neighbour who happens to know about buildings and gardens. Second person throughout (you, your). Uses contractions naturally. Not stiff, not breezy. Earns trust through specificity and honesty about uncertainty rather than claimed authority. States the practical conclusion before the explanation. Acknowledges regional variation and genuine uncertainty rather than papering over it. Calm and reassuring without being warm or chatty. The site resolves reader anxiety with clear, unhurried answers. No first person for the site — this is not a columnist's platform.]]
+ 
+## Mission
+A practical home and garden site for UK households — people looking after what they already have, rather than buying their way out of a problem. Three things it should do well. First, the outdoor and indoor year: what genuinely needs doing and when, because most of what goes wrong with a garden, a shed or a house is a job done in the wrong month or not at all. Second, how to choose when something really does need replacing — the common options side by side, what each suits, and what it is bad at. Third, what to actually check before spending money, and what to check afterwards. Audience: ordinary UK homeowners and renters with a garden, a yard, a shed or windowsills. Not professionals and not collectors. They usually arrive with one specific problem, in one specific month, and want to know whether it is urgent. Tone: plain, calm and practical. Say what a thing is for and, just as clearly, what it is not for. Where the answer genuinely depends on region, climate, soil or the age of a building, say so rather than giving one confident number. Prefer telling someone they can wait until spring over inventing urgency. Commercial: no shop and no checkout. Editorial guidance only. Where products come up they are categories and types — not named brands, not prices, not ratings. We have not tested anything and should never imply that we have. 
+
+
+## Existing Pages — ALREADY BUILT, PRESERVE EXACTLY
+
+No existing pages on this site yet — plan the structure from the brief below.
+
+
+## Available Section Components
+You MUST use ONLY these exact component names in the "sections" arrays (unless the roadmap specifies section_types — those override):
+ 
+
+- audience-check-form (Free audience check form): audience-check-form - <no value> [prose only]
+
+- FAQ Section (FAQ Section): faq - Frequently asked questions accordion [expresses: items]
+
+- Generic Text Block (Generic Text Block): generic-text-block - Fallback component for any unmatched section [expresses: html-block, list, table]
+
+- Ported Page (webdesign.co.uk) (): ported-page - <no value> [expresses: html-block, list, table]
+
+- Pricing Tiers (Pricing Tiers): pricing - Pricing comparison table [expresses: list]
+
+- report-request-form (Report request form): report-request-form - <no value> [prose only]
+
+- webdesign.co.uk Two-Column Hero (): webdesign-couk-hero - <no value> [prose only]
+
+- about-content (About Content): about-content - Main about page content section [expresses: html-block, items, list, table]
+
+- about-hero (About Page Hero): hero-about - Hero section for about pages [prose only]
+
+- departments-grid (Departments Grid): departments-grid - Grid of AI departments or functional teams with icon images [expresses: items]
+
+- differentiators-section (Differentiators): differentiators - What makes us different section [expresses: items]
+
+- leadership-team (Leadership Team): leadership-team - Team members grid [prose only]
+
+- info-card-grid (Info Card Grid): info-card-grid - A simple card displaying a heading, a short paragraph of text, and an optional icon. Used for feature highlights or key information points. Light background with subtle border. Should support 2-4 cards in a responsive grid. [expresses: items]
+
+- Loans Application Tracker (loanandmortgagecalculator.co.uk) (Loans Application Tracker): loans-application-tracker - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [expresses: list]
+
+- Loans Car Finance Calculator (loanandmortgagecalculator.co.uk) (Loans Car Finance Calculator): loans-car-finance-calculator - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Loans Compare Loans (loanandmortgagecalculator.co.uk) (Loans Compare Loans): loans-compare-loans - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Loans Credit Health Check (loanandmortgagecalculator.co.uk) (Loans Credit Health Check): loans-credit-health-check - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Loans Damage Checker (loanandmortgagecalculator.co.uk) (Loans Damage Checker): loans-damage-checker - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Loans Interest Rate Stress Test (loanandmortgagecalculator.co.uk) (Loans Interest Rate Stress Test): loans-interest-rate-stress-test - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Loans Loan Vs Savings (loanandmortgagecalculator.co.uk) (Loans Loan Vs Savings): loans-loan-vs-savings - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Loans Overpayment Calculator (loanandmortgagecalculator.co.uk) (Loans Overpayment Calculator): loans-overpayment-calculator - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Loans Settlement Calculator (loanandmortgagecalculator.co.uk) (Loans Settlement Calculator): loans-settlement-calculator - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Loans Standard Calc (loanandmortgagecalculator.co.uk) (Loans Standard Calc): loans-standard-calc - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Mortgages Affordability (loanandmortgagecalculator.co.uk) (Mortgages Affordability): mortgages-affordability - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Mortgages Bridging Loan (loanandmortgagecalculator.co.uk) (Mortgages Bridging Loan): mortgages-bridging-loan - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Mortgages Equity Release (loanandmortgagecalculator.co.uk) (Mortgages Equity Release): mortgages-equity-release - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Mortgages Fact Finder (loanandmortgagecalculator.co.uk) (Mortgages Fact Finder): mortgages-fact-finder - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Mortgages Fee Analyser (loanandmortgagecalculator.co.uk) (Mortgages Fee Analyser): mortgages-fee-analyser - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Mortgages Investor (loanandmortgagecalculator.co.uk) (Mortgages Investor): mortgages-investor - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Mortgages Overpayment (loanandmortgagecalculator.co.uk) (Mortgages Overpayment): mortgages-overpayment - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Mortgages Portfolio (loanandmortgagecalculator.co.uk) (Mortgages Portfolio): mortgages-portfolio - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [expresses: table]
+
+- Mortgages Rate Forecaster (loanandmortgagecalculator.co.uk) (Mortgages Rate Forecaster): mortgages-rate-forecaster - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Mortgages Repayment (loanandmortgagecalculator.co.uk) (Mortgages Repayment): mortgages-repayment - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [expresses: table]
+
+- Mortgages Stamp Duty (loanandmortgagecalculator.co.uk) (Mortgages Stamp Duty): mortgages-stamp-duty - Parameterised calculator component (Track B2, bugs_open/263): panel, ids and scripts live in this template and no content writer can touch them; every clean copy span is a schema field. Page row deliberately unlocked — ApplySectionEditAction refuses locked rows. [prose only]
+
+- Quick Mortgage Payment Check (loanandmortgagecalculator.co.uk) (Quick Mortgage Payment Check): mortgages-simple - Parameterised calculator component: panel, grid, element ids and scripts live in this template and no content writer can touch them; every piece of visible copy is a schema field. Track B2 proving page — bugs_open/263 (2026-08-13 entry) records the design and why the page row is deliberately NOT locked (ApplySectionEditAction refuses locked rows, and the owner requires all text editable). [expresses: list]
+
+- case-studies-hero (Case Studies Hero): hero-case-studies - Hero section for case studies/use cases pages [prose only]
+
+- case-studies-list (Case Studies List): case-studies-list - Grid or list of case studies [prose only]
+
+- contact-form (Contact Form): contact-form - Standard contact form with name, email, message fields [prose only]
+
+- contact-hero (Contact Page Hero): hero-contact - Hero section for contact pages [prose only]
+
+- contact-info (Contact Information): contact-info - Contact details including address, phone, email [prose only]
+
+- about-commercial-block (About Commercial Block): about-commercial-block - Quiet commercial-signals block for the foot of a portfolio/storefront about page: built-by line, tier-worded domain-acquisition line, advertise line. All facts resolver-owned from site_specs.commercial.*; visibility gates computed in-template from raw facts (fail-closed). Built for the about_page_commercial workstream. [prose only]
+
+- Agent Protocol Tracker (Protocol Tracker): protocol-tracker - Homepage snippet: cited tracker of agent communication protocols (MCP, A2A, ACP, ...) and their uptake, server-rendered from query.protocol_tracker, refreshed client-side from data/protocol-tracker.json [expresses: list]
+
+- Agent Protocol Tracker (full listing) (Protocol Tracker — Full Listing): protocol-tracker-listing - Dedicated protocol-tracker page: every tracked agent communication protocol with its cited facts, server-rendered from query.protocol_tracker_full, refreshed client-side from data/protocol-tracker-full.json [expresses: list]
+
+- AI Adoption Tracker (Adoption Tracker): adoption-tracker - Homepage snippet: cited tracker of organisations deploying AI agents (claimed results and how they were measured), server-rendered from query.adoption_tracker, refreshed client-side from data/adoption-tracker.json [expresses: list]
+
+- AI Adoption Tracker (full listing) (Adoption Tracker — Full Listing): adoption-tracker-listing - Dedicated adoption-tracker page: every tracked organisation with its cited deployment claims, server-rendered from query.adoption_tracker_full, refreshed client-side from data/adoption-tracker-full.json [expresses: list]
+
+- AI Model Directory (Model Directory): model-directory - Homepage snippet: cited AI model directory entries (price, licence, links), server-rendered from query.model_directory, refreshed client-side from data/model-directory.json [expresses: list]
+
+- AI Model Directory (full listing) (Model Directory — Full Listing): model-directory-listing - Dedicated model-directory page: every cited AI model entry, server-rendered from query.model_directory_full, refreshed client-side from data/model-directory-full.json [expresses: list]
+
+- checklist (Checklist): checklist - A list of things checked, required, or done — each a short heading with an optional line of detail, rendered as a real <ul>. For criteria, standards, what-we-check, what-you-need and pre-purchase checks. Unordered by design: for an ordered process with stages use mechanism-flow instead. Has no numeric or score field. [expresses: items, list]
+
+- comparison-table (Comparison table): comparison-table - Several options compared across the same two to four writer-named criteria, rendered as a real <table> that stacks into labelled blocks on a phone. For buying guides, option round-ups and plan comparisons. Cells are named rather than positional, so a missing value renders in place instead of shifting the table. Has no price, rating, score or rank field. [expresses: items, table]
+
+- directory-listing (Directory Listing): directory-listing - A grid of directory entry cards for industry suppliers or service providers. Sourced from DB query at render time. [prose only]
+
+- filtered-result-grid (Filtered Result Grid): filtered-result-grid - A grid of comparison result cards with filter controls, sort dropdown, and search. For price/service comparison sites. [prose only]
+
+- gripper-spec-sheet (Gripper Spec Sheet): gripper-spec-sheet - Real, sourced gripper product specifications — no cart/buy furniture. Every field optional (manufacturer spec pages disclose different subsets); each card carries a source URL and verified date. [expresses: table]
+
+- Illustrated Text Block (Illustrated Text Block): illustrated-text-block - The illustrated sibling of Generic Text Block: a prose section that carries its OWN image, so imagery is rendered by the component rather than hand-embedded in body HTML. Figure and caption are gated on image_url, so with no image it degrades to a plain heading-and-prose block. Keeps .section/.container/.section__title/.section__content so an existing stylesheet applies unchanged. [expresses: html-block, list, table]
+
+- Latest News Feed (Latest News): latest-news - Client-side rendered news section. Fetches /data/latest-news.json and renders cards. Content writer provides the headline; items are populated from the feed pipeline. [prose only]
+
+- news-listing (News Listing Page): news-listing - Full news listing page that loads items from /data/news-archive.json. Shows 20 items with source, date, topic tags, and external links. Companion to the latest-news homepage snippet. [prose only]
+
+- period-calendar (Period calendar): period-calendar - An ordered run of named periods — months, quarters, seasons, stages — each with a focus line and optional detail, rendered as a real <ol>. THE component for a month-by-month or season-by-season page. Not a timeline: it describes a recurring cycle, not dated real-world events with citations. Has no numeric or date field. [expresses: items, list]
+
+- product-card-with-cta (Product Card with CTA): product-card-with-cta - Product cards for affiliate sites with image, rating, price, affiliate CTA, and review link. Includes required disclosure. [prose only]
+
+- product-grid (Product Grid): product-grid - Owned-catalogue product grid with images, pricing, sale badges, and add-to-cart buttons. For ecommerce storefronts. [prose only]
+
+- provocations-archive-list (Provocations Archive List): provocations-archive-list - A self-contained archive section for the Provocations Archive page. The top-level section element MUST have the class provocations-archive, the attribute data-component with the value provocations-archive-list, and the attribute data-runtime-fill with the value true. Inside the section, a header: a small eyebrow label with class provocations-archive__eyebrow; a heading with class provocations-archive__title containing ONE emphasised word or phrase inside an em element; a one or two sentence subtitle with class provocations-archive__subtitle. Below the header, a list container with class provocations-archive__list containing EXACTLY ONE hidden clone-template item: an anchor element with class provocations-archive__item, the attribute data-archive-template, and the hidden attribute, containing a date element with class provocations-archive__item-date, a title element with class provocations-archive__item-title, a one-line teaser with class provocations-archive__item-teaser, and a stat element with class provocations-archive__item-stat that holds a small dot span with class provocations-archive__item-dot followed by a text span for the stat value. After the list, an empty-state line with class provocations-archive__empty that is visible by default. Then one call-to-action button linking back to the day's provocation. Every copy field carrying the site voice, namely the eyebrow, the heading, the subtitle, the empty-state line, and the CTA label, must be a content-writer placeholder; the CTA url is a tunable with fallback /index.html. This is a DARK section using the site CSS variables only. Do NOT include any script element anywhere in this component — the list is populated at runtime by an external loader; the hidden template item and the empty state are the entire built-in behaviour. The component function name MUST be provocations-archive-list. [prose only]
+
+- teaser-reveal-panel (Teaser Reveal Panel): teaser-reveal-panel - A panel of short teasers, each a hook plus a deliberately unfinished continuation, whose full text opens in place without a page load and gains a shareable URL. Swipeable on mobile via native scroll-snap; the reveal itself is native <details> so it works with JavaScript disabled. An item with no full text renders as a plain statement with no control rather than a dead one. Implements the teaser-detail-deeplink experience pattern. [expresses: items, list]
+
+- UK Health Insurer Directory (Health Insurer Directory): health-insurer-directory - Homepage snippet: cited directory of UK health insurers (regulator status, cover types, underwriter — non-price facts only), server-rendered from query.health_insurer_directory, refreshed client-side from data/health-insurer-directory.json [expresses: list]
+
+- UK Health Insurer Directory (full listing) (Health Insurer Directory — Full Listing): health-insurer-directory-listing - Dedicated health-insurers page: every listed UK insurer with its cited non-price facts, server-rendered from query.health_insurer_directory_full, refreshed client-side from data/health-insurer-directory-full.json [expresses: list]
+
+- UK Mortgage Lender Directory (Mortgage Lender Directory): mortgage-lender-directory - Homepage snippet: cited directory of UK mortgage lenders (regulator status, product types, lender type — non-price facts only), server-rendered from query.mortgage_lender_directory, refreshed client-side from data/mortgage-lender-directory.json [expresses: list]
+
+- UK Mortgage Lender Directory (full listing) (Mortgage Lender Directory — Full Listing): mortgage-lender-directory-listing - Dedicated mortgage-lenders page: every listed UK lender with its cited non-price facts, server-rendered from query.mortgage_lender_directory_full, refreshed client-side from data/mortgage-lender-directory-full.json [expresses: list]
+
+- UK Savings Provider Directory (Savings Provider Directory): savings-provider-directory - Homepage snippet: cited directory of UK savings providers (regulator status, product types, protection scheme — non-price facts only), server-rendered from query.savings_provider_directory, refreshed client-side from data/savings-provider-directory.json [expresses: list]
+
+- UK Savings Provider Directory (full listing) (Savings Provider Directory — Full Listing): savings-provider-directory-listing - Dedicated savings-providers page: every listed UK provider with its cited non-price facts, server-rendered from query.savings_provider_directory_full, refreshed client-side from data/savings-provider-directory-full.json [expresses: list]
+
+- ad_zone_inline (Inline Ad Zone): advertising - <no value> [prose only]
+
+- category-listing (Category Section): category-listing - <no value> [prose only]
+
+- content-listing (Article Grid): content-listing - <no value> [prose only]
+
+- featured_article (Featured Article Hero): featured-content - <no value> [prose only]
+
+- call-to-action (Call to Action): call-to-action - A prominent CTA section encouraging visitors to take the next step. [prose only]
+
+- ai-readiness-quiz (Ai Readiness Quiz): ai-readiness-quiz - Component for section type "tool-ai-readiness-quiz" on page "ai-readiness-quiz" ( site) [expresses: list]
+
+- archetype-combinations (Archetype Combinations): archetype-combinations -  [expresses: list]
+
+- article-body (Article Body): article-body - Component needed for section type "article-body" on page "tool-gripper-payload-calculator-guide" [expresses: html-block, list, table]
+
+- bayesian-ranking-hero-tool_pre_037 (Bayesian Ranking Hero Tool): bayesian-ranking-hero-tool - Component needed for section type "hero-tool" on page "bayesian-ranking" [prose only]
+
+- blog-listing_pre_037 (Blog Listing): blog-listing - Component needed for section type "blog-listing" on page "blog" [prose only]
+
+- case-studies-grid (Case Studies Grid): case-studies-grid - Component needed for section type "content-block-case-studies" on page "case-studies" [prose only]
+
+- contact-block (Contact Block): contact-block - Component needed for section type "content-block-contact" on page "contact" [prose only]
+
+- content-block-about (Content Block About): content-block-about - Component needed for section type "content-block-about" on page "about" [prose only]
+
+- game-list_pre_037 (Game List): game-list - Component needed for section type "game-list" on page "index" [prose only]
+
+- guide-list_pre_037 (Guide List): guide-list - Component needed for section type "guide-list" on page "guides" [prose only]
+
+- loans-car-finance-calculator-loanzy-uk (Loans Car Finance Calculator Loanzy Uk): loans-car-finance-calculator-loanzy-uk - Component for section type "loans-car-finance-calculator" on page "tool-car-finance-calculator" ( site) [prose only]
+
+- loans-compare-loans-loanzy-uk (Loans Compare Loans Loanzy Uk): loans-compare-loans-loanzy-uk - Component for section type "loans-compare-loans" on page "tool-loan-comparison-calculator" ( site) [prose only]
+
+- loans-credit-health-check-loancalculator-co-uk (Loans Credit Health Check Loancalculator Co Uk): loans-credit-health-check-loancalculator-co-uk - Component for section type "loans-credit-health-check" on page "tool-credit-roadmap" ( site) [prose only]
+
+- loans-damage-checker-loanzy-uk (Loans Damage Checker Loanzy Uk): loans-damage-checker-loanzy-uk - Component for section type "loans-damage-checker" on page "tool-is-a-loan-right-for-me" ( site) [prose only]
+
+- loans-interest-rate-stress-test-loanzy-uk (Loans Interest Rate Stress Test Loanzy Uk): loans-interest-rate-stress-test-loanzy-uk - Component for section type "loans-interest-rate-stress-test" on page "tool-interest-rate-stress-test" ( site) [expresses: table]
+
+- loans-overpayment-calculator-loanzy-uk (Loans Overpayment Calculator Loanzy Uk): loans-overpayment-calculator-loanzy-uk - Component for section type "loans-overpayment-calculator" on page "tool-overpayment-calculator" ( site) [expresses: table]
+
+- loans-settlement-calculator-loanzy-uk (Loans Settlement Calculator Loanzy Uk): loans-settlement-calculator-loanzy-uk - Component for section type "loans-settlement-calculator" on page "tool-settlement-calculator" ( site) [expresses: table]
+
+- loans-standard-calc-loanzy-uk (Loans Standard Calc Loanzy Uk): loans-standard-calc-loanzy-uk - Component for section type "loans-standard-calc" on page "tool-loan-repayment-calculator" ( site) [expresses: table]
+
+- loan-vs-savings (Loan Vs Savings): loan-vs-savings - Component for section type "loans-loan-vs-savings" on page "tool-loan-vs-savings" ( site) [prose only]
+
+- mortgages-repayment-remortgagecalculator-uk (Mortgages Repayment Remortgagecalculator Uk): mortgages-repayment-remortgagecalculator-uk - Component for section type "mortgages-repayment" on page "index" ( site) [expresses: list]
+
+- product-details_pre_037 (Product Details): product-details - Component needed for section type "product-details" on page "product-detail" [expresses: list]
+
+- product-hero_pre_037 (Product Hero): product-hero - Component needed for section type "product-hero" on page "product-detail" [prose only]
+
+- product-specs (Product Specs): product-specs - Component needed for section type "product-specs" on page "product-detail" [expresses: table]
+
+- provocation-feed (Provocation Feed): provocation-feed -  [prose only]
+
+- system-stats (System Stats): system-stats - Component needed for section type "system-stats" on page "index" [prose only]
+
+- testimonials-modern (Testimonials Modern): testimonials-modern - Component for section type "testimonials" on page "index" ( site) [prose only]
+
+- tool-cta (Tool Cta): tool-cta - Component needed for section type "tool-cta" on page "bayesian-ranking" [prose only]
+
+- tool-guide-intro (Tool Guide Intro): tool-guide-intro - Component needed for section type "tool-guide-intro" on page "bayesian-ranking" [expresses: list]
+
+- tool-list (Tool List): tool-list - Component needed for section type "tool-list" on page "tools" [prose only]
+
+- mechanism-flow (Mechanism flow): mechanism-flow - Draws a process as a numbered vertical flow with optional decision branches. For explaining a legal or financial MECHANISM (sequence and consequence), not magnitudes — use evidence-chart for those. Has NO numeric field by design: on an evidence-gated site a number-shaped slot invites a writer to fill it. All labels are real HTML, never SVG text, so the claims gate can read them. Connectors are CSS, so there is no SVG and nothing to load. [expresses: items, list]
+
+- image-hover-card-grid (Image Hover Card Grid): image-hover-card-grid - A grid of image cards. Each shows a headline on the image; the description slides in on hover (kept in the accessibility tree, shown always on touch), with a subtle hover-zoom. CSS-only, no JS. [expresses: items]
+
+- people-feature-block (People Feature Block): people-feature-block - A two-column feature block pairing a line-illustration figure with a statement about an approach or way of working (optional real pull-quote). Reversible layout. Never a named/invented person or fabricated bio. CSS-only. [prose only]
+
+- swipeable-insight-carousel (Swipeable Insight Carousel): swipeable-insight-carousel - A horizontally swipeable row of text-forward insight cards (label, headline, body, optional source/link). Native scroll-snap: swipe on touch, thin scrollbar on desktop. CSS-only, no JS. [expresses: items, list]
+
+- features (Features Grid): features - A grid layout showcasing key features or services with icons, titles, and descriptions. [expresses: items]
+
+- bridging-loan-calculator (Bridging Loan Calculator): bridging-loan-calculator - Regenerate previously truncated component: tool-bridging-loan-calculator [prose only]
+
+- content-sidebar (Content Sidebar): content-sidebar - Regenerate previously truncated component: sidebar [expresses: list]
+
+- featured-inventory (Featured Inventory): featured-inventory - Regenerate previously truncated component: featured-inventory [prose only]
+
+- header-docs (Header Docs): header-docs - Regenerate previously truncated component: header-docs [prose only]
+
+- Ported Prose Block (Ported Prose Block): ported-prose - One editable block of a hand-built page, produced by decomposing a verbatim-adopted document into prose plus tool components. Deliberately carries no form control and no script-addressed element. [expresses: html-block, list, table]
+
+- site-footer (Site Footer): site-footer - Regenerate previously truncated component: footer [expresses: list]
+
+- site-head (Site Head): site-head - Regenerate previously truncated component: head [prose only]
+
+- site-header (Site Header): site-header - Regenerate previously truncated component: site-header [prose only]
+
+- tool-agent-complexity-estimator (Tool Agent Complexity Estimator): tool-agent-complexity-estimator - Regenerate previously truncated component: tool-agent-complexity-estimator [prose only]
+
+- tool-ai-agent-roi-estimator (Tool Ai Agent Roi Estimator): tool-ai-agent-roi-estimator - Regenerate previously truncated component: tool-ai-agent-roi-estimator [prose only]
+
+- tool-ai-data-risk-checker (Tool Ai Data Risk Checker): tool-ai-data-risk-checker - Regenerate previously truncated component: tool-ai-data-risk-checker [prose only]
+
+- tool-ai-vendor-trust-checklist (AI Vendor Trust Checklist): tool-ai-vendor-trust-checklist - Twelve checkable items about an AI vendor's data-handling posture (certifications, data handling, governance, transparency). Ticking items updates a score, a denominator that shrinks when the sector certification is not applicable, and one of three plain-English verdict tiers. Client-side only: no fetch, no LLM call. [prose only]
+
+- tool-archetype-taster-quiz (Tool Archetype Taster Quiz): tool-archetype-taster-quiz - Regenerate previously truncated component: tool-archetype-taster-quiz [expresses: list]
+
+- tool-breakeven-volume-calculator (Tool Breakeven Volume Calculator): tool-breakeven-volume-calculator - Regenerate previously truncated component: tool-breakeven-volume-calculator [prose only]
+
+- tool-gripper-cycle-time-estimator (Tool Gripper Cycle Time Estimator): tool-gripper-cycle-time-estimator - Regenerate previously truncated component: tool-gripper-cycle-time-estimator [prose only]
+
+- tool-gripper-payload-calculator (Tool Gripper Payload Calculator): tool-gripper-payload-calculator - Regenerate previously truncated component: tool-gripper-payload-calculator [prose only]
+
+- tool-lanchester-combat-calculator (Tool Lanchester Combat Calculator): tool-lanchester-combat-calculator - Regenerate previously truncated component: tool-lanchester-combat-calculator [prose only]
+
+- tool-loot-probability-calculator (Tool Loot Probability Calculator): tool-loot-probability-calculator - Regenerate previously truncated component: tool-loot-probability-calculator [prose only]
+
+- tool-mortgage-affordability (Tool Mortgage Affordability): tool-mortgage-affordability - Regenerate previously truncated component: tool-mortgage-affordability [prose only]
+
+- tool-mortgage-repayment (Tool Mortgage Repayment): tool-mortgage-repayment - Regenerate previously truncated component: tool-mortgage-repayment [prose only]
+
+- tool-stamp-duty-calculator (Tool Stamp Duty Calculator): tool-stamp-duty-calculator - Regenerate previously truncated component: tool-stamp-duty-calculator [expresses: table]
+
+- hero (Hero Section): hero - Main hero banner with compelling headline, subheadline, and call-to-action buttons for homepage and landing pages. [prose only]
+
+- hero-card-carousel (Hero Card Carousel): hero-card-carousel - Auto-advancing, swipeable hero carousel of a few cards — each a hover-zoom image with a short title, one teaser line and a read-more link. Accessible: pausable, keyboard-safe, respects reduced-motion; first card carries the full message. [expresses: items, list]
+
+- hero-tool (Tool Hero): hero-tool - Generic hero panel for a tool page — badge, headline, subheadline, gated CTAs and up to three optional trust stats. No product-specific vocabulary; the tool itself is a separate section. Built for bugs_open/045 to replace the Bayesian-hardwired hero. [prose only]
+
+- archetype-grid (Archetype Grid): archetype-grid - Component for section type "archetype-grid" on page "archetypes" (interactive-platform site) [prose only]
+
+- archetype-result-card (Archetype Result Card): archetype-result-card - Component for section type "archetype-result-card" on page "gauntlet" (interactive-platform site) [prose only]
+
+- archetype-taster-quiz (Archetype Taster Quiz): archetype-taster-quiz - Component for section type "tool-archetype-taster-quiz" on page "archetype-taster-quiz" (interactive-platform site) [expresses: list]
+
+- brief-explanation (Brief Explanation): brief-explanation - Component needed for section type "brief-explanation" on page "index" [expresses: list]
+
+- game-master-explanation (Game Master Explanation): game-master-explanation - Component needed for section type "game-master-explanation" on page "about" [prose only]
+
+- gauntlet-cta (Gauntlet Cta): gauntlet-cta - Component needed for section type "gauntlet-cta" on page "about" [expresses: list]
+
+- gauntlet-interface (Gauntlet Interface): gauntlet-interface - Component for section type "gauntlet-interface" on page "gauntlet" (interactive-platform site) [expresses: list]
+
+- gripper-payload-calculator (Gripper Payload Calculator): gripper-payload-calculator - Component for section type "tool-gripper-payload-calculator" on page "gripper-payload-calculator" (interactive-platform site) [prose only]
+
+- lobby-grid (Lobby Grid): lobby-grid - Component needed for section type "lobby-grid" on page "index" [prose only]
+
+- platform-comparison (Platform Comparison): platform-comparison - Component needed for section type "platform-comparison" on page "about" [expresses: table]
+
+- provocation-card (Provocation Card): provocation-card - Component needed for section type "provocation-card" on page "index" [prose only]
+
+- Gripper Selection & Integration Dossier (Gripper Selection & Integration Dossier): report-dossier - Per-request engineering dossier for robot-hands.com: a deterministic scored shortlist over the verified gripper index, with printed formulas, an SVG headroom chart, verified prose and a provenance footer. Mounted on /reports/<uuid>.html pages created by the create_report_page action; the section HTML is rendered in Go and stored on page_components.rendered_html, so this template is a passthrough shell (see seed 207 header before editing it). [prose only]
+
+- services-grid (Services Grid): services-grid - Grid of services offered [expresses: items]
+
+- services-hero (Services Page Hero): hero-services - Hero section for services pages [prose only]
+
+- portfolio-showcase (Portfolio Showcase): portfolio-showcase - Showcase of sites and tools built by the platform. Honest portfolio — no fabricated testimonials, just the actual work. Each project shows domain, description, what it was built with, and build time. [prose only]
+
+- social_proof (Social Proof Section): social-proof - Testimonials, statistics, or trust indicators that build credibility. [expresses: items]
+
+- stat-band (Stat Band): stat-band - A band of 3-4 code-rendered stat callouts (value, label, optional caption) with an accessible scroll-triggered count-up. Numbers are rendered from real, evidenced figures — never generated as a picture. [expresses: items]
+
+- body-close (Body Close): body-close - Closing body and html tags [prose only]
+
+- funding-fit (Which funding route fits? — free finder): funding-fit - Client-side, zero-cost funding-route finder. GATED, not scored (the p4_06 rule): "money for living costs" and "no evidence yet" are dispositive and short-circuit to honest verdicts before any composition happens; past the gates the answers COMPOSE a route map (grants/equity/debt/customer money) because routes are not mutually exclusive. Durable institutions only, no amounts or scheme details. No backend, no LLM, nothing leaves the browser. Script inline in the template on purpose (see p4_17). [expresses: list]
+
+- gauntlet-round-record-vonc-com (The Gauntlet: public record of one round): gauntlet-round-record - Renders a single PUBLISHED Gauntlet round from ?r=<slug>, fetched client-side from the island API. Every field is written with textContent and the file contains no markup-assigning DOM property, because two of the fields are prose typed by a member of the public and then served to every other visitor. Shows the provocation headline and body only — the provocation also carries stats, primary_cta and secondary_cta, and stats would put numbers on the page that the page did not compute. [prose only]
+
+- patent-check (Should you patent it? — free check): patent-check - Client-side, zero-cost patentability steer. GATED, not scored: public disclosure and excluded subject matter short-circuit to their own outcomes before any scoring happens, because either one is decisive on its own and a sum score would let a good total drown it out. No backend, no LLM, no data leaves the browser. Script is inline in the template on purpose (see p4_06). [expresses: list]
+
+- use-cases-hero (Use Cases Hero): hero-use-cases - Hero section for the use cases page [prose only]
+
+- use-cases-list (Use Cases List): use-cases-list - Grid of use case items with title, client, summary and results [prose only]
+
+ 
+## Available Style Collections
+[map[category:creative description:Eye-catching style with gradient header. Suitable for startups, SaaS, apps. display_name:Bold Gradient name:bold-gradient] map[category:interactive description:<nil> display_name:Composition for agritec.uk name:collection-agritec-uk] map[category:brochure description:<nil> display_name:Composition for ai-agent-orchestration.com name:collection-ai-agent-orchestration-com] map[category:editorial description:<nil> display_name:Composition for apis.uk name:collection-apis-uk] map[category:interactive description:<nil> display_name:Composition for cookly.uk name:collection-cookly-uk] map[category:ecommerce description:<nil> display_name:Composition for dartsonline.com name:collection-dartsonline-com] map[category:professional description:Professional style with dark header, clean typography. Suitable for consulting, tech, finance. display_name:Composition for finetuning.uk name:collection-finetuning-uk] map[category:brochure description:<nil> display_name:Composition for fundamentallyai.com name:collection-fundamentallyai-com] map[category:interactive description:<nil> display_name:Composition for gamesdesign.co.uk name:collection-gamesdesign-co-uk] map[category:hub description:<nil> display_name:Composition for garden-tools.uk name:collection-garden-tools-uk] map[category:professional description:Professional style with dark header, clean typography. Suitable for consulting, tech, finance. display_name:Composition for gaswholesalers.com name:collection-gaswholesalers-com] map[category:interactive description:<nil> display_name:Composition for idea.uk name:collection-idea-uk] map[category:hub description:<nil> display_name:Composition for lendzy.co.uk name:collection-lendzy-co-uk] map[category:interactive description:<nil> display_name:Composition for loanandmortgagecalculator.co.uk name:collection-loanandmortgagecalculator-co-uk] map[category:interactive description:<nil> display_name:Composition for loanzy.uk name:collection-loanzy-uk] map[category:interactive description:<nil> display_name:Composition for mortgagecalculator.co.uk name:collection-mortgagecalculator-co-uk] map[category:interactive description:<nil> display_name:Composition for noted.co.uk name:collection-noted-co-uk] map[category:editorial description:<nil> display_name:Composition for oufe.com name:collection-oufe-com] map[category:editorial description:<nil> display_name:Composition for relojistas.com name:collection-relojistas-com] map[category:interactive description:<nil> display_name:Composition for remortgagecalculator.uk name:collection-remortgagecalculator-uk] map[category:interactive-platform description:<nil> display_name:Composition for robot-hands.com name:collection-robot-hands-com] map[category:hub description:<nil> display_name:Composition for vetcomparison.uk name:collection-vetcomparison-uk] map[category:social description:<nil> display_name:Composition for vonc.com name:collection-vonc-com] map[category:interactive description:<nil> display_name:Composition for webdesign.co.uk name:collection-webdesign-co-uk] map[category:brochure description:<nil> display_name:Composition for webdesign.uk name:collection-webdesign-uk] map[category:professional description:Leopardess-owned composition. Seed header/footer components, own dark-gold palette. display_name:Leopardess Dark Gold name:leopardess-dark-gold] map[category:minimal description:Clean, minimal style with light header. Suitable for portfolios, agencies. display_name:Minimal Light name:minimal-light] map[category:professional description:Professional style with dark header, clean typography. Suitable for consulting, tech, finance. display_name:Professional Dark name:professional-dark]]
+ 
+## Verified Facts (evidence base)
+
+NO evidence register exists for this site: nothing about this business is verified and it has no recorded operating history. Use the OBJECT form for EVERY section entry on EVERY page with "facts": [] (rule 17). No page brief may describe testing, buying, measuring, sourcing samples or any other operating practice as something this business does — a methodology or "how we assess" page may be planned only as what the site IS and does for a reader, never as a description of practice.
+
+## Canonical Page Types
+ 
+Use ONLY these page_type values, verbatim, lowercase, dash-separated:
+ 
+| page_type | Description | Use for |
+|-----------|-------------|----------|
+| index | Home page | Always exactly one |
+| content | Standard content page | About, services, contact, FAQ, etc |
+| landing | Conversion-focused page | Lead capture, specific offers |
+| entity-directory | Searchable directory of entities | Business listings, provider directories |
+| entity-page | Individual entity profile | Single business/provider detail page |
+| tool | Interactive tool or calculator | Cost calculators, comparison tools |
+| blog-index | Blog listing page | Article/blog index (NOT the news feed listing) |
+| news-index | Dedicated news listing page | The separate news page when the news feed recommends separate_page=true |
+| blog-post | Individual blog article | Editorial content, guides |
+ 
+Plan ONLY pages that are directly justified by the briefing, strategy, classification, or roadmap. Do NOT add speculative, demo, or example pages. Every page in your output must serve an explicit need surfaced by one of those inputs. If you don't have evidence for a page, leave it out — fewer well-justified pages are better than padding the count.
+ 
+If a page doesn't fit any category cleanly, use `content` as the default. Do not invent new page_type values.
+
+News listing rule: when the classification content_features.news_feed has recommended=true AND separate_page=true, plan exactly ONE news listing page with page_type news-index. Its name may be localised (noticias, nachrichten, news) but the page_type must be exactly news-index — never blog-index or section-index. page_type is a routing key: the news machinery (archive data, build gates, discovery checks) selects on news-index, and any other value orphans the page from all of it.
+
+Directory rule: content_features may carry one or more global directory keys — model_directory, adoption_tracker, protocol_tracker, mortgage_lender_directory, savings_provider_directory, health_insurer_directory. Each records that this site has opted into a fleet-wide, cited provider directory of ONE kind; several keys may be present and each is handled independently. For EACH such key with recommended=true: (a) add the matching SECTION component to the homepage sections array — model_directory uses model-directory, adoption_tracker uses adoption-tracker, protocol_tracker uses protocol-tracker, mortgage_lender_directory uses mortgage-lender-directory, savings_provider_directory uses savings-provider-directory, health_insurer_directory uses health-insurer-directory. (b) when that key also has separate_page=true, additionally plan exactly ONE dedicated page whose name and page_type are BOTH the exact value listed here — these are routing keys the directory machinery (publish trigger, discovery checks, renderers) selects on; never substitute entity-directory, content, or any other page_type: model_directory uses model-directory, adoption_tracker uses adoption-tracker, protocol_tracker uses protocol-tracker, mortgage_lender_directory uses mortgage-lenders, savings_provider_directory uses savings-providers, health_insurer_directory uses health-insurers. Compose that page with populated sections in this order: hero, then the LISTING component named here — model_directory uses model-directory-listing, adoption_tracker uses adoption-tracker-listing, protocol_tracker uses protocol-tracker-listing, mortgage_lender_directory uses mortgage-lender-directory-listing, savings_provider_directory uses savings-provider-directory-listing, health_insurer_directory uses health-insurer-directory-listing — then call-to-action; set in_header and in_footer true. Directory sections render from the global register, not from written content — when Verified Facts are in play, give every directory section facts: [] (a fact assigned to one is stated nowhere). These six page_type values are conditional additions to the Canonical Page Types table — valid ONLY when this rule fires, never without the content_features key. Do NOT plan a directory page or section for a kind whose key is absent or not recommended: a page for a kind the site has not opted into ships empty. Copy every component name in this rule EXACTLY as written: component names are matched verbatim against the Available Section Components list, and a paraphrased name (an underscore for a hyphen, a singular for a plural, a display title for a component name) is DROPPED from the plan silently — the page then ships without that section and nothing reports it.
+ 
+## Imagery Block
+ 
+Return a structured `imagery` block alongside the legacy `image_prompts` map. The downstream image pipeline reads `imagery` as the source of truth; `image_prompts` is retained for backward compatibility during transition.
+ 
+### Shape
+ 
+`imagery` is a nested object with three optional sub-keys: `site`, `pages`, `sections`. Scope is implied by position in the nesting — entries do NOT carry `scope` or `scope_ref` fields themselves.
+ 
+```
+"imagery": {
+  "site":     [ entry, entry, ... ],
+  "pages":    { "<page_name>": [ entry, ... ], ... },
+  "sections": { "<page_name>:<section_ordering>": [ entry, ... ], ... }
+}
+```
+ 
+The `<section_ordering>` is the zero-indexed position of the section within that page's `sections` array (so `"index:0"` is the first section of the home page).
+ 
+### Entry fields
+ 
+| Field | Required | Notes |
+|---|---|---|
+| key | yes | short identifier, lowercase, underscore-separated (e.g. `logo`, `hero_about`, `illustration_team_values`). Unique within its scope. |
+| kind | yes | one of: `logo`, `hero`, `illustration`, `icon`, `infographic`. No other values permitted. |
+| prompt | yes | full generation prompt, one sentence to one paragraph. Reflect the site's `imagery_direction` and `colour_mood`. |
+| style_hints | optional | JSON object. Use `aspect_ratio` (e.g. "1:1", "16:9", "4:3") to control image proportions. Other keys (`medium`, `mood`, `palette`) are advisory and may be ignored. |
+| constraints | optional | JSON object. Currently informational only — does not influence generation. Reserved for future use (anticipated: per-provider validation, content safety modes). |
+ 
+### What to populate
+ 
+- **`site`** — imagery that appears across pages or is brand-level. Always include one `logo` entry. Optionally include one site-wide brand `hero` or `illustration` entry. Two to three entries is typical.
+- **`pages`** — one entry per page-specific image. Always include a `hero` entry for the `index` page, and a `hero` entry for every other page whose `sections` array contains a hero-class component. The map key is the page's `name` field. Skip pages that have no hero section.
+- **`sections`** — for icons, illustrations, or infographics attached to a specific section. Use sparingly in v1 — most plans will have zero section-scope entries. Only emit a section entry when a specific section's imagery need is not covered by the page hero.
+ 
+**Each entry produces exactly ONE image.** If a concept requires multiple images (e.g., six icons representing six gripper actuation types, or three illustrations representing three values), emit one entry per image with a distinct `key` for each. The image model interprets a single prompt as a single image — describing multiple images in one prompt produces a multi-panel composition that is unusable. Err toward over-decomposing rather than under-decomposing: a few unused icons are cheaper than one botched multi-panel image.
+ 
+### Per-row prompt construction
+ 
+For each entry, write a `prompt` that:
+- **Describes ONE image.** Never use "set of", "multiple", "various", "a series of", or counting words ("six", "three") that imply a composition. Each entry is its own image.
+- Names the subject concretely (what is in the image)
+- Reflects the site's `design_intent.imagery_direction` and `colour_mood`
+- For icons specifically: emphasise "single", "flat", "minimal", "line illustration"; specify a flat solid single-colour background and single-weight line icon — one single uniform background colour, no gradients, no shadows, no checkerboard pattern, no transparency, no photorealism. Icons are placed inside a styled container ("chip") on the page, so an OPAQUE flat background is correct and expected — do NOT request or imply transparency. DO NOT NAME A COLOUR OR A HEX VALUE: the site's own palette is prepended to this prompt at generation time, and a colour written here would contradict it
+- Avoids brand markings, logos in the subject (unless the entry IS a logo), and text-on-image unless explicit
+- Is self-contained — the image generator sees only this prompt, not the surrounding site context
+ 
+### Worked example
+ 
+```
+"imagery": {
+  "site": [
+    {
+      "key": "logo",
+      "kind": "logo",
+      "prompt": "A precise, technical logomark — geometric, restrained, no human figures, no text outside the wordmark itself"
+    },
+    {
+      "key": "hero_canonical",
+      "kind": "hero",
+      "prompt": "A dramatic, high-contrast close-up of an industrial robotic gripper in soft directional lighting, neutral background"
+    }
+  ],
+  "pages": {
+    "index": [
+      {
+        "key": "hero_home",
+        "kind": "hero",
+        "prompt": "A dramatic, high-contrast close-up of an industrial robotic gripper in soft directional lighting, neutral background"
+      }
+    ],
+    "about": [
+      {
+        "key": "hero_about",
+        "kind": "hero",
+        "prompt": "A wide-angle view of a modern automated production line, calm and orderly, blue and grey palette"
+      },
+      {
+        "key": "illustration_team_values",
+        "kind": "illustration",
+        "prompt": "Stylised group of engineers collaborating around a workbench, no faces visible, mid-century technical illustration feel",
+        "style_hints": {"medium": "line drawing", "mood": "collaborative"}
+      }
+    ],
+    "tools": [
+      {
+        "key": "hero_tools",
+        "kind": "hero",
+        "prompt": "An engineering workspace abstraction — measurement instruments, technical drawings, soft daylight"
+      }
+    ]
+  },
+  "sections": {
+    "index:2": [
+      {
+        "key": "icon_precision",
+        "kind": "icon",
+        "prompt": "A single minimalist flat icon representing precision engineering — line illustration, geometric, sharp corners, single-weight linework on a flat solid single-colour background, one single uniform background colour, no gradients, no shadows, no checkerboard, no transparency, no photorealism, and no named colour or hex value — the site palette supplies the colours",
+        "style_hints": {"aspect_ratio": "1:1"}
+      },
+      {
+        "key": "icon_speed",
+        "kind": "icon",
+        "prompt": "A single minimalist flat icon representing fast cycle speed — line illustration, dynamic geometric form, single-weight linework on a flat solid single-colour background, one single uniform background colour, no gradients, no shadows, no checkerboard, no transparency, no photorealism, and no named colour or hex value — the site palette supplies the colours",
+        "style_hints": {"aspect_ratio": "1:1"}
+      },
+      {
+        "key": "icon_reliability",
+        "kind": "icon",
+        "prompt": "A single minimalist flat icon representing process reliability — line illustration, balanced geometric form, single-weight linework on a flat solid single-colour background, one single uniform background colour, no gradients, no shadows, no checkerboard, no transparency, no photorealism, and no named colour or hex value — the site palette supplies the colours",
+        "style_hints": {"aspect_ratio": "1:1"}
+      }
+    ]
+  }
+}
+```
+ 
+Note in the example above: `image_prompts.hero_home` would carry the same subject as the `pages.index[0]` entry's prompt, satisfying rule 14. The `pages.index` hero is REQUIRED whenever the index page has a hero section (which is nearly always). The three icon entries in `sections."index:2"` demonstrate the key decomposition principle: each conceptually-distinct image gets its own entry — never describe multiple images in a single prompt.
+ 
+## Strategy Guidance
+ 
+If a domain strategy is available above, use it as strong input:
+- The recommended site_type should guide the overall structure
+- The recommended page_types should inform which pages you plan
+- The revenue model should shape what conversion/lead-capture mechanisms you include
+- The tone should influence your style_collection choice
+ 
+EVERY page needs a `meta_description`. It is what a search engine prints under the page title, and on listing pages it is shown as the card excerpt, so it is read by people far more often than the page itself. Write it as a promise to a visitor, not as a description of the build: 120-155 characters, one sentence, plain English, no site name suffix, no build or generator wording. If a page is genuinely too thin to describe, that is a signal the page should not be planned.
+
+You have FINAL SAY on architecture. If you disagree with the strategy, go with your judgment but note why in strategy_notes.
+ 
+Return JSON:
+{
+  "site_type": "from the strategy, roadmap, or your own assessment",
+  "strategy_notes": "any notes on how you used or diverged from the strategy/roadmap",
+  "pages": [
+    {
+      "name": "index",
+      "title": "Page Title | Site Name",
+      "meta_description": "One sentence, 120-155 characters, saying what a visitor gets from this page.",
+      "page_type": "index",
+      "nav_label": "Home",
+      "nav_order": 1,
+      "in_header": true,
+      "in_footer": true,
+      "sections": [{"name": "hero", "facts": []}, {"name": "features", "facts": ["F1-example-id"]}, {"name": "testimonials", "facts": []}, {"name": "call-to-action", "facts": []}]
+    }
+  ],
+  "style_collection": "style-name",
+  "needs_logo": true,
+  "needs_images": true,
+  "image_prompts": {
+    "logo": "Description for logo generation",
+    "hero_home": "Description for home hero image"
+  },
+  "imagery": {
+    "site": [
+      {"key": "logo", "kind": "logo", "prompt": "..."}
+    ],
+    "pages": {
+      "index": [
+        {"key": "hero_home", "kind": "hero", "prompt": "..."}
+      ]
+    },
+    "sections": {}
+  },
+  "design_intent": {
+    "style_direction": "professional-dark or modern-light or bold-creative",
+    "colour_mood": "Description of colour feeling and why it fits the industry",
+    "typography_mood": "Description of font personality",
+    "imagery_direction": "What images should show",
+    "layout_preference": "Layout style description",
+    "avoid": ["Things to avoid in design"]
+  },
+  "content_direction": {
+    "voice": "How the site should sound",
+    "emphasis": "What to emphasise in content",
+    "avoid_phrases": ["Phrases to never use"],
+    "social_proof_style": "How to handle testimonials and proof",
+    "blog_strategy": "Content strategy for blog if applicable"
+  }
+}
+ 
+RULES:
+1. Use component names from the Available Section Components list for sections arrays — UNLESS the roadmap specifies section_types, in which case use those
+2. Every page MUST have a page_type from the canonical list
+3. Pages with page_type entity-directory, entity-page, tool, blog-index, blog-post may have empty sections arrays
+4. Content and index pages need sections arrays populated
+5. Always include: index (home) and contact pages (unless the roadmap says otherwise)
+6. Keep header navigation to 5-8 items maximum
+7. Set needs_logo: true and needs_images: true (always)
+8. Provide detailed image_prompts for logo and hero_home
+9. Include design_intent with explicit colour mood, typography direction, and layout preferences
+10. Include content_direction with voice, emphasis, and avoid_phrases tailored to the target audience
+11. If the classification data includes content_features.news_feed.recommended = true, add "latest-news" to the homepage sections
+12. When a roadmap is present, the pages and section_types from the current phase take precedence over your own page planning
+13. Populate the `imagery` block per the Imagery Block rules above. At minimum: one site-scope `logo` entry, one page-scope `hero` entry under `pages.index`, and one page-scope `hero` entry for every other page whose `sections` array contains a hero-class component
+14. `imagery` and `image_prompts` must be consistent: the site-scope `logo` entry's prompt should match `image_prompts.logo`; the `pages.index` `hero` entry's prompt should match `image_prompts.hero_home`
+15. Use ONLY the allowed values for `kind` (logo|hero|illustration|icon|infographic). Section scope keys MUST follow `"<page_name>:<ordering>"` format with a colon. Wrong values fail DB CHECK constraints and the plan is rejected
+16. Each entry in `imagery` produces exactly ONE image. NEVER describe multiple images in a single prompt. If a section conceptually needs N icons (e.g., six gripper types, three pricing tiers), emit N separate entries with distinct `key` values. Phrases like "set of", "multiple", "various", "a series of", or counting words ("six", "three") cause the image model to produce a multi-panel composition that is unusable. Over-decomposing is cheap (a few unused icons); under-decomposing is expensive (manual cleanup of botched output).
+17. Section entries may be plain strings ("hero") or objects ({"name": "features", "facts": ["F1-…"]}). When the Verified Facts section above lists facts, EVERY section entry on EVERY page must be the object form with an explicit "facts" key — including pages you are carrying over unchanged; a plain-string entry means you have not decided that section. Put every fact you want stated into exactly ONE section's "facts" list, using the IDs exactly as listed there (an ID not in that list is ignored). Decide ownership for every fact in the roster: a fact left out of every list is stated nowhere on the site, so leave one out only deliberately. Spread facts across sections — never give two sections three or more of the same facts. "facts": [] marks a section that deliberately states no verified facts (the right value for most hero, call-to-action and navigation sections). When no Verified Facts are listed, still use the object form with "facts": [] on every section — a plain string there leaves the writer unconstrained, which is the failure this rule exists to prevent (bugs_open/380).
+18. If the classification data includes any content_features directory key (model_directory, adoption_tracker, protocol_tracker, mortgage_lender_directory, savings_provider_directory, health_insurer_directory) with recommended = true, apply the Directory rule above: the matching section component on the homepage, and when separate_page = true, the dedicated page with its exact name, exact page_type, and hero + listing + call-to-action sections
+ 
+19. MATCH STRUCTURE TO PROMISE. Each component above carries what it can EXPRESS: `list` (renders a bulleted or numbered list), `table` (renders a table), `items` (renders a fixed set of repeating cards or entries), `html-block` (the writer may put subheadings, lists, emphasis and tables inside it), or `[prose only]` (paragraphs, and nothing else). A `[prose only]` section CANNOT render a list no matter what is written for it — the markup is not in its template — and the writer will silently flatten the promise into paragraphs. So: if a page or a section you are planning promises a month-by-month calendar, a step-by-step process, a checklist, a comparison, or a specification, at least one section on that page MUST express `list`, `table`, `items` or `html-block`. This is the difference between a page that keeps its own heading's promise and one that reads as padding. Do not pad the other way either: a page with nothing enumerable on it is right to be all prose.
+
+Return ONLY valid JSON.
+
+CRITICAL OUTPUT FORMAT - JSON:
+- Output ONLY the raw JSON object or array
+- Do NOT wrap in markdown code fences (no ``` or ```json)
+- Do NOT add explanatory text before or after the JSON
+- Start your response with { or [ and end with } or ]
+- Ensure valid JSON syntax (proper quotes, commas, brackets)
+
+Example CORRECT:
+{"site_type": "brochure", "recommended_builder": "multipage-website-builder"}
+
+Example INCORRECT:
+```json
+{"site_type": "brochure"}
+```
+
+Note: This classification...
+
+=== THE PLAN IT RETURNED ===
+{
+  "site_type": "editorial",
+  "strategy_notes": "Following the domain strategy closely. The site is a calendar-first editorial content hub for UK homeowners and renters. No shop, no affiliate links, no product recommendations. Revenue model is display advertising on a large library of seasonal articles. Structure: homepage oriented to the current month, twelve month-index pages as blog-index pages, topic category pages (garden, home, shed/outbuildings), option-comparison articles, about/editorial-approach page, and contact page. The homepage surfaces seasonal content and establishes the anti-commercial, plain-language identity. I am keeping header navigation tight: Home, This Month, Garden, Home Maintenance, Comparisons, About — six items. The twelve month pages and the shed/outbuildings category are accessible from within the calendar navigation and footer but not all in the header to avoid clutter. Blog-post pages are planned as the template for individual articles. I chose collection-garden-tools-uk as the style collection because it is the only hub-category collection in the home/garden space, which fits the editorial content-hub model. The site needs a calm, readable, modern-light feel — no dark backgrounds, no bold gradients, no lifestyle imagery.",
+  "pages": [
+    {
+      "name": "index",
+      "title": "Home Garden — What to do, when to do it, and whether it can wait",
+      "meta_description": "Practical, month-by-month home and garden guidance for UK households — what genuinely needs doing, what can wait, and what to check before you spend money.",
+      "page_type": "index",
+      "nav_label": "Home",
+      "nav_order": 1,
+      "in_header": true,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "info-card-grid", "facts": []},
+        {"name": "period-calendar", "facts": []},
+        {"name": "content-listing", "facts": []},
+        {"name": "generic-text-block", "facts": []}
+      ]
+    },
+    {
+      "name": "this-month",
+      "title": "This Month in Your Garden and Home | Home Garden",
+      "meta_description": "What genuinely needs doing in your garden, shed and home this month — with regional timing notes and honest advice on what can safely wait.",
+      "page_type": "blog-index",
+      "nav_label": "This Month",
+      "nav_order": 2,
+      "in_header": true,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "january",
+      "title": "January — Garden and Home Jobs for This Month | Home Garden",
+      "meta_description": "What to do in your garden and home in January — urgency signals, regional timing, DIY-or-professional guidance and pre-spend checklists for UK households.",
+      "page_type": "blog-index",
+      "nav_label": "January",
+      "nav_order": 10,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "february",
+      "title": "February — Garden and Home Jobs for This Month | Home Garden",
+      "meta_description": "February garden and home maintenance for UK households — what is urgent, what can wait, and how timing varies by region across England, Scotland and Wales.",
+      "page_type": "blog-index",
+      "nav_label": "February",
+      "nav_order": 11,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "march",
+      "title": "March — Garden and Home Jobs for This Month | Home Garden",
+      "meta_description": "March garden and home tasks for UK households — what needs doing now, what varies by region, and what to check before spending money.",
+      "page_type": "blog-index",
+      "nav_label": "March",
+      "nav_order": 12,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "april",
+      "title": "April — Garden and Home Jobs for This Month | Home Garden",
+      "meta_description": "April garden and home maintenance for UK households — urgency signals, north-south timing differences, and honest guidance on DIY versus professional jobs.",
+      "page_type": "blog-index",
+      "nav_label": "April",
+      "nav_order": 13,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "may",
+      "title": "May — Garden and Home Jobs for This Month | Home Garden",
+      "meta_description": "May garden and home tasks for UK households — what genuinely needs doing, what can wait until June, and where regional timing matters.",
+      "page_type": "blog-index",
+      "nav_label": "May",
+      "nav_order": 14,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "june",
+      "title": "June — Garden and Home Jobs for This Month | Home Garden",
+      "meta_description": "June home and garden guidance for UK households — seasonal jobs, regional timing notes, and pre-spend checklists for any work that involves money.",
+      "page_type": "blog-index",
+      "nav_label": "June",
+      "nav_order": 15,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "july",
+      "title": "July — Garden and Home Jobs for This Month | Home Garden",
+      "meta_description": "July garden and home maintenance for UK households — what is urgent, what can wait, and honest advice on regional variation across the UK.",
+      "page_type": "blog-index",
+      "nav_label": "July",
+      "nav_order": 16,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "august",
+      "title": "August — Garden and Home Jobs for This Month | Home Garden",
+      "meta_description": "August garden and home tasks for UK households — seasonal jobs, DIY-or-professional guidance, and what to check before you commit to spending.",
+      "page_type": "blog-index",
+      "nav_label": "August",
+      "nav_order": 17,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "september",
+      "title": "September — Garden and Home Jobs for This Month | Home Garden",
+      "meta_description": "September home and garden guidance for UK households — what needs doing before autumn, regional timing, and pre-spend checklists for bigger jobs.",
+      "page_type": "blog-index",
+      "nav_label": "September",
+      "nav_order": 18,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "october",
+      "title": "October — Garden and Home Jobs for This Month | Home Garden",
+      "meta_description": "October garden and home maintenance for UK households — autumn preparation, urgency signals, and honest advice on what can safely wait until spring.",
+      "page_type": "blog-index",
+      "nav_label": "October",
+      "nav_order": 19,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "november",
+      "title": "November — Garden and Home Jobs for This Month | Home Garden",
+      "meta_description": "November home and garden tasks for UK households — what genuinely needs doing before winter, and what is better left until the new year.",
+      "page_type": "blog-index",
+      "nav_label": "November",
+      "nav_order": 20,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "december",
+      "title": "December — Garden and Home Jobs for This Month | Home Garden",
+      "meta_description": "December garden and home guidance for UK households — winter protection, indoor maintenance, and what you can safely leave until January.",
+      "page_type": "blog-index",
+      "nav_label": "December",
+      "nav_order": 21,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "garden",
+      "title": "Garden Maintenance — Seasonal Guidance for UK Gardens | Home Garden",
+      "meta_description": "Practical garden maintenance guidance for UK households — lawn care, planting, pruning, soil and pest management organised by season and region.",
+      "page_type": "blog-index",
+      "nav_label": "Garden",
+      "nav_order": 3,
+      "in_header": true,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "home-maintenance",
+      "title": "Home Maintenance — Seasonal Guidance for UK Homes | Home Garden",
+      "meta_description": "Practical home maintenance guidance for UK households — damp, pointing, gutters, fascias, insulation and indoor upkeep organised by season and urgency.",
+      "page_type": "blog-index",
+      "nav_label": "Home Maintenance",
+      "nav_order": 4,
+      "in_header": true,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "shed-and-outbuildings",
+      "title": "Shed and Outbuildings — Maintenance and Repair Guidance | Home Garden",
+      "meta_description": "Practical guidance on maintaining, repairing and weatherproofing your shed and outbuildings — roofing, timber treatment, bases and seasonal checks.",
+      "page_type": "blog-index",
+      "nav_label": "Shed & Outbuildings",
+      "nav_order": 5,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "comparisons",
+      "title": "Option Comparisons — Common Materials and Methods Compared | Home Garden",
+      "meta_description": "Honest side-by-side comparisons of common garden and home materials — what each option suits, what it is bad at, and which conditions matter most.",
+      "page_type": "blog-index",
+      "nav_label": "Comparisons",
+      "nav_order": 6,
+      "in_header": true,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero", "facts": []},
+        {"name": "generic-text-block", "facts": []},
+        {"name": "content-listing", "facts": []}
+      ]
+    },
+    {
+      "name": "about",
+      "title": "About Home Garden — Editorial Approach and What We Will Not Do | Home Garden",
+      "meta_description": "How Home Garden works — a non-commercial, calendar-first editorial site for UK households with no affiliate links, no named brands and no manufactured urgency.",
+      "page_type": "content",
+      "nav_label": "About",
+      "nav_order": 7,
+      "in_header": true,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero-about", "facts": []},
+        {"name": "about-content", "facts": []},
+        {"name": "info-card-grid", "facts": []},
+        {"name": "generic-text-block", "facts": []}
+      ]
+    },
+    {
+      "name": "contact",
+      "title": "Contact Home Garden | Home Garden",
+      "meta_description": "Get in touch with the Home Garden editorial team — questions, corrections, suggestions or feedback about our UK home and garden guidance.",
+      "page_type": "content",
+      "nav_label": "Contact",
+      "nav_order": 8,
+      "in_header": false,
+      "in_footer": true,
+      "sections": [
+        {"name": "hero-contact", "facts": []},
+        {"name": "contact-form", "facts": []},
+        {"name": "contact-info", "facts": []}
+      ]
+    },
+    {
+      "name": "blog-post",
+      "title": "Article | Home Garden",
+      "meta_description": "Practical, UK-specific guidance following the four-part template — urgency signal, regional timing, DIY-or-professional, and pre-spend checklist.",
+      "page_type": "blog-post",
+      "nav_label": null,
+      "nav_order": null,
+      "in_header": false,
+      "in_footer": false,
+      "sections": []
+    }
+  ],
+  "style_collection": "collection-garden-tools-uk",
+  "needs_logo": true,
+  "needs_images": true,
+  "image_prompts": {
+    "logo": "A clean, restrained logomark for a practical home and garden editorial site — a simple geometric form suggesting a house roofline joined with a single leaf or garden element, no text outside the wordmark, modern and readable at small sizes, no decorative flourishes, no photorealism",
+    "hero_home": "A calm, wide view of an ordinary UK back garden in soft natural daylight — a modest lawn, a small shed, a mixed border with familiar plants, a brick house wall visible at the edge, overcast British sky, no people, no branding, no text, natural and unaspiational, documentary feel",
+    "hero_this_month": "A close view of seasonal garden work in progress — a pair of garden gloves resting on a wooden fence rail beside a trowel, soft overcast British light, no people visible, quiet and practical atmosphere",
+    "hero_garden": "A realistic UK garden border in mid-season — mixed perennials, a section of lawn edge, a garden fork resting against a low wall, soft daylight, no people, no branding, documentary naturalism",
+    "hero_home_maintenance": "The exterior of a typical UK semi-detached house — brick wall, painted soffits, a downpipe, a section of pointing visible, soft overcast daylight, no people, architectural and practical rather than aspirational",
+    "hero_comparisons": "A flat-lay arrangement of common garden and home materials — a piece of roofing felt beside a section of rubber membrane, a handful of bark mulch beside gravel, arranged on a plain workbench surface, soft even lighting, no branding, no text",
+    "hero_about": "A simple, quiet workspace — a notebook open on a plain table beside a mug, a window showing a blurred garden view beyond, soft natural light, calm and editorial in mood, no people, no branding"
+  },
+  "imagery": {
+    "site": [
+      {
+        "key": "logo",
+        "kind": "logo",
+        "prompt": "A clean, restrained logomark for a practical home and garden editorial site — a simple geometric form suggesting a house roofline joined with a single leaf or garden element, no text outside the wordmark, modern and readable at small sizes, no decorative flourishes, no photorealism"
+      }
+    ],
+    "pages": {
+      "index": [
+        {
+          "key": "hero_home",
+          "kind": "hero",
+          "prompt": "A calm, wide view of an ordinary UK back garden in soft natural daylight — a modest lawn, a small shed, a mixed border with familiar plants, a brick house wall visible at the edge, overcast British sky, no people, no branding, no text, natural and unaspirational, documentary feel",
+          "style_hints": {"aspect_ratio": "16:9"}
+        }
+      ],
+      "this-month": [
+        {
+          "key": "hero_this_month",
+          "kind": "hero",
+          "prompt": "A close view of seasonal garden work in progress — a pair of garden gloves resting on a wooden fence rail beside a trowel, soft overcast British light, no people visible, quiet and practical atmosphere",
+          "style_hints": {"aspect_ratio": "16:9"}
+        }
+      ],
+      "garden": [
+        {
+          "key": "hero_garden",
+          "kind": "hero",
+          "prompt": "A realistic UK garden border in mid-season — mixed perennials, a section of lawn edge, a garden fork resting against a low wall, soft daylight, no people, no branding, documentary naturalism",
+          "style_hints": {"aspect_ratio": "16:9"}
+        }
+      ],
+      "home-maintenance": [
+        {
+          "key": "hero_home_maintenance",
+          "kind": "hero",
+          "prompt": "The exterior of a typical UK semi-detached house — brick wall, painted soffits, a downpipe, a section of pointing visible, soft overcast daylight, no people, architectural and practical rather than aspirational",
+          "style_hints": {"aspect_ratio": "16:9"}
+        }
+      ],
+      "shed-and-outbuildings": [
+        {
+          "key": "hero_shed",
+          "kind": "hero",
+          "prompt": "A modest wooden garden shed in a UK back garden — timber cladding weathered but maintained, a small window, a padlock on the door, gravel path leading to it, soft overcast light, no people, no branding",
+          "style_hints": {"aspect_ratio": "16:9"}
+        }
+      ],
+      "comparisons": [
+        {
+          "key": "hero_comparisons",
+          "kind": "hero",
+          "prompt": "A flat-lay arrangement of common garden and home materials — a piece of roofing felt beside a section of rubber membrane, a handful of bark mulch beside gravel, arranged on a plain workbench surface, soft even lighting, no branding, no text",
+          "style_hints": {"aspect_ratio": "16:9"}
+        }
+      ],
+      "about": [
+        {
+          "key": "hero_about",
+          "kind": "hero",
+          "prompt": "A simple, quiet workspace — a notebook open on a plain table beside a mug, a window showing a blurred garden view beyond, soft natural light, calm and editorial in mood, no people, no branding",
+          "style_hints": {"aspect_ratio": "16:9"}
+        }
+      ],
+      "contact": [
+        {
+          "key": "hero_contact",
+          "kind": "hero",
+          "prompt": "A letterbox on a painted front door of a UK terraced house, soft overcast daylight, a small pot plant beside the step, no people, no text, quiet and welcoming",
+          "style_hints": {"aspect_ratio": "16:9"}
+        }
+      ]
+    },
+    "sections": {
+      "index:1": [
+        {
+          "key": "icon_seasonal_calendar",
+          "kind": "icon",
+          "prompt": "A single minimalist flat icon representing a calendar with a leaf motif — line illustration, geometric, single-weight linework on a flat solid single-colour background, one single uniform background colour, no gradients, no shadows, no checkerboard, no transparency, no photorealism, and no named colour or hex value — the site palette supplies the colours",
+          "style_hints": {"aspect_ratio": "1:1"}
+        },
+        {
+          "key": "icon_option_comparison",
+          "kind": "icon",
+          "prompt": "A single minimalist flat icon representing two items placed side by side for comparison — line illustration, geometric, balanced, single-weight linework on a flat solid single-colour background, one single uniform background colour, no gradients, no shadows, no checkerboard, no transparency, no photorealism, and no named colour or hex value — the site palette supplies the colours",
+          "style_hints": {"aspect_ratio": "1:1"}
+        },
+        {
+          "key": "icon_checklist",
+          "kind": "icon",
+          "prompt": "A single minimalist flat icon representing a checklist with tick marks — line illustration, geometric, single-weight linework on a flat solid single-colour background, one single uniform background colour, no gradients, no shadows, no checkerboard, no transparency, no photorealism, and no named colour or hex value — the site palette supplies the colours",
+          "style_hints": {"aspect_ratio": "1:1"}
+        },
+        {
+          "key": "icon_uk_map",
+          "kind": "icon",
+          "prompt": "A single minimalist flat icon representing a simplified outline of the United Kingdom — line illustration, geographic silhouette, single-weight linework on a flat solid single-colour background, one single uniform background colour, no gradients, no shadows, no checkerboard, no transparency, no photorealism, and no named colour or hex value — the site palette supplies the colours",
+          "style_hints": {"aspect_ratio": "1:1"}
+        }
+      ]
+    }
+  },
+  "design_intent": {
+    "style_direction": "modern-light",
+    "colour_mood": "Muted natural greens and warm stone tones — the palette of a UK garden in overcast daylight. A primary muted green (think moss or sage) paired with warm off-white backgrounds and stone-grey text. Accent colour is a soft earthy brown or lichen gold used sparingly for links and active states. Nothing bright, nothing saturated. The feeling is quiet competence: a gardening book cover, not a garden centre poster.",
+    "typography_mood": "Clean, readable serif or slab-serif for article headings — the feel of a well-edited practical manual. Sans-serif body text at comfortable reading sizes. Nothing condensed, nothing display-weight. Generous line height. The typography should say 'someone has taken care over this' without drawing attention to itself.",
+    "imagery_direction": "Documentary, naturalistic photography of ordinary UK gardens, houses, sheds and maintenance work. Overcast British light. No aspirational lifestyle imagery. No people's faces. No styled scenes. The images should look like what a reader's own garden actually looks like — modest, real, familiar. Materials and tools shown honestly on workbenches or in situ. No branding visible in any image.",
+    "layout_preference": "Magazine-style editorial grid with clear content hierarchy. Generous whitespace between article cards but not excessive. Month navigation prominent and always accessible. Article pages use a single-column reading layout with comfortable measure. Category and month index pages use a clean card grid. No sidebars on article pages. No carousels or sliders anywhere on the site.",
+    "avoid": [
+      "Dark backgrounds",
+      "Carousels or sliders",
+      "Large hero images with text overlaid",
+      "Playful illustration styles",
+      "Product card layouts or basket icons",
+      "Excessive whitespace that makes pages feel empty",
+      "Bright saturated colours",
+      "Stock photography of smiling people gardening",
+      "Aspirational lifestyle imagery",
+      "Any layout element that implies a shop or checkout"
+    ]
+  },
+  "content_direction": {
+    "voice": "Plain, calm and practical — the register of a knowledgeable neighbour who happens to know about buildings and gardens. Second person throughout. Uses contractions naturally. Not stiff, not breezy. Earns trust through specificity and honesty about uncertainty rather than claimed authority. States the practical conclusion before the explanation. Acknowledges regional variation and genuine uncertainty rather than papering over it.",
+    "emphasis": "Every article must resolve urgency in its first paragraph — is this task urgent right now or can it wait? Regional timing variation must be flagged wherever it exists. DIY versus professional distinction must be explicit. Pre-spend checklists must appear on any article where money is likely to be involved. The calendar structure is the backbone — content is organised by when it matters, not by what category it belongs to.",
+    "avoid_phrases": [
+      "Transform your garden",
+      "Paradise",
+      "We recommend",
+      "Our top pick",
+      "Act now before",
+      "Don't miss your window",
+      "Available at all good garden centres",
+      "We tested",
+      "Discover",
+      "Unlock",
+      "Explore our range",
+      "Shop now",
+      "Buy",
+      "Get yours",
+      "Claim",
+      "Limited time",
+      "Best in class",
+      "Game changer",
+      "Must have",
+      "Essential purchase"
+    ],
+    "social_proof_style": "No testimonials, no social proof, no user reviews. The site earns trust through the quality and honesty of its guidance, not through claimed endorsement. If reader feedback is ever surfaced, it would be in the form of corrections acknowledged — never praise displayed.",
+    "blog_strategy": "The article library is the entire product. Phase one targets 40-60 articles covering the highest-volume seasonal questions: lawn care timing (scarifying, aerating, feeding, mowing height), pruning calendars for common UK plants, shed roof replacement and timber treatment, pointing and damp inspection, gutter clearing, frost protection, hardening off, mulching timing. Each article follows the four-part template: urgency signal first, regional calibration where it exists, DIY-vs-professional distinction, pre-spend checklist where money is involved. Phase two adds option-comparison articles using structured comparison tables with explicit downside rows — membrane vs felt for shed roofs, bark vs gravel for mulching, concrete vs slabs for shed bases. Cross-linking between adjacent months creates a natural navigation loop. The anti-urgency voice and calendar structure create repeat visits as the year progresses."
+  }
+}

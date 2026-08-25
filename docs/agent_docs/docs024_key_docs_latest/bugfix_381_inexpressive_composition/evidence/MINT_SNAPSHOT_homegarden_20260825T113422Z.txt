@@ -1,0 +1,52 @@
+### reconcile mint snapshot for homegarden.uk — captured 2026-08-25 11:34:22Z
+### For the bugfix_206_directory_build_handler lane, on their request and with their query VERBATIM.
+### UNFILTERED on created_by, deliberately: their RUNBOOK filters created_by='reconcile_site_plan',
+### which returns empty on a successful build that minted through WriteBuildItemsAction instead —
+### and would then read as a failure. The unfiltered version shows WHICH DOOR actually fired.
+### untouched_since_emit is their gate: any write bumps updated_at, including a legitimate claim.
+
+Output format is unaligned.
+SET
+item_key|item_type|handler_agent|status|page_type|stamped|created_at|updated_at|created_by|untouched_since_emit
+research_homegarden.uk|needs_domain_research|domain-research-classifier|complete||f|2026-08-25 10:21:53.243647+00|2026-08-25 10:44:52.710156+00|domain-submitter|f
+vertical_research_homegarden.uk|needs_vertical_research|vertical-exemplar-researcher|complete||f|2026-08-25 10:44:49.072607+00|2026-08-25 10:54:26.033395+00|domain-research-classifier|f
+strategy_homegarden.uk|needs_strategy|domain-strategist|complete||f|2026-08-25 10:54:23.977562+00|2026-08-25 10:58:48.202134+00|vertical-exemplar-researcher|f
+briefing_homegarden.uk|needs_briefing|build-briefing-agent|complete||f|2026-08-25 10:58:46.578312+00|2026-08-25 11:08:41.157704+00|domain-strategist|f
+site_plan_homegarden.uk|needs_site_plan|build-site-planner|complete||f|2026-08-25 11:08:37.702474+00|2026-08-25 11:31:16.106209+00|build-briefing-agent|f
+needs_page:about|needs_page|page-build-handler|triaged|content|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:april-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:august-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:blog-post|needs_page|page-build-handler|triaged|blog-post|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:comparisons-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:contact|needs_page|page-build-handler|triaged|content|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:december-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:february-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:garden-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:home-maintenance-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:index|needs_page|page-build-handler|triaged|landing|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:january-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:july-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:june-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:march-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:may-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:november-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:october-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:september-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:shed-and-outbuildings-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_page:this-month-index|needs_page|page-build-handler|triaged|section-index|t|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+reconcile_rerender:71674bef-2f26-4442-81f5-c49b5bde1153|needs_rerender|rerender-pages|triaged||f|2026-08-25 11:31:05.210259+00|2026-08-25 11:31:05.210259+00|reconcile_site_plan|t
+needs_composition|needs_composition|site-design-planner|triaged||f|2026-08-25 11:31:07.52699+00|2026-08-25 11:31:07.52699+00|build-site-planner|t
+needs_design|needs_design|webdesign-agent|triaged||f|2026-08-25 11:31:07.52699+00|2026-08-25 11:31:07.52699+00|build-site-planner|t
+needs_imagery:page:about:hero_about|needs_imagery|image-build-handler|triaged||f|2026-08-25 11:31:12.74617+00|2026-08-25 11:31:12.74617+00|build-site-planner|t
+needs_imagery:page:comparisons-index:hero_comparisons|needs_imagery|image-build-handler|triaged||f|2026-08-25 11:31:12.74617+00|2026-08-25 11:31:12.74617+00|build-site-planner|t
+needs_imagery:page:contact:hero_contact|needs_imagery|image-build-handler|triaged||f|2026-08-25 11:31:12.74617+00|2026-08-25 11:31:12.74617+00|build-site-planner|t
+needs_imagery:page:garden-index:hero_garden|needs_imagery|image-build-handler|triaged||f|2026-08-25 11:31:12.74617+00|2026-08-25 11:31:12.74617+00|build-site-planner|t
+needs_imagery:page:home-maintenance-index:hero_home_maintenance|needs_imagery|image-build-handler|triaged||f|2026-08-25 11:31:12.74617+00|2026-08-25 11:31:12.74617+00|build-site-planner|t
+needs_imagery:page:index:hero_home|needs_imagery|image-build-handler|triaged||f|2026-08-25 11:31:12.74617+00|2026-08-25 11:31:12.74617+00|build-site-planner|t
+needs_imagery:page:shed-and-outbuildings-index:hero_shed|needs_imagery|image-build-handler|triaged||f|2026-08-25 11:31:12.74617+00|2026-08-25 11:31:12.74617+00|build-site-planner|t
+needs_imagery:page:this-month-index:hero_this_month|needs_imagery|image-build-handler|triaged||f|2026-08-25 11:31:12.74617+00|2026-08-25 11:31:12.74617+00|build-site-planner|t
+needs_imagery:section:index:1:icon_checklist|needs_imagery|image-build-handler|triaged||f|2026-08-25 11:31:12.74617+00|2026-08-25 11:31:12.74617+00|build-site-planner|t
+needs_imagery:section:index:1:icon_option_comparison|needs_imagery|image-build-handler|triaged||f|2026-08-25 11:31:12.74617+00|2026-08-25 11:31:12.74617+00|build-site-planner|t
+needs_imagery:section:index:1:icon_seasonal_calendar|needs_imagery|image-build-handler|triaged||f|2026-08-25 11:31:12.74617+00|2026-08-25 11:31:12.74617+00|build-site-planner|t
+needs_imagery:section:index:1:icon_uk_map|needs_imagery|image-build-handler|triaged||f|2026-08-25 11:31:12.74617+00|2026-08-25 11:31:12.74617+00|build-site-planner|t
+needs_imagery:site:-:logo|needs_imagery|image-build-handler|triaged||f|2026-08-25 11:31:12.74617+00|2026-08-25 11:31:12.74617+00|build-site-planner|t
