@@ -203,3 +203,72 @@ The 2026-08-25 diagnosis verdict names it as *"the only call site the index show
 returns nothing repo-wide, and every `handler_agent` reference under `internal/core-manager/admin/`
 is an INSERT column list. The verdict's own caveat — only a signature was indexed, not a body — is
 the tell. The code index lags the working branch; verify a symbol before spending a round on it.
+
+## ⚠⚠ ENUMERATE **EVERY** JSONB COLUMN — the `spec` twin above is HALF the query
+
+The section above says "enumerate the stamps, do not test for the ones you know", and it was
+written after the loop caught a missed `spec` key. **It was then run against `spec` only, and
+missed `result.deferred_by` on 62 rows** — 62 of the 114 this lane had just called *"no trace of
+any kind"*. `result` is an ordinary provenance channel here: migration `442` stamps
+`result.repair_284` on this same table.
+
+```sql
+-- BOTH columns. There is no third JSONB column on site_work_items; check \d if that changes.
+SELECT 'spec' AS col, k, count(*) FROM site_work_items w, LATERAL jsonb_object_keys(w.spec) k
+WHERE <your population> GROUP BY 1,2
+UNION ALL
+SELECT 'result', k, count(*) FROM site_work_items w, LATERAL jsonb_object_keys(w.result) k
+WHERE <your population> GROUP BY 1,2
+ORDER BY 3 DESC;
+```
+
+**The generalisable form: apply the lesson to the CLASS, not to the instance that taught it.** The
+class here is "provenance can live in any JSONB column on the row", not "check `spec` harder".
+
+[MEASURED 2026-08-25] the corrected split of 303 `deferred` rows: 87 `spec.parked_by` (migration
+389) · 4 `spec.deferred_reason` · 98 empty-handler roadmap rows · **62 `result.deferred_by`** ·
+**52 genuinely unstamped**.
+
+## ⚠⚠ GREP THE DOCUMENTS, NOT ONLY THE CODE — on this tree, the writer is often a session
+
+`bugs_open/396` was filed asserting *"no Go path produces this shape"* (true, and re-verified) and
+therefore listing a hand-run `psql` UPDATE as *"OPEN — no evidence beyond the absence of
+alternatives"*. The evidence had been in the repo for weeks. **One grep finds it:**
+
+```bash
+grep -rn "SET status='deferred'\|SET status = 'deferred'" docs/ | grep -v sql_for_agents
+```
+
+It lands on `mortgagecalculator_couk_adoption/HANDOFF_2026-08-03_continue_here.md:81-90` — a
+documented *"every 15s, defer anything dispatchable"* backstop. ⚠ **That statement sets `status`
+and `updated_at` and nothing else, which is precisely why its rows carry no stamp.** Also worth a
+pass:
+
+```bash
+git log --all --grep='defer' --oneline | head -30    # commit 90a4fb812: "→ deferred (UPDATE 14)"
+```
+
+**"No code does this" and "nobody did this" are different statements.** CLAUDE.md's opening fact is
+that many sessions work this tree and this database by hand; a census of the *codebase* cannot
+answer a question about *actors*.
+
+## ⚠ Someone else's `[UNVERIFIED]` is a lead, not a boundary
+
+`mortgagecalculator_couk_adoption/NOTES…:2844` carries **"[UNVERIFIED] what deferred them … a
+hand-park at adoption is the obvious guess and I did not establish it"** — written by the lane whose
+own handoff, in the same directory, holds the recipe it ran. That marker was inherited at face value
+and the whole question re-derived from scratch. **An uncertainty marker records what THAT session
+checked. It is not a statement about what is knowable, and the cheapest thing to check first is
+whether the marker's own lane already answered it.**
+
+## Before releasing ANY parked row, ask its holder
+
+Not every park is abandoned. [MEASURED 2026-08-25] the 60 `loancalculator_rebuild_thread` rows carry
+a live release condition in `result.deferred_reason` — *"un-park after rebuild verify"* — and the 2
+`apis-uk-bees-lane` rows state their own unblock condition. **Blanket re-arming would fire 60 rows
+another lane is deliberately holding.**
+
+```sql
+SELECT result->>'deferred_by', result->>'deferred_reason', count(*)
+FROM site_work_items WHERE status='deferred' AND (result ? 'deferred_by') GROUP BY 1,2;
+```
