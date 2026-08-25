@@ -917,3 +917,56 @@ duplicate edit to a file another lane is working in.
 **Cross-lane state, now closed:** they confirmed their fix does not touch the birth INSERT's column
 list and will not reintroduce `usage_count`. That was the only thing that could have broken 610's
 precondition, so there is no remaining dependency between the lanes.
+
+---
+
+## 2026-08-25 evening — a "fresh build" that contained the fix on 12 pods of 151. 610 still HELD.
+
+A fresh chassis build was deployed and the one remaining action was to apply `610` (the DROP). **It
+was not applied, and it must not be.** The precondition machinery did exactly what it was built for.
+
+### What the checks said
+
+Build stamp read from `service_binary_capabilities`, ordered by `last_seen_at`: `4c996e1b5…`, commit
+dated **2026-08-24 23:04** — older than part 1. Ancestry: part 1 **NOT** an ancestor, with a working
+control (`bb04a03e1`, committed after the build, correctly NOT an ancestor).
+
+Then the binary probe **contradicted it**: `usage_count, avg_quality_score` **ABSENT**, control
+PRESENT — i.e. part 1 *is* live.
+
+**Two checks I had built to agree, disagreeing. That is the only reason this was caught.**
+
+### The cause: the fleet is running TWO builds at once
+
+`[MEASURED 2026-08-25 ~19:1xZ]`
+
+| git_commit | pods | contains part 1? |
+|---|---|---|
+| `4c996e1b5…` | **139** | **NO** — still names `usage_count` in its INSERT |
+| `a7459a44b…` | **12** | yes |
+
+The stamp query ordered by `last_seen_at` returned an **old-build** pod; `-l app=agent-chassis`
+handed me a **new-build** pod. Each check was right about the pod it read, and they read different
+pods. Confirmed by probing a pod of the OLD build directly (`agent-site-publisher-a00ebc58-hvjjw`):
+old INSERT literal **PRESENT**, control **PRESENT**.
+
+**So applying 610 tonight would have broken component creation on 139 of 151 pods.**
+
+### My precondition was TRUE and still wrong — the quantifier was missing
+
+It read *"a chassis build containing that commit is LIVE"*. One was. **What it needed was "EVERY live
+build contains it".** Corrected in 610's header, which now requires enumerating the live builds
+(`SELECT git_commit, count(DISTINCT pod_name) … GROUP BY 1`) and demands YES for every one, plus an
+ABSENT probe on a pod of each. Logged in `WRONG_CALLS.md` — fourth in an arc where every entry is a
+**correct statement answering a slightly different question than the one being decided**.
+
+### The transferable half
+
+**A redundant check earns its place when it can DISAGREE.** I added the binary probe as
+belt-and-braces for the ancestry check, expecting them to agree and treating agreement as the
+benefit. Its actual value was that it reads a *different pod*, so a split fleet makes them
+contradict. Three pod-scoped checks all shared one blind spot; a fourth of the same kind would have
+added nothing.
+
+This is `bugs_open/249`'s "per SERVICE, not per fleet" landmine, met from a new direction: I applied
+that lesson to *"is it deployed"* and never to *"is it deployed EVERYWHERE"*.
