@@ -45,3 +45,48 @@ That is twice today.
 
 Nothing here is urgent and nothing is broken for a customer right now. The cost is that work we
 decided to do can vanish silently, and the page it belonged to cannot be asked again.
+
+## 2026-08-25 (later) — the machine could not find the culprit either, and that is worth knowing
+
+I handed the question to the platform's own diagnosis loop rather than guessing. It ran four
+rounds, read the real code and the live database, and came back **"not confirmed"** — its own words
+were *"zero remaining named candidates in the read code… hand to a human; do not auto-conclude."*
+
+That is a genuine result, not a wasted run, and it earned its cost twice.
+
+**It caught something I had missed.** I had been separating the honest parked jobs from the
+suspicious ones by looking for the two "who parked this and why" stamps I knew the platform used.
+There was a **third** one I had never heard of, and four jobs carry it — an owner-sanctioned park
+from 12 August, fully explained. Four out of a hundred-odd, so the headline barely moves (118 down
+to 114). But the mistake underneath is the useful bit: **I tested for the labels I already knew
+instead of asking what labels exist.** That is one query, and it is now written down. It caught
+something in the other direction within the minute, too: another field looked like a "why it was
+parked" note on 22 jobs and is actually a "why it was found" note, so trusting it would have made
+the problem look smaller than it is.
+
+**And it got one thing wrong, which I checked rather than took on trust.** It ended by asking for
+the code of a particular function, calling it the only place that could do what we are looking for.
+That function **does not exist** anywhere in our codebase. Its own report flagged that it had only
+seen the name and not the body — which was the clue. Had I taken the verdict at face value I would
+have spent another round chasing something that isn't there. Worth saying plainly: the loop is very
+good and it is not an oracle, in either direction.
+
+**Where it leaves us.** I have filed it as **bug 396**, with the root cause openly recorded as *not
+established* rather than filling the gap with the comfortable answer. What the file does carry is
+eight specific explanations we can now rule out, each with the evidence, so nobody has to walk that
+ground again. Two possibilities remain and both are labelled as unproven: that a routine site scan
+parks them as a side effect (we know one was finishing at exactly the right minute on the right
+site — but something happening at the same time is not the same as something doing it), and that
+earlier sessions parked them by hand (for which I have no evidence at all beyond having run out of
+alternatives, which is not evidence).
+
+**One thing did get fixed on the way**, and it may matter more than the 114. There is a setting a
+future session could put on any agent that would create this exact problem deliberately and at
+speed — it writes whatever word you give it straight into the job's status, with nothing checking
+that the word is one the system understands. "Deferred" is the natural word to choose and it is
+precisely the wrong one. All four places currently using it happen to have chosen a safe value, by
+habit rather than by any rule. That trap is now written into the landmines file, where a session
+about to touch it will see it first.
+
+**Nothing here is urgent and nothing is broken for a customer.** The cost is that work we decided
+to do can vanish without a trace, and the page it belonged to cannot be asked for again.
