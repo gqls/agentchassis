@@ -1229,3 +1229,29 @@ Rulings (owner, 2026-08-25): 1(a) ratify all 24 · 2 retire · 3 accept 365 · 4
   `eb7d92371` landed — the shared-tree discipline working between strangers. Their correction of
   their own stale "25 of 25 at cap" premise (my `835ab0585` moved it under their feet) is theirs to
   record and was well handled.
+
+### The rename round, and the passenger my own commit took while I was being thanked for avoiding one
+
+`8d798266` round 1: **REVISE** (editquality HIGH + four echoes) — the registry sketch showed three
+`instrumented` entries unrelated to the rename. The architecture seat guessed *"likely diff bleed
+from another lane editing the same shared JSON"* — right, and one step short: `[MEASURED]`
+`git show eb7d92371` carries the three entries **in the commit**, not just the sketch.
+**My pathspec commit took `bugs_open/388`'s uncommitted registry entries as SAME-FILE
+PASSENGERS** — the one class CLAUDE.md documents as unpreventable — *in the same hour that lane was
+holding its own commit to avoid splitting mine, and I was praising the discipline.* The discipline
+was right and worked; the passenger is the residue it cannot remove.
+
+Handled per the book: 388 messaged the same hour (**do not re-add**; your entries are at HEAD,
+well-formed — the shipped self-consistency test parses `owner`/`review_by` and is green at
+`eb7d92371`; cite the commit), attribution recorded on both sides, and round 2 resubmitted with the
+committed diff as the sketch and **the passenger hunk left visible and labelled** — stripping it
+would be round 1's defect inverted, a sketch that hides part of the tree.
+
+The helper-existence objections were answered with provenance rather than assertion: `scanOrFatal`/
+`scanBaseline` (fb1b8a9be, approved `2e5f687d`, refactor `4d5c1523` r2) and `findingCodeRoster`
+(`finding_code_roster_test.go:44`, approved `be1fd678`).
+
+**The transferable check, added to the runbook rule**: before submitting a sketch built from a diff
+of a SHARED file, read the hunks and ask whose they are. A working-tree diff of a shared file is a
+census of every session's edits, not of yours — and after a pathspec commit, so is the committed
+diff of that file.
