@@ -270,7 +270,7 @@ gaswholesalers.com/service-areas).
 > template still have NO `c-` token in stored `rendered_html`, 26 of them locked (as of
 > 2026-08-25).** Per function, the unconverted counts are `generic-text-block` **26 of 188**,
 > `evidence-timeseries` **3 of 3**, `tool-loan-repayment` **2 of 2**, `faq` 1 of 88,
-> `mechanism-flow` 1 of 6, plus 14 tool functions with one each.
+> `mechanism-flow` 1 of 6, plus 14 tool functions with one each. **⚠ Do not quote that 48 without the harm narrowing three paragraphs below — 8 / 1 / 0. It is consistency debt, not damage, and the bare number has already been read as breakage once.**
 >
 > So the line above — *"`evidence-timeseries` (3/3/3)"* — is **exactly wrong for the placements**:
 > all three still serve their pre-conversion literal ids (`evidence-timeseries-leakage`, `-ifr`,
