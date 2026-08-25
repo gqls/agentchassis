@@ -153,6 +153,13 @@ type renderAuditContrast struct {
 	Need             float64 `json:"need"`
 	FontPx           int     `json:"font_px"`
 	OverImage        bool    `json:"over_image"`
+	// FGWinner is the declaration the adapter PROVED decides this element's
+	// colour, by removing it and watching the computed value move
+	// (bugs_open/390). It is what an appended repair has to beat, and without
+	// it every contrast fix is aimed at the theme whether or not the theme can
+	// govern the pixel. Nil on an old-shape reply, on a capped page, and on a
+	// page the adapter abandoned - all three must read as "no attribution".
+	FGWinner *cascadeWinner `json:"fg_winner"`
 }
 
 // filingSelector is the ONE place that decides what selector a finding is filed
@@ -223,6 +230,19 @@ type renderAuditPayload struct {
 		// from every older one. Retraction reads it to refuse to grade a
 		// new-shape row against an old-shape observation (bugs_open/352).
 		SelectorScheme string `json:"selector_scheme"`
+		// CascadeScheme is the adapter's attribution capability declaration,
+		// present on every reply from an adapter that attributes declarations
+		// and absent from every older one. The routing below is gated on it, so
+		// an old adapter produces a spec byte-identical to today's rather than
+		// one carrying silently-absent routing fields.
+		CascadeScheme string `json:"cascade_scheme"`
+		// CascadeUnverified / CascadeCapped / CascadeDirtyPages are the
+		// adapter's own accounting for what it could NOT attribute. Carried so
+		// this action can report them: a truncated or blinded sweep must never
+		// read as a clean one.
+		CascadeUnverified int `json:"cascade_unverified"`
+		CascadeCapped     int `json:"cascade_capped"`
+		CascadeDirtyPages int `json:"cascade_dirty_pages"`
 	} `json:"summary"`
 }
 
@@ -319,6 +339,13 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 	overImage := 0
 	skippedUnverified := 0
 	skippedUnanchored := 0
+	// bugs_open/390 routing accounting. Reported UNCONDITIONALLY, zero included,
+	// for the same reason as the skip counters beside them: an absent number and
+	// a zero are indistinguishable to a reader, and only one of them means
+	// "nothing happened".
+	cascadeAttributed := 0
+	cascadeUnattributed := 0
+	cascadeUnreachable := 0
 
 	for _, c := range payload.Contrast {
 		if c.OverImage {
@@ -396,6 +423,51 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 		// observation (see retractResolvedContrastFindings).
 		if payload.Summary.SelectorScheme != "" {
 			spec["selector_scheme"] = payload.Summary.SelectorScheme
+		}
+		// bugs_open/390: what the repair must BEAT, and whether the surface
+		// css-patch-agent edits can beat it at all.
+		//
+		// GATED ON THE ADAPTER'S CAPABILITY DECLARATION, not on the presence of
+		// a winner. An adapter too old to attribute sends no cascade_scheme, and
+		// this block then writes nothing, so the spec is byte-identical to
+		// today's. Keying on the winner instead would make "old adapter" and
+		// "this page had nothing to attribute" the same spec, which is the
+		// version-skew shape bugs_open/352 already paid for once.
+		if payload.Summary.CascadeScheme != "" {
+			surface, req := contrastRepairRoute(c.FGWinner, selector)
+			spec["repair_surface"] = surface
+			spec["cascade_scheme"] = payload.Summary.CascadeScheme
+			switch surface {
+			case repairSurfaceTheme:
+				cascadeAttributed++
+			case repairSurfaceUnreachable:
+				cascadeUnreachable++
+			default:
+				cascadeUnattributed++
+			}
+			if c.FGWinner != nil && c.FGWinner.Verified {
+				spec["winning_rule"] = c.FGWinner
+			}
+			if req != nil {
+				// An example the platform has CHECKED, not one it hopes is
+				// right: try the obvious scoping and keep the first that
+				// actually satisfies the requirement. Omitted entirely when
+				// none does, because a worked example that does not work is
+				// worse than none.
+				for _, cand := range []string{
+					selector,
+					"body " + selector,
+					c.FGWinner.Selector,
+					"body " + c.FGWinner.Selector,
+				} {
+					if cand != "" && satisfiesRequirement(cand, req) {
+						req.Beats = c.FGWinner.Selector
+						spec["override_example"] = cand
+						break
+					}
+				}
+				spec["override_requirement"] = req
+			}
 		}
 		specJSON, mErr := json.Marshal(spec)
 		if mErr != nil {
@@ -558,6 +630,25 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 	// unreachable pages — the very rows retraction must not touch. Renaming
 	// 242's key would break its consumers, so they are told apart by name here
 	// rather than left to be discovered.
+	// bugs_open/390. Reported unconditionally, zero included, beside the skip
+	// counters they belong with. cascade_scheme_present is the discriminator a
+	// reader actually needs: three zeros with it FALSE mean "this adapter cannot
+	// attribute", and three zeros with it TRUE mean "it attributed nothing" -
+	// opposite situations that a bare zero collapses into one.
+	//
+	// ⚠ Like skipped_unverified_selector before them, these have NO consumer
+	// beyond this result map and the log line below. Stated rather than left to
+	// be discovered: a counter nobody reads is a measurement nobody has.
+	result["cascade_scheme_present"] = payload.Summary.CascadeScheme != ""
+	result["cascade_attributed"] = cascadeAttributed
+	result["cascade_unattributed"] = cascadeUnattributed
+	result["cascade_unreachable"] = cascadeUnreachable
+	// The adapter's own account of what it could not attribute, carried through
+	// unchanged. A high cascade_unverified is the probe going blind, which is a
+	// different fact from simple pages and must not be read as one.
+	result["cascade_unverified_by_probe"] = payload.Summary.CascadeUnverified
+	result["cascade_capped_by_probe"] = payload.Summary.CascadeCapped
+	result["cascade_dirty_pages"] = payload.Summary.CascadeDirtyPages
 	result["retracted"] = retracted
 	result["retracted_parked"] = retractedParked
 	result["retraction_scope_pages"] = len(payload.Summary.PagesAudited)

@@ -121,6 +121,21 @@ type ContrastFinding struct {
 	Need             float64 `json:"need"`
 	FontPx           int     `json:"font_px"`
 	OverImage        bool    `json:"over_image"` // backdrop unknown; ratio is approximate
+	// FGWinner is the declaration that actually decides this element's `color`,
+	// proven by removing it and watching the computed value move
+	// (cascade_attribution.go). It is what a repair has to BEAT, and without it
+	// the platform aims every contrast fix at the site theme whether or not the
+	// theme can govern the pixel (bugs_open/390).
+	//
+	// Absent on an old-shape reply, and absent when the per-page attribution cap
+	// was hit. ALWAYS read Verified before routing on any other field of it.
+	//
+	// Foreground only, deliberately, in this first cut: a contrast repair
+	// overwhelmingly changes the ink, and attributing the effective BACKGROUND
+	// needs the node effBG stopped at, which is inside the shared contrastMathsJS
+	// kernel that must stay byte-identical. Named here so its absence reads as a
+	// stated boundary rather than an oversight.
+	FGWinner *CascadeWinner `json:"fg_winner,omitempty"`
 }
 
 // BrokenImage is an <img> the browser could not load.
@@ -191,6 +206,29 @@ type RenderAuditResult struct {
 		// silently dropped (the no-silent-caps rule): a non-zero here is a
 		// producer defect in this very file, and the only place it can be seen.
 		SelectorsUnverified int `json:"selectors_unverified,omitempty"`
+		// CascadeScheme names the attribution contract this reply speaks, and is
+		// set UNCONDITIONALLY for the same reason as SelectorScheme: absent must
+		// mean "this adapter is too old to attribute", never "this page had
+		// nothing to attribute". The consumer keys its whole routing decision on
+		// the presence of this field.
+		CascadeScheme string `json:"cascade_scheme,omitempty"`
+		// CascadeUnverified counts findings where the walker could not PROVE
+		// which declaration wins (removing its best candidate did not move the
+		// computed value). Reported rather than dropped: a high count means the
+		// probe has gone blind — an opaque stylesheet, a cascade layer, or a
+		// runner-up specifying the same value — and that is a different fact
+		// from "the pages are simple".
+		CascadeUnverified int `json:"cascade_unverified,omitempty"`
+		// CascadeDirtyPages counts pages abandoned mid-attribution because a
+		// removed declaration could not be restored. Nothing further is
+		// attributed on such a page: a later measurement would be measuring our
+		// own edit.
+		CascadeDirtyPages int `json:"cascade_dirty_pages,omitempty"`
+		// CascadeCapped counts findings past the per-page attribution cap. The
+		// cap exists because attribution is CSSOM work per failing element and
+		// this adapter already runs near its timeout budget; it is reported so a
+		// truncated sweep can never read as a complete one.
+		CascadeCapped int `json:"cascade_capped,omitempty"`
 		// PagesAudited names the pages this run SUCCESSFULLY MEASURED. It is
 		// the identity half of Pages, and the two deliberately disagree:
 		// Pages counts every page ATTEMPTED (it increments before the
@@ -225,8 +263,13 @@ type RenderAuditResult struct {
 // The WCAG maths (parseRGB/lum/ratio/over/effBG) is contrastMathsJS in
 // contrast_check.go, shared verbatim with the contrast_ratio check so the two
 // cannot drift; TestAuditJSComposition pins the composed string's fragments.
-const auditJS = `() => {` + contrastMathsJS + `
-  var out={contrast:[],images:[],overflow:null},seen={};
+const auditJS = `() => {` + contrastMathsJS + cascadeAttributionJS + `
+  var out={contrast:[],images:[],overflow:null,cascadeUnverified:0,cascadeCapped:0},seen={};
+  window.__cascadeDirty=false;
+  /* Attribution is CSSOM work per FAILING element, and this adapter already
+     runs near its timeout budget. Cap it, and COUNT what the cap dropped -
+     a silent truncation reads exactly like a page with nothing to attribute. */
+  var cascBudget=40;
   var all=document.querySelectorAll('body *');
   for(var i=0;i<all.length;i++){
     var el=all[i],cs=getComputedStyle(el);
@@ -261,7 +304,13 @@ const auditJS = `() => {` + contrastMathsJS + `
     var selVerified=Array.prototype.indexOf.call(nodes,el)!==-1;
     var key=cls+'|'+cs.color+'|'+txt.slice(0,40);
     if(seen[key])continue; seen[key]=1;
+    var fgw=null;
+    if(window.__cascadeDirty){/* page mutated and not restored: attribute nothing further */}
+    else if(cascBudget<=0){out.cascadeCapped++;}
+    else{cascBudget--;fgw=winningDecl(el,'color',cascThemeLink);
+         if(fgw&&!fgw.verified){out.cascadeUnverified++;}}
     out.contrast.push({cls:cls,tag:el.tagName,selector:sel,matches:nodes.length,selectorVerified:selVerified,
+      fgWinner:fgw,
       text:txt.slice(0,80),fg:cs.color,
       bg:'rgb('+Math.round(eb.bg.r)+','+Math.round(eb.bg.g)+','+Math.round(eb.bg.b)+')',
       ratio:Math.round(r*100)/100,need:need,overImage:eb.overImage,px:Math.round(size)});
@@ -273,6 +322,7 @@ const auditJS = `() => {` + contrastMathsJS + `
   }
   if(document.documentElement.scrollWidth>window.innerWidth+1)
     out.overflow={scrollWidth:document.documentElement.scrollWidth,viewport:window.innerWidth};
+  out.cascadeDirty=!!window.__cascadeDirty;
   return out;
 }`
 
@@ -298,12 +348,19 @@ type pageAudit struct {
 		Matches          int     `json:"matches"`
 		SelectorVerified bool    `json:"selectorVerified"`
 		Text             string  `json:"text"`
-		FG        string  `json:"fg"`
-		BG        string  `json:"bg"`
-		Ratio     float64 `json:"ratio"`
-		Need      float64 `json:"need"`
-		OverImage bool    `json:"overImage"`
-		Px        int     `json:"px"`
+		FG               string  `json:"fg"`
+		BG               string  `json:"bg"`
+		Ratio            float64 `json:"ratio"`
+		Need             float64 `json:"need"`
+		OverImage        bool    `json:"overImage"`
+		Px               int     `json:"px"`
+		// FGWinner is the attributed `color` declaration (bugs_open/390). Null
+		// when the page was dirty, the cap was hit, or the adapter half of the
+		// probe is older than this struct - all three of which must decode to
+		// "no attribution", never to a zero-valued winner that reads as
+		// surface "" with Verified false and could be mistaken for a measured
+		// blindness.
+		FGWinner *CascadeWinner `json:"fgWinner"`
 	} `json:"contrast"`
 	Images []struct {
 		Src string `json:"src"`
@@ -313,6 +370,11 @@ type pageAudit struct {
 		ScrollWidth int `json:"scrollWidth"`
 		Viewport    int `json:"viewport"`
 	} `json:"overflow"`
+	// CascadeUnverified / CascadeCapped / CascadeDirty are the probe's own
+	// accounting for this page, summed into the reply so no truncation is silent.
+	CascadeUnverified int  `json:"cascadeUnverified"`
+	CascadeCapped     int  `json:"cascadeCapped"`
+	CascadeDirty      bool `json:"cascadeDirty"`
 }
 
 // Execute audits every requested URL. One unreachable page does not abort the
@@ -329,6 +391,9 @@ func (a *RenderAuditAction) Execute(ctx context.Context, req RenderAuditRequest)
 	// unreachable. A scheme declared only alongside a finding would make "clean"
 	// and "too old to verify" the same reply (bugs_open/352).
 	res.Summary.SelectorScheme = selectorSchemeVerifiedV1
+	// Same rule, same reason (bugs_open/390): a consumer must be able to tell an
+	// adapter that attributes declarations from one that is too old to.
+	res.Summary.CascadeScheme = cascadeSchemeV1
 	failedPages := map[string]bool{}
 	capture := req.CaptureRenders && a.store != nil
 	if req.CaptureRenders && a.store == nil {
@@ -373,12 +438,23 @@ func (a *RenderAuditAction) Execute(ctx context.Context, req RenderAuditRequest)
 				res.RendersFailed++
 			}
 		}
+		// The probe's own accounting for this page, summed before the findings
+		// so a capped or abandoned page is visible even when it produced none.
+		res.Summary.CascadeUnverified += pa.CascadeUnverified
+		res.Summary.CascadeCapped += pa.CascadeCapped
+		if pa.CascadeDirty {
+			res.Summary.CascadeDirtyPages++
+			a.logger.Warn("render_audit: cascade attribution abandoned - a removed declaration "+
+				"could not be restored, so nothing further was attributed on this page",
+				zap.String("url", url))
+		}
 		for _, c := range pa.Contrast {
 			res.Contrast = append(res.Contrast, ContrastFinding{
 				URL: url, Tag: c.Tag, Class: c.Cls,
 				Selector: c.Selector, Matches: c.Matches, SelectorVerified: c.SelectorVerified,
 				Text: c.Text, FG: c.FG, BG: c.BG,
 				Ratio: c.Ratio, Need: c.Need, FontPx: c.Px, OverImage: c.OverImage,
+				FGWinner: c.FGWinner,
 			})
 			if !c.SelectorVerified {
 				res.Summary.SelectorsUnverified++
