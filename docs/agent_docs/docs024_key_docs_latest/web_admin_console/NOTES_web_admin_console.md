@@ -433,3 +433,33 @@ SQL**, which no Go guard can reach. The two doors code CAN guard are the admin A
 2026-08-24, shipped) and the agent action (no caller). **So the honest next step is not a
 council round; it is that a migration touching `evidence_base` on one of those 8 sites deserves
 the `DO`/`RAISE` verify block, and that is a review habit, not a mechanism.**
+
+### 2026-08-25 late — owner feedback on the Builds screen, and a stale instruction in our own handoff
+
+Owner used the screen on `agritec.uk` and reported two things: the orchestration list runs long
+and the older rows are not interesting, and **"I don't see a terminate button anywhere"**.
+
+The second is not a bug and the screen was wrong to leave it implicit. Resume and Terminate
+render only on a **non-terminal** workflow; every row on that site is `Complete`, so no button
+can appear. Fixed by saying so, and by pinning anything still running above the fold — a
+running row hidden behind a truncation is precisely how an operator concludes the button does
+not exist. The list and the detail view now share ONE terminal test rather than two copies of
+the same status array, so what gets pinned is by construction what has the buttons.
+
+**And our own handoff was telling the owner to do something impossible.** 08-24c said to press
+Terminate on "some months-old EXECUTING_STEP orchestration". `[MEASURED 2026-08-25]`
+`orchestration_states` holds **nothing older than 2026-08-24** — about two days — so there are
+no months-old rows to find. Fleet-wide there are **7** non-terminal orchestrations and **2** are
+tagged to a site, both on `webdesign.co.uk`, started today, in the other thread's live lane.
+**So the terminate fix stays proven at the statement only, and that is a data limit, not a
+missing action** — terminating another lane's live run to exercise a button would be the wrong
+trade. Handoff item 4 corrected in place.
+
+> **The transferable bit: a screen that renders an action conditionally owes the reader the
+> condition.** Our own PLAN said "Resume button on non-terminal rows" and the code did exactly
+> that — correct, and still a support question within a day of the owner using it. The absence
+> of a control is indistinguishable from a broken one unless the screen says which.
+
+Also corrected: the list heading printed `({workflows.length})` and the API's `count` field is
+`len(workflows)` — both the PAGE SIZE. "(50)" read as a total when it was the window. Now
+"newest 50+", with the `+` only when the window is full.

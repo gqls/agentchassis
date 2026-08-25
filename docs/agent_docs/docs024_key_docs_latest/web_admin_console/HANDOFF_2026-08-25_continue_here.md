@@ -35,9 +35,16 @@ roll (dashboard `v1.0.1337`, core-manager `4c996e1b5`).
    refresher coverage at all, so nothing re-derives their registers — and the only door that has
    ever emptied one is hand-written SQL. That is a review habit (`DO`/`RAISE` verify blocks on
    migrations touching `evidence_base`), not a mechanism to build.
-4. **Owner eyeball still outstanding** from 08-24c item 1: admin.apis.uk → a site card →
-   Builds, and press Terminate on a months-old EXECUTING_STEP orchestration. sqlmock proved the
-   statement; only a real click proves the endpoint.
+4. **Owner eyeball: Builds screen DONE 2026-08-25 (feedback acted on, commit `8e5a35ef9`).
+   The Terminate half is BLOCKED ON DATA, not on the owner.** ⚠ 08-24c's "press Terminate on a
+   months-old EXECUTING_STEP orchestration" **cannot be followed: no months-old rows exist.**
+   `[MEASURED 2026-08-25]` `orchestration_states` holds nothing older than **2026-08-24** (~2
+   days — the table is reaped), and fleet-wide there are **7** non-terminal orchestrations, of
+   which **2** are tagged to any site (`webdesign.co.uk`, started today, and that is the other
+   thread's live lane — do not terminate it to test a button). So the endpoint fix stays proven
+   only at the statement (sqlmock) until a genuinely stuck run appears on a site this lane owns.
+   The screen now pins any running orchestration above the fold and says "Nothing running…"
+   when there is none, so the next real one is findable rather than hunted for.
 
 ## 2. What is true today, with its proof
 
