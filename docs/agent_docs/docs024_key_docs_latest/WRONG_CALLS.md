@@ -53092,3 +53092,46 @@ Two lanes had already agreed the correct posture in writing; I did not read it a
 had agreed not to do. **What generalises: on a shared tree, "it fails in my checkout" is a fact about
 my checkout. HEAD is a different object and has to be asked directly — and a symbol that appears
 only in a dirty file is not a symbol, it is someone's plan.**
+
+---
+
+## 2026-08-25 — I wrote a "known broken, do not debug" note that was false within ninety minutes
+
+**Lane:** `bugfix_375_completion_verifier_gap`.
+
+**What I wrote.** In this lane's cold-start handoff, under the heading a fresh session reads first:
+*"⚠ `go test ./platform/livespec/` FAILS, and it is NOT theirs and NOT yours … A third lane's
+breakage. **Do not debug it.**"* It was true when written, carefully attributed, and verified at
+committed HEAD with no WIP overlaid.
+
+**What was true ninety minutes later.** The `bugs_open/333` lane fixed it (`559e60bd0`). Both
+packages pass at HEAD. My instruction now tells the next session not to debug something that works,
+and — worse — pre-explains away a red result they might legitimately cause themselves.
+
+**What caught it.** The other lane messaged to say they had fixed it. **Nothing in my own process
+would have.** I had no re-check on that claim, because it read as a fact about the world rather than
+a measurement with a shelf life.
+
+**The cheap check that would have.** The one I had already applied to three other people's documents
+the same day: **date the claim and name what would falsify it.** A one-line
+`scripts/verify-head-builds.sh --test ./platform/livespec/` re-run is what converts "known broken"
+back into "check it". I wrote none, because I did not think of a *warning* as a claim.
+
+**Why this one is worth a row rather than a shrug — the irony is the finding.** This session's whole
+substance was correcting statements that outlived their truth:
+
+- a comment saying the phase-2 auditor had not shipped, which cost a council seat a MEDIUM objection
+  against a correct claim;
+- `CQ-023`'s fail-close warning, which was false *because of the very bug it warned about*;
+- a landmine footprint naming `findResolvedRequiredFields`, a symbol with zero grep hits.
+
+All three were correct when written. I catalogued that pattern, wrote a landmine about a neighbouring
+case, put "a stale document is read as ground truth by reviewers" in the handoff's trap list — **and
+then produced a fresh instance the same afternoon, in the document whose job is to be trusted.**
+
+**The transferable rule, which is narrower and more useful than "documents go stale":** a
+**known-broken note is the most perishable thing a handoff can carry, and the most confidently
+obeyed.** Every other kind of stale line makes a reader do redundant work; this kind makes them
+*skip* work, and skipping is invisible. So: **never write "do not debug X" without the command that
+re-establishes it and the date it was last true** — and re-run that command before believing your own
+file, which is now trap 11 in this lane's handoff.
