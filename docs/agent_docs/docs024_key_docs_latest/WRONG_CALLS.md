@@ -50998,3 +50998,23 @@ I followed it for three appends and abandoned it the moment I needed to edit one
 
 **And when the advisory fires: diff it, do not reason about it.** `git show <sha> -- <file> | grep
 '^-'` took ten seconds and turned "that's just my line" into four lines that were not.
+
+## 2026-08-25 — `bugs_open/387` lane: I made the trap's own mistake while investigating the trap, and I handed a peer evidence I had not dated
+
+**1. Mid-investigation of "the filer curled a composed URL", I curled two composed URLs.** Checking
+the two other fleet hits of my placeholder census, I probed `https://idea.uk/guides/testing-it.html`
+and `https://relojistas.com/glosario-cronografo.html` — both 404 — and for a moment had "two more
+damaged pages". Both URLs were composed from `pages.name`; `pages.url` says
+`/guides/testing-it/index.html` and `/glosario/cronografo.html`, both 200. Same session, same hour,
+same trap as the finding under my hands (entry above, `WRONG_CALLS` 50901). Caught in-session only
+because the trap was already open in my terminal. **The cheap check:** the SELECT is one line and it
+comes FIRST — `pages.url`, then curl, never the reverse. Now `scripts/probe-page-url.sh`.
+
+**2. The "confirmation from the wrong binary" in the entry above was MINE to date, not the
+receiver's to catch.** I offered the 06:26Z model-directory build as "your predicted clean pass,
+observed" without comparing its `execution_started_at` against the receiving lane's roll time
+(09:27:24Z) — the exact per-service check my own memory index carries ("a roll is not evidence your
+fix shipped — per SERVICE"). The peer caught it by reading the clock. **The cheap check:** before
+calling any build evidence FOR OR AGAINST a fix, one comparison — build start vs the service's
+build-provenance stamp time. A favourable result you hand to someone else needs the same dating as
+one you keep.

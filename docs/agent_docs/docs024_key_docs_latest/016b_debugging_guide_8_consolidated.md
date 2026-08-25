@@ -14143,3 +14143,19 @@ resolve by slug) · `bugs_open/326` (the sibling: a re-submission dedups on `ite
 and reports COMPLETED having queued nothing, so "retry" can also silently do nothing) ·
 `LANDMINES.md` "kubectl run -i --rm … kcat -P < file drops roughly 4 publishes in 5 AT EXIT 0" ·
 `WRONG_CALLS.md` 2026-08-24/25 (three occurrences of the comment-contamination trap above).
+
+### A stand-in token in a writer-visible instruction is copied into public copy verbatim, and no detector has its shape — the instruction "read the value from X" fails silently when X is not in the prompt (2026-08-25, `bugs_open/387`)
+
+The symptom is a literal like `NNN+` in served prose. The mechanism has two halves that each look
+safe alone: (1) an instruction field the writer sees (here `evidence_base.writer_block`) QUOTES an
+exemplar containing a stand-in ('Phrase it as "NNN+ AI agents"'), and a model copies quoted
+exemplars — measured 14 of 137 calls (~10%), which on a 6-hourly rebuild cadence ships within a
+day; (2) the instruction points at data ("take the live value from the fact") that the prompt does
+not contain — the unscoped writer prompt carries ONLY the writer_block, so compliance is
+impossible and the exemplar is all the model has. Neither the placeholder scan (substring list,
+no numeric shape), the template scan (`{{` only), nor the claims number scan (needs a digit) can
+see it. The check: read ONE executed prompt from `llm_call_log` by id and count occurrences of
+the value the instruction names — zero means the instruction cannot be followed, whatever it says.
+Full workup + the copy-rate and census queries: `bugs_open/387` (CORRECTED block) and
+`docs024_key_docs_latest/bugfix_387_deployed_and_404/RUNBOOK_387.md`. Fix pattern: values reach
+prompts by CODE (`composeWriterBlock` `{value}` substitution), never by a human typing a stand-in.

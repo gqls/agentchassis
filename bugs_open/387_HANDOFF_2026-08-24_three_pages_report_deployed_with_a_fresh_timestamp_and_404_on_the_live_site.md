@@ -81,3 +81,54 @@ under suspicion here, so do not verify with it.**
   `bugs_open/266` (four producers rebuild/redeploy without reading `page_status`) — adjacent
   status-vs-reality defects, neither the same as this.
 - `bugs_open/218` (the placeholder scan's coverage), `bugs_closed/015` (page_type orphaning).
+
+---
+
+> **CORRECTED 2026-08-25 (session `bugs_open/387`) — the HEADLINE (§1–§2) is REFUTED; §3 is the
+> live incident and is now the whole bug.** What caught it: the control this file lacked — a
+> known-good page at the same URL form.
+>
+> **The three pages serve, and always did.** `pages.url` is `/adoption-tracker.html`,
+> `/protocol-tracker.html`, `/model-directory.html`; all 200 (2026-08-25 ~10:28Z). The §1 probes
+> used the extensionless form, which 404s for EVERY page on this hosting — `/about`, `/pricing`,
+> `/contact`, `/services` all 404 the same way (`scripts/cloudflare/worker.js:40-44` declines the
+> slashless form deliberately). Nav, sitemap.xml, canonical and og:url all carry `.html`. §1's
+> invented-URL control proved the domain discriminates but shared the URL form with the claim, so
+> it could not test the form. Third occurrence of this exact wrong call
+> (`WRONG_CALLS.md` 2026-07-27, `LANDMINES.md` "A page's served URL is NOT derivable from
+> `pages.name`" 2026-08-09, now here — see `WRONG_CALLS.md` 2026-08-25, filer's own entry); the
+> probe is being automated as `scripts/probe-page-url.sh`.
+>
+> **§4's discriminator, run fleet-wide as a demand control (2026-08-25 ~10:40Z): 0 of 709
+> `deployed` active pages 404 at `pages.url`** (698×200; 7×302 = webdesign.uk's deliberate
+> off-domain redirect; 1×301; 3 transient TLS `000` that 200 on re-probe). The linked case of a
+> genuinely absent deployed page is covered by `dead_internal_link_live`
+> (`check_site_structural_validity.go`), and the "non-200 is a skip here / availability is
+> `site_unreachable`'s" seam is a recorded design decision (register DGH-015). **Decision: no new
+> per-page reachability check** — zero demand, existing coverage, documented seam.
+>
+> **§3 is real, PUBLIC (not held back by any 404), and root-caused.** Live at
+> `model-directory.html` (curled 2026-08-25, regenerated 06:30Z the same day): "…against the NNN+
+> agent types already running in production". Mechanism, first-hand from the executed prompt
+> (`llm_call_log` id `9ba94176…`; full evidence + queries in
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_387_deployed_and_404/{NOTES,RUNBOOK}_387.md` —
+> stated verification substituted for a 090 run per the 2026-07-31 ruling, the deciding evidence
+> being the executed prompt itself):
+> migration `557` (2026-08-22) wrote the exemplar 'Phrase it as "NNN+ AI agents"' into this site's
+> `evidence_base.writer_block` and its guard requires that literal; the unscoped writer prompt
+> contains ONLY the writer_block, never the facts values (the hero call carried **zero**
+> occurrences of the fact's value); measured since 08-22: **137** instructed writer calls,
+> **14 copied `NNN` verbatim, 0 wrote the agents value**. No detector has the shape
+> (`placeholderPatterns` = substrings, `templateVarRegex` wants `{{`, and `NNN` has no digit for
+> the claims scan). Fleet census of the candidate detector regex
+> (`\mN{2,}\+|\mNNN\M|\mX{2,}\+|\mN,NNN\M`) over all active pages' `rendered_html` +
+> `site_components`, 2026-08-25: **exactly 1 hit (this hero), 0 false positives** — bare `XX`
+> (`siglo XX`) and `[number]` (a quoted fill-in template) are deliberately NOT in the regex.
+>
+> **Fix (owner-approved plan, `bugfix_387_deployed_and_404/PLAN_2026-08-25_387.md`):** interim
+> successor migration for the writer_block (no stand-in tokens; live immediately; aiao lane told —
+> their CONTRIB names the wording as theirs to change) → framework rebuild of the page → numeric
+> stand-in blocker in `checkPlaceholderPatterns` (council-gated, inert until the next roll —
+> this bug stays OPEN until that is live) → durable close: `composeWriterBlock` carries verbatim
+> guidance so unmanaged sites (13 today) can adopt `{value}` substitution — proposed to the
+> `bugs_open/288` lane, which owns that file.
