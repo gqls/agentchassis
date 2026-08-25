@@ -50430,3 +50430,72 @@ Three things worth carrying:
 And the platform defect underneath, which is mine: a misplaced `artifact_check` was **silently**
 inert. That is the same defect as the P11 one this lane fixed four days earlier, one table over,
 left open by the person who had just written two thousand words about it. Now reported.
+
+## 2026-08-25 — `bugfix_206_directory_build_handler`: my test passed under mutation for TWO independent reasons, and I only found the second because I checked the first
+
+Two entries, both mine, both from one hour of writing a test for a door I was changing.
+
+### 1. A test that asserted nothing, and passed on the first run
+
+`WriteBuildItemsAction` had **zero** direct test coverage and I had just changed its routing, so I
+wrote `write_build_items_routing_test.go`. It passed immediately. Immediate passes on a first
+draft are the shape this file exists for, so I mutated the map back to the wrong handler and re-ran.
+**It still passed.** Two separate defects, either of which alone was fatal:
+
+- **The permissive expectation absorbed the mis-routed call.** I had registered a generic
+  `mock.ExpectExec("INSERT INTO site_work_items")` several times over as scaffolding for the
+  trailing site-level items, plus one pinned expectation carrying the handler I was asserting.
+  With `MatchExpectationsInOrder(false)`, sqlmock happily matched the wrong INSERT against a
+  generic expectation and left the pinned one **merely unused** — which it never complains about
+  unless `ExpectationsWereMet()` is called, and calling it was not workable because the shared
+  door probes inside `writeWorkItem` fire a case-dependent number of times.
+- **And the action SWALLOWS the error anyway.** `WriteBuildItemsAction`'s per-page insert is
+  `if err != nil { logger.Warn(...); continue }`. So even with correct expectations, a failed
+  INSERT does not fail the action, and the returned error can never carry the signal. I had
+  written the assertion against `err`.
+
+The fix was to pin **every** INSERT by its own `item_key` so nothing can stand in for anything
+else, and to read the outcome from `writeWorkItem`'s own `"Work item inserted"` log line — which
+it emits only after `RowsAffected > 0`. Then a mis-route matches no expectation, errors, is
+swallowed, logs nothing, and the test fails **on the absence**.
+
+**The cheap check that would have caught it: the one I ran.** Mutate before believing. What is
+worth carrying is not that — it is already in `MEMORY`. It is this: **the mutation told me the
+test was vacuous but not that it was vacuous TWICE**, and having found one cause I was ready to
+stop. The second only surfaced because the fix for the first still did not make the test fail.
+*A mutation that still passes after you fix the reason it passed means there was another reason.*
+
+### 2. The fixture was testing an empty list, and every message it printed was about routing
+
+Then the corrected tests failed — all four, with my own carefully-written messages about handlers.
+The cause was in none of them: the fixture's page row had `nav_order: nil`, and
+`scanPageRowsForBuild` scans that column into an `int`, so the row **failed to scan**, the page
+list came back empty, and the per-page loop was a no-op. The action logged
+`"no per-page builds needed; queuing site-level items only"` and returned success.
+
+So the first version of this test was doubly incapable: had the permissive expectation not
+absorbed the call, there would have been no call to absorb. **A fixture that produces zero rows
+passes every assertion about what those rows contain**, and it reports its own emptiness in a log
+line that reads like ordinary operation.
+
+**The cheap check:** assert the fixture produced the thing under test before asserting anything
+about it — the shipped version returns `inserted bool` and every test fails loudly on `!inserted`
+with a message that names the fixture, not the routing.
+
+### 3. And the claim I had committed the day before, disproved by one grep
+
+While doing the swap I read the other producer's `item_key` literal for the first time. My own
+comment, committed 2026-08-24 in `reconcile_site_plan_action.go` as part of an **APPROVED**
+council round, said `WriteBuildItemsAction` *"files into a different key namespace"*. It does not:
+`load_work_item_actions.go:335` files `needs_page:<name>`, the **same** namespace as `:289`.
+
+It mattered more than a stray inaccuracy. That sentence made the two producers look
+non-colliding — which is exactly what the round-4 guardian had said they were **not**, and whose
+objection had shaped the change the comment was written to explain. **I wrote the justification
+for a decision in terms that contradicted the reason for the decision, and it survived a council
+round and a night.** The same commit's header carried a second false claim (`"Open" = 5 statuses,
+same set the dedup index uses` — the SQL has 6, the index has 7).
+
+**The cheap check, and it is the one this file keeps writing down:** a claim about *another*
+function's literal is a `grep`, not a recollection. Both are corrected in place, dated, in the
+code itself; the status divergence turned out to have a live casualty and is now in `bugs_open/206`.
