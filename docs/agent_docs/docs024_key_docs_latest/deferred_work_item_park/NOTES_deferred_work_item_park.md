@@ -166,3 +166,35 @@ So the shape still has no live producer, and the resemblance that looked decisiv
 **[UNMEASURED]** what actually wrote the 118 — that is the loop's question, and I have deliberately
 not guessed at it here. The comfortable answer (earlier sessions running `psql` by hand) remains
 untested, and I have no evidence for it beyond the absence of alternatives, which is not evidence.
+
+### `FailWorkItemAction` conclusively ruled OUT — with a control that proves the instrument works
+
+The path stamps `handled_by = agentType` unconditionally. So "do the 118 carry `handled_by`?" is a
+decisive test — **provided the column is actually written somewhere**, or a zero means nothing.
+Both halves in one run:
+
+| the 118 (deferred, named handler, no stamp) | |
+|---|---|
+| rows | **118** |
+| with `handled_by` | **0** |
+| with `error` | **0** |
+| with `attempt_count > 0` | **0** |
+| ever `triaged_at` | **1** |
+| ever `claimed_at` | **1** |
+
+**Positive control — is `handled_by` written at all?** Yes, heavily: **7,114 of 7,329** `complete`
+rows carry it, plus 156 of 732 `cancelled`, 131 of 963 `needs_human_review`, 76 of 179 `failed`.
+So the zero above is a real absence, not a dead column. (All **303** `deferred` rows carry none,
+migration 389's 87 included — consistent, since a migration would not set it.)
+
+**Two things this establishes:**
+
+1. **`FailWorkItemAction` did not write these rows.** Not one carries its fingerprint.
+2. **117 of the 118 never entered the dispatch queue at all** — never triaged, never claimed, never
+   attempted. So the producer acted on rows in a *pre-dispatch* state, or created them parked. This
+   rules out "dispatched, then parked after a failure", which was my second-favourite hypothesis
+   and the one the `error` column would have evidenced.
+
+⚠ It still does **not** distinguish born-deferred from moved-to-deferred — `triaged_at` is NULL in
+both cases. That question may simply be unanswerable from this table, and the bug file must say so
+rather than choosing the comfortable answer.
