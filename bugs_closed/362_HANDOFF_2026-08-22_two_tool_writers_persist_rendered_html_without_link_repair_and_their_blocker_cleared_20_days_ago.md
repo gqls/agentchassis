@@ -241,3 +241,28 @@ for attribution; template stays verbatim, mirroring both siblings; discriminator
 test now anchors all THREE writers (UPDATE-anchored for this one) and the regenerate mutation is
 proven to fail it. Note the probe matters MOST here: regeneration rewrites an EXISTING tool's
 markup, where JS-built anchors are certain rather than likely.
+
+## 11. CLOSED 2026-08-25 — FIXED AND LIVE, both council rounds APPROVED, census re-run clean
+
+- **Council trail complete:** writers 1+2 corr `c6b9a382` — round 1 REVISE (the reuse seat's gating
+  HIGH *predicted* the third writer from the landmine corpus three hours before DBG-076 measured it);
+  round 2 **APPROVED** 2026-08-24 16:39Z (2 advisories, none high). Third writer corr `b8bdd4b3` —
+  **APPROVED** round 1. Commits `3a3a612d5` + `fe1dee52d`; 098 credits both trailers.
+- **LIVE:** both commits are ancestors of `4c996e1b5` (v1.0.1337's build revision, recorded
+  independently by three lanes with controls; pods 2026-08-25 09:27Z). Running-pod literal probe
+  passes its present+absent controls (absent-control exit 1, not 137) — stated as SECONDARY evidence,
+  since the discriminator substring could also come from Go's embedded file paths; ancestry of the
+  stamp is the load-bearing proof, per the estate's own deploy rule.
+- **§5 census re-run (the §9 owed item), 2026-08-25:** 662 tool components (was 597 as of
+  2026-08-22 — the fleet built 65 MORE through the now-wired writers) / 291 pages / 24 sites / 230
+  with `<script>` / **`href=""` upper bound: still exactly 1** — the known vonc.com quiz CTA (§8,
+  content work for that site's owner). The count did not rise. All four acceptance rows met.
+- **Round-2 advisories, dispositioned:** guardian-medium (script-heavy tool population) — the
+  two-armed probe ran the REAL seam over exactly that shape, both rounds; guardian-low (was the
+  regenerate arm probed against the same population?) — YES: all three writers share the one seam
+  and the one probe test file, and `b8bdd4b3`'s round reviewed the arm with that test in its edit
+  list; debug_historian-medium (verify at the RUNNING pod, not git) — done above, with the stated
+  hierarchy (stamp ancestry primary, literal probe secondary); editquality-low (`add` vs `modify`
+  label on an already-committed file) — correct, cosmetic, noted.
+- Residuals stay where §7 put them: the detection-lane misreaders, the mandatory-seam question
+  (owner-ruled NO with reopen triggers), and the vonc CTA content decision (§8).
