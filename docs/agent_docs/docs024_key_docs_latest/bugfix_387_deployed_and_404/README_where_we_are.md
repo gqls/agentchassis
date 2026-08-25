@@ -49,3 +49,16 @@ Also of note: a second copy of this investigation was almost started by another 
 afternoon; it checked first, found this one active, and stood down — and its one question
 ("does the interim fix survive the nightly refresh?") is now pinned as a dated check for
 tomorrow morning.
+
+### Evening: released, verified, closed
+
+The software release went out at 19:07 and carried everything: the new checker and the
+guidance-carry are now running, confirmed by inspecting the actual running programs on both
+servers (the marker that was provably absent this morning is present tonight, with controls both
+ways). Earlier in the evening the two tracker pages rebuilt cleanly through the corrected
+instructions — and the second rebuild did something better than confirm: it flushed out a bug in
+the other thread's not-yet-released change (the "2" in "A2A" would have wrongly blocked the page),
+which they fixed before releasing. Both bugs — theirs and ours — are now closed as fixed and
+live. One scheduled check remains for tomorrow morning (does our instruction fix survive the
+nightly register refresh), and the safety net is in place either way: if the bad token ever
+reappears, the checker now refuses the page instead of publishing it.
