@@ -50628,3 +50628,18 @@ open question, and correcting it closed both.**
 canonical whole-page walk, which was never broken — they prove the repair, not the
 fix. No multi-instance page has been through a build, `content_rewrite` or section
 edit since the roll.
+
+## 2026-08-25 — "the B2 client is committed" — it was untracked, twice running (noted lane)
+
+Commit `fb8cb5615`'s message described the B2 client in detail; the commit did
+not contain it. `b2.go`/`b2_test.go` were NEW files, and a DIRECTORY-pathspec
+commit silently excludes untracked files — the exact rule CLAUDE.md's git
+section states, read and stepped in anyway. The next commit (`33da3abfd`,
+"binary rebuilt") repeated it: "1 file changed, 0 insertions" for a described
+API migration. **What caught it:** that absurd diffstat on the second commit.
+**The cheap check skipped:** read the commit-scope block's FILE LIST against
+the files the message claims — it printed 5 names and neither new file was
+among them. A diffstat that cannot contain the change the message describes is
+the same tell in the other direction. Repaired forward in `06e...` (add + own
+commit); the binary commit had been built from the then-uncommitted sources,
+so live behaviour was never wrong — only the record was.

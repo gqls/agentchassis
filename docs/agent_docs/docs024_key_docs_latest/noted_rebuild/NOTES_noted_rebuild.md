@@ -2561,3 +2561,53 @@ Nine advisory points across 5 objecting reviewers (7 abstained), three themes:
      not built now: emit an owner-visible signal (work item) on override
      rejection. Recorded here so it is not folklore; small platform change,
      own council round when picked up.
+
+---
+
+## 2026-08-25 — B2 storage + stage 2 board BUILT AND PROVEN; deploy staged for the owner
+
+Owner rulings executed (PLAN addendum): media → B2; stage 2 mobile-first;
+deletion planned (`PLAN_2026-08-25_account_deletion.md`); advisories done
+(entry above).
+
+### B2 (engine)
+
+Bucket `personae-noted-media` (private) + app key `noted-media-engine`
+(listFiles/readFiles/writeFiles/deleteFiles, bucket-scoped) created via the
+CLI. **The live service refuses `/b2api/v2/` AND `/b2api/v3/`
+`b2_authorize_account`** ("not currently supported on API version number N")
+— found because the credential was probed against the REAL service before any
+Go was trusted; v4 nests everything under `apiInfo.storageApi` and makes
+`allowed` a bucket LIST. Client is v4, stdlib-only, refuses a non-bucket-scoped
+key. Full live round-trip through the engine's OWN client: upload, 206 ranged
+download, delete, delete-again-converges — `TestB2LiveRoundTrip`, gated on the
+env keys so CI without credentials skips loudly.
+
+Suite 13/13 + live test; mutation-proven: quota-refusal-leaks-B2-object and
+layout-clobbered-by-layoutless-save both went red.
+
+### Stage 2 board (editor)
+
+List|Board toggle; text + media as items; Pointer Events only; 44px handles,
+`touch-action:none` on handles alone; fractional-of-width coordinates;
+arrangement rides Save. Harness 51 checks over cases A–L incl. the 390px
+touch-viewport case (no overflow, touch drag, computed touch-action). Three
+board mutants red: drag-not-dirty, layout-dropped-from-save,
+pixels-not-fractions.
+
+### Misstep 12 — a directory-pathspec commit cannot take an untracked file
+
+Two commits described the B2 client; neither contained it (`WRONG_CALLS.md`
+2026-08-25 has the tell and the cheap check). Repaired forward; the shipped
+binary was always built from the real sources.
+
+### Deploy state
+
+Binary (v4 B2 + layout) built and committed. Owner runs: binary install +
+`/etc/noted/noted.env` gains the two `NOTED_B2_*` lines (snippet staged in the
+session scratchpad — the secret never entered the repo or scrollback) +
+restart. Then: startup line must read `media storage: B2 bucket
+personae-noted-media` (LogState — the greppable honest signal), 077 fires the
+stage-2 editor, page_rerender (page_id COLUMN), live smoke. Existing media
+rows keep serving from Postgres (`storage_key IS NULL` path) — no migration of
+old bytes required, drain optional later.
