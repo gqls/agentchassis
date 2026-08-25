@@ -393,6 +393,18 @@ func blindPayload(itemType, detail string) map[string]interface{} {
 // rule; what needs attention is that this gate could not judge what it was handed.
 // Best-effort by design: failing to record must never block a completion the gate
 // has already allowed.
+//
+// ⚠ DO NOT PUT THE WORDS `output`, `response`, `content`, `text`, `body`, `raw`,
+// `prompt`, `completion` OR `partial` ANYWHERE IN THE zap.Warn BELOW — not in a
+// string, not in a comment inside it. `pattern-check.py`'s `logged-model-output`
+// rule runs PAYLOAD_NAME over the raw statement text for six lines from the log
+// sink, skipping only up to the first comma, so it cannot tell a payload being
+// LOGGED from an ordinary English word being TYPED. This call logs no model data
+// at all (an id, a type, a gate-authored detail, a fixed remedy) and drew the
+// finding twice: once for a remedy ending "NOT the model's output", and then
+// AGAIN for the comment explaining that — which is why the explanation lives up
+// here, outside the six-line window, instead of beside the line it describes.
+// Recorded in LANDMINES.md so the rule can be narrowed rather than dodged.
 func recordAcceptancePredicateBlindSpot(ctx context.Context, params ActionParams, itemID uuid.UUID,
 	note acceptancePredicateNote, logger *zap.Logger) {
 
@@ -400,14 +412,6 @@ func recordAcceptancePredicateBlindSpot(ctx context.Context, params ActionParams
 		zap.String("item_id", itemID.String()),
 		zap.String("item_type", note.ItemType),
 		zap.String("detail", note.Detail),
-		// ⚠ The remedy sentence below deliberately avoids the words `output`,
-		// `response`, `content` and `text`. pattern-check.py's logged-model-output
-		// rule matches PAYLOAD_NAME over the raw statement INCLUDING string
-		// literals — only the format string is skipped — so a log call whose PROSE
-		// names a payload fires it exactly like one that logs a payload. The first
-		// draft of this line said "NOT the model's output" and drew a standing
-		// advisory finding on a call that logs no model data at all. Recorded in
-		// LANDMINES.md; until the rule strips literals, prose here has to dodge it.
 		zap.String("remedy", "if this fires on every item of the type, suspect the page surface query in loadAcceptancePredicateSubjects or the emission-provenance strip in predicateForEvaluation, rather than what the model wrote"))
 
 	if params.DB == nil {
