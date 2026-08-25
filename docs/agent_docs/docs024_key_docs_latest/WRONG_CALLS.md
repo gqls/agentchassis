@@ -50937,3 +50937,39 @@ question (the two tracker *failures* of 08-24 also predate the fix and say nothi
 **A favourable result from the wrong binary is still the wrong binary.** Scepticism has to survive
 being told what you hoped to hear, and it has to apply to a peer's evidence as much as your own —
 especially when the peer has just corrected you and you are inclined to trust them more, not less.
+
+---
+
+## 2026-08-25 — 327b lane: a PATHSPEC COMMIT commits half a rename, and the half it drops is the deletion
+
+Renaming `bugs_open/327_…_the_build_trigger…` to `327b_…` to disambiguate it from the unrelated
+bug sharing its number, I ran `git mv` and then committed with an explicit pathspec — the practice
+this repo mandates — naming the **new** path plus the documents I had updated.
+
+**`git mv` stages two things: an add and a delete.** My pathspec named only the add. So the commit
+succeeded, my working tree showed exactly one file, `git status` was quiet apart from a bare `D`,
+and **`HEAD` carried BOTH paths.** Every other session would have pulled two copies.
+
+**The effect was the precise opposite of the change's purpose.** The rename existed to remove an
+ambiguity between two bugs numbered 327; committed half, it briefly created a *third* filename and
+made the ambiguity worse for everyone but me.
+
+**What caught it:** looking at `git ls-tree -r HEAD` instead of trusting `git status`. The `D` line
+was there and I had read straight past it — a staged deletion looks like something already handled,
+because in every other context it is.
+
+**The cheap check, and it is one command:** after any rename, ask the repository what it holds
+rather than asking the working tree —
+
+```bash
+git ls-tree -r HEAD --name-only | grep <the stem>
+```
+
+Expect exactly one path. Or simpler: **name BOTH paths on the commit** — a rename is two paths, and
+the pathspec rule that protects you from other sessions' staged work is the same rule that will
+silently drop your own deletion.
+
+**Why this is worth a row rather than a shrug:** the practice that caused it is one this repo
+requires for good reasons, so it will recur for anyone renaming a file here — and it fails in the
+direction that looks correct locally while being wrong for everyone else, which is the shape this
+whole lane has been about.
