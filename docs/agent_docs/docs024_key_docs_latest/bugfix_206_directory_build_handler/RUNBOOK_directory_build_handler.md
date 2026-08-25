@@ -423,3 +423,78 @@ GROUP BY 1,2,3 ORDER BY 5 DESC, 4 DESC;
 `[MEASURED 2026-08-25]` the three hardcoding producers: 26 typed-page rows, **0** with the
 signature. ⚠ **The join reads `pages.page_type` as it is NOW**, not as it was at mint — a page can
 be re-typed by hand. That cannot manufacture the zero, but it matters if you recount the totals.
+
+## 7b. ⚠ Gate 1 has EXPIRED, and it never proved what the wording implied (2026-08-25, from the `bugs_open/381` lane's build)
+
+Three corrections to §7, all settled at the commit or in live data. **Read this before running §7.**
+
+### (i) The "population is empty" argument is spent
+
+§7 said the stamp's population was empty (508 reconcile-minted rows, none stamped) so a first hit
+was necessarily the fix. `[MEASURED 2026-08-25]` the `bugs_open/381` lane's greenfield build of
+`homegarden.uk` minted **21 stamped rows** — `reconcile_site_plan | stamped=t | 21`. The population
+is no longer empty. It emptied by **time**, not by absence: no reconcile had run since the roll.
+This was always going to expire; §7 said so. It has.
+
+### (ii) The stamp proves the **08-24** code minted the row — NOT that the swap shipped
+
+The wording "the first stamped row is necessarily the fix" was ambiguous about *which* fix, and the
+answer matters. `git log -S` settles it: the `"page_type": routeType` stamp was added by
+**`d1aa231aa` (2026-08-24 11:50)**, live since `v1.0.1334`. **Today's swap (`efec862f4`) never
+touched that emit.** So a stamped row tells you reconcile consulted `builderForPageType`; it says
+**nothing** about whether `section-index` routing is live. For that, read the handler on a
+`section-index` page — or check the pod's start time against the commit (§7c).
+
+### (iii) The killer: a build can satisfy every gate and still not DISCRIMINATE the fix
+
+`homegarden.uk` carried 21 pages: **17 `section-index`, 2 `content`, 1 `landing`, 1 `blog-post`.
+Zero `entity-directory`, zero `entity-page`.** Every one of those types routes to
+`page-build-handler` under **both** the old hardcoded literal and the new map. So the mint is fully
+*consistent* with the fix and **cannot distinguish it from the bug**. Stamped, untouched, correct —
+and worthless as proof.
+
+**So "the proof arrives free on the next greenfield build" is WRONG as written.** It requires a site
+carrying an **`entity-directory`** page (routes to `directory-build-handler` — the only type where
+old and new disagree today), or an **`entity-page`** (files a deferred `capability_gap` with an
+empty handler instead of a doomed dispatch). Check the plan for one of those **before** treating a
+build as the closure artefact:
+
+```sql
+SELECT page_type, count(*) FROM pages
+WHERE site_id=(SELECT id FROM sites WHERE domain='<domain>') GROUP BY 1 ORDER BY 2 DESC;
+-- no entity-directory and no entity-page  ⇒  this build cannot close 206, whatever else it shows
+```
+
+### (iv) One caveat RETIRED, free, from the same build
+
+§7's worry that the query's `created_by='reconcile_site_plan'` filter might read empty on a
+successful build minting through the other door: `[MEASURED 2026-08-25]` on a real greenfield build,
+`reconcile_site_plan` minted all 22, and **`WriteBuildItemsAction` did not appear as a `created_by`
+at all**. Reconcile is the greenfield door. Keep the check — one build is not a guarantee — but the
+filter is not the live hazard it looked like.
+
+## 7c. Does the running fleet carry a given commit? Two timestamps, not a grep
+
+`[LEARNED THE HARD WAY 2026-08-25 — see NOTES misstep 5]`
+
+```bash
+kubectl -n ai-persona-system get pods -l app=agent-chassis \
+  -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image,START:.status.startTime'
+git log -1 --format=%cI <your-commit>
+```
+**A binary cannot contain code committed after it started.** That is free, local, and has no failure
+mode. Preferred when it settles the question — and it usually does.
+
+Only if you need finer resolution, read the stamp and test **ancestry**:
+`kubectl … logs -l app=agent-chassis --tail=3000 | grep -m1 'build provenance'` then
+`git merge-base --is-ancestor <your-commit> <the stamp>`. On a busy service that line has scrolled;
+an empty result means "not in range", not "unstamped".
+
+**Three things NOT to do**, each of which returned a confidently wrong answer in one command here:
+- **Do not probe a symbol both versions carry.** `builderForPageType` is PRESENT on a binary that
+  predates the swap by 31 minutes — it shipped on 08-24 and dates nothing.
+- **Do not grep the binary for an ANCESTOR's sha.** A build stamps **one** sha. Grepping for
+  `d1aa231aa` returns absent on a binary that demonstrably contains that code. Ancestry is a git
+  question, not a grep question.
+- **Do not use 40 zeros as a negative control.** It came back **PRESENT** — it matches Go's internal
+  tables. The one element in the command that existed to reveal a broken method agreed with it.
