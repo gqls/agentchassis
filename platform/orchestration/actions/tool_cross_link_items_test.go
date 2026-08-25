@@ -428,3 +428,43 @@ func TestBothToolActionsDeclareTheFallbackKey(t *testing.T) {
 		}
 	}
 }
+
+// TestFallbackKeyHasNoDefault guards the one assumption the three-way split in
+// relatedPagesFromInputs cannot survive without.
+//
+// Raised as a HIGH objection by the council's editquality seat (corr 5287ef5d,
+// round 1) and it is the right question: the split reads `no_picker` from
+// `!inputs.Has("related_pages_fallback")`, and ExtractActionInputs PRE-FILLS
+// spec.Defaults into result.Values before any strategy runs. So a Default on this
+// key would make Has() return true on every run — including the error_step route
+// the whole distinction exists to detect — and `no_picker` would never fire
+// again. The bug would look exactly like the fix.
+//
+// Verified absent today on both specs; this test is what stops it arriving
+// tomorrow, which is the difference between a checked assumption and an enforced
+// one. A future author who genuinely needs a default here must read
+// relatedPagesFromInputs first — that is the point of failing loudly rather than
+// documenting it.
+func TestFallbackKeyHasNoDefault(t *testing.T) {
+	const key = "related_pages_fallback"
+	for _, tc := range []struct {
+		action string
+		spec   datahelpers.ActionInputSpec
+	}{
+		{"create_tool_component", CreateToolComponentInputSpec},
+		{"deploy_tool_to_site", DeployToolToSiteInputSpec},
+	} {
+		if v, ok := tc.spec.Defaults[key]; ok {
+			t.Errorf("%s declares a Default for %q (%v). ExtractActionInputs pre-fills Defaults into "+
+				"Values, so Has(%q) would return true even when the picker step errored to its "+
+				"error_step and produced no output field — collapsing no_picker into "+
+				"picker_declined and silently restoring the ambiguity bugs_open/330 has now been "+
+				"diagnosed for three times. If you need a default here, change relatedPagesFromInputs "+
+				"to read WasDefaulted first.", tc.action, key, v, key)
+		}
+		if reason, ok := tc.spec.Deprecated[key]; ok {
+			t.Errorf("%s marks %q deprecated (%q) — the deprecation bridge is another writer to "+
+				"Values, with the same effect on Has()", tc.action, key, reason)
+		}
+	}
+}
