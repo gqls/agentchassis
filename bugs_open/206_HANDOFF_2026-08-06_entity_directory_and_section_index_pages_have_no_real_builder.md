@@ -861,3 +861,84 @@ The three conditions in the 08-24 handoff still stand. Condition 1 gains a claus
 
 `section-index` pages staying parked is **no longer** part of the deliberate narrowing — the
 hold-out ended today. But note (b) above: the `unresolved` ones still will not move.
+
+## 2026-08-25 — COUNCIL VERDICT **APPROVED** (round 1, corr `b92e624d-15c7-4ef7-a2e5-4a7f41187b38`), and the one question three seats asked, answered with a census
+
+13 reviewers, 4 abstained, **all approve, first round**, no vetoes. Every objection was `low` and
+filed "for the record". `decided_by: all reviewers approve`. The commit (`efec862f4`) carries
+`Council-Submitted:`, so `098` credits it automatically now the correlation is approved — no amend,
+which forward-only forbids anyway.
+
+### The one substantive gap, and it was the same in three seats
+
+`bug_historian` listed it under **missing**: *"Whether any other producer besides
+WriteBuildItemsAction and reconcile_site_plan mints `needs_page:` items with a third routing copy —
+not checked."* `reuse_agent` asked to *"confirm no third copy of the routing maps survives
+elsewhere in the codebase"*. `guardian` wanted *"a fleet confirmation"* on the section-index arm.
+
+They were right that I had not checked. **Answered now, and the answer is NO — but the first half
+of it is not what I expected.**
+
+**There are SIX Go sites minting a `needs_page:<name>` item_key, not two** (`grep -rn '"needs_page:'
+--include=*.go`, 2026-08-25):
+
+| site | branches on page_type? | handler |
+|---|---|---|
+| `reconcile_site_plan_action.go:305` | yes — `builderForPageType` | routed |
+| `load_work_item_actions.go:324` (WriteBuildItems) | yes — `builderForPageType` | routed |
+| `rerender_page_sections_action.go:1424` | **no** | hardcoded `page-build-handler` |
+| `apply_adoption_plan_action.go:731` | tool vs static only | hardcoded `page-build-handler` |
+| `discovery_checks/check_incomplete_page_group.go:202` | **no** | hardcoded `page-build-handler` |
+| `page_build_failure_guard.go:194` | n/a — mints `page_build_failed`, no handler | — |
+
+So **no third copy of the MAP exists** — nothing else duplicates the page_type→handler decision.
+But three further producers choose a handler *without consulting it*, and one of them is not
+marginal: `page-rerender` is **the fleet's most active `needs_page` producer**, `[MEASURED
+2026-08-25, live UNION archive, all history]` **414 rows, 21 of them on typed pages, still minting
+today (2026-08-25)**. `site-adoption-agent`: 23 rows, 4 typed. For comparison the door I fixed
+today, `site-planner`, has 25 rows and 1 typed, last minted 2026-04-18.
+
+### …and then the evidence refused my inference, which is the useful part
+
+Having found that, the obvious next line to write was *"so 206's class is still live through the
+rerender door"*. **It is not, and I nearly filed it as a residual on an inference.** Same census,
+restricted to typed pages from those two producers:
+
+`[MEASURED 2026-08-25]` **26 rows. `error ILIKE '%no sections ready to build%'` → 0. Not one.**
+
+Their failures are a different and *deliberate* mechanism — 10 of them are the owned-page guard
+refusing (`save_page_sections: page X is rebuild_policy=owned`, plus one `OWNED_PAGE_GUARD` at
+`load_page_record`), one is content validation, and 7 completed normally.
+
+**The mechanism explains the zero, which is why I believe it rather than just recording it.** 206
+is specifically the *layout-less* case: a page with no sections in any source, which
+`page-build-handler` cannot fill because `ensure_page_section_layout` lives only in
+`directory-build-handler`'s workflow. A rerender or adoption target **already has a layout** — it
+is an existing, built page being rebuilt. The doors that skip the map are exactly the doors whose
+pages do not need it. The two doors that *do* consult it are the two that mint at **plan** time,
+which is when a page has nothing yet.
+
+**So: the routing consolidation is complete for the population that has this defect**, and the
+hardcoded handlers at the other three sites are not latent 206s. They are still a copy of an
+answer, and if a layout-less page ever reaches one of them this reasoning expires — but there is
+no evidence today that one does, and I am not filing a residual on a mechanism I cannot show
+firing.
+
+⚠ **One caveat on the census, stated because it is the kind that bites**: the join reads
+`pages.page_type` as it is **now**, not as it was when the row was minted, and a page can be
+re-typed (this estate does it by hand as a repair). So "21 on typed pages" is a current-state
+read. It cannot manufacture the zero above — a row whose page was re-typed *into* a directory
+type would still have to carry the error string, and none does — but it would matter to anyone
+recounting the totals later.
+
+### Other seat notes worth carrying
+
+- **`debug_historian`**: the zero-row claims were quoted as `[MEASURED ... live UNION archive]`
+  without the query. Fair. The queries are now inline in §2 and §5 of the section above and in this
+  one. It also flags that rollout verification must **grep the running pod**, not green tests —
+  noted for when this ships; today's change is committed, not yet rolled.
+- **`guidelines`**: file the `unresolved` status-set divergence as a follow-up work item so it does
+  not rot. It is recorded in §5(b) above with its one live casualty
+  (`adversecreditmortgage.co.uk` `blog-index`); a lane that wants it should take it from there.
+- **`editquality`**: the comment-correction edit is ancillary and does not count as coverage.
+  Agreed and never claimed otherwise.
