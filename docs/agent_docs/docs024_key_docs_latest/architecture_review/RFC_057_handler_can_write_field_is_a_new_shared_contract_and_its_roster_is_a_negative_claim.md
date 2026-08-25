@@ -85,6 +85,46 @@ must resolve steps through the ACTION REGISTRY, not by grepping config text** �
 inherits the same blind spot and goes green while being wrong about 2 of 3 agents. That is the single
 most useful thing in this RFC for whoever builds it.
 
+### 3a. ⚠ AND THE INSTRUMENT'S ERROR DIRECTION MUST MATCH THE CLAIM'S DIRECTION
+
+*Added 2026-08-25 by the `bugs_open/395` lane, whose point this is, after re-deriving the premise the
+sound way. It is the half §3 was missing, and without it §3 sends the next author to the right table
+with the wrong query.*
+
+The sound instrument searches **action names**, whole-config so no nesting can hide one:
+
+```sql
+default_config::text LIKE '%"sync_pages_to_db"%'
+  OR LIKE '%"save_page_meta_description"%' OR LIKE '%"apply_adoption_plan"%'
+```
+
+`[MEASURED 2026-08-25, live; re-run independently by this lane]` → **build-site-planner,
+meta-description-backfiller, pageflow-builder, site-adoption-agent, site-work-orchestrator**, plus
+**council-gate** and **fix-proposer**, which merely QUOTE those names in prompt text.
+**`page-build-handler` and `page-content-writer` are absent** — which is the whole premise of
+`bugs_open/395` §9, `WII-033`'s `PromotionOwes`, and `WII-035`.
+
+**Those two false positives are the RIGHT direction, and that is what makes the result usable at
+all.** This roster asserts a NEGATIVE — *this handler CANNOT write this field*. An
+**over**-inclusive instrument that still returns nothing for `page-build-handler` is strong evidence
+for that claim. An **under**-inclusive one returning nothing is no evidence whatsoever, because
+absence is exactly what it produces when it is broken.
+
+⚠ **So the same query STOPS BEING FIT FOR PURPOSE the moment the audit's question is phrased the
+other way round.** The drift audit §4 asks for is a POSITIVE claim — *has a rostered handler GAINED
+the capability?* — and answering that with an over-inclusive search means the first prompt mentioning
+an action name raises a false alarm and, worse, a maintainer silences it. **Whoever builds it must
+state which direction their instrument errs in and check that it matches the direction of the claim
+being made.**
+
+> **The general form, and it is the transferable half of this whole RFC:
+> A CONTROL PROVES YOUR INSTRUMENT IS WORKING. IT CANNOT TELL YOU THE INSTRUMENT IS POINTED AT THE
+> WRONG THING.** The 395 lane reached §3's conclusion the hard way: answering a `debugging` seat's
+> objection ("asserted from a private code read, not independently checkable by SQL") with a SQL
+> check that carried a correct demand control and asked the wrong question — *does this config
+> mention the column* — then read the answer as *can this agent write the column*. The control passed.
+> The two questions differ by two thirds of the population.
+
 ## 4. ⚠ THE OPEN RESIDUAL, conceded by its author rather than defended
 
 The council's `constitution` seat:
