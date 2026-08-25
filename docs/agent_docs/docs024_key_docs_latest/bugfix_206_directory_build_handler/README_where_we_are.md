@@ -352,3 +352,48 @@ records on a new site, which I previously could only guess at).
 
 I have logged both of my errors to the shared record, including the warning I sent to another team,
 because that one had a cost outside this lane.
+
+---
+
+## 2026-08-25 (night) — it is live, and I have made the proof permanent instead of perishable
+
+**The fix is running.** The new build carries it, and I checked that properly this time: the servers
+state which version of the code they were built from, and the change is an ancestor of it — with a
+control, meaning I also confirmed that two changes made *after* the build correctly do **not** show
+up. That control is the step I skipped yesterday, and skipping it was what produced three confidently
+wrong readings in one command.
+
+**Nothing has visibly changed, and that is correct.** The routine that files this work only runs when
+a site is planned, and nothing schedules it. The already-stuck pages hold their own place in the
+queue, which blocks them being re-filed. So the fix changes what happens on the *next* plan; it
+cannot reach backwards. I mention it because "we rolled it and nothing happened" is exactly the shape
+that gets misread as failure.
+
+### The one piece of new work
+
+Yesterday I found that our test for "did the fix work?" could be passed by a page a person had
+repaired by hand. I patched it with a check that the record hadn't been touched since it was created.
+
+That patch was correct but **perishable**: the moment the system legitimately picks the job up — a
+few minutes later — the check stops working. A proof that dies when the system does its job is not
+one you can count on being able to run.
+
+So tonight both routines now write down *which builder they chose* alongside the record. A person
+repairing a page changes the one field; they don't change that note. So the two agree when the
+machine did it and disagree for ever when a human did — and the disagreement is itself the signal,
+which is the right way round. It is written, reviewed by the council (verdict pending as I write),
+and will take effect at the next build.
+
+I deliberately did both routines rather than the one my test reads, because doing one would have
+recreated — inside the measuring instrument — the exact defect this whole bug is about: two places
+that should agree and don't.
+
+### Where we are
+
+The bug stays open for one reason, unchanged: **nobody has yet watched this work on the kind of page
+where the bug and the fix behave differently.** Today's new site had none of those pages, which is
+why it couldn't settle it. That's now written down as a precondition with a one-line check, so nobody
+spends another build finding out the same way.
+
+Everything else is done: the code is finished, reviewed and live; the follow-ups are named with
+evidence and belong to other lanes; and the handoff for whoever picks this up next is written.

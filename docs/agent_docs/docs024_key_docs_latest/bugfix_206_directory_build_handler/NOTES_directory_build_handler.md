@@ -757,3 +757,60 @@ TRUE on their whole build, contradicting the "134 of 134 absent" caveat I had in
 were right — the stamp shipped **2026-08-24** (`d1aa231aa`, live since `v1.0.1334`), my census was
 taken before any reconcile had run since that roll, and the population emptied by *time*. They had
 one build and the correct conclusion; I had the fleet history and a stale premise.
+
+## 2026-08-25 (night) — the roll landed, verified properly this time; and the closure gate stopped being perishable
+
+### The deploy check, done the way §7c prescribes — and it worked first time
+
+Yesterday's misstep 5 was three broken probes in one command. Tonight, the same question with the
+prescribed method:
+
+1. **Pods are fresh**, so the startup line is in range: both replicas print
+   `git_commit: a7459a44b68b8c67b7d7bb0ca7c064e0729d59f5` on `v1.0.1339` (started `19:07:18Z` /
+   `19:07:49Z`).
+2. **Ancestry, not equality**: `efec862f4` (the swap) and `0777eb297` (the test pins) are both
+   ancestors of that stamp.
+3. **With a control in the same breath**: two commits made *after* the build (`c591d8d61` 20:20,
+   `08bfce067` 20:19) are correctly **NOT** ancestors. That is what makes the IN results mean
+   something — and it is the step whose absence produced yesterday's 40-zeros false positive.
+
+**`section-index` → `directory-build-handler` is live at both doors.** And nothing has re-routed as
+a result, correctly: 0 reconcile runs since the roll, nothing schedules reconcile, and a parked row
+blocks its own re-mint.
+
+### Why I spent a council round on a stamp
+
+The closure gate as it stood was `spec ? 'page_type'` + `updated_at < created_at + interval '1
+second'`. Sound, but the second condition **expires on the first legitimate dispatcher claim** —
+minutes, in practice. So the proof would exist only in a window nobody is guaranteed to be watching.
+
+`spec.handler` — the handler the emit *chose*, written alongside the column it wrote — makes
+`spec->>'handler' = handler_agent` a permanent check. A hand repair updates the column and not the
+spec, so a repaired row diverges for ever. **Divergence becomes the signal** rather than an absence
+being one, which is the right way round.
+
+Both doors stamp it. A stamp at one door only would mean a reader cannot tell a mint from a repair
+at the other, and — worse — the *absence* would read as "repaired" rather than "not stamped". That
+is precisely the two-doors-disagree shape this whole bug is about, so shipping it one-sided would
+have been rebuilding the defect in the instrument.
+
+### Mutation proof, run before submitting
+
+- drop reconcile's stamp → **only** `TestReconcileStampsItsRoutingDecisionIntoTheSpec` fails;
+- drop the planner's → **only** `TestWriteBuildItemsStampsRoutingProvenanceMatchingTheHandler` fails;
+- make the stamp **disagree** with the column → **both** fail. That is the case that matters: a stamp
+  agreeing with nothing would read as a forged repair, which is worse than no stamp.
+
+Baseline and restored both green, and I checked the tree afterwards for surviving mutations
+(`grep some-other-handler` → clean) rather than trusting the restore.
+
+The matchers decode the JSON rather than substring-matching, deliberately: a substring would match
+any spec merely *containing* the handler name (`page_role`, `reason`), which is this file's own
+recorded vacuous-match trap.
+
+### One environmental note
+
+The machine was at load ~191 with 1 GB of 30 GB free; a `go test` compile was **OOM-killed**
+(`signal: killed`), which reads like a build failure and is not one. `go vet` (cheaper) confirmed the
+test code compiled, and the suite ran fine once scheduled. Disk was not the issue (`/tmp` 28%, `/`
+40%) — worth separating from the tmpfs trap, which presents as a linker error instead.
