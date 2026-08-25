@@ -340,3 +340,84 @@ git show <sha> -- <path> | grep '^+' | grep -v '^+\s*//'   # empty ⇒ comment-o
 1. `git log -S '<symbol>' -- <file>` — candidates that changed the symbol count. NOT `git log -N`.
 2. `git show <sha> --numstat -- <file>` — a carrier is fat; a comment-only commit is small.
 3. the non-comment filter above — the one that separates "contains the code" from "mentions it".
+
+## 2026-08-25 — council APPROVED round 1 (corr 18dba069), and the three advisories answered with checks
+
+11 reviewers, 6 abstained, **approved with 3 advisory objections, none high-severity**. Approval is
+not the interesting part; the objections are, and two of them were answerable only by running
+something. Answered here rather than left in the artifact.
+
+### 1. `bug_historian`, MEDIUM — "one guarded call site, the mechanism still generic elsewhere"
+
+The sharpest objection, and it used my own submission against me: my `grounded_in` names **two**
+writers of the raw `evidence_base` facts map, and I wired `recordFactHistory` into only one. If
+`evidence_citations.go` can overwrite an armed fact's `value`, the outgoing reading is lost through
+the sibling door — the exact loss this exists to prevent (016b §9, case 7).
+
+**ANSWERED — the sibling door does not exist, and it is structural rather than incidental.**
+`evidence_citations.go` is **append-only**: it builds a set of existing fact ids (`:232-237`, reading
+only `id`), `continue`s on any candidate whose id is already present (`:277-280`), constructs a
+brand-new map for the rest, and does `facts = append(facts, fact)` (`:304`). `grep '\["value"\]'`
+over that file returns **nothing**; the only `"value"` reference is the copy-from-candidate loop
+populating a NEW fact. There is no assignment into an existing facts element anywhere in the file —
+the sole `fr.(map[string]interface{})` cast is the id-collection read. A fact that already exists is
+never mutated, so its value can never be overwritten without history.
+
+### 2. `reuse_agent` MEDIUM + `prior_art_librarian` LOW — why not read the superseded rows directly?
+
+Fair, and unargued in the submission: my own evidence says the history is already recoverable from
+315 superseded `site_specs` rows, so why a second store? **The rationale I owed:**
+
+- **`numberSupported` has no database handle and must not acquire one.** It is a pure method on an
+  already-parsed `EvidenceBase`. Its consumers include `cmd/claimscan`, which imports **no database
+  package at all** — only stdlib plus `datahelpers` — and scans from an evidence JSON file exported
+  by hand. Making history a live read would mean threading a DB handle into a pure scanner that an
+  offline CLI depends on, and would make the operator tool unable to predict the gate it exists to
+  predict. That is a worse coupling than a duplicated array.
+- **The superseded rows are an audit trail, not an index.** Answering "did this fact ever hold N"
+  from them means unmarshalling every superseded revision of the *whole register* for that site —
+  per number, per component, per page, inside a scan that already runs per-component.
+- **They are unbounded.** `site_specs` has no retention job (that is why the archive reaches back to
+  2026-07-16). Reading them directly would accept every value the fact ever held, for ever,
+  reintroducing precisely the unbounded-acceptance problem the 90-entry cap exists to prevent. The
+  cap is not a storage convenience; it is the bound on what the scan will accept.
+
+So the duplication is deliberate and the superseded rows keep their job: they are the **backfill
+source** for Phase 2 and the audit record, not the read path.
+
+### 3. `guardian`, MEDIUM — "an eyeballed claim about someone else's work, not a verified one"
+
+Correct to insist, and my submission did assert it from a `git show` rather than from the file.
+**ANSWERED against the actual current file:** extracting `numberSupported` from the rolled chassis
+(`4c996e1b5`) and from HEAD and diffing them yields **exactly my 11 added lines** and nothing else.
+The other lane's two commits touch nothing inside that function, nor `ContextTerms`, `Tolerance`, or
+the tolerance switch my arm sits after.
+
+### Advisories carried forward rather than answered now
+
+- **`guardian` LOW — arming is not a bulk toggle.** The gate is per-fact *data state*, not a
+  code-level kill switch, so a careless seed could arm many facts at once and turn a contained
+  feature into a fleet-wide behaviour change with no code review in the loop. Recorded in CLM-028:
+  arming is a one-fact-at-a-time reviewed operator act.
+- **`compliance` — the Phase 2 control needs a sharper acceptance test than "read what disappears".**
+  Check that every disappearing finding sits on the register-rendering component (the
+  `evidence-chart` class). **If a disappearing finding is free-text PROSE, that is the
+  accidental-support signal, not a stale render, and arming that fact would quietly authorise
+  invented copy to pass.** This is the best thing in the verdict and it goes into Phase 2's gate.
+- **`debug_historian` — verify at the binary.** When this rolls, confirm by pod-grep for the new
+  symbols against the running binary, not by git or image tag, with a must-be-present and a
+  must-be-absent control in the same breath.
+- **`architecture` — the thing to watch, and it is not volume.** `EvidenceFact.History` is a
+  general-purpose "formerly-true value" primitive, not counting-fact-specific. If a second consumer
+  class starts arming it for a *different reason*, that accumulation crosses into `needs_rfc`
+  territory — and the cap and the opt-in default "won't self-police against semantic scope creep the
+  way they police against volume". Recorded in CLM-028.
+
+### One honest limitation of the verdict itself
+
+Three seats (`editquality`, `prior_art_librarian`, and by implication `guardian`) flagged that
+`site_specs` is **not in their available schema**, so the numeric claims this design rests on — 5/5
+findings, 8-of-29 falling facts, 315 superseded rows, the zero-consumer enumeration — **stand
+unverified by the council**. They are verified by me, with the queries in RUNBOOK §§1-4 and §7, and
+`prior_art_librarian` is right that a human should re-run them before arming any fact. An approval is
+not independent confirmation of a number a reviewer could not see.
