@@ -11,6 +11,12 @@ this file replaces those. The pre-run
 `HANDOFF_2026-08-23_garden_tools_continue_here.md` remains the reference for the pre-flight recipe
 and DNS/zone setup.
 
+> ## ⚠ SUPERSEDED the same day by `HANDOFF_2026-08-25b_the_canary_served_the_owner_reviewed_it_and_the_council_already_exists.md`
+> **The canary this file said was "the only thing left" was authorised, built, cut over and reviewed
+> by the owner within the day.** §3 (`376`'s mechanism — now with a second failure mode and a
+> verified fix design in the bug's §11) and §5 (the harness — now parameterised, control-gated and
+> chrome-stripped) still stand. §4's decision is taken. Read the b-file.
+
 ---
 
 ## 1. State of the worked site `[MEASURED 2026-08-25 09:57Z, at the served pages, cache-busted]`
