@@ -112,3 +112,57 @@ gone, `spec.parked_from_status` / `parked_reason` (naming the bug AND the restor
 `parked_by`, a `GET DIAGNOSTICS` row-count assertion against the pre-count, and a negative control
 proving nothing else moved. Every one of its 87 rows is traceable 14 days later. **Whatever made the
 other 118 left nothing.**
+
+### While the loop ran: a path that CAN write the shape, and does not
+
+My "no Go path writes `deferred` with a named handler" rested on one grep pattern
+(`SET status ... deferred`), which a **parameterised** update would walk straight past. Checked it
+properly — every `UPDATE site_work_items … SET status` in the repo, with its value:
+
+```bash
+grep -rn -A4 "UPDATE site_work_items" --include=*.go platform/ internal/ pkg/ cmd/ \
+  | grep -E "status *= *\\\$"
+```
+
+Three parameterised hits. Two are `v3_site_actions.go:6302/6312` — `UpdateWorkItemStatusAction`,
+whose `$2` is the caller's `newStatus`. The third is the interesting one:
+
+**`load_work_item_actions.go:1259` — `FailWorkItemAction` honours a step-config key
+`status_override`**, and writes it straight into `status`:
+
+```sql
+UPDATE site_work_items SET error = $2, status = $3, handled_by = $4 WHERE id = $1
+```
+
+It touches `error`, `status` and `handled_by` — and **leaves `handler_agent` alone**. So a step
+configured `status_override: "deferred"` produces *exactly* the shape under investigation: parked,
+named handler, no `parked_by`.
+
+And the comment immediately above it names the agents that use the key —
+*"component-template-fixer ×2, page-build-handler, tool-improver"* — which are **precisely** the
+handlers on the untraceable rows (`page_component_status_drift` → `component-template-fixer`,
+`improve_tool` → `tool-improver`, `content_rewrite`/`needs_page`/`needs_content_page` →
+`page-build-handler`). That is a very good-looking lead.
+
+**And it is not the answer.** Two things refute it, and I checked both rather than stopping at the
+resemblance:
+
+1. **`FailWorkItemAction` stamps `handled_by = agentType`.** Every one of the bulk-parked rows has
+   `handled_by` NULL/empty. A row written by this path would name its writer.
+2. **Every live `status_override` in the fleet is `needs_human_review`, not `deferred`** — read
+   with a recursive walk over `agent_definitions`, all four of them:
+   `component-template-fixer>judged_refusal`, `component-template-fixer>park_refused`,
+   `page-build-handler>mark_needs_review`, `tool-improver>refuse_mangled_write`.
+
+> ⚠ **What this DOES establish, and it is worth a landmine on its own: the black hole is ONE CONFIG
+> KEY away.** `status_override` is an ordinary step-config string with no allow-list — nothing
+> validates it against the statuses the dispatcher, the promoter and `idx_swi_dedup` actually
+> understand. A session setting `status_override: "deferred"` on any refusal step would silently
+> mint undispatchable, un-promotable, un-re-filable rows at production rate, and every field on
+> them would look healthy. The four live values are `needs_human_review` **by convention, not by
+> constraint.**
+
+So the shape still has no live producer, and the resemblance that looked decisive was a near-miss.
+**[UNMEASURED]** what actually wrote the 118 — that is the loop's question, and I have deliberately
+not guessed at it here. The comfortable answer (earlier sessions running `psql` by hand) remains
+untested, and I have no evidence for it beyond the absence of alternatives, which is not evidence.
