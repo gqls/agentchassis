@@ -534,3 +534,56 @@ not a 381 failure.
 - ⚠ **`homegarden.uk` is parked**; DNS has never been pointed at the platform. That is an operator
   action and blocks the `loanzy_uk_example_site` lane's promise-vs-delivery read, which works on
   served markup. **It does not affect any claim above**, all of which are about stored artefacts.
+
+---
+
+## 12. ✅ CLOSED — verified at the SERVED bytes, 2026-08-25 13:01Z
+
+DNS was pointed at the platform by the owner. §11f's caveat ("stored, not served") is now discharged.
+
+**⚠ The control was run FIRST, because a parked domain 200s every path and this lane already
+published "served" once when it was false:** an impossible URL returns **404**. The instrument
+discriminates.
+
+### 12a. Served census — 20 of 21 pages live
+
+`with a list = 20 of 20` is **confounded and is not quoted as the result**: page nav is itself a
+`<ul>` on both sites. The honest discriminators are `<ol>`, `<strong>`, and `<li>` count **above the
+nav baseline**:
+
+| served page | `<li>` | `<ol>` | `<h3>` | `<strong>` |
+|---|---|---|---|---|
+| **garden-tools** `/index.html` | **8** (nav only) | 0 | 6 | **0** |
+| **garden-tools** `/how-we-assess.html` | **8** (nav only) | 0 | 5 | **0** |
+| **garden-tools** `/seasonal-planner.html` ← *"month by month"* | **8** (nav only) | 0 | 5 | **0** |
+| homegarden `/index.html` | **49** | **1** | 22 | 0 |
+| homegarden `/april/index.html` | **41** | 0 | 5 | **4** |
+| homegarden `/about.html` | **47** | 0 | 14 | **3** |
+| homegarden `/this-month/index.html` | **40** | 0 | 5 | 0 |
+
+**garden-tools serves exactly 8 `<li>` on every page and they are all navigation — zero content
+lists, zero `<ol>`, zero `<strong>`, on the site whose seasonal planner promised a month-by-month
+guide.** homegarden serves **33–41 content list items per page** above that same baseline.
+
+### 12b. The calendar, in the served HTML
+
+`https://homegarden.uk/index.html` — 77,613 bytes — contains
+`<ol class="period-cal__list">` with **twelve `<li>`**, labelled **January, February, March, April,
+May, June, July, August, September, October, November, December**.
+
+### 12c. The chain, complete
+
+**told** (captured prompt) → **chose** (`period-calendar` filed) → **filled** (twelve distinct
+months) → **stored** (`rendered_html`) → **SERVED** (fetched, with a passing 404 control).
+
+### 12d. Closed with these residuals recorded, none of them this defect
+
+- **`checklist` was offered and never chosen.** A real negative, unexplained. The mechanism it would
+  test is already demonstrated by `period-calendar`, so it does not hold this bug open — but it is
+  worth one investigation by whoever picks it up.
+- **`comparison-table` is unexercised**, not failed: the vertical landscape contained no comparison
+  input at all (§11e). It needs a comparison-shaped subject.
+- **`/blog/blog-post.html` 404s** — `sections_planned = 0`, the page the corrected predictor named in
+  advance. **`bugs_open/206` residual, not 381.**
+- **The owner's third original complaint — card sections on mobile (§7) — remains unaddressed and
+  unfiled.** It needs a page-composition decision.
