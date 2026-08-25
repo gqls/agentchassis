@@ -180,6 +180,10 @@ var placeholderPatterns = []struct {
 // a stand-in verbatim out of its own instructions (~10% of calls carrying one:
 // 14 of 137 measured), so the shape recurs wherever a prompt quotes one.
 //
+// THIS IS A FLEET-WIDE BUILD-GATE CHANGE, NOT A SITE FIX: every site's
+// validate_content passes through this file, so these shapes gate every page
+// build on the estate from the roll that carries them.
+//
 // SEVERITY IS BLOCKER, DELIBERATELY, AND THE ASYMMETRY WAS WEIGHED (council
 // round 6cfaa8f0, debug_historian's gating objection). The recorded landmine is
 // real: a blocker here means "this page can never build" until a human acts.
@@ -191,9 +195,11 @@ var placeholderPatterns = []struct {
 // false negative is a stand-in served to the public until a human happens to
 // read the page. For a shape with no honest use, blocker is the honest setting.
 //
-// Scope was MEASURED before these shipped, and NARROWED once by review (census
-// over every active page's rendered_html plus all site_components, 2026-08-25):
-// the N-family shapes below matched exactly ONE component fleet-wide — the live
+// Scope was MEASURED before these shipped, and NARROWED once by review. The
+// round-3 census is the widest possible population — ALL page_components
+// (rendered_html AND content_data, NO page-status filter, so archived and
+// never-shipped rows count too) plus all site_components, 2026-08-25: the
+// N-family shapes below matched exactly ONE component fleet-wide — the live
 // defect — and zero honest copy. Matching is case-SENSITIVE, against the
 // ORIGINAL block text (the substring loop's lowering is a per-iteration local;
 // blocks are never lowered) — stand-ins are written in capitals, and lowercase
