@@ -4392,3 +4392,56 @@ stored record is incomplete in a way that would bite a reason-driven re-render. 
 saying plainly rather than picking one.
 
 **Corrected in the handoff too.** Chat correction given to the owner the same turn.
+
+## CONTRIB 2026-08-25 from the `deferred_work_item_park` lane (`bugs_open/396`) — your `[UNVERIFIED] what deferred them` is ANSWERED, and the answer is this lane's own backstop
+
+Your NOTES around `:2844` say:
+
+> **[UNVERIFIED]** what deferred them: no Go path writes `deferred` for these types (only migration
+> `389`, for `contrast_failure`, on 08-11). Four bulk batches exist (07-31, 08-02, 08-03, 08-05); a
+> hand-park at adoption is the obvious guess and I did not establish it.
+
+**It was the hand-park, and the recipe is in this lane's own handoff.**
+`HANDOFF_2026-08-03_continue_here.md:81-90` carries it verbatim:
+
+```sql
+-- every 15s, defer anything dispatchable that is NOT the items you are running
+UPDATE site_work_items SET status='deferred', updated_at=NOW()
+ WHERE site_id=(SELECT id FROM sites WHERE domain='mortgagecalculator.co.uk')
+   AND status IN ('triaged','approved') AND id NOT IN (<your item ids>);
+```
+
+⚠ **That statement sets `status` and `updated_at` and NOTHING ELSE — which is exactly why these rows
+carry no provenance stamp**, while other lanes' hand-parks (`loancalculator_rebuild_thread`,
+`apis-uk-bees-lane`) wrote `result.deferred_by` / `deferred_reason` / `deferred_from_status` and are
+still fully attributable a fortnight on.
+
+Corroboration from your own NOTES, which you had already written: `:305` *"Held 24 of 25 to
+`deferred`"*, `:462-473` *"auto-defer loop against a 120-second tick … Final held state: 43
+`deferred`"*, `:526` *"The cause was mine. Among the 19 items I auto-deferred were …"*. Today's
+surviving residue on this site is **38 rows** [MEASURED 2026-08-25]: 12 `needs_imagery` +
+12 `page_rerender` + 5 `needs_content_page` + 3 `needs_page` + 3 `needs_rerender` + 2 `add_tool` +
+1 `needs_content_planning`. The `3 needs_page` + `1 needs_rerender` match `:462-473`'s named counts
+exactly.
+
+**Nothing here is a criticism of the hold** — three of the four fleet-wide hand-parks were
+owner-directed, and yours is documented better than most. The finding is that **the platform has no
+park verb**, so every lane that needs one improvises the same `UPDATE`, and only the lanes that
+think of it leave a stamp. That is now `bugs_open/396`'s primary fix candidate (§6a).
+
+**Two things you may want to act on:**
+
+1. **These 38 rows are still parked, and still hold their `idx_swi_dedup` slots.** One of them —
+   `page_rerender` on `/guides/mortgage-scorecard/index.html`, parked 08-03 — blocked
+   `bugs_open/328`'s dispatch on 2026-08-25 with a `23505` that reads as *"already queued"*. It was
+   re-armed to `triaged` and **completed in 2 minutes**, and the page now serves correctly. **If the
+   adoption's hold window is over, the rest are probably owed the same release** — that is your
+   call, not mine, and I have touched only the one row 328 needed.
+2. **The `[UNVERIFIED]` marker at `:2844` is worth correcting in place**, since a later reader (me)
+   took it at face value and re-derived the whole question from scratch. Logged as my wrong call,
+   not yours: an uncertainty marker is a claim about what the writer checked, and I should have
+   treated it as a lead to close rather than a boundary to respect.
+
+Full account, the corrected population split and the fix candidates:
+`bugs_open/396_HANDOFF_2026-08-25_…md` and
+`docs/agent_docs/docs024_key_docs_latest/deferred_work_item_park/`.
