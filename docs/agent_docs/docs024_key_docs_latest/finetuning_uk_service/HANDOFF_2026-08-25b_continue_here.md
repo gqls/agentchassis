@@ -1,0 +1,86 @@
+# HANDOFF 2026-08-25b — all seven owner decisions ANSWERED and executed; his eighth item was a fleet defect and is now `bugs_open/398`. Start here.
+
+**COLD-START for the finetuning.uk lane.** Supersedes `HANDOFF_2026-08-25_continue_here.md` (keep it
+for the escalation/register detail). Technical log: `NOTES_finetuning_uk_service.md` 08-25 c+d.
+Owner prose: `README_where_we_are.md` (his document — append only).
+
+## The one-line state
+
+The parked decision set is **empty** — he answered all seven. The site's live contrast defect is
+diagnosed, fixed and artefact-verified on three sites. The copy hold **still stands**: nothing has
+shipped from `copy_quality_two_stage` that changes the register.
+
+## What he decided, 2026-08-25, and what was done
+
+| # | his answer | state |
+|---|---|---|
+| 1 | copy-editor rewrite `8003c51a`: **HOLD** until copy_quality *submits its improvements* | ✅ recorded. Item still parked at `needs_human_review`. **Holding IS the action** — do not approve, do not re-ask, and do not let a passing lane approve it |
+| 2 | header: displace **Contact** (of About / Case Studies / How we work / Contact) | ✅ done — **and it took TWO**, see the trap below. Contact + How We Work out, Your Own Model in at position 7. Both remain in the footer |
+| 3 | the two pages **stay up until replaced** | ✅ nothing taken down |
+| 4 | booking: **customer picks, 9–5 UK weekdays**, other by arrangement | ✅ registered as `ft-booking-hours` |
+| 5 | sample datasets: **yes**, task-keyed, example data + honest worked examples | ⏳ designed (`DESIGN_2026-08-25_sample_datasets.md`, six starters). **BLOCKED on §4: whose data.** Nothing generated |
+| 6 | terms: delete within a week; **retention 30 days**; **1 hour, expires 30 days** | ✅ three registered. ⚠ **the fourth is STILL OPEN** — may the terms name plainly where data lives during training? He was offered it and did not pick it |
+| 7 | Stripe **last, and he does it** | — |
+| 8 | *(new)* "a couple of the pages have no hero images which has meant that the copy is also unreadable. e.g. services.html" | ✅ `bugs_open/398`, diagnosed + largely fixed. See below |
+
+`evidence_base.facts[]` went **5 → 9**. Verify block asserted 9 facts AND 5 top-level keys, so
+nothing but `facts[]` could have moved.
+
+## Item 8 — what it actually was
+
+**His causal chain was right.** A page with a hero image gets image + dark scrim + white ink. A page
+with **no** hero image falls to a CSS colour band — and that band reads `--color-cta-bg`, which on
+this site holds a **gradient**, in a position where CSS requires a plain colour. The declaration is
+invalid at computed-value time, so it is discarded and the band paints nothing: white heading on
+the page's cream. Measured **1.11:1** (needs 3.0). A second, worse face of the same fault: the CTA
+buttons are white-on-white, **1.00:1**, including on `/your-own-model.html`.
+
+Not our site's fault and not only our site — **10 fleet themes** hold a gradient there; the defect
+was live on **finetuning.uk, gaswholesalers.com and robot-hands.com** (CONTRIBs delivered to both
+other lanes, as the 2026-07-29 ruling requires).
+
+**Shipped:** migrations `619` (heroes + button ink repointed), `630` (tool-cta's button face
+converged), `631` (the fan-out) — all applied and recorded in `schema_migrations`. Go half
+(`--color-cta-bg-ink`, a fourth VIZ-014 legible-ink companion) committed, **inert until the next
+chassis roll**. Council round 2 submitted on trail `f0591cb2-d65d-4517-a676-0334a7ff29a8` — round 1
+was REVISE and the seat was right; **read the round-2 verdict, it was pending at handoff time**.
+
+**Verified at the artefact:** all 9 fanned-out pages serve 0 occurrences of the invalid
+declaration; `noted.co.uk/contact.html` (solid palette, deliberately NOT re-rendered) still carries
+it, which is the control.
+
+## Next session, in order
+
+1. **Read the round-2 council verdict** (`f0591cb2-…`) and act on it. The code is already on the
+   shared branch.
+2. **After the next chassis roll:** the CTA-button half goes live. Probe the binary for
+   `--color-cta-bg-ink` with a present- and an absent-control, then file **one** `template_changed`
+   fan-out for pages carrying `call-to-action` / `tool-cta` (deliberately held so those pages
+   re-render once, not twice). Then re-measure `/your-own-model.html` — the 1.00:1 must be gone.
+3. **Close the 7 stale `contrast_failure` rows** on this site once that is measured. They are
+   `deferred` since 2026-08-11 and, per `bugs_open/396`, `deferred` is not terminal in
+   `idx_swi_dedup`, so they **block their own re-file** — a fresh audit cannot replace them.
+4. **Put the two open owner questions to him**: the terms' data-location sentence (§6 above) and
+   the dataset provenance (`DESIGN_2026-08-25_sample_datasets.md` §4). Both block real work.
+5. **Keep holding** rebuilds/rewrites until `copy_quality_two_stage` submits improvements.
+
+## Traps current for this lane
+
+- ⚠ **A migration that edits `content_components.html_template` ships NOTHING on its own.** No
+  `template_changed` re-render is filed for a template edited by SQL. Three `page-rerender`
+  dispatches reported `COMPLETED` here while the pages served the old bytes. Assert on
+  `page_components.updated_at` or the served bytes — never on the orchestration status.
+- ⚠ **The header is NOT ordered by `nav_order`.** `populate_nav_tables_action.go navPriorityTier`
+  assigns a tier from a fleet-wide **page-NAME** list (tier 1 index/services/tools/about/contact,
+  tier 2 blog/case-studies/use-cases/pricing/how-we-work/…); `nav_order` only sorts WITHIN a tier,
+  and `max_header_items` (8) is in nav-updater's step config, i.e. **fleet-wide**. A page whose name
+  is on neither list is tier 3 and cannot enter until a tier-1/2 page leaves. That is why freeing
+  Contact's slot handed it to *Pricing*.
+- ⚠ **`kafka_publish_checked` returning `PUBLISHED` does not mean anything can consume it.** A
+  publish missing the `orchestration_id`/`request_id`/`message_id`/`timestamp` headers produced no
+  orchestration row at all. Copy the header set from a trigger script known to work.
+- ⚠ **A nav rebuild leaves nav tables correct and SERVED chrome stale** — its last step only FILES
+  re-renders (52 here). Say which of the two states you have.
+- ⚠ **The number 398 is AMBIGUOUS** — another lane filed a different `bugs_open/398` the same day.
+  Resolve by slug.
+- Older sets: `HANDOFF_2026-08-24b_continue_here.md` and `RUNBOOK` §7–§9 still current.
