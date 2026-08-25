@@ -1,13 +1,22 @@
 # HANDOFF — 2026-08-25. **START HERE.** The primary CTA is picked by `nav_order` alone, and it is minting wrong buttons today
 
-> ⚠ **TWO BUGS SHARE THE NUMBER 389 AND BOTH ARE ABOUT CTAs — always cite the slug.** This lane's is
-> `bugs_open/389_HANDOFF_2026-08-25_cta_destination_is_ranked_by_nav_order_alone_so_an_off_topic_tool_wins_every_primary_button.md`
-> (*why a CTA points at the wrong page*). The other is
-> `bugs_open/389_HANDOFF_2026-08-25_repair_completion_is_unverified_three_classes_complete_unchanged.md`
-> (*why fixing one can report success without changing anything*), from the `bugfix_308` lane, filed
-> 2m25s earlier. Complementary, not duplicates — and **the other one constrains decision 4 here**:
-> a `cta_links_stale` rerender completes green whether or not any CTA moved, so no repair run in
-> this lane may be judged by its work-item status. `git log` the FILE PATH, never the number.
+> ⚠ **THIS LANE'S BUG IS NOW `bugs_open/391`, NOT 389.** Full path:
+> `bugs_open/391_HANDOFF_2026-08-25_cta_destination_is_ranked_by_nav_order_alone_so_an_off_topic_tool_wins_every_primary_button.md`
+> It was 389 for ~40 minutes; that number belongs to the `bugfix_308` lane's
+> `389_…_repair_completion_is_unverified_…` (filed 2m25s earlier, cited from `bugs_closed/308`), and
+> **390 was taken by a third session while I was renaming.** Commits before ~11:40 saying "389"
+> about CTA *selection* mean this file. `git log` the FILE PATH, never the number.
+>
+> The two are complementary — and **389 constrains decision 4 here**: a `cta_links_stale` rerender
+> completes green whether or not any CTA moved, so no repair in this lane may be judged by its
+> work-item status.
+>
+> ⚠⚠ **REVIEWED 2026-08-25 (two adversarial passes). Diagnosis CONFIRMED; my RECOMMENDATION was
+> WRONG.** See `bugs_open/391` §THE FEEDBACK LOOP. Summary: the label match runs *ahead* of the
+> positional pick, and the framework writes button copy naming whatever it picked — so a wrong pick
+> becomes **label-locked** and a `nav_order` fix cannot reach it. **20 of 80 fields are locked,
+> including all three buttons the owner saw.** The commissioned content pass is therefore NOT
+> redundant; it is exactly what those 20 need, re-scoped to ~20 fields instead of 16 sites.
 
 > **Read this from disk, then `bugs_open/389_HANDOFF_2026-08-25_cta_destination_is_ranked_by_nav_order_alone_so_an_off_topic_tool_wins_every_primary_button.md`.**
 > Nothing is fixed. The root cause is confirmed at the code, the data and the served bytes.
@@ -59,7 +68,10 @@ primary nav"* and it changed nothing.
 contradiction. **62.7% of tool/game pages are `in_header=false`** (143 of 228) — it is the normal
 state, not a human judgement. Only leopardess is documented as deliberate, by its SQL comment.
 
-## 3. THE FOUR DECISIONS — with the owner, do not pre-empt
+## 3. THE FIVE DECISIONS — with the owner, do not pre-empt
+> ⚠ Was four. The fifth (the standing commission) is a decision about the owner's own 08-15
+> instruction and cannot be folded into the repair. Decision 3's "only option that stops the class"
+> was **overstated** — an opt-out is reactive; pair it with a detector to earn that claim.
 
 1. **Content:** should `password-entropy` be on those three sites at all? (Removing the page
    removes the candidate. It is a decision about what the sites offer.)
@@ -88,9 +100,25 @@ state, not a human judgement. Only leopardess is documented as deliberate, by it
 > 24 header rows) — so a `content_data` diff **reads clean while all 24 headers move**. Verify any
 > fix at the rendered header.
 
-**Recommendation if asked:** candidate 1 in the bug file — an explicit "never a CTA target" flag
-read by `loadInteractivePages`. It makes the intent *sayable*, which today it is not; that is
-precisely why hiding the page from the nav was the only move available and accomplished nothing.
+**Recommendation if asked — REVISED 2026-08-25, twice over:**
+
+1. **Ranking fix first** (decision 2 or 3) — it clears the ~60 label-less fields in one step per
+   site and stops new wrong picks being minted. The locked set **grows** until this lands.
+2. **Then the commissioned content pass, re-scoped** to the ~20 label-locked fields (query in
+   `bugs_open/391` §4) — not the 16-site sweep its own plan assumed.
+3. **The platform option is candidate 1 PAIRED WITH candidate 4** (opt-out flag + a detector for
+   the anomalous-`nav_order` shape). Candidate 1 alone is reactive and does not close the class.
+
+⚠ **Two specification constraints on candidate 1, both from review — get these wrong and the fix is
+worse than nothing:**
+- **Change the RANKING, not the loaders.** `render_site_components_action.go:182-190` (the site
+  **header** CTA fallback) calls the loaders directly and takes `ordered[0]`, and its output is
+  **never persisted** — so a loader change re-picks every site's header button with no
+  `content_data` diff to show it.
+- **A flag on the ranking alone does not bind `LoadCTALabelUniverse`.** The label match runs first,
+  so an "ineligible" page is still selected whenever the copy names it — a hole exactly the shape
+  of this bug.
+- **Engage RFC_022 before booking a council round**, including its required consumer enumeration.
 
 ## 4. `bugs_closed/277` — re-verified on the new build, still closed, no work left
 
@@ -106,9 +134,22 @@ including the amended verify query. **Do not run the pre-08-24 verify query: it 
 chassis stamp + capability probe (never infer from ancestry) · then §3. **If the decisions have
 not landed, do not write code** — measure instead, and the useful next measurement is §6.
 
-## 6. The next useful measurement, if you are waiting on decisions
+## 6. The next useful measurements, if you are waiting on decisions
 
-Whether the *borderline* case is real: `webdesign.co.uk` picks `tool-ab-test-calculator` out of
-**66** tools. On-topic enough for a web-design site, or the same fossil-nav_order shape? Its
-`nav_order` is 100 — the COALESCE default, not a deliberate 1 — so it is a weaker instance and
-worth one human glance before anyone widens the bug's scope to it.
+1. **Re-run the 26-site blast-radius review with the code's real predicate.** The original omitted
+   `NOT (deployed_at IS NULL AND build_status='planned')`, so it can name a rank-1 winner the code
+   would skip. Corrected query is in the RUNBOOK and in `bugs_open/391` §Verify.
+2. **Whether the borderline case is real:** `webdesign.co.uk` picks `tool-ab-test-calculator` out of
+   **66** tools. Its `nav_order` is 100 — the COALESCE default, not a deliberate 1 — so it is a
+   weaker instance. One human glance before widening scope.
+3. **Watch the locked set grow.** Re-run the label-lock query (RUNBOOK) in a few days: if the
+   locked count climbs above 20, that is the feedback loop measured over time, and it is the
+   strongest argument for doing the ranking fix first.
+
+## 7. What the two review passes confirmed, so nobody re-derives it
+
+Every load-bearing claim reproduced independently: the sort keys and the absence of any relevance
+input; `nav_order=1` on exactly three sites against 6–204; `in_header` absent from the CTA path
+(and the L5 script that set it also renumbered that site's nav 2–10 while leaving the tool at 1);
+the 17/24/39 provenance split; the served bytes on all three domains; and the 62.7% base rate that
+refuted the 13-site reading. **What they overturned was the fix and the sizing, not the diagnosis.**

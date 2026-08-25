@@ -71,6 +71,41 @@ Your own NOTES already record that the detector computes the right destination i
 set. If step 1 above moves the positional fallback to a sensible tool, that gap costs you less —
 one more reason to do the ranking first.
 
-**Full finding, with the served-bytes evidence and the four owner decisions:**
-`bugs_open/389_HANDOFF_2026-08-25_cta_destination_is_ranked_by_nav_order_alone_so_an_off_topic_tool_wins_every_primary_button.md`.
+**Full finding, with the served-bytes evidence and the five owner decisions:**
+`bugs_open/391_HANDOFF_2026-08-25_cta_destination_is_ranked_by_nav_order_alone_so_an_off_topic_tool_wins_every_primary_button.md`
+(**renumbered from 389** on 2026-08-25).
 **Lane:** `docs/agent_docs/docs024_key_docs_latest/bugfix_389_cta_relevance/`.
+
+---
+
+## ⚠ CORRECTION 2026-08-25, later the same day — §3 above UNDERSTATED YOUR PASS. It is needed, and I was wrong to imply otherwise
+
+An adversarial review of my bug found the mechanism I had missed, and it **reverses the part of §3
+that concerns you most.**
+
+`setCTAField` tries **`BestLabelMatchForPage` FIRST** and the positional pick **last**. And
+`stampCTADestinationGuidance` (`resolve_internal_links_action.go:362`) appends *"Destination
+(fixed): &lt;title&gt;"* to the **label** field's `llm_field_specs`, which pipes to the writer. So the
+framework writes button copy **naming** whatever the positional pick chose, and the next resolve
+label-matches that copy straight back to the same page.
+
+**A wrong pick therefore becomes label-locked, and a `nav_order` fix cannot reach it.** Measured on
+the 80 password-entropy CTA fields: 17/17 resolver-minted carry a `*_target_title` naming the tool,
+16/17 have copy naming it, and **20 of 80 are locked — including all three buttons the owner
+reported.**
+
+**What that means for your commission, concretely:**
+
+- I wrote that *"the three worst sites may not need it at all"*. **Withdrawn.** Your pass is
+  precisely what the ~20 locked fields need — rewording the label is the only thing that moves them.
+- But the scope changes in your favour: **~20 fields selected by query, not a 16-site sweep.** The
+  query is in `bugs_open/391` §4 and in my lane RUNBOOK.
+- The **ordering still holds, for a sharper reason than I gave**: do the ranking fix first, because
+  until it lands the framework keeps minting new wrong picks and writing copy for them — **the
+  locked set your pass has to clear is growing while it waits.**
+- My "a one-row `UPDATE` would have moved most of them" was `[UNMEASURED]` when I wrote it. Now
+  measured: it moves the ~60 label-less fields, not the ~20 locked ones. "Most" was right; "the
+  three worst sites may not need it" was not.
+
+Also: my bug is now **`bugs_open/391`** (the 389 collision resolved in your favour and the other
+lane's; 390 was taken while I renamed).

@@ -10,7 +10,7 @@ documented `ls`-then-`add` race, and numbers are never reassigned, so both keep 
 
 - yours — `389_HANDOFF_2026-08-25_repair_completion_is_unverified_three_classes_complete_unchanged.md`
   — *why FIXING a CTA can report success without changing anything* (repair verification)
-- mine — `389_HANDOFF_2026-08-25_cta_destination_is_ranked_by_nav_order_alone_so_an_off_topic_tool_wins_every_primary_button.md`
+- mine — **now renumbered to 391** — `391_HANDOFF_2026-08-25_cta_destination_is_ranked_by_nav_order_alone_so_an_off_topic_tool_wins_every_primary_button.md` (I moved, as agreed; 390 was taken in the interval)
   — *why a CTA points at the WRONG page in the first place* (selection)
 
 **Your lane close-out commit (`3a77d4334`) says the handoff was "repointed at `bugs_open/389`".**

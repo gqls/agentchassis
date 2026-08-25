@@ -8,12 +8,34 @@ SELECT s.domain, p.name, COALESCE(p.nav_order,100) AS nav_order,
        row_number() OVER (PARTITION BY s.id ORDER BY COALESCE(p.nav_order,100), p.name) AS rank
 FROM pages p JOIN sites s ON s.id=p.site_id
 WHERE p.page_type IN ('tool','game') AND p.status IN ('active','deployed')
+  AND NOT (p.deployed_at IS NULL AND COALESCE(p.build_status,'') = 'planned')
 ORDER BY s.domain, rank;
 ```
+⚠ **CORRECTED 2026-08-25: the deployment conjunct was MISSING from the first version of this
+recipe — in the section that tells you to mirror the code exactly.** `loadInteractivePages` applies
+`PageMayBeLinkedPredicateFor` (`datahelpers/links.go:328`, not :333), so without it the simulation
+can name a rank-1 winner the code would skip. Also: `rank()` excludes the page itself, and hub
+pages rank behind every interactive one.
 ⚠ **Mirror the code exactly or the simulation proves nothing**: `COALESCE(nav_order,100)`, then
 `name` (**not** `url`) as the tiebreak, and the `('tool','game')` + `('active','deployed')`
 filters. Those are `chooseCTATargets` / `loadInteractivePages`
 (`platform/orchestration/actions/resolve_internal_links_action.go:651,918`).
+
+## ⚠ Before sizing any fix: is the field LABEL-LOCKED?
+```sql
+SELECT count(*) FILTER (WHERE COALESCE(
+         pc.content_data->>(replace(kv.key,'_url','_text')),
+         pc.content_data->>(replace(kv.key,'_url','_label')),
+         pc.content_data->>(replace(kv.key,'_url',''))) ILIKE '%<tool word>%') AS label_locked,
+       count(*) AS total
+FROM page_components pc CROSS JOIN LATERAL jsonb_each(pc.content_data) kv
+WHERE kv.key LIKE '%\_url' AND kv.value #>> '{}' LIKE '%<target>%';
+```
+⚠ **This is the query that decides whether a ranking fix can reach a row at all.** The label match
+runs AHEAD of the positional pick, so a field whose copy names the destination is immune to any
+`nav_order` change. Measured 2026-08-25 on this bug's population: 20 of 80 locked — **including all
+three buttons the owner reported.** Size the data fix and the content pass from this split, never
+from the row count.
 
 ## Split CTA urls by who wrote them — minted vs authored
 ```sql
@@ -24,8 +46,11 @@ CROSS JOIN LATERAL jsonb_each(pc.content_data) kv
 WHERE kv.key LIKE '%\_url' AND kv.value #>> '{}' LIKE '%<your-target>%'
 GROUP BY 1;
 ```
-⚠ **Three states, not two.** `t` = the resolver minted *this* url; `f` = a stamp exists for the
-field but names a *different* url, so the current value reads authored; **NULL = no stamp at all**
+⚠ **Three states, and the middle one is NOT what it looks like.** `t` = the resolver minted *this*
+url. `f` = **the component carries a stamp with no entry for THIS field** (it names a sibling slot)
+— it does **not** mean "a stamp naming a different url", and it does **not** mean authored
+(`storedCTADestinationIsAuthored` is true only for *utility-area* urls). Evidentially `f` belongs
+with NULL as unattributable; **NULL = no stamp at all**
 and means *"not recorded"*, never *"authored"* — the stamp only shipped **2026-08-22**
 (`datahelpers/cta_provenance.go`, LNK-035) and there is **no backfill by design**. Treating NULL
 as authored will halve your live count.

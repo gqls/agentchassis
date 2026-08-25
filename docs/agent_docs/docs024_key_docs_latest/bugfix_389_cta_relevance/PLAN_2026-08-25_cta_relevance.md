@@ -37,3 +37,45 @@ AI-orchestration consultancy.
 - **Relevance scoring invites false positives** and the existing `semantic_tags` are already
   misleading — the migration that claimed to *narrow* password-entropy's affinity **added**
   `tech`, `cybersecurity`, `developer` to it.
+
+---
+
+## RESIZED 2026-08-25 (same day, after adversarial review) — the phasing above is superseded
+
+**What changed:** the review confirmed the mechanism and found the loop the diagnosis sat inside —
+the label match runs ahead of the positional pick, and `stampCTADestinationGuidance` has the writer
+produce copy naming whatever was picked. A wrong pick therefore becomes **label-locked**, and a
+`nav_order` fix cannot reach it. Full working: `bugs_open/391` §THE FEEDBACK LOOP.
+
+**The bug number changed too:** this lane's bug is now **`bugs_open/391`**, not 389 (collision with
+the `bugfix_308` lane's re-file, which was 2m25s earlier; 390 was taken in the interval).
+
+### Revised phasing
+
+- **Phase 1 (BLOCKED — owner decisions):** now **five**, not four. The fifth is the standing
+  commission (honour / re-scope / withdraw), which is a decision about the owner's own 08-15
+  instruction and cannot be folded into the repair.
+- **Phase 2 — ranking first.** Whatever platform option is chosen must change the **ranking**, not
+  the loaders: the loaders have a third consumer (the site header CTA fallback) whose output is
+  never persisted, so a loader change moves every site's header button invisibly. And an opt-out
+  flag must also be read by `LoadCTALabelUniverse`, or it has a hole exactly the shape of this bug.
+- **Phase 3 — the content pass, RE-SCOPED not skipped.** ~20 label-locked fields, selected by
+  query (in the bug's §4), not 16 sites. This reverses what I wrote this morning.
+- **Phase 4 — repair**, verified at the served bytes, never by work-item status (`bugs_open/389`).
+
+### Decisions and their reasons — additions
+
+- **"File, do not patch" still holds, but for a sharper reason than I gave.** It is not only that a
+  data fix is undone by the next run; it is that a data fix **cannot reach the damage the owner
+  reported at all**, because those three buttons are label-locked.
+- **The recommendation is no longer candidate 1 alone.** An opt-out is reactive and does not make
+  the bad state unrepresentable — it makes the good state sayable. Candidate 1 **paired with**
+  candidate 4 (a detector for the anomalous-`nav_order` shape) is what earns "closes the class".
+- **RFC_022 must be engaged before booking a council round**, including the consumer enumeration it
+  requires — asserting the shape without the query is itself the objection.
+
+### Risks — added
+
+- **The locked set grows.** Every positional mint gets copy written for it, so the population
+  needing the content pass increases while the ranking stays unfixed. That is the argument for
+  doing phase 2 before phase 3, and it has a clock on it.

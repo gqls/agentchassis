@@ -65,3 +65,53 @@ the write-up: fix the ranking input, re-measure, then size the content pass agai
 **A root cause found under a commissioned workaround should change the workaround's scope before
 anyone runs it** — that is the transferable point, and it is why filing without the lane search
 was worth correcting the same day rather than leaving as a footnote.
+
+### 2026-08-25 later — an adversarial review of my own file, and what it caught
+Two independent reviews (mechanism; docs+decisions). **Every load-bearing claim reproduced** —
+the sort keys, the three-site `nav_order=1`, `in_header` absent from the CTA path, the 17/24/39
+split, the served bytes, and the 62.7% retraction. What they found is below; the first is the one
+that matters.
+
+**⚠ MISSTEP 4 — I missed the loop my own bug sits inside.** `setCTAField` tries
+`BestLabelMatchForPage` FIRST and the positional pick LAST, and `stampCTADestinationGuidance`
+(`:362`) feeds the chosen destination's title into the writer's spec for the **label** field. So
+the framework writes copy naming whatever it picked, and the next resolve label-matches that copy
+back to the same page. **A ranking accident becomes a content fact.** Measured: 17/17 minted fields
+carry a `*_target_title` naming the tool and 16/17 have copy naming it; 20 of 80 overall are
+label-locked, **including all three buttons the owner reported**. My "the three worst sites may not
+need the content pass" was wrong in the worst direction — the pass is exactly what those buttons
+need. **The check I skipped: before claiming a fix reaches a population, read the code path that
+runs BEFORE the one you fixed.** I read `chooseCTATargets` thoroughly and never read its caller.
+
+**⚠ MISSTEP 5 — I mischaracterised the provenance middle bucket.** I wrote that the 24 carry "a
+stamp naming a different url, so the value reads authored". **Zero** rows do; the 24 have no stamp
+entry for that field at all (it covers a sibling slot), and "authored" is wrong in the code's terms
+(`storedCTADestinationIsAuthored` is true only for utility-area urls). I invented a semantic from
+the *shape* of a three-valued result instead of reading what produced each value — the
+[[a-report-is-not-a-measurement]] shape: a key's SHAPE is a hypothesis about provenance.
+
+**⚠ MISSTEP 6 — "minted today" overstates the instrument.** The stamp is value-bound with no
+timestamp; the dates are the row's `updated_at`, and a `SeedCTAMinted` carry-forward looks
+identical to a fresh mint. The liveness claim survives on other evidence (the ranking simulation,
+and one positional mint whose copy — "Book a Technical Discovery Call" — cannot have label-matched)
+but I quoted the weaker instrument as though it were the stronger one.
+
+**⚠ MISSTEP 7 — my own RUNBOOK said "mirror the code exactly" and my query did not.** It omitted
+`PageMayBeLinkedPredicateFor`. Harmless for the three sites; the 26-site blast-radius review rests
+on it and should be re-run.
+
+**⚠ MISSTEP 8 — the correction never reached the owner's document.** README and PLAN were written
+at 10:51 and never touched again while the correction propagated to the bug file, the handoff, both
+CONTRIBs and the workstreams index. **The owner's own log kept giving the pre-correction
+recommendation, and never mentioned that this reverses his own 08-15 decision.** CLAUDE.md's
+cadence rule names exactly this ("the moment a decision, correction or resizing lands") and I
+followed it everywhere except the one document written for him. **Propagation is not done when the
+bug file is right.**
+
+**Smaller:** `links.go:328` not `:333`; the "only option that stops the class" claim was overstated
+(an opt-out is reactive — it makes the good state sayable, not the bad state unrepresentable);
+RFC_022's narrowing was never engaged though I cited the ruling it qualifies; the fossil claim is
+[INFERRED] from `created_at`, and `L5_nav_and_ctas.sql:36-45` shows someone renumbered that site's
+nav 2–10 and left the tool at 1 — which sharpens the irony rather than weakening the point;
+`chooseCTATargets` carries an unused `pageType` "for a future intent-aware (LLM) upgrade", i.e. the
+hook for the relevance option already exists.
