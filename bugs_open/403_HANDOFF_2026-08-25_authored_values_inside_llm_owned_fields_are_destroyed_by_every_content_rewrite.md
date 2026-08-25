@@ -126,9 +126,31 @@ passes are frequent: this page was hit by `offer-analysis` (08-22) and `cta_labe
 | `__cta_minted` (LNK-035) | CTA label/url fields | the only provenance of this kind in the tree, and it is CTA-specific |
 | "survives N rerenders" verification | rerender path | rerender MERGES — survival there says nothing about the REPLACE path (the 08-14 restore survived four rerenders and died at one rewrite) |
 
+> **CORRECTED 2026-08-25, same session, hours after filing — "no guard covers this" was
+> OVERSTATED, and reading the save action found what the filing missed.** `page_components`
+> has `locked_by` / `lock_type` columns, and `save_page_sections` **already excludes locked
+> rows from its DELETE and re-matches them into the new section set**
+> (`loadActiveLockedRows` / `matchLockedRow`, `save_page_sections_action.go:1218`, predicate
+> shared with the list side via `datahelpers.AgentWritableSQLFor` — bugs 058/285 lineage).
+> `lock_type='permanent'` is LIVE on **51 rows across 7 lanes** as of 2026-08-25 — other
+> lanes protect hand-authored rows with exactly this. **So the missing thing is narrower
+> than filed:** (a) ROW-level protection exists and none of this site's three restores used
+> it — a **discoverability** defect (no leopardess handoff, runbook or landmine names it —
+> the register entry to check for is the lock helpers'); (b) **field-level** protection does
+> not exist — a row lock stops ALL automated improvement of that slot (e.g. a locked
+> `call-to-action` row would also freeze legitimate CTA-relevance passes), which is exactly
+> the case the provenance candidate below still owes; (c) the detection blindness stands
+> unchanged. What caught it: reading the whole action rather than the diff site —
+> `editing-one-file-is-not-knowing-the-package`.
+
 ## Fix candidates, ordered by what closes the door
 
-1. **Generalise provenance (the real fix — makes the bad state unrepresentable).** An authored
+0. **Use the existing row lock — available TODAY, no code.** For a wholly hand-authored or
+   hand-restored slot, set `lock_type='permanent'`, `locked_by='<lane>'` on the row.
+   `save_page_sections` keeps it out of the DELETE and re-seats it. This is the correct
+   immediate protection for the `/services.html` restore and the hero-only slots. Its cost
+   is coarseness: nothing automated may improve the locked row again until a human unlocks.
+1. **Generalise provenance (the field-level fix — makes the bad state unrepresentable).** An authored
    marker inside `content_data` (the inverse of `__cta_minted`: mark what a HUMAN wrote, e.g. an
    `__authored` key listing authored paths or values), honoured at plan/save time — the rewrite
    carries authored values into its output, or declines to regenerate them. Ships as **opt-in with

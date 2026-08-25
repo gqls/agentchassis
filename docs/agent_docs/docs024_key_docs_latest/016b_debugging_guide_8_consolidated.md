@@ -280,10 +280,16 @@ only), and any "survived N rerenders" verification (wrong producer — rerender 
 structurally blind. `bugs_open/403` holds the case, evidence and fix candidates; the leopardess
 lane owns the fix (owner ruling 2026-08-25).
 
-**Fix (interim discipline until 403 ships).** A hand-repair into an llm field is temporary by
-construction: keep the repair as re-runnable SQL, or re-source the field to a non-llm authority
-(`site_specs` aspect) where the carry protects it. Never cite "survived N rerenders" as safety —
-name the producer it survived (see the same lesson on `bugs_open/248`'s fix record).
+**Fix (corrected same day, hours after this entry was written).** ROW-level protection already
+exists and is live: set `lock_type='permanent'`, `locked_by='<lane>'`, `locked_at=now()` on the
+`page_components` row — `save_page_sections` keeps locked rows out of its DELETE and re-seats
+them (`loadActiveLockedRows`, predicate `datahelpers.AgentWritableSQLFor`; 51 rows across 7
+lanes already use it, counted 2026-08-25). Three leopardess restores were eaten because none of
+its handoffs named this — the defect is DISCOVERABILITY plus the missing field-level variant
+(a row lock freezes ALL automated improvement of the slot), which is what `bugs_open/403` still
+owes. Interim discipline where a lock is too coarse: keep the repair as re-runnable SQL, or
+re-source the field to a non-llm authority the carry protects. Never cite "survived N rerenders"
+as safety — name the producer it survived (see the same lesson on `bugs_open/248`'s fix record).
 
 ### A fix that changes WHICH status a write lands re-arms every OTHER writer of that row — and the seam's mocks can see neither that nor a malformed statement
 

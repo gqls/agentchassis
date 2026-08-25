@@ -53718,3 +53718,5 @@ in one session that a mechanism nearly inherited the defect it was written to ca
 
 Family: a-control-cannot-tell-you-the-instrument-points-the-wrong-way,
 config-names-the-action-not-the-effect, the-audit-inherits-the-blind-spot.
+
+- [2026-08-25, leopardess/403 session] **Filed "no existing guard covers this" in `bugs_open/403` while a live row-level guard existed** — `page_components` locks (`lock_type='permanent'`, honoured by `save_page_sections`' DELETE predicate, in use by 51 rows across 7 lanes that day). The negative was built from the scopes of the guards I already knew (PBP-039 carry, content-loss-check, `__cta_minted`) — an enumeration of KNOWN guards is not a search for ALL guards. Caught the same session by reading the whole save action before designing the fix. The cheap check that would have caught it at filing: `grep -in 'lock' <the action your bug says has no guard>` — thirty seconds, and the word "locked" appears 20+ times in that file. Corrected visibly in 403, 016b §9 and the LANDMINES entry before any other session read them.

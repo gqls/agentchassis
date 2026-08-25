@@ -3320,3 +3320,37 @@ Read the verdict before designing the fix.
 tools, insights, engagement-model, technical-architecture, ai-readiness-quiz, careers +
 blog: why-most-ai-agent-projects-never-reach-production, can-you-trust-ai-with-your-data.
 (case-studies also needs its asset REDEPLOYED regardless.) Archetypes for the remainder.
+
+### Same session, later still — the filing was corrected by the code, and services is RESTORED under LOCK
+
+**The correction first (WRONG_CALLS row written):** 403's "no guard covers this" was overstated.
+`save_page_sections` has a live locked-row guard — `loadActiveLockedRows`/`matchLockedRow`
+(`save_page_sections_action.go:1218`), predicate `datahelpers.AgentWritableSQLFor`
+(`locked_at IS NULL OR (lock_type='timed' AND expired)` = writable), `lock_type='permanent'`
+in use on **51 rows / 7 lanes** `[MEASURED 2026-08-25]`. Three restores were eaten for lack of
+DISCOVERABILITY, not lack of mechanism. 403, 016b §9 and the landmine all corrected visibly;
+the field-level gap (a row lock freezes the whole slot) remains 403's open work.
+
+**Heroes: services + contact re-rolls ACCEPTED on eyeball** (diverging paths / meeting arcs —
+both distinct) and **LIVE at the served pages** (background merged, gate-checked, safe-rerender,
+watcher confirmed). Per-page heroes now live on 7 pages: index, how-we-work, use-cases,
+who-we-help + TODAY about, services, contact.
+
+**Services RESTORED (fourth time) — this time under protection:**
+- Source: the `page_component_history` archives taken at the moment of destruction
+  (08-22 11:35:41) — the 08-14 hand-restored state verbatim, so NO key re-derivation needed
+  (the handoff's §4 expected one; the wholesale restore avoids it).
+- `info-card-grid` + `teaser-reveal-panel` written back (bak_leo_services_content_pc_20260825),
+  in-tx verify cards=6 items=6 icon_refs=6; CTA and hero slots deliberately NOT restored (they
+  carry tonight's legitimate `__cta_minted` rewrite and the new hero).
+- Served page verified: **6 icon-service refs live, hero-services.jpg live.**
+- **LOCKED**: 5 rows (services×3, hero-about, hero-contact) `lock_type='permanent'`,
+  `locked_by='leopardess-403-restore'`, verified against the live predicate (5 locked /
+  0 writable). ⚠ Publish BEFORE locking — sequence matters; and future edits to these slots
+  need unlock → edit → publish → re-lock (RUNBOOK-worthy).
+- The behavioural proof of the lock arrives organically: the next content_rewrite/tone_shift
+  pass at services (two hit it inside the last 4 days) must leave the locked slots intact —
+  CHECK THIS when it happens and record the producer survived.
+
+**090 run `c946b495` still iterating** (assemble_bundle EXECUTING 20:2x). Verdict to be
+recorded in 403 when it lands.
