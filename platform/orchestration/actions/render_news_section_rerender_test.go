@@ -47,9 +47,30 @@ func TestQueueNewsPageRerendersFiltersOnPageStatus(t *testing.T) {
 
 	// The expectation carries BOTH predicates. Remove either from the
 	// production query and this fails.
-	mock.ExpectQuery(`NOT \(p\.deployed_at IS NULL[\s\S]*p\.status = 'active'`).
+	//
+	// > RELOCATED 2026-08-25 (RFC_052). The SQL these two tests guard is no
+	// > longer written in render_news_section_html.go — that emitter now calls
+	// > queryresolve.ConsumerPages, and the predicates live in
+	// > queryresolve.consumerSQL. THE TEST STAYS HERE ANYWAY, driving the real
+	// > emitter, because what bugs_open/098 cost was an archived page being
+	// > re-rendered BY THIS FUNCTION; a guard that only checks the shared helper
+	// > would still pass if this call site were rewired to something weaker.
+	// > queryresolve/consumers_dependency_test.go asserts the same thing at the
+	// > destination — both, deliberately, because a relocating fix that is only
+	// > measured at its new home leaves the old one reading green either way.
+	// >
+	// > The status spelling CHANGED with the move: `IN ('active','deployed')`
+	// > rather than `= 'active'`, because the shared lookup deliberately mirrors
+	// > the resolvers' own set (a consumer page is chosen by the rule its items
+	// > are chosen by). Same behaviour today — `pages.status` holds only
+	// > `active` and `archived` — and `archived` is excluded either way, which
+	// > is the whole point of the test.
+	// Order-agnostic on purpose: BOTH predicates must be present, in either
+	// order. The shared lookup happens to emit status first; pinning that would
+	// make a harmless reorder look like the bugs_open/098 regression.
+	mock.ExpectQuery(`(NOT \(p\.deployed_at IS NULL[\s\S]*p\.status IN \('active', 'deployed'\)|p\.status IN \('active', 'deployed'\)[\s\S]*NOT \(p\.deployed_at IS NULL)`).
 		WithArgs(siteID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "domain"}))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "url", "domain", "component", "input_schema"}))
 
 	queued := queueNewsPageRerenders(context.Background(), db, siteID, zap.NewNop())
 	if queued != 0 {
@@ -68,9 +89,9 @@ func TestQueueNewsPageRerendersFiltersOnPageStatus(t *testing.T) {
 func TestQueueNewsPageRerendersOrderIndependence(t *testing.T) {
 	db, mock := newRetractMockDB(t)
 	siteID := uuid.New()
-	mock.ExpectQuery(`p\.status = 'active'`).
+	mock.ExpectQuery(`p\.status IN \('active', 'deployed'\)`).
 		WithArgs(siteID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "domain"}))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "url", "domain", "component", "input_schema"}))
 
 	_ = queueNewsPageRerenders(context.Background(), db, siteID, zap.NewNop())
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -87,12 +108,20 @@ func TestQueueNewsPageRerendersOrderIndependence(t *testing.T) {
 func TestQueueDirectoryPageRerendersFiltersOnPageStatus(t *testing.T) {
 	db, mock := newRetractMockDB(t)
 	siteID := uuid.New()
-	mock.ExpectQuery(`NOT \(p\.deployed_at IS NULL[\s\S]*p\.status = 'active'`).
-		WithArgs(siteID, "model-directory", "model-directory-listing").
-		WillReturnRows(sqlmock.NewRows([]string{"name"}))
+	// RELOCATED 2026-08-25 with the news cousin (RFC_052) — see the note there
+	// for why the test stays at this call site as well as at the destination.
+	// The lookup is now dependency-scoped, so the profile's SOURCES are what
+	// select pages and the component names no longer reach the query: the
+	// WithArgs is siteID alone.
+	mock.ExpectQuery(`(NOT \(p\.deployed_at IS NULL[\s\S]*p\.status IN \('active', 'deployed'\)|p\.status IN \('active', 'deployed'\)[\s\S]*NOT \(p\.deployed_at IS NULL)`).
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "url", "domain", "component", "input_schema"}))
 
 	queued := queueDirectoryPageRerenders(context.Background(), db, siteID,
-		directoryPublishProfile{SnippetComponent: "model-directory", ListingComponent: "model-directory-listing"},
+		directoryPublishProfile{
+			SnippetComponent: "model-directory", ListingComponent: "model-directory-listing",
+			SnippetSource: "model_directory", ListingSource: "model_directory_full",
+		},
 		zap.NewNop())
 	if queued != 0 {
 		t.Errorf("queued = %d, want 0 for an empty result set", queued)

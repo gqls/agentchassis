@@ -27,7 +27,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 )
 
 // queueNewsPageRerenders emits one scoped re-render work item per page that
@@ -68,10 +68,13 @@ func queueNewsPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UUID, l
 		return 0
 	}
 
-	// `p.status = 'active'` is NOT redundant beside `build_status = 'deployed'`,
-	// and leaving it out RESURRECTS RETIRED PAGES (bugs_open/098).
+	// ⚠ THE PAGE-STATUS RULE THIS FUNCTION LEARNED THE HARD WAY NOW LIVES IN THE
+	// SHARED LOOKUP (queryresolve.consumerSQL). Keeping the history here because
+	// the next person to touch either place needs it:
 	//
-	// The two columns answer different questions and nothing keeps them in step:
+	// `p.status = 'active'` is NOT redundant beside `build_status = 'deployed'`,
+	// and leaving it out RESURRECTS RETIRED PAGES (bugs_open/098). The two
+	// columns answer different questions and nothing keeps them in step:
 	// `build_status` records whether the page ever shipped, `status` records
 	// whether the platform still wants it served. Archiving a page sets
 	// `status='archived'` and leaves `build_status='deployed'` untouched — so a
@@ -85,43 +88,39 @@ func queueNewsPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UUID, l
 	// by the time it was fixed. It also makes a retraction self-undoing: delete
 	// the file and the next news refresh republishes it.
 	//
-	// Fleet-wide this selects exactly one non-active page today, which is that
-	// one (measured 2026-08-03; only two page statuses exist, active 557 /
-	// archived 25). This used to hand-spell `p.status = 'active'` with a note
-	// that the eligibility family "has no member for the lifecycle axis" — the
-	// member now exists (datahelpers.PageWantedLivePredicateFor, 098 debt 4)
-	// and this is one of its call sites, so the two axes below are both named
-	// helpers rather than one helper and one convention.
-	rows, err := db.QueryContext(ctx, `
-		SELECT DISTINCT p.id, p.name, s.domain
-		FROM pages p
-		JOIN sites s ON s.id = p.site_id
-		JOIN page_components pc ON pc.page_id = p.id
-		JOIN content_components cc ON cc.id = pc.component_id
-		WHERE p.site_id = $1
-		  AND cc.function IN ('latest-news', 'news-listing')
-		  AND `+datahelpers.PageHasShippedPredicateFor("p")+`
-		  AND `+datahelpers.PageWantedLivePredicateFor("p")+`
-	`, siteID)
+	// The same defect is STILL LIVE one seam along, in
+	// component-template-fixer.create_rerender, which has no page-status filter
+	// at all — see bugs_open/. Do not copy that query.
+	//
+	// MIGRATED 2026-08-25 onto the shared consumer lookup (RFC_052, owner ruling
+	// "generalise it now"). This used to run its own SQL selecting pages by
+	// COMPONENT FUNCTION — `cc.function IN ('latest-news','news-listing')` — a
+	// hand-kept component list that goes stale the day a component is renamed or
+	// a second component starts consuming query.latest_news / query.news_archive.
+	// queryresolve derives the same set from what the components DECLARE, so
+	// there is now one answer to "who consumes my data" rather than three
+	// spellings of it.
+	//
+	// The predicates that were hand-written here live in the shared lookup now
+	// and are NOT lost: PageHasShippedPredicateFor was added to consumerSQL with
+	// this migration precisely so it could not weaken this call site, and the
+	// live-page half is covered by the lookup's own status filter. The
+	// owned-page exclusion is NEW here and is correct — page-rerender's reasoned
+	// branch runs save_sections, which refuses an owned page (bugs_open/208).
+	//
+	// MEASURED BEFORE MIGRATING [2026-08-25], fleet-wide: the function route and
+	// the schema route select the SAME 16 pages — 16 in both, 0 function-only,
+	// 0 schema-only. So this is a no-op on today's fleet, which is what makes it
+	// reviewable rather than a leap.
+	//
+	// ROUTE AND ITEM SHAPE ARE DELIBERATELY UNCHANGED. Only the page SELECTION
+	// moved. This still files page_rerender via insertPageRerenderItem with
+	// reason=section_data_resolved. Changing the route is what made this
+	// emitter's first version expensive — see the CORRECTED block above.
+	pages, err := queryresolve.ConsumerPages(ctx, db, siteID, queryresolve.DepFeedItems, logger)
 	if err != nil {
-		logger.Warn("queueNewsPageRerenders: page lookup failed", zap.Error(err))
+		logger.Warn("queueNewsPageRerenders: consumer lookup failed", zap.Error(err))
 		return 0
-	}
-	defer rows.Close()
-
-	type newsPage struct {
-		id     uuid.UUID
-		name   string
-		domain string
-	}
-	var pages []newsPage
-	for rows.Next() {
-		var np newsPage
-		if err := rows.Scan(&np.id, &np.name, &np.domain); err != nil {
-			logger.Warn("queueNewsPageRerenders: scan failed", zap.Error(err))
-			continue
-		}
-		pages = append(pages, np)
 	}
 	if len(pages) == 0 {
 		return 0
@@ -139,16 +138,16 @@ func queueNewsPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UUID, l
 		// assemble-only item.
 		spec := fmt.Sprintf(
 			`{"reason":"section_data_resolved","page_name":%q,"page_id":%q,"domain":%q}`,
-			page.name, page.id.String(), page.domain)
-		itemKey := pageRerenderItemKey(page.name, siteID, "section_data_resolved")
+			page.Name, page.ID.String(), page.Domain)
+		itemKey := pageRerenderItemKey(page.Name, siteID, "section_data_resolved")
 
-		inserted, err := insertPageRerenderItem(ctx, db, siteID, page.id,
+		inserted, err := insertPageRerenderItem(ctx, db, siteID, page.ID,
 			"render_news_section", "low",
-			fmt.Sprintf("Re-render %s — fresh news items available", page.name),
+			fmt.Sprintf("Re-render %s — fresh news items available", page.Name),
 			spec, itemKey, batchID)
 		if err != nil {
 			logger.Warn("queueNewsPageRerenders: insert failed",
-				zap.String("page", page.name), zap.Error(err))
+				zap.String("page", page.Name), zap.Error(err))
 			continue
 		}
 		if inserted {

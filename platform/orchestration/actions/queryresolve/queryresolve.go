@@ -177,46 +177,175 @@ var queryHandlers = map[string]queryHandler{
 	},
 }
 
-// pageImageSources names the query bases whose resolvers splice PageImageJoinsSQL
-// — i.e. whose items carry an `image` computed from the page's CARD asset
-// (assets.entity_type='page', purpose='card') with the current plan hero as
-// the fallback. Declared beside queryHandlers, and pinned to it by
-// TestPageImageSourcesMatchTheResolversThatReadCards (page_image_sources_test.go),
-// which DRIVES every handler and records which SQL actually reads the card
-// join: a resolver that starts reading cards without declaring itself here
-// fails that test, and so does a stale declaration. Not a source scan.
+// SourceDependency names a CLASS OF DATA that a query base reads — the thing a
+// producer changes and then has to tell the consumers about.
 //
-// Why it exists (bugs_open/384): a component field fed by one of these sources
-// stores the resolved items in page_components.content_data, and every
+// GENERALISED 2026-08-25 (RFC_052, owner ruling "generalise it now"). Until then
+// this was a single boolean per base, `pageImageSources`, meaning "reads the
+// page card/hero join". That answered exactly one producer's question. The
+// council's architecture seat objected to it on the record (round c2873f56):
+// the estate had acquired its first GENERAL "who consumes this data source"
+// derivation, and building further sources on a boolean's shape would leave a
+// second ad-hoc dependency-tracking mechanism beside the query.* system rather
+// than a designed one. This is the designed one: page images are now one
+// dependency class among several, and the old boolean is a wrapper over it.
+type SourceDependency string
+
+const (
+	// DepPageCardImages: items carry an `image` computed from the page's CARD
+	// asset (assets.entity_type='page', purpose='card') with the current plan
+	// hero as fallback. Produced by derive_card_asset and flag_page_image_rebuild.
+	DepPageCardImages SourceDependency = "page_card_images"
+	// DepFeedItems: items come from content_feed_items. Produced by render_news_section.
+	DepFeedItems SourceDependency = "content_feed_items"
+	// DepDirectoryEntities: items come from directory_entities. Produced by render_directory.
+	DepDirectoryEntities SourceDependency = "directory_entities"
+	// DepBusinessIntel: items come from business_intel. NOT the same store as
+	// DepDirectoryEntities — `business_directory` reads business_intel while the
+	// model/adoption/protocol/lender trackers read directory_entities, and
+	// declaring them as one class would tell the wrong consumers on every publish.
+	DepBusinessIntel SourceDependency = "business_intel"
+	// DepProducts: items come from the products table. No producer notifies today.
+	DepProducts SourceDependency = "products"
+)
+
+// sourceDependencies declares, per query base, WHICH dependency classes its
+// resolver reads and WHICH ITEM KEYS each class feeds.
+//
+// THE ITEM-KEY LIST IS THE LOAD-BEARING GENERALISATION, and it is what lets one
+// lookup serve every producer. A dependency that feeds NAMED KEYS (page images
+// feed exactly `image`) only matters to a consumer whose template renders one
+// of those keys — re-resolving a component that stores the image and never
+// shows it is a page re-render for no visible change, which is the bound the
+// council added in round 2005a846. A dependency with NO key list governs the
+// whole item SET — its membership, order and contents — so EVERY consumer is
+// affected and no template filter applies at all. That is why news and
+// directory listings need no `.image` test: a new feed item changes which items
+// exist, not one field of one item.
+//
+// PINNED TO THE RESOLVERS BY BEHAVIOUR, NOT BY COMMENT:
+// TestSourceDependenciesMatchTheResolvers drives every registered handler
+// against a recording sqlmock and checks which store each one's SQL actually
+// touches, in BOTH directions. A resolver that starts reading a store without
+// declaring it fails; so does a stale declaration. And every registered base
+// must appear here — a base with genuinely no notifiable dependency declares an
+// EMPTY map rather than being absent, so "nobody thought about it" and "there
+// is nothing to think about" stay distinguishable.
+//
+// Why it exists at all (bugs_open/384): a component field fed by one of these
+// sources stores its resolved items in page_components.content_data, and every
 // assemble-mode re-render re-ships that stored array verbatim. When the data
-// behind the source changes — a card lands, a hero lands — the pages that
-// consume it must be told to re-resolve, and a producer of that change has no
-// other way to learn which sources (and, via PageListConsumerPages, which
-// pages) that is. section_index_for is deliberately absent: it returns a URL,
-// not items, and reads no assets.
-var pageImageSources = map[string]bool{
-	"pages_where_type":    true,
-	"pages_under_section": true,
-	"blog_posts":          true,
+// behind the source changes, the pages that consume it must be told to
+// re-resolve, and a producer has no other way to learn which sources — and via
+// ConsumerPages, which pages — those are.
+var sourceDependencies = map[string]map[SourceDependency][]string{
+	// Page listings: the card/hero join feeds exactly one item key.
+	"pages_where_type":    {DepPageCardImages: {"image"}},
+	"pages_under_section": {DepPageCardImages: {"image"}},
+	"blog_posts":          {DepPageCardImages: {"image"}},
+
+	// News: a fresh feed item changes the SET, so every consumer is affected.
+	"latest_news":  {DepFeedItems: nil},
+	"news_archive": {DepFeedItems: nil},
+
+	// Directories: same reasoning, different store.
+	"model_directory":                 {DepDirectoryEntities: nil},
+	"model_directory_full":            {DepDirectoryEntities: nil},
+	"adoption_tracker":                {DepDirectoryEntities: nil},
+	"adoption_tracker_full":           {DepDirectoryEntities: nil},
+	"protocol_tracker":                {DepDirectoryEntities: nil},
+	"protocol_tracker_full":           {DepDirectoryEntities: nil},
+	"mortgage_lender_directory":       {DepDirectoryEntities: nil},
+	"mortgage_lender_directory_full":  {DepDirectoryEntities: nil},
+	"savings_provider_directory":      {DepDirectoryEntities: nil},
+	"savings_provider_directory_full": {DepDirectoryEntities: nil},
+	"health_insurer_directory":        {DepDirectoryEntities: nil},
+	"health_insurer_directory_full":   {DepDirectoryEntities: nil},
+
+	// A different store, despite the name (see DepBusinessIntel).
+	"business_directory": {DepBusinessIntel: nil},
+
+	"products": {DepProducts: nil},
+
+	// DECLARED, AND DECLARED TO HAVE NONE — not an oversight. section_index_for
+	// returns a URL, not an item array, so nothing of it is stored as a snapshot
+	// that can go stale in the way this mechanism exists to fix. It reads `pages`
+	// like everything else here; that is not a notifiable dependency.
+	"section_index_for": {},
 }
 
-// SourceReadsPageImages reports whether a `query.*` source — the part after
-// "query.", optional `:arg` included, the same string QueryRequest.Name
-// carries — projects its items' image from the page card/hero join. Same
-// normalisation as Resolve, answered from the same base.
-func SourceReadsPageImages(name string) bool {
+// SourceReads reports whether a `query.*` source — the part after "query.",
+// optional `:arg` included, the same string QueryRequest.Name carries — reads
+// the given dependency class. Same normalisation as Resolve, answered from the
+// same base.
+func SourceReads(name string, dep SourceDependency) bool {
 	base, _ := parseQueryName(strings.ToLower(strings.TrimSpace(name)))
-	return pageImageSources[base]
+	deps, ok := sourceDependencies[base]
+	if !ok {
+		return false
+	}
+	_, reads := deps[dep]
+	return reads
 }
 
-// PageImageSources returns the declared bases, sorted, for messages and tests.
-func PageImageSources() []string {
-	bases := make([]string, 0, len(pageImageSources))
-	for base := range pageImageSources {
-		bases = append(bases, base)
+// SourceReadsPageImages is the page-image special case of SourceReads, kept so
+// the callers that predate the generalisation read no differently.
+func SourceReadsPageImages(name string) bool {
+	return SourceReads(name, DepPageCardImages)
+}
+
+// SourcesFor returns the query bases that read the given dependency, sorted.
+func SourcesFor(dep SourceDependency) []string {
+	bases := make([]string, 0, len(sourceDependencies))
+	for base, deps := range sourceDependencies {
+		if _, reads := deps[dep]; reads {
+			bases = append(bases, base)
+		}
 	}
 	sort.Strings(bases)
 	return bases
+}
+
+// PageImageSources returns the declared page-image bases, sorted, for messages
+// and tests. Retained wrapper; SourcesFor is the general form.
+func PageImageSources() []string {
+	return SourcesFor(DepPageCardImages)
+}
+
+// DependencyItemKeys returns the item keys the dependency feeds, sorted and
+// de-duplicated across every base that reads it. EMPTY means the dependency
+// governs the whole item set rather than named fields — see the note on
+// sourceDependencies, and note the difference matters: an empty list makes
+// ConsumerPages drop its template filter entirely instead of matching nothing.
+func DependencyItemKeys(dep SourceDependency) []string {
+	seen := map[string]bool{}
+	var keys []string
+	for _, deps := range sourceDependencies {
+		for _, k := range deps[dep] {
+			if !seen[k] {
+				seen[k] = true
+				keys = append(keys, k)
+			}
+		}
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// KnownDependencies returns every declared dependency class, sorted.
+func KnownDependencies() []SourceDependency {
+	seen := map[SourceDependency]bool{}
+	var out []SourceDependency
+	for _, deps := range sourceDependencies {
+		for d := range deps {
+			if !seen[d] {
+				seen[d] = true
+				out = append(out, d)
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
 }
 
 // Resolve dispatches the request to a registered query handler. Returns

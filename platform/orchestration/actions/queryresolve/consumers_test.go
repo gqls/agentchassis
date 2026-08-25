@@ -51,7 +51,7 @@ func TestPageListConsumerPages_KeepsOnlyPageImageSources(t *testing.T) {
 	// The owned-page exclusion AND the renders-image predicate are asserted on
 	// the STATEMENT. Deleting either clause from pageListConsumerSQL fails
 	// here; a result-shaped assertion would not notice.
-	mock.ExpectQuery(regexp.QuoteMeta("COALESCE(p.rebuild_policy, 'generic') <> 'owned'") + `[\s\S]*` + regexp.QuoteMeta(`cc.html_template ~* '\.image\y'`)).
+	mock.ExpectQuery(regexp.QuoteMeta("COALESCE(p.rebuild_policy, 'generic') <> 'owned'") + `[\s\S]*` + regexp.QuoteMeta(`cc.html_template ~* '\.(image)\y'`)).
 		WithArgs(siteID).
 		WillReturnRows(rows)
 

@@ -88,6 +88,15 @@ type directoryPublishProfile struct {
 	SnippetComponent string
 	ListingComponent string
 	BrowseLabel      string
+	// SnippetSource / ListingSource are the `query.*` BASES the two components
+	// declare (added 2026-08-25, RFC_052). They are what queueDirectoryPageRerenders
+	// asks the shared consumer lookup about — the component NAMES above are still
+	// used for the JSON/publish legs, but "who consumes my data" is now answered
+	// from what components DECLARE rather than from a hand-kept function list.
+	// The mapping is 1:1 with the component names and was verified against the
+	// live schema before it was written down [MEASURED 2026-08-25].
+	SnippetSource string
+	ListingSource string
 }
 
 // directoryPublishProfiles is the closed set of publishable kinds. A kind
@@ -104,6 +113,8 @@ var directoryPublishProfiles = map[string]directoryPublishProfile{
 		SnippetComponent: "model-directory",
 		ListingComponent: "model-directory-listing",
 		BrowseLabel:      "Browse the full directory →",
+		SnippetSource:    "model_directory",
+		ListingSource:    "model_directory_full",
 	},
 	"company": {
 		Kind:             "company",
@@ -113,6 +124,8 @@ var directoryPublishProfiles = map[string]directoryPublishProfile{
 		SnippetComponent: "adoption-tracker",
 		ListingComponent: "adoption-tracker-listing",
 		BrowseLabel:      "See every tracked deployment →",
+		SnippetSource:    "adoption_tracker",
+		ListingSource:    "adoption_tracker_full",
 	},
 	"protocol": {
 		Kind:             "protocol",
@@ -122,6 +135,8 @@ var directoryPublishProfiles = map[string]directoryPublishProfile{
 		SnippetComponent: "protocol-tracker",
 		ListingComponent: "protocol-tracker-listing",
 		BrowseLabel:      "See every tracked protocol →",
+		SnippetSource:    "protocol_tracker",
+		ListingSource:    "protocol_tracker_full",
 	},
 	// Phase B finance/insurance kinds (2026-08-13). Non-price facts only
 	// (owner ruling): the headlines say "cited facts" — cited is what re-fetch verification actually proves (the quote exists at the source), and never rates.
@@ -133,6 +148,8 @@ var directoryPublishProfiles = map[string]directoryPublishProfile{
 		SnippetComponent: "mortgage-lender-directory",
 		ListingComponent: "mortgage-lender-directory-listing",
 		BrowseLabel:      "Browse every listed lender →",
+		SnippetSource:    "mortgage_lender_directory",
+		ListingSource:    "mortgage_lender_directory_full",
 	},
 	"savings-provider": {
 		Kind:             "savings-provider",
@@ -142,6 +159,8 @@ var directoryPublishProfiles = map[string]directoryPublishProfile{
 		SnippetComponent: "savings-provider-directory",
 		ListingComponent: "savings-provider-directory-listing",
 		BrowseLabel:      "Browse every listed provider →",
+		SnippetSource:    "savings_provider_directory",
+		ListingSource:    "savings_provider_directory_full",
 	},
 	"health-insurer": {
 		Kind:             "health-insurer",
@@ -151,6 +170,8 @@ var directoryPublishProfiles = map[string]directoryPublishProfile{
 		SnippetComponent: "health-insurer-directory",
 		ListingComponent: "health-insurer-directory-listing",
 		BrowseLabel:      "Browse every listed insurer →",
+		SnippetSource:    "health_insurer_directory",
+		ListingSource:    "health_insurer_directory_full",
 	},
 }
 
@@ -378,30 +399,38 @@ func queueDirectoryPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UU
 	// heuristic" is a failure this platform has already recorded (bugs_open/093),
 	// and because the two functions declare their kinship in their own comments,
 	// which is precisely how a reader concludes they behave alike.
-	rows, err := db.QueryContext(ctx, `
-		SELECT DISTINCT p.name
-		FROM pages p
-		JOIN page_components pc ON pc.page_id = p.id
-		JOIN content_components cc ON cc.id = pc.component_id
-		WHERE p.site_id = $1
-		  AND cc.function IN ($2, $3)
-		  AND `+datahelpers.PageHasShippedPredicateFor("p")+`
-		  AND `+datahelpers.PageWantedLivePredicateFor("p")+`
-	`, siteID, profile.SnippetComponent, profile.ListingComponent)
+	// MIGRATED 2026-08-25 onto the shared consumer lookup (RFC_052, owner ruling
+	// "generalise it now"), exactly as the news cousin was. This used to select
+	// pages by COMPONENT FUNCTION (`cc.function IN ($2,$3)`); it now asks
+	// queryresolve which pages DECLARE a source reading directory_entities, then
+	// narrows to this profile's two sources.
+	//
+	// THE NARROWING IS NOT OPTIONAL. A dependency names a STORE, and this
+	// publisher handles one KIND at a time out of that store: without
+	// ConsumesAny, publishing the model directory would re-render every page
+	// listing mortgage lenders too. The shared lookup is deliberately NOT taught
+	// this special case — the caller expresses its own narrowness.
+	//
+	// MEASURED BEFORE MIGRATING [2026-08-25]: the function route and the source
+	// route select the SAME pages, in aggregate (5 both / 0 / 0) and per kind
+	// (model 1, company 1, protocol 1, mortgage-lender 2 — zero on either side
+	// only). A no-op on today's fleet.
+	//
+	// ROUTE AND ITEM SHAPE UNCHANGED: still `needs_page` → page-build-handler
+	// with item_key `page_rerender:<page>`. Only the page SELECTION moved. The
+	// news cousin's CORRECTED block records what changing a route costs, and
+	// this file is not the place to find out again.
+	consumers, err := queryresolve.ConsumerPages(ctx, db, siteID, queryresolve.DepDirectoryEntities, logger)
 	if err != nil {
-		logger.Warn("queueDirectoryPageRerenders: page lookup failed", zap.Error(err))
+		logger.Warn("queueDirectoryPageRerenders: consumer lookup failed", zap.Error(err))
 		return 0
 	}
-	defer rows.Close()
 
 	var pages []string
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			logger.Warn("queueDirectoryPageRerenders: scan failed", zap.Error(err))
-			continue
+	for _, c := range consumers {
+		if c.ConsumesAny(profile.SnippetSource, profile.ListingSource) {
+			pages = append(pages, c.Name)
 		}
-		pages = append(pages, name)
 	}
 	if len(pages) == 0 {
 		return 0
