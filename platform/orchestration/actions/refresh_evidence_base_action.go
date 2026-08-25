@@ -1306,6 +1306,25 @@ func composeWriterBlock(eb map[string]interface{}) string {
 	}
 
 	// Human-owned guidance, carried VERBATIM through every regeneration. This is
+	// NEGATIVE/PROHIBITIVE guidance ONLY by contract (NEVER-STATE lists, bans) —
+	// never positive writing instructions or claims about our own accuracy: the
+	// field is durable across regeneration BY DESIGN, so anything in it ships
+	// for ever (compliance seat, council 0de22385 r1). It does not widen the
+	// trust surface — an unmanaged hand-written writer_block is already
+	// verbatim-into-prompt and unvalidated — and wherever this field takes
+	// effect its text lands inside the composed writer_block, which is on
+	// brief-negation-check's runtime-derived writer-visible surface.
+	// DURABILITY, verified against the typed-struct landmine ("parsing
+	// evidence_base through EvidenceBase and writing it back DELETES unlisted
+	// fields"): NO write path round-trips that struct — all nine
+	// ParseEvidenceBase callers are readers or validation guards (the admin
+	// handler stores the client's raw bytes), and the two real write paths
+	// (this action's raw-map marshal; write_site_spec's siteSpecDeepMerge)
+	// preserve unknown keys, pinned by round-trip tests. The clincher is
+	// precedent: writer_block itself is equally unlisted in the struct, and no
+	// site has ever lost one to a struct write — the struct is the SCANNER'S
+	// read model, and the landmine stands guard over anyone changing that.
+	// This is
 	// the carry that lets a site with a hand-written NEVER-STATE list adopt
 	// writer_block_managed at all: without it, the first regeneration DELETES
 	// the hand-written half — the recurring estate defect ("a generator that

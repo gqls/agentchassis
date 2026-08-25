@@ -16,6 +16,7 @@
 package actions
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -94,5 +95,44 @@ func TestScopedWriterBlockCarriesGuidance(t *testing.T) {
 	ebNo := guidanceEB(false, fact)
 	if got := composeScopedWriterBlock(ebNo, []string{"F1"}, zap.NewNop(), "hero"); strings.Contains(got, "NEVER STATE") {
 		t.Fatalf("guidance appeared with no key set: %q", got)
+	}
+}
+
+// ── Storage round trips (council 0de22385 r1: reuse_agent + debug_historian) ──
+//
+// The typed-struct landmine says ParseEvidenceBase→write-back DELETES unlisted
+// fields. No write path does that today; these tests pin the two write paths
+// that DO exist, so the durability claim rests on executed code, not a survey.
+
+func TestWriterBlockGuidanceSurvivesSiteSpecDeepMerge(t *testing.T) {
+	// write_site_spec merges an update INTO the stored document. A partial
+	// update that doesn't mention the key must not lose it.
+	stored := guidanceEB(true, guidanceFact("F1", "{value} live sites in production", 27.0))
+	update := map[string]interface{}{
+		"facts": []interface{}{guidanceFact("F1", "{value} live sites in production", 28.0)},
+	}
+	merged := siteSpecDeepMerge(stored, update)
+	g, _ := merged["writer_block_guidance"].(string)
+	if !strings.Contains(g, "NEVER STATE") {
+		t.Fatalf("deep-merge write path lost the guidance key: %#v", merged["writer_block_guidance"])
+	}
+}
+
+func TestWriterBlockGuidanceSurvivesRefresherMarshalCycle(t *testing.T) {
+	// The refresher persists by json.Marshal of the raw map
+	// (writeRefreshedEvidenceBase). A marshal/unmarshal cycle must keep the key
+	// AND the composer must still see it afterwards.
+	eb := guidanceEB(true, guidanceFact("F1", "{value} live sites in production", 27.0))
+	raw, err := json.Marshal(eb)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var back map[string]interface{}
+	if err := json.Unmarshal(raw, &back); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	got := composeWriterBlock(back)
+	if !strings.Contains(got, "NEVER STATE") {
+		t.Fatalf("guidance lost across the refresher's persistence cycle: %q", got)
 	}
 }
