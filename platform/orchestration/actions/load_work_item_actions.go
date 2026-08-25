@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/uuid"
 	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -1281,6 +1282,41 @@ func FailWorkItemAction(ctx context.Context, params ActionParams) (interface{}, 
 	// component-template-fixer ×2, page-build-handler, tool-improver — from
 	// inside a patch about something else.
 	statusOverride, _ := params.StepConfig.Config["status_override"].(string)
+
+	// bugs_open/396: the key used to be honoured verbatim. It is a bare config
+	// string written straight into `status`, checked against none of the three
+	// predicates that decide whether a row can ever move again — so a value
+	// outside all of them (`deferred` being the natural one to reach for when you
+	// mean "park this") produced a row that is undispatchable, un-promotable, and
+	// STILL holding its idx_swi_dedup slot, with every field looking healthy.
+	//
+	// Refusing is the safe direction: the item falls through to the normal
+	// failure ladder below, which ages and retries it. Honouring an unknown
+	// status can strand a row for ever; falling back costs at most one attempt.
+	if statusOverride != "" && !statusOverrideAllowed(statusOverride) {
+		logger.Error("FailWorkItemAction: REFUSING an unrecognised status_override; falling through to the failure ladder",
+			zap.String("item_id", itemIDStr),
+			zap.String("status_override", statusOverride),
+			zap.Strings("allowed", workItemStatusOverrideAllowed),
+			zap.String("bug", "bugs_open/396"))
+		LogActionEntry(ctx, params, agenterrors.Entry{
+			AgentType: agentType,
+			StepName:  params.StepConfig.Name,
+			Action:    "fail_work_item",
+			ErrorMessage: fmt.Sprintf(
+				"status_override %q is not a status this item could ever leave — refused, and the item was routed through the normal failure ladder instead. Allowed: %v. To PARK work deliberately use park_work_items() (migration 621, register WII-034), which records who, why and what would release it.",
+				statusOverride, workItemStatusOverrideAllowed),
+			ErrorCode: statusOverrideRefusedCode,
+			Severity:  "error",
+			Context: map[string]interface{}{
+				"work_item_id":    itemIDStr,
+				"status_override": statusOverride,
+				"allowed":         workItemStatusOverrideAllowed,
+				"bug":             "bugs_open/396",
+			},
+		}, logger)
+		statusOverride = ""
+	}
 
 	var newStatus string
 	var attemptsLeft int

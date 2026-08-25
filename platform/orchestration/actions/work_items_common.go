@@ -144,6 +144,79 @@ var workItemRevalidatableStatuses = []string{
 	"unresolved",
 }
 
+// workItemStatusOverrideAllowed is the set `FailWorkItemAction`'s
+// `status_override` step-config key may write. It sits with its three siblings
+// above so the differences are visible rather than discovered:
+//
+//	terminal (dedup / ON CONFLICT):  complete verified rejected wont_fix cancelled failed unresolved
+//	closed   (retraction):           complete verified rejected wont_fix cancelled
+//	revalidatable:                   needs_human_review unresolved
+//	status_override (this list):     needs_human_review blocked wont_fix unresolved cancelled
+//
+// WHY IT EXISTS (bugs_open/396). `status_override` was a bare string written
+// straight into `site_work_items.status` with no allow-list, no enum and no CHECK
+// constraint — validated against NONE of the three predicates that actually decide
+// a row's fate. Pick a status outside all of them and the row becomes
+// undispatchable (`claim_work_item_action.go` claims `triaged`/`approved`),
+// un-promotable (the promoter takes `detected`) and still holding its
+// `(site_id, item_key)` slot (`deferred` is absent from `idx_swi_dedup`'s
+// exclusion list) — so the detector cannot re-file it and any other session
+// dispatching that page hits 23505, a failure that reads as "already queued" and
+// means "queued and abandoned". Every field on such a row looks healthy.
+//
+// THE RULE EACH ENTRY HAS TO MEET: a status may be written here only if the row
+// can still LEAVE it — either because something named moves it on, or because it
+// is terminal and therefore releases the dedup slot. Each line names its exit:
+//
+//	needs_human_review — HandleRetryWorkItem and the resolve endpoint both take it
+//	blocked            — the `feasibility-recheck` scheduled task selects it
+//	wont_fix           — terminal: releases the slot, so the detector can re-file
+//	unresolved         — terminal (see the closed-vs-terminal note above)
+//	cancelled          — terminal, joined the closed set in migration 157
+//
+// ⚠ `deferred` IS DELIBERATELY ABSENT, and it is the reason this list exists.
+// It is the one status that is neither claimable, nor promotable, nor terminal.
+// It is also the natural word to reach for when you mean "park this", which is
+// exactly the trap. To park work deliberately, use the PARK VERB — migration 621's
+// `park_work_items(...)` (register WII-034) — which records who, why and what
+// would release it, because those are required arguments rather than a habit.
+//
+// [MEASURED 2026-08-25] a recursive walk over EVERY `agent_definitions` row —
+// snapshots and soft-deleted included — found `status_override` on 4 steps, in 3
+// agents, and **every one of them is `needs_human_review`**. No other value has
+// ever been configured. So this allow-list narrows a capability nobody uses and
+// its blast radius today is zero; it is a door being shut before it is walked
+// through, not a behaviour change.
+var workItemStatusOverrideAllowed = []string{
+	"needs_human_review",
+	"blocked",
+	"wont_fix",
+	"unresolved",
+	"cancelled",
+}
+
+// statusOverrideRefusedCode names the refusal in agent_error_log. It is its own
+// code rather than a generic one because it answers a question no existing code
+// answers: "a step config asked for a status this item could never leave, and we
+// declined". A reader querying it wants the misconfigured STEP, not a failure.
+const statusOverrideRefusedCode = "WORK_ITEM_STATUS_OVERRIDE_REFUSED"
+
+// statusOverrideAllowed reports whether `status_override` may write s.
+//
+// The fail direction is deliberate and is the opposite of the caller's
+// convenience: an unrecognised value is REFUSED and the item falls through to
+// the normal failure ladder, which ages and retries it. Honouring an unknown
+// status is the branch that can strand a row for ever; falling back can only
+// cost an extra attempt.
+func statusOverrideAllowed(s string) bool {
+	for _, allowed := range workItemStatusOverrideAllowed {
+		if s == allowed {
+			return true
+		}
+	}
+	return false
+}
+
 // sqlInList formats a Go string slice as a SQL IN literal list for
 // interpolation into a query string. No escaping — callers must supply
 // already-safe const values (these are package-level constants).
