@@ -1,4 +1,10 @@
-# HANDOFF — ai-agent-orchestration.com. START HERE. Written 2026-08-25 ~19:45Z.
+# HANDOFF — ai-agent-orchestration.com. ⚠ SUPERSEDED. Written 2026-08-25 ~19:45Z.
+
+> ## ⛔ SUPERSEDED the same evening by `HANDOFF_2026-08-25c_continue_here.md` — READ THAT FIRST.
+> Its central correction — that "contrast is at zero" was FOUR pages of FORTY-TWO — stands, and is
+> why this lane now audits the whole site. **Its remaining-work table is out of date: 17 firm
+> failures are now 5.** The three `owned` tool pages and 3 of contact's 4 were fixed by migration
+> `625` plus an assemble-mode deploy; the manoeuvre is written up in the new file's §1.
 
 **Supersedes `HANDOFF_2026-08-25_continue_here.md`** (written 12 hours earlier, same day).
 ⚠ **That file's headline claim is WRONG and this file exists mainly to correct it.**

@@ -665,3 +665,56 @@ Another team has prepared the piece I told you was blocked — the automation th
 instruction sheet current without deleting its "never claim this" rules. It is written, reviewed
 and waiting to be applied deliberately. Not ours to switch on, and I have written that down so
 nobody here does it early.
+
+---
+
+## 2026-08-25, later — the tool pages are fixed: 17 problems down to 5
+
+Following the correction earlier this evening, I have fixed most of what I found.
+
+**Site-wide, across all 42 pages: 17 unreadable elements are now 5.** The contact page went from
+four to one, and the three calculator pages — the complexity estimator, the password tool and the
+cost calculator — are now completely clean.
+
+### Why the calculator pages needed care
+
+Those three pages are the ones marked "owned", where the whole working calculator lives in a single
+block. The normal repair route is blocked for them by design, and the two obvious ways round it were
+both wrong:
+
+- Unlocking them so the normal rebuild works is exactly how calculators have been destroyed here
+  before — the rewritten page gets published *before* the safety check refuses it.
+- The existing safe tool for owned pages only re-assembles what is already stored, which was the
+  stale version — so it would have changed nothing.
+
+So I corrected the stored version of each page directly and precisely, then used that safe tool to
+publish it. **All three calculators still work and all three pages are locked again** — I checked
+each one afterwards rather than assuming the script had tidied up.
+
+One of those pages had not been rebuilt since **1 May**, which is why it was still serving a problem
+we fixed weeks ago.
+
+### A detail that caught me out, and is worth you knowing
+
+Two of the faults were not in a stylesheet at all — the colour was written directly onto the element
+in the page. Every search I had run looked at stylesheets, so that page came back clean twice before
+I found them a third way. It is a good reminder that "I searched and found nothing" depends entirely
+on where you searched.
+
+I also nearly reported that I had broken the contact button. The checking tool measured it as one
+colour in one run and a different colour in the next. Asking the browser directly settled it: the
+button is unchanged, and one of those two readings was simply taken before the page had finished
+styling itself. **A number that changes while the thing itself has not changed is a fault in the
+measurement, not a discovery.**
+
+### What is left
+
+Five items, and none of them is mysterious:
+
+- **The contact page's "Send Message" button** — white on amber. I know the fix and have calculated
+  it, but that component is shared by **20 sites**, so it is a fleet-wide change and the other teams
+  should be told before I touch it, not after.
+- **Four items on two calculator pages** which already have the corrected colour applied, so
+  something else is causing them. That needs diagnosis rather than another repair attempt.
+- **Two pages the checking tool still cannot read at all.** They work for visitors; the tool fails on
+  them. Until that is understood, nobody can honestly say the whole site has been checked.

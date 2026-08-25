@@ -1609,3 +1609,70 @@ CLM-029's first consumer — pre-composes `writer_block` to the real composer's 
 a chassis guard refusing any pod that predates the carry. **So the blocker my handoff describes is
 being cleared by someone else.** Do not re-derive it, and do not flip managed mode by hand: `617` is
 held for ordering and applies deliberately.
+
+### Same evening, continued — 17 → 5 site-wide, via a route the ordinary one could not take
+
+**`contact` re-render landed: 4 → 1.** The three ink failures cleared exactly as predicted; only
+the white-on-amber button survives, which was the prediction.
+
+**Then the three `owned` tool pages, 9 failures, as migration `625`.** This is the interesting part
+because *both* obvious routes were wrong:
+
+- **Flip `rebuild_policy` to `generic`** so a rerender goes through → the documented tool-clobber.
+  The composition loop commits freshly-written HTML to the deploying repo **one step before**
+  `save_page_sections` refuses, so the calculator ships as prose. Calculators have already been
+  destroyed this way (367 → 377 re-lock).
+- **`refresh_owned_page_chrome.sh`** (the leopardess route) → safe, but **inert for this**: it
+  re-renders in ASSEMBLE mode, which re-assembles the **stored** HTML — exactly what carries the
+  stale CSS. It fixes chrome, not section CSS.
+
+**So the operation was a surgical patch of the stored artefact** (precedent: migration `393`), and
+it is only safe *now* because `bugs_closed/229` (live since v1.0.1276) gave `rendered_html` writes a
+comparison and an archive. Before that fix this would have been reckless.
+
+⚠ **And then assemble mode became the right deploy vehicle after all** — once the stored HTML is
+correct, re-assembling it is precisely what ships it. That inversion is the lesson: *the same
+mechanism was useless and then necessary, and what changed was not the mechanism but the state it
+reads.* Ran the script per page; **ownership restored on all three and asserted afterwards**
+(`owned`, scripts present, lengths 22,732 / 5,271 / 35,940).
+
+**Four defect shapes, each measured against its own ground before being changed:**
+
+| shape | before | after | note |
+|---|---|---|---|
+| bare foreground `--color-primary` (`h2`, `.ace-legend`) | 1.00 / 1.04 | 5.66 / 5.90 | 456's defect on pages 456 never reached; `.ace-legend`'s TEMPLATE was already correct — only the artefact was stale, since **2026-05-01** |
+| label on a primary fill (`.estimate-btn`, `.calc-btn`) | 1.04 | 18.92 | 457's shape in its primary variant |
+| inline `style="… color:#666 …"` (×2) | 3.30 | 6.15 | **not a rule at all** |
+
+⚠ **The inline-style case is why this page read as clean to every rule-shaped query I ran.** I
+searched `{...}` blocks inside `<style>` and found nothing, twice. A colour can be applied by an
+attribute, and a CSS-rule query cannot see it. **`--color-on-primary` is NOT emitted on this site**,
+which is why `.calc-btn`'s existing fallback chain still failed — a chain is only as good as its
+first *emitted* link.
+
+### ⚠ `render_audit.py` can sample BEFORE the stylesheet applies — the same element read two different wrong colours
+
+The `contact` button measured **2.08:1 white on `#F0A500`** in one run and **1.15:1 white on
+`rgb(239,239,239)`** in the next. `rgb(239,239,239)` is the UA default `buttonface` — i.e. the
+second run sampled before the custom background applied. I nearly wrote up a self-inflicted
+regression.
+
+`getComputedStyle` on the live page settles it: **`bg: rgb(240,165,0)`, `color: rgb(255,255,255)`** —
+the button is amber, the true ratio is **2.08**, and the stored CSS rule is byte-identical either
+side of my re-render, so nothing regressed. **A differing measurement of an unchanged thing is an
+instrument reading, not a finding** — and this instrument's failure mode is to report a *plausible
+alternative colour*, not an error.
+
+### Where the site actually stands, all 42 pages
+
+```
+FIRM failures site-wide:  17  ->  5      (42 pages, 2 unmeasurable)
+  3  /tools/automation-savings-estimator/index.html   SUMMARY + BUTTON at 1.00, A at 1.09
+  1  /tools/build-vs-buy-analyzer/index.html          BUTTON at 1.00
+  1  /contact.html                                    .form-submit, white on amber, 2.08
+```
+
+The two remaining tool pages already carry the ink token in their stored HTML, so their cause is
+**not** the 456 defect and guessing would waste a cycle. The contact button's fix is known and
+computed — `--color-accent-text` is `#294155` here, giving **5.09:1** on amber — but
+`contact-form` is on **20 sites**, so it is a fleet change requiring the consumers to be told first.
