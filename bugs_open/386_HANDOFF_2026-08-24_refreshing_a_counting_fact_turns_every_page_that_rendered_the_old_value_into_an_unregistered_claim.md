@@ -5,7 +5,7 @@ bug's residual. **Not** 364's mechanism — filed separately so the two are not 
 **Severity** medium. Nothing false is published; honest pages are convicted of dishonesty,
 and the conviction is at `error` severity, which refuses a rebuild.
 **Class** evidence-register drift / detector false positive with a moving reference.
-**Status** OPEN, unowned, not fixed. Diagnosis below is first-hand and cited; no `090` run.
+**Status** OPEN, unowned, not fixed. **Owner ruling recorded 2026-08-25 — see §4b** ("at least", or don't make the claim), with the caveat that decides how it must be implemented. Diagnosis below is first-hand and cited; no `090` run.
 
 ## 1. The symptom
 
@@ -76,6 +76,52 @@ gradient `bugs_open/364` §2 records for its own mechanism.
    what it starts vouching for.**
 4. Suppress the check on components that render the register. Rejected as written: it hides the
    drift instead of resolving it, and an `evidence-chart` is exactly where a wrong figure matters.
+
+## 4b. OWNER RULING 2026-08-25 — "at least", or don't make the claim
+
+**The ruling, in the owner's terms:** a counting fact should be expressed as **"at least" N**, or the
+claim should be **cancelled or minimised** — i.e. prefer not publishing a live counter in prose at all.
+
+**What that means mechanically:** it selects fix candidate 3 (`tolerance: "gte"`) as the default
+shape for a counting fact, and adds a preference above it — *don't mint the claim* — which candidate
+list did not contain because I had framed the choice as "how do we make the check tolerate this"
+rather than "should the page say it".
+
+**It is the right call for a reason worth stating: a monotonic counter's honest form IS a lower
+bound.** "We have collected 11,646 items" is false one minute later; "at least 11,000 items" stays
+true for months and needs no re-render. The drift this bug describes is a symptom of publishing an
+exact value that was only ever true at one instant.
+
+### ⚠ The one caveat that decides the implementation — a broad `gte` buys silence, not accuracy
+
+`numberSupported` matches a fact against a number only when the fact's `context_terms` appear in the
+±70-byte window around it — **and that test is `strings.Contains`, i.e. a substring, not a word
+match.** A `gte` fact therefore vouches for **every number smaller than its value** anywhere near a
+term it names. This is measured, not theoretical: ai-agent-orchestration.com carries
+`4068 gte / context_terms ["orchestration"]`, and that single fact silently supports any figure up to
+4,068 sitting next to the word — which is why the first draft of `bugs_open/364`'s test passed with
+the fix reverted, and why that bug's §2 calls it accidental support.
+
+**So the ruling must be implemented with tight `context_terms`, not with a bare `gte`.** A counting
+fact converted to `gte` with a broad term is not a fix; it is the check being switched off for a
+whole vocabulary, and it will read as "no findings" for ever after.
+
+**Concretely, for whoever takes this:**
+1. Round the published figure **down** to a stable threshold and register it `gte` at that
+   threshold — not at today's exact count, which reintroduces the drift on the next tick.
+2. Give the fact **narrow, specific** `context_terms` (`"feed items collected"`, not `"items"`), and
+   check what else on the site sits near those words before committing to them.
+3. Where a page does not need the number at all, take the owner's stronger option and remove it —
+   that is the only version with no ongoing cost.
+4. Candidate 1 (a monotonic range anchored on verification time) remains the durable fix and is
+   **not** superseded by this ruling; it is what makes the bad state unrepresentable rather than
+   merely tolerated. Candidate 2 (re-render on refresh) stays the right answer for keeping published
+   copy true, and is the expensive one.
+
+**Still open after this ruling:** the register cannot currently say a fact is monotonic, so nothing
+stops the next author registering an exact counting fact. Until it can, this ruling is a convention
+enforced by review, not by the schema — and `bugs_open/364` §5b's lesson applies: a comment is not a
+control on a tree this many sessions share.
 
 ## 5. How to verify
 
