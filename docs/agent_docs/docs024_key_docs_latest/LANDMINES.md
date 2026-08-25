@@ -17471,3 +17471,12 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `a [MEASURED] claim about STATE expires while a DATED EVENT does not` · the measurement-discipline index's "your own action inflates your own metric" family · `WRONG_CALLS.md` 2026-08-24 (I nearly reported a 2.6× rise that was entirely our own curl traffic)
 - **source:** 2026-08-25. The Cloudflare half and the contamination measurement from the `dartsonline_traffic` lane; the GA4 complementarity, the 0-tags finding and the independent 27.1% reproduction from the `apis.uk` lane. Neither lane could have seen the pair alone.
 - **added:** 2026-08-25, dartsonline_traffic lane.
+
+> **Provenance note for `5f159c540`, which the append-only pattern check flagged.** That commit
+> removed one line from this file. It was **my own**, added ninety minutes earlier in
+> `ec5cc3ef5` (same session, same entry), and it was replaced in place by the expanded version
+> carrying the control table — not deleted. Verified before saying so: `git show` on the diff
+> gives exactly one removed line, and it is the contamination bullet from my own commit.
+> Recorded here rather than only in a commit message because the check's own guidance is that
+> nothing downstream can tell a deleted entry from one never written, and a reader auditing this
+> file's history should not have to re-derive that.
