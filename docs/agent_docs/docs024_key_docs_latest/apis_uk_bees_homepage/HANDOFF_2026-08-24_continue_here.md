@@ -1,3 +1,6 @@
+> **⚠ SUPERSEDED by `HANDOFF_2026-08-25_continue_here.md`.** Its traps and build designs still
+> stand; its STATE is stale (GTM had not rolled, apis.uk hero still said 'A page about bees').
+
 # HANDOFF 2026-08-24 — continue here
 
 **Lane:** `apis_uk_bees_homepage`. Start here, then `NOTES_apis_uk_bees_homepage.md` (newest at
