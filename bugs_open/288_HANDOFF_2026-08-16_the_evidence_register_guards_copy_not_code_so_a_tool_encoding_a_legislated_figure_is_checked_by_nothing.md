@@ -421,6 +421,90 @@ calculator, which is both the biggest unguarded surface AND the distribution's b
 **Adoption two days on:** `artifact_check` **0 → 6 facts**; tool PLANs declaring **1 → 2**;
 `fact_binding_suggested` notes **5**, of which **1 acted on**.
 
+## §5e — THE FIRST ADOPTION, 2026-08-25. Phase 3b's precondition has started to fill.
+
+`mortgages-stamp-duty` (loanandmortgagecalculator.co.uk) **declares, applied and live.**
+§5d called this "the single highest-value action on this lane"; it is done.
+
+**THIRTEEN facts, not the seven the sweep proposed — and the gap is a property of the
+suggester, not an error in it.** The probe matches a registered value as a literal in
+script text above the measured floor of 1000. This register stores rates as percentages
+(`2`, `5`, `5`, `5`, `10`, `12`); the tool stores them as fractions (`0.02`, `0.05`,
+`0.10`, `0.12` in `SDLT_BANDS`, plus `SURCHARGE_ADDITIONAL = 0.05`, plus a bare inline
+`(price - FTB_NIL_BAND) * 0.05`). **Neither can match the other, and two digits would be
+refused by the floor even if they could** — two independent blindnesses, and the note
+reports neither. Declaring the seven would have left every rate in a stamp-duty
+calculator unwatched behind a fence that reads complete: **`bugs_closed/225`'s class by
+omission, inside the artefact built to prevent it.** Read the tool's script and
+reconciled both directions before declaring.
+
+> **So a `fact_binding_suggested` note is a LOWER BOUND on the work, never its size.**
+> Filed as a landmine. This lane told the `agritec_uk` lane the same rule on 2026-08-24
+> ("declare what the tool ENCODES, not the subset that happens to be fenced") and then
+> nearly failed it on its own first adoption.
+
+**Proven at the behaviour, not at the row.** Scoped `refresh_evidence_base` dry run on the
+LMC site **before** the write returned an empty `fact_drift` array (corr `2bebb885`); the
+identical run **after** returned 13 `unreconciled_declaration` entries (corr `d4dd59e2`).
+The `doc_plans` readback alone would have looked right either way.
+
+### Phase 3a's first sample carrying information — and what it CANNOT tell you
+
+| probe verdict | n |
+|---|---|
+| `present_in_script` | **7** (the thresholds) |
+| `not_probed` | **6** (every rate, below the floor) |
+| `absent` | **0** |
+| `present_in_markup_only` | **0** |
+
+Against agritec's 24 × `not_probed` this is the first non-zero-information sample. ⚠ **But
+this declaration was authored FROM THE CODE, so `absent` is structurally near-impossible
+in it — and the `absent` rate is precisely what Phase 3b needs.** An `absent` can only
+come from a declaration authored from the register alone, or one that has aged past a
+rebuild. **Do not let 7/6/0/0 stand in for the distribution**; it establishes that the
+probe fires and discriminates, not how often it is right.
+
+### ⚠ THE ADOPTION PATH HAS A TRAP THAT DELETES YOUR WORK, AND IT IS WRITER-DEPENDENT
+
+The CONTRIB this lane filed said *"install through the lane's own fence installer; never
+hand-edit the `doc_plans` row"*. Correct, with exactly one failure mode nobody had looked
+for: **LMC's installer `--apply` rebuilds the whole body from
+`acceptance/criteria/<slug>.criteria.json`** and had no `facts` handling, and the live
+row's `created_by='operator:bugfix224-session'` is that script's own literal — so it is the
+writer. **The paste-ready fragment, installed exactly as instructed, would have been
+deleted on their next run.** Clean exit, no error, fence still parses.
+
+Fixed at the generator's input (the criteria file) rather than at the artefact, so the
+declaration is reproduced on every future run. `--apply` was gated on a **body diff**, not
+on confidence: regenerated vs live differed by the `facts` block alone, byte-identical once
+stripped.
+
+`[MEASURED 2026-08-25]` over all **7** `doc_plans`-writing lane scripts: **1** injects into
+the live body (agritec — safe), **1** rebuilds and carries `facts` (mcalc — safe), **1**
+rebuilt and dropped it (LMC — now fixed), **4** write unrelated PLAN kinds.
+
+**And the worse form: the writer may be a PLATFORM AGENT.** gamesdesign's three noted PLANs
+read `created_by='tool-generator'`, and `tool-spawn-rate-balancer`'s body was fully
+rewritten between 2026-07-29 and 2026-08-21 (**28 of 41 lines**). Per CLM-021 the generator
+names neither `writer_block` nor `evidence_base`, so it cannot carry a key it does not know
+about. **Declaring there by hand is knowingly writing something the next rebuild deletes**,
+so it was deliberately NOT done — the fix is council-gated Go in the generator. Also
+`drop-rate-simulator` has no `doc_plans` row at all, and **no lane directory owns
+gamesdesign.co.uk.**
+
+### ⚠ CORRECTION to §5c: agritec's nine value-sharing pairs CANNOT exercise the ambiguity guard
+
+§5c implies the ambiguity rule stays exercisable on a rate-table site. It does not.
+`planFactBindingSuggestions` skips any subject already declaring
+(`refresh_evidence_fact_suggest.go:167`), and agritec's sole script-bearing tool now
+declares 24 facts. Worse, `Ambiguous` reaches **only the doc_note body** (`:284`) and never
+a per-site result field, and the note cooldown is 30 days (`:246`), so all five noted
+subjects are suppressed to ~2026-09-24. **After the roll, the available proof for
+`bba8a892d` is presence at the binary plus its unit test — not a behavioural one.** Say it
+that way. Exposing `Ambiguous` on the result would make it dry-run-provable and is a
+council-gated change.
+
+
 ## §6 — what is owed now, in order (2026-08-24)
 
 1. **The roll.** All of Phases 1 and 2 is Go and therefore inert. Verify at the binary,
