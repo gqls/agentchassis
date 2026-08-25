@@ -3394,3 +3394,35 @@ caveat; forward-looking ones carry the UNION from now on.
 > parked correct mention for a delivered wrong one (their LANDMINES entry
 > `a-toolcrosslink-finding-you-filed-with-relatedpages-is-parked-not-delivered`, corr `a5f9b925`).
 > Relayed to the 333 session for their demand block. Grind at #42 cubic-bezier.
+
+## 2026-08-25 15:35Z — CORRECTION to my own census, inside the hour: `failed` is 22, not 13, and the total is 80, not 71 (the finding stands)
+
+The `bugs_open/333` lane checked my numbers instead of taking them, and found one wrong.
+**`site_work_items` is a ROLLING WINDOW** — closed rows are archived out of it — and my census
+queried the live table alone. `site_work_items_archive` holds **9 more `failed`** `tool_crosslink`
+rows (2026-08-15 → 08-17). Corrected, live UNION archive, site `6b49db8e`, all history:
+**41 `wont_fix` · 15 `deferred` · 22 `failed` · 2 `unresolved` · ZERO `complete` · 80 rows.**
+
+**The load-bearing claim is untouched: still zero `complete` in either table.** What moved is one
+sub-figure and the total, and the direction it moved matters — the archive rows are *more* evidence
+for the finding, not less. But the mistake is worth its space, because of where it happened: I
+published an entry about a check that could not fail while running a census that could not see a
+quarter of its own population. Propagated to WRONG_CALLS (with the correction marked in place),
+LANDMINES (the archive rule folded into the entry's check), the RUNBOOK and README.
+
+**Rule for this lane, from now: any all-history claim about `site_work_items` must
+`UNION site_work_items_archive`.** MEMORY [[a-closer-census-cannot-see-what-it-succeeded-at]] says
+this already and I did not grep it. Caught in ~25 minutes by a peer, before it reached their
+register entry (WII-028) — which is the second time today the cheap correction came from someone
+re-running my query rather than from me.
+
+**Disposition of the 15 parked rows, settled by the 333 lane:** they STAY parked — that is the
+correct terminal state under the owner's rulings, and they now feed the roadmap as demand for an
+owned-page content route (no open bug home yet). No per-tool mention list is wanted, but **keep the
+specs**: whoever builds that route will want them. Nothing owed by this lane.
+
+> **Thread closed 2026-08-25 ~17:30Z:** 333 took the sharpening (`fefeab56c`) after re-verifying
+> live; WII-028's demand block carries the structural statement + the no-steering caveat + the
+> specs-location pointer. Count drift noted both ways: owned non-tool was **34 as of 08-25 morning,
+> 33 as of ~17:00Z** — one page moved policy in hours; immaterial here, but the smallest worked
+> example yet of the census-dating rule. Relayed to the grind session for their LANDMINES entry.
