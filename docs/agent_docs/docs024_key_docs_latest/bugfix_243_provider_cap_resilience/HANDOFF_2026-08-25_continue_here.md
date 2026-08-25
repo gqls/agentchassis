@@ -42,6 +42,17 @@ trailer.
 - report that seat under **`unreadable`**, not `abstained`, and
 - if the remaining seats would have approved, come back **REVISE** naming the lost seat.
 
+⚠ **"A seat whose call errors" is TOO LOOSE — it must be a TERMINAL error that routes to the
+seat's `error_step`.** `[MEASURED 2026-08-25]` four council-seat failures have already occurred
+(`review_debug_historian`, all truncations) and **none qualified**: each read
+`TOLERATED (step continued on the partial)`, meaning the truncation machinery salvaged the
+partial upstream, the step COMPLETED, and it never routed to `error_step` — so `routeToErrorStep`
+never ran and there was nothing for the reader to find. `unreadable = 0` was correct.
+**`llm_call_log` cannot discriminate this**: a tolerated truncation and a terminal failure are
+both `success=false`. **Judge it at the ORCHESTRATION.** Qualifying cases in practice: the
+provider refusing us (the 400 this bug is about), a connection-level failure, an unhandled
+4xx/5xx.
+
 **Negative control — ALREADY OBSERVED, post-migration** `[MEASURED 2026-08-25 09:49:00Z]`: the
 first council round to run after mig 588 applied reached **`complete_approved`**, decision
 `approved`, **5 abstained, 0 unreadable**. So repointing all 17 seats' `error_step` did **not**

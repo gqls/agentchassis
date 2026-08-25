@@ -757,3 +757,49 @@ calendar date.
 **unresolved, not refuted** — and I am not upgrading it to "fixed" on a quiet fortnight either.
 The honest status is: the trigger has been absent for 48 hours, cause plausibly known, and the
 figure goes stale by the day. **Re-run the histogram before repeating any of this.**
+
+## 2026-08-25 (late) — the positive arm has NOT landed, and the four near-misses sharpen what it actually requires
+
+`[MEASURED 2026-08-25 ~21:20Z]` Since mig 588 applied: **60 council rounds completed**
+(38 `complete_approved`, 22 `complete_revise`, 4 in flight), **ZERO `complete_invalid`**, and
+**zero rounds with `unreadable > 0`**.
+
+**But there WERE four council-seat LLM failures in that window**, so the absence is not simply
+"nothing went wrong":
+
+| time | agent | step | error |
+|---|---|---|---|
+| 12:18:52 | council-gate | `review_debug_historian` | `TOLERATED (step continued on the partial): response truncated: stop_reason=max_tokens` |
+| 12:49:49 | council-gate | `review_debug_historian` | same |
+| 16:19:49 | council-gate | `review_debug_historian` | same |
+| 21:14:05 | council-gate | `review_debug_historian` | same |
+
+**None of them could have exercised this fix, and the reason is worth writing down.** They are
+`success=false` rows in `llm_call_log`, which makes them *look* like the case the fix is for.
+They are not: **`TOLERATED (step continued on the partial)`** means the truncation machinery
+(`bugs_open/019` / `076` / `138`) salvaged the partial *upstream*, the step **completed**, and it
+therefore **never routed to `error_step`** — so `routeToErrorStep` never ran, `__step_errors` was
+never written, and there was nothing for `reviewStepFailed` to find. `diagnose_council_decide`
+saw a normal (degraded) review, not an absent field. Hence `unreadable = 0`, correctly.
+
+### ⚠ Refinement to the close condition — the proof needs a TERMINAL seat error, not any failure
+
+The condition as previously written ("a seat whose call errors") is too loose and would let a
+future session read these four rows as the proof. Precisely:
+
+> The positive arm requires a seat whose call **fails terminally enough to route to its
+> `error_step`**. A truncation that is tolerated, salvaged, or degraded does **not** qualify — it
+> is absorbed before the error route. In practice the qualifying cases are the provider refusing
+> us (the 400 this bug is about), a connection-level failure, or an unhandled 4xx/5xx.
+
+**The `llm_call_log` shape does not discriminate this.** A tolerated truncation and a terminal
+failure are both `success=false`. **Check the ORCHESTRATION, not the call log:** the round must
+reach a verdict with `unreadable > 0`, or (pre-fix behaviour) `complete_invalid`.
+
+### One observation handed on rather than chased
+
+`review_debug_historian` truncated **four times in one day** and was the only seat to do so —
+each time tolerated, so no round was lost. That is not this lane's bug and I have not
+investigated it, but a single seat repeatedly hitting `max_tokens` is the shape `bugs_open/019`
+and `138` care about, and its `max_tokens` may simply be undersized for what its prompt now
+carries. Recorded here so it is not lost; **not** filed as a bug on four observations.
