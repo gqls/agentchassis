@@ -317,3 +317,49 @@ I briefly recorded a "count changed overnight" that was really two of us using q
 apart — caught by the other session refusing to believe a number it couldn't reproduce, corrected
 everywhere, and the lesson written down in all three lanes involved. New summary file:
 SUMMARY_2026-08-25_two_thirds_done_and_the_platform_pays_us_back.md.
+
+## 2026-08-25, late afternoon — two more tools, two builds lost, and a rule I got wrong and had to take back
+
+43 of 63 now. Cubic Bezier Architect and Golden Ratio Cropper are both rebuilt and live.
+
+The old cubic-bezier had a line of text under its preview saying "Animation loops every 2 seconds",
+and the code could not honour that the moment anyone touched it — every twitch of the mouse during
+a drag queued another animation on top of the last, so a two-second drag stacked something like a
+hundred and twenty overlapping timers. It also played the animation *backwards* half the time,
+because it returned the preview to its start using the same easing curve, and for any lopsided curve
+backwards looks like a different curve entirely. On a tool whose only job is showing you what a
+curve feels like, that is the whole product being wrong.
+
+The old golden-ratio one was the best find of the day. Its dropdown offered three overlays and the
+code only knew how to draw two — so choosing "Phi Grid", the option named after the tool's own
+subject, silently drew nothing at all. Its "Download Crop" button cropped nothing; it saved your
+photograph with the guide lines burned into it, which is the one version a photographer cannot use.
+And in small grey type at the bottom of a live public page sat the sentence: *"For this MVP, the
+crop is visual. You can screenshot or we can implement full crop logic later."* That is a note from
+a developer to a client, left where customers read it. The code comments are worth quoting too,
+because they are an argument with nobody: *"In a real crop tool, we would crop. For now, we download
+the image with the guide? Or just the image? Usually users want to CROP to this ratio."*
+
+**Now the part where I was wrong.** Both of these tools failed to build on the first try. The
+system that writes them has a size limit, and both of my instructions produced tools too big to fit —
+the build stops and, annoyingly, the job still reports itself as finished, so you only see it if you
+look at the run rather than the job. Nothing was damaged either time; the old tool stayed in place
+untouched and the safety check I put in my own retirement step would have refused to proceed anyway.
+
+After the first one I wrote a rule into our runbook: keep the instruction between about two thousand
+and three thousand characters. The very next tool disproved it — an instruction of two thousand seven
+hundred characters, comfortably inside my own limit, died exactly the same way. I had turned one
+success and one failure into a threshold, which is not a measurement, it is a guess with a number in
+it. The real problem was different and more useful: I had been spending half of each instruction
+explaining what the *old* tool got wrong. The system building the new one has no use for that
+history — it needs to know what to build. Once I cut the archaeology and wrote plain requirements,
+the same tool described in fifteen hundred characters built first time. I have corrected the runbook
+and left the wrong rule visible with its counter-example next to it, rather than quietly deleting it.
+
+**One thing I want to flag rather than bury.** To get golden-ratio under the size limit I dropped the
+download button entirely. So the new version has no download at all. My judgement is that this is a
+net gain — the visitor loses a button that lied and gains three overlays that work — but it is a
+capability removed to fit a budget, not a fault repaired, and those are different things. It is
+written down as owed work, along with keyboard access for the cubic-bezier handles, which I cut for
+the same reason. Both want their own small follow-up job rather than being smuggled into the next
+tool's rebuild.
