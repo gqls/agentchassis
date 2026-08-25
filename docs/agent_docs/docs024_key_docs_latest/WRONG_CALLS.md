@@ -51883,3 +51883,42 @@ carries **no floor at all** (`{value} of those enriched with filed accounts data
 **937–9,370**. *"More than 150"* belongs to `C4-agent-definitions-catalogue`, low **157** — seven to
 spare, which is the real "inside its floor only by luck" case and a better example than the one I
 invented. **Two facts, three attributes, recombined from memory instead of from one query.**
+
+---
+
+## 2026-08-25 — I filed a duplicate LANDMINE because my own "has anyone recorded this?" grep was piped through `head -10` (`loanzy_uk_example_site` lane)
+
+**The claim, made silently by acting on it:** that the parked-domain trap — a registrar stub answering
+**200 on every path**, so an HTTP census reports a dead site as perfect — was not in `LANDMINES.md`.
+I checked (`grep -n -i "parked\|200s every path\|invented URL\|catch-all vhost" … | head -10`), saw
+ten hits about other things, and wrote a new entry.
+
+**It was already there**, filed 2026-08-23 by the `bugs_open/328` lane, from the
+`adversecreditmortgage.co.uk` census — the *same* trap, better written in places, and the source of
+the memory note I was working from. My grep matched it; **`head -10` cut it off.** Two further
+parked-domain entries exist besides (a DNS-cutover one and an `add_www_redirect.sh` one).
+
+**What caught it:** not the grep. I only found out because the landmine sync's dispatch listed
+`doc_notes` subject keys and one of them was
+`…#a-parked-domain-returns-http-200-for-every-path-so-an-uncontrolled-url-census-re`. **A tool
+listing its own state caught what my search had told me did not exist.**
+
+**Why this is not trivial.** `LANDMINES.md` is the system of record and syncs into `doc_notes` for
+council seats and agents to read. A duplicate entry is not merely untidy: it splits the account, so a
+later correction lands on one copy and the other keeps teaching the old version — the exact failure
+this file logged at 10:29Z today, where fixing a script and leaving the same wrong wording in a
+handoff would have taught the next cold start the wrong thing. **Two entries mean the next reader
+inherits whichever one they find first.**
+
+**The cheap check, and it is embarrassingly small:** `| head -N` on a search whose purpose is to
+establish an ABSENCE. **A truncated grep cannot support a negative.** Either count first
+(`grep -c`), or let it run and read all of it, or grep the machine-readable index instead of the
+prose. The general form is worse than the instance: **`head` converts "I found ten things" into "there
+were ten things", and every downstream sentence inherits the second reading.**
+
+**Resolution:** the duplicate is deleted and its genuinely new material — a second measured instance
+on a NEWLY BUILT domain (which is the highest-risk case, since a fresh registration is parked by
+default), the second-order trap where an ungated promise-checker prints a screenful of confident
+findings about a stub, what stays readable while a domain is parked, and the shared instrument that
+now implements the control — is merged into the 2026-08-23 entry, which keeps the account in one
+place and credits both lanes.
