@@ -776,3 +776,65 @@ since arming.
 that do not write `component_version_id`. Phase 0 covers the `save_page_sections`
 path only. It is the already-named follow-up — five other writers, no watch on them —
 and this is the first live instance of it.
+
+---
+
+## 2026-08-25 — the F2 guard PASSED with real demand; the bug itself is unchanged
+
+**Cold-start doc for this lane:**
+`docs/agent_docs/docs024_key_docs_latest/bugfix_357_component_identity/HANDOFF_2026-08-25_continue_here.md`
+
+### The guard is settled — it was vacuous yesterday and is proven today
+
+At **09:08:20** `vetcomparison.uk/index` was re-minted through `save_page_sections`:
+Layer 2 spliced its stored 11,326-byte tool back into a freshly generated `hero`
+section, and the row was written. **It received NO stamp — and it is the ONLY
+unstamped save of 571 since arming.**
+
+| | |
+|---|---|
+| saves through the seam since arming | **571** |
+| stamped | **570** |
+| unstamped | **1 — this row** |
+
+That is the discrimination the check needed. A stamp here would have named the *hero*
+template as the producer of a whole interactive tool — the "worse than no stamp" case
+phase 0 exists to prevent. Yesterday's zero had no demand and the bug file said so;
+today's has demand and holds. **Treat F2 as settled.**
+
+### The bug is unchanged, and one row was re-minted
+
+Population **22**. `born_since_arming = 1` — the row above. It kept its `hero`
+binding because `carriedIdentity` only carries identity for `adopted-fragment` rows
+(the council's round-2 narrowing), and this row has never been adopted. **For an
+existing mislabelled row that is BY DESIGN: phase 3 is its remedy, not phase 2.**
+
+### ⚠ THE TOP OPEN QUESTION: phase 2's adoption path has never fired
+
+`adopted = 0`, `adoption_candidates = 0` since arming. 571 ordinary saves went through
+the armed seam and correctly produced none. **So phase 2's central claim is unproven
+in production**, and this lane has already lost a day to a mechanism that was
+approved, rolled and doing nothing — do not assume it works because it is armed.
+
+And there is positive evidence of a route it may not cover: **every multi-row affected
+page has rows from DIFFERENT saves** (2 rows = 2 distinct `created_at`;
+`vetcomparison/index` = 4 rows, 4 distinct times) [MEASURED 2026-08-25]. The
+no-`<section>` fallback emits exactly ONE section, so those hero rows did not come
+from a single fallback save. Rows accumulate across saves rather than being replaced.
+
+**What must be established next:** by what route does a NEW mislabelled row appear,
+and does phase 2 intercept it? Suggested start — `page_component_history` for
+`vetcomparison.uk/index` and one `mortgagecalculator` tool page, to find which save
+introduces the `hero` binding.
+
+### Phase 3 will refuse to run today, correctly
+
+`578` requires an organically adopted row carrying a stamp before it will touch
+anything. `adopted = 0`, so it raises and aborts. **Do not weaken that check** — it is
+the owner's "once option 1 has been built" expressed as code. Order:
+**make adoption fire once → verify that row → then run 578.**
+
+### Fresh build 2026-08-25
+
+`agent-chassis-67fd9c76f5` carries the capability, probed at the running binary with a
+must-be-present and a must-be-absent control, both correct.
