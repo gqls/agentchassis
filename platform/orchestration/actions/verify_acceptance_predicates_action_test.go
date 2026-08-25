@@ -616,3 +616,95 @@ func TestTheLifecycleArmIsTheSharedHelper(t *testing.T) {
 			"offer surface's own filter and confirm the two still select the same population", got)
 	}
 }
+
+// ---- the first LIVE-EMITTED predicates, and what they say about a closed item -
+
+// TestTheFirstLiveEmittedPredicatesStillRefuteAfterTheFix pins the three
+// predicates the model actually wrote on the first live run of this gate
+// (webdesign.co.uk, 2026-08-24 22:08Z, corr 4caba084) against the pages as
+// SERVED the following morning — verbatim from `pages.meta_description`, and
+// confirmed byte-identical to the served `<meta name="description">`.
+//
+// WHY THIS IS THE MOST VALUABLE TEST IN THE FILE. The `index` finding was
+// dispatched to page-build-handler, which REBUILT AND DEPLOYED the page
+// (commit ee88ba3c, 22:25Z) and closed the item `complete` — and the page was
+// rebuilt again at 2026-08-25 11:23Z. Its own stored predicate still refutes,
+// because the meta description is unchanged. That is the false-green this
+// feature exists to make visible, demonstrated end to end on a real item with a
+// machine-checkable verdict attached to it, rather than read by eye.
+//
+// It also pins the needle sets THE MODEL CHOSE, which no hand-written fixture
+// would have guessed: for `index` it went for the differentiator words
+// ("paired", "pairing", "article", "guide") rather than the promise words, so
+// the refutation arrives through the "states none of `before` at all" arm — the
+// arm that exists because "state X before Y" is unmet when X is absent.
+func TestTheFirstLiveEmittedPredicatesStillRefuteAfterTheFix(t *testing.T) {
+	cases := []struct {
+		page, meta string
+		pred       map[string]interface{}
+		wantIn     string
+	}{
+		{
+			// status `complete` — rebuilt, deployed, closed. Still refuted.
+			page: "index",
+			meta: "Sixty-three browser tools for web design and development. No account, no upload, everything runs in your browser.",
+			pred: map[string]interface{}{
+				"type": "text_order", "page": "index", "field": "meta_description",
+				"before": []interface{}{"paired", "pairing", "article", "guide"},
+				"after":  []interface{}{cardinalNeedle},
+			},
+			wantIn: "states none of",
+		},
+		{
+			page: "about",
+			meta: "Curated guides and tools for modern web development, from HTML semantics to responsive design.",
+			pred: map[string]interface{}{
+				"type": "text_absent", "page": "about", "field": "meta_description",
+				"values": []interface{}{"curated", "hand-picked"},
+			},
+			wantIn: `contains "Curated" at 0`,
+		},
+		{
+			page: "tools-index",
+			meta: "63 browser-based tools for design, colour, layout and creative workflow. Nothing uploads, nothing installs, nothing asks you to sign in.",
+			pred: map[string]interface{}{
+				"type": "text_order", "page": "tools-index", "field": "meta_description",
+				"before": []interface{}{"nothing uploads", "nothing installs", "no account", "no sign"},
+				"after":  []interface{}{cardinalNeedle},
+			},
+			wantIn: `"63" appears at 0`,
+		},
+	}
+	for _, c := range cases {
+		verdict, reason := EvaluateAcceptancePredicate(c.pred, predSubject(c.page, "", c.meta))
+		if verdict != PredicateRefutes {
+			t.Errorf("%s: verdict = %s (%s), want refutes", c.page, verdict, reason)
+			continue
+		}
+		if !strings.Contains(reason, c.wantIn) {
+			t.Errorf("%s: reason %q does not carry %q — the evidence shape has changed", c.page, reason, c.wantIn)
+		}
+	}
+}
+
+// TestTheLiveRunsSilentFindingHadNoPredicateToEvaluate records the other half of
+// that run: of four findings the model wrote three predicates and left one
+// (learn-index) bare. The gate reported checked=4 kept=3 rejected=0 with
+// subjects_loaded=137. There is nothing to evaluate for a bare finding, and this
+// test exists to state that the silence arm FIRED on its first live outing —
+// unprompted, since the key is deliberately absent from the prompt's OUTPUT
+// skeleton. ⚠ rejected=0 also means the REFUSAL arm has never fired in
+// production, exactly like CLM-023's enforcement arm: it is proven by the
+// mutation tests above, not in the wild, and a clean run must never be quoted as
+// evidence that it works.
+func TestTheLiveRunsSilentFindingHadNoPredicateToEvaluate(t *testing.T) {
+	res := runPredicateGate(t, []interface{}{
+		map[string]interface{}{"category": "content", "page": "learn-index", "acceptance_test": "prose"},
+	})
+	if res["checked"] != 1 || res["kept"] != 0 || res["rejected"] != 0 {
+		t.Fatalf("checked=%v kept=%v rejected=%v", res["checked"], res["kept"], res["rejected"])
+	}
+	if res["subjects_loaded"] == 0 {
+		t.Error("subjects_loaded must be a positive count here — 0 is the gate's own fault signal")
+	}
+}

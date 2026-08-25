@@ -319,7 +319,13 @@ re-proof that files ~5 more non-parkable items somewhere for no new information.
 
 ### v2(d) — B4 emits a MACHINE-CHECKABLE ACCEPTANCE PREDICATE where it can, and stays silent where it cannot
 
-> **STATUS 2026-08-24 — BUILT AND TESTED, NOT LIVE. Register entry `CLM-024`.** Go committed and
+> **STATUS 2026-08-24 22:08Z — LIVE AND EXERCISED. `601` applied, first run `checked 4 / kept 3 /
+> rejected 0`, and the first run ALREADY caught a false green machine-checkably: the `index` item was
+> rebuilt, deployed and closed `complete`, and its own stored predicate still refutes. Register entry
+> `CLM-024`.** ⚠ The REFUSAL arm has never fired (`rejected: 0`) — proven by unit tests, not in the
+> wild. Superseded status line below, kept for the trajectory:
+>
+> ~~**STATUS 2026-08-24 — BUILT AND TESTED, NOT LIVE. Register entry `CLM-024`.**~~ Go committed and
 > proven against committed HEAD (26 tests); config is
 > `docs/agent_docs/sql_for_agents/601_offer_analyser_acceptance_predicates_HOLD.sql`, **held** until a
 > chassis carrying `verify_acceptance_predicates` has rolled — a step naming an unregistered action is
