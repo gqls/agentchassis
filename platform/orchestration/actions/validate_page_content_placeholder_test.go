@@ -237,6 +237,24 @@ func TestPlaceholderScanCatchesNumericStandIns(t *testing.T) {
 	}
 }
 
+// One occurrence must yield ONE issue: "NNN+" contains both the plus form and
+// a bare N-run, and the pre-r4 pattern LIST reported it twice — a real defect
+// because a blocker COUNT off this detector is read as a measurement (council
+// round 6cfaa8f0 r3, editquality).
+func TestNumericStandInReportsOnceCatchesEach(t *testing.T) {
+	html := `<html><body><p>We track providers against the NNN+ agent types in production.</p></body></html>`
+	got := placeholderValues(checkPlaceholderPatterns(html))
+	if len(got) != 1 || got[0] != "NNN+" {
+		t.Fatalf("want exactly one issue [NNN+], got %v", got)
+	}
+	// And the comma form matches WHOLE, not as its bare-run tail.
+	html2 := `<html><body><p>Over N,NNN records verified.</p></body></html>`
+	got2 := placeholderValues(checkPlaceholderPatterns(html2))
+	if len(got2) != 1 || got2[0] != "N,NNN" {
+		t.Fatalf("want exactly one issue [N,NNN], got %v", got2)
+	}
+}
+
 func TestPlaceholderScanIgnoresNumericLookalikes(t *testing.T) {
 	cases := []struct {
 		name string

@@ -180,9 +180,18 @@ var placeholderPatterns = []struct {
 // a stand-in verbatim out of its own instructions (~10% of calls carrying one:
 // 14 of 137 measured), so the shape recurs wherever a prompt quotes one.
 //
-// THIS IS A FLEET-WIDE BUILD-GATE CHANGE, NOT A SITE FIX: every site's
-// validate_content passes through this file, so these shapes gate every page
-// build on the estate from the roll that carries them.
+// SCOPE, STATED PRECISELY (council round 6cfaa8f0 r3, bug_historian +
+// guardian): this gates the fleet-wide page-BUILD validation path — the ONE
+// caller of checkPlaceholderPatterns is ValidatePageContentAction, consumed by
+// the validate_content step (page-build-handler, content-reviewer,
+// tool-recreation-handler, report-builder). It does NOT cover the
+// section-editor or chrome-rerender paths, which render through the same seam
+// WITHOUT this validator (recorded landmine: "validate_content protects the
+// page-BUILD path and NOTHING ELSE"; the one-guarded-call-site class of
+// bugs_open/093). A stand-in entering through those doors renders undetected —
+// a KNOWN GAP pinned here and in bugs_open/387; the stored-content census in
+// bugfix_387_deployed_and_404/RUNBOOK_387.md is the manual sweep that covers
+// every write path after the fact.
 //
 // SEVERITY IS BLOCKER, DELIBERATELY, AND THE ASYMMETRY WAS WEIGHED (council
 // round 6cfaa8f0, debug_historian's gating objection). The recorded landmine is
@@ -210,14 +219,15 @@ var placeholderPatterns = []struct {
 // measured occurrences as a stand-in anywhere, so it was cut in council review
 // rather than shipped on pattern symmetry. Re-run the census before adding any
 // shape; a fresh census is the price of admission here.
-var placeholderRegexes = []struct {
-	Pattern *regexp.Regexp
-	Label   string
-}{
-	{regexp.MustCompile(`\bN{2,}\+`), "numeric stand-in placeholder"},      // NN+, NNN+
-	{regexp.MustCompile(`\bN{3,}\b`), "numeric stand-in placeholder"},      // bare NNN
-	{regexp.MustCompile(`\bN{1,2},NNN\b`), "numeric stand-in placeholder"}, // N,NNN / NN,NNN
-}
+// One alternation, deliberately, not a list: alternatives are tried at the
+// leftmost position in order, so one occurrence yields ONE match — a pattern
+// LIST double-counted ("NNN+" matched both the plus form and the bare run,
+// two issues for one token), and a blocker COUNT off this detector is read as
+// a measurement elsewhere (r3, editquality). Order matters: the comma form
+// sits before the bare run so "N,NNN" matches whole rather than as its tail.
+var numericStandInRegex = regexp.MustCompile(`\bN{2,}\+|\bN{1,2},NNN\b|\bN{3,}\b`)
+
+const numericStandInLabel = "numeric stand-in placeholder"
 
 var templateVarRegex = regexp.MustCompile(`\{\{[\s]*[\.\w]+[\s]*\}\}`)
 var templateBlockRegex = regexp.MustCompile(`\{\{[\s]*(range|if|with|end|else|template|block|define)[\s]`)
@@ -996,21 +1006,22 @@ func checkPlaceholderPatterns(html string) []ValidationIssue {
 	}
 
 	// Shape-based stand-ins, over the same prose blocks. Original case, not the
-	// lowered copy — case is the signal (see placeholderRegexes).
-	for _, p := range placeholderRegexes {
-		for _, block := range blocks {
-			if loc := p.Pattern.FindStringIndex(block); loc != nil {
-				matched := block[loc[0]:loc[1]]
-				issues = append(issues, ValidationIssue{
-					Type:        "placeholder_text",
-					Category:    "placeholder",
-					Severity:    "blocker",
-					Location:    extractSnippet(block, loc[0], 80),
-					Value:       matched,
-					Description: fmt.Sprintf("Found placeholder text '%s' (%s)", matched, p.Label),
-				})
-				break
-			}
+	// lowered copy — case is the signal (see numericStandInRegex). One issue
+	// per scan, first matching block wins — same first-hit-reports semantics
+	// as the substring list above; the count is a detection, not a volume
+	// measurement (the recorded "blocker COUNT is a regex cap" landmine).
+	for _, block := range blocks {
+		if loc := numericStandInRegex.FindStringIndex(block); loc != nil {
+			matched := block[loc[0]:loc[1]]
+			issues = append(issues, ValidationIssue{
+				Type:        "placeholder_text",
+				Category:    "placeholder",
+				Severity:    "blocker",
+				Location:    extractSnippet(block, loc[0], 80),
+				Value:       matched,
+				Description: fmt.Sprintf("Found placeholder text '%s' (%s)", matched, numericStandInLabel),
+			})
+			break
 		}
 	}
 	return issues

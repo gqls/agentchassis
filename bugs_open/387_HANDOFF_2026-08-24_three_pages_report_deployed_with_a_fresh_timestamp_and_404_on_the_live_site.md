@@ -132,3 +132,13 @@ under suspicion here, so do not verify with it.**
 > this bug stays OPEN until that is live) → durable close: `composeWriterBlock` carries verbatim
 > guidance so unmanaged sites (13 today) can adopt `{value}` substitution — proposed to the
 > `bugs_open/288` lane, which owns that file.
+
+> **KNOWN GAP, pinned 2026-08-25 (council round 3, bug_historian):** the numeric stand-in
+> detector guards the page-BUILD validation path only — `checkPlaceholderPatterns` has exactly
+> one caller (`ValidatePageContentAction`), and the recorded landmine stands: *"validate_content
+> protects the page-BUILD path and NOTHING ELSE"* — the **section-editor and chrome-rerender
+> paths render without it**, so a stand-in entering through those doors ships undetected (the
+> `bugs_open/093` one-guarded-call-site class). The after-the-fact cover for every write path is
+> the stored-content census (`bugfix_387_deployed_and_404/RUNBOOK_387.md`), re-runnable in one
+> query. Guarding those paths at write time is a separate piece of work on seams other lanes own
+> (260/093 lineage), deliberately NOT smuggled into this fix.
