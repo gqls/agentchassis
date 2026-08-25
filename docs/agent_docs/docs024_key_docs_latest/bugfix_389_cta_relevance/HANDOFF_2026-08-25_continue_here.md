@@ -82,7 +82,33 @@ state, not a human judgement. Only leopardess is documented as deliberate, by it
 alphabetical on `name` — `password-entropy` precedes every `tool-*`, so **it would still have won**
 on two of three sites. A demotion that joins the pack is not a demotion.
 
-**THE NEXT ACTION IS STEP 2 OF THE RETIREMENT SEQUENCE** (`bugs_open/391` §RETIREMENT): rewrite the
+### ⏳ IN FLIGHT: the step-2 canary
+
+`b422751a-3745-474c-87d6-aeff50028546` — a `content_rewrite` (`mode=edit_live`) on
+**`finetuning.uk/technical-details`**, whose hero and call-to-action labels are both label-locked.
+Dispatched 2026-08-25 12:34Z, `status='detected'`, waiting on the loop.
+
+**The dispatcher is confirmed alive, not assumed:** `build-dispatch-loop` claimed a *different,
+older* item **0.36s** after mine was written — which is the documented "oldest eligible item first"
+behaviour, so mine is queued behind it, not stranded. Re-check with
+`SELECT status, claimed_by, handled_by, error FROM site_work_items WHERE id='b422751a-…';`
+
+**When it completes, do NOT trust the status** (`bugs_open/389`). Verify as a matched pair:
+1. the two labels no longer mention passwords/entropy/strength;
+2. `page_rerender` with `reason='cta_links_stale'` on that page, so label-match writes the url the
+   new wording names — ⚠ include `spec.page_name` or the rerender discards what it rendered
+   (`LANDMINES.md`);
+3. then the served bytes: the button text AND its href both moved, and no other prose changed.
+
+**If the canary is good, the remaining 11 pages** are the same recipe — the population and per-page
+labels are listed in `bugs_open/391`, and the SQL is
+`SQL_2026-08-25_canary_cta_label_rewrite.sql` with the site's tool list swapped per site.
+
+⚠ **Owner follow-up 2026-08-25: the LIBRARY COMPONENT STAYS.** `tool-password-entropy` remains
+`is_active=true` and available to new sites. Retirement covers the three site pages only — do not
+deactivate the component.
+
+**THE NEXT ACTION AFTER THE CANARY IS THE REST OF STEP 2** (`bugs_open/391` §RETIREMENT): rewrite the
 ~20 label-locked labels via the re-scoped content pass. Nothing else may run before it — not the
 repair, and above all not the page deletion.
 

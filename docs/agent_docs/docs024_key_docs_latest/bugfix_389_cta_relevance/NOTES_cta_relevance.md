@@ -115,3 +115,46 @@ RFC_022's narrowing was never engaged though I cited the ruling it qualifies; th
 nav 2–10 and left the tool at 1 — which sharpens the irony rather than weakening the point;
 `chooseCTATargets` carries an unused `pageType` "for a future intent-aware (LLM) upgrade", i.e. the
 hook for the relevance option already exists.
+
+### 2026-08-25 evening — owner answered all five; decision 2 applied; retirement step 2 CANARY dispatched
+
+**Owner:** tool "can disappear everywhere" (1), yes to the numbers (2), yes to the platform lever
+(3), "whatever you suggest" (4), re-scope the commission (5). Follow-up: **the library component
+STAYS** — `tool-password-entropy` remains `is_active=true` and available to new sites; retirement
+covers the three site pages only.
+
+**Decision 2 applied** — `SQL_2026-08-25_demote_password_entropy_nav_order.sql`, `nav_order` 1 → 900
+on three rows, guarded. ⚠ **The value matters and 200 would have failed**: 200 is those sites'
+ordinary tool value, so it ties, and the tiebreak is alphabetical on `name` — `password-entropy`
+precedes every `tool-*`. At 200 it would still have won on two of three sites. *A demotion that
+joins the pack is not a demotion.* New rank-1 verified on each site and all three are on-topic.
+
+**Retirement deliberately NOT run first, despite being decision 1 and fully authorised.** Measured
+blast radius: **91** `page_components` references (content_data AND rendered_html; 45/25/21), 1
+footer, 3 live `tools.html` listings, 0 visible nav. Deleting first strands those and leaves the 20
+label-locked buttons naming a tool they no longer point at — `bugs_closed/299`'s defect,
+manufactured by our own repair. **Authorisation is not a sequence.**
+
+**Step 2 canary dispatched:** item `b422751a-3745-474c-87d6-aeff50028546`,
+`finetuning.uk/technical-details` (both its buttons are label-locked).
+
+Three preconditions checked BEFORE writing it, each of which could have sunk it:
+1. **All 12 target pages are `rebuild_policy='generic'`** — so `page-build-handler`'s owned-page
+   guard does not fire. Had any been `owned`, the item could only ever have been refused
+   (`bugs_open/333`).
+2. **`spec.suggestion`, NOT `spec.content_guidance`.** `suggestion` is the key the handler reads;
+   `content_guidance` is only *aliased* into it (`bugs_open/271`,
+   `load_work_items_guidance_alias_test.go`), and an author-supplied `suggestion` wins over the
+   alias. Writing the read key removes any dependency on the alias having shipped. The lane RUNBOOK
+   I inherited says `content_guidance`; a live completed item says `suggestion`. **I followed the
+   live row, not the doc.**
+3. **The queue is empty** (1 `triaged` item fleet-wide), so the 268 lane's "dispatch serves the
+   fleet's OLDEST eligible item" gotcha does not bite and **no backdating was needed** — no
+   synthetic timestamps in this lane.
+
+**The framework writes the copy, not me** (owner rule 2026-08-06): the guidance supplies the site's
+eight real tools with their URLs and the constraint (labels only, name a tool, never mention
+passwords); the writer chooses which tool fits the page and words it.
+
+**Verify as a matched pair, not by status** — the label must change AND the href must follow it, and
+`bugs_open/389` proves a `cta_links_stale` rerender reports `complete` either way.
