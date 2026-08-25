@@ -297,3 +297,38 @@ find out than add a ninth.
 
 **What I have not done:** touched the site, written any copy, or proposed design fixes. Those belong
 to the lanes that own them, and I have handed each of them the evidence rather than my opinion of it.
+
+---
+
+**2026-08-25, late afternoon — the reviewer at the end of the build, and the surprise when I went
+to write it up.**
+
+You asked for a benchmark, then a structural floor of six, then said you liked the idea of a council
+of checkers that judges a finished site the way the code council judges a change — running after the
+fact in the improvement loop, routing its findings to the agents we already have. I sat down to
+write the reference for that.
+
+**Before writing I checked whether anything like it existed, and it does.** The improvement loop
+*is* that reviewer. It already calls an offer analyser, a brief-fidelity auditor, two mechanical
+checkers for empty sections and broken links, and a design audit — and it already has steps for a
+**news feed** and a **directory**, the two things you asked for this afternoon. It ran for nine days
+in August, filed real work on seven sites, and then its only timer was switched off on the 17th. It
+has sat dark since.
+
+So the route is much cheaper than I said an hour ago. Not "build a council" — **switch this one on,
+which you have already authorised, and add the four lenses it lacks**: does the site have the things
+it needs to have been born with (research, feed sources, an evidence base); does each page deliver
+what its own headings promise; does it use at least six real structures or say why not; and would a
+person who came to this kind of site actually want each page. That last one is the "happy user" you
+have asked for three times today in three different words, and it is distinct from the auditor we
+have, which checks whether a site is faithful to its brief — and the brief can be the problem, as
+homegarden's anti-commercial one was.
+
+**Two things in the loop's own configuration that will bite the moment it is switched on**, both
+measured and now written where the lane switching it on will read them: if the news-feed step or the
+directory step fails, the loop swallows the failure and carries on, so a site with neither passes
+with no record of why. That is the same silent-skip shape as the claims auditor had until yesterday.
+
+The reference document is in this directory, dated today, with every number and its date. The next
+step is the RFC, because the definitions of those seats *are* the benchmark, and that is exactly the
+kind of thing the architecture seat should rule on rather than a lane deciding quietly.
