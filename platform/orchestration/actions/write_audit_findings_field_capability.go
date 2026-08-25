@@ -83,6 +83,14 @@
 //     `agent_definitions` and fails when a rostered handler has GAINED a step
 //     that writes the column. Named follow-on, not built here; until it exists
 //     this file's guarantee rests on a human re-running the census below.
+//
+// ⚠⚠ AND WHEN SOMEBODY BUILDS THAT AUDIT: IT MUST RESOLVE STEPS THROUGH THE
+// ACTION REGISTRY, NEVER BY GREPPING CONFIG FOR THE COLUMN NAME. An audit that
+// asks *"does this handler's config mention `meta_description`?"* would run
+// GREEN while being wrong about two thirds of the writers — see the measurement
+// on the roster entry below. That would be this file's own blind spot reproduced
+// inside the very check built to detect its staleness, which is the third time
+// today this shape has appeared. `RFC_057` §3 is the fuller argument.
 package actions
 
 import (
@@ -134,21 +142,41 @@ var pageFieldWriters = map[string]pageFieldWriteRule{
 	"meta_description": {
 		WritableBy: map[string]bool{},
 		// ⚠ The council's `debugging` seat objected that this claim was "asserted
-		// from a private code read, not independently checkable by SQL". Fair, and
-		// answered rather than argued — here is the query, WITH ITS CONTROL:
+		// from a private code read, not independently checkable by SQL". Fair.
+		// Here is the checkable form — but NOT the obvious one, and the difference
+		// is the whole lesson:
 		//
-		//	SELECT type, default_config::text LIKE '%meta_description%' AS mentions
-		//	  FROM agent_definitions WHERE is_active
-		//	   AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
-		//	   AND type IN ('page-build-handler','meta-description-backfiller');
+		// ⚠⚠ DO NOT SEARCH FOR THE COLUMN NAME. An agent can write this column
+		// without ever naming it: `upsertPage` (site_db_actions.go:1235) writes it
+		// and is reached through the ACTION `sync_pages_to_db`. [MEASURED 2026-08-25,
+		// by the vigilant_designer_offer_analysis lane, RFC_057] THREE live agents
+		// carry a `sync_pages_to_db` step and exactly ONE names `meta_description`
+		// anywhere in its config — so **2 of 3 writers are invisible to a
+		// column-name search**. Which columns an action touches is a GO fact, not a
+		// config fact. This is also why the roster is DECLARED rather than derived:
+		// a derivation over config text cannot see two thirds of its own population.
 		//
-		// [MEASURED 2026-08-25] page-build-handler → false; meta-description-backfiller
-		// → TRUE. The second row is the demand control: it proves the query would
-		// have found a mention had one existed, so the first row's false is an
-		// absence and not a broken query. ⚠ Use the whole-config LIKE, NOT a walk
-		// over `workflow.steps` — a top-level walk MISSES nested sub_workflow steps
-		// and returns a confident zero (register WII-031, and it misled two lanes
-		// on 2026-08-25).
+		// SEARCH FOR THE ACTION NAMES INSTEAD, whole-config so nesting cannot hide
+		// one (a `workflow.steps` walk misses steps inside a loop's sub_workflow and
+		// returns a confident zero — register WII-031; it missed
+		// meta-description-backfiller on this very question):
+		//
+		//	SELECT type FROM agent_definitions
+		//	 WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+		//	   AND (default_config::text LIKE '%"sync_pages_to_db"%'
+		//	     OR default_config::text LIKE '%"save_page_meta_description"%'
+		//	     OR default_config::text LIKE '%"apply_adoption_plan"%');
+		//
+		// [MEASURED 2026-08-25] returns build-site-planner, meta-description-backfiller,
+		// pageflow-builder, site-adoption-agent, site-work-orchestrator (+ council-gate
+		// and fix-proposer, which merely quote the names in prompt/footprint text).
+		// **page-build-handler and page-content-writer are NOT in it.**
+		//
+		// That the instrument OVER-reports is the right direction here and is the
+		// reason to trust the answer: this entry makes a NEGATIVE claim, and a search
+		// that yields false positives yielding NOTHING for page-build-handler is
+		// strong evidence, where an under-reporting search yielding nothing would be
+		// none at all.
 		Why: "[MEASURED 2026-08-25] every writer of pages.meta_description is create-or-fill-blank " +
 			"except one: site_db_actions.go:1235 and apply_adoption_plan_action.go:84 are both " +
 			"COALESCE(NULLIF(EXCLUDED,''), pages.meta_description), so a non-empty value survives them; " +
