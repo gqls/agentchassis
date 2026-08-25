@@ -1941,3 +1941,57 @@ running copy-editor rather than assuming.
   finding and three options (hold / re-ask with structure preserved / decline); he chose **hold
   and fold it into the proper rewrite**. Action = leave `8003c51a` parked at
   `needs_human_review`; no DB change, nothing dispatched. Decisions 2–7 remain open, Stripe last.
+
+## 2026-08-25d — ALL SEVEN owner decisions answered, plus an eighth item that turned out to be a fleet defect
+
+**The owner answered the whole parked set in one message**, and added: *"a couple of the pages have
+no hero images which has meant that the copy is also unreadable. e.g. services.html"*.
+
+### His answers, as given
+
+| # | decision | answer |
+|---|---|---|
+| 1 | copy-editor rewrite `8003c51a` | **HOLD** — "wait till the copy machinery has submitted their improvements". That is now the named trigger, replacing the vaguer "when the machinery improves" |
+| 2 | header slot | **displace Contact** (he offered About / Case Studies / How we work / Contact; Contact chosen and confirmed because the served header ALSO carries a "Get Started" button pointing at `/contact.html`, so it is the only one of the four that costs no route) |
+| 3 | the two live pages | **stay up until replaced** |
+| 4 | booking shape | **customer picks a time, 9am–5pm UK, weekdays; other times by arrangement** |
+| 5 | sample datasets | **yes** — a range keyed to what a prospect would use us for (email copywriting voice, copy structure, copy style, "perhaps a dozen other tasks"), each with example data AND an honest worked example |
+| 6 | terms | deletion **within a week of a request**; asked to settle two of the three remaining, and chose **retention 30 days after handover** and **one playground hour included, expiring 30 days**. ⚠ **"May the terms name plainly where data lives during training" is STILL UNANSWERED** — he was offered it and did not pick it |
+| 7 | Stripe | **last, and he does it himself** |
+
+### What was executed
+
+- **Facts registered** (`evidence_base.facts[]`, superseded + reinserted whole, 5 → **9**):
+  `ft-booking-hours`, `ft-deletion-window`, `ft-retention-default`, `ft-playground-hour`. Verify
+  block asserted 9 facts AND 5 top-level keys, so nothing but `facts[]` could have moved.
+  ⚠ First attempt ABORTED on a quoting error — apostrophes inside the JSON broke the SQL literal
+  (`syntax error at or near "we"`). The transaction rolled back cleanly and was re-checked before
+  retrying; escape with `'` → `''` before interpolating JSON into psql.
+- **Nav**: `/contact.html` `in_header=false` (⚠ `in_footer` deliberately LEFT TRUE — a page
+  declaring neither flag is derived by nothing and a rebuild would not bring its row back),
+  `/your-own-model.html` `nav_order` 100 → 7. Then `TRIGGER_nav_rebuild.sh finetuning.uk`.
+  Verify at the SERVED page, never at `pages.rendered_header` (NULL site-wide here).
+- **Item 8 is `bugs_open/398`** — see that file. Not a finetuning defect: `cta_bg` may hold a
+  gradient, and five shared components used it in a `<color>` position. Live on 3 sites.
+  Migrations 619 + 630 + 631 applied; the Go half is inert until the chassis roll.
+
+### Missteps this session, and the checks that would have caught them
+
+1. **A rerender that reports `COMPLETED` can leave the page untouched.** I fired page-rerenders
+   after migration 619, got `COMPLETED` on all four, and three still served the defect. A
+   reason-less rerender re-assembles STORED component HTML; only `spec.reason='template_changed'`
+   re-renders the template. **The check: read the served bytes, or
+   `page_components.updated_at` — not the orchestration status.** It cost a full round trip.
+2. **My first Kafka publish was consumed by nothing.** `kafka_publish_checked` returned
+   `PUBLISHED` and no orchestration row ever appeared, because I omitted the
+   `orchestration_id`/`request_id`/`message_id`/`timestamp` headers the working trigger scripts
+   send. **A publish receipt proves the message left, not that anything can read it.** The check:
+   copy the header set from a trigger script that is known to work, and confirm an orchestration
+   row exists before waiting on it.
+3. **Two censuses in a row encoded their own answers** — by component NAME (missed a row; found
+   only when the migration's `DO`/`RAISE` was induced) and by an over-specific string needle
+   (`color-mix(in srgb, var(--color-cta-bg` would not match different spacing). Grep by POSITION,
+   and prefer a classification query over a boolean one.
+4. **I read the wrong council verdict first** — `ORDER BY created_at DESC LIMIT 1` on `doc_notes`
+   returned another lane's REVISE about `save_page_sections`. Filter by YOUR correlation. The
+   standing caution says exactly this and I did it anyway.
