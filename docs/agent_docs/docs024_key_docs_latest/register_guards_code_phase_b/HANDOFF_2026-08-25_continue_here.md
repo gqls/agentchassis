@@ -125,17 +125,28 @@ bindings, that is 7 annotated emissions on the next pass and the measurement beg
 
 ## WHAT IS OWED, in order
 
-1. **Roll `bba8a892d`**, then the probe above.
-2. **Chase the five suggestions.** They are notes on subjects owned by three lanes; a note is an
+1. **Roll `bba8a892d` AND `6ad4a8046`**, then the probe above. Both are committed and in no
+   running binary — confirmed 2026-08-25 with controls (`stale_attestation`=5, nonsense=0, both
+   new strings=0), and `misplaced_artifact_checks` is **absent from the sweep payload** rather
+   than present-and-empty, which is the cleaner evidence of the two.
+2. **`mortgages-stamp-duty` (LMC) is now the single highest-value action on this lane.** Its seven
+   suggested bindings are untouched, and it is **both** the biggest unguarded surface **and the
+   best available source for Phase 3b's distribution** — five- and six-digit SDLT figures that
+   clear the probe floor, where agritec's rate table produced 24 rows of `not_probed`. CONTRIB
+   filed 2026-08-24. **Chasing this one unblocks 3b; chasing the others does not.**
+3. **Chase the remaining suggestions.** They are notes on subjects owned by three lanes; a note is an
    input, not a work item, so nothing chases them by itself. **`mortgages-stamp-duty` is the
    highest-value one** — the estate's second SDLT calculator, 7 correct bindings, currently
    guarded by nothing. CONTRIB filed to that lane 2026-08-24.
-3. **Then the distribution** (§5c), and only then argue Phase 3b in its own council round.
-4. **`bugs_open/288` §5.4** — the `improve_tool` arm has still never run in production. Measured:
+4. **Then the distribution** (§5c, §5d), and only then argue Phase 3b in its own council round.
+   ⚠ **§5d narrowed the precondition**: 3b does not need "adoption", it needs adoption **by a site
+   whose values clear the floor of 1000**. agritec's 24 declarations all read `not_probed`, which
+   is Phase 3a working and a zero-information sample.
+5. **`bugs_open/288` §5.4** — the `improve_tool` arm has still never run in production. Measured:
    reachable on **91 of 178** exposed tool pages, so unexercised rather than dead.
-5. **§5.5, the prose half** — deliberately untouched; `bugs_closed/093`'s resolution (a second
+6. **§5.5, the prose half** — deliberately untouched; `bugs_closed/093`'s resolution (a second
    SURFACE for the existing scanner, never a second scanner) is the template.
-6. **Piece 4, the oracle** — *is the figure RIGHT* — out of scope, behind its own RFC. A tool and
+7. **Piece 4, the oracle** — *is the figure RIGHT* — out of scope, behind its own RFC. A tool and
    register wrong in the same direction still agree silently, and nothing here changes that.
 
 ## Landmines this lane has earned (read before touching the probe)
