@@ -258,3 +258,42 @@ be read can kill an entire new-site build stone dead — is still nobody's job. 
 vertical the refused site turned up in four draws out of five, and the system gives up after three
 attempts. So if you authorise a new domain today, there is a real chance it dies half an hour in and
 tells you almost nothing. That is the piece I would fix next, and it is this lane's own bug.
+
+---
+
+**2026-08-25, afternoon — your review of homegarden.uk, and where each part of it has gone.**
+
+You gave two decisions and a long list of problems. The decisions are recorded: **more than four card
+sections before something has to break them up**, and **a re-plan of garden-tools is fine**. Both are
+written where the lanes that need them will find them.
+
+**I checked every specific you raised against the live site rather than taking it on faith**, and all
+of them hold. The calendar has twelve months and **no links at all** — so it cannot take anyone to the
+monthly guides. Every page has exactly **one image**, which is the logo. The garden page really does
+say *"Check what's due in the garden this April"* in August. And the about page has seventeen
+headings of which **fourteen are about how the site works** rather than about homes or gardens, with
+*"What this site will not do"* appearing **twice**.
+
+**I added one you didn't mention**, because it is the purest example of the thing you were describing:
+every page carries a **"Get Started"** button pointing at the contact page. On a gardening site that
+is a software-company button that means nothing — get started with what? Nobody asked what a reader
+wants there; a template supplied it.
+
+**Where it has gone.** The copy lane has your instruction in full, including the two parts I did not
+want softened: that they should **go and re-read the accumulated copy discussion before proposing
+anything**, and that they should **audit every prompt in the database and the code** against the
+question of whether it encourages AI writing. I flagged that the third one is a workstream rather
+than a task. The design and offer lane has the imagery measurements, the button problems, and your
+point that better imagery should be **the default for every site, not a fix to this one**.
+
+**One thing I want to put to you rather than decide.** You proposed a user-experience agent, and
+separately an agent to look at detail, and improving the experience loop. There are already eight
+live agents in that territory — an experience planner, an experience approval council, an offer
+analyser, a visual designer, a visual design auditor, a brand designer, a feature designer and a
+design audit agent. So the question might not be whether to build another one, but **why the eight we
+have produced this page**. I have asked the owning lanes that directly. If the honest answer turns
+out to be that none of them runs on this path, that is worth you hearing plainly, and I would rather
+find out than add a ninth.
+
+**What I have not done:** touched the site, written any copy, or proposed design fixes. Those belong
+to the lanes that own them, and I have handed each of them the evidence rather than my opinion of it.
