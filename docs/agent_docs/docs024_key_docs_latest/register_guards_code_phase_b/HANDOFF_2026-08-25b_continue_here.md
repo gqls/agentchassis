@@ -8,7 +8,21 @@ time. §5d's "single highest-value action" is DONE — `mortgages-stamp-duty` de
 facts and Phase 3a has its first sample carrying information. Two morning fixes are still
 committed-and-unrolled; the tag is bumped and the release is the owner's to run.**
 
-## 1. The one thing owed to the owner
+## 1. ✅ DONE — the roll landed 19:07Z 2026-08-25 on `v1.0.1339`
+
+**Both fixes are LIVE and artefact-verified on both replicas** (three literals present,
+`stale_attestation`=5 positive control, nonsense negative 0). Note the tag: the release went out
+as **`v1.0.1339`**, not the `v1.0.1338` this lane bumped — another lane's tag. *Read the artefact,
+never the tag.* Full table and the post-roll sweep in `bugs_open/288` §5f.
+
+⚠ **Neither fix is PROVEN, and the two reasons differ — do not let §5f's green table imply
+otherwise.** `6ad4a8046` has **no live case**: 0 misplaced fleet-wide against a control of 6
+correctly placed / 304 facts, because agritec repaired the only instances before the finder
+shipped. `bba8a892d` has **no observable surface at all**. Presence + unit test is the whole
+claim for both. An induced positive on a live register would close the first and needs an owner
+decision; the second needs the `Ambiguous` result field (§3b).
+
+### ~~The one thing owed to the owner~~ (discharged)
 
 **`IMAGE_TAG` is bumped to `v1.0.1338` and committed (`6902665ff`). The release has not
 run.** `bba8a892d` (duplicate-value ambiguity guard) and `6ad4a8046` (naming a misplaced

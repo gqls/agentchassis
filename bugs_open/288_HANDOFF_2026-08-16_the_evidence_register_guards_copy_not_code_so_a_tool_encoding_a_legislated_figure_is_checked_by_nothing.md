@@ -505,6 +505,53 @@ that way. Exposing `Ambiguous` on the result would make it dry-run-provable and 
 council-gated change.
 
 
+## §5f — BOTH 2026-08-25 FIXES ARE LIVE, and the fleet distribution is still not what 3b needs
+
+**Rolled 19:07Z 2026-08-25 on chassis `v1.0.1339`** (not the `v1.0.1338` this lane bumped —
+another lane's tag went out; read the artefact, never the tag). Verified on **both** replicas,
+controls in the same exec:
+
+| literal | pod A | pod B | |
+|---|---|---|---|
+| `AMBIGUOUS, NOT PROPOSED` | 1 | 1 | `bba8a892d` |
+| `cannot tell which one the tool uses` | 1 | 1 | `bba8a892d` |
+| `at the TOP LEVEL, where nothing reads it` | 1 | 1 | `6ad4a8046` |
+| `stale_attestation` | 5 | 5 | positive control |
+| `ZZZ_must_be_absent` | 0 | 0 | negative control |
+
+⚠ The `build provenance` startup line was **out of log range** by the time of the check, which
+means "not in range", not "unstamped" — the binary probe is the evidence.
+
+### ⚠ NEITHER FIX HAS BEEN DEMONSTRATED ON LIVE DATA, and the reasons differ
+
+- **`6ad4a8046` has no live case.** `[MEASURED 2026-08-25, post-roll]` **0** facts fleet-wide
+  carry a top-level `artifact_check`, against a control of **6** correctly placed under
+  `source`, out of **304** current facts. The agritec lane repaired the only instances *before
+  the code that finds them shipped* — this lane's own "your action silences your own detector",
+  arriving through a third party. **The zero is TRUE rather than blind only because the 6-control
+  says so**; without it, a post-roll zero and a pre-roll zero are the same reading.
+- **`bba8a892d` has no observable surface at all** — see §5e's correction. Presence at the binary
+  plus its unit test is the whole of the claim.
+
+**Say it that way.** Both are *present and unit-tested*; neither is *proven in production*.
+
+### The first post-roll fleet sweep, and the number 3b is waiting on
+
+19 sites, **0 errors**, 37 `fact_drift` entries, **0** `misplaced_artifact_checks`.
+
+| tool | `present_in_script` | `not_probed` | `absent` | `present_in_markup_only` |
+|---|---|---|---|---|
+| `mortgages-stamp-duty` (LMC) | **7** | 6 | 0 | 0 |
+| `tool-sfi26-revenue-stacker` (agritec) | 0 | **24** | 0 | 0 |
+| **fleet total** | **7** | **30** | **0** | **0** |
+
+**81% of the sample is a refusal, and `absent` is still zero fleet-wide.** That is Phase 3a
+working exactly as designed and it is *not* the distribution Phase 3b needs: both declarations
+were authored from the tools' own code, so neither can produce an `absent`, and agritec's 24 are
+all below the floor. **3b's precondition is unchanged by this roll** — it needs a declaration
+authored from the REGISTER, or one that has aged past a rebuild.
+
+
 ## §6 — what is owed now, in order (2026-08-24)
 
 1. **The roll.** All of Phases 1 and 2 is Go and therefore inert. Verify at the binary,
