@@ -1,4 +1,11 @@
-# 383 lane — CONTINUE HERE (2026-08-25). The fix is LIVE and PROVEN at the artefact. The lane is ONE observation away from closing.
+# 383 lane — CONTINUE HERE (2026-08-25). The fix is SHIPPED and WELL-TESTED. It is **NOT yet proven at the artefact**, and that is the one thing left.
+
+> **⚠ CORRECTED 2026-08-25, later the same day.** An earlier version of this file said the fix was
+> "LIVE and PROVEN at the artefact" and that the lane was one observation from closing. **The proof
+> was false** and is retracted in bug-file §14 / `WRONG_CALLS` 11: I read `updated_at::time(0)`,
+> which discards the DATE, and cited rows written **2026-08-24 11:27** as having been written
+> after the **2026-08-25 09:27** roll. They predate it by ~22 hours. Everything below is the
+> corrected position.
 
 **Read with:** `bugs_open/383_HANDOFF_2026-08-24_…md` (the bug; §13 is the post-roll verification)
 · lane dir `docs/agent_docs/docs024_key_docs_latest/bugfix_283_component_instance_scope/`
@@ -24,46 +31,56 @@ the same id. That is why repaired pages kept breaking: repairing worked, it did 
 - **Retirement**: `9ba3293e7` deleted `BindSingleSectionInstanceToken`. One binder now.
 - **LIVE on chassis `v1.0.1337`**, both replicas, from `4c996e1b5`. Proven by
   `git merge-base --is-ancestor`, **with a control** (today's HEAD is *not* an ancestor).
-- **Working, measured at the artefact 2026-08-25**: `apis.uk/index.html` — six
-  `illustrated-text-block` sections — had its rows rewritten at **11:27:27, after the 09:27
-  roll, by the build path**, and they carry **six DISTINCT tokens**. The old code stamped
-  occurrence 0 on all six. *That is the defect gone at its source, on the path that caused it.*
-- **All three repaired pages serve distinct ids.** The §12 stored-vs-served divergence on
-  `pricing-transparency.html` **closed itself** — a delivery lag, not a defect.
+- ~~Working, measured at the artefact~~ **RETRACTED — see the banner above.** `apis.uk`'s rows
+  predate the roll and were almost certainly **hand-written** by that lane (its own register
+  entry, CLC-030, says it wrote `rendered_html` directly), which is also why they carry six
+  distinct tokens the old code could not have produced.
+- **All three repaired pages serve distinct ids** — but they were repaired by the **canonical
+  whole-page walk, which was never broken.** That proves the *repair*, not the *fix*. The §12
+  stored-vs-served divergence on `pricing-transparency.html` closed itself — a delivery lag,
+  not a defect.
 
-## 3. THE ONE THING LEFT — and it is an observation, not work
+## 3. THE ONE THING LEFT — observe a PER-SECTION render on a multi-instance page
 
-**Nothing is broken and nothing is queued for you to build.** One number needs explaining.
+**Nothing is broken and nothing is queued for you to build.** What is missing is an observation.
 
-`apis.uk/index.html`'s tokens are `c-illustrated-text-block-2 … -7` = occurrences **1..6**. The
-canonical walk (position 1 `hero`, positions 2–7 `illustrated-text-block`) must assign **0..5** —
-bare, `-2` … `-6`. The build-path count is consistently **one high**.
+The fix changes two paths: `RenderComponentAction` (every build and `content_rewrite`) and the
+section editor. **Neither has run on a multi-instance page since the roll.** Until one does and
+is counted at the served page, "the fix works in production" is untested — the unit and
+cross-package tests are mutation-proven and the binary is right, but that is a different claim.
 
-**Every token is distinct, so there is no collision and nothing a visitor can see.** This is byte
-drift in the errs-safe direction the design documents.
+Any ONE of these settles it:
 
-**A canonical rerender is already filed** (`page_rerender`, `reason: template_changed`,
-`created_by='bugs_open/383'`, priority 60). Read its outcome at the artefact:
+- **`apis.uk/index.html`** holds `build_status='needs_rebuild'` and is supposed to rebuild itself,
+  but has not since **2026-08-24 11:37**. Worth asking why before relying on it.
+- **A `content_rewrite` on any of the 30 multi-instance pages.** This is also the **stickiness**
+  test — the one that actually matters, because it is the operation that undid the repairs on
+  2026-08-23 — and it is still unrun.
+- **A section edit** on the second instance of a multi-instance page (exercises the DB branch).
+
+Then, at the served page:
 
 ```bash
-curl -s https://apis.uk/index.html | grep -o 'id="c-illustrated-text-block[^"]*"' | sort | uniq -c
+curl -s <page> | grep -o 'id="c-[^"]*"' | sort | uniq -c   # every token must appear ONCE
 ```
 
-- **bare + `-2`…`-6`** → the build's ready list carried one extra same-function item that produced
-  no saved row (PLAN §A5 blind spot 2). It self-corrects, as designed. **→ CLOSE THE LANE.**
-- **still `-2`…`-7`** → the canonical walk itself produces this, so the disagreement is NOT
-  ready-list drift and lives in the derivation. **→ run `090` before touching code**, and re-read
-  `PlacementFromLoopStep` against a LIVE orchestration's `loop_item_index` (0-based, verified
-  2026-08-24 on a 5-item loop) rather than reasoning from the handler.
+⚠ **Count DISTINCT tokens.** A count of `c-`-prefixed ids reads green while this bug is happening.
 
-⚠ **Do not record blind spot 2 as the cause without that observation.** The obvious story —
-"a 7th section was dropped" — is **REFUTED**: `pages.sections` plans exactly 6 and 6 rows exist.
-The build's orchestration has been reaped, so the ready list cannot be read back.
+⚠ **A canonical `page_rerender` does NOT test this.** That path was never broken. Only a
+per-section render exercises what was fixed.
+
+A canonical rerender of `apis.uk/index.html` is filed (`created_by='bugs_open/383'`,
+`reason: template_changed`) — still `triaged`, `attempt_count=2`, unclaimed as of 09:38 UTC. It
+now answers a much smaller question than the earlier version of this file claimed: whether the
+canonical walk re-canonicalises hand-written tokens. **It is not the test that matters.**
 
 ## 4. Can we close the lane?
 
-**Yes, on that one observation** — the closing bar is `fixed AND live`, and it is both. If the
-rerender re-canonicalises, move `383` to `bugs_closed/` (⚠ `git mv` + a pathspec commit ships a
+**Not yet.** The bar is `fixed AND live`. It is fixed and it is shipped, but "live" on this
+estate means the behaviour is observed at the artefact, and the observation in §3 has not been
+made. **Do not close it on the strength of the three repaired pages** — those were repaired by a
+path that was never broken. Once a per-section render has been observed producing distinct
+tokens, move `383` to `bugs_closed/` (⚠ `git mv` + a pathspec commit ships a
 COPY — name **both** paths on the commit and verify with
 `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep 383`).
 
