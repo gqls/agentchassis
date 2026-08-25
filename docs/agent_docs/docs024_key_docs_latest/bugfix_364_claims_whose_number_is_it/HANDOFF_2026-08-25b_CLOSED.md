@@ -99,6 +99,24 @@ the component map and exactly the original 36/20 return.
   `isExcludedNumber`, `businessClaimContextRe`), `claims_surface_test.go`,
   `platform/orchestration/actions/validate_page_content_surface_sections.go`
 
+## 6b. ⚠ IF A TRACKER PAGE REFUSES AFTER THIS ROLL — where it goes, now that BOTH lanes are closed
+
+`bugs_open/387` and this lane agreed a disposition rule while both were open, and it routes by the
+`CONTENT_VALIDATION_BLOCKER_DETAIL` type. **Both lanes are now closed, so "goes to X first" points at
+nobody** — which is exactly the dangling-pointer failure this estate keeps paying for. Written here
+so the rule survives its authors:
+
+| finding type on a tracker page | what it means | where to start |
+|---|---|---|
+| `unregistered_number` on **`hero`** or **`call-to-action`** | **NEW since `v1.0.1339`.** Those slots were silenced wholesale before this roll; Phase 2 restored the scan to them. Either a genuine unsupported first-person claim (the layer working), or a shape component grain has newly exposed. | this file §3, then `bugs_closed/364` §5b and §6m. **Check the register's rolling counter first** — `bugs_open/386`'s class can refuse an honest page for an unrelated reason |
+| `unregistered_number` on a **`*-listing`** slot | a declared third-party component should be exempt — so either the component is NOT in `thirdPartyDataComponents`, or its `slot_name` differs from the declared key | `claims.go`, the membership query beside the map. **Verify against live `slot_name`, not `content_components.function`** — 106 of 2,033 rows differ |
+| `placeholder_text` with a numeric stand-in `Value` | `bugs_closed/387`'s detector working as designed — a stand-in reached the copy and was refused rather than published | `bugs_closed/387` |
+
+**The general rule, which is the durable half:** a refusal on those pages is no longer evidence that
+either bug regressed. Both mechanisms are live and both are *supposed* to fire. Read the
+`BLOCKER_DETAIL` type before concluding anything, and do not reopen either bug on the strength of a
+refusal alone.
+
 ## 7. The one thing still owed
 
 **Read the acronym fix's council verdict** — `64d852b4-bd70-43a6-9c7a-82202ea5688f`. The code is
@@ -110,3 +128,9 @@ WHERE correlation_id='64d852b4-bd70-43a6-9c7a-82202ea5688f' AND kind='council_re
 ```
 
 Nothing else. The lane is closed.
+
+**`bugs_open/387` closed the same evening** — same roll, source fix proven, detector and CLM-029 carry
+live, probed at the binary on both replicas (their pre-roll probe read 0 and post-roll reads 1, so the
+discriminator flipped rather than merely agreeing). Two residuals survive that close and are written
+in its file: a refresher-survival check on the 611 block, and the disposition rule now recorded in §6b
+above.
