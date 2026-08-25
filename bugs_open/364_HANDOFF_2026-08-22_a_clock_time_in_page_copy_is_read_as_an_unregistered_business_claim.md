@@ -341,6 +341,40 @@ always false and cancel them. Note the sibling residual: `ddc90e58` (about, 6 fi
 ⚠ Whoever closes them: record the item ids first. Closing ARCHIVES the row out of `site_work_items`,
 so a later census cannot see what it succeeded at.
 
+## 6h. OWNER RULING 2026-08-25 — the two queue items were ALWAYS FALSE, and are cancelled
+
+§6g said these could only be disposed of by a human. The owner ruled they were false and they are
+now `cancelled` (both rows, verified; the four genuine siblings on content pages were left open and
+verified untouched as the control).
+
+- `4405fb38-0201-463a-bd2a-40698bed9db7` — adoption-tracker, 8 findings
+- `2f8f67dd-07b1-4907-a6a1-d7b2bd86fcf4` — protocol-tracker, 3 findings
+
+The `resolution_path` on each carries the full reasoning, so the ruling travels with the row rather
+than living only here. **The integrity control was NOT bypassed** — `armGateClaimsStillPresent` did
+its job, refused to auto-close, and escalated to a human, which is exactly the designed path.
+
+**Pre-cancel snapshot, preserved because closing ARCHIVES the row out of `site_work_items` and a
+later census cannot see what it succeeded at.** Every token is a third party's figure:
+
+| page | matched | slot | snippet |
+|---|---|---|---|
+| `adoption-tracker` | 70 | adoption-tracker-listing | agent_framework 70% of regulated enterprises rebuild their AI agent stack ever |
+| `adoption-tracker` | 1,837 | adoption-tracker-listing | rollout_scope Out of 1,837 surveyed engineering and AI leaders, only 95 reported havin |
+| `adoption-tracker` | 30 | adoption-tracker-listing | laimed 50% of service desk inquiries resolved autonomously, 30% reduction in agent workload perc |
+| `adoption-tracker` | 3 | adoption-tracker-listing | uced the Fuse EDA AI Agent in March 2026 for semiconductor, 3D IC, and PCB design workflows. |
+| `adoption-tracker` | 1.65 | adoption-tracker-listing | ntainer Terminal (PNCT) is a US container terminal handling 1.65 million TEU per year, deploying |
+| `adoption-tracker` | 125 | adoption-tracker-listing | rollout_scope 125+ live use cases, 20,000 employees actively building agents |
+| `adoption-tracker` | 200,000 | adoption-tracker-listing | rollout_scope 200,000 onboarded users within eight months users source |
+| `adoption-tracker` | 700 | adoption-tracker-listing | roi_claimed Equivalent work of 700 full-time agents FTE-equivalent source |
+| `protocol-tracker` | 2.0 | protocol-tracker-listing | agent_framework JSON-RPC 2.0 client-server with Tools, Resources, Prompts, and Sampling |
+| `protocol-tracker` | 2 | protocol-tracker-listing | Agent-to-Agent Protocol (A2A) Google |
+| `protocol-tracker` | 3 | protocol-tracker-listing | protocol_governance W3C AI Agent Protocol Community Group working on standardisati |
+
+Note `2.0` (a JSON-RPC version string) and `2` (the digit inside the acronym **A2A**) — two of the
+eleven are not statistics at all, which is the sharpest evidence that the lexical gate was never
+answering the question it was asked.
+
 ## 6c. Found by this bug's census, filed separately (2026-08-24)
 
 Both were turned up by the fleet claims run for §5a and are **not** this bug's mechanism.
