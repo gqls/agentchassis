@@ -1,7 +1,10 @@
 package actions
 
 import (
+	"context"
 	"encoding/xml"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -206,5 +209,48 @@ func TestRootIndexIsCanonicalisedButSectionIndexIsNot(t *testing.T) {
 func TestSitemapNeverListsBothRootForms(t *testing.T) {
 	if absoluteURL("x.uk", "/") != absoluteURL("x.uk", "/index.html") {
 		t.Fatal("`/` and `/index.html` must resolve to the same canonical loc")
+	}
+}
+
+// TestProbeDoesNotFollowRedirects pins the rule probeOK's own doc comment has
+// always stated — "a redirect is deliberately NOT listed" — which was enforced by
+// nothing until 2026-08-25. Go's default client follows redirects transparently,
+// so the probe saw the 200 at the END of the chain and listed the redirecting URL
+// as canonical.
+//
+// The live case: webdesign.uk 302s every path to webdesign.co.uk, and its sweep
+// reported url_count 7 with probe_dropped 0.
+//
+// This test uses the SAME client construction the action uses. If someone
+// "simplifies" it back to &http.Client{Timeout: ...}, this fails.
+func TestProbeDoesNotFollowRedirects(t *testing.T) {
+	final := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer final.Close()
+
+	redirector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, final.URL, http.StatusFound)
+	}))
+	defer redirector.Close()
+
+	client := &http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
+
+	// The redirecting URL must be REFUSED, and refused with the 302 itself —
+	// reporting 200 would mean the redirect was followed.
+	ok, status := probeOK(context.Background(), client, redirector.URL)
+	if ok {
+		t.Error("probeOK listed a redirecting URL; a sitemap must carry the canonical URL, not a 302")
+	}
+	if status != http.StatusFound {
+		t.Errorf("probeOK reported status %d, want 302 — anything else means the redirect was followed", status)
+	}
+
+	// Control: the destination itself is a plain 200 and MUST still be listed,
+	// or the fix has simply broken the probe.
+	if ok, status := probeOK(context.Background(), client, final.URL); !ok || status != http.StatusOK {
+		t.Errorf("probeOK refused a plain 200: ok=%v status=%d", ok, status)
 	}
 }

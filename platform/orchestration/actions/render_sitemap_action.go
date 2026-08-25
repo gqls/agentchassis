@@ -169,7 +169,27 @@ func RenderSitemapAction(ctx context.Context, params ActionParams) (interface{},
 	}
 
 	probe := inputs.GetBool("probe", true)
-	client := &http.Client{Timeout: time.Duration(inputs.GetInt("probe_timeout_seconds", 10)) * time.Second}
+	// CheckRedirect is what makes probeOK's stated rule TRUE. Go's default client
+	// follows up to 10 redirects transparently, so without this the probe never
+	// sees a 3xx — it sees the 200 at the END of the chain and lists the
+	// redirecting URL as though it were canonical. The rule was documented on
+	// probeOK from the start and enforced by nothing.
+	//
+	// [MEASURED 2026-08-25] webdesign.uk 302s every path to webdesign.co.uk. Its
+	// sweep reported url_count 7, probe_dropped 0 — all seven "2xx" were 302s
+	// followed to another domain, and the committed sitemap advertised seven URLs
+	// that redirect away. Re-probed without following: 7 of 7 are 302.
+	// Blast radius of turning this on, measured the same day over every listed URL
+	// (up to 3 sampled per domain): 1 of 27 domains has any 3xx, and it is
+	// adversecreditmortgage.co.uk, the parked domain already excluded by locked_at.
+	// So no live site loses a URL; webdesign.uk correctly drops to 0 and the
+	// empty-sitemap refusal then stops the commit.
+	client := &http.Client{
+		Timeout: time.Duration(inputs.GetInt("probe_timeout_seconds", 10)) * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 
 	var urls []sitemapURL
 	dropped := 0
