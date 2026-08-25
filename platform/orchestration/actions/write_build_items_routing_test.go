@@ -17,8 +17,25 @@
 //
 // Each test asserts the INSERT's own arguments, never the absence of a call —
 // the package landmine about vacuously-passing negative assertions applies
-// here exactly as it does at the reconcile door. Every expectation below is
-// mutation-proven: flip the map entry in builder_routing.go and these fail.
+// here exactly as it does at the reconcile door.
+//
+// > CORRECTED 2026-08-25 (same day, an adversarial review of this very file).
+// > This header claimed "Every expectation below is mutation-proven: flip the
+// > map entry in builder_routing.go and these fail." That was OVERBROAD, and
+// > two mutations survived the whole suite:
+// >   - flipping only the *itemType* half of a map entry failed NOTHING here
+// >     (the constants wbiArgItemType/wbiArgHandlerAgent were declared and then
+// >     never used in any pin — the assertion was intended and dropped);
+// >   - changing the gap row's status from 'deferred' to 'triaged' failed
+// >     nothing, which is the dangerous one: because this change made
+// >     handler_agent EMPTY, writeWorkItem's registration probe (gated on
+// >     handlerAgent != "", :1925) no longer runs, so `deferred` is now the ONLY
+// >     thing keeping an empty-handler row out of both claim gates. Council
+// >     round 2's argument was "deferred parks it, twice over"; this change
+// >     removed the second wall and left the first unpinned.
+// > Both are pinned below now, and both re-verified failing. The lesson for the
+// > next editor: a claim that a test file is mutation-proven must name WHICH
+// > mutations were run, or it reads as coverage nobody has.
 
 package actions
 
@@ -55,6 +72,7 @@ type writeBuildItemsFixture struct {
 const (
 	wbiArgItemType     = 3
 	wbiArgHandlerAgent = 10
+	wbiArgStatus       = 11
 	wbiArgItemKey      = 13
 	wbiArgCount        = 16
 )
@@ -93,7 +111,7 @@ func wbiInsertArgs(pin map[int]driver.Value) []driver.Value {
 // A mis-route therefore matches no expectation, errors, is swallowed, logs
 // nothing, and the test fails on the absence. Mutation-proven in both
 // directions.
-func (f writeBuildItemsFixture) run(t *testing.T, wantItemKey string) (handler string, inserted bool) {
+func (f writeBuildItemsFixture) run(t *testing.T, wantItemKey string, pins map[int]driver.Value) (handler string, inserted bool) {
 	t.Helper()
 
 	db, mock, err := sqlmock.New()
@@ -135,7 +153,14 @@ func (f writeBuildItemsFixture) run(t *testing.T, wantItemKey string) (handler s
 	// stand in for another. The page's is the one under test; the three
 	// site-level items always follow and are registered so they cannot absorb
 	// a page INSERT that went to the wrong handler.
-	for _, key := range []string{wantItemKey, "needs_composition", "needs_design", "needs_rerender"} {
+	pageArgs := map[int]driver.Value{wbiArgItemKey: wantItemKey}
+	for k, v := range pins {
+		pageArgs[k] = v
+	}
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO site_work_items")).
+		WithArgs(wbiInsertArgs(pageArgs)...).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	for _, key := range []string{"needs_composition", "needs_design", "needs_rerender"} {
 		mock.ExpectExec(regexp.QuoteMeta("INSERT INTO site_work_items")).
 			WithArgs(wbiInsertArgs(map[int]driver.Value{wbiArgItemKey: key})...).
 			WillReturnResult(sqlmock.NewResult(1, 1))
@@ -182,7 +207,11 @@ func (f writeBuildItemsFixture) run(t *testing.T, wantItemKey string) (handler s
 // source ("no sections ready to build") — bugs_open/206's whole signature.
 func TestWriteBuildItemsRoutesSectionIndexToTheLayoutEnsuringBuilder(t *testing.T) {
 	f := writeBuildItemsFixture{pageName: "guides-index", pageType: "section-index"}
-	handler, inserted := f.run(t, "needs_page:guides-index")
+	handler, inserted := f.run(t, "needs_page:guides-index", map[int]driver.Value{
+		wbiArgItemType:     "needs_directory",
+		wbiArgHandlerAgent: "directory-build-handler",
+		wbiArgStatus:       "triaged",
+	})
 	if !inserted {
 		t.Fatal("no work item was inserted for the section-index page — the INSERT did not " +
 			"match the pinned expectation, which means it carried a handler_agent other than " +
@@ -198,7 +227,11 @@ func TestWriteBuildItemsRoutesSectionIndexToTheLayoutEnsuringBuilder(t *testing.
 // the 2026-08-08 fix; it lived in the inline map that this change deleted.
 func TestWriteBuildItemsRoutesEntityDirectory(t *testing.T) {
 	f := writeBuildItemsFixture{pageName: "brand-directory-index", pageType: "entity-directory"}
-	handler, inserted := f.run(t, "needs_page:brand-directory-index")
+	handler, inserted := f.run(t, "needs_page:brand-directory-index", map[int]driver.Value{
+		wbiArgItemType:     "needs_directory",
+		wbiArgHandlerAgent: "directory-build-handler",
+		wbiArgStatus:       "triaged",
+	})
 	if !inserted {
 		t.Fatal("no work item was inserted for the entity-directory page — the 2026-08-08 route " +
 			"did not survive the extraction of the inline map")
@@ -213,7 +246,11 @@ func TestWriteBuildItemsRoutesEntityDirectory(t *testing.T) {
 // real traffic.
 func TestWriteBuildItemsLeavesContentPagesOnTheGenericBuilder(t *testing.T) {
 	f := writeBuildItemsFixture{pageName: "about", pageType: "content"}
-	handler, inserted := f.run(t, "needs_page:about")
+	handler, inserted := f.run(t, "needs_page:about", map[int]driver.Value{
+		wbiArgItemType:     "needs_content_page",
+		wbiArgHandlerAgent: "page-build-handler",
+		wbiArgStatus:       "triaged",
+	})
 	if !inserted {
 		t.Fatal("no work item was inserted for an ordinary content page — the extraction " +
 			"changed a route it should not have")
@@ -236,7 +273,14 @@ func TestWriteBuildItemsLeavesContentPagesOnTheGenericBuilder(t *testing.T) {
 // for an agent nobody ever intended to exist.
 func TestWriteBuildItemsFilesCapabilityGapWithNoHandlerForUnbuildableType(t *testing.T) {
 	f := writeBuildItemsFixture{pageName: "brand-profile", pageType: "entity-page"}
-	handler, inserted := f.run(t, "capability_gap:entity-page:brand-profile")
+	handler, inserted := f.run(t, "capability_gap:entity-page:brand-profile", map[int]driver.Value{
+		wbiArgItemType:     "capability_gap",
+		wbiArgHandlerAgent: "",
+		// status is load-bearing: see the header correction. With
+		// handler_agent empty the registration probe never runs, so
+		// `deferred` is the ONLY wall between this row and both claim gates.
+		wbiArgStatus: "deferred",
+	})
 	if !inserted {
 		t.Fatal("no capability_gap was filed for an entity-page — either it minted a dispatch " +
 			"item instead, or the gap row carried a non-empty handler_agent")
@@ -254,7 +298,7 @@ func TestWriteBuildItemsFilesCapabilityGapWithNoHandlerForUnbuildableType(t *tes
 // brand-detail sat that way for 35 days.
 func TestWriteBuildItemsFilesNoDispatchItemForUnbuildableType(t *testing.T) {
 	f := writeBuildItemsFixture{pageName: "brand-profile", pageType: "entity-page"}
-	if _, inserted := f.run(t, "needs_page:brand-profile"); inserted {
+	if _, inserted := f.run(t, "needs_page:brand-profile", nil); inserted {
 		t.Error("an entity-page minted a needs_page dispatch item — it must file only a " +
 			"deferred capability_gap, or the item burns an attempt on a builder that " +
 			"cannot build it and parks in needs_human_review")
