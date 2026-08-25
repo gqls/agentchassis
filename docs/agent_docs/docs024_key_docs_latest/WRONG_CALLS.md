@@ -50973,3 +50973,28 @@ silently drop your own deletion.
 requires for good reasons, so it will recur for anyone renaming a file here — and it fails in the
 direction that looks correct locally while being wrong for everyone else, which is the shape this
 whole lane has been about.
+
+**7. I read-modify-wrote a shared append-only ledger and clobbered four lines of another lane's
+entry.** Correcting my own `LANDMINES.md` entry in place, I used a Python read-whole-file →
+replace → write-whole-file. Between my read and my write, the `bugfix_389_cta_relevance` lane was
+editing its own entry in the same file; my write took the file back to my snapshot and removed four
+of their lines (footprint, the trap-inside-it, relations, verifier).
+
+**No harm survived, and only by luck**: that lane rewrote its entry again minutes later (renumbering
+its bug 389 → 391), so the current file is complete. Nothing downstream can tell a deleted entry
+from one never written, and if they had not been mid-edit those four lines would simply be gone.
+
+**Caught by:** `scripts/pattern-check.py`'s `shared-ledger-not-appended` advisory on my own commit —
+"5 line(s) removed from LANDMINES.md, a fleet-wide append-only ledger". I nearly dismissed it as
+naming my own deliberate replacement, which it partly did: **1 of the 5 removals was mine and 4 were
+not**, and the advisory could not tell me which.
+
+**The cheap check, and it is a practice not a check:** on any fleet-wide append-only file, APPEND
+(`>>`) and never read-modify-write. To correct an existing line, use the Edit tool — which refuses a
+file you have not read *in this session* and matches on exact context, so a concurrent write makes
+it fail instead of silently winning — or a targeted `sed` on a unique anchor. CLAUDE.md already says
+this ("prefer the Write tool, which refuses an unread file, over a shell redirect, which does not");
+I followed it for three appends and abandoned it the moment I needed to edit one line.
+
+**And when the advisory fires: diff it, do not reason about it.** `git show <sha> -- <file> | grep
+'^-'` took ten seconds and turned "that's just my line" into four lines that were not.
