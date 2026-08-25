@@ -8,9 +8,10 @@ because **"routed to a handler that refuses" is a routing defect and "how should
 repaired" is a design question — different bugs.** The second question is `bugs_open/277`'s
 (see "Relates to"); this file does NOT take it.
 
-**Status: OPEN — OWNED since 2026-08-24 by `docs/agent_docs/docs024_key_docs_latest/bugfix_333_owned_page_door/`.
-Fix candidate 1 is BUILT AND COMMITTED (`6ab0b3434`), INERT until the next chassis roll.** See
-"## FIX 2026-08-24" at the foot of this file before adding to it.
+**Status: OPEN — OWNED by `docs/agent_docs/docs024_key_docs_latest/bugfix_333_owned_page_door/`.
+Fix candidate 1 is LIVE AND PROVEN ON LIVE DEMAND (chassis provenance `4c996e1b5`, both replicas, verified
+2026-08-25 09:39Z). The bug stays OPEN because its titled defect is STILL REPRODUCIBLE by a producer the door
+cannot see.** See "## FIX 2026-08-24" and "## POST-ROLL 2026-08-25" at the foot before adding to it.
 
 > **CORRECTED 2026-08-24 18:50Z (by a reader, from the closed `bugfix_367_router_remit` lane —
 > state only, no direction):** the two lines above are now STALE in both halves. The chassis
@@ -20,9 +21,15 @@ Fix candidate 1 is BUILT AND COMMITTED (`6ab0b3434`), INERT until the next chass
 > this as approved"* is superseded — it IS approved. **The bug is still correctly OPEN**: at
 > 18:49Z the door had not yet fired, and the demand control is why — see the CONTRIB at the foot.
 
-> ⚠ **The bug is NOT closed and must not be moved to `bugs_closed/`.** The bar is fixed AND live; this
-> is committed and inert, so the defect is still reproducible until the chassis rolls. The 142 legacy
-> rows are also untouched by design (see the fix section).
+> ⚠ **DO NOT CLOSE THIS BUG, and the reason is now MEASURED rather than cautious.** ~~committed and inert~~
+> — superseded by the reader's note above and by the post-roll section: the door IS live and it works. Since it
+> went live at **2026-08-24 19:19:13Z**, **32 owned-page findings were PARKED** instead of refused. But **3 more
+> were filed at `page-build-handler` on owned pages and still died `wont_fix`** — `offer-analysis`, at
+> 22:08:39Z, nearly three hours AFTER the fix was live, because `write_audit_findings_action.go:987` is a raw
+> `INSERT INTO site_work_items` that bypasses the seam the door sits in. **The sentence in this file's title is
+> still true of that producer.** Separately, **111 legacy rows** (59 failed / 36 unresolved / 16
+> needs_human_review) still hold the old handler; all are inert (**0** dispatchable) but they remain a false
+> record. What would close this is enumerated at the foot.
 
 **One line:** ~25 files name `"page-build-handler"` as the handler for a content finding; **none of
 them, and not the shared write seam they mostly pass through, reads `pages.rebuild_policy`** — so a
@@ -626,3 +633,69 @@ unresolved / 16 needs_human_review** at that handler on owned pages — byte-ide
 **Nothing here is a request.** The one thing I would ask a reader to carry: the first genuinely
 informative run of your positive query is the first one whose demand control is non-zero, and on
 this producer mix that may be hours away, not minutes.
+
+---
+
+## POST-ROLL 2026-08-25 — candidate 1 is LIVE and PROVEN on live demand, and the residual is now DEMONSTRATED rather than predicted
+
+**Artefact proof first, never the tag** (`agent-chassis`, both replicas): `build provenance` =
+`4c996e1b5cb9b2513d88ec9fe2bae220c38fb6c2`; `git merge-base --is-ancestor` confirms BOTH `6ab0b3434` (door) and
+`1789489bf` (revision) are in it; `DISABLE_OWNED_PAGE_DOOR_DEMOTION` found in `/proc/1/exe` on **both** pods,
+**with a must-be-absent control run in the same breath on each**.
+
+⚠ The door has been live since **2026-08-24 19:19:13Z** (the `v1.0.1335` roll the 367 lane's note above
+records), so the window below is ~14 hours of production traffic, not the minutes since today's build.
+
+### What the door did [MEASURED 2026-08-25 09:39Z]
+
+| outcome on `rebuild_policy='owned'` pages since 19:19Z | rows | producers |
+|---|---|---|
+| **PARKED by the door** (went through `writeWorkItem`) | **32** | `required-fields-missing-handler` 28, `generic` discovery 4 |
+| **REFUSED by the handler** (bypassed the door, raw INSERT) | **3** | `offer-analysis` |
+| untouched, still completing | 243 | `rerender-pages`, `generic` |
+
+**35 parked rows** in total across 5 item types (`content_rewrite` 30, `phantom_internal_link` 2,
+`empty_internal_href` 1, `empty_section` 1, `needs_content_page` 1) on 4 sites.
+
+**The properties this bug was filed for, each checked rather than assumed:**
+
+- **PER FINDING, NOT PER PAGE** — page `c67ed17b` carries **2 parked findings under 2 distinct `item_key`s**.
+  The `owned_page_review` row this replaces dedups per page and structurally could not have recorded the second.
+  That is §2's hole, closed and demonstrated.
+- **The shape is right on a real row**: `deferred`, `handler_agent=''`, priority 200, **`item_type` and
+  `item_key` preserved** (so the detector's own retraction still matches — the whole reason the parked row keeps
+  its identity), summary prefixed, spec carrying `gap_kind` / `builder_needed` / `what_to_do` / `owned_page_guard`.
+- **The consumer sees them**: the roadmap sweep groups all 35 under ONE line — *"owned-page content route
+  (page-build-handler declares refuse_owned_page)"*, across 4 sites. That is the stable-per-handler
+  `builder_needed` working as designed; a per-finding string would have produced 35 buckets of one.
+- **Negative controls held**: `page-rerender` on owned pages **244 complete** / 10 failed in the same window —
+  the estate's principal owned-page route is untouched, which is exactly what the declaration-based design was
+  for. `page-build-handler` on generic pages still runs (20 complete / 11 failed / 1 detected).
+- **Demand control satisfied**: the window carries 278 owned-page rows, so the parked count is a measurement,
+  not an absence. (The `353` lane's warning — that cross-link emission has been at zero since 08-21 — is why
+  this control was run rather than assumed; it means a zero in the `tool_crosslink` slice would have said
+  nothing.)
+
+### THE RESIDUAL, now demonstrated: bypass producers are not theoretical
+
+The three `offer-analysis` rows were created **2026-08-24 22:08:39Z — nearly three hours AFTER the door went
+live** — and every one died `wont_fix` with `step load_page_record failed: … OWNED_PAGE_GUARD:`. They never met
+the door, because `write_audit_findings_action.go:987` writes `INSERT INTO site_work_items` directly.
+
+**So the class fix works, and the class is not the whole bug.** Fix candidate 1 anticipated this ("the raw-
+`INSERT` writers … are the backstop list to check, exactly as 291 left claim's branch as ITS backstop"); what is
+new is that it is a measured, dated, live cost rather than a listed risk.
+
+### What would close this bug
+
+1. **Cover the bypass producers.** Either route `write_audit_findings_action.go` (and the other 8) through
+   `writeWorkItem`, or **add the policy predicate to the promoter's routability test** so a row born `detected`
+   at a refusing handler on an owned page is held back. The promoter-side option covers `write_audit_findings`
+   (which births `detected`) without editing 9 call sites, and is the smaller, more general change — it is the
+   same shape `bugs_closed/284` used for the registration predicate (WDS-017).
+2. **Decide the 111 legacy rows** (59 failed / 36 unresolved / 16 needs_human_review). All inert — **0** are
+   dispatchable — so nothing is burning; they are a false record on real defects. A one-off migration re-typing
+   them into the parked shape, or a deliberate mass-cancel, is an owner call.
+3. **Optional, and possibly not this bug's**: resolve the page by NAME at the door for the 1,438 rows carrying
+   `spec.page_name` and no `page_id`. Those are name-only ACTION REQUESTS, a different kind of item from this
+   bug's content findings.

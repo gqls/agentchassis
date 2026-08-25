@@ -80,3 +80,36 @@ it still fail), left it alone, and told them.
 defects on them are real. What has changed is that they are now visibly waiting with a note saying what would
 work, instead of being recorded as "we decided not to fix this". That was the whole point of splitting this from
 the repair question, which is a different bug and someone else's.
+
+## 2026-08-25 — it is live, it is working, and it is not finished
+
+The build went out and the check is now doing its job on real traffic. Since it went live at about half past
+seven on Sunday evening, **32 findings on tool-owned pages have been set aside properly instead of being thrown
+away**. Before this, every one of those would have been marked "we decided not to fix this" on a defect nobody
+had decided anything about.
+
+Two things I checked rather than assumed, because both could have gone the other way:
+
+**The routes that were working still work.** The main way we legitimately rebuild owned pages completed 244
+times in the same window, untouched. That was the whole point of having the check ask each worker whether it
+refuses owned pages, rather than hardcoding a list — get that wrong and we would have quietly broken the busiest
+repair path on the estate.
+
+**A page can now hold more than one set-aside finding.** There is a page carrying two, separately recorded. The
+old mechanism kept one note per page, so a second problem on an already-noted page vanished without trace. That
+was the specific hole this was filed to close, and it is closed.
+
+**Why I am not closing the bug.** Three findings were still thrown away *after* the fix went live — at ten past
+eleven on Sunday night, three hours in. They came from one report-writing component that inserts its work
+straight into the database and never passes the point where the new check sits. So the sentence at the top of
+the bug report is still true of that one producer. Closing it now would be recording a success that the evidence
+does not support, which is the exact failure this bug is about.
+
+**What is left is small and well-defined.** One more change closes the gap — and the cheaper version of it is a
+single check at the point where work is promoted for dispatch, rather than editing nine separate places. Beyond
+that, there are 111 old records still holding the wrong worker. None of them are doing anything — they are not
+consuming resources, they are just wrong on paper — so what happens to them is a decision rather than an
+emergency, and it is yours.
+
+The handoff for picking this up in a fresh session is at
+`docs/agent_docs/docs024_key_docs_latest/bugfix_333_owned_page_door/HANDOFF_2026-08-25_continue_here.md`.
