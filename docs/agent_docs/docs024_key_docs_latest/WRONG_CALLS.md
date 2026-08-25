@@ -51080,3 +51080,43 @@ in a document whose subject is "checks that report the right answer for the wron
 someone who had just spent hours on exactly that failure mode. Reading my own §2 one more time
 before publishing §3 would have caught the biggest of them — and I had re-read §2 that morning to
 write §3 *from* it.
+
+**8. I put a bare, undated count inside a warning ABOUT undated counts — and it went stale in a day.**
+`bugs_open/386` §4b warned that a broad `gte` fact silently vouches for every smaller number near its
+context term, and illustrated it with "ai-agent-orchestration.com carries `4068 gte /
+context_terms ["orchestration"]`". Read live the next morning by the lane that took the bug: the same
+fact reads **7281**. The silently-vouched-for ceiling had risen **3,213 in about a day** — on the very
+fact chosen to demonstrate the hazard, in the bug file *about* counting facts going stale.
+
+**The cheap check is a rule I had already applied to other people's work twice that session**
+(CLAUDE.md: *a count of things must carry the date it was counted*). I dated the census figures and
+the finding counts, and did not date the one number embedded in a prose warning — because it read as
+an example rather than as a measurement. **An illustrative number is still a measurement.** The fix
+is not a date here but deleting the number: the load-bearing fact was the shape (one `gte`, one broad
+term, a self-raising ceiling), and any value written down is wrong by tomorrow.
+
+**9. I asserted a premise the repo already refuted, in a file named for the site I was writing about.**
+`bugs_open/386`'s candidate 1 and the recorded owner ruling both rest on "a counting fact only rises,
+so its honest form is a lower bound". `sql_for_agents/218_evidence_facts_for_043_sites.sql:48` —
+written 2026-07-24, a month earlier, about **this same site** — says: *"work items completed is NOT
+MONOTONIC: 1,267 on 07-24, 1,051 today"*, because its ledger reaps. **This breaks the cheap half of
+the owner's ruling, not merely my candidate**: "at least N" becomes a NEW false claim the moment a
+reaping counter falls below N. Caught by the owning lane, which replaced the range with exact
+matching against retained former values — no monotonicity assumption at all.
+
+**The cheap check: grep the repo for the mechanism before asserting a property of it.** One
+`grep -rn 'MONOTONIC' docs/agent_docs/sql_for_agents/` would have found it. **This is the second time
+in this lane** — the URL-form trap that refuted my `bugs_open/387` filing was likewise already written
+down, in `LANDMINES.md` and in `WRONG_CALLS.md` 2026-07-27. Twice in two days I have been corrected by
+a document that was already on disk, by a peer who looked. The tally is the finding: **my failure mode
+is not bad reasoning, it is not looking first.**
+
+**10. I relayed a peer's claim into a HANDOFF without verifying it.** I wrote that `bugs_open/380`
+"confirmed" the audit rotation amplifies 386 "and recorded it against CLM-027" — a discriminator
+keyed on comparing `nearest_fact_id`'s `verified_at` against a page's render time. `nearest_fact_id`
+has **ZERO Go readers repo-wide**; it exists only in the auditor LLM's output JSON. So the
+discriminator cannot fire on the Go path that blocks a rebuild, and at the build gate it is
+undecidable in principle — the gate runs now against the current register, so both timestamps are
+today. **A handoff is exactly where an unverified claim does the most damage**, because the stranger
+it is written for cannot tell which lines were checked. The cheap check was one grep, and I had spent
+the same session insisting that a citation is not a read.

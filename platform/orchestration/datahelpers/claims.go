@@ -683,9 +683,19 @@ var numberCandidateRe = regexp.MustCompile(`\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\
 //
 // MEASURED before changing it, both directions: fleet-wide, exactly ONE site's
 // components contain "orchestrations" at all (11 components, all
-// ai-agent-orchestration.com) and adding the plural changes the finding count by
-// ZERO — the values there are already supported by that site's registered
-// `4068 gte` fact. So this closes a silent blind spot at no measured cost.
+// ai-agent-orchestration.com [MEASURED 2026-08-24]) and adding the plural changes
+// the finding count by ZERO — the values there are already supported by that
+// site's registered `aao-orchestrations` gte fact. So this closes a silent blind
+// spot at no measured cost.
+//
+// ⚠ That fact's VALUE is deliberately not quoted here any more. It read 4068 when
+// this was written on 2026-08-24 and 7281 the next day — it is a live `count(*)`
+// that climbs, so a bare number in a comment is stale within a day and reads as
+// current for ever (CLAUDE.md: a count of things must carry the date it was
+// counted; caught by the bugs_open/386 lane, which is the bug about exactly this
+// drift). The load-bearing fact is not the number: it is that ONE gte fact with
+// the single broad context term "orchestration" silently vouches for EVERY
+// smaller figure near that word, and the ceiling rises on its own.
 //
 // ⚠ THE GENERAL POINT, which is the durable half: this list is an ALLOW-LIST OF
 // NOUNS with the same unbounded-miss property as unitSuffixRe's allow-list of

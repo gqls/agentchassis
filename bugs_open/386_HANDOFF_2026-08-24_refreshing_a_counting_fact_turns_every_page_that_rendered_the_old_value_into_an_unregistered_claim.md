@@ -97,10 +97,19 @@ exact value that was only ever true at one instant.
 `numberSupported` matches a fact against a number only when the fact's `context_terms` appear in the
 ±70-byte window around it — **and that test is `strings.Contains`, i.e. a substring, not a word
 match.** A `gte` fact therefore vouches for **every number smaller than its value** anywhere near a
-term it names. This is measured, not theoretical: ai-agent-orchestration.com carries
-`4068 gte / context_terms ["orchestration"]`, and that single fact silently supports any figure up to
-4,068 sitting next to the word — which is why the first draft of `bugs_open/364`'s test passed with
-the fix reverted, and why that bug's §2 calls it accidental support.
+term it names. This is measured, not theoretical: ai-agent-orchestration.com carries the fact
+`aao-orchestrations`, `gte`, with the single broad `context_terms ["orchestration"]` — and it
+silently supports **every** figure below its value sitting next to that word. That is why the first
+draft of `bugs_open/364`'s test passed with the fix reverted, and why that bug's §2 calls it
+accidental support.
+
+> **CORRECTED 2026-08-25 by the lane that took this bug, and the correction is the bug eating its own
+> warning.** I originally wrote the value inline as **`4068`** with no date. Read live the next day it
+> was **`7281`** — the silently-vouched-for ceiling had risen **3,213 in about a day**, on the very
+> fact I was using to illustrate the danger. A bare count in a landmine-shaped warning is the same
+> trap one level up (CLAUDE.md: *a count of things must carry the date it was counted*). **The number
+> is now deliberately not quoted**: the load-bearing fact is the SHAPE — one `gte` fact, one broad
+> term, a ceiling that climbs on its own — and any figure written here is wrong by tomorrow.
 
 **So the ruling must be implemented with tight `context_terms`, not with a bare `gte`.** A counting
 fact converted to `gte` with a broad term is not a fix; it is the check being switched off for a
@@ -122,6 +131,56 @@ whole vocabulary, and it will read as "no findings" for ever after.
 stops the next author registering an exact counting fact. Until it can, this ruling is a convention
 enforced by review, not by the schema — and `bugs_open/364` §5b's lesson applies: a comment is not a
 control on a tree this many sessions share.
+
+> ### ⚠ CORRECTED 2026-08-25 — MY MONOTONICITY PREMISE IS FALSE, and the refutation was already in the repo
+>
+> Points 1 and 4 above, and the "a monotonic counter's honest form IS a lower bound" reasoning in the
+> ruling, all assume a counting fact only ever **rises**. **It does not.** `sql_for_agents/218_evidence_facts_for_043_sites.sql:48`
+> — written **2026-07-24**, a month before I wrote this, about **this same site** — states it outright:
+> *"work items completed is NOT MONOTONIC: 1,267 on 07-24, 1,051 today"*, because its ledger reaps.
+>
+> **This breaks the ruling's cheap half, not just my candidate.** "At least N" is a false statement
+> the moment a reaping counter falls below N, so a floor is not automatically the honest form — it is
+> the honest form for a genuinely accumulating count and a *new* false claim for a reaping one. **Ask
+> which kind the fact is before applying the ruling to it.** A `monotonic` flag would have encoded my
+> wrong premise into the schema.
+>
+> The lane that took this bug has replaced the range with **exact matching against retained former
+> values**, which is strictly tighter, assumes no monotonicity, and vouches only for numbers the
+> register actually held. That is feasible because the refresh **supersedes rather than overwrites**
+> (`refresh_evidence_base_action.go:1289-1318`), leaving **315** superseded `evidence_base` rows
+> across 15 sites back to 2026-07-16 `[MEASURED 2026-08-25]` — so the history the durable fix needs is
+> already on disk and does not have to be reconstructed by guesswork.
+>
+> **How I got it wrong: I did not grep before asserting.** The counter-example was in a migration
+> named for the site in my own evidence. Second time in this lane — the URL-form trap that refuted my
+> `bugs_open/387` filing was likewise already written down. `WRONG_CALLS.md` 2026-08-25.
+
+> ### Two further findings from the owning lane, 2026-08-25 — both narrow what this ruling can reach
+>
+> **1. The ruling is already implemented, by hand, on five facts that predate it — so nobody needs to
+> invent the template.** `F1-live-sites` is `gte 26` with the writer_line *"more than 10 live
+> production sites run on this platform (live count {value}; state a FLOOR, never the exact
+> number)"*; same shape on `F2-council-seats`, `C1-records-verified`, `C4-agent-definitions-catalogue`.
+> All carry **narrow multi-word** `context_terms`, so they are also the existence proof that the
+> ruling is implementable **without** the accidental-support hole warned about above.
+>
+> **2. ⚠ The ruling cannot reach the case that FILED this bug.** The five facts in §1's evidence
+> (F9–F13) have **no `writer_line` at all** — they never reach `composeWriterBlock`, yet still convict
+> via `numberSupported`. The stale `11513` is frozen into the `evidence-chart` component's
+> `content_data`, written 2026-08-23: **a stored snapshot from the component whose job is rendering
+> the register, not LLM prose.** "Express it as at least N" has nothing to attach to — there is no
+> sentence, only a chart. Candidate 1 is what covers that case, and for a chart that stamps its own
+> *"verified 2026-08-23"* it is the semantically correct answer rather than a tolerance widening,
+> because that sentence is true for ever and needs no re-render. Note an assemble-mode rerender would
+> republish the same bytes; only `rerender_sections` recomputes `content_data`.
+>
+> **And the exposure is much smaller than the 13 exact `sql` facts.** Fast movers are F9/F10
+> (+~180/day) and F11/F12, plus leopardess `C1-ch-vet-mirror` and `C1-records-enriched`. The rest
+> count **enumerable** things whose writer_line names every item (`vonc-archetypes` 8,
+> `rh-manufacturers` 6, `vonc-guides` 4, `vonc-tools` 6, `rh-grippers` 10) — and `F14-interactive-tools`
+> whose writer_line says *"an EXACT count — do not round it or state a floor"*. **Converting those to
+> `gte` would be the accidental-support mistake above, for zero benefit.**
 
 ## 5. How to verify
 

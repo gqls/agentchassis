@@ -147,9 +147,21 @@ not also the person measuring.
 ## 6. Spin-offs filed by this lane — both real, both UNOWNED
 
 - **`bugs_open/386`** — refreshing a **counting fact** turns every page that already rendered the
-  previous value into an "unregistered claim" (fundamentallyai renders `11513`, register now holds
-  `11646`). Framework-wide and periodic. **`bugs_open/380` has since confirmed it interacts with the
-  new hourly claims-audit rotation as an AMPLIFIER** and recorded it against CLM-027.
+  previous value into an "unregistered claim" (fundamentallyai renders `11513`; the register held
+  `11646` when measured `[MEASURED 2026-08-24]` and it climbs). Framework-wide and periodic.
+  **OWNED since 2026-08-25**, lane at `docs/agent_docs/docs024_key_docs_latest/bugfix_386_counting_fact_drift/`.
+  ⚠ **Two things I wrote about it are corrected in that bug's §4b, both by the owning lane:** my
+  monotonicity premise is FALSE (a reaping counter fell 1,267 → 1,051, and the migration saying so
+  predates my claim by a month), and the `4068` I quoted read `7281` a day later — the bug ate my own
+  warning.
+  ⚠ **And retract one thing I relayed here unverified**: I wrote that `bugs_open/380` "confirmed"
+  the rotation amplifies it "and recorded it against CLM-027". The **discriminator that entry
+  describes cannot fire on the Go path** — `nearest_fact_id` has **ZERO Go readers repo-wide**
+  (verified 2026-08-25); it exists only in the auditor LLM's output JSON
+  (`claims_verification/SEED_claims_auditor.sql:70`). At the build gate it is undecidable in
+  principle anyway, because the gate runs *now* against the *current* register, so both timestamps
+  are today. The 386 lane is correcting CLM-027 and the 380 handoff. **I passed a peer's claim on
+  without checking it, in a handoff — exactly what this file warns other people not to do.**
 - **`bugs_open/387`** — ⚠ **MY HEADLINE WAS REFUTED 2026-08-25 by the lane that took it.** I filed
   "deployed and 404". The pages **serve fine** at `/adoption-tracker.html` etc.; the extensionless
   form 404s for *every* page on that site, `/about` included, because the worker does not resolve
