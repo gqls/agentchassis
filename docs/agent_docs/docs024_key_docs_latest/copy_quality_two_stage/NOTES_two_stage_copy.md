@@ -2457,3 +2457,54 @@ Two things make this worth fixing rather than noting:
 edit rather than per field, and that needs its own controls — including one proving it still catches
 a link genuinely removed from the page, which is the arm that matters. Recorded as the next piece of
 work rather than patched in a hurry at the end of a session.
+
+---
+
+## 2026-08-25 (later) — the declared-link check runs at PAGE scope now, and the re-grade the handoff asked for says HOLD two of our three edits
+
+**Item 1 of the 08-25 handoff is DONE.** `declared_link_verdicts()` grades the page's declared
+set ONCE per component-grade, against the page as it would stand after the edit: the merged
+component (unedited fields INCLUDED — `load_page_text` excludes the graded component wholesale,
+so leaving them out re-creates the per-field defect one scope out) plus every other component's
+stored text. Four verdicts: `kept` / `added` (ok), `REMOVED` (the failing arm), `gap`
+(pre-existing page-level absence — ⚠ reported, never failed, or every edit to that page fails
+for ever and the check is learned as noise, which is the erosion the fix exists to end).
+
+**The two traps from the handoff addendum both mattered in the implementation:**
+- `others_json` is `content_data::text`, JSON-encoded, so the helper searches `href=\"…\"`
+  there and `href="…"` only in the flattened component texts. **Mutation-proven** `[MEASURED
+  2026-08-25]`: sed the helper to search the plain form in `others_json` → self-test exits
+  `CONTROL FAILED: declared-set verdicts wrong`; restore → 4× CONTROL OK. The control feeds
+  `others_json` through `json.dumps`, so a regression to the un-escaped read cannot pass it.
+- The merged component is `before_data | proposal`, keys the edit does not touch included.
+
+**Evidence on the motivating case** (`--item 8003c51a`, finetuning.uk/your-own-model): the
+three per-field `1 of 1 required absent` noise lines are GONE; edit 1 now reads
+`all 1 reachable … — 1 ADDED by this edit: /contact.html` (the gate had been failing the edit
+that fixes the page's gap); edit 2 gets the ⚠ pre-existing-gap line, not a FAIL. The real
+failures stand alone and unchanged: `h3 2→1, li 3→0, ol 1→0` and `h3 2→0, p 4→2`.
+
+**Self-test:** all five induced controls still FAIL as they must, plus the new direct-logic
+declared-set control (same pattern as the prose-URL one, and for the same reason: the FAIL arm
+needs a link deleted from ANOTHER component's row, which a proposal mutation cannot do).
+⚠ One honest observation, not a regression: on the loancalculator identity proposal the
+`links` induced control is caught by the STRUCTURE arm (`a 42→41, li 13→12`), not the no-drops
+arm — the removed `<li>`'s href occurs more than once in that component, so the set-difference
+sees no drop. A guard in series caught it; on a component with unique hrefs the links arm
+fires directly. Worth knowing before anyone reads that self-test output as "the links arm
+fired".
+
+**And the re-grade of `b0dea48e` the handoff asked for** (that page rebuilds daily; all three
+stored ids were dead AGAIN — 08-25 08:52 rerender — re-resolved by slot, fourth occurrence):
+- edit 1 `differentiators-section·features`: **FAIL — 2 NEW figures (14, 170)**;
+- edit 2 `departments-grid·section_intro`: **FAIL ×2 — introduces figure 170, and drops two
+  prose URLs now unique to that field** (`/blog/llm-provider-abstraction-…html`,
+  `/model-directory.html`);
+- edit 3 `call-to-action·subheadline`: **PASS** (75% cut, every removed figure/link still on
+  the page).
+
+The proposal standardised the 175/170 figure conflict against the 08-24 page; the rebuilt page
+has moved, so applying edits 1–2 now would WRITE stale numbers — the facts arm doing precisely
+its job. **Recommendation recorded in the handoff: approve edit 3 at most; edits 1–2 need
+re-proposing against the current page.** Also noted while grading: `required_links` is EMPTY
+for ai-agent-orchestration.com/index, so the declared-set check correctly stays silent there.

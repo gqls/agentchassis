@@ -81,24 +81,28 @@ inside the per-field loop, lines 412–416 under the loop at 369).
 1. **Two proposals are parked at `needs_human_review`:**
    - `b0dea48e` — ours, `ai-agent-orchestration.com/index`, 3 edits. Cuts the CTA a **second** time
      (496 → 245) and flags a **figure conflict**: 175 "Agent Definitions" vs 170 "Agent Types" across
-     sections. Gate-passed when filed; **re-grade before acting** (that page rebuilds daily).
+     sections. Gate-passed when filed; ~~**re-grade before acting** (that page rebuilds daily)~~
+     **RE-GRADED 2026-08-25 against the rebuilt page: edits 1–2 now FAIL** (both would WRITE figures
+     `170`/`14` the current page no longer carries — the proposal standardised the conflict against
+     the 08-24 page, and the page has moved; edit 2 also drops two prose URLs now unique to its
+     field). **Edit 3 (the CTA cut) still PASSES. Approve edit 3 at most; edits 1–2 need
+     re-proposing.** All three stored component ids were dead again (fourth dangling-id occurrence);
+     the gate re-resolved by slot. Evidence: NOTES 2026-08-25 (later).
    - `8003c51a` — **`finetuning_uk_service`'s**, `finetuning.uk/your-own-model`, 2 edits. **FAILS the
      gate.** Told them (CONTRIB of 2026-08-25 in their directory). Not ours to approve.
 2. **My gate has a defect, found by grading their proposal** — see "next work" item 1.
 
 ## Next work, in the order that closes doors
 
-1. **FIX THE GATE'S DECLARED-LINK CHECK — it runs PER FIELD.** `gate_stage2_edit.py` reports
-   `links … (page's declared set): 1 of 1 required absent` on any edited field that does not itself
-   contain the link — so a `heading` field **fails by construction**. On `finetuning.uk` it was wrong
-   in the reassuring direction twice over: `/contact.html` is declared in `required_links` but sits in
-   **zero** components of the live page, and the edit it failed actually **adds** it.
-   **The fix:** evaluate the declared set at **page scope after the edit**, not per field.
-   ⚠ **Its control is the arm that matters** — prove it still FAILS when a link genuinely disappears
-   from the whole page, or the fix trades a noisy check for a blind one. **Why this is item 1:** a
-   check that fails on fields that could never satisfy it teaches the reader to ignore it, and the
-   next thing scrolled past is the real failure sitting beside it (their proposal deletes an entire
-   ordered list: `li 3→0, ol 1→0`).
+1. ✅ **DONE 2026-08-25 (same day, review-pass session).** ~~FIX THE GATE'S DECLARED-LINK CHECK — it
+   runs PER FIELD.~~ `declared_link_verdicts()` now grades the declared set ONCE per grade at PAGE
+   scope after the edit (merged component, unedited fields included, plus every other component).
+   Four verdicts: kept / added (ok) / **REMOVED (fails)** / gap (pre-existing page-level absence —
+   ⚠ reported, never failed). The FAIL arm is control-proven direct-logic (the prose-URL pattern —
+   a proposal mutation cannot delete a link from another component's row) and **mutation-proven**:
+   regress the helper to read `others_json` un-escaped and the self-test exits CONTROL FAILED.
+   On `8003c51a` the three noise lines are gone, edit 1 is credited with ADDING `/contact.html`,
+   and the real structural failures stand alone. Evidence: NOTES 2026-08-25 (later).
 2. **The first DISPATCHED run has not happened.** When a `tone` finding appears, verify it end to end:
    a `needs_copy_edit` row at `copy-editor`, then a run that reaches `run_copy_edit` via the
    **dispatched** branch (`load_work_item`, not `echo_page_ref`).

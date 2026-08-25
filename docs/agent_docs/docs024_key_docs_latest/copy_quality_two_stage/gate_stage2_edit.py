@@ -21,8 +21,12 @@ to text so B–E apply to them too):
                house `{"fields":{…}}` and legacy `{"properties":{…}}`. `bugs_open/260`
                is what an unchecked retype does: a `range` over a string kills the
                whole component and every correctly-written field beside it.
-  B. LINKS     no href present before may disappear, and every link the PAGE declares
-               in `content_direction.required_links` must be present after.
+  B. LINKS     no href present before may disappear from the edited field, and every
+               link the PAGE declares in `content_direction.required_links` must be
+               reachable at PAGE scope after the edit — the edited component (merged,
+               unedited fields included) plus every other component. (Fixed 2026-08-25:
+               this ran PER FIELD, so a `heading` failed by construction — see
+               `declared_link_verdicts` for the whole account.)
   C. MARKUP    no class attribute may disappear, and no structural element count may
                fall (`bugs_open/253` is a markup-level loss a text-level check missed).
   D. FACTS     every number/currency figure present before must survive, and no NEW
@@ -207,6 +211,42 @@ def paths(html):
     pointer, and one is as good as three."""
     text = re.sub(r'<[^>]+>', ' ', html or "")
     return {m.rstrip('.,;:)') for m in PATH_RE.findall(text)}
+
+
+def declared_link_verdicts(required, before_component, after_component, others_json):
+    """Where each declared link stands at PAGE scope, before vs after the edit.
+
+    Fix of 2026-08-25: this check used to run PER FIELD, so any edited field that did
+    not itself carry the link — a `heading`, by construction — failed, and on the page
+    that exposed it (finetuning.uk/your-own-model, proposal 8003c51a) it was wrong in
+    the reassuring direction twice over: the link was a pre-existing PAGE-level gap,
+    and the edit it failed actually ADDED it. The requirement is about the PAGE: a
+    declared link must be reachable somewhere on it after the edit lands.
+
+    Two encodings, deliberately asymmetric (the trap recorded in the 08-25 handoff
+    addendum): the component texts here are flattened JSON VALUES, so an href reads
+    href="…" — but `others_json` is aggregated `content_data::text`, i.e. JSON-encoded,
+    where the same href reads href=\\"…\\". Searching the plain form there finds
+    NOTHING, ever, and would re-create the always-absent noise this fix removes.
+
+    Returns {url: verdict}:
+      'kept'    reachable before and after — ok
+      'added'   the edit puts a declared link on a page that lacked it — ok, notable
+      'REMOVED' on the page before, gone after — the failing arm, the one that matters
+      'gap'     absent before AND after — the PAGE's defect, not this edit's doing;
+                reported, never failed, or every edit to that page fails for ever and
+                the check is learned as noise, which is the erosion this fix ends.
+    """
+    out = {}
+    for u in required:
+        plain, esc = f'href="{u}"', f'href=\\"{u}\\"'
+        in_others = esc in others_json
+        before = plain in before_component or in_others
+        after = plain in after_component or in_others
+        out[u] = ("kept" if before and after else
+                  "added" if after else
+                  "REMOVED" if before else "gap")
+    return out
 
 
 def classes(html):
@@ -409,12 +449,6 @@ def grade(component_id, proposal, induce=None):
             failures += report(True, f"links {name} (paths written as prose)",
                                f"{len(b_path)} prose URL(s) preserved")
 
-        required = [str(x).split()[0] for x in (c["required_links"] or [])]
-        missing = [u for u in required if f'href="{u}"' not in after]
-        failures += report(not missing, f"links {name} (page's declared set)",
-                           f"{len(missing)} of {len(required)} required absent: {' '.join(missing[:6])}"
-                           if missing else f"all {len(required)} declared links present")
-
         b_cls, a_cls = classes(before), classes(after)
         lost = sorted(k for k in b_cls if a_cls[k] < b_cls[k])
         failures += report(not lost, f"markup {name} (classes)",
@@ -469,6 +503,38 @@ def grade(component_id, proposal, induce=None):
             if b_w and a_w < b_w * 0.25:
                 failures += report(False, f"volume {name} (absolute floor)",
                                    f"{a_w} of {b_w} words — more than three quarters removed")
+
+    # ── B, page scope: the page's declared link set, evaluated ONCE per grade ────
+    # against the page as it would stand after the edit — the merged component
+    # (unedited fields INCLUDED: `load_page_text` excludes this component wholesale,
+    # so leaving them out re-creates the per-field defect one scope out) plus every
+    # other component's stored text. Residual edge, accepted: in a multi-edit
+    # proposal each edit is graded against the LIVE rows of its siblings, so an edit
+    # that moves a declared link between two components of one proposal fails on the
+    # losing side. Slot names are not unique per page (8003c51a has two edits in one
+    # slot), so there is no cheap way to pre-apply sibling edits here.
+    required = [str(x).split()[0] for x in (c["required_links"] or [])]
+    if required:
+        if page_text is None:
+            page_text = load_page_text(c["page_id"], component_id)
+        merged = dict(before_data)
+        merged.update(proposal)
+        verdicts = declared_link_verdicts(required, flatten(before_data), flatten(merged), page_text)
+        removed = sorted(u for u, v in verdicts.items() if v == "REMOVED")
+        added = sorted(u for u, v in verdicts.items() if v == "added")
+        gaps = sorted(u for u, v in verdicts.items() if v == "gap")
+        reachable = len(required) - len(gaps)
+        failures += report(not removed, "links (page's declared set, PAGE scope)",
+                           f"{len(removed)} of {len(required)} would leave the PAGE: {' '.join(removed[:6])}"
+                           if removed else
+                           (f"all {reachable} reachable on the page after the edit" if not gaps else
+                            f"{reachable} of {len(required)} reachable after the edit; "
+                            f"{len(gaps)} pre-existing gap(s), ⚠ below")
+                           + (f" — {len(added)} ADDED by this edit: {' '.join(added[:3])}" if added else ""))
+        for u in gaps:
+            print(f"⚠    links (declared set): {u} is in required_links but on the page NEITHER "
+                  f"before NOR after this edit — a pre-existing page-level gap, not this edit's "
+                  f"doing. Reported, not failed; fixing the page is separate work.")
 
     print(f"\n{'PASS' if failures == 0 else 'FAIL'} — {failures} check(s) failing.")
     return 1 if failures else 0
@@ -546,6 +612,31 @@ def main():
             sys.exit(f"CONTROL FAILED: the orphan test does not discriminate — got {orphans}")
         print("CONTROL OK: prose URLs are seen, and a page-wide loss is distinguished "
               "from a field-level move.\n")
+        # DECLARED-SET CONTROL (fix of 2026-08-25 — the check used to run PER FIELD and
+        # failed headings by construction). A live induced control cannot reach the FAIL
+        # arm: the mutation would have to delete the link from ANOTHER component's stored
+        # row, which the proposal cannot touch. So, as with the prose-URL control above,
+        # exercise the logic directly — and feed `others_json` in its REAL encoding
+        # (JSON, href=\"…\"), because a regression to searching the plain form there is
+        # exactly the blindness this fix must not trade the old noise for: the control
+        # below FAILS if the helper reads others_json un-escaped.
+        others = json.dumps({"body": 'see <a href="/kept-elsewhere.html">x</a>'})
+        v = declared_link_verdicts(
+            ["/kept-elsewhere.html", "/in-this-component.html", "/edit-adds-me.html",
+             "/edit-removes-me.html", "/never-anywhere.html"],
+            'href="/in-this-component.html" href="/edit-removes-me.html"',
+            'href="/in-this-component.html" href="/edit-adds-me.html"',
+            others)
+        want = {"/kept-elsewhere.html": "kept", "/in-this-component.html": "kept",
+                "/edit-adds-me.html": "added", "/edit-removes-me.html": "REMOVED",
+                "/never-anywhere.html": "gap"}
+        if v != want:
+            sys.exit(f"CONTROL FAILED: declared-set verdicts wrong —\n  got  {v}\n  want {want}")
+        if declared_link_verdicts(["/x.html"], "", "", '{"body": "no links here"}')["/x.html"] != "gap":
+            sys.exit("CONTROL FAILED: declared-set sees links in others_json that are not there")
+        print("CONTROL OK: declared set graded at PAGE scope — kept/added survive, a page-wide "
+              "removal FAILS, a pre-existing gap warns not fails, and other components' JSON "
+              "encoding is read in its escaped form.\n")
 
 
         # Each control mutates the proposal in ONE way the gate claims to catch. A
