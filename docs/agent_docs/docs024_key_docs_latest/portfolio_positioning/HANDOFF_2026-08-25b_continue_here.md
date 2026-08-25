@@ -22,33 +22,27 @@ that had been consciously deferred and turned out to be **live on two sites**. N
 Both landed within the last hour and neither has been confirmed on a real site yet. **Do these
 before starting anything new** — they are quick and they close the loop.
 
-## 1a. The redirect fix (`54ba65b25`, chassis v1.0.1339, rolled 19:07)
+## 1a. ✅ The redirect fix (`54ba65b25`) — **PROVEN 2026-08-25 19:59. Nothing to do.**
 
-`webdesign.uk` 302s every path to `webdesign.co.uk`. Its stamp was cleared at 19:31, so it is queued.
+`webdesign.uk` re-ran on chassis v1.0.1339 and behaved exactly as predicted:
 
-```sql
-SELECT (collected_data->'sitemap_render_result'->>'url_count')     AS url_count,
-       (collected_data->'sitemap_render_result'->>'rendered')      AS rendered,
-       (collected_data->'sitemap_render_result'->>'probe_dropped') AS dropped,
-       (collected_data->'sitemap_render_result'->>'reason')        AS reason,
-       (collected_data ? 'sitemap_commit_result')                  AS committed
-FROM orchestration_states WHERE owner_agent_type='sitemap-refresh'
-  AND collected_data->'sitemap_render_result'->>'domain'='webdesign.uk'
-ORDER BY created_at DESC LIMIT 1;
-```
-
-| | before the fix (measured 2026-08-24 20:06) | expected after |
+| | before (2026-08-24 20:06) | after (2026-08-25 19:59) |
 |---|---|---|
+| `candidate_count` | 7 | 7 |
 | `url_count` | **7** | **0** |
 | `probe_dropped` | **0** | **7** |
 | `rendered` | true | **false** |
-| committed | **yes** (a sitemap of 7 redirecting URLs, to `vm-sites`) | **no** |
+| committed | **yes** (7 redirecting URLs, to `vm-sites`) | **no** |
 
-**A committed sitemap for `webdesign.uk` means the fix did NOT take.**
+Same 7 candidates, and now all 7 are dropped by the probe because it finally sees the 302s.
+`reason: "no listable URLs — refusing to publish an empty sitemap"`, and `check_has_urls` routed to
+`complete` without committing. **A domain that redirects everything away correctly ends up with no
+sitemap of its own** — so `webdesign.uk` will stay at 3 of 4 uncovered permanently, by design.
 
-## 1b. The selector guard (`622`, applied 2026-08-25 19:45)
+## 1b. ⏭ THE ONE THING LEFT — the selector guard (`622`, applied 2026-08-25 19:45)
 
-`homegarden.uk` and `cv1.co.uk` had their stamps cleared and are queued behind `webdesign.uk`.
+`homegarden.uk` and `cv1.co.uk` had their stamps cleared and were queued behind `webdesign.uk`,
+which went at 19:59. **Expect them at roughly 20:28 and 20:58** — one per 30-minute tick.
 Both are fully built now, so both should render and commit normally:
 
 ```bash
@@ -83,14 +77,14 @@ the one deferred there is what became `622`.
 | **The fleet swept itself unattended** | 13.2 h, 08-24 15:32 → 08-25 04:44, 27 sites, **all COMPLETED** |
 | **New sites are picked up automatically** | `homegarden.uk`, `lampenkap.com`, `cv1.co.uk` all arrived and were swept with nobody asking |
 | **Canonicalisation fix (`5c9acf1bd`)** | **ZERO of 31 domains emit a non-canonical homepage** (re-checked live 2026-08-25) |
-| **Redirect fix (`54ba65b25`)** | council **APPROVED, all reviewers, zero objections**; in chassis v1.0.1339 — **unproven at the artefact, see §1a** |
+| **Redirect fix (`54ba65b25`)** | council **APPROVED, zero objections**; **PROVEN at the artefact 2026-08-25 19:59** — `webdesign.uk` went `url_count` 7→**0**, `probe_dropped` 0→**7**, no commit |
 | **Selector guard (`622`)** | applied 19:45, three guards induced — **unproven at the artefact, see §1b** |
 
 **The four sites NOT covered, all understood:**
 
 - `adversecreditmortgage.co.uk` — **correct by design**, excluded by `locked_at` (owner HALT). What
   it serves is the parking provider's 1-`<loc>` `/lander` file.
-- `webdesign.uk` — 302s everything away. §1a; the correct end state is **no sitemap**.
+- `webdesign.uk` — 302s everything away. **Resolved: the correct end state IS no sitemap, and it now correctly produces none** (§1a). It stays uncovered permanently, by design.
 - `homegarden.uk`, `cv1.co.uk` — the `622` case. Queued; §1b.
 
 # 3. WHAT IS OPEN

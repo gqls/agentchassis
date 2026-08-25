@@ -3132,3 +3132,19 @@ slot silently. Needs the machine-readable `skip_reason` (Go). Population today: 
 
 Council `c88f5c0f-cca2-4753-bd6c-9fabc93b100e` submitted for `622`.
 
+### 2026-08-25 (d) — the redirect fix PROVEN at the artefact
+
+`webdesign.uk` re-ran 19:59:02 on chassis v1.0.1339. Same 7 candidates as the pre-fix run; now
+`url_count` **0**, `probe_dropped` **7**, `rendered` **false**, `reason` *"no listable URLs —
+refusing to publish an empty sitemap"*, and **no `sitemap_commit_result` key** — the conditional
+routed to `complete` without committing.
+
+Before (2026-08-24 20:06): `url_count 7, probe_dropped 0`, committed to `vm-sites`.
+
+The probe now sees the 302s it was always documented to refuse. **A domain that redirects every
+path away correctly ends with no sitemap of its own**, so `webdesign.uk` stays uncovered by design
+rather than as a gap.
+
+Still unproven when this was written: `622`'s selector guard, whose two test sites (`homegarden.uk`,
+`cv1.co.uk`) were queued behind `webdesign.uk` at ~20:28 and ~20:58. Recipe in handoff §1b.
+
