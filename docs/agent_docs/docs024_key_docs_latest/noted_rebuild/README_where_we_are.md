@@ -423,3 +423,37 @@ your words, and recovers on retry.
 So: noted.co.uk now takes photos, GIFs, video clips and audio in a note, today,
 on the live site. Next stage when you want it: the pasteboard itself — arranging
 what you've pasted, moving things around — and after that, editing in place.
+
+---
+
+## 2026-08-25 — the pasteboard is live, and files now live in Backblaze (written by the assistant)
+
+Everything you asked for yesterday morning is on the live site this afternoon.
+
+Storage first: photos, clips and recordings now go to a private Backblaze
+bucket instead of the server's own disk, which is what makes "pay a little for
+more space" a settings change later rather than a rebuild. Your storage
+allowance stays at 50 MB for now, as you said. One find on the way: Backblaze
+had quietly retired the API version everything documents, which we only caught
+by testing the real service before trusting our own test copies — the code now
+speaks the current version and was proven with a real upload, download and
+delete against the real bucket.
+
+The board: every note now has an "Arrange on board" button. Your text and each
+photo, clip or recording become tiles you can drag around and resize — by
+finger on a phone (built for touch first, as you asked) or by mouse. The
+arrangement saves with the note under the same honesty rule as everything else:
+nothing says Saved until the server has actually saved it, and an arrangement
+can never be wiped out by an older page that doesn't know about boards.
+
+The whole thing was rehearsed live after deployment: fifteen checks passed on
+the real site, including a picture uploaded through the page landing in the
+real Backblaze bucket, read back and displayed by a second browser, then
+removed — with the bucket confirmed empty afterwards, so nothing leaks.
+
+Also done today: the review-board's advisory points on the Get Started change
+are all answered (the one real gap — a config change that had no ledger entry —
+now has one), and the account-deletion plan is written and waiting on your two
+choices: delete immediately or after a grace period (I recommend immediately —
+it's what the privacy page already promises), and the one honest sentence about
+backups for the privacy page.

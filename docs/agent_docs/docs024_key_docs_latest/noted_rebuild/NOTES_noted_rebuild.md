@@ -2632,3 +2632,25 @@ receipt PUBLISHED, orchestration COMPLETED); placement verified carrying
 (yesterday's instrument lesson). When it lands: box/live bytes, then the live
 smoke, then `b2 ls` as the after-control (the smoke's own delete should leave
 the bucket empty again).
+
+### 2026-08-25, evening — B2 + THE BOARD ARE LIVE, proven end to end
+
+Queue took ~5 min (55 ahead). Chain verified at every artefact: deploy commit
+`7356af8c…` (one file, vm-sites, repo HEAD carries both board markers); box
+synced 11:35 (83,713 B, `nw-board` present); live page serves it. **Live smoke
+15/15 on the apex** — and the media leg now runs the REAL B2 path, proven
+three ways: the engine's own journal (`b2 upload begin key=media/acct_11/…
+bytes=73` — the smoke's PNG), the second session DECODING it back through the
+proxy, and `b2 ls` EMPTY afterwards (the delete removed the object — no
+orphan). An empty bucket alone cannot discriminate the path; the journal line
+is the positive.
+
+One instrument note: the first box check after the item completed read the
+OLD file (07:48) — the deploy commits to git and sitesync ticks 5-minutely, so
+a check inside the tick window reads yesterday's world (§6 of the cutover
+runbook's lesson, again).
+
+**Stage 2 (PLAN_2026-08-24 §Stage 2, mobile-first per the 08-25 ruling) and
+stage 1b (B2) are DONE: built, deployed, live-proven.** Remaining on this
+programme: account deletion (planned, two owner decisions), stage 3 (edit in
+place), the quota's paid tier when the owner wants it.
