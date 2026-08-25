@@ -350,3 +350,76 @@ There is no work here. Read `bugs_open/353` §15 or `bugs_open/333` depending on
 came for. The only thing this lane still owes the world is that `83dc20654`/`02aff4dfa` are **inert
 until a roll** — after the next one, the five-value table in §10.1 becomes readable, and the RUNBOOK
 section "SUPERSEDES the section above" tells you what to do with each value.
+
+---
+
+## 11. POST-ROLL VERIFICATION, 2026-08-25 ~20:2xZ — **the last commit is LIVE. The lane's close STANDS and there is now literally nothing outstanding.** One cost claim of mine inverted; one prediction of mine held.
+
+`v1.0.1339` rolled 19:07Z. §10.1's INERT caveat is discharged.
+
+### 11.1 All four commits confirmed in the deployed build — two independent methods
+
+**Binary probe**, raw exit codes printed and the negative control given the longest deadline (trap 17,
+which this lane earned this morning):
+
+| literal | role | result |
+|---|---|---|
+| `picker_unusable` | the fix | **PRESENT** |
+| `tool_page_will_not_go_live` | control **+** | PRESENT |
+| `zzz_no_such_literal_anywhere` | control **−** | ABSENT |
+
+**Ancestry**, which is the only way to settle `02aff4dfa` — the `WasDefaulted ||` strengthening adds
+no distinctive literal, so no grep can reach it. Build stamp
+`a7459a44b68b8c67b7d7bb0ca7c064e0729d59f5` (from the pod's own `build provenance` line, still in
+range at `--tail=4000`): `0fb94a7dd`, `83dc20654`, `ba6090d36`, `02aff4dfa` — **all four ancestors.**
+
+> ⚠ **My first control here was INVALID and I nearly published it.** I picked `faf1d3b69` as a
+> "commit made after the build", expected NOT-an-ancestor, and got IN — then checked its timestamp:
+> 13:09Z, four hours *before* the 17:38Z stamp. The mechanism was right and my premise was wrong.
+> Re-run with a commit genuinely after the stamp (20:12Z) → correctly NOT an ancestor. **An ancestry
+> control needs its timestamps read, not assumed** — "a commit I made later in the session" is not
+> the same as "a commit later than the build".
+
+### 11.2 The `picker_declined` case ALREADY HAPPENED, before the roll, and was unreadable
+
+[MEASURED 2026-08-25] The picker has now run **10** times, all successful. Nine returned page lists
+across at least two sites (`webdesign.co.uk` and a gaswholesalers-shaped one); **one, at 16:01:07Z,
+returned `[]`** — a site where nothing was a genuine topical match.
+
+**That is exactly the state §10.1 was built to name, it occurred three hours before the fix rolled,
+and it went into the record as an empty string indistinguishable from a failure.** The council's
+objection was not hypothetical; it was already firing. Nothing to do about that row now — the point is
+that the next one will read `picker_declined`.
+
+### 11.3 ⚠ A cost claim of mine INVERTED within a day, because my own stopgap worked
+
+I told the council the picker would waste a call on "~14% of builds that already name pages". Today:
+**12 `add_tool` items, 11 carrying the key** — so **9 of the 10 picker calls ran on builds that did
+not need one.** The stopgap (`d5dafd6a7`, the recipe) was adopted immediately by the owning lane, and
+**the stopgap and the picker are SUBSTITUTES: every point of recipe adoption is a point of picker
+waste.** I shipped both the same day and quoted the pre-stopgap ratio as the picker's ongoing cost.
+
+Absolute cost is trivial (10 calls, 16–248 output tokens). The design still stands — `bugs_open/313`
+makes a silent skip worse than a visible waste — but **the trade on the record was 6× cheaper than the
+real one.** Logged in `WRONG_CALLS.md`. If waste ever matters, the conditional gate is the lever, and
+313 is the warning that must travel with it.
+
+### 11.4 A prediction that HELD: `353` item (b) is still 0, for the reason §15 gave
+
+**9 tool births today, and `emitted_ungated_build_enqueued_by_caller` is still 0.** Exactly as
+`bugs_open/353` §15 predicted: these are rebuilds at existing deployed URLs, so Guard 2 takes the
+ordinary `pageLive` arm and writes no INFO row. **Nine more filings did not move it, and nine hundred
+would not.** It needs a brand-new tool page. The correction earned its place.
+
+### 11.5 Final state — nothing outstanding
+
+| item | state |
+|---|---|
+| the picker | **LIVE and exercised** — 10 calls, 2 items delivered, 1 honest decline |
+| the three-state stamp | **LIVE**, all four commits ancestry-proven |
+| the stopgap | **LIVE and adopted** — 11 of 12 filings today carry the key |
+| `353` item (b) | open at `bugs_open/353` §15, needs a new-page birth |
+| owned-page question | open at `bugs_open/333` CONTRIB |
+| `379`, the backfill | unowned, as filed |
+
+**The lane is closed and this section closes its last obligation.** Nothing here needs a session.

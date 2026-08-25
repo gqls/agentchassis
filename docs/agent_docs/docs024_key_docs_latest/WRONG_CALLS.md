@@ -53299,3 +53299,40 @@ fleet-wide enumeration with the measured 139/12 split as the worked example.
 than the one it simulated; a filter judged by what it rejects; a fix direction chosen without asking
 which side should win; and now a precondition whose quantifier was missing. **Every one of them was a
 correct statement answering a slightly different question than the one being decided.**
+
+## 2026-08-25 — `staged_component_build` lane: I told the council the picker would waste a model call on "~14% of builds", and by the time it rolled the real figure was ~90% — because my own stopgap worked
+
+**The claim.** Council submission `5287ef5d` (and `c962abd1` before it) justified NOT putting a
+conditional gate in front of the related-pages picker like this: *"The price is one wasted model call
+on the ~14% of builds that already name pages… a wasted call is visible in `llm_call_log`, a skipped
+one is not."* The 14% came from a real measurement: `add_tool` items since 08-17 carried
+`related_pages` 11 times out of 77.
+
+**What it actually is.** [MEASURED 2026-08-25 ~20:2xZ] `add_tool` items created **today**: 12, of
+which **11 carry the key**. Of the picker's 10 calls today, **9 ran on builds whose spec already
+named pages**, so their answers were resolved away by the requester-wins precedence — the wasted
+case. Only the first call of the day, at 09:50:53Z, actually supplied pages.
+
+**Why it inverted, and this is the part worth keeping.** The 14% was measured on the population
+*before* the fix, and **the other half of the same day's work destroyed it**: the stopgap I shipped at
+`d5dafd6a7` put `related_pages` into the hand-order recipe, the owning lane adopted it immediately,
+and filers started filling the field in. **The stopgap and the picker are SUBSTITUTES, not
+complements** — every point of recipe adoption is a point of picker waste. I shipped both on the same
+day, quoted the pre-stopgap ratio as the picker's ongoing cost, and never re-derived it.
+
+**What it does and does not change.** The absolute cost is trivial (10 calls, 16–248 output tokens
+each) and the design decision still stands: `bugs_open/313` is four months of an agent's only LLM step
+being silently skipped by an unresolvable condition, and that remains worse than a visible wasted
+call. But the *trade* I put on the record was 6× cheaper than the real one, and a reviewer weighing it
+was weighing the wrong number.
+
+**The cheap check that would have.** Ask *"does anything I am shipping in this same change move this
+denominator?"* One query, over the population **after** the other half lands — or, failing that, state
+the figure as what it was: **the pre-stopgap ratio, expected to fall.** A cost claim about a mechanism
+that has not run yet is a forecast, and a forecast quoted as a measurement is the failure mode, even
+when the measurement it came from was honest.
+
+**The transferable shape.** A ratio can be invalidated by your own other commit. `[MEASURED]` with a
+date protects against a number going stale by *addition* (the 2026-08-22 owner ruling); it does
+nothing when the number goes stale because **you changed the thing being measured** — and that
+staleness arrives on the same day, not months later.
