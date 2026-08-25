@@ -740,3 +740,41 @@ now written up so nobody trusts it again.
 **The one thing still waiting on you is unchanged: the decision document** (may the drawing
 machinery refuse, and for which jobs). Everything else on this lane is done, reviewed twice,
 approved, and running.
+
+---
+
+## 2026-08-25 — it shipped, and it works
+
+The build went out overnight and the fix is in it. I checked that properly rather than trusting
+the version number: both running copies of the service report the exact commit they were built
+from, and our change is an ancestor of it — with a control to prove the check could have said no.
+
+**The evidence that it works is a page nobody touched.** `apis.uk/index.html` has six identical
+kinds of section on it, and it had been sitting in a "needs rebuilding" state for days, so it
+rebuilds itself. It rebuilt at 11:27 this morning, two hours after the new code went out, through
+exactly the path that used to cause the bug — and all six sections came out with different names.
+Under the old code that same path gave all six the same name. That is the bug gone at its source,
+not a page we repaired by hand.
+
+The three pages we did repair yesterday all serve correctly now, including the one that was still
+showing the old version last night. That turned out to be a delivery lag rather than a fault —
+worth saying plainly, because it looked like a bug for a few hours and it was not one.
+
+**One number is still unexplained, and it is not a fault.** On that six-section page the names
+run "-2" through "-7" rather than starting from the plain name. All six are still different from
+each other, so nothing is broken and nothing a visitor sees is wrong — the counting is just
+starting one place further along than the whole-page version of the same rule would. The obvious
+explanation is that the build had one more section in hand than it saved, and I have deliberately
+**not** written that down as the answer, because the page's own plan says six and six were saved,
+which contradicts it. I have queued the one thing that settles it — a full-page re-render — and
+written down what each possible result means and what to do about it.
+
+**So: the lane is one observation away from closing**, and that observation is a single command
+against a live page. Everything else is done, reviewed and recorded.
+
+The one thing genuinely left for you is a judgement rather than a job. The reviewers pointed out
+that we fixed the two places that render a section on its own, but the underlying default — "if
+you cannot work out the number, use zero" — would still quietly bite a third place if someone
+builds one later. There is exactly one such place today, and a warning is filed where the next
+person will meet it. Whether that is good enough, or whether the default should be made impossible
+to get wrong, is a call I have set out both ways rather than made.
