@@ -52788,3 +52788,16 @@ differ by one are a PREDICATE DIFFERENCE until the same query string has produce
 diff the predicates before narrating a drift. The irony is the tally point: this false claim was
 minted INSIDE an entry celebrating the census-dating rule, which dates numbers precisely so that
 deltas can be tested rather than assumed.
+
+## 2026-08-25 — `bugs_open/333` lane: I told a peer "one page has moved policy since this morning" — the page had not moved; my LIKE pattern had
+
+Re-verifying a relayed figure (34 owned non-tool pages on webdesign.co.uk) I counted 33, and sent the
+peer a note that "one page has moved since 08-25 morning — your entry may want the fresher count". The
+grind session challenged it, reproduced 34 twice on one instrument, and the relay withdrew. The whole
+delta was `name NOT LIKE 'tool%'` (mine) versus `'tool-%'` (theirs): `tools-index` starts with `tool`
+but not `tool-`, and it is owned. **I turned a predicate difference into a claimed CHANGE in the data,
+and sent it as a correction.** The cheap check, which the relay lane logged before I did and which is
+the one to carry: **two sessions' counts differing by one are a predicate difference until the same
+query STRING produced both** — paste the other side's predicate and run it before asserting anything
+moved. The register line now states its predicate beside its number, which is the durable form of the
+fix: a count without its predicate is not comparable to any other count.

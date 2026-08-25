@@ -488,3 +488,8 @@ transferable rule sent back: a population defined by an ABSENCE cannot be census
 alone, and "the same query" means the same TEXT, re-pasted — not re-derived from memory. Note for this
 lane's own post-roll read: the door's parked population had grown 40→41 `content_rewrite` (tool-generator
 13, last 13:32Z) — growth is the crosslink picker working as the staged lane predicted.
+
+**2026-08-25 ~18:0xZ — my "33 owned, one page moved" was a predicate artefact.** `tool%` vs `tool-%`:
+mine dropped `tools-index` (owned). 34 is right; register corrected with the predicate stated beside
+the number; WRONG_CALLS row added. Structural statement (shopfront = the only writable non-tool pages;
+every topically-correct pick parks) unaffected — triple-verified across three sessions.
