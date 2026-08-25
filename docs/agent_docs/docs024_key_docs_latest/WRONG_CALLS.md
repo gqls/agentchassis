@@ -50200,3 +50200,40 @@ recorded `[MEASURED]` that `image-url-404-handler` had *"handled **0 rows, ever*
 all completed, all archived. Two sessions, independently, made the same window mistake about the
 same table on the same day. That is not a slip; it is a table whose name promises more than it
 holds, and the fix is the query, not the care.
+
+---
+
+## 2026-08-25 — 327 lane: THIRD occurrence of one pattern — writing about a trap contaminates every grep-based instrument you then build to detect it
+
+Recorded as a **tally**, not a third anecdote, because three instances in one lane is the signal.
+Each time I built a fresh instrument, and each time it was fooled by **my own prose about the very
+thing it was measuring**:
+
+1. **The published census** (2026-08-24). `grep "run -i"` counted 18 files that carry the pattern
+   only inside *warning comments* — including the explanatory comment I add to every file I
+   migrate. So the "remaining work" figure **did not move** as the work was done. Corrected 178 → 160.
+2. **The completion sweep** (2026-08-24). My "no migrated file still races" assertion printed
+   `RACE STILL IN …` for two files I had just fixed. Both hits were my own comments; the filter I
+   used (`grep -v "^\s*#"`) was defeated by grep's own `NNN:` line prefix.
+3. **A landmine re-verification** (2026-08-25). Checking that `097` prints its receipt *after*
+   publishing, my check reported **WRONG**. The `SAVE: SUBMISSION_CORR` it found at line 266 was a
+   COMMENT quoting the landmine's own title; the real `echo` is at line 316, after the publish at
+   293. The claim was right and my instrument said otherwise.
+
+**Why it kept recurring after I had already written it down.** I recorded lesson 1 in this file
+and put the comment-stripping fix in the RUNBOOK census — then wrote instruments 2 and 3 fresh,
+each as a throwaway one-liner, and did not think of them as censuses at all. **The fix lives in
+the instrument, not in the knowledge**, and a one-liner typed to answer a question in the moment
+inherits none of it. That is precisely this lane's own thesis turned back on me: the `fire-*.sh`
+scripts carried a header warning about the trap they then fell into, and I did the same thing
+three times in four days.
+
+**The cheap check, and it is now a habit not a note:** any grep over source for a *hazard pattern*
+gets `sed 's/#.*//'` first — always, including in a throwaway. And the general form, which
+generalises past comments: **before believing an instrument, run it against a case whose answer
+you already know.** All three failures would have been caught in seconds by pointing the check at
+a file I had just fixed and asking whether the count went down.
+
+**What did work, every time:** not trusting the first result. Each of the three was caught within
+a minute because the answer was surprising and I checked *why* before writing it down. The
+instrument being wrong is not the failure mode to fear — publishing its output is.
