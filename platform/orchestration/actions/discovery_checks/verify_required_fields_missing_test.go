@@ -184,3 +184,41 @@ func TestVerifyRequiredFieldsMissing_UnreadableFailsClosed(t *testing.T) {
 		t.Error("a failed verification must never report Resolved:true")
 	}
 }
+
+// ⚠ THE INVERSION GUARD, and the defect a council REVISE round found in this file.
+//
+// LANDMINES.md: "When your predicate is 'the CONFIG declares X and the DATA lacks
+// X', an unreadable config computes to HEALTHY." SchemaContentFields returns
+// (map, true, false) for a v2 schema whose `fields` object is EMPTY, so
+// missingRequiredValueFields returns nothing missing — which for the DETECTOR
+// correctly means "nothing to file" and for a VERIFIER would mean "the defect is
+// repaired". A component whose field declarations were emptied is exactly the
+// silent-loss case, and it would have been certified as fixed by the guard added
+// to catch it.
+func TestVerifyRequiredFieldsMissing_EmptyFieldDeclarationIsARefusalNotARepair(t *testing.T) {
+	for _, schema := range []string{
+		`{"fields":{}}`,          // v2 dialect, field set emptied — ok=true, len=0
+		`{"properties":{}}`,      // legacy dialect with nothing in it
+		`{}`,                     // neither dialect
+		`{"fields":"not a map"}`, // the key is present but unusable
+	} {
+		t.Run(schema, func(t *testing.T) {
+			db, mock, _ := sqlmock.New()
+			defer db.Close()
+			expectPage(mock, false)
+			expectComponent(mock, schema, `{}`, false, false)
+
+			got, err := VerifyRequiredFieldsMissingResolved(context.Background(), db, rfmTarget(fullSpec()), zap.NewNop())
+			if err == nil {
+				t.Fatalf("an empty/unreadable field declaration must ERROR (fail-closed), got resolved=%v %q",
+					got.Resolved, got.Detail)
+			}
+			if got.Resolved {
+				t.Error("this is the inversion: nothing declared must never read as nothing missing")
+			}
+			if !strings.Contains(err.Error(), "must not be read as a repair") {
+				t.Errorf("the error should say why, for whoever reads it off a blocked item: %v", err)
+			}
+		})
+	}
+}

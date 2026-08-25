@@ -253,9 +253,35 @@ func VerifyRequiredFieldsMissingResolved(ctx context.Context, db *sql.DB, target
 		return VerifyResult{}, fmt.Errorf("component at (%s, %s) has an unparseable input_schema: %w", pageName, slotName, err)
 	}
 	fields, ok, fromLegacy := datahelpers.SchemaContentFields(schema)
-	if !ok {
-		return VerifyResult{}, fmt.Errorf("component at (%s, %s) declares no readable content fields, so the "+
-			"predicate cannot be re-run", pageName, slotName)
+	// ⚠ len(fields) == 0 IS A REFUSAL, NOT A CLEAN BILL — and this is the one line
+	// where this predicate could have inverted silently.
+	//
+	// LANDMINES.md, "When your predicate is 'the CONFIG declares X and the DATA
+	// lacks X', an unreadable config computes to HEALTHY": no schema → no required
+	// fields → the "missing" list is empty → the slot reads as FILLED. The entry's
+	// own footprint is this type's detector, and its warning is precisely about
+	// copying the filing half's behaviour into a resolving one: *"there `continue`
+	// means 'do not file' and here it must mean 'do not count as observed'."*
+	//
+	// The asymmetry is real and it is not theoretical. SchemaContentFields returns
+	// (map, true, false) for a v2 schema whose `fields` object is EMPTY
+	// (component_schema_fields.go:78 — the `fields` key is present, so the type
+	// assertion succeeds and it returns early). For the DETECTOR that is harmless:
+	// zero required fields means nothing to file. For a VERIFIER the identical
+	// arithmetic means "nothing is missing, so the defect is repaired" — so a
+	// component whose schema had its field set emptied, which is the silent-loss
+	// class bugs_open/012 and /021 are about, would be CERTIFIED as fixed by the
+	// very guard added to catch that. Under RFC_017 the honest answer is that
+	// verification could not run.
+	//
+	// Caught by the council's REVISE round on corr c8ed18c1: the reuse_agent seat
+	// pointed at this landmine (via a symbol, findResolvedRequiredFields, that no
+	// longer exists in the tree) and the substance landed even though the pointer
+	// did not.
+	if !ok || len(fields) == 0 {
+		return VerifyResult{}, fmt.Errorf("component at (%s, %s) declares no readable content fields "+
+			"(readable=%v, declared_fields=%d), so the predicate cannot be re-run — an empty declaration "+
+			"computes to \"nothing missing\" and must not be read as a repair", pageName, slotName, ok, len(fields))
 	}
 	if fromLegacy {
 		datahelpers.WarnLegacyDialect(logger, "verify_required_fields_missing", pageName+"/"+slotName)
