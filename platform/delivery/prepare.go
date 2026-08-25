@@ -60,24 +60,76 @@ var (
 
 // Reviewed reports whether the owner has approved this site for delivery.
 //
-// It asks the QUEUE, and it asks for the approved state specifically. A site
-// with no review item is not approved — the absence of a row is a "no", never a
-// "nothing to check", which is the direction that fails safe: a producer that
-// forgets to file the review cannot thereby skip it.
+// # The predicate, and why it is not the obvious one
+//
+// ⚠ IT IS NOT `status = 'approved'`. That was this function's first version and
+// it was wrong in a way that would never have surfaced as an error: the gate
+// simply could never open, and delivery would have stalled for ever, silently.
+// `[MEASURED 2026-08-25]` across 11,983 live rows the status vocabulary is
+// complete / needs_human_review / detected / unresolved / cancelled / deferred /
+// wont_fix / failed / rejected / verified / triaged — and `approved` is **not
+// among them**. (It survives in one archive INDEX predicate, which is exactly
+// what makes the mistake attractive: the word is in the schema, and nothing
+// writes it.)
+//
+// What `HandleApproveWorkItem` actually does, read from the handler rather than
+// inferred from its name: it REQUIRES the item to be at `needs_human_review`
+// (anything else is a 400), and on approval it sets `status = 'complete'` with
+// `result = {'resolution':…, 'approved_by':'admin', 'follow_on_item':…}`.
+//
+// So `complete` is necessary and NOT sufficient: `HandleResolveWorkItem` also
+// writes `complete`, with `resolved_by` instead. The distinguishing key is
+// `approved_by`, and it is the whole predicate. `[MEASURED 2026-08-25]` of 8,003
+// live `complete` rows, 155 carry `resolved_by` and **0 carry `approved_by`** —
+// the approve path has never been exercised in production, so the first delivery
+// must drive it deliberately rather than assume it works.
+//
+// # Why it reads the archive too
+//
+// `site_work_items` is a ~7-day rolling window: terminal rows are moved to
+// `site_work_items_archive` (24,990 `complete` rows are there already,
+// `[MEASURED 2026-08-25]`). An approval IS terminal, so reading only the live
+// table would convert a one-time review into one that EXPIRES after about a
+// week — the site would silently read as unreviewed, and the failure would look
+// exactly like "the owner has not looked at it yet".
+//
+// Reading both is the established house pattern for this table, not an
+// invention here (migration 465, "the promoter reads archived history", and the
+// 471 remedy's own census both UNION the pair).
+//
+// A site with no matching row in EITHER table is not approved. The absence of a
+// row is a "no", never a "nothing to check": a producer that forgets to file the
+// review cannot thereby skip it.
 func Reviewed(ctx context.Context, db *sql.DB, siteID uuid.UUID) (bool, error) {
 	var n int
 	err := db.QueryRowContext(ctx, `
-		SELECT count(*)
-		  FROM site_work_items
-		 WHERE site_id   = $1
-		   AND item_type = $2
-		   AND status    = 'approved'
+		SELECT count(*) FROM (
+			SELECT status, result
+			  FROM site_work_items
+			 WHERE site_id = $1 AND item_type = $2
+			UNION ALL
+			SELECT status, result
+			  FROM site_work_items_archive
+			 WHERE site_id = $1 AND item_type = $2
+		) z
+		WHERE z.status = 'complete'
+		  AND z.result ? 'approved_by'
 	`, siteID, ReviewItemType).Scan(&n)
 	if err != nil {
 		return false, fmt.Errorf("delivery: read review item: %w", err)
 	}
 	return n > 0, nil
 }
+
+// ReviewItemFiledStatus is the status a producer MUST file the review item at.
+//
+// It is a constant rather than a comment because getting it wrong is silent at
+// filing time and only fails later, at the human: HandleApproveWorkItem refuses
+// with a 400 ("item status is %s, expected needs_human_review") for an item in
+// any other state, so a review filed at the table's default `detected` cannot be
+// approved at all — the owner would press the button and be told no, with the
+// delivery blocked and nothing explaining why.
+const ReviewItemFiledStatus = "needs_human_review"
 
 // Links are the customer-facing URLs the delivery email carries.
 //

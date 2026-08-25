@@ -39,8 +39,12 @@ func testLinkConfig() LinkConfig {
 }
 
 // expectReview queues the gate read, answering with `approved` rows.
+//
+// The query it stands for reads BOTH site_work_items and its archive; the regex
+// below deliberately names the archive so that dropping the UNION arm — which
+// would silently make a one-time approval expire after ~7 days — fails here.
 func expectReview(mock sqlmock.Sqlmock, siteID uuid.UUID, approvedRows int) {
-	mock.ExpectQuery(`FROM site_work_items`).
+	mock.ExpectQuery(`site_work_items_archive`).
 		WithArgs(siteID, ReviewItemType).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(approvedRows))
 }
@@ -253,6 +257,51 @@ func TestReviewedTreatsNoRowAsNotApproved(t *testing.T) {
 	}
 	if ok {
 		t.Error("a site with no review item read as approved")
+	}
+}
+
+// The gate's predicate is the single load-bearing thing in this package, and its
+// first version was wrong in a way no error would ever have shown: `status =
+// 'approved'` is a value nothing writes, so the gate could never open and
+// delivery would have stalled for ever, looking exactly like "not reviewed yet".
+//
+// These assertions pin what the approve handler ACTUALLY writes. If the handler
+// changes, this must fail rather than the delivery pipeline going quiet.
+func TestReviewedAsksForWhatTheApproveHandlerActuallyWrites(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	// sqlmock matches the query text against this regex, so it IS the assertion:
+	// the gate must ask for complete + approved_by, across both tables.
+	mock.ExpectQuery(`(?s)site_work_items.*UNION ALL.*site_work_items_archive.*complete.*approved_by`).
+		WithArgs(siteID, ReviewItemType).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+
+	ok, err := Reviewed(context.Background(), db, siteID)
+	if err != nil {
+		t.Fatalf("Reviewed: %v", err)
+	}
+	if !ok {
+		t.Error("an approved review read as not approved")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the gate query is not the one the approve handler feeds: %v", err)
+	}
+}
+
+// A producer filing at the table's default `detected` cannot ever be approved:
+// HandleApproveWorkItem 400s for any status other than needs_human_review, so
+// the owner would press approve and be refused, with delivery blocked and
+// nothing saying why.
+func TestReviewItemMustBeFiledAtNeedsHumanReview(t *testing.T) {
+	if ReviewItemFiledStatus != "needs_human_review" {
+		t.Errorf("ReviewItemFiledStatus = %q; HandleApproveWorkItem requires "+
+			"needs_human_review and refuses anything else with a 400",
+			ReviewItemFiledStatus)
 	}
 }
 
