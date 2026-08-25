@@ -1072,3 +1072,68 @@ Full detail: `bugs_open/277` (taken-up block), register CQ-023, seed
 (2026-07-26 contribution above); owner decisions B (the 186 → report) and D (an item type
 must name its reader — CQ-023 is one type's instance of D, not the mechanism); D3 identity;
 revalidator v2 for the 72 covered-but-unjudgeable; the other ~20 uncovered types.
+
+---
+
+## CONTRIB 2026-08-25 — `image_url_404` is a worked instance of this file's open question, and it REFUTES the obvious remedy
+
+Contributed by the `bugfix_375_completion_verifier_gap` lane. **Not a new bug — I came here to file
+one and the premise was wrong.** Recorded here because it bears directly on the council
+`bug_historian` objection at the top of this file: *"an item_type filed `HandlerAgent: ""` has no
+dispatch, no handler, no revalidator, and parks for ever."*
+
+### What I was told, and what is actually true
+
+`bugfix_375`'s handoff recorded, `[OBSERVED, NOT DIAGNOSED]`, that `image-url-404-handler` had
+handled **0 rows ever** while 42 `image_url_404` rows carried an empty `handler_agent` — read as
+"nothing routes them to the handler built for them", i.e. a dispatch defect.
+
+**Both halves are wrong, and in different ways.**
+
+1. **The empty handler is DELIBERATE and documented in the detector**
+   (`check_image_url_404.go:274`): *"HandlerAgent intentionally empty — flag-only. Repairing a stale
+   reference means removing or repointing it, which no image generator can decide."* The file header
+   says the same thing twice more. There is no routing defect.
+2. **The handler has NOT handled 0 rows** — it handled 3. They were invisible because they had been
+   archived; `site_work_items` is a rolling window (`bugs_open/375` §8).
+
+### The measurement `[MEASURED 2026-08-25, site_work_items UNION site_work_items_archive]`
+
+| status | handler_agent | rows | first → last |
+|---|---|---|---|
+| `detected` | *(empty)* | **38** | 2026-07-26 → 2026-08-16 |
+| `complete` | *(empty)* | 5 | 2026-07-17 → 2026-08-01 |
+| `cancelled` | *(empty)* | 3 | 2026-07-28 → 2026-08-11 |
+| `complete` | `image-url-404-handler` | **3** | all created 2026-08-04 |
+
+### The part that bears on the open question, and it is the useful half
+
+**A handler agent for this type EXISTS and is live** (`image-url-404-handler`, with `close_complete`
+and `mark_work_item_failed` arms). The detector simply never routes to it. So this type is not
+"parked for want of a handler" — it is parked *by design*, with a handler sitting unused beside it.
+
+**And on the one occasion three rows WERE hand-assigned to that handler, it escalated all three
+straight back to `needs_human_review`** — created 2026-08-04, run 2026-08-14, every one returning
+`{"response":{"escalation":{"status":"needs_human_review","spec_aspect":"image_url_404_deploy_mismatch",…}}}`.
+The handler is a triager, not a repairer, and it agreed with the detector.
+
+**So the obvious remedy — "give every `HandlerAgent: \"\"` type a dispatch route" — is REFUTED on
+this type by direct evidence.** Dispatching these would not drain the queue; it would spend a saga
+per item to arrive back at `needs_human_review`. What the council seat asked for is *"a revalidator
+**or** a documented exemption"*, and this type is a strong case for the exemption arm: its
+documentation already exists, in the detector, and it is correct.
+
+⚠ **The five `complete` rows are not a drain either.** Their `result` carries hand-written session
+prose — *"referenced hero regenerated via style-guide path (banana), deployed, serves 200 on
+robot-hands.com; verified…"* — i.e. humans closing rows one at a time, which is precisely the
+missing surface this file is about. One of them has a `completed_at` of NULL while reading
+`complete`.
+
+### What is owed, stated as a question for the owner rather than as a fix
+
+For `image_url_404` specifically the choice is between **a revalidator** (re-fetch the referenced
+path; close when it serves 200 — the 2026-08-24 hand-close above shows the predicate is exactly
+that and is machine-checkable) and **a documented exemption**. The revalidator looks cheap and
+would drain most of the 38. I have NOT built it: this file's own header says the contract question
+needs an owner call and that two council seats disagreed, and adding an Nth registration is the
+thing the objection was about.
