@@ -54,6 +54,15 @@
 -- constant. A different block means the prediction was wrong — read the diff, do not "fix" the
 -- refresher.
 --
+-- DURABILITY BEYOND THE FIRST REFRESH (council 35ab8b23 r1, editquality advisory). The landmine that a
+-- typed-struct round-trip through EvidenceBase DELETES unlisted keys is real, and it does not bite here:
+-- CLM-029's own approval round surveyed every write path — all 9 ParseEvidenceBase callers are readers or
+-- validation guards (the admin handler validates through the struct but stores the CLIENT'S bytes), and the
+-- two real write paths (this refresher's raw-map marshal; write_site_spec's siteSpecDeepMerge) preserve
+-- unknown keys, each pinned by a round-trip test in writer_block_guidance_387_test.go. Precedent: writer_block
+-- itself is equally unlisted in the struct and no site has ever lost one. So the key survives the SECOND
+-- refresh for the same reason it survives the first. R10 says so anyway: run the survival query after the
+-- second ~09:06Z refresh too — that is the first pass that re-reads a refresher-WRITTEN row.
 -- CHANGES NO PUBLISHED PAGE. evidence_base is read at write time; nothing re-renders.
 -- SUPERSEDE, NOT MUTATE — same shape as 458/557/611/613.
 -- ROLLBACK: 617_aiao_writer_block_managed_with_guidance_carry_HOLD_ROLLBACK.sql (restores the exact pre-617 row; managed goes back OFF).
@@ -68,7 +77,7 @@ BEGIN;
 -- CHASSIS_GUARD_BEGIN
 SELECT set_config('aiao.live_chassis', :'live_chassis', true);
 DO $$
-DECLARE passed text; running text; nrun int;
+DECLARE passed text; running text; nrun int; started timestamptz;
 BEGIN
   passed := current_setting('aiao.live_chassis', true);
   IF passed IS NULL OR passed !~ '^[0-9a-f]{40}$' THEN
@@ -85,6 +94,16 @@ BEGIN
   END IF;
   IF running <> passed THEN
     RAISE EXCEPTION '617 REFUSED: the sha you passed (%) is not the chassis that is RUNNING (%). Re-run the merge-base check against the running one.', passed, running;
+  END IF;
+  -- NECESSARY, NOT SUFFICIENT (council 35ab8b23 r1, guardian + compliance advisories): a binary that
+  -- contains c17a18620 was built after it was committed (2026-08-25 12:49:19Z), so its pods started
+  -- after that. This refuses the likeliest mistake — applying before any post-carry roll — for ANY
+  -- sha, not just the one hardcoded above. It cannot see a later restart on an OLD image, and it
+  -- cannot see a roll that reverted the carry: the merge-base step in R10 is still the operator's.
+  SELECT min(started_at) INTO started FROM service_binary_capabilities
+   WHERE service='agent-chassis' AND git_commit = passed AND last_seen_at > now() - interval '30 minutes';
+  IF started IS NULL OR started < '2026-08-25T12:49:19Z'::timestamptz THEN
+    RAISE EXCEPTION '617 REFUSED: the running chassis % started at %, which is BEFORE the CLM-029 carry was committed (c17a18620, 2026-08-25 12:49:19Z) — a binary built before the carry cannot contain it. Wait for the roll.', passed, coalesce(started::text, '(no heartbeat)');
   END IF;
 END $$;
 -- CHASSIS_GUARD_END
@@ -150,7 +169,7 @@ WHERE ss.site_id='2a8ebf9c-20a2-4c39-b191-840b012371da' AND ss.aspect='evidence_
 ORDER BY ss.superseded_at DESC LIMIT 1;
 
 DO $$
-DECLARE cur jsonb; old jsonb; n int; bad int; ph text; arch jsonb;
+DECLARE cur jsonb; old jsonb; n int; ph text; arch jsonb;
 BEGIN
   SELECT old_value->'data' INTO old FROM migration_backups WHERE migration_name='617_aiao_writer_block_managed_with_guidance_carry';
   SELECT count(*) INTO n FROM site_specs WHERE site_id='2a8ebf9c-20a2-4c39-b191-840b012371da' AND aspect='evidence_base' AND is_current;

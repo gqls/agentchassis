@@ -286,3 +286,15 @@ EB=$S/eb.json OUT=$S/composed.txt go test -overlay $S/overlay.json -run TestPrev
 ```
 `git status platform/orchestration/actions/` shows nothing of yours afterwards — the file never existed
 on disk in the tree, so no other session's `git add -A` can sweep it.
+
+**R10 addendum (council `35ab8b23` r1, applied same day).** Two things changed after the approval:
+- The chassis guard also refuses any running sha whose pods **started before 2026-08-25 12:49:19Z** (the
+  commit time of `c17a18620`) — a binary built before the carry cannot contain it. **Necessary, not
+  sufficient**: a later restart on an old image passes it, and so would a roll that reverted the carry. The
+  `merge-base` line above stays load-bearing. (Mutation-proven: with the by-name refusal deleted and today's
+  sha passed, the file refuses on `started_at`.)
+- **Run the survival query again after the SECOND ~09:06Z refresh.** The first refresh reads the 617 row
+  (migration-written); the second is the first to re-read a refresher-WRITTEN row, which is where a typed
+  struct round-trip would bite if one existed. CLM-029's round surveyed all 9 `ParseEvidenceBase` callers
+  (readers/guards only) and pinned both real write paths with round-trip tests, so expect the same md5 on
+  day 2 — but expect it by looking.

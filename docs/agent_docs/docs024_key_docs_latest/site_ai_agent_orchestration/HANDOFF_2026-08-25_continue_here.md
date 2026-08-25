@@ -10,7 +10,7 @@ contain is the incident below, which this lane caused.
 >   `c17a18620` → `14ec48b89` → `cbadcba71`, council `0de22385` APPROVED r2 — and **INERT**: the running
 >   chassis `4c996e1b5` (heartbeating 15:27Z) does not contain it (`merge-base` = 1). **The flip is
 >   PREPARED, not applied:** `sql_for_agents/617_aiao_writer_block_managed_with_guidance_carry_HOLD.sql`
->   (council corr `35ab8b23`). It carries every 611 prohibition into the guidance key, pre-writes
+>   (council **APPROVED r1** `35ab8b23`, five advisories applied same day — NOTES §7). It carries every 611 prohibition into the guidance key, pre-writes
 >   `writer_block` to the composer's exact output, and refuses the pre-carry sha by name. **Apply with
 >   RUNBOOK R10 and nothing else** — R10 runs `git merge-base --is-ancestor c17a18620 <running sha>` first,
 >   which the file cannot do for itself. Then R10's ~09:06Z survival check (byte-identity). Measured, not

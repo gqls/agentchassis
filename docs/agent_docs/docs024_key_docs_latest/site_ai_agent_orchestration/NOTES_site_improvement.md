@@ -1489,3 +1489,43 @@ tool section, "that page already failed 3 times on 2026-08-24, before any of thi
 pre-existing divergence between stored HTML and what template+`content_data` regenerate. `bugs_open/253`
 class. Until reconciled, **every rerender of that page fails the same way**, which also means the 08-24
 misdirected-CTA fix for it never lands. Not investigated here.
+
+### 7. Council verdict on 617 — APPROVED r1 (`35ab8b23`), 1 medium + 4 low advisories, all acted on
+Run started the moment it was published (15:46Z; no queue today), `complete_approved` ~16:1xZ. Seven seats
+abstained (out of footprint), five spoke: editquality (object, advisory), reuse_agent, guardian,
+compliance, prior_art_librarian (approve with notes), plus debug_historian / constitution / mission /
+adoption_guardian (approve). Actions, same session, same file:
+- **editquality, medium — "durability is proven only at apply and the first refresh; the typed-struct
+  landmine could strip the key on a LATER refresh."** Answered with evidence, not code: CLM-029's own round
+  surveyed all **9** `ParseEvidenceBase` callers (readers/guards; the admin handler stores the client's
+  bytes) and pinned both real write paths (`refresh_evidence_base`'s raw-map marshal;
+  `write_site_spec`'s `siteSpecDeepMerge`) with round-trip tests in `writer_block_guidance_387_test.go`;
+  `writer_block` itself is equally unlisted in the struct and has never been lost. Recorded in the file
+  header and — because "expect it by looking" — R10 now says run the survival query after the SECOND
+  refresh too (the first pass that re-reads a refresher-written row).
+- **editquality, low — unused `bad int;`.** True; removed.
+- **guardian + compliance, low — the guard cannot compute ancestry; an operator skipping merge-base after
+  some other un-carried roll would pass.** Strengthened with a NECESSARY condition the DB can check:
+  `min(started_at)` of the running sha's pods must be after `c17a18620`'s commit time (12:49:19Z 08-25).
+  Refuses "applied before any post-carry roll" for ANY sha; cannot see a restart on an old image or a
+  reverting roll — stated in the guard's own comment; merge-base stays the operator's. **Mutation-proven:**
+  with the by-name refusal deleted and today's running sha passed, the file refuses on `started_at`
+  (09:27:32Z < 12:49:19Z).
+- **reuse_agent, low — do the 6 managed sites share a reusable opt-in tool this duplicates?** Measured: no
+  file under `scripts/` or `cmd/` mentions `writer_block_managed`; the six current managed rows were
+  written by `portfolio_positioning Wave 1` / `Phase C pilot seed` (hand SQL, 08-17/18),
+  `brochure_component_library` (07-24), `claude-session-copyquality-20260815`, and the refresher carrying
+  earlier hand seeds forward. **Per-site hand SQL is the estate's actual shape**; a shared opt-in helper
+  would be a new mechanism and belongs to the 288/387 lanes if anyone wants it — not built here.
+- **prior_art_librarian, low — the census claims are unverifiable from its schema list.** They were
+  measured here (§1, §5); nothing in the plan hinges on them.
+Re-rehearsed after the edits: (a)(b)(c) refuse; (f) NEW started_at refusal isolated; (d) OK; (e) apply +
+rollback OK; (d') phrase mutation caught. Live row still `613_migration`, 0 backup rows. Committed with
+`Council-Reviewed: 35ab8b23…` — the verdict was read first.
+
+### 8. My WRONG_CALLS entry was swept by another lane's commit — attributed correctly this time
+`git log -S'a count carried into a handoff without a query' -- WRONG_CALLS.md` → **`26572c627`** (the
+`bugfix_390` lane, "bug sweep" session), alone. Their entry and mine were both uncommitted in the shared
+file; their pathspec commit took both, as CLAUDE.md says it must. Nothing lost — my entry is at HEAD
+byte-for-byte (`git show HEAD:…WRONG_CALLS.md | grep -c '<phrase>'` = 1). The pickaxe, not `git log --
+<path>`, is how §5 of the earlier session went wrong; used it first here.
