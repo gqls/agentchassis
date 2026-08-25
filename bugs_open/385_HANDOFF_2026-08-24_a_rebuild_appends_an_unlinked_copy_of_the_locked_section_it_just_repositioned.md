@@ -405,6 +405,24 @@ The 08-23 wave's own item shape is the template — `NOTES ## 2026-08-23`, sourc
 `react=0` is this bug. A duplicate-id census is the cheaper pre-check:
 `curl -s <url> | grep -o 'id="[^"]*"' | sort | uniq -d` — non-empty is the defect.
 
+**Is the fix LIVE? (added 2026-08-25, council round 1's debug_historian ask.)** Two probes,
+never an inference from git or a tag:
+1. The stamp: chassis `build provenance` log line (or `/proc/1/exe` probe of a KNOWN sha),
+   then `git merge-base --is-ancestor a799579fd <stamp>`.
+2. The symbol, with BOTH controls in the same breath (never a discovery grep):
+   `kubectl -n ai-persona-system exec <chassis-pod> -- grep -aq matchPreservedSectionIdx /proc/1/exe`
+   — present-control `matchLockedRow` (in every current binary), absent-control
+   `matchPreservedSectionIdxZZZ` (must fail). A probe whose controls don't discriminate is
+   telling you about the probe.
+
+**Who dispatches this action** `[MEASURED 2026-08-25]` (council round 1's guardian ask):
+10 agent types match `save_page_sections` by config text; per the documented landmine,
+`council-gate` and `fix-proposer` match on PROMPT TEXT and carry no save step, so the
+dispatching set is **8**: `page-rerender`, `page-build-handler`, `site-work-orchestrator`,
+`tool-recreation-handler`, `pageflow-builder`, `page-rebuild`,
+`required-fields-missing-handler`, `diagnose-agent` — both arms, with the rerender arm's
+name space (slot names) unchanged by the fix.
+
 ## 10. Related
 
 - `bugs_closed/189` — same *damage*, different *shape* (same `component_id`, not NULL);

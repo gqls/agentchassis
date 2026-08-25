@@ -150,15 +150,17 @@ func (s LockedPageSlot) MergedName() string {
 // MergeLockedPageSlots returns `list` with every locked row that is not
 // already represented in it inserted at the row's live position.
 //
-// PAIRING mirrors save_page_sections' matchLockedRow, arm for arm, so the two
-// judgements of "is this locked row already in the proposal" cannot disagree
-// (the disagreement is exactly how bugs_open/189 duplicated a locked
-// calculator): for each list entry, in order — (1) exact slot_name over all
-// unconsumed rows, (2) kebab-normalised slot_name, (3) the row's component
-// function or name (the list carries names not ids, so this stands in for the
-// guard's identity arm; identity resolution happens later, in plan_sections
-// and enrichSectionsWithComponentIDs). Each row pairs with at most ONE entry,
-// so two locked rows rendering the same component (generic-text-block twice)
+// PAIRING is the SHARED relation in slot_pairing.go — the same core
+// save_page_sections' matchLockedRow and matchPreservedSectionIdx call — so
+// the judgements of "is this locked row already in the proposal" structurally
+// cannot disagree. (This comment used to say the arms "mirror" matchLockedRow;
+// mirroring by hand is exactly how the THIRD asker drifted and duplicated a
+// locked calculator, bugs_open/385 §5c — hence the extraction, council
+// ece638fb.) The list carries names not ids, so the identity arm stands down
+// here and the slot-exact / slot-kebab / function-or-name arms decide;
+// identity resolution happens later, in plan_sections and
+// enrichSectionsWithComponentIDs. Each row pairs with at most ONE entry, so
+// two locked rows rendering the same component (generic-text-block twice)
 // against a plan naming it twice pair one-to-one and nothing is inserted;
 // against a plan naming it once, the second row is inserted.
 //
@@ -179,35 +181,20 @@ func MergeLockedPageSlots(list []string, locked []LockedPageSlot) (merged []stri
 		return merged, nil, nil
 	}
 
+	// The pairing is the SHARED relation (slot_pairing.go — one core, three
+	// askers, per council ece638fb's reuse gate): the list carries names not
+	// ids, so the identity arm stands down and the slot/kebab/function arms
+	// decide, exactly as this function's own arms did before the extraction.
 	consumed := make([]bool, len(locked))
-	pair := func(name string) {
-		if name == "" {
-			return
-		}
-		for i, lr := range locked { // arm 1: slot exact
-			if !consumed[i] && lr.Slot != "" && lr.Slot == name {
-				consumed[i] = true
-				return
-			}
-		}
-		if norm := NormalizeComponentFunction(name); norm != "" { // arm 2: slot kebab
-			for i, lr := range locked {
-				if !consumed[i] && lr.Slot != "" && NormalizeComponentFunction(lr.Slot) == norm {
-					consumed[i] = true
-					return
-				}
-			}
-		}
-		for i, lr := range locked { // arm 3: component function / name
-			if !consumed[i] && ((lr.ComponentFunction != "" && lr.ComponentFunction == name) ||
-				(lr.ComponentName != "" && lr.ComponentName == name)) {
-				consumed[i] = true
-				return
-			}
-		}
+	stored := make([]SlotIdentity, len(locked))
+	for i, lr := range locked {
+		stored[i] = SlotIdentity{Slot: lr.Slot, ComponentID: lr.ComponentID,
+			ComponentFunction: lr.ComponentFunction, ComponentName: lr.ComponentName}
 	}
 	for _, name := range list {
-		pair(name)
+		if idx := PairIncomingToStored(name, "", stored, func(i int) bool { return consumed[i] }); idx >= 0 {
+			consumed[idx] = true
+		}
 	}
 
 	// Unpaired rows, ascending by position (the loader's SQL orders them so;

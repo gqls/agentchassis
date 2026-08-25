@@ -6668,3 +6668,29 @@ mutation load sits on the unit tests + wiring scan. `verify-head-builds.sh` OK a
 `a799579fd`. Council corr `ece638fb` (`Council-Submitted:` trailer) — verdict owed.
 Pre-existing at HEAD and NOT mine: `findingcodes_scan_test` fails on
 `WORK_ITEM_STATUS_OVERRIDE_REFUSED` (the 396 lane's `2b46afbe6`, today 20:48).
+
+### Round 2 — the council's REVISE was RIGHT, and the unification is in
+
+Round 1 drew a REVISE, gating objection from `reuse_agent`: my fix added a THIRD
+hand-mirrored copy of the pairing arms, and three copies drifting apart is precisely how
+385 was minted. Revised rather than defended (the estate's own rule, and the seat was
+correct): the relation now lives ONCE in `datahelpers/slot_pairing.go` and all three
+askers — `matchLockedRow`, `MergeLockedPageSlots`, `matchPreservedSectionIdx` — are thin
+adapters over it. Equivalence for the two LIVE matchers is their existing suites passing
+unchanged (6 matchLockedRow tests, the merge table); matchLockedRow gains NO arm (its
+SlotIdentity views carry empty function/name — the loader doesn't join cc, and widening
+would be its own change). New pins only the core can carry: arm PRIORITY across
+candidates (mutation-verified — loop-swap went RED), plus wiring scans in BOTH packages
+that go red if anyone re-inlines a private copy (the behaviour suites are equivalence
+proofs and would stay green — that's why the scans exist).
+
+Also answered from the verdict: guardian's consumer census (8 real dispatchers of
+`save_page_sections`; council-gate/fix-proposer are prompt-text false positives — in bug
+§9 now, dated) and debug_historian's liveness probe (stamp merge-base + symbol probe with
+BOTH controls — in bug §9). Resubmitted on the SAME correlation
+(`RESUBMIT_CORR=ece638fb`), so the trail accumulates.
+
+⚠ One mechanical trap paid for here: `git checkout --` cannot restore an UNTRACKED
+file after a mutation run — the mutated `slot_pairing.go` stayed on disk reading as
+restored. Caught by the post-restore build+test pass; reverted by hand. Mutate tracked
+files, or diff after "restoring".

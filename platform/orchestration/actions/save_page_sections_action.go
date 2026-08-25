@@ -1271,32 +1271,29 @@ func loadActiveLockedRows(ctx context.Context, db *sql.DB, pageID uuid.UUID, log
 // Guarded on non-empty exactly as the sibling is: sections often arrive before
 // enrichSectionsWithComponentIDs has resolved an id, and an empty-string match
 // would pair every unresolved section with the first idless locked row.
+//
+// The arms themselves live in datahelpers/slot_pairing.go — ONE relation
+// shared with MergeLockedPageSlots and matchPreservedSectionIdx (council
+// ece638fb's reuse gate: hand-mirrored copies of these arms drifted, and the
+// drift is bugs_open/385). The function/name arm is a structural NO-OP here,
+// deliberately: loadActiveLockedRows does not join content_components, so the
+// SlotIdentity views carry empty function/name and this extraction changes
+// nothing about which rows pair — the suite in
+// save_sections_locked_identity_test.go and save_sections_positional_tool_slot_test.go
+// is the equivalence proof. Widening this matcher to the function arm would
+// mean joining cc in the loader, which is a behaviour change to make on its
+// own evidence, not as a refactor side effect.
 func matchLockedRow(lockedRows []*lockedPageRow, sectionName, sectionComponentID string) *lockedPageRow {
-	if sectionComponentID != "" {
-		for _, lr := range lockedRows {
-			if !lr.consumed && lr.componentID != "" && lr.componentID == sectionComponentID {
-				return lr
-			}
-		}
+	stored := make([]datahelpers.SlotIdentity, len(lockedRows))
+	for i, lr := range lockedRows {
+		stored[i] = datahelpers.SlotIdentity{Slot: lr.slot, ComponentID: lr.componentID}
 	}
-	if sectionName == "" {
+	idx := datahelpers.PairIncomingToStored(sectionName, sectionComponentID, stored,
+		func(i int) bool { return lockedRows[i].consumed })
+	if idx < 0 {
 		return nil
 	}
-	for _, lr := range lockedRows {
-		if !lr.consumed && lr.slot == sectionName {
-			return lr
-		}
-	}
-	norm := NormalizeComponentFunction(sectionName)
-	if norm == "" {
-		return nil
-	}
-	for _, lr := range lockedRows {
-		if !lr.consumed && lr.slot != "" && NormalizeComponentFunction(lr.slot) == norm {
-			return lr
-		}
-	}
-	return nil
+	return lockedRows[idx]
 }
 
 // preservedSection is one stored interactive row the Layer 2 carry-forward
@@ -1334,15 +1331,17 @@ type preservedSection struct {
 // the set as `tool-loan-vs-savings`, and the re-append arm below duplicated a
 // locked calculator (bugs_open/385 §5c, 2026-08-23).
 //
-// Arms mirror the siblings, in matchLockedRow's order: component IDENTITY
-// first (enrichSectionsWithComponentIDs has already run by the time Layer 2
+// The arms live in datahelpers/slot_pairing.go — ONE relation shared with
+// matchLockedRow and MergeLockedPageSlots (council ece638fb's reuse gate:
+// three hand-mirrored copies of these arms is how the third one drifted and
+// minted 385's orphan). Order: component IDENTITY first
+// (enrichSectionsWithComponentIDs has already run by the time Layer 2
 // executes, so a plan-named section carries its resolved id), then slot name
-// exact (the pre-385 behaviour, kept), then kebab-normalised slot name, then
-// the stored component's function against the incoming name — the merge's
-// arm 3, and the arm that still decides the 385 shape when the incoming side
-// failed to enrich. Guarded on non-empty exactly as the siblings are: an
-// empty id or name must never pair, or every unresolved section would claim
-// the first idless stored row.
+// exact (the pre-385 behaviour, kept — the rerender arm's name space), then
+// kebab-normalised slot name, then the stored component's function/name
+// against the incoming name — the arm that still decides the 385 shape when
+// the incoming side failed to enrich. Every arm guarded on non-empty, so an
+// empty id or name never pairs.
 //
 // `claimed` gives each stored row at most one incoming section — the
 // consumption rule both siblings already have. Two stored instances of one
@@ -1350,36 +1349,19 @@ type preservedSection struct {
 // second instance is re-appended (preserved) rather than silently judged
 // "already present".
 func matchPreservedSectionIdx(sections []SectionData, p preservedSection, claimed map[int]bool) int {
-	if p.componentID != "" {
-		for i := range sections {
-			if !claimed[i] && sections[i].ComponentID == p.componentID {
-				return i
-			}
+	incoming := make([]datahelpers.IncomingSection, len(sections))
+	for i := range sections {
+		incoming[i] = datahelpers.IncomingSection{
+			Name:        sections[i].ComponentName,
+			ComponentID: sections[i].ComponentID,
 		}
 	}
-	if p.slot != "" {
-		for i := range sections {
-			if !claimed[i] && sections[i].ComponentName == p.slot {
-				return i
-			}
-		}
-		if norm := NormalizeComponentFunction(p.slot); norm != "" {
-			for i := range sections {
-				if !claimed[i] && sections[i].ComponentName != "" &&
-					NormalizeComponentFunction(sections[i].ComponentName) == norm {
-					return i
-				}
-			}
-		}
-	}
-	if p.componentFunction != "" {
-		for i := range sections {
-			if !claimed[i] && sections[i].ComponentName == p.componentFunction {
-				return i
-			}
-		}
-	}
-	return -1
+	return datahelpers.PairStoredToIncoming(
+		datahelpers.SlotIdentity{Slot: p.slot, ComponentID: p.componentID,
+			ComponentFunction: p.componentFunction},
+		incoming,
+		func(i int) bool { return claimed[i] },
+	)
 }
 
 // isEmptyGenericStub reports whether rendered HTML is the hollow section that

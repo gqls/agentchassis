@@ -21,6 +21,7 @@ package actions
 
 import (
 	"context"
+	"go/ast"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -153,6 +154,50 @@ func TestLayer2_UsesMatchPreservedSectionIdx(t *testing.T) {
 			"extracted matcher the unit tests above pin — an inline slot-name comparison is exactly " +
 			"the bugs_open/385 defect returning. If the decision moved, point this test at its new " +
 			"home; do not delete it.")
+	}
+}
+
+// callsSelector reports whether fn's body calls pkg.name — the qualified form
+// callsNamed cannot see.
+func callsSelector(fn *ast.FuncDecl, pkg, name string) bool {
+	found := false
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		if sel, ok := call.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == name {
+			if id, ok := sel.X.(*ast.Ident); ok && id.Name == pkg {
+				found = true
+			}
+		}
+		return true
+	})
+	return found
+}
+
+// TestPairingRelation_BothMatchersCallTheSharedCore is the actions-side half
+// of the drift guard (the datahelpers side pins MergeLockedPageSlots). The
+// behaviour suites are equivalence proofs, so they stay green against a
+// re-inlined private copy of the arms — re-inlining is precisely the drift
+// that produced bugs_open/385 and drew council ece638fb's reuse gate.
+//
+// MUTATION THAT MUST BREAK IT: re-inline either matcher's arms.
+func TestPairingRelation_BothMatchersCallTheSharedCore(t *testing.T) {
+	funcs, _ := parsePackageFuncs(t)
+	for fn, callee := range map[string]string{
+		"matchLockedRow":           "PairIncomingToStored",
+		"matchPreservedSectionIdx": "PairStoredToIncoming",
+	} {
+		fd, ok := funcs[fn]
+		if !ok {
+			t.Fatalf("CONTROL FAILED: %s not found — the scan cannot see its target", fn)
+		}
+		if !callsSelector(fd, "datahelpers", callee) {
+			t.Errorf("%s no longer calls datahelpers.%s — the pairing relation must stay shared "+
+				"(slot_pairing.go); a private copy of the arms is how the third asker drifted and "+
+				"minted 385's orphan.", fn, callee)
+		}
 	}
 }
 
