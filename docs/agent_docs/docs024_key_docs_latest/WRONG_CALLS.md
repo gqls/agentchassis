@@ -51612,3 +51612,21 @@ line — keep the error string as a discriminator (it stays valid: if you ever D
 mis-routing), drop the prediction. They also caught a stale caveat of mine in the same exchange
 (RUNBOOK §7b (i)/(ii)). **Twice in one day the thing that was wrong was my instrument, not the
 system** — and this time a peer was carrying it.
+
+**11. I wrote an EXPIRING measurement into shipped code and called it a property.** The `claims.go`
+comment justifying the plural fix said the change cost nothing "because the values there are already
+supported by that site's registered gte fact". That was a true observation on 2026-08-24 and a false
+claim about the mechanism. The fact is a **rolling window**: 35 snapshots ranging 1,494–7,281, fallen
+17 times, and **below the 1,600 it vouches for on 3 of them**. Replaying the site's own historic low:
+the identical copy scores 0 findings at 7,281 and a build-refusing finding at 1,494.
+
+**What makes this worse than an ordinary stale figure:** the number was not the claim — the number
+was my *evidence* for a claim about behaviour, and behaviour claims read as permanent. A reader
+correctly distrusts "the count is 4068"; nobody distrusts "this change costs nothing", which is the
+sentence the count was propping up.
+
+**The cheap check: ask the register's HISTORY, not its current row.** The refresh supersedes rather
+than overwrites, so every prior value is already on disk — one query, and `min(value)` against the
+floor the copy publishes answers it. I had the current value and never asked whether it moves.
+Caught only because the `bugs_open/386` lane published a falling-facts census and I re-read my own
+claim against it. Third correction of mine this lane that a peer's measurement produced.

@@ -124,6 +124,32 @@ come to it:
 `grep -a -c -F 'adoption-tracker-listing' /proc/1/exe` on a chassis pod (≥1 = Phase 2 live), or
 `merge-base --is-ancestor 52958897f <service_binary_capabilities.git_commit>`.
 
+### 5.1c ⚠ NEW, LIVE, and not caused by this lane — a rolling-window fact can refuse a build
+
+`aao-orchestrations` is a **rolling window, not a total**: 35 snapshots ranging **1,494–7,281**,
+17 falls, **below 1,600 on 3 of them** — while the site publishes *"We run over 1,600 orchestrations
+a day"*. Replaying that low through the scan turns 16 findings into **20**, all four new ones at
+`error`, which **refuses the page build**.
+
+**One of the four (`enterprise-reference-deployment`) is exposed on the CURRENT binary**, so this is
+live today with nothing from this lane. Phase 2 surfaces the other three by scanning the tracker
+pages' own hero/CTA again — the fix working, not breaking: those claims were always unsupported on a
+low day and merely un-scanned.
+
+**Before anyone rebuilds those pages, read the counter and record it with the run** — a dip makes the
+rebuild fail for a reason unrelated to the fix, and it looks exactly like the fix failing:
+
+```sql
+SELECT f->>'value' FROM site_specs ss, LATERAL jsonb_array_elements(ss.data->'facts') f
+WHERE ss.site_id='2a8ebf9c-20a2-4c39-b191-840b012371da' AND ss.aspect='evidence_base'
+  AND ss.is_current AND f->>'id'='aao-orchestrations';   -- 7,281 on 2026-08-25; clear above ~1,700
+```
+
+Full account: `bugs_open/364` §6j, an armed `LANDMINES.md` entry, and `bugs_open/386` (owned) whose
+durable fix is the one thing that resolves it. **Deliberately not fixed here**: narrowing that fact's
+broad `context_terms` makes the gate stricter on a customer site owned by another lane. Flagged to
+`bugs_open/387`, `bugs_open/386` and the owner.
+
 ### 5.2 ✅ DONE — the two false queue items were ruled false by the owner and cancelled
 
 Owner ruling 2026-08-25. `4405fb38` (adoption-tracker, 8 findings) and `2f8f67dd` (protocol-tracker,
