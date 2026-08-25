@@ -1844,3 +1844,30 @@ running copy-editor rather than assuming.
 - **Terms question list written for the owner** (README 08-24d): retention, deletion, data
   location during training, playground-hour terms. No terms invented; the four commitments are
   his.
+
+## 2026-08-25 — OWNER VERDICT on both pages: fails "would a person actually say this"; escalated to copy_quality at his instruction
+
+- Owner (2026-08-24 late): the copy is "very AI sounding" / "so methodical like AI", three
+  verbatim specimens (technical page licence-summary para; "comes down to three steps"; the
+  ENTIRE "Who is actually running this" section — the one this session had praised). "The rest
+  of the page is not so bad to be fair"; "the facts and copy otherwise seem ok". "The front
+  page cards are all negatively framed." "The whole site could be rewritten in better
+  language." Confirmed to him: both pages were framework-written end to end.
+- **Escalation delivered** (his instruction):
+  `copy_quality_two_stage/CONTRIB_2026-08-25_OWNER_ESCALATION_finetuning_pages_fail_the_would_a_person_say_this_test_after_a_maximal_seed.md`
+  — verbatim specimens, the ceiling series (9→9→6 across three builds with demonstrations
+  driven to zero), the finding that his tell class is WIDER than the 305 gate's (methodical
+  scaffolds, performed-candour beats — constructions no current detector models), and the
+  front-page census.
+- **Front-page census `[MEASURED 2026-08-25]`** (served /index.html, last built 08-17, i.e.
+  PRE-seeding specs): `differentiators` — 4 of 6 card HEADINGS literally X-not-Y; `features` —
+  6/6 card bodies negative-framed, 2 headings. Extraction: h3/h4+p pairs per section from the
+  served HTML (first card-class regex hit the CASE-STUDY cards, which read fine and are NOT
+  what he meant — the trap was extracting the wrong card population and nearly reporting
+  "cards look fine"). A rebuild would fix the HEADINGS mechanically (specs now gains-framed);
+  the body register would return at the measured ceiling, so NO rebuild fired.
+- **Instrument lesson** (also in WRONG_CALLS + the escalation §3): the section the owner
+  rejected outright scored ZERO on every automated tell this lane checks. The pattern list is
+  not the owner's ear; register acceptance cannot be claimed from a clean checklist.
+- Holds: two new pages stay live (facts/claims/links verified) unless the owner says
+  otherwise; site-wide rewrite WAITS for the copy machinery to move (their lane, his ask).
