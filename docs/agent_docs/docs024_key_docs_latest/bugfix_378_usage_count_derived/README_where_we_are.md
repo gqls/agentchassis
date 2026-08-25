@@ -305,3 +305,50 @@ months. It needs its own review round, so it is a small separate job rather than
 ### Where the record is
 
 `docs/agent_docs/docs024_key_docs_latest/bugfix_378_usage_count_derived/HANDOFF_2026-08-24_continue_here.md`
+
+---
+
+## 2026-08-25, later — the dead column is dealt with
+
+You asked me to finish off the abandoned counter rather than leave it noted as a to-do. Done, and it
+turned out to be more worth doing than I had made it sound.
+
+**The column was not merely dead — its description was actively lying.** Every table column in the
+database can carry a note explaining what it is, and this one said:
+
+> *"Times this component has been assigned to a page. Incremented by selector. Higher = more
+> battle-tested."*
+
+All three of those are false, and that note is exactly what the next person sees when they inspect the
+table. So the trap was never the leftover numbers; it was the sentence promising they meant something.
+That sentence is now replaced with one saying the column is superseded, that nothing writes or reads
+it, that its values both miss real usage and count things that never happened, and where to look
+instead. **Applied and checked by reading it back out of the database, not by trusting the command.**
+
+**I also removed the last thing that was still writing to it.** One piece of code still named the
+column when creating a component — not counting anything, just setting it to zero. Harmless in itself,
+but it meant the column could not be deleted without breaking every component creation.
+
+**And I have written the deletion, tested it, and deliberately not run it.** It has to wait for the
+next build, because until the code above ships, deleting the column would break things. The file is
+named so the automatic runner will not pick it up, and it carries a safety check that refuses to run
+if the old counter has started moving again — which would mean the old code was still live.
+
+**I tested that safety check by trying to trip it**, rather than just watching it pass: I pretended a
+component had been counted once more, and it correctly refused with the right message. Nothing was
+saved. This is the same discipline as the rest of this lane — a check that has never failed is not
+yet a check.
+
+### What is left
+
+**One scheduled action, and it is not a question:** run the deletion after the next chassis build.
+The instructions and the safety check are in the file itself. Everything else on this lane is closed.
+
+I have also put the follow-up through the review council, as the rules require for anything that
+changes the database.
+
+### One thing I want to be clear about
+
+`agent_definitions.usage_count` is a **different** column with the same name on a different table. It
+is alive, it works, and it is deliberately untouched — a previous piece of work fixed that one
+properly last month. Anyone reading this should not generalise today's deletion to it.
