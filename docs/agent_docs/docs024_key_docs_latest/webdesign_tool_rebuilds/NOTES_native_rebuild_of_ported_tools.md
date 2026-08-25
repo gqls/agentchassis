@@ -3009,3 +3009,30 @@ clean baseline. **Next real add_tool filing: OMIT `related_pages`. PASS =
 **Probe trap adopted from their ping, for ALL this lane's binary probes:** a timeout-killed
 `kubectl exec` exits **137**, indistinguishable from grep's exit-1 "absent" under a bare
 `$? -ne 0` test — their first negative control was vacuous exactly that way. Distinguish 1 from 137.
+
+## 2026-08-25 10:00Z — #35 `tool-smart-contrast` DONE (35 of 63) — AND the 353 lane's ask-when-absent picker PASSES its demand proof on this filing
+
+**Demand proof (the 08-24 standing commitment, executed):** item `173099d9` filed deliberately
+WITHOUT `related_pages` (summary says so). Result: `llm_call_log` row
+`step_name='suggest_related_pages'` at 09:50:53 (the picker RAN), and TWO `tool_crosslink` items
+with **`related_pages_source='suggested'`** — picks `learn-accessibility-focus-states` and
+`learn-design-oklch-colors`, topically right for a contrast tool. The failure tell (empty source +
+no llm row) did NOT occur. Reported to the 353 lane and [ac1f33].
+
+**#35 itself:** ported sighting #15 — the page promised "nearest valid color… preserving as much of
+your original hue as possible" while the code stepped all three RGB channels ±3 with independent
+clamping (hue shifts once a channel saturates; overshoots; boundary check ignored blue). RUN
+complete/adopted, component `a603e7b3` (19,454); retire `UPDATE 1` ~30 s post-build (slot
+`28004fab` md5 `3bfa68d7…` intact); rerender `59461e33` complete 09:53:19.
+**COMPONENT by mechanism:** `findHueLightnessFix` = exhaustive 0–100 lightness sweep at 0.5 steps
+holding h/s, choosing MINIMAL |Δl| meeting the target — the claim is now true by construction; the
+fallback returns `hueHeld:false` with the better of black/white AND `meetsTarget`, and the runtime
+message states "No shade of the original hue can reach this target on this background" (plus a
+graded "Even black/white only reaches X" arm — beyond the brief, honest direction). 0·0·0 counts,
+7 listeners. **SERVE-GRADE PASS:** 200 / 26,558 / LM 09:54:17 > 09:53:19; negatives 0 (fgText,
+badgeAA, **src="color-engine.js"**, applySuggestion, suggestionArea); positive `findHueLightnessFix`
+×3. ⚠ Control lesson (2nd instance of the fr-explainer class): I first pinned the DOC-COMMENT
+phrasing ("cannot reach…") — assembly STRIPS the tool-doc block, so it scored 0 on a correct page;
+the runtime string differs. **Pin literals from the CODE arm, never the tool-doc.** Tombstone
+re-read: removed ✓. Orphan #8 (corr 1c74cc97-a402-44d3-980d-865e9308d1b7).
+**Phase C remainder: 4 — csp-builder, fluid-typography, vibe-equalizer(2), micro-cms(4).**
