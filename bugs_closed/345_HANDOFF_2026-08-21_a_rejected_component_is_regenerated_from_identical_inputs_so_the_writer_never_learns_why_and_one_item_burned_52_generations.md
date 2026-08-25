@@ -1363,3 +1363,57 @@ the next parameter addition. 524 was already resolved by another session.
 > **RESOLVED 2026-08-25 — owner ruled option (c): leave the blind spot, RFC_022 stays closed.** The
 > counter change is not made; `stop_on_repeat_failure_item_types` stays uncounted (harmless at 3 vs
 > N=10). Decision 3 is now fully closed — nothing outstanding on either follow-up.
+
+---
+
+## 2026-08-25 (evening) — CLOSING: every piece is fixed AND live; both council rounds APPROVED
+
+Chassis **v1.0.1339** (deployed 2026-08-25 19:07:18Z). Probed both replicas, control in the same
+breath: `dropSchemaFields` PRESENT, `classifySyncIssues` PRESENT, `terminated_on_repeat` PRESENT,
+`zz_no_such_symbol_345` ABSENT. **Council: both APPROVED** — completion round 2 `cf086b8d` (09:49Z),
+orphan-drop `31da78c8` (11:36Z). Both commits carried `Council-Submitted:` and are auto-credited; I
+have now READ both approved verdicts.
+
+**The scorecard against the estate bar (fixed AND live):**
+
+| piece | fixed | live | demand-proven |
+|---|---|---|---|
+| candidate 1 — typed retry feedback (WII-026) | ✓ | v1.0.1322+ | ✓ item `b0ba3e3a` |
+| candidate 2 — repeat termination + marker (WII-029) | ✓ | v1.0.1334+ | ✓ 4 firings |
+| the rejection names the offender (deterministic) | ✓ | v1.0.1336+ | ✓ (fed retries carried it) |
+| **decision 2(b) — orphan-only drops, not blocks** | ✓ | **v1.0.1339** | **not yet — see watch** |
+
+**Both original harms are remediated at source:** "the writer never learns why" (candidate 1) and
+"one item burned 52 generations" (candidate 2 caps the spend; orphan-drop removes the class from the
+loop entirely). The defect is **no longer reproducible on the running binary** — the gate code that
+refused an orphan-only mismatch is gone from v1.0.1339 — which is the close bar. **Closing.**
+
+### ⚠ ONE POST-CLOSE WATCH — the orphan-drop is LIVE but UNEXERCISED (a zero without demand)
+
+[MEASURED 2026-08-25 ~19:30Z] **0** needs_new_component items touched and **0** components written
+since the 19:07 roll — so "0 orphan refusals post-roll" is **blind, not proof**. The class is live
+and recurs daily (17 on 08-24, 4 on 08-25 pre-roll), so it will hit the new gate within ~a day. This
+is recorded rather than waited on — the close rests on fixed+live, not on this zero. **The demand
+proof, for whoever next passes through** (WII-029's own lesson, one rung on):
+
+```sql
+-- POSITIVE: an orphan-only generation stored instead of refusing (the drop fired).
+--   look for components written post-roll whose section had been orphan-refused, OR the log line
+--   "dropped unrendered field(s) and storing" (scrolls — catch it live).
+-- NEGATIVE/DEMAND CONTROL: the class is occurring at all post-roll.
+SELECT count(*) AS orphan_refusals_post_roll   -- want 0 AND the control below > 0 to mean anything
+  FROM agent_error_log
+ WHERE error_code='component_validation_orphan_schema_field' AND occurred_at > '2026-08-25 19:07:18+00';
+SELECT count(*) AS nnc_activity_post_roll        -- the control: if 0, the zero above is blind
+  FROM site_work_items WHERE item_type='needs_new_component' AND updated_at > '2026-08-25 19:07:18+00';
+```
+A non-zero refusal count with the marker absent would mean the drop is not firing — reopen then.
+Otherwise the first orphan-class generation post-roll storing cleanly closes the watch.
+
+### What this bug hands on (NOT residuals of 345)
+
+- **RFC_022 counter blind spot** — owner ruled option (c), leave it; RFC stays closed. Not 345's.
+- **`bugs_open/388`** — a two-resolver divergence that can refuse a compliant writer; different cause,
+  its own lane, and orphan-drop composes with its pin fix.
+- **The options-struct refactor** of `applyWorkItemFailureLadder` — deferred to the next param
+  addition (guardian's own framing). Not blocking anything.
