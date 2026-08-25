@@ -1529,3 +1529,83 @@ rollback OK; (d') phrase mutation caught. Live row still `613_migration`, 0 back
 file; their pathspec commit took both, as CLAUDE.md says it must. Nothing lost — my entry is at HEAD
 byte-for-byte (`git show HEAD:…WRONG_CALLS.md | grep -c '<phrase>'` = 1). The pickaxe, not `git log --
 <path>`, is how §5 of the earlier session went wrong; used it first here.
+
+---
+
+## 2026-08-25 (evening) — the four-page scope was never questioned, and the site has 42 pages
+
+Checked the state again after another roll. **Three findings, and the first is a correction to
+everything this lane has reported all week.**
+
+### 1. ⚠ "Contrast is at zero" was true of FOUR pages. The site has FORTY-TWO.
+
+Audited all 42 active pages (enumerated from `pages`, not guessed):
+
+```
+pages audited 40 of 42     NOT MEASURED 2
+TOTAL FIRM 17              overImage 23 (excluded, as always)
+```
+
+| page | firm | state |
+|---|---|---|
+| `/tools/agent-complexity-estimator.html` | 6 | template HAS the ink fix, placement stale since **2026-05-01**; `owned` |
+| `/contact.html` | 4 | 3 = the 456 fix never propagated (placement stale since 08-11); 1 = white-on-amber button |
+| `/tools/automation-savings-estimator/index.html` | 3 | `html_ink` already TRUE — **different cause, needs diagnosis** |
+| `/tools/password-entropy.html` | 2 | template never fixed (`#666` on `#0D1117`); `owned` |
+| `/tools/build-vs-buy-analyzer/index.html` | 1 | `html_ink` TRUE — different cause |
+| `/tools/tool-llm-cost-calculator.html` | 1 | template HAS ink, placement stale since 08-11; `owned` |
+
+**Nothing regressed.** index/about/pricing/services are still clean. The failures are on pages this
+lane never measured, because the four-page scope came from the originating handoff and **I never
+questioned the denominator.** "44 → 0" was always "44 → 0 on these four pages", and I did not say so.
+
+⚠ **Two pages return zero because they CANNOT be measured**, reproducibly, while serving HTTP 200:
+`ai-readiness-quiz.html` and `tool-ai-agent-roi-estimator.html` — *"probe produced no result"*.
+`render_audit.py` prints *"the zeros above are silence, not a pass"* and that is exactly right. Both
+are tool pages; a JS-heavy page that replaces its body can lose the injected probe. **Any "the site
+is clean" claim has a two-page hole in it until that is understood.**
+
+### 2. The dominant remaining defect is ONE mechanism, and mostly needs no new code
+
+`#0D1117` on `#0D1117` (×8) and `#0D1117` on `#080B10` (×3) — family A, the same ink defect
+migrations 456/469 addressed. For three of the six pages the **template already carries the fix and
+the placement was never re-rendered**. That is a propagation gap, not a code gap.
+
+⚠ **But three of the six are `rebuild_policy='owned'`, and a re-render is REFUSED there.** Those
+pages hold their whole tool — calculator and `<script>` — in a single verbatim component, which is
+exactly why they are owned. **Do NOT flip them to `generic` to get the re-render through**: the
+LANDMINE on this is explicit — the composition loop commits freshly-written HTML to the deploying
+repo one step BEFORE `save_page_sections` refuses, so the tool is replaced with prose and shipped.
+The route for those is the owned-page chrome path (`refresh_owned_page_chrome.sh`), not this lane's
+usual rerender.
+
+Filed the one safe fix: a `template_changed` rerender for `contact` (`generic`, template fixed,
+placement stale). ⚠ It is **queued behind another lane's claimed work** — `bugfix_391_cta_relevance`
+holds 2 `content_rewrite` rows `claimed` on this site, and one claimed row of any type holds the
+per-site mutex (`029`). Not poked; it drains.
+
+### 3. Two stale claims in MY handoff, corrected by another session before I re-read it
+
+The `617 HOLD` session found and fixed both:
+
+- **"17 parked `contrast_failure` items"** → there are **9**. Eight were `cancelled` on 2026-08-24
+  19:11:22. My 17 was measured 08-18 and repeated for a week without re-measuring.
+- **"the site's render audit has not run here since 2026-08-10"** → it visited **02:23Z on 08-24**.
+
+Verified both here today. **Both were counts I carried forward instead of re-running** — which is
+precisely what the owner's 2026-08-22 ruling on dating counts exists to prevent, and I had applied
+that rule to *new* numbers while leaving the inherited ones undated.
+
+⚠ **And the 9 that remain matter more than the 17 did**: 6 of them are on `about`/`services`/`index`,
+which now measure **0**, so the retraction should close them; 3 are on `news`/`tools`/
+`ai-readiness-quiz`. I measured those: news **0 firm**, tools **0 firm**, quiz **NOT MEASURABLE**.
+So `bugs_open/296`'s test on this site is sharper than I described: **8 of 9 should retract and 1
+cannot be decided by this instrument at all.**
+
+### 4. Another session has prepared the managed-mode flip I said was blocked
+
+`617` (HOLD, council APPROVED r1) carries `611`'s prohibitions into `writer_block_guidance` —
+CLM-029's first consumer — pre-composes `writer_block` to the real composer's exact bytes, and adds
+a chassis guard refusing any pod that predates the carry. **So the blocker my handoff describes is
+being cleared by someone else.** Do not re-derive it, and do not flip managed mode by hand: `617` is
+held for ordering and applies deliberately.

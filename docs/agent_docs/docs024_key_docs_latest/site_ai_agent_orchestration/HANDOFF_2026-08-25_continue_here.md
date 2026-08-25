@@ -1,4 +1,10 @@
-# HANDOFF — ai-agent-orchestration.com. START HERE. Written 2026-08-25 ~12:15Z.
+# HANDOFF — ai-agent-orchestration.com. ⚠ SUPERSEDED. Written 2026-08-25 ~12:15Z.
+
+> ## ⛔ SUPERSEDED the same day by `HANDOFF_2026-08-25b_continue_here.md` — READ THAT FIRST.
+> **Its "contrast is at ZERO" headline is WRONG.** That was true of FOUR pages; the site has
+> FORTY-TWO, and a full audit that evening found **17 firm failures on 5 pages** plus 2 pages the
+> instrument cannot measure. Nothing regressed — the failures are on pages this lane never measured.
+> Its `NNN` incident account and its practice notes remain accurate.
 
 **Supersedes `HANDOFF_2026-08-22_continue_here.md`.** That file's state table is still accurate for
 contrast, carousels and images — all three remain done and were re-verified today. What it does not

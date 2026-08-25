@@ -610,3 +610,58 @@ layout — a safety floor catches it and writes nothing, which is right. Another
 page and what the template would regenerate have drifted apart, and it was already failing before their
 work touched it. It is not urgent, but it does mean two small fixes queued against that page have not
 landed and will not until someone reconciles it.
+
+---
+
+## 2026-08-25, evening — I have to correct the headline I gave you
+
+**"Every page now passes" was wrong, and I should not have said it.**
+
+It was true of the four pages this lane has been measuring all week. **Your site has 42 pages.** I
+audited all of them this evening and there are **17 unreadable elements left, on 5 pages** — all of
+them pages nobody here had ever looked at.
+
+Nothing has gone backwards. The four pages we fixed are still clean, the carousels still work, the
+pictures still load. The problem is that I inherited a four-page scope from an earlier handoff,
+never asked whether it covered the site, and then reported the number as if it did.
+
+### Where the remaining problems are
+
+They are almost all on your calculator and tool pages, and they are mostly the *same* fault we
+already fixed elsewhere — the template was corrected weeks ago, but those pages have not been
+rebuilt since, so they are still serving the old version. One of them has not been rebuilt since
+**1 May**.
+
+The contact page is the same story: three of its four problems are that fix simply never reaching
+it. I have queued that one — it is the only one I can safely fix without risk.
+
+**The others I have deliberately not touched**, and I want to be clear why. Three of those tool
+pages are marked "owned", which means the whole working calculator lives in a single block that the
+normal rebuild would overwrite with prose. There is a written warning in our own notes about
+exactly this: someone previously unlocked pages like these to get a fix through and destroyed the
+calculators. There is a separate, safer route for those, and it is the next job — not something to
+rush at the end of a session.
+
+### Two pages I cannot measure at all
+
+The readability tool simply fails on `ai-readiness-quiz` and one of the ROI estimator pages. They
+load fine for a visitor — the tool cannot read them. It reports zero for both, and it is honest
+enough to print "these zeros are silence, not a pass". **So even after the remaining work, there
+will be two pages we have not actually checked.** That needs solving before anyone claims the site
+is clean.
+
+### Two other corrections, both found by other teams before I re-checked
+
+- I have been saying there were 17 old parked items. There are **9** — eight were cleared on
+  Sunday.
+- I said the automatic audit had not visited since 10 August. It **did** visit on 24 August.
+
+Both were numbers I measured once and then repeated for a week. That is the same mistake in a
+different coat, and it is worth me saying so twice in one day rather than once.
+
+### One good thing
+
+Another team has prepared the piece I told you was blocked — the automation that keeps the site's
+instruction sheet current without deleting its "never claim this" rules. It is written, reviewed
+and waiting to be applied deliberately. Not ours to switch on, and I have written that down so
+nobody here does it early.

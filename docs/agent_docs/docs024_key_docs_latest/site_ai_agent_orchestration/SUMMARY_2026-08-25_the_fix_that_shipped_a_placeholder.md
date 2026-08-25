@@ -61,3 +61,33 @@ items that only an automatic audit can clear (it has not run here since 10 Augus
 automation that would keep the instruction sheet current, which still cannot be switched on because
 as built it would delete the site's "never claim this" rules. Our repair removed one precondition
 for that; it is not the last one.
+
+---
+
+> ## ⚠ CORRECTION, appended 2026-08-25 evening — appended, not rewritten
+>
+> **"The readability work remains finished" above is WRONG, and so is the same claim in
+> yesterday's summary.** It was true of the four pages this lane had ever measured. **The site has
+> 42 active pages.** Audited all of them this evening: **17 firm failures across 5 pages**, plus 2
+> pages the instrument cannot measure at all.
+>
+> | page | firm | note |
+> |---|---|---|
+> | `/tools/agent-complexity-estimator.html` | 6 | `rebuild_policy='owned'` |
+> | `/contact.html` | 4 | 3 are the 456 fix never propagated; 1 is a white-on-amber button |
+> | `/tools/automation-savings-estimator/index.html` | 3 | already carries the ink token — different cause |
+> | `/tools/password-entropy.html` | 2 | template never fixed; `owned` |
+> | `/tools/build-vs-buy-analyzer/index.html` | 1 | already carries the ink token |
+> | `/tools/tool-llm-cost-calculator.html` | 1 | `owned` |
+>
+> **Nothing regressed** — the four pages measured all week are still clean. **The number was
+> never site-wide, and I reported it as though it were.** The four-page scope came from the
+> original handoff and I never questioned it; "44 → 0" was always "44 → 0 on these four pages".
+>
+> ⚠ **And 2 pages return zero because they CANNOT BE MEASURED** (`ai-readiness-quiz.html`,
+> `tool-ai-agent-roi-estimator.html` — "probe produced no result", reproducible, both serve HTTP
+> 200). The tool prints *"the zeros above are silence, not a pass"* and it is right to.
+>
+> **The lesson is the one this lane keeps re-learning from the other end:** I verified the thing I
+> changed, thoroughly and at the artefact, and never checked whether the *denominator* was the
+> whole population. A scope inherited from a handoff is a claim like any other.
