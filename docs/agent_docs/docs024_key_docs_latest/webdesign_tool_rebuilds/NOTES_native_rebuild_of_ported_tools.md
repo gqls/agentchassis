@@ -3426,3 +3426,15 @@ specs**: whoever builds that route will want them. Nothing owed by this lane.
 > specs-location pointer. Count drift noted both ways: owned non-tool was **34 as of 08-25 morning,
 > 33 as of ~17:00Z** — one page moved policy in hours; immaterial here, but the smallest worked
 > example yet of the census-dating rule. Relayed to the grind session for their LANDMINES entry.
+
+> **CORRECTED 2026-08-25 ~18:00Z — the "34→33 count drift" entry above is WITHDRAWN; there was no
+> drift.** The grind session challenged it and was right: I narrated a DELTA between two numbers
+> produced by two different sessions' queries, without checking the predicates matched, and then
+> celebrated it as a census-dating example — the error wearing the rule's own clothes. Re-measured
+> myself with the grind's exact predicate: **34 owned / 3 generic**, now reproduced on THREE
+> instruments (their 14:5xZ and 15:30Z runs, and mine at ~17:50Z; population explicit: 32 `learn-*`
+> + `about` + `tools-index` owned; `domains`/`index`/`news` generic). The 333 session's "33" is a
+> different population by one page — theirs to reconcile, flagged to them. **The rule this actually
+> teaches: a claimed CHANGE requires ONE instrument run twice — two sessions' counts differing by
+> one is a predicate diff until proven otherwise** (WRONG_CALLS 2026-08-25). The structural point
+> (every topically-correct pick parks) was never affected.

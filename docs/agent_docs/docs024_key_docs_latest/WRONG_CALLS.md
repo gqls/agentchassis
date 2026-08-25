@@ -52768,3 +52768,23 @@ genuinely there.**
 `llm_call_log`-shaped, `a-receipt-nobody-asserts-on-is-a-log-line`-shaped. The recurring skipped
 check is the same one every time: **the artefact the mechanism was supposed to CHANGE, dated.** Not
 the row it filed, not the status it reported, not the name appearing somewhere on the page.
+
+## 2026-08-25 — "one page moved policy in the interim" (webdesign-tool-rebuilds)
+
+**The claim:** an owned-page count "drifted 34→33 in hours", recorded in lane NOTES as "the smallest
+worked example yet of the census-dating rule" and relayed to two other lanes.
+
+**What was true:** the 34 and the 33 came from TWO DIFFERENT SESSIONS' queries with (at least)
+one-page-different populations. No page moved policy: the grind session's predicate reproduces 34/3
+twice 40 minutes apart, and my own run of their exact predicate reproduces 34/3 again. I never ran
+either query before asserting the delta — I adopted both numbers on authority and narrated the
+difference as an event.
+
+**What caught it:** the grind session re-running THEIR instrument on seeing my "worked example"
+framing, and refusing to adopt a number they could not reproduce.
+
+**The cheap check:** a claimed CHANGE requires one instrument run twice. Two sessions' counts that
+differ by one are a PREDICATE DIFFERENCE until the same query string has produced both numbers —
+diff the predicates before narrating a drift. The irony is the tally point: this false claim was
+minted INSIDE an entry celebrating the census-dating rule, which dates numbers precisely so that
+deltas can be tested rather than assumed.
