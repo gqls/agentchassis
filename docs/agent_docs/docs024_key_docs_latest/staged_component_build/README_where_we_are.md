@@ -2702,3 +2702,46 @@ are happening again" would be indistinguishable from "people happened to fill th
 and I would not be able to tell you which.
 
 It has gone to the review panel. Nothing here needs a decision from you.
+
+---
+
+**2026-08-25 — it is switched on. And I think this piece of work is finished, with three loose ends I
+want to name rather than tidy away.**
+
+The new build went out this morning, so I checked it carried the change rather than assuming, then
+switched the asking on. Both tool-building routes now look at a site's existing pages and pick one to
+three the new tool genuinely helps with, whenever whoever ordered it did not say.
+
+One thing I want to flag about the checking, because it nearly caught me. The way we prove a change is
+really in a deployed build is to search the running program for a phrase from it, and to search for a
+second phrase we know is there and a third we know is not — so we can tell "absent" from "I couldn't
+look". I did all three. But searching for a phrase that IS there stops the moment it finds it, while
+searching for one that ISN'T has to read the whole program, so the third check is much slower — and it
+got cut off by a time limit and returned a code I read as "not found". It wasn't. It was "killed".
+Both look identical unless you print the actual number. I re-ran it properly and it was fine, and I
+have written the trap up, because that recipe is used across the whole estate.
+
+**Where this leaves us: three things, and only one of them is work.**
+
+The first two are waits, not tasks. Nobody has built a tool today, so the picker has not been asked
+anything yet, and the count of "times it helped" is zero for the honest reason. The lane doing the
+tool rebuilds has agreed to file their next real order with the field deliberately left blank, which
+is the proper test — a real one they were making anyway, rather than something staged for the
+occasion. When it lands, one query answers it.
+
+The third is a genuine gap and it came out of the review. If the asking step ever fails, it steps aside
+so it can never break a tool build — that part is right. But the record it leaves then reads "no
+related pages", which is exactly what it would say if it had run properly and honestly concluded that
+none of the pages fit. Those two situations should not look the same, and today they do. I have found
+the six lines that would separate them and confirmed the mechanism exists, but it is program code, so
+it needs another review round, another build and another deploy — the cost is the cycle, not the
+typing.
+
+**My recommendation is that we close this workstream and move those three items to where they will
+actually be read** — the two waits onto the bug files whose fixes they verify, and the gap into a bug
+file of its own so it has an owner. I would rather not close it by quietly declaring the gap fixed:
+that is how the last loose end on this bug nearly disappeared, and it only survived because the review
+panel insisted we give it its own number.
+
+Nothing here needs a decision from you today unless you want the gap closed sooner, in which case say
+so and I will start that cycle.
