@@ -121,7 +121,7 @@ def clean(tok):
         tok = tok.strip().strip("`'\"*()[]<>,;:+%").strip()
     tok = re.sub(r"['’]s$", "", tok)                     # possessive: bugs_open/197's
     tok = re.split(r"[#§]", tok)[0]                      # anchors
-    tok = re.sub(r":L?\d+([-,]L?\d+)*$", "", tok)        # line refs, incl. ":151,227"
+    tok = re.sub(r":L?\d+([-,]:?L?\d+)*$", "", tok)      # line refs, incl. ":151,227" and ":65,:283"
     tok = re.sub(r"(\.[a-z]{2,4}):\w+$", r"\1", tok)     # file.go:SymbolName
     tok = tok.rstrip(".,;:)]}>'\"`")
     return tok.strip("/") or None
@@ -278,6 +278,8 @@ def self_test():
         ("`docs/016b_debugging_guide_merged(3).md#orientation`", "DELETED",
          "last-variant-wins → NEVER, while git holds the exact cited path"),
         ("platform/orchestration/x.go:151,227", "AT-HEAD", "line refs not stripped → NEVER"),
+        ("platform/orchestration/x.go:65,:283", "AT-HEAD",
+         "repeat-colon line refs half-stripped → a FALSE NEVER-REPO-PATH, the sharpest category"),
         ("`bugs_open/193`'s", "AT-HEAD", "backtick/possessive glue → NEVER"),
         ("bugs_open/158", "BUG-MOVED", "bug refs are by NUMBER, not filename"),
         ("deployments/kustomize/services/analyser-adapter", "AT-HEAD-DIR",
