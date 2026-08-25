@@ -534,3 +534,43 @@ verbatim — but the sqlmock tests carry no `WithArgs`, so the exact landmine mu
 survive the suite. bug_historian's WriteSiteSpecAction objection: the 8d134735d refutation
 HOLDS at HEAD (aspect is a config literal; 0 live agent_definitions pair `write_site_spec`
 with `evidence_base`).
+
+### 2026-08-25 evening (later) — the box was applied; `/c/` is LIVE ON THE PUBLIC INTERNET and proven
+
+Owner applied `links.webdesign.uk.nginx` (`nginx -t` ok, reload clean) after I applied the
+egress fence's `8090` line. Box-local three arms: **200 / 404 / 404**, as the runbook expects.
+
+**From the public internet, this session:**
+
+| probe | result |
+|---|---|
+| `GET https://links.webdesign.uk/c/<43-char>` | **200**, `content-type: text/html`, `cache-control: no-store`, `referrer-policy: no-referrer`, `x-frame-options: DENY`, body `<h1>Confirm you have moved your site</h1>` + `<form method="post">` + the button |
+| `POST` same path, unmatched token | **200**, `<h1>That link is no longer active.</h1>` — routing, handler and DB lookup all exercised |
+| **CONTROL** `POST …/c/<token>/confirm` | **404 with nginx's HTML body** — died at the box, never reached the service; the anchored regex is intact |
+| **CONTROL** `GET /other` | **404** |
+| after all of it | `customer_access_tokens` **0**, `sites.transfer_confirmed_at` **0** |
+
+The `<form method="post">` carries **no `action` attribute**, so the token stays in the request
+line and never enters the HTML — verified at the served page, not only in the unit test.
+
+**⚠ THE FIND OF THE DAY, and it was one command from being missed.** The other lane's commit
+`d30917150` correctly added `port: 8090` to `networkpolicy-wireguard-egress.yaml` **and nobody
+applied it.** The live policy still allowed `8088` only, so the repo read correct while the
+cluster refused the exact port the new vhost proxies to. Applying the box config first would
+have produced a **502 on every customer link**, on the box, after the owner had already made the
+change — with the repo, the commit and the runbook all saying it should work.
+Proven before touching anything, from the WireGuard pod, with controls: 8090 blocked, 8088 open
+(the probe works), 9999 blocked (the fence discriminates). After applying: 8090 open, 8088 open,
+9999 blocked, **and postgres re-checked still blocked** — the containment the fence exists for.
+`configured` not `unchanged`, and the pod never restarted (same start time, 0 restarts).
+
+> **The transferable check: `committed` and `applied` are independent facts for CONFIG too, and
+> config has no image tag to give it away.** For Go we have the provenance stamp and the whole
+> estate knows to ask the pod. A NetworkPolicy, a ConfigMap or an overlay edit has no equivalent
+> tell: `git log` shows it landed, `kubectl get` shows the old value, and nothing reconciles
+> them. **Read the LIVE object, and prove reachability from the pod that must do the reaching,
+> with a must-fail control.** Runbook corrected in place (`37f49291d`).
+
+**Now unproven, and only this:** the SUCCESS arm — a real token redeemed, `transfer_confirmed_at`
+stamped. Offered to the owner; it mutates a real site row, so it waits on their say-so and their
+choice of site.

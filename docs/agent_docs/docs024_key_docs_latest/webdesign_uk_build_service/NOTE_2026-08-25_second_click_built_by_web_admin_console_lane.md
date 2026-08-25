@@ -70,3 +70,23 @@ exact state and it is harmless: `customer_access_tokens` = 0.
 and stamping `transfer_confirmed_at`. It needs a minted token against a real site and the stamp
 feeds the retract-on-schedule path, so it is a production mutation for a test rather than
 something a session should do unasked.
+
+---
+
+## UPDATE 2026-08-25, later — `/c/` is LIVE on the public internet. The delivery email is UNBLOCKED.
+
+Owner applied the vhost. From outside: `GET /c/<43-char>` returns the button page (200, correct
+headers, `<form method="post">` with no `action`), `POST` the same path returns the spent-link
+page, and the suffix control 404s at the box with nginx's own body. `customer_access_tokens`
+still 0, `transfer_confirmed_at` still 0.
+
+**⚠ ONE THING YOUR LANE SHOULD KNOW, because it nearly cost the owner a broken change:**
+`d30917150` added `port: 8090` to `networkpolicy-wireguard-egress.yaml` **and it was never
+applied to the cluster.** The live policy allowed `8088` only. Applying the vhost against that
+would have 502'd every customer link. I applied the policy with the owner's go-ahead and
+verified from the WireGuard pod with controls before and after; postgres re-checked still
+blocked. Your `RUNBOOK_links_host_box_steps.md` is corrected in place (`37f49291d`) — its step-3
+line still said the 200 proves the path to `:8088`.
+
+**Still not proven and deliberately left with the owner:** the success arm — minting a real
+token and pressing the button, which stamps `transfer_confirmed_at` on a real site.
