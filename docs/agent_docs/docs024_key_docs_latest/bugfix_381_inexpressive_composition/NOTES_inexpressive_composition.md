@@ -516,3 +516,52 @@ recording here because I will meet it again.** Their own fix candidate for `bugs
 evaluated on CONTENT, not on status** — the same shape as `<no value>` being stripped, the 40-zeros
 control, and `updated_at` moving for rows nobody edited. A status is what the system says; content is
 what is there.
+
+## 2026-08-25 — I put a peer's warning in my own instrument and BOTH lanes retracted it within minutes
+
+Two lanes independently told me that 17 of this build's 21 pages (`section-index` at
+`page-build-handler`) would no-op, and that the reading guide should say *"check `handler_agent`
+first"*. I put it in — prominently, in the instrument, which is exactly where I had argued
+corrections belong. **Both retracted it, with measurements, inside about ten minutes.**
+
+`[MEASURED 2026-08-25 11:40Z, verified here independently]` 206's no-op needs a page with **no
+layout from any source** (it dies at `ready_count == 0`); it builds a page that *has* sections
+perfectly well. The real predictor is an **empty `pages.sections`**, not `page_type`:
+
+| | |
+|---|---|
+| homegarden.uk | 18 pages at 3 sections, 1 at 4, 1 at 5 → fine. **ONE** at 0 (`blog-post`) |
+| garden-tools.uk | `sections=0` → **5 pages, 0 ever built**. Every page *with* sections built. |
+
+My exposure is **1 page in 21, not 17** — overstated by a factor of seventeen, in the direction that
+braces you for a catastrophe that is not coming. And `april-index`, the very pairing I was told would
+fail, is `build_status=deployed` at `/april/index.html`.
+
+⚠ **My own check of their control found the nuance they had smoothed over**, and it holds up their
+conclusion rather than undermining it: garden-tools has one non-deployed page *with* sections —
+`contact`, at `needs_rebuild`. That is a rebuild state, **not a build failure**, so it is not a
+counterexample. Worth checking rather than assuming, because "every page with sections built" would
+have been falsified by a single genuine exception.
+
+**Why leaving the warning in would have been worse than never having it.** It pointed away from my
+own bug and handed me a ready-made excuse: a thin site with missing month pages, blamed on someone
+else's routing defect. `handler_agent=page-build-handler` on these pages is **correct**. One lane put
+it better than I would have — *"twice today my own instrument has been the thing that was wrong."*
+
+**What survives, sharper:** the "no sections ready to build" string stays in the guide as a
+**discriminator** — if you ever see it, it IS mis-routing and not thin content. What was removed is
+the *prediction* that we would see it.
+
+### ⚠ AND THE REAL FINDING IS MINE, WITH NO 206 IN IT — cleaner than either lane first thought
+
+The planner expressed *"month by month"* as **seventeen `section-index` pages** rather than as one
+page carrying `period-calendar`, which it placed **once**, on the landing page. Those seventeen
+**will build** — `n_sections = 3` on 17 of 17, the identical layout
+`["hero","generic-text-block","content-listing"]`, **zero variation by page role.**
+
+So the site is about to serve seventeen thin index pages where the plan's promise was one
+month-by-month structure. **Nothing fails. Nothing errors. Every page reports success.** The
+structure is expressed as **navigation instead of as content** — and that is this bug's symptom
+sentence exactly, reached from a direction §3 of the bug file never considered. §3 assumed the
+failure was *a page composed of components that cannot express its promise*; this is *a promise
+dissolved across seventeen pages so that no single page has to express it*. Same defect, one level up.

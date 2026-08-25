@@ -62,27 +62,40 @@ echo "  ⚠ pages that never build are bugs_open/206, not this fix (garden-tools
 echo ""
 cat <<'WARN'
 
-⚠⚠⚠ THE MISATTRIBUTION THAT WOULD ACTUALLY COST US — READ BEFORE JUDGING A THIN SITE.
-   [MEASURED 2026-08-25 11:34Z, mint snapshot in evidence/] 17 of this build's 21 pages are
-   page_type=section-index, filed by reconcile_site_plan at handler_agent=page-build-handler.
-   THAT IS THE EXACT ROLE+HANDLER PAIRING THAT NO-OPPED ON garden-tools.uk.
-   page-build-handler has NO ensure_page_section_layout step — that exists only in
-   directory-build-handler's workflow — and the section-index routing fix (efec862f4,
-   09:58:33Z) is NOT in the running pods (v1.0.1337, started 09:27:48Z, 31 min earlier).
-   ⚠ SO IF THIS SITE SERVES ~4 OF 21 PAGES WITH THE MONTH PAGES MISSING, IT WILL READ AS
-     "the planner promised a month-by-month structure and did not deliver it" — which is
-     THIS BUG'S EXACT SYMPTOM SENTENCE, AND IT WOULD NOT BE THIS BUG.
-     It is bugs_open/206 residual class (b) at 17x scale. The tell: check handler_agent and
-     the error string BEFORE concluding anything about composition. The string
-     "page-build-handler no-op: no sections ready to build" is mis-ROUTING, not thin content.
-   Flagged independently by BOTH the loanzy_uk_example_site and bugfix_206 lanes.
+⚠⚠⚠ RETRACTED — AN EARLIER VERSION OF THIS GUIDE WARNED THAT 17 section-index PAGES WOULD
+   NO-OP AND THAT YOU SHOULD "CHECK handler_agent FIRST". BOTH LANES THAT GAVE ME THAT
+   WARNING RETRACTED IT WITH MEASUREMENTS, AND LEAVING IT IN WOULD HAVE BEEN WORSE THAN
+   HAVING NO WARNING: it points away from this bug and hands you a ready-made excuse for a
+   finding that is actually ours. handler_agent=page-build-handler on these pages is CORRECT.
 
-⚠⚠ THE INTERACTION NEITHER LANE PREDICTED: the planner expressed "month by month" as
-   SEVENTEEN section-index pages rather than as one page carrying period-calendar. It placed
-   period-calendar ONCE, on the landing page. So if those 17 no-op, the site ends with the
-   component placed but the calendar STRUCTURE gone — a structural promise satisfied at site
-   level, routing straight into the one page role with no builder. Whether that is a 381
-   concern, a 206 concern or a third thing is an open question, recorded not answered.
+   [MEASURED 2026-08-25 11:40Z, verified independently here] 206's no-op needs a page with NO
+   layout from any source (it dies at ready_count == 0). It builds a page that HAS sections
+   perfectly well. The real predictor is an EMPTY pages.sections, not page_type:
+     homegarden.uk  18 pages at 3 sections, 1 at 4, 1 at 5  -> fine;  ONE at 0 (blog-post)
+     garden-tools   sections=0 -> 5 pages, 0 ever built;  every page WITH sections built
+                    (its one non-deployed page carrying sections is `contact`, status
+                     needs_rebuild — a rebuild state, not a build failure)
+   So exposure here is 1 page in 21, not 17. april-index — the very pairing I was told would
+   fail — is build_status=deployed at /april/index.html.
+
+   THE ONE-QUERY RISK SET, use this rather than a role list:
+     SELECT name, page_type, jsonb_array_length(sections) AS sections_len
+     FROM pages WHERE site_id='<site>' ORDER BY sections_len, name;   -- anything at 0
+
+   KEEP AS A DISCRIMINATOR, unchanged and still right: if you ever DO see
+   "no sections ready to build", that is mis-ROUTING and not thin content. Just do not
+   expect it here.
+
+⚠⚠ AND THE STRUCTURAL FINDING IS OURS — 381, WITH NO 206 IN IT, AND CLEANER THAN EITHER LANE
+   FIRST THOUGHT. The planner expressed "month by month" as SEVENTEEN section-index pages
+   rather than as one page carrying period-calendar, and it placed period-calendar ONCE, on
+   the landing page. Those 17 pages WILL build — every one carries the identical three-section
+   layout ["hero","generic-text-block","content-listing"], n_sections=3 on 17 of 17, zero
+   variation by page role. So the site is about to serve seventeen thin index pages where the
+   plan's promise was one month-by-month structure. NOTHING WILL FAIL. NOTHING WILL ERROR.
+   EVERY PAGE WILL REPORT SUCCESS. The structure is expressed as NAVIGATION instead of as
+   CONTENT — which is this bug's symptom sentence exactly, arrived at from a direction §3 of
+   the bug file did not anticipate. Measure it, do not excuse it.
 
 WARN
 echo "⚠⚠ COMPARISON-TABLE IS UNEXERCISED ON THIS BUILD, NOT FAILED, IF IT DOES NOT APPEAR."
