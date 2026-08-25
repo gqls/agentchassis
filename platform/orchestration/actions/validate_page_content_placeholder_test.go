@@ -253,6 +253,14 @@ func TestNumericStandInReportsOnceCatchesEach(t *testing.T) {
 	if len(got2) != 1 || got2[0] != "N,NNN" {
 		t.Fatalf("want exactly one issue [N,NNN], got %v", got2)
 	}
+	// Stand-ins in TWO different blocks surface in ONE refusal — one issue per
+	// matching block (the approval round's advisory: a break across the block
+	// loop would hide the second until the first was fixed and rebuilt).
+	html3 := `<html><body><p>Tracks NNN+ agent types.</p><h2>Serving NN+ clients</h2></body></html>`
+	got3 := placeholderValues(checkPlaceholderPatterns(html3))
+	if len(got3) != 2 {
+		t.Fatalf("want one issue per matching block (2), got %v", got3)
+	}
 }
 
 func TestPlaceholderScanIgnoresNumericLookalikes(t *testing.T) {

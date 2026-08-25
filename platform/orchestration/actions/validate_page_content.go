@@ -1006,10 +1006,12 @@ func checkPlaceholderPatterns(html string) []ValidationIssue {
 	}
 
 	// Shape-based stand-ins, over the same prose blocks. Original case, not the
-	// lowered copy — case is the signal (see numericStandInRegex). One issue
-	// per scan, first matching block wins — same first-hit-reports semantics
-	// as the substring list above; the count is a detection, not a volume
-	// measurement (the recorded "blocker COUNT is a regex cap" landmine).
+	// lowered copy — case is the signal (see numericStandInRegex). ONE issue
+	// per matching BLOCK (first match within a block wins), every block
+	// scanned — so a page carrying stand-ins in two blocks surfaces both in a
+	// single refusal instead of one per build cycle (the approval round's
+	// advisory objection). Still a detection, not a volume measurement (the
+	// recorded "blocker COUNT is a regex cap" landmine).
 	for _, block := range blocks {
 		if loc := numericStandInRegex.FindStringIndex(block); loc != nil {
 			matched := block[loc[0]:loc[1]]
@@ -1021,7 +1023,6 @@ func checkPlaceholderPatterns(html string) []ValidationIssue {
 				Value:       matched,
 				Description: fmt.Sprintf("Found placeholder text '%s' (%s)", matched, numericStandInLabel),
 			})
-			break
 		}
 	}
 	return issues
