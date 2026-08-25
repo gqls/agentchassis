@@ -114,8 +114,7 @@ Three `offer-analysis` rows created **2026-08-24 22:08:39Z, three hours after th
 `0ad313f02` + round-2 revision `fb2bd056d`, corr `70a1e557` APPROVED round 2 (round 1 REVISE: the
 guardian's HIGH drew the 30-day census — 22/579 would-be-branded, the brake's design class — and the
 owner's explicit full-routing sign-off; bug_historian's MEDIUM added the durable per-page
-`owned_page_review` record on every escalation skip, then flipped to approve). Go changes, so INERT
-until the next chassis roll — TRUE AS OF 2026-08-25 19:2xZ, and a claim that expires silently: RE-ESTABLISH before believing it with `kubectl -n ai-persona-system exec <chassis-pod> -- grep -ac "skipped_owned_page" /proc/1/exe` (0 = still inert; >0 = the roll happened and the RUNBOOK's post-roll verification is now due, not premature).** Four guards mutation-proven (NOTES,
+`owned_page_review` record on every escalation skip, then flipped to approve). **LIVE AT THE ARTEFACT since the 2026-08-25 19:07Z roll** — both replicas probed ~19:4xZ: `skipped_owned_page` ×2 and `routed via the work-item seam` ×1 present in `/proc/1/exe`, door control present, must-be-absent control 0. **Behavioural verification is still OWED, because demand has been ZERO on both paths since the roll** (0 audit filings on owned pages; 0 escalation attempts — both log literals at 0 in both pods' logs), and the RUNBOOK's own rule stands: a zero is only a pass with a demand control. Re-run the RUNBOOK §"Verifying the residual fixes" queries once either denominator is non-zero.** Four guards mutation-proven (NOTES,
 2026-08-25 later entry); post-roll verification queries with their demand controls are in the RUNBOOK
 ("Verifying the residual fixes"). Ruling 3 needs no code. WII-028's raw-writer census updated 9→8.
 

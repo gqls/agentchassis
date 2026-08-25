@@ -525,3 +525,17 @@ Side-finding: the killed run's tree was cleaned by the script's trap, but **five
 `kill -0` liveness guard on the PID-named dir. `scratch-report.py --reap` itself freed 3.8 GB, most of
 it stale `go-build` dirs in `/tmp` — RAM. Tooling gap worth a line in OPP-005/008: a PID-liveness
 sweep of `head-verify/` at script start, or the reaper learning that directory's naming contract.
+
+## 2026-08-25 ~19:5xZ — THE ROLL CONTAINED BOTH FIXES; behavioural half awaits demand
+
+Chassis pods restarted 19:07:18Z/19:07:49Z. Probed at the artefact, BOTH replicas, controls in the
+same breath: `skipped_owned_page` ×2, `routed via the work-item seam` ×1, `DISABLE_OWNED_PAGE_DOOR_DEMOTION`
+present (door survived the roll — 2 rows parked since), `OWNED_DOOR_XYZZY_ABSENT` 0. The provenance
+stamp was NOT recoverable (startup line rotated out of both pods' logs; known-sha probes over 4+19
+candidates found no match before the exec budget ran out — the capability probe carries the verdict,
+per the estate's own rule: probe the CAPABILITY, not the commit). Post-roll queries: audit-on-owned
+filings **0 of 0** (demand zero), escalation refusals **0** with **0** `skipped_owned_page` log lines
+(demand zero). **So: shipped and live is PROVEN; working-on-live-demand is NOT YET CLAIMABLE** — both
+zeros are uninformative until a denominator moves. What closes 333: the first non-zero denominator on
+each path with the numerator behaving (audit finding on an owned page → parked not wont_fix; owned-page
+escalation attempt → skipped_owned_page logged, no needs_page minted).
