@@ -142,3 +142,29 @@ under suspicion here, so do not verify with it.**
 > the stored-content census (`bugfix_387_deployed_and_404/RUNBOOK_387.md`), re-runnable in one
 > query. Guarding those paths at write time is a separate piece of work on seams other lanes own
 > (260/093 lineage), deliberately NOT smuggled into this fix.
+
+---
+
+> **CLOSED 2026-08-25 ~19:3xZ — fixed AND live, re-scoped (session `bugs_open/387`).**
+> The bug that closed is the re-scoped one (the public `NNN+` stand-in; the 404 headline was
+> refuted the same day, see the CORRECTED block):
+> - **Source fix live + proven:** migration 611 applied 11:20Z; all three pages regenerated
+>   through it (12:41Z, 18:31Z, 18:36Z) with honest floors; fleet census after: **0** stand-ins
+>   in any page_component (rendered_html OR content_data, no page filter), **0** in chrome,
+>   **0** on the served page.
+> - **Detector live:** `checkPlaceholderPatterns` numeric stand-in blocker (council APPROVED r4,
+>   trail `6cfaa8f0`) — verified on `v1.0.1339` (rolled 19:07Z) at BOTH replicas by binary probe:
+>   `grep -ac "numeric stand-in placeholder" /proc/1/exe` = 1 (was 0 pre-roll, same pods), positive
+>   control 2, absent control 0. ⚠ probed at the binary, not `service_binary_capabilities`, which
+>   was measured STALE for this roll by the 364 lane.
+> - **Carry live:** `writer_block_guidance` (CLM-029, APPROVED r2, trail `0de22385`) — same probe
+>   pair, both replicas, 1/1. Adoption (managed mode on aiao) remains the site lane's call and
+>   retires 611's interim wording.
+> - **One dated check outstanding, deliberately surviving the close:** 2026-08-26 ~09:06Z, confirm
+>   the 611 block survives the daily evidence-refresher pass (query + expected result in
+>   `docs/agent_docs/docs024_key_docs_latest/bugfix_387_deployed_and_404/NOTES_387.md`). Backstop
+>   either way: the now-live detector refuses a resurrected stand-in instead of publishing it.
+> - **Post-roll disposition rule for the tracker pages** (their hero/CTA are newly scanned since
+>   `v1.0.1339` — Phase 2 of the now-closed `bugs_closed/364`): an `unregistered_number` refusal
+>   is the 364 class (tell that lane first); a `placeholder_text` with a stand-in Value is this
+>   detector working. NOTES carries the full rule.
