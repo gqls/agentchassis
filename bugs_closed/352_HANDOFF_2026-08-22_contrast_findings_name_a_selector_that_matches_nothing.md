@@ -26,9 +26,13 @@
 > | legacy rows | migration **587** applied by hand 2026-08-24 19:11:22 UTC, `UPDATE 73` — withdrawn, **not** resolved |
 >
 > ⚠ **One dated check is still owed and is NOT a reason to reopen this file: from 2026-08-28**, any of
-> the 13 sites whose rows 587 withdrew that has been re-audited and has a visible contrast fault with
-> no re-filed `contrast_failure` is a defect in 587's promise. All 13 are due by ~2026-08-27 21:30 UTC
-> (the rotation window is **3 days**). Query and context: the lane's `HANDOFF_2026-08-25_continue_here.md` §4(2).
+> the 13 sites whose rows 587 withdrew **that has been re-audited** and has a visible contrast fault
+> with no re-filed `contrast_failure` is a defect in 587's promise. The rotation window is **3 days**.
+> ⚠ **"All 13 by ~2026-08-27 21:30" is a FLOOR, not a schedule** — a newly created site has no
+> `site_discovery_rotation` row, so `NULLS FIRST` puts it at the **front** of the queue, and three
+> arrived on 2026-08-25 alone. **On the day, re-read the rotation and check which of the 13 were
+> actually swept**; as of 2026-08-25 19:13 UTC it was **0 of 13**, so the 0-of-56 non-return means
+> nothing yet. Queries and context: the lane's `HANDOFF_2026-08-25_continue_here.md` §4(2) and §5.
 >
 > ⚠ **The permanently-quotable damage figure is 111** [MEASURED 2026-08-25 09:40 UTC] — `complete`
 > rows carrying an invented selector, i.e. repairs recorded that could never have applied. 587 never
