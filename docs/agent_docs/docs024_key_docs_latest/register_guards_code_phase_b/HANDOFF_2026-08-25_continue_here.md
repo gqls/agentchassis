@@ -24,6 +24,27 @@ for s in "AMBIGUOUS, NOT PROPOSED" "cannot tell which one the tool uses" \
 done   # first two >0, third =5 (control), fourth =0 (control)
 ```
 
+## Open with another lane (agritec_uk) — reviewed 2026-08-25, three findings returned
+
+They built `tool-sfi26-revenue-stacker` as a real tool page with a tool-level component (which is
+what makes both the suggester's population predicate AND `subject_key` addressing reach it), wrote
+four contextual `artifact_check` entries, and de-duplicated the pair the suggester exposed
+(105 → 104 facts). Reviewed against their live rows:
+
+1. **The fence is NOT live.** Zero `artifact_check` on every version of their register, so it never
+   landed rather than landing and being clobbered — their migration is written, not applied. Told.
+2. **Two of four patterns under-anchored**: `rate:224` matches `rate:2240`, `rate:129` matches
+   `rate:1290`; the other two use `\b` correctly. **Their mutation test could not have caught it**
+   — they mutated the PATTERN, where the failure mode is a mutation of the ARTEFACT. Their register
+   already carries four-digit rates (1920, 1072), so it is not hypothetical.
+3. `ATT-sfi26-CHRW2` carries **no value and no unit** where every sibling has both — one of the two
+   figures their tool had wrong.
+
+**Their nine value-sharing pairs changed this lane's documentation** (see §5c and the register
+landmine): on a rate-table site shared values are normal, so the suggester is quiet by
+construction there. Answered their question precisely: `artifact_check` produces `facts` entries,
+NOT emissions, so it does **not** feed Phase 3a — only a PLAN-fence `facts` declaration does.
+
 ## What is PROVEN, and how (do not re-derive)
 
 | claim | evidence |
