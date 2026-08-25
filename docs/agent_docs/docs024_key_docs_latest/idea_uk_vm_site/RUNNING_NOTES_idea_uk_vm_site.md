@@ -5691,3 +5691,9 @@ his queue.
   the peer messaged to say so. Nothing lost, nothing to chase (forward-only). Commits of this
   session: `5cd1d3d87` (lane task), `b8f9ddf54` (300 CONTRIB); the third, for the two fleet
   files, was a no-op because they were already clean.
+- **§3's `[UNVERIFIED]` on goto links: ANSWERED 16:45Z — they ARE served.** 3 of idea.uk's 6
+  served items link `https://www.google.com/goto?url=CAES…`; mortgagecalculator.co.uk serves 1;
+  fundamentallyai/relojistas 0 today. Mechanism located to the ScrapingBee Google-news provider
+  (no `goto` handling anywhere in the tree) and **filed as `bugs_open/400`** with the first-hand
+  substitute declared — the ingester lane's to fix, not ours. Also: dedup keys on `source_url`,
+  so goto + direct forms of one story can double-list (in the bug file).
