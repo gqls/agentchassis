@@ -49,6 +49,11 @@ PSQL = ["kubectl", "-n", "ai-persona-system", "exec", "-i", "postgres-clients-0"
 
 APPLY = "--apply" in sys.argv
 ONLY = None
+# --body-out DIR: on a dry run, write each generated body there so it can be
+# diffed against the live doc_plans row before anything is written.
+BODY_OUT = (sys.argv[sys.argv.index("--body-out") + 1]
+            if "--body-out" in sys.argv else None)
+
 if "--only" in sys.argv:
     ONLY = sys.argv[sys.argv.index("--only") + 1]
 
@@ -164,7 +169,7 @@ for fn in sorted(os.listdir(CRIT)):
     # consumer credit and tax. With this flag the failure escalates as
     # `acceptance_stuck` at `needs_human_review` and no improve_tool item is
     # created (platform/orchestration/actions/tool_acceptance_actions.go:850-930).
-    fence = json.dumps({
+    fence_doc = {
         "profiles": ["desktop", "mobile"],
         "no_auto_fix": True,
         "no_auto_fix_reason": (
@@ -173,8 +178,32 @@ for fn in sorted(os.listdir(CRIT)):
             "and the only way an automated rewriter could make it pass is by "
             "changing the numbers. A human decides what may change. See "
             "bugs_open/224 and bugs_open/225."),
-        "checks": checks,
-    }, indent=2, ensure_ascii=False)
+    }
+
+    # Fence-level `facts` (CLM-022, Piece 2 of PLAN_2026-08-09): the ids of the
+    # evidence-register facts THIS tool encodes, so the daily evidence sweep can
+    # name this calculator the day one of them moves. Ids only, NEVER values —
+    # the register holds the value, and a copy here is a second thing to drift.
+    #
+    # IT HAS TO BE ASSEMBLED HERE, and that is the whole point of this block.
+    # `--apply` below does an unconditional supersede-and-INSERT of a body
+    # rebuilt from scratch out of the criteria JSON, so a `facts` key added to
+    # the doc_plans row by hand is DELETED the next time anyone runs this
+    # script — clean exit, no error, and the fence silently declares nothing
+    # again. Declared from the criteria file, it survives every future run.
+    # (Found 2026-08-25 by bugs_open/288 after its own CONTRIB told this lane to
+    # paste the fragment into the row; that advice was wrong and is corrected in
+    # CONTRIB_2026-08-25_from_288_your_stamp_duty_tool_has_7_bindings_waiting.md.)
+    #
+    # A fence with no `facts` key is the unchanged, correct shape — this is
+    # additive, and a criteria file that declares nothing still installs exactly
+    # as it did before.
+    if doc.get("facts"):
+        fence_doc["facts"] = doc["facts"]
+
+    # `checks` last, so the fence reads declaration-then-assertions.
+    fence_doc["checks"] = checks
+    fence = json.dumps(fence_doc, indent=2, ensure_ascii=False)
 
     body = f"""# PLAN — {key}
 
@@ -205,7 +234,16 @@ profiles can exceed.
     print("%-8s %-30s -> %-34s %2d check(s), %2d assertion(s)%s"
           % ("INSTALL" if APPLY else "would", slug, key, len(checks), n_assert,
              (", %d container assertion(s) dropped" % dropped if dropped else "")
-             + (", %d reload(s) added" % reloaded if reloaded else "")))
+             + (", %d reload(s) added" % reloaded if reloaded else "")
+             + (", declares %d fact(s)" % len(doc["facts"]) if doc.get("facts") else "")))
+
+    # On a dry run, leave the body where it can be DIFFED against the live row.
+    # A summary line cannot show that the regenerated body is otherwise
+    # identical, and "otherwise identical" is the only thing that makes --apply
+    # safe on a fence somebody else wrote.
+    if not APPLY and BODY_OUT:
+        with open(os.path.join(BODY_OUT, "%s.body.md" % slug), "w") as fh:
+            fh.write(body)
 
     if APPLY:
         sql = f"""BEGIN;

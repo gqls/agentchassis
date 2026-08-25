@@ -96,5 +96,20 @@
       ],
       "type": "computed_values"
     }
+  ],
+  "facts": [
+    "sdlt-additional-surcharge",
+    "sdlt-additional-surcharge-floor",
+    "sdlt-ftb-nil-band-upper",
+    "sdlt-ftb-rate-300k-500k",
+    "sdlt-ftb-relief-cap",
+    "sdlt-standard-band-1500k-upper",
+    "sdlt-standard-band-250k-upper",
+    "sdlt-standard-band-925k-upper",
+    "sdlt-standard-nil-band-upper",
+    "sdlt-standard-rate-125k-250k",
+    "sdlt-standard-rate-250k-925k",
+    "sdlt-standard-rate-925k-1500k",
+    "sdlt-standard-top-rate"
   ]
 }
