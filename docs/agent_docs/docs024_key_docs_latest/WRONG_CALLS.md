@@ -51749,3 +51749,103 @@ did not, and four of the six were already in a file the author had open.
 instead of content, a status instead of an artefact, a clock instead of a timestamp. In every case
 **the real thing was cheap to fetch.** The proxy is not wrong because it is a proxy; it is wrong
 because reaching for it *feels like measuring*.
+
+---
+
+## 2026-08-25 — `site_ai_agent_orchestration`: I wrote an EXEMPLAR into a prompt and it shipped to the public as copy
+
+**The claim that was wrong.** Migration `557` (mine, 2026-08-22) rewrote
+ai-agent-orchestration.com's `evidence_base.writer_block` so it carried no literal counts. In place
+of a number it told the writer:
+
+> *"take the live value from the `aao-agent-definitions` fact. Phrase it as **"NNN+ AI agents"** or
+> "NNN+ agents in the registry"…"*
+
+I believed this was strictly safer than the stale literal it replaced. **It was worse, and it
+reached the public.** Live on `model-directory.html`, curled 2026-08-25:
+*"…against the **NNN+** agent types already running in production…"*
+
+**What I got wrong, precisely.** Two errors compounding, and only the first is obvious:
+
+1. **`NNN` is a stand-in with no substitution machinery behind it.** Nothing in the pipeline
+   replaces it. I wrote it the way a human reads a style guide — as "put the number here" — into a
+   document whose reader is an LLM that copies what it is shown.
+2. **I told the writer to read a list it is never given.** On the unscoped path the writer's prompt
+   contains `writer_block` and **not** the facts values. Measured by the `bugs_open/387` session:
+   **137** instructed writer calls since 08-22, **14** copied `NNN` verbatim, **0** wrote the
+   value. Before 08-22, zero `NNN` in any writer response, ever. So for three days the
+   owner-ruled lower bound was effectively **unstated** on the site, and a placeholder shipped
+   about one rebuild in ten.
+
+**What caught it.** Not me. The `bugs_open/387` session, which came at this site for an unrelated
+reason (a "deployed and 404" report that turned out to be refuted), noticed the placeholder in live
+copy and traced it to my migration. **I had re-read `557` several times and verified it at the
+artefact — but I verified the thing I had changed (the block no longer carried a stale number) and
+never asked what the writer would DO with the replacement.**
+
+**The cheap check that would have caught it.** One query, and it was available the same day:
+
+```sql
+-- what does the writer actually RECEIVE? not what did I write.
+SELECT prompt FROM llm_call_log WHERE agent_type='page-content-writer' ORDER BY created_at DESC LIMIT 1;
+```
+
+If I had looked, I would have seen `writer_block` present and the facts list absent, which refutes
+"take the live value from the fact" in one read. **I had verified the SOURCE and never the
+DELIVERY.**
+
+⚠ **The transferable shape, and it is not "don't use placeholders".** It is:
+
+> **Prose you write into a prompt is not documentation, it is INPUT.** A style guide addressed to a
+> human tolerates "NNN" and "e.g." and "take the value from X", because a human resolves them
+> against context they already have. A generative reader has only the bytes in the prompt. **Every
+> instruction that refers to something outside the prompt is a dangling pointer, and the model's
+> failure mode is to render the pointer rather than to notice it is dangling.**
+
+Same family as the entry above about **structural proxies one join away**: I reasoned about the
+instruction I had written instead of the input the writer would receive, and the real thing —
+`llm_call_log` — was one query away.
+
+**A second, smaller wrong call in the same file, found today by censusing rather than by report.**
+The `387` CONTRIB named **two** `writer_line`s carrying a frozen date beside a live `{value}`. I
+censused all seven and found **three** — `aao-orchestrations` too — plus a defect class they had not
+named: two writer_lines that would publish figures `writer_block` explicitly forbids ("DO NOT state
+an exact daily figure"; "DO NOT state a figure"). **Taking the report at its stated scope would
+have left three of the five defects in place.** Fixed in migration `613`.
+
+### 2026-08-25, addendum to the six — a SEVENTH, and it is the one that would have been published as a triumph
+
+I wrote *"the calendar SHIPPED — twelve months, on a served page"* into a bug file, and told the
+owner the same. **`homegarden.uk` is a PARKED DOMAIN.** DNS has never been cut over; every path
+returns HTTP 200 from a registrar stub that redirects to `/lander`.
+
+Caught by the `loanzy_uk_example_site` lane. **Verified here with the control that decides it:** an
+invented path — `/this-cannot-possibly-exist-<random>.html` — returns **200**.
+
+**Why this one is worse than the other six.** I had already decided, correctly and for good reasons,
+that `build_status` was unsound and that the honest completion measure was **an HTTP fetch of every
+page**. That reasoning was right. Applied here it would have reported **21 of 21 pages at HTTP 200**
+— a *perfect* result, with **zero** pages reaching a reader — and it would have carried the
+authority of *"verified at the artefact, not at a status column"*. **A better instrument, pointed at
+a domain that defeats it, produces a more confident wrong answer than the crude one it replaced.**
+
+⚠ **And my own control failed too, which is the part I would have missed alone.** I compared the two
+fetched bodies for byte-equality, reasoning that identical bodies meant a stub. They differed — the
+stub embeds a random cache-buster — so my test said *"DIFFERENT, real pages"*. **The sound test is
+not equality; it is whether a URL that cannot exist returns 200.** A control can be defeated by
+something as small as a randomised counter.
+
+**The check, and it is one line before any HTTP census:**
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' "https://<domain>/this-cannot-possibly-exist-$RANDOM.html"
+# 200 => the domain is parked or catch-all. ABANDON the census; it can only flatter.
+```
+This is already in `LANDMINES.md` ("a parked domain 200s EVERY path") and in the memory index, and
+**both of us walked past it** — they by building a harness with no invented-URL control, me by
+planning to use it. **Knowing a landmine exists is not the same as having it wired into the
+instrument**, which is the same lesson as #1 in the table above, arriving from the other end.
+
+**What survives, undamaged:** every claim in this lane's §11 is about `page_components.rendered_html`
+and `llm_call_log` — the stored artefact and the model's own record. **Parking does not touch the
+database, and this fix is a planner and writer change, both upstream of deployment.** The result is
+intact; only the word "served" was false.
