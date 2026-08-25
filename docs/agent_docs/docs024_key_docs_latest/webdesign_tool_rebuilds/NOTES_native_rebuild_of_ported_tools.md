@@ -3357,3 +3357,17 @@ designed — that lane proved it live on 08-25 — and the parked row's own `wha
 route that does work on an owned page (a `section_edit` at `section-editor`, measured 44 complete /
 1 failed as of 08-24). Whether to drive 15 of those by hand is 333's call and the owner's, not this
 lane's to fire at eight articles unasked; relayed to [ac1f33] at 15:00Z.
+
+## 2026-08-25 ~16:00Z — relay to 333 done; two lane-relevant lessons from the grind session's crosslink audit kept here
+
+Relayed the grind session's tool_crosslink findings to the live `bugs_open/333` session (their door,
+their disposition): 0-complete-ever population, mode-not-rate evidence for the door, the 15 parked
+rows offered as a dated demand case. Two pieces belong in THIS lane's record:
+1. **CORRECTION adopted: `deferred` is a TERMINUS with advice, not a gate.** The grind session filed
+   eight tools believing mentions were landing; the row's own `what_to_do` names the route that DOES
+   work on owned pages (`section_edit` via section-editor: 44 complete / 1 failed as of 08-24).
+   Anywhere this lane's docs imply parked = queued, read it as parked = ends-here-unless-a-human-routes.
+2. **Owned-page verify trap: DATE THE SLOT before name-matching.** All three checked articles already
+   carried a hand-authored CTA to their tool from the PORTED copy (slot written 08-15, ten days
+   before the finding) — a name-match proves nothing unless `page_components.updated_at` postdates
+   the finding. Same family as the stale-page/canary rules; now stated for owned pages specifically.
