@@ -276,3 +276,109 @@ WHERE o->>'severity' IN ('high','medium') ORDER BY 2,1;
 > ⚠ The verdict note's "reviewers' checks, answered" block is worth reading even when you
 > disagree with the objections — this lane's round-1 checks returned a population **8× larger**
 > than its own census and that discrepancy led to the actual bug.
+
+## 7. Prove the fix at the MINT — the closure query, corrected 2026-08-25
+
+**The version in `HANDOFF_2026-08-24` can be passed by a page a human repaired.** `handler_agent`
+is a mutable column and re-pointing a parked row is the documented operator escape hatch, so
+`created_by='reconcile_site_plan' AND handler_agent='directory-build-handler'` matches both a row
+the fix minted and a row somebody fixed by hand. `[MEASURED 2026-08-25]` all **three** rows in
+existence that match it, live `UNION` archive, all history, are hand re-routes.
+
+**Use the mint fingerprint as the GATE.** The fixed emit stamps `page_type` into `spec`; the old
+one did not; and an `UPDATE` of `handler_agent` cannot add a spec key.
+
+```sql
+-- PASS requires BOTH: the fixed code minted this row, AND it routed correctly.
+SELECT s.domain,
+       swi.spec->>'page_name'                        AS page,
+       COALESCE(p.page_type, swi.spec->>'page_role') AS page_type,
+       swi.item_type,
+       COALESCE(NULLIF(swi.handler_agent,''),'(empty)') AS handler,
+       swi.status,
+       CASE
+         WHEN COALESCE(p.page_type, swi.spec->>'page_role') IN ('entity-directory','section-index')
+              AND swi.handler_agent='directory-build-handler' THEN 'PASS'
+         WHEN COALESCE(p.page_type, swi.spec->>'page_role')='entity-page'
+              AND swi.item_type='capability_gap' AND COALESCE(swi.handler_agent,'')='' THEN 'PASS'
+         WHEN COALESCE(p.page_type, swi.spec->>'page_role') IN ('entity-directory','entity-page','section-index')
+           THEN 'FAIL'
+         ELSE 'n/a'
+       END AS verdict
+FROM site_work_items swi
+JOIN sites s ON s.id = swi.site_id
+LEFT JOIN pages p ON p.site_id = swi.site_id AND p.name = swi.spec->>'page_name'
+WHERE swi.created_by = 'reconcile_site_plan'
+  AND swi.spec ? 'page_type'          -- ← THE GATE. Without this the query cannot tell a
+                                      --   mint from a hand repair. Do not drop it.
+  AND swi.created_at > '<the build start>'
+ORDER BY verdict DESC, page;
+```
+
+Two gotchas attached, both learned the hard way:
+
+- **`section-index` is now a PASS case** (it routes to `directory-build-handler` since
+  2026-08-25). The 08-24 version of this query listed it as expected-to-stay-parked. It is not,
+  except where §7a bites.
+- **Keep the un-gated version for detecting FAIL.** The stamp is absent exactly when the fix did
+  not mint the row, so gating on it hides the failures. Run the gated query to confirm success and
+  the un-gated one (join `pages.page_type`, read `handler_agent`) to find damage. Two questions,
+  two instruments.
+
+**Sanity-check the fingerprint's population is still empty before you trust a first PASS:**
+
+```sql
+WITH allrows AS (SELECT created_by,spec FROM site_work_items
+  UNION ALL SELECT created_by,spec FROM site_work_items_archive)
+SELECT (spec ? 'page_type') AS stamped, count(*) FROM allrows
+WHERE created_by='reconcile_site_plan' GROUP BY 1;
+-- [MEASURED 2026-08-25] f | 508 ... and no `t` row at all. The first `t` is necessarily the fix.
+```
+
+### 7a. Why a parked page may STILL not move: the `unresolved` gap
+
+`loadOpenPageItems` (`reconcile_site_plan_action.go:713`) treats `unresolved` as **open**, so
+reconcile skips the page as "already queued" and the new routing never reaches it — while
+`idx_swi_dedup` does **not** cover `unresolved`, and both claim gates filter
+`status IN ('triaged','approved')`, so the row is undispatchable too. Nothing frees it.
+`[MEASURED 2026-08-25]` one live instance: `adversecreditmortgage.co.uk` `blog-index`.
+Check before concluding a routing fix failed:
+
+```sql
+SELECT item_key, item_type, handler_agent, status, created_at
+FROM site_work_items WHERE site_id=(SELECT id FROM sites WHERE domain='<domain>')
+  AND item_key = 'needs_page:<page>';
+```
+
+## 8. Enumerate every producer of a `needs_page:` item (the "is there another copy?" check)
+
+Three council seats asked this and it is worth having as a command rather than a memory.
+
+```bash
+# every Go site that mints the key
+grep -rn '"needs_page:' --include=*.go platform/ internal/ cmd/ | grep -v _test.go
+# every Go site that names a build handler as a literal (a hardcoded routing answer)
+grep -rn "page-build-handler\|directory-build-handler" --include=*.go platform/ internal/ cmd/ | grep -v _test.go
+```
+
+`[MEASURED 2026-08-25]` **six** minting sites, of which two consult `builderForPageType` and three
+hardcode `page-build-handler` (`rerender_page_sections_action.go:1424`,
+`apply_adoption_plan_action.go:731`, `discovery_checks/check_incomplete_page_group.go:202`).
+**Do not assume a hardcoded handler is a latent 206** — check whether it actually produces the
+signature before filing anything:
+
+```sql
+WITH allrows AS (
+  SELECT site_id,created_by,item_key,status,error FROM site_work_items
+  UNION ALL SELECT site_id,created_by,item_key,status,error FROM site_work_items_archive)
+SELECT a.created_by, p.page_type, a.status, count(*) AS rows,
+       count(*) FILTER (WHERE a.error ILIKE '%no sections ready to build%') AS with_206_signature
+FROM allrows a JOIN pages p ON p.site_id=a.site_id AND p.name = replace(a.item_key,'needs_page:','')
+WHERE a.item_key LIKE 'needs_page:%'
+  AND p.page_type IN ('entity-directory','section-index','entity-page')
+GROUP BY 1,2,3 ORDER BY 5 DESC, 4 DESC;
+```
+
+`[MEASURED 2026-08-25]` the three hardcoding producers: 26 typed-page rows, **0** with the
+signature. ⚠ **The join reads `pages.page_type` as it is NOW**, not as it was at mint — a page can
+be re-typed by hand. That cannot manufacture the zero, but it matters if you recount the totals.
