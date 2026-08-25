@@ -359,3 +359,45 @@ the two once in a live handoff. Worth putting a line in the closing commit messa
 
 Both points are written into the handoff as a closing checklist so you don't have to hold them in
 your head.
+
+---
+
+## 2026-08-25c — your three answers, and one correction to something I implied
+
+**Renamed to 327b.** Done, with `git mv` so the history follows. There was already a precedent —
+`347b` — and 347 turns out to be one of **thirty-six** numbers in this repo naming two unrelated
+bugs, so this is a small instance of a wide problem rather than a one-off tidy-up. I renamed ours
+rather than the other one because this lane is still active to fix the references and the other is
+closed and isn't mine. The number wasn't reassigned — nothing ever held 327b — so this doesn't
+breach the never-renumber rule; the suffix only tells them apart.
+
+I updated the four files that named it by its full filename and deliberately left the sixty-six
+that just cite "bugs_open/327". Those are explanations of why some code looks the way it does, not
+instructions anyone will follow, and a search for "327" still finds it.
+
+**Yes — you can call the publisher onto the council whenever you want it.** `FORCE=1` overrides the
+scope refusal for a single submission. So the publisher doesn't need to be permanently in scope to
+be reviewable; it can go to the council the day there's a reason to. That's the better arrangement
+than widening the rules, because a widening taxes every future change in that directory, whereas
+this costs exactly one round on the day you choose.
+
+**On what we're saving — I should correct something I implied.** I'd left the impression it was
+mainly about time. It isn't.
+
+It's **mostly credits.** An out-of-scope submission is refused before anything is spent, and even
+an accepted one doesn't pay for all seventeen reviewers — most only wake up if the files you
+touched match what they care about.
+
+Second, and smaller, it protects **a reviewer's usefulness over time**. The argument on record for
+keeping prose out wasn't cost — it was that a reviewer firing constantly on things it can't judge
+becomes one people stop reading.
+
+**Time is barely a factor**: a round averages about nine minutes.
+
+And your other guess — too many members arguing — **isn't how it works**, which is worth saying
+plainly because it's a reasonable thing to assume. Reviewers who aren't relevant don't take part
+at all, so an extra submission doesn't add voices to a debate. More seats firing means wider
+coverage, not more argument.
+
+**Decision 3: waiting, as agreed**, with the trigger written down so nobody reopens it without
+one — a message observed lost *through* the new publisher.
