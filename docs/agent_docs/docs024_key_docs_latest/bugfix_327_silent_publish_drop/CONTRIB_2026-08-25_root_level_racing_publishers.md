@@ -96,7 +96,24 @@ The clean is a real clean.
 - `082_submit_domain_unified.sh` **at the repo root** — last touched 2026-07-30, **still racing**,
   tracked in git. The two share history to `95639d4f6` and diverge only by this lane's fix.
 
-`[MEASURED 2026-08-25]` **eight documents** give the invocation as `./082_submit_domain_unified.sh`
+> **CORRECTED 2026-08-25, hours later, when the landmine verifier came back UNVERIFIABLE and I
+> hand-checked my own entry: the number below is wrong. It is SEVEN, not eight.** My original
+> pattern was `"^082_submit_domain_unified.sh\|\./082_submit_domain_unified.sh"`, and the
+> line-start alternative matched `ai_site_selling_automation/HANDOFF_2026-08-10_start_here.md`,
+> which names the script in prose as a pipeline step and gives no invocation. Seven documents give
+> the runnable `./` shorthand; **94** name the file in some form. The substance is unchanged — the
+> shorthand resolved to the broken copy and now fails outright — but the figure was repeated into
+> `LANDMINES.md`, `WRONG_CALLS.md`, three commit messages and the owner's log before anything
+> checked it.
+>
+> **And the re-count itself walked into this lane's signature trap.** A plain `grep -rln
+> "\./082_submit_domain_unified\.sh" --include="*.md"` now returns **9**, because two of the
+> matches are files *I wrote today* — this one and the `LANDMINES` entry. The handoff warned that
+> "in this lane, your own writing about the trap contaminates every grep you build to detect it";
+> that is the fourth occurrence, and the first to land on a verification of my own claim. Exclude
+> your own files by name before counting, exactly as you strip comments.
+
+`[MEASURED 2026-08-25, CORRECTED — see above]` ~~**eight documents**~~ **seven documents** give the invocation as `./082_submit_domain_unified.sh`
 (`webdesign_couk/RUNBOOK_webdesign_couk.md`, `brochure_component_library/MISSION_BRIEF_fundamentallyai_2026-07-20.md`,
 `idea.uk/RUNBOOK_…(25).md` and `running_notes(63).md` plus their `docs014` twins,
 `leopardessconsulting/RUNBOOK.md`). Whether that resolves to the root copy depends on the reader's

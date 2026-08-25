@@ -51987,3 +51987,37 @@ body (agritec, safe), 1 rebuilds and carries `facts` (mcalc, safe), 1 rebuilds a
 4 write unrelated PLAN kinds. **So the population where this bites was exactly one, and I had
 warned it about the wrong thing.** Filed as a landmine (footprint: the installers), because the
 victim of it has no symptom to search on — a clean run, no error, and the key simply gone.
+
+## 2026-08-25 (later) — `bugs_closed/327b` contrib: I wrote a count into five places, and the re-count that caught it was inflated by my own writing
+
+**The claim.** "Eight documents give the invocation as `./082_submit_domain_unified.sh`" — written
+into the contrib file, the `LANDMINES` entry, the `WRONG_CALLS` entry above, three commit messages
+and the owner's log, as the evidence that a stale racing copy of the submit script was reachable.
+
+**What was actually true.** **Seven.** My pattern was
+`"^082_submit_domain_unified.sh\|\./082_submit_domain_unified.sh"`, and the line-start alternative
+matched a document that names the script in prose as a pipeline step and gives no invocation at
+all. I built a two-alternative regex to be thorough and then reported its hits as though every one
+were the same kind of thing. The substance held — the shorthand did resolve to the broken copy —
+but the number was repeated five times before anything checked it.
+
+**What caught it.** The landmine verifier returning **UNVERIFIABLE** (its index is Go-only; every
+footprint in my entry is `.sh`/`.py`/`.txt`), which meant I had to hand-check my own entry. Nothing
+else would have. A verifier that *cannot* check is the reason this was caught — had it been able to
+run, it would have checked the Go claim, which was right, and never looked at the count.
+
+**The second half, and it is the more useful one.** My re-count returned **nine**, not seven — because
+two of the matches were files *I had written that day*: the contrib and the landmine entry. This
+lane's handoff warns in terms that "your own writing about the trap contaminates every grep you
+build to detect it", with three occurrences already tallied. This is the fourth, and the first to
+land on the verification of my own claim rather than on a census. **The habit that fixes it is one
+more clause, alongside stripping comments: exclude your own files by name before counting.**
+
+**The cheap check.** When a regex has alternatives, print the matches grouped by which alternative
+fired before reporting a total — a count over a disjunction is a count of two different claims. And
+`grep -v` your own filenames out of any census run inside the lane that is writing about the thing
+being counted.
+
+**One more, small.** I reached for `comm` to diff the two match sets and it failed with "input is
+not in sorted order" — `sort` and `comm` disagree on collation here, which the fleet memory already
+records as "ask git about git, not `comm`". No conclusion rested on it, but I had already been told.
