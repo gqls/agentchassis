@@ -51215,3 +51215,73 @@ shared extractor exists, using anything else is authoring a third formulation of
 the exact thing the `bugfix_380` handoff §3 flags about `page_visible_text(uuid)`. And when a
 hand-rolled measurement supports the answer you were hoping for, that is the moment to go and get
 the real one, not the moment to stop.
+
+## 2026-08-25 — `bugs_closed/327b` lane: a census sliced by directory prefix reported a queue of ZERO, the arithmetic was right, and the conclusion drawn from it was false
+
+**The claim.** The lane's closing audit recorded `live racing queue: 0` and, on that basis, that
+"the residual is DATA — dormant and historical files — not an open defect." Both the closing
+checklist and the bug file's closing bar rest on it.
+
+**What was actually true.** The arithmetic was correct: `scripts/` really did contain zero racing
+publishers touched within 30 days, and I re-derived exactly that. But the scope table partitions
+the class by directory — `docs/` (out of scope, lane one-offs) and `scripts/` + touched-in-30d
+(the queue) — and **the repo root belongs to neither prefix.** `[MEASURED 2026-08-25]` of 42
+racing publishers touched within 30 days, two sat at the repo root: `run_improvement_sweep_once.sh`
+(last touched 2026-08-04, live work, now migrated) and `082_submit_domain_unified.sh` (a stale twin
+of the very script the bug is named after, still racing). Neither was in the numerator or the
+denominator, so neither was dormant *and* neither was counted.
+
+**Why this is not just a miscount.** A slice that omits a region does not report a smaller number —
+it reports *nothing at all* for that region, and an absence reads as "nothing to report" rather
+than "not looked at". The number went to zero for a true reason and stopped being a measurement of
+the thing it was standing in for.
+
+**What caught it.** Re-deriving the audit instead of quoting it — and then noticing that the
+distribution of my own census had a bucket the scope table had no row for.
+
+**And the near-miss that belongs here more than the finding does.** My first pass filtered the
+census with `grep '^\./scripts/'` and got **0**, which agreed with the audit and would have ended
+the check with a false confirmation. On this machine `grep -rl … .` emits paths **without** the
+`./` prefix, so the anchor matched nothing. The tell was that the same file reported 55 hits for
+`scripts/initial_messages` one command later. **I had built an anchored filter with no control that
+must match, while auditing a lane whose entire lesson is that a measurement answers the question
+you encoded.**
+
+**The cheap check.** Census from the root with no prefix filter and exclude afterwards
+(`… | grep -v '^docs/'`), so an unforeseen region shows up as a row instead of a silence. And any
+anchored path filter gets a positive control before its zero is believed. Landmine appended same
+date; full account in
+`docs024_key_docs_latest/bugfix_327_silent_publish_drop/CONTRIB_2026-08-25_root_level_racing_publishers.md`.
+
+## 2026-08-25 — `bugs_open/333` lane: I characterised three populations from row aggregates, and the two attributions I got wrong were both refuted by reading the file each claim was about
+
+Presenting the door's post-roll residual to the owner, I made three claims in one message. An
+owner-requested adversarial review (a fresh Fable agent, briefed to refute) killed two and shrank one;
+I re-verified every refutation in-lane before accepting it.
+
+**Call 1 — "the 7 `page-rerender` owned-page failures are `bugs_open/384`'s".** False: they are
+`misdirected_cta` findings from `check_misdirected_cta.go`, and 384's own file line 208 explicitly
+disclaims the population ("… a population this change does NOT touch"). I matched on handler + the
+per-branch ruling's topic and never read the rows' `spec.reason` or the lane's doc. **The cheap check:
+before routing rows at a lane, read `spec.reason` on the rows and grep the lane's own doc for the
+population — the lane may have already disclaimed it in writing.** Cost if uncaught: the CTA lane's defect
+mis-filed against a lane that had documented its innocence.
+
+**Call 2 — "13 rows are a bypass class; fix = resolve the page by name at the door".** False twice: the
+producer (`escalateRerenderToWriter`) goes THROUGH the seam — the door stands down because the function
+resolves `pageID` and then omits it from its insert literal — and its rows are born `triaged`, so the
+promoter-side remedy under discussion could never see them. I diagnosed from the rows' shape
+(`page_id IS NULL`) without reading the producer. **The cheap check: `created_by` names the producer; grep
+to the emitting function and read the insert before classifying anything as a seam bypass.** The row's
+shape is a hypothesis about provenance, not evidence of it (the standing lesson, again).
+
+**Call 3 — "53 name-only refusals all-history".** Live-table-only; live+archive is **272 since 08-03** —
+understated ~5× by the rolling-window trap my own lane's register entry documents.
+
+**What generalises:** the two wrong attributions had the same missing move — *the deciding evidence was a
+file I had already been pointed at* (384's doc by the ruling I was citing; the producer by `created_by`),
+and I substituted inference from aggregates. An aggregate names a suspect; only the producer's code and the
+owning lane's own words convict. Also worth keeping: the review that caught these was requested by the
+owner on work I had presented as verified — the morning's claims each carried real queries, and the queries
+were true; **the attributions layered on top of them were not queried at all**, and nothing in my message
+distinguished the two kinds of statement.
