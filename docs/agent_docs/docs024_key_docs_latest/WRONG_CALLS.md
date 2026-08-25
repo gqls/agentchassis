@@ -52501,3 +52501,48 @@ stripping `<style>`/`<script>` — then homegarden scores **0** and the positive
 items, *nav* for month names, *`<style>`* for class names — **every markup measure on this estate is
 counting chrome until you strip the thing that is not content, and it will look like a measurement
 the whole time.** Pair every such count with a page that must score zero.
+
+---
+
+## 2026-08-25 — I counted template chrome as writer output: my census said 140 damaged pages, the honest instrument said 411
+
+**Lane:** `bugs_open/392` (session `bugs_open/387`), pre-plan census. **Caught:** in-session, by
+me, before the plan was written — but only just, and not by the check I should have run.
+
+**Claimed:** 140 of 737 deployed active pages carry no in-body internal links, measured as zero
+`href="/…` in `page_components.rendered_html`. I put that number in front of the owner as the size
+of the problem, and a scope decision was taken on it.
+
+**True:** **411 of 736**, measured on `page_components.content_data` — what the writer actually
+produced. `rendered_html` includes the nav, the hero and the CTA buttons the *template* injects, so
+a page whose writer emitted nothing still reads two or three links. The two instruments disagree by
+a factor of three.
+
+**What caught it** — and it was not a check, it was a shape. The per-page-type split said
+**blog-post 0 of 164**. Every single blog post perfect. That is not a thing a language model does;
+it is what an instrument says when it is measuring the template. On the honest instrument
+blog-posts are 31 of 164.
+
+⚠ **And the honest instrument has its own trap, which I would have walked into next.** In
+`content_data::text` the needle is JSON-escaped — `href=\"`. Written unescaped inside a `LIKE`
+pattern it matches **nothing on any site**, because backslash is `LIKE`'s own escape character. The
+result is a clean, internally consistent **zero everywhere**, which reads as "no page on the estate
+has links" and would have been the third wrong number in one investigation.
+
+⚠ **A third distinction that is not an error but must be stated or the count is meaningless:**
+hero and CTA links live in `content_data` as *structured fields* (`cta_url`, `link_url`,
+`hero_url`) and carry no `href=` at all. An `href=` census therefore measures **prose anchors
+only** — which is the right question for this bug and the wrong one for "does this page link
+anywhere". Whichever you mean, say which.
+
+**The cheap check I skipped:** before trusting any "does this row contain X" census, open **one
+known-positive and one known-negative row and look at where X actually lives.** Thirty seconds. I
+went straight to the aggregate because the aggregate was easy to write.
+
+**This is the THIRD entry in this file today with the same shape** — anchors counted as list items,
+nav counted as month names, `<style>` counted as class usage, and now template links counted as
+writer links. The entry above states the rule; this one is evidence that stating it did not stop
+the next session, because the rule as written is about *markup measures* and mine was a *JSONB
+column*. **The general form: every measurement of "what did the generator produce" that reads a
+COMPOSED artefact is counting the compositor's work too.** Pair it with a population that must
+score zero — for me, that was blog-posts, and it scored zero for the wrong reason.
