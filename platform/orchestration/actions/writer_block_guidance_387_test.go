@@ -16,10 +16,15 @@
 package actions
 
 import (
+	"context"
+	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"strings"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -134,5 +139,56 @@ func TestWriterBlockGuidanceSurvivesRefresherMarshalCycle(t *testing.T) {
 	got := composeWriterBlock(back)
 	if !strings.Contains(got, "NEVER STATE") {
 		t.Fatalf("guidance lost across the refresher's persistence cycle: %q", got)
+	}
+}
+
+// jsonCarrying matches an INSERT argument whose string value contains every
+// needle — the pin the approval round's advisory asked for: the PRODUCTION
+// write function, not a shape-alike marshal in the test.
+type jsonCarrying []string
+
+func (j jsonCarrying) Match(v driver.Value) bool {
+	sv, ok := v.(string)
+	if !ok {
+		return false
+	}
+	for _, needle := range j {
+		if !strings.Contains(sv, needle) {
+			return false
+		}
+	}
+	return true
+}
+
+func TestWriterBlockGuidanceSurvivesWriteRefreshedEvidenceBase(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	rowID := uuid.New()
+	eb := guidanceEB(true, guidanceFact("F1", "{value} live sites in production", 27.0))
+
+	mock.ExpectBegin()
+	mock.ExpectExec("UPDATE site_specs SET is_current = false").
+		WithArgs(rowID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	// The load-bearing assertion: the JSON the PRODUCTION function inserts
+	// carries the guidance key and its text.
+	mock.ExpectExec("INSERT INTO site_specs").
+		WithArgs(siteID, jsonCarrying{`"writer_block_guidance"`, "NEVER STATE"},
+			sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	res := &siteRefreshResult{}
+	if err := writeRefreshedEvidenceBase(context.Background(), db, siteID, rowID,
+		eb, sql.NullBool{}, res, zap.NewNop()); err != nil {
+		t.Fatalf("writeRefreshedEvidenceBase: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("the production write path did not insert the guidance key: %v", err)
 	}
 }
