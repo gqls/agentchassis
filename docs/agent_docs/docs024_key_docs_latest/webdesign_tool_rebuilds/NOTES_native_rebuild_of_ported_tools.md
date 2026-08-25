@@ -3117,3 +3117,22 @@ Phase B rich app builds (mind-map / meme-generator / logic-architect / micro-CMS
 owner-reviewed), whichever session holds THIS seat provides a second pair of eyes on the
 feature-list browser grade. They ping with the specific app and its feature list; the grade is a
 feature list checked in a browser, not a tag count (the owner's standing instruction for Phase B).
+
+## 2026-08-25 10:35Z — #36 `tool-csp-builder` DONE (36 of 63)
+
+Item `61ddfa78` (related_pages: learn-security-cdn-risks + learn-security-xss-vulnerability —
+crosslinks emitted with `related_pages_source='spec'`, confirming the provenance discriminates both
+arms). Ported sighting #16: the page promised a "strict, error-free code string" while
+`resetPolicy()` never reset connect-src — an UNCHECKED service stayed in the policy for the whole
+session (the output lied about the inputs); plus copy without .catch, window global + inline
+onclick, and no weakening warnings. RUN complete/adopted, component `f9de0b3f`; retire `UPDATE 1`
+~1 min post-build (slot `5190c47e` md5 `36710d18…` intact); rerender `24b157ea` complete 10:30:48.
+**COMPONENT by mechanism:** `rebuild()` constructs EVERY directive's sources fresh from the current
+inputs per run (local arrays, no persistent state — the class is unrepresentable);
+`validateToken`/`splitTokens` with per-field error elements; weakening accumulator surfaces
+unsafe-inline/unsafe-eval/wildcards beside the output; copy has the .catch failure state; Google
+Fonts smart-add symmetric. 0·0·0 counts, 4 listeners.
+**SERVE-GRADE PASS:** 200 / 29,219 / LM 10:31:10 > 10:30:48; negatives 0 (outputArea,
+**src="policy-generator.js"**, copyCSP, data-type=); positives = CODE-arm literals (function
+rebuild, validateToken ×2). Tombstone re-read: removed ✓. Orphan #9 (corr 2708dcda-eff4-42d4-a2de-5ef7bb5c810b).
+**Phase C remainder: 3 — fluid-typography, vibe-equalizer(2), micro-cms(4).**

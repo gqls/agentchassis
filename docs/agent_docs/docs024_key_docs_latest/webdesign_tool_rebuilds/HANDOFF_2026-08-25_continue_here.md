@@ -1,8 +1,7 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-25 ~11:15Z. Supersedes `HANDOFF_2026-08-22_continue_here.md`.
 
-**STATE: 35 of 63 rebuilt AND serve-confirmed at the served bytes. Phase A complete (27). Phase C
-is 8 of 12 done; 4 remain: csp-builder (ANALYSED, ready to file — brief material below),
-fluid-typography, vibe-equalizer (2 sidecars), micro-cms (4 sidecars). Then Phase B: 24
+**STATE (updated 10:35Z): 36 of 63 — csp-builder DONE (NOTES 10:35Z; the analysis below executed as written). Phase C 9 of 12; 3 remain: fluid-typography,
+vibe-equalizer (2 sidecars), micro-cms (4 sidecars). Then Phase B: 24
 self-contained ≥8 KB tools (incl. head-architect, reclassified 08-24) with the FIVE rich apps LAST,
 one at a time, owner-reviewed (standing ruling). NOTHING IN FLIGHT — no open add_tool, no pending
 retires, no unwatched rerenders.**
