@@ -52896,3 +52896,61 @@ I proved the change at the one that could not fail on it.
 **The cheap check, skipped.** The lane's own rule, written in its handoff and in the
 writer_block I was editing: model a new figure on `build_duration` (which carries `value`)
 and prove copy with `go run ./cmd/claimscan` before a build. Tally: skipped-claimscan.
+
+## 2026-08-25 — `bugfix_390_cascade_attribution` (session "bug sweep"): I announced a "third failure mode" from the served artefact, and the guard that already covers it was one query away
+
+**The claim.** Working `bugs_open/390`, I found `cv1.co.uk`: its pages link
+`/assets/css/styles.css`, **that URL 404s**, and the offending declaration sits in a page-level
+`<style>` block. I said in chat, in bold, that this was a third independent way a contrast repair
+goes inert — a repair aimed at a stylesheet that is not even served.
+
+**What was true.** The 404 is real. The conclusion was not: those three findings will never reach
+the repair step at all. `cv1.co.uk`'s theme is the shared seed `professional-dark` at **1,649
+bytes**, and migration 542's base-integrity gate refuses unless
+`css_len >= 4096 AND site_count <= 1`. They park at `css_base_integrity_guard_198`. The existing
+guard already covers the case I was presenting as uncovered.
+
+**What caught it.** Running 542's gate condition against the actual `css_themes` row — one query,
+about forty seconds — as a *prediction* of what the agent would do, before asserting what it does.
+I caught it myself, but only after saying it out loud, so it goes here rather than in NOTES alone.
+
+**The cheap check, skipped.** For any claim of the form *"the handler will do X on site S"*, read
+the handler's own gates against S's rows first. The served artefact tells you what the page looks
+like; it cannot tell you which branch the workflow takes, and on this agent three separate refusal
+gates (542 base integrity, `check_has_css`, 546's `check_saved`) sit in front of the step I was
+reasoning about. Tally: skipped-read-the-gate.
+
+**A second, smaller one in the same session, caught before it shipped.** In the same lane's
+migration I wrote a drift guard that counted occurrences by dividing a length difference by a
+hand-typed constant — `/ 219` for a 214-character sentence. It would have reported a fractional
+count, compared it to 1, and passed or failed for a reason unrelated to the text. The constant is
+a second copy of the string's length and drifts from it silently. Replaced with two `position()`
+searches, so the string itself is the only literal. Tally: magic-constant-restates-the-thing.
+
+**And one figure withdrawn rather than corrected.** I labelled `dartsonline.com` and
+`lendzy.co.uk` `[INFERRED]` victims of the theme-erasure mechanism in `bugs_open/396` on the
+strength of "0 patch markers left, and repairs completed". Both have **zero** `needs_design` items
+of any status, so there is no design run to attribute it to. The marker count was real; the cause
+was mine. Withdrawn in the bug file as UNEXPLAINED rather than quietly downgraded. Tally:
+absence-read-as-evidence-for-my-mechanism.
+
+## 2026-08-25 — `site_ai_agent_orchestration` (session "ai-agent-orchestration"): a count carried into a handoff without a query, and a "has not run" inferred from a producer that leaves no row when it finds nothing
+
+**The claims** (this lane's `HANDOFF_2026-08-25_continue_here.md` §5.2, written ~13:42Z): *"The 17
+parked `contrast_failure` items — still `deferred`, untouched since 08-11, because the site's render
+audit has not run here since 08-10."*
+
+**What was true.** **9** deferred — eight had been `cancelled` at 2026-08-24 **19:11Z**, eighteen hours
+earlier, by the `bugs_open/352` TAG.TAG sweep. And the render audit **had** visited:
+`site_discovery_rotation.last_selected_at = 2026-08-24 02:23Z`. The "17" was the 08-22 handoff's figure
+carried forward; the "has not run" was read off `max(created_at)` of `contrast_failure` rows (08-10) —
+but a producer that finds nothing files nothing, so the newest row it wrote dates its last *finding*,
+never its last *run*.
+
+**What caught it.** The next session's cold-start re-query of both tables before acting on the handoff
+(CLAUDE.md: "ground every figure against the live system before repeating it from another doc").
+
+**The cheap checks, both one line.** `SELECT status, count(*) … GROUP BY status` before writing any
+count of work items; and for "has X run", read the thing that records *selection or execution*
+(`site_discovery_rotation`, `scheduled_tasks.last_triggered_at`, `orchestration_states`), never the
+thing that records *findings*. Tally: skipped-requery-of-a-carried-count; inferred-a-run-from-its-output.

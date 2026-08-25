@@ -172,3 +172,123 @@ stale by addition.
   depends on).
 - **Related:** `bugs_open/296` §10.5 (same finding, other end) · `bugs_closed/198` (css-patch-agent's
   persist path; `mark_base_unsafe` is the park shape) · `bugs_closed/352` (arm 1).
+
+---
+
+# APPENDED 2026-08-25 (`bugfix_390_cascade_attribution` lane) — the two [UNMEASURED] items are now measured, §1's worked case is corrected, and commit 1 of 3 is live
+
+Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_390_cascade_attribution/`
+(start at `PLAN_2026-08-25_cascade_attribution.md`; the missteps are in `NOTES_…` and `WRONG_CALLS.md`).
+
+## A. ⚠ CORRECTION — §1's worked case is PARKED, not completed, so it does not demonstrate this bug
+
+`loancash.co.uk` has `style_collection_id IS NULL`. The agent therefore takes
+`check_has_css → mark_no_css` and parks in `needs_human_review` with
+`result->>'parked_by' = 'css_no_theme_198'`. **All 10 of that page's live findings are parked**,
+including the 17:33 UTC row §1 is built on. The four CSS facts in §1 are all correct and I
+reproduced every one of them; what does not follow is "and the item completes".
+
+**The mechanism is real — here is a case that actually shows it.** `vonc.com/index.html`, filed
+`A.gauntlet-btn-primary`, 1.76:1, completed 2026-08-24 10:46:10 with a real verified selector:
+
+| | selector | specificity | where |
+|---|---|---|---|
+| appended by the agent | `A.gauntlet-btn-primary { color:#ffffff }` | **(0,1,1)** | theme, linked at byte 8883 |
+| actually wins | `.gauntlet-cta-section .gauntlet-btn-primary { color: var(--color-primary,#1a1a2e) }` | **(0,2,0)** | page inline `<style>` at byte 22285 |
+
+Loses on class count and on source order. Controls: page 200, invented path 404.
+
+## B. §6 [UNMEASURED] SETTLED — the inline `<style>` is per-PAGE, and the theme can never be reordered to win
+
+It is `page_components.rendered_html`, and `assemblePage`
+(`platform/orchestration/actions/rerender_single_page_action.go:560-720`, sections written at
+`:700`) emits those blocks inside `<main>` — always after the `<link>` in `<head>`, on every page,
+by construction. `getPageSections` concatenates `rendered_html` verbatim and nothing strips or
+relocates a `<style>` block. For a ported page they arrive from
+`cmd/webdesignport/transform.go:404-412`.
+
+**So candidate (2) can only ever win by out-specifying or by `!important`. Source order is not
+available, and no amount of reordering the theme makes it available.**
+
+## C. §5 [UNMEASURED] SETTLED — the blast radius, and which cause dominates
+
+Over `site_work_items` UNION `site_work_items_archive`, excluding arm-1's invented `TAG.TAG`
+selectors [MEASURED 2026-08-25 — date it; this grows by addition]:
+
+- **75 of 151** real-selector (page, selector) pairings that ever reached `complete` were filed
+  **again** afterwards;
+- **97** re-filings carry **byte-identical `fg` AND `bg`** — the repair changed nothing measurable.
+
+At the artefact, the same thing seen as accumulated dead rules: noted.co.uk holds **16** appended
+contrast fixes for **5** distinct selectors, vonc.com 53 for 39, loanzy.uk 62 for 31.
+
+**Which cause dominates** — the question §6 wanted a `090` run for. 40 random completed
+real-selector findings across 7 sites, served page and served theme fetched for each, governing
+`color` declaration located:
+
+| where the winning declaration lives | n / 40 |
+|---|---|
+| page block, **out-specifying** the filed selector | **33** |
+| page block, lower specificity | 6 |
+| **the theme** | **0** |
+| not located (likely `over_image`) | 1 |
+
+Near-uniform shape: filed `(0,1,1)` against page `(0,2,0)`. ⚠ `[MEASURED, static approximation]` —
+a text parse, blind to media queries and cascade layers; good enough to classify a population and
+not good enough to be a contract, which is why commit 2 measures in the browser.
+
+**So the dominant defect is not a weak rule. It is a wrongly-addressed repair**: in 83% of the
+sample the platform sent the fix to a stylesheet that structurally cannot govern the pixel.
+
+## D. What has SHIPPED (commit 1 of 3), and what it does not do
+
+**Migration `616_css_patch_agent_prompt_stops_instructing_the_losing_move.sql` — APPLIED
+2026-08-25 ~16:47 BST, verified at the live row.** Commit `c441b3b8f`,
+`Council-Submitted: ef5f9a0d-48a4-468e-afb4-7b6a06520f7f` (verdict not yet read).
+
+Since migration 318 the prompt has said, verbatim: *"Repeat the offending selector exactly as it
+appears above (or more specifically) so your override wins."* Both halves are false here — the
+offending selector does not appear above (the model is handed `spec.selector`), and equal
+specificity does not win against a later competitor. It now states the source-order truth and
+instructs `!important` on the single corrected property. `!important` is licensed on a **measured**
+premise: page-level colour declarations already carrying it are **0 of 812** across 8 sites — a
+state measurement that expires, so re-run it (lane RUNBOOK §5) before quoting it.
+
+Four guards mutation-proven against the live row in rolled-back transactions.
+
+**It does not** help the ~56% of live inflow that never reaches the prompt (no linked theme →
+`css_no_theme_198`; shared or short theme → 542's base-integrity gate); it does not stop a repair
+being **erased** (§E); and it does not make `complete` mean the text became readable.
+
+## E. A SECOND, INDEPENDENT way the repair goes inert — now `bugs_open/396`
+
+`webdesign-agent`'s `persist_css_to_theme` (migration 543) writes the freshly-rendered CSS into
+`css_themes.css_content` byte-for-byte, deleting every rule appended since the last design run.
+agritec.uk: 5 repairs appended 2026-08-24 20:54–20:55, row rewritten **2026-08-25 12:09:57**, one
+minute before a `needs_design` item completed; 0 markers left, none of the five rules in the
+served stylesheet, **all five items still `complete`**.
+
+⚠ It also makes a live concept-register sentence false (*"that is now fixed at source"*) — a dated
+correction is now beneath it in `styling-render-pipeline.md`, and there is a `LANDMINES.md` entry.
+**Filed separately as `bugs_open/396`, deliberately not folded in here**: 390 is a repair that never
+applies, 396 is a repair that applies and is then deleted.
+
+## F. Owner decisions taken 2026-08-25, so the next reader does not re-open them
+
+1. **Fix the ROUTING before the RECORD.** The completion-gate half — stop `complete` meaning "a
+   rule was written", let only a fresh measurement close a contrast finding — is the right
+   door-closer and is **deferred, not rejected**. Note `contrast_failure` has no verifier by
+   explicit decision (`discovery_checks/verifier_coverage_test.go:216`: verification needs a
+   browser on the completion path), so that half is an async design, not a `GetVerifier` entry.
+2. **Leave the historic rows alone; fix forward only.** No arm-2 equivalent of migration 587. The
+   damage figures in §C stay quotable as evidence rather than being edited away.
+
+## G. Still to come in this lane
+
+- **Commit 2** — cascade attribution in the render-audit probe (which declaration wins, where it
+  lives, its specificity and importance, **verified in-page by remove-and-remeasure** so the
+  walker's blind spots degrade to "unverified" rather than to a confident wrong answer), plus
+  routing and an `override_requirement` in the filer. The `item_key` does not change (VIZ-016).
+- **Commit 3** — the agent consumes the requirement; the one class no stylesheet can reach (an
+  `!important` inline `style=` attribute) parks before any LLM spend. ⚠ Its drift guard must assert
+  **616's** prompt text, not 318's.

@@ -113,3 +113,69 @@ Recorded now so they can be wrong. A prediction written after the run is not a p
 carries it on several properties. P3 fails on a re-filing with byte-identical `fg`/`bg`. P4 fails
 if `unattributed` dominates — which would mean the remove-and-remeasure verification is rejecting
 its own attributions and the probe is blind, not that the pages are unusual.
+
+## 2026-08-25 (h) — migration 616 APPLIED and verified at the live row
+
+Commit `c441b3b8f`, council submission `ef5f9a0d-48a4-468e-afb4-7b6a06520f7f` (trailer is
+`Council-Submitted:`, verdict not yet read — do NOT upgrade that to `Council-Reviewed:` without
+reading it).
+
+Applied 2026-08-25 ~16:47 BST. Live row after apply, read back rather than assumed:
+
+| check | value |
+|---|---|
+| old 318 bullet still present? | position **0** (gone) |
+| source-order correction present? | position 1109 |
+| actionable instruction present? | position 1579 |
+| `"css_added"` output contract intact? | position 2129 |
+| prompt length | 1567 -> **2280** chars |
+| re-apply | raises `390/616: already applied` (loud no-op) |
+
+**Guards mutation-proven against the LIVE row inside rolled-back transactions, before applying** —
+each mutation applied, the shipped guard block run against it, the error observed, the transaction
+rolled back, and the live row re-read to confirm nothing leaked:
+
+- bullet text altered -> `drift: the cascade bullet 318 planted is not present verbatim`
+- bullet duplicated -> `drift: the cascade bullet appears more than once`
+- `"css_added"` renamed after a successful replace -> `verify: the JSON output contract was damaged`
+- `deploy_css.next_step` pointed at a non-existent step -> `verify: 1 workflow edge(s) point at a
+  step that does not exist`
+
+**A guard I wrote and then threw away, because it could not have failed honestly.** The
+occurrence count was originally `(length(p) - length(replace(p, bullet, ''))) / 219` — and the
+bullet is **214** characters. That guard would have compared a fraction to 1 and fired or passed
+for a reason unrelated to the text. The constant was a second copy of the string's length and
+would drift from it silently. Replaced with two `position()` searches so the string itself is the
+only literal. → `WRONG_CALLS.md`.
+
+**P1 status:** unchanged, still awaiting dispatch. **P2/P3** are now live predictions — the next
+`contrast_failure` dispatched on a site that passes 542's gate is the test.
+
+## 2026-08-25 (i) — I withdrew two thirds of my own erasure evidence
+
+Filing `bugs_open/396` (the design run that erases appended repairs), I had written that three
+sites were victims: agritec.uk (5 repairs, 0 markers left) `[MEASURED]`, dartsonline.com (16, 0)
+and lendzy.co.uk (12, 0) `[INFERRED]`.
+
+Checked the inference instead of shipping it. **Both of the inferred two have ZERO `needs_design`
+items of any status** — there is no design run to attribute their loss to:
+
+```
+domain          | repairs_done | design_runs | markers_left
+dartsonline.com |           16 |           0 |            0
+agritec.uk      |            5 |           2 |            0
+lendzy.co.uk    |           12 |           0 |            0
+noted.co.uk     |           37 |           0 |           73
+vonc.com        |           94 |           0 |          111
+loanzy.uk       |           80 |           0 |          129
+```
+
+So the marker counts were real and the CAUSE was mine: I read an absence (no markers) as evidence
+for the mechanism I had just proven elsewhere. Recorded in 396 §4 as **UNEXPLAINED, not refuted**
+— `needs_design` may not be webdesign-agent's only trigger, and the theme row may have been
+re-linked — and whoever takes 396 is told to settle it first, because it is the difference between
+"one owner-instructed palette flip cost five repairs" and "this eats every repair on the fleet".
+
+The general shape, which is the reusable part: **once you have proven a mechanism, every unexplained
+absence starts looking like it.** The discriminating question is not "is this consistent with my
+mechanism" but "what else would produce exactly this, and can I rule it out" — here, one query.
