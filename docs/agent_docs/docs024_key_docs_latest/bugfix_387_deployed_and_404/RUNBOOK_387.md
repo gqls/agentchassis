@@ -76,3 +76,14 @@ Gotcha: a `page_rerender` CANNOT fix this — the defect lives in `content_data`
 kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'  # scrolls! see CLAUDE.md fallback
 # A build that STARTED before the roll ran on the OLD code. orchestration_states.execution_started_at vs the roll time.
 ```
+
+## Before reading ANY aiao rebuild verdict: the rolling counter (from the 364 lane, 2026-08-25)
+```sql
+SELECT f->>'value' FROM site_specs ss, LATERAL jsonb_array_elements(ss.data->'facts') f
+WHERE ss.site_id='2a8ebf9c-20a2-4c39-b191-840b012371da' AND ss.aspect='evidence_base'
+  AND ss.is_current AND f->>'id'='aao-orchestrations';
+-- gte on the single broad term "orchestration"; a ROLLING 24h window that FALLS (17 of 34
+-- transitions; 3 dips below 1,600 while pages publish "over 1,600"). Well above 1,700 => an
+-- unregistered_number refusal is real; dipped => the refusal is the counter, not your change.
+-- Record the value beside the orchestration id in any verification note.
+```
