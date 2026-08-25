@@ -97,10 +97,26 @@ the two accounts agree rather than race.
 `ac7c75c9b`): it states the one-line ask, says we are deliberately not making the edit, and asks
 nothing of them — `375`'s next session adds its own line once the file is free.
 
-⚠ **`go test ./platform/livespec/` FAILS, and it is NOT theirs and NOT yours.**
-`TestNoNewMigrationFileReadersOutsideTheAllowList` fails identically at committed HEAD with no WIP
-overlaid: `work_item_owned_page_door_test.go` (the `bugs_open/333` lane's file) reads a path under
-`sql_for_agents` and is not on the allow-list. A third lane's breakage. Do not debug it.
+~~⚠ **`go test ./platform/livespec/` FAILS, and it is NOT theirs and NOT yours.**
+`TestNoNewMigrationFileReadersOutsideTheAllowList` fails identically at committed HEAD…
+A third lane's breakage. Do not debug it.~~
+
+> **RESOLVED 2026-08-25 16:31Z, and this line was stale within about an hour of being written —
+> which is the point.** The `bugs_open/333` lane fixed it at `559e60bd0`: their door test no longer
+> reads migration 488's file, the frozen path is a Go literal (a checksummed migration cannot
+> change, so the copy cannot go stale), every Go-side assertion kept, and **neither `livespec` file
+> was touched** — they left the allow-list alone precisely because it is `363`'s dirty WIP.
+> **Verified here at committed HEAD rather than taken on their word:**
+> `scripts/verify-head-builds.sh --test ./platform/livespec/ ./platform/orchestration/actions/` →
+> both `ok` at `559e60bd0`. The other breakage (`advisedIdentityPin` in `actions`) is resolved too.
+> **So run those tests normally; a red result now is yours.**
+>
+> ⚠ **The lesson is about this file, not about them.** I spent this session correcting three other
+> people's statements that outlived their truth — a "phase 2 has not shipped" comment, `CQ-023`'s
+> fail-close warning, a landmine footprint naming a deleted symbol — and then wrote one myself that
+> rotted in **under ninety minutes**. A "known broken, do not debug" note is the most perishable
+> thing a handoff can carry and the most confidently obeyed. **Date every one of them, and re-run
+> the check before believing your own file.**
 
 **Check before starting:**
 ```bash
@@ -222,7 +238,10 @@ truth. **None of that makes the bug's own claim false.** Closing on "the mechani
     failure hours earlier and used `--with <my files>` instead, which is the only reason it never
     recurred here. Recorded fleet-wide as the fourth occurrence of the HEAD-vs-tree class in
     `LANDMINES.md` (`c021e52c3`).
-11. **Other lanes broke HEAD twice today** (`TestNoNewMigrationFileReadersOutsideTheAllowList` from
+11. **A "known broken, do not debug" note is the most perishable thing you can write** — mine rotted
+    in under 90 minutes (§3a). Re-run the check before believing this file.
+12. **Other lanes broke HEAD twice on 2026-08-25 — both since FIXED** (`559e60bd0` and the `actions`
+    one); kept as a dated event because the lesson is the habit, not the state: (`TestNoNewMigrationFileReadersOutsideTheAllowList` from
     `bugs_open/333`'s file; `advisedIdentityPin` undefined in `actions`). If a package fails for you,
     check whose it is before debugging. `scripts/verify-head-builds.sh --with <your files>` is how
     this lane tested throughout.
