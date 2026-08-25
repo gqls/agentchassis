@@ -23,21 +23,29 @@ reads are fine). The scripts are written, idempotent, and waiting on the owner.
 **Verified unrun at 2026-08-25: both rows still `lock_type='permanent'`,
 `converted=false`, and no new dispatch items exist.**
 
+**They are IN THE REPO**, at
+`news_editorial_features/pending_sql_instance_scope_acceptance/` — moved there
+2026-08-25 precisely because the first draft of this handoff pointed at a session
+scratchpad, and a scratchpad dies with its session, so that instruction had a
+shelf life of hours. That directory's `README.md` carries the run order, the
+unlocked-window warning and the publish-lag rule; this section is the summary.
+
 ```
-S=/home/ant/.claude-scratch/claude-1000/-home-ant-projects-agentchassis/2e11b666-3bd2-42b9-9c24-5d711a735ddd/scratchpad
-! kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -f - < $S/A_unlock_and_dispatch.sql
-bash $S/verify.sh          # re-run until ALL PASS
-! kubectl ... -f - < $S/B_relock.sql
-bash $S/verify.sh          # confirm the lock came back
-! kubectl ... -f - < $S/C_close_lock_items.sql
+cd docs/agent_docs/docs024_key_docs_latest/news_editorial_features/pending_sql_instance_scope_acceptance
+PSQL="kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db"
+
+! $PSQL -f - < A_unlock_and_dispatch.sql   # unlocks BOTH rows + re-dispatches
+./verify.sh                                # re-run until ALL PASS
+! $PSQL -f - < B_relock.sql                # restore the permanent lock
+./verify.sh                                # confirm the lock came back
+! $PSQL -f - < C_close_lock_items.sql      # both items -> complete
 ```
 
-⚠ **That scratchpad belongs to a session that has ended.** Session scratchpads
-are not durable — if the directory is gone, the four files must be rewritten
-from 08-24 §8, which carries everything needed (the exact item shape, the claim
-conditions, the dry-run figures). Rewriting them is ~20 minutes; do not improvise
-a shorter version, and in particular **do not hand-write `rendered_html`** (owner
-ruling 2026-08-04: framework only).
+They are deliberately **not** in `docs/agent_docs/sql_for_agents/` — they are
+operational one-offs against two named rows, and that directory is what the
+migration runner sweeps. **Delete the whole directory once C has run and the ids
+verify served**, in the commit that records the result: it is a pending-action
+folder, not a record, and a stale one reads as outstanding work for ever.
 
 **Between A and B the two rows are UNLOCKED**, exposed to every sweep on the
 estate — this lane was already hit once by an improvement-loop misfire (08-22).
