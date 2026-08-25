@@ -285,3 +285,82 @@ site it selects, and that it has already paid once for firing a dispatch believi
 **So the decisions in front of the owner are:** whether to switch the offer-analysis carriers back
 on; whether the visual designer should be given a dispatch path at all or retired; and whether an
 in-body image slot enters the component vocabulary as a default.
+
+---
+
+## 10. HIS SECOND ROUND — the research, the classifier, and the two new content types. All measured 2026-08-25.
+
+**Decisions he gave:** hold `garden-tools.uk` (re-plan deferred, not cancelled) · **switch the
+carriers on**, *"we'll need to fix or further develop them as necessary"* · **give the visual designer
+a dispatch path** · **yes to an in-body image slot as default**. The last three are routed to
+`vigilant_designer_offer_analysis` with his wording; §9d is now AUTHORISED rather than open.
+
+### 10a. *"It doesn't look at all like we did any decent research"* — HE IS RIGHT, AND NO RESEARCH RAN AT ALL
+
+`research-agent` is not missing. It is a complete nine-step pipeline:
+`build_search_query` (LLM) → `search_web` → `prepare_urls` → `scrape_pages` → `format_content` →
+`synthesize` (LLM) → `store_research` → `complete`. Active, non-snapshot, with a real workflow.
+`page-content-writer` spawns it at `spawn_research_agent` with `await_response: true`.
+
+`[MEASURED 2026-08-25 14:2xZ]`
+
+| check | result |
+|---|---|
+| `llm_call_log` rows under `agent_type='research-agent'`, **all history** | **0** |
+| positive control, same query and window | `page-content-writer` **175** calls on this build; `vertical-exemplar-researcher` 6 |
+| llm calls with any research-shaped `step_name`, **any** agent_type (the hiding-under-`generic` check) | **0** |
+| `research_results` rows for `homegarden.uk` | **0** |
+| **pages whose sections request research** | **0 of 21** |
+
+**The mechanism is the last row.** The agent is spawned and never given work, because **nothing ever
+asks for research**. It has two `execute_llm_prompt` steps, so a single run anywhere in its life would
+have left a row; there are none. **This is the estate's "a silent mechanism is usually UNDRIVEN, not
+missing" pattern, in its purest form yet.**
+
+**Consequence, and it is the answer to his complaint:** every article on this site — and on any site
+built this way — is written from the mission brief plus a vertical landscape synthesised from **two**
+exemplar crawls. There is no per-topic research behind any claim on any page. *"We should research
+each point"* is not currently something the pipeline attempts.
+
+### 10b. The classifier **could not** have proposed a directory or a news feed
+
+His words: *"The classifier may think otherwise but I don't think it even considered it."*
+
+**It didn't, and it structurally could not.** The classifier's vocabulary is not hard-coded — it is
+read at query time by a `read_layout_taxonomy` step from the live `layouts` table, exactly as the
+component menu is read in `bugs_open/381`. `[MEASURED]` **15 active categories:** interactive (2),
+editorial (2), brochure (2), comparison, commerce, portfolio, technical, affiliate, docs, hub, tool,
+media, energy, social, utility. **There is no `directory` category and no `news`/`feed` category.**
+
+**This is `bugs_open/381`'s defect one layer up** — a chooser that can only pick from a supplied menu,
+and the menu lacks the option. The classifier's 0.93-confidence reasoning enumerates what it ruled
+out (brochure, tool platform, ecommerce) and never mentions a directory, because a directory was
+never on the list.
+
+> ⚠ **BUT HIS BRIEF ALSO RULED IT OUT, AND A FIX MUST ADDRESS BOTH.** The submitted mission says the
+> site is for *"people looking after what they already have, **rather than buying their way out of a
+> problem**"*, and the classifier faithfully recorded *"anti-commercial positioning: no named brands,
+> no prices, no ratings"*. So a supplier directory contradicts the brief as written. **Two
+> independent blockers: the menu lacks the type, AND the brief forbids the shape.** Widening the
+> taxonomy alone would not have produced a directory here.
+
+### 10c. ⚠ THE PLATFORM ALREADY HAS A POLICY SAYING SITES SHOULD CARRY BOTH — and it says the mechanism EXISTS
+
+Found by grepping prior art before filing anything. `docs026_concept_register/register/build-pipeline.md:56`:
+
+> *"A platform content-coverage policy: most sites should carry guides, tools, **news**, and a curated
+> non-affiliate **top-N list of the vertical's best products/services with outbound links** … The
+> mechanism for guides/tools/news **already EXISTS (proven on other sites)** — an absent one elsewhere
+> is **a broken route, not a missing feature**."*
+
+**That is both of his asks, already registered as policy.** His *"product news feed from interesting
+sites or suppliers and editorials about them"* is the news half; his *"helpful directory of tool
+suppliers and people and small companies offering garden, home services"* is the curated top-N half,
+which the register names as **the one genuinely new build needed**, with `research-agent` or the
+exemplar-crawl pattern as the reuse candidates.
+
+**So the honest answer to him is not "good idea, we should build it".** It is: *this is already the
+platform's stated policy, the news mechanism reportedly works elsewhere, and this site got neither —
+which by the register's own words makes it a broken route.* ⚠ **The "proven on other sites" claim is
+the register's, is undated, and I have NOT verified it** — per this estate's own landmine about
+register status lines outliving their truth, that is the first thing to check before anyone acts on it.
