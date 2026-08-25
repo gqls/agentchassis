@@ -1,5 +1,9 @@
 # /etc/nginx/sites-available/admin.apis.uk — the admin console's tunnel origin.
 #
+# ⚠ Adding a hostname or location that proxies into the CLUSTER ⇒ cite register
+# SYS-094 (the standing exposure pattern) or file an RFC first — RFC_054 Q3,
+# owner ruling 2026-08-25.
+#
 # Owner ruling 2026-08-22: the admin console goes on a domain he logs into, at
 # admin.apis.uk, behind Cloudflare Access. This also settles the standing D-A
 # question ("may core-manager be reachable from the internet at all?") in the

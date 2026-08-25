@@ -1,4 +1,6 @@
 # Fragment for the BOX's /etc/cloudflared/config.yml — the emailed-links host.
+# ⚠ Adding a hostname that reaches the cluster ⇒ cite register SYS-094 (the
+# standing exposure pattern) or file an RFC first — RFC_054 Q3, owner 2026-08-25.
 # Add ABOVE the http_status:404 catch-all (first match wins).
 # DNS: create the CNAME in the DASHBOARD, not with `tunnel route dns` — that
 # command put admin.apis.uk's record into the noted.co.uk zone on 2026-08-23

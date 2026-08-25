@@ -1,5 +1,8 @@
 # Fragment for the BOX's /etc/cloudflared/config.yml — add the admin hostname.
 #
+# ⚠ Adding a hostname that reaches the cluster ⇒ cite register SYS-094 (the
+# standing exposure pattern) or file an RFC first — RFC_054 Q3, owner 2026-08-25.
+#
 # ⚠️ ORDER MATTERS. cloudflared matches ingress rules top to bottom and takes
 # the FIRST match. Put this ABOVE any wildcard or catch-all, or the wildcard
 # swallows it and admin.apis.uk lands on whatever that rule serves.

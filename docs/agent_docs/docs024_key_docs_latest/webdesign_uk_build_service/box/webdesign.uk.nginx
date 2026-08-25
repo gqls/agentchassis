@@ -1,5 +1,9 @@
 # /etc/nginx/sites-available/webdesign.uk — the tunnel origin.
 #
+# ⚠ Adding a hostname or location that proxies into the CLUSTER ⇒ cite register
+# SYS-094 (the standing exposure pattern) or file an RFC first — RFC_054 Q3,
+# owner ruling 2026-08-25.
+#
 # LISTENS ON LOOPBACK ONLY, ON PURPOSE. Ingress is a cloudflared tunnel dialling
 # out from this box; nothing ever connects inbound (ufw default-deny backs this
 # up). Binding 127.0.0.1 means even a firewall mistake exposes nothing.

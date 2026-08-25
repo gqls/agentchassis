@@ -1,5 +1,9 @@
 # /etc/nginx/sites-available/links.webdesign.uk — the emailed-links origin.
 #
+# ⚠ Adding a hostname or location that proxies into the CLUSTER ⇒ cite register
+# SYS-094 (the standing exposure pattern) or file an RFC first — RFC_054 Q3,
+# owner ruling 2026-08-25.
+#
 # OWNER RULING 2026-08-24: /c/ moves OFF the shopfront hostname. The trap it
 # closes (LANDMINES: "A CLOUDFLARE PAGE RULE PUT THERE FOR PARKING..."): the
 # apex vhost carried /c/, and the only thing keeping it off the internet was

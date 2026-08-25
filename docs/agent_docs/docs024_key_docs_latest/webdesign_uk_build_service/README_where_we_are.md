@@ -2110,3 +2110,27 @@ the bot off.
 while I can prove the door was open, nobody can now say whether anyone ever walked through it.
 That is a fact about our record-keeping, not a clean bill of health, and I would rather say so
 than imply I had checked.
+
+---
+
+**2026-08-25 — the decision to go live, and the safety questions it answered.** You ruled
+today that webdesign.uk comes off its parking redirect and shows the real shopfront, with a
+small "Not active yet. Ordering opens soon." notice above the buy buttons until ordering
+works. I placed that notice by hand as you asked — it is live on the preview address now, and
+it will appear on the real address the moment the redirect comes off. It is deliberately
+temporary: the next time the system rebuilds that page it will vanish, which is what we want
+once ordering is open, and I have left a note to check it if a rebuild happens sooner.
+
+At the same time you answered the three standing questions about how our systems face the
+internet. First: the way our two existing public doors were built — one narrow path each,
+everything else turned away at several independent layers — is now the official pattern, so
+future doors copy it instead of being argued from scratch. Second: we will add a further
+belt-and-braces measure so that even a mistake in the doorway configuration could only ever
+expose the customer-link routes, never the administrative ones; that gets planned and
+reviewed on its own. Third: the payment-notification door that opens as a side effect of
+going live has already been reviewed and is safe by design — it proves who is calling
+cryptographically, and until the payment keys exist it honestly says "not configured".
+
+What remains before anyone can actually buy: the payment setup you deferred, the
+second-click confirmation page, and the delivery email. Going live today changes none of
+those — it just means the shopfront is finally visible at its own name.

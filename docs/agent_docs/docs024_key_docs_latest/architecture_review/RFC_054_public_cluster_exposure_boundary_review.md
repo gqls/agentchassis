@@ -1,7 +1,7 @@
 # RFC_054 — the cluster's public exposure boundary, reviewed at the second door
 
-**Status: OPEN — filed 2026-08-24 by the web_admin_console lane, the evening
-`links.webdesign.uk` went live.** This fulfils the architecture seat's stated approval
+**Status: RULED 2026-08-25 — all three questions answered by the owner; see §5. Filed
+2026-08-24 by the web_admin_console lane, the evening `links.webdesign.uk` went live.** This fulfils the architecture seat's stated approval
 condition from the `admin.apis.uk` round: *"a second and third publicly-proxied prefix
 should trigger a boundary review."* The second deliberate prefix is now live; this RFC is
 that review's brief, written while every figure below was freshly measured.
@@ -69,3 +69,25 @@ Not a council-gate submission (prose is out of the gate's scope) and not a propo
 build Q2's listener — that gets its own plan and council round IF this review rules for
 it. It is the boundary look the architecture seat asked to happen, packaged for a human
 ruling on Q1–Q3.
+
+## 5. RULED — owner, 2026-08-25 (session "webdesign.uk live webdesign")
+
+- **Q1 — YES: the two-door pattern IS the standing pattern.** Codified as register entry
+  **SYS-094** (`docs026_concept_register/register/system-architecture.md`). The
+  architecture seat's condition converts from "review each door" to "review deviations
+  from SYS-094".
+- **Q2 — BUILD the delivery-only listener.** Its own plan + council round; aim to land it
+  before the first `customer_access_tokens` row exists. It does NOT gate the shopfront
+  unparking, which no longer touches core-manager at all (`/c/` moved to
+  `links.webdesign.uk`, 2026-08-24). Until the listener lands, the box nginx location
+  regex is the stated — not hidden — last line.
+- **Q3 — the register entry plus header lines.** SYS-094 plus a header line in every
+  `box/*.nginx` and `box/*.cloudflared-ingress.yml`: a new hostname or cluster-proxying
+  location cites SYS-094 or files an RFC first. **This review is RECORDED as the boundary
+  review for `/stripe/webhook`** (safe by design: HMAC over the raw bytes, honest 503
+  while keyless, `auth-service:8081` already the fence's narrowest grant) — so unpark day
+  owes no further review, which was Q3's motivating scenario.
+- **And the unparking itself was ruled GO the same day**, with a temporary hand-placed
+  "Not active yet" label above the shopfront's two CTAs (vm-sites `444205b`) until
+  ordering opens. The label is outside the framework by explicit owner instruction and
+  any framework redeploy of the page removes it.

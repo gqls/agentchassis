@@ -5473,3 +5473,39 @@ it had. "No evidence of use" here is a property of the instrumentation, not of t
 **The separate-instance design is still the better long-run shape** and is not cancelled by
 this — `gauntlet_dead_cta/infra/wireguard_bastion.yaml`. This fence buys the containment now,
 at zero downtime and one `kubectl delete` of rollback.
+
+## 2026-08-25 — go-live ruled; RFC_054 answered; the "Not active yet" label is live at preview
+
+**The owner ruled four things in one sitting** (session "webdesign.uk live webdesign"):
+unpark webdesign.uk NOW with a temporary hand-placed label above the CTA; RFC_054 Q1 YES
+(two-door pattern codified as register **SYS-094**); Q2 BUILD the delivery-only listener
+(own council round, does not gate the unpark); Q3 register entry + header lines in the
+box edge files (done, this commit). Full rulings: RFC_054 §5.
+
+**Pre-ruling verification, all re-measured 2026-08-25 rather than carried forward:**
+edge still parked (apex+www `302 → webdesign.co.uk`, preview `/c/x` 404, control 200 —
+LANDMINES' exact "safe" reading); `customer_access_tokens` **0**, handed_over/confirmed
+**0/0**; no commits to `delivery.go`/`server.go` since 08-24, so the second-click page is
+still unbuilt — it gates the delivery email, NOT the unpark.
+
+**The label.** Owner instruction verbatim: *"unpark but just put a simple label above the
+cta that says not active yet - do it by hand and we can remove it shortly."* An explicit,
+narrow owner exception to the 2026-08-04 no-hand-built-sites ruling — a two-line insert,
+not a hand-built page. Placed above BOTH instances of the CTA (hero + call-to-action
+component) in **vm-sites `444205b`**, marked
+`data-note="hand-placed 2026-08-25, temporary until ordering opens"`. NOT on the box
+directly: sitesync hard-resets to origin/main every 5 min with `rsync --delete`, so a box
+edit dies within 5 minutes — the repo is the only durable place. Verified live at
+`preview.webdesign.uk` ~2 min after push, **2 occurrences**. Control first: repo copy vs
+served page differed ONLY by Cloudflare's injected email-obfuscation (2 hunks), so the
+repo copy is byte-authoritative for what the box serves.
+
+**⚠ Two standing hazards from the label, stated now rather than discovered later:**
+(1) any framework redeploy of `index` silently REMOVES it — fine after ordering opens,
+a silent honesty loss before; if a rebuild of webdesign.uk `index` happens before Stripe
+is live, re-check the label. (2) Removal is OWED when ordering opens — grep
+`data-note="hand-placed` in vm-sites `webdesign.uk/` to find it.
+
+**Owed next (this session, after the owner runs the box steps):** outside verification of
+the unpark (apex 200 with real body, `/c/x` static-404, webhook 503-keyless, chat, label),
+then update LANDMINES' parking-rule entry with the removal, then the Q2 listener plan.
