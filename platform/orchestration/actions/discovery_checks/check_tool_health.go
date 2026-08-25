@@ -57,6 +57,32 @@
 //  10. Doc header shape — opener without closer (error — the malformed  TEMPLATE
 //                         block would SHIP; StripToolDocHeader leaves it untouched)
 //
+// CONTRACT RULES 16 + 17 (added 2026-08-25, the webdesign lane's Track 2; the
+// generator's own quality contract is migration 481's rules 15-20):
+//  16. No inline event-handler attributes (on*= inside a tag) — real listeners.
+//  17. No alert()/confirm()/prompt() dialogs.
+// These two are checked here because they are the ONLY contract rules that are
+// LITERAL AND DECIDABLE — a better implementation cannot legitimately contain
+// them. Rules 15/18/19/20 are DELIBERATELY NOT CHECKED and this check's silence
+// on them is NOT a clean bill: 15 (honest copy feedback), 19 (errors never
+// destroy output) and 20 (size readouts) are semantic; 18 (validate parsed
+// values) has a MEASURED counterexample — the best-validated tool on
+// webdesign.co.uk scores isNaN=0 because its guard is a regex BEFORE the parse,
+// strictly stronger (HANDOFF_2026-08-19 §Track 2). Nor does this touch
+// check_dead_controls' stated boundary (a button with no handler is a runtime
+// question, Tier 4's job). Known literal edges, accepted: a user-defined
+// function actually NAMED alert/confirm/prompt false-positives (none exist in
+// the fleet's tool corpus today); markup built in JS strings with inline
+// handlers matches — which is the defect, not a false positive.
+// ROUTING for 16/17 differs from checks 1-10 BY VOLUME: the 2026-08-19 sweep
+// counted inline handlers in 42 of the then-55 remaining ported instances on
+// ONE site, so per-instance filing would dump ~40 handler-less rows in a first
+// sweep — the exact noise objection tool_eligibility.go records. Forks merge
+// into the normal improve_tool flow (in-remit: tool-improver regenerates under
+// the 481-taught prompt). Ported instances become the RESIDUE: ONE
+// capability_gap per site via remit.go's CapabilityGapItem, never N
+// ported_tool_fix rows.
+//
 // Creates improve_tool work items (forks) / ported_tool_fix items (ported) for
 // structural issues, and queues audit_tool for tool-auditor's LLM review.
 // Cooldown: skips tools that had an item in the last 7 days.
@@ -136,9 +162,18 @@ func (c *ToolHealthCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) 
 		FROM content_components cc
 		JOIN page_components pc ON pc.component_id = cc.id
 		JOIN pages p ON pc.page_id = p.id
-		WHERE p.site_id = $1`+toolEligibilityWhere+`
+		WHERE p.site_id = $1
+		  AND pc.build_status <> 'removed'`+toolEligibilityWhere+`
 		ORDER BY p.name
 	`, dctx.SiteID)
+	// The build_status filter is THIS check's, deliberately not added to the
+	// shared toolEligibilityWhere (its other caller weighs its own semantics).
+	// A 'removed' slot is a TOMBSTONE: the webdesign rebuild lane retires ported
+	// slots by status flip and keeps the bytes for ever, so without this filter
+	// a retire-without-replace page would have its unreachable markup audited
+	// and filed against — the same no-filter shape that let check_literal_markdown
+	// resurrect four tombstones on 2026-08-21 (bugs_closed/360). As of 2026-08-25
+	// that lane holds 41 tombstones on one site and the set only grows.
 	if err != nil {
 		return nil, fmt.Errorf("tool_health: query failed: %w", err)
 	}
@@ -194,12 +229,31 @@ func (c *ToolHealthCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) 
 	}
 
 	// ── Tier 1: structural audit ──
+	// Contract-rule (16/17) findings route by population — forks merge into the
+	// improve_tool flow below; ported instances accumulate here into ONE
+	// per-site capability_gap after the loop (header §CONTRACT RULES: ~40
+	// handler-less rows in a first sweep is the noise objection, answered
+	// structurally). contractPopulation counts every tool with a contract
+	// finding; the residue is its ported subset.
+	var contractResidue []RemitCandidate
+	contractPopulation := 0
 	for _, tool := range tools {
 		if onCooldown(tool) {
 			continue
 		}
 
 		issues := auditTool(tool.TemplateHTML, tool.RenderedHTML, tool.BuildStatus, tool.isFork())
+		if contract := auditContractRules(tool.TemplateHTML, tool.RenderedHTML, tool.isFork()); len(contract) > 0 {
+			contractPopulation++
+			if tool.isFork() {
+				issues = append(issues, contract...)
+			} else {
+				contractResidue = append(contractResidue, RemitCandidate{
+					Key:  fmt.Sprintf("%s (%s)", tool.SubjectKey, tool.PageName),
+					Body: tool.RenderedHTML,
+				})
+			}
+		}
 		if len(issues) == 0 {
 			continue
 		}
@@ -298,6 +352,38 @@ func (c *ToolHealthCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) 
 			zap.Int("issue_count", len(issues)),
 			zap.String("severity", highestSeverity),
 			zap.String("issues", issueText))
+	}
+
+	// ── Contract-rule residue: ONE capability_gap per site, never N rows ──
+	// idx_swi_dedup holds one open capability_gap per (site, check); status
+	// 'deferred' + empty handler_agent make it undispatchable twice over
+	// (remit.go's header carries the whole argument).
+	if len(contractResidue) > 0 {
+		result.Findings = append(result.Findings, map[string]interface{}{
+			"check":      "tool_health",
+			"sub_check":  "contract_rules_16_17",
+			"population": contractPopulation,
+			"residue":    len(contractResidue),
+		})
+		result.WorkItems = append(result.WorkItems, CapabilityGapItem(dctx, CapabilityGap{
+			Check:         "tool_health_contract_rules",
+			Pipeline:      "build",
+			GapKind:       GapHandlerMissing,
+			BuilderNeeded: "per-instance ported-tool rewriter",
+			Capability: "rewrite ONE ported instance's page_components.rendered_html to the generator " +
+				"contract (rules 16/17: real listeners, no blocking dialogs) without touching the shared " +
+				"wrapper template — the write tool-improver cannot make (bugs_open/281 mechanism 2)",
+			Population: contractPopulation,
+			Residue:    len(contractResidue),
+			Examples:   contractResidue,
+			CodePointers: []map[string]string{{
+				"path": "platform/orchestration/actions/discovery_checks/check_tool_health.go",
+				"why":  "auditContractRules + header §CONTRACT RULES 16 + 17 — the routing rationale and the rules deliberately NOT checked",
+			}},
+		}))
+		dctx.Logger.Info("tool_health: contract-rule residue filed as one capability_gap",
+			zap.Int("population", contractPopulation),
+			zap.Int("residue", len(contractResidue)))
 	}
 
 	// ── Tier 2: Queue LLM audit for tools that pass structural checks ──
@@ -401,6 +487,14 @@ var (
 	externalFetchRe  = regexp.MustCompile(`(?i)fetch\s*\(`)
 	externalSrcRe    = regexp.MustCompile(`(?i)src\s*=\s*["']https?://`)
 	cdnLinkRe        = regexp.MustCompile(`(?i)cdn\.|cdnjs\.|unpkg\.com|jsdelivr\.net`)
+
+	// Contract rules 16/17 (see the file header's CONTRACT RULES section).
+	// inlineHandlerRe requires the attribute to sit INSIDE a tag (after `<` with
+	// no intervening `>`), so prose that merely mentions "onclick" cannot match;
+	// dialogCallRe requires a word boundary and an immediate call, so
+	// confirmSelection( does not match while window.confirm ( does.
+	inlineHandlerRe = regexp.MustCompile(`(?i)<[^>]*\son[a-z]+\s*=`)
+	dialogCallRe    = regexp.MustCompile(`(?i)\b(?:window\s*\.\s*)?(alert|confirm|prompt)\s*\(`)
 )
 
 // auditTool runs the structural checks. templateIsFork says whether
@@ -538,6 +632,37 @@ func auditTool(templateHTML, renderedHTML, buildStatus string, templateIsFork bo
 		}
 	}
 
+	return issues
+}
+
+// auditContractRules checks the two LITERAL rules of the generator's quality
+// contract (migration 481; header §CONTRACT RULES 16 + 17). Separate from
+// auditTool because the ROUTING differs by population: fork findings merge into
+// the improve_tool flow, ported findings become one per-site capability_gap.
+// Judges the same effective HTML auditTool does.
+func auditContractRules(templateHTML, renderedHTML string, templateIsFork bool) []toolIssue {
+	html := renderedHTML
+	if html == "" && templateIsFork {
+		html = templateHTML
+	}
+	if html == "" {
+		return nil
+	}
+	var issues []toolIssue
+	if m := inlineHandlerRe.FindAllString(html, -1); len(m) > 0 {
+		issues = append(issues, toolIssue{
+			check:       "inline_event_handlers",
+			severity:    "warning",
+			description: fmt.Sprintf("Tool has %d inline on*= handler attribute(s) — the generator contract (rule 16, migration 481) requires real listeners; a regeneration removes these by construction", len(m)),
+		})
+	}
+	if m := dialogCallRe.FindAllString(html, -1); len(m) > 0 {
+		issues = append(issues, toolIssue{
+			check:       "blocking_dialogs",
+			severity:    "warning",
+			description: fmt.Sprintf("Tool calls alert()/confirm()/prompt() %d time(s) — the generator contract (rule 17, migration 481) requires inline messages; a regeneration removes these by construction", len(m)),
+		})
+	}
 	return issues
 }
 
