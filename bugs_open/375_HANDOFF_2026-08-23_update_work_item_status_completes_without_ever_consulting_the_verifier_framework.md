@@ -500,3 +500,51 @@ Every completion through `update_work_item_status` is still unverified; no arm i
 writers are still two. What changed today is that the trap now **fails the build** instead of only
 leaving a row marker, and that a verifier exists for somebody to register. Neither makes the bug's
 own claim false.
+
+### 10e. The verifier's council round went REVISE, and it found a REAL defect in the predicate
+
+Round 1 (corr `c8ed18c1`, 13 seats, 4 abstained) → **REVISE**, gated by `editquality`. **The round
+paid for itself**, and the finding is worth more than the fix:
+
+`datahelpers.SchemaContentFields` returns `(map, true, false)` the moment `inputSchema["fields"]`
+type-asserts to a map (`component_schema_fields.go:78`). So a v2 schema whose `fields` object is
+**EMPTY** comes back readable with **ZERO** fields, `missingRequiredValueFields` finds nothing
+missing, and the verifier said **Resolved**. **A component whose field declarations had been emptied
+— the silent-loss class of `bugs_open/012` and `/021` — would have been certified as REPAIRED by the
+guard written to catch it.**
+
+It is the LANDMINES entry *"When your predicate is 'the CONFIG declares X and the DATA lacks X', an
+unreadable config computes to HEALTHY"*, whose own footprint is this type's detector. **Fixed**
+(`43277271a`): `if !ok || len(fields) == 0` errors, fail-closed under RFC_017. Mutation-proven —
+reverting to `if !ok` fails only the `{"fields":{}}` subcase, which is what identifies that one as
+the real hole rather than one of four equivalent shapes.
+
+⚠ **Why my own mutation suite passed over it:** I had written the fail-closed branch for unparseable
+JSON and for `ok == false`. `ok == true, len == 0` sat in the gap between the two conditions I had
+already thought about. **Enumerate what the helper can RETURN, not what you expect it to return.**
+
+⚠ **And how the seat reached it: through a pointer that no longer exists.** The landmine's footprint
+names `findResolvedRequiredFields`, which returns **zero** grep hits — rotted while the mechanism
+stayed live. The entry worked *despite* being stale, because the reviewer read the mechanism rather
+than chasing the symbol. Footprint corrected, and the entry now carries the half it never had: **it
+fires hardest on a VERIFIER**, since a detector's `continue` on an unreadable declaration is right
+while a verifier's identical arithmetic certifies a repair.
+
+**Round 2 resubmitted on the same correlation** (`RESUBMIT_CORR`, orch `27f7bc39`) — **verdict
+PENDING at the time of writing; read it.** It carries the fix plus answers to five further
+objections: two were factually wrong about the code (`checks.RegisteredVerifierItemTypes()` is
+`verifiers.go:198`; no existing `config-key-audit` mode mentions either symbol), one asked for the
+census query in-submission, one asked whether the two shared guard-test files were checked for
+in-flight work before editing (they were), and one asked whether guard 3 could desync the coverage
+list (it cannot — the type is still listed, correctly, while unregistered).
+
+**The gating objection, stated rather than only rebutted:** `editquality` said at HIGH that an
+unregistered verifier leaves the defect unchanged. **That is true as a description.** The answer is
+that registering it without the migration is strictly *worse* than inert — the claimed-item-timeout
+sweep would complete items straight past it, which is a false green rather than a missing one — and
+that this round is itself the argument for the order: a predicate that would have certified an
+emptied schema as repaired was caught **before it ever graded a live claim**.
+
+**Tally across this lane's three rounds:** 4 medium-or-high objections — 2 factually wrong about the
+code, 1 quoting a stale comment, **1 a real defect shipped past my own mutation suite.** That last
+one is the whole reason to submit.
