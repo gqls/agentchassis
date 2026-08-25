@@ -1,5 +1,27 @@
 # HANDOFF 2026-08-24 — bug 328: LIVE, and PROVEN ON THE WIRE. Nothing owed but time.
 
+> # ⚠ SUPERSEDED 2026-08-25 — READ THIS FIRST, THEN IGNORE THE BOX BELOW
+>
+> **The "wait, then close" instruction and the "do NOT dispatch them" ruling in §2 are both
+> RETIRED.** Re-measured 2026-08-25 ~09:50Z against the live web:
+>
+> - Of **21** public referring pages, the **13** that re-rendered AFTER the flag (16:07Z 08-24)
+>   serve **0** dead anchors; the **8** that last deployed BEFORE it serve all **12** that remain.
+>   **21 of 21, no exceptions** — the flag time predicts the served result exactly, across six
+>   domains, on pages nobody dispatched. Positive control held (15–49 internal anchors survive).
+> - **The cadence stopped carrying.** The fleet ran 1,671 `page_rerender` items in 36 h, but per
+>   PAGE, not per site: `remortgagecalculator.uk` had **zero** queued in 36 h, `loanzy.uk`'s newest
+>   was 08-24 16:15, and **none of the 8 was queued for anything**. "24 of 25 touched within 7 days"
+>   is a claim about a population and cannot retire a TAIL risk — which is exactly the
+>   `bug_historian` MEDIUM this lane recorded in council round 3 and then answered with a statistic.
+> - Owner ruled **dispatch**. Fired 11:03:10Z as **7 inserts + 1 re-arm**. The anti-dispatch case
+>   inverts at this size: it was 28 pages of which 26 were unnecessary; this is **8 of 8 necessary**,
+>   at the least accumulated drift they will ever carry (19 h – 2 days).
+>
+> **Current state, docs and the two closure queries: `NOTES_328_links_to_unbuilt_pages.md`
+> (bottom) and `RUNBOOK_328_links_to_unbuilt_pages.md` (the two queries were in NO document until
+> today and had to be reconstructed from the Go predicates).**
+
 **Read this box. Everything else is background — §1 is now the record of the passing test, not a task.**
 
 > ## STATE — PROVEN AT THE ARTEFACT 2026-08-24 18:5xZ
@@ -79,7 +101,14 @@ rewritten); and 9 distinct internal hrefs survived (so it did not stop emitting 
 `/index.html` and `/mortgage-lenders.html` both serve **0** dead anchors while keeping **17** and
 **15** internal anchors respectively, and both targets return 404 on the wire.
 
-## 2. Why 28 dispatches were NOT fired — do not "finish the job" by firing them
+## 2. ~~Why 28 dispatches were NOT fired — do not "finish the job" by firing them~~
+
+> **RETIRED 2026-08-25.** The reasoning below was sound for 28 pages of which 26 were unnecessary.
+> It does not survive contact with the tail: 24 hours later the cadence had carried 13 of 21 and
+> then stopped, and none of the remaining 8 was queued for anything. **8 of 8 were necessary, and
+> they were dispatched.** What still stands from this section is the *cost* it names — a re-render
+> carries every platform change since that page last rendered — and that is an argument for acting
+> while the accumulated drift is smallest, not for waiting.
 
 The plan said "file `page_rerender` for the 24 affected pages". **Check staleness before you do**:
 **26 of the 28 had re-rendered THAT DAY**, all before the flag went live at 16:07Z. So:
