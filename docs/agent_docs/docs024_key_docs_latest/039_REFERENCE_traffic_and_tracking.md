@@ -22,7 +22,15 @@ counts every one as a page view.
 
 **It concentrates on whichever site a lane is actively working**, which is exactly the site someone
 is about to ask about. The fleet average understates it by roughly 3× for the site that matters
-this week.
+this week. **The cleanest demonstration is one query across two sites** `[MEASURED 2026-08-25]`:
+
+| | apis.uk (worked all week) | noted.co.uk (not worked) |
+|---|---|---|
+| our tooling share | **27.1%** | **2.4%** |
+| page views 7d | 395 | 17,037 |
+
+Same method, same window, an order of magnitude apart — and the difference is not the sites, it is
+**which one had a session pointed at it**.
 
 ⚠ **And it moves, which is the dangerous part.** On dartsonline, splitting a window in half:
 human traffic **+19%** while ours went **4.8×**. Total page views roughly doubled and **none of it
@@ -115,7 +123,27 @@ This is the part that will otherwise be "discovered" as a discrepancy every few 
 | history before tonight | **yes** | none, no backfill |
 | referrers, events, behaviour | none | **yes** |
 | search queries / position | none | none — see §5 |
-| needs cookie consent | no | **yes** (UK PECR; currently parked by the owner, and no site carries a banner) |
+| needs cookie consent | no | **yes** (UK PECR) — see §4a |
+
+### 4a. Turning GA4 on is a change of compliance position, not a continuation
+
+**Measured 2026-08-25, before any GA4 tag was published:** `apis.uk`, `vonc.com`, `dartsonline.com`,
+`oufe.com` and `noted.co.uk` all returned **zero `Set-Cookie` headers** on a first visit, and
+`gtm.js` for `GTM-PQ3WCTBD` sets none either. With **0 tags in the container**, nothing was firing,
+so **the estate was setting no cookies at all.**
+
+⚠ *Method limit:* `curl` sees server-set cookies; GA4 sets `_ga` from JavaScript, which `curl` would
+not catch. The zero-tag state is the stronger evidence, not the header count.
+
+**So publishing a GA4 tag starts setting cookies on ~24 sites simultaneously.** That is a change of
+position, not a continuation of the status quo, and it is worth deciding deliberately rather than
+discovering. Context `[RELAYED, dartsonline_traffic 2026-08-16]`: 11 live sites carried the
+container, 8 had no privacy policy at all; dartsonline published one on 08-20, driven partly by
+affiliate-network requirements. **No site carries a consent banner today.**
+
+**The asymmetry is the point:** the Cloudflare route is server-side and brings no consent
+obligation, so the two options are not equivalent-with-different-numbers — one of them changes what
+the estate owes its visitors.
 
 **Consequence worth internalising: GA4 is not a cross-check on Cloudflare's human figure.** They
 measure different populations. On apis.uk, GA4 would have excluded the *entire* 27.1% `curl` slice
@@ -129,8 +157,18 @@ structurally cleaner. On a site where a lane drives headless Chrome, it would no
 Neither Cloudflare nor GA4 gives **search queries, impressions, average position, or index
 coverage**. Only Search Console does, and it is **per-property**, which is why it has not been done.
 
-Cloudflare *can* tell you crawling is thin — dartsonline: **GoogleBot 54 page views in 30 days
-across 24 URLs**, under 2/day `[RELAYED]`. It cannot tell you *why*.
+Cloudflare *can* tell you crawling is thin, and **crawler traffic IS readable from `browserMap`** —
+no extra scope, same query as everything else `[MEASURED 2026-08-25]`:
+
+| site | GoogleBot | BingBot | window |
+|---|---|---|---|
+| noted.co.uk (our busiest) | **25** | 41 | 7d |
+| apis.uk (3 days old) | 0 | 0 | 7d |
+| dartsonline.com | 54 across 24 URLs | – | 30d `[RELAYED]` |
+
+So ~3.5 GoogleBot page views/day on the busiest site in the estate. **That is the number to put in
+front of anyone asking "are these sites being found", and GA4 will never show it** — a crawler runs
+no analytics JavaScript. Cloudflare can say crawling is thin; it cannot say *why*.
 
 ### The automation shape — `[UNTESTED]`, offered as a plan to verify, not as fact
 
