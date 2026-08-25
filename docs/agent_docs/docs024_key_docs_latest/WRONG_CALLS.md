@@ -52386,3 +52386,36 @@ than the count. The count is what you quote; the rows are what tell you the coun
 Here the row list disagreed with the count, in the same file, in the same minute.
 
 Family: measurement-discipline, confirm-the-denominator.
+
+### 2026-08-25 — I named a confound, then made the identical error in the next sentence, inside the closure document
+
+In `bugs_closed/381` §12a I wrote, correctly and in bold, that *"`20 of 20 pages carry a list` is
+confounded — page nav is itself a `<ul>` on both sites"*. **In the very next paragraph I published
+"homegarden serves 33–41 content list items per page above that same baseline" — computed by
+subtracting garden-tools' 8-item nav from homegarden's page totals.** They do not share a baseline:
+**homegarden's chrome is 32 items**, because its menu links all twelve month pages.
+
+`[MEASURED 2026-08-25 13:14Z]` the sound, anchor-stripped figures are **14 of 20 pages with a content
+list and 69 content items, against 0 and 0** — smaller than what I published, and true.
+
+**Caught by the `loanzy_uk_example_site` lane hitting the same flaw in their own instrument** twenty
+minutes later: their month counter returned `distinct_months=12` for **every** page including
+`/contact.html`, which contains none, because the nav links all twelve months. Their remedy is the
+general one and I have adopted it: **strip anchors — chrome and cross-references are links, and a
+kept promise is not.**
+
+**Why this is the sharpest entry in the file rather than another arithmetic slip.** I did not fail
+to think of the confound. **I wrote it down, in bold, and then reasoned past it within one
+paragraph** — because the second calculation *felt like different work*: the first was a caveat about
+someone else's metric, the second was "my own careful adjustment". **Naming a confound creates a
+sense of having handled it that survives into the next calculation, where it has not been handled at
+all.**
+
+**The check that actually works, and it is a demand control rather than more care:** find a page that
+**must** score zero and confirm it does. `/contact.html` has no lists; if your instrument does not
+say 0 there, it is measuring chrome. Every one of the three list-counting instruments used on this
+site today — theirs, mine, and mine again — failed until a negative control was added.
+
+⚠ **This was the ninth wrong claim in this lane in two days, and it is in the CLOSURE document** —
+the one artefact most likely to be read as settled. Filed here because a closure is exactly where a
+lane stops looking.
