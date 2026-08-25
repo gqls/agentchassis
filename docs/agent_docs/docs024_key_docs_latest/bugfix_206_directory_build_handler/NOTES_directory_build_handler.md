@@ -729,3 +729,31 @@ present, never to test ancestry.
 Reported to the 381 lane with the timestamp reasoning and an explicit note that the symbol probe
 and its control are not to be relied on — I would rather hand them the caveat than a clean-looking
 PRESENT.
+
+### Misstep 6 — I warned a peer lane about a mechanism without checking its precondition on their data
+
+Messaged the `bugs_open/381` lane mid-build: your `section-index` pages **will no-op**, because
+today's swap is unrolled. They adopted it into their acceptance guide.
+
+False for that build. 206's no-op needs a page with **no layout from any source**; `[MEASURED]` all
+17 of their `section-index` pages carry `["hero","generic-text-block","content-listing"]`, and
+`april-index` had **already built and deployed** through the very handler I was warning about,
+before I sent the retraction. One `jsonb_array_length(sections)` query — on rows I had already asked
+them for — refutes the whole warning.
+
+**I knew the precondition. I wrote it into `builder_routing.go` that morning** ("*the only one that
+can build a page whose layout is missing from every source*") and then warned about the consequence
+without testing the condition. The pattern is the day's pattern: I keep asserting the *consequence*
+of a mechanism I have correctly described.
+
+**The harm direction is what makes it worse than a wrong prediction.** Their guide would have sent
+an investigator to check `handler_agent` first on pages where `page-build-handler` is **correct** —
+converting a real 381 finding into someone else's known bug. *A check that stops an investigation is
+more dangerous than one that starts a wrong one.* Retracted within the same build, with the
+measurement, and asked them to invert the line while keeping the error string as a discriminator.
+
+**And they caught me too**, which is the useful half: they flagged that `spec ? 'page_type'` was
+TRUE on their whole build, contradicting the "134 of 134 absent" caveat I had in circulation. They
+were right — the stamp shipped **2026-08-24** (`d1aa231aa`, live since `v1.0.1334`), my census was
+taken before any reconcile had run since that roll, and the population emptied by *time*. They had
+one build and the correct conclusion; I had the fleet history and a stale premise.

@@ -297,3 +297,58 @@ the *measuring*, twice over, and both are fixed. The bug is still open for the s
 nobody has watched it work on a real page, and no new site has been built since it went live.
 
 I would rather report a review that found four things than one that found none.
+
+---
+
+## 2026-08-25 (evening) — the build we were all waiting for arrived, and for this bug it is a negative result
+
+Another team (`bugs_open/381`) built a new site from scratch today — `homegarden.uk`. Four teams,
+mine included, had been waiting on exactly that, because it is the only way to watch this fix work
+without disturbing anything. They captured the evidence for me before the machinery consumed it,
+which was generous and precisely what I asked for.
+
+**It cannot prove our fix, and that is worth saying plainly rather than dressing up.**
+
+The site planned 21 pages, and none of them is the kind of page where the bug and the fix behave
+differently. Seventeen are "index" pages, the rest ordinary content — and all of those go to the
+same builder whether the bug is present or not. So the records look perfect: created by the right
+routine, correctly routed, untouched. And they would have looked exactly the same before we changed
+anything. **The one page type that would settle it — a directory page — the site does not have.**
+
+So the wait continues, but with a sharper condition than I had written down. I had told the next
+person "the proof arrives free on the next new site". That was wrong: it arrives free on the next new
+site **that contains a directory page**. There is now a one-line check to run against the plan before
+anyone declares a build to be the proof. Better to find that out from a real build than to declare
+victory on one of these and be corrected later.
+
+### Two things I got wrong, one of which the other team caught
+
+**I sent them a warning that was false, and they had already adopted it.** I told them their index
+pages would silently fail to build, because the relevant fix is written but not yet running on the
+live system. They took it seriously and put it in their build-acceptance checklist.
+
+Then I checked. Those pages all have a layout, and the failure I warned about only happens to pages
+that have *none* — one of their pages had already built and gone live through the very builder I was
+warning about, before I retracted.
+
+The reason it mattered more than a wrong guess: their own bug is about pages that come out thinner
+than the plan promised, and this site is a textbook case of it — seventeen near-identical index pages
+where the plan promised one month-by-month structure, all reporting success. My warning would have
+told whoever investigated that to go and check the routing first, find nothing wrong, and have a
+ready excuse to stop — on pages where the routing is correct. **I would have handed their real
+finding an alibi.** Retracted the same hour, with the measurement.
+
+**And they corrected me.** They noticed that something I had told the world was missing from these
+records was in fact present on every one of theirs. They were right and my note was stale — the
+mechanism went live yesterday, and my count had been taken during a window when nothing had run.
+They had one site and the right answer; I had months of history and an out-of-date premise.
+
+### Where this leaves us
+
+The code is unaffected — nothing found today touches it. What today changed is what we know about
+our own measuring: the condition for proving it is narrower than I wrote, one caveat I was carrying
+turned out to be stale, and one turned out to be unnecessary (we now know which routine mints these
+records on a new site, which I previously could only guess at).
+
+I have logged both of my errors to the shared record, including the warning I sent to another team,
+because that one had a cost outside this lane.
