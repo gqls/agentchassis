@@ -296,3 +296,21 @@ repairer has nothing to write into, so they'll need the next phase of this work 
 rather than another sweep. Dartsonline remains the one to do after Friday. The estate's
 remaining broken buttons are now mostly the kind no machine should fix: prose links and
 ported pages, which go to a human queue.
+
+**Monday morning.** Overnight the platform did the rest of the job itself. It sweeps one site an
+hour, and with the fix live those sweeps now stick: of the three hundred and one wrong buttons
+we counted yesterday morning, a hundred and thirty-five remain, and only eleven of those are the
+kind the machine repairs — two are the April relics, one is on a protected page, and eight are on
+sites the hourly sweep will reach again today. The dartsonline wait until Friday turned out to be
+too cautious — the platform got there sixteen minutes after its own cooling-off period expired
+and fixed all fifteen pages.
+
+On the pile marked "needs a human": two hundred and forty-eight items, and I checked every one
+against today's pages. A hundred and fifty-five describe buttons that no longer exist — nothing
+retires these automatically, so they sit there looking like work. Another twenty-seven are
+"button points at the contact page" reports from a rule the platform already demoted because it
+was essentially always wrong. If you approve closing both piles, the genuine queue is about
+sixty-five items: mostly buttons that dead-end on their own page, which really do need a
+person's judgement about wording. The rest of the wrong buttons — about a hundred and twenty —
+live inside article text and imported pages, which the machine deliberately doesn't rewrite;
+getting those down is future platform work, not queue-clearing.

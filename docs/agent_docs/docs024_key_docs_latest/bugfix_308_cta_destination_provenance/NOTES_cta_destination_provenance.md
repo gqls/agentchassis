@@ -851,3 +851,60 @@ verified at the served page**, zero guard failures — the cleanest of the four.
 bytes**, the remaining 2 being blog's April-frozen data-less components (§12). Typical
 detection → served-fix latency: 25-40 min, unattended. dartsonline.com next window: after
 2026-08-29 ~18:40Z (two-strike ageout, §9).
+
+### 14. Day 2 — the estate drained ITSELF overnight; census, corrections, and the human-review ledger [MEASURED 2026-08-25]
+
+**Fleet-wide misdirected findings 301 → 135; machine-fixable 171 → 11.** A rolling automatic
+completeness sweep visited roughly one site per hour overnight (21:52Z → 08:57Z, 13 sites, 71
+complete / 7 failed) and, with Phase B live, the repairs stuck. The per-site release and the
+autonomous drain have together cleared **~94% of the machine-fixable class in under 24 h.**
+
+> **CORRECTED 2026-08-25 (my own §9/§13 deferral):** dartsonline did NOT need to wait until
+> 08-29. The two-strike brand needs **≥2 strikes inside the 7-day window**, so the gate is the
+> ageout of the SECOND-NEWEST strike, not the newest. Darts' older strike (08-17 22:37Z) left
+> the window at 08-24 22:37Z; the hourly sweep hit at 22:53Z — 16 minutes later — and all 15
+> items were born clean and completed. My 08-29 figure came from the newest strike's age.
+> Compute deferrals from the (n-1)th strike.
+
+**Fresh chassis builds v1.0.1335→1337 carry two mechanisms that change this lane's operating
+assumptions** (both landed 08-24 by other lanes):
+- `f16c87beb` (326 option D): the <3h anti-churn arm now **DEFERS** a repeat request (remainder
+  of the window) instead of silently dropping it. Two-strike arm deliberately unchanged.
+  `DISABLE_ANTI_CHURN_DEFERRAL` restores the old drop.
+- 333: a finding whose handler declares `refuse_owned_page` on an owned page now **parks at
+  `deferred`** with `spec.builder_needed`/`gap_kind` (keeping item_type+key so retraction still
+  matches) instead of burning 3 attempts to `failed`. Yesterday's OWNED_PAGE_GUARD stragglers
+  (11 rows, 3 sites) predate it.
+
+**The 11 residual covered-slot findings:** aao `/blog` ×2 (data-less legacy, §12),
+robot-hands ×1 (owned page → parks under 333), and 8 on recently-swept sites
+(loanandmortgagecalculator ×3, noted ×3, idea ×1, loancalculator ×1) that the hourly sweep
+will take on its next pass. **Nothing further to fire by hand.**
+
+**The human-review ledger — 248 open `cta_names_unknown_destination` items crosschecked
+against today's detector output** (match on domain+page+normalised text, any why):
+
+| why | LIVE | STALE (button gone/changed) |
+|---|---|---|
+| lands in an excluded area | 27 (+1 reclassified) | 81 |
+| links back to its own page | 37 | 16 |
+| names a destination, points at homepage | 19 | 17 |
+| phantom destination | 5 | 31 |
+| empty href | 4 | 10 |
+| **total** | **92** | **155** |
+
+Minimisation levers, in order of cheapness:
+1. **155 STALE items** — mechanically closable (ids saved,
+   `scratchpad/fleet2/stale_unknown_ids.txt`); the detector never retracts this item_type, so
+   they only leave by hand. OWNER GO/NO-GO.
+2. **The excluded-area category wholesale (109)** — the arm was demoted 08-? (bugs_open/248,
+   measured ~0 precision, 18/18 sampled were correct buttons) and no longer files; the open stock
+   is a queue the platform itself has disowned. Closing the 27 LIVE ones too is consistent with
+   that ruling. OWNER GO/NO-GO.
+3. **After 1+2 the genuine queue is ~65**: 37 self-link (dead-end buttons — real content
+   defects), 19 homepage, 5 phantom, 4 empty.
+4. **Uncovered-slot misdirected findings (124 of the 135)**: `tool-cta` 12, `tool-list` 5,
+   `case-studies-grid` 1 have `cta_url`-shaped schema fields — extending `ctaFieldNames` to
+   them is feasible council-gated platform work (~18 findings). `article-body` 36,
+   `ported-page` 31, `ported-prose` 9, `generic-text-block` 8 are prose — human by design;
+   they route via content_rewrite, not this seam.
