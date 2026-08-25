@@ -3062,3 +3062,29 @@ ON this roll (09:47Z), so it is behaviourally proven too. `HANDOFF_2026-08-25_co
 supersedes 08-22; csp-builder analysis embedded there (its defining defect: `resetPolicy()` never
 resets connect-src, so unchecking a box leaves its domain in the policy — the output lies about the
 inputs). Grind continues with csp-builder.
+
+## 2026-08-25 ~11:00Z — the 353 lane's row-level confirmation, and the two facts that matter more than the pass
+
+Their verification (at the rows, not from our report): picker call `success=true`, 30 output tokens,
+reply verbatim the two page names; both items stamped 09:50:59Z. Recorded as `bugs_open/330` §13.
+
+**1. THE MENTIONS PARKED — and on this site they almost always will.** Both crosslink items sit
+`deferred` / `OWNED_PAGE_GUARD`: both targets are `rebuild_policy='owned'`, which is the 333 door
+working as specified. Measured by them today: webdesign.co.uk active non-tool pages are
+**34 owned : 3 generic**, so **~92% of topically-chosen cross-mention targets on this site park**.
+The picker works; the prose never lands. The design question — should an owned page receive a
+cross-mention at all — is the 333/353 lanes' (they claimed it explicitly, now measured rather than
+hypothetical). Nothing owed by this lane; but until it is decided, DO NOT read "no mention appeared
+on the related article" as a pipeline failure — it is the guard, and the trail is the `deferred`
+item. (Their bonus find: 333's post-roll producer census closed 09:39Z, eleven minutes before the
+first tool_crosslink rows reached the door — the census-by-addition class again, contributed by them.)
+
+**2. THIS LANE CANNOT EXERCISE 353 ITEM (b) — do not spend a filing trying.** The ungated-build arm
+needs a birth at a page that is NOT yet live; our rebuilds are always at already-deployed URLs, so
+Guard 2 takes the page-is-live arm and writes NO row of any kind. Their handoff's claim that our
+filings would exercise it as a side effect was wrong and is corrected in their docs (330 §13.2).
+
+**Probe-trap refinement (sharper than the 08-25 morning note):** the ABSENT control is structurally
+the SLOW one — `grep -q` exits early on a match, so the present-control is fast while the absent
+scan reads the whole binary; the only control whose timeout you cannot see (exit 137 ≈ exit 1 under
+`$? -ne 0`) is exactly the one that will time out. Budget the absent-control's timeout accordingly.
