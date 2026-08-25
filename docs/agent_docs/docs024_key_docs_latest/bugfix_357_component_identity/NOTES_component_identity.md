@@ -1102,3 +1102,38 @@ terms, with no check weakened.
 untouched as a control**, so a change can be attributed to the rebuild rather than to time.
 Baseline pinned in `scratchpad/canary_before.txt`: `index` position 1, slot `hero`, md5
 `26f484f2744ab3e9cd19e50f600a52b8`, component `9d4b922b`, version `3301ef65`, 17,595 bytes.
+
+### NEAR-MISS: I almost read a PRE-SAVE state as "the adopted row survived a rebuild"
+
+At 12:57 the canary's numbers looked like a clean pass on every axis — `index` still 1 row,
+slot `hero`, md5 `26f484f2…` unchanged, component still `adopted-fragment`, still stamped,
+17,595 bytes. Against the pinned baseline that is a perfect match, and it would have gone
+into a summary as *"precondition 4 satisfied."*
+
+**It was the state BEFORE the save had run.** The rebuild's own record said so:
+`collected_data->'save_sections'` was **null**, and no save step appeared among its keys —
+only `plan_sections`, `write_page_content` and the review/link steps.
+
+Reading `page-rebuild`'s sub-workflow settles the order, and it is not the intuitive one:
+
+```
+plan_sections -> write_page_content -> review_page_content -> check_review_approved
+   -> assemble_page -> save_sections -> update_page_status -> deploy_page
+```
+
+**`save_sections` runs AFTER `assemble_page`**, and the orchestration was sitting at
+`assemble_page`. So every "unchanged" reading I had was taken before the only step that could
+have changed anything.
+
+**The shape, and it is this lane's own recurring one:** an instrument that reads exactly the
+same whether the mechanism is working or has not yet been asked the question. Nothing about
+the numbers themselves discriminates — 1 row, right md5, right component is what a passing
+canary looks like AND what a canary that has not started looks like. The demand control is
+`save_result IS NOT NULL`, i.e. did the step that matters actually execute, and it costs one
+query.
+
+**The check that generalises:** before comparing an after-state to a baseline, prove the
+operation under test RAN. For any step-based rebuild that means the step's own `output_field`
+(here `save_result`) being present in `collected_data` — not the orchestration being alive,
+not the page being flagged, and not elapsed time. Nine of this lane's twelve `WRONG_CALLS`
+entries are versions of this, and I walked into it while writing up the one that fired.
