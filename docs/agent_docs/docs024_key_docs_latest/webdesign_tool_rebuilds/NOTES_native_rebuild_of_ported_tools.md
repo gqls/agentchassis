@@ -3102,3 +3102,18 @@ Sibling [31e6fe] synced in full (incl. the working-as-intended log-line tell for
 absent-control-is-slow probe rule). **This session's open items: none.** The lane's items (the
 grind at 35/63, Phase B owner reviews, the 333/353 owned-page-mention design question, the ~30-tool
 backfill) all live with their named owners.
+
+## 2026-08-25 ~12:00Z — sibling sync-back; ONE standing arrangement recorded
+
+Sibling state: #36 csp-builder mid-cycle (mechanism-graded — `rebuild()` constructs every directive
+fresh, so the ported never-reset-connect-src state bug is structurally impossible; serve pending),
+35 confirmed; then fluid-typography, then the multi-sidecar pair. Their new
+`HANDOFF_2026-08-25_continue_here.md` supersedes 08-22 (owner-requested) and carries the probe rules.
+Bonus verification from their grind: **the crosslink provenance stamp discriminates BOTH directions**
+— explicit filings mark `related_pages_source='spec'`, the demand proof marked `'suggested'`.
+
+**STANDING ARRANGEMENT (accepted in principle by [31e6fe], honour on their ping):** when the FIRST
+Phase B rich app builds (mind-map / meme-generator / logic-architect / micro-CMS / pasteboard — last,
+owner-reviewed), whichever session holds THIS seat provides a second pair of eyes on the
+feature-list browser grade. They ping with the specific app and its feature list; the grade is a
+feature list checked in a browser, not a tag count (the owner's standing instruction for Phase B).
