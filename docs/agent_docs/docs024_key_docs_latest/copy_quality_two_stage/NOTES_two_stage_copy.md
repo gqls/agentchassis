@@ -2598,3 +2598,37 @@ via `verify-head-builds.sh --with <both files> --test` (the working tree current
 another session's non-compiling WIP in `rebuild_blog_listing_action.go` — not ours, not
 committed, exactly the shared-tree case the script exists for); guard mutation re-run against
 HEAD → suite FAILS, restored → green.
+
+---
+
+## 2026-08-25 (evening, verdict) — 754dcffd round 2: APPROVED, 4 advisories, none high — each checked rather than banked
+
+**COUNCIL GATE — APPROVED** (13:11:35Z, "approved with 4 advisory objection(s) — none
+high-severity"). Commits `a2b61c8d1` + `48da71ba5` carry `Council-Submitted:`; 098 credits them
+automatically now the correlation is approved (no amend — forward-only). Advisories triaged
+`[MEASURED 2026-08-25]`:
+
+- **"the receipt is unobservable post-hoc"** (bug_historian; pod logs ~90s) — the named reader:
+  the action result persists in `orchestration_states.collected_data` under the auditor step's
+  output field, so `items_copy_edit_bound_unevaluated` / `items_skipped_pending_proposal` are
+  DB-queryable after the fact, unlike the Warn line. That query is the post-hoc audit surface;
+  the roll-day binary probe (previous entry) covers "is the code live at all".
+- **"checkpoint_for_review may already be the awaiting-human primitive"** (reuse ×2) — checked:
+  no shared "open item of type X exists for site+page" helper anywhere in
+  `work_items_common.go` / `checkpoint_for_review_action.go` / `load_work_item_actions.go`
+  (`workItemRetryNotPendingSQL` renders a retry_after predicate; `refreshOpenWorkItem` updates
+  a row already found by dedup key; checkpoint has no EXISTS). `pendingCopyEditForPage` is the
+  estate's first such predicate — if a second consumer appears, extract it to
+  `work_items_common.go` then.
+- **"name the producers and confirm none expect un-gated filing"** (guardian) — the round-1
+  check enumerated all five (visual-design-auditor, brief-fidelity-auditor, site-review-agent,
+  offer-analyser, content-quality-auditor). Only `category=tone` classifies to
+  `needs_copy_edit`, and gating ALL producers is the point — cross-source parallelism was half
+  the bound's justification. No producer config names the type directly; they emit categories.
+- **"the bound covers only this producer"** (bug_historian) — true, stated in risks, recorded
+  in CQ-030 and doc_notes `13d3de34`. A seam-level guard was deliberately rejected
+  (`writeWorkItem` is the shared seam, bugs_open/333; a type-specific page rule does not belong
+  in it). If a second `needs_copy_edit` producer is ever built, the register entry is the
+  tripwire.
+- The two low advisories self-answer: the test compiles against `workItemTerminalStatuses`
+  (a wrong symbol would not build), and the add/modify edit split is moot post-approval.

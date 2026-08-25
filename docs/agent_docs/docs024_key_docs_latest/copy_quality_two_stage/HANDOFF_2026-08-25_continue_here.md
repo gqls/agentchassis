@@ -113,8 +113,11 @@ inside the per-field loop, lines 412–416 under the loop at 369).
    pending-review does not): `pendingCopyEditForPage` in `write_audit_findings_action.go` withholds a
    new `needs_copy_edit` while the page has an open one (any producer) or an un-reviewed
    `copy_edit_proposed`, and reports `items_skipped_pending_proposal`. Drains when the human acts —
-   D2's rate limiter. Council `Council-Submitted: 754dcffd-34be-4af6-9898-a6f7374941e0`; wiring
-   mutation-proven; **Go, so inert until the next chassis roll** — verify at the binary then.
+   D2's rate limiter. Council **APPROVED** `754dcffd` (round 2, 4 advisories all checked — NOTES
+   2026-08-25 evening; round 1 REVISE corrected a false premise of mine: the anti-churn brake
+   already rate-limits same-key re-files, so the bound's true gap is cross-type + cross-source
+   only). Wiring mutation-proven; **Go, so inert until the next chassis roll** — verify at the
+   binary then: probe literal `items_copy_edit_bound_unevaluated`, present-control `content_rewrite`.
    Convergence itself (does repeated proposing ever go quiet?) remains unmeasured; the bound makes it
    safe to find out slowly.
 4. **The narrow sibling** — three lanes have asked (`277`, `301`/`083`, `323`; 999 + 160 + 98 items as
