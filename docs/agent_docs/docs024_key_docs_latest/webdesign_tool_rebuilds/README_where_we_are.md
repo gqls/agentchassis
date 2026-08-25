@@ -231,3 +231,15 @@ each swap. One bookkeeping correction that surfaced while proving the damage: th
 twenty-seven tools rebuilt, not twenty-eight — a counting slip in our own running tally, now
 corrected against the database. Thirty-six remain: thirteen whose logic lives in separate files,
 then the big ones.
+
+## 2026-08-25 — the separate-files phase is done; thirty-eight of sixty-three
+
+All the tools whose brains lived in separate script files are now rebuilt — eleven of them; the
+twelfth turned out to be the micro-CMS, which is one of your five review-in-person applications,
+so it waits for the finale. Two things from this stretch worth a sentence each. First, one of
+those tools had never worked a day in its life: its missing script file meant no slider ever
+moved on the original site, and its port notes said so plainly — the new one works and keeps the
+"share this exact vibe" link promise honestly. Second, our own counting instrument had been
+fooled by a code comment that merely *mentioned* a script tag, so the class was twelve, not
+thirteen — the census, the correction, and the check that settles it are all written down.
+What remains: twenty ordinary larger tools, then your five applications one at a time.
