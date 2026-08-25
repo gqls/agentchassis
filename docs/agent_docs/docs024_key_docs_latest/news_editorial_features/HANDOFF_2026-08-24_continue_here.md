@@ -252,3 +252,36 @@ delivery attempt is indistinguishable from one that needed none** — so a cover
 built on `lock_blocked_change` rows reads this batch as 2 blocked / 1 fine when the truth
 was 3 unconverted. Not ours to fix; reported to the batch owner. There is no live `oufe`
 session, so nobody there has been told directly.
+
+### 8.5 ⚠ Verifying the acceptance — the item completing is NOT the page changing
+
+Added 2026-08-25 from the **283 lane's** own measurement, and it is the trap most likely to
+bite whoever runs the three scripts:
+
+> Measured on that programme 2026-08-24: **three repairs all `complete`, with correct stored
+> bytes, and one page served the old version for hours afterwards.**
+
+So the verification order is **served page first, and nothing closes on the row**:
+
+1. `section_edit` item reaches `complete` — necessary, **not** sufficient. Do not stop here.
+2. `page_components.rendered_html` carries `id="c-evidence-timeseries"` — also necessary,
+   **also not sufficient**. Stored is not served.
+3. **`curl` both pages** and assert on the served bytes, with the stylesheet control run
+   first (08-21 §9.1): positive control `c-evidence-timeseries` **present**, negative
+   control `id=""` **absent**, and the byte delta fully accounted for by the id.
+4. Only then re-lock (`B_relock.sql`), and only then close the two items
+   (`C_close_lock_items.sql`).
+
+If (1) and (2) pass but (3) still shows the old id, that is a **publish lag, not a failed
+edit** — the same shape the 283 lane measured. Wait and re-check before dispatching
+anything else; a second delivery on top of a pending publish is how you get two writes
+racing at an unlocked flagship row.
+
+**Post-conversion census for the peers:** all three `evidence-timeseries` placements were
+unconverted as of 2026-08-25 (0 of 3 at the placement level — ours refused, oufe's was never
+asked). The 283 lane's fleet census the same day: **48 of 437 placements unconverted, 26 of
+them locked.** Once ours land, tell them so their count moves 3 → 1 rather than being
+re-derived. The oufe row is covered by their CONTRIB at
+`docs/agent_docs/docs024_key_docs_latest/oufe/CONTRIB_2026-08-25_from_283_lane_thames_water_evidence_timeseries_never_took_the_scope_conversion.md`
+— **not ours to action**, and that page separately has three `lock_blocked_change` rows
+sitting at `needs_human_review` since 2026-07-29.
