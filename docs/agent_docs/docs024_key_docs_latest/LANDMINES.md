@@ -4343,7 +4343,12 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
   that never lets anything through is indistinguishable from a broken pipeline
 - **source:** mortgagecalculator.co.uk adoption lane, 2026-08-03 — locked a site,
   watched it build anyway
-- **added:** 2026-08-03, mortgagecalculator.co.uk adoption lane
+- **⚠ EXTENDED 2026-08-25 (`bugs_open/396`) — and this entry's closing sentence was right in a way its own lane did not pursue.** *"Do not read 'locked_at works now' as 'the three predicates agree now.' They do not."* Exactly so: **`LoadWorkItemsAction` has never checked `sites.locked_at` at all.** The lock lives in ONE gate — the selector's `config.query` — while the loader that runs next on the chosen site tests only `site_id` + `status` + attempts + retry + deps. That is survivable today only because the automated path always reaches the loader *through* the selector. **It stops being survivable the moment anything teaches the selector to pick a locked site.**
+  - **So if you are adding ANY exception or escape hatch to the lock: both gates, binary first, config held.** `396`'s `sites.lock_except_item_ids` (register **WII-036**) is exactly that, split across migration `632` (the column, inert on apply) and `633_..._HOLD.sql` (the config, held). **Applied early, `633` turns a full site hold into no hold at all** — on precisely the sites somebody deliberately locked, which is worse than the defect this entry was filed for.
+  - ⚠ **`load_work_item_actions.go:134` LOOKS like a second gate and is not.** It does check `sites.locked_at`, but it sits inside **`WriteBuildItemsAction`** (declared `:104`, which MINTS items), and **its log line misnames its own function**: `"LoadWorkItemsAction: site is locked, skipping"`. Grep for the lock, land on that line, and you will conclude the loader is covered. It is not.
+  - ⚠ **The selector's SQL is under `config.query`, NOT `config.pre_query`** — `find_dispatchable_site` is a `query_database` action. A migration reading `pre_query` finds nothing, patches nothing, and reports success.
+  - **kin, and why this is an addendum rather than a new entry:** *"Two queries decide 'is this work dispatchable' and they DISAGREE"* (this file, same day, same lane) already documents the selector/loader split for `approval_mode` and `depends_on`. **The lock is a third predicate with the same split, and `396` re-derived it from source having failed to grep here first.** Two entries describing one divergence is how it got missed; this is now one entry.
+- **added:** 2026-08-03, mortgagecalculator.co.uk adoption lane; **extended 2026-08-25, deferred_work_item_park lane**
 
 ---
 

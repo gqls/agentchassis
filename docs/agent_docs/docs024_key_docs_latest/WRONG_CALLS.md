@@ -53969,3 +53969,15 @@ fail-safe-is-not-safe-when-the-gate-never-opens.
   of names you assembled from the thing you already found; and prefer a query that returns a
   CLASSIFICATION over one that returns a boolean, because the boolean cannot show you the case you did
   not think of. A `[MEASURED]` count whose needle you chose after seeing the answer is not a measurement.
+
+**7. Fourth instance, same day, same failure: I re-derived from source a thing LANDMINES already said — twice — and this one reached a council as a HIGH.** Building `bugs_open/396`'s park verb I wrote *"the platform offers NO verb for holding a site's work queue"*. The council's `prior_art` seat refuted it: `sites.locked_at` / `locked_by` exist, are live on 3 of 51 sites, gate `find_dispatchable_site`, and have admin endpoints. **LANDMINES carries a whole entry on them** (*"`sites.locked_at` does NOT hold a site"*, 2026-08-03, with its own dated correction saying the clause is now live).
+
+Then, revising, I "discovered" that `LoadWorkItemsAction` never checks the lock — which is why an exception list added to the selector alone would unlock the whole site. **That was in LANDMINES too**, in a second entry: *"Two queries decide 'is this work dispatchable' and they DISAGREE — the SELECTOR tests three predicates; the LOADER tests those three plus two more"*. And the first entry's closing line is **exactly** the warning I needed: *"Do not read 'locked_at works now' as 'the three predicates agree now.' They do not."*
+
+I found it by reading Go for twenty minutes. `grep -n "locked_at" LANDMINES.md` would have taken one second.
+
+**Why the hook did not save me, which is the transferable part:** the `SessionStart` landmine hook matches entries against files **already dirty in the tree**. `sites`, `find_dispatchable_site` and `LoadWorkItemsAction` were not dirty when this lane opened — I made them dirty *because* of what I failed to look up. **A hook that keys on dirty files cannot warn you about the thing you have not touched yet, and "the thing you have not touched yet" is the whole population a landmine exists for.** My own memory index says this in one line and I did not act on it: *"grep LANDMINES for the SYMBOL you are about to trust."*
+
+**The tally is the finding, and it is four in one session:** (1) `spec` enumerated, `result` not; (2) the code grepped for a writer, the docs never; (3) a co-occurring discovery run leaned on as a cause; (4) this. Every one is *not looking*, not bad reasoning — which is the same conclusion entry 9 of the 08-25 `bugs_open/387` block reached about a different lane. **Two lanes, one day, same diagnosis.**
+
+**The cheap check, and it is now the first line of this lane's RUNBOOK:** before writing "X does not exist" or "nothing does Y" in a rationale a reviewer will read — `grep -n "<the symbol>" LANDMINES.md`, `grep -rn "<the symbol>" docs/`, and only then the source. **An asserted absence is a claim about your search, not about the estate.**
