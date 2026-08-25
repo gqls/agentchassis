@@ -50645,3 +50645,33 @@ a GUESS written into this very entry — corrected minutes later from `git log`,
 this file's lesson applied to itself) (add + own
 commit); the binary commit had been built from the then-uncommitted sources,
 so live behaviour was never wrong — only the record was.
+
+## 2026-08-25 — `bugs_open/381` lane: I wrote a BST clock time with a `Z` on it, into a handoff, as the zero point for every elapsed-time claim that follows
+
+I dispatched a validation build and recorded it in the handoff as *"dispatched ~11:15Z"*. It was
+**10:21:49Z**. The shell said `11:15` and I appended a `Z` — the number was the local BST clock and
+the suffix asserted UTC.
+
+**Caught by the `loanzy_uk_example_site` lane**, who read the DB and gave me both halves in one
+line: site `created_at 2026-08-25 10:21:49.579398+00`, and `date -u` = `10:26Z` against
+`date local` = `11:26+0100` **stamped in the same command**.
+
+**Why it is not cosmetic.** That timestamp was written into a handoff as the **zero point for the
+build**, in a lane whose entire remaining task is *"wait about three hours, then measure"*. Every
+elapsed figure derived from it would have been an hour out in the direction that manufactures a
+problem: at 12:30Z a healthy build would have read as *"75 minutes and still no planner run"*
+instead of *"just over two hours, on schedule"* — a stall that never happened, in a document written
+for someone who was not here to see the build. **A wrong zero point does not produce a wrong number;
+it produces a wrong story, and the reader has no way to catch it.**
+
+**The cheap check, and it is one flag:** `date -u`, and stamp it **in the same command** as anything
+you record — `echo "checked at $(date -u +%Y-%m-%dT%H:%M:%SZ)"`. Never transcribe a clock time from
+`kubectl`, a log line or a prompt and add a `Z`. **`kubectl`/`klog` output is LOCAL; the database is
+UTC**; the estate runs on a machine at `+0100` for half the year, so the two agree in winter and
+this trap is silent for six months of it.
+
+⚠ **The shape, and it is this lane's fourth of the same family:** I did not measure the time, I
+**read** it — from my own shell prompt — and gave it the authority of a measurement by adding the
+suffix. The same move as reading a count and inventing the mechanism behind it, and as writing
+"agreed with X" about a boundary I had inferred. **A unit is a claim.** `Z` is not decoration; it
+asserts a fact about a clock, and I asserted it without checking.

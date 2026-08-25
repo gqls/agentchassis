@@ -7,7 +7,7 @@ one open item is now in flight — see §0.**
 
 ---
 
-## 0. ⏳ LIVE RIGHT NOW — the validation build (`homegarden.uk`), dispatched 2026-08-25 ~11:15Z
+## 0. ⏳ LIVE RIGHT NOW — the validation build (`homegarden.uk`), dispatched 2026-08-25 **10:21Z**
 
 The owner offered a domain list and authorised the build this lane was waiting for.
 
@@ -17,8 +17,20 @@ The owner offered a domain list and authorised the build this lane was waiting f
 | site id | `5904bd0f-33fd-4212-9c1b-50b28fe72fdb` |
 | correlation | `f20ddbf6-d512-4d55-8b3d-3276717c0c39` |
 | orchestration | `0ca5de49-6a47-4d5b-8e08-a742427769ec` |
-| dispatched | 2026-08-25 ~11:15Z — **LANDED** (receipt-asserted, `bugs_open/327`) |
+| dispatched | **2026-08-25 10:21:49Z** (site row `created_at`, UTC) — **LANDED** (receipt-asserted, `bugs_open/327`) |
 | first state | submitter `COMPLETED`; site row `active`/`build=pending`; `needs_domain_research=triaged` |
+
+> **⚠ CORRECTED 2026-08-25 by the `loanzy_uk_example_site` lane: this section first said "~11:15Z",
+> which was BST READ AS UTC.** The site row is `created_at 2026-08-25 10:21:49.579398+00`; the shell
+> reported `date -u = 10:26Z` against `date local = 11:26+0100` in the same breath. Nothing about the
+> build changed — but **every elapsed-time figure derived from the wrong stamp would have been an hour
+> out and would have read as a stall that never happened.** That lane's own 08-24 handoff §3 carries
+> this exact trap: **kubectl/klog lines are LOCAL, the DB is UTC — stamp `date -u` in the same command
+> as any time you record.**
+>
+> **⚠ AND "LANDED" COVERS THE DISPATCH, NOT THE BUILD** (same lane, fair pushback, accepted).
+> The receipt asserts the Kafka message was published and consumed. It says nothing about pages.
+> **Nothing about `homegarden.uk` is proven until pages serve.**
 
 **Why this domain:** the only one on the offered list that plausibly exercises all three new
 components at once (the gardening year → `period-calendar`; what-to-check → `checklist`; choosing
