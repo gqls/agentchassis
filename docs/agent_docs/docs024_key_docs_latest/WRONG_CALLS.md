@@ -53026,3 +53026,42 @@ council's read-only precondition checks observed the post-apply world and report
 as ABSENT — which reads exactly like drift. Three seats' evidence blocks now carry that artefact. If
 you apply early, say so in the submission so the seats can read their own checks correctly.
 Tally: applied-before-verdict-poisons-the-reviewers-checks.
+
+---
+
+## 2026-08-25 — the FIFTH recorded instance of "a mutation that does not compile reads as killed", by someone who had the remedy one grep away
+
+**Lane:** `bugs_open/392`. **Caught:** by my own runner, before commit — but only because I printed
+the failing test NAMES rather than trusting the exit code, and the name list came back **empty**.
+
+Four of my eleven mutations did not compile (deleting an assignment leaves the variable unused;
+replacing an expression with `false` leaves its operand unused). `go test` exits non-zero for a
+build failure exactly as it does for a failing test, so the runner scored all four as *killed* —
+i.e. as evidence of test coverage that had not been demonstrated at all. The empty
+`failing_tests=[]` beside a "killed" verdict is the only thing that gave it away.
+
+**This lesson is already written down, five times over.** `LANDMINES.md:2218` carries the remedy
+as a ready-to-paste line — `go build ./pkg/ || echo "!! DID NOT COMPILE — this mutant proves
+nothing"` — and `WRONG_CALLS.md` has it at 17260 (*"a mutation that does not compile is not a
+mutation test"*), 19514, 20014 and 32088. **I am the fifth.** So the interesting question is not
+what the lesson is; it is why five sessions in a row have needed to relearn it.
+
+**The answer, and it is uncomfortable because my own memory file already says it:** the standing
+trigger is *"grep LANDMINES for the nouns in your VERIFICATION, not only the nouns in your
+CHANGE"* — trigger 3 of five in `grep-landmines-for-your-symbols`, written after a session made
+exactly this class of error in August. I greped for `handler_agent`, `content_data`,
+`page_rerender`, `refuse_owned_page` — every noun in the thing I was building — and never once
+for `mutation`, because mutation testing was *how I was checking*, not *what I was changing*. The
+entry describing that blind spot did not reach me, for precisely the reason the entry describes.
+
+**The cheap check, unchanged from four previous tellings:** build before you test, and treat a
+non-compiling mutation as **invalid**, never as a pass. **The check I would add:** print the
+failing test NAMES, not the exit code. A killed mutation names its killer; a build failure names
+nobody, and the empty list is the tell.
+
+⚠ **Second recurrence of the same shape in one session** — earlier today I walked into the
+`handler_agent IS NOT NULL` trap whose column fact was already in LANDMINES, filed under a
+different situation. Both times the estate had written the answer down; both times I searched for
+my subject rather than my method. **That is now a measured pattern in this session, not an
+anecdote**, and it is the strongest argument I have seen for the grep being a checklist step
+before verification rather than a habit relied on to fire.
