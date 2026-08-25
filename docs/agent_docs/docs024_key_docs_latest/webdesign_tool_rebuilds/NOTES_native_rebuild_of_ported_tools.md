@@ -2994,3 +2994,18 @@ mutation-proved on their side), so this costs one filing's cross-mention choice,
 2. **Their stated residual:** a failed picker and an honest "no related pages" are indistinguishable
    at the emitter (empty source both ways); the discriminating check is
    `llm_call_log` `step_name='suggest_related_pages'`. Owed and not done — THEIRS, stated not hidden.
+
+## 2026-08-25 — THE 602 PING ARRIVED: the standing commitment is now EXECUTABLE on the lane's next filing
+
+The 353 lane confirmed (message to [ac1f33], forwarded to the active filer [31e6fe]): picker LIVE,
+proven at the artefact on BOTH in-flight builds (1336/1337, incl. a per-run pod on another node,
+present+absent controls); migration 602 applied BY HAND — **deliberately no `schema_migrations` row**
+(runner refuses `--record-only` on a `_HOLD` sidecar); live config verified independently, 0 unmarked
+carriers fleet-wide; zero picker calls yet, so the lane's filing is the first exercise against a
+clean baseline. **Next real add_tool filing: OMIT `related_pages`. PASS =
+`related_pages_source='suggested'` on ≥1 row. Failure tell (report to them): empty source AND no
+`llm_call_log` row `step_name='suggest_related_pages'` = picker not running, not honest-none.**
+
+**Probe trap adopted from their ping, for ALL this lane's binary probes:** a timeout-killed
+`kubectl exec` exits **137**, indistinguishable from grep's exit-1 "absent" under a bare
+`$? -ne 0` test — their first negative control was vacuous exactly that way. Distinguish 1 from 137.
