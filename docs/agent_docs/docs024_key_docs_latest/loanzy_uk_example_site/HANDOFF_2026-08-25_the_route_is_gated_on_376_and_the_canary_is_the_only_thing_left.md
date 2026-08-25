@@ -224,9 +224,18 @@ components; a two-page brochure exercises none.
 2. **Then, and only with the owner's authorisation, the greenfield canary** — §4. Pre-flight recipe
    in `HANDOFF_2026-08-23_garden_tools_continue_here.md`; re-pin the `311` md5s first; expect
    time-to-first-agent = queue depth ÷ ~90s.
-3. **Read the canary's rendered prompts INSIDE 24 hours.** `orchestration_states` reaps on an exact
-   sliding 24h clock. This build's are already gone. `llm_call_log` keeps prompts and responses —
-   use that, and `site_work_items` ∪ `site_work_items_archive` for history.
+3. **Read the canary's rendered prompts THE SAME DAY.** `[MEASURED 2026-08-25 10:33Z]` — measured
+   here after the `bugs_open/381` lane pointed out that both of us had been repeating "~24h" from
+   memory without ever running it: **7,668 rows in `orchestration_states`, oldest 1d 00:57, 0 older
+   than 48h**, distribution 1,137 under 6h · 6,365 at 6–24h · 166 at 24–48h. So the tail runs to
+   **about 25 hours, not a clean 24** — but the operative advice is *same day*, because a prompt you
+   plan to read "tomorrow morning" is a coin-flip. `llm_call_log` keeps prompts AND responses with no
+   such window (it is the training corpus, not a log); `site_work_items` ∪ `site_work_items_archive`
+   for item history.
+   > **Why this is dated rather than stated:** had the answer come out at 6h, this line would have
+   > sent the next reader looking for a row that no longer existed — and an absence reads as a failed
+   > build. **An unmeasured caution is a coin-flip written in the imperative.** Same defect class as
+   > §5's corrected banner; see `WRONG_CALLS.md`, 2026-08-25.
 4. **Leave `garden-tools.uk` alone** until the owner says otherwise, and keep §1's baseline dated in
    any doc that quotes it.
 

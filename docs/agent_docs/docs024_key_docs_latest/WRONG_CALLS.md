@@ -50759,3 +50759,21 @@ future wrong call into a morning's work for someone who could check it.**
 license *replacing* it, and a peer's filter justified by what it rejects without counting what it
 keeps. All three are **an answer to an adjacent question presented as an answer to the question being
 decided.**
+
+**⚠ SHARPENED the same day, by the `bugs_open/381` lane, and it separates two things this file had
+been treating as one.** A **stale fact misinforms**; a **disarming caveat makes the reader ACT on the
+misinformation.** Every earlier entry here is the first kind — a claim that was wrong, which costs
+whoever believed it. This one is the second: it did not merely tell the reader something untrue, it
+told them *what to do about it* ("ignore section (a)"), which converts a wrong belief into a wrong
+action at the exact moment the instrument was trying to speak. **Sort your own cautions by that test:
+does this line change what the reader will DO with a signal? If so it is load-bearing, and it needs a
+measurement before it ships, not a plausible history.**
+
+**The same lane then applied the test to its own handoff within the hour and found one** — a
+time-critical *"read the planner prompt within ~24h, `orchestration_states` is a rolling window"*,
+in the imperative, repeated from memory and never measured. It holds
+(`[MEASURED 2026-08-25 10:33Z]`, verified independently here: **7,668 rows, oldest 1d 00:57, 0 beyond
+48h, 166 in the 24–48h tail** — so "same day" is the honest instruction and ~25h is the real edge).
+**Being right is not the point.** At 6h that caution would have sent a reader hunting a row that no
+longer existed, and an absence reads as a failed build — the same misreading of silence this estate
+keeps paying for. **An unmeasured caution is a coin-flip written in the imperative.**
