@@ -187,3 +187,55 @@ not bad luck; correcting mode supplies confidence and suppresses the check. The 
 `PLAN_2026-08-25_392.md` is sound and is now peer-verified in three places — but it has needed
 four correction blocks to get there, and **no Go code has been written yet**. Read the PLAN's
 correction blocks bottom-up before trusting anything above them.
+
+## 2026-08-25 (fifth pass) — the code is written, tested and committed
+
+- **Shipped in `924079c94`** (6 files): the `missing_prose_links` discovery check + its tests, the
+  lifecycle-posture declaration, the writer's `page_name`/`page_id`/`domain` enrichment + its
+  tests, and the registry flip to `consumed`. Register entry **LNK-039** + index row in
+  `073feba9d`. Council **SUBMITTED**, corr `7d923ff6-3810-4f2b-9000-e02df68a6b9e`, trailer
+  `Council-Submitted:` — never `Council-Reviewed:` on a verdict not yet read.
+- **Design as built differs from the PLAN in one place, and it is the right way round.** No
+  `internal-linker` migration: the repair re-runs `page-content-writer`, which runs
+  `prepare_link_context` itself, so the writer gets a fresh allow-list and picks its own targets.
+  No live agent definition was touched at all.
+- **Verification actually run, not asserted:**
+  - `go test ./platform/orchestration/...` — green, and I checked the tests RAN (a `-run` regex
+    matching nothing also prints `ok`; 14 of mine executed by name).
+  - **11 mutations applied, compiled, tested and reverted** — 8 on the detector, 3 on the writer
+    enrichment. None survived.
+  - `verify-head-builds.sh --with ×5 --test`: HEAD itself fails 22 ways (Kafka down locally,
+    DB-dependent suites, other lanes' build failures), so the suite is not a gate here. **The
+    control is the diff**: failure set with my change is byte-identical to bare HEAD's once
+    timings are normalised — nothing added, nothing removed. Post-commit,
+    `verify-head-builds.sh` reports **HEAD 924079c94 builds**.
+- **MISSTEP (mine), caught by my own runner: a mutation that did not COMPILE read as "killed".**
+  My first M5 replaced the scope comparison with `false`, leaving `href` unused. `go test` exits
+  non-zero for a build failure exactly as it does for a failing test, so the runner scored it as
+  covered. Three of the writer mutations failed the same way (deleting an assignment leaves the
+  variable unused). **The check:** a mutation must COMPILE or it measures nothing — build first,
+  and treat a non-compiling mutation as invalid, never as a pass. Fixed in the runner and stated
+  in the test file's header so the next reader does not inherit the false claim.
+- **MISSTEP (mine), caught by the estate's own ratchet:** I did not declare the check's lifecycle
+  posture, and `TestEveryPagesQueryingCheckDeclaresItsLifecyclePosture` failed the build until I
+  did. That is `bugs_open/356`'s mechanism working — and worth recording that it caught a real
+  omission on the first new check written after it existed. Declared `PostureArmed`: the remedy
+  re-runs the writer over live prose, so a retired-but-still-serving page belongs to retraction,
+  never to a rewrite.
+- **Found while doing the baseline, and NOT mine: `cmd/config-key-audit`'s test package does not
+  compile at HEAD.** `livedeclarations_test.go` names `livespec.LiveAuditOnlyDeclarations`, which
+  exists only in an uncommitted working copy of `platform/livespec/livespec.go`. So the RFC_022
+  budget counter and the cron parity test CLAUDE.md tells every session to run are unrunnable
+  from a clean checkout. Reported to the `bugs_open/333` lane (they made the test-side commit);
+  deliberately NOT fixed here, because committing another session's dirty file is the exact sweep
+  the pathspec rule exists to prevent.
+
+### What remains before this bug can close
+
+1. Fleet roll, then prove the check is registered (`service_binary_capabilities`, positive +
+   negative controls).
+2. Add `missing_prose_links` to a live `run_checks.config.checks` array **by hand** — image
+   first, then config.
+3. Report-only read of the first pass, then the canary (PLAN's induction route — the site-scoped
+   opt-in hook, NOT the bogus `site_id` that would corrupt the column the reader joins on).
+4. Verify at the SERVED page with `scripts/probe-page-url.sh`, then close.
