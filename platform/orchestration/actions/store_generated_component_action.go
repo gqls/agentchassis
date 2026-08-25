@@ -1985,6 +1985,26 @@ func recordRetryFeedback(ctx context.Context, db *sql.DB, logger *zap.Logger,
 		return
 	}
 
+	// A BLANK message is a NO-OP, never a write (bugs_open/345, at the request of
+	// bugs_open/395's second producer). This function REPLACES the column
+	// wholesale, and the reader keys on a non-blank message
+	// (load_work_item_actions.go: `strings.TrimSpace(lastError.String) != ""`).
+	// So writing an empty message does not "clear" anything useful — it CLOBBERS
+	// whatever specific feedback a producer already wrote for this attempt with
+	// {"message":"",...}, which the reader then drops, and the retry regenerates
+	// blind. The invariant "don't pass an empty message" was call-site
+	// discipline; a second producer read this function's doc comment and still
+	// got the mechanism wrong, so the invariant is enforced HERE where it cannot
+	// be. No-op today (store_component always passes a real message); this makes
+	// every future producer's empty call harmless rather than harmful.
+	if strings.TrimSpace(message) == "" {
+		logger.Debug("recordRetryFeedback: blank message — skipped, not written "+
+			"(a blank write would clobber existing feedback and the reader would drop it; bugs_open/345)",
+			zap.String("work_item_id", workItemID),
+			zap.String("code", code))
+		return
+	}
+
 	// completed_at IS NULL mirrors the reader's gate (load_work_item_actions.go):
 	// a completed row keeps its failure text, and writing feedback onto a
 	// lifecycle that already ended is how a fresh generation inherits a dead
