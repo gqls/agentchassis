@@ -5685,3 +5685,9 @@ his queue.
   — CLAUDE.md's "schema first" was obeyed only after the errors; ~4 round trips. (b) The stale
   call in §4. (c) I read `news_render_result.item_count 3` as "3 items served"; the served file
   carried 1 — the count is not the snippet's length. Trust the artefact.
+- **Same-file passenger, the other way (2026-08-25 ~16:40Z):** my LANDMINES entry went out in
+  the 375 lane's `4210764e9` (undeclared — their WRONG_CALLS row) and my WRONG_CALLS row in
+  their `483b37f6d` (declared `sweep:`, names this lane). Both intact and synced to `doc_notes`;
+  the peer messaged to say so. Nothing lost, nothing to chase (forward-only). Commits of this
+  session: `5cd1d3d87` (lane task), `b8f9ddf54` (300 CONTRIB); the third, for the two fleet
+  files, was a no-op because they were already clean.
