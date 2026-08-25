@@ -63,6 +63,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -1386,9 +1387,9 @@ func isSelfContainedSection(comp componentInfo) bool {
 // resolve no sections and the page is in no current plan, no item is emitted.
 //
 // Returns the disposition so the caller can put it in the action's output —
-// "raised", "skipped_sectionless_page", or "escalate_failed" alongside a
-// non-nil error. A no-op that only the absence of a row records is a silent
-// no-op (bugs_open/182).
+// "raised", "skipped_sectionless_page", "skipped_owned_page", or
+// "escalate_failed" alongside a non-nil error. A no-op that only the absence
+// of a row records is a silent no-op (bugs_open/182).
 // `cause` is the human half of the summary only. The spec's machine reason
 // stays content_data_backfill for BOTH callers because the remedy is the same
 // one — regenerate the page's content through the writer and backfill
@@ -1402,6 +1403,34 @@ func escalateRerenderToWriter(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 			zap.String("page", pageName),
 			zap.String("sections_source", sectionSource))
 		return "skipped_sectionless_page", nil
+	}
+
+	// GUARDED, second alarm (bugs_open/333, owner ruling 2026-08-25, remedy (i)).
+	// An owned page's widget slots legitimately hold no content_data — that is
+	// what rebuild_policy='owned' MEANS — so this escalation's trigger is its
+	// normal false alarm on a tool page, not a defect: 13 needs_page items were
+	// minted this way in the writeWorkItem door's first 14 hours, and every one
+	// was refused wont_fix by page-build-handler's ownership guard. Those rows
+	// also never met that door, because this emit carries no page_id and is born
+	// 'triaged', which no promoter re-examines. So the false alarm stops HERE,
+	// at source — and inside this helper rather than in a caller, because a
+	// precondition parked in a caller is one port away from gone
+	// (owned_page_guard.go's own lesson).
+	//
+	// Fail-open on every lookup problem, matching pageIsOwnedForGuard's posture:
+	// a page that does not resolve yet is the legitimate build-request case, and
+	// an unreadable policy must not suppress a real escalation.
+	if guardPageID, _, lookupErr := saveSectionsLookupPageID(ctx, db, siteID, pageName); lookupErr == nil {
+		if owned, checked := pageIsOwnedForGuard(ctx, db, guardPageID, logger); checked && owned {
+			logger.Info("rerender_page_sections: skipped_owned_page — the page is rebuild_policy=owned, so the writer this would escalate to is forbidden to touch it; owned slots legitimately carry no content_data (bugs_open/333)",
+				zap.String("site_id", siteID.String()),
+				zap.String("page", pageName),
+				zap.String("cause", cause))
+			return "skipped_owned_page", nil
+		}
+	} else if !errors.Is(lookupErr, sql.ErrNoRows) {
+		logger.Warn("rerender_page_sections: ownership lookup failed — escalation guard standing down",
+			zap.String("page", pageName), zap.Error(lookupErr))
 	}
 
 	tx, err := db.BeginTx(ctx, nil)

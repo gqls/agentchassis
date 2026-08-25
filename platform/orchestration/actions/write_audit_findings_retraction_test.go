@@ -15,6 +15,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -183,7 +184,16 @@ func TestAuditRetraction_AFindingResetsTheStreak(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"item_key"}))
 	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	// The filing goes through writeWorkItem since bugs_open/333: its own tx,
+	// the anti-churn probe (audit findings do not set recurrenceExpected), the
+	// seam's insert. The pages load above is EMPTY so PageID is nil — the
+	// owned-page door must therefore be ABSENT here; scripting it would hide a
+	// fixture that started carrying a page id without scripting the door.
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
 	mock.ExpectExec("INSERT INTO site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
 
 	mock.ExpectBegin()
 	mock.ExpectQuery("item_type = 'dark_section_audit'").
@@ -578,15 +588,24 @@ func TestWriteAuditFindings_UngatedProducerPathIsUnchanged(t *testing.T) {
 	mock.ExpectQuery("SELECT EXISTS").
 		WithArgs(siteID, "visual-design-audit_needs_copy_edit_index_"+siteID.String()).
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
-	// `status` became a parameter (position 10) when the bugs_open/279 fix let
-	// the capability_gap fallback file as 'deferred'; a routed finding still
-	// inserts 'detected', and this control pins that.
+	// The filing goes through writeWorkItem since bugs_open/333, and this
+	// finding CARRIES a page id — so the seam's owned-page door runs its policy
+	// read first ('generic' stands it down), then the anti-churn probe, then
+	// the seam's own statement: 16 args, spec at $7, page_id at $8, handler at
+	// $11, status at $12 — a routed finding still inserts 'detected', which the
+	// pinned $12 carries forward from the pre-333 version of this control.
+	mock.ExpectBegin()
+	expectWorkItemDoorGenericPage(mock)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*),")).
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
 	mock.ExpectExec("INSERT INTO site_work_items").
-		WithArgs(siteID, "discovery", "needs_copy_edit", "medium", sqlmock.AnyArg(),
-			argJSONContains{`"audit_source":"visual-design-audit"`}, pageID, sqlmock.AnyArg(),
-			"copy-editor", "detected", "visual-design-audit",
-			"visual-design-audit_needs_copy_edit_index_"+siteID.String(), sqlmock.AnyArg()).
+		WithArgs(siteID, "discovery", "build", "needs_copy_edit", "medium", sqlmock.AnyArg(),
+			argJSONContains{`"audit_source":"visual-design-audit"`}, pageID, nil,
+			sqlmock.AnyArg(), "copy-editor", "detected", "visual-design-audit",
+			"visual-design-audit_needs_copy_edit_index_"+siteID.String(),
+			sqlmock.AnyArg(), nil).
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
 
 	// The retraction pass still runs — and asks about dark_section_audit ONLY.
 	// An ungated type must never reach the candidate loader; sqlmock fails an

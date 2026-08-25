@@ -908,6 +908,7 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 	created := 0
 	skipped := 0
 	skippedBlocked := 0
+	parkedOwned := 0
 	classificationStats := make(map[string]int)
 
 	for i := range classified {
@@ -983,16 +984,50 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 			summary = f.Description
 		}
 
-		_, err := params.DB.ExecContext(ctx, `
-			INSERT INTO site_work_items (
-				site_id, source, pipeline, item_type, severity, summary,
-				spec, page_id, priority, handler_agent, status, created_by,
-				item_key, batch_id
-			) VALUES ($1, $2, 'build', $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, $13)
-		`, siteID, "discovery", classified.ItemType, classified.Severity,
-			summary, string(specJSON), classified.PageID, classified.Priority,
-			classified.HandlerAgent, status, auditSource, classified.DedupKey, batchID)
-
+		// Through the shared write seam, not a raw INSERT (bugs_open/333, owner
+		// ruling 2026-08-25). This action was the last content-finding producer
+		// walking round writeWorkItem, so its rows met none of the seam's
+		// guards: three offer-analysis findings died wont_fix on the owned-page
+		// refusal within hours of that door going live. The filters above keep
+		// their jobs (skip bookkeeping, the producer-scoped mutes); the seam
+		// now decides what the ROW becomes — parked for an owned page at a
+		// declaring handler, deferred/branded by the anti-churn brake. (The
+		// registration probe keys on triaged/approved/claimed, so rows born
+		// 'detected' here still meet it at promotion, unchanged.)
+		//
+		// Log-and-continue per finding is unchanged — one bad finding must not
+		// cost the batch — which is why each finding gets its OWN transaction:
+		// a failed statement poisons a Postgres tx, so one shared tx would turn
+		// the first failure into all of them.
+		tx, txErr := params.DB.BeginTx(ctx, nil)
+		if txErr != nil {
+			logger.Warn("Failed to insert finding work item",
+				zap.String("category", f.Category),
+				zap.String("item_type", classified.ItemType),
+				zap.Error(txErr))
+			continue
+		}
+		w, err := writeWorkItem(ctx, tx, workItem{
+			siteID:       siteID,
+			source:       "discovery",
+			pipeline:     "build",
+			itemType:     classified.ItemType,
+			severity:     classified.Severity,
+			summary:      summary,
+			spec:         string(specJSON),
+			pageID:       classified.PageID,
+			priority:     classified.Priority,
+			handlerAgent: classified.HandlerAgent,
+			status:       status,
+			createdBy:    auditSource,
+			itemKey:      classified.DedupKey,
+			batchID:      batchID,
+		}, dropOnConflict, logger)
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			_ = tx.Rollback()
+		}
 		if err != nil {
 			logger.Warn("Failed to insert finding work item",
 				zap.String("category", f.Category),
@@ -1000,6 +1035,21 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 				zap.Error(err))
 			continue
 		}
+		if !w.Inserted {
+			// An open row already holds this key: the seam-level dedup caught a
+			// row the EXISTS pre-check above ran too early to see.
+			skipped++
+			continue
+		}
+		if w.OwnedPageParked {
+			parkedOwned++
+		}
+		logger.Info("write_audit_findings: finding routed via the work-item seam",
+			zap.String("item_key", classified.DedupKey),
+			zap.String("requested_status", status),
+			zap.Bool("owned_page_parked", w.OwnedPageParked),
+			zap.Bool("born_blocked", w.BornBlocked),
+			zap.Bool("deferred", w.Deferred))
 		created++
 	}
 
@@ -1017,6 +1067,7 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		zap.Int("created", created),
 		zap.Int("skipped_duplicates", skipped),
 		zap.Int("skipped_blocked", skippedBlocked),
+		zap.Int("parked_owned_page", parkedOwned),
 		zap.Int("total_findings", len(findings)),
 		zap.Any("classification_stats", classificationStats))
 
@@ -1028,6 +1079,11 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		"batch_id":              batchID.String(),
 		"audit_source":          auditSource,
 		"classification_stats":  classificationStats,
+	}
+	if parkedOwned > 0 {
+		// Parked-not-routed is a different outcome from created-and-dispatchable;
+		// present only when non-zero so the common case stays byte-identical.
+		out["items_parked_owned_page"] = parkedOwned
 	}
 	if len(unroutedCategories) > 0 {
 		// The categories this router had no rule for — filed as capability_gap

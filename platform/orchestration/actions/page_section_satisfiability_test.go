@@ -58,6 +58,18 @@ func expectPlanMembership(mock sqlmock.Sqlmock, member bool) {
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(member))
 }
 
+// expectEscalationOwnershipGuard scripts the owned-page check
+// escalateRerenderToWriter runs before minting anything (bugs_open/333): the
+// (site_id, name) → id lookup, then the rebuild_policy read. `policy` says
+// which way the guard answers. rebuildPolicyReadSQL is the door test's pin of
+// the same statement — one literal, both guards.
+func expectEscalationOwnershipGuard(mock sqlmock.Sqlmock, policy string) {
+	mock.ExpectQuery("SELECT id, url FROM pages").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).AddRow(uuid.New(), "/x"))
+	mock.ExpectQuery(regexp.QuoteMeta(rebuildPolicyReadSQL)).
+		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow(policy))
+}
+
 // expectNeedsPageInsert covers the statement sequence a needs_page emit
 // produces: begin, the two-strike probe (these emitters do NOT set
 // recurrenceExpected), the insert, commit. Sixteen arguments, because neither
@@ -490,6 +502,7 @@ func TestEscalateRerenderToWriter_SectionedPage_StillEmits(t *testing.T) {
 
 	expectPlanTableSections(mock, "hero", "article-body")
 	expectPlanMembership(mock, false)
+	expectEscalationOwnershipGuard(mock, "generic")
 	expectNeedsPageInsert(mock, "page-rerender")
 
 	disposition, err := escalateRerenderToWriter(context.Background(), db, uuid.New(), "tungsten-guide", "a section had no stored content_data", zap.NewNop())
@@ -508,9 +521,93 @@ func TestEscalateRerenderToWriter_PlanMemberWithoutSections_StillEmits(t *testin
 
 	expectNoDeclaredSections(mock)
 	expectPlanMembership(mock, true)
+	expectEscalationOwnershipGuard(mock, "generic")
 	expectNeedsPageInsert(mock, "page-rerender")
 
 	disposition, err := escalateRerenderToWriter(context.Background(), db, uuid.New(), "brands-index", "a section had no stored content_data", zap.NewNop())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if disposition != "raised" {
+		t.Errorf("disposition = %q, want raised", disposition)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+// An owned page's empty content_data is its NORMAL state — that is what
+// rebuild_policy='owned' means — so the escalation must not mint the needs_page
+// its target's ownership guard is certain to refuse (bugs_open/333: 13 such
+// items in the door's first 14 hours, every one wont_fix).
+// Kills: deleting the ownership guard (the emit then opens a transaction the
+// mock refuses, surfacing as an escalate error AND unmet guard expectations),
+// and returning "raised" on the skip path.
+func TestEscalateRerenderToWriter_OwnedPage_SkipsEmit(t *testing.T) {
+	db, mock := newInsertMock(t)
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+
+	expectPlanTableSections(mock, "hero", "tool-widget")
+	expectEscalationOwnershipGuard(mock, "owned")
+
+	disposition, err := escalateRerenderToWriter(context.Background(), db, uuid.New(), "grip-styles-tool", "a section had no stored content_data", zap.NewNop())
+	if err != nil {
+		t.Fatalf("the skip must be a clean return, got error: %v", err)
+	}
+	if disposition != "skipped_owned_page" {
+		t.Errorf("disposition = %q, want skipped_owned_page", disposition)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations (a write may have been attempted): %v", err)
+	}
+}
+
+// A page that does not resolve yet is the legitimate build-request case — the
+// whole point of a needs_page — so the guard fails OPEN on ErrNoRows and the
+// escalation still emits. Kills: treating a missed lookup as owned, and any
+// fail-closed rewrite of the guard.
+func TestEscalateRerenderToWriter_PageNotYetBuilt_FailsOpen(t *testing.T) {
+	db, mock := newInsertMock(t)
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+
+	expectPlanTableSections(mock, "hero")
+	mock.ExpectQuery("SELECT id, url FROM pages").WillReturnError(sql.ErrNoRows)
+	expectNeedsPageInsert(mock, "page-rerender")
+
+	disposition, err := escalateRerenderToWriter(context.Background(), db, uuid.New(), "not-yet-built", "a section had no stored content_data", zap.NewNop())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if disposition != "raised" {
+		t.Errorf("disposition = %q, want raised", disposition)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+// An unreadable policy must not suppress a real escalation: the lookup
+// resolves, the policy read errors, pageIsOwnedForGuard answers checked=false,
+// and the guard stands down. Kills: a fail-closed rewrite (skipping when the
+// policy cannot be read — mutation-proven with `owned || !checked`), and
+// propagating the probe error. It does NOT kill dropping `checked` from the
+// condition: every checked=false path also returns owned=false, so that clause
+// is documentation of intent, not a separately observable branch.
+func TestEscalateRerenderToWriter_PolicyUnreadable_FailsOpen(t *testing.T) {
+	db, mock := newInsertMock(t)
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+
+	expectPlanTableSections(mock, "hero")
+	mock.ExpectQuery("SELECT id, url FROM pages").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).AddRow(uuid.New(), "/x"))
+	mock.ExpectQuery(regexp.QuoteMeta(rebuildPolicyReadSQL)).
+		WillReturnError(errors.New("policy read lost its connection"))
+	expectNeedsPageInsert(mock, "page-rerender")
+
+	disposition, err := escalateRerenderToWriter(context.Background(), db, uuid.New(), "tungsten-guide", "a section had no stored content_data", zap.NewNop())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
