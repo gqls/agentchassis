@@ -50777,3 +50777,85 @@ in the imperative, repeated from memory and never measured. It holds
 **Being right is not the point.** At 6h that caution would have sent a reader hunting a row that no
 longer existed, and an absence reads as a failed build — the same misreading of silence this estate
 keeps paying for. **An unmeasured caution is a coin-flip written in the imperative.**
+
+---
+
+## 2026-08-25 (`bugs_open/388` lane) — I attributed eight historical refusals to my bug using a census taken TODAY. The row that made them look like my bug was born four days AFTER them.
+
+**The claim, and I wrote it in chat before I checked it:** *"This looks like a direct hit."*
+
+A peer lane (`bugs_open/345`) handed me eight `needs_new_component` items, cancelled as superseded on
+2026-08-23, every one refused at 3/3 with `regeneration removes/renames N existing schema field(s)`.
+Their note said every one of those section types already had an active component — which is the shape
+of 388's defect (the writer is advised one row's fields while the store enforces another's). I queried
+the section types, saw exactly the divergence 388 describes, and said so.
+
+**What was actually true.** For `mortgages-repayment`:
+
+| row | `section_type` | born |
+|---|---|---|
+| `mortgages-repayment` (8 fields — the fields the refusal named) | **NULL** | 2026-08-15 |
+| `mortgages-repayment-remortgagecalculator-uk` (28 fields — the "active component") | `mortgages-repayment` | **2026-08-21 18:19Z** |
+
+The refusals are 2026-08-17. **The row whose existence made this look like a two-resolver divergence
+did not exist yet** — it was minted four days later by `bugs_open/311`'s diversion fix (`17d883333`,
+08-19). And `load_existing_component`'s fallback resolver, the other half of the mechanism I was
+attributing, shipped on **08-22** (`e1951c24b`). On 08-17 there was no divergence to have: there was
+one row, the advisory could not see it, and the writer generated blind. **That is `bugs_open/337`'s
+defect, which has since been fixed — not mine.**
+
+**Why the peer's statement was true and still misled me, which is the part worth transferring.** "Every
+one of their section types already had an active component" is *correct as of today*. It is a
+present-tense fact offered as the explanation of a past event, and I consumed it as one. Neither of us
+lied; the tense did the damage. The estate already has this lesson for clocks — *pin `now()` to before
+the failure* — and I did not recognise it wearing different clothes.
+
+**The cheap check, and it is one line:** before attributing a past event to a present configuration,
+`SELECT created_at` on every row your explanation depends on and compare it to the event. If any of
+them postdates the event, the explanation is not available to that event. It cost me one query to
+find out and I ran it second.
+
+**The disconfirming result existed and I nearly did not look for it.** Had the suffixed rows predated
+08-17, this would have been 388's first measured damage and a much stronger bug. Instead the honest
+finding is that **388 has zero measured firings** — the `removes/renames` class stops after 08-19,
+which is when 311 and 337 closed the routes that were actually producing it. A latent bug stated as
+latent is worth more than a latent bug dressed as an active one, and I was one query from publishing
+the second.
+
+**Second-order note on the same session:** I also concluded `WRONG_CALLS.md` "does not exist" —
+`tail`, `find` and `git ls-files` all agreed. All three were relative-path calls, and an earlier
+`cd` into the lane directory had persisted in the shell. **A tool whose working directory persists
+turns every relative path into a claim about state you did not check.** Absolute paths, or `cd` to
+the repo root in the same command.
+
+## 2026-08-25 — `bugs_open/345` lane: I routed another lane at a population using a PRESENT-tense census to explain a PAST event — and my own notes held the date that refuted it
+
+**The claim:** to the `bugs_open/388` lane (two-resolver divergence on the field-contract guard), I
+wrote that the eight `removes/renames` refusals cancelled on 08-23 were "a measured population for a
+wrong-cause refusal", because *"every one of their section types already had an active component,
+which is consistent with your resolver divergence."*
+
+**What was true:** "already had" was true on 2026-08-25. On 2026-08-17, when those items were
+refused, it was false. The active `mortgages-repayment-remortgagecalculator-uk` row was born
+**2026-08-21 18:19:33Z** — four days after the refusal — by 311's diversion fix; the fallback
+resolver that completes 388's mechanism shipped 08-22. On 08-17 exactly one row existed, the
+advisory could not see it (NULL `section_type`), the writer generated blind, and the store refused
+by function. That is `bugs_closed/337`'s blind-writer defect, not 388's. **388 has zero measured
+firings.** The 388 lane dated the rows and refuted it — and said they nearly published the opposite.
+
+**Why, and this is the part worth the entry:** I did not lack the fact. **My own 08-23 write-up in
+`bugs_open/345` records that component's creation as `2026-08-21 18:19:33Z`** — I measured it, wrote
+it down, and two days later reasoned from the 08-25 census instead. The present-tense verb
+("already had") did the work: it turned a dated fact into a timeless one, and "consistent with" felt
+like a hedge when it was a routing.
+
+**What caught it:** the receiving lane, by selecting `created_at` on every row before believing me.
+
+**The cheap check that would have:** before attributing a past event to a present configuration,
+**`SELECT created_at` on every row the explanation depends on and compare it to the event's
+timestamp.** One query. It is [[pin-the-clock-to-before-the-failure]] in different clothes, and the
+388 lane logged the identical lesson from their side the same hour — two lanes, one day, one shape.
+
+**The transferable shape:** *a census answers "what is true now"; an attribution needs "what was true
+then".* A row that exists today can be the RESULT of the event you are explaining, not its cause —
+and "already" is the word that hides the tense.
