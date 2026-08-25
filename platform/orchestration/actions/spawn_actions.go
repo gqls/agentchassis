@@ -3072,6 +3072,14 @@ func isStorageEnabledAgent(agentType string) bool {
 		// (site_delivery_and_editor Phase 3) — same grant rationale as
 		// site-publisher.
 		"zip-deliverer",
+		// The design critic's critique step (execute_vision_prompt) downloads
+		// the render-audit screenshots via params.StorageClient — the same
+		// need, and the same sanctioned per-type grant, as
+		// tool-acceptance-agent above (2026-08-08 ruling). features_open/018
+		// Phase 1; owner-directed 2026-08-25. The seed must not apply before
+		// a build carrying this line is live, or every run fails
+		// `no storage client`, exactly as bugs_open/243 measured.
+		"design-critique-agent",
 	}
 
 	for _, t := range storageAgents {
