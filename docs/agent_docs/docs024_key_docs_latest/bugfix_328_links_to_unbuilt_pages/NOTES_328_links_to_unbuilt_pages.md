@@ -647,3 +647,149 @@ dispatched for them deliberately — see §"Phase 1c reshaped".
 
 **The bug closes when the served population is clean, not now.** The FIX is proven; the estate's bar
 is fixed AND live, and 23 pages are still serving.
+
+## 2026-08-25 — the tail measured, and yesterday's "the cadence will carry it" only half held
+
+### First, the fix survived a fleet roll I did not make
+
+The chassis rolled to `v1.0.1337` at 09:27Z, 20 minutes before I looked. Pods were fresh, so the
+**`build provenance` startup line was still in range** — `git_commit 4c996e1b5`. Ancestry, not
+inference:
+
+```bash
+git merge-base --is-ancestor bb1e144b5 4c996e1b5cb9b2513d88ec9fe2bae220c38fb6c2   # the fix
+```
+
+`bb1e144b5`, `ef94d05d6` and `ad99ad649` are all ancestors of the deployed stamp. And all **five**
+seam steps still read `suppress_unshipped_links=true`.
+
+⚠ **A flat `jsonb_each` over `default_config->'workflow'->'steps'` returns only TWO of the five** —
+`page-rerender.render_page` and `report-builder.render_page`. The other three
+(`pageflow-builder`, `page-rebuild`, `site-work-orchestrator`, all at
+`build_*_loop>assemble_page`) are nested in `sub_workflow`s and need a **recursive** walk. I ran
+the flat query first and it read as "575 half-reverted". It had not. The trap is already recorded
+in this file from 08-23 — I hit it anyway, which is the argument for the RUNBOOK entry rather than
+the prose one.
+
+### The census I had to REBUILD, because it was never written down
+
+The lane's headline blast-radius number (36 → 48 anchors) was run from scrollback and appears in
+**no** document — not the RUNBOOK, not here. So I reconstructed it from
+`PageLinkRefusedPredicateFor` + `NeverDeployedPagePredicateFor` + `NormalizePagePath` +
+`linkablePageStatusPredicate`. It now reads 36 anchors / 21 referring pages / 9 unservable targets.
+
+> ⚠ **[MEASURED 2026-08-25] and NOT comparable to 08-24's 48/28/16.** A reconstructed census is a
+> new instrument. Some of the gap is real (targets shipped, `planned` rows whose `updated_at` moved
+> out of the 48-hour arm); some is encoding I cannot separate without the original SQL, which does
+> not exist. **Do not report 48 → 36 as a trend.** Both queries are now in the RUNBOOK so the next
+> re-run is a re-run.
+
+### THE MEASUREMENT THAT MATTERS — 21 of 21, no exceptions
+
+Served census, all 21 public referring pages, cache-busted, with the per-domain invented-URL 404
+control in the same run (5/5 public domains 404 correctly; `pool-energy-utilities.internal` does
+not resolve at all, so its 5 stored anchors are not served and are out of the population):
+
+| | pages | dead anchors ON THE WIRE |
+|---|---|---|
+| re-rendered **after** the flag (16:07Z 08-24) | **13** | **0** |
+| last deployed **before** the flag | **8** | **12** |
+
+**Deploy time versus flag time predicts the served result perfectly, 21 for 21.** That is a much
+stronger claim than yesterday's two-site proof: the discriminator is a timestamp nobody chose, on
+pages nobody dispatched, across six domains. Positive control held throughout — internal-href
+totals on the cleaned pages are 15–49, so nothing is stripping internal links wholesale
+(`bugs_open/313`'s failure mode).
+
+### Where yesterday's handoff was WRONG, and it was my own lane that wrote it
+
+The handoff says the 23 unrendered pages *"go clean as they re-render on their own cadence —
+measured, 24 of 25 within 7 days"* and **"Do NOT dispatch them"**. Measured today:
+
+- The fleet completed **1,671** `page_rerender` items in 36 h. Enormous volume.
+- But **per page, not per site.** `remortgagecalculator.uk` has had **ZERO** `page_rerender` items
+  in 36 h — its two now-clean pages rendered through some other path — and `loanzy.uk`'s newest is
+  08-24 16:15, nothing since.
+- **None of the 8 stragglers was queued for anything.**
+
+So the cadence carried 13 of 21 in 19 hours and then stopped carrying. This is exactly the
+`bug_historian` MEDIUM from council round 3 — *"nothing in this plan triggers a re-render of the
+PAGES THAT LINKED"* — arriving as fact rather than as a risk. I had answered it with "24 of 25
+touched within 7 days", which is a statement about a **population**, not about the **tail**, and
+the tail is the whole question when you are trying to reach zero.
+
+⚠ **The transferable half: a population statistic cannot retire a tail risk.** "24 of 25 within 7
+days" is true and was never the reassurance I used it as. The 25th page is not the exception to
+the argument — it IS the argument.
+
+And no target was going to rescue the links either: all 9 refused targets have **zero** rendered
+components and are 7–30 days stale.
+
+### The 8, and the owner's call
+
+| domain | page | last rendered | dead served |
+|---|---|---|---|
+| loanzy.uk | `/get-help.html` | 08-24 14:14 | 1 |
+| loanzy.uk | `/tools/car-finance-calculator/index.html` | 08-24 15:03 | 1 |
+| loanzy.uk | `/tools/is-a-loan-right-for-me/index.html` | 08-24 14:10 | 1 |
+| loanzy.uk | `/tools/overpayment-calculator/index.html` | 08-24 14:17 | 1 |
+| loanzy.uk | `/tools/settlement-calculator/index.html` | 08-24 14:18 | 1 |
+| mortgagecalculator.co.uk | `/guides/mortgage-scorecard/index.html` | 08-24 12:26 | 1 |
+| remortgagecalculator.uk | `/about.html` | 08-23 13:50 | 2 |
+| remortgagecalculator.uk | `/next-steps.html` | 08-23 13:50 | 3 |
+
+Owner chose **dispatch**, and yesterday's anti-dispatch reasoning inverts cleanly at this size:
+it was *28 pages of which 26 were unnecessary*; this is **8 of 8 necessary**. The drift objection
+(a re-render pulls in every platform change since the page last rendered) argues for acting **now**
+rather than waiting — these last rendered 19 h to 2 days ago, which is the least accumulated drift
+they will ever carry.
+
+### A LANDMINE found while dispatching: one of the 8 could not be inserted at all
+
+`mortgagecalculator.co.uk /guides/mortgage-scorecard/index.html` already held
+`page_rerender_guide-mortgage-scorecard_62b5978e…_assemble` at **`status='deferred'`, created
+2026-08-03, `attempt_count=0`, `triaged_at` NULL — parked 22 days.**
+
+Two facts that only bite together:
+
+1. `idx_swi_dedup` excludes `('complete','verified','rejected','wont_fix','failed','unresolved','cancelled')`.
+   **`deferred` is not in that list**, so the row occupies the slot and my INSERT would have failed 23505.
+2. `claim_work_item_action.go:102` claims `status IN ('triaged','approved')` **only**. So nothing
+   was ever going to dispatch it.
+
+Together: a page silently unrenderable-by-request for 22 days, whose INSERT failure reads as
+*"already queued"* when it means *"queued and abandoned"*. I re-armed the existing row to
+`triaged` (priority 80 → 40) rather than inserting a duplicate, and left its `source`/`created_by`
+(`rerender-pages`) intact — it is another producer's provenance, not mine to rewrite.
+
+**This is a class question, not a one-off** — see §"still open" below.
+
+### Dispatched 11:03:10Z — 7 inserts + 1 re-arm
+
+Mirroring the canary `b18a0287` exactly (`handler_agent='page-rerender'`, `status='triaged'`,
+`priority=40`, `severity='medium'`, `pipeline='build'`, `approval_mode='auto'`,
+`spec={domain,page_id,filename,page_name}` with `filename = ltrim(pages.url,'/')`).
+`spec.page_name` present on all 8 — the standing landmine is that a `page_rerender` without it
+throws away everything it re-renders. Chassis pods were 94 minutes old, so well clear of the ~300s
+post-restart window in which a spawn is silently dropped.
+
+Before-state captured at 11:01:45Z **per page**, including the total internal href count, because
+`DEAD=0` on its own would also be scored by a page that stopped emitting internal links altogether.
+
+| item | page |
+|---|---|
+| `63e60bc9` | loanzy `/get-help.html` |
+| `4453c84e` | loanzy `/tools/car-finance-calculator/` |
+| `3a9aae41` | loanzy `/tools/is-a-loan-right-for-me/` |
+| `3ea70cbf` | loanzy `/tools/overpayment-calculator/` |
+| `c828792f` | loanzy `/tools/settlement-calculator/` |
+| `1fc406cd` | mcalc `/guides/mortgage-scorecard/` (the re-arm) |
+| `48879926` | remortgage `/about.html` |
+| `0d810d01` | remortgage `/next-steps.html` |
+
+### Corroboration I did not expect: the platform had already filed this itself
+
+`remortgagecalculator.uk /about.html` carries **two `dead_internal_link_live` items at `detected`**,
+filed by `discovery` at 08-24 11:49 — the same two anchors, found independently by the estate's own
+check. Worth saying plainly: detection was never the gap on this bug, and here is a second
+instrument agreeing with the census.

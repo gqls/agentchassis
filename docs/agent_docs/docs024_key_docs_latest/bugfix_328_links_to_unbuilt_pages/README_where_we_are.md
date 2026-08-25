@@ -190,3 +190,57 @@ for the reason above.
 
 The bug stays open until the last of them is clean, which is the honest bar — "fixed" here means
 fixed on the website, not fixed in the code. I would expect to close it inside a couple of days.
+
+## 2026-08-25 — it works on 13 pages by itself, and I've pushed the last 8 through
+
+Yesterday we proved the fix on two websites. Today I checked all of them, and the picture is
+better than the proof was.
+
+There are 21 pages across six of our sites that were carrying links to pages we never actually
+built. I fetched every one of them from the live web this morning and counted. **Thirteen now
+serve none of those dead links at all — and every single one of those thirteen is a page that
+happened to re-render after the fix went live yesterday afternoon. The eight that still carry
+dead links are, without exception, pages that have not re-rendered since.**
+
+Twenty-one out of twenty-one. Nothing else explains that pattern: the only thing separating the
+clean pages from the dirty ones is whether the page was rebuilt before or after 5pm yesterday.
+And it isn't quietly deleting good links either — those cleaned pages still carry between 15 and
+49 working internal links each.
+
+**Where yesterday's note was wrong, and it was my own.** I wrote that the remaining pages would
+clean themselves up as the system naturally re-renders them, and that we should not push them.
+That was half right. The system re-rendered 1,671 pages in the last day and a half — a huge
+amount — but it does that page by page, not site by site, and it simply had not come back round
+to these eight. One of our sites, remortgagecalculator.uk, had not had a single page re-render
+queued in thirty-six hours. So the natural cadence carried thirteen pages in nineteen hours and
+then stopped carrying. Waiting longer had no particular reason to help.
+
+One of the reviewers had actually warned about exactly this when the fix was being reviewed —
+that nothing in the plan makes the *linking* page rebuild. I answered it with a statistic about
+how often pages get touched, and the statistic was true, and it was still the wrong answer,
+because the whole question is about the pages that *don't* get touched.
+
+**So, with your go-ahead, I pushed all eight through this morning.** The argument against pushing
+yesterday was that it meant rebuilding 28 pages when only 2 of them needed it — a lot of churn
+for nothing, and every rebuild is a chance to pull some unrelated recent change onto a customer's
+site. At eight pages, all eight of which are demonstrably still broken, that argument turns round.
+And these pages last rebuilt between nineteen hours and two days ago, so there is less unrelated
+change sitting in the queue right now than there will be if we leave it.
+
+**A small surprise while doing it.** One of the eight — a mortgagecalculator.co.uk guide page —
+turned out to have had a rebuild request sitting in the queue since the 3rd of August, marked
+"deferred". Twenty-two days. Nothing in the system ever picks up a request in that state, and
+because the request was still sitting there, it also blocked anyone from filing a *new* one for
+that page: my attempt to add one would have been rejected as a duplicate. So that page had been
+quietly unrequestable for three weeks and nobody would have known. I re-armed the existing request
+rather than fighting it, and it rebuilt within two minutes of being woken up. I've written the trap
+down, and flagged the wider question — how many other pages are sitting in the same state — as
+something worth counting.
+
+The other thing worth saying: the platform's own link checker had *already* filed the two dead
+links on remortgagecalculator.uk's About page, back on the 24th. Finding these was never the
+problem. Doing something about them was.
+
+**Where this leaves us.** Once the eight rebuilt pages are live and I've re-checked them on the
+web, this bug is finished and moves to the closed pile. Nothing is blocked and there's no decision
+waiting on you.
