@@ -1304,6 +1304,25 @@ func composeWriterBlock(eb map[string]interface{}) string {
 			b.WriteString(".")
 		}
 	}
+
+	// Human-owned guidance, carried VERBATIM through every regeneration. This is
+	// the carry that lets a site with a hand-written NEVER-STATE list adopt
+	// writer_block_managed at all: without it, the first regeneration DELETES
+	// the hand-written half — the recurring estate defect ("a generator that
+	// rebuilds a row from its source silently reverts every hand edit", the
+	// bugs_open/288 lane's landmine, one table over) that kept 13 of 19
+	// writer_block sites unmanaged as of 2026-08-25 (bugs_open/387: a stand-in
+	// token hand-typed into one of those unmanaged blocks reached the public).
+	// Opt-in with the unsafe side OFF: an absent or empty key produces
+	// byte-identical output to before this existed (pinned by test). Ordering
+	// note: the nothing-phrased early return above still wins — guidance alone
+	// never causes regeneration to replace a hand-written block.
+	if g := strings.TrimSpace(datahelpers.GetStringField(eb, "writer_block_guidance", "")); g != "" {
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString(g)
+	}
 	return b.String()
 }
 

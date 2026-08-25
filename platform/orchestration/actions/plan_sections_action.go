@@ -2586,6 +2586,13 @@ func composeScopedWriterBlock(eb map[string]interface{}, assigned []string, logg
 	if ents, ok := eb["allowed_entities"]; ok {
 		filtered["allowed_entities"] = ents
 	}
+	// The scoped block REPLACES the site-wide block in that section's prompt,
+	// so the site's verbatim guidance must ride along or a fact-scoped section
+	// silently loses the NEVER-STATE list (the loss that keeps sites unmanaged
+	// — see composeWriterBlock's guidance note; bugs_open/387).
+	if g, ok := eb["writer_block_guidance"]; ok {
+		filtered["writer_block_guidance"] = g
+	}
 	return composeWriterBlock(filtered)
 }
 
