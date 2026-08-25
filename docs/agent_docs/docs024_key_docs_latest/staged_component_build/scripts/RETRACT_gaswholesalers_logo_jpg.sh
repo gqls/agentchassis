@@ -51,3 +51,13 @@ echo "correlation: $CORRELATION_ID  — kcat can exit 0 having sent NOTHING; che
 # shape — if the armed run still reports dry_run:true, the fallback is a
 # one-off agent_definitions config UPDATE (snapshot first), or extend the seed
 # with an armed variant. The DRY RUN needs no override and works as-is.
+#
+# > **REFUTED 2026-08-20 (measured; NOTES 2026-08-25 §3).** The ARM=1 run
+# > reported dry_run:true in its own result: `step_overrides` matches NOTHING
+# > in platform/ — the orchestrator (processor.go workflowSelection) reads the
+# > agent row's default_config.workflow VERBATIM, and dispatch config supplies
+# > only agent_type/version. The fallback above IS the mechanism: snapshot the
+# > row, jsonb_set {workflow,steps,retract,config,dry_run}=false, dispatch
+# > PLAIN (no ARM env — it is inert), revert from the snapshot after. Proven
+# > 2026-08-20; the 08-22 fleet sweep armed the same way. Do not copy the
+# > step_overrides shape into any new dispatch script.

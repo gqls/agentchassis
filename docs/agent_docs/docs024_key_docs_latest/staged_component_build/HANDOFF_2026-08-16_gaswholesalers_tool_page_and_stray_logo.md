@@ -1,5 +1,10 @@
 # HANDOFF — 2026-08-16: gaswholesalers' empty tool page + the stray `logo.jpg` (owner-directed, two tasks)
 
+> **✅ BOTH TASKS DONE — CLOSED 2026-08-25 (NOTES_staged_component_build.md, 2026-08-25 ~12:3xZ entry, full evidence there). Do not re-walk this file.**
+> - **Task 1 (logo.jpg): retracted 2026-08-22 10:54Z** by a 13-domain fleet sweep using the capability this lane staged (council APPROVED corr `82b595c5`; seed 446 applied+recorded 08-19, commit `809a6c2cf`). Wire-verified 08-25: `logo.jpg` 404, `logo.png` 200.
+> - **Task 2 (tool page): regenerated in place 2026-08-25 12:19Z** via `add_tool` `784744bc` with `replace_existing` (TL-047, built by bug 331's closure on 08-21 — this route postdates this file's §2.2 uncertainty). Serve-verified 12:30Z; items `e4844153`/`261631b2`/`483fb749` closed with evidence.
+> - §2.2's open question is answered: `create_tool_component` cannot fill fields stand-alone, but TL-047's regenerate arm replaces the component whole. **No tool `doc_plan` was created** (the Tier-2 side effect stayed off). The ⚠ DO-NOT-WIDEN warning in §2.3 was live on close day: 11 pages sat in `needs_rebuild` (another lane's batch) — the add_tool route touched none of them.
+
 > **⚠ THIS DOES NOT SUPERSEDE `HANDOFF_2026-08-15c_continue_here.md`.**
 > 15c is the lane's cold-start for the **RFC_029 Phase-1 revision**, and that task was
 > **actively being built by another live session** when this file was written (2026-08-16

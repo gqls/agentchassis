@@ -2745,3 +2745,37 @@ panel insisted we give it its own number.
 
 Nothing here needs a decision from you today unless you want the gap closed sooner, in which case say
 so and I will start that cycle.
+
+---
+
+**2026-08-25, afternoon — the two jobs you asked for on the 16th are both done.**
+
+The stray logo file is gone. As it turned out, we did not fire the final shot ourselves: the
+deletion machinery this lane built and reviewed went live, and on the 22nd another thread used it to
+sweep thirteen sites' orphan files in one pass — ours among them. I checked at the actual website
+today: the stray `logo.jpg` now returns "not found", and the real logo (`logo.png`) still serves
+perfectly. That pair of checks matters because a test that only looked for the missing file would
+also pass if we had deleted the wrong one.
+
+Two things worth knowing from the run-up. First, the review panel approved the deletion capability
+first time, with a handful of advisory notes; the sharpest one warned that its "is anything still
+using this file?" check does not look in the site's shared header and footer — exactly where logos
+live. So before anything was armed I ran that wider check by hand: nothing anywhere references the
+stray file, and as a control, the real logo shows up exactly where you would expect. Second, our
+staged script's "arm it" switch turned out to be wired to nothing — the armed run politely did
+another rehearsal. The safe fallback (briefly flipping the setting on the agent itself, with a
+snapshot taken first, and flipping it straight back) works and is now the documented method.
+
+The gas unit converter also now exists — properly, through the framework. Since the January-style
+"fill in the missing pieces" repair does not exist for this kind of gap, the tool was regenerated
+whole: the machinery another lane built and has used twenty-eight times rebuilt it in place, the
+page re-rendered, and I checked the live page itself: a working interactive converter between cubic
+metres, cubic feet, kilowatt-hours, megajoules, therms and BTU, with the conversion factors table —
+and I checked the arithmetic on two of the factors independently; both are right. The three stale
+"this page is broken" tickets that had been sitting in review since the 10th are closed with the
+evidence attached.
+
+One small honest gap: rebuilding a tool this way does not weave the "try our converter" mentions
+into related articles — that wiring only runs for brand-new tools, a known limitation another lane
+documented. The two articles I would have pointed at are recorded in the notes if we ever want that
+done as a small follow-up.

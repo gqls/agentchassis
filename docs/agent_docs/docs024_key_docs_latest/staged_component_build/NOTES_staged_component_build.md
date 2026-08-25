@@ -8333,3 +8333,35 @@ The `webdesign_tool_rebuilds` lane has the ping (terms in handoff §12): a real 
 with `related_pages` deliberately omitted, on webdesign.co.uk. **PASS = at least one row carrying
 `related_pages_source='suggested'`.** Nothing else closes it, and nothing on our side can make it
 happen sooner.
+
+## 2026-08-25 (~12:3xZ) — the 08-16 handoff's BOTH tasks are done: the logo was taken by the 08-22 fleet sweep (not by this lane's staged run), and the gas-unit-converter tool now exists via `replace_existing` — plus one refuted mechanism in our own staged script
+
+### 1. Task 1 (logo.jpg) — completed BENEATH this lane, verified at the wire today
+
+The staged sequence ran across three sittings (08-19/20/21) and was then **overtaken**:
+
+- 08-19: pod-grepped every chassis replica (PRESENT + negative control), renamed `446_asset_retraction_agent_HOLD.sql` → applied by hand scoped to itself → `--record-only`. Council verdict for the capability read BEFORE arming: **APPROVED round 1, corr `82b595c5`**, 4 advisory objections, none high-severity. Committed `809a6c2cf` with the `Council-Reviewed:` trailer.
+- Of the advisory objections, two bore on the run and both were resolved by reading the shipped code: **dry-run evaluates ALL guards** (`dryRun` read at `retract_asset_files_action.go:186`, after the guard loop at :151–181 — the preview is trustworthy), and **guard 4 scans `page_components.rendered_html` only** (bug_historian was right), so this lane ran its own census over the channels the guard cannot see: `site_components.rendered_html` + `content_data`, `page_components.content_data`, `pages.rendered_header/footer/head` — **0 references to logo.jpg in all five, with logo.png as the positive control (2 chrome rows)**.
+- 08-20: dry run dispatched and read — 1 requested, **0 refusals**, `dry_run:true`. Then the armed run exposed the script defect in §3 below. The fallback (snapshot v2 of the agent row + `jsonb_set` `dry_run:false` + revert) was proven, but the armed dispatch itself was blocked by the session's permission classifier; config reverted to safe rather than left armed.
+- **08-22 10:54:20Z: a fleet-wide sweep (13 domains, 1 orphan file each) retracted gaswholesalers' logo.jpg** — `agent_error_log` `ASSET_RETRACTION_AUDIT`: "1 requested, 0 refused, 1 dispatched". Not this lane's run; whoever ran it solved arming the same way (the live row's `dry_run` key is ABSENT again today).
+- Wire verification, this session (2026-08-25): `logo.jpg` → **404**, `logo.png` → **200**. The control pair, both ways. Task 1 CLOSED.
+
+### 2. Task 2 (tool-gas-unit-converter) — regenerated IN PLACE via TL-047; serve-verified; the three stale items closed
+
+The handoff's preferred route (`create_tool_component` stand-alone) had become REAL since 08-16: bug 331 closed 08-21 built `replace_existing` (TL-047), proven 28× by the `webdesign_tool_rebuilds` lane. Followed their RUNBOOK gates:
+
+- Pre-file gates all green [MEASURED 2026-08-25 ~12:0xZ]: live `tool-generator.save_tool` carries `replace_existing?` + `adopt_existing_page` + picker fallback wiring; 0 open `add_tool` on the site; incumbent `801fb4cd` IS the fleet-wide function claimant (forked_from NULL) — with `replace_existing` the already-exists probe routes to the regenerate arm before any INSERT, so `idx_cc_tool_function_unique` never fires; rerender queue 0. Incumbent md5 pinned pre-build: `328d06b328880f47595dcaeede14a7f3`.
+- ⚠ The site had **11 pages in `needs_rebuild`** (9 promoted overnight by another lane at 00:43–01:06Z + 2 stale from April) — precisely the handoff's DO-NOT-WIDEN trap. The add_tool route touches none of that queue; `page-rebuild` would have swept all 11.
+- Filed `784744bc` 12:10:28Z (spec: function `tool-gas-unit-converter`, `replace_existing:true`, `related_pages: [natural-gas-distribution, pricing-transparency]` — both deliberately picked OUTSIDE the needs_rebuild batch). Attended.
+- Run graded at the mechanism: `regenerated:true`, same component id, no `already_exists`; incumbent md5 → `a1c8a0b792aef568ab798f430f543375`, template 14,001 → 16,839 B; placement `rendered_html` 17,129 B `deployed` (12:19:55Z). Rerender `22e44045` complete 12:29:05Z; **S3 write landed 12:29:46Z** (the RUNBOOK's 1–2 min lag, observed).
+- Serve-grade, cache-busted [MEASURED 12:30Z]: 27,827 B; `{{.` **0**; `<script` **7**; kWh ×52 / therm ×19 / calorific ×8; empty headings **0**; factors independently checked: 1 therm = 29.3071 kWh (105.5056 MJ ÷ 3.6 ✓) and = 100,000 BTU (definitional ✓); "Reference conversion factors" table present.
+- Closed `e4844153` (needs_page), `261631b2` (empty_section), `483fb749` (required_fields_missing) — all three describe the pre-regeneration page; closure evidence written into each `result`. (483fb749 had NO repair handler fleet-wide; regeneration made it moot rather than repairing it.)
+- **Known, accepted gap: the regenerate arm returns BEFORE the cross-link emitter** (`create_tool_component_action.go` ~:292, its own comment, grep-checked 08-23 by the 331 lane) — so the two `related_pages` produced **no cross-mention items and no info row** (both counts 0, checked). If mentions are wanted, that is a separate small pass; the names are recorded here so nobody re-derives them.
+
+### 3. REFUTED: the staged script's `ARM=1` mechanism never existed — `step_overrides` reaches nothing
+
+`RETRACT_gaswholesalers_logo_jpg.sh` sent `{"step_overrides":{"retract":{"dry_run":false}}}` and flagged it `[UNVERIFIED]`. Now MEASURED: the armed run's own result reported `dry_run:true`, and `grep -rn "step_overrides" platform/ --include='*.go'` → **0 hits**. `processor.go` (workflowSelection) reads the agent row's `default_config.workflow` **verbatim**; dispatch-time `config` supplies only `agent_type`/version. The only live override key, `config_overrides` (spawn_actions.go:2298), is a top-level shallow merge on the SPAWN path — not per-step, not this shape. The script's fallback comment was the correct mechanism and is now the proven one. Script annotated in the same commit as this entry.
+
+### 4. Heads-up for this morning's §3 zeros (09:5xZ entry above)
+
+"Tool births today: 0" expired at 12:10Z — this lane's `784744bc` ran the generator on gaswholesalers. It carried `related_pages` (requester-supplied), so **the demand-case PASS criterion (`related_pages_source='suggested'`) is untouched** — a nonzero `suggest_related_pages` llm count today no longer implies the webdesign ping fired. Count of a live class, expiring on schedule.
