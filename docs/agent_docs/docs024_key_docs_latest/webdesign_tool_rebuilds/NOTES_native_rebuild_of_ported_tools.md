@@ -3088,3 +3088,17 @@ filings would exercise it as a side effect was wrong and is corrected in their d
 the SLOW one — `grep -q` exits early on a match, so the present-control is fast while the absent
 scan reads the whole binary; the only control whose timeout you cannot see (exit 137 ≈ exit 1 under
 `$? -ne 0`) is exactly the one that will time out. Budget the absent-control's timeout accordingly.
+
+## 2026-08-25 ~11:45Z — 362 CLOSED (this session's last open item cleared); sibling synced
+
+**`bugs_closed/362`** — the full trail: round-1 REVISE whose gating objection PREDICTED the third
+writer → round-2 **APPROVED** (08-24 16:39Z, 2 advisories none high, all dispositioned in the close
+block) + `b8bdd4b3` approved round 1; both commits ancestors of v1.0.1337's stamp `4c996e1b5`
+(three-lane-recorded; pod literal probe passed its 137-aware controls as SECONDARY evidence); §3
+census re-run: **662 tool components (was 597), upper bound still exactly 1** — 65 components born
+through the wired writers with zero new dead hrefs. ⚠ Number collision: a DIFFERENT open bug now
+also carries 362 (`…sixty_nine_grandfathered_phantom_source_fields`) — resolve by slug.
+Sibling [31e6fe] synced in full (incl. the working-as-intended log-line tell for their grind and the
+absent-control-is-slow probe rule). **This session's open items: none.** The lane's items (the
+grind at 35/63, Phase B owner reviews, the 333/353 owned-page-mention design question, the ~30-tool
+backfill) all live with their named owners.
