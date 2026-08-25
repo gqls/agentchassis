@@ -202,6 +202,7 @@ var pageLifecyclePostures = map[string]posture{
 	"check_dead_controls.go":            {Posture: PostureArmed, Alias: "p", Reason: "literal p.status = 'active' on the joined pages row."},
 	"check_incomplete_page_group.go":    {Posture: PostureArmed, Alias: "", Reason: "spelled `status NOT IN ('deleted','archived')`; files needs_page at page-build-handler."},
 	"check_misdirected_cta.go":          {Posture: PostureArmed, Alias: "p", Reason: "both queries spelled `status NOT IN ('deleted','archived')`; routes page_rerender."},
+	"check_missing_prose_links.go":      {Posture: PostureArmed, Alias: "p", Reason: "files content_rewrite at page-build-handler with mode=edit_live, which RE-RUNS THE WRITER over the page's live prose — the most mutating remedy in this table, so the lifecycle arm is mandatory. Carries PageWantedLivePredicateFor(\"p\") + PageHasShippedPredicateFor(\"p\"); a retired page that is still serving belongs to retraction (bugs_closed/098), never to a rewrite."},
 	"check_missing_structure.go":        {Posture: PostureArmed, Alias: "p", Reason: "p.status = 'active' on the EXISTS gate; routes needs_rerender."},
 	"check_missing_tools.go":            {Posture: PostureArmed, Alias: "", Reason: "the routing query (evaluate_tools) carries status = 'active' + deployed_at IS NOT NULL. The other pages read in this file is a bare COUNT that routes nothing."},
 	"check_orphan_element_refs.go":      {Posture: PostureArmed, Alias: "p", Reason: "literal p.status = 'active'."},

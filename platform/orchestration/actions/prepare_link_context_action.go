@@ -477,25 +477,53 @@ func recordLinkContextUnavailable(
 		agentType = "unknown"
 	}
 
+	// WHICH PAGE was written link-less, recorded on the ROW rather than left to
+	// be re-derived later (bugs_open/392).
+	//
+	// The row already carries orchestration_id as a first-class column, and that
+	// DOES resolve the page today — via
+	// orchestration_states.collected_data->'input_data'->'current_page'. But the
+	// two have different lifetimes: orchestration rows are reaped, while this row
+	// lives 365 days (migration 567). So the only join a reader can rely on for
+	// the whole life of the row is the one written here, at the moment the page
+	// is still in hand.
+	//
+	// renderEnvelopeIdentity is reused rather than re-deriving the paths: its
+	// chain is measured at 110/110 on writer runs, and two spellings of "where
+	// the page name lives" is exactly the drift this estate keeps filing bugs
+	// about. A miss degrades to "" and the reader falls back to the
+	// orchestration join, which is strictly better than today.
+	_, pageName, domain := renderEnvelopeIdentity(params)
+	pageID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.current_page.id")
+
+	logCtx := map[string]interface{}{
+		"outcome":    outcome,
+		"failure":    failure,
+		"source":     source,
+		"page_count": pageCount,
+		"degraded":   degraded,
+		"site_id":    siteIDStr,
+		"bug":        "bugs_open/092",
+	}
+	if pageName != "" {
+		logCtx["page_name"] = pageName
+	}
+	if pageID != "" {
+		logCtx["page_id"] = pageID
+	}
+
 	// step_name is the running step's and is inherited DELIBERATELY — declared,
 	// because the strict door no longer borrows it for a caller that named only
 	// agent_type (two council seats objected to that asymmetry, 2026-08-08).
 	LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{
+		Domain:       domain,
 		SiteID:       siteIDStr,
 		AgentType:    agentType,
 		Action:       "prepare_link_context",
 		ErrorMessage: fmt.Sprintf("Writer link context unavailable — %s; %s", failure, outcome),
 		ErrorCode:    linkContextUnavailableCode,
 		Severity:     severity,
-		Context: map[string]interface{}{
-			"outcome":    outcome,
-			"failure":    failure,
-			"source":     source,
-			"page_count": pageCount,
-			"degraded":   degraded,
-			"site_id":    siteIDStr,
-			"bug":        "bugs_open/092",
-		},
+		Context:      logCtx,
 	}, logger)
 }
 

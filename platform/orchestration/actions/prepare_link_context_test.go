@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"regexp"
 	"strings"
@@ -519,5 +520,124 @@ func TestPrepareLinkContextDisabledEmitsNothing(t *testing.T) {
 	}
 	if res["source"].(string) != linkSourceDisabled {
 		t.Errorf("source = %q, want %q", res["source"], linkSourceDisabled)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 8. bugs_open/392 — the row must name the PAGE, not just the site
+// ---------------------------------------------------------------------------
+
+// contextContaining matches a driver argument whose text contains every needle.
+// It exists because the assertion that matters here is what is PERSISTED: the
+// action returns nil either way, and agenterrors.Write swallows its own Exec
+// error, so a test asserting "no error" would pass against a row with no page on
+// it. Pinning the INSERT's own argument is the only assertion that can fail.
+type contextContaining []string
+
+func (c contextContaining) Match(v driver.Value) bool {
+	var s string
+	switch t := v.(type) {
+	case string:
+		s = t
+	case []byte:
+		s = string(t)
+	default:
+		return false
+	}
+	for _, needle := range c {
+		if !strings.Contains(s, needle) {
+			return false
+		}
+	}
+	return true
+}
+
+// MUTATION: drop the page_name/page_id enrichment in recordLinkContextUnavailable
+// and this fails — the INSERT's context argument no longer matches, the Exec
+// expectation goes unfulfilled, and ExpectationsWereMet reports it. Verified by
+// running that mutation, 2026-08-25.
+//
+// WHY IT MATTERS: the row's orchestration_id column does resolve the page today,
+// but orchestration rows are reaped while this row lives 365 days (migration
+// 567). A reader that can only join through the orchestration therefore stops
+// working on a schedule nobody is watching.
+func TestPrepareLinkContextRecordsWhichPageWentOutLinkless(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+
+	collected := writerRunCollectedData(siteID)
+	collected["input_data"].(map[string]interface{})["current_page"] = map[string]interface{}{
+		"id":   pageID.String(),
+		"name": "seaweed-and-the-carbon-question",
+		"url":  "/blog/seaweed-and-the-carbon-question.html",
+	}
+
+	mock.ExpectQuery(regexp.QuoteMeta("FROM pages")).
+		WillReturnError(errors.New("pq: canceling statement due to statement timeout"))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO agent_error_log")).
+		// 13 columns; context is $13. Everything else is AnyArg because this
+		// test is about the payload, not the provenance half. $2 (domain) is
+		// pinned too: it was written empty until this change, so a regression
+		// there would otherwise be invisible.
+		WithArgs(
+			sqlmock.AnyArg(), "robot-hands.com", sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			contextContaining{"seaweed-and-the-carbon-question", pageID.String()},
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	params := ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &orchtypes.ExecutionContext{Action: "process"},
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+		CollectedData:    collected,
+	}
+
+	if _, err := PrepareLinkContextAction(context.Background(), params); err != nil {
+		t.Fatalf("action returned error: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the recorded row must name the page that went out link-less: %v", err)
+	}
+}
+
+// A writer run that genuinely has no page in hand must still record the row —
+// the enrichment is additive, never a precondition. Without this, a "helpful"
+// refactor could make the whole finding conditional on a field that is absent on
+// 38 of 110 measured runs.
+func TestPrepareLinkContextStillRecordsWhenThePageIsUnknown(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	mock.ExpectQuery(regexp.QuoteMeta("FROM pages")).
+		WillReturnError(errors.New("pq: canceling statement due to statement timeout"))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO agent_error_log")).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	params := ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &orchtypes.ExecutionContext{Action: "process"},
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+		CollectedData:    writerRunCollectedData(siteID), // no current_page
+	}
+
+	if _, err := PrepareLinkContextAction(context.Background(), params); err != nil {
+		t.Fatalf("action returned error: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the row must still be recorded without a page name: %v", err)
 	}
 }
