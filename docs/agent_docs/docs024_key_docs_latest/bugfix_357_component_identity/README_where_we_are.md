@@ -429,3 +429,47 @@ guard exists to stop the generic page pipeline deleting and rebuilding a tool pa
 contents. The repair does not delete or rebuild anything — it corrects three fields
 and leaves the actual markup untouched. It is not the operation the guard is there to
 prevent.
+
+## 2026-08-25 — the safety check we could not test has now been tested, and it held
+
+Yesterday I flagged one check as **pending rather than passed**: the thing that stops
+the platform recording a *false* origin for a tool. It read "all clear", but nothing
+had happened that could have made it read otherwise, so the all-clear was worthless.
+
+**This morning it got its test, and it passed.**
+
+At 09:08 one of the twenty-two bad pages was rebuilt. The platform did what it always
+does — put the tool back where a rebuild would have replaced it with a plain banner —
+and at that exact moment it had to decide what to record about where those bytes came
+from. The honest answer is "I don't know", and the tempting wrong answer is "the
+banner template made them", which is false and worse than saying nothing.
+
+**It said nothing.** And the reason that means something: of **571** page-sections
+saved since we switched this on, **570** were recorded confidently. Exactly one was
+not — and it is that row. So the machinery is not simply silent; it is silent in the
+one place where speaking would have been a lie.
+
+**What has not changed: all twenty-two pages are still wrong**, and that one was
+re-created wrong this morning. That is expected — the half that stops NEW pages going
+wrong is separate from the half that repairs the existing ones, and the repair has not
+run.
+
+**The honest gap, which I want to be plain about.** The part we switched on yesterday
+— the bit that should stop new pages being mislabelled — **has still never actually
+done anything.** No page has come through the route it watches. That is not evidence
+it is broken, but it is not evidence it works either, and this lane already lost a day
+to something that was approved, shipped and quietly doing nothing. I am not going to
+call it fixed on the strength of it being switched on.
+
+There is also a hint that new bad pages may arrive by a route we have not
+instrumented: the affected pages have their sections written at *different times*,
+which does not fit the one route we have covered. That is the first thing the next
+session should chase, and it is written at the top of the handoff.
+
+**The repair is written and will refuse to run**, deliberately, until we have seen the
+new behaviour work once on a real page. I would rather it refused than have it rewrite
+twenty-two live pages on the strength of a mechanism nobody has watched do its job.
+
+**Can we close this?** No — not yet. The thing the bug complains about is still true of
+every one of the twenty-two pages. What is finished is the foundation: the recording
+works, at volume, and its most dangerous failure mode has now been shown not to happen.
