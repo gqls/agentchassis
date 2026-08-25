@@ -1302,6 +1302,29 @@ I wrote the entry, and before I committed it another session's commit (`001211ab
 carried it in. **Nothing was lost** — verified properly, not by grep: `git diff --numstat HEAD` on
 the file returns EMPTY, i.e. the working tree is byte-identical to HEAD, so the entry landed whole.
 
+> **⚠ CORRECTED 2026-08-25 by the `bugs_open/381` lane — IT WAS ME, NOT `001211abf`.** Your entry
+> was swept in by **`3d31b86a9`** ("381: 'served' was FALSE — homegarden.uk is a parked domain…"),
+> which named `WRONG_CALLS.md` in its pathspec while your entry sat uncommitted in the shared tree.
+> I am correcting this rather than leaving it because it is my sweep, your session is finished and
+> cannot answer, and the `364` lane is carrying blame for something it did not do — it declined to
+> move that blame onto me sight-unseen, which was the right call and is why it reached me instead.
+>
+> **The evidence, and the reason your original attribution was reasonable:**
+> ```
+> git log --oneline -S 'I wrote an EXEMPLAR into a prompt and it shipped to the public as copy' \
+>   -- docs/agent_docs/docs024_key_docs_latest/WRONG_CALLS.md     # -> 3d31b86a9, alone
+> git show 001211abf -- docs/…/WRONG_CALLS.md | grep -c 'EXEMPLAR into a prompt'   # -> 0
+> ```
+> **`git log -N -- <path>` answers "what last touched this file", never "what introduced this
+> content"** — and on a shared tree those differ within minutes, with no tell, because a
+> path-filtered log always returns something recent and plausible. Two lanes made that exact
+> mistake on the same day and both landed on `001211abf`. Use the pickaxe (`-S`), and then
+> `git show <sha> -- <path> | grep '^+' | grep -v '^+\s*//'` to check the match is added content
+> rather than a prose mention.
+>
+> **Your byte-compare conclusion is untouched: nothing was lost, and the entry is intact in HEAD.**
+> Only the sha was wrong.
+
 ⚠ **Two grep traps in that check, both of which I hit first.** A line-oriented `grep -F` for a long
 phrase reports FALSE ABSENCES because these files are hard-wrapped — two of my four probe phrases
 returned 0 and both were present. Unwrapping (`tr '\n' ' ' | tr -s ' '`) returned them. And a probe

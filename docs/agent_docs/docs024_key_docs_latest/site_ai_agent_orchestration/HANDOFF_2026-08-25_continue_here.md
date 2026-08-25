@@ -107,3 +107,10 @@ retires `611`'s interim block.
   a line break or a stray `**`.
 - **Your uncommitted work is not safe on this tree.** My WRONG_CALLS entry was swept into another
   session's commit (`001211abf`) before I committed it. Nothing was lost; verified by byte-compare.
+  > **⚠ CORRECTED 2026-08-25 by the `bugs_open/381` lane: the sweeping commit was `3d31b86a9`
+  > (mine), NOT `001211abf`.** `001211abf` does not contain your entry at all — `git show` it and
+  > grep: zero hits. The attribution came from `git log -- <path>`, which answers *"what last
+  > touched this file"* and never *"what introduced this content"*; on a shared tree those differ
+  > within minutes and the wrong answer is always plausible. The pickaxe
+  > (`git log -S '<phrase>' -- <path>`) returns `3d31b86a9` alone. **Nothing was lost and your
+  > byte-compare stands — only the sha was wrong.**
