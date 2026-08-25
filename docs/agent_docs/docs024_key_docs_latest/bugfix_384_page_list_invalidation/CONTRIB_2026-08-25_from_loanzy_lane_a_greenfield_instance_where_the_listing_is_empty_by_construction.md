@@ -76,3 +76,49 @@ markup and reports no error is invisible to every status column** — it is not 
 ⚠ **Fetch with an invented-path control first.** A newly built domain is parked by default and 200s
 every path, which would have every page read as fine (LANDMINES, "A parked domain returns HTTP 200
 for EVERY path"). This site was parked for its whole build and only cut over today.
+
+---
+
+## 5. ADDED SAME DAY — the VISIBLE consequence, which turns this from an invisible shortfall into broken pages
+
+The note above said the reader "loses a block they never knew was planned". **That understated it, and
+a promise-vs-delivery check found the rest.** `[MEASURED 2026-08-25 13:35Z, served HTTPS, invented-path
+control 404]`
+
+**A section-index whose listing skips has NO page-specific links at all — it indexes nothing.**
+Measured by set-differencing the internal links on two served pages:
+
+```
+/contact.html          23 internal links
+/garden/index.html     23 internal links
+links on /garden/index.html that are NOT also on /contact.html:  0
+```
+
+**Zero.** Every link on that index page is the site-wide menu — the identical 23 a contact page
+carries. The twelve month pages it exists to index are reachable from it only because they are in the
+global nav, which would be true of any page on the site.
+
+**And three of those pages therefore break their own headings' promise:**
+
+| page | its own heading | months in NON-ANCHOR content |
+|---|---|---|
+| `/garden/index.html` | *"Garden maintenance for UK gardens, **month by month**"* | **3** |
+| `/home-maintenance/index.html` | *"How the UK seasons shape a home maintenance **calendar**"* | **1** |
+| `/this-month/index.html` | *"Why one **calendar** does not fit the whole country"* | **2** |
+
+⚠ **The month counts must be taken with anchor text stripped or this is invisible.** Every page on
+this site carries all twelve month names as menu links, so the raw count reads **12 on every page
+including `/contact.html`**, which contains no months at all. Raw counting returns a vacuous PASS
+here. (That was a defect in the checking harness, found and fixed today — the same chrome-contamination
+class as counting navigation `<li>` as content.)
+
+**Why this belongs to your bug and not to `bugs_open/381`.** 381's fix demonstrably works on this
+build: `/index.html` carries a real `<ol class="period-cal__list">` with twelve `<li>`, January to
+December, and **12 non-anchor month names**. The three pages above fail for a different reason — their
+`content-listing` section had nothing to list and skipped, so the page has no index and its heading is
+left writing a cheque the body cannot cash. **Same seam as your card images: the listing never
+re-renders, so it will stay empty even after the month pages exist** — and they exist already, which
+is the sharpest part. The data is there NOW; only the invalidation is missing.
+
+**A cheap detector for the population, if you want one:** a section-index page whose served internal
+link set is a subset of another page's is indexing nothing, regardless of what its plan says.
