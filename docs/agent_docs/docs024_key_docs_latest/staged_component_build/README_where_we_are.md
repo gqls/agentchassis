@@ -2779,3 +2779,46 @@ One small honest gap: rebuilding a tool this way does not weave the "try our con
 into related articles — that wiring only runs for brand-new tools, a known limitation another lane
 documented. The two articles I would have pointed at are recorded in the notes if we ever want that
 done as a small follow-up.
+
+---
+
+**2026-08-25, evening — the last piece is live, and the work is done. Two things I got wrong today,
+both worth telling you about.**
+
+The build that went out this evening carries the final fix, and I checked it two different ways
+because one of them couldn't see it. The change that separates "the asking step failed" from "it ran
+and honestly found nothing" adds a distinctive word to the program, so I could search for it. But the
+change that made it robust doesn't add any new words at all — it just calls something differently —
+so no search could ever find it. For that one I had to ask which commit the running program was built
+from and check whether mine came before it. Both came back clean.
+
+**The mechanism has now done real work.** It has been asked ten times today, answered every time, and
+on one of those it said "none of these pages fit" — which is a correct answer and the one it is
+allowed to give. That particular case happened three hours before the fix went out, so it was recorded
+in the old ambiguous way, indistinguishable from a failure. Which is a rather neat demonstration that
+the reviewers were right to insist: the thing they said would happen had already happened.
+
+**The first thing I got wrong.** When I argued to the review panel that we should not add a
+cleverness to skip the asking when it isn't needed, I said the cost of not being clever was a wasted
+call on about one build in seven. Today it was nine out of ten. The reason is that the *other* half of
+this work — putting the field into the ordering recipe — worked, and people started filling it in. So
+the two halves are substitutes: the better the recipe is followed, the less the asking is needed, and
+it still asks every time. The absolute cost is trivial, a few hundred words of model output. But the
+number I put in front of reviewers was six times too kind, and it was my own other change that made it
+so. I have logged that, because "measured, with a date" protects you from a figure going stale slowly
+and does nothing when you are the one who moved it.
+
+**The second thing.** Checking whether my code was in the deployed build, I picked a commit I was sure
+came *after* the build as a sanity check — it should have come back "not included". It came back
+"included", which for a moment looked like the check was broken. It wasn't: I'd picked something from
+four hours earlier without looking at the clock on it. The check was fine; my assumption wasn't. Same
+shape as the timeout I mentioned this morning — the control is only a control if you know what it
+should say.
+
+**And one prediction that held.** I said last time that the lane rebuilding tools could never trigger
+one particular remaining check, because it rebuilds tools at addresses that already exist. Nine more
+tools were built today and it didn't budge, exactly as expected. That check needs a genuinely new tool
+page, and it will wait for one.
+
+**So: this workstream is finished.** Three questions outlive it and all three sit on the bug files
+that own them rather than in a document nobody reopens. Nothing here needs anything from you.
