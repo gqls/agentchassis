@@ -1937,3 +1937,7 @@ running copy-editor rather than assuming.
   ⚠ Same function has since gained `bugs_open/387`'s numeric stand-in patterns — a future false
   positive here is more likely 387's than 377's.
 - Owner: no new input since the 08-25 verdict; decisions 1–7 all still open, Stripe last.
+- **OWNER DECISION 1 ANSWERED, same session: HOLD.** Put to him with the first-hand structural
+  finding and three options (hold / re-ask with structure preserved / decline); he chose **hold
+  and fold it into the proper rewrite**. Action = leave `8003c51a` parked at
+  `needs_human_review`; no DB change, nothing dispatched. Decisions 2–7 remain open, Stripe last.

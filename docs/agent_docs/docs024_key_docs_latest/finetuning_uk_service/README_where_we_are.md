@@ -934,3 +934,8 @@ it was published after the fix went out, so it cannot be running the old rule.
 
 Everything else waits on you, in your order: the rewrite decision above, the header slot, the
 booking shape, sample datasets, the four terms questions, and Stripe last.
+
+2026-08-25, same evening. Your answer on the rewrite, recorded: hold it, and fold it into the
+proper rewrite when the copy machinery is better. So it stays parked exactly where it is —
+nothing applied, nothing thrown away, and the page is untouched. Next move on it is not ours
+until the copy team ships something that changes how the writing reads.

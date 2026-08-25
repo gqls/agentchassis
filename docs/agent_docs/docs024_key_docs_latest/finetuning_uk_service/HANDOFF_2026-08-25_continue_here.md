@@ -17,7 +17,10 @@ experiment series + owner escalation live in `copy_quality_two_stage/`:
 >    and `PLAN_2026-08-25_prompt_audit.md`, phase 1 next). **Nothing has shipped that changes the
 >    register.** So: **every hold in the table below stands** — no rebuilds, no cross-link runs, no
 >    site-wide rewrite. They also reached our instrument finding independently.
-> 2. **Owner decision 1 has LOST its "apply" option.** The parked copy-editor proposal `8003c51a`
+> 2. **Owner decision 1 is ANSWERED — HOLD** (same session, after the finding below was put to
+>    him with all three options). Leave `8003c51a` parked; holding is the action. The rest of
+>    this item is the evidence that produced the choice.
+>    The parked copy-editor proposal `8003c51a`
 >    **fails their gate on STRUCTURE**, re-graded first-hand here, not taken on report: edit 1
 >    `h3 2→1, li 3→0, ol 1→0` (an entire ordered list deleted), edit 2 `h3 2→0, p 4→2`. The
 >    `/contact.html` noise their CONTRIB told us to discount is now **fixed and gone**; edit 1 is
@@ -44,7 +47,14 @@ experiment series + owner escalation live in `copy_quality_two_stage/`:
 
 ## OWNER DECISIONS — the lane cannot move without these (Stripe deliberately LAST, his 08-24 instruction)
 
-1. **The copy-editor's rewrite of the offer page** (work item `8003c51a`). It rewrites two
+1. ✅ **ANSWERED 2026-08-25 (later): HOLD IT.** The owner chose *hold and fold it into the proper
+   rewrite once the copy machinery improves*, put to him with the structural failure and all
+   three options. **Nothing to do: leave `8003c51a` parked at `needs_human_review`** — holding IS
+   the action. Do not approve it, do not re-ask for it, and do not let a passing lane approve it
+   (copy-quality already knows it fails their gate and has said it is not theirs to approve). It
+   comes back into play only as part of the site-wide rewrite. Original text below for context.
+
+   ~~**The copy-editor's rewrite of the offer page**~~ (work item `8003c51a`). It rewrites two
    sections that repeat the three-step story: one becomes "what you get and what you can do
    with it" (adds the in-body /contact.html link), one becomes a practical "what to send us"
    list. It is framework prose — same register he just rejected — but it removes real
