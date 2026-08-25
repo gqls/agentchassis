@@ -377,6 +377,43 @@ P1–P3 have held on editorial pages for real weeks. The un-owned-page question
    P1 does not merely wire the walk; it ships a live composed page the same
    week, and the register entry records "exercised on `<page>`" with the date,
    not "deployed".
+9. **One `RenderContext` reused across the walk silently forges RFC_046
+   provenance** — added 2026-08-25 by the news_editorial lane while re-reading
+   the seams for P1. `RenderTemplate` does not RETURN the digest; it **mutates
+   the context**: `ctx.RenderedTemplateSHA = hex.EncodeToString(sum[:])`
+   (`component_library.go:1081`), once per call. Two consequences for a walk,
+   and the second is the nasty one:
+   - **N renders, one field.** Each node's digest overwrites the last, so after
+     rendering children then the parent the context holds only the PARENT's.
+     Every child's stamp is gone unless captured immediately after its own call.
+   - **An empty-template child inherits its PREDECESSOR's stamp.** The
+     empty-template branch returns early and *deliberately does not set* the
+     field (RFC_046: "empty means unknown … a provenance token pointing at a
+     template that renders nothing is worse than no token"). That reasoning
+     assumes a FRESH context. On a reused one the outcome is worse than "no
+     token" — it is **another template's token**, i.e. a false provenance claim
+     of exactly the kind RFC_046 exists to prevent.
+
+   **[VERIFIED 2026-08-25 — today's code is SAFE, and that is the trap.]** Both
+   live readers of the field render exactly ONE template per context, so nothing
+   is wrong now: `rerender_page_sections_action.go` allocates a fresh
+   `rc := &RenderContext{…}` at **:632, inside** the per-section loop opened at
+   :473, renders at :661 and reads at :759; `v3_site_actions.go` renders at
+   :2459 and reads at :2553 with **no loop between them**. (`assemble_from_library.go:303`
+   *does* reuse one context across its component loop, mutating it per iteration
+   — but it discards all three reports and nothing on that path reads the SHA
+   back, so it is unaffected today.) **The walk is the first code on the estate
+   that would render many templates per context**, which is why no existing test
+   or reader would catch this and why it must be decided before the walk is
+   written, not after.
+
+   **The rule for P1:** capture the digest immediately after each node's
+   `RenderTemplate` call, or give each node its own context. Do NOT read
+   `ctx.RenderedTemplateSHA` after the walk and attribute it to anything.
+   Falsifier for P0/P1: render a two-child parent where **one child's template
+   is the empty string**, and assert that child's stored stamp is EMPTY — not
+   its sibling's digest. A test that only renders non-empty children passes
+   whether or not this is handled.
 
 ## 7. Architecture-scope call — and the honest counterweight
 
