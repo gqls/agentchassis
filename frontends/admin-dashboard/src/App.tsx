@@ -2323,7 +2323,7 @@ function BuildsView({ token, siteId, siteDomain, onBack }) {
         // FAILED but does not stop a step already executing in a chassis pod
         // (council 45b3c93f, guardian seat). Say so before the click.
         const caveat = action === "terminate"
-            ? "\n\nThis marks the workflow FAILED in its state row. It does NOT interrupt a step already executing — a running process finishes or fails on its own."
+            ? "\n\nThis marks every still-running orchestration under this correlation FAILED — finished rows are left untouched. It does NOT interrupt a step already executing — a running process finishes or fails on its own."
             : "";
         if (!confirm(`${verb} workflow ${selectedWorkflow.correlation_id}?${caveat}`)) return;
         setActionLoading(true);

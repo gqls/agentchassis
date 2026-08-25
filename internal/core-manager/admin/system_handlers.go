@@ -227,8 +227,19 @@ func (h *SystemHandlers) HandleResumeWorkflow(c *gin.Context) {
 	}
 
 	if req.Action == "terminate" {
-		// Update workflow status to FAILED
+		// Update workflow status to FAILED — non-terminal rows only (see
+		// updateWorkflowStatus). The lookup above already proved the
+		// correlation exists, so 0 rows here means everything under it is
+		// already COMPLETED/FAILED: nothing to terminate, and saying so
+		// beats a 500 that reads as a broken endpoint.
 		err = h.updateWorkflowStatus(c.Request.Context(), correlationID, "FAILED", "Manually terminated by admin")
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusConflict, gin.H{
+				"error": "nothing to terminate: every orchestration under this correlation is already COMPLETED or FAILED",
+				"code":  "ALREADY_TERMINAL",
+			})
+			return
+		}
 		if err != nil {
 			h.logger.Error("Failed to terminate workflow", zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to terminate workflow"})
@@ -546,12 +557,20 @@ func (h *SystemHandlers) getWorkflowState(ctx context.Context, correlationID str
 	var awaitedStepsJSON, collectedDataJSON, initialRequestDataJSON, finalResultJSON []byte
 	var errorNull sql.NullString
 
+	// correlation_id is shared by a parent and its sub-orchestrations (up to 19
+	// rows measured), and QueryRow with no ORDER BY returned an ARBITRARY one —
+	// the detail view could show a different sibling on each open, with the
+	// __step_error panel appearing and disappearing between two clicks on the
+	// same row. Root first (parent IS NULL sorts before NOT NULL), oldest first
+	// within that, so the same correlation always answers with the same row.
 	query := `
-		SELECT correlation_id, orchestration_id, client_id, status, current_step, awaited_steps, 
-		       collected_data, initial_request_data, final_result, error, 
+		SELECT correlation_id, orchestration_id, client_id, status, current_step, awaited_steps,
+		       collected_data, initial_request_data, final_result, error,
 		       created_at, updated_at
 		FROM orchestration_states
 		WHERE correlation_id = $1
+		ORDER BY (parent_orchestration_id IS NOT NULL), created_at
+		LIMIT 1
 	`
 
 	err := h.clientsDB.QueryRowContext(ctx, query, correlationID).Scan(
@@ -603,16 +622,25 @@ func (h *SystemHandlers) getWorkflowState(ctx context.Context, correlationID str
 }
 
 func (h *SystemHandlers) updateWorkflowStatus(ctx context.Context, correlationID, status, errorMsg string) error {
+	// correlation_id is NOT unique: sub-orchestrations share their parent's
+	// (measured 2026-08-25: 6,936 rows over 3,102 distinct, up to 19 rows per
+	// correlation). An unscoped UPDATE here relabelled every sibling — including
+	// COMPLETED sub-orchestrations — as FAILED, destroying their status record.
+	// Scoping to non-terminal rows captures the intent of "terminate": stop what
+	// is still running, never rewrite finished work.
 	query := `
 		UPDATE orchestration_states
 		SET status = $2, error = $3, updated_at = NOW()
 		WHERE correlation_id = $1
+		  AND status NOT IN ('COMPLETED', 'FAILED')
 	`
 
 	res, err := h.clientsDB.ExecContext(ctx, query, correlationID, status, errorMsg)
 	if err != nil {
 		return err
 	}
+	// 0 rows now means either the correlation does not exist or every row is
+	// already terminal — the caller distinguishes via its earlier lookup.
 	if n, err := res.RowsAffected(); err == nil && n == 0 {
 		return sql.ErrNoRows
 	}
