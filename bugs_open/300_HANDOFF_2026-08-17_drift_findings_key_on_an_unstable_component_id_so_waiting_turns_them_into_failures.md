@@ -250,3 +250,35 @@ ambiguous pair takes the first match → 2 RED; fallback removed → 2 RED.
 ### ⚠ One more defect found while answering, NOT fixed here
 
 The producer's `item_key` is `page_component_status_drift:<page_component_id>` — **also keyed on the unstable id.** So after a re-render the same drift on the same slot re-raises under a NEW key rather than deduping against the open row. Same root cause as this bug, one table over, and it is a producer change rather than a handler one. Left for whoever takes fix candidate 2.
+
+---
+
+## CONTRIB 2026-08-25 (`idea_uk_vm_site` lane) — `empty_section` is a SECOND producer keyed on the unstable id, and fail-closed hides that the defect SURVIVED the rebuild
+
+Not fixing anything here. Recording an instance from a producer this file does not name, with
+the evidence, because the title names one producer and the mechanism has at least two.
+
+- Items `359a1c98` / `08c85728` (idea.uk, `item_type` `empty_section`, filed 2026-08-24
+  16:50:35Z by the completeness rotation, `created_by` generic): `spec.component_id`
+  `5d686b9a` / `39e97abb`, `empty_pattern` `empty_heading`. The **item_key** is stable
+  (`empty_section:<page_id>:<slot>`); the verifier reads the **component_id**.
+- `page_component_history`: both pages rebuilt 3–4× on 08-24 between 17:33 and 18:19Z
+  (`save_page_sections_overwrite`, then `artefact_archive_trigger` `delete`); survivors
+  `a1724965` (18:15:44Z) and `1ad768cb` (18:19:38Z). `length(rendered_html)` identical at every
+  delete and re-insert: 18,034 B / 19,404 B.
+- Dispatched, `attempt_count` 3, `failed`: *"completion blocked: verification could not run, and
+  this item type fails closed (RFC_017): cannot verify: component … no longer exists (genuinely
+  fixed or silently deleted — indistinguishable here)"*.
+- **Distinguished, 2026-08-25:** the predicate (`check_empty_sections.go:166`) on the replacement
+  rows → **TRUE on both**; served pages carry `<h2 class="ff-heading"></h2>` and
+  `<h2 class="pc-heading"></h2>` (2 regex matches each). Cause: the tool templates render
+  `{{.eyebrow_label}}` / `{{.section_heading}}` / `{{.section_intro}}` and the rows' `content_data`
+  holds 27 site-context keys (tone, year, email, phone, domain, colours…) and none of those three —
+  so every rebuild reproduces the empty heading at the identical byte count. No
+  `required_fields_missing` item exists for either page although that check is in the live
+  rotation; not diagnosed why, left for whoever owns tool templates (`bugs_open/357` is the
+  nearest open file).
+- So the fix candidates in this file (resolve by `page_id + slot_name`, id as a hint) would cover
+  `empty_section` as well. Counted: one site, two rows, as of 2026-08-25 — not a fleet census.
+- Recorded as a wrong call in `WRONG_CALLS.md` (same date): I called these stale on the strength
+  of full-size replacement rows before re-running the predicate.
