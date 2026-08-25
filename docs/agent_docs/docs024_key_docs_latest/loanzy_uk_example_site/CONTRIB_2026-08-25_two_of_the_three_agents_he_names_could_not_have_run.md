@@ -153,3 +153,80 @@ SELECT s.domain, count(*) AS components,
 
 ⚠ **Every count here is `as of 2026-08-25` and goes stale by ADDITION.** The reach figures move the
 moment anyone enables a carrier; the imagery census moves on every build.
+
+---
+
+## 7. ADDENDUM after his decision — "switch on all those agents" has a RIGHT lever and a WRONG one, and they are not the same switch
+
+**His decision, relayed 2026-08-25: *"Switch on all those agents and we'll need to fix or further
+develop them as necessary."*** Before touching anything I measured what each disabled carrier would
+actually do. **Doing this literally — enabling the four rows I named in §1 — would produce close to
+the opposite of what he asked for.**
+
+### 7a. The three `offer-analyser` carriers are SPENT ONE-SHOTS, and re-enabling them is the wrong action
+
+`[MEASURED 2026-08-25]`
+
+| name | `input_data` | `pre_query` | interval |
+|---|---|---|---|
+| `offer-analyser-oneshot-gaswholesalers-20260814` | `{"domain":"gaswholesalers.com","site_id":…}` | **NULL** | 300s |
+| `offer-analyser-oneshot-leopardess-20260814` | `{"domain":"leopardessconsulting.co.uk",…}` | **NULL** | 300s |
+| `offer-analyser-oneshot-webdesign-20260815` | `{"domain":"webdesign.co.uk",…}` | **NULL** | 300s |
+
+Three things follow, and each is enough on its own:
+
+1. **Each is HARD-PINNED to one site** via `input_data`. None of them can ever reach `homegarden.uk`
+   — the site this entire review is about. Enabling all three does **nothing** for it.
+2. **`pre_query` is NULL, so there is no selector and no stopping condition.** "One-shot" is a
+   **naming convention, not a mechanism**: the only thing that ever stopped them was somebody
+   setting `enabled=false` after the single run they wanted. Re-enabled, each fires **every 300
+   seconds, indefinitely**, re-analysing a site that has already been analysed.
+3. **One of them is leopardess**, which is holding **123** items at `needs_human_review`
+   `[MEASURED 2026-08-25]`. Filing new findings there dispatches handlers at work another lane is
+   deliberately holding — the trap already written into this lane's own handoff.
+
+⚠ **AND THIS IS A NORM, NOT A QUIRK: `[MEASURED]` 37 disabled `scheduled_tasks` rows carry a
+site-pinned `input_data`.** A disabled, site-pinned carrier in this estate is a **spent one-shot**,
+not a switched-off feature. Read one as the second and you re-run history in a loop.
+
+### 7b. The RIGHT lever is `improvement-sweep`, and it is a single switch
+
+It is the only fleet-shaped carrier of the four, and its `pre_query` is a real selector:
+
+- `sites` with `status IN ('active','deployed')`,
+- **excluding** any site with a `claimed` build item (so it will not pile onto in-flight work),
+- **excluding** any site with ≥50 `triaged`/`detected` build items (a backlog cap),
+- `ORDER BY s.updated_at ASC NULLS FIRST LIMIT 1` — **one site per tick, least-recently-touched
+  first**, at `interval_seconds=900`, `max_concurrent=2`, `concurrency_group='dispatch'`.
+
+And it genuinely drives the agents in question — `improvement-loop` carries real
+`spawn_agent` steps, **not mentions**: `spawn_offer_analyser` → `offer-analyser`,
+`spawn_design_audit` → `design-audit-agent`.
+
+**Blast radius, measured by running its own `pre_query` read-only with the `LIMIT` lifted:**
+
+| | |
+|---|---|
+| eligible sites right now | **30** |
+| full sweep at one site per 900s | **≈ 7.5 hours** |
+| `homegarden.uk` eligible? | **YES** — so this is the switch that actually answers the review |
+| `leopardessconsulting.co.uk` eligible? | **YES** — and it holds 123 `needs_human_review` items |
+
+⚠ **What happens downstream is not optional and must be stated:** findings filed by this route are
+promoted automatically. This lane measured `build-pipeline-trigger` → `build-dispatch-loop` promoting
+them **31 seconds** later, rebuilding and deploying a live page (`WRONG_CALLS.md` 2026-08-25). So
+enabling `improvement-sweep` is a decision to let live pages across 30 sites be rebuilt over the next
+~7.5 hours. **That is consistent with his second clause — *"we'll need to fix or further develop them
+as necessary"* is authorisation to surface defects — but it should be entered knowingly, not as a
+side effect of a switch flip.**
+
+### 7c. What I recommend, and what I have NOT done
+
+**Recommended:** enable **`improvement-sweep` only**. Leave the three one-shots disabled — they are
+spent, they cannot reach the site in question, and one of them would fire into another lane's held
+queue. If leopardess should be spared, the cheap containment is to raise its held-item count above
+the sweep's own cap or to exclude it explicitly, rather than to leave the whole sweep off.
+
+**I have still changed nothing live.** Authorisation settles *may I*; it does not settle *what will
+this touch*, and what it touches turned out to be different from what the instruction assumed. The
+flip is one `UPDATE` and I am holding it for an explicit go-ahead, with these numbers on the table.
