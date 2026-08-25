@@ -53638,3 +53638,36 @@ staleness rule in prose. Named as a follow-on in WII-035, not built.
 
 Family: a-negative-control-is-not-a-route-matrix, totality-is-not-a-safety-property,
 i-reproduced-the-gap-i-was-closing.
+
+> **⚠ CORRECTED 2026-08-25, same evening, by reading the makefile.** The entry above is right
+> that my precondition was missing a quantifier, and right that refusing to apply was correct.
+> **Its central figure and its diagnosis are both wrong**, and the correction is more useful than
+> the original.
+>
+> **The number.** "139 pods on the old build vs 12" came from a `service_binary_capabilities`
+> query with **no recency filter**, so it counted pods that had already **died**. At that same
+> moment, recency-filtered it was **85 new / 6 old**, and by `kubectl` — the authority on what is
+> actually *running* — **69 new / 1 old**. I inflated the blast radius roughly twentyfold and then
+> wrote it into a migration header and this file as `[MEASURED]`.
+>
+> **The diagnosis.** I concluded "the fleet is running two builds at once, so a release straddles
+> revisions". Reading the makefile shows that is not what happened: `agent-chassis` **is** in
+> `RELEASE_IMAGES` (makefile:91) and `AGENT_DEPLOY_SERVICES` (makefile:119); `make release` rolled
+> it correctly and every Deployment pod was on the new tag. The stragglers are Kubernetes **Jobs**
+> — the platform spawns one per unit of work, each pinning the tag current at *its* creation, and
+> they are correctly outside `release`'s remit because they are one-shot and they **drain**. Exactly
+> **one** long-running Job held the old tag; every Job spawned afterwards was on the new one.
+>
+> **So the precondition I "fixed" to `EVERY live build must contain the edit` was still the wrong
+> shape** — it reads as a fleet-wide stall requiring intervention, when the true condition is
+> "no *active Job* on an old tag", which resolves itself in minutes and needs nobody.
+>
+> **The cheap check I skipped, and it is embarrassing because it is one line: `kubectl get pods`.**
+> I asked the *database's record of* what was running instead of the cluster itself, and a stamp
+> table is an append-only log of every pod that ever reported — its rows outlive the pods. **A
+> table that records observations is not a census of what exists now**, and `last_seen_at` was
+> sitting right there in the schema I had already read.
+>
+> **Fifth in the arc, and the tightest example yet** — a correct query (`GROUP BY git_commit`)
+> answering "which builds have ever reported" while I read it as "which builds are running now".
+

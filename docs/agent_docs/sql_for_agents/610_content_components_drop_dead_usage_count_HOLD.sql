@@ -11,7 +11,37 @@
 --   this column makes every component creation fail with
 --   `column "usage_count" of relation "content_components" does not exist`.
 --
---   ⚠⚠ CORRECTED 2026-08-25 — "A BUILD CONTAINING THAT COMMIT IS LIVE" IS NOT THE
+--   ⚠⚠ CORRECTED TWICE ON 2026-08-25. READ THE SECOND CORRECTION — THE FIRST ONE'S
+--   NUMBERS ARE WRONG AND ITS DIAGNOSIS OF *WHY* THE FLEET WAS SPLIT IS WRONG TOO.
+--
+--   SECOND CORRECTION (the one to act on). The precondition is NOT "every live build",
+--   which is unsatisfiable-looking and sent me hunting a phantom. The real shape:
+--     * `agent-chassis` IS in RELEASE_IMAGES (makefile:91) and AGENT_DEPLOY_SERVICES
+--       (makefile:119), so `make release` DOES build, push and roll it. There is no
+--       makefile gap. Deployment pods were all on the new tag.
+--     * The stragglers are Kubernetes **JOBS** — the platform spawns one per unit of work
+--       and each pins the image tag current at ITS creation. Jobs are correctly outside
+--       `release`'s remit: they are one-shot and they DRAIN.
+--     * [MEASURED 2026-08-25 19:44Z] 70 chassis Jobs: **69 on v1.0.1339** (contains the
+--       edit) and **exactly 1 on v1.0.1337** (does not) — a long-running
+--       `agent-site-publisher` Job started 18:58Z. Every Job spawned since is on 1339.
+--   SO THE PRECONDITION IS TRACTABLE AND SELF-RESOLVING:
+--
+--     kubectl -n ai-persona-system get jobs -o json | --       python3 -c "import sys,json;d=json.load(sys.stdin);--       print(sorted({j['spec']['template']['spec']['containers'][0]['image'].split(':')[-1] --       for j in d['items'] if 'agent-chassis' in j['spec']['template']['spec']['containers'][0]['image'] --       and j['status'].get('active')}))"
+--
+--   Plus the same check over running pods. **When that set contains only tags whose commit
+--   has the edit, apply.** No old-tag Job active == safe. It resolves itself as Jobs finish.
+--
+--   FIRST CORRECTION, kept because the DECISION it produced was right and the reasoning is
+--   still worth reading — but ⚠ ITS "139 pods vs 12" IS WRONG. That came from a
+--   `service_binary_capabilities` query with NO recency filter, so it counted pods that had
+--   already DIED. Recency-filtered at the same moment it was 85 new / 6 old, and by
+--   kubectl (the authority on what is RUNNING) it was 69 new / 1 old. The refusal was still
+--   correct — ONE live old-code process is enough to break, and I had probed one directly —
+--   but the magnitude was inflated ~20x and the "the release is only half done" reading it
+--   invited was simply false.
+--
+--   ORIGINAL FIRST CORRECTION TEXT: "A BUILD CONTAINING THAT COMMIT IS LIVE" IS NOT THE
 --   PRECONDITION, AND BELIEVING IT WAS WOULD HAVE BROKEN PRODUCTION TONIGHT.
 --   This estate runs SEVERAL BUILDS AT ONCE (bugs_open/249: a release can straddle commits
 --   and ship several revisions under one tag). Measured 2026-08-25 19:1xZ, immediately after
