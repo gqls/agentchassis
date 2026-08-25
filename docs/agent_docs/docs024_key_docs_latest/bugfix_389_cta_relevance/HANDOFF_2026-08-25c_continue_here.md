@@ -23,16 +23,28 @@ whatever it picked (`stampCTADestinationGuidance:362`), so a wrong pick **locks 
 | # | work | state |
 |---|---|---|
 | 1 | `nav_order` demoted 1 → 900 on three sites | ✅ done + verified |
-| 2 | the 12 label-locked pages (canary + 11) | ✅ CTA work done on 11 of 12 and **provably complete** (§2a); the 12th is in flight. ⚠ **2 of the 12 lost authored copy to the repair itself** — both restored, one rerender still in flight (§2) |
+| 2 | the 12 label-locked pages (canary + 11) | ✅ **COMPLETE and verified** — the lock query returns **0 rows fleet-wide** (§2a). ⚠ **2 of the 12 lost authored copy to the repair itself** — both restored; one publish may still be in flight (§2) |
 | 3 | **retire the three tool pages** + footer + 3 `/tools.html` listings | ⏳ **NOT STARTED — this is the next real work** |
 | 4 | re-resolve the 60 label-less fields (44 pages) | blocked on 3, by design |
 | 5 | the platform lever (owner decision 3) | not started; design notes in §5 |
 
-## 2. ⏳ IN FLIGHT — one page only
+## 2. ⏳ IN FLIGHT — one re-render, and it is a CONTENT restore, not CTA work
 
-`SQL_2026-08-25_retry_model_directory_pair.sql`, dispatched 2026-08-25 ~20:44Z: one
-`content_rewrite` + one `page_rerender` for `ai-agent-orchestration.com/model-directory.html`, the
-relink carrying `depends_on` (proven armed by a `DO`/`RAISE` in the same transaction).
+**The CTA work is done.** `/model-directory.html` completed 2026-08-25 21:00:09Z and verified at the
+served bytes (`password-entropy` 4 → 2, both survivors in the footer; the refused claim gone; four
+anchors whose labels and hrefs agree; targets 200 against a 404 control; 3 components / 3 distinct).
+
+**Still in flight:** `content_restore_rerender:a32b8822-…` — the re-render that publishes the two
+restored text blocks on `finetuning.uk/technical-details.html`. The DB is already correct; until this
+lands the page still SERVES the same licence section three times. Verify with §3's distinctness
+control **and** at the served bytes:
+
+```bash
+curl -s "https://finetuning.uk/technical-details.html?cb=$(date +%s)" > td.html
+grep -c 'The base model itself is a small open-weight model'      # must be 1
+grep -c 'meaning the underlying weights are published'            # must be 1
+grep -c 'meaning the company that built it has published'         # must be 1
+```
 
 ```sql
 SELECT item_key, item_type, status, error FROM site_work_items
@@ -48,7 +60,7 @@ section three times, though the DB is already correct.
 
 Budget **~25–35 min per item**. **DO NOT bypass the queue** — see §6.
 
-**Why the first attempt failed, because it will look like our bug and is not.** It was refused at
+**Why the first attempt failed — kept because it will look like our bug and is not.** It was refused at
 `validate_content` for `unregistered_number "150"` — the CTA `<h2>` says *"More than 150 agents are
 listed here"*, that sentence **was already live before this lane touched the page**, and it is false:
 the page's own `/data/model-directory-full.json` reports `"count": 30`. The gate is correct. The
@@ -83,8 +95,8 @@ WHERE kv.key LIKE '%\_url' AND kv.value #>> '{}' LIKE '%password-entropy%'
                pc.content_data->>(replace(kv.key,'_url',''))) ILIKE '%password%';
 ```
 
-`[MEASURED 2026-08-25 ~20:5xZ]` **2 rows, both on `/model-directory.html`** — the page in flight
-above. It was **20 of 80** when this bug was filed. So the label-locked population is cleared, and
+`[MEASURED 2026-08-25 ~21:00Z]` **0 rows fleet-wide.** It was **20 of 80** when this bug was filed,
+and 2 an hour before this line was written. So the label-locked population is cleared, and
 what is left is the label-**less** one: **31 `page_component` rows across ~22 pages** on
 `ai-agent-orchestration.com` (`hero` / `call-to-action`), **2 in the `footer` `site_component`**, and
 1 in the `/tools.html` `tool-list`. That is step 3/4 work and is blocked on retirement by KEEP #2 —

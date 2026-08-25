@@ -430,3 +430,40 @@ survive, the change is heading capitalisation (*"Private Deployments Keep Data S
 case), the rewritten sentence naming the two tools — which IS the labels work, inline in prose —
 and an **added** caveat that either tool can be wrong as guidance moves. No loss. **A high churn
 number is not the same finding as a duplicate section, and only one of them is damage.**
+
+### 2026-08-25 ~21:00Z — the twelfth page landed and VERIFIES; and the hero proves the claims mechanism exactly
+
+Retry pair complete (`content_rewrite` 20:57:36, `page_rerender` 21:00:09). Verified at the served
+bytes, not by status:
+
+| check | result |
+|---|---|
+| `password-entropy` refs | **4 → 2**, and `grep -n` shows both are the **footer** (`site_component`) — the two live CTA buttons are gone |
+| the refused claim `150 agents` | **0** |
+| the CTA `<h2>` now | *"The registry lists the models you can choose from. Every one of them still needs a production stack underneath it."* — **no count asserted**, as the spec asked |
+| CTA anchors | 4, every label and href naming the same tool (Build vs Buy, ROI Estimator, LLM Cost Calculator, Savings Estimator) |
+| targets | all **200**; absent control `/tools/this-page-does-not-exist-391.html` **404** |
+| **distinctness control** | **3 components, 3 distinct** — no duplication this time |
+| body prose | hero subheadline and all body text **byte-identical**; only the `<h1>` and the CTA labels moved |
+| control string never on the page | 0 |
+
+**And the hero settles the mechanism question from MISSTEP 11 beyond argument.** Its old `<h1>` read
+*"The registry behind the claims: **more than 150 agent definitions** running in production"* — the
+**same number**, on the **same page**, which passed the gate every time. Because that phrasing
+contains `agent definition`, a registered `context_term` of `aao-agent-definitions`, so the fact
+(value 200, `gte`) was consulted and `150 ≤ 200` passed. The CTA's paraphrase *"more than 150 agents
+are listed here"* dropped the term, so the same fact was never consulted and the same number was
+reported unregistered.
+
+So the page carried **both** a licensed, true version and an unlicensed, false version of one figure,
+in adjacent components. That is worth keeping in mind when reading a claims refusal: the gate is not
+telling you the number is wrong, it is telling you **nothing in the register vouches for the sentence
+as phrased** — and here the phrasing difference happened to also be the difference between a true
+claim about the registry and a false one about the page.
+
+> **One honest over-reach to record.** My spec named *"the call-to-action heading"*. The writer also
+> rewrote the hero `<h1>`, which was a **true and licensed** claim, to *"what's listed here, and what
+> still has to be true before you run any of it in production"*. Nothing false was introduced and the
+> new line is defensible, but a correct claim was removed because I asked for a figure to be dropped
+> and did not scope which one. **A spec that names one heading does not stop the writer visiting the
+> others** — the same lack of bounding that MISSTEP 10 is about, in its harmless form.

@@ -733,3 +733,39 @@ So step 2 cleared the **whole** label-locked population, not merely the pages th
 ~22 pages** (`hero` / `call-to-action` slots) plus **2 in the `footer` `site_component`** and 1 in
 the `/tools.html` `tool-list` — that is the label-**less** population, and it is blocked on
 retirement by KEEP #2, exactly as the ordering correction above says.
+
+## ✅ STEP 2 COMPLETE — the twelfth page verified 2026-08-25 ~21:00Z
+
+The `/model-directory.html` retry pair completed (rewrite 20:57:36, relink 21:00:09) and verifies at
+the served bytes: `password-entropy` **4 → 2** with both survivors in the **footer** `site_component`;
+the refused `150 agents` claim **0**; the CTA `<h2>` now asserts no count
+(*"The registry lists the models you can choose from…"*); four CTA anchors whose labels and hrefs
+agree; every target **200** against a **404** absent control; **3 components / 3 distinct** on the
+distinctness control; and the hero subheadline plus all body prose **byte-identical**.
+
+**All twelve label-locked pages are now repaired and independently verified.** The lock query returns
+**0 rows fleet-wide** — see §"the step 2 population is now provably complete", where it returned 2,
+both on this page.
+
+### The hero settles what the claims refusal actually meant
+
+The same page's hero `<h1>` had read *"The registry behind the claims: **more than 150 agent
+definitions** running in production"* — the **same figure**, which passed the gate every time,
+because that phrasing contains `agent definition`, a registered `context_term` of
+`aao-agent-definitions` (value 200, `gte`). The CTA's paraphrase dropped the term, so the fact was
+never consulted and the number was reported unregistered. **The gate was not saying the number is
+wrong; it was saying nothing in the register vouches for the sentence as phrased** — and here that
+phrasing difference was also the difference between a true claim about the registry and a false one
+about the page (30 entries).
+
+> **Over-reach worth recording:** the spec named the *call-to-action* heading; the writer also
+> rewrote the hero `<h1>`, removing a claim that was true and licensed. Nothing false was introduced,
+> but a spec naming one heading does not stop the writer visiting the others — the harmless form of
+> the same unbounded-write problem that destroyed copy on two other pages.
+
+### What remains
+
+Step 3 (retirement) is now the whole of the next work, and its blast radius should be **re-measured**
+— step 2 has just removed 20 label-locked fields from it. What is left pointing at the tool: **31
+`page_component` rows across ~22 pages** on `ai-agent-orchestration.com` (`hero` / `call-to-action`,
+all label-less), **2 refs in the `footer` `site_component`**, and 1 in the `/tools.html` `tool-list`.
