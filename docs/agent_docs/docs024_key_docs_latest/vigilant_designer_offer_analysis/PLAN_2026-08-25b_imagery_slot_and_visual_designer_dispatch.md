@@ -193,3 +193,51 @@ Both items are platform/config changes on a shared seam: a new component in the 
 changes affecting every subsequent build, and an agent entering a shared loop. **Council gate, and a
 concept-register entry in the same commit that ships the seam** (2026-07-28 ruling, condition 2 —
 which is the whole of the requirement since the 2026-07-29 ruling retired condition 1).
+
+---
+
+## 7. ⚠ §5's FIRST PREREQUISITE IS NOW MEASURED, AND IT PARTLY DISCONFIRMS §2
+
+§5 said the supply question was unmeasured and that if sites do not generate enough imagery, the slot
+is the wrong fix. **Measured, same day, before building anything:**
+
+`[MEASURED 2026-08-25]` assets per page, all active/deployed sites with >5 pages (27 sites):
+
+| band | sites | examples |
+|---|---|---|
+| ≥ 2.0 per page | 4 | remortgagecalculator.uk 2.17 · robot-hands.com 2.11 · fundamentallyai.com 2.00 |
+| 1.0 – 2.0 | 3 | agritec.uk 1.31 · idea.uk 1.26 · webdesign.uk 1.25 |
+| **0.5 – 1.0** | **13** | leopardess 0.96 · **homegarden.uk 0.62** · finetuning 0.58 |
+| **< 0.5** | **4** | relojistas 0.46 · gaswholesalers 0.19 · **webdesign.co.uk 0.10 (149 pages, 15 assets)** |
+| **ZERO assets** | **3** | adversecreditmortgage.co.uk (19 pages) · loancash.co.uk (22) · loanandmortgagecalculator.co.uk (47) |
+
+**The median site has fewer than one asset per page, and heroes already consume them as background
+images.** On more than half the fleet there is simply nothing left to put in an in-body figure.
+
+### What this changes
+
+**It does NOT kill the slot.** The slot is still a precondition — no amount of supply helps while the
+prose component has nowhere to put an image, and 4 sites are at ≥2.0 per page where a figure could be
+placed today.
+
+**It DOES kill the claim that the slot alone answers the owner's ask.** He asked for *"much more
+imagery, placed between paragraphs"*. Shipping the slot on its own would produce a figure on a
+minority of sections, on a minority of sites, and — this is the part that matters — **it would look
+like the work was done.** A green build, a new component in the library, a register entry, and pages
+still nearly bare.
+
+⚠ **So the honest scope is TWO changes, not one, and the second is the bigger:**
+
+1. **the slot** (§2) — a precondition, cheap, follows 381's proven shape;
+2. **the imagery supply** — how many assets a build generates per page, and on what rule. **Three
+   sites have ZERO.** That is not a slot problem and no component change touches it. It is a
+   different mechanism, probably a different lane, and it is **unowned as far as I can tell.**
+
+**Recommendation, revised:** still build the slot first, because it is a precondition and it is
+proven-shape work. **But do not report the slot as answering the review.** State the supply figure
+alongside it, and name the second change as outstanding — otherwise this repeats the exact pattern
+this lane filed `bugs_open/395` about this morning: a status that records the handler succeeded while
+the thing that was asked for did not happen.
+
+**And measure the same census after the first build that uses the slot.** If assets-per-page has not
+moved, the second change is the whole remaining job.
