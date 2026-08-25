@@ -39,23 +39,49 @@ Same 7 candidates, and now all 7 are dropped by the probe because it finally see
 `complete` without committing. **A domain that redirects everything away correctly ends up with no
 sitemap of its own** — so `webdesign.uk` will stay at 3 of 4 uncovered permanently, by design.
 
-## 1b. ⏭ THE ONE THING LEFT — the selector guard (`622`, applied 2026-08-25 19:45)
+## 1b. ⏭ ONE SITE LEFT — `cv1.co.uk`, queued ~20:59
 
-`homegarden.uk` and `cv1.co.uk` had their stamps cleared and were queued behind `webdesign.uk`,
-which went at 19:59. **Expect them at roughly 20:28 and 20:58** — one per 30-minute tick.
-Both are fully built now, so both should render and commit normally:
+**`homegarden.uk` is DONE and verified 2026-08-25 20:30.** It was one of the two sites the `622`
+defect had silently skipped:
+
+| | before | after |
+|---|---|---|
+| `/sitemap.xml` | **HTTP 404** | **HTTP 200**, `application/xml`, 2,237 B |
+| `url_count` | 0 (`candidate_count` 0) | **20** (`candidate_count` 20, `probe_dropped` 0) |
+| committed | no | **yes** |
+
+**20 of 20 locs match its `pages` rows**, and the homepage is listed as `/` — canonicalised, so the
+`5c9acf1bd` fix is applying to newly-swept sites too.
+
+**`cv1.co.uk` is the last one.** Stamp cleared, queued behind the other two, expected ~20:59:
 
 ```bash
-for d in homegarden.uk cv1.co.uk; do
-  rm -f /tmp/s.xml   # a failed curl leaves the PREVIOUS body in place
-  echo "$d -> $(curl -s -o /tmp/s.xml -w '%{http_code}' https://$d/sitemap.xml), $(grep -c '<loc>' /tmp/s.xml) locs"
-done
+rm -f /tmp/s.xml   # a failed curl leaves the PREVIOUS body in place
+curl -s -o /tmp/s.xml -w '%{http_code}\n' https://cv1.co.uk/sitemap.xml; grep -c '<loc>' /tmp/s.xml
 ```
-Expect **200** and a non-zero loc count for both (20 and 3 pages respectively).
+Expect **HTTP 200** and **3 locs** (it has 3 deployed pages). It served 404 as of 20:30.
 
-⚠ **The task fires every 30 MINUTES**, not per scheduler tick. Three sites have NULL stamps, and the
-selector takes ONE per tick (`ORDER BY last_selected_at ASC NULLS FIRST`), so expect them at roughly
-**19:58, 20:28, 20:58**. Check `scheduled_tasks.last_triggered_at` before concluding anything.
+### ⚠ BE PRECISE ABOUT WHAT THIS PROVES — and what it does NOT
+
+`homegarden.uk` recovering proves **the manual remedy works** (clear the stamp → the site returns to
+the front of the queue → it renders and commits). **It does NOT prove `622`'s guard fires**, because
+`homegarden.uk` now HAS deployed pages, so the guard is not even consulted for it.
+
+`622`'s guard is currently proven only by (a) its three induced verify failures against the live DB
+and (b) the live `pre_query` text. **Its behavioural proof requires a site that has NO deployed
+active pages at the moment the rotation would pick it** — i.e. the next newly-seeded site. When one
+appears, the observable claim is that it is **NOT stamped** while it has no deployed pages:
+
+```sql
+-- a site with zero deployed pages must have NO row here until it is built
+SELECT s.domain,
+       (SELECT count(*) FROM pages p WHERE p.site_id=s.id AND p.status='active' AND p.deployed_at IS NOT NULL) AS deployed_pages,
+       (SELECT r.last_selected_at FROM site_discovery_rotation r
+         WHERE r.site_id=s.id AND r.agent_type='sitemap-refresh') AS stamp
+FROM sites s WHERE s.status IN ('active','deployed') AND s.locked_at IS NULL
+ORDER BY 2 ASC, s.domain;
+```
+**A site with `deployed_pages = 0` AND a non-null `stamp` means the guard did not hold.**
 
 ## 1c. Read the council verdict on `622`
 
@@ -78,14 +104,15 @@ the one deferred there is what became `622`.
 | **New sites are picked up automatically** | `homegarden.uk`, `lampenkap.com`, `cv1.co.uk` all arrived and were swept with nobody asking |
 | **Canonicalisation fix (`5c9acf1bd`)** | **ZERO of 31 domains emit a non-canonical homepage** (re-checked live 2026-08-25) |
 | **Redirect fix (`54ba65b25`)** | council **APPROVED, zero objections**; **PROVEN at the artefact 2026-08-25 19:59** — `webdesign.uk` went `url_count` 7→**0**, `probe_dropped` 0→**7**, no commit |
-| **Selector guard (`622`)** | applied 19:45, three guards induced — **unproven at the artefact, see §1b** |
+| **Selector guard (`622`)** | applied 19:45, three guards induced against the live DB — **behaviourally unproven until a site with zero deployed pages next appears; see §1b for the exact claim** |
 
 **The four sites NOT covered, all understood:**
 
 - `adversecreditmortgage.co.uk` — **correct by design**, excluded by `locked_at` (owner HALT). What
   it serves is the parking provider's 1-`<loc>` `/lander` file.
 - `webdesign.uk` — 302s everything away. **Resolved: the correct end state IS no sitemap, and it now correctly produces none** (§1a). It stays uncovered permanently, by design.
-- `homegarden.uk`, `cv1.co.uk` — the `622` case. Queued; §1b.
+- `homegarden.uk` — **RECOVERED 20:30**: 404 → 200 with 20 locs, 20/20 matching. No longer uncovered.
+- `cv1.co.uk` — the last one, queued ~20:59. §1b.
 
 # 3. WHAT IS OPEN
 

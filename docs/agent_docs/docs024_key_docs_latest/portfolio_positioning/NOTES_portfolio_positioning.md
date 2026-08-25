@@ -3148,3 +3148,22 @@ rather than as a gap.
 Still unproven when this was written: `622`'s selector guard, whose two test sites (`homegarden.uk`,
 `cv1.co.uk`) were queued behind `webdesign.uk` at ~20:28 and ~20:58. Recipe in handoff §1b.
 
+### 2026-08-25 (e) — `homegarden.uk` recovered, and a precision note on what that does NOT prove
+
+Re-selected 20:29:30. `candidate_count` 20, `url_count` 20, `probe_dropped` 0, committed. At the
+artefact: **HTTP 404 → HTTP 200**, `application/xml`, 2,237 B, **20 locs, 20/20 matching** its
+`pages` rows, homepage listed as `/` (so `5c9acf1bd` applies to newly-swept sites too).
+
+⚠ **This proves the manual REMEDY, not the `622` GUARD.** `homegarden.uk` now has deployed pages, so
+the guard is not even consulted for it. What recovering demonstrates is that clearing a stamp
+returns a site to the front of the queue and it renders normally — which is the documented repair,
+worth knowing works, and a different claim.
+
+`622`'s guard is presently evidenced by its three induced verify failures and the live `pre_query`
+text. Its BEHAVIOURAL proof needs a site with zero deployed active pages at selection time — the
+next newly-seeded site. The falsifiable form is in handoff §1b: **a site with `deployed_pages = 0`
+and a non-null rotation stamp means the guard did not hold.** Stating it that way because "the
+sweep looks fine" would not distinguish a working guard from an unconsulted one.
+
+`cv1.co.uk` still 404 at 20:30, queued ~20:59.
+
