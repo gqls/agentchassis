@@ -1115,3 +1115,94 @@ stylesheet control run FIRST (25,559 B; both features serve hero + full chart ma
 intact). The `_assemble` wave (35 triaged) continues by design; the 2 kept needs_imagery
 will generate heroes for the electric-vs-pneumatic tool pages. Net cost of the incident:
 ~17 unrequested-but-designed CTA-repair rerenders on unlocked generic pages, all archived.
+
+---
+
+## 2026-08-25 — the two lock_blocked_change items: traced to the 283 conversion, owner ruled ACCEPT
+
+Cold-start session. The 08-24 handoff §3 listed ONE untriaged `lock_blocked_change` and
+offered a cause. Both were wrong, and reading the DRIVER rather than the ITEM is what
+found it.
+
+**There were two.** `SELECT … WHERE item_type='lock_blocked_change' AND
+status='needs_human_review'` returns the darts one (08-23 12:41:46Z) **and**
+`:robot-demand-step-change:evidence-timeseries-ifr` (08-23 13:01:52Z). The handoff named
+only the first. Same `source` (`apply_section_edit`), same lock owner, same component.
+
+**The cause is not the `misdirected_cta` event.** Both trace to one batch:
+`component_versions` v1 for `evidence-timeseries` (`fb870e82-…`) written 08-23
+12:33:33.979Z with `change_source='scope_component_instance'` — the **283 / RFC_034**
+lane — then `content_components.updated_at` 11 ms later, then two `section_edit` items at
+12:33:34.475Z from `component-template-fixer` with `spec.reason='template_changed'`. The
+lock gate refused both (skip-result, not error — `section_editor_actions.go:335-362`,
+bugs_open/058). Nothing malfunctioned; the signal worked and we had not read it.
+
+The batch converted **five** components: Generic Text Block (187 instances / 12 locked),
+FAQ Section (88 / 0), mechanism-flow (6 / 1), `evidence-timeseries` (3 / **3**), and a
+dartsonline tool component on 08-24. Ours is the only one where every instance is locked —
+**the conversion reached zero of its three consumers.**
+
+**The change** is one line, 5,739 B → 5,738 B: `id="{{.ComponentID}}"` →
+`id="{{.InstanceID}}"`. Note `.ComponentID` was never the component uuid on our rows — the
+seed put the **slot name** into `content_data.ComponentID`, which is why all three
+instances serve slot-name ids. Nothing selects on that id: the template's CSS is entirely
+class-based (`.ev-ts`, `.ev-ts__inner`, …) and each served page references its ev-ts id
+exactly once, the attribute itself.
+
+**Recommendation vs ruling.** This lane recommended HONOURING the lock (the id is inert;
+the collision the conversion removes does not exist across three ids on three different
+sites). **The owner ruled ACCEPT** on 2026-08-25, for consistency with the fleet-wide
+convention. Recorded because the reasoning matters more than the outcome: the reservation
+was about churn on live locked pages, not about safety, and it was answered by measurement
+below rather than argued.
+
+### The two checks that made accepting safe
+
+1. **Is `{{.InstanceID}}` actually BOUND on the render path?** If not, `missingkey=zero`
+   ships `id=""` to two live flagship pages — the class `reEmptyElementID`
+   (`component_instance_scope.go:208-236`) was only added 2026-08-24 to catch. Probed at
+   the artefact over the same batch: **253 instances re-rendered since the conversion, 0
+   empty ids** (GTB 161, FAQ 87, mechanism-flow 5). The zero has demand behind it, so it
+   is informative rather than vacuous. (4 GTB rows DO carry `id=""` — all pre-date the
+   conversion. Pre-existing, reported to 283, not ours.)
+
+2. **What would the re-render actually PRODUCE?** Our stored HTML was hand-rendered at
+   seed time, so "only the id changes" was a hypothesis, not a fact. **The control is the
+   load-bearing half:** render the **v1** template + live `content_data` and check it
+   reproduces the STORED html byte-for-byte first — it does, both rows (7,754 B and
+   7,196 B exactly, once psql's trailing newline is stripped). Only then is the second
+   render trustworthy. Live template + `InstanceID` bound changes **only the id**:
+
+   | page | before | after | delta |
+   |---|---|---|---|
+   | robot-demand-step-change | `evidence-timeseries-ifr` | `c-evidence-timeseries` | −2 B |
+   | darts-calendar-density | `evidence-timeseries-pdc-calendar` | `c-evidence-timeseries` | −11 B |
+
+   Without the control this diff proves nothing — a harness that renders differently from
+   the platform would produce a plausible-looking delta either way.
+
+### Missteps this session, both caught before they reached anything live
+
+- **I invented a URL and read the 404 as a finding.** Checking the third (oufe) instance I
+  curled `https://oufe.com/thames-water.html`, got 2,735 bytes of "Page not found", and
+  had begun writing it up as possible `bugs_open/349` damage. The page's real `url` column
+  says `/cases/thames-water.html`, which serves 56,899 B correctly. **The check: read
+  `pages.url`; never assemble a URL from `pages.name`.** This is the 08-21 §9.2 trap
+  ("a status code is not an artefact") arriving from the other direction — the body was a
+  real 404 page, my *request* was the fabrication.
+- **I predicted the new token as `evidence-timeseries-0` before reading the function.**
+  `InstanceToken(function, occurrence)` returns `"c-" + function` for occurrence ≤ 0
+  (`component_instance_scope.go:102-115`), i.e. **`c-evidence-timeseries`**. The guess had
+  already reached an approved plan document in the same voice as the measured figures.
+  Caught by reading the function before writing the SQL.
+
+### What was left for the owner (session cannot write to the DB)
+
+`A_unlock_and_dispatch.sql`, `B_relock.sql`, `C_close_lock_items.sql` in the session
+scratchpad — idempotent, each `RETURNING` plus a raw read-back so `UPDATE 0` is
+diagnosable. The re-dispatch replicates the refused items' shape verbatim
+(`source=side_effect`, `handler_agent=section-editor`, `priority=60`, `pipeline=build`,
+same `item_key`) and is filed at **`triaged`**, because the dispatcher claims
+`status IN ('triaged','approved')` (`load_work_item_actions.go:701`). `created_by` names
+this lane, not `component-template-fixer` — we authored the re-drive and the row should
+say so.

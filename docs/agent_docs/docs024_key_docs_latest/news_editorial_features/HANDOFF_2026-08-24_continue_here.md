@@ -79,7 +79,7 @@ lane, inline_guide_imagery lane. **Until P1 ships: no `composite` rows, no
 | item | state |
 |---|---|
 | **P1** (035 read path) | UNBLOCKED, next. §1 above is the brief. |
-| **`lock_blocked_change:darts-calendar-density:evidence-timeseries-pdc-calendar`** | **`needs_human_review`, UNTRIAGED — found 08-24 while verifying watch-points.** Something tried to change our article's locked timeseries section and the lock refused (the darts `misdirected_cta` rerender FAILED in the same window — likely the same event). Read the item, decide honour/reject. First-order: it is OUR page. |
+| ~~**`lock_blocked_change:darts-calendar-density:evidence-timeseries-pdc-calendar`**~~ **TWO items, cause identified, ACCEPTED — see §8** | ~~`needs_human_review`, UNTRIAGED — found 08-24 while verifying watch-points. Something tried to change our article's locked timeseries section and the lock refused (the darts `misdirected_cta` rerender FAILED in the same window — likely the same event). Read the item, decide honour/reject.~~ **CORRECTED 2026-08-25 — both halves of that sentence were wrong.** There are **TWO** items, not one (the second is `:robot-demand-step-change:evidence-timeseries-ifr`, 20 min later), and the cause is **not** the `misdirected_cta` event: it is the **283 / RFC_034 instance-scope conversion** of the shared `evidence-timeseries` template. Owner ruled **ACCEPT** 2026-08-25. Full trace, evidence and the new byte baseline: **§8 below**. |
 | **A2** — `compute_component_quality` on editorial components | still never run (open since design PLAN Phase A). |
 | **Phase B furniture** | standfirst / drop cap / pull-quote / rules / `stat-band` reuse. Timely: the 381 lane's writer-vocabulary work means richer semantic prose (h3/ul/ol/strong/table + bare blockquote) is coming — furniture styles it via scoped CSS, NEVER via classes in writer guidance (settled with them, on record). |
 | **Rollout site 3** | mortgagecalculator / fundamentallyai strongest (live feed + evidence base). Recipe = 08-21 handoff §3. |
@@ -149,3 +149,106 @@ lane, inline_guide_imagery lane. **Until P1 ships: no `composite` rows, no
   035 §6.1).
 - Do not put furniture classes into writer `llm_guidance` (settled with 381;
   pull-quotes etc. are design objects — 035 children or scoped CSS).
+
+---
+
+## 8. The two lock_blocked_change items — traced, ruled, ACCEPTED (added 2026-08-25)
+
+Written by the session that picked this handoff up. It corrects §3 and adds a trap that
+bites P1 specifically. Everything here is measured 2026-08-25 unless marked otherwise.
+
+### 8.1 What actually happened
+
+Not the `misdirected_cta` event §3 guessed at. The chain, from the driver rather than
+from the item:
+
+| when (UTC) | what |
+|---|---|
+| 08-23 12:33:33.979 | `component_versions` v1 written for `evidence-timeseries` (`fb870e82-…`), `change_source='scope_component_instance'` — the **283 / RFC_034** lane |
+| 08-23 12:33:33.990 | `content_components.html_template` updated, 11 ms later |
+| 08-23 12:33:34.475 | `component-template-fixer` files two `section_edit` items, `spec.reason='template_changed'` |
+| 08-23 12:41:46 | darts delivery refused by our lock → `lock_blocked_change` |
+| 08-23 13:01:52 | robot-hands delivery refused by our lock → `lock_blocked_change` |
+
+The lock gate behaved exactly as `section_editor_actions.go:335-362` documents — skip-result,
+not error (bugs_open/058). Nothing was broken; the signal was working.
+
+The batch converted **five** components, not one: Generic Text Block (187 instances,
+12 locked), FAQ Section (88, 0), mechanism-flow (6, 1), `evidence-timeseries` (3, **3**),
+plus a dartsonline tool component on 08-24. `evidence-timeseries` is the only one where
+**every** instance is locked — so the conversion reached **zero** of its three consumers.
+
+### 8.2 The change, and why accepting was safe
+
+One line, 5,739 B → 5,738 B:
+
+```html
+- <section id="{{.ComponentID}}" class="ev-ts" data-component="evidence-timeseries">
++ <section id="{{.InstanceID}}"  class="ev-ts" data-component="evidence-timeseries">
+```
+
+`{{.ComponentID}}` was never the component uuid on our rows — the seed put the **slot name**
+into `content_data.ComponentID`, which is why all three instances served slot-name ids.
+
+**The reservation worth having** was that `{{.InstanceID}}` might not be *bound* on the
+render path, in which case `missingkey=zero` ships `id=""` — a defect class the platform
+only grew a detector for on 2026-08-24 (`reEmptyElementID`,
+`component_instance_scope.go:208-236`). Probed at the artefact over the same batch:
+**253 instances re-rendered since the conversion, ZERO empty ids** (GTB 161, FAQ 87,
+mechanism-flow 5). The zero has real demand behind it, so it is informative.
+
+**Dry-run gate before any write** (this is the reusable bit — see RUNBOOK): the local
+harness reproduces both stored rows **byte-for-byte** from the v1 template + live
+`content_data`, which is what makes the second render trustworthy. Rendering the LIVE
+template with `InstanceID` bound changes **only the id**:
+
+| page | id before | id after | delta |
+|---|---|---|---|
+| robot-demand-step-change | `evidence-timeseries-ifr` | `c-evidence-timeseries` | −2 B |
+| darts-calendar-density | `evidence-timeseries-pdc-calendar` | `c-evidence-timeseries` | −11 B |
+
+`InstanceToken(function, occurrence)` with occurrence 0 returns `"c-" + function`
+(`component_instance_scope.go:102-115`) — **`c-evidence-timeseries`**, NOT
+`evidence-timeseries-0`. Both pages get the same token; they are different pages, so
+nothing collides.
+
+**Owner ruling 2026-08-25: ACCEPT.** The lane recommended honouring (the id is inert —
+class-based CSS, one reference per page, nothing selects on it); the owner chose
+consistency with the fleet-wide convention. Executed as: unlock → re-dispatch the
+`section_edit` → verify at the served artefact → re-lock → close both items `complete`.
+
+### 8.3 ⚠ TRAP FOR P1 — the byte baseline MOVED on 2026-08-25
+
+P1's acceptance is *"served page byte-equivalent"*. **That baseline changed today.**
+
+| page | bytes before (08-24) | predicted after |
+|---|---|---|
+| robot-demand-step-change.html | 94,351 | 94,349 `[PREDICTED]` |
+| darts-calendar-density.html | 92,883 | 92,872 `[PREDICTED]` |
+
+`[PREDICTED]` = from the dry run, **not yet confirmed at the served page**. Whoever runs
+P1 must re-measure both pages first and use the live number — do not take these two
+figures as measured, and do not diff P1's recompose against the 08-24 baseline.
+
+The related hazard, stated so nobody hunts it: `carryStoredSection`
+(`rerender_page_sections_action.go:1242-1267`) carries `rendered_html` **verbatim**. So a
+P1 walk that CARRIES a locked ev-ts row is byte-stable, and one that RE-RENDERS it is not.
+If a P1 acceptance run shows an id diff on an ev-ts section, the walk took the re-render
+branch — that is the finding, not a mystery.
+
+### 8.4 Reported to peers, nothing owed back
+
+- **283 / RFC_034 lane**: told we accepted, plus §8.4a below and the 4 pre-existing
+  `id=""` rows on Generic Text Block (all pre-date the conversion — not theirs).
+- **381 lane**: `period-calendar` boundary confirmed; they were told our E2 is **planned,
+  not built**, and is specified in the `mechanism-flow` idiom.
+
+**8.4a — a fan-out gap that emits no signal.** The third instance, oufe.com `thames-water`
+/ `evidence-timeseries-leakage` (locked by `oufe-workstream`), got **no** `section_edit` —
+only a whole-page `page_rerender` at 12:32:25Z, *before* the 12:33:33Z conversion. So no
+delivery was attempted, no lock gate fired, no `lock_blocked_change` exists, and its lane
+was never told. It still serves the pre-conversion id. **A locked instance that receives no
+delivery attempt is indistinguishable from one that needed none** — so a coverage count
+built on `lock_blocked_change` rows reads this batch as 2 blocked / 1 fine when the truth
+was 3 unconverted. Not ours to fix; reported to the batch owner. There is no live `oufe`
+session, so nobody there has been told directly.

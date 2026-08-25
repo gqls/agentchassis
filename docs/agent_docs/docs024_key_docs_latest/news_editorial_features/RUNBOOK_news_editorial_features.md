@@ -231,3 +231,70 @@ duration. On this shared tree another session's wide rebuild could land in that
 window. Two things bound it: the EXIT trap restores ownership even on failure or
 interrupt, and **permanently-locked `page_components` are preserved rather than
 regenerated**, so authored copy has a second layer. Both held in the test.
+
+## 11. Dry-running a template change against a locked row BEFORE accepting it — proven 2026-08-25
+
+When another lane changes a shared component template and the change is queued at one of
+our locked rows, "it only changes X" is a **hypothesis**. Our editorial rows were rendered
+by hand at seed time, so a platform re-render is not guaranteed to reproduce them. This
+settles it offline, with no cluster writes.
+
+**The control is the load-bearing step and it is the one that gets skipped.** Rendering the
+new template and eyeballing the diff proves nothing on its own: a harness that renders
+differently from the platform produces a plausible-looking delta whether or not the change
+is safe. Prove the harness reproduces the CURRENT stored bytes first.
+
+```bash
+# 0. Harness (replicates executeGoTemplate: text/template, missingkey=zero,
+#    six-function funcmap, "<no value>" stripped).
+cp <a previous session's>/scratchpad/build/render.go "$S/dryrun/render.go"
+printf 'module dryrun\n\ngo 1.21\n' > "$S/dryrun/go.mod"
+
+PSQL="kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At"
+
+# 1. The PRE-change template is the component_versions snapshot the converting
+#    lane took; the live row is the POST-change one. Do not assume v1 is "old" —
+#    check created_at against content_components.updated_at (11 ms apart in the
+#    2026-08-23 case, snapshot first).
+$PSQL -c "SELECT html_template FROM component_versions
+           WHERE component_id='<cid>' AND version_number=1;"        > tpl_v1.html
+$PSQL -c "SELECT html_template FROM content_components WHERE id='<cid>';" > tpl_live.html
+
+# 2. Live data + the stored artefact for the row.
+$PSQL -c "SELECT content_data::text FROM page_components WHERE id='<pcid>';" > cd.json
+$PSQL -c "SELECT rendered_html      FROM page_components WHERE id='<pcid>';" > stored.html
+
+# 3. THE CONTROL. v1 + live content_data must reproduce stored.html BYTE-FOR-BYTE.
+#    psql -At appends ONE trailing newline the stored value does not have — strip
+#    exactly one byte, do not "normalise whitespace", which would hide a real delta.
+go run render.go tpl_v1.html cd.json > ctrl.html
+python3 -c "
+s=open('stored.html','rb').read(); c=open('ctrl.html','rb').read()
+s = s[:-1] if s.endswith(b'\n') else s
+print('CONTROL', 'PASS' if s==c else 'FAIL', len(s), len(c))"
+# FAIL here means STOP: the diff in step 4 is not evidence about anything.
+
+# 4. Only now: the predicted new output. Bind whatever the platform binds —
+#    for instance scope that is InstanceToken(function, occurrence), which returns
+#    "c-<function>" for occurrence <= 0 (component_instance_scope.go:102-115).
+python3 -c "
+import json; d=json.load(open('cd.json')); d['InstanceID']='c-<function>'
+json.dump(d, open('cdnew.json','w'))"
+go run render.go tpl_live.html cdnew.json > new.html
+diff <(fold -w100 ctrl.html) <(fold -w100 new.html)
+```
+
+**Read the result as a gate, not a report.** The only acceptable delta is the one the
+converting lane described. Anything else — a dropped figure, a reordered series, a
+`<no value>`, a changed citation — means do not accept, and say so with the diff.
+
+**Gotchas paid for on 2026-08-25:**
+- `content_data` may already carry the key the OLD template read. Ours held
+  `ComponentID` set to the **slot name** (not the component uuid), which is why the served
+  ids looked like slot names. After the change that key is simply unused — harmless, but it
+  means you cannot infer the old template's behaviour from the served id alone.
+- The `-At` trailing newline shows up as a 1-byte delta and reads like a real difference.
+  Check `tail -c 1 | od -c` before believing it.
+- Get the binding token from the FUNCTION, not from the pattern of existing ids. Predicting
+  `evidence-timeseries-0` from the slot names was wrong; the function returns
+  `c-evidence-timeseries`.

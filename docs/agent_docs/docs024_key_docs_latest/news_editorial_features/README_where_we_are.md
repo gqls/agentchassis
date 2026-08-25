@@ -269,3 +269,73 @@ the page.
 `DESIGN_2026-08-19_starting_point.md` §3 — stable URLs updated in place,
 retirement by de-listing rather than deletion, cadence per fact. If you're
 happy with it, it becomes the rule for every page this workstream ships.
+
+---
+
+## 2026-08-25 — something tried to edit our charts, and we found out why
+
+The last handoff left a note saying one of our chart sections had been blocked
+from changing, and guessed it was fallout from a broken link fix on the darts
+page. That guess was wrong, and it was worth ten minutes to find out properly.
+
+There were **two** blocked changes, not one — one on each of the two feature
+articles, twenty minutes apart. And the thing trying to change them was another
+team working on a completely different problem: they are going through the
+estate giving every shared component a unique name tag, so that two copies of
+the same component on one page can't be confused with each other. Our chart
+component was one of theirs. They changed it, the system dutifully went round to
+every page using that component to apply the change, and our two pages said no —
+because we had deliberately locked those sections to stop exactly this sort of
+thing happening without us noticing.
+
+So the safety catch worked. What it caught was routine housekeeping, not damage.
+
+**The decision was yours and you said accept it.** I'd suggested leaving the lock
+in place, because the thing being changed is a name tag that nothing on the page
+actually uses — no styling reads it, no script reads it, it appears once in the
+page and nothing points at it. My worry was churn: rewriting two of our most
+carefully built live pages for a change with no visible effect. You chose to take
+it, so our pages stay consistent with the rest of the estate rather than becoming
+the two exceptions somebody trips over in six months. That's the better long-term
+call and I've done it that way.
+
+**Before touching anything I did a dress rehearsal.** Our chart HTML was written
+by hand when we first built these pages, so "it will only change the name tag" was
+a guess, not a fact — the system could have regenerated the charts differently and
+we'd have found out on the live site. So I rebuilt both charts offline from the
+current data and the current template, and first proved the rehearsal was
+trustworthy by checking it could reproduce what's on the pages today **exactly,
+to the byte**. It could. Then I ran it again with the change applied: the only
+difference in either chart is the name tag itself. Two bytes on one page, eleven
+on the other. Nothing else moves — no numbers dropped, no wording changed, no
+citations lost.
+
+I also checked the obvious way this could go wrong. If the system can't work out
+what the new name tag should be, it writes an empty one — which would be a real
+defect on a live page. I looked at the 253 other components across the estate that
+have already taken this change since it landed: not one produced an empty tag. So
+the mechanism works, and that "zero" means something because there were 253 real
+chances for it to fail.
+
+**What I need from you:** three small SQL files in the session scratchpad, because
+this session isn't allowed to write to the database. The first unlocks the two
+sections and asks the system to apply the change; the second re-locks them once
+I've confirmed the pages are fine; the third closes the two open queries. They
+should be run in that order, with me checking the live pages in between — the
+sections are unprotected in the gap, so I don't want to leave it open longer than
+it takes.
+
+**One thing worth knowing that isn't ours to fix.** There's a third page using the
+same chart component, on the oufe site, and it belongs to another team. It never
+got asked to take the change at all — so it never hit a lock, never raised a
+query, and nobody over there has any idea. It's still on the old version. The
+uncomfortable part is that a page nobody asked looks *identical* to a page that
+didn't need asking: silence means both. I've told the team who own the change,
+since their count of "how far has this got" will be reading three as two-and-fine.
+
+**And a note for the next piece of work.** The composition project (the big one,
+P1) plans to prove itself by showing a rebuilt page comes out byte-for-byte
+identical to the current one. Today's change moves those numbers. I've written the
+new expected figures into the handoff and flagged clearly that they're predictions
+until the pages are actually re-checked — so whoever picks that up measures first
+rather than comparing against a number that quietly expired.
