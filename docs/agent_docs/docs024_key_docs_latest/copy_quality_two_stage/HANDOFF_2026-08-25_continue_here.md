@@ -12,6 +12,50 @@
 > **DISPATCHABLE** — the routing went live on `v1.0.1337` today. It has its **first user outside this
 > lane**. Nothing is in flight from me. **Two things need a human, and one is a defect in my own gate.**
 
+## ⚠ ADDENDUM 2026-08-25 (review pass, same day, later) — read BEFORE "Next work"
+
+**1. This handoff MISSED AN OWNER ESCALATION that landed nine minutes before it was committed**
+(`e0da73a1b` at 10:54:36 vs this file's `28965069a` at 11:03:53 — checked in git, both today).
+`CONTRIB_2026-08-25_OWNER_ESCALATION_finetuning_pages_fail_the_would_a_person_say_this_test_after_a_maximal_seed.md`
+carries an owner verdict on two fully framework-written finetuning.uk pages built AFTER a maximal
+seed: they fail his *"would a person actually say this"* test, and his instruction, verbatim, is
+that this lane's machinery *"will need to substantially improve"*. **Treat it as item 0 of "Next
+work".** It also reframes item 5: the escalation's sharpest finding is that the owner's tell class
+is WIDER than any enumerable pattern list (the methodical scaffold, the performed-candour beat) —
+their own checklist scored the rejected section CLEAN — so a regex/tell-count instrument is now
+demonstrated insufficient as an acceptance test for whatever "substantially improve" becomes.
+
+**2. The fleet-mix caveat has EXPIRED, in the good direction.** All **62** agent-chassis pods are on
+`v1.0.1337` `[MEASURED 2026-08-25, this pass]`. Only the new router is live; the "a 1336 pod still
+files `tone_shift`" branch is gone.
+
+**3. `tone` findings are live traffic, not a theoretical trickle.** One fired 2026-08-24 10:13Z —
+item `7f73a84c`, filed as `tone_shift` (old router, pre-roll), resolved `wont_fix` 21 minutes later.
+"No `needs_copy_edit` row yet" still holds (0 rows, re-checked this pass), but the first dispatched
+run (item 2) could land any day, not eventually.
+
+**4. Register CQ-030's index row was stale** — it still said the router half was "inert until a
+roll" after the roll. Corrected visibly this pass (both `content-quality.md` and the index; council
+seats read register status as ground truth).
+
+**5. Two traps for whoever fixes item 1**, found reading the gate this pass:
+- `load_page_text()` returns `content_data::text`, i.e. **JSON-encoded** text — an href appears
+  there as `href=\"…\"`, not `href="…"`. The volume arm already compensates (line 459 searches the
+  escaped form); a page-scope declared-set check that searches the plain form against `page_text`
+  reads every declared link as absent, and the noise this fix exists to remove comes straight back.
+- `load_page_text()` **excludes the edited component entirely**, so "page scope after the edit" =
+  other components' text + **this component's unedited fields (post-edit `before_data` minus the
+  proposal's keys)** + the edited fields' `after` values. Miss the middle term and a required link
+  sitting in an unedited field of the edited component fails by construction — the same defect one
+  scope out. (Residual edge, note only: item-mode grades each edit against its own component, so an
+  edit that MOVES a declared link between two components of one proposal fails on the losing side.)
+
+Everything else in this file re-verified clean this pass: both proposals still parked at
+`needs_human_review` (unchanged since 08-24), migration/register/council ids all resolve, the
+CONTRIB telling finetuning their proposal fails the gate exists in their directory, and the item-1
+defect is real and exactly as described (`gate_stage2_edit.py` — the `required_links` check sits
+inside the per-field loop, lines 412–416 under the loop at 369).
+
 ## What is true as of 2026-08-25
 
 - **The wiring is LIVE** (register **CQ-030**, council **APPROVED** `c1931fa1-5a98-4874-9730-b9ef3519c0d4`).
@@ -22,9 +66,10 @@
   - **Verified at the binary with a full control set** on a persistent pod: `content_rewrite` = 3
     (probe works), `needs_copy_edit` = **2** (change is in), `tone_shift` = **0** (a genuine
     REMOVED-string control — the strongest kind, because my change deleted that literal).
-- ⚠ **The fleet is MIXED: 56 pods on `v1.0.1336`, 40 on `v1.0.1337`.** Both routers are live at once,
+- ~~⚠ **The fleet is MIXED: 56 pods on `v1.0.1336`, 40 on `v1.0.1337`.** Both routers are live at once,
   so a `tone` finding handled on a 1336 pod still files `tone_shift`. Re-check before concluding
-  anything about routing behaviour.
+  anything about routing behaviour.~~ **EXPIRED same day — fleet converged on `v1.0.1337` (all 62
+  pods) by the afternoon review pass; see the addendum above.**
 - **No `needs_copy_edit` row exists yet** — `tone` is genuinely that rare, which was the whole safety
   argument. For contrast, **63 `content_rewrite` items were filed since 08-24**: routing THAT category
   would put ~63/day into a queue with no working surface. **Do not extend the route to it.**
