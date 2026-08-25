@@ -942,3 +942,103 @@ recounting the totals later.
   (`adversecreditmortgage.co.uk` `blog-index`); a lane that wants it should take it from there.
 - **`editquality`**: the comment-correction edit is ancillary and does not count as coverage.
   Agreed and never claimed otherwise.
+
+## 2026-08-25 (later) — an adversarial review of THIS DAY'S OWN WORK found four real defects, including in the correction I had just published
+
+I put the day's work through a fresh reviewer on a different model, told to refute rather than
+confirm. It found four things that stand. Three are mine; the fourth is a pre-existing asymmetry
+nobody had written down. **The pattern across them is one thing: I wrote a correction, and then
+did not apply my own correction's discipline to the correction.**
+
+### 1. My "airtight" mint fingerprint was forgeable, TWO ways — and I dropped the discriminator I had myself measured
+
+§3 above, the RUNBOOK §7 query and the new `LANDMINES` entry all said: gate on
+`spec ? 'page_type'`, because *"a hand re-route cannot add a spec key"*. True, and **insufficient**.
+
+- **The stamp dates the ROW, not the HANDLER value.** `handler_agent` stays mutable after a stamped
+  mint. If the fixed binary ever *mis*-routes — the exact failure this test exists to catch — and an
+  operator then repairs the row, it carries the stamp AND the correct handler and reads `PASS`. The
+  fix takes credit for a human repair. **The same false-PASS shape as §2, one generation later, in
+  the check written to prevent §2.**
+- **This lane's own operator recipe forges the gate without touching a spec key.** Reconcile's
+  `capability_gap` spec **already carries `page_type`** (`reconcile_site_plan_action.go`, the
+  `gapSpec` block), and the recipe eleven lines below it — added by this lane in `0baa8a107` — says
+  *"promote this row in place: set `item_type='needs_page'`, `status='triaged'` and `handler_agent`
+  to a handler that can actually build it."* A promoted gap row is `created_by='reconcile_site_plan'`,
+  stamped, `needs_page`, at `directory-build-handler`: **every PASS condition, entirely by hand.**
+  `[MEASURED 2026-08-25]` prospective, not live — **0** stamped `capability_gap` rows exist
+  anywhere — so it arms itself the moment the fix files its first gap, i.e. exactly when this test
+  starts being used.
+
+**What makes this galling rather than merely wrong: §2 of this same section — the measurement that
+exposed the original defect — computes `updated_at > created_at + interval '1 second'`, and the
+query I shipped four paragraphs later has no `updated_at` clause at all.** I had the discriminator
+in hand, used it to catch the first version, and left it out of the fix.
+
+**Corrected**: `AND swi.updated_at < swi.created_at + interval '1 second'` is now gate 2 in RUNBOOK
+§7 and in the landmine. It closes both holes, because `trg_site_work_items_updated_at` is
+`BEFORE UPDATE … FOR EACH ROW` (verified in `pg_trigger` 2026-08-25) so *any* write bumps it. **Its
+cost is stated: it expires** — a legitimate claim or completion bumps `updated_at` too, so the mint
+must be read while the row is still `triaged`. **The durable fix is a code change, named and not
+smuggled in:** stamp the routed handler into the spec at mint (`"handler": route.handler`) and
+assert `spec->>'handler' = handler_agent`, so the column carries its own provenance.
+
+### 2. Two mutations survived my new test file, and one is a wall my own change removed
+
+`[VERIFIED 2026-08-25 by running them]`, against my tests alone (the package baseline is currently
+red from another lane's concurrent work, which masked this on the first attempt):
+
+- **Gap row `status: "deferred"` → `"triaged"`: nothing failed.** This is the sharp one, and it is a
+  gap *I introduced today*. Council round 2's argument for the change was that `deferred` parks the
+  row **twice over**; but making `handler_agent` empty means `writeWorkItem`'s registration probe —
+  gated on `handlerAgent != ""` at `:1925` — **no longer runs at all**. So `deferred` is now the
+  **only** thing between an empty-handler row and both claim gates, and I left it unpinned.
+- **`itemType := route.itemType` → hardcoded: nothing failed** in that file (only the separate unit
+  table caught it). The constants `wbiArgItemType` and `wbiArgHandlerAgent` were declared and then
+  **never used in any pin** — the assertion was intended and dropped when I rewrote the test bodies.
+
+Both are pinned now (`0777eb297`) and both re-verified failing their own test. The file's header
+claim *"Every expectation below is mutation-proven"* was **overbroad** and is corrected in place: a
+claim that a file is mutation-proven must name **which** mutations were run, or it reads as
+coverage nobody has.
+
+### 3. The "26 rows, ZERO with the 206 signature" census has a blind window I did not state
+
+The signature text `no sections ready to build` is written by flag steps that **migration 149
+introduced on 2026-07-14** — its own header records that pre-149 no-ops were *"stamped 'complete'"*
+with no error at all (`sql_for_agents/149_page_build_handler_noop_flags.sql`). `[MEASURED
+2026-08-25]` **3 of the 26 rows are `site-adoption-agent` / `complete` / 2026-06-05** — before the
+instrument existed, and *exactly* the false-complete shape 149 was written to fix. For those three,
+a no-op and a success are indistinguishable, so my zero says nothing about them.
+
+**The zero is genuine for the 23 post-149 rows** (all 21 of `page-rerender`'s included), and the
+mechanism argument — 206 is the layout-less case, these doors act on pages that already have a
+layout — still carries the conclusion. But I presented the *census* as the thing that refuted my
+inference, and its stated caveat (`pages.page_type` read as-now) was not this one. **A zero from a
+detector is bounded by the date the detector started existing**, which is a caveat I have written
+elsewhere and did not apply here.
+
+Minor arithmetic, corrected: the split above says "site-adoption-agent: 23 rows, **4** typed" — that
+4 is the `page-build-handler` subset; its typed total is **5** (3 on 06-05, 2 on 07-31), and
+21 + 5 = 26. Two tables, two denominators, stated as one.
+
+### 4. Pre-existing and unwritten: reconcile counts an emit it did not make
+
+`reconcile_site_plan_action.go:484` does `emitted++` **unconditionally** after an
+`ON CONFLICT DO NOTHING` insert — while the `capability_gap` arm four lines above (`:426`) correctly
+reads `RowsAffected` and cites `bugs_open/091` for doing so. So whenever a `needs_page:<name>` row
+exists but is **invisible to `loadOpenPageItems`** (its `item_type` is outside that filter's three
+values — which is true of every row `WriteBuildItemsAction` mints, `needs_directory` and
+`needs_content_page` alike), every reconcile over that site reports a phantom `pages_emitted` and,
+because `emitted > 0`, re-mints `needs_rerender`. Born with the file (2026-05-05); reachable only
+when the per-page arm of `write_build_items` fires, which is wired live in `site-work-orchestrator`
+but dormant since ~April. **Not fixed here** — it is one line, and it is not this lane's approved
+scope.
+
+**And the consequence for the closure test, which IS this lane's business:** RUNBOOK §7 filters
+`created_by='reconcile_site_plan'`. If a future greenfield build mints through the
+`WriteBuildItemsAction` door instead, that query returns **empty on a successful build** — a false
+FAIL. Yesterday's evidence says reconcile is the greenfield door in practice (garden-tools.uk's 13
+items were minted by it at plan time), but "the proof arrives free on the next greenfield build"
+silently assumes it. **Check `created_by` on whatever rows the build actually produces before
+reading a zero as failure.**
