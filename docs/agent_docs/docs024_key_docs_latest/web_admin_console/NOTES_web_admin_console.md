@@ -373,3 +373,63 @@ next core-manager roll. Then, in this order:
    `POST …/c/<token>/confirm` must 404 **at the box** (that last one is the control — see the
    new LANDMINES entry).
 3. Only then is the webdesign lane's delivery email unblocked.
+
+### 2026-08-25 afternoon — handoff item 3 (the `WriteSiteSpecAction` deep-merge) is REFUTED by its own census. Do not build the guard.
+
+The 08-24c handoff carried this as an owed follow-up: *"`WriteSiteSpecAction`'s deep-merge lets
+`"banned_claims": []` empty a register wholesale (`site_spec_actions.go:554`) … census the
+legitimate-shrink history first — the scheduled refresher may shrink registers by design."*
+The census was the right instruction and it killed the item. **All figures [MEASURED 2026-08-25]
+against `clients_db`, `site_specs` where `aspect='evidence_base'`: 336 rows all-history,
+19 sites, 19 current, earliest 2026-07-16.**
+
+**1. The code property is real and UNREACHABLE for this aspect.** `siteSpecDeepMerge` takes the
+scalar-overwrite arm for anything that is not a map, so an incoming `[]` does replace an array
+wholesale — that half of the claim is true. But **no agent writes `evidence_base` through this
+action.** 20 live steps call `write_site_spec`; their aspects are `identity`, `strategy`,
+`briefing`, `content_direction`, `site_plan`, `mission_brief`, `roadmap`, `tools`,
+`design_intent`, `offer_ordering`, `vertical_landscape`, `classification`, `submission`,
+`mission`, `roadmap_brief`. **None is `evidence_base`, and across ALL definitions including
+snapshots and inactive rows it is still zero.**
+**Control, because a literal-only enumeration is exactly how you miss a templated value:**
+`{{`-templated aspects on `write_site_spec` = **0**, against **157** steps elsewhere in the same
+configs that do use templates. So the zero is a real zero, not a pattern that cannot match.
+
+**2. The refresher does not shrink registers — the hypothesis is refuted, not confirmed.**
+Successive-write deltas per writer, over the 336-row history:
+
+| writer | writes after the first | shrank bans | emptied bans | shrank facts | grew bans |
+|---|---|---|---|---|---|
+| `evidence-refresher` (`source='scheduled'`) | **222** | **0** | **0** | **0** | 1 |
+| `evidence-researcher` (`source='research'`) | 9 | 0 | 0 | 0 | 1 |
+| every manual/lane writer combined | ~105 | 2 | 1 | 6 | ~15 |
+
+That matches the refresher's own design statement (`refresh_evidence_base_action.go` header:
+*"never invents a fact, never removes one"*), and it reads the document as a generic map
+specifically to preserve keys it does not own. **The guard would have had nothing to protect
+against in 231 machine writes.**
+
+**3. The one emptying in all history lasted 59 SECONDS.** `vonc.com`, 2026-07-24 14:22:41,
+`session-2026-07-24-043-treatment`, bans 9 → 0 and top-level keys 6 → 1 — the exact wholesale
+-replacement shape. The **same** `created_by` restored it at 14:23:40. It was one session's
+two-part write, not damage. ⚠ **I nearly wrote it up as the motivating case before reading the
+next row** — a single flagged transition is not an incident until you look at what follows it.
+
+**4. The six facts-shrinks are legitimate curation and say so in their own `notes`**:
+de-duplicating one repeated cap, dropping a source dated 2017 found during vetting, a run that
+"returned zero usable facts". **So a guard on ANY shrink would have produced six false refusals
+and one true one. A guard on shrink-to-EMPTY would have fired once, on the transient.** That is
+the threshold the console door already uses, and it is now evidence-backed rather than chosen.
+
+**5. No live register is disarmed.** All 19 current registers carry bans or facts, so none
+parses to nil: claims checking is on everywhere today.
+
+**The residual, which is NOT what the item described.** **8 of 19 sites have zero refresher
+writes ever** — `apis.uk` (40 bans), `webdesign.uk` (33), `relojistas.com` (9), `noted.co.uk`
+(7), `adversecreditmortgage.co.uk` (6), `remortgagecalculator.uk` (6), `finetuning.uk` (3),
+`webdesign.co.uk` (1). Nothing re-derives those, so the self-healing that saved `vonc.com`
+does not exist for them — and the only door that has ever emptied a register is **hand-written
+SQL**, which no Go guard can reach. The two doors code CAN guard are the admin API (guarded
+2026-08-24, shipped) and the agent action (no caller). **So the honest next step is not a
+council round; it is that a migration touching `evidence_base` on one of those 8 sites deserves
+the `DO`/`RAISE` verify block, and that is a review habit, not a mechanism.**

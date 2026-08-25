@@ -26,8 +26,15 @@ roll (dashboard `v1.0.1337`, core-manager `4c996e1b5`).
    the box; then tell the webdesign lane the email is unblocked.
 2. **RFC_054 still awaits a ruling** (unchanged from 08-24c): Q1 two-door pattern · Q2
    delivery-only listener · Q3 what makes door three automatic.
-3. **`WriteSiteSpecAction` deep-merge follow-up** (unchanged from 08-24c item 4): census the
-   legitimate-shrink history first.
+3. ~~**`WriteSiteSpecAction` deep-merge follow-up**~~ **CLOSED 2026-08-25 — REFUTED by its own
+   census; do NOT open a council round.** No agent writes `evidence_base` through that action
+   (0 of 20 live steps, 0 across snapshots too, 0 templated — control: 157 templated steps
+   elsewhere), and the scheduled refresher shrank a register **0 times in 222 writes**. The one
+   emptying in all history lasted **59 seconds** and was one session's own two-part write. Full
+   census in NOTES 2026-08-25. **Residual, different from the item:** 8 of 19 sites have no
+   refresher coverage at all, so nothing re-derives their registers — and the only door that has
+   ever emptied one is hand-written SQL. That is a review habit (`DO`/`RAISE` verify blocks on
+   migrations touching `evidence_base`), not a mechanism to build.
 4. **Owner eyeball still outstanding** from 08-24c item 1: admin.apis.uk → a site card →
    Builds, and press Terminate on a months-old EXECUTING_STEP orchestration. sqlmock proved the
    statement; only a real click proves the endpoint.

@@ -276,3 +276,30 @@ would have stayed green while the hole was open.
 
 It is not live yet. It goes out with the next routine software roll, and the first customer
 email stays blocked until I have checked it running, not merely committed.
+
+## 2026-08-25, afternoon — a suspected hazard checked out, and it is not one
+
+Yesterday's notes left a warning for whoever picked the work up next: that one of the ways
+agents write a site's "evidence register" — the list of facts they may state and claims they
+must never make — could wipe that list wholesale by accident. It looked serious enough to fix.
+
+I measured it before building anything, which yesterday's note also asked for, and the answer
+is that it cannot happen the way described. Nothing in the system actually writes the evidence
+register through that route. Not one of the twenty places that could, and none historically
+either. And the nightly refresher that touches those registers most — two hundred and
+twenty-two times in the record — has never once removed anything from one. Its own code says
+it never will, and the history agrees with its code.
+
+There is exactly one occasion in the whole record where a register was emptied. It lasted
+fifty-nine seconds, and the same session that emptied it put it back. It was somebody doing a
+change in two steps, not a fault.
+
+So I have closed that item rather than build a guard nobody needs, and written down why, with
+the numbers, so it does not get re-raised in three weeks.
+
+One real thing did come out of it, and it is not what the warning said. Eight of our nineteen
+sites are not covered by the refresher at all — including apis.uk and webdesign.uk, the two
+with the largest registers. Nothing rebuilds those if they are ever damaged. And the only way
+a register has ever actually been emptied is somebody running SQL by hand, which no amount of
+code can prevent. That is a habit to keep rather than a thing to build: hand-written database
+changes touching those registers should check themselves before they finish.
