@@ -2706,3 +2706,31 @@ Also on the table: the copy-editor's own prompt demonstrates the tell 6 times ("
 SITE."); a loanandmortgagecalculator tool-component family carries 5–8 `not just` each in
 `llm_guidance` (CQ-005 shape); reviewer prompts top the absolute table and are demoted by reach.
 No fixes proposed; phase 2's reading order is in the findings. Owner-facing account in README.
+
+---
+
+## 2026-08-25 (late night) — phase 2 verdicts 1 of N: the writer template and the house voice, read in full
+
+`AUDIT_prompts/PHASE2_2026-08-25_verdicts_writer_template_and_house_voice.md`. Both prompts read
+whole, not by regex, against the six questions. No fixes applied — shapes recorded.
+
+**Writer template: TEACHES-AI, in what it prescribes INSTEAD of what it bans.** Three instructed
+moves, quoted: (a) a method section must narrate sourcing — TWICE (the NONE-RECORDED block, emitted
+in both branches of its `if`, and the 223 remedy clause); (b) rule 19 banned the WORD "honest"
+(owner ruling 07-26) and re-prescribed the MOVE — *"Say 'we cannot tell you X' … naming the limit,
+the failure mode, or what the thing cannot do"* → *What this site will not do* ×2; the displacement
+the REFRESH documents, sitting in the fleet's most-read prompt; (c) rules 16–17 fill empty
+testimonial/case-study slots with *"statements in the company's own voice about their values,
+approach, or commitment"* → the owner's first-ever objection, "talking about ourselves", by
+instruction. Every fabrication and overclaiming BAN is right and stays. Fix shape: keep bans, delete
+the three "say this instead" clauses, one positive instruction + one guarded on-register exemplar;
+causal test named before anything is called a fix.
+
+**House voice: NEUTRAL in content, TEACHES-AI in form.** It IS v3's rules (right lineage, owner
+approved 08-14), with zero "plainly"/"honest" and no methodology instruction — and it is the
+densest single prompt for the construction it bans, 17 in 6,033 chars, incl. *"Say what a thing IS
+rather than what it is not."* Fix shape is a form-only rewrite of its own sentences — **owner
+decision, it is his approved text** — sequenced after the writer change so effects separate, with
+the refutation condition written first.
+
+Reading order for the next file: briefs → planners (the premise layer) → llm_guidance → copy-editor.

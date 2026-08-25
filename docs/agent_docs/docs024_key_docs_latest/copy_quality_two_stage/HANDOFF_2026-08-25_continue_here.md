@@ -26,9 +26,15 @@ scoped and censused — **`PLAN_2026-08-25_prompt_audit.md`** — and **phase 1 
 negation constructions + "plainly" ×14 per call, and **the about-page premise was INSTRUCTED** —
 migration 223's remedy clause in the writer template ("say what we DO … we name our sources and
 their dates … say plainly that we can still be wrong"), textual match measured, causation
-`[INFERRED]` with its test named. **Next executable step: phase 2's judgment pass in the findings'
-reading order, and the Finding-2 causal test (a method section built with vs without the clause,
-compared at the served page).** His sharpest new datum: the
+`[INFERRED]` with its test named. **Phase 2 verdicts 1 of N done** (`AUDIT_prompts/PHASE2_2026-08-25_verdicts_writer_template_and_house_voice.md`):
+writer template TEACHES-AI via three "say this instead" clauses (method = sourcing narration;
+"we cannot tell you X" as the substitute for the banned word "honest"; values/approach filler for
+empty testimonial slots); house voice NEUTRAL in content, TEACHES-AI in form (17 demonstrations of
+the construction it bans — OWNER DECISION, his approved text). Fix shapes recorded, nothing applied.
+**Next executable steps: (i) the Finding-2 causal test — one method/about section built with the
+current template vs with the remedy clauses removed, same brief, compared at the served page;
+(ii) phase 2 verdicts 2 of N: the briefs, then the planners (the premise layer), then llm_guidance,
+then copy-editor's own prompt; (iii) put the house-voice form-rewrite to the owner.** His sharpest new datum: the
 about.html PREMISE is wrong (14/17 methodology headings), his phrase list is a SAMPLE, and fixes
 that remove named strings while keeping the page's shape will not satisfy it.
 

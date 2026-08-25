@@ -794,3 +794,29 @@ together they are the loudest voice in the room.
 **What I have not done:** proposed fixes. The reading order for the judgment pass is written down
 — the writer's rule block first, then the house voice, then the site briefs, then the planners that
 decide what an about page is for in the first place.
+
+---
+
+**2026-08-25, late.** I read the two instructions that reach every section of every page in full,
+the way a person would, and wrote down what each is teaching.
+
+**The writer's rule sheet** is right in everything it forbids and wrong in three things it says to
+do instead. It tells the writer that a section about method should describe how sources are named
+and dated (twice, in two places). It bans the word "honest" — your ruling in July, correctly — but
+then tells the writer to show honesty by "naming the limit, the failure mode, or what the thing
+cannot do" and to say "we cannot tell you X", which is where every "What this site will not do"
+heading comes from. And where a page has a testimonials or case-study slot and nothing real to put
+in it, it tells the writer to fill it with "statements in the company's own voice about their
+values, approach, or commitment" — which is the "talking about ourselves" you objected to on the
+very first day. The bans stay; the "instead" clauses are what I'd change, and the change is written
+down as a shape, not applied, with the test that would prove it before anyone calls it fixed.
+
+**The house voice** — the one you approved on the 14th — says the right things and says most of
+them in the habit it forbids: "Say what a thing IS rather than what it is not" is the rule against
+defining-by-negation, written as a defining-by-negation. Seventeen of those in six thousand
+characters, the densest instruction in the fleet. The fix would change nothing about what it asks
+for, only how its own sentences are built, and since it's your text I'm putting that to you rather
+than doing it.
+
+**Nothing has been changed yet.** Next reads, in order: the per-site briefs, then the planners that
+decide what an about page is for.
