@@ -156,6 +156,10 @@ per page (the logo), zero `<picture>`, zero `<svg>`, one background-image declar
 or improve the experience loop"*. **That is a live question for the owning lanes, not a decision this
 lane may take.**
 
+> ### ⚠ ANSWERED 2026-08-25 by the `vigilant_designer_offer_analysis` lane — AND IT CORRECTS THE
+> ### OWNER'S PREMISE. The answer is "DID NOT FIRE", not "did not help". See §9.
+
+
 ---
 
 ## 7. What he instructed for copy, and it is the largest single item
@@ -205,3 +209,79 @@ a page can contain no banned phrase at all and still be entirely about the wrong
 > site want it", not "does this sentence contain a tell".** That is the owner's own framing
 > — *"a whole category of not thinking about the user and what they are after on a site like this"* —
 > and it is now measured twice.
+
+
+---
+
+## 9. THE §6 REFRAME, ANSWERED — and it changes what "fixing it" means
+
+**Source:** `vigilant_designer_offer_analysis` lane, full measurements and re-run queries in
+`CONTRIB_2026-08-25_two_of_the_three_agents_he_names_could_not_have_run.md` (this directory, commit
+`9740425e7`). **The load-bearing claim was re-verified independently here before being carried to the
+owner**, because it contradicts something he asserted.
+
+### 9a. *"The visual designer hasn't done its job"* — it was never asked. It has no dispatch path at all.
+
+`[MEASURED 2026-08-25, verified twice by two lanes]`
+
+| check | result |
+|---|---|
+| live agents whose `default_config` names `visual-designer` | **none** |
+| `scheduled_tasks` targeting it | **none** |
+| `llm_call_log` rows under `agent_type='visual-designer'` | **0**, across the log's whole span (2026-03-25 → today, 67,789 rows) |
+| positive control in the same query | `page-content-writer` = **24,217** rows to 2026-08-25 — the query resolves |
+| the only Go reference | `spawn_actions.go:3053`, inside `isStorageEnabledAgent` — a **capability grant**, not a dispatcher |
+
+⚠ **And the zero was not rested on.** `agent_type` records the dispatch context, so a hand-fired run
+hides under `generic`. Keying on `step_name='design'` instead gives 20 rows — 11 `generic`
+(07-17→07-24), 9 `feature-designer` — **nothing since 2026-07-31**, with `run_offer_analysis` = 16
+rows to 08-24 as the positive control in the same query.
+
+**`brand-designer` and `experience-planner` are in the same position.** `design-audit-agent` and
+`offer-analyser` are named only by `improvement-loop`, which is disabled.
+
+**What actually built `homegarden.uk`**, from its own orchestration rows (21 distinct agent types):
+`site-design-planner`, `webdesign-agent`, `site-asset-renderer`, `render-audit-agent`,
+`image-build-handler` ×13, `image-generator` ×13. **None of §6's eight appears.**
+
+> **So the honest sentence for the owner is that the designer did not do a bad job — it was never
+> asked, and there is no path by which it could have been.** That is worse than the complaint, not
+> better: a bad output can be fixed with a prompt; an unreachable agent is an estate-level gap.
+
+### 9b. The offer analyser never saw the site, and it is switched off
+
+`[MEASURED]` 0 `site_specs` rows with `aspect='offer_ordering'`; 0 work items with
+`audit_source='offer-analysis'`; **5 of 28 sites enrolled fleet-wide**. All **three** of its scheduled
+carriers are `enabled=false`, last triggered 08-14/08-15, and its only other route
+(`improvement-loop` → `improvement-sweep`) is disabled too.
+
+**His `about.html` complaint is precisely what this agent exists to catch** — 14 methodology headings
+against 3 reader-facing. It landed on a catcher that was switched off.
+
+### 9c. The imagery defect is STRUCTURAL and fleet-wide, and "make it the default" is a bigger ask than it sounds
+
+⚠ **Including a correction that lane made to its own first reading — do not repeat the retracted
+version.** It nearly reported *"13 images generated, none placed"*. **Wrong:** 21 of 45 homegarden
+components reference `/assets/` and 20 carry `background-image`. **The images ARE placed — exclusively
+as CSS backgrounds. There is no in-body image slot anywhere.** That is his *"between paragraphs"*
+complaint stated as a mechanism.
+
+**Fleet census, 27 sites with >10 live components: THIRTEEN have ZERO inline `<img>` in any
+component** — homegarden (45 components), `gaswholesalers.com` (**115**), `mortgagecalculator.co.uk`
+(75), `loanzy.uk` (63). Every site has background images (2–56). **Best inline coverage anywhere is
+`loancalculator.co.uk` at 25/157 = 16%.**
+
+**So his *"this could be the default for sites generally"* asks us to change something that is
+currently near-absent BY DEFAULT.** It is a component-vocabulary and planner question, not a matter
+of a designer's taste — the same shape as `bugs_open/381`'s missing list/table components.
+
+### 9d. What is now an OWNER decision rather than a lane's
+
+That lane deliberately changed nothing live: **no carrier enabled, no enrolment written, site
+untouched** — noting that enabling a disabled carrier is a fleet behaviour change affecting every
+site it selects, and that it has already paid once for firing a dispatch believing a promoter was off
+(`WRONG_CALLS.md` 2026-08-25: findings promoted and a live page rebuilt 31 seconds later).
+
+**So the decisions in front of the owner are:** whether to switch the offer-analysis carriers back
+on; whether the visual designer should be given a dispatch path at all or retired; and whether an
+in-body image slot enters the component vocabulary as a default.
