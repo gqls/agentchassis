@@ -475,3 +475,44 @@ would have sent someone to look for a row that no longer existed and they would 
 absence as a failed build. **An unmeasured caution is a coin-flip you have written in the
 imperative**, and this lane has now spent two days learning that the marker discipline only works on
 claims that *look* like claims.
+
+## 2026-08-25 — my `which.co.uk` observation REFUTED, and the hedge is why it was cheap
+
+I noted, watching the exemplar draw, that `which.co.uk` is a comparison publisher and that if the
+classifier weighted the vertical off it my `comparison-table` would get a fairer test than expected.
+I explicitly labelled it *"an observation, not a prediction"*.
+
+**Refuted within minutes, with first-hand evidence** by the `loanzy_uk_example_site` lane
+`[MEASURED 2026-08-25 10:53–10:54Z, orchestration 5937f08b-63ad-4de2-a5ea-97b17cacbb04]`:
+
+| exemplar | result | sources | quality |
+|---|---|---|---|
+| `rhs.org.uk` | success | 6 | good |
+| `gardenersworld.com` | success | 6 | good |
+| **`which.co.uk`** | **success** | **0** | **NONE** — *"Crawl completed but no usable page content was found."* |
+
+So the landscape was synthesised from **two** publishers, both **calendar/task-structured how-to**
+sites, and the one comparison publisher contributed **nothing**. The bias is toward
+`period-calendar` and `checklist` and **away from** comparison — for reasons that have nothing to do
+with whether `comparison-table` works.
+
+**Acted on immediately, in the instrument rather than in my head:** `ACCEPTANCE_homegarden.sh`'s
+reading guide now says, with the measurement inline, that **`comparison-table` absent on this build
+is UNEXERCISED, not failed**, and names `period-calendar`/`checklist` as the primary signal. Without
+that, tomorrow's reader — quite possibly me — sees `comparison-table x0` and records a negative
+result about a component the build never gave a reason to choose.
+
+**The transferable bit is about the hedge.** I have been wrong four times in this lane by stating an
+inference in the voice of a finding. This time I wrote "observation, not prediction" — and that is
+exactly why the correction cost one message instead of a retraction: the peer knew what kind of claim
+it was and corrected it *before* it reached an artefact. **The marker is not bureaucracy; it changes
+how expensive being wrong is.**
+
+⚠ **And their (a)/(b) finding is this session's disease in someone else's code, which is worth
+recording here because I will meet it again.** Their own fix candidate for `bugs_open/376` was
+"tolerate N-of-3 with a floor" — and a floor evaluated on **step success** is blind to
+`which.co.uk`: three successes, one with zero content. Implemented naively it would tolerate
+"3 of 3 succeeded" while a landscape was written from nothing, every step green. **A floor has to be
+evaluated on CONTENT, not on status** — the same shape as `<no value>` being stripped, the 40-zeros
+control, and `updated_at` moving for rows nobody edited. A status is what the system says; content is
+what is there.
