@@ -3237,3 +3237,25 @@ Also this hour: the 387/392 lane's outbound-links check scoping settled by measu
 tool-pages-typed-blog-post finding; my rebuilt pages OUT of scope, two generator-made prose guides
 legitimately IN; their prefix `no_outbound_links:<page>:<site>` — distinct from `internal_link:`
 and `tool_crosslink:`, so the dated zero-overlaps figure stands).
+
+## 2026-08-25 ~15:30Z — TRACK 2 BUILT (this session): rules 16/17 in tool_health, volume-routed; the sibling's tombstone catch shipped inside it
+
+The owner's "carry on" plus a quiet seat = the deferred Track 2. Commit **`a3041ce59`**,
+`Council-Submitted: 21540c8e` (verdict read OWED). Coordinated first: sibling [31e6fe] (restarted
+session under the old name) confirmed no collision AND contributed two design inputs that shipped:
+- **fixtures from TOMBSTONES, not live pages** — the live ported corpus shrinks ~5 tools/day under
+  their grind (41/63 when they wrote), while retired slots keep the bytes for ever; the positive
+  fixture is verbatim excerpts of `f1d11768` (text-sanitizer tombstone: `onclick="copyOutput()"` +
+  `alert("Copied clean text!")`);
+- **the tombstone-audit hazard**: `toolEligibilityWhere` has NO slot `build_status` filter, and only
+  its surrounding clauses accidentally exclude REBUILT pages' tombstones — a retire-without-replace
+  tombstone would be admitted and filed against (the 360 resurrection shape). Fixed with
+  `pc.build_status <> 'removed'` scoped to THIS check's query, credited to them in the commit.
+Shape as the 08-19 re-scope decided: `auditContractRules` (16: inline `on*=` in-tag; 17: dialog
+calls, word-boundary so `confirmSelection(` can't match), warning severity; forks merge into
+improve_tool (in-remit); ported findings → ONE `capability_gap` per site (check
+`tool_health_contract_rules`, `GapHandlerMissing`); rules 15/18/19/20 DELIBERATELY unchecked with
+the header saying so (18's measured counterexample restated). Tests pass, rule-16 regex
+mutation-proven both ways, full package green. INERT until the next roll; **post-roll demand
+control: expect ONE capability_gap on webdesign naming the remaining ported instances, its count
+shrinking as the grind works.** OWED: read verdict `21540c8e`.
