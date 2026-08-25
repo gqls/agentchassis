@@ -53135,3 +53135,95 @@ obeyed.** Every other kind of stale line makes a reader do redundant work; this 
 *skip* work, and skipping is invisible. So: **never write "do not debug X" without the command that
 re-establishes it and the date it was last true** — and re-run that command before believing your own
 file, which is now trap 11 in this lane's handoff.
+
+## 2026-08-25 — `idea_uk_vm_site` lane (session "idea.uk"): I called two `failed` findings STALE because the rows they named had been replaced — the replacements carried the same defect at the same byte count
+
+The two `empty_section` items on idea.uk's funding-fit and patent-check tool pages had failed
+closed (RFC_017): *"component … no longer exists (genuinely fixed or silently deleted —
+indistinguishable here)"*. I found the replacement rows — created 08-24 18:15/18:19, 18–19 KB,
+`build_status` deployed, the served pages 94–95 KB with the slot names present 47 times each —
+and said, in chat, that the sections "aren't empty any more" and the items were stale.
+
+**What caught it:** re-running the check's own predicate on the replacement rows —
+`rendered_html ~* '<(h[1-6])[^>]*>\s*</\1>'` returned **t, t** — and on the served pages
+(**2** matches each: `<h2 class="ff-heading"></h2>`, `<h2 class="pc-heading"></h2>`). The tool
+templates render `{{.section_heading}}` and the rows' `content_data` has no such key, so every
+rebuild reproduces the empty heading.
+
+**The cheap check I skipped:** before calling a finding stale because its target moved, RE-RUN
+THE PREDICATE on whatever took the target's place. The tell was already on screen and I read
+past it: `length(rendered_html)` was **identical** across four deletes and re-inserts on 08-24
+(18,034 B and 19,404 B every time). A rebuild that repairs something changes the bytes; a rebuild
+that reproduces a defect does not.
+
+**What generalises:** "the row it named is gone" is evidence about the KEY, not about the DEFECT
+(`bugs_open/300`'s class — `empty_section` is now a second producer recorded there). A verifier
+that fails closed on a missing id is telling you it cannot see, not that there is nothing to see;
+a slot name present 47 times in a page proves the section rendered, not that it rendered
+anything. Full-size and deployed are properties of the container.
+
+## 2026-08-25 — "each `scheduled_tasks` row is a single-flight slot; the fleet dispatches ONE site at a time (~83 items/h)" — FALSE, and the doc that said it had the disproof in its own numbers
+
+**The claim, as written and shipped:** dispatch_throughput STARTER §2 (2026-08-18), PLAN §4, RESEARCH §0/§1/§2, WDS-002 (2026-08-24), and the council submission for migrations 582–584: `loadDueTasks`' per-row guard holds a row until its run completes, so one row = one dispatch turn at a time, the fleet ceiling is ~83 items/h, and a sibling row is the way to get N=2. Three migrations were applied on it and a 090 was filed on it (died at `max_tokens`, so "strong first-hand, loop-unverified" was the stated status — and it was wrong).
+
+**What caught it:** the council's round-2 editquality seat — "two `call_dispatch` turns in flight proves the trigger fired twice, not that two DIFFERENT sites were dispatched". Measuring THAT at the orchestration level showed the single original row overlapping ITSELF 361 times in 24.5 h (min gap 0.25 s), and a stamp read 39 s after a fire with `last_triggered_at = last_completed_at` while the run had 60 s to go. The fire path (`runTick` → `fireTrigger` → `stampCompleted`, both stamps at fire, "we don't wait for the orchestration to finish") has been that way since `892a289e9` **2026-03-17**.
+
+**Why it was missed, twice:** both 08-18 code reads opened `loadDueTasks` and `countInFlight` — the READERS of the two stamps — and cited them by line number. Neither opened the writer 80 lines above. `grep -n last_completed_at cmd/scheduler/main.go` puts the writer first. The claim was then carried through five documents and a register entry with `[MEASURED]` markers on numbers that were real and a conclusion that did not follow from them.
+
+**The cheap check that would have, in one line:** Little's law on the STARTER's OWN figures — "17 runs in 25 minutes, avg 218 s" ⇒ 17 × 218 / 1500 = **2.5 runs alive on average**. A document that quotes a run count and a mean duration has already measured the concurrency; "never 2 in the same MINUTE" was answering a different question (start times, not lifetimes). Second cheap check, standing: **before calling anything a guard, read the writer of the column the guard reads** — WDS-001's own line, "don't infer writers from readers", applied to the scheduler's stamps instead of the work-item table's.
+
+**Cost:** three migrations (harmless but two of them inert), two council rounds arguing the wrong mechanism, a register entry and a research deliverable carrying a ceiling that is off by ~2.4× (~200 claims/h per row, not 83), and one design (the sibling row) that delivers ~+10–15% where the live `interval_seconds` column gives 1.5×–3× with fires that steer to distinct sites. Corrected visibly in every doc named above; LANDMINES 2026-08-25 (two entries); `bugs_open/398`.
+
+**Tally note:** this is "read the writer, not the reader" — already in the register (WDS-001), in MEMORY (`writes-the-field-is-not-reads-the-field`), and in this file under other tables. The estate had written the answer down; it was filed under `site_work_items`, and I was looking at `scheduled_tasks`. The transferable form is "runs × mean duration ÷ window" as a mandatory line in any concurrency claim — a number, not a habit.
+
+---
+
+## 2026-08-25 — I swept four other lanes' LANDMINES entries into my commit, having run the check that would have stopped me and not read its output
+
+**Lane:** `bugfix_375_completion_verifier_gap`. **Sweeping commit: `4210764e9`.**
+
+**What I did.** Committed `LANDMINES.md` by pathspec to correct one of my own lines. The file was
+dirty with **four entries belonging to three other lanes**, and they went in under my message:
+
+| entry | owning lane |
+|---|---|
+| classification spec with no `content_features` makes a site invisible to both news mechanisms | `idea_uk_vm_site` |
+| `detected` is a QUEUE, not a shelf — the promoter dispatches any `detected` row | `loanzy_uk_example_site` |
+| a `scheduled_tasks` row is NOT a single-flight slot | `dispatch_throughput` |
+| `build-pipeline-trigger` has a byte-copied SIBLING | `dispatch_throughput` |
+
+**Nothing is lost and nothing needs undoing** — forward-only holds, the entries are intact and
+already synced to `doc_notes`. What is destroyed is the thing CLAUDE.md names: four threads' work
+arriving under one thread's message, so `git log`, `git bisect` and `git revert` all now attribute
+their findings to a commit about my documentation habits.
+
+**What caught it.** The `pre-commit` hook's `shared-ledger-not-appended` advisory, on the *deletion*
+— not on the 47 lines of other people's work it swept in. I only found the passengers because I went
+to answer the deletion warning.
+
+**The cheap check that would have — and this is why the row is worse than a slip.** I ran it. The
+same command that made the edit began with
+`git status --porcelain -- …/LANDMINES.md …/work-item-integrity.md`, and its first line of output,
+printed directly above my own edit, was `M docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`.
+**I ran the check, printed the answer, and committed anyway.** My three earlier LANDMINES commits
+today were clean precisely because I ran `git diff --numstat` and *read* it.
+
+**The three things worth taking.**
+
+1. **A check you do not read is worse than one you skip**, because it leaves a record that looks
+   like diligence. The habit that worked all day was not "run `git status`" — it was **"state the
+   expected numbers, then compare"**. Every clean commit today had me predicting a deletion count and
+   noticing when it did not match. Here I predicted nothing, so there was nothing to fail.
+2. **Correcting a shared ledger IN PLACE is a strictly more dangerous operation than appending to
+   one**, and I had just written that appending was safe. An append can be made atomically at the
+   tail; an in-place correction requires the file be in the state you last read, on a file every
+   thread writes. **If the ledger is dirty, append your correction as a dated note instead — do not
+   rewrite a line.**
+3. **The irony is the mechanism, not a joke.** I spent this session warning three separate lanes
+   about same-file passengers, wrote the fourth occurrence of that landmine, told a peer *"a pathspec
+   commit of a shared file takes their half-written work as a passenger"* — and then did it, in the
+   same hour, to the very file that records it. **Writing a rule confers no protection whatsoever.**
+   The protection is the arithmetic before the commit.
+
+**Owed to the swept lanes:** `4210764e9` is the commit their entries actually landed in. Their
+working copies will now read clean; that is why, not because they committed.
