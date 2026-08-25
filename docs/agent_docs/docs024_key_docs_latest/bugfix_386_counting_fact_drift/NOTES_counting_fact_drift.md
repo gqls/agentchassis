@@ -234,3 +234,47 @@ Checked for collision: `52958897f` adds `normaliseSurfaceKey` and surface/grain 
 in the fact-matching path, so this is same-file proximity, not a design conflict — but two sessions
 editing `claims.go` means whoever commits takes both edits, and no hook prevents a same-file
 passenger. Flagged to the 364 session.
+
+## 2026-08-25 — my claims.go half was SWEPT into another lane's commit, and the cost is a reporting one
+
+`63d95be1f` is my Go-slice commit. It carries five files. It does **not** carry
+`platform/orchestration/datahelpers/claims.go`, which is the half the whole design lives in — and I
+had named that path explicitly on `git commit`.
+
+Not a loss, and not a mystery: the file was already committed, by `001211abf` (the 364 lane's
+"I described a peer's fix … corrected in all five places"). That session swept my uncommitted
+working-tree changes into its own commit. This is the exact failure CLAUDE.md describes — committing
+per task stops *you* sweeping up *others'* WIP; it cannot stop a session still running `git add -A`
+from sweeping up *yours*. By the time my pathspec commit ran there was nothing left to commit for
+that path, so it silently carried five files instead of six.
+
+Verified rather than assumed, because a sweep can also mangle: HEAD's `claims.go` carries exactly
+one each of `RetainHistory bool`, `History []FactHistoryEntry`, `func (f *EvidenceFact)
+historySupports` and the `if f.historySupports(val)` arm, and both full packages pass fresh with
+`-count=1` at the HEAD combination. The code is intact.
+
+**The cost is not the code, it is the audit trail, and it is worth naming because it is invisible
+otherwise:**
+
+1. **My commit message describes code that is not in my commit.** Anyone bisecting or reviewing
+   `63d95be1f` will find the tests and the register entry but not the mechanism they test.
+2. **The council trailer is now on the wrong commit.** `098` joins commits to verdicts by trailer.
+   My `Council-Submitted: 18dba069` sits on the commit that carries the *tests*; the in-scope
+   platform file landed in `001211abf`, which carries no trailer at all. So the coverage report will
+   show an in-scope commit as unreviewed while the review that actually covers it is credited
+   elsewhere. Nothing dishonest has been written — the trailer asserts a submission, and that
+   submission is real and does cover this code — but the join is wrong and no amend can fix it
+   (forward-only).
+3. **A same-file passenger is the one thing a pathspec commit cannot exclude**, and this is the
+   mirror image: not a passenger riding *in*, but my own work riding *out* under someone else's
+   message.
+
+Nothing to undo. Recorded here, reported to the 364 lane so their commit's contents are not a
+surprise to them either, and the correlation is written down in both this file and CLM-028 so the
+verdict can still be traced by hand when `098` shows the gap.
+
+**The check, for anyone whose task spans a file another lane is active in:** after a pathspec
+commit, read the yellow scope block and count the files against what you named. It is advisory and
+it never blocks, which is exactly why it is easy to scroll past — but a path you named that is
+*absent* from it means the file was committed by someone else between your edit and your commit, and
+that is worth knowing before you write "shipped" anywhere.
