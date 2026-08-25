@@ -289,6 +289,28 @@ gaswholesalers.com/service-areas).
 > `lock_blocked_change` reads that as **2 blocked / 1 fine** when the truth is **3 unconverted**.
 > Re-derive coverage from `page_components` against the live template, never from the refusals.
 >
+> **AND WHAT THE 48 ACTUALLY COST, measured the same day — because "48 unconverted" will be
+> quoted as damage and it is not.** A literal element id is only a defect where the same component
+> appears **twice on one page**; anywhere else it is untidy and inert. Narrowing it:
+> **48 unconverted → 8 sitting on a multi-instance (page, function) pair → 1 page carrying an
+> actually duplicated element id → 0 reaching a visitor.**
+>
+> That last page is `webdesign.uk/index.html`, whose two `generic-text-block` rows (written
+> **2026-08-05**) both carry `id="8d81e665-3ee0-443d-a873-690268c15fbb"` — a **UUID**, i.e. the
+> retired `{{.ComponentID}}` binding frozen in stored bytes that never re-rendered. It serves to
+> nobody: **`webdesign.uk` 302-redirects to `webdesign.co.uk`**, which is a **separate `sites`
+> row** with its own `page_components`; the redirect target serves four unrelated ids and **zero**
+> occurrences of that UUID. Controls run in the same breath: an invented path on `webdesign.uk`
+> also 302s (so the domain serves nothing of its own — the parked-domain trap in its redirect
+> variant), and the UUID grep against the followed target returns 0.
+>
+> **So the residual is a consistency debt, not live damage**, and it should be prioritised as
+> such. The honest one-line version: *48 placements still carry pre-conversion ids as of
+> 2026-08-25; none of them collides on a page a visitor can reach.* ⚠ That is a **census, and it
+> goes stale by ADDITION** — re-run the query above before quoting either number, and re-check the
+> redirect, because a domain that starts serving its own content converts this from debt to damage
+> with no other change.
+
 > **A positive control worth keeping, from the same lane:** across the 08-23 batch, **253**
 > instances re-rendered after the conversion (`generic-text-block` 161, `faq` 87, `mechanism-flow`
 > 5) and **ZERO** produced an empty id — real demand behind the zero, which is what makes it
