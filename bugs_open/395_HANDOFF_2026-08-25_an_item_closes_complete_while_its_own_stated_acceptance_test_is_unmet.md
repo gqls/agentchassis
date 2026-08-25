@@ -142,3 +142,110 @@ assembled by reading, not querying.
   `docs/agent_docs/docs024_key_docs_latest/vigilant_designer_offer_analysis/`
   (cold-start `HANDOFF_2026-08-25_continue_here.md`)
 - `bugs_open/213` / WII-017 — the complement, not the same bug
+
+---
+
+## 8. WHAT SHIPPED — candidate 1, at RECORD-ONLY (2026-08-25, same lane)
+
+**Committed `69479bcf6`, council `064841bd-58fc-46a1-a77d-6b0a6309d0ba` APPROVED round 1 (14 seats,
+5 advisory objections, none high). Go, so INERT until the next fleet roll.** Register **WII-033**.
+
+⚠ **Do not read "committed" as "running".** Until the chassis carries it, no completion is graded,
+and an empty `result->'_verification'->'acceptance_predicate'` means *"this was never switched on"*,
+not *"nothing refutes"*.
+
+**Completion gate 1c**, in `complete_work_item_acceptance_predicate.go`, between gate 1b and gate 2.
+Opt-in per `item_type`; three-valued (`predicateUndeclared` / `predicateRecords` / `predicateRefuses`,
+the zero value refused by the roster test). `content_rewrite` is the only entry and it **RECORDS**.
+
+### 8a. It records rather than refuses, for the reason §6 gives
+
+**There is still no live negative control** — §6's requirement is unmet and shipping did not change
+that. The permit arm is proven as a UNIT (`TestAPredicateThatHoldsPermitsTheCompletion`, a real live
+predicate against a string edited to satisfy it) and **not in the wild**. The two must not be quoted
+for one another. `outcome='permitted'` appearing on a real row after the roll IS the control §6 asks
+for, and until then the refusal arm stays unproven.
+
+Every evaluated predicate now leaves a verdict on the row **including `holds`** — without that, a
+gate that permits is indistinguishable from a gate that never ran, which is this entry's own residual.
+
+**Promotion to `predicateRefuses` is a BUILD FAILURE** until `content_rewrite` joins
+`livespec.ClaimedItemTimeoutExclusions` and its migration ships:
+`TestClaimTimeoutExclusionCoversBothCompletionGates` now counts a gate-1c entry *only when it
+refuses*. The half no test can assert is in the entry's own `PromotionOwes` field, which the roster
+test requires on every recording entry.
+
+### 8b. ⚠ §4's REASON for candidate 1's placement was WRONG, and the code records the correction
+
+§4 says a verifier cannot do this because *"`verifyBeforeComplete`'s `VerifyTarget` carries the SPEC,
+not the RESULT"*. **That is gate 1b's argument and it does not transfer** — gate 1b needs the
+handler's reply; gate 1c needs the spec and the current page row, **both of which a verifier has**.
+
+The candidate is still right; the reasons are different. `GetVerifier` is ONE verifier per
+`item_type` — a scarce shared slot on a type many producers file into — and these gates compose.
+`[MEASURED 2026-08-25]` no verifier is registered for `content_rewrite` (13 `RegisterVerifier` calls,
+none naming it), so gate 2 is inert for it either way.
+
+### 8c. ⚠ THE TRAP THAT WOULD HAVE SHIPPED THIS PERMANENTLY BLIND
+
+**A STORED predicate cannot be fed to `EvaluateAcceptancePredicate`.** The evaluator enforces a
+closed key set per type; the emit gate stamps `verdict_at_emission` and `evidence_at_emission`
+**after** evaluating. So the stored shape carries two keys the evaluator refuses and **every live
+predicate returns `inapplicable`** — a legitimate verdict whose message names a KEY, which reads as a
+fault in the model's output rather than in the reader.
+
+**Nothing in the suite caught it.** `TestTheFirstLiveEmittedPredicatesStillRefuteAfterTheFix` — §2's
+own evidence, and the only test over real live predicates — hand-writes them WITHOUT those keys, so
+it exercises a shape the database does not contain. The stamp and the strip are now single-sourced
+(`storedPredicate` / `predicateForEvaluation`) and pinned by `TestStampAndStripAreInverses`, which
+fails when a third provenance key is added to one and not the other. Full entry in `LANDMINES.md`.
+
+### 8d. §5's blast-radius census is now COLLECTIBLE, and here is the corrected denominator
+
+§5's query is still the plan. What shipped adds the other half — a per-completion verdict on the row:
+
+```sql
+SELECT s.domain, wi.item_type,
+       wi.result->'_verification'->'acceptance_predicate'->>'outcome' AS outcome,
+       wi.result->'_verification'->'acceptance_predicate'->>'verdict' AS verdict_now,
+       wi.result->'_verification'->'acceptance_predicate'->>'verdict_at_emission' AS at_emission
+  FROM site_work_items wi JOIN sites s ON s.id = wi.site_id
+ WHERE wi.result->'_verification' ? 'acceptance_predicate'
+ ORDER BY wi.completed_at DESC;
+```
+
+⚠ **`outcome='permitted'` is the row §6 says a fix is not proven without.** A census of nothing but
+`recorded_only` means the gate has still only ever seen failures.
+
+`[MEASURED 2026-08-25, live UNION archive]` the honest denominator for `content_rewrite`:
+**1,638 completions all-history, of which exactly ONE carries an `acceptance_predicate`** — the
+worked case in §1. So the gate is inert on 1,637 of 1,638 and the census grows only as the producer
+runs.
+
+### 8e. ⚠ THE COVERAGE LIMIT, measured because the council's guardian seat asked
+
+Gate 1c is in `CompleteWorkItemAction` only. The seat asked whether a LOOP's own `mark_complete`
+bypasses it — a good question, since the landmine on `build-dispatch-loop.process_item.mark_complete`
+records it REPLACING `site_work_items.result` with spawn bookkeeping.
+
+**It does not bypass it.** That step declares `"action": "complete_work_item"`, i.e. this path.
+`[MEASURED 2026-08-25, live UNION archive]` of 1,638 `content_rewrite` completions, **1,600 carry
+`handled_by='build-dispatch-loop'`**, including §1's worked case.
+
+⚠ **The tail is real and is 38 rows (2.3%), spread 2026-03-10 → 2026-08-23, with `handled_by` NULL.**
+`CompleteWorkItemAction` always stamps `handled_by`, so those were written by something that is
+neither completion action — the claimed-item-timeout sweep is the obvious candidate. None carries a
+`_verification` key and none has ever carried a predicate, so nothing is lost today. **That 2.3% is
+exactly what starts to matter on promotion to refusing**, and it is why the exclusion is in
+`PromotionOwes`.
+
+### 8f. What is still open on this bug
+
+1. **The negative control (§6).** Unmet. The gate cannot be called proven until a real row completes
+   with `outcome='permitted'`.
+2. **The refusal arm has never fired.** Units only — CLM-023's residual in a third place.
+3. **The blast radius (§5).** Still a plan, and it grows only as the producer runs.
+4. **This does not touch WHY the handler produces content that fails the predicate.** The council's
+   `constitution` seat flagged it and is right: gate 1c is detection, not the root-cause fix to the
+   content-generation gap. Recorded so it is not mistaken for one.
+5. **The accumulation.** Four hand-wired gates on one function — `architecture_review/RFC_055`.
