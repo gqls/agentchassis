@@ -17628,3 +17628,25 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **why it is a landmine and not a bug:** every signal available to the session making the change says success. The estate's usual proof - build it, test it, ship it, grep the pod - is blind here, because the thing that refuses is upstream of everything the cluster can see.
 - **source:** 2026-08-25, `web_admin_console` lane, building the second-click confirmation page to `webdesign_uk_build_service`'s DECISION_2026-08-24 (which pinned same-path for exactly this reason, measured against the vhost rather than assumed)
 - **added:** 2026-08-25, `web_admin_console` lane
+
+
+---
+
+### `POST /c/<token>` must live on the SAME path as the GET — a suffix route compiles, passes every test, and 404s at the box with nothing in the service's logs
+
+- **footprint:** `internal/core-manager/api/server.go` · `internal/core-manager/handlers/delivery.go` · `RegisterRoutes` · `HandleConfirmPage` · `HandleConfirmTransfer` · `docs024_key_docs_latest/webdesign_uk_build_service/box/links.webdesign.uk.nginx` · `location ~` · `limit_except` · `links.webdesign.uk`
+- **fires when:** you add, move or "tidy" any route under `/c/` — the obvious shapes being `/c/:token/confirm`, `/c/confirm/:token` or a versioned `/c/v2/:token`. Also fires when you narrow the box vhost, which looks like a pure hardening change.
+- **the trap:** the customer-facing origin is not a catch-all. `links.webdesign.uk.nginx` proxies **one anchored regex** — `location ~ "^/c/[A-Za-z0-9_-]{20,128}$"` — so **anything with a suffix, a prefix segment or a differently-shaped token never crosses WireGuard at all.** The box answers 404 locally. Your handler is never reached, so **there is no log line, no metric and no error anywhere in the cluster**; `go test` passes, gin's route dump looks right, and a `curl` from inside the cluster (or against the pod) works perfectly. The failure exists only on the path a real customer takes, and only from outside.
+- **the second half:** the same block carries `limit_except GET POST { deny all; }`. That is what makes the two-verb design legal today — but it is an enumeration, so a future `PUT`/`DELETE`/`PATCH` on `/c/` dies at the box the same silent way, and so would a preflight `OPTIONS`.
+- **the check, and it must be run from OUTSIDE — inside the cluster proves nothing about the box:**
+  ```bash
+  T=$(python3 -c "import secrets,base64;print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip('='))")
+  curl -sS -o /dev/null -w 'GET  same-path  -> %{http_code}\n' "https://links.webdesign.uk/c/$T"
+  curl -sS -o /dev/null -w 'POST same-path  -> %{http_code}\n' -X POST "https://links.webdesign.uk/c/$T"
+  # CONTROL - the shape that MUST die at the box. If this is not 404, the regex is not doing what you think.
+  curl -sS -o /dev/null -w 'POST suffix     -> %{http_code} (want 404)\n' -X POST "https://links.webdesign.uk/c/$T/confirm"
+  ```
+  A token-shaped path reaches core-manager and returns 200 on both verbs (an unknown token still renders a page, by design). **The suffix control returning anything other than 404 means the vhost has been widened**; the suffix control returning 404 while your new route "works" in tests means your route is unreachable in production.
+- **why it is a landmine and not a bug:** every signal available to the session making the change says success. The estate's usual proof — build it, test it, ship it, ask the pod — is blind here, because the thing that refuses is upstream of everything the cluster can see.
+- **source:** 2026-08-25, `web_admin_console` lane, building the second-click confirmation page to `webdesign_uk_build_service`'s DECISION_2026-08-24 (which pinned same-path for exactly this reason, measured against the vhost rather than assumed)
+- **added:** 2026-08-25, `web_admin_console` lane (re-added the same day after the first write was lost to a concurrent full-file write — see WRONG_CALLS 2026-08-25)
