@@ -3185,3 +3185,21 @@ count, not the pre-state row count. One extra line in the verify block would hav
 unnecessary — and unlike the row count, an occurrence count cannot be satisfied by a partially
 matching row.
 
+### 2026-08-25 (g) — all three verifications closed. **29 of 31.**
+
+| site | render | artefact | verdict |
+|---|---|---|---|
+| `webdesign.uk` | `rendered:false, url_count:0, candidates:7, dropped:7`, no commit | HTTP 302, 0 locs | **correct — no sitemap is the right end state** |
+| `homegarden.uk` | `true, 20, 20, 0`, committed | HTTP 200, 20 locs, **20/20** | recovered from 404 |
+| `cv1.co.uk` | `true, 3, 3, 0`, committed | HTTP 200, 3 locs, **3/3** | recovered from 404 |
+
+**Final census 21:02: 29 of 31 serve a sitemap of ours.** The two that do not are
+`adversecreditmortgage.co.uk` (owner HALT, excluded by `locked_at`) and `webdesign.uk`
+(redirect-only). **So every site that SHOULD have a sitemap has one** — the close condition from the
+08-24 handoff is met in full, against a starting figure of 8 of 28.
+
+⚠ **`622`'s guard still has not fired** and the handoff says so in its own section (§1d). Both
+recoveries came from hand-cleared stamps on sites that now HAVE pages, so the guard was never
+consulted. Recording it separately because "29 of 31 and everything green" is exactly the kind of
+result that would let an unproven guard ride along unnoticed.
+

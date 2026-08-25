@@ -9,71 +9,73 @@ Supersedes `HANDOFF_2026-08-25_continue_here.md`. Owner read-out:
 
 # 0. STATE IN ONE PARAGRAPH
 
-Sitemaps are **live and self-maintaining**: the rotation swept the fleet unattended and now picks up
-**new sites on its own** (three arrived yesterday and all three were swept without anyone asking).
-**27 of 31 live sites serve a sitemap of ours**, every one a perfect match against its own pages.
-Three defects were found and fixed across this work; the third (`622`) came from a council objection
-that had been consciously deferred and turned out to be **live on two sites**. Nothing is blocked.
+Sitemaps are **done, live and self-maintaining**: the rotation swept the fleet unattended and now
+picks up **new sites on its own** (three arrived and all three were swept without anyone asking).
+**29 of 31 live sites serve a sitemap of ours** — and the two that do not are a site under the
+owner's HALT and a domain that redirects every path away, so **every site that should have a sitemap
+has one.** Three defects were found and fixed; all three are proven at the artefact and both council
+rounds are approved. The one thing NOT yet proven is `622`'s guard actually firing (§1d). Nothing is
+blocked and there is no outstanding work on this lane — the next items (§3) are the deferred
+deploy-path half and the wider portfolio work.
 
 ---
 
-# 1. ⏭ START HERE — verify the two fixes that are now live but UNPROVEN at the artefact
+# 1. ✅ EVERYTHING IN THE PREVIOUS §1 IS DONE. Start at §3 (what is open).
 
-Both landed within the last hour and neither has been confirmed on a real site yet. **Do these
-before starting anything new** — they are quick and they close the loop.
+All three fixes are proven at the artefact and both council rounds are approved. Kept here because
+the before/after numbers are the evidence, and because §1d says what is still NOT proven.
 
-## 1a. ✅ The redirect fix (`54ba65b25`) — **PROVEN 2026-08-25 19:59. Nothing to do.**
+## 1a. Redirect fix (`54ba65b25`) — PROVEN 2026-08-25 19:59
 
-`webdesign.uk` re-ran on chassis v1.0.1339 and behaved exactly as predicted:
+`webdesign.uk`, same 7 candidates as the pre-fix run:
 
-| | before (2026-08-24 20:06) | after (2026-08-25 19:59) |
+| | before (08-24 20:06) | after (08-25 19:59) |
 |---|---|---|
-| `candidate_count` | 7 | 7 |
 | `url_count` | **7** | **0** |
 | `probe_dropped` | **0** | **7** |
 | `rendered` | true | **false** |
-| committed | **yes** (7 redirecting URLs, to `vm-sites`) | **no** |
+| committed | **yes** (7 redirecting URLs → `vm-sites`) | **no** |
 
-Same 7 candidates, and now all 7 are dropped by the probe because it finally sees the 302s.
-`reason: "no listable URLs — refusing to publish an empty sitemap"`, and `check_has_urls` routed to
-`complete` without committing. **A domain that redirects everything away correctly ends up with no
-sitemap of its own** — so `webdesign.uk` will stay at 3 of 4 uncovered permanently, by design.
+The probe finally sees the 302s it was always documented to refuse. **A domain that redirects every
+path away correctly ends with NO sitemap** — `webdesign.uk` stays uncovered by design, permanently.
 
-## 1b. ⏭ ONE SITE LEFT — `cv1.co.uk`, queued ~20:59
+## 1b. The two silently-skipped sites — BOTH RECOVERED
 
-**`homegarden.uk` is DONE and verified 2026-08-25 20:30.** It was one of the two sites the `622`
-defect had silently skipped:
+| site | before | after | selected |
+|---|---|---|---|
+| `homegarden.uk` | HTTP **404** | HTTP **200**, 20 locs, **20/20 match** | 20:29:30 |
+| `cv1.co.uk` | HTTP **404** | HTTP **200**, 3 locs, **3/3 match** | 21:00:00 |
 
-| | before | after |
-|---|---|---|
-| `/sitemap.xml` | **HTTP 404** | **HTTP 200**, `application/xml`, 2,237 B |
-| `url_count` | 0 (`candidate_count` 0) | **20** (`candidate_count` 20, `probe_dropped` 0) |
-| committed | no | **yes** |
+Both `probe_dropped: 0`, both committed. Homepages listed as `/`, so `5c9acf1bd` applies to
+newly-swept sites too.
 
-**20 of 20 locs match its `pages` rows**, and the homepage is listed as `/` — canonicalised, so the
-`5c9acf1bd` fix is applying to newly-swept sites too.
+## 1c. Council on `622` — APPROVED 20:31, 1 low advisory, checked and closed
 
-**`cv1.co.uk` is the last one.** Stamp cleared, queued behind the other two, expected ~20:59:
+`editquality` noted the anchor is a bare string and **`replace()` is GLOBAL**, while the pre-flight
+counted matching **ROWS** not occurrences **within** a row. Fair. **Verified it did not fire** — the
+live row has exactly one `locked_at` clause, one guard, one `-- 622:` comment.
 
-```bash
-rm -f /tmp/s.xml   # a failed curl leaves the PREVIOUS body in place
-curl -s -o /tmp/s.xml -w '%{http_code}\n' https://cv1.co.uk/sitemap.xml; grep -c '<loc>' /tmp/s.xml
-```
-Expect **HTTP 200** and **3 locs** (it has 3 deployed pages). It served 404 as of 20:30.
-
-### ⚠ BE PRECISE ABOUT WHAT THIS PROVES — and what it does NOT
-
-`homegarden.uk` recovering proves **the manual remedy works** (clear the stamp → the site returns to
-the front of the queue → it renders and commits). **It does NOT prove `622`'s guard fires**, because
-`homegarden.uk` now HAS deployed pages, so the guard is not even consulted for it.
-
-`622`'s guard is currently proven only by (a) its three induced verify failures against the live DB
-and (b) the live `pre_query` text. **Its behavioural proof requires a site that has NO deployed
-active pages at the moment the rotation would pick it** — i.e. the next newly-seeded site. When one
-appears, the observable claim is that it is **NOT stamped** while it has no deployed pages:
+**Lesson for the next anchored migration:** assert the POST-state occurrence count, not the
+pre-state row count. Unlike a row count, an occurrence count cannot be satisfied by a partial match.
 
 ```sql
--- a site with zero deployed pages must have NO row here until it is built
+SELECT (length(pre_query)-length(replace(pre_query,'pg.deployed_at IS NOT NULL','')))
+       / length('pg.deployed_at IS NOT NULL') FROM scheduled_tasks
+WHERE name='sitemap-refresh-rotation';   -- must be 1
+```
+
+## 1d. ⚠ WHAT IS STILL NOT PROVEN — `622`'s guard has never actually fired
+
+**Do not read §1b as proof of `622`.** Both sites recovered because their stamps were cleared BY
+HAND, and both now HAVE deployed pages — so the guard is not even consulted for them. What §1b
+proves is that the **manual remedy** works.
+
+`622`'s guard is evidenced today only by its three induced verify failures and the live `pre_query`
+text. **Its behavioural proof needs a site with zero deployed active pages at the moment the
+rotation would pick it** — i.e. the next newly-seeded site. The falsifiable claim:
+
+```sql
+-- a site with zero deployed pages must have NO rotation stamp until it is built
 SELECT s.domain,
        (SELECT count(*) FROM pages p WHERE p.site_id=s.id AND p.status='active' AND p.deployed_at IS NOT NULL) AS deployed_pages,
        (SELECT r.last_selected_at FROM site_discovery_rotation r
@@ -81,48 +83,25 @@ SELECT s.domain,
 FROM sites s WHERE s.status IN ('active','deployed') AND s.locked_at IS NULL
 ORDER BY 2 ASC, s.domain;
 ```
-**A site with `deployed_pages = 0` AND a non-null `stamp` means the guard did not hold.**
-
-## 1c. ✅ Council verdict on `622` — **APPROVED 2026-08-25 20:31. Nothing to do.**
-
-`c88f5c0f-cca2-4753-bd6c-9fabc93b100e`, *"approved with 1 advisory objection — none high-severity"*.
-`689f0c5fa` carries `Council-Submitted:`, so `098` credits it automatically. **Do not amend.**
-
-**The one objection, checked and closed:** `editquality` [low] noted that the anchor is a bare
-string and **`replace()` is GLOBAL** — if `AND s.locked_at IS NULL` occurred twice in the same
-`pre_query`, both would silently get a guard, and the pre-flight counts matching **ROWS**, not
-occurrences **within** a row. Correct criticism. **Verified 2026-08-25 20:32 that it did not fire** —
-the live row contains exactly one `locked_at` clause, one guard, one `-- 622:` comment:
-
-```sql
-SELECT (length(pre_query)-length(replace(pre_query,'pg.deployed_at IS NOT NULL','')))
-       / length('pg.deployed_at IS NOT NULL') AS guard_occurrences
-FROM scheduled_tasks WHERE name='sitemap-refresh-rotation';   -- must be 1
-```
-
-**The transferable lesson, for the next anchored migration:** a pre-flight that counts matching ROWS
-says nothing about occurrences WITHIN a row, and `replace()` will happily edit all of them. Count
-occurrences, or use `regexp_replace(..., 'g'` deliberately, or assert the post-state count — which
-is what the query above does.
+**`deployed_pages = 0` AND a non-null `stamp` means the guard did not hold.** "The sweep looks fine"
+cannot distinguish a working guard from an unconsulted one.
 
 # 2. WHAT IS LIVE
 
 | | evidence |
 |---|---|
-| **27 of 31 live sites serve a sitemap of ours** | census by BODY 2026-08-25 19:35; every one a **perfect n/n** `<loc>`↔`pages` match |
+| **29 of 31 live sites serve a sitemap of ours** | census by BODY 2026-08-25 21:02; every one a **perfect n/n** `<loc>`↔`pages` match. **The other 2 are correct-by-design, so every site that SHOULD have a sitemap has one** |
 | **The fleet swept itself unattended** | 13.2 h, 08-24 15:32 → 08-25 04:44, 27 sites, **all COMPLETED** |
 | **New sites are picked up automatically** | `homegarden.uk`, `lampenkap.com`, `cv1.co.uk` all arrived and were swept with nobody asking |
 | **Canonicalisation fix (`5c9acf1bd`)** | **ZERO of 31 domains emit a non-canonical homepage** (re-checked live 2026-08-25) |
 | **Redirect fix (`54ba65b25`)** | council **APPROVED, zero objections**; **PROVEN at the artefact 2026-08-25 19:59** — `webdesign.uk` went `url_count` 7→**0**, `probe_dropped` 0→**7**, no commit |
-| **Selector guard (`622`)** | applied 19:45, three guards induced against the live DB — **behaviourally unproven until a site with zero deployed pages next appears; see §1b for the exact claim** |
+| **Selector guard (`622`)** | applied 19:45, council APPROVED — **behaviourally unproven until a site with zero deployed pages next appears; see §1d** |
 
-**The four sites NOT covered, all understood:**
+**The two sites NOT covered — both correct by design, neither is outstanding work:**
 
 - `adversecreditmortgage.co.uk` — **correct by design**, excluded by `locked_at` (owner HALT). What
   it serves is the parking provider's 1-`<loc>` `/lander` file.
 - `webdesign.uk` — 302s everything away. **Resolved: the correct end state IS no sitemap, and it now correctly produces none** (§1a). It stays uncovered permanently, by design.
-- `homegarden.uk` — **RECOVERED 20:30**: 404 → 200 with 20 locs, 20/20 matching. No longer uncovered.
-- `cv1.co.uk` — the last one, queued ~20:59. §1b.
 
 # 3. WHAT IS OPEN
 
