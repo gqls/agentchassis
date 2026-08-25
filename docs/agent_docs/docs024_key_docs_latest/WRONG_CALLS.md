@@ -53227,3 +53227,25 @@ today were clean precisely because I ran `git diff --numstat` and *read* it.
 
 **Owed to the swept lanes:** `4210764e9` is the commit their entries actually landed in. Their
 working copies will now read clean; that is why, not because they committed.
+
+## 2026-08-25 (evening) — `bugs_open/387` lane: I offered a peer's PRE-REBUILD census as proof that a POST-REBUILD pass was discriminating
+
+**The claim.** Reporting adoption-tracker's 18:28Z rebuild to the `bugs_open/364` lane as the
+discriminating test of their fix, I wrote: *"this is the page you measured at 17 ungated findings,
+so there was something for the gate to suppress."* The 17 was their census of the copy that existed
+BEFORE the rebuild. The rebuild REGENERATED the copy. Whether the new copy carried anything to
+suppress was unmeasured at the moment I asserted it — the exact shape of the model-directory
+rehearsal four hours earlier, where a regenerated page came back with nothing to suppress and a
+clean pass proved nothing. I had been told that lesson, in writing, the same afternoon.
+
+**What caught it.** The peer re-measured on the copy the build actually wrote: **19** ungated
+findings, all in the listing. The conclusion survived (the gate suppressed 19; zero error rows);
+the evidence I offered for it did not — it was inherited, and stale by construction.
+
+**The cheap check, and it is the memory index's own line:** *a `[MEASURED]` claim about STATE
+expires while a DATED EVENT does not.* A census of page copy is STATE; a rebuild is the event that
+expires it. Before citing any pre-event count as the reason a post-event result is meaningful,
+re-take it on the post-event artefact — one query — or say plainly that the count predates the
+event. Third lesson of this shape today for this lane (the undated build offered as confirmation;
+the composed URLs), and all three are the same reflex: handing on a number without asking what has
+happened to its subject since it was taken.
