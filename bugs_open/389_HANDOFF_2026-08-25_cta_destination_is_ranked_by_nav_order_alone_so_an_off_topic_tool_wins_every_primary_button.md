@@ -1,5 +1,17 @@
 # 389 — the primary CTA destination is chosen by `nav_order` alone, with no relevance input at all, so an off-topic tool wins every primary button on the site
 
+> # ⚠ TWO BUGS SHARE THE NUMBER 389 — AND BOTH ARE ABOUT CTAs. RESOLVE BY SLUG.
+> Filed 2 minutes 25 seconds apart by two sessions on 2026-08-25 (`10:51:25` and `10:53:50`) — the
+> documented `ls`-then-`add` race. Numbers are **never reassigned** here, so both keep it:
+> - **this file** — `…_cta_destination_is_ranked_by_nav_order_alone_…` — *why a CTA points at the
+>   WRONG page* (selection).
+> - **`389_HANDOFF_2026-08-25_repair_completion_is_unverified_three_classes_complete_unchanged.md`**
+>   — *why FIXING a CTA can report success without changing anything* (repair verification), from
+>   the `bugfix_308` lane.
+>
+> They are complementary, not duplicates: one is why the button is wrong, the other is why the
+> repair might not fix it. **`git log` the FILE PATH, never the number**, and cite the slug.
+
 **Filed 2026-08-25, on an owner report.** The owner saw `/tools/password-entropy.html` offered as
 the call-to-action on an AI-orchestration consultancy and said plainly: *"not deliberate and
 actually wrong."*
@@ -244,3 +256,20 @@ verified at the rendered header, not in `content_data`.
 
 **Relations, added:** `cta_target_content_pass` (the commissioned pass this is the root cause of —
 tell that lane before acting), `bugs_open/308` (the third consumer, and the provenance work).
+
+## ⚠ DECISION 4 (repair) IS CONSTRAINED BY THE OTHER 389, and that is not a coincidence
+
+The `repair_completion_is_unverified` slug (filed 2½ minutes before this one, from the
+`bugfix_308` lane) proves that **a `cta_links_stale` rerender reports `complete` whether or not any
+CTA moved** — `suggested_target` is written by the detector and read by nothing, so "repaired" is
+asserted by the handler and never checked against the page. It names three measured classes where
+`complete` provably meant *unchanged*, including **124 of 135 live findings sitting in components
+absent from `ctaFieldNames`**, and its class 3 is `ai-agent-orchestration.com/blog`'s frozen
+hero + call-to-action — **the same site as this bug**.
+
+**So the repair step here must not be scheduled as "run the 268 re-run and read the status."** Any
+repair of the 80 stored values must be verified **at the served bytes or at the stored
+`cta_url`/`primary_cta_url` field**, and a green work item is not evidence. That lane's fix
+candidate 1 (`VerifyMisdirectedCTAResolved` — re-run the detector's predicate post-render and
+refuse completion if it still fires) is the thing that would make decision 4 safely automatable;
+until it lands, treat every repair run here as unverified by default.

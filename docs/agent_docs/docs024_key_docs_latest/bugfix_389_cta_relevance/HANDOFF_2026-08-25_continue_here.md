@@ -1,4 +1,13 @@
-# HANDOFF — 2026-08-25. **START HERE.** `bugs_open/389`: the primary CTA is picked by `nav_order` alone, and it is minting wrong buttons today
+# HANDOFF — 2026-08-25. **START HERE.** The primary CTA is picked by `nav_order` alone, and it is minting wrong buttons today
+
+> ⚠ **TWO BUGS SHARE THE NUMBER 389 AND BOTH ARE ABOUT CTAs — always cite the slug.** This lane's is
+> `bugs_open/389_HANDOFF_2026-08-25_cta_destination_is_ranked_by_nav_order_alone_so_an_off_topic_tool_wins_every_primary_button.md`
+> (*why a CTA points at the wrong page*). The other is
+> `bugs_open/389_HANDOFF_2026-08-25_repair_completion_is_unverified_three_classes_complete_unchanged.md`
+> (*why fixing one can report success without changing anything*), from the `bugfix_308` lane, filed
+> 2m25s earlier. Complementary, not duplicates — and **the other one constrains decision 4 here**:
+> a `cta_links_stale` rerender completes green whether or not any CTA moved, so no repair run in
+> this lane may be judged by its work-item status. `git log` the FILE PATH, never the number.
 
 > **Read this from disk, then `bugs_open/389_HANDOFF_2026-08-25_cta_destination_is_ranked_by_nav_order_alone_so_an_off_topic_tool_wins_every_primary_button.md`.**
 > Nothing is fixed. The root cause is confirmed at the code, the data and the served bytes.
