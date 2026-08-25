@@ -3602,3 +3602,22 @@ ratio, centred on the overlay, **without the guide lines on it**, because guides
 photograph are the one artefact a photographer cannot use. That is precisely what the ported code's
 own comment was reaching for and never did. File it as its own item; do not fold it into another
 tool's rebuild.
+
+## 2026-08-25 ~19:45Z — Track 2 trail COMPLETE: round 2 APPROVED, LIVE on v1.0.1339, advisories acted
+
+Round 2 on `21540c8e` **APPROVED** 15:29Z (1 advisory... the report carried 4: two reuse-mediums, a
+prior_art medium and low). Fleet rolled to **v1.0.1339** 19:07Z (stamp `a7459a44b` — read from the
+pod's OWN provenance line, still in the log window at 13 minutes' age, and corroborated by three
+lanes); **both Track 2 commits are ancestors → the checker and all three tombstone filters are LIVE.**
+**Advisory acted (commit `f44451494`, rides the NEXT roll):** the reuse seat was right — three ad-hoc
+copies of one clause is the drift a shared predicate exists to prevent — so the filter now lives IN
+`toolEligibilityWhere`, the three copies are deleted, and the scan test asserts predicate-carries-it
++ every-caller-appends-it, mutation-proven at the predicate. This also answers the prior_art
+completeness worry (a fourth caller inherits). The asserted-absence advisory (my no-prior-Go-art
+grep unverified independently) stands noted as their seat's job.
+**Post-roll demand controls, now OBSERVABLE on the next discovery sweep:** (1) ONE `capability_gap`
+on webdesign (`item_key capability_gap:tool_health_contract_rules`) whose residue tracks the
+sibling's not-yet-rebuilt count; (2) `tool_acceptance` findings no longer enumerating tombstones.
+Also banked from the 375 lane's same-day find (LANDMINES): **a literal can be absent from a binary
+that CARRIES its commit because the linker dead-code-eliminated the unreachable function** — the
+third cause of the indistinguishable probe symptom; ancestry-of-stamp remains the load-bearing proof.
