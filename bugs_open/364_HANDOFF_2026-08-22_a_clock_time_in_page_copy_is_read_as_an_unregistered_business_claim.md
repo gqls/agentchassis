@@ -385,6 +385,33 @@ Note `2.0` (a JSON-RPC version string) and `2` (the digit inside the acronym **A
 eleven are not statistics at all, which is the sharpest evidence that the lexical gate was never
 answering the question it was asked.
 
+## 6i. Phase 2 shipped 2026-08-25 — council APPROVED r1, and three objections changed the code
+
+Commit `52958897f` (the mechanism) + `fa0b513f1` (the round-1 rework).
+`Council-Reviewed: 3ed2b792-dbe6-4301-83ab-5df22f188c1e` — *"approved with 5 advisory objection(s) —
+none high-severity"*. **Approved is not the same as finished**: three of the five were right and are
+fixed in the code rather than noted.
+
+| seat | objection | what it cost |
+|---|---|---|
+| `bug_historian` (med) | `collectPageSections` collapsed "section is empty" with "section HAS html under a key I do not know" into one silent `continue` — dropping a component from the scan while the page still read as scanned. | **FIXED.** The guard is now a COUNT (fewer sections back than the metadata held ⇒ refuse component grain for the whole page and fall back). Mutation-proven on three shapes. **This was a real silent coverage hole on the only gate that refuses a page**, and my `len(out)==0` check could not see it because it only fired when *every* section failed. |
+| `reuse_agent`, `prior_art`, `constitution` (3 seats, independently) | I hand-parsed `sections_metadata` when `extractSectionsFromMetadata` is already the canonical reader. | **FIXED.** Rewritten to reuse it — which also inherits its slot-before-component identity resolution (`bugs_open/189`'s fix) and deletes my near-duplicate of an existing function name. One reader to update when the shape drifts; a second one is what `bugs_open/357` cost a day of production for. |
+| `guardian` (med) | The block-equivalence safety case rested on **4 pages / 21 components** — thin for a fleet-wide refusal gate. | **RE-MEASURED over the whole live corpus: 775 pages / 2,042 components, export asserted 2042/2042, ZERO pages where whole-page and per-component extraction differ.** |
+| `editquality` (med) | The map keys were *asserted* to be live values, not shown. | **VERIFIED, and it surfaced a real correction** — see below. The check is now in the comment. |
+| `prior_art` (med) | The consumer enumeration was asserted, not shown checked. | The grep that produces it is now in the comment; re-run 2026-08-25 → 5 literals, all updated. |
+
+### ⚠ The correction that came out of the round: `slot_name` is NOT always `content_components.function`
+
+I wrote in the interim's notes that "slot_name IS the component's registered function on this
+platform", citing a code comment. **Measured 2026-08-25: 106 of 2,033 live rows differ** — `prose-0`
+vs `ported-prose`, `call_to_action` vs `call-to-action`, `FAQ Section` vs `faq`. The surface is keyed
+on the **slot**, which is correct because that is what every call site actually holds, and a mismatch
+**fails safe** (the component is scanned). But it is also a **silent no-op**, so a new member of
+`thirdPartyDataComponents` must be checked against live `slot_name` values — the query is in the
+comment beside the map.
+
+**Outcome unchanged by the rework:** 16 findings, zero on any tracker page.
+
 ## 6c. Found by this bug's census, filed separately (2026-08-24)
 
 Both were turned up by the fleet claims run for §5a and are **not** this bug's mechanism.
