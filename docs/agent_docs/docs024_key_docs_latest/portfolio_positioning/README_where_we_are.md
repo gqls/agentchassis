@@ -980,3 +980,59 @@ work itself.
 **To pick this up in a fresh session:**
 `docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/HANDOFF_2026-08-25_continue_here.md`
 
+
+---
+
+**2026-08-25 (evening) — the sweep is now picking up new sites by itself, and the thing I told you
+we'd deferred turned out to be live.**
+
+Your new chassis went out at ten past seven. It carries the forwarding fix from this morning.
+
+**First, the good news, and it's the point of the whole exercise.** Three new sites appeared on the
+estate since yesterday — `homegarden.uk`, `lampenkap.com`, `cv1.co.uk`. Nobody told the sitemap
+sweep about them. It found all three and did them anyway. That is the difference between a tool and
+a mechanism, and it is now working the way you asked for on the 20th.
+
+We're at **27 of 31 live sites** publishing a proper sitemap, all complete.
+
+**Now the part worth your attention.** When the review panel approved the sweep, it raised one
+objection I told you we were accepting and not fixing: when the generator finds nothing to list, it
+goes quiet, and it goes quiet for two opposite reasons — the site opted out, or something is wrong.
+I judged that a low-priority gap.
+
+It was live, on two sites, today. `homegarden.uk` and `cv1.co.uk` were both visited by the sweep
+**before their pages had finished publishing** — two hours before, in one case. The generator found
+nothing, correctly refused to publish an empty file, and the system then marked both sites as
+"done". They'd have sat with no sitemap until Friday, and nothing anywhere would have said so.
+
+**The panel's objection was right, but it named the wrong cost, and that mattered.** It said the
+problem was a missing warning. It isn't — a warning wouldn't have helped either site. The problem
+is that a visit which achieved nothing still *used up the site's turn*. So the fix belongs in the
+part that chooses which site to visit, not in the reporting. That's now in place: a site with
+nothing published yet simply isn't chosen, so it keeps its turn until it's ready.
+
+I've put both sites back in the queue by hand.
+
+**Two of my own checks were lying to me today, and one of them was already in a handoff.**
+
+The first was a query I wrote *yesterday* to detect exactly the kind of silent failure above. Run
+today it reported six sites as failures. All six were fine. The evidence it checks against is
+deleted after 24 hours, so anything older than a day looks like a failure. The dangerous part is
+that the fix I'd written next to it was "put the site back in the queue" — which against six
+healthy sites means redoing work for nothing and concluding the system is broken when it isn't.
+
+The second I caught before it got anywhere: hunting for other affected sites, I used a "published
+since" date that turns out to be rewritten every time a page is republished. It told me 24 of 24
+sites were affected. The real number was two.
+
+Both are now written down where the next person will hit them. I'd rather flag that three of the
+problems this week were in my measuring tools than let the tools keep their reputation.
+
+**Where it stands.** Two fixes went live in the last hour — the forwarding one and the turn-taking
+one — and neither has yet been confirmed on a real site, because the sweep only runs every half
+hour and three sites are queued ahead. That check is running now and the recipe is written down, so
+it survives this session either way.
+
+**To pick this up in a fresh session:**
+`docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/HANDOFF_2026-08-25b_continue_here.md`
+
