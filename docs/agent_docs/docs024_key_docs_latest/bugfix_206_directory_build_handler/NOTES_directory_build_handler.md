@@ -592,3 +592,102 @@ its own scope between iterations. Ended `complete` with zero verdict artifacts. 
 has been further-corrected with that measurement and re-verified**: checking after the first
 bundle is necessary and not sufficient, and for a mechanism in these files you should plan on the
 owner ruling's declared-substitute path from the start.
+
+## 2026-08-25 — the swap, and four things I got wrong on the way to it
+
+### The blocker: re-checked, not assumed
+
+The 08-24 handoff said the `WriteBuildItemsAction` swap was blocked on an ownerless dirty hunk and
+told the next session to **re-check**. `git status --porcelain
+platform/orchestration/actions/load_work_item_actions.go` → empty; `scripts/verify-head-builds.sh`
+→ `OK — HEAD bba8a892d builds`. Blocker gone; the file had been committed by other lanes
+(`1789489bf`, `f16c87beb`, `6ab0b3434`) in the interim. **The re-check instruction was worth its
+line** — the blocker had cleared without anyone in this lane doing anything.
+
+### What shipped (`efec862f4`, council `b92e624d` APPROVED round 1)
+
+Inline maps deleted from `WriteBuildItemsAction` → `builderForPageType`; `section-index` added to
+the shared map in the same commit (round 4's condition); `capability_gap` `handler_agent` → EMPTY
+at this door; two false comments corrected in place; five tests added where there had been none.
+
+### Misstep 1 — my test passed. Then it passed under mutation. TWICE over.
+
+First draft of `write_build_items_routing_test.go` passed immediately. Mutated `section-index` back
+to `page-build-handler`: **still passed**. Two independent causes, either fatal alone:
+
+1. A permissive `mock.ExpectExec("INSERT INTO site_work_items")` registered as scaffolding for the
+   trailing site-level items **absorbed the mis-routed INSERT**, leaving the pinned expectation
+   merely unused — which sqlmock never reports unless `ExpectationsWereMet()` is called, and that
+   is not workable here because the shared door probes inside `writeWorkItem` fire a
+   case-dependent number of times.
+2. `WriteBuildItemsAction` **swallows** the per-page insert error (`logger.Warn(...); continue`),
+   so the action returns success either way and my assertion on the returned `err` could never
+   fire.
+
+**The part worth carrying is not "mutate" — it is that fixing cause 1 did not make the test fail,
+and that is what exposed cause 2.** A mutation that still passes after you have fixed the reason it
+passed means there was another reason. I was ready to stop after the first.
+
+Shipped shape: every INSERT pinned by its **own** `item_key` so nothing can stand in for anything
+else, and the outcome read from `writeWorkItem`'s `"Work item inserted"` log line, which it emits
+only after `RowsAffected > 0`.
+
+### Misstep 2 — then all four tests failed, and none of their messages was about the cause
+
+The corrected tests failed with my carefully-written messages about handlers. The cause was
+`nav_order: nil` in the fixture's page row: `scanPageRowsForBuild` scans that column into an `int`,
+the row failed to scan, the page list came back **empty**, and the per-page loop was a no-op. The
+action logged `"no per-page builds needed; queuing site-level items only"` and returned success.
+
+So the first version was doubly incapable — had the permissive expectation not absorbed the call,
+**there would have been no call to absorb.** A fixture producing zero rows passes every assertion
+about what those rows contain, and announces its emptiness in a line that reads like ordinary
+operation. The shipped fixture returns `inserted bool` and every test fails loudly on `!inserted`.
+
+### Misstep 3 — a claim I committed on 08-24, inside an APPROVED round, disproved by one grep
+
+`reconcile_site_plan_action.go` said `WriteBuildItemsAction` *"files into a different key
+namespace"*. It does not — `load_work_item_actions.go:335` files `needs_page:<name>`, the same
+namespace as `:289`. I only read the other producer's literal because the swap forced me into that
+file. The sentence made the two doors look non-colliding, **which is the exact opposite of what the
+round-4 guardian said and whose objection shaped the change the comment explains.** Same commit's
+header carried a second false claim (`"Open" = 5 statuses, same set the dedup index uses` — the SQL
+has 6, the index 7). Both corrected in place, dated. The status divergence turned out to have a
+live casualty, so it went into `bugs_open/206` §5(b) rather than just being tidied.
+
+### Misstep 4 — I nearly filed a residual on an inference, and the census refused it
+
+Three council seats asked whether a **third** copy of the routing map exists. I had not checked.
+Checking found six `needs_page:` minting sites, not two, three of them hardcoding
+`page-build-handler` — including `page-rerender`, the fleet's most active producer (414 rows, 21
+typed, still minting today). The next sentence wrote itself: *"so 206 is still live through the
+rerender door."*
+
+**It is not.** 26 typed-page rows from those producers, `error ILIKE '%no sections ready to
+build%'` → **0**. Their failures are the owned-page guard working as designed. And the mechanism
+explains the zero, which is why I trust it: 206 is the **layout-less** case, and a rerender or
+adoption target already has a layout. The two doors that consult the map are the two that mint at
+**plan** time, when a page has nothing yet. The doors that skip it are the doors whose pages do not
+need it.
+
+I would have filed that residual if I had stopped at the grep.
+
+### The instrument defect — the closure test could be passed by a hand repair
+
+Preparing to run the 08-24 closure query, I checked what else could put `directory-build-handler`
+in `handler_agent` on a `reconcile_site_plan` row. Answer: a human, via the documented operator
+escape hatch. `[MEASURED 2026-08-25, live UNION archive, all history]` **three rows match the PASS
+predicate fleet-wide and all three are hand re-routes** — `created_at` 2026-07-17, `updated_at`
+08-08 and 08-24, `spec ? 'page_type'` false on all three. Run without a domain filter, that query
+would have declared the fix proven by rows the replaced hardcode minted.
+
+Fix: gate on `spec ? 'page_type'`, which the fixed emit writes and an `UPDATE` of `handler_agent`
+cannot forge, and whose population is currently **empty** (508 reconcile-minted rows, none
+stamped) — so the first stamped row is necessarily the fix. RUNBOOK §7. Landmine filed.
+
+### State of the wait
+
+`[MEASURED 2026-08-25]` reconcile rows created after the 08-24 15:39 roll: **0**. Sites with
+`last_reconciled_at` after 08-24 12:00: **0**. Newest reconcile anywhere: `agritec.uk` 08-24 11:26,
+*before* the roll. The five parked rows are untouched. The free proof has not arrived; it is still
+the right thing to wait for.
