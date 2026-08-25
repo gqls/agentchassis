@@ -71,6 +71,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **before claiming a row is one operation away from destruction, look for that operation having ALREADY RUN on it — the work-item history is one query and it refuted me six times over** | **1** |
 | **OPEN the rows a new predicate flags before calling the flag-set pathological — a false positive is indistinguishable from a true one in a COUNT, and the legitimate case is usually already documented in the file you are writing in** | **1** |
 | **`| head -N` on a table/file listing is an UNMARKED TRUNCATION — an absence claim built on one is fiction, and alphabetical `_backup_*` names are exactly what fills the visible lines** | **1** |
+| **when the property under test is an ABSENCE, name what in the observable output could differ — if nothing can, an effect-based assertion is vacuous however correct the rule that prescribed it** | **1** |
 | **when mutation-proving a SOURCE-SCANNING test, mutate inside the anchor's MATCHED SPAN — `replace(x, 1)` takes the file's first occurrence, which is usually not the one the pin reads** | **1** |
 | **`grep -rn` returns a LIST — read to the end of it before writing 'one', 'only' or 'the single'; stopping at the first file is how a five-writer table becomes a one-writer claim** | **1** |
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **2** |
@@ -52131,3 +52132,42 @@ disabled the wrong check *and* skipped the right one, and neither absence produc
 command's own.** For commits, run it bare, or `| cat`, or pipe to a file and read the whole thing.
 More generally — **when a tool tells you its output was truncated, that is a finding about your
 instrument, not an apology.** Both of us had to be told by a hook, twice, in one session.
+
+
+## 2026-08-25 — `web_admin_console` lane: I followed this estate's own testing rule and it produced a VACUOUS test; the mutation caught it, the rule did not
+
+**The claim.** Building the second-click confirmation page (`GET /c/<token>` must reach no
+database), I wrote the test the way `delivery_test.go`'s own header insists — *assert the
+mechanism's EFFECT, never the absence of a call* — because asserting "the dependency was not
+called" is the weak form this file has logged before. So the test asserted that the rendered
+page does **not** contain the success copy, with a fake that confirms any token: if the GET
+still mutated, the fake would succeed and the copy would appear.
+
+**What was wrong.** It cannot appear. I then ran the mutation to prove the test — make the GET
+handler call `ConfirmTransfer` and render the button page **anyway** — and it **PASSED**. The
+database would have been mutated on every mail-scanner fetch, which is the entire hazard the
+change exists to close, and the suite stayed green. The rendered page is byte-identical whether
+or not the handler mutated, so **no assertion over the response could ever have witnessed it.**
+
+**Why the rule misfired, which is the part worth keeping.** "Assert the effect" is good advice
+for a property that HAS an observable effect. This property is an absence — *nothing happened
+at the database* — and an absence has no effect to observe by construction. The one witness
+available is the fake's own record of calls, i.e. exactly the form the rule warns against. The
+rule and the property were pointing in opposite directions and I followed the rule.
+
+**What caught it:** the mutation, and only the mutation. Not review, not the green suite, not
+the rule that produced the defect. A second mutation (route GET back to the confirm handler)
+failed correctly from the start, which is the trap in miniature — **one mutation passing while
+another fails reads like coverage, and it is exactly the signal to look harder**, because the
+one that passed is telling you which property is untested.
+
+**The cheap check, in the order it costs least:** before writing a test for "X does not
+happen", say out loud what would DIFFER in the observable output if X did happen. If the answer
+is "nothing", the effect-based assertion is decoration — assert the absence directly and write
+the reason next to it, then prove it with the mutation. And **always run the mutation that
+reintroduces the exact hazard**, not a nearby one: the mutation I would naturally have written
+(undo the routing split) passed the property that mattered straight through.
+
+**Sources:** commit `24b63120d`; `web_admin_console/NOTES_web_admin_console.md` 2026-08-25;
+the fix is `if len(f.gotTokens) != 0` in `TestGetRendersTheButtonAndConfirmsNothing`, and the
+comment above it records why the exception to the file's rule is not a lapse.

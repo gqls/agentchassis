@@ -337,3 +337,39 @@ same-path. Council submitted, `SUBMISSION_CORR=ea99befa-ec62-4f61-b052-c3af3d003
 
 **Still owed before the first delivery email:** this must be LIVE, not merely committed —
 it rides the next core-manager roll and gets proven at the pod's provenance stamp.
+
+### 2026-08-25 12:36Z — council APPROVED r1, and what each objection cost
+
+`ea99befa-ec62-4f61-b052-c3af3d003d55` — **all reviewers approve**, 10 seats fired, 7
+abstained, `gated_by_truncation: false`. Submitted 12:31, verdict 12:36: **five minutes**, not
+the ~30 the handbook budgets — worth recording because the queue depth, not the council, is
+what makes that number vary.
+
+Four `low` objections and three "missing" flags. **Two were answerable with a note; two were
+not, and those two are the value of the round:**
+
+| seat | objection | what it cost |
+|---|---|---|
+| guardian, edit 5 | `delivery_test.go` mirrors `api/server.go` "by discipline only" — no structural guard | **REAL. Fixed in `d1a4bdcdf`**: `RegisterRoutes` now owns the table and both callers use it. Fixing it exposed a divergence that already existed — the test router registered HEAD and production does not |
+| guardian, edit 4 | confirm nothing else GETs `/c/:token` expecting the old mutating behaviour | **REAL as a check.** Enumerated, not asserted: every repo-wide hit is inside this change; live config gives `agent_definitions` naming `/c/` = 0 and current `site_specs` naming `links.webdesign.uk` = 0, **against a control of 21 current specs mentioning webdesign at all** |
+| editquality, edits 3 and 6 | comment-only edit is not coverage; the self-correction could have folded into edit 5 | Accepted, no change. Edit 3 was never offered as mechanism coverage — it deletes claims the change falsifies |
+| prior_art_librarian + bug_historian | cannot see `customer_access_tokens` (different database), asked a human to re-run | Run here [MEASURED 2026-08-25]: **0** tokens, **0** of purpose `confirm_transfer`, sites handed_over **0**, transfer_confirmed **0** |
+| debug_historian | no post-deploy pod verification in the plan | Accepted into the close-out below. Note it asked for a symbol grep; **the estate's own landmine forbids that** (`strings` is absent from the images and a discovery grep matches Go's digit table). Doing it as a capability probe plus provenance ancestry instead |
+| architecture | `ARCHITECTURE_SIGNAL: point_fix`, DEFLECTIONS unknown | No trigger. "No new shared contract… blast radius is genuinely one endpoint" |
+
+> **The mutation proof got stronger as a side effect of answering the guardian, which is not
+> what I expected from a low-severity objection.** Before `d1a4bdcdf`, "route GET back to the
+> confirm handler" mutated the TEST's private copy of the route table. Now it mutates
+> `RegisterRoutes`, i.e. the code production actually runs. A mutation that can only be
+> applied to a test fixture proves less than one that can be applied to the shipped path, and
+> nothing in the suite would have told me the difference.
+
+**CLOSE-OUT, still owed — this is committed and NOT live.** `24b63120d` + `d1a4bdcdf` ride the
+next core-manager roll. Then, in this order:
+1. `kubectl -n ai-persona-system logs -l app=core-manager --tail=2000 | grep -m1 'build provenance'`,
+   then `git merge-base --is-ancestor d1a4bdcdf <the stamp>`, plus the reversed test as a control.
+2. **Probe the capability, not the commit**, from OUTSIDE: `GET https://links.webdesign.uk/c/<43-char>`
+   must return the button page, `POST` the same path must return a page, and
+   `POST …/c/<token>/confirm` must 404 **at the box** (that last one is the control — see the
+   new LANDMINES entry).
+3. Only then is the webdesign lane's delivery email unblocked.
