@@ -1,0 +1,116 @@
+# HANDOFF 2026-08-25 — continue here
+
+**Lane:** `copy_quality_two_stage` (stage 2 = the `copy-editor` editorial pass).
+**Supersedes `HANDOFF_2026-08-23_continue_here.md`.**
+
+> ## ▶ START HERE, IN THIS ORDER
+> 1. **`SUMMARY_2026-08-23_the_editor_ships_and_the_brief_defect_is_closed.md`** — 5 minutes, plain
+>    prose. Still current on everything except the wiring, which landed after it.
+> 2. **This file's "Next work"**. Everything above it is context.
+>
+> **One-line state:** stage 2 proposes, its approved edits ship to live pages, and it is now
+> **DISPATCHABLE** — the routing went live on `v1.0.1337` today. It has its **first user outside this
+> lane**. Nothing is in flight from me. **Two things need a human, and one is a defect in my own gate.**
+
+## What is true as of 2026-08-25
+
+- **The wiring is LIVE** (register **CQ-030**, council **APPROVED** `c1931fa1-5a98-4874-9730-b9ef3519c0d4`).
+  Audit `tone` findings file **`needs_copy_edit`** at **`copy-editor`** instead of `tone_shift` at
+  `page-build-handler`, which regenerates the page.
+  - Half 1: migration **579**, applied 08-24 — `copy-editor`'s dispatched entry path.
+  - Half 2: the router, live on `v1.0.1337` today.
+  - **Verified at the binary with a full control set** on a persistent pod: `content_rewrite` = 3
+    (probe works), `needs_copy_edit` = **2** (change is in), `tone_shift` = **0** (a genuine
+    REMOVED-string control — the strongest kind, because my change deleted that literal).
+- ⚠ **The fleet is MIXED: 56 pods on `v1.0.1336`, 40 on `v1.0.1337`.** Both routers are live at once,
+  so a `tone` finding handled on a 1336 pod still files `tone_shift`. Re-check before concluding
+  anything about routing behaviour.
+- **No `needs_copy_edit` row exists yet** — `tone` is genuinely that rare, which was the whole safety
+  argument. For contrast, **63 `content_rewrite` items were filed since 08-24**: routing THAT category
+  would put ~63/day into a queue with no working surface. **Do not extend the route to it.**
+- **`bugs_closed/327`** (the brief defect) is closed and artefact-verified. Owner ruled ship-as-is,
+  no gate; the three fragment briefs stay with their own lanes.
+
+## ⚠ TWO THINGS NEED A HUMAN
+
+1. **Two proposals are parked at `needs_human_review`:**
+   - `b0dea48e` — ours, `ai-agent-orchestration.com/index`, 3 edits. Cuts the CTA a **second** time
+     (496 → 245) and flags a **figure conflict**: 175 "Agent Definitions" vs 170 "Agent Types" across
+     sections. Gate-passed when filed; **re-grade before acting** (that page rebuilds daily).
+   - `8003c51a` — **`finetuning_uk_service`'s**, `finetuning.uk/your-own-model`, 2 edits. **FAILS the
+     gate.** Told them (CONTRIB of 2026-08-25 in their directory). Not ours to approve.
+2. **My gate has a defect, found by grading their proposal** — see "next work" item 1.
+
+## Next work, in the order that closes doors
+
+1. **FIX THE GATE'S DECLARED-LINK CHECK — it runs PER FIELD.** `gate_stage2_edit.py` reports
+   `links … (page's declared set): 1 of 1 required absent` on any edited field that does not itself
+   contain the link — so a `heading` field **fails by construction**. On `finetuning.uk` it was wrong
+   in the reassuring direction twice over: `/contact.html` is declared in `required_links` but sits in
+   **zero** components of the live page, and the edit it failed actually **adds** it.
+   **The fix:** evaluate the declared set at **page scope after the edit**, not per field.
+   ⚠ **Its control is the arm that matters** — prove it still FAILS when a link genuinely disappears
+   from the whole page, or the fix trades a noisy check for a blind one. **Why this is item 1:** a
+   check that fails on fields that could never satisfy it teaches the reader to ignore it, and the
+   next thing scrolled past is the real failure sitting beside it (their proposal deletes an entire
+   ordered list: `li 3→0, ol 1→0`).
+2. **The first DISPATCHED run has not happened.** When a `tone` finding appears, verify it end to end:
+   a `needs_copy_edit` row at `copy-editor`, then a run that reaches `run_copy_edit` via the
+   **dispatched** branch (`load_work_item`, not `echo_page_ref`).
+   `SELECT collected_data->'page_ref'->>'page_id' FROM orchestration_states WHERE correlation_id='…'`.
+3. ⚠ **Convergence on a diffuse page is UNTESTED.** Run 5 chose 2 of 3 components run 4 had just
+   edited. Checked: **not oscillation** — it cut further on restatement that survived and found a new
+   fault class. But repeated runs keep proposing, so **unbounded auto-dispatch there is untested**.
+   Bound it (one run per page per period) before anyone widens the route.
+4. **The narrow sibling** — three lanes have asked (`277`, `301`/`083`, `323`; 999 + 160 + 98 items as
+   of 2026-08-20, live **and** archive). Specced in
+   `DESIGN_2026-08-20_the_narrow_sibling_one_component_one_defect.md`. Not this lane's to build.
+5. **The form-versus-phrase question is still the honest limit on everything this lane claims.**
+   Phrase transfer is proven (one tagline, 1,369 prompts → 409 responses). Whether FORM transfers is
+   untested. ⚠ **Two preconditions now, both from `apis_uk_bees_homepage`:** control for whether the
+   section plan assigns per-section subjects (or you measure the plan's emptiness instead), and note
+   that **a concrete, on-topic exemplar is LIFTED AS CONTENT rather than imitated** — so transfer is a
+   function of the exemplar's character, not a rate. That corrected a figure of mine that had already
+   fed an owner decision (`WRONG_CALLS` 2026-08-24).
+
+## The apply path — two scripts, and the traps are in their headers
+
+- **`scripts/fire-copy-editor.sh <domain> <page>`** — fire one stage-2 run (proposal side).
+- **`scripts/fire-section-edit.sh <work_item_id>`** — ship ONE approved edit. Sequential.
+
+⚠ **`client_id` is interpolated UNQUOTED as a SCHEMA NAME** (`spawn_actions.go:2315`,
+`INSERT INTO client_%s.agent_instances`). A hyphenated one you invent for tracing dies as
+`syntax error at or near "-"` — **and reads like a platform fault**. Use `demo_client` / `system`.
+`section-editor` spawns its deployer **second**, so the run dies *before* the edit is attempted,
+leaving the item claimed and the page untouched.
+⚠ **Resolve `page_component_id` by `(page_id, slot_name)` at DISPATCH time.** Pages rebuild on a
+schedule and a rebuild REPLACES the row: ids filed on 08-21 were dead by 08-22. Three occurrences.
+⚠ **`complete` is not proof** — `check_edit_skipped` routes a gated REFUSAL to `complete` too. Verify
+`content_data` changed.
+
+## Standing cautions (fresh first)
+
+- **Filter by YOUR correlation, never "the most recent row".** Logged 08-21, repeated 08-23 with three
+  edits in flight. The check now lives in the script.
+- **An empty result from a wrong path looks exactly like a real absence.** Three instances now:
+  `max_tokens` at the wrong config path; `grep -c '^--- FAIL'` returning 0 on a **build** failure;
+  `site_work_items` alone reporting 29 of 999 because the archive is bigger than the live table.
+  **Demand a positive control from the same query.**
+- **Probe the binary by IMAGE, never `-l app=agent-chassis`** (2 pods of ~96), one literal at a time —
+  and use a **long-lived** pod: a dynamic-agent pod was reaped mid-`grep` (exit 137). Dispatch
+  readiness is the **deployment** rollout, not pod churn, which never quiesces.
+- **`llm_call_log` lags the orchestration by minutes.** An empty result straight after a run reads
+  like an instrumentation outage.
+
+## The five living docs
+
+- **PLAN** — untouched. **NOTES** — evidence log, 08-25 tail. **README_where_we_are** — the owner's
+  plain-prose log. **SUMMARY series** — 08-12 · 08-14 · 08-15 · 08-17 · 08-19 · **08-23 (newest)**.
+  A new summary is **not** due yet: the five headings would repeat 08-23's until the first dispatched
+  run lands. **this HANDOFF.**
+
+**Tooling:** `gate_stage2_edit.py` (⚠ item 1) · `audit_writer_brief.py` · `count_negation_tells.py` ·
+the two `scripts/fire-*.sh`. **Platform code owned:** `content_direction` derivation in
+`site_spec_actions.go`, `datahelpers/format_content_direction.go`, the `tone` arm of
+`write_audit_findings_action.go`, and their tests (all mutation-proven).
+**Migrations:** `447`, `462`, `579` (all applied; each has a `_ROLLBACK`).

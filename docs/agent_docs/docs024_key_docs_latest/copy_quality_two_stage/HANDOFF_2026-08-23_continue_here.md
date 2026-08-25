@@ -1,3 +1,8 @@
+> # ⚠ SUPERSEDED 2026-08-25 — read `HANDOFF_2026-08-25_continue_here.md` first.
+> The wiring it lists as "committed, inert until a roll" is now **LIVE on v1.0.1337**, stage 2 has a
+> user outside this lane, and a defect has been found in `gate_stage2_edit.py`. Kept for the apply
+> record and the council history.
+
 # HANDOFF 2026-08-23 — continue here
 
 **Lane:** `copy_quality_two_stage`. **Supersedes `HANDOFF_2026-08-20_continue_here.md`**, which is
