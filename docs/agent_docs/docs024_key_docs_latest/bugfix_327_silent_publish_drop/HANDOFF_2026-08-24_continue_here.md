@@ -38,6 +38,26 @@ the landmine's own title, and the grep found the comment before the `echo`. The 
 Three occurrences in four days; `WRONG_CALLS.md` 2026-08-25 has the tally and the habit that fixes
 it (`sed 's/#.*//'` on every hazard grep, including throwaways).
 
+## 0a. CLOSING AUDIT, 2026-08-25 — what is actually outstanding
+
+Audited rather than asserted. `[MEASURED 2026-08-25]`
+
+| check | state |
+|---|---|
+| live racing queue | **0** |
+| adopters of the library | **22** — three of them lanes this one never spoke to (`380`, `384`, `140_tool_suggester`) |
+| library self-test | ALL PASS |
+| uncommitted work | none |
+| bug renamed to disambiguate | done — `327b` |
+| standing five + closing summary | complete (3-summary series) |
+| open decisions | both DECIDED and recorded (`HANDOFF_2026-08-25_open_decisions.md`) |
+| concept register | **OPP-009** |
+| `LANDMINES` entries | 2, both human-verified after the verifier returned NEEDS_HUMAN_REVIEW |
+| **`016b` §9 entry** | **was MISSING — added 2026-08-25.** The case file and landmine both existed, but neither serves a session arriving *with the symptom*, which is what §9 is for |
+
+**ONE thing is outstanding, and it is a single `git mv`:** `bugs_open/327b_…` has **not** been
+moved to `bugs_closed/`. Everything else is done. See §0b for the two traps in doing it.
+
 ## 0b. WHEN YOU CLOSE IT — two things that bite on the way out
 
 **(1) `[MEASURED 2026-08-25]` 66 files reference the string `bugs_open/327`** — 35 under
