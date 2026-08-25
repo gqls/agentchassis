@@ -53934,3 +53934,38 @@ fail-safe-is-not-safe-when-the-gate-never-opens.
   chasing it characterised a real blind spot — the auditor is blind to a live object GAINING a value —
   which is now a LANDMINE entry and an open residual on `bugs_open/363`. A control that does not fire
   is a claim about the control, not yet about the system.
+
+- **2026-08-25 — I dispatched a re-render, read `COMPLETED`, and told myself the template change had
+  shipped. Three pages had changed by exactly nothing.** After migration `619` edited five component
+  templates, I fired `page-rerender` at four finetuning.uk pages. All four orchestrations reported
+  `COMPLETED`; `pages.build_status` said `deployed`; `pages.deployed_at` advanced. **Three of the four
+  still served the defect**, because a reason-less re-render re-assembles STORED
+  `page_components.rendered_html` — those rows still read `updated_at` 2026-08-17 / 08-23 / 08-24.
+  Only `/services.html`, whose components happened to regenerate, actually carried the repair, and its
+  success is what made the other three look like a caching quirk rather than a mechanism.
+  **Caught by:** curling the served pages and grepping for the literal the migration REMOVED, then
+  querying `page_components.updated_at` — not by anything in the orchestration record.
+  **The cheap check:** after a migration edits `content_components.html_template`, assert on
+  `page_components.updated_at` moving, or on the removed literal being absent from the served bytes.
+  `COMPLETED` on a re-render means the deploy ran; it never meant the template was re-rendered.
+  **The mechanism (worth more than the incident):** nothing files `template_changed` re-renders for a
+  template edited by SQL — that fan-out is keyed to `component-template-fixer`'s own component_id —
+  so a migration that edits a template ships NOTHING, indefinitely, with a green status and no error
+  anywhere (`bugs_open/283` §13, `bugs_open/398` §8b). The council's own precedent search surfaced the
+  identical objection upheld against a 2026-08-06 round on the same builder; I hit it the same day.
+
+- **2026-08-25 — two censuses in one task, both of which encoded their own answers, and the second was
+  written AFTER the first had already burned me.** (1) I enumerated the components carrying a defect
+  `WHERE name IN (…nine names I had guessed…)` and got 3; inducing the migration's `DO`/`RAISE` against
+  pre-migration state returned **4**, and the fourth was a row my name list could not have contained.
+  (2) I then pinned the remainder with `html_template LIKE '%color-mix(in srgb, var(--color-cta-bg%'` —
+  a needle so specific that any other spacing would have read as absent — and wrote a migration comment
+  asserting "0 `<color>`-position uses remain" on that evidence. A council reviewer's own query returned
+  **11** components, which sent me back to measure properly: a position-CLASSIFIED query over all 13
+  consumers (as-a-colour / in-a-gradient-stop / in-color-mix / as-a-background). The conclusion held —
+  0 remain — but the evidence I had published for it could not have established that.
+  **Caught by:** inducing my own verify block, and then by a reviewer running a broader query than mine.
+  **The cheap check:** census by the PROPERTY you care about (the syntactic position), never by a list
+  of names you assembled from the thing you already found; and prefer a query that returns a
+  CLASSIFICATION over one that returns a boolean, because the boolean cannot show you the case you did
+  not think of. A `[MEASURED]` count whose needle you chose after seeing the answer is not a measurement.
