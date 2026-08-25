@@ -3,10 +3,15 @@
 **Read this first, then `bugs_open/364` §5a–§6g.** Everything below is either measured and dated, or
 explicitly marked as not.
 
-**Lane status (updated 2026-08-25, after the owner's rulings): the interim is LIVE and VERIFIED;
-Phase 2 is BUILT and awaiting the next roll; the two false queue items are CANCELLED. One thing is
-genuinely outstanding — an end-to-end build of an affected page on the new binary — and the
-`bugs_open/387` lane is going to hand it to us. See §5.**
+**Lane status (2026-08-25, final for this session): the interim is LIVE and now PROVEN END-TO-END
+(§5.1 — a real page rebuilt with 19 suppressible figures in it and passed clean); Phase 2 is BUILT,
+council-APPROVED and INERT until the next roll; the two false queue items are CANCELLED.**
+
+**364 nevertheless stays OPEN, and the reason is precise: the interim's own blind spot is LIVE.**
+Gating by page type silences the tracker pages' first-person `hero` and `call-to-action` along with
+their third-party listing, and that is a real defect in production until `v1.0.1338` carries Phase 2.
+CLAUDE.md's bar — *a fix committed but inert until the next roll stays OPEN* — applies to the half
+that closes it.
 
 ---
 
@@ -97,6 +102,44 @@ clean `model-directory` build (orchestration `3384ae13`, 0 error rows) — it ra
 roll landed at **09:27:24Z**, so it predates the binary by three hours and proves nothing. The same
 arithmetic clears the 08-24 tracker *failures* of saying anything against the fix. `WRONG_CALLS.md`
 2026-08-25 #6.
+
+### 5.1 ✅ CLOSED — END-TO-END CONFIRMATION OBTAINED, and it discriminates
+
+**2026-08-25, `adoption-tracker`.** Scheduled "company data refreshed" `needs_page` `f2673ca7`;
+build chain `bebaf2df` → writer `f13006dd` → link-resolver `f3f9b531` → rerender `9c2d016e`, **all
+COMPLETED**; hero regenerated 18:30:59Z; page stamped deployed **18:31:31Z**. Delivered by
+`bugs_open/387`.
+
+**Verified independently rather than accepted, all four:**
+
+| check | result |
+|---|---|
+| ran on the fixed binary? | build start **18:28Z** ≫ roll **09:27:24Z**; pods still `v1.0.1337`, unchanged since 09:27 |
+| which fix did it test? | **Phase 1 only** — `v1.0.1338` has not rolled, so the page-type gate, not component grain |
+| refusals? | `agent_error_log` for the site since 18:20Z, **any** error code: **0** |
+| page actually redeployed? | `build_status='deployed'`, `deployed_at 18:31:31Z` |
+
+**⚠ And the check that makes it a REAL datum rather than a second rehearsal, which 387's message
+inferred but could not have known.** They cited my earlier "17 ungated findings" — **measured on the
+copy that existed BEFORE this rebuild.** The build regenerated the content, so that number was stale
+by one regeneration, and the model-directory rehearsal (§5.1a) is precisely the case where a
+regenerated page came back with *nothing* to suppress. So I re-ran it on the copy this build actually
+produced:
+
+- **gated**, as the live binary judges it → **0 findings**
+- **ungated** (page_type rewritten to `content`) → **19 findings**, every one in
+  `adoption-tracker-listing`: `1,837` respondents, `700` agents replaced, `200,000` onboarded users,
+  Fortune `500`'s `80%`, Salesforce `360`, `57.3%`, `1.65` million TEU…
+
+**19, not the 17 I had measured.** The copy did change, my number was stale, and it moved in the
+favourable direction — so the inference was right and the evidence for it is now first-hand.
+
+**That is the whole claim, closed:** the copy contained **19** figures that would have refused this
+page before the fix; the gate suppressed all 19; the page built and deployed clean with zero errors
+of any kind. Unlike `model-directory`, there was something there to suppress.
+
+`protocol-tracker` (`b50c8706`) was mid-build at the time of writing; `model-directory` rebuilt
+again in the same wave, clean. Neither is needed — this one settles it.
 
 ### 5.1a FIRST GENUINE POST-ROLL BUILD — and it is a WEAK datum, now measured rather than assumed
 

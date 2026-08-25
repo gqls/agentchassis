@@ -598,6 +598,33 @@ this case**: it lists files, not lines, so it finds a path that went *missing* (
 first) and not a path that arrived *fatter than you thought*. Two failures, two checks.
 `WRONG_CALLS.md` 2026-08-25 #14.
 
+## 6l. ✅ END-TO-END CONFIRMED 2026-08-25 — the interim works on a real build, measured on the copy that build produced
+
+`adoption-tracker` rebuilt through the scheduled refresh (`needs_page f2673ca7`; chain `bebaf2df` →
+`f13006dd` → `f3f9b531` → `9c2d016e`, all COMPLETED; deployed **18:31:31Z**), delivered by
+`bugs_open/387`. Build start **18:28Z**, well after the **09:27:24Z** roll; pods still `v1.0.1337`,
+so this tested **Phase 1 (the page-type gate)** — Phase 2 has not rolled.
+
+**`agent_error_log` for the site since 18:20Z, any error code: 0.**
+
+**The check that makes it discriminating** — and it had to be re-run, because the figure it rests on
+was stale. `387` cited my earlier "17 ungated findings", which was measured on the copy that existed
+**before** this rebuild. The build regenerated the content, and §6f's `model-directory` case is
+exactly where a regenerated page came back with nothing to suppress. Re-measured on the copy this
+build actually wrote:
+
+- **gated** (as the live binary judges it) → **0**
+- **ungated** (page_type rewritten to `content`) → **19**, all in `adoption-tracker-listing`:
+  `1,837` respondents, `700` agents replaced, `200,000` onboarded users, Fortune `500`'s `80%`,
+  Salesforce `360`, `57.3%`, `1.65` million TEU …
+
+**19, not 17** — the copy did change and my number was stale, favourably. So: the page carried 19
+figures that would have refused it before this fix, the gate suppressed all 19, and it deployed clean.
+
+**This closes the claim that the interim works. It does NOT close the bug** — see the status block at
+the top: the interim's own blind spot (the tracker pages' `hero` and `call-to-action` silenced along
+with the listing) is live in production until Phase 2 rolls.
+
 ## 6c. Found by this bug's census, filed separately (2026-08-24)
 
 Both were turned up by the fleet claims run for §5a and are **not** this bug's mechanism.
