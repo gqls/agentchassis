@@ -148,9 +148,14 @@ func TestInertDeclarationsAreTheOnesThisBinaryUnblocks(t *testing.T) {
 			inert = append(inert, d.Key)
 		}
 	}
-	if len(inert) != livespec.LiveAuditOnlyDeclarations {
-		t.Fatalf("livespec says %d live-audit-only, found %d (%v) — the two must agree or an unchecked declaration "+
-			"reads as guarded", livespec.LiveAuditOnlyDeclarations, len(inert), inert)
+	// ⚠ This names the constant as it exists at COMMITTED HEAD. On 2026-08-25 a
+	// session (bugs_open/333) pointed it at LiveAuditOnlyDeclarations — a rename
+	// that existed only in another session's UNCOMMITTED livespec.go — and broke
+	// this package at HEAD for everyone while it compiled in one working tree.
+	// Whoever commits that rename must change this line in the SAME commit.
+	if len(inert) != livespec.DeferredDeclarations {
+		t.Fatalf("livespec says %d deferred, found %d (%v) — the two must agree or an unchecked declaration "+
+			"reads as guarded", livespec.DeferredDeclarations, len(inert), inert)
 	}
 	t.Logf("declarations that only this binary can check: %v", inert)
 }
