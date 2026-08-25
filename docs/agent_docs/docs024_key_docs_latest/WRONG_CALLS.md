@@ -51164,3 +51164,19 @@ instrument**, not a re-run, so the 48 → 36 movement cannot be read as a trend 
 quoted in five documents whose query is in none of them is not reproducible, and the RUNBOOK rule
 exists for exactly this.** The cheap check is the rule as written: the moment a query is hard to get
 right, it goes in the RUNBOOK — not when the session ends.
+
+---
+
+## 2026-08-25 — I inserted three index rows into the wrong table, because my anchor was a pattern, not the structure
+
+**The claim (implicit).** "The last `| N |` row in 016b is the end of the §10 bug-index table."
+**What was true.** The file has other numeric tables AFTER §10; my grep found the last one of
+those, and three `bugs_open` index rows landed inside an unrelated three-row table at line ~13856.
+It reached a commit (`3cb6be421`) before I read the insertion point's context; fixed forward one
+commit later (`f622b7f7b`) by locating the §10 header and the next section boundary and inserting
+inside that range.
+**What caught it.** My own next-line check ("where did the rows land") — after the commit, which is
+one commit too late.
+**The cheap check.** When inserting into a named section, derive the range FROM THE SECTION
+(header → next header) and assert the anchor row is inside it. A whole-file pattern match is a bet
+that the pattern is unique, and in a 16k-line file it rarely is.

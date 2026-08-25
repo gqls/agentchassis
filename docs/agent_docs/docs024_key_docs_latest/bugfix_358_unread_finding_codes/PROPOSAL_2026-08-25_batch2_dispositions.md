@@ -1,7 +1,28 @@
 # Batch 2 — proposed dispositions for the 25 remaining undecided finding codes, and the seven decisions they leave the owner
 
+> ## RULED IN FULL — owner, 2026-08-25 — and APPLIED the same day
+>
+> **1** = option (a), all 24 → `human-evidence` (commit `835ab0585`; cap 25 → **0**; live check
+> clean, exit 0). **2** = retire — `BUILD_DISPATCH_STALLED` deleted from the registry and migration
+> `214` marked `_SUPERSEDED` (it turned out to be an untracked orphan, so it is now tracked for the
+> first time as part of being retired). **3** = accept 365 days for the retraction audits, recorded
+> in their `why` fields as a knowing acceptance. **4** = ALL FOUR readers commissioned —
+> `bugs_open/392` (link context, routed at the 092 lane), `bugs_open/393` (dark_section_audit — the
+> census found the entire population is ONE item type), `bugs_open/394` (render-audit truncation —
+> prior art showed `242` built the signal and `392`-the-migration raised the cap; the ask is the
+> consumption half), and the link-repair pair contributed INTO `bugs_open/071`, whose lane is
+> active (contribute, don't compete). **5** = rename + prevent — `HANDLER_VERDICT_UNRECOGNISED`
+> (commit `eb7d92371`, council `8d798266`), with the new commit-time prefix guard proven by the live
+> case itself: the guard went in first and failed on UNKNOWN vs UNKNOWN_HANDLER_VERDICT, then the
+> rename cleared it. **6** = wait — the 13 baseline codes are ruled on first fire. **7** = leave —
+> one cap counter, now at its terminal 0: every newborn code is a finding unless declared in the
+> same commit, which is the intended behaviour.
+
+
 **For the owner to ratify or overrule** (his ruling, 2026-08-22: the session proposes with the
-evidence attached, he ratifies in batches). **Nothing here is applied.** Every row count is
+evidence attached, he ratifies in batches). ~~**Nothing here is applied.**~~ **Superseded same day
+by the banner above: everything IS applied or filed.** The line is struck rather than deleted — the
+proposal is the record of what was argued, and this is what it was arguing towards. Every row count is
 `[MEASURED 2026-08-25]` over the retained window; every reader claim is a grep of the literal AND
 its Go constant across every language, plus a regex over live `agent_definitions` and
 `scheduled_tasks`. Batch 1 (7 codes) was ratified 2026-08-23; this is the rest.

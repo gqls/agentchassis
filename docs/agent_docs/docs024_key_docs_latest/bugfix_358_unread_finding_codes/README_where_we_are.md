@@ -458,3 +458,39 @@ ruled.
 
 Nothing here is urgent. The check is green, the loop is closed, and the estate is no worse off for
 a week's thought on any of these.
+
+---
+
+**2026-08-25, later — you ruled on all seven, and all seven are done or filed. The undecided pile
+is ZERO.**
+
+What your rulings turned into, same day:
+
+The twenty-four codes are recorded as "written deliberately, read by nobody, accepted", each with
+its reason and the retention it accepts. The undecided count went twenty-five to **zero** — the
+whole backlog this project opened with, twelve days ago at thirty-two, is now ruled.
+
+The code with no writer is retired. Its migration turned out never to have been under version
+control at all — an orphan from a dead session — so retiring it also meant tracking it for the
+first time, because an untracked retired file is one careless delete away from vanishing with no
+record.
+
+The four readers you commissioned are filed as three bugs and one contribution — and checking for
+prior work first made every one of them sharper: the "couldn't grade it" gate turns out to fail on
+exactly ONE kind of item, so that is a small fix plus an alarm rather than a big hunt; the render
+audit problem is the unread half of a bug already closed (the loud signal exists — webdesign is at
+60 of 131 pages audited and growing); and the link-repair reader belongs inside an open bug another
+active lane owns, so it went in as a contribution rather than a competing file.
+
+The rename is done, and the "so it doesn't happen again" half is a guard that fails a commit the
+moment anyone names a new code as an extension of an existing one — proven by the very case you
+asked about: the guard went in first, failed on it, and the rename cleared it.
+
+And a nice moment worth telling you about: while I was doing this, another session tried to add
+three brand-new codes — and the commit-time guard we shipped yesterday **caught all three before
+any had ever fired**, which is the first catch by that half of the system. They also held their
+commit rather than splitting my in-flight change, and messaged me to coordinate. The machinery is
+being used, by strangers, the way it was designed.
+
+Nothing is waiting on you now. The readers get built by their lanes; each code flips to "consumed"
+the day its reader ships; and the daily check keeps the whole thing honest at 07:30 every morning.

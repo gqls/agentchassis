@@ -47,28 +47,37 @@ an ancestor). Council `be252395` APPROVED. Source-side scan + Fable fixes: `2e5f
 | shared hook mechanics | `scripts/lib/precommit-gotest.sh` — ⚠ **fleet-critical, see §4** |
 | register | `docs026_concept_register/register/debugging.md` → **DBG-075** |
 
-**LIVE READING 2026-08-25 07:30 UTC (the scheduled run's own row):** 43 codes observed,
-**55 declared**, **0 findings**, **25 unruled** (cap 25), 12 registered-but-unobserved, retention
-parity 0 disagreements, `_scan_baseline` 13. A missing 07:30 row from now on means the job did not
-run — never "nothing is wrong".
+**LIVE READING 2026-08-25 after batch 2:** 44 observed, **54 declared**, **0 findings**,
+**0 unruled (cap 0 — terminal)**, 10 registered-but-unobserved, retention parity clean,
+`_scan_baseline` 13 (one renamed). The 07:30 scheduled fire wrote its row on the clock; a missing
+07:30 row from now on means the job did not run — never "nothing is wrong". The registry rides the
+next fleet release; until then the cluster's declared-count line reads 55, which IS the visible lag,
+not a fault.
 
-### What is NOT done — all of it is the OWNER'S to decide (see the proposal for evidence)
+### The seven decisions are RULED (owner, 2026-08-25) and APPLIED — nothing is the owner's to decide any more
 
-1. **Batch 2** — 24 of the 25 `unruled` codes measure "no automated reader anywhere" and are
-   proposed `human-evidence`; one commit applies them and lowers `_unruled_cap` 25 → 1. **Apply
-   only on his ratification.** Census: `[MEASURED 2026-08-25]` no live workflow or scheduled task
-   selects any of the 25; two hand-run readers only (`cmd/backfill-tool-crosslinks/main.go:90`; a
-   SQL comment in `render_content_envelope_guard.go:273`).
-2. **`BUILD_DISPATCH_STALLED`** — no writer live (migration `214` never applied; `506` says its
-   premise is moot). Apply 214 or retire it; recommended retire → cap 0.
-3. **Retraction audits' retention** — four codes written to be "the ONLY durable record", on 567's
-   365-day clock. Accept and note (recommended), or commission an audit table (architecture-shaped).
-4. **Readers** — commissioning, not ruling: `LINK_CONTEXT_UNAVAILABLE` (092 lane; real
-   degradation), `NO_CHANGE_GATE_UNREADABLE_RESULT`, `RENDER_AUDIT_TRUNCATED`,
-   `CONTENT_LINK_REPAIR_DETAIL`+`CONTENT_DATA_LINK_AUDIT`. Recommended: file the first at 092.
-5. **`UNKNOWN_HANDLER_VERDICT`** prefix collision — rename (recommended) or narrow the rule.
-6. **The 13 `_scan_baseline` codes** — batch 3 now, or per code on first fire (recommended).
-7. **The cap** — one counter or two; recommended leave as one.
+| # | ruling | state |
+|---|---|---|
+| 1 | ratify all 24 → `human-evidence` | **APPLIED** `835ab0585`; cap 25 → **0**; live check exit 0 |
+| 2 | retire `BUILD_DISPATCH_STALLED` | **APPLIED** — registry entry deleted; migration `214` (an untracked orphan!) renamed `_SUPERSEDED` and tracked for the first time |
+| 3 | retraction audits accept 365 days | **APPLIED** — recorded in their `why` fields as a knowing acceptance |
+| 4 | commission ALL FOUR readers | **FILED** — `bugs_open/392` (link context → 092 lane), `393` (dark_section_audit: the whole population is ONE item type), `394` (render-audit truncation: the consumption half of closed `242`), and a CONTRIBUTION into open `071` for the link-repair pair (its lane is active — contribute, don't compete) |
+| 5 | rename + prevent | **APPLIED** `eb7d92371`, council `8d798266` — `HANDLER_VERDICT_UNRECOGNISED`, plus `TestFindingCodeScanNamesDoNotExtendDeclaredCodes`, proven by the live case in the natural order (guard first → failed on UNKNOWN vs the old name → rename cleared it) |
+| 6 | the 13 `_scan_baseline` codes wait | standing — rule each on first fire; the CronJob says when |
+| 7 | one cap counter | standing — cap is at its terminal **0**: every newborn code is a finding unless declared in the same commit |
+
+**What an incoming session actually does now:** nothing, unless (a) the daily 07:30 row goes red —
+then a newborn code needs declaring (the two-hour turnaround of 2026-08-24 is the worked example),
+or (b) one of the commissioned readers ships — then flip its code to `consumed` with
+`reader`/`reader_sink` in the same commit (the checker verifies both), or (c) a baseline code
+fires — then rule it. **Read the `8d798266` council verdict if nobody has** (`SELECT
+metadata->>'decision' FROM diagnosis_artifacts WHERE correlation_id='8d798266-bdff-4bc9-a4c6-77df9767a4b5'
+AND kind='council_report'`); the code is on the shared branch, a REVISE is a follow-up commit.
+
+**First external validation of the commit-time scan (2026-08-25):** the `bugs_open/388` lane's
+three new codes were caught by the scan before ANY had fired — the case the DB-side check is
+structurally blind to. And that lane held its commit rather than taking this lane's in-flight
+rename as a same-file passenger; the exchange is in NOTES.
 
 ## 2. The three things you must not get wrong
 

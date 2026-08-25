@@ -1194,3 +1194,38 @@ window, writers, and readers (grep of the literal AND its const, every language;
 
 **The decisions this leaves the owner are written up in `PROPOSAL_2026-08-25_batch2_dispositions.md`
 and, in plain prose, in `README_where_we_are.md`.**
+
+## 2026-08-25, later — all seven rulings applied; the backlog is ZERO
+
+Rulings (owner, 2026-08-25): 1(a) ratify all 24 · 2 retire · 3 accept 365 · 4 all four readers ·
+5 rename + prevent · 6 wait · 7 leave. Application, with the day's missteps and finds:
+
+- **Batch 2 applied** (`835ab0585`): 24 → `human-evidence`, cap 25 → **0**, live check exit 0
+  (44 observed / 54 declared / 0 findings / 0 unruled). The registry rides the next fleet release.
+- **`BUILD_DISPATCH_STALLED` retired** — and migration `214` turned out to be an **untracked
+  orphan** (`git mv` refused: "not under version control"). Renamed `_SUPERSEDED` AND tracked for
+  the first time in the same commit: an untracked retired artefact is one `rm` from vanishing.
+- **Prior-art grep before filing changed every reader ask** (the grep-before-you-file rule earning
+  its keep three times in one sitting): `bugs_closed/242` already built the truncation signal, so
+  `394` asks for the consumption half, not a re-file; `bugs_open/071` is the link-repair territory
+  with an ACTIVE owner, so that commissioning went in as a CONTRIBUTION; and the `393` census found
+  the entire `NO_CHANGE_GATE_UNREADABLE_RESULT` population is **one item type**
+  (`dark_section_audit`, 11/11), collapsing "shapes drift sometimes" into one shape fix + a ratchet.
+- **MISSTEP, committed then fixed forward** (`3cb6be421` → `f622b7f7b`): the three 016b §10 index
+  rows were inserted into an UNRELATED table — my anchor was "the last numeric table row in the
+  file", which is not "the last row of the §10 table"; the file has other tables after §10.
+  → `WRONG_CALLS.md`: anchor an edit to the STRUCTURE you mean, not a pattern that matches today.
+- **Decision 5 executed in the proving order** (`eb7d92371`, council `8d798266`): the prefix guard
+  (`TestFindingCodeScanNamesDoNotExtendDeclaredCodes`) went in FIRST and failed on the live case —
+  `UNKNOWN` vs `UNKNOWN_HANDLER_VERDICT` — then the rename to `HANDLER_VERDICT_UNRECOGNISED` (the
+  row's own message wording; zero rows orphaned, measured) cleared it. **The retired defect proved
+  the guard that retires it.** The guard moves the failure from declaration day to commit day.
+- **The scan's first EXTERNAL catch, before any row existed**: the `bugs_open/388` lane reports our
+  commit-time scan caught their THREE new codes (`COMPONENT_FUNCTION_PIN_DIVERGENCE`,
+  `COMPONENT_ADVISED_ROW_VANISHED`, `COMPONENT_PARALLEL_SECTION_BIRTH`) on first run — none had
+  ever fired, so the CronJob could not have seen them. That is the source-side half doing the one
+  thing the DB-side structurally cannot. Same exchange: 388 HELD their commit rather than taking my
+  in-flight rename as a same-file passenger, messaged to coordinate, and took the go-ahead after
+  `eb7d92371` landed — the shared-tree discipline working between strangers. Their correction of
+  their own stale "25 of 25 at cap" premise (my `835ab0585` moved it under their feet) is theirs to
+  record and was well handled.
