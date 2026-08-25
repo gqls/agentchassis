@@ -76,20 +76,43 @@ def run_psql(sql, capture=True):
     actually reachable, and the apply path's BEGIN;/COMMIT; with ON_ERROR_STOP=1
     means a truncated *input* fails to commit and is reported rather than
     half-applied.
+
+    RETRY on the transport's mid-stream EOF (2026-08-25) — the FOURTH time this
+    sync has broken purely because the corpus got bigger, and the first
+    PROBABILISTIC one: at ~846 entries existing_bodies() returns ~3MB, and the
+    `kubectl exec` stream now dies mid-transfer roughly every other call
+    ("error reading from error stream: read message: unexpected EOF" — measured
+    2026-08-25: 4/4 script runs failed, while the same read standalone went
+    rc=1 at 1.9MB then rc=0 at 3.1MB back to back). One failed call killed the
+    whole run, so at several large calls per run the sync almost never
+    completed — and a sync that fails after `existing_sources()` looks, to its
+    operator, exactly like a DB problem. Retrying is safe on every call this
+    script makes: reads are pure, and the apply path is a single
+    BEGIN/COMMIT + ON_ERROR_STOP idempotent upsert scoped by `source`, so a
+    stream that died before, during or after COMMIT re-runs to the same state.
+    Only the transport error retries; a real psql error (nonzero rc WITHOUT the
+    stream signature) still exits on the first attempt.
     """
     cmd = PSQL.split()
-    proc = subprocess.run(
-        cmd + ["-v", "ON_ERROR_STOP=1", "-t", "-A"],
-        input=sql.encode("utf-8"),
-        capture_output=capture,
-    )
 
     def _dec(b):
         return (b or b"").decode("utf-8", errors="replace")
 
-    if proc.returncode != 0:
+    attempts = 3
+    for attempt in range(1, attempts + 1):
+        proc = subprocess.run(
+            cmd + ["-v", "ON_ERROR_STOP=1", "-t", "-A"],
+            input=sql.encode("utf-8"),
+            capture_output=capture,
+        )
+        if proc.returncode == 0:
+            return _dec(proc.stdout).strip()
+        stream_broke = "unexpected EOF" in _dec(proc.stderr)
+        if stream_broke and attempt < attempts:
+            print(f"  transport EOF mid-stream (attempt {attempt}/{attempts}) — retrying",
+                  file=sys.stderr)
+            continue
         sys.exit(f"psql failed:\n{_dec(proc.stderr) or _dec(proc.stdout)}")
-    return _dec(proc.stdout).strip()
 
 
 def existing_sources():
