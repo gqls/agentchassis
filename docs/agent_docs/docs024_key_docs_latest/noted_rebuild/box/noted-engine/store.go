@@ -82,6 +82,7 @@ type Media struct {
 	Kind    string `json:"kind"`
 	Mime    string `json:"mime"`
 	ByteLen int64  `json:"byte_len"`
+	Caption string `json:"caption,omitempty"`
 }
 
 func (s *Store) Migrate(ctx context.Context) error {
@@ -257,7 +258,7 @@ func (s *Store) ListNotes(ctx context.Context, accountID int64) ([]Note, error) 
 	// id advance together) and across kinds — the unified array wants the
 	// order things were added, not audio-then-images.
 	mrows, err := s.DB.QueryContext(ctx,
-		`SELECT id, note_id, kind, mime, byte_len FROM media
+		`SELECT id, note_id, kind, mime, byte_len, COALESCE(caption,'') FROM media
 		  WHERE account_id=$1 ORDER BY note_id, id`, accountID)
 	if err != nil {
 		return nil, err
@@ -266,7 +267,7 @@ func (s *Store) ListNotes(ctx context.Context, accountID int64) ([]Note, error) 
 	for mrows.Next() {
 		var m Media
 		var noteID int64
-		if err := mrows.Scan(&m.ID, &noteID, &m.Kind, &m.Mime, &m.ByteLen); err != nil {
+		if err := mrows.Scan(&m.ID, &noteID, &m.Kind, &m.Mime, &m.ByteLen, &m.Caption); err != nil {
 			return nil, err
 		}
 		if idx, ok := byID[noteID]; ok {
@@ -456,6 +457,58 @@ func (s *Store) GetMedia(ctx context.Context, accountID, mediaID int64) (mime st
 		return "", nil, "", ErrNoAccount
 	}
 	return
+}
+
+// SetMediaCaption is account-scoped in the SQL like every other write here.
+func (s *Store) SetMediaCaption(ctx context.Context, accountID, mediaID int64, caption string) error {
+	res, err := s.DB.ExecContext(ctx,
+		`UPDATE media SET caption=$1 WHERE id=$2 AND account_id=$3`, caption, mediaID, accountID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNoAccount
+	}
+	return nil
+}
+
+// MediaStorageRef names one B2 object an account owns.
+type MediaStorageRef struct{ Key, FileID string }
+
+// ListAccountMediaStorage returns every B2-backed object the account owns —
+// the delete-account path removes these from B2 BEFORE the row cascade, so an
+// object can never outlive its account invisibly (it is paid storage).
+func (s *Store) ListAccountMediaStorage(ctx context.Context, accountID int64) ([]MediaStorageRef, error) {
+	rows, err := s.DB.QueryContext(ctx,
+		`SELECT storage_key, COALESCE(b2_file_id,'') FROM media
+		  WHERE account_id=$1 AND storage_key IS NOT NULL AND storage_key <> ''`, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []MediaStorageRef
+	for rows.Next() {
+		var r MediaStorageRef
+		if err := rows.Scan(&r.Key, &r.FileID); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// DeleteAccount removes the account row; sessions, notes and media rows go
+// with it (ON DELETE CASCADE — rows cannot half-survive). B2 objects are the
+// CALLER's responsibility, before this is called.
+func (s *Store) DeleteAccount(ctx context.Context, accountID int64) error {
+	res, err := s.DB.ExecContext(ctx, `DELETE FROM accounts WHERE id=$1`, accountID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNoAccount
+	}
+	return nil
 }
 
 // MediaStorage returns where a row's bytes live, for the delete path.

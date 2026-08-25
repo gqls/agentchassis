@@ -19,11 +19,12 @@ import (
 )
 
 type b2Stub struct {
-	mu      sync.Mutex
-	objects map[string][]byte // key -> bytes
-	fileIDs map[string]string // fileId -> key
-	nextID  int
-	srv     *httptest.Server
+	mu          sync.Mutex
+	objects     map[string][]byte // key -> bytes
+	fileIDs     map[string]string // fileId -> key
+	nextID      int
+	failDeletes bool // induce the B2-refuses-delete world
+	srv         *httptest.Server
 }
 
 func newB2Stub(t *testing.T) *b2Stub {
@@ -83,6 +84,11 @@ func newB2Stub(t *testing.T) *b2Stub {
 		json.NewDecoder(r.Body).Decode(&in)
 		st.mu.Lock()
 		defer st.mu.Unlock()
+		if st.failDeletes {
+			w.WriteHeader(500)
+			w.Write([]byte(`{"code":"internal_error"}`))
+			return
+		}
 		if _, ok := st.fileIDs[in.FileId]; !ok {
 			w.WriteHeader(400)
 			w.Write([]byte(`{"code":"file_not_present"}`))
@@ -267,5 +273,46 @@ func TestB2LiveRoundTrip(t *testing.T) {
 	// Deleting again must converge, not error — the retry-after-crash path.
 	if err := b.Delete(key, fileID); err != nil {
 		t.Fatalf("second delete should be already-gone success: %v", err)
+	}
+}
+
+func TestAccountDeletionRemovesB2ObjectsOrNothing(t *testing.T) {
+	s, stub := newTestServerB2(t)
+	c := signUp(t, s, "b2del@example.com")
+	rec := do(t, s, "POST", "/api/notes", c, `{"title":"files","content":""}`)
+	var n Note
+	json.Unmarshal(rec.Body.Bytes(), &n)
+	do(t, s, "POST", fmt.Sprintf("/api/notes/%d/media?kind=image", n.ID), c, "one")
+	do(t, s, "POST", fmt.Sprintf("/api/notes/%d/media?kind=video", n.ID), c, "two")
+	if stub.count() != 2 {
+		t.Fatalf("setup: want 2 objects, have %d", stub.count())
+	}
+
+	// B2 refuses: NOTHING is deleted — not the objects, not the account.
+	stub.mu.Lock()
+	stub.failDeletes = true
+	stub.mu.Unlock()
+	rec = do(t, s, "DELETE", "/api/account", c, `{"password":"a-long-enough-password"}`)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("B2 refusal should abort with 502: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec = do(t, s, "GET", "/api/notes", c, ""); rec.Code != http.StatusOK {
+		t.Fatalf("aborted deletion killed the session/account: %d", rec.Code)
+	}
+	if stub.count() != 2 {
+		t.Fatalf("aborted deletion changed the object count: %d", stub.count())
+	}
+
+	// B2 recovers: the retry completes and the bucket is EMPTY — an object
+	// must never outlive its account (it is invisible, paid storage).
+	stub.mu.Lock()
+	stub.failDeletes = false
+	stub.mu.Unlock()
+	rec = do(t, s, "DELETE", "/api/account", c, `{"password":"a-long-enough-password"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("retry delete: %d %s", rec.Code, rec.Body.String())
+	}
+	if stub.count() != 0 {
+		t.Fatalf("B2 objects outlived the account: %d", stub.count())
 	}
 }

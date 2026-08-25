@@ -359,3 +359,89 @@ func TestMediaRangeRequestsSeek(t *testing.T) {
 			out.Code, out.Body.String(), out.Header().Get("Content-Range"))
 	}
 }
+
+// Immediate account deletion (owner ruling 2026-08-25) and captions (stage 3).
+
+func TestAccountDeletionIsCompleteAndScoped(t *testing.T) {
+	s := newTestServer(t)
+	alice := signUp(t, s, "del-me@example.com")
+	bob := signUp(t, s, "stays@example.com")
+
+	rec := do(t, s, "POST", "/api/notes", alice, `{"title":"mine","content":"private"}`)
+	var n Note
+	json.Unmarshal(rec.Body.Bytes(), &n)
+	do(t, s, "POST", fmt.Sprintf("/api/notes/%d/media?kind=image", n.ID), alice, "pixels")
+	do(t, s, "POST", "/api/notes", bob, `{"title":"bobs","content":"kept"}`)
+
+	// Wrong password: refused, everything intact.
+	rec = do(t, s, "DELETE", "/api/account", alice, `{"password":"not-the-password"}`)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("wrong password should refuse: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec = do(t, s, "GET", "/api/notes", alice, ""); !strings.Contains(rec.Body.String(), "private") {
+		t.Fatalf("refused delete damaged the account: %s", rec.Body.String())
+	}
+
+	// Right password: gone — sessions, notes, media, the row itself.
+	rec = do(t, s, "DELETE", "/api/account", alice, `{"password":"a-long-enough-password"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec = do(t, s, "GET", "/api/notes", alice, ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("old session survived deletion: %d", rec.Code)
+	}
+	for _, q := range []string{
+		`SELECT count(*) FROM accounts WHERE email='del-me@example.com'`,
+		`SELECT count(*) FROM notes n JOIN accounts a ON a.id=n.account_id WHERE a.email='del-me@example.com'`,
+	} {
+		var c int
+		s.Store.DB.QueryRow(q).Scan(&c)
+		if c != 0 {
+			t.Fatalf("rows survived deletion: %q -> %d", q, c)
+		}
+	}
+	var orphans int
+	s.Store.DB.QueryRow(`SELECT count(*) FROM media m LEFT JOIN accounts a ON a.id=m.account_id WHERE a.id IS NULL`).Scan(&orphans)
+	if orphans != 0 {
+		t.Fatalf("media rows survived the cascade: %d", orphans)
+	}
+
+	// Bob is untouched; alice's email is free again and starts EMPTY.
+	if rec = do(t, s, "GET", "/api/notes", bob, ""); !strings.Contains(rec.Body.String(), "kept") {
+		t.Fatalf("deleting alice damaged bob: %s", rec.Body.String())
+	}
+	fresh := signUp(t, s, "del-me@example.com")
+	rec = do(t, s, "GET", "/api/notes", fresh, "")
+	var listed struct{ Notes []Note }
+	json.Unmarshal(rec.Body.Bytes(), &listed)
+	if len(listed.Notes) != 0 {
+		t.Fatalf("re-registered account is not empty: %s", rec.Body.String())
+	}
+}
+
+func TestMediaCaptionIsAccountScoped(t *testing.T) {
+	s := newTestServer(t)
+	alice := signUp(t, s, "cap-a@example.com")
+	bob := signUp(t, s, "cap-b@example.com")
+	rec := do(t, s, "POST", "/api/notes", alice, `{"title":"c","content":""}`)
+	var n Note
+	json.Unmarshal(rec.Body.Bytes(), &n)
+	rec = do(t, s, "POST", fmt.Sprintf("/api/notes/%d/media?kind=image", n.ID), alice, "img")
+	var up struct{ ID int64 }
+	json.Unmarshal(rec.Body.Bytes(), &up)
+
+	if rec = do(t, s, "PATCH", fmt.Sprintf("/api/media/%d", up.ID), bob, `{"caption":"graffiti"}`); rec.Code == http.StatusOK {
+		t.Fatalf("LEAK: bob captioned alice's media")
+	}
+	if rec = do(t, s, "PATCH", fmt.Sprintf("/api/media/%d", up.ID), alice, `{"caption":"the garden in May"}`); rec.Code != http.StatusOK {
+		t.Fatalf("caption: %d %s", rec.Code, rec.Body.String())
+	}
+	rec = do(t, s, "GET", "/api/notes", alice, "")
+	if !strings.Contains(rec.Body.String(), "the garden in May") {
+		t.Fatalf("caption not in the list payload: %s", rec.Body.String())
+	}
+	long := strings.Repeat("x", 501)
+	if rec = do(t, s, "PATCH", fmt.Sprintf("/api/media/%d", up.ID), alice, fmt.Sprintf(`{"caption":%q}`, long)); rec.Code != http.StatusBadRequest {
+		t.Fatalf("overlong caption accepted: %d", rec.Code)
+	}
+}

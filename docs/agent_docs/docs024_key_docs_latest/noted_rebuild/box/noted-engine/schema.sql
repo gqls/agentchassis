@@ -92,6 +92,11 @@ ALTER TABLE media ADD COLUMN IF NOT EXISTS storage_key TEXT;
 ALTER TABLE media ADD COLUMN IF NOT EXISTS b2_file_id TEXT;
 ALTER TABLE media ALTER COLUMN bytes DROP NOT NULL;
 
+-- 2026-08-25, pasteboard stage 3: a caption belongs to the media ROW (not the
+-- board layout), so it survives re-arrangement and feeds any future editor
+-- view of the same item.
+ALTER TABLE media ADD COLUMN IF NOT EXISTS caption TEXT NOT NULL DEFAULT '';
+
 -- 2026-08-25, pasteboard stage 2: per-note board arrangement, client-owned,
 -- versioned shape {v:1, items:[...]} with coordinates as fractions of board
 -- width. Absent = the note has never been arranged (linear view).

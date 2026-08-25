@@ -50,6 +50,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/notes/{id}/media", s.auth(s.uploadMedia))
 	mux.HandleFunc("GET /api/media/{id}", s.auth(s.getMedia))
 	mux.HandleFunc("DELETE /api/media/{id}", s.auth(s.deleteMedia))
+	mux.HandleFunc("PATCH /api/media/{id}", s.auth(s.updateMedia))
+
+	mux.HandleFunc("DELETE /api/account", s.auth(s.deleteAccount))
 
 	mux.HandleFunc("POST /api/import", s.auth(s.importBackup))
 
@@ -414,6 +417,87 @@ func (s *Server) deleteMedia(w http.ResponseWriter, r *http.Request, a *Account)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (s *Server) updateMedia(w http.ResponseWriter, r *http.Request, a *Account) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad media id")
+		return
+	}
+	var in struct {
+		Caption *string `json:"caption"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&in); err != nil || in.Caption == nil {
+		writeErr(w, http.StatusBadRequest, "could not read that caption")
+		return
+	}
+	if len([]rune(*in.Caption)) > 500 {
+		writeErr(w, http.StatusBadRequest, "a caption can be at most 500 characters")
+		return
+	}
+	if err := s.Store.SetMediaCaption(r.Context(), a.ID, id, *in.Caption); err != nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "saved", "caption": *in.Caption})
+}
+
+// --- account deletion (immediate — owner ruling 2026-08-25) ----------------
+
+func (s *Server) deleteAccount(w http.ResponseWriter, r *http.Request, a *Account) {
+	// The cookie is not enough for an irreversible action: the password typed
+	// again proves the person at the keyboard, not just the browser.
+	var in struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&in); err != nil {
+		writeErr(w, http.StatusBadRequest, "could not read that request")
+		return
+	}
+	if _, err := s.Store.Authenticate(r.Context(), a.Email, in.Password); err != nil {
+		writeErr(w, http.StatusUnauthorized, "that password is not right — your account is untouched")
+		return
+	}
+
+	// B2 objects BEFORE rows: a row without an object is a 404; an object
+	// without a row is invisible, paid storage. "Already gone" counts as
+	// success, so a retry after a half-done attempt converges.
+	refs, err := s.Store.ListAccountMediaStorage(r.Context(), a.ID)
+	if err != nil {
+		log.Printf("delete account %d: list storage failed: %v", a.ID, err)
+		writeErr(w, http.StatusInternalServerError, "could not delete the account — nothing has been removed")
+		return
+	}
+	if len(refs) > 0 && s.B2 == nil {
+		// Refusing beats orphaning: with the B2 keys absent the objects could
+		// not be removed, and a deletion that silently kept files would make
+		// the privacy promise false.
+		log.Printf("delete account %d: %d B2 objects but no B2 client configured", a.ID, len(refs))
+		writeErr(w, http.StatusInternalServerError, "could not delete the account — nothing has been removed")
+		return
+	}
+	for _, ref := range refs {
+		if err := s.B2.Delete(ref.Key, ref.FileID); err != nil {
+			log.Printf("delete account %d: b2 delete %s failed: %v", a.ID, ref.Key, err)
+			writeErr(w, http.StatusBadGateway,
+				"could not remove your files — nothing has been deleted; please try again")
+			return
+		}
+	}
+
+	if err := s.Store.DeleteAccount(r.Context(), a.ID); err != nil {
+		log.Printf("delete account %d: %v", a.ID, err)
+		writeErr(w, http.StatusInternalServerError, "could not delete the account")
+		return
+	}
+	log.Printf("account %d deleted (%d B2 objects removed)", a.ID, len(refs))
+	http.SetCookie(w, &http.Cookie{
+		Name: sessionCookie, Value: "", Path: "/", MaxAge: -1,
+		HttpOnly: true, Secure: s.SecureCookies, SameSite: http.SameSiteLaxMode,
+	})
+	// ONLY now — everything is actually gone. No optimistic goodbyes.
+	writeJSON(w, http.StatusOK, map[string]string{"status": "account deleted"})
 }
 
 // --- import ---------------------------------------------------------------
