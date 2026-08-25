@@ -536,3 +536,22 @@ backend change (scope the UPDATE, order the SELECT) and are the pair worth fixin
 predate this lane's work but this lane's screen is what put buttons on them. F4+F5 are
 one-liners. F6 is a one-line client filter. All are council-gate material (`internal/`), none
 RFC-shaped.
+
+### 7d. DISPOSITION UPDATE — 2026-08-25, F1+F2 FIXED (owner approved)
+
+Commit `48e75aad2`, `Council-Submitted: be7544eb-ac62-49bb-bc97-0ed5f2de5a78` (verdict pending —
+read it, act on a REVISE). The terminate UPDATE now carries `AND status NOT IN
+('COMPLETED', 'FAILED')`, the all-terminal case answers **409 ALREADY_TERMINAL** instead of a
+500, and `getWorkflowState` pins `ORDER BY (parent_orchestration_id IS NOT NULL), created_at
+LIMIT 1` — root first, deterministic. Tests: `workflow_terminate_test.go`, whose expected-SQL
+regexes are the contract, **mutation-proven both ways before commit** (status filter deleted →
+scoping test fails; ORDER BY deleted → same test fails the other way; each observed, then
+restored). `verify-head-builds` passed against committed HEAD `c65d44350`. The SPA confirm text
+lost its singular. **Backend halves are inert until the next core-manager roll; the SPA line
+until the next dashboard image build** — prove at the pod stamp
+(`git merge-base --is-ancestor 48e75aad2 <stamp>`), not at git.
+
+Still open from §7a, deliberately: **F4** (WithArgs pinning the raw-bytes INSERT — test-only,
+one line), **F5** (`parsed.String()` for the site filter), **F6** (client-side `site_id` row
+filter), F7/F8 (info). None fixed here — the owner approved F1+F2, and scope stays what was
+approved.
