@@ -530,3 +530,36 @@ doing the job it was chosen for over a range or a `gte`.
 **What this does and does not license.** It licenses arming F9-F13 on fundamentallyai as a reviewed,
 one-fact-at-a-time operator act. It is not itself the fix being live: no register has been written,
 and `bugs_open/386` stays OPEN until a fact is armed and a real stale render is spared in production.
+
+## 2026-08-25 — 626 APPLIED, and my derivation would have armed SEVEN facts on a file that says five
+
+Owner authorised arming in session. Migration `626_bug386_arm_fact_history_on_fundamentallyai_counters.sql`
+applied and recorded, scoped to a single-file `MIGRATIONS_DIR` (as a command PREFIX — an assignment on
+its own line scopes nothing).
+
+**The misstep, caught before any write.** I derived the history in SQL rather than hardcoding it,
+specifically so the file could not seed a value the register never held. But the derivation selects
+every fact with a moving value, and I filtered to the named five only in Guard 3 — not in the INSERT's
+own CTEs. The runner's doomed-transaction probe executed the file against live data and **my own
+VERIFY block raised it**: `expected 5 armed facts, found 7`. `F1-live-sites` and `F2-council-seats`
+would have been armed silently, on a file whose header says five, which is exactly the bulk toggle the
+council's `guardian` advisory warns against.
+
+Two things worth keeping from that:
+- **The assertion belonged in the migration, not in a runbook.** A runbook check runs when someone
+  remembers; an in-file `DO … RAISE` runs every time, including inside a probe that throws the result
+  away. This is the second time today an in-file guard has been worth more than a documented one.
+- **A derivation is not automatically narrower than a hardcoded list — it is often WIDER.** I chose it
+  for honesty (it cannot invent a value) and got scope creep for free, because the honest property and
+  the narrow property are different properties. The fix is the explicit `armed(fid)` VALUES list, which
+  restores by construction what the header claims.
+
+**Verified at the artefact after apply**, not at the migration's exit code: live register 16 facts
+(unchanged), exactly 5 armed, histories 30/30/31/30/12 each ending at that fact's last pre-current
+value; `claimscan` over 91 live components against the **live** register → **0 findings, was 5**; and
+the negative control against that same live register still flags the never-held `11514`.
+
+**Still unexercised, and stated so it is not mistaken for finished:** the WRITER half. 626 seeds
+history; only an `evidence-freshness` tick that MOVES one of the five will prove `recordFactHistory`
+appends the outgoing reading itself (`FactsHistoryRecorded > 0`). Until that is observed, the writer is
+supported by unit tests and mutation proofs, not by production.
