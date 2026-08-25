@@ -249,3 +249,65 @@ exactly what starts to matter on promotion to refusing**, and it is why the excl
    `constitution` seat flagged it and is right: gate 1c is detection, not the root-cause fix to the
    content-generation gap. Recorded so it is not mistaken for one.
 5. **The accumulation.** Four hand-wired gates on one function — `architecture_review/RFC_055`.
+
+---
+
+## 9. ⚠ CORRECTION 2026-08-25 — THIS IS A RECURRENCE OF `bugs_open/320` §5, AND THE CRITERION WAS NEVER SATISFIABLE
+
+Found by the `bugs_open/395` lane taking §8f item 4 (the untouched root cause) and asking the one
+question this file never did: **who WRITES the field the predicate grades?** Verified first-hand by
+this lane before acceptance.
+
+**All three live predicates grade `pages.meta_description`, and a NON-EMPTY meta description is
+structurally immutable on the route these findings take** `[MEASURED 2026-08-25]`:
+
+| writer | reachable how | can it overwrite? |
+|---|---|---|
+| `page-build-handler` — **where these items are routed** | — | **NO STEP TOUCHES THE COLUMN AT ALL** |
+| `save_page_meta_description_action.go:211` (`SET meta_description = $2`) | ONE live agent, `meta-description-backfiller`, whose pre_query selects `COALESCE(p.meta_description,'')=''` | empty values only |
+| `site_db_actions.go:1235` | page upsert | `COALESCE(NULLIF(EXCLUDED,''), existing)` — fills a blank, never overwrites |
+| `apply_adoption_plan_action.go:84` | adoption only | same guard |
+
+**So the handler could not have satisfied the criterion whatever it was told.** §6's negative control
+is not merely missing — it is **UNREACHABLE** for the current predicate vocabulary against the current
+routing, and §8f item 1 was wrong to describe it as a row we were waiting for.
+
+### 9a. It was already on record, six days earlier
+
+**`bugs_open/320` §5, 2026-08-19**, measured **the same page** (webdesign.co.uk `index`, item
+`13522562-…`, completed 2026-08-15 19:15Z, column 0 chars afterwards) and concludes: *"filing
+`content_rewrite` items is not a workaround — it is the expensive version of doing nothing, and it
+leaves a green record saying the opposite."* Its §9 says plainly: ***"Do not file `content_rewrite`
+items for them."***
+
+**This lane's producer filed precisely that item on 2026-08-24.** Not through carelessness — §9 is
+prose in a bug file and nothing enforces prose. 320 §4 also already carried the check that would have
+caught it: ***"ask who owns the field first."***
+
+⚠ **And "grep before you file" did not save us:** the grep run before filing 395 was for the
+MECHANISM (completion gating, acceptance tests, verifiers) and correctly returned nothing, because
+320 is filed under *meta descriptions are never asked for*. **Grep for the mechanism AND for the
+column.** Logged in `WRONG_CALLS.md`.
+
+### 9b. What does NOT change
+
+**Gate 1c stands, and this strengthens the case for it.** 320 §9's prose did not stop the recurrence;
+the gate is what caught it, mechanically, with a machine verdict. That is the argument for
+completion-time grading rather than against it.
+
+### 9c. What DOES change
+
+- **`PromotionOwes` is rewritten** (commit `864e73d8a`) to say the control is unreachable, with the
+  four writers as evidence and the two routes that could make it reachable. Both superseded wordings
+  are kept in the field, because the sequence is the record: the question had a worse answer each time
+  it was asked.
+- **§8f item 1 is superseded by this section.** Do not go looking for the `permitted` row until the
+  vocabulary covers a writable field, or such findings are routed at a writer that can overwrite.
+- **Routing them at a writer that CAN overwrite is an OWNER DECISION and neither lane may take it:**
+  `bugs_open/320` §15 records the owner granting `overwrite_existing: true` for a one-off 681-page
+  regeneration and **explicitly withholding it for the standing mechanism**. A standing path that
+  rewrites published copy in response to an automated finding is exactly the authority he withheld.
+- **The producer-side guard** — refuse to FILE a finding whose criterion grades a field the target
+  handler cannot write — is being built by the `bugs_open/395` lane, and makes 320 §9 mechanical
+  instead of prose. This lane will take the predicate-gate half if that split is agreed, so a
+  predicate over an unwritable field is refused at source too.

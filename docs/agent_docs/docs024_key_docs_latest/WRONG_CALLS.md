@@ -53398,3 +53398,57 @@ selector you happened to write.
 
 Tally for "counted a proxy for the thing, not the thing": 1.
 Tally for "published a figure whose measurement could not have come out otherwise": 3.
+
+---
+
+## 2026-08-25b — I filed the exact item a six-day-old bug file said not to file, then built a gate, a council round and a handoff on top of it
+
+**The claim.** `bugs_open/395`: an item closes `complete` while its own stated acceptance test is
+unmet, worked case webdesign.co.uk `index`, meta description. I filed it, built completion gate 1c,
+took it through a 14-seat council round, wrote a register entry and two handoffs — all resting on the
+premise that the interesting question was *"why does nothing read the criterion at completion time?"*
+
+**What was true.** The criterion could never have been met. `[MEASURED 2026-08-25]`
+`page-build-handler`, where these findings are routed, has **ZERO** steps touching
+`pages.meta_description`. A non-empty meta description is structurally immutable on that path: the
+only unconditional writer is reachable from one agent whose selector takes **empty** values only, and
+the other two writers are `COALESCE(NULLIF(EXCLUDED,''), existing)` — fill a blank, never overwrite.
+
+**And it was already filed.** `bugs_open/320` §5, **2026-08-19 — six days earlier** — measured the
+**same page, same field, same item shape, same green-and-did-nothing outcome**, and §9 says in terms:
+*"Do not file `content_rewrite` items for them. §5: measured, completes, does nothing."* My producer
+filed precisely that item on 2026-08-24.
+
+**What caught it.** The `bugs_open/395` lane, on its second message, asking *"who actually WRITES the
+field the predicate grades?"* — a question neither of us had asked across a bug file, a council round
+and two handoffs.
+
+**The cheap check that would have.** `bugs_open/320` §4's own sentence, which I had not read:
+***"ask who owns the field first."*** One grep for the COLUMN would have found 320 in seconds.
+
+**⚠ WHY "GREP BEFORE YOU FILE" DID NOT SAVE ME, which is the transferable part.** I did grep
+`/bugs_open/` before filing 395 — for the **MECHANISM** (completion gating, acceptance tests,
+verifiers). That search was correct, thorough, and returned nothing, because 320 is filed under
+*meta descriptions are never asked for*. **Two bugs about the same rows can share no vocabulary at
+all.** The axes are independent and I searched one:
+
+> **Grep for the MECHANISM you think it is, AND for the COLUMN, TABLE or FIELD the evidence touches.**
+> The second is the one that finds the bug filed by somebody who framed it differently — and framing
+> is exactly what differs between two lanes looking at one row.
+
+**Cost.** Nothing false shipped — gate 1c is correct, and it is what caught the recurrence
+mechanically, which is the argument for it rather than against. What was wasted is the framing: a
+council round, a register entry and two handoffs presented "the criterion is unmet" as a completion
+defect when it was also a routing defect already on record. And `PromotionOwes` carried, for about an
+hour, a promise that could never be kept — **twice**, in two different wordings, each naming a route
+to a control row that does not exist.
+
+**⚠ AND THE HALF THAT IS NOT MINE TO FIX ALONE.** Neither lane was careless. 320 §9 is clear,
+well-evidenced, and was six days old. **It is prose in a bug file, and nothing enforces prose.** The
+next producer breaks it the same way — which is what happened. A rule that only exists as a sentence
+is a rule with a half-life. The mechanical version (refuse to FILE a finding whose criterion grades a
+field the target handler cannot write) is being built by the 395 lane; this entry is here so the
+*class* is countable, not just this instance.
+
+Family: grep-the-mechanism-not-the-field, prose-rules-have-a-half-life, ask-who-owns-the-field-first,
+a-promise-that-cannot-be-kept-is-worse-than-none.
