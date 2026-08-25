@@ -1042,3 +1042,75 @@ FAIL. Yesterday's evidence says reconcile is the greenfield door in practice (ga
 items were minted by it at plan time), but "the proof arrives free on the next greenfield build"
 silently assumes it. **Check `created_by` on whatever rows the build actually produces before
 reading a zero as failure.**
+
+## 2026-08-25 (evening) — a real greenfield build arrived, and it CANNOT close this bug. That is the finding.
+
+The `bugs_open/381` lane built `homegarden.uk` and, on request, snapshotted the mint before the
+dispatcher touched it — 43 rows, plan minted `11:31:05Z`, captured `11:34:22Z`, 37 still untouched
+since emit. Their file:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_381_inexpressive_composition/evidence/MINT_SNAPSHOT_homegarden_20260825T113422Z.txt`
+
+**This is the artefact four lanes have been waiting on, and for this bug it is negative.** Worth
+stating precisely, because "we got the build" would otherwise read as progress.
+
+### 1. The build passes every gate and still cannot discriminate the fix
+
+`[MEASURED 2026-08-25]` the site's 21 planned pages: **17 `section-index`, 2 `content`, 1 `landing`,
+1 `blog-post`. Zero `entity-directory`. Zero `entity-page`.**
+
+Every one of those types routes to `page-build-handler` under **both** the old hardcoded literal and
+the new map. So the mint is stamped, untouched-since-emit, filed by `reconcile_site_plan`, and
+**identical to what the bug would have produced.** It confirms the new code *ran*; it cannot show
+that it *routes differently*.
+
+**So "the proof arrives free on the next greenfield build" was wrong as written, and is corrected
+everywhere it appeared** (handoff item 1, RUNBOOK §7b). The closure artefact requires a site
+carrying an **`entity-directory`** page — the one type where the map and the literal disagree today
+— or an **`entity-page`** (whose expected outcome is a deferred `capability_gap` with an empty
+handler). Check the plan for one *before* treating a build as closure:
+
+```sql
+SELECT page_type, count(*) FROM pages
+WHERE site_id=(SELECT id FROM sites WHERE domain='<domain>') GROUP BY 1 ORDER BY 2 DESC;
+```
+
+### 2. Two of my caveats settled — one wrong, one retired
+
+- **Gate 1's "empty population" is spent, and the gate never meant what I wrote.** That build minted
+  **21 stamped rows**, so the stamp's population is no longer empty (it emptied by *time*: no
+  reconcile had run since the roll). And `git log -S` settles the ambiguity in "the first stamped row
+  is necessarily the fix": the `"page_type": routeType` stamp was added by **`d1aa231aa` (08-24
+  11:50)**, live since `v1.0.1334`. **Today's swap never touched that emit.** A stamped row proves
+  reconcile consulted `builderForPageType`; it says nothing about `section-index` routing. *The 381
+  lane caught this by contradicting a caveat I had put into circulation — they were right.*
+- **The "which door fired?" caveat is RETIRED, free.** `reconcile_site_plan` minted all 22;
+  **`WriteBuildItemsAction` did not appear as a `created_by` at all.** Reconcile is the greenfield
+  door. One build is not a guarantee (that door is wired live in `site-work-orchestrator`), but §7's
+  `created_by` filter is not the hazard it looked like.
+
+### 3. And I sent them a false warning, which they had already adopted
+
+I warned that lane their `section-index` pages would **no-op** on the current fleet, since today's
+swap is unrolled. **False for their build**, and logged in `WRONG_CALLS`. 206's no-op needs a page
+with **no layout from any source**; `[MEASURED]` all 17 of their `section-index` pages carry
+`["hero","generic-text-block","content-listing"]`, `april-index` had **already built and deployed**
+through `page-build-handler`, and `sig_206` across all 21 `needs_page` rows is **0**.
+
+They had put it in their acceptance guide, which would have told an investigator to check
+`handler_agent` first on pages where `page-build-handler` is the **correct** handler — handing their
+own bug an alibi. Retracted within the same build; the error string stays in their guide as a
+discriminator (still valid — if you *do* see it, it is mis-routing), the prediction is gone.
+
+### 4. What this build DOES say about the class — and it belongs to 381, not here
+
+`[OBSERVED, theirs]` the planner expressed a "month by month" promise as **seventeen
+`section-index` pages** rather than one page carrying a period-calendar component. All 17 will
+build. Nothing will fail or error; the site will serve 17 near-identical three-section index pages
+where the plan promised one structure. **That is `bugs_open/381`'s symptom with no 206 in it** — and
+my warning would have muddied exactly that. Recorded here only so this file does not later claim it.
+
+### 5. Closure test — unchanged in substance, one precondition added
+
+Conditions 1–3 stand (see the 2026-08-25 morning section, plus the two-gate correction). **New
+precondition, ahead of all of them:** the build must carry an `entity-directory` or `entity-page`
+page. Without one, no amount of stamped, untouched, correctly-routed rows can close this bug.
