@@ -999,3 +999,32 @@ repair row only); and on failed builds, `context.warnings` on the existing
 `CONTENT_VALIDATION_BLOCKER_DETAIL` rows. A week of silence across real builds would be
 the disconfirming shape worth investigating (builds with `warnings>0` in pod logs but no
 row); silence alone is not.
+
+---
+
+## CONTRIBUTION 2026-08-25 (bugs_open/358 lane) — the OWNER has COMMISSIONED the longitudinal reader for the link-repair finding codes; this bug is where it belongs
+
+Not competing with this lane — `scripts/who-owns.py 071` names an active owner, so this is filed
+INTO the bug rather than as a new one. Context: `bugs_open/358` put every `agent_error_log` finding
+code under a declared disposition, and on 2026-08-25 the owner ruled on the backlog. Two of the
+codes are this bug's territory, and his ruling (decision 4, 2026-08-25) **commissions an automated
+reader for them**:
+
+- `CONTENT_LINK_REPAIR_DETAIL` — `[MEASURED 2026-08-22]` 405 rows/30d; records WHICH of three
+  origins repaired a link on a build that succeeded. Its writer's stated purpose
+  (`validate_page_content.go:667-670`): *"a row that cannot say which path acted cannot be used to
+  spot the path that stopped acting."*
+- `CONTENT_DATA_LINK_AUDIT` — `[MEASURED 2026-08-25]` 49 rows/30d; the same design on the
+  content-data path (`save_sections_content_data_links.go`).
+
+**The commissioned shape**: count repairs by origin over time; **an origin dropping to zero is the
+`bugs_open/097` drift these codes exist to catch**, and today nothing would notice it. Both codes
+are declared `human-evidence` in `finding_code_registry.json` (the honest state — no automated
+reader anywhere, measured); whoever ships the reader flips them to `consumed` with
+`reader`/`reader_sink` in the same commit, and the daily `finding-code-registry-check` verifies
+both fields (register `DBG-075`).
+
+Practical notes from the 358 lane: the rows live 365 days (migration `567`), but a consumer that
+marks rows `resolved` drops them to 14 — extract counts first. And the estate's proven
+reader-with-writer exemplar is `cmd/content-loss-check` (`bugs_open/355` A2/A3) — same table, same
+dispositions, worked disposition arms to copy.
