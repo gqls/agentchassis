@@ -753,6 +753,35 @@ func parseAuditFindings(findingsRaw interface{}, logger *zap.Logger) (findings [
 // Main action
 // ============================================================================
 
+// pendingCopyEditForPage reports whether the page already carries an open
+// copy-edit item or an un-reviewed stage-2 proposal. It is the tone route's
+// convergence bound (copy_quality_two_stage handoff 2026-08-25, item 3):
+// stage 2 keeps proposing on repeated runs over the same page — run 5
+// re-edited 2 of the 3 components run 4 had just changed (deeper cuts, not
+// oscillation, but unbounded) — and idx_swi_dedup only bounds CONCURRENT
+// needs_copy_edit rows: the slot frees when the run completes, while the
+// un-reviewed proposal it parked is a different item_type holding nothing.
+// The dedup key also embeds audit_source, so two auditors could otherwise
+// file the same page in parallel.
+//
+// So the bound is structural, not a clock: while a page has EITHER an open
+// needs_copy_edit (any producer) OR an un-reviewed copy_edit_proposed, no
+// new one is filed. It drains when a human acts on the parked proposal —
+// which is owner decision D2's posture exactly: the human is the rate
+// limiter, so the queue can never outrun the person reviewing it.
+func pendingCopyEditForPage(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageID uuid.UUID) (bool, error) {
+	var pending bool
+	err := db.QueryRowContext(ctx, fmt.Sprintf(`
+		SELECT EXISTS(
+			SELECT 1 FROM site_work_items
+			WHERE site_id = $1 AND page_id = $2
+			  AND item_type IN ('needs_copy_edit', 'copy_edit_proposed')
+			  AND status NOT IN (%s)
+		)
+	`, sqlInList(workItemTerminalStatuses)), siteID, pageID).Scan(&pending)
+	return pending, err
+}
+
 func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(zap.String("action", "write_audit_findings"))
 
@@ -908,6 +937,7 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 	created := 0
 	skipped := 0
 	skippedBlocked := 0
+	skippedPendingProposal := 0
 	parkedOwned := 0
 	classificationStats := make(map[string]int)
 
@@ -953,6 +983,24 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		if isBlocked {
 			skippedBlocked++
 			continue
+		}
+
+		// One un-reviewed proposal per page: the tone route's convergence bound
+		// (see pendingCopyEditForPage). Fails OPEN on a query error, like the
+		// neighbouring checks — a missed bound costs one extra parked proposal
+		// (tone runs at roughly one a week); failing closed would silently mute
+		// the route, which is the armed-but-inert shape.
+		if classified.ItemType == "needs_copy_edit" && classified.PageID != nil {
+			pending, pErr := pendingCopyEditForPage(ctx, params.DB, siteID, *classified.PageID)
+			if pErr != nil {
+				logger.Warn("pending copy-edit bound check failed; filing anyway",
+					zap.Error(pErr))
+			} else if pending {
+				skippedPendingProposal++
+				logger.Info("needs_copy_edit withheld: the page already has an open copy-edit item or un-reviewed proposal",
+					zap.String("page", classified.PageName))
+				continue
+			}
 		}
 
 		// Dedup check. 'deferred' is an OPEN status — idx_swi_dedup's exclusion
@@ -1067,6 +1115,7 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		zap.Int("created", created),
 		zap.Int("skipped_duplicates", skipped),
 		zap.Int("skipped_blocked", skippedBlocked),
+		zap.Int("skipped_pending_proposal", skippedPendingProposal),
 		zap.Int("parked_owned_page", parkedOwned),
 		zap.Int("total_findings", len(findings)),
 		zap.Any("classification_stats", classificationStats))
@@ -1084,6 +1133,11 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		// Parked-not-routed is a different outcome from created-and-dispatchable;
 		// present only when non-zero so the common case stays byte-identical.
 		out["items_parked_owned_page"] = parkedOwned
+	}
+	if skippedPendingProposal > 0 {
+		// Withheld behind a pending proposal is a different outcome from a dedup
+		// skip; present only when non-zero so the common case stays byte-identical.
+		out["items_skipped_pending_proposal"] = skippedPendingProposal
 	}
 	if len(unroutedCategories) > 0 {
 		// The categories this router had no rule for — filed as capability_gap

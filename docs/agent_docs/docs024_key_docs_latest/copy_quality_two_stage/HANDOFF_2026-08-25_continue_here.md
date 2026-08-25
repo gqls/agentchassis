@@ -107,10 +107,16 @@ inside the per-field loop, lines 412–416 under the loop at 369).
    a `needs_copy_edit` row at `copy-editor`, then a run that reaches `run_copy_edit` via the
    **dispatched** branch (`load_work_item`, not `echo_page_ref`).
    `SELECT collected_data->'page_ref'->>'page_id' FROM orchestration_states WHERE correlation_id='…'`.
-3. ⚠ **Convergence on a diffuse page is UNTESTED.** Run 5 chose 2 of 3 components run 4 had just
-   edited. Checked: **not oscillation** — it cut further on restatement that survived and found a new
-   fault class. But repeated runs keep proposing, so **unbounded auto-dispatch there is untested**.
-   Bound it (one run per page per period) before anyone widens the route.
+3. ✅ **BOUNDED 2026-08-25 (review-pass session).** ~~Convergence on a diffuse page is UNTESTED…
+   Bound it (one run per page per period) before anyone widens the route.~~ Built as a **structural**
+   bound rather than the sketched clock (a period leaves N un-reviewed proposals representable;
+   pending-review does not): `pendingCopyEditForPage` in `write_audit_findings_action.go` withholds a
+   new `needs_copy_edit` while the page has an open one (any producer) or an un-reviewed
+   `copy_edit_proposed`, and reports `items_skipped_pending_proposal`. Drains when the human acts —
+   D2's rate limiter. Council `Council-Submitted: 754dcffd-34be-4af6-9898-a6f7374941e0`; wiring
+   mutation-proven; **Go, so inert until the next chassis roll** — verify at the binary then.
+   Convergence itself (does repeated proposing ever go quiet?) remains unmeasured; the bound makes it
+   safe to find out slowly.
 4. **The narrow sibling** — three lanes have asked (`277`, `301`/`083`, `323`; 999 + 160 + 98 items as
    of 2026-08-20, live **and** archive). Specced in
    `DESIGN_2026-08-20_the_narrow_sibling_one_component_one_defect.md`. Not this lane's to build.

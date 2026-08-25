@@ -2508,3 +2508,40 @@ has moved, so applying edits 1–2 now would WRITE stale numbers — the facts a
 its job. **Recommendation recorded in the handoff: approve edit 3 at most; edits 1–2 need
 re-proposing against the current page.** Also noted while grading: `required_links` is EMPTY
 for ai-agent-orchestration.com/index, so the declared-set check correctly stays silent there.
+
+---
+
+## 2026-08-25 (evening) — item 3's bound is built: one un-reviewed proposal per page, structural not clocked
+
+**Why the dedup index could not do this** (the finding that shaped the design): `idx_swi_dedup` is
+`(site_id, item_key)` over OPEN statuses only — the `needs_copy_edit` slot frees when the copy-editor
+run COMPLETES, while the un-reviewed proposal it parked is a different `item_type` holding no slot;
+and the dedup key embeds `audit_source`, so two auditors can file one page in parallel. So the index
+bounds CONCURRENCY, not repetition — nothing stops proposal-per-run accumulation on one page.
+
+**The deviation from the handoff's sketch, and why:** item 3 said "one run per page per period". A
+clock bound leaves the bad state representable (N periods → N un-reviewed proposals). Built instead:
+`pendingCopyEditForPage` (`write_audit_findings_action.go`) — withhold a new `needs_copy_edit` while
+the page has an open one (any producer) OR an un-reviewed `copy_edit_proposed`. Drains when a human
+acts on the parked proposal, which is D2's posture: the human is the rate limiter. This also means a
+hand-fired run's parked proposal holds the slot — deliberate, and the reported
+`items_skipped_pending_proposal` count is the visibility if a forgotten proposal mutes a page.
+
+**Fail-open on query error**, like the neighbouring producer-scoped blocked check: a missed bound
+costs one extra proposal at ~1/week; fail-closed silently mutes the route (armed-but-inert).
+
+**Proofs run `[MEASURED 2026-08-25]`:**
+- `TestToneBound_WithholdsWhileAProposalIsPending` drives the WHOLE action (a helper-level test alone
+  passes when the call site is deleted — the mock-bookkeeping negative). Receipt asserted:
+  `items_created 0`, `items_skipped_pending_proposal 1`.
+- **Mutation:** call-site condition disabled → test fails on the receipt AND unmet expectations;
+  restored → green. Full `actions` package green (5.0s).
+- `TestPendingCopyEditBound_QueryShapeAndBothArms` pins the SQL to
+  `regexp.QuoteMeta(sqlInList(workItemTerminalStatuses))` — the idx_swi_dedup↔Go-list lockstep, so a
+  hand-rolled status list breaks the day the canonical list moves.
+
+**Council:** submitted `754dcffd-34be-4af6-9898-a6f7374941e0` (DRY_RUN admission passed first);
+committed with `Council-Submitted:` per the runbook. Register CQ-030's verify-later updated in the
+same commit. ⚠ **Go, so inert until the next chassis roll after `v1.0.1337`** — the post-roll probe
+literal for THIS change is `items_skipped_pending_proposal` (added; `needs_copy_edit` remains the
+present-control).
