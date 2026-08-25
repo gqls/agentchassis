@@ -474,3 +474,50 @@ All three affected lanes were notified with the commit id their entries landed i
 `WRONG_CALLS` commit (`483b37f6d`) carried two further complete passengers and was declared as a
 `sweep:` naming their lanes, per CLAUDE.md — which is the sanctioned form and strictly better than
 leaving three finished entries for a less careful commit to take silently.
+
+### Misstep 9 — my registration sequence would have broken the build, and a peer lane caught it
+
+The `bugs_open/395` lane messaged: it needs the *same* migration (`content_rewrite` on the
+`claimed-item-timeout` clause) and warned that adding a type to `ClaimedItemTimeoutExclusions` before
+anything can grade it trips the lockstep's REVERSE arm.
+
+**They were right, and it was wrong in three of my documents at once** — the verifier's own header
+(which I had been calling "the runbook"), the handoff's step table, and a LANDMINE. All three said
+the exclusions entry **must come first**. Verified rather than accepted: `required_fields_missing` is
+in **none** of the three rosters (`RegisterVerifier` — no, and my first grep said 1 because it
+matched **my own commented-out line**, the source-scan trap; `noChangeGates` — no;
+`acceptancePredicateGates` — no). So the entry alone → `excluded` true, `gated` absent → the reverse
+arm fires. Corrected at `9e53bb02c`.
+
+**The correct order, and each half is placed for a different reason:** apply the **migration** first,
+because it concerns the LIVE object and is what stops the sweep completing past the verifier — its
+window (live clause holds a type the Go slice does not) merely makes `--live-declaration-drift` noisy
+while the sweep skips the type. Then land the exclusions entry **and** the `RegisterVerifier` call in
+**one commit**, because either alone breaks the build in opposite directions. The reverse window is
+the one with the actual hole in it, so the noise goes on the safe side.
+
+⚠ **Why mine went stale, and it is not carelessness:** `395`'s gate 1c added the **third** roster
+(`acceptancePredicateGates`) at `69479bcf6`, **13:41 the same day** — hours after I wrote the
+sequence. My text was correct against a two-roster contract and wrong against a three-roster one.
+**Nothing I could have re-checked on my own side would have caught it**, because the thing that
+changed was somebody else's file changing the meaning of mine. That is a different failure from the
+stale-status class: not a claim that decayed, but a contract that moved underneath a correct claim.
+The only defence is the one that worked here — a peer reading it against their own use.
+
+### The composition constraint I had not thought about
+
+`livespec.Declarations` pins the live `pre_query` to `ClaimedItemTimeoutExclusionClause()`'s rendering
+of the Go slice with a **FragmentMatch Min:1/Max:1**. So two migrations written against today's
+14-type clause **do not compose** — whichever applies second must render the **MERGED** slice, or the
+drift auditor fires on a correct-looking change. I would have shipped a migration that made `395`'s
+correct amendment fail. Now recorded in all three documents.
+
+**Ownership settled:** this lane writes the migration (my blocker is four build guards I can clear;
+theirs is a live negative control they cannot manufacture honestly, and inventing one would be the
+false-green this whole class is about). `395` anchors its `content_rewrite` amendment on our tail
+afterwards. House pattern: **482** — read-before-write anchor, targeted `replace()`, `DO`/`RAISE`
+verify, because a bare `SELECT` cannot stop a `COMMIT`.
+
+**Not written today, deliberately:** step (b) needs `livespec.go`, still dirty with `363`'s rename,
+and step (a) opens a drift window that should not sit open overnight. Better to write and apply both
+close together than leave the estate half-changed.
