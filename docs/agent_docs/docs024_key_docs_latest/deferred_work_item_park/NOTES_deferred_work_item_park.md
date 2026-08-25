@@ -198,3 +198,42 @@ migration 389's 87 included — consistent, since a migration would not set it.)
 ⚠ It still does **not** distinguish born-deferred from moved-to-deferred — `triaged_at` is NULL in
 both cases. That question may simply be unanswerable from this table, and the bug file must say so
 rather than choosing the comfortable answer.
+
+### Two more candidates raised and killed, and one real correlation left standing
+
+**Candidate: migration `217_site_work_items_handler_agent_not_null.sql` backfilled handler names
+onto correctly-parked rows.** This would have dissolved the whole finding — the 118 would be
+honest roadmap rows whose empty handler was later filled in, and the "wrong shape" would be an
+artefact of the migration rather than a defect. **REFUTED by reading it**: 217 backfills
+`handler_agent = ''` **WHERE handler_agent IS NULL** — it collapses NULL onto empty, the opposite
+direction, and then sets `DEFAULT ''` + `NOT NULL`. It cannot put a name on anything.
+
+**Candidate: a later router stamps `handler_agent` onto rows born deferred-and-empty.** No such
+writer exists — nothing in `platform/`, `internal/`, `pkg/` or `cmd/` does `UPDATE … SET
+handler_agent = <a name>`. The only occurrences are `claim_work_item_action.go:173` (setting an
+`error` when a handler is *missing*) and test fixtures.
+
+**The correlation that IS real, and is the best lead left.** `agent_error_log` retains to
+2026-07-24, so it covers every bulk-park minute. At **08-04 22:03–22:04**, the minute idea.uk's 14
+rows were parked, idea.uk's `completeness-discovery-agent`, `design-discovery-agent` and
+`quality-discovery-agent` all logged `complete` — **a full discovery run finishing on that exact
+site at that exact minute**, and every one of those parked rows carries `source='discovery'`.
+
+⚠ **[UNMEASURED] and I am deliberately not concluding from it.** A discovery run completing at the
+same minute is consistent with the discovery write path parking them — and equally consistent with
+discovery merely *touching* them (bumping `updated_at`) while they were already parked, which is
+misstep 1's trap wearing a new hat. **The same ambiguity, one layer along: I still cannot tell a
+park from a touch, and a co-occurring actor is not a writing actor.** Two of my four hypotheses
+today have died on exactly this distinction; the third would too if I let it.
+
+What is now excluded, so the loop's answer can be checked against it:
+
+| candidate | verdict | on what evidence |
+|---|---|---|
+| `FailWorkItemAction` + `status_override` | **OUT** | stamps `handled_by`; 0 of 118 carry it; all 4 live values are `needs_human_review` |
+| migration 217 backfill | **OUT** | backfills to `''`, not to a name |
+| a later `handler_agent` router | **OUT** | no such writer exists in the repo |
+| `refreshOpenWorkItem` | **OUT** | description only; and none of these item types uses `refreshOnConflict` |
+| dispatched-then-parked-on-failure | **OUT** | 117 of 118 never triaged, claimed or attempted; 0 carry `error` |
+| a discovery-run side effect | **OPEN — best lead** | timing correlation only |
+| a hand-run `psql` UPDATE | **OPEN — untested** | no evidence beyond absence of alternatives, which is not evidence |
