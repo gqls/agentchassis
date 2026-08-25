@@ -1444,3 +1444,49 @@ strength of it.
 a job closing while its own test fails is a separate change at the closing step, and it changes
 behaviour for handlers other lanes own, so it deserves its own review rather than riding in on this
 one. I have named it, in the place the next person will look.
+
+---
+
+## 2026-08-25 — it is switched on, and the first thing it did was catch us
+
+Your rebuild carried the code, so I switched it on. Probed both copies of the service first, with a
+control that was capable of coming back negative, then applied the database change by hand and read
+it back independently.
+
+**Then I fired one run at webdesign.co.uk to see whether the analyser would actually use it.** It did,
+without being told to — the option is described in the instructions but deliberately left out of the
+required output, so it had to reach for it. Four findings, three carrying a checkable condition, one
+left bare. All three conditions correctly say "this page fails right now". The bare one is the right
+answer for a finding that turns on judgement, and I am glad it happened on the first run rather than
+being something I had to argue for.
+
+**And then the first run caught us.** One of those findings — the front page description — was picked
+up, the page was rebuilt, deployed, and the job closed as **done**. The condition stored on that job
+still says the page fails. I checked it with the platform's own checker rather than by eye, and the
+page has since been rebuilt a second time and still reads *"Sixty-three browser tools…"*, with the
+count first, which is exactly what the job said had to change.
+
+So the thing I described yesterday as a suspicion is now a measurement with a machine behind it. I
+have written it up as a bug in its own right — `bugs_open/395` — because it is not really about our
+lane: **"done" means the handler finished its job, and nothing anywhere reads the criterion the job
+was created with.** The handler did rebuild the page; it just did not do the thing that was asked. No
+part of the platform is in a position to notice the difference.
+
+**One mistake of mine, and it is worth you knowing.** Before firing that run I checked that the
+automatic sweep was switched off and concluded a single run could not change any live page. It did:
+another loop, which is always on, picked the findings up thirty-one seconds later and rebuilt the
+page. The outcome was harmless — our own site, our own findings, the pipeline working as designed —
+but the reasoning was wrong in a way that would not have been harmless on the leopardess site, whose
+lane is holding five of our findings and waiting for a decision from you. I checked whether the one
+mechanism I had thought of was off, and reported that as "nothing will happen". The correct check is
+the opposite question — *what is switched on?* — and it is one query.
+
+**Where that leaves us.** The producer half is live and behaving. The half that would actually stop a
+job closing while its own test fails is not built, and it changes behaviour for handlers other lanes
+own, so it wants its own review rather than being slipped in. That is written up as the next job, with
+one caveat I want to flag: every condition we have so far says "fails". Until one of them says "passes"
+after a real repair, a gate built on this cannot be told apart from a gate that refuses everything.
+That control has to be manufactured deliberately.
+
+Everything is committed, and the next session starts from
+`docs/agent_docs/docs024_key_docs_latest/vigilant_designer_offer_analysis/HANDOFF_2026-08-25_continue_here.md`.
