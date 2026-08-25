@@ -478,3 +478,13 @@ link-less-owned-pages measurement relayed to the `bugs_open/277` session as dema
 > outlives its openness). The cheap check I skipped: `ls bugs_closed/ | grep ^277`. Register relation corrected;
 > the demand evidence now lives IN WII-028 as a dated block (the roadmap line is the standing home, since the
 > repair question has no open bug). 392 told, so they don't inherit the stale pointer from my earlier message.
+
+**Same exchange, round 4 (2026-08-25 ~14:2xZ):** the 392 lane reported the named-handler deferred
+population had grown 11→52. **Refuted before relay** — their re-run had lost the
+`COALESCE(handler_agent,'')<>''` filter, so the door's own parked rows (rfmh 28 + tool-generator 13,
+handler CLEARED, marker set, surfaced by `created_by`) re-entered the count: the very conflation their
+point 1 warned 396 about. Named-handler population still exactly 11; nothing relayed to 396. The
+transferable rule sent back: a population defined by an ABSENCE cannot be censused by `created_by`
+alone, and "the same query" means the same TEXT, re-pasted — not re-derived from memory. Note for this
+lane's own post-roll read: the door's parked population had grown 40→41 `content_rewrite` (tool-generator
+13, last 13:32Z) — growth is the crosslink picker working as the staged lane predicted.
