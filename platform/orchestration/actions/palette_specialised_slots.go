@@ -540,6 +540,51 @@ func pickInkOn(bgHex string, palette map[string]string) (hex, source string) {
 // grounds at once. TestLegibleInkFor_PrefersATintOfTheSourceOverSubstitution
 // goes RED if the lightness step is removed or reordered after the walk.
 //
+// solidCTAFill reduces the `cta_bg` palette slot to a single hex colour that
+// legibleInkFor can work from, or "" when it cannot be reduced.
+//
+// `cta_bg` is the ONE slot whose contract admits a gradient as well as a
+// colour, so every consumer that needs a `<color>` has to come through here.
+// A caller that reads palette["cta_bg"] directly is the defect (bugs_open/398).
+func solidCTAFill(palette map[string]string) string {
+	v := strings.TrimSpace(lookupOrFallback(palette, "cta_bg", ""))
+	if strings.HasPrefix(v, "#") {
+		return v
+	}
+	return firstGradientStop(v)
+}
+
+// firstGradientStop returns the first hex colour stop of a CSS gradient value,
+// or "" if there is no `#` stop to find (an rgb()/hsl()/named-colour stop, or
+// not a gradient at all).
+//
+// Deliberately narrow: it recognises a stop only in the `#rgb`/`#rrggbb` form
+// the fleet's themes actually use `[MEASURED 2026-08-25: all 10 gradient cta_bg
+// values are hex-stop linear-gradients]`. Returning "" for anything else is the
+// safe direction — the caller then emits no companion, every consumer falls
+// through its own var() fallback, and behaviour is exactly what it is today.
+// Widening this to parse rgb()/hsl() is a change that must bring its own
+// contrast measurement with it, not a tidy-up.
+func firstGradientStop(v string) string {
+	i := strings.Index(v, "#")
+	if i < 0 {
+		return ""
+	}
+	j := i + 1
+	for j < len(v) && isHexDigit(v[j]) {
+		j++
+	}
+	switch j - i {
+	case 4, 7: // #rgb, #rrggbb
+		return v[i:j]
+	}
+	return ""
+}
+
+func isHexDigit(c byte) bool {
+	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+}
+
 // WHY grounds IS A SLICE AND NOT A COLOUR. A component may place one ink on
 // the page and on a card. dartsonline.com does exactly that with
 // --color-primary: the eyebrow lands on `background` (1.04:1) and the card
@@ -727,6 +772,43 @@ func buildLegibleInkDefaults(css string, palette map[string]string, policy inkPo
 		{"--color-primary-ink", palette["primary"], pageGrounds},
 		{"--color-accent-ink", palette["accent"], pageGrounds},
 		{"--color-accent-text", palette["text"], []string{palette["accent"]}},
+	}
+
+	// --color-cta-bg-ink: the CTA band's own colour, made legible as an INK on
+	// the INVERTED button that sits inside the band (`background: cta_text`).
+	// Same construction as --color-accent-text directly above — an ink for text
+	// on a filled control — mirrored, because here it is the FILL colour that
+	// has to be re-tinted rather than the text colour.
+	//
+	// ⚠ WHY THIS SLOT NEEDS ITS OWN ENTRY AT ALL, when a component could just
+	// write `color: var(--color-cta-bg)`: because `cta_bg` is the one palette
+	// slot that may legitimately hold a GRADIENT rather than a colour
+	// (derive_brand_head_assets_action.go:275 documents that shape as expected,
+	// and 10 of the fleet's themes hold one `[MEASURED 2026-08-25]`). A gradient
+	// substituted into a `<color>` position makes the whole declaration invalid
+	// at computed-value time, so `color:` falls back to INHERITED — which inside
+	// a CTA band is the band's own white. Measured result on the live estate:
+	// white-on-white CTA buttons at 1.00:1 on finetuning.uk and robot-hands.com
+	// (bugs_open/398). Nothing warns; the page simply loses the label.
+	//
+	// The first gradient stop is NOT a usable ink on its own — it is a FILL
+	// colour, and on 6 of those 10 themes it scores under 4.5 against the
+	// button's white face (#3b82f6 → 3.68, #059669 → 3.82, #8b5cf6 → 4.28)
+	// `[MEASURED 2026-08-25]`. That is precisely the fill-versus-ink distinction
+	// this whole builder exists for, so the stop is only the SOURCE and
+	// legibleInkFor still has to re-tint it.
+	//
+	// Ground is cta_text and nothing else: this ink lands on the inverted
+	// button, never on the page. Emitted only when cta_text is known — with no
+	// measurable ground legibleInkFor's terminal branch would hand back white,
+	// which is the very defect being repaired.
+	if ctaText := lookupOrFallback(palette, "cta_text", ""); ctaText != "" {
+		if ctaFill := solidCTAFill(palette); ctaFill != "" {
+			wanted = append(wanted, struct {
+				name, src string
+				grounds   []string
+			}{"--color-cta-bg-ink", ctaFill, []string{ctaText}})
+		}
 	}
 
 	var b strings.Builder

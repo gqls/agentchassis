@@ -535,3 +535,168 @@ func TestLegibleInkFor_UnmeasurableGroundsAreNotAPass(t *testing.T) {
 		t.Errorf("returned %s as unchanged after measuring zero grounds", hex)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// --color-cta-bg-ink — the CTA band's own colour, re-tinted until it is legible
+// as an INK on the inverted button that sits inside the band. bugs_open/398.
+//
+// Both palettes below are live fleet values as served 2026-08-25, not synthetic
+// cases, and they were chosen because they DISAGREE: finetuning's #1e40af
+// already clears the target on white and must survive untouched, while the
+// default/robot-hands #3b82f6 does not and must be re-tinted. A test suite that
+// only carried one of them would pass against an implementation that always
+// substituted, or one that never did.
+// ---------------------------------------------------------------------------
+
+// finetuningGradientPalette is finetuning.uk's live palette. cta_bg is a
+// GRADIENT, which is what produced the bug: substituted into `color:` it is
+// invalid at computed-value time, so the button label inherited the band's own
+// white — measured at 1.00:1 by scripts/render_audit.py on the served page.
+func finetuningGradientPalette() map[string]string {
+	return map[string]string{
+		"primary": "#1A1A2E", "primary_text": "#ffffff",
+		"background": "#F5F3EF", "surface": "#FFFFFF",
+		"text": "#1A1A2E", "text_muted": "#6B6860", "accent": "#C8873A",
+		"cta_bg":   "linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)",
+		"cta_text": "#ffffff",
+	}
+}
+
+// emittedToken pulls one companion's value out of the rendered block. Returns
+// "" when the token was not emitted at all, which every caller distinguishes
+// from an emitted empty value.
+func emittedToken(css, name string) string {
+	for _, line := range strings.Split(css, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, name+":") {
+			continue
+		}
+		return strings.TrimSuffix(strings.TrimSpace(strings.SplitN(line, ":", 2)[1]), ";")
+	}
+	return ""
+}
+
+func TestBuildLegibleInkDefaults_EmitsACTAInkForAGradientCTABg(t *testing.T) {
+	css := buildLegibleInkDefaults("", finetuningGradientPalette(), defaultInkPolicy(), zap.NewNop())
+	got := emittedToken(css, "--color-cta-bg-ink")
+	if got == "" {
+		t.Fatalf("no --color-cta-bg-ink emitted for a gradient cta_bg; this is the "+
+			"whole point of the slot — without it a component has no colour-typed "+
+			"token to reach for and writes `color: var(--color-cta-bg)`, which is "+
+			"invalid at computed-value time. Emitted:\n%s", css)
+	}
+	if !strings.HasPrefix(got, "#") {
+		t.Errorf("--color-cta-bg-ink = %q, want a literal hex — a gradient here just "+
+			"moves the original defect behind a new name", got)
+	}
+}
+
+// THE LOAD-BEARING ASSERTION. The first gradient stop is a FILL colour, and
+// using it directly as an ink is the obvious wrong fix: it looks right on
+// finetuning (#1e40af scores 8.8:1 on white) and silently fails on the five
+// other fleet themes whose stop does not clear AA. Replace the legibleInkFor
+// call with the raw stop and this goes RED while every other test here stays
+// green.
+func TestBuildLegibleInkDefaults_CTAInkRetintsAnIllegibleFirstStop(t *testing.T) {
+	p := finetuningGradientPalette()
+	// default / theme-robot-hands-com / theme-loanandmortgagecalculator-co-uk.
+	p["cta_bg"] = "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)"
+	css := buildLegibleInkDefaults("", p, defaultInkPolicy(), zap.NewNop())
+	got := emittedToken(css, "--color-cta-bg-ink")
+	if got == "" {
+		t.Fatal("nothing emitted for the #3b82f6 gradient")
+	}
+	if strings.EqualFold(got, "#3b82f6") {
+		t.Fatalf("--color-cta-bg-ink = %s, the raw first stop, which scores 3.68:1 "+
+			"against the button's white face — below the 4.5 AA floor. The stop is "+
+			"the SOURCE for the derivation, never the answer", got)
+	}
+	ratio, err := wcagContrastRatio(got, p["cta_text"])
+	if err != nil {
+		t.Fatalf("emitted %q is not measurable against cta_text: %v", got, err)
+	}
+	if ratio < inkFloorContrast {
+		t.Errorf("--color-cta-bg-ink %s scores %.2f on the button face %s, want >= %.1f",
+			got, ratio, p["cta_text"], inkFloorContrast)
+	}
+}
+
+// The other half of the pair: a stop that ALREADY clears the target must be
+// left alone. Together with the test above this pins the derivation as a real
+// measurement rather than an unconditional substitution — an implementation
+// that always re-tints fails here, one that never re-tints fails above.
+func TestBuildLegibleInkDefaults_CTAInkKeepsALegibleFirstStop(t *testing.T) {
+	p := finetuningGradientPalette()
+	css := buildLegibleInkDefaults("", p, defaultInkPolicy(), zap.NewNop())
+	got := emittedToken(css, "--color-cta-bg-ink")
+	if !strings.EqualFold(got, "#1e40af") {
+		t.Errorf("--color-cta-bg-ink = %q, want the untouched first stop #1e40af — it "+
+			"already scores 8.8:1 on white, and substituting a brand colour that "+
+			"needs no help is the de-branding this builder exists to avoid", got)
+	}
+}
+
+// THE VACUOUS-WHITE TRAP. legibleInkFor's terminal branch compares
+// worstRatioAgainst("#ffffff") with worstRatioAgainst("#000000"); with no
+// measurable ground both return 0, `0 >= 0` holds, and it hands back WHITE —
+// which on a white button face is the exact 1.00:1 defect being repaired.
+// Remove the cta_text guard in buildLegibleInkDefaults and this goes RED.
+func TestBuildLegibleInkDefaults_NoCTAInkWithoutAGround(t *testing.T) {
+	p := finetuningGradientPalette()
+	delete(p, "cta_text")
+	css := buildLegibleInkDefaults("", p, defaultInkPolicy(), zap.NewNop())
+	if got := emittedToken(css, "--color-cta-bg-ink"); got != "" {
+		t.Errorf("emitted --color-cta-bg-ink = %s with no cta_text to measure against; "+
+			"an ink derived from nothing is worse than an absent one, because the "+
+			"consumer's var() fallback is today's working colour", got)
+	}
+	// The unrelated companions must still be emitted — the guard is meant to
+	// skip ONE slot, not to silence the builder.
+	if emittedToken(css, "--color-primary-ink") == "" {
+		t.Error("the missing cta_text suppressed --color-primary-ink too; the guard is scoped wrong")
+	}
+}
+
+// A stylesheet that already has an opinion keeps it — same contract as every
+// other companion, and the reason it is asserted separately is that the cta
+// entry is appended AFTER the wanted slice is built and could easily miss the
+// shared skip.
+func TestBuildLegibleInkDefaults_CTAInkRespectsAnExistingDefinition(t *testing.T) {
+	pre := ":root{--color-cta-bg-ink: #123456;}"
+	css := buildLegibleInkDefaults(pre, finetuningGradientPalette(), defaultInkPolicy(), zap.NewNop())
+	if got := emittedToken(css, "--color-cta-bg-ink"); got != "" {
+		t.Errorf("re-emitted --color-cta-bg-ink = %s over a stylesheet that already defines it", got)
+	}
+}
+
+func TestFirstGradientStop(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)", "#1e40af"},
+		{"linear-gradient(135deg, #059669 0%, #10b981 100%)", "#059669"},
+		{"linear-gradient(to right, #abc 0%, #def 100%)", "#abc"},
+		// Not hex stops: the narrow reading returns "" so the caller emits
+		// nothing and behaviour is exactly what it is today.
+		{"linear-gradient(135deg, rgb(30,64,175) 0%, rgb(30,58,138) 100%)", ""},
+		{"linear-gradient(135deg, rebeccapurple 0%, black 100%)", ""},
+		{"#1e40af", "#1e40af"},
+		{"", ""},
+		// A malformed stop length must not be salvaged into a wrong colour.
+		{"linear-gradient(135deg, #12345 0%, #fff 100%)", ""},
+	} {
+		if got := firstGradientStop(tc.in); got != tc.want {
+			t.Errorf("firstGradientStop(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestSolidCTAFill(t *testing.T) {
+	if got := solidCTAFill(map[string]string{"cta_bg": "#c2410c"}); got != "#c2410c" {
+		t.Errorf("a plain hex cta_bg must pass straight through, got %q", got)
+	}
+	if got := solidCTAFill(finetuningGradientPalette()); got != "#1e40af" {
+		t.Errorf("a gradient cta_bg must reduce to its first stop, got %q", got)
+	}
+	if got := solidCTAFill(map[string]string{}); got != "" {
+		t.Errorf("an absent cta_bg must reduce to the empty string, got %q", got)
+	}
+}
