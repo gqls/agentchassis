@@ -1,3 +1,5 @@
+> # ⚠ SUPERSEDED 2026-08-25 — read `HANDOFF_2026-08-25_continue_here.md`. This file's state lines are stale (register verdict + escalation landed after it; its nav verification query was corrected in place); kept for the build/377/nav detail.
+
 # HANDOFF 2026-08-24b — the £99 offer page is LIVE and verified; copy-editor run 6 + nav rebuild in flight; owner calls are now the frontier (Stripe deliberately LAST)
 
 **COLD-START for the merged finetuning.uk lane.** Supersedes `HANDOFF_2026-08-24_continue_here.md`
