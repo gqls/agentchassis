@@ -496,3 +496,33 @@ Cloudflare disguises addresses at the edge. The 30-day figure is also now a
 registered fact in the site's evidence base, so the machinery that polices
 claims knows where that number comes from. The paid-storage copy is written,
 approved and waiting in the plan for the day there's a way to pay.
+
+---
+
+2026-08-25, late night. Picked up the one piece of homework we owed ourselves
+from tonight's handoff. Back on the 18th, when we gave you the ability to point
+the site's header button wherever you like, the reviewers accepted it but one
+of them made a fair point: if you ever set that button to a page that doesn't
+exist, the system quietly falls back to its own choice and the only trace is a
+line in a server log nobody reads. Your instruction would be ignored and
+nothing would ever tell you.
+
+That's fixed now. If your choice is ever refused, the system files a note in
+the review queue addressed to a human, saying what you asked for, what it
+served instead, and the three ways to resolve it. The note always describes
+the CURRENT situation — if you change the button again and that's refused too,
+the note updates rather than going stale. The site itself never breaks over
+this; the button keeps working on the fallback in the meantime.
+
+The change went through the review council and was approved first time. The
+reviewers suggested two genuine improvements — one we adopted (a future-
+proofing detail in how the notes are filed), one we answered with a check
+(we confirmed this was the only place where an instruction of yours could be
+silently ignored this way). Nothing here is live on the site yet; it rides
+the next routine platform release.
+
+Small bonus while a review was running: your open question about whether mail
+to noted@contactforsales.com reaches anyone. The domain does have a working
+mail service behind it, so mail won't just bounce off a dead domain — but
+whether that particular address lands in a mailbox someone reads, only your
+one test email can prove. That question is still yours.
