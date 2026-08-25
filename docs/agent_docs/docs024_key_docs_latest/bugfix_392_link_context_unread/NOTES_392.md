@@ -141,3 +141,49 @@ page is wrong, which is why acceptance is measured at the served page.
 - Both of these were caught inside an hour by a peer lane rather than by me, and both were in
   material I had already committed. That is two of my last three errors found by someone else's
   correction rather than by my own check.
+
+## 2026-08-25 (fourth pass) — the 52 was mine, not the world's, and the cross-lane thread closes
+
+- **MISSTEP (mine, the fourth today, and the third made while correcting someone else): my
+  "52, not 11" was a conflation, and the truth is still exactly 11.** `handler_agent` is
+  `NOT NULL DEFAULT ''::text` — a cleared handler is the EMPTY STRING — so my
+  `handler_agent IS NOT NULL` filter swept the owned-page door's own parked rows into a count of
+  named-handler rows. Split with the discriminator printed rather than filtered:
+  `required-fields-missing-handler` 28 and `tool-generator` 13 are door-parked (handler `''`,
+  `error` leading `OWNED_PAGE_GUARD`); `voiceh-rollout` 9 and `apis-uk-bees-lane` 2 are genuinely
+  named. `bugs_open/396`'s 114 is not drifting, and the warning I asked the 333 lane to relay was
+  itself the error.
+- **⚠ I had the fact in my own output and overwrote it.** I ran
+  `coalesce(handler_agent,'(cleared)')` on those rows and it printed *blank* rather than
+  `(cleared)` — only possible for `''`. I then told another lane "all 40 have `handler_agent`
+  null" from a query whose output said the opposite, because the word "cleared" had primed me for
+  NULL. The instrument answered; the reader substituted the primed word.
+- **Second mechanism, and the more useful one:** the door clears the handler but PRESERVES
+  `created_by`, so a parked row wears the name of whatever filed it and reads as live, named work
+  in any `GROUP BY created_by`. **A population defined by an ABSENCE cannot be censused by a
+  field that is still present.** Discriminating predicates now in RUNBOOK §8.
+- **And the rule that would have caught it earliest:** "re-running the same query" must mean
+  re-pasting the same TEXT. Mine was re-typed from memory of *what it measured*, which is where
+  the filter went — and a remembered query is a NEW query wearing the old one's authority, so a
+  changed result reads as a changed world rather than a changed instrument.
+- **The landmine already existed and did not reach me.** The column fact sits in the
+  `mistyped_deployed_page` entry, whose footprint was widened 2026-08-02 *because it had already
+  bitten a second lane*. Mine is the third occurrence. It missed me because I greped the
+  situation (parked `deferred` rows) and the entry is titled after someone else's situation — a
+  representation fact is discoverable only by the COLUMN's name, and a table-and-column footprint
+  can never match the SessionStart hook's dirty-path test. Filed the new manifestation
+  (`529a31c9a`, verifier armed) and added this as a fifth trigger to the
+  `grep-landmines-for-your-symbols` memory.
+- **Cross-lane thread with `bugs_open/333` CLOSED.** They widened the footprint of the door entry
+  where the parked row's identity lives to carry `handler_agent`/`created_by`, with a dated
+  third-occurrence note and a cross-pointer to my census entry; `landmines-sync.py --check`
+  reports **in sync**, 829 entries, 0 orphaned. Four corrections between the two lanes today,
+  both directions, every one caught before a doc inherited it.
+
+### Standing tally for whoever picks this lane up
+
+**Four wrong calls in one afternoon, three of them made while correcting someone else.** That is
+not bad luck; correcting mode supplies confidence and suppresses the check. The design in
+`PLAN_2026-08-25_392.md` is sound and is now peer-verified in three places — but it has needed
+four correction blocks to get there, and **no Go code has been written yet**. Read the PLAN's
+correction blocks bottom-up before trusting anything above them.
