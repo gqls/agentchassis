@@ -168,3 +168,5 @@ under suspicion here, so do not verify with it.**
 >   `v1.0.1339` — Phase 2 of the now-closed `bugs_closed/364`): an `unregistered_number` refusal
 >   is the 364 class (tell that lane first); a `placeholder_text` with a stand-in Value is this
 >   detector working. NOTES carries the full rule.
+>
+> **ADDENDUM 2026-08-25 late — the disposition rule above contained a dangling pointer and is superseded.** "Tell that lane first" named a session; both lanes are now closed. The rule is rewritten **routed by `BLOCKER_DETAIL` type with where to START, not who to ask**, in `docs/agent_docs/docs024_key_docs_latest/bugfix_364_claims_whose_number_is_it/HANDOFF_2026-08-25b_CLOSED.md` §6b: `unregistered_number` on hero/CTA → counter first, then `bugs_closed/364` §5b/§6m; `unregistered_number` on a `*-listing` slot → declaration/slot_name mismatch; `placeholder_text` with a stand-in Value → this file's detector working as designed. **A refusal on those pages is NOT evidence either bug regressed — both mechanisms are live and supposed to fire; read the type before concluding anything, and do not reopen either bug on a refusal alone.**
