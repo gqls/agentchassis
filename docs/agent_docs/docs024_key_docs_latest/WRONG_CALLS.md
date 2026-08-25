@@ -50640,6 +50640,8 @@ API migration. **What caught it:** that absurd diffstat on the second commit.
 **The cheap check skipped:** read the commit-scope block's FILE LIST against
 the files the message claims — it printed 5 names and neither new file was
 among them. A diffstat that cannot contain the change the message describes is
-the same tell in the other direction. Repaired forward in `06e...` (add + own
+the same tell in the other direction. Repaired forward in ~~`06e...`~~ **`b6a3d044b`** (the struck hash was itself
+a GUESS written into this very entry — corrected minutes later from `git log`,
+this file's lesson applied to itself) (add + own
 commit); the binary commit had been built from the then-uncommitted sources,
 so live behaviour was never wrong — only the record was.
