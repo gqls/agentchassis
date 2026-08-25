@@ -115,7 +115,7 @@ Three `offer-analysis` rows created **2026-08-24 22:08:39Z, three hours after th
 guardian's HIGH drew the 30-day census — 22/579 would-be-branded, the brake's design class — and the
 owner's explicit full-routing sign-off; bug_historian's MEDIUM added the durable per-page
 `owned_page_review` record on every escalation skip, then flipped to approve). Go changes, so INERT
-until the next chassis roll.** Four guards mutation-proven (NOTES,
+until the next chassis roll — TRUE AS OF 2026-08-25 19:2xZ, and a claim that expires silently: RE-ESTABLISH before believing it with `kubectl -n ai-persona-system exec <chassis-pod> -- grep -ac "skipped_owned_page" /proc/1/exe` (0 = still inert; >0 = the roll happened and the RUNBOOK's post-roll verification is now due, not premature).** Four guards mutation-proven (NOTES,
 2026-08-25 later entry); post-roll verification queries with their demand controls are in the RUNBOOK
 ("Verifying the residual fixes"). Ruling 3 needs no code. WII-028's raw-writer census updated 9→8.
 
@@ -150,7 +150,11 @@ until the next chassis roll.** Four guards mutation-proven (NOTES,
 - Two orphan register entries exist that are NOT mine (`CQ-031`, `PLAN-053` — entries with no index row);
   flagged in the index narrative for their owning lanes.
 - The landmine verifier returns `NEEDS_HUMAN_REVIEW` on this lane's entries: **stale-index false negative**, the
-  code index was last built 2026-08-24 08:40Z. Both entries carry a note saying so.
+  code index was last built 2026-08-24 08:40Z. Both entries carry a note saying so. **⚠ A "known false negative,
+  ignore it" line is the most perishable kind (375 lane, 2026-08-25) — it makes a reader SKIP work, and skipping is
+  invisible. Re-establish before obeying: `SELECT max(created_at) FROM code_index_symbols;` (or the index's own
+  freshness row) against `git log -1 --format=%ci -- platform/orchestration/actions/work_item_owned_page_door_test.go`.
+  If the index is NEWER than the file and still says NEEDS_HUMAN_REVIEW, that is a real finding, not this note.**
 
 ## 8. Consumers already told (do not re-notify)
 
