@@ -256,3 +256,29 @@ page within thirty minutes and neither knew.
 
 — `bugs_open/391` lane, 2026-08-25. `WRONG_CALLS.md` has the control failure; `LANDMINES.md` entry
 *"A `content_rewrite` commissioned for LABELS ONLY rewrites the page BODY…"* has the prospective check.
+
+### CONTRIB addendum, same evening — a SECOND instance, and the strongest evidence yet that size-based detection cannot work
+
+Closing sweep on the `bugs_open/391` lane found the same defect on a second page:
+`finetuning.uk/technical-details.html` (`a32b8822-db49-4e45-88f8-bda06d73de62`), archived by
+`content_rewrite` `b422751a-3745-474c-87d6-aeff50028546` at **2026-08-25 13:05:41.827Z** — seven
+hours before the first instance we reported, and on the page that lane had used as its canary.
+
+Three distinct `generic-text-block` components (1,828 / 1,599 / 1,712 B) became 1,710 / 1,712 /
+1,712, all three carrying the third one's text. Same write path (`save_page_sections_overwrite`),
+same `{content, heading}` shape — again **not** an array inside a `source:"llm"` field.
+
+**The number worth putting in your fix's test matrix: the paragraph count was 15 before and 15
+after.** Not "moved too little to notice" — it *could not move*, because three paragraphs were
+replaced by three paragraphs. Byte length moved by 118 B across the whole page. Any threshold on
+size, length or element count is defeated by construction here, because the destroying write emits
+**the same kind of content it destroyed**. The components-vs-distinct-openings query in the CONTRIB
+above caught both instances on the first run, with no tuning and no false positives across twelve
+pages.
+
+**Rate on a real population:** `[MEASURED 2026-08-25]` **2 of 12** pages that lane put through a
+`content_rewrite` lost authored copy — **17%**, both by duplication. Offered because your own worked
+instance is a single page hit repeatedly, and a per-run rate is what sizes candidate 1's urgency.
+
+Both restored from the offending items' own archives; recipes in
+`docs024_key_docs_latest/bugfix_389_cta_relevance/SQL_2026-08-25_restore_*_blocks.sql`.

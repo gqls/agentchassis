@@ -372,3 +372,61 @@ states the constraint and the ground truth). Fresh `item_key`s, because keys ded
 (`bugs_open/326`); the relink again carries `depends_on`, and the transaction has a `DO`/`RAISE`
 that aborts if it does not. The old `needs_human_review` row is left standing as the record.
 The count contradiction is routed to `model_directory_pipeline`, which owns the data.
+
+### 2026-08-25 ~20:5xZ — ⚠ MISSTEP 12, and it CORRECTS §3 of the last two handoffs: **THE CANARY WAS DESTROYED TOO, seven hours earlier, and its `<p>` control read 15/15**
+
+Running the new distinctness control over all twelve repaired pages as a closing sweep — not
+because I suspected anything — returned a **second** hit:
+
+```
+finetuning.uk/technical-details.html   6 components   4 distinct   *** DUPLICATE SECTIONS ***
+```
+
+That is **the canary**. The page this lane declared *"COMPLETE and verified at the served bytes"*,
+and then used to validate the recipe for the other eleven.
+
+**Same defect, same shape, and it happened FIRST.** Archived by the canary's own `content_rewrite`
+`b422751a-3745-474c-87d6-aeff50028546` at **13:05:41.827Z**, the three `generic-text-block`
+components were distinct:
+
+| pos | rendered | before |
+|---|---|---|
+| 2 | 1,828 B | *"The base model **itself** is a small open-weight model: one where the maker publishes…"* |
+| 3 | 1,599 B | *"…meaning the **underlying weights** are published and…"* |
+| 4 | 1,712 B | *"…meaning the **company that** built it has published…"* |
+
+After that write: **1,710 / 1,712 / 1,712**, all three carrying position 4's text. Position 4 is
+untouched (1,712 → 1,712); positions 2 and 3 were overwritten with copies of it.
+
+> **⚠ THE PART THAT MATTERS. The paragraph control did not merely fail to move ENOUGH — it was
+> structurally incapable of moving.** `<p>` was **15 before and 15 after**, and I recorded that in
+> this file at the time as *"labels-only held"*. It held at 15/15 **because the blocks copied in
+> have the same shape as the ones destroyed** — three paragraphs replaced by three paragraphs. On
+> `your-own-model.html` the same defect moved the count by +3 and I nearly signed that off too; here
+> the count could not have moved at all.
+>
+> **And then I promoted that control to the batch on the strength of this page.** The reasoning was
+> "it held on the canary, so it works" — but the canary was *damaged*, and the control said clean.
+> **What I actually validated was that the control is blind, and I read it as evidence that the
+> repair was safe.** This is the sharpest version of the rule I wrote three hours ago and did not
+> apply hard enough: *a control checked only where you believe nothing went wrong has not been
+> shown to discriminate* — and if the thing you checked it against was in fact broken, the green
+> result is evidence **against** the control, not for the work.
+
+**Restored** — `SQL_2026-08-25_restore_technical_details_blocks.sql`, same method: `content_data`
+verbatim by subquery from the archive the offending item itself wrote, positions 2 and 3 only,
+`{content, heading}` with no CTA url so the canary's CTA repair is untouched, `rendered_html` left
+to the rerender. Guard induced against the damaged state first (`3 blocks, 1 distinct` → aborted),
+then passed on the restored state. Rerender dispatched:
+`SQL_2026-08-25_rerender_after_restore_technical_details.sql`.
+
+**Rate, now that both are known: 2 of the 12 pages this lane rewrote lost authored copy — 17%.**
+Not a freak. Recorded into `bugs_open/403`, whose worked instance is the same disease.
+
+**One page checked and CLEARED in the same sweep, so the sweep is not just finding what it looks
+for:** `finetuning.uk/blog/chatgpt-has-your-data-does-that-matter.html` showed 22% word churn in
+`article-body`, the largest non-CTA change left. Read in full: all four `<h2>`/`<h3>` headings
+survive, the change is heading capitalisation (*"Private Deployments Keep Data Safe"* → sentence
+case), the rewritten sentence naming the two tools — which IS the labels work, inline in prose —
+and an **added** caveat that either tool can be wrong as guidance moves. No loss. **A high churn
+number is not the same finding as a duplicate section, and only one of them is damage.**

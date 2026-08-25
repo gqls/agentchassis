@@ -23,7 +23,7 @@ whatever it picked (`stampCTADestinationGuidance:362`), so a wrong pick **locks 
 | # | work | state |
 |---|---|---|
 | 1 | `nav_order` demoted 1 → 900 on three sites | ✅ done + verified |
-| 2 | the 12 label-locked pages (canary + 11) | ✅ **11 of 12 verified at the served bytes**; the 12th is in flight, below |
+| 2 | the 12 label-locked pages (canary + 11) | ✅ CTA work done on 11 of 12 and **provably complete** (§2a); the 12th is in flight. ⚠ **2 of the 12 lost authored copy to the repair itself** — both restored, one rerender still in flight (§2) |
 | 3 | **retire the three tool pages** + footer + 3 `/tools.html` listings | ⏳ **NOT STARTED — this is the next real work** |
 | 4 | re-resolve the 60 label-less fields (44 pages) | blocked on 3, by design |
 | 5 | the platform lever (owner decision 3) | not started; design notes in §5 |
@@ -35,9 +35,16 @@ whatever it picked (`stampCTADestinationGuidance:362`), so a wrong pick **locks 
 relink carrying `depends_on` (proven armed by a `DO`/`RAISE` in the same transaction).
 
 ```sql
-SELECT item_type, status, error FROM site_work_items
-WHERE item_key LIKE '%retry:2c7c836c%' ORDER BY item_type;
+SELECT item_key, item_type, status, error FROM site_work_items
+WHERE item_key LIKE '%retry:2c7c836c%'
+   OR item_key LIKE 'content_restore_rerender:%'
+ORDER BY item_key;
 ```
+
+**Three items, two unrelated jobs.** The `retry:` pair is the CTA repair for `/model-directory.html`.
+`content_restore_rerender:a32b8822-…` is the canary re-render that publishes the restored text blocks
+on `finetuning.uk/technical-details.html` — until it lands, that page still SERVES the same licence
+section three times, though the DB is already correct.
 
 Budget **~25–35 min per item**. **DO NOT bypass the queue** — see §6.
 
@@ -55,6 +62,33 @@ retry asks for a heading with **no count in it at all**. Routed to the owning la
 > SELECT jsonb_pretty(context) FROM agent_error_log
 > WHERE work_item_id='<item>' AND error_code='CONTENT_VALIDATION_BLOCKER_DETAIL';
 > ```
+
+## 2a. Step 2 is provably complete — by the lock query, not by the dispatch list
+
+Do not take "we did the pages on the list" as coverage. Re-run the RUNBOOK's label-lock query
+fleet-wide; it returns every `%_url` field pointing at the retiring tool **whose own label names
+it**, which is the population a `nav_order` fix can never reach:
+
+```sql
+SELECT s.domain, p.url, kv.key,
+       COALESCE(pc.content_data->>(replace(kv.key,'_url','_text')),
+                pc.content_data->>(replace(kv.key,'_url','_label')),
+                pc.content_data->>(replace(kv.key,'_url',''))) AS label
+FROM page_components pc
+JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+CROSS JOIN LATERAL jsonb_each(pc.content_data) kv
+WHERE kv.key LIKE '%\_url' AND kv.value #>> '{}' LIKE '%password-entropy%'
+  AND COALESCE(pc.content_data->>(replace(kv.key,'_url','_text')),
+               pc.content_data->>(replace(kv.key,'_url','_label')),
+               pc.content_data->>(replace(kv.key,'_url',''))) ILIKE '%password%';
+```
+
+`[MEASURED 2026-08-25 ~20:5xZ]` **2 rows, both on `/model-directory.html`** — the page in flight
+above. It was **20 of 80** when this bug was filed. So the label-locked population is cleared, and
+what is left is the label-**less** one: **31 `page_component` rows across ~22 pages** on
+`ai-agent-orchestration.com` (`hero` / `call-to-action`), **2 in the `footer` `site_component`**, and
+1 in the `/tools.html` `tool-list`. That is step 3/4 work and is blocked on retirement by KEEP #2 —
+not a gap in step 2. **Re-run the query, do not quote the numbers.**
 
 ## 3. ⚠ THE VERIFICATION RECIPE HAS CHANGED — the old one nearly passed a destroyed page
 
@@ -78,20 +112,27 @@ SELECT page_id, count(*) AS components,
 FROM page_components WHERE page_id = ANY(<pages>) GROUP BY 1;
 ```
 
-> **⚠ `grep -c '<p'` is NOT a sufficient prose control and the previous handoff was wrong to present
-> it as one.** On the page this repair destroyed it read **17 → 20** — a `+3` that looks like a
-> writer adding a sentence. The damage was **duplication**, and duplication does not move a count of
-> anything; it moves distinctness. The count had been trusted because it held at 15/15 on the canary
-> — but the canary was undamaged, so it had never been shown to discriminate. Keep it as a secondary
-> signal; do not sign a page off on it.
+> **⚠ `grep -c '<p'` is NOT a prose control at all, and the previous handoff was wrong to present it
+> as one.** On one destroyed page it read **17 → 20** — a `+3` that looks like a writer adding a
+> sentence. On the other, **the canary, it read 15 → 15**: it could not move, because three
+> paragraphs had been replaced by three paragraphs. Duplication does not move a count of anything;
+> it moves distinctness.
+>
+> **And the 15/15 is why the control was trusted.** It was validated on the canary and promoted to
+> the batch on that basis — while the canary was itself damaged and the control was reporting clean.
+> *A control checked only where you believe nothing went wrong has not been shown to discriminate;
+> if the thing you checked it against turns out to have been broken, its green result is evidence
+> AGAINST the control.* Keep the `<p>` count as a weak secondary signal; never sign a page off on it.
 
 **And probe every CTA target with a per-domain absent control** (`/tools/this-page-does-not-exist-391.html`
 → must 404). A parked-domain catch-all 200s every path and would score every href as live.
 
 ## 4. ⚠ WHAT THIS REPAIR IS CAPABLE OF BREAKING — read before dispatching another `content_rewrite`
 
-A `content_rewrite` commissioned for **labels only** rewrote the page **body** on one of eleven pages
-and destroyed two authored sections by overwriting them with copies of a third. The spec text
+A `content_rewrite` commissioned for **labels only** rewrote the page **body** and destroyed
+authored sections by overwriting them with copies of a sibling — on **2 of the 12 pages this lane
+put through it (17%)**: `finetuning.uk/your-own-model.html` and `finetuning.uk/technical-details.html`
+(the canary). Both restored. The spec text
 *"Reword ONLY the … LABELS. Leave all other prose exactly as it is"* did not bound the write —
 **prompt text is not a control.**
 

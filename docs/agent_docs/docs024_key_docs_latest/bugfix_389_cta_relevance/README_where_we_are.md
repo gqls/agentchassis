@@ -193,3 +193,28 @@ knowing. Nothing was lost this time.
 
 **Where that leaves us:** eleven of twelve pages done, the twelfth in flight. The next real step is
 still retiring the three password-tool pages, which is what unblocks the remaining sixty buttons.
+
+**2026-08-25, later the same evening — I have to correct what I wrote an hour ago.** I said one page
+had been damaged by the repair. It was two. The second is the page we used as the *test case* for the
+whole exercise — finetuning.uk/technical-details.html — and it was damaged first, at about one in the
+afternoon, in exactly the same way: two sections replaced by copies of a third.
+
+**The reason it went unnoticed is the uncomfortable bit.** My check was to count paragraphs before
+and after. On that page it counted 15 before and 15 after, so I wrote it down as clean and moved on.
+It counted the same because three paragraphs had been swapped for three paragraphs — the check could
+not have spotted this no matter what. And because it "held" on that page, I trusted it for the other
+eleven. So the thing I actually proved on the test page was that my check doesn't work, and I read it
+as proof that the repair was safe.
+
+Both pages are restored — the original wording was recoverable in both cases — and the second one's
+publish is queued. I have written the working check (does every section on the page still differ from
+the others?) into the places the next person will look, and flagged the underlying fault to the team
+already investigating it: a rewrite asked to change two buttons is rewriting page bodies, and it did
+so on 2 of the 12 pages we sent through it.
+
+**One good piece of news.** I stopped relying on "we did the pages on our list" and asked the database
+instead: how many buttons anywhere on these three sites still both point at the password tool *and*
+name it in their wording? The answer is two, and they are on the one page still in flight. When it
+lands, that whole category is finished. The remaining links to the tool — about thirty buttons that
+point at it without naming it, plus the site footer — are the next phase, and they cannot be fixed
+until the tool pages are actually retired.

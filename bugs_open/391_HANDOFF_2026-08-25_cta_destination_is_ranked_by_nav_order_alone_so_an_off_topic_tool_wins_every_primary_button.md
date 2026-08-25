@@ -689,3 +689,47 @@ touched the page** (`grep -c '150 agents'` on the served page = 1). So it blocks
 The sequence in the ordering correction above still stands: retirement (step 3) is still what
 unblocks the 60 label-less fields, and the `nav_order` demotion is still what makes that write
 correct. Step 2 is now 11 of 12 done with the twelfth in flight.
+
+## ⚠ CORRECTION, same evening: **the canary was destroyed too — and its `<p>` control read 15/15**
+
+The section above reports one page damaged. Running the distinctness control over all twelve pages
+as a closing sweep found a **second**: `finetuning.uk/technical-details.html`, **the canary** — the
+page this lane declared verified and then used to validate the recipe for the other eleven.
+
+Same defect, seven hours earlier. Archived by the canary's own `content_rewrite`
+`b422751a-3745-474c-87d6-aeff50028546` at 13:05:41.827Z, the three `generic-text-block` components
+were distinct (1,828 / 1,599 / 1,712 B — *"the base model **itself**…"*, *"…the **underlying
+weights**…"*, *"…the **company that** built it…"*). After it: 1,710 / 1,712 / 1,712, all three
+carrying position 4's text.
+
+**The `<p>` count was 15 before and 15 after.** Not "moved too little" — it *could not move*: three
+paragraphs were replaced by three paragraphs. And that 15/15 is precisely why the control was
+promoted to the batch. **What was validated on the canary was the control's blindness, and it was
+read as evidence the repair was safe.**
+
+Restored the same way (`SQL_2026-08-25_restore_technical_details_blocks.sql` +
+`SQL_2026-08-25_rerender_after_restore_technical_details.sql`): `content_data` verbatim by subquery
+from the offending item's own archive, positions 2 and 3, guard induced against the damaged state
+first.
+
+**Rate: 2 of the 12 pages rewritten by this lane lost authored copy — 17%.** Contributed to
+`bugs_open/403`.
+
+## ✅ And the step 2 population is now provably complete, by the lane's own lock query
+
+The only remaining defence of "did we get them all" was the dispatch list. Re-running the RUNBOOK's
+label-lock query fleet-wide `[MEASURED 2026-08-25 ~20:5xZ]` — every `%_url` field pointing at
+`password-entropy` whose own label names the password tool — returns **exactly two rows, both on
+`/model-directory.html`**, the page currently in flight on the retry:
+
+```
+ai-agent-orchestration.com  /model-directory.html  cta_url          "Check the maths behind password strength in our Password Strength Physics tool."
+ai-agent-orchestration.com  /model-directory.html  primary_cta_url  "See how we reason about security trade-offs: try the Password Strength Physics tool."
+```
+
+So step 2 cleared the **whole** label-locked population, not merely the pages that were dispatched —
+20 of 80 fields when measured on 2026-08-25, now 2, and those 2 are queued. The remaining
+`password-entropy` references on `ai-agent-orchestration.com` are **31 `page_component` rows across
+~22 pages** (`hero` / `call-to-action` slots) plus **2 in the `footer` `site_component`** and 1 in
+the `/tools.html` `tool-list` — that is the label-**less** population, and it is blocked on
+retirement by KEEP #2, exactly as the ordering correction above says.
