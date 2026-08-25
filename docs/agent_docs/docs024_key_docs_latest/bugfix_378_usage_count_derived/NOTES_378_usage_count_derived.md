@@ -751,3 +751,68 @@ fence* blast radius (how much would this overwrite affect) over all rows; mine i
 that excludes `build_status='removed'` and counts sites only. Same SQL shape, different question and
 a different predicate — sharing them would couple a scoring input to a safety guard. **But the seat
 was right that I did not check, and "I didn't look" is the answer, not "there was nothing".**
+
+---
+
+## 2026-08-25 — the demand gap closes, and the lane closes with it
+
+Second roll: chassis **`635f2d32f5bbe3789867a978284c9c125d718eb0`**, pod up 08:49:31Z. Fix confirmed
+an ancestor, control `bba8a892d` (committed after the build) correctly NOT an ancestor.
+
+**Everything below was re-run today rather than carried forward from yesterday's session.** The
+figures in the 08-24 entries are dated events and stand; a claim about *state* expires, and
+"page_components created since the roll = 0" was exactly such a claim.
+
+### The gap that held this open is gone
+
+`[MEASURED 2026-08-25]`, all since the fix went live at 2026-08-24 18:55:21Z:
+
+| signal | count |
+|---|---|
+| `page_components` rows created | **403**, across **125** pages (19:08:56 → 09:20:12) |
+| `page-build-handler` orchestrations | **73** (through 09:32) |
+| `page-rerender` orchestrations | **880** |
+| `component-creator` orchestrations | **17** (18:59:53 → 01:35:47) |
+| components born | **5** |
+| `usage_count` values | **byte-identical** to the 08-24 13:30Z snapshot |
+| `needs_new_component` | **5**, against **6** the preceding day |
+| `needs_section_data` | **0**, against **3** |
+
+Both halves are now exercised, not merely present:
+
+- **The removal.** 73 page builds ran the section loop. Under the old code any Path-2 resolution
+  among them increments; nothing moved. And for a *removal*, the artefact proof is absence — the old
+  literal is not in the binary, with a positive control proving the probe is not blind. You cannot
+  increment with code that is not there.
+- **The derived reader.** `component-creator` is the **only** consumer of
+  `load_existing_component_action.go`, and it ran **17** times with **5** components born, so the
+  rewritten `ORDER BY` executed and the creator completed end to end.
+- **Nothing regressed.** A broken selector query would fail every Path-2 resolution and spike
+  `needs_new_component`. It ran flat (5 vs 6) and `needs_section_data` fell to zero.
+
+### ⚠ A check I ran, believed for about a minute, and threw away
+
+I grepped the chassis logs for `selector query failed` and got **0**. Then I ran the control — does
+this log stream contain *any* `plan_sections` / `component_selector` line at all? — and that was
+**0 too**. The subsystem's lines are not in the pods labelled `app=agent-chassis`; the work runs in
+dynamically-named pods, which the build stamp itself had already told me (it came from
+`agent-page-content-writer-285eeb2d-qmzfx`). **The clean grep was vacuous and would have read as
+proof.** Third time in this lane that a control caught a result that agreed with what I expected —
+the worthless ancestry control yesterday, the demand control the day before, this today. The pattern
+is not that I keep being wrong; it is that **the reassuring answer is the one that needs the control**.
+
+### Filed out of this lane rather than buried in it
+
+`bugs_open/388` — **`component-creator` is advised one row's field contract while the store enforces a
+different row, on 27 of 117 section types.** Two independent resolvers over one table: the advisory
+picks by `section_type` + ordering, the store picks by `function = NormaliseToKebab(section_type)`.
+The file's own fallback (`resolveContractViaStorageIdentity`) documents that they must agree *"by
+construction rather than by coincidence"* — and only implements it on the path taken when the primary
+query MISSES. Pre-existing; `378` moved it from 29 to 27.
+
+### Still owed by nobody in particular
+
+The `COMMENT ON COLUMN` / drop migration for the now-dead `content_components.usage_count`. Deferred
+originally so the code could not roll back onto a missing column; that reason has expired now the code
+is live. It is council-scope on its own (migrations are in scope since 2026-08-19), so it is a small
+separate round, not a tail of this one.

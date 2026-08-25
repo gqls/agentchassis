@@ -1,6 +1,36 @@
 # HANDOFF — `bugfix_378_usage_count_derived`, 2026-08-24 (cold start: read this top to bottom)
 
-> ## STATE: FIX IS LIVE AND PROVEN AT THE BINARY. Lane is NOT closeable yet — one evidence gap, three residuals.
+> ## ✅ LANE COMPLETE, 2026-08-25 — `bugs_open/378` is CLOSED. Read this block, then stop.
+>
+> **Fixed, live AND demand-proven.** The file moved to
+> `bugs_closed/378_HANDOFF_2026-08-24_component_usage_count_is_written_on_one_of_two_resolution_paths_and_scored_on_the_other.md`
+> — `git log` on the old `bugs_open/` path will not find the closure. Live on chassis
+> **`635f2d32f5bbe3789867a978284c9c125d718eb0`** (2026-08-25 08:49:31Z); first shipped on `48f55f21…`
+> 2026-08-24 18:55:21Z. Commit `5074367f7`, council `ca01b81a` APPROVED.
+>
+> **The evidence gap this file was written around is CLOSED.** `[MEASURED 2026-08-25]` since the fix
+> went live: **403** `page_components` rows across **125** pages, **73** `page-build-handler` runs,
+> **880** `page-rerender` runs, **17** `component-creator` runs (the only consumer of the changed
+> contract reader) and **5** components born — and all 12 counted components read **byte-identically**
+> to the pre-fix snapshot. `needs_new_component` ran **5** against **6** the prior day, so nothing
+> broke. §4 below is spent; it is kept as the record of what was owed.
+>
+> **Two things deliberately NOT done, so nobody re-opens them as gaps:**
+> 1. **`content_components.usage_count` is still in the schema**, written by nothing and read by
+>    nothing in Go. A `COMMENT ON COLUMN` (or drop) migration is owed and is **council-scope in its
+>    own right**. ⚠ Until it runs the column still reads as a maintained figure — do not quote it.
+> 2. **The 27-section_type contract mismatch is now `bugs_open/388`**, filed 2026-08-25. It is NOT a
+>    378 residual — 378 *reduced* it from 29 to 27 — and it has its own evidence and `[UNMEASURED]`
+>    list. Do not re-derive it here.
+>
+> ⚠ **One check that looked like evidence and was not**, recorded so it is not repeated: grepping
+> `-l app=agent-chassis` logs for selector errors returned `0` — and so did the control asking whether
+> those logs contain *any* selector lines at all. The work runs in dynamically-named pods
+> (`agent-page-content-writer-…`), not the two pods carrying that label. **That zero was vacuous.**
+>
+> ## (original 2026-08-24 state block, kept as the record)
+>
+> ### STATE: FIX IS LIVE AND PROVEN AT THE BINARY. Lane is NOT closeable yet — one evidence gap, three residuals.
 >
 > `bugs_open/378` — `content_components.usage_count` was written on one of three resolution paths and
 > read as a merit signal. Fix committed `5074367f7`, council **`ca01b81a` APPROVED** round 1, live on
