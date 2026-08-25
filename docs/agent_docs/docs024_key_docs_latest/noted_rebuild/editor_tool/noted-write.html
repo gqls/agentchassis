@@ -41,7 +41,11 @@
       <label>Title
         <input type="text" id="nw-title" placeholder="Untitled">
       </label>
-      <label>Note
+      <p class="noted-write__buttons">
+        <button type="button" class="btn btn-secondary" id="nw-view-toggle" hidden>Arrange on board</button>
+      </p>
+      <div class="noted-write__board" id="nw-board" hidden></div>
+      <label id="nw-content-label">Note
         <textarea id="nw-content" rows="12"
                   placeholder="Put the thought down. Save when you like."></textarea>
       </label>
@@ -86,6 +90,18 @@
        listed newest-first (GET /api/notes); clicking one loads it. "New note"
        clears the editor. Save POSTs /api/notes; the response's id is kept so
        the next save updates rather than duplicates.
+     - Board (2026-08-25, pasteboard stage 2): a List | Board toggle per note.
+       Board mode lays the note text and every media item out on a pasteboard:
+       drag by an item's handle bar, resize by its corner, tap raises. Built
+       MOBILE-FIRST (owner requirement): Pointer Events only (one code path for
+       touch and mouse), handles >=44px, touch-action:none ON THE HANDLES ONLY
+       (the board itself still scrolls), and item coordinates stored as
+       FRACTIONS of board width ({v:1, items:[{id,kind,media_id,x,y,w,h,z}]})
+       so a phone and a desktop render the same arrangement proportionally.
+       Arrangement rides the note's normal Save (dirty -> Save -> Saved ✓ —
+       contract 1 covers it); a save without the key can never erase a stored
+       arrangement (the engine preserves on absence, clears only on explicit
+       null).
      - Media (2026-08-24, pasteboard stage 1): images, GIFs, video and audio
        can be added to the open note — paste, drag-drop, or the picker button.
        Each file uploads immediately (a brand-new note is saved first, through
@@ -137,7 +153,8 @@
   ['auth','auth-form','email','password','signin','register','auth-error',
    'app','whoami','new','signout','failure','failure-detail','retry',
    'title','content','save','status','list','loading',
-   'add-media','file','media','media-note','storage'].forEach(function (id) {
+   'add-media','file','media','media-note','storage',
+   'view-toggle','board','content-label'].forEach(function (id) {
     el[id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); })] =
       document.getElementById('nw-' + id);
   });
@@ -145,7 +162,9 @@
   var state = { noteId: null, dirty: false, saving: false,
                 media: [],      // stored on the server — each {id, kind, mime, byte_len}
                 pending: [],    // held in the page — each {file, kind, status, error}
-                limits: {} };   // from /api/me: quota, used, maxUpload
+                limits: {},     // from /api/me: quota, used, maxUpload
+                layout: null,   // {v:1, items:[...]} — fractions of board width
+                boardMode: false };
 
   function api(path, opts) {
     opts = opts || {};
@@ -195,6 +214,10 @@
       title: el.title.value,
       content: el.content.value
     };
+    // Absent = the engine keeps whatever arrangement the row holds; the key
+    // travels only once this page actually has one. (Explicit null would
+    // clear it — no UI does that yet.)
+    if (state.layout !== null) payload.layout = state.layout;
     if (state.noteId !== null) payload.id = state.noteId;
 
     api('/api/notes', { body: payload }).then(function (saved) {
@@ -303,6 +326,8 @@
         state.pending = state.pending.filter(function (p) { return p !== item; });
         state.media.push({ id: data.id, kind: item.kind, mime: item.file.type, byte_len: data.byte_len });
         renderMedia();
+        refreshViewToggle();
+        if (state.boardMode) renderBoard();
         refreshStorage();
         refreshList();
       }).catch(function (err) {
@@ -328,6 +353,8 @@
         if (!res.ok) throw new Error('the server answered ' + res.status);
         state.media = state.media.filter(function (x) { return x !== m; });
         renderMedia();
+        if (state.layout) { syncLayoutWithMedia(); markDirty(); }
+        if (state.boardMode) renderBoard();
         refreshStorage();
         refreshList();
       }).catch(function (err) {
@@ -427,11 +454,14 @@
     state.dirty = false;
     state.media = (n.media || []).slice();
     state.pending = [];
+    state.layout = n.layout || null;
     el.title.value = n.title || '';
     el.content.value = n.content || '';
     hideFailure();
     showMediaNote('');
     renderMedia();
+    setBoardMode(!!state.layout);
+    refreshViewToggle();
     setStatus('Opened — not changed yet');
   }
 
@@ -442,11 +472,14 @@
     state.dirty = false;
     state.media = [];
     state.pending = [];
+    state.layout = null;
     el.title.value = '';
     el.content.value = '';
     hideFailure();
     showMediaNote('');
     renderMedia();
+    setBoardMode(false);
+    refreshViewToggle();
     setStatus('New note');
   }
 
@@ -491,7 +524,7 @@
   el.retry.addEventListener('click', save);
   el.new.addEventListener('click', newNote);
   el.title.addEventListener('input', markDirty);
-  el.content.addEventListener('input', markDirty);
+  el.content.addEventListener('input', function () { markDirty(); refreshViewToggle(); });
 
   el.addMedia.addEventListener('click', function () { el.file.click(); });
   el.file.addEventListener('change', function () {
@@ -509,6 +542,186 @@
     var files = ev.dataTransfer && ev.dataTransfer.files;
     if (files && files.length) addFiles(files);
   });
+
+  // --- the board (pasteboard stage 2, mobile-first) ---------------------
+
+  var boardDrag = null; // {item, mode:'move'|'resize', startX, startY, ox, oy, ow, oh}
+
+  function boardWidth() { return el.board.clientWidth || 1; }
+
+  function defaultLayout() {
+    // First arrangement: text across the top, media tiled 2-up below.
+    var items = [{ id: 'text', kind: 'text', x: 0.02, y: 0.02, w: 0.96, h: 0.3, z: 1 }];
+    var col = 0, row = 0;
+    state.media.forEach(function (m) {
+      items.push({ id: 'm' + m.id, kind: 'media', media_id: m.id,
+                   x: 0.02 + col * 0.49, y: 0.36 + row * 0.4,
+                   w: 0.47, h: 0.36, z: items.length + 1 });
+      col++; if (col === 2) { col = 0; row++; }
+    });
+    return { v: 1, items: items };
+  }
+
+  function syncLayoutWithMedia() {
+    if (!state.layout) return;
+    var have = {};
+    state.layout.items.forEach(function (it) { have[it.id] = true; });
+    var maxBottom = 0, maxZ = 0;
+    state.layout.items.forEach(function (it) {
+      if (it.y + it.h > maxBottom) maxBottom = it.y + it.h;
+      if (it.z > maxZ) maxZ = it.z;
+    });
+    state.media.forEach(function (m) {
+      if (!have['m' + m.id]) {
+        state.layout.items.push({ id: 'm' + m.id, kind: 'media', media_id: m.id,
+          x: 0.02, y: maxBottom + 0.02, w: 0.47, h: 0.36, z: ++maxZ });
+        maxBottom += 0.4;
+      }
+    });
+    var ids = {};
+    state.media.forEach(function (m) { ids['m' + m.id] = true; });
+    state.layout.items = state.layout.items.filter(function (it) {
+      return it.kind !== 'media' || ids[it.id];
+    });
+  }
+
+  function mediaNode(m) {
+    var src = '/api/media/' + m.id, node;
+    if (m.kind === 'image') {
+      node = document.createElement('img');
+      node.src = src; node.alt = 'An image on this note';
+    } else if (m.kind === 'video') {
+      node = document.createElement('video');
+      node.src = src; node.controls = true; node.preload = 'metadata';
+    } else {
+      node = document.createElement('audio');
+      node.src = src; node.controls = true; node.preload = 'metadata';
+    }
+    return node;
+  }
+
+  function renderBoard() {
+    el.board.innerHTML = '';
+    if (!state.layout) return;
+    syncLayoutWithMedia();
+    var W = boardWidth(), maxBottom = 0.5;
+    var byId = {};
+    state.media.forEach(function (m) { byId[m.id] = m; });
+    state.layout.items.forEach(function (it) {
+      if (it.y + it.h > maxBottom) maxBottom = it.y + it.h;
+      var d = document.createElement('div');
+      d.className = 'noted-write__bitem';
+      d.style.left = (it.x * W) + 'px';
+      d.style.top = (it.y * W) + 'px';
+      d.style.width = (it.w * W) + 'px';
+      d.style.height = (it.h * W) + 'px';
+      d.style.zIndex = it.z;
+      d.setAttribute('data-item-id', it.id);
+
+      var handle = document.createElement('div');
+      handle.className = 'noted-write__bhandle';
+      handle.setAttribute('aria-label', 'Drag to move');
+      d.appendChild(handle);
+
+      var body = document.createElement('div');
+      body.className = 'noted-write__bbody';
+      if (it.kind === 'text') {
+        var txt = document.createElement('div');
+        txt.className = 'noted-write__btext';
+        txt.textContent = el.content.value || '(no text yet — switch to the list view to write)';
+        body.appendChild(txt);
+      } else {
+        var m = byId[it.media_id];
+        if (m) body.appendChild(mediaNode(m));
+      }
+      d.appendChild(body);
+
+      var grip = document.createElement('div');
+      grip.className = 'noted-write__bresize';
+      grip.setAttribute('aria-label', 'Drag to resize');
+      d.appendChild(grip);
+
+      handle.addEventListener('pointerdown', function (ev) { boardPointerDown(ev, it, 'move', d); });
+      grip.addEventListener('pointerdown', function (ev) { boardPointerDown(ev, it, 'resize', d); });
+      d.addEventListener('pointerdown', function () { raiseItem(it); });
+
+      el.board.appendChild(d);
+    });
+    el.board.style.height = Math.max(200, (maxBottom + 0.04) * W) + 'px';
+  }
+
+  function raiseItem(it) {
+    var maxZ = 0;
+    state.layout.items.forEach(function (o) { if (o.z > maxZ) maxZ = o.z; });
+    if (it.z <= maxZ && state.layout.items.length > 1) {
+      it.z = maxZ + 1;
+      var node = el.board.querySelector('[data-item-id="' + it.id + '"]');
+      if (node) node.style.zIndex = it.z;
+    }
+  }
+
+  function boardPointerDown(ev, it, mode, node) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    raiseItem(it);
+    boardDrag = { item: it, mode: mode, node: node,
+                  startX: ev.clientX, startY: ev.clientY,
+                  ox: it.x, oy: it.y, ow: it.w, oh: it.h };
+    ev.target.setPointerCapture && ev.target.setPointerCapture(ev.pointerId);
+  }
+
+  function boardPointerMove(ev) {
+    if (!boardDrag) return;
+    var W = boardWidth();
+    var dx = (ev.clientX - boardDrag.startX) / W;
+    var dy = (ev.clientY - boardDrag.startY) / W;
+    var it = boardDrag.item;
+    if (boardDrag.mode === 'move') {
+      it.x = Math.min(0.98, Math.max(-0.5, boardDrag.ox + dx));
+      it.y = Math.max(0, boardDrag.oy + dy);
+    } else {
+      it.w = Math.min(1, Math.max(0.1, boardDrag.ow + dx));
+      it.h = Math.max(0.08, boardDrag.oh + dy);
+    }
+    boardDrag.node.style.left = (it.x * W) + 'px';
+    boardDrag.node.style.top = (it.y * W) + 'px';
+    boardDrag.node.style.width = (it.w * W) + 'px';
+    boardDrag.node.style.height = (it.h * W) + 'px';
+  }
+
+  function boardPointerUp() {
+    if (!boardDrag) return;
+    boardDrag = null;
+    // An arrangement edit is a note edit: same dirty -> Save -> Saved ✓ path.
+    markDirty();
+    renderBoard(); // recompute board height after a move/resize
+  }
+
+  document.addEventListener('pointermove', boardPointerMove);
+  document.addEventListener('pointerup', boardPointerUp);
+  document.addEventListener('pointercancel', boardPointerUp);
+
+  function setBoardMode(on) {
+    state.boardMode = on;
+    if (on && !state.layout) {
+      state.layout = defaultLayout();
+      markDirty(); // a first arrangement exists now; it should be saved
+    }
+    el.board.hidden = !on;
+    el.contentLabel.hidden = on;
+    el.media.hidden = on;
+    document.getElementById('nw-media-note').hidden = true;
+    el.viewToggle.textContent = on ? 'Back to list' : 'Arrange on board';
+    if (on) renderBoard();
+  }
+
+  function refreshViewToggle() {
+    // The toggle appears once there is anything to arrange.
+    el.viewToggle.hidden = !(state.media.length > 0 || state.layout || el.content.value);
+  }
+
+  el.viewToggle.addEventListener('click', function () { setBoardMode(!state.boardMode); });
+  window.addEventListener('resize', function () { if (state.boardMode) renderBoard(); });
 
   // Contract 3: leaving with unsaved text asks first.
   window.addEventListener('beforeunload', function (ev) {
@@ -554,4 +767,21 @@
 .noted-write__mremove { position: absolute; top: -0.55rem; right: -0.55rem; width: 1.6rem; height: 1.6rem;
   border: 1px solid var(--section-border, #b6b6b6); border-radius: 50%; line-height: 1;
   background: var(--section-surface, #fff); color: inherit; font-weight: 700; cursor: pointer; }
+.noted-write__board { position: relative; width: 100%; min-height: 200px; overflow: hidden;
+  border: 1px dashed var(--section-border, #b6b6b6); border-radius: 6px; margin-top: 0.75rem;
+  background: var(--section-surface, transparent); }
+.noted-write__bitem { position: absolute; display: flex; flex-direction: column;
+  border: 1px solid var(--section-border, #b6b6b6); border-radius: 6px; overflow: hidden;
+  background: var(--section-surface, #fff); }
+.noted-write__bhandle { flex: 0 0 44px; min-height: 44px; cursor: grab; touch-action: none;
+  background: repeating-linear-gradient(90deg, transparent 0 6px, var(--section-border, #b6b6b6) 6px 8px);
+  background-size: 40px 4px; background-repeat: repeat-x; background-position: center; }
+.noted-write__bbody { flex: 1 1 auto; overflow: auto; min-height: 0; }
+.noted-write__bbody img, .noted-write__bbody video { width: 100%; height: 100%;
+  object-fit: contain; display: block; }
+.noted-write__bbody audio { width: 100%; margin-top: 0.5rem; }
+.noted-write__btext { padding: 0.5rem 0.75rem; white-space: pre-wrap; font-size: 0.95em; }
+.noted-write__bresize { position: absolute; right: 0; bottom: 0; width: 44px; height: 44px;
+  cursor: nwse-resize; touch-action: none;
+  background: linear-gradient(135deg, transparent 55%, var(--section-border, #b6b6b6) 55%); }
 </style>

@@ -375,6 +375,121 @@ def main():
         check("no upload request was ever made", len(uploads) == 0)
         ctx.close()
 
+        # ------------------------------------------------------------------
+        # THE BOARD (pasteboard stage 2). Cases K–L. Drags are synthesized
+        # PointerEvent sequences (like Case F's beforeunload, this tests OUR
+        # handlers; real hit-testing belongs to the manual walkthrough).
+        # ------------------------------------------------------------------
+
+        NOTE_WITH_LAYOUT = {
+            "id": 7, "title": "Earlier thought", "content": "kept",
+            "media": [{"id": 901, "kind": "image", "mime": "image/png", "byte_len": len(PNG_1PX)}],
+            "layout": {"v": 1, "items": [
+                {"id": "text", "kind": "text", "x": 0.02, "y": 0.02, "w": 0.96, "h": 0.3, "z": 1},
+                {"id": "m901", "kind": "media", "media_id": 901, "x": 0.02, "y": 0.36, "w": 0.47, "h": 0.36, "z": 2}]}}
+
+        def drag_item(page, item_id, dx, dy, pointer_type="mouse"):
+            return page.evaluate(
+                """([itemId, dx, dy, ptype]) => {
+                    const item = document.querySelector('[data-item-id="' + itemId + '"]');
+                    const handle = item.querySelector('.noted-write__bhandle');
+                    const r = handle.getBoundingClientRect();
+                    const opts = {bubbles: true, cancelable: true, pointerId: 7,
+                                  pointerType: ptype, clientX: r.x + 10, clientY: r.y + 10};
+                    handle.dispatchEvent(new PointerEvent('pointerdown', opts));
+                    document.dispatchEvent(new PointerEvent('pointermove',
+                        Object.assign({}, opts, {clientX: opts.clientX + dx, clientY: opts.clientY + dy})));
+                    document.dispatchEvent(new PointerEvent('pointerup', opts));
+                    const after = document.querySelector('[data-item-id="' + itemId + '"]');
+                    return after.style.left;
+                }""", [item_id, dx, dy, pointer_type])
+
+        # ---------- CASE K: the board — arrange, save, reopen arranged ----------
+        print("\nCASE K — board: first arrangement marks dirty; drag moves; layout rides the save; reopen restores")
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        route_me(page)
+        saved_bodies = []
+        page.route("**/api/notes", lambda r: (
+            saved_bodies.append(json.loads(r.request.post_data or "{}")),
+            r.fulfill(status=200, content_type="application/json",
+                      body=json.dumps(dict(json.loads(r.request.post_data or "{}"), id=7))))
+            if r.request.method == "POST" else r.continue_())
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        page.click("#nw-list >> text=Earlier thought")
+        page.wait_for_selector("#nw-media img", timeout=5000)
+        check("toggle offered on a note with media", page.locator("#nw-view-toggle").is_visible())
+        page.click("#nw-view-toggle")
+        page.wait_for_selector("#nw-board:not([hidden])", timeout=3000)
+        check("board shows text + media items", page.locator(".noted-write__bitem").count() == 2)
+        check("first arrangement marks the note unsaved",
+              page.locator("#nw-status").inner_text() == "Unsaved changes")
+
+        before = page.locator('[data-item-id="m901"]').evaluate("n => n.style.left")
+        after = drag_item(page, "m901", 120, 60)
+        check("drag moved the item", after != before, f"{before} -> {after}")
+        check("handle is a real touch target (>=44px)",
+              page.locator('[data-item-id="m901"] .noted-write__bhandle').evaluate(
+                  "n => n.getBoundingClientRect().height >= 44"))
+
+        page.click("#nw-save")
+        page.wait_for_function(
+            "() => document.getElementById('nw-status').textContent.includes('Saved')", timeout=6000)
+        body = saved_bodies[-1]
+        lay = body.get("layout") or {}
+        items = {i["id"]: i for i in lay.get("items", [])}
+        check("layout rode the save", lay.get("v") == 1 and "m901" in items and "text" in items)
+        ok_frac = all(0 <= items["m901"][k] <= 1.5 for k in ("x", "y", "w", "h"))
+        check("coordinates are fractions of board width", ok_frac, str(items.get("m901")))
+        ctx.close()
+
+        # a note that ARRIVES with a layout opens straight onto the board
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        route_me(page)
+        page.route("**/api/notes", lambda r: r.fulfill(
+            status=200, content_type="application/json",
+            body=json.dumps({"notes": [NOTE_WITH_LAYOUT]}))
+            if r.request.method == "GET" else r.continue_())
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        page.click("#nw-list >> text=Earlier thought")
+        page.wait_for_selector("#nw-board:not([hidden])", timeout=3000)
+        check("arranged note reopens in board mode", page.locator(".noted-write__bitem").count() == 2)
+        check("reopening is not itself an edit",
+              "Opened" in page.locator("#nw-status").inner_text())
+        ctx.close()
+
+        # ---------- CASE L: the board on a PHONE ----------
+        print("\nCASE L — board on a phone: fits the viewport, touch-drag works")
+        ctx = browser.new_context(viewport={"width": 390, "height": 844},
+                                  has_touch=True, is_mobile=True)
+        page = ctx.new_page()
+        route_me(page)
+        page.route("**/api/notes", lambda r: r.fulfill(
+            status=200, content_type="application/json",
+            body=json.dumps({"notes": [NOTE_WITH_LAYOUT]}))
+            if r.request.method == "GET" else r.continue_())
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        page.click("#nw-list >> text=Earlier thought")
+        page.wait_for_selector("#nw-board:not([hidden])", timeout=3000)
+        check("no horizontal overflow at 390px",
+              page.evaluate("() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1"))
+        before = page.locator('[data-item-id="m901"]').evaluate("n => n.style.left")
+        after = drag_item(page, "m901", 60, 40, "touch")
+        check("touch-pointer drag moved the item", after != before, f"{before} -> {after}")
+        check("drag marked it unsaved on mobile too",
+              page.locator("#nw-status").inner_text() == "Unsaved changes")
+        check("handles opt out of scroll (touch-action none)",
+              page.locator('[data-item-id="m901"] .noted-write__bhandle').evaluate(
+                  "n => getComputedStyle(n).touchAction === 'none'"))
+        ctx.close()
+
         browser.close()
     httpd.shutdown()
 
