@@ -484,3 +484,15 @@ of note, which is written into the plan for when you want it.
 Two pieces of wording wait on you in the chat: the honest backup sentence for
 the privacy page, and the paid-storage copy (held back until there is actually
 a way to pay, so the site never offers a door that isn't there).
+
+---
+
+## 2026-08-25, late — the honest backup sentence is on the privacy page (written by the assistant)
+
+Your approved wording is live, word for word — checked sentence by sentence
+against the whole page: all twenty-six of them, twenty-five on the public page
+and the one containing the email address verified on the server itself, since
+Cloudflare disguises addresses at the edge. The 30-day figure is also now a
+registered fact in the site's evidence base, so the machinery that polices
+claims knows where that number comes from. The paid-storage copy is written,
+approved and waiting in the plan for the day there's a way to pay.

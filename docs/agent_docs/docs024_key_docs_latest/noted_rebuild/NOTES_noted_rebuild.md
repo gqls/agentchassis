@@ -2723,3 +2723,31 @@ times today.
 Awaiting the owner's word (presented in chat): the backup sentence for the
 privacy page (ships through draft → checker → evidence_base → 074b on his
 yes) and the paid-tier copy (HELD until a purchase mechanism exists).
+
+---
+
+## 2026-08-25, third session — the backup sentence is LIVE; tier copy approved and HELD
+
+Owner approved both drafts (tier copy minus its last sentence). The backup
+sentence went through the full chain and is live: draft edited (08-12 open
+question RESOLVED in place with the measured facts) → checker (whose figure
+regex knew only marketing shapes — "30 days" read as "none"; widened, and the
+flagged figure then GROUNDED as evidence_base fact #1, registered by derived
+supersede-insert, 7 bans carried) → NEW re-runnable
+`refresh_privacy_copy_from_draft.py` (the two 08-12 one-shots cannot re-run:
+apply FATALs on its long-gone clause, embed's "already embedded" is a
+presence check, not currency) → 074b (both content_edits COMPLETED) → box +
+live.
+
+**Verified 26/26 sentences verbatim**: 25 on the live page + the email
+sentence at the BOX (the edge obfuscator rewrites it — the documented
+instrument case, measured where the rewriter does not reach).
+
+Three instrument lessons in one chain, each caught before it could mislead:
+the checker's shape-blind figure regex; the refresher's own verify probe
+straddling a hard-wrap (false absence — normalised both sides); urllib's
+default UA drawing a Cloudflare 403 that read as a page failure (curl fetch
+substituted). The habit held: suspect the instrument, then PROVE it.
+
+Paid-tier copy (approved wording, minus the 50 MB-free sentence) recorded in
+PLAN_2026-08-24 — ships the day a purchase mechanism exists.
