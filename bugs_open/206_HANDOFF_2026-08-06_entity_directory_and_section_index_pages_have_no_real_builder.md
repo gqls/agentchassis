@@ -732,3 +732,132 @@ It is recorded as a dated observation in that lane's `NOTES_loanzy_uk_example_si
 it does not depend on either lane remembering it. **Re-run the corrected closure query in the
 handoff over these exact rows before trusting it on new ones** — it must return `FAIL` for the
 first two and `n/a` for the rest. It does, as of 2026-08-24.
+
+## 2026-08-25 — the swap LANDED (both doors, one authority), and the closure test had a hole I had to find first
+
+### 1. The blocker cleared, so the deferred half shipped
+
+`HANDOFF_2026-08-24_continue_here.md` item 3 said the `WriteBuildItemsAction` swap was blocked on
+an ownerless dirty hunk in `load_work_item_actions.go`, and told the next session to **re-check
+rather than assume**. Re-checked: `git status --porcelain` is empty for that file and
+`scripts/verify-head-builds.sh` reports HEAD builds. So the swap is done — commit `efec862f4`,
+council corr `b92e624d-15c7-4ef7-a2e5-4a7f41187b38` (submitted, verdict pending at time of
+writing; the commit carries `Council-Submitted:` per the forward-only rule).
+
+What landed: the inline `builderInfo` / `availableBuilders` / `unavailableBuilders` maps are gone
+from `WriteBuildItemsAction`, which now calls `builderForPageType`; `section-index` was added to
+the shared map **in the same commit**, which is the condition council round 4 imposed; and the
+`capability_gap` row's `handler_agent` went EMPTY at this door, matching the round-2 ruling at the
+sibling door. Five tests were added — this door had **zero** direct coverage before.
+
+### 2. The closure test as written could be passed by a HAND RE-ROUTE. It nearly was.
+
+**This is the important part of today, and it is a defect in our instrument, not in the fix.**
+
+The handoff's corrected closure query asserts `PASS` when a `reconcile_site_plan`-minted row for an
+`entity-directory` page carries `handler_agent='directory-build-handler'`. It guards against hand
+routing only with a *procedural* caveat — *"with nobody having set the handler by hand"*. That is
+not a discriminator. `handler_agent` is a **mutable column**, and re-pointing a parked row at a
+working handler is the estate's documented operator escape hatch, used at least twice by us.
+
+So the column has two causes and the query cannot tell them apart. Measured, rather than argued —
+every row in existence, live `UNION` archive, all history:
+
+```sql
+WITH allrows AS (SELECT site_id,created_by,handler_agent,item_key,spec,created_at,updated_at FROM site_work_items
+  UNION ALL SELECT site_id,created_by,handler_agent,item_key,spec,created_at,updated_at FROM site_work_items_archive)
+SELECT s.domain, a.item_key, a.handler_agent,
+       (a.spec ? 'page_type') AS spec_has_page_type,
+       (a.updated_at > a.created_at + interval '1 second') AS touched_after_mint
+FROM allrows a JOIN sites s ON s.id=a.site_id
+WHERE a.created_by='reconcile_site_plan' AND a.handler_agent='directory-build-handler';
+```
+
+`[MEASURED 2026-08-25]` — **three rows, and all three are hand re-routes:**
+
+| domain | item_key | spec has page_type | touched after mint |
+|---|---|---|---|
+| vetcomparison.uk | `needs_page:practice` | **f** | t |
+| vetcomparison.uk | `needs_page:directory-index` | **f** | t |
+| vetcomparison.uk | `needs_page:guides-index` | **f** | t |
+
+Their `created_at` is 2026-07-17 — months before the fix — and their `updated_at` is 08-08 and
+08-24, the two dates this estate re-routed pages by hand. **Had anyone run the closure query
+without a domain filter, all three would have returned `PASS`, and the fix would have been
+declared proven by rows minted by the very hardcode it replaced.** That is the whole failure mode
+this lane keeps logging: a check that reports the right answer for the wrong reason.
+
+### 3. The discriminator that works, and why it is airtight *right now*
+
+`spec ? 'page_type'`. The fixed emit stamps `"page_type": routeType` into the spec
+(`reconcile_site_plan_action.go`, the `// emit` block); the old hardcoded emit did not, and a hand
+re-route only touches `handler_agent` — **it cannot add a spec key**.
+
+`[MEASURED 2026-08-25]` fleet-wide, live `UNION` archive, all history (2026-05-12 → 2026-08-24):
+**508 `reconcile_site_plan`-minted rows, and `spec ? 'page_type'` is FALSE on every one of them.**
+Zero, with no exceptions, because reconcile has not run anywhere since the roll.
+
+That zero is what makes it airtight: the stamp's population is currently **empty**, so the first
+row that ever carries it was necessarily minted by the fixed binary. Use it as the **gate**, not as
+a corroborator:
+
+```sql
+-- PASS requires BOTH: the fixed code minted this row, AND it routed correctly.
+WHERE swi.created_by='reconcile_site_plan'
+  AND swi.spec ? 'page_type'            -- ← the mint fingerprint; a hand re-route cannot forge it
+  AND swi.created_at > '<the build start>'
+```
+
+> The 08-24 handoff said *"do not use `spec_stamped` as the primary discriminator — it is absent
+> exactly when the fix has not shipped, which is when you most need the test to work."* That is
+> right about detecting **FAIL** and wrong about confirming **PASS**, and the two need different
+> instruments. For FAIL, keep joining `pages.page_type` and reading `handler_agent` (a wrongly
+> routed row is exactly the one with no stamp). For PASS, the stamp is the *only* thing that
+> separates the fix working from a human having fixed the page.
+
+### 4. State of the wait: nothing has changed, measured not assumed
+
+`[MEASURED 2026-08-25]` no greenfield build and no reconcile run since the 08-24 15:39 roll:
+`site_work_items` rows with `created_by='reconcile_site_plan'` created after the roll: **0**.
+`sites` with `last_reconciled_at` after 2026-08-24 12:00: **0**. The newest reconcile anywhere is
+`agritec.uk` at 2026-08-24 11:26, i.e. **before** the roll. The five parked rows are untouched.
+
+So item 1 of the handoff — the free proof on the next greenfield build — has not arrived. It is
+still the right thing to wait for, and the query above is now the right thing to run when it does.
+
+### 5. Two more measured facts about this class, recorded rather than fixed
+
+**(a) `needs_directory` is a write-only item_type.** `[MEASURED 2026-08-25, live UNION archive,
+all history]` **0 rows, ever, minted by any producer**; **0** Go readers outside
+`builder_routing.go` itself; **0** rows from `SELECT type FROM agent_definitions WHERE
+default_config::text LIKE '%needs_directory%' AND NOT is_snapshot AND deleted_at IS NULL`. It has
+been the map's value for `entity-directory` since the 08-08 fix and has never reached a row.
+`section-index` inherits it for byte-consistency rather than inventing a third answer. Retiring it
+is a separate question: `create_tool_cross_link_items.go:263` gates cross-links on `item_type IN
+('needs_content_page','page_rerender','needs_page')`, so a `needs_directory` row is invisible
+there — in the **safe** direction (it withholds links rather than pointing at a page that may
+never deploy), but invisible all the same.
+
+**(b) `loadOpenPageItems` and `idx_swi_dedup` disagree by exactly one status, and it is the
+damaging one.** The index's partial predicate excludes **seven** statuses; `loadOpenPageItems`
+(`reconcile_site_plan_action.go:713`) excludes **six** — the same list minus `unresolved`. So a
+row at `unresolved` is treated as **OPEN** by reconcile (the page is skipped as "already queued",
+and new routing therefore **never reaches it**) while the index does **not** cover it. It is also
+undispatchable, since both claim gates filter `status IN ('triaged','approved')`. The page is
+parked with nothing able to free it. `[MEASURED 2026-08-25]` one live instance:
+**`adversecreditmortgage.co.uk` `blog-index`**, a `section-index` `needs_page` at
+`page-build-handler`, `unresolved` since 2026-08-18. **Today's routing change does not reach it**,
+and not for any reason to do with routing. Both facts are now corrections in the code itself.
+
+### 6. Closure test — unchanged in substance, sharper in instrument
+
+The three conditions in the 08-24 handoff still stand. Condition 1 gains a clause:
+
+1. A `reconcile_site_plan`-minted row for a typed page carrying `directory-build-handler`,
+   **and carrying `spec.page_type`** — the mint fingerprint, without which the row may simply be a
+   page a human fixed.
+2. That page built and serving, verified by `curl`, not by `build_status`.
+3. The parked `entity-directory` and `entity-page` rows resolved to their designed outcomes.
+
+`section-index` pages staying parked is **no longer** part of the deliberate narrowing — the
+hold-out ended today. But note (b) above: the `unresolved` ones still will not move.
