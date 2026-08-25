@@ -30,7 +30,7 @@ still true today for every completion through writer 2.
 
 | thing | state | how |
 |---|---|---|
-| `WII-030`'s gate in the binary | **LIVE**, chassis `v1.0.1337`, both pods, started 09:27Z | literal probe of `/proc/1/exe` with a must-be-PRESENT and a must-be-ABSENT control. ⚠ the Go identifier `updateStatusVerifyConfigKey` is correctly **absent** — never probe for that |
+| `WII-030`'s gate in the binary | **LIVE**, re-confirmed on `v1.0.1339` (19:07Z, stamp `a7459a44b`) | literal probe of `/proc/1/exe` with a must-be-PRESENT and a must-be-ABSENT control. ⚠ the Go identifier `updateStatusVerifyConfigKey` is correctly **absent** — never probe for that |
 | steps arming `verify_before_complete` | **0** of 200 live agents | recursive `jsonb_path_query` |
 | declared unarmed `complete` arms | **6**, and the live set MATCHES | `go run ./cmd/config-key-audit --unarmed-verified-completers` → `[]`, exit 0 |
 | that clean result | **DEMAND-CONTROLLED both ways** | drop a real entry → `undeclared`; add a ghost → `stale`; both exit 1, same input |
@@ -56,13 +56,27 @@ it is worth being explicit, because the reflex on this estate is "Go change ⇒ 
 
 The only thing that ever needed a roll was `WII-030`'s gate, and that shipped in `v1.0.1337`.
 
+> **STRENGTHENED 2026-08-25 19:13Z by the `v1.0.1339` roll, and the evidence is better than the
+> argument was.** That roll DOES contain all four of this lane's commits (build stamp `a7459a44b`;
+> `git merge-base --is-ancestor` on each). And the verifier's own error literal
+> `must not be read as a repair` probes **absent** from `/proc/1/exe`, with the REGISTERED detector's
+> literal in the same package PRESENT as the control. **Nothing references the verifier, so the Go
+> linker removed it.** That is the linker certifying the code cannot run — a stronger unreachability
+> proof than reading the source, and it means the deferral carries no runtime risk at all, not merely
+> a small one.
+>
+> ⚠ **The corollary is a trap, and it is why this is written down:** probing for the verifier's
+> literals BEFORE registration returns "absent", which is indistinguishable from a failed roll and
+> means the opposite. Do not do it; and if you must, pair it with a reachable literal from the same
+> package. Recorded fleet-wide as a third cause on the `strings`/marker landmine.
+
 ⚠ **This is a skip-the-work claim, so it carries its own expiry** (trap 11, learned the hard way in
 §3a). It rests on ONE perishable fact — the verifier is unregistered, so nothing of today's reaches a
-runtime path. **Last true 2026-08-25 16:31Z. Re-establish in one command:**
+runtime path. **Last true 2026-08-25 19:13Z. Re-establish in one command:**
 ```bash
 grep -rn 'RegisterVerifier.*required_fields_missing' --include=*.go platform/ | grep -v _test
 ```
-**Empty ⇒ still nothing to roll for.** A hit means somebody completed §3a, and from that moment the
+**Empty ⇒ still nothing to roll for, and the linker will keep stripping it.** A hit means somebody completed §3a, and from that moment the
 verifier IS on a runtime path and **does** need the next chassis roll before it grades anything.
 
 ## 3. WHAT IS LEFT — three items
