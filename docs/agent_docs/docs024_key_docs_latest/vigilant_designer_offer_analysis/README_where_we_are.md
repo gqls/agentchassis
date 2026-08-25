@@ -1587,3 +1587,70 @@ deliberate, and it is waiting on one thing: **the first time this check sees a p
 genuinely been fixed and says so.** After the next fleet update I want to run the analyser again and
 watch for that. Until it happens, we have a check that has only ever seen failure, and I am not
 willing to give that authority to block anything.
+
+---
+
+## 2026-08-25, later the same evening — the job could never have been done, and that was already written down
+
+*Added by the session working `bugs_open/395`, picking the bug up from this lane's handoff.*
+
+The entry above ends by saying we are waiting for one thing: the first time the new check sees a page
+that has genuinely been fixed. **That was never going to happen, and here is why.**
+
+Before writing any code I asked one question the bug file had never asked: *who actually changes the
+thing the check is checking?* All three of the tests we have written so far are about a page's
+**description** — the sentence that appears under the page title in a Google result. So I went and
+found every piece of code that can write one.
+
+There are four. Three of them will only ever *fill in a blank* — if a description already exists,
+they leave it alone, deliberately. The fourth can genuinely replace one, but only one agent in the
+whole system can reach it, and that agent is set up to visit only pages whose description is
+**empty**.
+
+And the agent we actually sent to fix the page — the one that rebuilt it, deployed it, and reported
+success — **has no ability to touch a description at all.** Not "did the wrong thing". Could not have
+done the right thing, whatever we had told it.
+
+So the item we filed was work nobody in the system could do. The agent went, rebuilt the page
+honestly, came back and said it was done, and we wrote down `complete`. The check we built yesterday
+is right to say the criterion is still false. It will go on saying so for ever.
+
+### The part that stings, and is the more useful finding
+
+**We already knew.** On the 19th, another thread investigating why more than half our pages had no
+description at all wrote up the same page, the same field, the same agent, the same
+green-and-did-nothing outcome — and finished with a plain instruction: *do not file these items,
+because they complete and achieve nothing.*
+
+Five days later a different part of the system filed exactly that item.
+
+Nobody was careless. That instruction is clear, well-evidenced, and sits in a file about *missing*
+descriptions, while this thread was searching for anything about *checking finished work*. Two
+threads looking at the same rows, describing them in words that share nothing, so neither finds the
+other. The instruction was a sentence in a document, and **a sentence cannot stop a piece of software
+doing something.**
+
+### What I have done about it
+
+I have turned that sentence into code. From now on, when the system writes down a complaint about a
+page, it checks whether the agent it is about to send can actually change the thing being complained
+about. If it cannot, the complaint is still recorded — filed as *"we can see this and currently have
+no way to fix it"*, which is a list two other parts of the system already read — but it is no longer
+handed to an agent who will come back and say it is done.
+
+It is written so that this cannot quietly stop working: I deliberately broke it three separate ways
+and confirmed each break made a test fail. It is with the review council now.
+
+### The one thing that needs you, and I have not done it
+
+Making these complaints actually *fixable* means letting an automated process rewrite the published
+description of a live page. **You withheld exactly that permission on the 21st** — you allowed a
+one-off pass over 681 pages and were explicit that the standing machinery must not have it.
+
+So the choice is yours, and it is a real one: leave these findings on the "seen, can't fix" list, or
+give something the authority to rewrite a published description when a finding asks for it. I have
+not taken that decision and neither has the other thread.
+
+Until then the check we built yesterday will keep watching, and it still cannot be allowed to block
+anything — not because it is unproven, but because the work it would be blocking is work nobody can
+currently do.
