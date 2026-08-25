@@ -73,13 +73,22 @@ So the merged palette stayed dark, the dark background agreed with the dark layo
 passed, and it re-rendered the identical CSS. **A `design_intent` palette swap alone could never
 have moved it** — the theme and the layout scheme are the artefacts that decide.
 
-Done since: `suggested_style` moved to `modern-light` (verified). **Still to do: the THEME.**
-`style_collections.color_palette` for `collection-agritec-uk` is the stale artefact and is what
-`comp.Palette` reads. The agent has a `fork_theme` step (`fork_theme_from_site`) and a
-`check_should_fork` conditional — **find what makes that branch fire**, because forking a light
-theme from the now-light specs is more likely the intended path than editing the collection row
-by hand. Editing it directly would be the projection-versus-source trap this lane has already
-paid for twice.
+Done since: `suggested_style` moved to `modern-light` (verified), and a `needs_composition` item
+queued for `site-design-planner`.
+
+> **CORRECTED, second time — my `fork_theme` suggestion above was also wrong.**
+> `fork_theme_from_site` is **library contribution**: it inserts a new theme + collection pending
+> review and its own header states *"The site's own `style_collection_id` is NOT modified."* It
+> would never have changed this site. The same file names the right seam:
+> *"Composition installation is owned exclusively by `site-design-planner` via the
+> `install_site_composition` action. Any caller that wants to install a composition onto a site
+> must go through site-design-planner (queue a `needs_composition` work item)."*
+> That planner has exactly the steps this needs — `resolve_composition_palette`,
+> `resolve_composition_layout`, `install_site_composition`.
+>
+> **Two wrong guesses in one diagnosis, both from reasoning about a step's NAME rather than
+> reading what it does.** `fork_theme` sounds like "make this site a new theme"; it means
+> "donate this theme to the library". Read the action header before queueing at it.
 
 Verify at the served artefact with a cache-buster, never at the spec:
 `curl -sS -L "https://agritec.uk/tools/sfi26-revenue-stacker/?cb=$(date +%s)" | grep -o '#12151F'`
