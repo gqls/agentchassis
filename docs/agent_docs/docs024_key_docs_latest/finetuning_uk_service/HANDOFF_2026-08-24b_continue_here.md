@@ -31,9 +31,11 @@ sections. Owner prose: README 08-24 entries. Outcome report + addendum for the c
 >   spawned a 52-item `page_rerender` wave (empty reason = chrome-only). At 20:00 the wave was
 >   still fully `triaged` — site unlocked, zero claimed items, pre-query conditions all pass, and
 >   the dispatcher processed this site minutes earlier, so this is FLEET QUEUE PACE, not a fault.
->   **Verify later**: `SELECT count(*) FROM pages WHERE site_id='1368e337…' AND rendered_header
->   LIKE '%your-own-model%'` should climb toward ~54, and the served /index.html header shows
->   "Your Own Model". If the wave is still untouched after several hours, THEN investigate the
+>   ~~Verify later: rendered_header count~~ **CORRECTED 08-25: that query can NEVER come out
+>   true — all 52 pages have `rendered_header IS NULL` on this site (new LANDMINE, 08-25); the
+>   wave DID ship.** Verified at the served artefact: /index.html carries "Your Own Model" in
+>   the FOOTER group (`site_nav_items` group 6e159642, position 4); the header kept its 9 items
+>   — putting the offer page IN the header displaces something and is the owner's call. If the wave is still untouched after several hours, THEN investigate the
 >   dispatcher's site rotation — not before.
 > - Licence facts registered (`ft-licence-llama33/mistral7b/phi35mini`), terms question list in
 >   README 08-24d. **Remaining work is owner-gated** (proposal review, booking shape, sample
