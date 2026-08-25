@@ -498,3 +498,43 @@ an empty result means "not in range", not "unstamped".
   question, not a grep question.
 - **Do not use 40 zeros as a negative control.** It came back **PRESENT** — it matches Go's internal
   tables. The one element in the command that existed to reveal a broken method agreed with it.
+
+## 7d. The PERMANENT gate — `spec->>'handler' = handler_agent` (2026-08-25, commit `1887a116b`)
+
+Gates 1 and 2 in §7 both have problems: gate 1's population is no longer empty, and gate 2
+(`updated_at`) **expires** the moment the dispatcher legitimately claims the item. Both producers
+now stamp the handler they **chose** into the item's spec, so the check becomes permanent:
+
+```sql
+  AND swi.spec->>'handler' = swi.handler_agent   -- the column still holds what the emit wrote
+```
+
+An `UPDATE` of `handler_agent` — the documented operator repair — does not touch the spec, so a
+repaired row shows `spec.handler <> handler_agent` **for ever**. It cannot be forged and it does not
+decay. Divergence is itself the useful signal: it says *a human re-routed this*, which is exactly
+what the closure test needs to exclude.
+
+> ⚠ **NOT LIVE YET, and this is the trap.** `1887a116b` is committed and council-submitted
+> (`9ff151d6`) but the fleet is on **`v1.0.1339`** (stamp `a7459a44b`), which **predates it**. So
+> **`spec ? 'handler'` is FALSE on every row in the database right now**, and a query gated on it
+> returns **zero** — which reads exactly like "the fix did not work". Until the next roll:
+>   - use §7's gates (fingerprint + `updated_at`), and read the mint **promptly**;
+>   - or confirm the roll first: `git merge-base --is-ancestor 1887a116b <the build stamp>` (§7c).
+>
+> This is the third time in two days this lane has had a check that could return a confident zero
+> for a reason unrelated to the thing being tested. **Check the gate's own precondition before
+> reading its result.**
+
+**Once a stamped row exists**, run both gates on it and confirm they agree before dropping
+`updated_at` — a first observation of a new mechanism deserves the old instrument alongside it.
+
+### The three gates, and what each is actually for
+
+| gate | proves | lifetime |
+|---|---|---|
+| `spec ? 'page_type'` | the **08-24** code minted the row (`d1aa231aa`) | permanent, but its population is no longer empty, so it no longer isolates |
+| `updated_at ≈ created_at` | nothing has written since the mint | **expires on the first legitimate claim** |
+| `spec->>'handler' = handler_agent` | the column still holds the emit's own decision | **permanent** — needs the roll after `1887a116b` |
+
+And the precondition that outranks all three (§7b (iii)): the build must carry an
+**`entity-directory`** or **`entity-page`** page, or nothing it produces can discriminate the fix.
