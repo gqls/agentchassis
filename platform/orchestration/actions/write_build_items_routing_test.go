@@ -42,6 +42,7 @@ package actions
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/json"
 	"regexp"
 	"testing"
 
@@ -72,6 +73,7 @@ type writeBuildItemsFixture struct {
 const (
 	wbiArgItemType     = 3
 	wbiArgHandlerAgent = 10
+	wbiArgSpec         = 6
 	wbiArgStatus       = 11
 	wbiArgItemKey      = 13
 	wbiArgCount        = 16
@@ -303,4 +305,64 @@ func TestWriteBuildItemsFilesNoDispatchItemForUnbuildableType(t *testing.T) {
 			"deferred capability_gap, or the item burns an attempt on a builder that " +
 			"cannot build it and parks in needs_human_review")
 	}
+}
+
+// ── Routing provenance (2026-08-25) ────────────────────────────────────────
+//
+// spec.handler must record what the emit DECIDED, so a later reader can tell
+// it from what the row now CARRIES. handler_agent is mutable and the estate's
+// documented repair re-points it; measured 2026-08-25, all three rows fleet-wide
+// that would have passed bugs_open/206's closure test were hand repairs.
+//
+// The assertion is that spec.handler AGREES with handler_agent at mint. That is
+// the property the closure test relies on: they agree when the emit wrote both,
+// and diverge the moment anything else writes the column.
+func TestWriteBuildItemsStampsRoutingProvenanceMatchingTheHandler(t *testing.T) {
+	for _, c := range []struct{ name, pageType, wantHandler string }{
+		{"guides-index", "section-index", "directory-build-handler"},
+		{"brand-directory-index", "entity-directory", "directory-build-handler"},
+		{"about", "content", "page-build-handler"},
+	} {
+		f := writeBuildItemsFixture{pageName: c.name, pageType: c.pageType}
+		handler, inserted := f.run(t, "needs_page:"+c.name, map[int]driver.Value{
+			wbiArgHandlerAgent: c.wantHandler,
+			// The spec is marshalled JSON; pin that it carries the handler the
+			// column carries. A stamp that disagreed with the column would be
+			// worse than none — it would read as a forged repair.
+			wbiArgSpec: specHandlerIs(c.wantHandler),
+		})
+		if !inserted {
+			t.Fatalf("%s (%s): no item inserted — spec.handler did not match %q",
+				c.name, c.pageType, c.wantHandler)
+		}
+		if handler != c.wantHandler {
+			t.Errorf("%s: handler_agent %q, want %q", c.name, handler, c.wantHandler)
+		}
+	}
+}
+
+// specHandlerIs is an sqlmock.Argument that matches only a marshalled spec
+// whose `handler` key equals want.
+//
+// A real JSON decode, deliberately, not a substring check: a substring would
+// match any spec merely CONTAINING the handler name — page_role, a summary,
+// another key — which is the vacuous-match trap this file's header records.
+type specHandlerIs string
+
+func (want specHandlerIs) Match(v driver.Value) bool {
+	var raw []byte
+	switch t := v.(type) {
+	case []byte:
+		raw = t
+	case string:
+		raw = []byte(t)
+	default:
+		return false
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return false
+	}
+	got, ok := m["handler"].(string)
+	return ok && got == string(want)
 }

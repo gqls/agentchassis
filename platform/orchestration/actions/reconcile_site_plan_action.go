@@ -432,10 +432,32 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 		}
 
 		// emit
+		//
+		// `handler` is ROUTING PROVENANCE, not configuration — nothing reads it
+		// at runtime, and it exists so a later reader can tell what this emit
+		// DECIDED from what the row now CARRIES.
+		//
+		// Why: handler_agent is mutable, and re-pointing a parked row at a
+		// working handler is this estate's documented operator repair (the
+		// recipe is ~110 lines above, in the capability_gap arm). So
+		// `created_by='reconcile_site_plan' AND handler_agent='<X>'` matches
+		// BOTH a row this code routed and a row a human rescued — measured
+		// 2026-08-25, all three such rows in existence fleet-wide were hand
+		// repairs, and the bugs_open/206 closure test would have credited the
+		// fix with them. Stamping the decision makes the two separable for
+		// ever: `spec->>'handler' = handler_agent` proves the column still
+		// holds what this line wrote, and no UPDATE of handler_agent can forge
+		// agreement because it does not touch the spec.
+		//
+		// This REPLACES a gate that expired. The interim discriminator was
+		// `updated_at ≈ created_at` ("nothing has touched the row"), which is
+		// sound but dies the moment the dispatcher legitimately claims the
+		// item — i.e. within minutes, and long before anyone reads the result.
 		spec := map[string]interface{}{
 			"page_name": name,
 			"page_type": routeType,
 			"page_role": plan.Role,
+			"handler":   route.handler,
 			"plan_id":   planID.String(),
 			"reason":    decision,
 		}

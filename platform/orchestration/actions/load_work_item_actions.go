@@ -301,7 +301,20 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 			)
 		}
 
-		specJSON, err := json.Marshal(page)
+		// Same routing provenance as the sibling door (see
+		// reconcile_site_plan_action.go's emit). Copied rather than written
+		// into `page`, so the caller's map — which came from the DB scan and
+		// is read again below for page_id — is not mutated as a side effect of
+		// building a spec. Both producers stamp it or neither is checkable:
+		// a reader cannot tell a mint from a repair at a door that omits it,
+		// which is the same two-doors-disagree trap bugs_open/206 is about.
+		pageSpec := make(map[string]interface{}, len(page)+1)
+		for k, v := range page {
+			pageSpec[k] = v
+		}
+		pageSpec["handler"] = handlerAgent
+
+		specJSON, err := json.Marshal(pageSpec)
 		if err != nil {
 			logger.Warn("WriteBuildItemsAction: marshal error",
 				zap.String("page", pageName), zap.Error(err))

@@ -23,6 +23,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"regexp"
 	"testing"
 
@@ -297,3 +298,66 @@ func TestReconcileLeavesOrdinaryContentPagesOnTheGenericBuilder(t *testing.T) {
 }
 
 var _ = sql.ErrNoRows // keep the database/sql import honest if assertions change
+
+// The emit must stamp its own routing decision into the spec (2026-08-25).
+//
+// handler_agent is mutable and re-pointing a parked row is this estate's
+// documented operator repair, so `created_by='reconcile_site_plan' AND
+// handler_agent='X'` matches a mint AND a hand repair alike — measured
+// 2026-08-25, all three such rows fleet-wide were repairs, and bugs_open/206's
+// closure test would have credited the fix with them.
+//
+// spec.handler makes them separable for ever: it agrees with the column when
+// this emit wrote both, and diverges the moment anything else writes the
+// column. It replaces an interim `updated_at ≈ created_at` gate that was sound
+// but expired the moment the dispatcher legitimately claimed the item.
+//
+// Asserted at the INSERT's own spec argument, pinned by a JSON decode rather
+// than a substring — a substring matches any spec merely containing the
+// handler name (page_role, reason), which is the vacuous-match trap.
+func TestReconcileStampsItsRoutingDecisionIntoTheSpec(t *testing.T) {
+	for _, c := range []struct{ page, role, pageType, wantHandler string }{
+		{"guides-index", "section-index", "section-index", "directory-build-handler"},
+		{"directory-index", "entity-directory", "entity-directory", "directory-build-handler"},
+		{"about", "content", "content", "page-build-handler"},
+	} {
+		f := reconcileRoutingFixture{
+			pageName: c.page, role: c.role, pageType: c.pageType, buildStatus: "planned",
+		}
+		err := f.run(t, func(mock sqlmock.Sqlmock) {
+			mock.ExpectExec(regexp.QuoteMeta("'reconcile_site_plan', 'build', 'needs_page'")).
+				WithArgs(reconcileInsertArgs(7, map[int]driver.Value{
+					2: reconcileSpecHandlerIs(c.wantHandler), // the spec column
+					4: c.wantHandler,                         // handler_agent
+				})...).
+				WillReturnResult(sqlmock.NewResult(1, 1))
+		})
+		if err != nil {
+			t.Errorf("%s (%s): reconcile did not mint with spec.handler == handler_agent == %q — "+
+				"without that stamp a hand repair of handler_agent is indistinguishable from a "+
+				"mint, which is what bugs_open/206's closure test depends on: %v",
+				c.page, c.pageType, c.wantHandler, err)
+		}
+	}
+}
+
+// reconcileSpecHandlerIs matches only a marshalled spec whose `handler` equals want.
+type reconcileSpecHandlerIs string
+
+func (want reconcileSpecHandlerIs) Match(v driver.Value) bool {
+	var raw []byte
+	switch t := v.(type) {
+	case []byte:
+		raw = t
+	case string:
+		raw = []byte(t)
+	default:
+		return false
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return false
+	}
+	got, ok := m["handler"].(string)
+	return ok && got == string(want)
+}
