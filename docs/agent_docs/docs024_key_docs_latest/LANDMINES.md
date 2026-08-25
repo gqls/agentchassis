@@ -17214,3 +17214,39 @@ code change owed at the next roll, tracked in RFC_015 §5.
   The two survivors were `UPL5`/`UPL6`, whose stored quote is `… on moorland (minimum 70% GLU ) £18 per hectare` — a space before the closing paren, taken from how the page *renders* rather than from what the extractor *emits*. The matcher (`NormalizeForQuoteMatch`, `datahelpers/citations.go:116`) unescapes entities, normalises punctuation and thousands separators, lowercases, and collapses whitespace **RUNS** to one space (`quoteWSRe`) — **it does not delete a single space.** So `glu )` will never match text that extracts as `glu)`, and no amount of re-fetching helps.
   **The remedy is structural, not clerical: build the quote FROM the extractor's output** (`VisibleTextFromHTML` = `strings.Join(ExtractAssertionText(html), " ")`), never from the page source, the rendered page, or a reconstruction of a table row. And because `QuoteFoundInText` is a **`Contains`**, prefer the **shortest distinctive fragment** that carries the claim and spans no ambiguous boundary — `UPL5 Supplement: Keep cattle and ponies on moorland` re-proves reliably where the full row with its parenthetical does not. A longer quote is not stronger evidence; it is more surface on which to disagree with the extractor.
 - **added:** 2026-08-25, `register_guards_code_phase_b`; extended the same day with the composed-quote trap after the owning lane's repair left 2 of 83 still failing
+
+---
+
+## Go's HTTP client FOLLOWS REDIRECTS by default, so any probe that reasons about status codes is reading the END of a chain — and a "only 2xx qualifies" rule written beside it is inert
+
+- **footprint:** `http.Client{}` built without `CheckRedirect` · `platform/orchestration/actions/render_sitemap_action.go` (`probeOK`) · `check_endpoint_health_action.go` · any Go action that fetches a URL to decide whether it is live, canonical, deployed or reachable · any `probe_dropped` / `url_count` / health figure derived from one
+- **fires when:** you write or trust a URL probe whose decision is a status code. `net/http` follows up to **10** redirects transparently and hands you the FINAL response, so `resp.StatusCode` can never be 3xx unless you asked for that. The probe then reports 200 for a URL that redirects — possibly to a different domain entirely.
+- **why the wrong result looks exactly right:** the probe is usually the only validation in the pipeline, and it returns the success value. Nothing logs a redirect, no counter increments, and the derived figure reads perfect. **[MEASURED 2026-08-25]** `webdesign.uk` 302s **every** path to `webdesign.co.uk`; its sitemap sweep reported `url_count: 7, probe_dropped: 0` and committed a `sitemap.xml` advertising seven URLs that redirect away. Re-probed without following: **7 of 7 are 302**; followed: **7 of 7 are 200**. `probe_dropped: 0` — the field that exists to report exactly this — was the most convincing part of the wrong answer.
+- **⚠ the doc comment made it worse, not better.** `probeOK` carried *"Only a 2xx qualifies. A redirect is deliberately NOT listed — a sitemap should carry the canonical URL"* from the day it was written. A reader checking whether redirects were handled found the rule, stated clearly and correctly, **beside code that did not implement it** — so the comment converted "unhandled" into "handled" for every reviewer who read it. Related: MEMORY [[a-doc-comment-is-not-an-enforcement-mechanism]].
+- **the check — probe both ways and compare; one number alone cannot show you this:**
+  ```bash
+  curl -s -o /dev/null -w '%{http_code}\n'  "$url"   # no-follow: what your probe SHOULD see
+  curl -sL -o /dev/null -w '%{http_code}\n' "$url"   # follow:    what it ACTUALLY sees
+  ```
+  A disagreement means every status-derived figure downstream is about the wrong URL. In Go, make the rule true:
+  ```go
+  client := &http.Client{
+      CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+  }
+  ```
+  Then **measure the blast radius before switching it on** — sites that legitimately 301 to a canonical form will start being dropped. Sampled across 27 domains on 2026-08-25 it was 1, and that one was already excluded; do not assume yours is.
+- **source:** portfolio_positioning lane, 2026-08-25, found because `webdesign.uk` was the one swept site still serving no sitemap of ours. Fixed in `54ba65b25`, pinned by `TestProbeDoesNotFollowRedirects` (mutation-proven: the bare client yields *"reported status 200, want 302"*, verbatim the live reading). Council `25157bab-4b6d-40c5-a218-98148b60daf6`
+- **added:** 2026-08-25, portfolio_positioning lane
+
+---
+
+## CANONICALISING your output makes it stop matching the SOURCE it came from — so your own verification query scores your own fix as a regression
+
+- **footprint:** any census that joins generated artefacts back to `pages.url` (sitemap `<loc>`, nav hrefs, link graphs, JSON-LD `@id`, `llms.txt`) · `datahelpers.NormalizePagePath` · any "N of M match" verification written BEFORE a canonicalisation change and re-run after it
+- **fires when:** you write a matching check to prove an artefact is genuinely yours, then change the emitter to canonicalise. The stored value and the emitted value now differ **on purpose**, and the check — which predates the change — counts every canonicalised item as a MISS.
+- **why the wrong result looks exactly right:** a match test failing looks like the artefact being wrong, which is the thing it was built to detect. **[MEASURED 2026-08-25]** after `/index.html` → `/` shipped, a fleet census scored 26 domains at exactly **n−1** matches, and `apis.uk` — whose only deployed page IS the homepage — scored **0 of 1** and was reported **NOT OURS**. Its sitemap was perfect. Correcting the check (canonicalise the `pages` side the same way the emitter does) moved the fleet figure **25 → 26 of 28** and every per-site score to a clean n/n.
+- **the tell, and it is the only one:** the misses are **too uniform**. One unmatched entry on 26 different domains is not 26 independent faults — it is one systematic difference. A real coverage problem is ragged. **If every site is wrong in the same place, suspect the instrument.**
+- **the check:** before re-running any match census across a change to the emitter, ask *"does this change alter the very string the join keys on?"* If yes, apply the same transform to both sides. And when a site's whole population is the affected shape (a single-page site, where the only URL is the homepage), the systematic error becomes a **total** one and the site reads as entirely broken.
+- **relations:** MEMORY [[declaring-a-key-silences-your-own-detector]] and [[your-action-moves-you-to-the-back-of-the-selector]] — same family: **your own action changes what your own detector measures.** The distinguishing feature here is that the detector was RIGHT before the change and RIGHT after, about two different questions.
+- **source:** portfolio_positioning lane, 2026-08-25, verifying the `590` fleet sweep
+- **added:** 2026-08-25, portfolio_positioning lane

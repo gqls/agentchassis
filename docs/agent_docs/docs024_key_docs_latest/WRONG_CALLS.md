@@ -50499,3 +50499,44 @@ same set the dedup index uses` — the SQL has 6, the index has 7).
 **The cheap check, and it is the one this file keeps writing down:** a claim about *another*
 function's literal is a `grep`, not a recollection. Both are corrected in place, dated, in the
 code itself; the status divergence turned out to have a live casualty and is now in `bugs_open/206`.
+
+
+## 2026-08-25 — portfolio_positioning lane: I justified a binary probe with "both controls discriminated correctly", and a landmine added that same day says that is exactly what does NOT establish it
+
+**The claim.** On 2026-08-24 I needed to know whether the running chassis carried
+`render_sitemap` before seeding a workflow that calls it. I ran the estate's prescribed probe —
+`kubectl exec <pod> -- grep -aqF "<literal>" /proc/1/exe` — with a present-control and an
+absent-control, and reported: *"both controls discriminated correctly, so the wiring needs no
+image roll."*
+
+**What was wrong.** Not the conclusion — the **warrant**. `LANDMINES.md` gained an entry the same
+day (`BusyBox grep over /proc/1/exe reports FALSE ABSENCES`) whose whole subject is that **both
+controls can pass while a specific target string reads falsely absent**, because the fleet's images
+are BusyBox v1.37 and its `grep` is line-oriented over binaries with enormous "lines". The
+prescribed discipline I leaned on is named there as the thing that makes the trap vicious. So
+"the controls passed" was not evidence for what I used it for.
+
+**Why the conclusion survived anyway, which is luck and worth saying so.** The documented failure
+mode is a false **ABSENCE**. My target read **PRESENT**, and BusyBox truncation cannot manufacture
+a hit. Had the reading gone the other way I would have concluded "not deployed" and delayed the
+wiring for a roll it did not need. It was later settled empirically regardless: the action ran 27
+times across the fleet sweep.
+
+**What caught it.** Not a check — an accident. I grepped the chassis logs for `build provenance`
+hunting the startup line, and the string matched a **landmine being synced into `doc_notes`**
+instead. I read the wrong thing and it happened to be about me.
+
+**The cheap check that would have caught it, and it is a rule I had already been given.**
+`MEMORY.md` says: *grep LANDMINES for the SYMBOL you are about to trust* — because the SessionStart
+hook only surfaces entries matching files already dirty in the tree, and `/proc/1/exe` is not a
+file in the tree. One command: `grep -n '/proc/1/exe' …/LANDMINES.md`. I ran that discipline for
+`sitemap`, for `git stash`, for the migration runner — and not for the instrument I was measuring
+with.
+
+**The transferable half.** I applied the landmine rule to the SUBJECT of the work and not to the
+TOOL doing the measuring. A measuring instrument is the easiest thing in a session to treat as
+neutral background, and it is the one whose failure contaminates every reading taken with it. The
+same session also shipped a census whose own correctness check I had to fix (see `LANDMINES.md`,
+"CANONICALISING your output makes it stop matching the SOURCE") — two instrument faults in one
+session, neither in the thing being measured.
+
