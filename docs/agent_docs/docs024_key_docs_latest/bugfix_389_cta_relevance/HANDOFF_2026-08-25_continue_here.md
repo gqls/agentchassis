@@ -82,7 +82,40 @@ state, not a human judgement. Only leopardess is documented as deliberate, by it
 alphabetical on `name` — `password-entropy` precedes every `tool-*`, so **it would still have won**
 on two of three sites. A demotion that joins the pack is not a demotion.
 
-### ⏳ IN FLIGHT: the step-2 canary
+### ✅ STEP-2 CANARY COMPLETE AND VERIFIED AT THE SERVED BYTES (2026-08-25)
+
+`finetuning.uk/technical-details` — **both buttons fixed, label and href together**:
+`password-entropy` references on the page **2 → 0**; both now read "…Fine-Tuning vs RAG vs Prompting
+Decision Guide" and point at `/tools/model-approach-selector.html` (**200**); **prose control 15 →
+15 `<p>`**, so labels-only held; page 37,789 → 37,869 bytes.
+
+**The recipe works end-to-end THROUGH THE ORDINARY QUEUE.** Two items per page, in order:
+1. `content_rewrite`, `mode=edit_live`, guidance in **`spec.suggestion`** (see the canary SQL);
+2. `page_rerender`, `spec.reason='cta_links_stale'` **and `spec.page_name`** (both load-bearing).
+
+**Budget ~25–35 min per item** and **do NOT bypass the queue** — measured: `content_rewrite`
+claimed after 24 min, `page_rerender` run after ~30 min. Both normal.
+
+> ⚠ **I bypassed it once and was wrong to.** I mis-estimated the elapsed time, called the queue
+> stalled, and fired a direct `page-rerender` **5 seconds after the queue's own run had started** —
+> a redundant duplicate write against a live page, harmless only because a CTA recompute is
+> idempotent. Full account in NOTES (MISSTEP 9) and `WRONG_CALLS.md`. **Before calling this queue
+> dead, measure its service interval, not your row's age.**
+
+⚠ **Dispatch the pair PER PAGE, not in two waves.** Between the rewrite and the rerender the page
+serves a button whose text names one tool and whose href points at another — `bugs_closed/299`'s
+defect. On the canary that window was ~32 minutes. Batching all 11 rewrites first would put every
+page in that state simultaneously.
+
+### The remaining 11 pages (same recipe, per-page pairs)
+
+`ai-agent-orchestration.com`: index, pricing, model-directory, news-index, tools,
+tool-automation-savings-estimator-guide · `finetuning.uk`: services, your-own-model,
+chatgpt-has-your-data-does-that-matter · `leopardessconsulting.co.uk`: services, tools.
+All `rebuild_policy='generic'` (checked). Per-site tool lists go in the guidance — regenerate them,
+do not copy the canary's finetuning list.
+
+### (historical) the canary while in flight
 
 `b422751a-3745-474c-87d6-aeff50028546` — a `content_rewrite` (`mode=edit_live`) on
 **`finetuning.uk/technical-details`**, whose hero and call-to-action labels are both label-locked.

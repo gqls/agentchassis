@@ -158,3 +158,55 @@ passwords); the writer chooses which tool fits the page and words it.
 
 **Verify as a matched pair, not by status** — the label must change AND the href must follow it, and
 `bugs_open/389` proves a `cta_links_stale` rerender reports `complete` either way.
+
+### 2026-08-25 — CANARY VERIFIED at the served bytes. And ⚠ MISSTEP 9: I declared a stall that was not one, and fired a duplicate write at a live page
+
+**The canary worked, end to end, through the ordinary queue** [MEASURED 2026-08-25, served bytes]:
+
+| check | before | after |
+|---|---|---|
+| `password-entropy` refs on the page | 2 | **0** |
+| hero button | "Explore Password Strength Physics" → `/tools/password-entropy.html` | "Try the Fine-Tuning vs RAG vs Prompting Decision Guide" → `/tools/model-approach-selector.html` |
+| CTA button | "Test a password with Password Strength Physics" → same | "Work out which approach fits your business with the …Decision Guide" → `/tools/model-approach-selector.html` |
+| **prose control** `<p>` | 15 | **15** (labels-only held) |
+| target URL | — | **200** |
+| bytes | 37,789 | 37,869 |
+
+Label and href moved **together** — the matched pair, not a status read. The writer's tool choice
+(`model-approach-selector`, "Fine-Tuning vs RAG vs Prompting Decision Guide") is apt for a
+technical-details page on a fine-tuning site; the framework chose better than a hand-written label.
+
+### ⚠ MISSTEP 9 — the stall I diagnosed did not exist, and I intervened on a live page because of it
+
+I watched the `page_rerender` item sit at `triaged`, told the owner *"the per-site orchestrator
+simply didn't come round"*, and fired a **direct** `page-rerender` to bypass the queue. The
+timeline says otherwise:
+
+| time | what |
+|---|---|
+| 13:07:42 | item created |
+| 13:19:49 | → `triaged` |
+| **13:37:22** | **the queue's own run starts** (corr `ca88f642`, 3 orchestrations) |
+| 13:37:27 | **my direct fire starts** (corr `a20aa7a8`) — **5 seconds too late to be the cause** |
+| 13:37:54 | CTA urls written |
+
+**The queue fixed it. My intervention was a redundant duplicate**, running concurrently against the
+same page. It was harmless only because a CTA recompute is idempotent — both runs resolve to the
+same destination. Had it not been, I would have raced the platform against itself on a live
+customer page.
+
+**The root of the error was mundane and worth naming: I mis-estimated the wall clock.** I believed
+~50 minutes had passed at `triaged` when the true figure was ~17 minutes (and ~30 from creation) —
+entirely consistent with the **24 minutes** I had *already measured* for my own `content_rewrite`
+item earlier the same afternoon. I had the baseline and did not apply it.
+
+**The check that would have caught it, and it is one query:** before calling a queue stalled, ask
+what its *service interval for this site* actually is, and compare like with like —
+`SELECT created_at, updated_at FROM site_work_items WHERE site_id=… AND status='complete' ORDER BY
+updated_at DESC LIMIT 10`. An absence over N minutes is not evidence of a permanent stall, and "it
+has not run yet" and "it will never run" are different claims. The estate's direct-fire remedy is
+for a **dead** queue (`bugs_closed/029`: items orphaned at `claimed`, zero completions); this queue
+had **593 completions in six hours** — a figure I measured, quoted, and then argued past.
+
+**Consequence for the remaining 11 pages: use the ordinary queue.** The recipe works through it
+end-to-end. Budget ~25–35 minutes per item and do not bypass.

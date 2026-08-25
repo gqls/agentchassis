@@ -52683,3 +52683,33 @@ changed world rather than a changed instrument.
 calls today were made while correcting someone else** — that is now a measured tendency and not a
 coincidence: correcting mode supplies confidence and suppresses the check, and it did so four
 times in one afternoon.
+
+## 2026-08-25 — I declared a queue stalled from elapsed time I had mis-estimated, and bypassed it 5 seconds after it started working
+
+**The claim, told to the owner:** *"the per-site orchestrator simply didn't come round for
+finetuning.uk in 50 minutes"* — and on that basis I fired a direct `page-rerender` to bypass the
+build-dispatch queue on a live customer page.
+
+**What was true:** the queue claimed and ran the item at **13:37:22**. My bypass started
+**13:37:27** — five seconds later. The queue did the work; my run was a redundant duplicate against
+the same page, concurrently. Harmless only because a CTA recompute is idempotent.
+
+**The elapsed time was never 50 minutes.** It was ~17 at `triaged`, ~30 from creation — matching
+the **24 minutes** I had measured for my own earlier item that same afternoon. I had the baseline in
+hand and reasoned past it.
+
+**What caught it:** attributing the fix before claiming it. The write landed at 13:37:54 between two
+candidate causes, so I read `orchestration_states` by correlation id rather than assuming mine was
+the one that mattered. **Had I not checked, I would have reported a successful intervention that
+did nothing**, and recorded a false stall in the lane docs for the next session to act on.
+
+**The cheap check that would have prevented it:** before calling any queue dead, measure its
+*service interval*, not the elapsed time on your row — `SELECT created_at, updated_at FROM
+site_work_items WHERE site_id=… AND status='complete' ORDER BY updated_at DESC LIMIT 10`. I had even
+measured the fleet figure (**593 page_rerender completions in six hours**), quoted it in chat as
+evidence the handler was alive, and then argued past it to "but not for MY site".
+
+**The distinction worth carrying: "it has not run yet" and "it will never run" are different
+claims,** and only the second licenses an intervention. The estate's direct-fire remedy is written
+for a **dead** queue (`bugs_closed/029` — items orphaned at `claimed`, zero completions). Reaching
+for a documented remedy does not make the diagnosis that reached for it correct.
