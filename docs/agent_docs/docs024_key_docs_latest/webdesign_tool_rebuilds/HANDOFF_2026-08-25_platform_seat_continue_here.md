@@ -35,6 +35,18 @@ bottom, entries 2026-08-25); the read-aloud account:
    - If the capability_gap is MISSING after a sweep demonstrably ran on a site with ported inline
      handlers, that is the picker-not-running shape: check `auditContractRules` fired (no log
      marker exists — judge by the gap row) and read the sweep's findings for `contract_rules_16_17`.
+
+   > **CORRECTED 2026-08-25 ~20:20Z, next session of this seat: "the sweeps are scheduled" is
+   > FALSE for the sweep these controls need.** `tool_health` and `tool_acceptance` are carried
+   > ONLY by `design-discovery-agent`, whose rotation task `site-discovery-rotation-design` has
+   > been `enabled=false` since 2026-08-11 12:43Z (the slow-ramp pause; migration 395 re-enabled
+   > quality only, and design's re-enable never happened). The quality sweep that fired on
+   > webdesign 19:47Z post-roll runs nine checks, none of them these. **The controls are blocked
+   > on an owner decision — re-enable the design rotation (395's foot UPDATE) or hand-fire one
+   > design-discovery run on webdesign — not on waiting.** The watchdog line "rotation tasks
+   > enabled: 3/3" is blind to this (counts the availability task): `bugs_open/401`, LANDMINES
+   > 2026-08-25, WRONG_CALLS 2026-08-25c, NOTES ~20:20Z entry. Caught by running the control and
+   > asking which agent had produced the sweep.
 2. **Watch for the grind's Phase B ping** — the standing arrangement (NOTES 2026-08-25 ~12:00Z):
    when their FIRST rich app builds (mind-map/meme/logic-architect/micro-CMS/pasteboard), this seat
    second-eyes the feature-list browser grade. They ping with the app and feature list.

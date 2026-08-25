@@ -363,3 +363,36 @@ capability removed to fit a budget, not a fault repaired, and those are differen
 written down as owed work, along with keyboard access for the cubic-bezier handles, which I cut for
 the same reason. Both want their own small follow-up job rather than being smuggled into the next
 tool's rebuild.
+
+## 2026-08-25, evening (platform seat) — the proof-it-works check cannot run, because the inspector that would run it has been switched off since the 11th
+
+Some context first. When we shipped the "contract rules" change earlier today — the one that files
+one tidy work item per site instead of forty noisy ones — I said the proof would arrive on its own:
+the next routine inspection of the webdesign site would exercise the new code, and we would simply
+read the result. Tonight I went to read it.
+
+The proof cannot arrive. The platform has several kinds of routine inspection, and the one that
+carries our new code is the *design* inspection. That inspector has not visited any site since
+August the 11th. It was switched off on purpose that day, during the cost scare, when you ruled
+"turn the inspections back on, slowly". We turned the first one back on the next day, someone later
+turned on the second — and nobody ever turned on the third. The off switch has now outlived the
+reason it was flipped by about two weeks.
+
+Two things made this hard to see, and I have written both up properly. First, my own handoff note
+from this afternoon confidently said "the inspections are scheduled" — I never checked the switch,
+and I have logged that as a wrong call. Second, the daily watchdog report that exists precisely to
+catch a switched-off inspector has been saying "3 of 3 switched on" the whole time. It is
+miscounting: a fourth, unrelated task was added later with a similar name, and the report counts it
+as one of the three. So the alarm built for exactly this situation went quiet a week into it. That
+is a real bug, now filed (number 401), with a suggested one-line-of-thinking fix: count by name,
+not by number.
+
+**The decision that is yours.** Turning the design inspector back on is the unfinished last step of
+your own "slowly" ruling, so I have not done it without you. The cost of switching it on is the
+same shape as the quality one you already approved: it works through the sites over a few days,
+then settles to roughly four site-visits a day. Until it is on: our new contract-rules code sits
+live but never runs; none of the 43 rebuilt tools has had its routine re-audit; and the design
+checks (contrast, broken images, tool health) run on no site at all. The alternative half-measure
+is to point one single inspection at the webdesign site by hand, which proves our code works but
+leaves the fleet-wide gap standing. My recommendation is the switch: the reason it was off has
+ended, and the watchdog that should have told us so is the thing that was broken.

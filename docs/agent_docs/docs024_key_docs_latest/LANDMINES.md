@@ -18042,3 +18042,18 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** MEMORY [[live-and-committed-are-independent-facts]] · [[seed-sql-is-history-live-row-is-fact]] (the live row is the fact; here the live FILE is). Same family as the kustomize `newTag` pin entry above, with the polarity flipped: there the stale pin BLOCKS your ship and you notice; here the ship SUCCEEDS and destroys someone else's.
 - **source:** gripper-dossier lane, 2026-08-25 — caught by a pre-ship diff of live-vs-repo; merged back in `644d07302`; runbook Tenant 2 step 3 carries the point-of-use correction.
 - **added:** 2026-08-25, gripper-dossier ("AI page 3") lane
+
+### THE STALENESS REPORT'S "rotation tasks enabled: 3/3" COUNTS A FOURTH TASK — a disabled content rotation still reads as fully enabled
+
+- **footprint:** `site-discovery-staleness-check` · `doc_notes` subject_key `site-discovery-staleness` · `scheduled_tasks` `site-discovery-rotation-*` · `design-discovery-agent`
+- **fires when:** you read the daily staleness report (or its doc_notes row) to confirm the discovery drivers are on — before enabling something, after an incident, or while waiting for a sweep to fire. No symptom: the line says `3/3` and you move on.
+- **the trap:** the numerator counts EVERY enabled row matching `name LIKE 'site-discovery-rotation-%'` (`check.py:75-79,132`), and since 2026-08-10 that pattern matches FOUR tasks — the 236 lane's `site-discovery-rotation-availability` plus the three content rotations the denominator describes. So with `site-discovery-rotation-design` `enabled=false` (since 2026-08-11 12:43Z), the header printed `3/3` from 08-18 onward and the purpose-built `driver_missing` alarm — *"catches: the tasks disabled"*, its own docstring — went permanently silent. The dead rotation eventually surfaced as **27** per-site `site_stale` rows (**as of 2026-08-25**), which read as a fairness problem, not a switch. `tool_health`, `tool_acceptance` and `palette_contrast` run nowhere while it is off.
+- **the check (one query, never the report line):**
+  ```sql
+  SELECT name, enabled, interval_seconds FROM scheduled_tasks
+   WHERE name LIKE 'site-discovery-rotation-%' ORDER BY name;
+  ```
+  Four rows come back; the three content ones must be enabled before you may write "the sweeps are scheduled" about any check they carry. Which agent carries YOUR check: `discovery_checks_registration_test.go` per-agent lists.
+- **relations:** `bugs_open/401` (the case + fix candidates) · MEMORY [[detection-works-schedule-and-dispatch-do-not]] · [[zero-adoption-means-read-the-mechanism]] · the "pre_query returns 0 rows" entry above (same table, the other half: enabled proves selection is possible, not that selection selects)
+- **source:** 2026-08-25, `webdesign_tool_rebuilds` platform seat — Track 2's demand controls waited on a design-discovery sweep that structurally cannot fire; the report had said `3/3` for a week.
+- **added:** 2026-08-25, `webdesign_tool_rebuilds` platform seat

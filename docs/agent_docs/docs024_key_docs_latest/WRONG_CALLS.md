@@ -53561,3 +53561,29 @@ between a runbook that ages and one that rots.
 cost a council seat a MEDIUM objection; a "known broken, do not debug" note of mine that was false in
 ninety minutes; and now an imperative that a same-day change inverted. All three were correct when
 written. **Correct-when-written is not a defence, it is the mechanism.**
+
+## 2026-08-25c — "the sweeps are scheduled; do not force one" — written into my own seat's handoff, about a sweep whose carrier had been switched off for 14 days
+
+**The claim.** The `webdesign_tool_rebuilds` platform-seat handoff (written ~19:50Z 08-25, by
+this seat) instructed: run the Track 2 demand controls "once a discovery sweep has fired
+post-1339 (**the sweeps are scheduled**; do not force one)".
+
+**What was actually true.** The checks those controls observe (`tool_health`,
+`tool_acceptance`) are carried ONLY by `design-discovery-agent`, whose rotation task
+`site-discovery-rotation-design` has been `enabled=false` since 2026-08-11 12:43Z (the
+slow-ramp owner decision that re-enabled quality only). A quality sweep DID fire on the right
+site 40 minutes after the roll and was worthless as a trigger: nine checks, none of them mine.
+The demand controls were unreachable at the moment the sentence was written.
+
+**What caught it.** Running the control anyway and asking WHICH agent had produced the sweep —
+then `agent_definitions` for which config names `tool_health`, then `scheduled_tasks.enabled`
+for its carrier. Three queries, next session, ~30 minutes. Nothing would have caught it inside
+the session that wrote it, because the sentence was never checked against anything.
+
+**The cheap check that would have.** Before writing "X is scheduled" about any check, name the
+carrier and read its switch — one query:
+`SELECT name, enabled FROM scheduled_tasks WHERE target_agent_type = '<agent carrying the check>';`
+The agent-to-check mapping is `discovery_checks_registration_test.go`. Corollary of the
+existing family: a schedule is a CLAIM about a mechanism, and the `3/3` line I would have
+leaned on to defend it is itself blind (`bugs_open/401`, LANDMINES same day) — so the check
+must read the row, not the report.

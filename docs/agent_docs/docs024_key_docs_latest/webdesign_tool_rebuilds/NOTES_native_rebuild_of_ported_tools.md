@@ -3621,3 +3621,52 @@ sibling's not-yet-rebuilt count; (2) `tool_acceptance` findings no longer enumer
 Also banked from the 375 lane's same-day find (LANDMINES): **a literal can be absent from a binary
 that CARRIES its commit because the linker dead-code-eliminated the unreachable function** — the
 third cause of the indistinguishable probe symptom; ancestry-of-stamp remains the load-bearing proof.
+
+## 2026-08-25 ~20:20Z (platform seat) — Track 2 demand controls: BLOCKED, and the blocker is a switch that has been off since 08-11 — the handoff's "the sweeps are scheduled" was FALSE
+
+Picked up the platform-seat handoff, step 1: run the demand controls once a discovery sweep fires
+post-1339. A sweep DID fire on webdesign 40 minutes after the roll (quality-discovery-agent,
+orchestration `e122b1c9`, 19:47:02Z, COMPLETED) — and it is the wrong carrier: its
+`checks_requested` are nine quality checks, no `tool_health`, no `tool_acceptance`. Both
+demand-control checks are carried ONLY by `design-discovery-agent`
+(`discovery_checks_registration_test.go:69-82`; the only `agent_definitions` config naming
+`tool_health`).
+
+**And design-discovery runs nowhere:** `site-discovery-rotation-design` is `enabled=false` since
+**2026-08-11 12:43:14Z** — the improvement-sweep cost incident's pause, after which migration 395
+(owner decision 08-12, "enable the discovery rotations, slowly") re-enabled **quality only** and
+said in terms "`design` and `completeness` stay disabled". Completeness was re-enabled later
+(by 08-13, watchdog series); design never was. Newest design rotation stamp fleet-wide:
+2026-08-11 12:42:38Z; webdesign's: 2026-08-09 22:06Z; zero design-discovery orchestrations in
+the retention window. All [MEASURED 2026-08-25].
+
+So, corrections, both mine to own:
+
+1. **The handoff's parenthetical "(the sweeps are scheduled; do not force one)" was written
+   without reading the carrier's switch.** Logged as `WRONG_CALLS.md` 2026-08-25c; correction
+   block added to the handoff itself. The `capability_gap` row (control 1) is correctly ABSENT
+   — 0 rows — and the handoff's "picker-not-running" caveat does NOT apply: no sweep ran, so the
+   zero is the expected zero of an undriven mechanism, not evidence about rules 16/17.
+2. **The daily watchdog said `rotation tasks enabled: 3/3` throughout.** That line counts the
+   236 lane's `site-discovery-rotation-availability` (created 08-10) into a denominator that
+   means the three content rotations, so its purpose-built `driver_missing` alarm — which fired
+   correctly 08-11→08-17 at `1/3`/`2/3` — went silent on 08-18 when availability's enable made
+   the count whole, and the dead rotation resurfaced only as 26–27 `site_stale` rows on
+   08-24/25. Filed as **`bugs_open/401`** (first-hand verification declared per the 07-31
+   ruling); LANDMINES entry same day; CONTRIB into `bugfix_230_discovery_driver/`.
+
+**What the demand controls now wait on — an owner decision, not a clock:** either the 395-foot
+UPDATE re-enabling `site-discovery-rotation-design` (its staged ramp's unactioned last step,
+13 days after quality proved priceable — note completeness came back at its as-shipped 3600s,
+not 395's 10800s), or a hand-fired single-site design-discovery run on webdesign (RUNBOOK §9
+pattern in `bugfix_230_discovery_driver/RUNBOOK_discovery_driver.md`). This seat is doing
+NEITHER unprompted: the enable is the owner's ruling by 395's own text, and the handoff's
+do-not-force instruction stands until he says otherwise. Put to him in `README_where_we_are`.
+
+Also relevant to the GRIND seat (told via session message): with design-discovery off,
+**no `tool_acceptance` re-audit has run or will run on any of the 43 rebuilt tools** — the
+serve-grade passes in this file are currently the ONLY grading those rebuilds have had, and the
+tombstone-enumeration control (control 2) is equally unobservable until the switch flips.
+
+Handoff step 2 (Phase B ping): grind seat idle at #43 golden-ratio, rich apps ~5 tools away —
+no ping owed, none missed.
