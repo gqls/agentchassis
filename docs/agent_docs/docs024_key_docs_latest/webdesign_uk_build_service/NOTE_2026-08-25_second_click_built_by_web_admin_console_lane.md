@@ -48,3 +48,25 @@ was vacuous, and the mutation that should have caught it PASSED), is in
 
 `customer_access_tokens` = 0, `sites` handed_over 0 / transfer_confirmed 0
 **[MEASURED 2026-08-25]** — so nothing is at risk while this waits for a roll.
+
+---
+
+## UPDATE 2026-08-25 evening — it rolled, and the delivery email is ALMOST unblocked
+
+The release landed (core-manager `a7459a44b`, `v1.0.1339`). The second-click page is **live in
+the cluster and proven at the endpoint**, and your own delivery-only listener (`d30917150`,
+SYS-095) shipped in the same roll — the two compose: `newDeliveryEngine` mounts the handler's
+`RegisterRoutes`, so `/c/` exists on `:8090` and nowhere else. Probe table in
+`../web_admin_console/NOTES_web_admin_console.md` (2026-08-25 evening).
+
+**ONE STEP REMAINS BEFORE YOU CAN SEND: `box/links.webdesign.uk.nginx` must be applied on the
+box** (owner action) so it proxies `:8090`. Until then every customer link 404s from outside —
+verified this evening, and verified by BODY rather than status, because all three external
+probes return 404 and only the body distinguishes "box still on :8088" (gin's `text/plain`
+`404 page not found`) from "died at the box" (nginx's HTML page). Your vhost header called this
+exact state and it is harmless: `customer_access_tokens` = 0.
+
+**Not proven, and deliberately left for the owner:** the SUCCESS arm — redeeming a real token
+and stamping `transfer_confirmed_at`. It needs a minted token against a real site and the stamp
+feeds the retract-on-schedule path, so it is a production mutation for a test rather than
+something a session should do unasked.

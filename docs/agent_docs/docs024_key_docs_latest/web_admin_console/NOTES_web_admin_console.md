@@ -463,3 +463,49 @@ trade. Handoff item 4 corrected in place.
 Also corrected: the list heading printed `({workflows.length})` and the API's `count` field is
 `len(workflows)` — both the PAGE SIZE. "(50)" read as a total when it was the window. Now
 "newest 50+", with the `+` only when the window is full.
+
+### 2026-08-25 evening — the roll landed: second-click page LIVE in the cluster, box step still outstanding
+
+Release carried it. core-manager stamp `a7459a44b`, image `v1.0.1339`, **one distinct stamp
+across all pods** (checked — a release can straddle and ship several revisions under one tag).
+
+**(a) Ancestry, all three, with the reversed control failing as it must:** `24b63120d` (method
+split), `d1a4bdcdf` (shared route table), `d30917150` (the other lane's delivery listener). One
+without the others would have been a half-shipped state, which is why all three were checked.
+
+**(c) Capability probes, in-cluster, run from the dashboard pod** (core-manager's own image has
+**no** `curl`, `wget` or busybox — worth knowing before planning a probe):
+
+| probe | result | meaning |
+|---|---|---|
+| `:8090/api/v1/admin/work-items` | **404** | admin API absent from the delivery listener |
+| `:8088/api/v1/admin/work-items` | **401** | …and the PAIR is what makes that mean something: the path exists on the admin port |
+| `:8090/c/<token>` GET | **200**, `<h1>Confirm you have moved your site</h1>` + `<form method="post">` | the button page, no `action=`, no success copy |
+| `:8088/c/<token>` GET | **404** | the routes were MOVED, not copied |
+| `:8090/health` | **404** | delivery-only really is delivery-only |
+| `:8090/c/<token>` POST, unmatched token | **"That link is no longer active."** | routing, handler and DB lookup all exercised, nothing mutated |
+
+`customer_access_tokens` = **0** and `sites.transfer_confirmed_at` = **0** after all of it.
+
+**(b) The box has NOT been applied yet, and I can prove that rather than assume it.** From
+outside, all three external probes 404 — including the control, so status codes alone could not
+tell "box not applied" from "box broken". **The BODIES discriminate:** the token-shaped path
+returns `404 page not found` as `text/plain` — that is **gin's** 404, so the request crossed
+WireGuard and reached core-manager, on the port where `/c/` no longer lives (`:8088`). The
+suffix path returns nginx's HTML 404 page, i.e. it died at the box, so the anchored regex is
+intact. That is exactly the intermediate state `links.webdesign.uk.nginx`'s header predicts,
+and it is harmless: zero tokens exist.
+
+> **The check worth keeping: when every arm of a probe returns the same status, the status is
+> not the instrument.** Two 404s from different sources are different facts, and the body,
+> the content-type or the `Server` header will usually say which. I nearly recorded "the box is
+> not applied" as an inference from the vhost header saying it would be — which would have been
+> a guess dressed as a result, and would have read identically if the box had been applied and
+> the regex broken.
+
+**What is still NOT proven, stated so nobody reads this as complete:** the SUCCESS arm of the
+POST — a real token being redeemed and `transfer_confirmed_at` being stamped. It needs a minted
+token against a real site, and confirming stamps that site as customer-confirmed, which feeds
+the retract-on-schedule path. **That is a production mutation for a test and it is the owner's
+call, not a session's.** Everything up to it is proven at the live endpoint; the redemption SQL
+itself was verified against real Postgres in a rolled-back transaction on 2026-08-20.

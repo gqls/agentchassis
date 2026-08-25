@@ -5,6 +5,16 @@ supersedes for items 1 and 2 only — 3, 4 and 5 there are untouched and still o
 Depth: `NOTES_web_admin_console.md` 2026-08-25 · `../webdesign_uk_build_service/DECISION_2026-08-24_confirmation_needs_a_second_click.md`
 · `COUNCIL_SUBMISSION_2026-08-25_second_click_confirmation.json`.
 
+> **UPDATE 2026-08-25 evening — the roll landed and the cluster half is LIVE AND PROVEN**
+> (core-manager `a7459a44b`, `v1.0.1339`, one stamp across all pods; all three commits
+> ancestor-proven with the reversed control failing). The button page renders on `:8090`, the
+> admin API is absent from that listener while present on `:8088` (the pair), and a POST with an
+> unmatched token returns the spent-link page. **The ONE step left is the owner applying
+> `box/links.webdesign.uk.nginx`** so the box proxies `:8090` instead of `:8088`; until then
+> customer links 404 from outside, proven by BODY (gin's `text/plain` 404 upstream vs nginx's
+> HTML 404 at the box), not inferred. Zero tokens exist, so nothing is at risk. Full probe
+> table in NOTES 2026-08-25 evening. Items 2–4 below stand unchanged.
+
 ## 0. State in one paragraph
 
 **The one owed code task is done and reviewed, and it is NOT LIVE.** `/c/<token>` now splits
