@@ -3438,3 +3438,11 @@ specs**: whoever builds that route will want them. Nothing owed by this lane.
 > teaches: a claimed CHANGE requires ONE instrument run twice — two sessions' counts differing by
 > one is a predicate diff until proven otherwise** (WRONG_CALLS 2026-08-25). The structural point
 > (every topically-correct pick parks) was never affected.
+
+> **ROOT CAUSE FOUND 2026-08-25 ~18:30Z (333 lane, both predicates side by side on ONE instrument):**
+> the 33-vs-34 was `NOT LIKE 'tool%'` (theirs) vs `NOT LIKE 'tool-%'` (the grind's and mine) — ONE
+> HYPHEN, whose sole casualty is `tools-index` (starts with `tool`, not `tool-`). No page ever moved
+> policy; a pattern did. Their register line now states the predicate beside the number; all three
+> lanes carry matching WRONG_CALLS rows. The complete rule, as it survived three lanes' testing:
+> **a one-page delta between two sessions' counts is a predicate difference until the same query
+> STRING produced both numbers.**
