@@ -924,6 +924,14 @@ control: stray prose backticks on cubic-bezier = 0
 ```
 Still holding across every chassis roll since 2026-08-21. The CQ-028 transform has not regressed.
 
+> **RE-VERIFIED 2026-08-25** on the new chassis `4c996e1b5cb9b2513d88ec9fe2bae220c38fb6c2`
+> (pods up 09:27Z), capability re-probed on the running binary rather than inferred from ancestry
+> (`rendered_html_transform` 8, `code_span_to_code_tag` 5, control 0). Served bytes unchanged:
+> cubic-bezier `<code>ease-in-out</code>` = 1, gas-unit-converter `<tr` = 6, prose backticks = 0.
+> The residual is stable at **21 parked** and **genuinely unrouted = 0**, now across **92** rows —
+> the `partial` route grew 29 → 57 since 08-24, so the router is demonstrably still working rather
+> than merely quiet. Nothing here reopens the bug.
+
 ## 10.2 The disconfirmable prediction is CONFIRMED — at the predicted time, by the predicted mechanism
 
 §9 predicted: *"the next `review-queue-revalidate-daily` pass should stop reporting 'carries no
