@@ -617,7 +617,20 @@ func relatedPagesFromInputs(inputs *datahelpers.ActionInputs, collected map[stri
 	// the explicit-path arm: if the step errored to error_step, its output field
 	// does not exist and the key is ABSENT; if it ran and answered, the key is
 	// PRESENT and holds that answer, empty or not.
-	if !inputs.Has("related_pages_fallback") {
+	//
+	// `WasDefaulted ||` follows the estate's existing idiom for exactly this
+	// question — `deploy_image_asset_action.go:175`, `purposeUnstated :=
+	// inputs.WasDefaulted("purpose") || !inputs.Has("purpose")`, whose comment
+	// records why: "Defaults are written into the input map BEFORE the recursive
+	// search runs, and every later strategy skips a field that already holds a
+	// value — so a defaulted field is otherwise indistinguishable from a
+	// supplied one." Neither spec declares a Default for this key today and
+	// TestFallbackKeyHasNoDefault fails if one arrives; this arm means the
+	// mechanism stays correct even if that guard is ever deleted, rather than
+	// depending on it. Found by searching for prior art at the council reuse
+	// seat's request (corr 5287ef5d) — the search that produced this line is
+	// the reason the seat asks.
+	if inputs.WasDefaulted("related_pages_fallback") || !inputs.Has("related_pages_fallback") {
 		return nil, relatedPagesSourceNoPicker
 	}
 	if relatedPagesFallbackDeclined(raw) {
