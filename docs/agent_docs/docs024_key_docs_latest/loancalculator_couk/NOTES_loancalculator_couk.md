@@ -6524,3 +6524,84 @@ been compared against once is a file, not a baseline.
 ⚠ **The 08-17 golden is superseded but NOT wrong** — keep it. It is the only record of the
 pre-rebuild values, and it is what proved `385` was a regression rather than a long-standing
 fault (`react=5` there against `react=0` live).
+
+## 2026-08-25 — post-roll acceptance: 11/11 exact, and 385 did not recur (but today's wave did not test the arm that broke)
+
+Picked this lane back up after a fresh chassis build. Checked what moved first, because 750
+commits landed under this thread overnight.
+
+### What changed beneath us
+
+```
+chassis   v1.0.1339, build provenance git_commit a7459a44b — asked the SERVICE, not git
+          (2 pods, both on that image, started 2026-08-25 19:07)
+ancestry  my last commit (3973260c5) IS an ancestor of a7459a44b, and a7459a44b is an
+          ancestor of HEAD — so the running binary post-dates this lane's work
+my files  UNTOUCHED by any of the 750 commits: toolprobe.py, the whole loancalculator_couk
+          lane, and bugs_open/385. 385 is still open, still unowned by anyone else
+```
+
+⚠ **`save_page_sections_action.go` is UNCHANGED between my session and the running build.**
+One commit (`c735bfd9c`, the `bugs_open/375` verifier gate) touched neighbouring files but
+`git show c735bfd9c -- save_page_sections_action.go` is **empty**. So **385's writer is still
+live, exactly as filed** — the roll did not fix it and nobody claims to have.
+
+### The acceptance answer, which is what this lane exists for
+
+`--selftest` green first, then all 11 URLs against `GOLDEN_2026-08-24_post_385_repair`:
+**`all 11 tools reproduce their golden values exactly`, exit 0, ZERO divergences** — not even
+the cosmetic FAQ rename this time, because the 08-24 golden already records it.
+
+That is the first clean post-roll acceptance run this lane has ever had with a working
+instrument, and it covers a chassis roll AND a 24-page rerender wave on the same day.
+
+### 385 has NOT recurred — and the ten tool pages rebuilt today
+
+[MEASURED 2026-08-25] `byte_twins_on_page` (385's own discriminator, not a bare
+`component_id IS NULL` count) is **0 for all 9 remaining orphan rows fleet-wide**. On this
+site: 28 active pages, **11 locks held, 0 orphan rows**.
+
+**And this is the part worth keeping:** all ten tool pages rewrote 4 of their 5 rows today
+between 13:04 and 13:34 — **including `/tools/loan-vs-savings.html` at 13:11, the page that
+duplicated** — locked row untouched on every one, and **none duplicated**.
+
+⚠ **BUT THAT DOES NOT EXONERATE THE ARM THAT BROKE, and reading it as if it did is the trap
+here.** [MEASURED] today's wave was **24 `page_rerender` items, `source='side_effect'`**, from
+a `tool-cta` template change — the **rerender** arm (`rerender_sections`). The 08-23
+duplication came from a **`needs_page`** item on the **build** arm (`page-build-handler` →
+compile → `save_page_sections`). **Two different upstreams into the same INSERT.** So what
+today proves is: *the rerender arm does not duplicate on a locked positional tool page*. The
+build arm remains untested since the failure, and it is the one that failed.
+
+### A lead I chased and CLOSED, negatively — do not re-chase it
+
+`page_component_history` retains what the 08-23 rebuild saw. Its five
+`source='save_page_sections_overwrite'` markers are a **pre-overwrite snapshot of the rows
+that already existed** (`save_page_sections_action.go:830-843`, `SELECT pc.id …`), so they
+describe the page BEFORE the rebuild, not the composition it received. The page had 5 rows:
+faq, tool-cta, the locked calculator, hero, ported-prose.
+
+Four of those five markers carry `component_id` NULL and one — the calculator's — carries
+`10be4f71`, which [MEASURED] is a `page_components` **row id** (1 hit) and **not** a
+`content_components` id (0 hits; the real component is `448422ce`). That looked like a
+type-confusion lead pointing straight at an unresolvable component.
+
+**It is not the discriminator.** Fleet-wide, **153 of 23,627** overwrite markers carry a row
+id (0.6%) — and **101 of those are on THIS SITE, across 12 pages, from 08-03 to 08-25**,
+against exactly **one** duplication in that whole window. The population it tracks is almost
+certainly the locked/retained rows (this site has 11 locks; idea.uk, the next biggest, has
+11 pages). **A 101-to-1 ratio is not a cause.**
+
+I also checked the obvious "the code changed underneath the data" explanation before writing
+any of this down: `git show ec653247f:…save_page_sections_action.go` (the commit HEAD was at
+when the duplication happened) carries the **identical** snapshot SQL. So the anomaly is real
+and it is simply not this bug's.
+
+### Where 385 stands
+
+Unchanged in substance from 08-24: damage repaired and verified, **cause still not
+established**, writer still live. What today adds is three constraints — it has not recurred
+anywhere; the rerender arm is clean on all ten locked tool pages including the victim; and
+the overwrite-marker lead is closed. The next move is still §5b's, and it is now sharper:
+**test the BUILD arm**, because that is the one that has not run on a locked positional tool
+page since it failed.

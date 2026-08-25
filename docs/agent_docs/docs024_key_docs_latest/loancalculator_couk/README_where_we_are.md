@@ -2423,3 +2423,44 @@ days ago — I have tested and ruled out. That is written up as `bugs_open/385` 
 picks it up, with the damage fully measured and the cause honestly marked unknown rather than
 guessed at. Nothing is broken while it stays open; the risk is that the next rebuild of a
 protected calculator page could do the same thing again.
+
+---
+
+## 2026-08-25 — after the new build: everything still checks out, and the fault has not come back
+
+A fresh chassis build went out today. First thing I did was check what had moved underneath
+this work, because a lot of other threads have been busy — seven hundred and fifty changes
+have landed since I last touched this.
+
+**The short answer: nothing of ours moved, and everything still passes.**
+
+**All eleven calculators verified again, exactly.** I ran the checker's self-test first, then
+compared all eleven against the reference snapshot taken on Sunday: eleven out of eleven
+identical, no differences at all. That covers both the new build and a wave of twenty-four
+page rebuilds that went through the site earlier today. It is the first clean check of this
+kind the site has had with an instrument we know was working at the time.
+
+**The duplicate-calculator fault has not come back anywhere.** Not on this site, not on any
+other site on the estate.
+
+**And ten of the site's tool pages were rebuilt today** — including the very page that broke
+on Saturday — with no duplication on any of them.
+
+**One honest qualification on that last point,** because it would be easy to take it as "the
+bug is gone". There are two different routes by which a page gets rebuilt, and Saturday's
+damage came through one of them while today's rebuilds all came through the other. So what
+today shows is that one route is clean. The route that actually broke has not been used on a
+protected calculator page since it broke. The fault is still possible, and the code that
+caused it is untouched in the new build.
+
+**I also chased a promising lead and killed it.** The history table keeps a record of what
+each rebuild saw, and one field in Saturday's record looked wrong in a way that would have
+explained everything. It turned out that same "wrong" value appears about a hundred times on
+this site over the last three weeks, against exactly one instance of the damage — so it is
+just a normal marker for protected rows, not a cause. Worth reporting because a hundred-to-one
+ratio is the sort of thing that stops a plausible story becoming a false answer, and the
+checking cost about five minutes.
+
+**So the position is unchanged in substance from Sunday:** the site is healthy and provably
+so, the damage is repaired, and the reason it happened is still not known. What today added
+is three things we can now rule out, which is how that kind of question usually gets answered.

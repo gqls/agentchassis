@@ -193,6 +193,47 @@ persuasive — a page differing from its peers mid-sweep looks *skipped* and usu
 class fix** — the writer that produced it is still live, and the next rebuild of any locked
 tool page can do it again.
 
+## 7a. STATE AT 2026-08-25 (post-roll) — three constraints added, none of them a cause
+
+**Not recurred, anywhere.** `[MEASURED 2026-08-25]` `byte_twins_on_page` is **0** for all 9
+remaining `component_id IS NULL` rows fleet-wide. On loancalculator: 28 active pages, 11
+locks held, **0 orphan rows**.
+
+**The writer is still live and unmodified.** Chassis `v1.0.1339`, build provenance
+`a7459a44b` (asked the service). `save_page_sections_action.go` is **unchanged** between
+2026-08-24 and that build — the one commit touching neighbouring files (`c735bfd9c`,
+`bugs_open/375`'s verifier gate) has an **empty** diff for this file. Nobody has fixed this
+and nobody claims to have.
+
+**All ten locked tool pages rebuilt clean — on the WRONG ARM.** `[MEASURED]` every tool page
+on the site rewrote 4 of its 5 rows on 08-25 between 13:04 and 13:34, locked row untouched,
+none duplicated — **including `/tools/loan-vs-savings.html` at 13:11, the victim itself.**
+
+> ⚠ **Do not read that as the bug being gone.** That wave was **24 `page_rerender` items,
+> `source='side_effect'`, from a `tool-cta` template change** — the **rerender** arm
+> (`rerender_sections`). The 08-23 duplication came from a **`needs_page`** item on the
+> **build** arm (`page-build-handler` → compile → `save_page_sections`). Two different
+> upstreams into the same INSERT. What is now established is that **the rerender arm is
+> clean on a locked positional tool page**; the build arm has not run on one since it
+> failed, and it is the arm that failed.
+
+**A lead chased and CLOSED negatively — do not re-chase it.** The five
+`source='save_page_sections_overwrite'` rows in `page_component_history` for the 08-23
+rebuild are a **pre-overwrite snapshot of the rows that already existed**
+(`save_page_sections_action.go:830-843`, `SELECT pc.id …`) — they describe the page BEFORE
+the rebuild, not the composition it received. Four carry `component_id` NULL; the
+calculator's carries `10be4f71`, which is a `page_components` **row id**, not a
+`content_components` id. That reads like a type confusion pointing at an unresolvable
+component. It is not: **153 of 23,627 markers fleet-wide carry a row id (0.6%), and 101 of
+them are on this site across 12 pages between 08-03 and 08-25, against ONE duplication.** It
+tracks locked/retained rows. A 101-to-1 ratio is not a cause. (The "code changed underneath
+the data" explanation was also checked and refused: `git show ec653247f:` — the commit HEAD
+was at when the duplication happened — carries the identical snapshot SQL.)
+
+**Acceptance is green throughout:** all 11 calculators reproduce
+`GOLDEN_2026-08-24_post_385_repair` exactly, exit 0, after both the roll and the rerender
+wave, with `--selftest` green first.
+
 ## 8. Fix candidates, ordered by what closes the door
 
 1. **Make the state unrepresentable: a partial unique index on
@@ -222,6 +263,13 @@ python3 toolgolden.py --selftest          # ALWAYS first — green, or nothing b
 python3 toolgolden.py --compare acceptance/<the current golden> \
         https://loancalculator.co.uk/tools/loan-vs-savings.html
 ```
+
+**And drive the right ARM.** As of 2026-08-25 the rerender arm is proven clean on all ten
+locked tool pages; the **build** arm (`needs_page` → `page-build-handler` → compile →
+`save_page_sections`) is the one that failed and has not run on a locked positional tool page
+since. A fix verified only through `page_rerender` has not been verified against this bug.
+The 08-23 wave's own item shape is the template — `NOTES ## 2026-08-23`, source
+`loancalc_owner_release_20260823`.
 
 `react=0` is this bug. A duplicate-id census is the cheaper pre-check:
 `curl -s <url> | grep -o 'id="[^"]*"' | sort | uniq -d` — non-empty is the defect.
