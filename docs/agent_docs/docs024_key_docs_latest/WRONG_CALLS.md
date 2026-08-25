@@ -71,6 +71,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **before claiming a row is one operation away from destruction, look for that operation having ALREADY RUN on it — the work-item history is one query and it refuted me six times over** | **1** |
 | **OPEN the rows a new predicate flags before calling the flag-set pathological — a false positive is indistinguishable from a true one in a COUNT, and the legitimate case is usually already documented in the file you are writing in** | **1** |
 | **`| head -N` on a table/file listing is an UNMARKED TRUNCATION — an absence claim built on one is fiction, and alphabetical `_backup_*` names are exactly what fills the visible lines** | **1** |
+| **before believing an ABSENCE, grep a fragment that omits every character markup might wrap — backticks, asterisks, wrapped punctuation — and prove the pattern can match on something known present** | **1** |
 | **when the property under test is an ABSENCE, name what in the observable output could differ — if nothing can, an effect-based assertion is vacuous however correct the rule that prescribed it** | **1** |
 | **when mutation-proving a SOURCE-SCANNING test, mutate inside the anchor's MATCHED SPAN — `replace(x, 1)` takes the file's first occurrence, which is usually not the one the pin reads** | **1** |
 | **`grep -rn` returns a LIST — read to the end of it before writing 'one', 'only' or 'the single'; stopping at the first file is how a five-writer table becomes a one-writer claim** | **1** |
@@ -52199,3 +52200,45 @@ with you — `count(*) OVER ()` in SQL, `wc -l` on a listing — and read the to
 **And the thing I keep relearning:** the conclusion survived both times, which is exactly why neither
 was self-correcting. A false premise supporting a true conclusion produces no symptom at all, and the
 only reason both were caught is that someone else re-ran them.
+
+
+## 2026-08-25 (later) — `web_admin_console` lane: I declared my own landmine entry "lost to a concurrent clobber" on three checks that all used one impossible pattern
+
+**The claim.** Having appended a landmine entry at ~12:52, my next pathspec commit reported
+three files when I had named four. I checked whether the entry had survived: absent from
+`HEAD`, absent from disk, and `git log -S` found no commit that ever added it. I wrote a
+commit message accusing another session of a full-file write that clobbered it, re-added the
+entry, and committed that.
+
+**What was actually true.** It had been in `HEAD` since `0c304c9a6` at 13:36, carried there as
+the passenger **that commit's own message names**. Nothing was ever lost. The file simply had
+no changes left for my later commit to take, which is why git reported three files — the
+correct behaviour, reporting a fact I misread as a symptom.
+
+**Why all three checks agreed.** They were one check. Every one used the pattern
+`POST /c/<token> must live on the SAME path`, and the heading is
+``### `POST /c/<token>` must live on the SAME path`` — inline code, so a backtick sits between
+`>` and ` must`. The literal never existed in the file, in any commit, on any day. **Three
+independent-looking confirmations, one pattern, zero chance of matching.**
+
+**And it cost a second error, because the guard inherited the bug.** My re-add script tested
+`if needle in s: sys.exit("already present")` with the same string, so it did not fire, and I
+appended a duplicate. Removed in `310ecf3b0`, which also carries the correction to
+`947173e0e`'s false accusation (forward-only: the wrong message stands, corrected forward).
+
+**What should have caught it.** This lane's own memory index says these hard-wrapped documents
+make a line-oriented grep report FALSE ABSENCES and gives the unwrap recipe. I hit the
+inline-code version of the same failure and did not connect it. The deeper habit is the one
+this file keeps re-learning: **a negative result gets no control, while a positive one gets
+three.** `grep -c "must live on the SAME path as the GET"` — no markup characters at all — was
+available throughout and returns the true count from either direction.
+
+**The cheap check:** before believing an absence, re-grep a SHORTER fragment stripped of every
+character markup might wrap, and run the pattern once against something you know is present. If
+it cannot match the known-present case, it never proved anything about the absent one.
+
+**A near-miss worth recording separately:** the deletion I made to remove my duplicate is
+exactly the shape `check_append_only_docs` exists to catch, and it fired. It was right to. What
+made the deletion safe was not care — it was that my copy carried a distinguishing string in
+its own `added:` line, so the script could refuse to delete anyone else's. Without that, two
+near-identical entries and a wrong belief would have removed the other session's.
