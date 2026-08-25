@@ -154,3 +154,37 @@ is the sharpest part. The data is there NOW; only the invalidation is missing.
 
 **A cheap detector for the population, if you want one:** a section-index page whose served internal
 link set is a subset of another page's is indexing nothing, regardless of what its plan says.
+
+
+---
+
+## 6. THE POSITIVE CONTROL — added 2026-08-25 after the `bugs_open/381` lane pointed out that my zero had none
+
+A zero with no demonstration that the measure *can* be non-zero is an argument, not evidence. §5's
+`article-card = 0` had no such demonstration. It does now, and the measure discriminates:
+
+| page | raw `article-card` | after `<style>`/`<script>` strip | ELEMENTS bearing the class | `section--articles` |
+|---|---|---|---|---|
+| `homegarden.uk/april/index.html` | 46 | **0** | **0** | **0** |
+| `homegarden.uk/august/index.html` | 46 | **0** | **0** | **0** |
+| `dartsonline.com/` *(positive control — a listing WITH data)* | 108 | 108 | **108** | **1** |
+
+**A listing with data scores 108/1; a skipped one scores 0/0.** That is the disconfirming result §5
+was missing.
+
+> ⚠ **AND THE CONTROL CARRIES A TRAP WORTH MORE THAN ITSELF: THE CONTAMINANT IS SITE-DEPENDENT.**
+> On `homegarden.uk` the class name appears **46 times inside an inlined `<style>` block**, so a raw
+> `grep -c 'article-card'` reports the cards as PRESENT on a page that has none. On `dartsonline.com`
+> the stylesheet is external, so raw and stripped are **identical (108)** and the same raw command is
+> perfectly correct.
+>
+> **So a markup-counting command verified on one site can be silently wrong on the next**, and
+> "I checked this grep and it was fine" is worthless as assurance. **Strip `<style>` and `<script>`
+> unconditionally**, and count ELEMENTS (`<tag ... class="…x…">`) rather than string occurrences —
+> the element form is immune to both CSS and to the class name appearing in prose or a data
+> attribute.
+
+**Provenance of this section:** the positive control and the CSS observation are the `bugs_open/381`
+lane's; verified here independently before recording. Their framing of why it matters is the best
+statement of it either lane produced: *"reproducing a number is not testing an instrument — the
+question is never 'do I get the same figure' but 'what figure would I get if the thing were false'."*
