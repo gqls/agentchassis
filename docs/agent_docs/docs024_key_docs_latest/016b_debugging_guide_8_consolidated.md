@@ -256,6 +256,35 @@ title>`, then Symptom / Diagnose / Root cause / Fix, with the SQL and cross-refe
 immediately-prior pattern — the interactive-page clobber — is the final §9 entry in 016
 v2_56; start the next one below.)*
 
+### A hand-repair written into a `source:"llm"` field is a loan — rerenders keep paying the interest, and the first content_rewrite forecloses
+
+**Symptom.** Hand-restored or hand-authored content in `page_components.content_data` survives
+days of rerenders, then vanishes wholesale after a `content_rewrite` / `tone_shift` / full page
+build. The work item completes green, the page renders and serves, nothing is logged — and the
+loss is routinely misfiled as a recurrence of the closed `bugs_closed/238` family (whose closure
+explicitly says a recurrence is a NEW case). Worked case: leopardess `/services.html`, restored
+2026-08-14, survived four rerenders byte-identical, then one `offer-analysis` `content_rewrite`
+generation (2026-08-22 11:35:41Z) took cards 6→3 and all six `icon-service-*` references.
+
+**Diagnose.** `page_component_history`: find the generation where bytes / array length collapsed
+(order by `created_at`, compare `length(content_data::text)` and
+`jsonb_array_length(content_data->'cards')`). Join `site_work_items` on the timestamp window to
+name the driver from its own row. Then read the SECTION SPEC for the lost field's `source` — if
+it is `llm`, this is bug `403`, not 238.
+
+**Root cause.** The build/rewrite path REPLACES llm fields wholesale (rerender MERGES — the
+asymmetry `RFC_042` ruled on), and nothing inside an llm field distinguishes an authored value
+from a generated one (`__cta_minted` / LNK-035 does exactly this, for CTA fields only). So the
+PBP-039 carry (non-llm sources only), `cmd/content-loss-check` (non-empty→blank transitions
+only), and any "survived N rerenders" verification (wrong producer — rerender merges) are all
+structurally blind. `bugs_open/403` holds the case, evidence and fix candidates; the leopardess
+lane owns the fix (owner ruling 2026-08-25).
+
+**Fix (interim discipline until 403 ships).** A hand-repair into an llm field is temporary by
+construction: keep the repair as re-runnable SQL, or re-source the field to a non-llm authority
+(`site_specs` aspect) where the carry protects it. Never cite "survived N rerenders" as safety —
+name the producer it survived (see the same lesson on `bugs_open/248`'s fix record).
+
 ### A fix that changes WHICH status a write lands re-arms every OTHER writer of that row — and the seam's mocks can see neither that nor a malformed statement
 
 **Symptom.** A status-write fix is built, mutation-tested and council-approved; its own writes
@@ -6624,6 +6653,7 @@ See `/bugs_closed/README.md`.
 
 | 396 | ⚠ **CORRECTED 2026-08-25, hours after filing: the count is 52, not 114** — 62 of the 114 carry provenance in `result` (`result.deferred_by`), and the filer had enumerated `spec` only. **52 work items sit at `deferred` with a NAMED `handler_agent` — undispatchable, un-promotable, un-re-filable, and with no record of who parked them or why.** Three predicates nobody reads together: dispatch claims `status IN ('triaged','approved')` (`claim_work_item_action.go:102`), the promoter takes `status='detected'`, and `idx_swi_dedup`'s exclusion list contains neither — so the row is selected by nothing **and still holds its `(site_id,item_key)` slot**, and any other session dispatching that page hits **23505**, which reads as *"already queued"* and means *"queued and abandoned"*. Worked cost: a `page_rerender` parked 22 days blocked `bugs_open/328`'s dispatch and completed **2 minutes** after being re-armed. ⚠ **`deferred` + EMPTY handler is CORRECT** — the estate's roadmap convention, six commented writers, two consumers, a drain that counts parked rows separately; 98 rows, not damage. ⚠ **87 more are migration 389's stamped contrast park and are `bugs_open/296`, OWNED** by `bugfix_131_contrast_ratio_check`. ⚠ `plan_sections_action.go`'s four `deferred` hits are a **different** `deferred` (a section-plan status, `:906`) and counting them inverts the conclusion | **OPEN, UNOWNED. ROOT CAUSE ESTABLISHED 2026-08-25 by an independent review — deliberate per-site queue HOLDS, run as hand `psql` by four named sessions (three owner-directed), because THE PLATFORM HAS NO PARK VERB.** The writers documented themselves: `mortgagecalculator_couk_adoption/HANDOFF_2026-08-03:81-90` carries the verbatim *"every 15s, defer anything dispatchable"* backstop — **it sets `status` and `updated_at` and nothing else, which is exactly why its 38 rows are unstamped** — and commit `90a4fb812` records idea.uk's *"→ deferred (UPDATE 14)"*. ⚠ **The filer ran the Go grep a dozen times and never `grep -rn "SET status='deferred'" docs/`**: on this tree *"no code does this"* and *"nobody did this"* are different statements. ⚠ **Do NOT blanket re-arm** — 60 rows carry a live release condition (*"un-park after rebuild verify"*); ask the holder. The reframing is the useful output: not a defective writer, a MISSING VERB, with **six** competing ad-hoc provenance conventions grown around its absence. `090` RUN — `6061299a`, 4 iterations → **UNVERIFIABLE**, *"zero remaining named candidates in the read code … hand to a human; do NOT auto-conclude"*. **Eight candidates excluded with evidence** so nobody re-walks them, incl. the near-miss: `FailWorkItemAction`'s `status_override` writes a bare config string straight into `status` and leaves `handler_agent` untouched — exactly the shape — but stamps `handled_by`, and **0 of 114** carry it (control: `handled_by` is set on **7,114 of 7,329** `complete` rows, so the zero is a real absence). Also OUT: migration 217 (backfills to `''`, not to a name), any `handler_agent` router (none exists), `refreshOpenWorkItem` (description only), dispatched-then-parked (113 of 114 never triaged/claimed/attempted, none carries an `error`). Left OPEN and labelled: a discovery-run side effect (timing correlation only — a co-occurring actor is not a writing actor) and a hand-run `psql` UPDATE (no evidence beyond absence of alternatives). ⚠ **Do NOT chase `HandleUpdateWorkItem`** — the verdict names it and **the symbol does not exist repo-wide**; its own caveat (signature indexed, body not) is the tell, and the code index lags the branch. ⚠ **`updated_at - created_at` CANNOT tell "born deferred" from "deferred later"** (`trg_site_work_items_updated_at` bumps on every write; no status history) — a clean-looking "0 of 205 born deferred" from that query means nothing. Fix candidates ranked by what closes the door, with the `idx_swi_dedup` predicate change **rejected as a first move** (lockstep with `workItemTerminalStatuses`; migration 157 broke that pair fleet-wide with 42P10). Lane: `docs024_key_docs_latest/deferred_work_item_park/` |
 | 398 | A `scheduled_tasks` row is NOT a single-flight slot — `runTick` calls `stampCompleted` (BOTH stamps → NOW()) immediately after `fireTrigger`, fire-and-forget since `892a289e9` 2026-03-17; the per-row guard, `countInFlight`, `max_concurrent`, `timeout_seconds` and the agents' `notify_scheduler` stamps are ALL inert for the 40 enabled `fire_message=true` tasks, while `loadDueTasks`'s comment still promises single-flight | **OPEN 2026-08-25** — runtime behaviour deliberate; the DOCUMENTATION is the defect, and the dispatch_throughput lane shipped a sibling-row lever (582–584) on the wrong reading (delivers ~+10–15%, not 2×; measured, safe, 0 double-handles). Fix candidates: D9 per-task executions (closes the door, owner-deferred) · honest comments + drop the two inert notify steps · `interval_seconds` documented as the rate knob (done). Self-overlap census = the one-query proof (361 pairs on one row/24.5h) |
+| 403 | **A hand-authored value inside a `source:"llm"` field has no provenance, so every `content_rewrite` is licensed to destroy it** — the build path REPLACES llm fields wholesale; PBP-039's carry (non-llm only), `content-loss-check` (blank transitions only) and `__cta_minted` (CTAs only) are each structurally blind; leopardess `/services` restored three times and eaten three times, the 08-22 11:35Z loss traced generation-exact in `page_component_history` | **OPEN — filed 2026-08-25**, leopardess lane owns the fix (owner ruling same day); 090 corroboration run `c946b495` in flight at filing |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26;
 > RE-MEASURED 2026-08-03).** This table is **materially behind** and a miss here is a
