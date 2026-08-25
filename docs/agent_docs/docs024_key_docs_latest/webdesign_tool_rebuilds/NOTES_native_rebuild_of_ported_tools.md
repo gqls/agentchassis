@@ -3136,3 +3136,23 @@ Fonts smart-add symmetric. 0·0·0 counts, 4 listeners.
 **src="policy-generator.js"**, copyCSP, data-type=); positives = CODE-arm literals (function
 rebuild, validateToken ×2). Tombstone re-read: removed ✓. Orphan #9 (corr 2708dcda-eff4-42d4-a2de-5ef7bb5c810b).
 **Phase C remainder: 3 — fluid-typography, vibe-equalizer(2), micro-cms(4).**
+
+## 2026-08-25 11:35Z — #37 `tool-fluid-typography` DONE (37 of 63); micro-cms reclassified to the rich-app finale
+
+Item `f3abe293` (related_pages: learn-design-fluid-web-theory + learn-design-css-grid-math).
+Ported sighting #17: a hardcoded SVG sold as a "Dynamic Slope Visualizer" (the computed range was
+never used), PLUS an entire viewport-simulator UI (sim-width/sim-rendered) shipped in markup wired
+to NOTHING (the blob-maker dead-controls class), NaN-passing validation, inverted-range clamp
+emitted silently, copy without .catch. RUN complete/adopted, component `12a39d60`; retire
+`UPDATE 1` ~30 s post-build (slot `821b43a6` md5 `f269ba8e…` intact); rerender `b2287751`
+complete 11:30:40. **COMPONENT by mechanism:** `buildGraph(minW,maxW,minS,maxS)` maps the ACTUAL
+values into the viewbox with padded domains (a real plot); `computeSizeAt` + `updateSimulatorReadout`
+make the simulator WORK (px + rem readouts, honest disable message while fields are invalid,
+`updateSliderRange` re-ranges to the viewport span); `parseField`/`clearErrors` per-field inline
+validation incl. the inverted-range refusal; copy showSuccess/showFailure. 0·0·0 counts, 4 listeners.
+**SERVE-GRADE PASS:** 200 / 25,259 / LM 11:30:55 > 11:30:40; negatives 0 (minWidth, slope-graph,
+**src="app.js"**, copyCode, sim-width); positives = code-arm literals (buildGraph, computeSizeAt ×2,
+updateSimulatorReadout ×4). Tombstone re-read: removed ✓. Orphan #10 (corr 6f3fcf4a-3618-4dd6-9306-828fcd729575).
+**CLASSIFICATION: `tool-micro-cms` is "Flat-File Micro CMS" — one of the PLAN's FIVE rich apps —
+so it moves to the owner-reviewed finale, NOT the Phase C grind. Phase C remainder: vibe-equalizer
+ONLY (then C is complete bar micro-cms's finale slot).**
