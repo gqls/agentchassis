@@ -50237,3 +50237,35 @@ a file I had just fixed and asking whether the count went down.
 **What did work, every time:** not trusting the first result. Each of the three was caught within
 a minute because the answer was surprising and I checked *why* before writing it down. The
 instrument being wrong is not the failure mode to fear — publishing its output is.
+
+### 6. And the FIFTH instance was mine, found by production, in the code that closes the family
+
+The first real sweep of the mechanism I spent two days building (2026-08-25 09:06Z) filed a
+suggestion proposing **two fact ids for one constant** — agritec.uk's tool has a single
+`100000` in its script, and two register facts both assert the SFI26 annual agreement cap
+of £100,000. A human cannot reconcile that binding.
+
+**The constant's own comment already claimed the guard existed**: `factProbeNotProbed` was
+documented as *"refused: no value, below the floor, **or ambiguous**"*. There was no
+ambiguity arm. I wrote the promise and not the code, in the same change whose entire
+subject was that a written control had never run — the P11 correction is four commits
+earlier in the same session.
+
+**Why no test caught it:** every fixture I wrote gave each fact a distinct value. The
+collision is invisible unless the fixture contains two facts sharing one, and it never
+occurred to me to write that because I *believed the guard was there* — I had read my own
+comment. **A comment you wrote is not evidence, and it is the most persuasive kind of
+non-evidence, because it is in your own voice and it is right in front of you.**
+
+**The cheap check, and it is the counterpart to "delete the CALL, not the body":** when a
+comment names a case (`refused: … or ambiguous`), **grep the file for the case**. If the
+word in the comment appears nowhere in the code, the arm does not exist. One `grep`, no
+test run — and it is exactly the check that would have caught this, because
+`grep -n "ambig" refresh_evidence_fact_probe.go` returns the comment and nothing else.
+
+Running tally across this change: **14 mutations, 4 that passed and were worthless, one
+REVISE that found what none of them could, and one defect that survived all of it to be
+found by the first production run.** The last is the one worth sitting with: a mechanism
+can be council-approved, mutation-proven, live, and still ship a documented-but-absent
+guard — and the thing that found it was simply *letting it run against real data and
+reading the output*.

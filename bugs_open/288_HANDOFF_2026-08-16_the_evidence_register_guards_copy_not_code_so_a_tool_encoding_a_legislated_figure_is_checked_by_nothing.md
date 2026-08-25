@@ -297,6 +297,54 @@ another lane** — so RFC_025's first consumer is theirs, not this lane's. Ours 
 **citation** fact and the first using **`subject_key`**, which are the two things stage 2b
 unlocked. Say it that way; do not claim the first consumer.
 
+## §5c — THE FIRST REAL SWEEP, 2026-08-25 09:06Z. It fired, and it found a defect of mine.
+
+The first non-dry pass with this code. 19 sites, **0 errors**.
+
+**PHASE 4 WORKS ON REAL DATA — five notes across three sites, first pass:**
+
+| site | tool | proposed |
+|---|---|---|
+| loanandmortgagecalculator.co.uk | **`mortgages-stamp-duty`** | **7** correct SDLT bindings, paste-ready — the estate's second stamp-duty calculator, previously guarded by nothing |
+| gamesdesign.co.uk | `drop-rate-simulator`, `tool-combat-balance-comparator`, `tool-spawn-rate-balancer` | 3 |
+| agritec.uk | `tool-sfi26-revenue-stacker` | 1 (see the defect below) |
+
+**STAGE 2b IS PROVEN IN PRODUCTION, AND BOTH ARMS OF `ownsVerifiedAt` WITH IT** — the same code,
+two facts, two roles, correct in each:
+
+| fact | tolerance | outcome | `verified_at` | |
+|---|---|---|---|---|
+| `sdlt-ftb-relief-cap` | `artifact_check` | fresh | **absent** | SECONDARY — the citation arm owns the date |
+| `sdlt-ftb-relief-cap` | `citation` | fresh | 2026-08-25 | the primary arm |
+| `gd-trials` | `artifact_check` | fresh | 2026-08-25 | PRIMARY (artifact-only fact) — so it *does* own the date |
+
+### ⚠ THE DEFECT THE SWEEP FOUND, AND IT WAS MINE
+
+agritec's note proposed **two** fact ids for the single `100000` in the tool's script —
+`CIT-3f1b219f15ec6a39` and `CIT-86c4010f7cdf820d`, both asserting the SFI26 annual agreement cap
+of £100,000. A human cannot reconcile that binding, and pasting it would declare two facts for one
+constant so every later pass owes a reconciliation nobody can perform.
+
+**`factProbeNotProbed`'s own comment already said "refused: no value, below the floor, or
+ambiguous". The ambiguity arm had never been written.** A comment promising a guard that does not
+exist — the exact class this lane spent two days closing, committed while closing it. Fixed
+(`bba8a892d`): a value carried by more than one fact is reported in the note but never proposed
+and never reaches the paste-ready fragment. **Not yet rolled.**
+
+### ⚠ AND A COUPLING NOBODY HAD NAMED: PHASE 3a IS STARVED UNTIL PHASE 4 IS ADOPTED
+
+The sweep produced **0 `fact_drift` entries, and therefore 0 probe annotations**. That is not a
+fault — it is the self-quieting property working, the 13 baselines are recorded and the register
+has not moved. But the consequence had not been stated anywhere:
+
+**The probe annotates EMISSIONS. A steady-state fleet emits nothing, so it measures nothing.**
+Phase 3b's precondition — a measured present/absent/markup-only distribution — therefore cannot
+accumulate on a quiet fleet. It accumulates only when a NEW declaration files its one-time
+`unreconciled_declaration` batch per (fact, tool). **So Phase 4 (adoption) is the precondition for
+Phase 3a's data, which is the precondition for Phase 3b.** They are in series, and 3b is further
+away than "run it for a month" implied. If LMC adopt their 7 bindings, that is 7 annotated
+emissions on the next pass and the distribution starts.
+
 ## §6 — what is owed now, in order (2026-08-24)
 
 1. **The roll.** All of Phases 1 and 2 is Go and therefore inert. Verify at the binary,
@@ -309,7 +357,7 @@ unlocked. Say it that way; do not claim the first consumer.
    (`mortgagecalculator_couk_adoption`) on the owner's instruction, not on that lane's
    agreement; they have been told. It touches the `evidence_base` row only — no fence, no
    page, no `doc_plans` row — so their `install_fences.py` is unaffected.
-3. **Phase 3a — the probe, annotation-only.** Prove a declared figure is actually in the
+3. **Phase 3a — the probe.** ~~Measure the distribution over a full fleet sweep~~ → **BUILT AND LIVE, but see §5c: it is STARVED until adoption grows.** Prove a declared figure is actually in the
    tool's **script text**, and measure the present/absent/markup-only distribution over a
    full fleet sweep before anything acts on it. **Script text, never whole-page** — see §0
    and `WRONG_CALLS` 2026-08-24: the register's own `writer_line` puts the figure in the
