@@ -424,3 +424,79 @@ Any ONE of these makes the bug's own claim false; the first is the cheapest:
 
 ⚠ **Do NOT close it on the strength of §9a.** A binary probe proves the code shipped. It says
 nothing about whether any completion is now verified — and none is.
+
+---
+
+## 10. CANDIDATE 4 IS BUILT, AND A VERIFIER IS WRITTEN `[2026-08-25, owner rulings]`
+
+The owner ruled on four questions: do not close this bug until it is fixed; build candidate 4;
+explain candidate 2 further; write a verifier. Candidate 2 remains unstarted and architecture-scope.
+
+### 10a. Candidate 4 — BUILT, council `3083d182` APPROVED r1, register `WII-031`
+
+`livespec.UnarmedVerifiedCompleters` declares every live `update_work_item_status` step that stamps
+`complete` without `verify_before_complete` — **6 arms** as of 2026-08-25 — and two halves check it:
+
+- **build time**, `unarmed_completer_lockstep_test.go`: an entry whose `ItemType` has a registered
+  verifier must carry a recorded `Acknowledged` reason; an `Acknowledged` on a type with **no**
+  verifier is refused, because it asserts a decision nobody had to make.
+- **live**, `cmd/config-key-audit --unarmed-verified-completers`: the declared set must EQUAL the live
+  set (`undeclared` / `stale`). Against real config it reports `[]` exit 0 — and **that zero is
+  demand-controlled**: dropping a real entry reports `undeclared`, adding a ghost reports `stale`.
+
+**It demands a reason, not a switch**, because forcing arming would make the guard dangerous to
+satisfy — `CQ-023` records the `converted` arm fail-closing. **Mutation-proven on its motivating
+case:** registering a `required_fields_missing` verifier fails the lockstep three times, once per arm
+of that router.
+
+⚠ **One correction the council forced, and it was worth the round.** §7c above said to copy
+`bugs_closed/317`'s "three parts". A `prior_art_librarian` seat objected at MEDIUM that the third
+part — the live-drift auditor — had not shipped for that writer, quoting the header of
+`claim_timeout_exclusion_lockstep_test.go`. **The claim was right and the comment was stale:**
+`livespec.Declarations` carries `scheduled_task.claimed-item-timeout.exclusions` with a `ProbeSQL`
+against that column, and `compareAllDeclarations` iterates every declaration with no `Phase` filter.
+The comment is corrected in place (`08a44365f`) with what its staleness cost recorded beside it.
+⚠ Naming trap it exposed: **`PhaseGoSide` is the CHECKED state; `PhaseLiveAudit` is the INERT one.**
+
+Two further objections were **factually wrong and are answered with evidence**: two seats doubted
+that `checks.RegisteredVerifierItemTypes()` exists — it is `verifiers.go:198` and the code compiles;
+and `reuse_agent` asked whether an existing `config-key-audit` mode already covers this — no mode
+mentions `update_work_item_status` or `verify_before_complete` at all. One fair low objection stands
+unactioned: a generic "guard exclusion" struct covering writers 2 and 3 was not considered.
+
+### 10b. A verifier — WRITTEN, mutation-proven, DELIBERATELY UNREGISTERED. Register `WII-032`
+
+`required_fields_missing`, the first item off `verifier_coverage_test.go`'s own `catMechanical`
+backlog. It re-runs `missingRequiredValueFields` — the detector's own function — resolving by
+(site, page name, slot_name), never by `spec.component_id`.
+
+**It resolves on the LIFECYCLE axis, not the detector's `build_status='deployed'`.** Mirroring the
+detector rebuilds `bugs_closed/367` one layer up, and for a verifier it is worse: it would certify a
+merely-`pending` component as fixed because it could not see it. Migration 574 is the rule it
+matches. Swapping the constant fails 6 tests. Every "resolved" arm rests on a positive fact;
+anything unreadable errors, which is fail-closed. `Grades` is declared and licensed on a **191-row,
+archive-inclusive, two-shape** producer census.
+
+**Why it is not registered — and this is the transferable finding.** Writing the one-line `init()`
+fails **FIVE** build guards, measured by doing it. The load-bearing one needs a **migration amending
+the live `claimed-item-timeout` `pre_query`**, or that sweep completes items straight past the new
+verifier — `bugs_closed/317` reintroduced *by the act of adding a guard*. That step edits
+`platform/livespec/livespec.go`, where another session had four hunks of in-flight, non-compiling
+work, so the sequence is written into the verifier's own file rather than half-performed. Full
+sequence: `HANDOFF_2026-08-25b_continue_here.md` §4a, and the new LANDMINES entry.
+
+### 10c. The `image_url_404` bug was NOT filed — its premise was refuted
+
+Both halves of the observation were wrong: the empty `handler_agent` is deliberate and documented
+three times in `check_image_url_404.go`, and the handler had handled 3 rows, not 0 (archived out of
+the rolling window). And on the one occasion rows were hand-assigned to it, **it escalated all three
+back to `needs_human_review`** — which refutes the obvious "give it a dispatch route" remedy by
+direct evidence. `bugs_open/033` already asks this exact contract question, so the finding went into
+that file (`243684746`) rather than into a competing bug.
+
+### 10d. Still NOT closeable, for the same reason as §9c
+
+Every completion through `update_work_item_status` is still unverified; no arm is armed; the two
+writers are still two. What changed today is that the trap now **fails the build** instead of only
+leaving a row marker, and that a verifier exists for somebody to register. Neither makes the bug's
+own claim false.
