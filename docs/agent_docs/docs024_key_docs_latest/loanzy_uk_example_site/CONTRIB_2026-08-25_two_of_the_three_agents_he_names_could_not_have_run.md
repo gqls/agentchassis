@@ -230,3 +230,96 @@ the sweep's own cap or to exclude it explicitly, rather than to leave the whole 
 **I have still changed nothing live.** Authorisation settles *may I*; it does not settle *what will
 this touch*, and what it touches turned out to be different from what the instruction assumed. The
 flip is one `UPDATE` and I am holding it for an explicit go-ahead, with these numbers on the table.
+
+---
+
+## 8. The loop's fail-open surface is NINE steps, not two — and my first count was wrong
+
+The `loanzy_uk_example_site` lane flagged two fail-opens in `improvement-loop` before the switch-on.
+**They are right, I initially contradicted them, and I was wrong.** Recording both halves, because the
+correction is the useful part.
+
+### 8a. My error: I read step-level `error_step` only
+
+My first query took `st.value->>'error_step'` and reported `enrich_news_feed` /
+`enrich_directory_features` as having **no** `error_step`, i.e. failing closed. **`enrich_news_feed`
+carries it INSIDE `config`:**
+
+```json
+"config": { "site_id": "site_record.site_id", "error_step": "enrich_directory_features" },
+"next_step": "enrich_directory_features"
+```
+
+**And the nested form IS honoured** — confirmed in the code rather than from the comment that says so:
+`coordinator.go:3916` `routeToErrorStepOrFail` checks `step.ErrorStep` (3920) and **falls back to
+`step.Config["error_step"]` (3924)**. `processor.go:456`'s comment records the history — omitting the
+step-level twin once made every step-level declaration inert fleet-wide (`bugs_open/086`).
+
+⚠ **So `error_step` has TWO valid spellings and a census of one of them under-reports.** Any query
+that asks "which steps fail open" must read both, or it returns a confident, low, wrong number — as
+mine did.
+
+### 8b. The larger half they did not have: SEVEN of the eight `call_agent` seats fail open
+
+Read at step level `[MEASURED 2026-08-25, live config]`, seven `call_agent` steps declare an
+`error_step` **identical to their `next_step`** — so a seat that fails, errors or times out routes to
+exactly where success routes:
+
+| step | `next_step` = `error_step` |
+|---|---|
+| `call_site_review` | `spawn_offer_analyser` |
+| **`call_offer_analyser`** | `spawn_brief_fidelity` |
+| `call_brief_fidelity` | `record_audit_pass` |
+| `call_design_audit` | `spawn_site_review` |
+| `call_design_discovery` | `spawn_completeness_discovery` |
+| `call_quality_discovery` | `spawn_design_discovery` |
+| `call_dispatch` | `notify_scheduler` |
+
+**The eighth is different and arguably worse:** `call_completeness_discovery` has
+`next_step=spawn_design_audit` but `error_step=triage_findings` — so a completeness failure does not
+merely continue, it **jumps forward past four seats** (design audit, site review, offer analyser,
+brief fidelity) straight to triage.
+
+**With 8a, the loop's fail-open surface is nine steps, not two.**
+
+### 8c. ⚠ `call_offer_analyser`'s own description names the justification, and it is the exact claim `bugs_open/395` refutes
+
+Verbatim from the live config:
+
+> *"error_step continues the sweep — one auditor must not strand it, **and the child run is the record
+> of whether it worked**"*
+
+The first clause is a reasonable trade. **The second is not, and this lane filed a bug about that
+shape today.** A child orchestration row records that the child was CALLED and reached a terminal
+state — it is the same conflation `016b` §9 was corrected for this morning: *a terminal status records
+that the HANDLER succeeded, never that the request's own criterion was met*. And it is worse here than
+in the general case, because **`orchestration_states` terminal rows are reaped in ~24–48h**, so the
+"record" that justifies the fail-open **evaporates before anyone reads it**. There is no durable row
+saying the offer analyser failed on site X.
+
+**This bears directly on the switch-on.** Enable `improvement-sweep` as things stand and the plausible
+outcome is: 30 sites swept over ~7.5 hours, `call_offer_analyser` failing on some or all of them
+(it has never run on 25 of the 28), each failure routing to the next seat, and the loop reaching
+`record_audit_pass` — **a clean audit on a site nothing audited.** That is the false green of
+`bugs_open/395`, one level up, at fleet scale.
+
+### 8d. Their open question #3 is RESOLVED — it is not a third silent step
+
+`call_site_review` targets role `site_reviewer`; the role is filled by `spawn_site_review`, whose
+config is `{"role":"site_reviewer","agent_type":"site-review-agent"}`. **`site-review-agent` exists,
+is active, and is one of the most-used LLM agents in the estate: 4,046 `llm_call_log` rows, last
+2026-08-22** `[MEASURED 2026-08-25]`. A query for an agent *type* named `site_reviewer` finds nothing
+because that is the ROLE name, not the type — the indirection is `spawn_agent`'s whole job.
+
+### 8e. What this changes about the recommendation in §7c
+
+§7c recommended enabling `improvement-sweep` alone. **That still holds as the right lever, but the
+ordering now matters:** closing the fail-opens should come **before or with** the switch-on, not
+after, because the failure mode is silent and the sweep is what makes it fleet-wide.
+
+Minimum honest fix, config-only and in council scope: a seat whose call fails must leave a **durable
+row** — not an orchestration state that is reaped, and not a pod log. The cheapest shape that matches
+estate precedent is an `agent_error_log` entry per failed seat plus a marker on the audit pass, so
+`record_audit_pass` can never assert a clean sweep over seats that did not run. **Whether the routing
+itself should change (fail closed) is the larger question and belongs in the RFC that lane is
+drafting — I am not taking it.**
