@@ -351,3 +351,67 @@ served page. Any one of:
 
 **Until one of those runs and is counted at the served page, this lane must NOT be closed on the
 grounds that the fix is proven.** It is shipped and it is well-tested; that is a different claim.
+
+---
+
+## 15. CLOSED 2026-08-25 — the stickiness test PASSED at the served page
+
+**This is the observation §14 said was missing, and it is the one that mattered.**
+
+A `content_rewrite` was dispatched on `gaswholesalers.com/wholesale-pricing-explained.html` — two
+`generic-text-block` instances, unlocked, repaired on 2026-08-24, already flagged `needs_rebuild`
+so no churn was introduced that was not already due. **`content_rewrite` is the exact operation
+that re-collided three repaired pages within hours on 2026-08-23**, and it runs through
+`page-build-handler` → `page-content-writer`'s `process_sections_loop` → `render_component`, i.e.
+the per-section path this bug is about.
+
+**Result — all six sections re-rendered at `2026-08-25 12:42:19+00`, post-roll:**
+
+| position | function | token before | token AFTER |
+|---|---|---|---|
+| 2 | generic-text-block | `c-generic-text-block` | **`c-generic-text-block`** |
+| 4 | generic-text-block | `c-generic-text-block-2` | **`c-generic-text-block-2`** |
+
+**Distinct, and preserved through the very operation that used to destroy them.** Under the old
+code both would have come back `c-generic-text-block` (constant occurrence 0).
+
+**Verified at the SERVED page, with a staleness control** — because a stored result here would
+prove nothing (§12 is this lane's own case of stored-right / served-wrong):
+
+```
+served ids:      c-generic-text-block ×1, c-generic-text-block-2 ×1, c-faq ×1
+last-modified:   Tue, 25 Aug 2026 12:43:02 GMT   (after the 12:42:19 render)
+control:         served bytes DIFFER from the pre-test capture, so these are the NEW render
+```
+
+**Cost to the customer's page, measured rather than assumed:** 2,874 → 2,941 words (+2.3%); 4 of
+6 sections edited modestly (±90–175 bytes), and `faq` + `call-to-action` returned **byte-identical**
+(md5 unchanged). **Zero numbers added and zero removed** — no fabricated figure, none lost, which
+is the estate's sharpest content risk on a rewrite. The guidance asked for maximum preservation
+and the writer honoured it; the additions were internal links.
+
+### The closing bar, met
+
+| requirement | evidence |
+|---|---|
+| Fixed | `364e80b7f`, council `3fd0d026` APPROVED r1 |
+| Tests that can fail | six mutations RUN against committed HEAD; cross-package parity test drives the real expander |
+| Shipped | `v1.0.1337` ← `4c996e1b5`, merge-base **with a control** |
+| **Live — observed working at the artefact** | **this section** |
+
+**`bugs_closed/283`** (literal ids) remains a *different*, separately-closed defect. Resolve by SLUG.
+
+### What is deliberately left open, and belongs elsewhere
+
+- **The generic-fallback question is the OWNER's decision, not a defect.** `bug_historian`
+  objected that patching the two known callers leaves the constant-0 default able to bite a future
+  one, and that *"a LANDMINES entry is documentation, not a guard"*. Argued both ways in §7/§9;
+  landmine filed and verifier-armed; the peer lane notes it is RFC_050's question in other
+  clothes and suggests one change if that lands on arming.
+- **48 placements still carry pre-conversion ids** (2026-08-25) — a *283*-programme residual, not
+  this bug's mechanism. **Sized: 48 → 8 on a multi-instance pair → 1 real duplicate → 0 reaching a
+  visitor.** Consistency debt. `RFC_032` §9a.
+- **67 pages sit at `needs_rebuild` with nothing scheduled to pick them up** — the build trigger is
+  purely work-item driven and never reads `pages.build_status`. Found here, owned by nobody, and
+  **not** an instance-scope defect. Worth its own bug.
+- **`apis.uk/index.html` cannot re-render** (prune-floor refusal). The `apis.uk` lane's business.
