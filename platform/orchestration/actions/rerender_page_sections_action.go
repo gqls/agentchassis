@@ -1426,6 +1426,20 @@ func escalateRerenderToWriter(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 				zap.String("site_id", siteID.String()),
 				zap.String("page", pageName),
 				zap.String("cause", cause))
+			// The skip leaves a DURABLE record, not only a log line (council
+			// round 70a1e557, bug_historian): if an owned page ever genuinely
+			// lost its content, this escalation was the alarm that would have
+			// fired, and a suppression only a pod log records is invisible to
+			// any later audit. owned_page_review is the platform's established
+			// per-page trail for exactly this refusal class — one row per page
+			// (ON CONFLICT), same shape reconcile and the composition guards
+			// already write, so it cannot flood and a reader finds every
+			// owned-page refusal in one place. Errors are logged and swallowed
+			// inside the emitter: the skip protects the page either way.
+			emitOwnedPageReviewItem(ctx, db, siteID, pageName, "page-rerender",
+				ownedPageSkipReasonPrefix+": rerender escalation skipped — "+cause+
+					" is the normal state of an owned page's widget slots; if this page's tool genuinely lost content, rebuild via the tool pipeline",
+				logger)
 			return "skipped_owned_page", nil
 		}
 	} else if !errors.Is(lookupErr, sql.ErrNoRows) {

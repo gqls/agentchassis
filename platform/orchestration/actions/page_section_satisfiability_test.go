@@ -539,10 +539,13 @@ func TestEscalateRerenderToWriter_PlanMemberWithoutSections_StillEmits(t *testin
 // An owned page's empty content_data is its NORMAL state — that is what
 // rebuild_policy='owned' means — so the escalation must not mint the needs_page
 // its target's ownership guard is certain to refuse (bugs_open/333: 13 such
-// items in the door's first 14 hours, every one wont_fix).
-// Kills: deleting the ownership guard (the emit then opens a transaction the
-// mock refuses, surfacing as an escalate error AND unmet guard expectations),
-// and returning "raised" on the skip path.
+// items in the door's first 14 hours, every one wont_fix). What it leaves
+// instead is the per-page owned_page_review trail, so the suppression is
+// auditable if an owned page ever genuinely loses content.
+// Kills: deleting the ownership guard (the needs_page emit then opens a
+// transaction the mock refuses, surfacing as an escalate error AND unmet guard
+// expectations), returning "raised" on the skip path, and dropping the
+// owned_page_review emit (unmet INSERT expectation).
 func TestEscalateRerenderToWriter_OwnedPage_SkipsEmit(t *testing.T) {
 	db, mock := newInsertMock(t)
 	defer db.Close()
@@ -550,6 +553,14 @@ func TestEscalateRerenderToWriter_OwnedPage_SkipsEmit(t *testing.T) {
 
 	expectPlanTableSections(mock, "hero", "tool-widget")
 	expectEscalationOwnershipGuard(mock, "owned")
+	// The skip writes the per-page owned_page_review trail (round 70a1e557,
+	// bug_historian: a suppression only a pod log records is invisible to any
+	// later audit). Pinning source and item_key proves it is THAT trail — and
+	// dropping the emit leaves this expectation unmet, which fails the test.
+	mock.ExpectExec("INSERT INTO site_work_items").
+		WithArgs(sqlmock.AnyArg(), "page-rerender", sqlmock.AnyArg(), sqlmock.AnyArg(),
+			"owned_page_review:grip-styles-tool").
+		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	disposition, err := escalateRerenderToWriter(context.Background(), db, uuid.New(), "grip-styles-tool", "a section had no stored content_data", zap.NewNop())
 	if err != nil {
