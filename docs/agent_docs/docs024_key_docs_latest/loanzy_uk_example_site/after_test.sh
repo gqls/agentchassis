@@ -103,6 +103,33 @@ hr "PAGES (schema-correct: status, url)"
 $PSQL -c "SELECT p.name, p.page_type, p.build_status, p.status, p.url FROM pages p JOIN sites s ON s.id=p.site_id
           WHERE s.domain='$DOM' ORDER BY p.build_status DESC, p.name;"
 
+hr "PARKED-DOMAIN CONTROL — run BEFORE any HTTP census, and gate the census on it"
+# ⚠ ADDED 2026-08-25, the day it would have mattered. Pointed at homegarden.uk (a fresh domain
+#   whose DNS had not been cut over), this harness would have fetched 21 real URLs, received
+#   21 × HTTP 200, and reported a PERFECT site — because a registrar parking stub 200s EVERY
+#   path with a 128-byte redirect-to-lander. Wrong in the FLATTERING direction, carrying the
+#   authority of "verified at the artefact". The trap is in LANDMINES ("a parked domain 200s
+#   every path"); this instrument did not implement it, because on the site it was written for
+#   every URL was real by construction.
+CBC=$(date +%s)
+CONTROL_PATH="/this-path-cannot-exist-$CBC-$$.html"
+CTL_CODE=$(curl -s -m 25 -o /tmp/ctl.$$ -w '%{http_code}' "https://$DOM$CONTROL_PATH")
+CTL_SIZE=$(wc -c < /tmp/ctl.$$ 2>/dev/null || echo 0)
+rm -f /tmp/ctl.$$
+echo "invented URL : $CONTROL_PATH"
+echo "response     : http=$CTL_CODE bytes=$CTL_SIZE"
+HTTP_TRUSTWORTHY=yes
+if [ "$CTL_CODE" = "200" ]; then
+  HTTP_TRUSTWORTHY=no
+  echo "!! ***** HTTP CENSUS IS MEANINGLESS ON THIS DOMAIN *****"
+  echo "!! A URL that CANNOT exist returned 200. Every 200 below is therefore uninformative, and a"
+  echo "!! '21 of 21 serving' reading would be FALSE. Causes: domain parked at the registrar, DNS not"
+  echo "!! cut over to the platform, or a catch-all vhost. Read the DB (page_components.rendered_html)"
+  echo "!! for what was BUILT, and do not report anything about what is SERVED until this control 404s."
+else
+  echo ">> control 404s (or errors) as it must — HTTP readings below are informative."
+fi
+
 hr "THE ARTEFACT — every page fetched at its REAL url"
 URLS=$(q "SELECT p.url FROM pages p JOIN sites s ON s.id=p.site_id WHERE s.domain='$DOM' AND p.status='active' ORDER BY p.name;")
 URLQ=$?
@@ -152,6 +179,11 @@ echo ">> any DEAD line above is bugs_open/328 live. Transient during a build; pe
 echo "   target page sits at needs_human_review with nothing scheduled to build it."
 
 hr "PROMISE vs DELIVERY — does each page contain what its own HEADINGS say it does?"
+if [ "$HTTP_TRUSTWORTHY" = "no" ]; then
+  echo "!! SKIPPED — the parked-domain control failed. On a stub that 200s every path this section"
+  echo "!! would print PROMISE UNMET for every page, which is a screenful of confident findings"
+  echo "!! about a 128-byte redirect. BLOCKED is the honest result here, not UNMET."
+else
 # Added 2026-08-24 after the owner found a page promising "month by month" with no calendar.
 # The v2 harness had NO check of this kind: http/bytes/inputs/buttons/leaks/dead-links all passed.
 # A page's own <h1>/<h2> is a promise. Check the promise against the markup.
@@ -181,5 +213,6 @@ printf '%s\n' "$URLS" | while read -r u; do
     esac
   done
 done
+fi
 echo ">> A page can be 200, 67KB, leak-free and fully linked and still not contain what it promises."
 echo "   Byte count is not a completeness check. Neither is 'it deployed'."
