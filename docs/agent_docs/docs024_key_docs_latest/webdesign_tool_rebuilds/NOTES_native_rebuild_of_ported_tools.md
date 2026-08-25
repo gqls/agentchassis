@@ -3795,3 +3795,14 @@ third-persist-branch widening — is in the binary now serving both chassis repl
 substitutes for the other, and the next filing still owes the second. What ancestry additionally
 buys is durability — a later forward roll keeps ancestors, so this conclusion survives every roll
 except an image-tag rollback, which is the one event that would void it.
+
+> **The ~20:45Z entry's stamp caveat is DISCHARGED (2026-08-25 ~20:55Z, platform seat).** The
+> grind seat re-read the stamp at the binary at 20:30Z: `grep -aq "a7459a44b" /proc/1/exe`
+> PRESENT on both replicas independently, with both controls in the same breath (junk 40-hex
+> absent; today's HEAD short sha absent — a 19:07Z binary cannot carry a later commit). They
+> also hardened the ancestry half: `git cat-file -t` on all three ids (genuine commits, not
+> digest prefixes) and a negative control (HEAD is NOT an ancestor of the stamp), so the test
+> discriminates. Joint vocabulary, now standing in both seats' docs: **ancestry proves the code
+> SHIPPED; the post-retire re-read proves it FIRES** — and ancestry alone is the durable half
+> (descendant stamps keep ancestors; an image-tag rollback is the single voiding event). Their
+> next filing still owes the FIRES half for the 360 guard.
