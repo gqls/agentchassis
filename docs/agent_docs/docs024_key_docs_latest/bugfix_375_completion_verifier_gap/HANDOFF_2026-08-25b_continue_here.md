@@ -56,6 +56,15 @@ it is worth being explicit, because the reflex on this estate is "Go change ⇒ 
 
 The only thing that ever needed a roll was `WII-030`'s gate, and that shipped in `v1.0.1337`.
 
+⚠ **This is a skip-the-work claim, so it carries its own expiry** (trap 11, learned the hard way in
+§3a). It rests on ONE perishable fact — the verifier is unregistered, so nothing of today's reaches a
+runtime path. **Last true 2026-08-25 16:31Z. Re-establish in one command:**
+```bash
+grep -rn 'RegisterVerifier.*required_fields_missing' --include=*.go platform/ | grep -v _test
+```
+**Empty ⇒ still nothing to roll for.** A hit means somebody completed §3a, and from that moment the
+verifier IS on a runtime path and **does** need the next chassis roll before it grades anything.
+
 ## 3. WHAT IS LEFT — three items
 
 ### 3a. Register the verifier — five steps, and only step 1 is blocked
