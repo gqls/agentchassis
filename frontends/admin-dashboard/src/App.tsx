@@ -2217,6 +2217,23 @@ function fmtDuration(startIso, endIso) {
     return `${Math.round(h / 24)}d`;
 }
 
+// A workflow is actionable only while it is NOT terminal: that is precisely when
+// the detail view offers Resume and Terminate. The list uses the same test, so
+// "no buttons anywhere" is never a mystery — the rows that have them are pinned
+// to the top of the list and the rest say why they do not.
+const TERMINAL_WORKFLOW_STATUSES = ["COMPLETED", "FAILED", "CANCELLED"];
+const isTerminalWorkflow = (wf) =>
+    TERMINAL_WORKFLOW_STATUSES.includes(String(wf?.status || "").toUpperCase());
+
+// How many finished orchestrations to show before the fold. They are periodic
+// sweeps: the newest few are worth a glance, the older ones are noise, and the
+// site accumulates them indefinitely.
+const WORKFLOW_PREVIEW = 6;
+
+// The server-side page size for the orchestration list. Named because the label
+// reads it: a full window means "there are at least this many", not "this many".
+const WORKFLOW_LIMIT = 50;
+
 function BuildsView({ token, siteId, siteDomain, onBack }) {
     const [items, setItems] = useState([]);
     const [typeCounts, setTypeCounts] = useState({});
@@ -2224,6 +2241,7 @@ function BuildsView({ token, siteId, siteDomain, onBack }) {
     const [workflows, setWorkflows] = useState([]);
     const [selectedWorkflow, setSelectedWorkflow] = useState(null);
     const [expandedStage, setExpandedStage] = useState(null);
+    const [showAllWorkflows, setShowAllWorkflows] = useState(false);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [message, setMessage] = useState("");
@@ -2246,7 +2264,7 @@ function BuildsView({ token, siteId, siteDomain, onBack }) {
             setItems(rows);
             setTypeCounts(data.type_counts || {});
             setTruncated(!!data.truncated);
-            const wf = await apiFetch(`/workflows?site_id=${siteId}&limit=50`, token);
+            const wf = await apiFetch(`/workflows?site_id=${siteId}&limit=${WORKFLOW_LIMIT}`, token);
             setWorkflows(wf.workflows || []);
         } catch (err) {
             setMessage("Load failed: " + err.message);
@@ -2280,6 +2298,16 @@ function BuildsView({ token, siteId, siteDomain, onBack }) {
         .filter(([t]) => !BUILD_STAGE_SET.has(t))
         .sort((a, b) => Number(b[1]) - Number(a[1]));
     const divergenceCount = Number(typeCounts["page_divergence_overwritten"] || 0);
+
+    // Anything still running is pinned and never hidden — those are the only rows
+    // that can be Resumed or Terminated, and burying one behind a fold is how an
+    // operator concludes the button does not exist.
+    const liveWorkflows = workflows.filter(wf => !isTerminalWorkflow(wf));
+    const finishedWorkflows = workflows.filter(isTerminalWorkflow);
+    const visibleWorkflows = showAllWorkflows
+        ? [...liveWorkflows, ...finishedWorkflows]
+        : [...liveWorkflows, ...finishedWorkflows.slice(0, WORKFLOW_PREVIEW)];
+    const hiddenWorkflowCount = showAllWorkflows ? 0 : Math.max(0, finishedWorkflows.length - WORKFLOW_PREVIEW);
 
     const openWorkflow = async (wf) => {
         try {
@@ -2317,8 +2345,7 @@ function BuildsView({ token, siteId, siteDomain, onBack }) {
     const reconstructedSteps = selectedWorkflow
         ? Object.keys(selectedWorkflow.collected_data || {}).filter(k => !k.startsWith("__"))
         : [];
-    const workflowTerminal = selectedWorkflow &&
-        ["COMPLETED", "FAILED", "CANCELLED"].includes(String(selectedWorkflow.status || "").toUpperCase());
+    const workflowTerminal = selectedWorkflow && isTerminalWorkflow(selectedWorkflow);
 
     return (
         <div>
@@ -2491,15 +2518,23 @@ function BuildsView({ token, siteId, siteDomain, onBack }) {
                         </div>
                     )}
 
-                    {/* ── Orchestrations (drill-down) ── */}
+                    {/* ── Orchestrations (drill-down) ──
+                        The list is capped at WORKFLOW_LIMIT server-side, so its length is
+                        the WINDOW, never the total — say "newest N" and mark a full window
+                        with a +, rather than printing a number that reads as a count. */}
                     <div style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                        Orchestrations tagged to this site ({workflows.length}) — mostly periodic sweeps, not the build
+                        Orchestrations tagged to this site — newest {workflows.length}{workflows.length >= WORKFLOW_LIMIT ? "+" : ""}, mostly periodic sweeps, not the build
                     </div>
                     {workflows.length === 0 ? (
                         <div style={{ fontSize: 13, color: "#94a3b8", padding: 12 }}>None recorded</div>
                     ) : (
                         <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
-                            {workflows.map((wf, idx) => (
+                            {liveWorkflows.length === 0 && (
+                                <div style={{ fontSize: 12, color: "#94a3b8", padding: "8px 16px", borderBottom: "1px solid #f1f5f9" }}>
+                                    Nothing running: every orchestration below has finished, so none offers Resume or Terminate.
+                                </div>
+                            )}
+                            {visibleWorkflows.map((wf, idx) => (
                                 <div key={wf.correlation_id} onClick={() => openWorkflow(wf)} style={{
                                     display: "flex", alignItems: "center", gap: 12, padding: "8px 16px",
                                     cursor: "pointer", fontSize: 12,
@@ -2522,6 +2557,18 @@ function BuildsView({ token, siteId, siteDomain, onBack }) {
                                     </span>
                                 </div>
                             ))}
+                            {hiddenWorkflowCount > 0 && (
+                                <div onClick={() => setShowAllWorkflows(true)}
+                                     style={{ padding: "8px 16px", fontSize: 12, color: "#2563eb", cursor: "pointer", borderTop: "1px solid #f1f5f9" }}>
+                                    Show {hiddenWorkflowCount} older finished orchestration{hiddenWorkflowCount === 1 ? "" : "s"}
+                                </div>
+                            )}
+                            {showAllWorkflows && workflows.length > liveWorkflows.length + WORKFLOW_PREVIEW && (
+                                <div onClick={() => setShowAllWorkflows(false)}
+                                     style={{ padding: "8px 16px", fontSize: 12, color: "#2563eb", cursor: "pointer", borderTop: "1px solid #f1f5f9" }}>
+                                    Show fewer
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
