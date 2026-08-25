@@ -268,3 +268,74 @@ the trigger stand and compliant work should expect `needs_rfc` as routine?**
 Related: `bugs_open/223`; `bugs_closed/124` and `129` (the precedent shape the seat cites);
 `RFC_002` (the last time two seats reached opposite defensible conclusions in one round, and
 the ruling that followed); register DIAG-042.
+
+---
+
+## ADDENDUM 2026-08-25 — a blind spot in the counter, surfaced by `bugs_open/345`, and the decisions it puts to the owner
+
+The RFC is CLOSED and its ruling (N=10) stands. This addendum does not reopen it — it records a
+**measurement gap in the counter that enforces it**, found when `bugs_open/345` tried to make one
+new opt-in key (`stop_on_repeat_failure_item_types`, on `fail_work_item`) visible to the budget and
+discovered the counter structurally cannot see its whole class. It is written as decisions because
+they are the owner's, not a session's.
+
+### What was found (measured 2026-08-25)
+
+- The budget counts **`len(ActionInputSpec.Optional)`** per registered action
+  (`cmd/config-key-audit/optionalbudget.go`).
+- But an action reads its optional config two ways: **through `ExtractActionInputs`** (which walks the
+  spec, so those keys are in `Optional`), and **directly from `StepConfig.Config`** (a literal read,
+  which the spec deliberately does NOT list). `FailWorkItemInputSpec` says so in a comment:
+  `error_message` is read directly and kept out of the spec on purpose.
+- So **every directly-read optional key is invisible to the budget.** `fail_work_item` really carries
+  at least three (`error_message`, `status_override`, and now `stop_on_repeat_failure_item_types`)
+  and declares **0** Optional. `update_work_item_status` reads ~6 optional keys directly and registers
+  **no spec at all** (it never calls `ExtractActionInputs`).
+- **~35 actions** read optional config literals directly (`grep -l 'params.StepConfig.Config\["'`),
+  and specs include such keys **inconsistently** — `feed_actions.go` puts `error_message` IN its
+  Optional list while `fail_work_item` keeps it OUT. So there is no single convention to lean on.
+- The `censusUncountedActions` half already prints spec-less actions as "unknowable" (not a finding,
+  by its own comment). So `update_work_item_status`'s gap is *shown* but not *counted*.
+
+**Consequence:** an action can accumulate optional authority past N=10 entirely in directly-read
+keys and never trip the budget — the exact accumulation the RFC exists to catch, in the exact blind
+spot the counter cannot see. It is **latent, not live**: today's worst directly-read carrier
+(`fail_work_item`, 3) is far under N. But it grows by addition and reads as a clean bill.
+
+### Why `bugs_open/345` did NOT just register its key
+
+The obvious "fix" (add the key to `FailWorkItemInputSpec.Optional`) is wrong three ways: it fights
+that spec's stated convention; the spec is **also the runtime extraction spec** (passed to
+`ExtractActionInputs`), so adding a key changes what the extractor walks on the failure hot path, not
+just what the counter sees; and it would still leave `error_message`/`status_override` and 34 other
+actions invisible — fixing the count for one key while lying about the same action's other two. So
+345 routed it here rather than patch one action into a false green.
+
+### The decisions, for the owner
+
+1. **Should the budget count what actions actually READ, or what their specs DECLARE?** The honest
+   count is "optional config keys the action consumes", which today's counter only approximates via
+   `spec.Optional`. Options: **(a)** make the counter scan actual config-key usage (a static read of
+   each action for `StepConfig.Config["…"]` plus its extracted keys) — accurate, but a real change to
+   the audit and its parity test; **(b)** rule that all optional config keys, directly-read included,
+   MUST be declared in `Optional` (making the list mean "the budgeted surface", not "the extracted
+   surface") and add a check that a directly-read key with no `Optional` entry is a finding — cheap
+   per-action but requires touching ~35 specs and severing "Optional == extracted"; **(c)** accept
+   the blind spot as documented and rely on `censusUncountedActions` plus review — zero work, the
+   count stays an undercount by design. This is the load-bearing choice.
+
+2. **If (b): does putting a directly-read literal in `Optional` have to stay inert at runtime?** It
+   does today for `fail_work_item` only because `ExtractActionInputs`'s Strategy 0 skips non-string
+   values — a fragile guarantee to rest a convention on. (b) would want a test pinning that a
+   budget-only `Optional` entry is never extracted, or a separate `BudgetedConfigKeys` field so the
+   two surfaces stop sharing one list.
+
+3. **Does `update_work_item_status` get a spec?** It has none and uses no extraction, so a spec would
+   be counter-only — safe, but under (c) it adds nothing `censusUncountedActions` doesn't already
+   show, and under (a) it is unnecessary. Only (b) needs it.
+
+**Recommendation (a session's, not a ruling):** (a) — count what is read — because it is the only
+option that makes the number honest without taxing 35 authors or resting a convention on an
+extractor's type check. But it is the most work, and the RFC is closed, so it is genuinely the
+owner's call whether the blind spot is worth closing now or left documented. No code shipped for
+this; `bugs_open/345`'s key stays uncounted (and harmless at 3) until the owner rules.

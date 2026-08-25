@@ -1327,3 +1327,35 @@ addition; doing it now is a speculative fleet-seam change for a benefit already 
 **Net:** 524 done; neither follow-up is a change I should ship unreviewed, and both are recorded for
 their proper owners. This does not affect 345's close condition — every piece of the defect remains
 fixed-and-live.
+
+---
+
+## 2026-08-25 (later) — DECISION 2(b) IMPLEMENTED (owner-ruled): orphan-only mismatch now drops the field and stores
+
+Owner ruled "(b) drop the orphan". Built and committed `7b39f2588` (Go + tests),
+`Council-Submitted: 31da78c8-64c7-4e52-886f-13fc154c681d`. **INERT until the next chassis roll.**
+
+- **The gate change:** unknown template var present → block as before (real defect, empty slot);
+  orphan-only → drop the orphaned fields from `input_schema` and store. Drops only orphans absent
+  from the incumbent schema, so it never removes a live `content_data` key and never touches the
+  stranding guard. All four of this bug's WII-029 firings were creations (no incumbent), so the drop
+  covers the whole measured class.
+- **This repairs the pages** candidate 2 was only capping the cost of. The two harms of 345 are now
+  BOTH addressed at source: "writer never learns why" (candidate 1, live+proven) and the
+  orphan-only refusal that left pages hollow (this, pending the roll).
+- **Byte-identity held:** the `removes/renames` and mismatch strings are unchanged, so WII-029's
+  detector and `bugs_open/388` are undisturbed. Verified by diff, mutation-proven, full suite green
+  against HEAD.
+- **`classifySyncIssues` extracted** — the gate and the recorder now classify one way, closing the
+  duplicated-loop drift the reuse discipline warns about.
+
+**345's own defect is now fully remediated in code; only the roll remains.** The RFC_022 counter
+blind spot (decision 3) is written up as its own owner decision — see below — and NOT shipped, per
+instruction.
+
+## 2026-08-25 — DECISION 3: not shipped, routed. See RFC_022 addendum
+
+Per instruction ("don't ship — do as you suggest"): neither follow-up was shipped. The register-key
+follow-up turned out to be a counter-design question and is written up as three owner decisions in
+`architecture_review/RFC_022_…md` (addendum 2026-08-25). The options-struct refactor is deferred to
+the next parameter addition. 524 was already resolved by another session.

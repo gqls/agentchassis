@@ -52,6 +52,7 @@ Master index for the AI Agent Orchestration System documentation. Consolidated f
 | 022 | Dynamic Applications | Interactive app generation guidelines |
 | 023 | LLM Quality Testing | Model evaluation, prompt testing, quality metrics |
 | 026 | Design Composition & Site Design Planner | Palette/layout/typography resolution, site-design-planner handler, webdesign-agent coupling post-reorder |
+| 038 | Component Template Production | Writer→template→gate: the two contracts (field-name, source-vocabulary), the birth-gate checks, orphan-drop, and the failure→feedback→retry→terminate loop |
 
 ## Plans (review for currency)
 
