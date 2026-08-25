@@ -133,3 +133,53 @@ row shape.
 revalidator's `armGateClaimsStillPresent` rule ("the standard moved, not the copy") is a
 deliberate integrity control and must not be "fixed". A human rules and cancels — record the item
 ids first, because closing archives the row out of the table you would query.
+
+## D6 — CORRECTION to D1's phasing: the ruling's cheap half has almost no safe target, and the durable fix is the whole job
+
+`[MEASURED 2026-08-25]` Raised by the `bugs_open/364` lane: **"at least N" becomes a NEW false claim
+the moment a reaping counter falls below N.** Its evidence is
+`sql_for_agents/218_evidence_facts_for_043_sites.sql:48`, written 2026-07-24 — *"work items
+completed is NOT MONOTONIC: 1,267 on 07-24, 1,051 today"*. So the gap is in the ruling's cheap half,
+not only in candidate 1.
+
+I ran the reversal census over the whole archive (RUNBOOK §7). **8 of 29 sql-sourced number facts
+have fallen at least once:**
+
+| fact | falls / transitions | range | consequence |
+|---|---|---|---|
+| aao-orchestrations | 17/34 | 1,494–7,281 | a floor can go false |
+| C4-orchestration-state-records | 17/38 | 1,625–90,790 | a floor can go false, dramatically |
+| aao-work-items | 12/34 | 1,051–7,816 | the 364 lane's own counter-example |
+| aao-agent-definitions | 3/34 | 174–200 | |
+| aao-agent-types | 3/34 | 173–200 | |
+| C4-agent-definitions-catalogue | 2/38 | 157–207 | already carries a "more than 150" floor |
+| **C1-records-enriched** | **1/38** | **937–9,370** | **a Phase A candidate — DISQUALIFIED** |
+| C1-records-verified | 1/38 | 2,291–2,767 | already carries a "more than 2,000" floor |
+
+Now cross tolerance against **movement**, which is what actually causes this bug — a fact only
+convicts a page if it is exact-matched AND its value changes:
+
+- **F9, F10, F11, F12, F13** (fundamentallyai) — move constantly (F9: 7,321→11,828). These ARE the
+  bug, and all five have **no `writer_line`**, so the prose remedy cannot reach them.
+- **C1-records-enriched** (leopardess) — moves, and **reaps**. Cannot take a naive floor.
+- **F14 (5→5), C1-ch-vet-mirror (5,798→5,798), rh-grippers (10→10), rh-manufacturers (6→6),
+  vonc-archetypes (8→8), rh-spec-figures (59→59)** — **STATIC across every transition on record.**
+  A static fact cannot drift, so it cannot cause 386, and converting it to `gte` buys nothing while
+  widening what the checker accepts.
+- **vonc-guides (2→4), vonc-tools (3→6)** — move by ones over months. Real but negligible.
+
+**So the ruling's cheap half has essentially no safe target in the current fleet**, for three
+different reasons at once: the static facts do not need it, the chart facts have no prose to
+rephrase, and the one remaining prose mover reaps. **Phase A is therefore withdrawn as a general
+step** — not because the ruling is wrong, but because the fleet has already absorbed it wherever it
+applies (the five hand-written floors, D-note in NOTES) and what remains is out of its reach.
+
+**Consequence: Phase B is not "also needed", it is the whole job.** It is the only remedy that
+covers the actual population — five chart facts and one reaping prose fact — and the reversal census
+is also independent confirmation of D3: exact-match-against-retained-former-values needs no
+monotonicity assumption, and 8 facts have now been shown to violate one.
+
+**What Phase A leaves behind, for whoever wants it:** `aao-orchestrations` is `gte` at 7,281 with
+the single broad term `["orchestration"]`, so it currently vouches for any figure below 7,281 near
+that word — a live accidental-support hole, unowned, and it grows on its own. Not this lane's, but
+nobody else has it either.

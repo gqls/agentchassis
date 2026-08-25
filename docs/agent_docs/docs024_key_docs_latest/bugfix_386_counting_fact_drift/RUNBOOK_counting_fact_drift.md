@@ -130,3 +130,32 @@ longer raises — so it disagrees with the gate it exists to predict.
 `git diff <rolled provenance>..HEAD -- platform/orchestration/datahelpers/` must be empty. On
 2026-08-25 it was 122 lines (`52958897f`, the 364 lane's component-grain change, committed and
 unrolled), so a HEAD run predicts the post-roll gate, not the live one.
+
+## §7 — does this counter REAP? (run before registering any floor)
+
+A floor is only honest if the counter cannot fall below it. Establish which kind you have from the
+archive, never from the fact's name:
+
+```sql
+WITH series AS (
+  SELECT s.domain, f->>'id' AS fid, ss.created_at, (f->>'value')::numeric AS v,
+         lag((f->>'value')::numeric) OVER (PARTITION BY s.domain, f->>'id' ORDER BY ss.created_at) AS prev
+    FROM site_specs ss JOIN sites s ON s.id=ss.site_id,
+         LATERAL jsonb_array_elements(ss.data->'facts') f
+   WHERE ss.aspect='evidence_base' AND f ? 'value'
+     AND (f->'source' ? 'sql' OR f->'source' ? 'query')
+)
+SELECT domain, fid,
+       count(*) FILTER (WHERE prev IS NOT NULL) AS transitions,
+       count(*) FILTER (WHERE prev IS NOT NULL AND v < prev) AS falls,
+       min(v) AS lowest, max(v) AS highest
+  FROM series GROUP BY 1,2
+ HAVING count(*) FILTER (WHERE prev IS NOT NULL) > 0
+ ORDER BY 4 DESC;
+```
+Read **three** columns, not one. `falls > 0` disqualifies a naive floor. `lowest = highest` means the
+fact is **static** — it cannot drift, so it is not a 386 case at all and converting it to `gte` only
+widens what the checker accepts. Only `falls = 0 AND lowest < highest` is a genuine rising counter,
+and even then the floor must sit below `lowest`, not below today's value.
+
+Measured 2026-08-25: 8 of 29 reap, 6 are static, and the largest faller ranges 1,625–90,790.
