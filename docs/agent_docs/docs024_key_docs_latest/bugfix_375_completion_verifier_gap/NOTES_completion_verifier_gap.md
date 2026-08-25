@@ -415,3 +415,62 @@ The answer is that registering it without the migration is strictly worse than i
 claimed-item-timeout sweep would complete items straight past it, which is a false green rather than
 a missing one. And the REVISE round is itself the argument for this order: a predicate that would
 have certified an emptied schema as repaired was caught **before it ever graded a live claim.**
+
+## 2026-08-25 (19:13Z) — the `v1.0.1339` roll, and the best piece of evidence this lane has
+
+Chassis rolled to **`v1.0.1339`** (both pods, 19:07Z). Verified at the artefact, and this time the
+pod was minutes old so the `build provenance` line was still in range rather than scrolled:
+`git_commit a7459a44b68b8c67b7d7bb0ca7c064e0729d59f5`, dated 08-25 17:38.
+
+**`WII-030`'s gate survived the roll:** `verify_before_complete` and `verifier_not_consulted` both
+PRESENT on the new image, with a must-be-present control (`owned_page_refusal_status`) and a
+must-be-absent control both behaving. Re-probed rather than assumed, per "per SERVICE, not per fleet".
+
+### The finding: the LINKER proves the unregistered verifier cannot run
+
+`git merge-base --is-ancestor` says all four of this lane's commits — `c735bfd9c`, `75c6919ac`,
+`64645d05e`, `43277271a` — are **IN** build `a7459a44b`. And yet the verifier's own error literal
+`must not be read as a repair` probes **ABSENT** from `/proc/1/exe`.
+
+I did not guess at why. **Control, same package, same build, same breath:** the REGISTERED detector's
+literal `schema declares these fields required with source llm` → **PRESENT**. Same file family, one
+reachable and one not. So the difference is reachability: **nothing references
+`VerifyRequiredFieldsMissingResolved`, and the Go linker removed it.**
+
+**Why this is the best evidence this lane has produced.** The deferral argument — that leaving the
+verifier unregistered is safer than arming it without the migration — was until now an *argument*,
+and the council's `editquality` seat objected to it at HIGH precisely on those grounds. It is now a
+*measurement*: the code is not in the running binary at all. The linker is a more credible witness
+than my reading of the source, and it says the deferral carries no runtime risk whatsoever rather
+than a small one.
+
+⚠ **And the corollary is a trap I nearly walked into while establishing it.** My first reading of the
+absent literal was "the build is stale / the deploy failed" — the same conclusion `bugs_open/153` is
+about. Probing for a symbol you have deliberately left unwired returns "absent", which is
+indistinguishable from a failed roll and means the *opposite*. It also refines a rule I had written
+into `WII-030` myself: *"probe the string literal, never the Go identifier"* is **necessary and not
+sufficient** — the literal must also sit in code something calls. Recorded fleet-wide as a **third
+cause** on the existing `strings`/marker landmine (the other two being non-ASCII splitting and a
+same-tag rebuild), with the discriminating control.
+
+### Sweep: I did the thing I had spent the day warning three lanes about
+
+Full account in `WRONG_CALLS.md`. `4210764e9` swept **four** LANDMINES entries from three other lanes
+(`idea_uk_vm_site`, `loanzy_uk_example_site`, `dispatch_throughput` ×2) under a commit message about
+my own documentation habits. Nothing lost; attribution destroyed.
+
+**The mechanism, which is the only part worth keeping:** I ran `git status --porcelain` on that file,
+printed `M …LANDMINES.md` in my own terminal output, and committed by pathspec anyway. My three
+earlier LANDMINES commits the same day were clean because I ran `git diff --numstat` and *read the
+deletion count*. **A check you do not read is worse than one you skip, because it leaves a record that
+looks like diligence.** What actually worked all day was stating the expected numbers first, so there
+was something to fail — every commit after this one in these notes does that explicitly.
+
+Second lesson, which I had written the opposite of an hour earlier: **correcting a shared append-only
+ledger IN PLACE is strictly more dangerous than appending to it.** An append can go at the tail; an
+in-place correction needs the file to be in the state you last read, on a file every thread writes.
+
+All three affected lanes were notified with the commit id their entries landed in. The follow-up
+`WRONG_CALLS` commit (`483b37f6d`) carried two further complete passengers and was declared as a
+`sweep:` naming their lanes, per CLAUDE.md — which is the sanctioned form and strictly better than
+leaving three finished entries for a less careful commit to take silently.
