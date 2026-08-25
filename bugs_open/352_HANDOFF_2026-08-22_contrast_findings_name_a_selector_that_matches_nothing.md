@@ -1,6 +1,25 @@
 # 352 — contrast findings name a selector that matches NOTHING, so the fix is authored, deployed and inert: a class-less element is filed with `Class` = its TAG NAME
 
-> ## STATUS 2026-08-24 19:15 UTC — ARM 1 IS **LIVE AND PROVEN AT THE ARTEFACT**; ARM 2 IS STILL LIVE
+> ## STATUS 2026-08-25 09:40 UTC — ARM 1 **DONE**; ARM 2 IS THE ONLY REASON THIS FILE IS OPEN
+>
+> **Cold-start for this lane:**
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_352_invented_selector/HANDOFF_2026-08-25_continue_here.md`
+>
+> **Arm 1 has now held for a day of ordinary fleet traffic** [MEASURED 2026-08-25 09:40 UTC]: **15**
+> `contrast_failure` rows filed since the roll, **0** invented, **15/15** carrying `selector_scheme`
+> and `matches`. Still live after two further fleet rolls (`v1.0.1337`, all three services stamping
+> `4c996e1b5`, ancestry checked with a dated control). **Nothing about arm 1 is outstanding.**
+>
+> **To close this file you need arm 2 fixed and live — or arm 2 split into its own bug and 352 closed
+> against arm 1.** The second is a legitimate shape (the arms share a symptom and nothing else) and
+> is an **owner call**, not a session's.
+>
+> ⚠ **One dated check comes due 2026-08-28**: 587 freed 73 dedup slots on the promise that
+> still-failing pairings return under verified selectors. 0 of 56 have returned so far — expected,
+> because **0 of the 13 sites have been re-audited since 587 applied**. The rotation's live window is
+> **3 days**; all 13 are due by ~2026-08-27 21:30 UTC. From 2026-08-28 a non-return is a defect.
+>
+> ### The 2026-08-24 19:15 status, still accurate for what it covers
 >
 > **This file stays OPEN, and the reason is arm 2.** Read this banner before quoting
 > anything below it.
