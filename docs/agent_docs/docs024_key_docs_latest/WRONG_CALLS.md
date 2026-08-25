@@ -53805,3 +53805,51 @@ is bypassed on the failure path is the same trap wearing better clothes.
 
 Family: [[mutate-the-code-to-prove-the-guard]] (a mock's own bookkeeping cannot assert a
 NEGATIVE — this is that entry's second and third forms), a-post-fix-zero-needs-a-demand-control.
+
+## 2026-08-25 — I replaced a blind control with one I had never run against a clean page, and wrote it into five documents
+
+Continuing the entry above. Having established that `grep -c '<p'` cannot see a section replaced by
+a copy of its neighbour, I built a distinctness check —
+`count(DISTINCT left(text,80))` vs `count(*)` per page — watched it find the damage first try on two
+pages out of twelve, and wrote it into `bugs_open/391`, `bugs_open/403` (twice), `LANDMINES.md` and
+the lane handoff **as the check that works**.
+
+**I had never run it against a page I knew to be clean.**
+
+The closing sweep, after both restores had landed, flagged `finetuning.uk/technical-details.html` at
+`6 components, 5 distinct` — a page I had just verified section by section at the served bytes. The
+cause: its three text blocks all open *"The model and its licence The base model is a small
+open-weight model, meaning "* and diverge at character **~81**. The shared heading and sentence stem
+consume the whole window.
+
+**Scored against that page's own archived history, the control is worthless on it:**
+
+| canary state | `at_80` | `at_200` | `md5(full text)` | truth |
+|---|---|---|---|---|
+| pre-damage baseline | **5** | 6 | 6 | clean |
+| damaged | 4 | 4 | 4 | **damaged** |
+| restored | **5** | 6 | 6 | clean |
+
+It reports 5-of-6 whether the page is damaged or not. When it "caught" the damage it was right by
+coincidence, for a reason unconnected to the damage. `md5()` of the full stripped text has no window
+and no tunable and is exactly right on this population — **4 of 6 on both damaged pages, 6 of 6 on
+both restored, zero false positives across twelve**.
+
+**The wrong call is the shape, not the SQL.** I diagnosed a control that had only ever been checked
+where nothing was wrong, wrote that lesson up at length — and then, within the hour, promoted a
+replacement that had only ever been checked where something *was* wrong. Both are the same error:
+**a control run against one class of case tells you nothing about the other.** A detector is not a
+detector until it has produced a negative on a case you know to be clean, and mine got one only
+because a restore happened to hand me a known-good state.
+
+**What made it survivable:** the disagreeing row was easy to dismiss — the served page plainly had
+three distinct sections, so "the query is being fussy" was available and true-sounding. Measuring the
+disagreement instead of explaining it away is the whole of the check. **When your own instrument
+contradicts a result you have already verified by other means, that is the instrument telling you
+something about itself.**
+
+Corrected in place in all five documents the same session, including the `LANDMINES.md` trap line
+that still asserted the canary was undamaged — a claim this session had itself already disproved.
+
+Family: a-detector-needs-a-negative-case, a-prefix-window-is-a-tunable-with-two-failure-directions,
+i-repeated-the-error-i-had-just-written-up.

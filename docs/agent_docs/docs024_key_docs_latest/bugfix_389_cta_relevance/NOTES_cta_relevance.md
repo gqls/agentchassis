@@ -467,3 +467,50 @@ claim about the registry and a false one about the page.
 > new line is defensible, but a correct claim was removed because I asked for a figure to be dropped
 > and did not scope which one. **A spec that names one heading does not stop the writer visiting the
 > others** — the same lack of bounding that MISSTEP 10 is about, in its harmless form.
+
+### 2026-08-25 ~21:10Z — canary restore LIVE; and **MISSTEP 13: my own replacement control false-positives, caught by running it once more**
+
+Canary rerender complete 21:05:40. Served bytes: the three text-block openings each appear
+**exactly 1** — *"the base model **itself**…"*, *"…the **underlying weights**…"*, *"…the **company
+that** built it…"* — `password-entropy` **0**, control string **0**, all four CTA anchors still
+naming and linking the Decision Guide. Restored.
+
+> **And the `<p>` control reads 15. It read 15 when the page was destroyed.** Same number, both
+> states, four hours apart. That is the whole case against it in one line.
+
+**Then the closing distinctness sweep flagged the canary AGAIN — 6 components, 5 distinct — and it
+was WRONG.** The three restored blocks all begin *"The model and its licence The base model is a
+small open-weight model, meaning "*; positions 3 and 4 diverge at character **~81**
+(*"the underlying weights…"* vs *"the company that built it…"*). The shared heading plus the common
+sentence stem consume the entire 80-character window.
+
+**I nearly explained it away** — the served bytes said all three were distinct, so the row looked
+like noise. Measuring instead of dismissing gave the real answer, and it is worse than a one-off:
+
+| state of the canary | `at_80` | `at_200` | `md5(full text)` | truth |
+|---|---|---|---|---|
+| pre-damage baseline (13:05:42Z archive) | **5** | 6 | 6 | clean |
+| damaged (13:37:55Z archive) | 4 | 4 | 4 | **damaged** |
+| restored (now) | **5** | 6 | 6 | clean |
+
+**The 80-character form scores the canary 5-of-6 whether or not it is damaged.** On that page it
+never discriminated at all — it was right about the damage by coincidence, for a reason that had
+nothing to do with the damage. `[MEASURED 2026-08-25]` across all twelve pages, `md5()` of the full
+stripped text gives **4 of 6 on both damaged pages, 6 of 6 on both restored ones, and zero false
+positives**; `left(txt,80)` disagrees on exactly one page, in the false-positive direction.
+
+**So the check is now `count(DISTINCT md5(txt))` vs `count(*)` — no window, no tunable.** Full text
+works here *because* the copies are byte-identical once tags and whitespace are stripped, which I
+verified on both instances rather than assuming (the rendered-HTML md5s differ, because the wrappers
+carry slot and position — that difference is not content).
+
+**Corrected in place, before anyone else read it:** `bugs_open/391`, `bugs_open/403` (both the
+CONTRIB and its addendum), `LANDMINES.md` (whose trap line also still claimed the canary was
+*undamaged* — the very error this session had already disproved), and `HANDOFF_2026-08-25c` §3.
+
+> **The lesson, and it is the same one twice in one evening.** I found the first defect with a
+> control, wrote that control into five documents as *the* answer, and had **not once run it against
+> a page I knew to be clean.** Exactly the failure I had just finished writing up about the `<p>`
+> count — validate a control only where you expect it to fire and you learn nothing about what it
+> does elsewhere. **A detector needs a negative case before it is a detector**, and mine got one only
+> because a restore gave me a known-good state to re-run it on.

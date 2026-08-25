@@ -253,13 +253,13 @@ one hit:
 
 ```sql
 SELECT page_id, count(*) AS components,
-       count(DISTINCT left(regexp_replace(regexp_replace(rendered_html,'<[^>]*>',' ','g'),
-                                          '\s+',' ','g'), 80)) AS distinct_openings
+       count(DISTINCT md5(regexp_replace(regexp_replace(rendered_html,'<[^>]*>',' ','g'),
+                                     '\s+',' ','g'))) AS distinct_sections
 FROM page_components WHERE page_id = ANY($1) GROUP BY 1;   -- 6 components, 4 distinct = this bug
 ```
 
 Offered for **candidate 1's verification step and for the watcher in `RFC_042`**: a
-components-vs-distinct-openings delta is cheap, needs no provenance marking, and catches the loss
+components-vs-distinct-sections delta is cheap, needs no provenance marking, and catches the loss
 whether or not the destroyed value was ever marked as authored. It cannot replace provenance — it
 sees only losses that duplicate — but it is a detector that works **today**, on unmarked content,
 which nothing currently does.
@@ -302,7 +302,7 @@ same `{content, heading}` shape — again **not** an array inside a `source:"llm
 after.** Not "moved too little to notice" — it *could not move*, because three paragraphs were
 replaced by three paragraphs. Byte length moved by 118 B across the whole page. Any threshold on
 size, length or element count is defeated by construction here, because the destroying write emits
-**the same kind of content it destroyed**. The components-vs-distinct-openings query in the CONTRIB
+**the same kind of content it destroyed**. The components-vs-distinct-sections query in the CONTRIB
 above caught both instances on the first run, with no tuning and no false positives across twelve
 pages.
 

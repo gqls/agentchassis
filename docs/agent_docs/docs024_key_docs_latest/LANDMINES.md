@@ -18140,15 +18140,25 @@ code change owed at the next roll, tracked in RFC_015 §5.
 
 - **footprint:** `site_work_items.item_type='content_rewrite'` with `handler_agent='page-build-handler'`, `spec.suggestion`, `page_components.content_data`, `page_component_history.source_item_id`, and any repair recipe whose verification step is `grep -c '<p'` (or any other count) before/after
 - **fires when:** you dispatch a `content_rewrite` to change something small and well-bounded — CTA button labels, a heading, one field — on a page you did not author, and you verify the result by counting something. The spec saying *"Reword ONLY the … LABELS. Leave all other prose exactly as it is."* does **not** bound the write: the handler regenerates sections, and prompt text is not a control. `[MEASURED 2026-08-25]` on `finetuning.uk/your-own-model.html` a labels-only commission overwrote the `generic-text-block` rows at positions 2 and 3 with near-copies of position 4 — two authored sections destroyed, the page serving one section three times.
-- **the trap: the damage arrives as a COPY, so every volume control reads normal.** `<p>` went **17 → 20** on that page. A `+3` reads as a writer adding a sentence, and the canary page (which was undamaged) had held at 15/15, so the count control looked validated. It was not — **a control checked only where nothing went wrong has never been shown to discriminate.** Byte length, word count and paragraph count are all blind here, because the destroyed bytes are replaced by the same *kind* of bytes.
-- **the check — assert on DISTINCTNESS, per page, before and after:**
+- **the trap: the damage arrives as a COPY, so every volume control reads normal.** `<p>` went **17 → 20** on that page — a `+3` that reads as a writer adding a sentence. **⚠ CORRECTED same session: on the SECOND damaged page it read 15 → 15 and could not have moved**, because three paragraphs were replaced by three paragraphs. That page was this lane's canary, it was damaged seven hours earlier, and its 15/15 is exactly why the count control was promoted to the rest of the batch — so what was validated on it was the control's **blindness**, read as evidence the repair was safe. Byte length, word count and paragraph count are all blind here, because the destroyed bytes are replaced by the same *kind* of bytes. **A control checked only where you believe nothing went wrong has not been shown to discriminate — and if that page turns out to have been broken, its green result is evidence AGAINST the control.** `[MEASURED 2026-08-25]` rate on a real population: **2 of 12** pages put through a labels-only `content_rewrite` lost authored copy.
+- **the check — assert on DISTINCTNESS, per page, before and after. Hash the WHOLE text; do NOT use a prefix:**
   ```sql
-  -- >0 duplicate openings after, where there were none before, IS this bug
+  -- components > distinct_sections  IS  this bug
   SELECT page_id, count(*) AS components,
-         count(DISTINCT left(regexp_replace(regexp_replace(rendered_html,'<[^>]*>',' ','g'),
-                                            '\s+',' ','g'), 80)) AS distinct_openings
+         count(DISTINCT md5(regexp_replace(regexp_replace(rendered_html,'<[^>]*>',' ','g'),
+                                           '\s+',' ','g'))) AS distinct_sections
   FROM page_components WHERE page_id = '<page>' GROUP BY 1;
   ```
+  ⚠ **The `left(text,80)` form first written here FALSE-POSITIVES and this lane hit it.**
+  `finetuning.uk/technical-details.html` scores **5 of 6** at 80 characters **while undamaged** —
+  its three text blocks share the heading *"The model and its licence"* plus a common sentence stem,
+  which consumes the whole window. On that page's own archived **pre-damage** baseline:
+  `at_80 = 5`, `at_200 = 6`, `full_text = 6`. A control that flags a clean page cannot tell you a
+  damaged one apart. `md5()` of the full stripped text has **no window and no tunable**, and on this
+  population it is exactly right: **4 of 6 on both damaged pages, 6 of 6 on both restored ones, zero
+  false positives across all twelve.** (Full text works here *because* the copies are byte-identical
+  once tags and whitespace are stripped — verified on both instances. If you ever meet a near-copy
+  that survives the digest, widen to `left(txt,400)` rather than shortening to 80.)
   Take the "before" from `page_component_history` (`source='artefact_archive_trigger'` carries
   `rendered_html` + `slot_name` + `position`; `source='save_page_sections_overwrite'` carries
   `content_data` but **no** `slot_name` and **`component_id IS NULL`** on both, so join on

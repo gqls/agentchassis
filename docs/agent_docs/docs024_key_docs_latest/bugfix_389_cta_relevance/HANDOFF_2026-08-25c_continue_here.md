@@ -119,8 +119,8 @@ grep -oE '<a [^>]*class="[^"]*(btn|cta)[^"]*"[^>]*>[^<]*</a>' after.html   # lab
 -- THE CONTROL THAT ACTUALLY WORKS: components vs distinct openings, per page.
 -- components > distinct  ⇒  the rewrite replaced a section with a copy of a neighbour.
 SELECT page_id, count(*) AS components,
-       count(DISTINCT left(regexp_replace(regexp_replace(rendered_html,'<[^>]*>',' ','g'),
-                                          '\s+',' ','g'), 80)) AS distinct_openings
+       count(DISTINCT md5(regexp_replace(regexp_replace(rendered_html,'<[^>]*>',' ','g'),
+                                     '\s+',' ','g'))) AS distinct_sections
 FROM page_components WHERE page_id = ANY(<pages>) GROUP BY 1;
 ```
 

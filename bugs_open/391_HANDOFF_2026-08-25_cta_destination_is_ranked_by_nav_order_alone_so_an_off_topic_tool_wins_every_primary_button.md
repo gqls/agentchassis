@@ -634,12 +634,12 @@ prose exactly as it is."*
 
 **The `<p>` control in the verification recipe read 17 → 20 and would have passed the page.**
 Duplication does not move a count; it moves distinctness. The check that found it, first try, ten
-pages, one hit (`6 components → 4 distinct`):
+pages, one hit (`6 components → 4 distinct sections`):
 
 ```sql
 SELECT page_id, count(*) AS components,
-       count(DISTINCT left(regexp_replace(regexp_replace(rendered_html,'<[^>]*>',' ','g'),
-                                          '\s+',' ','g'), 80)) AS distinct_openings
+       count(DISTINCT md5(regexp_replace(regexp_replace(rendered_html,'<[^>]*>',' ','g'),
+                                     '\s+',' ','g'))) AS distinct_sections
 FROM page_components WHERE page_id = ANY(<the repaired pages>) GROUP BY 1;
 ```
 
