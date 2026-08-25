@@ -52242,3 +52242,46 @@ exactly the shape `check_append_only_docs` exists to catch, and it fired. It was
 made the deletion safe was not care — it was that my copy carried a distinguishing string in
 its own `added:` line, so the script could refuse to delete anyone else's. Without that, two
 near-identical entries and a wrong belief would have removed the other session's.
+
+---
+
+## 2026-08-25 — I proved a detector was silent by running it over nothing, and it was the detector whose own entry in this file is about exactly that
+
+**The claim.** Having reworded a log line to clear a `logged-model-output` false
+positive, I ran `python3 scripts/pattern-check.py`, got no finding, and was about to
+record that as evidence the fix worked.
+
+**What was true.** It was **vacuous**. With no arguments that script reads
+`git diff --cached`; my change was unstaged; it scanned **zero files** and printed
+what a passing run prints. The measured denominator was 0.
+
+**What caught it.** Asking how many files the run had actually examined before
+believing its silence — `changed_files(None)` returned `[]`. Then staging the file
+made it 1, and the result stood on a **pair**: silent on my fix, still firing on
+commit `2fde4def9`, which is the same rule over the same line.
+
+**The cheap check that would have.** `git diff --cached --name-only | wc -l` before
+reading any pattern-check result. One command, and it is the denominator of every
+claim that run can support.
+
+**⚠ THE PART THAT MAKES THIS WORTH LOGGING RATHER THAN EMBARRASSING.** This file
+already contains **2026-07-27b**, written by the AUTHOR of `check_logged_model_output`,
+about `check_logged_model_output`, whose lesson is *"0 findings is indistinguishable
+from 0 files examined"*. I hit the identical failure from the consumer side, on the
+same rule, without recognising it — and I had read this file's index the same session.
+**A lesson filed against the WRITING of a check does not announce itself when you are
+READING one.** The entry was retrospective and mine was prospective, which is the
+`LANDMINES.md` boundary; so the durable half went there, phrased as "confirm the
+denominator", where a session touching the tool sees it before it has a symptom.
+
+**And the first fix was wrong too, for the reason the trap exists.** The rule matches
+raw text for six lines from the log sink, comments included. I removed the trigger word
+from the string and wrote a comment above it explaining why — a comment that necessarily
+named all four trigger words, inside the window, so it re-fired at the same line. Three
+commits to delete one false positive: `69479bcf6` introduced it, `2fde4def9` "fixed" it
+and reproduced it, `b96529372` actually fixed it and caught the vacuous run.
+
+**Cost.** Two extra commits and about twenty minutes; nothing false reached a document,
+because the check on the check ran before the claim was written down.
+
+Family: zero-findings-is-not-zero-defects, a-detector-that-reads-prose, the-comment-explaining-the-trap-triggers-it, confirm-the-denominator.
