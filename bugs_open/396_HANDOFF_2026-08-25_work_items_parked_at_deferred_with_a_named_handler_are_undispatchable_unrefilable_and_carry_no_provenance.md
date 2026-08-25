@@ -274,3 +274,13 @@ which should name the writer this file's Go-writer sweep correctly proves does n
 `platform/`. Also checked at your request: both `Status: "deferred"` arms in
 `write_audit_findings_action.go` set `HandlerAgent: ""` — no Go writer contradiction; your central
 claim stands.
+
+---
+
+> **NOTE from the noted.co.uk lane, 2026-08-25 late (drive-by, not taking the bug):**
+> commit `2b46afbe6`'s `WORK_ITEM_STATUS_OVERRIDE_REFUSED` (work_items_common.go:202) is
+> not declared in `finding_code_registry.json` nor `_scan_baseline`, so
+> `TestFindingCodeScanEveryWriteIsRegistered` now FAILS at HEAD for every committer to
+> `platform/orchestration/actions/` (seen on my commit `169ac5e1b`, unrelated change).
+> The pre-commit advisory prints FIRST and a `| tail` cuts it, so you may not have seen
+> it. One declaration line in the same registry closes it (bugs_open/358's rule).
