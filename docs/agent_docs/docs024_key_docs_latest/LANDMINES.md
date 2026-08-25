@@ -17347,3 +17347,30 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-25, a session picking up `bugfix_327_silent_publish_drop/HANDOFF_2026-08-25_open_decisions.md` while another closed the bug. Full account: `docs024_key_docs_latest/bugfix_327_silent_publish_drop/CONTRIB_2026-08-25_root_level_racing_publishers.md`, and `WRONG_CALLS.md` same date
 - **added:** 2026-08-25, bugfix_327 lane (contrib)
 - **UPDATED 2026-08-25, same day, by owner decision — the specific instance is closed, the class is not.** The root copy is now `DEPRECATED_082_submit_domain_unified.sh.txt` (renamed, banner added, `exit 64` if anyone `bash`es it). Renamed rather than deleted so the eight documents' shorthand resolves to an explanation instead of to nothing; the `.txt` is what makes it non-runnable AND uncountable by any `*.sh` census. **What still stands, and is why this entry stays:** `check_untouched_twin` remains `.go`-only, so the NEXT shell twin will diverge just as silently — and the directory-sliced-census half below has nothing to do with this file at all
+
+## `pages.rendered_header`/`rendered_footer` are NULL on whole sites — a nav-membership check against them reads "never shipped" while the served site carries the link
+
+- **footprint:** `pages.rendered_header`, `pages.rendered_footer`, `site_nav_items`, nav-updater verification, `nav_drift`
+- **fires when:** you verify that a nav change (new page in the menu, relabel, reorder) actually
+  shipped, and reach for the obvious query — `SELECT count(*) FROM pages WHERE site_id=… AND
+  rendered_header LIKE '%<slug>%'`. No symptom needed; this is the natural first check after a
+  `nav_drift` item completes.
+- **the trap:** on finetuning.uk ALL 52 pages have `rendered_header IS NULL` and no
+  `rendered_footer` carries the footer's actual link list `[MEASURED 2026-08-25]` — the deployer
+  assembles chrome from `site_nav_items` (+ global templates) at deploy time, and these columns
+  are not that store. The count is 0 for every slug, forever, on such a site.
+- **why the wrong answer looks exactly like the right one:** 0 is precisely what "the wave
+  completed but shipped nothing" would look like, and it composes with the true observation that
+  52 `page_rerender` items read `complete` into a confident false conclusion. It was reported to
+  the owner as "the nav link did not ship" within minutes of the wave completing — while the
+  served /index.html already carried the link (footer group, `site_nav_items` position 4).
+- **the check:** verify nav at the SERVED page (`curl -s https://<domain>/index.html | grep -c
+  '<slug>'` and read the match's context — header vs footer group matters), plus the intent at
+  `site_nav_items` (which GROUP the item landed in). Before trusting any `rendered_*` column as
+  a store, ask whether it is populated at all: `count(*) FILTER (WHERE rendered_header IS NULL)`
+  = all rows means the column cannot answer your question on this site, whatever it does
+  elsewhere.
+- **relations:** MEMORY [[a-complete-work-item-is-not-a-repaired-artefact]] · [[prove-a-deploy-at-the-artefact-index]] · the 016b "trust the rendered artefact, not the status" invariant — this is its inverse twin: trust the SERVED artefact, not a stored render column either
+- **source:** 2026-08-25, `finetuning_uk_service` lane, verifying the nav wave for
+  `/your-own-model.html`. Full account: `finetuning_uk_service/NOTES_finetuning_uk_service.md` 08-25b.
+- **added:** 2026-08-25, finetuning_uk_service lane
