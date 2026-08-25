@@ -237,3 +237,68 @@ What is now excluded, so the loop's answer can be checked against it:
 | dispatched-then-parked-on-failure | **OUT** | 117 of 118 never triaged, claimed or attempted; 0 carry `error` |
 | a discovery-run side effect | **OPEN — best lead** | timing correlation only |
 | a hand-run `psql` UPDATE | **OPEN — untested** | no evidence beyond absence of alternatives, which is not evidence |
+
+## 2026-08-25 (later) — the loop came back UNVERIFIABLE, and it was worth every credit
+
+Run `6061299a`, 4 iterations, then the iteration cap. Verdict verbatim:
+
+> **NOT CONFIRMED (stopped: iteration-cap)** … *"That leaves two writers still unidentified and now
+> with zero remaining named candidates in the read code"* … *"Hand to a human with the full trail;
+> do NOT auto-conclude."*
+
+**A REFUTED or unconfirmed verdict is a result, not a waste** — and this one paid for itself twice.
+
+### What it caught that I had missed — and the method error underneath it
+
+It surfaced a **third** park-provenance convention: `spec.deferred_reason`, carrying an
+owner-sanctioned explanation (`canary_replan_407`, corr `b23b19c7`, the 08-12 queue-parking
+decision). Four rows, `needs_imagery` + `needs_rerender`.
+
+Numerically that is nothing — 118 → **114**. **The method error is the finding.** I had checked
+`spec ? 'parked_by'` and `spec ? 'not_dispatchable'`: *the two conventions I already knew about*.
+The right query enumerates:
+
+```sql
+SELECT k, count(*) FROM site_work_items w, LATERAL jsonb_object_keys(w.spec) k
+WHERE w.status='deferred' AND COALESCE(w.handler_agent,'')<>'' GROUP BY 1 ORDER BY 2 DESC;
+```
+
+⚠ **A membership test can only find the members you can name.** I built a discriminator out of my
+own prior knowledge and then reported its output as a census of what exists. That is the same
+family as this morning's errors and it is the third instance today: **the instrument encoded the
+question I already had, not the one I asked.** Now in the RUNBOOK.
+
+And the enumeration immediately paid again, in the *other* direction: `spec.reason` is on 22 of the
+114 and looks like provenance. It is not — it records why the item was **detected**
+(`cta_links_stale`, `not_built`, `no_style_collection`). Treating it as a trace would have shrunk
+the population on a false basis, which is the same error with the sign flipped.
+
+### Where the loop was WRONG, checked rather than inherited
+
+Its "still needed" asks for *"the full body of `HandleUpdateWorkItem` — the only call site the index
+shows that SETs `handler_agent` on an UPDATE"*.
+
+**No such symbol exists.** `grep -rn "func Handle.*WorkItem"` returns nothing repo-wide; every
+`handler_agent` occurrence under `internal/core-manager/admin/` is an INSERT column list. The loop
+had flagged its own caveat — only a signature was indexed, not a body — and that caveat is the
+tell: the code index lags the working branch.
+
+⚠ **This is exactly the shape CLAUDE.md warns about in the other direction.** The loop refuted a
+thread's confident claim on 2026-07-19 by reading the one function the thread had skipped; here the
+thread refuted the loop by grepping for a symbol the loop had only seen a signature of. **Neither
+is authoritative. The artefact is.** I would have burned a round on that lead had I taken the
+verdict as read.
+
+### So: bug filed with the root cause NOT established, and saying so
+
+`bugs_open/396`. Eight candidates excluded with their evidence; two left open and both labelled —
+a discovery-run side effect (timing correlation only) and a hand-run `psql` UPDATE (no evidence
+beyond the absence of alternatives, which is not evidence). The header says root cause not
+established rather than picking the comfortable one.
+
+**Tally for this lane, since the missteps are the point:** four hypotheses raised, four killed
+(`FailWorkItemAction`, migration 217, a `handler_agent` router, dispatched-then-parked), one
+measurement retracted as structurally unanswerable (`updated_at - created_at`), one census
+corrected by an instrument I had not thought to run, and one inherited lead verified as void. The
+useful residue is not the cause — it is the eight exclusions and the two controls, which are what
+the next reader would otherwise re-derive.
