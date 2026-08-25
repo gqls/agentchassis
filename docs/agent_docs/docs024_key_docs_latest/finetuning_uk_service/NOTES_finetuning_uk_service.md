@@ -1871,3 +1871,22 @@ running copy-editor rather than assuming.
   not the owner's ear; register acceptance cannot be claimed from a clean checklist.
 - Holds: two new pages stay live (facts/claims/links verified) unless the owner says
   otherwise; site-wide rewrite WAITS for the copy machinery to move (their lane, his ask).
+
+## 2026-08-25b — the nav wave HAD shipped; my "did not ship" reading was an unanswerable query (new LANDMINE)
+
+- Overnight: all 52 `page_rerender` items complete. My check `pages.rendered_header LIKE
+  '%your-own-model%'` returned 0 and I reported the link as not shipped — **wrong: ALL 52 pages
+  have `rendered_header IS NULL` on this site** `[MEASURED 2026-08-25]`; the deployer assembles
+  chrome from `site_nav_items` at deploy time and those columns are not the store. The SERVED
+  /index.html carries "Your Own Model" in the FOOTER link group (`site_nav_items` group
+  `6e159642`, position 4). Landmine appended to LANDMINES.md (+ verifier dispatched); handoff's
+  own verification query corrected in place. The disconfirming habit that caught it: reading the
+  served page instead of stopping at the column.
+- Header membership: the header nav holds its existing 9 items; adding the offer page there
+  DISPLACES one — owner call, already on his list.
+- Post-wave spot-checks: offer 200/38,194B (£99 ×5), technical 200/37,789B — both healthy, chrome
+  updated, copy untouched (empty-reason rerender assembles stored HTML, as designed).
+- Fleet: copy-quality's 08-25 handoff (pre-escalation) already leads next-work with the per-field
+  gate defect our 2nd addendum reported, and notes stage 2's "first user outside this lane" (us).
+  Their reaction to the OWNER ESCALATION is still pending. bugs_open/387 (writer_block stand-in
+  copying, "NNN+") checked against our pages: no `{value}`/NNN leakage on either.
