@@ -24,9 +24,9 @@ exactly this reason. Do not leave a status like this to be discovered.
 
 **Status of the RESIDUAL (§5), which is now the live half of this bug:** interim fix committed
 `a9002793b` (page-type gate extended to the three tracker/directory types; council submission
-`b8df25dc-7d19-48b9-9b52-b93b25523d4a`, verdict pending). **Inert until the next chassis roll** —
-and that claim is checkable by the same probe above, not by a date. Phase 2 (component-grain
-`ClaimSurface`) is filed, not built.
+`b8df25dc-7d19-48b9-9b52-b93b25523d4a`, **APPROVED round 1**), plus the plural fast-follow
+`0f9f7f3ff`. ~~Inert until the next chassis roll~~ — **BOTH VERIFIED LIVE 2026-08-25 on v1.0.1337,
+see §6f.** Phase 2 (component-grain `ClaimSurface`) is filed as `RFC_053`, not built.
 
 ## 1. The symptom
 
@@ -284,6 +284,62 @@ The no-shelf-life alternative, and the better one:
 Then, at the data: re-fire a `model-directory` build and confirm no `unregistered_number`
 in `agent_error_log` (§6's query). ⚠ **And note `bugs_open/387`** — those three pages currently 404,
 so "the page is fine now" cannot be read off the live site either.
+
+## 6f. VERIFIED LIVE 2026-08-25 — both fixes shipped on v1.0.1337
+
+Chassis rolled 2026-08-25 09:27:48Z, image `v1.0.1337`, build commit `635f2d32`. Both fixes are in
+it and both were proven at the artefact, with controls in both directions:
+
+| probe | result | reading |
+|---|---|---|
+| `adoption-tracker` in `/proc/1/exe` | 4 | interim present |
+| `orchestrations?\|integrations?` | 1 | plural fast-follow present |
+| `orchestration\|integrations?` (pre-fix form) | **0** | **negative control passes** — the probe discriminates |
+| `news-index` (always present) | 11 | positive control passes |
+
+`git merge-base --is-ancestor` puts both `a9002793b` and `0f9f7f3ff` inside `635f2d32`. And
+`git diff 635f2d32 HEAD -- claims.go` is **empty**, so a locally built `cmd/claimscan` runs the
+fleet's exact scan code — which is what licenses the figure below.
+
+**At the data, post-roll, export asserted 118/118:** ai-agent-orchestration.com is at **16 findings,
+ZERO on any tracker/directory page** — down from 36. The 16 that remain are the genuine first-person
+claims the layer exists to catch.
+
+⚠ **`agent_error_log` shows 0 refusals since the roll, and that number is NOT yet evidence.** The
+demand control says why: 6 pages have been built since the roll and **all six are `guide` / `tool` /
+`blog-post`** — page types that were already excluded before this change. **No page of an affected
+type has been rebuilt yet**, so the zero measures absence of demand, not the fix working. The
+end-to-end confirmation is still outstanding; §6e has the recipe.
+
+## 6g. The fix does NOT dispose of the two false findings already in the human queue — by design
+
+Two `claims_unverified` items have sat in `needs_human_review` since **2026-08-09** and are pure
+false positives of this bug:
+
+| item id | page | findings |
+|---|---|---|
+| `4405fb38-0201-463a-bd2a-40698bed9db7` | adoption-tracker | 8 |
+| `2f8f67dd-07b1-4907-a6a1-d7b2bd86fcf4` | protocol-tracker | 3 |
+
+**They will not self-close, and I was about to predict that they would.** `revalidate_unverified_claims.go`'s
+ladder re-scans first (`armScanStillTrips`, which now returns nothing on these pages), then hits the
+**claim-granular gate** — and that gate compares the *cited token* against the slot's current text.
+The tokens are still there, because the copy never changed; only the standard did. So the verdict is
+`armGateClaimsStillPresent`: *"page X no longer trips the check, but N of the M texts this finding
+cited are STILL in the component they were cited from — so the standard moved, not the copy; a claim
+that stopped being flagged while its words are untouched has not been addressed."*
+
+**That is correct behaviour and must not be "fixed".** It is a deliberate integrity control (council
+round 5, `compliance` HIGH, 2026-08-11): a detector change is not allowed to silently dispose of
+items on the platform's highest-stakes, deliberately HITL-terminal type. The same guard is what stops
+a CSS tweak closing a real fabrication.
+
+**So this is a human decision, not an engineering one.** Someone has to rule that these two items were
+always false and cancel them. Note the sibling residual: `ddc90e58` (about, 6 findings) and
+`962da5c9` (case-studies, 1) are on content pages and are **genuine** — they stay open on merit.
+
+⚠ Whoever closes them: record the item ids first. Closing ARCHIVES the row out of `site_work_items`,
+so a later census cannot see what it succeeded at.
 
 ## 6c. Found by this bug's census, filed separately (2026-08-24)
 
