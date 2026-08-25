@@ -169,6 +169,14 @@ not TEST it · grep the file for the word your comment uses.
   structurally near-impossible … and is the number Phase 3b needs". Forward-only, so it
   stands; the intact text is in `bugs_open/288` §5e and the lane NOTES. **Use single
   quotes or a heredoc for a message containing backticks.**
+- **`7651b11dc` names four files and contains three.** Its `claims-verification.md` edit (CLM-022's
+  post-roll residual) was swept into the 386 lane's `181b2cf38` at 22:01Z, seconds before this
+  lane committed. **Nothing is lost** — the text is in HEAD and the working tree is clean — but
+  that commit's message describes a file it does not carry, so `git log -- claims-verification.md`
+  will not surface it. Caught by the commit-scope block reporting 3 files against 4 named, which
+  is the *missing*-path half of the check (the `--numstat` half catches the opposite, a named path
+  arriving fatter than expected). Reciprocal of the entry below: this lane carried another lane's
+  landmine, and another lane carried this lane's register edit, both the same day.
 - `b891a67dd`/`0c304c9a6` carry a disclosed same-file passenger in `LANDMINES.md` — the
   `web_admin_console` lane's `POST /c/<token>` entry. Named in the message; not this lane's.
 
