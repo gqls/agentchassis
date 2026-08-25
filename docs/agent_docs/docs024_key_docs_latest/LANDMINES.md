@@ -17291,3 +17291,43 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **and the ordering trap inside the ordering trap:** satisfying guard 5 by ARMING an arm can break a live route. `CQ-023` records that a `required_fields_missing` verifier fail-closes the `converted` arm of its router. Arm `close_stale` and `close_resolved` before `close_converted`, and read that router's close paths first — or take the acknowledgement arm, which is why `WII-031` demands a reason rather than a switch.
 - **relations:** `WII-032` (the worked case, and a verifier written and deliberately left unregistered at exactly this point) · `WII-031` (guard 5) · `WII-030` (why the consult is opt-in at all) · `bugs_closed/317` (guard 1's reason) · `bugs_open/213` (guard 2's reason) · `bugs_closed/367` + migration 574 (which axis a verifier must resolve on — mirroring the detector's `deployed` filter rebuilds that bug one layer up) · `bugs_open/375`
 - **added:** 2026-08-25, `bugfix_375_completion_verifier_gap` lane. Found by writing the `init()` and reading what broke, rather than by reasoning about it — the five-guard sequence is not documented anywhere else, and four of the five would have been invisible until the build ran.
+
+### A bare number regex over an `evidence-chart`'s `rendered_html` returns SVG COORDINATES — and some of them equal real former fact values, so the wrong surface can confirm your hypothesis
+
+- **footprint:** `cmd/claimscan`, `page_components.rendered_html`, `page_components.content_data`,
+  the `evidence-chart` component function, `platform/orchestration/datahelpers/claims.go`
+  (`numberSupported`, `ScanUnregisteredNumbers`), any dry run counting "which published numbers are
+  registered"
+- **fires when:** you need the published numbers on a page and reach for SQL — `regexp_matches(pc.rendered_html, '[0-9]{3,}')`
+  or a `content_data::text LIKE '%<n>%'` — instead of the exporter + `cmd/claimscan`. Both feel like
+  reading the page. Neither is the surface the scanners read, which is **extracted text blocks**
+- **the tell, and it is easy to miss:** the same numbers appear on *every* page you scan. Measured
+  2026-08-25 on fundamentallyai.com, three components returned an identical 13-value list — 127,
+  320, 555, 600, 620, 625, 666, 700, 766, 875, 1200, 9375, 8125 — because `evidence-chart` draws
+  SVG and those are viewBox bounds and plot coordinates. Real findings do not agree that precisely
+  across different copy. `cmd/claimscan` over the same 91 components reported **5** findings, on one
+  page, and none of the 13
+- **why it is a landmine rather than an ordinary slip:** **two of the coordinates, `8125` and
+  `9375`, are genuine former values of `F10-feed-items-scored`.** So a hand-rolled scan can
+  *confirm* a hypothesis about former values using chart geometry, and the agreement reads as
+  evidence. A wrong surface that disagrees with the truth gets caught; one that accidentally agrees
+  does not
+- **and the second half:** `content_data` is a STAGING field holding the whole register snapshot,
+  including each fact's claim text *and its writer guidance* (`"… always say so"` — present in
+  `content_data` on all 3 components, in `rendered_html` on none, so not published). Presence of a
+  value there does **not** mean the page renders it: two `landing` pages stored `11646` and drew it
+  nowhere, so they are not convicted. `page_type=landing` is NOT on `editorialPageTypes`
+  (guide, blog-post, news-index, tool, game) — do not reach for the skip list to explain a silence
+  it does not cause
+- **the check:** use the exporter recipe in `cmd/claimscan/main.go:27-40` — **all four columns**,
+  because without `page_type` every page reads UNKNOWN and the tool disagrees with the gate it
+  exists to predict — assert `wc -l` against the same predicate's `count(*)` before trusting it (the
+  export truncates at exit 0 with only a stderr line), then run the binary. And check engine parity
+  before quoting any result as "what the fleet does":
+  `git diff <rolled provenance>..HEAD -- platform/orchestration/datahelpers/` must be empty; on
+  2026-08-25 it was 122 lines, so a HEAD run predicted the post-roll gate, not the live one
+- **source:** 2026-08-25, `bugs_open/386` lane, testing whether every stale rendered value was once
+  a register value (it was — 5 of 5, once measured on the right surface). Full account:
+  `docs024_key_docs_latest/bugfix_386_counting_fact_drift/NOTES_counting_fact_drift.md`, and
+  `WRONG_CALLS.md` same date
+- **added:** 2026-08-25, bugfix_386 lane

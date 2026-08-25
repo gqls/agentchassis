@@ -51180,3 +51180,38 @@ one commit too late.
 **The cheap check.** When inserting into a named section, derive the range FROM THE SECTION
 (header → next header) and assert the anchor row is inside it. A whole-file pattern match is a bet
 that the pattern is unique, and in a 16k-line file it rarely is.
+
+## 2026-08-25 — `bugs_open/386` lane: I measured a claims question on two surfaces that are not the one the scanner reads, and one of the wrong answers agreed with the truth
+
+**What I claimed.** Working out whether the durable fix for 386 would actually cover the case that
+filed it, I needed to know which published numbers on fundamentallyai.com were former register
+values. I regexed the numbers out of `page_components.content_data`, then out of raw
+`page_components.rendered_html`, and reported from both. From the first I told the owner that
+"three pages are convicted, not one". From the second I produced a list of thirteen numbers per page
+labelled "NEVER a register value → real finding".
+
+**Why it was not.** The scan engine reads **extracted text blocks**. Neither surface is that.
+`content_data` is a staging field holding the whole register snapshot — including fact claim text
+and its writer guidance — so it over-reports by construction, and presence there does not mean the
+value is rendered at all. Raw `rendered_html` for an `evidence-chart` is SVG: my thirteen "findings"
+were viewBox bounds and plot coordinates. `cmd/claimscan`, which runs the same engine as the deploy
+gate, reports **5 findings on one page** — exactly the bug file's original list, none of my extras,
+and two of the three pages I called convicted produce nothing because the chart never draws the
+value their `content_data` holds.
+
+**The part that should have caught me and nearly did the opposite.** Two of the spurious
+coordinates, `8125` and `9375`, **did** match genuine former values of the fact I was studying. So
+the wrong measurement partly agreed with the conclusion I was trying to reach. Had I stopped there
+I would have recorded the premise as confirmed, on chart geometry, and the number would have looked
+like evidence. The accidental-support failure mode this very bug is about, running backwards inside
+the measurement of it.
+
+**What caught it.** The identical thirteen-number list repeating on all three pages. Real findings
+do not agree that precisely across different copy; markup does.
+
+**The cheap check.** Run the instrument that shares the engine, and assert its export before
+believing it (`wc -l` against the same predicate's `count(*)`; it truncates at exit 0). Where a
+shared extractor exists, using anything else is authoring a third formulation of text extraction —
+the exact thing the `bugfix_380` handoff §3 flags about `page_visible_text(uuid)`. And when a
+hand-rolled measurement supports the answer you were hoping for, that is the moment to go and get
+the real one, not the moment to stop.
