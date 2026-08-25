@@ -266,7 +266,7 @@ Since 08-24 this lane has been carefully naming one or two related articles on e
 new tool gets a sentence woven into a relevant guide — the thing that turns 63 separate tools into a
 site that hangs together. I checked today whether those sentences are actually appearing.
 
-They are not, and they never have. Not once, on this site, since the 5th of August. Seventy-one of
+They are not, and they never have. Not once, on this site, since the 5th of August. Eighty of
 these little "go and mention this tool over there" jobs have been created and every single one has
 died in one of four ways. The eight I have filed personally are all sitting in a state called
 "deferred", which I had inherited a note describing as "their normal gate" — as though it were a

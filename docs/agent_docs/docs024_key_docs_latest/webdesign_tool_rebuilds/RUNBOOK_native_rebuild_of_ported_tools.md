@@ -94,8 +94,8 @@ Gotchas learned the hard way:
   `tool-bayesian-rank` → `learn-algorithms-bayesian-theory` is the shape.
   **⚠ CORRECTED 2026-08-25 — the query below counts ROWS, which is not the artefact, and on this
   site it has never once been able to fail.** Measured that day: `tool_crosslink:%` on site
-  `6b49db8e` is **41 `wont_fix` · 15 `deferred` · 13 `failed` · 2 `unresolved` · ZERO `complete`**
-  across 71 rows since 2026-08-05 — **no cross-mention has ever been written on webdesign.co.uk.**
+  `6b49db8e` is **41 `wont_fix` · 15 `deferred` · **22** `failed` · 2 `unresolved` · ZERO `complete`**
+  across **80** rows since 2026-08-05 (live UNION archive) — **no cross-mention has ever been written on webdesign.co.uk.**
   Every row this lane has filed since 08-24 is parked the same second it is created, with
   `OWNED_PAGE_GUARD: page-build-handler declares refuse_owned_page and page <id> is
   rebuild_policy=owned` and a spec key `not_dispatchable`. That is `bugs_open/333`'s door working as

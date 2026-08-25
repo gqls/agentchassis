@@ -52723,9 +52723,19 @@ related articles, and each time recorded the crosslinks as emitted — meaning, 
 reader would take it, that the tool now gets a sentence woven into a relevant guide.
 
 **What was actually true.** `[MEASURED 2026-08-25 15:00Z]` `item_key LIKE 'tool_crosslink:%'` on
-site `6b49db8e`, all history: **41 `wont_fix`, 15 `deferred`, 13 `failed`, 2 `unresolved`, and ZERO
-`complete` across 71 rows since 2026-08-05.** Not one cross-mention has ever been written on that
-site. The 15 `deferred` are mine, parked by `bugs_open/333`'s owned-page door in the same second
+site `6b49db8e`, all history: **41 `wont_fix`, 15 `deferred`, 22 `failed`, 2 `unresolved`, and ZERO
+`complete` across 80 rows since 2026-08-05.** Not one cross-mention has ever been written on that
+site.
+
+> **CORRECTED 2026-08-25, same day, and it belongs in this file twice over:** I first published this
+> census as **13 `failed` / 71 rows**. I had queried `site_work_items` alone — **the live table is a
+> ROLLING WINDOW and `site_work_items_archive` held 9 more `failed` rows** (08-15 → 08-17). Caught by
+> the `bugs_open/333` lane checking my numbers rather than taking them, within the hour, before they
+> reached their register entry. Re-run live UNION archive: the corrected figures are above and the
+> **load-bearing claim is unchanged — still ZERO `complete` in either table.** The lesson is the
+> narrower one: *an all-history claim on `site_work_items` must UNION the archive*, and I wrote a
+> whole entry about checks that cannot fail while running one that could not see a third of its own
+> population. MEMORY [[a-closer-census-cannot-see-what-it-succeeded-at]] says exactly this. The 15 `deferred` are mine, parked by `bugs_open/333`'s owned-page door in the same second
 they were created — `created_at` == `updated_at`, `handler_agent` cleared, `spec.not_dispatchable`
 saying in as many words that promoting the row would dispatch work the handler is forbidden to do.
 
