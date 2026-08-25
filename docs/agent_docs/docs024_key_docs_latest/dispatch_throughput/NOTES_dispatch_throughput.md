@@ -224,3 +224,20 @@ site → confirm wasted-spawn-not-double-handle at claimed_by/attempt_count); (b
 throughput + wait-time comparison with demand control; (c) do NOT add sibling #3 —
 gated on adapter decision + D4 governor; (d) Phase 3 (batch 8 + timeout 600, D3
 lockstep ruled) after the 24h read.
+
+## 2026-08-25 — council round 1 REVISE, answered with measurements; round 2 submitted; HANDOFF cut
+
+Round 1 (corr db9b7cbf): REVISE, gating = guardian HIGH — feared a FOURTH stamp nested in
+sub_workflow/substeps, invisible to a top-level step walk. Answered by census, not
+argument: fleet-wide WHOLE-TEXT scan of all active agent_definitions [MEASURED 08-25]
+returns **0** hardcoded stamps (positive control: the same scan sees substep-level text —
+6 configs match `spawn_handler`), **0** in scheduled_tasks.pre_query, and the `$1` form
+lives in exactly the 2 edited agents. Guardian MEDIUM (apply atomicity): the 582→583→584
+sequence is self-gating (DO/RAISE cross-file pre-flights, 583's induced pre-apply).
+Guardian LOW (INSERT..SELECT stale identity): the INSERT's explicit 12-column list
+excludes id and both stamp columns. reuse LOW (native knob): max_concurrent is dead
+config (STARTER §2); executions-count fix = the D9 fork, owner-deferred. architecture
+LOW: register note added to WDS-002 — occurrence-counting is not verified enumeration;
+the whole-text census is the repeatable check. Round 2 submitted on the SAME correlation
+(RESUBMIT_CORR). Verdict unread at handoff time — first task for the next session.
+`HANDOFF_2026-08-25_continue_here.md` cut; workstreams memory repointed at it.
