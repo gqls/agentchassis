@@ -561,7 +561,17 @@ must not trade it for a quiet one.**
 
 ### 11f. Status
 
-Design only. **Not submitted to the council gate, not written as a migration, not applied.**
+~~Design only. **Not submitted to the council gate, not written as a migration, not applied.**~~
+**UPDATED 2026-08-25 (later the same day): WRITTEN and SUBMITTED, not yet applied.**
+Migration `docs/agent_docs/sql_for_agents/618_vertical_exemplar_researcher_routes_refused_crawls_and_floors_on_content.sql`
+(+ `_ROLLBACK`), council submission `loanzy_uk_example_site/COUNCIL_SUBMISSION_2026-08-25_376_migration_618.json`,
+**`SUBMISSION_CORR = 3d890adc-6f76-42c3-9eb2-20a76d7195f1`**. Rehearsed against the live row inside a
+rolled-back transaction: drift guard passed, edit + verify passed (3 error_steps, floor wired, 0 dangling
+edges, 15 steps), and apply-then-rollback in one transaction restored the 12-step chain; live row untouched
+(`applied=f`, 12 steps, `updated_at` unchanged). The below-floor arm is `record_exemplar_floor`
+(query_database composes the failure text WITH the three counts) → `insufficient_exemplars` (`fail_workflow`,
+`reason_field`), so the `needs_vertical_research` item's `error` names the cause. **Apply only after the
+verdict; then run the three §11e tests before calling this closed.**
 `agent_definitions` config shipped as a migration is in council scope (2026-08-19 widening), and this
 changes a shared research seam that every greenfield build traverses, so it goes through the gate
 before it goes anywhere near the fleet.
