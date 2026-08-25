@@ -188,3 +188,41 @@ the checker verifies both (`DBG-075`).
 > rule is acceptable only while it agrees with a structural "carries a tool component" rule, which
 > it does today and could stop doing silently. And the repair route fails or is refused ~21% of
 > the time, so a filed item is not a repaired page.
+
+---
+
+> **COUNCIL APPROVED 2026-08-25 (round 2, corr `7d923ff6`) — 15 seats, `architecture` among those
+> approving, so not architecture-scope by ruling rather than by assumption. Six advisory
+> objections, none high-severity; one of them corrected a published number in this file.**
+>
+> ⚠ **CORRECTION to the re-scoping block above: "411 of 736" was measured with the WRONG
+> PREDICATE.** The `debug_historian` seat objected that the census never stated its predicate —
+> the documented trap for audit-shaped checks — and it was right. I censused with the hand-rolled
+> `status='active' AND build_status='deployed'`; the check itself takes the shared family,
+> `PageWantedLivePredicateFor` **AND** `PageHasShippedPredicateFor`. Re-measured with the check's
+> own predicate: **444 of 773**, and the gap is **51 pages visible to the check and invisible to
+> my census, zero the other way** — pages carrying a `deployed_at` but currently flagged
+> `needs_rebuild`, exactly what that predicate exists to catch (`bugs_closed/037`). **The code was
+> already right; the number published beside it was not.** In-remit: content 107, guide 59,
+> blog-post 31 = **197**, of which **145** also clear the 1,500-char prose floor. So the honest
+> day-one actionable figure is **145**, not the 139 stated earlier.
+>
+> **The other five, and why none required a code change:**
+> - `editquality`: flipping the registry to `consumed` overstates the live state while the reader
+>   is inert. **Accepted** — the registry note now says plainly that the reader is committed and
+>   NOT yet running, and names both steps that must land before it is.
+> - `bug_historian`: re-invoking the writer over an otherwise-good page is `bugs_closed/012`'s
+>   shape and wants a content-preservation check. **Already exists and is on by default** —
+>   `save_sections_shrink_guard.go`, wired into `SavePageSectionsAction:673`, per-slot floor 0.5,
+>   built for `bugs_open/178`, which is the same class.
+> - `reuse_agent`: `resolve_internal_links_action.go` was never named as a rejected reuse
+>   candidate. Fair. It augments **CTA-bearing** sections' `resolved_data` at build time — the
+>   structured-link surface this check's instrument deliberately excludes. Different surface,
+>   different moment.
+> - `tooling_provenance`: asked whether the check registers with the discovery registry. It does
+>   (`init() → Register`); the submission sketch simply did not show it.
+> - `prior_art_librarian`: the exclusivity claims were narrative rather than queried. The queries
+>   are in `bugfix_392_link_context_unread/RUNBOOK_392.md` §3.
+>
+> Commit trailer `Council-Reviewed: 7d923ff6-3810-4f2b-9000-e02df68a6b9e` — written only now, on a
+> verdict actually read.

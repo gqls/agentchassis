@@ -307,3 +307,43 @@ four of the six the working tree or a subagent report was the thing that lied.
   **killed**; reader pointing at a real file that does not contain the code → **killed**;
   `reader_sink` removed → **killed**. So the DBG-075 arms genuinely bind, and the pass is not
   vacuous.
+
+## 2026-08-25 (eighth pass) — council APPROVED round 2, and one seat caught a published number
+
+- **APPROVED**, corr `7d923ff6`, run `09d43dd1`, completed 19:54Z. 15 seats; 9 approve, 6 advisory
+  objections, none high-severity. **`architecture` approved** — so "not architecture-scope" is now
+  a ruling rather than my assertion, which is what the RFC_022 enumeration was for.
+- **`debug_historian` found a real defect in my EVIDENCE, not my code, and it is the third
+  instrument error of this session.** My census used the hand-rolled
+  `status='active' AND build_status='deployed'`; the check itself uses the shared family
+  (`PageWantedLivePredicateFor` AND `PageHasShippedPredicateFor`). Measured both:
+  census **722/417**, check **773/444**, with **51 pages in the check's population and none in
+  mine** — pages with a `deployed_at` flagged `needs_rebuild`, exactly what that predicate exists
+  to catch (`bugs_closed/037`). **The code had the better predicate all along; the number I
+  published beside it did not.** Corrected in the bug file and LNK-039. In-remit is 197, of which
+  **145** clear the prose floor — so the floor removes 52, which is it earning its place.
+  **The check:** measure the population with the predicate the CODE will use, not the one that is
+  quickest to type — and if they differ, one of them is wrong and it is probably the census.
+- **Two objections dissolved on inspection, and both were worth the look:**
+  - `bug_historian` wanted a content-preservation check because re-invoking the writer over a good
+    page is `bugs_closed/012`'s shape. **`save_sections_shrink_guard.go` already is one** — wired
+    into `SavePageSectionsAction:673`, per-slot floor **0.5** ON BY DEFAULT, and built for
+    `bugs_open/178`, the same class. Nothing to add; worth knowing it is there.
+  - `reuse_agent` was right that I never cited `resolve_internal_links_action.go`. It augments
+    **CTA-bearing** sections at build time — the structured-link surface my instrument excludes on
+    purpose. Different surface, different moment. My `grounded_in` cited only the nearest
+    same-direction mechanism, which is the step-zero gap they named.
+- **`editquality` was right about honesty and I have fixed it.** Flipping the registry to
+  `consumed` in the same commit as an inert reader lets a reader of the registry believe rows are
+  being drained when nothing reads them. The note now says the reader is committed and NOT
+  running, and names both steps that must land. **That is the exact dishonesty surface the 358
+  lane built the registry to end, and I walked into it while satisfying its checker.**
+- **⚠ NEAR-MISS, and the lesson was one hour old.** Re-running `go test ./cmd/config-key-audit/`
+  after the registry edit failed with `undefined: livespec.DeferredDeclarations`. An hour earlier
+  I would have reported a broken HEAD. Instead: `git show HEAD:` shows `const DeferredDeclarations
+  = 1` and the test names exactly that — **HEAD is consistent and `go vet` on a clean extract exits
+  0.** The failure is entirely my working tree, carrying the 363 lane's still-uncommitted rename
+  to `LiveAuditOnlyDeclarations = 5`. This is the third direction of the shared-tree hazard,
+  recorded in memory earlier today, firing on me within the hour and caught by the instrument the
+  entry names.
+- Trailer `Council-Reviewed:` written now, on a verdict actually read — never before.
