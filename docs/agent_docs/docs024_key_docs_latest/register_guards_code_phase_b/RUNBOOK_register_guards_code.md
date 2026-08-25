@@ -277,3 +277,105 @@ There is no top-level key, and top-level `total_drifted` counts **citation** dri
 reads 0 while the array is full. New in this session: `fact_binding_suggestions` (a count)
 sits on the same per-site result object, and the probe's verdict is on each emission as
 `evidence` / `evidence_form` / `evidence_detail`.
+
+---
+
+## Adopting a `fact_binding_suggested` note (added 2026-08-25, from the first real adoption)
+
+**Order matters: the first two steps are what stop you writing something that dies silently.**
+
+### 1. Who WROTE the PLAN that is there? (do this before anything else)
+
+```sql
+SELECT subject_key, created_by, source, source_agent, created_at
+FROM doc_plans WHERE subject_type='tool' AND subject_key='<key>' AND is_current;
+```
+`created_by` is usually the **writer's own hardcoded literal**, and it decides which job
+you are taking on:
+
+| `created_by` | writer | what adoption means |
+|---|---|---|
+| `operator:<lane>-…` | a lane's `install_fences.py` | patch that script to carry `facts`, then `--apply`. **Three lines.** |
+| `tool-generator` | a platform agent | **do not declare by hand** — the agent rewrites the whole body on the next rebuild (measured: 28 of 41 lines on `tool-spawn-rate-balancer`, 07-29 → 08-21) and drops any key it does not know about. The fix is council-gated Go in the generator. |
+
+⚠ **`grep` the fork you are about to run — do not reason from the filename.** Two files
+named `install_fences.py` behave oppositely (`WRONG_CALLS.md` 15).
+
+### 2. Read the tool's script and reconcile BOTH directions
+
+The note is a **lower bound**, never the size of the job — it can only propose values it
+can match as literals above the 1000 floor.
+
+```sql
+SELECT pc.id, cc.function, length(pc.rendered_html)
+FROM pages p JOIN page_components pc ON pc.page_id=p.id
+JOIN content_components cc ON cc.id=pc.component_id
+WHERE p.site_id='<site>' AND p.name='<page>' ORDER BY pc.position;
+-- then pull the ONE component's rendered_html and extract <script>…</script>
+```
+⚠ **Per component. Never `string_agg` the page and tokenise that.** Compare units, not
+just values: percent-vs-fraction is the live case (register `5`, code `0.05`), and
+pounds-vs-pence and per-unit qualifiers are the same shape.
+
+### 3. Declare from the criteria FILE, never into the row
+
+```bash
+python3 <lane>/install_fences.py --only <slug> --body-out /tmp/bodies   # dry run
+```
+Expect `…, declares N fact(s)`. Control: a slug whose criteria file has no `facts` must
+print **no** `declares` clause.
+
+### 4. The diff gate — this is what makes `--apply` safe on a fence someone else wrote
+
+```bash
+psql … -tA -c "SELECT body FROM doc_plans WHERE subject_type='tool' AND subject_key='<key>' AND is_current;" > live.body.md
+diff live.body.md /tmp/bodies/<slug>.body.md
+```
+**Proceed only if the sole difference is the `facts` block.** Anything touching `checks`
+means you are about to rewrite their acceptance contract. (`psql -tA` adds one trailing
+newline — compare `rstrip`ed.) These bodies are deterministic (hardcoded dates, no
+`now()`), so a clean diff is achievable and a dirty one is telling you something.
+
+### 5. Prove it at the behaviour, not at the row
+
+```bash
+./dryrun_fact_drift.sh <site_id>     # BEFORE the apply — capture the baseline
+# … apply …
+./dryrun_fact_drift.sh <site_id>     # AFTER
+```
+```sql
+SELECT e->>'evidence' AS probe_verdict, count(*),
+       string_agg(e->>'fact_id', ', ' ORDER BY e->>'fact_id')
+FROM orchestration_states os,
+     jsonb_path_query(os.collected_data,'$.refresh_result.results[*].fact_drift[*]') e
+WHERE os.correlation_id='<corr>' GROUP BY 1 ORDER BY 2 DESC;
+```
+**The baseline is the point.** `13 entries` after means nothing without the `0` before —
+and `fact_drift` is nested per-site while `total_drifted` counts citation drift and reads
+0 regardless.
+
+## Post-roll probe for the two 2026-08-25 fixes
+
+```bash
+for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[*].metadata.name}'); do
+  echo "== $POD"
+  for s in "AMBIGUOUS, NOT PROPOSED" "cannot tell which one the tool uses" \
+           "at the TOP LEVEL, where nothing reads it" stale_attestation ZZZ_must_be_absent; do
+    printf '%-44s ' "$s"; kubectl -n ai-persona-system exec "$POD" -- grep -ac "$s" /proc/1/exe
+  done
+done
+```
+Every pod, controls in the same exec. First three ≥1; `stale_attestation` ≥1 (it read 5 on
+the pre-roll binary); `ZZZ_must_be_absent` = 0. Check each `startTime` postdates the
+owner's release, too — the pre-roll reading was correct partly *because* the pods predated
+the commits.
+
+⚠ **What that probe does NOT establish, and say so rather than implying otherwise:**
+`bba8a892d` (the ambiguity guard) has **no behavioural surface**. `Ambiguous` reaches only
+the doc_note body (`refresh_evidence_fact_suggest.go:284`) and never a result field, the
+suggester skips declaring subjects (`:167`), and the note cooldown is 30 days (`:246`).
+So post-roll the honest claim is **presence at the binary plus the committed unit test** —
+not "proven in production". The first natural fire will be a `fact_binding_suggested` note
+containing `⚠ AMBIGUOUS, NOT PROPOSED:` with those ids **absent** from the paste-ready
+fragment. The only thing that would make it dry-run-provable sooner is exposing
+`Ambiguous` on the per-site result, which is a council-gated change.

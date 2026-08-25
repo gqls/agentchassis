@@ -348,3 +348,131 @@ delete the CALL and not just the body.*
   **one fleet-global PLAN resolves on many sites (6 do)**, and half the finding is
   per-site, so site A really would have silenced site B. Checked the premise, kept the
   fix.
+
+---
+
+## 2026-08-25, session 3 — the first adoption, and two misses of mine that produced the good bit
+
+### State at open
+
+Two commits from the morning (`bba8a892d` ambiguity guard, `6ad4a8046` misplaced
+`artifact_check`) committed and in no running binary. Probed rather than assumed:
+all three new strings `0`, `stale_attestation` = 5 (positive control),
+`ZZZ_must_be_absent` = 0 (negative). Both replicas started **09:27:24Z / 09:27:48Z**,
+which is *before* either commit was authored (09:35Z, 09:53Z) — three independent axes
+agreeing. Bumped `IMAGE_TAG` to `v1.0.1338` (`v1.0.1337` is what the cluster is already
+serving, and a same-tag re-release re-serves the cached digest) and asked the owner for
+the release. **Still unrolled at the close of this session.**
+
+### MISS 1 — I warned another lane about their neighbour's file
+
+`WRONG_CALLS.md` 15, in full there. Short version: the CONTRIB this lane filed into
+`loanandmortgagecalculator_couk/` told them their `install_fences.py` would "refuse,
+silently — its rule 2 skips a tool that is not ladder-eligible" and sent them to the
+mcalc lane for `--allow-ineligible`. **I had read mcalc's `install_fences.py`.** LMC's
+is a 233-line fork with no rule 2, no eligibility predicate and no such flag. One
+`grep -c allow-ineligible` on a path I had already typed into my own CONTRIB returns 0.
+
+The check is embarrassingly cheap and the reason I skipped it is the interesting part: I
+had genuinely read *an* `install_fences.py` that day, so nothing felt unverified. **A
+shared filename is not a shared file, and a fork is the shape that punishes this hardest**
+— everything you remember about the original stays approximately true, so the wrong
+paragraph reads fine to you and to them.
+
+### MISS 2, which is the one that mattered — the true trap was in the slot the wrong warning occupied
+
+LMC's installer `--apply` does an unconditional supersede + INSERT of a body **rebuilt
+from scratch** out of `acceptance/criteria/<slug>.criteria.json`, and the fence it builds
+carries only `profiles` / `no_auto_fix` / `no_auto_fix_reason` / `checks`. No `facts`
+handling at all. The live `mortgages-stamp-duty` row's `created_by='operator:bugfix224-session'`
+is that script's own hardcoded literal — **so it is the writer of the fence standing there.**
+
+Which means the paste-ready fragment my own sweep had just filed, installed the way my own
+CONTRIB told them to install it, **would have been deleted the first time anyone re-ran
+their installer.** Clean exit, no error, fence still parses, tool silently undeclared again.
+
+My advice ("install through the lane's own fence installer; never hand-edit the doc_plans
+row") was *correct* and had exactly one failure mode, which I had not looked for. That is
+worse than being wrong: a wrong warning is recoverable, a wrong warning that fills the
+space where the right one goes reads as diligence.
+
+`[MEASURED 2026-08-25]` over all **7** `doc_plans`-writing lane scripts: **1** injects into
+the live body (agritec — safe, and why *their* declaration survives), **1** rebuilds but
+carries `facts` (mcalc — safe), **1** rebuilds and drops it (LMC), **4** write unrelated
+PLAN kinds. **The exposed population was exactly one, and it was the one I had warned
+about the wrong thing.** Filed as a landmine, because its victim has no symptom to search on.
+
+### MISS 3 — I nearly sized the adoption by the machine's list
+
+The note proposed **7** bindings. I read the tool's script before declaring, on agritec's
+"verify both directions" rule, and **the tool encodes 13**. The six the suggester could not
+see are the rates: the register stores `2`, `5`, `5`, `5`, `10`, `12` and the code stores
+`0.02`, `0.05`, `0.10`, `0.12` in `SDLT_BANDS`, plus `SURCHARGE_ADDITIONAL = 0.05`, plus a
+bare inline literal `(price - FTB_NIL_BAND) * 0.05`. **No value probe can match `5` to
+`0.05`, and at two digits the measured floor of 1000 forbids the attempt anyway** — two
+independent reasons, and the note says nothing about either.
+
+Declaring the seven would have left every rate in a stamp-duty calculator drifting behind
+a fence that reads complete — `bugs_closed/225`'s class arriving by omission, inside the
+document written to prevent it. **And this lane told the agritec lane exactly this rule
+the day before** ("declare what the tool ENCODES, not the subset that happens to be
+fenced") and then nearly failed it on its own first adoption. Second landmine.
+
+### What was done, and what proves it
+
+- **LMC `mortgages-stamp-duty` declares 13 facts, applied and live in `doc_plans`.**
+- `install_fences.py` now carries a criteria file's top-level `facts` into the fence, so
+  the declaration is reproduced on every future `--apply` instead of surviving until the
+  next one. Additive: `--only simple` (no facts) prints no `declares` clause.
+- **`--apply` was gated on a diff, not on confidence.** Regenerated the body to a file
+  (`--body-out`) and diffed it against the live `doc_plans.body`: the only difference was
+  the `facts` block, byte-identical once stripped. Safe because these bodies are
+  deterministic — hardcoded date, no `now()` — and both files were unchanged since
+  2026-08-09, the day the live row was written.
+- **The proof is 0 → 13, not the row readback.** Scoped `refresh_evidence_base` dry run on
+  the LMC site **before** the write returned an empty `fact_drift` array
+  (corr `2bebb885`); the same dry run **after** returned 13 `unreconciled_declaration`
+  entries (corr `d4dd59e2`).
+
+### Phase 3a's first discriminating distribution
+
+| probe verdict | n | which |
+|---|---|---|
+| `present_in_script` | **7** | the thresholds — 40000, 300000, 500000, 1500000, 250000, 925000, 125000 |
+| `not_probed` | **6** | every rate — below the 1000 floor |
+| `absent` | **0** | |
+| `present_in_markup_only` | **0** | |
+
+Against agritec's 24 × `not_probed`, this is the first sample carrying any information at
+all. ⚠ **But read what it is**: on a tool whose declaration was authored *from the code*,
+`absent` is structurally near-impossible, so this sample cannot estimate the `absent` rate
+— which is the number Phase 3b actually needs. A declaration authored from the register
+alone (or one that ages past a rebuild) is where an `absent` can come from. **Do not let
+7/6/0/0 stand in for a distribution.**
+
+### gamesdesign: NOT adopted, deliberately, and the reason generalises
+
+Three notes, all proposing `gd-trials` = 10000 (their only fact above the floor; the other
+three are 10, 11, 4). **No lane directory owns gamesdesign.** Applied my own new landmine's
+check first — `created_by` on all three PLANs is **`tool-generator`**, a platform agent, and
+`tool-spawn-rate-balancer`'s body was **fully rewritten between 07-29 and 08-21 (28 of 41
+lines)**, so regeneration is observed behaviour.
+
+So the LMC fix does not transfer. There the writer was a lane script I could patch in three
+lines; here the writer is a platform agent that (per CLM-021) names neither `writer_block`
+nor `evidence_base`. **Declaring by hand would knowingly write something the next rebuild
+deletes.** Escalated rather than adopted; the durable fix is council-gated Go in the
+generator. Also: `drop-rate-simulator` has no `doc_plans` row at all, so it needs a PLAN
+before it can have a fence.
+
+### Still true at close
+
+- Both fixes unrolled. `misplaced_artifact_checks` is absent from every payload for a
+  **binary** reason, not a data one — do not read that zero.
+- **The ambiguity guard has no observable surface even after the roll.** `Ambiguous` reaches
+  only the doc_note body (`refresh_evidence_fact_suggest.go:284`), never a result field; the
+  suggester skips any declaring subject (`:167`), and agritec — the one register with the
+  duplicates — now declares; and all five noted subjects are cooldown-suppressed for 30 days
+  (`:246`) to ~09-24. I briefed a design pass that agritec's nine value-sharing pairs would
+  exercise it. **They cannot.** Post-roll the honest claim is presence-at-the-binary plus the
+  unit test, and it should be written that way rather than as a behavioural proof.

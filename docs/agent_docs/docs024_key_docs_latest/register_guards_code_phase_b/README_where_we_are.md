@@ -224,3 +224,36 @@ It has a worse one I had not spotted: it rebuilds the whole file from scratch ev
 it runs, so anything added by hand afterwards is silently deleted the next time anyone
 uses it. I am fixing their installer properly rather than pasting something in that would
 quietly vanish, and I have corrected the note so they read the true version first.
+
+**Later the same day — the adoption is done, and it went further than the machine asked
+for.** Our second stamp duty calculator now declares the register facts it uses, and I
+checked it by watching the daily sweep's behaviour change rather than by looking at the
+row I had just written: before the change the sweep had nothing to say about that
+calculator, after it the sweep listed thirteen figures to confirm. That before-and-after
+is the evidence; the row itself would have looked right either way.
+
+**Thirteen, not the seven the machine proposed, and the gap is worth understanding
+because it will recur.** The suggester finds a figure by looking for it, literally, in the
+calculator's code. Your register writes the tax rates as percentages — 2, 5, 10, 12 — and
+the calculator writes the same rates as decimals — 0.02, 0.05, 0.10, 0.12. Those never
+match, and a two-digit number is too common to search for safely in any case. So six of
+the thirteen were invisible to the machine, and they happened to be **every rate in a
+stamp duty calculator** — exactly what a Budget changes. Declaring only the seven would
+have left them unwatched behind a fence that looked complete, which is the original bug
+all over again, in the document meant to prevent it. I read the calculator's code and
+declared all thirteen.
+
+**The lesson I would keep from this: a machine suggestion is the smallest version of the
+job, never its size.** It is bounded by what it can see, and nothing in the suggestion
+says so.
+
+**One I did not do, on purpose.** Three more calculators on the games site have the same
+kind of suggestion waiting. Their plans are written by an automated tool-builder rather
+than by a person, and that builder rewrites the whole plan when it next runs — I checked,
+and one of them was rewritten three weeks ago. So anything I added by hand would quietly
+disappear at the next rebuild. That needs a fix inside the builder, which is a proper
+code change with a review, not something to slip in today. Nobody currently owns that
+site either, which is worth a decision from you.
+
+**Still waiting on the build.** Both of this morning's fixes are still not in the running
+system, so that ask stands.
