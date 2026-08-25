@@ -52077,7 +52077,29 @@ git diff --numstat <file>      # added deleted path — BEFORE you commit
 ```
 A count larger than what you wrote is the whole signal. ⚠ **The commit-scope block does not catch
 this**: it lists *files*, so it finds a path that went missing and never one that arrived *fatter*.
-I read that block on this very commit and it told me exactly what I expected to hear.
+
+> **⚠ CORRECTED 2026-08-25, same day, prompted by the `364` lane — and the correction is narrower
+> than the mea culpa I nearly wrote, which matters.** I first wrote *"I read that block on this very
+> commit"*. **I did not read it from my command output**: every commit today ended `| tail -3` or
+> `| tail -4`, and the hook prints its block FIRST while git prints its summary LAST, so `tail`
+> removes it entirely. Proven by construction, not recalled.
+> **What is true is that I received it anyway, through a different channel** — the harness delivers
+> the same block back as a `PostToolUse` advisory, and for `3d31b86a9` it listed exactly the two
+> files I had named. **So I saw it, it looked right, and it was right**: both files were mine to
+> commit. It simply cannot show that one of them arrived *fatter*.
+> The substantive point is unchanged and is the one to keep: **a check reporting on the wrong
+> dimension passes cleanly while the thing it is watched for goes past.** But "I read it" was a
+> claim about my own process that my own command structure made impossible, written inside an entry
+> about process failure — and the harness had told me `tail` cuts that block on **every commit all
+> day**. Being told a thing dozens of times is not the same as having read it once.
+
+⚠ **A THIRD MODE, from the `bugs_open/386` lane via `364`, and it is the one with no friction at
+all:** you can *make* a wrong attribution, *inherit* one — or **endorse** one. That lane, having just
+diagnosed this trap and run the pickaxe on its own case, adjudicated another lane's identical error
+by reading two documents and running nothing, then reported it in the confident register of a check.
+Their words: ***"the second claim did not feel like a claim; it felt like reading."*** It happened
+immediately after being corrected, **when the correction had made them feel careful without making
+them run anything.** Three modes in one day: **make it, inherit it, endorse it.**
 
 **And the attribution trap, which is the half worth carrying:** `git log -N -- <path>` answers
 *"what last TOUCHED this file"*, never *"what INTRODUCED this content"*. On a shared tree those
