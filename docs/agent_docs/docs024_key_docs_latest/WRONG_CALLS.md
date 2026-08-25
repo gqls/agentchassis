@@ -53249,3 +53249,53 @@ re-take it on the post-event artefact — one query — or say plainly that the 
 event. Third lesson of this shape today for this lane (the undated build offered as confirmation;
 the composed URLs), and all three are the same reflex: handing on a number without asking what has
 happened to its subject since it was taken.
+
+---
+
+## 2026-08-25 (`bugs_closed/378` follow-up) — my migration's precondition said "a build containing the fix is LIVE". It was — on 12 pods of 151. The other 139 would have broken.
+
+**The claim.** `610_..._HOLD.sql` drops a column whose last writer I removed in commit `f403113f4`.
+Because dropping it against an older binary breaks **every component creation**, I held the migration
+behind a precondition I wrote carefully and was rather pleased with: *"DO NOT APPLY until a chassis
+build containing that commit is LIVE, proven at the artefact, not at git"*, with an ancestry check
+**and** a discriminating binary probe **and** a control that must fail. Three checks.
+
+**What happened.** A fresh build was deployed. I ran the checks. **They disagreed.** Ancestry said the
+commit was absent; the binary probe said it was present. `[MEASURED 2026-08-25]` the reason:
+
+```
+git_commit   | pods
+4c996e1b5…   |  139    <- does NOT contain the edit, still writes usage_count
+a7459a44b…   |   12    <- contains the edit
+```
+
+**Two builds were live at once.** The stamp table ordered by `last_seen_at` handed me an OLD-build
+pod; `-l app=agent-chassis` handed me a NEW-build pod. Each check was correct about the pod it looked
+at, and they were different pods.
+
+**So my precondition was TRUE and applying would still have broken 92% of the fleet.** "A build
+containing the fix is live" is satisfied by *one pod*. What I needed was **"every live build contains
+the fix"** — a quantifier I never wrote, because I was thinking of the fleet as having *a* version.
+
+**Why three checks did not save me, and one nearly did.** All three were pod-scoped, so all three
+inherited the same blind spot; adding a fourth of the same kind would have added nothing. What caught
+it was the **disagreement** between two checks I had built to agree. I had treated the probe as
+belt-and-braces for the ancestry check; its real value turned out to be that it reads a *different
+pod*, so a split fleet makes them contradict. **A redundant check earns its place when it can
+disagree.**
+
+**The cheap check: `SELECT git_commit, count(*) ... GROUP BY 1`.** Before believing anything about
+what the fleet is running, **enumerate the builds** — the count of DISTINCT stamps is one query, and
+any number above 1 means every per-pod conclusion is now a per-build conclusion. The estate already
+knows this (`bugs_open/249`, *"per SERVICE, not per fleet"*; a release straddled three revisions under
+one tag) and 610's header even cited the roll-is-not-evidence rule. **I applied the lesson to
+'is it deployed' and not to 'is it deployed EVERYWHERE'.**
+
+**And the near-miss is the whole point of holding it.** Nothing broke, because the file was `_HOLD`
+and the precondition was checked rather than assumed. The correction is now in 610's header as a
+fleet-wide enumeration with the measured 139/12 split as the worked example.
+
+**Fourth in this arc, and the family is now unmistakable** — a measurement licensing a different diff
+than the one it simulated; a filter judged by what it rejects; a fix direction chosen without asking
+which side should win; and now a precondition whose quantifier was missing. **Every one of them was a
+correct statement answering a slightly different question than the one being decided.**

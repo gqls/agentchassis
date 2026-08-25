@@ -11,7 +11,37 @@
 --   this column makes every component creation fail with
 --   `column "usage_count" of relation "content_components" does not exist`.
 --
---   So: DO NOT APPLY until a chassis build containing that commit is LIVE, proven at the
+--   ⚠⚠ CORRECTED 2026-08-25 — "A BUILD CONTAINING THAT COMMIT IS LIVE" IS NOT THE
+--   PRECONDITION, AND BELIEVING IT WAS WOULD HAVE BROKEN PRODUCTION TONIGHT.
+--   This estate runs SEVERAL BUILDS AT ONCE (bugs_open/249: a release can straddle commits
+--   and ship several revisions under one tag). Measured 2026-08-25 19:1xZ, immediately after
+--   a "fresh chassis build was deployed":
+--
+--       git_commit   | pods
+--       4c996e1b5…   |  139   <- does NOT contain the edit; still writes usage_count
+--       a7459a44b…   |   12   <- contains the edit
+--
+--   So a build containing the edit WAS live, on 12 of 151 pods, while 139 pods still named
+--   the column in their INSERT. Applying here breaks component creation on 92% of the fleet.
+--   Confirmed two independent ways: ancestry against BOTH live commits, and the binary probe
+--   run against a pod of the OLD build (`usage_count, avg_quality_score` PRESENT, control
+--   PRESENT).
+--
+--   ⚠ AND NOTE HOW THE FIRST READING WENT WRONG: the stamp table ordered by last_seen_at
+--   returned an OLD-build pod, while `-l app=agent-chassis` handed me a NEW-build pod — so
+--   the ancestry check and the binary probe DISAGREED. That disagreement is the only reason
+--   this was caught. If they disagree, STOP; do not pick the convenient one.
+--
+--   THE REAL PRECONDITION: **EVERY live build must contain the edit.** Enumerate them —
+--   one pod is not the fleet:
+--
+--     kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user --       -d clients_db -c "SELECT git_commit, count(DISTINCT pod_name) AS pods --       FROM service_binary_capabilities WHERE service LIKE '%chassis%' --       AND last_seen_at > now() - interval '30 minutes' GROUP BY 1 ORDER BY 2 DESC;"
+--
+--   Then `git merge-base --is-ancestor <part-1 commit> <X>` must be YES for EVERY X returned,
+--   and the binary probe below must show ABSENT on a pod of EACH build. One NO anywhere means
+--   DO NOT APPLY.
+--
+--   So: DO NOT APPLY until EVERY live chassis build contains that commit, proven at the
 --   artefact, not at git:
 --
 --     kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user \
