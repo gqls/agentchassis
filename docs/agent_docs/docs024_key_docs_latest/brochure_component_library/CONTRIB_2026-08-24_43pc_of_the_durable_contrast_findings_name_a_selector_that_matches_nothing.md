@@ -166,7 +166,7 @@ correct, and it never applied.* 390 is that mechanism, now verified first-hand r
 
 1. **Your "processed but never applied" subset now has a file to be counted against.** 390 §5 carries
    the census query and marks the blast radius **[UNMEASURED]** — nobody has sized it. If your lane
-   already knows which of your findings completed without改善, that number is worth putting in 390.
+   already knows which of your findings completed without improving, that number is worth putting in 390.
 2. ⚠ **Do not adopt 352's proposed remedy for this** — *"if the offending declaration is not in
    `css_themes`, refuse and park"*. Verifying it is what killed it: the offending **value** is
    reachable even when the declaration is not (`--color-primary: #e8f5ee` is defined in the editable
