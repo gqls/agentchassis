@@ -2403,3 +2403,57 @@ moves. That is why re-grading rescued the apply instead of forcing a re-run.
 
 **All four work items closed with the evidence on the row** (`result = result || …`, so the handler's
 own record survives — the mistake this lane made on 08-17 and recorded).
+
+---
+
+## 2026-08-25 — the routing is LIVE, stage 2 has its first outside user, and my gate has a defect that lane found for me
+
+**The wiring is live.** `v1.0.1337`, verified at the binary with a full control set on a persistent
+pod (`agent-chassis-67fd9c76f5-2g8kw`, started 09:27Z) `[MEASURED 2026-08-25]`:
+
+| literal | count | what it proves |
+|---|---|---|
+| `content_rewrite` (untouched) | 3 | the probe can see strings at all |
+| `needs_copy_edit` (added) | **2** | the routing change is in the binary |
+| `tone_shift` (removed from the router) | **0** | a genuine REMOVED-string control, the strongest kind |
+
+⚠ **The fleet is MIXED — 56 pods on `v1.0.1336`, 40 on `v1.0.1337`.** So both routers are live at once
+and a `tone` finding handled on a 1336 pod still files `tone_shift`. This is the first time this lane
+has caught the mixed state mattering for BEHAVIOUR rather than just for probing.
+
+**No `needs_copy_edit` row exists yet** — `tone` really is that rare. Meanwhile **63 `content_rewrite`
+items were filed since 2026-08-24**, which is the volume asymmetry the scoping argument rested on,
+observed rather than projected: routing that category would have put ~63 items a day into a queue
+with no working surface.
+
+### Stage 2 has a user outside this lane, and their proposal fails the gate
+
+`finetuning_uk_service` ran it on `finetuning.uk/your-own-model` on 08-24 (proposal `8003c51a`, 2
+edits, parked). Nobody told us; I found it counting parked rows. **That is the register bar met in
+practice** — another workstream called this and did not need us to be involved.
+
+Graded it as a courtesy. **It FAILS, and one failure is real:** both edits delete structure —
+`h3 2→1, li 3→0, ol 1→0` on one, `h3 2→0, p 4→2` on the other. **An entire ordered list.** The volume
+check passed both as de-duplication (34% and 52% shorter, every figure and link accounted for), which
+is exactly why the markup check is a separate arm: *structure is not words*.
+
+### ⚠ And the other failure is MINE: the declared-link check is applied PER FIELD
+
+The gate reports `1 of 1 required absent: /contact.html` on three of four fields. **A `heading` field
+can never contain a link, so it fails by construction.** The requirement is that the link is on the
+PAGE after the edit, not in every edited field.
+
+Two things make this worth fixing rather than noting:
+
+1. It is **wrong in the reassuring direction on their page** — `/contact.html` is declared in
+   `required_links` but appears in **zero** components of the live page, so it is a pre-existing gap;
+   and edit 1 actually ADDS it. The gate is failing an edit for not fixing something it does fix.
+2. **A check that fails on fields that could never satisfy it teaches the reader to ignore it** — and
+   the next thing scrolled past is the ordered list in the paragraph above. This lane has already
+   written that "it complained, so I changed it" is how a check becomes decorative; this is the same
+   erosion from the other end.
+
+**Not fixed today, deliberately.** The fix is to evaluate the declared set at PAGE scope after the
+edit rather than per field, and that needs its own controls — including one proving it still catches
+a link genuinely removed from the page, which is the arm that matters. Recorded as the next piece of
+work rather than patched in a hurry at the end of a session.
