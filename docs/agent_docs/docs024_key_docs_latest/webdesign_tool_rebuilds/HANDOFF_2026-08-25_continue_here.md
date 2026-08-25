@@ -1,5 +1,19 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-25 ~11:15Z. Supersedes `HANDOFF_2026-08-22_continue_here.md`.
 
+**STATE (updated 20:15Z): 43 of 63. NOTHING IN FLIGHT. Two things changed under the lane while it
+was idle, both verified first-hand (NOTES 20:15Z):
+⚠ **A CHASSIS ROLL LANDED 19:07Z, after every build in the 08-25 grind.** The "fresh roll 09:27Z —
+verified for this lane" paragraph below is TWO ROLLS STALE — do not read it as current. Re-verified
+on the new binary: `adopt_existing_page` and `page_adopted` PRESENT with a junk-literal control
+absent, live config flag still `true`. **NOT re-verified: the 360 tombstone guard** — the next
+filing's post-retire re-read is that check; treat it as unverified until then.
+⚠ **NO TOOL ON THIS SITE HAS EVER HAD A `tool_acceptance` ROW** — 0 rows all-history, because
+`site-discovery-rotation-design` is `enabled=f` (alone of the four) and `design-discovery-agent`
+has 0 runs since 08-11. **The serve-grades in NOTES are the ONLY grading these 43 rebuilds have
+ever had.** Nothing in this lane may defer behavioural correctness to that pipeline while the
+switch is off. Re-enable is the OWNER's call (put to him in README); `bugs_open/401` covers the
+watchdog that missed it. Prior line follows.**
+
 **STATE (updated 16:20Z): 43 of 63 SERVE-CONFIRMED (#43 golden-ratio, NOTES 16:20Z). NEXT:
 monolith-splitter (9,037), then head-architect (9,212), asset-formatter (9,222), layout-generator
 (9,223), insight-injector (9,369). NOTHING IN FLIGHT.

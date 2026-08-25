@@ -151,6 +151,17 @@
   (23:24Z/12:22Z/23:25Z). Behavioural correctness of each fix is the tool_acceptance pipeline's
   call, not graded here.
 
+  > **CORRECTED 2026-08-25 20:15Z — that deferral pointed at a pipeline which has never produced a
+  > single row on this site.** `[MEASURED 2026-08-25 20:12Z]` `site_work_items` on site `6b49db8e`,
+  > `item_type IN ('tool_acceptance','tool_acceptance_due','tool_health')`: **0 rows, all statuses,
+  > ever.** Their only carrier is `design-discovery-agent`, whose rotation
+  > (`scheduled_tasks.name='site-discovery-rotation-design'`) is **`enabled=f`** — alone among the
+  > four; availability, completeness and quality are all `t` — and which has **0 runs since
+  > 2026-08-11** (`max(created_at)` NULL over that window). So "not graded here" resolved to "not
+  > graded anywhere". Verified first-hand at the three queries above after the platform seat raised
+  > it; see the 20:15Z entry. Nothing in this lane may defer behavioural correctness to that
+  > pipeline while the switch is off.
+
 ## 2026-08-16 16:05Z–16:20Z — the pilot's adopt run GRADED PASS (steps 1+2); step 3 BLOCKED on a session permission
 
 - **Step 1 — the adopt path did exactly what 286's fix promised. `[MEASURED]`**
@@ -3670,3 +3681,56 @@ tombstone-enumeration control (control 2) is equally unobservable until the swit
 
 Handoff step 2 (Phase B ping): grind seat idle at #43 golden-ratio, rich apps ~5 tools away —
 no ping owed, none missed.
+
+## 2026-08-25 20:15Z — (grind seat) the platform seat's three facts VERIFIED first-hand, one stale claim of mine corrected, and a chassis roll landed after my last build
+
+The platform seat [2077565] relayed three findings by session message. I re-ran each at the DB
+rather than banking them — not distrust, practice: **a peer's report is another document**, and the
+second of the three is a claim about the grading of my own 43 rebuilds, which is exactly the shape
+I should never accept second-hand.
+
+**All three reproduce.** `[MEASURED 2026-08-25 20:12Z]`
+1. `scheduled_tasks` where `name='site-discovery-rotation-design'` → **`enabled = f`**, and it is
+   the ONLY one of the four rotations that is off (`availability` `t`/300s, `completeness` `t`/3600s,
+   `quality` `t`/10800s, `design` **`f`**/3600s).
+2. `orchestration_states WHERE owner_agent_type='design-discovery-agent' AND created_at > '2026-08-11'`
+   → **0 runs, `max(created_at)` NULL.** It has not run once in a fortnight.
+3. `site_work_items` on this site, `item_type IN ('tool_acceptance','tool_acceptance_due','tool_health')`
+   → **0 rows, every status, all history.**
+
+**Fact 3 is stronger for this lane than the message put it.** It is not merely that the 43 rebuilds
+will get no *re*-audit: **no tool on webdesign.co.uk has ever had a `tool_acceptance` row at all.**
+The serve-grade and mechanism-grade recorded in this file are not "the grading until acceptance
+catches up" — they are the only grading these tools have ever had or are scheduled to get.
+That is a statement about MY evidence, not about the platform seat's bug, and it is why I went and
+looked: **corrected in place at the 2026-08-16 entry** (line ~151), which deferred behavioural
+correctness of three re-armed fixes to "the tool_acceptance pipeline's call, not graded here" —
+a deferral to a pipeline that has never produced a row here. "Not graded here" meant "not graded
+anywhere". **Standing rule for this lane: nothing may defer behavioural correctness to
+tool_acceptance while that switch is off. Grade at the mechanism and at the served bytes, or state
+plainly that it is ungraded.**
+The re-enable is the owner's decision (395's own staged ramp) and neither seat is firing it
+unprompted; it is put to him in `README_where_we_are`. `bugs_open/401` covers the watchdog that
+should have surfaced the dead rotation and was miscounting instead.
+
+### A chassis roll landed at 19:07Z — AFTER every build in today's grind
+
+Pods `agent-chassis-669b45fdb4-r5bj7`/`-vx8b6` started **19:07:18Z / 19:07:49Z**; my last build
+completed 16:01Z and its serve-grade 16:14Z. So the handoff's "fresh chassis roll 09:27Z — verified
+for this lane" line describes a binary that is two rolls behind, and #41–#43 were all built on the
+*previous* one. Re-verified the lane's dependencies on the **current** binary before the next
+filing: `adopt_existing_page` **PRESENT**, `page_adopted` **PRESENT**, junk-literal control
+**absent** (so the probe discriminates), and the live config still reads
+`save_tool.config.adopt_existing_page = true`. **NOT specifically re-verified on this roll: the 360
+tombstone guard** — `build_status` is too generic a literal to be evidence of it, and I will not
+claim a probe I did not run. The recipe's post-retire tombstone re-read IS that check behaviourally,
+so the next filing establishes it; until then treat it as unverified on `v1.0.1339`.
+
+> **A clock note, because it nearly became a false claim.** Comparing pod `startTime` (19:07Z) with
+> my own poll-loop timestamps (16:14Z) looked like a three-hour clock skew between k8s and this
+> session, which would have thrown every `last-modified > completed_at` grade in today's entries
+> into doubt. It was not skew: **local, DB and CDN clocks agree to two seconds** (20:10:40 /
+> 20:10:42 / 20:10:43 when checked together), and the gap was simply real elapsed time across a
+> turn boundary. Today's grades stand — each compared a DB `completed_at` against a CDN
+> `last-modified`, two clocks now shown to agree. **Check the clocks against each other before
+> concluding skew; "these two numbers are far apart" is not yet evidence about instruments.**
