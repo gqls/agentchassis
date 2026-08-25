@@ -358,3 +358,69 @@ not this bug. But "0 ever" was a rolling-window artefact and should not be requo
 The RUNBOOK's queries are corrected. The disconfirming question to ask before writing such a
 figure: *would a row that already completed and got archived be in my result?* If the query names
 only `site_work_items`, the answer is no, and the figure means "recently" however it is worded.
+
+---
+
+## 9. POST-ROLL STATE `[2026-08-25]` — and why this bug is NOT closeable yet
+
+### 9a. The gate is LIVE at the artefact
+
+Chassis **`v1.0.1337`**, both pods, started 2026-08-25 09:27Z. Probed each binary for the
+**string literals**, with controls in the same breath:
+
+| literal | pod A | pod B | why it is in the probe |
+|---|---|---|---|
+| `verify_before_complete` | PRESENT | PRESENT | the arming key — the capability itself |
+| `verifier_not_consulted` | PRESENT | PRESENT | the bypass record |
+| `owned_page_refusal_status` | PRESENT | PRESENT | **must-be-present control** (pre-existing literal) |
+| `updateStatusVerifyConfigKey` | absent | absent | **the Go identifier — correctly absent.** `WII-030` predicted this: probing for it would read as "not shipped" while the feature works |
+| `verify_before_complete_THIS_MUST_BE_ABSENT` | absent | absent | **must-be-absent control** |
+
+The `build provenance` startup line had already scrolled out of `--tail=300`, which is the
+expected shape on this service — an empty result there means "not in range", not "unstamped".
+
+### 9b. It is inert on every live path, by design, and still is `[2026-08-25]`
+
+- **0** live steps set `verify_before_complete` (recursive scan over all 200 live agent definitions).
+- The census is unchanged: **4** agents, **6** `complete` arms, 22 steps.
+- **0** rows carry `result._verification.status = 'verifier_not_consulted'`.
+
+⚠ **THAT LAST ZERO IS UNINFORMATIVE AND MUST NOT BE QUOTED AS A PASS.** The demand control is
+empty: the intersection of the 13 registered verifier types with the 7 reachable item types is
+still `∅` (checked mechanically at HEAD 2026-08-25), so **the record cannot fire**. A zero here
+proves nothing in either direction. The behaviour is proven only by the mutation-tested unit
+suite. **The day somebody registers a verifier for one of the seven, that query going non-zero is
+the live proof — and it staying at zero is then a real fault.**
+
+### 9c. Why this bug stays OPEN
+
+The bar in CLAUDE.md is **fixed AND live**. The gate is live. **The bug is not fixed**, because
+what `375` filed is *"one of the three completion writers has no false-completion guard at all"* —
+and after this change it still does not, unless each step opts in, which none does. What shipped
+is the **mechanism plus a tripwire**, not the guarantee.
+
+Concretely, all three of these remain true on the live fleet today:
+
+1. Every completion through `update_work_item_status` is still unverified.
+2. A verifier registered for any of the 7 types is still consulted by nothing until somebody arms
+   the arm — the trap in §3a is **narrowed, not removed**. What changed is that it now leaves a
+   record instead of passing in silence, and that the two documents which used to mislead now
+   tell the truth.
+3. The two writers are still two (candidate 2, architecture-scope, untouched).
+
+**Closing this on "the gate shipped" would be the `bugs_open/021` §INSTANCE 2 error one level
+along** — mistaking *a mechanism exists* for *the defect is gone*.
+
+### 9d. What would let a future session close it
+
+Any ONE of these makes the bug's own claim false; the first is the cheapest:
+
+- **Arm the 6 arms** (per-type, per-arm, `CQ-023` read first) **once verifiers exist for their
+  types** — at which point "no false-completion guard at all" stops being true.
+- **Candidate 2**: unify the writers, so the question disappears. Architecture-scope.
+- **Candidate 4** (§7c): the declaration + lockstep + drift auditor, which makes an unarmed
+  completer of a verified type a **build failure**. This does not close 375 on its own, but it is
+  what stops a fourth writer reopening it.
+
+⚠ **Do NOT close it on the strength of §9a.** A binary probe proves the code shipped. It says
+nothing about whether any completion is now verified — and none is.
