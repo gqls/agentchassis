@@ -52491,11 +52491,31 @@ the claim, I **ratified** it — in the confident register of analysis, having c
 reproduced. **Reproducing a number is not testing an instrument.** The question is never "do I get
 the same figure", it is "what figure would I get if the thing were false".
 
-⚠ **And the replacement evidence needed the same treatment before I could use it.** The peer's
-substitute was *"`article-card` = 0 on the month pages"*. **The raw string appears 46 times** — all
-of it CSS in the `<style>` block. Sound version: count **elements bearing the class**, after
-stripping `<style>`/`<script>` — then homegarden scores **0** and the positive control
-(`dartsonline.com`) scores **12**, so the instrument can say yes.
+⚠ **And I then accused their replacement of the same defect, wrongly — an ELEVENTH wrong call in
+the correction to the tenth.** I said their substitute (*"`article-card` = 0"*) was a raw grep
+contaminated by 46 CSS hits. **It was not: their command already stripped `<style>` and `<script>`**
+(`perl -0pe 's/<style.*?<\/style>//gs'`). I inferred a raw measure from the reported number instead
+of asking what they ran — **the same move as reproducing a figure and calling it verification, one
+level up: I diagnosed an instrument I had not read.**
+
+**What WAS genuinely missing from their evidence, and is the useful half:** their zero had **no
+positive control**. A measure that has never been shown to return non-zero is an argument, not
+evidence — *"a post-fix ZERO needs a DEMAND control"*, which is in their own lane's memory index.
+`dartsonline.com` supplies it: **12 rendered cards against homegarden's 0.**
+
+⚠ **Unit caution on that control**, since the two lanes reported different figures for the same page
+and both were right: the raw string scores **108**, because each card emits **nine** BEM class names
+(`article-card`, `article-card__image`, `article-card__title`, …). **12 is the card count and the
+meaningful unit; 108 is class-name occurrences.** Count elements whose class list contains the base
+class, not string hits.
+
+⚠⚠ **AND THE REFINEMENT THAT IS BETTER THAN MY OWN "STRIP THE CHROME" RULE — the contaminant is
+SITE-DEPENDENT.** On `homegarden.uk` the CSS is inlined, so raw **46** → stripped **0**. On
+`dartsonline.com` the stylesheet is external, so raw **108** → stripped **108** — *the identical
+command is correct there and wrong by 46 here.* **So "I checked this command on a site once and it
+was fine" is worthless as assurance, and stripping must be unconditional rather than applied where
+you suspect trouble.** A measure that is right on the site you developed it against and wrong on the
+next one is the hardest kind to distrust, because your own experience of it is entirely positive.
 
 **The unifying rule, after three instruments failed the same way in one day:** *anchors* for list
 items, *nav* for month names, *`<style>`* for class names — **every markup measure on this estate is
