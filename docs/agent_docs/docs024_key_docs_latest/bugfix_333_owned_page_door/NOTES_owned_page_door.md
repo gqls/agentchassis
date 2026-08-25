@@ -423,3 +423,29 @@ build-restoring test rename; it will list in 098 as unreviewed — deliberate, s
 (`scripts/verify-head-builds.sh ./cmd/agent-chassis`, HEAD was 24b63120d by then — two other sessions
 committed on top within minutes, which is why the sha in this line is not mine).** Both fixes are Go —
 INERT until the next chassis roll; verification queries + demand controls in the RUNBOOK.
+
+## 2026-08-25 (later still) — round 1 REVISE on corr 70a1e557; both gating objections were RIGHT to gate
+
+Gated by `guardian` (HIGH) + `bug_historian` (MEDIUM). Consistent with this lane's standing lesson (a
+REVISE round is cheaper than the defect it finds): one objection produced a measurement I had asserted
+instead of running, the other changed the code.
+
+**Guardian HIGH — "routing a shared action through the seam changes six pipelines' behaviour, unexamined."**
+True: I had named the anti-churn side-effect as an accepted risk without measuring it — asserting a risk
+is not examining it. The counterfactual census [MEASURED 2026-08-25, live+archive, 30d]: 579 audit
+filings; **22 would-be-born-unresolved (3.8%)**, 6 would-be-deferred; the 22's terminal siblings split
+**41 complete / 6 failed** — repaired-then-refound loops, the brake's design case, in two bursts
+(design-audit 08-11, visual-design-audit 08-17/20). **Owner signed off FULL routing with the census
+before them (2026-08-25)** — the guardian's own named alternative to scoping. Atomicity sub-objection
+answered by reading the old code: per-row autocommit Exec, no batch atomicity existed to lose.
+
+**bug_historian MEDIUM — "the skip suppresses the alarm with no durable record."** Right, and my own
+memory index says exactly this (*a receipt nobody asserts on is a log line*) — I had a log line. Fixed:
+the skip now writes `emitOwnedPageReviewItem` (the established per-page owned-refusal trail, deduped on
+`owned_page_review:<page>`), so both sites answer "is this owned condition expected?" with a durable
+row. Mutation M5: dropping the emit fails the test. Their "13th parent unverified" gap: all 13 rows
+carry the same `spec.reason='content_data_backfill'` from the same emit path, and the guard verifies
+ownership PER INSTANCE at skip time — the rule is a per-page read, not a generalisation from 12 samples
+(the bugs_closed/044 distinction).
+
+Round 2 resubmitted on the same correlation (`RESUBMIT_CORR=70a1e557`), revision committed `fb2bd056d`.
