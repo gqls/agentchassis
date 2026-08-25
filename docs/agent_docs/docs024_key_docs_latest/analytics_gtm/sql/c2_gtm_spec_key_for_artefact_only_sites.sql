@@ -20,6 +20,12 @@
 --   include the 4 sites that carry it NOWHERE (agritec.uk cv1.co.uk homegarden.uk lampenkap.com, as
 --   of 2026-08-25 — "standard for new builds", owner 2026-08-24):  add -v UNTAGGED=1
 --
+-- EXPECTED FAILURE, NOT DAMAGE: apis.uk's index page refuses page-level re-renders (measured 2026-08-25:
+--   its page_rerender item is `failed` with result={}; 383 lane's 9a843c06a "apis.uk cannot re-render").
+--   The head ARTEFACT still converges; the served page already carries the tag. AFTER APPLYING, TELL
+--   apis_uk_bees_homepage (CONTRIB in this dir, 2026-08-25) — they verify at the served bytes and settle
+--   pages.build_status themselves. Tell the other lanes in bugs_open/397 §9 BEFORE applying.
+--
 -- MERGE, never replace: 10 of the 12 targets already hold a current site_config row (locale, chrome).
 -- The 2026-07-31 rollout replaced wholesale and dropped relojistas.com's intent_probe key — do not
 -- repeat that. Verify afterwards with scripts/check_gtm_state.sh --db (bucket B must read 0).

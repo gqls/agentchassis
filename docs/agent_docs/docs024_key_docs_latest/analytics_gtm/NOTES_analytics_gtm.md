@@ -370,3 +370,16 @@ apis.uk ~5×. Cloudflare counts all of it. 039 §1.
 
 **Commits this session:** lane docs + script + sql; `bugs_open/397`; ledgers (LANDMINES correction +
 entry, WRONG_CALLS); CONTRIB to apis.uk. Nothing applied to the cluster.
+
+**8. 17:16 BST — owner ruling relayed by the apis.uk session (cross-session message + their CONTRIB
+`443066755`).** Owner, verbatim: *"section 4 has google in it which is taken by another lane, please
+communicate to that lane that that is what they take and we will take the rest here."* So this lane
+now owns GA4 publication + consent, 397 in full, Search Console, the fleet dashboard script (never
+started anywhere), and `039_REFERENCE`. They accepted the CONTRIB §2 and dropped the
+`RenderFallbackHead` build (their handoff corrected visibly at the top; `sites.settings->>
+'analytics_container_id'` has 0 rows and stays unused). Two apis.uk facts they passed over, one of
+which I measured rather than relayed: (a) apis.uk's index refuses page re-renders —
+`[MEASURED 17:20]` `page_rerender_index_…_template_changed` `failed` at 11:19 with `result={}`, no
+error recorded (099 pattern) — so the c2 wave's page item on apis.uk will fail, harmlessly; (b) add
+them to 397 §9 and tell them after c2 runs. Both recorded (397 §9, c2 banner, handoff). No reply
+sent — none was asked for.

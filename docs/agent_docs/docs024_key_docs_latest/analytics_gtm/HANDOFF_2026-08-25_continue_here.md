@@ -13,6 +13,20 @@
 > a 241-page rebuild wave and the owner picks the moment.** Publishing GA4 is his click; Search
 > Console needs his service account. Nothing is mid-flight.
 
+> **OWNERSHIP — owner ruling 2026-08-25 ~17:15 BST, relayed by the apis.uk session:** *"section 4 has
+> google in it which is taken by another lane, please communicate to that lane that that is what they
+> take and we will take the rest here."* **Everything Google is this lane's:** GA4 publication and the
+> consent decision before it · `bugs_open/397` (the c2 rebuild AND the §6.2 structural half) · Search
+> Console · **the fleet traffic dashboard script** (039 §2's Cloudflare query batched 8 zones at a
+> time, our own curl/headless traffic as its own visible line — offered by apis.uk, never started,
+> ours to build or decline) · `docs024_key_docs_latest/039_REFERENCE_traffic_and_tracking.md` (ours to
+> keep current). apis.uk keeps the page, per-section subjects, image accuracy A+C, their two deferred
+> rewrites; they DROPPED the `RenderFallbackHead` per-site-id build. Their table:
+> `CONTRIB_2026-08-25_from_apis_uk_bees_homepage_owner_ruling_you_take_everything_google_we_keep_the_rest.md`
+> (this dir). **Standing obligation: when c2 runs, tell apis.uk** — their index page refuses
+> page-level re-renders (measured: `failed`, `result={}`), so the wave's page item there fails by
+> design and they settle `build_status` themselves. 397 §9.
+
 ## 1. Verify before doing anything — one command
 
 ```bash

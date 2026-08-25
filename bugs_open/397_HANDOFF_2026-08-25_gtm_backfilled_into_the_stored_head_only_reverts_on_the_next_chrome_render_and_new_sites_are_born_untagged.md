@@ -197,3 +197,20 @@ operator hand-edited chrome and we corrected it", i.e. as the platform doing its
   operator hand-edit to review.
 - `loanzy_uk_example_site`, `webdesign_uk_build_service`, `bugfix_357`, `bugfix_384` — own or are
   working bucket-B/D sites; a rebuild wave lands on their pages. Tell before firing.
+
+> **OWNERSHIP, owner ruling 2026-08-25 ~17:15 BST (relayed by the apis.uk session, verbatim: *"section 4
+> has google in it which is taken by another lane, please communicate to that lane that that is what
+> they take and we will take the rest here"*).** This bug — the c2 rebuild AND the §6.2 structural
+> half — is `analytics_gtm`'s, along with GA4 publication, Search Console, the fleet dashboard script
+> and `039_REFERENCE`. Recorded in
+> `docs/agent_docs/docs024_key_docs_latest/analytics_gtm/CONTRIB_2026-08-25_from_apis_uk_bees_homepage_owner_ruling_you_take_everything_google_we_keep_the_rest.md`.
+
+- **`apis_uk_bees_homepage` — ADDED 2026-08-25 at their request.** apis.uk is in bucket B, and its
+  index page **refuses page-level re-renders**: `[MEASURED 2026-08-25]` the 11:19 BST
+  `page_rerender_index_…_template_changed` item is `failed` with `result = {}` (no error recorded —
+  the `bugs_open/099` pattern; the reason is in the orchestration's `__step_error`), and the 383
+  lane's `9a843c06a` reads "apis.uk cannot re-render". **So expect the wave's page item on apis.uk to
+  fail. That is not damage:** the served page already carries the tag, the head *artefact* will be
+  right once the key exists, and a render re-queues the page (`build_status='needs_rebuild'` is
+  queue membership — their trap). **After c2 runs, tell them**; they verify apis.uk at the served
+  bytes and settle `build_status` themselves.
