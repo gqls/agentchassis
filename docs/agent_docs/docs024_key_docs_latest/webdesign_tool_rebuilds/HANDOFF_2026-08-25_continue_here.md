@@ -1,7 +1,6 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-25 ~11:15Z. Supersedes `HANDOFF_2026-08-22_continue_here.md`.
 
-**STATE (updated 10:35Z): 36 of 63 — csp-builder DONE (NOTES 10:35Z; the analysis below executed as written). Phase C 9 of 12; 3 remain: fluid-typography,
-vibe-equalizer (2 sidecars), micro-cms (4 sidecars). Then Phase B: 24
+**STATE (updated 12:10Z): 38 of 63 — PHASE C COMPLETE (fluid-typography and vibe-equalizer both DONE, NOTES 11:35Z/12:10Z; micro-cms reclassified to the rich-app finale — it IS Flat-File Micro CMS). NEXT: Phase B, 23 self-contained ≥8 KB tools smallest-first (focus-ring 8,148, entropy-meter 8,325, text-sanitizer 8,607, cubic-bezier 8,754, golden-ratio 8,754, …), then the FIVE rich apps one at a time, owner-reviewed. New milestone summary: SUMMARY_2026-08-25_phase_c_complete.md. Then Phase B: 24
 self-contained ≥8 KB tools (incl. head-architect, reclassified 08-24) with the FIVE rich apps LAST,
 one at a time, owner-reviewed (standing ruling). NOTHING IN FLIGHT — no open add_tool, no pending
 retires, no unwatched rerenders.**

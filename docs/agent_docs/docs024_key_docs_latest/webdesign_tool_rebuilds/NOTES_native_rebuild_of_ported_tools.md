@@ -3156,3 +3156,28 @@ updateSimulatorReadout ×4). Tombstone re-read: removed ✓. Orphan #10 (corr 6f
 **CLASSIFICATION: `tool-micro-cms` is "Flat-File Micro CMS" — one of the PLAN's FIVE rich apps —
 so it moves to the owner-reviewed finale, NOT the Phase C grind. Phase C remainder: vibe-equalizer
 ONLY (then C is complete bar micro-cms's finale slot).**
+
+## 2026-08-25 12:10Z — #38 `tool-vibe-equalizer` DONE (38 of 63). THE PHASE C GRIND IS COMPLETE — every external-script tool except the rich-app micro-cms is native
+
+Item `a805111c` (related_pages: learn-design-mood-boarding + learn-design-layered-shadows, both
+emitted as `source='spec'`). This tool's own port file documented that it NEVER WORKED at its
+source (`state.js`'s header: the upstream `../../js/state.js` never existed — StateManager was
+undefined and no slider ever moved until the porters reconstructed the missing half). Ported
+defects: share fired a blocking `alert` BEFORE the clipboard promise resolved; prompt copy had no
+failure arm; hash-loaded state unvalidated (a mangled shared URL snapped sliders to minimum); and
+the generated Design System prompt OMITTED the heading font and primary colour the preview visibly
+changed — the shared vibe lost half its vibe.
+RUN complete/adopted, component `f9df04e5`; retire `UPDATE 1` ~30 s post-build (slot `49a50cdc` md5
+`ebcf05ff…` intact); rerender `ac5daf85` complete 12:02:23.
+**COMPONENT by mechanism:** `buildPrompt` states mood, spacing+padding, shadow spec, radius,
+heading font family, primary colour AND border (everything the preview shows); `validateValue`
+clamps every hash value to its range with per-control defaults; `replaceState` + URLSearchParams +
+localStorage secondary preserved (the share-this-exact-vibe contract); copy and share each have
+distinct success/failure statuses, no alert, clipboard-unavailable arm. 0·0·0 counts, 7 listeners.
+**SERVE-GRADE PASS:** 200 / 23,586 / LM 12:02:34 > 12:02:23; negatives 0 (btn-share,
+prompt-output, **src="state.js"**, **src="script.js"**); positives = code-arm literals. Tombstone
+re-read: removed ✓. Orphans #11+#12 dispatched (corr `41fceec3`, `73639a8e`) — the 365 list now
+holds 12 files across 11 tools.
+**STATE: 38/63. Phase C complete (11 of the true-census 12; the 12th, micro-cms, is Flat-File
+Micro CMS — rich-app finale). NEXT: Phase B — 23 self-contained ≥8 KB tools smallest-first
+(focus-ring 8,148 first), then the FIVE rich apps one at a time, owner-reviewed.**
