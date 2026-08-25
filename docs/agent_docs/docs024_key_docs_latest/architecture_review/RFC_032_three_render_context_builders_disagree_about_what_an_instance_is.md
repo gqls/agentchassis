@@ -265,6 +265,35 @@ items**, and those produce correct, distinct per-instance ids (`c-generic-text-b
 `-2`, `-3`, `-4` — verified in stored HTML on webdesign.co.uk/domains and
 gaswholesalers.com/service-areas).
 
+> **⚠ CORRECTED 2026-08-25 — §9a's "converted" COUNTS THE TEMPLATE, AND A READER WILL TAKE IT AS
+> THE PLACEMENTS. Re-derived from `page_components`: 48 of 437 placements carrying a token-bearing
+> template still have NO `c-` token in stored `rendered_html`, 26 of them locked (as of
+> 2026-08-25).** Per function, the unconverted counts are `generic-text-block` **26 of 188**,
+> `evidence-timeseries` **3 of 3**, `tool-loan-repayment` **2 of 2**, `faq` 1 of 88,
+> `mechanism-flow` 1 of 6, plus 14 tool functions with one each.
+>
+> So the line above — *"`evidence-timeseries` (3/3/3)"* — is **exactly wrong for the placements**:
+> all three still serve their pre-conversion literal ids (`evidence-timeseries-leakage`, `-ifr`,
+> `-pdc-calendar`; the oufe row last written **2026-07-29**, i.e. never touched by the 08-23 batch).
+> Confirmed at the artefact: `https://oufe.com/cases/thames-water.html` serves
+> `id="evidence-timeseries-leakage"`.
+>
+> **THE MEASUREMENT LESSON, which is why this is a correction and not just a number.** Found and
+> reported by the `news_editorial_features` lane, 2026-08-25, and it is a blind spot no count of
+> ours could have seen: **a locked instance that receives NO delivery attempt produces NO SIGNAL
+> AT ALL, and is therefore indistinguishable from an instance that needed no delivery.** Two of
+> the three `evidence-timeseries` instances are visible *because* delivery was attempted and the
+> lock gate refused, filing `lock_blocked_change`. The third got a whole-page `page_rerender` at
+> 12:32:25Z — **before** the template conversion at 12:33:33Z — and nothing after, so no gate
+> fired, no row was filed, and its owning lane was never told. A coverage measure keyed on
+> `lock_blocked_change` reads that as **2 blocked / 1 fine** when the truth is **3 unconverted**.
+> Re-derive coverage from `page_components` against the live template, never from the refusals.
+>
+> **A positive control worth keeping, from the same lane:** across the 08-23 batch, **253**
+> instances re-rendered after the conversion (`generic-text-block` 161, `faq` 87, `mechanism-flow`
+> 5) and **ZERO** produced an empty id — real demand behind the zero, which is what makes it
+> evidence rather than silence.
+
 `pricing` (row `6175e049`) is NOT converted: active, same placeholder, **zero placements**, and
 `site_work_items.site_id` is NOT NULL with the site only reachable through a placement, so there
 is no honest site to file it against. **It is a precondition of §8's second half** — retire the
