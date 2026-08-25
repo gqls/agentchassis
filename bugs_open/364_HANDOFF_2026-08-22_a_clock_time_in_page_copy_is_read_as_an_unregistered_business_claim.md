@@ -400,6 +400,37 @@ fixed in the code rather than noted.
 | `editquality` (med) | The map keys were *asserted* to be live values, not shown. | **VERIFIED, and it surfaced a real correction** — see below. The check is now in the comment. |
 | `prior_art` (med) | The consumer enumeration was asserted, not shown checked. | The grep that produces it is now in the comment; re-run 2026-08-25 → 5 literals, all updated. |
 
+### ⚠ WHAT THESE TWO APPROVALS DO NOT MEAN (added 2026-08-25 — read before citing either)
+
+Both rounds are `APPROVED`. **Neither validated a single measured number in this file**, and the
+verdicts do not say so, which is why it is written here instead.
+
+**A seat can read a row in twelve tables and can RUN nothing.** Allowlist measured live 2026-08-25
+from `council-gate`'s `load_schema_hint`: `agent_definitions, agent_error_log, content_components,
+diagnosis_artifacts, doc_notes, landmine, page_components, pages, site_plan_pages, site_plans,
+site_work_items, sites`. **`site_specs` and `orchestration_states` are absent** — the evidence
+register and everything in `collected_data`.
+
+So, for this lane's evidence specifically:
+
+| claim | seat could verify? | why |
+|---|---|---|
+| 44 findings / 36→16 / 775-page block equivalence | **no** | requires running `cmd/claimscan` and Go; no seat can execute anything |
+| `sections_metadata` shape and its single supplier | **no** | `orchestration_states.collected_data` not in the allowlist — `editquality` said exactly this |
+| the register/`gte` facts, the 1,494–7,281 history | **no** | `site_specs` not in the allowlist |
+| `slot_name` vs `content_components.function` (106 of 2,033) | **yes, in principle** | both tables ARE visible — `editquality`'s objection was that I had not SHOWN the check, not that it could not be made |
+
+**That last row is the distinction worth keeping**: an un-shown check is a process failure I can fix
+by putting the query in the submission; an unseeable table is a limit of the instrument, which no
+amount of submission quality repairs. I answered both by re-running the queries and putting the
+commands in the code comments — so the figures are re-derivable **by a human**, and that is the only
+route there is.
+
+**When citing these approvals, say what they approved: the plan and the reasoning.** They did not
+re-derive the numbers. `bugs_open/386` (approved `18dba069`) hit the harder version of this — three
+seats flagged that `site_specs` was invisible to them, and its `prior_art_librarian` asked outright
+that a human re-run the queries before arming. Landmined 2026-08-25.
+
 ### ⚠ The correction that came out of the round: `slot_name` is NOT always `content_components.function`
 
 I wrote in the interim's notes that "slot_name IS the component's registered function on this
