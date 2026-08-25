@@ -1690,3 +1690,64 @@ components (`checklist`, period `calendar`, `comparison-table`, built by that la
 **never been placed on a page**. So the canary question is now narrower and sharper than on 08-24:
 it is not "is the fix real", it is "does the planner compose with it", and only a greenfield build
 answers that.
+
+### 2026-08-25 11:31–11:34Z — the canary's mint, and the closure test it cannot run
+
+**The owner authorised a greenfield build this morning** (`homegarden.uk`, site
+`5904bd0f-33fd-4212-9c1b-50b28fe72fdb`, dispatched 10:21:49Z) in the `bugs_open/381` session, not
+this one. Split agreed with that lane: **they take the planner prompt and the component choice, I
+take the reconcile mint** and contribute it to the `206` lane whose test it is.
+
+**Hop two survived.** `[MEASURED 10:53–10:55Z]` `thespruce.com` absent from the draw; RHS and
+Gardeners' World returned 6 sources each at `content_quality: good`; `which.co.uk` returned
+`success: true` with **0 sources** and `content_quality: none`, and the chain proceeded to
+`synthesise` regardless. That third row is the new finding and it is in `bugs_open/376` §10: **a floor
+evaluated on step success is blind to "succeeded and delivered nothing"**, so my own fix candidate,
+implemented naively, would have let the estate write a vertical landscape from no research at all
+with every step green — worse than today's failure, which at least stops. The floor must be evaluated
+on content. Evidence captured to disk because `orchestration_states` reaps inside ~25h.
+
+**The mint, at 11:31:05Z** `[MEASURED 11:32Z]`: **21 pages, and 17 of them `section-index`** —
+`january-index` … `december-index`, plus `this-month`, `comparisons`, `garden`, `home-maintenance`,
+`shed-and-outbuildings` — all at `page-build-handler`. Plus 2 `content`, 1 `blog-post`, 1 `landing`.
+**Zero `entity-directory`. Zero `entity-page`.**
+
+**So the half of the split I took cannot be answered.** `206`'s closure assertion needs an
+`entity-directory` page and the plan contains none. Reported to both lanes as **unexercised**, which
+by this lane's own rule from this morning is not a result — not a pass, not a fail, and not something
+to make fire by hand.
+
+> **The pattern, and it is the transferable bit: BOTH `206` closure tests specified the ASSERTION and
+> left the POPULATION to chance.** The first was garden-tools, where the parked row held its own
+> `item_key`; this one has no row of the right role at all. *"The next greenfield build"* is not a
+> population — it is a hope that the next build happens to plan the role you need, and nothing in the
+> greenfield path guarantees one. **Check the population at mint time, in one query, before spending
+> any measurement on the outcome.**
+
+**And the interaction neither lane predicted.** The brief named no calendar; the planner produced a
+calendar-shaped SITE — twelve month indexes — rather than one page carrying `381`'s new
+`period-calendar` component. **A structural promise satisfied at the site level routes straight into
+the one page role with no builder, and thereby bypasses the component built to satisfy it at the page
+level.** If those 17 no-op, the site ends with no calendar at all. Recorded, not filed; it belongs
+cleanly to neither bug.
+
+**`[INFERRED, NOT MEASURED]`** that the 17 will no-op. All 21 rows were `triaged` at 11:33:41Z and
+nothing had attempted them. What is measured is that the role+handler pairing is byte-identical to
+the one that produced `page-build-handler no-op: no sections ready to build` on garden-tools. Watcher
+armed on the first non-pending status; I will hand the `381` lane the **raw** failure string rather
+than a diagnosis, as they offered to do for me.
+
+⚠ **If those pages fail, the site serves 4 of 21 and the missing pages are the whole subject matter —
+which reads EXACTLY like `381`'s fix failing** ("the planner promised month-by-month and did not
+deliver it"). It would not be. Warned that lane to put it in their reading guide, which is where a
+correction actually works, rather than in their notes, where it only has to be right.
+
+**Instrument built and validated before use:** `capture_reconcile_mint.sh` in this directory, run
+against garden-tools' known-FAIL population first (it correctly returns FAIL for
+`brand-directory-index`). Validating it found a fourth trap nobody was looking for: **`needs_page`
+has 46 distinct producers as of 2026-08-25 and only `reconcile_site_plan` carries `page_role`** —
+1,438 rows fleet-wide, 451 (31.4%) with that key, **0** with `page_type`. `page-rerender` 414 rows/0,
+`image-build-handler` 262/0, `render_directory` 103/0. Filtering on the role alone narrows a census to
+a third of it; not filtering on `created_by` mixes five automated producers with different spec
+shapes. **It surfaced because the script prints every row with a stated reason instead of dropping
+what it cannot classify.**
