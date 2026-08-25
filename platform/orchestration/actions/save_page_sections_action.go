@@ -463,8 +463,12 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// Collapsing here is what makes all of those measure the truth.
 	//
 	// Nothing below can re-introduce a duplicate under this key: the Layer 2
-	// carry-forward appends only slots ABSENT from the set, and identity requires
-	// slot equality. Note SectionData.Position is left stale by the collapse —
+	// carry-forward appends only stored rows absent from the set by EVERY arm of
+	// matchPreservedSectionIdx — identity as well as name, since bugs_open/385
+	// proved slot-name-only absence is not absence (a plan-named section and a
+	// positionally-named stored row are the same tool under two names, and the
+	// "rescue" of one beside the other is how a locked calculator duplicated).
+	// Note SectionData.Position is left stale by the collapse —
 	// nothing after the enrichers reads it (the insert loop numbers from i+1), but
 	// do not add a reader without renumbering here.
 	// See save_sections_dedup.go for the identity rule and why a unique index on
@@ -492,6 +496,14 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// other sections. This is the only place with the rendered markup to
 	// preserve; the planning path deals in section-name skeletons and cannot
 	// reconstruct the tool.
+	//
+	// "Does not reproduce" is judged by matchPreservedSectionIdx — identity
+	// first, name arms after — NOT by slot name alone: on the build arm the
+	// incoming names are the plan's function names, and judging a positionally
+	// named stored tool "dropped" by string comparison is how a rebuild
+	// appended a byte-identical, component-less copy of a locked calculator
+	// beside the row the lock guard had just correctly preserved
+	// (bugs_open/385 §5c; predicted by bugs_closed/189's "STILL OPEN" note).
 	{
 		rows, qErr := params.DB.QueryContext(ctx, `
 			SELECT pc.slot_name, pc.rendered_html, pc.content_data,
@@ -507,24 +519,6 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			params.Logger.Warn("SavePageSectionsAction: interactive-section preload failed (Layer 2)",
 				zap.Error(qErr))
 		} else {
-			type preservedSection struct {
-				slot        string
-				html        string
-				contentData map[string]interface{}
-				// The stamp that describes THESE bytes (RFC_046). A carry does not
-				// change the bytes, so it must not change their provenance — and it
-				// must not let the incoming section's provenance describe them.
-				componentVersionID string
-				// The stored row's own component. Carried with the bytes only when
-				// the adoption flag is on: without it, a rebuild re-imposes the
-				// PLAN's identity on bytes the plan did not produce, which is what
-				// re-mints bugs_open/357's population on every rebuild.
-				componentID string
-				// The stored component's FUNCTION, so the carry can be narrowed to
-				// exactly what adoption created rather than re-typing every carried
-				// section on the page.
-				componentFunction string
-			}
 			var preserved []preservedSection
 			for rows.Next() {
 				var slot, html string
@@ -548,13 +542,11 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			}
 			rows.Close()
 
+			claimed := make(map[int]bool, len(preserved))
 			for _, p := range preserved {
-				matchedIdx := -1
-				for i := range sections {
-					if sections[i].ComponentName == p.slot {
-						matchedIdx = i
-						break
-					}
+				matchedIdx := matchPreservedSectionIdx(sections, p, claimed)
+				if matchedIdx >= 0 {
+					claimed[matchedIdx] = true
 				}
 				switch {
 				case matchedIdx >= 0 && sectionHTMLIsInteractive(sections[matchedIdx].HTML):
@@ -1305,6 +1297,89 @@ func matchLockedRow(lockedRows []*lockedPageRow, sectionName, sectionComponentID
 		}
 	}
 	return nil
+}
+
+// preservedSection is one stored interactive row the Layer 2 carry-forward
+// preloaded (build_status='deployed' AND interactive) so a rebuild cannot
+// destroy a tool the composition failed to reproduce.
+type preservedSection struct {
+	slot        string
+	html        string
+	contentData map[string]interface{}
+	// The stamp that describes THESE bytes (RFC_046). A carry does not
+	// change the bytes, so it must not change their provenance — and it
+	// must not let the incoming section's provenance describe them.
+	componentVersionID string
+	// The stored row's own component. Carried with the bytes only when
+	// the adoption flag is on: without it, a rebuild re-imposes the
+	// PLAN's identity on bytes the plan did not produce, which is what
+	// re-mints bugs_open/357's population on every rebuild.
+	componentID string
+	// The stored component's FUNCTION, so the carry can be narrowed to
+	// exactly what adoption created rather than re-typing every carried
+	// section on the page — and so the matcher below can pair a stored
+	// positional slot with the plan entry that names the same component.
+	componentFunction string
+}
+
+// matchPreservedSectionIdx pairs one preloaded interactive row against the
+// incoming set: "is this stored tool already represented in what this save is
+// about to write?" It is the THIRD of the save path's three judgements of
+// that question, and until bugs_open/385 it was the only one still answering
+// by exact slot-name string — the slot-names-are-not-component-functions
+// defect matchLockedRow's identity arm and MergeLockedPageSlots' arm 3 were
+// built to close (182/189/204, LOCK-008). On the build arm the incoming names
+// are the PLAN's function names, so a positionally-named stored tool
+// (`tool-2`) read as "dropped entirely" while the very same component sat in
+// the set as `tool-loan-vs-savings`, and the re-append arm below duplicated a
+// locked calculator (bugs_open/385 §5c, 2026-08-23).
+//
+// Arms mirror the siblings, in matchLockedRow's order: component IDENTITY
+// first (enrichSectionsWithComponentIDs has already run by the time Layer 2
+// executes, so a plan-named section carries its resolved id), then slot name
+// exact (the pre-385 behaviour, kept), then kebab-normalised slot name, then
+// the stored component's function against the incoming name — the merge's
+// arm 3, and the arm that still decides the 385 shape when the incoming side
+// failed to enrich. Guarded on non-empty exactly as the siblings are: an
+// empty id or name must never pair, or every unresolved section would claim
+// the first idless stored row.
+//
+// `claimed` gives each stored row at most one incoming section — the
+// consumption rule both siblings already have. Two stored instances of one
+// component against a composition naming it once must pair one-to-one, so the
+// second instance is re-appended (preserved) rather than silently judged
+// "already present".
+func matchPreservedSectionIdx(sections []SectionData, p preservedSection, claimed map[int]bool) int {
+	if p.componentID != "" {
+		for i := range sections {
+			if !claimed[i] && sections[i].ComponentID == p.componentID {
+				return i
+			}
+		}
+	}
+	if p.slot != "" {
+		for i := range sections {
+			if !claimed[i] && sections[i].ComponentName == p.slot {
+				return i
+			}
+		}
+		if norm := NormalizeComponentFunction(p.slot); norm != "" {
+			for i := range sections {
+				if !claimed[i] && sections[i].ComponentName != "" &&
+					NormalizeComponentFunction(sections[i].ComponentName) == norm {
+					return i
+				}
+			}
+		}
+	}
+	if p.componentFunction != "" {
+		for i := range sections {
+			if !claimed[i] && sections[i].ComponentName == p.componentFunction {
+				return i
+			}
+		}
+	}
+	return -1
 }
 
 // isEmptyGenericStub reports whether rendered HTML is the hollow section that
