@@ -139,3 +139,52 @@ the checker verifies both (`DBG-075`).
 > **Plan, evidence and the queries:**
 > `docs/agent_docs/docs024_key_docs_latest/bugfix_392_link_context_unread/{PLAN_2026-08-25_392,RUNBOOK_392,NOTES_392,README_where_we_are}.md`.
 > Bug stays **OPEN** and is now **OWNED** by that lane.
+
+---
+
+> **CODE SHIPPED 2026-08-25 — `924079c94`, council `Council-Submitted: 7d923ff6`. Bug stays OPEN:
+> the fix is committed but INERT, and by this estate's bar (fixed AND live) it cannot close yet.**
+>
+> **What was built.** One new in-process discovery check,
+> `platform/orchestration/actions/discovery_checks/check_missing_prose_links.go`, registered
+> LNK-039. Two arms:
+> - **artefact** — a deployed prose page (`blog-post`/`guide`/`content`) with zero
+>   writer-authored internal prose anchors gets one `content_rewrite` at `page-build-handler`
+>   with `spec.mode='edit_live'`, `PageID` set, key `no_outbound_links:<page>:<site>`, capped at 2
+>   per site visit;
+> - **reader** — unresolved `LINK_CONTEXT_UNAVAILABLE` rows are resolved to their page, re-checked
+>   and marked `resolved` on a **healed verdict only**. That is what flips this code from
+>   `human-evidence` to `consumed` in `finding_code_registry.json`, done in the same commit with
+>   `reader` file:line and `reader_sink`, as DBG-075 requires.
+>
+> **Nothing new is deployed** — no service, no image, no cron slot, no handler, and **no change to
+> any live agent definition**. The repair route already runs ~30 items/day. `prepare_link_context`
+> now also records `page_name`/`page_id`/`domain` on its own row, so a reader is not dependent on
+> an orchestration row that is reaped long before the log row's 365 days are up.
+>
+> **Verification actually performed** (see `bugfix_392_link_context_unread/NOTES_392.md` for the
+> commands): full `platform/orchestration/...` suite green, with the test *names* checked because
+> a `-run` regex matching nothing also prints `ok`; **11 mutations applied, compiled, tested and
+> reverted, none surviving**; `verify-head-builds.sh` post-commit reports HEAD builds. ⚠ The
+> `--test` form is NOT a gate on this machine — HEAD fails 22 ways on its own (Kafka down locally,
+> DB-dependent suites, other lanes' build failures), so the control is the DIFF: the failure set
+> with this change is identical to bare HEAD's.
+>
+> **What still has to happen before this can close, in order:**
+> 1. a fleet roll, then prove the check registered (`service_binary_capabilities`, positive +
+>    negative controls — a name that must be present and one that must be absent);
+> 2. add `missing_prose_links` to a live `run_checks.config.checks` array **by hand** (image
+>    first, then config — an unregistered name is warn-and-skip, i.e. silently inert while reading
+>    as enabled);
+> 3. read the first pass **report-only** before it files anything;
+> 4. the canary: induce the degrade on ONE page of a low-stakes site via a **site-scoped opt-in
+>    hook**. ⚠ NOT via a bogus `site_id` — that corrupts the very column the reader joins on, so
+>    the reader would false-pass by never firing; NOT `LOCK TABLE pages` (fleet-wide stall); NOT a
+>    hand-inserted synthetic row (proves the reader, not the chain);
+> 5. verify at the **served** page with `scripts/probe-page-url.sh`, never a composed URL.
+>
+> **Two live tripwires that nothing watches, stated rather than left implicit.** The remit's
+> safety is not name-based — 103 deployed `tool-%` pages are typed `blog-post`, and the page-type
+> rule is acceptable only while it agrees with a structural "carries a tool component" rule, which
+> it does today and could stop doing silently. And the repair route fails or is refused ~21% of
+> the time, so a filed item is not a repaired page.
