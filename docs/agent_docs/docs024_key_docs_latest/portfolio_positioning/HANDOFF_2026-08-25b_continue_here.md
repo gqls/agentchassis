@@ -83,17 +83,27 @@ ORDER BY 2 ASC, s.domain;
 ```
 **A site with `deployed_pages = 0` AND a non-null `stamp` means the guard did not hold.**
 
-## 1c. Read the council verdict on `622`
+## 1c. ✅ Council verdict on `622` — **APPROVED 2026-08-25 20:31. Nothing to do.**
 
-`SUBMISSION_CORR=c88f5c0f-cca2-4753-bd6c-9fabc93b100e` (submitted 19:42).
+`c88f5c0f-cca2-4753-bd6c-9fabc93b100e`, *"approved with 1 advisory objection — none high-severity"*.
+`689f0c5fa` carries `Council-Submitted:`, so `098` credits it automatically. **Do not amend.**
+
+**The one objection, checked and closed:** `editquality` [low] noted that the anchor is a bare
+string and **`replace()` is GLOBAL** — if `AND s.locked_at IS NULL` occurred twice in the same
+`pre_query`, both would silently get a guard, and the pre-flight counts matching **ROWS**, not
+occurrences **within** a row. Correct criticism. **Verified 2026-08-25 20:32 that it did not fire** —
+the live row contains exactly one `locked_at` clause, one guard, one `-- 622:` comment:
 
 ```sql
-SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
-WHERE correlation_id='c88f5c0f-cca2-4753-bd6c-9fabc93b100e' AND kind='council_report' ORDER BY created_at;
+SELECT (length(pre_query)-length(replace(pre_query,'pg.deployed_at IS NOT NULL','')))
+       / length('pg.deployed_at IS NOT NULL') AS guard_occurrences
+FROM scheduled_tasks WHERE name='sitemap-refresh-rotation';   -- must be 1
 ```
-`689f0c5fa` carries `Council-Submitted:`, so `098` credits it automatically once approved. **Do not
-amend.** Approval is not a reason to skip the objections — 2 of 7 were real on the wiring round, and
-the one deferred there is what became `622`.
+
+**The transferable lesson, for the next anchored migration:** a pre-flight that counts matching ROWS
+says nothing about occurrences WITHIN a row, and `replace()` will happily edit all of them. Count
+occurrences, or use `regexp_replace(..., 'g'` deliberately, or assert the post-state count — which
+is what the query above does.
 
 # 2. WHAT IS LIVE
 
@@ -207,7 +217,7 @@ pages now, and serves no sitemap of ours. That census is §4b.
 SUMMARY · `102a64b14` close-out · `689f0c5fa` **migration `622`** (applied).
 
 **Council:** `8a004aab` APPROVED (wiring, 7 advisory — all run down in NOTES 08-24 (c)) ·
-`25157bab` APPROVED, zero objections (redirect fix) · `c88f5c0f` **pending** (`622`).
+`25157bab` APPROVED, zero objections (redirect fix) · `c88f5c0f` APPROVED, 1 low advisory — checked and did not fire (`622`).
 
 # 6. FILES OF RECORD
 

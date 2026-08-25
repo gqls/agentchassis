@@ -3167,3 +3167,21 @@ sweep looks fine" would not distinguish a working guard from an unconsulted one.
 
 `cv1.co.uk` still 404 at 20:30, queued ~20:59.
 
+### 2026-08-25 (f) — `622` APPROVED, and its one objection was worth checking
+
+`c88f5c0f-cca2-4753-bd6c-9fabc93b100e`, approved 20:31, **1 advisory objection, low**.
+
+`editquality`: the anchor is a bare string and **`replace()` is GLOBAL**, so if
+`AND s.locked_at IS NULL` occurred twice in one `pre_query` both would silently be guarded — and my
+pre-flight counted matching **ROWS**, which says nothing about occurrences **within** a row. That is
+a fair criticism of the migration as written.
+
+**Checked 20:32: it did not fire.** The live row has exactly one `locked_at` clause, one guard, one
+`-- 622:` comment (counted by `length(x)-length(replace(x,needle,''))` over the needle length). So
+the applied state is correct and nothing needs undoing.
+
+**The lesson for the next anchored migration**, and it is cheap: assert the POST-state occurrence
+count, not the pre-state row count. One extra line in the verify block would have made the objection
+unnecessary — and unlike the row count, an occurrence count cannot be satisfied by a partially
+matching row.
+
