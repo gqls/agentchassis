@@ -331,6 +331,28 @@ exist — the exact class this lane spent two days closing, committed while clos
 (`bba8a892d`): a value carried by more than one fact is reported in the note but never proposed
 and never reaches the paste-ready fragment. **Not yet rolled.**
 
+### ⚠ THE AMBIGUITY RULE MAKES THE SUGGESTER STRUCTURALLY QUIET ON A RATE-TABLE SITE
+
+`bba8a892d` refuses to propose a value carried by more than one fact. That is right, and the
+`agritec_uk` lane confirmed the motivating pair WAS a genuine duplicate (they de-duplicated,
+105 → 104 facts, having recorded it on 08-22 as *"two near-duplicates — harmless"*; it was not
+harmless, it was **latent** — until something had to choose between them, "two true facts" and
+"one fact twice" were indistinguishable, and this suggester was the first thing that had to choose).
+
+**But they then measured their register and found NINE MORE pairs sharing a value, none of them
+duplicates** — (UPL10, CNUM2)=102, (WBD6, WBD7)=115, (GRH8, OFC1)=187, (OFC5, OFM6)=1920,
+(CAHL4, CIGL2)=515, (HEF6, CIPM3)=55, (BFS1, OFM5)=707, (AHW5, WBD3)=765, (CIT-f88b5cd, OFM1)=20.
+Every one is **two different SFI26 actions that happen to be paid the same rate.** Collapsing them
+would destroy real facts.
+
+**So on a rate-table site, shared values are NORMAL rather than pathological, and the suggester
+will be quiet across most of the register for a reason that has nothing to do with anything being
+wrong.** `[MEASURED by the agritec lane, 2026-08-25]` **Do not read a low suggestion count on such
+a site as "few bindings to make".** The remedy for that population is not the value probe at all —
+it is a per-fact contextual `artifact_check`, where the ACTION CODE rather than the rate does the
+discriminating (`code:'CSAM3'[^}]*rate:224`). The suggester finds bindings; it was never going to
+find all of them, and on a rate table it finds proportionally fewer.
+
 ### ⚠ AND A COUPLING NOBODY HAD NAMED: PHASE 3a IS STARVED UNTIL PHASE 4 IS ADOPTED
 
 The sweep produced **0 `fact_drift` entries, and therefore 0 probe annotations**. That is not a
