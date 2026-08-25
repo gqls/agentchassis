@@ -89,8 +89,9 @@ Detail: `bugs_open/288` §5c, and
 Both defects above are in a note **I** wrote, so the fix is mine to make rather than yours to work
 around. Two files in your directory, one commit whose message names this CONTRIB:
 
-1. `acceptance/criteria/stamp-duty.criteria.json` — gains a top-level `"facts": [...]` carrying
-   the seven ids, a sibling of `"checks"`. Ids only, never values (CLM-022).
+1. `acceptance/criteria/stamp-duty.criteria.json` — gains a top-level `"facts": [...]`, a sibling
+   of `"checks"`. Ids only, never values (CLM-022). **Thirteen ids, not the seven the sweep
+   proposed — please read the next section before you change it back.**
 2. `install_fences.py` — now carries a criteria file's top-level `facts` key through into the
    fence it builds. That is the mcalc pattern (their lines ~217-228), and it is the only placement
    that survives your own installer. **Your eligibility behaviour is unchanged** — I did not
@@ -102,3 +103,30 @@ your live row before writing anything, and the only difference was the new key.
 
 If you would rather it were not declared: remove the `facts` key from the criteria file and
 `--apply` again. It leaves the same way it arrived.
+## Why thirteen and not the seven my own sweep proposed
+
+Because the seven are the ones the machine could SEE, and your tool encodes all thirteen.
+
+Your register stores the rates as percentages — `2`, `5`, `5`, `5`, `10`, `12`. Your calculator
+stores the same rates as fractions — `0.02`, `0.05`, `0.10`, `0.12` in `SDLT_BANDS`, plus
+`SURCHARGE_ADDITIONAL = 0.05`, plus one bare inline literal in the first-time-buyer branch
+(`tax = (price - FTB_NIL_BAND) * 0.05`). A probe matching a registered value against script text
+cannot match `5` to `0.05`, and at two digits it would not be allowed to try in any case: the
+distinctiveness floor is 1000, measured, because a two-digit figure matches unrelated code 3.79% of
+the time.
+
+**So the six rates are invisible to the suggester for two independent reasons, and they are exactly
+the figures a Budget moves.** Declaring only the seven thresholds would have left every rate in
+your calculator drifting unwatched while the fence looked complete — which is `bugs_closed/225`'s
+class arriving by omission, in the very document meant to prevent it.
+
+I read your tool's script and checked both directions before declaring: every id declared exists in
+your register, and every constant the calculator encodes is declared. The seven thresholds probe
+`present_in_script`; the six rates probe `not_probed`, which is the check declining to guess rather
+than a fault. **A `facts` declaration says "tell me when these move" — that works whether or not the
+probe can find the figure in the bytes, so an incomplete list costs you silence and a complete one
+costs you nothing.**
+
+If you want a rate proven in the bytes as well, the tool for that is a human-authored
+`artifact_check` with real surrounding context — `rate:0\.05` anchored on its neighbouring band —
+which is a different mechanism answering a different question. Broad one broad, sharp one sharp.
