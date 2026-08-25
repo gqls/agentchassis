@@ -3015,3 +3015,115 @@ Neither agent addressed carousels or imagery, so:
 
 Nothing was changed on the site today. The nine held items are readable at
 `site_work_items … status='needs_human_review' AND result ? 'grading'`.
+
+---
+
+## 2026-08-25 — A1 verified, A0 (the broken carousel) fixed, and two regressions found on the way
+
+Executing the approved plan (`~/.claude/plans/let-s-do-1-2-and-3-ancient-crab.md`). Five days
+had passed, so every premise was re-grounded first — and two of the four had changed.
+
+### A1 — the figures band: already bundled, and now PROVEN to animate
+
+Another session re-ran `site-asset-renderer` between 08-20 and today: the bundle serves
+**3 active snippets** with `data-countup` present (was 2 and absent). So the dispatch was
+not needed.
+
+**But a bundled snippet is not a working animation, and my first probe said it was dead.**
+It read the value immediately after `scrollIntoView()` — and with CDP round-trip latency the
+tween had already finished, so `during == after == "22"` on a working animation. **A probe
+that samples after the event it is timing cannot see the event.** Re-probed by arming a
+`MutationObserver` *before* the band scrolls into view, which leaves a trail whatever the
+duration `[MEASURED 2026-08-25]`:
+
+```
+normal motion    69 mutations   trail: 22 → 0 → 0 → 1 → 2 → 3 → … → 22
+reduced motion    1 mutation    trail: 22 → 22          (one write, straight to final)
+final value       "22" in both — the authored string, restored exactly
+```
+
+Both directions, and the reduced-motion arm is *correct behaviour*, not a failure — my
+written assertion ("mutations = 0") was too strict: the snippet writes the final value once
+and never tweens. Probe kept at `scripts/probe_countup.py`.
+
+### A0 — the shared carousel template: fixed, and verified at the browser
+
+An unmatched `*/` closed the comment block early, so the prose that followed was parsed as a
+selector prelude and the rule defining `--icg-track-gap` / `--icg-arrow-size` was **dropped**.
+Fixed by removing the premature terminator (one comment, not two) and adding the literal
+fallbacks the swallowed prose itself argues for.
+
+**The write, and the two traps it walked past:**
+- `length()` = 11,893 but `octet_length()` = 11,903 — the em dashes. Compared on **bytes**
+  and md5, never `length()`.
+- `psql -At` appends a trailing newline, so the naive extract is 11,904 B and its md5 does
+  not match the DB's. Stripped it, then confirmed the baseline md5 equalled the DB's
+  `204a3975…` **before** editing.
+- Written back as base64 → `convert_from(decode(...),'UTF8')` so no quoting can corrupt it,
+  `UPDATE … AND md5(html_template) = '<baseline>'` so it refuses if the row moved under me,
+  and a `DO`/`RAISE` post-condition on the new md5 plus the presence/absence of the two
+  markers. New md5 `0d4afe45…`, 11,928 B.
+
+Verified at the browser after one rerender, not in the source `[MEASURED 2026-08-25]`:
+
+| probe | before | after |
+|---|---|---|
+| `--icg-track-gap` computed | *empty* | `1.5rem` |
+| `--icg-arrow-size` computed | *empty* | `44px` |
+| track `gap` | `normal` (0) | **24px** |
+| next-arrow rendered | **22 × 28** | **44 × 44** |
+
+44×44 clears WCAG 2.2 AA's 24×24 target minimum, which 22×28 failed on width.
+
+**A scare I caused myself and then disproved.** The post-fix probe reported `slides: 3`
+where 08-20 reported 6, and both blocks' `updated_at` equalled my rerender's timestamp — so
+it read exactly like my rerender had eaten half the page. It had not: I still had the served
+HTML fetched at session start, before any change, and it already showed 3 cards and the same
+three titles. **`updated_at` bumps on a no-op write**, which is this estate's own recorded
+lesson and which I nearly re-learned the expensive way. Keep the before-fetch.
+
+### ⚠ Regression 1 — the home page CTA the owner reported is broken AGAIN
+
+`call-to-action.primary_cta_url` on `/index.html` was clobbered back from `/contact.html` to
+`/tools/tool-agent-complexity-estimator.html`, while the label still reads *"Book an
+architecture conversation"*. Producer named from its own row: `page_rerender`, complete
+**2026-08-24 18:37:13Z**, summary *"2 misdirected CTA(s) on index"* — matching all seven
+components' `updated_at` of 18:37:05Z. So the misdirected-CTA **repair** turned a correct
+link into a wrong one, while in the same run correctly repointing the hero secondary to
+`/how-we-work.html`.
+
+Re-authored in `content_data` (`bak_leo_home_cta_20260825`); publishing rides the next home
+page rerender rather than firing one for it. **My 08-18 contribution to `bugs_open/248` said
+those links survived — that has now expired and I have corrected it in the bug file**
+(`b1b9d000b`), with the free discriminator: `hero.cta_url` held while
+`call-to-action.primary_cta_url` did not, same destination, same utility area, same run.
+
+### ⚠ Regression 2 — /services.html has lost content AND all its imagery, for the third time
+
+`[MEASURED 2026-08-25]`, and **not repaired** — this needs a decision, not a third hand-fix.
+
+| slot | 08-14 restore left | live now |
+|---|---|---|
+| `info-card-grid` cards | 6 | **3** |
+| `teaser-reveal-panel` items | 6 | **5** |
+| service icons referenced on the page | 6 | **0** |
+
+All six `icon-service-*.jpg` are still deployed and serving **200** — the page simply no
+longer names them. And the item keys have been rewritten again: the 08-14 set
+(`verification-pipeline`, `hierarchical-orchestration`, `human-oversight`, `decision-record`,
+`model-routing`, `news-credibility`) is now `decision-record`, `first-conversation`,
+`infrastructure`, `scoping`, `verification`. This is the 2026-08-11 damage pattern in full,
+a third time.
+
+**A correction to my own reading while investigating it:** I assumed
+`bak_leo_services_pc_20260814` held the *repaired* state and could be restored from. It does
+not — it is the **pre**-repair snapshot, and its `image_url`s are empty too, exactly as the
+08-14 handoff says. There is no backup of the good state; the 08-14 repair was written
+directly. So a restore means re-deriving the icon↔item mapping against the NEW keys, as the
+08-14 session had to.
+
+**Why I stopped rather than repaired:** this is the third time this page has been restored by
+hand, and each restore has been undone by a regeneration within days. A fourth hand-repair
+buys days. The cause is upstream (`bugs_open/238` regeneration drops resolver keys, and the
+`bugs_open/248` family), and that is where the owner's attention is worth spending. Raised
+rather than quietly re-done.
