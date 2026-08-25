@@ -18057,3 +18057,42 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/401` (the case + fix candidates) · MEMORY [[detection-works-schedule-and-dispatch-do-not]] · [[zero-adoption-means-read-the-mechanism]] · the "pre_query returns 0 rows" entry above (same table, the other half: enabled proves selection is possible, not that selection selects)
 - **source:** 2026-08-25, `webdesign_tool_rebuilds` platform seat — Track 2's demand controls waited on a design-discovery sweep that structurally cannot fire; the report had said `3/3` for a week.
 - **added:** 2026-08-25, `webdesign_tool_rebuilds` platform seat
+
+### `grep -m1 'build provenance'` — the deploy check CLAUDE.md prescribes — matches NOTHING on a backend service, and its documented failure mode absorbs the real one
+
+- **footprint:** `CLAUDE.md` ("Ask the service what it is running"), `pkg/buildinfo` (`GitCommit`), `build/docker/backend/*.dockerfile`, `kubectl -n ai-persona-system logs -l app=<service>`, `/proc/1/exe`, any question of the form *"did my fix actually ship?"*
+- **fires when:** you finish a Go change, a roll happens, and you go to confirm the running binary carries it. No symptom — the check simply returns nothing, and CLAUDE.md tells you what nothing means.
+- **the trap, and it is two layers deep.** CLAUDE.md gives `kubectl logs -l app=<service> --tail=300 | grep -m1 'build provenance'` and warns that an empty result means *"not in range, because it is a STARTUP line and it scrolls"*. **That warning is true of a line that exists, and the line does not exist.** `grep -rn 'build provenance'` over this repo's Go source returns **ZERO** `[MEASURED 2026-08-25]`; a grep over an entire 4.6 MB `agent-chassis` pod log (not a tail) also returns nothing. So the documented failure mode perfectly explains the real one, and you conclude you merely need more scrollback. **What is actually stamped is `pkg/buildinfo.GitCommit`**, set by `-ldflags` in `build/docker/backend/<svc>.dockerfile:8` from the image's `GIT_COMMIT` build-arg (makefile ~line 372, also written to the OCI `org.opencontainers.image.revision` label).
+- **the second layer — the fallback probe is worse, because it produces an ANSWER.** CLAUDE.md's binary probe wants a known sha, and you do not have one once the log has gone. Probing `/proc/1/exe` for candidate build shas returned **absent, absent, absent** — three uninterpretable results that read exactly like *"the fix did not ship"*. **Every control was on the same side of the answer**, so the set could not discriminate. CLAUDE.md does say to run a control; it is very easy to run three of the wrong kind.
+- **the check: probe the CAPABILITY, not the commit, and put a control on BOTH sides in the same breath.**
+  ```bash
+  POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+  kubectl -n ai-persona-system exec "$POD" -- grep -aq '<a literal from YOUR change>' /proc/1/exe   # under test
+  kubectl -n ai-persona-system exec "$POD" -- grep -aq '<a literal live for weeks>'  /proc/1/exe   # MUST be PRESENT
+  kubectl -n ai-persona-system exec "$POD" -- grep -aq 'zzz_invented_string'         /proc/1/exe   # MUST be absent
+  ```
+  PRESENT / PRESENT / absent is the only shape that means anything. The middle line proves the probe can see this binary's literals at all; the third proves it discriminates rather than matching everything. This settled gate 1c on `v1.0.1339` in one round after the sha route gave three non-answers.
+- **⚠ and it only works for code something CALLS.** The Go linker strips an unreferenced literal: measured the same day on the same image, an unregistered verifier's error string was ABSENT although all four of its lane's commits were in the build, while a registered sibling's literal in the same package was PRESENT. **So a probe for a not-yet-wired symbol reads exactly like a failed roll.** Pick a literal on a path that runs.
+- **⚠ do not substitute a DB census for this.** *"5 `content_rewrite` items completed after the roll and 0 carry `result->'_verification'->'acceptance_predicate'`"* looks like proof the gate is off. It is blind: the gate stamps only items that CARRY a predicate, and only three have ever existed. A zero there is uninterpretable in both directions.
+- **source:** 2026-08-25, `bugs_open/395` §10 (the working form, with the controls) and `WRONG_CALLS.md` (the three non-answers). The linker half is the `bugs_open/375` lane's, measured independently on the same image.
+- **added:** 2026-08-25, bugs_open/395 session
+
+### A REJECTED acceptance predicate is a WRAPPER — its `field` is one level down, and reading it flat fails silently
+
+- **footprint:** `spec.acceptance_predicate_rejected`, `AcceptancePredicateRejection` (`platform/orchestration/actions/verify_acceptance_predicates_action.go:277-281`), `predicateTargetField`, `write_audit_findings_action.go` (`auditFinding.AcceptancePredicateRejected`), `CLM-024`
+- **fires when:** you write any consumer of a finding's acceptance predicate and — sensibly — read both the live and the rejected key, because the emit gate MOVES a predicate it refuses rather than deleting it.
+- **the trap:** the two keys have **different shapes**. The live value IS the predicate — `{"type":…, "page":…, "field":"meta_description", …}`. The rejected value is a wrapper — `{"verdict":…, "reason":…, "predicate":{…}}` — so `field` is nested. `rejected["field"]` is a missing key on a `map[string]interface{}`: no error, no panic, no log line, just `""`. Your consumer then declines to act on **exactly the population it was written for**, and every test that uses a live predicate still passes.
+- **the check, before you ship any predicate consumer:** feed it a REJECTED record in its real shape and assert it still finds the field —
+  ```go
+  f.AcceptancePredicate = nil
+  f.AcceptancePredicateRejected = map[string]interface{}{
+      "verdict": "holds", "reason": "…",
+      "predicate": map[string]interface{}{"type": "text_order", "page": "index", "field": "meta_description"},
+  }
+  // predicateTargetField(f) must be "meta_description", not ""
+  ```
+  Then DELETE the unwrapping and watch that test fail on its own while the live-predicate tests stay green. If it does not fail, you tested the shape the database does not contain — the same mistake `TestTheFirstLiveEmittedPredicatesStillRefuteAfterTheFix` made by hand-writing predicates without their provenance keys.
+- **⚠ the second-order version, which is why this is worth an entry rather than a comment:** where TWO guards read the same predicate — one at emission, one at routing — a consumer that reads only the live key is **blinded by its own partner**. The emit-side guard fires first, the field moves into the wrapper, the routing guard finds nothing, the finding is routed exactly as before, **and both report success.** Two green lights over one hole.
+- **⚠ and it is NOT the same trap as the stamp/strip one.** That one (`verdict_at_emission`/`evidence_at_emission` breaking the evaluator's closed key set) bites anyone who EVALUATES a stored predicate. This one bites anyone who merely READS a field off a rejected one. Both are live; fixing one does nothing for the other.
+- **source:** 2026-08-25, `bugs_open/395` (WII-035, routing rule 3b). Caught before shipping by the `vigilant_designer_offer_analysis` lane reading a peer's design; pinned by `TestTheGuardReadsTheRejectedPredicateWrapperShape`.
+- **added:** 2026-08-25, bugs_open/395 session
