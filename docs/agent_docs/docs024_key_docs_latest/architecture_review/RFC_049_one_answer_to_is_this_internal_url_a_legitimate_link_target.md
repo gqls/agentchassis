@@ -8,7 +8,12 @@
 
 Both halves were done: this ticket, and an amendment on `LNK-030` carrying the count.
 
-**Status: OPEN, UNOWNED.** Nothing is blocked on it. `bugs_open/328` shipped.
+**Status: OPEN, UNOWNED.** Nothing is blocked on it. ~~`bugs_open/328` shipped.~~ **Updated
+2026-08-25: 328 is CLOSED and lives at `bugs_closed/328_HANDOFF_2026-08-19_…md`** — fix live,
+proven at the artefact (0 dead anchors served across 19 public referring pages), so LNK-038 is
+now a *shipped and exercised* third instance rather than a shipping one. **That raises the price
+of a fourth, it does not lower it:** all three are live simultaneously and each carries its own
+tests, so a fourth is a fourth thing to keep in step. Read this before adding one.
 
 ## What happened, in order
 
