@@ -185,3 +185,38 @@ Demand control for 599: the next greenfield build's writer calls — `llm_call_l
 3. Their fleet census (19 opted-in sites, ~1,457 components, 44 `unregistered_number` findings on four
    sites; 20 third-party listings at zero precision) is the number-scan side of the same corpus my
    practice dry run measured; the two censuses are complementary, not overlapping.
+
+## 2026-08-25 — the chassis rolled; everything verified at the artefact; lane CLOSED
+
+**Deploy proven, not assumed** `[MEASURED 2026-08-25 ~10:00Z]`: pods `agent-chassis-67fd9c76f5-*`
+started 09:27Z on `v1.0.1337`; startup line `build provenance git_commit=4c996e1b5`; `git merge-base
+--is-ancestor c9cd817d9 4c996e1b5` → YES. Binary probe (NUL-split, BusyBox-safe): my literal
+`practice claim: this site has no recorded operating history` = **1**, present control (the regulated
+family's reason string) = **1**, absent control (a nonsense literal) = **0** — coherent, so the count
+means what it says. (The absent control alone took >2 min over the binary; run it with a long timeout.)
+
+**The rotation (600) ran every hour all night**: 15 sites selected 19:04Z→09:11Z, **15 receipts**
+(robot-hands' is at 19:05:01 — my first query window started at 19:30 and I briefly read it as the
+runbook's `selected_but_no_receipt` case; it was my window, not the receipt), 18 auditor runs in the 24h
+window all COMPLETED, none FAILED. Outcomes: 10 `audit-findings` → 8 new `claims_llm_*` items
+(agritec, cookly, idea, finetuning, fundamentallyai, webdesign.uk, ai-agent-orchestration,
+gaswholesalers — plus garden-tools and leopardess from the hand runs), 4 `audit-ran` clean
+(loancalculator, loanzy, dartsonline, mortgagecalculator). Cost as ruled: one Sonnet call per site.
+
+**Writer arm (599) demand control PASSED**: of 221 `page-content-writer` LLM calls since 599 applied
+(20:10Z), every one of the **150 `generate_content` calls carries `## Operating history: NONE RECORDED`**
+(150/150; the other 71 are `rewrite_negations` — a different prompt, not expected to carry it). No
+site has an `operating_history` attestation yet, so 150/150 is the correct count.
+
+**Gate (Go family) — live but not yet POSITIVELY exercised**: 3 page builds ran on the new binary
+(09:31-09:32Z, loancash.co.uk tool pages); their components carry **zero** practice sentences
+(claimscan on the same components: 0 PRACTICE), so the absence of `practice_claim` warnings in those
+results is the expected outcome, not evidence either way. The engine is the one claimscan runs and the
+literal is in the binary; the first rebuild of a register-less brochure page with a practice sentence
+(cookly `about`, dartsonline `shipping-returns`, idea `about`, garden-tools anything) will show a
+`practice_claim` warning in its validation result. **Verify-later, recorded in the HANDOFF.**
+
+**CLOSURE**: fixed AND live on every path the bug names — (a) answered by design (no register minted;
+absence is the cold posture), (b) planner 598 + writer 599 live and exercised, (c) auditor 597/601
+live, exercised on 17 sites, and on a clock (600). Go family rolled and proven at the artefact. Moving
+`bugs_open/380` → `bugs_closed/380` (git mv). Residuals are OTHER bugs/lanes, listed in the HANDOFF.

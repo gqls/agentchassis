@@ -62,3 +62,19 @@ recorded operating history it is told, in plain words, not to describe testing, 
 receiving samples as things we do, and that "say what we do" means only how the content is sourced.
 That closes the third of the three fail-open paths at the source. Everything in the config half is
 now live; the deterministic Go detector still waits for the next image roll.
+
+## 2026-08-25 — the new chassis is out; everything checked at the running system; closing the bug
+
+The build that went out this morning carries the Go half (I checked the running binary itself, with a
+positive and a negative control, not the tag). Overnight the auditor did exactly what it was built to
+do: one site an hour, fifteen sites, a receipt for every run, findings filed for ten of them and a clean
+receipt for four. The writer has carried the "no operating history" instruction on every one of the
+150 content calls since you approved it. The only thing not yet seen live is the deterministic
+practice-claims warning at the build gate — the three pages built since the roll simply had no such
+sentences to flag, so its silence there means nothing; it will show on the next rebuild of a page like
+garden-tools' about page, and the handoff says how to check.
+
+So I am closing bug 380: all three fail-open paths are shut, live, and exercised. What remains is other
+people's work that this uncovered — the stale-render bug (386), the six other agents that complete on
+a missing target, the four other queries with the same regex trap, wiring real research into new
+builds (your call), and the human-review queue nobody works. The handoff lists each with its owner.

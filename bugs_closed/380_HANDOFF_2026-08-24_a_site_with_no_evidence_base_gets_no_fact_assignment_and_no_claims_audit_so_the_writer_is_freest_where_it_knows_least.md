@@ -252,3 +252,17 @@ writer's no-register / no-operating-history arm is live (verified by needle on t
 mechanisms are now closed at the source in config; the Go practice family (commit c9cd817d9, council
 APPROVED 1d87615f) remains inert until the next chassis image rolls. **Bar for `bugs_closed/`: that roll,
 plus one greenfield build showing the writer arm in `llm_call_log.prompt_rendered`.**
+
+## CLOSED 2026-08-25 — fixed AND live (the CLAUDE.md bar), verified at the artefact
+
+Chassis `v1.0.1337` (pods 09:27Z, provenance `4c996e1b5`, `c9cd817d9` is an ancestor; binary probe 1/1/0
+with controls). Config slices 597/598/599/600/601 live since 2026-08-24; overnight the rotation audited
+15 sites with 15 receipts (10 findings, 4 clean, 1 hand-run); the writer arm rendered on 150/150
+`generate_content` calls. Both council slices APPROVED round 1 (e684fc8d, 1d87615f). Verify-later, not a
+gap: the first rebuild of a register-less page carrying a practice sentence should show a `practice_claim`
+warning in its validation result (the three post-roll builds had none to flag).
+Residuals belong to other files: `bugs_open/386` (stale renders of a refreshed fact — amplified by the
+rotation), `bugs_open/033` (the queue the findings feed), the skip-as-success census (handed to the 354
+lane), the greedy-regex mechanism on four other agents (LANDMINES), slice 2b, the shared visible-text
+function, `evidence-researcher` on the greenfield chain (owner decision). Lane:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_380_claims_fail_open/` (HANDOFF_2026-08-25 is the cold start).
