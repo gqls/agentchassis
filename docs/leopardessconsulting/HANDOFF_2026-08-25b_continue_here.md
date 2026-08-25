@@ -68,7 +68,10 @@ written, and its §4/§6 are overtaken by the work below). Everything marked
 
 ## 4. Work queue, in order
 
-1. **Read the 090 verdict** → record in 403 (visible correction if it refutes anything).
+1. ~~**Read the 090 verdict** → record in 403.~~ **DONE, same evening after this file was cut:**
+   verdict UNVERIFIABLE (scope-not-narrowing); it challenged the attribution as timing
+   correlation and the re-check CONFIRMED it from `llm_call_log`'s verbatim generate_content
+   replies (403 §"The 090 verdict" has the full exchange). Nothing left here.
 2. **Council verdict on `30d5fdde`** → 098 credits the commit automatically on approval;
    REVISE gets fixed forward.
 3. **Hero batch — the remaining 9 of the dozen** (D2 answered; canary proven ×3):
