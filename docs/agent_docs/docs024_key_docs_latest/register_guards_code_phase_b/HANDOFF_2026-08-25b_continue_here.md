@@ -112,6 +112,19 @@ pending on this HEAD:
   release this lane asked for ships their commit too.
 - `bba8a892d`, `6ad4a8046` and `c17a18620` are all ancestors of HEAD.
 
+**Closed 2026-08-25: APPROVED at round 2** (trail `0de22385`, 8 approve / 3 advisory / 6 abstain;
+round 1's gating objection was the typed-`EvidenceBase` round-trip question, answered by
+enumerating all 9 `ParseEvidenceBase` callers and pinning both write paths with round-trip tests).
+Re-verified after their follow-up: `14ec48b89` is the **only** commit to
+`refresh_evidence_base_action.go` since `c17a18620` and is **comment/blank-only** — checked, not
+taken on trust — and `verify-head-builds.sh ./platform/orchestration/...` is still OK at the
+current HEAD.
+
+⚠ **FIELD CONTRACT, for anyone editing `composeWriterBlock` in this file:
+`writer_block_guidance` is NEGATIVE / PROHIBITIVE guidance ONLY** — stated at the carry site and
+in CLM-029, where its relationship to `banned_claims` is reconciled (detective vs preventive;
+sites hold both). Do not put positive instructions through it.
+
 ⚠ **So v1.0.1338 will carry several lanes' commits under one tag — `bugs_open/249`'s straddling
 case. Probe per SERVICE, not per fleet.** Their discriminator (`numeric stand-in placeholder`)
 and this lane's three are independent and will settle on the same roll.
