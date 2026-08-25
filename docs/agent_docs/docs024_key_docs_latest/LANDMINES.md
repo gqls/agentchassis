@@ -17057,7 +17057,31 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-24, `bugfix_352_invented_selector` lane, from a `bugs_open/384` cross-session exchange. **They found it, not me:** their `page_list_stale` check shipped a `Resolved` arm, they reversed it unprompted on the reasoning that a `page_rerender` key is shared with every other `section_data_resolved` producer for that page, and told me so my notes would not carry the stale claim. I measured the estate afterwards and it agreed with them. **A peer's unprompted reversal is worth more attention than a peer's agreement.**
 - **added:** 2026-08-24, `bugfix_352_invented_selector` lane
 
-### The claims number scan is now SILENT on three whole page types — including their marketing hero and CTA, which is a KNOWN blind spot, not an accident
+### ✅ RETIRED 2026-08-25 20:xxZ — the blind spot below is GONE, proven at the artefact. Kept as a record, not a warning.
+
+> **This entry described a real blind spot that existed from 2026-08-22 to 2026-08-25 and no longer
+> does.** Phase 2 (`RFC_053`) is LIVE on chassis `v1.0.1339`, and it was retired the way this entry
+> itself demanded — **when the artefact said so, not when git did**:
+>
+> - binary probe on both replicas: `thirdPartyDataComponents` **1**, `normaliseSurfaceKey` **2**,
+>   `adoption-tracker-listing` **1**, negative control `isASCIILetterZZZ` **0**;
+> - **behavioural demand control**, which is the half that actually proves it: a synthetic
+>   unsupported claim injected into three slots of the live `protocol-tracker` copy is **FLAGGED in
+>   `hero`**, **FLAGGED in `call-to-action`**, and **SILENT in `protocol-tracker-listing`**. That is
+>   the whole design, observed rather than inferred — the site's own voice is policed again while the
+>   third-party listing is not.
+>
+> ⚠ **One trap this retirement is itself a worked example of, worth more than the entry:** the
+> `service_binary_capabilities` row for `agent-chassis` named a commit that does **not** contain
+> Phase 2 at all, while the running binary plainly did. **The table was stale and the binary was
+> right.** A second lane dated the same build from that table and got a commit that predates this
+> fix. Probe the artefact; treat that table as a hint.
+>
+> Superseded by the sibling entry on the acronym class (a digit inside `A2A`/`W3C`), which is the
+> live hazard now. Original text follows, unchanged, because the *shape* of the mistake — buying
+> silence on a listing by silencing a whole page — is the reusable part.
+
+### (RETIRED) The claims number scan is now SILENT on three whole page types — including their marketing hero and CTA, which is a KNOWN blind spot, not an accident
 - **footprint:** `platform/orchestration/datahelpers/claims.go` (`editorialPageTypes`, `ClaimSurface`, `ProseNumbersAreClaims`, `businessClaimContextRe`), `pages.page_type` values `adoption-tracker` / `protocol-tracker` / `model-directory`, `cmd/claimscan`, concept register CLM-016
 - **fires when:** you are checking whether a numeric claim on one of those pages is policed — auditing a site's honesty surface, reading a clean `claimscan` run, or judging whether the claims layer would have caught something. It fires hardest in the reassuring direction: the scan returns **zero findings**, and zero reads as "nothing wrong here".
 - **the tell:** none. `ScanUnregisteredNumbers` returns `nil` for the WHOLE page (all slots) the moment `page_type` is one of the three — the `hero` and `call-to-action` are gated with the listing, even though they are the site's own first-person marketing voice. Added 2026-08-24 (`bugs_open/364`) on a real measurement — 20 findings at ZERO precision, all third-party figures in aggregated listings — but it **knowingly fails the second half of that map's own membership bar** ("a body that is never marketing"), which is exactly the ground `section-index` was REFUSED on.
@@ -17893,3 +17917,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** MEMORY [[a-bigger-container-is-not-a-bound]] (same lane, third repeat of measuring the container you already know about) · [[a-closer-census-cannot-see-what-it-succeeded-at]] · the `/tmp` recipe entry above · `docs024_key_docs_latest/tmpfs_exhaustion/` · OPP-005
 - **source:** 2026-08-25, `tmpfs_exhaustion` lane, from the owner asking "is /tmp full again?" — it was not, and following the arithmetic rather than the suspicion found a 528 GB hole in the lane's own instrument.
 - **added:** 2026-08-25, `tmpfs_exhaustion` lane
+
+## A `NEVER-REPO-PATH` citation naming a file you can `ls` is an UNCOMMITTED file, not a dead citation — and the category that says "no file, ever" is the one you are least likely to double-check
+
+- **footprint:** `scripts/report-register-citation-rot.py` · `NEVER-REPO-PATH` · `DOC-078` · `docs/agent_docs/docs026_concept_register/` · `citation-rot reports` · `link auditors` · `dead-path sweeps`
+- **fires when:** you run the citation-rot report (or any path-existence check) and read its `NO FILE, EVER, UNDER THAT NAME` list. That list is short, sorted, names the entry and the field, and is phrased with more certainty than any other category in the output — which is exactly why it gets acted on without a second look.
+- **the trap, and it has TWO independent causes that produce an identical line:**
+  1. **The file exists and is simply not committed yet.** The report reads register entries from the **working tree** but resolves paths against **git history** (`HEAD` ∪ everything-ever). A file that is `git add`ed but uncommitted — or untracked — has no history, so a perfectly correct citation to it reads as *"no file, ever, under that name"*. `[MEASURED 2026-08-20]` **2 of 7** entries in that category were this: `SEO-005` citing `platform/orchestration/actions/head_assembly.go`, which was sitting in the tree with status `A `. Both cleared themselves on 2026-08-25 with **no citation edited**, when the owning lane committed the file (`4abcd55a4`).
+  2. **The report's own normaliser mangled a live path into a dead one.** `clean()` strips line refs, anchors, possessives and backticks. Any citation form it does not understand is not a parse error and not a skip — it emits a *different string*, which then legitimately resolves to nothing. `[MEASURED 2026-08-20]` **1 of 7** was this: `FIX-061` cites `scripts/migration/run-migrations.sh:65,:283`, the regex understood `:151,227` but not the repeated colon, stripped `:283`, left `:65,`, and `rstrip` produced `…run-migrations.sh:65`. The file is tracked and clean. Fixed in `a9665268f`; **the class is not fixed** — the next unhandled citation form fails the same silent way.
+- **why the wrong answer looks exactly like the right one:** every other category in this report hedges. `MOVED-AMBIGUOUS` says the file exists and the citation is imprecise; `NEVER-UNROOTED` and `UNJUDGED-DIRSHAPE` say outright they are not judged. Only this one asserts a fact about history, and it is the one the lane's handoffs quote as the corpus's stability evidence (*"still exactly 4"*, three handoffs running). A false positive here does not read as noise — it reads as **a lane that cited something that never existed**, complete with an entry id to blame. Both failure modes above arrived pointing at innocent lanes.
+- **the check, and it is two commands before you believe ANY line in that list:**
+  ```bash
+  # 1. ask the WORKING TREE, which the resolver never does. 'A ', '??' or a plain ls hit
+  #    means uncommitted, NOT dead. Nothing to repair; it self-heals on their commit.
+  git status --porcelain <cited-path>; ls -la <cited-path>
+  # 2. prove the normaliser did not invent the path — compare AS-CITED against NORMALISED.
+  #    If they differ, the report is judging a string the register never wrote.
+  grep -n '<entry-id>' docs/agent_docs/docs026_concept_register/register/*.md
+  git log --oneline -1 -- <cited-path>     # tracked-and-clean + reported dead = cause 2
+  ```
+  **Only after both come back negative is it rot.** `[MEASURED 2026-08-25]` on the day this was written, **0 of the 3 newly-reported dead citations were rot** — the category went 4 → 7 → 4 without a single citation being repaired.
+- **the transferable shape:** a checker that reads its CLAIMS from one universe (the working tree) and resolves its FACTS in another (git history) will report the seam between them as a defect in the claims. Ask which universe each half of a check lives in before believing a mismatch, especially when the two are normally identical and only diverge for minutes at a time — that is precisely when nobody is looking.
+- **⚠ if you change the normaliser, MUTATE to prove your test can fail.** The regex above already had a self-test case for the form it handled, which is what made the unhandled form invisible. The guard added with the fix was verified by reverting the regex on a scratch **copy** while keeping the new case, and watching that one case fail with exactly `NEVER-REPO-PATH` (10/11, exit 1). A self-test in this file has passed vacuously before — 2026-08-17, `landmines-keys-check.py`, where `parse()` starts at the `# Entries` marker so a mutation above it registered nothing.
+- **relations:** the `git rev-list --objects` entry above (same report, same category, third distinct way its universe acquires holes — and its own ⚠ about grepping for words only YOUR entry contains applies to verifying this one) · MEMORY [[live-and-committed-are-independent-facts]] (a tool shipping from a FILE cannot see it is UNCOMMITTED — this is that trap seen from the reader's side) · [[mutate-the-code-to-prove-the-guard]] · [[a-pass-from-a-blind-check-outlives-the-blindness]] · `DOC-078`
+- **source:** 2026-08-25, concept-register lane, from re-running the handoff's verification table cold and finding the sharpest category had moved 4 → 7. None of the three was rot.
+- **added:** 2026-08-25, concept-register lane

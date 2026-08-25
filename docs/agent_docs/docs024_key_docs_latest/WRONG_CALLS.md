@@ -53336,3 +53336,23 @@ when the measurement it came from was honest.
 date protects against a number going stale by *addition* (the 2026-08-22 owner ruling); it does
 nothing when the number goes stale because **you changed the thing being measured** — and that
 staleness arrives on the same day, not months later.
+
+**16. I nearly refuted my own CORRECT probe because I compared a local timestamp with a UTC one.**
+Verifying that Phase 2 had rolled, the binary probe said my acronym fix was present. I then checked
+the arithmetic: commit `35f452a0e` at **19:44:10 +0100**, pods started **19:07:18Z** — so the build
+predated the commit by 37 minutes and the fix "could not possibly" be in it. I concluded the probe
+was a false positive and went looking for a dependency that defined the same symbol.
+
+There is none, and there was no contradiction: **`19:44:10 +0100` is `18:44:10Z`** — 23 minutes
+*before* the pods. **`git log` prints the committer's local time; Kubernetes prints UTC.** One is
+`+0100` in British Summer Time and the other has a `Z`, and I read them as the same clock.
+
+**What makes it worth an entry rather than a shrug:** the false conclusion was *conservative*, so it
+felt like rigour. I was about to write "my fix is not live" — the safe-sounding answer — on the
+strength of an hour that did not exist, and would then have chased a phantom false positive through
+the module cache. **A timezone error produces a confident wrong answer in whichever direction the
+offset points, and scepticism does not protect you when the arithmetic itself is wrong.**
+
+**The cheap check: normalise before comparing, never after.** `git log --date=iso-strict` (or
+`--date=format-local:'%Y-%m-%dT%H:%M:%SZ'` with `TZ=UTC`) puts both on one clock. Any comparison
+between a git timestamp and a cluster timestamp is a UTC comparison or it is nothing.

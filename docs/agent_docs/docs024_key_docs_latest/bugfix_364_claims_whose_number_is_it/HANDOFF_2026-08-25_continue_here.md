@@ -1,3 +1,14 @@
+> # ⚠ SUPERSEDED 2026-08-25 — `364` IS CLOSED
+>
+> Read **`HANDOFF_2026-08-25b_CLOSED.md`** in this directory instead. Phase 2 shipped on chassis
+> `v1.0.1339` and is proven at the artefact, so §5's "what is left" list below is **spent** — every
+> item on it is done. The bug file moved to
+> `bugs_closed/364_HANDOFF_2026-08-22_a_clock_time_in_page_copy_is_read_as_an_unregistered_business_claim.md`.
+>
+> Kept unedited because the corrections in it — the refuted `404` filing, the pre-roll regression, the
+> two peers' corrections of my work — are the record of how the understanding moved, which a tidied
+> file would destroy.
+
 # HANDOFF 2026-08-25 — `bugs_open/364`: the claims layer cannot tell WHOSE number it is
 
 **Read this first, then `bugs_open/364` §5a–§6g.** Everything below is either measured and dated, or
