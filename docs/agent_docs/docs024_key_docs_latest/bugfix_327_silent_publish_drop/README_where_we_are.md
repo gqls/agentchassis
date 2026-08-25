@@ -499,3 +499,31 @@ the most dangerous kind of wrong answer. The filter was subtly malformed and mat
 I only caught it because the same command reported fifty-five files in that folder a moment later.
 An unchecked filter, returning the answer I expected, in a piece of work whose entire lesson is that
 a measurement answers the question you actually encoded. That's written up where we keep those.
+
+---
+
+## 2026-08-25e — correction to what I wrote above: it was seven documents, not eight
+
+Short one, but it belongs here because the wrong number is in the entry above.
+
+I said eight of our own documents tell the reader to run the submit script by its short name. It's
+**seven**. When I searched, I used a pattern with two alternatives in it, and the second alternative
+also matched a document that merely *mentions* the script as a step in a pipeline — it gives no
+instruction to run anything. I then reported the total as though every hit were the same kind of
+thing. A count over a search with alternatives is really two counts wearing one number.
+
+Nothing about the decision changes. The short name did point at the broken copy, and it now fails
+outright. But I'd repeated that figure in five places before anything checked it.
+
+**What caught it is worth a sentence.** We have an automatic checker for these trap notes. It came
+back saying it *couldn't* check this one — its index only covers Go code, and everything I'd
+referenced is shell and text. So I had to go through my own note by hand, and that's when the count
+fell over. If the checker had been able to run, it would have confirmed the one claim it could see —
+which was correct — and never looked at the number that wasn't.
+
+**And one thing I walked straight into.** When I re-counted, I got *nine*. Two of those matches were
+files I had written myself that morning. This piece of work has a documented habit of exactly that —
+writing about the trap makes your own words show up in every search you build to find it, and it had
+already happened three times here. This is the fourth, and the first time it landed on me checking my
+own claim rather than counting the problem. The fix is one more line in how the search is written:
+leave your own files out before you count.
