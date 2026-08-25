@@ -7,7 +7,33 @@ bottom) and `RUNBOOK_invented_selector.md`. The bug file's own banner is
 
 ---
 
-## 0. STATE — **352 IS CLOSED. Arm 2 is now `bugs_open/390`.** (owner ruling, 2026-08-25)
+## 0a. LATEST — 2026-08-25 19:15 UTC, `v1.0.1339`. **This lane is DOWN TO ONE DATED CHECK.**
+
+**Nothing here is blocked, nothing is owed to another lane, and there is no work in flight.** Read
+§0b for the split, then §4 for the three remaining items. If you only do one thing: **§4(2), on or
+after 2026-08-28.**
+
+| | |
+|---|---|
+| build | `v1.0.1339`, all three services, pods **19:07 UTC**, stamping `a7459a44b`. Third consecutive roll carrying the fix (`merge-base` YES, `HEAD` control correctly NO) |
+| arm 1 | **holding**: **18** rows filed since the 08-24 15:39 roll, **0** invented, **18/18** carrying `selector_scheme` |
+| 587 | applied; **73** withdrawn; **0 of 56** pairings returned — because **0 of the 13 sites have been re-audited yet** |
+| arm 2 | `bugs_open/390`, open, undesigned — **a different lane's work** |
+
+⚠ **Two things changed today that a new session must not read stale:**
+
+1. **The "the render audit fails more often than it succeeds" claim is NO LONGER SUPPORTED.** Every
+   row behind that 11-of-20 has been **pruned** — `orchestration_states` keeps ~24 h. The table's
+   entire render-audit history is now **5 runs, 0 errored**. Five clean runs under a true 55% rate
+   has probability `0.45^5 ≈ 1.8%`, so something changed; but two rolls, the load trough and a new
+   site mix changed together, and **the comparison is permanently unavailable.** See §4(4).
+2. **New sites jump the rotation queue.** A site created after your census has no
+   `site_discovery_rotation` row, so `COALESCE(...,'-infinity')` + `ORDER BY … NULLS FIRST` puts it
+   **first**. Three sites created today consumed three hourly slots ahead of the existing fleet. **So
+   "all 13 re-audited by <date>" is a floor, not a schedule — re-read the rotation, do not forecast
+   from a snapshot.**
+
+## 0b. STATE — **352 IS CLOSED. Arm 2 is now `bugs_open/390`.** (owner ruling, 2026-08-25)
 
 > **This section was rewritten hours after it was first written.** It originally said *"Can we close
 > it? NO"* and named the split as an owner call this handoff would not make. The owner then made it:
@@ -126,9 +152,18 @@ returned — and that is expected, not a failure:** all 13 sites were last selec
 *before* 587 applied, and **0 have been re-audited since**.
 
 The rotation's live `pre_query` window is **3 days** (not the 7 that WII-016 said — corrected there
-2026-08-25). Earliest of the 13 due **2026-08-26 21:20 UTC**; all 13 by roughly **2026-08-27 21:30
-UTC**. **So from 2026-08-28: any of the 13 with no re-filed `contrast_failure` and a visible contrast
-fault is a defect in this promise.** The query is in §5.
+2026-08-25). Earliest of the 13 due **2026-08-26 21:20 UTC**. **The check is valid from 2026-08-28:
+any of the 13 that HAS been re-audited, still has a visible contrast fault, and has no re-filed
+`contrast_failure` is a defect in this promise.**
+
+⚠ **Two ways to get this check wrong, both live:**
+- **"All 13 by 2026-08-27 21:30" is a FLOOR, not a schedule.** New sites pre-empt the queue (§0a),
+  and three arrived on 2026-08-25 alone. **On the day, re-read `site_discovery_rotation` and check
+  which of the 13 were actually swept** — the last query in §5 does it. A site that was never
+  re-audited proves nothing either way.
+- **`returned = 0` is only meaningful for sites that WERE re-audited.** As of 2026-08-25 19:13 it is
+  0 of 56 with **0 of 13 sites swept**, which is the *expected* reading, not a failure. Split the
+  numerator by site before concluding anything.
 
 ### (3) THE TWO COUNTERS STILL HAVE NO READER — owed, and honest about it
 
@@ -141,10 +176,23 @@ log line on a service that restarts is not bookkeeping, it is a hope.**
 
 ### (4) NOT OURS, UNFILED ON PURPOSE — the render audit's timeout rate
 
+> ⚠ **WITHDRAWN 2026-08-25 as an unsupported claim — and this is the interesting part, so read it
+> before re-filing anything.**
+
 [MEASURED 2026-08-24 19:08 UTC] **11 of 20** `render-audit-agent` runs **in one day** ended
-`complete_error`, every one on `Request timed out (code: TIMEOUT)` at almost exactly 3 minutes, and
-that rate **predates this lane's change**. ⚠ **That figure is not reproducible** —
-`orchestration_states` is pruned to ~24 h and those rows are gone. Re-measure before quoting.
+`complete_error`, all on `Request timed out (code: TIMEOUT)` at ~3 minutes.
+**[RE-MEASURED 2026-08-25 19:13 UTC] the table's entire render-audit history is now 5 runs, 08-24
+20:31 → 08-25 14:40, and 0 errored.** Every row behind the 11-of-20 has been pruned.
+
+`0.45^5 ≈ 1.8%`, so five clean runs is real evidence the 55% rate no longer holds — **but three
+things changed together** (two fleet rolls; the load trough, since yesterday's timeouts were during
+an hourly sweep of the whole fleet and today's runs are sparse; and a site mix where three of four
+were created today), **and the comparison can never be redone** because the evidence is gone.
+
+**So: do NOT file a bug asserting the render audit is unreliable, and do not quote the 55%.** If it
+matters, the honest instrument is forward-looking: sample the table daily and keep your own series,
+because the table will not keep one for you. **The lesson generalises past this item — a retained-
+window table cannot support any claim about a trend, only about now.**
 
 Prior art searched 2026-08-24: nothing in `/bugs_open/` or `/bugs_closed/` (nearest is `296`, a
 different subject) and no open `needs_diagnosis`. **Left unfiled deliberately**: a symptom count is
@@ -192,6 +240,15 @@ SELECT (SELECT count(*) FROM withdrawn) AS withdrawn_pairings,
             JOIN site_work_items n ON n.site_id=w.site_id AND n.item_type='contrast_failure'
              AND n.created_at > '2026-08-24 19:11:22+00'
              AND split_part(split_part(n.item_key,':',2),'#',1)=w.page_path) q) AS returned;
+
+-- WHICH OF THE 13 WERE ACTUALLY RE-AUDITED? Run this BEFORE reading `returned` (§4(2)).
+WITH w AS (SELECT DISTINCT site_id FROM site_work_items
+            WHERE item_type='contrast_failure' AND result->>'cancelled_by'='migration_587')
+SELECT count(*) AS affected_sites,
+       count(*) FILTER (WHERE r.last_selected_at > '2026-08-24 19:11:22+00') AS reaudited_since_587
+  FROM w LEFT JOIN site_discovery_rotation r
+    ON r.site_id=w.site_id AND r.agent_type='render-audit-agent';
+-- reaudited_since_587 = 0 → `returned = 0` means NOTHING yet. Do not read it as a defect.
 
 -- IS THE ROTATION IDLE OR STALLED? Never read liveness off last_triggered_at.
 SELECT count(*) FILTER (WHERE s.status IN ('active','deployed')) AS active_sites,
