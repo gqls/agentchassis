@@ -50347,3 +50347,30 @@ population is where all four failures were.
 **What caught it.** Asking, before recommending that the owner enable the sweep, *what would it actually file on the first pass?* — and simulating it rather than repeating what the bug file said.
 
 **The cheap check that would have.** When you narrow a shared predicate, grep your own lane's docs for the population you cited as the motivating case and re-run its census under the NEW predicate. One query, and it is the same rule as re-running a detector on the case that motivated it: **a bound added at a reviewer's request is a change to what your detector can see, not only to what it costs.**
+
+## 2026-08-25 — I read a boolean flag as a human judgement without ever checking its base rate
+
+**The claim, drafted and one edit from being filed in `bugs_open/389`:** *"13 sites show the same
+contradiction — a human hid this page from the nav and the CTA chooser ignored them."* I had the
+query output in front of me: 13 sites whose rank-1 CTA target carries `in_header = false`.
+
+**What caught it:** asking, before writing it down, what `in_header = false` normally means.
+**143 of 228 tool/game pages fleet-wide carry it — 62.7%, the majority state.** It is what a tool
+page looks like by default, not a decision anyone made. The 13 were mostly ordinary rows.
+
+**The cheap check that would have:** one `GROUP BY` on the flag across the whole population,
+**before** attributing meaning to it — `SELECT in_header, count(*) FROM pages WHERE page_type IN
+('tool','game') GROUP BY 1`. Seconds, and it discriminates: had the answer been 5%, the reading
+would have been sound.
+
+**Why this shape is dangerous rather than merely wrong:** the false version was *more*
+compelling than the true one — a 13-site fleet-wide pattern of the system overriding human
+intent, versus one documented instance. **A flag whose base rate you have not measured will tell
+you whatever story you brought to it**, and the more the story explains, the less likely you are
+to go back and check. The one real instance survives only because a person left the words *"a
+password tool doesn't belong in the primary nav"* in the SQL — **intent was legible from the
+comment, never from the column.**
+
+Distilled into `LANDMINES.md` (footprint `pages.nav_order` / `pages.in_header`) and the lane
+RUNBOOK as *"run this first"*. Related tally: the same session's 277 work found a verify query
+that could not fail — both are "the measurement answers the question you encoded".
