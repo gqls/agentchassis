@@ -8,13 +8,39 @@ the build designs; this one corrects the state and adds the fleet tracking work.
 > **council-scoped code change** or a **decision only the owner can make** — nothing is half-applied
 > and nothing is mid-flight. `[ALL FIGURES MEASURED 2026-08-25]`
 
+> **⚠ CORRECTED 2026-08-25 ~17:30 BST (session "apis.uk"), on the owner's ruling and `analytics_gtm`'s
+> CONTRIB of the same day — read this before §1–§4, three of which are now wrong or not ours:**
+> - **Everything Google is `analytics_gtm`'s.** Owner, verbatim: *"section 4 has google in it which is
+>   taken by another lane, please communicate to that lane that that is what they take and we will
+>   take the rest here."* So §2.1–2.3, §4 and §4a are theirs — cold-start
+>   `docs024_key_docs_latest/analytics_gtm/HANDOFF_2026-08-25_continue_here.md`. Told them in
+>   `analytics_gtm/CONTRIB_2026-08-25_from_apis_uk_bees_homepage_owner_ruling_you_take_everything_google_we_keep_the_rest.md`.
+> - **§3 bullet 1 (per-site id in `RenderFallbackHead`) is DROPPED — do not build it.** The seam
+>   already exists and is live (STY-050: `site_specs` `site_config.analytics.gtm_container_id`, read by
+>   `{{if .gtm_container_id}}` in every head template), and `RenderFallbackHead` runs only when the
+>   head component fails to render. `sites.settings->>'analytics_container_id'` has **0** rows and must
+>   stay unused. The structural half (new sites born untagged; third-party guarantee) is
+>   `bugs_open/397` §6.2, theirs.
+> - **§1 "GTM fleet in all 27 heads" was true for six hours.** The 08-24 backfill wrote
+>   `site_components.rendered_html` and no key, so **12 sites — apis.uk among them — carry the tag in
+>   the artefact only** and lose it on their next chrome render; agritec.uk did, 08-24 19:20:53
+>   (`bugs_open/397`). The §1 "our own lock working" line is also over-read: the permanent locks guard
+>   `page_components`, **not the head slot**. The falsifier stands for the sections, not for GTM.
+> - **What THIS lane still owns:** the page; §3 bullets 2 and 3 (per-section subjects; image accuracy
+>   A + C) — grepped 2026-08-25 across `docs024_key_docs_latest/`, `bugs_open/`, `features_open/`:
+>   no other lane carries either (`bugfix_285` reads `PlannedSections` as diagnostic only;
+>   `features_open/018` is a screenshot taste critic, "specified, not built", adjacent to C but not it);
+>   and the two `deferred` `content_rewrite` items.
+> - `039_REFERENCE_traffic_and_tracking.md` lives at **`docs024_key_docs_latest/039_…`**, not in this
+>   directory — a bare `cat` here fails.
+
 ## 1. Verified state — measured just now, not remembered
 
 | | |
 |---|---|
 | apis.uk | HTTP 200, 67,877 B · 6 sections via `illustrated-text-block` · 7 images · **no footer, no email** · GTM present |
 | apis.uk protection | **7 `page_components` `lock_type='permanent'`**, `build_status='deployed'` |
-| GTM fleet | in all 27 `site_components.head` rows; **re-render queue 1,962 complete / 130 queued / 15 failed** |
+| GTM fleet | ~~in all 27 `site_components.head` rows~~ **CORRECTED 08-25: artefact-only on 12 of them, incl. apis.uk — `bugs_open/397`**; **re-render queue 1,962 complete / 130 queued / 15 failed** |
 | the 3 previously held-back sites | `remortgagecalculator.uk` ✅, `robot-hands.com` ✅ — **all covered now** |
 | GA4 | **NOT published** — 0 `Set-Cookie`, no `G-` id on any page. Nothing is being recorded. |
 | `tools.apis.uk` | 200 throughout. **DNS never touched.** |
@@ -23,12 +49,15 @@ the build designs; this one corrects the state and adds the fleet tracking work.
 tool pages, correctly refused), 1 × `assembled to nothing` (a pre-existing defect on
 `idea.uk/tools/ab-test-calculator`, worth telling that lane), 1 × section-component floor, and
 **1 × `overwrite: REFUSED for page "index"` on apis.uk — which is our own lock working.** That is
-the falsifier for the locking decision: a rewrite was attempted and refused in production.
+the falsifier for the locking decision: a rewrite was attempted and refused in production. **CORRECTED 08-25: for the SECTIONS — the lock guards `page_components`, not the head slot, so it does nothing for GTM (`397`).**
 
 ⚠ **apis.uk was `needs_rebuild` again when this handoff was written** — the fan-out re-queued it —
 and was settled to `deployed`. **Check that field before and after anything you do here.**
 
 ## 2. Owner decisions — nothing below can be done for him
+
+> **MOVED 2026-08-25 to `analytics_gtm`** (owner ruling above). All three are Google; their current
+> state is `analytics_gtm/HANDOFF_2026-08-25_continue_here.md` §2. Kept here only as history.
 
 1. **Publish the GA4 tag, or not.** ⚠ **This is a change of compliance position, not a
    continuation.** Measured: five sampled sites set **zero cookies** today, and the container sets
@@ -47,12 +76,14 @@ and was settled to `deployed`. **Check that field before and after anything you 
 
 All three are **council-scope** (they touch `platform/`) and ship with a chassis roll.
 
-- **Per-site analytics id.** Third-party sites need their own tag or none. Read
+- ~~**Per-site analytics id.** Third-party sites need their own tag or none. Read
   `sites.settings->>'analytics_container_id'` in **`RenderFallbackHead`** and emit the snippet only
   when non-empty. **Empty ⇒ no tag. Never hardcode our container.** Falsifier: a site with the key
   unset renders **zero** `googletagmanager` occurrences; one with it set renders exactly one.
   ⚠ **Do this before the next third-party build**, or someone bakes GTM into that function and every
-  third-party site silently reports into our container.
+  third-party site silently reports into our container.~~
+  **SUPERSEDED 2026-08-25 — see the correction block at the top.** The seam is STY-050 and it is
+  `analytics_gtm`'s; the intent (empty ⇒ no tag, nothing hardcoded) is already satisfied by it.
 - **Per-section subjects.** `pages.sections` is `[]string` (`PlannedSections`), so every slot gets an
   identical brief — measured four times; one `content_rewrite` rewrote **all six** sections about
   the same subject. Let an entry be a string **or** `{"component":…,"subject":…}` and thread it to
@@ -65,7 +96,7 @@ All three are **council-scope** (they touch `platform/`) and ship with a chassis
   live action and `tool-acceptance-agent` already uses it in production; `visual-design-auditor` is
   text-only today, so it is a step to add, not a provider to write.
 
-## 4. Traffic and tracking → `039_REFERENCE_traffic_and_tracking.md`
+## 4. Traffic and tracking → `docs024_key_docs_latest/039_REFERENCE_traffic_and_tracking.md` — **`analytics_gtm`'s since 2026-08-25**
 
 Written this session; read it before quoting any traffic number. The two things that matter most:
 
@@ -77,6 +108,9 @@ Written this session; read it before quoting any traffic number. The two things 
   (noted.co.uk: GoogleBot 25/7d — thin, and the number that answers "are we being found").
 
 ## 4a. OWNER REQUEST 2026-08-25 — SPUN OUT TO A NEW LANE (not apis.uk work)
+
+> **The lane exists: `docs024_key_docs_latest/analytics_gtm/` (session "google"), cold-start
+> `HANDOFF_2026-08-25_continue_here.md`.** The walkthrough below is theirs to maintain now.
 
 Owner, verbatim:
 

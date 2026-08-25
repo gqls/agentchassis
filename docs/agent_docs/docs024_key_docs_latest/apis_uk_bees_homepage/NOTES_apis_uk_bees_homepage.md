@@ -1082,3 +1082,55 @@ But `execute_vision_prompt` is a **registered, live action** (`registry.go:1208`
 it in production.** So option C (generate → vision critique → regenerate) is reachable as
 **agent configuration, not new code**, which makes it far cheaper than I first told the owner.
 Inputs it takes: `images_field`, `max_images`, `prompt_template`, `output_type`.
+
+## 2026-08-25 ~17:30 BST (session "apis.uk") — the owner split the lane: Google goes, the rest stays
+
+### Measured first, before believing the 08-25 handoff
+
+`[MEASURED 2026-08-25 ~17:00 BST]` apis.uk: HTTP 200, **67,877 B** (same as the handoff),
+`<h1>A closer look at bees</h1>`, `illustrated-text-block` present, 7 `<img>`, 0 `<footer>`,
+0 `mailto:`, `googletagmanager` ×1 (`GTM-PQ3WCTBD`), **0 `G-` ids, 0 `Set-Cookie`**.
+`pages.build_status='deployed'` (updated 08-24 13:52), 7 `page_components` `permanent`/`deployed`.
+`tools.apis.uk` real endpoint (`POST /api/v1/tools/gauntlet/round`, Origin vonc.com) → **200**;
+the root 404 is the Caddy arm, as the RUNBOOK says. `gtm.js` for the container: version 2,
+`"tags":[]` — still nothing recorded.
+
+Open rows on apis.uk: 6 — the two `deferred` `content_rewrite`, `save_refused_incomplete`
+(historical), `unresolved_cta` (`wont_fix`), a `page_content_divergence` `detected` 08-24 12:42
+(pre-dates the final render; not chased), and **one `page_rerender` `failed` today 11:19 from the
+383 lane** ("canonical re-walk … bugs_open/383 §13") — their commit `9a843c06a` reads "apis.uk
+cannot re-render", i.e. our locks refused it, which is the design.
+
+`[UNEXPLAINED]` `sites.build_status='pending'` since 14:40 today (the page row is `deployed`).
+No writer found by grep for that column on `sites`; no served-page effect; left alone.
+
+### What the peer lane found, and the owner's ruling
+
+`analytics_gtm` (session "google") filed a CONTRIB into this directory and `bugs_open/397`:
+the 08-24 backfill wrote `site_components.rendered_html` and **no `site_config` key**, so 12 sites
+(apis.uk among them) carry GTM in the artefact only and lose it on the next chrome render —
+agritec.uk already did. And §3's "per-site id in `RenderFallbackHead`" design was wrong-place:
+the seam exists (STY-050) and that function is the failure path. **Accepted in full.**
+
+Owner, in this session, on §4: *"section 4 has google in it which is taken by another lane,
+please communicate to that lane that that is what they take and we will take the rest here."*
+
+**Done:**
+- CONTRIB into `analytics_gtm/` (`CONTRIB_2026-08-25_from_apis_uk_bees_homepage_owner_ruling_…md`)
+  stating the split as a table — theirs: GA4 publish + consent, 397's rebuild, 397 §6.2, Search
+  Console, the dashboard script (§2.3, never started), `039`; ours: the page, per-section subjects,
+  image accuracy A + C, the two deferred rewrites. Plus two apis.uk-specific warnings for their
+  `c2` wave (the page refuses re-renders; add this lane to 397 §9).
+- Handoff corrected **visibly** (top block + strike-throughs), not rewritten.
+- Ownership census for the two builds we keep, so "nobody else has it" is a grep and not a
+  feeling: `grep -rln 'per-section subject\|PlannedSections\|section.*subject.*writer'` over
+  `docs024_key_docs_latest/` → `bugfix_285` (diagnostic use of `PlannedSections` only),
+  `copy_quality_two_stage` (names it as a precondition on THEIR experiment, not as work),
+  `finetuning_uk_service`; `bugs_open/` → 0 files. `execute_vision_prompt` in `bugs_open/` +
+  `features_open/` → 231/243/256/257/136 (all about the action's plumbing, not a critique step)
+  and `features_open/018` (screenshot taste critic, "specified, not built" — adjacent to C, not C).
+
+**Misstep, small:** my first two DB queries used columns that do not exist (`pages.slug`,
+`site_components.head`/`content`). The handoff's row names are `pages.name` and
+`site_components.slot_name` + `rendered_html`; the RUNBOOK §5 already had the right shapes and I
+typed from memory instead of reading it. Cost: one round trip.
