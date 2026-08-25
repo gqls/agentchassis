@@ -15,7 +15,32 @@
 > to the pre-fix snapshot. `needs_new_component` ran **5** against **6** the prior day, so nothing
 > broke. §4 below is spent; it is kept as the record of what was owed.
 >
-> ## ⏳ THE ONE REMAINING ACTION — apply migration `610` after the next chassis roll
+> ## ⏳ THE ONE REMAINING ACTION — apply migration `610`, but NOT YET: the fleet is split
+>
+> **Checked 2026-08-25 evening against a fresh build and REFUSED.** `[MEASURED]` the fleet was
+> running **two** chassis builds at once — `4c996e1b5…` on **139** pods (does NOT contain the fix)
+> and `a7459a44b…` on **12** (does). Applying would have broken component creation on 92% of pods.
+>
+> **The precondition in the first version of this handoff was wrong** — *"a build containing the fix
+> is LIVE"* was TRUE and still unsafe. It needed a quantifier: **EVERY live build must contain it.**
+> 610's header now carries the fleet-wide enumeration; use it, not this summary:
+>
+> ```sql
+> SELECT git_commit, count(DISTINCT pod_name) AS pods FROM service_binary_capabilities
+> WHERE service LIKE '%chassis%' AND last_seen_at > now() - interval '30 minutes'
+> GROUP BY 1 ORDER BY 2 DESC;
+> ```
+> `git merge-base --is-ancestor f403113f4 <X>` must be **YES for every X**, and the binary probe must
+> show ABSENT on a pod of **each** build. One NO anywhere → do not apply.
+>
+> ⚠ **How it was caught, because it is the reusable part:** the ancestry check and the binary probe
+> DISAGREED — the stamp query (ordered by `last_seen_at`) returned an old-build pod while
+> `-l app=agent-chassis` returned a new-build one. **If they disagree, STOP; do not pick the
+> convenient one.** A redundant check earns its place when it can disagree.
+>
+> ### (the original framing, kept — its precondition is the one that was wrong)
+>
+> #### apply migration `610` after the next chassis roll
 >
 > Everything else in this lane is done. `610_content_components_drop_dead_usage_count_HOLD.sql`
 > drops the dead column and is **written, tested and deliberately unapplied**. It is `_HOLD` because
