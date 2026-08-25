@@ -18027,3 +18027,18 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/320` §4/§5/§9/§15 · `bugs_open/395` §9 · `WRONG_CALLS.md` 2026-08-25b · register **WII-033** · MEMORY [[prior-art-search-goes-stale]] (an absence is true only when you looked — this is the *other* way it fails: true, current, and about the wrong axis) and [[a-doc-comment-is-not-an-enforcement-mechanism]]
 - **source:** 2026-08-25, jointly by `vigilant_designer_offer_analysis` (which broke the rule) and the `bugs_open/395` lane (which found it, by asking who writes the field). Filed at both lanes' agreement as the most transferable thing either produced that day.
 - **added:** 2026-08-25, `vigilant_designer_offer_analysis` lane
+
+### THE REPO COPY OF A BOX-DEPLOYED CONFIG FILE DRIFTS BEHIND LIVE EDITS MADE ON THE BOX — and scp'ing it over, exactly as the runbook says, silently reverts owner tuning
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/infra/island/docker-compose.yml` · `/opt/island/docker-compose.yml` · any config file whose deploy verb is `scp` to a VM
+- **fires when:** you ship a config file to a box by copying the repo copy over the live one, trusting the repo copy is the newer one because it carries your new block. No symptom, no suspicion — the repo copy IS newer, in the axis you are looking at.
+- **the trap:** the two copies are both "the file", and **each was ahead of the other at once**: the 2026-07-31 `RATE_LIMIT_RPS: "2"` / `RATE_LIMIT_BURST: "20"` tuning was edited live on the box and never committed back (`git log -S'RATE_LIMIT_RPS' -- <repo copy>` returns nothing), while the 08-16 `GRIPPER_*` block was committed to the repo and never shipped. Runbook Tenant 2 step 3 as then written ("the repo copy already carries the GRIPPER block … scp it over") would have shipped the gripper block AND reset the owner's limiter to its 1.0/5 defaults. `scp` reports success, `compose up` reports success, the service runs; the loss surfaces days later as visitors tripping a limit nobody remembers re-tightening — with nothing to connect it to the deploy.
+- **the check (one command, BEFORE any scp of a config file):**
+  ```bash
+  ssh root@toolsapisuk.vs.mythic-beasts.com 'cat /opt/island/docker-compose.yml' \
+    | diff - docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/infra/island/docker-compose.yml
+  ```
+  Every `<` line that is not a comment or the image pin is live state the copy is about to destroy. Merge it into the repo copy FIRST, in the same commit that bumps the tag — then the scp is safe by construction.
+- **relations:** MEMORY [[live-and-committed-are-independent-facts]] · [[seed-sql-is-history-live-row-is-fact]] (the live row is the fact; here the live FILE is). Same family as the kustomize `newTag` pin entry above, with the polarity flipped: there the stale pin BLOCKS your ship and you notice; here the ship SUCCEEDS and destroys someone else's.
+- **source:** gripper-dossier lane, 2026-08-25 — caught by a pre-ship diff of live-vs-repo; merged back in `644d07302`; runbook Tenant 2 step 3 carries the point-of-use correction.
+- **added:** 2026-08-25, gripper-dossier ("AI page 3") lane

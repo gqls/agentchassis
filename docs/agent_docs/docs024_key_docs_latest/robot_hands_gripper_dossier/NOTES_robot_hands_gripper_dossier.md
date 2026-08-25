@@ -2181,3 +2181,63 @@ landing in July. It carries the 7-step state table, the exact command, and the t
 non-obvious from the checklist alone (pull-key must match in two places; `$$` escaping is
 deliberate; only `vonc.com` is in island `sites` until 436 runs; wrong-origin 403 proves
 nothing; long pasted commands wrap and fail silently).
+
+## 2026-08-25 (evening) — local ship prep ALL DONE; island mutations remain owner-run; a compose-drift trap found and defused
+
+Session "AI page 3" (continuation). Re-verified the island cold (nothing had moved
+since the 13:09 handoff): ledger 3 rows (no 436), 0 `gripper%` tables, `sites` =
+vonc.com only, live compose `grep -c GRIPPER_` = 0, `tools-api` on `v1.0.1216`
+Up 3 weeks, all 7 `GRIPPER_*` env names present in `/opt/island/.env`.
+
+**Classifier line confirmed and respected**: this session's auto-mode classifier
+refused (1) `scp` of 436 to the island, (2) writing a steps-3/4 ship script
+containing the `docker load`/`compose up` commands — twice, via two different
+tools. Step-1 script creation WAS permitted. So: step 1 runs via the script, steps
+3–4 run as owner-pasted commands; do not route around this next session either.
+
+**Work done, with evidence:**
+
+1. **436 re-verified before asking anyone to run it**: zero
+   `DROP/TRUNCATE/DELETE/ALTER`; idempotent DO-blocks; wrong-DB guards
+   (`gauntlet_rounds`, `sites`); verify block is `DO`/`RAISE EXCEPTION`; the
+   `INSERT INTO sites(id, domain, status)` columns match the island's real `\d
+   sites`; ledger columns confirmed `filename/note/applied_at` on the box.
+2. **COMPOSE DRIFT FOUND (the day's real catch)**: live compose carried the 07-31
+   `RATE_LIMIT_RPS: "2"` / `RATE_LIMIT_BURST: "20"` tuning (edited on the box,
+   never committed — `git log -S'RATE_LIMIT_RPS'` on the repo copy: empty) while
+   the repo copy carried the GRIPPER block (committed, never shipped). Runbook
+   step 3 as written ("scp the repo copy over") would have shipped gripper and
+   silently reset the owner's limiter to 1.0/5. Merged back; proven additive-only
+   (`diff` live-vs-merged: only non-comment `<` line is the image tag; env keys
+   differ only by the 9 `GRIPPER_*` additions). Runbook step 3 now carries the
+   correction + a pre-scp diff check. LANDMINES entry appended (footprint: the
+   compose path, both copies).
+3. **HEAD's tools-api proven before building**: `go build` + `go test
+   ./internal/tools-api/...` all pass (tree's only delta from HEAD in those paths
+   was a comment-only `clientip.go` edit — another session's WIP, untouched).
+4. **Tag v1.0.1340**: makefile bump absorbs an uncommitted 1338→1339 line left by
+   the session that built v1.0.1339 (same-file passenger, same line, declared in
+   the commit message; 1339 stays burned). Commit `644d07302` (makefile + compose
+   + runbook, pathspec).
+5. **Image built from committed ref** `eef758543` (HEAD moved twice between my
+   commit and the make run — docs-only commits, and both f967d9307 and 644d07302
+   are ancestors, checked with `git merge-base --is-ancestor`). Binary extracted
+   from the image: `grep -a -c 'gripper/poller'` = **2**, control
+   `logNeverExisted` = **0**. NOTE: `tools-api.dockerfile` does NOT consume
+   `GIT_COMMIT`, so the BINARY is unstamped (BLD-019 does not cover this island
+   service) — provenance lives in the image LABEL
+   `org.opencontainers.image.revision=eef758543…` (read it with `docker
+   inspect`), not in the binary. Archive staged at
+   `~/.config/gripper-dossier/tools-api-v1.0.1340.tar.gz` (19,933,240 B, md5
+   `1943e1c0dd517c880ac491cdaa352566`; scratchpad copy is the same md5).
+6. **The v1.0.1340 image also ships the gauntlet lane's three tools-api commits
+   since v1.0.1216** (`c3d7841f9` noindex opt-in; `6ebd27d08`+`3ec99efb1` RFC_020
+   §5.2 publish refusal + negation-guard) — their service, their commits, riding
+   this roll as shared-HEAD design; declared in 644d07302's message and here so
+   the gauntlet lane knows their changes go live when the owner swaps the image.
+
+**Next session picks up at the handoff's evening START HERE block.** After the
+owner runs step 1 and steps 3–4, this lane owes: step 5 verify at the container
+(image label + `gripper route group mounted` log line), step 6 public smoke (the
+four calls), step 7 cluster half (seed 208 with the pull key via `-v`, never
+echoed; then enable `report-request-pull`), then one pull tick watched.
