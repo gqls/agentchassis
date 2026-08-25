@@ -252,3 +252,56 @@ could not have failed — which is exactly the trap I fell into twice today and 
 ### Where to pick this up
 
 `docs/agent_docs/docs024_key_docs_latest/bugfix_378_usage_count_derived/HANDOFF_2026-08-24_continue_here.md`
+
+---
+
+## 2026-08-25 — it works, and we can close it
+
+Yesterday I said the fix was live but I would not call it done, because nothing had been built since
+it shipped, so the broken counter sitting still proved nothing. Overnight the platform did plenty of
+work, and the answer is now unambiguous.
+
+Since the fix went live the platform has built **403** component slots across **125** pages, run the
+page builder **73** times, run **880** re-renders, and created **5** new components. Through all of
+that the old counter has not moved by a single digit — every value identical to the snapshot I took
+before the change. Under the old code it would have been ticking up throughout.
+
+Nothing broke either, which is the other half of the check: requests for a brand-new component ran at
+**5** overnight against **6** the previous day, and requests for missing section data went from three
+to none. If my change had broken the component chooser, both would have spiked.
+
+**So: the bug is closed.** It has moved to the closed folder with the full evidence attached.
+
+### The thing I keep learning
+
+Three times in this piece of work I produced a clean, reassuring result and the control showed it was
+worthless. Yesterday I "proved" my fix was in the build by comparing it against a commit that turned
+out not to test anything. The day before, a frozen counter meant nothing because nothing had run.
+And this morning I checked the logs for errors, found none, then checked whether those logs contained
+*any* relevant lines at all — and they did not. The subsystem writes to different pods entirely.
+
+None of those were near-misses in the sense of nearly shipping a bug. They were near-misses of a
+different kind: I nearly wrote down three separate "verified" claims that could not have come out any
+other way. **The pattern is that the comforting answer is precisely the one that needs the control.**
+
+### One new bug, found sideways
+
+While answering the reviewers I turned up something unrelated and larger, now filed as **bug 388**.
+When the platform asks a component to be rebuilt, it tells the writer *"preserve these field names"* —
+but the part that then enforces the result picks a **different** component to compare against. Two
+different pieces of code look up the same thing in two different ways, and on **27 of 117** section
+types they disagree.
+
+It is not new and it is not caused by my change — my change actually reduced the disagreement from 29
+to 27. But nobody owned it, so it now has its own file with the evidence and a reproducible query.
+
+### One small thing still owed
+
+The old column is now dead — nothing writes it, nothing reads it. I deliberately left it in the
+database so the code could be rolled back safely; now that the code has been live for a day, that
+reason has expired. A one-line migration should mark it as superseded so nobody quotes it in six
+months. It needs its own review round, so it is a small separate job rather than part of this one.
+
+### Where the record is
+
+`docs/agent_docs/docs024_key_docs_latest/bugfix_378_usage_count_derived/HANDOFF_2026-08-24_continue_here.md`
