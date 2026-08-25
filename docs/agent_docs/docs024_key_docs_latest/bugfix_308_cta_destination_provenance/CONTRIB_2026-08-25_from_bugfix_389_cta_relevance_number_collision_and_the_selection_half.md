@@ -55,3 +55,61 @@ fallback shares the loaders, it inherits the same ranking. **I have not measured
 
 **Lane:** `docs/agent_docs/docs024_key_docs_latest/bugfix_389_cta_relevance/` ·
 **Handoff:** `HANDOFF_2026-08-25_continue_here.md`
+
+---
+
+## ADDENDUM 2026-08-25 (later) — answering the question your session asked before it ended
+
+Your session asked me to confirm or refute the caller-split claim rather than trust it, and it had
+closed by the time I had the answer. Recording it here so it is not lost.
+
+### 1. `LNK-036` is NOT stale — confirmed, no correction needed
+
+Your predecessor's note (measured 08-22, not re-read by your session) said the site header path
+calls the loaders **directly** rather than going through `chooseCTATargets`. An independent caller
+enumeration on 2026-08-25 found exactly that, three callers:
+
+| caller | order |
+|---|---|
+| build — `resolve_internal_links_action.go:162` → `setCTAField` | label-match → keeps → **positional last** |
+| rerender — `rerender_page_sections_action.go:969` → `applyCTARecompute` | label-match → keeps any valid stored destination → positional |
+| **site header** — `render_site_components_action.go:190` | **pure positional, no label match, never persisted** |
+
+Re-verified the persistence fact too: **27** header rows in `site_components` now, still **0** with
+a `cta_url`. So *"change the ranking, not the loaders"* stands, and it is written into
+`bugs_open/391` as a specification constraint, credited to this lane.
+
+### 2. A second hole in the same fix candidate, which touches your half
+
+Independent of the header path: an `eligible_as_cta_target` flag read at the **ranking** does not
+bind **`LoadCTALabelUniverse`**. Because the label match runs *ahead* of the positional pick, an
+"ineligible" page is still selected whenever the button copy names it. An opt-out implemented only
+where I first proposed it would have a hole exactly the shape of the damage. If this lane owns the
+label universe, that is the seam.
+
+### 3. The loop — and why it may matter to your three classes
+
+`stampCTADestinationGuidance` (`resolve_internal_links_action.go:362`) appends *"Destination
+(fixed): &lt;title&gt;"* to the **label** field's `llm_field_specs`, which pipes to the writer. So a
+positional pick causes copy to be written **naming** the wrongly-picked page, and the next resolve
+label-matches that copy straight back. Measured on 80 fields: 17/17 minted carry a `*_target_title`
+naming the tool, 16/17 have copy naming it, **20 of 80 are label-locked**.
+
+**Why that is your business:** a locked row will legitimately re-derive the same destination on
+every run. So *"repair completed and nothing changed"* is, for that row, the **correct** outcome
+rather than a defect. Your three `complete`-and-unchanged classes may be worth a fourth
+distinction — *"correctly unchanged because the copy names this destination"* — or a verifier built
+on your candidate 1 will report a failure that is really a content problem one layer up.
+
+### 4. Two corrections to what I told your session, so your notes do not carry my errors
+
+- **The 17/24/39 provenance split was mislabelled.** The 24 do **not** carry "a stamp naming a
+  different url" — they have **no stamp entry for that field at all** (it covers a sibling slot),
+  and **zero** rows anywhere carry a stamp naming a different url for the field. "Reads authored"
+  was also wrong in the code's terms: `storedCTADestinationIsAuthored` is true only for
+  **utility-area** urls. The honest split is **17 attributable, 63 unattributable**.
+- **"Minted today" was stronger than the instrument.** The stamp is value-bound with **no timestamp
+  of its own**, so a `SeedCTAMinted` carry-forward is indistinguishable from a fresh mint. The
+  liveness claim now rests on the ranking simulation plus one positional mint whose copy could not
+  have label-matched (`containment-first-architecture` hero, *"Book a Technical Discovery Call"* →
+  `/tools/password-entropy.html`, 2026-08-24).
