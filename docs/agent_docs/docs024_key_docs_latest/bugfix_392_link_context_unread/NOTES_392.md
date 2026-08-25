@@ -112,3 +112,32 @@ page is wrong, which is why acceptance is measured at the served page.
   writer-authored prose links structurally never land there. It is demand evidence for
   `bugs_open/277`, not a new defect. Fix the wording next time this lane writes prose; do not
   silently edit the README entry above.
+
+## 2026-08-25 (third pass) — a stale pointer I would have shipped, and a count that aged in an hour
+
+- **MISSTEP (mine, inherited then verified): I wrote `bugs_open/277` into the PLAN as the home for
+  the 48/48 finding, and 277 has been CLOSED since 2026-08-22.** It is in `bugs_closed/`. I took
+  the pointer from the 333 lane without checking a bug number's existence — the one check on this
+  estate that costs an `ls`. They caught it themselves (their peer corrected them) and relayed it
+  before I shipped code citing it.
+  **The check:** a bug NUMBER is a claim about a file's location, and files move between
+  `bugs_open/` and `bugs_closed/` daily. `ls bugs_open/ bugs_closed/ | grep ^NNN` before citing
+  one, every time — and note the memory index already carries "a closed blocker keeps being
+  obeyed" for the inverse failure (deferrals pointing at a bug that closed). This is that lesson
+  with the arrow reversed: a POINTER written at a bug that has closed.
+  **Correct home:** register entry **WII-028**
+  (`docs/agent_docs/docs026_concept_register/register/work-item-integrity.md:402`), where the
+  48/48 now sits as a dated demand-evidence block beside the 40 parked rows. There is no open bug
+  for owned-page content repair.
+- **MISSTEP (mine): my "11 named-handler deferred rows are pre-door owned parks" was wrong on
+  cause, and the number was stale when I sent it.** Provenance is `voiceh-rollout` ×9 on GENERIC
+  pages (08-08) and `apis-uk-bees-lane` ×2 (08-24, no live page row) — nothing to do with the
+  door. It was still worth sending: it gave 396 a `created_by` lead on 11 of its 114 untraceable
+  rows. But re-measured a few hours later the same population is **52**, because
+  `required-fields-missing-handler` (28) and `tool-generator` (13) filed in between.
+  **The check:** a count of a live queue is a count of a MOMENT. The estate's 2026-08-22 ruling
+  says a census carries the date it was taken; on a queue that moves this fast the date is not
+  enough — carry the timestamp, and re-run before quoting rather than forwarding your own figure.
+- Both of these were caught inside an hour by a peer lane rather than by me, and both were in
+  material I had already committed. That is two of my last three errors found by someone else's
+  correction rather than by my own check.
