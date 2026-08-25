@@ -269,3 +269,41 @@ their `bugs_open/277` pointer (theirs wrong), my named-handler cause attribution
 and this one (theirs wrong, and worse than my report of it). Plus one settled scoping exchange
 with `webdesign_tool_rebuilds`. **The channel was worth more than any single fix in it** — and in
 four of the six the working tree or a subagent report was the thing that lied.
+
+## 2026-08-25 (seventh pass) — council REVISE, answered with evidence; and a landmine that caused the objection
+
+- **Round 1 verdict: REVISE**, gating objection from `editquality`, run completed 16:41Z. The
+  objection was **fair, specific, and conditional** — it cited `LANDMINES.md:4711`
+  (*"page-build-handler's content writer never sees a page's OWN stored prose unless
+  `spec.mode=\"recreate\"`"*) to ask whether my `mode='edit_live'` item leaves the writer with no
+  prose at all, which would undermine the whole point of using `edit_live`.
+- **Answered with the live wiring, not with prose.** The landmine was added **2026-08-03** and
+  contains **zero** occurrences of `edit_live` — that channel shipped afterwards (migration `299`)
+  precisely to close the gap the entry describes. Verified in the live `page-build-handler`
+  definition: the workflow runs **both** `load_existing_content` (which still no-ops for anything
+  but `recreate`, exactly as the landmine says) **and** `load_current_section_content`, whose
+  config is `{"mode": "input_data.spec.mode"}` and whose `output_field` is **`section_plan`** —
+  and `call_content_writer`'s `input_mapping` carries `"section_plan": "section_plan"`. So under
+  `edit_live` the writer **does** receive each ready section's current `rendered_html`; it arrives
+  on a different key from the one the landmine watches (`existing_content?`), which is exactly why
+  the gap is invisible if you only check that key.
+- **The landmine got a dated addendum**, because it produced a good-faith false objection and
+  would produce more. It is not *wrong* about what it names — it is **scoped to a world with one
+  channel**, and a reader cannot tell that from the text. **A landmine that predates its own
+  remedy reads as current for ever**, which is this file's own staleness class turned on itself.
+  What still stands is sharpened, not softened: an emitter leaving `spec.mode` UNSET gets neither
+  channel and the writer fabricates from guidance text alone — the original `bugs_open/178` defect.
+- **Round 2 resubmitted** on the same trail (`RESUBMIT_CORR`), submission corr unchanged
+  `7d923ff6-3810-4f2b-9000-e02df68a6b9e`, run `357abaf6`, orchestration `09d43dd1`.
+- **⚠ My landmine addendum was SWEPT into another lane's commit** (`358a4ae4a`, a LANDMINES format
+  fix from a different session) as a same-file passenger — my own `git commit <path>` then printed
+  nothing because there was nothing left to commit. Verified present in HEAD; **nothing lost**,
+  forward-only holds, and it is recorded here because `git log` will otherwise attribute the
+  addendum to a commit about something else entirely. This is the documented same-file-passenger
+  case, from the receiving end for once.
+- **One more claim of mine turned from asserted into proven.** I had written that the registry
+  flip was "validated by the checker's tests". Rather than leave that, I mutated the registry
+  three ways and ran `go test ./cmd/config-key-audit/`: reader pointing at a non-existent file →
+  **killed**; reader pointing at a real file that does not contain the code → **killed**;
+  `reader_sink` removed → **killed**. So the DBG-075 arms genuinely bind, and the pass is not
+  vacuous.
