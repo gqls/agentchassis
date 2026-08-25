@@ -53770,3 +53770,38 @@ corroborate a count that matters from a second source.
 Family: a-control-validated-where-nothing-broke-has-not-been-shown-to-discriminate,
 count-controls-are-blind-to-replacement, a-churn-figure-is-only-as-good-as-its-baseline,
 a-prefix-grep-counts-the-family-not-the-member.
+
+---
+
+## 2026-08-25 — a "no database call happened" assertion that could not detect a database call, twice
+
+**Lane:** `bugs_open/384`, closing a council objection on RFC_052's `ConsumesAny`.
+
+**What I claimed.** That my new test proved a directory profile with no declared sources is
+refused BEFORE the consumer lookup runs. The test used `sqlmock` with **no** `ExpectQuery`
+declared, on the reasoning that "any database call at all is then a failure", and asserted
+`mock.ExpectationsWereMet()`.
+
+**What was true (attempt 1).** `ExpectationsWereMet()` only reports DECLARED expectations that
+went unmet. It says nothing about calls you never declared. With the guard disabled the lookup
+ran, sqlmock rejected the unexpected call, the function returned 0 for the wrong reason, and
+"no unmet expectations" was **vacuously true**. The test passed under mutation.
+
+**What was true (attempt 2), and this one is subtler.** I rewrote it with a recording
+`QueryMatcherFunc` and asserted the recorded list was empty — and it STILL passed under
+mutation. sqlmock invokes the matcher only while matching a call against a DECLARED
+EXPECTATION; with none declared it rejects the call before the matcher runs, so the recorder
+records nothing whether or not a query was issued. **The recorder needs an unused expectation
+present in order to be able to record.** Adding `mock.ExpectQuery(".*")` — deliberately unused
+when the guard holds — is what finally made the mutation red.
+
+**What caught it.** Running the mutation. Nothing else could have: all three versions passed
+the happy path identically, and two of them passed the mutation too.
+
+**The cheap check that would have.** For any assertion of the form "X did not happen", ask what
+mechanism would have RECORDED X happening, and confirm that mechanism is armed. A negative
+asserted through a library's own bookkeeping is usually asserting nothing — and a recorder that
+is bypassed on the failure path is the same trap wearing better clothes.
+
+Family: [[mutate-the-code-to-prove-the-guard]] (a mock's own bookkeeping cannot assert a
+NEGATIVE — this is that entry's second and third forms), a-post-fix-zero-needs-a-demand-control.

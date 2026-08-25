@@ -420,6 +420,27 @@ func queueDirectoryPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UU
 	// with item_key `page_rerender:<page>`. Only the page SELECTION moved. The
 	// news cousin's CORRECTED block records what changing a route costs, and
 	// this file is not the place to find out again.
+	// A profile with no declared sources is a MISCONFIGURATION, and it must not
+	// look like "this kind has no consumers" (council round e1d32ca2 — the
+	// architecture and editquality seats raised this independently, and it was
+	// this plan's own risk 3).
+	//
+	// ConsumesAny is a predicate: it returns false for an empty base list, which
+	// is the right answer to the question it is asked. But that makes the
+	// FAILURE MODE silent one level up — add a seventh directory kind, forget to
+	// populate SnippetSource/ListingSource, and this function notifies nobody for
+	// ever, returning 0 exactly as it does for a site that genuinely carries no
+	// directory page. Nothing errors, and the kind simply stops re-rendering.
+	// So the caller, which knows an unpopulated profile is a bug, says so.
+	if strings.TrimSpace(profile.SnippetSource) == "" && strings.TrimSpace(profile.ListingSource) == "" {
+		logger.Error("queueDirectoryPageRerenders: directory profile declares NO query sources — no page can match, so this kind will never re-render; this is a missing profile field, NOT an absence of consumers",
+			zap.String("kind", profile.Kind),
+			zap.String("snippet_component", profile.SnippetComponent),
+			zap.String("listing_component", profile.ListingComponent),
+			zap.String("fix", "populate SnippetSource/ListingSource with the query.* bases those components declare (directoryPublishProfiles)"))
+		return 0
+	}
+
 	consumers, err := queryresolve.ConsumerPages(ctx, db, siteID, queryresolve.DepDirectoryEntities, logger)
 	if err != nil {
 		logger.Warn("queueDirectoryPageRerenders: consumer lookup failed", zap.Error(err))

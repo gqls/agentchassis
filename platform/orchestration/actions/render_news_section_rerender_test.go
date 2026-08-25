@@ -131,3 +131,81 @@ func TestQueueDirectoryPageRerendersFiltersOnPageStatus(t *testing.T) {
 			"it will re-render and re-publish archived pages, exactly as its news cousin did: %v", err)
 	}
 }
+
+// A directory profile with no declared query sources must FAIL LOUDLY, not
+// notify nobody (council round e1d32ca2 — the architecture and editquality
+// seats raised this independently, and it was the plan's own risk 3).
+//
+// The shape being guarded: ConsumesAny is a predicate and correctly returns
+// false for an empty base list, so a seventh directory kind added without
+// SnippetSource/ListingSource would match no page, queue nothing, and return 0
+// — indistinguishable from a site that genuinely carries no directory page.
+// This asserts the caller refuses BEFORE querying, which is what makes the
+// difference observable: an unpopulated profile must not even reach the lookup.
+func TestQueueDirectoryPageRerendersRefusesAProfileWithNoSources(t *testing.T) {
+	// ⚠ NOT `newRetractMockDB` with no ExpectQuery — that CANNOT express this.
+	// sqlmock's ExpectationsWereMet() only checks that DECLARED expectations were
+	// met; it says nothing about calls you never declared. Written that way this
+	// test PASSED with the guard disabled (mutation-verified 2026-08-25): the
+	// lookup ran, errored for want of an expectation, returned 0, and the "no
+	// unmet expectations" assertion was vacuously true. A mock's own bookkeeping
+	// cannot assert a NEGATIVE. So RECORD the calls and assert the list is empty.
+	var seen []string
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherFunc(func(_, actual string) error {
+		seen = append(seen, actual)
+		return nil
+	})))
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	// ⚠ The expectation is REQUIRED for the recorder to record. sqlmock only
+	// invokes the matcher while matching a call against a DECLARED expectation;
+	// with none declared it rejects the call before the matcher runs, `seen`
+	// stays empty either way, and this test passes under mutation. That is the
+	// second way this same assertion failed to assert anything — verified by
+	// mutation twice, 2026-08-25. An UNUSED expectation is the point here: if
+	// the guard holds nothing consumes it, and `seen` is what carries the claim.
+	mock.ExpectQuery(".*").WillReturnRows(sqlmock.NewRows([]string{}))
+	siteID := uuid.New()
+
+	queued := queueDirectoryPageRerenders(context.Background(), db, siteID,
+		directoryPublishProfile{
+			Kind:             "newly-added-kind",
+			SnippetComponent: "newly-added-directory",
+			ListingComponent: "newly-added-directory-listing",
+			// SnippetSource / ListingSource deliberately unset — the exact
+			// omission a future profile author would make.
+		},
+		zap.NewNop())
+
+	if queued != 0 {
+		t.Errorf("queued = %d, want 0", queued)
+	}
+	if len(seen) != 0 {
+		t.Fatalf("an unpopulated profile reached the database (%d quer(ies), first: %.120s) — it was treated as a real question instead of refused as a misconfiguration", len(seen), seen[0])
+	}
+}
+
+// ...and the control: a profile WITH sources must still reach the lookup. Without
+// this, the guard above would pass just as well if the function had been broken
+// to refuse everything.
+func TestQueueDirectoryPageRerendersStillRunsForAPopulatedProfile(t *testing.T) {
+	db, mock := newRetractMockDB(t)
+	siteID := uuid.New()
+
+	mock.ExpectQuery(`p\.status IN \('active', 'deployed'\)`).
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "url", "domain", "component", "input_schema"}))
+
+	_ = queueDirectoryPageRerenders(context.Background(), db, siteID,
+		directoryPublishProfile{
+			Kind:          "model",
+			SnippetSource: "model_directory", ListingSource: "model_directory_full",
+		},
+		zap.NewNop())
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("a populated profile must still query the consumer lookup: %v", err)
+	}
+}
