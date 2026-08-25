@@ -52801,3 +52801,28 @@ the one to carry: **two sessions' counts differing by one are a predicate differ
 query STRING produced both** — paste the other side's predicate and run it before asserting anything
 moved. The register line now states its predicate beside its number, which is the durable form of the
 fix: a count without its predicate is not comparable to any other count.
+
+## 2026-08-25 — `analytics_gtm` (session "google"): three lanes over 25 days told the owner "analytics is on" and it had never recorded a byte — and a fleet backfill that read 27/27 was reverting six hours later
+
+Three claims, three lanes, one instrument nobody used. **07-31, `analytics_gtm`**: "analytics cookies
+now fire on 14 domains … they're all running analytics" — the README to the owner. **08-24,
+`apis_uk_bees_homepage`**: "All 27 heads now carry it … GTM is live across the estate". **08-25,
+`dartsonline_traffic`** in LANDMINES: "A GA4 tag was added the evening of 2026-08-25". What every one
+of them measured was the *snippet on the page*. What none of them measured was the *container the
+snippet loads*: `curl https://www.googletagmanager.com/gtm.js?id=GTM-PQ3WCTBD | grep -o 'G-[A-Z0-9]*'`
+— empty, version 2, `"tags":[]`, on 08-25 at 16:06 BST and (per the owner's own screenshots) on
+08-24 too. A container with no tags sets no cookie and records nothing, so the 07-31 consent worry
+was raised about cookies that were never set, and "live across the estate" described a script that
+loads and does nothing. **The cheap check:** fetch the container, not the page — it is the only
+artefact that can say whether anything is recorded, and it is one curl. Now
+`analytics_gtm/scripts/check_gtm_state.sh`.
+
+The second half is a census that was true and went false by *reversion*, not addition. "27/27 heads
+carry it" was measured correctly at 13:13 on 08-24 against `site_components.rendered_html`; by 19:20
+agritec.uk's head had been regenerated from its template and the tag was gone, because the backfill
+had written the cache and not the `site_specs` key the template's `{{if}}` reads (`bugs_open/397`,
+LANDMINES 2026-08-25). **What caught it:** asking, before publishing a GA4 tag, *which* sites would
+report — a question that forces the spec/artefact split — and then running the disconfirming query
+("any head re-rendered since the backfill that kept the tag?"), which returned a loss instead.
+**The cheap check:** when a value on a page comes from a template, `grep` the template; if the value
+is inside `{{if .x}}`, the census must count `x` in the spec, not the value in the artefact.
