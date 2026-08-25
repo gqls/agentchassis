@@ -328,3 +328,34 @@ that the current receipt isn't enough).
 
 Handoff, updated with today's state at the top:
 `docs/agent_docs/docs024_key_docs_latest/bugfix_327_silent_publish_drop/HANDOFF_2026-08-24_continue_here.md`
+
+---
+
+## 2026-08-25b — you're closing it; here's what I've left you
+
+**A closing summary is written.** I checked whether it was warranted rather than assuming: the
+test is whether the five headings would say something genuinely different from the last one, and
+two of them do — "where we are now" goes from a queue of eleven with an open bug to finished, and
+"where we're going" from a migration plan to two optional improvements. The deciding argument is
+simpler though: **the newest summary is what someone reads months later**, and yesterday's says
+eleven files remain. Once they don't, that's actively misleading. The earlier two are untouched;
+the wrong turns live in them and that's the part worth keeping.
+
+**The two open questions now have their own file**, deliberately outside the bug, because a
+question left inside a closed bug is exactly how one gets forgotten.
+
+**Two things bite when you move the file, and neither is obvious.**
+
+The smaller one: 66 files mention the path `bugs_open/327`, and all of them point at nothing the
+moment it moves. My advice is to leave them alone — they're explanations of why some code looks the
+way it does, not instructions anyone will follow, and a search for "327" still finds the bug in its
+new home. Rewriting 66 files to fix a cosmetic path would be the worse trade.
+
+The one that actually matters: **both bugs numbered 327 will then be in the same folder.** Right
+now you can tell them apart by where they live — the open one is the dispatch drop, the closed one
+is the spec-write bug. After the move that distinction is gone, and someone has already confused
+the two once in a live handoff. Worth putting a line in the closing commit message saying which
+327 it is, because that's where the next person will meet it.
+
+Both points are written into the handoff as a closing checklist so you don't have to hold them in
+your head.
