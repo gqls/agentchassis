@@ -1490,3 +1490,100 @@ That control has to be manufactured deliberately.
 
 Everything is committed, and the next session starts from
 `docs/agent_docs/docs024_key_docs_latest/vigilant_designer_offer_analysis/HANDOFF_2026-08-25_continue_here.md`.
+
+---
+
+## 2026-08-25, afternoon — the loop closes: the system now reads its own homework back
+
+Yesterday we got the analyser to write down, for each thing it says is wrong with a page, a small
+test a machine can run. Three of those went live on webdesign.co.uk. And then one of them proved the
+thing we had suspected for weeks: an item was marked **done** — page rebuilt, deployed, commit
+recorded — while the test it had set itself was still failing.
+
+Nothing read those tests. That was the whole point of yesterday's handover: build the half that
+reads them.
+
+**That half is now built, reviewed and committed.** It is a check that runs in the moment between
+"the agent says it finished" and "the system writes down that it's done". If the item set itself a
+machine-checkable test, the check re-runs that test against the page as it stands right now.
+
+### What it does today, and what it deliberately does not do
+
+It **records**. It does not refuse.
+
+That is the one decision worth explaining, because refusing sounds obviously better.
+
+The problem is that every single test we have ever had is currently **failing**. All three. We have
+never once seen this check say "yes, that's fixed" about a real page. So if I switched on refusing
+today, and it started blocking things, I would have no way to tell the difference between a check
+that is working and a check that simply says no to everything. That is not a hypothetical worry —
+it is the exact mistake this lane has made before, and the bug file says so in as many words.
+
+So it watches, and it writes down its verdict on every item it looks at — **including the ones it
+passes**. That last part matters more than it sounds. If it only recorded failures, then a check that
+had quietly stopped working would look identical to a check that was passing everything. Recording
+the passes is what makes the difference visible.
+
+### And it will not be allowed to just sit there watching for ever
+
+The honest risk with "we'll only watch for now" is that watching becomes permanent because nobody
+remembers it was meant to be temporary. So the promotion is wired to **break the build**.
+
+There is a separate, older mechanism that can quietly mark items done when they time out, going
+round every check we have. The moment anyone flips this from watching to refusing, the build fails
+until they have also closed that side door. It is not a note in a file that someone has to read. The
+code will not compile.
+
+### Two things I got wrong, both worth telling you
+
+**First, I nearly built it for the wrong reason.** Yesterday's handover explained *why* the check had
+to go in one particular place, and I was about to copy that explanation into the new code. It was
+wrong — it was an argument about a different check, answering a different question, and it happened
+to be sitting nearby. The conclusion was right; the reasoning was borrowed. I had also written that
+same wrong reasoning into the main debugging guide the day before, so I have struck it out there
+with a note saying what it should say.
+
+The lesson I'd take from that: when a handover gives you a decision *and* its justification, the
+justification is the part to re-check. It was written about whatever was in front of that author.
+
+**Second, and this one nearly shipped something useless.** When the analyser writes one of these
+tests, the system stamps a little record onto it — "checked on this date, verdict: failing". Perfectly
+sensible. But the checker that reads these tests is strict about what it will accept, and it does not
+recognise that stamp. So if you hand it back a test straight out of the database, it says "I can't
+read this" — **every time, for every test we have.**
+
+The check would have run, reported no problems, and been completely blind. And the message it gives
+reads like the analyser wrote something malformed, so the natural reaction would be to go looking in
+entirely the wrong place.
+
+What makes this worth telling you rather than just fixing: **no test would have caught it.** The one
+test we have that uses real live data types the tests out by hand, without the stamp — so it was
+testing a shape that does not exist in the database. I found it by reading the live record next to
+the rules, not by anything failing.
+
+### The review
+
+Fourteen reviewers, approved first time round, with five advisory notes and nothing serious.
+
+One of them was worth the whole exercise. A reviewer asked whether there was a *second* route by
+which items get marked done that would go round my new check entirely. There is such a route, it is
+a known trap, and I had not checked it. I went and looked: it turns out that route uses the same
+door I am standing in, so the check does cover it — and 1,600 of the 1,638 items of this kind in our
+whole history went through exactly that door, including the one this bug is about. But 38 of them,
+about 2%, spread over five months, went through something else. Nothing is lost today, because none
+of those 38 ever had a test attached. It is written down as the thing to deal with before switching
+refusing on.
+
+Two other reviewers, independently, made the same broader point: this is now the **fourth** check
+bolted onto the same piece of machinery, each one hand-wired the same way. Neither blocked it, but
+one asked that it be *named* rather than quietly absorbed. So I have written it up as a proposal for
+you rather than burying it in a commit message — with a recommendation that we do the small version
+(share the one piece that genuinely repeats) rather than build a framework around four examples.
+
+### Where this leaves us
+
+The producing half and the reading half now both exist. Nothing is prevented yet — that is
+deliberate, and it is waiting on one thing: **the first time this check sees a page that has
+genuinely been fixed and says so.** After the next fleet update I want to run the analyser again and
+watch for that. Until it happens, we have a check that has only ever seen failure, and I am not
+willing to give that authority to block anything.
