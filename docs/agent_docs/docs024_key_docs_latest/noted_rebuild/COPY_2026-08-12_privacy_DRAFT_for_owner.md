@@ -54,6 +54,14 @@ delete it. Many services disclose exactly this in one sentence; some say nothing
 mine.** If you want it, it would sit at the end of "Removing things" and needs to
 name the real retention, not a rounded number.
 
+> **RESOLVED 2026-08-25 (owner approval in chat):** the sentence exists now, at
+> the end of "Removing things" below. The facts behind it were re-measured the
+> same day: deletion is immediate and mechanised (engine `DELETE /api/account`,
+> live-proven); media lives in B2 and is deleted at once, and NO media has ever
+> sat in the pg dumps (0 Postgres-resident rows measured 2026-08-25); text
+> persists in the encrypted dumps bounded by the 30-day offsite object lock
+> (box retention is 14 days — 30 is the honest outer bound).
+
 ---
 
 ## THE DRAFT
@@ -83,7 +91,10 @@ ever do one thing on this page, do that one.
 
 **Removing things.** Deleting a note takes it out of your account. If you would
 rather none of it were here, you can close your account, and what is in it goes
-with it.
+with it. Closing your account deletes everything at once — notes, recordings,
+photos and videos. Copies of your text linger in our encrypted backups for up to
+30 days before they age out; your photos, recordings and videos are not in those
+backups, so they are gone the moment you delete.
 
 **Getting in touch.** If you want to know what we hold for you, or you want it
 removed, write to noted@contactforsales.com.

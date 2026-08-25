@@ -91,9 +91,12 @@ def main():
     # Non-blocking style flags from the writer_block.
     style = ["seamless", "effortless", "powerful", "revolutionise", "unlock"]
     found = [w for w in style if re.search(rf"\b{w}", text, re.I)]
-    nums = re.findall(r"\b\d[\d,.]*\s*(?:%|users|customers|notes)\b", text, re.I)
+    # Widened 2026-08-25: the original shape-list (%/users/customers/notes) was
+    # marketing-figures only, so "30 days" sailed past as "none" — a blind spot
+    # reported as a pass. Time and size units are figures too.
+    nums = re.findall(r"\b\d[\d,.]*\s*(?:%|users|customers|notes|days?|hours?|MB|GB)\b", text, re.I)
     print(f"  writer_block style words: {found or 'none'}")
-    print(f"  figures (there are no registered facts, so any number is invented): {nums or 'none'}")
+    print(f"  figures (check each against evidence_base facts — unregistered = invented): {nums or 'none'}")
     return 0
 
 

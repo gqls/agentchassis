@@ -192,3 +192,12 @@ to their owners for the first time.
    mechanism exists — a page that offers storage nobody can buy is exactly the
    claims-without-mechanism class bugfix 161 exists to prevent. The in-product
    meter already states the allowance factually.
+
+### The paid-tier copy — APPROVED wording (owner, 2026-08-25), HELD for the mechanism
+
+Approved with one cut (the "first 50 MB stays free either way" sentence). Ships
+the day a purchase mechanism exists, not before:
+
+> Every account comes with 50 MB of space for photos, recordings and video —
+> free, and plenty for note-taking. If you need more, you can buy more, and the
+> price is shown before you pay anything.
