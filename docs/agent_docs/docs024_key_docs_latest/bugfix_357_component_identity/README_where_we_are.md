@@ -473,3 +473,66 @@ twenty-two live pages on the strength of a mechanism nobody has watched do its j
 **Can we close this?** No — not yet. The thing the bug complains about is still true of
 every one of the twenty-two pages. What is finished is the foundation: the recording
 works, at volume, and its most dangerous failure mode has now been shown not to happen.
+
+## 2026-08-25 (afternoon) — we ran the adoptions, and they found the thing that has been blocking us
+
+You asked me to run an adoption, and offered cv1.co.uk and lampenkap.com. I ran both,
+cv1 first, as you chose. Both went through cleanly. Neither produced the result we were
+after — **and the reason why is the most useful thing this lane has learned all week.**
+
+**First, a piece of luck worth owning up to.** I told you lampenkap was the surer bet,
+because its front page has a working calculator on it and cv1's front page has no
+interactive code at all. **I had that exactly backwards.** The platform decides what
+counts as an interactive page by reading the crawled site with a model, not by looking
+for code — and it judged cv1's two pages interactive and lampenkap's calculator page
+not. Had you taken my recommendation and run only lampenkap, we would have got nothing
+at all. You said run both, and that is the only reason we have a result.
+
+**What happened.** Both cv1 pages went to the tool rebuilder, exactly as we needed. It
+wrote two complete tool pages — twenty-six thousand and twenty-one thousand characters.
+I checked those against every condition the new mechanism needs, and **all of them were
+perfect.** This was the moment the mechanism was built for.
+
+**And then the save was refused, by something else entirely.**
+
+There is a separate safety rule that stops a rebuild replacing a good page with a
+thinner one. It works by comparing how many sections the rebuild produced against how
+many the page is *planned* to have. A tool page is one single block by its nature — so
+it produced one. The plan for those pages said four and three. One out of four is 25%,
+and the rule refuses anything under 50%. So it threw the whole save away.
+
+**Here is why that is a fault and not the rule doing its job.** The same piece of
+software makes both decisions, moments apart: it decides "this page is a tool, send it
+to the tool rebuilder", and it writes down "this page has four sections". Those two
+statements cannot both be true. The tool rebuilder can only ever produce one section.
+So the page was sent down a road that the rule guarantees will be blocked.
+
+**And this explains the original bug.** Our twenty-two bad pages should then almost all
+be pages that were planned with one or two sections — because those are the only ones
+whose one-section save could ever have got through. I checked. **Twenty-one of the
+twenty-two.** So this rule has quietly been deciding which tool pages get built at all:
+plan it with two sections and it saves (badly labelled, which is our bug); plan it with
+three and it is refused outright and the page stays empty.
+
+**It is not just us.** There are thirty-two of these refusals sitting waiting for a
+human, going back to the end of July, across fourteen different sites — and several are
+named tool pages on sites you know: webdesign.co.uk, fundamentallyai.com,
+mortgagecalculator.co.uk. Nobody has been acting on them.
+
+**So the honest position.** The mechanism we switched on last week still has not been
+seen to work — but we now know that its zero was never evidence about the mechanism. It
+was evidence about a gate further down the road that nothing ever got past. That is a
+much better place to be than "it is armed and silent and we do not know why".
+
+**The repair of the twenty-two is still refusing to run, and it is right to.** Its
+condition is that the new shape has been seen working in production once. It has not, so
+it stops. I have not touched that check.
+
+**I have written the fault up properly and put it through the diagnosis process** rather
+than just asserting it, because it is a claim about how the system works rather than a
+one-off.
+
+**What I need from you is which way to unblock it** — there are three ways and they are
+genuinely different in risk. I have set them out in the message to you rather than
+choosing one myself, because two of them involve either relaxing a safety rule across
+the fleet or changing what a live page says about itself.

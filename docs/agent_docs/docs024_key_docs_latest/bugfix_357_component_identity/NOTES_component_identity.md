@@ -747,3 +747,217 @@ ADDITION" — and was **APPROVED 08-22 18:02Z**, a day BEFORE `e8c7414c`. Plus `
 (phase 0) and `74e4c1fd` (phase 2), both approved. Three approved rounds; that round's
 seats saw a bare hunk and objected to the only reading available to them. Disposition
 sent to the 283 lane for their resubmission.
+
+---
+
+## 2026-08-25 (afternoon) — driving the phase-2 route on purpose: two site adoptions
+
+**Why this session exists.** The 08-25 handoff's §4 named the lane's top priority: phase 2
+is armed on all six carriers and has **never fired**, `adoption_candidates = 0`, so
+`adopted = 0` says nothing about correctness. Phase 3 (`578`) refuses to run until one
+organically adopted, stamped row exists. The owner's instruction was "run an adoption",
+naming `cv1.co.uk` and `lampenkap.com` as candidates.
+
+### The two meanings of "adoption" turn out to be the same event
+
+I first read "adoption" as this lane's fragment adoption and looked for a page to drive.
+Neither candidate domain was in `sites` at all, which is the wrong shape for that reading
+and the right shape for the OTHER one — the site-adoption pipeline. Both readings converge,
+and the convergence is the finding: **adopting a site that has an interactive page is the
+supported way to make phase 2 act.** Traced in code, not inferred:
+
+```
+082_submit_domain_unified.sh <domain> --from <url>
+  -> site-adoption-orchestrator -> site-adoption-agent
+  -> apply_adoption_plan_action.go:719   if len(page.Features) > 0   (page is INTERACTIVE)
+       -> work item needs_tool_recreation, handler tool-recreation-handler
+  -> tool-recreation-handler: recreate_tool -> validate_tool -> save_page_sections
+       (declares expects_no_sections_metadata -> the metadata path yields nothing)
+  -> save_page_sections_action.go:344    len(sections)==0 -> HTML fallback on html_field
+  -> saveSectionsExtractFromHTML:1561    no <section>, no <html>/<!doctype>
+       -> whole fragment stored as ONE section, FallbackAdopted = true
+  -> enrichSectionsWithComponentIDs:1631 armed + FallbackAdopted + no data-component
+       -> adoptFragmentSection -> binds to `adopted-fragment`, content_data.body, stamp
+```
+
+The comment at `save_page_sections_action.go:10` said so all along — *"Fallback path: regex
+parsing of assembled HTML (for adopted sites or older pipelines)"* — and this lane had never
+read it as an instruction for how to GENERATE demand.
+
+### THE FLAG THAT WOULD HAVE MADE THE WHOLE EXERCISE SILENTLY POINTLESS
+
+`--fidelity locked` is the natural-looking choice for "adopt this site" — it is the
+byte-preserving path, and it is the one this estate reaches for when adopting a site it
+means to KEEP. **It cannot fire phase 2, by construction.**
+`apply_adoption_plan_action.go:486` returns early on `fidelityLocked` into
+`adopt_verbatim.go`; the tool-recreation routing lives at `:708`, two hundred lines below
+the return. A locked adoption would have run, succeeded, produced a live site, and left
+`adopted = 0` — and every number on the watch script would have looked exactly as it does
+now. **The demand control and the mechanism would both have read correct while nothing was
+ever tested.** Recorded as a landmine.
+
+The recreate path (default `high` for adopt mode) is therefore mandatory here, and it is
+not a preference: it is the only path that reaches the code under test.
+
+### Candidates, measured 2026-08-25 (both fetched, not assumed)
+
+| | cv1.co.uk | lampenkap.com |
+|---|---|---|
+| index | 19,545 B, **0 `<script>`, 0 controls** — static | 12,065 B, 1 `<script>`, 7 controls — a lux calculator (`runSim()`) |
+| second page | `example.html`, 18,839 B, 28 checkboxes + `localStorage` JS | none (single-pager) |
+| language | English/UK | Dutch |
+| live copy dated | 2026-08-02 | 2026-04-20 |
+
+Both are already served from the estate's own bucket (Cloudflare + `x-amz-id-2`, identical
+header shape to `garden-tools.uk` and `mortgagecalculator.co.uk`), i.e. they are hand-built
+pages on our own hosting. **Neither appears in
+`portfolio_positioning/HOSTED_domains_for_owner_decision.md`**, so neither was covered by the
+2026-08-20 "22 free, 3 protected" ruling — the owner naming them today is the authorisation.
+
+cv1 is the better experiment because it exercises BOTH routes in one run (static page ->
+page-build-handler, interactive page -> tool-recreation-handler), which is exactly the
+comparison the handoff's §4 asks for. Owner chose both, cv1 first.
+
+### Baseline, immediately before dispatch [MEASURED 2026-08-25 11:28:43Z]
+
+`adopted=0 population=22 population_stamped=0 saves_since_arming=605`
+(571 at 10:36 -> 605 at 11:28, so the seam is alive and the zero is not a dead pipeline).
+Armed check re-run in the same breath: six rows, all `true`, via the recursive
+`jsonb_path_query` form — a top-level `jsonb_each` sees three of six.
+Seed present and correct: `9d4b922b-a548-4ca2-987c-ecacc7904b1f`, `is_active`,
+`btrim(html_template) = '{{.body}}'` true.
+
+### Dispatched
+
+| domain | correlation | orchestration | landed |
+|---|---|---|---|
+| cv1.co.uk | `468cb727-d2c7-4299-b332-3fc36c0996c6` | `8c83d368-3c47-4b74-a3c5-e440add32e1a` | `EXECUTING_STEP|spawn_adopter` |
+| lampenkap.com | `a3e1a948-0979-4b0f-8592-cfbd979d9899` | `e8909b4a-adfe-4984-9ca5-0e77b6555b05` | `EXECUTING_STEP|spawn_adopter` |
+
+Both **LANDED**, not merely published: `082` calls `kafka_verify_landing` after
+`kafka_publish_checked`, so a row proves something picked the bytes up. The `kcat -P`
+silent-drop trap does not apply to this entry point.
+
+`082_submit_domain_unified.sh` is **not executable** in the tree (`-rw-rw-r--`). Run it as
+`bash <path>`; do not chmod it, that is a tree change nobody asked for.
+
+cv1's site row was created within ~40s: `8c3e9118-2455-4f0d-b01a-5dcde13dcf99`, status
+`active`, build_status `pending`.
+
+### MISSTEP, same session: an append that silently did nothing
+
+I ran `cd <lane dir> && cat >> NOTES... <<'EOF'` from a shell whose cwd was ALREADY the lane
+directory. The relative `cd` failed, `&&` short-circuited, and **the heredoc was consumed by
+the shell without `cat` ever running** — no error I would notice, because the failure message
+was about `cd`, and the `wc -l` on the next line printed a plausible line count for a file
+that had not changed. It read like a successful append.
+
+The check that discriminates is not a line count, it is the CONTENT:
+`grep -c "<a phrase from what you just wrote>" <file>` — 0 means it did not land. Cheap, and
+it cannot be fooled by a file that was already long. Same shape as this lane's earlier
+`git status` misstep: an instrument that reads plausible for the wrong reason.
+
+### THE RESULT: the route ran twice, with perfect inputs, and a DIFFERENT guard refused the save
+
+Both cv1 pages were classified interactive and both were dispatched to
+`tool-recreation-handler`. Both recreations completed. **Neither wrote a row, and
+`adopted` is still 0** — but the reason is not phase 2, and this is the session's real finding.
+
+**The fragments were exactly what phase 2 wants.** Read out of the orchestration record
+(`validation_result.clean_html`) before the pods were reaped [MEASURED 2026-08-25]:
+
+| precondition | `index` | `tool-example` |
+|---|---|---|
+| bytes | 26,271 | 21,265 |
+| no `<section>` → the fallback arm fires | ✔ | ✔ |
+| no `data-component=` → adoption not declined | ✔ | ✔ |
+| no `<html`/`<!doctype` → fallback guard passes | ✔ | ✔ |
+| carries `tool-page` wrapper | ✔ | ✔ |
+
+So `saveSectionsExtractFromHTML` produced exactly ONE `FallbackAdopted` section on each —
+which is independently confirmed by the floor's own arithmetic below, whose numerator is 1.
+
+**Then `save_page_sections` refused the whole save.** Two `save_refused_incomplete` items,
+both `needs_human_review`:
+
+```
+index        11:40:12Z   planned sections 25% (1 of 4)   prune_floor_ratio=0.50
+tool-example 11:42:41Z   planned sections 33% (1 of 3)   prune_floor_ratio=0.50
+```
+
+`pages.sections` for the two pages, written by `apply_adoption_plan` itself:
+`index` = `["hero","features","call-to-action","contact-form"]` (4);
+`tool-example` = `["generic-text-block","features","call-to-action"]` (3). Both pages hold
+**0** `page_components` rows.
+
+### The mechanism, and why it is a defect rather than a guard doing its job
+
+`apply_adoption_plan_action.go:719` routes a page to `tool-recreation-handler` when it has
+interactive features, **and the same action writes that page's multi-entry `pages.sections`
+plan.** `tool-recreation-handler` declares `expects_no_sections_metadata`, so its save can
+only ever reach the HTML fallback, which by construction emits **exactly one** section.
+`measurePageSectionCompleteness` (`save_sections_prune_floor.go:148`) then divides that 1 by
+the planned count and `prune_floor_ratio=0.50` refuses.
+
+**The route chooser and the floor's denominator are written by the same action, in the same
+transaction, and they disagree about what the page is.** Any adopted interactive page planned
+with **3 or more** sections is therefore unsaveable: 1/3 = 33% and 1/4 = 25% are both below
+0.50. A page planned with 1 or 2 clears it (1/1 = 100%, 1/2 = 50%, and the floor trips on
+`ratio < floor`, so exactly 0.50 passes).
+
+### The cross-check that turns this from a theory into the explanation
+
+If that is the mechanism, the 22 existing mislabelled rows should live almost entirely on
+pages planned with **≤2** sections — because those are the only ones whose one-section save
+could ever have completed. [MEASURED 2026-08-25]:
+
+| planned sections on the page | rows in the 357 population |
+|---|---|
+| 1 | 1 |
+| 2 | **20** |
+| 4 | 1 |
+
+**21 of 22.** The floor has been silently *selecting* which tool pages get a row at all:
+≤2 planned → saved (and mislabelled, which is 357); ≥3 planned → refused entirely, page left
+empty, item parked for a human. The single `planned=4` row predates or bypassed the floor
+(the floor's own cohorts were measured 2026-07-31).
+
+### And it is not a cv1 curiosity
+
+`save_refused_incomplete` items sitting in `needs_human_review`, all history [MEASURED
+2026-08-25]: **32 rows, 2026-07-31 → 2026-08-25, across ~14 domains.** The one-of-N shape
+recurs on named tool pages — `webdesign.co.uk/tool-llm-cost-calculator` (1 of 4),
+`fundamentallyai.com/tool-model-approach-selector` (1 of 3),
+`mortgagecalculator.co.uk/game-fact-finder` (1 of 4), `finetuning.uk/blog` (1 of 3).
+⚠ Several older rows have EMPTY cohort captures; the `planned sections` cohort postdates them,
+so a blank is a reason-string format difference and **must not** be read as a different cause.
+
+⚠ **`site_work_items` is a rolling window** — joining `needs_tool_recreation` to `pages` finds
+only the two cv1 rows, because the historical items have been archived out. Do NOT read that
+as "only two pages were ever routed to tool recreation" ([[a-closer-census-cannot-see-what-it-succeeded-at]]).
+
+### So the handoff's §4 question now has a better answer than expected
+
+*"By what route does a NEW mislabelled row appear, and does phase 2 intercept it?"* — the
+route is reachable, its inputs are perfect, and **phase 2 never gets the chance to record its
+answer because the save is refused after the binding is decided.** `adopted = 0` was never
+evidence about phase 2's correctness; it was evidence about a guard two hundred lines further
+down. Filed through the diagnosis loop (intake `f2fa4b9e-28b6-4f45-9ffa-2627c2031af0`,
+**RUN_CORRELATION_ID `fbdaca97-a97e-41e6-b422-2475521e6a6c`**) rather than asserted here,
+because it is a structural claim about a mechanism outside the symptom (owner ruling
+2026-07-31).
+
+### Phase 3 is still correctly blocked
+
+`578`'s precondition 2 counts adopted rows carrying a stamp. It is still 0, so the migration
+will RAISE and abort. **That is the check working**, and it must not be weakened — the shape
+it would mint has still never been demonstrated in production.
+
+### Evidence trail, for whoever picks this up
+
+- spawned agent pods are **ephemeral** (`agent-<type>-<hash>`), so the `adopt fragment:` log
+  lines for these two runs are **gone** — the pods were reaped within minutes. Anything you
+  want from a run's logs must be captured live; the DB record (`orchestration_states`,
+  `site_work_items`) is what survives. My log monitor was watching `-l app=agent-chassis`,
+  which is the WRONG pod set for spawned agents, and its silence meant nothing until I ran a
+  control that must have matched and got 0.
