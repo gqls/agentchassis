@@ -148,11 +148,17 @@ assembled by reading, not querying.
 ## 8. WHAT SHIPPED — candidate 1, at RECORD-ONLY (2026-08-25, same lane)
 
 **Committed `69479bcf6`, council `064841bd-58fc-46a1-a77d-6b0a6309d0ba` APPROVED round 1 (14 seats,
-5 advisory objections, none high). Go, so INERT until the next fleet roll.** Register **WII-033**.
+5 advisory objections, none high). ~~Go, so INERT until the next fleet roll.~~** Register **WII-033**.
 
-⚠ **Do not read "committed" as "running".** Until the chassis carries it, no completion is graded,
-and an empty `result->'_verification'->'acceptance_predicate'` means *"this was never switched on"*,
-not *"nothing refutes"*.
+> **✅ CORRECTED 2026-08-25 — GATE 1C IS LIVE. The fleet rolled to `v1.0.1339` at 19:07:18Z and the
+> gate is in it.** The "INERT until a roll" wording above stood for ~6 hours after it stopped being
+> true, which is the shape that makes the correct next action look premature. Proof is a **capability
+> probe with both controls**, not a tag and not git — see §10.
+
+⚠ **Do not read "committed" as "running"** — the rule stands even though this instance has now
+resolved. An empty `result->'_verification'->'acceptance_predicate'` means *"this was never switched
+on"*, not *"nothing refutes"* — **and now that it IS switched on, that column is still blind on any
+item carrying no predicate** (§10).
 
 **Completion gate 1c**, in `complete_work_item_acceptance_predicate.go`, between gate 1b and gate 2.
 Opt-in per `item_type`; three-valued (`predicateUndeclared` / `predicateRecords` / `predicateRefuses`,
@@ -311,3 +317,62 @@ completion-time grading rather than against it.
   handler cannot write — is being built by the `bugs_open/395` lane, and makes 320 §9 mechanical
   instead of prose. This lane will take the predicate-gate half if that split is agreed, so a
   predicate over an unwritable field is refused at source too.
+
+---
+
+## 10. GATE 1C IS LIVE (2026-08-25, `v1.0.1339`) — and how that was established, because the documented check does not work
+
+Recorded by the `bugs_open/395` session. §8's "INERT until the next fleet roll" is superseded.
+
+**The fleet rolled at 19:07:18Z.** Chassis pods `agent-chassis-669b45fdb4-*` run
+`docker.io/aqls/agent-chassis:v1.0.1339`, started after gate 1c's commit (12:41Z).
+
+### 10a. ⚠ THREE INSTRUMENTS SAID NOTHING, AND EACH LOOKS LIKE A NEGATIVE RESULT
+
+1. **The census is BLIND, not clean.** `[MEASURED 2026-08-25]` **5** `content_rewrite` items completed
+   after the roll and **0** carry `result->'_verification'->'acceptance_predicate'`. That is not
+   evidence the gate is off: the gate stamps only when the item **carries a predicate**, and only 3
+   predicates have ever existed, all already terminal. A zero here is uninterpretable either way.
+2. **CLAUDE.md's prescribed check DOES NOT EXIST for this service.** *"Ask the service what it is
+   running"* gives `kubectl logs -l app=<service> --tail=300 | grep -m1 'build provenance'`. **The
+   string `build provenance` occurs nowhere in this repo's Go source.** A grep over an entire 4.6 MB
+   pod log (not a tail) returns nothing. CLAUDE.md states that an empty result means *"not in range"*
+   — **so the documented failure mode absorbs the real one**, and you conclude you merely need to
+   scroll further. What is actually stamped is `pkg/buildinfo.GitCommit`, set by `-ldflags` in
+   `build/docker/backend/<svc>.dockerfile:8` from the `GIT_COMMIT` build-arg (makefile ~line 372,
+   also written to the OCI `org.opencontainers.image.revision` label).
+3. **A sha probe with no PRESENT control is uninterpretable.** Probing `/proc/1/exe` for three
+   candidate build shas returned **absent, absent, absent** — which reads exactly like "did not ship"
+   and in fact meant only "none of these three is the build sha".
+
+### 10b. THE CHECK THAT WORKED — probe the CAPABILITY, with both controls in one breath
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'ACCEPTANCE_PREDICATE_NOT_EVALUABLE' /proc/1/exe  # under test
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'handler_reported_no_change'          /proc/1/exe  # MUST be PRESENT
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'zzz_invented_string'                 /proc/1/exe  # MUST be absent
+```
+
+**PRESENT / PRESENT / absent.** The middle line is what makes the first mean anything: it is gate 1b,
+live for weeks, so it proves the probe can see this binary's literals at all. The third proves the
+probe discriminates rather than matching everything.
+
+⚠ **This form only works for code something CALLS.** The `bugs_open/375` lane measured the same day
+that the Go linker strips an unreferenced literal — their unregistered verifier's error string is
+absent from `/proc/1/exe` on this very image although all four of their commits are in it. **So a
+probe for a not-yet-wired symbol reads exactly like a failed roll.** Gate 1c is wired into
+`verifyBeforeComplete`, which is why its literal survives.
+
+### 10c. What this changes
+
+- **The gate is now grading live completions of `content_rewrite`.** Every predicate it evaluates
+  leaves a verdict, including `holds`.
+- **It still cannot produce §6's control**, for §9's reason, not this one: all three live predicates
+  grade `pages.meta_description` and their handler cannot write that column. Live ≠ reachable.
+- **Watch for `inapplicable`.** It is the arm that fires if the stored-predicate strip is wrong, and
+  its message names a KEY, so it reads as a fault in the model's output rather than in the reader:
+  `SELECT result->'_verification'->'acceptance_predicate'->>'verdict', count(*) FROM site_work_items
+   WHERE result->'_verification' ? 'acceptance_predicate' GROUP BY 1;`
+  Any `inapplicable` at all is worth reading `agent_error_log` for
+  (`ACCEPTANCE_PREDICATE_NOT_EVALUABLE`) before assuming a vocabulary problem.
