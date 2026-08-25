@@ -501,3 +501,14 @@ lane's own post-roll read: the door's parked population had grown 40→41 `conte
 mine dropped `tools-index` (owned). 34 is right; register corrected with the predicate stated beside
 the number; WRONG_CALLS row added. Structural statement (shopfront = the only writable non-tool pages;
 every topically-correct pick parks) unaffected — triple-verified across three sessions.
+
+**2026-08-25 ~18:5xZ — a SECOND HEAD failure in my own file, flagged by the 375 lane.** `platform/livespec`'s
+`TestNoNewMigrationFileReadersOutsideTheAllowList` (363's guard) failed at committed HEAD since my door
+test landed 08-24: `TestOwnedPageRefusalPathMatchesMigration488` READ migration 488's SQL to pin the
+door's jsonpath. The guard is right — the file-read half can never fail (checksummed history). Fixed
+without touching 363's dirty `livespec*.go`: the frozen path is now a Go literal (verified verbatim
+against 488), every Go-side assertion kept, and the LIVE tie — a livespec Declaration that
+page-build-handler's live config carries the key at that path — is recorded as OWED after 363's
+rename lands (CONTRIB in `bugs_open/363`). Lesson on top of the morning's: I ran my package's suite,
+never the repo's — `verify-head-builds.sh --test` with NO target is the check that would have caught
+a guard in a package I did not know existed.

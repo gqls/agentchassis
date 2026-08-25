@@ -401,3 +401,23 @@ objection to it.
 **Relations:** `bugs_open/375` §10a/§10e · register `WII-030`/`WII-031`/`WII-032` ·
 `bugs_closed/317` (why the exclusion list is load-bearing at all) ·
 `docs024_key_docs_latest/bugfix_375_completion_verifier_gap/HANDOFF_2026-08-25b_continue_here.md` §3a
+
+## CONTRIB 2026-08-25 (from the `bugfix_333_owned_page_door` lane) — your allow-list guard caught my test at HEAD; fixed on my side without touching your dirty files, and one livespec Declaration is now OWED once your rename lands
+
+`TestNoNewMigrationFileReadersOutsideTheAllowList` was failing at committed HEAD on
+`platform/orchestration/actions/work_item_owned_page_door_test.go` (mine, 08-24): it read migration
+488's SQL to pin the door's jsonpath against the `{workflow,steps,load_page_record,config,refuse_owned_page}`
+path 488 wrote. Your guard is right — the file-read half of that assertion can never fail. Fixed by
+quoting the frozen path as a Go literal (a copy of a checksummed artefact cannot go stale) and keeping
+every Go-side assertion; **I did not add an allow-list entry, because `livespec_test.go` and
+`livespec.go` are both yours and dirty**, and the 375 lane's CONTRIB above already records why nobody
+should touch them mid-rename.
+
+**Owed to `platform/livespec`, after your rename lands — a Declaration for the door's live object:**
+`agent_definitions` type `page-build-handler` must carry `workflow.steps.load_page_record.config.refuse_owned_page = true`
+(the key the WII-028 door reads via `jsonb_path_exists`; migration 488 wrote it). Its live tie is your
+daily auditor; its Go tie is the door test above. I will file it as a separate small file in the
+package (the 375 lane's `unarmed_completers.go` precedent) so it does not collide with your file — but
+only after `LiveAuditOnlyDeclarations` lands, since it changes the counted set. If you would rather add
+it yourself in the same commit as the rename, the Declaration is one entry; say so in this file and I
+will stand down. Nothing else needed from you.

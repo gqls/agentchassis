@@ -44,8 +44,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -657,67 +655,55 @@ func TestOwnedPageRefusalRendererIsDelegatedNotCopied(t *testing.T) {
 }
 
 // The door and migration 488 must agree about WHERE a handler declares the
-// refusal. 488 writes the path with jsonb_set; the door reads it with jsonpath.
-// Two hand-kept copies of one path is the drift class this estate keeps paying
-// for, so the test reads 488's own SQL rather than a transcription of it.
+// refusal: 488 wrote it with jsonb_set at
+// '{workflow,steps,load_page_record,config,refuse_owned_page}' and the door reads
+// it with the jsonpath in OwnedPageRefusalDeclarationPath.
+//
+// ⚠ This test used to READ 488's SQL file to extract that path, and the livespec
+// guard (TestNoNewMigrationFileReadersOutsideTheAllowList, bugs_open/363) rightly
+// refused that at HEAD: an applied migration is checksummed history, so an
+// assertion about its TEXT can never fail, while the LIVE object it wrote can
+// drift away from it. The path is therefore quoted below as a Go literal — a copy
+// of a FROZEN artefact, the one kind of hand-kept copy that cannot go stale — and
+// what this test guards is the only side that CAN drift here: the Go constant.
+// The live tie (does page-build-handler's live config still carry the key at
+// that path?) is a livespec Declaration checked by the daily auditor, OWED to
+// platform/livespec once the 363 lane's in-flight rename lands there (2026-08-25,
+// recorded in bugs_open/363 and this lane's NOTES). Until then WII-028's live
+// declaration census is the manual check.
 //
 // Segment 3 being a STEP NAME is what pins the object shape: if `workflow.steps`
 // were ever an array, 488's path would carry an index there and the door's
 // wildcard would silently match nothing.
 func TestOwnedPageRefusalPathMatchesMigration488(t *testing.T) {
-	root := moduleRoot(t)
-	sqlDir := filepath.Join(root, "docs", "agent_docs", "sql_for_agents")
+	// Verbatim from docs/agent_docs/sql_for_agents/488_page_build_handler_refuses_owned_pages_before_the_writer.sql
+	// — resolve by SLUG, 488 is a collided number. Checksummed on apply; it cannot change.
+	const migration488Path = "{workflow,steps,load_page_record,config,refuse_owned_page}"
 
-	entries, err := os.ReadDir(sqlDir)
-	if err != nil {
-		t.Skipf("migration dir unreadable: %v", err)
+	segs := strings.Split(strings.Trim(migration488Path, "{}"), ",")
+	if len(segs) != 5 {
+		t.Fatalf("488's path has %d segments, want 5: %q", len(segs), migration488Path)
 	}
-	// ⚠ RESOLVE BY SLUG, NOT BY NUMBER. Migration numbers on this tree are not
-	// unique — two sessions can claim one between an `ls` and an `add`, and 488
-	// is one of the collisions: `488_meta_description_backfiller_agent.sql` and
-	// `488_page_build_handler_refuses_owned_pages_before_the_writer.sql` both
-	// exist. The first draft of this test matched `488_` and took the first hit,
-	// which is the wrong file and produced a confident failure about a path that
-	// migration never claimed to write. Sidecars (_ROLLBACK, _VERIFY) are
-	// excluded for the same reason: they are not the change.
-	var migration string
-	for _, e := range entries {
-		name := e.Name()
-		if !strings.HasSuffix(name, ".sql") ||
-			strings.Contains(name, "_ROLLBACK") || strings.Contains(name, "_VERIFY") ||
-			strings.Contains(name, "_SUPERSEDED") {
-			continue
-		}
-		if strings.Contains(name, "refuses_owned_pages") {
-			migration = filepath.Join(sqlDir, name)
-			break
-		}
-	}
-	if migration == "" {
-		t.Skip("the owned-page refusal migration is not present in this tree")
-	}
-	src, err := os.ReadFile(migration)
-	if err != nil {
-		t.Fatalf("read 488: %v", err)
-	}
-
-	// The jsonb_set path 488 writes, e.g. '{workflow,steps,load_page_record,config,refuse_owned_page}'
-	pathRe := regexp.MustCompile(`\{workflow,steps,([^,}]+),config,refuse_owned_page\}`)
-	m := pathRe.FindSubmatch(src)
-	if m == nil {
-		t.Fatalf("the owned-page refusal migration no longer writes a {workflow,steps,<step>,config,refuse_owned_page} path — "+
-			"the door reads %q and would now match nothing", checks.OwnedPageRefusalDeclarationPath)
-	}
-	stepName := string(m[1])
+	stepName := segs[2]
 	if _, err := strconv.Atoi(stepName); err == nil {
-		t.Fatalf("the migration's path segment 3 is the numeric index %q, so workflow.steps is an ARRAY — "+
-			"the door's jsonpath %q assumes an object keyed by step name and matches nothing",
+		t.Fatalf("488's path segment 3 is the numeric index %q, so workflow.steps would be an ARRAY — "+
+			"the door's jsonpath %q assumes an object keyed by step name and would match nothing",
 			stepName, checks.OwnedPageRefusalDeclarationPath)
 	}
 	for _, seg := range []string{"workflow", "steps", "config", "refuse_owned_page"} {
 		if !strings.Contains(checks.OwnedPageRefusalDeclarationPath, seg) {
-			t.Errorf("the door's jsonpath is missing segment %q that the migration writes: %q",
+			t.Errorf("the door's jsonpath is missing segment %q that 488 wrote: %q",
 				seg, checks.OwnedPageRefusalDeclarationPath)
 		}
+	}
+	// The door reads a WILDCARD step — the only shape that matches 488's named
+	// step AND any later declarer — and it requires the value to be TRUE: a
+	// handler that sets the key false has not opted in.
+	if !strings.Contains(checks.OwnedPageRefusalDeclarationPath, ".steps.*.") {
+		t.Errorf("the door's jsonpath must wildcard the step so 488's %q and any later declarer both match: %q",
+			stepName, checks.OwnedPageRefusalDeclarationPath)
+	}
+	if !strings.Contains(checks.OwnedPageRefusalDeclarationPath, "(@ == true)") {
+		t.Errorf("the door's jsonpath must require the value TRUE: %q", checks.OwnedPageRefusalDeclarationPath)
 	}
 }
