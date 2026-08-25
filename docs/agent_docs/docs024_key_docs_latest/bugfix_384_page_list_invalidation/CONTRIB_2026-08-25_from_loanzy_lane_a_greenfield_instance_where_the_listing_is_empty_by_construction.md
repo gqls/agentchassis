@@ -81,6 +81,38 @@ for EVERY path"). This site was parked for its whole build and only cut over tod
 
 ## 5. ADDED SAME DAY — the VISIBLE consequence, which turns this from an invisible shortfall into broken pages
 
+> ## ⚠⚠ §5's HEADLINE MEASUREMENT IS RETRACTED BY ITS AUTHOR, ~40 MINUTES LATER. THE CONCLUSION STANDS ON OTHER EVIDENCE; THE LINK SET-DIFFERENCE DOES NOT.
+>
+> **What is withdrawn:** the "0 links on `/garden/index.html` that are not also on `/contact.html`"
+> figure, and the inference *"an index page with zero page-specific links is indexing nothing"*.
+>
+> **Why:** `[MEASURED 2026-08-25 13:5xZ]` the shared 23-link menu contains **20 of the site's 21 page
+> URLs** — every page except the one that 404s — plus 3 assets. **The nav links the entire site.** So
+> every internal page link anywhere is already in the menu, and the set-difference is **pinned at zero
+> for every page whether a listing rendered or not**. Had `/garden/index.html` rendered its
+> `content-listing` with twelve month links, those twelve are all in the menu and the difference would
+> still read 0. **The measure returns the same answer under both hypotheses**, which makes it a
+> tautology rather than evidence.
+>
+> ⚠ **The tell was in the data and read as a strength:** *every* page scored 0, including a month page
+> that is not an index at all, and including the negative control. **A measure that returns one value
+> for an entire population including its control is not detecting a universal defect — it is failing
+> to discriminate.**
+>
+> **What still supports §5's conclusion, all of it disconfirmable:**
+> 1. `article-card` = **0** and `section--articles` = **0** on `/april/index.html` and
+>    `/august/index.html`. A rendered `content-listing` emits both — this can come out otherwise, and
+>    does on sites whose listings have data.
+> 2. The live component row: `articles` = `{"source":"query.blog_posts","on_missing":"skip_section"}`.
+> 3. The source is empty: the site's only `blog-post` page is `build_status='planned'` and 404s.
+> 4. The three heading-vs-content failures, measured on **non-anchor** month counts, which do
+>    discriminate (`/contact.html` 0, `/index.html` 12, `/garden/index.html` 3).
+>
+> **Where the set-difference WOULD be valid:** a site whose nav does *not* enumerate every page. Then
+> a page adding nothing beyond the menu genuinely indexes nothing. **That precondition is one query
+> and I did not run it before offering the measure.** Check it before reusing this:
+> `SELECT count(*) FROM pages WHERE site_id=… ` against the distinct internal hrefs on any one page.
+
 The note above said the reader "loses a block they never knew was planned". **That understated it, and
 a promise-vs-delivery check found the rest.** `[MEASURED 2026-08-25 13:35Z, served HTTPS, invented-path
 control 404]`
