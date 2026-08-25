@@ -487,3 +487,50 @@ available measures are unsound here: `build_status` is wrong in both directions 
 case: 57,753 bytes served with `deployed_at` NULL) and an HTTP census on a parked domain returns
 200 for everything. On THIS build the only sound completion measure is the stored artefact —
 `page_components` rows carrying non-empty `rendered_html`, per page.
+
+### 11g. FINAL MEASUREMENT — 0 of 7 pages → 19 of 20
+
+Build settled 2026-08-25 ~12:23Z. **Both sites measured the same way, at stored
+`page_components.rendered_html`** — the only sound measure here, because `build_status` churns
+(three pages went `deployed` → `needs_rebuild` *while keeping their content*) and an HTTP census is
+impossible on a parked domain (§11f).
+
+| | `homegarden.uk` | `garden-tools.uk` |
+|---|---|---|
+| pages with content | **20** of 21 | 7 |
+| sections rendered | 45 | 22 |
+| sections **with a list** | **20 (44%)** | **0 (0%)** |
+| sections with `<h3>` | 24 (53%) | 6 (27%) |
+| sections **with `<strong>`** | **11 (24%)** | **0 (0%)** |
+| sections with `<table>` | 0 | 0 |
+
+**Acceptance measure — pages carrying at least one list, table or emphasis: 19 of 20, against 0 of 7.**
+
+**New components placed:** `period-calendar` × 1 (twelve months, §11f). `checklist` 0.
+`comparison-table` 0.
+
+**The one page with no content:** `blog-post`, `sections_planned = 0` — the single page the
+`loanzy_uk_example_site` lane's corrected predictor named in advance, and a `bugs_open/206` residual,
+not a 381 failure.
+
+### 11h. What is FIXED, and what is left
+
+**FIXED, and proven on a live greenfield build:**
+1. The planner is told what each component can express — captured `prompt_rendered`.
+2. It chooses accordingly — `period-calendar` filed and filled with twelve distinct months.
+3. The writer uses the structure it is given — 44% of sections carry a list where the comparison
+   site had none at all.
+
+**LEFT, and neither is the defect this bug filed:**
+- **`checklist` was offered and never chosen** — a real negative, unexplained by anything measured.
+  Worth one investigation; not a reason to hold the bug open, since the mechanism it would test
+  (planner sees capability → planner chooses) is already demonstrated by `period-calendar`.
+- **`comparison-table` is unexercised, not failed** — the vertical landscape contained no comparison
+  input at all (§11e). It needs a build whose subject is genuinely comparison-shaped.
+- **`table` remains 0 site-wide**, consistent with both of the above and with the guidance's "tables
+  only when the data is genuinely tabular".
+- ⚠ **The owner's third original complaint — too many card sections on mobile (§7) — is still not
+  addressed and was never filed as a bug.** It needs a page-composition decision.
+- ⚠ **`homegarden.uk` is parked**; DNS has never been pointed at the platform. That is an operator
+  action and blocks the `loanzy_uk_example_site` lane's promise-vs-delivery read, which works on
+  served markup. **It does not affect any claim above**, all of which are about stored artefacts.
