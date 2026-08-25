@@ -1237,3 +1237,38 @@ scrolls into view. It does not — the animation is wired to a list of component
 does not include it. One line to fix, and it affects every site using that band.
 
 Nothing has been changed. Tell me which of these you want and I will do it.
+
+**2026-08-25 — a correction to something I told you, and where the imagery work really stands.**
+
+First, a correction, because you approved work on the strength of it. I told you on the 19th
+that "29 of 36 pages carry one image or none", and I built an imagery task on that. It is
+wrong. I counted picture tags, and every big header image on this site is set as a background
+in the stylesheet instead — which the way I counted cannot see. Checked properly: **no page is
+without an image.** What is true, and is still worth fixing, is that **twenty-one of the
+thirty-six pages open with the same photograph**, and the whole site uses only six distinct
+images between them.
+
+That changes the job from "these pages are bare" to "these pages all look alike", which is a
+smaller and less urgent problem than I described. I have written the mistake up properly,
+including the one-line check that would have caught it: open one of the pages the count called
+empty and look at what it actually serves.
+
+What did get done today: the shared carousel had a broken piece of styling that collapsed the
+gaps between cards and shrank the arrows to 22 by 28 pixels — below the minimum size a person
+can reliably tap. It is fixed and measured in a real browser: proper gaps, 44 by 44 arrows. The
+counting-up figures band is confirmed working. And the duplicate block on the home page is
+gone — the two card lists really were making the same five points, one of them under an
+identical heading.
+
+Two things you should know. Your "Book an architecture conversation" button broke again: an
+automated repair pass on the 24th took a link that was correct and pointed it at a calculator.
+It is fixed, and I have corrected the shared fault record where my earlier evidence said those
+links were safe — they were, for six days. And the services page has lost content and all its
+images for the third time; you asked me to leave it and fix the cause, so it is recorded and
+untouched.
+
+There are four decisions waiting on you, set out plainly in the handoff: the word "trust" and
+the nineteen pages it is blocking; how distinctive you want the page headers to be; who takes
+on the underlying bug that keeps undoing the services page; and who builds the design critic —
+which, it turns out, you already asked for in July and which has been proposed five times
+without being built.

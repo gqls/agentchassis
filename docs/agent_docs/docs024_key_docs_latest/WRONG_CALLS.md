@@ -53356,3 +53356,45 @@ offset points, and scepticism does not protect you when the arithmetic itself is
 **The cheap check: normalise before comparing, never after.** `git log --date=iso-strict` (or
 `--date=format-local:'%Y-%m-%dT%H:%M:%SZ'` with `TZ=UTC`) puts both on one clock. Any comparison
 between a git timestamp and a cluster timestamp is a UTC comparison or it is nothing.
+
+---
+
+## 2026-08-25 — "29 of 36 pages carry one image or none": I measured `<img>` on a site whose every hero is a CSS background (leopardess lane)
+
+**The claim, and how far it travelled.** On 2026-08-19 I swept all 36 live pages with
+`grep -c '<img'`, got a median of 1, and published *"29 of 36 live pages carry one image or
+none"* — into the owner's plain-English log, into `RUNNING_NOTES`, into the milestone summary,
+and then into an owner-approved plan as the entire justification for an imagery workstream.
+The owner acted on it: "3. Medium — imagery pass on the 29 thin pages" was approved on that
+number.
+
+**It is false, and the true picture inverts the work.** Re-measured 2026-08-25 counting both
+`<img>` and `url('/assets/images/…')`: **zero** pages have no image, **21 of 36 show the same
+`hero.jpg`**, and only **6 distinct images** exist site-wide. Every hero on this site is
+delivered as a CSS `background-image` on the `hero` component, which an `<img>` grep cannot
+see. So the finding is not "these pages are unillustrated" (broken, urgent) but "twenty-one
+pages open with the identical photograph" (mediocre, not urgent) — a different class of
+problem needing a different fix.
+
+**What caught it.** Not a review — doing the next step. A3's first action was to read the 19
+`image_source_unsatisfiable` items, which name `hero.background_image`. Checking what those
+pages actually render showed a working `hero.jpg` on every one. The queue's own name
+("unsatisfiable") had encouraged the same wrong reading: it fires on a missing **asset row**,
+not a missing rendered image.
+
+**Why the marker rules did not save me.** The figure was `[MEASURED 2026-08-19]` and dated, and
+it was re-derived consistently every time it was quoted — because every re-derivation ran the
+same blind command. This is the recorded trap that *a dated, marked figure is only evidence if
+the measurement could have come out otherwise*: my sweep could not have returned a different
+answer, because the thing it was counting was never present on this site in the first place.
+**Dated and marked, and structurally incapable of disconfirmation.**
+
+**The cheap check, and it is one command.** Before publishing any "N pages lack X" figure,
+**open one page that the count says is EMPTY and look at what it actually serves.** Here that
+is `curl -s <a-page-the-count-called-thin> | grep -oE 'background-image:[^;"]*'` — one line,
+and it returns a working image URL, which ends the claim immediately. Generalised: **a census
+of absence must be validated against one positive instance**, or it is only a census of the
+selector you happened to write.
+
+Tally for "counted a proxy for the thing, not the thing": 1.
+Tally for "published a figure whose measurement could not have come out otherwise": 3.
