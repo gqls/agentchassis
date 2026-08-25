@@ -2,14 +2,17 @@
 
 **Filed 2026-08-24**, `loancalculator_couk` lane, found by the acceptance harness on its
 first working run after being repaired (`0aafce405`). **The live damage is REMEDIATED**
-(see §7); the **root cause is OPEN** and is the reason this file exists.
+(see §7); ~~the **root cause is OPEN**~~ **ROOT CAUSE ESTABLISHED 2026-08-25 — see §5c.**
 
-> **ROOT CAUSE NOT ESTABLISHED. Do not read §5 as a finding.** The `090` route is closed
-> for this mechanism — see §6 — and the two hypotheses in §5 are one REFUTED and one
-> UNVERIFIED. Per the owner ruling of 2026-07-31 I am declaring the substitution
-> explicitly rather than omitting it: what is verified first-hand here is the **damage
-> and its shape**, measured three independent ways; what is *not* is which writer
-> produced the row.
+> **CORRECTED 2026-08-25: the cause is now established, first-hand, at every joint —
+> §5c.** The writer is the **Layer 2 interactive-tool preservation block** in
+> `save_page_sections_action.go` (the "re-append dropped interactive tool" arm,
+> ~line 585), whose matcher pairs by exact slot-name string only. §5b's suspicion
+> ("something between the plan and the save added a sixth entry") was right; its named
+> candidate (LOCK-008's merge) was **wrong** — the merge pairs correctly and inserted
+> nothing (refuted in §5c). Per the owner ruling of 2026-07-31 the `090` substitution is
+> declared in §6; §5c's chain carries its evidence inline, each claim with the query or
+> file:line that grounds it.
 
 ## 1. The symptom, at the artefact
 
@@ -132,6 +135,98 @@ and is **UNREAD** — that is the next session's first move, not a conclusion.
 rewritten; it does **not** prove the row was not repositioned. The 2026-08-23 canary
 evidence should be read with that limit in mind (its md5 evidence is unaffected).
 
+### 5c. ESTABLISHED 2026-08-25: the Layer 2 interactive-preservation re-append, matched by slot-name string alone
+
+**The writer is `save_page_sections_action.go`'s Layer 2 block** ("Preserve interactive
+tool sections", `:484-608` at `3973260c5`-era HEAD), and the door it walked through is
+its matcher (`:551-558`):
+
+```go
+for i := range sections {
+    if sections[i].ComponentName == p.slot { matchedIdx = i; break }
+}
+```
+
+— exact slot-name string only. No identity arm, no kebab-normalisation, although the
+preload's own SELECT (`:496-505`) already fetches `pc.component_id` and `cc.function`
+for exactly this pairing question. This is the same slot-names-are-not-component-
+functions defect that `matchLockedRow` fixed with its identity arm and
+`MergeLockedPageSlots` mirrors as arm 3 — in a **third** pairing judgement that was
+never given the arm. `bugs_closed/189`'s own "STILL OPEN" section predicted the class on
+08-03: *"the save still derives the name from `component_function`, and a build-path run
+over a locked positional slot would still rename and duplicate."*
+
+**The verified chain, joint by joint:**
+
+1. The 08-23 14:07–14:12 build (corr `2e68eb79`, the owner-released `needs_page` wave)
+   composed the plan's **5** sections. `[MEASURED 2026-08-25]` in `llm_call_log`: the
+   generation loop ran iters {0,2,3,4}; iter 1 (the tool, no `llm_field_specs`) took the
+   no-LLM `render_from_template` branch. No iter 5 — the composition was five entries.
+2. At the save (14:14:24), `enrichSectionsWithComponentIDs` (`:397` — **before** Layer 2)
+   resolved the plan's `tool-loan-vs-savings` entry to component `448422ce`. (Proven
+   downstream: only the identity arm can have consumed the lock — see joint 6.)
+3. The byte-twin dedup (`:472`, `bugs_open/156`) ran — **before** Layer 2, so it
+   structurally cannot see what Layer 2 appends. Its own comment asserts *"Nothing below
+   can re-introduce a duplicate under this key: the Layer 2 carry-forward appends only
+   slots ABSENT from the set"* — true under slot-name identity, and exactly the blind
+   spot: Layer 2 re-introduces the same BYTES under a different slot name.
+4. The Layer 2 preload (`WHERE build_status='deployed' AND <interactive>`) selected the
+   locked row `10be4f71`. `[MEASURED 2026-08-25]` this predicate selects **exactly one
+   locked row in the entire fleet — this one**. On this site, 11 of 12 locked rows are
+   `build_status='approved'`; the victim's alone is `'deployed'`. **That is the whole
+   discriminator** for why one page in a ten-page wave duplicated: the other nine locked
+   calculators were never preloaded into Layer 2 at all — their pairing was never even
+   attempted, so their cleanliness says nothing about the matcher.
+5. The matcher compared `'tool-2'` against `[hero, tool-loan-vs-savings, ported-prose,
+   faq, tool-cta]` → no match → the "slot dropped entirely" arm (`:585-605`) **appended**
+   `SectionData{ComponentName:'tool-2', HTML:<stored bytes>, ContentData:<stored>,
+   ComponentID:''}` — ComponentID empty because the RFC_046 `carryStoredIdentity` opt-in
+   is OFF (default). The enricher at `:397` had already run, so nothing ever resolves the
+   appended entry. This accounts for **every column of the orphan**: slot `tool-2`,
+   `component_id NULL`, byte-identical `rendered_html` AND `content_data` (`be85284e…` /
+   `f65a0b6e…`), position 6 (`i+1`, appended last), `build_status='deployed'` (the
+   INSERT's literal, `:1075`).
+6. Insert loop: the plan's tool entry (id `448422ce`) consumed the lock via
+   `matchLockedRow`'s **identity arm** → locked row repositioned to 2, fresh copy
+   discarded — `bugs_closed/058` and the 182/204 identity fixes working exactly as
+   designed. (Had the identity arm NOT fired, the fresh copy would have been INSERTed
+   with its id at position 2 and the locked row exiled to the tail by the unconsumed-tail
+   pass — the opposite of what §2 shows.)
+7. The appended `tool-2` entry reached the loop with no id; the slot arm found the lock
+   **already consumed** → no match → INSERTed as the orphan. The `bugs_open/039` stub
+   guard correctly declined to catch it (11,845 B of working calculator is not an empty
+   generic stub — §5b already noted this by design).
+
+**Why the rerender arm is clean (the §7a trap, explained):** on `page_rerender` the
+incoming set is built from the page's own rows, so its `ComponentName`s ARE slot names —
+`'tool-2'` is present, the matcher matches, no append. The defect fires only when the
+incoming NAME SPACE is the plan's (function names) while the stored name space is
+positional slots — i.e. **only on the build arm, only on a decomposed/positionally-named
+page**, which is why the 08-25 rerender wave over all ten pages proved nothing about it.
+
+**The refutation of §5b's named candidate, so nobody re-chases it:** LOCK-008's
+`MergeLockedPageSlots` pairs the plan entry to the locked row by arm 3
+(`ComponentFunction == name`): `[MEASURED 2026-08-25]` `cc.function` for `448422ce` is
+exactly `tool-loan-vs-savings`, and the 08-17 census in the lane NOTES (a join of locked
+rows' `content_components.function` against `site_plan_sections` on plan `9463e31d`)
+already proved the match held before the failure. The component row's last write is
+08-19 21:19 (`component-template-fixer`, a template-repair sweep over 9 tool components
+21:18–21:22 — template bytes, not function renames). The merge inserted nothing; the
+composition left `load_page_sections_from_spec` and `plan_sections` at five entries
+(joint 1's iteration census is the receipt).
+
+**Still armed, and with what population:** `[MEASURED 2026-08-25]` the armed set —
+locked AND `build_status='deployed'` AND interactive — is **1 row fleet-wide: this same
+row**. The next **build-arm** rebuild of `tool-loan-vs-savings` re-duplicates it;
+nothing else in the fleet can currently reproduce this until another locked interactive
+row acquires `'deployed'`. `[INFERRED, not proven]` why this one row is `'deployed'`:
+the save INSERT hardcodes `build_status='deployed'` (`:1075`), and this row was created
+08-02 **22:51** — four hours after its ten siblings (18:46, all `'approved'`, the
+adoption path's literal) — so it was most plausibly created by the save path and locked
+afterwards. `page_components` has no `updated_at` trigger, so a later silent write
+cannot be excluded; the orphan's existence is what proves the predicate held at
+2026-08-23 14:14:24 regardless.
+
 ## 6. Why there is no `090` verdict, stated rather than omitted
 
 Filed as required: intake `0a53b04e-e06e-48c8-ad11-4845d8ee96d5`, run correlation
@@ -145,6 +240,14 @@ both far over the ~60 KB bar, and the symptom named five symbols across the two.
 **If you re-file, name ONE symbol** — the landmine's own advice, and the entry records that
 a single-symbol scope still failed twice on other lanes, so budget for the declared
 substitute rather than for a verdict.
+
+**2026-08-25: the declared substitute was performed instead of a re-file.** §5c's chain
+was established first-hand — every joint grounded in read code (file:line) or a query run
+against the live DB that day, with the discriminating census (`build_status` over all 12
+locked rows; the armed set fleet-wide) run rather than assumed. A re-filed single-symbol
+090 would target `save_page_sections_action.go` (89 KB, over the landmine's ~60 KB bar),
+which is the exact shape that returned UNVERIFIABLE twice on other lanes; per the owner
+ruling of 2026-07-31 this substitution is declared here rather than silently made.
 
 ## 7. What was done to the live page, and what was deliberately NOT done
 
@@ -236,12 +339,27 @@ wave, with `--selftest` green first.
 
 ## 8. Fix candidates, ordered by what closes the door
 
+> **RE-RANKED 2026-08-25, now that §5c names the writer.** The original three candidates
+> (kept below) were aimed at the INSERT because the writer was unknown; the defect is in
+> fact upstream of the INSERT, in a matcher whose fix is small and mirrors two already-
+> shipped fixes of the same shape.
+
+0. **THE fix: give the Layer 2 matcher `matchLockedRow`'s arms.** Identity first
+   (`sections[i].ComponentID == p.componentID`, both non-empty — the enricher at `:397`
+   has already run), then slot exact (today's behaviour, kept), then kebab-normalised
+   slot, then `p.componentFunction`/name against the incoming name (the merge's arm 3 —
+   and the arm that decides THIS case even when enrichment fails). Every datum needed is
+   already in the preload's `preservedSection`. One preserved row should claim at most
+   one incoming section (the consumption rule both sibling matchers already have).
+   Verify per §9 **on the build arm** — the motivating case is a locked, positionally-
+   named, `build_status='deployed'` interactive row against a function-named composition.
 1. **Make the state unrepresentable: a partial unique index on
    `(page_id, slot_name)`**, so a second row for a slot cannot be inserted at all. Turns a
    silent duplicate into a loud INSERT failure at the one statement every composition path
    flows through. Needs a census of legitimately-repeated slot names first — several pages
    carry `ported-prose` more than once, so the index likely has to key on something
-   narrower, or on `(page_id, slot_name) WHERE component_id IS NULL`.
+   narrower, or on `(page_id, slot_name) WHERE component_id IS NULL`. (Note
+   `save_sections_dedup.go`'s header argues against exactly this index; read it first.)
 2. **Widen the `sectionIsUnresolvableStub` guard's second arm**: refuse ANY
    `component_id IS NULL` insert whose `slot_name` already exists on the page. Cheaper than
    1 and catches this exact shape; does not catch a duplicate that carries a component_id
@@ -251,6 +369,11 @@ wave, with `--selftest` green first.
    removable duplicate, not a reason to fail the page. Weakest — it repairs the damage
    instead of preventing it — but it is the one that stops a page becoming unrepairable,
    which is the part that turns a cosmetic fault into a stuck one.
+
+**Data-side disarm, available today without a roll:** flip the one armed row's
+`build_status` from `'deployed'` to `'approved'` (matching its ten serving locked
+siblings, so `'approved'` demonstrably serves). Removes the single armed instance but
+not the class; an operator/owner call because it writes a human-locked row.
 
 ## 9. How to verify a fix
 
@@ -277,7 +400,17 @@ The 08-23 wave's own item shape is the template — `NOTES ## 2026-08-23`, sourc
 ## 10. Related
 
 - `bugs_closed/189` — same *damage*, different *shape* (same `component_id`, not NULL);
-  refuted as the cause here in §5a. Cross-link both ways if this one is ever explained.
+  refuted as the cause here in §5a. **But its "STILL OPEN" section predicted §5c's class
+  on 08-03** ("a build-path run over a locked positional slot would still rename and
+  duplicate") — the naming-mismatch ROOT is shared; the writer differs (189: the renamed
+  fresh insert; 385: the Layer 2 re-append). Resolve 189 by SLUG — the number names two
+  unrelated bugs.
+- `bugs_open/156` / `save_sections_dedup.go` — the byte-twin dedup runs BEFORE Layer 2
+  (§5c joint 3), so it cannot catch this shape; its "nothing below can re-introduce"
+  comment needs correcting whenever the fix lands.
+- `bugs_open/357` / RFC_046 — `carryStoredIdentity` is the opt-in that would have given
+  the appended copy its component id (making it 189's shape instead of an orphan). The
+  Layer 2 arms are that lane's active seam: cross-check before editing them.
 - `bugs_closed/058` — the lock-preservation guard. It **worked**: the locked row kept its
   id, its bytes and its `locked_at`. It is not built to notice a second row arriving beside
   the one it protected.

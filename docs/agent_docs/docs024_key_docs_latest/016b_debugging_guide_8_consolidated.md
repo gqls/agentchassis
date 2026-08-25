@@ -14378,3 +14378,32 @@ overlapping `[created_at, updated_at]` — which returned 361 pairs in 24.5 h an
 with. Full case, blast radius (40 enabled `fire_message` tasks) and fix candidates:
 `bugs_open/398`; the shipped-lever consequences: WDS-002 (corrected), dispatch_throughput NOTES
 2026-08-25 §5.
+
+### The SAME pairing question is answered in N places, the identity fix was applied to N−1 of them, and the survivor duplicates protected content while every sibling proves itself innocent (2026-08-25, `bugs_open/385` §5c)
+
+"Is this stored section already represented in the incoming set?" is asked three times in
+the save path: `matchLockedRow` (given an identity arm by the 182/189/204 work),
+`MergeLockedPageSlots` (born mirroring those arms, LOCK-008), and the Layer 2
+interactive-preservation matcher in `save_page_sections_action.go:551-558` — which was
+never given the arm and still compares stored `slot_name` to incoming `ComponentName` by
+exact string. On the build arm the incoming names are the PLAN's function names, so a
+positionally-named locked calculator (`tool-2` vs `tool-loan-vs-savings`) reads as
+"dropped", and the protector appends a verbatim copy that the (correctly working) lock
+guard then cannot pair — a byte-identical `component_id IS NULL` orphan the save reports
+as success. Two properties made it hard to find. **(1) The armed population was one:** the
+preload takes only `build_status='deployed'` interactive rows, and 11 of the site's 12
+locked rows are `'approved'` — so nine sibling pages rebuilt clean in the same wave and
+the discriminator looked like anything but a matcher (position, naming, plan shape were
+all chased and refuted first). A clean cohort only exonerates a matcher if the cohort
+actually REACHED it; measure the gate's predicate over the cohort before reading the
+survivors as evidence. **(2) Each guard was locally correct:** 058 preserved the lock, the
+dedup collapsed byte-twins (but runs BEFORE the append), the 039 stub guard refused
+hollow orphans (this one had 11,845 B of working tool). The failure lives in the seams.
+
+Transferable checks: when a defect class is fixed by adding an arm to one matcher, grep
+for every OTHER site answering the same question (`matchLockedRow` / `MergedName` /
+`ComponentName ==` / slot-vs-function comparisons) and either give them the arm or write
+down why they are exempt — the third copy is the one that bites, and `bugs_closed/189`'s
+own "STILL OPEN" paragraph had predicted this survivor in prose three weeks earlier. And
+when one member of a uniform cohort fails, diff the members against every PREDICATE in
+the failing path (here: one `psql` over `build_status`), not only against the inputs.

@@ -6605,3 +6605,51 @@ anywhere; the rerender arm is clean on all ten locked tool pages including the v
 the overwrite-marker lead is closed. The next move is still §5b's, and it is now sharper:
 **test the BUILD arm**, because that is the one that has not run on a locked positional tool
 page since it failed.
+
+## 2026-08-25 (second session) — 385's CAUSE ESTABLISHED: the Layer 2 re-append, matched by slot-name string alone
+
+Full chain with inline evidence: `bugs_open/385` **§5c** (single source — this entry
+records the investigation's shape and its wrong turn, not a second copy of the finding).
+
+**The finding in one paragraph.** The writer is `save_page_sections_action.go`'s Layer 2
+interactive-tool preservation block (`:484-608`): its preload (`build_status='deployed'
+AND <interactive>`) selected the locked calculator — `[MEASURED 2026-08-25]` **the only
+locked row in the fleet satisfying that predicate**; the other 11 locked rows on this site
+are `'approved'`, which is the entire reason nine sibling pages in the same wave were
+untouched — and its matcher (`:551-558`) pairs stored rows to incoming sections by EXACT
+SLOT-NAME STRING only. The build arm names sections from the plan (function names), so
+`tool-2` ≠ `tool-loan-vs-savings` → "slot dropped entirely" → append a verbatim copy of
+the stored row with `ComponentID:''` (RFC_046 opt-in OFF). In the insert loop the plan's
+tool entry consumed the lock via the identity arm (058/182/204 all working correctly), and
+the appended entry — lock consumed, no id — became the byte-identical NULL-component
+orphan at position 6. Third matcher of "is this section already in the set"; the other two
+(`matchLockedRow`, `MergeLockedPageSlots`) were given identity arms, this one never was.
+
+**The handoff's named candidate was WRONG, and refuting it first is what found the truth.**
+HANDOFF_2026-08-25 pointed at LOCK-008's `MergeLockedPageSlots` vs `matchLockedRow`.
+Read both, arm for arm: they DO mirror (merge arm 3 pairs the plan's function name to the
+locked row's `cc.function`, which `[MEASURED]` is exactly `tool-loan-vs-savings` — and the
+08-17 census in this file proved the match held before the failure). The merge inserted
+nothing. What kept the investigation honest: the `llm_call_log` iteration census (iters
+{0,2,3,4}, no iter 5 → five-entry composition), which killed every "the list had six
+entries" story and forced the search downstream of the writer loop — where the only
+appender between compile and INSERT is Layer 2.
+
+**Dead ends, so nobody re-walks them:** orchestration_states for 08-23 are purged (expected,
+~2d); generate_content prompts do not carry the section list (0 mentions of either name);
+the 08-19 21:18–21:22 batch on 9 tool components that made `content_components.updated_at`
+look suspicious was `component-template-fixer` (template repairs, one compose_note per fix
+in llm_call_log — not function renames).
+
+**Discriminating censuses run today** (queries in bug §5c): 12 locked rows on site — one
+`'deployed'` (the victim's), 11 `'approved'`; armed set fleet-wide (locked + deployed +
+interactive) = **1 row, the same one — STILL ARMED**: the next build-arm rebuild of
+`tool-loan-vs-savings` duplicates it again. Pre-build state census via the delete-trigger
+archive: the three single-pass pages (application-tracker, consolidation, loan-vs-savings)
+all had writable rows at 1–4 with the lock at the tail; only the `'deployed'` one broke —
+position/tail was a red herring, `build_status` is the whole discriminator.
+
+**Fix path:** bug §8 candidate 0 — give the Layer 2 matcher `matchLockedRow`'s arms (all
+the data is already in the preload's `preservedSection`). Data-side disarm available
+without a roll: flip the one row to `'approved'` (owner call — it writes a locked row).
+Harness: `--selftest` green before all of this, per the standing order.

@@ -2464,3 +2464,41 @@ checking cost about five minutes.
 **So the position is unchanged in substance from Sunday:** the site is healthy and provably
 so, the damage is repaired, and the reason it happened is still not known. What today added
 is three things we can now rule out, which is how that kind of question usually gets answered.
+
+## 2026-08-25, later — we now know exactly why Saturday's rebuild duplicated the calculator
+
+The question that has been open since Saturday is answered, and it is answered with the
+actual line of code, not a theory.
+
+The rebuild machinery has a safety net whose whole job is to stop a rebuild from losing a
+calculator: before the new page content is written, it looks at what the page currently
+holds, and if it sees an interactive tool that the new content does not seem to include, it
+adds a copy of the stored tool back in so the rebuild cannot destroy it. That safety net is
+what created the duplicate. The new page content DID include the calculator — but the
+safety net decides "is the tool already in the new content?" by comparing names, and the
+two sides use different names for the same thing. The stored copy is filed under its shelf
+position, "tool-2"; the new content names it by what it is, "tool-loan-vs-savings". The
+names don't match, so the safety net concluded the calculator was about to be lost and
+appended its rescue copy — onto a page that already had the real, protected one. Every odd
+detail of the damage falls out of that: why the copy was byte-for-byte identical (it IS the
+stored row, re-added), why it had no link to its component (the rescue deliberately doesn't
+carry one unless a separate switch is on), and why it landed at the bottom of the page.
+
+Why only this one page out of ten? The safety net only looks at stored rows carrying a
+particular status label, and — measured today, across the whole fleet — exactly one
+protected calculator anywhere carries that label: this one. The other nine pages' calculators
+were never even looked at by the safety net, which is why they came through the same
+Saturday rebuild untouched. That also means the trap is still set, on this one page only: if
+we rebuild loan-vs-savings through the same route tomorrow, it will duplicate again. The
+day-to-day rebuilds that ran yesterday use the other route, which names things by shelf
+position and so never trips this.
+
+Worth saying plainly: the handoff's prime suspect — the piece that merges protected
+sections into the plan — turned out to be innocent. Checking it properly is what pushed the
+search to the right place, and the record of a locked page from three weeks ago had already
+predicted this class of fault almost word for word.
+
+What I need from you: two decisions. First, the code fix — small, and it copies a pattern
+we already use in two sibling places — goes through the usual review. Second, there is a
+one-line data change that disarms the one remaining trap today (relabelling that single
+stored row to match its ten siblings), but it touches a row you locked, so it is your call.
