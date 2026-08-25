@@ -53853,3 +53853,58 @@ that still asserted the canary was undamaged — a claim this session had itself
 
 Family: a-detector-needs-a-negative-case, a-prefix-window-is-a-tunable-with-two-failure-directions,
 i-repeated-the-error-i-had-just-written-up.
+
+## 2026-08-25 — I gated delivery on a status nothing writes, and on a table that empties itself. I had a memory note about the second one.
+
+**The claim:** `platform/delivery.Reviewed` gated the whole delivery pipeline on
+`SELECT count(*) FROM site_work_items WHERE item_type=$1 AND status='approved'`. I wrote it,
+tested it, mutation-proved three guards around it, submitted it to the council with a
+rationale explaining why the gate had to be a queue row rather than a flag, and registered it
+as DGH-017.
+
+**Both halves of that predicate were wrong.**
+
+**(1) `approved` is a status nothing writes.** `[MEASURED 2026-08-25]` across 11,983 live
+`site_work_items` rows the vocabulary is complete / needs_human_review / detected / unresolved
+/ cancelled / deferred / wont_fix / failed / rejected / verified / triaged. No `approved`.
+What `HandleApproveWorkItem` actually does — read from the handler, which I had open on screen
+for a different reason — is require `needs_human_review` and then set **`status='complete'`
+with `result.approved_by='admin'`**. And `complete` alone is not enough either, because
+`HandleResolveWorkItem` also writes `complete`, with `resolved_by`.
+
+**(2) The table is a ~7-day rolling window.** An approval is terminal, so it gets archived to
+`site_work_items_archive` (24,990 `complete` rows are there already). Reading only the live
+table converts a one-time review into one that **expires after about a week**.
+
+**What caught it:** the council, at three seats independently (`editquality` high,
+`guidelines` high, `guardian` medium). Not me, and not any test I wrote — every test I had
+passed, because they all asserted the shape of my own query.
+
+**The cheap check that would have:** `SELECT status, count(*) FROM site_work_items GROUP BY 1`.
+One query, four seconds. I never ran it, because the handler was *called* `HandleApproveWorkItem`
+and the status I wanted was *called* `approved`, and those two facts agreeing with each other
+felt like evidence. **A name is not a vocabulary.** The value I needed was one `grep` into the
+handler's own `UPDATE`, and I had already read that function's opening lines to learn something
+else.
+
+**The part that stings, and the reason this entry exists rather than a shorter one:** I have a
+memory note titled *"a closer census cannot see what it SUCCEEDED at"* whose whole content is
+that `site_work_items` is a rolling window and closing a row archives it out of the table you
+queried. It is in the auto-loaded index. It fired for me on a different lane three weeks ago.
+I wrote a gate that reads that table for a terminal status anyway.
+
+**Why the note did not protect me:** it is filed under *censuses* — counting what happened —
+and I was not counting anything. I was asking a yes/no question about one row. The trap is the
+same trap and my index entry for it names the wrong situation, so I read past it. **A landmine
+filed under how you FOUND it does not fire for someone arriving by another road.**
+
+**Generalises:** when a predicate is the single load-bearing thing in a mechanism, verify the
+VALUE against production data and the WRITER against the writing code, before building anything
+on it. Both are one query each. And a fail-safe direction is not a safe direction: this gate
+would have blocked every delivery for ever, silently, and looked exactly like "the owner has
+not reviewed it yet" — the failure mode I had explicitly designed the absent-row case to avoid,
+arrived at through the predicate instead.
+
+Family: a-name-is-not-a-vocabulary, verify-the-writer-not-the-handler-name,
+a-landmine-filed-under-how-you-found-it-misses-the-other-road,
+fail-safe-is-not-safe-when-the-gate-never-opens.
