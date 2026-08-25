@@ -93,7 +93,7 @@ const (
 	factProbeMarkupOnly      = "present_in_markup_only" // in the page, but NOT in its script — 225's shape
 	factProbeAbsent          = "absent"                 // nowhere on the page
 	factProbeNoSurface       = "no_surface"             // no stored HTML to read
-	factProbeNotProbed       = "not_probed"             // refused: no value, below the floor, or ambiguous
+	factProbeNotProbed       = "not_probed"             // refused: no value, or below the measured floor
 )
 
 // factProbeResult is what one (fact, tool) probe saw. Detail is written into the

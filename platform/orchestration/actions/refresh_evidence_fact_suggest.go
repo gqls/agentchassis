@@ -91,8 +91,9 @@ var factSuggestToolsQuery = `
 type factBindingSuggestion struct {
 	SubjectKey string
 	PageName   string
-	FactIDs    []string
+	FactIDs    []string // UNAMBIGUOUS bindings only — these go in the paste-ready fragment
 	Detail     []string // one line per binding, for the note body
+	Ambiguous  []string // one line per value that >1 fact shares; reported, never proposed
 }
 
 // planFactBindingSuggestions probes every non-declaring tool on the site against
@@ -124,6 +125,25 @@ func planFactBindingSuggestions(ctx context.Context, db *sql.DB, siteID uuid.UUI
 	}
 	if len(probeable) == 0 {
 		return nil
+	}
+	// ⚠ TWO FACTS THAT SHARE A VALUE CANNOT BE TOLD APART BY A VALUE PROBE, and
+	// proposing both creates a binding a human can never reconcile.
+	//
+	// FOUND IN PRODUCTION ON THE FIRST REAL SWEEP (2026-08-25, agritec.uk): two
+	// facts, `CIT-3f1b219f15ec6a39` and `CIT-86c4010f7cdf820d`, both asserting the
+	// SFI26 annual agreement cap of £100,000, were BOTH proposed for the one
+	// `100000` in the tool's script. The `not_probed` constant's own comment
+	// already claimed "refused: no value, below the floor, or ambiguous" — the
+	// ambiguity arm did not exist. A comment promising a guard that was never
+	// written, which is the exact class this lane spent two days closing.
+	//
+	// Reported rather than silently dropped: the collision is usually a REGISTER
+	// duplicate and the owner should see it. But it stays out of the paste-ready
+	// fragment, because pasting it declares two facts for one constant and every
+	// later pass then owes a reconciliation nobody can perform.
+	sharedValue := map[string]int{}
+	for _, pf := range probeable {
+		sharedValue[formatEvidenceNumber(pf.val)]++
 	}
 
 	rows, err := db.QueryContext(ctx, factSuggestToolsQuery, siteID)
@@ -165,18 +185,38 @@ func planFactBindingSuggestions(ctx context.Context, db *sql.DB, siteID uuid.UUI
 			continue // no code to look at; silence is the honest answer
 		}
 		s := factBindingSuggestion{SubjectKey: k.subject, PageName: k.page}
+		ambiguous := map[string][]string{} // display value -> fact ids that share it
 		for _, pf := range probeable {
 			lits, _ := factValueLiterals(pf.val)
 			for _, lit := range lits {
 				if valueOccursGuarded(surface.ScriptText, lit) {
+					disp := formatEvidenceNumber(pf.val)
+					if sharedValue[disp] > 1 {
+						ambiguous[disp] = append(ambiguous[disp], pf.id)
+						break
+					}
 					s.FactIDs = append(s.FactIDs, pf.id)
 					s.Detail = append(s.Detail, fmt.Sprintf("`%s` = %s, present in the script as %q",
-						pf.id, formatEvidenceNumber(pf.val), lit))
+						pf.id, disp, lit))
 					break
 				}
 			}
 		}
-		if len(s.FactIDs) > 0 {
+		ambigVals := make([]string, 0, len(ambiguous))
+		for k := range ambiguous {
+			ambigVals = append(ambigVals, k)
+		}
+		sort.Strings(ambigVals) // stable order: the note must not churn between passes
+		for _, disp := range ambigVals {
+			ids := ambiguous[disp]
+			sort.Strings(ids)
+			s.Ambiguous = append(s.Ambiguous, fmt.Sprintf(
+				"%s is carried by %d facts on this site (%s) — this probe cannot tell which one the tool uses, "+
+					"so none of them is proposed. Usually this means the register has duplicates; de-duplicate, "+
+					"or bind by hand with a contextual artifact_check.",
+				disp, len(ids), strings.Join(ids, ", ")))
+		}
+		if len(s.FactIDs) > 0 || len(s.Ambiguous) > 0 {
 			sort.Strings(s.FactIDs)
 			out = append(out, s)
 		}
@@ -234,23 +274,31 @@ func writeFactBindingSuggestions(ctx context.Context, db *sql.DB, siteID uuid.UU
 func factBindingSuggestionBody(s factBindingSuggestion) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "## This tool appears to encode registered facts, and declares none — %s\n", s.SubjectKey)
-	fmt.Fprintf(&b, "Observed: the daily evidence sweep found %d of this site's registered values in the script of `%s`:\n",
+	fmt.Fprintf(&b, "Observed: the daily evidence sweep found %d unambiguous registered value(s) in the script of `%s`:\n",
 		len(s.FactIDs), s.PageName)
 	for _, d := range s.Detail {
 		fmt.Fprintf(&b, "  - %s\n", d)
 	}
 	b.WriteString("Root cause: not-applicable — nothing is wrong with this tool. It is not declared, so when one of " +
 		"these figures changes in the register nothing tells this calculator, which is bugs_closed/225's class.\n")
-	b.WriteString("Fix: if these bindings are right, add them to the tool's PLAN criteria fence — paste-ready:\n\n")
-	b.WriteString("      \"facts\": [\n")
-	for i, id := range s.FactIDs {
-		comma := ","
-		if i == len(s.FactIDs)-1 {
-			comma = ""
-		}
-		fmt.Fprintf(&b, "        %q%s\n", id, comma)
+	for _, a := range s.Ambiguous {
+		fmt.Fprintf(&b, "  ⚠ AMBIGUOUS, NOT PROPOSED: %s\n", a)
 	}
-	b.WriteString("      ]\n\n")
+	if len(s.FactIDs) == 0 {
+		b.WriteString("Fix: nothing is proposed — every match on this tool was ambiguous (see above). " +
+			"Resolve the duplicate facts in the register, or bind by hand with a contextual artifact_check.\n")
+	} else {
+		b.WriteString("Fix: if these bindings are right, add them to the tool's PLAN criteria fence — paste-ready:\n\n")
+		b.WriteString("      \"facts\": [\n")
+		for i, id := range s.FactIDs {
+			comma := ","
+			if i == len(s.FactIDs)-1 {
+				comma = ""
+			}
+			fmt.Fprintf(&b, "        %q%s\n", id, comma)
+		}
+		b.WriteString("      ]\n\n")
+	}
 	b.WriteString("  Install it through the lane's own fence installer; never hand-edit the doc_plans row. " +
 		"If this tool has no PLAN at all, it needs one first (no PLAN means no criteria and no Tier 2/4).\n")
 	b.WriteString("Verified: n/a — this is a SUGGESTION, and it proves co-occurrence, not role. The value is in the " +

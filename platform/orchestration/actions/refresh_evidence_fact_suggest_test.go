@@ -194,3 +194,81 @@ func TestFactSuggest_CooldownIsPerSubjectAndSite(t *testing.T) {
 		t.Fatalf("unmet: %v", err)
 	}
 }
+
+// ── The ambiguity guard, found MISSING by the first real production sweep ──
+//
+// 2026-08-25, agritec.uk: two facts (`CIT-3f1b219f15ec6a39`, `CIT-86c4010f7cdf820d`)
+// both assert the SFI26 annual agreement cap of £100,000, and the suggester
+// proposed BOTH for the single `100000` in the tool's script. A human cannot
+// reconcile that binding — and `factProbeNotProbed`'s own comment already
+// claimed "refused: … or ambiguous", for an arm that had never been written.
+//
+// The exact class this lane spent two days closing, committed by me while
+// closing it: a comment promising a guard that does not exist.
+//
+// MUTATION THAT MUST GO RED: drop the `sharedValue[disp] > 1` branch.
+func TestFactSuggest_TwoFactsSharingAValueAreReportedButNeverProposed(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	site := uuid.New()
+
+	// The real shape: two duplicate register facts at 100000, plus one clean fact.
+	surface := `<script>const CAP = 100000; const FLOOR = 40000;</script>`
+	mock.ExpectQuery(regexp.QuoteMeta(factSuggestToolsQuery)).WithArgs(site).
+		WillReturnRows(sqlmock.NewRows([]string{"subject_key", "name", "fragment"}).
+			AddRow("sfi26-stacker", "tool-sfi26-revenue-stacker", surface))
+
+	got := planFactBindingSuggestions(context.Background(), db, site, suggestEB(map[string]float64{
+		"CIT-duplicate-a": 100000,
+		"CIT-duplicate-b": 100000,
+		"clean-floor":     40000,
+	}), map[string]bool{}, zap.NewNop())
+
+	if len(got) != 1 {
+		t.Fatalf("expected one suggestion, got %d", len(got))
+	}
+	s := got[0]
+	// The clean one IS proposed.
+	if len(s.FactIDs) != 1 || s.FactIDs[0] != "clean-floor" {
+		t.Fatalf("only the unambiguous fact may be proposed, got %v", s.FactIDs)
+	}
+	// The colliding pair is REPORTED, not silently dropped — usually it means the
+	// register has duplicates and the owner needs to see that.
+	if len(s.Ambiguous) != 1 {
+		t.Fatalf("the shared value must be reported once, got %v", s.Ambiguous)
+	}
+	for _, want := range []string{"CIT-duplicate-a", "CIT-duplicate-b", "cannot tell which"} {
+		if !strings.Contains(s.Ambiguous[0], want) {
+			t.Errorf("the ambiguity line must name both ids and say why: %s", s.Ambiguous[0])
+		}
+	}
+	// And it must never reach the paste-ready fragment, because pasting it
+	// declares two facts for one constant and every later pass owes a
+	// reconciliation nobody can perform.
+	body := factBindingSuggestionBody(s)
+	if strings.Contains(body[strings.Index(body, `"facts": [`):], "CIT-duplicate") {
+		t.Fatalf("an ambiguous id must not appear in the paste-ready declaration:\n%s", body)
+	}
+	if !strings.Contains(body, "AMBIGUOUS, NOT PROPOSED") {
+		t.Errorf("the note must show the ambiguity to the reader:\n%s", body)
+	}
+}
+
+// When EVERY match is ambiguous there is nothing to paste, and the note must not
+// emit an empty `"facts": []` fragment that reads as "declare nothing".
+func TestFactSuggest_AllAmbiguousEmitsNoPasteReadyFragment(t *testing.T) {
+	s := factBindingSuggestion{
+		SubjectKey: "sfi26-stacker", PageName: "tool-sfi26-revenue-stacker",
+		Ambiguous: []string{"100,000 is carried by 2 facts on this site (a, b) — cannot tell which"},
+	}
+	body := factBindingSuggestionBody(s)
+	if strings.Contains(body, `"facts": [`) {
+		t.Fatalf("no paste-ready fragment when nothing is proposable:\n%s", body)
+	}
+	if !strings.Contains(body, "nothing is proposed") {
+		t.Errorf("the note must say plainly that nothing is proposed:\n%s", body)
+	}
+}
