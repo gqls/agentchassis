@@ -136,3 +136,42 @@ took two attempts: my first test looked right and proved nothing.
 
 Fix committed, documents honest, figures corrected, verdict read and acted on. The remaining piece
 of work has a known-good pattern to copy rather than a design question.
+
+---
+
+**2026-08-25, morning.** The new chassis build went out overnight, so I checked whether the change
+actually reached the running system rather than assuming the tag meant anything. It has: both pods
+are on the new build and both carry the new code, confirmed by looking inside the running binary for
+two things that should be there and two that shouldn't. One of those checks is worth mentioning
+because it is a trap I'd written down in advance and it behaved exactly as predicted — if you look
+for the *name we use in the source code* rather than the *text that actually ends up in the
+binary*, you get "not shipped" back while the feature works perfectly.
+
+**The honest position on whether it is doing anything: it isn't, and that's the design.** Nothing
+has switched it on, and none of the problem types it can reach has a re-check written yet. There
+are zero recorded bypasses — and I've been careful to write down, everywhere that number appears,
+that the zero means nothing on its own. Nothing *can* produce that record until somebody writes one
+of those re-checks. It is not a pass and it is not a fail, and a future reader will meet the zero
+before they meet the explanation, so the explanation now sits next to it in three places.
+
+**I've also gone back and fixed our own status lines,** which had quietly become the most dangerous
+thing in the lane. Three documents said "inert until the next roll". That was true when written and
+misleading by this morning — the kind of sentence that makes the correct next step look premature
+to whoever reads it. They now say the gate is live, while keeping the separate and still-true point
+that it deliberately does nothing yet. Those are two different claims and running them together is
+how "live" starts to mean "working".
+
+**Now the question you asked: can we close it?** No, and I'd push back on closing it. Our bar is
+*fixed and live*. It's live. It isn't fixed. What the bug actually says is that one of the three
+things that stamp work "done" has no safety check at all — and after this change it still doesn't,
+unless somebody switches it on per closing path, which nobody has. What shipped is the mechanism
+and a tripwire, plus honest documentation where there was misleading documentation. That's real
+progress and it is not the fix. Closing it now would be the same mistake the bug is about: treating
+"a mechanism exists" as "the problem is gone".
+
+**What's left is three things, and only one of them is a real decision for you** — I've set them out
+in the handoff and in my reply.
+
+Everything is committed, the review verdict is in and acted on, and the next session has a
+cold-start document that tells it what is proven, what is merely true today, and what would let it
+close this properly.
