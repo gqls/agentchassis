@@ -207,6 +207,7 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		} else {
 			params.Logger.Warn("RenderSiteComponentsAction: header_cta_url override rejected by chrome link policy; using derived CTA",
 				zap.String("override", v), zap.String("derived", ctaURL))
+			emitCTAOverrideRejectedItem(ctx, params.DB, siteID, v, ctaURL, params.Logger)
 		}
 	}
 	if v := strings.TrimSpace(siteData.HeaderCTAText); v != "" {
@@ -1723,6 +1724,94 @@ func emitChromeRenderFailedItem(ctx context.Context, db *sql.DB, siteID, compone
 	if inserted {
 		logger.Info("render_site_components: chrome_render_failed item filed for review",
 			zap.String("slot", slot), zap.Bool("still_serving", stillServing))
+	}
+}
+
+// emitCTAOverrideRejectedItem files an owner-visible record that the owner's
+// header CTA override (sites.content_data->>'header_cta_url') was refused by the
+// chrome link policy and the render degraded to the derived CTA. Before this, the
+// refusal was a Warn in a pod log: the owner's explicit request could silently
+// degrade for ever, with the site reading as healthy (the derived button serves)
+// and nothing owner-visible saying their choice was not honoured.
+//
+// severity is medium, not high like the two emitters above: nothing dead ships
+// and nothing failed to render — the defect is that a stated intent is being
+// ignored, which is urgent to the owner and invisible to everyone else.
+//
+// refreshOnConflict, not the siblings' insertWorkItem (bugs_open/184, the
+// bugs_closed/091 class): the key is per SITE — one override slot per site —
+// while the finding names the CURRENT refused value. Under the default policy an
+// owner who edits a refused override to a second, also-refused value would keep
+// an open row describing the first for ever.
+//
+// This is NOT a third dead-control emitter in the sense of the consolidation
+// trigger recorded against emitChromeDeadControlItem (page-build-pipeline
+// register, `reuse_agent` disposition): no control is dropped here and the
+// conflict policy differs, so the shape it would consolidate into does not fit.
+func emitCTAOverrideRejectedItem(ctx context.Context, db *sql.DB, siteID uuid.UUID,
+	override, derived string, logger *zap.Logger) {
+
+	if db == nil || siteID == uuid.Nil {
+		logger.Warn("render_site_components: no site identity available, cta_override_rejected item not filed",
+			zap.String("override", override))
+		return
+	}
+
+	spec := map[string]interface{}{
+		"surface":      "site_component",
+		"slot_name":    "header",
+		"override_url": override,
+		"derived_url":  derived,
+		"config_key":   "sites.content_data->>'header_cta_url'",
+		"source":       "render_site_components",
+		"fix": "The owner-set header CTA override names a target the chrome link " +
+			"policy refuses — usually a page that is not deployed or does not exist " +
+			"(bugs_open/191's class: an owner-set target can go stale). The site is " +
+			"NOT broken: the derived CTA serves meanwhile (derived_url; empty means " +
+			"no CTA rendered at all). Decide: deploy or fix the target, point the " +
+			"override at a real page, or clear the key. The next chrome re-render " +
+			"applies the override automatically once its target is allowed.",
+	}
+	specJSON, _ := json.Marshal(spec)
+
+	summary := fmt.Sprintf("Header CTA override %q refused by chrome link policy; serving derived CTA", override)
+	if len(summary) > 250 {
+		summary = summary[:247] + "..."
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		logger.Warn("render_site_components: begin tx for cta_override_rejected failed",
+			zap.String("override", override), zap.Error(err))
+		return
+	}
+	w, err := writeWorkItem(ctx, tx, workItem{
+		siteID:    siteID,
+		source:    "render-site-components",
+		pipeline:  "build",
+		itemType:  "cta_override_rejected",
+		severity:  "medium",
+		summary:   summary,
+		spec:      string(specJSON),
+		priority:  40,
+		status:    "needs_human_review",
+		createdBy: "render_site_components",
+		itemKey:   "cta_override_rejected:" + siteID.String(),
+	}, refreshOnConflict, logger)
+	if err != nil {
+		_ = tx.Rollback()
+		logger.Warn("render_site_components: write cta_override_rejected item failed",
+			zap.String("override", override), zap.Error(err))
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		logger.Warn("render_site_components: commit cta_override_rejected item failed",
+			zap.String("override", override), zap.Error(err))
+		return
+	}
+	if w.Recorded() {
+		logger.Info("render_site_components: cta_override_rejected item recorded for the owner",
+			zap.String("override", override), zap.Bool("inserted", w.Inserted), zap.Bool("refreshed", w.Refreshed))
 	}
 }
 

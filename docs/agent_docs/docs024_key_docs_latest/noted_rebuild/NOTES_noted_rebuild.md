@@ -2751,3 +2751,39 @@ substituted). The habit held: suspect the instrument, then PROVE it.
 
 Paid-tier copy (approved wording, minus the 50 MB-free sentence) recorded in
 PLAN_2026-08-24 — ships the day a purchase mechanism exists.
+
+---
+
+## 2026-08-25 (late) / new session — CTA-override follow-up BUILT (handoff §4 item 1)
+
+The 08-25 disposition's accepted follow-up (bug_historian m: a REFUSED
+`header_cta_url` override logs only a Warn) is now code: a refused override
+files an owner-visible **`cta_override_rejected`** work item beside the Warn
+(`emitCTAOverrideRejectedItem`, render_site_components_action.go).
+`needs_human_review`, no handler, severity medium (nothing dead ships — the
+derived CTA serves; the defect is a stated intent silently ignored). Key
+`cta_override_rejected:<site_id>` with **refreshOnConflict**, not the sibling
+emitters' drop: the open row must name the CURRENT refused value (bugs_open/184
+class). Fire-and-forget — a refused override must never fail the render.
+
+Proof: two call-site-driving sqlmock tests (hitl_refresh_adoption_test.go
+pattern); the policy pin **mutation-verified red** (flipped to dropOnConflict →
+FAIL on the unmet UPDATE expectation, reverted → PASS). Tested against
+COMMITTED HEAD via `verify-head-builds.sh --with` (both files overlaid),
+because the shared working tree's package test-compile is broken by another
+lane's untracked WIP (`write_audit_findings_field_capability.go`), and HEAD's
+own findingcodes scan separately fails on the 396 lane's undeclared
+`WORK_ITEM_STATUS_OVERRIDE_REFUSED` — both pre-existing, neither mine, neither
+touched.
+
+Register: **STY-058** (styling-render-pipeline.md + index row) — which also
+closes a standing gap found on the way: the 08-18 content_data override itself
+had NO register entry (the 07-28 §2 same-commit condition was missed a week
+ago; stated in the entry rather than backdated). The entry carries the
+two-carriers landmine: a grep for `header_cta_url` hits BOTH STY-053
+(config.chrome, policy-BYPASSING) and this one (content_data, policy-vetted) —
+"one application site" is true only PER CARRIER.
+
+Council: submitted, corr `10b84432-eef8-4462-b451-7d791ee78d33` (DRY_RUN
+admission passed first); committing with `Council-Submitted:` per the 07-30
+rule. Inert until the next chassis roll either way.
