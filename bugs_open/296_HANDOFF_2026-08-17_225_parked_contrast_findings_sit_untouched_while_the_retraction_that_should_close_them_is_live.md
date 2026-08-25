@@ -558,3 +558,38 @@ form, and on dartsonline the same root cause produced six *invisible* failures
 stylesheet was restored — which is also why they fixed it in that site's
 stylesheet rather than in `contact-info`, a component serving 12 pages across 11
 sites where the same ink is a legible brand heading on a light theme.
+
+### 11. CONTRIB 2026-08-25 from the `site_ai_agent_orchestration` lane — a site where the retraction had 8 of 9 to close, was selected, and closed none
+
+ai-agent-orchestration.com is the disconfirmable case this bug wants: its parked pairings were
+genuinely REPAIRED after parking (that lane's contrast work, 44→0 between 08-17 and 08-24), so a
+completed audit over those pages must retract them. Measured 2026-08-25 ~16:00Z:
+
+- **9 rows `deferred`** (17 on 08-11; 8 cancelled 2026-08-24 19:11Z by the 352 TAG.TAG sweep), all
+  `updated_at` 2026-08-11 12:31Z — untouched since parking.
+- **The rotation DID select the site:** `site_discovery_rotation` `render-audit-agent.last_selected_at =
+  2026-08-24 02:23:11Z`. The run's `orchestration_states` row is beyond retention (oldest row in the
+  table 08-24 13:09Z), so completed-vs-timed-out is unknowable. Every rotation stamp after 13:28Z 08-24
+  has a matching COMPLETED run (9 of 9), so the rotation itself fires.
+- **R1 (`scripts/render_audit.py`) over the six pages the rows name:** about **0**, services **0**;
+  news / index / tools report only an over-image `A.btn` at 3.95:1 (different selector, approximate);
+  ai-readiness-quiz **NOT MEASURED** ("probe produced no result").
+- **Element census on the served HTML:** 7 of 9 parked selectors are still present and now pass —
+  index `P.news-card-summary` ×5; about `A.cta-btn` ×2, `SPAN.stat-value` ×3, `SPAN.about-eyebrow` ×1;
+  services `SPAN.info-card-grid__eyebrow` ×1, `H3.info-card-grid__card-title` ×6; tools
+  `H3.tl-card-title` ×6. news `A.cta-btn`: **0 elements** (gone — still retractable, absent from the
+  failing set). ai-readiness-quiz `BUTTON.btn` ×4, unmeasured.
+- Stylesheet 20,923 B — not the §10.4 clobber class.
+- The 352 skew guard (`ffa6e1c3d`, 08-24 13:45Z) postdates the run but is irrelevant here: all nine
+  keys are classed `TAG.class`, for which the legacy and verified compositions are identical.
+
+So `retractResolvedContrastFindings` had eight qualifying rows (page audited ⇒ key absent from
+`stillFailing`) and closed none. Two candidates survive, indistinguishable from what remains: (i) the
+02:23Z run **timed out** (`site-render-audit-rotation` `timeout_seconds=1800`; the site has 43 pages
+against `max_pages 60`) — §10.2's class, and a timed-out audit files nothing and retracts nothing;
+(ii) `pages_audited` did not include these pages. **The next selection is due ≥ 2026-08-27 02:23Z**
+(3-day interval, `ORDER BY last_selected_at ASC`), inside retention — watch its `orchestration_states`
+row and `final_result` (`pages_audited`, `retracted`, `retracted_parked`). If it completes with about and
+services audited and the rows still sit, that is a retraction defect; if it times out, it is §10.2 and
+the fix is the audit's budget, not the retraction. Full working: that lane's
+`site_ai_agent_orchestration/NOTES_site_improvement.md` 2026-08-25 §4.
