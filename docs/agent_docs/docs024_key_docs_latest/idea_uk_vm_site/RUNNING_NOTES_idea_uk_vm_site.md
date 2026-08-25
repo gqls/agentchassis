@@ -5471,3 +5471,19 @@ lane, in short:
 - Misstep register: none new — but the 08-18 handoff §1 described the 08-17 drain as
   healthy throughput; two of those 42 "completions" were the clobber commits. A
   completion count is not an artefact check, again.
+
+## 2026-08-25 — incident closed end to end; handoff rolled to 08-25
+
+- Canary `01a4dbca` was claimed 08-19 15:28Z — 27 minutes after unparking — and
+  completed first attempt, deploying the restored stylesheet. `[VERIFIED 2026-08-25]`
+  served `/assets/css/styles.css` = 26,264 B with `:root`; `css_themes` v15 (nine
+  further legitimate appends since our v6, DB and file now the same document).
+- The 198 lane finished the class while we were away: third wave restored, fleet
+  backfill done, `stylesheet_gutted` detector (gate 22/0 as of 08-23), DGH-016 guard
+  live v1.0.1323, owner ruling on the shared-theme case, **198 → bugs_closed**. Root
+  cause ruled the INSTALL contract, not the fork — read their record, not our 08-19
+  narrative, for the final mechanism.
+- Queue re-measured for the 08-25 handoff; noted the rolling-window trap (complete
+  262→78 is archiving, not loss). Fresh audit items 08-20→08-24 grew the owner's
+  review queue to 49; 3 fresh `failed` (08-24) are the next cheap read.
+- Handoff rolled: `HANDOFF_2026-08-25_continue_here.md`; 08-18 file bannered.

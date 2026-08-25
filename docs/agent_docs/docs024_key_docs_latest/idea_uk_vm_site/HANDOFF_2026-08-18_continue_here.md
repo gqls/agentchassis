@@ -1,5 +1,11 @@
 # HANDOFF 2026-08-18 — honesty arc CLOSED, brand-head assets LIVE, drain rate answered (it was never a drain problem). Read this, then the open list in §4.
 
+> ## ⛔ SUPERSEDED as the cold-start file — read `HANDOFF_2026-08-25_continue_here.md` first (2026-08-25)
+> The 08-19 live-incident banner below is RESOLVED: idea.uk's stylesheet is restored and
+> verified at the served page (26,264 B, `:root` present, 2026-08-25); the fleet defect is
+> closed as `bugs_closed/198` with a live detector + deploy guard. §2's queue table and §4's
+> ordering are stale — the 08-25 file re-measures both.
+
 **Supersedes `HANDOFF_2026-08-16_continue_here.md` as the cold-start file.** That file
 remains the reference for the honesty arc's full history, §4 (the gate cannot see titles
 or meta descriptions — **still true, still unfixed**) and its §7 traps. Its §5 work list

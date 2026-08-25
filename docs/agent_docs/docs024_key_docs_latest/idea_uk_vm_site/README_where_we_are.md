@@ -2376,3 +2376,23 @@ Worth saying plainly: the framework did detect the damage — its page audit mea
 colour contrast and correctly flagged "1.00:1", which means invisible — but it handed
 the finding straight back to the agent that caused it, which can't restore what it
 never saw. That loop is one of the four things the bug file now asks to be closed.
+
+## 2026-08-25 — the text is back, the hole is plugged fleet-wide, and what's left on this site
+
+Closing the loop on the invisible-text incident: the one repair item I set going last
+Tuesday ran within half an hour and republished the full stylesheet; I've checked the
+live site today and it serves the complete 26KB file with all its colour definitions.
+The team that owns the repair agent then did the rest properly across the whole fleet —
+two more sites that got hit were restored, every site's database copy now matches its
+real file, there's a detector that spots a gutted stylesheet anywhere in the fleet, and
+a guard so the deploy step can no longer replace a big file with a tiny one. The bug is
+closed. Nothing on this is left for us.
+
+What's actually next on idea.uk, in order: the news section — the page still asks for a
+news file that has never existed, and this is now the oldest open gap on the site by
+three weeks; three items that failed yesterday whose error messages nobody has read yet;
+and the "class B" blank-components note that two handoffs have now carried forward
+without anyone either filing it properly or dropping it — the next session should do one
+or the other. Separately, your human-review queue on this site has grown to 49 items,
+a dozen of them in the last two days from things bumping into locked content — worth
+ten minutes together to see if that's one cause wearing twelve hats.
