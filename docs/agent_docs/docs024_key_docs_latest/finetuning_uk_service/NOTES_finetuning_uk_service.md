@@ -1890,3 +1890,50 @@ running copy-editor rather than assuming.
   gate defect our 2nd addendum reported, and notes stage 2's "first user outside this lane" (us).
   Their reaction to the OWNER ESCALATION is still pending. bugs_open/387 (writer_block stand-in
   copying, "NNN+") checked against our pages: no `{value}`/NNN leakage on either.
+
+## 2026-08-25c — copy-quality ANSWERED (machinery moving, register unchanged); the parked rewrite FAILS the gate on structure, re-graded first-hand; 377 closed at the artefact
+
+- **Escalation answered, and the answer is "not yet".** `copy_quality_two_stage/HANDOFF_2026-08-25_continue_here.md`
+  (committed after our 08-25 handoff) takes our OWNER ESCALATION as **item 0 of next work** and
+  records that a **SECOND owner escalation landed the same day** from his homegarden.uk review
+  (canonical: `loanzy_uk_example_site/OWNER_REVIEW_2026-08-25_homegarden_and_what_it_says_about_every_site.md`)
+  — machinery must "up their game a lot"; refresh context BEFORE proposing fixes; audit EVERY
+  prompt in DB and code for "is it encouraging AI styles of writing". Two of his three
+  instructions are done on their side (`REFRESH_2026-08-25_deep_context_the_accumulated_copy_discussion.md`;
+  `PLAN_2026-08-25_prompt_audit.md`, phase 1 next). **Nothing has shipped that changes the
+  register**, so this lane's holds stand unchanged — no rebuilds, no cross-link runs, no
+  site-wide rewrite.
+- They independently reached our instrument finding: a regex/tell-count instrument is
+  "demonstrated insufficient as an acceptance test", citing our checklist scoring the rejected
+  section CLEAN. Their §5 (form-versus-phrase) is now the stated honest limit.
+- **The parked copy-editor proposal `8003c51a` FAILS their gate — and one failure is real.**
+  CONTRIB in our dir (`CONTRIB_2026-08-25_from_copy_quality_your_parked_stage2_proposal_FAILS_the_gate_read_before_approving.md`,
+  + appendix). **Re-graded first-hand this session** rather than taken on report
+  (`gate_stage2_edit.py --item 8003c51a-…`), output `[MEASURED 2026-08-25]`:
+  - edit 1 — `FAIL markup content (structure): h3 2→1, li 3→0, ol 1→0` (an entire ordered list
+    deleted), 34% shorter;
+  - edit 2 — `FAIL markup content (structure): h3 2→0, p 4→2`, 52% shorter;
+  - the three per-field `/contact.html` noise lines they warned about are **gone** (their fix is
+    live in the script); edit 1 is now **credited** with ADDING `/contact.html`, edit 2 carries a
+    ⚠ pre-existing page-level gap. So the structural losses are the only failures, and they are
+    ours to judge, not noise to discount.
+  - **This is the `bugs_open/012` class** — a substantial cut that reports success. It does not
+    change the lane recommendation (hold until the register machinery moves), but it removes the
+    "apply it, it reads better" option: applying as-is would delete a list from a live page.
+    If the owner wants it sooner, the move is **re-ask with the list and headings preserved**,
+    not approve-then-repair.
+  - Their §3 traps, worth carrying: a parked proposal's `page_component_id` **rots** on any
+    rerender (resolve by `(page, slot)` at dispatch; four occurrences fleet-wide now), and
+    `client_id` is interpolated **unquoted as a schema name** in the apply path — a hyphenated
+    tracing id dies as a SQL syntax error that reads like a platform fault.
+- **`bugs_open/377` → `bugs_closed/377`** (commit `28fa9a625`). Proof read at the **artefact**,
+  which is the only honest place for a defect whose signature is a build that FAILS: the pattern
+  literal is gone at HEAD (`validate_page_content.go:141` keeps only the removal comment), and
+  `/your-own-model.html` is `deployed_at = 2026-08-24 19:58:47Z` — **after** the 18:32Z roll —
+  serving `Your company's voice, in a model you own`, the exact sentence the 08-24 blocker row
+  named. A build carrying it cannot complete with the pattern in the list. Residual left open
+  deliberately (`"coming soon"`, `"not provided"`, bare `"tbd"` — never measured). 016b §10's
+  pointer repointed at `bugs_closed/` in the same commit (the closed-blocker-still-obeyed trap).
+  ⚠ Same function has since gained `bugs_open/387`'s numeric stand-in patterns — a future false
+  positive here is more likely 387's than 377's.
+- Owner: no new input since the 08-25 verdict; decisions 1–7 all still open, Stripe last.
