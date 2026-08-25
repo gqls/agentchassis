@@ -392,3 +392,98 @@ building the verb than the 52 unstamped rows ever were.
 
 **Tally for this lane: 3 hypotheses killed by me, 1 of my own claims killed by a peer, 1 measurement
 retracted as unanswerable, 2 census errors — and the answer found in a document I never opened.**
+
+## 2026-08-25 — BOTH FIXES BUILT AND SHIPPED: the park verb (live) and the status_override allow-list (inert until a roll)
+
+Owner ruled "2 then 3": build the verb, then close the config door.
+
+### The verb — migration 621, LIVE ON APPLY
+
+`park_work_items(...)` / `unpark_work_items(...)`, register **WII-034**, council `ed821065`.
+
+**A SQL function, not a Go action, and that is the load-bearing design decision.** The users are
+sessions at a psql prompt — all four recorded parks were performed that way. A registered action
+would not have been called by any of them, and would have been inert until an image rolled. This is
+DB config: live the moment it applies.
+
+**The structural property is that the stamp is an ARGUMENT.** `p_parked_by`, `p_parked_reason` and
+`p_release_condition` have no defaults, so a park cannot be performed without saying who, why and
+what would release it. Everything else in the file is guardrails.
+
+⚠ **It stamps `result`, not `spec`, and the reason is a real finding rather than a preference.**
+`refreshOpenWorkItemSQL` does `SET summary = $3, spec = $4::jsonb` — it **replaces `spec` wholesale**
+whenever a `refreshOnConflict` producer re-detects the same `item_key`. A `spec`-based park stamp is
+therefore destroyed by exactly the re-detection a parked row is most exposed to. `result` is merged
+by the estate's main status writer (`v3_site_actions.go:6306`) and untouched by the refresh, and
+migration `442` already stamps `result.repair_284` there. **That explains why the two hand-conventions
+diverged and which of them was right.**
+
+**Verified before applying, then at the artefact after.** Ran the whole file with `COMMIT` replaced
+by `ROLLBACK`: 5 refusals induced, positive control passed, negative control clean, and a check
+afterwards confirmed the rollback left nothing behind. Then applied; then read back independently —
+both functions present in `pg_proc` with the right signatures, and a bare call on a real site
+(`mortgagecalculator.co.uk`) returned:
+
+```json
+{"applied": false, "would_park": 30, "domain": "mortgagecalculator.co.uk",
+ "by_item_type": {"head_essentials_missing": 29, "dead_internal_link_live": 1},
+ "note": "DRY RUN — nothing changed. Re-run with p_apply => true to write."}
+```
+
+…and wrote **0** rows. Recorded via `--record-only` with the reason stated: applied by hand rather
+than through an unscoped runner pass, which would have taken every other session's pending file.
+
+### The allow-list — Go, inert until an image rolls
+
+`workItemStatusOverrideAllowed` + `statusOverrideAllowed()` in `work_items_common.go`, wired into
+`FailWorkItemAction`. Council `9c16eb83`.
+
+**The rule each entry must meet is stated and TESTED:** a status may be written here only if the row
+can still *leave* it — terminal (releases the dedup slot, so the detector can re-file) or with a
+named live consumer. `needs_human_review` has `HandleRetryWorkItem` and the resolve endpoint;
+`blocked` has `feasibility-recheck`. **`deferred` has neither, is excluded, and the refusal message
+points at the park verb** — so the narrowing names the good way to park instead of only saying no.
+
+**Blast radius measured, not assumed:** a **recursive** walk over every `agent_definitions` row,
+snapshots and soft-deleted included, finds `status_override` on 4 steps in 3 agents and **every value
+is `needs_human_review`**. No other value in the estate's history.
+
+### The tests were mutation-proven, and one mutation is the interesting one
+
+All five made to fail, then the tree restored **byte-identically** (verified with `diff -q` against
+copies taken before mutating — a shared tree must not be left mutated even for a minute):
+
+| mutation | result |
+|---|---|
+| add `"deferred"` to the list | 2 tests FAIL ✓ |
+| remove `"needs_human_review"` (over-narrowing) | over-narrowing guard FAILS ✓ |
+| replace the guard condition with `if false`, **every comment left in place** | wiring test FAILS ✓ |
+
+⚠ **The third is why that test parses the AST instead of grepping the source.** The estate's existing
+test for this same function is a source scan, and LANDMINES records that a source-scanning test makes
+your own comments load-bearing — the needle matches the comment explaining the guard and the test
+passes vacuously. `parser.ParseFile(..., 0)` drops comments, so it can only pass on real code. The
+`if false` mutation is precisely the one a grep would have missed.
+
+### Housekeeping, and one thing that went sideways
+
+Register entry WII-034 written in the **same commit** that ships the verb, per the 2026-07-28 ruling
+condition (2). The lane's `102_coverage_ratchet.txt` line retired — it has now built rather than
+diagnosed, so it is registrable, not ratchetable.
+
+⚠ **My `000_concept_index.md` row for WII-034 was swept into another session's commit (`ce969cf9c`)
+between my write and my commit** — the same-file passenger case CLAUDE.md says no hook can prevent.
+Nothing lost, forward-only holds, the row is correct in HEAD, and my commit message says so. Worth
+noting as the second concurrency event this lane has hit today (the first was a transient
+`index.lock` that failed a commit outright).
+
+### What is NOT done, stated plainly
+
+- **Neither fix releases the 52 unstamped rows or the 62 stamped ones.** That is deliberate: 60
+  carry another lane's live *"un-park after rebuild verify"* condition, and both sites holding the
+  52 now show a zero live queue, so the holds look expired — **but expired is the holder's call, not
+  mine.**
+- **Nothing stops a session writing a raw `UPDATE` instead of calling the verb.** Short of a trigger,
+  nothing can. Stated as the open residual in WII-034 and in `bugs_open/396` §6a rather than left
+  implied.
+- The Go half is **inert until an image rolls**. The SQL half is live now.
