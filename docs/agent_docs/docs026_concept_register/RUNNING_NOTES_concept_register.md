@@ -2602,3 +2602,75 @@ APPLIED**, which was true when written; if you are reading this later, check
 The change of circumstance is the only thing that changed. If the lane would rather own `DBI-026`
 outright, or fold it into `DBI-014`, treat mine as a first draft written by the session that had
 the mechanism open — not as a fait accompli.
+
+---
+
+## 2026-08-25 — `DOC-078`'s sharpest category had a false-positive mode (fixed, `a9665268f`)
+
+Picked the lane up from `HANDOFF_2026-08-17_continue_here.md` and re-ran its whole verification
+table first, which was the right call: HEAD had moved **1,481 commits** since that doc was written
+(and a further ~1,100 by the time the fix landed, at `5c45e1fac`).
+
+**What the re-run said**, each figure with its command in the handoff's table format:
+
+| what | 08-17 | 08-20 re-run |
+|---|---|---|
+| register self-consistency | 1880 / 1880 | 1918 entries / **1919 rows** |
+| landmine keys | 546 entries, 0 mismatch | 640 entries, 3314 rows, **0 mismatch**, exit 0 |
+| stash ban | clean 650 commits | **clean 2,131 commits**; `stash@{0}` still the 08-12 one |
+| fleet | `v1.0.1305`, 18 deploys, 3 tags | `v1.0.1317`, 20 deploys, **uniform** (makefile `v1.0.1319`, 2 ahead — a build bumped, not rolled) |
+| citations (`DOC-078`) | 8279 / 75% / **4** dead | 8741 / 75% / **7** dead |
+| version lag (`DOC-077`) | 345 cites, 182 entries | 400 cites, 208 entries; `status-evidence` median 111 → **123**, 82 entries ≥50 behind |
+
+The 75% resolution ratio has now held across **three** measurements while the corpus grew ~950
+citations. That is the useful reading and it is unchanged: the citations are abbreviated, not rotting.
+
+**The finding.** `NEVER-REPO-PATH` went 4 → 7, and not one of the three was rot.
+
+- **Two were `SEO-005`**, citing `platform/orchestration/actions/head_assembly.go`. The file existed
+  on disk and was git-**staged** (`A `) but uncommitted. The report reads the WORKING TREE for
+  entries but resolves paths against git HISTORY — so an added-but-uncommitted file reads as
+  "no file, ever". A harness asymmetry, not a citation defect. **Recorded on 08-20 as a prediction
+  that it would self-heal; it did** — the SEO lane committed it in `4abcd55a4`, and by 08-25 both
+  citations resolve. Same root as the drift check's `SEO-005` row-without-entry finding the same
+  morning (index row committed as a passenger in a `PBP-040` commit, entry half still dirty).
+- **One was a genuine resolver bug.** `FIX-061` cites
+  `scripts/migration/run-migrations.sh:65,:283`; the file is tracked and clean.
+  `clean()` stripped line refs with `:L?\d+([-,]L?\d+)*$` — which handles `:151,227` (there is a
+  self-test case for exactly that form) but **not the repeat-colon form**. On `:65,:283` it stripped
+  `:283`, left `:65,`, and the trailing `rstrip` made it `…run-migrations.sh:65`. Fix is one
+  character class: `([-,]:?L?\d+)*`.
+
+**Why it was worth doing at a blast radius of one.** `grep -rhoE '[A-Za-z0-9_./-]+:[0-9]+(,:[0-9]+)+'`
+over `register/` returns **1** occurrence as of 2026-08-25. The volume is not the argument. The
+argument is that the last three handoffs used *"NEVER-REPO-PATH is still exactly 4"* as the
+corpus's stability evidence, and that number had a way of being wrong that no reader would have
+read as wrong — a false positive in the one category the report states as decisive.
+
+**Guarded, not just fixed.** A self-test case sits beside the one it generalises. It is
+**non-vacuous, and proven so by mutation**: reverting the regex on a *copy* while keeping the case
+makes that case fail with exactly `NEVER-REPO-PATH` (10/11, exit 1), reproducing the false positive;
+the other ten are unaffected either way. This lane has been bitten by a vacuous self-test before
+(08-17: `parse()` starts at the `# Entries` marker, so a mutation above it registered nothing) —
+mutating a copy and watching the *specific* case fail is the cheap version of not repeating it.
+
+**Missteps this sitting**, since that is what this file is for:
+
+- I printed `MUTANT EXIT=0` and nearly read it as the script's exit code. It was `tail`'s — the
+  pipe masks it. Re-ran unpiped: mutant 1, fixed 0. **A `$?` after a pipeline is the LAST command's**,
+  and every self-test invocation here ends in `| tail`, so this trap is permanent in this lane's
+  own runbook commands.
+- First instinct on seeing 4 → 7 was "the citations are rotting". They were not; two of three were
+  my own harness looking at an uncommitted file, and I only avoided filing that by checking
+  `git status` on the cited path. **A dead citation naming a file that exists on disk is an
+  uncommitted-file transient until proven otherwise** — check `git status <cited path>` before
+  believing `NEVER-REPO-PATH`.
+- On landing the fix I had to resist reporting "7 → 4, fixed". **Only one of the three was mine.**
+
+**Not in council-gate scope**: `COUNCIL_SCOPE_CODE_RE` anchors `scripts/pattern-check\.py$` with a
+trailing `$`, so no submission was owed for this file. Checked, not assumed.
+
+**Still owed, EIGHTH session running:** `rebuild-cascade.md`'s stored count. Last commit still
+`7272d59d4` (2026-07-27), still dirty +3/−3, still same-file-blocked. Asserted the positive fact
+per the handoff's own warning rather than reading a status as resolution. It is once again the
+drift check's ONLY finding.

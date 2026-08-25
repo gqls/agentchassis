@@ -1018,3 +1018,44 @@ One thing to know: the register has a new drift finding as of this morning — a
 concept whose entry hasn't been committed yet. It's the exact failure the 12th's handoff
 predicted (the row rides out inside someone else's commit), it belongs to a lane that is live
 right now, and it should close itself when they commit. I've left it to them and flagged it.
+
+---
+
+**2026-08-25.** Picked this lane up cold and re-ran every measurement in the handoff before
+touching anything, which turned out to matter — the tree had moved about fifteen hundred commits
+since that document was written, and roughly a thousand more while I worked. Nearly everything was
+still healthy: the landmine keys are clean, nobody has run the forbidden `git stash` in over two
+thousand commits, and the fleet is on one uniform version.
+
+One number had moved the wrong way. The citation report has a category it states very plainly —
+"no file, ever, under that name" — and it had gone from four to seven. That is the report's
+sharpest signal, the one the last three handoffs have quoted as proof the register isn't rotting,
+so three new ones was worth a look.
+
+None of the three was rot.
+
+Two of them were the same thing in disguise. An entry cited a Go file that genuinely exists on
+disk, but the lane that wrote it hadn't committed it yet — and the report resolves paths against
+git's history while reading entries from the working folder. So a brand-new file reads as one that
+has never existed. I predicted on the 20th that it would clear itself when that lane committed, and
+it did, in exactly the way expected. Nothing to fix.
+
+The third was a real bug, in our own report. When an entry cites two line numbers in one file,
+there are two ways people write it, and the code only understood one of them. Given the second
+form it mangled the path into something git has never held, then reported that as a file that
+never existed. So the tool was manufacturing a small amount of the very rot it exists to detect.
+
+The fix is one character. What took the time was making sure the test I added could actually fail:
+I put the old broken code back on a scratch copy, kept the new test, and watched it fail in exactly
+the way the bug behaved. This lane has been caught before by a test that passed because it wasn't
+really testing anything, and a test that has never been seen to fail is only a comment.
+
+Worth saying plainly, because it would be easy to overclaim: the count went from seven back to
+four, but only one of those three was my doing. The other two fixed themselves. And the honest size
+of this fix is a single citation in the whole register today — I did it because a decisive-sounding
+number was quietly capable of being wrong, not because much was broken.
+
+Still outstanding, and now for the eighth session running, is the small stored count in one
+register file that can't be committed without dragging another lane's unfinished edit along with
+it. It is once again the only thing the drift check complains about. I checked it properly rather
+than assuming a clean-looking status meant it had gone away.
