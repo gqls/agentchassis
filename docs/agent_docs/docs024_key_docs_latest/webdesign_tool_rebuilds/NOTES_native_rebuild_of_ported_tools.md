@@ -3053,3 +3053,12 @@ unharmed (adopted, retired in-turn, serve PASS — **35/63**). Result relayed to
 comment block, so a serve-grade positive pinned from tool-doc phrasing scores 0 on a CORRECT page
 (grid's "fr-explainer" was the first instance). **Pin positives from the CODE arm's literals, never
 the doc block.**
+
+## 2026-08-25 11:15Z — fresh chassis roll (pods 09:27Z) VERIFIED for the lane; new handoff written at the owner's request
+
+Both lane dependencies probed at the new binary with a clean control: `adopt_existing_page` present,
+360 tombstone-guard literal present; live config intact (adopt flag true, picker wired). #35 built
+ON this roll (09:47Z), so it is behaviourally proven too. `HANDOFF_2026-08-25_continue_here.md`
+supersedes 08-22; csp-builder analysis embedded there (its defining defect: `resetPolicy()` never
+resets connect-src, so unchecking a box leaves its domain in the policy — the output lies about the
+inputs). Grind continues with csp-builder.
