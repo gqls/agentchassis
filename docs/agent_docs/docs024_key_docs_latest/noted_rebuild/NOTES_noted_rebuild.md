@@ -2611,3 +2611,24 @@ personae-noted-media` (LogState — the greppable honest signal), 077 fires the
 stage-2 editor, page_rerender (page_id COLUMN), live smoke. Existing media
 rows keep serving from Postgres (`storage_key IS NULL` path) — no migration of
 old bytes required, drain optional later.
+
+### 2026-08-25, later — B2 + board DEPLOYING: engine LIVE on B2, editor queued
+
+The owner copied binary + env snippet (checksums compared: `e5aca46d…` both
+sides); the install ran from this session this time. Engine verified at the
+artefact: startup line **`media storage: B2 bucket personae-noted-media`**
+(LogState — the greppable positive), health ok, shopfront control steady
+(200/34061, unchanged from yesterday's post-change baseline), and all three
+new columns (`media.storage_key`, `media.b2_file_id`, `notes.layout`) present
+on the box DB — the startup migration ran. Old binary backed up at
+`/root/noted-engine.pre-20260825-b2`; the env snippet was consumed and
+removed from /root.
+
+Editor stage 2 fired via 077 (corr `be9854e7-5083-4437-9c3b-77ee90826ca0`,
+receipt PUBLISHED, orchestration COMPLETED); placement verified carrying
+`nw-board` AND `nw-view-toggle` (33,081 B). page_rerender hand-filed
+(`516689bd…`, item_key `…_assemble_board_v2`, column asserted → tool-write),
+**55 items ahead** at filing. Watcher armed — WITH stderr this time
+(yesterday's instrument lesson). When it lands: box/live bytes, then the live
+smoke, then `b2 ls` as the after-control (the smoke's own delete should leave
+the bucket empty again).
