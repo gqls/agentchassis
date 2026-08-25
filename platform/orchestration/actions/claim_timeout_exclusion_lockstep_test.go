@@ -29,9 +29,33 @@
 //     out in a PROSE COMMENT for this test to parse. The declaration was a comment.
 //
 // The declaration now lives in `platform/livespec`, in a file that is allowed to
-// change. ⚠ What that does NOT yet give us: nothing compares livespec to the LIVE
+// change. ~~⚠ What that does NOT yet give us: nothing compares livespec to the LIVE
 // `scheduled_tasks.pre_query`. That is the phase-2 auditor, and until it ships this
-// guard proves Go and the declaration agree, not that either matches production.
+// guard proves Go and the declaration agree, not that either matches production.~~
+//
+// > **CORRECTED 2026-08-25 — PHASE 2 HAS SHIPPED, and this sentence outlived its
+// > truth by long enough to cost something measurable.** The live comparison exists:
+// > `livespec.Declarations` carries `scheduled_task.claimed-item-timeout.exclusions`
+// > with `ProbeSQL: SELECT pre_query FROM scheduled_tasks WHERE name =
+// > 'claimed-item-timeout'` and a `Min:1 Max:1` fragment match on
+// > `ClaimedItemTimeoutExclusionClause()`, and `cmd/config-key-audit
+// > --live-declaration-drift` probes it — `compareAllDeclarations` iterates EVERY
+// > declaration with no Phase filter (`livedeclarations.go:129`). So this guard's
+// > declaration IS compared to production, and had been for some time.
+// >
+// > **What the stale sentence cost, so the correction is not merely tidy:** a
+// > council `prior_art_librarian` seat quoted it back as a MEDIUM objection
+// > (corr `3083d182`, 2026-08-25) against `bugs_open/375` candidate 4, which had
+// > cited this file's three-part protection as its precedent. The seat's reasoning
+// > was sound and its evidence was this comment; the claim it objected to was
+// > correct. A stale line in a header is not passive — it is read as ground truth
+// > by reviewers who cannot see the code that superseded it.
+// >
+// > ⚠ Note the naming trap that makes this easy to get wrong in the other
+// > direction: `PhaseGoSide` does NOT mean "Go only, not live-audited". Per
+// > livespec's own constants, `PhaseGoSide` is the CHECKED state and
+// > `PhaseLiveAudit` is the INERT one — "nothing can check this until the phase-2
+// > live auditor exists". Read the constants, not the names.
 //
 // THE CONTRACT, both directions:
 //
