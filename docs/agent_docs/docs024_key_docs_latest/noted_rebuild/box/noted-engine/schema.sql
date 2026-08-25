@@ -81,6 +81,22 @@ CREATE INDEX IF NOT EXISTS idx_media_note ON media(note_id, kind, ordering);
 ALTER TABLE media DROP CONSTRAINT IF EXISTS media_kind_check;
 ALTER TABLE media ADD CONSTRAINT media_kind_check CHECK (kind IN ('audio','image','video'));
 
+-- 2026-08-25 (OWNER RULING — reverses this file's 08-10 header): media bytes
+-- move to Backblaze B2 so a paid storage increase is a bucket setting, not a
+-- disk. `storage_key`/`b2_file_id` set = the bytes live in B2 and `bytes` is
+-- NULL; rows with storage_key NULL keep serving from `bytes` (no drain needed).
+-- The quota stays exactly as it is — byte_len still counts, the trigger still
+-- maintains accounts.media_bytes — it is now the abuse valve and the future
+-- paid tier's lever rather than a disk-protection measure.
+ALTER TABLE media ADD COLUMN IF NOT EXISTS storage_key TEXT;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS b2_file_id TEXT;
+ALTER TABLE media ALTER COLUMN bytes DROP NOT NULL;
+
+-- 2026-08-25, pasteboard stage 2: per-note board arrangement, client-owned,
+-- versioned shape {v:1, items:[...]} with coordinates as fractions of board
+-- width. Absent = the note has never been arranged (linear view).
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS layout JSONB;
+
 -- Keep accounts.media_bytes true no matter which code path writes media. A
 -- quota enforced only in the handler is a quota that the next handler forgets.
 CREATE OR REPLACE FUNCTION media_bytes_maintain() RETURNS TRIGGER AS $$

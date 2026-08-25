@@ -19,6 +19,7 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -64,8 +65,12 @@ type Note struct {
 	Content   string    `json:"content"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-	Audio     []Media   `json:"audio,omitempty"`
-	Images    []Media   `json:"images,omitempty"`
+	// Board arrangement (stage 2). nil = never arranged. In a save payload:
+	// absent keeps whatever the row holds (an old client cannot erase an
+	// arrangement it does not know about); an explicit JSON null clears it.
+	Layout json.RawMessage `json:"layout,omitempty"`
+	Audio  []Media         `json:"audio,omitempty"`
+	Images []Media         `json:"images,omitempty"`
 	// Every kind, in upload order — the shape the editor (and the coming
 	// pasteboard) consumes. Audio/Images above remain for anything that
 	// already reads the grouped form.
@@ -219,7 +224,8 @@ func (s *Store) PurgeExpiredSessions(ctx context.Context) (int64, error) {
 
 func (s *Store) ListNotes(ctx context.Context, accountID int64) ([]Note, error) {
 	rows, err := s.DB.QueryContext(ctx,
-		`SELECT id, COALESCE(client_id,''), title, content, created_at, updated_at
+		`SELECT id, COALESCE(client_id,''), title, content, created_at, updated_at,
+		        COALESCE(layout::text,'')
 		   FROM notes WHERE account_id=$1 AND deleted_at IS NULL
 		  ORDER BY updated_at DESC`, accountID)
 	if err != nil {
@@ -231,8 +237,12 @@ func (s *Store) ListNotes(ctx context.Context, accountID int64) ([]Note, error) 
 	byID := map[int64]int{}
 	for rows.Next() {
 		var n Note
-		if err := rows.Scan(&n.ID, &n.ClientID, &n.Title, &n.Content, &n.CreatedAt, &n.UpdatedAt); err != nil {
+		var layout string
+		if err := rows.Scan(&n.ID, &n.ClientID, &n.Title, &n.Content, &n.CreatedAt, &n.UpdatedAt, &layout); err != nil {
 			return nil, err
+		}
+		if layout != "" {
+			n.Layout = json.RawMessage(layout)
 		}
 		byID[n.ID] = len(notes)
 		notes = append(notes, n)
@@ -273,16 +283,29 @@ func (s *Store) ListNotes(ctx context.Context, accountID int64) ([]Note, error) 
 }
 
 func (s *Store) SaveNote(ctx context.Context, accountID int64, n Note) (*Note, error) {
+	// Layout semantics: nil (absent from the payload) preserves the stored
+	// value; the literal JSON null clears it; anything else replaces it.
+	var layoutArg any
+	if n.Layout != nil {
+		layoutArg = string(n.Layout)
+	}
 	var out Note
+	var layoutOut string
 	if n.ID > 0 {
 		err := s.DB.QueryRowContext(ctx,
-			`UPDATE notes SET title=$1, content=$2, updated_at=now()
+			`UPDATE notes SET title=$1, content=$2, updated_at=now(),
+			        layout = CASE WHEN $5::text IS NULL THEN layout
+			                      WHEN $5::text = 'null' THEN NULL
+			                      ELSE $5::jsonb END
 			  WHERE id=$3 AND account_id=$4 AND deleted_at IS NULL
-			  RETURNING id, COALESCE(client_id,''), title, content, created_at, updated_at`,
-			n.Title, n.Content, n.ID, accountID).
-			Scan(&out.ID, &out.ClientID, &out.Title, &out.Content, &out.CreatedAt, &out.UpdatedAt)
+			  RETURNING id, COALESCE(client_id,''), title, content, created_at, updated_at, COALESCE(layout::text,'')`,
+			n.Title, n.Content, n.ID, accountID, layoutArg).
+			Scan(&out.ID, &out.ClientID, &out.Title, &out.Content, &out.CreatedAt, &out.UpdatedAt, &layoutOut)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoAccount // not yours, or not there — same answer either way
+		}
+		if layoutOut != "" {
+			out.Layout = json.RawMessage(layoutOut)
 		}
 		return &out, err
 	}
@@ -292,12 +315,19 @@ func (s *Store) SaveNote(ctx context.Context, accountID int64, n Note) (*Note, e
 		clientID = n.ClientID
 	}
 	err := s.DB.QueryRowContext(ctx,
-		`INSERT INTO notes (account_id, client_id, title, content) VALUES ($1,$2,$3,$4)
+		`INSERT INTO notes (account_id, client_id, title, content, layout)
+		 VALUES ($1,$2,$3,$4, CASE WHEN $5::text IS NULL OR $5::text='null' THEN NULL ELSE $5::jsonb END)
 		 ON CONFLICT (account_id, client_id) WHERE client_id IS NOT NULL
-		 DO UPDATE SET title=EXCLUDED.title, content=EXCLUDED.content, updated_at=now()
-		 RETURNING id, COALESCE(client_id,''), title, content, created_at, updated_at`,
-		accountID, clientID, n.Title, n.Content).
-		Scan(&out.ID, &out.ClientID, &out.Title, &out.Content, &out.CreatedAt, &out.UpdatedAt)
+		 DO UPDATE SET title=EXCLUDED.title, content=EXCLUDED.content, updated_at=now(),
+		               layout = CASE WHEN $5::text IS NULL THEN notes.layout
+		                             WHEN $5::text = 'null' THEN NULL
+		                             ELSE $5::jsonb END
+		 RETURNING id, COALESCE(client_id,''), title, content, created_at, updated_at, COALESCE(layout::text,'')`,
+		accountID, clientID, n.Title, n.Content, layoutArg).
+		Scan(&out.ID, &out.ClientID, &out.Title, &out.Content, &out.CreatedAt, &out.UpdatedAt, &layoutOut)
+	if layoutOut != "" {
+		out.Layout = json.RawMessage(layoutOut)
+	}
 	return &out, err
 }
 
@@ -315,6 +345,47 @@ func (s *Store) DeleteNote(ctx context.Context, accountID, noteID int64) error {
 }
 
 // --- media ----------------------------------------------------------------
+
+// AddMediaB2 records a media row whose bytes already sit in B2 under
+// storageKey/fileID. Same transactional quota as AddMedia; no bytes column.
+// If the quota refuses, the CALLER deletes the just-uploaded B2 object — this
+// function has no B2 client on purpose (the store stays database-only).
+func (s *Store) AddMediaB2(ctx context.Context, accountID, noteID int64, kind, mime string, byteLen int, storageKey, fileID string) (int64, error) {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	var used int64
+	if err := tx.QueryRowContext(ctx,
+		`SELECT media_bytes FROM accounts WHERE id=$1 FOR UPDATE`, accountID).Scan(&used); err != nil {
+		return 0, err
+	}
+	if used+int64(byteLen) > s.QuotaBytes {
+		return 0, ErrQuotaExceeded
+	}
+	var owned int64
+	if err := tx.QueryRowContext(ctx,
+		`SELECT id FROM notes WHERE id=$1 AND account_id=$2 AND deleted_at IS NULL`,
+		noteID, accountID).Scan(&owned); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, ErrNoAccount
+		}
+		return 0, err
+	}
+	var id int64
+	err = tx.QueryRowContext(ctx,
+		`INSERT INTO media (note_id, account_id, kind, mime, bytes, byte_len, storage_key, b2_file_id, ordering)
+		 VALUES ($1,$2,$3,$4,NULL,$5,$6,$7,
+		         COALESCE((SELECT MAX(ordering)+1 FROM media WHERE note_id=$1 AND kind=$3),0))
+		 RETURNING id`,
+		noteID, accountID, kind, mime, byteLen, storageKey, fileID).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	return id, tx.Commit()
+}
 
 // AddMedia enforces the per-account quota inside the same transaction as the
 // insert. Checking the quota in the handler and inserting afterwards would let
@@ -375,14 +446,25 @@ func (s *Store) DeleteMedia(ctx context.Context, accountID, mediaID int64) error
 	return nil
 }
 
-func (s *Store) GetMedia(ctx context.Context, accountID, mediaID int64) (string, []byte, error) {
-	var mime string
-	var data []byte
-	err := s.DB.QueryRowContext(ctx,
-		`SELECT mime, bytes FROM media WHERE id=$1 AND account_id=$2`, mediaID, accountID).
-		Scan(&mime, &data)
+// GetMedia returns the row's mime plus EITHER inline bytes (storageKey empty)
+// OR the B2 location. Account-scoped in the SQL like everything here.
+func (s *Store) GetMedia(ctx context.Context, accountID, mediaID int64) (mime string, data []byte, storageKey string, err error) {
+	err = s.DB.QueryRowContext(ctx,
+		`SELECT mime, bytes, COALESCE(storage_key,'') FROM media WHERE id=$1 AND account_id=$2`,
+		mediaID, accountID).Scan(&mime, &data, &storageKey)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", nil, ErrNoAccount
+		return "", nil, "", ErrNoAccount
 	}
-	return mime, data, err
+	return
+}
+
+// MediaStorage returns where a row's bytes live, for the delete path.
+func (s *Store) MediaStorage(ctx context.Context, accountID, mediaID int64) (storageKey, fileID string, err error) {
+	err = s.DB.QueryRowContext(ctx,
+		`SELECT COALESCE(storage_key,''), COALESCE(b2_file_id,'') FROM media WHERE id=$1 AND account_id=$2`,
+		mediaID, accountID).Scan(&storageKey, &fileID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", "", ErrNoAccount
+	}
+	return
 }

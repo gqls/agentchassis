@@ -8,9 +8,14 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/sha1"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -25,6 +30,8 @@ type Server struct {
 	SecureCookies  bool
 	SessionTTL     time.Duration
 	MaxUploadBytes int64
+	// B2 nil = media bytes live in Postgres (the pre-2026-08-25 behaviour).
+	B2 *B2
 }
 
 func (s *Server) Routes() http.Handler {
@@ -224,6 +231,12 @@ func (s *Server) saveNote(w http.ResponseWriter, r *http.Request, a *Account) {
 		writeErr(w, http.StatusBadRequest, "could not read that note")
 		return
 	}
+	// The board layout rides the note save; cap it so a runaway client cannot
+	// bloat rows (a real arrangement is a few KB).
+	if len(n.Layout) > 256*1024 {
+		writeErr(w, http.StatusBadRequest, "that note's board layout is too large")
+		return
+	}
 	saved, err := s.Store.SaveNote(r.Context(), a.ID, n)
 	if errors.Is(err, ErrNoAccount) {
 		writeErr(w, http.StatusNotFound, "that note does not exist")
@@ -279,7 +292,36 @@ func (s *Server) uploadMedia(w http.ResponseWriter, r *http.Request, a *Account)
 		return
 	}
 
-	id, err := s.Store.AddMedia(r.Context(), a.ID, noteID, kind, mime, data)
+	var id int64
+	if s.B2 != nil {
+		// B2 first (no DB state yet), THEN the quota transaction — the account
+		// row lock is held for milliseconds, not for the upload. If the quota
+		// refuses, the object is deleted in the same breath, so a refusal
+		// cannot leak paid storage. The key is logged BEFORE the upload so a
+		// crash between upload and insert leaves a greppable orphan.
+		rnd := make([]byte, 16)
+		if _, rerr := rand.Read(rnd); rerr != nil {
+			writeErr(w, http.StatusInternalServerError, "could not save that file")
+			return
+		}
+		key := fmt.Sprintf("media/acct_%d/%s", a.ID, hex.EncodeToString(rnd))
+		sum := sha1.Sum(data)
+		log.Printf("b2 upload begin key=%s bytes=%d", key, len(data))
+		fileID, uerr := s.B2.Upload(key, mime, data, hex.EncodeToString(sum[:]))
+		if uerr != nil {
+			log.Printf("b2 upload failed key=%s: %v", key, uerr)
+			writeErr(w, http.StatusBadGateway, "could not save that file")
+			return
+		}
+		id, err = s.Store.AddMediaB2(r.Context(), a.ID, noteID, kind, mime, len(data), key, fileID)
+		if err != nil {
+			if derr := s.B2.Delete(key, fileID); derr != nil {
+				log.Printf("b2 orphan: refused insert but delete failed key=%s: %v", key, derr)
+			}
+		}
+	} else {
+		id, err = s.Store.AddMedia(r.Context(), a.ID, noteID, kind, mime, data)
+	}
 	if errors.Is(err, ErrQuotaExceeded) {
 		writeErr(w, http.StatusInsufficientStorage,
 			"you have used all your storage for recordings and photos")
@@ -303,9 +345,36 @@ func (s *Server) getMedia(w http.ResponseWriter, r *http.Request, a *Account) {
 		writeErr(w, http.StatusBadRequest, "bad media id")
 		return
 	}
-	mime, data, err := s.Store.GetMedia(r.Context(), a.ID, id)
+	mime, data, storageKey, err := s.Store.GetMedia(r.Context(), a.ID, id)
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	if storageKey != "" && s.B2 != nil {
+		res, berr := s.B2.Download(storageKey, r.Header.Get("Range"))
+		if berr != nil {
+			log.Printf("b2 download failed key=%s: %v", storageKey, berr)
+			writeErr(w, http.StatusBadGateway, "could not fetch that file")
+			return
+		}
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusPartialContent {
+			log.Printf("b2 download key=%s answered %d", storageKey, res.StatusCode)
+			writeErr(w, http.StatusNotFound, "not found")
+			return
+		}
+		w.Header().Set("Content-Type", mime)
+		w.Header().Set("Cache-Control", "private, no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Content-Disposition", "inline")
+		w.Header().Set("Accept-Ranges", "bytes")
+		for _, h := range []string{"Content-Length", "Content-Range"} {
+			if v := res.Header.Get(h); v != "" {
+				w.Header().Set(h, v)
+			}
+		}
+		w.WriteHeader(res.StatusCode)
+		_, _ = io.Copy(w, res.Body)
 		return
 	}
 	w.Header().Set("Content-Type", mime)
@@ -325,6 +394,20 @@ func (s *Server) deleteMedia(w http.ResponseWriter, r *http.Request, a *Account)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "bad media id")
 		return
+	}
+	storageKey, fileID, err := s.Store.MediaStorage(r.Context(), a.ID, id)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	if storageKey != "" && s.B2 != nil {
+		// Object first, row second: if B2 refuses, the row stays, the UI says
+		// NOT removed, and a retry converges ("already gone" counts as done).
+		if derr := s.B2.Delete(storageKey, fileID); derr != nil {
+			log.Printf("b2 delete failed key=%s: %v", storageKey, derr)
+			writeErr(w, http.StatusBadGateway, "could not remove that file — please try again")
+			return
+		}
 	}
 	if err := s.Store.DeleteMedia(r.Context(), a.ID, id); err != nil {
 		writeErr(w, http.StatusNotFound, "not found")

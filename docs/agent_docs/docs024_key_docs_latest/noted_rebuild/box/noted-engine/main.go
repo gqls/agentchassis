@@ -85,11 +85,15 @@ func main() {
 	// Secure cookies are the default because the only way in is HTTPS via
 	// Cloudflare. NOTED_INSECURE_COOKIES exists solely for a plain-HTTP local
 	// test and is named so it cannot be set by accident and look harmless.
+	b2 := NewB2FromEnv()
+	b2.LogState()
+
 	srv := &Server{
 		Store:          store,
 		SecureCookies:  os.Getenv("NOTED_INSECURE_COOKIES") == "",
 		SessionTTL:     time.Duration(envInt("NOTED_SESSION_DAYS", 30)) * 24 * time.Hour,
 		MaxUploadBytes: int64(envInt("NOTED_MAX_UPLOAD_MB", 25)) * 1024 * 1024,
+		B2:             b2,
 	}
 
 	// Sweep expired sessions rather than letting the table grow for ever.
