@@ -212,7 +212,17 @@ truth. **None of that makes the bug's own claim false.** Closing on "the mechani
    `PhaseLiveAudit` is the INERT one.**
 9. **The code index is pinned at `e347c5ad` (2026-08-23)**, so a landmine-verifier verdict on newer
    files reports "0 rows" as staleness, not absence.
-10. **Other lanes broke HEAD twice today** (`TestNoNewMigrationFileReadersOutsideTheAllowList` from
+10. **Do NOT repair a working-tree build failure caused by another session's WIP.** On 2026-08-25 the
+    tree would not build because a committed test named a symbol another session's *uncommitted*
+    rename had removed. Pointing the test at the new name fixes the tree and **breaks HEAD**, because
+    the rename is not committed — a peer lane did exactly that (`6d3e0027e`, HEAD broken ~3h49m,
+    restored `8b9128131`) under a commit message reading "builds again". **The diagnosis, not a
+    discipline:** `scripts/verify-head-builds.sh --test <pkg>` builds committed HEAD alone. **HEAD
+    green ⇒ the breakage is somebody's WIP and is not yours to fix.** This lane hit the identical
+    failure hours earlier and used `--with <my files>` instead, which is the only reason it never
+    recurred here. Recorded fleet-wide as the fourth occurrence of the HEAD-vs-tree class in
+    `LANDMINES.md` (`c021e52c3`).
+11. **Other lanes broke HEAD twice today** (`TestNoNewMigrationFileReadersOutsideTheAllowList` from
     `bugs_open/333`'s file; `advisedIdentityPin` undefined in `actions`). If a package fails for you,
     check whose it is before debugging. `scripts/verify-head-builds.sh --with <your files>` is how
     this lane tested throughout.
