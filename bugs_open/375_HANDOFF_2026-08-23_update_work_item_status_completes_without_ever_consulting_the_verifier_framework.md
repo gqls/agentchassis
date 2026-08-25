@@ -566,3 +566,42 @@ whose name reads narrower than its contents (it is the shared `Grades` opt-in re
 `TestOnlyTheOptedInVerifierCarriesAScopeTest` iterates every registered verifier, not just that
 action's); and the carried-forward "a shared guard-exclusion struct across writers 2 and 3 was never
 considered", which remains **unactioned and stated as such**.
+
+---
+
+## 11. POST-ROLL `v1.0.1339` `[2026-08-25 19:13Z]` — the linker settles the deferral argument
+
+Chassis rolled to **`v1.0.1339`** (both pods, 19:07Z), build stamp **`a7459a44b`** read from the
+`build provenance` line while the pods were minutes old.
+
+**`WII-030`'s gate survived the roll** — `verify_before_complete` and `verifier_not_consulted` both
+PRESENT, with a must-be-present and a must-be-absent control. Re-probed, not assumed.
+
+### The unregistered verifier is not in the binary, and that is PROOF rather than a worry
+
+`git merge-base --is-ancestor` confirms **all four** of this lane's commits are IN build
+`a7459a44b`. Yet `VerifyRequiredFieldsMissingResolved`'s error literal
+`must not be read as a repair` probes **ABSENT** from `/proc/1/exe`.
+
+**Control, same package and same build:** the REGISTERED detector's literal
+`schema declares these fields required with source llm` → **PRESENT**. So the difference is
+reachability: nothing references the verifier and the Go linker removed it.
+
+**This settles §10e's gating objection with a measurement instead of an argument.** `editquality`
+objected at HIGH that an unregistered verifier leaves the defect unchanged, and round 2 answered that
+registering it without the migration would be *worse* than inert. That answer was reasoning about
+source. It is now an artefact fact: **the code is not in the running image at all.** The deferral
+carries no runtime risk whatsoever, not merely a small one.
+
+⚠ **The corollary is a trap.** Probing for a symbol you have deliberately left unwired returns
+"absent", which is indistinguishable from a failed roll and means the opposite. It also refines
+`WII-030`'s own rule — *"probe the string literal, never the Go identifier"* is **necessary and not
+sufficient**: the literal must sit in code something calls. Recorded fleet-wide as a **third cause**
+on the `strings`/marker landmine, with the discriminating control.
+
+### What this does NOT change
+
+Nothing about §9c. The bug is still open and still should be: every completion through
+`update_work_item_status` is unverified, no arm is armed, the two writers are still two, and the
+verifier is still one migration away from doing anything. The roll makes the *deferral* provably
+safe; it does not make the *defect* smaller.
