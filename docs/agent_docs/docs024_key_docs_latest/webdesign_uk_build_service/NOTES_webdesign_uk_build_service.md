@@ -5509,3 +5509,14 @@ is live, re-check the label. (2) Removal is OWED when ordering opens — grep
 **Owed next (this session, after the owner runs the box steps):** outside verification of
 the unpark (apex 200 with real body, `/c/x` static-404, webhook 503-keyless, chat, label),
 then update LANDMINES' parking-rule entry with the removal, then the Q2 listener plan.
+
+## 2026-08-25 (later) — go-live DEFERRED the same day it was ruled GO; runbook written
+
+The owner looked at the site and ruled: **copy needs substantial revision and some design
+revision BEFORE the unpark.** So the parking rule STAYS for now; the apex watch was
+stopped. Everything needed on the day is now in
+**`RUNBOOK_go_live_webdesign_uk.md`** (gates incl. the new copy/design gate → owner box
+steps → outside verification table → bookkeeping owed → label removal). ⚠ The copy
+revision will rebuild `index`, which silently REMOVES the hand-placed "Not active yet"
+label (vm-sites `444205b`) — the runbook's gate 2 says re-place it if ordering is still
+closed at go-live. The label + RFC_054 rulings from earlier today are unchanged.

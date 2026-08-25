@@ -2134,3 +2134,12 @@ cryptographically, and until the payment keys exist it honestly says "not config
 What remains before anyone can actually buy: the payment setup you deferred, the
 second-click confirmation page, and the delivery email. Going live today changes none of
 those — it just means the shopfront is finally visible at its own name.
+
+**2026-08-25, later the same day — we held the go-live.** Having looked at the site
+properly, you decided the words need a real revision and the design some work before the
+name goes live, so the redirect stays up for now. Nothing from this morning is wasted: the
+safety questions stay answered, the "Not active yet" notice stays ready, and the whole
+go-live procedure is now written down in one place — `RUNBOOK_go_live_webdesign_uk.md` —
+so on the day it is a checklist, not an investigation. One thing that document warns
+about: rebuilding the pages for the copy revision will quietly remove the hand-placed
+notice, so it has to be put back before the site goes live if ordering still isn't open.
