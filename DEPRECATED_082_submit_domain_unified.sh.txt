@@ -1,3 +1,35 @@
+# ============================================================================
+# DEPRECATED 2026-08-25 — DO NOT RUN THIS FILE.
+#
+# Renamed from `082_submit_domain_unified.sh` (repo root) and given a `.txt`
+# suffix so that it is not offered by `./082…` tab-completion, not run by a
+# pasted shorthand, and not counted by any `--include="*.sh"` census.
+#
+# WHY. This was a STALE DUPLICATE of the customer submit script. The live one is
+#
+#     scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh
+#
+# which was fixed on 2026-08-23 (`ab8ec8fbf`) to publish through
+# `scripts/kafka-publish-lib.sh` and assert a receipt. THIS copy never was. It
+# still carries the original `kubectl -n kafka run -i --rm … kcat -P` form,
+# which attaches stdin ASYNCHRONOUSLY: lose that race and kcat sees EOF,
+# publishes NOTHING and exits 0 — and `--rm` deletes the evidence. On
+# 2026-08-18 one submission in three from that form vanished that way
+# (`bugs_closed/327b`).
+#
+# The two copies shared history to `95639d4f6` and diverged only by that fix.
+# Nothing detected the divergence: `check_untouched_twin` in
+# `scripts/pattern-check.py` opens with `if not path.endswith(".go")`, so the
+# one detector written for exactly this shape cannot see a shell twin.
+#
+# KEPT, not deleted, so that the eight documents citing
+# `./082_submit_domain_unified.sh` resolve to this explanation rather than to
+# nothing. Owner decision, 2026-08-25.
+# ============================================================================
+echo "DEPRECATED — do not run this file. It is the stale, racing copy." >&2
+echo "Use: scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh" >&2
+exit 64
+
 #!/bin/bash
 # ============================================================================
 # 082_submit_domain_unified.sh — one entry point for FRESH and ADOPT submissions

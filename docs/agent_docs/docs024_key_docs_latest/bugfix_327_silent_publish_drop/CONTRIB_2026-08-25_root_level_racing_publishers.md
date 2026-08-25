@@ -87,7 +87,7 @@ An empty result and a broken invocation look identical, so: `python3 scripts/pat
 --commit a6a8ad92a` (the commit that *added* this file) fires `kcat-stdin-race` on this exact path.
 The clean is a real clean.
 
-## What still needs the owner: the root `082_submit_domain_unified.sh`
+## RESOLVED 2026-08-25 by owner decision: the root `082_submit_domain_unified.sh`
 
 **This is a stale duplicate of the very script the bug is named after.**
 
@@ -103,12 +103,31 @@ The clean is a real clean.
 working directory — **from the repo root, it does.** CLAUDE.md itself points at the full
 `scripts/…` path, so the documented path is the fixed one; the hazard is the shorthand.
 
-**I have not touched it, because migrating it is the wrong fix and deleting it is not my call.**
-Ordered by what closes the door:
+> **OWNER DECISION 2026-08-25: rename it deprecated and take the `.sh` suffix off it.**
+> Done — `git mv 082_submit_domain_unified.sh DEPRECATED_082_submit_domain_unified.sh.txt`, with a
+> banner at the top explaining what it was and pointing at the live script.
+>
+> **Why this is better than the delete I had ranked first.** Deleting closes the door but destroys
+> the explanation: the eight documents' `./082_submit_domain_unified.sh` shorthand would resolve to
+> nothing, and a reader who greps the filename learns only that it is absent — not that it was a
+> stale twin, nor which copy to use instead. The rename closes the same door and leaves the answer
+> where the question gets asked.
+>
+> It closes the door three ways at once, which is why the suffix matters as much as the name:
+> `./082…` from the root is now `No such file or directory`; `./082<TAB>` completes to nothing
+> runnable; and a `.txt` drops out of every `--include="*.sh"` census, so it can never again be
+> counted as, or mistaken for, a live publisher. Belt and braces: the banner ends in an
+> `echo … >&2; exit 64`, so even `bash DEPRECATED_082_….txt` refuses and names the right script.
+>
+> `[VERIFIED 2026-08-25]` all three paths, run: shorthand → not found; `bash` on the `.txt` → exit
+> 64 with the pointer; repo-wide census of racing publishers outside `docs/` touched within 30
+> days → **empty**.
 
-1. **Delete the root copy** — makes the bad state unrepresentable. There is exactly one submit
-   script, and `./082…` from the root then fails loudly instead of publishing into a void.
-2. Migrate it too — leaves two copies to drift again, and the next divergence will be silent.
+The options as they were put, ordered by what closes the door — recorded because the ranking was
+wrong and the reason is reusable:
+
+1. **Delete the root copy** — makes the bad state unrepresentable, but takes the explanation with it.
+2. Migrate it too — leaves two copies to drift again, and the next divergence will be as silent.
 3. Leave it — it stays a live racing publisher that eight documents' shorthand can reach.
 
 **`check_untouched_twin` structurally cannot catch this pair**: it is `.go`-only (`if not
