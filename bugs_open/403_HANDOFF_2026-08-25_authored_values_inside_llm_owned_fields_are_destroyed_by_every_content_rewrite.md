@@ -96,6 +96,36 @@ schema does not declare, which a wholesale regeneration of the slot's `content_d
 re-emit. Same mechanism, second shape: **anything a hand writes into a slot the LLM owns —
 nested value or extra key — is unrepresentable as "authored" and therefore fair game.**
 
+### The 090 verdict, and what it fixed in this file `[recorded 2026-08-25, same session]`
+
+Run `c946b495` returned **UNVERIFIABLE (stopped: scope-not-narrowing), no fix proposed** — with
+a last hypothesis that the destruction did NOT happen at the 11:35:41 generation, proposing the
+08-24 18:36 `misdirected_cta` rerender instead, and stating plainly that (a) the attribution as
+filed was **timing correlation, not a shown mechanism**, (b) `page_component_history.source`
+reads `artefact_archive_trigger` for both the good and damaged rows so **the table's own
+columns cannot distinguish which upstream process performed a write**, and (c) the general
+mechanism claims were untested by its bundle. Points (a)–(c) were all correct as written.
+
+**The re-check settles it, with the instrument the loop asked for but never obtained**
+(`llm_call_log` — its "still needed" option b): during the rewrite run's own window a
+`page-content-writer` executed four `process_sections_loop_iter_N_generate_content` calls
+(11:30:03 → 11:34:50Z), and their stored verbatim replies ARE the damaged content —
+`533d1712-1049-44fe-af11-a4c2c1011dc5` (11:33:41Z) emitted the **3-card** `cards` array
+byte-matching the post-damage `info-card-grid` (same 🧩 icon, same "Hierarchical multi-agent
+orchestration" title, same body), and `bb5ece84-5704-4572-bc3e-14a701fb4a28` (11:32:23Z)
+emitted the **items** array with `key:"infrastructure"` hooks and **zero** `icon-service`
+references, matching the post-damage `teaser-reveal-panel`. So the chain is: `content_rewrite`
+→ page-content-writer regenerates each section → `save_page_sections_overwrite` at 11:35:41
+saves the freshly generated 3/5 wholesale. The loop's alternative (08-24) fails on archive
+semantics: an archive row records the PRE-write state, so the 3/5 content archived at 08-24
+18:36 existed before that write.
+
+**Two durable lessons out of the exchange:** the attribution now rests on the write's own
+generative record, not on timestamp adjacency — and `llm_call_log` is the instrument that can
+name a content writer when `page_component_history` structurally cannot. (Also why the loop
+could not see this itself: it stopped before pulling the log, and it reads
+`origin/087…`, which was 87 commits behind this tree at dispatch.)
+
 ## Root cause
 
 Three facts compose, none of them individually a defect:

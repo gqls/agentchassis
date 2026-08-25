@@ -3373,3 +3373,16 @@ recorded in 403 when it lands.
 - LANDMINES amendment note: commit `c8a2e1bdd`'s pattern-check flagged 1 removed line in
   LANDMINES.md — that was this session amending ITS OWN same-evening entry in place (dated
   note inside the entry), not another thread's line. Declared here for the record.
+
+### Post-close addendum — the 090 verdict landed, challenged the attribution, and the re-check CONFIRMED it with better evidence
+
+Run `c946b495`: **UNVERIFIABLE (scope-not-narrowing)** — it disputed pinning the destruction to
+the 11:35:41 offer-analysis write (correctly calling my attribution "timing correlation, not a
+shown mechanism" and noting `page_component_history` cannot name upstream writers), and proposed
+the 08-24 `misdirected_cta` rerender instead. Resolution, recorded in 403: `llm_call_log` holds
+the rewrite window's own `page-content-writer` generate_content replies, and they ARE the
+damaged content (`533d1712` = the 3-card array verbatim; `bb5ece84` = the 5-item no-icons
+array). Attribution upgraded from timing to the write's generative record; the loop's
+alternative fails on archive semantics (archive rows are PRE-write states). Lesson kept:
+**`llm_call_log` names a content writer when the history table structurally cannot** — and the
+loop's challenge is what forced the stronger proof. Next session owes nothing here.
