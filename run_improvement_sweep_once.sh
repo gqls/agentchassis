@@ -75,20 +75,64 @@ PAYLOAD=$(jq -c -n \
     config:{agent_type:"improvement-loop"},
     input_data:$input}')
 
-printf '%s\n' "$PAYLOAD" | kubectl -n kafka run -i --rm "kcat-sweep-$(date +%s)" \
-  --image=edenhill/kcat:1.7.1 --restart=Never -- \
-  kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
-  -t system.agent.scheduled.requests \
-  -H "correlation_id=$CORRELATION_ID" \
-  -H "orchestration_id=$ORCHESTRATION_ID" \
-  -H "request_id=$REQUEST_ID" \
-  -H "message_id=$MESSAGE_ID" \
-  -H "message_type=request" \
-  -H "client_id=$CLIENT_ID" \
-  -H "action=orchestrate" \
-  -H "sender_agent_type=cli" \
-  -H "sender_agent_id=cli-user" \
-  -H "timestamp=$TIMESTAMP"
+# ---------------------------------------------------------------------------
+# PUBLISH — via the shared, receipt-asserting publisher (bugs_closed/327b).
+#
+# WHAT THIS REPLACED. This was `printf ... | kubectl -n kafka run -i --rm ... kcat -P`.
+# `kubectl run -i` attaches stdin ASYNCHRONOUSLY: lose that race and kcat sees EOF,
+# publishes NOTHING and exits 0, and `--rm` deletes the evidence. Note that the
+# `set -euo pipefail` at the top of this file NEVER caught it -- the failure mode is a
+# ZERO exit, which is exactly what `set -e` is blind to.
+#
+# WHY IT MATTERS PARTICULARLY HERE. This is the MANUAL trigger for a scheduled task the
+# owner has deliberately left disabled, so nothing else will ever re-fire it. A dropped
+# publish is a sweep that simply never happens -- and the SAVE: line below used to print
+# regardless, handing the operator a correlation id to watch for a message that was
+# never sent.
+#
+# DO NOT BLIND-RETRY ON A NON-ZERO EXIT. Code 10 means nothing landed and a retry is
+# safe; code 11 means the receipt never arrived and it is UNKNOWN whether it published.
+# This script's blast radius -- the full audit chain, real LLM spend, and live page
+# changes via promoted work items -- makes a duplicate sweep expensive, so an 11 must be
+# resolved with `kafka_verify_landing` before re-firing, not retried.
+# ---------------------------------------------------------------------------
+REPO_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "$REPO_ROOT" ] || [ ! -f "$REPO_ROOT/scripts/kafka-publish-lib.sh" ]; then
+  echo "ERROR: scripts/kafka-publish-lib.sh not found (repo root: ${REPO_ROOT:-<not in a git repo>})." >&2
+  echo "       This script will not publish without it: an unverified publish is the bug (bugs_closed/327b)." >&2
+  exit 1
+fi
+. "$REPO_ROOT/scripts/kafka-publish-lib.sh"
+
+# --correlation makes the library emit the correlation_id header itself, so it is not
+# repeated here; passing it twice would put two of the same header on the message.
+PUBLISH_RC=0
+kafka_publish_checked \
+  --topic system.agent.scheduled.requests \
+  --correlation "$CORRELATION_ID" \
+  --payload "$PAYLOAD" \
+  --header "orchestration_id=$ORCHESTRATION_ID" \
+  --header "request_id=$REQUEST_ID" \
+  --header "message_id=$MESSAGE_ID" \
+  --header "message_type=request" \
+  --header "client_id=$CLIENT_ID" \
+  --header "action=orchestrate" \
+  --header "sender_agent_type=cli" \
+  --header "sender_agent_id=cli-user" \
+  --header "timestamp=$TIMESTAMP" || PUBLISH_RC=$?
+
+if [ "$PUBLISH_RC" -ne 0 ]; then
+  echo "" >&2
+  echo "SWEEP DID NOT GO OUT -- no improvement sweep has been queued for ${DOMAIN}." >&2
+  if [ "$PUBLISH_RC" -eq 11 ]; then
+    echo "  The receipt was indeterminate, so this may or may not have published." >&2
+    echo "  Check before re-running or you may fire TWO sweeps at ${DOMAIN}:" >&2
+    echo "    kafka_verify_landing $CORRELATION_ID" >&2
+  else
+    echo "  Re-run: $0 ${DOMAIN}" >&2
+  fi
+  exit "$PUBLISH_RC"
+fi
 
 echo
 echo "SAVE: SWEEP_CORR=$CORRELATION_ID"
