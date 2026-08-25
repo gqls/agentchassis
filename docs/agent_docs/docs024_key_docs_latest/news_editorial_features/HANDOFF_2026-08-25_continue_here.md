@@ -16,7 +16,28 @@ harness. P1 will still be this lane's first platform code.
 
 ---
 
-## 1. THE ONE THING TO DO FIRST — three SQL scripts are written and UNRUN
+## 1. ~~THE ONE THING TO DO FIRST — three SQL scripts are written and UNRUN~~ **DONE 2026-08-25 16:04Z**
+
+> **✅ RUN AND VERIFIED — nothing here is outstanding. Do NOT re-run any of it.**
+> Both pages serve `c-evidence-timeseries`: rh **94,348 B**, do **92,871 B** (measured at the
+> served page, stylesheet control OK, `empty_id=0`, one occurrence each). Both rows re-locked
+> `permanent` / `news_editorial_features-lane` with their **original** `locked_at` intact. Both
+> `lock_blocked_change` items closed `complete` / `disposition='accepted'`. RFC_032 §9a updated
+> (`evidence-timeseries` 3 → 1 unconverted; the survivor is oufe's, another lane's page).
+> The `pending_sql_instance_scope_acceptance/` directory has been **deleted**, per its own README.
+>
+> **⚠ Two corrections this run produced, both of which outlive it:**
+> 1. **The scripts as written could neither unlock nor re-lock.** Neither touched `locked_at`,
+>    which is the only column `AgentWritableSQLFor` reads. The first run delivered nothing while
+>    both work items reported `complete` / `success: true`. The re-lock carried the mirror defect,
+>    which against a corrected unlock would have left both flagship rows agent-writable while
+>    displaying as `permanent`. **The two defects cancel, so no dry run could have separated
+>    them.** Full account: NOTES 2026-08-25, `WRONG_CALLS.md`, `LANDMINES.md`
+>    (footprint `page_components.locked_at`).
+> 2. **§2's `[PREDICTED]` byte figures were wrong by exactly 1 byte on BOTH pages** (predicted
+>    −2/−11, measured −3/−12). The template change is provably id-only and the id occurs once, so
+>    the extra byte is template-derived output the RUNBOOK §11 harness does not model. **P1's
+>    baseline is rh 94,348 / do 92,871** — see §2's amended warning.
 
 **This session cannot write to the DB** (the permission classifier blocks it;
 reads are fine). The scripts are written, idempotent, and waiting on the owner.
@@ -88,8 +109,14 @@ unlocked flagship row. Full detail: 08-24 §8.5.
 
 ### When it lands
 
-Tell **`bugs_open/283`** the resulting served ids — they are holding to move
-`evidence-timeseries` from 3 → 1 in RFC_032 §9a rather than re-deriving it. And
+~~Tell **`bugs_open/283`** the resulting served ids~~ — **DONE, and the pointer was
+already stale: 283 CLOSED on 2026-08-25 (`291607d40`) and now lives in
+`bugs_closed/`.** The ids were recorded where the count actually lives — a dated
+UPDATE block in **RFC_032 §9a**
+(`docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_032_three_render_context_builders_disagree_about_what_an_instance_is.md`),
+moving `evidence-timeseries` 3 → 1 unconverted and the fleet residual 48 → 46, both
+marked `as of 2026-08-25` and flagged as re-derived by subtraction rather than
+re-run. And
 **write the close-out as CONSISTENCY, not repair** — our pages carry one ev-ts
 each, so they were never in the population where a literal id can actually bite.
 A close-out implying a repair makes the next reader think a defect was there.
@@ -135,10 +162,26 @@ the walk:**
   question, and the answer is *"what is the denominator on a composed page?"*,
   never "lower the ratio".
 
-**⚠ P1's byte baseline moves when §1 lands.** The acceptance test is "served page
-byte-equivalent". Baseline 08-24 was rh 94,351 / do 92,883; predicted after
-acceptance rh 94,349 / do 92,872 — **`[PREDICTED]`, not measured.** Re-measure
-both pages before using either number.
+**⚠ P1's byte baseline moved when §1 landed — and the prediction was WRONG.**
+The acceptance test is "served page byte-equivalent". Baseline 08-24 was rh 94,351 /
+do 92,883. Predicted after acceptance rh 94,349 / do 92,872; **measured 2026-08-25
+after the change actually landed: rh 94,348 / do 92,871.** Use those.
+
+**The miss is 1 byte on BOTH pages, and it is not noise — it is a defect in the
+RUNBOOK §11 harness that P1 depends on.** The id delta really is −2 / −11
+(the old rendered id was exactly the slot_name, proven against the surviving
+unconverted third instance), the template change is provably id-only
+(`component_versions` v1 vs live diffs to one line), and the new id occurs once per
+component. Yet each page lost **3 / 12**. Both lost the *same* byte: the two pages'
+content difference is preserved exactly (569 B before and after), which a
+content-dependent difference could not do. So one byte of **template-derived** output
+leaves each component on re-render and the harness does not model it.
+`[UNEXPLAINED]` — measured, not guessed; the open candidate is a renderer difference
+between the 08-20 stored bytes and today's chassis. **A harness that under-predicts by
+1 byte per re-rendered instance will fail P1's byte-equivalence test for a reason that
+has nothing to do with P1.** This is §6.3's trap one step on: showing the harness
+reproduces the CURRENT stored bytes does not establish that its PREDICTION of the
+post-change bytes is exact. Fix or characterise the harness before leaning on it.
 
 Rest of the P1 brief is unchanged: walk in both render paths + `deriveRenderMode`
 third value + `check_render_mode` routing arm + register entry, ONE council-gated
@@ -151,7 +194,7 @@ no `composite` rows, no `parent_instance_id` values, anywhere** (035 §9 r1).
 
 | item | state |
 |---|---|
-| **The three SQL scripts** | **WRITTEN, UNRUN — §1. Do this first.** |
+| ~~**The three SQL scripts**~~ | **DONE 2026-08-25 16:04Z — run, verified at the served page, re-locked, items closed, directory deleted. §1.** Two defects found in the scripts themselves and one in the byte prediction; see §1 and §2. |
 | **P1** (035 read path) | Seams re-read, constraints in 08-24 §8.6, two new hazards in 035 §6. Next after §1. |
 | **Our own feature pages are failing to rerender** | 3 × `page_rerender` failed on misdirected CTA: `electric-vs-pneumatic-economics` (×2, 08-22 and 08-24), `darts-calendar-density` (08-22). **Not yet investigated** — found while triaging, not chased. |
 | `head_essentials_missing: skip_link` | detected on all four feature pages + `insights-index`. |

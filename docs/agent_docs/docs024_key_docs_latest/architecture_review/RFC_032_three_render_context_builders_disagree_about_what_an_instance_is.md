@@ -316,6 +316,31 @@ gaswholesalers.com/service-areas).
 > 5) and **ZERO** produced an empty id — real demand behind the zero, which is what makes it
 > evidence rather than silence.
 
+
+> **UPDATE 2026-08-25 (later, `news_editorial_features` lane) — `evidence-timeseries` is now
+> 1 of 3 unconverted, not 3 of 3, and the fleet residual is 46, not 48.** The owner ruled ACCEPT
+> on our two locked instances and the conversion was delivered and verified **at the served
+> page**:
+>
+> | page | id before | id after | served bytes |
+> |---|---|---|---|
+> | `robot-hands.com/insights/robot-demand-step-change.html` | `evidence-timeseries-ifr` | `c-evidence-timeseries` | 94,351 → **94,348** |
+> | `dartsonline.com/insights/darts-calendar-density.html` | `evidence-timeseries-pdc-calendar` | `c-evidence-timeseries` | 92,883 → **92,871** |
+>
+> Both rows re-locked `permanent` afterwards with their original `locked_at` intact. **The
+> remaining one is oufe's `evidence-timeseries-leakage`** — the instance that received no delivery
+> attempt and therefore emitted no signal, which is the blind spot recorded above; it is another
+> lane's page and is untouched. Both `lock_blocked_change` items are closed `complete` /
+> `disposition='accepted'`. **Recorded as CONSISTENCY, not repair:** each of our pages carried
+> exactly one `evidence-timeseries`, so neither was ever in the population where a literal id can
+> collide.
+>
+> ⚠ **Two things a reader should NOT take from this.** (1) The 46 is this census re-derived by
+> subtraction, not re-run — it inherits the staleness warning above and, like the 48, it is
+> `as of 2026-08-25`. (2) Our two conversions are **not** a positive control for the empty-id
+> class the way the 253 above are: they were delivered by `apply_section_edit` under a
+> deliberately lifted lock, not by the batch's own fan-out.
+
 `pricing` (row `6175e049`) is NOT converted: active, same placeholder, **zero placements**, and
 `site_work_items.site_id` is NOT NULL with the site only reachable through a placement, so there
 is no honest site to file it against. **It is a precondition of §8's second half** — retire the

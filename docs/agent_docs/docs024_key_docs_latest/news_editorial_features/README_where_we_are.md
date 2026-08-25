@@ -339,3 +339,60 @@ identical to the current one. Today's change moves those numbers. I've written t
 new expected figures into the handoff and flagged clearly that they're predictions
 until the pages are actually re-checked — so whoever picks that up measures first
 rather than comparing against a number that quietly expired.
+
+---
+
+## 2026-08-25, later — the change is live on both pages, and the scripts I left you were broken
+
+**The good news first.** Both charts now carry the new shared id. The robot-hands
+page and the darts page were both re-checked as they're actually served to a
+visitor, not just in the database, and both are correct: the new id present once,
+the old one gone, the chart body intact, the stylesheets healthy. The two open
+queries are closed and recorded as *accepted*, and both sections are locked again
+exactly as they were before — including the original lock timestamps, so it still
+shows who locked them and when.
+
+**The bad news, and it's worth reading.** The three SQL files I left in the repo
+yesterday could not do what they said. The first one claimed to unlock the two
+sections. It didn't. It cleared the two columns that *describe* a lock — who
+locked it and what kind it is — but not the one column the software actually
+checks. So the sections stayed shut. Worse, stripping the "what kind of lock"
+label makes the system treat it as the strictest kind, because its rule is to
+never overwrite something it can't identify. I had made them *harder* to change
+while every column I could see said "unlocked".
+
+**And it failed quietly, which is the part I want you to see.** The system did the
+work I asked, reported success, and marked both jobs complete. Nothing was
+written. The refusal was buried three levels down inside the job's result record,
+and it said the section was *"locked by ''"* — locked by nobody. That contradiction
+is the only visible tell. If I had trusted the job status, as the written procedure
+told me to, I'd have re-locked the sections, closed the queries, and reported the
+change as delivered. Nothing would have been delivered.
+
+**The second script had the opposite fault, and that one could have done real
+damage.** It re-locks by writing the label back — but never restores the column
+that does the work. On its own that's harmless, because the first script never
+cleared that column either. Fix the first script, though, and the second one
+leaves both pages permanently unlocked while displaying as locked. A page that
+looks protected and isn't, on our two flagship pages, indefinitely.
+
+**Why testing wouldn't have found it.** The two faults cancel out. Run the pair as
+written and everything ends up exactly where it started — which looks like a clean,
+harmless no-op. The only way to catch it was to read what the software actually
+checks, rather than what the columns are called. Both are fixed now, matched to how
+the admin dashboard itself locks and unlocks, and the re-lock now refuses to
+finish if the sections aren't genuinely shut — I deliberately broke that check once
+to prove it can fail, because a safety check that has only ever passed hasn't been
+shown to work.
+
+**One loose end, small but honest.** Yesterday I predicted the pages would shrink by
+2 and 11 bytes. They shrank by 3 and 12. One extra byte on each, and it's the same
+byte both times — I've proved the change to the shared template was nothing but the
+id, that the id appears once, and that the two pages' difference from each other is
+preserved exactly, which rules out anything to do with their content. So something
+in the re-rendering itself dropped a byte that the rehearsal tool didn't predict.
+It's harmless here. It matters for the composition project, which plans to prove
+itself by showing a rebuilt page is byte-for-byte identical — a rehearsal tool
+that's off by one byte per section would fail that test for the wrong reason. I've
+written the real measured figures into the notes and flagged it rather than leaving
+a tidy prediction that happens to be wrong.

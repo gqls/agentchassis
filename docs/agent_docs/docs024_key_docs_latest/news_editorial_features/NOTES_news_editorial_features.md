@@ -1206,3 +1206,95 @@ same `item_key`) and is filed at **`triaged`**, because the dispatcher claims
 `status IN ('triaged','approved')` (`load_work_item_actions.go:701`). `created_by` names
 this lane, not `component-template-fixer` — we authored the re-drive and the row should
 say so.
+
+---
+
+## 2026-08-25 (session "news editorial") — the acceptance RAN and is LIVE, but only after both scripts turned out to be unable to do what they said
+
+### Result first
+
+**Both pages now serve `c-evidence-timeseries`.** Sequence completed 16:04Z:
+A (corrected) → verify ALL PASS → B (corrected) → verify → C. Both
+`lock_blocked_change` items are `complete` with `disposition='accepted'`, and both rows
+are re-locked `permanent` / `news_editorial_features-lane` with their **original**
+`locked_at` intact (08-19 15:17:43.126181Z, 08-20 16:59:30.895515Z).
+
+| page | id before | id after | stored | served |
+|---|---|---|---|---|
+| robot-demand-step-change | `evidence-timeseries-ifr` | `c-evidence-timeseries` | 7,742 → 7,739 | 94,351 → **94,348** |
+| darts-calendar-density | `evidence-timeseries-pdc-calendar` | `c-evidence-timeseries` | 7,182 → 7,170 | 92,883 → **92,871** |
+
+All `[MEASURED 2026-08-25]` at the served page, stylesheet control OK both domains
+(26,141 / 26,918 B), `empty_id=0`, `ev-ts_body=1`, exactly one occurrence of the new id.
+
+### The misstep that cost the first run: neither script could do what its header claimed
+
+`A_unlock_and_dispatch.sql` said *"AFTER this runs the two rows are UNLOCKED"*. It cleared
+`lock_type` and `locked_by` and **never touched `locked_at`** — and `locked_at` is the only
+column automation reads. The predicate is `AgentWritableSQLFor`
+(`platform/orchestration/datahelpers/chrome_render_inputs.go:91`):
+`(locked_at IS NULL OR (lock_type='timed' AND lock_expires_at IS NOT NULL AND lock_expires_at < NOW()))`.
+Worse, `classifyComponentLock` (`lock_helpers.go:100`) treats `locked_at` set with **no**
+`lock_type` as **hard/permanent**, conservatively — so v1 made the rows *less* writable while
+every visible column read as unlocked.
+
+Both re-dispatched items were claimed, ran, and came back `complete` with `success: true`.
+Nothing was written. The refusal is two levels down:
+`result->'response'->'edit_result'` = `{"skipped":true,"locked":true}`, reason
+`is locked by ""` — an **empty** `locked_by` inside a message that only prints when the row
+IS locked. That contradiction is the signature of the half-cleared state.
+
+**`B_relock.sql` carried the mirror defect and it is the dangerous one.** It restores
+`lock_type`/`locked_by` but never `locked_at`. Against a *corrected* A it would have left
+both flagship rows fully agent-writable while the admin dashboard displayed them as
+`permanent` — silently unlocked, reading as locked to anyone who checked.
+
+**Why no dry run could have caught this pair: the two defects CANCEL.** B restores the
+correct state only because A left `locked_at` intact. Run together against the live rows the
+sequence ends where it started and looks like a clean idempotent no-op. They are separable
+only by reading the predicate the writers enforce. Logged in `WRONG_CALLS.md` and
+`LANDMINES.md` (footprint `page_components.locked_at`, `AgentWritableSQLFor`), 2026-08-25.
+
+Both corrected to match the framework's own admin unlock —
+`internal/core-manager/admin/page_admin_handlers.go:450` clears **all four** columns, `:491`
+locks by setting `locked_at`. B now restores the **captured original** `locked_at`, not
+`NOW()` (that timestamp is the lock's provenance and the age a lock-review sweep reads), and
+asserts `agent_writable = f` in a `DO`/`RAISE` **inside** the transaction — a block of
+`SELECT`s cannot stop a `COMMIT`. The assertion was proven able to fire by inverting its
+predicate once (`ERROR: RE-LOCK FAILED: 2 of 2 rows still agent-writable`, exit 3); a guard
+that has only ever passed has not been shown to work. `verify.sh` now prints `locked_at` and
+`agent_writable`, whose absence from step 2 is exactly what hid the defect.
+
+The window was never left open unattended: on discovering the failure the rows were restored
+to their exact prior state first, and C was **not** run, because the change had not been made.
+
+### ⚠ The dry run's byte prediction was wrong by exactly 1 byte, on BOTH instances — this matters to P1
+
+Predicted rh 94,349 / do 92,872 (i.e. −2 and −11, the id-length delta). Measured **94,348 /
+92,871** — **−3 and −12**. The extra byte is real and systematic, and it is NOT the id:
+
+- The template change is provably **id-only**: `component_versions` v1 (the pre-conversion
+  snapshot, taken 08-23 12:33:33Z) against live `content_components.html_template` diffs to
+  **one line** — `<section id="{{.ComponentID}}"` → `<section id="{{.InstanceID}}"`.
+- The old rendered id was **exactly the slot_name**, proven by the surviving unconverted third
+  instance (oufe's `evidence-timeseries-leakage`: rendered id 27 chars = slot_name 27 chars).
+  So the id deltas really are −2 and −11.
+- The new id occurs **once** per component (`grep -o | wc -l` = 1); there is no second reference.
+- **Both instances lost the SAME byte.** Their content difference is preserved exactly:
+  before, rh−do = 560 with rh's id 9 chars shorter, i.e. 569 of content; after, both ids are
+  21 and rh−do = 7,739−7,170 = **569**. A content-dependent difference could not do that.
+
+So one byte of **template-derived** output left each component during the re-render, and the
+harness that predicted −2/−11 did not model it. `[UNEXPLAINED]` — recorded as measured, not
+guessed. Candidate not yet excluded: the stored bytes were rendered 08-20 and the new ones by
+today's chassis (v1.0.1337), so a renderer difference in that window would produce exactly
+this shape. Ruled out already: a whitespace collapse at the `</style><section` boundary (both
+converted and unconverted instances are joined identically there).
+
+**Why P1 must care:** P1's acceptance test is "served page byte-equivalent", and RUNBOOK §11
+is the harness it will use. A harness that under-predicts by 1 byte per re-rendered instance
+will fail that test for a reason that has nothing to do with P1. **Re-measure; do not carry
+94,349 / 92,872 forward.** The live baseline for P1 is now **rh 94,348 / do 92,871**
+`[MEASURED 2026-08-25 16:0xZ]`. This is the 08-25 handoff §6.3 trap arriving one step later:
+the harness was shown to reproduce the *current* stored bytes, and that control does not
+establish that its *prediction* of the post-change bytes is exact.
