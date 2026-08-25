@@ -4,7 +4,8 @@
 
 | service | file | contents |
 |---|---|---|
-| Cloudflare | `~/.config/cloudflare/token` | the token, one line. PRESENT + verified |
+| Cloudflare **(read-only)** | `~/.config/cloudflare/token` | the token, one line. PRESENT — but **READ-ONLY**, see below |
+| Cloudflare **(read-write)** | `~/.config/cloudflare/portfoliotoken` | ⚠ **THIS is the one that can WRITE.** Added 2026-08-18, undocumented until 2026-08-25 |
 | Nominet | `~/.config/nominet/credentials` | `TAG=…` and `EPP_PASSWORD=…` lines. PENDING |
 | Dynadot | `~/.config/dynadot/credentials` | `API_KEY=…`. PENDING |
 | Porkbun | `~/.config/porkbun/credentials` | `API_KEY=…` and `SECRET_API_KEY=…`. PENDING |
@@ -26,9 +27,16 @@ becomes an invalid bearer header.
   > any kind.** Confirmed by attempting both halves: `GET /zones/<id>/dns_records` returns
   > `10000 Authentication error`, and `POST /zones` returns *"Requires permission
   > `com.cloudflare.api.account.zone.create` to create zones for the selected account"*.
-  > So **zone-create is still not exercised, and cannot be with this credential** — and neither can
-  > any DNS-record or route write. Whoever needs those must have a new token issued with
-  > account-level **Zone:Edit** (for create) plus **DNS:Edit** and **Workers Routes:Edit**.
+  > So **neither zone-create nor any DNS-record or route write is possible with `token`.**
+  >
+  > **⚠⚠ SUPERSEDED THE SAME DAY, 2026-08-25 12:46Z — DO NOT ISSUE A NEW TOKEN, THERE IS ALREADY A
+  > SECOND ONE.** `~/.config/cloudflare/portfoliotoken` (present since 2026-08-18, undocumented
+  > here until now) carries `#zone:edit`, `#dns_records:edit`, `#zone_settings:edit`,
+  > `#worker:edit` — and **account-level zone-create, now PROVEN rather than assumed**: it created
+  > `homegarden.uk` (zone `252c10abde85a6985392a084f68f9235`), which is **the first zone this
+  > estate has created via the API**. The line above stood for about ninety minutes; I wrote it,
+  > and it was wrong because I checked the credential I knew about instead of asking what
+  > credentials exist. **`ls ~/.config/cloudflare/` before concluding anything about permissions.**
   > ⚠ **`GET /zones` SUCCEEDS on this read-only token** (40 zones, `success: true`), so the
   > runbook's own "prove the token with `GET /zones?per_page=1`" check — written to defeat the
   > IP-filter trap — **passes for a token that can read everything and write nothing.** It tests
@@ -122,3 +130,40 @@ Census, not spot-check: every in-scope domain must appear as an `active` zone
 with the A record, both routes, and registrar/EPP NS matching the pair Cloudflare
 assigned. A `pending` zone after NS repoint → trigger the activation check
 (`PUT /zones/{id}/activation_check`), then re-poll.
+
+
+## ✅ Creating a zone end-to-end — WORKED AND VERIFIED 2026-08-25 (`homegarden.uk`)
+
+**The first API-created zone on this account.** Use `portfoliotoken`, not `token`.
+
+```bash
+T=$(tr -d '[:space:]' < ~/.config/cloudflare/portfoliotoken)   # never echo it
+ACC=13044f178ae0b156961065f55c8fada8
+
+# 1. create the zone — and TAKE THE NAMESERVERS FROM THIS RESPONSE
+curl -s -X POST -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+  --data '{"name":"<domain>","account":{"id":"'"$ACC"'"},"type":"full"}' \
+  https://api.cloudflare.com/client/v4/zones
+
+# 2. two proxied A records at TEST-NET-1 (the worker serves everything; the IP never answers)
+for n in "<domain>" "www.<domain>"; do
+  curl -s -X POST -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+    --data "{\"type\":\"A\",\"name\":\"$n\",\"content\":\"192.0.2.1\",\"proxied\":true,\"ttl\":1}" \
+    https://api.cloudflare.com/client/v4/zones/<zone_id>/dns_records; done
+
+# 3. two worker routes
+for p in "<domain>/*" "www.<domain>/*"; do
+  curl -s -X POST -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+    --data "{\"pattern\":\"$p\",\"script\":\"portfolio-sites-router\"}" \
+    https://api.cloudflare.com/client/v4/zones/<zone_id>/workers/routes; done
+```
+
+- **Verify by RE-READING the zone, never by trusting the POST receipts** — then `diff` the record
+  set against a known-good zone with the domain name normalised out. `garden-tools.uk`
+  (`82d90228c20877e2b3fc8470c2bc73d1`) is the reference: exactly 2 A records and 2 routes, nothing else.
+- **`status` stays `pending` until the registrar delegation actually moves.** `pending` is not a
+  failure and not something to retry; it is Cloudflare saying the NS change has not happened yet.
+- ⚠ **Creating the zone changes NOTHING about what the domain serves.** Until the nameservers move
+  at the registrar, every path still answers from wherever it is parked — 200 on every path if that
+  is a marketplace lander, which will make any HTTP census report a perfect site. See LANDMINES,
+  "A parked domain returns HTTP 200 for EVERY path".
