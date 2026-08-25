@@ -57,6 +57,14 @@ Reference timing from `garden-tools.uk`: submission 17:17 → pages 20:15, **abo
     WHERE s.domain='homegarden.uk' ORDER BY wi.created_at;
    ```
 2. **⚠ READ WITHIN ~24h OF THE PLANNER RUNNING — `orchestration_states` is a rolling window.**
+   `[MEASURED 2026-08-25 10:32Z]` — I had been repeating this figure from memory; it is now checked,
+   and it holds: 7,659 rows, oldest **1 day 00:55** old, **nothing beyond 48h**, and the tail is
+   thin (1,129 rows <6h, 6,368 at 6–24h, **162** at 24–48h, 0 older). So the honest instruction is
+   **read it the same day; by ~25h it is gone**, and a row still present at 30h is the exception
+   rather than the rule. (Checked because the `loanzy_uk_example_site` lane made the point that a
+   **caveat is an assertion wearing the grammatical form of modesty** — nobody marks a warning
+   `[INFERRED]`, so an inherited caution can sit in the imperative for ever without anyone measuring
+   it. This was mine: correct, and unmeasured until now.)
    Pull the rendered `plan_site` prompt and confirm it really carries `[expresses: …]` /
    `[prose only]` per component and rule 19. **This is the only chance to see what the planner was
    actually told**, and it is the difference between "it was offered a calendar and declined" and

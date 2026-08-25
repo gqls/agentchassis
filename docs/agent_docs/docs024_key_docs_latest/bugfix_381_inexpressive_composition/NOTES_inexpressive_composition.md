@@ -445,3 +445,33 @@ three components have 0 placements — not broken, unexercised. All three ARE in
 for garden-tools.uk (verified 3 of 3), so the wiring is proven and only the trigger is missing. That
 is now the whole of what this lane is waiting on, and it needs a new-site build, which is the owner's
 call.
+
+## 2026-08-25 — a peer's lesson about VOICE, applied to my own handoff
+
+The `loanzy_uk_example_site` lane, correcting a caveat of their own, wrote the sharpest thing anyone
+has said to this lane in two days:
+
+> **a caveat is an assertion with the grammatical form of modesty, which is exactly how it slips past
+> the `[INFERRED]`/`[UNMEASURED]` discipline — nobody marks a warning.**
+
+Their case: a banner told readers that a `*** HTML CHANGED ***` line meant "the pin is old, ignore
+section (a)". The pins turned out to be **current** — so that line was the alarm firing correctly,
+and the banner **disarmed a check in the same breath as recommending it**. The mechanism they named
+is one this estate already has written down: *"all eight moved on 08-20"* is true **as history**, and
+they inferred forward to present state and wrote the inference **in the imperative**. A dated event
+does not expire; a state claim does.
+
+**So I went looking for the same shape in my own handoff, and found one.** Its most time-critical
+instruction — *"read the planner prompt within ~24h, `orchestration_states` is a rolling window"* —
+I had been repeating from memory and had **never measured**. It is the exact form: a caution, in the
+imperative, telling the next reader to hurry.
+
+`[MEASURED 2026-08-25 10:32Z]` **it holds**: 7,659 rows, oldest **1d 00:55**, 1,129 <6h / 6,368
+6–24h / **162** 24–48h / **0** older. So "~24h" is right, and I can now say the sharper thing —
+**read it the same day; by ~25h it is gone** — instead of a remembered round number.
+
+**The uncomfortable part is that being right is not the point.** Had it come out at 6h, my handoff
+would have sent someone to look for a row that no longer existed and they would have read the
+absence as a failed build. **An unmeasured caution is a coin-flip you have written in the
+imperative**, and this lane has now spent two days learning that the marker discipline only works on
+claims that *look* like claims.
