@@ -1,16 +1,15 @@
-# HANDOFF 2026-08-24 — bugs_open/358 ~~continue here~~ SUPERSEDED
+# HANDOFF 2026-08-25 — bugs_open/358, continue here
 
-> **⚠ SUPERSEDED 2026-08-25 by `HANDOFF_2026-08-25_continue_here.md`.** Everything in flight here
-> has landed (all correlations approved, the CronJob proven on its own schedule, the Fable review
-> done). The traps in §4 still hold and are carried forward; the "OWED"/"read the verdict" lines
-> below are stale.
+**Supersedes `HANDOFF_2026-08-24_continue_here.md`.** Everything that was in flight on 08-24 has
+landed: every council correlation is APPROVED, the CronJob has fired **on its own schedule** and
+written a clean row, and the Fable review is done with all findings fixed. **What remains is the
+owner's judgement, not construction** — seven decisions, laid out with evidence in
+`PROPOSAL_2026-08-25_batch2_dispositions.md` and in plain prose at the end of
+`README_where_we_are.md`. **If you are picking this up, your first job is to find out which of
+those seven the owner has ruled on** (chat, or a dated ruling appended to the README) and apply
+them; if none, there is nothing to build.
 
-**Supersedes `HANDOFF_2026-08-22_continue_here.md`, which is now wrong in two places** (§0 numbers,
-and §2's "Phase 2 not started"). Read this one; that one only for the traps in its §3, which still
-hold.
-
-**Re-measure before quoting any number here.** Everything decays on a 30-day sliding window, and
-this lane exists because of that. One command re-establishes the state:
+**Re-measure before quoting any number here.** One command re-establishes the state:
 
 ```bash
 ./scripts/audit-finding-codes.sh          # exit 0 = every observed code is declared
@@ -31,7 +30,10 @@ notice.**
 ## 1. Status — DONE, and what is left
 
 **Phase 1 (registry + checker)** — done 2026-08-22, council `be1fd678`.
-**Phase 2 (the daily CronJob)** — **DONE AND LIVE 2026-08-24.** Council `be252395`, APPROVED round 4.
+**Phase 2 (the daily CronJob)** — **DONE, LIVE, and proven ON THE CLOCK**: first scheduled fire
+2026-08-25 07:30 UTC, clean row, under `v1.0.1337` (build stamp has the last registry commit as
+an ancestor). Council `be252395` APPROVED. Source-side scan + Fable fixes: `2e5f687d` and
+`4d5c1523`, both APPROVED.
 
 | thing | path |
 |---|---|
@@ -45,22 +47,28 @@ notice.**
 | shared hook mechanics | `scripts/lib/precommit-gotest.sh` — ⚠ **fleet-critical, see §4** |
 | register | `docs026_concept_register/register/debugging.md` → **DBG-075** |
 
-**LIVE READING 2026-08-24 evening, after the v1.0.1335 roll:** 43 codes observed, **55 declared**,
-**0 findings**, **25 unruled** (cap 25), 12 registered-but-unobserved, retention parity 0
-disagreements, `_scan_baseline` 13. **The day-one loop is CLOSED and proven at the artefact**: the
-deployed image's build stamp (`48f55f218…`) has both the declaration commit and the scan/baseline
-commit as ancestors (`git merge-base --is-ancestor`), and a manual in-cluster Job exits 0 with a
-clean row. First *scheduled* fire: 07:30 UTC 2026-08-25 — worth one glance at the doc_notes row
-that morning, then leave it alone.
+**LIVE READING 2026-08-25 07:30 UTC (the scheduled run's own row):** 43 codes observed,
+**55 declared**, **0 findings**, **25 unruled** (cap 25), 12 registered-but-unobserved, retention
+parity 0 disagreements, `_scan_baseline` 13. A missing 07:30 row from now on means the job did not
+run — never "nothing is wrong".
 
-### What is NOT done — in order of who decides
+### What is NOT done — all of it is the OWNER'S to decide (see the proposal for evidence)
 
-1. **B1, the remaining 25 `unruled` codes.** *Owner's to rule*, batch at a time. He ratified batch 1
-   (7 codes) on 2026-08-23. **This is the real remaining work** and the count is the progress
-   metric: 32 → 25.
-2. **`_scan_baseline`, 13 codes written by `platform/orchestration/actions` and declared nowhere.**
-   All zero-row today. Same shape as (1) — each needs a ruling, and the list may only shrink.
-3. **A reader for `LINK_CONTEXT_UNAVAILABLE`** — *not this lane's*, see §3.
+1. **Batch 2** — 24 of the 25 `unruled` codes measure "no automated reader anywhere" and are
+   proposed `human-evidence`; one commit applies them and lowers `_unruled_cap` 25 → 1. **Apply
+   only on his ratification.** Census: `[MEASURED 2026-08-25]` no live workflow or scheduled task
+   selects any of the 25; two hand-run readers only (`cmd/backfill-tool-crosslinks/main.go:90`; a
+   SQL comment in `render_content_envelope_guard.go:273`).
+2. **`BUILD_DISPATCH_STALLED`** — no writer live (migration `214` never applied; `506` says its
+   premise is moot). Apply 214 or retire it; recommended retire → cap 0.
+3. **Retraction audits' retention** — four codes written to be "the ONLY durable record", on 567's
+   365-day clock. Accept and note (recommended), or commission an audit table (architecture-shaped).
+4. **Readers** — commissioning, not ruling: `LINK_CONTEXT_UNAVAILABLE` (092 lane; real
+   degradation), `NO_CHANGE_GATE_UNREADABLE_RESULT`, `RENDER_AUDIT_TRUNCATED`,
+   `CONTENT_LINK_REPAIR_DETAIL`+`CONTENT_DATA_LINK_AUDIT`. Recommended: file the first at 092.
+5. **`UNKNOWN_HANDLER_VERDICT`** prefix collision — rename (recommended) or narrow the rule.
+6. **The 13 `_scan_baseline` codes** — batch 3 now, or per code on first fire (recommended).
+7. **The cap** — one counter or two; recommended leave as one.
 
 ## 2. The three things you must not get wrong
 
@@ -104,31 +112,12 @@ declarations, and the in-cluster run is green. The DEGRADATION itself — writer
 context on DB timeouts — remains unfixed and unowned-in-practice; it is a candidate for a fresh
 bug file routed at the 092 lane, not for silent adoption.)*
 
-## 3a. The Fable review pass — DONE (second attempt), five findings, all fixed
+## 3a. Reviews — nothing pending
 
-The owner asked for an independent pass by Fable. The first attempt died on an API session limit;
-the second (budget-aware brief) completed. **Five findings, all verified against the code, all
-fixed and mutation-proven the same day.** The one that matters:
-
-> **HIGH — the scan test was a hand-run tool wearing a commit-time label.** Its header claimed a
-> new `ErrorCode:` is caught at commit; `check-finding-code-registry.sh` tested only
-> `./cmd/config-key-audit/` and never named an actions file. The exact commit shape that produced
-> `LINK_CONTEXT_UNAVAILABLE` would still have walked through the hook. **Now fixed:** the hook keeps
-> two relevance sets and runs the actions package when a STAGED actions file carries `ErrorCode:`.
-> This was yesterday's wrong call one level up — *existence is not execution* — and it is in
-> `WRONG_CALLS.md` as a repeat.
-
-The other four (const aliases dropped silently → now resolved and every unresolvable site
-REPORTED; function-local vars misattributed → file-scope consts only; a vacuous `-run` control →
-one shared `scanOrFatal`; an overstated comment → corrected) and what Fable verified HOLDS are in
-NOTES under "The Fable pass, second attempt". **Nothing in this lane needs a further review pass, and nothing is awaiting a verdict** — every
-correlation this lane opened (`be1fd678`, `be252395`, `2e5f687d`, `4d5c1523`) is APPROVED.
-
-**If you run the scan verbosely** (`go test ./platform/orchestration/actions/ -run
-TestEveryErrorCode -v`) you will see four `UNRESOLVED ErrorCode:` lines. Those are the stated
-runtime blind spot — local variables at `component_write_guard.go:501`, `log_action_error.go:252`,
-`v3_site_actions.go:4197`, `:4261` — made visible, not a defect. Only the daily live-table check
-sees what those sites write.
+Fable's independent pass (2026-08-24) found five real things, all fixed; the council approved the
+fixes on round 2 after the guardian rightly narrowed the hook's actions-package run to an ENFORCED
+`-run '^TestFindingCode'` convention. Every correlation this lane opened is APPROVED. Details in
+NOTES ("The Fable pass, second attempt" and the two council entries after it).
 
 ## 4. Traps this lane created or found — read before touching
 
@@ -197,26 +186,14 @@ Note a failing job writes **two** rows (`backoffLimit: 1` retries), which is exp
 
 Full command set with gotchas: `RUNBOOK_unread_finding_codes.md`.
 
-## 6. Correlations, for the trail
+## 6. Correlations, for the trail — ALL APPROVED
 
-- Council `be1fd678…` — phase 1, APPROVED round 2.
-- Council `be252395-9d51-4427-b2ae-5f581337b16d` — phase 2, **APPROVED round 4**. Rounds 1–3 were
-  all gated on the same defect of mine: a fact true of the tree and unshowable from the plan. Round
-  4 generates every sketch from the committed diff. `WRONG_CALLS.md` 2026-08-23.
-- Council `2e5f687d-5753-441b-91f3-406c84a98394` — the source-side scan, **APPROVED 2026-08-24**,
-  10 seats, 7 abstained, no gating objection. All four advisory objections say one thing: the sketch
-  was truncated over the logic. Cause was mechanical (42 lines of header comment, cap applied in file
-  order), fix is a RUNBOOK rule — strip comments before truncating. No code change owed.
-- Council `4d5c1523-2453-4799-b828-25379affc41b` — the Fable-findings fixes. **Round 1 REVISE**
-  (guardian HIGH: the hook ran the whole actions package — a misattributed headline on any
-  unrelated flake; measured 86/411 commits would trigger). **Round 2 submitted** with the hook
-  scoped to `-run '^TestFindingCode'`, a naming convention ENFORCED by
-  `TestFindingCodeTestsFollowTheHookConvention`; all four proofs in NOTES. Commits `bce49226a`
-  (round 1) + `71c4081cc` (round 2). **Round 2 APPROVED 2026-08-24**, 8 seats, 9 abstained; the
-  four advisory objections are all already-stated limits (NOTES, "round 2: APPROVED").
-  **Nothing in this lane is awaiting a verdict.**
-- `090` `c965bfec…` — UNVERIFIABLE (scope-not-narrowing), **not a refutation**: its static tier is
-  `.go`-only, so the SQL writer was outside its corpus.
+- `be1fd678…` — phase 1 (registry + checker), APPROVED round 2.
+- `be252395-9d51-4427-b2ae-5f581337b16d` — phase 2 (the CronJob), APPROVED round 4. Rounds 1–3
+  were all the plan failing to show what the tree contained (`WRONG_CALLS.md` 2026-08-23).
+- `2e5f687d-5753-441b-91f3-406c84a98394` — the source-side scan, APPROVED round 1.
+- `4d5c1523-2453-4799-b828-25379affc41b` — the Fable-findings fixes, APPROVED round 2.
+- `090` `c965bfec…` — UNVERIFIABLE (scope-not-narrowing), **not a refutation**.
 
 ## 7. The two corrections this lane owes its own past self
 

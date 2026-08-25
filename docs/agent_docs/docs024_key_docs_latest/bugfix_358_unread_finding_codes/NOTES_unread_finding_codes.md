@@ -1153,3 +1153,44 @@ right about → approved. Across the whole lane the council has now approved thr
 (`be1fd678`, `be252395`, `2e5f687d`) plus this one, and every gating objection it raised in eight
 rounds was about what the submission *showed*, never about the code — which is its own lesson and
 is in `WRONG_CALLS.md` five times over.
+
+---
+
+## 2026-08-25 — the first SCHEDULED fire, and the census for batch 2
+
+**07:30 UTC fired on the clock and wrote its row**: `[MEASURED]` `doc_notes` 2026-08-25 07:30:12Z,
+*"43 distinct error_code(s) observed live, 0 finding(s), 25 unruled, 12 registered-but-unobserved"*,
+under the deployed `v1.0.1337` whose build stamp (`4c996e1b5…`) has the last registry commit as an
+ancestor. So the loop is now proven **scheduled**, not just hand-triggered — the last hop that was
+still inferred yesterday. From here a missing 07:30 row means the job did not run.
+
+**Batch 2 census, `[MEASURED 2026-08-25]`** — all 25 `unruled` codes, live rows over the retained
+window, writers, and readers (grep of the literal AND its const, every language; plus live
+`agent_definitions` and `scheduled_tasks`):
+
+- **No live workflow or scheduled task selects any of the 25.** (`agent_definitions.default_config`
+  and `scheduled_tasks.pre_query/config` regex over all 25 → 0 rows.)
+- **Two have a real reader, both hand-run:** `tool_crosslink_not_emitted` — `cmd/backfill-tool-crosslinks/main.go:90`
+  selects `WHERE e.error_code = 'tool_crosslink_not_emitted:tool_page_will_not_go_live'` (a backfill
+  binary; no kustomize service, not in the makefile — hand-run); and the same code's colon family
+  has a `LIKE` verify in `211_…_VERIFY.sql` and `602_…_HOLD.sql`.
+- **Three are `component_validation_rejected`'s exact shape** — `component_validation_orphan_schema_field`
+  (79 rows), `component_validation_unknown_template_var` (0): migration `563`'s prompt branches on
+  all three (`grep` of 563/564 → each ×4), reading `site_work_items.retry_feedback`, **not this
+  table**. Consumed from another sink → the row here is unread → `human-evidence` with the same
+  note batch 1 gave the sibling.
+- **Six have zero rows in the window** (`ASSET_RETRACTION_REFUSED`, `BUILD_DISPATCH_STALLED`,
+  `COMPONENT_COLLISION_DIVERT_BLOCKED`, `component_validation_unknown_template_var`,
+  `CONTENT_CREATOR_CLAIMS_DETAIL`, `REVIEW_SUPERSEDED_BY_PASSING_SAVE`). Zero proves 30 days, never
+  "never". `BUILD_DISPATCH_STALLED` is different in kind: its ONLY writer is migration `214`, still
+  unapplied (`schema_migrations` 0 rows, no `build-dispatch-watchdog` task) — so it has no writer
+  live at all, and `506` (applied) names it only to say the risk it guarded is moot.
+- **The rest are "written deliberately, read by nothing"** — the same state as batch 1's seven — with
+  the writer's own stated purpose recoverable from the write site in most cases (retraction audits:
+  *"the ONLY durable record of what a retraction considered, refused and stripped"*;
+  `PLAN_PAGE_MERGE_LOSSY`: *"the row is the only artefact that can answer 'did richer-wins ever
+  actually drop content'"*; `RENDER_AUDIT_TRUNCATED`: *"a capped sweep reporting clean is a false
+  green — say it DURABLY"*).
+
+**The decisions this leaves the owner are written up in `PROPOSAL_2026-08-25_batch2_dispositions.md`
+and, in plain prose, in `README_where_we_are.md`.**

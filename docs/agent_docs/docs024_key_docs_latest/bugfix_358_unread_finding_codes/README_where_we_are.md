@@ -395,3 +395,66 @@ thread found the coverage report had been blind to the whole widened area, which
 time, as before), and the thirteen codes that are written in the source but have never fired —
 same treatment when you want it. A second review pass by another model is running at your
 request; if it finds anything real I will fix it and say so.
+
+---
+
+**2026-08-25 — the check ran on its own clock this morning, and here are the decisions that are
+yours.**
+
+First the good news, briefly: at 07:30 this morning the daily check fired by itself for the first
+time, under the build you rolled out, and wrote a clean record — zero problems, twenty-five still
+undecided. Every hop of this thing is now proven in the way it will actually run, not by me poking
+it.
+
+Now the decisions. There are seven; the first is the big one and the rest are small. For each I say
+what the thing is, what rule applies, and how this case measures against it — so you can decide
+without re-deriving anything.
+
+**1. Ratify batch two.** Twenty-five codes are still marked "undecided". I have measured all of
+them the same way as batch one: nothing automated reads any of them. Not one workflow, not one
+scheduled job. Two have a *person* who reads them by hand now and then; the rest are written and
+never looked at. So twenty-four of the twenty-five are, honestly, "a human wrote this deliberately
+and nobody reads it" — the same label as batch one. One commit applies it, and the undecided count
+drops from twenty-five to one. The full evidence per code is in
+`PROPOSAL_2026-08-25_batch2_dispositions.md`, grouped into seven families so you are making seven
+judgements, not twenty-five. If you would rather hold any of them back because you intend to have
+something built to read it, say which.
+
+**2. One code has no writer at all.** `BUILD_DISPATCH_STALLED` would only ever be written by a
+database change (number 214) that was never applied — so it has never fired and never can. A later
+change (506) says in its own notes that the risk 214 was guarding no longer exists. Your choice:
+apply 214 after all, or retire it. I recommend retiring it; nobody has missed it.
+
+**3. The retraction audit records.** Four codes exist specifically to be "the only durable record"
+of what a retraction removed and refused. Under the current rules they live for a year and are then
+deleted. For everything else in this batch that is fine. For an audit it is a real choice: after a
+year, "what did we take down from that site and why" has no answer. I recommend accepting the year
+for now and writing that down; a permanent home for audits is a bigger piece of work that only
+earns itself if you are ever asked to account for retractions.
+
+**4. Which codes deserve something that actually reads them.** This is commissioning work, not
+ruling. Four candidates, in the order I would take them: the one from yesterday, where pages were
+published with no internal links after a database timeout (that belongs to the writer-links
+workstream — I can file it for you); a gate that records "I could not grade this item", which is a
+drift detector with no alarm; a page audit that records "I only checked some of the pages, and it
+is the same ones I skip every time"; and the pair of link-repair records where the interesting
+question is whether a repair path has quietly stopped acting. Tell me which, if any.
+
+**5. A naming clash waiting to happen.** One not-yet-declared code begins with the word `UNKNOWN`,
+and `UNKNOWN` is itself a code. The checker treats that as a collision — deliberately, because
+prefix queries exist — so the day someone declares it, the check goes red. Rename the code (cheap,
+local) or loosen the rule (changes a guarantee). I recommend renaming.
+
+**6. Thirteen codes that exist in the source but have never fired.** Rule them now as a batch three,
+or rule each on the day it first fires, which the check will tell us. I recommend waiting: ruling
+on a code that has never produced anything is ruling on intent, and each is one deletion away from
+never firing at all.
+
+**7. The cap.** After batch two the undecided cap is one. From then on, any brand-new code is an
+immediate breach — which is arguably exactly right: declare it in the same commit, or the check is
+red. Yesterday's two newcomers were both declared within hours, so the mechanism copes. I recommend
+leaving it as one counter and revisiting only if new codes start arriving faster than they can be
+ruled.
+
+Nothing here is urgent. The check is green, the loop is closed, and the estate is no worse off for
+a week's thought on any of these.
