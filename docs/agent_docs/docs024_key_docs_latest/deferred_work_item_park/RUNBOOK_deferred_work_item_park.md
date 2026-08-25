@@ -118,3 +118,88 @@ the model, and the only bulk park in the estate that can be audited afterwards:
 
 ⚠ A verify block of bare `SELECT`s **cannot** stop the `COMMIT` (`ON_ERROR_STOP` ignores a non-empty
 result). Use `DO` / `RAISE`, as 389 does, and induce the failure once to prove the guard fires.
+
+## ⚠ ENUMERATE the stamps; do not check for the ones you know
+
+This is the query the 2026-08-25 diagnosis loop effectively ran and I had not. I checked
+`spec ? 'parked_by'` and `spec ? 'not_dispatchable'` — the two conventions I knew about — and
+missed a **third**, `spec.deferred_reason`, carrying a full owner-sanctioned park explanation.
+
+```sql
+SELECT k, count(*)
+FROM site_work_items w, LATERAL jsonb_object_keys(w.spec) k
+WHERE w.status='deferred' AND COALESCE(w.handler_agent,'')<>''
+GROUP BY 1 ORDER BY 2 DESC LIMIT 20;
+```
+
+⚠ **Not every key is provenance.** `spec.reason` appears on 22 rows and records why the item was
+**detected** (`cta_links_stale`, `not_built`, `no_style_collection`, `post_reconcile_assembly`), not
+why it was parked. Reading it as a trace shrinks the population on a false basis. Open one row per
+key and decide, rather than pattern-matching the key name.
+
+## The split, computed rather than eyeballed
+
+Get the arithmetic from the database, not from reading a result table. Two counts were published
+wrong by eye on 2026-08-25 before this rule was written down.
+
+```sql
+WITH d AS (SELECT * FROM site_work_items WHERE status='deferred')
+SELECT CASE
+         WHEN spec ? 'parked_by'               THEN '1. traceable: parked_by ('||(spec->>'parked_by')||')'
+         WHEN spec ? 'deferred_reason'         THEN '2. traceable: deferred_reason'
+         WHEN COALESCE(handler_agent,'') = ''  THEN '3. correct convention: EMPTY handler'
+         ELSE                                       '4. UNTRACEABLE: named handler, no stamp'
+       END AS population,
+       count(*) AS rows,
+       count(*) FILTER (WHERE spec ? 'not_dispatchable') AS declares_itself,
+       count(DISTINCT item_type) AS types
+FROM d GROUP BY 1 ORDER BY 1;
+```
+
+[MEASURED 2026-08-25 12:47Z] 303 total = 87 + 4 + 98 + **114**. Re-run before quoting.
+
+## Ruling a candidate writer in or out — use its FINGERPRINT, and prove the fingerprint is live
+
+`FailWorkItemAction` looked decisive: it writes a step-config string straight into `status` and
+leaves `handler_agent` untouched, and the comment above it names the exact handlers on the parked
+rows. It is still not the writer, because it stamps `handled_by = agentType`:
+
+```sql
+-- the test AND the control, in one statement
+SELECT count(*) AS suspects,
+       count(*) FILTER (WHERE COALESCE(handled_by,'')<>'') AS carry_the_fingerprint
+FROM site_work_items
+WHERE status='deferred' AND COALESCE(handler_agent,'')<>'' AND NOT (spec ? 'parked_by');
+
+SELECT status, count(*), count(*) FILTER (WHERE COALESCE(handled_by,'')<>'') AS has_handled_by
+FROM site_work_items GROUP BY 1 ORDER BY 2 DESC;   -- <- the CONTROL
+```
+
+⚠ **Without the second query the zero means nothing** — a column nobody writes and a column written
+everywhere-but-here give the same answer. [MEASURED 2026-08-25] `handled_by` is set on **7,114 of
+7,329** `complete` rows, so the zero is a real absence.
+
+## A co-occurring actor is not a writing actor
+
+`agent_error_log` retains to 2026-07-24 and covers every bulk-park minute, so you can ask what else
+was running:
+
+```sql
+SELECT to_char(occurred_at,'MM-DD HH24:MI'), domain, agent_type, step_name, count(*)
+FROM agent_error_log
+WHERE occurred_at BETWEEN '<minute-1>' AND '<minute+3>'
+GROUP BY 1,2,3,4 ORDER BY 1;
+```
+
+⚠ It will find something — this fleet is always busy. A discovery run completing at the same minute
+on the same site is **equally consistent** with it parking the rows and with it merely *touching*
+them while they were already parked. That is the same trap as the `updated_at` test above, one
+layer along, and it killed two hypotheses on 2026-08-25.
+
+## Do NOT chase `HandleUpdateWorkItem`
+
+The 2026-08-25 diagnosis verdict names it as *"the only call site the index shows that SETs
+`handler_agent` on an UPDATE"*. **The symbol does not exist**: `grep -rn "func Handle.*WorkItem"`
+returns nothing repo-wide, and every `handler_agent` reference under `internal/core-manager/admin/`
+is an INSERT column list. The verdict's own caveat — only a signature was indexed, not a body — is
+the tell. The code index lags the working branch; verify a symbol before spending a round on it.
