@@ -2545,3 +2545,56 @@ committed with `Council-Submitted:` per the runbook. Register CQ-030's verify-la
 same commit. ⚠ **Go, so inert until the next chassis roll after `v1.0.1337`** — the post-roll probe
 literal for THIS change is `items_skipped_pending_proposal` (added; `needs_copy_edit` remains the
 present-control).
+
+---
+
+## 2026-08-25 (evening, round 2) — the council REVISE was right twice, and one objection corrected my own premise
+
+**Verdict on `754dcffd` round 1: REVISE**, gating objection from edit-quality. All objections
+triaged; the round found one real design gap and one false premise of mine.
+
+**1. The gating objection (nil `page_id` arm was SILENT) — fixed.** The guard skipped the bound
+when `classified.PageID == nil` with no log and no counter — the armed-but-inert shape on the
+trigger side. Now: the classifier invariant is TESTED (`TestNeedsCopyEditAlwaysCarriesPageID`,
+with a vacuousness control — `needs_copy_edit` is only ever minted inside the `pages[pageName]`
+branch with `&pageID`), AND the arm is LOUD if it ever becomes reachable ("any producer can file
+the type"): Warn + `items_copy_edit_bound_unevaluated` receipt. The match-key worry
+(edit-quality #2) was answered with evidence: the live `copy-editor.request_review` config sets
+`page_id_from: page_target.page_id`, `load_page_target` sits on the COMMON spine of both entry
+paths (hand-fired `echo_page_ref` and dispatched `load_work_item` both converge on
+`ensure_site_record → load_page_target`), and 0 of 4 live `copy_edit_proposed` rows have NULL
+`page_id` (the council's own check).
+
+> **CORRECTED 2026-08-25 (this entry corrects the previous one):** the previous entry's line
+> "nothing stops proposal-per-run accumulation on one page" was **WRONG** — I had read
+> `idx_swi_dedup` and stopped. `insertWorkItem`'s anti-churn brake
+> (`load_work_item_actions.go:1859–1911`) also guards every filing: same-key re-files < 3 h are
+> DEFERRED, and ≥2 terminal siblings in 7 days brands the third `unresolved`. So the path was
+> already limited to ~2 dispatches per (audit_source, page) per 7 days. **The bound remains
+> justified on the narrower true gap**: the brake keys on the SAME `item_key` and counts
+> TERMINAL siblings, so it cannot see an un-reviewed `copy_edit_proposed` (different type, open
+> status) and cannot stop cross-source parallel filing. Caught by the prior-art seat; logged in
+> `WRONG_CALLS.md` 2026-08-25.
+
+**2. Parameterisation (constitution + guardian):** the status list now rides as a bind argument
+— `status <> ALL(string_to_array($3, ','))` — with no lib/pq (this package documents avoiding
+it three times); the lockstep test now asserts the ARGUMENT equals
+`strings.Join(workItemTerminalStatuses, ",")`, which is stronger than the old regex-over-SQL.
+
+**3. Provenance (tooling seat):** the design decision is now IN `doc_notes` — row `13d3de34`,
+subject_type `decision`, subject `tone-route/needs_copy_edit pending-proposal bound` — not just
+in this markdown.
+
+**4. Post-roll probe (debug-historian):** the added literal for the binary check is
+`items_copy_edit_bound_unevaluated` (or `items_skipped_pending_proposal`), present-control
+`content_rewrite`, per the house recipe. Named here so the roll-day session does not derive it.
+
+**Counts re-verified for the resubmission** `[MEASURED 2026-08-25]`: `tone_shift` lifetime =
+**34** (3 live + 31 in `site_work_items_archive`) — the register's "33 as of 08-24" plus the
+08-24 `wont_fix` row; the prior-art seat was right that a live-table-only count undercounts.
+
+**Proofs re-run after the revision:** full `actions` suite green **against committed HEAD**
+via `verify-head-builds.sh --with <both files> --test` (the working tree currently carries
+another session's non-compiling WIP in `rebuild_blog_listing_action.go` — not ours, not
+committed, exactly the shared-tree case the script exists for); guard mutation re-run against
+HEAD → suite FAILS, restored → green.

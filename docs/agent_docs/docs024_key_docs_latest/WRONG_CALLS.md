@@ -52285,3 +52285,36 @@ and reproduced it, `b96529372` actually fixed it and caught the vacuous run.
 because the check on the check ran before the claim was written down.
 
 Family: zero-findings-is-not-zero-defects, a-detector-that-reads-prose, the-comment-explaining-the-trap-triggers-it, confirm-the-denominator.
+
+---
+
+## 2026-08-25 — "unbounded auto-dispatch" claimed after reading ONE of the two guards on the path; the council's prior-art seat caught it in the same hour
+
+**The claim.** In a council submission (corr `754dcffd`, the tone-route pending-proposal
+bound): that repeat `needs_copy_edit` filings on one page were **unbounded**, argued from
+`idx_swi_dedup` alone — the slot frees at completion, the parked proposal is a different
+`item_type`, therefore "nothing stops proposal-per-run accumulation". The lane handoff
+and register CQ-030 said "unbounded auto-dispatch is untested" and I carried the word
+into a design rationale as if verified.
+
+**What was true.** `insertWorkItem`'s anti-churn brake (`load_work_item_actions.go`
+:1859–1911) also guards the same insert: same-key re-files inside 3 h are DEFERRED, and
+the third within 7 days is born `unresolved`. So the path was already rate-limited to
+~2 dispatches per (audit_source, page) per 7 days. The bound I built is still justified —
+the brake keys on the SAME `item_key` and counts TERMINAL siblings, so it cannot express
+"an un-reviewed proposal of another type holds the page" — but the rationale's premise
+overstated the gap, and the fix's real job is narrower than its argument said.
+
+**What caught it.** The council REVISE: prior_art_librarian named `recurrenceExpected`
+and the two-strike block and asked why neither was checked as prior art. Reading the 100
+lines settled it in minutes.
+
+**The cheap check that would have.** Before claiming NOTHING bounds a write path, grep
+the INSERT function it goes through for its guards — `grep -n "item_key" <insert fn>` —
+and enumerate them. I had read the index that feeds the insert and stopped there; the
+guard lived one call downstream, in the function every filing traverses.
+
+**Cost.** One REVISE round (~10 min council time) and a resubmission; the wrong word
+never reached a commit that shipped behaviour, because the gate ran before the roll.
+
+Family: confirm-the-denominator, a-report-is-not-a-measurement, editing-one-file-is-not-knowing-the-package (the write-path variant: reading the INDEX is not reading the INSERT).

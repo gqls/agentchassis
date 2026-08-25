@@ -21,7 +21,7 @@ package actions
 
 import (
 	"context"
-	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -60,7 +60,7 @@ func TestToneBound_WithholdsWhileAProposalIsPending(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	// THE BOUND: the page already carries a pending copy-edit item/proposal.
 	mock.ExpectQuery(`item_type IN \('needs_copy_edit', 'copy_edit_proposed'\)`).
-		WithArgs(siteID, pageID).
+		WithArgs(siteID, pageID, strings.Join(workItemTerminalStatuses, ",")).
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	// Nothing else for this finding — no dedup check, no insert. The trailing
 	// silence-retraction pass still runs; give it its empty round.
@@ -91,10 +91,13 @@ func TestToneBound_WithholdsWhileAProposalIsPending(t *testing.T) {
 	}
 }
 
-// TestPendingCopyEditBound_QueryShapeAndBothArms pins the helper's SQL to the
-// CANONICAL terminal-status list (idx_swi_dedup ↔ workItemTerminalStatuses is
-// one contract; a hand-rolled status list here is the drift that produced
-// SQLSTATE 42P10 fleet-wide once already) and exercises both arms.
+// TestPendingCopyEditBound_QueryShapeAndBothArms pins the helper's status list
+// to the CANONICAL one, as a BIND ARGUMENT (idx_swi_dedup ↔
+// workItemTerminalStatuses is one contract; a hand-rolled status list here is
+// the drift that produced SQLSTATE 42P10 fleet-wide once already — and the
+// list rides parameterised, per the constitution seat, so the assertion is on
+// the argument, which is stronger than a regex over SQL text). Both arms
+// exercised.
 func TestPendingCopyEditBound_QueryShapeAndBothArms(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -103,17 +106,17 @@ func TestPendingCopyEditBound_QueryShapeAndBothArms(t *testing.T) {
 	defer db.Close()
 	siteID, pageID := uuid.New(), uuid.New()
 
-	q := `(?s)item_type IN \('needs_copy_edit', 'copy_edit_proposed'\)\s+AND status NOT IN \(` +
-		regexp.QuoteMeta(sqlInList(workItemTerminalStatuses)) + `\)`
+	q := `(?s)item_type IN \('needs_copy_edit', 'copy_edit_proposed'\)\s+AND status <> ALL\(string_to_array\(\$3, ','\)\)`
+	canonical := strings.Join(workItemTerminalStatuses, ",")
 
-	mock.ExpectQuery(q).WithArgs(siteID, pageID).
+	mock.ExpectQuery(q).WithArgs(siteID, pageID, canonical).
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	pending, err := pendingCopyEditForPage(context.Background(), db, siteID, pageID)
 	if err != nil || !pending {
 		t.Fatalf("want pending=true nil error, got %v %v", pending, err)
 	}
 
-	mock.ExpectQuery(q).WithArgs(siteID, pageID).
+	mock.ExpectQuery(q).WithArgs(siteID, pageID, canonical).
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	pending, err = pendingCopyEditForPage(context.Background(), db, siteID, pageID)
 	if err != nil || pending {
@@ -122,5 +125,48 @@ func TestPendingCopyEditBound_QueryShapeAndBothArms(t *testing.T) {
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// TestNeedsCopyEditAlwaysCarriesPageID holds the invariant the bound's loud
+// arm leans on (council 754dcffd round 1, editquality gating objection): the
+// fleet landmine says site_work_items.page_id is NULL on many rows, so a
+// needs_copy_edit born without a page id would make the bound silently no-op.
+// classifyFinding must never mint one: the type exists only inside the
+// pages[pageName] branch. The positive control (tone + existing page DOES
+// mint it, with the id) keeps this from passing vacuously against a
+// classifier that stopped minting the type at all.
+func TestNeedsCopyEditAlwaysCarriesPageID(t *testing.T) {
+	siteID, pageID := uuid.New(), uuid.New()
+	known := map[string]pageInfo{"index": {ID: pageID, Name: "index"}}
+	empty := map[string]pageInfo{}
+
+	minted := 0
+	for _, category := range []string{"tone", "gap", "content", "differentiation", "structure", "trust", "conversion"} {
+		for name, pages := range map[string]map[string]pageInfo{
+			"existing page": known, "unknown page": empty,
+		} {
+			for _, page := range []string{"index", "site-wide", "new page needed"} {
+				c := classifyFinding(auditFinding{
+					Category: category, Page: page, Description: "x", Severity: "medium",
+				}, pages, siteID, "content-quality-auditor")
+				if c.ItemType == "needs_copy_edit" {
+					minted++
+					if c.PageID == nil {
+						t.Errorf("category %q on %s (page %q) minted needs_copy_edit with NIL PageID — "+
+							"the pending-proposal bound cannot see this row", category, name, page)
+					}
+				}
+			}
+		}
+	}
+	if minted == 0 {
+		t.Fatal("no combination minted needs_copy_edit at all — the invariant test is vacuous")
+	}
+	c := classifyFinding(auditFinding{Category: "tone", Page: "index", Description: "x",
+		Severity: "medium"}, known, siteID, "content-quality-auditor")
+	if c.ItemType != "needs_copy_edit" || c.PageID == nil || *c.PageID != pageID {
+		t.Errorf("positive control: tone on an existing page must mint needs_copy_edit with its "+
+			"page id; got %s / %v", c.ItemType, c.PageID)
 	}
 }

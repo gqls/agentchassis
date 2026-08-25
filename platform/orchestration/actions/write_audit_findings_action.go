@@ -769,16 +769,23 @@ func parseAuditFindings(findingsRaw interface{}, logger *zap.Logger) (findings [
 // new one is filed. It drains when a human acts on the parked proposal —
 // which is owner decision D2's posture exactly: the human is the rate
 // limiter, so the queue can never outrun the person reviewing it.
+// The status list rides as a PARAMETER (`<> ALL(string_to_array($3,','))`),
+// not interpolated SQL — the constitution's "parameterised always" applies to
+// package constants too (council 754dcffd round 1, constitution + guardian
+// seats), and string_to_array keeps this free of lib/pq, which this package
+// deliberately avoids (resolve_composition_helpers.go, asset_lock_guard.go).
+// None of the statuses contains a comma; the lockstep test asserts the joined
+// form against workItemTerminalStatuses so drift in either direction fails.
 func pendingCopyEditForPage(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageID uuid.UUID) (bool, error) {
 	var pending bool
-	err := db.QueryRowContext(ctx, fmt.Sprintf(`
+	err := db.QueryRowContext(ctx, `
 		SELECT EXISTS(
 			SELECT 1 FROM site_work_items
 			WHERE site_id = $1 AND page_id = $2
 			  AND item_type IN ('needs_copy_edit', 'copy_edit_proposed')
-			  AND status NOT IN (%s)
+			  AND status <> ALL(string_to_array($3, ','))
 		)
-	`, sqlInList(workItemTerminalStatuses)), siteID, pageID).Scan(&pending)
+	`, siteID, pageID, strings.Join(workItemTerminalStatuses, ",")).Scan(&pending)
 	return pending, err
 }
 
@@ -938,6 +945,7 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 	skipped := 0
 	skippedBlocked := 0
 	skippedPendingProposal := 0
+	copyEditBoundUnevaluated := 0
 	parkedOwned := 0
 	classificationStats := make(map[string]int)
 
@@ -990,9 +998,20 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		// neighbouring checks — a missed bound costs one extra parked proposal
 		// (tone runs at roughly one a week); failing closed would silently mute
 		// the route, which is the armed-but-inert shape.
-		if classified.ItemType == "needs_copy_edit" && classified.PageID != nil {
-			pending, pErr := pendingCopyEditForPage(ctx, params.DB, siteID, *classified.PageID)
-			if pErr != nil {
+		if classified.ItemType == "needs_copy_edit" {
+			if classified.PageID == nil {
+				// Structurally unreachable today — classifyFinding mints
+				// needs_copy_edit only inside the pages[pageName] branch, with
+				// &pageID (Rule 4), and TestNeedsCopyEditAlwaysCarriesPageID
+				// holds that invariant. LOUD anyway (council 754dcffd round 1,
+				// editquality gating objection): "any producer can file the
+				// type" (CQ-030), so the day this becomes reachable the bound
+				// must SAY it has gone blind — counted and reported, never a
+				// silent no-op that files unbound exactly as before.
+				copyEditBoundUnevaluated++
+				logger.Warn("needs_copy_edit filed WITHOUT page_id — the pending-proposal bound cannot see it; filing unbound",
+					zap.String("page", classified.PageName))
+			} else if pending, pErr := pendingCopyEditForPage(ctx, params.DB, siteID, *classified.PageID); pErr != nil {
 				logger.Warn("pending copy-edit bound check failed; filing anyway",
 					zap.Error(pErr))
 			} else if pending {
@@ -1116,6 +1135,7 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		zap.Int("skipped_duplicates", skipped),
 		zap.Int("skipped_blocked", skippedBlocked),
 		zap.Int("skipped_pending_proposal", skippedPendingProposal),
+		zap.Int("copy_edit_bound_unevaluated", copyEditBoundUnevaluated),
 		zap.Int("parked_owned_page", parkedOwned),
 		zap.Int("total_findings", len(findings)),
 		zap.Any("classification_stats", classificationStats))
@@ -1138,6 +1158,13 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 		// Withheld behind a pending proposal is a different outcome from a dedup
 		// skip; present only when non-zero so the common case stays byte-identical.
 		out["items_skipped_pending_proposal"] = skippedPendingProposal
+	}
+	if copyEditBoundUnevaluated > 0 {
+		// The bound went BLIND on these (needs_copy_edit with no page_id): they
+		// filed unbound, and this receipt is the visibility. Non-zero here means
+		// the Rule-4 invariant broke or a new producer files the type — read the
+		// Warn lines and fix the producer, not this counter.
+		out["items_copy_edit_bound_unevaluated"] = copyEditBoundUnevaluated
 	}
 	if len(unroutedCategories) > 0 {
 		// The categories this router had no rule for — filed as capability_gap
