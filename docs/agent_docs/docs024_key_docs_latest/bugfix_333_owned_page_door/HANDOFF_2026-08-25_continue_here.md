@@ -16,6 +16,9 @@ it refuses owned pages, the finding is parked visibly instead of being routed in
 **That fix is built, council-APPROVED, live, and proven on live demand.** The bug is still OPEN, deliberately,
 because three findings were refused *after* the fix went live via a producer that bypasses the seam entirely.
 
+> **CORRECTED 2026-08-25:** three → **sixteen**, in three populations, only 3 of which bypass the seam —
+> see the corrections at §4 and the owner rulings at §5.
+
 ## 2. State — what is done
 
 | item | state |
@@ -56,6 +59,17 @@ Three `offer-analysis` rows created **2026-08-24 22:08:39Z, three hours after th
 `wont_fix` on the ownership guard. They never met the door: `write_audit_findings_action.go:987` is a raw
 `INSERT INTO site_work_items`. **The bug's title is still literally true of that producer.**
 
+> **CORRECTED 2026-08-25 (adversarial review, Fable; each point re-verified in-lane):** "three findings" was
+> a `page_id`-JOIN census and undercounts. Since the door went live, **16** owned-page refusals are 333's
+> defect: the 3 `offer-analysis` rows above PLUS **13** `needs_page` rows from `page-rerender`'s
+> `content_data_backfill` escalation (`escalateRerenderToWriter`,
+> `platform/orchestration/actions/rerender_page_sections_action.go:1397-1435`) — which are **NOT a
+> bypass**: they pass through `insertWorkItem`/`writeWorkItem` and the door stands down because the
+> producer omits `pageID` (resolved at `:196-215`, dropped from the literal at `:1415`), and they are born
+> `status='triaged'` (`:1425`), so **no promoter-side remedy can ever see them**. A further 8 rows
+> (`misdirected_cta` findings at `page-rerender`) are the CTA lane's (`bugs_open/389`) — not 384's as this
+> lane first said, and not 333's. Rulings in §5.
+
 ## 5. What to do next, in priority order
 
 1. **Close the bypass gap — the actual remaining work.** Two shapes:
@@ -71,6 +85,30 @@ Three `offer-analysis` rows created **2026-08-24 22:08:39Z, three hours after th
    shape, or a deliberate mass-cancel. Do not do this silently.
 3. **Optional, probably NOT this bug**: 1,438 rows carry `spec.page_name` and no `page_id` — name-only ACTION
    REQUESTS, a different kind of item from this bug's content findings.
+
+### RULED 2026-08-25 (owner) — the list above is superseded; three decisions landed
+
+1. **Bypass gap: route `write_audit_findings_action.go:987` through `writeWorkItem`.** The promoter-side
+   option is **dropped**: the promoter that actually promoted the 3 `offer-analysis` rows is the scheduled
+   task `detected-item-promoter`'s raw-SQL `pre_query` (all three carry the identical
+   `triaged_at = 2026-08-24 22:21:38.324` of one 900s tick) — NOT the Go `TriageDetectedItemsAction`, so a
+   `workItemRoutableSQL` predicate would not have covered them, and a SQL-side park would re-implement the
+   parked shape in a second medium (the "one contract in two media" drift `work_items_common.go` already
+   warns about). The Go promoter is not dead — `improvement-loop` runs periodically (owner, 2026-08-25) —
+   it just was not the promoter of record here. Council round owed with the change (shared seam file).
+2. **The 13 `page-rerender` escalations: owner chose (i) — check `rebuild_policy` before escalating** in
+   `escalateRerenderToWriter`, stopping the false alarm at source. NOT (ii) pass-the-pageID-and-park: the
+   key `needs_page:<name>` is deliberately shared with `reconcile_site_plan`, and a parked (non-terminal)
+   row would hold that dedup slot where today's terminal rows free it. Name-resolution at the door is NOT
+   taken — the class's live producer holds the id and drops it; all-history for name-only refusals is
+   **272 rows since 08-03 (live+archive)**, not the 53 this handoff first said (live-table-only read).
+3. **Legacy rows: no relabelling.** Only **58 of the 111** carry an ownership-refusal error (58 of 59
+   `failed`; **0** of 36 `unresolved`, **0** of 16 `needs_human_review` [MEASURED 2026-08-25]) — re-typing
+   the 111 would overwrite 53 rows' real failure history; **31 of the 59 `failed`** would collide with a
+   live open row of the same `item_key` under `idx_swi_dedup` if made non-terminal; and the
+   `failed`/`wont_fix` halves (incl. the 46 `tool_crosslink` `wont_fix`) are archiver-eligible within days
+   (`archive_completed_work_items(7,1000)`). If re-typing is ever revisited: dedupe by key first, exclude
+   rows whose recorded error is not an ownership refusal.
 
 ## 6. Traps that will bite you specifically on this lane
 
@@ -115,3 +153,10 @@ Three `offer-analysis` rows created **2026-08-24 22:08:39Z, three hours after th
 (their session was not running, so it is a file in their own CONTRIB_ convention). It states the measured cost,
 recommends the promoter-side remedy that would cover them **without touching their file**, and records that
 routing their action through `writeWorkItem` instead is theirs to choose. **Nobody is owed a notification now.**
+
+> **UPDATE 2026-08-25:** that sentence is superseded — three more notifications were owed and sent (commit
+> `42a89c47f`): `bugs_open/389` + `bugfix_308_cta_destination_provenance` (their stated belief that
+> owned-page `cta_links_stale` rows park under this door is FALSE — 0 ever have, the door keys on the
+> target handler's declaration and `page-rerender` declares none; corrected in both docs plus a CONTRIB in
+> their dir), and an ADDENDUM to the `vigilant_designer_offer_analysis` CONTRIB withdrawing its
+> promoter-side recommendation (owner ruled seam-routing; see §5 rulings).

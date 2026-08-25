@@ -113,3 +113,21 @@ emergency, and it is yours.
 
 The handoff for picking this up in a fresh session is at
 `docs/agent_docs/docs024_key_docs_latest/bugfix_333_owned_page_door/HANDOFF_2026-08-25_continue_here.md`.
+
+**2026-08-25, later — the second look, and your three decisions.** You asked me to run the morning's
+analysis past a second, different reviewer. Good call: it found I had got three things wrong. The seven
+failures I said belonged to another team's bug actually belong to the CTA work — their own notes even said
+so, and I hadn't read them. The thirteen "bypass" rows aren't a bypass at all: that producer goes through
+our new check, but drops the page's ID on the way in even though it looked the ID up moments earlier — so
+the check never fires. One missing field, not a missing capability. And my "53 all-time" count for the
+name-only class was really 272, because I'd only counted the current table and not the archive.
+
+The leftover work is therefore three small, separate things, and you've now decided all three: the
+report-writer that inserts straight into the database will be routed through the shared write path; the
+rerender escalation will check whether a page is owned before raising the alarm, so those false alarms stop
+at source; and the old records get left alone — most of them turn out not to be ownership refusals at all,
+and the rest age out on their own within days.
+
+One more thing worth knowing: two other teams' notes said their stuck items "now park under our new check".
+They never did and never could — their items point at a different worker, one our check deliberately leaves
+alone. I've corrected both documents and left them a note explaining why, with the numbers.

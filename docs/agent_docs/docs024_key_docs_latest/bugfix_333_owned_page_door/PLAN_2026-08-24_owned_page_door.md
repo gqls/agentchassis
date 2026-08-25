@@ -69,3 +69,18 @@ Three design decisions, and the reason for each:
 > Re-counted today: **49 matches of the literal in 26 files** (`grep -rn '"page-build-handler"' platform/
 > internal/ --include=*.go | grep -v _test`), of which many are comments — the census below counts WRITERS,
 > which is the number that matters, and it is 28 sites. Both figures are dated; neither is wrong for its date.
+
+## Decisions 2026-08-25 (owner), after adversarial re-review
+
+The residual is three populations (see the bug file's 2026-08-25 section for the census and mechanisms):
+
+1. **`write_audit_findings_action.go:987` → route through `writeWorkItem`.** Promoter-side predicate
+   dropped: the live promoter for these rows is the scheduled task's raw-SQL `pre_query`, so a Go predicate
+   misses them and a SQL park duplicates the parked shape in a second medium. Council round with the change.
+2. **`escalateRerenderToWriter` checks `rebuild_policy` before escalating** (remedy (i), at source). Not
+   pass-the-pageID-and-park (shared `needs_page:<name>` dedup slot); not name-resolution at the door.
+3. **Legacy rows: no relabelling** — 0/36 unresolved and 0/16 needs_human_review are ownership refusals;
+   31/59 failed would collide under `idx_swi_dedup` as non-terminal; archiver drains the terminal halves.
+
+Close criteria updated accordingly (bug file foot): both code changes live at the artefact, each verified
+with a demand control.

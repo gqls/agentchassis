@@ -750,3 +750,33 @@ off to; or parking is the correct outcome and the value is the roadmap line, not
 **Nothing owed by you.** This is a sizing input and a demand control you can quote: your door now has
 a producer whose volume is about to rise, and whose parked rate on its principal site is knowable in
 advance.
+
+## CORRECTION + OWNER RULINGS 2026-08-25 — the residual was three populations, not one, and the remedies are chosen
+
+An adversarial re-review (Fable, at the owner's request; every point below re-verified in-lane against the
+code and the live table) corrected the POST-ROLL section's residual census. The "3 refused" figure was a
+`page_id`-JOIN read; the true post-door residual on owned pages [MEASURED 2026-08-25 ~10:30Z]:
+
+| population | rows | path | remedy (owner rulings, 2026-08-25) |
+|---|---|---|---|
+| `offer-analysis` (`write_audit_findings_action.go:987`, raw INSERT, born `detected`) | 3 | bypasses the seam | **route it through `writeWorkItem`** — promoter-side option DROPPED: the promoter of record was the scheduled task `detected-item-promoter`'s raw-SQL `pre_query` (identical `triaged_at` 22:21:38.324 on all three), not the Go `TriageDetectedItemsAction` (`improvement-loop` runs periodically but had no run on that site in the window), so a `workItemRoutableSQL` predicate would not have covered them |
+| `page-rerender` `content_data_backfill` escalation (`escalateRerenderToWriter`, `rerender_page_sections_action.go:1397-1435`) | 13 | **NOT a bypass** — goes through the seam; the door stands down because the producer omits `pageID` (resolved at `:196-215`, dropped at `:1415`) and births rows `triaged` (`:1425`), invisible to every promoter | **check `rebuild_policy` before escalating** — stop the false alarm at source. Not pass-the-id-and-park: the shared `needs_page:<name>` key slot would be held by a non-terminal row. Not name-resolution at the door |
+| `misdirected_cta` at `page-rerender` (`check_misdirected_cta.go`) | 7 failed + 1 re-triaged | not 333's — the CTA lane's (`bugs_open/389`); NOT 384's as first attributed | told 2026-08-25 (commit `42a89c47f`); per the 384 ruling the exclusion belongs in their detector |
+
+**Legacy rows: RULED — no relabelling, no mass-cancel.** Only 58 of the 111 carry an ownership-refusal
+error (58/59 `failed`; **0**/36 `unresolved`, **0**/16 `needs_human_review`); re-typing to `deferred` would
+collide with a live open row of the same `item_key` for 31 of the 59 under `idx_swi_dedup`; the
+`failed`/`wont_fix` halves (incl. the 46 `tool_crosslink` `wont_fix` the `staged_component_build` CONTRIB
+flagged) are archiver-eligible within days.
+
+**What now closes this bug:** (1) `write_audit_findings` routed through `writeWorkItem` — its owned-page
+rows park; (2) `escalateRerenderToWriter` checks ownership — the 13-row class stops being filed; both live
+at the artefact, each verified with a demand control. The name-only class (272 refusals all-history since
+08-03, live+archive — the POST-ROLL's 53 was live-table-only) is covered by (2) for its only live producer;
+no door widening.
+
+Corrections to two earlier statements in this file's own sections: the POST-ROLL "3 still REFUSED" and its
+"What would close this bug" item 1's promoter-side option are superseded by the table above. Also corrected
+today, outside this file: `bugs_open/389` and `bugfix_308_cta_destination_provenance` both stated their
+owned-page `cta_links_stale` rows "park under 333's door" — **0 ever have** (their handler is
+`page-rerender`, which declares no refusal); corrected in place + CONTRIB in their lane dir.

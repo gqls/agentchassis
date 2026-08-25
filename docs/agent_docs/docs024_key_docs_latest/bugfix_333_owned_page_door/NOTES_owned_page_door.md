@@ -332,3 +332,55 @@ replaced it with a wrong one plus an instruction to hunt a defect that does not 
 the file (`53a3230a4`) between my append and my commit, taking my entry with it. Nothing lost, forward-only
 holds, and HEAD carries the entry — this is CLAUDE.md's stated same-file passenger case, which no hook can
 prevent. Verified with `git show HEAD:<path> | grep -c` rather than assumed, which is how I found it.
+
+## 2026-08-25 — adversarial re-review (Fable, owner-requested): three of my claims refuted, all before they reached the owner uncorrected
+
+The owner asked for a second pass over the morning's analysis with a different model. It refuted three
+claims; I re-verified each refutation myself (code read + live query) before accepting it. All three share
+one root: **I characterised populations from row aggregates without reading the file each claim was about.**
+
+### MISSTEP 7 — I attributed the 7 `page-rerender` owned-page failures to `bugs_open/384`
+
+False. They are `misdirected_cta` findings (`spec.reason='cta_links_stale'`, from
+`check_misdirected_cta.go`) — and `bugs_open/384`'s own file says at line 208 that this population is one
+its change **does not touch**. The CTA lane (`bugs_open/389`) owns them. What caught it: the reviewer read
+384's file. The cheap check: **before attributing rows to a lane, read `spec.reason` on the rows AND grep
+the lane's own doc for that population** — the lane had already disclaimed it in writing.
+
+### MISSTEP 8 — I called the 13 `needs_page` rows a bypass class needing name-resolution at the door
+
+False twice. (1) They are **not a bypass**: `escalateRerenderToWriter`
+(`rerender_page_sections_action.go:1397-1435`) calls `insertWorkItem` → `writeWorkItem`; the door stands
+down at `item.pageID != nil` because the producer resolves `pageID` at `:196-215` and then omits it from
+the `workItem` literal at `:1415`. One missing field, not a missing capability. (2) They are born
+`status='triaged'` (`:1425`), so the promoter-side remedy I was weighing could never have seen them. The
+cheap check: **before classifying a row as a seam bypass, read the producer** — `created_by` names it, one
+grep finds the emitting function.
+
+Also withdrawn: my framing that the handoff's census "structurally could not" find these. The author had
+deliberately scoped the name-only class out (§5 item 3; the WII-028 94% landmine) — the fair statement is
+that the scope-out was deliberate and wrong in its operative detail (the class's live instance is a seam
+producer holding the id, born triaged), not that the census was blind by accident.
+
+### MISSTEP 9 — "53 name-only refusals all-history" was a live-table-only read
+
+Live+archive: **272 since 08-03** (211 archived pre-marker `rebuild_policy=owned` failures 08-03→08-16).
+Understated ~5×, in a lane whose own register entry warns that `site_work_items` is a rolling window. The
+marker-birth-date rule was honoured (the combined LIKE catches both texts); the archive rule was not.
+
+### Owner correction, same day: "the Go promoter is dormant" was overstated
+
+`improvement-loop` runs periodically, so `TriageDetectedItemsAction` is live, merely infrequent. The
+correct, narrower statement (which survives): it was **not the promoter of record** for the 3
+`offer-analysis` rows — the scheduled task `detected-item-promoter`'s 900s raw-SQL tick promoted them
+(identical `triaged_at = 22:21:38.324`), and any predicate added only to `workItemRoutableSQL` would not
+have covered them. Any council submission for seam work must say "infrequent", not "dead".
+
+### Rulings landed (owner, 2026-08-25)
+
+(1) Route `write_audit_findings_action.go:987` through `writeWorkItem`; promoter-side option dropped.
+(2) `escalateRerenderToWriter` checks `rebuild_policy` before escalating — remedy (i), at source.
+(3) Legacy rows: no relabelling (58/111 are ownership refusals; 31/59 failed would collide under
+`idx_swi_dedup` if made non-terminal; archiver drains the terminal halves). Recorded in the handoff §5
+RULED block and the bug file's 2026-08-25 section. CTA lanes + vigilant_designer addendum sent, commit
+`42a89c47f`.
