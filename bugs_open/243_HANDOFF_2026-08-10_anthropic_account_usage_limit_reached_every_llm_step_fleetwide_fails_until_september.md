@@ -866,3 +866,31 @@ solved"*, which is false. **What is solved is how much damage each refusal does 
 
 **Fair close condition:** one council round with `unreadable > 0` reaching a verdict, **plus** an
 owner decision on candidate 2.
+
+### Addendum, same day (2026-08-25 ~19:15Z) — post-roll re-verify, and the trigger has now been absent for 48h
+
+Chassis rolled again to **v1.0.1339**. Re-checked rather than assumed (a roll can regress Go via
+a build from an older ref, and a seed can overwrite DB config): ancestry against the running
+binary's own stamp `a7459a44b` → **IN** for all three commits; DB config survived — probe
+interval **60s**, seats repointed **17/17**, `complete_invalid` still exactly **2**.
+
+**47 council rounds since mig 588 applied, ZERO `complete_invalid`** (27 approved, 20 revise).
+⚠ **Not the proof**: `cap = 0` on both 08-24 and 08-25, so no transient has exercised the new
+path, and all 47 report `unreadable = 0`. **The zero means "nothing tested it".** What it does
+establish is **no regression on the ordinary path**, which was the real risk of repointing 17
+`error_step`s.
+
+**The trigger itself has been quiet for 48 hours, at the two highest call volumes in the record:**
+
+| day | cap | ok |
+|---|---|---|
+| 08-22 | **113** | 1,063 |
+| 08-23 | 32 | 1,109 |
+| 08-24 | **0** | 1,850 |
+| 08-25 | **0** | 1,395 |
+
+Most likely the account was properly funded once the **wrong-account** error was found on 08-23
+(§ the 2026-08-24 section). **This does NOT close the bug**: two days cannot establish stability,
+six days of the month remain, and §5 candidate 1 restoring service has always been the pattern —
+it is what happened on 08-10 too. Recorded as **unresolved, not fixed**. Re-run the histogram
+before repeating any of these figures.

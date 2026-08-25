@@ -309,3 +309,39 @@ and a thrown-away review round, and is now neither.
 
 Everything is written up. The starting point for whoever picks this up next is
 `docs/agent_docs/docs024_key_docs_latest/bugfix_243_provider_cap_resilience/HANDOFF_2026-08-25_continue_here.md`.
+
+## Monday 25 August 2026, evening — checked again after the new build. Nothing has slipped.
+
+A new build went out, so I re-checked rather than assumed — a build can be made from an older
+snapshot of the code, and database settings can be overwritten by other work. Everything held:
+all three code changes are still in the running binary, the probe is still on one minute, and
+all seventeen reviewers are still wired the new way.
+
+**Since the change went in this morning, forty-seven review rounds have completed and not one
+was thrown away.** Before the fix, roughly half were dying.
+
+**I am not going to call that proof, and I want to be straight about why.** We have had no
+refusals at all for two days, so nothing has actually tested the new behaviour. Forty-seven
+rounds with nothing going wrong tells you the change did not break the normal case — which was
+the real risk, and is worth having — but it does not tell you the new path works, because the
+new path has not run. This lane has already produced two "nothing happened" results that turned
+out to mean "there was nothing to happen", so I would rather say it plainly than quote a
+flattering number.
+
+**On the underlying problem: it has gone quiet.** No refusals on Sunday or Monday, on our two
+busiest days ever. Almost certainly because the account got properly topped up once we found it
+had been the wrong account all along. I had guessed we would see it again before month end;
+two days say otherwise, but two days settle nothing and there are six left.
+
+### So: can we close it?
+
+**My answer is the same as this morning, and the quiet fortnight does not change it.**
+
+The work is done and I would be happy for you to consider this lane finished. But I would keep
+the bug itself open, because it is about running out of credit, and that is still a thing that
+can happen tomorrow — the only reason it is quiet is that the account was topped up, which is
+exactly what happened on the 10th before it came back three more times.
+
+What would let us close it honestly: one review round where a reviewer's call actually fails and
+we see it cost only that reviewer, and a decision from you on whether we ever put a second AI
+provider behind this. Until then, everything is written down and nothing needs my attention.
