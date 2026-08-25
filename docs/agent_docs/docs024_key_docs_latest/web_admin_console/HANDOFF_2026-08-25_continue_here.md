@@ -20,10 +20,28 @@ roll (dashboard `v1.0.1337`, core-manager `4c996e1b5`).
 
 ## 1. NEXT — in order
 
-1. **After the next core-manager roll, close this out** (three steps, in NOTES 2026-08-25):
-   ancestry against the pod's provenance stamp with a reversed control; then **probe the
-   capability from outside**, including the `POST /c/<token>/confirm` control that must 404 at
-   the box; then tell the webdesign lane the email is unblocked.
+1. **After the next core-manager roll, close this out — and it is now a TWO-STEP sequence with
+   an order, because another lane moved the routes under this change on 2026-08-25.**
+   ⚠ **`/c/` is currently mounted NOWHERE and an outside probe 404s — that is EXPECTED, not a
+   defect in the second-click page.** `d30917150` (RFC_054 Q2, register **SYS-095**) moved the
+   delivery routes off the admin port onto a delivery-only listener on `:8090`, opt-in via
+   `SERVICE_SERVER_DELIVERY_PORT` (set in core-manager's production overlay), and repointed
+   `box/links.webdesign.uk.nginx` at `:8090` in the same commit. Until BOTH the roll and the box
+   apply have happened, a customer link 404s at the box either way — harmless today
+   (`customer_access_tokens` = 0) and **indistinguishable from my change being broken**, which
+   is why it is written here.
+   Close-out, in this order:
+   a. **Roll lands** → ancestry against the pod's provenance stamp, with the reversed test as a
+      control. Two commits must be contained: `d1a4bdcdf` (this page) and `d30917150` (the
+      listener). One without the other is a half-shipped state.
+   b. **Then the box config is applied** (owner action, links.webdesign.uk vhost). The file's own
+      header carries the check to run first and says why applying it EARLY breaks every link
+      silently. Do not apply before (a).
+   c. **Then probe the capability from outside** — `GET` renders the button page, `POST` the same
+      path answers, and `POST …/c/<token>/confirm` 404s at the box (the control). Add SYS-095's
+      own containment check in the same pass: `core-manager:8090/api/v1/admin/work-items` → 404
+      **paired with** the same path on `:8088` → not-404, or the pairing proves nothing.
+   d. **Then** tell the webdesign lane the delivery email is unblocked.
 2. **RFC_054 still awaits a ruling** (unchanged from 08-24c): Q1 two-door pattern · Q2
    delivery-only listener · Q3 what makes door three automatic.
 3. ~~**`WriteSiteSpecAction` deep-merge follow-up**~~ **CLOSED 2026-08-25 — REFUTED by its own
