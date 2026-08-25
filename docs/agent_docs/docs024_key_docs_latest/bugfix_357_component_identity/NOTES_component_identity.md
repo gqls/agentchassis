@@ -1041,3 +1041,64 @@ it is the loop declining to conclude on the bundle it could assemble, and its "s
 list is the useful output. It could not fetch a function body its own symbol scope had already
 named (`measurePageSectionCompleteness` was in the scope list), which is worth knowing about
 the instrument: **being in scope is not being retrieved.**
+
+## 2026-08-25 12:24Z — PHASE 2 HAS FIRED IN PRODUCTION, twice
+
+After the plan correction (`OPERATION_2026-08-25_correct_cv1_tool_page_plans.sql`, owner
+decision), both recreations were re-queued at priority 5 and claimed within a minute. Both
+saves cleared the floor at 1 of 1 and **both adopted**.
+
+```
+page                    slot_name            component         regenerable  stamped  bytes
+cv1.co.uk/index         hero                 adopted-fragment  t            t        17,595
+cv1.co.uk/tool-example  generic-text-block   adopted-fragment  t            t        20,076
+```
+
+**`cv1.co.uk/index` is the whole of `bugs_open/357` in one row, and it is now correct.** A
+17,595-byte self-contained interactive tool, sitting in a slot named **`hero`** — the exact
+configuration the bug was filed about — and the row says `adopted-fragment` with
+`content_data.body` reproducing `rendered_html` byte for byte, carrying a real provenance
+stamp. Before phase 2 this row would have declared itself the shared `hero` component and
+joined the population.
+
+`slot_name` untouched on both, `position` 1, `rendered_html_digest = md5(rendered_html)`
+(the digest is honest), `build_status = deployed`.
+
+**Both point at the SAME `component_versions` row** (`3301ef65-4d83-4ea5-aa7c-65cb38e83653`,
+template `{{.body}}`) — the "1.00 version rows per component, not a log" property holding
+across two independent adoptions rather than being asserted from one.
+
+### The three STOP conditions, checked rather than assumed
+
+| condition | reading |
+|---|---|
+| a 357 population row acquires a stamp | **0** — splice hygiene holds, as it has since 08-25 09:08 |
+| a page's row count goes UP by one | `cv1/index` = 1 row (was 0; the page was empty, so this is a birth, not the carry-forward landmine) |
+| a new fragment lands with `component_id` NULL | **1 — and it is NOT ours, and it is NOT a phase-2 failure** |
+
+The NULL row is `loanandmortgagecalculator.co.uk/tool-overpayment-priority`, created
+**10:58:19Z — thirty-one minutes BEFORE my first dispatch**, on another lane's site. It has
+no `<section>` and no `data-component`, which looks like an adoption candidate until you
+count the rows: **5 on that page.** The fallback arm emits exactly ONE section, so a 5-row
+save came through the metadata path, `FallbackAdopted` was never set, and adoption was never
+offered the row. It is the ordinary "no component matched this slot name" outcome, which
+predates phase 2 entirely. ⚠ **Worth stating because the surface reading — no section, no
+data-component, no component_id — is exactly what a failed adoption would look like.** The
+row count is what discriminates.
+
+**The population is still 22** and neither adopted row is in it, which is the point: they are
+bound to `adopted-fragment`, not to `hero`.
+
+### What this settles, and what it does not
+
+**Settled:** phase 2's central claim is no longer unproven in production. The mechanism binds
+a fragment to a component that provably reproduces its bytes, earns a genuine stamp through
+the existing resolver, and leaves the slot axis alone. 578's precondition 2 is met on its own
+terms, with no check weakened.
+
+**Not settled by this alone:** whether an adopted row SURVIVES a rebuild — 578's precondition
+4, which the file states in prose and does not enforce. Canary fired 12:29Z on `index` only
+(correlation `e0c2d505-9875-4347-a718-a852f32ec6b7`), with **`tool-example` deliberately left
+untouched as a control**, so a change can be attributed to the rebuild rather than to time.
+Baseline pinned in `scratchpad/canary_before.txt`: `index` position 1, slot `hero`, md5
+`26f484f2744ab3e9cd19e50f600a52b8`, component `9d4b922b`, version `3301ef65`, 17,595 bytes.

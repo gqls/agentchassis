@@ -536,3 +536,48 @@ one-off.
 genuinely different in risk. I have set them out in the message to you rather than
 choosing one myself, because two of them involve either relaxing a safety rule across
 the fleet or changing what a live page says about itself.
+
+## 2026-08-25 (later) — it worked. The thing we switched on last week has now done its job on a real page
+
+You chose to correct the two page plans rather than relax the safety rule or wait for the
+proper code fix. That was the right call and it took about three minutes to land.
+
+**What I changed.** Those two pages had been told, by the platform itself, that they were
+tools — and told, by the same piece of software in the same breath, that they had four and
+three sections. A tool page is one thing, not four. I corrected the plans to say one, which
+is what the platform's own notes on those pages already said: its analysis recorded
+"self_contained: true" for one of them while writing it a three-section plan. I did not touch
+the safety rule, any setting, or any other site. Both pages were empty, so there was nothing
+to lose, and I wrote the exact undo alongside it before running anything.
+
+**Then both pages rebuilt and both were recorded correctly.**
+
+The important one is the front page. It now holds a seventeen-and-a-half-thousand-character
+interactive tool, sitting in a slot called "hero" — **which is precisely the situation this
+whole bug was filed about.** Before, the platform would have written down "this is the shared
+banner component", which is false, and everything downstream would then have reasoned about a
+banner that is not there. Now it says "these bytes are my content", it can prove it — the
+stored content regenerates the page exactly — and it carries a proper record of where it came
+from.
+
+So the mechanism is no longer something we believe works because it is switched on. **It has
+been watched doing its job, twice, on real pages.**
+
+**I checked the three things that would have meant stop, rather than assuming them.** None of
+them fired. One of them looked at first as though it might: a page on a different site had a
+component with no identity recorded. It turned out to be from half an hour before I started,
+on another lane's site, and it is a different situation entirely — I have written down why,
+because on the surface it looks exactly like our mechanism failing and it is not.
+
+**What is still open.** The repair of the original twenty-two has not been run. Its condition
+is now genuinely met — but there is a second condition, written down as a sentence rather than
+enforced by the code: that an adopted page survives being rebuilt without losing what it just
+gained. I am testing that now on one of the two pages and deliberately leaving the other
+alone, so that if something changes I can tell whether the rebuild caused it. I would rather
+spend twenty minutes on that than re-type twenty-two live pages on the strength of a shape
+that has existed for four minutes.
+
+**And the bigger thing this turned up is still there.** Thirty-two pages across fourteen sites
+were refused in exactly this way and are sitting waiting for a human, going back to the end of
+July. The plan correction I did today fixes two pages. The software that writes the
+contradiction is untouched, and it will keep writing it.
