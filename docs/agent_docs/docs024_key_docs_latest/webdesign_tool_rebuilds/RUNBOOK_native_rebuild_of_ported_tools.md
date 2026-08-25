@@ -181,6 +181,19 @@ Gotchas learned the hard way:
   ```
 - The `description` is the GENERATOR'S functional brief — never put process/replacement notes
   in it (they can end up rendered into the page). Process notes go in the item summary.
+- **KEEP THE BRIEF NEAR 2,000–2,800 CHARACTERS. A longer one can kill the build (added 2026-08-25,
+  after losing one).** `tool-cubic-bezier`'s first filing carried a **4,431-char** description with
+  seven numbered fixes, and `generate_tool_html` died at
+  `response truncated: stop_reason=max_tokens (output_tokens=32000 reached the configured cap,
+  20955 chars recovered)`. **The work item still reported `complete` with `error` NULL** — only the
+  RUN grade shows it (`current_step='complete_error'`). The refile at **2,720 chars**, same
+  load-bearing fixes, built in 3m42s; the entropy-meter brief that produced a clean tool was ~1,900.
+  A brief is a BUDGET: prose spent describing the fix is budget not spent emitting it, and the model
+  mirrors the verbosity it is given. If the tool genuinely needs more surface than that buys, ship
+  the core and file the remainder as a `replace_existing` re-fix — do not lengthen the brief.
+  **Nothing leaks on this failure** (ported slot untouched, 0 rows in `content_components`), and the
+  retire transaction's "native slot must exist" pre-assert refuses independently, so the page cannot
+  end up with no tool on it — but only if your retire actually carries that assert.
 - Rich apps (mind-map, meme-generator, micro-cms, pasteboard, logic-architect…): do NOT file —
   PLAN §3.
 
@@ -280,6 +293,12 @@ ORDER BY ext_scripts, bytes;
 
 1. **`p.url LIKE '/tools/%'` returns 64, not 63** — `tools-index` (`/tools/index.html`) is a ported
    page and is the listing, not a tool. Filter on `p.name LIKE 'tool-%'`.
+   **⚠ And it is `'tool-%'`, never `'tool%'` — the hyphen is load-bearing (added 2026-08-25).**
+   `tools-index` starts with `tool` but not `tool-`, so the two patterns differ by exactly that one
+   row. Three sessions spent an exchange on a `34` vs `33` count of non-tool pages that read as a
+   page changing `rebuild_policy` mid-afternoon; it was this character. **A one-page delta between
+   two sessions' counts is a PREDICATE difference until the same query STRING has produced both
+   numbers** — a claimed CHANGE needs one instrument run twice, not two instruments run once.
 2. **`content_data ? 'repair'` is NOT the external-script class, even though both count 13.**
    The intersection is **4**. `repair` is residue from the `webdesign_tools_repair` lane; the class
    the PLAN and TL-032 mean is `<script src=` in the ported html. Using one for the other mis-scopes

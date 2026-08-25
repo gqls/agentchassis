@@ -1,5 +1,15 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-25 ~11:15Z. Supersedes `HANDOFF_2026-08-22_continue_here.md`.
 
+**STATE (updated 15:45Z): 42 of 63 SERVE-CONFIRMED (#42 cubic-bezier, NOTES 15:45Z). NEXT:
+golden-ratio (8,754), then monolith-splitter (9,037), head-architect (9,212), asset-formatter
+(9,222). NOTHING IN FLIGHT.
+⚠ TWO NEW RULES, both learned the expensive way today, both now in the RUNBOOK:
+(a) **keep the add_tool `description` near 2,000–2,800 chars** — a 4,431-char brief killed
+cubic-bezier's first build at `max_tokens` and the WORK ITEM STILL SAID `complete` with `error`
+NULL; only the RUN grade showed it. (b) **`related_pages` mentions never land on this site** —
+`deferred` is a terminus, not a gate (0 of 80 `tool_crosslink` rows have ever completed). Keep
+filing the key; never claim a mention. Prior line follows.**
+
 **STATE (updated 15:00Z): 41 of 63 SERVE-CONFIRMED (#41 text-sanitizer done, NOTES 15:00Z — the
 "remove invisible characters" toggle that replaced zero-width chars with a SPACE is dead; sighting
 #19). Phase B continues smallest-first: cubic-bezier (8,754) next, then golden-ratio (8,754),
@@ -54,13 +64,17 @@ DUE at Phase C completion, not before).
 7. Dispatch the sidecar's dry-run retraction, record the refusal + orphan (bugs_open/365 list,
    **8 so far**; the shared `/tools/assets/webdesign-couk-header.js` goes with the LAST ported page).
 
-## Next up — cubic-bezier (8,754), analysis NOT yet done
+## Next up — golden-ratio (8,754), analysis NOT yet done
 
-#36 csp-builder shipped 2026-08-25 10:35Z (NOTES 10:35Z); the analysis block that stood here is
-spent. Nothing is pre-analysed for the next tool — start at step 1 of the recipe. Phase B order
-from the census (re-run it, do not trust this list): cubic-bezier 8,754 · golden-ratio 8,754 ·
-monolith-splitter 9,037 · head-architect 9,212 · asset-formatter 9,222 · layout-generator 9,223 ·
-insight-injector 9,369 · … then the FIVE rich apps LAST, one at a time, owner-reviewed.
+Nothing is pre-analysed — start at step 1 of the recipe. Phase B order from the census (re-run it,
+do not trust this list): golden-ratio 8,754 · monolith-splitter 9,037 · head-architect 9,212 ·
+asset-formatter 9,222 · layout-generator 9,223 · insight-injector 9,369 · … then the FIVE rich apps
+LAST, one at a time, owner-reviewed.
+
+**One item OWED from #42:** keyboard access (arrow-key nudge) for cubic-bezier's two drag handles
+was cut from the brief to fit the token budget. Real gap on a site that publishes
+`/learn/accessibility/focus-states.html`; wants its own `replace_existing` re-fix filing, not a
+fold-in to another tool's rebuild.
 
 ## Standing rules (unchanged, load-bearing)
 

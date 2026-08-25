@@ -3446,3 +3446,79 @@ specs**: whoever builds that route will want them. Nothing owed by this lane.
 > lanes carry matching WRONG_CALLS rows. The complete rule, as it survived three lanes' testing:
 > **a one-page delta between two sessions' counts is a predicate difference until the same query
 > STRING produced both numbers.**
+
+## 2026-08-25 15:45Z — #42 `tool-cubic-bezier` DONE (42 of 63) — and the FIRST build this lane has lost to `max_tokens`: my brief was the defect
+
+Item `9b6fc174` (related_pages: `learn-design-physics-of-ui` alone — the bullseye; the other 36
+candidates are about layout, colour or security). Ported sighting **#20**, and it is a clean one:
+the page states **"Animation loops every 2 seconds"** and the code cannot honour that the moment
+anyone touches it — `setInterval(runAnim, 2000)` runs alongside `updateCSS()`, which itself calls
+`runAnim()`, and `updateCSS()` is called from `draw()`, which fires on **every mousemove of a drag**.
+A two-second drag at 60 fps queues ~120 overlapping `setTimeout`s on top of the interval. Second
+defect in the same preview: the ball was returned to the start **with the chosen easing still
+applied**, so half of what a visitor watched was their curve played backwards — which for any
+asymmetric curve looks like a different curve, on a tool whose only job is showing what a curve
+feels like. Third, a teaching contradiction: the guide called `ease-in-out` "the default CSS easing"
+while the **Default** preset loaded the values for `ease`. Plus a canvas hardcoding `#eee`/`#333`/
+`#ec4899` (the curve is near-invisible on a dark palette) under guide text saying to drag "the pink
+handles"; mouse-only bindings, so unusable on a phone; no way to type a value you already have;
+`alert("Copied!")`, `window.setPreset`, 5 inline `onclick`s.
+
+### The first filing FAILED, and the failure is worth more than the rebuild
+
+**Item `43983f45` reported `complete` with `error` NULL — and built nothing.** The run:
+`current_step='complete_error'`, `failed_step='generate_tool_html'`, message
+`response truncated: stop_reason=max_tokens (output_tokens=32000 reached the configured cap,
+20955 chars recovered)`. This is the RUNBOOK's "grade the RUN, not the work item" rule earning its
+place for the second time in this lane, and it is also the `bugs_open/012` class **not** biting: the
+platform refused the fragment instead of persisting 20,955 chars of half a tool. Verified nothing
+leaked — ported slot still `deployed` and byte-identical, `content_components` for the function
+**0 rows**, no orphan slot. **My retire transaction would have refused anyway** (its pre-assert
+requires the native slot to exist), which is the first time that guard has been the thing standing
+between a failed build and a page with no tool on it at all.
+
+**The cause was my brief, not the platform.** I wrote 4,431 characters across seven numbered
+fixes and asked for numeric fields, two-way sync, touch AND keyboard, a responsive canvas with
+its own coordinate mapping, five presets and a theme-aware redraw. The refiled brief is **2,720
+characters** — the same load-bearing fixes, keyboard dropped (recorded here as owed, not silently
+abandoned), touch folded into "bind Pointer Events" which is *less* code than the mouse trio it
+replaces, and the prose compressed. It built in 3m42s.
+**Rule for this lane: keep the description near 2,000–2,800 characters.** The entropy-meter brief
+that produced a clean 21,893-byte tool was ~1,900. A brief is a budget, and prose spent describing
+the fix is budget not spent emitting it — the model mirrors the verbosity it is given.
+
+**COMPONENT by mechanism (deciding arms read at the code):** `schedulePreviewRestart()` does
+`clearInterval` **before** `setInterval`, so exactly one timer can exist; it is called from four
+places and **none of them is `draw()`** — init, pointer**UP** (once, when a drag *ends*), field
+commit, preset — so a drag can no longer queue anything. The reset leg is
+`transition='none'` → `transform:translateX(0)` → `void offsetWidth` (forced reflow) → `rAF` →
+apply the eased transform: instant back, eased out, which is the correct shape. Colours come from
+`getComputedStyle(document.documentElement).getPropertyValue('--color-border'/'--color-text'/
+'--color-text-muted'/'--color-primary'/'--color-accent')` **inside `draw()`**, so a palette change
+is picked up on the next redraw and no hex survives in the canvas. The canvas sizes itself from
+`getBoundingClientRect()` × `devicePixelRatio` with `setTransform(dpr,…)` and a `ResizeObserver`,
+so it is responsive AND crisp — better than I asked for. Pointer Events with
+`releasePointerCapture`. The teaching fix is explicit: *"The browser's own initial transition timing
+is `ease`… `ease-in-out` is a separate, symmetric preset… it is not the default."*
+0·0·0 counts, 19 listeners.
+**SERVE-GRADE PASS:** 200 / 28,002 B / LM 15:42:27 > completed_at 15:42:20; negatives 0 and **every
+one validated ≥1 against the ported bytes first** (`curveCanvas`, `outputCode`, `ball`, `setPreset(`,
+`Copied!`, `#ec4899`, **`setInterval(runAnim`**, `ported-page`, `{{.`); positives = code-arm
+literals. Retire `UPDATE 1` **27 s** after build completion; tombstone re-read `removed` ✓ at
+15:45Z. Self-contained (0 external scripts) — no orphan.
+**Tally 15:45Z: 42 removed + 21 deployed = 63. Phase B remainder (18 + 5 rich apps):
+golden-ratio (8,754) next, then monolith-splitter, head-architect, asset-formatter,
+layout-generator, insight-injector.**
+
+**Owed, not abandoned:** keyboard access to the two handles (arrow-key nudge) was cut from the brief
+to fit the budget. It is a real gap on a site that publishes `/learn/accessibility/focus-states.html`,
+and it wants a `replace_existing` re-fix filing of its own rather than being folded into another
+tool's rebuild.
+
+Also this hour, from the [ac1f33]/333 exchange: the `34 owned / 3 generic` split I published held
+against two other instruments, and the one-page discrepancy someone reported as policy drift was a
+**predicate** difference — `NOT LIKE 'tool%'` vs `NOT LIKE 'tool-%'`, the gap being `tools-index`,
+which starts with `tool` but not `tool-`. Nothing moved. **`tools-index` has now cost this lane's
+documents twice** (the RUNBOOK's census section already carries the `p.url LIKE '/tools/%'` returns
+64-not-63 trap for the same row). The rule the three lanes settled on: *a one-page delta between two
+sessions' counts is a predicate difference until the same query STRING has produced both numbers.*
