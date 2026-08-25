@@ -1155,3 +1155,50 @@ disarm phase 2.
 Canary #2 fired 19:30Z on the fresh build: `5a0cad41-fe0c-4636-9b2d-9c942486019c`, `index`
 only, `tool-example` still held as the untouched control. Pods were 22 minutes old, past the
 ~300s post-restart window in which a spawn is silently dropped.
+
+### CORRECTION + the likely reason both canaries stalled: there is a `git_commit` between assemble and save
+
+I wrote in the handoff and above that the order is
+`assemble_page -> save_sections -> update_page_status -> deploy_page`. **That was inferred,
+not traced**, from the orchestration sitting at `assemble_page` with `save_result` absent —
+which is consistent with the true order and does not establish it. Traced from each step's own
+`next_step` in `page-rebuild`'s `build_pages_loop` sub-workflow:
+
+```
+plan_sections -> write_page_content -> review_page_content -> check_review_approved
+   -> assemble_page -> deploy_page (action: git_commit) -> save_sections
+   -> update_page_status -> complete_page
+```
+
+**`deploy_page` is a `git_commit`, and it sits BETWEEN assemble and save.**
+
+The load-bearing claim survives — the save runs after assemble, so `collected_data ?
+'save_result'` is still the only thing separating a passing canary from one that has not
+started. But the correction matters for a different reason: **both canaries stalled at
+`assemble_page`, and the step immediately after it commits to git.** Canary #1 sat there until
+the >4h reaper took it; canary #2 sat there 8+ minutes with no update. A git operation is a
+far more plausible stall than page assembly, and it is not something you would look at while
+believing the save came next.
+
+**[UNVERIFIED]** that the git step is the cause — the evidence is two stalls at the same step
+and the identity of the step that follows it, not an observation of git blocking. Naming it as
+a hypothesis so the next session checks it rather than inheriting it as fact. The cheap check
+is whether OTHER sites' `page-rebuild` runs are also stalling at `assemble_page` right now: if
+they are, this is fleet-wide plumbing and nothing to do with 357 or with adopted rows.
+
+**The discriminating check, run rather than deferred — and it CANNOT discriminate yet.**
+[MEASURED 2026-08-25 19:40Z] `orchestration_states` holds **2** `page-rebuild` runs in total:
+`0` reached `save_result`, `2` ended at `assemble_page`, `1` FAILED (the reaped one).
+
+**Both are mine, on the same page.** So the zero has a denominator of two and says nothing
+about `page-rebuild` in general — I nearly wrote "no page-rebuild run has ever reached the
+save", which is true of the window and worthless as a claim. The table is a rolling window and
+the fleet simply is not running page rebuilds today.
+
+**What would discriminate, and it is cheap:** flag a NON-adopted cv1 page (`request-index` or
+`how-it-works-index`) as `needs_rebuild` and fire the same rebuild. If it also stalls at
+`assemble_page`, the stall is the path (or the git step after it) and has nothing to do with
+adopted rows or with 357. If it sails through to `save_result`, the stall is specific to the
+page carrying a 17.5KB adopted fragment — which WOULD be a 357 finding and would matter to
+phase 3. **Not run: canary #2 is still EXECUTING and a third concurrent rebuild on the same
+site would muddy both.** Named as the next session's first control.

@@ -163,8 +163,19 @@ it** — he chose the per-page correction for today. It is the top candidate for
 
 ```
 plan_sections -> write_page_content -> review_page_content -> check_review_approved
-   -> assemble_page -> save_sections -> update_page_status -> deploy_page
+   -> assemble_page -> deploy_page (git_commit) -> save_sections -> update_page_status
+   -> complete_page
 ```
+
+> **CORRECTED 2026-08-25 evening, before anyone acted on it.** An earlier draft of this
+> section put `save_sections` immediately after `assemble_page` and `deploy_page` last. That
+> was inferred from the orchestration sitting at `assemble_page` with no `save_result`, which
+> is consistent with the true order and does not establish it. Traced properly from each
+> step's own `next_step`, **`deploy_page` is a `git_commit` action and it sits BETWEEN
+> assemble and save.** The load-bearing claim is unchanged — the save runs after assemble, so
+> `save_result` is still the demand control — but the git commit in the middle is very likely
+> why BOTH canaries stalled at `assemble_page`, and that is not something you would look for
+> if you believed the save came next.
 
 `save_sections` runs **AFTER** `assemble_page`. I read a pre-save state as a clean pass and
 nearly wrote it into a summary: 1 row, right md5, right component, still stamped — a perfect
