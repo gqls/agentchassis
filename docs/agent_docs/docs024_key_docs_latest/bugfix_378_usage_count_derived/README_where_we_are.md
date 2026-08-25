@@ -352,3 +352,50 @@ changes the database.
 `agent_definitions.usage_count` is a **different** column with the same name on a different table. It
 is alive, it works, and it is deliberately untouched — a previous piece of work fixed that one
 properly last month. Anyone reading this should not generalise today's deletion to it.
+
+---
+
+## 2026-08-25 evening — the new build was only half a build, and the safety catch earned its keep
+
+The last thing outstanding was to delete the dead column. A fresh build went out, so I went to do it,
+and **stopped.** It would have broken the platform.
+
+**The fleet is running two different versions of the code at the same time.** 139 of the 151 running
+processes are on a build from last night that does *not* contain the small change the deletion
+depends on. Only 12 are on the new one. Deleting the column tonight would have broken component
+creation on **92% of the fleet**.
+
+### How it was caught, which is the bit worth keeping
+
+I had two independent ways of checking whether the fix was live: compare the build's recorded commit
+against my change, and look inside the running program for the old code. I built the second as a
+belt-and-braces version of the first and expected them to agree.
+
+**They disagreed.** One said the fix was missing, the other said it was present. That contradiction is
+the only reason I looked further — and the explanation was that they were reading *different
+processes*, one on each version.
+
+So the useful lesson is the opposite of the one I thought I was applying: a second check is not
+valuable because it confirms the first. **It is valuable because it can contradict it.** I had three
+checks on this and all three looked at a single process, so all three shared the same blind spot; a
+fourth of the same kind would have added nothing.
+
+### My own safety condition was wrong, and it read as careful
+
+I had written that the deletion must wait until *"a build containing the fix is live"*. That was
+**true** tonight — and still unsafe, because "a build" is satisfied by one process out of 151. What it
+needed was *"**every** live build contains the fix"*. One missing word, in the sentence whose whole job
+was to prevent this.
+
+That is now corrected, with tonight's 139-versus-12 split written into the file as the worked example,
+so the next person reads a rule that has actually been tested against reality rather than one that
+merely sounds careful.
+
+### So what is left
+
+**Still exactly one action: delete the column — once the whole fleet is on a build that contains the
+change.** Not "a build". The check is a single query and it is written into the migration file itself.
+
+Nothing is broken, nothing is pending on your side, and the delay costs nothing: the column is already
+documented as dead and nothing reads or writes it. It is simply not safe to remove while most of the
+estate is still running last night's code.
