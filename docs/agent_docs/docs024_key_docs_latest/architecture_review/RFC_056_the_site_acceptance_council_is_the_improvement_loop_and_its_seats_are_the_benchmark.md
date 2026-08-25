@@ -321,6 +321,16 @@ below says what was CHANGED or what the checked answer IS; nothing is defended t
     new completion gate never grades that producer while record mode is in force. Correct on both
     sides — parking is the safer state — and that producer's gate-1c census going quiet is
     EXPECTED, not evidence; stated so neither lane misreads an empty census.
+    **EXTENDED 2026-08-25 (their addition, lifted here so the pair reads safely in either order —
+    their register entry WII-033 carries the same list as of `6ef02131a`):** an empty
+    `_verification.acceptance_predicate` census has meant THREE different things in one day, and a
+    reader who inherits the wrong reading draws the opposite conclusion each time. Put the meaning
+    next to the query, never leave it to be inferred:
+    - **before the 19:07Z roll** — "the gate was never switched on" (Go inert);
+    - **after it** — "no completed item carried a predicate" (an adoption fact; says nothing about
+      refutation);
+    - **under `filing_mode: record`** — "this producer's findings are parked by design" (they never
+      reach `complete`, so the gate never sees them).
 12. **The release path is raw SQL only** (architecture, low — accepted as a named follow-up): a
     verdict-queue listing (and eventually a release surface) is owed before record rows accumulate
     across the fleet; until then the RUNBOOK query and the per-row recipe are the interface.
