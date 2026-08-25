@@ -1,4 +1,4 @@
-# HANDOFF — leopardessconsulting.co.uk, 2026-08-25
+# HANDOFF — leopardessconsulting.co.uk, 2026-08-25 — ⛔ SUPERSEDED same day by `HANDOFF_2026-08-25b_continue_here.md` (all four §3 decisions ANSWERED and acted on; §4 restored under lock; §6 overtaken). Start there, not here.
 
 **Start a fresh session from exactly here.** Self-contained. Everything marked
 `[MEASURED 2026-08-25]` was checked first-hand that day; anything older carries its own date

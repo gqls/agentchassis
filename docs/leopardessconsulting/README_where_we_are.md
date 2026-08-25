@@ -1308,3 +1308,37 @@ protection, would just feed the same machine again — two rewrite passes hit th
 last four days alone. So the order is: build the protection (the fix for 403), then restore
 on top of it. The picture work and the voice work are not blocked by any of this and start
 now.
+
+**2026-08-25, end of the evening session — what got done with your four answers.**
+
+The word "trust" is off the banned list, and the two other banned phrases are actually out of
+the copy now — checked on the live pages, not just in the database. The prepared fix from the
+17th refused to run, correctly: the site had moved under it in two ways in eight days, which is
+exactly why these scripts carry their own checks.
+
+Three pages got their own header images tonight: the about page, the services page and the
+contact page. The first images for services and contact were rejected on sight — they were
+near-copies of each other, which is the disease we are curing — and regenerated as properly
+distinct pictures before anything was wired. Seven of your thirty-six pages now open with
+their own image; the next nine are queued.
+
+The services page is whole again: all six cards, all six reveal items, all six icons, plus its
+new header image, confirmed on the live page. And this fourth restoration is different from
+the other three: while writing up the bug I found the platform already has a way to mark a
+page section as "hands off — a person wrote this", used by seven other site teams, which none
+of our previous restorations knew about. The restored sections are now marked exactly that
+way. The honest caveat: that marker freezes ALL automated improvement of those sections, which
+is fine for these but too blunt as a general answer — the finer-grained version is the piece
+of platform work this lane now owes, and the independent diagnosis of it is still running as I
+close tonight.
+
+The design critic is started. The one line of platform code that was blocking it is written,
+reviewed-in-flight, and committed; the team whose plan it originally was has been told in
+writing that you asked this lane to build it. The critic itself — the recipe that takes the
+screenshots and writes you the report — is the next piece, and it has to wait for the next
+fleet release anyway.
+
+One thing I got wrong tonight and want on the record here too: my bug write-up initially said
+"no protection exists" for hand-written content. Reading the platform code properly, hours
+later, proved that half-wrong — row-level protection existed all along; nobody working this
+site knew. The write-up, the debugging guide and the trap list all now carry the correction.

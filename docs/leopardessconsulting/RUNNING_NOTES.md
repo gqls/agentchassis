@@ -3354,3 +3354,22 @@ who-we-help + TODAY about, services, contact.
 
 **090 run `c946b495` still iterating** (assemble_bundle EXECUTING 20:2x). Verdict to be
 recorded in 403 when it lands.
+
+### Session close — D4 started, cross-lane told, handoff cut
+
+- **D4 first commit `04c49f8f0`**: `design-critique-agent` → `isStorageEnabledAgent`
+  (spawn_actions.go), verified against HEAD with `verify-head-builds.sh --with` BEFORE
+  committing. **Council-Submitted `30d5fdde-ab0e-405d-a3f3-d83d9227e1ce`** (097 accepted;
+  ~30 min budget, find the run by payload not printed id). The pre-commit architecture signal
+  fired on spawn_actions.go (ossified core site) — judged a point grant under the RFC_022
+  shape (zero live consumers until the seed; sanctioned per-type precedent), council round
+  covers it.
+- **Vigilant lane told** (owner ruling 2026-07-29 #3): CONTRIB committed into their dir,
+  `7ce1bb6c5`. No collision with their same-day compose-side plan found.
+- **090 run `c946b495`**: still iterating at close (second round, `load_runtime`). Monitor
+  armed in-session; NEXT SESSION MUST read the verdict and record it in 403 either way — a
+  REFUTED is a success, record what caught it.
+- **Handoff `HANDOFF_2026-08-25b_continue_here.md` cut**; morning handoff banner-superseded.
+- LANDMINES amendment note: commit `c8a2e1bdd`'s pattern-check flagged 1 removed line in
+  LANDMINES.md — that was this session amending ITS OWN same-evening entry in place (dated
+  note inside the entry), not another thread's line. Declared here for the record.
