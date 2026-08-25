@@ -1796,7 +1796,13 @@ func emitCTAOverrideRejectedItem(ctx context.Context, db *sql.DB, siteID uuid.UU
 		priority:  40,
 		status:    "needs_human_review",
 		createdBy: "render_site_components",
-		itemKey:   "cta_override_rejected:" + siteID.String(),
+		// The slot is in the key (STY-054's shape) even though only the header
+		// override exists today: the council's bug_historian seat noted that a
+		// per-site key makes "one override slot per site" a silent assumption —
+		// a second surface sharing this item_type would refresh-overwrite the
+		// first finding. With the slot in the key, that door is closed rather
+		// than documented.
+		itemKey:   "cta_override_rejected:" + siteID.String() + ":header",
 	}, refreshOnConflict, logger)
 	if err != nil {
 		_ = tx.Rollback()

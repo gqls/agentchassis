@@ -2787,3 +2787,29 @@ two-carriers landmine: a grep for `header_cta_url` hits BOTH STY-053
 Council: submitted, corr `10b84432-eef8-4462-b451-7d791ee78d33` (DRY_RUN
 admission passed first); committing with `Council-Submitted:` per the 07-30
 rule. Inert until the next chassis roll either way.
+
+### Council verdict on the CTA follow-up — APPROVED round 1, advisories dispositioned
+
+Corr `10b84432`: APPROVED, 2 advisories, none high. Run start was immediate
+(not the measured 29-min queue), verdict ~20 min. Dispositions live in the
+STY-058 register entry (the durable home); the ones that changed anything:
+
+- **bug_historian l (key coarseness) — ACTED ON**: item_key gained the slot,
+  `cta_override_rejected:<site_id>:header` (STY-054's shape). A per-site key
+  made "one override slot per site" a silent assumption; closed, not documented.
+- **bug_historian m / reuse_agent m (other silent-degrade sites) — CENSUSED**:
+  5 `.Allows(` call sites in non-test Go as of 2026-08-25; exactly ONE vets an
+  owner-set value (this one). The rest vet derived values — refusal there is
+  the mechanism working. A second owner-set carrier is the trigger to move the
+  emit to the policy boundary.
+- editquality m (register "promised but not in plan"): satisfied in fact —
+  the gate refuses prose paths as plan edits; commit `169ac5e1b` carried both
+  register files. editquality l (anti-churn × refresh): read at the door,
+  behaviour correct (open row → refresh; recent terminal → Deferred; two
+  strikes → `[unresolved]`, which for this type means the human twice closed
+  it and the refusal recurred — the visibility intended). guidelines l
+  (ON CONFLICT worry): the shared door's idx_swi_dedup-matched ON CONFLICT is
+  the sanctioned lockstep contract; reuse IS the compliance.
+
+Tests re-run green with the new key (mocks don't bind the key, so the earlier
+mutation proof stands unchanged). Still inert until the next chassis roll.
