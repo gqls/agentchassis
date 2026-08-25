@@ -1327,3 +1327,32 @@ unmeasured share is us.** For an affiliate application, quote it with that cavea
 `sum{browserMap{pageViews uaBrowserFamily}}`. **Free plan cannot use `httpRequestsAdaptiveGroups`
 beyond a 1-day window**, so per-path and bot-score splits are not available; `browserMap` is the
 best available proxy and it is a UA-string classification, not a bot score.
+
+### 2026-08-25 — the contamination REPRODUCES on a second site, and GA4 turns out to be the complement rather than the cross-check
+
+From the `apis.uk` lane, who verified my fleet numbers independently before relaying them.
+
+**The tooling contamination is not a dartsonline peculiarity.** apis.uk, 7 days, same `browserMap`
+method: `Curl` **27.1%** of page views, against my **28.5%** on dartsonline over 30 days. Two
+sites, two lanes, two windows, same order of magnitude. **That is what an actively-worked site
+looks like**, and it means the fleet-wide 10.8% understates it for whichever site anyone actually
+cares about in a given week.
+
+**GA4 is blind to exactly the half that contaminates Cloudflare, and vice versa.** `curl` executes
+no JavaScript, so it never fires GTM and never reaches GA4 — on apis.uk that is the *entire*
+27.1%, since `ChromeHeadless` (which does run JS, and would be counted) does not appear there at
+all. So the two sources have opposite blind spots and **a gap between them is the design, not a
+discrepancy**. Now a LANDMINE, because the natural move is to reconcile them and file a bug.
+
+**And my `[UNMEASURED]` marker on GA4 from 2026-08-18 has paid off.** I wrote then that
+`GTM-PQ3WCTBD` is on every page but *"whether a GA4 tag actually fires inside that container is not
+checkable from here"*. It now is, and the answer is that it did not: the container carried
+**0 tags and 0 triggers** across 24 sites, loading everywhere and firing nothing. A GA4 tag was
+added on the evening of 2026-08-25. **There is no backfill**, so GA4 history starts then and
+Cloudflare stays the only source with a past — which retrospectively justifies every hour spent
+getting the Cloudflare scope working rather than waiting on GA4.
+
+Practical consequence for this lane: the affiliate-application figure must keep coming from
+Cloudflare with the tooling excluded, and must say so. When GA4 has run for a month it will give a
+*lower* and differently-blind number, and quoting whichever is larger would be the dishonest move
+available at that point.

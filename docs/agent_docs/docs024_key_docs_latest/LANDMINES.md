@@ -17439,3 +17439,26 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the transferable shape:** a signal emitted only by ATTEMPTS cannot measure COVERAGE. Every guard that files a row on refusal has this property — the refusals tell you about the population you reached, and say nothing about the population you missed. If your denominator comes from the same machinery as your numerator, you are measuring the machinery.
 - **source:** found and reported by the `news_editorial_features` lane, 2026-08-25, against the `bugfix_283_component_instance_scope` lane's 2026-08-23 conversion batch; RFC_032 §9a corrected the same day
 - **added:** 2026-08-25, `bugfix_283_component_instance_scope` lane
+
+---
+
+### Cloudflare analytics and GA4 have OPPOSITE blind spots — the gap between them is the design, and it reads exactly like a bug you can find
+
+- **footprint:** Cloudflare GraphQL `httpRequests1dGroups` (`sum{pageViews}`, `browserMap`) · GA4 / `GTM-PQ3WCTBD` · any fleet traffic dashboard, weekly report or affiliate-application figure · `dartsonline_traffic` and `apis.uk` lane notes
+- **fires when:** you have both sources and do the obvious thing — compare them, find Cloudflare's "human" page views far above GA4's users, and go hunting for the fault. **There is no fault.** They cannot agree, because each is blind to a different population:
+
+  | | Cloudflare | GA4 |
+  |---|---|---|
+  | our own `curl` (28.5% of one site's page views) | **counted** | invisible — curl runs no JS, so it never fires GTM |
+  | our own headless Chrome | counted | **counted** — it does run JS |
+  | bots and search crawlers | counted, and this is the useful part | invisible |
+  | ad-blocked / JS-disabled humans | counted | lost |
+  | referrers, events, behaviour | none | the whole point |
+
+- **why the wrong result looks exactly right:** both numbers are real, both are correctly collected, both are labelled "traffic", and the discrepancy is large and stable — which is precisely the signature of a genuine defect. Someone will reconcile them, fail, and file it.
+- **the check:** never treat one as a cross-check on the other. **State which population you mean before quoting any figure.** For "is a human reading this site", GA4 is closer *and* undercounts. For "is Google crawling this site" only Cloudflare can answer (GoogleBot never executes GTM). For an affiliate application, say which source and which population, because the two differ by multiples.
+- **⚠ and GA4 has NO HISTORY on this estate.** Measured 2026-08-25 by the `apis.uk` lane: `GTM-PQ3WCTBD` was live on **24 sites** carrying **0 tags and 0 triggers** — loading everywhere and firing nothing, for months. A GA4 tag was added the evening of 2026-08-25 (container Version 2). **There is no backfill**, so GA4 begins at that publication and **Cloudflare remains the only source with a past.** Any before/after comparison spanning that date is comparing a source to its own absence.
+- **the related contamination, which is NOT a blind spot but is measured on the same axis:** our own tooling is a large, *moving* share of Cloudflare page views on whichever site a lane is working — **28.5% on dartsonline over 30 days, 27.1% on apis.uk over 7, measured independently by two lanes**. Fleet-wide it dilutes to ~10.8%, which understates it badly for the one site anyone is looking at this week. Classify on `browserMap.uaBrowserFamily` and exclude `Curl`/`ChromeHeadless`/`Wget` before quoting anything. `Unknown` (36% / 20.3% on the two sites) is genuinely unattributed and must not be folded into "human".
+- **relations:** `a [MEASURED] claim about STATE expires while a DATED EVENT does not` · the measurement-discipline index's "your own action inflates your own metric" family · `WRONG_CALLS.md` 2026-08-24 (I nearly reported a 2.6× rise that was entirely our own curl traffic)
+- **source:** 2026-08-25. The Cloudflare half and the contamination measurement from the `dartsonline_traffic` lane; the GA4 complementarity, the 0-tags finding and the independent 27.1% reproduction from the `apis.uk` lane. Neither lane could have seen the pair alone.
+- **added:** 2026-08-25, dartsonline_traffic lane.
