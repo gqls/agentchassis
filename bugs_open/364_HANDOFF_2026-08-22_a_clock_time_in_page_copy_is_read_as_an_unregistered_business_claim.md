@@ -282,8 +282,8 @@ The no-shelf-life alternative, and the better one:
 `git merge-base --is-ancestor a9002793b <that sha>`.
 
 Then, at the data: re-fire a `model-directory` build and confirm no `unregistered_number`
-in `agent_error_log` (§6's query). ⚠ **And note `bugs_open/387`** — those three pages currently 404,
-so "the page is fine now" cannot be read off the live site either.
+in `agent_error_log` (§6's query). ⚠ **CORRECTED 2026-08-25: the pages DO serve** (at `.html`; see §6c) — so the effect of this
+fix *can* be read off the live site, contrary to what this line originally said.
 
 ## 6f. VERIFIED LIVE 2026-08-25 — both fixes shipped on v1.0.1337
 
@@ -310,6 +310,16 @@ demand control says why: 6 pages have been built since the roll and **all six ar
 `blog-post`** — page types that were already excluded before this change. **No page of an affected
 type has been rebuilt yet**, so the zero measures absence of demand, not the fix working. The
 end-to-end confirmation is still outstanding; §6e has the recipe.
+
+> **A near-miss worth recording, 2026-08-25.** The `bugs_open/387` lane offered a clean
+> `model-directory` rebuild (orchestration `3384ae13`, COMPLETED, page stamped deployed 06:31:06Z,
+> **0** `agent_error_log` rows) as the predicted clean pass, observed. **It is not.** That build ran
+> at **06:26Z** and the roll carrying this fix landed at **09:27:24Z** — the rebuild PREDATES the
+> binary by three hours, so it ran on the old code and is evidence only that the page can pass
+> anyway, which is the non-determinism §5 already warns about. The same arithmetic answers their
+> mirror question: the two tracker failures of 08-24 18:41Z / 18:47Z also predate the fix and say
+> nothing against it. **A favourable result from the wrong binary is still the wrong binary** — check
+> the roll time before accepting a confirmation, including one a peer hands you.
 
 ## 6g. The fix does NOT dispose of the two false findings already in the human queue — by design
 
@@ -386,10 +396,17 @@ Named here so the next reader does not re-find them, and so they are not conflat
   honest pages at `error` severity.
 - **`bugs_open/387`** — the three tracker pages report `build_status='deployed'` with timestamps
   from earlier today and **404 on the live site** (with an invented-URL control proving the
-  domain discriminates). ⚠ **This bears directly on how you read §5a**: the 20 false positives
-  this bug's interim removes are on pages that are *not currently served*. The **refusals** in
-  `agent_error_log` are real regardless — a refusal is recorded at build time — but do not
-  describe the tracker findings as live public damage. I did, before I curled, and was wrong.
+  domain discriminates). ⚠ **CORRECTED 2026-08-25 by the `bugs_open/387` lane — my filing was WRONG and so was
+  the caveat I put here.** I wrote that the three tracker pages were "not currently served".
+  **They are served**, at `/adoption-tracker.html` etc. (200, curled 2026-08-25 ~11:0xZ). The
+  extensionless form 404s for **every** page on that site — `/about` 404s too — because the
+  worker does not resolve slashless paths. So the 20 false positives WERE on live, public pages,
+  and this bug's damage was larger than I described, not smaller.
+  **Why my control did not catch it, which is the transferable part: my invented-URL control
+  shared the defect with my claim.** Both were extensionless, so it proved the domain
+  discriminates and could say nothing about the URL *form*. The missing control was a page I had
+  **not** touched at the same form (`/about` → 404 answers it in one request). `WRONG_CALLS.md`
+  2026-08-25.
 
 ## 7. Relations
 

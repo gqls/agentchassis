@@ -116,11 +116,15 @@ Open question for a human. Not blocking anything; the interim holds and its cost
   previous value into an "unregistered claim" (fundamentallyai renders `11513`, register now holds
   `11646`). Framework-wide and periodic. **`bugs_open/380` has since confirmed it interacts with the
   new hourly claims-audit rotation as an AMPLIFIER** and recorded it against CLM-027.
-- **`bugs_open/387`** — three ai-agent-orchestration.com pages report `build_status='deployed'` with
-  fresh timestamps and **404 live** (invented-URL control included, so the domain discriminates).
-  **Root cause deliberately NOT established** — the file names three candidates and the cheap
-  discriminator instead of guessing. It also carries the `NNN+` unrendered placeholder in
-  `model-directory`'s hero, which is not public **only because** that page 404s.
+- **`bugs_open/387`** — ⚠ **MY HEADLINE WAS REFUTED 2026-08-25 by the lane that took it.** I filed
+  "deployed and 404". The pages **serve fine** at `/adoption-tracker.html` etc.; the extensionless
+  form 404s for *every* page on that site, `/about` included, because the worker does not resolve
+  slashless paths. **My invented-URL control shared the defect with my claim** — both extensionless
+  — so it proved the domain discriminates and nothing about the URL form. The missing control was an
+  untouched page at the same form. What survives, and is worse: the `NNN+` placeholder in
+  `model-directory`'s hero **is public right now**, and the 387 lane has traced it to literal prompt
+  text (migration 557 told the writer to phrase it as "NNN+ AI agents", with no substitution
+  machinery behind it — 137 writer calls carried the instruction, 14 copied `NNN` verbatim).
 
 ## 7. Where everything is
 

@@ -50895,3 +50895,45 @@ So when you add a progress signal, prefer one that carries a number you can sani
 that carries a status you cannot. The status tells you what the system says; the number tells you
 whether your instrument is sane. Cross-ref: the `<no value>` retraction and the 40-zeros control —
 both are "a check that cannot fail"; this is its inverse, **a check that fails visibly at itself.**
+
+---
+
+## 2026-08-25 — `bugs_open/364` lane: a control that shared the defect with the claim, and a confirmation from the wrong binary
+
+**5. I ran a control, it passed, and it could not have failed — because it had the same shape as the
+thing it was testing.** I filed `bugs_open/387` claiming three pages were "deployed and 404". I did
+curl them, and I *did* add a control — an invented URL that also 404'd — and I wrote in the bug file
+that this proved "the domain discriminates, so those 404s are real absences". **The pages serve
+perfectly well**, at `/adoption-tracker.html`. The extensionless form 404s for *every* page on that
+site because the worker does not resolve slashless paths.
+
+My control was extensionless and so was my claim, so it varied the *page* and held the *URL form*
+fixed — while the URL form was the entire defect. **The missing control was a page I had never
+touched, at the same form**: `/about` → 404 answers it in one request and would have killed the bug
+before I filed it. Caught by the `bugs_open/387` lane, which ran exactly that.
+
+**This is the third occurrence by a third lane** — `WRONG_CALLS.md` 2026-07-27 has `/sale` 404 vs
+`/sale.html` 200, and `LANDMINES.md` has "A page's served URL is NOT derivable from `pages.name`"
+(2026-08-09). I had read neither before curling. That lane is automating the check rather than
+writing a fourth paragraph, which is the right response to a tally this shape.
+
+**The cheap check:** a control must vary **the axis under test**. Before publishing any "this URL is
+absent" claim, fetch the URL the platform itself records (`pages.url`), plus one page you did not
+touch at the same form. And grep `LANDMINES.md` for the *table* you are about to trust — my
+SessionStart hook only matches files already dirty in the tree, so a landmine about `pages.url`
+never surfaced.
+
+**6. I nearly accepted a favourable confirmation that came from the wrong binary — handed to me by a
+peer, in good faith.** The `bugs_open/387` lane offered a clean `model-directory` rebuild
+(orchestration `3384ae13`, COMPLETED, 0 `agent_error_log` rows) as "your predicted clean pass,
+observed". It was exactly the result I wanted and I had publicly predicted it.
+
+It ran at **06:26Z**; the roll carrying my fix landed at **09:27:24Z**. The build predates the binary
+by three hours — it ran on the old code, and is evidence only that the page can pass anyway, which is
+the non-determinism my own bug file warns about. **The cheap check is one comparison** — the build's
+timestamp against the pod start time — and it is the same arithmetic that answered their mirror
+question (the two tracker *failures* of 08-24 also predate the fix and say nothing against it).
+
+**A favourable result from the wrong binary is still the wrong binary.** Scepticism has to survive
+being told what you hoped to hear, and it has to apply to a peer's evidence as much as your own —
+especially when the peer has just corrected you and you are inclined to trust them more, not less.
