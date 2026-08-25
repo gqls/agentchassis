@@ -545,3 +545,51 @@ plus a detector for the anomalous-`nav_order` shape). Before any code:
 - **Bind `LoadCTALabelUniverse` too**, or the opt-out has a hole exactly the shape of this bug.
 - **Enumerate the consumers and engage RFC_022** — asserting the shape without the query is itself
   the objection. Then council, before or alongside the commit.
+
+---
+
+# ⚠ ORDERING CORRECTION 2026-08-25 — a `nav_order` fix does NOT clear the label-less fields either. Only RETIREMENT unblocks them, and the demotion is what makes the result correct
+
+**I told the owner the demotion "clears about sixty buttons". It clears none of them today.** Read
+`applyCTARecompute`'s **KEEP #2** (`rerender_page_sections_action.go:1114`):
+
+```go
+if hasCurrent && current != "" && validPages.Contains(current) &&
+   NormalizePagePath(current) != NormalizePagePath(pageURL) {
+    return // a real, sensible destination — keep it
+}
+```
+
+`/tools/password-entropy.html` **is** a valid page and is not the page itself, so **KEEP #2 keeps
+it** on every rerender. The positional pick — the thing `nav_order` governs — is never reached for a
+field whose copy is generic. So of the 78 fields still pointing at the tool [MEASURED 2026-08-25]:
+
+| group | fields | pages | what actually moves it |
+|---|---|---|---|
+| **label-locked** (copy names the tool) | **18** | 11 | the label match overrides the keeps → **rewrite + relink**, works today (canary proven) |
+| **label-less** (generic copy) | **60** | 44 | **nothing, until the page is RETIRED.** Then `validPages.Contains` fails, all three keeps decline, and the positional pick writes the top-ranked tool |
+
+**So the demotion was not wasted and was not redundant — it is the PREPARATION that makes the
+post-retirement re-resolve land on a relevant tool instead of an arbitrary one.** Had the fossil
+`nav_order = 1` still been in place at retirement, every one of those 60 fields would have been
+re-pointed at whatever sorted first, which is how this bug started.
+
+**Verified that retirement actually unblocks them**, rather than trading one dead link for another:
+after deletion the stored url fails `validPages.Contains` (KEEP #2 declines), it is not utility-area
+(KEEP #1 declines), and it is not a non-page destination — `IsAuthoredNonPageCTADestination`
+(`links_tel.go:36`) returns true only for `tel:`/`mailto:`/`http(s)://`/`//`/`#fragment`, and a
+relative `/tools/…` path matches none — so KEEP #3 declines too, and control reaches the positional
+write. **A dead page URL is NOT frozen by a keep.**
+
+## The corrected sequence
+
+1. ✅ **demote `nav_order`** — done; makes step 4 land correctly.
+2. **18 label-locked fields / 11 pages** — rewrite + relink **as a pair per page** (canary proven).
+3. **Retire the three pages**, with the footer and the three `/tools.html` listings in the same
+   operation.
+4. **Re-resolve the 60 label-less fields** — 44 pages, `cta_links_stale` rerender, **no LLM**. Only
+   now do the keeps decline.
+5. **Verify** at the served bytes: zero `password-entropy` references fleet-wide.
+
+⚠ **Step 4 cannot be brought forward and step 2 cannot be deferred past step 3** — a retired page
+with copy still naming it leaves a button whose words point at nothing.
