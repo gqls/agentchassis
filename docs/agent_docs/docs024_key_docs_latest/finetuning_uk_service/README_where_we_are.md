@@ -939,3 +939,64 @@ booking shape, sample datasets, the four terms questions, and Stripe last.
 proper rewrite when the copy machinery is better. So it stays parked exactly where it is —
 nothing applied, nothing thrown away, and the page is untouched. Next move on it is not ours
 until the copy team ships something that changes how the writing reads.
+
+2026-08-25, later still. All seven of your answers are in and acted on, and the eighth thing you
+mentioned turned out to be the most interesting.
+
+**The unreadable pages.** You said a couple of pages have no hero image and that this had made the
+copy unreadable. That is exactly right, and the chain is worth writing down because it is not
+obvious. When a page HAS a hero image, the banner is that image with a dark tint over it, and white
+text on it reads fine. When a page has NO hero image, the banner falls back to being painted a
+solid colour instead — and on this site that fallback is broken. The colour it reaches for is not a
+plain colour at all, it is a two-tone blend, and the place the code puts it only accepts a plain
+colour. So the browser throws the whole instruction away and paints nothing. The heading stayed
+white, the page behind it is cream, and white on cream is not readable. So: no image, therefore
+unreadable. Your sentence was the diagnosis.
+
+Two things came out of that. First, it is not our site's fault and not only our site: seven other
+sites use the same two-tone colour, and I found the same fault live on robot-hands.com and
+gaswholesalers.com. Second, there was a worse version of it that you did not mention because you
+could not see it — some of the buttons are white text on a white button, so the label is
+completely invisible. That one is on the £99 page too.
+
+The banner half is fixed and live on all three sites. I checked it by loading the actual pages, not
+by trusting a "done" message — which mattered, because the first three re-renders reported success
+and had changed nothing at all. The invisible buttons need a software release before they can be
+fixed; the fix is written and waiting for it.
+
+**The header.** You said I could move About, Case Studies, How We Work or Contact. I moved Contact —
+it was the only one that costs nothing, because the "Get Started" button in the same header already
+goes to the contact page. That turned out not to be enough, and the reason is worth knowing: the
+header is not ordered by anything we set per site. The system has a fixed list of page names it
+considers important — home, services, about, tools, pricing, case studies and so on — and it fills
+eight slots from that list. "Your Own Model" is not a name it knows, so freeing a slot just let
+Pricing move up instead. To actually get the offer page in, a second page from your list had to
+come out, so I moved How We Work as well — it overlaps with Services and with the Approach page in
+the footer. Both moved pages are still reachable from the footer. If you would rather have How We
+Work back and lose Case Studies instead, that is one command.
+
+**Your terms answers are registered** as facts the writing system can quote: bookable 9 to 5 UK on
+weekdays with other times by arrangement, deletion within a week of a request, documents and model
+kept 30 days after handover by default, and one playground hour included that expires after 30
+days. One of the four is still open — whether the terms may say plainly that documents go to a
+rented GPU machine for the training run and to our storage for the handover. I did not want to put
+words in your mouth on that one.
+
+**The sample datasets.** I have designed six, keyed to jobs rather than industries: email voice,
+copy structure, copy style, support replies, product descriptions, and summarising long documents.
+Two of those deliberately have nothing to do with voice, so a prospect whose problem is volume or
+structure can see themselves. Each one gets real example data, a held-back set, and a worked
+example that shows what the plain model produced FIRST — and at least one case where fine-tuning
+did not help. A page of only wins is the tone you have twice told us to stop using.
+
+I have not generated any of it yet, because there is one question only you can answer: whose
+material do we use? My recommendation is our own writing for four of the six — our real emails,
+replies and copy — because a model trained on our own words demonstrating our own voice is the
+actual claim rather than a simulation of it, and it needs nobody's permission but yours. The other
+two would be invented. The alternatives are open-licensed text, which reads as generic, or a
+customer's with written permission, which cannot be first.
+
+**The copy machinery has not moved yet**, so the rewrite you told us to wait for is still waiting,
+and the site is still on hold for anything that would spend money reproducing the tone you rejected.
+
+Stripe is still last, and yours.
