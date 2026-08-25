@@ -299,12 +299,21 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o noted-engine .
 # ship (binary lives at /usr/local/bin/noted-engine, unit noted-engine.service)
 scp -i ~/.ssh/webdesign_box_ed25519 noted-engine root@webdesign.vs.mythic-beasts.com:/root/noted-engine.new
 ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com '
-  cp /usr/local/bin/noted-engine /root/noted-engine.pre-$(date +%Y%m%d) &&
   chmod 755 /root/noted-engine.new && chown root:root /root/noted-engine.new &&
+  cp /usr/local/bin/noted-engine /root/noted-engine.pre-$(date +%Y%m%d) &&
   mv /root/noted-engine.new /usr/local/bin/noted-engine &&   # mv, not cp: ETXTBSY
   systemctl restart noted-engine && sleep 2 &&
   systemctl is-active noted-engine && curl -s 127.0.0.1:8090/api/health'
 ```
+
+> **GOTCHA — the chmod comes FIRST so a RE-RUN is inert** (reordered
+> 2026-08-25). The original recipe backed up before checking `.new` existed, so
+> re-running it after a successful install ran ONLY the backup step — and
+> clobbered the rollback copy with the freshly-installed binary while every
+> later step failed. Measured 2026-08-25: three re-runs left
+> `noted-engine.pre-20260825-b2` byte-identical to the live binary; restored
+> from the git-committed copy. With `chmod` first, a re-run dies on the missing
+> `.new` before touching anything.
 
 > **GOTCHA — take the shopfront control around ANY box touch** (see The box,
 > above), against a baseline YOU take the same day: that lane ships continuously,

@@ -2654,3 +2654,17 @@ runbook's lesson, again).
 stage 1b (B2) are DONE: built, deployed, live-proven.** Remaining on this
 programme: account deletion (planned, two owner decisions), stage 3 (edit in
 place), the quota's paid tier when the owner wants it.
+
+### 2026-08-25, addendum — a re-run of the install recipe clobbered its own backup (repaired)
+
+The owner re-ran the (already-completed) install block three times; each run's
+FIRST step — `cp` live binary → backup — succeeded before the chain died on the
+consumed `.new` file, so `/root/noted-engine.pre-20260825-b2` became a copy of
+the NEW binary (`e5aca46d…` == live, measured). The live service was never
+touched (the restart sat behind the failing step). **Repaired**: stage-1 binary
+extracted from git (`git show 2e6b04aa8:…/noted-engine`, sha `83c895ce…`
+matching the 08-24 install record) and scp'd back over the clobbered copy;
+verified on the box. **Door closed**: the RUNBOOK recipe now runs `chmod` on
+`.new` FIRST, so a re-run fails before the backup step. The general shape: in
+an `&&` chain, every step BEFORE the guard runs on every retry — put the
+existence check first, or a "safe to re-run" script quietly is not.
