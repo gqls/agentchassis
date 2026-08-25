@@ -175,3 +175,56 @@ in the handoff and in my reply.
 Everything is committed, the review verdict is in and acted on, and the next session has a
 cold-start document that tells it what is proven, what is merely true today, and what would let it
 close this properly.
+
+---
+
+**2026-08-25, evening.** Your four answers are all done, except the one that was a question. Here is
+where each landed, in plain terms.
+
+**"Don't close it until it's fixed."** Done — nothing closed, and the bug file now carries the
+reasoning plus a list of what would actually let a future session close it. The short version stays
+the same: the gate is live, the defect isn't gone.
+
+**"Build candidate 4."** Built and approved first time. It does one thing: the moment somebody writes
+a re-check for a problem type whose closing steps don't consult one, **the build stops them** and
+names every step involved. Before this, their first warning would have been a marker on a row that
+had already closed wrongly. It also has a second half that matters more than it sounds — a command
+that compares what we've written down against what's actually running, because a hand-kept list goes
+stale the day somebody adds an agent, and then reads as clean.
+
+I proved it the honest way round: built the guard first while nothing would trip it, then wrote the
+re-check — so it fired on the real case rather than on a case I'd invented to test it. It named all
+three closing paths of the router in question.
+
+**"Write a verifier."** Written, proven, and **deliberately stopped one line short of switching on** —
+and that last part is the finding, not a caveat. Turning it on is not one line. I tried it, and five
+separate build guards objected. Four were paperwork. The fifth was serious: there is a timeout sweep
+that closes stale work by writing to the database directly, bypassing every check, and until a
+migration teaches it to skip this problem type it would close items straight past the new re-check.
+In other words, switching the guard on without that migration would recreate an old bug *by the act
+of adding a guard*.
+
+That migration has to touch a file another session had half-rewritten today and which didn't compile.
+So I stopped at the file boundary rather than ship someone else's unfinished work inside my commit,
+and wrote the five-step sequence into the file where the next person will look — ordering stated,
+migration first.
+
+**"Explain candidate 2 more."** That's the one that's still just an explanation, and I've set it out
+in chat. It's the real fix, it's bigger, and the honest next step is a scoping read rather than a
+proposal.
+
+**"File the image_url_404 bug."** I didn't, and I think that's the right call. When I went to write it
+up the premise fell apart: the missing handler is deliberate and says so three times in the code, and
+the handler *had* run — on three items, which I'd previously been told was zero because they'd been
+archived. Better still, on those three the handler escalated straight back to "needs a human", which
+means the obvious fix — give it a dispatch route — would spend a job per item to reach the same
+answer. That's genuinely useful evidence, so I put it into the existing bug that already asks this
+exact question rather than opening a competing one.
+
+**One thing I want to flag about my own work.** The reviewers pushed back at medium severity on a
+claim of mine, and I went and checked rather than argued. My claim turned out to be right — but only
+because a comment in our own code was out of date and had told the reviewer otherwise. I nearly read
+it backwards myself: a field called "Go side" turns out to mean *checked*, while one called "live
+audit" means *not checked yet*. I've corrected the comment and recorded what its staleness cost,
+because a stale line in a header isn't passive — a reviewer who can't see the newer code reads it as
+fact.
