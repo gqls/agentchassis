@@ -1850,3 +1850,53 @@ is that **the month pages already exist**: this is a missing invalidation, not a
 **Withdrawn:** my first-run report that `/comparisons/index.html` was the notable hit. On the
 corrected run it does not fire; the table rule had been matching the WORD "comparison" in meta
 headings. The page is the same class as the three above, but it was never a table problem.
+
+---
+
+## 2026-08-25 (evening) — four asks in one session: the 376 submission, the RFC, four seats, and the "evolutionary" switch
+
+**Asked:** add four more seats to the improvement loop; submit the 376 fix to the council; draft the
+RFC; investigate switching off the "evolutionary" aspect (rewriting pages judged good for aspirational
+improvements) and turning the loop back on — plan, not change.
+
+**What the "evolutionary bit" turned out to BE, and the two doors** `[MEASURED 2026-08-25]`. It is not a
+step. It is the four LLM seats' findings passing through `write_audit_findings` Rule 4 into regenerating
+handlers (`content_rewrite` / `needs_content_page` / `tone_shift` → `page-build-handler`;
+`needs_content_planning` → `content-gap-planner`). design-audit source lifetime (live ∪ archive):
+**976 / 399 / 964 / 26**. And the sweep being off since 08-17 did NOT stop dispatch: `detected-item-promoter`
+(live 08-15, 900s) promoted **26** LLM-audit rows 08-20 → 08-24 with the sweep off. **0** LLM-audit rows at
+`detected` now — the promoter drains the queue. LANDMINE filed ("`detected` is a QUEUE, not a shelf").
+
+**Misstep, caught before it shipped:** my first draft of the record-only mode parked rows at `detected`
+(IMP-054's "detect-only" premise). Reading the promoter's `pre_query` refuted that in one query — `detected`
+with a known-good pair is promoted within 15 minutes. Record rows are `deferred` + `handler ''` with the
+routing in `spec` (and NOT `deferred` + named handler, which is `bugs_open/396`'s no-park-verb shape,
+found the same afternoon by another lane). The test names both doors so a half-fix on either fails.
+
+**Second misstep:** `firstNonEmpty` already existed in package `actions` (`write_site_plan_action.go:1071`,
+variadic) — my duplicate broke the build; removed. **Third:** 620's operator assertion used `:'VAR'` inside a
+`DO $$` body, which psql does not interpolate → syntax error on first rehearsal; staged through a temp table.
+Then the file's own `\set` default overrode `-v` → wrapped in `\if :{?VAR}`. Both rehearsals now pass and the
+placeholder refuses.
+
+**The 376 fix:** migration `618` + ROLLBACK written; rehearsed apply (ROLLBACK) and apply-then-rollback in one
+transaction against the live row — 15 steps, 0 dangling, 12 after rollback; live untouched. Submitted:
+**`SUBMISSION_CORR 3d890adc-6f76-42c3-9eb2-20a76d7195f1`**; committed `0d21ba356` with `Council-Submitted:`.
+NOT applied.
+
+**The seam + seats (Go):** `filing_mode: record` on `write_audit_findings` (ConfigKeys; budget parity test
+passes; 4 tests). Three checks by three parallel subagents: `check_build_prerequisites.go` (234/337),
+`check_heading_promise.go` (602/703 — found a real goquery `Text()` node-joining bug the bash harness could
+never meet; landmark-only header/footer stripping because homegarden's calendar heading lives in a `<header>`
+inside `<main>`), `check_structure_floor.go` (792/673). `verify-head-builds.sh --with` ×10 against HEAD
+`f3c1da996`: OK. Both packages green.
+
+**Config:** `619_…_HOLD` (one edge, seats bypassed not deleted; 31 steps, 0 dangling) and `620_…_HOLD`
+(acceptance + reader agents, record mode on six seats, 11 seat-failure records, `check_seats_ran`; 47 steps,
+0 dangling) — both rehearsed forward and apply-then-rollback. Neither applied. RFC_056 drafted. Register
+IMP-056/057. PLAN written for the owner.
+
+**Peer coordination:** the vigilant lane (cross-session message) is HOLDING the sweep switch until ordering is
+settled; they corrected my seat-3 `[UNVERIFIED]` (role `site_reviewer` → `site-review-agent`, 4,046 calls) and
+supplied the 7-of-8 fail-open measurement + "two spellings of `error_step`" — both in the RFC §6 with credit.
+They asked that routing be argued in the RFC, not settled in config: §9 Q5.

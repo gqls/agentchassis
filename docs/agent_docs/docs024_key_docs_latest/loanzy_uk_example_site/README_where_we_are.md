@@ -332,3 +332,39 @@ with no record of why. That is the same silent-skip shape as the claims auditor 
 The reference document is in this directory, dated today, with every number and its date. The next
 step is the RFC, because the definitions of those seats *are* the benchmark, and that is exactly the
 kind of thing the architecture seat should rule on rather than a lane deciding quietly.
+
+## 2026-08-25, evening — what the "evolutionary bit" actually is, and the plan to switch it off without losing it
+
+You asked for four things this evening. Here is where each stands, in plain terms.
+
+**The 376 fix is written and in front of the council.** It is one config migration: a refused crawl now
+formats to "no content" instead of killing the whole research stage, a floor says "at least two of the three
+exemplars must have actually delivered content" (counted on content, not on whether the step said success —
+which.co.uk said success and delivered nothing), and below the floor the build fails loudly with the three
+counts in the error rather than quietly writing a landscape from no research. I rehearsed it against the live
+row inside a transaction I then threw away, twice, including the rollback. Not applied until the verdict.
+
+**The "evolutionary bit" is the four LLM reviewers' opinions being turned into page rewrites.** The loop has
+three mechanical reviewers (they find broken things) and four LLM ones (design audit, site review, offer
+analyser, brief fidelity). The LLM ones do not fix anything — their findings go through a router that sends
+"this page could be better" to the agent that regenerates the page. Over its life that one route produced
+about a thousand page rewrites and four hundred rebuilds from a single reviewer. Bug 238 is what one did to a
+page that was fine.
+
+**Two things I did not expect.** First, switching the sweep off on the 17th did not switch the rewrites off:
+a separate promoter, added on the 15th, dispatches any parked finding whose fix-type has ever succeeded, every
+15 minutes. Twenty-six of these went through while the sweep was off. Second, seven of the eight reviewer
+calls are wired so that a failure goes exactly where success goes — a site can be stamped "audited" when
+nothing audited it. The other lane measured that; it is in the RFC.
+
+**The plan (written up, nothing changed):** Phase 1, on your word — one edge in the loop takes the four LLM
+reviewers off the path (they stay in the workflow, nothing deleted, rollback is the same edge back), then the
+sweep goes on. Phase 2, Go, already written and tested — a "record, don't dispatch" mode for the router, so
+a reviewer's opinion becomes a row a person can read and release, never a rewrite. Phase 3, after the next
+roll — the four new seats (prerequisites, promise, structure with your N=6, and the reader seat you asked
+for three times) plus the existing LLM reviewers switched back on in record mode. That is the acceptance
+council, after the fact, with the rewrites removed.
+
+**Two choices are yours:** whether to apply Phase 1 now (I recommend yes), and what to do about the render
+audit — a separate hourly job that files contrast failures at the CSS patch agent; it is the other live
+source of bad renders (239 in a fortnight) and this plan does not touch it.
