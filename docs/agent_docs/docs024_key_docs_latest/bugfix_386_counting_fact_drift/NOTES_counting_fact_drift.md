@@ -149,3 +149,88 @@ than quietly re-ordered.
 though both unmanaged sites already use `{value}` in every writer_line, which is worth passing back
 to 387: whatever blocks unmanaged sites from machine substitution, it is not the absence of
 `{value}` in their lines.
+
+## 2026-08-25 — M3 run properly, and THREE wrong turns of my own first
+
+The premise that gates the whole durable fix — *every stale rendered value was once the register's
+current value* — is **CONFIRMED, 5 of 5**. But I reached it after measuring the wrong surface twice
+and drawing a false conclusion once, and the missteps are more instructive than the result.
+
+### Misstep 1 — I scanned `content_data`, which is not a published surface
+
+First premise test regexed `page_components.content_data`. It returned three numbers matching no
+register value, one of which (`125`) I started to chase as a possible real finding. It is part of
+`"…(122/125 on the first full day; most traffic is search-engine crawlers — always say so)"` — a
+register fact's **claim text including its writer guidance**, staged in `content_data`.
+
+Checked whether that guidance reaches the page: `guidance_in_content_data = t` on all three
+components, `guidance_in_rendered_html = f` on all three. So it is not published and there is no
+second defect — but `content_data` is a staging field holding the whole register snapshot, and
+scanning it over-reports by construction.
+
+### Misstep 2 — I then regexed raw `rendered_html`, which is chart markup
+
+Second test extracted every 3+ digit number from `rendered_html` and reported 13 values per page as
+"NEVER a register value → real finding": 127, 320, 555, 600, 620, 625, 666, 700, 766, 875, 1200,
+9375, and 8125. **Every one is SVG geometry** — `evidence-chart` draws a chart, so viewBox bounds
+and coordinates are in the markup. The identical list on all three pages was the tell and I should
+have read it as one.
+
+Worse, `8125` and `9375` *did* match former F10 values, so a coordinate coincided with a real
+former reading. Had I trusted that, I would have "confirmed" the premise partly on chart geometry.
+That is the accidental-support failure mode running in reverse, inside my own measurement.
+
+**The rule: the scanners do not read markup, they read extracted text blocks. Do not hand-roll a
+third text-extraction formulation** — which is exactly what the bugfix_380 handoff §3 warns about
+when it notes a shared `page_visible_text(uuid)` would stop 601's query being a third formulation.
+Use `cmd/claimscan`, which runs the same engine as the gate.
+
+### Misstep 3 — "three pages are convicted" was false
+
+From `content_data LIKE '%11646%'` I concluded three pages were convicted, and said so. The real
+engine finds **one**. `digital-asset-recovery` and `index` store 11646 in `content_data` and never
+render it — the chart draws only some of the snapshot it is given. **Conviction requires the value
+to be RENDERED**, and `content_data` presence does not imply it. Both pages are `page_type=landing`,
+which is *not* on `editorialPageTypes` (guide, blog-post, news-index, tool, game), so the skip list
+is not the explanation and I should not have reached for it.
+
+### The real measurement
+
+Export honesty asserted first: 91 TSV rows against 91 in the DB, stderr 0 bytes — the documented
+4-column recipe with `page_type`, without which every page reads UNKNOWN and the tool disagrees with
+the gate it exists to predict.
+
+`go run ./cmd/claimscan -evidence <live> -components <tsv>` → **5 findings across 91 components**,
+all on `capabilities` / `evidence-chart`, all five carrying their own `verified 2026-08-23` stamp —
+precisely the bug file's §1 list, no more and no less. Zero practice claims, zero suppressed.
+
+Premise test against the archive, all five values:
+
+| fact | value | first held | last held | current? |
+|---|---|---|---|---|
+| F9-feed-items-collected | 11513 | 2026-08-23 | 2026-08-23 | no |
+| F10-feed-items-scored | 10194 | 2026-08-23 | 2026-08-23 | no |
+| F11-council-rounds-revise | 428 | 2026-08-23 | 2026-08-23 | no |
+| F12-council-rounds-approved | 483 | 2026-08-23 | 2026-08-23 | no |
+| F13-council-rounds-rejected | 23 | 2026-08-21 | 2026-08-23 | no |
+
+5 of 5 were the register's own value on the day the component was written (08-23 17:26), and none
+is current. **Disconfirmable and it could have failed**: a rounded or paraphrased figure would have
+returned no row. So history-exact covers 100% of the motivating case, and Phase B is provably
+sufficient for it rather than merely plausible.
+
+### Engine parity FAILED, and it matters for how these numbers are read
+
+`git diff 4c996e1b5..HEAD -- platform/orchestration/datahelpers/` is **not** empty: `claims.go` is
+**122 lines ahead** of the rolled chassis, from `52958897f` — the 364 lane's Phase 2 / RFC_053,
+moving the number scan to COMPONENT grain, committed 11:50 today and not yet rolled.
+
+So the claimscan run above predicts the **post-roll** gate, not the live one. That is the right
+engine to design Phase B against (it ships after a roll too), but it must not be quoted as "what
+the fleet does today".
+
+Checked for collision: `52958897f` adds `normaliseSurfaceKey` and surface/grain handling and touches
+**none** of `numberSupported`, `ContextTerms`, `Tolerance`, `seriesSupports`. Phase B lives entirely
+in the fact-matching path, so this is same-file proximity, not a design conflict — but two sessions
+editing `claims.go` means whoever commits takes both edits, and no hook prevents a same-file
+passenger. Flagged to the 364 session.

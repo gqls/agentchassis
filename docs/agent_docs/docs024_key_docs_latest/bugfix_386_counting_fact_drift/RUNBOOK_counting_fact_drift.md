@@ -94,3 +94,39 @@ diff, assert `git diff <live build stamp> HEAD -- platform/orchestration/datahel
 otherwise you are scanning with an engine the fleet is not running. Judge findings in ≥300 chars of
 context, not the printed snippet: the snippet is ±60 bytes (`claimSnippet`, `claims.go:1131`) and a
 citation for a figure routinely lives just outside that window.
+
+## §6 — running the scan properly (do NOT hand-roll text extraction)
+
+The scanners read **extracted text blocks**, not markup and not `content_data`. Three surfaces that
+look interchangeable and are not:
+
+- `content_data` — staging. Holds the whole register snapshot including fact claim text and its
+  writer guidance ("… always say so"). Scanning it over-reports, and presence here does **not** mean
+  the value is rendered.
+- `rendered_html` raw — chart markup. `evidence-chart` draws SVG, so a bare number regex returns
+  viewBox bounds and coordinates (127, 320, 555, 600, 625, 700, 1200 …). Two of them coincided with
+  genuine former fact values, so a hand-rolled scan can "confirm" a premise on chart geometry.
+- what `cmd/claimscan` extracts — the same engine as the deploy gate and the post-deploy audit.
+  **Use this one.**
+
+```bash
+S=<scratch>; SITE=<uuid>
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At -c "
+SELECT p.name || E'\t' || COALESCE(pc.slot_name,'') || E'\t' ||
+       replace(encode(convert_to(pc.rendered_html,'UTF8'),'base64'), E'\n', '') ||
+       E'\t' || COALESCE(p.page_type,'')
+  FROM page_components pc JOIN pages p ON p.id = pc.page_id
+ WHERE p.site_id = '$SITE' AND pc.rendered_html IS NOT NULL
+   AND pc.rendered_html <> '' AND pc.locked_at IS NULL" > "$S/components.tsv"
+# ASSERT the export before trusting it — it truncates at exit 0
+wc -l < "$S/components.tsv"   # must equal the same predicate's count(*) in the DB
+go run ./cmd/claimscan -evidence "$S/evidence.json" -components "$S/components.tsv"
+```
+**The 4th column is not optional in practice.** Without `page_type` every page reads UNKNOWN, prose
+numbers are scanned on every page, and the tool reports editorial false positives the platform no
+longer raises — so it disagrees with the gate it exists to predict.
+
+**And check engine parity before quoting any result as "what the fleet does":**
+`git diff <rolled provenance>..HEAD -- platform/orchestration/datahelpers/` must be empty. On
+2026-08-25 it was 122 lines (`52958897f`, the 364 lane's component-grain change, committed and
+unrolled), so a HEAD run predicts the post-roll gate, not the live one.
