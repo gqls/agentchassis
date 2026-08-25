@@ -150,3 +150,43 @@ measured:
 | `bugs_open/367` | their `from_rfm` rows now park rather than fail; `row_status` is the honest field | verified my claims first-hand, froze their "28 of 31 failed" figure in five documents, and returned the `close_converted` finding |
 | webdesign tool-rebuilds | largest producer; `content_item: parked_owned_page` replaces a false "raised" | — |
 | `staged_component_build` / `bugs_open/353` | their backfill's 8 owned-page rows now park; three-bucket warning for the acceptance count | **returned a demand-control warning: cross-link emission is ZERO since 08-21, so an empty parked bucket will not mean the door is inert** |
+
+## Verifying the residual fixes (committed 0ad313f02, 2026-08-25 — INERT until the next chassis roll)
+
+Both markers are compiled string literals (the identifiers-only landmine is why they exist):
+
+```bash
+# at the artefact, BOTH replicas, with a must-be-absent control in the same breath
+for pod in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name); do
+  kubectl -n ai-persona-system exec ${pod#pod/} -- sh -c \
+    'grep -ac "skipped_owned_page" /proc/1/exe; grep -ac "routed via the work-item seam" /proc/1/exe; grep -ac "OWNED_DOOR_XYZZY_ABSENT" /proc/1/exe'
+done   # want: >0, >0, 0 on each
+```
+
+Post-roll behaviour, each with its demand control:
+
+```sql
+-- (a) write_audit_findings now parks owned-page findings (was: raw INSERT → wont_fix).
+--     Demand control: the denominator row — no filings in the window means the zero says nothing.
+SELECT count(*) FILTER (WHERE wi.status='deferred' AND wi.error LIKE 'OWNED_PAGE_GUARD%') AS parked,
+       count(*) FILTER (WHERE wi.status='wont_fix') AS still_refused,
+       count(*) AS all_offer_analysis_owned
+FROM site_work_items wi JOIN pages p ON p.id = wi.page_id
+WHERE wi.created_by IN ('offer-analysis','design-audit','brief-fidelity-audit')
+  AND p.rebuild_policy='owned' AND wi.created_at > '<ROLL TIME>';
+-- pass: still_refused = 0 AND (parked > 0 OR all_offer_analysis_owned = 0 — then wait for demand)
+
+-- (b) the page-rerender escalation class stops being FILED (not parked — stopped at source).
+SELECT count(*) AS new_escalation_refusals
+FROM site_work_items
+WHERE created_by='page-rerender' AND item_type='needs_page' AND created_at > '<ROLL TIME>'
+  AND (error LIKE '%OWNED_PAGE_GUARD%' OR error LIKE '%rebuild_policy=owned%');
+-- pass: 0, with the demand control in the POD LOGS:
+--   kubectl -n ai-persona-system logs -l app=agent-chassis --since=24h | grep -c 'skipped_owned_page'
+--   (>0 proves escalation attempts on owned pages happened and were skipped; both zero = no demand yet)
+```
+
+⚠ (a)'s producers route through `classified.HandlerAgent` — only rows whose handler declares
+`refuse_owned_page` park; a producer naming `copy-editor` etc. proceeds untouched, correctly.
+⚠ (b) is a stopped-at-source fix: there is no parked row to count. The log literal IS the evidence
+of demand; absence of refusals alone is only a pass alongside it.

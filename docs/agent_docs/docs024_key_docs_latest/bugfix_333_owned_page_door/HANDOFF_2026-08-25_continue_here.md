@@ -110,6 +110,12 @@ Three `offer-analysis` rows created **2026-08-24 22:08:39Z, three hours after th
    (`archive_completed_work_items(7,1000)`). If re-typing is ever revisited: dedupe by key first, exclude
    rows whose recorded error is not an ownership refusal.
 
+**IMPLEMENTED 2026-08-25 (same day): rulings 1 and 2 are BUILT and COMMITTED — `0ad313f02`,
+`Council-Submitted: 70a1e557-f4bc-4db5-96bc-0407b475423c` (read the verdict before quoting this as
+reviewed). Go changes, so INERT until the next chassis roll.** Four guards mutation-proven (NOTES,
+2026-08-25 later entry); post-roll verification queries with their demand controls are in the RUNBOOK
+("Verifying the residual fixes"). Ruling 3 needs no code. WII-028's raw-writer census updated 9→8.
+
 ## 6. Traps that will bite you specifically on this lane
 
 - **A marker has a BIRTH DATE.** `OWNED_PAGE_GUARD` was only added to `SavePageSectionsAction`'s refusal on

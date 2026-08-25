@@ -384,3 +384,42 @@ have covered them. Any council submission for seam work must say "infrequent", n
 `idx_swi_dedup` if made non-terminal; archiver drains the terminal halves). Recorded in the handoff §5
 RULED block and the bug file's 2026-08-25 section. CTA lanes + vigilant_designer addendum sent, commit
 `42a89c47f`.
+
+## 2026-08-25 (later) — both rulings implemented, committed 0ad313f02, council corr 70a1e557
+
+**Edit 1** — `write_audit_findings_action.go`: raw INSERT (:987) → per-finding `BeginTx` +
+`writeWorkItem(..., dropOnConflict)` + commit. Per-finding tx because a failed statement poisons a
+Postgres tx and the action's contract is log-and-continue per finding. `w.Inserted==false` counts as
+skipped (seam dedup backstopping the EXISTS pre-check); new `parkedOwned` counter →
+`items_parked_owned_page` in the output (only when non-zero) and the log literal
+`write_audit_findings: finding routed via the work-item seam` (the deploy marker — the change is
+otherwise identifiers-only, the LANDMINES class). Named behaviour changes: anti-churn brake now
+applies (within-window → deferred+retry_after; 2 strikes → born unresolved); the registration probe
+does NOT newly apply (born 'detected', which its trigger set excludes — they still meet it at
+promotion).
+
+**Edit 2** — `escalateRerenderToWriter`: after the sectionless guard, before any mint:
+`saveSectionsLookupPageID` → `pageIsOwnedForGuard` (the sanctioned single reader) → owned ⇒ log +
+return `skipped_owned_page`. Fail-open on ErrNoRows (a page not yet built is the legitimate
+build-request case) and on unreadable policy. Inside the helper, not the callers — owned_page_guard.go's
+own "a precondition parked in a caller is one port away from gone".
+
+**Mutations run, each killed by a named test** (naming them per this lane's own misstep-5 rule):
+M1 guard neutered (`&& false`) → OwnedPage_SkipsEmit FAILED (BeginTx refused + unmet probes); M2 skip
+returns "raised" → OwnedPage_SkipsEmit FAILED (disposition); M3 fail-closed rewrite (`owned || !checked`)
+→ PolicyUnreadable_FailsOpen FAILED; M4 `recurrenceExpected: true` on audit rows → both re-scripted
+retraction tests FAILED (unmet anti-churn probe). First M1 attempt died at COMPILE (unused import) —
+that proves nothing about the test; re-run as a compiling mutation. One test comment corrected before
+commit: PolicyUnreadable does NOT kill dropping `checked` (every checked=false path also returns
+owned=false) — the comment now says what it actually kills.
+
+**Cross-lane detour**: `cmd/config-key-audit` had been UNBUILDABLE at HEAD since the 08-23
+`DeferredDeclarations`→`LiveAuditOnlyDeclarations` rename missed `livedeclarations_test.go` — found
+because the pre-commit hook's optional-key parity arm said "the tree does not build" on MY commit.
+Mechanical 2-identifier fix, `6d3e0027e`, 363 lane not running. Not council-submitted (a 2-line
+build-restoring test rename; it will list in 098 as unreviewed — deliberate, stated here).
+
+**Full `actions` package suite green (5.3s); HEAD builds the chassis target
+(`scripts/verify-head-builds.sh ./cmd/agent-chassis`, HEAD was 24b63120d by then — two other sessions
+committed on top within minutes, which is why the sha in this line is not mine).** Both fixes are Go —
+INERT until the next chassis roll; verification queries + demand controls in the RUNBOOK.
