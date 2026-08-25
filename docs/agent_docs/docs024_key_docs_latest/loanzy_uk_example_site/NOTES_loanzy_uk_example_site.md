@@ -1801,3 +1801,52 @@ closed and checkable. `bugs_open/381` closed by its lane on this evidence.
 
 **One page 404s: `/blog/blog-post.html`, the single page with `sections_planned = 0`** — named in
 advance by the corrected predictor and recorded by that lane as `bugs_open/206`, not as a 381 failure.
+
+### 2026-08-25 13:20–13:40Z — the promise check on the canary, and my own instrument had the flaw I had just warned a peer about
+
+**The run fired on three pages, and the more important output was a defect in the checker.**
+
+**My `distinct_months` counter was chrome-contaminated.** It printed `12` for **every** page on
+`homegarden.uk`, including `/contact.html`, which contains no months at all — the site menu is a
+`<ul>` of `<li><a href="/january/index.html">January</a></li>` × 12. The calendar rule requires ≥6
+distinct months, so it would have returned a **VACUOUS PASS on exactly the pages that fail**. It
+worked on `garden-tools.uk` only because that site's nav carried no months.
+
+> **This is the identical defect I had warned the `bugs_open/381` lane about ninety minutes earlier**
+> — their served census said "20 of 20 pages carry a list", true and useless because nav is a `<ul>`
+> on both sites, and I told them to read the delta above the `li=8` chrome baseline. **I gave the
+> lesson for `li` and did not apply it to my own `months`.** Knowing a failure mode is not the same
+> as auditing your own instrument for it; the second is a separate act and I skipped it.
+
+**Fixed and validated: strip anchor text before counting.** Chrome and cross-references are links; a
+kept promise is not. Discriminates cleanly — `/index.html` 12 non-anchor months (the real calendar),
+`/contact.html` **0**, `/april/index.html` 2. Same treatment for `<li>`. The harness prints content
+and raw side by side so the gap is visible rather than silently corrected.
+
+**⚠ A near-miss I nearly reported as a finding, twice over.** My first attempt at establishing the
+chrome baseline stripped `<nav>`/`<header>`/`<footer>` with a regex, and reported `/index.html` as
+having **0 `<li>` and 0 `<ol>` in content** — for the page I had directly measured minutes earlier as
+carrying an `<ol>` with 49 `<li>`. The strip was broken, not the page. **An implausible number from a
+new instrument is the instrument, until proven otherwise** — I discarded it rather than reporting it,
+which is the only reason it is a near-miss and not the day's fourth wrong call.
+
+**The three real failures, and they are NOT `bugs_open/381`:**
+
+| page | its own heading | non-anchor months |
+|---|---|---|
+| `/garden/index.html` | *"Garden maintenance for UK gardens, month by month"* | 3 |
+| `/home-maintenance/index.html` | *"How the UK seasons shape a home maintenance calendar"* | 1 |
+| `/this-month/index.html` | *"Why one calendar does not fit the whole country"* | 2 |
+
+**The measurement that settles the attribution** — set-difference the served internal link sets:
+`/contact.html` 23 links, `/garden/index.html` 23 links, **links on garden not also on contact: ZERO.**
+An index page with no page-specific links is indexing nothing. Its `content-listing` section had
+nothing to list (`source: query.blog_posts`, `on_missing: skip_section`, and the site's one
+`blog-post` page is the 404) so it skipped, and the heading is left writing a cheque the body cannot
+cash. **381's fix worked on this build** — `/index.html` has a real twelve-month `period-cal__list`.
+Routed to `bugs_open/384` (a listing never re-rendered when its data arrives), where the sharp point
+is that **the month pages already exist**: this is a missing invalidation, not a race.
+
+**Withdrawn:** my first-run report that `/comparisons/index.html` was the notable hit. On the
+corrected run it does not fire; the table rule had been matching the WORD "comparison" in meta
+headings. The page is the same class as the three above, but it was never a table problem.

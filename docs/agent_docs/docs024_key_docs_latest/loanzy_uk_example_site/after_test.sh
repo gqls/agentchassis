@@ -195,24 +195,40 @@ printf '%s\n' "$URLS" | while read -r u; do
   [ -z "$body" ] && continue
   # strip css/js so counts are markup, not stylesheet rules
   m=$(printf '%s' "$body" | perl -0pe 's/<style.*?<\/style>//gs; s/<script.*?<\/script>//gs' 2>/dev/null || printf '%s' "$body")
-  heads=$(printf '%s' "$m" | grep -oE '<h[123][^>]*>[^<]{3,90}' | sed 's/<[^>]*>//g')
+  # ⚠ CHROME-STRIPPED COUNTS, added 2026-08-25 — see the note below. Site navigation is a <ul> of
+  #   <li><a>…</a></li>, so raw li/month counts measure the MENU, not the page. Anything that is
+  #   link text is chrome or cross-reference; the promise has to be kept in NON-ANCHOR content.
+  na=$(printf '%s' "$m" | perl -0pe 's/<a[^>]*>.*?<\/a>//gs' 2>/dev/null || printf '%s' "$m")
   tbl=$(printf '%s' "$m" | grep -c '<table')
   li=$(printf '%s' "$m" | grep -o '<li' | wc -l)
+  li_content=$(printf '%s' "$na" | grep -o '<li' | wc -l)
   strong=$(printf '%s' "$m" | grep -o '<strong' | wc -l)
-  months=$(printf '%s' "$m" | grep -oE '\b(January|February|March|April|May|June|July|August|September|October|November|December)\b' | sort -u | wc -l)
-  printf '%-30s tables=%-2s li=%-3s strong=%-3s distinct_months=%-2s\n' "$u" "$tbl" "$li" "$strong" "$months"
+  MONTHS='\b(January|February|March|April|May|June|July|August|September|October|November|December)\b'
+  months_raw=$(printf '%s' "$m"  | grep -oE "$MONTHS" | sort -u | wc -l)
+  months=$(printf '%s'     "$na" | grep -oE "$MONTHS" | sort -u | wc -l)
+  heads=$(printf '%s' "$m" | grep -oE '<h[123][^>]*>[^<]{3,90}' | sed 's/<[^>]*>//g')
+  printf '%-30s tables=%-2s li=%-3s(content %-3s) strong=%-3s months=%-2s(raw %-2s)\n' \
+         "$u" "$tbl" "$li" "$li_content" "$strong" "$months" "$months_raw"
   # promise words in headings that imply STRUCTURE the page must then contain
   printf '%s\n' "$heads" | while read -r h; do
     case "$h" in
       *"month by month"*|*"month-by-month"*|*calendar*|*Calendar*)
-        [ "$months" -lt 6 ] && echo "      ⚠ PROMISE UNMET: heading says '$(echo "$h"|sed 's/^ *//')' but only $months distinct month names on the page" ;;
+        [ "$months" -lt 6 ] && echo "      ⚠ PROMISE UNMET: heading says '$(echo "$h"|sed 's/^ *//')' but only $months distinct month names in NON-ANCHOR content (raw incl. menu: $months_raw)" ;;
       *"step by step"*|*"checklist"*|*"Checklist"*)
-        [ "$li" -lt 3 ] && echo "      ⚠ PROMISE UNMET: heading says '$(echo "$h"|sed 's/^ *//')' but only $li list items" ;;
+        [ "$li_content" -lt 3 ] && echo "      ⚠ PROMISE UNMET: heading says '$(echo "$h"|sed 's/^ *//')' but only $li_content non-link list items (raw incl. menu: $li)" ;;
       *compare*|*Compare*|*comparison*|*Comparison*|*"side by side"*)
         [ "$tbl" = "0" ] && echo "      ⚠ PROMISE UNMET: heading says '$(echo "$h"|sed 's/^ *//')' but the page has NO table" ;;
     esac
   done
 done
 fi
+echo ">> ⚠ COUNTS ARE CHROME-STRIPPED (anchor text removed) since 2026-08-25, and that fix came from"
+echo "   being wrong: on homegarden.uk EVERY page carries all 12 month names as MENU LINKS, so the"
+echo "   raw month count read 12 on /contact.html — a page with no months in it at all. Non-anchor"
+echo "   counting reads 12 on the real calendar, 0 on contact, 2 on a single-month page."
+echo ">> ⚠ A KEYWORD IS NOT A PROMISE. This check fires on heading WORDS. A section-index whose"
+echo "   headings describe what its articles will do (\"What each comparison covers\") trips the"
+echo "   comparison rule without promising a table on that page. READ the flagged heading before"
+echo "   recording a finding — the check nominates candidates, it does not adjudicate them."
 echo ">> A page can be 200, 67KB, leak-free and fully linked and still not contain what it promises."
 echo "   Byte count is not a completeness check. Neither is 'it deployed'."
