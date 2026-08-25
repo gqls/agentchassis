@@ -52954,3 +52954,46 @@ never its last *run*.
 count of work items; and for "has X run", read the thing that records *selection or execution*
 (`site_discovery_rotation`, `scheduled_tasks.last_triggered_at`, `orchestration_states`), never the
 thing that records *findings*. Tally: skipped-requery-of-a-carried-count; inferred-a-run-from-its-output.
+
+## 2026-08-25 — `news_editorial_features` (session "news editorial"): two operational scripts that asserted they unlocked and re-locked two rows, and could do neither — the defects cancelled, so a dry run could not have caught them
+
+**The claims.** `pending_sql_instance_scope_acceptance/A_unlock_and_dispatch.sql` said in its own
+header *"AFTER this runs the two rows are UNLOCKED"*, and `B_relock.sql` said it *"Restores exactly
+what was there before"*. Both were written 2026-08-25 by the previous session, reviewed into a
+handoff and a README as the ready-to-run procedure, and neither had ever been executed.
+
+**What was true.** Neither script touches `locked_at`, and `locked_at` is the only column that
+decides. The canonical predicate is `AgentWritableSQLFor`
+(`platform/orchestration/datahelpers/chrome_render_inputs.go:91`):
+`(locked_at IS NULL OR (lock_type='timed' AND lock_expires_at IS NOT NULL AND lock_expires_at < NOW()))`.
+`lock_type`/`locked_by` are classification and messaging only. So:
+
+- **A did not unlock.** It cleared `lock_type`/`locked_by` and left `locked_at` set — which
+  `classifyComponentLock` (`lock_helpers.go:100`) treats as **hard/permanent**, conservatively,
+  *because* the type is now missing. Both re-dispatched work items were claimed, ran, and returned
+  `{"skipped":true,"locked":true,"success":true}`, reason `is locked by ""` (the empty string is
+  NULL `locked_by` read back). Stored bytes unchanged, `updated_at` unchanged, pages still serving
+  the old id.
+- **B could not re-lock, and that is the dangerous half.** Against a *corrected* A it would have
+  set `lock_type='permanent'` over a NULL `locked_at`, leaving two flagship rows fully
+  agent-writable while displaying as `permanent` in the admin dashboard — silently unlocked, and
+  reading as locked to anyone who checked.
+
+**Why no dry run would have found it.** The two defects **cancel**: B restores the correct state
+*only* because A left `locked_at` intact. Run as a pair against the live rows, the sequence ends
+where it started and looks like a clean no-op. The pair is only separable by reading the predicate.
+
+**What caught it.** Running A and then reading the work item's `result` blob instead of its
+`status`. Both items were `complete` with `success: true` — the item-level check the procedure
+prescribed passes in full while nothing has been written. The `skipped`/`locked` keys are two
+levels down inside `result->'response'->'edit_result'`.
+
+**The cheap checks, both one line.** Before trusting any hand-written lock/unlock SQL, read the
+predicate the *writers* enforce (`AgentWritableSQLFor`) rather than the columns that sound like the
+lock, and diff your `SET` list against the framework's own admin unlock
+(`internal/core-manager/admin/page_admin_handlers.go:450` clears **all four** columns; `:491` locks
+by setting `locked_at`). And assert the state you claim to have produced: `SELECT (locked_at IS NULL
+OR …) AS agent_writable` after an unlock — `t` is the only evidence the unlock happened. A script
+that RETURNs the columns it just wrote can only tell you it wrote them, never that they mean what
+you think. Tally: read-the-adjacent-column-not-the-deciding-one; asserted-an-effect-by-echoing-my-own-write;
+paired-defects-that-cancel-under-test.

@@ -27,7 +27,12 @@ $PSQL -c "SELECT left(item_key,58) AS item_key, status, attempt_count, left(COAL
            ORDER BY created_at DESC LIMIT 4;"
 
 echo "=== 2. stored rendered_html (necessary, NOT sufficient — stored is not served) ==="
-$PSQL -c "SELECT slot_name, lock_type, locked_by,
+# agent_writable is the column that decides, and its absence here is what hid the
+# 2026-08-25 v1 defect: lock_type/locked_by read as 'unlocked' while locked_at
+# still held the row shut. Between A and B expect t; after B expect f.
+$PSQL -c "SELECT slot_name, locked_at, lock_type, locked_by,
+                 (locked_at IS NULL OR (lock_type='timed' AND lock_expires_at IS NOT NULL
+                                        AND lock_expires_at < NOW())) AS agent_writable,
                  rendered_html LIKE '%id=\"c-evidence-timeseries\"%' AS has_new_id,
                  rendered_html LIKE '%id=\"\"%'                      AS has_empty_id,
                  length(rendered_html) AS bytes,
