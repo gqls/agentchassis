@@ -53,6 +53,21 @@ var deliveryRoutePrefixes = []string{"/c/", "/d/"}
 // route on the admin port, which is the exact mistake it exists to catch; a roll
 // that crash-loops says so immediately, where a logged warning would be read by
 // nobody and the hole would serve traffic in the meantime.
+// It refuses two shapes, not one. The direct registration is obvious; the second
+// is a WILDCARD whose static prefix sits at or above a delivery path — gin routes
+// `/*any` to a single handler, so a catch-all would serve /c/ by prefix dispatch
+// while the route table contains no /c/ entry at all, and a check that only
+// compared paths would report the admin port clean while it answered customer
+// links. The council's guardian seat raised exactly this (council 25cd3044,
+// round 1, medium): the guard "is blind to a wildcard route that later dispatches
+// by path prefix internally". Measured when that objection landed: core-manager
+// registers no wildcard and no r.Any() route today, so this arm defends a
+// property that currently holds rather than fixing a live hole.
+//
+// ⚠ STATED LIMIT: gin does not list a NoRoute handler in Routes(), so a NoRoute
+// that proxied by path would be invisible here. Nothing registers one today
+// (grep NoRoute in internal/core-manager: no hits), and if something ever does,
+// this function cannot see it — that is a residual, not a claim.
 func assertNoDeliveryRoutes(routes gin.RoutesInfo) error {
 	for _, r := range routes {
 		for _, prefix := range deliveryRoutePrefixes {
@@ -60,6 +75,18 @@ func assertNoDeliveryRoutes(routes gin.RoutesInfo) error {
 				return fmt.Errorf(
 					"delivery route %s %s is mounted on the main admin router: it belongs on the delivery listener only (RFC_054 Q2, owner ruling 2026-08-25)",
 					r.Method, r.Path)
+			}
+		}
+		// A wildcard's static prefix is everything before "/*". If a delivery
+		// path starts with that prefix, this route can capture it.
+		if i := strings.Index(r.Path, "/*"); i >= 0 {
+			static := r.Path[:i+1]
+			for _, prefix := range deliveryRoutePrefixes {
+				if strings.HasPrefix(prefix, static) {
+					return fmt.Errorf(
+						"wildcard route %s %s on the main admin router can capture delivery path %s by prefix dispatch: the delivery routes belong on the delivery listener only (RFC_054 Q2, owner ruling 2026-08-25)",
+						r.Method, r.Path, prefix)
+				}
 			}
 		}
 	}

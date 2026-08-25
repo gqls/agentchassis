@@ -172,6 +172,8 @@ func TestAssertNoDeliveryRoutesRejectsCustomerRoutesOnTheAdminRouter(t *testing.
 		{"confirm page re-mounted", gin.RouteInfo{Method: http.MethodGet, Path: "/c/:token"}},
 		{"confirm POST re-mounted", gin.RouteInfo{Method: http.MethodPost, Path: "/c/:token"}},
 		{"download route added", gin.RouteInfo{Method: http.MethodGet, Path: "/d/:token"}},
+		{"root catch-all captures /c/ by prefix", gin.RouteInfo{Method: http.MethodGet, Path: "/*any"}},
+		{"root catch-all, other param name", gin.RouteInfo{Method: http.MethodPost, Path: "/*filepath"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := assertNoDeliveryRoutes(append(clean, tc.route)); err == nil {
@@ -179,6 +181,19 @@ func TestAssertNoDeliveryRoutesRejectsCustomerRoutesOnTheAdminRouter(t *testing.
 					"to build the server", tc.route.Method, tc.route.Path)
 			}
 		})
+	}
+
+	// The wildcard arm must not be a blunt "no wildcards": a wildcard that cannot
+	// reach a delivery path is legitimate, and refusing it would make this guard
+	// something people route around rather than keep.
+	for _, ok := range []gin.RouteInfo{
+		{Method: http.MethodGet, Path: "/api/*path"},
+		{Method: http.MethodGet, Path: "/static/*filepath"},
+	} {
+		if err := assertNoDeliveryRoutes(append(clean, ok)); err != nil {
+			t.Errorf("wildcard %s %s cannot capture /c/ or /d/ and must be allowed: %v",
+				ok.Method, ok.Path, err)
+		}
 	}
 }
 

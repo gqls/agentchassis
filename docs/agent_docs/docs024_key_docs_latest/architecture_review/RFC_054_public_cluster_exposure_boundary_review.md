@@ -91,3 +91,36 @@ ruling on Q1–Q3.
   "Not active yet" label above the shopfront's two CTAs (vm-sites `444205b`) until
   ordering opens. The label is outside the framework by explicit owner instruction and
   any framework redeploy of the page removes it.
+
+## 6. OPEN RESIDUAL, recorded 2026-08-25 — the facts relay keeps a second path to the admin port
+
+**Q2 is BUILT** (`site_delivery_and_editor` lane, commit `d30917150`, register **SYS-095**):
+the delivery routes now live on `core-manager:8090`, the box vhost and the wg fence point
+at it, and `assertNoDeliveryRoutes` refuses to construct the server if a customer route is
+ever mounted back on the admin router.
+
+**What Q2 did NOT close, tracked here at the architecture seat's request** (council
+`25cd3044` round 1, `architecture`, low: *"disclosure in a YAML comment is not a tracked
+item — recommend a follow-up work item/RFC note so this residual doesn't silently become
+permanent"*):
+
+**Port 8088 remains reachable from the webdesign.uk box**, because the chat bot's facts
+relay (`GET /api/v1/site-facts/:domain`, `box/chat-service/facts.go`) uses it, and the
+fence's own comment records that removing it *"stops the bot STARTING, by its own design"*.
+
+So the containment Q2 bought is exactly: **the existing customer door cannot be widened
+into the admin API.** It is *not*: "the fence contains the admin port." A **new** vhost
+written straight to `:8088` would still reach every admin route. The last line for that
+path is still SYS-094's discipline — cite the pattern or file an RFC — and not a mechanism.
+
+**What would close it:** move the facts relay onto a box-facing listener of its own (or
+onto the delivery listener, accepting that it stops being delivery-only), then drop 8088
+from `networkpolicy-wireguard-egress.yaml`. The fence then becomes the control, and a
+misconfigured vhost reaches nothing that matters however it is written.
+
+**Why it was not done in Q2:** it touches a live customer-facing bot whose failure mode is
+"does not start", and the owner's ruling scoped Q2 to the delivery routes. Doing it inside
+that round would have been exactly the bundling the guardian seat vetoed in `bugs_closed/124`.
+
+**Status: OPEN.** Not scheduled, not owned. Whoever takes it should read SYS-095 first —
+the delivery listener is the worked example of the same move.
