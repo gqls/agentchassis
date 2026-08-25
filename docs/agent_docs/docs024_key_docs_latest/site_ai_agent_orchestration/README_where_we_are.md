@@ -495,3 +495,70 @@ new problems and they are not evidence anything is wrong — they can only be cl
 audit that has not run on this site since 10 August. Now that every page genuinely passes, that
 audit should clear them when it next runs. If it clears none of them, that tells us something is
 wrong with the clearing mechanism, and someone else already owns that question.
+
+---
+
+## 2026-08-25 — a fix of mine was printing "NNN+" on the live site
+
+I checked the state before doing anything, because this conversation was a day old. Two notes had
+arrived from other teams, and one of them was about a mistake I made on Friday. I want to give you
+that plainly first.
+
+### What went wrong
+
+On Friday I rewrote the site's instruction sheet — the document that tells the writing agent what
+it may claim about the business — so that it no longer contained any hard-coded numbers. That part
+was right: the agent count is a live database figure and it has moved from 175 to 200 in a month,
+so any number typed into a document is wrong within days.
+
+The problem was what I put in its place. I wrote *phrase it as "NNN+ AI agents", and take the live
+value from the facts list.* **Both halves of that were wrong.** "NNN" is a stand-in with nothing
+behind it to replace it, and the writing agent is never actually shown the facts list — it only
+receives the instruction sheet. So it did the only thing available to it: it printed what it was
+shown.
+
+**"…against the NNN+ agent types already running in production…"** was live on your model directory
+page. Since Friday, 14 of 137 attempts copied that placeholder and none of them wrote the real
+number. So for three days the site was either printing a placeholder or saying nothing about the
+figure at all.
+
+### I did not catch it — another team did
+
+They were looking at your site for an unrelated reason and noticed it. That is the part I think is
+worth your attention more than the bug itself. I had re-read that migration several times and
+checked the live page after applying it. But I checked *the thing I had changed* — that the sheet no
+longer had a stale number in it — and never asked what the writing agent would actually do with the
+replacement. One query against the log of what the agent gets sent would have shown it immediately.
+
+The lesson I have written down is that **text written into a prompt is an instruction being
+executed, not documentation being read.** A style guide can say "put the number here" to a person,
+who knows what you mean. The agent has only the words in front of it.
+
+### What is fixed
+
+The other team replaced the placeholder with plain lower bounds — "more than 150 active agent
+definitions" — which stay true as the real number grows and so never go stale. They also banned
+letter stand-ins outright, so this exact shape cannot recur.
+
+They handed one piece back to me, and when I checked it I found more than they had reported: three
+places carrying a frozen date next to a live number (they had found two), and two more that would
+have published figures the sheet itself explicitly forbids. All five are now fixed. Had I just done
+what the note asked, three of the five would still be there.
+
+The placeholder is out of the source. The page rebuilds on a six-hourly cycle and the next run
+clears it from the live site.
+
+### Everything from earlier in the week is intact
+
+I re-checked: readability is still at zero problems across all four pages, the carousels still work,
+and all ten pictures still load. Also worth correcting — a note you may have seen saying three of
+your pages were broken and returning "not found" was **wrong**, and a third team has since refuted
+it. Those pages have always worked; whoever tested them left the ".html" off the address, which
+fails for every page on the site by design.
+
+### On summaries
+
+You asked whether one was due. Strictly it is not — I wrote one yesterday and time passing is not
+the trigger. But I have written a short one anyway, because the honest read-out has changed:
+yesterday's says the work is finished and reads as a clean success, and it would mislead anyone who
+read only it. The new one records that we shipped a defect and that somebody else found it.

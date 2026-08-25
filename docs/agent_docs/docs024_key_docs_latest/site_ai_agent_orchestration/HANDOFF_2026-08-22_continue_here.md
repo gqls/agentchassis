@@ -1,4 +1,10 @@
-# HANDOFF — ai-agent-orchestration.com. START HERE. Written 2026-08-22, UPDATED 2026-08-24.
+# HANDOFF — ai-agent-orchestration.com. ⚠ SUPERSEDED 2026-08-25. Written 2026-08-22, updated 08-24.
+
+> ## ⛔ SUPERSEDED by `HANDOFF_2026-08-25_continue_here.md` — READ THAT FIRST.
+> Its state table (contrast 0, carousels live, images 10/10) is STILL ACCURATE and was re-verified
+> on 2026-08-25. What it does not contain is the `NNN+` incident: migration `557`, described
+> approvingly below, was publishing a placeholder to the live site for three days. Fixed by `611`
+> and `613`. Read the new file's §1 before trusting anything here about `evidence_base`.
 
 > ## ✅ UPDATE 2026-08-24 — CONTRAST IS AT **ZERO** ON ALL FOUR PAGES. The lane's original ask is COMPLETE.
 >

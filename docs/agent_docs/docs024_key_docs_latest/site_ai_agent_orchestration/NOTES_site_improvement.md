@@ -1217,3 +1217,96 @@ Measuring that nothing broke is not the same as their having agreed.
 - **`composeWriterBlock` must learn to carry negative guidance** before any site sets
   `writer_block_managed: true` — otherwise opting in deletes the NEVER-STATE list. Unchanged.
 - `overImage` findings (2) — a different instrument problem, not this lane's contrast defect.
+
+---
+
+## 2026-08-25 — my own `557` was publishing `NNN+` to the live site, and another lane caught it
+
+Checked the ground first (thread a day old, heavy automation on this site). **Two CONTRIBs had
+arrived and one names this lane's own migration as the cause of a public defect.** Everything below
+was verified here before being acted on — a subagent's or a peer lane's report is another doc, not
+a measurement.
+
+### 1. CONFIRMED at the artefact: `NNN+` was live
+
+```
+curl https://ai-agent-orchestration.com/model-directory.html
+  "…against the NNN+ agent types already running in production…"     <- 1 occurrence
+```
+Censused the rest of the site in the same breath: `adoption-tracker`, `protocol-tracker`, `index`,
+`about`, `pricing` — **0 occurrences each, all HTTP 200**. So it was one page, not a sweep.
+
+⚠ **And it lives in `content_data`, not just `rendered_html`** — so a `template_changed` rerender
+would NOT have cleared it. Only a copy regeneration does. That is the opposite of the propagation
+route this lane has used all week, and reaching for the familiar one would have looked like a fix
+and changed nothing.
+
+### 2. The mechanism, and it is mine
+
+`557` put this in `writer_block`: *"take the live value from the `aao-agent-definitions` fact.
+Phrase it as **"NNN+ AI agents"**"*. Two independent errors:
+
+1. **`NNN` has no substitution machinery behind it.** I wrote it the way a human reads a style
+   guide, into a document whose reader is an LLM that copies what it is shown.
+2. **The writer is never given the facts list.** On the unscoped path its prompt contains
+   `writer_block` and not the values. So "take the live value from the fact" points at nothing.
+
+Measured by the `387` session: **137** instructed calls since 08-22, **14** copied `NNN` verbatim,
+**0** wrote the value; **zero** `NNN` in any writer response before 08-22. The owner-ruled lower
+bound was effectively **unstated** on this site for three days.
+
+**I had verified `557` at the artefact and still missed it, because I verified the thing I
+CHANGED** — that the block no longer carried a stale number — **and never asked what the writer
+would DO with the replacement.** The check was one query away:
+`SELECT prompt FROM llm_call_log WHERE agent_type='page-content-writer' ORDER BY created_at DESC LIMIT 1;`
+would have shown the facts list absent. WRONG_CALLS logged.
+
+### 3. What the other lane fixed, and what was left to me
+
+Migration `611` (theirs) landed 2026-08-25 11:20:26Z — floors instead of stand-ins, an explicit ban
+on letter stand-ins, every ban and the NOT-TRACKED list preserved, and it even carries `557`'s own
+history note forward. **It is a better block than mine.** Read it before touching this row.
+
+They flagged one thing back as ours: the `writer_line` field, which `611` deliberately did not
+touch. ⚠ **Their report named TWO defects; censusing all seven writer_lines found FIVE, in two
+classes:**
+
+| class | facts | why it matters |
+|---|---|---|
+| frozen date beside a live `{value}` | `aao-agent-definitions`, `aao-agent-types`, **`aao-orchestrations`** (not reported) | managed mode would publish a TRUE number under a FALSE date — worse than either error alone, because it reads as provenance |
+| a line that publishes what the block FORBIDS | `aao-orchestrations`, `aao-work-items` | the block says "DO NOT state an exact daily figure" / "DO NOT state a figure"; both writer_lines substitute exactly that. **The block would contradict itself, and the contradiction would be GENERATED — so no author would ever see themselves write it** |
+
+**Taking the report at its stated scope would have left three of the five in place.** Fixed as
+migration `613`: five writer_lines repaired and aligned to `611`'s floors, `{value}` removed from
+all five, `611`'s `writer_block` and `banned_claims` guard-asserted byte-identical, no fact value
+touched. `aao-departments` and `aao-services` deliberately left alone — `611` decided those stay
+exact and silently widening scope is what the file disclaims.
+
+⚠ **This does NOT clear the way for `writer_block_managed`.** `composeWriterBlock` still builds from
+`writer_line`s and `allowed_entities` and nothing else, so flipping the flag still deletes the
+NEVER-STATE list. `613` removes ONE precondition of several. The `387` session has proposed the
+missing `writer_block_guidance` carry to the `bugs_open/288` lane, which owns that file.
+
+### 4. The 364 lane's "three of your pages are 404" was REFUTED, and not by me
+
+Their 08-24 CONTRIB said `adoption-tracker`, `protocol-tracker` and `model-directory` were deployed
+and 404. The `387` session refuted it: they curled the **extensionless** form, which 404s for every
+page on this site by hosting design (`scripts/cloudflare/worker.js:40-44`) — `/about` 404s the same
+way. Verified here today: all three serve **200** at `/<name>.html`. **Nothing about this site's
+deploys was ever wrong.** Recorded because the refutation arrived from a third lane, and a reader
+of the 08-24 CONTRIB alone would still believe it.
+
+### 5. A process note: my WRONG_CALLS entry was swept into another session's commit
+
+I wrote the entry, and before I committed it another session's commit (`001211abf`, the 364 lane)
+carried it in. **Nothing was lost** — verified properly, not by grep: `git diff --numstat HEAD` on
+the file returns EMPTY, i.e. the working tree is byte-identical to HEAD, so the entry landed whole.
+
+⚠ **Two grep traps in that check, both of which I hit first.** A line-oriented `grep -F` for a long
+phrase reports FALSE ABSENCES because these files are hard-wrapped — two of my four probe phrases
+returned 0 and both were present. Unwrapping (`tr '\n' ' ' | tr -s ' '`) returned them. And a probe
+phrase that differs from the file by so much as a `**` returns 0 for a reason that has nothing to
+do with the question. **The byte-compare is the check; phrase-grepping is a guess.**
+
+This is CLAUDE.md's documented shared-tree hazard, from the other side: committing per task stops
+me sweeping others' work, and cannot stop theirs sweeping mine. Forward-only holds, nothing to undo.
