@@ -39,8 +39,8 @@ func TestSlotPairing_ArmPriorityAcrossCandidates(t *testing.T) {
 	}
 
 	incoming := []IncomingSection{
-		{Name: "loan-calc"},                          // kebab vs stored slot below
-		{Name: "tool-loan", ComponentID: "id-1234"},  // identity
+		{Name: "loan-calc"},                         // kebab vs stored slot below
+		{Name: "tool-loan", ComponentID: "id-1234"}, // identity
 	}
 	if got := PairStoredToIncoming(SlotIdentity{Slot: "loan_calc", ComponentID: "id-1234"}, incoming, nil); got != 1 {
 		t.Errorf("PairStoredToIncoming = %d, want 1 — same priority rule in the inverted direction", got)
