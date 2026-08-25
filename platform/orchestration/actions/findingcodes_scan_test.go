@@ -442,3 +442,45 @@ func TestFindingCodeTestsFollowTheHookConvention(t *testing.T) {
 			"at what it thinks it is", found, files)
 	}
 }
+
+// TestFindingCodeScanNamesDoNotExtendDeclaredCodes is decision 5 of the owner's
+// 2026-08-25 rulings ("rename it and fix it so it doesn't happen again"), and it
+// moves a failure from declaration day back to commit day.
+//
+// The DB-side checker fails on any DECLARED code that is a prefix of another,
+// because live `LIKE 'family%'` queries exist and a shared prefix silently
+// merges populations. But a code is written FIRST and declared LATER — so an
+// author could name a new code as an extension of an existing declared one
+// (`UNKNOWN_HANDLER_VERDICT` over the declared `UNKNOWN` was the live case),
+// commit it cleanly, and the trap would only spring on whoever DECLARES it,
+// possibly weeks later and possibly someone else. This arm checks every code
+// this package writes (scanned) plus the `_scan_baseline` backlog against every
+// declared code, at commit time, where the author is still present.
+func TestFindingCodeScanNamesDoNotExtendDeclaredCodes(t *testing.T) {
+	codes, _ := scanOrFatal(t)
+	baseline := scanBaseline(t)
+	declared := findingCodeRoster(t)
+
+	pop := map[string]bool{}
+	for _, c := range codes {
+		pop[c] = true
+	}
+	for c := range baseline {
+		pop[c] = true
+	}
+
+	for c := range pop {
+		for _, d := range declared {
+			if c == d {
+				continue // declared-vs-declared is the DB-side checker's job
+			}
+			if strings.HasPrefix(c, d) || strings.HasPrefix(d, c) {
+				t.Errorf("code %q and declared code %q are prefix-related — a LIKE query on the "+
+					"shorter catches both, and declaring the longer will fail the daily check with "+
+					"nobody knowing why. Rename the NEW one before it ships (the live case this "+
+					"prevents: UNKNOWN_HANDLER_VERDICT over the declared UNKNOWN). bugs_open/358, "+
+					"owner decision 5, 2026-08-25.", c, d)
+			}
+		}
+	}
+}

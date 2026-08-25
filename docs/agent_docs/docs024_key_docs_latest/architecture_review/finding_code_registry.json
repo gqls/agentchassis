@@ -7,6 +7,7 @@
     "CONTENT_LINK_REPAIR_SKIPPED",
     "FACT_ASSIGNMENT_ABSENT",
     "FACT_SCOPING_EMPTY_COMPOSITION",
+    "HANDLER_VERDICT_UNRECOGNISED",
     "LOCKED_MERGE_SKIPPED",
     "PLAN_PAGE_IDENTITY_TYPE_CONFLICT",
     "PLAN_SECTION_NAME_KEPT_BY_STORED_SLOT",
@@ -14,7 +15,6 @@
     "RECOMPOSE_INTENT_NOT_REALISED",
     "SKIP_PERSISTENCE_FAILED",
     "SOURCE_GUARD_ASPECT_SET_UNAVAILABLE",
-    "UNKNOWN_HANDLER_VERDICT",
     "VISION_FINDING_INSERT_FAILED"
   ],
   "_scan_baseline_doc": "bugs_open/358. Codes that platform/orchestration/actions WRITES and this registry does not yet declare — the pre-existing backlog for findingcodes_scan_test.go's source-side early warning, which fails on anything NOT listed here. A RATCHET, for the same reason the unruled cap is one: a check that fails from day one over a pre-existing backlog is a check that gets ignored, and the crisp signal is 'someone just added a code nobody declared'. MEASURED 2026-08-24 when this was seeded: all 13 have fired ZERO times in the retained window, so the live-table check is blind to them BY CONSTRUCTION (its own stated blind spot: an unfired code produces no unread findings) — this list is precisely the population that blind spot leaves, which is why the scan is worth having at all. THE LIST MAY ONLY SHRINK: declare a code and delete its line in the same commit. An entry that is now declared is REPORTED as stale rather than failed, because a baseline that outlives its findings is how a check goes green by going blind.",
@@ -309,5 +309,26 @@
     "writer": "platform/orchestration/actions/refused_link_targets.go:249 (const :52)",
     "why": "Second code caught by the daily check on 2026-08-24, within an hour of its first row. Records that an href pointed at a page of this site that has never been served and is not arriving — deliberately distinct from the repair codes, which say 'this href pointed at nothing'. MEASURED 2026-08-24: no reader anywhere (Go, SQL, python, shell, live agent_definitions, scheduled_tasks). Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 under 567). ⚠ ITS OWN DOC COMMENT IS 358 §3.1 HAPPENING LIVE: it introduces itself as 'a FOURTH code beside CONTENT_LINK_REPAIR_DETAIL, CONTENT_LINK_REPAIR_SKIPPED and CONTENT_DATA_LINK_AUDIT' and reasons from their record shape — which is exactly the propagation 358 measured, 'the record shape propagates; the missing reader propagates with it'. Three of those four are human-evidence today.",
     "note": "Declared by the bugs_open/358 lane, not by its author, for the same reason as LINK_CONTEXT_UNAVAILABLE: the check is red until a code is declared. The OWNER may overrule the disposition; the measurement behind it is not in doubt."
+  },
+  "COMPONENT_FUNCTION_PIN_DIVERGENCE": {
+    "disposition": "instrumented",
+    "writer": "platform/orchestration/actions/store_generated_component_action.go",
+    "owner": "bugs_open/388_HANDOFF_2026-08-25_component_creator_is_advised_one_rows_field_contract_while_the_store_enforces_a_different_row.md",
+    "review_by": "2026-09-25",
+    "note": "bugs_open/388. The writer emitted a function name other than the one the pre-generation advisory pinned it to. HARMLESS BY CONSTRUCTION once the pin ships — the advised component_id already decided which row is written — and recorded precisely because it is harmless: it is the only durable meter of how often the model disagrees. Before the pin, obedience could only be sampled, and the sample was 11 observations with zero failures, which at n=11 bounds the disobedience rate no better than ~24% at 95% confidence. Compared against the ADVISED function, never against the final one, which may since have been site-suffixed by bugs_open/311's diversion. NOT deduped: the rate is the point. Review trigger: a sustained non-zero rate means the prompt pin has drifted from what the advisory emits and should be re-anchored."
+  },
+  "COMPONENT_ADVISED_ROW_VANISHED": {
+    "disposition": "instrumented",
+    "writer": "platform/orchestration/actions/store_generated_component_action.go",
+    "owner": "bugs_open/388_HANDOFF_2026-08-25_component_creator_is_advised_one_rows_field_contract_while_the_store_enforces_a_different_row.md",
+    "review_by": "2026-09-25",
+    "note": "bugs_open/388. The advisory pinned a content_components row by id and, by store time, no non-forked row with that id existed — deleted, or turned into a fork, in the window between advice and store. The store falls back to the legacy by-function resolution, which is correct; doing so SILENTLY would not be, because this race is otherwise invisible and a silent fallback is indistinguishable from the pin never having been wired. Expected count is approximately zero. Review trigger: a sustained non-zero rate means the pin should carry a snapshot of the schema as well as an id, which is a follow-up round rather than a patch."
+  },
+  "COMPONENT_PARALLEL_SECTION_BIRTH": {
+    "disposition": "instrumented",
+    "writer": "platform/orchestration/actions/store_generated_component_action.go",
+    "owner": "bugs_open/388_HANDOFF_2026-08-25_component_creator_is_advised_one_rows_field_contract_while_the_store_enforces_a_different_row.md",
+    "review_by": "2026-09-25",
+    "note": "bugs_open/388, and CLC-006's silent fork made loud. An UNPINNED creation on a section_type that already has an active non-forked section component. The field-contract guard cannot see this case at all — isRegeneration is false, so it is vacuous — which is why the duplicate is born with no error and no work item. Two such pairs exist in the live library from the generated route (tool-archetype-taster-quiz, tool-gripper-payload-calculator, both second rows born 2026-05-06 with function == section_type). Unrepresentable on the pinned path, so this fires only on the fail-open residual, which is what makes it worth counting. Diverted writes are excluded — a site-scoped twin is bugs_open/311 working as designed and already records COMPONENT_COLLISION_DIVERTED. The census is deliberately a DIFFERENT question (by section_type) from the one that resolved the identity (by id): bugs_open/324 shipped 32 dangling rows because its completeness check re-grepped the resolver's own patterns."
   }
 }

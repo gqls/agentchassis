@@ -408,7 +408,7 @@ func recordUnknownVerdict(ctx context.Context, params ActionParams, itemID uuid.
 		WorkItemID:   itemID.String(),
 		Action:       "complete_work_item",
 		ErrorMessage: "unrecognised handler verdict '" + status + "' — item completed, but this guard cannot tell success from failure for this vocabulary",
-		ErrorCode:    "UNKNOWN_HANDLER_VERDICT",
+		ErrorCode:    "HANDLER_VERDICT_UNRECOGNISED",
 		Severity:     "warning",
 		Context: map[string]interface{}{
 			"response_status": status,
