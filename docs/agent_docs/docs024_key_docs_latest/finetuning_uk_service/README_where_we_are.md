@@ -901,3 +901,36 @@ card headlines (yesterday's re-seeding) but the prose would come back in the sam
 we measured that ceiling across three builds yesterday. Rewriting the site before the
 machinery improves would spend money to reproduce the problem at scale. The two new pages
 stay up (facts right, price right, links right) unless you'd rather they came down.
+
+2026-08-25, later. Three things happened since this morning, and none of them needs you to do
+anything today except the decisions already on your list.
+
+The copy team has answered. Your verdict on our two pages is now the first item on their work
+list. It turns out a second complaint from you landed with them the same day — the one about
+the garden site — and it came with instructions: raise their game a lot, go and re-read the
+whole accumulated discussion before proposing any fix, and audit every single writing
+instruction we hold, in the database and in the code, for whether it is teaching an AI style of
+writing. They have done the re-reading and they have scoped the audit. What they have NOT yet
+done is change anything that would make a page read differently. So we are still holding: no
+rebuilds here, no rewrite, because a rewrite today would cost money and come back in the same
+voice you rejected.
+
+The rewrite you were asked to approve or decline: I now recommend not approving it as it
+stands, and here is the honest reason. The copy team ran it through their own checker and it
+turned out to be worse than I described last night. I re-ran that check myself rather than take
+their word for it. The rewrite does not just swap two subheadings for a bullet list — one of
+the two edits deletes an entire numbered list from the page, three items, and the other removes
+both its headings and half its paragraphs. Each edit cuts about a third to a half of the words.
+The prose may well read better; that is not the point. We have been bitten before by an editing
+step that quietly threw away part of a page and reported success. So the options are: leave it
+parked until the copy machinery improves and fold it into the proper rewrite (my
+recommendation), or ask for the same edits again with the list and the headings kept, or drop
+it. Applying it as it stands would take a list off a live page.
+
+One tidy-up: the validator bug that blocked this site's builds for three weeks is now formally
+closed. I checked it the hard way rather than trusting the release — the live page is serving
+the exact sentence that used to be rejected ("Your company's voice, in a model you own"), and
+it was published after the fix went out, so it cannot be running the old rule.
+
+Everything else waits on you, in your order: the rewrite decision above, the header slot, the
+booking shape, sample datasets, the four terms questions, and Stripe last.
