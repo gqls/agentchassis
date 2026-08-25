@@ -311,9 +311,23 @@ truth. **None of that makes the bug's own claim false.** Closing on "the mechani
     failure hours earlier and used `--with <my files>` instead, which is the only reason it never
     recurred here. Recorded fleet-wide as the fourth occurrence of the HEAD-vs-tree class in
     `LANDMINES.md` (`c021e52c3`).
-11. **A "known broken, do not debug" note is the most perishable thing you can write** — mine rotted
+11a. **HEAD was RED when this was written, and NOT on anything of this lane's**
+    `[2026-08-25 20:52Z — EXPECT THIS TO BE STALE; it is written in the form trap 11 demands]`.
+    `TestFindingCodeScanEveryWriteIsRegistered` fails in `platform/orchestration/actions`: the
+    `bugs_open/396` lane added error code `WORK_ITEM_STATUS_OVERRIDE_REFUSED`
+    (`work_items_common.go:202`, commit `2b46afbe6`, 20:48) without declaring it in
+    `architecture_review/finding_code_registry.json`. The guard's own message spells out the fix.
+    **Every other package was green**, including all of this lane's.
+    **Do not take my word for any of that — re-establish in one command:**
+    ```bash
+    scripts/verify-head-builds.sh --test ./platform/orchestration/actions/... ./cmd/config-key-audit/... ./platform/livespec/
+    ```
+    Green ⇒ they fixed it; ignore this note. Red on something else ⇒ check whose it is *before*
+    debugging (trap 10). Red on this ⇒ still theirs, and there was no `bugs_open/396` session
+    reachable to tell.
+12. **A "known broken, do not debug" note is the most perishable thing you can write** — mine rotted
     in under 90 minutes (§3a). Re-run the check before believing this file.
-12. **Other lanes broke HEAD twice on 2026-08-25 — both since FIXED** (`559e60bd0` and the `actions`
+13. **Other lanes broke HEAD three times on 2026-08-25 — the first two since FIXED** (`559e60bd0` and the `actions`
     one); kept as a dated event because the lesson is the habit, not the state: (`TestNoNewMigrationFileReadersOutsideTheAllowList` from
     `bugs_open/333`'s file; `advisedIdentityPin` undefined in `actions`). If a package fails for you,
     check whose it is before debugging. `scripts/verify-head-builds.sh --with <your files>` is how
