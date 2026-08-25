@@ -33,9 +33,10 @@ Cold-start order: **this file → RUNBOOK Phase 6 → NOTES §X.61 → `README_w
 ## 2. WHAT'S NEXT — in value order
 
 1. **Retune the five keywords after a week of items** (RUNBOOK 6e; webdesign.co.uk needed to).
-   And check whether served item `url`s are `google.com/goto` redirects — 9 of 12 ingested are;
-   `[UNVERIFIED]` whether the renderer resolves them (fundamentallyai serves clean URLs from the
-   same adapter). If served, that is the ingester's bug, not this lane's — file it there.
+   The goto-redirect question is ANSWERED (16:45Z): 3 of the 6 served items ARE
+   `google.com/goto` links, mortgagecalculator serves 1 too — **filed as `bugs_open/400`**
+   (the ingester's ScrapingBee news provider; dedup keys on `source_url` so one story can
+   double-list). The ingester lane's to fix; nothing owed here beyond watching.
 2. **A/B test calculator page — owner's choice, not made:** rebuild via the tool writer
    (`create_tool_component`, as the 311 lane did for webdesign.co.uk on 08-19) or retire the
    page. DB holds 1 of 4 planned sections; served page works from an old deploy; every rerender
