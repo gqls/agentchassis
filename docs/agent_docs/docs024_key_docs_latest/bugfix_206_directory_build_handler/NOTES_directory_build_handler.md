@@ -691,3 +691,41 @@ stamped) — so the first stamped row is necessarily the fix. RUNBOOK §7. Landm
 `last_reconciled_at` after 08-24 12:00: **0**. Newest reconcile anywhere: `agritec.uk` 08-24 11:26,
 *before* the roll. The five parked rows are untouched. The free proof has not arrived; it is still
 the right thing to wait for.
+
+### Misstep 5 — I probed a deploy three wrong ways in one command, with a control that vouched for all of them
+
+Asked to coordinate with the `bugs_open/381` lane (building a greenfield site — my closure
+artefact), I first needed to know whether the live fleet carries today's swap. I got the right
+answer by luck and the wrong method three times over:
+
+1. **Probed a symbol both versions carry.** `grep -aq "builderForPageType" /proc/1/exe` → PRESENT
+   on both replicas. That symbol shipped **2026-08-24** (`d1aa231aa`); it dates nothing about today.
+   I had written the words *"probe the CAPABILITY, not the commit"* into this lane's docs yesterday.
+2. **Grepped the binary for an ANCESTOR's sha.** `LANDMINES.md:9243` says it in as many words —
+   *"Test ANCESTRY, not equality — the stamp is whatever HEAD was at build time … your commit is
+   normally an ancestor rather than the stamp."* A build stamps **one** sha, so grepping for
+   `d1aa231aa` returns absent even though that code is demonstrably live. My probe reported
+   `MINE absent` and `OLD_0824 absent`, i.e. it "disproved" a deploy that yesterday's session had
+   verified at the artefact.
+3. **And my negative control was VACUOUS.** `0000…0000` (40 zeros) came back **PRESENT** — it
+   matches Go's internal tables, which is precisely the trap
+   `MEMORY: a-fresh-deploy-can-ship-no-new-code` names ("a control that matches everything (40
+   zeros) hides it"). So the one thing in the command that existed to tell me the method was broken
+   **agreed with the method**.
+
+The first two probes were fabricated prefixes too (`efec862f4a5b` is not a prefix of
+`efec862f40404b…`) — so two of the five probe strings could not have matched anything regardless.
+
+**What actually settled it, and should have been the first move: two timestamps.** Pods started
+`2026-08-25T09:27:48Z`; `efec862f4` is committed `09:58:33Z`. **A binary cannot contain code
+committed 31 minutes after it started.** No cluster exec, no grep, no control needed.
+
+**The check, for next time:** to date a deploy, read the stamp (`logs … | grep -m1 'build
+provenance'`) and run `git merge-base --is-ancestor <my-commit> <the stamp>`. If the startup line
+has scrolled — it had — fall back to **pod `startTime` vs `git log -1 --format=%cI`**, which is
+free, local, and has no failure mode. Grep the binary only for a **known** value you expect
+present, never to test ancestry.
+
+Reported to the 381 lane with the timestamp reasoning and an explicit note that the symbol probe
+and its control are not to be relied on — I would rather hand them the caveat than a clean-looking
+PRESENT.
