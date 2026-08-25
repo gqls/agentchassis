@@ -3,8 +3,10 @@
 **Read this first, then `bugs_open/364` §5a–§6g.** Everything below is either measured and dated, or
 explicitly marked as not.
 
-**Lane status: the shipped work is DONE, LIVE and VERIFIED. Three things remain, none of them
-blocking, and one of them is a human decision rather than a task.** See §5.
+**Lane status (updated 2026-08-25, after the owner's rulings): the interim is LIVE and VERIFIED;
+Phase 2 is BUILT and awaiting the next roll; the two false queue items are CANCELLED. One thing is
+genuinely outstanding — an end-to-end build of an affected page on the new binary — and the
+`bugs_open/387` lane is going to hand it to us. See §5.**
 
 ---
 
@@ -78,16 +80,45 @@ It carries the consumer enumeration, the two designs already refuted, and the on
 
 ## 5. What is left — three items, and only one is a task for an engineer
 
-### 5.1 End-to-end confirmation (small, waiting on demand rather than on work)
+### 5.1 End-to-end confirmation — THE ONE THING STILL OPEN
 
-Nothing of an affected page type has rebuilt since the roll. Either wait for one, or create the
-demand deliberately. **I did not trigger a rebuild myself**: it regenerates copy on a live customer
-site, which is outward-facing and content-destructive, and it was not needed to establish the
-logic. If you do it, the recipe and the flag-then-trigger steps are in `bugs_open/364` §6e; check
-the **build stamp**, not a later success, because the writer regenerates copy each attempt and a
-page can pass for unrelated reasons.
+Nothing of an affected page type has rebuilt on the new binary. The owner cleared a deliberate
+rebuild on **any site that is not finance and not being worked on by another thread** — and
+measured, **the only site on the fleet carrying those page types (or the word "orchestrations") is
+ai-agent-orchestration.com**, which `bugs_open/387` is actively working. So the permission does not
+reach a site that could exercise the fix, and I stood down rather than collide.
 
-### 5.2 ⚠ Two false items sit in the human queue and will NOT self-close — this is a human ruling
+**`bugs_open/387` has agreed to hand it over**: their plan rebuilds `model-directory` and both
+trackers after their `writer_block` fix, all starting after the roll, and they will message the
+orchestration id, start time and `unregistered_number` count for each. **Predicted: zero.**
+
+⚠ **Check the clock on any confirmation, including one a peer hands you.** They first offered a
+clean `model-directory` build (orchestration `3384ae13`, 0 error rows) — it ran at 06:26Z and the
+roll landed at **09:27:24Z**, so it predates the binary by three hours and proves nothing. The same
+arithmetic clears the 08-24 tracker *failures* of saying anything against the fix. `WRONG_CALLS.md`
+2026-08-25 #6.
+
+### 5.1b Phase 2 is BUILT but INERT — do not read the commit as the state
+
+Commit `52958897f`, council `3ed2b792` (verdict pending). It is Go, so **everything the LANDMINES
+entry says about the scan being silent on three whole page types is still true of the running
+fleet** until the next roll. Prove it at the artefact when you come to it:
+`grep -a -c -F 'adoption-tracker-listing' /proc/1/exe` on a chassis pod (≥1 = Phase 2 live), or
+`merge-base --is-ancestor 52958897f <service_binary_capabilities.git_commit>`.
+
+### 5.2 ✅ DONE — the two false queue items were ruled false by the owner and cancelled
+
+Owner ruling 2026-08-25. `4405fb38` (adoption-tracker, 8 findings) and `2f8f67dd` (protocol-tracker,
+3) are `cancelled`, with the full reasoning on each row's `resolution_path` so it travels with the
+row. The four genuine siblings on content pages were verified untouched as the control. The
+pre-cancel snapshot — all 11 matched tokens, every one a third party's figure — is preserved in
+`bugs_open/364` §6h, because closing archives the row out of `site_work_items`.
+
+**The integrity control was not bypassed**: `armGateClaimsStillPresent` refused to auto-close and
+escalated to a human, which is the designed path. The original analysis is kept below because the
+mechanism is what matters for the next detector fix.
+
+### 5.2b Why they could not self-close (kept — this is the durable part)
 
 | item id | page | findings | verdict it will now get |
 |---|---|---|---|
@@ -106,9 +137,12 @@ Their siblings `ddc90e58` (about, 6) and `962da5c9` (case-studies, 1) are on con
 **genuine** — they stay open on merit. ⚠ Record the ids before closing anything: closing archives
 the row out of `site_work_items`, so a later census cannot see what it succeeded at.
 
-### 5.3 Phase 2 / RFC_053 — needs an architecture decision, not code yet
+### 5.3 RFC_053 — mostly ANSWERED by building it; one question left for the architecture track
 
-Open question for a human. Not blocking anything; the interim holds and its cost is pinned.
+The owner ruled "finish the jobs properly" and Phase 2 is built (§5.1b). What remains open is
+question 1's second half only: whether the declaration should move out of a Go map and into a
+`content_components` column once the list grows, and what the membership bar is when the author is
+not also the person measuring.
 
 ## 6. Spin-offs filed by this lane — both real, both UNOWNED
 
