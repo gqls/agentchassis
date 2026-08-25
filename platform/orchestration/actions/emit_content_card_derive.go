@@ -7,7 +7,7 @@
 // hero; a LATER pass sees the page has no card and files the DERIVE that builds
 // one; pass 3 is silent. derive_card_asset is the estate's ONLY writer of
 // assets.entity_type/entity_id, and both readers of that link —
-// queryresolve.pageImageJoins (every listing card on the fleet) and the check's
+// queryresolve.PageImageJoinsSQL (every listing card on the fleet) and the check's
 // own sweep — additionally require purpose='card'. So until the DERIVE runs, a
 // generated hero is invisible to every listing.
 //

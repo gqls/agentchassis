@@ -267,7 +267,7 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 	}
 
 	// ── Tell the listings (bugs_open/384). This card is what queryresolve's
-	// pageImageJoins projects into every page-list item on the site, and those
+	// PageImageJoinsSQL projects into every page-list item on the site, and those
 	// items live in stored arrays that only a section_data_resolved re-render
 	// refreshes — an assemble-mode re-render re-ships them verbatim, which is
 	// how a listing was re-rendered three times after its cards landed and

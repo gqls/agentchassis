@@ -189,7 +189,7 @@ func requestPageListReresolve(
 }
 
 // reresolvePageListsAfterCard is derive_card_asset's call. The card is what
-// queryresolve's pageImageJoins projects into every page-list item on the
+// queryresolve's PageImageJoinsSQL projects into every page-list item on the
 // site, so its landing is exactly the event the listings must hear about.
 // Skipped when the provenance upsert was lock-suppressed: the join reads the
 // row, and the row did not change. Returns the fields for the action's result.
@@ -209,7 +209,7 @@ func reresolvePageListsAfterCard(
 
 // reresolvePageListsAfterPageImage is flag_page_image_rebuild's call, inside
 // its transaction. A landed page image is the listings' fallback image (the
-// `ha` arm of pageImageJoins) — UNLESS a card derive was just raised for the
+// `ha` arm of PageImageJoinsSQL) — UNLESS a card derive was just raised for the
 // page, in which case the card will supersede it and derive_card_asset
 // requests the re-resolve when the card lands; re-resolving now as well would
 // show the hero for a few minutes and then re-render again. Returns the

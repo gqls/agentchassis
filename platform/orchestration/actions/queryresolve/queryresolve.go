@@ -561,6 +561,19 @@ const PageImageJoinsSQL = `
 		     LIMIT 1
 		) ha ON true`
 
+// PageListingHardCap is the maximum number of items any page-listing query
+// returns, and the bound PageImageJoinsSQL's per-row LATERAL hero lookup was
+// designed around.
+//
+// EXPORTED 2026-08-25 (council round 170147b4, guardian): rebuild_blog_listing
+// splices the projection into an UNCAPPED query, so it paid the lateral per row
+// AND could disagree with the resolver about the same listing. Measured that
+// day: webdesign.co.uk has 40 eligible blog posts, so the resolver would
+// produce 24 items and the action 40 — a 16-item divergence between two writers
+// of one listing, which is the drift class this file already shares
+// ListedPageEligibilitySQL to avoid. One definition, both callers.
+const PageListingHardCap = 24
+
 // PageImageCols carries the scanned image candidates for one listing row.
 type PageImageCols struct {
 	CardKey     string
@@ -648,7 +661,7 @@ func resolvePagesWhereType(
 	// Hard cap. Components rarely want more than 12 items in a list; cap at
 	// 24 to stop runaway queries. If the schema asks for more, we honour up
 	// to 24.
-	const hardCap = 24
+	const hardCap = PageListingHardCap
 	if limit <= 0 {
 		limit = 12
 	}
@@ -737,7 +750,7 @@ func resolvePagesUnderSection(
 		return nil, fmt.Errorf("resolvePagesUnderSection: empty section argument")
 	}
 
-	const hardCap = 24
+	const hardCap = PageListingHardCap
 	if limit <= 0 {
 		limit = 12
 	}
@@ -825,7 +838,7 @@ func resolveProducts(
 	limit int,
 	logger *zap.Logger,
 ) (interface{}, error) {
-	const hardCap = 24
+	const hardCap = PageListingHardCap
 	if limit <= 0 {
 		limit = 12
 	}

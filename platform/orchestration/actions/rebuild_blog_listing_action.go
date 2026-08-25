@@ -66,6 +66,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -109,14 +110,28 @@ import (
 // this change alters no stored byte. It is a door-closing fix, not a repair;
 // do not quote it as having fixed a visible listing.
 //
-// ⚠ UNCAPPED, unlike the resolvers. PageImageJoinsSQL's lateral hero lookup
-// runs per returned row, and resolvePagesWhereType caps at 24 while this query
-// has no LIMIT at all. Cheap at today's volumes (the largest listing is 20
-// articles); it is stated here so the cost is known rather than discovered.
+// CAPPED at queryresolve.PageListingHardCap, added 2026-08-25 on the council's
+// objection (round 170147b4, guardian). The first cut spliced the projection
+// into an UNCAPPED query, so PageImageJoinsSQL's per-row LATERAL hero lookup —
+// designed around a 24-row result — ran once per post with no bound.
+//
+// And the cap is not only about cost: WITHOUT it the two writers of this same
+// listing DISAGREE. `query.blog_posts` resolves through resolvePagesWhereType,
+// which caps at 24; this action did not. [MEASURED 2026-08-25]
+// webdesign.co.uk has **40** eligible blog posts, so the resolver would produce
+// 24 items and this action 40 — a 16-item divergence on one listing, which is
+// exactly the drift class this file already shares ListedPageEligibilitySQL to
+// avoid. Sharing the cap closes it the same way: ONE definition, both callers.
+//
+// A measured no-op on what this action writes today: the three live blog-index
+// listings carry 16, 20 and 11 posts, all under the cap.
 //
 // Alias contract: `p` for pages, as the shared constants require. `ca` and `ha`
 // come from PageImageJoinsSQL and do not collide with the `pc` subquery below.
-const blogPostsQuery = `
+// A `var`, not a `const`: the LIMIT is composed from queryresolve.PageListingHardCap
+// at init, and a const cannot call strconv.Itoa. Sharing the cap is worth the
+// keyword — a second literal 24 here is exactly the drift this splice removes.
+var blogPostsQuery = `
 		SELECT p.id, p.name, p.url, p.title,
 		       COALESCE(p.meta_description, ''),
 		       p.created_at,
@@ -134,6 +149,7 @@ const blogPostsQuery = `
 		  AND p.page_type = 'blog-post'
 		  AND p.status IN ('active', 'deployed')` + queryresolve.ListedPageEligibilitySQL + `
 		ORDER BY p.created_at DESC
+		LIMIT ` + strconv.Itoa(queryresolve.PageListingHardCap) + `
 	`
 
 var RebuildBlogListingInputSpec = datahelpers.ActionInputSpec{
@@ -210,7 +226,14 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 	}
 	defer rows.Close()
 
-	articles := scanBlogArticles(rows, logger)
+	articles, err := scanBlogArticles(rows, logger)
+	if err != nil {
+		// Loud by design (council 170147b4, bug_historian): a projection/Scan
+		// divergence must not be laundered into "no posts", which the branch
+		// below would treat as "leave the existing listing alone" and report as
+		// success.
+		return nil, fmt.Errorf("failed to read blog posts: %w", err)
+	}
 
 	// How many articles the listing carried BEFORE this rebuild. Read for the
 	// shrink check below; -1 means "no previous set to compare against".
@@ -416,13 +439,34 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 // fragment. Driving this function with mock rows is the only DB-free way to
 // prove the column count and order still line up.
 //
-// A row that fails to scan is logged and skipped rather than failing the
-// rebuild: one malformed post must not blank a whole listing (the caller
-// treats an empty set as "leave the existing listing alone", so a hard failure
-// here would be indistinguishable from "no posts").
-func scanBlogArticles(rows *sql.Rows, logger *zap.Logger) []map[string]interface{} {
+// ONE bad row is skipped; EVERY row failing is an ERROR, and the difference is
+// the whole point (council round 170147b4, bug_historian, gating, 2026-08-25).
+//
+// The original loop logged-and-skipped unconditionally. Combined with the
+// caller — which treats an empty article set as "leave the existing listing
+// alone" — that made a PROJECTION-SHAPE MISMATCH silent: if
+// PageImageProjectionSQL ever gains or reorders a column, every Scan fails,
+// every row is skipped, the listing comes back empty, the caller keeps the
+// stale listing, the step reports success and NOBODY IS TOLD. The reviewer
+// named it as this council's recurring shape and was right: the exposure was
+// documented in prose here and not closed.
+//
+// So the two cases are now distinguished, because they have different causes:
+//   - SOME rows scanned: one malformed post. Skip it, log at Warn, carry on —
+//     a single bad row must not blank a live listing.
+//   - NO rows scanned but rows were offered: the Scan destinations no longer
+//     match the SELECT list. That is a code defect, not data, and it cannot be
+//     repaired by retrying. Return an error so the step FAILS loudly instead of
+//     handing the caller an empty set that looks like "no posts".
+//
+// A genuinely empty result set (no eligible posts) is NOT an error and never
+// reaches this branch — attempted stays 0, and the caller's own no-posts path
+// handles it with its existing warning.
+func scanBlogArticles(rows *sql.Rows, logger *zap.Logger) ([]map[string]interface{}, error) {
 	var articles []map[string]interface{}
+	attempted, scanFailures := 0, 0
 	for rows.Next() {
+		attempted++
 		var id uuid.UUID
 		var name, url, title, metaDesc string
 		var createdAt time.Time
@@ -430,6 +474,7 @@ func scanBlogArticles(rows *sql.Rows, logger *zap.Logger) []map[string]interface
 		var img queryresolve.PageImageCols
 		if err := rows.Scan(&id, &name, &url, &title, &metaDesc, &createdAt, &contentLength,
 			&img.CardKey, &img.HeroKey, &img.HeroPurpose); err != nil {
+			scanFailures++
 			logger.Warn("Failed to scan blog post", zap.Error(err))
 			continue
 		}
@@ -458,7 +503,19 @@ func scanBlogArticles(rows *sql.Rows, logger *zap.Logger) []map[string]interface
 			"read_time": estimateReadTime(contentLength),
 		})
 	}
-	return articles
+
+	if attempted > 0 && len(articles) == 0 {
+		logger.Error("RebuildBlogListingAction: EVERY blog post row failed to scan — the projection's column list no longer matches the Scan destinations; refusing to report an empty listing as 'no posts'",
+			zap.Int("rows_offered", attempted),
+			zap.Int("scan_failures", scanFailures),
+			zap.String("hint", "blogPostsQuery splices queryresolve.PageImageProjectionSQL; a column added or reordered there must change scanBlogArticles in the same commit"))
+		return nil, fmt.Errorf("blog listing scan failed for all %d offered rows (%d scan errors): the query projection and the Scan destinations have diverged", attempted, scanFailures)
+	}
+	if scanFailures > 0 {
+		logger.Warn("RebuildBlogListingAction: some blog posts were skipped by the scan — the listing is being rebuilt WITHOUT them",
+			zap.Int("scanned_ok", len(articles)), zap.Int("scan_failures", scanFailures))
+	}
+	return articles, nil
 }
 
 // findBlogPage locates the blog listing page for a site.

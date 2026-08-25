@@ -21,6 +21,7 @@
 package actions
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -57,7 +58,10 @@ func scanOneBlogRow(t *testing.T, cardKey, heroKey, heroPurpose string) map[stri
 	}
 	defer got.Close()
 
-	articles := scanBlogArticles(got, zap.NewNop())
+	articles, err := scanBlogArticles(got, zap.NewNop())
+	if err != nil {
+		t.Fatalf("scanBlogArticles errored on a well-formed row: %v", err)
+	}
 	if len(articles) != 1 {
 		t.Fatalf("scanBlogArticles returned %d articles, want 1 — the Scan destination list no longer matches the projection's column count", len(articles))
 	}
@@ -141,8 +145,110 @@ func TestBlogListingScanContractMatchesTheProjection(t *testing.T) {
 	}
 	defer got.Close()
 
-	if articles := scanBlogArticles(got, zap.NewNop()); len(articles) != 0 {
+	articles, err := scanBlogArticles(got, zap.NewNop())
+	if len(articles) != 0 {
 		t.Errorf("a row with too few columns produced %d articles — the Scan is not actually reading the image columns", len(articles))
+	}
+	if err == nil {
+		t.Errorf("a projection/Scan divergence returned no error — the caller would read the empty set as 'no posts' and silently keep the stale listing")
+	}
+}
+
+// THE SILENT-DEGRADATION PATH, closed (council round 170147b4, bug_historian,
+// gating, 2026-08-25). The first cut logged-and-skipped EVERY unscannable row
+// and returned an empty slice; the caller treats an empty article set as "leave
+// the existing listing alone", so a projection-shape mismatch would have kept a
+// stale listing, reported success, and told nobody. These two tests pin the
+// distinction that fixes it — and the distinction is the point, because
+// "no eligible posts" is a legitimate empty result that must NOT become an error.
+func TestBlogListingErrorsWhenEveryRowFailsToScan(t *testing.T) {
+	db, mock := newRetractMockDB(t)
+	// Three rows offered, all one column short: a column was added to the
+	// projection and the Scan destinations were not updated with it.
+	short := blogRowCols[:len(blogRowCols)-1]
+	rows := sqlmock.NewRows(short)
+	for i := 0; i < 3; i++ {
+		rows.AddRow(uuid.New(), "post", "/blog/post.html", "Post",
+			"Summary.", time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC), 4000,
+			"card-key", "hero-key")
+	}
+	mock.ExpectQuery(`SELECT`).WillReturnRows(rows)
+	got, qerr := db.Query(`SELECT`)
+	if qerr != nil {
+		t.Fatalf("mock query: %v", qerr)
+	}
+	defer got.Close()
+
+	articles, err := scanBlogArticles(got, zap.NewNop())
+	if err == nil {
+		t.Fatalf("every row failed to scan and scanBlogArticles returned no error (%d articles) — the step would report success while the listing silently kept its stale contents", len(articles))
+	}
+	if !strings.Contains(err.Error(), "diverged") {
+		t.Errorf("error does not name the cause (projection vs Scan divergence): %v", err)
+	}
+}
+
+// ...and the other side of it: an EMPTY result set is not an error. A site with
+// no eligible posts is ordinary, and turning that into a failure would break
+// the caller's existing "keep the previous listing" path.
+func TestBlogListingDoesNotErrorOnAnEmptyResultSet(t *testing.T) {
+	db, mock := newRetractMockDB(t)
+	mock.ExpectQuery(`SELECT`).WillReturnRows(sqlmock.NewRows(blogRowCols))
+	got, qerr := db.Query(`SELECT`)
+	if qerr != nil {
+		t.Fatalf("mock query: %v", qerr)
+	}
+	defer got.Close()
+
+	articles, err := scanBlogArticles(got, zap.NewNop())
+	if err != nil {
+		t.Fatalf("an empty result set must not be an error — a site with no eligible posts is ordinary: %v", err)
+	}
+	if len(articles) != 0 {
+		t.Errorf("got %d articles from an empty result set", len(articles))
+	}
+}
+
+// One bad row among good ones is still tolerated: a single malformed post must
+// not blank a live listing. This is what stops the fix above from becoming a
+// new fragility.
+func TestBlogListingSkipsOneBadRowButKeepsTheRest(t *testing.T) {
+	db, mock := newRetractMockDB(t)
+	rows := sqlmock.NewRows(blogRowCols).
+		AddRow(uuid.New(), "good", "/blog/good.html", "Good Post", "Summary.",
+			time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC), 4000, "card-good", "", "").
+		AddRow(uuid.New(), "bad", "/blog/bad.html", "Bad Post", "Summary.",
+			"not-a-time", 4000, "card-bad", "", "")
+	mock.ExpectQuery(`SELECT`).WillReturnRows(rows)
+	got, qerr := db.Query(`SELECT`)
+	if qerr != nil {
+		t.Fatalf("mock query: %v", qerr)
+	}
+	defer got.Close()
+
+	articles, err := scanBlogArticles(got, zap.NewNop())
+	if err != nil {
+		t.Fatalf("one unscannable row among good ones must not fail the rebuild: %v", err)
+	}
+	if len(articles) != 1 {
+		t.Fatalf("got %d articles, want 1 — the good row must survive its bad neighbour", len(articles))
+	}
+	if title, _ := articles[0]["title"].(string); title != "Good Post" {
+		t.Errorf("surviving article is %q, want \"Good Post\"", title)
+	}
+}
+
+// The cap is SHARED with the resolver, not a second literal (council round
+// 170147b4, guardian). Without it the two writers of one listing disagree:
+// [MEASURED 2026-08-25] webdesign.co.uk has 40 eligible blog posts, so
+// query.blog_posts yields 24 items and this action would have yielded 40.
+func TestBlogPostsQueryCapsAtTheSharedListingLimit(t *testing.T) {
+	want := "LIMIT " + strconv.Itoa(queryresolve.PageListingHardCap)
+	if !strings.Contains(blogPostsQuery, want) {
+		t.Errorf("blogPostsQuery must carry %q — an uncapped query pays PageImageJoinsSQL's per-row LATERAL unbounded AND can disagree with the resolver about the same listing:\n%s", want, blogPostsQuery)
+	}
+	if queryresolve.PageListingHardCap != 24 {
+		t.Errorf("PageListingHardCap is %d — if the shared cap moves, confirm the resolvers and this action still agree", queryresolve.PageListingHardCap)
 	}
 }
 
