@@ -17970,3 +17970,35 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** MEMORY [[mutate-the-code-to-prove-the-guard]] · [[a-post-fix-zero-needs-a-demand-control]] · [[a-doc-comment-is-not-an-enforcement-mechanism]] · `deployments/docker/README.md` (the install runbook this produced) · the sibling entry above on `du` not seeing `/var/lib/docker`
 - **source:** 2026-08-25, `tmpfs_exhaustion` lane, found while preparing a root-run install for the owner — the control was run *because* it was about to be root, not because anything looked wrong.
 - **added:** 2026-08-25, `tmpfs_exhaustion` lane
+
+---
+
+## `pages.deployed_at` is UPDATED on every redeploy, not set once at first publication — so `deployed_at > <time>` measures RERENDER CHURN, not "published since"
+
+- **footprint:** `pages.deployed_at` · any `WHERE deployed_at > …` / `deployed_at BETWEEN …` · "pages published since X" · "was this site built before Y" · blast-radius counts over `pages` · `site_discovery_rotation` reconciliations
+- **fires when:** you reach for `deployed_at` as a birth date. The name reads like one, it is NULL until first deploy (so it behaves like one on new rows), and there is no `first_deployed_at` beside it to warn you.
+- **why the wrong result looks exactly right:** the number is plausible and LARGE, so it reads as a big finding rather than a broken query. **[MEASURED 2026-08-25]** hunting for sites affected by a selector defect, `count(*) FILTER (WHERE p.deployed_at > r.last_selected_at)` returned **24 of 24 domains**, most with double-digit counts — which reads as fleet-wide breakage. The real population was **two**. Proof it is mutated: `dartsonline.com` pages have `created_at` **2026-07-06** and `deployed_at` **2026-08-24/25** — every rerender rewrites it.
+- **the check:** compare `created_at` to `deployed_at` on any long-lived site before trusting a `deployed_at` window. A wide gap on old rows means the column tracks the LAST deploy. For "has this ever shipped", use `deployed_at IS NOT NULL` — that predicate is sound and is what `render_sitemap` correctly uses. For "shipped since X" there is **no column**, and the honest answer is to say so rather than approximate it.
+- **relations:** [[a-stale-page-holds-every-improvement-since-it-rendered]] · the `last_triggered_at`/`last_selected_at` family — same shape: a timestamp that advances for a reason you did not have in mind.
+- **source:** portfolio_positioning lane, 2026-08-25, caught BEFORE the bad query reached a handoff
+- **added:** 2026-08-25, portfolio_positioning lane
+
+---
+
+## A reconciliation that joins a durable STAMP to a 24-hour ROLLING WINDOW reports old successes as failures — and the documented remedy for the "failure" is destructive
+
+- **footprint:** `site_discovery_rotation` · `orchestration_states` (COMPLETED/FAILED retained ~24h by `database-cleanup` step 3) · `scheduled_tasks.last_triggered_at` · any "did the dispatch I stamped actually run?" query · any remedy of the form "clear the stamp so it re-runs"
+- **fires when:** you verify a fire-and-forget rotation. The stamp lives **for ever** in a rotation table; the evidence that it ran lives in `orchestration_states`, which is **reaped after ~24h**. Join them and every stamp older than a day reports zero runs.
+- **why the wrong result looks exactly right:** zero-runs-against-a-stamp is precisely the signal the query exists to find, and it arrives in a batch, which reads as a systemic fault rather than an artefact of retention. **[MEASURED 2026-08-25]** this query — **written into a handoff the previous day as the recommended check** — reported **six** dropped dispatches. All six had run and were serving correct output; the oldest surviving orchestration row was 2026-08-24 19:05 against stamps from 15:32.
+- **⚠ THE REMEDY IS THE DANGEROUS PART.** The documented fix for a real dropped dispatch is *"clear the stamp so the site returns to the front of the queue"*. Applied to six false hits that is six healthy sites re-probed for nothing (~150 HTTP requests here), and — worse — it looks like the mechanism is broken, which invites someone to "fix" a system that is working.
+- **the check — never let an unknowable read as a zero:**
+  ```sql
+  CASE WHEN stamp < now() - interval '20 hours' THEN 'unknowable (evidence reaped)'
+       WHEN EXISTS (…evidence…)                 THEN 'ran'
+       ELSE 'NO RUN — dropped dispatch' END
+  ```
+  Outside the retention window the only detector that does not go stale is the **ARTEFACT** — does the thing the run was supposed to produce exist? Check that, not the run record.
+- **the transferable half:** when a check joins two stores with **different retention**, its answer has a shelf life even though nothing about it looks time-dependent. Write the window into the query, and make the out-of-window case say *"I cannot tell"* — because a remedy attached to a false positive turns a reporting bug into a destructive one.
+- **relations:** MEMORY [[a-closer-census-cannot-see-what-it-succeeded-at]] — same family, different pair of tables · [[a-post-fix-zero-needs-a-demand-control]]
+- **source:** portfolio_positioning lane, 2026-08-25; the offending query was this lane's own, in `HANDOFF_2026-08-25_continue_here.md` §5, corrected in `…-25b` §4a
+- **added:** 2026-08-25, portfolio_positioning lane
