@@ -179,3 +179,111 @@ func TestPlaceholderScanStillCatchesProse(t *testing.T) {
 		})
 	}
 }
+
+// ── Numeric stand-in placeholders (bugs_open/387) ───────────────────────────
+//
+// "NNN+" reached the public on 2026-08-25: a writer_block quoted the exemplar
+// 'Phrase it as "NNN+ AI agents"' and the writer copied it into served copy 14
+// times in 137 instructed calls, while no detector had the shape. The positive
+// cases pin the live defect's own sentence; the negative cases pin the two
+// shapes the fleet census PROVED convict honest copy (bare roman-numeral "XX",
+// a quoted "[number]" fill-in template) plus the code idioms ("N+1") and
+// lowercase words the case-sensitive match must keep ignoring.
+
+func TestPlaceholderScanCatchesNumericStandIns(t *testing.T) {
+	cases := []struct {
+		name string
+		html string
+		want string // exact matched text that must be reported
+	}{
+		{
+			// The live defect, verbatim (model-directory hero, 2026-08-25).
+			"the shipped NNN+ hero sentence",
+			`<html><body><p>We track providers, context windows and pricing tiers against the NNN+ agent types already running in production.</p></body></html>`,
+			"NNN+",
+		},
+		{
+			"two-letter stand-in with plus",
+			`<html><body><p>Serving NN+ clients across the UK.</p></body></html>`,
+			"NN+",
+		},
+		{
+			"bare NNN as its own word",
+			`<html><body><p>This registry tracks NNN agents.</p></body></html>`,
+			"NNN",
+		},
+		{
+			"XXX+ stand-in",
+			`<html><body><h2>XXX+ projects delivered</h2></body></html>`,
+			"XXX+",
+		},
+		{
+			"comma-grouped stand-in",
+			`<html><body><p>Over N,NNN records verified.</p></body></html>`,
+			"N,NNN",
+		},
+		{
+			"stand-in in a meta description is still prose",
+			`<html><head><meta name="description" content="Tracks NNN+ agent types in production."></head><body><p>Fine.</p></body></html>`,
+			"NNN+",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := placeholderValues(checkPlaceholderPatterns(tc.html))
+			for _, v := range got {
+				if v == tc.want {
+					return
+				}
+			}
+			t.Fatalf("numeric stand-in %q not caught; got %v", tc.want, got)
+		})
+	}
+}
+
+func TestPlaceholderScanIgnoresNumericLookalikes(t *testing.T) {
+	cases := []struct {
+		name string
+		html string
+	}{
+		{
+			// relojistas.com glosario-cronografo — live honest prose the census found.
+			"roman numeral century (siglo XX)",
+			`<html><body><p>Zenith desarrolló en el siglo XX un cronógrafo de alta frecuencia.</p></body></html>`,
+		},
+		{
+			// idea.uk guide-testing-it — a deliberately quoted fill-in template.
+			"quoted fill-in template with [number]",
+			`<html><body><p><em>"We'll test it by [this] for [this long]. If fewer than [number] do it, the idea as stated is wrong."</em></p></body></html>`,
+		},
+		{
+			"N+1 is a code idiom, not a stand-in",
+			`<html><body><p>Avoiding the classic N+1 queries problem in ORMs.</p></body></html>`,
+		},
+		{
+			"XXL is a size, not a stand-in",
+			`<html><body><p>Available in sizes up to XXL.</p></body></html>`,
+		},
+		{
+			"CNN+ is a brand, not a stand-in",
+			`<html><body><p>The streaming service CNN+ closed within a month.</p></body></html>`,
+		},
+		{
+			"lowercase letters never match",
+			`<html><body><p>The word cannonball contains nnn... no it does not, but banned and running do carry doubled letters.</p></body></html>`,
+		},
+		{
+			"stand-in inside a script is not prose",
+			`<html><body><script>const mask = "NNN+"; render(mask);</script><p>Real copy.</p></body></html>`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := placeholderValues(checkPlaceholderPatterns(tc.html)); len(got) != 0 {
+				t.Fatalf("honest content convicted: %v", got)
+			}
+		})
+	}
+}

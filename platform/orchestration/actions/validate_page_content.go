@@ -173,6 +173,32 @@ var placeholderPatterns = []struct {
 	{"text needed", "placeholder prompt"},
 }
 
+// placeholderRegexes catches SHAPE-based placeholders a substring list cannot
+// express: letters standing in for digits ("NNN+", "N,NNN"), the class that
+// reached the public on 2026-08-25 (bugs_open/387 — ai-agent-orchestration's
+// model-directory hero served "tracks NNN+ agent types"). A writer model copies
+// a stand-in verbatim out of its own instructions (~10% of calls carrying one:
+// 14 of 137 measured), so the shape recurs wherever a prompt quotes one.
+//
+// Scope was MEASURED before these shipped (census over every active page's
+// rendered_html plus all site_components, 2026-08-25): the four shapes below
+// matched exactly ONE component fleet-wide — the live defect — and zero honest
+// copy. Matching is case-SENSITIVE (stand-ins are written in capitals; their
+// lowercase forms live inside ordinary words). Two lookalike shapes are
+// deliberately ABSENT because the same census convicted honest prose with
+// them: bare "XX" (roman numerals — "siglo XX", relojistas) and "[number]"
+// (a deliberately quoted fill-in template in an idea.uk guide). Re-run the
+// census before adding a shape.
+var placeholderRegexes = []struct {
+	Pattern *regexp.Regexp
+	Label   string
+}{
+	{regexp.MustCompile(`\bN{2,}\+`), "numeric stand-in placeholder"},      // NN+, NNN+
+	{regexp.MustCompile(`\bN{3,}\b`), "numeric stand-in placeholder"},      // bare NNN
+	{regexp.MustCompile(`\bX{2,}\+`), "numeric stand-in placeholder"},      // XX+, XXX+
+	{regexp.MustCompile(`\bN{1,2},NNN\b`), "numeric stand-in placeholder"}, // N,NNN / NN,NNN
+}
+
 var templateVarRegex = regexp.MustCompile(`\{\{[\s]*[\.\w]+[\s]*\}\}`)
 var templateBlockRegex = regexp.MustCompile(`\{\{[\s]*(range|if|with|end|else|template|block|define)[\s]`)
 
@@ -943,6 +969,25 @@ func checkPlaceholderPatterns(html string) []ValidationIssue {
 					Location:    extractSnippet(block, idx, 80),
 					Value:       p.Pattern,
 					Description: fmt.Sprintf("Found placeholder text '%s' (%s)", p.Pattern, p.Label),
+				})
+				break
+			}
+		}
+	}
+
+	// Shape-based stand-ins, over the same prose blocks. Original case, not the
+	// lowered copy — case is the signal (see placeholderRegexes).
+	for _, p := range placeholderRegexes {
+		for _, block := range blocks {
+			if loc := p.Pattern.FindStringIndex(block); loc != nil {
+				matched := block[loc[0]:loc[1]]
+				issues = append(issues, ValidationIssue{
+					Type:        "placeholder_text",
+					Category:    "placeholder",
+					Severity:    "blocker",
+					Location:    extractSnippet(block, loc[0], 80),
+					Value:       matched,
+					Description: fmt.Sprintf("Found placeholder text '%s' (%s)", matched, p.Label),
 				})
 				break
 			}
