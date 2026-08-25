@@ -312,3 +312,36 @@ shape from an existing item the framework itself produced rather than inventing 
 
 And the NOT NULL columns without defaults, found one failed INSERT at a time so you do not have
 to: **site_id, source, item_type, summary, created_by**.
+
+---
+
+## 14. A work item sitting at `triaged` — ask the ROW, not a copy of the rule
+
+Three checks, in this order. Only the third is new and it is the one that pays.
+
+**1. Is anything being claimed ANYWHERE?** Fleet-wide silence is environmental (a chassis roll —
+no dispatch within ~300s of a pod restart); only-your-item is yours.
+
+    SELECT count(*) FILTER (WHERE status='claimed') AS claimed_fleet FROM site_work_items;
+
+**2. Is the site locked?** `build-pipeline-trigger`'s pre-query is `WHERE s.locked_at IS NULL`, so
+a locked site dispatches nothing at all. Three sites are locked long-term today and it is
+deliberate.
+
+    SELECT domain, locked_by, now()-locked_at AS locked_for FROM sites WHERE locked_at IS NOT NULL;
+
+**3. ⚠ IS IT IN A RETRY BACKOFF? — the one that looks like a stall and is not.**
+
+    SELECT status, attempt_count, max_attempts, retry_after,
+           (retry_after IS NULL OR retry_after <= now()) AS claimable_now
+      FROM site_work_items WHERE item_key = '<key>';
+
+`retry_after` is the `bugs_open/307` not-claimable-before stamp. A failed attempt stamps it
+forward, and **resetting `status` and `attempt_count` does NOT clear it** — the row then reads
+`triaged`, `0/3`, no error, and is still correctly unclaimable. Measured 2026-08-25: 30 minutes of
+apparent stall that was a working backoff.
+
+**Do NOT verify eligibility by re-typing the loader's WHERE clause.** I did, from
+`load_work_item_actions.go:709`, and omitted `workItemRetryNotPendingSQL` — the single clause
+holding the row. A hand-copied predicate missing a clause can only return "eligible"; it cannot
+disagree with itself. Ask the row what is blocking it.

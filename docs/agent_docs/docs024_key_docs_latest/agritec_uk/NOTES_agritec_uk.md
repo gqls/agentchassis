@@ -734,3 +734,43 @@ problem rather than a mystery.
 *anywhere*? Fleet-wide activity plus my own item passing the loader's predicate means queued, not
 broken. I ran that fifth on 2026-08-24 and first today, which is the only reason this one did not
 turn into another investigation.
+
+### MISSTEP 11 — I hand-copied the loader's predicate to verify eligibility, and dropped the clause that was excluding my row
+
+The composition item sat at `triaged` for 30 minutes. I ran the disconfirming check first this
+time (is anything claimed *anywhere*? — yes, fleet active), then re-ran "does my item pass the
+loader's predicate?" and got **yes**. So I reported it as queued behind a backlog.
+
+It was not. It was in a **retry backoff**:
+
+    retry_after   2026-08-25 15:54:39
+    claimable_now false
+    blocked_for   00:08:13
+
+`retry_after` is the `bugs_open/307` not-claimable-before stamp. The install failed at 15:24, the
+ladder stamped it 30 minutes forward, and both the scheduler's pre-query
+(`wi.retry_after IS NULL OR wi.retry_after <= NOW()`) and the loader's own
+`workItemRetryNotPendingSQL` correctly excluded it. **Nothing was wrong; the backoff was working.**
+
+**My verification was wrong, and in the most seductive way.** To check eligibility I re-typed the
+loader's WHERE clause from `load_work_item_actions.go:709` — status, attempt_count,
+approval_mode, depends_on — and **left out `workItemRetryNotPendingSQL`**, which sits between
+attempt_count and approval_mode. I had read that line minutes earlier and quoted its comment in
+my own notes. When I reset the item after the failure I cleared `status` and `attempt_count` and
+did not clear `retry_after`, so the one field I had removed from my check was the one still
+holding it.
+
+**A hand-copied predicate that omits a clause can only ever return "eligible".** It cannot
+disagree with itself. That is the same shape as the harness that compared quotes against the wrong
+document, and the acceptance check that tested for a phrase rather than an assertion — a checker
+built to confirm rather than to discriminate. Fourth instance in this lane.
+
+**The cheap check that beats re-typing the predicate:** ask the row what is blocking it, rather
+than asking a copy of the rule whether it should be blocked.
+
+    SELECT status, attempt_count, retry_after,
+           (retry_after IS NULL OR retry_after <= now()) AS claimable_now
+      FROM site_work_items WHERE item_key = '<key>';
+
+One query, reads the actual columns, and `claimable_now` cannot be false while the row is
+genuinely claimable. It is now in `RUNBOOK` §14.
