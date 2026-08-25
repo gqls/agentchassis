@@ -39,6 +39,18 @@ sections. Owner prose: README 08-24 entries. Outcome report + addendum for the c
 >   README 08-24d. **Remaining work is owner-gated** (proposal review, booking shape, sample
 >   datasets, terms answers) **except Stripe, which the user ordered LAST (2026-08-24).**
 
+> ## DELTA 2026-08-25 — OWNER VERDICT: both pages' REGISTER rejected ("very AI sounding", fails
+> "would a person actually say this"); facts/claims rated fine. ESCALATED to copy_quality at his
+> instruction (`copy_quality_two_stage/CONTRIB_2026-08-25_OWNER_ESCALATION_…`). Front-page cards
+> confirmed all negatively framed (4/6 differentiator HEADINGS literally X-not-Y — they render
+> the PRE-08-24 specs). **HOLDS: no rebuilds** — a rebuild fixes headings but reproduces the
+> measured register ceiling; the site-wide rewrite WAITS on the copy machinery improving (their
+> lane). The two pages stay live unless the owner says otherwise. ⚠ The lane's tell-checklist
+> is NOT a register acceptance test (WRONG_CALLS 08-25) — never certify voice from it. Items
+> 1–3 of the next-work list below are DONE or superseded by this delta; the owner-gated list
+> (proposal 8003c51a, booking shape, datasets, terms answers, Stripe LAST) is unchanged, now
+> joined by: whatever the copy lane comes back with for the rewrite.
+
 ## Next work, in order
 
 1. **When copy-editor run 6 lands**: read the proposal, run `gate_stage2_edit.py --item <id>`,
