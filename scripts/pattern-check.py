@@ -454,6 +454,12 @@ RUNTIME_FILL_ALLOWED = {
         "fail-safe; shared chrome, so the safest edit is none",
     "check_required_fields_missing.go":
         "SQL, per row: is this component a shell, so missing fields are by design?",
+    "verify_required_fields_missing.go":
+        "SQL, per row, and the SAME question as its detector above — this is that "
+        "detector's completion verifier, so the two must agree about what a shell "
+        "is or the verifier would refuse a completion the detector never filed. "
+        "Scope is one component: the query is LIMIT 1 at a resolved (page, slot), "
+        "so a page-shaped input is structurally impossible here (bugs_open/375)",
     "check_component_standards.go":
         "SQL, per row: is this template a shell, so '<no value>' is the mechanism?",
     "check_component_template_corrupted.go":
