@@ -6035,7 +6035,7 @@ reading the doc that asserts it.
 
 ### A fix aimed at a selector the producer invented — authored, deployed, and inert
 
-*From `bugs_open/352`, spun out of 198.*
+*From `bugs_closed/352` (CLOSED 2026-08-25: fixed, live, proven at the artefact), spun out of 198.*
 
 A finding names the thing to fix as a string, and a downstream agent faithfully turns that
 string into a change. If the producer composed the string with a **fallback** — here, an
@@ -6050,9 +6050,13 @@ the producer** — never emit a lossy field whose name asserts more than it carr
 component you do not have rather than substituting one you do. Teaching the consumer to detect
 the fallback is guessing at intent from a string that has already lost the information.
 
-Sibling cause worth ruling out first: a *correct* selector can still be inert when the
-declaration it must beat is emitted after the file being edited (source order), which is a
-different remedy — see 352's second arm.
+Sibling cause worth ruling out first: a *correct* selector can still be inert when the rule the
+agent appends is **outranked** — and it now has its own file, **`bugs_open/390`** (split from 352
+at the owner's direction, 2026-08-25). ⚠ **Ruling it out is not optional and not cosmetic: the two
+causes are indistinguishable downstream** — correct address plus unreachable rule looks exactly like
+wrong address in every log, and both complete `honestly`. 390 also **corrects** the remedy 352
+sketched for it: the offending *declaration* being out of reach does not mean the offending *value*
+is, so a precondition phrased on the declaration parks repairable findings.
 
 ### A guard that gates on ANOTHER subsystem's artefact inherits that subsystem's raising policy — and starves silently when the policy narrows
 

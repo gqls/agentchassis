@@ -1,6 +1,43 @@
 # 352 — contrast findings name a selector that matches NOTHING, so the fix is authored, deployed and inert: a class-less element is filed with `Class` = its TAG NAME
 
-> ## STATUS 2026-08-25 09:40 UTC — ARM 1 **DONE**; ARM 2 IS THE ONLY REASON THIS FILE IS OPEN
+> # ✅ CLOSED 2026-08-25 — fixed, live, and proven at the artefact. Arm 2 was SPLIT OUT, not dropped.
+>
+> **Owner ruling, 2026-08-25: split arm 2 into its own bug and close 352 against arm 1.** The two arms
+> shared a symptom and nothing else — different mechanism, different remedy — and keeping them stapled
+> made a finished fix read as unfinished.
+>
+> **Arm 2 now lives at `bugs_open/390_HANDOFF_2026-08-25_a_correct_contrast_selector_still_loses_the_cascade_so_the_repair_is_authored_and_inert.md`**
+> — still open, still live, and its mechanism is now verified first-hand rather than sketched (the
+> verification **corrected** the remedy this file proposed for it: see 390 §2, the offending *value*
+> is reachable even though the *declaration* is not, so this file's "refuse and park" precondition
+> would have parked repairable findings).
+>
+> ⚠ **Anything deferred "until 352 is fixed" should now read 390, not this file.** Closing a bug does
+> not retract the deferrals pointing at it.
+>
+> ## What closing asserts, with its evidence
+>
+> | | |
+> |---|---|
+> | fix | `ffa6e1c3d`, council **APPROVED** round 1 (`acadbe8b-f131-4d4b-b4de-5b61f0898f93`) |
+> | live | `v1.0.1334` 2026-08-24 15:39 UTC; still carried on `v1.0.1337` (`4c996e1b5`), ancestry checked with a dated control |
+> | proven | two scheduled audits straddle the roll — 15:31:50 filed 47 rows with **3** invented; 17:33:16 filed 10 with **0**, all `verified/v1`. Then settled in the page: `.ported-page-content A` counted **15** and **8** independently, matching the producer exactly; two pre-roll rows' `SPAN.SPAN`/`LABEL.LABEL` counted **0** against 22 real `<span>`s and 6 real `<label>`s |
+> | held | [MEASURED 2026-08-25 09:40 UTC] **15** rows filed since the roll, **0** invented, **15/15** carrying `selector_scheme` and `matches` |
+> | legacy rows | migration **587** applied by hand 2026-08-24 19:11:22 UTC, `UPDATE 73` — withdrawn, **not** resolved |
+>
+> ⚠ **One dated check is still owed and is NOT a reason to reopen this file: from 2026-08-28**, any of
+> the 13 sites whose rows 587 withdrew that has been re-audited and has a visible contrast fault with
+> no re-filed `contrast_failure` is a defect in 587's promise. All 13 are due by ~2026-08-27 21:30 UTC
+> (the rotation window is **3 days**). Query and context: the lane's `HANDOFF_2026-08-25_continue_here.md` §4(2).
+>
+> ⚠ **The permanently-quotable damage figure is 111** [MEASURED 2026-08-25 09:40 UTC] — `complete`
+> rows carrying an invented selector, i.e. repairs recorded that could never have applied. 587 never
+> touches those. It read 108 earlier on 2026-08-24 and grew by three that the last pre-roll audit
+> filed minutes before the fix rolled.
+>
+> ---
+>
+> ## The 2026-08-25 09:40 status, kept for the trail — ARM 1 **DONE**; ARM 2 WAS THE ONLY REASON THIS FILE WAS OPEN
 >
 > **Cold-start for this lane:**
 > `docs/agent_docs/docs024_key_docs_latest/bugfix_352_invented_selector/HANDOFF_2026-08-25_continue_here.md`
