@@ -364,3 +364,65 @@ platform's stated policy, the news mechanism reportedly works elsewhere, and thi
 which by the register's own words makes it a broken route.* ⚠ **The "proven on other sites" claim is
 the register's, is undated, and I have NOT verified it** — per this estate's own landmine about
 register status lines outliving their truth, that is the first thing to check before anyone acts on it.
+
+---
+
+## 11. THE NEWS FEED IS A BROKEN ROUTE — verified, with the exact reason. `[MEASURED 2026-08-25 14:4x–15:0xZ]`
+
+**§10c flagged the register's *"proven on other sites"* as an unverified, undated claim. It is TRUE
+and CURRENT** — checked rather than repeated:
+
+- **`news-index` pages on 7 sites, deployed TODAY** (robot-hands, ai-agent-orchestration, dartsonline,
+  fundamentallyai, gaswholesalers, relojistas, webdesign.co.uk).
+- **`content-feed-refresh` is `enabled=true`**, 6-hourly, **last fired 2026-08-25 14:45:19Z**.
+- **The output is real.** `dartsonline.com/news/index.html`, control-checked (invented path 404s):
+  **20 outward links to live sources** — pdc.tv items dated July 30, Aug 4, 14, 20 2026, plus a Google
+  News RSS item — and 8,647 characters of visible text.
+  ⚠ *My first pass counted `article-card` elements and got 0, and nearly recorded "the news page is
+  empty". Wrong class: the news index uses different markup. Counting the wrong selector produces a
+  confident zero — the same trap as the raw-grep and chrome cases logged earlier today.*
+
+### 11a. So why did `homegarden.uk` get none? A BOOTSTRAP CATCH-22, and it is exact
+
+| | |
+|---|---|
+| `content_sources` rows fleet-wide | **49**, across **9** sites |
+| `content_sources` rows for `homegarden.uk` | **0** |
+| sites in the estate | **51** |
+
+The orchestrator **can seed its own sources** — `content-feed-orchestrator` step `seed_sources`
+(`action: seed_content_sources`) runs *before* `check_has_sources`. **But it is only ever handed sites
+that already have some.** `content-feed-trigger.find_news_sites` selects with:
+
+```sql
+… (SELECT min(COALESCE(cs.next_fetch_at,'-infinity')) FROM content_sources cs
+    WHERE cs.site_id = s.id AND cs.is_active = true) AS due_at FROM sites s JOIN site…
+```
+
+**A site with zero active sources is never selected, so it never reaches the orchestrator, so its
+`seed_sources` step never runs — and it therefore never acquires the sources that would have got it
+selected.** The seeding capability exists and is structurally unreachable for exactly the population
+that needs it.
+
+**`homegarden.uk` will never get news, ever, without a manual seed.** Same for any new site.
+
+### 11b. The pattern this makes, and it is bigger than news
+
+**This is the THIRD capability found today that gates on a prerequisite the greenfield path never
+creates:**
+
+| capability | gates on | greenfield path creates it? |
+|---|---|---|
+| claims audit + fact assignment (`bugs_open/380`) | `evidence_base` | **no** |
+| listing sections (`bugs_open/384` CONTRIB) | published posts to list | **no** |
+| **news feed (here)** | **`content_sources` rows** | **no** |
+
+**A greenfield site is born without the prerequisites that several capabilities silently gate on**, and
+in each case the failure is an absence rather than an error. That is the generalisation worth carrying
+out of this review.
+
+### 11c. Routed, not filed
+
+Adjacent to **`bugs_open/316`**, which is about `find_news_sites`' **ordering and cap** — fairness
+*among the 9 enrolled sites*. **Mine is a different defect at the same function:** the unenrolled are
+never selected at all. Contributed there rather than filed blind, for that lane to split or absorb.
