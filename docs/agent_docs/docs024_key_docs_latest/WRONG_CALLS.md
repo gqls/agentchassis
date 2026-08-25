@@ -51018,3 +51018,65 @@ fix shipped — per SERVICE"). The peer caught it by reading the clock. **The ch
 calling any build evidence FOR OR AGAINST a fix, one comparison — build start vs the service's
 build-provenance stamp time. A favourable result you hand to someone else needs the same dating as
 one you keep.
+
+## 2026-08-25 (later) — `bugfix_206_directory_build_handler`: I published a correction, called it airtight, and did not apply the correction's own discipline to it
+
+Same lane, same day, four hours after the three entries above. I put the day's work through an
+adversarial reviewer on a different model and it found four defects that stand. The three that are
+mine share one shape, and it is worse than the individual mistakes.
+
+### The claim
+
+This morning I found that our closure test could be passed by a page a human had repaired, measured
+that **all three rows in existence that would have passed it were hand repairs**, and shipped a fix:
+gate on `spec ? 'page_type'`, because *"a hand re-route cannot add a spec key"*. I wrote that into
+`bugs_open/206`, RUNBOOK §7, a new `LANDMINES` entry (which syncs into `doc_notes`, so council seats
+read it) and the handoff. I called it **airtight**.
+
+### Why it was not
+
+- **The stamp dates the ROW, not the mutable VALUE.** `handler_agent` stays mutable after a stamped
+  mint. If the fixed code ever *mis*-routes — the failure the test exists to catch — and someone
+  repairs it, the row is stamped AND correct and reads PASS. **The identical false-PASS shape, one
+  generation on, in the check written to prevent it.**
+- **My own lane's operator recipe forges the gate.** Reconcile's `capability_gap` spec already
+  carries `page_type`, and the recipe eleven lines below it — which *I* committed in `0baa8a107` —
+  says promote that row in place by setting `item_type`, `status` and `handler_agent`. That
+  satisfies every PASS condition by hand.
+
+### The cheap check, and it is the one that stings
+
+**The measurement that caught the original defect computes the discriminator that fixes it.** My own
+§2 query has `(a.updated_at > a.created_at + interval '1 second') AS touched_after_mint` — that
+column is *how* I proved the three rows were hand repairs. The query I shipped four paragraphs later
+has no `updated_at` clause at all. I used the tool, drew the conclusion, and then left the tool out
+of the remedy.
+
+**What generalises:** when you fix a check, run the *new* check against the *old* attack. I asked
+"can a re-route add a spec key?" (no) and stopped, instead of asking "what else reads PASS now?".
+And the second hole says something sharper: **enumerate every row shape your new emit stamps**, not
+just the one you are asserting on. I knew the gap arm stamped `page_type` — I wrote it — and did not
+connect it to a gate keyed on that stamp.
+
+### And two more, in the same session
+
+- **Two mutations survived my brand-new test file**, one of them a wall my own change removed:
+  emptying `handler_agent` means `writeWorkItem`'s registration probe never runs, so `status='deferred'`
+  became the **only** thing keeping that row out of both claim gates — and nothing pinned it. The
+  file's header said *"Every expectation below is mutation-proven"*. It named no mutations, and two
+  it implied were not run. **A mutation-proven claim must name which mutations**, or it is coverage
+  nobody has. This is the third time in one day this lane logged a vacuous-test finding, and the
+  first two were in the same file.
+- **A zero I presented as a refutation was bounded by its detector's birthday.** "26 typed-page rows,
+  ZERO with the 206 signature" — 3 of the 26 predate migration 149, which *introduced* that error
+  string; before it, no-ops were stamped `complete` with no error. The zero holds for the other 23
+  and the mechanism argument carries the conclusion anyway, but I offered the census as the thing
+  that refuted my inference, and stated a different caveat instead of that one.
+
+### The thing to carry
+
+**A correction is not exempt from the discipline it is enforcing.** Every one of these was written
+in a document whose subject is "checks that report the right answer for the wrong reason", by
+someone who had just spent hours on exactly that failure mode. Reading my own §2 one more time
+before publishing §3 would have caught the biggest of them — and I had re-read §2 that morning to
+write §3 *from* it.
