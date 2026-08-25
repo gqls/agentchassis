@@ -54,18 +54,36 @@ verified, submitted to the council gate as `ca1d0f70-602d-4908-9098-632fc89bdb61
 
 **NOT done: the site CSS still carries the old dark `#12151F`.**
 
-Diagnosed this far, so do not redo it:
-- The colour lives in **exactly one place** — the `head` slot of `site_components`. Not in
-  `page_components`, not in the tool's `html_template`.
-- That row is **not locked** (`locked_at` null, no `lock_type`), so a lock is not the obstacle.
-- A `needs_design` item (`needs_design:light-palette-2026-08-25`) was queued at priority 48,
-  claimed by `webdesign-agent`, and **completed with no error and no `__step_error`** — and the
-  `head` row's `updated_at` is unchanged from 2026-08-24 19:20.
+Diagnosed properly — **the first diagnosis in this file was wrong and is corrected here.** It
+said webdesign-agent "completed without regenerating the head". It did not: `generate_css`,
+`persist_css_to_theme`, `deploy_css` and `update_site` all ran. **It regenerated the same dark CSS
+and wrote it back**, which is why nothing changed and nothing errored.
 
-So `webdesign-agent` completed without regenerating the head. **Next step: find what actually
-drives a CSS regeneration of an already-rendered `head` slot.** Candidates not yet tried:
-`generic_theme` (18 fleet-wide, same handler) and the `render_css_from_spec` action's own entry
-point. Do not assume `needs_design` is the trigger just because the handler matches.
+The real chain, read from `render_css_from_spec_action.go`:
+
+- The renderer builds `mergedPalette := buildPaletteMap(comp.Palette, specPalette)` — the
+  **theme's** palette merged with the spec's.
+- `enforceLayoutScheme(comp.LayoutScheme, …)` then compares the merged background's luminance
+  against the **layout's declared scheme**, and errors if they disagree.
+- agritec's `classification.suggested_style` was **`professional-dark`**, its
+  `style_collections` row (`collection-agritec-uk`) still carries the dark palette, unchanged
+  since 2026-08-24 11:33, and the layout is a dark variant.
+
+So the merged palette stayed dark, the dark background agreed with the dark layout, the guard
+passed, and it re-rendered the identical CSS. **A `design_intent` palette swap alone could never
+have moved it** — the theme and the layout scheme are the artefacts that decide.
+
+Done since: `suggested_style` moved to `modern-light` (verified). **Still to do: the THEME.**
+`style_collections.color_palette` for `collection-agritec-uk` is the stale artefact and is what
+`comp.Palette` reads. The agent has a `fork_theme` step (`fork_theme_from_site`) and a
+`check_should_fork` conditional — **find what makes that branch fire**, because forking a light
+theme from the now-light specs is more likely the intended path than editing the collection row
+by hand. Editing it directly would be the projection-versus-source trap this lane has already
+paid for twice.
+
+Verify at the served artefact with a cache-buster, never at the spec:
+`curl -sS -L "https://agritec.uk/tools/sfi26-revenue-stacker/?cb=$(date +%s)" | grep -o '#12151F'`
+must return nothing.
 
 **Then:** the 17 generated images were made against the *dark* imagery guide and will look wrong
 on a light site. They need regenerating once the CSS lands.
