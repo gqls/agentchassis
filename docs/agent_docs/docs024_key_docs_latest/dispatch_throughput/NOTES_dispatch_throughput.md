@@ -241,3 +241,148 @@ LOW: register note added to WDS-002 — occurrence-counting is not verified enum
 the whole-text census is the repeatable check. Round 2 submitted on the SAME correlation
 (RESUBMIT_CORR). Verdict unread at handoff time — first task for the next session.
 `HANDOFF_2026-08-25_continue_here.md` cut; workstreams memory repointed at it.
+
+## 2026-08-25 (session 2, 16:10Z→) — council r2 REVISE read; the 24h N=2 read; and the lane's mechanism claim REFUTED at the artefact
+
+### 1. Council round 2 = REVISE again (verdict 12:23:42Z, `diagnosis_artifacts` kind=`council_report`, corr db9b7cbf; 8 abstained)
+
+Gating = guardian HIGH on edit 3: the same-site double-pick induction "still OWED" sits inside a
+subsystem with a documented DISAGREE landmine; wants the induction run or a time-boxed monitoring
+commitment. Others: editquality MEDIUM ("two call_dispatch turns in flight" proves the trigger
+fired twice, not that two DIFFERENT sites were dispatched); debug_historian MEDIUM ×2 (no
+re-runnable post-apply verify; task_name resolution seen in ONE snapshot, not across cycles);
+guardian MEDIUM (task_name key + input_mapping = key-deletion fragility for later migrations);
+architecture MEDIUM (WDS-002 must say N=3 needs D9, not another clone triple); reuse LOW (is there
+a `-2` sibling idiom elsewhere?); guidelines (WDS-002 should NAME `input_data.task_name`, not just
+cite 582-584). All answered by measurement below, and one of them turned out to be the thread that
+unravelled the lane's central claim.
+
+### 2. The 24h read, WITH the demand control `[MEASURED 2026-08-25 16:1xZ]`
+
+| window (24h) | arrivals | completions | claims | wait p50/p90 (min) | run p50/p90 (s) |
+|---|---|---|---|---|---|
+| pre  08-23 10:38 → 08-24 10:38 | 843 | 627 | 632 | 31 / 148 | 41 / 311 |
+| post 08-24 10:38 → 08-25 10:38 | 2,577 | 2,332 | 2,340 | 49 / 171 | 30 / 51 |
+
+Completions ×3.7 is **demand, not the lever**: arrivals ×3.06, and the growth is `page_rerender`
+393→2,010 (LLM-free; a webdesign.co.uk rerender flood). What is attributable: completions/arrivals
+74%→90% (the fleet kept up with 3× the demand); handler runtime p90 311→51s (the cheap item mix).
+Wait p50 rose 31→49 min — demand-driven, not a clean reading either way. Backlog at the read:
+triaged **158** across **5** sites (was 141/6 at the apply). Verdict on the raw number: unusable
+alone; the honest figure is in §4.
+
+### 3. The per-minute distinct-sites meter is NOT a concurrency meter (first crack)
+
+Control run on the PRE window (nominally N=1): **27.7%** of claim-minutes had ≥2 distinct sites,
+max **6** in one minute. Post: 32.4%, max 4. A true single-flight row at 60s cannot produce 6
+sites in a minute. STARTER §7's meter (and RUNBOOK's copy) was measuring something other than
+what it said. The orchestration-level meters below are the real ones. ⚠ `orchestration_states`
+is retained ~24–27h (`min(created_at)` = 2026-08-24 13:09 at a 16:1xZ read on 08-25; trigger/loop
+rows from 15:40 on) — the pre-window loop rows are GONE, so every orchestration census below is
+N=2-period only. That is the period that matters, but no orchestration-level pre/post exists.
+
+### 4. Orchestration-level census, N=2 period (08-24 15:40 → 08-25 16:13Z) — answers to the seats
+
+- **task_name resolves on every cycle (debug_historian):** trigger runs **777 / 777** per row,
+  loops **548 / 546**, each row's loops across **28** sites; **0** `query param path resolved to
+  nil` anywhere; the only 4 FAILED rows are reaper kills (`spawn_dispatch` stale >4h ×2,
+  `notify_scheduler_idle` stale 1h, loop `call_handler` idle >30min) — the spawn-handshake /
+  wedged-loop class, all on trigger-2 (n=4, identical config; one at 09:26 = the 09:27 chassis
+  roll to v1.0.1337). `__step_error` keys: 63 loop-level + 37 `__step_errors` = handler failures
+  routed through `error_step: mark_failed`, normal.
+- **Two DIFFERENT sites at once (editquality):** minutes with trigger-spawned loops alive on ≥2
+  distinct sites: **631 of 1,179**; alive loops per minute 1–**8** (mode 1: 482 min, 2: 378,
+  3: 198, 4: 245, 5: 89, 6: 59, 7: 16, 8: 6). Little's law on the window: 1,089 loops × mean
+  135s / window = **1.65** mean alive.
+- **DOUBLE-HANDLE CENSUS (guardian HIGH — the induction, answered by the population):**
+  handler orchestrations that are children of dispatch loops: **2,579 over 2,502 items**; items
+  with >1 handler: **41**, every one `handlers = attempt_count = 3`, sequential (`overlapped=f`),
+  all ended `failed` — legitimate retries; **overlapping handler pairs for the SAME item: 0**.
+  The atomic `claim_work_item` (`WHERE id=$1 AND status IN ('triaged','approved') … RETURNING`)
+  held on every one of the 4,265 claim attempts. Same-site concurrent handler PAIRS: **775**
+  across **27** sites — so the race the PLAN said to induce once has occurred ~hundreds of times
+  naturally, and the "wasted spawn" is in fact a lost CLAIM (claim→check_claim→done in ms, no
+  spawn): **1,670 of 4,265 claim attempts lost (39%)**; loops that loaded items but claimed
+  nothing: 6 + 5.
+- **Causal test — does co-handling one site raise failures? NO.** Handler fail rate WITH a
+  concurrent same-site partner **1.55%** (22/1,421) vs WITHOUT **3.85%** (45/1,169). Failure
+  classes: `OWNED_PAGE_GUARD` (page-rerender, 33), `store_generated_component` (19),
+  `save_page_sections` (9) — none concurrency-shaped; git-shaped errors on items 20→33 over a
+  3× demand rise (2.4%→1.3% of arrivals). Retried share of completions 0.2%→0.0%.
+- **Sibling idiom (reuse):** `scheduled_tasks` = 100 rows / 50 enabled; the ONLY `-N` name is
+  `build-pipeline-trigger-2`; 39 date-suffixed `oneshot-*`/`offer-analyser-oneshot-*` rows are
+  disabled one-offs, not multiplicity. Group `dispatch` = 4 rows (2 mine + `improvement-sweep`,
+  `intent-collection`, both disabled). So this IS a novel idiom, not reuse of one.
+
+### 5. THE REFUTATION — a `scheduled_tasks` row is NOT a single-flight slot; the scheduler is fire-and-forget
+
+Three artefact-level facts, any one of which is decisive:
+
+1. **A row overlaps ITSELF**: trigger runs of the SAME row with overlapping lifetimes —
+   **361 pairs** (`build-pipeline-trigger`), **322** (`-2`), min gap **0.25 s**. Fire cadence per
+   row p50 **90 s**, p90 91 s (interval 60 + the 30 s tick), while a run lasts p50 **97 s**, p90
+   242 s. A single-flight row cannot do that.
+2. **Both stamps are set at FIRE**: `scheduled_tasks` read 39 s after a fire shows
+   `last_triggered_at = last_completed_at` to the microsecond on both rows
+   (`in_flight_per_guard = f`), with runs of p50 97 s still executing.
+3. **The code says so, in the fire path**: `cmd/scheduler/main.go` `runTick` → after
+   `fireTrigger(...)` → `stampCompleted(...)` — "For fire-and-forget tasks, mark completed
+   immediately so the concurrency slot opens for the next tick. The message has been published —
+   we don't wait for the orchestration to finish." `stampCompleted` = `UPDATE scheduled_tasks SET
+   last_triggered_at = NOW(), last_completed_at = NOW()`. Introduced **`892a289e9` 2026-03-17
+   "for fire and forget tasks dont wait for a response, send complete immediately"**; refactored
+   into the named function by `dc2e4b61a` 2026-07-21 (bugs_open/048). Live scheduler:
+   `kafka-scheduler:v1.0.1337` (provenance line scrolled; facts 1–2 are the artefact proof).
+
+Consequences, all `[MEASURED 2026-08-25]` unless marked:
+- `loadDueTasks`' per-row guard (`last_completed_at >= last_triggered_at`), `countInFlight`,
+  `max_concurrent`, and `timeout_seconds` are **all inert for every `fire_message=true` row** —
+  satisfied/zero the instant a task fires. `loadDueTasks`' own doc comment ("prevents the same
+  task from spawning multiple concurrent pods") is false and has been since March.
+- The agents' three `notify_scheduler*` stamps (`SET last_completed_at = NOW()`) are **inert**:
+  they bump a column the guard already passes. So **583's rationale was false on this binary**
+  (a sibling under the hardcode would NOT have fired at 300 s — the scheduler stamps the sibling
+  itself at fire — and the hardcoded stamp on the original row changed nothing). 582/583 are
+  harmless hygiene (correct IF the scheduler ever reverts to awaiting completion), not a fix. The
+  08-24 "its stamps land on ITS OWN row" verification read the SCHEDULER's stamp and attributed
+  it to the notify step — a writer inferred from a reader.
+- **What 584 actually did: doubled the FIRE rate — two fires per ~90 s, ~1 s apart** (16:22:20.96
+  / 16:22:22.03). Because `find_dispatchable_site` cannot see a claim that has not happened yet
+  (time from loop spawn to first claim p50 **17.7 s**, p90 **24.2 s**, p99 131 s), the second
+  fire picks the SAME site **94%** of the time (475/505 and 479/508 loaded loops co-picked within
+  15 s) and loads an overlapping batch (typically 4 of 5 shared — e.g. loops `769c3b46`/`c720c890`
+  16:10Z: `[8548e940,a391bc2e,bca87604,2188fcf4,1be4a901]` vs `[a391bc2e,bca87604,2188fcf4,
+  1be4a901,c6b310a3]`). The pair then interleaves claims: avg **2.6** items claimed per loaded
+  loop (was up to 5 for a lone loop). Net: busiest hour **227** claims (118 + 109) against a
+  single-row ceiling of ~40 fires/h × 5 = ~200 → **≈ +10–15% claim throughput, not 2×**; the real
+  gain is **two handlers concurrently on the deep site** (per-site latency), measured safe (§4).
+- **The PLAN's "per-site serialisation survives" is false** (775 same-site concurrent handler
+  pairs) — and measured harmless at 2. The safety that DOES hold is the atomic claim.
+- **The native rate knob exists and is live: `interval_seconds`** (the reuse seat's question).
+  With a 30 s tick: interval 60 → 90 s cadence (measured); 30 → 60 s; ≤25 → every tick (30 s).
+  Fires spaced ≥30 s apart see the previous claim (p90 24.2 s) and steer to DISTINCT sites — the
+  behaviour N=2 was designed to give and does not.
+- Phase 3's D3 "timeout moves with concurrency" — `timeout_seconds` is moot on this binary; only
+  the batch half (`load_items.max_items` + `process_item.max_iterations`) is real.
+- STARTER §2's OWN data contradicted its conclusion: 17 runs in 25 min at avg 218 s duration ⇒
+  mean concurrency 17×218/1500 = **2.5** (Little's law). It was read as "the real tick is 218 s".
+  Both code reads (08-18) opened `loadDueTasks`/`countInFlight` (the READERS of the stamps) and
+  neither opened the fire path 80 lines above (the WRITER). The 090 that might have caught it
+  died at `max_tokens` (§2026-08-19). Logged in `WRONG_CALLS.md` 2026-08-25.
+
+### 6. Also found: the sibling-parity trap is already loaded
+
+`docs/agent_docs/sql_for_agents/213_dispatch_gate_matches_dispatcher.sql` — **untracked on disk
+since 2026-08-12 18:39, never committed, never applied** (live `pre_query` md5 `200246f7…` is the
+pre-213 form + the 503 `retry_after` clause; CONTRIB 2026-08-03 in `bugfix_029_dispatch_gate/`
+says one clause was applied by hand; 029-dispatch closed 08-20). It rewrites `pre_query`
+`WHERE name = 'build-pipeline-trigger'` — by name — so applying it now would desync the sibling
+(584 byte-copied `pre_query`). LANDMINE appended; the re-runnable parity check is in the new
+`584_…_VERIFY.sql`.
+
+### 7. What this session did NOT do, deliberately
+
+Did not disable the sibling, did not touch `interval_seconds`, did not change the selector. The
+owner authorised N=2 by name on a premise that is now refuted; which lever replaces it is his call
+(options costed in README_where_we_are, this date). N=2 stays live: measured safe (0 double-handles
+in 2,579 handlers; failure rate lower with a partner), instant rollback, ~+10–15% claims.

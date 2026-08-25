@@ -88,6 +88,23 @@ single-flight slot, which is the semantics the code already enforces correctly. 
 "proper" per-task `max_concurrent` fix needs an executions table — file it as the
 long-term shape in the 090/029 record, don't build it first.
 
+> **CORRECTED 2026-08-25 (session 2; evidence NOTES 2026-08-25 §5): the premise of this section is
+> FALSE on the running scheduler and has been since 2026-03-17 (`892a289e9`).** `cmd/scheduler/main.go`
+> `runTick` calls `stampCompleted` — `SET last_triggered_at = NOW(), last_completed_at = NOW()` —
+> immediately after `fireTrigger`, so a `fire_message` row is never in flight: the per-row guard,
+> `countInFlight`, `max_concurrent` and `timeout_seconds` are all inert, and the three
+> `notify_scheduler*` stamps the "Precondition" below defuses are inert too (583's stated failure —
+> "fires every 300 s, releases the original early" — could not occur). Measured: a row overlaps ITSELF
+> (361 / 322 pairs in 24.5 h, min gap 0.25 s); fire cadence p50 90 s vs run p50 97 s. What 584 actually
+> did: doubled the FIRE rate, ~1 s apart — the second fire co-picks the same site **94%** of the time
+> (the selector cannot see a claim that lands p50 17.7 s later), so lost claims run at 39%, the gain is
+> ≈ **+10–15%** claims/h (not "~N×"), and the real effect is TWO handlers on the deep site. Of the
+> safety argument below: the ATOMIC-CLAIM half holds (0 double-handles in 2,579 handlers; 775 same-site
+> concurrent pairs; fail rate LOWER with a partner, 1.55% vs 3.85%); the "sites interleave by
+> construction" half is false at 1 s spacing and true at ≥30 s spacing (p90 time-to-first-claim
+> 24.2 s). The native rate knob is `interval_seconds` (30 s tick: 60 → 90 s cadence, 30 → 60 s,
+> ≤25 → every tick). Owner decision pending on which lever stays — README_where_we_are 2026-08-25.
+
 **Precondition — the stamp hardcode (the trap that blocks the naive version):** both
 agents' `notify_scheduler` steps run
 `UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = 'build-pipeline-trigger'`.

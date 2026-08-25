@@ -64,6 +64,18 @@ the p50/p90.
 So the real tick is **~218 seconds, not the configured 60**, because the guard holds the
 next fire until the run finishes.
 
+> **CORRECTED 2026-08-25 — both numbered reasons are wrong, and the measurement above contradicts its
+> own conclusion.** (2) is false: `runTick` stamps BOTH columns at FIRE (`stampCompleted`, fire path,
+> "fire-and-forget … we don't wait for the orchestration to finish", since `892a289e9` 2026-03-17), so
+> the guard passes the instant a `fire_message` task fires. (1) is true for a different reason —
+> `countInFlight` is always 0 for such rows. And "17 runs in 25 minutes at avg 218 s" is a mean
+> concurrency of 17 × 218 / 1500 ≈ **2.5** (Little's law), not a 218 s tick: the cadence is interval +
+> tick = **90 s** `[MEASURED 2026-08-25, p50 90 / p90 91]` and runs overlap — the one row overlapped
+> ITSELF 361 times in 24.5 h. The §7 "per-minute distinct sites = 1" reading was demand-limited and
+> that meter is not a concurrency meter (pre-change control: 27.7% of claim-minutes ≥2 sites, max 6).
+> Real ceiling per row ≈ 40 fires/h × 5 = ~200 claims/h, not 83. Evidence: dispatch_throughput/NOTES
+> 2026-08-25 §3–§5; `WRONG_CALLS.md` 2026-08-25; `bugs_open/398`.
+
 **What one run does:** `find_dispatchable_site` returns **one** site (`… ORDER BY
 wi.created_at ASC, wi.priority ASC, wi.id ASC LIMIT 1`, migration 284), then
 `build-dispatch-loop` loads **≤5** items (`load_items.max_items: 5`) and processes them

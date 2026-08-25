@@ -1,5 +1,7 @@
 # HANDOFF 2026-08-25 — dispatch throughput / whole-architecture scale review — CONTINUE HERE
 
+> **SUPERSEDED 2026-08-25 (same day, session 2): read `HANDOFF_2026-08-25b_continue_here.md` instead.** The mechanism this file states ("each row is a single-flight slot", "stamp trap dead", "per-site serialisation") was REFUTED at the artefact hours after it was cut — NOTES 2026-08-25 §5. The council/queue state below is also stale (round 2 returned REVISE; round 3 submitted with the correction).
+
 **Read first, in this order:** this file → `NOTES_dispatch_throughput.md` (same dir; the
 dated evidence trail) → `RESEARCH_2026-08-18_throughput_to_thousands_of_domains.md`
 (the scale review + decision table + owner rulings §10). The original

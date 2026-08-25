@@ -1,0 +1,83 @@
+# HANDOFF 2026-08-25b — dispatch throughput — CONTINUE HERE (supersedes HANDOFF_2026-08-25)
+
+**Read first, in this order:** this file → `NOTES_dispatch_throughput.md` 2026-08-25 session-2
+entry (§1–§7 — the day the lane's central claim fell) → `README_where_we_are.md` 2026-08-25
+(the owner's plain-prose version + options A–D). The PLAN/STARTER/RESEARCH all carry
+**CORRECTED 2026-08-25 blocks — trust those over the original text.** `RUNBOOK` §"Concurrency
+meters that actually measure concurrency" has every query this handoff cites. Paths relative to
+`docs/agent_docs/docs024_key_docs_latest/dispatch_throughput/`.
+
+## The one-paragraph state
+
+**The scheduler is fire-and-forget and always was (since `892a289e9` 2026-03-17):** `runTick` →
+`fireTrigger` → `stampCompleted` sets BOTH row stamps at fire, so a `scheduled_tasks` row was
+never a single-flight slot, `max_concurrent`/`timeout_seconds`/`countInFlight`/the per-row guard
+are inert for every `fire_message` row (40 enabled fleet-wide), and the agents' `notify_scheduler`
+stamps are inert — 582/583 were hygiene, not a fix. What 584 (N=2, live since 08-24) actually does:
+a second fire ~1 s after the first every ~90 s, which **co-picks the same site 94%** of the time
+(the selector can't see a claim that lands p50 17.7 s later) → **~+10–15% claims/h, not 2×**, two
+handlers on the deep site, 39% of claim attempts lost as cheap bounced claims. **Safety held:
+0 double-handles in 2,579 handlers / 2,502 items; handler fail rate LOWER with a same-site partner
+(1.55% vs 3.85%).** Full evidence: NOTES 2026-08-25 §5; `bugs_open/398`; LANDMINES 2026-08-25 ×2;
+`WRONG_CALLS.md` 2026-08-25. Rollback unchanged: `UPDATE scheduled_tasks SET enabled=false WHERE
+name='build-pipeline-trigger-2';`
+
+## COUNCIL — round 3 PENDING (first thing to check)
+
+- Correlation **`db9b7cbf-7b94-471a-a4cf-26a6679fa47f`** (rounds 1–3 accumulate on it).
+  R1 REVISE (guardian: 4th-stamp fear → answered by whole-text census). R2 REVISE (guardian:
+  induction owed → answered on the natural population; editquality: 2 turns ≠ 2 sites → answered,
+  and measuring it is what refuted the mechanism). **R3 submitted 2026-08-25 ~16:4xZ with the
+  corrected mechanism stated plainly** + the VERIFY file as edit 5 (`operation: add` — 'create'
+  is refused client-side). Submission JSON: scratchpad `council_582_584_r3.json` (regenerable
+  from NOTES §5 + the r2 JSON).
+- Check: `SELECT created_at, left(body,400) FROM doc_notes WHERE categories ? 'council-gate' AND
+  body LIKE '%db9b7cbf%' ORDER BY created_at DESC LIMIT 1;` — ⚠ the header says "(round 1)" on
+  EVERY round; count reports, don't read the label. Full report: `diagnosis_artifacts`
+  kind='council_report', same correlation, latest.
+- If APPROVED: `dc76d1c30` (the change) and the docs commit both carry `Council-Submitted:` —
+  098 credits them automatically; do nothing. If REVISE: answer with measurements, same
+  correlation. The record is already corrected either way.
+
+## OWED — the ordered queue
+
+1. **OWNER DECISION (blocks the lever's final shape): options A–D in README 2026-08-25.**
+   A = keep sibling (+10–15%, safe). B = retire sibling, `interval_seconds` 60→30 on the original
+   (60 s cadence, ~1.5×, spaced fires → distinct sites) — **recommended**. C = interval 25 (30 s
+   cadence, ~3×) — hold for the D4 governor per the owner's own caution. D = keep sibling + teach
+   `find_dispatchable_site` to skip sites with a live dispatch turn (restores per-site
+   serialisation; `idx_orch_site_active` exists for exactly that shape; agent-config change =
+   council scope). **Do not flip anything without the ruling** — N=2 was owner-authorised by name.
+2. **Until that ruling: run the VERIFY daily** —
+   `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db
+   -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/584_dispatch_sibling_C_insert_trigger_2_VERIFY.sql`
+   (5 assertions: parity · identity · 0 hardcoded stamps + control · liveness · 0 double-handles;
+   passed 2026-08-25, mutation-proved). This is the monitoring commitment made to the guardian.
+3. **Phase 3 is now batch-ONLY**: `load_items.max_items` 5→8 + `process_item.max_iterations` 5→8
+   together (one without the other is a silent no-op). The "timeout 300→600 lockstep" half is a
+   NO-OP on this binary (timeout_seconds is inert — bug 398); record D3 as satisfied-vacuously,
+   don't ship a dead knob. Only after the owner's lever ruling — batch interacts with the co-pick.
+4. **D4 LLM spend governor** — unchanged, first BUILD item, gate for more concurrency (N>2 or
+   interval ≤25). Confirm the at-cap shedding policy with the owner before building.
+5. Then the standing queue: deploy batching (D8 interim), clients-first lane (D2), Batch API (D6),
+   D16 retention proposal (note: `orchestration_states` retention ~24–27 h destroyed the pre/post
+   comparison here — a D16 design consideration, not just a cost one), per-class maintenance LLM
+   cost (RESEARCH §6).
+6. DNS plan B: with the domain-programme lane (pointer left 08-21); check they picked it up.
+
+## Traps for this lane (new ones first)
+
+- **Any by-name UPDATE on `scheduled_tasks` `build-pipeline-trigger` misses the sibling** —
+  LANDMINES 2026-08-25; `213_dispatch_gate_matches_dispatcher.sql` sits UNTRACKED (since 08-12,
+  never applied) and has exactly that shape. Agent-side edits reach both rows; row-side don't.
+- **The per-minute distinct-sites CLAIMS meter is not a concurrency meter** (pre-change control:
+  27.7% of minutes ≥2 sites). Use the orchestration-level meters in RUNBOOK.
+- **`orchestration_states` retains ~24–27 h** — take baselines the moment you need them.
+- Do NOT add sibling #3 (unchanged), and do NOT re-file the 090 (max_tokens class, `bugs_open/183`).
+- The claim census/attribution gaps, `bugs_open/029` ownership, build-cost n=1 — unchanged from
+  the superseded handoff; read it if you need them.
+
+## Session hygiene
+
+Pathspec commits; grep LANDMINES for symbols you touch (two new entries are ABOUT this lane);
+who-owns before touching any bug; workstreams memory points here (COLD-START).

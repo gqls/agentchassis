@@ -174,3 +174,69 @@ to fail at five simultaneous pieces of work back in July. Still owed from here: 
 deliberate test of two dispatchers picking the same site at the same instant (the design
 says the loser walks away cheaply — we want to see it), a day-long before/after
 throughput comparison, and then the batch-size increase as the next small step.
+
+## 2026-08-25 — the second lane is safe and helps a little, but not for the reason we said; and there is a cheaper knob
+
+Two things today. First, the review council sent the second-lane change back a second time,
+asking for the one test we still owed: two dispatchers picking the same site at the same instant.
+Second, when I measured that, the measurement showed the change works differently from how we —
+I — described it to you last week. I am correcting that here in full.
+
+**What we believed.** Each row in the scheduler's task table was a "slot": a task could not fire
+again until its previous run had finished. So one row meant one dispatch turn at a time, and adding
+a second row meant two at a time.
+
+**What is actually true.** The scheduler has been "fire and forget" since March. It marks a task
+complete the instant it has sent the message, without waiting for the run to finish. So the single
+original row was already firing every 90 seconds regardless, and its runs overlapped — it was never
+a slot. The evidence is direct: the original row overlapped with itself 361 times in a day; its
+timestamps read "completed" 39 seconds after firing while the run still had a minute to go; and the
+code says so in words ("we don't wait for the orchestration to finish").
+
+**What the second row therefore did.** It doubled the number of fires — two every 90 seconds, about
+one second apart. Because the second fire comes before the first turn has claimed anything (that
+takes about 18 seconds), the two turns pick the SAME site 94% of the time and share its batch of
+work. The result is not two sites at once; it is two workers on one site, with 39% of their claim
+attempts bouncing off items the other already took. The measured gain in items claimed per hour is
+roughly +10–15%, not double.
+
+**The good news.** The safety we cared about held perfectly. Across 2,579 handler runs, no item was
+ever worked twice at the same time (the 41 items with repeat runs were ordinary retries, one after
+another). And two workers on the same site did not cause failures — the failure rate was actually
+lower when a site had two (1.6% against 3.9%). So the change is safe and a small improvement; it is
+just not the mechanism we sold it as. The two bookkeeping migrations (582, 583) were doing nothing
+on this scheduler — harmless, but not a fix.
+
+**The cheaper knob.** The task table has an interval column, and it is live. Setting the original
+row's interval to 30 seconds would fire it every 60 seconds instead of 90 (a 1.5× turn rate);
+setting it to 25 would fire it every 30 seconds (3×). Fires that far apart DO see the previous
+turn's claim and go to a different site — which is the thing we actually wanted. It needs no
+migration, no sibling row and no bookkeeping.
+
+**What I did not do.** I did not switch anything. You authorised N=2 as a sibling row; I have found
+the premise was wrong, and which lever replaces it is your call. The options:
+
+- **A.** Leave the sibling as it is: +10–15%, two workers per site, safe, instant rollback.
+- **B.** Retire the sibling and set the interval to 30 s: a turn every 60 seconds, each on a
+  different site with a full batch — about 1.5× the turns and fewer wasted attempts than today.
+  **My recommendation for now.**
+- **C.** Same, but interval 25 s: a turn every 30 seconds, about 3× — roughly 3.3 turns alive on
+  average against 1.7 today. I would hold this until the spending governor exists, per your own
+  caution about running more at once.
+- **D.** Keep the sibling and teach the site picker to skip a site that already has a turn running.
+  This restores the one-turn-per-site rule you were told we had, at the cost of the two-workers-
+  per-site gain.
+
+**Two corrections to earlier numbers on your list.** The throughput ceiling I gave you last week
+(~83 items an hour, "one site at a time") was wrong: it is about 200 claims an hour per trigger row,
+and turns overlap. And the next planned step — "batch 5→8 plus timeout 300→600 in lockstep" — the
+timeout half does nothing on this scheduler; only the batch half is real.
+
+**How the error happened, in one line.** Both code readings looked at the code that *reads* the
+timestamps and never at the code that *writes* them, thirty lines above. The document that stated
+the "one at a time" ceiling also quoted figures — 17 runs in 25 minutes averaging 218 seconds each —
+that already say 2.5 runs were alive on average. I have logged this as a wrong call so the pattern
+is on record, and the check ("runs × duration ÷ window") is now in the runbook.
+
+The council will get a third round with all of this stated plainly, so the record is honest
+whichever way they rule.

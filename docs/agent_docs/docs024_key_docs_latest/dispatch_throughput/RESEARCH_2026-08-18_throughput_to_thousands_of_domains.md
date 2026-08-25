@@ -13,6 +13,11 @@ after the working site. Evidence markers: `[MEASURED <date>]` with source, `[INF
 
 ## 0. The answer in one paragraph
 
+> **CORRECTED 2026-08-25:** the "~83 items/hour" dispatch ceiling below and in §1's table is WRONG —
+> see the correction under §2 item 1. The scheduler is fire-and-forget; the constraint is the FIRE RATE
+> (~200 claims/h per trigger row at interval 60) and turns overlap. The unlock ORDER may stand; the
+> number does not.
+
 The computers are not the constraint — the cluster runs at 6–20% CPU `[MEASURED 08-18]`
 while the platform takes work one piece at a time in four separate places (dispatcher,
 chassis worker pool, adapters, deploy runners). Nor is the repo: the pain in the platform
@@ -66,6 +71,18 @@ since 07-20).
    idle windows). The verdict-step cap failure is contributed to the bugs_open/183
    step-token-pressure lane. Config-only remedy exists (PLAN Phases 2–3:
    sibling rows + batch; predicted ~1.8–3× at N=2, ceiling ~×12 at N=8×batch-8).
+   > **CORRECTED 2026-08-25: item 1's mechanism is REFUTED at the artefact.** The scheduler is
+   > fire-and-forget (`runTick` → `fireTrigger` → `stampCompleted`, both stamps at fire, since
+   > `892a289e9` 2026-03-17; live on `kafka-scheduler:v1.0.1337`): no `fire_message` row is ever
+   > single-flight, so "one site at a time" was never the constraint. The constraint is the fire
+   > rate — interval 60 + 30 s tick = one dispatch turn per **90 s** per row ≈ 40 turns/h × 5 items ≈
+   > **~200 claims/h**, with turns overlapping (mean 1.65–2.5 alive). Every N-row prediction on this
+   > line overstated: N=2 measured ≈ **+10–15%** claims/h, because the two fires land ~1 s apart and
+   > co-pick ONE site 94% of the time. The (a)(b)(c) substitutions failed the same way — (a) read a
+   > demand-limited meter, (b) read the guard's READERS and never the stamp's WRITER 80 lines above,
+   > (c) matched a wrong ceiling to a demand-limited rate. The cheap lever is `interval_seconds` on
+   > ONE row (30 → 60 s cadence = 1.5×; ≤25 → 30 s = 3×); fires ≥30 s apart steer to distinct sites
+   > (p90 time-to-first-claim 24.2 s). NOTES 2026-08-25 §5; `bugs_open/398`.
 2. **Chassis worker pool: 8 concurrent orchestrations fleet-wide** (`CHASSIS_INTAKE_WORKERS`
    default 4 × 2 pods; the env var is set nowhere) `[CONFIG-READ 08-18]`. One env var + a
    replica bump — but gated on the never-taken `orchestration_states` write-amplification

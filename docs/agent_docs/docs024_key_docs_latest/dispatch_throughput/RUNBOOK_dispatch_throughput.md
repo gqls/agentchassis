@@ -113,3 +113,91 @@ FROM llm_call_log
 WHERE created_at BETWEEN '<build_start>' AND '<build_end>' AND client_id = '<client>'
 GROUP BY 1 ORDER BY 3 DESC;
 ```
+
+## Concurrency meters that actually measure concurrency (added 2026-08-25 — the §"Dispatch meters" one above does NOT)
+
+⚠ The per-minute `count(DISTINCT site_id)` of CLAIMS at the top of this file is **not a concurrency
+meter**: it read ≥2 sites in 27.7% of minutes (max 6) on the nominally-N=1 pre-change window. Claims
+are per item, not per turn, and loops outlive minutes. Use `orchestration_states` (retained ~24–27 h —
+`min(created_at)` before you trust a window).
+
+```sql
+-- SELF-OVERLAP of one scheduled_tasks row (the single-flight refutation, 2026-08-25: 361 pairs).
+-- Non-zero on ONE row = the row is not a slot. Swap owner_agent_type for any fire_message task.
+WITH t AS (SELECT orchestration_id, collected_data->'input_data'->>'task_name' tn, created_at s, updated_at e
+           FROM orchestration_states WHERE owner_agent_type='build-pipeline-trigger'
+             AND created_at > now()-interval '24 hours' AND status<>'FAILED')
+SELECT a.tn, count(*) self_overlap_pairs, min(b.s-a.s) min_gap
+FROM t a JOIN t b ON a.tn=b.tn AND a.orchestration_id<b.orchestration_id AND a.s<b.e AND b.s<a.e AND a.s<b.s
+GROUP BY 1;
+
+-- FIRE CADENCE per row (interval 60 + 30 s tick ⇒ p50 90 s, measured).
+WITH t AS (SELECT collected_data->'input_data'->>'task_name' tn,
+  created_at - lag(created_at) OVER (PARTITION BY collected_data->'input_data'->>'task_name' ORDER BY created_at) gap
+  FROM orchestration_states WHERE owner_agent_type='build-pipeline-trigger' AND created_at > now()-interval '24 hours')
+SELECT tn, round(percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(epoch FROM gap))) p50_s,
+       round(percentile_cont(0.9) WITHIN GROUP (ORDER BY EXTRACT(epoch FROM gap))) p90_s FROM t WHERE gap IS NOT NULL GROUP BY 1;
+
+-- LITTLE'S LAW: loops × mean duration ÷ window = mean alive. Run this on ANY "one at a time" claim first.
+SELECT count(*) loops, round(avg(EXTRACT(epoch FROM updated_at-created_at))) mean_s,
+       round(count(*)*avg(EXTRACT(epoch FROM updated_at-created_at))/EXTRACT(epoch FROM (max(updated_at)-min(created_at))),2) mean_alive
+FROM orchestration_states WHERE owner_agent_type='build-dispatch-loop' AND status='COMPLETED' AND created_at > now()-interval '24 hours';
+
+-- ALIVE LOOPS per minute, distribution (2026-08-25: 1–8, mode 1–2).
+WITH l AS (SELECT created_at s, updated_at e FROM orchestration_states WHERE owner_agent_type='build-dispatch-loop'
+           AND status='COMPLETED' AND created_at > now()-interval '24 hours'),
+mins AS (SELECT generate_series(date_trunc('minute', now()-interval '24 hours'), now()-interval '5 minutes', interval '1 minute') mi),
+x AS (SELECT mi, count(*) alive FROM mins LEFT JOIN l ON l.s < mi+interval '1 minute' AND l.e > mi GROUP BY mi)
+SELECT alive, count(*) minutes FROM x GROUP BY 1 ORDER BY 1;
+
+-- DOUBLE-HANDLE CENSUS (the induction, on the population): handler orchestrations per work item and
+-- overlapping pairs on ONE item. Sequential retries show handlers = attempt_count and overlapped = f.
+WITH loops AS (SELECT orchestration_id FROM orchestration_states WHERE created_at > now()-interval '24 hours' AND owner_agent_type='build-dispatch-loop'),
+h AS (SELECT o.orchestration_id, o.collected_data->'input_data'->>'work_item_id' wi, o.created_at s, o.updated_at e
+      FROM orchestration_states o JOIN loops l ON l.orchestration_id=o.parent_orchestration_id)
+SELECT count(*) handlers, count(DISTINCT wi) items,
+  (SELECT count(*) FROM (SELECT wi FROM h WHERE wi IS NOT NULL GROUP BY wi HAVING count(*)>1) q) items_with_2plus_handlers,
+  (SELECT count(*) FROM h a JOIN h b ON a.wi=b.wi AND a.orchestration_id<b.orchestration_id AND a.s<b.e AND b.s<a.e) overlapping_pairs_same_item
+FROM h;
+
+-- TIME TO FIRST CLAIM per loop (spawn → first handler spawn): decides whether fires spaced N s apart
+-- will steer to distinct sites. 2026-08-25: p50 17.7 s, p90 24.2 s, p99 131 s.
+-- ⚠ percentile_cont returns double; cast before round() or Postgres refuses round(double, int).
+WITH l AS (SELECT orchestration_id, created_at s FROM orchestration_states WHERE created_at > now()-interval '24 hours' AND owner_agent_type='build-dispatch-loop'),
+f AS (SELECT l.orchestration_id, EXTRACT(epoch FROM min(h.created_at) - l.s) dt FROM l JOIN orchestration_states h ON h.parent_orchestration_id=l.orchestration_id GROUP BY 1, l.s)
+SELECT count(*), round((percentile_cont(0.5) WITHIN GROUP (ORDER BY dt))::numeric,1) p50_s,
+       round((percentile_cont(0.9) WITHIN GROUP (ORDER BY dt))::numeric,1) p90_s, count(*) FILTER (WHERE dt > 30) over_30s FROM f;
+
+-- CAUSAL TEST — does a concurrent same-site handler raise the failure rate? (2026-08-25: 1.55% with vs 3.85% without)
+WITH loops AS (SELECT orchestration_id, site_id FROM orchestration_states WHERE created_at > now()-interval '24 hours' AND owner_agent_type='build-dispatch-loop'),
+h AS (SELECT o.orchestration_id, l.site_id, o.created_at s, o.updated_at e, o.status FROM orchestration_states o JOIN loops l ON l.orchestration_id=o.parent_orchestration_id),
+x AS (SELECT h.*, EXISTS (SELECT 1 FROM h b WHERE b.site_id=h.site_id AND b.orchestration_id<>h.orchestration_id AND h.s<b.e AND b.s<h.e) has_partner FROM h)
+SELECT has_partner, count(*) handlers, count(*) FILTER (WHERE status='FAILED') failed,
+       round(100.0*count(*) FILTER (WHERE status='FAILED')/count(*),2) fail_pct FROM x GROUP BY 1 ORDER BY 1;
+```
+
+```bash
+# The re-runnable five-assertion check (parity · identity · 0 hardcoded stamps · liveness · 0 double-handles),
+# plus the co-pick / lost-claim cost table. Exit 0 = holds; a RAISE names the failing assertion.
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/584_dispatch_sibling_C_insert_trigger_2_VERIFY.sql
+# Prove it can fire (do this after editing it): invert assertion 1 on a scratch copy and expect a RAISE.
+sed 's/IF m >= 2 AND n <> 1 THEN/IF m >= 2 AND n = 1 THEN/' docs/agent_docs/sql_for_agents/584_dispatch_sibling_C_insert_trigger_2_VERIFY.sql > "$SCRATCH/verify_mutant.sql"
+```
+
+```sql
+-- SIBLING PARITY, one-liner (LANDMINES 2026-08-25): one distinct value per column, or a by-name UPDATE missed a row.
+SELECT name, md5(pre_query) pq, interval_seconds, target_topic, timeout_seconds, enabled, input_data
+FROM scheduled_tasks WHERE name LIKE 'build-pipeline-trigger%';
+```
+
+## Council (added 2026-08-25)
+
+```bash
+# Resubmit on the SAME correlation so the trail accumulates; DRY_RUN first (validates + scope admission, spends nothing).
+DRY_RUN=1 RESUBMIT_CORR=db9b7cbf-7b94-471a-a4cf-26a6679fa47f ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh "$SCRATCH/council_582_584_r3.json"
+# Verdict lands in ~30 min; find it by payload, latest first:
+#   SELECT created_at, left(body,400) FROM doc_notes WHERE categories ? 'council-gate' AND body LIKE '%db9b7cbf%' ORDER BY created_at DESC LIMIT 1;
+#   SELECT body FROM diagnosis_artifacts WHERE kind='council_report' AND correlation_id LIKE 'db9b7cbf%' ORDER BY created_at DESC LIMIT 1;
+# ⚠ the doc_notes header says "(round 1)" on every round — it is a template literal, not the round number; count the reports.
+```
