@@ -42,17 +42,40 @@
 // decided here. See the webdesign_uk_build_service lane's
 // DECISION_2026-08-21_zip_download_link_needs_a_credential_home.md.
 //
-// # The prefetch hazard, stated because it is a real one
+// # Two clicks, and why the GET does nothing
 //
-// This is a GET that mutates state, which is what an emailed confirmation link
-// has to be if there is to be no form. Mail scanners and link-preview bots fetch
-// links in email. Such a fetch would stamp the site as transfer-confirmed
-// without the customer having clicked anything, and — IF the token were minted
-// single-use — would also spend the token so the customer's own click then
-// fails. The handler cannot prevent the first; it is written so the second
-// cannot happen if the minting step follows the guidance in ConfirmTransfer's
-// doc comment. The mitigation and its cost are in the decision doc; the ruling
-// stands until the owner changes it.
+// An emailed confirmation link is fetched by things that are not the customer:
+// corporate mail scanners, inbox link checkers, preview bots. Until 2026-08-24
+// the link click WAS the confirmation, so any of those would have stamped the
+// site as transfer-confirmed with nobody having decided anything — after which
+// we stop chasing the customer and retract their live site on schedule,
+// believing they had moved.
+//
+// Owner ruling 2026-08-24 (*"we can't have email scanners clicking the accept
+// button so we'll need a separate page"*): the endpoint splits BY METHOD.
+//
+//	GET  /c/<token>  renders a page with one button. It reads nothing and
+//	                 writes nothing — no database access of any kind — so a
+//	                 scanner following the link cannot change our state, and
+//	                 cannot learn whether the token is even real.
+//	POST /c/<token>  is the confirmation. Scanners follow links; they do not
+//	                 submit forms.
+//
+// The 2026-08-19 ruling that recording the click IS the state is AMENDED, not
+// repealed: the BUTTON press is the state, the LINK click is navigation.
+//
+// SAME PATH, method as the distinction, pinned 2026-08-24. The box vhost admits
+// exactly `^/c/[A-Za-z0-9_-]{20,128}$` and permits GET and POST on it, so a
+// suffix route such as /c/<token>/confirm would be 404'd at the box and never
+// reach this file. Change the vhost and the route together or not at all.
+//
+// The speculative-fetch guard below stays on BOTH handlers. On the POST it is
+// what it always was. On the GET it is now belt to that braces — the ruling
+// keeps it as the outer layer rather than resting the whole hazard on one
+// mechanism, and it costs a header check.
+//
+// See DECISION_2026-08-24_confirmation_needs_a_second_click.md in the
+// webdesign_uk_build_service lane for the ruling and what it does NOT change.
 package handlers
 
 import (
@@ -90,7 +113,53 @@ func NewDeliveryHandler(deps DeliveryDeps) *DeliveryHandler {
 // and refusing early keeps a hostile URL from reaching the database at all.
 const maxTokenLen = 128
 
-// HandleConfirmTransfer is GET /c/:token.
+// HandleConfirmPage is GET /c/:token: the page with the button, and nothing else.
+//
+// IT PERFORMS NO DATABASE ACCESS. That is the whole mitigation, so it is worth
+// stating as a property rather than describing it: there is no call here to
+// spend a token, none to look one up, and none to ask whether one exists. A mail
+// scanner that opens this link gets byte-identical HTML whatever it holds, which
+// is also why this page cannot be used to test a guessed token without pressing
+// the button.
+//
+// It follows that the page cannot say "that link is no longer active" for a
+// token that is spent or expired: the customer learns that when they press. That
+// cost was put to the owner and accepted (2026-08-25), against the alternative
+// of a read-only lookup, which buys slightly better copy and hands anyone
+// holding a guess a free validity oracle.
+func (h *DeliveryHandler) HandleConfirmPage(c *gin.Context) {
+	log := h.deps.Logger()
+
+	// Both refusals are retained from the mutating days on the owner's ruling.
+	// Nothing here mutates, so neither is load-bearing now; they are kept
+	// because a guard removed on the reasoning "the thing it protects moved" is
+	// how the next refactor gets a surprise.
+	if c.Request.Method == http.MethodHead {
+		log.Info("confirm page refused: HEAD")
+		h.renderSpeculativeRefusal(c)
+		return
+	}
+	if reason := speculativeFetchReason(c.Request); reason != "" {
+		log.Info("confirm page refused: speculative fetch", zap.String("signal", reason))
+		h.renderSpeculativeRefusal(c)
+		return
+	}
+
+	// Same guard as the POST, on a handler that does not use the token: a
+	// hostile URL must get the same answer from both verbs, or the pair of them
+	// becomes the oracle that neither is on its own.
+	token := strings.TrimSpace(c.Param("token"))
+	if token == "" || len(token) > maxTokenLen {
+		log.Info("confirm page refused: malformed token", zap.Int("len", len(token)))
+		h.renderConfirm(c, confirmFailed)
+		return
+	}
+
+	h.renderConfirm(c, confirmButton)
+}
+
+// HandleConfirmTransfer is POST /c/:token — the button press, and the only thing
+// on this endpoint that changes state.
 //
 // 200 on success AND on every failure, with different HTML. Deliberate: the
 // reader is a customer, not an API client, and a 404 page from a link we sent
@@ -102,26 +171,18 @@ const maxTokenLen = 128
 func (h *DeliveryHandler) HandleConfirmTransfer(c *gin.Context) {
 	log := h.deps.Logger()
 
-	// A GET that changes state is what an emailed confirmation link has to be,
-	// given the owner's ruling that recording the click IS the state. The cost
-	// is that anything which FETCHES the link without a human deciding to
-	// follow it would confirm a transfer nobody confirmed, and we would then
-	// stop chasing a customer who never moved, and retract their live site on
-	// schedule believing they had.
+	// Never mutate for a request that announces itself as speculative, and never
+	// for HEAD. Browsers do not speculatively POST, so on this verb the guard is
+	// mostly defence against a future routing change — gin does not route HEAD
+	// to a POST handler today, but that is one r.Any() away from being untrue,
+	// and this is the file that must not depend on it.
 	//
-	// So: never mutate for a request that announces itself as speculative, and
-	// never for HEAD (gin does not route HEAD to a GET handler today, but that
-	// is a routing detail one r.Any() away from changing, and this is the file
-	// that must not depend on it).
-	//
-	// ⚠ BE CLEAR ABOUT WHAT THIS DOES NOT COVER. It closes the BROWSER
-	// prefetch/prerender/preview vector, which is the one that announces
-	// itself. It does NOT close the mail-scanner vector: a corporate security
-	// gateway or an inbox provider's link checker typically sends a plain GET
-	// with none of these headers, and is indistinguishable at this layer from
-	// the customer clicking. That half cannot be fixed here — it needs either a
-	// second click or an accepted risk, and it is the owner's call
-	// (DECISION_2026-08-21b s4). Do not read this guard as closing the hazard.
+	// ⚠ WHAT CLOSES THE MAIL-SCANNER VECTOR IS THE METHOD SPLIT, NOT THIS
+	// GUARD. A corporate security gateway sends a plain GET with none of these
+	// headers and is indistinguishable here from a person; it now lands on
+	// HandleConfirmPage, which changes nothing. Do not merge the two handlers
+	// back together on the reasoning that this guard covers it. It does not, and
+	// it never did (DECISION_2026-08-24, closing DECISION_2026-08-21b s4).
 	if c.Request.Method == http.MethodHead {
 		log.Info("confirm-transfer refused: HEAD, state not changed")
 		h.renderSpeculativeRefusal(c)
@@ -220,6 +281,9 @@ const (
 	confirmOK confirmOutcome = iota
 	confirmFailed
 	confirmError
+	// confirmButton is the GET page: the only outcome reached without the
+	// database having been asked anything.
+	confirmButton
 )
 
 // confirmPage is deliberately self-contained: no external stylesheet, no font,
@@ -242,15 +306,27 @@ var confirmPage = template.Must(template.New("confirm").Parse(
       max-width:34rem;margin:12vh auto;padding:0 1.25rem;color:#111;background:#fff}
  h1{font-size:1.4rem;margin:0 0 .75rem}
  p{margin:0 0 .75rem}
- @media (prefers-color-scheme:dark){body{color:#eee;background:#111}}
+ button{font:inherit;margin-top:.5rem;padding:.7rem 1.25rem;border:0;
+        border-radius:.4rem;background:#111;color:#fff;cursor:pointer}
+ @media (prefers-color-scheme:dark){body{color:#eee;background:#111}
+                                    button{background:#eee;color:#111}}
 </style>
 <h1>{{.Title}}</h1>
 {{range .Paragraphs}}<p>{{.}}</p>
+{{end}}{{if .Button}}<form method="post"><button type="submit">{{.Button}}</button></form>
 {{end}}`))
 
 type confirmView struct {
 	Title      string
 	Paragraphs []string
+	// Button, when set, renders the form that POSTs back to this same URL.
+	//
+	// The form deliberately carries NO action attribute: a form without one
+	// submits to the current document URL, so the token stays in the request
+	// line where it already is and never enters the HTML. action="/c/<token>"
+	// would write the secret into the page body, and from there into anything
+	// that keeps a copy of the page.
+	Button string
 }
 
 func (h *DeliveryHandler) renderConfirm(c *gin.Context, outcome confirmOutcome) {
@@ -271,6 +347,18 @@ func (h *DeliveryHandler) renderConfirm(c *gin.Context, outcome confirmOutcome) 
 				"It may already have been used, or it may have run out. Either way there is nothing wrong at your end.",
 				"If you have already told us you have moved, you do not need to do anything else.",
 			},
+		}
+	case confirmButton:
+		// No em dashes, no external reference, nothing named. The page says what
+		// pressing does and that nothing has happened yet, because a customer
+		// who thinks the link already did it will not press.
+		v = confirmView{
+			Title: "Confirm you have moved your site",
+			Paragraphs: []string{
+				"Pressing the button below tells us you have moved everything across. You will not get any more reminders about it.",
+				"Nothing is recorded until you press it.",
+			},
+			Button: "Yes, I have moved everything",
 		}
 	default:
 		v = confirmView{

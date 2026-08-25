@@ -1,0 +1,60 @@
+{
+  "rationale": "Closes the mail-scanner confirmation hazard on the one publicly-reachable mutating endpoint this estate has. Today GET /c/<token> IS the confirmation: it spends a single-use token and stamps sites.transfer_confirmed_at (owner ruling 2026-08-19, 'recording the click is the state'). The live prefetch guard (0e9cb31ee) refuses HEAD and ANNOUNCED speculative fetches, and its own doc comment states what it cannot close: a corporate mail gateway or inbox link checker issues a plain GET with none of those headers and is indistinguishable at that layer from the customer. The consequence is not cosmetic — a scanner-confirmed transfer stops the chase email and lets the retract-on-schedule path run against a customer who never moved. OWNER RULING 2026-08-24: 'We can't have email scanners clicking the accept button so we'll need a separate page' (DECISION_2026-08-24_confirmation_needs_a_second_click.md), which explicitly AMENDS the 2026-08-19 ruling rather than repealing it: the button press is the state, the link click is navigation. This change is that ruling, nothing more. GET renders a page with one button and performs NO database access of any kind; POST on the SAME path confirms. Same path is a measured constraint, not a preference: box/links.webdesign.uk.nginx admits exactly location ~ '^/c/[A-Za-z0-9_-]{20,128}$' with limit_except GET POST, so the regex is anchored and a suffix route (/c/<token>/confirm) would be 404'd at the box before reaching the service, while POST on the same path is already permitted — the vhost needs no change and its header comment already records this ruling. Two design choices were put to the owner and settled 2026-08-25. (1) The GET does not look the token up at all, rather than peeking read-only: it makes 'the link click mutates nothing' structurally true instead of a property under test, needs no new platform/delivery code (so this change stays entirely inside internal/), and denies anyone holding a guessed token a free validity oracle. Accepted cost: a customer with a spent link learns it on pressing, not before. (2) The page names nothing — not the site, not the domain — preserving the rule already written at delivery_deps.go:36-38, that naming the site tells whoever holds the link that the token is real and whose it is. Blast radius is one endpoint: platform/delivery is untouched, the token semantics (unguessable, hashed at rest, expiring, single-use, purpose-scoped) are untouched, and the only consumer is the delivery-email builder, which is unbuilt and in the same lane. customer_access_tokens = 0 rows [MEASURED 2026-08-25 in this session, all four counts], so no live link changes behaviour under a customer. This is not architecture-scope under the 2026-07-29 ruling: no shared vocabulary, no reserved key, no new authority on a shared seam — one endpoint's method semantics, on the owner's explicit instruction.",
+  "submitter": "web_admin_console lane, executing webdesign_uk_build_service DECISION_2026-08-24 (handoff 08-24c item 2)",
+  "plan": {
+    "summary": "Split /c/<token> by method. NEW HandleConfirmPage serves GET: HEAD and speculative-fetch refusals retained, same maxTokenLen guard as the POST, then renders a button page — and reaches no database on any arm. The existing HandleConfirmTransfer becomes the POST handler, its body unchanged in substance (guards, length check, deps.ConfirmTransfer, the same three outcome pages and headers). The button page reuses the existing confirmPage template via a new optional Button field, so all four pages keep one stylesheet, one set of headers and one voice; the form carries NO action attribute so it posts to the current URL and the token never enters the HTML. server.go routes GET to the page and POST to the confirm handler on the identical path. Tests are re-pointed verb-by-verb rather than deleted, plus new cases for the page, and the whole file's rationale comments are rewritten where they asserted the now-false 'this is a GET that mutates'.",
+    "edits": [
+      {
+        "file": "internal/core-manager/handlers/delivery.go",
+        "symbol": "HandleConfirmPage (new)",
+        "operation": "add",
+        "rationale": "The mitigation itself. It performs no database access on any arm, which is the property the owner's ruling actually buys: a scanner following the link gets byte-identical HTML whatever token it holds, so it can neither change state nor learn whether the token is real. The maxTokenLen guard is duplicated from the POST deliberately — a hostile URL must get the same answer from both verbs, or the pair becomes the oracle neither is alone.",
+        "sketch": "func (h *DeliveryHandler) HandleConfirmPage(c *gin.Context): HEAD → renderSpeculativeRefusal; speculativeFetchReason != \"\" → renderSpeculativeRefusal; empty/oversized token → renderConfirm(confirmFailed); else renderConfirm(confirmButton). No call to h.deps.ConfirmTransfer anywhere in the function."
+      },
+      {
+        "file": "internal/core-manager/handlers/delivery.go",
+        "symbol": "confirmOutcome / confirmView / confirmPage template",
+        "operation": "modify",
+        "rationale": "One template, not two: the four pages must keep the same self-contained stylesheet, the same no-store/no-referrer/nosniff/DENY headers and the same voice rules (plain British English, no em dashes, nothing external — the page is read from an email on a phone with no CDN in front of it). The Button field renders a form with NO action attribute; action=\"/c/<token>\" would write the secret into the page body and from there into anything holding a copy, which the existing no-echo test already forbids.",
+        "sketch": "const confirmButton added to the outcome iota; confirmView gains Button string; template gains {{if .Button}}<form method=\"post\"><button type=\"submit\">{{.Button}}</button></form>{{end}} plus button styling inside the existing <style>; renderConfirm gains the confirmButton case with the page copy."
+      },
+      {
+        "file": "internal/core-manager/handlers/delivery.go",
+        "symbol": "file header comment + HandleConfirmTransfer rationale block",
+        "operation": "modify",
+        "rationale": "Both blocks assert what this change falsifies — that this is a GET which must mutate, and that the mail-scanner half 'cannot be fixed here'. Left in place they are a stale comment on the file that most needs a true one, and the next reader would take them as the current design. The replacement states the method split, cites the ruling, and says plainly that the guard is NOT what closes the scanner vector, so nobody merges the two handlers back on that reasoning.",
+        "sketch": "Header section '# The prefetch hazard' → '# Two clicks, and why the GET does nothing', with the GET/POST contract, the same-path constraint and the amendment to the 2026-08-19 ruling. In-handler block rewritten to say the METHOD SPLIT closes the scanner vector and the guard never did."
+      },
+      {
+        "file": "internal/core-manager/api/server.go",
+        "symbol": "delivery routes",
+        "operation": "modify",
+        "rationale": "The route is where the method distinction becomes real. The comment records why the path must stay identical: the box vhost's anchored regex would 404 a suffix route before it reached the service, so a future 'tidier' route shape fails silently in production and passes every test here.",
+        "sketch": "s.router.GET(\"/c/:token\", deliveryHandler.HandleConfirmPage); s.router.POST(\"/c/:token\", deliveryHandler.HandleConfirmTransfer), with the existing block comment extended."
+      },
+      {
+        "file": "internal/core-manager/handlers/delivery_test.go",
+        "symbol": "newRouter + the GET cases + every existing case re-pointed to POST",
+        "operation": "modify",
+        "rationale": "The existing cases assert the right behaviour on what is now the wrong verb, so they are MOVED to POST rather than dropped — the coverage is still owed. newRouter mirrors api/server.go exactly, because a test registering the confirm handler on GET would pass every assertion while the live service did the opposite. The new GET cases assert the button page, that the page is byte-identical for two different tokens (a page that varies IS the oracle this shape exists to avoid), and that the form carries no action attribute.",
+        "sketch": "newRouter registers GET→HandleConfirmPage, POST→HandleConfirmTransfer, HEAD→HandleConfirmPage; TestGetRendersTheButtonAndConfirmsNothing, TestTheFormDoesNotCarryTheTokenIntoTheHTML, TestTheButtonPageIsIdenticalForEveryToken, TestGetRefusesHEADAndSpeculativeFetches, TestGetRefusesAnOversizedTokenLikeThePostDoes, TestASecondPressSaysTheLinkIsNoLongerActive added; the button page joins the voice-rules loop."
+      },
+      {
+        "file": "internal/core-manager/handlers/delivery_test.go",
+        "symbol": "TestGetRendersTheButtonAndConfirmsNothing — the absence assertion",
+        "operation": "modify",
+        "rationale": "SUBMITTED AS A CORRECTION TO OUR OWN FIRST CUT, because the reviewers should see it. This file's standing rule is to assert the EFFECT and never the absence of a call. Written that way, the GET test asserted only that the success copy was absent — and the mutation (make HandleConfirmPage call ConfirmTransfer, then render the button page anyway) PASSED: the database would have been mutated and the page is identical, so nothing in the response witnesses it. The rule does not apply to this property, because 'the link click reaches no database' IS an absence and no response can witness one. The direct assertion went in, the same mutation now fails, and the comment records why the exception is not a lapse.",
+        "sketch": "if len(f.gotTokens) != 0 { t.Fatalf(\"a plain GET reached ConfirmTransfer with %v; the link click must touch no database at all\", f.gotTokens) }"
+      }
+    ],
+    "grounded_in": [
+      "OWNER RULING 2026-08-24, quoted in DECISION_2026-08-24_confirmation_needs_a_second_click.md: \"We can't have email scanners clicking the accept button so we'll need a separate page.\"",
+      "delivery.go's own pre-change doc comment: \"It does NOT close the mail-scanner vector: a corporate security gateway or an inbox provider's link checker typically sends a plain GET with none of these headers, and is indistinguishable at this layer from the customer clicking. That half cannot be fixed here — it needs either a second click or an accepted risk, and it is the owner's call.\"",
+      "box/links.webdesign.uk.nginx [READ 2026-08-25]: `location ~ \"^/c/[A-Za-z0-9_-]{20,128}$\"` with `limit_except GET POST { deny all; }` — anchored, so a suffix route 404s at the box; POST on the same path is already admitted, so no vhost change ships with this.",
+      "delivery_deps.go:36-38, the rule the page copy preserves: \"nothing on the customer-facing page varies by site, and a page that named the site would confirm to whoever holds the link that the token is real and which site it belongs to.\"",
+      "MUTATION TESTING [RUN 2026-08-25], two mutations against the finished suite: (a) routing GET back to HandleConfirmTransfer → TestGetRendersTheButtonAndConfirmsNothing FAILS; (b) making HandleConfirmPage call ConfirmTransfer before rendering → PASSED on the first cut, FAILS after the absence assertion went in. Both restored; the clean suite passes.",
+      "scripts/verify-head-builds.sh --test --with (3 files) ./internal/core-manager/... → OK against committed HEAD 021843119 [RUN 2026-08-25].",
+      "customer_access_tokens = 0 rows (0 of purpose confirm_transfer), sites handed_over 0 and transfer_confirmed 0 [MEASURED 2026-08-25 against clients_db, this session]: no live customer link changes behaviour under anyone while this ships."
+    ]
+  }
+}

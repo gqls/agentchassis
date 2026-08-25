@@ -253,3 +253,26 @@ staying is not evidence it didn't ship.
 
 Nothing else moved overnight. Still owed: the button-press confirmation page, and your
 three questions on the exposure review.
+
+## 2026-08-25, midday — the button page is built
+
+The thing you ruled must exist before any customer email goes out is written, tested and
+sent for review. It works the way you asked: the link in the email now opens a page with a
+single button and changes nothing at all, and only pressing the button records that the
+customer has moved. A mail scanner opening the link cannot confirm anything, because
+scanners follow links and do not press buttons.
+
+Two small choices you made this morning shaped it. The page does not look the link up at
+all, so opening it cannot even tell someone whether a link is real, and the page names no
+site or customer, so a forwarded email gives nothing away. The cost, which you accepted, is
+that someone whose link has already been used finds out when they press rather than before.
+
+One thing worth telling you because it nearly slipped through. I test these guards by
+deliberately breaking the code and checking the tests notice. The first break I tried — make
+the page quietly do the confirmation anyway — did **not** get caught, because the page looks
+identical either way, so nothing a browser sees could reveal it. I rewrote the test to check
+the thing directly, and the same break now fails it. The tests were green before that and
+would have stayed green while the hole was open.
+
+It is not live yet. It goes out with the next routine software roll, and the first customer
+email stays blocked until I have checked it running, not merely committed.

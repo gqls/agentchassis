@@ -12,6 +12,13 @@
 // success page. Asserting "the dependency was not called" would have proven
 // nothing by comparison (LANDMINES: assert the mechanism's EFFECT, never the
 // absence of a call).
+//
+// ⚠ THAT RULE IS WHY THE GET TESTS LOOK INDIRECT. "The link click mutates
+// nothing" is a NEGATIVE, and a fake's own bookkeeping cannot assert one. So it
+// is tested by its effect instead: the fake confirms any token, so a GET that
+// still reached it would render the success copy. Asserting that copy is ABSENT
+// from the page fails the moment the method split is undone, which is exactly
+// the regression worth catching.
 package handlers
 
 import (
@@ -38,20 +45,130 @@ func (f *fakeDeliveryDeps) ConfirmTransfer(_ *gin.Context, token string) error {
 }
 func (f *fakeDeliveryDeps) Logger() *zap.Logger { return zap.NewNop() }
 
-func serve(t *testing.T, deps DeliveryDeps, method, path string) *httptest.ResponseRecorder {
-	t.Helper()
+// newRouter wires the two verbs exactly as api/server.go does. Keeping the
+// production shape here matters: a test that registered the POST handler on GET
+// would pass every assertion below while the live service did the opposite.
+func newRouter(deps DeliveryDeps) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	h := NewDeliveryHandler(deps)
-	r.GET("/c/:token", h.HandleConfirmTransfer)
+	r.GET("/c/:token", h.HandleConfirmPage)
+	r.POST("/c/:token", h.HandleConfirmTransfer)
+	r.HEAD("/c/:token", h.HandleConfirmPage)
+	return r
+}
+
+func serve(t *testing.T, deps DeliveryDeps, method, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	return serveWithHeader(t, deps, method, path, "", "")
+}
+
+func serveWithHeader(t *testing.T, deps DeliveryDeps, method, path, hdr, val string) *httptest.ResponseRecorder {
+	t.Helper()
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(method, path, nil))
+	req := httptest.NewRequest(method, path, nil)
+	if hdr != "" {
+		req.Header.Set(hdr, val)
+	}
+	newRouter(deps).ServeHTTP(w, req)
 	return w
 }
 
+// ── The GET page: the mail-scanner mitigation itself ─────────────────────────
+
+// The one that matters. Undo the method split and this test goes red.
+func TestGetRendersTheButtonAndConfirmsNothing(t *testing.T) {
+	f := &fakeDeliveryDeps{} // confirms ANY token
+	w := serve(t, f, http.MethodGet, "/c/abc123")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	body := w.Body.String()
+
+	// THE assertion: a GET that still mutated would reach the fake, succeed and
+	// render the success copy. This is what a mail scanner would have caused.
+	if strings.Contains(body, "that is recorded") {
+		t.Fatalf("a plain GET CONFIRMED the transfer; the second-click split is gone: %q", body)
+	}
+	if !strings.Contains(body, "Yes, I have moved everything") {
+		t.Errorf("the page has no button: %q", body)
+	}
+	if !strings.Contains(body, `<form method="post"`) {
+		t.Errorf("the button is not in a POST form, so pressing it cannot confirm: %q", body)
+	}
+
+	// ⚠ THE COPY ASSERTION ABOVE IS NOT ENOUGH, and finding that out is why this
+	// block exists. A GET that called ConfirmTransfer and THEN rendered the
+	// button page would mutate the database and leave the page identical — the
+	// mutation was run (2026-08-25) and the suite stayed green until this went
+	// in. This file's standing rule is to assert the effect and never the
+	// absence of a call, and it does not apply here: "the link click reaches no
+	// database" IS an absence, and nothing in the response can witness it. What
+	// keeps this honest is that the mutation makes it fail.
+	if len(f.gotTokens) != 0 {
+		t.Fatalf("a plain GET reached ConfirmTransfer with %v; the link click must touch no database at all", f.gotTokens)
+	}
+}
+
+// The form must submit to the current URL by having NO action attribute. With
+// action="/c/<token>" the secret lands in the page body, and from there into
+// anything that keeps a copy of the page.
+func TestTheFormDoesNotCarryTheTokenIntoTheHTML(t *testing.T) {
+	const token = "SUPERSECRETTOKENVALUE"
+	f := &fakeDeliveryDeps{}
+	body := serve(t, f, http.MethodGet, "/c/"+token).Body.String()
+
+	if strings.Contains(body, token) {
+		t.Errorf("the token is echoed into the button page, so it lands in history and any page cache")
+	}
+	if strings.Contains(body, "action=") {
+		t.Errorf("the form names an action; without one it posts to the current URL and the token stays out of the HTML: %q", body)
+	}
+}
+
+// The page is a fixed string. If it ever varies by token, it becomes a way to
+// test a guess without pressing the button, which is the property the owner
+// chose this shape for.
+func TestTheButtonPageIsIdenticalForEveryToken(t *testing.T) {
+	a := serve(t, &fakeDeliveryDeps{}, http.MethodGet, "/c/"+strings.Repeat("A", 43)).Body.String()
+	b := serve(t, &fakeDeliveryDeps{}, http.MethodGet, "/c/"+strings.Repeat("B", 43)).Body.String()
+	if a != b {
+		t.Errorf("the page varies by token, which makes it a validity oracle")
+	}
+}
+
+func TestGetRefusesHEADAndSpeculativeFetches(t *testing.T) {
+	f := &fakeDeliveryDeps{}
+	if w := serve(t, f, http.MethodHead, "/c/abc123"); w.Code == http.StatusOK {
+		t.Errorf("HEAD returned 200, want a refusal")
+	}
+	w := serveWithHeader(t, f, http.MethodGet, "/c/abc123", "Sec-Purpose", "prefetch")
+	if w.Code == http.StatusOK {
+		t.Errorf("a speculative GET returned 200; a 2xx is a usable prefetch result")
+	}
+	if got := w.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store", got)
+	}
+}
+
+// Both verbs must answer a hostile URL the same way, or the pair of them is the
+// oracle neither is alone.
+func TestGetRefusesAnOversizedTokenLikeThePostDoes(t *testing.T) {
+	body := serve(t, &fakeDeliveryDeps{}, http.MethodGet, "/c/"+strings.Repeat("A", maxTokenLen+1)).Body.String()
+	if strings.Contains(body, "Yes, I have moved everything") {
+		t.Errorf("an oversized token was offered the button: %q", body)
+	}
+	if !strings.Contains(body, "no longer active") {
+		t.Errorf("an oversized token got neither the button nor the failure page: %q", body)
+	}
+}
+
+// ── The POST: the button press, and the state change ─────────────────────────
+
 func TestConfirmTransferSucceedsAndSaysSo(t *testing.T) {
 	f := &fakeDeliveryDeps{}
-	w := serve(t, f, http.MethodGet, "/c/abc123")
+	w := serve(t, f, http.MethodPost, "/c/abc123")
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", w.Code)
@@ -67,11 +184,25 @@ func TestConfirmTransferSucceedsAndSaysSo(t *testing.T) {
 	}
 }
 
+// The token is single-use at the database. The second press must land on the
+// same page as a stranger's guess, and say nothing about why.
+func TestASecondPressSaysTheLinkIsNoLongerActive(t *testing.T) {
+	f := &fakeDeliveryDeps{}
+	if first := serve(t, f, http.MethodPost, "/c/abc123"); !strings.Contains(first.Body.String(), "that is recorded") {
+		t.Fatalf("the first press did not confirm: %q", first.Body.String())
+	}
+	f.err = delivery.ErrTokenNotFound // the database has now spent it
+	second := serve(t, f, http.MethodPost, "/c/abc123")
+	if !strings.Contains(second.Body.String(), "no longer active") {
+		t.Errorf("a second press did not get the spent-link page: %q", second.Body.String())
+	}
+}
+
 // The whole point of ErrTokenNotFound being ONE error is that the page cannot
 // become an oracle. This pins that at the layer a stranger can actually see.
 func TestConfirmTransferNeverSaysWHICHFailure(t *testing.T) {
 	f := &fakeDeliveryDeps{err: delivery.ErrTokenNotFound}
-	w := serve(t, f, http.MethodGet, "/c/abc123")
+	w := serve(t, f, http.MethodPost, "/c/abc123")
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (a 404 from a link we emailed reads as a lost site)", w.Code)
@@ -92,7 +223,7 @@ func TestConfirmTransferNeverSaysWHICHFailure(t *testing.T) {
 // answer questions.
 func TestConfirmTransferDistinguishesOurFaultFromTheirLink(t *testing.T) {
 	f := &fakeDeliveryDeps{err: errors.New("connection refused")}
-	w := serve(t, f, http.MethodGet, "/c/abc123")
+	w := serve(t, f, http.MethodPost, "/c/abc123")
 
 	body := w.Body.String()
 	if !strings.Contains(body, "our end") {
@@ -109,7 +240,7 @@ func TestConfirmTransferDistinguishesOurFaultFromTheirLink(t *testing.T) {
 // The fake succeeds on ANY token, so this fails if the length guard is removed.
 func TestConfirmTransferRefusesAnOversizedTokenBeforeTheDatabase(t *testing.T) {
 	f := &fakeDeliveryDeps{}
-	w := serve(t, f, http.MethodGet, "/c/"+strings.Repeat("A", maxTokenLen+1))
+	w := serve(t, f, http.MethodPost, "/c/"+strings.Repeat("A", maxTokenLen+1))
 
 	if strings.Contains(w.Body.String(), "that is recorded") {
 		t.Fatalf("an oversized token was confirmed; the length guard is not doing anything")
@@ -120,7 +251,7 @@ func TestConfirmTransferRefusesAnOversizedTokenBeforeTheDatabase(t *testing.T) {
 	// A token exactly AT the limit must still work, or the guard is off by one
 	// and would reject real tokens the day the format changes.
 	f2 := &fakeDeliveryDeps{}
-	w2 := serve(t, f2, http.MethodGet, "/c/"+strings.Repeat("A", maxTokenLen))
+	w2 := serve(t, f2, http.MethodPost, "/c/"+strings.Repeat("A", maxTokenLen))
 	if !strings.Contains(w2.Body.String(), "that is recorded") {
 		t.Errorf("a token at exactly maxTokenLen was refused; the guard is off by one")
 	}
@@ -130,7 +261,7 @@ func TestConfirmTransferRefusesAnOversizedTokenBeforeTheDatabase(t *testing.T) {
 func TestConfirmTransferDoesNotEchoTheTokenOrLeakItOnward(t *testing.T) {
 	const token = "SUPERSECRETTOKENVALUE"
 	f := &fakeDeliveryDeps{}
-	w := serve(t, f, http.MethodGet, "/c/"+token)
+	w := serve(t, f, http.MethodPost, "/c/"+token)
 
 	if strings.Contains(w.Body.String(), token) {
 		t.Errorf("the token is echoed into the page, so it lands in history and any page cache")
@@ -150,19 +281,26 @@ func TestConfirmTransferDoesNotEchoTheTokenOrLeakItOnward(t *testing.T) {
 // in front of it. Anything external is a way to look broken on someone else's
 // bad day, and the register bans em dashes everywhere.
 func TestConfirmPageIsSelfContainedAndObeysTheVoiceRules(t *testing.T) {
-	for _, deps := range []DeliveryDeps{
-		&fakeDeliveryDeps{},
-		&fakeDeliveryDeps{err: delivery.ErrTokenNotFound},
-		&fakeDeliveryDeps{err: errors.New("boom")},
+	type page struct {
+		method string
+		deps   DeliveryDeps
+	}
+	// The button page is in this loop deliberately: it is the one a customer is
+	// most likely to see, and it was written last.
+	for _, p := range []page{
+		{http.MethodGet, &fakeDeliveryDeps{}},
+		{http.MethodPost, &fakeDeliveryDeps{}},
+		{http.MethodPost, &fakeDeliveryDeps{err: delivery.ErrTokenNotFound}},
+		{http.MethodPost, &fakeDeliveryDeps{err: errors.New("boom")}},
 	} {
-		body := serve(t, deps, http.MethodGet, "/c/abc123").Body.String()
+		body := serve(t, p.deps, p.method, "/c/abc123").Body.String()
 		for _, external := range []string{"http://", "https://", "<script", "<img", "<link"} {
 			if strings.Contains(strings.ToLower(body), external) {
-				t.Errorf("page references something external (%q): %q", external, body)
+				t.Errorf("%s page references something external (%q): %q", p.method, external, body)
 			}
 		}
 		if strings.Contains(body, "—") {
-			t.Errorf("page contains an em dash, which is banned on every surface of this site: %q", body)
+			t.Errorf("%s page contains an em dash, which is banned on every surface of this site: %q", p.method, body)
 		}
 	}
 }
@@ -174,22 +312,10 @@ func TestConfirmPageIsSelfContainedAndObeysTheVoiceRules(t *testing.T) {
 // of these requests would reach it, succeed, and render the success page. The
 // assertion "the success copy is absent" therefore fails the moment the
 // behaviour is removed, which is the whole point.
-
-func serveWithHeader(t *testing.T, deps DeliveryDeps, method, path, hdr, val string) *httptest.ResponseRecorder {
-	t.Helper()
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	h := NewDeliveryHandler(deps)
-	r.GET("/c/:token", h.HandleConfirmTransfer)
-	r.HEAD("/c/:token", h.HandleConfirmTransfer)
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(method, path, nil)
-	if hdr != "" {
-		req.Header.Set(hdr, val)
-	}
-	r.ServeHTTP(w, req)
-	return w
-}
+//
+// Browsers do not speculatively POST, so on this verb the guard is defence
+// against a future routing change rather than against today's browsers. It is
+// tested because an untested guard is one a refactor deletes without noticing.
 
 func TestConfirmTransferRefusesSpeculativeFetches(t *testing.T) {
 	// Every vendor's spelling of the same idea. A browser sends whichever its
@@ -207,7 +333,7 @@ func TestConfirmTransferRefusesSpeculativeFetches(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			f := &fakeDeliveryDeps{}
-			w := serveWithHeader(t, f, http.MethodGet, "/c/abc123", tc.hdr, tc.val)
+			w := serveWithHeader(t, f, http.MethodPost, "/c/abc123", tc.hdr, tc.val)
 
 			// THE assertion that makes this test real: with the guard gone, the
 			// fake would confirm and this copy would be present.
@@ -225,9 +351,18 @@ func TestConfirmTransferRefusesSpeculativeFetches(t *testing.T) {
 	}
 }
 
-func TestConfirmTransferRefusesHEAD(t *testing.T) {
+// The POST handler's own HEAD arm is unreachable through gin's router today
+// (HEAD does not fall through to a POST route), so it is driven directly. It
+// stays because r.Any() is one refactor away and this is the file that must not
+// depend on the router's current shape.
+func TestTheConfirmHandlerItselfRefusesHEAD(t *testing.T) {
+	gin.SetMode(gin.TestMode)
 	f := &fakeDeliveryDeps{}
-	w := serveWithHeader(t, f, http.MethodHead, "/c/abc123", "", "")
+	r := gin.New()
+	r.HEAD("/c/:token", NewDeliveryHandler(f).HandleConfirmTransfer)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodHead, "/c/abc123", nil))
+
 	if w.Code == http.StatusOK {
 		t.Errorf("HEAD returned 200, want a refusal")
 	}
@@ -239,14 +374,14 @@ func TestConfirmTransferRefusesHEAD(t *testing.T) {
 // The must-pass arm. Without it, a guard that refused EVERYTHING would pass
 // every test above, and the whole confirm mechanism would be dead with the
 // suite green.
-func TestConfirmTransferStillSucceedsForAnOrdinaryClick(t *testing.T) {
+func TestConfirmTransferStillSucceedsForAnOrdinaryButtonPress(t *testing.T) {
 	f := &fakeDeliveryDeps{}
-	w := serveWithHeader(t, f, http.MethodGet, "/c/abc123", "User-Agent", "Mozilla/5.0")
+	w := serveWithHeader(t, f, http.MethodPost, "/c/abc123", "User-Agent", "Mozilla/5.0")
 	if w.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200 for a normal click", w.Code)
+		t.Fatalf("status = %d, want 200 for a normal press", w.Code)
 	}
 	if !strings.Contains(w.Body.String(), "that is recorded") {
-		t.Fatalf("a normal click was not confirmed: %q", w.Body.String())
+		t.Fatalf("a normal press was not confirmed: %q", w.Body.String())
 	}
 	if len(f.gotTokens) != 1 || f.gotTokens[0] != "abc123" {
 		t.Errorf("token not passed through: %v", f.gotTokens)
@@ -260,9 +395,9 @@ func TestConfirmTransferStillSucceedsForAnOrdinaryClick(t *testing.T) {
 func TestConfirmTransferIgnoresUnrelatedHeaders(t *testing.T) {
 	for _, hdr := range []string{"User-Agent", "Referer", "Accept"} {
 		f := &fakeDeliveryDeps{}
-		w := serveWithHeader(t, f, http.MethodGet, "/c/abc123", hdr, "prefetch")
+		w := serveWithHeader(t, f, http.MethodPost, "/c/abc123", hdr, "prefetch")
 		if !strings.Contains(w.Body.String(), "that is recorded") {
-			t.Errorf("%s: an ordinary click was refused because an unrelated header said %q", hdr, "prefetch")
+			t.Errorf("%s: an ordinary press was refused because an unrelated header said %q", hdr, "prefetch")
 		}
 	}
 }

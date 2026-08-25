@@ -298,3 +298,42 @@ refreshed by the owner. Falsifiers re-run: tokens 0, handed_over 0/0. RFC_054 fi
 boundary review the architecture seat's condition owed — census reused from tonight, not
 re-measured). New consolidated handoff: HANDOFF_2026-08-24c_continue_here.md. Remaining
 code task: the second-click page (DECISION doc has the spec; POST same-path pinned).
+
+### 2026-08-25 morning — re-verified yesterday's deploy, then BUILT the second-click page
+
+**First: yesterday's proof had expired and I re-ran it rather than repeat it.** A roll landed
+~09:25. Dashboard is `v1.0.1337`; served bundle is STILL `assets/index-Bqjp4Gs8.js` — the same
+hash as 08-24, because the name is content-derived and the SPA did not change in that roll.
+⚠ **So neither direction of that reading is evidence on its own**: the tag moved without the
+bundle changing, and an unchanged bundle name does not mean a deploy failed. All five markers
+grepped present in it, with `ZZZ_control_must_be_absent` returning 0 in the same command.
+core-manager stamps `4c996e1b5`; `git merge-base --is-ancestor e6350e74b 4c996e1b5` passes and
+the REVERSED test fails, as it must.
+
+**Then item 2 of the handoff: `/c/<token>` splits by method.** GET → `HandleConfirmPage`
+(renders one button, **no database access on any arm**), POST → the existing
+`HandleConfirmTransfer`, same path. Owner settled the two open forks in-session (2026-08-25):
+**no lookup at all on GET** (rather than a read-only peek — it keeps the change inside
+`internal/`, makes "the link click mutates nothing" structural, and denies a guessed token a
+free validity oracle), and **the page names nothing** (preserving `delivery_deps.go:36-38`).
+No vhost change ships: `location ~ "^/c/[A-Za-z0-9_-]{20,128}$"` already carries
+`limit_except GET POST`, and the regex is anchored, which is exactly why the POST had to be
+same-path. Council submitted, `SUBMISSION_CORR=ea99befa-ec62-4f61-b052-c3af3d003d55`.
+
+> **MISSTEP, and it is the reason to keep running mutations rather than trusting a green
+> suite.** My first version of the GET test asserted only what the page said: "the body does
+> not contain *that is recorded*". That follows this file's own rule — assert the EFFECT,
+> never the absence of a call — and **it was wrong here.** The mutation I ran to prove the
+> test (`HandleConfirmPage` calls `ConfirmTransfer`, then renders the button page anyway)
+> **PASSED**: the database would have been mutated and the rendered page is byte-identical,
+> so nothing in the response witnesses it. The rule does not apply to this property, because
+> *"the link click reaches no database"* IS an absence and no response can witness one. The
+> direct assertion (`len(f.gotTokens) != 0`) went in and the same mutation now fails.
+> **The check: when the property under test is an absence, ask what in the response could
+> possibly differ — if nothing can, the effect-based assertion is vacuous no matter how
+> correct the rule that prescribed it.** A second mutation (routing GET back to the confirm
+> handler) failed correctly from the start. Both restored; clean suite green;
+> `verify-head-builds.sh --test --with` OK against HEAD `021843119`.
+
+**Still owed before the first delivery email:** this must be LIVE, not merely committed —
+it rides the next core-manager roll and gets proven at the pod's provenance stamp.

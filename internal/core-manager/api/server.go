@@ -130,9 +130,17 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 	// characters. There is no /d/<token> yet — presigning needs object-store
 	// credentials that no standing service holds by owner directive
 	// (bugs_open/245); see handlers/delivery.go.
+	//
+	// TWO VERBS, ONE PATH, and the method is the whole security distinction
+	// (owner ruling 2026-08-24): GET renders a page with a button and touches no
+	// database, POST is the confirmation. Mail scanners follow links; they do
+	// not submit forms. The path must stay identical between them — the box
+	// vhost admits token-shaped /c/ paths by anchored regex and would 404 a
+	// suffix route such as /c/<token>/confirm before it ever reached here.
 	deliveryHandler := handlers.NewDeliveryHandler(
 		handlers.NewDBDeliveryDeps(personaRepoImpl.ClientsDB(), s.logger))
-	s.router.GET("/c/:token", deliveryHandler.HandleConfirmTransfer)
+	s.router.GET("/c/:token", deliveryHandler.HandleConfirmPage)
+	s.router.POST("/c/:token", deliveryHandler.HandleConfirmTransfer)
 
 	// API v1 group with authentication
 	apiV1 := s.router.Group("/api/v1")
