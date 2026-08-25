@@ -52466,3 +52466,38 @@ pages. Only the instrument died.
 
 **Where it would be valid:** a site whose nav does not enumerate every page. The precondition is
 checkable in one query and is now written into both the CONTRIB and the retraction.
+
+### 2026-08-25 — I called a tautology "the sharpest instrument in two days", and wrote a paragraph explaining why it was sound
+
+A peer offered a set-difference of served link sets — *"`/garden/index.html` has 23 internal links,
+`/contact.html` has 23, zero unique to garden, therefore it indexes nothing"*. I verified the
+**numbers**, reproduced them, put them in a closed bug file, and told them it was the best instrument
+either lane had produced. I even wrote the reason: *"its answer cannot be produced by the confound."*
+
+**It cannot be produced by anything.** `[MEASURED 2026-08-25 13:23Z]` **the shared menu links 20 of
+the site's 21 pages.** Every internal link on every page is already in the menu, so the difference is
+**pinned at zero whether the listing rendered or not**. Had the page rendered twelve links to its
+month pages, all twelve are in the menu and it would still read 0.
+
+⚠ **The tell was in my own output and I read it as its opposite.** I wrote *"it is worse than three
+pages: EVERY page serves the identical 23 links"* and took the uniformity for a **stronger** result.
+**A measure returning one value across a whole population — including your negative control — is not
+detecting a universal defect; it is failing to discriminate.** And the clincher was already on my
+screen: `/april/index.html` scored 0 as well, and April is a **month page, not an index page**. A
+test of index-ness that scores identically on a non-index page is measuring something else.
+
+**This is the "endorse it" mode**, which the `364` lane named earlier the same day: I did not invent
+the claim, I **ratified** it — in the confident register of analysis, having checked that the numbers
+reproduced. **Reproducing a number is not testing an instrument.** The question is never "do I get
+the same figure", it is "what figure would I get if the thing were false".
+
+⚠ **And the replacement evidence needed the same treatment before I could use it.** The peer's
+substitute was *"`article-card` = 0 on the month pages"*. **The raw string appears 46 times** — all
+of it CSS in the `<style>` block. Sound version: count **elements bearing the class**, after
+stripping `<style>`/`<script>` — then homegarden scores **0** and the positive control
+(`dartsonline.com`) scores **12**, so the instrument can say yes.
+
+**The unifying rule, after three instruments failed the same way in one day:** *anchors* for list
+items, *nav* for month names, *`<style>`* for class names — **every markup measure on this estate is
+counting chrome until you strip the thing that is not content, and it will look like a measurement
+the whole time.** Pair every such count with a page that must score zero.

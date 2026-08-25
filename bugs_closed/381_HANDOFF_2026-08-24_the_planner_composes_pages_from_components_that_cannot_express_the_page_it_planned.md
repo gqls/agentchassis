@@ -662,19 +662,46 @@ field is `source=query.blog_posts` with `on_missing=skip_section`, so with no bl
 disappears, leaving the heading writing a cheque the body cannot cash. **Same symptom sentence,
 different cause, different fix.** Routed by that lane to `bugs_open/384` as a CONTRIB.
 
-**The measurement that settles which one you are looking at — set-difference the served link sets**
-`[VERIFIED HERE INDEPENDENTLY 2026-08-25 13:21Z, control 404]`:
+> ### ⚠⚠ STRUCK 2026-08-25 13:24Z — THE SET-DIFFERENCE MEASURE WAS A TAUTOLOGY ON THIS SITE
+>
+> This section first offered, as *"the sharpest instrument anyone has produced in two days"*, a
+> set-difference of served link sets: `/contact.html` 23 links, `/garden/index.html` 23 links, **zero
+> unique to garden** → "an index page indexing nothing". **Withdrawn. It could not have come out
+> otherwise.**
+>
+> `[MEASURED 2026-08-25 13:23Z]` **the shared menu links 20 of the site's 21 pages** — every page
+> except `/blog/blog-post.html`, which 404s. So every internal link on any page is *already* in the
+> menu, and "links not also on contact" is **structurally pinned at zero whether the listing rendered
+> or not**. Had `/garden/index.html` rendered twelve links to the month pages, all twelve are in the
+> menu and the difference would still read 0. **The measure returns the same answer under both
+> hypotheses.**
+>
+> ⚠ **And the tell was in my own output, read as its opposite.** I wrote *"it is worse than three
+> pages: EVERY page serves the identical 23 links"* and took it for a stronger finding. **A measure
+> returning one value across an entire population — including the negative control — is not
+> detecting a universal defect; it is failing to discriminate.** The clincher was already on my
+> screen: `/april/index.html` scored 0 too, and April is a **month page, not an index page**. A test
+> of index-ness that scores identically on a non-index page is measuring something else.
+>
+> **The precondition, checkable in one query, that neither lane ran before offering it:** set-difference
+> is only valid where the menu does **not** enumerate every page.
+> `SELECT count(*) FROM pages WHERE url IS NOT NULL` against the menu's link set — if they match, the
+> instrument is dead on that site.
 
-```
-/contact.html          23 internal links
-/garden/index.html     23 internal links
-links on garden NOT also on contact:   ZERO
-```
+**What actually stands, on instruments that CAN come out otherwise:**
 
-**Every page on this site serves the identical 23 links.** An index page with zero page-specific
-links is indexing nothing — its twelve month pages are reachable from it only in the sense that they
-are reachable from everywhere. That is a far sharper instrument than counting list items, and it
-distinguishes "the section rendered thin" from "the section is not there at all".
+1. **The component did not render.** `[MEASURED 2026-08-25 13:24Z]` on `/april/index.html` and
+   `/august/index.html`: **0 elements bearing `class="…article-card…"`, 0 `section--articles`.**
+   ⚠ **Measure ELEMENTS, not string hits, and strip `<style>`/`<script>` first** — the raw string
+   `article-card` appears **46 times** on those pages, all of it CSS. A raw grep says the cards are
+   there.
+   **Positive control, which is what makes this a measurement:** `dartsonline.com/index.html` scores
+   **12 article-card elements and 1 `section--articles`**. The instrument can say yes.
+2. **Why**, from the live component row: `content-listing.input_schema.fields.articles =
+   {"source":"query.blog_posts","on_missing":"skip_section","missing_reason":"No blog posts published yet"}`.
+3. **The source is empty:** the site's only `blog-post` page is `build_status='planned'` and 404s.
+4. **The three promise failures**, on **non-anchor** month counts, which do discriminate:
+   `/contact.html` **0**, `/index.html` **12**, `/garden/index.html` **3**.
 
 ⚠ **Why `384` is a cleaner exhibit here than its usual case:** the data is **already present** —
 twelve deployed month pages exist right now — and the listing is still empty. **It is not a race with
