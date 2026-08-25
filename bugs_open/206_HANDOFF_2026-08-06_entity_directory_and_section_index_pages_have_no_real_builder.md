@@ -1179,3 +1179,39 @@ Unchanged and still the only thing standing between this bug and closure: **a gr
 site carrying an `entity-directory` or `entity-page` page.** Not schedulable by this lane, arrives
 free when a lane builds one, and §7b (iii) gives the query to check a plan for one before spending a
 build on the question.
+
+## 2026-08-25 (night, later) — provenance stamp **APPROVED** (`9ff151d6`), and the three objections answered by MEASUREMENT
+
+**APPROVED** — 9 reviewers, 8 abstained, `gated_by_truncation: false`,
+*"approved with 3 advisory objection(s) — none high-severity"*. Commit `1887a116b` carries
+`Council-Submitted:`, so `098` credits it automatically.
+
+**Three seats objected on the same ground, and they were right: I asserted an absence instead of
+measuring it.** `prior_art_librarian` named it exactly — *"no lookup is cited for this absence — only
+the allow-list argument, which protects against unintended input_mapping propagation, not against
+some other reader examining `spec->>'handler'` directly."* That is this lane's own recurring failure,
+caught by someone else for the fourth time in two days. Answered now, with the queries:
+
+| objection | seat | answer `[MEASURED 2026-08-25]` |
+|---|---|---|
+| "nothing reads `spec.handler`" is asserted, not verified | guardian (low), prior_art (medium) | **0** Go readers outside the writers; **0** live `agent_definitions` naming `spec.handler` |
+| WriteBuildItemsAction's callers never enumerated — an added key could collide | guardian (**medium**) | one registration (`registry.go:712`), **one** live caller (`site-work-orchestrator :: write_build_items`); and **0** rows in `site_work_items` ∪ archive, all history, all producers, carry a `handler` spec key — nothing to collide with |
+| nothing enforces the two doors draw the handler from one vocabulary; spelling drift would make the stamp itself a false-divergence source | guardian (low) | both take **`route.handler`** — `load_work_item_actions.go:243` is `handlerAgent := route.handler` — so drift is **not representable**, not merely unlikely |
+| `builder_needed` precedent claimed without a lookup | prior_art (low) | exists at **9** sites incl. both gap arms (`reconcile_site_plan_action.go:381`, `load_work_item_actions.go:251`) |
+
+### The one thing I actually owed and had missed
+
+`guidelines` filed it as **MISSING**, and it is a standing owner ruling, not a preference:
+*"adding a key inside an already-passed object does NOT require input_contract re-declaration, but
+MUST be named in the seam's concept-register entry in the same commit"* (owner ruling 2026-08-11).
+I did not. **Done now as a forward-only follow-up** — `spec.handler` is declared in **BLD-027** with
+the measurements above. Late by one commit, and recorded as late rather than backdated.
+
+### A consumer the objection led me to, and a comment my change had falsified
+
+Chasing guardian's medium objection surfaced `resolveGuardedPage` (`owned_page_guard.go`), which
+consumes `current_item.spec` for build items. It reads `spec.id` / `spec.name` **by explicit path**,
+so an additive key is inert — but its comment said the spec is *"exactly what queryPagesForBuild
+returned"*, and **my change made that false.** Corrected in the same commit rather than left
+standing. *The objection did not find a defect; it found a document I had quietly invalidated* —
+which is the same class as the two false comments this lane corrected yesterday.

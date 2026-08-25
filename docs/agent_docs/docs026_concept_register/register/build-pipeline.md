@@ -149,6 +149,23 @@ and is folded in below rather than kept as separate near-empty register files).
 
 ### BLD-027 — `builderForPageType` — ONE authority for "which handler builds this page_type" (`builder_routing.go`)
 - **⚠ UPDATE 2026-08-25 (night) — the swap is LIVE, and BLD-027 gained a provenance stamp.**
+  - **DECLARED KEY (owner ruling 2026-08-11, nested-field additions): `spec.handler`.** Written by
+    BOTH page-build producers — `reconcile_site_plan_action.go`'s `needs_page` emit and
+    `WriteBuildItemsAction`'s per-page item — carrying the handler that producer CHOSE, so
+    `spec->>'handler' = handler_agent` separates a mint from a hand repair. **Nothing reads it**,
+    and that is measured rather than asserted (the council objected, rightly, that I had asserted
+    it): `[MEASURED 2026-08-25]` **0** Go readers of `spec->>'handler'`/`spec.handler` outside the
+    writers; **0** live `agent_definitions` naming `spec.handler`; and **0** rows in
+    `site_work_items` ∪ `site_work_items_archive`, all history, all producers, carrying a `handler`
+    spec key — so there is no pre-existing key to collide with. `resolveGuardedPage`
+    (`owned_page_guard.go`) consumes `current_item.spec` for build items but reads
+    `spec.id`/`spec.name` **by explicit path**, so an additive key is inert there; its comment
+    claiming the spec is "exactly what queryPagesForBuild returned" was corrected in the same commit
+    rather than left false. Caller surface of the second door is **one** workflow
+    (`site-work-orchestrator :: write_build_items`; single registration at `registry.go:712`).
+    Both doors take the value from **`route.handler`** — `load_work_item_actions.go:243` is
+    `handlerAgent := route.handler` — so a spelling drift between them is not representable, which
+    was the guardian's remaining concern.
   **Live:** chassis `v1.0.1339`, both replicas stamping `a7459a44b68b8c67b7d7bb0ca7c064e0729d59f5`;
   `git merge-base --is-ancestor efec862f4 a7459a44b` true, **with a control** (two commits made
   after the build are correctly NOT ancestors, so the test discriminates). So `section-index` →

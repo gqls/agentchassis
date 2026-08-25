@@ -85,8 +85,13 @@ const ownedPageSkipReasonPrefix = "OWNED_PAGE_GUARD"
 //	page-rebuild / pageflow-builder : current_page.id, then current_page.name
 //	site-work-orchestrator          : current_item.spec.id, then .spec.name
 //
-// current_item.spec is the full page record for build items — WriteBuildItemsAction
-// marshals exactly what queryPagesForBuild returned — but a fix item minted by a
+// current_item.spec is the page record for build items — WriteBuildItemsAction
+// marshals what queryPagesForBuild returned, PLUS `handler` (routing provenance,
+// added 2026-08-25, bugs_open/206: the handler the emit chose, so a later reader
+// can tell a mint from a hand repair of handler_agent). Nothing here reads it —
+// the paths below are explicit — but "exactly what queryPagesForBuild returned"
+// stopped being true, and this guard's correctness rests on reading by path
+// rather than on the shape being closed. A fix item minted by a
 // discovery check carries only its own spec shape, which is why the name path
 // exists and why an unresolved page must fail OPEN rather than block the loop.
 //
