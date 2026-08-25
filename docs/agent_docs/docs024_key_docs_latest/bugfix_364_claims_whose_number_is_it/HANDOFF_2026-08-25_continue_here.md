@@ -100,9 +100,27 @@ arithmetic clears the 08-24 tracker *failures* of saying anything against the fi
 
 ### 5.1b Phase 2 is BUILT but INERT — do not read the commit as the state
 
-Commit `52958897f`, council `3ed2b792` (verdict pending). It is Go, so **everything the LANDMINES
-entry says about the scan being silent on three whole page types is still true of the running
-fleet** until the next roll. Prove it at the artefact when you come to it:
+Commits `52958897f` (mechanism) + `fa0b513f1` (round-1 rework) + `a3a4597e6` (the record).
+**Council APPROVED round 1** — `3ed2b792` — but *approved is not finished*: three of its five
+advisory objections were right and changed the code. The worst found a **real silent coverage hole**
+(a section whose HTML could not be resolved was dropped from the scan while the page still read as
+scanned — on the only gate that refuses a page, and my own `len(out)==0` guard could not see it
+because it fired only when *every* section failed). Three seats independently caught me hand-parsing
+`sections_metadata` when `extractSectionsFromMetadata` already was the canonical reader. And the
+guardian called the block-equivalence sample thin, so it was re-run over **775 pages / 2,042
+components** — the whole fleet, export asserted 2042/2042 — with zero differences. Full table:
+`bugs_open/364` §6i.
+
+⚠ **One correction from that round a future author needs:** `slot_name` is **not** always
+`content_components.function` — 106 of 2,033 live rows differ (`prose-0` vs `ported-prose`,
+`call_to_action` vs `call-to-action`, `FAQ Section` vs `faq`). Keying on the slot is right, because
+it is what the call sites hold, and a mismatch fails safe — but it is a **silent no-op**, so a new
+member of `thirdPartyDataComponents` must be checked against live `slot_name`. The query is beside
+the map.
+
+It is Go, so **everything the LANDMINES entry says about the scan being silent on three whole page
+types is still true of the running fleet** until the next roll. Prove it at the artefact when you
+come to it:
 `grep -a -c -F 'adoption-tracker-listing' /proc/1/exe` on a chassis pod (≥1 = Phase 2 live), or
 `merge-base --is-ancestor 52958897f <service_binary_capabilities.git_commit>`.
 
