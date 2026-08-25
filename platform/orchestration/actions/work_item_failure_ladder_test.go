@@ -1133,6 +1133,45 @@ func TestFailureLadder_RepeatOfTheRecordedFailureTerminatesEarly(t *testing.T) {
 	}
 }
 
+// THE MARKER IS ADDITIVE (council round cf086b8d, editquality low): a caller
+// that already carries keys in its result merge — update_work_item_status
+// stamps its orchestration fingerprint there — must keep them when the
+// marker is merged in. Asserted at the SQL argument: both keys present.
+// Mutation: replacing the Unmarshal-then-set with a fresh map (dropping the
+// caller's keys) fails this test and only this test.
+func TestFailureLadder_RepeatMarkerIsAdditive(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	st := defaultLadderState()
+	st.itemType = "needs_new_component"
+	st.attemptCount = 1
+	st.priorError = repeatFailureMsg
+
+	w := &ladderWrite{}
+	expectStateRead(mock, st)
+	expectBurstProbe(mock, 1, 1, 1)
+	expectLadderUpdate(mock, w, "failed", 0, true)
+
+	callerMerge := []byte(`{"completed_by_step":"mark_failed","caller_key":7}`)
+	out, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
+		uuid.New(), repeatFailureMsg, "build-dispatch-loop", callerMerge, optedIn("needs_new_component"))
+	if err != nil {
+		t.Fatalf("ladder: %v", err)
+	}
+	if !out.TerminatedOnRepeat {
+		t.Fatal("fixture defect: this case must terminate")
+	}
+	for _, want := range []string{`"terminated_on_repeat":true`, `"completed_by_step":"mark_failed"`, `"caller_key":7`} {
+		if !strings.Contains(w.resultArg, want) {
+			t.Fatalf("result merge lost a key: want %s in %q", want, w.resultArg)
+		}
+	}
+}
+
 // THE PROPERTY THAT KEEPS CANDIDATE 1 ALIVE. A first failure has nothing to
 // compare against and must never be terminated: that is precisely the bug
 // file's original candidate 2, which is now the wrong behaviour.

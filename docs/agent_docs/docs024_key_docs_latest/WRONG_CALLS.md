@@ -50269,3 +50269,32 @@ found by the first production run.** The last is the one worth sitting with: a m
 can be council-approved, mutation-proven, live, and still ship a documented-but-absent
 guard — and the thing that found it was simply *letting it run against real data and
 reading the output*.
+
+## 2026-08-25 — `bugs_open/345`: I told the owner "the message fix, not candidate 2, is the repair path" — refuted by the first two items it was tried on
+
+**The claim:** endorsing the Fable review's F4, I told the owner that making the schema/template
+rejection *name the offending fields* was "the actual repair path for the class failing daily", and
+candidate 2 merely the tourniquet. Built it, shipped it.
+
+**What was true:** it improved the information and did not change the outcome. `11264de8`'s retry
+was shown *"schema field "read_article_label" has no template variable"* verbatim (confirmed in the
+dispatch's `input_data.last_error`); the writer visibly acted — schema 13 → 7 fields — and left
+that exact field orphaned again. `b8d8a9b8` the same. n=2, both refuting.
+
+**Why:** I accepted a *plausible* causal story — "the retry fails because it isn't told what's wrong"
+— on the strength of the message being obviously deficient. A deficient message is a sufficient
+explanation for a failure; it is not evidence that fixing it is sufficient for a success. The writer
+had other reasons to render a CTA label as static text, and nothing I measured could have shown
+that.
+
+**What caught it:** the mechanism I'd called the tourniquet. Candidate 2 fired on the fed retries
+and its marker rows are what made the refutation visible within five hours of the roll.
+
+**The cheap check that would have:** before calling anything "the repair path", find ONE case where
+the writer received the information and succeeded. There was none — every completion in the cohort
+had succeeded on a *first* attempt. A repair-path claim with zero fed-and-succeeded cases is a
+hypothesis, and should have been sold to the owner as one.
+
+**The transferable shape:** *a deficiency you can see is not the cause you can't.* When a message,
+a config or a doc is plainly inadequate, fixing it is right — and the claim that it will fix the
+OUTCOME needs its own evidence, because the inadequacy was never shown to be load-bearing.

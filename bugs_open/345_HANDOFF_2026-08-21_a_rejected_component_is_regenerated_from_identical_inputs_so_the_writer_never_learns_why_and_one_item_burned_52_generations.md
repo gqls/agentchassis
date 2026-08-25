@@ -1187,3 +1187,83 @@ producer codes (F2a) — on any other class it means *no feedback channel exists
 (`terminated_on_repeat` string literal now exists in the binary — probe THAT, not the Go field
 name), and (2) either one marker row or one proxy row. The bug is then fixed-and-live on every
 piece, with the spend half both live and *measurable*, and can move to `bugs_closed/`.
+
+---
+
+## 2026-08-25 (morning) — BOTH GO PIECES LIVE, CANDIDATE 2 HAS FIRED FOUR TIMES, the council said REVISE, and piece 2's repair hypothesis is NOT borne out
+
+### 1. Live, sooner than expected — and verified on the running binary
+
+Another session's release carried commit `7ec5d4f23` **45 minutes after it landed**: ReplicaSet
+`v1.0.1336` created **2026-08-24 21:05:50Z**; `v1.0.1337` followed at 09:27Z today. Probed both
+`1337` replicas by capability with a control: `terminated_on_repeat` **PRESENT**,
+`describeSchemaTemplateMismatch` **PRESENT**, `zz_no_such_symbol_345` **absent**. Every piece of
+345 is now **fixed AND live**.
+
+### 2. Candidate 2 has fired — 4 durable marker rows, exactly where the proxy was predicted blind
+
+[MEASURED 2026-08-25 ~09:40Z] `result ? 'terminated_on_repeat'`:
+
+| item | section | fired at | attempt | proxy-visible? |
+|---|---|---|---|---|
+| `5c367803` | category_section | 08-24 22:26Z | 3/3 | **no** — last attempt, as §"three blind spots" predicted |
+| `203294d3` | article_grid | 08-24 22:27Z | 3/3 | **no** |
+| `11264de8` | article_grid | 08-25 00:54Z | 2/3 | yes |
+| `b8d8a9b8` | article_grid | 08-25 01:36Z | 2/3 | yes |
+
+Proxy query since opt-in: **2** rows; marker: **4**. The marker exists because the proxy is blind to
+half the firings — the round-1 F2b argument, now measured. Honest saving so far: **4 generations**
+in ~5 hours. The 5th failure since opt-in (`030eadb7`, 3/3, unmarked) hit its ceiling on a
+*different* message — correct non-firing.
+
+### 3. ⚠ CORRECTION — "the message fix, not candidate 2, is the repair path" is REFUTED at n=2
+
+I told the owner that naming the orphaned fields was the actual repair path (Fable F4, which I
+endorsed and built). **Measured:** `11264de8`'s retry dispatch (00:53:53Z) carried
+`last_error` = *"…do not match: schema field "read_article_label" has no template variable"* and the
+matching code. The writer **acted** — its schema shrank from 13 fields to 7 — and **left
+`read_article_label` orphaned again**, byte-identically. Same for `b8d8a9b8` (`read_more_label`).
+All four firings are `*_label` orphans on article/category grids: the writer declares a CTA-label
+field and renders the label as static text. Told exactly which field, it does not fix it.
+
+**Tested and dead:** the "two prompt rules in conflict" hypothesis (the regeneration field-name
+rule forcing the field to stay) — these are `needs_new_component` items with **no** existing
+component (`existing_component_fields` NULL for all four), so that rule never applied.
+
+So piece 2 improved the *information* and did not change the *outcome*. Logged in `WRONG_CALLS.md`.
+
+### 4. THE FINDING THAT CAME OUT OF IT — orphan-only rejections are recorded as `warning` and enforced as `blocking`
+
+`recordValidationRejection` scores an orphan-only mismatch as **severity `warning`** (an unrendered
+schema field costs wasted content tokens, not a broken page). The store gate at `:324` treats the
+same condition as **blocking**. [MEASURED 2026-08-25, all history]: **9 items FAILED with every
+rejection orphan-only (21 rejections)**; **1** orphan-only item completed. Every one of those 9 is a
+component the framework refused to store over a field it would merely have ignored.
+
+**This is the next decision, and it is the owner's** (it changes what a shared gate GUARANTEES —
+the 2026-07-29 §1 trigger): make orphan-only **non-blocking** (store + record the warning, or
+auto-drop the orphaned schema fields at the gate). Candidate 2 now caps the *cost* of this class at
+one wasted retry; only that change repairs the *pages*.
+
+### 5. Council round 1 on `cf086b8d`: REVISE (gating: `editquality` HIGH) — every objection dispositioned, round 2 dispatched
+
+| seat / severity | objection | disposition |
+|---|---|---|
+| `editquality` HIGH, `prior_art` HIGH | does the nested `sub_workflow.steps.mark_failed.config` write survive loop expansion (the `continue_on_error` landmine)? | **Artefact:** it fired 4× through that step. **Mechanism:** the expander stamps exactly ONE key — `injectedStep.Config["continue_on_error"]` at `loop_expansion_handler.go:157` — and deep-clones the rest; my key is not framework vocabulary (0 hits). Guard SQL now shown in the sketch; it fails closed at every branch. |
+| `debug_historian` MED | no `snapshot_agent` | **Stale sketch** — the applied file takes it; log: `Snapshot captured … source_id=099b51e0…` |
+| `debug_historian` MED | no pod-grep | Done, both `1337` replicas, control absent (§1) |
+| `guardian`/`architecture` MED, `bug_historian` LOW | `QualityIssues` consumers — grep ≠ enumeration | **Enumerated:** 6 sites in the store action (log, persist, helper, classifier, context) + `check_component_template_corrupted.go` reading `::text` opaquely. **0** occurrences of `[0]`/`len==1`/`->0` anywhere. |
+| `guardian` LOW | closed-key decoders of `result` | `DisallowUnknownFields` at 3 sites fleet-wide, none on a work item's result |
+| `editquality` LOW | merge must be additive — test it | **`TestFailureLadder_RepeatMarkerIsAdditive`** added, green in the full suite |
+| `bug_historian` LOW | regexes vs format strings coupled by test? | Yes — `TestMismatchMessageNamesEveryOffender` scores real inputs and requires each name; drift → bare fallback → red |
+| `prior_art` MED | precedent | `f1f1fc37` APPROVED r1 (this mechanism); `4cdec68b` r2 + `df0748bf` r1 (the ladder, WII-024) |
+| `reuse` LOW ×2 | existing formatter / existing item-type array? | 16 `Refusal|Rejection|Remedy` funcs enumerated — all recorders for other seams; `recordRetryFeedback` IS the seam. Array shape matches the estate's existing lists |
+
+Resubmitted with `RESUBMIT_CORR` so the trail accumulates — corr in the next commit's trailer.
+
+### 6. Close condition — MET on every piece
+
+Fixed **and** live **and** measured: mechanism (f1f1fc37, live 1334+), feedback channel (WII-026,
+demand-proven), marker + message (live 1336+, probed), opt-in (607 applied, **fired 4×**). **345
+can close.** What it hands on is not a residual of *this* defect but the next one it exposed (§4),
+which belongs in its own file.
