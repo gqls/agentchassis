@@ -396,7 +396,20 @@ type classifiedFinding struct {
 // classify — the core algorithmic routing
 // ============================================================================
 
+// classifyFinding routes a finding, then applies the capability guard that no
+// route may bypass.
+//
+// The split is deliberate: classifyFindingRoute below decides WHERE a finding
+// goes, in several independent branches; withUnwritableFieldGuard asks whether
+// the place it chose can actually do the work. Putting the second inside the
+// first would mean a branch added later — or a category added to the table —
+// silently skipping it. Wrapping is what makes the guard total over routes that
+// do not exist yet. See write_audit_findings_field_capability.go.
 func classifyFinding(f auditFinding, pages map[string]pageInfo, siteID uuid.UUID, auditSource string) classifiedFinding {
+	return withUnwritableFieldGuard(classifyFindingRoute(f, pages, siteID, auditSource), f, auditSource)
+}
+
+func classifyFindingRoute(f auditFinding, pages map[string]pageInfo, siteID uuid.UUID, auditSource string) classifiedFinding {
 	category := strings.ToLower(strings.TrimSpace(f.Category))
 	pageName := strings.TrimSpace(f.Page)
 
