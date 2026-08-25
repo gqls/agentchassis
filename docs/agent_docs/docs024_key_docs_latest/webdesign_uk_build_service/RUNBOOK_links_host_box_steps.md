@@ -38,9 +38,27 @@ ssh root@webdesign.vs.mythic-beasts.com '
   echo -n "junk /c/x    -> "; curl -s -o /dev/null -w "%{http_code}\n" -H "Host: links.webdesign.uk" http://127.0.0.1:8084/c/x
   echo -n "other path   -> "; curl -s -o /dev/null -w "%{http_code}\n" -H "Host: links.webdesign.uk" http://127.0.0.1:8084/other'
 ```
-Expected **200 / 404 / 404**. The 200 proves box → WireGuard → core-manager:8088.
+Expected **200 / 404 / 404**. ~~The 200 proves box → WireGuard → core-manager:8088.~~
+> **CORRECTED 2026-08-25 (web_admin_console lane): the upstream is now `:8090`,** the
+> delivery-only listener (`d30917150`, RFC_054 Q2, register SYS-095). The 200 proves
+> box → WireGuard → **core-manager:8090**.
 - 502/504 on the first arm → the WireGuard leg or the egress fence
-  (`networkpolicy-wireguard-egress.yaml` must allowlist core-manager:8088) — STOP.
+  (`networkpolicy-wireguard-egress.yaml` must allowlist core-manager:**8090**) — STOP.
+  ⚠ **This bit me on 2026-08-25 and would have bitten whoever ran step 2 next.** `d30917150`
+  added `8090` to that file **and nobody applied it** — the live policy still allowed only
+  `8088`, so the repo read correct while the cluster refused the very port the new vhost
+  proxies to. **Committed and applied are independent facts.** Check the LIVE policy, and
+  test from the pod with controls rather than reading either file:
+  ```bash
+  WG=$(kubectl -n ai-persona-system get pods -l app=wireguard -o jsonpath='{.items[0].metadata.name}')
+  kubectl -n ai-persona-system exec $WG -- sh -c '
+    for p in 8090 8088 9999; do timeout 4 nc -z core-manager.ai-persona-system.svc.cluster.local $p \
+      && echo "$p OPEN" || echo "$p blocked"; done'
+  ```
+  8090 OPEN, 8088 OPEN (the control that proves the probe works), 9999 blocked (the control
+  that proves the fence still discriminates). **Applied here 2026-08-25** with the owner's
+  go-ahead: one added line, `configured` not `unchanged`, no pod restarted, and postgres
+  re-verified still blocked from that pod afterwards.
 - 404 on the first arm → the location regex — STOP.
 
 ## 4. Tunnel rule
