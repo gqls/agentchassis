@@ -108,6 +108,24 @@ func NewDeliveryHandler(deps DeliveryDeps) *DeliveryHandler {
 	return &DeliveryHandler{deps: deps}
 }
 
+// RegisterRoutes mounts the endpoint's two verbs.
+//
+// It exists because the router shape must have ONE definition. The guardian
+// seat's objection on council ea99befa was exact: delivery_test.go held its own
+// copy of the route table, "mirrors api/server.go" was discipline rather than a
+// mechanism, and a later edit to one copy would leave the suite green while
+// production diverged. Both callers now register through here, so the mirror
+// cannot drift — there is nothing to keep in step.
+//
+// HEAD is deliberately NOT registered: gin does not route HEAD to a GET handler,
+// and adding one would widen the public surface to make a test easier. The
+// handlers keep their own HEAD refusal for the day someone reaches for r.Any(),
+// and the tests drive that arm directly rather than through this function.
+func (h *DeliveryHandler) RegisterRoutes(r gin.IRouter) {
+	r.GET("/c/:token", h.HandleConfirmPage)
+	r.POST("/c/:token", h.HandleConfirmTransfer)
+}
+
 // maxTokenLen bounds what we will even hash. Tokens are 32 random bytes in
 // base64url = 43 characters; anything materially longer is not a token of ours,
 // and refusing early keeps a hostile URL from reaching the database at all.

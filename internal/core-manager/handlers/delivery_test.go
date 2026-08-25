@@ -45,16 +45,25 @@ func (f *fakeDeliveryDeps) ConfirmTransfer(_ *gin.Context, token string) error {
 }
 func (f *fakeDeliveryDeps) Logger() *zap.Logger { return zap.NewNop() }
 
-// newRouter wires the two verbs exactly as api/server.go does. Keeping the
-// production shape here matters: a test that registered the POST handler on GET
-// would pass every assertion below while the live service did the opposite.
+// newRouter uses the SAME registration function api/server.go calls, so the
+// route table has one definition and this file cannot drift from production.
+// A hand-copied table here would let a test register the POST handler on GET
+// and pass every assertion below while the live service did the opposite.
 func newRouter(deps DeliveryDeps) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	h := NewDeliveryHandler(deps)
-	r.GET("/c/:token", h.HandleConfirmPage)
-	r.POST("/c/:token", h.HandleConfirmTransfer)
-	r.HEAD("/c/:token", h.HandleConfirmPage)
+	NewDeliveryHandler(deps).RegisterRoutes(r)
+	return r
+}
+
+// newRouterWithHEAD adds a route PRODUCTION DOES NOT HAVE. gin does not route
+// HEAD to a GET handler, so the handlers' HEAD refusals are unreachable through
+// the real router today; they are kept for the day someone reaches for r.Any(),
+// and this helper is how they are exercised without widening the live surface.
+// Anything using it is testing the handler, never the deployed routing.
+func newRouterWithHEAD(deps DeliveryDeps, h gin.HandlerFunc) *gin.Engine {
+	r := newRouter(deps)
+	r.HEAD("/c/:token", h)
 	return r
 }
 
@@ -140,7 +149,10 @@ func TestTheButtonPageIsIdenticalForEveryToken(t *testing.T) {
 
 func TestGetRefusesHEADAndSpeculativeFetches(t *testing.T) {
 	f := &fakeDeliveryDeps{}
-	if w := serve(t, f, http.MethodHead, "/c/abc123"); w.Code == http.StatusOK {
+	wh := httptest.NewRecorder()
+	newRouterWithHEAD(f, NewDeliveryHandler(f).HandleConfirmPage).
+		ServeHTTP(wh, httptest.NewRequest(http.MethodHead, "/c/abc123", nil))
+	if wh.Code == http.StatusOK {
 		t.Errorf("HEAD returned 200, want a refusal")
 	}
 	w := serveWithHeader(t, f, http.MethodGet, "/c/abc123", "Sec-Purpose", "prefetch")
@@ -356,12 +368,10 @@ func TestConfirmTransferRefusesSpeculativeFetches(t *testing.T) {
 // stays because r.Any() is one refactor away and this is the file that must not
 // depend on the router's current shape.
 func TestTheConfirmHandlerItselfRefusesHEAD(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	f := &fakeDeliveryDeps{}
-	r := gin.New()
-	r.HEAD("/c/:token", NewDeliveryHandler(f).HandleConfirmTransfer)
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(http.MethodHead, "/c/abc123", nil))
+	newRouterWithHEAD(f, NewDeliveryHandler(f).HandleConfirmTransfer).
+		ServeHTTP(w, httptest.NewRequest(http.MethodHead, "/c/abc123", nil))
 
 	if w.Code == http.StatusOK {
 		t.Errorf("HEAD returned 200, want a refusal")

@@ -139,8 +139,7 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 	// suffix route such as /c/<token>/confirm before it ever reached here.
 	deliveryHandler := handlers.NewDeliveryHandler(
 		handlers.NewDBDeliveryDeps(personaRepoImpl.ClientsDB(), s.logger))
-	s.router.GET("/c/:token", deliveryHandler.HandleConfirmPage)
-	s.router.POST("/c/:token", deliveryHandler.HandleConfirmTransfer)
+	deliveryHandler.RegisterRoutes(s.router)
 
 	// API v1 group with authentication
 	apiV1 := s.router.Group("/api/v1")
