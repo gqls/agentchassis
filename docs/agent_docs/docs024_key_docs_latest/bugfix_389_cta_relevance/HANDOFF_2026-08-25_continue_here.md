@@ -1,3 +1,7 @@
+> ⚠ **SUPERSEDED by `HANDOFF_2026-08-25b_continue_here.md`** (same day, later). That file is the
+> current state; this one is kept for the reasoning trail. Two claims below were reversed after
+> review: the recommendation, and the belief that a `nav_order` fix reaches the label-less fields.
+
 # HANDOFF — 2026-08-25. **START HERE.** The primary CTA is picked by `nav_order` alone, and it is minting wrong buttons today
 
 > ⚠ **THIS LANE'S BUG IS NOW `bugs_open/391`, NOT 389.** Full path:

@@ -210,3 +210,32 @@ had **593 completions in six hours** — a figure I measured, quoted, and then a
 
 **Consequence for the remaining 11 pages: use the ordinary queue.** The recipe works through it
 end-to-end. Budget ~25–35 minutes per item and do not bypass.
+
+### 2026-08-25 ~19:2xZ — new chassis verified; the remaining 11 pairs dispatched with PLATFORM-ENFORCED ordering
+
+**Chassis `a7459a44b68b8c67b7d7bb0ca7c064e0729d59f5`**, pods up 19:07Z. Capability re-probed on the
+running binary **with its absent-control** (`rendered_html_transform` 8, `code_span_to_code_tag` 5,
+`cta_links_stale` 3, control **0**) rather than inferred from ancestry — a commit after mine could
+delete the code and still leave mine an ancestor. ⚠ My first probe loop **timed out before the
+control ran**, which would have left me quoting three present-counts with no evidence the probe
+discriminates; re-ran the control alone. *A capability probe without its control is not a probe.*
+
+**Dispatched the remaining 11 label-locked pages** (`SQL_2026-08-25_step2_remaining_11_pairs.sql`):
+11 `content_rewrite` + 11 `page_rerender`, each relink carrying
+`depends_on = ARRAY[<its rewrite id>]`.
+
+**The design decision worth recording, because the obvious alternative is wrong.** The canary taught
+that between a rewrite and its relink the page serves a button whose text and href disagree
+(`bugs_closed/299`'s shape) — ~32 minutes on the canary. Two waves (11 rewrites, then 11 relinks)
+would put **all eleven pages in that state simultaneously** and make me the ordering mechanism.
+Instead the platform enforces it: `load_work_item_actions.go:713` refuses a row whose `depends_on`
+is not `complete`/`verified`, so each page's relink unblocks only when its own rewrite lands, and the
+pages progress independently and unattended.
+
+**Verified, not assumed** — I ran the dispatcher's own `depends_on` clause against my 22 rows at
+dispatch time: **11 rewrites eligible, 0 relinks eligible.** That is the check that matters; had the
+predicate not bitten, I would have created eleven simultaneous mismatches while believing I had
+avoided exactly that.
+
+Fresh handoff written: `HANDOFF_2026-08-25b_continue_here.md`; the 08-25 one marked SUPERSEDED at its
+head, naming the two claims in it that were reversed.
