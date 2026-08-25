@@ -52517,10 +52517,27 @@ was fine" is worthless as assurance, and stripping must be unconditional rather 
 you suspect trouble.** A measure that is right on the site you developed it against and wrong on the
 next one is the hardest kind to distrust, because your own experience of it is entirely positive.
 
-**The unifying rule, after three instruments failed the same way in one day:** *anchors* for list
-items, *nav* for month names, *`<style>`* for class names — **every markup measure on this estate is
-counting chrome until you strip the thing that is not content, and it will look like a measurement
-the whole time.** Pair every such count with a page that must score zero.
+### The rule, in its final three-part form — arrived at jointly, after FOUR instruments failed the same way in one day
+
+*Anchors* for list items, *nav* for month names, *`<style>`* for class names, *BEM descendants* for
+element counts. **Every markup measure on this estate is counting something other than content until
+you make it stop, and it looks like a measurement the entire time.**
+
+1. **Strip `<style>` and `<script>` UNCONDITIONALLY**, never "where you suspect trouble" — the
+   contaminant is **site-dependent**: `homegarden.uk` inlines its CSS (raw 46 → stripped 0),
+   `dartsonline.com` uses an external sheet (raw 108 → stripped 108). The same command is right on
+   one site and wrong by 46 on the other, so having checked it once proves nothing.
+2. **Count the class as a whole TOKEN in the class list** — not a substring. This is immune to CSS,
+   to prose mentions, and to BEM in one move.
+3. **Pair every count with a page that MUST score zero AND one that MUST score non-zero.** A zero
+   without a demand control is an argument; a zero with one is evidence.
+
+⚠ **Why (2) has to be the token form rather than a remembered adjustment**, and this is the part that
+generalises past BEM: **the inflation factor is the component's own internal complexity.** It is
+**9** for `article-card` (container + eight descendants), would be 3 for a simpler card and 20 for a
+rich one. **So the wrong number is not wrong by a constant you could learn to spot — it is wrong by a
+component-specific amount, and it looks like a real quantity in every case.** Nothing about "108"
+announces that it is not 108 cards.
 
 ---
 
