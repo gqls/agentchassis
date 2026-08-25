@@ -16,7 +16,7 @@
 | **1. Do not close 375 until it is fixed** | Recorded in bug §9c/§9d with the reasoning and what *would* let it close. Nothing was closed. |
 | **2. Build candidate 4** | **DONE.** `livespec.UnarmedVerifiedCompleters` + a build-time lockstep + `config-key-audit --unarmed-verified-completers`. Council `3083d182` **APPROVED r1**. Register `WII-031`. |
 | **3. Explain candidate 2 further** | Explained in chat; not started. It remains architecture-scope. §4c below. |
-| **4. Write a verifier** | **WRITTEN, NOT REGISTERED.** `required_fields_missing`, mutation-proven. Register `WII-032`. Registration is a five-step sequence written into the verifier's own file; step 1 is a live migration. §4a below. |
+| **4. Write a verifier** | **WRITTEN, NOT REGISTERED.** `required_fields_missing`, mutation-proven. Register `WII-032`. Registration is a five-step sequence written into the verifier's own file; step 1 is a live migration. §4a below. **Council round 1 → REVISE, and it found a REAL defect** (an empty field declaration computed to "nothing missing" and would have certified an emptied schema as repaired). Fixed `43277271a`; **round 2 verdict PENDING — READ IT FIRST**, §2a below. |
 | **plus: file the `image_url_404` bug** | **NOT FILED — the premise was refuted.** See §5. Contributed into `bugs_open/033` instead (commit `243684746`). |
 
 ## 2. Verified state `[2026-08-25, each with how it was checked]`
@@ -33,6 +33,35 @@
 | the bug | **OPEN, correctly** | bug §9c |
 
 ⚠ **Snapshots on a shared tree. Re-run before acting.**
+
+## 2a. ⚠ THE FIRST THING TO DO: read the pending verdict
+
+`c8ed18c1-a694-4c80-afdc-12274634fbd2` — round 1 **REVISE** (13 seats), round 2 resubmitted on the
+same correlation (orch `27f7bc39`) and **still running when this was written.**
+
+```sql
+SELECT orchestration_id, current_step, status, created_at FROM orchestration_states
+ WHERE collected_data->'input_data'->>'fix_correlation_id' = 'c8ed18c1-a694-4c80-afdc-12274634fbd2'
+ ORDER BY created_at;              -- TWO rows: round 1 COMPLETED, round 2 is the later one
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+ WHERE correlation_id = 'c8ed18c1-a694-4c80-afdc-12274634fbd2' AND kind='council_report'
+ ORDER BY created_at;              -- one report per round
+```
+⚠ **Two rounds share one correlation** (that is what `RESUBMIT_CORR` is for), so `LIMIT 1` on the
+report table gives you the LATEST — order by `created_at` and check which round you are reading.
+
+**Round 1's finding is already fixed** (`43277271a`): `SchemaContentFields` returns `ok=true` with
+ZERO fields for a v2 schema whose `fields` object is empty, so the predicate computed "nothing
+missing" and would have certified an emptied schema as REPAIRED. It now errors, fail-closed. If
+round 2 raises something new, the code is already on the shared branch — act on it, do not wait.
+
+**What round 2 argues, so you can judge whether the seats accepted it:** the gating objection was
+that an unregistered verifier leaves the defect unchanged. True as a description. The counter is
+that registering it without step 1's migration is strictly *worse* than inert — the
+claimed-item-timeout sweep would complete items straight past it, a false green rather than a
+missing one — and that round 1 is itself the argument for this order, since a defect was caught
+before the predicate ever graded a live claim. **If the owner would rather take that risk and arm it
+now, that is a legitimate call and it is theirs, not a session's.**
 
 ## 3. What is committed
 
@@ -105,22 +134,24 @@ disagreed, so the finding went **into that file** (`243684746`), not into a new 
 1. **`site_work_items` is a ROLLING WINDOW.** UNION `site_work_items_archive` for any
    "all-history"/"ever" claim. It cost this lane a figure published to six files, and a positive
    control that shared the blind spot. (`WRONG_CALLS.md`, bug §8.)
-2. **A mock cannot assert SQL text.** sqlmock returns whatever you queued regardless of the
+2. **Enumerate what a helper can RETURN, not what you expect it to return.** `SchemaContentFields` returns `ok=true` with a ZERO-LENGTH map for `{"fields":{}}`; I had handled unparseable JSON and `ok==false` and the gap between those two conditions was the defect. Mutate PER SHAPE — three of four shapes in the fix's test were already caught, and an aggregate mutation would have hidden that only one was the hole.
+3. **grep LANDMINES for the SYMBOL you are about to build on.** The entry that predicted this defect was written 2026-08-03 and its footprint names this type's detector, whose predicate I was reusing. The SessionStart hook only matches files already dirty, so a shared helper is never shown to you.
+4. **A mock cannot assert SQL text.** sqlmock returns whatever you queued regardless of the
    statement — put the column list or predicate in the **expectation**. Measured twice: values-only
    assertions passed mutations that dropped a column and that swapped the lifecycle axis.
-3. **Mutate, don't trust green.** M1–M13 on record. ⚠ The terminal-decision guard sits in SERIES on
+5. **Mutate, don't trust green.** M1–M13 on record. ⚠ The terminal-decision guard sits in SERIES on
    this arm, so fixtures must be in `detected`/`claimed`/`triaged` or a mutation reads as covered.
-4. **Do not register a verifier from a test `init()`** — the registry has no removal and a
+6. **Do not register a verifier from a test `init()`** — the registry has no removal and a
    cross-package contract test reads it. Use the `verifierLookup` seam.
-5. **A pathspec commit takes SAME-FILE passengers, possibly half-written.** Twice today the right
+7. **A pathspec commit takes SAME-FILE passengers, possibly half-written.** Twice today the right
    move was a new file (`livespec/unarmed_completers.go`) or stopping at the file boundary (step 1).
-6. **A stale comment is read as ground truth by reviewers.** A sentence in
+8. **A stale comment is read as ground truth by reviewers.** A sentence in
    `claim_timeout_exclusion_lockstep_test.go` saying phase 2 was unbuilt cost a council seat a MEDIUM
    objection against a correct claim. Corrected in place with the cost recorded. ⚠ And the naming
    trap it exposed: **`PhaseGoSide` is the CHECKED state; `PhaseLiveAudit` is the INERT one.**
-7. **The code index is pinned at `e347c5ad` (2026-08-23)**, so a landmine-verifier verdict on newer
+9. **The code index is pinned at `e347c5ad` (2026-08-23)**, so a landmine-verifier verdict on newer
    files reports "0 rows" as staleness, not absence.
-8. **HEAD was broken by another lane today** (`TestNoNewMigrationFileReadersOutsideTheAllowList`,
+10. **HEAD was broken by another lane today** (`TestNoNewMigrationFileReadersOutsideTheAllowList`,
    from `bugs_open/333`'s test file). Not this lane's; the session editing `livespec.go` is likely
    fixing it. If `./platform/livespec/...` fails for you, check whose it is before debugging.
 
