@@ -3031,3 +3031,25 @@ provenance` matched the landmine being synced into `doc_notes`.
 TOOL.** Both faults this session were in instruments, neither in the thing being measured. Logged
 in `WRONG_CALLS.md`.
 
+### 2026-08-25 (b) — both fixes closed out
+
+**`robot-hands.com` corrected.** Stamp cleared ~09:55, re-selected **10:19:48** on the first tick
+after (the task's own interval is 30 minutes — a cleared stamp does NOT re-run within 30 seconds,
+which cost me three impatient checks). Orchestration COMPLETED, `url_count` 35, `probe_dropped` 0.
+
+At the artefact: `<loc>https://robot-hands.com/</loc>`, was `<loc>https://robot-hands.com/index.html</loc>`.
+**35 locs preserved, 35/35 matching `pages` rows, and the file is exactly 10 bytes smaller — the
+length of `index.html`.** Same URL, both directions, on live data.
+
+**Fleet re-checked live at 10:22 — ZERO of 28 domains still emit a non-canonical homepage.**
+
+**Redirect fix APPROVED**, correlation `25157bab-4b6d-40c5-a218-98148b60daf6`, 2026-08-25 10:16:29,
+*"all reviewers approve"*, **zero objections** — unlike the wiring round, which drew 7 advisory ones.
+Worth noting why: this submission carried the blast-radius census (1 of 27 domains affected, and
+that one already excluded) **in the submission itself**, rather than listing it as a risk for the
+reviewers to check. That was the exact criticism of round 1 of the wiring, and doing it up front
+removed the whole category.
+
+⚠ **`54ba65b25` is Go and therefore INERT until the next roll.** `webdesign.uk` still serves its
+wrong sitemap until then. Verification recipe is §1 of the 08-25 handoff.
+

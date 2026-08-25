@@ -15,51 +15,46 @@ buys you.
 
 Sitemaps are **done and live**. `590`'s rotation swept the fleet unattended for 13.2 hours and
 took coverage from **8 of 28 → 26 of 28** live sites, every one a perfect match against its own
-`pages` rows. Two defects in the generator were found and fixed along the way; the second
-(`54ba65b25`) is **committed but inert until the next chassis roll** and has a council verdict
-pending. Nothing is blocked. The remaining work is the deliberately-deferred second half
-(deploy-path wiring) and one recorded observability gap.
+`pages` rows. Two defects in the generator were found and fixed along the way. The first is live and closed out —
+**zero domains fleet-wide still emit a non-canonical homepage.** The second (`54ba65b25`) is
+**APPROVED by the council with zero objections** and **committed but inert until the next chassis
+roll** — confirming it is §1 and the only outstanding item on this lane. The rest of the work is the
+deliberately-deferred second half (deploy-path wiring) and one recorded observability gap.
 
 ---
 
-# 1. ⏭ START HERE — read the council verdict on the redirect fix
+# 1. ⏭ START HERE — confirm the redirect fix at the artefact, AFTER the next chassis roll
 
-`SUBMISSION_CORR=25157bab-4b6d-40c5-a218-98148b60daf6` (submitted 2026-08-25 ~10:05).
+**The council verdict is already in and needs nothing from you: `25157bab-4b6d-40c5-a218-98148b60daf6`
+— APPROVED 2026-08-25 10:16:29, "all reviewers approve", ZERO objections.** `54ba65b25` carries
+`Council-Submitted:`, so `098` credits it automatically; **do not amend, and do not hand-write
+`Council-Reviewed:` on it.**
 
-```sql
-SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
-WHERE correlation_id='25157bab-4b6d-40c5-a218-98148b60daf6' AND kind='council_report'
-ORDER BY created_at;
-
--- still running? (budget ~30 min: the council takes 2-5, the dispatch queues)
-SELECT current_step, status FROM orchestration_states
-WHERE collected_data->'input_data'->>'fix_correlation_id' = '25157bab-4b6d-40c5-a218-98148b60daf6'
-ORDER BY created_at DESC LIMIT 3;
-
--- the objections in full (approval is NOT a reason to skip them — 2 of 7 were real last round)
-SELECT body FROM diagnosis_artifacts
-WHERE correlation_id='25157bab-4b6d-40c5-a218-98148b60daf6' AND kind='council_report'
-ORDER BY created_at DESC LIMIT 1;
-```
-
-`54ba65b25` carries `Council-Submitted:`, so `098` credits it automatically once approved — **no
-amend, and none is allowed.** If it comes back REVISE, act: the code is already on the shared
-branch.
-
-## 1b. Then confirm the redirect fix at the artefact, AFTER the next chassis roll
-
-The fix is Go, so it is **inert until a roll**. It is in HEAD, so any `make build-*` picks it up.
-Once rolled, the proof is `webdesign.uk`:
+**The one thing outstanding on this lane: `54ba65b25` is Go, so it is INERT until the next chassis
+roll.** It is in HEAD, so any `make build-*` picks it up. Once rolled, the proof is `webdesign.uk`:
 
 ```sql
--- force it round rather than waiting up to 3 days
+-- force it round rather than waiting for its 3-day slot
 DELETE FROM site_discovery_rotation r USING sites s
  WHERE r.site_id=s.id AND r.agent_type='sitemap-refresh' AND s.domain='webdesign.uk';
 ```
 
-**Expected after the fix:** `url_count` **0** (not 7), `rendered: false`, and **no commit** — the
-conditional routes `url_count=0` to `complete`. That is the correct outcome for a domain that
-302s every path away. **Before the fix it reported `url_count: 7, probe_dropped: 0`.**
+Then wait for the next tick — ⚠ **the task fires every 30 MINUTES**, so check
+`scheduled_tasks.last_triggered_at` before concluding anything.
+
+**Expected AFTER the fix:** `url_count` **0** (not 7), `rendered: false`, and **no commit** — the
+conditional routes `url_count=0` to `complete`. That is correct for a domain that 302s every path
+away. **Before the fix it reported `url_count: 7, probe_dropped: 0`** and committed a sitemap
+advertising seven URLs that redirect elsewhere.
+
+```sql
+SELECT (collected_data->'sitemap_render_result'->>'url_count'),
+       (collected_data->'sitemap_render_result'->>'rendered'),
+       (collected_data->'sitemap_render_result'->>'reason')
+FROM orchestration_states WHERE owner_agent_type='sitemap-refresh'
+  AND collected_data->'sitemap_render_result'->>'domain'='webdesign.uk'
+ORDER BY created_at DESC LIMIT 1;
+```
 
 # 2. WHAT IS LIVE AND PROVEN
 
@@ -70,6 +65,7 @@ conditional routes `url_count=0` to `complete`. That is the correct outcome for 
 | **27 sites, 27 orchestrations, ALL `COMPLETED`** | zero FAILED, zero partial |
 | **Zero dropped dispatches** | every rotation stamp reconciles to `runs = 1` (query in §5) |
 | **Canonicalisation fix live** | natural experiment: the roll fell BETWEEN tick 1 and tick 2, so `robot-hands.com` (pre-roll) emitted `/index.html` and all 26 later sites emitted `/` |
+| **…and the one stale artefact is CLOSED OUT** | `robot-hands.com`'s stamp was cleared, it re-ran at 10:19:48 on the current binary, and now serves `<loc>https://robot-hands.com/</loc>` — 35 locs preserved, **35/35 matching**, file 10 bytes smaller, which is exactly the length of `index.html`. **Fleet re-checked live 2026-08-25 10:22: ZERO domains still emit a non-canonical homepage.** |
 
 **The two sites NOT covered, both understood — do not "fix" either without reading this:**
 
@@ -99,7 +95,7 @@ no work and stamp themselves complete.
 | **`54ba65b25`** | **redirect fix: `CheckRedirect` + mutation-proven test** | **committed, INERT until the next roll** |
 | `911bceb1c` | 2 LANDMINES (both instrument faults) + WRONG_CALLS | — |
 
-Council: `8a004aab-…` **APPROVED** (round 2, the wiring). `25157bab-…` **pending** (the redirect fix).
+Council: `8a004aab-…` **APPROVED** (round 2, the wiring — 7 advisory objections, all run down in `NOTES` 2026-08-24 (c)). `25157bab-…` **APPROVED, all reviewers, ZERO objections** (the redirect fix).
 
 # 4. WHAT IS OPEN
 
