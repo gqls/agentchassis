@@ -429,3 +429,45 @@ I had the disconfirming data before I wrote the claim — `april-index` already 
 pages**. **A section count is not a content measure.** The peer challenge that made me look was
 "is 3 a choice or a default?"; the answer mattered less than the side effect — it sent me to the
 artefact.
+
+### 11f. ⭐ THE CALENDAR SHIPPED — twelve months, on a served page, 2026-08-25 12:05Z
+
+`homegarden.uk/index.html`, `build_status=deployed`, carrying a `period-calendar` instance of
+**9,471 chars, one `<ol>`, twelve `<li>`** — labels `January … December`, all twelve, in order.
+
+> **A month-by-month garden and home checklist**
+> *Find your month below to see what's worth doing now, and how much it matters if you don't get to
+> it straight away.*
+>
+> **January** — *Structural jobs while the garden rests* — "With little growing, this is the month
+> for jobs that don't depend on the weather being mild: pruning apple and pear trees, checking shed
+> roofs for storm damage, and clearing gutters before the wet months properly set in. None of this
+> is urgent to the day, but leaving gutter clearing much longer risks water finding its way into
+> brickwork."
+>
+> **February** — *First sowing and pre-spring exterior checks* — …
+
+**Against §1, the owner's original complaint:** `garden-tools.uk`'s seasonal planner promised
+*"What your shed needs, month by month"* under its own `<h2>` and delivered **four prose blocks with
+three incidental month names**. This delivers **twelve months, each with a focus line and practical
+detail** — and it hedges honestly ("none of this is urgent to the day"), which the field guidance
+asked for and which no part of this fix could have forced.
+
+**The whole chain, each link measured at the layer where it applies:**
+
+| link | evidence |
+|---|---|
+| planner TOLD | captured `prompt_rendered`: `[expresses:]` / `[prose only]` tokens, rule 19, all three components in the menu |
+| planner CHOSE | `period-calendar` in `pages.sections` and `site_plan_sections` for `index` |
+| writer FILLED | twelve distinct month entries, not boilerplate |
+| renderer SHIPPED | `build_status=deployed`, `/index.html`, one `<ol>`, twelve `<li>` |
+
+**Site-wide writer arm at the same moment:** 31 sections rendered, **14 with a list, 17 with an
+`<h3>`, 7 with `<strong>`** — against `garden-tools.uk`'s **0 / 0 / 0** across all seven of its
+served pages (§2).
+
+⚠ **Not yet the closure.** 12 of 21 pages deployed and the build is still running; `checklist` and
+`comparison-table` remain unplaced (the latter unexercised by this vertical, §11e). And the final
+page count must be taken **over HTTP** via the `loanzy_uk_example_site` lane's `after_test.sh`, not
+from `build_status` — that column is wrong in both directions (their `contact` case: a page serving
+57,753 bytes with `deployed_at` NULL).
