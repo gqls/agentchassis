@@ -22,8 +22,14 @@ council gate discarded a **whole review round** on one seat's transient.
 |---|---|---|
 | 1 | **MDL-044** — a successful live call clears `ai_endpoint_health` | **LIVE + PROVEN TWICE** (v1.0.1334) |
 | 2 | **mig 596** — claude re-probe 3600s → 60s | **APPLIED** 2026-08-24, cadence measured 92–94s |
-| 3 | **WFA-023** — `__step_errors` writer + council classifying an errored seat `unreadable` | **LIVE** on v1.0.1337 (both halves) |
+| 3 | **WFA-023** — `__step_errors` writer + council classifying an errored seat `unreadable` | **LIVE** (v1.0.1337, still in v1.0.1339) |
 | 4 | **mig 588** — the 17 seats' `error_step` → their own `next_step` | **APPLIED** 2026-08-25 |
+
+**Re-verified after the v1.0.1339 roll (2026-08-25 19:07Z)** — a roll is the moment to re-check,
+because Go can regress by a build from an older ref and DB config can be overwritten by a seed:
+ancestry `git merge-base --is-ancestor <commit> a7459a44b` → **IN** for all three commits
+(`dbd865ee8`, `e521cde3e`, `893a12d47`); and the DB config survived — probe interval **60s**,
+seats repointed **17/17**, `complete_invalid` still exactly **2**.
 
 **Council: APPROVED round 1**, `82f07fa6-1c42-46ad-bdf6-1d58892c44a7`. Every commit carries the
 trailer.
@@ -50,9 +56,35 @@ FROM diagnosis_artifacts WHERE kind='council_report'
   AND (metadata->>'unreadable')::int > 0 ORDER BY created_at DESC LIMIT 5;
 ```
 
-**This cannot be forced** — it needs a real provider transient. It will arrive on its own: cap
-failures hit **7 of the 15 days** to 2026-08-24. **Do not fake it, and do not close the bug on
-its absence — but equally, this lane's work is done.** See §6.
+**This cannot be forced** — it needs a real provider transient. **Do not fake it, and do not
+close the bug on its absence — but equally, this lane's work is done.** See §6.
+
+**Progress toward it, refreshed** `[MEASURED 2026-08-25 ~19:15Z, chassis v1.0.1339]`:
+
+- **47 council rounds have completed since mig 588 applied** (27 `complete_approved`,
+  20 `complete_revise`, 1 in flight) and **ZERO reached `complete_invalid`**. Before the fix the
+  08-19 contribution measured roughly a coin-flip per round dying there.
+- **⚠ But that zero is NOT the proof, and the reason is the demand control again:** there were
+  **0 cap failures on both 08-24 and 08-25**, so no transient has occurred for the new path to
+  handle. All 47 rounds show `unreadable = 0`. **The mechanism is live, un-regressed, and
+  UNEXERCISED.** A zero here means "nothing tested it", not "it works".
+
+**Cap recurrence, refreshed — my own earlier prediction has NOT materialised:**
+
+| day | cap failures | ok |
+|---|---|---|
+| 08-21 | 3 | 1,223 |
+| 08-22 | **113** | 1,063 |
+| 08-23 | 32 | 1,109 |
+| 08-24 | **0** | 1,850 |
+| 08-25 | **0** | 1,395 |
+
+I predicted (`[INFERRED]`, from the monthly-reset shape plus month-end clustering) that
+recurrence was likely before 08-31. **Two clean days at the highest call volumes in the record
+have not borne that out** — consistent with the account having been properly funded once the
+wrong-account error was found on 08-23. **Two days cannot settle it either way** (and it is a
+monthly limit with six days left), so the prediction stands as unresolved rather than refuted.
+Re-run the histogram in §4 before repeating any figure here.
 
 ## 3. If you change anything here, these are the traps that will bite you
 

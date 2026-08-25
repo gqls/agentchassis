@@ -706,3 +706,54 @@ unaffected, exactly as intended.
 producing `unreadable > 0`, a verdict rather than `complete_invalid`, and REVISE if the rest
 would have approved — needs a real provider transient and **cannot be forced**. It will arrive:
 cap failures hit 7 of the 15 days to 08-24. Do not fake it; do not close on its absence.
+
+## 2026-08-25 (evening) — post-roll re-verification on v1.0.1339, and a zero that is NOT a result
+
+A roll is the moment to re-check, not to assume: Go can regress via a build from an older ref
+(the estate has hit this), and DB config can be overwritten by a seed.
+
+**Nothing regressed** `[MEASURED 2026-08-25 ~19:15Z]`:
+
+- chassis **v1.0.1339** (pods 19:07Z), provenance stamp `a7459a44b68b8c67b7d7bb0ca7c064e0729d59f5`;
+- `git merge-base --is-ancestor <c> a7459a44b` → **IN** for `dbd865ee8`, `e521cde3e`, `893a12d47`;
+- DB config survived: probe interval **60s**, seats repointed **17/17**, `complete_invalid`
+  still exactly **2** (`persist_submission`, `council_decide`).
+
+### 47 rounds, zero deaths — and why that is NOT the proof
+
+Since mig 588 applied this morning: **27 `complete_approved` + 20 `complete_revise` + 1 in
+flight, and ZERO `complete_invalid`.** Against the 08-19 measurement of roughly a coin-flip per
+round dying there, that looks like a decisive win.
+
+**It is not, and the reason is the demand control — for the third time in this lane.**
+`llm_call_log` shows **0 cap failures on 08-24 and 0 on 08-25**. No transient has occurred, so
+nothing has exercised the new path; all 47 rounds report `unreadable = 0`. **The zero means
+"nothing tested it", not "it works".**
+
+Recording it in those terms deliberately: 47-of-47 is exactly the kind of figure that gets
+quoted as proof, and this lane has already produced two vacuous zeros and one structurally
+incapable detector. What 47-of-47 *does* establish is **no regression on the ordinary path** —
+which was the real risk of repointing seventeen `error_step`s, and is worth having.
+
+### ⚠ A prediction of mine that has NOT materialised
+
+I wrote `[INFERRED]` on 08-24 that the cap is a **monthly** limit and that recurrence was likely
+before 08-31, from the reset-date shape plus the month-end clustering.
+
+| day | cap | ok |
+|---|---|---|
+| 08-21 | 3 | 1,223 |
+| 08-22 | **113** | 1,063 |
+| 08-23 | 32 | 1,109 |
+| 08-24 | **0** | 1,850 |
+| 08-25 | **0** | 1,395 |
+
+**Two clean days at the two highest call volumes in the whole record.** Most likely the account
+was properly funded once the wrong-account error was found on 08-23 — which is the same shape as
+the 08-10 event, where the owner acted and the fleet came back 21 days before the stated
+calendar date.
+
+**Two days cannot settle it**, and six days of the month remain, so the prediction is
+**unresolved, not refuted** — and I am not upgrading it to "fixed" on a quiet fortnight either.
+The honest status is: the trigger has been absent for 48 hours, cause plausibly known, and the
+figure goes stale by the day. **Re-run the histogram before repeating any of this.**
