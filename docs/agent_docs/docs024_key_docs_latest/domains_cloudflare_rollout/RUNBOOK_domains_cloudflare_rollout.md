@@ -17,14 +17,35 @@ becomes an invalid bearer header.
 
 - Account ID `13044f178ae0b156961065f55c8fada8`; 36 zones pre-existing, all Free.
 - Verify token: `curl -s -H "Authorization: Bearer $TOKEN" https://api.cloudflare.com/client/v4/user/tokens/verify`
-- Token scopes: Zone:Edit, DNS:Edit, Workers Routes:Edit (all zones in account) +
+- ~~Token scopes: Zone:Edit, DNS:Edit, Workers Routes:Edit (all zones in account) +
   Workers Scripts:Read, Account Settings:Read. Zone-create not yet exercised —
-  first real zone proves it.
+  first real zone proves it.~~
+  > **⚠ CORRECTED 2026-08-25 — THE TOKEN IN `~/.config/cloudflare/token` IS READ-ONLY TODAY.**
+  > `[MEASURED 2026-08-25 12:40Z]` the zone object's own `permissions` array reads
+  > `['#worker:read', '#analytics:read', '#zone:read', '#organization:read']` — **no edit scope of
+  > any kind.** Confirmed by attempting both halves: `GET /zones/<id>/dns_records` returns
+  > `10000 Authentication error`, and `POST /zones` returns *"Requires permission
+  > `com.cloudflare.api.account.zone.create` to create zones for the selected account"*.
+  > So **zone-create is still not exercised, and cannot be with this credential** — and neither can
+  > any DNS-record or route write. Whoever needs those must have a new token issued with
+  > account-level **Zone:Edit** (for create) plus **DNS:Edit** and **Workers Routes:Edit**.
+  > ⚠ **`GET /zones` SUCCEEDS on this read-only token** (40 zones, `success: true`), so the
+  > runbook's own "prove the token with `GET /zones?per_page=1`" check — written to defeat the
+  > IP-filter trap — **passes for a token that can read everything and write nothing.** It tests
+  > reachability, not capability. **Probe the verb you actually need**, e.g. a `POST` to the real
+  > endpoint, and read the `permissions` array on any zone object as the cheap first look.
 - Template (from live `dartsonline.com`): apex `A 199.59.243.228` proxied;
   routes `<domain>/*` and `*.<domain>/*` → script `portfolio-sites-router`.
   NO www/wildcard record exists (open question in PLAN).
 - Account NS pair observed: `alexis.ns.cloudflare.com` / `leah.ns.cloudflare.com`
   — still capture `name_servers` from each zone-create response, do not assume.
+  > **⚠ THAT CAVEAT IS NOT THEORETICAL — MEASURED 2026-08-25, the account uses TWO pairs.**
+  > Across all 40 zones: **29 × `alexis` / `leah`** and **11 × `betty.ns.cloudflare.com` /
+  > `ivan.ns.cloudflare.com`**. So quoting the observed pair for a new zone is a **~28% chance of
+  > handing someone the wrong nameservers**, and the failure is quiet — the domain simply never
+  > resolves to Cloudflare and the delegation looks plausible on paper. **A zone's NS pair exists
+  > only after the zone is created; there is no way to know it in advance.** Take them from the
+  > create response, or from `GET /zones?name=<domain>` afterwards.
 - Rate limit 1,200 req/5 min account-wide.
 
 ## Egress IPs (for IP allowlists)
