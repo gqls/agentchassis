@@ -14082,3 +14082,61 @@ a page that can never be fixed.
 **Related:** `bugs_open/385` (the worked case: a rebuild appended an unlinked, byte-identical copy of
 the locked section it had just repositioned) · `bugs_closed/189` (same damage, different shape —
 refuted as the cause) · `bugs_open/039` (the narrow unresolvable-stub guard this row passes).
+
+### "I dispatched it and no orchestration row appeared" has THREE causes whose correct responses are mutually exclusive, and the evidence that separates them expires at different rates (2026-08-25, `bugs_open/327b` build-trigger drop)
+
+**The symptom:** you fired a trigger, it printed a correlation id and exited 0, and minutes later
+`orchestration_states` holds nothing for it.
+
+**Do not reach for the standing "a missing row is latency, do not retry" guidance yet.** That
+advice is correct for exactly one of the three cases below and actively wrong for another.
+
+1. **NEVER PUBLISHED.** `kubectl run -i` attaches stdin asynchronously; if the container reaches
+   `kcat -P` first it sees EOF, publishes zero messages and **exits 0**, and `--rm` deletes the
+   evidence. **Correct response: retry at once** — a retry collides with nothing, because nothing
+   was created.
+2. **PUBLISHED, NOT CONSUMED.** The broker took it and nothing has picked it up — ordinary queue
+   latency (publish→run start measured at ~29 minutes under load), or the ~300s window after a
+   chassis pod restart, in which spawns are silently dropped. **Correct response: wait** — except
+   in the restart window, where retry is right.
+3. **CONSUMED AND REFUSED.** A validation refusal creates **no orchestration row**, so it presents
+   identically. **Correct response: fix the envelope; never resend it unchanged.**
+
+**The discriminators, and the order matters because one of them expires:**
+
+- **Ask `agent_error_log` FIRST.** A refusal is durably recorded there as
+  `VALIDATION_ERROR_DROPPED`. `[MEASURED 2026-08-23]` that table retains **~30 days** while
+  `orchestration_states` retains **~2**. So case 3 stays answerable for a month and cases 1-vs-2
+  become undecidable after about 48 hours. **A zero-row correlation lookup older than two days is
+  the retention window, not a drop** — and `min(created_at)` on that table reads a month back
+  because the purge exempts stuck rows, so plot the days instead.
+- **An absence needs a live instrument.** Before reading `agent_error_log`'s silence as evidence,
+  confirm it was recording that day (`count(*)` for the date, plus at least one real
+  `VALIDATION_ERROR_DROPPED`). On 2026-08-20 a lane blamed the publisher for what that table had
+  recorded all along.
+- **Cases 1 and 2 are only separable at publish time.** Nothing you can query afterwards
+  distinguishes them, which is why the fix is a receipt rather than better forensics.
+
+**The prevention, and it is the transferable half.** Make the publisher speak: put the payload in
+the container **command** (not stdin, which is what races), chain `&& echo PUBLISH_OK`, and
+**assert on that marker** rather than printing it. `scripts/kafka-publish-lib.sh` (register
+**OPP-009**) does this and returns distinct codes — 10 *not published, retry now* · 11
+*indeterminate, verify first* · 12 *consumed and refused* · 13 *published, not landed, wait*.
+
+**⚠ The trap that makes this a §9 row rather than a runbook line: the remedy was documented for a
+month and did not take.** `[MEASURED 2026-08-23]` of 218 scripts publishing this way, **25 printed
+the receipt and 2 asserted on it** — and several that got it wrong carried a header *warning about
+this exact trap*. **A receipt nobody asserts on is a log line, not a control.** When a documented
+class keeps recurring, the missing thing is not the knowledge: make the remedy *callable* and
+measure adoption at the **assertion**, not at the mention. Three lanes adopted the library
+unprompted within two days of it existing.
+
+**⚠ And when you measure the class, strip comments first.** A grep for the hazard also matches
+every *warning about* the hazard — including the comment each fix adds — so the count does not move
+as the work is done. `[MEASURED 2026-08-24]` 18 files matched on comments alone.
+
+**Related:** `bugs_open/327b` (the worked case, and note two unrelated bugs were filed as 327 —
+resolve by slug) · `bugs_open/326` (the sibling: a re-submission dedups on `item_key` in any status
+and reports COMPLETED having queued nothing, so "retry" can also silently do nothing) ·
+`LANDMINES.md` "kubectl run -i --rm … kcat -P < file drops roughly 4 publishes in 5 AT EXIT 0" ·
+`WRONG_CALLS.md` 2026-08-24/25 (three occurrences of the comment-contamination trap above).
