@@ -309,11 +309,52 @@ FROM site_work_items swi
 JOIN sites s ON s.id = swi.site_id
 LEFT JOIN pages p ON p.site_id = swi.site_id AND p.name = swi.spec->>'page_name'
 WHERE swi.created_by = 'reconcile_site_plan'
-  AND swi.spec ? 'page_type'          -- ← THE GATE. Without this the query cannot tell a
-                                      --   mint from a hand repair. Do not drop it.
+  AND swi.spec ? 'page_type'          -- ← GATE 1: the fixed emit stamps this; the old one did not.
+  AND swi.updated_at < swi.created_at + interval '1 second'
+                                      -- ← GATE 2, ADDED 2026-08-25. Proves NOTHING has written to
+                                      --   the row since it was minted. Both gates or neither —
+                                      --   see the two holes below.
   AND swi.created_at > '<the build start>'
 ORDER BY verdict DESC, page;
 ```
+
+> **⚠ CORRECTED 2026-08-25 (same day), by an adversarial review of this section.** As first
+> written, §7 gated on `spec ? 'page_type'` alone and this RUNBOOK called it airtight because
+> *"a hand re-route cannot add a spec key"*. That sentence is true and **insufficient**, for two
+> independent reasons, and I had the discriminator for both in hand and dropped it — the very
+> measurement in `bugs_open/206` §2 that exposed the original defect computes
+> `updated_at > created_at + interval '1 second'`, and the shipped query had no `updated_at`
+> clause at all.
+>
+> **Hole 1 — the stamp dates the ROW, not the HANDLER value.** `handler_agent` stays mutable after
+> a stamped mint. If the fixed binary ever *mis*-routes — the exact failure this test exists to
+> catch — and an operator then repairs the row, it carries the stamp AND the right handler and
+> reads `PASS`. The fix takes credit for a human repair, one generation later, in the same shape.
+>
+> **Hole 2 — this lane's own operator recipe forges gate 1 without touching a spec key.**
+> Reconcile's `capability_gap` spec **already contains `page_type`**
+> (`reconcile_site_plan_action.go`, the `gapSpec` block), and the recipe eleven lines below it
+> (step 3, added by this lane in `0baa8a107`) says: *promote this row in place — set
+> `item_type='needs_page'`, `status='triaged'` and `handler_agent` to a handler that can actually
+> build it.* A promoted gap row is `created_by='reconcile_site_plan'`, stamped, `needs_page`, at
+> `directory-build-handler` — **every §7 PASS condition, entirely by hand.**
+> `[MEASURED 2026-08-25]` prospective, not live: **0** stamped `capability_gap` rows exist
+> anywhere, so nothing satisfies it today. It arms itself the moment the fixed code files its first
+> gap, which is exactly when this test starts being used.
+>
+> **Gate 2 closes both**, because `trg_site_work_items_updated_at` is a `BEFORE UPDATE … FOR EACH
+> ROW` trigger (verified in `pg_trigger` 2026-08-25) — *any* write bumps `updated_at`, so
+> `updated_at ≈ created_at` means nothing has touched the row since the emit wrote it.
+>
+> **The cost of gate 2, stated: it expires.** A legitimately minted row that is then claimed or
+> completed also bumps `updated_at`. So **read the mint promptly, while the row is still
+> `triaged`** — that is the window in which this proof exists. If `updated_at` has already moved,
+> that row cannot serve as proof; find a fresher one rather than relaxing the gate.
+>
+> **The durable fix is a code change, not a better query:** stamp the routed handler into the spec
+> at mint (`"handler": route.handler`) and assert `spec->>'handler' = handler_agent`. Then the
+> column carries its own provenance and no operator action can forge agreement. Named as a
+> follow-up; not smuggled into an approved change.
 
 Two gotchas attached, both learned the hard way:
 
