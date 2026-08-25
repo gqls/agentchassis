@@ -6230,7 +6230,7 @@ review item — and print them together so staleness is visible rather than infe
 reality. This is about the disagreement being **bidirectional and simultaneous**, which defeats the
 usual mitigation of "distrust the optimistic direction".
 
-### A validator pattern with a 100% false-positive record blocks builds for weeks, because a blocked build parks where nobody looks (2026-08-24, `bugs_open/377`)
+### A validator pattern with a 100% false-positive record blocks builds for weeks, because a blocked build parks where nobody looks (2026-08-24, `bugs_closed/377` — moved 2026-08-25, fixed AND live)
 
 **Symptom.** A page build fails `validate_content` with `content validation failed: N
 blockers`; the work item parks at `needs_human_review` (no surface, `bugs_open/033`), and the

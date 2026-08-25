@@ -1,8 +1,31 @@
 # 377 — the placeholder pattern `"your company"` convicts ordinary B2B prose; every recorded firing is a false positive, and it serially blocked finetuning.uk's builds for three weeks
 
 **Filed 2026-08-24 by the finetuning_uk_service lane.** Fix committed same day
-(one pattern-list line + two regression tests); INERT until a post-fix chassis
-roll — check the pod's build-provenance ancestry before believing it live.
+(one pattern-list line + two regression tests); ~~INERT until a post-fix chassis
+roll — check the pod's build-provenance ancestry before believing it live.~~
+**CLOSED 2026-08-25 — fixed AND live; moved to `bugs_closed/`.**
+
+> ## ✅ CLOSED 2026-08-25 — proven at the ARTEFACT, not at the tag
+> Both halves re-verified first-hand this session by the filing lane, and the proof is the
+> served page rather than a pod probe, because this defect's whole signature is a build that
+> *fails*:
+> - **The literal is gone at HEAD.** `validate_page_content.go:141` now carries only the
+>   comment recording the removal; `grep -n '"your company"'` returns the comment line and no
+>   pattern entry `[MEASURED 2026-08-25]`.
+> - **The motivating case re-drove and SHIPPED.** `/your-own-model.html` is
+>   `build_status=deployed`, `deployed_at = 2026-08-24 19:58:47Z` — **after** the 18:32Z roll
+>   that carried the fix — and the live page serves the exact sentence the pattern convicted:
+>   `Your company's voice, in a model you own` (HTTP 200, 38,194 bytes, `[MEASURED 2026-08-25]`).
+>   A build carrying that sentence could not have completed with the pattern still in the list;
+>   the 08-24 blocker row names that very string.
+>
+> **Residual left deliberately open** (unchanged from "what is owed", step 3): the other
+> prose-plausible entries — `"coming soon"`, `"not provided"`, unbracketed `"tbd"` — were never
+> measured and are not this fix's scope. Census them the same way before touching them.
+> ⚠ Note also that this file has since gained a **new** neighbour in the same function: the
+> `bugs_open/387` numeric-stand-in detector (`29ca1b35e`…`5aed9ca74`) adds blocker patterns to
+> `checkPlaceholderPatterns`. A future false-positive here is more likely to be 387's shapes
+> than this one's.
 
 ## The mechanism
 
