@@ -110,5 +110,8 @@ Three `offer-analysis` rows created **2026-08-24 22:08:39Z, three hours after th
 `bugs_open/326` (colliding in the same function — landed on top, lane closed), `bugs_open/367` (their
 `from_rfm` rows are the biggest parked population — 28 of the 32), `webdesign-tool-rebuilds`,
 `staged_component_build`/`bugs_open/353`, `bugs_open/384` (the per-agent/per-branch ruling).
-**Owed: the `vigilant_designer_offer_analysis` lane** — their `write_audit_findings` writer is the demonstrated
-bypass, and they have not been told it cost 3 findings after the roll.
+`vigilant_designer_offer_analysis` — **told 2026-08-25** via
+`docs/agent_docs/docs024_key_docs_latest/vigilant_designer_offer_analysis/CONTRIB_2026-08-25_write_audit_findings_bypasses_the_new_owned_page_door.md`
+(their session was not running, so it is a file in their own CONTRIB_ convention). It states the measured cost,
+recommends the promoter-side remedy that would cover them **without touching their file**, and records that
+routing their action through `writeWorkItem` instead is theirs to choose. **Nobody is owed a notification now.**
