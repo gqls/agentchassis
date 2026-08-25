@@ -13,6 +13,8 @@
           <input type="password" id="nw-password" autocomplete="current-password"
                  minlength="10" required>
         </label>
+        <p class="noted-write__small" id="nw-goodbye" hidden>Your account and
+          everything in it has been deleted.</p>
         <p class="noted-write__small">New here? The same form makes your account —
           use a password of at least ten characters.</p>
         <p class="noted-write__buttons">
@@ -28,7 +30,36 @@
         <span id="nw-whoami" class="noted-write__small"></span>
         <span class="noted-write__spacer"></span>
         <button type="button" class="btn btn-secondary" id="nw-new">New note</button>
+        <button type="button" class="btn btn-secondary" id="nw-account">Account</button>
         <button type="button" class="btn btn-secondary" id="nw-signout">Sign out</button>
+      </div>
+
+      <div class="noted-write__account" id="nw-account-panel" hidden>
+        <h3 class="noted-write__listhead">Your account</h3>
+        <p class="noted-write__small">Closing your account deletes your notes,
+          recordings, photos and videos. There is no undo.</p>
+        <label>Type your password to confirm
+          <input type="password" id="nw-del-password" autocomplete="current-password">
+        </label>
+        <p class="noted-write__buttons">
+          <button type="button" class="btn btn-secondary" id="nw-del-confirm">Delete my account</button>
+          <button type="button" class="btn btn-secondary" id="nw-account-close">Close</button>
+        </p>
+        <p class="noted-write__error" id="nw-del-error" role="alert" hidden></p>
+      </div>
+
+      <div class="noted-write__editpanel" id="nw-edit-panel" hidden>
+        <canvas id="nw-edit-canvas"></canvas>
+        <p class="noted-write__buttons">
+          <button type="button" class="btn btn-secondary" id="nw-edit-rotate">Rotate</button>
+          <button type="button" class="btn btn-secondary" id="nw-edit-uncrop" hidden>Undo crop</button>
+          <button type="button" class="btn btn-primary" id="nw-edit-save">Save as a copy</button>
+          <button type="button" class="btn btn-secondary" id="nw-edit-cancel">Cancel</button>
+          <span class="noted-write__status" id="nw-edit-status" role="status" aria-live="polite"></span>
+        </p>
+        <p class="noted-write__small">Drag on the picture to crop. Saving keeps
+          your edit as a new copy and removes the original only once the copy is
+          safely stored.</p>
       </div>
 
       <div class="noted-write__failure" id="nw-failure" role="alert" hidden>
@@ -138,6 +169,20 @@
         never claims storage. beforeunload also asks while an upload is in
         flight or a failed one is still held.
 
+     5. Account deletion (2026-08-25, immediate — owner ruling): the Account
+        panel requires the password typed again AND a confirm; "deleted" is
+        claimed ONLY on the server's 2xx (the engine answers only after the
+        files, rows and account are actually gone); any failure is loud and
+        changes nothing.
+
+     Editing (2026-08-25, stage 3 — the seed of an editing surface, per the
+     owner's different-note-type vision): captions on any item (stored on the
+     media row, 500 chars); rotate/crop for images — an edit NEVER mutates in
+     place: the edited copy uploads as a NEW item and the original is removed
+     only on the server's 2xx (if that removal fails, both are kept and it is
+     said plainly). GIFs are refused for editing — a canvas edit would silently
+     keep one frame. Board items retarget to the edited copy in place.
+
      Existing #nw-* ids are load-bearing (experience-pattern selectors bind to
      them): ids are only ever ADDED here, never renamed.
 
@@ -154,7 +199,9 @@
    'app','whoami','new','signout','failure','failure-detail','retry',
    'title','content','save','status','list','loading',
    'add-media','file','media','media-note','storage',
-   'view-toggle','board','content-label'].forEach(function (id) {
+   'view-toggle','board','content-label',
+   'account','account-panel','account-close','del-password','del-confirm','del-error','goodbye',
+   'edit-panel','edit-canvas','edit-rotate','edit-uncrop','edit-save','edit-cancel','edit-status'].forEach(function (id) {
     el[id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); })] =
       document.getElementById('nw-' + id);
   });
@@ -363,6 +410,243 @@
       });
   }
 
+  function editCaption(m) {
+    var text = window.prompt('Caption for this ' + kindLabel(m.kind) + ' (up to 500 characters):', m.caption || '');
+    if (text === null) return;
+    fetch('/api/media/' + m.id, {
+      method: 'PATCH', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ caption: text })
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok) throw new Error(data.error || ('the server answered ' + res.status));
+        // Only on the 2xx does the caption show as kept.
+        m.caption = data.caption || '';
+        renderMedia();
+        if (state.boardMode) renderBoard();
+      });
+    }).catch(function (err) {
+      showMediaNote('That caption was NOT saved (' +
+        (err && err.message ? err.message : 'no answer from the server') + ').');
+    });
+  }
+
+  // --- image editing (stage 3 seed: rotate + crop, never in place) --------
+
+  var edit = null; // {m, img, rotation, crop:{x,y,w,h}|null, dragStart}
+
+  function openImageEditor(m) {
+    var img = new Image();
+    img.onload = function () {
+      edit = { m: m, img: img, rotation: 0, crop: null, dragStart: null };
+      el.editPanel.hidden = false;
+      el.editStatus.textContent = '';
+      drawEdit();
+    };
+    img.onerror = function () {
+      showMediaNote('That image could not be opened for editing.');
+    };
+    img.src = '/api/media/' + m.id;
+  }
+
+  function closeImageEditor() {
+    edit = null;
+    el.editPanel.hidden = true;
+  }
+
+  // Rotated natural dimensions.
+  function editDims() {
+    var rot90 = edit.rotation % 180 !== 0;
+    return { w: rot90 ? edit.img.naturalHeight : edit.img.naturalWidth,
+             h: rot90 ? edit.img.naturalWidth : edit.img.naturalHeight };
+  }
+
+  function drawEdit() {
+    var dims = editDims();
+    var maxW = el.editPanel.clientWidth - 20 || 300;
+    var scale = Math.min(1, maxW / dims.w);
+    var c = el.editCanvas;
+    c.width = Math.round(dims.w * scale);
+    c.height = Math.round(dims.h * scale);
+    var ctx = c.getContext('2d');
+    ctx.save();
+    ctx.translate(c.width / 2, c.height / 2);
+    ctx.rotate(edit.rotation * Math.PI / 180);
+    var rot90 = edit.rotation % 180 !== 0;
+    var dw = rot90 ? c.height : c.width, dh = rot90 ? c.width : c.height;
+    ctx.drawImage(edit.img, -dw / 2, -dh / 2, dw, dh);
+    ctx.restore();
+    if (edit.crop) {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(edit.crop.x * c.width, edit.crop.y * c.height,
+                     edit.crop.w * c.width, edit.crop.h * c.height);
+      ctx.setLineDash([]);
+    }
+    el.editUncrop.hidden = !edit.crop;
+  }
+
+  function canvasPoint(ev) {
+    var r = el.editCanvas.getBoundingClientRect();
+    return { x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)),
+             y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)) };
+  }
+
+  el.editCanvas.addEventListener('pointerdown', function (ev) {
+    if (!edit) return;
+    ev.preventDefault();
+    edit.dragStart = canvasPoint(ev);
+    el.editCanvas.setPointerCapture && el.editCanvas.setPointerCapture(ev.pointerId);
+  });
+  el.editCanvas.addEventListener('pointermove', function (ev) {
+    if (!edit || !edit.dragStart) return;
+    var pnow = canvasPoint(ev), p0 = edit.dragStart;
+    edit.crop = { x: Math.min(p0.x, pnow.x), y: Math.min(p0.y, pnow.y),
+                  w: Math.abs(pnow.x - p0.x), h: Math.abs(pnow.y - p0.y) };
+    drawEdit();
+  });
+  el.editCanvas.addEventListener('pointerup', function () {
+    if (!edit) return;
+    edit.dragStart = null;
+    if (edit.crop && (edit.crop.w < 0.02 || edit.crop.h < 0.02)) {
+      edit.crop = null; // a tap, not a crop
+      drawEdit();
+    }
+  });
+
+  el.editRotate.addEventListener('click', function () {
+    if (!edit) return;
+    edit.rotation = (edit.rotation + 90) % 360;
+    edit.crop = null; // crop coordinates do not survive a rotation; start again
+    drawEdit();
+  });
+  el.editUncrop.addEventListener('click', function () {
+    if (!edit) return;
+    edit.crop = null;
+    drawEdit();
+  });
+  el.editCancel.addEventListener('click', closeImageEditor);
+
+  el.editSave.addEventListener('click', function () {
+    if (!edit) return;
+    var m = edit.m;
+    var dims = editDims();
+    var out = document.createElement('canvas');
+    var crop = edit.crop || { x: 0, y: 0, w: 1, h: 1 };
+    out.width = Math.max(1, Math.round(dims.w * crop.w));
+    out.height = Math.max(1, Math.round(dims.h * crop.h));
+    var ctx = out.getContext('2d');
+    ctx.save();
+    ctx.translate(-crop.x * dims.w, -crop.y * dims.h);
+    ctx.translate(dims.w / 2, dims.h / 2);
+    ctx.rotate(edit.rotation * Math.PI / 180);
+    var rot90 = edit.rotation % 180 !== 0;
+    var dw = rot90 ? dims.h : dims.w, dh = rot90 ? dims.w : dims.h;
+    ctx.drawImage(edit.img, -dw / 2, -dh / 2, dw, dh);
+    ctx.restore();
+
+    var mime = (m.mime === 'image/jpeg') ? 'image/jpeg' : 'image/png';
+    el.editStatus.textContent = 'Saving the edited copy\u2026';
+    out.toBlob(function (blob) {
+      if (!blob) {
+        el.editStatus.textContent = 'Could not build the edited copy — the original is untouched.';
+        return;
+      }
+      fetch('/api/notes/' + state.noteId + '/media?kind=image', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': mime }, body: blob
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+          if (!res.ok) throw new Error(data.error || ('the server answered ' + res.status));
+          return data;
+        });
+      }).then(function (data) {
+        // The copy is safely stored; NOW remove the original — and if that
+        // fails, keep both and say so. Never destructive in one step.
+        var newItem = { id: data.id, kind: 'image', mime: mime, byte_len: data.byte_len, caption: m.caption || '' };
+        if (m.caption) {
+          fetch('/api/media/' + data.id, { method: 'PATCH', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ caption: m.caption }) }).catch(function () {});
+        }
+        return fetch('/api/media/' + m.id, { method: 'DELETE', credentials: 'same-origin' })
+          .then(function (res) {
+            var idx = state.media.indexOf(m);
+            if (res.ok) {
+              if (idx >= 0) state.media[idx] = newItem; else state.media.push(newItem);
+              retargetLayoutItem('m' + m.id, newItem);
+            } else {
+              state.media.push(newItem);
+              showMediaNote('The edited copy is saved; the original could not be removed — remove it yourself if you want.');
+            }
+            closeImageEditor();
+            renderMedia();
+            if (state.boardMode) renderBoard();
+            refreshStorage();
+            refreshList();
+          });
+      }).catch(function (err) {
+        el.editStatus.textContent = 'NOT saved (' +
+          (err && err.message ? err.message : 'no answer from the server') + ') — the original is untouched.';
+      });
+    }, mime, 0.92);
+  });
+
+  function retargetLayoutItem(oldId, newItem) {
+    if (!state.layout) return;
+    state.layout.items.forEach(function (it) {
+      if (it.id === oldId) {
+        it.id = 'm' + newItem.id;
+        it.media_id = newItem.id;
+      }
+    });
+    markDirty(); // the arrangement now names a different item; save carries it
+  }
+
+  // --- account deletion (immediate — the same honesty family) -------------
+
+  el.account.addEventListener('click', function () {
+    el.accountPanel.hidden = !el.accountPanel.hidden;
+    el.delError.hidden = true;
+    el.delPassword.value = '';
+  });
+  el.accountClose.addEventListener('click', function () {
+    el.accountPanel.hidden = true;
+  });
+  el.delConfirm.addEventListener('click', function () {
+    el.delError.hidden = true;
+    if (!el.delPassword.value) {
+      el.delError.textContent = 'Type your password first — deleting needs it.';
+      el.delError.hidden = false;
+      return;
+    }
+    if (!window.confirm('Really delete your account and everything in it? There is no undo.')) return;
+    fetch('/api/account', {
+      method: 'DELETE', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: el.delPassword.value })
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok) throw new Error(data.error || ('the server answered ' + res.status));
+      });
+    }).then(function () {
+      // ONLY on the 2xx — the engine answers after everything is really gone.
+      state.noteId = null; state.dirty = false;
+      state.media = []; state.pending = []; state.layout = null;
+      el.title.value = ''; el.content.value = '';
+      el.accountPanel.hidden = true;
+      renderMedia();
+      setBoardMode(false);
+      showAuth();
+      el.goodbye.hidden = false;
+    }).catch(function (err) {
+      el.delError.textContent = (err && err.message ? err.message : 'no answer from the server') +
+        ' Nothing has been deleted.';
+      el.delError.hidden = false;
+    });
+  });
+
   function discardPending(item) {
     if (!window.confirm('Discard this file? It was never stored, so it will be gone for good.')) return;
     state.pending = state.pending.filter(function (p) { return p !== item; });
@@ -392,6 +676,34 @@
         node.preload = 'metadata';
       }
       li.appendChild(node);
+      if (m.caption) {
+        var cap = document.createElement('div');
+        cap.className = 'noted-write__mcaption';
+        cap.textContent = m.caption;
+        li.appendChild(cap);
+      }
+      var row = document.createElement('div');
+      row.className = 'noted-write__mactions';
+      var capBtn = document.createElement('button');
+      capBtn.type = 'button';
+      capBtn.className = 'btn btn-secondary noted-write__msmallbtn';
+      capBtn.textContent = m.caption ? 'Caption…' : 'Add caption';
+      capBtn.addEventListener('click', function () { editCaption(m); });
+      row.appendChild(capBtn);
+      if (m.kind === 'image' && m.mime !== 'image/gif') {
+        var editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'btn btn-secondary noted-write__msmallbtn';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', function () { openImageEditor(m); });
+        row.appendChild(editBtn);
+      } else if (m.mime === 'image/gif') {
+        var note = document.createElement('span');
+        note.className = 'noted-write__small';
+        note.textContent = 'GIFs can\u2019t be edited yet — it would lose the animation.';
+        row.appendChild(note);
+      }
+      li.appendChild(row);
       var rm = document.createElement('button');
       rm.type = 'button';
       rm.className = 'noted-write__mremove';
@@ -499,6 +811,7 @@
 
   function authenticate(path) {
     el.authError.hidden = true;
+    el.goodbye.hidden = true;
     api(path, { body: { email: el.email.value, password: el.password.value } })
       .then(function (data) { showApp(data.email || el.email.value); })
       .catch(function (err) {
@@ -632,7 +945,15 @@
         body.appendChild(txt);
       } else {
         var m = byId[it.media_id];
-        if (m) body.appendChild(mediaNode(m));
+        if (m) {
+          body.appendChild(mediaNode(m));
+          if (m.caption) {
+            var bcap = document.createElement('div');
+            bcap.className = 'noted-write__mcaption';
+            bcap.textContent = m.caption;
+            body.appendChild(bcap);
+          }
+        }
       }
       d.appendChild(body);
 
@@ -784,4 +1105,12 @@
 .noted-write__bresize { position: absolute; right: 0; bottom: 0; width: 44px; height: 44px;
   cursor: nwse-resize; touch-action: none;
   background: linear-gradient(135deg, transparent 55%, var(--section-border, #b6b6b6) 55%); }
+.noted-write__account, .noted-write__editpanel { border: 1px solid var(--section-border, #b6b6b6);
+  border-radius: 6px; padding: 0.9rem 1rem; margin: 0 0 1rem; }
+.noted-write__mcaption { font-size: 0.85em; opacity: 0.9; padding: 0.25rem 0.1rem 0; max-width: 280px;
+  overflow-wrap: break-word; }
+.noted-write__mactions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.35rem; }
+.noted-write__msmallbtn { font-size: 0.8em; padding: 0.25rem 0.6rem; }
+.noted-write__editpanel canvas { max-width: 100%; display: block; touch-action: none; cursor: crosshair;
+  border: 1px solid var(--section-border, #b6b6b6); }
 </style>

@@ -43,6 +43,7 @@ PNG_1PX = bytes.fromhex(
 
 class StubAPI(http.server.BaseHTTPRequestHandler):
     """The happy-path engine, faithful to server.go's shapes."""
+    next_media_id = 900
     def _json(self, code, obj):
         body = json.dumps(obj).encode()
         self.send_response(code)
@@ -89,13 +90,24 @@ class StubAPI(http.server.BaseHTTPRequestHandler):
         elif self.path.startswith("/api/notes/") and "/media" in self.path:
             body = self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
             time.sleep(MEDIA_DELAY_S)         # the observable window for "Uploading…"
-            self._json(201, {"id": 901, "byte_len": len(body)})
+            StubAPI.next_media_id += 1
+            self._json(201, {"id": StubAPI.next_media_id, "byte_len": len(body)})
         else:
             self._json(404, {"error": "no such path"})
 
     def do_DELETE(self):
         if self.path.startswith("/api/media/"):
             self._json(200, {"status": "deleted"})
+        elif self.path == "/api/account":
+            self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
+            self._json(200, {"status": "account deleted"})
+        else:
+            self._json(404, {"error": "no such path"})
+
+    def do_PATCH(self):
+        if self.path.startswith("/api/media/"):
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0) or 0)) or b"{}")
+            self._json(200, {"status": "saved", "caption": body.get("caption", "")})
         else:
             self._json(404, {"error": "no such path"})
 
@@ -488,6 +500,117 @@ def main():
         check("handles opt out of scroll (touch-action none)",
               page.locator('[data-item-id="m901"] .noted-write__bhandle').evaluate(
                   "n => getComputedStyle(n).touchAction === 'none'"))
+        ctx.close()
+
+        # ------------------------------------------------------------------
+        # DELETION + EDITING (immediate deletion; stage 3 seed). Cases M–O.
+        # ------------------------------------------------------------------
+
+        # ---------- CASE M: account deletion is honest ----------
+        print("\nCASE M — deletion: wrong password loud, failure loud, gone only on the 2xx")
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        route_me(page)
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        page.click("#nw-account")
+        page.wait_for_selector("#nw-account-panel:not([hidden])", timeout=3000)
+
+        page.click("#nw-del-confirm")   # no password typed
+        page.wait_for_selector("#nw-del-error:not([hidden])", timeout=3000)
+        check("empty password refused locally", "Type your password" in page.locator("#nw-del-error").inner_text())
+
+        page.fill("#nw-del-password", "wrong-password-here")
+        page.route("**/api/account", lambda r: r.fulfill(
+            status=401, content_type="application/json",
+            body=json.dumps({"error": "that password is not right — your account is untouched"}))
+            if r.request.method == "DELETE" else r.continue_())
+        page.once("dialog", lambda d: d.accept())
+        page.click("#nw-del-confirm")
+        page.wait_for_function(
+            "() => document.getElementById('nw-del-error').textContent.includes('not right')", timeout=4000)
+        check("engine's refusal shown verbatim, still signed in",
+              page.locator("#nw-app").is_visible() and "Nothing has been deleted" in page.locator("#nw-del-error").inner_text())
+
+        page.unroute("**/api/account")
+        page.route("**/api/account", lambda r: r.abort() if r.request.method == "DELETE" else r.continue_())
+        page.once("dialog", lambda d: d.accept())
+        page.fill("#nw-del-password", "0123456789x")
+        page.click("#nw-del-confirm")
+        page.wait_for_function(
+            "() => !document.getElementById('nw-del-error').hidden", timeout=4000)
+        check("network failure: loud, still signed in", page.locator("#nw-app").is_visible())
+
+        page.unroute("**/api/account")
+        page.once("dialog", lambda d: d.accept())
+        page.click("#nw-del-confirm")
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=4000)
+        check("2xx: signed out with the goodbye", page.locator("#nw-goodbye").is_visible())
+        ctx.close()
+
+        # ---------- CASE N: captions kept only on the 2xx ----------
+        print("\nCASE N — captions: saved via the server, shown; failure loud")
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        route_me(page)
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        page.click("#nw-list >> text=Earlier thought")
+        page.wait_for_selector("#nw-media img", timeout=5000)
+        page.once("dialog", lambda d: d.accept("the garden in May"))
+        page.click("#nw-media >> text=Add caption")
+        page.wait_for_function(
+            "() => document.getElementById('nw-media').textContent.includes('the garden in May')", timeout=4000)
+        check("caption shown after the 2xx", True)
+
+        page.route("**/api/media/**", lambda r: r.abort() if r.request.method == "PATCH" else r.continue_())
+        page.once("dialog", lambda d: d.accept("lost caption"))
+        page.click("#nw-media >> text=Caption…")
+        page.wait_for_function(
+            "() => document.getElementById('nw-media-note').textContent.includes('NOT saved')", timeout=4000)
+        check("failed caption is loud and the old caption stays",
+              "the garden in May" in page.locator("#nw-media").inner_text())
+        page.unroute("**/api/media/**")
+        ctx.close()
+
+        # ---------- CASE O: editing never destroys — copy first, original after ----------
+        print("\nCASE O — edit: rotate+save uploads a COPY, original removed only on 2xx")
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        route_me(page)
+        calls = []
+        page.on("request", lambda r: calls.append((r.method, r.url)) if "/media" in r.url or "/api/notes/" in r.url else None)
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        page.click("#nw-list >> text=Earlier thought")
+        page.wait_for_selector("#nw-media img", timeout=5000)
+        page.click("#nw-media >> text=Edit")
+        page.wait_for_selector("#nw-edit-panel:not([hidden])", timeout=4000)
+        page.click("#nw-edit-rotate")
+        page.click("#nw-edit-save")
+        page.wait_for_function(
+            "() => document.getElementById('nw-edit-panel').hidden", timeout=int(MEDIA_DELAY_S * 1000) + 6000)
+        posts = [c for c in calls if c[0] == "POST" and "/media" in c[1]]
+        deletes = [c for c in calls if c[0] == "DELETE" and "/api/media/901" in c[1]]
+        check("edited copy uploaded as NEW media", len(posts) == 1)
+        check("original removed only after the copy stored", len(deletes) == 1)
+        check("strip shows the copy, not the original",
+              "/api/media/901" not in (page.locator("#nw-media img").get_attribute("src") or ""))
+
+        # failure branch: the upload dies -> the ORIGINAL is untouched
+        page.route("**/api/notes/**", lambda r: r.abort() if r.request.method == "POST" else r.continue_())
+        page.click("#nw-media >> text=Edit")
+        page.wait_for_selector("#nw-edit-panel:not([hidden])", timeout=4000)
+        page.click("#nw-edit-rotate")
+        page.click("#nw-edit-save")
+        page.wait_for_function(
+            "() => document.getElementById('nw-edit-status').textContent.includes('NOT saved')", timeout=6000)
+        check("failed edit: loud, original untouched",
+              "original is untouched" in page.locator("#nw-edit-status").inner_text()
+              and page.locator("#nw-media img").count() == 1)
         ctx.close()
 
         browser.close()
