@@ -951,3 +951,86 @@ stated by the config rather than inferred from behaviour.
   now point at a moved path. A comment-only change to `platform/` for a path string is not worth a
   build and a council round; the cost is one `git log --follow`. If someone is editing those files
   anyway, fix it in passing.
+
+---
+
+## 2026-08-25 19:15 UTC — `v1.0.1339`: arm 1 still clean at 18 rows, and the audit failure rate has INVERTED
+
+### The build
+
+`v1.0.1339`, all three services, pods started **19:07 UTC**, all stamping
+`a7459a44b68b8c67b7d7bb0ca7c064e0729d59f5`. Timestamps printed before interpreting:
+fix `2026-08-24T14:45:03+01:00` · build commit `2026-08-25T17:38:55+01:00` · `HEAD`
+`2026-08-25T20:12:24+01:00`. `merge-base --is-ancestor ffa6e1c3d a7459a44b` → **YES**, control `HEAD`
+→ correctly **NOT**. Third consecutive roll carrying the fix.
+
+### Arm 1 [MEASURED 2026-08-25 19:13 UTC]
+
+| | |
+|---|---|
+| rows filed since the 08-24 15:39 roll | **18** (was 15 this morning, 10 yesterday) |
+| invented `TAG.TAG` | **0** |
+| carrying `selector_scheme` | **18 / 18** |
+| filed since 09:40 today | 3 |
+
+### ⚠ THE 55% FAILURE RATE IS GONE FROM THE TABLE — and what survives says 0%
+
+This morning I recorded that the "11 of 20 over 7 days" figure was really one day, and warned it was
+unreproducible because `orchestration_states` prunes. **That has now happened in full.** The table's
+entire render-audit history is:
+
+```
+window_starts 2026-08-24 20:31:49 · window_ends 2026-08-25 14:40:20 · runs 5 · errored 0
+```
+
+**Every row behind the 11-of-20 has been pruned.** The 5 that survive are all `complete`.
+
+**The arithmetic, because "small sample" is a dodge and so is "it's fixed":** if the true failure rate
+were still 55%, five consecutive clean runs would occur with probability `0.45^5 ≈ 1.8%`. That is
+real evidence *something* changed — it is not evidence of *what*. Three things changed together and
+the table cannot separate them:
+
+1. two fleet rolls (`v1.0.1337`, `v1.0.1339`);
+2. **load** — yesterday's failures were 3-minute `TIMEOUT`s during an hourly sweep of the whole
+   28-site fleet; today's five runs are sparse, in the trough of the cycle;
+3. the site mix — three of today's four audited sites were **created today** (below).
+
+⚠ **So the honest position is: the claim "the render audit fails more often than it succeeds" is no
+longer supported, and cannot be re-tested against the evidence that produced it.** Item 4 of the
+handoff is rewritten accordingly. **This is what a pruned table costs: not a wrong number, but the
+permanent loss of the comparison.**
+
+### The rotation resumed, and NEW SITES JUMP THE QUEUE — which my morning forecast missed
+
+Four runs today: 10:38, 11:38, 12:39, 14:40. This morning I measured 0 sites past the 3-day window
+and forecast **`apis.uk` at 14:06** as the next. `apis.uk` did run — at **14:40**, right on cue — but
+**three sites ran before it**, and I had said none were due.
+
+| domain | last_selected | site created |
+|---|---|---|
+| `homegarden.uk` | 10:38 | **2026-08-25** |
+| `lampenkap.com` | 11:38 | **2026-08-25** |
+| `cv1.co.uk` | 12:39 | **2026-08-25** |
+| `apis.uk` | 14:40 | 2026-08-22 |
+
+**A site created after my census has no `site_discovery_rotation` row**, so
+`COALESCE(last_selected_at,'-infinity')` makes it instantly due — and
+`ORDER BY last_selected_at ASC NULLS FIRST` puts it **at the front**. Three new sites consumed three
+hourly slots ahead of the existing fleet.
+
+**The forecast was not wrong about the mechanism; it was wrong to be a forecast at all.** A queue
+position derived from a snapshot is only valid until the next arrival, and arrivals go to the front.
+Same family as the four population errors: **I measured a set and then reasoned about its future as
+if the set were closed.**
+
+### 587's re-detection: still 0 of 56, still for the same good reason
+
+[MEASURED 2026-08-25 19:13 UTC] **0 of the 13** affected sites have been re-audited since 587 applied
+(oldest selected `2026-08-23 21:20`, newest `2026-08-24 18:30` — both pre-587). So **0 of 56**
+pairings have returned, and that remains *no occasion yet*, not a broken promise.
+
+Oldest of the 13 comes due **2026-08-26 21:20 UTC**. ⚠ **With new-site pre-emption, "all 13 by
+2026-08-27 21:30" is a floor, not a schedule** — each site created pushes the queue back an hour.
+Three arrived today. **The 2026-08-28 check date still holds with slack** (28 sites, 1/hour, 3-day
+cooldown ⇒ ~28 h to cycle against a 72 h window), but on that date **re-read the rotation rather than
+assuming the sweep happened.**
