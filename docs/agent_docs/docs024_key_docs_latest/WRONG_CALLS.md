@@ -53452,3 +53452,66 @@ field the target handler cannot write) is being built by the 395 lane; this entr
 
 Family: grep-the-mechanism-not-the-field, prose-rules-have-a-half-life, ask-who-owns-the-field-first,
 a-promise-that-cannot-be-kept-is-worse-than-none.
+
+---
+
+## 2026-08-25 — `bugs_open/395` session: four of my own, and the last one is a check CLAUDE.md prescribes that does not exist
+
+The shared misstep (neither lane grepped for the FIELD) is logged above by the 395 lane and I am not
+restating it. These four are mine and are not covered there.
+
+**1. I planned against a bug file that grew 106 lines underneath me.** I read
+`bugs_open/395` at the start of the session; it ended at §7. By the time I acted it had a **§8**
+(committed `0049b486f`, 14:04) saying candidate 1 was **already built, council-approved and
+committed**. I was minutes from proposing to build it. *Caught by:* re-reading the file before
+acting rather than trusting my own earlier read. *The check:* on this tree a file you read at
+session start is a **snapshot**, exactly as `git status` is — re-read any file you are about to plan
+against, and prefer `git log --oneline -3 -- <path>` over your memory of it.
+
+**2. I told the user the criterion died at the wrong seam, and it was one hop out.** I said the
+criterion *"reaches the writer's context and the template drops it"* — because
+`build-dispatch-loop`'s mapping sets `"current_page": "current_item.spec"`. It does, **for the
+handler**. The handler then RE-MAPS `current_page` to `page_record` for the writer, so the spec never
+arrives. *Caught by:* reading `call_content_writer`'s own `input_mapping` instead of reasoning
+forward from the dispatcher's. *The check:* **a key's meaning is re-bound at every hop.** Never infer
+what an agent receives from what its caller received — read the mapping at the hop you mean.
+
+**3. A `workflow.steps` walk UNDER-REPORTS, and its zero is indistinguishable from a real absence.**
+Asking which agents own a `save_page_meta_description` step via
+`jsonb_each(default_config->'workflow'->'steps')` returned **ZERO rows**. The whole-config text
+search returned `meta-description-backfiller`. **The step is nested inside a `loop`'s
+`sub_workflow`, which a top-level walk cannot see.** Had I trusted the first query I would have
+reported "nothing in the estate can write this column at all" — more alarming than the truth, and
+false. *The check:* a steps walk is a LOWER BOUND. Confirm any "no agent does X" with
+`default_config::text LIKE '%X%'`, which cannot miss a nesting level. (The 395 lane hit the identical
+trap the same hour; register `WII-031` already records it.)
+
+**4. ⚠ THE DEPLOY CHECK CLAUDE.md PRESCRIBES DOES NOT EXIST FOR THIS SERVICE — and its failure is
+silent.** CLAUDE.md ("Ask the service what it is running") gives:
+`kubectl logs -l app=<service> --tail=300 | grep -m1 'build provenance'`.
+**The string `build provenance` does not occur anywhere in this repo's Go source.** I grepped an
+entire pod log (4.6 MB, not a tail) and got nothing. CLAUDE.md tells you an empty result means *"not
+in range"* — so the documented failure mode absorbs the real one, and you go on believing the check
+would have worked if only you had scrolled further. What is actually stamped is
+`pkg/buildinfo.GitCommit`, set by `-ldflags` in `build/docker/backend/<svc>.dockerfile:8` from the
+image's `GIT_COMMIT` build-arg (makefile ~line 372, also written to the OCI
+`org.opencontainers.image.revision` label).
+
+**And I then made the exact mistake that section warns about.** I probed `/proc/1/exe` for three
+candidate build shas, got **absent, absent, absent**, and had **no PRESENT control** — so the result
+was uninterpretable, and "absent" reads like "not shipped". *The check that worked, and it is the one
+to copy:* probe the **capability**, not the commit, with **both** controls in the same breath —
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'ACCEPTANCE_PREDICATE_NOT_EVALUABLE' /proc/1/exe  # under test
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'handler_reported_no_change'          /proc/1/exe  # MUST be present
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'zzz_invented_string'                 /proc/1/exe  # MUST be absent
+```
+PRESENT / PRESENT / absent proved gate 1c live on `v1.0.1339` in one round, after the sha route had
+produced three uninterpretable answers. ⚠ It only works for code something CALLS — the `bugs_open/375`
+lane measured the same day that the Go linker strips an unreferenced literal, so a probe for a
+not-yet-wired symbol reads exactly like a failed roll.
+
+Family: a-snapshot-read-expires, a-key-is-rebound-at-every-hop, a-steps-walk-is-a-lower-bound,
+probe-the-capability-with-both-controls, the-documented-check-that-does-not-exist.
