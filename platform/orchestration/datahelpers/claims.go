@@ -878,6 +878,24 @@ var editorialPageTypes = map[string]bool{
 // version string), and the digit `2` inside the acronym A2A. Two of the eleven
 // tokens are not statistics at all, which is the sharpest evidence that a lexical
 // gate was never answering the question it was asked.
+// ⚠ VERIFY A NEW KEY AGAINST LIVE `slot_name`, NOT AGAINST
+// `content_components.function` — they are not the same column and they do not
+// always agree. Measured 2026-08-25: **106 of 2,033** live rows have
+// `page_components.slot_name` different from their component's `function`
+// (`prose-0` vs `ported-prose`, `call_to_action` vs `call-to-action`,
+// `FAQ Section` vs `faq`). The surface is keyed on the SLOT, because that is what
+// every call site actually holds. A key that matches neither simply never fires
+// and the component is scanned — the safe direction, and also a silent no-op, so
+// check rather than assume (council round 1, correlation 3ed2b792, edit-quality
+// seat, medium — the objection was right):
+//
+//	SELECT pc.slot_name, count(*) FROM page_components pc
+//	WHERE pc.slot_name = '<candidate>' AND pc.locked_at IS NULL GROUP BY 1;
+//
+// All three below were confirmed present as live `slot_name` values on
+// 2026-08-25, and the corpus mutation check is the stronger proof that they fire:
+// emptying this map returns exactly the original 36 findings with 20 on tracker
+// pages, so the exemption is doing the work and is not a no-op.
 var thirdPartyDataComponents = map[string]bool{
 	"adoption-tracker-listing": true,
 	"protocol-tracker-listing": true,
@@ -885,7 +903,19 @@ var thirdPartyDataComponents = map[string]bool{
 }
 
 // ProseNumbersAreClaims reports whether the heuristic number scan applies to
-// prose on this surface. It governs ScanUnregisteredNumbers ONLY:
+// prose on this surface. It governs ScanUnregisteredNumbers ONLY — and that
+// claim is a grep, not an assertion (council round 1, correlation 3ed2b792,
+// prior-art seat: "asserted, not shown checked"). Re-run it before trusting it,
+// because a sixth construction point or a second reader would silently leave a
+// surface un-widened:
+//
+//	grep -rn 'editorialPageTypes\|thirdPartyDataComponents\|ProseNumbersAreClaims' --include=*.go .
+//	grep -rn 'ClaimSurface{' --include=*.go . | grep -v _test
+//
+// On 2026-08-25 that returned: both maps read ONLY by ProseNumbersAreClaims,
+// which has ONE caller (the guard below); and 5 production ClaimSurface literals
+// (validate_page_content, check_unverified_claims ×2, save_sections_claims_guard,
+// cmd/claimscan), all of which pass ComponentFunction.
 //
 //   - ScanBannedClaims runs on every surface. A banned pattern is a human-authored
 //     record of a KNOWN falsehood, not a heuristic, so it has no false-positive
