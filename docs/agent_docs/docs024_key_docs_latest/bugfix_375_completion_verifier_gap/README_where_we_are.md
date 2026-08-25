@@ -228,3 +228,43 @@ it backwards myself: a field called "Go side" turns out to mean *checked*, while
 audit" means *not checked yet*. I've corrected the comment and recorded what its staleness cost,
 because a stale line in a header isn't passive — a reviewer who can't see the newer code reads it as
 fact.
+
+---
+
+**2026-08-25, evening.** A new build went out, and it produced the best piece of evidence this lane
+has — from something that first looked like a problem.
+
+I checked whether the new image carried today's work by looking inside the running binary for a
+distinctive phrase from the new re-check's code. It wasn't there. My first thought was the obvious
+one: the build is stale, or the deploy failed.
+
+It isn't. The build carries all four of today's commits — I confirmed that against the commit the
+running service reports for itself. The phrase is missing because **nothing calls that code, so the
+compiler threw it away.** I proved that rather than assuming it: a phrase from the *neighbouring*
+piece of code, the one that is switched on, is present in the same binary.
+
+That matters more than it sounds. The argument for leaving the re-check switched off was exactly the
+thing the reviewers pushed back on hardest — they said, fairly, that a switched-off guard changes
+nothing. My answer was that switching it on without a database migration first would be worse than
+useless. That was reasoning. It is now a fact about the running system: **the code isn't in there at
+all.** Nothing to misfire, nothing to go wrong, no risk to weigh.
+
+The catch is worth knowing because I nearly fell for it: looking for something you have deliberately
+left switched off returns "not found", which looks identical to a failed deployment and means the
+opposite. That's now written into the fleet-wide traps file alongside the two other reasons a marker
+can go missing from a build that is perfectly fine.
+
+**And one thing I got wrong today that I want on the record with you, not just in the log.** I spent
+this session warning three other sessions about a specific hazard — committing a shared file sweeps
+in whatever other people have half-finished in it — and then did exactly that myself, to the very
+file that documents the hazard. Four entries from three other lanes went in under a commit message
+about my own documentation habits. Nothing was lost, and I've told all three sessions which commit
+their work landed in.
+
+The mechanism is the part that stung. I ran the check that would have caught it, printed the warning
+in my own terminal, and committed anyway. My earlier commits to that same file were clean because I
+predicted the numbers first and noticed when they didn't match. Running a check isn't the habit;
+*stating what you expect and comparing* is. Every commit I made afterwards does that out loud.
+
+Where that leaves us is unchanged: the bug stays open, the re-check waits on one migration behind
+another session's file, and the structural fix is still a scoping read away from being a proposal.
