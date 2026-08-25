@@ -226,3 +226,54 @@ anything about SQL TEXT**; that is the "a mock's own bookkeeping cannot assert a
 level along, and I walked into it while explicitly trying to avoid it. The fix is to put the column
 list in the **expectation** (`verifyRowReadSQL`), which sqlmock matches against the real statement.
 Dropping either `spec` or `page_id` now fails six tests.
+
+## 2026-08-25 — post-roll verification
+
+Chassis rolled to **`v1.0.1337`** overnight (both pods, started 09:27Z). Verified at the artefact,
+never at the tag:
+
+- `build provenance` had already scrolled out of `--tail=300` — the expected shape on this
+  service. An empty result there means "not in range", **not** "unstamped".
+- Binary probe on **both** pods, four literals plus two controls:
+  `verify_before_complete` PRESENT · `verifier_not_consulted` PRESENT ·
+  `owned_page_refusal_status` PRESENT (must-be-present control) ·
+  `verify_before_complete_THIS_MUST_BE_ABSENT` absent (must-be-absent control) ·
+  **`updateStatusVerifyConfigKey` absent** — the Go const identifier, exactly as `WII-030`'s
+  verify-later predicted. Probing for the identifier would have read as "not shipped" while the
+  feature works.
+
+Runtime state, re-measured `[2026-08-25]`: **0** steps arm the key · census unchanged at 4 agents /
+6 `complete` arms / 22 steps · **0** rows with `result._verification.status='verifier_not_consulted'`.
+
+⚠ **That last zero was recorded WITH its demand control, because on its own it is worthless.** The
+intersection of the 13 registered verifier types with the 7 reachable types is still `∅`, checked
+mechanically at HEAD — so the record **cannot** fire. It is neither a pass nor a fail. Written into
+`WII-030`'s verify-later and bug §9b in those words, because the next reader will meet the zero
+before they meet the reasoning.
+
+### The lane's own status lines were the thing most likely to mislead next
+
+Three documents said **"INERT until the next chassis roll"**. That sentence was true when written
+and became actively misleading this morning — it is the *"a stale status line prevents the thing it
+describes"* shape, where a correct next action reads as premature. `WII-030`, the concept index row
+and the workstreams memory line are all updated to **LIVE at the artefact**, each keeping the
+separate and still-true statement that the gate is **inert on every live path by design**. Those
+two are not the same claim and collapsing them is how "live" would come to mean "working".
+
+### Landmine verifier: `NEEDS_HUMAN_REVIEW`, and it is a SCOPE LIMIT
+
+It confirmed the Go footprint and could not reach three things: `verifier_coverage_test.go`
+("0 rows"), and `CQ-023`/`WII-030`, which are register prose a `.go`-only index cannot hold. **The
+0 rows are the index's staleness, not the file's absence** — its answers describe indexed commit
+`e347c5ad` of **2026-08-23 12:21Z**, which predates the file's header edit and the entry itself, and
+it has not been recut since. Answered in the entry, per the precedent set by the previous landmine's
+author. Do not read it as an open objection.
+
+### What I did NOT do, and why
+
+**I did not close the bug.** The gate is live; the defect is not gone. Every completion through
+`update_work_item_status` is still unverified, and a verifier registered for any of the 7 types is
+still consulted by nothing. What shipped is the mechanism plus a tripwire, and CLAUDE.md's bar is
+**fixed AND live**. Closing on "the gate shipped" would be `bugs_open/021` §INSTANCE 2's own error
+one level along — mistaking *a mechanism exists* for *the defect is gone*. Bug §9c/§9d state the
+reasoning and name what would actually let a future session close it.
