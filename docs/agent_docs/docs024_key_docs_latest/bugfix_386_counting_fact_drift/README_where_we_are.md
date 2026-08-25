@@ -137,3 +137,35 @@ tree rather than anything that went wrong today, and the practical cost is that 
 show a gap that has a written answer.
 
 Still nothing changed on any live site.
+
+## 2026-08-25, end of day — it's on, and the pages are no longer accused
+
+You said go ahead, so it's done and I want to be precise about what "done" means.
+
+The five figures on the fundamentallyai capabilities page are no longer being reported as invented
+numbers. This morning the checker found five problems there; it now finds none. That's measured
+against the live site with the live register, not in a test.
+
+The important half is the second check. The obvious worry with a fix that makes a checker complain
+less is that you've just switched the alarm off. So I took a number the register has never held —
+11,514, one away from the real 11,513, in the same sentence — put it on the page, and ran the checker
+again. It caught it. So the fix spares the figures we actually published and nothing sitting next to
+them.
+
+The way it was applied is worth a line, because it caught a mistake of mine. Rather than editing the
+site's register by hand, I wrote it as a migration that works the numbers out from our own history,
+so it is structurally incapable of inventing a figure we never held. The tool that applies these runs
+the whole thing against the live database first and then throws the result away — and on that trial
+run, my own safety check inside the file stopped it: I had said "five facts" and the file would have
+switched on seven, because the way I derived the history quietly included two other counters. Fixed
+before anything was written. That is the argument for putting the checks inside the file rather than
+in a document nobody reads.
+
+Two things are honestly unfinished. The register can now remember a value and I've proved it reads
+those memories properly, but I haven't yet watched it record a *new* one — that only happens the next
+time one of those counters moves, probably tonight. And the underlying problem still exists for any
+counter we haven't switched this on for, so the bug stays open. There's one more exposed figure, on
+leopardess, and it's a real question rather than a repeat of this one: that counter can go down as
+well as up, which makes "at least N" unsafe for it in a way it isn't for these five.
+
+Nothing else on any site was touched.
