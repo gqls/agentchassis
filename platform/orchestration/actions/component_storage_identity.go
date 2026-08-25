@@ -76,6 +76,77 @@ func resolveStorageIdentity(
 		return ident, nil // plain creation
 	}
 
+	return decideStorageIdentity(ctx, db, ident, requesterSiteID, requesterDomain, logger)
+}
+
+// resolveStorageIdentityByID answers the same question as resolveStorageIdentity
+// for a row that has ALREADY been identified — by primary key rather than by
+// name — and then runs the identical diversion decision over it.
+//
+// WHY A SECOND ENTRY POINT AND NOT A SECOND RESOLVER (bugs_open/388). The
+// pre-generation advisory (load_existing_component_action.go) resolves the row
+// whose field contract the writer is told to preserve. Until this existed, the
+// store re-derived its own answer from the function name the LLM wrote into its
+// output, so the row that was ADVISED and the row that is ENFORCED were joined
+// only by a sentence in the prompt asking the model to echo a name back. This
+// lets the store be handed the decision instead of re-taking it.
+//
+// ⚠ IT MUST BE BY ID, AND THAT IS A MEASUREMENT, NOT A PREFERENCE. `function`
+// does not name a row: lookupBaseComponent below filters `function = $1 AND
+// forked_from IS NULL` with NO component_level filter and NO is_active filter,
+// then takes LIMIT 1 off `is_active DESC, updated_at DESC`. [MEASURED
+// 2026-08-25] of 330 non-forked rows, 25 function values carry more than one
+// row; `site-footer` and `site-header` carry five each and span component_level
+// 'section' AND 'site'. So a name-carried pin selects among several rows by
+// recency and its answer moves when anything else touches a sibling. Same
+// conclusion, reached independently in the per-instance-scope programme:
+// RFC_034 §1, "Convert by content_components.id, never by function".
+//
+// found=false means the pinned row is gone or has become a fork since the
+// advisory ran. The caller must fall back to the name-keyed path and SAY SO —
+// silently is wrong, because that race is otherwise invisible.
+func resolveStorageIdentityByID(
+	ctx context.Context,
+	db *sql.DB,
+	componentID string,
+	requesterSiteID string,
+	requesterDomain string,
+	logger *zap.Logger,
+) (storageIdentity, bool, error) {
+
+	var ident storageIdentity
+
+	found, err := lookupComponentByID(ctx, db, componentID, &ident)
+	if err != nil {
+		return ident, false, err
+	}
+	if !found {
+		return ident, false, nil
+	}
+
+	ident, err = decideStorageIdentity(ctx, db, ident, requesterSiteID, requesterDomain, logger)
+	return ident, true, err
+}
+
+// decideStorageIdentity is bugs_open/311's diversion rule, and NOTHING else: it
+// takes a base row that has already been found — by name or by id — and decides
+// whether this build may regenerate it, must divert around it, or must refuse.
+//
+// It was split out of resolveStorageIdentity verbatim (bugs_open/388) precisely
+// so the two entry points cannot drift. A second copy of this decision is the
+// defect this lane exists to close, one seam along; writing one here to serve
+// the pin would have been the same mistake with better manners.
+func decideStorageIdentity(
+	ctx context.Context,
+	db *sql.DB,
+	ident storageIdentity,
+	requesterSiteID string,
+	requesterDomain string,
+	logger *zap.Logger,
+) (storageIdentity, error) {
+
+	functionName := ident.FunctionName
+
 	// Requester unknown (direct programmatic invocation, no work item):
 	// legacy behaviour — regenerate whatever the function lookup found. The
 	// diversion needs a requester to compare the dependent census against.
@@ -179,6 +250,39 @@ func lookupBaseComponent(ctx context.Context, db *sql.DB, functionName string, i
 	}
 	if err != nil {
 		return false, fmt.Errorf("failed to check existing component: %w", err)
+	}
+	return true, nil
+}
+
+// lookupComponentByID fills the identity's Existing* fields from a row named by
+// PRIMARY KEY, and reports found=false when that id no longer names a base row.
+//
+// It is deliberately the same column list as lookupBaseComponent plus `function`,
+// because the caller needs the ADVISED name to compare against what the model
+// emitted — the final name may since have been site-suffixed by the diversion,
+// and comparing against that would report a divergence on every diverted write.
+//
+// `forked_from IS NULL` is load-bearing and not decoration, exactly as it is in
+// the sibling lookup: a fork is never a shared base row, every selection path
+// filters on it, and a pin that could name one would let an advisory point the
+// store at a row no selector can reach.
+func lookupComponentByID(ctx context.Context, db *sql.DB, componentID string, ident *storageIdentity) (bool, error) {
+	err := db.QueryRowContext(ctx, `
+		SELECT id::text,
+		       COALESCE(html_template, ''),
+		       COALESCE(input_schema::text, '{}'),
+		       js_content,
+		       function
+		FROM content_components
+		WHERE id = $1::uuid AND forked_from IS NULL
+	`, componentID).Scan(
+		&ident.ExistingID, &ident.ExistingHTML, &ident.ExistingSchema, &ident.ExistingJS, &ident.FunctionName,
+	)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to look up pinned component %s: %w", componentID, err)
 	}
 	return true, nil
 }

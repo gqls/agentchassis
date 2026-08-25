@@ -46,7 +46,7 @@ import (
 var StoreGeneratedComponentInputSpec = datahelpers.ActionInputSpec{
 	CheckConfig: true,
 	Required:    []string{"section_type"},
-	Optional:    []string{"site_type", "page_context", "description", "design_direction", "generated_template"},
+	Optional:    []string{"site_type", "page_context", "description", "design_direction", "generated_template", "advised_identity"},
 	Defaults:    map[string]interface{}{},
 	Deprecated:  map[string]string{},
 }
@@ -112,9 +112,96 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	// this build's regeneration target (see component_storage_identity.go).
 	requesterSiteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.site_id")
 	requesterDomain := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.domain")
-	ident, err := resolveStorageIdentity(ctx, params.DB, functionName, requesterSiteID, requesterDomain, logger)
-	if err != nil {
-		return nil, fmt.Errorf("storage identity resolution failed for %q: %w", functionName, err)
+
+	// THE ADVISED IDENTITY WINS OVER THE ONE THE MODEL WROTE (bugs_open/388).
+	//
+	// functionName above came from the LLM's own output (parseGeneratedTemplate
+	// takes data["function"] when non-empty, else the section_type). Until this
+	// existed, that string decided which row this write overwrites — while the
+	// field contract the writer was TOLD to preserve came from a different
+	// resolver in load_existing_component_action.go. The two were joined by a
+	// sentence in the prompt asking the model to echo a name back, which nothing
+	// validated and nothing recorded.
+	//
+	// The pin is the row's PRIMARY KEY, not its name, and that is measured
+	// rather than preferred: `function` does not identify a row here
+	// (component_storage_identity.go's lookup filters neither component_level
+	// nor is_active, and [MEASURED 2026-08-25] 25 function values carry more
+	// than one non-forked row, the largest five, spanning component levels).
+	//
+	// ABSENT IS THE DEFAULT AND ABSENT IS SAFE. No pin — an un-wired workflow, an
+	// error_step that routed around the advisory, a genuine creation, any
+	// fail-open in the advisory — and the legacy resolution below runs verbatim.
+	advisedID, advisedFunction := advisedIdentityPin(inputs.GetRaw("advised_identity"))
+
+	var ident storageIdentity
+	if advisedID != "" {
+		var pinned bool
+		ident, pinned, err = resolveStorageIdentityByID(
+			ctx, params.DB, advisedID, requesterSiteID, requesterDomain, logger)
+		if err != nil {
+			return nil, fmt.Errorf("pinned storage identity resolution failed for %s: %w", advisedID, err)
+		}
+		if !pinned {
+			// The advised row has been deleted, or has become a fork, since the
+			// advisory ran. Fall back — but SAY SO, because this race is
+			// otherwise invisible and a silent fallback is indistinguishable
+			// from the pin never having been wired.
+			logger.Warn("store_generated_component: advised component no longer resolvable — falling back to the function lookup",
+				zap.String("advised_component_id", advisedID),
+				zap.String("function", functionName))
+			LogActionFindings(ctx, params, requesterSiteID, "",
+				"store_generated_component", []agenterrors.Finding{{
+					ErrorCode: "COMPONENT_ADVISED_ROW_VANISHED",
+					Severity:  "warning",
+					Message: fmt.Sprintf("the pre-generation advisory named component %s for section_type %q, but no non-forked row with that id exists at store time — resolving by function %q instead; the writer was shown a contract for a row that is gone",
+						advisedID, sectionType, functionName),
+					Context: map[string]interface{}{
+						"advised_component_id": advisedID,
+						"advised_function":     advisedFunction,
+						"emitted_function":     functionName,
+						"section_type":         sectionType,
+					},
+				}}, logger)
+			ident, err = resolveStorageIdentity(ctx, params.DB, functionName, requesterSiteID, requesterDomain, logger)
+			if err != nil {
+				return nil, fmt.Errorf("storage identity resolution failed for %q: %w", functionName, err)
+			}
+		} else if advisedFunction != "" && functionName != advisedFunction {
+			// HARMLESS NOW, AND RECORDED PRECISELY BECAUSE IT IS HARMLESS. The
+			// pinned id already decided the row, so the model's disagreement
+			// costs nothing — which is what makes this the honest meter for how
+			// often it disagrees. Before the pin, obedience could only be
+			// sampled: 11 observations, zero failures, which at n=11 bounds the
+			// disobedience rate no better than ~24% at 95%. Now it is counted.
+			//
+			// Compared against the ADVISED name, never against ident.FunctionName
+			// — the latter may since have been site-suffixed by the diversion,
+			// and comparing with that would report a divergence on every
+			// diverted write.
+			logger.Info("store_generated_component: the writer chose a different function than it was pinned to — the advised row still wins",
+				zap.String("advised_function", advisedFunction),
+				zap.String("emitted_function", functionName),
+				zap.String("advised_component_id", advisedID))
+			LogActionFindings(ctx, params, requesterSiteID, "",
+				"store_generated_component", []agenterrors.Finding{{
+					ErrorCode: "COMPONENT_FUNCTION_PIN_DIVERGENCE",
+					Severity:  "warning",
+					Message: fmt.Sprintf("the writer emitted function %q for section_type %q after being pinned to %q (component %s); the pinned row was written, so nothing forked — before bugs_open/388 this would have resolved a different row or created a parallel duplicate",
+						functionName, sectionType, advisedFunction, advisedID),
+					Context: map[string]interface{}{
+						"advised_component_id": advisedID,
+						"advised_function":     advisedFunction,
+						"emitted_function":     functionName,
+						"section_type":         sectionType,
+					},
+				}}, logger)
+		}
+	} else {
+		ident, err = resolveStorageIdentity(ctx, params.DB, functionName, requesterSiteID, requesterDomain, logger)
+		if err != nil {
+			return nil, fmt.Errorf("storage identity resolution failed for %q: %w", functionName, err)
+		}
 	}
 	if ident.Diverted {
 		logger.Info("store_generated_component: foreign collision — write diverted to site-scoped identity",
@@ -680,6 +767,68 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		}
 		status = "created"
 
+		// A CREATION THAT NOBODY ADVISED, ON A section_type THAT ALREADY HAS ONE
+		// (bugs_open/388). This is the SILENT half of the defect: the loud half
+		// is a wrong-cause refusal, and the field-contract guard above is
+		// vacuous here because isRegeneration is false — so a parallel duplicate
+		// is born with no error, no work item and no trace.
+		//
+		// It is unrepresentable on the pinned path, so this can only fire on the
+		// residual: an un-wired workflow, an advisory that failed open, or an
+		// error_step that routed around it. That is exactly what makes it worth
+		// recording — it counts the fail-open rather than the fixed case.
+		//
+		// ⚠ DELIBERATELY A DIFFERENT QUESTION FROM THE ONE THAT RESOLVED THE
+		// IDENTITY. The identity was resolved by id (or by function); this asks
+		// section_type. bugs_open/324 shipped 32 dangling rows because its
+		// completeness check re-grepped the renamer's own patterns — a check
+		// that asks the resolver's question can only ever agree with it.
+		//
+		// Diverted writes are excluded: a site-scoped twin alongside the base
+		// row is bugs_open/311 working as designed, not a silent fork, and it
+		// already records COMPONENT_COLLISION_DIVERTED above.
+		if advisedID == "" && !ident.Diverted && sectionType != "" {
+			var incumbents int
+			var incumbentFns sql.NullString
+			censusErr := params.DB.QueryRowContext(ctx, `
+				SELECT count(*), string_agg(function, ', ' ORDER BY function)
+				FROM content_components
+				WHERE section_type = $1
+				  AND forked_from IS NULL
+				  AND is_active = true
+				  AND component_level = 'section'
+				  AND id <> $2::uuid
+			`, sectionType, componentID).Scan(&incumbents, &incumbentFns)
+			switch {
+			case censusErr != nil:
+				// Best-effort by design: the row is already written and a census
+				// failure must not undo it or fail the build.
+				logger.Warn("store_generated_component: parallel-birth census unreadable",
+					zap.String("section_type", sectionType), zap.Error(censusErr))
+			case incumbents > 0:
+				logger.Warn("store_generated_component: created a second component for a section_type that already had one",
+					zap.String("section_type", sectionType),
+					zap.String("function", functionName),
+					zap.String("component_id", componentID),
+					zap.Int("incumbents", incumbents),
+					zap.String("incumbent_functions", nullStringToGo(incumbentFns)))
+				LogActionFindings(ctx, params, requesterSiteID, "",
+					"store_generated_component", []agenterrors.Finding{{
+						ErrorCode: "COMPONENT_PARALLEL_SECTION_BIRTH",
+						Severity:  "warning",
+						Message: fmt.Sprintf("created component %q (%s) for section_type %q while %d active non-forked section component(s) already served it (%s), and no advised identity was supplied — the field-contract guard cannot see this case, so the duplicate is silent",
+							functionName, componentID, sectionType, incumbents, nullStringToGo(incumbentFns)),
+						Context: map[string]interface{}{
+							"component_id":        componentID,
+							"function":            functionName,
+							"section_type":        sectionType,
+							"incumbents":          incumbents,
+							"incumbent_functions": nullStringToGo(incumbentFns),
+						},
+					}}, logger)
+			}
+		}
+
 		// Snapshot version 1 so history is complete from creation onward.
 		// Best-effort — a snapshot failure here doesn't undo the INSERT.
 		if err := snapshotComponentVersion(
@@ -742,6 +891,66 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		response["requested_function"] = ident.DivertedFromFunc
 	}
 	return response, nil
+}
+
+// advisedIdentityPin reads the pre-generation advisory's answer out of
+// collected_data: which content_components row this write is FOR, and which
+// function name the writer was told to echo.
+//
+// It is deliberately total and deliberately silent about malformed input. The
+// wire is an OPTIONAL-EXPLICIT (`advised_identity?`) config key, and absence is
+// its contract — an un-wired workflow, an advisory that failed open, an
+// error_step that routed around the load step, and a genuine first creation are
+// all legitimate and all arrive here as "" / "". Every one of them means
+// "resolve the way you always did", which is the safe default and the reason
+// this ships without an ordering constraint (bugs_open/388).
+//
+// Returning the advised FUNCTION as well as the id is not redundancy: the
+// divergence finding must compare what the model emitted against what it was
+// TOLD, and ident.FunctionName may since have been site-suffixed by
+// bugs_open/311's diversion — comparing against that would report a divergence
+// on every diverted write.
+func advisedIdentityPin(raw interface{}) (componentID, function string) {
+	advised, ok := raw.(map[string]interface{})
+	if !ok {
+		return "", ""
+	}
+	if v, ok := advised["component_id"].(string); ok {
+		componentID = strings.TrimSpace(v)
+	}
+	if v, ok := advised["function"].(string); ok {
+		function = strings.TrimSpace(v)
+	}
+	// An id we cannot use is the same as no id: fall back rather than fail. The
+	// store's own by-id lookup would reject a non-uuid with a driver error, and
+	// an advisory must never be able to break a build.
+	if componentID != "" && !isUUIDish(componentID) {
+		return "", function
+	}
+	return componentID, function
+}
+
+// isUUIDish is a shape check, not a validator: 8-4-4-4-12 hex with hyphens. It
+// exists so a malformed pin degrades to the legacy path instead of reaching
+// Postgres as a cast error on a write that had a perfectly good fallback.
+func isUUIDish(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	for i, c := range s {
+		switch i {
+		case 8, 13, 18, 23:
+			if c != '-' {
+				return false
+			}
+		default:
+			isHex := (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+			if !isHex {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // parseGeneratedTemplate extracts html_template, input_schema, and metadata

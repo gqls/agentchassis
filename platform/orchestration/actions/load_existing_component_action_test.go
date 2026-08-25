@@ -68,6 +68,18 @@ func expectVocabulary(mock sqlmock.Sqlmock) {
 			AddRow("identity", "company_name", 26))
 }
 
+// expectIdentityDecision sets up the pair of reads that now follow a section_type
+// HIT: the store's own by-id lookup, then the dependent census (bugs_open/388).
+// Before 388 a hit returned immediately and neither ran — which is exactly why
+// the advisory could name a row the store would divert away from.
+func expectIdentityDecision(mock sqlmock.Sqlmock, rowID, function, schema string) {
+	mock.ExpectQuery(`WHERE id = \$1::uuid AND forked_from IS NULL`).WithArgs(rowID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "html_template", "input_schema", "js_content", "function"}).
+			AddRow(rowID, "<section></section>", schema, nil, function))
+	mock.ExpectQuery(`SELECT DISTINCT s\.id::text, s\.domain`).WithArgs(rowID, advisorySiteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "domain"}))
+}
+
 func advisoryResult(t *testing.T, res interface{}) map[string]interface{} {
 	t.Helper()
 	m, ok := res.(map[string]interface{})
@@ -77,12 +89,21 @@ func advisoryResult(t *testing.T, res interface{}) map[string]interface{} {
 	return m
 }
 
-// T1 — the section_type lookup is PRIMARY and still byte-identical to today.
-// It is the selector's own query (component_selector.go); decoupling the two
-// would be a regression. A hit must not reach the fallback at all: sqlmock has
-// no expectation for the identity resolver, so reordering the two lookups
-// fails here and only here.
-func TestLoadExistingComponent_SectionTypeHitDoesNotConsultTheResolver(t *testing.T) {
+// T1 — RENAMED AND REWRITTEN 2026-08-25 (bugs_open/388). It was
+// TestLoadExistingComponent_SectionTypeHitDoesNotConsultTheResolver, and it
+// asserted the DEFECT: that a section_type hit returned immediately without
+// consulting the store's identity decision. That is precisely what let the
+// advisory name one row while the store wrote another.
+//
+// It is rewritten rather than deleted, with this note, because a peer lane
+// holding the old test as evidence must find the correction — a silently
+// removed test is indistinguishable from one that never existed.
+//
+// What survives unchanged: the section_type query is still PRIMARY and still
+// the selector's own (component_selector.go). Only what happens to its RESULT
+// changed — it is now handed to the store's own decision, and the row that
+// comes back is what gets advised, carrying its id.
+func TestLoadExistingComponent_SectionTypeHitRoutesThroughTheIdentityDecision(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock: %v", err)
@@ -90,18 +111,114 @@ func TestLoadExistingComponent_SectionTypeHitDoesNotConsultTheResolver(t *testin
 	defer db.Close()
 
 	expectVocabulary(mock)
-	mock.ExpectQuery(`SELECT function, input_schema`).WithArgs("hero-banner").
-		WillReturnRows(sqlmock.NewRows([]string{"function", "input_schema"}).
-			AddRow("hero-banner", `{"fields":{"heading":{},"eyebrow":{}}}`))
+	mock.ExpectQuery(`SELECT id::text, function, input_schema`).WithArgs("hero-banner").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "function", "input_schema"}).
+			AddRow(advisoryBaseID, "hero-banner", `{"fields":{"heading":{},"eyebrow":{}}}`))
+	expectIdentityDecision(mock, advisoryBaseID, "hero-banner", `{"fields":{"heading":{},"eyebrow":{}}}`)
 
 	out := advisoryResult(t, mustLoad(t, db, "hero-banner", advisorySiteID, "siteb.uk"))
 
 	if out["field_names"] != "eyebrow, heading" {
-		t.Errorf("field_names must come from the section_type row, sorted; got %v", out["field_names"])
+		t.Errorf("field_names must come from the resolved row, sorted; got %v", out["field_names"])
 	}
 	if out["function"] != "hero-banner" {
-		t.Errorf("function pin must be the section_type row's; got %v", out["function"])
+		t.Errorf("function pin must be the resolved row's; got %v", out["function"])
 	}
+	// THE POINT OF THE REWRITE. Without an id the store has nothing to honour
+	// and falls back to the name the LLM wrote — which is the bug.
+	if out["component_id"] != advisoryBaseID {
+		t.Errorf("the advisory must pin the row BY ID; got %v", out["component_id"])
+	}
+	// MUTATION THAT MUST TURN THIS RED: return the advice straight from the
+	// primary query without resolveStorageIdentityByID — the by-id lookup and
+	// the census expectations then go unmatched.
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("sqlmock expectations: %v", err)
+	}
+}
+
+// T1b — a resolved row with NO schema fields keeps its IDENTITY (bugs_open/388).
+//
+// This is the hole that made the whole bridge conditional on the thing it
+// protects: the prompt gates its function pin on field_names, so a row that
+// resolved with an empty input_schema was picked by the store and never named
+// to the writer. 5 of 154 active section rows were in that state on 2026-08-25;
+// 4 of them happened to carry function == section_type, so it was benign by
+// luck rather than by design.
+func TestLoadExistingComponent_NoSchemaFieldsStillPinsIdentity(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	expectVocabulary(mock)
+	mock.ExpectQuery(`SELECT id::text, function, input_schema`).WithArgs("lobby-grid").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "function", "input_schema"}).
+			AddRow(advisoryBaseID, "lobby-grid", `{}`))
+	expectIdentityDecision(mock, advisoryBaseID, "lobby-grid", `{}`)
+
+	out := advisoryResult(t, mustLoad(t, db, "lobby-grid", advisorySiteID, "siteb.uk"))
+
+	if out["field_names"] != "" {
+		t.Errorf("no schema fields means no field contract; got %v", out["field_names"])
+	}
+	if out["field_count"] != 0 {
+		t.Errorf("field_count must be 0; got %v", out["field_count"])
+	}
+	// MUTATION: drop component_id from the no-fields branch -> red here.
+	if out["component_id"] != advisoryBaseID {
+		t.Errorf("an empty schema must not cost the IDENTITY; got %v", out["component_id"])
+	}
+	if out["function"] != "lobby-grid" {
+		t.Errorf("nor the function pin; got %v", out["function"])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("sqlmock expectations: %v", err)
+	}
+}
+
+// T1c — a section_type hit whose row is depended on by ANOTHER site. The store
+// will divert to a fresh scoped row, so there is no contract to advise, and
+// advising the incumbent's fields would manufacture a refusal.
+//
+// Before bugs_open/388 the primary path never ran the census, so it advised the
+// incumbent's contract here — the exact case this file's own header describes
+// as "wrong in two live cases", cured only on the fallback path.
+func TestLoadExistingComponent_ForeignDependedPrimaryRowAdvisesWhatTheStoreWillDo(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	expectVocabulary(mock)
+	mock.ExpectQuery(`SELECT id::text, function, input_schema`).WithArgs("tool-widget").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "function", "input_schema"}).
+			AddRow(advisoryBaseID, "tool-widget", `{"fields":{"base_only_field":{}}}`))
+	mock.ExpectQuery(`WHERE id = \$1::uuid AND forked_from IS NULL`).WithArgs(advisoryBaseID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "html_template", "input_schema", "js_content", "function"}).
+			AddRow(advisoryBaseID, "<section></section>", `{"fields":{"base_only_field":{}}}`, nil, "tool-widget"))
+	// A foreign site depends on it -> the store diverts.
+	mock.ExpectQuery(`SELECT DISTINCT s\.id::text, s\.domain`).WithArgs(advisoryBaseID, advisorySiteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "domain"}).AddRow(advisoryOtherID, "other.uk"))
+	// The scoped name is free -> creation, so there is no contract at all.
+	mock.ExpectQuery(`WHERE function = \$1 AND forked_from IS NULL`).WithArgs("tool-widget-siteb-uk").
+		WillReturnError(sql.ErrNoRows)
+
+	out := advisoryResult(t, mustLoad(t, db, "tool-widget", advisorySiteID, "siteb.uk"))
+
+	if out["field_names"] != "" {
+		t.Errorf("the store will CREATE here, so there is no contract; got %v", out["field_names"])
+	}
+	if got, _ := out["field_names"].(string); strings.Contains(got, "base_only_field") {
+		t.Errorf("advising the incumbent's fields on a divert-to-create manufactures a refusal; got %v", got)
+	}
+	if out["component_id"] != "" {
+		t.Errorf("nothing is being regenerated, so nothing may be pinned; got %v", out["component_id"])
+	}
+	// MUTATION: advise the primary row regardless of the identity decision ->
+	// field_names comes back as "base_only_field" and this fails.
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("sqlmock expectations: %v", err)
 	}
@@ -124,10 +241,10 @@ func TestLoadExistingComponent_BlindSectionTypeRecoversContractFromTheResolver(t
 
 	expectVocabulary(mock)
 	// Primary lookup: nothing under this section_type.
-	mock.ExpectQuery(`SELECT function, input_schema`).WithArgs("Loans Credit Health-Check").
+	mock.ExpectQuery(`SELECT id::text, function, input_schema`).WithArgs("Loans Credit Health-Check").
 		WillReturnError(sql.ErrNoRows)
 	// Fallback: the store's own resolver, asked for the kebab-derived function.
-	mock.ExpectQuery(`SELECT id::text`).WithArgs("loans-credit-health-check").
+	mock.ExpectQuery(`WHERE function = \$1 AND forked_from IS NULL`).WithArgs("loans-credit-health-check").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "html_template", "input_schema", "js_content"}).
 			AddRow(advisoryBaseID, "<section></section>",
 				`{"fields":{"button_1":{},"button_2":{},"heading_1":{}}}`, nil))
@@ -165,16 +282,16 @@ func TestLoadExistingComponent_DivertToCreateAdvisesNoContract(t *testing.T) {
 	defer db.Close()
 
 	expectVocabulary(mock)
-	mock.ExpectQuery(`SELECT function, input_schema`).WithArgs("tool-widget").
+	mock.ExpectQuery(`SELECT id::text, function, input_schema`).WithArgs("tool-widget").
 		WillReturnError(sql.ErrNoRows)
-	mock.ExpectQuery(`SELECT id::text`).WithArgs("tool-widget").
+	mock.ExpectQuery(`WHERE function = \$1 AND forked_from IS NULL`).WithArgs("tool-widget").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "html_template", "input_schema", "js_content"}).
 			AddRow(advisoryBaseID, "<section></section>", `{"fields":{"legacy_1":{}}}`, nil))
 	// A foreign site depends on it → the write diverts.
 	mock.ExpectQuery(`SELECT DISTINCT s\.id::text, s\.domain`).WithArgs(advisoryBaseID, advisorySiteID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "domain"}).AddRow(advisoryOtherID, "other.uk"))
 	// The scoped name is free → creation, no contract.
-	mock.ExpectQuery(`SELECT id::text`).WithArgs("tool-widget-siteb-uk").WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(`WHERE function = \$1 AND forked_from IS NULL`).WithArgs("tool-widget-siteb-uk").WillReturnError(sql.ErrNoRows)
 
 	out := advisoryResult(t, mustLoad(t, db, "tool-widget", advisorySiteID, "siteb.uk"))
 
@@ -198,16 +315,16 @@ func TestLoadExistingComponent_DivertToScopedRowAdvisesTheScopedContract(t *test
 	defer db.Close()
 
 	expectVocabulary(mock)
-	mock.ExpectQuery(`SELECT function, input_schema`).WithArgs("tool-widget").
+	mock.ExpectQuery(`SELECT id::text, function, input_schema`).WithArgs("tool-widget").
 		WillReturnError(sql.ErrNoRows)
 	// Base row: the WRONG contract to advise.
-	mock.ExpectQuery(`SELECT id::text`).WithArgs("tool-widget").
+	mock.ExpectQuery(`WHERE function = \$1 AND forked_from IS NULL`).WithArgs("tool-widget").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "html_template", "input_schema", "js_content"}).
 			AddRow(advisoryBaseID, "<section></section>", `{"fields":{"base_only_field":{}}}`, nil))
 	mock.ExpectQuery(`SELECT DISTINCT s\.id::text, s\.domain`).WithArgs(advisoryBaseID, advisorySiteID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "domain"}).AddRow(advisoryOtherID, "other.uk"))
 	// The scoped row EXISTS — this is what the store will actually overwrite.
-	mock.ExpectQuery(`SELECT id::text`).WithArgs("tool-widget-siteb-uk").
+	mock.ExpectQuery(`WHERE function = \$1 AND forked_from IS NULL`).WithArgs("tool-widget-siteb-uk").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "html_template", "input_schema", "js_content"}).
 			AddRow(advisoryOtherID, "<section></section>", `{"fields":{"scoped_field_a":{},"scoped_field_b":{}}}`, nil))
 	// Second census, on the scoped row: no foreign dependents → regenerate it.
@@ -242,9 +359,9 @@ func TestLoadExistingComponent_ResolverFailureNeverBlocks(t *testing.T) {
 	defer db.Close()
 
 	expectVocabulary(mock)
-	mock.ExpectQuery(`SELECT function, input_schema`).WithArgs("hero-banner").
+	mock.ExpectQuery(`SELECT id::text, function, input_schema`).WithArgs("hero-banner").
 		WillReturnError(sql.ErrNoRows)
-	mock.ExpectQuery(`SELECT id::text`).WithArgs("hero-banner").
+	mock.ExpectQuery(`WHERE function = \$1 AND forked_from IS NULL`).WithArgs("hero-banner").
 		WillReturnError(errors.New("connection reset"))
 
 	res, err := LoadExistingComponentAction(context.Background(),
@@ -276,9 +393,9 @@ func TestLoadExistingComponent_VocabularyRidesEvenWhenNoComponentIsFound(t *test
 	defer db.Close()
 
 	expectVocabulary(mock)
-	mock.ExpectQuery(`SELECT function, input_schema`).WithArgs("brand-new-section").
+	mock.ExpectQuery(`SELECT id::text, function, input_schema`).WithArgs("brand-new-section").
 		WillReturnError(sql.ErrNoRows)
-	mock.ExpectQuery(`SELECT id::text`).WithArgs("brand-new-section").WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(`WHERE function = \$1 AND forked_from IS NULL`).WithArgs("brand-new-section").WillReturnError(sql.ErrNoRows)
 
 	out := advisoryResult(t, mustLoad(t, db, "brand-new-section", advisorySiteID, "siteb.uk"))
 
@@ -312,9 +429,10 @@ func TestLoadExistingComponent_VocabularyFailureDoesNotCostTheFieldContract(t *t
 
 	mock.ExpectQuery(`SELECT DISTINCT aspect FROM site_specs`).
 		WillReturnError(errors.New("site_specs unavailable"))
-	mock.ExpectQuery(`SELECT function, input_schema`).WithArgs("hero-banner").
-		WillReturnRows(sqlmock.NewRows([]string{"function", "input_schema"}).
-			AddRow("hero-banner", `{"fields":{"heading":{}}}`))
+	mock.ExpectQuery(`SELECT id::text, function, input_schema`).WithArgs("hero-banner").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "function", "input_schema"}).
+			AddRow(advisoryBaseID, "hero-banner", `{"fields":{"heading":{}}}`))
+	expectIdentityDecision(mock, advisoryBaseID, "hero-banner", `{"fields":{"heading":{}}}`)
 
 	out := advisoryResult(t, mustLoad(t, db, "hero-banner", advisorySiteID, "siteb.uk"))
 

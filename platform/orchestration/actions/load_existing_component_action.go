@@ -33,7 +33,27 @@
 // below is the SELECTOR's query (component_selector.go) and stays primary so
 // nothing that works today changes. But the guard resolves the row it will
 // overwrite by FUNCTION, through resolveStorageIdentity — which also carries the
-// foreign-dependent diversion. A bare lookup by function would be wrong in two
+// foreign-dependent diversion.
+//
+// > CORRECTED 2026-08-25 (bugs_open/388) — "stays primary so nothing that works
+// > today changes" was true of the QUERY and false of what followed it. The
+// > section_type query is still primary and still unchanged, but its result is
+// > now handed to the store's identity decision instead of being advised
+// > directly, and the row that comes back is what gets advised. Two reasons,
+// > both of which this very paragraph describes and then cures only on the
+// > fallback path below:
+// >   (1) the store writes by IDENTITY, and the only thing carrying this row's
+// >       name to it was a sentence in the prompt asking the model to echo the
+// >       name back — nothing validated that it did, and nothing recorded when
+// >       it did not. [MEASURED 2026-08-25] 27 of 120 section_types have a
+// >       winner whose function differs from the section_type, and `function`
+// >       does not even name a row: 25 function values carry more than one
+// >       non-forked row, the largest five, spanning component levels.
+// >   (2) the primary path never ran the dependent census, so on a foreign
+// >       collision it advised the incumbent's contract while the store
+// >       diverted — exactly the two cases named above as "wrong in two live
+// >       cases and would MANUFACTURE refusals".
+// > The advisory now emits `component_id`, and the store honours it. A bare lookup by function would be wrong in two
 // live cases and would MANUFACTURE refusals: on a divert-to-create there is no
 // contract at all, and naming the incumbent's fields imposes a phantom one; on a
 // divert-to-existing-scoped-row the real contract is the SCOPED row's schema, so
@@ -119,7 +139,7 @@ func LoadExistingComponentAction(ctx context.Context, params ActionParams) (inte
 	// Always return a well-formed map so the prompt's
 	// {{if .existing_component.field_names}} guard is safe, and never block
 	// generation on a lookup problem (the store-time guard is the backstop).
-	empty := map[string]interface{}{"field_names": "", "function": "", "field_count": 0}
+	empty := map[string]interface{}{"field_names": "", "function": "", "field_count": 0, "component_id": ""}
 
 	if params.DB == nil {
 		logger.Warn("load_existing_component: no DB — generating blind")
@@ -165,18 +185,18 @@ func LoadExistingComponentAction(ctx context.Context, params ActionParams) (inte
 	// became bindings, so it ranked by which route found a component rather than by
 	// how established it is — and this ORDER BY is not a cosmetic tie-break: it picks
 	// the row the store will overwrite and enforce as the contract. bugs_open/378.
-	var function string
+	var rowID, function string
 	var schemaJSON []byte
 	err = params.DB.QueryRowContext(ctx, `
-		SELECT function, input_schema
+		SELECT id::text, function, input_schema
 		FROM content_components
 		WHERE section_type = $1
 		  AND forked_from IS NULL
 		  AND is_active = true
 		  AND component_level = 'section'
-		ORDER BY ` + ComponentUsageSitesSQL + ` DESC, updated_at DESC
+		ORDER BY `+ComponentUsageSitesSQL+` DESC, updated_at DESC
 		LIMIT 1
-	`, sectionType).Scan(&function, &schemaJSON)
+	`, sectionType).Scan(&rowID, &function, &schemaJSON)
 	if err != nil {
 		// No row under the SELECTOR's key. That is not the same as "no
 		// contract": the guard resolves by function, and a row whose
@@ -192,23 +212,101 @@ func LoadExistingComponentAction(ctx context.Context, params ActionParams) (inte
 		return empty, nil
 	}
 
-	names := schemaFieldNamesSorted(schemaJSON)
+	// The section_type query found A row. It has NOT yet found the row the
+	// store will write to, and until bugs_open/388 this action stopped here and
+	// advised this row's contract regardless (bugs_open/388).
+	//
+	// TWO THINGS ARE WRONG WITH STOPPING HERE, and the file's own header
+	// describes both — it just cured them only on the fallback path below.
+	// (1) The store decides by IDENTITY, and the only thing that made this row's
+	//     name reach the store was a sentence in the prompt asking the model to
+	//     echo it back. Nothing validated that it did.
+	// (2) This query does not run the dependent census, so on a foreign
+	//     collision the store DIVERTS (bugs_open/311) — to a fresh row that has
+	//     no contract at all, or to a site-scoped row whose contract is its own.
+	//     Advising the incumbent's fields in either case does not just miss; it
+	//     MANUFACTURES a refusal that would not otherwise have happened.
+	//
+	// So the found row is handed to the store's own decision, and what comes
+	// back is what gets advised. Offer and enforcement are one computation —
+	// bugs_open/282's remedy, and the shape 016b §9/092 already had approved.
+	requesterSiteID, requesterDomain := advisoryRequester(params)
+	ident, resolved, identErr := resolveStorageIdentityByID(
+		ctx, params.DB, rowID, requesterSiteID, requesterDomain, logger)
+
+	switch {
+	case identErr != nil || !resolved:
+		// ADVISORY, SO THIS DEGRADES RATHER THAN BLOCKS — and it degrades to
+		// exactly what this action did before the pin existed: the section_type
+		// row's own contract, with no identity attached. Worse than the pinned
+		// answer, better than silence, and the store-time guard is still the
+		// backstop. Deliberately not an error: see the header's two fail-opens.
+		logger.Warn("load_existing_component: identity decision unavailable — advising the section_type row unpinned",
+			zap.String("section_type", sectionType),
+			zap.String("component_id", rowID),
+			zap.Error(identErr))
+		return withVocabulary(advisoryContract(function, schemaFieldNamesSorted(schemaJSON), "")), nil
+
+	case !ident.IsRegeneration:
+		// A divert-to-create. There is no contract, and inventing one here is
+		// the case the header calls out: a writer told to reuse names tends to
+		// reuse their sources too, which is how an advisory manufactures a
+		// source-vocabulary refusal.
+		logger.Info("load_existing_component: the store would divert this write to a new row — no field contract to advise",
+			zap.String("section_type", sectionType),
+			zap.String("section_type_row", rowID),
+			zap.String("final_function", ident.FunctionName),
+			zap.Bool("diverted", ident.Diverted))
+		return empty, nil
+	}
+
+	names := schemaFieldNamesSorted([]byte(ident.ExistingSchema))
 	if len(names) == 0 {
-		logger.Info("load_existing_component: existing component has no schema fields",
-			zap.String("section_type", sectionType), zap.String("function", function))
-		return withVocabulary(map[string]interface{}{"field_names": "", "function": function, "field_count": 0}), nil
+		// NO FIELDS, BUT STILL AN IDENTITY — and the identity is the half that
+		// must survive (bugs_open/388). The prompt gates its function pin on
+		// field_names, so before this the writer was left to invent a name for a
+		// row the store had already picked; the pin's own migration re-gates it
+		// on `function` for the same reason.
+		logger.Info("load_existing_component: existing component has no schema fields — advising identity only",
+			zap.String("section_type", sectionType),
+			zap.String("function", ident.FunctionName),
+			zap.String("component_id", ident.ExistingID))
+		return withVocabulary(advisoryContract(ident.FunctionName, nil, ident.ExistingID)), nil
 	}
 
 	logger.Info("load_existing_component: found existing component — requesting field-name preservation",
 		zap.String("section_type", sectionType),
-		zap.String("function", function),
+		zap.String("function", ident.FunctionName),
+		zap.String("component_id", ident.ExistingID),
+		zap.Bool("diverted", ident.Diverted),
 		zap.Int("field_count", len(names)))
 
-	return withVocabulary(map[string]interface{}{
-		"field_names": strings.Join(names, ", "),
-		"function":    function,
-		"field_count": len(names),
-	}), nil
+	return withVocabulary(advisoryContract(ident.FunctionName, names, ident.ExistingID)), nil
+}
+
+// advisoryContract is the ONE shape every advising return path uses, so a new
+// key cannot reach some of them and not others — which is how the function pin
+// came to be present on one branch and absent on its neighbour.
+//
+// componentID may be empty: that is the honest un-pinned answer, and the store
+// reads its absence as "nothing was advised, resolve as you always did".
+func advisoryContract(function string, names []string, componentID string) map[string]interface{} {
+	return map[string]interface{}{
+		"field_names":  strings.Join(names, ", "),
+		"function":     function,
+		"field_count":  len(names),
+		"component_id": componentID,
+	}
+}
+
+// advisoryRequester reads the requesting site from the same two collected_data
+// paths store_generated_component reads, so the advisory's identity decision and
+// the store's are taken over identical inputs. Empty values are legitimate (a
+// direct programmatic invocation carries no work item) and degrade the decision
+// to the plain by-id lookup, which is the pre-311 behaviour and safe.
+func advisoryRequester(params ActionParams) (siteID, domain string) {
+	return datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.site_id"),
+		datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.domain")
 }
 
 // resolveContractViaStorageIdentity asks the STORE's own identity resolver which
@@ -268,11 +366,7 @@ func resolveContractViaStorageIdentity(
 		zap.Bool("diverted", ident.Diverted),
 		zap.Int("field_count", len(names)))
 
-	return map[string]interface{}{
-		"field_names": strings.Join(names, ", "),
-		"function":    ident.FunctionName,
-		"field_count": len(names),
-	}, true
+	return advisoryContract(ident.FunctionName, names, ident.ExistingID), true
 }
 
 // loadSourceVocabulary renders the birth gate's OWN source vocabulary as
