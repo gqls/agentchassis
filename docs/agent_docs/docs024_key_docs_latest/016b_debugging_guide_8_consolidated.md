@@ -14161,3 +14161,28 @@ the value the instruction names — zero means the instruction cannot be followe
 Full workup + the copy-rate and census queries: `bugs_open/387` (CORRECTED block) and
 `docs024_key_docs_latest/bugfix_387_deployed_and_404/RUNBOOK_387.md`. Fix pattern: values reach
 prompts by CODE (`composeWriterBlock` `{value}` substitution), never by a human typing a stand-in.
+
+### A terminal status records that the HANDLER succeeded, never that the request's own stated criterion was met — so a run that changes something else closes the item exactly as a correct one would (2026-08-25, `bugs_open/395`)
+
+The symptom is an item marked `complete`, with a real commit sha and a deploy in its `result`, whose
+own `spec.acceptance_test` is still false of the page. The mechanism is that the criterion was never
+an input to the completion decision: `page-build-handler` rebuilt and deployed the page — its job,
+done, truthfully reported — and nothing on that path reads the test. So "the handler succeeded" and
+"the thing the item asked for happened" share one word, and the first is the one being recorded.
+⚠ **It is NOT the zero-change case** (`bugs_open/213`, WII-017's `noChangeGates`): that gate refuses a
+handler reporting it changed NOTHING and is correct not to fire here, because this handler changed
+something real. The two are complements — "did nothing" versus "did something else" — and looking for
+one will not find the other. ⚠ **And the verifier seam cannot answer it:** `verifyBeforeComplete`'s
+`VerifyTarget` carries the SPEC, not the RESULT (the report is marshalled into
+`site_work_items.result` only AFTER the gates run), so a verifier grades the row's PREVIOUS value
+while appearing to work.
+**The check, and it only became possible once a producer emitted something checkable:** take the
+item's own criterion, express the mechanically-checkable NECESSARY half of it, and evaluate that
+against the SERVED artefact — not against the status, and not against the stored row the handler
+wrote. Worked case: an item's stored predicate (`CLM-024`) returned `refutes` from the platform's own
+exported evaluator after a rebuild, a deploy and a second rebuild, on the exact field its prose test
+named. The transferable form: **whenever a status is the only evidence that a request was satisfied,
+ask what the status is actually a statement about** — here, three different things (the handler ran,
+the handler changed something, the criterion holds) collapse into one column, and only the first two
+have ever been recorded. Full workup, fix candidates ordered by what makes the bad state
+unrepresentable, and the census that would size it: `bugs_open/395`.
