@@ -220,15 +220,30 @@ var acceptancePredicateGates = map[string]acceptancePredicateRule{
 			"finding was rebuilt, deployed and closed `complete` while its own predicate still refuted " +
 			"(bugs_open/395, webdesign.co.uk 2026-08-24 22:25Z, commit ee88ba3c)",
 		OnRefuted: predicateRecords,
-		PromotionOwes: "a NEGATIVE CONTROL that is a live row, not a unit: one item whose predicate is " +
-			"SATISFIED after its fix and which completed green through this gate. [MEASURED 2026-08-25] " +
-			"all three live predicates refute and no such row exists, so promoting today would arm a " +
-			"refusal that has never been observed to permit anything. Promotion ALSO requires adding " +
-			"'content_rewrite' to livespec.ClaimedItemTimeoutExclusions and shipping the migration that " +
-			"amends the live pre_query — the claimed-item-timeout sweep writes the row directly and no " +
-			"completion gate runs for it, so without that the refusal is bypassed by a timeout " +
-			"(bugs_closed/317). The lockstep test makes that half a build failure; this sentence is the " +
-			"half no test can assert.",
+		PromotionOwes: "THREE things, and the first two were sharpened on 2026-08-25 by the bugs_open/395 " +
+			"lane's root-cause work. (1) A NEGATIVE CONTROL that is a live row, not a unit, and NOT ONE " +
+			"MANUFACTURED BY HAND: one item whose predicate is SATISFIED because the pipeline satisfied " +
+			"it, which then completed green through this gate. Hand-editing a page's meta_description " +
+			"until the predicate holds would produce the row and prove the wrong thing — it exercises " +
+			"this gate's wiring (worth having, and not nothing) while leaving untested the only question " +
+			"promotion turns on: whether a naturally-occurring `holds` is REACHABLE. [MEASURED 2026-08-25] " +
+			"it may well not be: ZERO live agent definitions read spec.acceptance_test or " +
+			"spec.acceptance_predicate as an input, ZERO prompt templates anywhere interpolate any " +
+			"acceptance* field, and 6,281 items have closed `complete` carrying an acceptance_test the " +
+			"writer was never shown. A hand-made control would satisfy the letter of this field while the " +
+			"condition it exists to detect — a gate that can only ever refuse — stayed true. " +
+			"(2) THE REFUSAL MUST REACH THE NEXT ATTEMPT, and today it cannot: failUnverifiedCompletion " +
+			"writes the reason to site_work_items.error, and LoadWorkItemsAction selects " +
+			"retry_feedback->>'message'/'code' under a comment reading 'NOT wi.error' (bugs_open/345, " +
+			"migration 561) and does not select result at all. So a refused item returns to the handler " +
+			"with the same inputs and no statement of what was wrong, produces the same output, and the " +
+			"failure ladder's repeat-termination may then burn it. Promoting before this is closed makes " +
+			"this gate a loop that spends attempts — and note the hole is shared with gates 1b and 2, " +
+			"which inherit it too. (3) Adding 'content_rewrite' to " +
+			"livespec.ClaimedItemTimeoutExclusions and shipping the migration that amends the live " +
+			"pre_query — the claimed-item-timeout sweep writes the row directly and no completion gate " +
+			"runs for it, so without that the refusal is bypassed by a timeout (bugs_closed/317). The " +
+			"lockstep test makes (3) a build failure; (1) and (2) are the halves no test can assert.",
 	},
 }
 
