@@ -1,3 +1,31 @@
+# HANDOFF — bugs_open/345
+
+> **⚠ CLOSED 2026-08-25 (evening). This lane is DONE.** 345 moved to
+> `bugs_closed/345_HANDOFF_2026-08-21_a_rejected_component_is_regenerated_from_identical_inputs_so_the_writer_never_learns_why_and_one_item_burned_52_generations.md`.
+> Every piece is fixed AND live on chassis **v1.0.1339**; both council rounds APPROVED
+> (`cf086b8d` completion, `31da78c8` orphan-drop). Nothing to pick up here except the ONE
+> post-close watch below. The decision list further down is HISTORY — all of it is resolved.
+
+## The only open thread: confirm the orphan-drop fires once (demand proof)
+
+The orphan-only-drop gate change is LIVE but was UNEXERCISED at close (0 needs_new_component activity
+in the ~25 min after the 19:07Z roll), so the post-roll zero is blind. The class recurs daily, so it
+will hit the new gate within ~a day. Re-run, with the demand control, to close the watch:
+
+```sql
+SELECT count(*) AS orphan_refusals_post_roll
+  FROM agent_error_log
+ WHERE error_code='component_validation_orphan_schema_field' AND occurred_at > '2026-08-25 19:07:18+00';
+SELECT count(*) AS nnc_activity_post_roll  -- the control: if 0, the zero above is blind, not proof
+  FROM site_work_items WHERE item_type='needs_new_component' AND updated_at > '2026-08-25 19:07:18+00';
+```
+Refusals 0 AND activity > 0 → the drop is working, watch closed. Refusals > 0 with no
+`result`-side drop marker/log → reopen. Full reasoning: the closed bug file's final section.
+
+---
+
+## HISTORY (all resolved — kept for the trail)
+
 # HANDOFF 2026-08-25 — `bugs_open/345`: closeable; what it hands on is the NEXT defect, not a residual
 
 **Cold-start for a fresh session.** Read this, then the bug file's last four sections (dated 08-24
