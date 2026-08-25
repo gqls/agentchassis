@@ -1,5 +1,11 @@
 # 398 — `cta_bg` may legitimately hold a GRADIENT, and five components use it where only a `<color>` is valid, so the declaration is silently discarded and text lands on its own background
 
+> ## ⚠ THE NUMBER 398 IS AMBIGUOUS — refer to this case BY SLUG
+> Another lane filed `bugs_open/398_HANDOFF_2026-08-25_scheduled_tasks_row_is_not_single_flight.md`
+> the same day. Both are real, neither is renumberable (numbering is never reassigned). This case is
+> **`cta_bg_may_be_a_gradient_and_five_components_use_it_where_only_a_colour_is_valid`**.
+> `git log` the FILE PATH, not the number.
+
 **Filed 2026-08-25** by the `finetuning_uk_service` lane, from an owner report on his own site.
 **Status: OPEN — fix committed `7fe5bd7b6`, council `Council-Submitted: f0591cb2-d65d-4517-a676-0334a7ff29a8`.**
 Hero half goes live on migration `619` + a re-render; button half is inert until the next chassis roll.
@@ -183,3 +189,55 @@ absent-control through the same NUL-split pipeline, never a bare `strings`.
   behaviour **silently**. Bounded and stated, not detected.
 - No detector yet refuses a component template using `--color-cta-bg` in a `<color>` position.
   `component_validation.go:175` already carries the token allow-list and is the natural home.
+
+## 8. ROUND 2 — what the council found, and what the artefact found (2026-08-25, same day)
+
+The round-1 submission came back **REVISE** on a gating objection from `editquality`, and the
+objection was right. Two further defects came out of chasing it — one from the seat, one from
+measuring the served page instead of trusting a green status.
+
+**8a. The button had TWO faces, and grounding on both would have been wrong.**
+`[MEASURED 2026-08-25]` `call-to-action` painted the inverted button
+`background: var(--color-cta-text, var(--color-primary-text))`; `tool-cta` hard-coded
+`background: var(--color-white, #fff)`. Same UI object, two faces, one of them underivable from
+the palette — the `bugs_open/113` layout-literal shape. The obvious repair (ground the ink on
+both faces, since `grounds` is a slice for exactly that) is **wrong, not merely expensive**:
+**7 live themes** pair a light band with a near-black ink — `cta_bg #e9e2d3` / `cta_text #1a1a1a`
+(noted, idea, lendzy, loanzy, mortgagecalculator, remortgagecalculator, webdesign.co.uk) — so the
+two faces are `#ffffff` and `#1a1a1a`, and **no single colour clears 4.5 against both**;
+`legibleInkFor` falls through to its terminal branch and emits black at a worst ratio of ~1.2, a
+second invisible button in the opposite direction. **Migration 630 converges the face instead**,
+and the ink then grounds on the one real surface.
+
+**8b. Migration 619 shipped NOTHING on its own.** Nothing files `template_changed` re-renders for
+a template edited by SQL — that fan-out lives in `component-template-fixer.create_rerender`, keyed
+to the component the *fixer* changed, and the fixer is an LLM repair agent, not something you
+invoke to publish a hand-authored template (`bugs_open/283` §13). So the pages kept serving their
+stored `rendered_html`, **with a green status and no error anywhere**.
+
+> **How it was caught, and it was not by reasoning.** A `page-rerender` dispatch reported
+> `COMPLETED` for `/about.html`, `/approach.html` and `/contact.html` — and all three still served
+> the invalid declaration. `page_components.updated_at` still read **2026-08-17 / 2026-08-24 /
+> 2026-08-23**. A reason-less rerender re-assembles STORED component HTML. Only `/services.html`,
+> whose components happened to regenerate at 19:46:04, actually carried the repair.
+> **`COMPLETED` on the orchestration meant the deploy ran, never that the template was re-rendered.**
+> Migration **631** is the fan-out, shaped from `615`, and `template_changed` is confirmed to work:
+> gaswholesalers.com's three pages regenerated at 21:19 and their stored HTML is clean.
+
+**8c. The round-1 census could not have proven its own claim.** The verify block pinned
+`color-mix` uses at 1 with a needle (`color-mix(in srgb, var(--color-cta-bg`) too narrow to have
+found a differently-spaced one. Re-run **position-classified across all 13 components** that
+reference `--color-cta-bg`, post-619 `[MEASURED 2026-08-25]`: **as-a-colour 0 · in-a-gradient-stop
+0 · in-color-mix 1** (the unshipped `tool-password-entropy_pre_037`) **· as-a-background 13** (the
+legal use). The conclusion held; the evidence for it did not. **That is the second census in this
+file that encoded its own answer** — the first was by component name, and it missed a row until a
+`DO`/`RAISE` was induced. Grep by POSITION.
+
+**Scope of the fan-out: 9 pages, not 55.** 55 active pages still hold the stale hero, but only the
+9 on gradient-`cta_bg` sites are BROKEN (finetuning.uk 3, gaswholesalers.com 3, robot-hands.com 3).
+On the other 46 the declaration is *valid* and renders a gradient sheen; re-rendering them today
+would be a cosmetic change to sites nobody reported. They converge on their next natural render.
+
+⚠ **Two of the three sites are other lanes'** (gaswholesalers.com, robot-hands.com). Included
+because the defect is live there and the repair regenerates no copy — but owner ruling 2026-07-29
+§3 requires **telling** them, and a CONTRIB in each lane's directory is still owed.
