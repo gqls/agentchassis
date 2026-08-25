@@ -59,9 +59,12 @@ lane's readings and what was done. Applied by `SQL_2026-08-25_bold_audience_cate
    comparison directories · portfolios, personal, community and project sites.**
    dartsonline.com = guides/reviews/enthusiast (editorial); robot-hands.com = reference
    directory with interactive tools (hub/interactive).
-7. **NOT ruled, left for the owner:** whether to state that online shops that take
-   payment are out of scope (true of a static ZIP, but it is a commercial term and no
-   fact attests it).
+7. ~~**NOT ruled, left for the owner:** whether to state that online shops that take
+   payment are out of scope.~~ **RULED 2026-08-25 (evening), all three flags in one
+   message:** *"template can remain a banned word. .zip is better. I don't think we can
+   do online shops yet so we can exclude that."* → template stays banned (writer_block
+   already says "starter site", SQL_2026-08-25c); ZIP confirmed; online shops attested
+   as a capability limit in `any_site_type` (`SQL_2026-08-25d`).
 
 ## A defect found while applying this (fixed in the same SQL)
 

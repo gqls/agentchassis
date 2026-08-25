@@ -5617,3 +5617,41 @@ Cloudflare's email-obfuscation rewrites `data-cfemail` per response, so the hash
 nothing changed (index "changed" from 15cd3681 to eff68431 while vm-sites showed it
 untouched); pin the REPO copy. (2) `kubectl logs -l app=agent-chassis` returned nothing for
 the build window on either pod; the `agent_error_log` row is the durable record.
+
+## 2026-08-25 (evening) — three owner rulings on the round-1 flags
+
+Verbatim: *"template can remain a banned word. .zip is better. I don't think we can do
+online shops yet so we can exclude that."* → (1) template ban STAYS (writer_block already
+says "starter site" since 25c; do not lift it on the strength of the owner's earlier draft
+wording); (2) ZIP confirmed (audience fact source note updated); (3) online shops EXCLUDED,
+attested as a capability limit in `any_site_type` + writer_line + writer_block x2
+(`SQL_2026-08-25d`), phrased "we do not build online shops that take payment" with "do not"
+in the clause (gate negation guard). NOT a ban pattern: banning "shop" would block the
+denial too (08-19 offer-shape precedent). ⚠ Ordering: the 2nd-filing index build was
+already claimed (15:37) when this landed — if its served copy carries no shops line where
+it lists what can be asked for, re-file index once more.
+
+## 2026-08-25 (evening) — the POSITIONING SPECS are where the hero lives; 25e applied; wave 2 filed
+
+**Finding.** The 2nd index rebuild regenerated an UNLOCKED hero that still read "A complete
+website for your business" (0 locks on any index component; faq had picked up the new facts).
+Cause: the writer takes what to SAY from the spec aspects (content_direction 19KB incl. its
+`formatted` duplicate, identity, mission_brief, briefing, strategy, submission's embedded
+mission copy) and the page record's title/meta; writer_block steers only HOW. Those still
+said "They are not technical", "hosting and DNS are the studio's problem", CTAs "Call us",
+a RETIRED service ("Post-acceptance changes"), the RETIRED+BANNED "usually ready the next
+day" (identity USPs, briefing about_us + services, strategy value_proposition), "transfer
+freely" (scrubbed from writer_block 08-21, still in briefing), and writer_block's own
+"written for a business owner who is not technical". The surviving "two or three days" on
+index were page-record meta/og/JSON-LD, which a rerender never regenerates.
+
+**Applied:** `SQL_2026-08-25e` — six spec rows superseded in one transaction (content_direction
+edited as TEXT so structured + formatted move together; identity; mission_brief AND the
+submission copy, guarded equal; briefing; strategy; evidence_base writer_block register line)
++ 4 page title/meta rows. Guards: every needle counted before / absent after; no em dashes
+introduced; facts byte-identical; roadmap_brief deliberately untouched. Trial ROLLBACK passed
+first time; real run COMMIT.
+
+**Wave 2 filed:** page_rerender index/faq/how-it-works/what-you-get/guide (reason
+`owner_copy_brief_2026_08_25_wave2`). Then: re-place the label, verify at the REPO copy (not
+a served md5), bot re-check, hand the page-rule step to the owner.
