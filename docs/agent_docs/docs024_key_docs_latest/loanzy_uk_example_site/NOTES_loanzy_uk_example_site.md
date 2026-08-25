@@ -1900,3 +1900,12 @@ IMP-056/057. PLAN written for the owner.
 settled; they corrected my seat-3 `[UNVERIFIED]` (role `site_reviewer` → `site-review-agent`, 4,046 calls) and
 supplied the 7-of-8 fail-open measurement + "two spellings of `error_step`" — both in the RFC §6 with credit.
 They asked that routing be argued in the RFC, not settled in config: §9 Q5.
+
+**2026-08-25 21:2xZ — Phase 1 verified on the first firing.** Sweep fired 21:18:31 (13s after enable)
+and completed. PLAN §5 queries: **query 2 = 0** (zero LLM-audit rows since switch-on), **query 3 = no
+rows** (zero model-seat LLM calls). What it filed is all defect-shaped: design-discovery items
+(audit_tool, evaluate_tools, improve_tool, acceptance_run, undeployed_asset, deactivated_component),
+rerender items, one loop-level needs_rerender. Nothing opinion-shaped, nothing at a regenerating
+handler from an audit source. 618 applied the same evening (probe refuses re-apply); 623 applied;
+render-audit rotation left live per owner choice (c) with the fix routed to bugfix_390_cascade_attribution;
+promoter residue = bugs_open/405 (277 session notified).
