@@ -366,3 +366,77 @@ to this filer's own reasoning about them:
 `docs/agent_docs/docs024_key_docs_latest/loanzy_uk_example_site/NOTES_loanzy_uk_example_site.md`
 (entries 17:49Z, 17:52Z, 18:20Z). Route defects index:
 `docs/agent_docs/docs024_key_docs_latest/loanzy_uk_example_site/HANDOFF_2026-08-19_fixing_the_one_shot_route.md`.
+
+---
+
+## 10. A SECOND live draw, on a SECOND vertical — hop two PASSED, and it exposed a failure mode this file did not know about `[MEASURED 2026-08-25 10:53–10:54Z]`
+
+**Provenance:** `homegarden.uk` (site `5904bd0f-33fd-4212-9c1b-50b28fe72fdb`), the owner-authorised
+greenfield canary, dispatched 10:21:49Z. Orchestration `5937f08b-63ad-4de2-a5ea-97b17cacbb04`.
+Raw capture, taken because `orchestration_states` reaps inside ~25h:
+`docs/agent_docs/docs024_key_docs_latest/loanzy_uk_example_site/EVIDENCE_2026-08-25_homegarden_hop_two_exemplar_draw_and_crawls.json`.
+The `bugs_open/381` lane flagged the draw in flight; the reading below is first-hand and differs
+from their summary in one material respect (§10b).
+
+### 10a. The draw, and what it does and does not say about §4b's rate
+
+| slot | exemplar | crawl | formatted result |
+|---|---|---|---|
+| 1 | `https://www.rhs.org.uk` | `success: true` | **6 sources, `content_quality: good`** |
+| 2 | `https://www.gardenersworld.com` | `success: true` | **6 sources, `content_quality: good`** |
+| 3 | `https://www.which.co.uk/reviews/home-and-garden` | `success: true` | **0 sources, `content_quality: none`** |
+
+**`thespruce.com` is NOT in this draw**, and hop two passed — the orchestration reached `synthesise`
+at 10:54:06Z. **This is a genuine observation and a weak one.** It is a *different vertical*
+("Home and Garden Publishing") on a *different site*, so it does **not** make §4b's figure "4 of 6".
+The honest statement: **first draw on an adjacent vertical, refused host absent, stage survived.**
+`gardenersworld.com` appears in this draw and in all five garden-tools draws; `rhs.org.uk` is new.
+
+⚠ **This is not evidence the bug is milder than filed.** §4b already established the pool is biased,
+not fixed. One draw without the refused host is the outcome §4b predicts one time in five.
+
+### 10b. THE NEW FINDING — a crawl can report `success: true`, deliver NOTHING, and the chain proceeds with no floor and no record
+
+`crawl_exemplar_3` returned `"success": true`. `format_exemplar_3` returned
+`{"sources": [], "source_count": 0, "research_text": "Crawl completed but no usable page content was
+found.", "content_quality": "none"}`. The workflow moved to `synthesise` anyway.
+
+**Read from the live workflow the same minute** (`agent_definitions`, `vertical-exemplar-researcher`,
+active non-snapshot): the chain is strictly linear —
+`select_exemplars → crawl_1 → format_1 → crawl_2 → format_2 → crawl_3 → format_3 → synthesise →
+write_landscape_spec → create_next_item → complete` — with **no `on_error` on any crawl step**
+(this file's §2 claim, re-confirmed on live config today) and **no `condition`, and no reference to
+`content_quality` or `source_count`, anywhere in it.**
+
+**So there are TWO upstream outcomes, not one, and they need different guards:**
+
+- **(a) the crawl ERRORS** → no `on_error` → the stage dies, discarding whatever already succeeded,
+  and `create_next_item` never runs. Terminal. **This file, as filed.**
+- **(b) the crawl SUCCEEDS AND DELIVERS NOTHING** → passes straight through. The vertical landscape
+  is then synthesised from 2 exemplars while every status in the system says 3. **Silent, and it has
+  just happened on a live build.**
+
+**Why this changes the remedy, and it is the whole point of recording it.** §5's fix candidate 1 is
+*"`on_error` tolerance on each crawl step (N-of-3 is research, not a transaction), with a stated
+floor"*. **A floor evaluated on step success is blind to (b)** — `which.co.uk` would count toward it.
+Implemented naively, the estate would tolerate "3 of 3 succeeded" while one delivered zero sources,
+and in the degenerate case would write a vertical landscape from **no research at all** with every
+step green. That is strictly worse than today's failure, because today's at least stops.
+
+> **The floor must be evaluated on CONTENT — `source_count` / `content_quality` — not on step
+> success.** Same disease as this file's own §2 warning that a refused crawl's record reads
+> `"success": true`: **the receipt is not the result, and it is not the result in TWO directions.**
+
+**What is NOT claimed here.** I have measured that 2-of-3-with-content proceeds. I have **not**
+observed a 0-of-3 build, and I am not asserting the degenerate case from the absence of a gate alone
+— though the absence of any `content_quality` reference in the workflow is what makes it the
+expected behaviour rather than a guess. **A cheap disconfirming test exists**: a vertical whose three
+exemplars are all thin, or a deliberate spec with three unscrapable hosts, should be watched at
+`format_exemplar_*` rather than at the item status.
+
+### 10c. Consequence for §8's verification recipe
+
+§8 says a fix is proven only against a vertical whose exemplar set **contains a refused host**. That
+stands, and **add a second control**: the fix must also be exercised against a host that crawls
+successfully and yields nothing, or it will pass while (b) remains live. `which.co.uk/reviews/home-and-garden`
+is a dated, working example of that shape as of 2026-08-25 10:52:41Z.
