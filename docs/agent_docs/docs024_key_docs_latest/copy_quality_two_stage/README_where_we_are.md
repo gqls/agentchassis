@@ -727,3 +727,39 @@ different kind of acceptance test, closer to your sentence than to our patterns.
 direction question I need from you before this lane starts building:** whether you want us to pursue
 this — a rewrite capability judged by something nearer taste than rules — as the lane's next major
 piece of work, ahead of everything else on the list.
+
+---
+
+**2026-08-25, later.** Your homegarden review reached this lane the same afternoon, and I did what it
+asked, in the order it asked.
+
+**The deep re-read is done.** Everything this project has learned about copy since the 12th is now
+assembled in one document with every claim pointing at its evidence:
+`REFRESH_2026-08-25_deep_context_the_accumulated_copy_discussion.md`. Reading it back, the story is
+more coherent than it felt while it was happening. You have been making the same point since the
+start — first "why is everything negative", then "this sounds like AI", now "the premise of the page
+is wrong" — and each time we fixed the surface you named, the same instinct came back wearing new
+grammar. The strongest thing the evidence says is about why: the writing machinery learns from what
+our instructions *show* it far more than from what they *tell* it. The clearest single number: the
+writer's own instructions demonstrate the "X rather than Y" habit sixteen times per call while
+forbidding it. When we removed the demonstrations of one habit, that habit vanished; the habit whose
+demonstrations we left in place got worse. Our checklists also have a measured ceiling — they scored
+a section clean hours before you rejected it — so the standard for "fixed" has to be your sentence,
+not our pattern counts. And your about-page point is a different kind of fault from all of the
+above: not how the words sound, but that the page is about the wrong subject entirely. I have a
+suspicion about where all that self-description comes from — the honesty rules we feed the writer
+may be leaking into the pages as content — and it is written down as a suspicion with a test, not
+as a finding.
+
+**The prompt audit you asked for is scoped and counted.** "Every prompt in the database and code"
+is, as of today: 173 prompts inside agent configurations, about 691,000 characters across 73 agent
+types; 2,442 per-field writing instructions inside the component library; 31 live per-site briefs;
+and prompt-building code in 26 Go files. The plan (`PLAN_2026-08-25_prompt_audit.md`) asks six
+questions of each one, with your question — is it encouraging AI styles of writing — split the way
+the evidence demands: judge what each prompt demonstrates first, weight by whether it actually
+reaches a writer, and check whether its own prose is teaching the habits it bans. A cheap mechanical
+pass orders the work; the judgment pass starts with the writer's own instruction block, which every
+section of every page passes through.
+
+**Per your instruction, no fixes have been proposed yet.** The refresh and the audit plan are the
+deliverables today; fixing starts from them.

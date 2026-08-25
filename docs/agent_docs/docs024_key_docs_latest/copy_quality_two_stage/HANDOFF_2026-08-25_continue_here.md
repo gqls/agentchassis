@@ -14,6 +14,18 @@
 
 ## ⚠ ADDENDUM 2026-08-25 (review pass, same day, later) — read BEFORE "Next work"
 
+**0. (added late 08-25) A SECOND owner escalation arrived the same day, WITH instructions, and the
+first two are DONE.** From his homegarden.uk review (canonical:
+`loanzy_uk_example_site/OWNER_REVIEW_2026-08-25_homegarden_and_what_it_says_about_every_site.md`):
+the machinery must "up their game a lot"; refresh context BEFORE proposing fixes; audit EVERY prompt
+in DB and code against "is it encouraging AI styles of writing". The refresh is done —
+**`REFRESH_2026-08-25_deep_context_the_accumulated_copy_discussion.md`** is now the lane's
+assembled context and the first read for any new session, ahead of the summary below. The audit is
+scoped and censused — **`PLAN_2026-08-25_prompt_audit.md`** — with phase 1 (mechanical pre-scan +
+sizing the two unsized populations) as the next executable step. His sharpest new datum: the
+about.html PREMISE is wrong (14/17 methodology headings), his phrase list is a SAMPLE, and fixes
+that remove named strings while keeping the page's shape will not satisfy it.
+
 **1. This handoff MISSED AN OWNER ESCALATION that landed nine minutes before it was committed**
 (`e0da73a1b` at 10:54:36 vs this file's `28965069a` at 11:03:53 — checked in git, both today).
 `CONTRIB_2026-08-25_OWNER_ESCALATION_finetuning_pages_fail_the_would_a_person_say_this_test_after_a_maximal_seed.md`

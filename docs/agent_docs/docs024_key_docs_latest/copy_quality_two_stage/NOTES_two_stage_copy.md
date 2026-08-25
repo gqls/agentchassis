@@ -2632,3 +2632,39 @@ automatically now the correlation is approved (no amend — forward-only). Advis
   tripwire.
 - The two low advisories self-answer: the test compiles against `workItemTerminalStatuses`
   (a wrong symbol would not build), and the add/modify edit split is moot post-approval.
+
+---
+
+## 2026-08-25 (late) — the SECOND owner escalation of the day arrived with instructions, and the ordered context refresh is done
+
+**The instruction** (via `loanzy_uk_example_site`, from his homegarden.uk review; canonical record
+`loanzy_uk_example_site/OWNER_REVIEW_2026-08-25_homegarden_and_what_it_says_about_every_site.md`):
+(1) the machinery must *"up their game a lot"*; (2) *"deep search and refresh their context"* on the
+accumulated copy discussion BEFORE suggesting fixes; (3) *"audit every prompt in the database and
+code"* against one question — contributing to good readable copy, or encouraging AI styles of
+writing. His sharpest new datum: **the PREMISE of about.html is wrong, not the sentences** — 14 of
+17 headings are about the site's own methodology (*"Stop talking about us in such a technical
+way"*), and his phrase list is explicitly a SAMPLE (*"I can't list it all… it's all bad"*).
+
+**The refresh is done, in his order.** Method: four parallel sweeps (lane PLAN/NOTES-in-full/six
+summaries/README · the CONTRIB series incl. both escalations · register/LANDMINES/bugs/WRONG_CALLS ·
+a dated census of the whole prompt surface), synthesised with every claim carrying its source into
+**`REFRESH_2026-08-25_deep_context_the_accumulated_copy_discussion.md`**. Its spine: he has issued
+one instruction five times since 08-12, each sharper; demonstrations govern and instructions do not
+(the writer prompt demonstrates the banned form 16×/call; classes track demonstration counts 3→0 vs
+6→8); pattern lists have a measured ceiling BELOW his ear; homegarden adds a content-selection
+LAYER (with the integrity-instructions-leak hypothesis, marked `[INFERRED]` with its test); the
+five-field reachability map; and his own tested v3 style prompt as the criteria anchor — its
+meta-lesson ("a phrase-level patch resurfaces in new grammar") IS this month's findings.
+
+**Point 3 is scoped as a workstream**: `PLAN_2026-08-25_prompt_audit.md`. Census
+`[MEASURED 2026-08-25]`: **173 prompt strings / 690,763 chars across 73 agent types** in
+`agent_definitions.default_config` (there is NO prompt_template column — recursive JSON walk
+required, and the sub_workflow trap is why); **2,442 `llm_guidance` strings / 265,269 chars** in 140
+components; **31 live briefs**; **57 Go prompt-construction sites in 26 files**; two populations
+flagged unsized (workflow-column prompts, Go literal volume) for phase 1. The audit question is
+operationalised as six per-prompt questions, judged demonstrations-first, ordered by
+demonstrations × reachability × call volume. **No fixes proposed today — his sequencing.**
+
+Receipt acknowledged to the loanzy lane (they can close their asking file); the two escalations are
+cross-referenced in both directions.
