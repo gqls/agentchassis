@@ -39,6 +39,33 @@
 // here compose, so a third opt-in one costs nothing to the types that have not asked
 // for it.
 //
+// THE TWO ABSENCE CLAIMS THAT ARGUMENT RESTS ON, with the lookups attached rather
+// than asserted — the council's prior_art_librarian seat objected at MEDIUM that they
+// were not (corr 064841bd), and it was right to: an absence is only true when somebody
+// looked, and both of these decide the design.
+//
+//	# no verifier is registered for content_rewrite, so gate 2 is inert for it
+//	grep -rn "RegisterVerifier" --include=*.go platform/orchestration/actions/discovery_checks/
+//	  -> 13 RegisterVerifier / RegisterVerifierWithPolicy calls, none naming content_rewrite
+//	     [MEASURED 2026-08-25]
+//
+//	# nothing READS acceptance_predicate, which is what makes this the FIRST consumer
+//	grep -rln "acceptance_predicate\|acceptancePredicateKey" --include=*.go . | grep -v _test.go
+//	  -> SEVEN files [MEASURED 2026-08-25], and the raw count is the trap: two are
+//	     WRITERS (verify_acceptance_predicates_action.go produces the key;
+//	     write_audit_findings_action.go carries it through its struct tag and writes
+//	     spec["acceptance_predicate"]), ONE registers the action NAME (registry.go),
+//	     TWO are prose references in comments (verify_cited_cardinals_action.go,
+//	     load_work_item_actions.go), and the remaining two are this gate. ZERO read the
+//	     stored value to decide anything.
+//
+// ⚠ THE SECOND GREP'S RAW COUNT DOES NOT SUPPORT ITS OWN CLAIM, and this comment was
+// written asserting "the emit gate and this file" before the command was run — which
+// returned seven. Attaching a lookup is not the same as attaching the RIGHT lookup;
+// what makes the claim true is the writer/reader split above, which the grep cannot
+// make for you. Re-run both before repeating either sentence: the reader claim in
+// particular goes stale by ADDITION, the one direction a grep cannot warn you about.
+//
 // WHERE IT SITS: between gate 1b and gate 2. Gate 1c grades the item's OWN stated
 // criterion; gate 2 grades the TYPE's generic predicate. If the item's own criterion
 // is still false, producing a generic `verified` that contradicts the item's own
@@ -52,6 +79,25 @@
 // policy. A type absent from acceptancePredicateGates takes a map miss and this file
 // changes nothing about it — byte-identical to today. An item whose spec carries no
 // predicate is likewise untouched, which is nearly all of them.
+//
+// WHICH COMPLETIONS THIS ACTUALLY REACHES — measured, because the council's guardian
+// seat asked (corr 064841bd, medium) and the question was a good one: there is more
+// than one writer of `complete`, and a LOOP's own `mark_complete` was a live
+// candidate for a path that bypasses this function entirely.
+//
+// It does not bypass it. `build-dispatch-loop`'s `process_item.sub_workflow.
+// mark_complete` declares `"action": "complete_work_item"` — CompleteWorkItemAction,
+// this exact path. `[MEASURED 2026-08-25, site_work_items UNION site_work_items_archive]`
+// of 1,638 `content_rewrite` completions all-history, **1,600 carry
+// handled_by='build-dispatch-loop'**, including bugs_open/395's own worked case.
+//
+// ⚠ THE HONEST TAIL: 38 (2.3%) carry handled_by = NULL, spread 2026-03-10 → 2026-08-23.
+// CompleteWorkItemAction always stamps handled_by, so those were written by something
+// that is neither completion action — the claimed-item-timeout sweep is the obvious
+// candidate. NONE of the 38 carries a `_verification` key and NONE has ever carried an
+// acceptance_predicate, so gate 1c has nothing to lose there today; but the coverage
+// claim is "the path 97.7% of this type takes", not "every completion", and promoting
+// this entry to predicateRefuses is exactly when that 2.3% starts to matter.
 //
 // EVERY EVALUATED PREDICATE LEAVES A VERDICT ON THE ROW, INCLUDING `holds`, and that
 // is the instrument this whole slice rests on rather than decoration. Without a
@@ -74,8 +120,13 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 )
 
-// predicateGateOutcome declares, per item_type, what a STILL-REFUTING predicate
-// means for that type at completion time.
+// predicateRefutedPolicy declares, per item_type, what a STILL-REFUTING predicate
+// MEANS for that type at completion time. It is the type's DECLARATION.
+//
+// ⚠ Not to be confused with predicateGateVerdict below, which is what actually
+// HAPPENED on one item. Council editquality seat (corr 064841bd, low) read an
+// earlier pair of names — predicateGateOutcome and acceptancePredicateGateOutcome —
+// as one family and could not tell which was which. Policy vs verdict.
 //
 // WHY IT IS PER-TYPE AND THREE-VALUED. `predicateRecords` and `predicateRefuses` are
 // unsafe in different directions: refusing is new blocking authority on a shared
@@ -83,14 +134,14 @@ import (
 // Neither may be an author-time silent default, which is what the third value buys —
 // exactly the shape complete_work_item_no_change.go's unreadableOutcome settled on
 // after bugs_open/302.
-type predicateGateOutcome int
+type predicateRefutedPolicy int
 
 const (
 	// predicateUndeclared is the zero value and is NOT a policy: the roster test
 	// fails an entry carrying it, and at runtime it records rather than blocks, so
 	// an entry written by somebody who never read this comment cannot start
 	// refusing completions by accident.
-	predicateUndeclared predicateGateOutcome = iota
+	predicateUndeclared predicateRefutedPolicy = iota
 
 	// predicateRecords stamps the verdict on the row and lets the completion
 	// proceed. The item still closes green; what changes is that the estate can
@@ -115,7 +166,7 @@ type acceptancePredicateRule struct {
 
 	// OnRefuted is the type's declaration. The zero value records; the roster test
 	// refuses to let an entry ship without stating one.
-	OnRefuted predicateGateOutcome
+	OnRefuted predicateRefutedPolicy
 
 	// RefusalWhy is the measurement licensing predicateRefuses, and is required for
 	// it. A SEPARATE field from Why on purpose: Why licenses "this type's criterion
@@ -204,13 +255,14 @@ var acceptancePredicateGateFor = func(itemType string) (acceptancePredicateRule,
 	return rule, ok
 }
 
-// acceptancePredicateGateOutcome is gate 1c's verdict.
-type acceptancePredicateGateOutcome int
+// predicateGateVerdict is what gate 1c actually did to ONE item — as distinct
+// from predicateRefutedPolicy above, which is what the item's TYPE declares.
+type predicateGateVerdict int
 
 const (
 	// predicateGatePass — not this gate's business: the type has not opted in, or
 	// the item carries no predicate, or the predicate is satisfied.
-	predicateGatePass acceptancePredicateGateOutcome = iota
+	predicateGatePass predicateGateVerdict = iota
 
 	// predicateGateRecorded — a predicate was evaluated and the verdict is worth
 	// stamping on the row. Completion proceeds. Covers BOTH a satisfied predicate
@@ -248,7 +300,7 @@ type acceptancePredicateNote struct {
 // database read, or a log line — it is byte-identical to today's behaviour, which is
 // what "the unsafe default is OFF" has to mean to be worth anything.
 func gradeAcceptancePredicate(ctx context.Context, db *sql.DB, itemType string, specJSON []byte,
-	siteID uuid.UUID, logger *zap.Logger) (map[string]interface{}, acceptancePredicateGateOutcome) {
+	siteID uuid.UUID, logger *zap.Logger) (map[string]interface{}, predicateGateVerdict) {
 
 	rule, opted := acceptancePredicateGateFor(itemType)
 	if !opted {
