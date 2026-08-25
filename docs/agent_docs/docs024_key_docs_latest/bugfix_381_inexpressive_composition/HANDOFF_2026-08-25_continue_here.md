@@ -2,7 +2,72 @@
 
 **Lane:** `docs/agent_docs/docs024_key_docs_latest/bugfix_381_inexpressive_composition/`
 **Bug:** `bugs_open/381_HANDOFF_2026-08-24_the_planner_composes_pages_from_components_that_cannot_express_the_page_it_planned.md`
-**State: NOT CLOSEABLE YET — one open item, below. Everything built is applied, verified and evidenced.**
+**State: THE VALIDATION BUILD IS RUNNING. Everything built is applied, verified and evidenced; the
+one open item is now in flight — see §0.**
+
+---
+
+## 0. ⏳ LIVE RIGHT NOW — the validation build (`homegarden.uk`), dispatched 2026-08-25 ~11:15Z
+
+The owner offered a domain list and authorised the build this lane was waiting for.
+
+| | |
+|---|---|
+| domain | **`homegarden.uk`** |
+| site id | `5904bd0f-33fd-4212-9c1b-50b28fe72fdb` |
+| correlation | `f20ddbf6-d512-4d55-8b3d-3276717c0c39` |
+| orchestration | `0ca5de49-6a47-4d5b-8e08-a742427769ec` |
+| dispatched | 2026-08-25 ~11:15Z — **LANDED** (receipt-asserted, `bugs_open/327`) |
+| first state | submitter `COMPLETED`; site row `active`/`build=pending`; `needs_domain_research=triaged` |
+
+**Why this domain:** the only one on the offered list that plausibly exercises all three new
+components at once (the gardening year → `period-calendar`; what-to-check → `checklist`; choosing
+between options → `comparison-table`), and the **nearest neighbour to `garden-tools.uk`**, so it is a
+genuine before/after on the same kind of subject. Insurance and health domains were deliberately
+declined: `comparison-table`'s claims exposure is real and unmitigated on a site with no evidence
+base, and a new site starts with none — a wrong claim about compost is not a wrong claim about cover.
+`indoorplanters.co.uk` was declined too — it already exists with 0 pages and would confound.
+
+**The brief was deliberately NOT rigged.** It describes the subject, audience and tone and names no
+component and no calendar; a brief that asked for a month-by-month section would have tested only
+whether the framework obeys me. It is at `<scratch>/mission_homegarden.txt`.
+
+⚠ **The dispatch script is NOT executable** (`-rw-rw-r--`, unlike `097_TRIGGER…`). `./082_…` fails
+with *Permission denied*. **Use `bash <script>`; do not `chmod`.**
+
+### WHAT TO DO NEXT — in this order, and step 2 EXPIRES
+
+Reference timing from `garden-tools.uk`: submission 17:17 → pages 20:15, **about 3 hours**.
+
+1. **Is it progressing?**
+   ```sql
+   SELECT item_type, wi.status, handler_agent FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+    WHERE s.domain='homegarden.uk' ORDER BY wi.created_at;
+   ```
+2. **⚠ READ WITHIN ~24h OF THE PLANNER RUNNING — `orchestration_states` is a rolling window.**
+   Pull the rendered `plan_site` prompt and confirm it really carries `[expresses: …]` /
+   `[prose only]` per component and rule 19. **This is the only chance to see what the planner was
+   actually told**, and it is the difference between "it was offered a calendar and declined" and
+   "it never saw one".
+3. **THE HEADLINE RESULT:**
+   ```sql
+   SELECT cc.function, count(*) FROM page_components pc
+     JOIN content_components cc ON cc.id=pc.component_id JOIN pages p ON p.id=pc.page_id
+    WHERE p.site_id='5904bd0f-33fd-4212-9c1b-50b28fe72fdb'
+      AND cc.function IN ('checklist','period-calendar','comparison-table') GROUP BY 1;
+   ```
+   **Any non-zero closes this lane's open item.**
+4. Page structure on THIS site's pages only, plus the loanzy lane's promise-vs-delivery check.
+
+### How to read the outcome
+
+- **Chosen and filled** → central claim proven; close `bugs_open/381` to `/bugs_closed/`.
+- **Chosen but thin** (twelve near-identical months) → the schema weakness named as risk 3 in council
+  `c134b0e9`. A real finding and a follow-up, not a failure of the seam.
+- **Not chosen** → the interesting negative; step 2 tells you whether it was told and declined.
+- ⚠ **NOT a failure of this fix: pages that never build.** `bugs_open/206` is open and cost
+  garden-tools **5 of 12 pages**. If it bites here it is that lane's bug in my window — anticipate
+  it, do not misattribute it.
 
 ---
 
