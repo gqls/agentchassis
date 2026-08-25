@@ -78,21 +78,33 @@ var editorialFalsePositives = []struct {
 			"you have an inflation problem."},
 	{"news-index", "robot-hands.com",
 		"[Insights] Market report projects cobot tending cells to hold 38% share, driven by demand from small manufacturing customers."},
+}
 
-	// The tracker/directory three (bugs_open/364), measured 2026-08-24 on
-	// ai-agent-orchestration.com. Every one is a THIRD PARTY's figure sitting in
-	// an aggregated listing, tripping businessClaimContextRe on `agents?`
-	// because the site is about agents. Note the last two are not statistics at
-	// all — a version string and a digit inside an acronym.
-	{"adoption-tracker", "ai-agent-orchestration.com",
+// The SAME six live false positives, now keyed by the COMPONENT they sit in
+// rather than the page (RFC_053 / bugs_open/364 Phase 2). Measured 2026-08-24 on
+// ai-agent-orchestration.com; every one is a THIRD PARTY's figure in an
+// aggregated listing, tripping businessClaimContextRe on `agents?` because the
+// site is about agents. Note two are not statistics at all — a version string,
+// and a digit inside an acronym.
+//
+// They moved out of editorialPageTypes' table deliberately: gating these by PAGE
+// took the same pages' first-person hero and call-to-action with them, which is
+// the cost TestTrackerPageHeroAndCTAAreScannedAgain now pins as RECOVERED.
+var thirdPartyComponentFalsePositives = []struct {
+	component string
+	pageType  string
+	site      string
+	block     string
+}{
+	{"adoption-tracker-listing", "adoption-tracker", "ai-agent-orchestration.com",
 		"rollout_scope Over 80% of Fortune 500 deploying active agents built with Copilot Studio or Agent Framework source"},
-	{"adoption-tracker", "ai-agent-orchestration.com",
+	{"adoption-tracker-listing", "adoption-tracker", "ai-agent-orchestration.com",
 		"roi_claimed only 95 of 1,837 respondents reported AI agents live in production respondents source"},
-	{"protocol-tracker", "ai-agent-orchestration.com",
+	{"protocol-tracker-listing", "protocol-tracker", "ai-agent-orchestration.com",
 		"agent_framework JSON-RPC 2.0 client-server with Tools, Resources, Prompts, and Sampling"},
-	{"protocol-tracker", "ai-agent-orchestration.com",
+	{"protocol-tracker-listing", "protocol-tracker", "ai-agent-orchestration.com",
 		"Agent-to-Agent Protocol (A2A) Linux Foundation"},
-	{"model-directory", "ai-agent-orchestration.com",
+	{"model-directory-listing", "model-directory", "ai-agent-orchestration.com",
 		"protocol_adopted Salesforce Headless 360 platform routes customer and agent interactions via MCP source"},
 }
 
@@ -234,53 +246,92 @@ func TestStatScanIsNotSurfaceGated(t *testing.T) {
 	}
 }
 
-// TestTrackerPagesGiveUpTheirFirstPersonClaims pins the COST of the
-// bugs_open/364 interim, so it stays visible instead of being discovered later.
+// ============================================================================
+// COMPONENT GRAIN (RFC_053 / bugs_open/364 Phase 2)
+// ============================================================================
+
+// (5) A declared third-party data component raises nothing from prose numbers,
+// wherever it sits.
+func TestThirdPartyComponentsRaiseNoProseNumbers(t *testing.T) {
+	eb := mustParseSurfaceEB(t)
+	for _, fp := range thirdPartyComponentFalsePositives {
+		findings := eb.ScanUnregisteredNumbers([]string{fp.block},
+			ClaimSurface{PageType: fp.pageType, ComponentFunction: fp.component})
+		if len(findings) != 0 {
+			t.Errorf("%s on %s (%s): a third party's figure flagged as OUR claim: %+v",
+				fp.component, fp.pageType, fp.site, findings)
+		}
+	}
+}
+
+// (6) THE NEGATIVE CONTROL, and the one that matters most here. The identical
+// text in an UNDECLARED component on the same page is still scanned. Without
+// this, "the listing went quiet" and "the scan went quiet" are the same
+// observation — which is the failure mode this whole file exists to prevent.
+func TestSameTextInAnUndeclaredComponentIsStillScanned(t *testing.T) {
+	eb := mustParseSurfaceEB(t)
+	for _, fp := range thirdPartyComponentFalsePositives {
+		for _, component := range []string{
+			"hero",              // the marketing surface on the very same page
+			"call-to-action",    // ditto
+			"case-studies-list", // a list of OUR OWN work — measured, three genuine claims
+			"generic-text-block",
+			"",                                    // unknown: no component in hand
+			"a-component-nobody-has-invented-yet", // a new template must stay noisy
+		} {
+			f := eb.ScanUnregisteredNumbers([]string{fp.block},
+				ClaimSurface{PageType: fp.pageType, ComponentFunction: component})
+			if len(f) == 0 {
+				t.Errorf("component %q on %s: the scan went quiet on text that is only exempt "+
+					"inside %q — a component-grain exemption must not leak to its neighbours",
+					component, fp.pageType, fp.component)
+			}
+		}
+	}
+}
+
+// (7) THE COST THE INTERIM PAID, NOW RECOVERED — this is the inversion the
+// interim's own test demanded rather than a deletion.
 //
-// Unlike the five original editorial types, the tracker/directory three are NOT
-// "never marketing": each page carries a hero and a call-to-action in the site's
-// own voice. Gating by PAGE type therefore blinds those slots too. This test
-// asserts the blindness DELIBERATELY — it is what Phase 2 (component-grain
-// ClaimSurface) exists to undo, and when Phase 2 lands this test must be
-// INVERTED, not deleted.
-//
-// The probe is this file's own standard business-surface claim, reused so the
-// two directions are graded with one instrument.
-//
-// ⚠ It scans against an EMPTY &EvidenceBase{} on purpose, for the reason
-// bugs_open/364 §4 records: surfaceTestEB carries a `gte` fact, and a gte fact
-// vouches for any smaller value whose window holds a context term — so against
-// that register the assertion could pass with the page types reverted, i.e.
-// assert nothing. With an empty register nothing is supported and the control
-// arm can actually fail.
-//
-// ⚠ AND A SECOND TRAP, MEASURED 2026-08-24, which is why the probe is NOT the
-// real CTA copy: every first-person numeric claim actually on these three pages
-// says "orchestrationS" — "We run over 1,600 orchestrations a day across 13 live
-// production systems" — and businessClaimContextRe carries `orchestration`
-// SINGULAR with no `s?`. Those sentences are therefore invisible to the scan
-// whatever the page type does, so using one here would have produced a test that
-// passed for a reason unrelated to what it claims to check. That plural blindness
-// is a separate defect of the lexical gate, recorded in bugs_open/364.
-func TestTrackerPagesGiveUpTheirFirstPersonClaims(t *testing.T) {
-	// The same first-person claim TestTypesDeliberatelyNotEditorialStayScanned
-	// uses to prove a surface is still scanned.
+// From 2026-08-22 to 2026-08-25 the three tracker page types sat in
+// editorialPageTypes, which silenced the prose number scan on those pages'
+// first-person hero and call-to-action along with their third-party listing.
+// TestTrackerPagesGiveUpTheirFirstPersonClaims asserted that loss deliberately,
+// so it would stay visible, and its failure message said: "if Phase 2
+// (component-grain surface) has landed, INVERT this test rather than deleting
+// it." This is that inversion. If it ever fails, page-grain gating has come
+// back and the site's own claims are unpoliced again on those pages.
+func TestTrackerPageHeroAndCTAAreScannedAgain(t *testing.T) {
 	const claim = "We hold 45,000 client records across the estate."
 
 	empty := &EvidenceBase{}
-
-	// The control FIRST: on a business surface this IS a finding. If this arm
-	// ever goes quiet, the assertion below proves nothing.
-	if f := empty.ScanUnregisteredNumbers([]string{claim}, ClaimSurface{PageType: "content"}); len(f) == 0 {
-		t.Fatal("control failed: a first-person quantified claim must be scanned on a content page — " +
-			"without this the assertion below is vacuous")
-	}
-
-	// The cost, asserted: the same sentence on a tracker page is now unscanned.
 	for _, pt := range []string{"adoption-tracker", "protocol-tracker", "model-directory"} {
-		if f := empty.ScanUnregisteredNumbers([]string{claim}, ClaimSurface{PageType: pt}); len(f) != 0 {
-			t.Errorf("page_type %q: expected the interim to give this up, got %+v — "+
-				"if Phase 2 (component-grain surface) has landed, INVERT this test rather than deleting it", pt, f)
+		for _, component := range []string{"hero", "call-to-action"} {
+			f := empty.ScanUnregisteredNumbers([]string{claim},
+				ClaimSurface{PageType: pt, ComponentFunction: component})
+			if len(f) == 0 {
+				t.Errorf("page_type %q, component %q: a first-person quantified claim is NOT scanned — "+
+					"the page-grain interim has returned and its blind spot with it (RFC_053)", pt, component)
+			}
+		}
+		// And the listing on that same page stays exempt, so this is a real
+		// separation and not the exclusion simply having been removed.
+		if f := empty.ScanUnregisteredNumbers([]string{claim},
+			ClaimSurface{PageType: pt, ComponentFunction: pt + "-listing"}); len(f) != 0 {
+			t.Errorf("page_type %q: the listing component should still be exempt, got %+v", pt, f)
+		}
+	}
+}
+
+// (8) The three page types must NOT be in editorialPageTypes any more. Pinned
+// separately from the behaviour above because re-adding one would look like a
+// tidy-up and would silently undo Phase 2 while every other test still passed.
+func TestTrackerPageTypesAreNoLongerPageGated(t *testing.T) {
+	for _, pt := range []string{"adoption-tracker", "protocol-tracker", "model-directory"} {
+		if !(ClaimSurface{PageType: pt}).ProseNumbersAreClaims() {
+			t.Errorf("page_type %q is page-gated again — Phase 2 moved this decision to the "+
+				"component (thirdPartyDataComponents); re-adding the page type takes the hero "+
+				"and CTA with it, which is the breach the interim recorded", pt)
 		}
 	}
 }

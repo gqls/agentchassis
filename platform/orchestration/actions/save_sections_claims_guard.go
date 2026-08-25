@@ -148,7 +148,14 @@ func scanSectionClaims(
 		// nothing else — that asymmetry is deliberate and documented in
 		// bugs_open/104; do not simplify it away.
 		if eb != nil {
-			for _, issue := range checkUnregisteredNumbers(blocks, eb, surface) {
+			// Per-section surface: the loop already knows which component it is
+			// reading, and ComponentName IS the slot name / registered component
+			// function (save_page_sections_action.go:1434). Before RFC_053 that
+			// identity was dropped on the floor here — the surface was built once
+			// outside the loop, so every section was judged as if it were the page.
+			sectionSurface := surface
+			sectionSurface.ComponentFunction = sections[i].ComponentName
+			for _, issue := range checkUnregisteredNumbers(blocks, eb, sectionSurface) {
 				errors = append(errors, claimsFloorFinding{
 					Section: sections[i].ComponentName,
 					Issue:   issue,

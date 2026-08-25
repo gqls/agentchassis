@@ -508,7 +508,10 @@ func ScanDeployedClaims(
 		pf.ExaminedTextBySlot[slotName] += html + contentJSON
 
 		findings := scanComponentClaims(html, slotName, eb,
-			datahelpers.ClaimSurface{PageType: pageType})
+			// slot_name IS the component's registered function on this platform
+			// (save_page_sections_action.go:1434), so it is the component-grain
+			// key thirdPartyDataComponents expects — RFC_053.
+			datahelpers.ClaimSurface{PageType: pageType, ComponentFunction: slotName})
 		findings = append(findings, scanStoredStatClaims(
 			component, slotName, decodeContentData(contentJSON, logger), eb, rowExists)...)
 		pf.Findings = append(pf.Findings, findings...)
@@ -550,7 +553,12 @@ func ScanDeployedClaims(
 		// is a business claim, and there is no page type that could say
 		// otherwise.
 		siteFindings = append(siteFindings, scanComponentClaims(html, slotName, eb,
-			datahelpers.ClaimSurface{})...)
+			// Chrome still has no page type (deliberate, above), but it DOES have a
+			// component — so the component-grain gate applies here even though the
+			// page-grain one cannot. A footer is not a third-party listing, so this
+			// changes nothing today; it stops chrome being the one seam that could
+			// never express the distinction.
+			datahelpers.ClaimSurface{ComponentFunction: slotName})...)
 		siteFindings = append(siteFindings, scanStoredStatClaims(
 			component, slotName, decodeContentData(contentJSON, logger), eb, rowExists)...)
 	}

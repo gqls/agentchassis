@@ -163,7 +163,7 @@ func main() {
 		// unarmed site, exactly as the gate would treat it.
 		var numberFindings []datahelpers.ClaimFinding
 		if eb.HasScannableRegister() {
-			numberFindings = eb.ScanUnregisteredNumbers(blocks, datahelpers.ClaimSurface{PageType: pageType})
+			numberFindings = eb.ScanUnregisteredNumbers(blocks, datahelpers.ClaimSurface{PageType: pageType, ComponentFunction: slot})
 		}
 		for _, f := range numberFindings {
 			total++

@@ -762,6 +762,17 @@ var unitSuffixRe = regexp.MustCompile(`(?i)^\s*(px|rem|em|vh|vw|ms|sec|seconds?|
 type ClaimSurface struct {
 	// PageType is pages.page_type for the page this text renders on.
 	PageType string
+
+	// ComponentFunction is content_components.function for the component this
+	// text renders in — carried on the row as page_components.slot_name, and as
+	// component_function in sections_metadata. EMPTY means unknown, which scans:
+	// a caller holding only whole-page HTML, or site chrome belonging to no
+	// component, must not silently inherit a component-grain exemption.
+	//
+	// It is framework-authored data, never anything parsed out of the rendered
+	// HTML — see thirdPartyDataComponents for why that distinction is the whole
+	// security of this field.
+	ComponentFunction string
 }
 
 // editorialPageTypes are the page types whose BODY PROSE is not a first-person
@@ -802,51 +813,65 @@ type ClaimSurface struct {
 //     specification") tripping on `verified` in the context window. Excluding it
 //     here would fix those by coincidence, not by mechanism.
 //
-// THE TRACKER/DIRECTORY THREE, added 2026-08-22..24 (bugs_open/364) — and this
-// addition KNOWINGLY FAILS the second half of the bar above. Read this before
-// citing it as precedent.
-//
-// What earns them (measured 2026-08-24, cmd/claimscan over live rendered_html,
-// each site against its own current register, export asserted row-for-row
-// against the DB — 115/115 on ai-agent-orchestration.com):
-//   - adoption-tracker (17 false positives), protocol-tracker (3),
-//     model-directory (part of the same 20) — 20 findings, precision ZERO.
-//     Every one is a THIRD PARTY's figure in an aggregated listing:
-//     "rollout_scope 65% of Fortune 500 executives…", "200,000 onboarded users"
-//     (someone else's), "JSON-RPC 2.0" (a version string), and the `2` inside
-//     the acronym A2A. The listing rows carry their own per-row `source` field;
-//     the ±70-byte claimWindow cannot see it, and businessClaimContextRe fires
-//     on `agents?` because the site is ABOUT agents.
-//
-// WHAT THIS GIVES UP, stated rather than discovered later: unlike the five
-// members above, these pages are NOT "never marketing". Each carries a `hero`
-// AND a `call-to-action`, and protocol-tracker's CTA reads "We run over 1,600
-// orchestrations a day across 13 live production systems" — a first-person
-// quantified claim, i.e. exactly what this scan exists to catch. Gating by PAGE
-// type blinds those slots too. Measured loss on 2026-08-24 is ~0 only because
-// the register's `4068 gte / "orchestration"` fact already vouches for both
-// figures — that is the ACCIDENTAL support bugs_open/364 §2 warns about, not a
-// guarantee. Tighten the register and the blind spot becomes real.
-// TestTrackerPagesGiveUpTheirFirstPersonCTA pins that cost so it stays visible.
-//
-// The right grain is the COMPONENT, not the page: hero and call-to-action stay
-// scanned while the listing does not. That is Phase 2 (RFC), and it is the same
-// mechanism the 'report' note above asks for when it says excluding a page type
-// "would fix those by coincidence, not by mechanism". This entry is the interim.
-//
-// NOT added, on the same bar that keeps blog-index out: 'entity-directory' (4
-// pages) and 'entity-page' (21 pages) raised ZERO measured findings, so there is
-// no evidence either way and analogy is not a measurement.
+// THE TRACKER/DIRECTORY THREE WERE HERE FROM 2026-08-22..24 AND ARE NOW GONE
+// (bugs_open/364, RFC_053). They were the interim: measured, real, and knowingly
+// in breach of the second half of the bar above, because those pages carry a
+// marketing hero and a call-to-action that a PAGE-grain gate silences along with
+// the listing. Phase 2 moved the decision to the COMPONENT
+// (thirdPartyDataComponents below), so the listing is skipped and the hero and
+// CTA are scanned again — which is what this map's own 'report' note asks for
+// when it says excluding a page type "would fix those by coincidence, not by
+// mechanism". The interim's measurements are preserved on that map, since they
+// are what justified the membership; do not re-add the page types here.
+
 var editorialPageTypes = map[string]bool{
 	"guide":      true,
 	"blog-post":  true,
 	"news-index": true,
 	"tool":       true,
 	"game":       true,
-	// Aggregated third-party listings — interim, see the note above.
-	"adoption-tracker": true,
-	"protocol-tracker": true,
-	"model-directory":  true,
+}
+
+// thirdPartyDataComponents are the COMPONENT functions whose body renders records
+// about OTHER organisations — an aggregated listing, a tracker, a directory —
+// rather than anything about the site that publishes it. RFC_053 / bugs_open/364
+// Phase 2.
+//
+// WHY THIS EXISTS AT COMPONENT GRAIN. The same page mixes both voices: a tracker
+// page carries a marketing `hero` and a `call-to-action` in the site's own
+// first-person voice, ABOVE AND BELOW a table of third parties' figures. Page
+// type cannot express that, so gating there silenced the site's own claims to
+// buy silence on the listing — which is what the interim did from 2026-08-22 to
+// 2026-08-25, knowingly and in breach of editorialPageTypes' own membership bar.
+//
+// THE KEY IS THE COMPONENT'S REGISTERED FUNCTION, WHICH IS TRUSTED DATA. It comes
+// from `content_components.function` (carried on the row as `page_components
+// .slot_name`, and as `component_function` in sections_metadata) — the framework's
+// own record of what it built. It is deliberately NOT read from the rendered HTML:
+// that HTML is LLM-generated, so a marker embedded in it could be emitted by the
+// very thing being policed. A declaration a writer can forge is not a control.
+//
+// THE BAR FOR MEMBERSHIP, same shape as editorialPageTypes' and same discipline:
+// a MEASURED false positive on live copy, AND a body that renders third-party
+// records BY CONSTRUCTION rather than by editorial choice. Do not add from
+// intuition, and do not add a component merely because it is a list — measured
+// 2026-08-24, `case-studies-list` on the same site is a list of the site's OWN
+// work ("orchestrates 30+ specialised agents", "under 4 hours") and carries three
+// genuine claims. A `-list`/`-listing` suffix is a naming convention, not a
+// content guarantee — the same trap `editorialPageTypes` records for `-index`.
+//
+// Each member, with what earns it (measured 2026-08-24, cmd/claimscan against
+// ai-agent-orchestration.com's own live register over live rendered_html, export
+// asserted row-for-row against the DB — 20 findings across these three, precision
+// ZERO): every finding is a third party's figure — "rollout_scope Over 80% of
+// Fortune 500…", "200,000 onboarded users" (someone else's), "JSON-RPC 2.0" (a
+// version string), and the digit `2` inside the acronym A2A. Two of the eleven
+// tokens are not statistics at all, which is the sharpest evidence that a lexical
+// gate was never answering the question it was asked.
+var thirdPartyDataComponents = map[string]bool{
+	"adoption-tracker-listing": true,
+	"protocol-tracker-listing": true,
+	"model-directory-listing":  true,
 }
 
 // ProseNumbersAreClaims reports whether the heuristic number scan applies to
@@ -861,7 +886,24 @@ var editorialPageTypes = map[string]bool{
 //   - ScanStatClaims runs on every surface. A stat card on a guide is still a
 //     published figure in a claim-shaped field (claims_stats.go).
 func (s ClaimSurface) ProseNumbersAreClaims() bool {
-	return !editorialPageTypes[strings.ToLower(strings.TrimSpace(s.PageType))]
+	// Component grain FIRST: it is the more specific signal, and on a mixed page
+	// it is the only one that can be right. An UNRECOGNISED or ABSENT component
+	// function falls through to the page-type question rather than deciding
+	// anything — so a new template, site chrome, or a caller with no component in
+	// hand is scanned exactly as before. That direction is the same one the zero
+	// value takes and for the same reason: a scanner that has gone quiet and one
+	// that is broken look identical from outside.
+	if thirdPartyDataComponents[normaliseSurfaceKey(s.ComponentFunction)] {
+		return false
+	}
+	return !editorialPageTypes[normaliseSurfaceKey(s.PageType)]
+}
+
+// normaliseSurfaceKey is the single normalisation both lookups use, so the two
+// maps cannot drift on case or padding. Pinned by
+// TestPageTypeMatchingIsCaseAndSpaceInsensitive.
+func normaliseSurfaceKey(v string) string {
+	return strings.ToLower(strings.TrimSpace(v))
 }
 
 // ScanUnregisteredNumbers extracts number-bearing business claims from

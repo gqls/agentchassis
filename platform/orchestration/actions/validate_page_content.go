@@ -385,7 +385,27 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 				surface := datahelpers.ClaimSurface{
 					PageType: resolvePageType(config, params.CollectedData, logger),
 				}
-				issues = append(issues, checkUnregisteredNumbers(blocks, eb, surface)...)
+				// COMPONENT GRAIN WHERE WE CAN ANSWER AT IT (RFC_053). A tracker or
+				// directory page wraps a listing of OTHER organisations' figures in
+				// the site's own first-person hero and CTA, and a page-grain surface
+				// has to judge all three the same way. Where sections_metadata is
+				// present we scan each component against its own surface instead;
+				// the blocks are provably identical either way (see
+				// collectPageSections' header — measured across 4 pages / 21
+				// components), so only the surface changes.
+				//
+				// Where it is absent — three of this gate's four callers — we keep
+				// the whole-page scan below unchanged. Noisy, not silent.
+				if sections, ok := collectPageSections(params.CollectedData, defaultSectionsMetadataField, logger); ok {
+					for _, sec := range sections {
+						secSurface := surface
+						secSurface.ComponentFunction = sec.ComponentFunction
+						issues = append(issues,
+							checkUnregisteredNumbers(datahelpers.ExtractAssertionText(sec.HTML), eb, secSurface)...)
+					}
+				} else {
+					issues = append(issues, checkUnregisteredNumbers(blocks, eb, surface)...)
+				}
 			}
 		}
 	}
