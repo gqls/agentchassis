@@ -307,3 +307,13 @@ has ever succeeded. The extra nine are more evidence, not less. I have corrected
 paragraph above rather than leaving a wrong number sitting there, and this note is here because that
 log is meant to be added to rather than edited, and the number was in a paragraph I had written
 myself half an hour before.
+
+2026-08-25 — Two thirds done. Forty-one of the sixty-three tools are rebuilt and live; the other
+session does about five a day and nothing blocks the rest. This session spent the day on the
+platform side: the checker that spots the two most common old-tool faults across every site is
+built and before the review council (their first review asked a hard question and answering it
+fixed two more checks that were wasting review effort on retired pages). One mistake worth owning:
+I briefly recorded a "count changed overnight" that was really two of us using queries one hyphen
+apart — caught by the other session refusing to believe a number it couldn't reproduce, corrected
+everywhere, and the lesson written down in all three lanes involved. New summary file:
+SUMMARY_2026-08-25_two_thirds_done_and_the_platform_pays_us_back.md.
