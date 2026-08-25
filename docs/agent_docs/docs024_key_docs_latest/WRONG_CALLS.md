@@ -52876,3 +52876,23 @@ as a lead to close, not a boundary to respect.
 **The cheap checks, both one line:** `grep -rn "SET status" docs/ | grep <the status>` before
 concluding no writer exists; and `jsonb_object_keys` over **every** JSONB column on the row, not the
 one you thought of.
+
+## 2026-08-25 — `webdesign_uk_build_service` (session "webdesign.uk live webdesign"): I attested a new figure as prose, verified it at the bot, and three page rebuilds failed on it
+
+**The claim.** "30 days is live at the bot, so the pages will say 30 days" — after
+`SQL_2026-08-25` fixed the included month at 30 days in two claims and five writer_block
+sentences, and the bot repeated it back correctly.
+
+**What was true.** The claims gate (`validate_page_content`) matches every printed figure
+against an evidence_base fact **`value`**, and no fact carried `value: 30`. Three of five
+rebuilds failed `unregistered_number "30"` / `unregistered_stat "30 days"` and parked as
+`needs_human_review`. The bot reads claims; the gate reads values. Two different readers, and
+I proved the change at the one that could not fail on it.
+
+**What caught it.** Reading `agent_error_log` rows with
+`error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'` (their `context.issues`; timestamp column
+`occurred_at`) after the work items parked.
+
+**The cheap check, skipped.** The lane's own rule, written in its handoff and in the
+writer_block I was editing: model a new figure on `build_duration` (which carries `value`)
+and prove copy with `go run ./cmd/claimscan` before a build. Tally: skipped-claimscan.

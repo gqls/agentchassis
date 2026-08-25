@@ -5577,3 +5577,43 @@ your business"; faq 1x month + 3x days; how-it-works 1+1; what-you-get 3x month;
 1+1; contact + brief-starter tool clean. Remaining four to file after index proves the
 pipeline. ⚠ index rebuild wipes the hand-placed "Not active yet" label: re-place it
 (runbook gate 2) BEFORE the unpark.
+
+**2026-08-25 addendum — 25b VERIFIED AT THE BOT.** Asked "Do I need web design
+experience?": "Yes, some experience helps... If you've never done any of this and the
+idea of hosting files somewhere or editing code makes you nervous, this probably isn't
+the right fit." The deciding-arm rewrite closed the collision; hosting answer stays
+correct ("The rental is just for the domain name itself"). Blemish: the reply used an em
+dash (known open item: the model ignores promptConduct's ban ~occasionally; not new).
+Index rerender still queued behind webdesign.co.uk's 13:44 batch (another lane, active;
+dispatch serial one-site-at-a-time by design — cv1.co.uk's older item is skipped by a
+live-condition mismatch that is not this lane's problem).
+
+## 2026-08-25 (evening) — MISSTEP: "30 days" attested as prose only; 3 of 5 rebuilds failed `unregistered_number 30`
+
+**What happened.** The five rerenders were claimed within 4 min of filing (my "queued behind
+webdesign.co.uk" reading at 15:1x was `[INFERRED]` from the head-of-queue query and WRONG:
+the `call_content_writer AWAITING_RESPONSES` orchestration I saw at 14:52 was MY index
+build). what-you-get + guide rebuilt and deployed (vm-sites 8e668b1, 50b0fbd; served: "30
+days" present, "about a month" gone). index / faq / how-it-works failed at
+`validate_content` "0 blockers, N errors" and parked as `needs_human_review` (NOT failed:
+the key stays occupied, so re-filing needs a cancel first).
+
+**Cause, read from `agent_error_log` (`error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'`,
+`context.issues`, timestamp column is `occurred_at`; the pod logs were empty for the
+window):** every error was `unregistered_number "30"` / `unregistered_stat "30 days"`. The
+gate matches printed figures against fact VALUES; SQL_2026-08-25 put "30 days" in claims and
+writer_block but no fact carried `value: 30` (build_duration has value 4 for exactly this).
+I verified at the BOT, which reads claims, not values, and skipped claimscan. **Fix:**
+`SQL_2026-08-25c` adds metric fact `live_link_days` value 30 (guards incl. a control that no
+prior fact carried 30); the three parked items cancelled and re-filed under the same keys.
+
+**Also found: `template` is BANNED** (`(template|templated|off.the.shelf|cookie.cutter)`,
+"do not describe the product this way even to deny it") and the owner's draft says
+"starter template"; SQL_2026-08-25 had copied that into writer_block. 25c changes the
+paragraph to "starter site"; lifting the BAN is the owner's call (flagged).
+
+**Two measurement notes for the runbook:** (1) a served-page md5 is NOT a baseline here —
+Cloudflare's email-obfuscation rewrites `data-cfemail` per response, so the hash moves with
+nothing changed (index "changed" from 15cd3681 to eff68431 while vm-sites showed it
+untouched); pin the REPO copy. (2) `kubectl logs -l app=agent-chassis` returned nothing for
+the build window on either pod; the `agent_error_log` row is the durable record.
