@@ -56,7 +56,7 @@ are built as `blog-post` and target **~1,600 words**, not merely the floor. Buil
 | T3 | Stock-tank dilution to move a reservoir from current EC to target EC without precipitation | /tools/nutrient-dosing.html | 3 numeric + 1 select | 612 | | not-started |
 | T4 | Black soldier fly mass balance: wet waste to larvae, protein, frass, and rearing area | /tools/insect-waste-converter.html | 2 numeric + 1 select | 524 | | not-started |
 | T5 | Macroalgae carbon estimate separating cycling from sequestration, with credit valuation | /tools/seaweed-carbon-est.html | 2 numeric + 1 select | 499 | | not-started |
-| T6 | Model SFI revenue by stacking compatible actions across a farm's area and boundaries | /tools/elms-calculator.html | 9 numeric + 8 toggles | 801 | | **evidence: DONE** (72 attested SFI26 facts, 2026-08-22) · **spec written**: `TOOL_SPEC_sfi_stacker.md` · blocked only on the site existing (Phase 3) |
+| T6 | Model SFI revenue by stacking compatible actions across a farm's area and boundaries | /tools/elms-calculator.html | 9 numeric + 8 toggles | 801 | `/tools/sfi26-revenue-stacker/index.html` | **BUILT + DEPLOYED + VERIFIED** 2026-08-25 — see below |
 
 #### T6 is a redesign, not a rebuild (found 2026-08-22, Phase 2 run 1)
 
@@ -77,6 +77,36 @@ management payment:
 So T6's real work is: re-source the SFI26 action set and rates, then design a tool that models the
 caps as well as the sums. **It needs its own evidence run for the action rates** — the run so far
 covered scheme structure, not the per-action figures.
+
+#### T6 VERIFICATION, 2026-08-25 — the guard rails are live, not just the tool
+
+Confirmed by an independent dry run from the `bugs_open/288` lane against this site's live rows:
+
+| layer | result |
+|---|---|
+| PLAN fence `facts` declaration | 24 of 24 file as `unreconciled_declaration`; **zero** `fact_declaration_broken` |
+| `artifact_check` fences | 4 of 4 `fresh` |
+| citation arm | **104 of 104 `fresh`** — zero errors, zero drifted |
+| probe verdict on the 24 | `not_probed`, and that is the honest result |
+
+**The citation number is the one to notice: 104 of 104, up from 22 of 105 on 2026-08-23.** The
+83 attested facts I made "clickable" on 08-24 carried no `quote`, so every one errored silently
+every day and nothing could ever escalate it. That is fixed and re-proved.
+
+`not_probed` on all 24 is expected and correct: every SFI rate is below the probe's measured
+distinctiveness floor of 1000. The fence does not buy probe coverage — **it buys the sweep naming
+this tool on the day DEFRA moves any of the 24 rates**, and the four `artifact_check` entries are
+the per-fact control reaching below the floor where the probe cannot.
+
+**Three things here that must NOT be tidied** (from the 288 lane, recorded so a later session
+does not "clean up" working machinery):
+1. The 24 `unreconciled_declaration` items are expected, low severity, handler-less and
+   self-quieting — each records the value that becomes its own baseline. Leave them.
+2. The `fact_binding_suggested` note **disappearing** from future sweeps is the mechanism working
+   — the suggester skips tools that declare. Its absence is not a regression.
+3. `misplaced_artifact_checks` is **absent from the payload**, not empty, because the reporter is
+   not in a running binary yet. An absent key can only mean "the code isn't running"; an empty
+   array would have been ambiguous. Do not read it as evidence of anything until it appears.
 
 **Every tool additionally owes:** a Tier-4 headless-Chromium acceptance run, and — per
 `bugs_open/288` — every constant it encodes registered as an evidence fact *and* asserted in the
