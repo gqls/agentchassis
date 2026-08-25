@@ -1,0 +1,96 @@
+-- 610 — DROP content_components.usage_count
+--
+-- ⚠⚠ _HOLD: DO NOT LET THE RUNNER TAKE THIS. Apply BY HAND, and only after the
+--          precondition below is verified at the ARTEFACT. It is named _HOLD because a
+--          banner cannot hold a file back — the runner's --apply takes EVERY pending
+--          file in the directory, and a migration's own guard checks DRIFT, not ORDER.
+--
+-- PRECONDITION, and it is the whole reason this file is held:
+--   store_generated_component_action.go's birth INSERT named `usage_count` in its column
+--   list until commit <this commit>. Against a binary built BEFORE that commit, dropping
+--   this column makes every component creation fail with
+--   `column "usage_count" of relation "content_components" does not exist`.
+--
+--   So: DO NOT APPLY until a chassis build containing that commit is LIVE, proven at the
+--   artefact, not at git:
+--
+--     kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user \
+--       -d clients_db -c "SELECT service, git_commit FROM service_binary_capabilities \
+--       WHERE service LIKE '%chassis%' ORDER BY last_seen_at DESC LIMIT 1;"
+--     git merge-base --is-ancestor <this commit> <that git_commit>   # must be YES
+--     git merge-base --is-ancestor <a LATER commit> <that git_commit> # must be NO (control)
+--
+--   The control matters. On 2026-08-24 this lane's first ancestry control was a commit
+--   that ALSO predated the build, so both arms returned YES and the check proved nothing.
+--
+-- WHY DROP RATHER THAN LEAVE IT COMMENTED. 609 makes the column honest to a reader of
+-- `\d+`. It does not make the bad state unrepresentable: the values are still there, still
+-- plausible-looking integers (20, 19, 12, 7, …), and still one `SELECT` away from being
+-- quoted as evidence in a bug file. This estate's own rule is to rank fixes by what makes
+-- the bad state impossible rather than merely discouraged. Nothing reads the column
+-- (measured: no Go reader, no DB function, view or trigger, no frontend), and it carries
+-- NO INDEX, so the drop costs nothing and removes the trap permanently.
+--
+-- WHAT IS LOST: nothing of value. The values are a frozen snapshot of resolution attempts
+-- on one of three paths — they miss ~1,900 real bindings and count non-usages (the two
+-- largest belong to components with ZERO bindings). The ROLLBACK restores the column but
+-- NOT the numbers, and that is deliberate: restoring wrong numbers would be worse than
+-- restoring none. Full evidence: bugs_closed/378.
+
+\set ON_ERROR_STOP on
+BEGIN;
+
+-- GUARD 1 — idempotency. Already dropped is a success, not a failure.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'content_components' AND column_name = 'usage_count'
+  ) THEN
+    RAISE NOTICE 'content_components.usage_count already dropped — nothing to do.';
+  END IF;
+END $$;
+
+-- GUARD 2 — THE LIVE-WRITER CHECK, and it can actually fire.
+-- If the column has moved since the counter was killed, some binary is still writing it,
+-- which means the precondition above is NOT met and dropping would break creations.
+-- The frozen snapshot as of 2026-08-24/25 is: exactly 12 section-level rows non-zero,
+-- maximum value 20. Either number moving means a writer is live.
+DO $$
+DECLARE
+  n_nonzero int;
+  max_val   int;
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name='content_components' AND column_name='usage_count') THEN
+
+    SELECT count(*), COALESCE(max(usage_count), 0) INTO n_nonzero, max_val
+      FROM content_components
+     WHERE is_active AND forked_from IS NULL
+       AND component_level = 'section' AND COALESCE(usage_count, 0) > 0;
+
+    IF n_nonzero > 12 OR max_val > 20 THEN
+      RAISE EXCEPTION
+        'ABORT: usage_count has MOVED since it was killed (% non-zero rows, max %; expected <=12 and <=20). A binary is still incrementing it, so the old birth INSERT is probably live too and this DROP would break component creation. Verify the chassis build BEFORE retrying.',
+        n_nonzero, max_val;
+    END IF;
+
+    RAISE NOTICE 'GUARD: PASS — % non-zero rows, max % (frozen as expected)', n_nonzero, max_val;
+  END IF;
+END $$;
+
+ALTER TABLE content_components DROP COLUMN IF EXISTS usage_count;
+
+-- VERIFY — DO/RAISE, because a verify block of SELECTs cannot stop the COMMIT.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'content_components' AND column_name = 'usage_count'
+  ) THEN
+    RAISE EXCEPTION 'VERIFY FAILED: content_components.usage_count still exists after the DROP';
+  END IF;
+  RAISE NOTICE 'VERIFY: PASS — content_components.usage_count is gone';
+END $$;
+
+COMMIT;

@@ -629,21 +629,26 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			zap.Int("affected_sites", len(affectedSiteIDs)),
 			zap.Int("rerender_items_created", rerenderItemsCreated))
 	} else {
-		// Creation path — unchanged INSERT block.
+		// Creation path.
+		// usage_count is deliberately NOT in this column list (bugs_closed/378). It was the
+		// last writer of a column nothing reads any more: "how proven is this component" is
+		// derived from page_components at read time (ComponentUsageSitesSQL). The column still
+		// exists and carries DEFAULT 0, so omitting it is behaviour-identical today — and it
+		// is omitted precisely so the DROP in migration 609 cannot break this statement.
 		err = params.DB.QueryRowContext(ctx, `
 			INSERT INTO content_components (
 				name, display_name, function, category, component_level,
 				section_type, suitable_site_types, suitable_page_types,
 				description, html_template, js_content, input_schema,
 				is_dark_section, render_mode, created_from, is_active,
-				usage_count, avg_quality_score,
+				avg_quality_score,
 				semantic_tags
 			) VALUES (
 				$1, $2, $3, $4, 'section',
 				$5, $6::jsonb, $7::jsonb,
 				$8, $9, $10, $11::jsonb,
 				$12, $13, 'generated', true,
-				0, NULL,
+				NULL,
 				$14::jsonb
 			)
 			RETURNING id::text
