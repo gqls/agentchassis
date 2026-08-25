@@ -38,6 +38,32 @@ the landmine's own title, and the grep found the comment before the `echo`. The 
 Three occurrences in four days; `WRONG_CALLS.md` 2026-08-25 has the tally and the habit that fixes
 it (`sed 's/#.*//'` on every hazard grep, including throwaways).
 
+## 0b. WHEN YOU CLOSE IT — two things that bite on the way out
+
+**(1) `[MEASURED 2026-08-25]` 66 files reference the string `bugs_open/327`** — 35 under
+`docs/agent_docs`, 11 under `scripts/initial_messages`, 4 under `platform/orchestration`, plus the
+library, the detector and several migrated scripts. **The moment the file moves, all 66 point at a
+path that does not exist.** There is a standing landmine on exactly this shape (*closing a bug does
+not retract the deferrals pointing at it* — 20 days were lost to one). Most of these are
+*explanatory citations* ("why this code looks like this"), not deferrals, so they are far less
+dangerous than that case — but they are dead paths.
+**Cheapest honest fix: leave the citations, and do NOT rewrite 66 files.** A reader who greps
+`327` finds it in `bugs_closed/`. What matters is (2).
+
+**(2) BOTH 327s will then live in `bugs_closed/`, so the ambiguity gets WORSE, not better.**
+Today you can disambiguate by directory — open = the dispatch drop, closed = the partial spec
+write. After the move you cannot. `bugs_closed/` will hold:
+
+```
+327_HANDOFF_2026-08-19_a_partial_spec_write_silently_shrinks_the_brief_the_writer_reads.md
+327_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md
+```
+
+**So: resolve by SLUG, always** — `scripts/who-owns.py 327` already prints the ambiguity warning,
+and a live handoff has already conflated the two once (corrected in
+`loanzy_uk_example_site/HANDOFF_2026-08-23_garden_tools_continue_here.md`). Worth saying in the
+closing commit message so the next reader meets it there.
+
 ## 1. State in one paragraph
 
 A shared, receipt-asserting Kafka publisher (`scripts/kafka-publish-lib.sh`, register
@@ -198,13 +224,17 @@ REFUSED** · **13 published, not landed (wait)**. They start at 10 because calle
 
 ## 8. Open decisions for the owner — these are ALL that is left
 
+> **These two now have their own file, deliberately outside the bug so closing it cannot bury
+> them: `HANDOFF_2026-08-25_open_decisions.md`.** It carries the measurement behind each and the
+> trigger that would make B urgent.
+
 **Nothing is blocked and nothing is in flight.** The lane is complete to its stated bar; these
 three are judgement calls, not work items.
 
 1. **Close `bugs_open/327`?** All three closing conditions written into the bug file are MET
    (11 live publishers migrated + tested · detector in place · scope statement standing). It is
    still open only because "keep it open and track the class" was an explicit instruction and
-   reversing that is the owner's call. **Recommendation: close it.** What remains after closing is
+   reversing that is the owner's call. **Recommendation: close it** (owner agreed 2026-08-25; see §0b for the two things that bite on the way out). What remains after closing is
    not work — ~55 dormant `scripts/` files (untouched 30d+) and the `docs/` one-offs that must not
    be rewritten — and the commit-time detector catches any of them the moment someone picks one up.
 2. **Spend credits on a council round?** It is now **legitimately in scope** (the 2026-08-24
