@@ -53587,3 +53587,54 @@ The agent-to-check mapping is `discovery_checks_registration_test.go`. Corollary
 existing family: a schedule is a CLAIM about a mechanism, and the `3/3` line I would have
 leaned on to defend it is itself blind (`bugs_open/401`, LANDMINES same day) — so the check
 must read the row, not the report.
+
+---
+
+## 2026-08-25 — I said a wrapper made my guard "total over every route", and totality was the bug
+
+`bugs_open/395` session, routing rule 3b (WII-035). Council `021cb965` APPROVED it, and one of the
+non-blocking objections was a **real defect**.
+
+**What I claimed**, in the code comment, the commit message and the council submission: putting the
+capability check in a WRAPPER around the router rather than a branch inside it *"makes the guard total
+over routes that do not exist yet"* — offered as the property that makes the bad state unrepresentable.
+
+**What the `guidelines` seat asked**: *"Confirm no route already produces a classifiedFinding for
+these two fields whose HandlerAgent the guard would then override incorrectly (e.g. an
+already-deferred/capability_gap route re-stamped) — the test suite as described only covers the
+page-build-handler worked case and a prose negative control, not the full existing route matrix."*
+
+**It did.** Rule 3 already parks `cta` and `nav_restructure` findings as `capability_gap` with dedup
+key `capability_gap:no_handler_for_audit_category:cta`. My guard re-stamped those with
+`capability_gap:no_writer_for_page_field:meta_description` — **same `item_type`, so every shallow
+check agreed** — silently merging two structurally different gaps into one dedup slot and destroying
+the `gap_kind` and `builder_needed` that tell whoever picks it up what to build.
+
+**Why my own tests could not see it.** I had a positive case, a negative control and three mutation
+proofs, and all five were about the ONE route I was thinking about. **A negative control proves the
+guard does not fire where it should not; it does not prove the guard does not fire DIFFERENTLY where
+something else already fired.** The route I broke was already producing the same `item_type` I was
+producing, which is exactly why it looked fine.
+
+**The check that found it, and it is the transferable part.** State the guard's property as a
+**BICONDITIONAL over the whole universe**, not as a positive plus a control:
+
+> every route WITH a handler must convert · every route WITHOUT one must come back **byte-identical**
+
+and assert both arms are non-empty so the test cannot pass vacuously. Over
+`classifyCategoryUniverse()` that is 19 already-unrouted and 73 routed. Mutation-proven: delete the
+empty-handler early return and it fails **naming the `cta` case**.
+
+**The general form:** *"my change is a no-op except where it fires"* is a claim about the whole
+input space, and it is only tested if you actually walk the whole input space. A wrapper does make a
+guard total — **including totally wrong**, and "total" was the word I used as if it were a safety
+property on its own.
+
+⚠ **And the one I conceded rather than fixed**, from the `constitution` seat, because it is the
+better lesson: *"Staleness re-check for roster entries is described in prose (risks section) but not
+wired to any scheduled verification — the exact enforcement gap 320 §9 was filed about, now reproduced
+one layer down."* I built the whole mechanism **because prose does not bind**, and then wrote its
+staleness rule in prose. Named as a follow-on in WII-035, not built.
+
+Family: a-negative-control-is-not-a-route-matrix, totality-is-not-a-safety-property,
+i-reproduced-the-gap-i-was-closing.
