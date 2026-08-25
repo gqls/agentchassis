@@ -42,43 +42,35 @@ sweeps, discovery checks, imagery style and rerender, and this one had visibly s
     artifact_check fences       4 of 4 fresh
     citation arm              104 of 104 fresh, zero errors, zero drifted
 
-## 3. ⚠ THE ONE OPEN ITEM — the light palette is 90% in; the CSS is the last step
+## 3. The light palette — DONE and verified at the served page
 
 **Owner instruction, 2026-08-25:** a lighter palette with dark text, as the default on all domains
-and on this one.
+and on this one. **Complete on both counts.**
 
-### Done and verified
+Verified at the served page, cache-busted, **on both arms** — because "no dark hex" alone is also
+true of a broken page:
+
+    served bytes 63,883        (a broken page would be tiny)
+    absent   #12151F   old dark background
+    PRESENT  #f1ede4   cream ground
+    PRESENT  #fffdf8   paper
+    PRESENT  #1a1a1a   dark text
+    PRESENT  #2C7744   brand green, kept
+    and the tool still works: rate table, action codes, script, source link,
+    capture date, £224 present, £382 still absent
 
 | | |
 |---|---|
-| `design_intent.palette.reference_values` | `#F7F8F5` bg / `#1A202C` text ✓ |
-| `design_intent.style_direction` | `modern-light` ✓ |
-| `classification.suggested_style` | `modern-light` ✓ (was `professional-dark`) |
-| `imagery_style_guide` | moved to light grounds ✓ |
-| **the site's theme** | **replaced** — `site-design-planner` installed `collection-agritec-uk-819c6c8c` at 15:55, light, and repointed `sites.style_collection_id` to it ✓ |
-| fleet default | migration **613** applied + verified; council `ca1d0f70-602d-4908-9098-632fc89bdb61` ✓ |
+| `design_intent` palette + `style_direction` | light / `modern-light` |
+| `classification.suggested_style` | `modern-light` (was `professional-dark`) |
+| `imagery_style_guide` | light grounds |
+| the site's theme | replaced — `collection-agritec-uk-819c6c8c` |
+| chrome (`site_components`) | regenerated light |
+| all 13 pages | re-rendered and deployed |
+| fleet default | migration **613**, council `ca1d0f70-602d-4908-9098-632fc89bdb61` |
 
-### The one thing left
-
-**The `head` slot of `site_components` is still stamped 2026-08-24 19:20 and carries `#12151F`.**
-It is the last dark artefact and it is what the pages embed.
-
-A `needs_design:regen-css-on-light-theme` item is **queued now** for `webdesign-agent`. The
-earlier attempt re-rendered dark because `render_css_from_spec` merges `comp.Palette` (the
-THEME's) with the spec's, and the theme was still dark. **The theme is light now**, so this run
-should produce light CSS. If it does not, read the merge in
-`render_css_from_spec_action.go:125` and `enforceLayoutScheme` at `:390` — the LAYOUT also
-declares a scheme and the layout may still be a dark variant.
-
-**Verify at the served page, never at the specs.** The specs have read "light" for hours while the
-site served dark; that gap is the whole reason this took four seams:
-
-    curl -sS -L "https://agritec.uk/tools/sfi26-revenue-stacker/?cb=$(date +%s)" | grep -c '#12151F'
-
-Must return 0.
-
-**Then:** the 17 generated images were made against the *dark* imagery guide and will look wrong
-on a light site. They need regenerating once the CSS lands.
+**One follow-up:** the 17 generated images were made against the *dark* imagery guide and will
+look wrong on the light site. They need regenerating — that is now the top open item.
 
 ### The seam map — FIVE seams, and four of them report success while changing nothing
 
