@@ -67,6 +67,29 @@ at all — went through the council instead: RFC_056, trail `d1342f2a`.)
   `detected` rows the promoter handles; they are DEFECT-shaped today, but the same one-door
   design means nobody would notice if one became opinion-shaped.
 
+**§4a — the record-mode census, settled twice over (2026-08-25 night, both lanes).** The 391 lane
+verified first-hand: SIX live agents carry `write_audit_findings` with `filing_mode: record`
+(brief-fidelity, content-quality, offer-analyser, reader-experience, site-review, visual-design).
+Their follow-up worry — "council-gate and fix-proposer carry the step and are NOT in record mode" —
+is the NAME-JOIN trap of §4b below, one seam over: `[MEASURED 2026-08-25, both instruments in one
+query]` those two rows have **0 steps with `action='write_audit_findings'`** and **1 text
+occurrence each** — the string lives in their reviewer-roster PROSE (footprint maps), not in a
+step. There is nothing to switch and nothing deliberate to confirm: they are not seats. Two capable
+readers mis-read this in opposite directions in one evening (a text census read as steps; a
+jsonb-steps census suspected as blind) — which is why both instruments are named here.
+
+**§4b — ⚠ the vocabulary trap a verifier WILL hit (391 lane, hit first, nearly sent as a
+refutation):** `audit_source` labels are NOT agent type names — `offer-analysis` ↔
+`offer-analyser`, `site-review` ↔ `site-review-agent`, `content-quality-audit` ↔
+`content-quality-auditor`, `visual-design-audit` ↔ `visual-design-auditor`,
+`brief-fidelity-audit` ↔ `brief-fidelity-auditor`, `reader-experience-audit` ↔
+`reader-experience-auditor` (no rows yet — the safe direction), and `design-audit` is a
+HISTORICAL predecessor label (6,035 rows, newest 08-12, none in the 08-20→24 window) with no
+record-mode agent — renamed, not a gap. A `WHERE type IN (<audit_source values>)` join returns
+**0 rows and reads exactly like "record mode was never applied"**. Candidate 1 crosses this seam
+BY CONSTRUCTION (the Go stamps from the SEAT's context; the door reads the ROW), so the fix must
+pin the mapping explicitly — a lockstep test over the pairs above, not a comment.
+
 ## 5. Fix candidates, ordered by what closes the door (not by effort)
 
 1. **An origin class the promoter can read** (closes the door): `write_audit_findings` stamps
