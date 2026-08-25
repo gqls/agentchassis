@@ -988,3 +988,56 @@ diff reads exactly like "there was no removal after all", which is the comfortab
 was false. Pin the sha: `git diff b0cf6e501^ b0cf6e501 -- <file>`. This is
 [[relative-git-refs-are-not-evidence]] firing in the ten minutes after a commit, on a tree
 where HEAD moves every few minutes.
+
+### The diagnosis loop returned UNVERIFIABLE — and the two things it wanted, I hold
+
+Run `fbdaca97-a97e-41e6-b422-2475521e6a6c` stopped at `scope-not-narrowing` with status
+**UNVERIFIABLE** — **not REFUTED**. It agreed the numeric signature was present ("1 projected
+section against a 3-entry `pages.sections` plan → 33%") but would not conclude, naming exactly
+two gaps. Both are closed first-hand below, so this claim rests on verification I did myself
+and say so plainly (owner ruling 2026-07-31), not on a loop verdict it did not give.
+
+**Gap 1 — "nothing ties THIS page's tool-recreation route and THIS sections write to a single
+`apply_adoption_plan` transaction."** The work item for page
+`f763ca0e-a5ad-4d25-9e6c-37d158c13493` [MEASURED 2026-08-25]:
+
+```
+item_type    needs_tool_recreation      handler_agent  tool-recreation-handler
+source       adoption                   created_by     site-adoption-agent
+batch_id     04cb939f-3afe-4083-942e-445dfabbb4ee
+item_key     needs_page:tool-example    spec.mode      recreate
+```
+
+`item_key` is `fmt.Sprintf("needs_page:%s", page.Name)` — the literal at
+`apply_adoption_plan_action.go:751` — and `spec.mode='recreate'` plus a populated
+`interactive_features` is the `pageSpec` built at :710-724. The page row itself is written by
+`applyAdoptionPlanPagesUpsertSQL`, the same action. Same action, same batch, same run.
+
+**And the sharpest single piece of evidence is inside that spec.** The adoption's own analysis
+recorded this page as:
+
+```json
+{"name":"Interactive Job Prep Checklist","type":"tool","self_contained": true, …}
+```
+
+**`self_contained: true`** — and the very same action then wrote that page a **three-entry**
+`pages.sections` plan. The contradiction is not an inference across two subsystems; it is two
+fields written by one action in one transaction, and one of them is the floor's denominator.
+
+**Gap 2 — "the actual body of `measurePageSectionCompleteness` showing the denominator is read
+from `pages.sections`."** Read directly (`save_sections_prune_floor.go`):
+
+```go
+CASE WHEN jsonb_typeof(p.sections) = 'array'
+     THEN jsonb_array_length(p.sections) ELSE 0 END,   -- ...FROM pages p WHERE p.id = $1
+m.Planned = planned - suppressed - m.LockedRows
+{Label: "planned sections", Confirmed: projected, Stored: m.Planned},
+```
+
+The denominator is `pages.sections`, less suppressed, less locked. Confirmed.
+
+⚠ **Read the loop's stop correctly.** UNVERIFIABLE is not a refutation and it is not a pass —
+it is the loop declining to conclude on the bundle it could assemble, and its "still needed"
+list is the useful output. It could not fetch a function body its own symbol scope had already
+named (`measurePageSectionCompleteness` was in the scope list), which is worth knowing about
+the instrument: **being in scope is not being retrieved.**
