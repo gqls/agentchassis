@@ -57,3 +57,14 @@ about, one level up.
 A `cta_links_stale` item on a page whose finding cannot be repaired must FAIL to complete
 (named residue), and a fresh fleet census after one full rolling-sweep cycle must show
 zero items completing with their finding still present under the live predicate.
+
+## Lead on class 3, from the 277 lane (2026-08-25) — [UNVERIFIED, not measured by either lane]
+
+The two frozen ai-agent-orchestration.com `/blog` components (hero + call-to-action) also sit in
+`bugs_closed/277`'s residual — the `no_content_data` parked set, **12 rows across four pages**
+(count as of 2026-08-25, theirs). 277 §9 records a measured cause for that population: template
+drift, with `component_versions` holding zero rows for the components involved, and
+`cmd/content-data-recover` already refuses exactly those rows for a stated reason, gating on a
+byte-identical re-render. Whether class 3 here IS that defect or merely overlaps it on one site
+with a bad early build has not been measured. Whoever takes class 3: start from 277 §9 and
+`cmd/content-data-recover`'s refusal reason before designing anything new.
