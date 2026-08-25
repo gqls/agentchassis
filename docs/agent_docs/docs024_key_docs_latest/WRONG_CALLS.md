@@ -50664,6 +50664,15 @@ instead of *"just over two hours, on schedule"* — a stall that never happened,
 for someone who was not here to see the build. **A wrong zero point does not produce a wrong number;
 it produces a wrong story, and the reader has no way to catch it.**
 
+⚠ **AND IT SILENTLY DISARMED AN INSTRUMENT, which I only found because the same lane pushed on a
+different point.** The build monitor I armed at the same time keyed its planner-detector on
+`created_at > '2026-08-25 11:10:00+00'` — the same BST number with the same `Z`. That timestamp was
+**fifty minutes in the future**, so the branch could never have fired: the planner could have run and
+the monitor would have stayed quiet, and I would have read the quiet as "not yet". **The wrong
+timestamp did not merely mislead a document; it made a detector that cannot return true**, which is
+this lane's own recurring disease arriving from a direction I did not expect. Rebuilt with the
+correct bound, and with an elapsed heartbeat so silence is never ambiguous.
+
 **The cheap check, and it is one flag:** `date -u`, and stamp it **in the same command** as anything
 you record — `echo "checked at $(date -u +%Y-%m-%dT%H:%M:%SZ)"`. Never transcribe a clock time from
 `kubectl`, a log line or a prompt and add a `Z`. **`kubectl`/`klog` output is LOCAL; the database is
