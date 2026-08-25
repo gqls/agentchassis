@@ -234,3 +234,22 @@ misconfigured relay box could never expose anything beyond the links.
 
 Next piece of building work is the button-press confirmation page — the thing you ruled
 must exist before any customer email goes out.
+
+## 2026-08-25, morning — re-checked after the overnight roll; still live
+
+Another software roll went out about half an hour ago, so last night's proof had expired
+and I ran it again rather than repeat it. Both halves are still there: the console is
+serving image v1.0.1337 and the page bundle inside it still contains all five of the new
+screen's fingerprints, and the cluster service is running code that contains the Builds
+backend. I also ran each check with a deliberate dud alongside it — a phrase that must
+not be found, and the ancestry test run backwards — so a check that always says yes
+would have been caught.
+
+Worth knowing for next time: the roll changed the console's version number but not the
+page bundle itself, which still has the same name as yesterday. That is expected — the
+name is derived from the contents, so an unchanged screen keeps its name through a new
+release. The version number moving is not evidence the screen changed, and the name
+staying is not evidence it didn't ship.
+
+Nothing else moved overnight. Still owed: the button-press confirmation page, and your
+three questions on the exposure review.
