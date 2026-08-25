@@ -55,3 +55,49 @@ let the agent use that measurement, and park honestly the one case no stylesheet
 I have written down, in advance, what I expect each step to do, including what result would prove
 me wrong. That matters here more than usual, because the failure mode of this whole area is work
 that reports success without having achieved anything — which is precisely the bug.
+
+## 2026-08-25, later — what has actually shipped, and the two things that went wrong
+
+Three things are now in.
+
+**First, the quick one, and it is live.** The repair agent's instructions used to tell it, in
+writing, to do the thing that loses. I replaced that text. It went live at about a quarter to five
+and I checked the live record afterwards rather than assuming — the old sentence is gone, the new
+one is there, and running it a second time now refuses loudly instead of quietly doing it twice.
+
+**Second, the real fix, which is committed but asleep.** The page checker now works out *which*
+styling instruction is actually deciding a colour, and — this is the part I care about — it
+**proves** it rather than guessing. It removes the instruction it thinks is winning and looks
+again. If the colour changes, that instruction was the winner; if nothing changes, it was not, and
+the checker says "I could not tell" instead of inventing an answer. It puts everything back
+afterwards and checks that it did. Nothing here takes effect until the next release of two
+services, so the pipeline behaves exactly as it did today until then.
+
+**Third, a separate bug filed.** The erasure problem I described earlier is now its own case with
+its own number, so it does not get lost inside this one.
+
+Now the two things that went wrong, because those are the useful part.
+
+**The review panel found a real flaw and I had already shipped past it.** I put the quick fix
+through the review council, and while it was thinking I applied the change. The panel came back
+asking for a revision: my migration assumed there was exactly one copy of the agent's settings, and
+never actually checked. It turns out four other agents in the estate *do* have two copies, so the
+assumption is not idle — it just happened to be true for this one. I verified that myself rather
+than taking their word, added the check, and proved it works by faking a second copy and watching
+it refuse.
+
+The second flaw they found is the one worth writing down. I had typed the same sentence into the
+file twice — once for the safety check, once for the edit itself. If those two copies ever drifted
+apart by a single character, the safety check would pass and the edit would silently do nothing,
+while still reporting success. That is the *second* time in this one file that I wrote a value down
+twice and created a way for it to disagree with itself; I caught the first one myself. The rule I
+am taking from it: never restate a value, derive it. The file now declares each sentence once.
+
+**And a mistake in how I sequenced things.** Because I applied the change before the panel finished,
+their automatic checks looked at the world *after* my edit and reported that the text I was
+proposing to replace was not there. That reads like something had gone wrong, and nothing had — it
+was simply me having already done it. I have written that down where the next person will see it.
+
+Two review rounds are still running. The remaining piece — teaching the repair agent to use the new
+measurement — is deliberately waiting until the services roll, so it can be built against real data
+rather than my expectations of it.
