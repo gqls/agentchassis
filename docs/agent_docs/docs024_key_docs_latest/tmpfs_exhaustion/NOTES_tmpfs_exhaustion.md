@@ -373,3 +373,63 @@ unlike Go's cache (5-day trim) and `systemd-tmpfiles` (10-day) it never reaps at
 the third reaper-shaped hole in this machine and the only one that is simply absent rather than too
 slow. `docker builder prune --keep-storage <N>GB` is the bound, and it is a decision, not a fix to
 apply quietly.
+
+### 2026-08-25 (evening) — release retention at N=25, and a validator that says OK to nonsense
+
+Owner: *"it's the number of old builds we want to cap, not the actual build size."* Docker cannot
+express that for the **cache** — its GC has exactly two axes, a byte ceiling and an age
+(`unused-for`), because the cache is a shared pool of layer/step records with no per-build unit in
+it to count. The countable thing is the **image** side: one `v1.0.NNNN` tag per `make release`,
+~25 images under it. `[MEASURED]` 97 tags, `v1.0.1229`..`v1.0.1339` — which is **23 days**, not
+anything like 97, because the cadence is **2–19 releases per day**.
+
+`scripts/docker-build-retention.sh --keep 25 --apply`, 30 seconds, exit 0:
+
+| | before | after |
+|---|---|---|
+| release tags | 97 | **25** (`v1.0.1339` .. `v1.0.1308`) |
+| images | 1,063 / 109.5 GB | **610 / 60.5 GB** |
+| `/` | 349 G used, 40% | **304 G used, 35%, 587 G free** |
+
+Verified after: today's `v1.0.1339` intact (**29 images**), base images intact (4), docker still
+builds (`FROM scratch` → exit 0), and **a second run is a no-op** — idempotence matters here because
+this is going to run repeatedly and a retention tool that deletes a little more each pass is a slow
+outage.
+
+#### The bug: a silent no-op wearing the shape of a clean bill of health
+
+First cut printed **"nothing to remove"** and I nearly believed it. Docker's `CreatedAt` is
+`2026-08-25 19:39:29 +0100 BST` — a numeric offset **and** a zone name, which `date -d` rejects
+outright. Every row failed its parse and skipped on `|| continue`.
+
+**On a retention tool, "nothing to remove" reads as "you are within policy."** There is no error, no
+zero, no empty list — it is the exact output of a correctly-working tool on a tidy machine. Fixed to
+**refuse loudly** when no date parses at all, and proved the guard fires by shadowing `date` with a
+stub that always exits 1 rather than by trusting the code path.
+
+#### `dockerd --validate` DOES NOT VALIDATE VALUES — and I only know because I controlled it
+
+The owner will install the cache-GC `daemon.json` as **root**, and an unparseable `daemon.json`
+**stops the Docker daemon**, which on this box takes the whole build pipeline with it. So
+`dockerd --validate --config-file …` printing `configuration OK` felt like enough. It is not:
+
+```
+{"reservedSpace": "not-a-size"}   → configuration OK          ← accepted
+{"bogus-key-xyz": 1}              → directives don't match any configuration option
+```
+
+**It checks key NAMES, not values.** A passing validate proves you have not misspelled a *setting*;
+it says nothing about a misspelled *size*. The README therefore requires confirming Docker came back
+after the restart, and keeps the one-line rollback beside it.
+
+**The transferable half, and it is the fourth time this lane has met the same shape:** *an "OK" from
+a validator is evidence only once you have watched that validator say NO to something.* One
+deliberately broken value was the whole cost of finding out this one is half-blind — and I would not
+have spent it if the first `configuration OK` had not been about to be run as root on a shared box.
+
+#### Regrowth, already visible
+
+The build cache was **1.272 GB** after the prune and **16.8 GB about 80 minutes later** on ordinary
+fleet activity. So the 7-day age policy is bounding something real. It has **no size ceiling** — the
+owner chose age-only — which bounds how *long* cache survives, not how *much* accumulates inside the
+window. Stated in the README rather than hedged; `maxUsedSpace` is the knob if a heavy week bites.

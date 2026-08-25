@@ -17946,3 +17946,27 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the `git rev-list --objects` entry above (same report, same category, third distinct way its universe acquires holes — and its own ⚠ about grepping for words only YOUR entry contains applies to verifying this one) · MEMORY [[live-and-committed-are-independent-facts]] (a tool shipping from a FILE cannot see it is UNCOMMITTED — this is that trap seen from the reader's side) · [[mutate-the-code-to-prove-the-guard]] · [[a-pass-from-a-blind-check-outlives-the-blindness]] · `DOC-078`
 - **source:** 2026-08-25, concept-register lane, from re-running the handoff's verification table cold and finding the sharpest category had moved 4 → 7. None of the three was rot.
 - **added:** 2026-08-25, concept-register lane
+
+### `dockerd --validate` prints `configuration OK` for an INVALID VALUE — it checks key names only, and the failure it misses stops the daemon
+
+- **footprint:** `dockerd --validate`, `/etc/docker/daemon.json`, `deployments/docker/daemon.json`, `builder.gc`, `reservedSpace`, `maxUsedSpace`, `systemctl restart docker`
+- **fires when:** you write or edit `daemon.json` — a BuildKit GC policy, a registry mirror, a storage driver — and reach for `dockerd --validate --config-file <path>` to check it before installing it as root. Which is the correct instinct, and it half-works.
+- **the trap:** it validates **key names**, not **values**. `[MEASURED 2026-08-25, Docker 29.2.1]`
+  ```
+  {"builder":{"gc":{"enabled":true,"policy":[{"reservedSpace":"not-a-size"}]}}}  →  configuration OK
+  {"builder":{"gc":{"enabled":true}},"bogus-key-xyz":1}                          →  the following directives don't match any configuration option: bogus-key-xyz
+  ```
+  So a pass tells you that you have not misspelled a *setting*. It tells you nothing about a misspelled *size*, duration or enum.
+- **why the wrong answer looks exactly like the right one:** `configuration OK` is the same string you get for a genuinely correct file, and you are about to act on it with **root**. **An unparseable `daemon.json` stops `dockerd` from starting** — on a box whose entire release pipeline is `make build-*`, that is the build estate down, discovered at the next build rather than at the restart.
+- **the check:** never install on a bare `configuration OK`. Restart and **prove the daemon came back in the same breath**, with the rollback already typed:
+  ```bash
+  sudo install -m 0644 -D <repo>/deployments/docker/daemon.json /etc/docker/daemon.json
+  sudo systemctl restart docker
+  systemctl is-active docker && docker info >/dev/null && echo "docker is back"
+  # rollback, if not: sudo rm /etc/docker/daemon.json && sudo systemctl restart docker
+  ```
+  There was **no pre-existing `/etc/docker/daemon.json`** on this box as of 2026-08-25, so the rollback is a delete, not a restore — check that before assuming the same.
+- **the generalisable half:** **an "OK" from a validator is evidence only once you have watched that validator say NO to something.** Feed it one deliberately broken value first. That is the whole cost, and here it converted a green tick into a known-half-blind green tick before it was run as root on shared infrastructure. Same shape as a mock that cannot assert a negative, and as a self-test whose control never proves a candidate existed.
+- **relations:** MEMORY [[mutate-the-code-to-prove-the-guard]] · [[a-post-fix-zero-needs-a-demand-control]] · [[a-doc-comment-is-not-an-enforcement-mechanism]] · `deployments/docker/README.md` (the install runbook this produced) · the sibling entry above on `du` not seeing `/var/lib/docker`
+- **source:** 2026-08-25, `tmpfs_exhaustion` lane, found while preparing a root-run install for the owner — the control was run *because* it was about to be root, not because anything looked wrong.
+- **added:** 2026-08-25, `tmpfs_exhaustion` lane
