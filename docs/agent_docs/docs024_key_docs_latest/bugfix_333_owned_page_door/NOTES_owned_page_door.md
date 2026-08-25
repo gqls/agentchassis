@@ -413,7 +413,15 @@ that proves nothing about the test; re-run as a compiling mutation. One test com
 commit: PolicyUnreadable does NOT kill dropping `checked` (every checked=false path also returns
 owned=false) — the comment now says what it actually kills.
 
-**Cross-lane detour**: `cmd/config-key-audit` had been UNBUILDABLE at HEAD since the 08-23
+> **CORRECTED 2026-08-25 ~18:3xZ (caught by the 392 lane's clean-checkout baseline):** the paragraph below is
+> FALSE in its premise and harmful in its action. `cmd/config-key-audit` was NOT unbuildable at HEAD — the
+> `undefined` was working-tree-only, caused by the 363 lane's UNCOMMITTED livespec.go rename (held dirty
+> deliberately, documented by 363 and 375 that morning). My `6d3e0027e` pointed the test at the uncommitted
+> name and BROKE HEAD's test package for every clean checkout. Restored `8b9128131`, verified at committed
+> HEAD (build + vet). WRONG_CALLS row under this date. The `--test` flag on `verify-head-builds.sh` exists
+> and I did not use it.
+
+**Cross-lane detour** ~~(as first written)~~: `cmd/config-key-audit` had been UNBUILDABLE at HEAD since the 08-23
 `DeferredDeclarations`→`LiveAuditOnlyDeclarations` rename missed `livedeclarations_test.go` — found
 because the pre-commit hook's optional-key parity arm said "the tree does not build" on MY commit.
 Mechanical 2-identifier fix, `6d3e0027e`, 363 lane not running. Not council-submitted (a 2-line

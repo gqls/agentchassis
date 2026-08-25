@@ -53065,3 +53065,30 @@ different situation. Both times the estate had written the answer down; both tim
 my subject rather than my method. **That is now a measured pattern in this session, not an
 anecdote**, and it is the strongest argument I have seen for the grep being a checklist step
 before verification rather than a habit relied on to fire.
+
+## 2026-08-25 — `bugs_open/333` lane: I "fixed" a HEAD breakage that did not exist, and the fix is what broke HEAD
+
+My pre-commit hook said "the tree does not build" on a commit of mine; `go test ./cmd/config-key-audit/`
+in the working tree failed with `undefined: livespec.DeferredDeclarations`; `platform/livespec/livespec.go`
+in the working tree showed the constant renamed to `LiveAuditOnlyDeclarations` with a comment dated
+08-23. I concluded the package "had been unbuildable at HEAD for ~2 days", renamed the test to match,
+committed it (`6d3e0027e`), and told the owner so. **Every step read the WORKING TREE and called it HEAD.**
+At HEAD, `livespec.go` still says `DeferredDeclarations`; the rename exists only in the 363 lane's
+UNCOMMITTED 92-line diff — so HEAD had been fine, and my commit pointed the test at a symbol nobody
+else has, breaking the test package at HEAD for every clean checkout while my tree compiled. Caught by
+the `bugs_open/392` lane's clean-checkout baseline (`git archive HEAD` + `go vet`), ~6 hours later.
+Restored forward-only (`8b9128131`), verified at committed HEAD via `scripts/verify-head-builds.sh`
++ `go vet` in its kept tree.
+
+Three checks I skipped, each one command: **(1)** `git show HEAD:<file> | grep <symbol>` before
+treating a symbol I saw in the tree as existing at HEAD — the file was `M` in `git status` and I
+never looked; **(2)** `scripts/verify-head-builds.sh --test <pkg>` after the commit — I verified only
+`./cmd/agent-chassis`, the package I cared about, not the one I had just changed, and `go build` does
+not compile `_test.go` files, so even a build of the right package would have read green; **(3)**
+`who-owns` / grep the lanes' handoffs before touching a file at another lane's seam — the 375 handoff
+(`e9aed810c`, that morning) said in terms *"a third lane's breakage. Do not debug it."*, and the 363
+CONTRIB (`ac7c75c9b`) said 375 was *"deliberately not editing livespec.go while this lane has it dirty"*.
+Two lanes had already agreed the correct posture in writing; I did not read it and did the thing they
+had agreed not to do. **What generalises: on a shared tree, "it fails in my checkout" is a fact about
+my checkout. HEAD is a different object and has to be asked directly — and a symbol that appears
+only in a dirty file is not a symbol, it is someone's plan.**
