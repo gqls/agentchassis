@@ -1,5 +1,11 @@
 # HANDOFF 2026-08-24 — `bugs_open/352`, the invented selector: cold-start and what is left
 
+> # ⚠ SUPERSEDED 2026-08-25 — START AT
+> # `HANDOFF_2026-08-25_continue_here.md`
+> (same directory). This file is kept for the trail. Two of its figures are struck through and
+> corrected in §10 — the audit failure rate's window, and the 587 re-detection date, which moved
+> from 2026-09-07 to **2026-08-28**.
+
 **Read this first, then `NOTES_invented_selector.md` (newest at the bottom) and
 `RUNBOOK_invented_selector.md`.** The bug file itself carries a status banner at the top —
 `bugs_open/352_HANDOFF_2026-08-22_contrast_findings_name_a_selector_that_matches_nothing.md`.
