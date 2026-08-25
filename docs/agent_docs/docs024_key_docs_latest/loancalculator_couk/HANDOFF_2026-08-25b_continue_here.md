@@ -32,25 +32,31 @@ interactive) is **1 row fleet-wide: `tool-loan-vs-savings`/`tool-2`, the victim 
 
 ## Next actions, in order
 
-1. **The code fix — `bugs_open/385` §8 candidate 0.** Give the Layer 2 matcher
-   `matchLockedRow`'s arms (identity → slot exact → slot kebab → function/name), with
-   one-row-claims-one-section consumption, mirroring the two sibling matchers. All data
-   is already in the preload's `preservedSection`. Extract the matcher so the test calls
-   REAL code (WRONG_CALLS 2026-08-19: a test that mirrors the construction proves
-   nothing), and mutation-prove on the motivating shape: stored
-   `{slot:'tool-2', componentID:X, function:'tool-loan-vs-savings'}` vs incoming
-   `{name:'tool-loan-vs-savings', id:X}` must MATCH (fails on today's code). Council
-   gate before/alongside the commit (`platform/` is in scope). ⚠ **Cross-check
-   `bugs_open/357` first** — the Layer 2 arms are that active lane's seam
-   (`carryStoredIdentity`); coordinate, don't collide.
-2. **Owner decision (asked in README):** data-side disarm today — flip the one armed
+1. ~~The code fix~~ **DONE 2026-08-25, same session: commit `a799579fd`**
+   (`matchPreservedSectionIdx` — identity → slot exact → slot kebab → function, with
+   one-row-claims-one-section consumption; six unit tests mutation-verified RED on
+   slot-only, wiring scan, whole-action pin; the 357 lane's four Layer 2 provenance
+   tests pass unchanged — their own comments anticipated this as "the identity
+   round"). `verify-head-builds.sh` OK at `a799579fd`. **Council verdict OWED:**
+   correlation `ece638fb-ec12-4a73-a1d1-c80d96d22ff4`, committed with
+   `Council-Submitted:`. Find the run by payload, not by printed id:
+   `SELECT current_step, status FROM orchestration_states WHERE
+   collected_data->'input_data'->>'fix_correlation_id' = 'ece638fb-ec12-4a73-a1d1-c80d96d22ff4';`
+   Read the verdict (`SELECT body FROM doc_notes WHERE categories ? 'council-gate'
+   ORDER BY created_at DESC LIMIT 1;`) and **act on a REVISE — the code is already on
+   the shared branch.** Budget ~30 min queue; a missing orchestration row is latency,
+   not a drop.
+2. **The fix is INERT until an image rolls.** "Has it shipped?" is a query: chassis
+   `build provenance` stamp, then `git merge-base --is-ancestor a799579fd <stamp>`.
+   Until that passes, the one armed row can still duplicate on a build-arm rebuild.
+3. **Owner decision (asked in README):** data-side disarm today — flip the one armed
    row's `build_status` `'deployed'` → `'approved'` (matches its ten serving locked
    siblings). Removes the only armed instance without waiting for a roll; touches a
    human-locked row, so it is not a session's call.
-3. **Verification of any fix is BUILD-ARM ONLY** (bug §9): the rerender arm structurally
+4. **Verification of the fix is BUILD-ARM ONLY** (bug §9): the rerender arm structurally
    cannot reproduce this (its incoming names ARE slot names). Do not rebuild
-   `tool-loan-vs-savings` through `needs_page` until the fix (or the disarm) is live —
-   that exact dispatch is the reproduction.
+   `tool-loan-vs-savings` through `needs_page` until the fix is live in the stamp (or
+   the disarm has been applied) — that exact dispatch is the reproduction.
 
 ## Standing cautions (carried)
 

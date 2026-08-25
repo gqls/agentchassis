@@ -344,7 +344,15 @@ wave, with `--selftest` green first.
 > fact upstream of the INSERT, in a matcher whose fix is small and mirrors two already-
 > shipped fixes of the same shape.
 
-0. **THE fix: give the Layer 2 matcher `matchLockedRow`'s arms.** Identity first
+0. **THE fix: give the Layer 2 matcher `matchLockedRow`'s arms.** **BUILT, TESTED AND
+   COMMITTED 2026-08-25** — commit `a799579fd` (`matchPreservedSectionIdx` + tests,
+   mutation-verified), council correlation `ece638fb` (`Council-Submitted:` trailer;
+   read the verdict and act on a REVISE — the code is on the shared branch).
+   **The fix is Go, so it is INERT until an image rolls.** Whether it has shipped is a
+   query, not an inference: ask the chassis for its `build provenance` stamp and run
+   `git merge-base --is-ancestor a799579fd <stamp>` — do not assume either way, and do
+   not re-add the fix. Until that ancestor check passes, the armed row (below) can
+   still duplicate on a build-arm rebuild. Identity first
    (`sections[i].ComponentID == p.componentID`, both non-empty — the enricher at `:397`
    has already run), then slot exact (today's behaviour, kept), then kebab-normalised
    slot, then `p.componentFunction`/name against the incoming name (the merge's arm 3 —

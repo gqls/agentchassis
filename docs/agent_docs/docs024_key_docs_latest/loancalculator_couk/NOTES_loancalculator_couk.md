@@ -6653,3 +6653,18 @@ position/tail was a red herring, `build_status` is the whole discriminator.
 the data is already in the preload's `preservedSection`). Data-side disarm available
 without a roll: flip the one row to `'approved'` (owner call — it writes a locked row).
 Harness: `--selftest` green before all of this, per the standing order.
+
+### Same session, later — the fix is BUILT and COMMITTED; verdict owed
+
+Commit `a799579fd`: `matchPreservedSectionIdx` with the siblings' arms + consumption;
+six unit tests, a wiring scan, and a whole-action pin of the 08-23 shape. Mutation run
+(slot-only revert): all six unit tests RED — **but the whole-action test stayed GREEN
+under the mutation**, and the reason earns its line: the insert loop tolerates a failed
+INSERT (Warn + continue), so sqlmock's unexpected-call error for the orphan INSERT is
+swallowed and `sections_saved` still reads 1. A guard in series hiding the mutation —
+the `a-mutation-that-passes-may-have-hit-a-guard-in-series` pattern, caught because the
+memory rule says name WHICH guard; the test's own comment now records it, and the
+mutation load sits on the unit tests + wiring scan. `verify-head-builds.sh` OK at
+`a799579fd`. Council corr `ece638fb` (`Council-Submitted:` trailer) — verdict owed.
+Pre-existing at HEAD and NOT mine: `findingcodes_scan_test` fails on
+`WORK_ITEM_STATUS_OVERRIDE_REFUSED` (the 396 lane's `2b46afbe6`, today 20:48).
