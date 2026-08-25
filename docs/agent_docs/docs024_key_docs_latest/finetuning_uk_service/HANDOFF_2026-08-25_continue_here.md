@@ -7,6 +7,27 @@ experiment series + owner escalation live in `copy_quality_two_stage/`:
 `CONTRIB_2026-08-24_from_the_finetuning_lane_the_exemplar_seed_outcome_and_the_brief_that_taught_the_tell.md`
 (3 addenda) and `CONTRIB_2026-08-25_OWNER_ESCALATION_finetuning_pages_fail_the_would_a_person_say_this_test_after_a_maximal_seed.md`.
 
+> ## ▶ DELTA 2026-08-25 (later, same day) — the escalation is ANSWERED, the holds STAND, and one owner option has gone
+> **Read this before the table below; it supersedes three of its rows.** Full evidence: NOTES 08-25c.
+> 1. **`copy_quality_two_stage` answered.** Our escalation is **item 0 of their next work**, and a
+>    **SECOND owner escalation arrived the same day** (his homegarden.uk review — canonical
+>    `loanzy_uk_example_site/OWNER_REVIEW_2026-08-25_homegarden_and_what_it_says_about_every_site.md`)
+>    carrying instructions: up their game a lot · refresh context before proposing fixes · audit
+>    EVERY prompt in DB and code for AI-style writing. Two are done (their `REFRESH_2026-08-25…`
+>    and `PLAN_2026-08-25_prompt_audit.md`, phase 1 next). **Nothing has shipped that changes the
+>    register.** So: **every hold in the table below stands** — no rebuilds, no cross-link runs, no
+>    site-wide rewrite. They also reached our instrument finding independently.
+> 2. **Owner decision 1 has LOST its "apply" option.** The parked copy-editor proposal `8003c51a`
+>    **fails their gate on STRUCTURE**, re-graded first-hand here, not taken on report: edit 1
+>    `h3 2→1, li 3→0, ol 1→0` (an entire ordered list deleted), edit 2 `h3 2→0, p 4→2`. The
+>    `/contact.html` noise their CONTRIB told us to discount is now **fixed and gone**; edit 1 is
+>    credited with ADDING that link. This is the `bugs_open/012` class. Options are now
+>    **hold (recommendation, unchanged)** · **re-ask with the list and headings preserved** ·
+>    decline. Applying as-is would delete a list from a live page.
+> 3. **377 is CLOSED** — `bugs_closed/377…`, commit `28fa9a625`, proof read at the artefact
+>    (page deployed 19:58:47Z after the 18:32Z roll, serving the exact convicted sentence).
+>    016b §10's pointer repointed in the same commit. Next-session item 4 is DONE.
+
 ## State, verified 2026-08-25
 
 | thing | state |
