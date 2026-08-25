@@ -52826,3 +52826,53 @@ report — a question that forces the spec/artefact split — and then running t
 ("any head re-rendered since the backfill that kept the tag?"), which returned a loss instead.
 **The cheap check:** when a value on a page comes from a template, `grep` the template; if the value
 is inside `{{if .x}}`, the census must count `x` in the spec, not the value in the artefact.
+
+## 2026-08-25 (later) — `bugs_open/396`: I wrote the lesson, then under-applied it within the hour; and I searched the CODE for a writer on a tree where writers leave notes
+
+**5. I enumerated ONE column and called the result a census.** Filing `396` I wrote §5's method
+lesson in my own words — *"a membership test can only find members you can name; do not test for
+the stamps you know, ENUMERATE the stamps that exist"* — put the `jsonb_object_keys` query in the
+RUNBOOK, added it to `016b` §9, and saved it to memory. **I ran that enumeration against `spec` and
+never against `result`.** An independent review found `result.deferred_by` on **62 of the 114** rows
+I had just described as *"carrying no trace of any kind"*: `loancalculator_rebuild_thread` (60, with
+`deferred_from_status`, a reason naming the owner-ordered rebuild, and its release condition) and
+`apis-uk-bees-lane` (2). The genuinely unstamped population is **52**.
+
+`result` is not an exotic place to look: migration `442_repair_flag_only_rows_blocked_by_the_old_promoter.sql`
+stamps `result.repair_284` for exactly this purpose, in this repo, on this table.
+
+**The shape, and it is worse than not knowing the lesson:** I generalised the fix to the *instance*
+(the `spec` column) rather than to the *class* (provenance can live in any JSONB column on the row).
+**A lesson applied to the example that taught it is not learned.** When you write down a rule
+because a check missed something, immediately ask *where else does this check apply?* — and answer
+it with a query, not a nod. Two `jsonb_object_keys` calls instead of one.
+
+**6. I searched the code for a writer, on a tree whose writers are sessions that write things
+down.** `396` §4 listed *"a hand-run `psql` UPDATE by an earlier session"* as **"OPEN — untested; no
+evidence beyond the absence of alternatives, which is not evidence."** The evidence was abundant,
+in-repo, dated, and had been there for weeks:
+
+- `mortgagecalculator_couk_adoption/HANDOFF_2026-08-03_continue_here.md:81-90` — the verbatim
+  backstop, *"every 15s, defer anything dispatchable"*: `UPDATE site_work_items SET
+  status='deferred', updated_at=NOW() WHERE … AND status IN ('triaged','approved')`. **It sets
+  nothing else — which is exactly why those 38 rows carry no stamp.** Its NOTES record the
+  consequences at `:305`, `:462-473`, `:526`.
+- commit `90a4fb812` (08-04) — *"Holds: 12× undeployed_asset + footer needs_rerender +
+  deactivated_component → `deferred` (UPDATE 14)"*. Matches idea.uk's surviving rows type-for-type.
+
+I ran `grep -rn "deferred" --include=*.go` and variants perhaps a dozen times. **I never ran
+`grep -rn "SET status='deferred'" docs/`**, which lands on the answer immediately. On a tree where
+CLAUDE.md's central fact is that many sessions work it by hand and record what they did, *"no code
+does this"* and *"nobody did this"* are different statements, and I collapsed them.
+
+**And the closing detail is the one to remember.** The lane that made 38 of them had already
+forgotten: `mortgagecalculator_couk_adoption/NOTES…:2844` says **"[UNVERIFIED] what deferred them …
+a hand-park at adoption is the obvious guess and I did not establish it"** — written by the lane
+whose own handoff, in the same directory, carries the recipe it ran. **I inherited that
+`[UNVERIFIED]` and re-derived the whole mystery from scratch.** An honest uncertainty marker in
+someone else's document is a claim about *what they checked*, not about what is knowable — treat it
+as a lead to close, not a boundary to respect.
+
+**The cheap checks, both one line:** `grep -rn "SET status" docs/ | grep <the status>` before
+concluding no writer exists; and `jsonb_object_keys` over **every** JSONB column on the row, not the
+one you thought of.
