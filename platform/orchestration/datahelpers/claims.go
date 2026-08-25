@@ -739,12 +739,31 @@ var numberCandidateRe = regexp.MustCompile(`\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\
 // So the honest statement is: the plural fix costs nothing *while the counter is
 // high*, and on a low day it surfaces claims that were always unsupported and
 // merely un-scanned. Fleet-shaped: 4 such findings appear on that site at the
-// historic low, 3 of them on the tracker pages Phase 2 newly scans. That is the
-// `bugs_open/386` mechanism (a moving fact silently re-judging frozen copy) and
-// the fix belongs there, not here — 386's exact-match-against-retained-former-
-// values would keep vouching for 1,600 because 7,281 IS a value the register
-// held. Recorded rather than papered over: a `[MEASURED]` claim about a moving
-// value expires, and this one did.
+// historic low, 3 of them on the tracker pages Phase 2 newly scans.
+//
+// ⚠ AND THE FIX IS NOT WHERE I FIRST SAID IT WAS — corrected 2026-08-25 by the
+// `bugs_open/386` lane, whose fix I had described wrongly. I wrote that their
+// history retention "would keep vouching for 1,600 because 7,281 IS a value the
+// register held". That is `gte` applied to HISTORY. `historySupports` is
+// EXACT-match only, so it would not — and it SHOULD not: supporting anything at
+// or below the all-time maximum means one busy day vouches for "over 7,000 a
+// day" for ever on every quiet day after, which is this comment's own
+// accidental-support hazard with time as the amplifier. Exact-only is precisely
+// what makes history safe.
+//
+// THE REAL REMEDY NEEDS NO CODE, and the register already contains it:
+// `aao-orchestrations`' own `writer_line` reads *"over a thousand orchestrations
+// a day ({value} in the 24 hours to 2026-07-26)"*. **A floor of 1,000 sits BELOW
+// the historic low of 1,494, so that instruction is safe on every day in the
+// record.** The convicted copy says 1,600 / 1,699 / 1,834 — all ABOVE that low,
+// so it deviates from the register's own instruction or predates it. So this is
+// not an evidence-layer defect at all: it is the owner's "state a floor" ruling
+// applied with the floor set too high. **The rule that generalises: a published
+// floor must sit below the LOWEST recorded value, not below today's.**
+//
+// Recorded rather than papered over: a `[MEASURED]` claim about a moving value
+// expires, and this one did — twice, because my first correction of it named the
+// wrong fix.
 //
 // ⚠ That fact's VALUE is deliberately not quoted here any more. It read 4068 when
 // this was written on 2026-08-24 and 7281 the next day — it is a live `count(*)`

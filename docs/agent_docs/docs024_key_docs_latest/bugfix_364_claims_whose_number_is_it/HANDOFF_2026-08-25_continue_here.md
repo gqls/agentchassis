@@ -145,10 +145,22 @@ WHERE ss.site_id='2a8ebf9c-20a2-4c39-b191-840b012371da' AND ss.aspect='evidence_
   AND ss.is_current AND f->>'id'='aao-orchestrations';   -- 7,281 on 2026-08-25; clear above ~1,700
 ```
 
-Full account: `bugs_open/364` §6j, an armed `LANDMINES.md` entry, and `bugs_open/386` (owned) whose
-durable fix is the one thing that resolves it. **Deliberately not fixed here**: narrowing that fact's
-broad `context_terms` makes the gate stricter on a customer site owned by another lane. Flagged to
-`bugs_open/387`, `bugs_open/386` and the owner.
+⚠ **And the fix is NOT what I first wrote — corrected by the `386` lane, twice over.** It is not
+their history-retention work: `historySupports` is **exact-match only**, so with the fact at 1,494 a
+page saying 1,600 stays convicted, and building it the way I described (support anything ≤ any value
+ever held) would pin support at the all-time maximum for ever — worse than today.
+
+**The real remedy needs no code and is already in the register.** `aao-orchestrations`' `writer_line`
+says *"over a thousand orchestrations a day"*, and **a floor of 1,000 sits below the historic low of
+1,494**, so it is safe on every day on record. The published copy says 1,600 / 1,699 / 1,834 — all
+above that low, so it deviates from the register's own instruction. **This is the owner's "state a
+floor" ruling applied with the floor set too high; the rule is that the floor must sit below
+`lowest`, not below today's value.**
+
+Full account: `bugs_open/364` §6j and an armed `LANDMINES.md` entry (both carry the correction).
+**Deliberately not fixed here**: bringing that copy down to its floor, or narrowing the fact's broad
+`context_terms`, are changes to a customer site owned by another lane. Flagged to `bugs_open/387`,
+`bugs_open/386` and the owner.
 
 ### 5.2 ✅ DONE — the two false queue items were ruled false by the owner and cancelled
 

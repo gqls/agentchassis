@@ -51849,3 +51849,37 @@ instrument**, which is the same lesson as #1 in the table above, arriving from t
 and `llm_call_log` — the stored artefact and the model's own record. **Parking does not touch the
 database, and this fix is a planner and writer change, both upstream of deployment.** The result is
 intact; only the word "served" was false.
+
+**12. I described a PEER'S fix, credited it to their lane, armed it in a landmine — and had invented
+the semantics.** Correcting my own rolling-window finding, I wrote that `bugs_open/386`'s
+history-retention work would resolve it, "because 1,600 ≤ 7,281 and 7,281 IS a value the register
+held". Their `historySupports` is **exact-match only**. My sentence is `gte` applied to history — a
+semantics nobody built, which I attributed to them in a bug file, a shipped code comment, a handoff,
+an armed `LANDMINES.md` entry crediting their lane, and two messages to other sessions.
+
+**And it should not be built that way**, which is the part I should have noticed unaided: "supported
+if ≤ any value ever held" means support is pinned at the **all-time maximum for ever**, so one busy
+day vouches for "over 7,000 a day" on every quiet day after. That is the accidental-support gradient
+I had myself documented in `bugs_open/364` §2, with time as the amplifier — I reinvented the hazard I
+was warning about, one file away from the warning.
+
+**The right answer needed no code and was already in the data.** The fact's own `writer_line` says
+*"over a thousand orchestrations a day"*, and 1,000 sits below the historic low of 1,494 — safe on
+every day on record. The published copy says 1,600/1,699/1,834. It is the owner's floor ruling
+applied with the floor set too high, not an evidence-layer defect at all.
+
+**The cheap check: read the peer's implementation, or ask, before describing what it does — and
+never in a landmine.** An armed entry is the worst carrier for a guess: it is synced to `doc_notes`
+for other agents, it is written to be trusted without a symptom, and it had a plausible mechanism and
+someone else's name on it. `grep -n 'func historySupports'` was available the whole time.
+
+**The pattern, now four for four this lane:** URL form, monotonicity, an expiring measurement, and
+now a peer's semantics — every one corrected by someone who looked at the thing itself while I
+reasoned about it from one layer away.
+
+**13. Same entry, a second error: I mis-assigned a floor between two facts.** The landmine said
+`C1-records-enriched` sits under a *"more than 150"* floor with a historic low of 937. Read live: it
+carries **no floor at all** (`{value} of those enriched with filed accounts data`) and swings
+**937–9,370**. *"More than 150"* belongs to `C4-agent-definitions-catalogue`, low **157** — seven to
+spare, which is the real "inside its floor only by luck" case and a better example than the one I
+invented. **Two facts, three attributes, recombined from memory instead of from one query.**

@@ -442,9 +442,37 @@ tracker pages' own surfaces again — which is the fix working, not breaking: th
 unsupported on a low day and were merely un-scanned.
 
 **The claim itself is never false.** *"Over 1,600"* is a floor, and the copy does not change. Only the
-evidence for it moves. That is `bugs_open/386`'s mechanism, and **the fix belongs there**:
-exact-match-against-retained-former-values keeps vouching for 1,600 through the dip, because 7,281 IS
-a value the register held. A naive floor does not, and today's `gte`-against-current does not.
+evidence for it moves.
+
+> ### ⚠ CORRECTED 2026-08-25 — I named the wrong fix, and the right one needs no code
+>
+> This section originally said the remedy was `bugs_open/386`'s work, because
+> "exact-match-against-retained-former-values keeps vouching for 1,600, since 7,281 IS a value the
+> register held". **That is `gte` applied to history, and it is not what 386 built.** Their
+> `historySupports` is **EXACT-match only**: with the fact at 1,494 and the page saying 1,600, the
+> `gte` arm fails (1600 ≤ 1494 is false) and the history arm asks whether 1,600 exactly equals a
+> retained reading — it does not. **The page stays convicted.** Their lane corrected me and is right.
+>
+> **It should not be built the way I described, either.** "Supported if the value is at or below any
+> reading the register ever held" means support is pinned at the **all-time maximum, for ever**: one
+> busy day would vouch for *"over 7,000 orchestrations a day"* on every quiet day thereafter. That is
+> this bug's own §2 accidental-support gradient with **time** as the amplifier — strictly worse than
+> today's behaviour, which at least tracks the current value. Exact-only is the property that makes
+> history safe: it vouches for numbers the register actually HELD and can never invent one between.
+>
+> **The actual remedy is already sitting in the register, unused.** `aao-orchestrations`' own
+> `writer_line` reads *"over a thousand orchestrations a day ({value} in the 24 hours to
+> 2026-07-26)"*. **A floor of 1,000 sits BELOW the historic low of 1,494 — so that instruction is
+> safe on every day in the record.** The convicted copy says 1,600 / 1,699 / 1,834, all **above** the
+> low, so all three deviate from the register's own instruction or predate it.
+>
+> **So this is not a `386` case at all.** It is the owner's "state a floor, never the exact number"
+> ruling applied with **the floor set too high**, and the fix is to bring the copy back to the floor
+> the register already specifies. The rule that generalises — and this replay is the best evidence
+> for it — is **the floor must sit below `lowest`, not below today's value** (`bugs_open/386`
+> RUNBOOK §7). What 386's fix DOES cover is the dated-chart class (§6c, F9–F13: a page stating a
+> value that was exactly right on the day it rendered); it does not cover falling lower-bound claims,
+> and their council submission says so in its limitations.
 
 **Not fixed here, deliberately.** Narrowing that fact's single broad `context_terms ["orchestration"]`
 would make the gate stricter and could newly refuse live pages on a customer site — not a unilateral
