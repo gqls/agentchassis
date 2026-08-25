@@ -303,3 +303,70 @@ workflow with an **empty `CHANGED`** → the fallback branch syncs **every** dom
 current tree. Queued at 13:14:00Z, i.e. **behind** the whole backlog, so it runs last and
 converges the estate regardless of the order everything before it ran in. One run instead
 of 230 — which is also the shape the rollout should have used from the start.
+
+---
+
+## 2026-08-25 (session "google") — picked up from the apis.uk handoff; the container is empty and the estate's tag is half-durable
+
+**Entry point.** Owner opened a session named "google" with
+`apis_uk_bees_homepage/HANDOFF_2026-08-25_continue_here.md` — §4a there is his verbatim request
+("walk me through setting up the google tags in baby steps … under agent chassis and not idea.uk"),
+spun out "to a new lane". This lane already exists and is that lane; work lands here from now on.
+Nothing was touched on the cluster except reads and one dry run that rolled back.
+
+**1. Container state, measured, not remembered.** `curl https://www.googletagmanager.com/gtm.js?id=GTM-PQ3WCTBD`
+at 16:06 BST → HTTP 200, 322,091 B, `"version":"2"`, `"tags":[]`, zero `G-` ids, zero `__googtag`,
+zero `__gaawe`. **Nothing is published; nothing is recorded.** Same as the owner's 08-24 screenshots.
+apis.uk: 200, 67,877 B, 1 × `googletagmanager`, 0 `Set-Cookie`.
+
+> **CORRECTED 2026-08-25 — my own 07-31 entries and README told the owner "analytics cookies now
+> fire on 14 domains" and "they're all running analytics". Both were INFERRED from the snippet being
+> on the page; neither was measured at the container, and the container had no tag.** So no cookie
+> was ever set by it, and the consent gap I flagged (still real once a tag publishes) was raised
+> about cookies that did not exist. `WRONG_CALLS.md` 2026-08-25. The check I should have run is one
+> curl of `gtm.js`; it is now `scripts/check_gtm_state.sh`.
+
+**2. No Google credential exists anywhere** — `~/.config` (only chrome-for-testing), no `gcloud`,
+`GOOGLE_APPLICATION_CREDENTIALS` unset, no google/gcp secret in `ai-persona-system`. So Search
+Console (039 §5) stays an owner action; nothing here can be automated yet.
+
+**3. The census moved, and then split.** Handoff said 27/27 heads. Today (`sites.status IN
+('deployed','active')`, head slot): **26** carry `GTM-PQ3WCTBD` in `rendered_html`, **4** deployed
+sites do not — `agritec.uk cv1.co.uk homegarden.uk lampenkap.com`, all born 08-24/25, all
+`Document Head`, all with NO `site_config` spec row. Then the split: spec key
+(`site_config.analytics.gtm_container_id`, the thing the template's `{{if .gtm_container_id}}`
+reads) vs artefact → **A 14 durable / B 12 artefact-only / D 4 neither / E 1 no head**. Bucket B is
+exactly the 08-24 backfill (minus agritec): `updated_at = 2026-08-24 13:13:52` on all 12.
+
+**4. The disconfirming check confirmed it.** I asked for the case that would refute "the next chrome
+render drops it": a head re-rendered after 13:13:52 that still carries the tag. Instead:
+`agritec.uk | 2026-08-24 19:20:53.178 | app - 10.20.31.31:32834` — had it before, lacks it now — and
+the platform's own `chrome_divergence_overwritten:site_component:head:920676eab287` row at
+`needs_human_review`, created 19:20:53.239. Trigger chain on that site: `add_tool` 19:01 →
+`nav_drift`/`nav_rebuild` 19:17–19:21 → chrome regenerated. Two instruments, one second apart, the
+only rows of their kind. **Filed `bugs_open/397`** with the 090 substitute declared (template,
+fingerprint SQL and check read; census; this refutation attempt).
+
+**5. The fix is a wave, and I did not fire it.** `ChromeRenderInputsSQL` md5s `site_config` into
+`render_inputs`; `StaleSiteComponentsCheck` files `needs_rerender`/`stale_chrome` on drift (20 ever,
+all `complete` — it dispatches); `rerender-pages` force-rerenders every slot and page. 12 sites =
+**241 pages**, 16 = 280, one commit + one Actions run each, 130 still queued from 08-24. Wrote
+`sql/c2_gtm_spec_key_for_artefact_only_sites.sql`: `-v GO=yes` gate (refuses at exit 3 without it),
+`-v DRY=1` dry run (ran: 12 targets, 241 pages, merged keys `analytics,locale[,chrome]`, `ROLLBACK`,
+0 rows written), `-v UNTAGGED=1` adds bucket D, network-scoped to `…0002`, post-conditions incl.
+"no key lost". **Merge, not replace** — found the 07-31 rollout (mine) replaced wholesale and dropped
+`relojistas.com`'s `intent_probe` key; `locale` was later re-merged by migration 508/530. Recorded
+against myself.
+
+**6. The apis.uk handoff's §3 design is superseded, not wrong in intent.** "Per-site analytics id:
+read `sites.settings->>'analytics_container_id'` in `RenderFallbackHead`" — the per-site seam
+already exists (STY-050, this lane, 07-31), and `RenderFallbackHead` is the path taken only when the
+head component fails to render. Told them (CONTRIB in their dir). The real gap is that **no Go
+writer touches `site_config`** (every current row is `created_by` a migration or a session), so
+"standard for new builds" has no mechanism — 397 §6.2.
+
+**7. Contamination note for the record.** This session curled 25 domains once each (`--sites`) plus
+apis.uk ~5×. Cloudflare counts all of it. 039 §1.
+
+**Commits this session:** lane docs + script + sql; `bugs_open/397`; ledgers (LANDMINES correction +
+entry, WRONG_CALLS); CONTRIB to apis.uk. Nothing applied to the cluster.

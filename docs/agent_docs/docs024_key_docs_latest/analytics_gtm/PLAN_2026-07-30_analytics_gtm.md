@@ -175,3 +175,31 @@ idea.uk is the only one with a money path today.
 2. **Phase C now, or one domain at a time?** The mechanism is proven on idea.uk; the
    remaining 13 are the same three head templates.
 3. **Consent banner** — separate workstream, or fold into C?
+
+---
+
+## Corrections and decisions, 2026-08-25 (session "google")
+
+> **CORRECTED 2026-08-25 — Phase C's "applied, 14/14, analytics live" described the SNIPPET, not the
+> ANALYTICS.** The container has carried 0 tags from 07-31 to today (measured at `gtm.js`: version
+> 2, `"tags":[]`, 2026-08-25 16:06 BST). Nothing has been recorded on any site. Phase D's Google-side
+> half — a `Google Tag` with the Agent Chassis measurement id, published — is the step that turns it
+> on, and it is the owner's. `WRONG_CALLS.md` 2026-08-25.
+
+**The estate grew and the seam did not follow.** 14 sites on 07-31; **30 heads on 08-25**, of which
+14 are keyed (durable), 12 carry the tag in the artefact only (the 08-24 backfill by the apis.uk
+lane; reverts on the next chrome render — one already has), 4 have nothing. `bugs_open/397`.
+
+**Decision recorded (this lane, needs the owner's timing):** the durable fix is to write the STY-050
+key, `site_config.analytics.gtm_container_id`, for every artefact-only site —
+`sql/c2_gtm_spec_key_for_artefact_only_sites.sql`, merge-not-replace, dry-run verified. It is a
+rebuild wave by construction (241 pages / 12 sites; 280 / 16 with the untagged four). Not applied.
+
+**Design correction to a neighbour's plan:** `apis_uk_bees_homepage/HANDOFF_2026-08-25 §3` proposes a
+new `sites.settings->>'analytics_container_id'` read in `RenderFallbackHead`. Superseded — the
+per-site seam already exists (STY-050) and the fallback renderer is the failure path. The real open
+design is **how a new site gets the key at birth without a third-party site ever getting it** —
+397 §6.2; council scope; touches handover (`web_admin_console`).
+
+**Own-goal recorded:** `c1` step 6 superseded and REPLACED `site_config` wholesale; relojistas.com's
+`intent_probe` key was dropped on 07-31. `c2` merges.

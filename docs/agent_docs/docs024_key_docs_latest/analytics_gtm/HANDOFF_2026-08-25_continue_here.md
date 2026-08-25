@@ -1,0 +1,83 @@
+# HANDOFF — analytics / GTM / GA4 · continue here (supersedes HANDOFF_2026-07-31b)
+
+**Written 2026-08-25 16:40 BST, session "google".** This lane is the home for fleet Google tracking
+— the owner's 08-25 request (recorded verbatim in
+`docs/agent_docs/docs024_key_docs_latest/apis_uk_bees_homepage/HANDOFF_2026-08-25_continue_here.md`
+§4a) was spun out "to a new lane", and this is it. Background everyone must read first:
+`docs/agent_docs/docs024_key_docs_latest/039_REFERENCE_traffic_and_tracking.md`.
+
+> ## ▶ ONE-LINE STATE `[ALL MEASURED 2026-08-25 15:00–16:20 BST]`
+> The snippet is on 26 sites; **the container it loads has 0 tags — nothing is recorded, nothing
+> ever has been.** 12 of the 26 carry the snippet only in the stored artefact and lose it on their
+> next chrome render (one has already: agritec.uk). Fix written and dry-run; **not applied — it is
+> a 241-page rebuild wave and the owner picks the moment.** Publishing GA4 is his click; Search
+> Console needs his service account. Nothing is mid-flight.
+
+## 1. Verify before doing anything — one command
+
+```bash
+docs/agent_docs/docs024_key_docs_latest/analytics_gtm/scripts/check_gtm_state.sh --all
+```
+Section 1 reads the live container (the only artefact that can say whether GA4 is on); 2 curls every
+deployed domain (our own traffic — Cloudflare counts it); 3 is the durable/artefact-only census.
+Expected today: `NOT PUBLISHED, version 2, 0 tags` · 24/25 serve · A 14 / B 12 / D 4 / E 1.
+
+## 2. The three owner actions, in order
+
+1. **Publish the GA4 tag** — his walkthrough is §4a of the apis.uk handoff above (A: Measurement
+   ID from the *Agent Chassis* property's data stream; B: a **Google Tag** — not "GA4 Event" — with
+   that id, trigger All Pages; C: **Submit → Publish**; D: Realtime; E: delete any tag carrying a
+   different `G-` id). ⚠ 039 §4a: this is a **change of compliance position** — the estate sets no
+   cookies today because the container is empty; publishing sets `_ga` on ~24 sites with no consent
+   banner anywhere. Decide that deliberately, before step C.
+2. **Time the durable-tag rebuild** (`bugs_open/397`, §3 below) — "now", "tonight", "after the 130
+   queued drain", and whether to include the 4 untagged new sites in the same wave.
+3. **Search Console** — a Google Cloud service account with Site Verification + Search Console APIs.
+   There is **no Google credential anywhere on our side** (checked `~/.config`, `gcloud`, cluster
+   secrets) so nothing can start until he supplies one. Then 039 §5's automation shape.
+
+## 3. bugs_open/397 — what it is and what to run
+
+**What:** head templates emit GTM inside `{{if .gtm_container_id}}`; the id comes from
+`site_specs.site_config.analytics.gtm_container_id` (STY-050, this lane, 07-31). The 08-24 backfill
+wrote `site_components.rendered_html` on 13 sites and no key. Chrome regenerates on `nav_rebuild`
+etc.; no key → gate false → tag gone → `chrome_divergence_overwritten` filed as if an operator
+hand-edit had been corrected. agritec.uk, 08-24 19:20:53, both instruments.
+
+**The fix, when the owner says when:**
+```bash
+L=docs/agent_docs/docs024_key_docs_latest/analytics_gtm
+P="kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db"
+$P -v DRY=1 -v GO=yes -f - < $L/sql/c2_gtm_spec_key_for_artefact_only_sites.sql   # look first
+$P          -v GO=yes [-v UNTAGGED=1] -f - < $L/sql/…c2…sql                          # apply
+```
+Then watch `needs_rerender` items with `item_key='stale_chrome'` appear per site and complete; bucket
+B reads 0 at once, served `gtm=2` only after the rebuilds and the deploy queue land. **Tell the lanes
+on those sites first** (397 §9: loanzy, webdesign_uk_build_service, bugfix_357/384, agritec).
+
+**The structural half — not started, council scope:** no Go writer touches `site_config`, so a new
+site is born without the key. Where the opt-in gets set for our-network sites, and how a
+handed-over (third-party) site is guaranteed never to get it, is the design question. 397 §6.2.
+
+## 4. Hard-won specifics — do not re-derive
+
+- **Nothing you can see on a page tells you whether GA4 is on.** Only `gtm.js` does: `"tags":[]`
+  = nothing. Three lanes said "live" off the snippet. `WRONG_CALLS.md` 2026-08-25.
+- **A value in `rendered_html` is a cache, not a setting.** LANDMINES 2026-08-25 (this lane). Write
+  the spec the schema names; expect the rebuild; merge into the existing row.
+- **Writing `site_config` IS firing a rebuild** — `ChromeRenderInputsSQL` fingerprints it;
+  `stale_chrome` dispatches (20 ever, all complete). Size it in pages before the first UPDATE.
+- **`c1` (07-31) replaced `site_config` wholesale** and dropped relojistas.com's `intent_probe`.
+- **`RenderFallbackHead` is the failure path** — never the place for a tag.
+- **`webdesign.uk` 302s to `webdesign.co.uk`**; curl with `-L` or it reads `gtm=0`.
+- Everything in HANDOFF_2026-07-31b §"Hard-won specifics" still holds (idea.uk is two applications;
+  `input_schema` has two shapes; `webdesign.co.uk Document Head` lowercase charset; one page-rerender
+  = one commit = one Actions run).
+
+## 5. Cross-lane, this session
+
+- `apis_uk_bees_homepage` ← `CONTRIB_2026-08-25_from_analytics_gtm_the_backfill_is_artefact_only_and_the_per_site_seam_exists.md`
+  (their backfill is 397; their §3 per-site-id design is superseded by STY-050).
+- `agritec_uk` — the `chrome_divergence_overwritten` head row on their site is 397, not a hand-edit.
+- `dartsonline_traffic` — their LANDMINES 2026-08-25 entry carried "a GA4 tag was added the evening of
+  2026-08-25"; corrected in place, dated.

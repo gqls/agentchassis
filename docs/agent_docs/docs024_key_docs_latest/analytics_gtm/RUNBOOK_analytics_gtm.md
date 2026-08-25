@@ -143,3 +143,37 @@ ssh root@116.203.204.115 'mv /opt/idea/idea.new /opt/idea/idea && chmod +x /opt/
 > ⚠ **`/etc/idea/idea.env`: systemd EnvironmentFile does NOT strip inline comments.**
 > Every comment must be on its own line. `PORT=8080 # the port` makes the port
 > `"8080 # the port"` → exit 1 → restart loop → nginx 502. This crashed a real deploy.
+
+## §5 — added 2026-08-25: the three questions, one command each
+
+```bash
+L=docs/agent_docs/docs024_key_docs_latest/analytics_gtm
+$L/scripts/check_gtm_state.sh            # is a GA4 tag PUBLISHED? reads the live gtm.js — the ONLY artefact that can say
+$L/scripts/check_gtm_state.sh --db       # durable vs artefact-only census (bucket B = bugs_open/397)
+$L/scripts/check_gtm_state.sh --sites    # what each domain SERVES — one curl per site; this is our own traffic (039 §1)
+```
+Gotchas: the container check parses `"tags":[…]` out of `gtm.js` with `grep -oP` (GNU grep; PCRE) —
+a `G-` id anywhere in the file with `tags=0` means a tag is *saved, not published*. `--sites` lists
+domains from the DB (deployed/active with a head slot) and asserts `checked == list`; `webdesign.uk`
+302s to `webdesign.co.uk`, which is why redirects are followed.
+
+**The fix for bucket B — owner-timed, it fires a rebuild per site:**
+```bash
+P="kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db"
+$P -v DRY=1 -v GO=yes -f - < $L/sql/c2_gtm_spec_key_for_artefact_only_sites.sql     # rolls back; prints targets + page count
+$P          -v GO=yes -f - < $L/sql/c2_gtm_spec_key_for_artefact_only_sites.sql     # applies (add -v UNTAGGED=1 for bucket D)
+```
+Without `-v GO=yes` it refuses at exit 3. `now()` is constant inside the transaction — the merge
+LATERAL relies on `superseded_at = now()` to pick ONLY the row it just superseded. Afterwards expect
+one `needs_rerender` (`item_key='stale_chrome'`) per target as each site's discovery runs; bucket B
+must read 0 immediately, `gtm=2` served only after the rebuilds land.
+
+**The reads behind the census (for when the script is not to hand):**
+```sql
+-- spec key: what the template reads
+SELECT s.domain FROM sites s JOIN site_specs ss ON ss.site_id=s.id AND ss.aspect='site_config' AND ss.is_current
+ WHERE ss.data->'analytics'->>'gtm_container_id'='GTM-PQ3WCTBD';
+-- has any head LOST the tag? (had it in an archived copy, lacks it now)
+SELECT s.domain, h.created_at FROM site_component_history h JOIN site_components sc ON sc.id=h.site_component_id JOIN sites s ON s.id=sc.site_id
+ WHERE sc.slot_name='head' AND h.rendered_html LIKE '%GTM-PQ3WCTBD%' AND sc.rendered_html NOT LIKE '%GTM-PQ3WCTBD%';
+```

@@ -171,3 +171,41 @@ on any of these sites, and now they're all running analytics. You decided to pre
 which is fair, but it's worth picking up as its own piece of work.
 
 Everything is written up in a handoff so a fresh conversation can carry straight on.
+
+## 2026-08-25 — picking up your "google tags" request, and two things I found on the way
+
+You asked to be walked through the Google tag setup, pointed at Agent Chassis rather than idea.uk.
+The walkthrough is in the handoff (`HANDOFF_2026-08-25_continue_here.md` here, and the apis.uk one),
+and I have put it in the chat as well. Before writing a word of it I checked what is actually live.
+
+**Nothing is being recorded yet.** The container that every site loads is still empty — version 2,
+no tags, no measurement id. That matches your screenshots from last night. Until you press
+Submit → Publish with a *Google Tag* pointed at the Agent Chassis measurement id, the snippet on the
+pages does nothing at all. There is one command now that reads the container and says so plainly:
+`scripts/check_gtm_state.sh`. Run it after you publish; it should flip to "PUBLISHED" within a minute.
+
+**I owe you a correction from July.** On 31 July I told you "they're all running analytics" and
+warned about cookies being set on fourteen sites. I had checked that the snippet was on the pages;
+I had not checked the container it loads, which had no tag then and has none now. So no cookie was
+ever set by it. The consent question is still real — it becomes real the moment you publish — but it
+was not yet real when I raised it. I have logged that against myself.
+
+**The second finding is the one that needs a decision from you.** When the tag was rolled out to the
+newer sites on 24 August, it was written into the *stored copy* of each site's page header, not into
+the site setting that the header is generated from. That works until the platform regenerates the
+header — which it does whenever a site's navigation changes — and then the tag silently disappears.
+It has already happened once: agritec.uk lost it six hours after it was added, when a tool page was
+added to that site. Twelve more sites are in the same state (the loan calculators, noted, cookly,
+garden-tools, webdesign.uk, apis.uk), and four sites built since (agritec, cv1, homegarden,
+lampenkap) never had it at all. The fourteen from July are fine.
+
+The proper fix is a small setting per site, and I have it written and tested in a dry run. **But
+writing that setting makes the platform rebuild each site** — twelve sites, 241 pages, each page a
+deploy job on the runner that does two at a time, so a couple of hours of queue, on top of what is
+still draining from Sunday. Nothing breaks and nothing needs babysitting; it is a question of *when*
+you want that queue occupied, and whether to include the four untagged sites in the same pass
+(sixteen sites, 280 pages) so it is one wave rather than two. Say the word and the time.
+
+**Still needing only you:** the consent position before publishing (the 039 reference sets it out);
+a Google Cloud service account if you want Search Console automated — there is no Google credential
+anywhere on our side, so I cannot start that half.
