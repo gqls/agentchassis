@@ -1035,3 +1035,43 @@ while tool builds are happening, the picker is not running; do not read it as "n
 **This is a stated residual, not a fix.** Closing it properly means a durable record on the picker's
 own failure path — the same argument `bugs_open/034` makes about dropped validation errors. It is
 worth doing and it is not done.
+
+### SUPERSEDES the section above — reading the picker after the three-way source split (2026-08-25)
+
+The check above ("did the picker actually RUN?") was a workaround for the emitter not being able to
+tell a failing picker from an honest "none". **That is now fixed in the source stamp itself**
+(council `5287ef5d`), so read it there and use `llm_call_log` only to corroborate. Five values:
+
+| `related_pages_source` | means |
+|---|---|
+| `spec` | the requester named the pages |
+| `suggested` | the picker named them, because the requester did not |
+| `no_picker` | the picker **never ran** — step unwired, or it failed and routed to `error_step` |
+| `picker_declined` | it ran and returned an empty list: no page is a genuine match. **A correct answer** (prompt rule 5) |
+| `picker_unusable` | it ran and returned something that is not a page list — prose, a refusal sentence, malformed output. **A prompt or model fault, and the one worth chasing** |
+
+```sql
+SELECT context->>'related_pages_source' AS src, count(*), max(occurred_at)
+  FROM agent_error_log
+ WHERE error_code LIKE 'tool_crosslink_not_emitted:%' AND occurred_at > '<roll time>'
+ GROUP BY 1 ORDER BY 2 DESC;
+SELECT spec->>'related_pages_source' AS src, count(*) FROM site_work_items
+ WHERE item_key LIKE 'tool_crosslink:%' AND created_at > '<roll time>' GROUP BY 1;
+```
+
+**How to read it:**
+- `suggested` non-zero ⇒ the mechanism is delivering. This is still the PASS condition.
+- `picker_declined` ⇒ working correctly on a site with no topical match. Not a fault. Sanity-check it
+  against that site's non-tool page count before believing it, though — a site with 30 candidates and
+  a declined answer is worth one look at the prompt.
+- **`picker_unusable` ⇒ act.** The model stopped obeying the output format. Read the reply:
+  `SELECT created_at, left(response_text,300) FROM llm_call_log WHERE step_name='suggest_related_pages' ORDER BY created_at DESC LIMIT 5;`
+- **`no_picker` ⇒ act, and it means the step did not execute at all.** Either the config is not
+  applied on that agent, or the step failed to `error_step`. ⚠ It does NOT distinguish a
+  `load_site_page_names` failure (which runs before any model call and leaves no `llm_call_log` row)
+  from an unwired step. That residual is stated in the submission, not fixed.
+
+⚠ **A census spanning the roll must treat `''` and `no_picker` as ONE bucket.** Rows written between
+2026-08-24 (when the stamp shipped) and the roll that carries this change hold an empty string for all
+three of the no-pages outcomes. `COALESCE(NULLIF(src,''),'no_picker')` if you need one series; better,
+start the window at the roll and say so.

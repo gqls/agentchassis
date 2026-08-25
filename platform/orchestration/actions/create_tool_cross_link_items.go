@@ -530,7 +530,10 @@ func recordCrossLinkSkip(
 			"skip_reason":     code,
 			"bug_reference":   "bugs_open/029",
 			"related_pages_n": len(req.relatedPages),
-			// "" when there were none — the case this code path exists for.
+			// Names WHICH source supplied the pages, or — when none did — which
+			// kind of nothing happened: no_picker (never ran), picker_declined
+			// (ran, none fit) or picker_unusable (ran, unreadable answer). The
+			// three used to be one empty string. See relatedPagesFromInputs.
 			"related_pages_source": req.relatedPagesSource,
 		},
 	)
@@ -594,18 +597,76 @@ func relatedPagesFromInputs(inputs *datahelpers.ActionInputs, collected map[stri
 	// bugs_open/330 §12: measured 2026-08-24, 0 of 58 hand-filed add_tool items
 	// have ever carried the key, against 11 of 11 from tool-suggester. The
 	// requester is not going to remember; the workflow asks instead.
-	if pages := relatedPagesFromSpec(inputs.GetRaw("related_pages_fallback")); len(pages) > 0 {
+	raw := inputs.GetRaw("related_pages_fallback")
+	if pages := relatedPagesFromSpec(raw); len(pages) > 0 {
 		return pages, relatedPagesSourceSuggested
 	}
-	return nil, ""
+
+	// --- Nothing usable. WHICH kind of nothing is the whole point of this arm. ---
+	//
+	// The council's substantive objection to migration 602 (bug_historian,
+	// advisory, corr c962abd1): both picker steps route error_step TO the saving
+	// step, which is right — a cross-mention must never fail a tool build — but
+	// it made a picker that fails every time indistinguishable from one that ran
+	// and correctly answered "none". Both produced an empty source, and the
+	// emitter recorded the reassuring reading. That is bugs_open/330's own root
+	// cause for the third time: "I tried and found nothing" and "I was never
+	// asked" stored identically.
+	//
+	// The distinction is available because a marked (`?`) key is written ONLY by
+	// the explicit-path arm: if the step errored to error_step, its output field
+	// does not exist and the key is ABSENT; if it ran and answered, the key is
+	// PRESENT and holds that answer, empty or not.
+	if !inputs.Has("related_pages_fallback") {
+		return nil, relatedPagesSourceNoPicker
+	}
+	if relatedPagesFallbackDeclined(raw) {
+		return nil, relatedPagesSourcePickerDeclined
+	}
+	return nil, relatedPagesSourcePickerUnusable
+}
+
+// relatedPagesFallbackDeclined reports whether a PRESENT fallback value that
+// yielded no pages is the picker legitimately saying "none" — a well-formed but
+// empty list — rather than an answer that could not be read at all.
+//
+// The arms mirror relatedPagesFromSpec's deliberately: anything that arrives as
+// a list type IS a list, and reaching here means it was empty or all-blank, so
+// the picker declined. A string counts only if it parses as a JSON array, which
+// is the shape the prompt demands. Prose, a number or an object means the model
+// answered something we cannot use — a prompt or model fault, and NOT the same
+// event as an honest refusal, which is why it gets its own code.
+func relatedPagesFallbackDeclined(raw interface{}) bool {
+	switch v := raw.(type) {
+	case []string:
+		return true
+	case []interface{}:
+		return true
+	case string:
+		var out []string
+		return json.Unmarshal([]byte(v), &out) == nil
+	}
+	return false
 }
 
 // The two sources, as constants because they are written into durable rows
 // (agent_error_log context and every emitted item's spec) and read back by
 // census queries — a typo would be invisible until someone counted.
 const (
-	relatedPagesSourceSpec      = "spec"
+	// The requester named the pages.
+	relatedPagesSourceSpec = "spec"
+	// The workflow's picker step named them, because the requester did not.
 	relatedPagesSourceSuggested = "suggested"
+	// The picker never ran: its step is unwired, or it failed and routed to
+	// error_step. NOT an answer — the absence of one. Distinguishing this from
+	// the next code is the council's objection to 602, answered.
+	relatedPagesSourceNoPicker = "no_picker"
+	// The picker ran and returned an empty list: no page on this site is a
+	// genuine topical match. A real answer, and a correct one — prompt rule 5.
+	relatedPagesSourcePickerDeclined = "picker_declined"
+	// The picker ran and returned something that is not a page list at all.
+	// A prompt or model fault, silent until now, and NOT an honest refusal.
+	relatedPagesSourcePickerUnusable = "picker_unusable"
 )
 
 // resolveToolPageURL looks up the page a tool is deployed on. The join through

@@ -322,14 +322,48 @@ func TestRelatedPagesPrecedenceAndSource(t *testing.T) {
 			why:        "this is the whole point of the change — the 0-of-58 case",
 		},
 		{
-			name: "neither: absence stays absence",
+			name: "picker never ran (step unwired, or it failed to error_step): NOT an answer",
 			collected: map[string]interface{}{
 				"input_data": map[string]interface{}{"spec": spec(nil)},
 			},
 			wantPages:  nil,
-			wantSource: "",
-			why: "a site may genuinely have no page a tool belongs on, and inventing one is " +
-				"bugs_open/330 all over again",
+			wantSource: relatedPagesSourceNoPicker,
+			why: "the council's objection to migration 602: this used to be indistinguishable from " +
+				"the picker running and honestly declining, so a picker failing on EVERY build read " +
+				"as a site with no matching pages",
+		},
+		{
+			name: "picker ran and DECLINED (empty list): a real answer, and a correct one",
+			collected: map[string]interface{}{
+				"input_data":            map[string]interface{}{"spec": spec(nil)},
+				"suggest_related_pages": map[string]interface{}{"result": `[]`},
+			},
+			wantPages:  nil,
+			wantSource: relatedPagesSourcePickerDeclined,
+			why: "prompt rule 5 makes an empty answer correct and preferred to a weak match — a site " +
+				"may genuinely have no page a tool belongs on, and inventing one is bugs_open/330 again",
+		},
+		{
+			name: "picker ran and returned PROSE: unusable, and not the same event as declining",
+			collected: map[string]interface{}{
+				"input_data":            map[string]interface{}{"spec": spec(nil)},
+				"suggest_related_pages": map[string]interface{}{"result": "Sorry, none of these pages fit."},
+			},
+			wantPages:  nil,
+			wantSource: relatedPagesSourcePickerUnusable,
+			why: "a model that stops obeying the output format is a prompt or model fault and needs " +
+				"chasing; an honest refusal needs nothing. Collapsing them hides the first for ever",
+		},
+		{
+			name: "picker ran and returned an empty ARRAY value (not a string): still declined",
+			collected: map[string]interface{}{
+				"input_data":            map[string]interface{}{"spec": spec(nil)},
+				"suggest_related_pages": map[string]interface{}{"result": []interface{}{}},
+			},
+			wantPages:  nil,
+			wantSource: relatedPagesSourcePickerDeclined,
+			why: "the value's Go type depends on how the step's output was stored; a list type IS a " +
+				"list however it arrived, so both spellings must classify the same way",
 		},
 	}
 
@@ -352,9 +386,13 @@ func TestRelatedPagesPrecedenceAndSource(t *testing.T) {
 				}
 			}
 			if source != tc.wantSource {
-				t.Fatalf("source = %q, want %q. The source is written into agent_error_log and every "+
-					"emitted item; if it is wrong, no census can tell a working picker from a week "+
-					"where requesters happened to fill the field in", source, tc.wantSource)
+				t.Fatalf("source = %q, want %q — %s.\n"+
+					"The source is written into agent_error_log and every emitted item, and it is the "+
+					"ONLY thing that separates the five outcomes: pages from the requester, pages from "+
+					"the picker, a picker that never ran, one that ran and declined, and one whose "+
+					"answer could not be read. Collapse any two and the census that reads them stops "+
+					"being able to tell a working mechanism from a quiet failure.",
+					source, tc.wantSource, tc.why)
 			}
 		})
 	}
