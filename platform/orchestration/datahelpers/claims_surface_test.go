@@ -90,6 +90,14 @@ var editorialFalsePositives = []struct {
 // They moved out of editorialPageTypes' table deliberately: gating these by PAGE
 // took the same pages' first-person hero and call-to-action with them, which is
 // the cost TestTrackerPageHeroAndCTAAreScannedAgain now pins as RECOVERED.
+//
+// ⚠ ONE FIXTURE LEFT THIS TABLE 2026-08-25 and must not be re-added:
+// "Agent-to-Agent Protocol (A2A) Linux Foundation". Its only number is the `2`
+// INSIDE the acronym, which `isExcludedNumber` now drops for every surface, so it
+// can no longer probe component-grain leakage — the negative control below
+// correctly failed when it tried. It lives in
+// TestADigitInsideAnAcronymIsNotAClaim instead. A fixture whose number is
+// excluded upstream makes a surface test pass for the wrong reason.
 var thirdPartyComponentFalsePositives = []struct {
 	component string
 	pageType  string
@@ -102,8 +110,6 @@ var thirdPartyComponentFalsePositives = []struct {
 		"roi_claimed only 95 of 1,837 respondents reported AI agents live in production respondents source"},
 	{"protocol-tracker-listing", "protocol-tracker", "ai-agent-orchestration.com",
 		"agent_framework JSON-RPC 2.0 client-server with Tools, Resources, Prompts, and Sampling"},
-	{"protocol-tracker-listing", "protocol-tracker", "ai-agent-orchestration.com",
-		"Agent-to-Agent Protocol (A2A) Linux Foundation"},
 	{"model-directory-listing", "model-directory", "ai-agent-orchestration.com",
 		"protocol_adopted Salesforce Headless 360 platform routes customer and agent interactions via MCP source"},
 }
@@ -365,5 +371,49 @@ func TestThePluralOfOrchestrationReachesTheGate(t *testing.T) {
 	const singular = "Our orchestration count reached 4,200 last week."
 	if f := empty.ScanUnregisteredNumbers([]string{singular}, ClaimSurface{PageType: "content"}); len(f) == 0 {
 		t.Error("regression: the singular 'orchestration' no longer reaches the gate")
+	}
+}
+
+// TestADigitInsideAnAcronymIsNotAClaim pins the exclusion added 2026-08-25
+// (bugs_open/364 Phase 2), and the case that forced it is worth stating because
+// it was a REGRESSION THIS LANE INTRODUCED and caught before it rolled.
+//
+// Phase 2 restored the prose scan to a tracker page's hero — correct in itself,
+// and the whole point of moving to component grain. But protocol-tracker's live
+// hero reads "MCP, A2A and half a dozen other proposals are competing…", and the
+// `2` inside A2A was then raised as `unregistered_number` at ERROR severity,
+// which REFUSES the page build. Measured on the copy the 18:32Z rebuild actually
+// wrote: Phase 2 as committed → 1 finding on that page; with this rule → 0.
+//
+// The rule is "a LETTER on BOTH sides", and both-sidedness is what bounds it: a
+// real quantity always has a word boundary in front of it. Fleet-wide blast
+// radius, measured over all 2,042 live components before it was kept: ONE
+// finding removed — `EvilHack0r`, a username in an XSS tutorial — and the 16
+// genuine first-person claims on ai-agent-orchestration.com unchanged.
+func TestADigitInsideAnAcronymIsNotAClaim(t *testing.T) {
+	empty := &EvidenceBase{}
+
+	// Verbatim live copy, protocol-tracker hero, ai-agent-orchestration.com.
+	for _, block := range []string{
+		"MCP, A2A and half a dozen other proposals are competing to become how agents pass tasks.",
+		"Agent-to-Agent Protocol (A2A) Linux Foundation",
+		"protocol_governance W3C AI Agent Protocol Community Group working on standardisation",
+	} {
+		if f := empty.ScanUnregisteredNumbers([]string{block}, ClaimSurface{PageType: "content"}); len(f) != 0 {
+			t.Errorf("a digit inside an acronym was read as a business claim: %q -> %+v", block, f)
+		}
+	}
+
+	// THE CONTROLS. A digit with a letter on only ONE side is NOT covered by this
+	// rule, and a real quantity always has a word boundary in front of it — both
+	// must still be scanned, or the rule has eaten the thing it was carved around.
+	for _, block := range []string{
+		"We hold 45,000 client records across the estate.",
+		"Our 8 departments each run their own agents.",
+		"The estate ships 3D assets to 12 clients.", // "3D" one-sided; "12" is the claim
+	} {
+		if f := empty.ScanUnregisteredNumbers([]string{block}, ClaimSurface{PageType: "content"}); len(f) == 0 {
+			t.Errorf("the acronym rule silenced a real quantity: %q", block)
+		}
 	}
 }

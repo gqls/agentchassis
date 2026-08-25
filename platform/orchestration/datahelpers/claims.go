@@ -1104,6 +1104,26 @@ func (eb *EvidenceBase) ScanUnregisteredNumbers(blocks []string, surface ClaimSu
 func isExcludedNumber(block string, start, end int) bool {
 	token := block[start:end]
 
+	// A digit with a LETTER on BOTH sides is inside an identifier, not a
+	// quantity: A2A (Agent-to-Agent), W3C, B2B, H2O. bugs_open/364 Phase 2
+	// measured this as a live build-refusal: restoring the scan to a tracker
+	// page's hero (correct in itself) made "MCP, A2A and half a dozen other
+	// proposals" raise `unregistered_number "2"` at ERROR severity, which
+	// refuses the page — over a digit inside an acronym.
+	//
+	// Both sides must be letters, which is what keeps it bounded. A real
+	// quantity always has a word boundary in front of it ("we serve 45,000
+	// clients", "over 1,600 orchestrations"); nothing this platform publishes
+	// writes one flanked by letters. One-sided forms stay scanned on purpose —
+	// "3D" and "MP3" are not excluded by this rule, only by whatever else
+	// applies to them.
+	if start > 0 && end < len(block) {
+		before, after := block[start-1], block[end]
+		if isASCIILetter(before) && isASCIILetter(after) {
+			return true
+		}
+	}
+
 	// Composite tokens: a digit, '-', '/', ':' or '.' immediately adjacent
 	// means this is part of a date, time, version, ratio, or phone group
 	// (e.g. 2026-07-16, 24/7, 14:30, v1.0.1124).
@@ -1199,6 +1219,14 @@ func isExcludedNumber(block string, start, end int) bool {
 	}
 
 	return false
+}
+
+// isASCIILetter reports whether b is an unaccented ASCII letter. Deliberately
+// ASCII-only: this guards an IDENTIFIER shape (A2A, W3C), and identifiers on
+// this estate are ASCII. A multibyte letter falls through and the number stays
+// scanned, which is the noisy direction.
+func isASCIILetter(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
 // parseClaimNumber converts a matched token (plus any magnitude word that
