@@ -682,3 +682,59 @@ is unit- and mutation-tested only. The canary vouches for the rerender path alon
 unholds 312 owns the first live exercise of that branch — `leopardessconsulting.co.uk`
 `/how-it-works` and `/index` each carry two authored `/contact.html` CTAs and are honest
 canaries for it.
+
+---
+
+## ⚠ CORRECTION 2026-08-25 (leopardess lane) — my 08-18 "it survives" evidence has EXPIRED, and the repair itself produced the misdirection
+
+**What I wrote on 2026-08-18, in the CONTRIB above:** three authored `/contact.html`
+destinations on `leopardessconsulting.co.uk/index.html` survived two `section_data_resolved`
+rerenders, with a demand control. **That was true when written and is false now.** I flagged
+an ambiguity in it at the time — *"my evidence cannot yet separate 'the fix held' from
+'nothing was recomputed'"*. This is the answer: something recomputed, and it clobbered one.
+
+**What changed** `[MEASURED 2026-08-25]`, chassis now **v1.0.1337** (was v1.0.1310 when the
+fix was confirmed live):
+
+| field | 08-18, authored by hand | 08-25, live |
+|---|---|---|
+| `hero.cta_url` | `/contact.html` | `/contact.html` — **held** |
+| `hero.secondary_cta_url` | `/how-it-works.html` | `/how-we-work.html` — rewritten, and **correctly**: the label says "See how we work" and that page exists |
+| `call-to-action.primary_cta_url` | `/contact.html` | **`/tools/tool-agent-complexity-estimator.html`** — clobbered, while the label still reads *"Book an architecture conversation"* |
+
+**The producer, named from its own row rather than inferred.** All seven `index`
+`page_components` carry `updated_at = 2026-08-24 18:37:05Z`. The matching work item is
+`page_rerender`, **complete at 2026-08-24 18:37:13Z**, summary *"2 misdirected CTA(s) on
+index — copy names a different page than the link"*. So this is the `misdirected_cta`
+detection → `page_rerender` repair path, not a full build and not `setCTAField` (which
+`3bc90fc2d` established is inert because its output is discarded — `bugs_open/312`).
+
+**The sharpest thing here, and the reason this is worth the lane's attention:**
+
+1. **The repair converted a CORRECT link into a wrong one.** Before the pass,
+   "Book an architecture conversation" → `/contact.html`: label and target agreed. After,
+   it points at a complexity estimator. The detector fired on a page where that CTA was
+   right, and the repair broke it.
+2. **It got the other one right in the same pass** (hero secondary → `/how-we-work.html`).
+   So this is not "the repair is broken"; it is a repair that is right about one CTA and
+   wrong about another **in a single run** — which is a much narrower target than either
+   half suggests alone.
+3. **`hero.cta_url` held while `call-to-action.primary_cta_url` did not — same destination,
+   same utility area, same page, same run.** If `storedCTADestinationIsAuthored` were
+   deciding both, they would agree. They do not, so either the keep-branch is not reached
+   on the `call-to-action` field/component, or a second writer touches it. **That is a
+   free discriminator for whoever picks this up** and it needs no new instrumentation:
+   re-author both, fire one `misdirected_cta` repair, and read which survives.
+
+**What I did NOT do:** diagnose further, or touch the fix. This lane owns it. I have
+re-authored `call-to-action.primary_cta_url` back to `/contact.html` in `content_data`
+(`bak_leo_home_cta_20260825`) because the owner reported this exact button and it is live
+wrong on his home page — but that is a site repair, not a fix, and it will be clobbered
+again by the next pass on this page. Publishing rides an unrelated rerender rather than
+firing one for it.
+
+**And the lesson for the CONTRIB above, which I am leaving in place rather than editing:**
+a "survives N rerenders" result is a claim about a WINDOW, not a property. Mine held for
+six days and then did not. Any future survival evidence on this bug should name the
+producer it survived, not the number of rerenders — because the producer that eventually
+clobbered it had not run in my window at all.
