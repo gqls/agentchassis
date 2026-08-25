@@ -91,6 +91,38 @@ Reference timing from `garden-tools.uk`: submission 17:17 → pages 20:15, **abo
    **Any non-zero closes this lane's open item.**
 4. Page structure on THIS site's pages only, plus the loanzy lane's promise-vs-delivery check.
 
+### ⚠ THIS BUILD IS ALSO `bugs_open/206`'s CLOSURE TEST — division of labour agreed
+
+`reconcile_site_plan` runs **inside `build-site-planner`**, last in its order (after `plan_site` /
+`write_site_plan` / `sync_pages` / design / imagery / nav). So the step this lane is waiting on to
+test 381 is the same step that **mints the `needs_page` rows**, and the owner's 2026-08-25 retraction
+moved 206's proof onto "the next greenfield build". **This is that build.** Agreed split with the
+`loanzy_uk_example_site` lane so neither of us measures half of it:
+
+- **This lane takes the PROMPT and the CHOICE** — what the planner was shown, and what it composed.
+- **That lane takes the MINT** — what `reconcile_site_plan` then filed, contributed to the 206 lane
+  rather than written up as theirs. Their assertion, so it can be sanity-checked: a row with
+  `page_role='entity-directory'` must carry `handler_agent='directory-build-handler'` and
+  `created_by='reconcile_site_plan'`, joined `pages` on `(site_id, page_name)` as the authority —
+  **NOT** on `spec->>'page_type'` or `'page_id'`, which are absent on 134 of 134 reconcile-minted
+  rows fleet-wide and so return a confident zero for the very population they exist to count.
+
+⚠ **AND IF PAGES FAIL WITH "no sections ready to build", DO NOT LET IT READ AS A 381 FAILURE.**
+That is 206's residual class and it cost garden-tools **5 of 12 pages**. Ask which of two it is,
+because **the string cannot tell you and the fixes differ**: (a) a type mapped to a wrong or missing
+builder, or (b) a type mapped to a builder that cannot fill a missing layout —
+`ensure_page_section_layout` exists **only** in `directory-build-handler`'s workflow, so the generic
+path has no way to create one.
+
+### ⚠ THE PLANNER PROMPT IS BEING CAPTURED AUTOMATICALLY — do not rely on noticing
+
+`evidence/PLANNER_PROMPT_homegarden_<ts>.txt`, written by a background watcher the moment
+`plan_site` appears in `llm_call_log`. **Why it is automatic rather than a step in a checklist:**
+the pages show what the planner CHOSE and **never what it was SHOWN**, and if the choice
+disappoints those two readings have completely different remedies — one is "it declined", the other
+is "the capability never reached it". `prompt_rendered` is durable in `llm_call_log`; the
+**orchestration row that proves which run it was is not**, so the capture takes both together.
+
 ### How to read the outcome
 
 - **Chosen and filled** → central claim proven; close `bugs_open/381` to `/bugs_closed/`.
