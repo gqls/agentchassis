@@ -412,6 +412,51 @@ comment beside the map.
 
 **Outcome unchanged by the rework:** 16 findings, zero on any tracker page.
 
+## 6j. ⚠ A LIVE refusal risk this lane's own "no measured cost" claim was hiding
+
+Found 2026-08-25 by re-checking one of my own claims after the `bugs_open/386` lane published a
+falling-facts census. **It is live, it is not caused by Phase 2, and Phase 2 stops hiding part of it.**
+
+`aao-orchestrations` — the fact I cited as making the plural fix free — **is a rolling window, not a
+total**: 35 recorded snapshots ranging **1,494–7,281**, fallen **17 times across 34 transitions**, and
+**below 1,600 on 3 of the 35**. The site publishes *"We run over 1,600 orchestrations a day"*.
+
+Replaying the site's own historic low through `cmd/claimscan` at HEAD — same corpus, same code, only
+the fact's value swapped:
+
+| register value | findings on ai-agent-orchestration.com |
+|---|---|
+| 7,281 (today) | 16 |
+| 1,494 (its own historic low) | **20** |
+
+The four that appear only at the low, all at `error` severity, which **refuses the page build**:
+
+- `adoption-tracker / hero` — `"1,600"`
+- `protocol-tracker / call-to-action` — `"1,600"`
+- `protocol-tracker / hero` — `"1,699"`
+- `enterprise-reference-deployment / case-studies-grid` — `"1,834"` ← **exposed on the CURRENT binary**
+
+**Read the last row carefully: this is not a Phase 2 regression.** One of the four is already live on
+a content page with no change from this lane. Phase 2 makes the other three visible by scanning the
+tracker pages' own surfaces again — which is the fix working, not breaking: those claims were always
+unsupported on a low day and were merely un-scanned.
+
+**The claim itself is never false.** *"Over 1,600"* is a floor, and the copy does not change. Only the
+evidence for it moves. That is `bugs_open/386`'s mechanism, and **the fix belongs there**:
+exact-match-against-retained-former-values keeps vouching for 1,600 through the dip, because 7,281 IS
+a value the register held. A naive floor does not, and today's `gte`-against-current does not.
+
+**Not fixed here, deliberately.** Narrowing that fact's single broad `context_terms ["orchestration"]`
+would make the gate stricter and could newly refuse live pages on a customer site — not a unilateral
+change, and the site is `bugs_open/387`'s. Flagged to that lane before they rebuild (a dip would make
+their rebuild fail for a reason unrelated to their fix, and look like mine failing), to the `386` lane
+as a worked case for the durable fix, and to the owner. `LANDMINES.md` carries it, armed, with the
+history query.
+
+**The lesson for this file: a `[MEASURED]` figure about a MOVING value expires, and I wrote one into
+shipped code.** "At no measured cost" was true of the day it was measured and of no other. The
+correction is in the `claims.go` comment where the claim was made.
+
 ## 6c. Found by this bug's census, filed separately (2026-08-24)
 
 Both were turned up by the fleet claims run for §5a and are **not** this bug's mechanism.
