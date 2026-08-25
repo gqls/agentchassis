@@ -47,6 +47,18 @@ whether the framework obeys me. It is at `<scratch>/mission_homegarden.txt`.
 ⚠ **The dispatch script is NOT executable** (`-rw-rw-r--`, unlike `097_TRIGGER…`). `./082_…` fails
 with *Permission denied*. **Use `bash <script>`; do not `chmod`.**
 
+### ▶ JUST RUN THIS — the four reads are a script, already dry-run
+
+```bash
+bash docs/agent_docs/docs024_key_docs_latest/bugfix_381_inexpressive_composition/ACCEPTANCE_homegarden.sh
+```
+Written and **dry-run 2026-08-25 10:47Z while the build was still at hop two**, deliberately, so it
+is not being debugged at the moment it matters — Q4 reads a table with a ~25h retention and a SQL
+error then would cost the only chance to see what the planner was told. **Every query reports
+"not yet" rather than an empty result**, because on this lane an ambiguous zero has been misread
+three times in two days. It prints how to read itself, including the two different meanings of a
+zero in Q1.
+
 ### WHAT TO DO NEXT — in this order, and step 2 EXPIRES
 
 Reference timing from `garden-tools.uk`: submission 17:17 → pages 20:15, **about 3 hours**.
