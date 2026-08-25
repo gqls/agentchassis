@@ -15752,6 +15752,15 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the general form, which is the reusable part:** a pinned hash is a `[MEASURED]` claim about STATE, and state expires silently while continuing to read as current. An after-test comparing against a pin taken days ago answers *"has anything changed since the pin"*, not *"did my run change it"* — on a tree this many lanes share, those diverge within days. A DATED EVENT does not expire this way; a state pin always does
 - **also: the count travels badly.** The 311 lane pinned **eight** incumbents (its own prose says "seven" and lists eight); the 2026-08-23 garden-tools handoff carried **three**. Control on the source lane's set, not the set your handoff quotes, or five incumbents go unobserved for the whole run
 - **source:** the one-shot-build lane's pre-run control before the `garden-tools.uk` build, 2026-08-23 17:2xZ. Contribution filed at `docs/agent_docs/docs024_key_docs_latest/bugfix_311_component_keys/CONTRIB_2026-08-23_from_garden_tools_lane_your_pinned_md5_baselines_are_superseded.md`; lane record in `docs024_key_docs_latest/loanzy_uk_example_site/NOTES_loanzy_uk_example_site.md`
+- **⚠ STATE UPDATE 2026-08-25 10:29Z, and it flips WHICH error you are likely to make.** `[MEASURED]`
+  all eight incumbents are **unchanged since 2026-08-20** — `updated_at` 2026-08-20 on every row, and
+  both md5s equal to a 2026-08-23 pin. So `bugs_open/283`'s pipeline is **not currently rewriting
+  them**, and a `*** HTML CHANGED ***` reading TODAY is more likely to be a real collision than a
+  stale pin. This entry's advice is unchanged (re-pin first — one query, and it settles which it is);
+  what changes is the **default reading of a CHANGED line when you did NOT re-pin**. Recorded because
+  the inverse error was made the same morning: a lane doc restated this entry as *"ignore section (a)
+  unless you re-pinned"*, which would have had a reader dismiss a true positive mid-build
+  (`WRONG_CALLS.md`, 2026-08-25). **A dormant hazard reads exactly like a corrected one.**
 - **added:** 2026-08-23, loanzy_uk_example_site (one-shot build route) lane
 
 ### `pages.build_status='needs_rebuild'` is a STANDING INVITATION — a sweep regenerates the page hours later and silently discards every manual edit you made

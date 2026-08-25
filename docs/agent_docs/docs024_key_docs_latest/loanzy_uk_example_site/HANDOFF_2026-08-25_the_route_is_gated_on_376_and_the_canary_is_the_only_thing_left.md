@@ -191,11 +191,23 @@ components; a two-page brochure exercises none.
   instruction. 148 lines, unchanged except a banner. Sections: `311` collateral · `260` template
   leak · pages table · the artefact (http/bytes/inputs/buttons/CTA/leak/identity) · `328` dead links ·
   **PROMISE vs DELIVERY**.
-  - ⚠ **Section (a) carries a dated PIN, not a baseline.** The eight component md5s were taken
-    2026-08-23; all eight moved 2026-08-20 under `bugs_open/283` and RFC_032 is rewriting
-    `html_template` fleet-wide. On a run not immediately preceded by re-pinning them yourself,
-    `*** HTML CHANGED ***` means **the pin is old**, not that your build collided. Re-pin before a
-    build; ignore section (a) otherwise.
+  - ⚠ **Section (a): re-pin, and CHECK — do NOT dismiss a `*** HTML CHANGED ***` line.**
+    > **CORRECTED 2026-08-25 10:29Z, hours after I wrote it.** This bullet originally read *"all
+    > eight moved 2026-08-20 … `*** HTML CHANGED ***` means the pin is old, not that your build
+    > collided. Re-pin before a build; **ignore section (a) otherwise**."* **That inverted the
+    > instrument.** Caught by the `bugs_open/381` lane re-pinning at 10:27:16Z for the
+    > `homegarden.uk` build; verified here independently at 10:29Z.
+    > `[MEASURED 2026-08-25 10:29Z]` **all eight match the 08-23 pins exactly — 8 of 8, html AND
+    > schema — and `content_components.updated_at` on every one reads 2026-08-20, untouched for
+    > five days.** The 08-20 move is true as *history* and false as *current state*; I inferred
+    > forward from the event and wrote the inference as an instruction. With the pins current, a
+    > CHANGED line is a **real collision** — the one alarm that section exists to raise — and my
+    > wording would have had the next reader dismiss a true positive mid-build.
+    > Full entry: `WRONG_CALLS.md`, 2026-08-25.
+
+    **Operative:** re-pin before a build (one query, and `LANDMINES.md`'s entry has it). If you
+    have not, treat a CHANGED line as **news**: check that component's `updated_at` before
+    deciding whether it was you or `bugs_open/283`.
   - ⚠ Its `li=` column counts **all** `<li>`, chrome included (8 per served page here). Read it as a
     delta against the baseline, never as an absolute content-list count.
   - It validated on live data before this run: `PROMISE UNMET` fires on `seasonal-planner` and stays
