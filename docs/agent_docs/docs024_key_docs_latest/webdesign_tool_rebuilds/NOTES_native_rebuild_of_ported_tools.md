@@ -3181,3 +3181,24 @@ holds 12 files across 11 tools.
 **STATE: 38/63. Phase C complete (11 of the true-census 12; the 12th, micro-cms, is Flat-File
 Micro CMS — rich-app finale). NEXT: Phase B — 23 self-contained ≥8 KB tools smallest-first
 (focus-ring 8,148 first), then the FIVE rich apps one at a time, owner-reviewed.**
+
+## 2026-08-25 12:45Z — #39 `tool-focus-ring` (Phase B #1) built+retired+graded by mechanism; serve-grade OWED on queued assemble `4f0a3002`
+
+Item `fdad0890` (related_pages: learn-accessibility-focus-states + learn-design-layered-shadows).
+Ported sighting #18, a double one in its own comments: the emitted CSS hardcoded a WHITE gap layer
+while the comment beside it claimed the gap "matches background", and the preview injected a LIGHT
+gap on BOTH try-me buttons directly under a comment saying "Dark button needs dark gap" — the dark
+preview shipped visibly broken. Plus `alert("Copied!")` unconditional and inline handlers.
+RUN complete/adopted, component `e7ff9496`; retire `UPDATE 1` ~30 s post-build (slot `974718dd` md5
+`2c3a5790…` intact, post-commit re-read `removed`). **COMPONENT by mechanism:** the emitted CSS
+uses the NEW explicit gap-colour input with the honest comment "set this to YOUR background
+colour"; the light preview injects `var(--color-surface)` and the dark preview `var(--color-text)`
+as their OWN gaps (three emissions read, each correct); sliders clamped (offset 0–12, width 1–8,
+blur 0–24, integers); copy success/failure states; 0·0·0 counts, 7 listeners.
+**Controls pinned (validated both ways):** NEG (0): `id="cPrimary"`, `id="btnLight"`,
+`id="output"`, `dynamic-style`, `Copied!`. POS: code-arm literals per the standing rule.
+**SERVE-GRADE OWED:** rerender `4f0a3002` queued 12:10Z, unclaimed ~35 min (fleet FIFO busy,
+drain healthy 23/10 min) — the tombstone protects the interim, same shape as #33 which resolved
+clean. Grade with the pinned controls + LM > completed_at when it lands.
+**After it: entropy-meter (8,325), text-sanitizer (8,607), cubic-bezier (8,754), golden-ratio
+(8,754), monolith-splitter (9,037), … (Phase B smallest-first).**
