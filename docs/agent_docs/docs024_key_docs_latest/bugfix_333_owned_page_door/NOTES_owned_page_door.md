@@ -449,3 +449,10 @@ ownership PER INSTANCE at skip time — the rule is a per-page read, not a gener
 (the bugs_closed/044 distinction).
 
 Round 2 resubmitted on the same correlation (`RESUBMIT_CORR=70a1e557`), revision committed `fb2bd056d`.
+
+**Round 2: APPROVED** (2026-08-25, ~13:1xZ; 2 advisory objections, none high, 5 abstained).
+`bug_historian` flipped to approve on the durable record; `guardian`'s residual objection dropped to
+medium/advisory with the census + owner sign-off on record. The two `editquality` code nits are
+answered by the committed diff (txErr IS checked; parked rows count as created AND parked — a parked
+row exists, at `deferred`). What remains for this lane: post-roll verification per the RUNBOOK, then
+the bug's close-out and the lane SUMMARY (the milestone is the gap PROVEN closed live, not committed).

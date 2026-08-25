@@ -769,8 +769,9 @@ collide with a live open row of the same `item_key` for 31 of the 59 under `idx_
 `failed`/`wont_fix` halves (incl. the 46 `tool_crosslink` `wont_fix` the `staged_component_build` CONTRIB
 flagged) are archiver-eligible within days.
 
-**IMPLEMENTED 2026-08-25, same day as the rulings: commit `0ad313f02`,
-`Council-Submitted: 70a1e557-f4bc-4db5-96bc-0407b475423c`.** `write_audit_findings` writes through
+**IMPLEMENTED 2026-08-25, same day as the rulings: commits `0ad313f02` + `fb2bd056d`, corr
+`70a1e557` — council APPROVED round 2 (round 1 REVISE produced the 30-day brake census and the
+durable `owned_page_review` record on every escalation skip).** `write_audit_findings` writes through
 `writeWorkItem` (per-finding tx; anti-churn now applies to its rows, registration probe unchanged —
 'detected' is outside its trigger set), and `escalateRerenderToWriter` checks `pageIsOwnedForGuard`
 before minting, returning `skipped_owned_page` (fail-open on ErrNoRows/unreadable). Both INERT until
