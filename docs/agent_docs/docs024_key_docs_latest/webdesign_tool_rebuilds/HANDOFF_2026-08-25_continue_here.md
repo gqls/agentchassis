@@ -5,8 +5,10 @@ was idle, both verified first-hand (NOTES 20:15Z):
 ⚠ **A CHASSIS ROLL LANDED 19:07Z, after every build in the 08-25 grind.** The "fresh roll 09:27Z —
 verified for this lane" paragraph below is TWO ROLLS STALE — do not read it as current. Re-verified
 on the new binary: `adopt_existing_page` and `page_adopted` PRESENT with a junk-literal control
-absent, live config flag still `true`. **NOT re-verified: the 360 tombstone guard** — the next
-filing's post-retire re-read is that check; treat it as unverified until then.
+absent, live config flag still `true`. **The 360 tombstone guard IS shipped on this roll** (resolved
+20:30Z): both guard commits are ancestors of stamp `a7459a44b`, and that stamp is present in
+`/proc/1/exe` on BOTH replicas, junk-40-hex and post-build-sha controls clean. Ancestry proves it
+SHIPPED; the post-retire re-read in the recipe proves it FIRES — the next filing still owes that.
 ⚠ **NO TOOL ON THIS SITE HAS EVER HAD A `tool_acceptance` ROW** — 0 rows all-history, because
 `site-discovery-rotation-design` is `enabled=f` (alone of the four) and `design-discovery-agent`
 has 0 runs since 08-11. **The serve-grades in NOTES are the ONLY grading these 43 rebuilds have

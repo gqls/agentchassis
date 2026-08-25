@@ -3726,6 +3726,10 @@ tombstone guard** — `build_status` is too generic a literal to be evidence of 
 claim a probe I did not run. The recipe's post-retire tombstone re-read IS that check behaviourally,
 so the next filing establishes it; until then treat it as unverified on `v1.0.1339`.
 
+> **RESOLVED 2026-08-25 20:30Z, same session — it IS in the running binary.** See the 20:30Z entry:
+> the platform seat answered by ancestry, I checked the ancestry AND re-read the stamp off both
+> replicas, and the guard is shipped. The caution in the paragraph above is spent; do not act on it.
+
 > **A clock note, because it nearly became a false claim.** Comparing pod `startTime` (19:07Z) with
 > my own poll-loop timestamps (16:14Z) looked like a three-hour clock skew between k8s and this
 > session, which would have thrown every `last-modified > completed_at` grade in today's entries
@@ -3757,3 +3761,37 @@ Also banked from their reply: **no tool on webdesign has EVER had a `tool_accept
 status, all history) — stronger than my "no re-audit will run"; their 08-16 "not graded here"
 deferral is corrected in their file, with a standing rule not to defer behavioural grading to that
 pipeline while the design rotation is off.
+
+## 2026-08-25 20:30Z — the 360 guard gap CLOSED: ancestry re-run, and the stamp re-read off BOTH replicas with two controls
+
+I recorded at 20:15Z that the 360 tombstone guard was not verified on the new roll, because
+`build_status` is too generic a literal to stand as evidence of it. The platform seat answered by
+**ancestry** — both guard commits are ancestors of the chassis stamp — and stated its own caveat
+plainly: the stamp value `a7459a44b` came from a *previous* session's reading of the provenance line
+at ~19:20Z and had not been re-read.
+
+That caveat is the whole of the risk, and it is the shape this repo has a landmine for: **a stamp
+copied out of a NOTES line is a citation, not a read, and a 9-hex image-digest prefix looks exactly
+like a short sha.** So I checked both halves myself rather than banking the argument.
+
+**Half 1 — are the cited refs even commits?** `git cat-file -t` on all three: `a7459a44b` **commit**,
+`1cd184f6e` **commit**, `45b728b01` **commit**. None is a digest prefix.
+**Half 1b — ancestry, re-run here:** `git merge-base --is-ancestor 1cd184f6e a7459a44b` → **exit 0**;
+`45b728b01 a7459a44b` → **exit 0**. With a **negative control**: today's `HEAD` is *not* an ancestor
+of the stamp (exit 1), so the test discriminates rather than saying yes to everything.
+**Half 2 — is that stamp what is actually RUNNING?** Known-value probe, not a discovery grep:
+`grep -aq "a7459a44b" /proc/1/exe` → **PRESENT on `agent-chassis-669b45fdb4-r5bj7`** (started
+19:07:18Z) **and PRESENT on `-vx8b6`**, both replicas asked independently. Two controls in the same
+breath: a junk 40-hex string → **absent** (so it is not matching Go's internal digit table, the
+documented false-positive), and today's `HEAD` short sha → **absent** (a binary built at 19:07Z
+cannot contain a commit made after it, and it does not).
+
+**So: the 360 tombstone guard — the skip gate and all three UPDATE predicates, plus round 3's
+third-persist-branch widening — is in the binary now serving both chassis replicas.** The 20:15Z
+"unverified" line is superseded and marked as such in place.
+
+**The division of labour is worth keeping, because the two halves prove different things:**
+**ancestry proves the code SHIPPED; the post-retire tombstone re-read proves it FIRES.** Neither
+substitutes for the other, and the next filing still owes the second. What ancestry additionally
+buys is durability — a later forward roll keeps ancestors, so this conclusion survives every roll
+except an image-tag rollback, which is the one event that would void it.
