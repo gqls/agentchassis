@@ -187,7 +187,7 @@ OPTIONAL_KEY_COUNTS = {
     "score_grippers": 6,
     "select_representative_content": 2,
     "store_crawl_batch": 1,
-    "store_generated_component": 5,
+    "store_generated_component": 6,
     "training_data_export": 6,
     "update_site_spec_from_item": 2,
     "update_source_timestamps": 1,
