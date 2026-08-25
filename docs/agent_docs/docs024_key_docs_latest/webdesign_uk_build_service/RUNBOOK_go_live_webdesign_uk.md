@@ -63,18 +63,26 @@ email), and the delivery email itself. The site being visible changes none of th
    ```
    Expect: apex+www `302 https://webdesign.co.uk/`, preview `404`, control `200`.
 
-## 2. THE UNPARK — owner-executed (sessions cannot SSH to the box or touch Cloudflare)
+## 2. THE UNPARK
+
+> **CORRECTED 2026-08-25:** this section said "owner-executed (sessions cannot SSH to
+> the box)", inherited from `RUNBOOK_links_host_box_steps.md`. **Measured false the
+> same day**: `ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com`
+> works from the working machine (key present since 2026-08-04). Sessions CAN run the
+> box half; the Cloudflare page rule remains owner-only (dashboard, no API credential
+> in session reach).
 
 **Step 1 — prove the box's APPLIED apex vhost is the `/c/`-free version.** The repo copy
 (`box/webdesign.uk.nginx`) is `/c/`-free since 2026-08-24, but the repo is not the box,
-and this cannot be probed from outside while the page rule swallows the apex. Run (the
-`!` prefix in a session runs it with output landing in the conversation):
+and this cannot be probed from outside while the page rule swallows the apex. Run:
 
 ```bash
-ssh root@webdesign.vs.mythic-beasts.com "grep -c 'location /c/' /etc/nginx/sites-enabled/webdesign.uk"
+ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com \
+  "grep -c 'location /c/' /etc/nginx/sites-enabled/webdesign.uk"
 ```
 
-**Expect `0`.** If it prints anything else: copy the repo's
+**Expect `0`.** ✅ **VERIFIED 0 on 2026-08-25** (re-run on the day regardless: the box
+config can move). If it prints anything else: copy the repo's
 `webdesign_uk_build_service/box/webdesign.uk.nginx` onto the box as
 `/etc/nginx/sites-available/webdesign.uk`, then `nginx -t && systemctl reload nginx`,
 and re-run the grep. Do NOT proceed to step 2 until it reads 0 — otherwise the unpark

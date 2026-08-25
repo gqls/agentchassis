@@ -5534,3 +5534,46 @@ the architecture post-handover; new parts = earlier-in-preview + voice) — NOTE
 **`SUMMARY_2026-08-25_webdesign_uk_build_service.md`** (the resume point, with the
 runbook). Copy/design brief from the owner is expected next; hold launch sequencing until
 the two questions are decided.
+
+## 2026-08-25 (later) — LAUNCH BACK ON; owner copy brief round 1 APPLIED to the register
+
+**Two owner rulings arrived mid-work:** (1) the audience line "is really just being more
+honest about who could handle what I give them" (a capability statement, not a
+credentials gate; recorded in the fact's attestation); (2) **"I will go ahead with the
+launch after this and we can improve as we go"** — the two 08-25 reconsiderations
+(pre-present edits; customer in-preview editing/voice) become improve-as-we-go items,
+NOT launch gates. The SUMMARY_2026-08-25 snapshot's "where we're going" is superseded on
+that one point; the snapshot's resume-point role is now simply "the launch path".
+
+**Register applied** (`SQL_2026-08-25_bold_audience_categories.sql`, committed 14:46:36Z,
+26 facts now): NEW audience_experienced_webdesigners + not_a_hosting_company; the month
+fixed at 30 DAYS (2 facts + writer_block x5); any_site_type gains categories (examples
+still off-page per 08-18); third_party_options + allowed_entities gain Visual Studio
+Code; writer_block +5 steering paragraphs; the any_site_type_examples GHOST REFERENCE
+removed (a fact that never existed, instructing the opposite of the no-examples rule).
+Proof: mutation test tripped the intended guard; first clean trial FAILED on a real gap
+(a FOURTH "six named third-party services" instance in the useful-not-promotional
+paragraph; needle added); second trial + real run: ALL GUARDS PASSED, INSERT 0 1.
+".csv" in the owner's draft read as ZIP (flagged; delivery_live_link_and_zip is the
+authority). NOT attested, flagged instead: "until we do start hosting"; any "no online
+shops" exclusion.
+
+**Two discoveries:**
+- **Sessions CAN SSH to the box** (`~/.ssh/webdesign_box_ed25519`, present since 08-04) —
+  `RUNBOOK_links_host_box_steps.md`'s "Owner-executed (sessions cannot SSH)" is FALSE as
+  of today's measurement; go-live runbook corrected. And the applied apex vhost greps
+  **0** `location /c/` — go-live step 1 already satisfied.
+- **The bot improvises hosting-continues**: pre-refresh it answered "pay us £10 a month
+  to rent the domain and keep hosting it here" — NO fact attests hosting beyond the 30
+  days (the delivery architecture separates domain rent from hosting). Watch whether
+  not_a_hosting_company corrects this after the cache turns; if not, the
+  domain_rent_monthly claim's "the domain the site is served under" wording is the
+  likely leak and needs narrowing.
+
+**In flight:** index rerender filed (`69f072d6`, key page_rerender:index) — pinned
+BEFORE: md5 15cd368143eaeb9416ad61540cb9d676, 34,913 bytes (served, CF-injected form).
+Stale-copy census (served, 2026-08-25): index 6x "two or three days" + 4x "website for
+your business"; faq 1x month + 3x days; how-it-works 1+1; what-you-get 3x month; guide
+1+1; contact + brief-starter tool clean. Remaining four to file after index proves the
+pipeline. ⚠ index rebuild wipes the hand-placed "Not active yet" label: re-place it
+(runbook gate 2) BEFORE the unpark.

@@ -2156,3 +2156,17 @@ decide against the new ideas, we pick up exactly there, with the go-live checkli
 Worth saying plainly: both ideas pull against what the site currently promises ("one
 pass, no changes"), so choosing either means the wording, the recorded facts and the
 process all change together, not just the software.
+
+**2026-08-25, evening — the launch is back on, and the first copy changes are in.** You
+decided to go ahead after this copy pass and improve as we go, rather than holding for
+the bigger ideas. Your new home-page position is now in the system's rulebook for this
+site: it says plainly who the product suits (people who can take a folder of files and
+run with it), that we are not a hosting company but will point at free hosting and help
+with instructions, that the included live link lasts 30 days, that far more kinds of
+site than business sites are on offer (tools and calculators, guides and reviews,
+directories, portfolios and community sites), and how editing works after handover. The
+pages themselves are being rebuilt to match as I write; the home page goes first. Two
+useful side-findings: this machine can reach the web server directly after all, so more
+of the go-live can be done for you than we thought, and the chat bot was caught telling
+a visitor we would keep hosting their site if they rent a domain, which nothing we have
+promised actually says. The new wording should correct it; I am checking.
