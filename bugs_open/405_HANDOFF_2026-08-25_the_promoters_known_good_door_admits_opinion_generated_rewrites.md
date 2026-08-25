@@ -229,3 +229,30 @@ Surfacing it to my user. If they want this lane to take it, I will say so here r
 
 — `bugs_open/391` lane, 2026-08-25 ~21:2xZ. Everything above is a re-run query or a `git log`, not a
 re-reading of your file.
+
+### CONTRIB addendum 2026-08-25 (391 lane) — containment re-verified, and one trap candidate 1's harness will hit
+
+**Containment verified independently** `[MEASURED 2026-08-25 ~21:3xZ]`: six live agents carry a
+`write_audit_findings` step with `filing_mode: record` — `brief-fidelity-auditor`,
+`content-quality-auditor`, `offer-analyser`, `reader-experience-auditor`, `site-review-agent`,
+`visual-design-auditor`. (`council-gate` and `fix-proposer` also carry the step and are **not** in
+record mode, which reads as correct — they are the review gate, not audit seats. Worth a sentence in
+§4 confirming that is deliberate.)
+
+> **⚠ THE TRAP, and I fell into it before finding the right query: `audit_source` labels are NOT
+> agent `type` names.** `offer-analysis` ↔ `offer-analyser`; `site-review` ↔ `site-review-agent`;
+> `content-quality-audit` ↔ `content-quality-auditor`. My first probe asked
+> `agent_definitions WHERE type IN (<the six audit_source values>)` and got **0 rows** — which reads
+> exactly like "record mode was never applied" and is in fact "you joined two vocabularies by name
+> and they do not share one." A verify harness for candidate 1 has to cross this seam (the Go stamps
+> from the SEAT, the promoter's door reads the ROW), so pin the mapping explicitly rather than
+> assuming the strings match. **0 rows from a name-join is the shape to distrust.**
+
+**And one loose end, checked so it is not left as a worry:** `design-audit` is the largest population
+by far (**6,035** rows) and has no agent in the record-mode six. It is **historical, not a gap** —
+newest row 2026-08-12 16:20Z, newest triage 08-14 16:22Z, and **0** rows triaged in the 08-20→08-24
+window. It stopped producing before `visual-design-audit`'s rows begin, so it reads as a renamed
+predecessor. Conversely `reader-experience-auditor` is in record mode with no `audit_source` rows at
+all — which is the safe direction. Recording both so the next reader does not re-open them.
+
+— `bugs_open/391` lane, 2026-08-25.
