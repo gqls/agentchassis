@@ -1,13 +1,15 @@
-# 396 — 114 work items sit at `deferred` with a named `handler_agent`: undispatchable, un-promotable, un-re-filable, and carrying no record of who parked them or why
+# 396 — 52 work items sit at `deferred` with a named `handler_agent`: undispatchable, un-promotable, un-re-filable, and carrying no record of who parked them
+
+> **The title said 114 when filed. Corrected to 52 the same day — 62 of the 114 ARE stamped, in `result` rather than `spec`. See the correction block below.**
 
 **Filed 2026-08-25** by the `deferred_work_item_park` lane, spun out of `bugs_open/328` at the
 owner's direction after one of these rows blocked 328's own dispatch.
-**Status: OPEN, UNOWNED.**
+**Status: OPEN, UNOWNED. ROOT CAUSE ESTABLISHED 2026-08-25 (see the correction block) — deliberate hand-run per-site queue holds, because the platform has no park verb.**
 **Severity: medium.** Nothing is breaking for a customer. The harm is that work the platform
 decided to do disappears silently, **and the page it belonged to becomes unrequestable** — a fresh
 dispatch for it fails `23505` on `idx_swi_dedup`, a failure that reads as *"already queued"* and
 means *"queued and abandoned"*.
-**Class:** silent state + missing provenance. **Root cause NOT established — see §5.**
+**Class:** silent state + missing provenance. ~~**Root cause NOT established**~~ — **ESTABLISHED 2026-08-25, one hour after filing, by an independent review: deliberate hand-run per-site queue holds. See the correction block.**
 
 > **On the 090 loop: RUN, and it did NOT confirm.** Intake `4623672c-d942-4dfe-a7a4-41bdbf500c5c`,
 > run `6061299a-cb6a-497f-b5eb-d31b3bb7771c`, 4 iterations, verdict **UNVERIFIABLE — "NOT CONFIRMED
@@ -17,6 +19,49 @@ means *"queued and abandoned"*.
 > named candidates in the read code**. §5 records what it found that I had missed, and the one lead
 > it left that does not exist.
 
+> ## ⚠⚠ CORRECTED 2026-08-25, ~1 HOUR AFTER FILING — the headline was wrong about 62 of the 114, and the root cause IS established
+>
+> An independent review (Claude Fable 5, commissioned by the owner) refuted the central claim and
+> **answered the open question**. Every point below was re-verified first-hand before this block was
+> written.
+>
+> **1. "No provenance" is FALSE for 62 of the 114. The stamps are in `result`, and I only ever
+> enumerated `spec`.** [MEASURED 2026-08-25] `result.deferred_by` = **62** rows:
+> `loancalculator_rebuild_thread` (60, with `deferred_from_status='detected'` and a
+> `deferred_reason` naming the owner-ordered rebuild AND its release condition) and
+> `apis-uk-bees-lane` (2, with `deferred_at` and a full reason). **The genuinely untraceable
+> population is 52, not 114.**
+> ⚠ **The method error is the one this very file teaches in §5.** I wrote *"do not test for the
+> stamps you know, enumerate the stamps that exist"* — and then ran that enumeration against
+> **one column**. `result` is an established provenance channel here; migration `442` stamps
+> `result.repair_284` for exactly this purpose.
+>
+> **2. ROOT CAUSE ESTABLISHED: deliberate per-site queue holds, run as hand psql by named sessions,
+> because the platform has no park verb.** The hypothesis §4 listed as *"no evidence beyond the
+> absence of alternatives"* had abundant evidence — **in the repo, in other lanes' documents**,
+> which I never searched. I grepped the *code* for a writer on a tree where sessions run psql by
+> hand and write down what they did.
+>
+> | rows | site | parked | the writer's own record |
+> |---|---|---|---|
+> | 60 | loancalculator.co.uk | 08-11, 08-12 | self-stamped `result.deferred_by='loancalculator_rebuild_thread'` |
+> | 38 | mortgagecalculator.co.uk | 07-31 – 08-05 | `mortgagecalculator_couk_adoption`'s documented **15-second auto-defer backstop** — the verbatim SQL is in `HANDOFF_2026-08-03_continue_here.md:81-90`: `UPDATE site_work_items SET status='deferred', updated_at=NOW() WHERE … AND status IN ('triaged','approved')`. **It sets nothing else, which is exactly why these rows carry no stamp.** |
+> | 14 | idea.uk | 08-04 22:03 | commit `90a4fb812`: *"Holds: 12× undeployed_asset + footer needs_rerender + deactivated_component → `deferred` (UPDATE 14)"* — matches the surviving rows type-for-type |
+> | 2 | apis.uk | 08-24 | self-stamped `result.deferred_by='apis-uk-bees-lane'` |
+>
+> **3. §4's "best lead" (a discovery-run side effect) is REFUTED.** idea.uk's 14 were **created**
+> 07-31 19:18 and **parked** 08-04 22:03 [MEASURED]. The discovery run I found completing at 22:03
+> was co-occurring with the **park**, not the birth — and the park was a human's `UPDATE 14`.
+>
+> **4. The lane that made 38 of them had already forgotten it.**
+> `mortgagecalculator_couk_adoption/NOTES…:2844` says **"[UNVERIFIED] what deferred them … a
+> hand-park at adoption is the obvious guess and I did not establish it"** — written by the lane
+> whose own HANDOFF, in the same directory, carries the recipe it ran. **I inherited that
+> `[UNVERIFIED]` and re-derived the mystery from scratch.**
+>
+> §§1–5 below are left as filed, with the wrong claims struck where they appear. §6 (fix
+> candidates) is **sharpened, not withdrawn** — see §6a.
+
 ## 1. The one-paragraph version
 
 The estate has a deliberate, well-built park: `status='deferred'` **with an empty `handler_agent`**
@@ -24,9 +69,10 @@ means *"work we can see and cannot act on"* — a roadmap row, not a dispatch. I
 writers, two consumers (`diagnose_triage_action.go:361`, `fixloop_digest_action.go:358`) and a
 drain (`work_item_retraction.go:205`) that counts parked rows separately *precisely so the park
 cannot empty unnoticed*. **That mechanism is correct and is not this bug.** What this bug is about
-is 114 rows in a shape no Go writer produces — parked, but still naming a real handler — which
+is rows in a shape no Go writer produces — parked, but still naming a real handler — which
 therefore look like ordinary queued work to every reader, are selected by nothing, and cannot be
-re-filed by the detector that found them.
+re-filed by the detector that found them. **They are made by hand, by sessions holding a site's
+queue while they rebuild it, because the platform offers no park verb that would stamp them.**
 
 ## 2. Evidence [MEASURED 2026-08-25 12:47Z — re-run before quoting, this grows]
 
@@ -37,10 +83,12 @@ Computed, not eyeballed (`GROUP BY` over a `CASE`, not a count read off a table)
 | traceable — `spec.parked_by = 'migration_389'` | **87** | 1 | correct, stamped, **and OWNED** (§7) |
 | traceable — `spec.deferred_reason` (`canary_replan_407`, owner-sanctioned 08-12) | **4** | 2 | correct, stamped |
 | correct convention — **empty** `handler_agent` (75 also declare `spec.not_dispatchable`) | **98** | 6 | **not a defect** |
-| **UNTRACEABLE — named handler, no stamp of any kind** | **114** | **18** | **this bug** |
+| ~~UNTRACEABLE — named handler, no stamp~~ **CORRECTED: traceable in `result`, not `spec`** — `result.deferred_by` | **62** | 11 | `loancalculator_rebuild_thread` 60, `apis-uk-bees-lane` 2 |
+| **UNTRACEABLE — no stamp in EITHER `spec` or `result`** | **52** | **10** | **this bug** — mortgagecalculator 38, idea.uk 14, both attributable to hand-parks via lane documents |
 | **total `deferred`** | **303** | | |
 
-The 114, measured together with a control that proves the instrument works:
+The population as originally measured (**114**; the 62 stamped-in-`result` rows are a subset and were
+not separated at the time), with a control that proves the instrument works:
 
 | | |
 |---|---|
@@ -54,8 +102,12 @@ The 114, measured together with a control that proves the instrument works:
 `cancelled`, 131 `needs_human_review`, 76 `failed`), so the zero above is a real absence, not a dead
 column.
 
-**So 113 of the 114 never entered the dispatch queue at all.** They were never triaged, never
-claimed, never attempted, and carry no error.
+~~**So 113 of the 114 never entered the dispatch queue at all.**~~ **CORRECTED — this over-reads
+`triaged_at`.** The mortgagecalculator parks were made by a backstop whose own WHERE clause is
+`AND status IN ('triaged','approved')`, so those rows **were** in the claimable queue when they
+were swept; a row born `'triaged'` never gets a `triaged_at` stamp, because only the promoter
+writes it. What survives, and is what the exclusion in §4 actually rests on: **never claimed,
+never attempted, and carrying no `error`.**
 
 ### The worked instance, and what it cost
 
@@ -138,6 +190,36 @@ why it was parked. Reading it as a trace would shrink the population on a false 
 5. *(Rejected as a first move)* changing `idx_swi_dedup`'s predicate so `deferred` releases the
    slot. It is in lockstep with `workItemTerminalStatuses`, and **migration 157 already broke that
    pair once fleet-wide with SQLSTATE 42P10.** Architecture-scope, not a patch.
+
+## 6a. What the corrected root cause does to those candidates — it SHARPENS them
+
+**The cause is not a bug in a writer. It is a MISSING VERB.** Four sessions each needed to hold a
+site's queue while rebuilding it; the platform offers no way to do that, so each improvised the
+same `UPDATE … SET status='deferred'` by hand, and only the ones who thought of it left a stamp.
+That reframes the ranking:
+
+1. **Candidate 1 is now the primary fix, and it is a FEATURE, not a guard.** Give the estate a park
+   verb that records `parked_by` / `parked_reason` / `parked_from_status` and a release condition,
+   in ONE place. An operator with a supported way to park stops inventing one. Migration `389` and
+   `loancalculator_rebuild_thread` both show what a good stamp looks like — they simply had no
+   shared implementation to call.
+2. **The estate has grown at least SIX ad-hoc provenance conventions** for the same act:
+   `spec.parked_by`, `spec.deferred_reason`, `spec.not_dispatchable`, `result.deferred_by` (+
+   `deferred_reason` / `deferred_from_status` / `deferred_at`), `result.repair_284` (migration
+   `442`), and a reason appended to `created_by`. **That divergence is the argument for
+   standardising, and it is stronger evidence than the 52 unstamped rows are.**
+3. **Candidate 2 (`status_override`) stands, and gains a sibling.** Two registered actions take a
+   status from step config — `create_work_item_action.go:194-222` (`config["status"]` +
+   `config["handler_agent"]`) and `UpdateWorkItemStatusAction` (`v3_site_actions.go:5953+`). A
+   recursive walk over every `agent_definitions` row finds exactly **one** step fleet-wide
+   configured `deferred` (`improvement-loop`/`create_work_item`, `capability_gap`, **empty**
+   handler) and **zero** `status_override='deferred'` [MEASURED 2026-08-25]. **Cite that walk as the
+   evidence, not the literal-grep absence** — a grep over source cannot clear a config-driven door.
+4. ⚠ **Candidate 4 ("decide the 52", and the 62) MUST route through the owning lanes.** The 60
+   loancalculator rows carry a live release condition — *"un-park after rebuild verify"* — and
+   blanket re-arming would fire 60 rows another lane is deliberately holding. The 2 apis.uk rows
+   state their own unblock condition. The mortgagecalculator 38 belong to an adoption lane with an
+   active NOTES file. **Ask the holders; do not sweep.**
 
 ## 7. Out of scope — do not touch
 
