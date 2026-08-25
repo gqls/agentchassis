@@ -277,3 +277,92 @@ still consulted by nothing. What shipped is the mechanism plus a tripwire, and C
 **fixed AND live**. Closing on "the gate shipped" would be `bugs_open/021` §INSTANCE 2's own error
 one level along — mistaking *a mechanism exists* for *the defect is gone*. Bug §9c/§9d state the
 reasoning and name what would actually let a future session close it.
+
+## 2026-08-25 (evening) — the owner's four rulings, and what each cost
+
+### Candidate 4: built, and the guard fired on its motivating case in real use
+
+Built in the order that made the guard testable: the declaration + lockstep FIRST (passing, with
+nothing registered), then the verifier — so registering it exercised the guard for real rather than
+via a synthetic mutation. It fired three times, once per arm of `CQ-023`'s router, each naming the
+step and the two ways out. That is the "re-run your detector on the motivating case" rule paying off:
+a guard proven only by a hand-made mutation is proven against a case you invented.
+
+### Misstep 6 — I wrote the declaration into `livespec.go` and had to take it back out
+
+`ClaimedItemTimeoutExclusions` lives in `livespec.go`, so appending beside it was the obvious move
+and I did it. Then `git diff --numstat` on that file read **186 insertions / 16 deletions** — and my
+append had deleted nothing. **Another session had four hunks of an in-flight rename in the same
+file, and it did not compile** (`livespec.DeferredDeclarations` undefined). A pathspec commit would
+have shipped their half-written rename inside my commit.
+
+Moved my block into `platform/livespec/unarmed_completers.go` — same package, no shared file — and
+verified `livespec.go` went back to showing only their changes (92/16). **Caught by:** running
+`--numstat` before committing and noticing a deletion count I could not account for. **The cheap
+check, and it is the one to keep:** *my* diff of *my* file should have a deletion count I can name.
+An unexplained deletion is somebody else's work.
+
+### Misstep 7 — my first attempt to close a coverage gap was vacuous, again, for a new reason
+
+Registering the verifier surfaced that no test asserted a verifier receives the item's real spec.
+I wrote one asserting the values arriving at `VerifyTarget` — and it **passed the mutation** that
+dropped the column, because sqlmock returns whatever rows the test queued regardless of the
+statement. Same trap as yesterday's, one level along: **a mock cannot assert SQL text.** The column
+list has to live in the *expectation*. This is now the second time in two days, so it went into the
+handoff's trap list rather than only into NOTES.
+
+### The council found one thing I had genuinely overstated, and one it had wrong itself
+
+`prior_art_librarian`, MEDIUM: my rationale said `bugs_closed/317`'s protection is "declaration +
+build-time lockstep + a live-drift auditor", and quoted my own `grounded_in` back at me — a sentence
+in `claim_timeout_exclusion_lockstep_test.go` saying the phase-2 auditor had not shipped.
+
+I went and checked rather than defending. **Phase 2 HAS shipped**: `livespec.Declarations` carries
+`scheduled_task.claimed-item-timeout.exclusions` with `ProbeSQL: SELECT pre_query FROM
+scheduled_tasks WHERE name = 'claimed-item-timeout'`, and `compareAllDeclarations` iterates **every**
+declaration with no `Phase` filter (`livedeclarations.go:129`). So my claim was right and the comment
+was stale.
+
+⚠ **I nearly got this backwards.** The Declaration is marked `Phase: PhaseGoSide`, which reads like
+"Go only, not live-audited" — and I briefly took it that way, which would have made the seat right.
+Reading the constants settled it: `PhaseGoSide` is the **checked** state and `PhaseLiveAudit` is the
+**inert** one ("nothing can check this until the phase-2 live auditor exists"). The names are the
+opposite way round from their meanings. That is now in the corrected comment and in `WII-031`.
+
+**What the staleness cost, which is why the correction is not cosmetic:** a competent seat spent a
+MEDIUM objection on a correct claim, and a reader of that file would have inherited the same belief.
+Corrected in place with the cost recorded (`08a44365f`).
+
+Two other objections were **factually wrong**, and answered with evidence rather than argument: two
+seats doubted `checks.RegisteredVerifierItemTypes()` exists (it is `verifiers.go:198`, and the test
+compiles and runs), and `reuse_agent` asked whether an existing audit mode already covers this —
+grep says no mode mentions `update_work_item_status` or `verify_before_complete` at all. One fair low
+objection stands unactioned and is recorded as such: a generic exclusion struct covering writers 2
+and 3 was not considered.
+
+### The verifier: written, and stopped one line short on purpose
+
+Writing the one-line `init()` failed **five** build guards. Four were bookkeeping. The fifth was not:
+the `claimed-item-timeout` sweep writes `site_work_items` directly, so until the **live** `pre_query`
+excludes this type it would complete items straight past the verifier — `bugs_closed/317`
+reintroduced *by adding a guard*. That step edits `livespec.go`, which was still another session's,
+so I stopped at the file boundary and wrote the sequence into the verifier's own header instead.
+
+**I am not comfortable with an unregistered verifier** — it is the "helper with no callers looks like
+a finished refactor" shape — so it is exercised directly by tests (Grades both ways, all five
+positive-absence arms, the still-failing case, the negative control, the fail-closed case) and three
+mutations confirm the guards are load-bearing. The honest position is in `WII-032`'s status line and
+in the file header, not implied.
+
+### The `image_url_404` bug: not filed, premise refuted
+
+Came to file it and found the empty `handler_agent` is deliberate and documented three times in the
+detector, and that the handler had handled 3 rows rather than 0 (archived). The useful half: those 3
+were hand-assigned and the handler **escalated all three back to `needs_human_review`**, which
+refutes the "give it a dispatch route" remedy on this type by direct evidence. Contributed into
+`bugs_open/033`, whose header already poses exactly that contract question and records that two
+council seats disagreed about it.
+
+**Two sessions made the same rolling-window mistake about the same table on consecutive days** —
+mine yesterday, the morning handoff's "0 rows ever" today. That is not carelessness twice; it is a
+table whose name promises history and holds a window.
