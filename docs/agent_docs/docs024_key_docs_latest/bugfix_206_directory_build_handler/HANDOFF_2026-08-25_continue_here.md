@@ -38,9 +38,23 @@ has been proven at the artefact.
 
 ### 1. Prove the fix at the artefact. STILL the free one — and USE THE CORRECTED QUERY.
 
-Unchanged in substance: **the proof arrives free on the next greenfield build of any site carrying
-an `entity-directory`, `section-index` or `entity-page` page.** No site needs touching, nothing
-needs clearing. `[MEASURED 2026-08-25]` it has not happened yet — reconcile rows created after the
+> **⚠ CORRECTED 2026-08-25 (evening), by a real greenfield build — `bugs_open/381` built
+> `homegarden.uk` and it settled three things. See RUNBOOK §7b for the working.**
+> **1. `section-index` is NOT sufficient.** A build carrying only `section-index`/`content`/
+> `landing`/`blog-*` **cannot discriminate the fix**: every one of those routes to
+> `page-build-handler` under *both* the old hardcoded literal and the new map, so the mint comes out
+> identical either way. `homegarden.uk` had 17 `section-index` and zero of the discriminating types,
+> and is stamped, untouched, correct — and worthless as proof. **Check the plan for an
+> `entity-directory` (or `entity-page`) BEFORE calling a build the closure artefact.**
+> **2. Gate 1's "population is empty" is spent** — that build minted 21 stamped rows. And the stamp
+> proves the **08-24** code (`d1aa231aa`) minted the row; it says nothing about today's swap, which
+> never touched that emit.
+> **3. One caveat retired free:** `reconcile_site_plan` minted all 22 rows and
+> `WriteBuildItemsAction` did not appear at all, so reconcile is the greenfield door.
+
+**The proof arrives free on the next greenfield build of a site carrying an `entity-directory` or
+`entity-page` page** — those are the only two types where the fixed map and the old literal
+disagree today. No site needs touching, nothing needs clearing. `[MEASURED 2026-08-25]` it has not happened yet — reconcile rows created after the
 08-24 15:39 roll: **0**; sites reconciled after 08-24 12:00: **0**; newest reconcile anywhere is
 `agritec.uk` 08-24 11:26, *before* the roll.
 
@@ -71,11 +85,11 @@ since the mint. Sound because `trg_site_work_items_updated_at` is `BEFORE UPDATE
 Keep the *un-gated* form for detecting FAIL, where the stamp is absent by construction. Two
 questions, two instruments.
 
-⚠ **And check `created_by` on whatever the build actually mints before reading an empty result as
-FAIL.** §7 filters `created_by='reconcile_site_plan'`. Yesterday's evidence says reconcile is the
-greenfield door (garden-tools.uk's 13 items were minted by it at plan time), but
-`WriteBuildItemsAction` is wired live too — and if a build mints through *that* door, §7 returns
-empty on a **successful** build.
+⚠ **Still check `created_by` before reading an empty result as FAIL**, though this is now measured
+rather than feared: on `homegarden.uk` (2026-08-25) `reconcile_site_plan` minted all 22 and
+`WriteBuildItemsAction` did not appear as a `created_by` at all. One build is not a guarantee —
+that door is wired live in `site-work-orchestrator` — but it is no longer the live hazard it looked
+like.
 
 Also note: **today's code is committed, not rolled.** For the mint to show the `section-index`
 route, the chassis must carry `efec862f4`. Check with the build stamp, per service:
