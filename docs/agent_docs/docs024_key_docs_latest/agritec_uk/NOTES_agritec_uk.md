@@ -672,3 +672,65 @@ rate facts (`HERBAL_LEYS_RATE\s*=\s*224` shape, addressed by the tool's `subject
 the `bugs_open/288` lane, who are waiting on this as the first live proof of their mechanism.
 Their caution goes in the spec verbatim: their sweep has not run for real yet, so **a zero from it
 means "it has not run", not "nothing to find"** until the 09:05 pass tomorrow.
+
+---
+
+## 2026-08-25 — the light palette, and three wrong seams before the right one
+
+Owner: a lighter palette with dark text, as the default on all domains and on this one.
+
+**The site half is four specs, not one.** `design_intent.palette.reference_values` was the obvious
+one and was not sufficient. The full set that has to agree:
+
+| spec | was | now |
+|---|---|---|
+| `design_intent.palette.reference_values` | bg `#12151F`, text `#E8EAF0` | bg `#F7F8F5`, text `#1A202C` |
+| `design_intent.style_direction` | (dark variant) | `modern-light` |
+| `classification.suggested_style` | `professional-dark` | `modern-light` |
+| `imagery_style_guide.palette` | deep slate grounds | warm off-white grounds |
+| `style_collections.color_palette` | dark | **still dark — the open item** |
+
+### MISSTEP 10 — I queued at three seams, and named two of them from the wrong thing
+
+**Seam 1, `needs_design` → `webdesign-agent`.** Completed with no error and changed nothing. I
+first wrote in the handoff that it "completed without regenerating the head" — **wrong, and a
+fresh session would have hunted for a step that never ran.** `generate_css`,
+`persist_css_to_theme`, `deploy_css` and `update_site` all ran. It regenerated the *same dark CSS*
+and wrote it back.
+
+The reason is in `render_css_from_spec_action.go`: `mergedPalette := buildPaletteMap(comp.Palette,
+specPalette)` merges the **theme's** palette with the spec's, and `enforceLayoutScheme` then
+compares the merged background's luminance against the **layout's** declared scheme. Theme dark +
+layout dark = consistent, guard passes, identical output. **A spec-only change could not move it.**
+
+**Seam 2, `fork_theme`.** My next guess and also wrong — and wrong for a reason worth naming.
+`fork_theme_from_site` *sounds* like "make this site a new theme". Its own header says it is
+**library contribution**, inserting a theme pending review, and that *"the site's own
+`style_collection_id` is NOT modified."* It would never have touched this site.
+
+**Both wrong seams came from reasoning about a step's NAME instead of reading what it does.** The
+same file that ruled out seam 2 names the right one in plain text: *"Composition installation is
+owned exclusively by `site-design-planner` via the `install_site_composition` action. Any caller
+that wants to install a composition onto a site must go through site-design-planner (queue a
+`needs_composition` work item)."* It was there to be read before either guess.
+
+**Seam 3, `needs_composition` → `site-design-planner`.** Right seam, and it produced a *real
+error* rather than a silent no-op — which is the first useful signal in the whole chain:
+
+    site already has style_collection_id=eae0f0a3-...; re-resolve not requested
+    (set allow_reinstall=true)
+
+A guard refusing to silently replace an existing composition unless explicitly asked, and it names
+its own remedy. Granted `allow_reinstall: true` and re-queued.
+
+### What is worth keeping from this
+
+**A silent completion cost three seams; the first explicit refusal solved it immediately.** Seams
+1 and 2 would both have "succeeded" — one did, changing nothing. The install guard is the only
+component in the chain that said what it wanted, and it is the reason this is now a waiting
+problem rather than a mystery.
+
+**And the check to run FIRST when something sits in `triaged`:** is anything being claimed
+*anywhere*? Fleet-wide activity plus my own item passing the loader's predicate means queued, not
+broken. I ran that fifth on 2026-08-24 and first today, which is the only reason this one did not
+turn into another investigation.
