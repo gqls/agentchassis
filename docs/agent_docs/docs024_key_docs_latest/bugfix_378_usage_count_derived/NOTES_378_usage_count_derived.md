@@ -816,3 +816,68 @@ The `COMMENT ON COLUMN` / drop migration for the now-dead `content_components.us
 originally so the code could not roll back onto a missing column; that reason has expired now the code
 is live. It is council-scope on its own (migrations are in scope since 2026-08-19), so it is a small
 separate round, not a tail of this one.
+
+---
+
+## 2026-08-25 — the dead column, finished properly (the last residual)
+
+The owner asked for the dead `content_components.usage_count` to be fixed rather than left commented
+in a handoff. Done, in three parts, and the ordering between them is the whole of the care required.
+
+### What made it worse than "clutter" — the column comment was actively lying
+
+Read live from the database before touching anything:
+
+> *"Times this component has been assigned to a page. Incremented by selector. Higher = more
+> battle-tested."*
+
+**All three clauses false.** It counted resolution attempts on one of three paths; its incrementer was
+deleted in `5074367f7`; nothing scores on it. `\d+ content_components` is where the next reader meets
+this column, and it was offering them a maintained figure. **That, not the column, was the trap.**
+
+### Part 1 — the LAST writer, which is why the DROP could not simply be run
+
+`store_generated_component_action.go`'s birth INSERT still named `usage_count` in its column list
+(writing the literal `0`). Not an incrementer — but naming a column in an INSERT is enough that
+dropping it breaks **every component creation**. Removed. `[MEASURED 2026-08-25]` the column carries
+`column_default 0`, so omitting it produces an identical row today.
+
+### Part 2 — migration `609`, APPLIED and verified at the artefact
+
+Replaces the comment. Safe against **both** binaries because a `COMMENT` touches no DML, which is why
+it could go in ahead of the roll while the DROP could not.
+
+- **Applied by hand, not `--apply`** — `608` is on disk unrecorded (another lane in flight) and
+  `--apply` takes *every* pending file.
+- Recorded with `--record-only` and a note saying what was verified.
+- **Verified at the artefact, not at the exit code:** `col_description` now begins
+  `SUPERSEDED AND DEAD…` and no longer contains `battle-tested`.
+- VERIFY is a `DO`/`RAISE`, not a `SELECT` — a verify block of `SELECT`s cannot stop the `COMMIT`.
+
+### Part 3 — migration `610_HOLD`, written, TESTED, deliberately NOT applied
+
+The DROP. `_HOLD` because a banner cannot hold a file back from the runner.
+
+Its guard aborts if `usage_count` has **moved** since it was killed (>12 non-zero rows, or max >20) —
+which would mean an old writer is still live and the DROP would break creations.
+
+**The guard was INDUCED, not merely written.** In a rolled-back transaction I set the top component to
+`21`; it aborted with *"ABORT: usage_count has MOVED since it was killed (12 non-zero rows, max 21)"*.
+Confirmed nothing persisted — `max(usage_count)` is still **20**. On live data it passes
+(*"12 non-zero rows, max 20"*), the DROP executes, and its verify passes. All inside transactions that
+were rolled back.
+
+⚠ **`agent_definitions.usage_count` is a DIFFERENT column, is LIVE** (`bugs_closed/060` revived it via
+`agent_run_stats`) and is read by `platform/discovery/agent_discovery.go`. Deliberately untouched.
+`knowledge_base.usage_count` likewise. Anyone acting on 610 must not generalise it.
+
+### Council + state
+
+Submitted `ac7b62e6-2c71-40a7-a387-1bdfc3ee50d4` (`Council-Submitted:` on the commit — the hook
+correctly refused a placeholder trailer, since a non-UUID is a dead join key for the `098` report and
+forward-only forbids an amend). Verdict in flight at `review_constitution`. HEAD builds
+(`verify-head-builds.sh`).
+
+**One residual remains, and it is a scheduled action rather than a question: apply `610` after the
+next chassis roll**, once a build containing the part-1 commit is live and proven at the artefact
+*with a control that must fail*. The recipe is in 610's own header.
