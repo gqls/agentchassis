@@ -24,7 +24,16 @@
 #    otherwise. A handed-down pin is not a baseline.
 #
 set -o pipefail
-DOM=garden-tools.uk
+# Usage: ./after_test.sh [domain]      (default: garden-tools.uk, the 08-24 worked example)
+#   PARAMETERISED 2026-08-25 so it can be pointed at a NEW build without editing it. Everything
+#   below already read $DOM; only this line was hardcoded.
+#   ⚠ Section (a)'s md5 pins are FLEET-WIDE incumbents, not per-site — they stay meaningful on any
+#     domain, and stay a dated PIN rather than a baseline (see the banner above).
+#   ⚠ The PROMISE-vs-DELIVERY month/step/compare vocabulary was written for a gardening subject.
+#     On a different vertical, read the raw tables=/li=/strong= columns and add promise words for
+#     that subject rather than trusting a silent run.
+DOM=${1:-garden-tools.uk}
+echo "### after_test.sh target domain: $DOM   (run at $(date -u '+%Y-%m-%d %H:%M:%SZ'))"
 PSQL="kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db"
 q() {
   local out rc
