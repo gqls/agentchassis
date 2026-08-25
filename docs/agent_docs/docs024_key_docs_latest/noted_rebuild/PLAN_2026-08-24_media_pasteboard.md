@@ -104,3 +104,66 @@ to their owners for the first time.
   under today's limits and surfaces both numbers in the UI; sizing is flagged
   to the owner alongside the missing account-deletion mechanism (open thread 3,
   HANDOFF 2026-08-19 §4).
+
+---
+
+## OWNER RULINGS 2026-08-25 — four, one of them a reversal
+
+1. **Media moves to Backblaze B2, not the box** — *"then we can add a paid-for
+   increase in storage more easily."* This REVERSES the media-in-Postgres
+   decision above (and schema.sql's 08-10 header): the revisit the schema left
+   a door open for arrives now, by ruling rather than by volume. The quota
+   stays (50 MB is OK to start) — it remains the abuse valve and the future
+   paid tier's lever; what changes is where the bytes live.
+2. **Account deletion: plan it** (Fable) — plan first, build after sign-off.
+3. **The five council advisories: followed up** (dispositioned 2026-08-25,
+   NOTES; migration 608 is the artefact).
+4. **Stage 2 goes ahead — and MUST be fully functional on mobile** (owner,
+   2026-08-25). Mobile is a design input, not a port: pointer events (one code
+   path for touch and mouse), touch targets ≥44 px, `touch-action` controlled
+   on draggables so dragging never fights scrolling, and layout coordinates
+   stored as FRACTIONS of board width so the same arrangement is proportional
+   on a phone and a desktop.
+
+## Stage 1b — B2 media storage (the reversal, designed)
+
+- `media` gains `storage_key TEXT` + `b2_file_id TEXT`; `bytes` drops NOT NULL
+  (all idempotent ALTERs in schema.sql). New uploads go to B2; rows with
+  `storage_key IS NULL` keep serving from `bytes` — no drain required to ship,
+  drain optional later.
+- **B2 native REST via net/http, no SDK** — the engine's stdlib-only dependency
+  stance survives (~200 lines: authorize / get-upload-url / upload / download /
+  delete-version). Auth token cached, re-fetched on 401/expiry.
+- **Opt-in, default OFF, safe roll**: `NOTED_B2_KEY_ID` / `NOTED_B2_APP_KEY` /
+  `NOTED_B2_BUCKET` absent ⇒ behaviour identical to today. The binary can roll
+  before the keys exist.
+- Upload order: B2 first (no DB state), THEN the quota-check + insert
+  transaction; if the quota refuses, the just-uploaded object is deleted in the
+  same breath. Keeps the account-row lock to milliseconds and can never leak
+  quota; a crash between upload and insert orphans one logged object (a
+  reconcile sweep is a later nicety, the key is logged before upload).
+- Serve: engine proxies the B2 download, forwarding Range both ways — auth and
+  account-scoping stay in the engine's SQL, nothing public, seeking still works.
+- Delete: B2 version first ("already gone" counts as success), row second —
+  a failed B2 delete leaves the row, the UI says NOT removed, retry converges.
+- **The backup trade the owner should know** (schema.sql's own warning, now
+  real): B2 media is no longer inside the nightly encrypted pg dump. B2's own
+  durability covers disk loss; deliberate-deletion/key-compromise protection
+  comes from a scoped key (no deleteBuckets/listKeys) — bucket versioning +
+  lifecycle is the upgrade if wanted.
+
+## Stage 2 — the board (designed, mobile-first)
+
+- Engine: `notes.layout JSONB` (idempotent ADD COLUMN), carried by the existing
+  save/list — so the Saved contract covers arrangement for free. Size-capped
+  server-side (256 KB) so a runaway client cannot bloat rows.
+- Layout shape `{v:1, items:[{id, kind:'text'|'media', media_id?, x,y,w,h,z}]}`
+  — x/y/w/h as fractions of board WIDTH (y/h too: one unit, aspect-stable), so
+  phone and desktop render the same arrangement proportionally.
+- Editor: List | Board toggle per note. Board = the note text as one draggable
+  item + each media item; drag + corner-resize via Pointer Events; tap raises;
+  edits mark dirty and persist through the normal Save. Absence of `layout` =
+  today's linear view (opt-in shape again).
+- Tests: degraded harness grows board cases incl. a MOBILE context (touch
+  viewport) driving drag by synthesized pointers; mutation-verified like
+  everything else on this page.
