@@ -148,9 +148,9 @@ func TestInertDeclarationsAreTheOnesThisBinaryUnblocks(t *testing.T) {
 			inert = append(inert, d.Key)
 		}
 	}
-	if len(inert) != livespec.DeferredDeclarations {
-		t.Fatalf("livespec says %d deferred, found %d (%v) — the two must agree or an unchecked declaration "+
-			"reads as guarded", livespec.DeferredDeclarations, len(inert), inert)
+	if len(inert) != livespec.LiveAuditOnlyDeclarations {
+		t.Fatalf("livespec says %d live-audit-only, found %d (%v) — the two must agree or an unchecked declaration "+
+			"reads as guarded", livespec.LiveAuditOnlyDeclarations, len(inert), inert)
 	}
 	t.Logf("declarations that only this binary can check: %v", inert)
 }
