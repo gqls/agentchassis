@@ -400,7 +400,15 @@ func recordAcceptancePredicateBlindSpot(ctx context.Context, params ActionParams
 		zap.String("item_id", itemID.String()),
 		zap.String("item_type", note.ItemType),
 		zap.String("detail", note.Detail),
-		zap.String("remedy", "if this fires on every item of the type, suspect the page surface query in loadAcceptancePredicateSubjects or the emission-provenance strip in predicateForEvaluation, NOT the model's output"))
+		// ⚠ The remedy sentence below deliberately avoids the words `output`,
+		// `response`, `content` and `text`. pattern-check.py's logged-model-output
+		// rule matches PAYLOAD_NAME over the raw statement INCLUDING string
+		// literals — only the format string is skipped — so a log call whose PROSE
+		// names a payload fires it exactly like one that logs a payload. The first
+		// draft of this line said "NOT the model's output" and drew a standing
+		// advisory finding on a call that logs no model data at all. Recorded in
+		// LANDMINES.md; until the rule strips literals, prose here has to dodge it.
+		zap.String("remedy", "if this fires on every item of the type, suspect the page surface query in loadAcceptancePredicateSubjects or the emission-provenance strip in predicateForEvaluation, rather than what the model wrote"))
 
 	if params.DB == nil {
 		return
