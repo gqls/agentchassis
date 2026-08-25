@@ -10,6 +10,40 @@ of date on §1 — the consumer it asked for is **built, approved and committed*
 > package; `component_selector.go` is unformatted; and `platform/livespec` fails at **plain HEAD**,
 > see §5) and never the moving name `HEAD`.
 
+## §0 — ⚠ THE "INERT" LINES IN THIS FILE ARE SUPERSEDED. GATE 1C IS LIVE.
+
+`[VERIFIED 2026-08-25]` The fleet rolled to `v1.0.1339` at 19:07:18Z. Probe the CAPABILITY, not the
+tag and not git — and **run all four literals, because a probe with no controls is uninterpretable**:
+
+```bash
+for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis \
+             -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'); do
+  for s in ACCEPTANCE_PREDICATE_NOT_EVALUABLE acceptance_predicate_refuted \
+           handler_reported_no_change zzz_invented_control_string; do
+    kubectl -n ai-persona-system exec "$p" -- grep -aq "$s" /proc/1/exe \
+      && echo "$p PRESENT $s" || echo "$p absent  $s"
+  done
+done
+# both replicas: first three PRESENT, the invented one absent.
+```
+
+⚠ **DO NOT USE CLAUDE.md's PRESCRIBED CHECK — IT CANNOT SUCCEED.** It says to read a
+`build provenance` startup line. `[MEASURED 2026-08-25]` **that string is emitted nowhere in this
+repo's Go source** — the only hits are prose in comments (`deployed_image_read_audit.go:21`,
+`buildcapability.go:15`) and an unrelated box service. And CLAUDE.md tells you an empty result means
+*"not in range, not unstamped"*, so **the documented failure mode absorbs the real one** and a check
+that can never pass reads as a check that merely scrolled. Found by the `bugs_open/395` lane, who
+then probed three candidate shas and got absent/absent/absent with **no present control** — which is
+uninterpretable and reads like "did not ship".
+**The working long-memory alternative** (from the `bugfix_381` lane's RUNBOOK, `platform/buildcapability`, RFC_040):
+`SELECT git_commit FROM service_binary_capabilities WHERE service='agent-chassis' AND kind='build' ORDER BY last_seen_at DESC LIMIT 1;`
+then `git merge-base --is-ancestor <your commit> <that sha>`, with a control in each direction.
+
+⚠ **AND THE POST-ROLL CENSUS IS BLIND, so do not read it as a clean estate.** `[MEASURED]` 5
+`content_rewrite` items completed after the roll carrying **zero** `_verification.acceptance_predicate`
+— because none carried a predicate. That zero measures adoption, not refutation, exactly as §8 of
+`bugs_open/395` warns.
+
 ## The one-line state
 
 > **The loop is closed in code and NOT YET in the world. Gate 1c reads an item's own acceptance
@@ -21,7 +55,7 @@ of date on §1 — the consumer it asked for is **built, approved and committed*
 
 | | state |
 |---|---|
-| **completion gate 1c** (`complete_work_item_acceptance_predicate.go`) | **COMMITTED `69479bcf6`**, wired into `verifyBeforeComplete` between gates 1b and 2. **Go ⇒ INERT until a chassis roll** |
+| **completion gate 1c** (`complete_work_item_acceptance_predicate.go`) | **LIVE — the fleet rolled to `v1.0.1339` 2026-08-25 19:07:18Z and the gate is in it.** Capability-probed PRESENT on **both** replicas with both controls (see §0 below). ~~Go ⇒ INERT until a chassis roll~~ — that wording stood for about six hours after it stopped being true |
 | council | **APPROVED round 1**, corr `064841bd-58fc-46a1-a77d-6b0a6309d0ba`, 14 seats, 5 advisory, none high. All four actionable objections acted on in `74829da90` |
 | the stamp/strip pair (`storedPredicate` / `predicateForEvaluation`) | live in the emit file, pinned by `TestStampAndStripAreInverses` |
 | `loadAcceptancePredicateSubjects` | now takes `*sql.DB`, serving BOTH ends of a predicate's life from one query |
