@@ -162,3 +162,67 @@ for M in ok failed silent; do MODE=$M PATH=/tmp/fakebin:$PATH bash <the-script> 
 ```
 
 ⚠ Add the *pre-fix* copy as a control, or the table above proves only that the new code runs.
+
+---
+
+## Follow-up, same day: is the twin class BOUNDED, or was `082` the first of many?
+
+Asked because the fix above is worthless if a second half-fixed pair is sitting somewhere — and
+because I had just fixed one copy of a file that turns out to have a twin of its own.
+
+`[MEASURED 2026-08-25]` over tracked `*.sh` files:
+
+| question | answer |
+|---|---|
+| basenames appearing at more than one path | **29** |
+| …whose copies DIVERGE *and* where at least one copy is racing | **3 pairs** |
+| …where one copy is on `kafka_publish_checked` and its twin is still racing | **ZERO** |
+
+**The last row is the one that matters, and it is the reason to run this rather than assume it.**
+The dangerous shape is not "two copies" — it is "two copies, one of them fixed", because the fix
+is what makes the twin look attended to. `082` was the only instance in the repo, and the
+deprecation above closes it.
+
+The three surviving divergent pairs are racing on **both** sides, so no copy of any of them looks
+attended to, and all are dormant (untouched 30d+):
+
+- `075a_getting_started.sh` — 2026-03-28, both under `scripts/initial_messages/170_…` (one in `old/`)
+- `083_regenerate_brief-explanation_vonc.sh` — `docs/social001_…` 2026-07-15 / `scripts/…/210_vonc_trigger` 2026-07-01
+- `084_TRIGGER_diagnose_v1.sh` — **repo root 2026-07-16** / `scripts/…/310_analysis_adapter` 2026-07-06
+
+**`084` is the same shape as `082` — a racing root copy beside a `scripts/` one — and it is left
+alone deliberately.** It falls in the bug's `dormant (untouched 30d+)` slice, and *that* slice,
+unlike `docs/` and `scripts/`, is not keyed on a directory, so it does cover the repo root. Had it
+been touched three weeks later it would have fallen into exactly the gap `082` fell into.
+
+**So the gap was precisely: touched within 30 days, outside `docs/` AND outside `scripts/`.** That
+set had exactly two members and both are now handled. The scope statement is sound everywhere else;
+it is only the two directory-keyed rows that cannot see a file with no directory.
+
+### The check that answers this in one command — worth keeping
+
+```bash
+git ls-files '*.sh' | awk -F/ '{print $NF}' | sort | uniq -d | while read b; do
+  paths=$(git ls-files '*.sh' | awk -F/ -v b="$b" '$NF==b')
+  fixed=$(echo  "$paths" | while read p; do grep -q "kafka_publish_checked" "$p" && echo x; done | wc -l)
+  racing=$(echo "$paths" | while read p; do sed 's/#.*//' "$p" | grep -q "run -i" \
+             && sed 's/#.*//' "$p" | grep -q "kcat -P" && echo x; done | wc -l)
+  [ "$fixed" -gt 0 ] && [ "$racing" -gt 0 ] && echo "MIXED PAIR: $b"
+done
+```
+
+Non-empty means someone fixed one copy of a publisher and left its twin racing — the failure
+`check_untouched_twin` was written for and cannot see, because it is `.go`-only.
+
+### One thing I checked on myself, and it came out clean
+
+`run_improvement_sweep_once.sh` — the file I migrated above — **also has a twin**
+(`docs/…/gauntlet_dead_cta/scripts/run_improvement_sweep_once.sh`, 2026-07-29). Had it been racing,
+my fix would have created the very half-fixed pair this section is about. It is not: it already
+uses the safe `--command -- sh -c` form.
+
+It does, however, print `&& echo PUBLISH_OK` and then tell the operator *"No PUBLISH_OK above means
+NOTHING was sent, whatever the exit code"* — a receipt asserted by a **human reading the scrollback**
+rather than by the script. That is the known `OPP-009` residual (a receipt nobody asserts on is a
+log line), it is under `docs/` and therefore explicitly out of this bug's scope, and it belongs to
+another lane. Recorded, not touched.
