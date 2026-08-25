@@ -970,3 +970,60 @@ added nothing.
 
 This is `bugs_open/249`'s "per SERVICE, not per fleet" landmine, met from a new direction: I applied
 that lesson to *"is it deployed"* and never to *"is it deployed EVERYWHERE"*.
+
+---
+
+## 2026-08-25 ~20:20Z — 610 APPLIED. The lane is done.
+
+Prompted by the owner asking me to read the makefile — which corrected my diagnosis and unblocked
+the last action inside an hour.
+
+### The makefile answered the question I had got wrong
+
+`agent-chassis` **IS** in `RELEASE_IMAGES` (`makefile:91`) and `AGENT_DEPLOY_SERVICES`
+(`makefile:119`). There was never a release gap. My "the fleet is running two builds and the roll is
+half done" reading was wrong, and so was the 139-vs-12 figure behind it (no recency filter → dead
+pods counted; the live figure was 69 new / 1 old). Both corrected in `WRONG_CALLS.md` and in 610's
+header.
+
+**The real shape:** Deployment pods roll with `make release`; the stragglers were Kubernetes **Jobs**,
+one spawned per unit of work, each pinning the tag current at *its* creation. Jobs are correctly
+outside `release`'s remit — they are one-shot and they **drain**. Exactly one long-running
+`agent-site-publisher` Job held `v1.0.1337`; every Job spawned after the roll was on `v1.0.1339`.
+So the precondition was never a fleet-wide stall needing intervention — it was "wait for one Job to
+finish", and it resolved itself in about forty minutes.
+
+### The gates, all passed before applying `[MEASURED 2026-08-25 ~19:5xZ]`
+
+| gate | result |
+|---|---|
+| commits reported by chassis pods, last 10 min | **one**: `a7459a44b` |
+| `git merge-base --is-ancestor f403113f4 a7459a44b` | **YES** |
+| control — HEAD against the same commit | **NOT an ancestor** (test discriminates) |
+| active chassis Jobs / running pods | **28 / 32**, all `v1.0.1339` |
+| binary probe on **three** pods: old INSERT literal | **ABSENT** on all three |
+| control literal on the same three pods | **PRESENT** on all three |
+| 610's own runtime guard | **PASS** — 12 non-zero rows, max 20 |
+
+### Applied, and verified at the artefact rather than at the exit code
+
+`ALTER TABLE` + `VERIFY: PASS — content_components.usage_count is gone`. Then, independently:
+
+- `information_schema`: **0** columns named `usage_count` on `content_components`; **1** still on
+  `agent_definitions` — the live one (`bugs_closed/060`), correctly untouched.
+- **The new INSERT shape SUCCEEDS** against the post-drop schema (rolled back).
+- **The old INSERT shape now FAILS** with exactly the predicted error —
+  `column "usage_count" of relation "content_components" does not exist`. **That is the proof the
+  precondition was load-bearing and not theatre:** had this been applied while that one old Job was
+  still running, that is the error it would have hit.
+- Demand: **16** `page_components` rows written in the 15 minutes around the drop, so the pipeline
+  was live throughout and nothing wedged.
+
+### The council's `editquality` seat was more right than my answer to it
+
+Its low objection said a `_HOLD` migration can never be ledger-recorded by the runner. I answered
+"record it the same way 609 was". **Tried it; the runner refuses** — `_HOLD` matches the same
+uppercase-suffix rule as `_ROLLBACK`/`_VERIFY`. So the files that *must* be hand-applied are exactly
+the ones the ledger cannot record: a real tooling gap, not a mis-use. The row was written the way the
+runner writes one, with `applied_by='hand-recorded'` to distinguish it. 610's header now says so
+instead of giving an instruction that does not work.
