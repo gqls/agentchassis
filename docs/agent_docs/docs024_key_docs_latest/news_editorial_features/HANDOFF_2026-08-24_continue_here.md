@@ -279,8 +279,17 @@ racing at an unlocked flagship row.
 
 **Post-conversion census for the peers:** all three `evidence-timeseries` placements were
 unconverted as of 2026-08-25 (0 of 3 at the placement level — ours refused, oufe's was never
-asked). The 283 lane's fleet census the same day: **48 of 437 placements unconverted, 26 of
-them locked.** Once ours land, tell them so their count moves 3 → 1 rather than being
+asked). The 283 lane's fleet census the same day: ~~**48 of 437 placements unconverted, 26 of
+them locked.**~~ **CORRECTED same day, by them, and I had already repeated the bare number
+here — which is exactly how it misleads:** 48 unconverted is **consistency debt, not
+damage**. A literal element id only bites where the same component appears **twice on one
+page**. Narrowed: **48 unconverted → 8 on a multi-instance (page, function) pair → 1 page
+with a genuinely duplicated id → 0 reaching a visitor.** The one page is
+`webdesign.uk/index.html`, and `webdesign.uk` 302-redirects to the separate `webdesign.co.uk`
+site, so it serves nobody (they ran the parked-domain redirect control and a 4-id negative
+control on the followed target). **The standing risk is the redirect, not the count:** if
+`webdesign.uk` ever serves its own content, that page becomes damage with nothing else
+changing. Once ours land, tell them so their count moves 3 → 1 rather than being
 re-derived. The oufe row is covered by their CONTRIB at
 `docs/agent_docs/docs024_key_docs_latest/oufe/CONTRIB_2026-08-25_from_283_lane_thames_water_evidence_timeseries_never_took_the_scope_conversion.md`
 — **not ours to action**, and that page separately has three `lock_blocked_change` rows
