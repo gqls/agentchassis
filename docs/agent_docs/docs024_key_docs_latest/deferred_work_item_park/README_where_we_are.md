@@ -90,3 +90,51 @@ about to touch it will see it first.
 
 **Nothing here is urgent and nothing is broken for a customer.** The cost is that work we decided
 to do can vanish without a trace, and the page it belonged to cannot be asked for again.
+
+## 2026-08-25 (later still) — a second opinion took the bug apart, and it was right on both counts
+
+You asked for a different model to reconsider this. It refuted my filing within the hour and
+answered the question that had beaten both me and the platform's own diagnosis loop. I checked
+every point myself before accepting any of it; all of it held.
+
+**First, the number was wrong.** I said 114 jobs were parked with no record of who parked them or
+why. **Sixty-two of them are fully recorded** — the note is just stored in a different field of the
+row than the one I looked in. One lane stamped its sixty with its own name, the reason (an
+owner-ordered rebuild), and even the condition for releasing them again. The genuinely unrecorded
+number is **52**.
+
+What stings is that I had written the rule for avoiding exactly this a couple of hours earlier — *do
+not check for the labels you already know about, ask what labels exist* — put it in the runbook, in
+the debugging guide and in my own notes, **and then ran that check on one field and not the other**.
+I applied the lesson to the example that taught it instead of to the kind of mistake it was.
+
+**Second, and more useful: we now know what parked them.** Sessions did, by hand, deliberately —
+holding a site's job queue still while they rebuilt that site. Three of the four were acting on your
+instructions. The evidence was sitting in the repository the whole time: one lane's own handoff
+document contains the exact database command it ran on a fifteen-second loop, and that command sets
+the status and nothing else, **which is precisely why its thirty-eight jobs have no note attached**.
+Another lane's commit message says plainly "14 items held".
+
+I had searched the *code* for something that could have done it, a dozen times over, and never once
+searched the *documents* — on a system whose defining characteristic is that many sessions work it
+by hand and write down what they did. "No code does this" and "nobody did this" are not the same
+statement, and I treated them as one.
+
+**The best part is the last part.** The lane that parked thirty-eight of them had itself written, in
+a later session, *"unverified what deferred them — a hand-park is the obvious guess and I did not
+establish it"* — in the same folder as the instructions it had followed. It had forgotten its own
+action. I read that note, took it at face value, and re-derived the entire mystery from scratch.
+
+**This changes the fix, and improves it.** The problem is not a broken piece of machinery. It is a
+**missing one**: four separate lanes each needed to pause a site's work queue, none had a supported
+way to do it, so each invented the same hand-written database command — and only the ones who
+thought of it left a note. The system has now grown **six** different homemade ways of recording the
+same act. That is a far better argument for building the feature properly than fifty-two mystery
+rows ever were.
+
+**One warning I have put everywhere it belongs:** sixty of those parked jobs are being held on
+purpose right now, with a stated condition for letting them go. Nobody should release them in bulk.
+Ask the lane that is holding them.
+
+Bug 396 is corrected in place — old claims struck through rather than edited away, so the record
+shows what we believed and when.
