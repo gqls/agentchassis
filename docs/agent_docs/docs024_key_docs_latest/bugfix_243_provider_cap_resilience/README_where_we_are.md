@@ -266,3 +266,46 @@ which should now cost that one reviewer instead of the whole round. That will ha
 
 Your two decisions remain open and unchanged: topping up is still the only thing that restores
 service under a real cap, and whether we add a second AI provider is still undecided.
+
+## Monday 25 August 2026 — the last piece is in. The lane's work is done; the bug should stay open.
+
+The new build carried the final piece, so I applied the database change that completes it. All
+four changes are now live.
+
+**Where it went wrong first, because it is worth knowing.** My first attempt to apply the
+database change **failed outright and undid itself** — I had written a form of SQL that
+Postgres refuses. Nothing changed, which is the system working as intended: the change is
+wrapped so that any failure abandons the whole thing rather than leaving it half-done. I
+rewrote it and it went in cleanly.
+
+What is worth taking from that: **the review panel reads a sketch of a change, not something
+that can actually be run.** It could not have caught this and I would not want it blamed for
+missing it. The lesson is mine — check that SQL actually executes before submitting it. I also
+found I had left out a step our conventions require, which takes a backup of the configuration
+before altering it. That is in now, and the backup was taken.
+
+**It works, and I have checked the part I can.** The first review round to run afterwards
+completed normally — approved, with no reviewers lost. So changing all seventeen reviewers'
+error handling did not break the ordinary case, which was the real risk.
+
+### The one thing I cannot prove yet
+
+The whole point of that change is that when a reviewer's call *fails*, it should now cost that
+one reviewer instead of throwing away the entire round. To show that actually happens, I need a
+round in which a reviewer's call genuinely fails — and I cannot manufacture one. It will happen
+on its own soon enough; we had refusals on seven of the last fifteen days.
+
+### My answer on closing it
+
+**This lane is finished.** Everything I set out to fix is live and checked.
+
+**But I would keep the bug open**, for two reasons rather than as paperwork. First, the proof
+above is genuinely outstanding. Second, and more importantly, **this bug is fundamentally about
+running out of credit, and nothing I did changes that.** Topping up is still the only thing that
+restores service, and whether we add a second AI provider is still your decision. Closing it
+would read as "the running-out-of-credit problem is solved", which is not true. What is solved
+is how much damage each refusal does to us — which was an hour of the whole fleet sitting idle,
+and a thrown-away review round, and is now neither.
+
+Everything is written up. The starting point for whoever picks this up next is
+`docs/agent_docs/docs024_key_docs_latest/bugfix_243_provider_cap_resilience/HANDOFF_2026-08-25_continue_here.md`.

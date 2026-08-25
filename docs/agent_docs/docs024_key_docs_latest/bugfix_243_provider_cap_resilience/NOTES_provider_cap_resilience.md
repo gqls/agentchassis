@@ -632,3 +632,77 @@ it too, so it returns 1 whether or not the writer shipped.
 verdict, report that seat under `unreadable` (not `abstained`), and — if the rest would have
 approved — return **REVISE** naming the lost seat. A round approving with zero unreadable is
 the negative control.
+
+## 2026-08-25 — the last half is LIVE: mig 588 applied on v1.0.1337, and the SQL was wrong the first time
+
+### The gate, checked as the file demanded rather than by glancing at a tag
+
+Chassis **v1.0.1337** (pods up 09:27Z). Two independent confirmations:
+
+- **Ancestry against the running binary's own stamp.** The `build provenance` line was in range
+  this time: `git_commit 4c996e1b5cb9b2513d88ec9fe2bae220c38fb6c2`. Then
+  `git merge-base --is-ancestor <commit> 4c996e1b5` → **IN** for all three (`dbd865ee8` writer,
+  `e521cde3e` reader, `893a12d47` sweep). This is the query CLAUDE.md prescribes and it beats a
+  marker hunt.
+- **Binary probe, both replicas, both controls:** `step-error record capped at` = **1/1**
+  (the writer), `diagnose_council_decide` = 15/15 (present control), an invented string = 0/0
+  (absent control). `__step_errors` also read 1 — **and that is not evidence**, which is why the
+  cap marker is the discriminating probe.
+
+### ⚠ THE FIRST APPLY FAILED AND ROLLED BACK — my SQL, not the plan
+
+```
+psql:<stdin>:72: ERROR:  invalid reference to FROM-clause entry for table "ad"
+LINE 8: FROM LATERAL jsonb_each(ad.default_config #> '{workflow,step...
+HINT:  There is an entry for table "ad", but it cannot be referenced from this part of the query.
+```
+
+The reviewed sketch used `UPDATE agent_definitions ad … FROM LATERAL jsonb_each(ad.default_config …)`.
+**Postgres refuses that outright**: the UPDATE target cannot be referenced from a `LATERAL` in
+its own `FROM`. `ON_ERROR_STOP` aborted inside the transaction; verified afterwards that
+**19 seats still read `complete_invalid`**, i.e. nothing changed. The `BEGIN`/guard/`COMMIT`
+discipline did exactly its job.
+
+Rewritten to a **correlated scalar subquery** (which *may* reference `ad`), rebuilding the whole
+steps object in one `jsonb_object_agg` pass. **The rule is unchanged from the reviewed version;
+only the SQL expressing it.**
+
+**And the lesson generalises: a council seat reviews a SKETCH, and a sketch is not executable.**
+This class of defect cannot be caught at the gate and no seat should be blamed for missing it —
+it is the SQL sibling of the existing `go-build-cannot-parse-your-sql` lesson. **Compile-check
+any SQL you submit.**
+
+**Second defect in the same file, also mine:** it omitted `snapshot_agent`, which CLAUDE.md
+states opens every migration touching `agent_definitions`. Added; the successful apply captured
+`source_version=2` as `be2a7614-9096-4425-adba-55b0cd730756` before changing anything.
+
+### Post-state, measured
+
+| | |
+|---|---|
+| review seats routing `error_step` → their **own** `next_step` | **17 of 17** |
+| steps still carrying `complete_invalid` | **2** — `persist_submission`, `council_decide` |
+
+Spot-checked: `review_editquality` → `review_constitution`; `review_guardian` → `council_decide`;
+both terminals unchanged. That is exactly the intended shape.
+
+### Renamed off `_HOLD` in the same commit as the apply
+
+`git mv` to `588_council_seat_transient_costs_one_seat.sql`, **both pathspecs named in the
+commit** so no stale twin survives at HEAD — verified `git ls-tree HEAD` returns the new name
+only. This heeds the landmine another session filed the same week: inside the repo an applied
+`_HOLD` file is indistinguishable from one still waiting, and the filename is the only tell.
+The runner also refuses `--record-only` on a `_HOLD` name (SIDECAR_RE), which is what forced
+the issue — a useful bit of mechanism to know.
+
+### NEGATIVE CONTROL DISCHARGED, positive arm still owed
+
+`[MEASURED 2026-08-25 09:49:00Z]` The first council round to run after the migration reached
+**`complete_approved`** — decision `approved`, **5 abstained, 0 unreadable**. So repointing all
+17 `error_step`s did **not** break the ordinary path: a round where nothing errors is
+unaffected, exactly as intended.
+
+**That is the regression check, not the proof.** The positive arm — a seat whose call *errors*
+producing `unreadable > 0`, a verdict rather than `complete_invalid`, and REVISE if the rest
+would have approved — needs a real provider transient and **cannot be forced**. It will arrive:
+cap failures hit 7 of the 15 days to 08-24. Do not fake it; do not close on its absence.
