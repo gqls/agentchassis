@@ -174,28 +174,42 @@ var placeholderPatterns = []struct {
 }
 
 // placeholderRegexes catches SHAPE-based placeholders a substring list cannot
-// express: letters standing in for digits ("NNN+", "N,NNN"), the class that
-// reached the public on 2026-08-25 (bugs_open/387 — ai-agent-orchestration's
+// express: the letter N standing in for digits ("NNN+", "N,NNN"), the class
+// that reached the public on 2026-08-25 (bugs_open/387 — ai-agent-orchestration's
 // model-directory hero served "tracks NNN+ agent types"). A writer model copies
 // a stand-in verbatim out of its own instructions (~10% of calls carrying one:
 // 14 of 137 measured), so the shape recurs wherever a prompt quotes one.
 //
-// Scope was MEASURED before these shipped (census over every active page's
-// rendered_html plus all site_components, 2026-08-25): the four shapes below
-// matched exactly ONE component fleet-wide — the live defect — and zero honest
-// copy. Matching is case-SENSITIVE (stand-ins are written in capitals; their
-// lowercase forms live inside ordinary words). Two lookalike shapes are
-// deliberately ABSENT because the same census convicted honest prose with
-// them: bare "XX" (roman numerals — "siglo XX", relojistas) and "[number]"
-// (a deliberately quoted fill-in template in an idea.uk guide). Re-run the
-// census before adding a shape.
+// SEVERITY IS BLOCKER, DELIBERATELY, AND THE ASYMMETRY WAS WEIGHED (council
+// round 6cfaa8f0, debug_historian's gating objection). The recorded landmine is
+// real: a blocker here means "this page can never build" until a human acts.
+// The other side of the ledger: this exact class SHIPPED under warning-less
+// detection — the live incident existed because nothing refused it, and this
+// estate has measured that a logged doubt is not a control. A false positive is
+// bounded and visible (the refusal writes CONTENT_VALIDATION_BLOCKER_DETAIL
+// naming the exact matched text, and the item parks at needs_human_review); a
+// false negative is a stand-in served to the public until a human happens to
+// read the page. For a shape with no honest use, blocker is the honest setting.
+//
+// Scope was MEASURED before these shipped, and NARROWED once by review (census
+// over every active page's rendered_html plus all site_components, 2026-08-25):
+// the N-family shapes below matched exactly ONE component fleet-wide — the live
+// defect — and zero honest copy. Matching is case-SENSITIVE, against the
+// ORIGINAL block text (the substring loop's lowering is a per-iteration local;
+// blocks are never lowered) — stand-ins are written in capitals, and lowercase
+// runs live inside ordinary words. Shapes deliberately ABSENT, each pinned by a
+// test in TestPlaceholderScanIgnoresNumericLookalikes: bare "XX" (roman
+// numerals — "siglo XX", relojistas), "[number]" (a deliberately quoted fill-in
+// template in an idea.uk guide), and the whole X-family ("XX+"/"XXX+") — zero
+// measured occurrences as a stand-in anywhere, so it was cut in council review
+// rather than shipped on pattern symmetry. Re-run the census before adding any
+// shape; a fresh census is the price of admission here.
 var placeholderRegexes = []struct {
 	Pattern *regexp.Regexp
 	Label   string
 }{
 	{regexp.MustCompile(`\bN{2,}\+`), "numeric stand-in placeholder"},      // NN+, NNN+
 	{regexp.MustCompile(`\bN{3,}\b`), "numeric stand-in placeholder"},      // bare NNN
-	{regexp.MustCompile(`\bX{2,}\+`), "numeric stand-in placeholder"},      // XX+, XXX+
 	{regexp.MustCompile(`\bN{1,2},NNN\b`), "numeric stand-in placeholder"}, // N,NNN / NN,NNN
 }
 

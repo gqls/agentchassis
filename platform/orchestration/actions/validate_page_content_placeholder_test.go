@@ -213,11 +213,6 @@ func TestPlaceholderScanCatchesNumericStandIns(t *testing.T) {
 			"NNN",
 		},
 		{
-			"XXX+ stand-in",
-			`<html><body><h2>XXX+ projects delivered</h2></body></html>`,
-			"XXX+",
-		},
-		{
 			"comma-grouped stand-in",
 			`<html><body><p>Over N,NNN records verified.</p></body></html>`,
 			"N,NNN",
@@ -264,6 +259,15 @@ func TestPlaceholderScanIgnoresNumericLookalikes(t *testing.T) {
 		{
 			"XXL is a size, not a stand-in",
 			`<html><body><p>Available in sizes up to XXL.</p></body></html>`,
+		},
+		{
+			// The X-family was cut in council review (round 6cfaa8f0): zero
+			// measured stand-in occurrences fleet-wide, and repeated capital
+			// letters with '+' have honest uses this census cannot enumerate.
+			// This case PINS the non-coverage — re-adding an X shape must
+			// bring a fresh census and delete this case knowingly.
+			"XXX+ is outside the measured N-family, deliberately",
+			`<html><body><h2>XXX+ projects delivered</h2></body></html>`,
 		},
 		{
 			"CNN+ is a brand, not a stand-in",
