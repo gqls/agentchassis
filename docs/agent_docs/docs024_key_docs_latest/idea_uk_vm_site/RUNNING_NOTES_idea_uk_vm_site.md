@@ -5487,3 +5487,201 @@ lane, in short:
   262→78 is archiving, not loss). Fresh audit items 08-20→08-24 grew the owner's
   review queue to 49; 3 fresh `failed` (08-24) are the next cheap read.
 - Handoff rolled: `HANDOFF_2026-08-25_continue_here.md`; 08-18 file bannered.
+
+## §X.61 — 2026-08-25 (session "idea.uk"): the news feed is LIVE — the gap was a missing spec KEY, not a lost dispatch; the "stale" failures were real; Class B dropped with a reason; the owner's queue collapses 23→1
+
+### 1. Cold-start re-verification `[MEASURED 2026-08-25 ~16:10Z]`, read-only
+
+- HEAD `60c6a1837` (617 HOLD lane); 97 dirty files in the tree, none ours. `HANDOFF_2026-08-25`
+  §1 (CSS) not re-measured — nothing in this session touched it.
+- Queue exactly as the handoff: 49 `needs_human_review` / 33 deferred / 31 detected / 3 failed.
+- `/data/latest-news.json` → **404** (162 B body); `content_sources` idea.uk **0**; fleet **9 sites /
+  49 rows** — identical to the 08-18 figure, so nothing had moved in a week.
+- **No `missing_news_sources` row exists fleet-wide in the window** — the two §X.53 saw on 08-12
+  (mortgagecalculator, fundamentallyai, both `complete`) have been archived out. Rolling window,
+  not loss (§2 of the handoff).
+- Chassis pods 6h54m old at dispatch time (the ~300 s no-dispatch window is a landmine, checked).
+
+### 2. The mechanism — measured, and it is upstream of any dispatch
+
+§X.53 §2 ended at *"idea.uk's news feed was never configured … a framework route exists
+(`missing_news_sources` → `content-feed-orchestrator`)"*. Today's finding is one level up: **that
+route could never have filed for idea.uk either.**
+
+Both mechanisms select a site on ONE flag:
+
+```sql
+(data->'content_features'->'news_feed'->>'recommended')::boolean = true   -- classification, is_current
+```
+
+- `content-feed-trigger.find_news_sites` (live row read from `agent_definitions`, 6-hourly via
+  `scheduled_tasks.content-feed-refresh`, last completed 14:49Z today) — the query has that leg.
+- `MissingNewsSourcesCheck` (`check_news_feed.go:83-94`) — returns an empty result at
+  `contentFeatures == nil` before it ever counts sources.
+
+idea.uk's only classification row (2026-06-21, `domain-research-classifier`) has **no
+`content_features` key** — keys: category, reasoning, site_type, confidence, industry_tags,
+suggested_style, tone_suggestion, detected_signals, page_count_estimate, recommended_builder.
+
+The writer of that key is `evaluate_news_feed` (`feed_news_recommendation_action.go`):
+
+- `matchVerticalNews` signals = `spec.industry`, `site_type`, `category`, domain substrings. It
+  **never reads `industry_tags`**. `[MEASURED 2026-08-25]` current classification specs by shape:
+  `industry`+`industry_tags`+`content_features` → **0 / 27 / 11** of 31 (18 tags-only, 9
+  tags+cf, 2 cf-only, 2 neither). So the first signal is `""` fleet-wide.
+- idea.uk's remaining signals — `interactive-platform`, `interactive`, `idea.uk` — contain none
+  of the 27 vertical keys (checked by hand against the map; `"ai"` is not a substring of any).
+- On no-match it **returns `recommended:false` to the caller and writes nothing** — so an absent
+  key cannot be told from "never ran". `[MEASURED]` its only live carrier is `improvement-loop`
+  (the one active `agent_definitions` row naming the step), behind `scheduled_tasks.improvement-sweep`
+  = `enabled=false`, last completed 2026-08-22.
+- Fleet correlation, exact: **9 of 9** sites with the flag have sources (dartsonline 9,
+  robot-hands 9, relojistas 6, ai-agent-orchestration 5, fundamentallyai 5, mortgagecalculator 5,
+  webdesign.co.uk 5, gaswholesalers 4, vetcomparison 1); **22 of 22** without it have **0**.
+  Provenance of the 9: `evaluate_news_feed` wrote 5 (matched on domain substrings — `mortgage`,
+  `gas`, `ai`, `reloj` — or on site_type); **hand-authored 4** (dartsonline `authored`,
+  vetcomparison `manual-config`, webdesign.co.uk `manual`, robot-hands `manual-recovery`).
+
+**The dartsonline lane hit this exact wall on 2026-07-29** and wrote the mechanism into its
+seed's comment (`dartsonline_traffic/SQL_2026-07-29e_arm_news_feed.sql`) — including
+"improvement-sweep disabled since 2026-05-02" and "never reads industry_tags". A seed comment is
+not where a session touching `site_specs` looks, so it is now a LANDMINES entry (§7). Because
+the claim is precedent-recorded and measured first-hand at the fleet, no `090` was filed for it.
+
+> **Correction to §X.43/§X.44/§X.53's framing.** "The 08-04/05 news dispatch never landed" was
+> true and was the wrong question. Had it landed, `content-feed-orchestrator.seed_sources` reads
+> the same spec key (`seed_content_sources_action.go:89`), would have logged *"no news_feed
+> config in classification spec"* and exited via `check_has_sources → complete_no_sources`. The
+> mystery of the missing rows (still `[UNVERIFIED]`, still not asserted) is independent of the
+> news outcome; the news outcome was decided on 2026-06-21 by the classifier's output shape.
+
+### 3. What was filed — config only; the framework did every other part
+
+- **`sql/SQL_2026-08-25_arm_news_feed.sql`, applied 16:24:59Z** (`ON_ERROR_STOP`, DO/RAISE
+  guards: exactly one current row, no `content_features`, page `4f381fed` typed `section-index`,
+  current-plan row `0417d6ed` role `section-index`, 0 active sources; verify block re-runs the
+  trigger's own predicate reduced to this site). Supersede + insert, the way the Go action does
+  it. Prior rows in `bak_ideauk_newsarm_20260825_{site_specs,pages,site_plan_pages}`.
+- **The news page was NAMED `news-index` and TYPED `section-index`** — on `pages` AND on the
+  current plan. `render_news_section_action.go:216` gates `news-archive.json` and the
+  "More insights →" link on `page_type='news-index'`; `MissingNewsPageCheck` would have asked
+  `content-gap-planner` for a SECOND news page (its own code says re-type instead, :603). Re-typed
+  on both layers because `site_db_actions.go:1240` re-upserts `page_type = EXCLUDED.page_type`
+  from the plan at every save — LANDMINES already carries that one ("THREE `pages` upsert
+  helpers"). `ValidateRoles` rule 1b trusts an explicit `news-index`, so it sticks.
+- **Decisions in the seed, stated for the owner:** `source_types = ['news_search']` ONLY — no
+  `api_news` (LLM-authored via xAI/Grok) on the site whose product is the honest assessment;
+  vetcomparison's precedent, reversible by one word + a re-run. Five `vertical_keywords`
+  (= five search queries, journalism-shaped per webdesign.co.uk's retune lesson): *UK startup
+  funding rounds · Innovate UK grants and competitions · UK Intellectual Property Office patents ·
+  Start Up Loans British Business Bank · UK small business and startup news*. Mine; retune after
+  a week.
+- **Run 1**, `scripts/dispatch_content_feed_orchestrator.sh` (kafka-publish-lib, receipt asserted),
+  corr `710e9dd9`, 16:25:37→16:26:14Z, COMPLETED: `seed_result {seeded:5, has_sources:true}`,
+  `dispatch_result {dispatched:5, errors:0}`, **triage loaded 0** (child `20e61529`),
+  `news_render_result.item_count 3`, `commit_news` → `gqls/vm-sites` **`c1ca7e54`** 16:26:11Z,
+  files `idea.uk/data/latest-news.json` + `news-archive.json` (`gh api` confirmed). Served at
+  ~16:28: **200 / 1,157 B**, `item_count 1`, `insights_url /news/index.html`.
+  **Why 0 and 1: `dispatch_sources` is async.** Sources' `last_fetched_at` 16:26:04→16:26:24Z;
+  render `updated_at` 16:26:04Z; the 12 items were created 16:26:04→16:26:17Z. The run's own
+  triage and render read whatever had landed. Not a bug I am asserting — it is the shape the
+  6-hourly cadence tolerates (fetch this pass, triage next) — but it means ONE run is not a
+  verification. Recorded in RUNBOOK 6c.
+- **Run 2**, corr `80e6d0e0`, 16:30:13→16:31:09Z, COMPLETED: triage loaded **12** →
+  **9 `relevant`** (avg relevance 58.9), **3 `review`** (43.0), 0 rejected; render `item_count 15`
+  (read as-is, not explained — snippet + archive, `[INFERRED]`); commit **`b7c8efaf`** 16:31:05Z.
+  **Served at ~16:32: `item_count 6`, `updated_at 16:31:01Z`** — the box's `sitesync.timer`
+  (`OnUnitActiveSec=5min`) had it inside two minutes.
+- Sources after: 5 rows, `error_count 0`. Items: 12 (UKIPO minister appointment ×2, UKIPO digital
+  patents service, Start Up Loans ×5, Innovate UK ×2, funding rounds ×2).
+- `[UNVERIFIED]` **9 of 12 `source_url` are `google.com/goto?url=` redirects.** Control:
+  fundamentallyai.com holds 33 such of 372 `relevant`, and its served JSON sampled 4 clean
+  publisher URLs — so either the renderer skips them, or the sample was lucky. Check the served
+  items' `url` fields after the next trigger pass; if goto links are being served, that is the
+  ingester's, not this lane's.
+- Discovery side-effects of `recommended=true`, predicted (`[INFERRED]` from the predicates read
+  today): `missing_news_sources` no (5 sources); `missing_news_page` no (`news-index` typed);
+  `missing_news_section` no (homepage slot `latest-news` present, 33 mentions served);
+  `stale_news_section` keys on newest-item age vs `settings.maintenance_profile.content_feed.max_age_hours`
+  (default 72) and routes to the same orchestrator — quiet while the trigger runs.
+
+### 4. The three `failed` rows — read, distinguished, routed (not fixed)
+
+- **`3a999682` `page_rerender` `/tools/ab-test-calculator/index.html`** (`rerender-pages` sweep,
+  08-24 14:00, attempts 3): *"1 component row(s) and assembled to nothing — planned sections
+  [hero-tool tool-guide-intro tool-ab-test-calculator tool-cta]; 0 contributed; blank slots
+  [tool-ab-test-calculator]"*. The page (`6ddcedf4`, `needs_rebuild`) was created **2026-08-05
+  01:19 by `tool-deployer`** together with three `tool_crosslink` `content_rewrite` items (all
+  still `unresolved`, "[stale: triaged 48h+]"); it holds ONE row (`88b71d67`,
+  `tool-ab-test-calculator_pre_037-idea-uk`, `approved`, 19,522 B) and the guide
+  `/guides/tool-ab-test-calculator-guide.html` is `planned`. The served page is a working
+  calculator from an earlier deploy (200, 37,803 B, 4 inputs, `/tools/assets/tool-ab-test-calculator.js`).
+  This lane's notes contain **zero** prior mentions of it. Route: the tool writer
+  (`create_tool_component`, RFC_036 §9.3 — the 311 lane rebuilt `tool-ab-test-calculator` on
+  webdesign.co.uk this way on 08-19, `bugs_closed/286` closed the at-existing-page case) **or**
+  retire the page. Owner's choice; put in README.
+- **`359a1c98` / `08c85728` `empty_section`** (funding-fit, patent-check; filed 08-24 16:50:35 by
+  the completeness rotation, `empty_pattern: empty_heading`, keyed on `spec.component_id`).
+  **WRONG CALL, caught in-session** (`WRONG_CALLS.md` 2026-08-25): I said they were stale because
+  the pages had been rebuilt (3–4× on 08-24 17:33–18:19, `save_page_sections_overwrite` +
+  `artefact_archive_trigger` deletes; survivors `a1724965` 18:15:44 / `1ad768cb` 18:19:38,
+  18–19 KB, deployed, slot names present 47× in the served pages). Then I re-ran the predicate
+  (`check_empty_sections.go:166`, `<(h[1-6])[^>]*>\s*</\1>`): **TRUE on both replacement rows**,
+  and the served pages carry `<h2 class="ff-heading"></h2>` / `<h2 class="pc-heading"></h2>`
+  (2 matches each; the `<h3 … ffVerdict>` is a JS target and fine). **Cause:** the tool templates
+  render `{{.eyebrow_label}}` / `{{.section_heading}}` / `{{.section_intro}}`; the rows'
+  `content_data` has 27 site-context keys (tone, year, email, phone, domain, colours…) and none
+  of those. Every rebuild reproduces the empty heading — **`length(rendered_html)` identical at
+  every delete/re-insert (18,034 / 19,404 B)**, which was the tell I read past. The fail-closed
+  verifier (RFC_017) cannot see it because it reads the old `component_id`: `bugs_open/300`'s
+  class, now with `empty_section` recorded there as a second producer (CONTRIB appended). No
+  `required_fields_missing` item exists for either page though the check is live — not diagnosed.
+
+### 5. Class B — dropped, with the measurement that justifies dropping it
+
+Two handoffs carried "8 components, 3 sites, `content_data` NULL, no framework path" as
+unfiled. `[MEASURED 2026-08-25]`:
+
+```sql
+-- deployed page_components with content_data NULL, by site
+… WHERE p.build_status='deployed' AND pc.content_data IS NULL   → 57 rows / 21 sites (4 also component_id NULL)
+-- of those, visible text (script/style stripped, tags stripped) ~* '\mhonest(ly)?\M'
+→ 11 rows / 5 sites: finetuning.uk 6, idea.uk 2 (tool-idea-stage-identifier, tool-idea-viability-scorecard), fundamentallyai 1, gaswholesalers 1, vonc.com 1
+```
+
+So the 08-14 "8 / 3" is stale by addition (census rule), and the question is whether the SHAPE
+merits a case. It does not, as a new one: the producer that nulls `content_data` is
+`bugs_closed/194` (4 of 6 `save_page_sections` callers; fixed and live), so what remains is
+damage, not mechanism; the copy the class was defined by is the honesty arc, which the owner
+CLOSED on 08-17 (migration 454, §X.59); and "a NULL-`content_data` row has no field-level edit
+path" is true and already the territory of `bugs_open/357` (tool slots) — re-filing it under
+"Class B" would be a second account that drifts. Written down here so the next handoff stops
+carrying it.
+
+### 6. The owner's queue (49) — one cause wearing 23 hats
+
+| item_type | n | dates | read |
+|---|---|---|---|
+| `decision_blocked_change` | 12 | 08-11 ×3, 08-18, 08-23 ×8 | `save_page_sections` rebuilds refused by D-001/D-002/D-004/D-005 — "stored content kept, no citation given". Eight are the guide pages' hand-authored copy in ONE 08-23 sweep. Keyed per page:slot, so a sweep files each page once |
+| `lock_blocked_change` | 11 | all 08-04 | same shape, lock instead of decision |
+| `cta_names_unknown_destination` | 6 | 08-24 | fresh CTA audit |
+| `content_rewrite` | 4 | 08-04→08-24 | incl. the 3 stale `tool_crosslink` items from §4 |
+| `dead_control` | 4 | 07-18 | |
+| singles | 12 | | `needs_content_page` 2, `image_source_unsatisfiable` 2, `brief_supplies_negation`, `section_source_drift`, `claims_unverified`, `cta_tel_malformed`, `empty_internal_href`, `empty_section`, `placeholder_contact`, `save_refused_incomplete` |
+
+The 23 guard refusals are the guard working; the answer to each is "keep stored", which is what
+already happened. Recommendation to the owner (README): close them as a batch. Not done — it is
+his queue.
+
+### 7. Records written this session, and missteps
+
+- `sql/SQL_2026-08-25_arm_news_feed.sql` · `scripts/dispatch_content_feed_orchestrator.sh` ·
+  RUNBOOK **Phase 6** · README (plain prose) · `HANDOFF_2026-08-25b_continue_here.md` (cold-start;
+  08-25 bannered) · `WRONG_CALLS.md` row · `LANDMINES.md` entry (verifier dispatched, 1/0) ·
+  `bugs_open/300` CONTRIB.
+- **Missteps.** (a) Seven SQL column-name errors across four queries (`site_specs.version`,
+  `sites.deleted_at`, `scheduled_tasks.schedule`, `page_components.deleted_at`/`component_type`,
+  `content_components.created_by`/`template`, `pages.parent_page_id`, `site_plan_pages.site_plan_id`)
+  — CLAUDE.md's "schema first" was obeyed only after the errors; ~4 round trips. (b) The stale
+  call in §4. (c) I read `news_render_result.item_count 3` as "3 items served"; the served file
+  carried 1 — the count is not the snippet's length. Trust the artefact.

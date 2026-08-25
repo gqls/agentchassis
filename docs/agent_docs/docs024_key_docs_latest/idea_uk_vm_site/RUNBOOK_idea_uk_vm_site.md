@@ -934,3 +934,76 @@ needs a moment to bind and a fixed sleep is either flaky or slow. (2) Confirm th
 (73; 60 requested / 5 expired / 4 delivered / 4 declined). If it does not, you induced on the wrong
 row. Note this sends a real email to the operator address — expected, and worth saying out loud so
 it is not mistaken for a live incident.
+
+## Phase 6 — News feed (ARMED 2026-08-25; the `/data/latest-news.json` 404 closed at the artefact)
+
+### 6a. Why it never ran — one query, and the reading
+```sql
+SELECT (data ? 'content_features') AS has_cf,
+       data->'content_features'->'news_feed'->>'recommended' AS recommended
+FROM site_specs WHERE site_id = '1244516d-014d-421c-88c6-090bb1e9552a'
+  AND aspect = 'classification' AND is_current;
+```
+`has_cf = f` means the site is invisible to BOTH news mechanisms — `content-feed-trigger`
+(6-hourly, `scheduled_tasks.content-feed-refresh`) and `MissingNewsSourcesCheck` (hourly
+completeness rotation) select on that one flag. Nothing ever *fails*; nothing ever *tries*.
+The step that writes the flag (`evaluate_news_feed`) cannot reach this site: it never reads
+`industry_tags`, writes nothing on no-match, and its only carrier (`improvement-sweep`) is
+disabled. Full mechanism + fleet measurement in the header of
+`sql/SQL_2026-08-25_arm_news_feed.sql`; precedent `dartsonline_traffic/SQL_2026-07-29e_arm_news_feed.sql`.
+
+### 6b. Arm it (applied 2026-08-25 16:24:59Z; the file is the record)
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 < docs/agent_docs/docs024_key_docs_latest/idea_uk_vm_site/sql/SQL_2026-08-25_arm_news_feed.sql
+```
+Guards (DO/RAISE — a SELECT cannot stop a COMMIT): exactly one current classification row;
+no `content_features` yet; page `4f381fed` typed `section-index`; current-plan row `0417d6ed`
+role `section-index`; zero active sources. **A re-run aborts on the first guard by design** —
+the spec is armed. It re-types the news page on BOTH layers because `site_db_actions.go:1240`
+re-upserts `page_type = EXCLUDED.page_type` from the plan on every save (LANDMINES has this).
+
+### 6c. One direct run (instead of waiting ≤6 h for the trigger)
+```bash
+docs/agent_docs/docs024_key_docs_latest/idea_uk_vm_site/scripts/dispatch_content_feed_orchestrator.sh
+# prints PUBLISHED / SAVE: CORRELATION_ID=… / LANDED … — a receipt, not a log line (OPP-009)
+```
+Find it later: `SELECT owner_agent_type, status, current_step, error FROM orchestration_states
+WHERE correlation_id='<corr>'::uuid;` (two rows: the orchestrator and its `feed-triage` child).
+- **Fetch is ASYNC.** `dispatch_sources` fires the five fetches and the workflow moves on;
+  `run_triage` and `render_news_json` read whatever has landed. `[MEASURED 2026-08-25]` first
+  run: render at 16:26:04Z, sources landed 16:26:04–16:26:24Z, triage loaded **0**, snippet
+  carried **1** item of 12 ingested. **Run it twice** (or let the trigger's next pass be the
+  second); the seeder is idempotent (`ON CONFLICT DO NOTHING` on `(site_id, name)`).
+- `AWAITING_RESPONSES | run_triage` for a few minutes is the LLM scoring step, not a stall.
+- The box pulls `gqls/vm-sites` every **5 min** (`box/sitesync.timer`, `OnUnitActiveSec=5min`):
+  the commit sha is in `collected_data->'news_commit_result'->'response'->'data'->>'commit_sha'`
+  the moment `commit_news` completes; the served file lags it by ≤5 min. No chassis dispatch
+  within ~300 s of a chassis pod restart (CLAUDE.md) — check pod age first.
+
+### 6d. Verify at the artefact, never at the status
+```bash
+curl -s -o /dev/null -w '%{http_code} %{size_download}\n' https://idea.uk/data/latest-news.json
+curl -s -o /dev/null -w '%{http_code} %{size_download}\n' https://idea.uk/data/news-archive.json
+curl -s https://idea.uk/data/latest-news.json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["item_count"], d["insights_url"], d["updated_at"])'
+gh api repos/gqls/vm-sites/commits/<sha> --jq '.commit.author.date, [.files[].filename]'   # both under idea.uk/data/
+```
+```sql
+SELECT status, count(*) FROM content_feed_items WHERE site_id='1244516d-014d-421c-88c6-090bb1e9552a' GROUP BY 1;
+SELECT name, error_count, last_fetched_at FROM content_sources WHERE site_id='1244516d-014d-421c-88c6-090bb1e9552a';
+```
+`insights_url = /news/index.html` in the JSON is the proof the `news-index` re-type took
+(`render_news_section_action.go:216` gates it on that page_type).
+
+### 6e. Retune keywords — expect to, after the first week (webdesign.co.uk had to)
+The five `vertical_keywords` ARE the search queries and the `(site_id, name)` dedup key.
+A changed keyword is a NEW source; the old one keeps fetching until you deactivate it:
+`UPDATE content_sources SET is_active=false WHERE site_id='1244516d-…' AND name='News Search: <old keyword>';`
+then write a NEW authored classification row (supersede + insert, as the seed does — never
+`UPDATE data` in place) with the new list and run 6c. **Owner opt-in for LLM-authored items:**
+add `'api_news'` to `source_types` the same way; the seeder creates only the missing source.
+
+### 6f. Rollback
+Prior rows in `bak_ideauk_newsarm_20260825_site_specs` / `_pages` / `_site_plan_pages`.
+Sources: `UPDATE content_sources SET is_active=false WHERE site_id='1244516d-…';`. The
+committed JSON is in git, not the DB — it stays served until the next `commit_news`.

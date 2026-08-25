@@ -1,5 +1,7 @@
 # HANDOFF 2026-08-25 — the CSS incident is CLOSED fleet-wide and idea.uk is healed at the served page. The oldest gap standing is news/content_sources.
 
+> **SUPERSEDED 2026-08-25 (evening) by `HANDOFF_2026-08-25b_continue_here.md`** — §4 item 1 (news) is DONE and live at the artefact; items 2–4 are answered there. Read that file first; this one stays for the CSS-incident close-out (§1) and the queue-reading trap (§2).
+
 **Supersedes `HANDOFF_2026-08-18_continue_here.md` as the cold-start file** (its 08-19
 live-incident banner is resolved — see §1). The 08-16 file remains the reference for
 the honesty-arc history and the head blind spot; `HANDOFF_2026-08-11` §3 for RFC_015.

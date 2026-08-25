@@ -2396,3 +2396,70 @@ without anyone either filing it properly or dropping it — the next session sho
 or the other. Separately, your human-review queue on this site has grown to 49 items,
 a dozen of them in the last two days from things bumping into locked content — worth
 ten minutes together to see if that's one cause wearing twelve hats.
+
+---
+
+**2026-08-25, evening — the news feed is live, and the reason it never was is not what a failed job looks like.**
+
+The news file the site has been asking for since June now exists: `https://idea.uk/data/latest-news.json`
+answers, the news page's archive file answers, and the "More insights →" link on the homepage
+snippet points at the news page. The box picked the file up within five minutes of the framework
+committing it.
+
+Why it took three weeks to find: nothing had ever failed, because nothing had ever tried. The
+framework decides which sites get a news feed by reading one yes/no flag in the site's
+classification record. idea.uk's record never had that flag — not "no", simply absent — so the
+job that runs every six hours to refresh news feeds, and the hourly check that files "this site
+needs news sources", both skipped it every time without a trace. The step that is supposed to
+write the flag decides by matching the site's trade against a fixed list of about thirty
+(energy, mortgages, boxing, watches, AI…). "A workshop of tools for testing an idea" is not on
+that list, and the classifier records the trade in a field that step never reads anyway — and
+the only job that runs it has been switched off since May. So the flag was never going to
+arrive on its own. I wrote it in by hand, exactly as the dartsonline lane did on 29 July for the
+same reason, and the framework did every other part itself: created five search sources,
+fetched twelve stories, judged and rendered them, committed the file.
+
+Two choices I made that you may want to change:
+
+- **Search-only sources, real articles with real links — NOT the AI-written news option** that
+  fundamentallyai and mortgagecalculator use. This site's pitch is the honest assessment, and I
+  did not think an AI-summarised news column belonged on it unless you say so. Turning it on is
+  one word in the record and one re-run.
+- **The five search phrases are mine** — UK startup funding rounds, Innovate UK grants, the IPO
+  and patents, Start Up Loans, UK small-business news. The first twelve stories look right
+  (a UKIPO minister appointment, Start Up Loan stories, an Innovate UK round, two funding
+  rounds). Expect to retune after a week of seeing what comes back; the webdesign.co.uk lane did.
+
+One more thing was wrong and is fixed in the same change: the news page was recorded as a
+generic index page rather than a news page, in two places, and the plan copy silently
+re-imposes itself on the page copy at every rebuild — so fixing one would have been undone.
+That mis-typing is why the homepage snippet would never have shown a "More insights" link.
+
+**The three failed items from Sunday.** Two were "empty section" findings on the funding-fit
+and patent-check tool pages. I nearly wrote them off as out of date, because the pages had
+been rebuilt since and the components the findings named no longer exist. They are real: each
+tool has an empty heading above it — the template has a slot for a section heading and an
+intro that nothing ever fills — and every rebuild reproduces it byte for byte. The checker
+cannot close or confirm them because the rebuild gave the component a new ID and the finding
+only knows the old one; that is bug 300, already filed by another lane, and I have added these
+as a second instance. The empty heading itself needs whoever owns tool templates.
+
+The third was the A/B test calculator page: half-deployed on 5 August, the database holds one
+of its four parts, and every rerender fails because it cannot assemble a page from that. The
+served page is a working calculator from an earlier deploy, so visitors see nothing wrong —
+but the record cannot reproduce what they see. **Your call:** rebuild it through the tool
+writer (the 311 lane did exactly that for webdesign.co.uk's copy on 19 August), or retire the
+page. I have not done either.
+
+**Class B — I have stopped carrying it.** The eight blank-record components two handoffs kept
+listing are damage from a producer bug that is already fixed and closed (194), not a live
+mechanism; the copy they carry is the "honest" wording, and you closed that arc on the 17th.
+Today's count of that shape fleet-wide is in the notes, dated. It does not merit a new case.
+
+**Your review queue on this site (49).** Twenty-three of them are one thing wearing twenty-three
+hats: a rebuild tried to overwrite something your decisions (D-001 to D-005) or a lock
+protect, was refused, and each refusal filed a row — eight of the twelve newest are the guide
+pages' hand-authored copy, all from one sweep on Saturday. The guard worked; there is nothing
+to decide. If you agree, they can be closed in one go. The rest are smaller: six call-to-action
+destination checks from yesterday, four content-rewrite requests, four dead controls from July,
+and singles.
