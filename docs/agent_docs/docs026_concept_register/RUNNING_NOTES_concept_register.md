@@ -2674,3 +2674,63 @@ trailing `$`, so no submission was owed for this file. Checked, not assumed.
 `7272d59d4` (2026-07-27), still dirty +3/−3, still same-file-blocked. Asserted the positive fact
 per the handoff's own warning rather than reading a status as resolution. It is once again the
 drift check's ONLY finding.
+
+### 2026-08-25 (later) — logging the landmine, and five things that went wrong doing it
+
+Entry appended to `LANDMINES.md`: *"A `NEVER-REPO-PATH` citation naming a file you can `ls` is an
+UNCOMMITTED file, not a dead citation"*, slug
+`a-never-repo-path-citation-naming-a-file-you-can-ls-is-an-uncommitted-file-not-a`. **Delivered
+end to end** — 7 `doc_notes` rows (one per footprint), keys check **843 entries both sides, 0
+mismatches**, verifier dispatched (`78ca5fa5`), spawned `call_verifier` → `verify_unverifiable`,
+verdict **UNVERIFIABLE 19:45:35Z**. UNVERIFIABLE is the branch WORKING: the verifier's
+`code_symbols` index holds Go only and these footprints are a Python script plus doc paths.
+
+The entry itself was cheap. Getting it *delivered* took five corrections, and they are the reusable part.
+
+1. **I got the heading level wrong, and my sampling method is why.** The format is `###`; I wrote
+   `##`. I had sampled the convention with `grep -n '^## ' | tail -5` and read the results back as
+   house style — but **that grep selects FOR the non-conforming minority and cannot show the
+   majority it does not match**. Actual split: **717 `###` against 148 `##`**. The entry still
+   parsed (7 footprints, correct slug), so every check I had run passed; the heading is a separate
+   contract from the parse, and `landmines-sync.py` reports it in a block titled *"163 warning(s)
+   that cost DELIVERY"*. Fixed in `358a4ae4a`. **The one-command check:
+   `grep -c '^## ' <f>; grep -c '^### ' <f>` — compare the two, never sample one.**
+2. **The footprint check earned its keep.** My first draft's last footprint was a **103-character
+   prose string**; parsing the entry and asserting a LIST of short targets caught it, exactly as
+   this lane's own landmine says to (test for MATCHING, not for syncing). All 7 now ≤41 chars,
+   both path-shaped ones substring-match real files (1 and 339 hits), no globs.
+3. **`to insert/refresh: 842` is NOT the delta — it is `len(want)`, the whole corpus** (line 224).
+   I read it as evidence that the sync was resending everything and had nearly written that up as
+   the cause of the transport failures. Disproved it in one query: a stable entry's body was
+   **byte-identical in DB and file (same md5, 1245 bytes)**, so it was not in the delta at all.
+   **A count printed next to the word "delta" is not necessarily the delta — read the print.**
+4. **A `psql failed:` from this sync may have ALREADY COMMITTED its write.** Five dispatch attempts:
+   four printed transport errors (i/o timeout, connection reset, and twice `unexpected EOF` — the
+   *verbatim* error the script's own comment records as its scale limit, hit at ~2,155 rows and now
+   at **4,645**), the fifth printed `nothing to apply — already in sync` **and
+   `Nothing needs verification`**. The rows were already there. So an earlier "failure" wrote
+   successfully and then died on a later full-corpus READ (`existing_bodies()`), **consuming the
+   new-entry status without dispatching** — CLAUDE.md's documented trap, fired for real by a
+   partial failure rather than by running `--apply` alone. Remedy is the one CLAUDE.md names:
+   `./scripts/trigger-landmine-verifier.sh '<source key>'`. **Never read a transport error from
+   this script as "nothing happened" — query for your rows before retrying.**
+5. **My entry was swept into another lane's commit, and I took two passengers of theirs.** The
+   entry landed in `c2f65f287` (the `bugs_open/364` lane's close-out), whose message does not
+   mention it — the documented direction that per-task pathspec commits cannot protect against.
+   Nothing was lost and the *tightened* version is what landed (verified by re-parsing HEAD's copy).
+   In the other direction my two commits carried another lane's in-place RETIREMENT of the
+   claims-number-scan entry and a `bugs_open/392` addendum. The first I declared in the message; the
+   second arrived between my `--numstat` gate and the commit **seconds later** and I found it only
+   afterwards. **On this file the gate and the commit are not atomic — re-read the diff inside the
+   same command as the commit, and expect to declare a passenger anyway.**
+
+Also worth keeping: the pattern check fired `shared-ledger-not-appended` on `358a4ae4a` (1 line
+removed from an append-only ledger). **True on shape, benign in substance** — the removed line was
+my own `##` heading being replaced by its `###` form, confirmed by reading the diff rather than the
+count. And the pod-vs-git timezone trap nearly bit again: the spawn read `19:45` against a dispatch
+at `20:45` local, which is UTC vs BST and not a missing spawn.
+
+**Recommendation, NOT done (would be scope creep on a "log the landmine" task):** point 4 is itself
+a landmine-shaped trap — *a `psql failed` that has already committed, leaving the entry synced,
+the status consumed, and the verifier silent.* Its wrong result looks exactly like its right one.
+Worth its own entry, with the check being "query for your rows before you retry".
