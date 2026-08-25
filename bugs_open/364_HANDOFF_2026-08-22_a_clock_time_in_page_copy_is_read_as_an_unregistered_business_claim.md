@@ -498,6 +498,30 @@ adding ~20 lines of comment.** Their tree was dirty in that file while they buil
 my pathspec named `claims.go`, and a pathspec commit takes the named file from the working tree
 entire. That is the same-file passenger CLAUDE.md documents and no hook can prevent it.
 
+### ⚠ TWO lanes named `001211abf` as the sweeper, and it swept neither of them
+
+Added 2026-08-25 after checking the second claim as well as the first. **The same wrong sha, from two
+independent lanes, on one day** — and the root cause is one command:
+
+| lane's claim | what the pickaxe says | what `001211abf` actually did |
+|---|---|---|
+| `bugs_open/386`: its fact-history mechanism was swept into `001211abf` | `git log -S 'FactHistoryEntry' -- claims.go` → **`6548e8d79`** (mine) | added **only comment lines** to `claims.go` — 25/6, zero non-comment additions |
+| `site_ai_agent_orchestration`: its `WRONG_CALLS` entry was swept into `001211abf` | pickaxe on that entry's heading → **`3d31b86a9`**, the `bugs_open/381` lane's commit | its `WRONG_CALLS` diff holds only my own entries 12 and 13 |
+
+**The cause, which the 386 lane diagnosed for itself and I then confirmed on the second case:**
+`git log -N -- <path>` answers *"what last touched this file"*, not *"what introduced this code"*. On
+a shared tree those are different commits, and a path-filtered log always returns something recent
+and plausible — there is no tell. `-S` has its own trap on top: it matches a commit that merely
+*mentions* the symbol in prose, which is exactly how `001211abf` surfaced in a `-S historySupports`
+search while containing none of the code. The discriminator is two seconds:
+`git show <sha> -- <path> | grep '^+' | grep -v '^+\\s*//'` is empty for a comment-only commit.
+
+**Why it matters more than the attribution**: both shas were written into lane NOTES *specifically so
+a `098` coverage flag could be hand-traced*, which is the one use where a wrong sha costs a real
+search. Landmined 2026-08-25; the `386` lane has corrected its NOTES, and the site lane's entry is
+still uncorrected because that session is not live — **if you are reading this from that lane, your
+sweeper was `3d31b86a9`, not `001211abf`.**
+
 ⚠ **The 386 lane reported this against the WRONG COMMIT — `001211abf` — and I have told them.**
 Verified both ways: `001211abf` added **only comment lines** to `claims.go`
 (`git show 001211abf -- <file> | grep '^+' | grep -v '^+\s*//'` is empty), while

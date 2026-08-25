@@ -17509,3 +17509,21 @@ code change owed at the next roll, tracked in RFC_015 §5.
 > Recorded here rather than only in a commit message because the check's own guidance is that
 > nothing downstream can tell a deleted entry from one never written, and a reader auditing this
 > file's history should not have to re-derive that.
+
+### `git log -N -- <path>` answers "what LAST TOUCHED this file", never "what INTRODUCED this code" — and on a shared tree those are different commits, so the sha you write down sends the next reader to a commit containing none of it
+- **footprint:** any `git log -1/-3 -- <path>` used to attribute a change · a sha written into `WRONG_CALLS.md`, `NOTES_*`, a `bugs_open/` file, a concept-register entry or a council trailer · `docs/agent_docs/docs024_key_docs_latest/WRONG_CALLS.md`, `LANDMINES.md` and any other file many lanes append to · `platform/orchestration/datahelpers/claims.go` and other hot shared files
+- **fires when:** you are tracing a same-file passenger — "who swept my work in?" — which on this tree is the commonest reason anyone needs a sha at all. It fires hardest on the files most lanes touch, because those are exactly the ones where "last touched" and "introduced" diverge within minutes.
+- **the tell: NONE, and this is the whole entry.** A path-filtered log always returns a commit, that commit always really did touch the file, and it is always recent — so it looks like an answer no matter how wrong it is. There is no error, no empty result, nothing to notice.
+- **MEASURED 2026-08-25 — the same mistake, by two different lanes, in one day, both landing on the same innocent sha:**
+  - the `bugs_open/386` lane reported its fact-history mechanism swept into `001211abf`. Pickaxe: `git log -S 'FactHistoryEntry' -- claims.go` → **`6548e8d79`**. `001211abf` added **only comment lines** to that file (25/6, zero non-comment additions); it surfaced in a `-S historySupports` search only because its prose *names* the function while describing it.
+  - the `site_ai_agent_orchestration` lane reported its `WRONG_CALLS` entry swept into `001211abf`. Pickaxe on that entry's own heading → **`3d31b86a9`**, the `bugs_open/381` lane's commit. `001211abf`'s `WRONG_CALLS` diff contains only its author's two entries.
+  Both shas were written into lane NOTES *specifically so a `098` coverage flag could be hand-traced* — which is the one use where a wrong sha costs the next reader a real search.
+- **the check:** use the **pickaxe**, and search for the SYMBOL or the sentence, not the path:
+  ```bash
+  git log --oneline -S '<distinctive symbol or verbatim phrase>' -- <path>   # what INTRODUCED it
+  git log --oneline -1 -- <path>                                            # what LAST TOUCHED it — a different question
+  ```
+  Then **confirm by reading the diff, because `-S` has its own trap**: it matches any change in the number of occurrences, including a commit that merely *mentions* the symbol in a comment or a commit message body. Both mis-attributions above are that trap. `git show <sha> -- <path> | grep '^+' | grep -v '^+\s*//'` is empty for a comment-only commit and is the two-second discriminator.
+- **and the asymmetry that makes this worth an entry rather than a note:** the SWEEPER is the only party who can still prevent a same-file passenger (`git diff --numstat <file>` before committing — see the sibling entry); the SWEPT party can only ever attribute it afterwards, from the log, with the wrong tool close to hand. So the party doing the forensics is the one who cannot fix it, and the mis-attribution then points at an innocent commit — twice, on one day, at the same one.
+- **source:** 2026-08-25, `bugs_open/364` lane, after being named as the sweeper by two lanes and being the sweeper in neither case (it was the sweeper in a third, `6548e8d79`); the command-vs-question diagnosis is the `bugs_open/386` lane's own, recorded in its NOTES
+- **added:** 2026-08-25, `bugs_open/364` lane
