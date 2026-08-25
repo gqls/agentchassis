@@ -220,18 +220,36 @@ var acceptancePredicateGates = map[string]acceptancePredicateRule{
 			"finding was rebuilt, deployed and closed `complete` while its own predicate still refuted " +
 			"(bugs_open/395, webdesign.co.uk 2026-08-24 22:25Z, commit ee88ba3c)",
 		OnRefuted: predicateRecords,
-		PromotionOwes: "THREE things, and the first two were sharpened on 2026-08-25 by the bugs_open/395 " +
-			"lane's root-cause work. (1) A NEGATIVE CONTROL that is a live row, not a unit, and NOT ONE " +
-			"MANUFACTURED BY HAND: one item whose predicate is SATISFIED because the pipeline satisfied " +
-			"it, which then completed green through this gate. Hand-editing a page's meta_description " +
-			"until the predicate holds would produce the row and prove the wrong thing — it exercises " +
-			"this gate's wiring (worth having, and not nothing) while leaving untested the only question " +
-			"promotion turns on: whether a naturally-occurring `holds` is REACHABLE. [MEASURED 2026-08-25] " +
-			"it may well not be: ZERO live agent definitions read spec.acceptance_test or " +
-			"spec.acceptance_predicate as an input, ZERO prompt templates anywhere interpolate any " +
-			"acceptance* field, and 6,281 items have closed `complete` carrying an acceptance_test the " +
-			"writer was never shown. A hand-made control would satisfy the letter of this field while the " +
-			"condition it exists to detect — a gate that can only ever refuse — stayed true. " +
+		PromotionOwes: "THREE things, and condition (1) was rewritten TWICE on 2026-08-25 as the " +
+			"bugs_open/395 lane's root-cause work got sharper. Read it as the record of a question that " +
+			"turned out to have a worse answer each time it was asked. " +
+			"(1) A NEGATIVE CONTROL — and [MEASURED 2026-08-25] IT IS CURRENTLY UNREACHABLE, not merely " +
+			"absent, so DO NOT PROMOTE ON THE STRENGTH OF ONE APPEARING. All three predicates this " +
+			"producer has ever emitted grade `pages.meta_description`, and a NON-EMPTY meta description " +
+			"is structurally immutable on the route these findings take: `page-build-handler` has ZERO " +
+			"steps touching the column; the only unconditional writer is " +
+			"save_page_meta_description_action.go:211, reachable from exactly ONE live agent " +
+			"(`meta-description-backfiller`) whose scheduler pre_query selects " +
+			"COALESCE(p.meta_description,'')='' — EMPTY ones only; and the two other writers " +
+			"(site_db_actions.go:1235, apply_adoption_plan_action.go:84) are both " +
+			"COALESCE(NULLIF(EXCLUDED,''), existing), which can fill a blank and never overwrite. So the " +
+			"handler could not have satisfied the criterion whatever it was told, and `holds` cannot " +
+			"occur until either the predicate vocabulary covers a field the routed handler CAN write, or " +
+			"such findings are routed at a writer that can — the second needs an OWNER DECISION, because " +
+			"bugs_open/320 §15 records the owner granting overwrite_existing for one 681-page backfill " +
+			"and explicitly WITHHOLDING it for the standing mechanism. " +
+			"⚠ Two earlier wordings of this condition are superseded and both were wrong in the same " +
+			"direction — they named a route to the control row that does not exist. It first said " +
+			"'manufacture it by hand-editing a meta_description', which would have proved this gate's " +
+			"wiring while leaving untested whether `holds` is reachable at all; then 'the row the " +
+			"feed-forward produces', which cannot happen either, because telling a writer the criterion " +
+			"does not give its handler a step that writes the field. " +
+			"⚠ AND THE RECURRENCE IS THE REAL LESSON: bugs_open/320 §5 measured this exact failure on " +
+			"this exact page (webdesign.co.uk `index`) on 2026-08-19, SIX DAYS before 395, and its §9 " +
+			"says in terms 'Do not file content_rewrite items for them. §5: measured, completes, does " +
+			"nothing.' This lane's producer filed precisely that item anyway, because §9 is PROSE IN A " +
+			"BUG FILE and nothing enforces it. 320 §4 also already carried the check that would have " +
+			"caught it: 'ask who owns the field first'. " +
 			"(2) THE REFUSAL MUST REACH THE NEXT ATTEMPT, and today it cannot: failUnverifiedCompletion " +
 			"writes the reason to site_work_items.error, and LoadWorkItemsAction selects " +
 			"retry_feedback->>'message'/'code' under a comment reading 'NOT wi.error' (bugs_open/345, " +
