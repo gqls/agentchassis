@@ -2928,3 +2928,106 @@ then branch: `opted_out` → `complete`, `no_listable_urls` → record an error 
 That is a Go change plus a follow-up migration, so it is a separate round — and it cannot be
 applied before `590` anyway.
 
+
+---
+
+## 2026-08-25 — the fleet swept itself overnight: **8 → 26 of 28**, and two instrument faults
+
+### The sweep, measured not assumed
+
+`590` applied 2026-08-24 15:31. The rotation then ran **unattended for 13.2 hours**, 15:32:13 →
+04:44:38, one site per 30-minute tick.
+
+- **27 sites swept** (28 live minus `adversecreditmortgage.co.uk`, correctly held out by
+  `locked_at`).
+- **27 orchestrations, ALL `COMPLETED`.** Zero `FAILED`, zero partial.
+- **Every stamp reconciles to `runs = 1`** — the check the previous handoff called for. **Zero
+  dropped dispatches.** The ~300s post-roll dispatch dead-zone never bit, because the roll landed
+  at 09:27 today, well after the last tick.
+- Then it went quiet, correctly: with all 27 stamped inside the 3-day threshold, nothing is due
+  until 2026-08-27. That is the designed steady state, not a stall.
+
+### Fleet coverage, judged by body
+
+| | 2026-08-24 14:00 | 2026-08-25 10:00 |
+|---|---|---|
+| serve a sitemap **of ours** | **8 of 28** | **26 of 28** |
+
+Every one of the 26 scores a **perfect n/n** loc-to-`pages`-row match. The two that do not:
+
+- `adversecreditmortgage.co.uk` — still the parking provider's 1-`<loc>` `/lander` file. **Correct:
+  it is under the owner HALT and the rotation excludes it by design.**
+- `webdesign.uk` — **302s every path** to `webdesign.co.uk`. It WAS swept (`runs=1`) and did commit
+  a file to `vm-sites`, but the domain serves nothing of its own. This turned out to be a defect —
+  see below.
+
+### The canonicalisation fix proved itself, by accident, as a natural experiment
+
+I did not have to construct a before/after. The chassis rolled **between the first and second
+ticks** on 08-24 (~15:45, picking up `5c9acf1bd`), which split the sweep cleanly:
+
+- `robot-hands.com`, swept **15:32:13, pre-roll** → homepage loc `https://robot-hands.com/index.html`
+- **all 26 sites swept 16:02 onward, post-roll** → homepage loc `https://<domain>/`
+
+One binary, one behaviour, either side of a known boundary. ⚠ **`robot-hands.com` is therefore the
+one stale artefact.** Its stamp was cleared 2026-08-25 ~09:55 (the one-line remedy the previous
+handoff documented) so it re-runs on the current binary; the task fires every 30 minutes and was
+last at 09:49, so the correction lands ~10:19.
+
+### INSTRUMENT FAULT 1 — my own verification query scored my own fix as a regression
+
+The first census after the sweep read **25 of 28** and reported `apis.uk` as **NOT OURS** (0 of 1
+locs matching). `apis.uk`'s sitemap was perfect.
+
+Cause: canonicalisation makes the emitted homepage (`/`) differ from the stored `pages.url`
+(`/index.html`) **on purpose**, and my match test predated the fix. Every site scored exactly
+**n−1**; `apis.uk`, whose only deployed page IS the homepage, scored 0 of 1, i.e. total failure.
+
+**The tell was uniformity.** One unmatched entry on 26 different domains is not 26 independent
+faults — a real coverage problem is ragged. Canonicalising the `pages` side of the join fixed it:
+**25 → 26**, every per-site score n/n. Written up as a landmine.
+
+### INSTRUMENT FAULT 2 — and it found a real bug
+
+`webdesign.uk` being the one swept site still serving nothing was the loose thread. Its sweep had
+reported `url_count: 7, probe_dropped: 0` — a perfect result for a domain that redirects
+everything away.
+
+**`probeOK` has always carried the rule and never implemented it:** *"Only a 2xx qualifies. A
+redirect is deliberately NOT listed."* The client was `&http.Client{Timeout: ...}`, and Go follows
+up to 10 redirects transparently, so the probe saw the **200 at the end of the chain**.
+
+Proven both ways, 2026-08-25: all 7 of `webdesign.uk`'s pages return **302 un-followed, 200
+followed**. `probe_dropped: 0` — the field whose entire job is to report this — was the most
+convincing part of the wrong answer.
+
+⚠ **The doc comment made it worse, not better.** Anyone checking whether redirects were handled
+found the rule stated clearly and correctly, beside code that did not implement it. That converts
+"unhandled" into "handled" for every reviewer who reads it.
+
+**Blast radius measured BEFORE writing the fix**, not left as a reviewer's risk: sampling up to 3
+listed URLs per domain across all 27 swept domains, exactly **1 of 27** has any 3xx — and it is
+`adversecreditmortgage.co.uk`, already excluded. **No live site loses a URL.** `webdesign.uk`
+correctly drops 7 → 0, and the existing empty-sitemap refusal then stops the commit.
+
+Fixed in `54ba65b25` (`CheckRedirect` → `http.ErrUseLastResponse`), pinned by
+`TestProbeDoesNotFollowRedirects`, mutation-proven — the bare client yields *"reported status 200,
+want 302"*, verbatim the live reading. Council `25157bab-4b6d-40c5-a218-98148b60daf6`.
+
+**Same class as yesterday's canonicalisation defect:** the probe proves FETCHABILITY and the action
+keeps mistaking that for CANONICALITY. Both were stated in the header; both were unimplemented.
+
+### The wrong call: I trusted a measuring instrument I had not checked
+
+I justified yesterday's binary probe with *"both controls discriminated correctly"*. A landmine
+added the **same day** by another lane says exactly that does not establish it — BusyBox `grep`
+over `/proc/1/exe` gives false absences **while both controls pass**.
+
+The conclusion survived on luck: the failure mode is a false ABSENCE and my target read PRESENT
+(and 27 live runs settled it anyway). I found out by accident — grepping chassis logs for `build
+provenance` matched the landmine being synced into `doc_notes`.
+
+**I applied "grep LANDMINES for the symbol you are about to trust" to the SUBJECT and not to the
+TOOL.** Both faults this session were in instruments, neither in the thing being measured. Logged
+in `WRONG_CALLS.md`.
+

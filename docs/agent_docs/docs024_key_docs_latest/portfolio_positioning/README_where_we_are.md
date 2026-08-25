@@ -918,3 +918,65 @@ from the 18th, and the sweep skips it. Publishing a sitemap means committing a f
 which is a deployment, and I did not want a background job quietly deploying to a site you have
 stopped.
 
+
+---
+
+**2026-08-25 — it ran all night on its own. Sitemaps went from 8 sites to 26.**
+
+You switched it on yesterday afternoon. It then worked unattended for just over thirteen hours,
+doing one site every half hour, and finished at quarter to five this morning.
+
+**Twenty-seven sites, twenty-seven successes, nothing dropped.** I had warned you that a job firing
+during the chassis restart could be silently lost — the system marks a site as "done" just before
+sending the message, so a lost message leaves a site looking finished when nothing happened. I
+checked every one against the record of what actually ran. All twenty-seven line up. The restart
+landed at half past nine this morning, well after the last one, so the risk never arose.
+
+**Where we are: 26 of the 28 live sites now publish a proper sitemap, against 8 yesterday.** And
+they are all complete — every address in every sitemap is a real page on that site, no
+approximations.
+
+The two that don't:
+
+- `adversecreditmortgage.co.uk` — still under your halt from the 18th, and the sweep skips it
+  deliberately. It shows the file left behind by the company the domain was parked with.
+- `webdesign.uk` — this one turned out to be interesting, see below.
+
+**The homepage fix proved itself by accident, which is the nicest kind of proof.** Your chassis
+rebuild went out between the first and second site of the sweep. So the very first site,
+`robot-hands.com`, was done on the old code and lists its front page the wrong way; all
+twenty-six after it were done on the new code and list it the right way. Same job, same night,
+one change in between. I've told the system to redo `robot-hands.com`, which it will within the
+half hour.
+
+**`webdesign.uk` was the loose thread, and pulling it found a real bug.** That domain forwards
+every address to `webdesign.co.uk`. It doesn't serve anything itself. But our sweep had reported
+it as a complete success — seven pages found, none rejected.
+
+The reason is worth explaining, because it is the same mistake in a new place. Before listing a
+page, the generator fetches it to check it's really there. The rule was: if the page forwards you
+somewhere else, don't list it — a sitemap should name the real address, not one that bounces. That
+rule was written down clearly in the code. It was never actually working: the standard way of
+fetching a page follows the forwarding automatically, so the checker only ever saw the destination
+and reported success every time.
+
+So it looked perfect precisely where it was blindest. The count of rejected pages — the number
+whose whole job is to catch this — read zero.
+
+I've fixed it and, before doing so, checked what turning the rule on would break: across every one
+of the 27 sites, exactly one page anywhere forwards, and it's on the parked domain we already skip.
+So nothing you have loses anything. `webdesign.uk` will correctly end up with no sitemap, which is
+right for a domain that serves no pages of its own.
+
+**One more thing, in the interest of not overstating yesterday.** I told you the action was
+already live in the running system, and justified it by saying my check's controls had behaved
+correctly. I've since found a warning — written the same day by another thread — saying that
+particular check can give a false "not there" *while the controls still look right*. My conclusion
+happened to be correct, and twenty-seven successful runs have since settled it beyond doubt. But
+the reason I gave you for believing it was not a good one, and I'd rather say so than let it
+stand. Both of the two things that went wrong this session were in my measuring tools, not in the
+work itself.
+
+**To pick this up in a fresh session:**
+`docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/HANDOFF_2026-08-25_continue_here.md`
+
