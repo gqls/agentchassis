@@ -908,3 +908,22 @@ Minimisation levers, in order of cheapness:
    them is feasible council-gated platform work (~18 findings). `article-body` 36,
    `ported-page` 31, `ported-prose` 9, `generic-text-block` 8 are prose — human by design;
    they route via content_rewrite, not this seam.
+
+### 15. LANE CLOSED — bulk closes executed, 308 → bugs_closed, Phase C re-filed as 389 [2026-08-25 ~11:40Z]
+
+Owner approved both queue moves and close-and-refile. Executed, with per-statement count
+assertions, after RE-DERIVING the stale set on a fresh dump+probe (1,741 components, 21 sites
+— it matched the morning census exactly: 109 + 74 + 65):
+
+- **109 → `wont_fix`** — the whole demoted excluded-area category (bugs_open/248 grounds).
+- **74 → `cancelled`** — non-excluded items whose anchor no longer exists under the live
+  predicate. Audit copies in THIS dir: `close.sql`, `close_wontfix_ids.txt`,
+  `close_cancelled_ids.txt` (one transaction, `closed_wont_fix 109/109`,
+  `closed_cancelled 74/74`).
+- **65 remain** `needs_human_review`: 37 self-link dead-ends, 19 homepage, 5 phantom,
+  4 empty href. That is the real queue.
+
+`bugs_closed/308_HANDOFF_2026-08-18_…` carries the closing evidence;
+`bugs_open/389_HANDOFF_2026-08-25_repair_completion_is_unverified_…` carries Phase C
+(verifier, zero-covered-findings filing stop, optional ctaFieldNames widening, RFC_047 §10).
+Migration `555` retired unbuilt. This lane's remaining work lives in 389.

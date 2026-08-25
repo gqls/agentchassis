@@ -16,7 +16,14 @@ question that headed the previous handoff is RESOLVED: they were two-strike labe
 jobs (78% obsolete when re-measured; Fable-audited). **Migration
 `555_requeue_misdirected_cta_stock.sql` must NOT be built on the old premise — retire it.**
 
-## 1. What remains, in order
+## 1. What remains — DECISIONS TAKEN 2026-08-25 ~11:40Z, see NOTES §15
+
+> Items 1 and 5 are DONE: both bulk closes executed (109 wont_fix + 74 cancelled, 65 remain),
+> `bugs_open/308` is CLOSED to `bugs_closed/`, and Phase C is re-filed as **`bugs_open/389`**
+> — which now owns items 2-4 below. This handoff stays as the lane's map; a fresh session
+> continuing the work should START from `bugs_open/389_HANDOFF_2026-08-25_…`.
+
+## 1. What remains, in order (historical numbering)
 
 1. **Two owner GO/NO-GOs on the human-review queue (248 open `cta_names_unknown_destination`
    items)** — NOTES §14 table: (a) close 155 STALE items (buttons gone; ids in

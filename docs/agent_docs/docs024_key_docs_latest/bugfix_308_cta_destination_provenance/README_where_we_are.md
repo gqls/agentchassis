@@ -314,3 +314,14 @@ sixty-five items: mostly buttons that dead-end on their own page, which really d
 person's judgement about wording. The rest of the wrong buttons — about a hundred and twenty —
 live inside article text and imported pages, which the machine deliberately doesn't rewrite;
 getting those down is future platform work, not queue-clearing.
+
+**Late morning — and this closes the lane.** You said yes to both clean-ups, so I re-checked
+every item against the pages as they stood this hour (not this morning) and closed them: a
+hundred and nine from the retired always-wrong rule, seventy-four whose buttons no longer
+exist. Sixty-five remain, and those genuinely need a person — mostly buttons that lead back to
+the page they're on, which is a wording call. The original bug is now in the closed pile with
+its evidence, because what it asked for is fixed and running fleet-wide. The one piece of
+unfinished business — making the platform refuse to call a repair "done" when nothing changed —
+is re-filed as bug 389 with everything the next person needs. It was three hundred and one
+wrong buttons across the estate yesterday morning; it is eleven machine-fixable ones today,
+each with a reason and a route.
