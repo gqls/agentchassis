@@ -794,3 +794,75 @@ Candidate 1 (add credit) is still the only thing that restores service under a r
 candidate 2 (a second provider) is still undecided — **127 of 127 configured LLM steps across
 55 live agents name `anthropic` and the same key.** This lane only reduces what each refusal
 costs us.
+
+---
+
+## 2026-08-25 — ALL FOUR PLATFORM FIXES ARE NOW LIVE. The lane is complete; this bug stays OPEN, and §6 says why.
+
+**Cold-start for this work:**
+`docs/agent_docs/docs024_key_docs_latest/bugfix_243_provider_cap_resilience/HANDOFF_2026-08-25_continue_here.md`
+
+| fix | state |
+|---|---|
+| **MDL-044** — a successful live call clears `ai_endpoint_health` | **LIVE + PROVEN TWICE** (v1.0.1334) |
+| **mig 596** — claude re-probe 3600s → 60s | **APPLIED** 08-24 (real cadence 92–94s, see below) |
+| **WFA-023** — `__step_errors` + the council classifying an errored seat `unreadable` | **LIVE** (v1.0.1337) |
+| **mig 588** — the 17 seats' `error_step` → their own `next_step` | **APPLIED** 08-25 |
+
+Council `82f07fa6-1c42-46ad-bdf6-1d58892c44a7`, **APPROVED round 1**; every commit carries the
+trailer.
+
+**So the two costs this file documented are now closed at the mechanism**: a refusal no longer
+pins the fleet's dispatch gate (a successful call clears it in seconds — proven, twice), and a
+seat's transient no longer discards a whole council round.
+
+### The gate for 588, and how it was checked
+
+Ancestry against the running binary's **own** provenance stamp —
+`git merge-base --is-ancestor dbd865ee8 4c996e1b5` → IN — plus a binary probe on **both**
+replicas with **both** controls (`step-error record capped at` = 1/1; known-present = 15/15;
+known-absent = 0/0). ⚠ `__step_errors` also reads 1 and **is not evidence**: the reader mentions
+that key too, so it says "landed" either way.
+
+### ⚠ Two corrections to things this lane itself wrote
+
+1. **mig 596 does NOT give a one-minute bound.** The probe needs the `ai-endpoint-health-check`
+   task to tick **and** the endpoint interval to elapse, and that task is **also 60s**, so they
+   compose. Measured ticks: gaps of **94s and 92s**. Honest bound: **one to two minutes** —
+   still ~39× better than 3600s. Corrected in the migration header before it could be quoted.
+2. **mig 588's first apply FAILED and rolled back.** The council-reviewed *sketch* used
+   `UPDATE … FROM LATERAL jsonb_each(ad.default_config …)`, which Postgres refuses (the UPDATE
+   target cannot be referenced from a `LATERAL` in its own `FROM`). Nothing changed — verified
+   19 seats still `complete_invalid` afterwards. Rewritten to a correlated scalar subquery.
+   **A council seat reviews a sketch, which is not executable; this class cannot be caught at
+   the gate.** LANDMINE filed.
+
+### What is proven and what is not
+
+**Discharged (negative control)** `[MEASURED 2026-08-25 09:49:00Z]`: the first council round
+after the migration reached **`complete_approved`** — approved, 5 abstained, **0 unreadable**.
+Repointing all 17 `error_step`s did **not** break the ordinary path.
+
+**Still owed (positive arm), and it cannot be forced:** a round in which a seat's call *errors*
+must reach a verdict, report that seat under **`unreadable`** (not `abstained`), and return
+**REVISE** if the rest would have approved.
+
+```sql
+SELECT created_at, metadata->>'decision', metadata->>'unreadable', metadata->'unreadable_at'
+FROM diagnosis_artifacts WHERE kind='council_report'
+  AND (metadata->>'unreadable')::int > 0 ORDER BY created_at DESC LIMIT 5;
+```
+
+It will arrive on its own — cap failures hit **7 of the 15 days** to 08-24. **Do not fake it.**
+
+### Why this bug stays OPEN
+
+Not bookkeeping. **Nothing in this lane fixes the cap**, which is what this file is actually
+about. §5 candidate 1 (the owner adds credit) is still the only thing that restores service, and
+**candidate 2 (a second provider) is still an open owner decision** — `127 of 127` configured LLM
+steps across 55 live agents name `anthropic` and the same key (⚠ census dated 2026-08-10;
+re-run before quoting). Closing this would read as *"the running-out-of-credit problem is
+solved"*, which is false. **What is solved is how much damage each refusal does to us.**
+
+**Fair close condition:** one council round with `unreadable > 0` reaching a verdict, **plus** an
+owner decision on candidate 2.
