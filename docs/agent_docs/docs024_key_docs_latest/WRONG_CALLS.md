@@ -51630,3 +51630,52 @@ than overwrites, so every prior value is already on disk — one query, and `min
 floor the copy publishes answers it. I had the current value and never asked whether it moves.
 Caught only because the `bugs_open/386` lane published a falling-facts census and I re-read my own
 claim against it. Third correction of mine this lane that a peer's measurement produced.
+
+---
+
+## 2026-08-25 (`bugs_open/388` lane) — I wrote a test to prove a finding is NOT emitted, and no arrangement of mock expectations can prove that. The mutation passed and told me.
+
+**The claim:** a test named `TestStoreGeneratedComponent_UnambiguousRegenerationIsSilent`, with a
+comment asserting *"MUTATION: drop the `siblings <= 1` early return → the unexpected agent_error_log
+INSERT fails this test."* It drove the whole action with the sibling census returning 1 and
+deliberately declared **no** `ExpectExec` for `INSERT INTO agent_error_log`, on the reasoning that
+sqlmock fails on any unexpected statement — which is the idiom this very file's header teaches.
+
+**What actually happens.** `LogActionFindings` is **best-effort**: it swallows its write error. So
+under sqlmock an unexpected `INSERT INTO agent_error_log` returns an error, the helper discards it,
+and `ExpectationsWereMet()` passes with nothing left unmatched. **The mutation that removes the gate
+left the test GREEN.** I only found out because I ran it — the test had already passed on its first
+attempt, and I nearly took that as the proof.
+
+**The asymmetry, which is the transferable part.** Under a strict mock, a positive expectation
+genuinely proves a statement fired: leave it unmatched and the test fails. The negative has no
+mirror. "No expectation declared" plus "the caller swallows errors" is indistinguishable from "the
+statement never ran", and *every* best-effort writer in this package (`LogActionFindings`,
+`recordValidationRejection`, `snapshotComponentVersion`, the quality persist) has exactly that
+shape — by design, because a logging failure must not fail a store. **So in this package the
+sqlmock idiom proves presence and cannot prove absence, and the file's own header sentence
+("sqlmock fails the test on any unexpected statement") is true of the *mock* and false of the
+*outcome* wherever the caller is best-effort.**
+
+**The cheap check, and it is the one this estate already writes down:** *a mock's own bookkeeping
+cannot assert a negative — MUTATE to prove a guard.* I did mutate, which is why this is a
+half-hour's loss and not a shipped hole. What I had not internalised is the corollary: **when a
+mutation PASSES, the test is the suspect, not the mutation.** The memory note for that
+(`a-mutation-that-passes-may-have-hit-a-guard-in-series`) is about a guard in series; this is the
+same shape one layer down — the swallow is the guard in series, and it is *between* the code and the
+assertion rather than in front of the code.
+
+**The fix, and it is a design change rather than a test change.** The predicate moved out into a pure
+function, `ambiguousRegenerationFinding(ident, siblings, emittedFunction, sectionType) (Finding, bool)`,
+with no DB and no logging, and the negative is asserted against it directly (siblings 0 and 1 → false;
+2 and 5 → true, carrying the count). Re-running the same mutation now fails on both silent sub-cases.
+**If a rule's negative case matters, the rule has to be reachable without the writer that swallows.**
+
+**Second-order, and it cost me two invalidated mutation runs:** midway through, another session's
+in-flight edit broke the package (`refresh_evidence_base_action.go:550: undefined: recordFactHistory`),
+so `go test` reported `[build failed]` for *three* consecutive runs — mutation, mutation, and the
+revert. A shared tree makes a local red ambiguous between "my mutation worked" and "someone else's
+WIP landed". `scripts/verify-head-builds.sh --with <files> --test <pkg>` overlays only your files
+onto a clean HEAD and is the correct instrument for mutation testing here; I switched to it and the
+runs became interpretable again. **On this tree, do not read a bare `go test` failure as a statement
+about your own change until you have seen the error text.**

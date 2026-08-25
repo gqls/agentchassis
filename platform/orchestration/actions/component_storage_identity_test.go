@@ -531,3 +531,156 @@ func TestStoreGeneratedComponent_SilentParallelBirthIsRecorded(t *testing.T) {
 		t.Errorf("sqlmock expectations: %v", err)
 	}
 }
+
+// T-E — THE UN-PINNED REGENERATION SAYS WHEN IT WAS A GUESS.
+//
+// Added in council round 2 on bug_historian's advisory objection: round 1
+// instrumented the un-pinned CREATE path and left the un-pinned REGENERATE path
+// silent. Regeneration is the worse of the two — an existing row is OVERWRITTEN,
+// and which one was decided by `ORDER BY is_active DESC, updated_at DESC LIMIT 1`
+// over a name that 25 of 330 non-forked rows do not hold uniquely.
+//
+// ⚠ THIS TEST EXISTS BECAUSE THE OTHER TESTS COULD NOT CATCH IT. The census is
+// best-effort by design — a census failure must never fail a store that would
+// otherwise succeed — so under sqlmock an UNEXPECTED census query returns an
+// error, the code logs and returns, and ExpectationsWereMet() still passes. The
+// swallow that is correct in production makes every neighbouring test blind to
+// this code path. Only a POSITIVE expectation proves it runs.
+//
+// MUTATION: delete the reportAmbiguousUnpinnedRegeneration call -> the census
+// query and the agent_error_log INSERT both go unmatched and this fails.
+func TestStoreGeneratedComponent_UnpinnedRegenerationReportsAmbiguity(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	// No pin. The legacy by-function lookup finds the incumbent.
+	mock.ExpectQuery(`WHERE function = \$1 AND forked_from IS NULL`).WithArgs("test-widget").
+		WillReturnRows(incumbentRow())
+	mock.ExpectQuery(`SELECT DISTINCT s\.id::text, s\.domain`).WithArgs(incumbentID, siteBID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "domain"}))
+	// THE QUESTION THE RESOLVER DISCARDED: how many rows shared that name?
+	mock.ExpectQuery(`SELECT count\(\*\)\s+FROM content_components\s+WHERE function = \$1 AND forked_from IS NULL`).
+		WithArgs("test-widget").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
+	mock.ExpectExec(`INSERT INTO agent_error_log`).WillReturnResult(sqlmock.NewResult(1, 1))
+
+	mock.ExpectQuery(`SELECT COALESCE\(MAX\(version_number\), 0\)`).WithArgs(incumbentID).
+		WillReturnRows(sqlmock.NewRows([]string{"coalesce"}).AddRow(0))
+	mock.ExpectQuery(`SELECT DISTINCT aspect FROM site_specs`).WillReturnRows(aspectRows())
+	mock.ExpectExec(`INSERT INTO component_versions`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(`UPDATE content_components`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), "test-widget", incumbentID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`SELECT DISTINCT p\.site_id::text`).WithArgs(incumbentID).
+		WillReturnRows(sqlmock.NewRows([]string{"site_id"}))
+	mock.ExpectExec(`UPDATE page_components`).WithArgs(incumbentID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`UPDATE content_components`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`UPDATE pages SET build_status`).WithArgs("test-widget").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	if _, err := StoreGeneratedComponentAction(context.Background(),
+		storageIdentityParams(db, siteBID, "siteb.uk")); err != nil {
+		t.Fatalf("an ambiguous regeneration must still succeed; got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("sqlmock expectations: %v", err)
+	}
+}
+
+// T-F — the DECISION, tested directly, because through the mock it cannot be.
+//
+// ⚠ THE FIRST VERSION OF THIS TEST WAS VACUOUS AND THE MUTATION PROVED IT.
+// It drove the whole action with the census returning 1 and declared no
+// agent_error_log expectation, on the assumption that a spurious finding would
+// surface as an unexpected statement. It does not: LogActionFindings is
+// best-effort and swallows the write error, so ExpectationsWereMet() passes
+// either way. Removing the `siblings <= 1` gate left that test GREEN. A positive
+// expectation can prove a finding fires; no arrangement of expectations proves
+// one does not — so the predicate is a pure function and is asserted here.
+//
+// MUTATION: drop the `siblings <= 1` early return in
+// ambiguousRegenerationFinding -> the first sub-case fails.
+func TestAmbiguousRegenerationFinding_OnlyFiresOnARealContest(t *testing.T) {
+	ident := storageIdentity{FunctionName: "site-footer", ExistingID: incumbentID, IsRegeneration: true}
+
+	for _, tc := range []struct {
+		name     string
+		siblings int
+		want     bool
+	}{
+		{"one row holds the name — no contest, stay silent", 1, false},
+		{"zero (census raced the write) — nothing to report", 0, false},
+		{"two rows share it — the winner was picked by recency", 2, true},
+		{"five, the live worst case for site-footer/site-header", 5, true},
+	} {
+		finding, got := ambiguousRegenerationFinding(ident, tc.siblings, "site-footer", "footer")
+		if got != tc.want {
+			t.Errorf("%s: siblings=%d reported=%v, want %v", tc.name, tc.siblings, got, tc.want)
+		}
+		if !got {
+			continue
+		}
+		if finding.ErrorCode != "COMPONENT_UNPINNED_REGENERATION_AMBIGUOUS" {
+			t.Errorf("wrong code: %s", finding.ErrorCode)
+		}
+		// The count is the whole point — a finding that does not carry it cannot
+		// be triaged, because the reader cannot tell a 2-way tie from a 5-way one.
+		if finding.Context["rows_sharing_function"] != tc.siblings {
+			t.Errorf("finding must carry the sibling count; got %v", finding.Context["rows_sharing_function"])
+		}
+		if finding.Context["chosen_component_id"] != incumbentID {
+			t.Errorf("finding must name the row that was overwritten; got %v", finding.Context["chosen_component_id"])
+		}
+	}
+}
+
+// T-G — the wired quiet case. Retained because it still pins the CENSUS running
+// on the un-pinned regeneration path (a positive expectation, which does work);
+// it deliberately no longer claims to prove the absence of a finding — T-F does
+// that. Keeping the two apart is the point: this one would pass either way.
+func TestStoreGeneratedComponent_UnambiguousRegenerationStillCensuses(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(`WHERE function = \$1 AND forked_from IS NULL`).WithArgs("test-widget").
+		WillReturnRows(incumbentRow())
+	mock.ExpectQuery(`SELECT DISTINCT s\.id::text, s\.domain`).WithArgs(incumbentID, siteBID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "domain"}))
+	// Exactly one row holds the name -> nothing to report.
+	mock.ExpectQuery(`SELECT count\(\*\)\s+FROM content_components\s+WHERE function = \$1 AND forked_from IS NULL`).
+		WithArgs("test-widget").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	// NO agent_error_log expectation: a finding here would be an unexpected statement.
+
+	mock.ExpectQuery(`SELECT COALESCE\(MAX\(version_number\), 0\)`).WithArgs(incumbentID).
+		WillReturnRows(sqlmock.NewRows([]string{"coalesce"}).AddRow(0))
+	mock.ExpectQuery(`SELECT DISTINCT aspect FROM site_specs`).WillReturnRows(aspectRows())
+	mock.ExpectExec(`INSERT INTO component_versions`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(`UPDATE content_components`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), "test-widget", incumbentID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`SELECT DISTINCT p\.site_id::text`).WithArgs(incumbentID).
+		WillReturnRows(sqlmock.NewRows([]string{"site_id"}))
+	mock.ExpectExec(`UPDATE page_components`).WithArgs(incumbentID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`UPDATE content_components`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`UPDATE pages SET build_status`).WithArgs("test-widget").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	if _, err := StoreGeneratedComponentAction(context.Background(),
+		storageIdentityParams(db, siteBID, "siteb.uk")); err != nil {
+		t.Fatalf("store must succeed; got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("sqlmock expectations: %v", err)
+	}
+}

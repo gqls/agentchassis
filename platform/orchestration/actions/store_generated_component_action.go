@@ -202,6 +202,7 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		if err != nil {
 			return nil, fmt.Errorf("storage identity resolution failed for %q: %w", functionName, err)
 		}
+		reportAmbiguousUnpinnedRegeneration(ctx, params, ident, functionName, sectionType, requesterSiteID, logger)
 	}
 	if ident.Diverted {
 		logger.Info("store_generated_component: foreign collision — write diverted to site-scoped identity",
@@ -950,6 +951,103 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		response["requested_function"] = ident.DivertedFromFunc
 	}
 	return response, nil
+}
+
+// reportAmbiguousUnpinnedRegeneration records that an UN-PINNED regeneration
+// chose its target by NAME among several rows that share it (bugs_open/388,
+// council round 2, bug_historian's advisory objection).
+//
+// WHY THIS EXISTS SEPARATELY FROM COMPONENT_PARALLEL_SECTION_BIRTH. That code
+// instruments the un-pinned CREATE path, where the damage is a duplicate row.
+// This is the un-pinned REGENERATE path, where the damage is the opposite shape
+// and worse: an existing row is OVERWRITTEN, and which one was decided by
+// `ORDER BY is_active DESC, updated_at DESC LIMIT 1` over a name that does not
+// identify a row. [MEASURED 2026-08-25] 25 of 330 non-forked rows' `function`
+// values carry more than one row — `site-footer` and `site-header` five each,
+// spanning component_level 'section' AND 'site'. The winner can therefore change
+// with no code change at all, because anything that touches a sibling's
+// updated_at reorders the contest.
+//
+// ⚠ IT IS DELIBERATELY THE QUESTION THE RESOLVER THREW AWAY, NOT THE ONE IT
+// ASKED. lookupBaseComponent asks "which row wins" and its LIMIT 1 structurally
+// cannot report that there was a contest; this asks "how many were there". That
+// distinction is the whole point — bugs_open/324 shipped 32 dangling rows
+// because its completeness check re-ran the resolver's own query and could only
+// ever agree with it. A count is not a second opinion on the winner; it is the
+// fact the winner's selection discards.
+//
+// Best-effort and never fatal: the row is about to be written either way, and a
+// census failure must not fail a store that would otherwise succeed. Silent on
+// the unambiguous case, so a row in agent_error_log always means a real contest.
+func reportAmbiguousUnpinnedRegeneration(
+	ctx context.Context, params ActionParams, ident storageIdentity,
+	functionName, sectionType, requesterSiteID string, logger *zap.Logger,
+) {
+	// Only a regeneration overwrites. A creation is COMPONENT_PARALLEL_SECTION_BIRTH's
+	// case, and a diverted write already records COMPONENT_COLLISION_DIVERTED.
+	if !ident.IsRegeneration || ident.Diverted || ident.FunctionName == "" {
+		return
+	}
+
+	var siblings int
+	if err := params.DB.QueryRowContext(ctx, `
+		SELECT count(*)
+		FROM content_components
+		WHERE function = $1 AND forked_from IS NULL
+	`, ident.FunctionName).Scan(&siblings); err != nil {
+		logger.Warn("store_generated_component: sibling census unreadable — cannot say whether this regeneration was ambiguous",
+			zap.String("function", ident.FunctionName), zap.Error(err))
+		return
+	}
+	finding, report := ambiguousRegenerationFinding(ident, siblings, functionName, sectionType)
+	if !report {
+		return
+	}
+
+	logger.Warn("store_generated_component: un-pinned regeneration chose among several rows sharing a function name",
+		zap.String("function", ident.FunctionName),
+		zap.String("chosen_id", ident.ExistingID),
+		zap.Int("rows_sharing_function", siblings))
+
+	LogActionFindings(ctx, params, requesterSiteID, "",
+		"store_generated_component", []agenterrors.Finding{finding}, logger)
+}
+
+// ambiguousRegenerationFinding is the DECISION, split out as a pure function
+// with no DB and no logging — and that split is not tidiness, it is the only way
+// the negative case can be tested at all.
+//
+// ⚠ WHY, RECORDED BECAUSE IT COST A VACUOUS TEST FIRST. LogActionFindings is
+// best-effort: it swallows a write error. Under sqlmock an UNEXPECTED
+// INSERT INTO agent_error_log therefore returns an error that is swallowed, and
+// ExpectationsWereMet() still passes. So a test asserting "no finding is
+// recorded" by declaring no expectation for it CANNOT FAIL — and the mutation
+// that removes the `siblings <= 1` gate passed against exactly such a test,
+// which is how this was found. A positive expectation proves a finding fires; no
+// arrangement of expectations proves one does not. The predicate has to be
+// reachable directly.
+//
+// The rule itself: report only when MORE THAN ONE non-forked row holds the name.
+// A code that fires on every regeneration is a log line, not a finding.
+func ambiguousRegenerationFinding(
+	ident storageIdentity, siblings int, emittedFunction, sectionType string,
+) (agenterrors.Finding, bool) {
+	if siblings <= 1 {
+		return agenterrors.Finding{}, false
+	}
+	return agenterrors.Finding{
+		ErrorCode: "COMPONENT_UNPINNED_REGENERATION_AMBIGUOUS",
+		Severity:  "warning",
+		Message: fmt.Sprintf("no advised identity was supplied, so component %s was chosen to be OVERWRITTEN by function %q — which %d non-forked rows share, ordered by is_active then updated_at; the winner can change without any code change, and section_type %q was the request",
+			ident.ExistingID, ident.FunctionName, siblings, sectionType),
+		Context: map[string]interface{}{
+			"chosen_component_id":   ident.ExistingID,
+			"function":              ident.FunctionName,
+			"emitted_function":      emittedFunction,
+			"rows_sharing_function": siblings,
+			"section_type":          sectionType,
+		},
+	}, true
 }
 
 // advisedIdentityPin reads the pre-generation advisory's answer out of
