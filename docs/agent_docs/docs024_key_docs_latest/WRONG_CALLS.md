@@ -52583,3 +52583,44 @@ the next session, because the rule as written is about *markup measures* and min
 column*. **The general form: every measurement of "what did the generator produce" that reads a
 COMPOSED artefact is counting the compositor's work too.** Pair it with a population that must
 score zero — for me, that was blog-posts, and it scored zero for the wrong reason.
+
+---
+
+## 2026-08-25 — I asserted a mechanism "does not fire" from a fact with a five-day shelf life
+
+**Lane:** `bugs_open/392` (session `bugs_open/387`). **Caught:** by the `bugs_open/333` lane, who
+own the door — after I messaged them saying "if that reading is wrong, please say so". It was
+wrong.
+
+**Claimed**, in a correction block I had just written *to fix somebody else's stale claim*: that
+`writeWorkItem`'s owned-page door does not fire for `content_rewrite` @ `page-build-handler`
+because neither that handler nor `internal-linker` declares `refuse_owned_page` — and that the
+refusal therefore arrives late at `SavePageSectionsAction`'s `OWNED_PAGE_GUARD`, after the LLM
+spend, killing ~83 findings between 08-19 and 08-24.
+
+**True:** `page-build-handler` declares `refuse_owned_page: true` and is the **only** live
+declarer fleet-wide. The door fires at write time, before dispatch or spend. 40 `content_rewrite`
+rows sit parked at `deferred` with the handler cleared, the earliest stamped
+**2026-08-24 19:19:12Z** — the second the door went live. The ~83 late deaths are real, and they
+are the damage census that **motivated** the door; I read the motivation as the current state.
+
+**Where it came from:** a planning subagent reported it, with file:line, and I did not check it.
+The same day I had already caught myself taking one instrument on trust; I applied the lesson to
+instruments and not to *dates*.
+
+**The cheap check I skipped:** the claim was "X does not do Y". One query resolves it
+(`default_config::text ILIKE '%refuse_owned_page%'`, 12 seconds), and a second one — *when did
+this become true?* — would have surfaced the 19:19:12Z stamp and shown me a mechanism five days
+younger than the evidence I was citing about it.
+
+**The general form, and it is not the same as staleness-by-addition:** a census goes stale by
+things being ADDED. **A claim that a mechanism is ABSENT goes stale by the mechanism being
+BUILT** — and that flips the sign of every conclusion drawn from it, immediately, with no
+gradual drift to notice. So: *"a fact about a mechanism is a fact about a date."* Before
+repeating "nothing does Y", ask when that was last true, and prefer a live query over any
+document, any subagent, and any correction block — including one you are in the middle of writing
+about someone else's stale claim.
+
+⚠ **Note the shape of this one.** I was three paragraphs into correcting a stale retention claim in
+someone else's bug file when I wrote a stale claim of my own into the same block. Being in
+correcting mode is not a state of heightened accuracy; it felt like one.
