@@ -76,6 +76,69 @@ Written this session; read it before quoting any traffic number. The two things 
   Cloudflare is the only source with **history** and the only one that sees **crawlers**
   (noted.co.uk: GoogleBot 25/7d — thin, and the number that answers "are we being found").
 
+## 4a. OWNER REQUEST 2026-08-25 — SPUN OUT TO A NEW LANE (not apis.uk work)
+
+Owner, verbatim:
+
+> "Please walk me through setting up the google tags in baby steps. I want to set it up under
+> agent chassis and not idea.uk which is what I've half mistakenly done already."
+
+**This is fleet tracking, not this lane** — recorded here because the request was made here, and
+kept short deliberately. **Background and constraints: `039_REFERENCE_traffic_and_tracking.md`**
+(§3 setup, §4 blind spots, §4a the consent decision, which is still open and should be settled
+before publishing).
+
+**Reassurance to lead with, because it is the anxious part:** the container being *named* `idea.uk`
+does **not** send data to the idea.uk property. **The only thing that decides the destination is
+the Measurement ID inside the tag.** Nothing needs recreating — point the tag at Agent Chassis and
+the container name becomes cosmetic. (Rename it later under Admin → Container Settings if desired.)
+
+Known account facts from the owner's own screenshots, 2026-08-24:
+- GTM account `6368906206`, container `259867186` = `GTM-PQ3WCTBD`, displayed under `idea.uk`
+- GA4 account `gqls` (`182167951`); target property **`Agent Chassis` (254005775)**
+- Container Version 2 published 21:30 with **0 tags / 0 triggers** — nothing recorded, no backfill
+- An `Untitled Tag` was started with type **`Google Analytics: GA4 Event`** — **wrong type**, it
+  needs an Event Name and does not send page views. Change it to **Google Tag** or delete it.
+
+### The walkthrough, in the order to do it
+
+**A — get the Agent Chassis Measurement ID (this is the step that fixes the idea.uk mistake)**
+1. `analytics.google.com` → **Admin** (gear, bottom-left)
+2. In the **Property** column, confirm it reads **Agent Chassis**. If not, click the property
+   selector and choose it. ⚠ *This is the whole ballgame — every later step inherits it.*
+3. **Data streams** → click the web stream (if the list is empty: **Add stream → Web**, enter a
+   domain such as `apis.uk` and a stream name, **Create**)
+4. **Measurement ID**, top-right, format `G-XXXXXXXXXX` → copy it
+
+**B — put it in the container**
+5. `tagmanager.google.com` → container `GTM-PQ3WCTBD` → **Workspace → Tags**
+6. Open the existing `Untitled Tag`, or **New**
+7. **Tag Configuration** → pencil → choose **Google Tag** *(older UI: "Google Analytics: GA4
+   Configuration")* — **not** GA4 Event
+8. Paste the `G-…` into **Tag ID** *(labelled "Measurement ID" in the older UI)*
+9. **Triggering** → **All Pages**
+10. Name it something that says where it points, e.g. `GA4 — Agent Chassis — all sites`
+11. **Save**
+
+**C — publish (the step people miss)**
+12. **Submit** (top right) → name the version, e.g. `GA4 base tag` → **Publish**
+13. ⚠ **A saved tag in an unpublished container does nothing.** Version 2 having 0 tags is exactly
+    this state.
+
+**D — prove it works**
+14. Visit any site, e.g. `https://apis.uk/`
+15. GA4 → **Reports → Realtime** → you should appear within seconds
+16. If Realtime stays empty: GTM **Preview** shows which tags fired on a page load
+
+**E — tidy the half-done idea.uk work**
+17. In **Tags**, check for any GA4 tag carrying a **different** `G-` id (an idea.uk one) and delete
+    or repoint it — two GA4 tags on All Pages would double-count every page view
+18. Leave the idea.uk **property** alone; it simply stops receiving from this container
+
+**Afterwards:** all sites share one container, so in GA4 break reports down by **Hostname** or it is
+one merged number. Per-site properties need a lookup-table variable keyed on hostname — materially
+more work, and splitting later is easy.
+
 ## 5. Traps — the expensive ones, all paid for this session
 
 - **`build_status='needs_rebuild'` is queue membership.** A sweep discarded verified hand-edits
