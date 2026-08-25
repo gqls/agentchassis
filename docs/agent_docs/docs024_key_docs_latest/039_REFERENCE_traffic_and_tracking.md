@@ -205,6 +205,14 @@ writes anything broader is not.
 5. **If a rise looks like success, split the window in half and check ours separately before saying
    so.** That is the check that caught the 4.8× above.
 6. **For search performance, say plainly that we cannot answer it yet** and point at §5.
+7. **Before believing a share, measure a case where it should NOT hold.** The self-traffic finding
+   was first supported by **28.5%** on dartsonline and **27.1%** on apis.uk — but both are sites a
+   lane was actively working, so that pair is equally consistent with *"every site reads ~27%
+   curl"* and **could not have come out otherwise**. The number that made it a finding was
+   **2.4% on noted.co.uk, which nobody was working** — the measurement that could have refuted it
+   and didn't. Two agreeing figures from the same condition are one figure measured twice.
+   *(Both lanes recorded this against themselves; it was caught by the second lane running the
+   query on a site chosen because it should look different.)*
 
 ## 7. Current state, 2026-08-25
 
