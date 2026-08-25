@@ -1,6 +1,11 @@
 # RESUME HERE — gripper dossier pilot
 
-**Last updated 2026-08-16 — the route group is BUILT and tested, NOT shipped; see the 08-16 block at the end and NOTES 08-16.** (body written 07-27; switch positions corrected 07-31
+> # 👉 GO STRAIGHT TO THE BOTTOM: "⭐ START HERE — 2026-08-25".
+> That block is the current ship state (2 of 7 steps done, step 1 next and owner-blocked),
+> the exact command to run, and every trap in the remaining steps. Everything between here
+> and there is history, kept for provenance — read it only if the START HERE block sends you.
+
+**Last updated 2026-08-25 — credentials are ON the island and verified; migration 436 is the next step and needs the owner to run it (this session's classifier refuses production DB mutations).** (body written 07-27; switch positions corrected 07-31
 08:15Z; fixture 4 result 07-31 10:45Z; cleanup complete 07-31 15:42Z; `bugs_open/160`
 CLOSED+LIVE 07-31 21:10; mailer adoption re-checked 08-04, found NOT self-contained; route-group
 proposal drafted 08-05; **both owner-supplied credentials (Anthropic key + SMTP) issued and
@@ -191,3 +196,128 @@ Live on chassis **v1.0.1175**. Seeds applied: **204, 207, 209, 210**.
 - **NEXT, in order (RUNBOOK_island "Tenant 2" steps 1–7)**: 436 on the island → secrets into `/opt/island/.env` (owner/authorised; check 465 FROM the island) → compose + image swap (bump `IMAGE_TAG`, `make build-tools-api-ref`, `docker save|ssh load`) → verify at the container → public smoke (403/200, 401/200) → seed 208 on the cluster with the SAME key → enable `report-request-pull` → then the site widget + `/gripper-report/` page (DESIGN §2 "Site side", unchanged). Email copy (`gripper/email.go`) wants an owner read before launch.
 - **Council round 1 = REVISE (`editquality`, wording: my rationale's field list omitted `accel_ms2` while the grounded_in quote had it — both true; the query reads both, accel_ms2 is optional/defaulted, not collected).** Read the FULL round-1 report first, then fix `spec.go`'s package comment to list the whole read-set (collected vs defaulted) and RESUBMIT with `RESUBMIT_CORR=623da25b-16d7-4836-8667-ffcd6352d6d6`. NOTES 08-16 has the detail.
 - **Switch positions unchanged**: `report-dispatch` ON, `report-request-pull` OFF, seed 208 NOT applied.
+
+---
+
+# ⭐ START HERE — 2026-08-25. Ship state: 2 of 7 steps done, step 1 is next and BLOCKED ON YOU
+
+Everything above is history. This block is the current position. Ship checklist is
+`docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/infra/island/RUNBOOK_island.md`
+§"Tenant 2", steps 1–7 — **read its step 1 and step 2 notes, both were corrected on 08-25/08-20.**
+
+## Where the work actually is
+
+| # | step | state as of **2026-08-25** |
+|---|---|---|
+| — | route group built + tested | **DONE** (`f967d9307`, confirmed an ancestor of HEAD, so any build from HEAD carries it) |
+| 2 | secrets → `/opt/island/.env` | **DONE 08-20**, owner-run. 7 `GRIPPER_*` vars, mode 600, 9 lines. Re-verified 08-25: still intact |
+| — | outbound 465 from the island | **DONE 08-16.** Open; `220` Exim banner; `AUTH PLAIN LOGIN` offered to 176.126.243.183 |
+| **1** | **migration 436 on the island** | **NOT DONE — NEXT, and blocked on you** (see below) |
+| 3 | compose swap | not done — repo copy already carries the `GRIPPER_*` block; live copy does not (`grep -c GRIPPER_` = 0) |
+| 4 | image build + swap | not done — island runs `v1.0.1216`, which **predates** the gripper code |
+| 5 | verify at the container | not done |
+| 6 | public smoke | not done |
+| 7 | cluster: seed 208 + enable `report-request-pull` | not done |
+| — | site widget + `/gripper-report/` page | not started (separate deliverable, DESIGN §2 "Site side") |
+
+**Switch positions unchanged:** `report-dispatch` ON (self-gating, idle is free),
+`report-request-pull` OFF, seed 208 NOT applied.
+
+## The one command you need to run — step 1
+
+I could not run it: this session's **auto-mode classifier refuses production DB mutations**
+(it refused the same class of action for the git-tree write on 07-31). That is the guard
+working, not a fault, and it should not be routed around. Everything it needs is verified:
+
+```bash
+cd /home/ant/projects/agentchassis
+scp docs/agent_docs/sql_for_agents/436_tools_api_gripper_intake.sql root@toolsapisuk.vs.mythic-beasts.com:/opt/island/
+ssh root@toolsapisuk.vs.mythic-beasts.com 'cd /opt/island && docker compose exec -T postgres psql -U tools_api -d tools_api -v ON_ERROR_STOP=1 < 436_tools_api_gripper_intake.sql'
+ssh root@toolsapisuk.vs.mythic-beasts.com 'cd /opt/island && docker compose exec -T postgres psql -U tools_api -d tools_api -c "INSERT INTO island_migrations(filename, note) VALUES ('"'"'436_tools_api_gripper_intake'"'"', '"'"'gripper intake: 3 tables + 3 indexes + robot-hands.com site row'"'"') ON CONFLICT DO NOTHING"'
+```
+
+**Expect:** four `NOTICE … created` lines, then
+`Migration 436 verified: 3 tables, 3 indexes, robot-hands.com deployed`, then `INSERT 0 1`.
+
+**⚠ Run the three commands SEPARATELY, not chained with `&&`** — see the runbook's step-1 note.
+The original one-liner ledgered into a column that does not exist, so the migration would have
+applied and the ledger insert would have failed, leaving a schema change the ledger denies.
+
+**Pre-checks already done for you (2026-08-25), so a failure means something new:**
+- 436 is **purely additive** — zero `DROP`/`TRUNCATE`/`DELETE`; creates 3 tables + 3 indexes.
+- **Idempotent** — every `CREATE` sits inside a `DO $$ … IF EXISTS … RAISE NOTICE 'skipping'`
+  block, so a second run is a no-op (the build session also applied it twice on a throwaway PG).
+- **Guarded against the wrong database** — raises if `gauntlet_rounds` or `sites` is missing,
+  so it cannot be applied to `clients_db` by accident.
+- **Verify block is `DO`/`RAISE EXCEPTION`, not bare `SELECT`s** — it can actually abort the
+  transaction (the failure mode `LANDMINES` records for `SELECT`-only verify blocks).
+- **The hardcoded site id is right**: `00ff3af5-dad8-4770-9f70-3edc267a3c92` matches
+  robot-hands.com's real id in `clients_db`. A wrong one would stamp every intake row with a
+  site the cluster does not have.
+
+## After step 1, in order
+
+3. **compose** — `scp` the repo copy of
+   `docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/infra/island/docker-compose.yml`
+   (already carries the `GRIPPER_*` block with `:-` defaults, so it is safe to land before the
+   image) and bump its `image:` tag.
+4. **image** — commit first, then `make build-tools-api-ref` (builds from committed HEAD), bump
+   `IMAGE_TAG`, `docker save … | gzip | ssh … 'gunzip | docker load'`, `docker compose up -d tools-api`.
+   ⚠ **A same-tag rebuild serves the node's cached image** — bump the tag, always.
+5. **verify at the container, never the tag** — `grep -a -c gripper/poller /tools-api` > 0 **and**
+   a control literal that must read 0; then the log line `gripper route group mounted`.
+6. **public smoke** — the four calls in the runbook (403 without Origin / 200 with; 401 without
+   the key / 200 NDJSON ending `{"_meta":…}` with it).
+7. **cluster** — apply the corrected seed 208 with `-v pull_key=<the value in
+   /home/ant/.config/gripper-dossier/pull-key>`, then enable `report-request-pull`.
+
+## Things that will mislead you if nobody tells you
+
+- **`report-request-pull` must stay OFF until step 6 passes.** Enabled early it 404s every tick
+  against an endpoint that does not exist yet.
+- **The pull key exists in exactly two places and must match:** `/opt/island/.env`
+  (`GRIPPER_PULL_KEY`, already there) and seed 208 on the cluster (not applied). The local copy
+  is `/home/ant/.config/gripper-dossier/pull-key` (48 hex chars, mode 600) — **keep it**; a
+  mismatch is a silent 401 on every pull tick, not an error anyone is shown.
+- **`$` in the SMTP password is stored DOUBLED (`$$`) in `.env`, deliberately.** Compose
+  interpolates `.env`, so a single `$` is silently eaten and the container gets a truncated
+  password — measured on this box. Do not "tidy" it. Full entry: `LANDMINES.md`, *"A `$` in a
+  secret written to a Compose `.env` is SILENTLY EATEN"*.
+- **The island `sites` table holds only `vonc.com` until 436 runs.** Until then CORS answers
+  **403** to anything from robot-hands.com — expected, not a bug. 436 seeds that row.
+- **Liveness-probe the API with a real endpoint, never `GET /`** (the runbook's own note):
+  `curl -X POST https://tools.apis.uk/api/v1/tools/gauntlet/round -H 'Origin: https://vonc.com' -d '{}'` → 200.
+  A **wrong-origin 403 proves nothing** — I made exactly that mistake on 08-20 and nearly
+  reported a guessed-domain 403 as "service healthy".
+- **Long commands break when pasted** — they wrap and fail silently (step 2's original one-liner
+  created no file at all). Prefer short commands calling a script; that is why
+  `~/.config/gripper-dossier/append-env.sh` exists.
+
+## Owed by the build session, deliberately NOT taken by this lane
+
+**Council round 1 came back REVISE** (`623da25b-16d7-4836-8667-ffcd6352d6d6`, `editquality`,
+a submission-wording defect: the rationale's field list omitted `accel_ms2` while the
+`grounded_in` quote included it — both statements true, the query reads both, `accel_ms2` is
+optional/defaulted and not collected by the chat). The fix is to state the full read-set in
+`internal/tools-api/gripper/spec.go`'s package comment (collected vs defaulted) and resubmit
+with `RESUBMIT_CORR=623da25b-16d7-4836-8667-ffcd6352d6d6`, after reading the FULL round-1
+report. **That is the "tools api" build session's, with their own recipe already written down
+in NOTES 08-16** — racing them to it is the compete-instead-of-contribute failure
+`scripts/who-owns.py` exists to prevent. `[UNVERIFIED 2026-08-25]` I could not find the
+correlation in `orchestration_states` when I looked; that may be age-out rather than absence,
+and I did not chase it because it is not this lane's to close.
+
+## Credentials — both issued, both verified, neither deployed beyond `.env`
+
+- **Anthropic**: `/home/ant/.config/anthropic/gripper-dossier-api-key` (dotenv line, not a bare
+  key), spend-capped, verified live via the free `count_tokens` endpoint.
+- **SMTP**: `/home/ant/.config/gripper-dossier/smtp.env`, verified by real `AUTH` from the dev
+  box **and** by reachability + `AUTH PLAIN LOGIN` from the island.
+- Both are **local dev-box files**, both mode 600. They live on the island only in
+  `/opt/island/.env`. ⚠ **NOT a k8s Secret** — that wording was mine and it was wrong; this
+  service runs on the island VM under docker compose, and the
+  `deployments/kustomize/services/tools-api/` overlay in the repo is what makes the k8s reading
+  look plausible. It is not where the live endpoint runs.
+- **The SMTP password transited a chat transcript on 08-15** (owner pasted it). Not exploited
+  and the file permissions are right, but it is worth rotating in cPanel at some point; if you
+  do, update `smtp.env` **and** `/opt/island/.env` (with the `$$` escaping) together.

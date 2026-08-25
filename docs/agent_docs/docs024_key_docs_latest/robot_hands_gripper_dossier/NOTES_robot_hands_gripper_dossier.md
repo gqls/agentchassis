@@ -2115,3 +2115,69 @@ from an append-only ledger", I had only appended, so the deletion could only be 
 edit. **Worth generalising: on a fleet-wide append-only file, `git diff --numstat` showing any
 DELETED lines when you only appended is a passenger, every time — check before committing, not
 after.**
+
+---
+
+## 2026-08-25 — state re-grounded after 5 days; a BROKEN runbook command found before it was run
+
+Owner asked for a state check before carrying on, then a handoff. Five days had passed, so
+nothing was assumed.
+
+**State, all measured 2026-08-25:**
+- **No other session touched this lane since 08-20** — `git log --since` on
+  `internal/tools-api/`, `cmd/tools-api/`, this directory and seeds 208/436 returns only my
+  own two commits. The build session has not resubmitted the council round either.
+- **Island `.env` intact**: 7 `GRIPPER_*`, mode 600, 9 lines — unchanged since 08-20.
+- **Island still pre-gripper**: image `v1.0.1216`, `tools-api` *Up 3 weeks*, `0` gripper tables.
+- **Gripper code IS at HEAD**: `git merge-base --is-ancestor f967d9307 HEAD` → true, so a build
+  from committed HEAD carries the route group. Checked rather than assumed, because "the code
+  is committed" and "the code is on the branch I would build from" are different claims.
+
+**The find: `RUNBOOK_island` step 1's ledger command targets a column that does not exist.**
+It read `INSERT INTO island_migrations(name) …`. The table is `(filename, note, applied_at)` —
+`\d island_migrations` on the island. `name` does not exist. And the two halves are chained
+with `&&`, so the sequence would have been: **migration applies → ledger insert raises
+`column "name" does not exist` → operator sees an error after the schema has already
+changed**, leaving a live schema change that `SELECT * FROM island_migrations` denies ever
+happened. A later reader would reasonably re-run it (harmless here, since 436 is idempotent —
+but that is luck, not design).
+
+Two contributing details worth naming: the existing rows store the filename **without** the
+`.sql` suffix (`198_tools_api_gauntlet_rounds`, `276_tools_api_round_publication`,
+`island_sites_minimal`) while the command passed it *with*; and the `note` column, which every
+existing row populates with a one-line description, was not being written at all. Fixed all
+three in the runbook, and split the chained one-liner into three separate commands so a failure
+in the ledger step cannot be mistaken for a failure of the migration.
+
+**This is the "schema first" rule earning its place** — `\d <table>` before writing SQL. The
+command had been sitting in the runbook since 08-16 looking perfectly plausible; nothing about
+reading it suggests a wrong column name, and it would only have been discovered by running it
+against production.
+
+**Pre-checks done before attempting to apply** (so a future failure means something genuinely
+new, not an unchecked precondition):
+- 436 is purely additive — zero `DROP`/`TRUNCATE`/`DELETE`, creates 3 tables + 3 indexes.
+- Idempotent by `DO $$ … IF EXISTS … RAISE NOTICE 'skipping'` around every `CREATE` (there is
+  no `IF NOT EXISTS` on the `CREATE`s themselves, which is why the grep for it reads 0 and
+  should not be mistaken for "not idempotent").
+- Wrong-DB guard present: raises if `gauntlet_rounds` or `sites` is absent, so it cannot land
+  on `clients_db` by accident.
+- Verify block is `DO`/`RAISE EXCEPTION`, not bare `SELECT`s — it can actually abort, which is
+  the distinction `LANDMINES` records for verify blocks that cannot.
+- **The hardcoded site id was checked against the source of truth**, not trusted:
+  `00ff3af5-dad8-4770-9f70-3edc267a3c92` = robot-hands.com in `clients_db`. Exact match. A
+  wrong id would have every intake row stamped with a site the cluster does not have — and
+  because the FK is to the *island's* minimal `sites` table, nothing on the island would
+  complain.
+
+**Not applied: the auto-mode classifier refused it**, as it refused the git-tree write on
+07-31. That is a production-mutation guard behaving correctly. Per the same handling as last
+time, no workaround was attempted; the verified three-command sequence is in the handoff's
+START HERE block for the owner to run.
+
+**Handoff rewritten** with a `⭐ START HERE — 2026-08-25` block at the end plus a pointer at
+the very top, because the file is now ~400 lines of accumulated history and a cold reader was
+landing in July. It carries the 7-step state table, the exact command, and the traps that are
+non-obvious from the checklist alone (pull-key must match in two places; `$$` escaping is
+deliberate; only `vonc.com` is in island `sites` until 436 runs; wrong-origin 403 proves
+nothing; long pasted commands wrap and fail silently).

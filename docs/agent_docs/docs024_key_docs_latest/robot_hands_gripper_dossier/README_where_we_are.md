@@ -759,3 +759,41 @@ needed to confirm it arrived intact, I compared fingerprints of it rather than t
 
 Next up is creating the database tables and swapping in the new version of the service. Those
 are bigger steps than this one, and I'd want your go-ahead before starting.
+
+---
+
+**2026-08-25.** You asked me to check where things stood before going further. Good instinct —
+five days had passed and I found something that would have caused a confusing mess.
+
+First the state: nothing had moved since we put the credentials on the island. They're still
+there, intact and correctly locked down. The island is still running the old version of the
+service, which is expected — we haven't swapped it yet.
+
+The next step was to create the database tables the new feature needs. Before running the
+command from our own checklist, I checked it against the actual database — and it was wrong.
+It tried to record the change in a column that doesn't exist. Because of how the command was
+chained together, what would have happened is: the tables get created, then the record-keeping
+step fails with an error. You'd be looking at an error message while the change had *already*
+gone through, and our own records would say it never happened. The next person would likely
+run it again. I've fixed the command and split it into separate steps so that can't happen.
+
+I also checked the things that command depends on, rather than trusting them: the script only
+adds things (it deletes nothing), it's safe to run twice, it refuses to run against the wrong
+database, and — the one I'd have kicked myself for missing — the site identifier hardcoded in
+it genuinely matches robot-hands.com's real identifier. If that had been wrong, every request
+would have been filed against a site that doesn't exist, and nothing on the island would have
+complained.
+
+I couldn't run it myself: my own safety guard blocks changes to live databases, the same one
+that stopped me deleting those test files back in July. That's working as intended and I
+didn't try to get around it. The exact command is ready for you to run — it's the first thing
+in the handoff.
+
+Speaking of which: I've rewritten the handoff. That document had grown to about four hundred
+lines of accumulated history, and anyone opening it fresh was landing in July. There's now a
+clearly-marked "start here" section at the end with a simple table of what's done and what
+isn't, the one command to run next, and the handful of things that would trip someone up if
+nobody warned them.
+
+Where we are: two of seven steps done, and the next one needs about thirty seconds of your
+time.
