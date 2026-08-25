@@ -698,6 +698,41 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 	handlerFilter, _ := config["handler_agent"].(string)
 	maxItems := datahelpers.GetIntField(config, "max_items", 50)
 
+	// honour_site_lock — bugs_open/396. OPT-IN, DEFAULT OFF (owner ruling
+	// 2026-08-02, RFC_010 §2): this is new authority on a seam three live steps
+	// share, so the decision has to be visible to a reviewer of the CALLER — a
+	// field in the step config, not a constant in this package.
+	//
+	// ⚠ WHY THIS EXISTS, AND WHY THE DEFAULT MUST STAY OFF. `sites.locked_at` is
+	// enforced at exactly ONE gate today: `build-pipeline-trigger`'s
+	// `find_dispatchable_site` pre_query (`WHERE s.locked_at IS NULL`). THIS
+	// loader has never checked it. That is survivable only because the automated
+	// dispatcher reaches the loader through that gate — but `site-work-orchestrator`
+	// calls the same action twice (`load_work_items`, `load_fix_items`) on a
+	// human-initiated build, and gates on nothing. Turning the check on for
+	// everybody would change what that flow does; turning it on for the automated
+	// dispatch step only is the narrow, reviewable change.
+	//
+	// ⚠ AND THE PAIRING IS LOAD-BEARING — do not ship the config half alone.
+	// `find_dispatchable_site` selects a SITE, not an item. The moment it is
+	// taught to select a locked site because one excepted item is dispatchable,
+	// this loader runs next and — without this flag — loads EVERY dispatchable
+	// item on that site. The exception list would unlock the whole queue, which
+	// is the precise failure the lock exists to prevent. The binary must ship
+	// first; the pre_query change is held behind it in a `_HOLD.sql`.
+	honourSiteLock, _ := config["honour_site_lock"].(bool)
+
+	// siteLockClause is empty (byte-identical to the pre-396 statement) unless a
+	// step opts in. When it is on: a row on a locked site is selected only if its
+	// id appears in `sites.lock_except_item_ids`. A NULL exception list COALESCEs
+	// to the empty array, so `= ANY` is false for every row and a locked site
+	// yields nothing — the full hold, which is what a lock with no exceptions
+	// has always meant.
+	siteLockClause := ""
+	if honourSiteLock {
+		siteLockClause = siteLockExceptionSQL()
+	}
+
 	query := `
 		SELECT
 			wi.id, wi.site_id, wi.source, wi.pipeline, wi.item_type,
@@ -734,7 +769,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 		      )
 		    )
 		  )
-	`
+	` + siteLockClause
 
 	args := []interface{}{siteID}
 	argIdx := 2

@@ -803,3 +803,34 @@ func emitRequiredFieldsMissing(ctx context.Context, db *sql.DB, siteID uuid.UUID
 			zap.Strings("absent_required_fields", absent))
 	}
 }
+
+// siteLockExceptionSQL renders the site-lock arm that `LoadWorkItemsAction`
+// appends when its step config sets `honour_site_lock: true` (bugs_open/396).
+//
+// It is a function rather than an inline string for the same reason
+// `refreshOpenWorkItemSQL` is: the test that pins its two halves reads THE
+// FRAGMENT THAT RUNS, instead of re-deriving its own copy and agreeing with
+// itself.
+//
+// BOTH HALVES ARE LOAD-BEARING AND THE TEST PINS BOTH:
+//
+//   - `(SELECT s.locked_at …) IS NULL` — an UNLOCKED site is unaffected, which is
+//     every site but three as of 2026-08-25. Lose this and the loader would
+//     select nothing anywhere.
+//   - `wi.id = ANY(COALESCE(s.lock_except_item_ids, ARRAY[]::uuid[]))` — on a
+//     LOCKED site, only the excepted items. The COALESCE is what makes a NULL
+//     exception list mean the full hold rather than an error, so "locked with no
+//     exceptions" keeps meaning exactly what a lock has always meant.
+//
+// It takes the site id from `$1`, which the caller already binds as the only
+// positional argument at that point in the statement — deliberately, so this
+// fragment adds no parameter and cannot shift the caller's argIdx bookkeeping.
+func siteLockExceptionSQL() string {
+	return `
+		  AND (
+		    (SELECT s.locked_at FROM sites s WHERE s.id = $1) IS NULL
+		    OR wi.id = ANY(COALESCE(
+		         (SELECT s.lock_except_item_ids FROM sites s WHERE s.id = $1),
+		         ARRAY[]::uuid[]))
+		  )`
+}
