@@ -874,3 +874,98 @@ The fourth matters most: without `TestDeliveryEngineReachesTheHandler`, an engin
 2. **Then** the box vhost apply (owner box steps) — its header carries the
    DO-NOT-APPLY-BEFORE-THE-ROLL gate.
 3. Read the council verdict and act on a REVISE; the code is already on the shared branch.
+
+## 2026-08-25 (later) — Phase 4's CLAIM built, and DNS plan B picked up and scoped
+
+Continuing the same session. Three pieces taken in order at the owner's direction:
+the delivery-only listener (above), the delivery email, DNS plan B.
+
+### The listener's council round 2 — both gating objections were changes I HAD made
+
+`25cd3044` came back **REVISE**, decided by a `guardian` HIGH. It asked whether
+`cmd/core-manager/main.go` actually calls `StartDelivery`, warning that otherwise *"the
+listener struct is built, the config is read, the tests pass, and no delivery traffic is
+ever served in production"*. `editquality` raised the same shape about the box vhost.
+
+**Both files were already in the commit.** I omitted them from an 8-edit plan and my
+rationale then asserted them as done. That is this lane's round-1 lesson repeating —
+*a check you ran but did not cite is a check you did not run* — except this time it was a
+**change I made but did not show**. And when I first re-cut the plan to restore them, the
+cap silently pushed out the **opt-in** edit instead, which is the same failure a third
+time. Fixed by merging the three same-file `server.go` edits into one.
+
+**One real code defect came out of it** (`guardian`, medium): `assertNoDeliveryRoutes`
+compared paths only, so a root catch-all would have served `/c/` by prefix dispatch while
+the route table held no `/c/` entry — the guard would have called the admin port clean
+while it answered customer links. It now refuses a wildcard whose static prefix sits at or
+above a delivery path, and **discriminates** rather than banning wildcards (`/api/*path`
+cannot reach `/c/` and is still allowed, asserted by a control). Mutation-proved.
+
+Two objections answered by running the check rather than arguing:
+- `reuse_agent` was **right that prior art existed** and I had not looked. `platform/health/server.go`
+  IS a shared second-listener helper, and five adapters hand-roll a `healthServer`. It does
+  not fit, structurally: gorilla/mux (the handler takes a `gin.IRouter`), it **always**
+  mounts `/health` and `/ready` — which breaks the delivery-only property my own mutation
+  proves the tests catch — it retains no `*http.Server` so it cannot drain a customer
+  mid-click, and `Start()` also launches a metrics listener. The house convention for
+  route-table assertions exists as **tests** (`internal/tools-api/api/server_test.go`,
+  including an opt-in "registers no routes when config is nil" assertion) and this change
+  matches it without having known.
+- `prior_art_librarian` flagged my `ea99befa` citation as possibly fabricated. It is real:
+  approved 2026-08-25 12:36:14Z, seat `guardian`, severity low, edit 5, and the objection
+  text is what I said it was.
+
+`architecture`'s residual is now **RFC_054 §6**, status OPEN and unowned.
+
+### Phase 4: the CLAIM (`platform/delivery/prepare.go`, `6fee5b7ce`, register DGH-017)
+
+Built the delivery email's **precondition layer** and deliberately not its copy or its send.
+The reason is dated: the owner's copy brief landed in the register **today at 14:51:36Z**
+and two of his product questions are undecided, so wording written now gets rewritten —
+while the gate, the claim and the links are settled by rulings. Two of the email's six
+links also cannot exist yet (`/d/` unbuilt, no Stripe keys), so a "finished" email today
+would be missing a third of its content.
+
+The ordering is the whole safety argument: review first → **the stamp IS the claim**
+(idempotent, `AlreadyHandedOver` treated as a refusal) → mint last. At-most-once therefore
+belongs to the stamp, not the send, so no retry can email a customer twice. The accepted
+cost is a stamp outliving a failed send — chosen because that fails **loud** (the work item
+errors, a human sees it) where send-then-stamp duplicates **silently**.
+
+**The mutation that PASSED, which is the finding.** Four guards, four mutations; the fourth
+— deleting `validate()` — passed. With validation gone, `Claim` ran on to the gate query,
+sqlmock refused a call it was never told to expect, and the test saw *an* error and was
+satisfied. `ExpectationsWereMet()` does not catch it either: there were no expectations to
+meet. **A bare `err != nil` could not distinguish a config refusal from a database
+failure.** The test now identifies the error AS the config refusal, and the mutation kills
+it. Exactly the class this file's own header warns about, found in my own test.
+
+### DNS plan B (`PLAN_2026-08-25_dns_plan_b.md`, `2321d2542`)
+
+`dispatch_throughput` routed this here on 08-21 — *"do not build here; check they picked it
+up"* — and nobody had, for four days.
+
+**Measured today rather than carried forward:** **41** Cloudflare zones (39 on 08-18, so
+~2/week), **41 of 41 on the Free tier**, 51 sites all `build_status='pending'`. At 2/week
+the cap is ~9 years out; at the promotion scenario's 50/day it is ~19 days out. So the
+trigger is **"promotion is scheduled"**, not a date — and promotion cannot start while the
+shopfront is parked.
+
+**⚠ The finding: the cap is UNVERIFIED.** Every statement of "~1,000 zones" in this estate
+traces to the single 2026-08-18 research doc. I could not verify it — the Cloudflare token
+is **zone-scoped**, so `/accounts` returns nothing and the account's own limits are
+unreadable with it. It is the entire justification for the programme's timing. Same for
+whether CF for SaaS needs a paid tier. **Both are prerequisites, not formalities**, and
+both are one dashboard look for a human.
+
+Nothing built, deliberately, and §7 of the plan says why: unverified premise, a nameserver
+shape that is architecture-scope by this repo's own test (blast radius = every domain we
+manage, including ones we do not host), and a trigger that is not met.
+
+### Owed next
+
+1. Read both verdicts (`25cd3044` round 2; `0b84970d` the claim) and act on a REVISE.
+2. After the next core-manager roll: ancestry + reversed control, then verify **from
+   outside**; then the box vhost apply.
+3. The `needs_delivery_review` **producer** — and it must go through `actions.writeWorkItem`.
+4. Owner: the two DNS commercial facts (§3a, §4 D-e), then D-a/D-b.
