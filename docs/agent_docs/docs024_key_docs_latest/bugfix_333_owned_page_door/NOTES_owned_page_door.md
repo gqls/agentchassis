@@ -456,3 +456,17 @@ medium/advisory with the census + owner sign-off on record. The two `editquality
 answered by the committed diff (txErr IS checked; parked rows count as created AND parked — a parked
 row exists, at `deferred`). What remains for this lane: post-roll verification per the RUNBOOK, then
 the bug's close-out and the lane SUMMARY (the milestone is the gap PROVEN closed live, not committed).
+
+## 2026-08-25 (cross-session) — a peer's planner asserted the door's declaration census BACKWARDS; verified live and corrected
+
+The new `bugfix_392_link_context_unread` lane (session bugs_open/387) was designing a discovery check
+around the premise that `page-build-handler` does NOT declare `refuse_owned_page` — so the door would
+miss its items and the refusal would arrive late at save time, post-LLM-spend. **Verified live before
+answering (the door's own probe SQL, both handlers): `page-build-handler` declares TRUE (mig 488),
+`internal-linker` FALSE, and page-build-handler is still the ONLY declarer as of 2026-08-25 ~13:4xZ.**
+Their ~83-deaths figure was the PRE-door damage census quoted as current behaviour. Told them the three
+conditions under which the door catches their items (page_id on the row; through the seam; dispatchable
+birth status) and the trade-off (check-side exclusion records nothing; door-side parks fold into the
+existing roadmap line). **If they choose the door, expect ~48 new parked `content_rewrite` rows** on
+the "owned-page content route" roadmap line — do not read that as a post-roll anomaly. Their 48/48
+link-less-owned-pages measurement relayed to the `bugs_open/277` session as demand evidence.
