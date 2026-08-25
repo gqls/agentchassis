@@ -36,10 +36,19 @@ pre-registered, 12 offline replays): Finding 2 PART-REFUTED — the writer claus
 (10→6); **the PLANNER'S page title ("…Editorial Approach and What We Will Not Do") is the primary
 premise carrier** (→1, heading gone 3/3); the drafted replacement instruction earned nothing over
 deletion; register tells unchanged in every arm (separate fault, fed by demonstrations).
-**Next executable steps: (ii) the PLANNER audit is now priority one — where does build-site-planner
-mint that title (its rendered prompt is worst-of-table on candour/em-dash proxies); (iii) phase 2
-verdicts 2 of N: briefs → llm_guidance → copy-editor; (iv) the owner has the decision list (README
-2026-08-25 'the test you asked for' + chat) — no prompt changes ship until he rules.** His sharpest new datum: the
+**(late 08-25) THE OWNER RULED ON ALL SIX** (`OWNER_RULINGS_2026-08-25_six_decisions_on_the_copy_machinery.md`
+— his words + execution record). **SHIPPED same day: migrations 627/628/629** (writer substitutes
+deleted with every ban + tool mandate kept; house voice form-rewrite 17→0 demos; planner stops
+demonstrating and planning unfillable social-proof slots), applied + backed up + rollbacks +
+recorded + verified at the live rows; council `Council-Submitted: 6a0f8b99`. **Next executable
+steps: (a) the planner PREMISE fix candidate awaits his yes (rulings doc, ruling-1 research —
+mission prohibitions become page premises despite the existing guard; ~6 of 23 about pages
+affected); (b) ruling 4 scoping — stakes-split of the uncertainty device over the BRIEFS
+(12–31 demos/site, the biggest untouched layer) + propagate the best-in-class Build standard
+beyond the classifier (0 of 51 specs carry it; research wiring is a never-built TODO);
+(c) canary: the next greenfield build's about page + re-run CQ-032 on a fresh rendered prompt;
+(d) phase 2 verdicts 2 of N: briefs → llm_guidance → copy-editor; (e) delete the writer's dead
+rules 16–17 in a follow-up migration.** His sharpest new datum: the
 about.html PREMISE is wrong (14/17 methodology headings), his phrase list is a SAMPLE, and fixes
 that remove named strings while keeping the page's shape will not satisfy it.
 

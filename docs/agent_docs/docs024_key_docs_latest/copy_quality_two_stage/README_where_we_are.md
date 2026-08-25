@@ -843,3 +843,30 @@ of the July "honesty" rules survive, whether the house voice may be rewritten in
 recommended shape, whether empty testimonial slots should be omitted rather than filled with
 philosophy, and whether "acknowledging what we don't know" survives anywhere as a trust device.
 Nothing has been changed live.
+
+---
+
+**2026-08-25, your six answers, acted on.** Three of them are live tonight, with escape hatches.
+The writer's "say this instead" rules are deleted — every ban stays, and the calculator warning
+stays as you ruled. The house voice now practises what it preaches: same fifteen rules, same
+meanings, rewritten so its own sentences state the positive first (it was demonstrating the
+banned move seventeen times; now zero). And the planner will stop planning testimonial sections
+on sites that have nothing real to put in them — we found its own worked example had been
+showing it a testimonials slot, which is how the slot spread. Each change has a backup and a
+one-file rollback, and the next new site's about page is the natural check.
+
+Two answers came back from the research you ordered. The "best in class" mission is still there,
+but in exactly one place — the instruction that classifies a new domain at birth ("The bar is not
+'competent template' but 'stands comparison with the strongest sites in this vertical'"). No
+site's specs carry it, the planner and writer never see it, and the note that would have wired
+research to it says "separate TODO", never built. If you want it to mean something, it needs to
+travel: into the strategy each site keeps, into the planner's brief, and into a research step
+that actually goes looking for the latest findings and trusted reviews. That's a piece of work to
+scope, not a line to add.
+
+And the about-page premise: the planner never invented "What We Will Not Do" — it condensed it
+from the mission the site was seeded with, which is written largely as prohibitions. Six of our
+twenty-three about pages have titles like that. The fix I'd propose is one demonstrated good
+example in the planner (your register: "We're hoping you can get a lot of useful tips from this
+site…") plus a rule that mission constraints become internal rules, never page titles. Say the
+word and it ships the same way tonight's three did.
