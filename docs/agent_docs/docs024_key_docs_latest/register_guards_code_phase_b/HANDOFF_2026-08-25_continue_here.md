@@ -24,21 +24,55 @@ for s in "AMBIGUOUS, NOT PROPOSED" "cannot tell which one the tool uses" \
 done   # first two >0, third =5 (control), fourth =0 (control)
 ```
 
-## Open with another lane (agritec_uk) — reviewed 2026-08-25, three findings returned
+## ⚠ SECOND UNROLLED FIX — `6ad4a8046`, and it is the more important of the two
+
+A misplaced `artifact_check` is **silently inert**. RFC_025 places it inside `source`; an author
+who puts it at the **top level of the fact** (a reasonable reading — it describes the fact, not the
+source) gets correct contents, correct pattern, correct `subject_key`, live in the register, and
+**read by nothing with no signal anywhere**. The sweep now names them in
+`res.misplaced_artifact_checks`. **Not rolled**, so that field is empty on every site today for a
+reason that has nothing to do with whether any fact is misplaced — do not read the zero.
+
+Verify after the roll, with controls:
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+for s in "at the TOP LEVEL, where nothing reads it" "AMBIGUOUS, NOT PROPOSED"          stale_attestation ZZZ_must_be_absent; do
+  printf '%-42s ' "$s"; kubectl -n ai-persona-system exec "$POD" -- grep -ac "$s" /proc/1/exe
+done   # first two >0, third =5 (control), fourth =0 (control)
+```
+
+## Open with another lane (agritec_uk) — reviewed 2026-08-25, findings returned and CLOSED
 
 They built `tool-sfi26-revenue-stacker` as a real tool page with a tool-level component (which is
 what makes both the suggester's population predicate AND `subject_key` addressing reach it), wrote
 four contextual `artifact_check` entries, and de-duplicated the pair the suggester exposed
 (105 → 104 facts). Reviewed against their live rows:
 
-1. **The fence is NOT live.** Zero `artifact_check` on every version of their register, so it never
-   landed rather than landing and being clobbered — their migration is written, not applied. Told.
+1. ~~**The fence is NOT live.**~~ **I WAS WRONG, AND THE TRUTH WAS WORSE.** I queried
+   `f->'source' ? 'artifact_check'`, got zero from a populated row, and reported "never landed".
+   It HAD landed — at the **top level** of the fact, where nothing reads it. **Neither answer
+   alone was survivable**: accepting theirs closes the loop on a fence that could never fire;
+   accepting mine has them re-apply a migration into the same silent hole. They have since moved
+   all four under `source`; **verified independently, and a dry run returns four
+   `tolerance:"artifact_check"` entries, all `fresh`, none carrying `verified_at`** — the
+   secondary path, correct, because each carries `citation` + `attested_by`.
 2. **Two of four patterns under-anchored**: `rate:224` matches `rate:2240`, `rate:129` matches
    `rate:1290`; the other two use `\b` correctly. **Their mutation test could not have caught it**
    — they mutated the PATTERN, where the failure mode is a mutation of the ARTEFACT. Their register
    already carries four-digit rates (1920, 1072), so it is not hypothetical.
-3. `ATT-sfi26-CHRW2` carries **no value and no unit** where every sibling has both — one of the two
-   figures their tool had wrong.
+3. ~~`ATT-sfi26-CHRW2` carries no value~~ → **FIXED by them, better than I proposed**: the value is
+   stored and the qualifier carried in the **unit** ("GBP per 100m for one side", never "per
+   100m"), with `writer_line` governing presentation. Their reasoning is worth keeping — a
+   compound rate flattened to one number silently becomes a different claim, a factor of two on a
+   hedgerow. Seven facts fixed.
+
+**Answered for them, and it generalises:** a PLAN fence should declare **what the tool ENCODES**
+(all 24 rates), not the subset that happens to be `artifact_check`-fenced (4). Different
+mechanisms, different questions — `facts` says "tell me when these move" and an incomplete list
+means the rest drift silently; `artifact_check` says "prove this one is in the bytes" and is
+rightly selective. **Broad one broad, sharp one sharp.** ⚠ And their site contributes almost
+nothing to Phase 3a's distribution either way: **3 of their 72 SFI facts are ≥1000**, so 69 read
+`not_probed`. The distribution will come from mcalc / LMC / gamesdesign.
 
 **Their nine value-sharing pairs changed this lane's documentation** (see §5c and the register
 landmine): on a rate-table site shared values are normal, so the suggester is quiet by
