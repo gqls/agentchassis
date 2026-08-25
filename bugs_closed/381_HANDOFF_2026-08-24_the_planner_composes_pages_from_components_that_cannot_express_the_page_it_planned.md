@@ -587,3 +587,59 @@ months) → **stored** (`rendered_html`) → **SERVED** (fetched, with a passing
   advance. **`bugs_open/206` residual, not 381.**
 - **The owner's third original complaint — card sections on mobile (§7) — remains unaddressed and
   unfiled.** It needs a page-composition decision.
+
+### 12e. ⚠ CORRECTION to 12a — my "33–41 content list items per page" COUNTED CHROME
+
+`[MEASURED 2026-08-25 13:14Z]` **The figure in §12a is wrong and is withdrawn.** I subtracted
+*garden-tools'* nav baseline (8 `<li>`) from *homegarden's* page totals. **They do not share a
+baseline: homegarden's chrome is 32 `<li>` per page**, because its site menu links all twelve month
+pages. Caught by the `loanzy_uk_example_site` lane finding the identical flaw in their own month
+counter — their nav made every page appear to contain twelve months, including `/contact.html`,
+which contains none.
+
+**The sound measure is anchor-stripped: a chrome or cross-reference item is a link; a kept promise is
+not.** Whole-site census, control passing (impossible URL → 404):
+
+| | `homegarden.uk` | `garden-tools.uk` |
+|---|---|---|
+| pages served | 20 | 7 |
+| **pages with a CONTENT list** (non-anchor `<li>`) | **14 of 20** | **0 of 7** |
+| **total content list items** | **69** | **0** |
+| pages with `<strong>` | 9 | 0 |
+| `/contact.html` content list items (negative control) | **0** | — |
+
+**The conclusion is unchanged and the number is smaller and honest: 14 of 20 pages carry a real
+content list where the comparison site had none on any page, and 69 content list items against
+zero.** `/contact.html` correctly scores 0, which is what makes the instrument credible.
+
+⚠ **This is the ninth wrong claim in this lane and it is IN THE CLOSURE DOCUMENT** — written after I
+had already flagged, in this same section, that `20 of 20 pages carry a list` was confounded by nav.
+**I identified the chrome confound and then made the same error one metric along, in the sentence
+immediately after.** Knowing about a confound is not the same as having removed it from your
+arithmetic. Recorded in `WRONG_CALLS.md`.
+
+### 12f. Two residuals routed elsewhere by the `loanzy_uk_example_site` lane, recorded so nobody re-chases them
+
+- **The 17 month pages each deliver two thirds of their plan.** Their third section, `content-listing`,
+  renders **nothing** on all 17 — its `articles` field is `source=query.blog_posts` with
+  `on_missing=skip_section`, and the site's only `blog-post` page is the one that 404s. Silent, no
+  error, `deployed` status. **Filed by that lane as a CONTRIB to `bugs_open/384`** (a listing never
+  re-rendered when its source data arrives) — **not a 381 residual.**
+- **`/comparisons/index.html` fired three PROMISE UNMET "no table" lines — a FALSE POSITIVE.** The
+  flagged headings are meta ("What each comparison covers"); the rule matches the *word* "comparison".
+  It is an index for articles that were never planned, which is the same shape as the bullet above.
+- **`checklist` remains a real, unexplained negative.** That lane ruled out the cheap explanation for
+  me: `component_expresses` returns `{items,list}` for `checklist`, **identical to `period-calendar`**,
+  so the planner saw it correctly. It is not a derivation fault.
+
+### 12g. Which evidence carries the calendar result
+
+**Element-scoped, not page-level** — and this matters because a page-level month count is contaminated
+by the site menu, which links all twelve months on every page:
+
+- `<ol class="period-cal__list">` on the served `/index.html`, containing **twelve `<li>`** with
+  labels January…December **inside that element**;
+- and independently, `page_components.rendered_html` for the `period-calendar` row in the database.
+
+**Neither depends on a page-level count.** Any doc citing "twelve months on the page" as the evidence
+should cite the element instead.
