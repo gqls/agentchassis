@@ -27,12 +27,15 @@
 // This package is the replacement. It is a leaf: it imports nothing from the rest
 // of the tree, so any guard may import it without a cycle.
 //
-// ⚠ PHASE 1 IS THE GO SIDE ONLY. Today the guards compare Go against these
-// declarations. NOTHING here is compared against the live database yet — that is
-// the phase-2 auditor (bugs_open/363), and until it ships a declaration can drift
-// from the live object silently. Declarations that cannot be exercised at all
-// until then are marked PhaseLiveAudit and counted, so "declared but never read"
-// is visible rather than implied.
+// BOTH LEGS ARE NOW LIVE (phase 2 deployed 2026-08-23, CronJob
+// live-declaration-drift-check at 07:00 UTC; first run 07:00:08Z read 5 objects,
+// exit 0). Go guards compare Go against these declarations; the daily auditor
+// (`config-key-audit --live-declaration-drift`) compares these declarations
+// against the live objects. An entry checked ONLY by the auditor is marked
+// PhaseLiveAudit and counted, so "declared but never read" stays visible.
+//
+// ⚠ A declaration is only as good as its coverage: an object with no entry here
+// has no live tie at all, however well its Go guard reads.
 package livespec
 
 import (
@@ -58,22 +61,34 @@ const (
 type Phase int
 
 const (
-	// PhaseGoSide: a phase-1 Go test compares the Go vocabulary to this Declaration.
+	// ⚠ READ THE NAMES CAREFULLY — they say WHO CHECKS, not WHETHER anything does.
+	// Both values are checked as of 2026-08-23; neither is inert. A reader who
+	// assumes "GoSide = checked, LiveAudit = pending" has it backwards, and the
+	// bugs_open/375 lane lost time to exactly that reading (and a council seat lost
+	// an objection to it) while the comment below still said LiveAudit was INERT.
+
+	// PhaseGoSide: a Go unit test compares the Go vocabulary to this Declaration.
+	// The daily auditor ALSO probes it — every Declaration is live-checked.
 	PhaseGoSide Phase = iota
-	// PhaseLiveAudit: nothing can check this until the phase-2 live auditor exists.
-	// It is INERT. It is here so the phase-2 probe is written down where the rest of
-	// the contract lives, not so anyone can believe it is guarded.
+	// PhaseLiveAudit: checked ONLY by the daily auditor, never by a Go test, because
+	// asserting it needs a database and `go test` has none. Not inert — merely
+	// invisible to `go test`, which is why LiveAuditOnlyDeclarations counts it.
 	PhaseLiveAudit
 )
 
-// DeferredDeclarations is the number of Declarations that are inert until the
-// phase-2 auditor lands. It is asserted by livespec_test, so ADDING an inert
-// declaration forces this number up and makes the gap impossible to grow quietly.
+// LiveAuditOnlyDeclarations is the number of Declarations that NO Go test reads —
+// they are checked solely by the daily auditor, because a unit test has no
+// database. Asserted by livespec_test, so adding one forces this number up and the
+// set cannot grow quietly.
 //
-// This exists because of a council objection (bug_historian, round 2): a field
-// that is accepted but never read is indistinguishable from one that works, and
-// this platform has been bitten by that shape before.
-const DeferredDeclarations = 1
+// ~~DeferredDeclarations~~ renamed 2026-08-23: while phase 2 was unbuilt these
+// entries were INERT, and the old name said so. Phase 2 is deployed and they are
+// now checked daily — leaving a constant called "Deferred" would have been this
+// lane's own defect, a written statement outliving its truth.
+//
+// It exists because of a council objection (bug_historian, round 2): a field that
+// is accepted but never read is indistinguishable from one that works.
+const LiveAuditOnlyDeclarations = 6
 
 // MaxDeclarations is a growth boundary (council: architecture, round 1). livespec
 // is a registry of guarded live objects, not a general config store; if it sprawls
@@ -116,8 +131,14 @@ type Declaration struct {
 //
 // ⚠ The LIVE pre_query STILL CARRIES that superseded sentence in its own comment,
 // and still names TestRegisteredVerifiersMatchClaimTimeoutExclusion, a test that no
-// longer exists. Correcting the live prose is phase-2 work; until then the live
-// object misdescribes itself and this Go declaration is the accurate one.
+// longer exists. This Go declaration is the accurate one.
+//
+// ⚠ AND THE DAILY AUDITOR CANNOT CATCH IT. Phase 2 shipped 2026-08-23 and this is
+// the residual it does not close: the auditor compares the live CLAUSE to the
+// declared fragments, and the clause matches — it is the PROSE ABOVE the clause
+// that lies. Correcting it needs a migration on the live column, which belongs to
+// whichever lane next edits it (bugs_open/341, bugs_closed/307 own it today). Do
+// not read a clean live-declaration-drift run as evidence this sentence is fine.
 var ClaimedItemTimeoutExclusions = []string{
 	"truncated_component",
 	"hardcoded_section_colors",
@@ -211,9 +232,10 @@ var Declarations = []Declaration{
 		Provenance: "357.",
 	},
 	{
-		// ⚠ INERT UNTIL PHASE 2 — nothing runs ProbeSQL today. It is declared here
-		// because it is the one piece of this contract that a body-text comparison
-		// structurally cannot cover: the live TRIGGER SET has already outgrown the
+		// CHECKED DAILY BY THE AUDITOR ONLY — no Go test reads this one, because a
+		// unit test has no database. It is the one piece of this contract that a
+		// body-text comparison structurally cannot cover: the live TRIGGER SET has
+		// already outgrown the
 		// migration that declares it (357 declares _upd and _del; 552 added
 		// _content_archive_upd), so the function body can match perfectly while the
 		// set of firing conditions has changed underneath it.
@@ -225,6 +247,96 @@ var Declarations = []Declaration{
 		ProbeSQL: "SELECT count(*)::text FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid " +
 			"WHERE NOT t.tgisinternal AND p.proname = 'page_component_artefact_archive'",
 		Provenance: "357 declares 2 bindings; 552 (bugs_open/355's lane) added a third. Measured 3 live 2026-08-22.",
+	},
+	// ── THE THREE GUARDS THAT KEEP A REPO-SIDE CHECK AND OWED A LIVE TIE ────────
+	// Added 2026-08-23. livespec_test's allow-list said "Live tie is phase 2" for
+	// doc_subjects_common_test.go, links_shipped_predicate_test.go and
+	// v3_render_slot_name_test.go — and phase 2 shipped without covering any of
+	// them, so the reasons were promising something that did not exist. Their Go
+	// guards stay as they are (each checks a real REPO property); these entries are
+	// the live half those reasons promised. Auditor-only: no Go test reads them.
+	{
+		Key:      "constraint.doc_plans_subject_type_check",
+		Kind:     "constraint",
+		ProbeSQL: "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'doc_plans_subject_type_check'",
+		Mode:     FragmentMatch,
+		Phase:    PhaseLiveAudit,
+		Fragments: []Fragment{
+			{Text: "'tool'::text", Min: 1}, {Text: "'pipeline'::text", Min: 1},
+			{Text: "'experience'::text", Min: 1}, {Text: "'action'::text", Min: 1},
+			{Text: "'experience-pattern'::text", Min: 1}, {Text: "'component'::text", Min: 1},
+		},
+		Provenance: "doc_plans deliberately carries a NARROWER vocabulary than doc_notes — a landmine " +
+			"has no shared-contract shape to put in a plan. 6 values measured live 2026-08-22.",
+	},
+	{
+		Key:      "constraint.doc_notes_subject_type_check",
+		Kind:     "constraint",
+		ProbeSQL: "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'doc_notes_subject_type_check'",
+		Mode:     FragmentMatch,
+		Phase:    PhaseLiveAudit,
+		Fragments: []Fragment{
+			{Text: "'tool'::text", Min: 1}, {Text: "'pipeline'::text", Min: 1},
+			{Text: "'experience'::text", Min: 1}, {Text: "'action'::text", Min: 1},
+			{Text: "'experience-pattern'::text", Min: 1}, {Text: "'component'::text", Min: 1},
+			{Text: "'decision'::text", Min: 1},
+			// 'landmine' is the load-bearing one: rebuilding this constraint from
+			// doc_plans' array — the natural way to make the two agree — DROPS it and
+			// orphans the live landmine corpus. Migration 273 refuses to run without
+			// it for exactly this reason; this is the standing form of that refusal.
+			{Text: "'landmine'::text", Min: 1},
+		},
+		Provenance: "8 values measured live 2026-08-22 (doc_plans' 6 plus landmine and decision).",
+	},
+	{
+		Key:  "workflow.build-site-planner.load_existing_pages",
+		Kind: "workflow",
+		ProbeSQL: "SELECT default_config::text FROM agent_definitions WHERE type = 'build-site-planner' " +
+			"AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL",
+		Mode:  FragmentMatch,
+		Phase: PhaseLiveAudit,
+		Fragments: []Fragment{
+			{Text: "NOT (p.deployed_at IS NULL AND COALESCE(p.build_status, '') <> 'deployed')", Min: 1, Max: 1},
+		},
+		Provenance: "datahelpers.PageHasShippedPredicateFor(alias p), written into this row by migration 302. " +
+			"Measured live 2026-08-22: exactly one verbatim occurrence.",
+	},
+	{
+		Key:  "workflow.page-content-writer.slot_name_from",
+		Kind: "workflow",
+		ProbeSQL: "SELECT default_config::text FROM agent_definitions WHERE type = 'page-content-writer' " +
+			"AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL",
+		Mode:  FragmentMatch,
+		Phase: PhaseLiveAudit,
+		Fragments: []Fragment{
+			// BOTH render steps must set it; one is a half-wired workflow that looks fine.
+			{Text: "\"slot_name_from\": \"current_section.name\"", Min: 2},
+		},
+		Provenance: "seed 023 sets it on render_section and render_from_template. The SEED is not the " +
+			"system — this is the live half. Measured live 2026-08-22: 2 occurrences.",
+	},
+	{
+		// Contributed by the bugs_open/333 lane, landed here rather than in a file of
+		// its own: LiveAuditOnlyDeclarations is a COUNTED invariant, so two sessions
+		// appending to it independently is precisely the collision that kept this
+		// package dirty — and two lanes blocked — for two days. 333 stands down.
+		//
+		// CountEqual on an EXACT PATH, not a fragment of default_config::text: the
+		// door is a single boolean, and a substring search for it would also match
+		// the key appearing under any other step, or inside a comment. Note the
+		// probe deliberately avoids jsonb_path_exists' `?` operator — a bare `?` in
+		// SQL handed to a Go driver can be read as a bind placeholder.
+		Key:         "workflow.page-build-handler.refuse_owned_page",
+		Kind:        "workflow",
+		Mode:        CountEqual,
+		ExpectCount: 1,
+		Phase:       PhaseLiveAudit,
+		ProbeSQL: "SELECT count(*)::text FROM agent_definitions WHERE type = 'page-build-handler' " +
+			"AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL " +
+			"AND default_config #>> '{workflow,steps,load_page_record,config,refuse_owned_page}' = 'true'",
+		Provenance: "the WII-028 owned-page door reads this key; migration 488 wrote it. Its Go tie is " +
+			"work_item_owned_page_door_test.go, which quotes the frozen path as a literal rather than " +
+			"reading 488's file. Measured live 2026-08-25: 1 row, and 0 for a deliberately bogus path.",
 	},
 }
 

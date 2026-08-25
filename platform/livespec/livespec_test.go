@@ -125,19 +125,23 @@ func TestRegistryStaysWithinItsGrowthBoundary(t *testing.T) {
 
 // DECLARED-BUT-NEVER-READ IS VISIBLE, NOT IMPLIED (council: bug_historian, round 2).
 // A field accepted but never read is indistinguishable from one that works. Every
-// inert declaration must be counted, so adding one forces DeferredDeclarations up
-// and the gap cannot grow quietly.
-func TestInertDeclarationsAreCounted(t *testing.T) {
-	var inert []string
+// auditor-only declaration must be counted, so adding one forces the constant up
+// and the set cannot grow quietly.
+//
+// Since phase 2 deployed (2026-08-23) these are no longer INERT — they are checked
+// daily, just not by any Go test, because a unit test has no database.
+func TestLiveAuditOnlyDeclarationsAreCounted(t *testing.T) {
+	var auditorOnly []string
 	for _, d := range Declarations {
 		if d.Phase == PhaseLiveAudit {
-			inert = append(inert, d.Key)
+			auditorOnly = append(auditorOnly, d.Key)
 		}
 	}
-	if len(inert) != DeferredDeclarations {
-		t.Fatalf("%d declaration(s) are inert until the phase-2 auditor (%v), but DeferredDeclarations says %d.\n"+
-			"Bump the constant deliberately — an inert entry that nobody counted reads as guarded when it is not.",
-			len(inert), inert, DeferredDeclarations)
+	if len(auditorOnly) != LiveAuditOnlyDeclarations {
+		t.Fatalf("%d declaration(s) are checked ONLY by the daily auditor (%v), but "+
+			"LiveAuditOnlyDeclarations says %d.\n"+
+			"Bump the constant deliberately — an entry nobody counted reads as guarded by a test when it is not.",
+			len(auditorOnly), auditorOnly, LiveAuditOnlyDeclarations)
 	}
 }
 
@@ -194,11 +198,14 @@ var readCalls = map[string]bool{"ReadFile": true, "Glob": true, "ReadDir": true}
 // livespec now. If one reappears here, this test fires, which is the point.
 var migrationReaderAllowList = map[string]string{
 	"doc_subjects_common_test.go": "scans the whole corpus for the NEWEST migration recreating each " +
-		"subject_type CHECK — accumulation-aware, so it does not pin a stale file. Live tie is phase 2.",
+		"subject_type CHECK — accumulation-aware, so it does not pin a stale file. Live tie is LIVE: " +
+		"livespec constraint.doc_plans_subject_type_check / .doc_notes_subject_type_check.",
 	"links_shipped_predicate_test.go": "migration 302's file is the operator's paste source, so keeping " +
-		"the canonical predicate spelled correctly THERE is a real repo property. Live tie is phase 2.",
+		"the canonical predicate spelled correctly THERE is a real repo property. Live tie is LIVE: " +
+		"livespec workflow.build-site-planner.load_existing_pages.",
 	"v3_render_slot_name_test.go": "a seed lint: it asserts what the SEED says, which is a genuine repo " +
-		"property. The seed is not the system, and the live tie is phase 2.",
+		"property. The seed is not the system; the live tie is LIVE: " +
+		"livespec workflow.page-content-writer.slot_name_from.",
 	"write_experience_pattern_test.go": "schema DDL, where the accumulated migration corpus IS the " +
 		"canonical channel — whole statements, checksummed runner, no replace()-of-live indirection.",
 	"contact_info_no_fabrication_test.go": "uses a migration's template body as a RENDER FIXTURE, not as " +

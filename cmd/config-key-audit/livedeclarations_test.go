@@ -137,25 +137,37 @@ func TestEveryLivespecDeclarationIsProbeableByThisBinary(t *testing.T) {
 	}
 }
 
-// Phase 2 exists to exercise the declarations phase 1 could not. Once this binary
-// ships, the inert count should be able to fall to zero — this test does not
-// force that, but it does make the current state visible in the phase-2 package
-// rather than only in livespec's own tests.
-func TestInertDeclarationsAreTheOnesThisBinaryUnblocks(t *testing.T) {
-	var inert []string
+// Phase 2 exists to exercise the declarations phase 1 could not.
+//
+// > **CORRECTED 2026-08-25.** This comment used to say "once this binary ships, the
+// > inert count should be able to fall to zero". The binary shipped (CronJob
+// > live-declaration-drift-check, daily 07:00 UTC, since 2026-08-23) and the count
+// > went 1 → 6, not to zero. The premise was wrong: shipping the auditor does not
+// > convert these into Go-checked declarations, because a Go test still has no
+// > database. "Live-audit-only" is a permanent, legitimate category, not a backlog.
+// > Left uncorrected it was the very defect this lane exists to close — a written
+// > statement outliving its truth.
+//
+// What this test is actually for: the count of auditor-only declarations is
+// asserted in BOTH packages, so livespec cannot quietly grow one that this binary
+// never probes.
+func TestLiveAuditOnlyDeclarationsAreTheOnesThisBinaryUnblocks(t *testing.T) {
+	var auditorOnly []string
 	for _, d := range livespec.Declarations {
 		if d.Phase == livespec.PhaseLiveAudit {
-			inert = append(inert, d.Key)
+			auditorOnly = append(auditorOnly, d.Key)
 		}
 	}
-	// ⚠ This names the constant as it exists at COMMITTED HEAD. On 2026-08-25 a
-	// session (bugs_open/333) pointed it at LiveAuditOnlyDeclarations — a rename
-	// that existed only in another session's UNCOMMITTED livespec.go — and broke
-	// this package at HEAD for everyone while it compiled in one working tree.
-	// Whoever commits that rename must change this line in the SAME commit.
-	if len(inert) != livespec.DeferredDeclarations {
-		t.Fatalf("livespec says %d deferred, found %d (%v) — the two must agree or an unchecked declaration "+
-			"reads as guarded", livespec.DeferredDeclarations, len(inert), inert)
+	// ⚠ THE CROSS-PACKAGE TRAP THIS LINE KEEPS WALKING INTO. This names a constant
+	// defined in platform/livespec, so the two must move in ONE commit. On
+	// 2026-08-25 a session pointed it at LiveAuditOnlyDeclarations while that
+	// rename existed only in another session's UNCOMMITTED livespec.go (6d3e0027e),
+	// breaking this package at HEAD for everyone while compiling fine in its own
+	// tree; it was reverted forward-only (8b9128131) and landed properly here.
+	// `go build ./...` CANNOT see this — it does not build test files. `go vet` can.
+	if len(auditorOnly) != livespec.LiveAuditOnlyDeclarations {
+		t.Fatalf("livespec says %d live-audit-only, found %d (%v) — the two must agree or an unchecked "+
+			"declaration reads as guarded", livespec.LiveAuditOnlyDeclarations, len(auditorOnly), auditorOnly)
 	}
-	t.Logf("declarations that only this binary can check: %v", inert)
+	t.Logf("declarations that only this binary can check: %v", auditorOnly)
 }
