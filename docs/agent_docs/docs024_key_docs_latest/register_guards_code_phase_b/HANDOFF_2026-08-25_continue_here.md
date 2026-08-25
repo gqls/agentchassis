@@ -79,6 +79,27 @@ landmine): on a rate-table site shared values are normal, so the suggester is qu
 construction there. Answered their question precisely: `artifact_check` produces `facts` entries,
 NOT emissions, so it does **not** feed Phase 3a — only a PLAN-fence `facts` declaration does.
 
+## A finding LARGER than this lane, filed as a landmine 2026-08-25
+
+**A `citation` fact with no `quote` fails re-verification every day, for ever, and nothing tells
+you.** Two correct rules compose into permanent silence: `refreshCitationFact` cannot run without
+the stored verbatim quote and returns `error`; CLM-008 treats `error` as *unknown is not loss* and
+files nothing; and `citationDateStale` returns false at `staleness_days <= 0` (the default), so it
+never ages into a drift. **Measured 2026-08-25: 83 of 184 current citation facts fleet-wide (45%)
+had no quote, and all 83 also had staleness unset** — concentrated on one site, i.e. an authoring
+habit, which is why it is a landmine and not a bug file.
+
+⚠ **And the FIX has a sharper trap.** The owning lane repaired all 83 the same day. The register's
+shape then read **104/104 complete**; the sweep read **102 fresh, 2 `citation_lost`**. The two
+survivors store `(minimum 70% GLU )` — a space before the paren, taken from how the page *renders*
+rather than what the extractor *emits*. `NormalizeForQuoteMatch` collapses whitespace RUNS but not
+a single space, so it can never match. **Compose a quote from `VisibleTextFromHTML`'s output, and
+prefer the shortest distinctive fragment — `QuoteFoundInText` is a `Contains`, so a longer quote is
+just more surface on which to disagree with the extractor.**
+
+**Run the landmine's query 2 (real sweep outcomes) AFTER a repair, not only before it.** A shape
+check said 104/104 on a register that was still 2 short.
+
 ## What is PROVEN, and how (do not re-derive)
 
 | claim | evidence |
