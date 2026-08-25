@@ -52088,3 +52088,24 @@ innocent sha. Use the pickaxe, then confirm the hit is added content rather than
 git log --oneline -S '<distinctive phrase>' -- <path>
 git show <sha> -- <path> | grep '^+' | grep -v '^+\s*//'    # empty => comment/prose only
 ```
+
+**15. I piped away the safety check I was recommending to other people — on every commit, all
+session.** The pre-commit hook prints a yellow **commit-scope block** listing what a commit actually
+contains, and it prints it FIRST; `git` prints its summary LAST. I ran every commit this session
+through `| tail -3` or `| tail -4`, which keeps the summary and cuts the block. **A hook told me so
+after every single commit** — *"your command's output did not carry this"* — and I read that notice
+as a courtesy rather than as a finding about my own tooling.
+
+So for the whole session I was **structurally unable to see** the one advisory designed to show me
+what my commits carried, while telling two other lanes to read theirs. The `bugs_open/386` lane
+discovered the identical thing about itself the same afternoon and put it plainly: *"the checks we
+recommend are easy to recommend and easy to pipe away."*
+
+**It is not the check that would have caught my sweep** — that block lists files, not lines, and my
+swept path was present and expected (#14) — **but that is the point rather than a mitigation**: I had
+disabled the wrong check *and* skipped the right one, and neither absence produced a symptom.
+
+**The cheap check: never `| tail` a command whose useful output is printed by a hook BEFORE the
+command's own.** For commits, run it bare, or `| cat`, or pipe to a file and read the whole thing.
+More generally — **when a tool tells you its output was truncated, that is a finding about your
+instrument, not an apology.** Both of us had to be told by a hook, twice, in one session.
