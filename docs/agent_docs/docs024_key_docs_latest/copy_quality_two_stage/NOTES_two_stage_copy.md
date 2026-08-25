@@ -2734,3 +2734,32 @@ decision, it is his approved text** — sequenced after the writer change so eff
 the refutation condition written first.
 
 Reading order for the next file: briefs → planners (the premise layer) → llm_guidance → copy-editor.
+
+---
+
+## 2026-08-25 (owner session) — the replay experiment ran, and it corrected the audit's own headline
+
+Owner (in chat): explain the decisions, review my prior rulings for contradictions, and *"Let's
+test the changes here, I don't think we are there yet."* Done in that spirit: pre-registered
+first (`AUDIT_prompts/EXPERIMENT_2026-08-25_about_section_replay.md`), 12 offline replays of
+homegarden's real `about-content` call (4 arms × 3), platform credentials used from the pod, no
+key extracted, nothing live touched.
+
+**Result `[MEASURED 2026-08-25]`:** replay VALID (A median 10 = original 10, headings reproduce).
+Removing the writer template's three "instead" clauses: 10 → 6 — **below the pre-registered
+causal threshold, so phase 1's Finding-2 headline is PART-REFUTED**: the clauses are a real
+secondary contributor (the "sourced/dated" phrasing is theirs), not the primary cause.
+**Neutralising the PLANNER'S page title — "About Home Garden — Editorial Approach and What We
+Will Not Do" — collapsed it to 1** and removed the "will not do" heading 3 of 3. The owner's
+instinct was literally right: the PREMISE was planned, a layer above the writer. The candidate
+replacement instruction (arm D) neither helped nor hurt at n=3 — deletion is not yet beaten.
+The register tells (m3) were unchanged in every arm — premise and register are separate faults
+with separate owners (plan vs demonstrations). C3's unprompted opening is the register he asked
+for: "Home Garden exists to answer one question: is this job urgent, or can it wait until a
+better month?"
+
+Corrections written where the claims live (findings Finding 2, experiment doc). **Next: the
+PLANNER audit is priority one** — where does `build-site-planner` get a title like that; its
+rendered prompt is already worst-of-table on the candour/em-dash proxies. The decisions put to
+the owner, and the contradiction review of his prior rulings, are in README_where_we_are (same
+entry as the chat reply).

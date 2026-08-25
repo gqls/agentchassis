@@ -820,3 +820,26 @@ than doing it.
 
 **Nothing has been changed yet.** Next reads, in order: the per-site briefs, then the planners that
 decide what an about page is for.
+
+---
+
+**2026-08-25, the test you asked for.** We replayed the real instruction that built homegarden's
+about section, twelve times in four variants, touching nothing live. Verbatim replay reproduces
+the page you rejected — same score, same headings — so the test is sound. Removing the writer's
+"say this instead" rules helped somewhat (10 down to 6 on our count) but "What this site will not
+do" still appeared every time. The collapse came from somewhere else: the page had been PLANNED
+with the title "About Home Garden — Editorial Approach and What We Will Not Do", and when we
+replaced just that title with "About Home Garden", the score fell to 1, the "will not do" heading
+vanished in every run, and the copy opened with "Home Garden exists to answer one question: is
+this job urgent, or can it wait until a better month?" — unprompted. Your instinct was exactly
+right: the premise was wrong before the writer ever started, and it was wrong in the PLAN. So the
+first fix is to the planner, the second (smaller, still real) is the writer's "instead" rules, and
+the wording I had drafted to replace them earned nothing in the test — plain deletion did as well.
+The sentence-level habits ("X, not Y", "rather than") did not move in any variant — they are a
+separate fault, fed by how many times our own instructions demonstrate those shapes, and they need
+their own fix. The decisions you're being asked to make, and the places where your July rulings
+and your August verdicts pull against each other, are in my reply in chat — in short: which halves
+of the July "honesty" rules survive, whether the house voice may be rewritten in its own
+recommended shape, whether empty testimonial slots should be omitted rather than filled with
+philosophy, and whether "acknowledging what we don't know" survives anywhere as a trust device.
+Nothing has been changed live.

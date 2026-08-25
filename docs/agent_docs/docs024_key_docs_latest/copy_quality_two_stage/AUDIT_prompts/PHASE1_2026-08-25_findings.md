@@ -62,7 +62,17 @@ Matched against what shipped:
 
 **Status of the claim:** the textual correspondence is measured; the CAUSAL claim is
 `[INFERRED]`. Its test (phase 3): a section planned as "about/method" on a page, built with the
-clause present vs. with the remedy replaced, compared at the served artefact. The ban half of
+clause present vs. with the remedy replaced, compared at the served artefact.
+
+> **TESTED SAME DAY — the causal claim is PART-REFUTED and re-attributed**
+> (`EXPERIMENT_2026-08-25_about_section_replay.md`, pre-registered, 12 replays): removing these
+> clauses alone dropped the methodology/self-limiting score 10→6 (below the pre-registered
+> threshold for "causal") and the *"What this site will not do"* heading SURVIVED 3 of 3 — while
+> neutralising the PLANNER'S page title ("About Home Garden — Editorial Approach and What We Will
+> Not Do") collapsed the score to 1 and removed that heading 3 of 3. **Primary cause: the page
+> PLAN. Secondary, real contributor: these clauses** (the "sourced/dated" phrasing is theirs).
+> The premise fault and the register fault separate cleanly: negation tells were unchanged in
+> every arm. The ban half of
 the rule (do not claim every figure is verified) exists for a real incident — oufe.com shipped
 *"Every factual claim is sourced to a named, dated primary document"* — and is right; it is the
 REMEDY half that teaches methodology self-description on every section of every page.

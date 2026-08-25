@@ -31,10 +31,15 @@ writer template TEACHES-AI via three "say this instead" clauses (method = sourci
 "we cannot tell you X" as the substitute for the banned word "honest"; values/approach filler for
 empty testimonial slots); house voice NEUTRAL in content, TEACHES-AI in form (17 demonstrations of
 the construction it bans — OWNER DECISION, his approved text). Fix shapes recorded, nothing applied.
-**Next executable steps: (i) the Finding-2 causal test — one method/about section built with the
-current template vs with the remedy clauses removed, same brief, compared at the served page;
-(ii) phase 2 verdicts 2 of N: the briefs, then the planners (the premise layer), then llm_guidance,
-then copy-editor's own prompt; (iii) put the house-voice form-rewrite to the owner.** His sharpest new datum: the
+**(i) The causal test RAN 2026-08-25** (`AUDIT_prompts/EXPERIMENT_2026-08-25_about_section_replay.md`,
+pre-registered, 12 offline replays): Finding 2 PART-REFUTED — the writer clauses are secondary
+(10→6); **the PLANNER'S page title ("…Editorial Approach and What We Will Not Do") is the primary
+premise carrier** (→1, heading gone 3/3); the drafted replacement instruction earned nothing over
+deletion; register tells unchanged in every arm (separate fault, fed by demonstrations).
+**Next executable steps: (ii) the PLANNER audit is now priority one — where does build-site-planner
+mint that title (its rendered prompt is worst-of-table on candour/em-dash proxies); (iii) phase 2
+verdicts 2 of N: briefs → llm_guidance → copy-editor; (iv) the owner has the decision list (README
+2026-08-25 'the test you asked for' + chat) — no prompt changes ship until he rules.** His sharpest new datum: the
 about.html PREMISE is wrong (14/17 methodology headings), his phrase list is a SAMPLE, and fixes
 that remove named strings while keeping the page's shape will not satisfy it.
 
