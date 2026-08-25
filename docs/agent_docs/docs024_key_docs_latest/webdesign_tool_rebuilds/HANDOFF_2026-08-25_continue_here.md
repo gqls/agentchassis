@@ -1,5 +1,14 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-25 ~11:15Z. Supersedes `HANDOFF_2026-08-22_continue_here.md`.
 
+**STATE (updated 15:00Z): 41 of 63 SERVE-CONFIRMED (#41 text-sanitizer done, NOTES 15:00Z — the
+"remove invisible characters" toggle that replaced zero-width chars with a SPACE is dead; sighting
+#19). Phase B continues smallest-first: cubic-bezier (8,754) next, then golden-ratio (8,754),
+monolith-splitter (9,037), head-architect (9,212), asset-formatter (9,222). NOTHING IN FLIGHT.
+⚠ READ THE CROSSLINK CORRECTION in NOTES 15:00Z before you report a cross-mention: `deferred` is a
+TERMINUS, not a gate — 0 of 71 `tool_crosslink` rows have ever completed on this site. Keep filing
+`related_pages` (the finding is targeted and parked, and that is the raw material); just never claim
+a mention landed. Prior line follows.**
+
 **STATE (updated 13:50Z): 40 of 63 SERVE-CONFIRMED (#40 entropy-meter done, NOTES 13:50Z — the Infinity-bits overflow dead, all arithmetic in log space). Phase B continues: text-sanitizer (8,607) next. Prior line follows.**
 
 **STATE (updated 13:10Z): 39 of 63 SERVE-CONFIRMED — #39 focus-ring's owed grade PAID (NOTES 13:10Z). Phase B continues smallest-first: entropy-meter (8,325) next. Superseded owed-line follows.**
@@ -24,7 +33,7 @@ DUE at Phase C completion, not before).
 ## The recipe (proven 35 times; Phase C variant)
 
 1. Fetch the live page AND its sidecar(s) cache-busted; read the sidecar IN FULL. Expect the
-   "asserts something untrue about itself" class — **15 sightings**; the brief's job is to name the
+   "asserts something untrue about itself" class — **19 sightings as of 2026-08-25**; the brief's job is to name the
    honesty invariant that makes the claim TRUE by construction.
 2. Gates before filing: library-claim (0 rows or pin fork identity), local active component (0),
    open add_tool (0), **adopt flag present** (it was removed un-snapshotted once — migration 558),
@@ -45,22 +54,13 @@ DUE at Phase C completion, not before).
 7. Dispatch the sidecar's dry-run retraction, record the refusal + orphan (bugs_open/365 list,
    **8 so far**; the shared `/tools/assets/webdesign-couk-header.js` goes with the LAST ported page).
 
-## csp-builder — analysis DONE 2026-08-25 (file next, with related_pages ['learn-security-cdn-risks','learn-security-xss-vulnerability'])
+## Next up — cubic-bezier (8,754), analysis NOT yet done
 
-Slot `5190c47e-72d5-4328-a073-0f992151cf1d` (13,190, md5 `36710d18…`), page `a5803b85…`, sidecar
-`policy-generator.js` (3,318 B, read in full). Ported defects for the brief:
-- **STATE BUG, the load-bearing one: `resetPolicy()` resets only script/style/img/font — a
-  `connect-src` value added by a checkbox or textarea is NEVER removed when unchecked/cleared**
-  (the Set accumulates for the session), so the displayed policy does not reflect the current
-  selections — the output lies about the inputs. The rebuild regenerates every directive from the
-  current inputs each run.
-- Copy: `.then` only, no `.catch` (rule 15); `window.copyCSP` global + inline onclick (rule 16).
-- No validation/weakening warnings: `'unsafe-inline'`, `'unsafe-eval'`, `*` typed into a textarea
-  land silently in the policy — a CSP builder should visibly flag policy-weakening values (the
-  teaching point). Garbage tokens should get an inline message.
-- Keep: the sensible fixed defaults (`object-src 'none'`, `base-uri 'self'`, `default-src 'self'`)
-  stated on the page; the Google-Fonts → `font-src fonts.gstatic.com` smart-add (make it symmetric
-  — it already is, since font-src is reset each run); newline-stripped header-ready copy.
+#36 csp-builder shipped 2026-08-25 10:35Z (NOTES 10:35Z); the analysis block that stood here is
+spent. Nothing is pre-analysed for the next tool — start at step 1 of the recipe. Phase B order
+from the census (re-run it, do not trust this list): cubic-bezier 8,754 · golden-ratio 8,754 ·
+monolith-splitter 9,037 · head-architect 9,212 · asset-formatter 9,222 · layout-generator 9,223 ·
+insight-injector 9,369 · … then the FIVE rich apps LAST, one at a time, owner-reviewed.
 
 ## Standing rules (unchanged, load-bearing)
 

@@ -92,10 +92,33 @@ Gotchas learned the hard way:
   Pick by topic, not by convenience — the writer is told to place the mention "where it's most
   contextually relevant", so an unrelated page produces a worse sentence, not a neutral one.
   `tool-bayesian-rank` → `learn-algorithms-bayesian-theory` is the shape.
-  **Verify after the build, at the artefact rather than the item status:**
+  **⚠ CORRECTED 2026-08-25 — the query below counts ROWS, which is not the artefact, and on this
+  site it has never once been able to fail.** Measured that day: `tool_crosslink:%` on site
+  `6b49db8e` is **41 `wont_fix` · 15 `deferred` · 13 `failed` · 2 `unresolved` · ZERO `complete`**
+  across 71 rows since 2026-08-05 — **no cross-mention has ever been written on webdesign.co.uk.**
+  Every row this lane has filed since 08-24 is parked the same second it is created, with
+  `OWNED_PAGE_GUARD: page-build-handler declares refuse_owned_page and page <id> is
+  rebuild_policy=owned` and a spec key `not_dispatchable`. That is `bugs_open/333`'s door working as
+  designed on `rebuild_policy='owned'` pages, not a fault — but it means **a filing delivers a
+  targeted PARKED FINDING, not a mention.** Keep carrying the key (the finding is filed against the
+  right pages and is the raw material when the owned-page route lands); just never report a mention
+  from a row.
+  **Verify after the build. Ask for the status, and then look at the article:**
   ```sql
-  SELECT status, spec->>'page_name' FROM site_work_items
-   WHERE item_key LIKE 'tool_crosslink:<function>%';   -- expect one row per page you named
+  -- expect one row per page you named AND read the status: 'complete' is delivered,
+  -- 'deferred' is parked behind the owned-page door and nothing further will happen.
+  SELECT status, error, spec->>'page_name' FROM site_work_items
+   WHERE item_key LIKE 'tool_crosslink:<function>%';
+  ```
+  **If you then grep the target article for the tool's name, DATE THE SLOT — the grep passes on copy
+  that predates your filing by a week.** Every one of these ported `/learn/` articles already
+  carries a hand-authored CTA for its tool (`learn-data-unicode-gremlins` has *"Use our Regex-powered
+  cleaner… Launch Text Sanitizer →"*, written 2026-08-15). A name-match is only YOUR mention if the
+  slot was written after you filed:
+  ```sql
+  SELECT pc.updated_at   -- must be LATER than your add_tool's completed_at
+  FROM pages p JOIN page_components pc ON pc.page_id=p.id
+  WHERE p.site_id='6b49db8e-d447-4467-8277-4f3018af9897' AND p.name='<the named page>';
   ```
   This is the interim. The owner ruled on 2026-08-24 that the system should ASK when the key is
   absent rather than rely on it being remembered — tracked by the `staged_component_build` lane.

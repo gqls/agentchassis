@@ -3259,3 +3259,101 @@ the header saying so (18's measured counterexample restated). Tests pass, rule-1
 mutation-proven both ways, full package green. INERT until the next roll; **post-roll demand
 control: expect ONE capability_gap on webdesign naming the remaining ported instances, its count
 shrinking as the grind works.** OWED: read verdict `21540c8e`.
+
+## 2026-08-25 15:00Z — #41 `tool-text-sanitizer` DONE (41 of 63); and a CORRECTION: no cross-mention has EVER landed on this site, on any filing, including the eight I have now been counting as delivered
+
+Item `41067229` (related_pages: `learn-data-unicode-gremlins` + `learn-marketing-seo-for-llms`).
+Ported sighting **#19**, and a double one — both halves are the tool asserting something untrue
+about its own output:
+
+- **The load-bearing defect: the "Remove Invisible Unicode" toggle did not remove them.** The whole
+  class — `​` zero-width space, `‌`, `‍`, `﻿` BOM **and** ` ` no-break
+  space — went through one `text.replace(invisibles, ' ')`, i.e. every one was replaced with an
+  ordinary SPACE while the label said Remove and the report said "Removed N Invisible Characters".
+  For the zero-width half that repair is worse than the disease **the page itself teaches two
+  paragraphs above the code**: its guide box explains that a model seeing `System​` reads a
+  different token, and the tool's fix turns it into `System ` — or, mid-word, `Sys tem`, which is
+  two tokens where there was one.
+- **The stats bar claimed clean on text it had just rewritten.** It counted quotes with
+  `/[“”‘’]/g` — FOUR characters — while the replacement arms covered TWELVE
+  (`„ ‟ ″ ‶ ‚ ‛ ′ ‵` fixed and never counted); collapsed
+  space runs were counted not at all. Any input whose only dirt was one of those eight, or a double
+  space, was rewritten and then reported as "✅ Text is clean."
+- Also: copy read the output back out of a **div via `innerText`** (a rendering of the text, not the
+  text), `alert("Copied clean text!")` unconditional, `copyOutput()` global + inline onclick.
+
+RUN complete/adopted, component `efde6935`; retire `UPDATE 1` at 14:06:36, **42 s after the build
+completed** (slot `f1d11768` md5 `1b79907a…` intact, post-commit re-read `removed`, still `removed`
+at 14:55Z). Margin at filing: 78 rerenders ahead of this page's queued sweep item at ~1.5/min ≈ 52
+min of headroom; the assemble was in fact claimed 44 min later, so the race was never close.
+
+**COMPONENT by mechanism (the deciding arms, read, not inferred):** `INVISIBLE_MAP` splits the class
+by what the correct repair actually IS — `action:'remove'` for the four zero-width/BOM characters
+(`text.split(c.char).join('')`, deleted) and `action:'normalize'` for **fifteen** unicode spaces
+(`.join(' ')`), and the report names which treatment each character received. `QUOTE_MAP` is a
+single 12-entry table that both counts and replaces, so the count/replace mismatch is now
+structurally unrepresentable rather than merely fixed. The clean claim is gated
+`else if (input === cleanedText)` on the real cleaned string — **and the "no toggles selected" arm
+is tested FIRST**, which is the subtle half: without it, switching everything off would satisfy
+`input === cleanedText` and print "already clean" about text nobody had examined. Copy reads the
+module-scoped `cleanedText`, never the DOM, with distinct success/failure arms, an execCommand
+fallback and a "nothing to copy" refusal. Collapse is `[ \t]{2,}` only — never newlines — off by
+default, under the visible warning "this destroys code indentation". 0·0·0 counts, 6 listeners.
+**SERVE-GRADE PASS:** 200 / 27,452 B / LM 14:50:47 > completed_at 14:50:37; negatives 0
+(`ported-page`, `inputText`, `outputText`, `statsBar`, `fixQuotes`, `copyOutput()`,
+`Copied clean text!`, `{{.`) plus **the buggy repair itself, validated BOTH ways**: the literal
+`​-‍` and the expression `replace(invisibles, ' ')` each count **1 in the tombstone bytes
+and 0 on the served page**. Positives = code-arm literals ("would still split words apart",
+"This text is already clean", "Nothing to copy yet", "destroys code indentation"). Tombstone
+re-read: removed ✓. Self-contained (0 external scripts) — no orphan.
+**Tally 15:00Z: 41 removed + 22 deployed = 63.**
+
+> A probe trap I walked into and caught, worth the line: my first pass at that both-ways negative
+> emitted `​-‍﻿ ` as ACTUAL unicode characters instead of the ASCII escape text
+> that is really in the ported source — my channel rewrote the escapes (the known emission trap).
+> It returned 0 and looked like a pass. **A negative control that returns 0 because the needle was
+> never the needle is indistinguishable from a real one.** Building it with `printf | sed` and
+> proving it =1 on the old bytes first is what made it evidence.
+
+### The correction: `deferred` is not a gate the crosslink rows pass through. It is where they stop.
+
+Filing this tool made 15 `tool_crosslink:` rows for this lane, so I checked them at the artefact —
+and the answer inverts a claim in this file.
+
+**[MEASURED 2026-08-25 15:00Z]** On site `6b49db8e`, `tool_crosslink:%` rows all-history:
+**41 `wont_fix` · 15 `deferred` · 13 `failed` · 2 `unresolved` · ZERO `complete`.** 71 rows since
+2026-08-05 and **not one cross-mention has ever been written on this site.** The 15 `deferred` ones
+are this lane's, all eight tools since 08-24, every one carrying
+`OWNED_PAGE_GUARD: page-build-handler declares refuse_owned_page and page <id> is
+rebuild_policy=owned — tool_crosslink finding parked at deferred, not dispatched (bugs_open/333)`.
+Their `created_at` and `updated_at` are the SAME SECOND, `handler_agent` is empty, and the spec
+carries `not_dispatchable: "status 'deferred' + empty handler_agent — deliberate; promoting this row
+dispatches work the handler is forbidden to do"`. A row that was never dispatched cannot have
+written a sentence.
+
+> **CORRECTED 2026-08-25, against this file's own entry of 2026-08-24 19:30Z** — heading *"the
+> crosslink emission is PROVEN"*, body *"TWO rows, one per named page (status `deferred` **at their
+> normal gate**)"*. The rows are real and the emission genuinely was proven; **"at their normal
+> gate" is the half that is wrong, because it reads as a waypoint and it is a terminus.** I inherited
+> that reading and filed eight tools' worth of `related_pages` believing the mentions were landing.
+> What caught it: checking the target ARTICLE instead of the row — the runbook told me to verify
+> "at the artefact rather than the item status" and then gave a query that only counts rows.
+
+**And the artefact check has a trap of its own, which nearly sold me the opposite error.** All three
+target articles I fetched DO contain a link to their tool — `learn/data/unicode-gremlins.html`
+carries a styled callout, *"Sanitize your inputs… Use our Regex-powered cleaner to scrub 20+ types
+of junk characters instantly"*, with a `Launch Text Sanitizer →` button. For ten minutes that read
+as the mention landing. It is not: that article's own slot (`e674ddd4`) was last written
+**2026-08-15 17:23**, ten days before I filed, and already contained the CTA. It is hand-authored
+ported copy. **A grep for the tool's name on the target page passes on content that predates your
+filing by a week** — date the slot's `updated_at` against your filing, or the check proves nothing.
+
+**What this does and does not change for this lane.** Keep carrying `related_pages` — the key is
+read, the finding is filed, and it is filed against the RIGHT pages; when the owned-page route
+exists, 15 correctly-targeted parked findings are the raw material and an omitted key would have
+left nothing to route. What changes is only what we may CLAIM: a filing delivers a targeted,
+parked finding, not a cross-mention. The refusal is `bugs_open/333`'s door working exactly as
+designed — that lane proved it live on 08-25 — and the parked row's own `what_to_do` names the
+route that does work on an owned page (a `section_edit` at `section-editor`, measured 44 complete /
+1 failed as of 08-24). Whether to drive 15 of those by hand is 333's call and the owner's, not this
+lane's to fire at eight articles unasked; relayed to [ac1f33] at 15:00Z.

@@ -243,3 +243,57 @@ moved on the original site, and its port notes said so plainly — the new one w
 fooled by a code comment that merely *mentioned* a script tag, so the class was twelve, not
 thirteen — the census, the correction, and the check that settles it are all written down.
 What remains: twenty ordinary larger tools, then your five applications one at a time.
+
+## 2026-08-25, mid-afternoon — the 41st tool, and a thing we have been quietly getting wrong for a week
+
+Text Sanitizer is rebuilt and live. 41 of 63.
+
+It was a good one to catch. The old version had a checkbox labelled "Remove Invisible Unicode",
+and it did not remove them — it swapped each one for an ordinary space. That sounds harmless until
+you read the tool's own teaching panel, which is *about* how an invisible character glued to a word
+makes an AI read a different word. The old tool's fix turned "System" into "Sys tem". It broke the
+word in a new way and then reported, in a green tick, that it had cleaned it. Its status bar also
+said "Text is clean" on text it had just rewritten, because it counted four kinds of curly quote
+while silently fixing twelve. The rebuild deletes the zero-width characters properly, normalises the
+genuine spaces to a plain space, tells you exactly which characters it found and how many, and it
+can only print "already clean" when the text coming out is character-for-character the text that
+went in. That last part is the bit I care about: it is not a better-behaved message, it is a message
+that is now impossible to get wrong.
+
+**The other thing is more important, and it is a correction to us.**
+
+Since 08-24 this lane has been carefully naming one or two related articles on each rebuild, so the
+new tool gets a sentence woven into a relevant guide — the thing that turns 63 separate tools into a
+site that hangs together. I checked today whether those sentences are actually appearing.
+
+They are not, and they never have. Not once, on this site, since the 5th of August. Seventy-one of
+these little "go and mention this tool over there" jobs have been created and every single one has
+died in one of four ways. The eight I have filed personally are all sitting in a state called
+"deferred", which I had inherited a note describing as "their normal gate" — as though it were a
+queue they were waiting in. It is not a queue. It is a parking space. The row is created and parked
+in the same second, with a flag on it that says, in as many words, do not promote this: dispatching
+it would ask a handler to do something it is forbidden to do.
+
+The reason turns out to be sound, and it is another team's work, not a fault. Our /learn/ articles
+are marked "owned" — meaning a specific pipeline is responsible for their content and nothing else
+may write into them. A guard enforces that. It was built deliberately, it is being actively proven
+this week by the session that owns it, and it is doing exactly what it says. Our cross-mention jobs
+walk into it and stop.
+
+I nearly talked myself out of this, which is the part worth telling you. When I went to look at the
+three articles in question, all three DID contain a link to their tool. For a few minutes that read
+as proof the mentions were landing after all. They were not ours: those articles were last written
+on the 15th of August, ten days before I filed anything, and the links were already in them — copy
+that came across with the original port. A search for the tool's name on the page passes on content
+that predates you by a week. The only honest version of that check is to look at when the article
+was last written and compare it with when you filed.
+
+So: nothing is broken and nothing is lost. We are still naming the right articles, the jobs are
+still being created against the right pages, and when the route for writing into owned pages exists,
+those parked jobs are precisely the raw material it needs — if we had skipped the step, there would
+be nothing to pick up. What changes is only what we are entitled to say. Filing a rebuild delivers a
+correctly-aimed job that is waiting, not a mention on a page. I have corrected our notes and fixed
+the check in our runbook, which had been telling sessions to "verify at the artefact" and then
+handing them a query that only counted the jobs — a test that could not fail. The team that owns the
+guard has the details; whether to go and place those eight tools' mentions by hand is their call and
+yours, not mine to fire off at eight articles unasked.
