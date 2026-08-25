@@ -643,3 +643,48 @@ by the site menu, which links all twelve months on every page:
 
 **Neither depends on a page-level count.** Any doc citing "twelve months on the page" as the evidence
 should cite the element instead.
+
+### 12h. ⚠ A SECOND PROMISE-BREAKING MECHANISM EXISTS, AND IT IS NOT THIS BUG — read this before re-filing 381
+
+The `loanzy_uk_example_site` lane's corrected promise-vs-delivery run found **three real failures on
+this very build**, and they fire the exact check 381 was filed on:
+
+| served page | its own heading promises | months in content |
+|---|---|---|
+| `/garden/index.html` | *"…MONTH BY MONTH"* | **3** |
+| `/home-maintenance/index.html` | *"…a home maintenance CALENDAR"* | **1** |
+| `/this-month/index.html` | *"Why one CALENDAR does not fit the whole country"* | **2** |
+
+**They are not 381, and the distinction is worth more than the closure.** 381 is *the page is composed
+of components that CANNOT EXPRESS its promise*. This is *the page is composed of a perfectly
+expressive component that DELIVERED NOTHING and vanished silently* — `content-listing`'s `articles`
+field is `source=query.blog_posts` with `on_missing=skip_section`, so with no blog posts the section
+disappears, leaving the heading writing a cheque the body cannot cash. **Same symptom sentence,
+different cause, different fix.** Routed by that lane to `bugs_open/384` as a CONTRIB.
+
+**The measurement that settles which one you are looking at — set-difference the served link sets**
+`[VERIFIED HERE INDEPENDENTLY 2026-08-25 13:21Z, control 404]`:
+
+```
+/contact.html          23 internal links
+/garden/index.html     23 internal links
+links on garden NOT also on contact:   ZERO
+```
+
+**Every page on this site serves the identical 23 links.** An index page with zero page-specific
+links is indexing nothing — its twelve month pages are reachable from it only in the sense that they
+are reachable from everywhere. That is a far sharper instrument than counting list items, and it
+distinguishes "the section rendered thin" from "the section is not there at all".
+
+⚠ **Why `384` is a cleaner exhibit here than its usual case:** the data is **already present** —
+twelve deployed month pages exist right now — and the listing is still empty. **It is not a race with
+late-arriving data; it is a missing invalidation.** Nothing re-renders the listing when its source
+appears.
+
+⚠ **AND THE TRAP FOR ANYONE RE-MEASURING THIS: strip anchor text or it is invisible.** A raw month
+count returns **twelve on every page of this site**, including `/contact.html`, which contains no
+months at all — the site menu links all twelve. **A raw check returns a vacuous PASS on precisely the
+pages that fail.** Negative control: `/contact.html` must score **0**; anchor-stripped it does.
+
+**Nothing here reopens 381.** The calendar is real and has now been measured twice, by two lanes, on
+two independent instruments (§12g).
