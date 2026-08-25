@@ -18106,3 +18106,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **⚠ related but NOT the same:** the `site_specs.<aspect>.<path>`-sourced-field landmine (edit reverted by the very rerender you fire to publish it). That one dies at the FIRST rerender; this one survives every rerender and dies at the first REWRITE. Opposite tells, same root: the authority is not where you edited.
 - **source:** `bugs_open/403` (2026-08-25) — generation-exact trace in `page_component_history`; three eaten restores across `docs/leopardessconsulting/` handoffs.
 - **added:** 2026-08-25, leopardess session
+
+### "Can this agent write X?" is a GO question — grepping `agent_definitions` for the column name misses most writers and answers confidently
+
+- **footprint:** `agent_definitions.default_config`, `pages.meta_description`, `sync_pages_to_db`, `upsertPage` (`platform/orchestration/actions/site_db_actions.go:1235`), `save_page_meta_description`, `apply_adoption_plan`, `HandlerCanWriteField`, and any capability / drift audit of the form *"which agents can change Y?"*
+- **fires when:** you are deciding whether a handler is capable of the work you are about to route at it, auditing whether a capability roster has gone stale, or answering a reviewer who has asked for an independently checkable version of a capability claim.
+- **the trap:** an agent reaches a column through an **ACTION**, and the action's name says nothing about the columns it touches. `upsertPage` writes `pages.meta_description` and is reached via a step whose `action` is `sync_pages_to_db`. `[MEASURED 2026-08-25]` **three** live agents carry a `sync_pages_to_db` step and **exactly one** names `meta_description` anywhere in its config — so a `default_config::text LIKE '%meta_description%'` census sees **1 of 3**. It returns a small, confident, dated number, and a demand control does not help: the control proves the query works, not that it is pointed at the right thing.
+- **the check — resolve to ACTIONS, then ask what the action does in Go:**
+  ```sql
+  SELECT type FROM agent_definitions
+   WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+     AND (default_config::text LIKE '%"sync_pages_to_db"%'
+       OR default_config::text LIKE '%"save_page_meta_description"%'
+       OR default_config::text LIKE '%"apply_adoption_plan"%');
+  ```
+  Build that action list by grepping the Go for writers of the column (`UPDATE <table> ... SET <col>`, plus the upsert conflict clauses, which are easy to miss because they read as inserts).
+- **⚠ whole-config `LIKE`, never a `jsonb_each` walk over `workflow.steps`** — a top-level walk misses steps nested in a loop's `sub_workflow` and returns a confident zero. On this exact question it silently dropped `meta-description-backfiller`, the one agent that can genuinely overwrite the column (register `WII-031`).
+- **⚠ and note WHICH DIRECTION your instrument errs in.** The action-name search over-reports (`council-gate` and `fix-proposer` match because they quote the names in prompt text). For a NEGATIVE claim — *"this handler CANNOT write it"* — over-reporting is the safe direction and is why the answer is trustworthy: an over-inclusive search returning nothing is strong evidence, where an under-inclusive one returning nothing is none at all. Reverse the claim and you need the opposite instrument.
+- **⚠ the reason this is a landmine and not a note: the AUDIT inherits it.** A staleness check written the obvious way — *"does this handler's config mention the column?"* — runs **green while wrong about two thirds of the population**, inside the very mechanism built to catch that mechanism going stale.
+- **source:** 2026-08-25, `architecture_review/RFC_057` §3 (the `vigilant_designer_offer_analysis` lane's measurement) and `bugs_open/395` / `WII-035`, whose own documented verification was this wrong shape and is corrected in place. `WRONG_CALLS.md` has the incident.
+- **added:** 2026-08-25, bugs_open/395 session

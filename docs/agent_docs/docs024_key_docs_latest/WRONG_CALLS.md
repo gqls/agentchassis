@@ -53671,3 +53671,50 @@ i-reproduced-the-gap-i-was-closing.
 > **Fifth in the arc, and the tightest example yet** — a correct query (`GROUP BY git_commit`)
 > answering "which builds have ever reported" while I read it as "which builds are running now".
 
+
+---
+
+## 2026-08-25 — I answered a council objection with a check that could not have answered it
+
+`bugs_open/395` session. The `debugging` seat objected that my guard's load-bearing claim —
+*"`page-build-handler` has no step that can write `pages.meta_description`"* — was *"asserted from a
+private code read, not independently checkable by SQL"*. Correct objection. So I wrote the SQL into
+the code, **with a demand control**, and committed it as the answer:
+
+```sql
+default_config::text LIKE '%meta_description%'   -- page-build-handler → false
+                                                 -- meta-description-backfiller → TRUE  (the control)
+```
+
+**The control was right and the QUESTION was wrong.** An agent can write that column without ever
+naming it. `upsertPage` (`site_db_actions.go:1235`) writes it and is reached through the **action**
+`sync_pages_to_db`. `[MEASURED 2026-08-25, the vigilant_designer_offer_analysis lane, RFC_057]` three
+live agents carry a `sync_pages_to_db` step and **exactly one** names `meta_description` anywhere in
+its config — so **two of three writers are invisible to a column-name search.**
+
+**Which columns an action touches is a GO fact, not a config fact.** My query asked *"does this
+config mention the column"* and I read the answer as *"can this agent write the column"*. Those
+differ by two thirds of the population.
+
+**What saved me is not that I checked, but that a PEER re-derived the underlying question.** I had a
+demand control, a dated measurement and a named instrument — every discipline this file exists to
+enforce — and the finding still rested on an instrument that could not see most of its subject. **A
+control proves your instrument is working. It cannot tell you the instrument is pointed at the wrong
+thing.**
+
+**The premise survived** re-checking the sound way (search the ACTION NAMES, whole-config so a nested
+`sub_workflow` step cannot hide one): `page-build-handler` and `page-content-writer` are not in the
+set. So nothing shipped false — but that was luck about this particular handler, not method.
+
+**The cheap check, stated so it generalises:** to ask whether an agent can WRITE something, resolve
+its steps to ACTIONS and ask what those actions do in Go. Never grep config for the column, table or
+field name — config names the action, not the effect.
+
+**And the second-order consequence, which is the reason this is worth an entry:** the staleness audit
+I conceded I still owe would have been built the same wrong way. An audit asking *"does this
+handler's config mention `meta_description`?"* runs **GREEN while wrong about two thirds of the
+population** — the blind spot reproduced inside the check built to detect it. That is the third time
+in one session that a mechanism nearly inherited the defect it was written to catch.
+
+Family: a-control-cannot-tell-you-the-instrument-points-the-wrong-way,
+config-names-the-action-not-the-effect, the-audit-inherits-the-blind-spot.
