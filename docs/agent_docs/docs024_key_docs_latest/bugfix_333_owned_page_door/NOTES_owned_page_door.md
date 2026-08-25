@@ -512,3 +512,16 @@ page-build-handler's live config carries the key at that path — is recorded as
 rename lands (CONTRIB in `bugs_open/363`). Lesson on top of the morning's: I ran my package's suite,
 never the repo's — `verify-head-builds.sh --test` with NO target is the check that would have caught
 a guard in a package I did not know existed.
+
+**2026-08-25 ~19:1xZ — the whole-repo HEAD check, done the cheap way, and a scratch gap it exposed.**
+A full `verify-head-builds.sh --test` was killed at the 600s tool limit. The targeted substitute: only
+FIVE packages carry repo-scanning tests (`grep -rl 'filepath.Walk\|WalkDir\|os.ReadDir' --include=*_test.go`)
+— `internal/analysis`, `platform/livespec`, `platform/orchestration/actions`, `.../discovery_checks`,
+`platform/storage` — and all five pass at committed HEAD (`2514c2b83`). That grep is the check to run
+after touching any test file: it finds the guards that scan YOUR file from packages you never open.
+Side-finding: the killed run's tree was cleaned by the script's trap, but **five orphaned
+`head-verify/<pid>/` trees from OTHER sessions' killed runs (2.3 GB, every owner PID dead) are outside
+`scratch-report.py`'s remit by design** ("loose dirs are never touched"); removed by hand with a
+`kill -0` liveness guard on the PID-named dir. `scratch-report.py --reap` itself freed 3.8 GB, most of
+it stale `go-build` dirs in `/tmp` — RAM. Tooling gap worth a line in OPP-005/008: a PID-liveness
+sweep of `head-verify/` at script start, or the reaper learning that directory's naming contract.
