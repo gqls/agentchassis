@@ -216,6 +216,11 @@
     "writer": "platform/orchestration/actions/complete_work_item_no_change.go:504",
     "why": "A gate that could not read a handler's result — the item completed UNGRADED, so rows here mean a handler's result shape drifted. A reader is COMMISSIONED (owner decision 4, 2026-08-25 — bugs_open/393; every row is item_type dark_section_audit, so there is also ONE concrete shape fix); ruled human-evidence per decision 1 option (a) and upgraded to consumed when the reader ships. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
   },
+  "ACCEPTANCE_PREDICATE_NOT_EVALUABLE": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/complete_work_item_acceptance_predicate.go:413",
+    "why": "Completion gate 1c could not evaluate an item's OWN stored acceptance predicate, so the item completed ungraded by it (bugs_open/395, CLM-024). Declared human-evidence for the same reason as its sibling NO_CHANGE_GATE_UNREADABLE_RESULT, which is the same shape one file along: no automated reader, and the rows are what a person reads when asking whether the gate is grading anything. ITS ONE INTERESTING PROPERTY, which is why it is worth writing at all: a stored predicate was evaluable AT EMISSION by construction (the emit gate refuses to store one that is not), so a row here means the page changed shape, the vocabulary moved, or THIS GATE HAS GONE BLIND — and if it fires on every item of an armed type it is the third, which otherwise wears the same face as the acceptable outcome 'no item carried a predicate'. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567): the blind-gate case is a standing property that re-fires on every completion, so a 30-day window cannot hide it."
+  },
   "COMPONENT_COLLISION_DIVERTED": {
     "disposition": "human-evidence",
     "writer": "platform/orchestration/actions/store_generated_component_action.go:127",

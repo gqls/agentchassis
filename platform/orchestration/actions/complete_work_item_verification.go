@@ -50,13 +50,21 @@ import (
 )
 
 // verifyBeforeComplete runs the item-type-scoped completion gates: the no-change
-// gate (1b, complete_work_item_no_change.go) and then the registered verifier (2),
-// if any.
+// gate (1b, complete_work_item_no_change.go), the acceptance-predicate gate (1c,
+// complete_work_item_acceptance_predicate.go), and then the registered verifier
+// (2), if any.
 //
-// Returns a map to embed at result._verification (nil when neither gate has
-// anything to say), whether completion may proceed, and a non-nil abstention when
-// the no-change gate could not read the handler's payload — which the CALLER must
-// record, exactly as it does for handlerReportedFailure's unknown verdict.
+// Returns a map to embed at result._verification (nil when no gate has anything to
+// say), whether completion may proceed, and up to two notes the CALLER must record
+// — exactly as it does for handlerReportedFailure's unknown verdict. Both notes are
+// carried out rather than written here because recording needs ActionParams, which
+// this function deliberately does not take.
+//
+// ⚠ A NON-NIL PAYLOAD DOES NOT MEAN BLOCKED. Since gate 1c, a completion that
+// PROCEEDS can still carry a verdict — a satisfied predicate, or a refuting one on a
+// type that only records. The caller stamps the payload and then reads mayComplete;
+// conflating the two would have made gate 1c's permit arm invisible, which is the
+// one arm that proves the gate is not simply refusing everything.
 //
 // handlerResult is the payload the handler returned, passed in rather than read
 // back from site_work_items.result because at this point it has not been stored:
@@ -86,12 +94,12 @@ func loadWorkItemVerifyRow(ctx context.Context, db *sql.DB, itemID uuid.UUID) (w
 }
 
 func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID,
-	handlerResult map[string]interface{}, logger *zap.Logger) (map[string]interface{}, bool, *noChangeAbstention) {
+	handlerResult map[string]interface{}, logger *zap.Logger) (map[string]interface{}, bool, *noChangeAbstention, *acceptancePredicateNote) {
 	row, err := loadWorkItemVerifyRow(ctx, db, itemID)
 	if err != nil {
 		// Row missing or unreadable — the completion UPDATE will no-op or
 		// fail on its own; nothing to verify here.
-		return nil, true, nil
+		return nil, true, nil, nil
 	}
 	itemType, specJSON, siteID, pageID := row.ItemType, row.SpecJSON, row.SiteID, row.PageID
 
@@ -111,7 +119,7 @@ func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 			"status":    "handler_reported_no_change",
 			"item_type": itemType,
 			"detail":    detail,
-		}, false, nil
+		}, false, nil, nil
 
 	case noChangeUnreadableBlocked:
 		// The type declared that it will not certify what this gate cannot read
@@ -128,7 +136,7 @@ func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 			"status":    "handler_result_unreadable",
 			"item_type": itemType,
 			"detail":    detail,
-		}, false, nil
+		}, false, nil, nil
 
 	case noChangeUnreadableAbstained:
 		// Completes, but the caller records why this gate abstained. Gate 2 still
@@ -136,12 +144,55 @@ func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 		abstained = &noChangeAbstention{ItemType: itemType, Shape: detail}
 	}
 
+	// Completion gate 1c (bugs_open/395): does the item's OWN stated acceptance
+	// criterion still refute the page? Opt-in per item_type, inert for every type
+	// that has not asked for it and for every item carrying no predicate.
+	//
+	// BEFORE gate 2, because it grades the item's own criterion while gate 2 grades
+	// the type's generic one — an item whose own terms are still unmet should not be
+	// handed a generic `verified` that contradicts them. See the file header of
+	// complete_work_item_acceptance_predicate.go.
+	var predNote *acceptancePredicateNote
+	predPayload, predVerdict := gradeAcceptancePredicate(ctx, db, itemType, specJSON, siteID, logger)
+	switch predVerdict {
+	case predicateGateBlocked:
+		// Gate 2 is skipped for the same reason it is on gate 1b's block arms: the
+		// item is not completing, so there is nothing to grade.
+		predPayload["status"] = "acceptance_predicate_refuted"
+		return predPayload, false, abstained, nil
+
+	case predicateGateBlind:
+		// Completes, and the caller records why this gate could not judge it — the
+		// same treatment gate 1b's abstention gets, and for the same reason.
+		predNote = &acceptancePredicateNote{ItemType: itemType, Detail: fmt.Sprint(predPayload["detail"])}
+	}
+
 	verifier, policy := checks.GetVerifier(itemType)
 	if verifier == nil {
-		return nil, true, abstained
+		return withAcceptancePredicate(nil, predPayload), true, abstained, predNote
 	}
 	payload, mayComplete := runRegisteredVerifier(ctx, db, itemID, itemType, specJSON, siteID, pageID, verifier, policy, logger)
-	return payload, mayComplete, abstained
+	return withAcceptancePredicate(payload, predPayload), mayComplete, abstained, predNote
+}
+
+// withAcceptancePredicate merges gate 1c's verdict into gate 2's payload without
+// either one being able to erase the other.
+//
+// It is a nested key rather than a flattened one because the two gates answer
+// DIFFERENT questions and both answers are worth keeping: gate 2's `status` is the
+// type's generic verdict and is what blockedCompletionReason switches on, while gate
+// 1c's is about this item's own criterion. An item can legitimately carry
+// status="verified" AND a still-refuting predicate — that pair IS bugs_open/395's
+// finding, and flattening would destroy exactly the row that shows it.
+func withAcceptancePredicate(payload, pred map[string]interface{}) map[string]interface{} {
+	if pred == nil {
+		return payload
+	}
+	if payload == nil {
+		payload = map[string]interface{}{}
+	}
+	payload[acceptancePredicateKey] = pred
+	return payload
 }
 
 // runRegisteredVerifier is completion gate 2, split out of verifyBeforeComplete so
@@ -315,6 +366,21 @@ func blockedCompletionReason(v map[string]interface{}) (string, string) {
 				"item type refuses to certify what it cannot read (bugs_open/302; RFC_017's rule that " +
 				"\"I could not check\" is not \"I checked and it is fixed\"): " + detail,
 			"handler_result_unreadable"
+	}
+	// Sixth cause (bugs_open/395), and it is distinct from all five above because it
+	// is the only one grading a criterion the ITEM ITSELF stated rather than one the
+	// platform brought. The other five say the handler did nothing, or reported
+	// failure, or could not be checked. This says the handler did something real —
+	// often a rebuild and a deploy with a commit sha — and the thing the finding
+	// asked for is still not true of the page. An operator handed any of the other
+	// messages here would go looking for a handler that failed, and find one that
+	// worked.
+	if status, _ := v["status"].(string); status == "acceptance_predicate_refuted" {
+		detail, _ := v["detail"].(string)
+		page, _ := v["page"].(string)
+		return "completion blocked: the item's own stated acceptance criterion is still refuted by page \"" +
+				page + "\" after the handler's work (bugs_open/395; CLM-024): " + detail,
+			"acceptance_predicate_refuted"
 	}
 	detail, _ := v["detail"].(string)
 	return "completion blocked: post-fix verification found the defect still present: " + detail,

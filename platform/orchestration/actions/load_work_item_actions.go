@@ -1054,15 +1054,33 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 	//        opted in. A saga that altered no artefact cannot have repaired one, and
 	//        for the type opted in today the route provably cannot repair it at all
 	//        (bugs_open/213 D1, complete_work_item_no_change.go).
+	//   1c — the item's OWN stated acceptance criterion, for the item types that
+	//        have opted in. A handler can do real work — a rebuild, a deploy, a
+	//        commit sha — and change something OTHER than what the finding asked
+	//        for, which closes the item exactly as a correct repair would
+	//        (bugs_open/395, complete_work_item_acceptance_predicate.go).
 	//   2  — for item types with a registered verifier, confirm the defect is
 	//        actually gone. A handler saga can return success without touching the
 	//        defect (no-op paths exit through success-labelled complete_workflow
 	//        steps) — see complete_work_item_verification.go for the policy.
 	// resultData is passed in because the handler's own report is not yet stored:
 	// this function marshals it below, AFTER the gates.
-	verification, mayComplete, abstained := verifyBeforeComplete(ctx, params.DB, itemID, resultData, logger)
+	//
+	// ⚠ `verification != nil` is NOT "blocked" and has not been since gate 1c: a
+	// completion that proceeds can carry a verdict too (a satisfied predicate, or a
+	// refuting one on a type that only records). Stamp the payload, THEN read
+	// mayComplete — they are separate facts.
+	verification, mayComplete, abstained, predNote := verifyBeforeComplete(ctx, params.DB, itemID, resultData, logger)
 	if verification != nil {
 		resultData["_verification"] = verification
+	}
+	if predNote != nil {
+		// Gate 1c opted in for this type and could not evaluate the item's own
+		// stored predicate. The item still completes — a predicate this gate cannot
+		// read is not evidence the handler failed — so it lands on a queryable
+		// surface rather than only in a pod log that a roll destroys. If it fires
+		// for EVERY item of the type, the fault is the gate's, not the model's.
+		recordAcceptancePredicateBlindSpot(ctx, params, itemID, *predNote, logger)
 	}
 	if abstained != nil {
 		// Gate 1b opted in for this type but could not read the payload. The item
@@ -1078,8 +1096,10 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	if !mayComplete {
-		// Two distinct causes reach here since RFC_017 (the defect persisting, and
-		// verification being unable to run at all under a fail-closed type); the
+		// Several distinct causes reach here — the defect persisting, verification
+		// being unable to run at all under a fail-closed type (RFC_017), the handler
+		// reporting it changed nothing, an unreadable payload, and since
+		// bugs_open/395 the item's own stated criterion still being refuted. The
 		// message and reason code must say which, because this text is what a human
 		// reads off the item's error column.
 		msg, reason := blockedCompletionReason(verification)

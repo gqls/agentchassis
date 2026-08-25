@@ -59,12 +59,26 @@
 //
 // THE CONTRACT, both directions:
 //
-//	excluded  ⇔  (has a registered verifier)  OR  (has a noChangeGates entry)
+//	excluded  ⇔  (has a registered verifier)
+//	             OR (has a noChangeGates entry)
+//	             OR (has an acceptancePredicateGates entry that REFUSES)
 //
-// Forward: a type either gate can block must be excluded, or the sweep completes
-// past the gate. Reverse: an excluded type no gate can grade would fall through to
-// the timeout reset forever — the churn bugs_open/006 §C was filed about — so an
+// Forward: a type any gate can block must be excluded, or the sweep completes past
+// the gate. Reverse: an excluded type no gate can grade would fall through to the
+// timeout reset forever — the churn bugs_open/006 §C was filed about — so an
 // exclusion must be earned by a gate that exists.
+//
+// ⚠ THE THIRD CLAUSE IS CONDITIONAL ON THE ENTRY'S OUTCOME, and that is the whole
+// reason it is written this way (bugs_open/395, gate 1c). Unlike the other two
+// rosters, membership of acceptancePredicateGates does NOT imply the power to block:
+// an entry declaring predicateRecords stamps a verdict on the row and lets the
+// completion through. Adding a recording type to the exclusion list would trip the
+// REVERSE direction — an exclusion nothing can earn — so only refusing entries
+// count. What this buys is the thing no comment can buy: PROMOTING an entry from
+// predicateRecords to predicateRefuses is a BUILD FAILURE until the exclusion and its
+// migration ship with it. Without that, the promotion would arm a refusal the
+// claimed-item-timeout sweep bypasses in silence, which is bugs_closed/317 again on a
+// third gate.
 package actions
 
 import (
@@ -99,6 +113,19 @@ func TestClaimTimeoutExclusionCoversBothCompletionGates(t *testing.T) {
 			gated[itemType] = "a noChangeGates entry (gate 1b)"
 		}
 	}
+	// Gate 1c, and ONLY its refusing entries — see the header. A recording entry
+	// blocks nothing, so it must not be counted here or the reverse direction below
+	// would demand an exclusion it has not earned.
+	for itemType, rule := range acceptancePredicateGates {
+		if rule.OnRefuted != predicateRefuses {
+			continue
+		}
+		if existing, dup := gated[itemType]; dup {
+			gated[itemType] = existing + " and a REFUSING acceptancePredicateGates entry (gate 1c)"
+		} else {
+			gated[itemType] = "a REFUSING acceptancePredicateGates entry (gate 1c)"
+		}
+	}
 
 	// Both halves must be non-empty or the comparison proves nothing. Asserted
 	// separately so a failure says WHICH roster went missing.
@@ -109,6 +136,15 @@ func TestClaimTimeoutExclusionCoversBothCompletionGates(t *testing.T) {
 	if len(noChangeGates) == 0 {
 		t.Fatal("noChangeGates is empty — gate 1b is inert; this guard would silently narrow " +
 			"back to the gate-2-only contract that bugs_closed/317 was filed about")
+	}
+	// Gate 1c is asserted to EXIST, not to have refusing members: as of 2026-08-25
+	// its only entry records rather than refuses, deliberately (there is no live
+	// negative control yet — see acceptancePredicateGates). An empty ROSTER, though,
+	// means the gate was deleted and this guard has quietly narrowed back to the
+	// two-roster contract, which is the failure mode of the two checks above.
+	if len(acceptancePredicateGates) == 0 {
+		t.Fatal("acceptancePredicateGates is empty — gate 1c is inert; this guard would silently narrow " +
+			"back to the two-roster contract, and bugs_open/395's completion-time check would be gone")
 	}
 
 	for itemType, why := range gated {

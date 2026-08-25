@@ -107,6 +107,7 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"regexp"
 	"strings"
@@ -150,6 +151,73 @@ const (
 	acceptancePredicateKey         = "acceptance_predicate"
 	acceptancePredicateRejectedKey = "acceptance_predicate_rejected"
 )
+
+// The EMISSION PROVENANCE keys, stamped onto a predicate that earned its place,
+// and the single reason this file owns both the stamp and the strip.
+//
+// ⚠ A STORED PREDICATE CANNOT BE FED BACK TO EvaluateAcceptancePredicate, and the
+// failure is silent in the worst direction. That function enforces a CLOSED KEY
+// SET per type (acceptancePredicateFields) — a key it does not read rejects the
+// predicate, because "a key no checker reads is an assertion the artefact appears
+// to make and does not". These two keys are added AFTER evaluation, so the shape
+// that lands in site_work_items.spec carries two keys the evaluator refuses. A
+// consumer that reads the column and evaluates it verbatim gets
+// PredicateInapplicable on EVERY live predicate, with a reason that reads like a
+// vocabulary problem in the model's output rather than a bug in the reader.
+//
+// It was not hypothetical: the completion-time gate (gate 1c,
+// complete_work_item_acceptance_predicate.go) is the first consumer, and the only
+// test over real live data — TestTheFirstLiveEmittedPredicatesStillRefuteAfterTheFix
+// — hand-writes the predicates WITHOUT these keys, so it exercises a shape that
+// does not exist in the database and could never have caught it.
+//
+// WIDENING THE KEY SET WAS THE OTHER OPTION AND IT IS WRONG: it would let a MODEL
+// write its own `verdict_at_emission` and have the gate accept it, which is the
+// self-attribution failure of bugs_closed/335 exactly. So the stamp and the strip
+// are defined together here, and pinned to each other by
+// TestStampAndStripAreInverses — which fails the moment a THIRD provenance key is
+// added to storedPredicate and not to this list.
+const (
+	emissionVerdictKey  = "verdict_at_emission"
+	emissionEvidenceKey = "evidence_at_emission"
+)
+
+// emissionProvenanceKeys is what predicateForEvaluation removes. Derived from
+// nothing — it is the list, and the test above is what keeps it honest.
+var emissionProvenanceKeys = []string{emissionVerdictKey, emissionEvidenceKey}
+
+// storedPredicate returns the form written into the finding: the author's
+// predicate plus the evidence that earned it its place, so a later reader (or the
+// completion-time consumer) can see that it was evaluated, when, and what it said
+// — rather than taking "there is a predicate here" on trust.
+func storedPredicate(pred map[string]interface{}, reason string) map[string]interface{} {
+	stored := make(map[string]interface{}, len(pred)+len(emissionProvenanceKeys))
+	for k, v := range pred {
+		stored[k] = v
+	}
+	stored[emissionVerdictKey] = string(PredicateRefutes)
+	stored[emissionEvidenceKey] = reason
+	return stored
+}
+
+// predicateForEvaluation is storedPredicate's inverse: the shape
+// EvaluateAcceptancePredicate will accept, from the shape site_work_items.spec
+// actually holds. Copies rather than mutating, because the caller's map is the
+// row's own decoded spec and a consumer must not quietly rewrite it.
+//
+// It is deliberately NOT tolerant of unknown keys — anything this file did not
+// stamp travels through to the evaluator and is refused there, which is the
+// closed-key-set rule doing its job on a predicate somebody hand-edited.
+func predicateForEvaluation(stored map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(stored))
+	for k, v := range stored {
+		out[k] = v
+	}
+	for _, k := range emissionProvenanceKeys {
+		delete(out, k)
+	}
+	return out
+}
 
 // acceptancePredicateFields is the closed key set per predicate type — the
 // experienceCheckTypeFields pattern, for the same reason (P7): a key no checker
@@ -572,7 +640,7 @@ func VerifyAcceptancePredicatesAction(ctx context.Context, params ActionParams) 
 		}, nil
 	}
 
-	subjects, err := loadAcceptancePredicateSubjects(ctx, params, siteID)
+	subjects, err := loadAcceptancePredicateSubjects(ctx, params.DB, siteID)
 	if err != nil {
 		// Every predicate becomes inapplicable rather than the run failing: the
 		// findings still deserve to be filed.
@@ -657,17 +725,10 @@ func VerifyAcceptancePredicatesAction(ctx context.Context, params ActionParams) 
 
 		verdict, reason := EvaluateAcceptancePredicate(pred, subject)
 		if verdict == PredicateRefutes {
-			// The predicate is stored WITH the evidence that earned it its
-			// place: a later reader (or the completion-time consumer) can see
-			// that it was evaluated, when, and what it said — rather than
-			// having to take "there is a predicate here" on trust.
-			stored := make(map[string]interface{}, len(pred)+3)
-			for k, v := range pred {
-				stored[k] = v
-			}
-			stored["verdict_at_emission"] = string(PredicateRefutes)
-			stored["evidence_at_emission"] = reason
-			copied[acceptancePredicateKey] = stored
+			// Stamped through storedPredicate, whose inverse the completion-time
+			// consumer must use — see emissionProvenanceKeys for why evaluating
+			// the stored form verbatim is a silent total failure.
+			copied[acceptancePredicateKey] = storedPredicate(pred, reason)
 			kept++
 			out = append(out, copied)
 			continue
@@ -762,8 +823,8 @@ func predicatePageName(pred, item map[string]interface{}) string {
 // above is true of TODAY and the helper stays true after a vocabulary change.
 // The silent-inert failure mode is separately made LOUD below — a measurement
 // that a hazard is not live today is not a guard against it.
-func loadAcceptancePredicateSubjects(ctx context.Context, params ActionParams, siteID uuid.UUID) (map[string]AcceptancePredicateSubject, error) {
-	rows, err := params.DB.QueryContext(ctx, `
+func loadAcceptancePredicateSubjects(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[string]AcceptancePredicateSubject, error) {
+	rows, err := db.QueryContext(ctx, `
 		SELECT name, COALESCE(title, ''), COALESCE(meta_description, '')
 		FROM pages
 		WHERE site_id = $1

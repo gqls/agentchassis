@@ -48,7 +48,7 @@ func TestVerifyBeforeComplete_UnreadableRefusesBlocks(t *testing.T) {
 	defer db.Close()
 	itemRow(mock, "dark_section_audit")
 
-	payload, mayComplete, abstained := verifyBeforeComplete(
+	payload, mayComplete, abstained, _ := verifyBeforeComplete(
 		context.Background(), db, uuid.New(), spawnRecordPayload(), zap.NewNop())
 
 	if mayComplete {
@@ -87,7 +87,7 @@ func TestVerifyBeforeComplete_ReadableZeroStillBlocksAsNoChange(t *testing.T) {
 	defer db.Close()
 	itemRow(mock, "dark_section_audit")
 
-	payload, mayComplete, _ := verifyBeforeComplete(
+	payload, mayComplete, _, _ := verifyBeforeComplete(
 		context.Background(), db, uuid.New(), fixerEnvelope(float64(0), float64(0)), zap.NewNop())
 
 	if mayComplete {
@@ -113,7 +113,7 @@ func TestVerifyBeforeComplete_UnregisteredTypeCompletes(t *testing.T) {
 	// payload that is refused above.
 	itemRow(mock, "needs_content_planning")
 
-	payload, mayComplete, abstained := verifyBeforeComplete(
+	payload, mayComplete, abstained, _ := verifyBeforeComplete(
 		context.Background(), db, uuid.New(), spawnRecordPayload(), zap.NewNop())
 
 	if !mayComplete {
@@ -145,7 +145,7 @@ func TestVerifyBeforeComplete_AbstainDeclarationStillCompletes(t *testing.T) {
 	defer db.Close()
 	itemRow(mock, "test_wiring_abstains")
 
-	payload, mayComplete, abstained := verifyBeforeComplete(
+	payload, mayComplete, abstained, _ := verifyBeforeComplete(
 		context.Background(), db, uuid.New(), spawnRecordPayload(), zap.NewNop())
 
 	if !mayComplete {
