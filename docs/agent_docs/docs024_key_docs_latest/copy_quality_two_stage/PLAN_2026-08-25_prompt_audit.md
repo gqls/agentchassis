@@ -63,8 +63,19 @@ the writing:
 
 ## 3. Phases
 
-- **Phase 0 — census.** DONE above, dated.
-- **Phase 1 — mechanical pre-scan (cheap, complete).** Extract every string in the census to a
+- **Phase 0 — census.** DONE above, dated. **Corrected same day by phase 1:** the house voice
+  block is a SEVENTH population (F — `agent_default_configs` row `voice_style_block`,
+  `config->>'text'`, not a JSON-walk hit); population D's 717,501 chars is an UPPER BOUND (the
+  regex captures comment spans between stray backticks); the workflow columns (E) hold 5 strings,
+  0 demonstrations. Rendered prompts (R) added as the per-call truth.
+- **Phase 1 — mechanical pre-scan. DONE 2026-08-25** — `audit_prompt_demonstrations.py`,
+  `AUDIT_prompts/PHASE1_2026-08-25_league_table.md` (599 strings) and
+  `AUDIT_prompts/PHASE1_2026-08-25_findings.md`. Headline: the writer's RENDERED prompt carries
+  ~64 negation demonstrations + "plainly" ×14 + "honest" ×10 per call (6,452 calls/30d), stacked
+  from template + house voice (17) + brief (12–31/site, 25 of 30 sites ≥10) + guidance; and the
+  about-page premise the owner rejected is INSTRUCTED by migration 223's remedy clause in the
+  writer template (textual match measured; causation `[INFERRED]`, test named in the findings).
+  ~~(cheap, complete).~~ Extract every string in the census to a
   working table; run `ScanDefineByNegation` + a scaffold/candour/presumption pattern pass over each;
   size the two unsized populations. Output: a league table — demonstrations per prompt ×
   reachability × call volume. No judgments yet; this ORDERS the work, it does not decide it

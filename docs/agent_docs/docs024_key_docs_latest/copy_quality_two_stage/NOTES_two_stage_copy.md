@@ -2668,3 +2668,41 @@ demonstrations × reachability × call volume. **No fixes proposed today — his
 
 Receipt acknowledged to the loanzy lane (they can close their asking file); the two escalations are
 cross-referenced in both directions.
+
+---
+
+## 2026-08-25 (night) — prompt audit phase 1 DONE, and it found where the about-page premise comes from
+
+`audit_prompt_demonstrations.py` → `AUDIT_prompts/PHASE1_2026-08-25_league_table.md` (599 strings,
+7 populations) + `PHASE1_2026-08-25_findings.md`. Two census misses caught and recorded: the house
+voice block is NOT reachable by any JSON walk over `agent_definitions` (it is an
+`agent_default_configs` row named `voice_style_block`, text at `config->>'text'` — ~~the register's
+wording reads like a column~~ **CORRECTED same night: the register says "row" and gives the query
+(CQ-022 :227/:230); a sweep subagent's PARAPHRASE read like a column and I censused off the
+paraphrase without opening the entry — a report is another doc**); and the Go-literal regex captures comment spans between stray
+backticks, so D is an upper bound. The rendered prompt (`llm_call_log.prompt_rendered`, step names
+`process_sections_loop_iter_N_generate_content`) was added as the per-call truth.
+
+**The numbers `[MEASURED 2026-08-25]`:** each rendered `page-content-writer` call (~48K chars, three
+consecutive calls agree ±2) demonstrates **63–65 negation constructions**, "plainly" **×14**,
+"honest" **×10**, 35 em dashes; 6,452 calls/30d. Stacked: template 4 + house voice **17** (2.8/1k,
+incl. *"Say what a thing IS rather than what it is not"*) + brief **12–31 per site** (29 of 30
+sites, 25 at ≥10) + guidance 0–8 per component (30 of 140 at ≥3). The 305 lane's "16 per call" was
+a partial count of this object.
+
+**The finding that answers the owner's homegarden review:** the writer template's
+*STRICT RULE — NEVER PROMISE ACCURACY YOU CANNOT GUARANTEE* (migration 223, owner direction
+07-26, from oufe.com overclaiming *"Every factual claim is sourced to a named, dated primary
+document"*) carries a remedy clause: *"If the section calls for a statement about method, say what
+we DO … ONLY how the content is sourced: we name our sources and their dates … say plainly that we
+can still be wrong."* That maps line-for-line onto homegarden's *Sourced and dated / Sources named /
+Timing stated plainly / What this site will not do* and finetuning's *"we'll say plainly if that
+changes"*. Textual correspondence measured; **causation `[INFERRED]`** — the test is a method
+section built with and without the remedy, compared at the served page. The BAN half of that rule
+is right and stays; the REMEDY half is the leak. A rule written to stop one site narrating its
+rigour instructed a milder narration fleet-wide — displacement, again.
+
+Also on the table: the copy-editor's own prompt demonstrates the tell 6 times ("THE READER, NOT THE
+SITE."); a loanandmortgagecalculator tool-component family carries 5–8 `not just` each in
+`llm_guidance` (CQ-005 shape); reviewer prompts top the absolute table and are demoted by reach.
+No fixes proposed; phase 2's reading order is in the findings. Owner-facing account in README.

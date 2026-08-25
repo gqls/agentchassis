@@ -763,3 +763,34 @@ section of every page passes through.
 
 **Per your instruction, no fixes have been proposed yet.** The refresh and the audit plan are the
 deliverables today; fixing starts from them.
+
+---
+
+**2026-08-25, night.** The first pass of the prompt audit is done, and it found the thing you
+pointed at.
+
+**Where the about-page premise comes from.** Every time the writer produces a section, it reads a
+rule we added on 26 July to stop a site claiming its content was infallible — a good rule with a
+real cause. But the same rule goes on to tell the writer what to say *instead*: when a section is
+about method, describe how the content is sourced, that we name sources and dates, and "say
+plainly that we can still be wrong". Put that instruction in front of a writer building an "about"
+page and you get fourteen headings about sourcing, dates, plainness and what the site won't do. The
+words you objected to — "names the source behind any figure", "say plainly", "what this site will
+not do" — are close to the instruction's own words. I'm calling this a strong lead rather than a
+proven cause: the test is to build a method section with and without that clause and compare the
+pages, and that comes next. The half of the rule that bans overclaiming stays; it's the "say this
+instead" half that leaks.
+
+**How much the machinery teaches the habits it bans.** Counted on what the writer actually reads —
+the full assembled instruction of about 48,000 characters per section, three consecutive real calls
+agreeing to within two — it demonstrates the "X, not Y / rather than" construction about
+sixty-four times, uses "plainly" fourteen times and "honest" ten times. That comes from four layers
+stacked: the writer's rule text, the house voice (which says "Say what a thing IS rather than what
+it is not" — the rule against the habit, written in the habit), the site's own brief (every live
+site's brief carries it, most more than ten times), and the per-field guidance in the component
+library. Six and a half thousand of these calls a month. No single layer looks bad on its own;
+together they are the loudest voice in the room.
+
+**What I have not done:** proposed fixes. The reading order for the judgment pass is written down
+— the writer's rule block first, then the house voice, then the site briefs, then the planners that
+decide what an about page is for in the first place.

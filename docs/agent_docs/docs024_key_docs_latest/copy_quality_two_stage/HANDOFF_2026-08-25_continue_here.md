@@ -21,8 +21,14 @@ the machinery must "up their game a lot"; refresh context BEFORE proposing fixes
 in DB and code against "is it encouraging AI styles of writing". The refresh is done —
 **`REFRESH_2026-08-25_deep_context_the_accumulated_copy_discussion.md`** is now the lane's
 assembled context and the first read for any new session, ahead of the summary below. The audit is
-scoped and censused — **`PLAN_2026-08-25_prompt_audit.md`** — with phase 1 (mechanical pre-scan +
-sizing the two unsized populations) as the next executable step. His sharpest new datum: the
+scoped and censused — **`PLAN_2026-08-25_prompt_audit.md`** — and **phase 1 is DONE**
+(`AUDIT_prompts/PHASE1_2026-08-25_findings.md`): the rendered writer prompt demonstrates ~64
+negation constructions + "plainly" ×14 per call, and **the about-page premise was INSTRUCTED** —
+migration 223's remedy clause in the writer template ("say what we DO … we name our sources and
+their dates … say plainly that we can still be wrong"), textual match measured, causation
+`[INFERRED]` with its test named. **Next executable step: phase 2's judgment pass in the findings'
+reading order, and the Finding-2 causal test (a method section built with vs without the clause,
+compared at the served page).** His sharpest new datum: the
 about.html PREMISE is wrong (14/17 methodology headings), his phrase list is a SAMPLE, and fixes
 that remove named strings while keeping the page's shape will not satisfy it.
 
