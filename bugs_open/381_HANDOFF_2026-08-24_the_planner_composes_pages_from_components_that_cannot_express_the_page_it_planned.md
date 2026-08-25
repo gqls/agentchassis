@@ -325,3 +325,67 @@ two-page brochure exercises none of them.
 that was the point of the bug has never run. **Do not close on the writer evidence alone.** Close
 when one build places at least one of the three components, or demonstrably declines to and the
 reason is understood.
+
+---
+
+## 11. ⭐ PROVEN ON A LIVE GREENFIELD BUILD, 2026-08-25 — `homegarden.uk`
+
+**Continue here:** `docs/agent_docs/docs024_key_docs_latest/bugfix_381_inexpressive_composition/HANDOFF_2026-08-25_continue_here.md`
+**Evidence:** that lane's `evidence/` — the captured planner prompt (114KB) and the mint snapshot.
+
+Build dispatched 2026-08-25 **10:21:49Z**, planner ran **11:30:52Z**, first page built ~11:38Z.
+
+### 11a. The three claims, each measured at the right layer
+
+| claim | measured where | result |
+|---|---|---|
+| the planner is TOLD what components express | captured `prompt_rendered` | **YES** — `expresses` token, `[prose only]` token, rule 19, and all three new components present in the menu |
+| the planner CHOOSES a capability-appropriate component | `pages.sections` + `site_plan_sections` | **YES** — `period-calendar` filed on the landing page. A component that did not exist two days earlier. |
+| the writer USES the structure it is given | `page_components.rendered_html` on a served page | **YES** — see 11b |
+
+### 11b. What the framework actually wrote, verbatim from `rendered_html`
+
+```html
+…keep some fleece or an old sheet to hand for cold nights.</p>
+<h3>Garden jobs that genuinely need doing in April</h3>
+<ul>
+  <li>Mowing regularly, as grass growth picks up noticeably from early April in most of England…</li>
+  <li><strong>Deadheading</strong> spring bulbs once flowers fade, leaving the foliage to die back
+      naturally so the bulb can store energy for next year</li>
+  <li>Checking <strong>soil pH</strong> before feeding beds heavily, since a lot of feed is wasted
+      on soil that's too acid or alkaline for what's growing in it</li>
+```
+
+A real subhead, a real content list, `<strong>` on precisely the terms a reader scans for.
+**`garden-tools.uk` had ZERO of all three across all seven served pages** — §2 of this file. That is
+the before and after, on the same kind of subject, three weeks apart in effort and two days apart in
+calendar time.
+
+### 11c. ⚠ What this does NOT establish, stated because the temptation is to round up
+
+- **One page of twenty-one.** 18 were still `triaged` when this was written. A single page is a
+  single page.
+- **The `bugs_open/206` risk is NOT disproven.** `april-index` is a `section-index` page and it built
+  — 2 sections, no error — so the no-op did not fire *on that page*. That is much weaker than "the
+  pairing is safe": 17 of 21 pages carry `section-index` at `page-build-handler`, the exact pairing
+  that parked `garden-tools.uk/buying-guides-index`, and the routing fix (`efec862f4`, 09:58:33Z) is
+  **not** in the running pods (`v1.0.1337`, started 09:27:48Z).
+- **`checklist` 0 placements** — the planner was offered it and did not use it. A real negative,
+  worth understanding, and NOT explained by anything measured yet.
+- **`comparison-table` 0 placements is UNEXERCISED, not failed** — `[MEASURED by the
+  loanzy_uk_example_site lane]` the vertical landscape was built from `rhs.org.uk` and
+  `gardenersworld.com` only; the one comparison publisher in the draw (`which.co.uk`) crawled
+  "successfully" and returned **0 sources**. The subject never gave the planner a reason to compare.
+- **⚠ AND AN INTERACTION NOBODY PREDICTED, recorded not diagnosed.** The planner expressed
+  "month by month" as **SEVENTEEN `section-index` pages** rather than as one page carrying
+  `period-calendar`. So a structural promise satisfied at SITE level routes straight into the one
+  page role with no builder — and if those 17 no-op, the site keeps the component and loses the
+  calendar. Whether that is a 381 concern, a 206 concern or a third thing is open.
+
+### 11d. Closure
+
+**Not closed by this alone.** The bar is fixed AND live, and the planner arm is now demonstrably
+both — but the honest position is "proven on one page of a build still running". Close when the
+build settles and the picture holds. If the 17 `section-index` pages no-op, **that is `206` in this
+window and must not be recorded as a 381 failure** — the symptom sentence is identical and the
+acceptance script says so in bold.
