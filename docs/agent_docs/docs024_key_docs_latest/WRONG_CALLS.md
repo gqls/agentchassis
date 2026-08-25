@@ -52054,3 +52054,37 @@ MENTIONS the symbol in prose, which is precisely how the innocent commit became 
 **The generalisable form:** "I looked at it and it seemed fine" is not a verification, and it is
 most dangerous immediately after you have been corrected — when the correction has made you feel
 careful without making you run anything.
+
+### 2026-08-25 — I swept another lane's entry into THIS file, and a third lane wore the blame for a day
+
+`3d31b86a9` named `WRONG_CALLS.md` in its pathspec. The `site_ai_agent_orchestration` lane had an
+entry sitting uncommitted in the shared tree at that moment, so **my commit carried it in under a
+message about parked domains.** They then attributed the sweep to `001211abf` — the `364` lane —
+who had done nothing, and who spotted it and brought it to me rather than editing another lane's
+notes to move blame sight-unseen.
+
+**Corrected in both their documents**, in place and dated, because their session is finished and
+cannot answer for itself.
+
+**What makes this different from the same-file-passenger entry already in this file:** that one is
+about a passenger being *taken*. This is about the passenger then being *attributed to the wrong
+driver*, and staying that way in two documents a cold start would read as fact. **A sweep is one
+error; a sweep plus a plausible wrong sha is a second, and only the second is durable.**
+
+**The check that would have stopped it, and it is at my end because it is the only end that can be:**
+```bash
+git diff --numstat <file>      # added deleted path — BEFORE you commit
+```
+A count larger than what you wrote is the whole signal. ⚠ **The commit-scope block does not catch
+this**: it lists *files*, so it finds a path that went missing and never one that arrived *fatter*.
+I read that block on this very commit and it told me exactly what I expected to hear.
+
+**And the attribution trap, which is the half worth carrying:** `git log -N -- <path>` answers
+*"what last TOUCHED this file"*, never *"what INTRODUCED this content"*. On a shared tree those
+differ within minutes, and a path-filtered log **always returns something recent and plausible —
+there is no tell.** Two lanes made this mistake on the same day and both landed on the same
+innocent sha. Use the pickaxe, then confirm the hit is added content rather than prose:
+```bash
+git log --oneline -S '<distinctive phrase>' -- <path>
+git show <sha> -- <path> | grep '^+' | grep -v '^+\s*//'    # empty => comment/prose only
+```
