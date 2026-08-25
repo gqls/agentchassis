@@ -349,3 +349,32 @@ independently: the string is emitted nowhere in this repo's Go source). The work
 absent-control — and by that route the fleet's 19:07Z roll to v1.0.1339 (commit `a7459a44b…`)
 **already carries `c440d5c5e`**: the seam and the three seats are in the running binary, and 624's
 precondition (1) is met today.
+
+---
+
+## VERDICT AND ARMING (2026-08-25, night) — round 2 APPROVED; the council is LIVE
+
+**Round 2: APPROVED** (trail `d1342f2a`, 15 reviews, 0 unreadable, 6 medium advisories, none high).
+Executed the same night under the owner's "go ahead with that plan" (both of Phase 3's stated gates
+met: the 19:07Z roll carries the Go; the verdict is read): **624 APPLIED 21:27:02Z** — 48 steps,
+2 agents created, 6 write steps record-only, 11 seat-failure records, the audit-attempt stamp.
+
+**A defect caught between 623 and 624, by the `vigilant_designer_offer_analysis` lane within two
+hours of the switch-on:** the bypass-era loop still ended at `record_audit_pass`, so each visited
+site was stamped audited-at-fingerprint after only the mechanical seats ran — consuming `audit_due`
+for 14 days and leaving the armed council NOTHING DUE. Same shape as gate-1c's false green, one
+level up; their measurement, verified here first-hand. Remedy: **migration 625** (companion, applied
+21:27 immediately after 624) clears exactly the bypass-window stamps — **one site, cookly.uk** — 
+preserving the cleared values verbatim in a `doc_notes` row. The window never grew past one site
+because the verdict landed the same evening.
+
+**The six advisory objections, dispositions:**
+- parking-shape duplication vs `621`'s park verb (reuse_agent, architecture) — accepted as the
+  **named follow-up** this section now is: converge the MACHINE park (record mode) and the HUMAN
+  park (`park_work_items`) on one shared primitive once both have live populations; until then
+  ADDENDUM 2 §10 states why the two coexist and where each stamp lives.
+- prior-art claims asserted without pasted query output (prior_art_librarian, reuse_agent) —
+  the queries and results are recorded in `bugs_open/405` §5 (the origin-axis table, 391 lane) and
+  this lane's NOTES; the addendum's claims stand, now with pointers.
+- test-fold phrasing in edit 1 (editquality) and the byte-identical caveat (guardian) — recorded;
+  the byte-identical claim is per-step and the census in ADDENDUM 2 §8 is the blind-proof version.

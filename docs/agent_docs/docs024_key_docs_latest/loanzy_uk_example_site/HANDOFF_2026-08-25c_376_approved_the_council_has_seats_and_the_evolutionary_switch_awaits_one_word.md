@@ -89,3 +89,18 @@ their dir, no live session listed). **Promoter thread found**: built by the 083 
 **`bugs_open/405`** (the known-good door tests the handler, never the finding's provenance).
 Remaining gates: RFC_056 round-2 verdict (trail `d1342f2a`) → then 624; the §11e tests on the next
 greenfield draws; and new domains are UNBLOCKED by 618 the moment a draw proves it live.
+
+---
+
+## 7. NIGHT UPDATE — RFC_056 r2 APPROVED; 624 + 625 APPLIED; the council is LIVE
+
+**21:27:02Z: 624 applied** (48 steps, acceptance + reader seats live, 6 write steps record-only,
+seat-failure rows, audit-attempt stamp) under the verdict + the owner's "go ahead with that plan".
+**625 applied** the same minute: the vigilant lane caught that bypass-era sweeps were stamping
+`last_audit` with no judges running (audit_due consumed for 14 days) — window-scoped reset cleared
+exactly ONE stamp (cookly.uk, preserved in the migration-625 doc_notes row). `bugs_open/405`
+corrected per the 391 lane's re-verification (count 27, the doc_notes assertion target does not
+exist, both producing lanes CLOSED — candidate 1's home is write_audit_findings' owner, i.e. this
+lane). **Standing watches:** the first full-council sweep (record rows must stay `deferred`, 0
+dispatched); the 376 §11e behavioural tests on the next draws; the record-verdict release queue
+(RUNBOOK query) as rows accumulate.
