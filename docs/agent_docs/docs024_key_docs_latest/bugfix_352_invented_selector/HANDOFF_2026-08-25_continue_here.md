@@ -1,4 +1,4 @@
-# HANDOFF 2026-08-25 — `bugs_open/352`, the invented selector: what is DONE, what is LEFT, and why the bug stays open
+# HANDOFF 2026-08-25 — the invented selector lane: `352` CLOSED, arm 2 split to `bugs_open/390`
 
 **This supersedes `HANDOFF_2026-08-24_continue_here.md`** (kept for the trail; two of its figures are
 struck through and corrected there). Read this, then `NOTES_invented_selector.md` (newest at the
@@ -7,23 +7,39 @@ bottom) and `RUNBOOK_invented_selector.md`. The bug file's own banner is
 
 ---
 
-## 0. Can we close it? — NO, and there is exactly one reason
+## 0. STATE — **352 IS CLOSED. Arm 2 is now `bugs_open/390`.** (owner ruling, 2026-08-25)
 
-**Arm 1 is finished: fixed, shipped, proven on a live page, and it has now survived a day of ordinary
-fleet traffic. The 73 unexecutable legacy rows are withdrawn. Nothing about arm 1 is outstanding.**
+> **This section was rewritten hours after it was first written.** It originally said *"Can we close
+> it? NO"* and named the split as an owner call this handoff would not make. The owner then made it:
+> **split arm 2, close 352 against arm 1.** Both are done.
 
-**352 stays open for ARM 2 alone** — a *correct* selector can still be inert, because
-`css-patch-agent` appends its rule to the end of the one site stylesheet and the offending
-declaration for the `~1.0x:1` family lives in page-level component CSS emitted **after** it. An
-equal-specificity rule loses on source order however right the address is. Arm 2 is **live,
-reproducible, and not designed** — §7 of the old handoff is a sketch, not a plan.
+**`bugs_closed/352_HANDOFF_2026-08-22_contrast_findings_name_a_selector_that_matches_nothing.md`**
+— arm 1: fixed (`ffa6e1c3d`), council-APPROVED (`acadbe8b`), live since `v1.0.1334` and still carried
+on `v1.0.1337`, proven at the artefact, and it has now held a day of real traffic. Migration `587`
+withdrew the 73 unexecutable legacy rows. **Nothing about arm 1 is outstanding.**
 
-**So the close condition is: arm 2 fixed AND live, or arm 2 split out into its own bug file and 352
-closed against arm 1.** The second is legitimate and may be the better shape — the two arms share a
-symptom and share nothing else, and `bugs_open/296` §10.5 reaches arm 2 from the other end. **That is
-an owner call, not a session's**, which is why this handoff does not do it.
+**`bugs_open/390_HANDOFF_2026-08-25_a_correct_contrast_selector_still_loses_the_cascade_so_the_repair_is_authored_and_inert.md`**
+— arm 2: a *correct* selector whose appended rule is **outranked**, so the repair is authored,
+deployed, `complete`, and inert. **Live, reproducible, and not designed.**
 
-Everything else in this lane is either done or is a dated check with a date in the near future.
+⚠ **390 is not a copy of 352's arm-2 sketch — the mechanism was verified first-hand before filing and
+the verification CORRECTED it.** Three things 352 had wrong or missing:
+
+1. **It is not "equal specificity loses on source order". It is LOWER specificity.** The offender
+   `.ported-page-section .ported-page-content a` is **(0,2,1)**; the filed selector
+   `.ported-page-content A` is **(0,1,1)**, and the agent's own prompt instructs it to repeat the
+   filed selector verbatim. The rule loses *before* source order is consulted — and would lose on
+   source order too.
+2. **The offending VALUE is reachable even though the DECLARATION is not.** `--color-primary: #e8f5ee`
+   is defined in the editable theme, and `#e8f5ee` is exactly the `fg` the finding recorded. **So
+   352's proposed precondition — "if the declaration is not in `css_themes`, refuse and park" — would
+   park a repairable finding.** 390 ranks that candidate last and restates the test.
+3. **A pale-green link on a pale-green background is a PALETTE defect**, not a cascade one. Beating
+   the cascade would paper over a bad token.
+
+**What is left in THIS lane after the split: nothing that blocks anything.** One dated check (§4(2),
+due 2026-08-28), one owed item (§4(3)), one thing that is not ours (§4(4)). The lane's docs stay here
+as 352's working record and as 390's provenance.
 
 ## 1. The bug, in three sentences
 
@@ -81,7 +97,15 @@ ever. Use that one.
 
 ## 4. WHAT IS LEFT — in order of value
 
-### (1) ARM 2 — the only thing keeping 352 open
+### (1) ~~ARM 2 — the only thing keeping 352 open~~ → **MOVED to `bugs_open/390`, 2026-08-25**
+
+**Do not work arm 2 from this file.** `bugs_open/390` supersedes everything below in this item: it
+carries the first-hand verification, the reproduction commands, four fix candidates ordered by what
+closes the door, and an explicit list of what is *not* done (blast radius `[UNMEASURED]`, fix
+undesigned, `090` named as the right next spend). The sketch below is kept only because 390 §2
+records where it was wrong, and a reader may want the original.
+
+#### The superseded sketch
 
 Live, reproducible, **not designed**. Sketch only, from the old handoff §7: `css-patch-agent`'s
 workflow gains a **measurable precondition** — grep `css_themes` for a declaration governing the
