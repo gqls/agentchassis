@@ -122,7 +122,37 @@ const requiredFieldsComponentNotRemovedSQL = "COALESCE(pc.build_status, 'pending
 //
 //  1. TestClaimTimeoutExclusionCoversBothCompletionGates — add "required_fields_missing"
 //     to livespec.ClaimedItemTimeoutExclusions AND ship a migration amending the LIVE
-//     scheduled task's pre_query. ⚠ THIS ONE IS LOAD-BEARING AND MUST COME FIRST:
+//     scheduled task's pre_query.
+//
+//     ⚠⚠ CORRECTED 2026-08-25 19:20Z — THE ORDER BELOW WAS WRONG AND WOULD HAVE BROKEN
+//     THE BUILD. This block used to say the exclusions entry "MUST COME FIRST". It must
+//     not, and the reason is that the lockstep fails in BOTH directions:
+//         excluded ⇔ (verifier) OR (noChangeGates) OR (a REFUSING acceptancePredicateGates entry)
+//     `required_fields_missing` is in NONE of the three today, so adding it to the
+//     exclusions slice on its own trips the REVERSE arm — "declared excluded but NO gate
+//     can grade it", the bugs_open/006 §C churn. Verified 2026-08-25 by reading all three
+//     rosters; raised by the bugs_open/395 lane, which needs the same migration for
+//     `content_rewrite` and hit the constraint from its own side.
+//     ⚠ Note the third roster (gate 1c, acceptancePredicateGates) did not exist when this
+//     file was written — 395 added it at 69479bcf6, 13:41 the same day.
+//
+//     THE CORRECT ORDER, and each half is placed for a different reason:
+//       (a) APPLY THE MIGRATION FIRST. It is about the LIVE object, not the build, and it
+//           is what stops the sweep completing past the verifier. It opens a window where
+//           the live clause holds a type the Go slice does not, so --live-declaration-drift
+//           will fire; that is noisy and SAFE (the sweep merely skips the type). The
+//           reverse window — Go first — is the one with the actual hole in it.
+//       (b) THEN, IN ONE COMMIT, the RegisterVerifier call AND the ClaimedItemTimeoutExclusions
+//           entry. Either alone breaks the build, in opposite directions.
+//
+//     ⚠ AND IF SOMEBODY ELSE IS ADDING A TYPE TOO: livespec.Declarations pins the live
+//     pre_query to ClaimedItemTimeoutExclusionClause()'s rendering of the Go slice with a
+//     FragmentMatch Min:1/Max:1. Two migrations each written against today's 14-type clause
+//     will NOT compose — whichever applies second must render the MERGED slice, or the
+//     drift auditor fires on a correct-looking change. bugs_open/395 owes `content_rewrite`
+//     on the same clause and has agreed to anchor its amendment on this one's tail.
+//
+//     The original reason this step leads, unchanged and still true:
 //     the claimed-item-timeout sweep writes site_work_items directly, so until the
 //     live clause excludes this type the sweep can auto-complete an item straight
 //     past the verifier below — bugs_closed/317, reintroduced for this type by the

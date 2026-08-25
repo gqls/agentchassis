@@ -90,18 +90,46 @@ and the LANDMINE *"Registering a verifier is NOT a one-line change"* carries it 
 
 | # | step | state |
 |---|---|---|
-| **1** | Add `required_fields_missing` to `livespec.ClaimedItemTimeoutExclusions` **AND ship a migration amending the live `scheduled_tasks.pre_query`** for `claimed-item-timeout` | **BLOCKED — see below** |
+| **1** | **Apply** a migration amending the live `scheduled_tasks.pre_query` for `claimed-item-timeout` | **BLOCKED — see below**, and ⚠ **the ORDER changed 19:20Z** |
+| **1b** | Add `required_fields_missing` to `livespec.ClaimedItemTimeoutExclusions` **in the SAME COMMIT as step 3's `RegisterVerifier` call** — either alone breaks the build | not done |
 | 2 | Scope-test licence in `write_audit_findings_verifier_join_test.go` `optedIn` | ✅ **DONE** |
 | 3 | Remove the type from `itemTypesWithoutVerifiers` | not done (correctly — it is still unregistered) |
 | 4 | Lifecycle posture for the file | ✅ **DONE** (`PostureObserves`) |
 | 5 | `WII-031`'s lockstep will fail on **three** arms of `CQ-023`'s router — arm or acknowledge each | not done |
 
-**Why step 1 is first and load-bearing.** The `claimed-item-timeout` sweep writes `site_work_items`
-directly. Until the **LIVE** clause excludes this type, that sweep completes items **straight past
-the new verifier** — `bugs_closed/317` reintroduced *by the act of adding a guard*. A false green is
-worse than a missing one. **The council accepted this argument explicitly** (round 2, after a HIGH
-objection that an unregistered verifier changes nothing), so the sequence is the reviewed plan, not
-a session's preference.
+**Why the migration is first and load-bearing.** The `claimed-item-timeout` sweep writes
+`site_work_items` directly. Until the **LIVE** clause excludes this type, that sweep completes items
+**straight past the new verifier** — `bugs_closed/317` reintroduced *by the act of adding a guard*. A
+false green is worse than a missing one. **The council accepted this argument explicitly** (round 2,
+after a HIGH objection that an unregistered verifier changes nothing), so the deferral is the
+reviewed plan, not a session's preference.
+
+> **⚠ CORRECTED 2026-08-25 19:20Z — this table used to make the exclusions ENTRY step 1, and
+> following it would have BROKEN THE BUILD.** The lockstep fails in **both** directions:
+> `excluded ⇔ (verifier) OR (noChangeGates) OR (a REFUSING acceptancePredicateGates entry)`.
+> `required_fields_missing` is in **none** of the three today, so adding it to the exclusions slice
+> alone trips the REVERSE arm — *"declared excluded but NO gate can grade it"*, the `bugs_open/006`
+> §C churn. Verified by reading all three rosters. **Raised by the `bugs_open/395` lane**, which
+> needs the same migration for `content_rewrite` and met the constraint from its own side.
+> ⚠ The third roster (gate 1c, `acceptancePredicateGates`) did not exist when §3a was written — 395
+> added it at `69479bcf6`, 13:41 the same day, which is also why my own §3a went stale within hours
+> *again*.
+>
+> **So: migration (1) alone → then (1b) + (3) together in ONE commit.** The migration goes first
+> because it is about the LIVE object rather than the build, and because the window it opens — live
+> clause holding a type the Go slice does not — merely makes `--live-declaration-drift` noisy while
+> the sweep skips the type. The reverse window is the one with the actual hole in it.
+
+⚠ **AND IF ANOTHER LANE IS ADDING A TYPE TO THE SAME CLAUSE — one is.** `livespec.Declarations` pins
+the live `pre_query` to `ClaimedItemTimeoutExclusionClause()`'s rendering of the Go slice with a
+**FragmentMatch Min:1/Max:1**. Two migrations each written against today's 14-type clause **will not
+compose**: whichever applies second must render the **MERGED** slice or the drift auditor fires on a
+correct-looking change. `bugs_open/395` owes `content_rewrite` on this clause, has verified the
+migration does not exist in any form (committed, staged, `_HOLD` or untracked), is **blocked on its
+own side** (its gate 1c needs a live negative control it cannot manufacture honestly), and has agreed
+that **this lane owns the migration** and it will anchor its amendment on our tail. House pattern to
+follow: **482** — read-before-write anchor, targeted `replace()`, `DO`/`RAISE` verify (⚠ a bare
+`SELECT` cannot stop a `COMMIT`).
 
 **What blocks it, WHO holds it, and how to tell when it clears.** Step 1 edits
 `platform/livespec/livespec.go`, held by the **`live_object_declaration_drift` lane**
