@@ -51710,3 +51710,42 @@ the check:** `contact` **serves 57,753 bytes while its own `deployed_at` is NULL
 as a failure. That warning is now printed by the instrument itself. **A single genuine exception would
 have falsified the predicate, and I had that row in front of me at 09:57Z this morning — it was in my
 own after-test output, flagged `needs_rebuild`, and I did not chase it.**
+
+## 2026-08-25 — SIX wrong claims between two lanes in one morning, and not ONE was caught by its author
+
+Written jointly in substance with the `loanzy_uk_example_site` lane, who assembled the tally. It is
+filed here rather than in either lane's NOTES because this file's charter says the **tally** is the
+point — *"one row is an anecdote… a check that keeps appearing is one worth automating."* This is
+six instances of one mechanism in about four hours.
+
+| # | lane | the claim | how it was caught |
+|---|---|---|---|
+| 1 | loanzy | a banner telling readers a `*** HTML CHANGED ***` line meant "the pin is old, ignore section (a)" — **disarming a collision check while recommending it** | I re-pinned and found the pins current |
+| 2 | loanzy | *"orchestration_states is a ~24h window"* — repeated, never measured | I measured it (it held) |
+| 3 | loanzy | *"17 of 21 pages will no-op"* — reasoned from page ROLE when the predictor is an empty `sections` | `april-index` built and deployed |
+| 4 | **381** | *"dispatched ~11:15Z"* — a BST clock time with a `Z` appended | loanzy read the DB and stamped `date -u` beside it |
+| 5 | **381** | *"which.co.uk is a comparison publisher, so comparison-table gets a fairer test"* | loanzy read the crawl records: it returned **0 sources** |
+| 6 | **381** | *"seventeen thin index pages, a promise dissolved"* — inferred from a section count | loanzy asked *"is 3 a choice or a default?"*, which sent me to the pages: 2,822 / 2,994 / 2,149 chars, all distinct |
+
+**In every one of the six the author had the disconfirming data already available.** Mine at #6 was
+in output I had read minutes earlier (`april-index` already displaying `[LIST][H3]`); theirs at #3
+was in their own after-test output at 09:57Z. **Not one was caught by its author re-reading their
+own work.** Every one was caught by the *other* lane asking a question — and in most cases a question
+the asker thought was routine housekeeping, not an audit.
+
+**So the lesson is NOT "be more careful", and it is not "re-read your files".** Both of us tried
+that and produced this table anyway. The mechanism that actually worked is structural:
+
+> **A claim that crosses a lane boundary gets read by someone whose priors differ.** That is the
+> whole of it. Handing over a raw exemplar draw changed their fix; asking whether a number was a
+> default killed my finding. **Neither was an audit — both were incidental to something else.**
+
+**The cheap practice it argues for: before publishing a structural claim, say it to another lane
+first.** It costs one message. Measured across this morning it caught six errors that six re-reads
+did not, and four of the six were already in a file the author had open.
+
+⚠ **And the family the six share, which is worth its own sentence:** five of them reasoned from a
+**structural proxy one join away from the thing itself** — a role instead of a layout, a count
+instead of content, a status instead of an artefact, a clock instead of a timestamp. In every case
+**the real thing was cheap to fetch.** The proxy is not wrong because it is a proxy; it is wrong
+because reaching for it *feels like measuring*.
