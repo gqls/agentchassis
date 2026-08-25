@@ -1,0 +1,155 @@
+# CONTRIB into the 2026-08-25 owner review — two of the three agents he names COULD NOT HAVE RUN on homegarden.uk
+
+**From the `vigilant_designer_offer_analysis` lane, 2026-08-25, answering the reframe
+`OWNER_REVIEW_2026-08-25_homegarden_and_what_it_says_about_every_site.md` §6 puts to the owning lanes.**
+That section says all three of his proposals map onto agents that already exist, and asks why they did
+not help. Your handover added: *"if the honest answer is that none of them runs on this path, that is
+worth saying plainly to him."*
+
+**It is close to that, and here is the measurement.**
+
+> ⚠ **NOTHING BELOW CONTRADICTS HIS REVIEW.** The site is as he describes it; every one of your
+> served-artefact measurements reproduces. What changes is the CAUSE, and therefore what fixing it
+> means. Two of the three verdicts are aimed at agents that were never asked to do the work.
+
+---
+
+## 1. The offer / benefit analyser NEVER RAN on homegarden.uk, and could not have
+
+`[MEASURED 2026-08-25, live clients_db]`
+
+| check | result |
+|---|---|
+| `site_specs` rows for `homegarden.uk` with `aspect='offer_ordering'` (the enrolment marker) | **0** |
+| `site_work_items` for the site with `spec->>'audit_source'='offer-analysis'` | **0** |
+| sites carrying `offer_ordering` fleet-wide | **5** — homegarden is not one |
+| live sites | **28** |
+| `scheduled_tasks` targeting `offer-analyser` | **3, and ALL THREE `enabled=false`**, last triggered 2026-08-14 / 08-15 |
+| its only other route, `improvement-loop` | carrier `improvement-sweep` **also `enabled=false`**, last triggered 2026-08-17 |
+
+**So "the offer and benefit analysis agent should make it much more clear what we can offer the
+customer" is an instruction to an agent that has never looked at this site and currently has no
+enabled path to any site.** Its reach is 5 of 28 by enrolment, and 0 of 28 by schedule.
+
+⚠ **This does NOT make his complaint wrong.** `about.html` really does carry 14 methodology headings
+against 3 reader-facing ones, and that is exactly the defect this agent exists to catch. **The finding
+is that the catcher was switched off, not that it looked and failed.**
+
+## 2. The visual designer is ACTIVE, STORAGE-GRANTED — AND UNREACHABLE
+
+This is the sharper one, because his verdict is *"it hasn't done its job."*
+
+`[MEASURED 2026-08-25]` `visual-designer` is a live `agent_definitions` row (`is_active=true`), with a
+real LLM step (`design`: `action=execute_llm_prompt`, carrying `ai_service` and `prompt_template`).
+And **nothing in the estate can dispatch it**:
+
+| route | result |
+|---|---|
+| `scheduled_tasks` with `target_agent_type='visual-designer'` | **none** |
+| any other live agent whose `default_config` names it (`call_agent`, sub-workflow, spawn) | **none** |
+| Go source | **one hit only** — `spawn_actions.go:3053`, inside `isStorageEnabledAgent`. That is a **capability grant**, not a dispatcher: it says *if* this agent runs it may reach the bucket. |
+| live scripts | none — the only script hits are under `scripts/initial_messages/earlier/` (archived) and READMEs |
+
+And the artefact agrees. `llm_call_log` spans **2026-03-25 → 2026-08-25, 67,789 rows**, and carries
+**zero** rows with `agent_type='visual-designer'`.
+
+⚠ **I checked this the hard way, because `llm_call_log.agent_type` is the DISPATCH context and a
+hand-fired run lands under `generic` — so an agent_type zero is not enough.** Keying on the step name
+instead: `step_name='design'` has **20** rows, and they are **11 `generic`** (2026-07-17 → 07-24, the
+hand-fired shape) and **9 `feature-designer`** (which has its own `design` step). **Nothing at all
+since 2026-07-31.** Positive control in the same query: `step_name='run_offer_analysis'` returns 16
+rows ending 2026-08-24, which is my own lane's run — so the key resolves.
+
+**`brand-designer` and `experience-planner` are in the same position**: no scheduled task, not named
+by any live agent's config. `design-audit-agent` and `offer-analyser` are named only by
+`improvement-loop`, whose carrier is disabled.
+
+**What actually produced homegarden's look**, from the site's own orchestration rows today
+(21 distinct agent types): `site-design-planner` ×1, `webdesign-agent` ×1, `site-asset-renderer` ×1,
+`render-audit-agent` ×1, plus `image-build-handler` ×13 and `image-generator` ×13. **Not one of the
+eight agents §6 lists appears.**
+
+> **So the honest sentence for him is: the visual designer did not do a bad job. It was never asked.
+> It has no dispatch path at all, and has not made an LLM call under its own name in the five months
+> the log covers.**
+
+## 3. THE IMAGERY DEFECT IS REAL, IT IS STRUCTURAL, AND IT IS FLEET-WIDE — this is the actionable half
+
+His imagery complaint stands on its own regardless of §2, and it has a precise mechanism. My first
+reading was wrong and the correction is the finding.
+
+**I first measured `page_components` containing `<img` for homegarden: ZERO of 45**, and was about to
+report "13 images generated, none placed". **That was wrong.** The next query: **21 of 45 components
+reference `/assets/`, and 20 carry `background-image`.** The 13 generated assets ARE placed.
+
+**They are placed exclusively as CSS background images. There is no inline editorial image anywhere.**
+That is exactly the gap he describes — *"much more imagery, placed BETWEEN PARAGRAPHS rather than only
+at the top"* — stated as a mechanism: **the component vocabulary has decorative backgrounds and no
+in-body image slot.**
+
+`[MEASURED 2026-08-25, all sites with >10 live components, `build_status <> 'removed'`]`
+
+| | |
+|---|---|
+| sites measured | **27** |
+| sites with **ZERO** `<img>` in any component | **13** — including homegarden.uk (45 components), gaswholesalers.com (**115**), mortgagecalculator.co.uk (75), loanzy.uk (63) |
+| every site has background images | yes, 2–56 per site |
+| best inline coverage in the fleet | loancalculator.co.uk, **25 of 157 components (16%)** |
+
+**gaswholesalers.com is the one to quote back**: 115 components, 24 with a background image, **0 with
+an inline image**. This is not about a site being new or small.
+
+**So his sentence — *"all this could be default for sites generally unless determined otherwise"* — is
+asking us to change something that is currently near-absent BY DEFAULT, in 13 of 27 sites entirely.**
+That is a component-vocabulary and planner question, not a critique of a designer agent's taste.
+
+## 4. What this changes about the instruction
+
+- **Do not "improve" the offer analyser's prompt in response to §6.** Its output is not what produced
+  `about.html`; it has never seen the site. The lever is **reach** — 5 of 28 enrolled, 0 of 28
+  scheduled — and that is an owner decision about switching carriers on, not a prompt edit.
+- **Do not tune the visual designer either.** Tuning an unreachable agent produces nothing observable,
+  and would read as work done. **The prior question is whether it should be reachable at all**, or
+  whether its job now belongs to `site-design-planner` / `webdesign-agent`, which are the ones that
+  actually ran.
+- **The imagery ask is the one with a clear, cheap target**: an in-body image slot in the component
+  vocabulary, and a planner that places it. It is measurable before and after by the census in §3,
+  and it generalises exactly as he asked.
+- ⚠ **§6's framing — "why did the existing one not fire, or not help" — resolves to "not fire" for
+  five of the eight.** That is worth saying plainly rather than leaving the impression that eight
+  agents looked at this site and produced it between them.
+
+## 5. What I have NOT done, deliberately
+
+**I have changed nothing live.** Specifically I have not enabled any `scheduled_tasks` row, not
+enrolled homegarden in `offer_ordering`, and not touched the site. Enabling a disabled carrier is a
+live fleet behaviour change affecting every site it selects, and this lane has already paid for
+firing one dispatch on the belief that a promoter was off (`WRONG_CALLS.md`, 2026-08-25 — findings
+were promoted and a live page rebuilt **31 seconds** later).
+
+Those are owner decisions. This document is the measurement they need.
+
+## 6. Re-run everything above
+
+```sql
+-- §1 reach
+SELECT count(*) FROM site_specs WHERE aspect='offer_ordering';                       -- enrolled sites
+SELECT name, target_agent_type, enabled, last_triggered_at FROM scheduled_tasks
+ WHERE target_agent_type IN ('offer-analyser','improvement-loop');
+-- §2 reachability (all three must be empty for the claim to hold)
+SELECT count(*) FROM scheduled_tasks WHERE target_agent_type='visual-designer';
+SELECT type FROM agent_definitions WHERE is_active AND COALESCE(is_snapshot,false)=false
+   AND deleted_at IS NULL AND type<>'visual-designer' AND default_config::text LIKE '%visual-designer%';
+SELECT agent_type, step_name, count(*), max(created_at) FROM llm_call_log
+ WHERE step_name='design' GROUP BY 1,2;   -- control: step_name='run_offer_analysis' must be non-empty
+-- §3 the imagery census
+SELECT s.domain, count(*) AS components,
+       count(*) FILTER (WHERE pc.rendered_html ILIKE '%<img%') AS with_img,
+       count(*) FILTER (WHERE pc.rendered_html ILIKE '%background-image%') AS with_bgimg
+  FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+ WHERE COALESCE(pc.build_status,'pending') <> 'removed'
+ GROUP BY 1 HAVING count(*) > 10 ORDER BY 3 DESC;
+```
+
+⚠ **Every count here is `as of 2026-08-25` and goes stale by ADDITION.** The reach figures move the
+moment anyone enables a carrier; the imagery census moves on every build.
