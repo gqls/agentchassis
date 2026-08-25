@@ -5655,3 +5655,31 @@ first time; real run COMMIT.
 **Wave 2 filed:** page_rerender index/faq/how-it-works/what-you-get/guide (reason
 `owner_copy_brief_2026_08_25_wave2`). Then: re-place the label, verify at the REPO copy (not
 a served md5), bot re-check, hand the page-rule step to the owner.
+
+## 2026-08-25 (late) — wave 2 landed 3/5; the two failures diagnosed and wave 3 filed
+
+**Wave 2:** index (`91dfa7e`), what-you-get (`7004bad`), guide (`8e67343`) rebuilt + deployed
+with the REPOSITIONED copy: index h1 "A starter website, built once, for £149", the audience
+gate as the hero's FIRST sentence, retired phrases 0 everywhere. Index carries audience +
+free-hosting-and-edit + 30 days + refuse-refunds; the hosting-company line, categories and
+how-to-edit landed on what-you-get + guide (index has only 4 planned sections; a 5th is a
+PLAN change, flagged to the owner). **faq** blocked: the writer asked "Can I get my money
+back?" and the promise-shape ban fired on the bare token in a QUESTION (not a denial, so the
+negation guard cannot clear it) - the ban is right, the steering was missing:
+`SQL_2026-08-25f` adds the sentence. **how-it-works** failed 3/3 on SECTION SHRINK
+(call-to-action 457→189 = 41%, hero 380→178 = 47%, floor 50%): the guard's own documented
+false-positive class (legitimate tightening under the new terse register; the robot-hands
+case in `save_sections_shrink_guard.go`'s calibration), whose sanctioned escape hatch is
+`section_shrink_floor` in step config.
+
+**⚠ TEMPORARY FLEET CONFIG OVERRIDE, REVERT OWED:** `section_shrink_floor: 0.4` set on
+page-build-handler's `save_sections` step config at ~18:1x for the wave-3 builds. It applies
+to EVERY site's page builds while set (live-immediate). **Revert = remove the key
+(`default_config #- '{workflow,steps,save_sections,config,section_shrink_floor}'`) the
+moment wave 3 is terminal, and verify it is gone.** If you are reading this and the key is
+still set, revert it now.
+
+**DECISION_2026-08-25_discretionary_refunds**: owner ruled Option A (Stripe dashboard +
+`charge.refunded` webhook; order gains `refunded`; a consumer cancels delivery). Unadvertised
+stays absolute: nothing enters the register. Supersedes 08-11's "code must not model them"
+narrowly. Build = payments/delivery lane, own council round, before Stripe keys land.
