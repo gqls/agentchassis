@@ -126,3 +126,56 @@ nobody wants a fresh archive every hour; the delivery email (next phase)
 is what will ask. Second, the review council has been asked to look the
 work over, as we do for platform changes; the commit carries the
 submission's reference so the review trail joins up on its own.
+
+## 2026-08-25 (evening) — the door between the internet and the admin API is now in the code, not in a config file on a box
+
+Picked this lane up cold today. Nobody else had it open, though the webdesign.uk
+threads hold pieces of it and I have stayed out of their way.
+
+**The thing I found and fixed.** When a customer clicks the confirmation link we email
+them, that click goes to a small web server on a box, which passes it into the cluster.
+Until today it passed it to the *same door* that serves the admin system — the one that
+holds every site's data, the job queue, the controls. The only thing keeping the admin
+system off the internet was one line of pattern-matching in a config file on that box.
+Widen that line by a single character and the whole admin API would have been public,
+and nothing in our software would have noticed or objected.
+
+So the customer links now go to their **own door**, which has nothing else behind it.
+If somebody widens that line tomorrow, all they can reach is the customer links. The
+owner asked for this on 25 August after an architecture review; this is that job done.
+
+I also made it something the software *enforces* rather than something we remember: if
+anyone ever puts a customer link back on the admin door, core-manager refuses to start.
+That is deliberate. A warning in a log would be read by nobody while the hole served
+traffic.
+
+**The mistake worth telling you about.** The switch that turns this on is set in the
+deployment config. It would have been ignored — silently. The configuration library we
+use only reads environment settings for keys it already knows about, and this was a new
+one. Everything would have looked perfect: the setting visibly there, the code correct,
+the tests passing, and every customer link dead with no error anywhere to find. I caught
+it because I wrote the test before trusting the wiring, and it failed. That failure is
+the only reason this is a paragraph and not an outage. I have written the trap up so the
+next person adding a setting like this does not repeat it.
+
+**The review found two more things, and both were mine.** I put the change through the
+review council. It came back "revise": the reviewers pointed out that my write-up never
+showed the two changes that make the thing actually work — starting the new door, and
+pointing the box at it. I *had* made both; I just left them out of the summary because it
+has an eight-item limit. That is a fair hit and it is the second time this lane has been
+caught by the same habit. They also found a genuine hole: my safety check compared exact
+addresses, so a catch-all route would have slipped past it. Fixed and re-submitted.
+
+**One thing I need to flag, because it is a promise to customers.** The register now says
+the site stays live for **30 days** — that is your copy brief from today. The code keeps
+serving it, and keeps the download link alive, for **42 days**. We agreed to keep that gap
+deliberately: promise 30, serve 42, so nobody is cut off at the exact moment they were
+told. Nothing recorded that anywhere, so the next person would have "fixed" the mismatch
+and quietly removed the cushion. It is now written down in the code and defended by a test
+that fails if someone closes the gap.
+
+**Where this leaves delivery.** The confirmation page and this new door are both built and
+both waiting on the same thing: the next core-manager release. Until that happens neither
+is live, and no delivery email should go out — that is your ruling, and it still holds.
+Nothing is at risk in the meantime: no customer has been handed over yet and no links
+exist.
