@@ -224,6 +224,7 @@ var pageLifecyclePostures = map[string]posture{
 	"check_image_source_unsatisfiable.go": {Posture: PostureObserves, Reason: "image_source_unsatisfiable, handler_agent \"\" — flag only."},
 	"check_image_url_404.go":              {Posture: PostureObserves, Reason: "image_url_404, handler_agent \"\" — flag only."},
 	"check_site_unreachable.go":           {Posture: PostureObserves, Reason: "site-scoped, handler_agent \"\"; the pages read is a title lookup."},
+	"verify_required_fields_missing.go":   {Posture: PostureObserves, Alias: "p", Reason: "NOT a check — a completion VERIFIER, so it prescribes nothing and only decides whether a defect is gone. Arming the lifecycle filter here would be the WRONG direction and unsafe: an archived page can still be serving, so a retired page whose component still renders empty required fields must be GRADED, not have its ErrNoRows read as \"page gone, resolved\" — that would certify a live defect as fixed, which is the fail-open shape RFC_017 closed. The page lookup exists to establish positive absence, and every resolved arm names a live fact rather than a missing row."},
 	"check_truncated_component.go":        {Posture: PostureObserves, Reason: "truncated_component, handler_agent \"\" — flag only."},
 	"check_directory.go":                  {Posture: PostureObserves, Reason: "reads pages as COUNTs only; routes missing_* items at the SITE, never at a page row."},
 

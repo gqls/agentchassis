@@ -160,6 +160,16 @@ func TestOnlyTheOptedInVerifierCarriesAScopeTest(t *testing.T) {
 		"hardcoded_section_colors": "bugs_open/213's own fix (corr c9c7c83f)",
 		"needs_brand_head_assets": "bugs_open/131: 53 rows lifetime (archive-inclusive, 2026-08-18), " +
 			"exactly two spec shapes — 35 purpose-only (discovery producer), 18 mode-only (hand redrives)",
+		"required_fields_missing": "bugs_open/375: 191 rows lifetime (site_work_items UNION " +
+			"site_work_items_archive, 2026-08-25), exactly two spec shapes — 188 carrying " +
+			"component_id+page_id+page_name+slot_name+reason (check_required_fields_missing.go, the " +
+			"post-deploy detector) and 3 without component_id (work_items_common.go " +
+			"emitRequiredFieldsMissing, the render-time producer, bugs_closed/342). The verifier " +
+			"re-resolves a STORED component, so an item filed about one that was never stored would " +
+			"resolve to nothing and have that absence read as a repair — the bugs_open/213 shape " +
+			"exactly. Discriminator is the SPEC SHAPE (component_id present), never item_type, never " +
+			"created_by. ⚠ Licensed but INERT: the verifier is written and deliberately unregistered — " +
+			"see verify_required_fields_missing.go for the five-step registration sequence.",
 	}
 
 	for _, itemType := range checks.RegisteredVerifierItemTypes() {
