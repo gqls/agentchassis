@@ -246,3 +246,83 @@ been non-zero had any other writer existed. The residual uncertainty is recorded
   — the working record, under "two findings the bug file does not contain".
 - register **CLC-029** / migration `581` — the birth guard that stops new components arriving
   `section_type`-less, i.e. stops the *population* of permanently-uncountable rows growing.
+
+---
+
+# §CLOSED 2026-08-25 — fixed, live, and DEMAND-PROVEN
+
+**Live on chassis `635f2d32f5bbe3789867a978284c9c125d718eb0`** (pod started 2026-08-25 08:49:31Z);
+first shipped on `48f55f21…` at 2026-08-24 18:55:21Z. Commit `5074367f7`. Council **`ca01b81a`
+APPROVED** round 1.
+
+The bar this file was held to for an extra day was **demand-proof** — the counter had frozen, but
+nothing had been built, so the freeze was consistent with the fix and equally consistent with nothing
+having happened. That gap is now closed.
+
+## The evidence, each arm with its control
+
+**1. The removed code is not in the binary** (proof of a removal is absence, and absence needs a
+two-sided probe):
+```
+grep -aq 'count(DISTINCT p.site_id)'          /proc/1/exe   -> PRESENT   (the new derivation)
+grep -aq 'usage_count, 0)::float / 50.0'      /proc/1/exe   -> ABSENT    (the old scoring term)
+grep -aq 'component_selector: selected'       /proc/1/exe   -> PRESENT   (control: the probe is not blind)
+git merge-base --is-ancestor 5074367f7 635f2d32f5bb…        -> YES
+git merge-base --is-ancestor bba8a892d 635f2d32f5bb…        -> NO        (control: a later commit)
+```
+
+**2. There was real demand, `[MEASURED 2026-08-25]`** — this is the arm that was missing yesterday:
+
+| signal, since the fix went live (2026-08-24 18:55:21Z) | count |
+|---|---|
+| `page_components` rows created | **403** across **125** distinct pages |
+| `page-build-handler` orchestrations (runs the section loop) | **73** |
+| `page-rerender` orchestrations | **880** |
+| `component-creator` orchestrations (the ONLY consumer of the changed contract reader) | **17** |
+| components actually born (creator succeeding end to end) | **5** |
+
+**3. The counter did not move.** All 12 components carrying a value read **byte-identically** to the
+pre-fix snapshot of 2026-08-24 13:30Z — `20, 19, 12, 7, 4, 2, 1×6`, same names, same order. Under the
+old code, any Path-2 resolution across those 73 page builds would have incremented.
+
+**4. Nothing broke.** `needs_new_component` filings ran at **5** since the fix against **6** in the
+preceding 24 hours, and `needs_section_data` went **3 → 0**. A broken selector query would have
+failed every Path-2 resolution and spiked both. It did not.
+
+⚠ **One check I tried and correctly discarded:** grepping the chassis logs for selector errors
+returned `0` — and so did the control asking whether those logs contain *any* plan/selector lines at
+all. The work runs in dynamically-named pods (the build stamp itself came from
+`agent-page-content-writer-…`), not the two pods labelled `app=agent-chassis`. **That zero was
+vacuous and is recorded here so nobody quotes it as evidence.**
+
+## What was actually wrong with the bug as filed
+
+Four structural claims corrected (three paths not two; a third and heavier reader; the counter
+over-counts as well as under-counts, which refutes its own candidate 2; both `[UNMEASURED]` items
+measured). **And the ranked fix was wrong**: the file ranked "count at the binding" first. What
+shipped is candidate **3** — *stop scoring on it* — because removing the term changes **0** of 4,888
+contested selections while repairing it changes **3,246**, and an accurate "prefer what is already
+used" term is the preferential-attachment loop `bugs_open/107` exists to complain about.
+
+## The one concern that inverted
+
+The council's `bug_historian` seat objected (medium) that repointing the contract-row `ORDER BY`
+could silently re-shape the enforced schema. Right family, backwards direction: the store resolves
+what it overwrites by `function = NormaliseToKebab(section_type)`, and measured across all **117**
+section_types the OLD ordering agreed with that in **88**, the NEW ordering agrees in **90** — both
+changed types moving from disagree to agree. **The change reduced a pre-existing mismatch.**
+
+## Residuals, carried out of this bug rather than buried in it
+
+- **27 of 117 section_types still predict a contract the store would not enforce.** Pre-existing, NOT
+  caused by this change, and nobody owns it. Filed separately — see `bugs_open/` for the
+  contract-prediction mismatch.
+- **`content_components.usage_count` still exists**, written by nothing and read by nothing in Go.
+  Deliberately left so the code could not roll back onto a missing column; that reason has now
+  expired. A `COMMENT ON COLUMN` (or drop) migration is owed and is council-scope in its own right.
+  ⚠ **Until it runs, the column still reads as a maintained figure — do not quote it.**
+- `bugs_open/357`'s 22 mis-bound rows remain a stated contamination of the new substrate: under the
+  DISTINCT SITES unit they collapse to **3 of hero's 27 sites**, and their phase 3 migration retypes
+  them, at which point this self-corrects.
+
+**Lane:** `docs/agent_docs/docs024_key_docs_latest/bugfix_378_usage_count_derived/`
