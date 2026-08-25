@@ -213,3 +213,48 @@ rather than tidying them away — a handover whose title says "it died" and whic
 hour is worth more as a record than as an embarrassment.
 
 The build continues. I am not touching it.
+
+---
+
+**2026-08-25, morning.** You retracted the authorisation to clear that parked row, which is what I
+asked for yesterday evening after finding my own proposal was built on something I had not checked.
+It is now written into the top of yesterday's handoff, so the next person reading that file cannot
+pick the plan up again by accident. Nothing was done to the site.
+
+**The new chassis went out at 09:27 and I checked what it actually contains rather than assuming.**
+The claims check — the one that catches a site saying "we test these tools" when nobody has tested
+anything — is now running in the live software. I confirmed that by asking the running program
+directly, twice, and by asking it two questions I knew the answers to first so I could tell a real
+answer from a broken check.
+
+**One honest caveat on that.** It is live, but on garden-tools it is doing nothing, because it only
+runs while a page is being built or rebuilt and that site is sitting still. Live is not the same as
+firing. If I told you "no problems found on garden-tools" that would only mean nobody asked.
+
+**The site itself has not moved.** Seven pages serve, five still 404, nine dead links, and the
+seasonal planner still promises a month-by-month guide it does not contain. I re-ran the full check
+this morning rather than trusting yesterday's numbers — and yesterday's page sizes turned out to
+have been taken a few hours before a redeploy, so they were already slightly out of date when they
+were written down. The important parts were unchanged.
+
+**A number I decided not to send you.** I measured how much more structure the writer is producing
+since yesterday's fix and got a modest-looking improvement. Then I noticed I had counted every piece
+of writing on the estate, including all the parts the fix never touched — which drags the average
+down and makes a good fix look mediocre. The lane that made the change measured only the writing it
+actually applies to and found lists going from roughly one in ten to roughly seven in ten. Theirs is
+the right number. Mine would have understated their work, and I would have been the one to publish
+it first.
+
+**Where this leaves the decision you were weighing last night.** The option of "just wait and watch
+whatever gets built next" has quietly half-answered itself: hundreds of pages have been written
+since the fix went in, so the *writing* half is proven in the wild. But the *planning* half — the
+part that chooses what goes on a page, and the three new building blocks that lane created overnight
+for exactly this — has not run once, because it only runs when a brand-new site is built. So the
+question is no longer "does the fix work". It is narrower: **does the planner actually use the new
+pieces when it lays out a page, and only a new site build can show that.**
+
+**And there is a gate in front of that.** The bug I filed on Sunday — where one website refusing to
+be read can kill an entire new-site build stone dead — is still nobody's job. On the gardening
+vertical the refused site turned up in four draws out of five, and the system gives up after three
+attempts. So if you authorise a new domain today, there is a real chance it dies half an hour in and
+tells you almost nothing. That is the piece I would fix next, and it is this lane's own bug.

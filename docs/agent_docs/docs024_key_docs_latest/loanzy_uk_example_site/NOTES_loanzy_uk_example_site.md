@@ -1634,3 +1634,59 @@ content page. **Second check on this one bug that could not have come out otherw
 > authority. They have since validated it against a known-FAIL population — my pre-fix rows — where
 > it correctly returns FAIL for `brand-directory-index` and `brand-profile` and `n/a` for the other
 > eleven. **That is the first check on this bug shown to produce the disconfirming answer.**
+
+### 2026-08-25 09:50–10:30Z — post-roll re-measurement, the owner's retraction, and a coarse instrument I nearly reported as a finding
+
+**The owner retracted the §3a authorisation**, which is the outcome this lane asked for on 08-24
+(`4741cf682`). The parked-row release is dead: clearing alone is inert, and clearing-plus-replan
+destroys the measurement. Bannered onto the 08-24 handoff so nobody revives it from that file.
+
+**Chassis v1.0.1337 rolled 09:27Z. `380`'s Go practice-claims family is LIVE at the binary**
+`[MEASURED 2026-08-25 09:56Z]`, both replicas, by capability probe with controls:
+
+```
+grep -aq "practice_claim"            /proc/1/exe  → PRESENT  (the Check literal)
+grep -aq "no recorded operating history" /proc/1/exe → PRESENT  (the family's own reason string)
+grep -aq "validate_page_content"     /proc/1/exe  → PRESENT  (positive control)
+grep -aq "zzz_not_a_real_symbol_control" /proc/1/exe → ABSENT  (negative control)
+```
+
+> **The `build provenance` line had already scrolled — the landmine fired exactly as written.**
+> `logs --tail=6000` on a 26-minute-old chassis pod returned no provenance line at all. The `380`
+> lane caught it at 09:27Z while the pod was fresh (`4c996e1b5`, with the `git merge-base
+> --is-ancestor` check). **An empty grep there means "out of range", not "unstamped"** — and the
+> binary probe has no shelf life, which is why it is the fallback and not the first resort.
+
+**⚠ LIVE IS NOT FIRING.** The practice family runs inside `validate_page_content`, which runs during
+a build or rerender. `garden-tools.uk` is quiet, so the family is live and **doing nothing here**.
+Do not read its silence on this site as a clean result — nothing has asked it a question.
+
+**Post-roll census, at the artefact** (`after_test.sh`, now promoted into this directory)
+`[MEASURED 2026-08-25 09:57Z, cache-busted]`: 7 serve / 5 × 404, **9 dead links across 4 distinct
+targets**, `PROMISE UNMET` still fires on `seasonal-planner` alone (3 distinct month names). Structure
+baseline **intact**: 0 tables, 0 `<strong>`, and the `li=8` on every served page is chrome — identical
+on all seven, including the 404-shaped ones at 0. **`381`'s pre-fix comparison point survives the
+roll**, which matters because that is the only thing this site is currently for.
+
+**One drift caught: the 08-24 byte table was one deploy stale when it was written.** Measured 09:05Z,
+but `deployed_at` on all seven is 14:00–14:04Z the same day, and every page is now **exactly +420
+bytes** larger. Uniform delta across seven pages of different lengths ⇒ chrome, not content, and the
+structure counts agree. **A byte figure needs the deploy it was taken after, not just the clock time.**
+
+**The instrument I nearly published.** I ran a before/after over *all* `page-content-writer`
+`generate_content` calls (948 before the 17:00Z boundary, 271 after) and got lists 5.3% → 9.6%,
+`<strong>` 4.6% → 7.7%, `<h3>` 5.0% → 12.5%, tables 1 → 0. It reads like a modest, real effect and
+**it is the wrong denominator**: most of those calls write fields that never received the new
+guidance, so the population is mostly untreated. The `381` lane's own measure — restricted to writes
+that actually received the instruction — is **72% lists against a 10% baseline, 100% subheadings**.
+**Mine was not wrong so much as blunt, and a blunt number published first would have set the
+expectation low.** Check whose denominator you are using before reporting someone else's fix.
+
+**What the natural-build question actually resolved to.** 271 post-fix writer calls exist, so the
+"wait and measure whatever builds next" option has already delivered **for the writer arm**. It has
+delivered **nothing** for the planner arm: `content-gap-planner` ran 12 times, but the component
+*choice* step that `381` fixed only runs on a new-site build, and none has happened. The three new
+components (`checklist`, period `calendar`, `comparison-table`, built by that lane overnight) have
+**never been placed on a page**. So the canary question is now narrower and sharper than on 08-24:
+it is not "is the fix real", it is "does the planner compose with it", and only a greenfield build
+answers that.

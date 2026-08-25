@@ -4,6 +4,30 @@
 dead — kept and bannered as a worked example).** The pre-run `HANDOFF_2026-08-23_garden_tools_continue_here.md`
 is still the reference for the **pre-flight recipe** and the DNS/zone setup; nothing else in it.
 
+> ## ⚠ SUPERSEDED 2026-08-25 by `HANDOFF_2026-08-25_the_route_is_gated_on_376_and_the_canary_is_the_only_thing_left.md`
+> **in this directory. Four things below went stale within hours of it being written. Read them here
+> before you act on anything in §2 or §3a.**
+>
+> 1. **§2's "UNOWNED" headers on `380` and `381` are WRONG NOW.** Both were taken the same afternoon
+>    and both are **fixed and live in config**; `380`'s Go half is live at the binary on chassis
+>    **v1.0.1337** (rolled 2026-08-25 09:27Z). `376` is the only one of the three still unowned.
+> 2. **§3a's authorisation is RETRACTED — by the owner, 2026-08-25, on this lane's advice.** The
+>    parked-row release is NOT to be performed. Clearing the row alone is inert (nothing schedules
+>    `reconcile_site_plan`), and making it non-inert means a full re-plan that destroys this site's
+>    value as a measurement. **Do not revive this plan.** The `206` proof rides the next greenfield
+>    build instead.
+> 3. **§1's byte table is one deploy stale.** It was measured 09:05Z; the pages were re-deployed at
+>    14:00–14:04Z the same day and every one of the seven grew by **exactly +420 bytes** (chrome, not
+>    content). `[MEASURED 2026-08-25 09:57Z]` the current figures are in the new handoff §1.
+>    **The 7-serve / 5-404 split, the 9 dead links and the structure baseline are UNCHANGED.**
+> 4. **§1's open-review list is missing one.** A `claims_unverified` item
+>    (`claims_llm_garden-tools.uk`, `needs_human_review`) was filed 2026-08-24 16:52Z by `380`'s
+>    now-live cold audit — the first that step has ever filed anywhere.
+>
+> **What still stands, unchanged and load-bearing:** the correction at the top of §1 (7 serve, fewer
+> than 7 deliver), §3b (the owner's review), §3's measured recipes, and the standing instruction
+> **not to repair this site**.
+
 ## 1. Final state `[MEASURED 2026-08-24 09:05Z, at the served pages, cache-busted]`
 
 Site `16784842-f7d8-4467-bb5b-eb1fb5c1caba`. Two submissions: the first (17:17Z) **died** at hop two;
