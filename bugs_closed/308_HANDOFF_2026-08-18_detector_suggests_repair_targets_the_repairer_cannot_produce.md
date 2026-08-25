@@ -515,3 +515,25 @@ the old alphabetical tie-break would have sent to `/about.html`.
 - **`suggested_target` still has no consumer and there is still no completion verifier**, so a
   repair that changes nothing can still complete green. That is the same shape as this bug and it
   outlives it.
+
+---
+
+## CLOSED 2026-08-25 — fixed AND live at estate scale (owner ruling: close, re-file Phase C as `bugs_open/389`)
+
+Bar #1's population clause is met and exceeded: Phase A (LNK-035) + Phase B (LNK-036/037)
+live since v1.0.1332, and in the 24 h to 2026-08-25 the fleet's misdirected findings went
+**301 → 135** and the machine-fixable slice **171 → 11** — four hand-released sites verified
+in the SERVED bytes (gaswholesalers 25→0 incl. the sales-contact buttons; leopardess 23/23;
+ai-agent-orchestration 20/22; lendzy 20/20) and the hourly rolling sweep completing the rest
+unattended (dartsonline 15/15 overnight). The false-family and self-suggestion classes are 0
+in live output. The 215-row `unresolved` stock was re-measured at the artefact (78% obsolete,
+independently audited) and resolved by per-site release + bulk close, NOT by the once-planned
+requeue migration 555, which is retired unbuilt.
+
+**What this close does NOT claim** — §3 above stands: `suggested_target` has no consumer and
+a repair that changes nothing still completes. That, with its three measured
+"complete-and-unchanged" classes, is `bugs_open/389`.
+
+Evidence, method, corrections and the release log:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_308_cta_destination_provenance/`
+(HANDOFF_2026-08-25_continue_here.md · NOTES §§8-15 · SUMMARY_2026-08-24b).
