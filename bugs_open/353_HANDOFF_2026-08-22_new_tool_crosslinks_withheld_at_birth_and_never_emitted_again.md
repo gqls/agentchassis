@@ -576,3 +576,51 @@ has **12** rows all-time since 07-31 and **4 of them are today**. A third of eve
 recorded landed in one day, and it is the same day tool births stopped reaching Guard 2 entirely.
 Still **[UNMEASURED]** as a rate — births/day is not established — but it has moved from "two data
 points is not a trend" to worth someone's morning.
+
+
+## 15. 2026-08-25 — **ROUTED HOME as the `staged_component_build` lane closes. Item (b) is the ONLY thing left, and the producer everyone would try it with CANNOT satisfy it.**
+
+The lane that has carried this bug since 08-22 is closing. §12.6's list reduces to one item, and it
+comes with a correction that will otherwise cost the next session a wasted filing.
+
+### 15.1 The only open item
+
+**(b)** the ungated-emit arm is live and has **never fired**. `emitted_ungated_build_enqueued_by_caller`
+count: **0** [MEASURED 2026-08-25 ~10:2xZ]. Nothing else is open here.
+
+### 15.2 ⚠ The correction: a `webdesign_tool_rebuilds`-style filing can NEVER exercise it
+
+I wrote in the 08-25 handoff that migration 602 (the related-pages picker) would unblock (b) "as a
+side effect", because a birth carrying pages now reaches Guard 2. **Half right, and the half that
+matters is wrong** — proven by the first real filing on 2026-08-25:
+
+- The picker ran (09:50:53Z) and supplied two pages; two `tool_crosslink` items were created.
+- **No skip row of any kind was written**, and (b)'s INFO row did not appear.
+- Because the tool page `/tools/smart-contrast/index.html` was **created 2026-07-25** and was already
+  `deployed` when the emitter ran, so Guard 2 took the ordinary `pageLive` arm — which emits ungated
+  and writes **no** INFO row. That arm is not (b)'s arm.
+
+**That lane's whole programme rebuilds ported tools AT THE SAME URL**, so its page is always already
+live. No volume of their filings will ever reach the new arm.
+
+### 15.3 What WOULD exercise it, stated so nobody re-derives it wrong
+
+A tool birth where **all three** hold at the moment the emitter runs: the spec (or the picker) supplies
+`related_pages`; the tool page is **NOT yet live** (`build_status` neither `deployed` nor
+`needs_rebuild`); and no open `needs_content_page` / `page_rerender` / `needs_page` item exists for it
+yet. That is a **brand-new** tool page on a site, not an adoption of an existing one — the shape
+`dartsonline`'s five births had on 08-23, one day before the fix rolled.
+
+```sql
+SELECT count(*), min(occurred_at) FROM agent_error_log
+ WHERE error_code = 'tool_crosslink_not_emitted:emitted_ungated_build_enqueued_by_caller';
+```
+Non-zero ⇒ (b) closes and so does this bug. **Still zero ⇒ check whether any NEW-page tool birth has
+happened at all before concluding anything** — the same demand-control discipline this bug's §12 was
+already burnt by twice.
+
+### 15.4 Everything else is closed and evidenced
+
+(a) forward fix LIVE + council-APPROVED (`642ecc3c`); (c′) `tool-deployer` runs, emits, and had already
+repaired one of this bug's own casualties (§14); (d) → `bugs_open/379`, unowned; the damage half §11.
+The `330` producer split that kept (b) starved is fixed and live (`bugs_open/330` §12–§13).
