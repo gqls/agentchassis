@@ -51,10 +51,31 @@ its PASS predicate are hand re-routes** (vetcomparison, created 07-17, updated 0
 Run without a domain filter it would have declared the fix proven by rows the replaced hardcode
 minted.
 
-**Use RUNBOOK §7.** The gate is `swi.spec ? 'page_type'` — the fixed emit stamps it, an `UPDATE` of
-`handler_agent` cannot forge it, and its population is currently **empty** (508 reconcile-minted
-rows, none stamped), so the first stamped row is necessarily the fix. Keep the *un-gated* form for
-detecting FAIL, where the stamp is absent by construction. Two questions, two instruments.
+**Use RUNBOOK §7 — and it takes TWO gates, not one.**
+
+> **CORRECTED 2026-08-25 (later the same day), by an adversarial review of this file.** This
+> paragraph originally said the gate is `spec ? 'page_type'` alone, "which an `UPDATE` of
+> `handler_agent` cannot forge". True and **insufficient**: the stamp dates the **row**, not the
+> **handler value**, so a stamped mint that the fixed binary *mis*-routed and someone then repaired
+> reads `PASS`; and this lane's own promote-in-place recipe forges it outright, because reconcile's
+> `capability_gap` spec **already carries `page_type`**. Full working in `bugs_open/206`, the
+> "adversarial review" section, item 1.
+
+Gate 1: `swi.spec ? 'page_type'` — the fixed emit stamps it; population currently **empty** (508
+reconcile-minted rows, none stamped), so a first hit is necessarily the fix.
+Gate 2: `swi.updated_at < swi.created_at + interval '1 second'` — nothing has written to the row
+since the mint. Sound because `trg_site_work_items_updated_at` is `BEFORE UPDATE … FOR EACH ROW`.
+**It expires**: a legitimate claim bumps `updated_at` too, so read the mint while the row is still
+`triaged`. If it has moved, that row is not proof — find a fresher one, don't relax the gate.
+
+Keep the *un-gated* form for detecting FAIL, where the stamp is absent by construction. Two
+questions, two instruments.
+
+⚠ **And check `created_by` on whatever the build actually mints before reading an empty result as
+FAIL.** §7 filters `created_by='reconcile_site_plan'`. Yesterday's evidence says reconcile is the
+greenfield door (garden-tools.uk's 13 items were minted by it at plan time), but
+`WriteBuildItemsAction` is wired live too — and if a build mints through *that* door, §7 returns
+empty on a **successful** build.
 
 Also note: **today's code is committed, not rolled.** For the mint to show the `section-index`
 route, the chassis must carry `efec862f4`. Check with the build stamp, per service:
@@ -146,9 +167,10 @@ SYMPTOM, not the bug number** — this population is named under four numbers (2
 
 All three, at the artefact, not at a status:
 
-1. A `reconcile_site_plan`-minted row for a typed page carrying `directory-build-handler`
-   **and carrying `spec.page_type`** — the mint fingerprint, without which the row may simply be a
-   page a human fixed. (RUNBOOK §7.)
+1. A `reconcile_site_plan`-minted row for a typed page carrying `directory-build-handler`,
+   **carrying `spec.page_type`** (minted by the fixed code) **and with `updated_at` still at
+   `created_at`** (nothing has touched it since). Both gates — the first alone is forgeable two
+   ways, see item 1. (RUNBOOK §7.)
 2. That page built and serving, verified by `curl`, not by `build_status`.
 3. The parked `entity-directory` and `entity-page` rows resolved to their designed outcomes
    (built / deferred gap respectively).
