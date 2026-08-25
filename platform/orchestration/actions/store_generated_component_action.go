@@ -634,7 +634,14 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		// last writer of a column nothing reads any more: "how proven is this component" is
 		// derived from page_components at read time (ComponentUsageSitesSQL). The column still
 		// exists and carries DEFAULT 0, so omitting it is behaviour-identical today — and it
-		// is omitted precisely so the DROP in migration 609 cannot break this statement.
+		// is omitted precisely so the pending DROP cannot break this statement. That DROP is
+		// docs/agent_docs/sql_for_agents/610_content_components_drop_dead_usage_count_HOLD.sql
+		// — held, applied by hand, and it names this exact INSERT as its precondition.
+		// (609 is the COMMENT-only migration and is already applied; naming it here instead
+		//  of 610 was wrong in the first version of this comment, caught by the bugs_open/388
+		//  lane. A bare migration NUMBER is ambiguous in this repo — the filename is not.)
+		// ⚠ DO NOT re-add usage_count to this column list. Naming a column in an INSERT is
+		// enough to make every component creation fail the moment 610 runs.
 		err = params.DB.QueryRowContext(ctx, `
 			INSERT INTO content_components (
 				name, display_name, function, category, component_level,
