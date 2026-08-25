@@ -1,7 +1,7 @@
 # 327 — a PARTIAL write to `content_direction` silently shrinks the brief the writer reads, and the document keeps growing so nothing looks wrong
 
 > ## ⚠ THE NUMBER 327 IS AMBIGUOUS — refer to this case BY SLUG
-> Another lane filed `bugs_open/327_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md`
+> Another lane filed `bugs_open/327b_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md`
 > the same day. Both are real, neither is renumberable (numbering is never reassigned), and
 > `scripts/who-owns.py 327` now prints the ambiguity warning. This case is
 > **`a_partial_spec_write_silently_shrinks_the_brief_the_writer_reads`**. `git log` the FILE PATH.

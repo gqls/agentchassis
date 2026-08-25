@@ -18,7 +18,7 @@ explicitly. Resolving by slug, as CLAUDE.md requires:
 PATH separates them cleanly:
 
 ```
-git log --format="%ad %h %s" --date=short -- "bugs_open/327_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md"
+git log --format="%ad %h %s" --date=short -- "bugs_open/327b_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md"
 # 2026-08-19 db375212c  bug 327: the build trigger can publish nothing and exit 0 ...
 ```
 

@@ -10,7 +10,7 @@ was corrected and re-scoped). **Read both — the 08-23 file is deliberately not
 the pair is the record of how the understanding moved.
 
 > ⚠ **TWO BUGS SHARE THE NUMBER 327. Resolve by SLUG.** This lane is
-> `bugs_open/327_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md`.
+> `bugs_open/327b_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md`.
 > The other — `bugs_closed/327_..._a_partial_spec_write_silently_shrinks_the_brief...` — was
 > closed 2026-08-23 by `copy_quality_two_stage` and is unrelated. **Almost every commit in
 > `git log --grep 327` is the OTHER one.** A live handoff already conflated them; corrected in
@@ -56,7 +56,7 @@ write. After the move you cannot. `bugs_closed/` will hold:
 
 ```
 327_HANDOFF_2026-08-19_a_partial_spec_write_silently_shrinks_the_brief_the_writer_reads.md
-327_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md
+327b_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md
 ```
 
 **So: resolve by SLUG, always** — `scripts/who-owns.py 327` already prints the ambiguity warning,
