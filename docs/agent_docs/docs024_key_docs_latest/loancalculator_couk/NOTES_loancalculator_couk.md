@@ -6694,3 +6694,27 @@ BOTH controls — in bug §9). Resubmitted on the SAME correlation
 file after a mutation run — the mutated `slot_pairing.go` stayed on disk reading as
 restored. Caught by the post-restore build+test pass; reverted by hand. Mutate tracked
 files, or diff after "restoring".
+
+### Round 2 verdict: APPROVED (2 advisories, none high) — and the residual dispositions
+
+`ece638fb` round 2: **approved**, reuse gate lifted. Advisories dispositioned rather than
+shelved, recorded in register **LOCK-009** (the new entry for `slot_pairing.go` — the
+mechanism clears the "another workstream could call this and would not know it exists"
+bar, so it is registered in the same arc that shipped it):
+
+- **editquality's ordering concern is ANSWERED, not accepted**: both old closures were
+  already arms-outer (matchLockedRow looped each arm across all rows before the next;
+  the merge's pair() likewise), so the shared core PRESERVES the ordering — the seat
+  could not see that from the sketches, and now the register says it where the next
+  reviewer will look.
+- **bug_historian [medium]**: matchLockedRow deliberately stays function-arm-less (its
+  loader doesn't join cc); the widening is a candidate follow-up on its own evidence.
+- **guardian [low]**: the merge passes componentID '' by convention — structural today
+  (its input is `[]string`), named in LOCK-009 so a signature change trips over it.
+
+Lane state at close: 385's cause established and fixed at the class level, council
+approved, register + landmine + 016b §9 all carrying it. **Residue: (1) the roll** (the
+fix is inert until an image ships — merge-base `b9d0f02be` vs the pod stamp, symbol
+probe in bug §9), **(2) the owner's disarm decision** (flip the one armed row to
+'approved'), **(3) build-arm verification post-roll** (bug §9 — do NOT fire a
+needs_page at loan-vs-savings before (1) or (2)).

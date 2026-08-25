@@ -39,13 +39,13 @@ interactive) is **1 row fleet-wide: `tool-loan-vs-savings`/`tool-2`, the victim 
    tests pass unchanged — their own comments anticipated this as "the identity
    round"). `verify-head-builds.sh` OK at `a799579fd`. **Council verdict OWED:**
    correlation `ece638fb-ec12-4a73-a1d1-c80d96d22ff4`, committed with
-   `Council-Submitted:`. Find the run by payload, not by printed id:
-   `SELECT current_step, status FROM orchestration_states WHERE
-   collected_data->'input_data'->>'fix_correlation_id' = 'ece638fb-ec12-4a73-a1d1-c80d96d22ff4';`
-   Read the verdict (`SELECT body FROM doc_notes WHERE categories ? 'council-gate'
-   ORDER BY created_at DESC LIMIT 1;`) and **act on a REVISE — the code is already on
-   the shared branch.** Budget ~30 min queue; a missing orchestration row is latency,
-   not a drop.
+   `Council-Submitted:`. **VERDICT ARC COMPLETE, same session:** round 1 REVISE
+   (reuse_agent's gate — a third hand-mirrored copy of the arms is the drift class;
+   correct) → revised: the relation extracted to `datahelpers/slot_pairing.go`
+   (register **LOCK-009**), all three matchers now adapters, wiring scans in both
+   packages; commits `b9d0f02be` + `3552e674b`, `verify-head-builds` OK → **round 2
+   APPROVED** (2 advisories, none high; dispositions recorded in LOCK-009). Nothing
+   further owed to the gate.
 2. **The fix is INERT until an image rolls.** "Has it shipped?" is a query: chassis
    `build provenance` stamp, then `git merge-base --is-ancestor a799579fd <stamp>`.
    Until that passes, the one armed row can still duplicate on a build-arm rebuild.

@@ -344,10 +344,17 @@ wave, with `--selftest` green first.
 > fact upstream of the INSERT, in a matcher whose fix is small and mirrors two already-
 > shipped fixes of the same shape.
 
-0. **THE fix: give the Layer 2 matcher `matchLockedRow`'s arms.** **BUILT, TESTED AND
-   COMMITTED 2026-08-25** — commit `a799579fd` (`matchPreservedSectionIdx` + tests,
-   mutation-verified), council correlation `ece638fb` (`Council-Submitted:` trailer;
-   read the verdict and act on a REVISE — the code is on the shared branch).
+0. **THE fix: give the Layer 2 matcher `matchLockedRow`'s arms.** **BUILT, TESTED,
+   COMMITTED, AND COUNCIL-APPROVED 2026-08-25** — round 1 `a799579fd`
+   (`matchPreservedSectionIdx` + tests, mutation-verified) drew a REVISE whose gating
+   objection (reuse_agent: a third hand-mirrored copy of the arms is the drift that
+   minted this bug — unify) was **acted on, not defended**: round 2 `b9d0f02be` (+
+   gofmt `3552e674b`) moves the relation into `datahelpers/slot_pairing.go` (register
+   **LOCK-009**) and makes all THREE matchers adapters over it, with wiring scans in
+   both packages so a re-inlined private copy fails the build. Council corr `ece638fb`
+   **round 2 APPROVED** (2 advisory objections, none high; dispositions in LOCK-009's
+   entry — including the editquality ordering concern, answered: both old closures were
+   already arms-outer, so the ordering is preserved, not imposed).
    **The fix is Go, so it is INERT until an image rolls.** Whether it has shipped is a
    query, not an inference: ask the chassis for its `build provenance` stamp and run
    `git merge-base --is-ancestor a799579fd <stamp>` — do not assume either way, and do
