@@ -23,6 +23,36 @@
 --   The control matters. On 2026-08-24 this lane's first ancestry control was a commit
 --   that ALSO predated the build, so both arms returned YES and the check proved nothing.
 --
+--   ⚠ THE ANCESTRY CHECK IS NOT ENOUGH ON ITS OWN, and the council's debug_historian seat was
+--   right to say so (round ac7b62e6, medium): a roll is not evidence, and edit 1 REMOVES text
+--   rather than adding any, so there is no new marker to grep for. An absence-grep is this
+--   estate's documented false-negative trap — a silently failing grep looks exactly like a
+--   successful removal.
+--
+--   BUT A DISCRIMINATING PROBE DOES EXIST, because the removed text was itself inside a
+--   string literal (the SQL), and it has been PROVEN to discriminate while the pre-fix
+--   binary was still running — which is the only time that proof can ever be obtained:
+--
+--     POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis --             -o jsonpath='{.items[0].metadata.name}')
+--     # MUST BE ABSENT once edit 1 is live (it is the old INSERT column list):
+--     kubectl -n ai-persona-system exec $POD -- grep -aq 'usage_count, avg_quality_score' /proc/1/exe
+--     # CONTROL, MUST BE PRESENT — proves the grep is not silently failing:
+--     kubectl -n ai-persona-system exec $POD -- grep -aq 'INSERT INTO content_components' /proc/1/exe
+--
+--   [VERIFIED 2026-08-25, against pod agent-chassis-67fd9c76f5-2g8kw running the PRE-fix
+--   binary] the first probe returned PRESENT and the control returned PRESENT. So the
+--   absence of that literal is a real signal and not merely an untested expectation.
+--   ⚠ Do NOT substitute a positive probe for the new code: the obvious candidate
+--   ('is_active,' followed by 'avg_quality_score') was tested the same day and matched the
+--   PRE-fix binary too, so it does not discriminate. Absence-of-the-old + control is the check.
+--
+-- LEDGER (council editquality, low): a _HOLD file is applied by hand, so the runner will not
+--   record it. Record it the same way 609 was, immediately after applying:
+--     ./scripts/migration/run-migrations.sh --record-only \
+--        610_content_components_drop_dead_usage_count_HOLD.sql \
+--        --note "applied by hand <date>; edit-1 probe: old INSERT literal ABSENT, control PRESENT; guard passed with N rows/max M"
+--   Without that, a later state audit of schema_migrations shows 610 as never applied.
+--
 -- ⚠ SECOND PRECONDITION, ADDED 2026-08-25 — RE-GREP THE INSERT, DO NOT TRUST THIS FILE'S
 --   DATE. The `bugs_open/388` lane is actively editing store_generated_component_action.go
 --   (its fix moves component IDENTITY resolution off the LLM's emitted `function` field).
