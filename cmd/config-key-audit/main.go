@@ -55,6 +55,16 @@
 //	  only growth PAST it pages. Without N: report-only census, exit 0.
 //	  Exit 1 on findings.
 //
+//	go run ./cmd/config-key-audit --unarmed-verified-completers < live-workflows.json
+//	  [{"kind": "undeclared|stale", "agent": "...", "step": "...", "path": "...",
+//	    "item_type": "...", "detail": "..."}, ...]
+//	  Does livespec.UnarmedVerifiedCompleters still match production? An
+//	  update_work_item_status step that stamps `complete` without setting
+//	  verify_before_complete skips the item type's verifier entirely (bugs_open/375,
+//	  WII-030). The build-time lockstep can only check the DECLARED arms; this is
+//	  what notices a new one. ⚠ `status` DEFAULTS to `complete`, so a step omitting
+//	  it IS a complete arm. Exit 1 on findings; exit 2 if it could not LOOK.
+//
 //	go run ./cmd/config-key-audit --suspicious-keys        < live-workflows.json
 //	  [{"agent": "...", "path": "...", "action": "...", "key": "...", "nested": bool}, ...]
 //	  Which live step-config key NAME carries schema-documentation punctuation
@@ -238,6 +248,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--optional-key-budget" {
 		emitOptionalKeyBudget(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--unarmed-verified-completers" {
+		emitUnarmedCompleterDrift()
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--single-owner-actions" {
