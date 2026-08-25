@@ -50374,3 +50374,25 @@ comment, never from the column.**
 Distilled into `LANDMINES.md` (footprint `pages.nav_order` / `pages.in_header`) and the lane
 RUNBOOK as *"run this first"*. Related tally: the same session's 277 work found a verify query
 that could not fail — both are "the measurement answers the question you encoded".
+
+---
+
+## 2026-08-25 — finetuning lane: I certified register quality from a pattern checklist, and the owner rejected the same copy within hours
+
+**The claim** (written into the lane's owner-facing README, 2026-08-24 evening): the offer
+page's "Who is actually running this" section is "honest in exactly the way we wanted".
+
+**It is overruled.** The owner quoted that exact section as a specimen of copy that "fails
+the 'would a person actually say this' test really badly, and it sounds so methodical like AI".
+
+**What caught it**: the owner reading his own site — nothing in the lane's tooling would ever
+have caught it, which is the point: the section scored ZERO on every automated tell we check
+(em dash, not-just, isn't-family, does-not-simply, exemplar lift, banned claims). The
+checklist enumerates yesterday's tells; the owner's ear hears the register (methodical
+scaffolds, performed candour), which no current detector models.
+
+**The cheap check**: before writing register PRAISE into an owner-facing doc, read the copy
+aloud against "would a person say this" and report at most "passes the enumerable checks" —
+a pattern list licenses claims about patterns, never about voice. Same family as "a PASS from
+a blind check outlives the blindness": the blindness here is structural (the instrument
+cannot see the fault class), so the pass must be scoped to what the instrument sees.
