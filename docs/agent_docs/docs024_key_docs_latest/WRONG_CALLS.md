@@ -51679,3 +51679,34 @@ WIP landed". `scripts/verify-head-builds.sh --with <files> --test <pkg>` overlay
 onto a clean HEAD and is the correct instrument for mutation testing here; I switched to it and the
 runs became interpretable again. **On this tree, do not read a bare `go test` failure as a statement
 about your own change until you have seen the error text.**
+
+**⚠ FOLLOW-UP, same day 11:42–11:55Z — the replacement predictor made a successful POINT prediction,
+and the peer lane named the failure mode of the original better than I did.**
+
+`[MEASURED 2026-08-25 11:42:10Z, by the `bugs_open/381` lane, verified against my own capture]` the
+no-op fired on **exactly one page of 21** — `blog-post`, `page_role=blog-post`,
+`sections_len = 0` — the single page the corrected predicate had named *before it failed*, with the
+verbatim string `page-build-handler no-op: no sections ready to build (empty spec sections, or all
+sections deferred…)`. The 17 `section-index` pages sharing the "failing" role: **2 deployed, 15 in
+progress, `needs_human_review` = ZERO.** So the role-based version was wrong by **17×** and the
+sections-based one was exact.
+
+**Their diagnosis of my error is sharper than mine and I am adopting it: it was a RETRIEVAL failure,
+not a knowledge failure.** I had the correct frame in my own handoff and reasoned from the superseded
+one. *"The corrected frame was in a document; it needed to be in the query."* **So the fix is not to
+resolve to read more carefully — it is to move the discriminator into the instrument.** Done:
+`capture_reconcile_mint.sh` now prints `sections_len` per row and a dedicated CLASS (b) RISK SET
+block, so the next person pointing it at a build is *shown* the risk set instead of having to recall
+which framing was current. That is the same move as this file's 10:29Z entry, one level up: a
+correction that lives only in prose has to be remembered at the moment of judgement, and this
+morning proves I do not reliably remember mine.
+
+**And a loose edge in my own control, closed by the peer rather than by me.** My claim was "every
+garden-tools page with sections built". They checked for a counter-example and found the one page that
+looked like it: `contact`, which HAS sections and is not `deployed`. It is `build_status='needs_rebuild'`
+— a rebuild state, not a build failure — so the claim survives. **But the wrinkle is worth more than
+the check:** `contact` **serves 57,753 bytes while its own `deployed_at` is NULL**. So anyone pairing
+`sections_len = 0` with `deployed_at IS NULL` as the outcome measure would score a live, serving page
+as a failure. That warning is now printed by the instrument itself. **A single genuine exception would
+have falsified the predicate, and I had that row in front of me at 09:57Z this morning — it was in my
+own after-test output, flagged `needs_rebuild`, and I did not chase it.**

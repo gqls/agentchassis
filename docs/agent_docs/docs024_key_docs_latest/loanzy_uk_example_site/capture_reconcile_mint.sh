@@ -44,6 +44,7 @@ SELECT i.created_at::time(0) AS minted,
        i.spec->>'page_role'         AS role_in_spec,
        p.page_type                  AS role_in_pages,
        COALESCE(NULLIF(i.handler_agent,''),'(none)') AS handler_agent,
+       COALESCE(jsonb_array_length(p.sections),-1) AS sections_len,
        i.created_by,
        i.status,
        CASE
@@ -63,6 +64,25 @@ WITH items AS (SELECT site_id,item_type FROM site_work_items UNION ALL SELECT si
 SELECT count(*) FROM items i JOIN sites s ON s.id=i.site_id WHERE s.domain='$DOM' AND i.item_type='needs_page';" 2>&1)
 echo ">> needs_page rows found (live UNION archive): $n"
 [ "$n" = "0" ] && echo "!! ZERO ROWS. That is UNKNOWN, not a pass — reconcile may not have run yet. Do NOT read it as 'nothing to route'."
+echo
+echo "### CLASS (b) RISK SET — pages the planner left with NO sections. THIS is the predictor."
+$PSQL -c "
+SELECT p.name, p.page_type, jsonb_array_length(p.sections) AS sections_len, p.build_status,
+       COALESCE(p.deployed_at::text,'(never stamped)') AS deployed_at
+FROM pages p JOIN sites s ON s.id=p.site_id
+WHERE s.domain='$DOM' AND COALESCE(jsonb_array_length(p.sections),0)=0
+ORDER BY p.name;"
+echo ">> Any row above is a candidate for bugs_open/206 residual class (b): page-build-handler cannot"
+echo "   FILL a missing layout, so it no-ops with 'no sections ready to build'. Empty result = no"
+echo "   class (b) exposure on this site."
+echo ">> ⚠ DEMONSTRATED, not proposed: on homegarden.uk 2026-08-25 this predicate named ONE page of 21"
+echo "   (blog-post, sections_len 0) and that page — and only that page — no-opped at 11:42:10Z, while"
+echo "   17 section-index pages sharing the 'failing' role built fine. The ROLE-based version of this"
+echo "   prediction was wrong by 17x; see WRONG_CALLS.md 2026-08-25."
+echo ">> ⚠ DO NOT pair this with 'deployed_at IS NULL' as the outcome measure. garden-tools' contact"
+echo "   page HAS sections, serves 57KB, and carries deployed_at = NULL at build_status='needs_rebuild'."
+echo "   A page can serve while its own deploy is unstamped. Verify the outcome by fetching the URL."
+echo
 echo ">> Reminder: 'no sections ready to build' on a later failure is AMBIGUOUS — (a) wrong/missing"
 echo "   builder, or (b) a builder that cannot fill a missing layout (ensure_page_section_layout"
 echo "   exists only in directory-build-handler's workflow). The string cannot tell you which."
