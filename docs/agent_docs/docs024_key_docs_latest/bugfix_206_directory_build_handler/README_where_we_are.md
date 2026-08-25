@@ -150,3 +150,81 @@ than describe it as finished.
 **Where that leaves the bug: still open, and it should be.** The code is right, reviewed and
 live; the pages it exists to fix are still broken; and until one of them builds through the
 ordinary route, nobody has watched the thing actually work.
+
+---
+
+## 2026-08-25 — the half we had to leave behind yesterday is done, and I found a hole in our own test
+
+**The short version: the job that was blocked is finished and passed review first time, and
+separately I found that the test we were going to use to prove all this could have been passed by
+a page somebody had fixed by hand. That second thing is the more useful discovery.**
+
+### The blocked job
+
+Yesterday's note explained that there were two places in the code that decided "which builder
+builds this kind of page", they disagreed, and that disagreement is what let a directory page sit
+broken for fifteen days while the thing that could build it was running. We fixed one of them and
+could not fix the other, because the file it lives in was in a state where committing it would have
+broken everyone else's build. So we left it, and left a note telling whoever picked this up to
+**check whether that was still true rather than assume it**.
+
+It was not still true — other people had tidied that file overnight. So today the second copy is
+deleted. There is now exactly one place in the whole system that answers "which builder builds this
+kind of page", and both routes ask it. That also unblocked a page type we had deliberately held
+back yesterday (the "index" pages that list other pages — `guides-index` and the like), because the
+only reason for holding it back was the risk of the two copies disagreeing, and there are no longer
+two copies.
+
+The council reviewed it and **approved it first time — thirteen reviewers, no objections above
+"low", no vetoes.** That is unusual and I am recording it because yesterday's equivalent took six
+rounds.
+
+### The hole in our own test, which matters more
+
+We had a query written to prove the fix works. It looks for a page whose build job was created by
+the automatic planner and points at the correct builder. If it finds one, the fix works.
+
+**It does not follow.** The field that query reads can be changed by hand — and changing it by hand
+is our own documented repair procedure for a stuck page. We have done it at least twice. So a page
+that a person rescued in August looks exactly like a page the fix routed correctly.
+
+I checked how bad that is: **every single row in the entire database that would have passed our
+test is one of those hand repairs.** Three of them, all on the same site, all created in July,
+all touched by a human weeks later. Had anyone run that query as written, we would have declared
+the fix proven — using rows created by the very bug it fixes.
+
+There is a clean way to tell them apart, and it now gates the query. The new code writes an extra
+detail into the job record when it creates it; a hand repair only changes the one field and cannot
+add that detail. Right now **no record in the database has that detail at all** — 508 of them, none
+— so the first one that does was necessarily made by the fixed code. That is about as clean a test
+as we are going to get.
+
+### Something I nearly got wrong, and want on the record
+
+Three of the reviewers asked a question I had not thought to ask: are there *other* places that
+create these build jobs and skip the shared decision? I went and looked. **There are — six places
+in total, not two, and three of them hardcode the generic builder.** One of them is the busiest job
+creator in the fleet and was still creating jobs today.
+
+The obvious conclusion was that the bug is still alive through those other doors, and I was one
+sentence from writing that down. So I measured it instead: across every job those doors have ever
+created for this kind of page — twenty-six of them — **not one** shows the failure this bug is
+about. Their failures are a different, deliberate safety mechanism doing its job.
+
+And there is a reason, which is why I believe the number rather than just reporting it. This bug is
+about pages that have **no layout at all yet** — brand new pages, at the moment a site is planned.
+The other doors act on pages that already exist and already have a layout. They skip the shared
+decision because their pages do not need it.
+
+**So the honest position is: no, the bug is not lurking behind those doors — and I would have said
+the opposite if I had stopped at the search and not done the counting.**
+
+### Where the bug stands
+
+Still open, and still for the same reason as yesterday: **nobody has yet watched this work on a
+real page.** The proof arrives free the next time anybody builds a new site with a directory or
+index page on it — no site needs disturbing, nothing needs clearing. I checked today: no new site
+has been built since the code went live, so there is nothing to read yet.
+
+What changed today is that when that build does happen, we now have a test that can actually tell
+us the answer — which yesterday we did not, and did not know we did not.
