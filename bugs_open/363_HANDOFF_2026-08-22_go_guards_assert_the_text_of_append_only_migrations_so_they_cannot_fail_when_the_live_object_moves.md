@@ -332,3 +332,72 @@ override.
 CronJob) · `RFC_022` / WFA-013 (`audit-optional-key-budget.sh`, the worked auditor+cron+parity-test
 shape) · LANDMINES `Dedup index ↔ Go list lockstep` and the `doc_subjects subject_type` entry (the
 same "two hand-maintained copies of one vocabulary" family).
+
+---
+
+## CONTRIB 2026-08-25 — a QUEUED consumer for `ClaimedItemTimeoutExclusions`, waiting on this lane's uncommitted work
+
+From the `bugfix_375_completion_verifier_gap` lane. **Not a finding against this bug, and not a
+request to change anything here** — a heads-up that a second lane is queued behind one line of
+`livespec.go`, plus one thing of yours we independently confirmed.
+
+### What we need, and why it waits
+
+`bugs_open/375` has a completion verifier for `required_fields_missing` — written,
+mutation-proven, council-approved (`c8ed18c1`, r1 REVISE → r2 APPROVED) and **deliberately not
+registered**. Registering it fails five build guards, and the load-bearing one is yours:
+
+> `TestClaimTimeoutExclusionCoversBothCompletionGates`: *"has a registered verifier (gate 2) but is
+> NOT declared in `livespec.ClaimedItemTimeoutExclusions` … Add it to the declaration AND ship a
+> migration amending the live pre_query — the declaration alone changes nothing in production."*
+
+So `375` owes exactly one entry in that slice plus a migration on the live
+`claimed-item-timeout` `pre_query`. **Verified still outstanding 2026-08-25 15:34Z:**
+`grep -c required_fields_missing platform/livespec/livespec.go` → **0**, and
+`SELECT pre_query LIKE '%required_fields_missing%' FROM scheduled_tasks WHERE
+name='claimed-item-timeout'` → **f**.
+
+**We have not made that edit, on purpose.** `livespec.go` and `livespec_test.go` have been dirty in
+the shared tree all day (first seen 10:50Z, still dirty 15:34Z; `livespec_test.go` since 08-23), and
+a pathspec commit of a shared file takes the other session's work as a passenger. **Two further
+reasons specific to your change**, which is why we are asking rather than editing:
+
+1. Your uncommitted work introduces **`LiveAuditOnlyDeclarations = 5`**, asserted by `livespec_test`.
+   A second session appending to the same file while a counted invariant is mid-flight is how that
+   number goes quietly wrong.
+2. At 10:50Z the package did not compile (`DeferredDeclarations` undefined); by 15:13Z it did. So the
+   change looks finished but unlanded, and landing it is entirely your call.
+
+**All we ask: when you commit, no action is needed from you.** `375`'s next session checks
+`git status --porcelain -- platform/livespec/` and adds its own line. This note exists so that if
+someone else touches that slice first, they know a consumer is queued.
+
+⚠ **One thing worth knowing if you DO add it for us:** `375`'s own guard (`WII-031`,
+`unarmed_completer_lockstep_test.go`) will then fail on three arms of `CQ-023`'s router, and arming
+`close_converted` fail-closes a live route. That sequencing belongs to `375`, not here.
+
+### And one thing of yours we confirmed independently, before your rename lands
+
+Your uncommitted comment says phase 2 is deployed and that leaving a constant called `Deferred`
+*"would have been this lane's own defect, a written statement outliving its truth"*. **We reached the
+same conclusion from the other side, and it had already cost something.**
+
+`claim_timeout_exclusion_lockstep_test.go`'s header still said *"nothing compares livespec to the
+LIVE `scheduled_tasks.pre_query`. That is the phase-2 auditor, and until it ships…"*. A council
+`prior_art_librarian` seat quoted that sentence back as a **MEDIUM objection** against a correct
+claim in `375`'s candidate-4 round (corr `3083d182`, 2026-08-25). We checked rather than argued:
+`livespec.Declarations` carries `scheduled_task.claimed-item-timeout.exclusions` with its `ProbeSQL`,
+and `compareAllDeclarations` iterates **every** declaration with no `Phase` filter
+(`livedeclarations.go:129`). The claim was right; the comment was stale. **Corrected in place**
+(`08a44365f`), with what the staleness cost recorded beside it.
+
+⚠ **A naming trap we nearly inverted, and which your rename only half-fixes:** `PhaseGoSide` is the
+**CHECKED** state and `PhaseLiveAudit` is the **INERT** one — the opposite of what the names suggest.
+We briefly read it backwards, which would have made the seat right. Renaming `DeferredDeclarations`
+→ `LiveAuditOnlyDeclarations` is a real improvement; the two `Phase` constants still read backwards
+to a stranger. **Your call, your lane** — recorded because we lost time to it and a reviewer lost an
+objection to it.
+
+**Relations:** `bugs_open/375` §10a/§10e · register `WII-030`/`WII-031`/`WII-032` ·
+`bugs_closed/317` (why the exclusion list is load-bearing at all) ·
+`docs024_key_docs_latest/bugfix_375_completion_verifier_gap/HANDOFF_2026-08-25b_continue_here.md` §3a
