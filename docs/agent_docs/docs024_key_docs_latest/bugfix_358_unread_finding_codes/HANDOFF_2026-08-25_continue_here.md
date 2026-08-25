@@ -75,7 +75,8 @@ to be a real SAME-FILE PASSENGER: commit `eb7d92371` carries `bugs_open/388`'s t
 by the pathspec commit from the shared working tree (attributed both sides; 388 messaged, told not
 to re-add). Its advisory produced one more fix: the prefix guard exempts the sanctioned `:` family
 boundary and the scan normalises on the first colon at collection (`dacc1a488`, council
-`b2ca539f` — **read that verdict if nobody has**; a REVISE is a follow-up commit).
+`b2ca539f` — **APPROVED round 1**, zero high/medium). **Every correlation this lane opened is
+APPROVED; nothing is pending anywhere.**
 
 **First external validation of the commit-time scan (2026-08-25):** the `bugs_open/388` lane's
 three new codes were caught by the scan before ANY had fired — the case the DB-side check is

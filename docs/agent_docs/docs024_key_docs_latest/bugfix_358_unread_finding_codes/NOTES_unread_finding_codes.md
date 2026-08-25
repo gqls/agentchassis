@@ -1275,3 +1275,10 @@ The passenger attribution held; the rename round is approved. Two mediums, both 
 
 Every correlation this lane has opened is now APPROVED or awaiting one micro-round on a test-only
 refinement (`b2ca539f` — read it; a REVISE is a follow-up commit).
+
+**`b2ca539f` (the colon-boundary refinement): APPROVED round 1, 9 seats, 8 abstained, zero
+high/medium objections.** Every correlation this lane has ever opened — `be1fd678`, `be252395`,
+`2e5f687d`, `4d5c1523`, `8d798266`, `b2ca539f` — is now APPROVED, and nothing is awaiting a
+verdict, a ruling, or a build from this lane. The remaining work in the world: the commissioned
+readers (392/393/394/071, other lanes'), baseline codes ruled on first fire, and the 07:30 row
+every morning.
