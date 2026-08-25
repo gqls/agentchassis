@@ -44,6 +44,45 @@
 // as covering the class — the complement (refusing to MINT a predicate over an
 // unwritable field) belongs in the emit gate and is the `vigilant_designer_offer_analysis`
 // lane's half of the agreed split.
+//
+// ── BLAST RADIUS, because this is a SHARED entry point ──────────────────────
+// Council 021cb965 (`guidelines` seat) asked for the real number rather than the
+// historical hit count, and it is right to: `write_audit_findings` serves every
+// audit-source agent, so this guard changes routing for ALL of them going
+// forward, not only the producer whose three rows motivated it.
+//
+//	[MEASURED 2026-08-25] 7 live agents reach this action:
+//	brief-fidelity-auditor, content-quality-auditor, council-gate, fix-proposer,
+//	offer-analyser, site-review-agent, visual-design-auditor.
+//	SELECT type FROM agent_definitions WHERE is_active
+//	  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+//	  AND default_config::text LIKE '%write_audit_findings%';
+//
+// What bounds the change is NOT the producer set but the predicate: only a
+// finding carrying a CLM-024 `acceptance_predicate` over a ROSTERED field can be
+// re-routed, and today only one of those seven emits predicates at all.
+//
+// ── THE CONTRACT ON THE EXPORTED HELPER (council 021cb965, `architecture` seat)
+// The seat's objection is correct on its own terms: `HandlerCanWriteField` has an
+// agreed cross-lane consumer from day one, so RFC_022's opt-in exception (which
+// requires ZERO live consumers) does not cover it. Taken as the seat's stated
+// minimum — a written contract note — rather than deferred:
+//
+//   - OWNER: this file. The roster is single-source; a second definition of the
+//     same map is the drift this helper exists to prevent, and
+//     TestThePageFieldWriterRosterIsDefinedExactlyOnce makes that a build failure
+//     rather than a request in a comment.
+//   - CALLERS OWE: nothing at call time — `known=false` means NOT MEASURED and
+//     must not be read as either capability or incapacity.
+//   - THIS FILE OWES: that every entry carries a re-checkable census and the date
+//     it was taken, and that the staleness re-check is MECHANICAL, not prose.
+//     ⚠ It is currently prose, and the `constitution` seat named that precisely:
+//     *"the exact enforcement gap 320 §9 was filed about, now reproduced one
+//     layer down."* That is the sharpest objection in the round and it is
+//     conceded. The fix is the WII-031 treatment — a live-drift audit that reads
+//     `agent_definitions` and fails when a rostered handler has GAINED a step
+//     that writes the column. Named follow-on, not built here; until it exists
+//     this file's guarantee rests on a human re-running the census below.
 package actions
 
 import (
@@ -94,6 +133,22 @@ type pageFieldWriteRule struct {
 var pageFieldWriters = map[string]pageFieldWriteRule{
 	"meta_description": {
 		WritableBy: map[string]bool{},
+		// ⚠ The council's `debugging` seat objected that this claim was "asserted
+		// from a private code read, not independently checkable by SQL". Fair, and
+		// answered rather than argued — here is the query, WITH ITS CONTROL:
+		//
+		//	SELECT type, default_config::text LIKE '%meta_description%' AS mentions
+		//	  FROM agent_definitions WHERE is_active
+		//	   AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+		//	   AND type IN ('page-build-handler','meta-description-backfiller');
+		//
+		// [MEASURED 2026-08-25] page-build-handler → false; meta-description-backfiller
+		// → TRUE. The second row is the demand control: it proves the query would
+		// have found a mention had one existed, so the first row's false is an
+		// absence and not a broken query. ⚠ Use the whole-config LIKE, NOT a walk
+		// over `workflow.steps` — a top-level walk MISSES nested sub_workflow steps
+		// and returns a confident zero (register WII-031, and it misled two lanes
+		// on 2026-08-25).
 		Why: "[MEASURED 2026-08-25] every writer of pages.meta_description is create-or-fill-blank " +
 			"except one: site_db_actions.go:1235 and apply_adoption_plan_action.go:84 are both " +
 			"COALESCE(NULLIF(EXCLUDED,''), pages.meta_description), so a non-empty value survives them; " +

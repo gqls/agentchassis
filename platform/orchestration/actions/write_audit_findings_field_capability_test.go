@@ -8,6 +8,8 @@
 package actions
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -203,5 +205,111 @@ func TestPageFieldWritersEntriesCarryTheirEvidence(t *testing.T) {
 			t.Errorf("%q: no Measured date. A negative capability claim goes stale BY ADDITION and the "+
 				"date is what makes `git log --since` able to detect it", field)
 		}
+	}
+}
+
+// TestNoExistingRouteIsIncorrectlyOverridden answers the council's `guidelines`
+// seat (021cb965): the guard wraps the AGGREGATE result of a router that decides
+// in several places, and the suite only covered one worked case plus a prose
+// control — not the full route matrix. In particular, a route that had ALREADY
+// parked the finding (capability_gap / empty handler) must not be re-stamped.
+//
+// The assertion is total over the category universe and is stated as a
+// BICONDITIONAL, so it cannot be satisfied by a guard that fires too little OR
+// too much: a route that had a handler must become capability_gap; a route that
+// had none must come back byte-identical.
+func TestNoExistingRouteIsIncorrectlyOverridden(t *testing.T) {
+	siteID := uuid.New()
+	pages := map[string]pageInfo{"index": {ID: uuid.New(), Name: "index"}}
+
+	withPred := func(f auditFinding) auditFinding {
+		f.AcceptancePredicate = map[string]interface{}{
+			"type": "text_present", "page": "index", "field": "meta_description",
+		}
+		return f
+	}
+
+	checkedParked, checkedRouted := 0, 0
+	for _, cat := range classifyCategoryUniverse() {
+		for _, page := range []string{"index", "pricing", "site-wide", ""} {
+			base := auditFinding{Category: cat, Page: page, Severity: "medium", Description: "x"}
+
+			// The route as it stands today, with no predicate attached.
+			before := classifyFindingRoute(base, pages, siteID, "offer-analysis")
+			// The same finding, now naming an unwritable field.
+			after := classifyFinding(withPred(base), pages, siteID, "offer-analysis")
+
+			if strings.TrimSpace(before.HandlerAgent) == "" {
+				// Already parked / unrouted. The guard must be a no-op here —
+				// re-stamping someone else's capability_gap would destroy its
+				// gap_kind, its dedup key and its builder_needed.
+				checkedParked++
+				if after.ItemType != before.ItemType || after.DedupKey != before.DedupKey {
+					t.Errorf("category %q page %q was ALREADY unrouted (item_type %q, dedup %q) and the "+
+						"guard re-stamped it as %q / %q — it must return an unrouted finding untouched",
+						cat, page, before.ItemType, before.DedupKey, after.ItemType, after.DedupKey)
+				}
+				continue
+			}
+
+			checkedRouted++
+			if after.ItemType != "capability_gap" || after.HandlerAgent != "" {
+				t.Errorf("category %q page %q routes at %q, which cannot write meta_description, and the "+
+					"guard let it through as item_type %q handler %q",
+					cat, page, before.HandlerAgent, after.ItemType, after.HandlerAgent)
+			}
+		}
+	}
+
+	// Both arms must have been exercised, or this passes vacuously — the shape
+	// that made a sibling test in this package assert nothing for weeks.
+	if checkedParked == 0 {
+		t.Error("no already-unrouted route was exercised: the no-op arm is untested")
+	}
+	if checkedRouted == 0 {
+		t.Error("no routed category was exercised: the conversion arm is untested")
+	}
+	t.Logf("route matrix covered: %d already-unrouted, %d routed", checkedParked, checkedRouted)
+}
+
+// TestThePageFieldWriterRosterIsDefinedExactlyOnce answers the council's
+// `reuse_agent` and `architecture` seats (021cb965): the helper is a shared
+// contract with an agreed second consumer in another lane, and the coordination
+// is a chat message. A chat message cannot stop a concurrent lane defining its
+// own copy of the map — which is the DRIFT THIS HELPER EXISTS TO PREVENT, so
+// resting on it would reproduce the founding incident one level down.
+//
+// So the single-source rule is a build failure rather than a request in a doc
+// comment.
+//
+// ⚠ The needle is split so that it cannot match the text of THIS test, and the
+// assertion is on the COUNT — a source-scan whose needle matches its own prose
+// passes vacuously (LANDMINES: "a source-scanning test makes your COMMENTS
+// load-bearing").
+func TestThePageFieldWriterRosterIsDefinedExactlyOnce(t *testing.T) {
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	needle := "pageFieldWriters" + " = map["
+	found, where := 0, []string{}
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n := strings.Count(string(src), needle); n > 0 {
+			found += n
+			where = append(where, f)
+		}
+	}
+	if found != 1 {
+		t.Fatalf("pageFieldWriters is declared %d time(s) in %v, want exactly 1. A second roster is two "+
+			"hand-maintained answers to 'can this handler write this field', which drift silently because "+
+			"each side looks internally correct. Call HandlerCanWriteField instead of copying the map.",
+			found, where)
 	}
 }
