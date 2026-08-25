@@ -10,7 +10,7 @@ was corrected and re-scoped). **Read both — the 08-23 file is deliberately not
 the pair is the record of how the understanding moved.
 
 > ⚠ **TWO BUGS SHARE THE NUMBER 327. Resolve by SLUG.** This lane is
-> `bugs_open/327b_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md`.
+> `bugs_closed/327b_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md`.
 > The other — `bugs_closed/327_..._a_partial_spec_write_silently_shrinks_the_brief...` — was
 > closed 2026-08-23 by `copy_quality_two_stage` and is unrelated. **Almost every commit in
 > `git log --grep 327` is the OTHER one.** A live handoff already conflated them; corrected in
@@ -55,7 +55,7 @@ Audited rather than asserted. `[MEASURED 2026-08-25]`
 | `LANDMINES` entries | 2, both human-verified after the verifier returned NEEDS_HUMAN_REVIEW |
 | **`016b` §9 entry** | **was MISSING — added 2026-08-25.** The case file and landmine both existed, but neither serves a session arriving *with the symptom*, which is what §9 is for |
 
-**ONE thing is outstanding, and it is a single `git mv`:** `bugs_open/327b_…` has **not** been
+**ONE thing is outstanding, and it is a single `git mv`:** `bugs_closed/327b_…` has **not** been
 moved to `bugs_closed/`. Everything else is done. See §0b for the two traps in doing it.
 
 ## 0b. WHEN YOU CLOSE IT — two things that bite on the way out

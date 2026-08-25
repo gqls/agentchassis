@@ -14086,7 +14086,7 @@ a page that can never be fixed.
 the locked section it had just repositioned) · `bugs_closed/189` (same damage, different shape —
 refuted as the cause) · `bugs_open/039` (the narrow unresolvable-stub guard this row passes).
 
-### "I dispatched it and no orchestration row appeared" has THREE causes whose correct responses are mutually exclusive, and the evidence that separates them expires at different rates (2026-08-25, `bugs_open/327b` build-trigger drop)
+### "I dispatched it and no orchestration row appeared" has THREE causes whose correct responses are mutually exclusive, and the evidence that separates them expires at different rates (2026-08-25, `bugs_closed/327b` build-trigger drop)
 
 **The symptom:** you fired a trigger, it printed a correlation id and exited 0, and minutes later
 `orchestration_states` holds nothing for it.
@@ -14138,7 +14138,7 @@ unprompted within two days of it existing.
 every *warning about* the hazard — including the comment each fix adds — so the count does not move
 as the work is done. `[MEASURED 2026-08-24]` 18 files matched on comments alone.
 
-**Related:** `bugs_open/327b` (the worked case, and note two unrelated bugs were filed as 327 —
+**Related:** `bugs_closed/327b` (the worked case, and note two unrelated bugs were filed as 327 —
 resolve by slug) · `bugs_open/326` (the sibling: a re-submission dedups on `item_key` in any status
 and reports COMPLETED having queued nothing, so "retry" can also silently do nothing) ·
 `LANDMINES.md` "kubectl run -i --rm … kcat -P < file drops roughly 4 publishes in 5 AT EXIT 0" ·

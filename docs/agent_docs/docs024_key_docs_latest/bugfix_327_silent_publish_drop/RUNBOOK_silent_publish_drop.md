@@ -10,7 +10,7 @@ Every command that was hard to get right, with its gotcha attached.
 
 ```bash
 python3 scripts/who-owns.py 327          # prints the AMBIGUOUS warning — read it
-git log --format="%ad %h %s" --date=short -- "bugs_open/327b_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md"
+git log --format="%ad %h %s" --date=short -- "bugs_closed/327b_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md"
 ```
 
 ⚠ Every "bug 327 CLOSED / round 2 / fix is LIVE" commit in `git log --grep 327` belongs to

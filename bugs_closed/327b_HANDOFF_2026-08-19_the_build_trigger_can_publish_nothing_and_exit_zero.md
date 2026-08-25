@@ -1,5 +1,23 @@
 # 327 — the build trigger can publish NOTHING and exit 0: one submission in three vanished with no orchestration, no work item, and no error
 
+> **CLOSED 2026-08-25 — fixed AND live.** Everything this bug produced is shell/Python, so it
+> was live the moment it was committed; **no image roll was ever involved**, and a chassis build
+> changes nothing here. Verified at close, re-derived not asserted: **live racing queue 0** ·
+> **22 callers** on `scripts/kafka-publish-lib.sh` (register **OPP-009**), three of them lanes
+> this one never spoke to · library self-test ALL PASS · every migrated script induced-failure
+> tested against an unreachable broker.
+> **The residual is DATA, not an open defect:** ~55 `scripts/` files carrying the old form but
+> untouched for 30d+, plus `docs/` lane one-offs that must NOT be rewritten (doing so falsifies
+> the record and risks firing a live trigger). `check_kcat_stdin_race` in `pattern-check.py`
+> catches any of them the moment someone picks one up — **the class is bounded by a detector,
+> not by finishing a sweep.**
+> **Two decisions deliberately left open and NOT lost:**
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_327_silent_publish_drop/HANDOFF_2026-08-25_open_decisions.md`
+> — a council round (possible on demand via `FORCE=1`; no permanent scope needed) and the
+> in-cluster Go submit path (wait; revisit only if a message is observed lost THROUGH the library).
+> Story: `SUMMARY_2026-08-25_silent_publish_drop_closing.md`. Diagnosis for a session arriving
+> **with the symptom**: `016b` §9, *"I dispatched it and no orchestration row appeared"*.
+
 > **RENUMBERED 327 → 327b on 2026-08-25 (owner decision), following the `347b` precedent.**
 > Two unrelated bugs were filed as 327 on the same day, and on close BOTH would have landed in
 > `bugs_closed/` — where the directory stops telling them apart, which is how one live handoff
