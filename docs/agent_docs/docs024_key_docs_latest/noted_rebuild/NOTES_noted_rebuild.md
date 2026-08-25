@@ -2526,3 +2526,38 @@ text note; its media was deleted by the smoke's own final step.
 
 **Stage 1 (PLAN_2026-08-24) is DONE: built, deployed, live-proven.** Next:
 stage 2, the pasteboard proper (notes.layout JSONB + the board view).
+
+---
+
+## 2026-08-25 — the CTA-override advisories DISPOSITIONED (open thread 4 closed)
+
+Nine advisory points across 5 objecting reviewers (7 abstained), three themes:
+
+1. **Un-ledgered config write** (editquality m/guardian l/debug_historian m —
+   the same point three ways): ACCEPTED. The hand-run `content_data` UPDATE is
+   now `sql_for_agents/608_noted_header_cta_override_ledger_backfill.sql` —
+   idempotent no-op against the live row, `DO`/`RAISE` verify (not bare
+   SELECTs), carrying the approval corr. Committed `b02c5955b`.
+2. **Fait accompli / build-id-not-artefact / claims-outside-schema**
+   (editquality m, debug_historian l, prior_art l): ANSWERED BY STANDING
+   RULINGS — review here is after the fact by design (owner ruling 2026-07-29
+   §2, shared HEAD), and the liveness claim rested on behavioural proof (the
+   re-render DERIVED the URL), which the objection itself grants is stronger
+   than a symbol grep.
+3. **Mechanism follow-ups, each CHECKED 2026-08-25**:
+   - guardian m — "confirm override-after-policy on ALL render paths": the
+     override has exactly ONE application site, inside the shared render
+     function immediately after the derivation, same `chromeLinks.Allows`
+     gate (render_site_components_action.go:198–212) — ordering is a property
+     of the function, not the calling pipeline. Confirmed by grep: no other
+     .go file applies `header_cta_url`.
+   - bug_historian l — sibling call sites: no footer CTA derivation exists in
+     the file (footer builds legal/social links only). No sibling gap.
+   - prior_art m — "site-header schema may already carry cta_url": it does,
+     but `"source": "renderer"` — it is the plumbing the derivation WRITES
+     INTO, not a pre-existing owner control. The new key is the control.
+   - bug_historian m — a REFUSED override logs only a Warn; the owner's
+     explicit request can silently degrade. REAL and ACCEPTED AS FOLLOW-UP,
+     not built now: emit an owner-visible signal (work item) on override
+     rejection. Recorded here so it is not folklore; small platform change,
+     own council round when picked up.
