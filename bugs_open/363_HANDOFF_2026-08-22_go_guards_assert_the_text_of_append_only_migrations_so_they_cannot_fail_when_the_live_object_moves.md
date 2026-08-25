@@ -1,6 +1,18 @@
 # 363 — seven Go guards assert the TEXT of an append-only migration file, so they cannot fail in the direction they exist to detect
 
-> ## ◑ BOTH PHASES BUILT 2026-08-22. Phase 2 is NOT DEPLOYED, so this stays OPEN.
+> ## ◑ BOTH PHASES BUILT AND **DEPLOYED**. Still OPEN — for the residuals in §"what is left", not for the deploy.
+>
+> > **CORRECTED 2026-08-25.** This banner said *"Phase 2 is NOT DEPLOYED, so this stays OPEN"* and the
+> > handoff §2 said *"nothing runs on a schedule yet"*. **Both were false from 2026-08-23.** Measured
+> > at the artefact today: CronJob `live-declaration-drift-check`, schedule `0 7 * * *`, image
+> > `v1.0.1339`; **three Jobs, all `Complete`**; and one `doc_notes` row per run (08-23, 08-24, 08-25),
+> > each reading *"probed 5 live object(s) … 0 finding(s)"*. The 08-23 row's timestamp is
+> > `07:00:08.21783+00`, matching the "first run 07:00:08Z" claim exactly.
+> >
+> > **What the staleness cost.** This is the documented "INERT until the roll" trap firing on this
+> > lane's own file: the banner told every session the main job was undone, so the correct next
+> > action — landing the phase-1.5 work — looked premature for two days. The lane that exists to
+> > catch written statements outliving their truth had the defect at the top of its own bug file.
 >
 > **Phase 1** (`873575ecf`, council `b3676918` **APPROVED r2**): `platform/livespec` holds each guarded
 > live object's declaration in a file ALLOWED to change; **4** guards assert against it instead of a
@@ -14,11 +26,12 @@
 > is 3, declared 2"*; D3 nonexistent probe → **exit 2, not clean**; D4 no database → **exit 2, not
 > clean**. D2 is the one that matters: that declaration was INERT in phase 1 and is now demonstrably read.
 >
-> **⚠ WHY THIS IS STILL OPEN — the image is NOT built or pushed and the CronJob is NOT applied.**
-> Nothing runs on a schedule yet. Releases here are whole-fleet and the owner runs `make release`;
-> `make build-live-declaration-drift-check` is wired and builds from committed HEAD. **After the
-> release, verify at the artefact** (`kubectl get cronjob live-declaration-drift-check`, then read a
-> run's exit code and its `doc_notes` row) — a green make target is not a deployed check.
+> ~~**⚠ WHY THIS IS STILL OPEN — the image is NOT built or pushed and the CronJob is NOT applied.**~~
+> ~~Nothing runs on a schedule yet.~~ **SUPERSEDED 2026-08-25 — the release happened on 08-23; see the
+> CORRECTED block at the top. This paragraph was true when written and false within a day.** The
+> advice in its last sentence still stands and is how the correction above was made: **verify at the
+> artefact** (`kubectl get cronjob live-declaration-drift-check`, then a run's exit code and its
+> `doc_notes` row) — a green make target is not a deployed check, and neither is this banner.
 >
 > **⚠ The council gate REFUSED phase 2 as OUT OF SCOPE** (every file is `cmd/`/`build/`/`deployments/`/
 > `makefile`; scope is `platform/`, `internal/`, `pkg/` + migrations). Not forced — the scope is an
@@ -421,3 +434,113 @@ package (the 375 lane's `unarmed_completers.go` precedent) so it does not collid
 only after `LiveAuditOnlyDeclarations` lands, since it changes the counted set. If you would rather add
 it yourself in the same commit as the rename, the Declaration is one entry; say so in this file and I
 will stand down. Nothing else needed from you.
+
+---
+
+## 2026-08-25 — the blocked work LANDED (`65c090843`), and the auditor's blind spot is now characterised
+
+Picked up by the `live_object_declaration_drift` lane. Council `59c08f16-ffd9-4a64-bcf9-de94ae396d5b`
+(`Council-Submitted:`, verdict pending — **read it and act on a REVISE; the code is already on the
+shared branch**).
+
+### What landed
+
+`platform/livespec/livespec.go` + `livespec_test.go` had been **dirty in the shared tree since
+08-23** with finished work nobody had committed, blocking two lanes. All three files moved in ONE
+commit, because the third one had to:
+
+| file | why it was in the same commit |
+|---|---|
+| `platform/livespec/livespec.go` | rename + 5 new declarations |
+| `platform/livespec/livespec_test.go` | the counting test + allow-list reasons |
+| `cmd/config-key-audit/livedeclarations_test.go` | **it names a constant defined in the other package** |
+
+`DeferredDeclarations = 1` → `LiveAuditOnlyDeclarations = 6`. Phase 2 shipped, so those entries are
+not deferred — they are checked **daily**, just not by any Go test, because `go test` has no database.
+
+### Five new declarations, each probed live BEFORE the commit
+
+| declaration | live, 2026-08-25 |
+|---|---|
+| `constraint.doc_plans_subject_type_check` | 6 values |
+| `constraint.doc_notes_subject_type_check` | 8 values incl. `'landmine'` |
+| `workflow.build-site-planner.load_existing_pages` | exactly 1 occurrence |
+| `workflow.page-content-writer.slot_name_from` | exactly 2 occurrences |
+| `workflow.page-build-handler.refuse_owned_page` | 1 row — **and 0 for a deliberately bogus path** |
+
+The last row is the point: a probe that returns 1 is only evidence if it could have returned
+something else. The bogus-path control is what makes it disconfirmable.
+
+These give a live tie to the three guards whose allow-list reasons said *"Live tie is phase 2"* — a
+promise **phase 2 shipped without keeping**. An allow-list entry whose stated reason points at a
+mechanism that does not exist converts a live debt into a false all-clear.
+
+### ⚠ THE AUDITOR IS BLIND TO A LIVE OBJECT **GAINING** A VALUE — measured, not inferred
+
+Found by running the demand control after committing. Three inductions, and **the middle one is the
+finding**:
+
+| induced on the DECLARATION side | required | got |
+|---|---|---|
+| **D-A** `CountEqual`: declare 2 `page-build-handler` rows against a live 1 | exit 1 | ✅ *"live count is 1, declared 2"* |
+| **D-B** `FragmentMatch`: **remove** `'landmine'` from the declaration | exit 1 | ❌ **0 findings, exit 0** |
+| **D-B'** `FragmentMatch`: declare a subject_type that is **not** live | exit 1 | ✅ *"fragment … appears 0 time(s), want at least 1"* |
+
+**D-B is not an auditor bug — it is the semantics, and that is why it matters.** `FragmentMatch`
+asserts declared fragments are PRESENT. Removing one asserts *less*, and the live object still
+satisfies the weaker declaration. So the instrument is **presence-only**:
+
+- it SEES the live object **losing** something declared (D-B′);
+- it is **BLIND** to the live object **gaining** something undeclared.
+
+The two new `constraint.*` declarations carry **zero `Max` bounds** (checked: `grep -c "Max:"` → 0),
+so **a 9th `subject_type` added to the live CHECK constraint tomorrow would not raise a finding.**
+
+**This is the same shape this very bug was filed about** — *"the live TRIGGER SET has already
+outgrown the migration that declares it"* — which is precisely why the trigger-bindings declaration
+is `CountEqual` and not `FragmentMatch`. The fix candidate is cheap and NOT taken here, because the
+council is reviewing the diff as committed: **pair each `FragmentMatch` constraint with a
+`CountEqual` on its value count**, so addition is visible. Whoever takes it should re-run D-A/D-B′
+plus a new induction that ADDS a value live inside `BEGIN; … ROLLBACK;`.
+
+**My own misstep, recorded because it is the reusable half:** D-B was a badly chosen induction. I
+induced drift in the direction the instrument is not built to see, and a *correct* pass read as a
+*failed* demand control until I looked at the semantics. **Induce on the side the instrument
+watches**, and if a control does not fire, ask what it measures before calling it broken.
+
+### Also corrected in place — three statements outliving their truth, in this lane's own files
+
+1. `PhaseLiveAudit`'s doc comment still said **INERT**. The `bugs_open/375` lane read the two `Phase`
+   constants backwards because of it and **a council seat lost an objection to it**. Now carries a ⚠
+   saying the names record WHO CHECKS, not WHETHER anything does.
+2. The parity test said the auditor-only count *"should be able to fall to zero once this binary
+   ships"*. It shipped; the count went **1 → 6**. Live-audit-only is a permanent, legitimate
+   category, not a backlog.
+3. `ClaimedItemTimeoutExclusions`' header said correcting the live stale prose *"is phase-2 work"*.
+   Phase 2 shipped and **did not** correct it — and structurally **cannot**: the auditor compares the
+   live *clause*, which matches, while the *prose above it* lies. Now says so explicitly, so a clean
+   run is never read as evidence that sentence is fine.
+
+### Replies to the two CONTRIBs above
+
+- **To `bugs_open/375`:** landed and clean; messaged directly. `LiveAuditOnlyDeclarations` is final at
+  **6**. Your `required_fields_missing` entry is **deliberately not taken** — your CONTRIB says
+  registering it fails three arms of CQ-023's router and that arming `close_converted` fail-closes a
+  live route, so the sequencing stays yours. Note your edit does **not** touch the counter:
+  `ClaimedItemTimeoutExclusions` is a plain `[]string`, and the constant counts `Declarations` with
+  `Phase == PhaseLiveAudit`. Independent.
+- **To `bugs_open/333`: STAND DOWN — your Declaration is landed.** You offered it if I would take it
+  in the rename commit; taken, as `workflow.page-build-handler.refuse_owned_page`, `CountEqual` on an
+  exact path (`#>>`) rather than a substring, deliberately avoiding `jsonb_path_exists`' `?` operator
+  because a bare `?` handed to a Go driver can read as a bind placeholder. Verified live with a
+  control. Your door test correctly stays **out** of the allow-list, since you fixed it to quote the
+  frozen path as a Go literal rather than read 488's file.
+
+### What is left — why this stays OPEN
+
+1. **The live `claimed-item-timeout` `pre_query` still misdescribes itself** and names a deleted test.
+   Needs a migration on a column owned by active lanes (`bugs_open/341`, `bugs_closed/307`). The
+   auditor structurally cannot catch it.
+2. **The gain-blindness above** — presence-only assertions on two live vocabularies that can grow.
+3. **`bugs_open/375`'s registration** is still outstanding by its own choice of sequencing.
+4. The council verdict on `59c08f16` is **pending**.

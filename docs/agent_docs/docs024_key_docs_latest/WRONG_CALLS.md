@@ -53908,3 +53908,29 @@ arrived at through the predicate instead.
 Family: a-name-is-not-a-vocabulary, verify-the-writer-not-the-handler-name,
 a-landmine-filed-under-how-you-found-it-misses-the-other-road,
 fail-safe-is-not-safe-when-the-gate-never-opens.
+
+- **2026-08-25 — `go build ./...` said the tree was fine while a renamed symbol had HEAD half-broken.**
+  Landing `bugs_open/363`'s uncommitted rename (`DeferredDeclarations` → `LiveAuditOnlyDeclarations`),
+  I ran `go build ./...`, got exit 0, and was one command from committing. `go build` **does not build
+  test files**, and `cmd/config-key-audit/livedeclarations_test.go` still named the old symbol from a
+  *different package*. **Caught by:** grepping for the old symbol before committing, which also
+  surfaced a comment left in that file by the previous session telling the renamer to move both in one
+  commit. `go vet` names it in one line. **This had already happened once in the other direction** —
+  `6d3e0027e` pointed that test at the new name while the rename existed only in another session's
+  uncommitted file, breaking HEAD for everyone while compiling perfectly in its own tree; reverted
+  forward-only by `8b9128131`. **The cheap check:** after renaming an exported symbol, `go vet` every
+  package that NAMES it, not just the one that DEFINES it — on a shared tree the two halves can be
+  owned by different sessions, and a green `go build` is not a green HEAD.
+
+- **2026-08-25 — I read a correct instrument as a broken one because my demand control tested the
+  direction it does not watch.** To show the live-declaration auditor could fail, I removed a declared
+  fragment (`'landmine'`) from a `FragmentMatch` declaration and required exit 1. Got **0 findings,
+  exit 0**, and my first reading was "the auditor is broken". It was right: `FragmentMatch` asserts
+  declared fragments are PRESENT, so removing one asserts *less* and the live object still satisfies
+  it. **Caught by:** reading the comparator's semantics instead of trusting the expectation — then
+  re-inducing as *declare a value that is NOT live*, which fired immediately and named object,
+  fragment and occurrence count. **The cheap check:** before calling a non-firing control a defect,
+  state what the instrument measures and confirm your induction is a case of it. **The valuable half:**
+  chasing it characterised a real blind spot — the auditor is blind to a live object GAINING a value —
+  which is now a LANDMINE entry and an open residual on `bugs_open/363`. A control that does not fire
+  is a claim about the control, not yet about the system.

@@ -194,3 +194,42 @@ the files that do this?" was written in a way that could only see one line at a 
 things span two lines, so it found seven where there are nine — and one of the two it missed was a
 file I had personally written about that morning. The tool I was building found the right answer; my
 quick check of it did not.
+
+---
+
+**2026-08-25 (evening).** Picked this lane up to find the interesting part already done and simply
+not committed. Both halves of the drift checker have been live since the 23rd — there is a job that
+wakes at 7am every morning, reads five things out of the live database, checks them against what we
+say they should be, and writes down what it found even when it finds nothing. It has done that three
+mornings running and everything agreed each time.
+
+The problem was that the lane's own notes still said none of that had happened. The top of the bug
+file announced the job was not deployed. So anyone picking this up was told the main work was still
+ahead of them, when it was actually behind them — and meanwhile the finished code sat uncommitted in
+the shared workspace for two days, with two other people's work stuck behind it. Both of them had
+noticed, written polite notes explaining they were waiting, and carefully not touched it. That is
+good behaviour on their part and it should not have cost them two days.
+
+So I committed it, and I checked each of the new things it watches against the real database first,
+one of them twice — once expecting the answer I wanted, and once against a deliberately wrong
+question to make sure it was capable of saying no. It was.
+
+Then I tried to break it on purpose, which is the part worth telling you about. The idea is simple:
+a checker that has never been seen failing is not yet known to work. I broke it one way and it
+correctly complained. I broke it a second way and it said nothing — and my first thought was that I
+had found a bug. I had not. I had asked it the wrong question. It is built to notice when something
+we expect has gone MISSING from the database; I had tested whether it notices when we stop expecting
+something, which is not the same thing and is not its job.
+
+But following that up turned into the genuinely useful find of the day. It notices things
+disappearing. It does not notice things being ADDED. If someone adds a ninth allowed value to one of
+these lists tomorrow, this checker will keep reporting that all is well — and "the live thing has
+quietly grown past what we wrote down" is the exact problem this whole lane was created to solve. So
+it has a hole in it, in its own subject area. I have written down precisely where and what the fix
+is, but I have not made it, because the change I did commit is currently with the reviewers and I do
+not want to move the thing they are reading.
+
+The bug stays open. Not for the deployment any more — that is done — but for three real leftovers,
+including the hole above, and including one where the database contains a paragraph describing itself
+that stopped being true six days ago. The checker cannot catch that one either: the paragraph sits
+next to the rule it describes, the rule is correct, and only the paragraph lies.

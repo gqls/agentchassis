@@ -704,3 +704,53 @@ and after it the check must be verified at the artefact (§ RUNBOOK), not assume
 `TemplatedIDSwaps`) — another lane's uncommitted WIP, 8 modified files in `actions/`. **Committed HEAD
 built clean (exit 0)**, and I verified my change by extracting HEAD and overlaying only my files:
 `go build ./...` exit 0, all three packages green. Recipe now in the RUNBOOK.
+
+---
+
+## 2026-08-25 — landing the blocked work, and a demand control that taught me something
+
+**State found.** `platform/livespec/livespec.go` + `livespec_test.go` dirty in the shared tree since
+08-23, last touched 11:46, package compiling, tests green. Two lanes queued behind them
+(`bugs_open/375`, `bugs_open/333`), both of which had deliberately NOT edited the files and had left
+CONTRIBs in `bugs_open/363` saying why. Committed as `65c090843`; council `59c08f16` submitted.
+
+**Misstep 1 — I nearly shipped a red HEAD, and `go build` would have told me it was fine.**
+`go build ./...` returned 0 with the rename half-landed. It does **not build test files**, and
+`cmd/config-key-audit/livedeclarations_test.go` referenced `livespec.DeferredDeclarations`, which the
+dirty `livespec.go` had renamed away. `go vet` caught it in one command. This exact break had already
+happened once from the other side (`6d3e0027e`, reverted forward-only by `8b9128131`) and the file
+carried a comment telling the renamer to move both in one commit — which I only read because I
+grepped for the old symbol before committing. **Cheap check that would have caught it: `go vet` on
+every package that NAMES a symbol you renamed, not just the one that defines it.**
+
+**Misstep 2 — my demand control did not fire, and the instrument was right.** To prove the auditor
+could fail, I removed the `'landmine'` fragment from the `doc_notes` declaration and expected exit 1.
+Got **0 findings, exit 0**, and briefly read that as a broken auditor. It is not: `FragmentMatch`
+asserts declared fragments are PRESENT, so removing one asserts *less*, and the live object still
+satisfies the weaker declaration. **I induced drift in the direction the instrument is not built to
+watch.** Re-run declaring a subject_type that is NOT live → exit 1, naming object, fragment and
+occurrence count.
+
+The generalisable half: *a control that does not fire is a claim about the control, not yet about the
+system.* Ask what the instrument measures before calling it broken — and phrase the induction as the
+failure the instrument exists to see.
+
+**And it turned into the session's real finding.** Chasing why D-B behaved that way characterised a
+blind spot nobody had written down: the auditor sees a live object **losing** a declared value and is
+**blind to it gaining an undeclared one**. The two `constraint.*` declarations have zero `Max`
+bounds. That is the *same shape* this bug was filed about — the live trigger set outgrowing its
+migration — which is exactly why the trigger-bindings entry is `CountEqual`. Recorded as a
+characterised residual with a fix candidate, not fixed here, because the council is reviewing the
+committed diff.
+
+**Facts measured today** (all could have come out otherwise):
+
+- CronJob `live-declaration-drift-check` live, `0 7 * * *`, image `v1.0.1339`; 3 Jobs, all Complete;
+  `doc_notes` rows 08-23/24/25, the first at `07:00:08.21783+00`.
+- Clean auditor run after the commit: **probed 10 live objects** (2 constraint, 2 scheduled_task,
+  1 trigger_bindings, 2 trigger_fn, 3 workflow), 0 findings, exit 0. Was 5 before.
+- `page-build-handler` exact-path probe → 1; **same probe, bogus path → 0** (the disconfirming control).
+- `doc_notes_subject_type_check` → 8 values; `doc_plans_subject_type_check` → 6. Deliberately different.
+- The `platform/orchestration/actions` suite is RED at bare HEAD (`WORK_ITEM_STATUS_OVERRIDE_REFUSED`
+  undeclared, `bugs_open/358`) — reproduced with **no overlay of my files**, so not mine. The handoff
+  §7 warning about red actions suites earned its place again.

@@ -18180,3 +18180,43 @@ code change owed at the next roll, tracked in RFC_015 §5.
   2026-08-25; restore + guard in `SQL_2026-08-25_restore_your_own_model_blocks.sql`. `WRONG_CALLS.md`
   has the incident and why the count control was trusted.
 - **added:** 2026-08-25, bugs_open/391 session
+
+### A live-declaration auditor built on `FragmentMatch` sees a value DISAPPEAR and is blind to one being ADDED — and the clean run reads identically either way
+
+- **the trap:** `platform/livespec` declarations with `Mode: FragmentMatch` assert that each declared
+  `Fragment` is **present** in the live object's text. That is a one-directional assertion. The live
+  object **losing** a declared value is caught (exit 1, naming object + fragment + occurrence count);
+  the live object **gaining** an undeclared value raises **nothing**, because every declared fragment
+  is still present. `config-key-audit --live-declaration-drift` prints the same
+  *"probed N live object(s); 0 finding(s)"* line in both cases, and the daily CronJob writes the same
+  clean `doc_notes` row. **Measured 2026-08-25:** the two `constraint.*` declarations
+  (`doc_plans_subject_type_check`, `doc_notes_subject_type_check`) carry **zero `Max` bounds**, so a
+  9th `subject_type` added live tomorrow is invisible to the check that exists to notice exactly that.
+- **the check:** before trusting a clean live-declaration-drift run as "the live object still matches",
+  ask which DIRECTION that declaration can fail in. `grep -A12 '<declaration key>'
+  platform/livespec/livespec.go | grep -c 'Max:'` — **0 means presence-only, so addition is
+  invisible.** Use `Mode: CountEqual` for any live vocabulary that can GROW (that is precisely why
+  `trigger_bindings.page_component_artefact_archive` is CountEqual: migration 552 added a third
+  binding to an object 357 declared with two). Pair the two modes when you need both directions.
+- **⚠ and the demand control has the same asymmetry, which is how this hides.** The obvious way to
+  prove the auditor can fail is to REMOVE a fragment from the declaration and re-run. That returns
+  **exit 0, 0 findings — a correct result that reads as a broken instrument**, because asserting less
+  is still satisfied. It cost this session a false "the auditor is broken" moment. The induction that
+  actually exercises `FragmentMatch` is to **declare a value the live object does NOT have**
+  (→ *"fragment %q appears 0 time(s), want at least 1"*). Induce on the side the instrument watches.
+- **⚠ never run the RUNBOOK's demand control on a dirty file.** Its recipe ends
+  `git checkout platform/livespec/livespec.go`, which silently discards whatever another session has
+  uncommitted there — and that file sat dirty with finished, unlanded work for two days in 08-2026.
+  `git status --porcelain -- platform/livespec/` first; commit, then induce.
+- **footprint:** `platform/livespec/livespec.go`, `platform/livespec/livespec_test.go`,
+  `cmd/config-key-audit/livedeclarations.go`, `cmd/config-key-audit/livedeclarations_test.go`,
+  `livespec.FragmentMatch` / `livespec.CountEqual` / `livespec.Fragment` / `livespec.PhaseLiveAudit`,
+  CronJob `live-declaration-drift-check`, `doc_notes` rows `categories ? 'live-declaration-drift'`,
+  `doc_plans_subject_type_check`, `doc_notes_subject_type_check`, and any future Declaration added to
+  `livespec.Declarations`
+- **relations:** `bugs_open/363` (the bug this auditor closes, and §2026-08-25 has the three
+  inductions with both outcomes) · the `Dedup index ↔ Go list lockstep` entry and the
+  `doc_subjects subject_type` entry — same "two hand-maintained copies of one vocabulary" family
+- **source:** `bugs_open/363` / `docs024_key_docs_latest/live_object_declaration_drift/` NOTES
+  2026-08-25 (misstep 2), measured live with the CronJob deployed
+- **added:** 2026-08-25, bugs_open/363 session

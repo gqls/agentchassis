@@ -22,7 +22,18 @@ their file was unreadable.
 
 ## 2. Status — READ THIS BEFORE ANYTHING ELSE
 
-**◑ BOTH PHASES BUILT. PHASE 2 IS NOT DEPLOYED. `bugs_open/363` is OPEN and should stay open.**
+> **CORRECTED 2026-08-25 — THE TABLE BELOW WAS WRONG FOR TWO DAYS AND THIS IS THE FIRST THING TO KNOW.**
+> Phase 2 **deployed 2026-08-23**. Verified at the artefact 2026-08-25: CronJob
+> `live-declaration-drift-check`, `0 7 * * *`, image `v1.0.1339`, **three Jobs all `Complete`**, one
+> `doc_notes` row per run. The "Deploy: image unbuilt/unpushed, CronJob unapplied" row below, and
+> §8's "Phase 2 — designed, not built", are **both superseded**. §8 was ALSO internally inconsistent
+> with §2 and §5 on the day it was written.
+>
+> This is the "INERT until the roll" trap on the lane's own cold-start doc: it made the correct next
+> action look premature, and `platform/livespec` sat finished-but-uncommitted for two days while two
+> other lanes blocked on it. **A status line is a snapshot; go and look.**
+
+**◑ BOTH PHASES BUILT AND DEPLOYED. `bugs_open/363` is OPEN for its residuals, not for the deploy.**
 
 | | state |
 |---|---|
@@ -178,7 +189,15 @@ someone else's half-finished commit as a real regression.
 
 ## 8. Open items, honestly listed
 
-1. **Phase 2** — designed, not built, needs its own council round. The main job.
+1. ~~**Phase 2** — designed, not built, needs its own council round. The main job.~~
+   **DONE — built, deployed 2026-08-23, running daily and clean 3×.** (This line was already wrong on
+   the day it was written: §2 and §5 both said BUILT. It is corrected, not deleted, because the
+   inconsistency is the evidence.)
+1b. **NEW 2026-08-25 — the auditor is BLIND to a live object GAINING a value.** `FragmentMatch`
+   asserts presence only, and the two `constraint.*` declarations carry no `Max` bounds, so a 9th
+   `subject_type` appearing live raises nothing. `CountEqual` does see it. Measured, both directions,
+   in `bugs_open/363` §2026-08-25. Fix candidate: pair each `FragmentMatch` constraint with a
+   `CountEqual` on its value count.
 2. **The stale live prose** (§3) — a migration correcting the `claimed-item-timeout` comment.
 3. **The landmine verifier returned `UNVERIFIABLE`** for the entry (corr `71f6262c`) — *"all footprint
    items … fall outside the Go-symbol-only code index"*. That is a **limitation of the verifier**, not
