@@ -431,3 +431,71 @@ written now, and it's the piece most likely to save somebody a day.
 
 **Nothing is outstanding.** Two decisions are deliberately open, recorded with the triggers that
 would reopen them, in `HANDOFF_2026-08-25_open_decisions.md`.
+
+---
+
+## 2026-08-25d — a stale copy of the submit script was sitting in the top folder, and the count that said we were finished couldn't see it
+
+I picked this up from the two-open-questions file. Both questions were already answered, and while
+I was reading, another session was doing the closing move in the shared folder — so that was done
+too. Nothing left, in theory.
+
+Before agreeing, I re-did the count rather than quoting it. Two of the three things we said were
+true came out exactly right. The third had a hole in it, and the hole is the interesting part.
+
+**The count was organised by folder.** Scripts under `docs/` are one-off notes from other pieces of
+work, so we agreed not to touch them. Scripts under `scripts/` are the real product, and those we
+fixed — genuinely, there are none left. But a file sitting loose at the **top** of the repository
+is in neither folder. It isn't counted as work, isn't excluded, isn't listed as dormant. It just
+doesn't appear. And a thing that doesn't appear reads exactly like a thing that isn't there.
+
+Two files were sitting up there, both recently touched.
+
+**The first I fixed.** It fires a single improvement sweep at one site by hand. It had the old
+publishing style, so it could report success having sent nothing. Two details make it worse than a
+generic case: it had the standard "stop on any error" safety line at the top, which never helped —
+the whole problem is that the failure looks like *success*, and that safety line only catches
+failures. And it's the manual button for something we've deliberately left switched off, so if the
+message vanishes nothing else will ever send it. It's now on the shared publisher and it stops and
+says so if the message doesn't get through. I tested all three outcomes with a fake cluster so
+nothing was actually sent, and I ran the old version through the same test as a control — it
+happily printed a reference number for a message that was never sent, which is exactly the
+complaint this whole bug was about.
+
+**The second is the one worth your attention, and you decided it.** There was a second copy of the
+customer submit script — the very script this bug is named after — sitting at the top of the
+repository. We fixed the proper one on the 23rd. This copy was last touched on 30 July and still
+had the broken publishing style. Eight of our own documents tell the reader to run it by its short
+name, and typed from the top folder that short name found the broken one.
+
+Nothing could have caught this. We do have a checker for "you fixed one of a matching pair and
+forgot the other" — it only looks at Go files, and these are shell scripts.
+
+You said rename it as deprecated and take the `.sh` off the end, and that's better than the deletion
+I'd put first. Deleting shuts the door but throws away the explanation: those eight documents would
+then point at nothing, and someone searching the name would learn only that it's gone — not that it
+was a stale duplicate, nor which one to use. Renaming shuts the same door and leaves the answer
+where the question gets asked. The changed ending does three jobs at once: the short name now fails
+outright, tab-completion offers nothing runnable, and it drops out of every future count of shell
+scripts so it can't be mistaken for a live one again. I also left a line at the top so that anyone
+who forces it to run gets told to use the proper script instead.
+
+**Then I checked whether we had this problem anywhere else**, because a fix like that is worth
+nothing if there's a second half-mended pair somewhere. Twenty-nine filenames exist in more than one
+place. Three of those pairs differ *and* still have the old publishing style — but in all three,
+**both** copies are old, so neither looks looked-after, and none has been touched in a month. There
+are **no** cases left where one copy is fixed and its twin quietly isn't. That was the only one.
+
+I also checked my own fix for the same trap, because the file I mended turns out to have a twin
+too. It's fine — that copy was already on the safe style.
+
+**The honest summary of the gap:** it was files touched in the last month that live in neither of
+the two folders we sliced by. There were exactly two, and both are now dealt with. Everything else
+in the closing statement holds up.
+
+**The mistake I nearly made is the bit I'd want you to see.** My first attempt to count these
+filtered on the folder name and returned zero — agreeing with what we'd already written, which is
+the most dangerous kind of wrong answer. The filter was subtly malformed and matched nothing at all.
+I only caught it because the same command reported fifty-five files in that folder a moment later.
+An unchecked filter, returning the answer I expected, in a piece of work whose entire lesson is that
+a measurement answers the question you actually encoded. That's written up where we keep those.
