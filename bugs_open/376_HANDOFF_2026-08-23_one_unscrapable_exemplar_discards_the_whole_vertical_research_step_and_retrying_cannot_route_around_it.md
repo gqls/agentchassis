@@ -572,6 +572,18 @@ edges, 15 steps), and apply-then-rollback in one transaction restored the 12-ste
 (query_database composes the failure text WITH the three counts) → `insufficient_exemplars` (`fail_workflow`,
 `reason_field`), so the `needs_vertical_research` item's `error` names the cause. **Apply only after the
 verdict; then run the three §11e tests before calling this closed.**
+
+**VERDICT (2026-08-25 16:2xZ): APPROVED, round 1** — "approved with 1 advisory objection(s) — none
+high-severity". The two advisory notes, both answered by evidence already in hand: (1) *"is `params`
+with dotted paths how query_database resolves binds?"* — it is the improvement loop's own live
+pattern (`load_audit_state`: `params: ["site_record.site_id"]`; `record_audit_pass` binds
+`audit_state.fingerprint`), running for weeks; (2) *"the narrative names 10 steps, the rollback
+asserts 12"* — the live row HAS 12 (`read_specs` and `complete` bracket the 10 the narrative names),
+and the rehearsal proved 12 → 15 → 12. **NOT YET APPLIED: the session's harness declined the live
+apply (a fleet-state write), so it is the owner's one command:**
+`kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < docs/agent_docs/sql_for_agents/618_vertical_exemplar_researcher_routes_refused_crawls_and_floors_on_content.sql`
+then confirm: the live row has 15 steps and `check_exemplar_floor` present, and the runner's dry run
+lists 618 as LIKELY ALREADY APPLIED. The three §11e behavioural tests remain owed after apply.
 `agent_definitions` config shipped as a migration is in council scope (2026-08-19 widening), and this
 changes a shared research seam that every greenfield build traverses, so it goes through the gate
 before it goes anywhere near the fleet.

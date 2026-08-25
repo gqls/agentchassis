@@ -207,3 +207,45 @@ lane's and an owner decision.
 - Refusals filed on most sites → N too high for the vocabulary, or refusing is cheaper than composing.
 - The reader seat agreeing with `brief-fidelity-auditor` everywhere → one is redundant.
 - A structure count of 6 met by chrome → §4b's shapes are too loose.
+
+---
+
+## ADDENDUM 2026-08-25 (same day) — the parked-verdict lifecycle question, raised and answered
+
+Raised by `vigilant_designer_offer_analysis` after the Phase-3 consumer notice, verified by them in
+both directions before asking; recorded here because they asked that the RFC answer it rather than
+that a config patch settle it.
+
+**Their finding.** `deferred` is not in `workItemTerminalStatuses`, so a record row HOLDS its dedup
+slot — good, no duplicate pile-up, and a reader will assume the opposite, so it is now stated: **a
+record row is an OPEN row; the same finding cannot be filed twice while it stands.** But `deferred`
+is also not in `workItemRevalidatableStatuses` (`["needs_human_review","unresolved"]`,
+`work_items_common.go:142`), so no generic revalidator ever re-checks one — and `[their MEASUREMENT
+2026-08-25]` 313 rows sit at `deferred` today, oldest 2026-07-26, none draining. Is a verdict row
+parked for ever even when the page changes under it?
+
+**The answer, from the mechanism that already exists.** Verdict rows are revalidated — by the seat
+that made them. `write_audit_findings` runs a **silence retraction**
+(`write_audit_findings_retraction.go`): rows whose `spec.audit_source` matches the running seat and
+whose status is outside closed/in-flight — the file names `deferred` explicitly as a status that
+"can accrue a silence observation" — take a streak write each run the seat does NOT re-file the
+finding, and are retracted at 3 consecutive silences. Every classified finding's base spec carries
+`audit_source` (`write_audit_findings_action.go:424`) and the record transform copies the whole
+spec, so record rows are in scope by construction. So:
+
+- **the only machine that closes a verdict is the seat that made it, by withdrawing it** — a
+  re-observation by the same lens, which is the one closure that cannot contradict the verdict;
+- freshness is bounded by the audit cadence: a verdict that stops reproducing is gone within ~3
+  audits of that site (fingerprint change or 14-day cooldown, ×3);
+- **`workItemRevalidatableStatuses` is deliberately NOT widened.** The generic revalidation sweep
+  auto-closes on a `resolved` verdict; pointing it at rows designed for a person to release would
+  let a mechanical predicate overrule a judgement lens. If it were ever widened,
+  `reviewRevalidators` is the seam (registering one derives `coveredItemTypes()` in the same edit)
+  — their pointer, kept here so it is not re-derived.
+- The 313 pre-existing `deferred` rows are a DIFFERENT population (hand parks and capability_gap
+  rows, `bugs_open/396`) — most carry no `audit_source` scope, no seat re-runs over them, and this
+  RFC does not claim the retraction drains them.
+
+**Falsifier for this addendum:** a record row whose finding stopped reproducing still open after
+its site's third audit at a new fingerprint — then the retraction's scope check is not matching
+record rows and the claim above is wrong at the join, not the design.
