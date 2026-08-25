@@ -106,12 +106,26 @@
 --   ('is_active,' followed by 'avg_quality_score') was tested the same day and matched the
 --   PRE-fix binary too, so it does not discriminate. Absence-of-the-old + control is the check.
 --
--- LEDGER (council editquality, low): a _HOLD file is applied by hand, so the runner will not
---   record it. Record it the same way 609 was, immediately after applying:
---     ./scripts/migration/run-migrations.sh --record-only \
---        610_content_components_drop_dead_usage_count_HOLD.sql \
---        --note "applied by hand <date>; edit-1 probe: old INSERT literal ABSENT, control PRESENT; guard passed with N rows/max M"
---   Without that, a later state audit of schema_migrations shows 610 as never applied.
+-- LEDGER (council editquality, low) — ⚠ CORRECTED 2026-08-25 AFTER TRYING IT. The instruction
+--   that stood here ("record it the same way 609 was, with --record-only") DOES NOT WORK, and
+--   the seat that raised this was more right than my answer to it. The runner REFUSES:
+--
+--     ERROR: '610_..._HOLD.sql' is an UPPERCASE-suffixed sidecar (rollback/verify), not a
+--            migration. Sidecars are never applied by the runner, so recording one is meaningless.
+--
+--   `_HOLD` matches the same uppercase-suffix rule as `_ROLLBACK`/`_VERIFY`, so a _HOLD file
+--   can be applied by hand but CANNOT be ledger-recorded through the runner at all. That is a
+--   real gap in the tooling, not a mis-use of it: the very files that MUST be hand-applied are
+--   the ones the ledger cannot record.
+--
+--   WHAT WAS ACTUALLY DONE (2026-08-25 20:21:48Z), writing the row the way the runner writes it:
+--     SUM=$(md5sum <this file> | awk '{print $1}')
+--     INSERT INTO schema_migrations (filename, checksum, applied_by, notes)
+--     VALUES ('610_content_components_drop_dead_usage_count_HOLD.sql', '$SUM',
+--             'hand-recorded', '<what was verified>')
+--     ON CONFLICT (filename) DO NOTHING;
+--   `applied_by='hand-recorded'` distinguishes it from the runner's own 'record-only'.
+--   Anyone auditing _HOLD coverage should grep for that value.
 --
 -- ⚠ SECOND PRECONDITION, ADDED 2026-08-25 — RE-GREP THE INSERT, DO NOT TRUST THIS FILE'S
 --   DATE. The `bugs_open/388` lane is actively editing store_generated_component_action.go
