@@ -9115,6 +9115,29 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the trap INSIDE the fix, which cost a second wrong answer:** dropping `strings` for `grep -aoE "[0-9a-f]{40}"` to *discover* the sha also drops `strings`' **line boundaries**, so `^`/`$` become meaningless and the match lands inside Go's internal digit table — every service returns `0001020304050607080910111213141516171819`, identically and with total confidence. **A discovery grep over an unanchored byte stream cannot be trusted; only a verification grep for a value you already know can.** Ask "does this pod carry sha X", never "what sha does this pod carry".
 - **source:** `bugs_open/153` lane, verifying BLD-019 on the v1.0.1283 roll; both traps measured on live pods, both directions, on alpine and debian-slim. Fix in `makefile` `verify-agent-images` (commit `c4a932680`).
 - **added:** 2026-08-10, bugfix_153_build_provenance lane
+> **ADDENDUM 2026-08-25, `staged_component_build` lane — the POSITIVE CONTROL CANNOT SAVE THE NEGATIVE
+> ONE, because `grep -q` makes them asymmetric in cost.** This entry's own rule ("run the same probe
+> against a string that MUST be present") is right and I followed it in full, and still nearly
+> recorded a false pass.
+> **The asymmetry:** `grep -aq` **exits the moment it matches**, so a present literal is found early
+> and returns in a second or two. An ABSENT literal has no early exit — grep must scan the entire
+> binary. So the negative control is the SLOW one, and it is the only one whose failure mode you
+> cannot see. Wrap the probe in `timeout` (or any harness with a command deadline, which is most of
+> them) and it is killed at **exit 137** while the positive control sails through — three "passing"
+> rows, one of them meaningless.
+> **`1` and `137` are both non-zero**, so every convenient shape — `[ $? -ne 0 ]`, `|| echo ABSENT`,
+> `grep -aq … || echo "NO MATCH"` (this entry's own recipe) — reports a killed probe as a clean
+> absence. Measured 2026-08-25 on `v1.0.1336`: negative control `exit 137` at a 120s deadline,
+> genuine `exit 1` when re-run with 240s.
+> **The check:** print the raw code and treat anything other than 0 or 1 as NO RESULT —
+> `rc=$?; case $rc in 0) echo PRESENT;; 1) echo ABSENT;; *) echo "NO RESULT (exit $rc)";; esac` —
+> and give the negative control the longest deadline of the three, not the same one.
+> **And the second bite:** re-running a slow probe can fail with *"cannot exec into a container in a
+> completed pod; current phase is Succeeded"*. Per-run `agent-*` pods are transient, so a probe
+> target chosen from `get pods` can evaporate before you finish using it. Pick a long-lived pod for
+> the slow control, or re-select and re-run all three together — a mixed-pod result set is not a
+> control set.
+
 
 ### `spec->>'audit_source'` is the ONLY thing that names a work item's producer — `item_type` hides the split and `created_by` bottoms out at `generic`
 
