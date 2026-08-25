@@ -26,7 +26,8 @@ a greenfield build of a site carrying an `entity-directory` or `entity-page` pag
 | `d1aa231aa`, `200d54bdf` | 08-24: `builderForPageType` created; `reconcile_site_plan` calls it. Council **APPROVED** r6 (`52dbd067`). Live since `v1.0.1334`. |
 | `efec862f4` | The swap: `WriteBuildItemsAction`'s inline maps **deleted**; `section-index` added to the shared map in the same commit; `capability_gap` `handler_agent` → EMPTY. Council **APPROVED r1** (`b92e624d`), 13 reviewers, no vetoes. **Live on `v1.0.1339`.** |
 | `0777eb297` | Closed two coverage gaps an adversarial review found — including one the swap itself created (see §5). |
-| `1887a116b` | **Routing provenance**: both doors stamp `spec.handler` = the handler they chose. Council **submitted `9ff151d6`, verdict PENDING — read it** (§2). **Not rolled.** |
+| `1887a116b` | **Routing provenance**: both doors stamp `spec.handler` = the handler they chose. Council **APPROVED** (`9ff151d6`), 9 reviewers / 8 abstained, no truncation, 3 advisory objections none high. **Not rolled.** |
+| `3dda3b191` | Answers those 3 objections **by measurement**, declares `spec.handler` in **BLD-027** (owed by the 2026-08-11 nested-field ruling and missed in `1887a116b`), and corrects a comment in `owned_page_guard.go` that `1887a116b` had falsified. |
 
 **Docs done**: `bugs_open/206` (4 sections today), RUNBOOK §7/§7a/§7b/§7c/§7d, NOTES (missteps 1–6),
 README (3 owner entries), **BLD-027** + index row de-staled, `LANDMINES` (1 entry + 2 corrections),
@@ -36,20 +37,17 @@ README (3 owner entries), **BLD-027** + index row de-staled, `LANDMINES` (1 entr
 
 ## 2. What is LEFT — in priority order
 
-### (a) Read the pending council verdict — `9ff151d6-c521-4bff-9ee8-e5c9ab747a52`
+### (a) ~~Read the pending council verdict~~ — **DONE: APPROVED**
 
-`1887a116b` is on the shared branch already (forward-only; that is correct and expected). If the
-verdict is REVISE or REJECTED, **act on it in a follow-up commit** — do not amend.
+`9ff151d6` returned **approved** (9 reviewers, 8 abstained, `gated_by_truncation: false`). Its three
+advisory objections are answered by measurement in `bugs_open/206`'s last section, and the one thing
+they found that I genuinely owed — declaring `spec.handler` in the concept register per the
+2026-08-11 nested-field ruling — is done in `3dda3b191`. **Nothing outstanding here.**
 
-```sql
-SELECT current_step, status FROM orchestration_states
-WHERE collected_data->'input_data'->>'fix_correlation_id' = '9ff151d6-c521-4bff-9ee8-e5c9ab747a52';
-SELECT metadata->>'decision', body FROM diagnosis_artifacts
-WHERE correlation_id='9ff151d6-c521-4bff-9ee8-e5c9ab747a52' AND kind='council_report'
-ORDER BY created_at DESC LIMIT 1;
-```
-`098` credits the commit automatically once approved — **never** hand-write `Council-Reviewed:` on
-a verdict you have not read.
+⚠ Worth carrying, because it is the lane's recurring shape: **three seats objected that I had
+ASSERTED an absence rather than measured it** ("nothing reads `spec.handler`"). They were right, and
+it was the fourth time in two days that someone else caught this lane doing it. If you write "nothing
+reads X" in a submission, attach the query.
 
 ### (b) THE closure proof — still the only thing between this bug and `bugs_closed/`
 
