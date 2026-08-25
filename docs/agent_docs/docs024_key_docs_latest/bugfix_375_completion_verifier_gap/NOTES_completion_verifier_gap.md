@@ -366,3 +366,52 @@ council seats disagreed about it.
 **Two sessions made the same rolling-window mistake about the same table on consecutive days** —
 mine yesterday, the morning handoff's "0 rows ever" today. That is not carelessness twice; it is a
 table whose name promises history and holds a window.
+
+### Misstep 8 — the council REVISE found a real defect my own mutation suite had passed over
+
+Full account in `WRONG_CALLS.md`. Short version: `SchemaContentFields` returns `ok=true` with a
+**zero-length** fields map for a v2 schema whose `fields` object is empty
+(`component_schema_fields.go:78` — the key is present, so the assertion succeeds and it returns
+early). `missingRequiredValueFields` then finds nothing missing, and my verifier said **Resolved**.
+An emptied schema — the silent-loss class — would have been certified as repaired by the guard added
+to catch it.
+
+**Why my own testing missed it.** I had written the fail-closed branch for unparseable JSON and for
+`ok == false`, and cited RFC_017 while doing it. `ok == true, len == 0` sat in the gap between the
+two conditions I had already thought about. **The lesson is to enumerate what the helper can RETURN,
+not what you expect it to return** — and to mutate per shape: three of the four shapes in the new
+test were already caught by `!ok`, and only `{"fields":{}}` was the hole, which an aggregate mutation
+would have hidden.
+
+**How the seat got there.** Through the LANDMINES entry whose footprint names
+`findResolvedRequiredFields` — a symbol that returns **zero** grep hits. The pointer had rotted while
+the mechanism stayed live. So the entry worked *despite* being stale, because the reviewer read the
+mechanism rather than chasing the symbol. I have corrected that footprint and added the half the
+entry never carried: **it fires hardest on a VERIFIER**, because a detector's `continue` on an
+unreadable declaration is correct while a verifier's identical arithmetic certifies a repair.
+
+⚠ **Ledger note:** that correction shows as 3 insertions / 1 deletion on `LANDMINES.md`, and the
+pattern check flagged the deletion — correctly, since the file is fleet-wide append-only. It was an
+in-place correction of the one footprint line, with the old text preserved under strike-through
+inside the replacement (verified: the struck symbol still appears in the new text). Nothing of any
+other session's was touched. Recording it here because I did not say so in that commit message, and
+the check's own guidance asks for exactly that.
+
+### Round 2 resubmitted on the same trail
+
+`RESUBMIT_CORR=c8ed18c1…`, so the whole trail accumulates under one correlation. Round 2 carries the
+fix, plus answers to the other five objections — two of which were factually wrong about the code
+(`checks.RegisteredVerifierItemTypes()` exists at `verifiers.go:198`; no existing `config-key-audit`
+mode mentions `update_work_item_status` or `verify_before_complete` at all), one asked for the census
+query in-submission (given), one asked whether I had checked the two shared guard-test files for
+in-flight work before editing (I had — `git status --porcelain` empty on both, and both edits are
+pure appends), and one asked whether guard 3 could desync the coverage-gap list (it cannot;
+`itemTypesWithoutVerifiers` still lists the type, which is correct while unregistered, and the
+coverage test fails on exactly that pairing the moment it registers).
+
+**The gating objection is worth stating plainly rather than only rebutting:** `editquality` said, at
+HIGH, that an unregistered verifier leaves the defect unchanged. That is *true as a description*.
+The answer is that registering it without the migration is strictly worse than inert — the
+claimed-item-timeout sweep would complete items straight past it, which is a false green rather than
+a missing one. And the REVISE round is itself the argument for this order: a predicate that would
+have certified an emptied schema as repaired was caught **before it ever graded a live claim.**
