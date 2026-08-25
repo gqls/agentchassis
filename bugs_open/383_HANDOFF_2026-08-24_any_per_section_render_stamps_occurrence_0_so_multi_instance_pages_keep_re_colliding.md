@@ -296,3 +296,58 @@ bugs_open/383`, priority 60):
   disagreement is NOT ready-list drift and the derivation needs diagnosing. In that case run `090`
   rather than guessing, and re-read `PlacementFromLoopStep` against a LIVE orchestration's
   `loop_item_index` (0-based, verified 2026-08-24 on a 5-item loop) before touching the code.
+
+---
+
+## 14. ⚠ RETRACTION 2026-08-25 — §13's headline evidence is FALSE. The fix is SHIPPED but NOT YET PROVEN AT THE ARTEFACT.
+
+**§13 claimed:** *"`apis.uk/index.html` … rows were rewritten at 11:27:27 today, i.e. after the
+09:27 roll, by a per-section render (the build path) … six DISTINCT tokens … That is the defect
+gone at its source, on the path that caused it."*
+
+**That is wrong.** Full timestamps, no truncation:
+
+```
+position 2-7  illustrated-text-block   2026-08-24 11:27:26.63996+00
+position 1    hero                     2026-08-24 11:37:12.152569+00
+roll (v1.0.1337 pod start)             2026-08-25 09:27:48+00
+```
+
+Every row predates the roll by ~22 hours. **`bool_and(updated_at < roll) = true`.**
+
+**How:** I selected `pc.updated_at::time(0)`, which prints the time and **discards the date**, saw
+`11:27:27`, and read it as today. This is the same instrument that produced NEAR-MISS 3 the day
+before — `::time(0)` in a `scheduled_tasks` read — logged then as a *timezone* error. The
+generalisation I failed to draw is that **`::time(0)` destroys the date, and a date is exactly
+what a before/after-the-roll claim rests on.** I fixed the symptom and kept the instrument.
+
+**What follows, and it is the whole point of the retraction.** Those rows were written by
+something that assigned SIX DISTINCT TOKENS ON THE OLD CODE, which the old code could not do —
+so they were almost certainly written by hand by the `apis.uk` lane, whose own register entry
+(CLC-030, 2026-08-24) says it wrote `rendered_html` directly. **That also dissolves §13's "open
+off-by-one":** hand-chosen tokens starting at `-2` are not a derivation defect and never were.
+§13's discriminating test is still worth running, but it is now testing a much smaller question.
+
+### CORRECTED STATUS — what is actually established
+
+| claim | status |
+|---|---|
+| Fix committed, council APPROVED r1 | ✅ `364e80b7f` / `3fd0d026` |
+| Shipped in the running binary | ✅ `v1.0.1337` ← `4c996e1b5`, merge-base **with a control** |
+| Unit + cross-package contract tests, mutation-proven | ✅ six mutations RUN |
+| Three damaged pages repaired, serving distinct ids | ✅ — **but by the CANONICAL walk, which was never broken.** Proves the repair, NOT the fix. |
+| **The per-section paths produce a correct occurrence in production** | ❌ **NOT ESTABLISHED.** No multi-instance page has been through a build, `content_rewrite` or section edit since the roll. |
+
+### What would actually establish it
+
+A **per-section** render on a multi-instance page, post-roll, then count distinct tokens at the
+served page. Any one of:
+
+- `apis.uk/index.html` holds `build_status='needs_rebuild'` and rebuilds itself — but has not
+  since 2026-08-24 11:37. Check whether the build pipeline is picking it up.
+- A `content_rewrite` on any of the 30 multi-instance pages (this is also the **stickiness**
+  test — the one that matters, and still unrun).
+- A section edit on the second instance of a multi-instance page.
+
+**Until one of those runs and is counted at the served page, this lane must NOT be closed on the
+grounds that the fix is proven.** It is shipped and it is well-tested; that is a different claim.
