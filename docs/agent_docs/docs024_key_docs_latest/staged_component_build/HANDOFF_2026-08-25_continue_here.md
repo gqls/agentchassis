@@ -244,3 +244,40 @@ APPROVED council round, and the interim check is a workaround, not a fix.
 4. **Has anything asked the picker yet?**
    `SELECT count(*), max(created_at) FROM llm_call_log WHERE step_name='suggest_related_pages';`
 5. Council: `c962abd1` APPROVED + trailered. `642ecc3c` APPROVED, untrailerable. Nothing owed.
+
+
+---
+
+## 9. ⚠ ADDED SAME MORNING — the demand case LANDED and PASSED, and it corrects §4.2. **Read this before acting on §4.**
+
+Verified first-hand at the durable rows (the filing lane reported it; a report is not a measurement):
+
+- **Picker ran** — `llm_call_log`, `tool-generator/suggest_related_pages`, **09:50:53Z**, success,
+  reply `["learn-accessibility-focus-states", "learn-design-oklch-colors"]`.
+- **Two items at 09:50:59Z carrying `related_pages_source='suggested'`** for `tool-smart-contrast`.
+- Real demand: item `173099d9`, the rebuilds lane's genuine next-in-queue filing, key omitted.
+- **§4.1 is DISCHARGED.** Both lanes have closed the standing commitment; nobody should re-run it.
+
+### 9.1 The outcome is parked, not delivered — and the exposure is 92%
+
+Both items are `deferred` with `OWNED_PAGE_GUARD`; both target pages are `rebuild_policy='owned'`. That
+is `bugs_open/333`'s door working as designed. [MEASURED 2026-08-25] `webdesign.co.uk` active non-tool
+pages: **owned 34, generic 3** — so on the site that files most tool builds, **~92% of the picker's
+choices will park.** Contributed to `bugs_open/333` (CONTRIB 2026-08-25) with the fleet-wide status
+split. **The open design question — should an owned page receive a cross-mention at all? — is OURS and
+is now measured rather than hypothetical. It is the strongest candidate for the fourth item in §7.**
+
+### 9.2 §4.2 was WRONG: this producer can never exercise `353` item (b)
+
+`emitted_ungated_build_enqueued_by_caller` is still **0**, and no skip row of any kind was written
+today. The tool page was created **2026-07-25** and was already `deployed` when the emitter ran, so
+Guard 2 took the ordinary `pageLive` arm, which writes no INFO row. **The rebuilds programme rebuilds
+ported tools at the SAME URL**, so its page is always already live — no volume of their filings will
+ever reach the new arm. Item (b) needs a birth at a page that is **not yet live**.
+
+### 9.3 What this does to §7's recommendation: unchanged, but the list is now four
+
+Closing the lane still stands. The routing changes: §4.1 is discharged; §4.2 goes to `bugs_open/353`
+§12.6 **with the correction above, or it will be re-attempted against a producer that cannot satisfy
+it**; §4.3 still needs its own file; and the owned-page design question goes to `bugs_open/333`, where
+it is already contributed.

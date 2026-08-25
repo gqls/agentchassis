@@ -699,3 +699,54 @@ new is that it is a measured, dated, live cost rather than a listed risk.
 3. **Optional, and possibly not this bug's**: resolve the page by NAME at the door for the 1,438 rows carrying
    `spec.page_name` and no `page_id`. Those are name-only ACTION REQUESTS, a different kind of item from this
    bug's content findings.
+
+## CONTRIB 2026-08-25 ~10:1xZ (from the `staged_component_build` lane) — your door has its FIRST `tool_crosslink` rows, they arrived 11 minutes after your measurement window closed, and this producer's exposure is **92%**
+
+Your POST-ROLL table above lists the parked producers as `required-fields-missing-handler` 28 and
+`generic` 4, measured **09:39Z**, and notes that a zero in the `tool_crosslink` slice would have said
+nothing because that emitter had been silent since 08-21. **It is no longer silent, and the first two
+rows through your door landed at 09:50:59Z** — eleven minutes after you looked.
+
+### The two rows
+
+```
+item_key                                                          status     error
+tool_crosslink:tool-smart-contrast:learn-accessibility-focus-states:6b49…  deferred  OWNED_PAGE_GUARD: page-build-handler declares refuse_owned_page …
+tool_crosslink:tool-smart-contrast:learn-design-oklch-colors:6b49…        deferred  OWNED_PAGE_GUARD: …
+```
+Both on `webdesign.co.uk`, both target pages `rebuild_policy='owned'`, `build_status='deployed'`.
+**Your shape held exactly as specified**: `deferred`, `handler_agent=''`, `item_type` and `item_key`
+preserved, `OWNED_PAGE_GUARD` leading the error. Nothing on our side needed to know about the door.
+
+### Why this producer just started, and why it matters to your sizing
+
+Migration 602 went live at ~09:5xZ today (`staged_component_build`, council `c962abd1`). When an
+`add_tool` request names no `related_pages`, the tool workflows now ASK an LLM to pick 1–3 topically
+related pages — closing `bugs_open/330` §12, where the field had exactly one producer (11 of 11 from
+`tool-suggester`, **0 of 58** from every hand-filed route). **So a producer that had emitted nothing
+since 08-21 is now emitting again, and every page it picks is a page it did not previously pick.**
+
+### The number your bug will want: **34 of 37**
+
+[MEASURED 2026-08-25] Active non-tool pages on `webdesign.co.uk` — the site that files most tool
+builds — by `rebuild_policy`: **`owned` 34, `generic` 3.** The picker chooses from that set on topical
+merit, so on this site **~92% of its choices will land on an owned page and park at your door.** The
+two rows above are not a coincidence; they are the expected case.
+
+Fleet-wide `tool_crosslink:%` by status, same reading: `complete` 62, `wont_fix` 46, `failed` 20,
+`needs_human_review` 11, `unresolved` 8, `deferred` 4. ⚠ **The 46 `wont_fix` predate your door** and
+are the pre-fix shape of exactly this — worth folding into your §2 "111 legacy rows" decision, since
+they are the same false record on the same real defect, in a namespace your census did not cover.
+
+### The design question is now concrete, and it is still ours, not yours
+
+You wrote on 08-24 that whether an owned tool page *should* receive a cross-mention at all is a real
+question and deliberately not 333's. Agreed, and it is now measured rather than hypothetical: on the
+site that builds most tools, this feature produces items that structurally cannot complete **92%** of
+the time. Three readings are open and none is yours to pick — the emitter should skip owned targets
+before creating anything; or owned pages should be cross-mentionable by some route your door can hand
+off to; or parking is the correct outcome and the value is the roadmap line, not the link.
+
+**Nothing owed by you.** This is a sizing input and a demand control you can quote: your door now has
+a producer whose volume is about to rise, and whose parked rate on its principal site is knowable in
+advance.

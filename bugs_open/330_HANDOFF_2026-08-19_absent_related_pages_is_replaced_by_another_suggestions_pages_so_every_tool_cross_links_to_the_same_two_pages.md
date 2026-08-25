@@ -440,3 +440,52 @@ unchanged first.
 > iterations 3–4 rendered 12 of 12 symbols with `truncated: false`. An iteration cap without
 > convergence, so **re-filing with a narrower symbol will not help** — addendum appended to that
 > landmine entry.
+
+
+## 13. ADDENDUM 2026-08-25 — §12's fix is LIVE and PROVEN on a real filing. **The resolver half of this bug is DONE.** The delivery half now belongs to `bugs_open/333`.
+
+Migration 602 applied ~09:5xZ (council `c962abd1`, APPROVED r1). Verified **first-hand at the durable
+rows**, not from the filing lane's report:
+
+- **The picker ran:** `llm_call_log`, `agent_type='tool-generator'`, `step_name='suggest_related_pages'`,
+  **2026-08-25 09:50:53Z**, `success=true`, 30 output tokens, reply verbatim
+  `["learn-accessibility-focus-states", "learn-design-oklch-colors"]`.
+- **It delivered, and it is attributable:** exactly **two** `tool_crosslink:` items at 09:50:59Z, both
+  carrying **`related_pages_source='suggested'`** — the stamp `0fb94a7dd` added for precisely this
+  reading. Tool `tool-smart-contrast`.
+- **Neither failure tell fired**: the source is non-empty, and the `llm_call_log` row exists.
+- **The demand was real, not staged**: item `173099d9`, the `webdesign_tool_rebuilds` lane's genuine
+  next-in-queue Phase C filing, `related_pages` deliberately omitted. No synthetic spend.
+- **The picks were good**: focus-states and OKLCH-colours for a *contrast* tool. Better than
+  convenience would have chosen, which is the thing a topical rule can fail at silently.
+
+**So the absence arm is proven end to end by a SECOND producer on a real filing.** §12's producer split
+is closed as a defect: a hand-filed request that names nothing now gets pages.
+
+### 13.1 ⚠ But the cross-mentions did NOT reach the pages, and that is a different bug
+
+**Both items are `status='deferred'`**, `handler_agent=''`, error leading
+`OWNED_PAGE_GUARD: page-build-handler declares refuse_owned_page`. Both target pages are
+`rebuild_policy='owned'`. That is `bugs_open/333`'s door working exactly as designed — the finding is
+parked rather than silently refused — and it means **a reader still sees no mention**.
+
+[MEASURED 2026-08-25] `webdesign.co.uk` active non-tool pages by policy: **`owned` 34, `generic` 3**. The
+picker chooses on topical merit from that set, so **~92% of its choices on this site will park.** The two
+above are the expected case, not bad luck.
+
+**Do not read this as 330 being unfixed.** The field is populated, by the right mechanism, with the right
+pages, and the row proves it. What happens to the item afterwards is `333`'s subject, and the open design
+question — *should an owned page receive a cross-mention at all?* — is contributed there with these
+numbers (CONTRIB 2026-08-25).
+
+### 13.2 Correction to the 08-25 handoff: this run could NOT have exercised `353` item (b), and this producer never will
+
+The 08-25 handoff §4.2 said 602 unblocks `353`'s item (b) so the arm becomes reachable "as a side effect".
+**Half right, and the half that matters is wrong.** `emitted_ungated_build_enqueued_by_caller` is still
+**0**, and no crosslink skip row of any kind was written today — because the tool page
+(`/tools/smart-contrast/index.html`, created **2026-07-25**) was already `deployed` when the emitter ran,
+so Guard 2 took the ordinary `pageLive` arm, which writes no INFO row.
+
+**The `webdesign_tool_rebuilds` programme rebuilds ported tools AT THE SAME URL**, so its page is always
+already live. That producer can therefore never exercise item (b), however many filings it makes. Item (b)
+needs a birth at a page that is **not yet live** — a genuinely new tool page, not an adoption.
