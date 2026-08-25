@@ -23,6 +23,21 @@
 --   The control matters. On 2026-08-24 this lane's first ancestry control was a commit
 --   that ALSO predated the build, so both arms returned YES and the check proved nothing.
 --
+-- ⚠ SECOND PRECONDITION, ADDED 2026-08-25 — RE-GREP THE INSERT, DO NOT TRUST THIS FILE'S
+--   DATE. The `bugs_open/388` lane is actively editing store_generated_component_action.go
+--   (its fix moves component IDENTITY resolution off the LLM's emitted `function` field).
+--   That is the very file whose INSERT column list this migration depends on. The runtime
+--   guard below reads DATA and cannot see CODE, so it cannot catch a re-introduced column
+--   reference. Before applying, run:
+--
+--     grep -n 'usage_count' platform/orchestration/actions/store_generated_component_action.go
+--
+--   Anything other than the explanatory comment near the creation path — in particular any
+--   occurrence inside an INSERT column list or VALUES clause — means a writer is back and
+--   this migration must NOT run until it is removed and that removal is live.
+--   (`usage_count` carries DEFAULT 0, so omitting it from the INSERT is behaviour-identical;
+--   there is never a reason to name it.)
+--
 -- WHY DROP RATHER THAN LEAVE IT COMMENTED. 609 makes the column honest to a reader of
 -- `\d+`. It does not make the bad state unrepresentable: the values are still there, still
 -- plausible-looking integers (20, 19, 12, 7, …), and still one `SELECT` away from being

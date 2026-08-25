@@ -50717,3 +50717,45 @@ check — these were current on <date>"*) rather than as a verdict (*"ignore sec
 corrected banner now says exactly that. **A caveat is an assertion about the world with the
 grammatical form of modesty**, which is precisely why it slips past the marker discipline: nobody
 puts `[INFERRED]` on a warning.
+
+---
+
+## 2026-08-25 (`bugs_open/388`, filed by the `378` lane) — I ranked "make the two resolvers agree" first, without ever asking WHICH of them should win. The one I picked is the one that does not know about the divergence.
+
+**The claim.** Filing `388` — two resolvers over `content_components` disagree about which row is a
+section type's contract, on 27 of 117 section types — I ranked four fixes "by what closes the door".
+Candidate 1, my recommendation, was: *make the advisory path ask the store's resolver too*, on the
+reasoning that the file's own fallback already does exactly that and documents why ("so the prediction
+and the enforcement agree **by construction**").
+
+**Why it is wrong, per the lane now working it.** `resolveStorageIdentity` keys on
+`NormaliseToKebab(section_type)` — which for the 27 divergent types names a **different or
+nonexistent** row. So my "fix" would have stopped the advisory naming the row that dependents are
+actually bound to, and pushed regenerations toward creating duplicates. **It would have made the bug
+worse, and it was ranked first.**
+
+**The reasoning gap, and it is the transferable part.** I correctly identified that two resolvers must
+agree, and then treated *agreement* as the whole of the requirement — so I picked the one that was
+already documented as authoritative in a comment I had just read. **I never asked which resolver is
+better informed.** The answer was available and cheap: one of them keys off a derived string, the
+other off the actual row; only the second can see the 27 rows whose `function` does not echo their
+`section_type`. The correct direction is the inverse — make the *store* honour the identity the
+advisory resolved — which also removes an LLM's output from an identity decision.
+
+**The cheap check: when two mechanisms disagree, "make them agree" is not a fix direction — it is half
+a fix.** Write down which one is authoritative AND why, before ranking anything. If the reason is
+"a comment says so" rather than "it can see more", you have not chosen, you have deferred.
+
+**What did work, recorded because the practice deserves the credit as much as the error deserves the
+entry.** The same bug file carried `[INFERRED] that NormaliseToKebab(section_type) is the store's
+derivation in all cases; taken from a doc comment and the path it calls, not from reading
+store_generated_component_action.go's own derivation end to end.` That was **exactly** the claim that
+turned out to be soft — the store actually uses the LLM's emitted `function` when non-empty. The
+marker did its job: the other lane knew where to look first, and corrected a claim rather than
+inheriting it. **A citation standing in for a read is still a defect — but marking it converted a
+future wrong call into a morning's work for someone who could check it.**
+
+**Third entry in this arc from the same family** — after a measurement of *removing* a term used to
+license *replacing* it, and a peer's filter justified by what it rejects without counting what it
+keeps. All three are **an answer to an adjacent question presented as an answer to the question being
+decided.**
