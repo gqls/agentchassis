@@ -308,3 +308,37 @@ failure impossible rather than unlikely — the strongest being simply to stop m
 until someone has re-measured the page and seen it improve. That is deliberately not designed yet, and
 the file says so, along with the one number nobody has measured: how much of the existing backlog this
 explains.
+
+---
+
+## 2026-08-25, evening — still clean after a third build, and I have to take one thing back
+
+**The fix has now survived three deployments and a full day.** Eighteen faults filed since it went
+live, not one of them naming an impossible address, every one carrying the stamp that says the
+address was checked in the page. It was ten yesterday and fifteen this morning.
+
+**And I have to withdraw something I told you twice.** I said the job that re-checks our sites "fails
+more often than it succeeds — eleven of twenty runs". This morning I corrected the *period* (it was
+one day, not a week). This evening the claim itself has gone: **every one of those twenty runs has
+been deleted from the table by routine housekeeping, and the five that remain all succeeded.**
+
+Five successes in a row would be quite unlikely — under one chance in fifty — if the failure rate
+were still what I measured. So something has changed. But three things changed at once (two
+deployments, a quiet spell in the schedule, and a batch of brand-new sites), and **the evidence that
+would let anyone tell which is gone.** So: no bug filed, nothing to plan around, and the honest
+answer to "is the re-check job reliable?" is that we would have to start keeping our own record to
+know — the system does not keep one.
+
+I have told the other team I gave that figure to.
+
+**One thing I got wrong in a smaller way, worth a line because it is a habit rather than a slip.**
+This morning I told you the next site due for re-checking was `apis.uk` at 14:06. It was, and it ran
+at 14:40 — but three other sites went ahead of it, because they were **created today**, and a
+brand-new site goes straight to the front of the queue. My forecast was right about the mechanism and
+wrong to be a forecast: I measured a list and then reasoned about its future as though nothing new
+could join it.
+
+**Where this leaves the lane: one thing to check, on the twenty-eighth.** Whether the seventy-three
+withdrawn faults actually come back once their sites are re-checked. Nothing has come back yet, and
+that is exactly as expected — **none of those thirteen sites has been re-checked since we withdrew
+them.** Everything else here is either finished or belongs to bug 390 now.

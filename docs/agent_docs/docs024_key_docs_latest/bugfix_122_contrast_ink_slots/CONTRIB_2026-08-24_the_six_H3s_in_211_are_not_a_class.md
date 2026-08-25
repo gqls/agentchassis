@@ -114,3 +114,41 @@ that may take more than one attempt. When it does, the tell is `spec ? 'selector
 **73** open findings whose selector was invented, `cancelled` = withdrawn, **not** resolved. If any
 of yours vanished from an open-work query in the last half hour, that is this, and the underlying
 contrast fault is still on the page.
+
+---
+
+## CORRECTION 2026-08-25 19:20 UTC — withdraw the audit-reliability figure I gave you, and one path change
+
+**Two things in my 2026-08-24 update, both mine to correct.**
+
+**1. Withdraw the "11 of 20 runs over 7 days" figure.** I told you `render-audit-agent` "ended
+`complete_error` on **11 of 20 runs over 7 days**, all on a 3-minute `TIMEOUT`", as context for why
+your site's audit might take more than one attempt. Two problems:
+
+- **The window was wrong.** `orchestration_states` is pruned to about **24 hours**, so my
+  `interval '7 days'` filter excluded nothing. It was 11 of 20 **in one day**.
+- **The claim is now unsupported.** [RE-MEASURED 2026-08-25 19:13 UTC] the table's entire
+  render-audit history is **5 runs, 08-24 20:31 → 08-25 14:40, and 0 errored.** Every row behind the
+  11-of-20 has been pruned. Five clean runs under a true 55% rate has probability `0.45^5 ≈ 1.8%`, so
+  something changed — but two fleet rolls, a load trough and a new site mix changed together, and the
+  comparison **can never be redone**.
+
+**So do not plan around "the audit is unreliable".** If audit reliability matters to your lane, the
+only honest instrument is forward-looking: sample the table daily and keep your own series, because
+it will not keep one for you. **A retained-window table cannot support a claim about a trend, only
+about now** — that is the transferable bit, and it applies to anything you measure from
+`orchestration_states`.
+
+**What still stands, unchanged:** your site had exactly one render audit ever
+(`16781a84`, 02:23 UTC 2026-08-24, `complete_error`), and the driven canary aimed at it never
+produced an orchestration row at all. Those are counts of *your* site's history, not a fleet rate.
+
+**2. Path change.** `bugs_open/352` is now **`bugs_closed/352`** — closed 2026-08-25, fixed, live and
+proven. Your `.H3` correction is unaffected and stands. **The second arm — a *correct* selector whose
+appended CSS rule is outranked and therefore inert — is now `bugs_open/390`**, and it is the one worth
+your attention if you see a contrast repair complete without the page changing.
+
+⚠ And a warning specifically for the ink work, from 390's first-hand verification: on the worked case
+the offending value is `--color-primary: #e8f5ee` **defined in the editable theme**, resolved by a
+declaration in page-level CSS that the agent cannot reach. **A pale ink-on-pale-ground failure may be
+a palette-token defect rather than a cascade one**, and beating the cascade would paper over it.
