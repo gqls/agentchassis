@@ -289,3 +289,39 @@ recorded in 606's header. **The real fix is `bugs_open/380`.**
 **Still not evidenced: no page has been built with any of them.** Everything above is verified at
 the seed, the schema, the rendered template (11 cases, engine-exact harness) and the live planner
 menu. The outcome remains unproven until a build runs — see §8f.
+
+
+---
+
+## 10. STATUS 2026-08-25 — writer arm PROVEN, planner arm never run. **Not closeable; one build away.**
+
+**Continue here:** `docs/agent_docs/docs024_key_docs_latest/bugfix_381_inexpressive_composition/HANDOFF_2026-08-25_continue_here.md`
+
+Re-verified after the fresh chassis roll (`635f2d32f`), by needle in the live text rather than by
+`updated_at` (that column is degenerate — see `LANDMINES.md`): all eight migrations recorded, both
+arms live, all three components expressing.
+
+**THE WRITER ARM IS EVIDENCED** `[MEASURED 2026-08-25, llm_call_log]`. Of the writer calls that
+actually offered a retyped prose slot: **21 of 29 (72%) produced a list** against a **10%** baseline,
+and **29 of 29 (100%) produced an `<h3>`**. 268 of 396 writer calls since the apply carry the new
+RULE 10. This is §8f's falsifier NOT firing.
+
+⚠ **THE PAGE-LEVEL NUMBER READS FLAT (5 of 48) AND IS THE WRONG INSTRUMENT.** Three dilutions, all
+of which must be known before quoting it: most rows are **re-renders** from `content_data` written
+under the old prompt (a rerender never calls the writer); most writer output does not reach a page in
+the window (of 12 sampled list-bearing responses, **3 reached a page and all 3 carry the list**); and
+the correlation probe is confounded because `rewrite_negations` can rewrite a sentence between
+response and row, so a phrase miss is **not** evidence of loss.
+
+**THE OPEN ITEM: `build-site-planner` has run ZERO times since the menus changed**, so `checklist`,
+`period-calendar` and `comparison-table` have **0 placements**. Not broken — unexercised. All three
+appear in the live planner menu for `garden-tools.uk` (3 of 3 verified), so the wiring is proven and
+only the trigger is absent. **It needs one greenfield build** —
+`scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh <domain> --email … --mission-file …`
+— on a subject that is genuinely structured (a buying guide, a how-to, anything seasonal); a
+two-page brochure exercises none of them.
+
+**CLOSURE BAR:** `/bugs_open/` closes on **fixed AND live**. Half is live and evidenced; the half
+that was the point of the bug has never run. **Do not close on the writer evidence alone.** Close
+when one build places at least one of the three components, or demonstrably declines to and the
+reason is understood.
