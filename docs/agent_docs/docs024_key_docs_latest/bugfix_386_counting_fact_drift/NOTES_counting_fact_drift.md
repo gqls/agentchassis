@@ -473,3 +473,60 @@ Which is exactly why `prior_art_librarian`'s line — *"a human should re-run th
 queries against live `site_specs` before arming any fact"* — is the single most load-bearing sentence
 in the verdict, and why it is written into CLM-028's verify-later rather than left in an artifact
 nobody opens once the trailer exists.
+
+## 2026-08-25 — the slice is LIVE at the binary, and the pre-arming control passes with a negative control
+
+The fleet rolled to `v1.0.1339` while this lane was working (the 364 lane's Phase 2 shipped on it).
+
+**Live, verified at the artefact, not at the table.** `[MEASURED 2026-08-25]` Both `agent-chassis`
+replicas carry the new capability. Probed as a CAPABILITY (the JSON tag), not a commit, with both
+controls in the same breath as the landmine requires:
+
+| probe | r5bj7 | vx8b6 | meaning |
+|---|---|---|---|
+| `context_terms` (present-control) | FOUND | FOUND | the probe can find things |
+| **`retain_history` (mine)** | **FOUND** | **FOUND** | the slice is live |
+| `zzz_not_a_real_symbol_386` (absent-control) | absent | absent | the probe is not matching everything |
+
+**⚠ And do NOT date this roll from `service_binary_capabilities`** — the 364 lane found that table
+stale for this very roll: its newest `agent-chassis` row named a commit containing none of the Phase 2
+code while both binaries plainly carried it, and a third lane consequently dated `v1.0.1339` from it
+and got a commit that predates the fix. **The binary was right and the table was wrong.** Both of us
+had been treating that table as the no-shelf-life authority. It is a hint.
+
+So the first half of CLM-028's "inert twice over" is discharged: the code is live. The second half
+stands — no fact is armed, so nothing has changed for any page.
+
+### The pre-arming control, run in full (this is Phase 2's gate)
+
+Fresh export, asserted 91 rows against 91 in the DB, stderr empty.
+
+- **Baseline** (live register, as the fleet sees it today): **5 findings**, all
+  `capabilities/evidence-chart` — 11513, 10194, 428, 483, 23. Unchanged from this morning despite the
+  roll to component-grain.
+- **Armed** (F9-F13 given `retain_history` plus history seeded from the 479-row archive, deduped by
+  the same rule `recordFactHistory` uses, capped at 90, current value excluded): **0 findings**.
+- **Disappeared: exactly those 5, and every one on `evidence-chart`.** Zero in free-text prose —
+  which is the `compliance` seat's sharper acceptance test passing, and the result that would have
+  stopped the arming had it come out otherwise.
+- **Appeared: none.**
+
+### The negative control, which is what makes the above worth anything
+
+Zero findings after arming makes "nothing else disappeared" trivially true — the site had nothing
+else to lose. So the diff alone cannot distinguish "spares stale renders" from "spares everything".
+Following the 364 lane's suggestion of a behavioural probe over a symbol probe, I injected a value
+the register has **never** held into the same component and rescanned against the ARMED register:
+
+```
+11513 -> 11514   (archive runs … 11373, 11513, 11646, 11828 — 11514 never existed)
+armed register + synthetic copy  ->  1 finding: NUMBER capabilities evidence-chart "11514"
+```
+
+**Still flagged.** One away from a genuinely-held value, in the identical context window, and caught.
+So arming vouches for exactly the values the register held and nothing adjacent to them — exact-match
+doing the job it was chosen for over a range or a `gte`.
+
+**What this does and does not license.** It licenses arming F9-F13 on fundamentallyai as a reviewed,
+one-fact-at-a-time operator act. It is not itself the fix being live: no register has been written,
+and `bugs_open/386` stays OPEN until a fact is armed and a real stale render is spared in production.
