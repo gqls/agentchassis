@@ -98,3 +98,168 @@ None of these reached a document as an assertion; recorded here, not in WRONG_CA
 - **CORRECTION to my own RUNBOOK:** I had written "require `pages.deployed_at` to advance". It did not, and that is CORRECT — the array was already current, so the HTML is byte-identical and the deploy is a no-op. A protocol that demands a downstream artefact move when nothing changed manufactures a false negative. The discriminating signals are `spec.cause` (on the item AND the run) and `page_components.updated_at`. Fixed in the RUNBOOK and the handoff.
 - `guides-index`: NOT this change — `spawn_agent … failed to create responses topic … dial tcp 10.20.161.251:9092: i/o timeout`, a Kafka broker dial timeout; item back to `triaged`, `attempt_count=0`, retries next loop turn. **I nearly attributed it to the remembered spawn→call handshake race; the full error text says broker dial.** Read the error, don't pattern-match it. Same shape on 2 sites in 7d.
 - `pages.build_status='needs_rebuild'` on `index` (1 of 40 dartsonline pages) with `deployed_at` predating my run — pre-existing page state; this seam files work items and never touches `pages.build_status`.
+
+## 2026-08-25 ~11:30–11:55Z — the OWNER RULED ON ALL FOUR DECISIONS, and one of them was re-scoped by a second question
+
+Owner's answers to the handoff's §5: **(1) enable the sweep. (2) generalise it now. (3) fix the
+action. (4) fix the tool-cta entries — by changing the template.** Decision 4 then drew a second
+ruling once the visual outcome was measured (below).
+
+### Decision 1 — 603 APPLIED, and the verify I first wrote could not have failed
+- Pre-apply controls re-run immediately before applying, not quoted from the handoff: `page_list_stale`
+  on **301** pods @`4c996e1b5cb9` (was 201+25 across two commits yesterday — the fleet has converged),
+  positive control `orphan_pages` on the same 301, negative control `no_such_check_xyz` absent.
+  `git merge-base --is-ancestor 635f2d32f 4c996e1b5cb9` → yes.
+- Applied by hand (`psql -v ON_ERROR_STOP=1 -f -`), exit 0, snapshot captured. Live row: 44 → **45** checks.
+- **Misstep 1, and it is the classic one:** my first independent verify asserted
+  `checks @> '["orphan_pages","content_image_missing"]'` and came back FALSE — because
+  `content_image_missing` was never in that array. I had invented a control naming a value I had
+  myself measured absent 20 minutes earlier. A control that asserts something untrue reports a
+  failure that is not there; the twin failure (a control that cannot fail) came next.
+- **Misstep 2, worse:** I then compared the live row against `agent_definitions` id
+  `b05773e0-…` believing it was the pre-image, because `snapshot_agent()` RETURNED that id. It is the
+  **source** id — the live row itself. So the query compared a row to itself and returned "every
+  pre-apply name survives: true" with `names_added` empty, which reads as a clean verification and is
+  literally nothing. **Check: a diff whose two sides can be the same row is not a diff.** The real
+  pre-image is in `agent_definitions_backup` (`type`, `snapshot_reason LIKE '603_%'`,
+  `snapshot_taken_at DESC`), which has its own columns — `agent_type` and `snapshot_reason` do NOT
+  exist on `agent_definitions`, which is how I noticed.
+- Verified properly against that pre-image: before 44, after 45, every pre-apply name survives,
+  `names_added = ["page_list_stale"]`, **names_lost = none**. That version can fail; the first two could not.
+- Owed, per 603's own header: the first sweep summary must show `current > 0` (a `stale=0, current=0`
+  is the BLIND case, not a pass), and the escalation rate re-read in a week against the baseline
+  refreshed today — **1 of 36** `section_data_resolved` runs escalated in 14 days.
+
+### Decision 3 — the action was not "latent", it was a live competing writer
+- `[MEASURED 2026-08-25]` 3 live blog-index listings, arrays written 2026-08-24 14:01–14:02,
+  **47 articles, 47 blank images**: ai-agent-orchestration 16/16, finetuning 20/20, leopardess 11/11.
+- `rebuild_blog_listing` is dispatched by ONE live agent (`rerender-pages`) as an **unconditional**
+  step; 42 runs, all COMPLETED, in 14 days. And leopardess's `blog-listing_pre_037` declares
+  `articles ← query.blog_posts` AND renders `.image` — so it **is** a 384 consumer. The seam fills the
+  image on a card landing; the next rerender-pages run blanks it. Two writers, one field, last one wins.
+- **But the fix changes no stored byte today:** 0 of those 47 articles has a card asset or a plan hero,
+  so the shared projection yields `""` for all 47 as well. Door-closing, not repair — said that way in
+  the code, the tests, the commit and here, because "we fixed the blank images" would be false.
+- Shipped `7720dc76c`, `Council-Submitted: 170147b4-947d-45c3-8f31-d4b2d1bd5336`.
+- **The test trap I avoided by checking:** the cheap guard would be a source scan for the literal
+  `"image": ""`. It passes VACUOUSLY — the comment I wrote on `blogPostsQuery` quotes that literal
+  while explaining the defect, and first occurrence wins. Tests drive `scanBlogArticles` with mock rows
+  instead. Mutation-verified: reverting to `""` turns 2 red; dropping the 3 Scan destinations turns 3 red.
+- **And one test overclaimed until I mutated it.** `TestBlogListingScanContractMatchesTheProjection`
+  asserts a short row is skipped — it does NOT go red when the Scan drops the image destinations
+  (a 9-column row errors either way, so the skip happens for the wrong reason). Its comment now says
+  so and names the drift it DOES catch. A test's blind spot is only visible by mutating it.
+
+### Decision 4 — re-scoped by measurement, then by the owner
+- `tool-cta` declares only url/title/nav_label/meta_description for its items; `image` is stored purely
+  because `plan_sections` (`plan_sections_action.go:2402`) stores the resolver's full item map verbatim.
+  Nothing declared it, nothing renders it.
+- **The framing that settled it:** a stored-but-unrendered key RE-STALES after any repair, because the
+  resolver always returns it and the seam deliberately skips non-rendering consumers. Only two states
+  are stable — the key is RENDERED, or it is NOT STORED.
+- **"Not stored" is UNSAFE today, measured:** of 28 live (component, query-array-field) declarations,
+  **17 render an item key their schema omits** — every directory listing renders `.url` without
+  declaring it, and all three blog listings declare no item keys at all. A projection to declared keys
+  would blank live content. Recorded so nobody retries it as the tidy fix.
+- Owner chose RENDER. Then the visual measurement drew a second ruling: of 228 tool-cta entries,
+  62 would show a card crop, **144 a full-bleed plan hero — every one on loancalculator.co.uk**, 42
+  nothing. Cause: `WebPath()` is card-first/**hero-fallback**, and loancalculator has **0 of 10** tool
+  pages with a card (loanandmortgagecalculator 0 of 19). `content_image_missing` is NOT enabled, so
+  nothing was deriving them. **Owner: derive the missing cards first.**
+- D1 fired 11:40Z: **29** `needs_content_image` items (19 + 10), `created_by='bugfix_384_toolcta_cards'`,
+  production work-item route (NOT kcat — that trap cost a run yesterday). Queue checked first: no open
+  item and no `content_image:%` key on either site. `loanandmortgagecalculator`'s dispatch loop is
+  active (22 runs/3h); `loancalculator`'s had not run in 3h, so expect it to lag.
+
+### Not mine, but HEAD is carrying it: the optional-key parity test cannot compile
+`go test ./cmd/config-key-audit/` fails to BUILD — `livedeclarations_test.go:151,153` reference
+`livespec.DeferredDeclarations`, which `platform/livespec/livespec.go:77` records as **renamed on
+2026-08-23**. Committed at HEAD by the 363 lane (`18661b3c7`), nothing dirty in the tree. So the
+WFA-013 parity test that CLAUDE.md instructs every author to run **cannot be run by anyone**, and the
+pre-commit hook reports it as "NOT CHECKED (the tree does not build)" — which reads as a local problem
+and is not one. `go build ./...` is clean; it is the TEST that does not compile. Flagged to the owner;
+not fixed here (another lane's file, and `who-owns` should route it).
+
+## 2026-08-25 ~12:00–13:15Z — decisions 2, 3 and 4 shipped; and a REVISE that was right
+
+### Decision 4 — LIVE and PROVEN at the artefact
+- Migration **614** (gated `{{if .image}}` thumbnail + CSS, and `image` DECLARED in the items
+  block) and **615** (the fan-out) applied by hand. Simulated 614's two `replace()` calls
+  read-only against the live row first: anchors 1 and 1, 6,102 → 6,421 bytes, result matches
+  `~* '\.image\y'`. Applied output identical.
+- `tool-cta` now appears in the consumer predicate on 10 domains summing to exactly **40**
+  pages — the number 615 then filed, with **0 on archived and 0 on owned pages**.
+- **Proof at the artefact, not the status** `[MEASURED 2026-08-25 13:06Z]`: 6 pages re-rendered
+  so far, every one carrying `tool-cta-card-thumb` (7 occurrences = 1 CSS rule + 6 item images
+  on loancalculator, 6 = 1 + 5 on finetuning). A real src:
+  `<img class="tool-cta-card-thumb" src="/assets/images/card-tool-car-finance-calculator.jpg" alt="" loading="lazy">`.
+  Control: **zero** `src=""` anywhere in tool-cta output — the gate works.
+- Escalations so far: **0 of 5** completed runs, against the 1-in-36 baseline.
+- **⚠ 1 of 40 FAILED, and it is NOT this change.** `tool-automation-savings-estimator`
+  (ai-agent-orchestration) was refused by the section component floor: `77→37 class attributes
+  (48% kept, floor 50%)`. Nothing was written. The refusing slot is the page's own bespoke tool
+  section, not `tool-cta` — and **that page already failed 3 times on 2026-08-24**, before any
+  of this lane's work; those were the fleet's only other floor refusals in 14 days. Pre-existing
+  divergence between its stored HTML and what its template+content_data regenerate; my fan-out
+  triggered a 4th attempt at it. The guard did its job.
+
+### Decision 4's real reasoning, for the next reader
+`derive_card_asset` **CROPS AN EXISTING HERO** — it does not generate imagery. That is why the
+29 D1 items all completed while only 10 cards landed: loancalculator's 10 tool pages had heroes
+to crop, loanandmortgagecalculator's 19 had none ("no hero asset to derive from: no active
+page, content, or site hero" — the action's own words in the completed rows). So
+loanandmortgagecalculator's 12 tool-cta entries stay blank, correctly and permanently, via the
+gate. **A `complete` work item is not a repaired artefact**, again.
+
+### Decision 2 / RFC_052 — APPROVED first round (`e1d32ca2`), committed `72469c556`
+- `sourceDependencies` replaces the boolean: per base, dependency class → the item keys it
+  feeds. The KEY LIST is what generalises it — named keys ⇒ the renders-key template filter;
+  NO keys ⇒ whole item set, filter OMITTED. Backwards, that filter returns nothing for news and
+  directories and both producers silently stop notifying. Asserted and mutation-verified.
+- `business_directory` reads **`business_intel`**, not `directory_entities` — its own class.
+  Merging them on the word "directory" would notify the wrong consumers on every publish.
+- **The lockstep test caught my own wrong declaration on its first run**, then turned out to be
+  blind rather than right: `resolveBusinessDirectory` returns early with no exporter config, so
+  under an all-empty mock it never issues its `business_intel` query and reported a CORRECT
+  declaration as stale. Fixed by FEEDING THE GATE, not by an exclusion list — an exclusion
+  would hide exactly the read the test exists to catch.
+- Measured no-ops before migrating: news 16/0/0, directory 5/0/0 and per kind 1/1/1/2, has-shipped
+  floor 62→62. **The news figure first read "2 schema-only" — my own AND/OR precedence bug**
+  (WRONG_CALLS). Parenthesised: 0.
+- RFC_052 CLOSED, and its own premise CORRECTED: the two producers never hard-coded a consumer
+  PAGE, they hard-coded the component FUNCTION set. Slower failure, still real.
+
+### Decision 3 — round 1 REVISE, and the objection was right
+- `170147b4` REVISE on a **gating** objection from bug_historian: my own comment described a
+  silent-degradation path — scan error → skip → empty listing → caller keeps the stale listing
+  → step reports success → nobody told — and I had documented the exposure without closing it.
+  **Closed** by splitting the cases: some rows scanned = skip one bad post; NO rows scanned
+  though rows were offered = projection/Scan divergence, return an ERROR; genuinely empty result
+  set is never an error. Three tests, mutation-verified (disabling the branch turns 2 red).
+- The guardian's uncapped-query objection turned out to be worse than cost: `query.blog_posts`
+  caps at 24, this action did not, and **webdesign.co.uk has 40 eligible posts** — so the two
+  writers of one listing would produce 24 and 40. Fixed by sharing ONE cap
+  (`queryresolve.PageListingHardCap`); no-op on the three listings written today (16/20/11).
+- **Two reviewer checks contradicted my numbers and I re-ran both rather than defending them:**
+  (a) "47 blank images" vs their **55** — they are right fleet-wide (94 listed / 55 blank / 9
+  pages); 47/47 is the population THIS action writes, and my phrasing read as fleet-wide. The
+  other 8 sit on `section-index` pages it never touches and are **correctly** blank (0 cards, 0
+  heroes). (b) "leopardess is a live consumer" returning 0 — re-run against the exact
+  `PageListConsumerPages` predicate it returns the row; their query was shaped differently. My
+  claim stands, and now has the row behind it.
+- The audit bug_historian asked for, **with its limit stated**: grep finds zero other actions
+  hand-writing a blank into a listing item map. A DYNAMIC audit is unavailable —
+  `page_component_history` stamps **1.4%** of rows (309 of 21,491) with a `component_id` and its
+  writers read as `(none)` or a raw socket. So "who wrote this component" is not answerable
+  fleet-wide today; the blocker is writer-stamp adoption (`bugs_open/355` A1), not this change.
+- The rename left **4 stale `pageImageJoins` references in comments** in three other files.
+  Corrected; the grep is clean including comments.
+
+### 603 — applied, but the verification I owe is NOT yet satisfied
+The sweep has run twice since (lampenkap 11:58, cv1 12:59) and filed **0 items**, as predicted.
+But the one summary finding is `consumer_pages: 1, stale: 0, current: 0, **unknown: 1**` —
+lampenkap has ONE page and ZERO tool pages, so its `tool-list` array is legitimately empty and
+an empty resolve counts as UNKNOWN by design. **`current > 0` is still outstanding**: the
+rotation has not yet reached a site with a non-empty listing. ⚠ And note the reporting hazard —
+`stale=0, current=0, unknown=1` is indistinguishable at a glance from the BLIND case 603's
+header warns about; `consumer_pages` is what proves the lookup ran.

@@ -208,3 +208,79 @@ I never looked at.**
 **Candidate 2, built the same evening (Phase 2):** `discovery_checks/check_page_list_stale.go` (`page_list_stale`) compares each consumer page's stored array against a fresh resolve per url on `image` and files one `page_rerender`/`section_data_resolved` at `detected` under the key the event emitter uses (so the two collapse). Unknown (erroring/empty resolve, or unreadable `content_data`) is counted, never treated as current; **no retraction arm** — measured live+archive 2026-08-24: `page_rerender` has 18,360 rows from 122 producers and 0 ever retracted, while `needs_rerender` (635 rows, 21 filers, 17 retracted) works because it has exactly ONE retraction authority; the condition is single authority, not few producers, and this sweep cannot be that authority for a shared key. **Enablement is HELD** — `sql_for_agents/603_enable_page_list_stale_HOLD.sql`, to be applied by hand after the registering binary has rolled and its capability list names the check. ~~Its first sweep will re-render the 4 sites holding the 14 stale `tool-cta` entries.~~ **CORRECTED 2026-08-25: FALSE, and this lane's own council revision made it false.** The round-2 bound (count only consumers whose template actually renders `.image`) narrows the shared lookup, so it narrows the SWEEP too — and `tool-cta` (**59** live instances as of 2026-08-25) renders no image. Simulated against the live fleet under the shipped predicate `[MEASURED 2026-08-25 09:42Z]`: **the sweep would file ZERO items today, on every site.** That is correct behaviour (a stale-but-invisible array is a re-render for no visible change; and `template_changed` re-resolves the array if such a template is ever changed to render the image) — but it means enabling the sweep buys INSURANCE, not a repair. `WRONG_CALLS.md` 2026-08-25. Still latent, not fixed: `rebuild_blog_listing_action.go:212-220` writes `"image": ""` for every listed post (0 of 3 `blog-index` pages list a carded post, 2026-08-24) — the sweep now catches it when it fires. Why owned pages are excluded, with the unit stated: `[MEASURED 2026-08-24, live table, by CAUSE — `error LIKE '%rebuild_policy=owned%' OR '%OWNED_PAGE_GUARD%'`]` **13 of 18** `page-rerender` failures on `rebuild_policy='owned'` pages in the last 14 days are ownership refusals, all of them `cta_links_stale` items from the discovery checks — a population this change does NOT touch (the exclusion keeps only *this emitter's* items off owned pages). Two earlier figures written by this lane and its peers were wrong in different ways and are retracted: "12 failures" (those were `orchestration_states` RUNS, retries included) and "4 items" (classified by the `OWNED_PAGE_GUARD` marker, which was only added on 2026-08-19 — a marker-based classifier has a birth date). Recorded in `WRONG_CALLS.md`.
 
 **Verification (post-roll, at the artefact):** in the lane RUNBOOK — an induced card landing on a site with a known consumer count N must produce exactly N items with `spec.cause='card_landed:<page>'`, N `page-rerender` COMPLETED with `rerender_sections.escalated=false`, and `pages.deployed_at` advanced on the listings BECAUSE of them (`page_component_history.source_item_id`). The served 12/12 on dartsonline is not discriminating; the rows are.
+
+---
+
+# STATUS 2026-08-25 — the seam is LIVE and swept; all four open decisions are RULED and SHIPPED
+
+Not closed: this stays in `bugs_open/` until the Go half has ROLLED (the migrations are live,
+Go is not — see "what is not live" below). The defect itself is fixed and proven end-to-end.
+
+## What is live and proven
+
+| piece | state | proof |
+|---|---|---|
+| the event seam (card lands → consumers re-resolve) | LIVE | induced landing filed exactly N=2 consumer items; `index` chain closed, `escalated=false`, array rewritten `[MEASURED 2026-08-25 09:51Z]` |
+| `page_list_stale` sweep | **ENABLED** (migration `603`, applied by hand 11:37Z) | checks array 44 → 45, verified against the pre-image in `agent_definitions_backup`; check registered on **301 pods** at `4c996e1b5cb9` |
+| `tool-cta` renders the image (decision 4) | LIVE | migrations `614`/`615`; 40 items filed, 0 on archived/owned; 6 pages re-rendered so far, all carrying real card URLs, **0 empty `src`** |
+| `rebuild_blog_listing` blank-image fix (decision 3) | committed, **NOT rolled** | `7720dc76c` + `bafd4411c` |
+| dependency-scoped consumer lookup (decision 2, RFC_052) | committed, **NOT rolled** | `72469c556`; council `e1d32ca2` APPROVED |
+
+## The owner's four rulings, and what each one turned out to mean
+
+1. **Enable the sweep** — done. Predicted and confirmed: it files ZERO items today, because
+   every image-rendering listing is current. It is insurance, not a repair.
+2. **Generalise the lookup now** (RFC_052) — done and CLOSED. The declaration is now a per-source
+   dependency set (class → the item keys it feeds), and both producers migrated onto it. All
+   three behavioural changes measured as no-ops on today's fleet before shipping.
+3. **Fix the action** — done. It was NOT "latent": `rebuild_blog_listing` is an unconditional
+   step of `rerender-pages` (42 runs/14d) and leopardess's `blog-listing_pre_037` IS a consumer,
+   so the two were competing writers of one field. Still changes no stored byte today, because
+   0 of the 47 listed articles has a card or hero.
+4. **Fix the `tool-cta` entries by changing the template** — done, after a SECOND ruling. The
+   measurement that prompted it: the change would have put 144 of 228 entries onto full-bleed
+   page HEROES, all on loancalculator. Owner: derive the cards first. 10 of 10 landed there;
+   the fleet now resolves **206 card crops / 0 heroes / 42 gated-blank**.
+
+## Three findings this work produced that outlive it
+
+- **`derive_card_asset` CROPS AN EXISTING HERO — it does not generate imagery.** All 29 D1
+  items completed; only 10 cards landed. loanandmortgagecalculator's 19 tool pages have no hero
+  of any kind, so the action completed truthfully with `derived:false` and produced nothing.
+  Their 12 tool-cta entries stay blank permanently, via the gate. Check the ASSETS, never the
+  item status.
+- **A stored-but-unrendered key RE-STALES after any repair**, because the resolver always
+  returns it and the seam always skips non-rendering consumers. Only two states are stable:
+  RENDERED, or NOT STORED. **"Not stored" is UNSAFE today** — of 28 live (component,
+  query-array-field) declarations, **17 render an item key their own schema omits** (every
+  directory listing renders `.url` without declaring it). Do not reach for it as the tidy fix.
+- **A template edited by SQL ships NOTHING** without a hand-written fan-out, and the estate's
+  own fan-out query (`component-template-fixer.create_rerender`) has **no page-status filter** —
+  it would have re-rendered and re-published the 16 `tool-cta` instances sitting on ARCHIVED
+  pages (`bugs_open/098` exactly). Both written up in `LANDMINES.md`.
+
+## What is NOT live, and how to check rather than assume
+
+The Go changes (decisions 2 and 3) are inert until a chassis image is built and rolled. Verify
+at the binary — `service_binary_capabilities`, or the pod's `build provenance` line plus
+`git merge-base --is-ancestor <commit> <that sha>`. Never `strings`, never a discovery grep for
+"some 40-hex string", and always run a known-present and a known-absent control in the same
+breath.
+
+## Owed, and honestly still open
+
+- **The sweep's `current > 0` proof.** Two runs so far, both filing zero — but the one summary
+  finding is `consumer_pages:1, stale:0, current:0, unknown:1` on a site whose listing is
+  legitimately EMPTY. That is not the pass; `stale=0` only means something WITH `current>0`, and
+  at a glance it is indistinguishable from the blind case. Watch for a busier site.
+- **The escalation rate**, one week on, against the refreshed baseline **1 of 36**
+  `section_data_resolved` runs in 14 days. 0 of 5 so far on the tool-cta batch.
+- **Council verdicts**: `7553c120` (decision 4) and `e1d32ca2` (decision 2) APPROVED;
+  `170147b4` (decision 3) REVISE at round 1 → revised and resubmitted on the same correlation,
+  verdict pending. The round-1 objection was correct and is described in NOTES.
+- **Not this lane's, but blocking a fleet-wide rule:** `go test ./cmd/config-key-audit/` does not
+  COMPILE — `livedeclarations_test.go:151,153` reference `livespec.DeferredDeclarations`, renamed
+  2026-08-23 (`livespec.go:77`). Committed at HEAD by the 363 lane (`18661b3c7`). So the
+  optional-key parity test CLAUDE.md instructs every author to run cannot be run by anyone, and
+  the pre-commit hook reports it as "the tree does not build", which reads as a local problem and
+  is not one. `go build ./...` is clean.

@@ -52318,3 +52318,71 @@ guard lived one call downstream, in the function every filing traverses.
 never reached a commit that shipped behaviour, because the gate ran before the roll.
 
 Family: confirm-the-denominator, a-report-is-not-a-measurement, editing-one-file-is-not-knowing-the-package (the write-path variant: reading the INDEX is not reading the INSERT).
+
+---
+
+## 2026-08-25 — a "verify" that compared a row with itself, and reported it clean
+
+**Lane:** `bugs_open/384` (page-list invalidation), applying migration `603`.
+
+**What I claimed.** That migration 603 had applied correctly and every pre-existing check
+name had survived the append. My evidence was a query joining the live
+`completeness-discovery-agent` row against "the pre-image", which reported
+`every_pre_apply_name_survives = true` and `names_added = (none)`.
+
+**What was true.** The "pre-image" I joined against was the LIVE ROW ITSELF.
+`snapshot_agent()` RETURNS THE SOURCE ROW'S ID, not the snapshot's — the id it printed
+(`b05773e0…`) is the row it was asked to snapshot. The snapshot lives in a different
+table, `agent_definitions_backup`, with its own `snapshot_taken_at` / `snapshot_reason`
+columns. So my query compared the live row to the live row: `before_n = after_n = 45`,
+`names_added` empty. **Every field of that result was consistent with a perfect apply and
+with a total no-op, and it could not have come out any other way.**
+
+Re-run against the real pre-image: 44 → 45, `names_added = ["page_list_stale"]`,
+`names_lost = none`. Which is what I wanted to know, and what the first version could
+never have told me.
+
+**And the twin, ten minutes earlier.** My first post-apply check asserted the array
+contained `orphan_pages` AND `content_image_missing`, and returned FALSE. I had measured
+`content_image_missing` as *not enabled* myself, 20 minutes before. A control naming a
+value you have already measured absent reports a failure that is not there — the mirror
+image of the one above.
+
+**What caught it.** The schema. `agent_definitions` has no `snapshot_reason` column, so
+the query errored; chasing that error is what revealed the snapshot was in another table
+and that my "pre-image" had never been one.
+
+**The cheap check that would have.** Before trusting a before/after diff, ask whether the
+two sides CAN differ: print the two row ids, or the two `created_at`s, in the same result.
+If they are the same row, the diff is theatre. Generalises past this case — a comparison
+whose sides are not provably distinct is not a comparison.
+
+Family: a-mutation-that-passes-may-have-hit-a-guard-in-series, a-post-fix-zero-needs-a-demand-control,
+measurement-discipline (the disconfirmability rule: name what the failing result would look like).
+
+---
+
+## 2026-08-25 — a mixed AND/OR in SQL invented two pages that were not there
+
+**Lane:** `bugs_open/384`, measuring RFC_052's migration before doing it.
+
+**What I claimed** (for about four minutes, and it nearly went into an RFC): that migrating
+`render_news_section` onto the shared consumer lookup would WIDEN it by 2 pages —
+"16 in both, 0 producer-only, **2 schema-only**".
+
+**What was true.** Zero. My CTE ended
+`AND pc.build_status<>'removed' AND (…) LIKE '%query.latest_news%' OR cc.input_schema::text LIKE '%query.news_archive%'`
+— the unparenthesised `OR` escapes the whole `AND` chain, so the second branch matched rows
+with no status, build_status or ownership filter applied at all. Parenthesised: 16 / 0 / 0,
+an exact no-op, which is what made the migration reviewable.
+
+**What caught it.** Being surprised. The two routes were 1:1 by construction (function ↔
+declared source, verified), so "2 extra" had no mechanism behind it. I went looking for the
+two rows to name them and the naming query — which had the parentheses — returned none.
+
+**The cheap check that would have.** Parenthesise every mixed AND/OR before reading the
+result, and when a comparison reports a difference, ALWAYS list the differing rows rather
+than the count. The count is what you quote; the rows are what tell you the count is real.
+Here the row list disagreed with the count, in the same file, in the same minute.
+
+Family: measurement-discipline, confirm-the-denominator.

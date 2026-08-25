@@ -125,3 +125,97 @@ SELECT coalesce(collected_data->'input_data'->'spec'->>'page_name','?'), status,
    AND collected_data->'input_data'->'spec'->>'cause'='card_landed:<page>';
 ```
 ⚠ **The served page is not the measurement on dartsonline** — it serves 12/12 because the filer hand-repaired it on 2026-08-24. The ROWS are.
+
+## Applying a HELD migration by hand (603, and the verify that fooled me)
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -X -q -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/603_enable_page_list_stale_HOLD.sql
+```
+By hand, never `run-migrations.sh` — the runner takes EVERY pending file (LANDMINE), and a
+`_HOLD` file is held precisely so a human applies it.
+
+⚠ **`snapshot_agent()` returns the SOURCE row's id, not the snapshot's.** Verifying against
+that id compares the live row WITH ITSELF and prints a clean result either way (45→45, nothing
+added, nothing lost). The real pre-image is in a different table:
+```sql
+WITH live AS (SELECT default_config->'workflow'->'steps'->'run_checks'->'config'->'checks' c
+                FROM agent_definitions WHERE type='completeness-discovery-agent'
+                 AND is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL),
+     snap AS (SELECT default_config->'workflow'->'steps'->'run_checks'->'config'->'checks' c,
+                     snapshot_taken_at
+                FROM agent_definitions_backup
+               WHERE type='completeness-discovery-agent' AND snapshot_reason LIKE '603_%'
+               ORDER BY snapshot_taken_at DESC LIMIT 1)
+SELECT snap.snapshot_taken_at, jsonb_array_length(snap.c) before_n, jsonb_array_length(live.c) after_n,
+       live.c @> snap.c AS every_pre_apply_name_survives,
+       (SELECT jsonb_agg(x) FROM jsonb_array_elements(live.c) x WHERE NOT snap.c @> jsonb_build_array(x)) AS names_added,
+       (SELECT jsonb_agg(x) FROM jsonb_array_elements(snap.c) x WHERE NOT live.c @> jsonb_build_array(x)) AS names_LOST
+FROM live, snap;
+```
+Print `snapshot_taken_at` in the result — if the snapshot side is NULL or the two sides are the
+same row, the diff is theatre.
+
+## Reading the sweep's summary finding (what "it worked" actually looks like)
+
+```sql
+SELECT s.domain, o.created_at::timestamp(0), jsonb_pretty(f.value)
+FROM orchestration_states o
+LEFT JOIN sites s ON s.id::text = o.collected_data->'input_data'->>'site_id'
+CROSS JOIN LATERAL jsonb_array_elements(
+    CASE WHEN jsonb_typeof(o.collected_data->'run_checks'->'findings')='array'
+         THEN o.collected_data->'run_checks'->'findings' ELSE '[]'::jsonb END) f
+WHERE o.owner_agent_type='completeness-discovery-agent'
+  AND f.value->>'check' = 'page_list_stale'
+ORDER BY o.created_at DESC LIMIT 5;
+```
+- `stale=0` **with `current>0`** = it looked and everything was current. THE PASS.
+- `stale=0, current=0, unknown=N` = it did not compare anything. On a site with a legitimately
+  EMPTY listing this is correct and expected (lampenkap.com: one page, zero `tool` pages, so its
+  `tool-list` array is empty and the resolve is classified UNKNOWN). It is NOT a pass, and at a
+  glance it is indistinguishable from the blind case — read `consumer_pages` to tell whether the
+  lookup itself ran.
+
+## Fanning out a template change made by SQL (615's shape — reuse this)
+
+Nothing re-renders on a `content_components` write; see the LANDMINE. Read the LIVE fixer query
+first (`agent_definitions`, not migration 460 — the live row has since gained the owned-page
+exclusion), then ADD the page-status filter it still lacks:
+
+```sql
+CREATE TEMP TABLE _targets AS
+SELECT DISTINCT p.id AS page_id, p.name AS page_name, p.site_id, s.domain
+  FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+  JOIN content_components cc ON cc.id=pc.component_id
+ WHERE cc.name = '<component>' AND pc.build_status <> 'removed'
+   AND p.status = 'active'                                    -- bugs_open/098; the fixer LACKS this
+   AND COALESCE(p.rebuild_policy,'generic') <> 'owned';       -- save_sections refuses owned pages
+```
+item_key `page_rerender_<page>_<site>_template_changed` (the shared spelling — DB-level dedup),
+KEEP a `NOT EXISTS` too (334 of 338 live `template_changed` items are keyless and the unique
+index cannot see them), and SET `page_id` (only 4 of 272 carry one, and without it you cannot
+check where the items landed).
+
+**Verify at the artefact, never the migration:**
+```sql
+SELECT s.domain, p.name, (pc.rendered_html LIKE '%<your new class>%') AS has_it
+FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+JOIN content_components cc ON cc.id=pc.component_id AND cc.name='<component>'
+ORDER BY 1,2;
+```
+plus an empty-attribute control (`rendered_html LIKE '%src=""%'` must be 0 if the render is gated).
+
+## Filing the production card-derive (D1), and what it can and cannot do
+
+Work-item route only (kcat lands on a pod with no S3 client — §7a). ⚠ **`derive_card_asset`
+CROPS AN EXISTING HERO; it does not generate imagery.** A page with no hero of any kind
+completes with `derived:false` and the reason `"no hero asset to derive from: no active page,
+content, or site hero"` — a truthful completion that produces nothing. So check the ASSETS, not
+the item status:
+```sql
+SELECT s.domain, count(*) FILTER (WHERE ca.id IS NOT NULL) AS with_card, count(*) AS pages
+FROM pages p JOIN sites s ON s.id=p.site_id
+LEFT JOIN assets ca ON ca.site_id=p.site_id AND ca.entity_type='page' AND ca.entity_id=p.id
+     AND ca.purpose='card' AND ca.status='active'
+WHERE p.page_type='tool' AND p.status='active' GROUP BY 1;
+```
