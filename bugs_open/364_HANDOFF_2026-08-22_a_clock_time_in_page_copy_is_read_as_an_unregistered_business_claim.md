@@ -418,13 +418,32 @@ So, for this lane's evidence specifically:
 | 44 findings / 36→16 / 775-page block equivalence | **no** | requires running `cmd/claimscan` and Go; no seat can execute anything |
 | `sections_metadata` shape and its single supplier | **no** | `orchestration_states.collected_data` not in the allowlist — `editquality` said exactly this |
 | the register/`gte` facts, the 1,494–7,281 history | **no** | `site_specs` not in the allowlist |
-| `slot_name` vs `content_components.function` (106 of 2,033) | **yes, in principle** | both tables ARE visible — `editquality`'s objection was that I had not SHOWN the check, not that it could not be made |
+| `slot_name` vs `content_components.function` (106 of 2,033) | **no — see the correction below** | both tables are in the schema hint, but that is TEXT in the prompt, not a query the seat can run |
 
-**That last row is the distinction worth keeping**: an un-shown check is a process failure I can fix
-by putting the query in the submission; an unseeable table is a limit of the instrument, which no
-amount of submission quality repairs. I answered both by re-running the queries and putting the
-commands in the code comments — so the figures are re-derivable **by a human**, and that is the only
-route there is.
+> **CORRECTED 2026-08-25 by the `bugs_open/386` lane — the table's last row was wrong and so was my
+> framing of it.** I wrote that a seat "reads rows but runs nothing", so a visible table made that
+> claim checkable in principle. **A review seat executes nothing at all — not even read-only SQL.**
+> Measured live: every `review_*` step's config has exactly seven keys (`ai_service, error_step,
+> input_fields, output_format, prompt_template, temperature, tolerate_truncation`) and **no
+> sql/query/tool/db key on any seat**; the only `query_database` steps are `load_schema_hint`, which
+> injects a schema *description as text* before the reviews, and the two `compose_verdict` steps
+> after them. **The allowlist is what the seats are SHOWN, not what they can read** — which is why
+> `editquality` says *"SQL checks against the given schema can't reach…"*: it is reasoning about what
+> a query would show, never reporting one it ran.
+>
+> **So every figure in this file was unverifiable by every seat**, allowlisted table or not.
+
+**The un-shown/unseeable distinction still holds, with its first half weakened.** It correctly
+separates *"I could have made this auditable and didn't"* from *"no submission could"* — but
+including the query makes the **inference** auditable (a reader can judge whether that query would
+answer that question), **not the number verified**. The `386` lane's formulation, which is better
+than mine:
+
+> **A submission can make its reasoning checkable. Nothing a submission can do makes its evidence
+> checked. Only someone re-running it does that.**
+
+I answered those objections by re-running the queries and putting the commands in the code comments.
+That makes the figures re-derivable **by a human**, which is the only route there is.
 
 **When citing these approvals, say what they approved: the plan and the reasoning.** They did not
 re-derive the numbers. `bugs_open/386` (approved `18dba069`) hit the harder version of this — three
