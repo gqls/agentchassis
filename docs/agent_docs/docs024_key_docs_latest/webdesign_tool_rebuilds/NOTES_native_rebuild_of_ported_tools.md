@@ -3371,3 +3371,16 @@ rows offered as a dated demand case. Two pieces belong in THIS lane's record:
    carried a hand-authored CTA to their tool from the PORTED copy (slot written 08-15, ten days
    before the finding) — a name-match proves nothing unless `page_components.updated_at` postdates
    the finding. Same family as the stale-page/canary rules; now stated for owned pages specifically.
+
+## 2026-08-25 ~16:30Z — 333 exchange closed; ONE standing query rule adopted for this lane
+
+The 333 lane took all four of the grind session's findings (their `bb3d03b97`, WII-028 entry),
+answered the disposition (**the 15 parked rows STAY parked — parked IS the terminal state; they feed
+the roadmap as demand for an owned-page content route**; grind session keeps the specs for whoever
+builds it), and sent one correction, relayed back: failed = 22 not 13, because the read was
+live-table-only.
+**STANDING RULE FOR THIS LANE'S QUERIES, adopted from that correction: `site_work_items` is a
+ROLLING WINDOW — any all-history count must `UNION ALL` `site_work_items_archive`, or the claim is
+silently scoped to the retention window while reading as all-time.** Every all-history census this
+lane has quoted (crosslink states, add_tool history, rerender counts) should be re-read with that
+caveat; forward-looking ones carry the UNION from now on.
