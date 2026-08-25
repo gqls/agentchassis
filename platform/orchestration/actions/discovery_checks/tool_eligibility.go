@@ -92,9 +92,21 @@ const toolSubjectKeyExpr = `CASE
 const ToolSubjectKeyExpr = toolSubjectKeyExpr
 
 // toolEligibilityWhere is the shared predicate. It is appended to a query that
-// has already constrained p.site_id, and it carries its own is_active/status
-// tests so the two callers cannot drift apart on them.
+// has already constrained p.site_id and joined page_components AS pc, and it
+// carries its own is_active/status/slot tests so the callers cannot drift apart
+// on them.
+//
+// The pc.build_status filter was CENTRALISED here 2026-08-25 (council 21540c8e
+// round 2, reuse seat's advisory: three ad-hoc copies of one clause at three
+// call sites is the drift the shared predicate exists to prevent — and a future
+// fourth caller now inherits it instead of repeating the exposure). A 'removed'
+// slot is the assembler-excluded TOMBSTONE (rerender_single_page_action.go:842
+// reads the SAME flag, so served-but-excluded is unrepresentable); auditing one
+// spends checks — and for Tier 2, LLM review — on markup no visitor can reach,
+// and the rebuild lane holds 41+ such tombstones on one site alone
+// (bugs_closed/360 is what resurrecting one looks like).
 const toolEligibilityWhere = `
+		  AND pc.build_status <> 'removed'
 		  AND cc.is_active = true
 		  AND p.status = 'active'
 		  AND (

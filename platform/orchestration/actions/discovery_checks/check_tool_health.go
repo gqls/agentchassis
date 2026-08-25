@@ -162,18 +162,12 @@ func (c *ToolHealthCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) 
 		FROM content_components cc
 		JOIN page_components pc ON pc.component_id = cc.id
 		JOIN pages p ON pc.page_id = p.id
-		WHERE p.site_id = $1
-		  AND pc.build_status <> 'removed'`+toolEligibilityWhere+`
+		WHERE p.site_id = $1`+toolEligibilityWhere+`
 		ORDER BY p.name
 	`, dctx.SiteID)
-	// The build_status filter is THIS check's, deliberately not added to the
-	// shared toolEligibilityWhere (its other caller weighs its own semantics).
-	// A 'removed' slot is a TOMBSTONE: the webdesign rebuild lane retires ported
-	// slots by status flip and keeps the bytes for ever, so without this filter
-	// a retire-without-replace page would have its unreachable markup audited
-	// and filed against — the same no-filter shape that let check_literal_markdown
-	// resurrect four tombstones on 2026-08-21 (bugs_closed/360). As of 2026-08-25
-	// that lane holds 41 tombstones on one site and the set only grows.
+	// The tombstone slot filter lives IN toolEligibilityWhere (centralised
+	// 2026-08-25, council 21540c8e round-2 advisory — see tool_eligibility.go
+	// for the full rationale).
 	if err != nil {
 		return nil, fmt.Errorf("tool_health: query failed: %w", err)
 	}

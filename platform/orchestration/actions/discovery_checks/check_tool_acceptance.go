@@ -113,16 +113,9 @@ func (c *ToolAcceptanceCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 		FROM content_components cc
 		JOIN page_components pc ON pc.component_id = cc.id
 		JOIN pages p ON pc.page_id = p.id
-		WHERE p.site_id = $1
-		  AND pc.build_status <> 'removed'`+toolEligibilityWhere, dctx.SiteID)
-	// The slot filter mirrors check_tool_health's (2026-08-25, council 21540c8e
-	// round 1: the bug_historian seat asked the other toolEligibilityWhere
-	// callers be checked for the same exposure — this one had it). A 'removed'
-	// slot is a tombstone the assembler excludes by THIS SAME FLAG
-	// (rerender_single_page_action.go:842), so auditing it spends Tier-2 LLM
-	// review on markup no visitor can reach; the flag cannot lag a resurrection
-	// because making a row servable IS flipping the flag, and the section
-	// editor now refuses tombstones outright (bugs_open/360's guard).
+		WHERE p.site_id = $1`+toolEligibilityWhere, dctx.SiteID)
+	// Tombstone slot filter: IN toolEligibilityWhere (centralised 2026-08-25,
+	// council 21540c8e round-2 advisory; rationale in tool_eligibility.go).
 	if err != nil {
 		return nil, fmt.Errorf("tool_acceptance: tool query failed: %w", err)
 	}

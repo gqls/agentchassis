@@ -92,14 +92,42 @@ func TestContractRulesJudgeTemplateForForksAndNothingWhenEmpty(t *testing.T) {
 	}
 }
 
-// TestToolPopulationQueriesExcludeTombstones holds all three
-// toolEligibilityWhere callers that join page_components to the slot filter —
-// the council's round-1 objection (21540c8e, bug_historian medium) was that
-// patching one call site of a shared population mechanism leaves the siblings
-// exposed, and measuring confirmed BOTH acceptance checks had the same
-// unaudited-tombstone exposure. Comment lines are skipped; zero matches of the
-// join anchor is a loud failure (a broken scan must not pass silently).
+// TestToolPopulationQueriesExcludeTombstones holds the tombstone slot filter
+// where it now lives — IN the shared predicate (centralised per council
+// 21540c8e round 2's reuse advisory: three ad-hoc copies at three call sites
+// is the drift a shared predicate exists to prevent, and a future fourth
+// caller inherits the filter instead of repeating the exposure) — and holds
+// every page_components-joining caller to actually USING that predicate, so
+// the inheritance is real rather than assumed. Round 1's measurement had found
+// both acceptance checks exposed (the bugs_closed/360 shape). Comment lines
+// are skipped; zero matches of an anchor is a loud failure.
 func TestToolPopulationQueriesExcludeTombstones(t *testing.T) {
+	// The filter must be inside the shared predicate's const.
+	src, err := osReadFileForScan("tool_eligibility.go")
+	if err != nil {
+		t.Fatalf("cannot read tool_eligibility.go: %v", err)
+	}
+	constLine, filterLine := -1, -1
+	for i, l := range strings.Split(src, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(l), "//") {
+			continue
+		}
+		if constLine == -1 && strings.Contains(l, "const toolEligibilityWhere") {
+			constLine = i + 1
+		}
+		if filterLine == -1 && strings.Contains(l, "pc.build_status <> 'removed'") {
+			filterLine = i + 1
+		}
+	}
+	if constLine == -1 {
+		t.Fatal("tool_eligibility.go: toolEligibilityWhere const not found — the scan is anchored on nothing")
+	}
+	if filterLine == -1 || filterLine < constLine {
+		t.Errorf("tool_eligibility.go: the shared predicate does not carry pc.build_status <> 'removed' — every caller loses the tombstone exclusion at once (bugs_closed/360 shape; council 21540c8e)")
+	}
+
+	// Every caller that joins page_components must route through the shared
+	// predicate — inheritance only protects a query that actually appends it.
 	for _, file := range []string{
 		"check_tool_health.go",
 		"check_tool_acceptance.go",
@@ -109,25 +137,24 @@ func TestToolPopulationQueriesExcludeTombstones(t *testing.T) {
 		if err != nil {
 			t.Fatalf("cannot read %s: %v", file, err)
 		}
-		joinLine, filterLine := -1, -1
+		joinLine, whereLine := -1, -1
 		for i, l := range strings.Split(src, "\n") {
-			trimmed := strings.TrimSpace(l)
-			if strings.HasPrefix(trimmed, "//") {
+			if strings.HasPrefix(strings.TrimSpace(l), "//") {
 				continue
 			}
 			if joinLine == -1 && strings.Contains(l, "JOIN page_components pc ON pc.component_id") {
 				joinLine = i + 1
 			}
-			if filterLine == -1 && strings.Contains(l, "pc.build_status <> 'removed'") {
-				filterLine = i + 1
+			if whereLine == -1 && strings.Contains(l, "toolEligibilityWhere") {
+				whereLine = i + 1
 			}
 		}
 		if joinLine == -1 {
 			t.Errorf("%s: population join not found — the scan is anchored on nothing and asserts nothing", file)
 			continue
 		}
-		if filterLine == -1 {
-			t.Errorf("%s: population query joins page_components with NO tombstone filter — a retire-without-replace slot's unreachable markup would be audited and filed against (the bugs_closed/360 shape; council 21540c8e round 1)", file)
+		if whereLine == -1 {
+			t.Errorf("%s: joins page_components but does NOT append toolEligibilityWhere — it no longer inherits the tombstone filter (or any eligibility rule); a retire-without-replace slot's unreachable markup would be audited and filed against", file)
 		}
 	}
 }
