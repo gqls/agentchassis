@@ -241,3 +241,114 @@ the thing that was asked for did not happen.
 
 **And measure the same census after the first build that uses the slot.** If assets-per-page has not
 moved, the second change is the whole remaining job.
+
+---
+
+## 8. ⚠ §2a IS SUPERSEDED — THE COMPONENT ALREADY EXISTS, AND I NEARLY BUILT A DUPLICATE OF IT
+
+*2026-08-26. The reuse check `605`'s house style demands ("REUSE CHECKED FIRST") caught this before a
+line was written. Recording it in full because the near-miss is more useful than the fix.*
+
+### 8a. What is actually there
+
+**`Illustrated Text Block`** — `content` category, section level, active. Its template is prose plus a
+gated figure:
+
+```html
+<h2 class="section__title">{{.heading}}</h2>
+{{if .image_url}}<figure class="itb__figure">
+  <img class="itb__image" src="{{.image_url}}" alt="{{.image_alt}}" loading="lazy">
+  {{if .image_caption}}<figcaption class="itb__caption">{{.image_caption}}</figcaption>{{end}}
+</figure>{{end}}
+<div class="section__content">{{.content}}</div>
+```
+
+**It is not a rough draft — it is better than what §2 proposed.** Lazy loading, a caption, responsive
+CSS on theme variables, and the whole figure gated so it degrades to plain prose. And critically:
+
+- **`image_url` / `image_alt` carry `source: "site_assets.image"`, NOT `source: "llm"`.** The paths
+  are resolved server-side from the site's own assets. **That is exactly the design §2c argued for
+  and marked as the hard part** — *"resolve server-side, not in the prompt… an LLM emitting image
+  paths is a phantom-link generator"*. Somebody had already reached the same conclusion and built it.
+- `on_missing: "skip_field"` — a section with no matching asset renders as prose, no empty frame.
+- The `content` field's own guidance **forbids the writer emitting `<img>`, `<figure>` or `<iframe>`**,
+  in terms, *"this component already has its own image fields… an image written into the prose would
+  bypass them"*.
+
+**`[MEASURED 2026-08-26]` it has SIX live instances in the entire estate, all on ONE site (apis.uk).**
+
+### 8b. Why nothing chooses it — and it is `bugs_open/381`'s exact mechanism, unfinished
+
+The planner's menu is built from `component_expresses(html_template, input_schema)`, the capability
+derivation 381 shipped. Run against the two components in question:
+
+| component | what the planner is told it expresses |
+|---|---|
+| `Generic Text Block` | `[html-block, list, table]` |
+| **`Illustrated Text Block`** | **`[html-block, list, table]`** |
+
+**Identical.** The image capability is invisible. The planner is choosing between two components it
+has been told are the same thing, and picks the plain one — 19 times on homegarden.uk alone.
+
+`component_expresses` derives exactly four tokens — `html-block`, `list`, `table`, `items` — and
+**there is no image token in the vocabulary at all.** 381 taught the planner to see lists, tables and
+item sets. Imagery was never added.
+
+> **So this was never a missing component. It is a missing WORD.** The estate can express an
+> illustrated section and cannot say so, which is 381's own sentence — *"the part choosing a page's
+> components could not see what any component was capable of"* — one vocabulary item short of done.
+
+### 8c. The fix, and it is one UNION arm
+
+Add a fifth arm to `component_expresses`, derived from the SCHEMA rather than the template, exactly as
+`html-block` and `items` already are:
+
+```sql
+UNION
+SELECT 'image' WHERE EXISTS (
+  SELECT 1 FROM jsonb_each(COALESCE(p_input_schema->'fields', '{}'::jsonb)) f
+   WHERE f.value->>'source' = 'site_assets.image')
+```
+
+⚠ **Derived from `source`, NOT from `<img` in the template, and the difference is the whole
+precision of it.** A template grep reports `image` for **47** components — every header, hero and
+card thumbnail, whose pictures are chrome the writer cannot influence. The schema predicate reports
+it for components that offer the writer a *server-resolved image slot*:
+`[MEASURED 2026-08-26]` **9 components, 8 of them active and section-level** — `Illustrated Text
+Block`, `case-studies-grid`, `content-block-about`, `featured-inventory`,
+`game-master-explanation`, `hero-headline`, `product-details_pre_037`, `product-specs`,
+`tool-guide-intro`. Bounded, inspectable, and every one is a genuine content component.
+
+After it, `Generic Text Block` is unchanged and `Illustrated Text Block` reads
+`[html-block, image, list, table]` — distinguishable for the first time.
+
+### 8d. What §2 got right, wrong, and what still stands
+
+- ~~**§2a — build the component**~~ **WRONG, and the most useful thing in this plan.** It exists, it
+  is better than my sketch, and building mine would have produced a near-duplicate with a worse asset
+  story — the fork-vs-reuse defect this estate keeps filing. **The reuse check is what caught it, and
+  only because 605's header made it a required step rather than a good habit.**
+- **§2b — teach the planner** — RIGHT, and now the *whole* job rather than a third of it.
+- **§2c — resolve asset paths server-side** — RIGHT, and already done by whoever built the component.
+  My rejection of the LLM-emits-paths route stands and needs no new work.
+- **§7's supply finding is UNAFFECTED and still the bigger half.** Making the component selectable
+  does not create assets. A median site under one asset per page still has little to place, three
+  sites have none, and `on_missing: skip_field` means those sections quietly render as prose. **The
+  word and the supply are two changes, and this only makes the first one cheap.**
+
+⚠ **One honest limit on the owner's actual words.** He asked for imagery *"BETWEEN PARAGRAPHS"*. This
+component places its figure **above** the prose, once per section. At page level, alternating
+illustrated and plain sections gives interspersed imagery; **within a single section it does not.**
+If he meant strictly mid-prose, that is a different component and a different plan — worth asking
+rather than assuming, because the cheap fix answers the page-level reading and not the other one.
+
+### 8e. Revised shape of the work
+
+1. **One migration** adding the `image` arm to `component_expresses` — council scope (it changes what
+   every planner is shown, fleet-wide, on every subsequent build).
+2. **Re-measure `component_expresses` output for the 8 affected components** before and after, and
+   confirm `Generic Text Block` is byte-identical — the control that distinguishes a widening from a
+   reshuffle.
+3. **A writer-side check** that the guidance for `image_url` is reachable — the field is
+   `site_assets.image`, so what resolves it is server-side, and I have not yet read that resolver.
+4. **Then, separately, the supply question (§7)**, which nothing here touches.
