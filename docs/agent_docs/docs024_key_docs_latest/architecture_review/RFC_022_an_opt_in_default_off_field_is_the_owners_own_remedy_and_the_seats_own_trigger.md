@@ -273,6 +273,14 @@ the ruling that followed); register DIAG-042.
 
 ## ADDENDUM 2026-08-25 — a blind spot in the counter, surfaced by `bugs_open/345`, and the decisions it puts to the owner
 
+> **RESOLVED 2026-08-25 — OWNER RULING: option (c). Leave the blind spot; RFC_022 stays CLOSED.**
+> The counter continues to count `spec.Optional`; directly-read optional literals stay uncountable,
+> and `censusUncountedActions` printing spec-less actions as "unknowable" is the accepted coverage.
+> No change to the counter, no spec added to `update_work_item_status`, and `bugs_open/345`'s
+> `stop_on_repeat_failure_item_types` stays uncounted (harmless at 3 vs N=10). **The analysis below
+> is kept as the record of the known gap — it is NOT an open work item; do not action decisions
+> 1–3.** If a directly-read carrier ever grows toward N=10 in practice, reopen then, not now.
+
 The RFC is CLOSED and its ruling (N=10) stands. This addendum does not reopen it — it records a
 **measurement gap in the counter that enforces it**, found when `bugs_open/345` tried to make one
 new opt-in key (`stop_on_repeat_failure_item_types`, on `fail_work_item`) visible to the budget and

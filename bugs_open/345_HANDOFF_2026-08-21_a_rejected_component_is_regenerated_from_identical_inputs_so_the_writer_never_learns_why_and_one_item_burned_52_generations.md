@@ -1359,3 +1359,7 @@ Per instruction ("don't ship — do as you suggest"): neither follow-up was ship
 follow-up turned out to be a counter-design question and is written up as three owner decisions in
 `architecture_review/RFC_022_…md` (addendum 2026-08-25). The options-struct refactor is deferred to
 the next parameter addition. 524 was already resolved by another session.
+
+> **RESOLVED 2026-08-25 — owner ruled option (c): leave the blind spot, RFC_022 stays closed.** The
+> counter change is not made; `stop_on_repeat_failure_item_types` stays uncounted (harmless at 3 vs
+> N=10). Decision 3 is now fully closed — nothing outstanding on either follow-up.
