@@ -5520,3 +5520,17 @@ steps → outside verification table → bookkeeping owed → label removal). �
 revision will rebuild `index`, which silently REMOVES the hand-placed "Not active yet"
 label (vm-sites `444205b`) — the runbook's gate 2 says re-place it if ordering is still
 closed at go-live. The label + RFC_054 rulings from earlier today are unchanged.
+
+## 2026-08-25 (evening) — stepped back a further step; snapshot written; two OPEN reconsiderations
+
+Owner, before any go-live: (1) framework output may need OWNER EDITS before a customer
+sees it (site-quality work continues in another thread, unnamed, not ready); (2) maybe let
+the CUSTOMER edit the site during the ~month view, possibly by VOICE. Neither decided.
+Both cut against attested positions (`one_shot_no_approval`, "no changes are included") —
+if adopted, terms + register + copy must move TOGETHER (the claims gate enforces today's
+position). The customer-editor half lands on the joint lane's Phases 5–6 (editor exists in
+the architecture post-handover; new parts = earlier-in-preview + voice) — NOTE dropped in
+`../site_delivery_and_editor/`. Snapshot to return to if both ideas are dropped:
+**`SUMMARY_2026-08-25_webdesign_uk_build_service.md`** (the resume point, with the
+runbook). Copy/design brief from the owner is expected next; hold launch sequencing until
+the two questions are decided.

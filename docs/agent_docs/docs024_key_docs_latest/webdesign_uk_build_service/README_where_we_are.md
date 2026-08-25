@@ -2143,3 +2143,16 @@ go-live procedure is now written down in one place — `RUNBOOK_go_live_webdesig
 so on the day it is a checklist, not an investigation. One thing that document warns
 about: rebuilding the pages for the copy revision will quietly remove the hand-placed
 notice, so it has to be put back before the site goes live if ordering still isn't open.
+
+**2026-08-25, evening — we stepped back one more step, deliberately.** Before the site
+goes live you want to reconsider two bigger things: whether the sites we build are good
+enough to hand over untouched, or whether you should be able to edit them first; and
+whether customers should be able to make some edits themselves during their month-long
+view — perhaps even by speaking the changes. Neither is decided, and you are improving
+the build quality in a separate piece of work that isn't ready yet. So the whole launch
+position as of today is written down in one place —
+`SUMMARY_2026-08-25_webdesign_uk_build_service.md` — as the marker to come back to: if we
+decide against the new ideas, we pick up exactly there, with the go-live checklist ready.
+Worth saying plainly: both ideas pull against what the site currently promises ("one
+pass, no changes"), so choosing either means the wording, the recorded facts and the
+process all change together, not just the software.
