@@ -440,3 +440,128 @@ exemplars are all thin, or a deliberate spec with three unscrapable hosts, shoul
 stands, and **add a second control**: the fix must also be exercised against a host that crawls
 successfully and yields nothing, or it will pass while (b) remains live. `which.co.uk/reviews/home-and-garden`
 is a dated, working example of that shape as of 2026-08-25 10:52:41Z.
+
+---
+
+## 11. FIX DESIGN — verified against the code that would execute it, 2026-08-25. Not yet submitted, not yet applied.
+
+**Taken by the filing lane (`loanzy_uk_example_site`) 2026-08-25 12:00Z.** `who-owns.py` reports
+OWNED, but the only activity it sees is this lane's own §10 commit from the same morning — the known
+lagging-indicator behaviour, pointed at me. No other lane, no other directory.
+
+**Everything below was read from the code, not inferred from the config.** The point of §10 is that
+the obvious version of this fix would have made things worse, so the mechanism gets checked first.
+
+### 11a. What the two halves must do
+
+Restating §10's finding as a requirement: there are **two** upstream outcomes and one guard for each.
+
+| outcome | today | after |
+|---|---|---|
+| **(a)** crawl ERRORS (Firecrawl refuses) | no `error_step` ⇒ workflow dies, successful crawls discarded, `create_next_item` never runs | routed onward; that exemplar contributes nothing and **says so in `collected_data`** |
+| **(b)** crawl SUCCEEDS, delivers nothing | passes straight through, no floor, no record | counted against a floor; below the floor the run fails **loudly** |
+
+### 11b. Half one — route a refused crawl to its own format step
+
+```
+crawl_exemplar_1.error_step = "format_exemplar_1"
+crawl_exemplar_2.error_step = "format_exemplar_2"
+crawl_exemplar_3.error_step = "format_exemplar_3"
+```
+
+**Why the format step and not the next crawl** `[VERIFIED by reading
+platform/orchestration/actions/format_crawl_for_analysis_action.go]`: when
+`FormatCrawlForAnalysisAction` finds no pages — and it looks at four candidate paths under
+`crawl_field`, then a `research_results` DB fallback — it returns
+
+```go
+return map[string]interface{}{
+    "research_text":   "No crawl content could be retrieved.",
+    "source_count":    0,
+    "content_quality": "none",
+    "sources":         []interface{}{},
+}, nil          // ← nil error. It does NOT fail.
+```
+
+`ExtractNestedField` returns nil for a **missing** path exactly as for an **empty** one, so a crawl
+that never produced a `crawl_N` key formats to the same graceful shape as one that produced an empty
+crawl. **That is what makes (a) collapse into (b) instead of into a new failure**, and it is why
+routing to the format step is right and routing to the next crawl is wrong: skipping `format_N`
+leaves `formatted_N` **absent**, which `synthesise` interpolates as `<no value>` into the prompt and
+which the floor below could not count.
+
+**Placement `[VERIFIED]`: step level, not inside `config`.** `routeToErrorStepOrFail`
+(`coordinator.go:3916`) prefers `step.ErrorStep` and falls back to `step.Config["error_step"]`.
+`bugs_open/086` was that step-level keys were dropped by `convertToWorkflowPlan`; that is fixed and
+pinned by `platform/messaging/error_step_plan_test.go`. Confirmed live rather than assumed —
+`[MEASURED 2026-08-25 11:5xZ]` of 97,824 persisted plan steps, **3,868 carry a step-level
+`error_step`** and 18,710 a config-level one, so both routes work today.
+
+⚠ Routing to `error_step` writes `collected_data["__step_error"]` — a **single key, overwritten on
+every routed failure** (`bugs_open/243`). With three crawls that can each fail, the first refusal is
+erased by the third. So **`__step_error` must not be the floor's input.** The floor reads
+`source_count`, which is per-exemplar and cannot be clobbered.
+
+### 11c. Half two — a floor evaluated on CONTENT, between `format_exemplar_3` and `synthesise`
+
+```
+"check_exemplar_floor": {
+  "action": "conditional_branch",
+  "config": {
+    "condition": "formatted_1.source_count > 0 AND formatted_2.source_count > 0 OR formatted_1.source_count > 0 AND formatted_3.source_count > 0 OR formatted_2.source_count > 0 AND formatted_3.source_count > 0",
+    "fail_on_non_numeric": true,
+    "then_step": "synthesise",
+    "else_step": "insufficient_exemplars"
+  }
+}
+```
+and `format_exemplar_3.next_step` moves from `synthesise` to `check_exemplar_floor`.
+
+**Floor = 2 of 3, evaluated on `source_count`, never on step success.** This is §10's whole point:
+`which.co.uk` returned `success: true` with `source_count: 0`, so a floor counting successes would
+have counted it.
+
+⚠ **NO PARENTHESES, AND THIS IS NOT A STYLE CHOICE** `[VERIFIED by reading
+conditional_branch_action.go]`. `splitOnOperator` is a bare `strings.Split` — the comment says
+*"Simple split for now - can be enhanced to handle parentheses later"* — and `cleanExpressionPart`
+**strips** parens rather than honouring them. `OR` is split first, `AND` second, so the unparenthesised
+form above parses as `(1∧2) ∨ (1∧3) ∨ (2∧3)`, which is exactly "at least two". **Adding brackets for
+readability would silently change the meaning** (see 11e).
+
+`fail_on_non_numeric: true` is load-bearing, not decoration: without it a `source_count` that resolves
+to a non-number returns `false` and routes silently to `else_step`, so a broken *instrument* would be
+indistinguishable from a genuine shortfall. With it the step errors and says which side was not
+numeric.
+
+### 11d. `insufficient_exemplars` — fail LOUDLY, and this is the part not to skip
+
+The `else_step` must leave a record that names the cause and the counts, and must **not** proceed to
+`write_landscape_spec`. Writing a vertical landscape from under-floor research with every step green
+is strictly worse than today's behaviour, which at least stops. **Today's failure is loud; the fix
+must not trade it for a quiet one.**
+
+### 11e. What this design does NOT do, and the disconfirming tests
+
+- **It does not exclude refused hosts at selection** (§5 candidate 2). That remains the one that gets
+  cheaper over time, and is deliberately a separate change: it alters *what is chosen*, this alters
+  *what happens when a choice fails*.
+- **It does not touch `select_exemplars`' missing `temperature`** (§4) or the `competitors_found`
+  branch (§4a/§4b).
+- **Tests that could come out against it**, both required before this is called done:
+  1. **A refused host** — `thespruce.com` as of 2026-08-23. Assert the workflow reaches
+     `create_next_item`, and that the refused exemplar's `formatted_N` shows `content_quality: none`.
+     A pass with all three exemplars healthy proves nothing.
+  2. **A succeeds-but-empty host** — `which.co.uk/reviews/home-and-garden` did exactly this at
+     2026-08-25 10:52:41Z. Assert it counts as ZERO toward the floor. **Without this control the fix
+     passes while (b) stays live**, which is the trap §10 exists to record.
+  3. **A below-floor run** (two of three empty) must FAIL and leave a named record. Induce it rather
+     than wait for it.
+- ⚠ **Do not verify any of this at the step record.** A refused crawl's own record reads
+  `"success": true` — a dispatch receipt. Join on `request_id`; read `formatted_N.source_count`.
+
+### 11f. Status
+
+Design only. **Not submitted to the council gate, not written as a migration, not applied.**
+`agent_definitions` config shipped as a migration is in council scope (2026-08-19 widening), and this
+changes a shared research seam that every greenfield build traverses, so it goes through the gate
+before it goes anywhere near the fleet.
