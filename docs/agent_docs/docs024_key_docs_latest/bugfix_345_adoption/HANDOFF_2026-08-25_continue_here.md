@@ -31,11 +31,19 @@ themselves), round 2 resubmitted — read the verdict before writing `Council-Re
    candidate 2 now caps the cost at one wasted retry per item, but the pages stay hollow. This
    changes what a shared gate guarantees, so it is the owner's call and probably an RFC (2026-07-29
    §1), not a bug patch.
-3. **Register the opt-in key via `RegisterActionInputSpec`** — on BOTH failure writers
-   (`update_work_item_status` has **no spec at all**), so the RFC_022 optional-key budget can see
-   it. Small; a follow-up, not a blocker.
-4. **Options struct for `applyWorkItemFailureLadder`** — 8 positional params; the 8th broke two
-   sibling sqlmock files. Low urgency; do it before the 9th.
+3. ~~Register the opt-in key via `RegisterActionInputSpec`~~ **INVESTIGATED 2026-08-25 — mis-specified,
+   NOT a one-liner (bug file, "afternoon" section).** The budget counts `spec.Optional`; the key is a
+   directly-read literal on `fail_work_item`, whose spec is the RUNTIME extraction spec, and which
+   deliberately excludes such literals (convention inconsistent fleet-wide — `feed_actions.go` differs).
+   `update_work_item_status` is already printed as "unknowable" by `censusUncountedActions`. Budget
+   consequence nil (3 and ~7 keys vs N=10). The real question — the counter is blind to directly-read
+   optional literals across ~35 actions — is routed to the RFC_022/config-key-audit owner, not patched here.
+4. **Options struct for `applyWorkItemFailureLadder`** — 8 params, **23 call sites**, the fleet's single
+   failure-write seam; guardian rated it LOW "before the next addition". The silent-arity pain is already
+   caught (sibling tests broke loudly and are fixed). **Recommend deferring to the next param addition**;
+   doing it now is a speculative fleet-seam refactor needing its own council round.
+5. **524's half-committed `_HOLD` twin** — RESOLVED 2026-08-25 (someone completed the deletion half); the
+   class sweep is empty. Nothing to do.
 
 ## Evidence you can re-run
 

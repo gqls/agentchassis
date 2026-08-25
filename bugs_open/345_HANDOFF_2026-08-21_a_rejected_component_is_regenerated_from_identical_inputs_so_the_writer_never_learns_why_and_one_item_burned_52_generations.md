@@ -1267,3 +1267,63 @@ Fixed **and** live **and** measured: mechanism (f1f1fc37, live 1334+), feedback 
 demand-proven), marker + message (live 1336+, probed), opt-in (607 applied, **fired 4×**). **345
 can close.** What it hands on is not a residual of *this* defect but the next one it exposed (§4),
 which belongs in its own file.
+
+---
+
+## 2026-08-25 (afternoon) — the two "small follow-ups" INVESTIGATED; neither is a one-liner, and 524 is already resolved
+
+The owner asked me to do the two follow-ups from decision 3 and to chase 524. Findings:
+
+### 524's half-committed twin — ALREADY RESOLVED (nothing to do)
+
+[MEASURED 2026-08-25] At HEAD only the un-held pair exists
+(`524_claimed_item_timeout_honours_the_cooldown{,_ROLLBACK}.sql`); disk matches; **nothing staged**;
+the class sweep (`_HOLD.sql` with an un-held twin at HEAD) is **empty**. The applied file's ledger
+checksum `30af2a80…` equals the committed file's md5. Someone completed the deletion half since it
+was flagged on 08-24. The LANDMINE entry for the trap stays (it is prospective); the live instance
+is gone.
+
+### Follow-up (a) "register the opt-in key via `RegisterActionInputSpec`" — the council seat's own remedy is mis-specified; DID NOT ship it, and here is why
+
+The intent was: make `stop_on_repeat_failure_item_types` visible to the RFC_022 optional-key-budget
+counter. Traced end to end:
+
+1. **The counter reads `len(spec.Optional)`** (`cmd/config-key-audit/optionalbudget.go:153`), not
+   actual config usage. So visibility requires the key in a spec's `Optional` list.
+2. **The key lives on a `fail_work_item` step** (migration 607's `mark_failed`), so the action whose
+   budget must count it is `fail_work_item` — whose spec **is passed to `ExtractActionInputs` at
+   runtime** (`load_work_item_actions.go:1200`). Adding a key to `Optional` is therefore **not
+   declaration-only** — it changes what the extractor walks on the failure hot path.
+3. **The key is a directly-read literal** (`stopOnRepeatFailure` reads it straight from
+   `StepConfig.Config`), exactly like `error_message`/`status_override` — which `FailWorkItemInputSpec`
+   **deliberately excludes**, with a comment saying so. (The convention is not universal —
+   `feed_actions.go:57` includes `error_message` — so practice is *inconsistent* fleet-wide.)
+4. **`update_work_item_status` uses no `ExtractActionInputs` and has no spec** — but
+   `censusUncountedActions` **already prints it as "unknowable"**, which its own comment says is the
+   intended treatment ("registering a spec is work these actions may never need"). So a spec there
+   adds nothing the census does not already show.
+5. **Budget consequence today: nil.** `fail_work_item` really carries 3 optional keys, `update` ~7 —
+   both far under N=10.
+
+**So the honest remedy is not "register the key." It is a decision about the RFC_022 mechanism:** the
+budget counts `spec.Optional`, but ~**35 actions** read optional config literals directly and specs
+declare such keys inconsistently — so a whole class of optional authority is uncountable *by design*,
+and 345's key is the third example on this one action (after `error_message`, `status_override`).
+Jamming one literal into one runtime extraction spec, against that spec's stated convention, for zero
+budget benefit, would be patching a shared seam blind — the exact thing this lane has spent a week
+not doing. **Routed to the `config-key-audit`/RFC_022 owner as a mechanism question, not actioned
+here.**
+
+### Follow-up (b) "options struct for the 8-param ladder" — legitimate, non-urgent, and its own reviewed change
+
+`applyWorkItemFailureLadder` has 8 positional params across **23 call sites** (21 test + 2 real). The
+guardian seat rated the struct refactor **low, "before the next addition"** — i.e. when a 9th param
+is actually needed, which nothing pending requires. It is a refactor of **the single failure-write
+seam for the whole fleet**, so it wants its own council round, not bundling into a bug close. The
+real pain it prevents (a silent sqlmock arity break in sibling files) is now already caught — the
+sibling tests broke loudly this week and are fixed. **Recommend deferring** to the next param
+addition; doing it now is a speculative fleet-seam change for a benefit already covered.
+
+**Net:** 524 done; neither follow-up is a change I should ship unreviewed, and both are recorded for
+their proper owners. This does not affect 345's close condition — every piece of the defect remains
+fixed-and-live.
