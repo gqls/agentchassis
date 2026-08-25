@@ -181,3 +181,34 @@ are holding. The **owned-page-door lane** owns the `platform/livespec` HEAD fail
 `bugs_open/333` belongs to the 301 lane. The **`bugfix_308_cta_destination_provenance`** lane has
 routed the undecidable-CTA question to this agent (`CONTRIB_2026-08-24`, owner ruling in `RFC_047`
 §10); its own read is *"after your v2 batch"* and nothing is blocked on us.
+
+---
+
+## ADDENDUM (same day) — an owner review landed on this lane, and the answer was a REACH measurement, not a quality one
+
+The `loanzy_uk_example_site` lane relayed an owner review of `homegarden.uk`. Canonical record —
+**cite it, not a paraphrase**:
+`docs/agent_docs/docs024_key_docs_latest/loanzy_uk_example_site/OWNER_REVIEW_2026-08-25_homegarden_and_what_it_says_about_every_site.md`
+
+Two of its three verdicts name this lane's agents. My answer is
+`.../loanzy_uk_example_site/CONTRIB_2026-08-25_two_of_the_three_agents_he_names_could_not_have_run.md`
+(commit `9740425e7`). The short version, all `[MEASURED 2026-08-25]`:
+
+- **The offer analyser never saw the site.** 0 `offer_ordering` rows, 0 findings, **5 of 28** sites
+  enrolled, and **all three** scheduled carriers `enabled=false` since 08-14/15 — as is
+  `improvement-sweep`. His complaint about `about.html` (14 methodology headings vs 3 reader-facing)
+  is exactly what this agent exists to catch. **The catcher was off.**
+- **`visual-designer` is UNREACHABLE** — active, storage-granted, real LLM step, and no scheduled
+  task, no agent config and no live script can dispatch it. Zero `llm_call_log` rows under its own
+  type across the log's whole span. ⚠ Checked via `step_name`, not `agent_type`, for the
+  dispatch-context reason this lane already has a landmine about.
+- **The imagery gap is structural:** homegarden's 13 assets ARE placed — **only as CSS
+  backgrounds**. **13 of 27** fleet sites have ZERO inline `<img>` in any component.
+
+⚠ **This is the strongest instance yet of §5's own point that adoption here is tiny.** The handoff
+above says "5 of 28 sites"; this review is what that number costs in the owner's eyes. **When the
+negative control from §1 arrives and the gate is proven, REACH is the next question, and it is an
+owner decision (enabling a carrier), not a lane's.**
+
+⚠ **I changed nothing live** — no carrier enabled, no enrolment written. Do not enable one to "answer
+the review": that promotes findings to live pages, which this lane has already paid for once.
