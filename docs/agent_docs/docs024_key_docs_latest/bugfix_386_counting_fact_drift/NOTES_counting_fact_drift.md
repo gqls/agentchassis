@@ -421,3 +421,41 @@ findings, 8-of-29 falling facts, 315 superseded rows, the zero-consumer enumerat
 unverified by the council**. They are verified by me, with the queries in RUNBOOK §§1-4 and §7, and
 `prior_art_librarian` is right that a human should re-run them before arming any fact. An approval is
 not independent confirmation of a number a reviewer could not see.
+
+### Addendum, same day — the limit is bigger than the allowlist, and I had it too small
+
+I wrote above that three seats could not see `site_specs`, so my numbers "stand unverified by the
+council". The 364 lane generalised it: a seat reads rows but **runs nothing**, so any figure produced
+by executing code is unverifiable regardless of which tables are visible. I checked the mechanism
+rather than accepting either version, and it is stronger than both.
+
+`[MEASURED 2026-08-25]` A `council-gate` `review_*` step's config carries exactly seven keys:
+`ai_service`, `error_step`, `input_fields`, `output_format`, `prompt_template`, `temperature`,
+`tolerate_truncation`. **There is no SQL key, no tool key, no query key.** And the only
+`query_database` steps in the entire workflow are `compose_verdict` and `compose_verdict_checked`,
+which run *after* the reviews to assemble the result. Nothing fetches data for a seat.
+
+**So a review seat executes nothing whatsoever** — no SQL, not even read-only; no Go; no tests; no
+build. The "given schema" the seats referred to is text in a prompt template, not a query capability.
+
+**What that means for this verdict, stated plainly because it is easy to let an approval imply more
+than it does:** every figure in my submission was unverifiable by every seat. The register numbers
+(5/5 findings, 8-of-29 falling, 315 superseded rows, zero consumers) because no seat can query
+anything; the engineering claims (14 tests green, 7 mutations killed, both packages fresh with
+`-count=1`) because no seat can run anything. **The council reviewed my reasoning and my plan. It did
+not, and structurally cannot, verify a single number in either.**
+
+**And it refines the 364 lane's own distinction, which I would otherwise have adopted whole.** They
+split an *un-shown* check (a process failure, fixed by putting the query in the submission) from an
+*unseeable* table (a limit of the instrument, unfixable by submission quality). The first half is too
+optimistic: if a seat executes nothing, then a shown query is also just text, results included.
+Including it makes the **inference** auditable — a reader can see whether the query would answer the
+question — but it never makes the **number** verified. So:
+
+> A submission can make its reasoning checkable. Nothing a submission can do makes its evidence
+> checked. The only thing that verifies a figure is someone re-running it.
+
+Which is exactly why `prior_art_librarian`'s line — *"a human should re-run the plan's own cited
+queries against live `site_specs` before arming any fact"* — is the single most load-bearing sentence
+in the verdict, and why it is written into CLM-028's verify-later rather than left in an artifact
+nobody opens once the trailer exists.
