@@ -50868,3 +50868,30 @@ timestamp.** One query. It is [[pin-the-clock-to-before-the-failure]] in differe
 **The transferable shape:** *a census answers "what is true now"; an attribution needs "what was true
 then".* A row that exists today can be the RESULT of the event you are explaining, not its cause —
 and "already" is the word that hides the tense.
+
+### 2026-08-25, same lane, same hour — the THIRD timestamp error, and the instrument I added for a different reason caught it in one poll
+
+Rebuilding the monitor after the second error, I hand-typed the build's start epoch as
+`START=1756117309`, commented `# 2026-08-25 10:21:49Z`. It is **2025**-08-25. One year out, which is
+**525,600 minutes**, and the first heartbeat printed `HEARTBEAT T+525616min`.
+
+**Three in a row, same root:** a clock time read rather than measured (BST with a `Z`), a detector
+bounded on that wrong time (fifty minutes in the future, so it could never fire), and now an epoch
+typed from memory. **Fixed properly:** `START=$(date -u -d '2026-08-25 10:21:49 UTC' +%s)` — computed,
+never typed. If a value can be derived, deriving it is cheaper than checking it.
+
+⚠ **THE PART WORTH KEEPING, and it was luck that it was pointed at itself.** I added the elapsed
+heartbeat for an unrelated reason — the `loanzy_uk_example_site` lane observed that a monitor keyed
+only on `site_work_items` reads a dead orchestration and a queued one identically, so I wanted
+silence to stop being ambiguous. That heartbeat then caught a bug **in the monitor itself**, on its
+first emission, because of a property I had not reasoned about:
+
+> **An instrument that reports an ABSOLUTE QUANTITY is self-checking in a way one reporting a STATE
+> is not.** `T+525616min` is obviously absurd to anyone who glances at it. `still triaged` is never
+> absurd — it is the correct output for a healthy queue, a stalled queue and a dead orchestration
+> alike, and no amount of staring at it reveals which.
+
+So when you add a progress signal, prefer one that carries a number you can sanity-check over one
+that carries a status you cannot. The status tells you what the system says; the number tells you
+whether your instrument is sane. Cross-ref: the `<no value>` retraction and the 40-zeros control —
+both are "a check that cannot fail"; this is its inverse, **a check that fails visibly at itself.**
