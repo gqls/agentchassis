@@ -464,3 +464,84 @@ GROUP BY 1;
 - **The code already reserves the hook for candidate 3.** `chooseCTATargets` carries `pageType` as
   a parameter it never reads, documented as *"v2 does not branch on it"* and carried "for a future
   intent-aware (LLM) upgrade". Relevant to sizing the relevance option, and I had not mentioned it.
+
+---
+
+# OWNER DECISIONS 2026-08-25 — all five answered. One is DONE; the rest are sequenced below
+
+> The owner answered all five in chat. Recorded verbatim in substance, with what each licenses and
+> what it does **not**.
+
+| # | decision | owner's answer | state |
+|---|---|---|---|
+| 1 | should the tool be on those sites | **"the password tool can disappear everywhere"** | **planned, not done** — see §RETIREMENT |
+| 2 | correct the `nav_order` fossil | **"yes change the menu-order numbers"** | ✅ **DONE + VERIFIED 2026-08-25** |
+| 3 | build the platform lever | **"yes go ahead"** | not started — code + council |
+| 4 | repair the 80 stored values | **"whatever you suggest"** | sequenced last |
+| 5 | the standing commission | **"rescope it as you suggest"** | ~20 locked fields, scoped by query |
+
+## Decision 2 — DONE. `SQL_2026-08-25_demote_password_entropy_nav_order.sql`, applied
+
+Three rows moved `nav_order` 1 → **900**, guarded to abort unless exactly three moved. The new
+rank-1 CTA target on each site, measured after the change:
+
+| site | was | **now** |
+|---|---|---|
+| `ai-agent-orchestration.com` | password-entropy | **tool-ai-agent-roi-estimator** |
+| `finetuning.uk` | password-entropy | **tool-ai-data-risk-checker** |
+| `leopardessconsulting.co.uk` | password-entropy | **ai-agent-roi-estimator** |
+
+⚠ **Why 900 and not 200** — this is the trap in this fix and it nearly bit: 200 is those sites'
+ordinary tool value, so it would **tie**, and the tiebreak is alphabetical on `name`.
+`password-entropy` sorts ahead of every `tool-*`, so **at 200 it would still have won** on two of
+the three sites. A demotion that merely joins the pack is not a demotion here.
+
+⚠ **What this does NOT do:** it changes what *future* resolutions pick. **The 80 already-stored
+values are untouched**, and the ~20 label-locked ones would survive even a re-resolution (§THE
+FEEDBACK LOOP). It also does not stop the class — the next tool created with a low `nav_order`
+wins again. That is decision 3.
+
+## RETIREMENT (decision 1) — authorised, NOT a delete, and the order is load-bearing
+
+**Measured blast radius, 2026-08-25** — the tool is referenced far beyond the CTAs:
+
+| surface | refs |
+|---|---|
+| `page_components` (`content_data` **and** `rendered_html`) | **91** — ai-agent-orchestration 45, leopardess 25, finetuning 21 |
+| site chrome | 1 (`ai-agent-orchestration.com` **footer**) |
+| `/tools.html` listings, live | 5 · 4 · 2 |
+| visible nav | 0 on all three |
+
+**So deleting the page first would strand ~91 links and, worse, leave ~20 buttons whose text still
+reads "Try the Password Strength Physics tool" pointing somewhere else** — a copy/destination
+mismatch, which is precisely `bugs_closed/299`'s defect. [INFERRED from the code path, not tested:
+with the page gone the label match finds nothing and falls through to the positional pick, so the
+href moves while the wording stays.]
+
+**Required order — do not reorder:**
+
+1. ✅ **Demote `nav_order`** (done) — stops new wrong picks immediately.
+2. **Rewrite the ~20 locked labels** (decision 5's re-scoped pass) so no copy names the tool.
+3. **Repair the remaining stored values** (decision 4) — re-resolve, verified at the served bytes,
+   never by work-item status (`bugs_open/389`).
+4. **Only then retire the pages**, updating the footer and the three `/tools.html` listings in the
+   same operation, and re-check that no `rendered_html` still links the URL.
+5. Decide separately whether to deactivate the library component `tool-password-entropy` so it
+   cannot be redeployed to a new site. It is `is_active = true` today; the migration that claimed
+   to *narrow* its affinity actually **added** `tech`, `cybersecurity`, `developer` to its tags.
+
+**Retirement must go through the framework**, not hand-edits — the 2026-08-04 owner ruling. The
+existing machinery is `retract_page_deployment` / `retract_asset_files`; read it before writing
+anything, and note `bugs_closed/049` (live 404 links from stale chrome) is the failure this
+sequence exists to avoid.
+
+## Decision 3 — approved, and what it now owes
+
+The shape is **candidate 1 paired with candidate 4** (an explicit "never a CTA target" opt-out,
+plus a detector for the anomalous-`nav_order` shape). Before any code:
+
+- **Read at the RANKING, not the loaders** — the site header CTA fallback shares the loaders and is
+  never persisted (§Fix candidates, correction (a)).
+- **Bind `LoadCTALabelUniverse` too**, or the opt-out has a hole exactly the shape of this bug.
+- **Enumerate the consumers and engage RFC_022** — asserting the shape without the query is itself
+  the objection. Then council, before or alongside the commit.

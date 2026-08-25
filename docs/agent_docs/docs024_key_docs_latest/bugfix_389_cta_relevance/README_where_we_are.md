@@ -116,3 +116,37 @@ password tool at all, and all six of its tools carry the ordinary menu number. S
 still showing the *repetitive* version of the problem with a sensible destination. That is the
 clean separation: repetition is everywhere and is what your content pass is really for; the
 off-topic button is these three sites and is this bug.
+
+## 2026-08-25, evening — you answered all five, and the first one is done
+
+**Done and live: the menu-order fix.** The password tool is demoted on all three sites, and the
+button the framework would now choose is a sensible one on each — the ROI estimator on two of them,
+the AI data-risk checker on the third.
+
+One thing nearly went wrong that's worth telling you. My first instinct was to give it the same
+number the other tools carry. That would have failed: when numbers tie, the system falls back to
+alphabetical order, and "password-entropy" comes before every tool whose name starts with "tool-",
+so it would have kept winning on two of the three sites. It's now on a number nothing else uses.
+
+**What that fix does and doesn't do.** From now on, when the framework picks a button destination
+on those sites, it picks a relevant tool. But the eighty buttons already written are unchanged —
+they still point where they pointed this morning. Those come next.
+
+**On making the tool disappear everywhere — I've planned it rather than done it, and I want to
+explain why.** It's referenced in about ninety places across the three sites, plus a footer and the
+three "our tools" listing pages. If I delete the page first, all of those become dead links — and
+about twenty buttons would still *say* "Try the Password Strength Physics tool" while quietly
+leading somewhere else. That's a worse defect than the one we started with, and we've had it filed
+before.
+
+So the order is: the wording rewrite on the twenty, then repair the rest of the buttons, then
+retire the pages and clean up the listings and the footer in the same operation. The first step of
+that is already done, which is what stops it getting worse while the rest happens.
+
+**One extra question that falls out of "everywhere".** The tool also exists in the shared library
+that new sites draw from, and it's still switched on there — so it could be handed to a future
+site. Worth deciding whether that gets switched off too. It's a separate switch from the three
+pages, and I haven't touched it.
+
+**The framework change you approved** is the biggest piece and it needs a review round before it
+ships. I'll bring you the design rather than surprise you with it.

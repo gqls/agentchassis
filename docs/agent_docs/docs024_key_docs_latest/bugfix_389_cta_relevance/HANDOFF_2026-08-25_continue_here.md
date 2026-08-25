@@ -68,7 +68,29 @@ primary nav"* and it changed nothing.
 contradiction. **62.7% of tool/game pages are `in_header=false`** (143 of 228) — it is the normal
 state, not a human judgement. Only leopardess is documented as deliberate, by its SQL comment.
 
-## 3. THE FIVE DECISIONS — with the owner, do not pre-empt
+## 3. THE FIVE DECISIONS — ⚠ ALL ANSWERED BY THE OWNER 2026-08-25. Decision 2 is DONE.
+
+| # | answer | state |
+|---|---|---|
+| 1 | *"the password tool can disappear everywhere"* | **planned, deliberately NOT done first** — 91 refs + footer + 3 listings; deleting ahead of the copy rewrite strands them and leaves ~20 buttons naming a tool they no longer point at |
+| 2 | *"yes change the menu-order numbers"* | ✅ **DONE + VERIFIED** — `SQL_2026-08-25_demote_password_entropy_nav_order.sql`, 1 → **900** on three rows, guarded. New rank-1: ROI estimator / AI data-risk checker / ROI estimator |
+| 3 | *"yes go ahead"* | **approved, not started.** Candidate 1 + candidate 4; read at the RANKING not the loaders; must bind `LoadCTALabelUniverse`; RFC_022 enumeration owed before council |
+| 4 | *"whatever you suggest"* | sequenced last; verify at served bytes, never by work-item status |
+| 5 | *"rescope it as you suggest"* | ~20 label-locked fields by query |
+
+⚠ **Why 900 and not 200:** at 200 it ties with the sites' other tools and the tiebreak is
+alphabetical on `name` — `password-entropy` precedes every `tool-*`, so **it would still have won**
+on two of three sites. A demotion that joins the pack is not a demotion.
+
+**THE NEXT ACTION IS STEP 2 OF THE RETIREMENT SEQUENCE** (`bugs_open/391` §RETIREMENT): rewrite the
+~20 label-locked labels via the re-scoped content pass. Nothing else may run before it — not the
+repair, and above all not the page deletion.
+
+**One question left with the owner, raised not assumed:** the library component
+`tool-password-entropy` is still `is_active = true`, so it can be handed to a *new* site.
+"Everywhere" may or may not cover that switch; untouched.
+
+### The original framing, kept for the record
 > ⚠ Was four. The fifth (the standing commission) is a decision about the owner's own 08-15
 > instruction and cannot be folded into the repair. Decision 3's "only option that stops the class"
 > was **overstated** — an opt-out is reactive; pair it with a detector to earn that claim.

@@ -79,3 +79,30 @@ the `bugfix_308` lane's re-file, which was 2m25s earlier; 390 was taken in the i
 - **The locked set grows.** Every positional mint gets copy written for it, so the population
   needing the content pass increases while the ranking stays unfixed. That is the argument for
   doing phase 2 before phase 3, and it has a clock on it.
+
+---
+
+## OWNER DECISIONS LANDED 2026-08-25 (all five) — phasing now fixed
+
+| # | answer | consequence for this plan |
+|---|---|---|
+| 1 | tool "can disappear everywhere" | retirement authorised, **sequenced last** — 91 refs + footer + 3 listings |
+| 2 | yes, change the numbers | **DONE + verified**; `SQL_2026-08-25_demote_password_entropy_nav_order.sql` |
+| 3 | yes, build the lever | candidate 1 + candidate 4, RFC_022 owed, council before/with the commit |
+| 4 | "whatever you suggest" | re-resolve then verify at served bytes; never by work-item status |
+| 5 | re-scope the commission | ~20 label-locked fields by query, not 16 sites |
+
+**Decision recorded, with its reason:** the demotion value is **900, not 200**. At 200 it ties with
+the sites' other tools and the tiebreak is alphabetical on `name` — `password-entropy` precedes
+every `tool-*`, so it would have kept winning on two of three sites. **A demotion that joins the
+pack is not a demotion.** Guarded in the SQL by an abort-unless-exactly-three check.
+
+**Decision recorded, with its reason:** retirement is **not** first, despite being decision 1 and
+fully authorised. Deleting the page ahead of the copy rewrite strands ~91 references and leaves ~20
+buttons naming a tool they no longer point at — `bugs_closed/299`'s exact defect, manufactured by
+our own repair. Authorisation is not a sequence.
+
+**New open question for the owner, raised not assumed:** the library component
+`tool-password-entropy` is `is_active = true`, so it can still be handed to a *new* site. "Disappear
+everywhere" may or may not extend to that switch; it is separate from the three pages and has been
+left alone.
