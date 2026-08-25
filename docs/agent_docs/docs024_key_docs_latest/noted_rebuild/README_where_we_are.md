@@ -457,3 +457,30 @@ now has one), and the account-deletion plan is written and waiting on your two
 choices: delete immediately or after a grace period (I recommend immediately —
 it's what the privacy page already promises), and the one honest sentence about
 backups for the privacy page.
+
+---
+
+## 2026-08-25, evening — you can close an account now, caption things, and edit photos (written by the assistant)
+
+The three things you approved this morning are all live tonight.
+
+Closing an account works, properly: you type your password again, confirm, and
+everything goes — files first, then the records, and the page only says so once
+it is actually true. If even one file cannot be removed, nothing at all is
+deleted and it tells you plainly. The live rehearsal proved the whole journey,
+and as its final act it deleted its own test account and showed the sign-in no
+longer works. The four old test accounts from earlier rehearsals were then
+removed the same way — through the real button, not a database shortcut — so
+the only account left on the service is yours.
+
+Captions: any photo, clip or recording can carry a line of text, shown in both
+views. And photos can be edited — rotate and crop, on your phone or desktop.
+An edit never touches the original until the edited copy is safely stored; if
+anything goes wrong you keep what you had. GIFs politely refuse editing for
+now, because a naive edit would silently lose the animation — that belongs to
+the fuller editing surface we sketched from your note about an "editor" type
+of note, which is written into the plan for when you want it.
+
+Two pieces of wording wait on you in the chat: the honest backup sentence for
+the privacy page, and the paid-storage copy (held back until there is actually
+a way to pay, so the site never offers a door that isn't there).

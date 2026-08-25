@@ -2707,3 +2707,19 @@ deleted their own), accounts 5 (throwaways + owner tests) — so the proposed
 backup sentence ("media is not in the backups") is exactly true with no pre-B2
 residue, and the 5 throwaways can be drained through the live endpoint once
 this lands.
+
+### 2026-08-25, close — deletion + captions + editing LIVE; the estate is clean
+
+v3 rerender complete (commit `a1556e04…`); box + live page carry the account
+panel and edit canvas after the sitesync tick (checked AFTER the tick this
+time). **Live smoke 17/17** — the run's finale deleted its own account through
+the live panel and proved the credentials dead. Then the four historical smoke
+throwaways (ids 7/9/10/11) were drained through the LIVE endpoint with their
+reconstructed credentials (login 200 → delete 200, all four); after-control:
+**exactly 1 account remains, the owner's**. The privacy page's "close your
+account" promise now has a mechanism behind it, exercised in production five
+times today.
+
+Awaiting the owner's word (presented in chat): the backup sentence for the
+privacy page (ships through draft → checker → evidence_base → 074b on his
+yes) and the paid-tier copy (HELD until a purchase mechanism exists).
