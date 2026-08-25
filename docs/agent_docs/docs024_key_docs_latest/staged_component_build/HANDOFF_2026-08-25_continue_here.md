@@ -1,3 +1,5 @@
+# ⛔ CLOSED 2026-08-25 — READ §10 FIRST; it supersedes §4 and §7.
+
 # HANDOFF — 2026-08-25, fresh chat starts here: **the lane's deliverable was done a week ago. Everything since is a bug tail, and today that tail went LIVE. What remains is three items, TWO of which nobody can act on — they are waits on demand.**
 
 **Supersedes `HANDOFF_2026-08-24b_continue_here.md`** (and transitively 08-24 / 08-22 / 08-21).
@@ -281,3 +283,70 @@ Closing the lane still stands. The routing changes: §4.1 is discharged; §4.2 g
 §12.6 **with the correction above, or it will be re-attempted against a producer that cannot satisfy
 it**; §4.3 still needs its own file; and the owned-page design question goes to `bugs_open/333`, where
 it is already contributed.
+
+---
+
+## 10. ⛔ **THE LANE IS CLOSED, 2026-08-25.** The picker-failure gap is FIXED and APPROVED; everything else has been routed. **This section is the authority — §4 and §7 are superseded by it.**
+
+The owner's instruction was: spend a cycle on the picker-failure gap, then route the items and close.
+Both done.
+
+### 10.1 The gap is closed — council `5287ef5d`, **APPROVED, all reviewers**
+
+`no_related_pages` with an empty source used to mean three different things. It now means one of three
+named things, and only one of them is benign:
+
+| `related_pages_source` | means | act? |
+|---|---|---|
+| `spec` | the requester named the pages | no |
+| `suggested` | the picker named them | no — this is the win condition |
+| `no_picker` | the picker **never ran** — unwired, or failed to `error_step` | **yes** |
+| `picker_declined` | ran, returned an empty list: no page is a genuine match | no — correct per prompt rule 5 |
+| `picker_unusable` | ran, returned something that is not a page list | **yes** — prompt or model fault |
+
+`picker_unusable` is a state nobody had noticed. Two states would have hidden a model that stopped
+obeying the output format behind an honest refusal.
+
+**Commits:** `83dc20654` (the split, the classifier, the constants, the RUNBOOK table) ·
+`ba6090d36` (round 2's `TestFallbackKeyHasNoDefault`, carrying `Council-Reviewed: 5287ef5d-…`) ·
+`02aff4dfa` (the `WasDefaulted ||` strengthening, which **deliberately postdates the verdict** and
+says so in its own message — do not read the trailer as covering it).
+
+⚠ **INERT until the next chassis roll**, like any Go change here. The 602 config is already live, so
+between now and the roll the old ambiguity persists exactly as it did — no window is opened that was
+not already open.
+
+### 10.2 What round 1 earned, because a REVISE is not a failure
+
+Round 1 came back **REVISE** on a gating objection I could not have answered without checking:
+`ExtractActionInputs` pre-fills `spec.Defaults` into `Values`, so a Default on `related_pages_fallback`
+would make `Has()` true on the error_step route too — `no_picker` would never fire, **and the bug
+would look exactly like the fix**. Neither spec declares one. But "absent today" is not a property
+that stays true, so it is now a test, mutation-proved by adding the exact Default the objection
+describes.
+
+Round 2's one advisory then sent me looking for prior art, and found a **stronger** idiom already in
+the repo (`deploy_image_asset_action.go:175`, `WasDefaulted("purpose") || !Has("purpose")`). Adopted.
+The mechanism no longer depends on its own guard test.
+
+**Both rounds found something real. Neither cost more than the defect it caught.**
+
+### 10.3 Where the remaining work went — routed, not parked
+
+| item | routed to | state |
+|---|---|---|
+| `353` item (b), the ungated arm never fired | **`bugs_open/353` §15** | open, with the correction that a *rebuilt* tool page can never exercise it — it needs a **brand-new** page |
+| should an owned page get a cross-mention at all | **`bugs_open/333`** (CONTRIB 2026-08-25) | open, now with numbers: 34 of 37 candidate pages owned ⇒ ~92% of picks park |
+| a regeneration that adds a related page never emits | **`bugs_open/379`** | open, unowned, out of scope by design |
+| ~30-tool backfill | nobody | acknowledged unowned by both lanes |
+| the demand case | — | **DISCHARGED**, both sides |
+
+**Nothing was closed by declaring it done.** The one thing that could have quietly vanished with this
+lane — the picker-failure gap — was fixed instead, which is why the lane can close honestly.
+
+### 10.4 If you are picking this up cold
+
+There is no work here. Read `bugs_open/353` §15 or `bugs_open/333` depending on which question you
+came for. The only thing this lane still owes the world is that `83dc20654`/`02aff4dfa` are **inert
+until a roll** — after the next one, the five-value table in §10.1 becomes readable, and the RUNBOOK
+section "SUPERSEDES the section above" tells you what to do with each value.
