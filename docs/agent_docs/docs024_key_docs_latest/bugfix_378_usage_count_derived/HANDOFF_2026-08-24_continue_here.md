@@ -15,13 +15,31 @@
 > to the pre-fix snapshot. `needs_new_component` ran **5** against **6** the prior day, so nothing
 > broke. §4 below is spent; it is kept as the record of what was owed.
 >
-> **Two things deliberately NOT done, so nobody re-opens them as gaps:**
-> 1. **`content_components.usage_count` is still in the schema**, written by nothing and read by
->    nothing in Go. A `COMMENT ON COLUMN` (or drop) migration is owed and is **council-scope in its
->    own right**. ⚠ Until it runs the column still reads as a maintained figure — do not quote it.
-> 2. **The 27-section_type contract mismatch is now `bugs_open/388`**, filed 2026-08-25. It is NOT a
->    378 residual — 378 *reduced* it from 29 to 27 — and it has its own evidence and `[UNMEASURED]`
->    list. Do not re-derive it here.
+> ## ⏳ THE ONE REMAINING ACTION — apply migration `610` after the next chassis roll
+>
+> Everything else in this lane is done. `610_content_components_drop_dead_usage_count_HOLD.sql`
+> drops the dead column and is **written, tested and deliberately unapplied**. It is `_HOLD` because
+> a banner cannot hold a file back from the runner.
+>
+> **Precondition:** a chassis build containing commit `2c1a5d0…`-era part 1 (the removal of the birth
+> INSERT's `usage_count` from `store_generated_component_action.go`) must be LIVE. Against an older
+> binary the DROP makes **every component creation fail**. The artefact check with its control is in
+> 610's own header — and the control is not optional: this lane's first ancestry control was itself
+> worthless because it also predated the build.
+>
+> Then apply **by hand** (`608` was pending from another lane; `--apply` takes every pending file) and
+> record with `--record-only` + `--note`. Its guard aborts if `usage_count` has moved since it was
+> killed; that guard has been induced and fires correctly.
+>
+> **Done already (2026-08-25):** the last writer is removed, and migration **`609` is APPLIED,
+> recorded and verified at the artefact** — the column comment used to read *"Times this component
+> has been assigned to a page. Incremented by selector. Higher = more battle-tested."* (false in all
+> three clauses) and now begins `SUPERSEDED AND DEAD`. Council `ac7b62e6` (follow-up round).
+> ⚠ `agent_definitions.usage_count` is a DIFFERENT column, is LIVE, and is deliberately untouched.
+>
+> **Not a residual of this lane:** the 27-section_type contract mismatch is now **`bugs_open/388`**,
+> filed 2026-08-25 with its own evidence and `[UNMEASURED]` list. 378 *reduced* it from 29 to 27.
+> Do not re-derive it here.
 >
 > ⚠ **One check that looked like evidence and was not**, recorded so it is not repeated: grepping
 > `-l app=agent-chassis` logs for selector errors returned `0` — and so did the control asking whether
