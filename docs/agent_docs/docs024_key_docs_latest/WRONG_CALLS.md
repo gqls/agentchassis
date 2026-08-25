@@ -53515,3 +53515,49 @@ not-yet-wired symbol reads exactly like a failed roll.
 
 Family: a-snapshot-read-expires, a-key-is-rebound-at-every-hop, a-steps-walk-is-a-lower-bound,
 probe-the-capability-with-both-controls, the-documented-check-that-does-not-exist.
+
+---
+
+## 2026-08-25 — I wrote "MUST COME FIRST" into a runbook, and a constraint arrived the same afternoon that inverted it
+
+**Lane:** `bugfix_375_completion_verifier_gap`.
+
+**What I wrote.** A five-step sequence for registering a completion verifier, in three places — the
+verifier's own file header (which I had been calling "the runbook"), the lane handoff's step table,
+and a LANDMINE. Step 1 said, in bold: *add the type to `livespec.ClaimedItemTimeoutExclusions` …*
+**"⚠ THIS ONE IS LOAD-BEARING AND MUST COME FIRST."**
+
+**What was true.** Following it would have **broken the build**. The claim-timeout lockstep fails in
+**both** directions — `excluded ⇔ (verifier) OR (noChangeGates) OR (a REFUSING
+acceptancePredicateGates entry)` — and `required_fields_missing` is in none of the three. Adding the
+exclusion first trips the reverse arm: *"declared excluded but NO gate can grade it"*, the
+`bugs_open/006` §C churn. The exclusion and the `RegisterVerifier` call have to land in **one
+commit**; only the *migration* half goes first.
+
+**What caught it.** The `bugs_open/395` lane, which needs the same migration for `content_rewrite`
+and met the constraint from its own side. Not my own re-reading.
+
+**Why no check of mine would have caught it, which is the point.** My text was **correct when
+written**, against a two-roster contract. `395` added the **third** roster (`acceptancePredicateGates`,
+gate 1c) at `69479bcf6`, **13:41 the same day** — hours later. The thing that changed was somebody
+else's file changing the meaning of mine. **This is a different failure from the stale-claim class I
+had spent the day logging:** not a claim that decayed, but a contract that moved underneath a claim
+that never stopped being locally true.
+
+**The cheap check that would have — and it is a writing rule, not a verification one.** `395` put it
+better than I would have, so it is theirs:
+
+> *"a MUST-COME-FIRST is the most dangerous sentence to leave in a runbook, because it survives the
+> arrival of a constraint that inverts it, and it is written in the imperative, so the next reader
+> obeys instead of derives."*
+
+**The rule I am taking from it.** An imperative step ordering is a **conclusion**; the constraint that
+produced it is the **fact**. Write the fact next to the imperative, or the imperative outlives it
+silently. My corrected version states the contract (`excluded ⇔ …`, fails in both directions) beside
+the order, so a reader meeting a fourth roster can re-derive rather than obey. That is the difference
+between a runbook that ages and one that rots.
+
+**Third instance today of the same family, from three different directions:** a stale comment that
+cost a council seat a MEDIUM objection; a "known broken, do not debug" note of mine that was false in
+ninety minutes; and now an imperative that a same-day change inverted. All three were correct when
+written. **Correct-when-written is not a defence, it is the mechanism.**

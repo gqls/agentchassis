@@ -115,21 +115,43 @@ reviewed plan, not a session's preference.
 > added it at `69479bcf6`, 13:41 the same day, which is also why my own §3a went stale within hours
 > *again*.
 >
-> **So: migration (1) alone → then (1b) + (3) together in ONE commit.** The migration goes first
-> because it is about the LIVE object rather than the build, and because the window it opens — live
-> clause holding a type the Go slice does not — merely makes `--live-declaration-drift` noisy while
-> the sweep skips the type. The reverse window is the one with the actual hole in it.
+> **So: migration (1) alone → then (1b) + (3) together in ONE commit.**
+>
+> **The reason, in the form that survives** (`bugs_open/395` reasoned it independently and reached the
+> same answer, then sharpened the statement): **BOTH orders make `--live-declaration-drift` fire, so
+> the drift noise is NOT the discriminator** — treating it as one is what makes the wrong order look
+> defensible. The discriminator is what the SWEEP does inside each window:
+>
+> | window | drift | what the sweep is doing |
+> |---|---|---|
+> | **migration first** | fires | **stops** auto-completing those items immediately. Estate is SAFER than before. Pure noise. |
+> | Go slice first | fires | **still completing items straight past the verifier you are about to register** — and doing it while every instrument says you have already fixed it |
+>
+> Identical noise; only one window contains damage. Put the noise on the safe side.
 
 ⚠ **AND IF ANOTHER LANE IS ADDING A TYPE TO THE SAME CLAUSE — one is.** `livespec.Declarations` pins
 the live `pre_query` to `ClaimedItemTimeoutExclusionClause()`'s rendering of the Go slice with a
 **FragmentMatch Min:1/Max:1**. Two migrations each written against today's 14-type clause **will not
 compose**: whichever applies second must render the **MERGED** slice or the drift auditor fires on a
 correct-looking change. `bugs_open/395` owes `content_rewrite` on this clause, has verified the
-migration does not exist in any form (committed, staged, `_HOLD` or untracked), is **blocked on its
-own side** (its gate 1c needs a live negative control it cannot manufacture honestly), and has agreed
-that **this lane owns the migration** and it will anchor its amendment on our tail. House pattern to
+migration does not exist in any form (committed, staged, `_HOLD` or untracked), and has agreed that
+**this lane owns the migration** and it will anchor its amendment on our tail. House pattern to
 follow: **482** — read-before-write anchor, targeted `replace()`, `DO`/`RAISE` verify (⚠ a bare
 `SELECT` cannot stop a `COMMIT`).
+
+⚠ **DO NOT WAIT FOR `395` — their half is further off than "blocked on a control row" suggests.**
+Reported 2026-08-25: all three of their live predicates grade `pages.meta_description`, and the
+handler they are routed at **cannot write that column at all**, so their negative control is
+*unreachable* rather than merely absent. A routing fix has to land first (`bugs_open/395`,
+`bugs_open/320` §5). Write the migration for `required_fields_missing` alone; the composition
+constraint above is what makes their later amendment safe, not co-scheduling.
+
+⚠ **AND ANNOUNCE THE WINDOW BEFORE YOU OPEN IT** — the one operational risk neither of us had
+considered. While the migration is applied and the Go slice is not, **any unrelated session running
+`--live-declaration-drift` sees a RED result that is not theirs and is not a defect.** A drift
+failure with no owner is precisely the shape that gets "helpfully fixed" by somebody reverting your
+migration. So: keep the window short (write both halves before applying either), and say what you are
+doing — a line in `bugs_open/363`'s CONTRIB thread and a `doc_notes` row are enough.
 
 **What blocks it, WHO holds it, and how to tell when it clears.** Step 1 edits
 `platform/livespec/livespec.go`, held by the **`live_object_declaration_drift` lane**
