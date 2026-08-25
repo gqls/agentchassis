@@ -389,3 +389,43 @@ both — but the honest position is "proven on one page of a build still running
 build settles and the picture holds. If the 17 `section-index` pages no-op, **that is `206` in this
 window and must not be recorded as a 381 failure** — the symptom sentence is identical and the
 acceptance script says so in bold.
+
+### 11e. ⚠ RETRACTION of the "seventeen thin index pages" claim in 11c — my own data refutes it
+
+§11c recorded, as the interaction "nobody predicted", that the planner had expressed *"month by
+month"* as seventeen `section-index` pages **"so that no single page has to express it"**, and that
+the site was "about to serve seventeen thin index pages". **That is withdrawn.**
+
+`[MEASURED 2026-08-25 11:45Z]` the pages are not thin:
+
+| page | component | chars | `<li>` | `<h3>` |
+|---|---|---|---|---|
+| `april-index` | generic-text-block | 2,822 | 4 | 4 |
+| `august-index` | generic-text-block | 2,994 | 3 | 4 |
+| `comparisons-index` | generic-text-block | 2,149 | 4 | 3 |
+
+**4 of 4 bodies distinct** — not boilerplate. `august-index` opens *"August is usually the driest
+month of the growing season, so the jobs that matter most this month are about protecting what you
+already have rather than starting anything new."* Substantive, month-specific, structured content on
+pages I had written off.
+
+**And `n_sections = 3` is a planner CHOICE, not a default** — the discriminator the
+`loanzy_uk_example_site` lane demanded before letting me publish the claim. Other sites'
+`section-index` pages carry 1–2 sections (`["hero","blog-listing"]`, `["hero","guide-list"]`,
+`["hero","category-listing"]`). **homegarden is the only site anywhere with
+`["hero","generic-text-block","content-listing"]`, and the extra member is the prose block.** The
+planner chose to give every month page prose; the writer filled each with a real list.
+
+**The honest reading, which is better news than the claim I retracted:** the planner answered
+"month by month" with a per-month PAGE architecture rather than one page carrying `period-calendar`,
+and **each page keeps its own promise with real structure**. That is the fix working. What it
+legitimately raises is whether `period-calendar` is NECESSARY for this shape — a finding about the
+component, not about the planner dodging anything.
+
+⚠ **How I got it wrong, because it is the fifth time in this lane and the same shape every time:**
+I had the disconfirming data before I wrote the claim — `april-index` already displayed
+`generic-text-block[LIST][H3]` in output I had read minutes earlier — and I wrote "thin" from the
+**shape of the plan** (`n_sections=3`, a repeated layout) instead of from the **content of the
+pages**. **A section count is not a content measure.** The peer challenge that made me look was
+"is 3 a choice or a default?"; the answer mattered less than the side effect — it sent me to the
+artefact.

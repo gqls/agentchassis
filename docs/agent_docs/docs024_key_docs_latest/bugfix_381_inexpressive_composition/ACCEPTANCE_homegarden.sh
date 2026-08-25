@@ -86,16 +86,33 @@ cat <<'WARN'
    "no sections ready to build", that is mis-ROUTING and not thin content. Just do not
    expect it here.
 
-⚠⚠ AND THE STRUCTURAL FINDING IS OURS — 381, WITH NO 206 IN IT, AND CLEANER THAN EITHER LANE
-   FIRST THOUGHT. The planner expressed "month by month" as SEVENTEEN section-index pages
-   rather than as one page carrying period-calendar, and it placed period-calendar ONCE, on
-   the landing page. Those 17 pages WILL build — every one carries the identical three-section
-   layout ["hero","generic-text-block","content-listing"], n_sections=3 on 17 of 17, zero
-   variation by page role. So the site is about to serve seventeen thin index pages where the
-   plan's promise was one month-by-month structure. NOTHING WILL FAIL. NOTHING WILL ERROR.
-   EVERY PAGE WILL REPORT SUCCESS. The structure is expressed as NAVIGATION instead of as
-   CONTENT — which is this bug's symptom sentence exactly, arrived at from a direction §3 of
-   the bug file did not anticipate. Measure it, do not excuse it.
+⚠⚠ RETRACTED — I CLAIMED "SEVENTEEN THIN INDEX PAGES" AND MY OWN DATA REFUTES IT.
+   I wrote that the planner had "dissolved the promise across seventeen pages so no single
+   page has to express it". That is FALSE, and the disconfirming evidence was in my hands
+   before I wrote it (april-index already showed [LIST][H3]).
+
+   [MEASURED 2026-08-25 11:45Z] the month pages are NOT thin:
+     april-index       generic-text-block  2,822 chars  4 <li>  4 <h3>
+     august-index      generic-text-block  2,994 chars  3 <li>  4 <h3>
+     comparisons-index generic-text-block  2,149 chars  4 <li>  3 <h3>
+     4 of 4 bodies DISTINCT — not boilerplate. August is genuinely about August:
+     "August is usually the driest month of the growing season, so the jobs that matter
+      most this month are about protecting what you already have rather than starting
+      anything new."
+
+   And n_sections=3 is a PLANNER CHOICE, not a default — the discriminator the
+   loanzy lane asked for: other sites' section-index pages run 1-2 sections
+   (["hero","blog-listing"], ["hero","guide-list"], ["hero","category-listing"]).
+   homegarden is the ONLY site with ["hero","generic-text-block","content-listing"], and
+   the extra member is the PROSE BLOCK. So the planner chose to give every month page a
+   prose block, and the writer filled each with a month-specific structured piece.
+
+   THE HONEST READING: the planner answered "month by month" with a per-month PAGE
+   architecture rather than one page carrying period-calendar, and each page keeps its own
+   promise with real structure. That is the fix WORKING — arguably better than one calendar
+   page — not a promise being dodged. What it does raise is a genuine question about
+   period-calendar's NECESSITY for this shape, which is a finding about the component, not
+   about the planner.
 
 WARN
 echo "⚠⚠ COMPARISON-TABLE IS UNEXERCISED ON THIS BUILD, NOT FAILED, IF IT DOES NOT APPEAR."
