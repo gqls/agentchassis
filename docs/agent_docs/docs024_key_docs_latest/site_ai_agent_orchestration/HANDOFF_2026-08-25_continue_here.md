@@ -82,10 +82,18 @@ retires `611`'s interim block.
 
 ## 5. Open, none blocking
 
-1. **Confirm `NNN` has left the live page.** `model-directory-publish` runs every 6h (last 06:26Z).
-   `curl -s https://ai-agent-orchestration.com/model-directory.html | grep -c NNN` must be **0**.
-   If it is not 0 several hours after 611/613, the regeneration is not picking up the new block and
-   that is a real finding.
+1. ~~Confirm `NNN` has left the live page.~~ ✅ **CLOSED 2026-08-25 12:41Z.** The page regenerated
+   at 12:40:57; `content_data` and `rendered_html` are both clean and **all seven pages checked read
+   `NNN=0`, HTTP 200**. The hero now says *"more than 150 distinct agent types"* — `611`'s floor
+   phrasing, true at 200 and immune to drift.
+   ⚠ **I nearly forced this and would have caused a second incident.** At 12:35 I concluded the
+   6-hourly publish "does scoped rerenders, so it can never clear it" — from the task's
+   `description` field plus a 9-minute window in which nothing changed — and was about to file a
+   `needs_page`. The publish had ALREADY filed one at 12:25:13; it was `claimed` while I was
+   deciding it would never happen. Filing mine would have duplicated a running, non-idempotent page
+   build (`bugs_open/029`'s damage) and then taken the credit. **Before concluding nothing is
+   happening, ask what is claimed:** `SELECT item_type, status, created_by FROM site_work_items
+   WHERE site_id=… AND status IN ('claimed','triaged')`.
 2. **The 17 parked `contrast_failure` items** — still `deferred`, untouched since 08-11, because
    the site's render audit has not run here since 08-10. Not evidence of a live defect. Now that
    all four pages measure 0 this site is a clean disconfirmable test for `bugs_open/296`.

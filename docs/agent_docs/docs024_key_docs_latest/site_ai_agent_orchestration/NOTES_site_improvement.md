@@ -1333,3 +1333,36 @@ do with the question. **The byte-compare is the check; phrase-grepping is a gues
 
 This is CLAUDE.md's documented shared-tree hazard, from the other side: committing per task stops
 me sweeping others' work, and cannot stop theirs sweeping mine. Forward-only holds, nothing to undo.
+
+### RESOLVED 12:41Z — and a correction to my own reasoning an hour earlier
+
+**The incident is closed at the artefact.** `model-directory` regenerated at 12:40:57; `content_data`
+and `rendered_html` both clean; all seven pages checked read `NNN=0` and HTTP 200. The hero now
+says *"more than 150 distinct agent types"* — `611`'s floor phrasing, true at 200 and immune to
+drift.
+
+> **⚠ CORRECTED, same session, before it reached the handoff.** At ~12:35 I wrote that the
+> 6-hourly `model-directory-publish` *"does scoped rerenders … so it can never clear the
+> placeholder"*, and was about to file a `needs_page` myself to force it. **That was wrong**, and
+> the evidence I used was the task's own `description` field plus a single observation that the
+> 12:26 publish had regenerated nothing at 12:35.
+>
+> What I had not done was **look at the queue**. The publish DOES lead to a full rebuild: it filed
+> a `needs_page` (`created_by='render_directory'`) at **12:25:13**, which was still `claimed` while
+> I was concluding it would never happen. It completed at 12:41 and cleared the placeholder.
+>
+> **Two lessons, and the second is the one that generalises:**
+> 1. I read a *description of a mechanism* and treated it as the mechanism. `scheduled_tasks.description`
+>    is prose someone wrote; `site_work_items` is what the thing actually did.
+> 2. **"It hasn't happened yet" and "it cannot happen" look identical for exactly as long as the
+>    work is in flight.** My 9-minute observation window was inside one job's runtime. Had I filed
+>    the forcing rebuild I intended, I would have duplicated a running non-idempotent page build —
+>    the precise damage `bugs_open/029` records — and then credited the fix to my own item.
+>
+> **What would have caught it in one query, and did:**
+> `SELECT item_type, status, created_by FROM site_work_items WHERE site_id=… AND status IN ('claimed','triaged')`
+> — before concluding that nothing is happening, ask what is claimed.
+
+**So handoff §5 item 1 is CLOSED**, and the disconfirming result it named ("if it is not 0 several
+hours after 611/613, the regeneration is not picking up the new block") did not occur — the
+regeneration picked it up on the first rebuild after the source fix.
