@@ -593,3 +593,99 @@ write. **A dead page URL is NOT frozen by a keep.**
 
 ⚠ **Step 4 cannot be brought forward and step 2 cannot be deferred past step 3** — a retired page
 with copy still naming it leaves a button whose words point at nothing.
+
+---
+
+# STEP 2 RESULT 2026-08-25 ~20:2x–20:5xZ — 10 of 12 pages repaired and verified at the served bytes; **the repair also destroyed copy on one page, since restored**
+
+The 22 dispatched items resolved as **11 `content_rewrite` complete + 10 `page_rerender` complete**,
+with one pair failing on the eleventh page. Twelve pages have now been through this repair
+(the canary plus eleven).
+
+## What is repaired and PROVEN, at the served bytes
+
+Ten pages: `ai-agent-orchestration.com` `/index.html`, `/pricing.html`, `/news/index.html`,
+`/tools.html`, `/guides/tool-automation-savings-estimator-guide.html`; `finetuning.uk`
+`/technical-details.html` (canary), `/services.html`, `/your-own-model.html`,
+`/blog/chatgpt-has-your-data-does-that-matter.html`; `leopardessconsulting.co.uk` `/services.html`,
+`/tools.html`.
+
+- **Label and href name the same tool on every CTA** — checked anchor by anchor, not by work-item
+  status. The picks are topically sensible, which was the point of the exercise: the savings-estimator
+  guide now points at the savings estimator, `/pricing.html` at the LLM Provider Cost Comparison
+  Calculator, `/technical-details.html` at the Fine-Tuning vs RAG vs Prompting Decision Guide.
+- **Every CTA target returns 200, with a per-domain absent control returning 404**
+  (`/tools/this-page-does-not-exist-391.html` on each of the three domains). Without that control a
+  parked-domain catch-all would have scored every href as live.
+- **Residual `password-entropy` strings are all out-of-scope-for-step-2 and expected**: 2 per page in
+  the `ai-agent-orchestration.com` **footer** (a `site_components` row, not `page_components`), plus
+  1 legitimate listing card on that site's `/tools.html`. Both are step 3 (retirement) work, and both
+  are already in the measured blast radius. `finetuning.uk` and `leopardessconsulting.co.uk` are at
+  **0** references across all their repaired pages.
+
+## ⚠ What the repair broke, and why the documented control nearly passed it
+
+`finetuning.uk/your-own-model.html`: the `content_rewrite` overwrote the `generic-text-block`
+components at positions 2 and 3 with near-copies of position 4. The page served the same section
+**three times** and two authored sections were destroyed. Named from its own row —
+`page_component_history.source_item_id` on the 19:43:54Z generation is this lane's `content_rewrite`
+`10b8b6d2-660c-4696-ae6a-ca20c8823dcf`, whose spec said *"Reword ONLY the … LABELS. Leave all other
+prose exactly as it is."*
+
+**The `<p>` control in the verification recipe read 17 → 20 and would have passed the page.**
+Duplication does not move a count; it moves distinctness. The check that found it, first try, ten
+pages, one hit (`6 components → 4 distinct`):
+
+```sql
+SELECT page_id, count(*) AS components,
+       count(DISTINCT left(regexp_replace(regexp_replace(rendered_html,'<[^>]*>',' ','g'),
+                                          '\s+',' ','g'), 80)) AS distinct_openings
+FROM page_components WHERE page_id = ANY(<the repaired pages>) GROUP BY 1;
+```
+
+**⇒ The verification recipe in the handoff is amended: the distinctness query is the load-bearing
+control and the `<p>` count is the secondary one.** The `<p>` control was carried forward because it
+held at 15/15 on the canary — but the canary was undamaged, so it had never been shown to
+discriminate.
+
+**Restored and verified live.** `SQL_2026-08-25_restore_your_own_model_blocks.sql` writes the
+pre-rewrite `content_data` back from `page_component_history` by subquery (nothing retyped; neither
+block contains a CTA url, so the CTA repair is untouched), guarded by a `DO`/`RAISE` that was **run
+against the damaged state first and correctly aborted**. `rendered_html` was deliberately not
+hand-written — `SQL_2026-08-25_rerender_after_restore_your_own_model.sql` regenerates it. Served
+bytes at 20:35Z: three distinct sections back, each destroyed opening exactly 1, `password-entropy`
+0, all four CTA anchors still correct. Full account and the contribution to the owning bug:
+`bugs_open/403` CONTRIB 2026-08-25, `LANDMINES.md`, `WRONG_CALLS.md`.
+
+## The eleventh page: blocked by a false claim that predates this lane
+
+`ai-agent-orchestration.com/model-directory.html` failed at `validate_content`
+(`unregistered_number "150"`) and went to `needs_human_review`; **its relink correctly stayed
+`triaged`**, so the page never entered the label-says-one-tool/href-says-another window — the
+`depends_on` design did exactly what it was built for.
+
+The refused sentence is the CTA component's own `<h2>` and **was already live before this lane
+touched the page** (`grep -c '150 agents'` on the served page = 1). So it blocks *every*
+`content_rewrite` on this page, not just ours.
+
+- **Why the gate fires** (read from the code, and my first theory from the config was wrong):
+  `numberSupported` (`platform/orchestration/datahelpers/claims.go:1256`) gates each fact behind its
+  `context_terms` **before** comparing the number, and `claimWindow` (`:1349`) is only ±70 chars.
+  The window *"More than 150 agents are listed here. Every one of them still needs a pro"* contains
+  none of `aao-agent-definitions`' terms, so that fact — `value 200`, `tolerance gte`, which would
+  have supported 150 — is skipped. The gate is behaving as designed.
+- **The claim is also false, by the page's own data:** the listing is client-side
+  (`/tools/assets/model-directory-listing.js` → `/data/model-directory-full.json`, HTTP 200,
+  `updated_at 2026-08-25T18:26:58Z`) and that file reports **`"count": 30`** with 30 entries; the
+  served HTML holds 30 `class="model-card"` articles. Thirty, not "more than 150".
+- **Retried** as `SQL_2026-08-25_retry_model_directory_pair.sql` — CTA labels *and* a heading that
+  asserts no count at all (the framework writes the sentence; the spec states the constraint and the
+  ground truth). Fresh `item_key`s because keys dedup in any status (`bugs_open/326`); relink again
+  `depends_on`-blocked, proven by a `DO`/`RAISE` in the same transaction. The count contradiction is
+  routed to the lane that owns the data, `docs024_key_docs_latest/model_directory_pipeline/`.
+
+## What this does NOT change
+
+The sequence in the ordering correction above still stands: retirement (step 3) is still what
+unblocks the 60 label-less fields, and the `nav_order` demotion is still what makes that write
+correct. Step 2 is now 11 of 12 done with the twelfth in flight.

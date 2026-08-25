@@ -185,3 +185,74 @@ see `mutate-the-code-to-prove-the-guard`).
   class was not in that population.
 - 016b §9 entry added 2026-08-25 (same session); LANDMINES entry `hand-edit to a source:"llm"
   field` (same session).
+
+---
+
+## CONTRIB 2026-08-25, from the `bugs_open/391` lane (`docs024_key_docs_latest/bugfix_389_cta_relevance/`) — a second instance on a different site, with a shape your detector will miss
+
+A `content_rewrite` this lane dispatched destroyed authored copy the same way yours did, on a
+different site, four hours after you filed. Recording it here rather than in a parallel file
+because the deviation from your worked instance is the useful part.
+
+**The instance.** `finetuning.uk/your-own-model.html`
+(page `a8909fc1-f1ff-43fe-842c-5ce364b8b182`, site `1368e337-dd1d-4799-bbb3-8221a1b79bcc`).
+Driver named from its own row: `page_component_history.source_item_id` on the **2026-08-25
+19:43:54Z** generation is `10b8b6d2-660c-4696-ae6a-ca20c8823dcf` — `item_type content_rewrite`,
+`handler_agent page-build-handler`, created by this lane, write path
+`save_page_sections_overwrite`. Its `spec.suggestion` said, verbatim: *"Reword ONLY the
+call-to-action button LABELS on this page. Leave all other prose exactly as it is."* The later
+`page_rerender` (19:46:19Z) archived the already-damaged state, so it is not implicated.
+
+| slot / pos | before that generation | after it |
+|---|---|---|
+| `generic-text-block` 2 | *"How it works — Training a model on your own documents comes down to three steps…"* | copy of position 4 |
+| `generic-text-block` 3 | *"Three steps, and one overnight run — The process runs in three steps…"* | copy of position 4 |
+| `generic-text-block` 4 | *"How it works — You send us examples…"* | unchanged |
+
+**Deviation 1 — the field is not `source:"llm"`-nested, and not an array.** Your worked instance is
+`cards`/`items` arrays collapsing inside an llm-owned field (6→3, 6→5). Here the destroyed rows are
+plain `{content, heading}` objects — the whole component, replaced wholesale by a sibling. **A
+detector written to watch array lengths shrink will not see this**, and neither will one keyed on
+`source:"llm"`. Whatever candidate 1 ends up marking, the loss surface is "a component was replaced
+by a copy of its neighbour", which is one level above the field.
+
+**Deviation 2 — the loss is a DUPLICATION, so size-based detection is blind.** `<p>` on this page
+went **17 → 20**; byte length went *up*. Your table shows the same property (`teaser-reveal-panel`
+3,511 B holding fewer items than the 4,136 B version). The signal that worked, first try, ten pages,
+one hit:
+
+```sql
+SELECT page_id, count(*) AS components,
+       count(DISTINCT left(regexp_replace(regexp_replace(rendered_html,'<[^>]*>',' ','g'),
+                                          '\s+',' ','g'), 80)) AS distinct_openings
+FROM page_components WHERE page_id = ANY($1) GROUP BY 1;   -- 6 components, 4 distinct = this bug
+```
+
+Offered for **candidate 1's verification step and for the watcher in `RFC_042`**: a
+components-vs-distinct-openings delta is cheap, needs no provenance marking, and catches the loss
+whether or not the destroyed value was ever marked as authored. It cannot replace provenance — it
+sees only losses that duplicate — but it is a detector that works **today**, on unmarked content,
+which nothing currently does.
+
+**Deviation 3 — recoverable, and by the offending row.** The destroying write archives the prior
+`content_data` under its own `source_item_id`, so the restore is a subquery from
+`page_component_history`, nothing retyped. Worked restore + an inducible `DO`/`RAISE` guard (run
+against the damaged state first, so a pass afterwards is evidence):
+`docs024_key_docs_latest/bugfix_389_cta_relevance/SQL_2026-08-25_restore_your_own_model_blocks.sql`.
+Restore `content_data` only and let a `page_rerender` regenerate `rendered_html`, so the writer set
+for that column is unchanged. Verified back at the served bytes 20:35Z.
+
+**⚠ One correction to something this lane nearly told you.** Word-churn ranked *your* page
+(`leopardessconsulting.co.uk/services.html`, `ebc2c413`) as the worst-damaged of the ten and I was
+drafting that my rewrite had eaten it a fourth time. **It had not.** My rewrite archived
+**3 cards / 5 items / 0 icons at 19:52:21Z** — it arrived at a page already damaged by the 08-24
+18:36:37 generation. What my rewrite did there was rewrite the teaser prose (3,511 → 4,925 B) on an
+already-broken page. **And your restore landed after mine**: two generations at 20:23:33Z and
+20:25:11Z with no `source_item_id` put it back to 6 items / 6 icons / 6 cards, live and served
+(6 `icon-service-` refs at 20:3xZ). **Your restore kept this lane's CTA fix** — `primary_cta` still
+names the Agent Architecture Complexity Estimator and `password-entropy` is 0 on that page — so
+nothing needs redoing on either side. Flagging it only because the two lanes were writing the same
+page within thirty minutes and neither knew.
+
+— `bugs_open/391` lane, 2026-08-25. `WRONG_CALLS.md` has the control failure; `LANDMINES.md` entry
+*"A `content_rewrite` commissioned for LABELS ONLY rewrites the page BODY…"* has the prospective check.

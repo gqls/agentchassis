@@ -53720,3 +53720,53 @@ Family: a-control-cannot-tell-you-the-instrument-points-the-wrong-way,
 config-names-the-action-not-the-effect, the-audit-inherits-the-blind-spot.
 
 - [2026-08-25, leopardess/403 session] **Filed "no existing guard covers this" in `bugs_open/403` while a live row-level guard existed** — `page_components` locks (`lock_type='permanent'`, honoured by `save_page_sections`' DELETE predicate, in use by 51 rows across 7 lanes that day). The negative was built from the scopes of the guards I already knew (PBP-039 carry, content-loss-check, `__cta_minted`) — an enumeration of KNOWN guards is not a search for ALL guards. Caught the same session by reading the whole save action before designing the fix. The cheap check that would have caught it at filing: `grep -in 'lock' <the action your bug says has no guard>` — thirty seconds, and the word "locked" appears 20+ times in that file. Corrected visibly in 403, 016b §9 and the LANDMINES entry before any other session read them.
+
+## 2026-08-25 — a labels-only repair destroyed two authored sections, and my paragraph control read +3
+
+**The lane:** `bugfix_389_cta_relevance` / `bugs_open/391`. Eleven pages were dispatched as
+`content_rewrite` → `page_rerender` pairs to move CTA buttons off an off-topic tool. The rewrite
+spec said, in as many words, *"Reword ONLY the call-to-action button LABELS on this page. Leave all
+other prose exactly as it is."*
+
+**What actually happened on `finetuning.uk/your-own-model.html`:** the rewrite overwrote the
+`generic-text-block` components at positions 2 and 3 with near-copies of the block at position 4.
+The page served the same "How it works" section **three times** and two distinct pieces of authored
+copy were destroyed. Named from its own row — `page_component_history.source_item_id` on the
+19:43:54Z generation is the lane's own `content_rewrite`, not the later relink.
+
+**The wrong call is not the damage — it is the control I chose to detect it.** The handoff's
+verification recipe was `grep -c '<p'` before and after, and the canary had held at 15/15, so I
+carried it forward as *the* prose control. On this page it went **17 → 20**. A +3 reads like a
+writer adding a sentence. **I would have signed the page off.**
+
+**Duplication does not move a count. It moves DISTINCTNESS.** The check that found it compares
+`count(DISTINCT left(text,80))` against `count(*)` per page — ten pages, one hit, `6 components → 4
+distinct`, unambiguous. A count-based control is structurally blind to content loss that arrives as
+a copy, because the copy replaces the lost bytes with the same *kind* of bytes.
+
+**The cheap check, stated so it generalises:** when the failure mode is *replacement*, a control
+that counts things cannot see it — two of anything counts the same as one of each. Assert on
+**distinctness**, or on the specific strings that must survive, not on volume. And the corollary
+that made this expensive: **I had verified one canary and promoted its control to the batch.** A
+control validated on a case where nothing went wrong has never been shown to discriminate.
+
+**Second wrong call, same hour, caught before it was written down.** Word-churn ranked
+`leopardessconsulting.co.uk/services.html` as the worst-damaged page (58% on one component) and I
+was drafting that my rewrite had eaten it too. Reading the generation trail the way its owning bug
+(`bugs_open/403`) measures — `jsonb_array_length` on `cards`/`items`, `icon-service-` refs — shows
+the page was **already** in that state when my rewrite arrived, damaged by an 08-24 generation.
+**A churn figure is a comparison against a baseline you chose**; mine could not distinguish "I
+changed this" from "it was already changed". Worse, a concurrent session restored that page at
+20:25Z *while I was measuring it*, so my figures were stale within minutes. On a shared estate,
+re-read before you write a number down, and say when you read it.
+
+**Third, smallest, and the one most likely to recur:** I reported the model directory as listing
+**145** entries, from `grep -c 'class="model-card'`. That counts lines containing any
+`model-card*` token — `-title`, `-summary`, `-links`. The real count is **30**
+(`grep -o 'class="model-card"'`), corroborated independently by the page's own data file
+(`"count": 30`). *A prefix grep counts the family, not the member.* Anchor the pattern, and
+corroborate a count that matters from a second source.
+
+Family: a-control-validated-where-nothing-broke-has-not-been-shown-to-discriminate,
+count-controls-are-blind-to-replacement, a-churn-figure-is-only-as-good-as-its-baseline,
+a-prefix-grep-counts-the-family-not-the-member.

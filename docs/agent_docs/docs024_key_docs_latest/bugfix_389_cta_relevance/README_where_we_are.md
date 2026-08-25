@@ -150,3 +150,46 @@ pages, and I haven't touched it.
 
 **The framework change you approved** is the biggest piece and it needs a review round before it
 ships. I'll bring you the design rather than surprise you with it.
+
+---
+
+**2026-08-25, evening.** The eleven pages went through. Ten of them are now genuinely fixed and I
+have checked them on the live sites rather than trusting the queue: every button's wording and its
+link now name the same tool, every destination actually loads, and the tools chosen make sense for
+the page they sit on — the page about savings estimates points at the savings estimator, the pricing
+page at the cost calculator. The password tool is gone from those buttons entirely.
+
+**But my own repair damaged a page, and I want to be plain about it.** On
+finetuning.uk/your-own-model.html the rewrite was supposed to change two button labels and nothing
+else. It also rewrote the middle of the page: two separate sections were replaced with copies of a
+third, so the page was publicly saying the same thing three times over and two pieces of writing had
+simply gone. That was live for about forty minutes. I have put both sections back — the exact
+original text was recoverable, because the same operation that destroyed it saved a copy first — and
+the page is correct again on the live site as of 20:35.
+
+**The uncomfortable part is that my check nearly waved it through.** The test I had been using was
+to count paragraphs before and after, on the theory that if the copy was untouched the count would
+not move. It moved from 17 to 20, which looks like a writer adding a sentence. It took a different
+question — "are all the sections on this page still *different from each other*?" — to see it, and
+that question found it immediately and found nothing on the other nine pages. I had trusted the
+paragraph count because it held steady on the first page I tried it on, but nothing had gone wrong
+on that page, so it had never actually been tested. A check that has only ever seen the good case is
+not a check yet. I have written that up where the next person will hit it.
+
+**One page of the eleven did not go through, and the reason is not our bug.** The model directory
+page on ai-agent-orchestration.com was refused by the framework's own honesty check, which spotted an
+unsupported number in the page's copy: "More than 150 agents are listed here." That sentence was
+already on the live site before we touched it, so it has been quietly blocking any rewrite of that
+page. It is also wrong — the directory's own data file says it lists **30**. The check was right to
+refuse it. I have asked the framework to rewrite that heading without any number in it at all, along
+with the button fix, and I have told the team that owns the directory data about the discrepancy
+rather than picking a new number myself.
+
+**Worth knowing:** while I was working, another session was repairing the leopardess services page
+for the same underlying reason — content being destroyed by rewrites. I nearly reported that page as
+damaged by me; it was not, it was already broken when I arrived, and their restore has since fixed it
+and kept our button fix intact. Two of us were editing the same page within half an hour without
+knowing. Nothing was lost this time.
+
+**Where that leaves us:** eleven of twelve pages done, the twelfth in flight. The next real step is
+still retiring the three password-tool pages, which is what unblocks the remaining sixty buttons.

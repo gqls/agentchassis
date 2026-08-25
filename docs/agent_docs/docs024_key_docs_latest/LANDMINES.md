@@ -18135,3 +18135,38 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the check, before locking or rebuilding:** `SELECT build_status FROM page_components WHERE id='<row>';` — if `'deployed'` and the row is interactive and the page is positionally named, the build arm will duplicate it. Armed census (re-run, dated — it was **1 row fleet-wide as of 2026-08-25**, `tool-loan-vs-savings`/`tool-2`): locked + `build_status='deployed'` + the `interactiveHTMLSQL` predicate. After any suspect rebuild: `SELECT count(*) FROM page_components WHERE page_id='<id>' AND component_id IS NULL` and the byte-twins query in `bugs_open/385` §4 — a non-zero `byte_twins_on_page` is this bug.
 - **source:** `bugs_open/385` §5c (cause established 2026-08-25; damage 2026-08-23, one page of a ten-page wave). `bugs_closed/189`'s "STILL OPEN" section predicted the class on 08-03 — resolve 189 by slug, the number is doubly assigned.
 - **added:** 2026-08-25, loancalculator_couk lane
+
+### A `content_rewrite` commissioned for LABELS ONLY rewrites the page BODY — and when it destroys a section it does so by DUPLICATING a neighbour, which a `<p>` count barely moves
+
+- **footprint:** `site_work_items.item_type='content_rewrite'` with `handler_agent='page-build-handler'`, `spec.suggestion`, `page_components.content_data`, `page_component_history.source_item_id`, and any repair recipe whose verification step is `grep -c '<p'` (or any other count) before/after
+- **fires when:** you dispatch a `content_rewrite` to change something small and well-bounded — CTA button labels, a heading, one field — on a page you did not author, and you verify the result by counting something. The spec saying *"Reword ONLY the … LABELS. Leave all other prose exactly as it is."* does **not** bound the write: the handler regenerates sections, and prompt text is not a control. `[MEASURED 2026-08-25]` on `finetuning.uk/your-own-model.html` a labels-only commission overwrote the `generic-text-block` rows at positions 2 and 3 with near-copies of position 4 — two authored sections destroyed, the page serving one section three times.
+- **the trap: the damage arrives as a COPY, so every volume control reads normal.** `<p>` went **17 → 20** on that page. A `+3` reads as a writer adding a sentence, and the canary page (which was undamaged) had held at 15/15, so the count control looked validated. It was not — **a control checked only where nothing went wrong has never been shown to discriminate.** Byte length, word count and paragraph count are all blind here, because the destroyed bytes are replaced by the same *kind* of bytes.
+- **the check — assert on DISTINCTNESS, per page, before and after:**
+  ```sql
+  -- >0 duplicate openings after, where there were none before, IS this bug
+  SELECT page_id, count(*) AS components,
+         count(DISTINCT left(regexp_replace(regexp_replace(rendered_html,'<[^>]*>',' ','g'),
+                                            '\s+',' ','g'), 80)) AS distinct_openings
+  FROM page_components WHERE page_id = '<page>' GROUP BY 1;
+  ```
+  Take the "before" from `page_component_history` (`source='artefact_archive_trigger'` carries
+  `rendered_html` + `slot_name` + `position`; `source='save_page_sections_overwrite'` carries
+  `content_data` but **no** `slot_name` and **`component_id IS NULL`** on both, so join on
+  `(page_id, slot_name, position)` and never on `component_id`).
+- **⚠ and it is recoverable, but only from the row that destroyed it.** The same write archives the
+  prior `content_data`, keyed by `source_item_id` = the offending item. Restore it **by subquery,
+  never retyped**, and restore `content_data` only — a `page_rerender` regenerates `rendered_html`
+  from it, which keeps that column's writer set unchanged. Guard the restore with `DO`/`RAISE`
+  (a bare `SELECT` cannot abort a `COMMIT`) and **run the guard against the damaged state first** —
+  if it does not fail there, it is not evidence when it passes. Also refuse if any section has
+  `content_data IS NULL`: that escalates the next rerender to the content writer, which regenerates
+  the copy and silently undoes the restore.
+- **relations:** the same family as `bugs_open/403` (authored values inside `source:"llm"` fields
+  destroyed by every content rewrite) — but note the shape here is **not** an array collapse inside
+  an `llm`-owned field: it is a plain `{content, heading}` block replaced wholesale by a sibling, so
+  a check written only for shrinking `cards`/`items` arrays will not see it. `bugs_open/178`
+  (crosslink item regenerates whole section and loses content) is the same over-reach one door along.
+- **source:** `bugs_open/391` / `docs024_key_docs_latest/bugfix_389_cta_relevance/` NOTES MISSTEP 10,
+  2026-08-25; restore + guard in `SQL_2026-08-25_restore_your_own_model_blocks.sql`. `WRONG_CALLS.md`
+  has the incident and why the count control was trusted.
+- **added:** 2026-08-25, bugs_open/391 session

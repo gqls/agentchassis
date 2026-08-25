@@ -239,3 +239,136 @@ avoided exactly that.
 
 Fresh handoff written: `HANDOFF_2026-08-25b_continue_here.md`; the 08-25 one marked SUPERSEDED at its
 head, naming the two claims in it that were reversed.
+
+### 2026-08-25 ~20:2x–20:35Z — MISSTEP 10: **my own repair destroyed authored copy on a live page**, and the control that caught it barely moved
+
+The 22 in-flight items landed: **11 `content_rewrite` complete, 10 `page_rerender` complete**, one
+pair failed (`/model-directory.html`, §MISSTEP 11 below). I then ran the §2 verification. The CTA
+half is good on all ten repaired pages — label and href name the same tool, every target 200 with a
+per-domain absent control at 404, and the only residual `password-entropy` strings are the footer
+(2 per page, `ai-agent-orchestration.com`) and the legitimate `/tools.html` listing card. **The
+content half was not.**
+
+**`finetuning.uk/your-own-model.html`: two authored sections destroyed and replaced with copies of
+a third.** Before the rewrite the page carried three distinct `generic-text-block` components:
+
+| pos | opening, before | opening, after |
+|---|---|---|
+| 2 | *"How it works — Training a model on your own documents comes down to three steps…"* | *"How it works — You send us examples…"* |
+| 3 | *"Three steps, and one overnight run — The process runs in three steps…"* | *"How it works — You send us examples…"* |
+| 4 | *"How it works — You send us examples…"* | unchanged |
+
+The page **served the same section three times** and two pieces of authored copy were gone.
+Confirmed at the served bytes, not inferred: 3 × the surviving opening, **0 ×** each destroyed one.
+
+**Named from its own row, not guessed.** `page_component_history.source_item_id` on the 19:43:54Z
+generation is `10b8b6d2-660c-4696-ae6a-ca20c8823dcf` — *this lane's own `content_rewrite`*,
+commissioned to reword CTA **labels only**. The `page_rerender` at 19:46:19Z archived the
+already-damaged state, so it is the rewrite, not the relink.
+
+> **⚠ The paragraph control nearly missed it.** `<p>` went **17 → 20** on this page: a +3 that reads
+> like a writer adding a sentence. The damage was **duplication**, and duplication barely moves a
+> count of anything — it moves *distinctness*. The check that actually found it compares
+> **`count(DISTINCT left(text,80))` against `count(*)`** per page. Ten pages, one hit:
+> `6 components → 4 distinct`. **A count-based control cannot see content loss that arrives as a
+> copy.** Both controls now belong in the recipe, and the distinctness one is the load-bearing half.
+
+**Repaired, and the repair is verified at the served bytes.**
+`SQL_2026-08-25_restore_your_own_model_blocks.sql` writes the pre-rewrite `content_data` back from
+`page_component_history` **verbatim by subquery — nothing retyped**, so there is no transcription
+surface. Neither archived block contains a CTA url (keys are `content,heading`), so the restore
+reverts prose only and leaves the CTA repair untouched. `rendered_html` is deliberately **not**
+written by hand: the rerender regenerates it from `content_data`, which keeps that column's writer
+set unchanged. Then `SQL_2026-08-25_rerender_after_restore_your_own_model.sql`.
+
+**I induced the guard before trusting it.** The transaction's `DO`/`RAISE` block (a bare `SELECT`
+cannot abort a `COMMIT`) was run **first against the damaged state** and correctly aborted —
+`3 generic-text-blocks, 1 distinct openings`. Only then was it evidence when it passed. It also
+refuses if any section has `content_data IS NULL`, because that escalates the next rerender to the
+content writer and would silently undo the restore.
+
+**Served bytes after (20:35Z):** three distinct sections back — *"How it works / The three steps /
+Who is actually running this"*, *"Three steps, and one overnight run / …"*, *"How it works / We
+train overnight / …"* — each destroyed opening exactly **1**, `password-entropy` **0**, control
+string **0**, and all four CTA anchors still naming and linking the Decision Guide.
+
+### 2026-08-25 ~20:30Z — CORRECTION to my own reading, ten minutes old: the leopardess churn was **not** mine
+
+I measured word-churn per component across all ten pages and the largest by far was
+`leopardessconsulting.co.uk/services.html` — `teaser-reveal-panel` **58%**, `info-card-grid` **23%**.
+I was on the way to writing that my rewrite had eaten that page too. **It had not.** Reading the
+generation trail the way `bugs_open/403` does (`jsonb_array_length` on `cards`/`items` plus
+`icon-service-` refs) shows my rewrite archived **3 cards / 5 items / 0 icons at 19:52:21Z** — the
+page was **already** in the damaged state when I arrived, taken by the 08-24 18:36:37 generation.
+
+And while I was measuring, **another session restored it**: two generations at **20:23:33Z and
+20:25:11Z with no `source_item_id`** put it back to **6 items / 6 icons / 6 cards**. Current state
+and served bytes confirm it (6 `icon-service-` refs live). **Their restore kept my CTA fix** —
+`primary_cta` still names the Agent Architecture Complexity Estimator, `password-entropy` 0.
+
+Two lessons, and the second is the one I nearly got wrong:
+- **A churn figure is a comparison against a baseline you chose.** Mine compared *pre-my-rewrite*
+  with *the state at the moment I measured*. It could not distinguish "I changed this" from "it was
+  already changed" — for that you need the shape the owning bug measures (array lengths, asset
+  refs), not a word count.
+- **On a shared estate the artefact moves under your measurement.** My leopardess numbers were
+  stale within minutes because a concurrent lane was repairing the same page. Re-read before
+  writing a figure down, and say when you read it.
+
+### 2026-08-25 ~20:4xZ — MISSTEP 11 / FINDING: the one page that failed was refused for a claim I did not write — and the claim is false
+
+`ai-agent-orchestration.com/model-directory.html` was the only one of the eleven to fail. Its
+`content_rewrite` (`0745e9a4`) stopped at `validate_content` → `needs_human_review`, and its
+`page_rerender` correctly stayed `triaged` — **the `depends_on` chain did its job**, so the page
+never entered the text-says-one-tool-href-says-another window. That is the design working.
+
+**Getting the actual reason took three hops, and the first two are the trap.** The work item's
+`error` says only *"content validation failed: 0 blockers, 1 errors"*. The orchestration row is
+`status = COMPLETED` with `error` **NULL** — the known shape; the truth is in
+`collected_data->'__step_errors'`, and it repeats the same uninformative sentence. The structured
+detail is in a third place, written by the action itself
+(`validate_page_content.go:517`, `writeValidationFailureLog`):
+
+```sql
+SELECT jsonb_pretty(context) FROM agent_error_log
+WHERE work_item_id = '<item>' AND error_code = 'CONTENT_VALIDATION_BLOCKER_DETAIL';
+```
+
+That names it: `unregistered_number "150"`, in *"More than 150 agents are listed here. Every one of
+them still needs a pro…"*.
+
+**⚠ The sentence was ALREADY LIVE. My rewrite did not write it** — `grep -c '150 agents'` on the
+served page is 1, in an `<h2>`, before any retry. So this claim blocks **every** `content_rewrite`
+on this page, not just mine, and has been doing so silently.
+
+**Why the gate fires, read from the code rather than guessed** — and my first theory was wrong.
+I saw that fact `aao-agent-definitions` has `value: 200`, `tolerance: gte` and a `writer_line` of
+*"more than 150 active agent definitions in the production registry"*, and started writing that the
+register tells the writer to say a number its own checker then refuses. **That is not the
+mechanism.** `numberSupported` (`claims.go:1256`) gates each fact behind its `context_terms`
+**before** it ever compares the number, and `claimWindow` (`claims.go:1349`) is only ±70 chars.
+The window here — *"More than 150 agents are listed here. Every one of them still needs a pro"* —
+contains **none** of that fact's terms (`agent definition`, `agents in the registry`, `ai agents`,
+`agents in production`, …). So the fact is skipped, nothing else supports 150, and it is reported.
+Had the sentence used the register's own phrasing, `150 ≤ 200` under `gte` would have passed.
+**Reading the function beat reasoning from the config, and the config reading was plausible.**
+
+**And the claim is false, by the page's own data.** The listing is rendered client-side by
+`/tools/assets/model-directory-listing.js`, which fetches `/data/model-directory-full.json`
+(HTTP 200, `updated_at 2026-08-25T18:26:58Z`): **`"count": 30`, 30 entries**, and the served HTML
+holds **30** `class="model-card"` articles. Thirty are listed, not "more than 150".
+
+> **⚠ CORRECTION to my own figure, 20 minutes old.** I first wrote 145, from
+> `grep -c 'class="model-card'` — which counts *lines containing any* `model-card*` token
+> (`model-card-title`, `-summary`, `-links`, …), not cards. The honest count is
+> `grep -o 'class="model-card"'` → **30**, and the data file agrees independently. *A prefix grep
+> counts the family, not the member; when a count matters, anchor it and corroborate it from a
+> second source.*
+
+**Action taken:** `SQL_2026-08-25_retry_model_directory_pair.sql` re-dispatches the pair with a
+spec asking for both halves — the CTA labels off the retiring tool, **and** a heading that asserts
+no count at all (explicitly *not* "change 150 to 30": the framework writes the sentence, this
+states the constraint and the ground truth). Fresh `item_key`s, because keys dedup in any status
+(`bugs_open/326`); the relink again carries `depends_on`, and the transaction has a `DO`/`RAISE`
+that aborts if it does not. The old `needs_human_review` row is left standing as the record.
+The count contradiction is routed to `model_directory_pipeline`, which owns the data.

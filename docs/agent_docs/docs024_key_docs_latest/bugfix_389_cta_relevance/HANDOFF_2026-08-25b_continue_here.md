@@ -1,5 +1,10 @@
 # HANDOFF — 2026-08-25b. **START HERE.** `bugs_open/391` — CTA destinations: work IN FLIGHT, 22 items dispatched, retirement still pending
 
+> **⚠ SUPERSEDED 2026-08-25 by `HANDOFF_2026-08-25c_continue_here.md`.** Kept for the reasoning trail.
+> Two things in this file are now wrong: §2 presents `grep -c '<p'` as *the* prose control (it read
+> 17 → 20 on a page whose copy had been destroyed — use the distinctness query in 25c §3 instead),
+> and §2/§4 describe 22 items as in flight (they resolved: 11 of 12 pages verified, the 12th retried).
+
 **Supersedes `HANDOFF_2026-08-25_continue_here.md`** (keep it for the reasoning trail; this file is
 the current state). Read this, then `bugs_open/391` from the bottom — its last three sections are
 corrections that reverse earlier claims in the same file.
