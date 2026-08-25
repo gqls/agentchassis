@@ -5683,3 +5683,26 @@ still set, revert it now.
 `charge.refunded` webhook; order gains `refunded`; a consumer cancels delivery). Unadvertised
 stays absolute: nothing enters the register. Supersedes 08-11's "code must not model them"
 narrowly. Build = payments/delivery lane, own council round, before Stripe keys land.
+
+**2026-08-25 (late) addendum — wave 3: faq DONE (`3dc1161`, all markers verified: audience 1,
+hosting-co 2, 30days 3, zero retired/banned tokens); floor self-revert PROVEN (ABSENT).
+how-it-works rolled a THIRD distinct failure: validate blocked "No preview before you pay"
+(bare-No before a banned token; the sanctioned "Nothing is shown until you have paid" is
+already in writer_block; generation variance, not a steering gap). Wave 4 filed with floor
+0.4 re-set + the same self-reverting watcher. If it fails a 4th distinct way, stop and take
+the page to the owner rather than spending a 5th build.**
+
+## 2026-08-25 (night) — COPY BRIEF ROUND 1 COMPLETE: all five pages repositioned, verified, label in place
+
+Wave 4: how-it-works complete (`8b54caf`); floor self-revert proven again (ABSENT). Full-site
+sweep at the REPO copy (all 7 pages): retired/banned phrases **0 everywhere** (two-or-three
+days, about-a-month, next-day, for-your-business, money-back, preview-before-you-pay);
+audience marker on index/faq/guide; not-a-hosting-company on faq/how-it-works/what-you-get/
+guide; 30 days across the five; label x2 on index, **confirmed at served preview**. Edge
+still parked (302), `section_shrink_floor` ABSENT, tokens 0. how-it-works took 4 builds, each
+failure distinct and correctly caught (unregistered 30 -> fact value; intended-tightening
+shrink -> floor escape hatch, self-reverted; two writer-rolled banned phrasings). The site is
+READY TO UNPARK: the one remaining action is the owner's Cloudflare page-rule removal, per
+`RUNBOOK_go_live_webdesign_uk.md` (box vhost step already VERIFIED 0). Open judgement call
+with the owner: a 5th home-page section for hosting-company/categories/how-to-edit (a plan
+change; currently on what-you-get + guide).

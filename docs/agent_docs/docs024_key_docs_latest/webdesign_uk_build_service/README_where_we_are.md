@@ -2170,3 +2170,16 @@ useful side-findings: this machine can reach the web server directly after all, 
 of the go-live can be done for you than we thought, and the chat bot was caught telling
 a visitor we would keep hosting their site if they rent a domain, which nothing we have
 promised actually says. The new wording should correct it; I am checking.
+
+**2026-08-25, night — the copy changes are done and the site is ready.** Every page now
+carries your new position: it opens by saying who this is for, in your words, before any
+buy button; the price, the 30-day live link, the ZIP that is theirs to host and edit, and
+what we do not do (refunds, changes, online shops, hosting) are all stated plainly; and
+the "Not active yet" notice is back above both buttons. The pipeline earned its keep
+today: it refused a figure we had not properly registered, refused wording that broke
+your own bans twice, and refused a page that shrank too much until we told it the terser
+voice was deliberate. Every refusal was right, and each one was fixed at the cause. Your
+refund decision is also recorded and designed: refunds stay off the site entirely, and
+when Stripe arrives the platform will notice a refund you make and quietly unwind the
+delivery on its own. What remains: you remove the parking redirect when you are ready,
+and I check everything from the outside within minutes.
