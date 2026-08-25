@@ -1,3 +1,5 @@
+> **⚠ SUPERSEDED the same day by `HANDOFF_2026-08-25b_continue_here.md`.** Written before the owner ruled on the four open decisions; candidate 4 is now BUILT and a verifier is WRITTEN, so §4 of this file is out of date. Kept for its §5 traps and §2 verification method, both still current. Read the `b` file first.
+
 # HANDOFF — continue here: `bugs_open/375`, after the fix shipped and rolled
 
 **Written 2026-08-25** by the lane's first working session (took it on 2026-08-24 from
