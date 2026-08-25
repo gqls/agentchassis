@@ -1,7 +1,11 @@
 # 328 — a page that failed to build is still linked from the pages that did, so one blocked page becomes a visibly broken site
 
 **Filed 2026-08-19** by the `loanzy_uk_example_site` lane, from a greenfield one-shot build.
-**Status: OPEN, UNOWNED. Live on `loanzy.uk` today.**
+~~**Status: OPEN, UNOWNED. Live on `loanzy.uk` today.**~~
+**Status: ✅ CLOSED 2026-08-25 — FIXED AND LIVE, and the served population is clean fleet-wide
+(0 dead anchors across 19 public referring pages, 11:30:17Z). Closing evidence is the last section
+of this file; jump there.** Fix live since 16:07Z 2026-08-24 (chassis `v1.0.1334`, migration `575`,
+register `LNK-038`, council APPROVED r4 `21c19c1f`).
 
 > **On the 090 loop:** not run. This is not a hypothesis about a mechanism — it is two URLs,
 > one serving and one 404, and the anchor between them, all read from the live site.
@@ -386,3 +390,94 @@ to ship unrelated drift onto customer sites.
 
 **Close it when the SERVED population is clean** — the estate's bar is fixed AND live, and 23 pages
 are still serving. Re-run the census first; it grew 36 → 48 in a single day.
+
+---
+
+## ✅ CLOSED 2026-08-25 — the served population is clean, fleet-wide
+
+**Bar met: fixed AND live.** The fix has been live since 16:07Z on 2026-08-24 and survived an
+intervening fleet roll (chassis `v1.0.1337`, stamp `4c996e1b5`; the three 328 commits are
+ancestors of it, and all five seam steps still read `suppress_unshipped_links=true` under a
+recursive walk). As of **11:30:17Z on 2026-08-25 the whole affected population serves zero dead
+anchors.**
+
+### The closing measurement
+
+19 public referring pages, cache-busted, per-domain invented-URL control in the same run:
+
+| assertion | result |
+|---|---|
+| dead anchors served, fleet-wide | **0** (was **11** at 11:01:45Z) |
+| per-domain 404 control | **5 of 5** public domains 404 an invented path |
+| pages returning 200 | 19 of 19 |
+| positive control on the 8 changed pages | internal-href total fell by **exactly** the dead-anchor count on each, and by nothing else |
+| positive control on the 11 unchanged pages | **byte-identical** totals (49, 23, 41, 38, 39, 38, 34, 17, 15, 28, 28) |
+| targets still unbuilt | **7 of 7** — zero rendered components, `deployed_at` NULL; 5 of 5 tested still **404** |
+| audit rows | **8**, one per page, each timestamped BEFORE its deploy, naming the exact hrefs |
+
+The two `pool-energy-utilities.internal` referring pages are excluded and were never fetched: the
+host does not resolve, so those 5 stored anchors are not served to anyone.
+
+**Both arms fired across the batch** — 10 `suppress_unshipped` (prose anchors unlinked, words
+kept) and **1 `drop_control_unshipped`** (loanzy `/get-help.html`, where `/your-rights.html` was a
+classed card control and was dropped whole).
+
+**The alternatives are ruled out, not argued away.** The targets are still unbuilt and still 404,
+so the links were removed rather than validated. The unchanged pages are byte-identical, so
+nothing was rewritten. And 15–49 internal anchors survive per page, so it did not stop emitting
+internal links — `bugs_open/313`'s failure mode.
+
+### What was done today, and the correction to this file's own last section
+
+§"This bug stays OPEN" (2026-08-24) said the remaining pages would clear on the fleet's own
+re-render cadence and **"Nothing is dispatched for them deliberately"**. ~~That~~ **RETIRED
+2026-08-25.** Measured 24 hours on: the fleet ran **1,671** `page_rerender` items in 36 h but works
+per PAGE, not per site — `remortgagecalculator.uk` had **zero** queued in that window, and **none
+of the 8 remaining pages was queued for anything**. The cadence carried 11 of 19 pages in 19 hours
+and then stopped. The reassurance in that section — *"24 of 25 touched within 7 days"* — is a
+statement about a **population** and cannot retire a **tail** risk; both it and "these 8 will never
+be touched" are true at once, so it could never have come out otherwise. That is the
+`bug_historian` MEDIUM from council round 4 arriving as fact. Logged in `WRONG_CALLS.md`.
+
+On the owner's ruling the 8 were dispatched at **11:03:10Z** as **7 inserts + 1 re-arm**, and the
+fleet was clean **27 minutes later**. The anti-dispatch argument inverted at that size: it was 28
+pages of which 26 were unnecessary; this was 8 of 8 necessary, at the least accumulated drift they
+would ever carry (19 h – 2 days since their last render).
+
+⚠ **Two arithmetic corrections of mine, made the same day**, so anyone quoting the intermediate
+figures finds them: the dead-anchor total is **11, not 12**, and the page denominator is **19, not
+21** (21 counted the two unfetchable `.internal` pages). Both came from reading a table by eye
+instead of summing it. The discrimination is unaffected and cleaner: **19 of 19, no exceptions.**
+
+### A landmine found while dispatching, now written up
+
+`mortgagecalculator.co.uk /guides/mortgage-scorecard/` could not be dispatched at all: it already
+held its `item_key` at **`status='deferred'`, created 2026-08-03, `attempt_count=0`, never
+triaged — 22 days**, with a *named* handler. `deferred` is absent from `idx_swi_dedup`'s
+terminal-status list so it occupied the slot (a fresh INSERT fails 23505), and
+`claim_work_item_action.go:102` claims only `('triaged','approved')` so nothing was ever going to
+run it. Re-armed in place; it completed **2 minutes** later.
+
+**[MEASURED 2026-08-25] this is a class, not a one-off: 297 `deferred` rows fleet-wide, every one
+with `attempt_count = 0`, and 205 of them naming a real handler.** `page_rerender` alone holds 24,
+averaging 19 days, from two bulk batches (`discovery` 12 on 08-09, `rerender-pages` 12 on 08-03).
+`bugs_open/296` covers the `contrast_failure` slice; the general case is unowned. The
+`LANDMINES.md` entry that claimed *"`deferred` does NOT mean undispatchable — only the PAIR with an
+empty `handler_agent` does"* is **corrected as of 2026-08-25**: this instance had a named handler
+and was a black hole regardless.
+
+### Still open, and deliberately not carried into the closure
+
+- **N+1**: one policy query per page per build. A per-run cache is the named follow-up.
+- **Optional-key blind spot**: `assemble_page` / `rerender_single_page` have no `ActionInputSpec`,
+  so `575` arms a key nothing audits fleet-wide.
+- **`RFC_049`** — "is this internal URL a legitimate link target?" is now hand-rolled three times
+  (`CLC-013`, `LNK-030`, `LNK-038`). Read it before writing a fourth. Nothing is blocked on it.
+- `remortgagecalculator.uk /about.html` carries two `dead_internal_link_live` items at `detected`
+  (filed by `discovery` 08-24 11:49 — the platform's own check found this damage independently).
+  The page is now clean; whether those rows retract themselves is the `bugs_open/296` question.
+
+**Lane docs:** `docs/agent_docs/docs024_key_docs_latest/bugfix_328_links_to_unbuilt_pages/` —
+NOTES (the cold-start read), RUNBOOK (both closure queries, added 08-25 because they existed
+nowhere), README_where_we_are, PLAN, SUMMARY_2026-08-23, and `submission_328_r1..r4.json`.
+**Register:** `LNK-038`. **Migration:** `sql_for_agents/575_..._HOLD.sql`.

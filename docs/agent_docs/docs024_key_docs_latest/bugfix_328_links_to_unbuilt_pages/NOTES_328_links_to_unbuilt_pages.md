@@ -793,3 +793,80 @@ Before-state captured at 11:01:45Z **per page**, including the total internal hr
 filed by `discovery` at 08-24 11:49 — the same two anchors, found independently by the estate's own
 check. Worth saying plainly: detection was never the gap on this bug, and here is a second
 instrument agreeing with the census.
+
+### ⚠ CORRECTION 2026-08-25, same session — I published TWO wrong numbers earlier today, in five files
+
+**Caught by the audit rows.** After the dispatch, `agent_error_log` returned 8
+`CONTENT_LINK_SUPPRESSED_UNSHIPPED` rows summing to **11** suppressions. I had written **12**.
+Summing the before-state properly — and the served `internal_total` deltas, which are an
+independent instrument — both give **11**:
+
+| page | dead before | internal_total before → after | delta |
+|---|---|---|---|
+| loanzy `/get-help.html` | 1 | 23 → 22 | −1 |
+| loanzy `/tools/car-finance-calculator/` | 1 | 26 → 25 | −1 |
+| loanzy `/tools/is-a-loan-right-for-me/` | 1 | 25 → 24 | −1 |
+| loanzy `/tools/overpayment-calculator/` | 1 | 23 → 22 | −1 |
+| loanzy `/tools/settlement-calculator/` | 1 | 23 → 22 | −1 |
+| mcalc `/guides/mortgage-scorecard/` | 1 | 35 → 34 | −1 |
+| remortgage `/about.html` | 2 | 17 → 15 | −2 |
+| remortgage `/next-steps.html` | 3 | 18 → 15 | −3 |
+| **total** | **11** | | **−11** |
+
+**Correction 1 — the count was 11, not 12.** I summed a column by eye instead of adding it, and
+wrote eight `1`s where the data had six.
+
+**Correction 2, and it is the worse one — the denominator was 19, not 21.** I reported
+*"13 of 21 pages clean, 8 still serving"*. The census found **21 referring pages**, but **two of
+them are on `pool-energy-utilities.internal`, which does not resolve at all** — I recorded that
+myself, in the same run, as the reason they are out of the served population, and then used 21 as
+the denominator anyway. **I fetched 19 pages. 11 were clean, 8 were not.** 13 is simply 21 − 8: a
+number produced by subtraction from the wrong total rather than by counting the rows I had.
+
+**What does NOT change, and this is why the errors are worth stating precisely rather than
+hedging:** the discrimination is still perfect and is now on a cleaner population — **19 of 19
+fetched pages** split exactly on whether they last deployed before or after 16:07Z on 08-24.
+Excluding the two unfetchable pages makes the claim *stronger*, because 21 silently counted two
+pages nobody had measured as though they were evidence.
+
+**The shape, which is the transferable half: I asserted totals I had never computed.** Both
+numbers came from reading my own output table rather than from an operation on it — no `sum`, no
+`wc -l`, no `count(*)`. A figure obtained by eye from a table you produced feels measured, carries
+the authority of the measurement it sits next to, and is not one. **The cheap check is to make the
+shell do the arithmetic**, which is why the final census script above carries a `TOTDEAD`
+accumulator and prints `population: $(wc -l < …)` rather than a typed constant.
+
+**Where the wrong numbers went, so a reader of any of them can find this:** this file (above),
+`README_where_we_are.md`, `HANDOFF_2026-08-24_continue_here.md`'s superseded banner,
+`WRONG_CALLS.md`'s 08-25 entry, and two commit messages (`a53e7e1e3`, `5a38b83a4`). Forward-only,
+so the commits stand as written and this correction is the record.
+
+## 2026-08-25 — CLOSED: zero dead anchors served, fleet-wide
+
+Re-ran the served census 11:30:17Z, all 19 public referring pages, cache-busted, with the
+per-domain invented-URL control in the same run.
+
+- **Per-domain 404 control: 5 of 5 public domains return 404 for an invented path.** The census is
+  not reading a parked domain that 200s everything.
+- **TOTAL DEAD ANCHORS SERVED: 0** (was 11 at 11:01:45Z). Every one of the 19 pages returns 200 and
+  carries none of its dead hrefs.
+- **Positive control, and it came out stronger than the bar.** The bar was "internal href total
+  materially unchanged". Measured: **every changed page's total fell by EXACTLY the number of dead
+  anchors it carried, and by nothing else** (table above), and the 11 pages that were already clean
+  are **byte-identical** — 49, 23, 41, 38, 39, 38, 34, 17, 15, 28, 28 before and after. So the
+  operation removed 11 anchors and touched nothing else on 19 pages.
+- **The links were REMOVED, not validated.** All 7 targets are still `planned`/`needs_rebuild`
+  with **zero** rendered components and `deployed_at` NULL; 5 of 5 tested still return **404** on
+  the wire.
+- **8 audit rows, one per page, each timestamped BEFORE its deploy**, naming the exact hrefs and
+  the arm used. Both arms fired across the batch: 10 `suppress_unshipped` (prose, words kept) and
+  **1 `drop_control_unshipped`** — loanzy `/get-help.html`, whose `/your-rights.html` anchor was a
+  classed card control and was dropped whole.
+- All 8 work items `complete`, `attempt_count=0`, and all 8 pages' `deployed_at` advanced past the
+  11:03:10Z dispatch.
+
+**Time from dispatch to a clean fleet: 27 minutes** — against a measured average claim latency of
+~79 minutes for `page_rerender`, so this was a fast queue, not a typical one. The 22-day-parked row
+completed **2 minutes** after being re-armed.
+
+The bug is fixed, live, and the served population is clean. Moving to `bugs_closed/`.

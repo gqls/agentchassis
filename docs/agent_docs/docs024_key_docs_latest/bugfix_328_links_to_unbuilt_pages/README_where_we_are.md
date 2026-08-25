@@ -244,3 +244,35 @@ problem. Doing something about them was.
 **Where this leaves us.** Once the eight rebuilt pages are live and I've re-checked them on the
 web, this bug is finished and moves to the closed pile. Nothing is blocked and there's no decision
 waiting on you.
+
+## 2026-08-25 (later) — done. Every one of those links is off the live sites.
+
+The eight pages rebuilt within half an hour of being asked, and I re-checked all nineteen public
+pages on the live web afterwards. **There are now no dead links left on any of them.** Before this
+morning there were eleven, spread across four of our sites.
+
+Two things make me confident that is a real result rather than a lucky reading. First, on every
+page that changed, the total number of internal links dropped by *exactly* the number of dead ones
+it had been carrying — one page lost one link, another lost three — and the eleven pages that were
+already fine came back with their link counts unchanged to the digit. So the system removed the
+dead links and touched nothing else. Second, all seven pages that were being linked to are *still*
+unbuilt and still return "not found" when you visit them. The links went away because we stopped
+publishing them, not because the missing pages quietly appeared.
+
+**Two corrections to what I told you earlier today, both mine, both arithmetic.** I said there were
+twelve dead links; there were eleven. And I said thirteen of twenty-one pages were already clean;
+it was eleven of nineteen. The twenty-one included two pages on an internal-only address that does
+not resolve on the public internet at all — I had noted that myself as the reason to exclude them,
+and then used the bigger number anyway. Both mistakes came from reading totals off my own table by
+eye instead of adding them up. Nothing about the conclusion changes, and the smaller denominator is
+actually the more honest one, because the old figure counted two pages nobody had checked.
+
+**This bug is finished and moves to the closed pile.** Nothing is left owed on it.
+
+One thing I found on the way that is worth a decision from you sometime, though nothing is urgent:
+there are **297 jobs sitting in the queue that nothing will ever pick up** — every one of them has
+never been attempted, and 205 of them name a real handler, so they look queued to anybody reading
+the queue. They are stuck in a state the dispatcher does not select. Worse, each one blocks a fresh
+request for the same page, so the page it belongs to is quietly unrequestable. One of them was the
+mortgagecalculator guide page in this batch, stuck since the 3rd of August. There is an existing
+bug (296) covering one slice of this — the contrast findings — but not the general case.

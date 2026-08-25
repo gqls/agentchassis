@@ -1,14 +1,34 @@
 # HANDOFF 2026-08-24 — bug 328: LIVE, and PROVEN ON THE WIRE. Nothing owed but time.
 
+# ✅ CLOSED 2026-08-25 — bug 328 is in `bugs_closed/`. NOTHING HERE IS A TASK.
+
+> **Zero dead anchors served, fleet-wide, 11:30:17Z.** All 19 public referring pages return 200
+> and carry none of their dead hrefs; 5 of 5 public domains 404 an invented path in the same run.
+> Every changed page's internal-href total fell by **exactly** the number of dead anchors it
+> carried and by nothing else; the 11 already-clean pages are byte-identical. All 7 targets are
+> still unbuilt (zero rendered components) and still 404, so the links were **removed, not
+> validated**. Full record and the closing evidence: `NOTES_…md` (bottom) and the bug file.
+>
+> **Read `RUNBOOK_328_links_to_unbuilt_pages.md` before re-running anything** — the two closure
+> queries existed in NO document until 2026-08-25 and had to be reconstructed from the Go
+> predicates.
+
 > # ⚠ SUPERSEDED 2026-08-25 — READ THIS FIRST, THEN IGNORE THE BOX BELOW
 >
 > **The "wait, then close" instruction and the "do NOT dispatch them" ruling in §2 are both
 > RETIRED.** Re-measured 2026-08-25 ~09:50Z against the live web:
 >
-> - Of **21** public referring pages, the **13** that re-rendered AFTER the flag (16:07Z 08-24)
->   serve **0** dead anchors; the **8** that last deployed BEFORE it serve all **12** that remain.
->   **21 of 21, no exceptions** — the flag time predicts the served result exactly, across six
->   domains, on pages nobody dispatched. Positive control held (15–49 internal anchors survive).
+> - ~~Of **21** public referring pages, the **13** that re-rendered AFTER the flag serve **0** dead
+>   anchors; the **8** that last deployed BEFORE it serve all **12** that remain. **21 of 21**~~
+>   **CORRECTED same day — two arithmetic errors of mine, and both counts were wrong.** The census
+>   found 21 referring pages, but **two are on `pool-energy-utilities.internal`, which does not
+>   resolve**, so they were never fetched: the denominator is **19**, not 21. And the dead-anchor
+>   total is **11**, not 12 — the audit rows summed to 11, as did the served `internal_total`
+>   deltas. So: **of 19 public referring pages, the 11 that re-rendered AFTER the flag (16:07Z
+>   08-24) served 0 dead anchors; the 8 that last deployed BEFORE it served all 11 that remained —
+>   19 of 19, no exceptions.** The conclusion is unchanged and the smaller denominator is the
+>   honest one, since 21 counted two pages nobody had measured. Both numbers came from reading a
+>   table by eye instead of summing it; see NOTES and `WRONG_CALLS.md`.
 > - **The cadence stopped carrying.** The fleet ran 1,671 `page_rerender` items in 36 h, but per
 >   PAGE, not per site: `remortgagecalculator.uk` had **zero** queued in 36 h, `loanzy.uk`'s newest
 >   was 08-24 16:15, and **none of the 8 was queued for anything**. "24 of 25 touched within 7 days"
