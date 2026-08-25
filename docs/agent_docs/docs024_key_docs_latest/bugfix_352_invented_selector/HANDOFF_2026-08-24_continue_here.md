@@ -267,14 +267,21 @@ Written 2026-08-24 19:25 UTC, after §4's two items closed. In rough order of va
    the chassis logs within an hour. **A counter whose only sink is a log line on a service that
    restarts is not bookkeeping, it is a hope.**
 3. **Re-check the withdrawal actually re-detects.** 587 freed 73 dedup slots on 13 sites on the
-   promise that still-failing pairings return under verified selectors within ~14 days. That is a
-   MEASURED window, not a guarantee, and it is now falsifiable: from **2026-09-07**, any of those 13
-   sites with no re-filed `contrast_failure` and a visible contrast fault is a defect in this
-   promise. The recovery query in RUNBOOK §10 gives the 73 to check against.
+   promise that still-failing pairings return under verified selectors. ~~within ~14 days … from
+   **2026-09-07**~~ — **CORRECTED 2026-08-25: the check date is 2026-08-28.** The fortnight came
+   from `contrast_failure.created_at` (when a finding was last FILED, which only happens if an audit
+   found something); the real cadence is the rotation stamp, and the live `pre_query` window is
+   **3 days**. [MEASURED 2026-08-25 09:40 UTC] all 13 sites last selected BEFORE 587 applied, **0**
+   audited since, earliest due **2026-08-26 21:20 UTC**, all 13 by ~**2026-08-27 21:30 UTC**. So from
+   **2026-08-28**, any of those 13 with no re-filed `contrast_failure` and a visible contrast fault
+   is a defect in this promise. The recovery query in RUNBOOK §10 gives the 73 to check against.
 4. **Not ours. THE GREP HAS NOW BEEN DONE — it is unfiled, and I did not file it.** `render-audit-agent`
-   fails more often than it succeeds — [MEASURED 2026-08-24 19:08 UTC] **11 of 20** runs over 7 days
-   ended `complete_error`, every one on `Request timed out (code: TIMEOUT)` at almost exactly 3
-   minutes, and that rate **predates this lane's change**. It is also the clock on item 3: a
+   fails more often than it succeeds — [MEASURED 2026-08-24 19:08 UTC] **11 of 20** runs
+   ~~over 7 days~~ **in ONE DAY** (corrected 2026-08-25: `orchestration_states` is pruned to ~24 h,
+   so the `interval '7 days'` filter excluded nothing and the window was never 7 days; the rate is
+   real for that day and **is not reproducible**, because those rows have since been pruned) ended
+   `complete_error`, every one on `Request timed out (code: TIMEOUT)` at almost exactly 3 minutes,
+   and that rate **predates this lane's change**. It is also the clock on item 3: a
    re-detection window measured in audits is only as good as the audits landing.
    ⚠ And the post-roll sample is **3 runs (2 errored)** — that cannot distinguish 55% from 67%, so
    "no regression from our change" is **unproven, not established**. Re-check after ~20 post-roll

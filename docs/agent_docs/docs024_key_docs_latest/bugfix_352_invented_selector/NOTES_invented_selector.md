@@ -797,3 +797,88 @@ found the same way), and `needs_rerender 2 filers` (was 21, found by **their** r
 came from running a query I already had against a question I had just changed. **The common cause is
 not carelessness with SQL; it is reusing a result whose population was chosen for a different
 question** — and the tell is always the same, that the query was already on screen.
+
+---
+
+## 2026-08-25 09:40 UTC — a day on: arm 1 still holds, and the "audit failure rate" figure was a fourth wrong denominator
+
+### The fresh build carries the fix (checked, with a dated control)
+
+`v1.0.1337` on all three services, pods started **09:27 UTC**, all three stamping
+`git_commit 4c996e1b5cb9b2513d88ec9fe2bae220c38fb6c2` — the startup line is readable directly for
+all three because the pods are minutes old, which is the strongest form and needs no probe.
+
+```
+ffa6e1c3d (352 arm-1 fix)  2026-08-24T14:45:03+01:00
+4c996e1b5 (v1.0.1337)      2026-08-24T23:04:28+01:00
+HEAD                       2026-08-25T10:35:00+01:00
+```
+`merge-base --is-ancestor ffa6e1c3d 4c996e1b5` → **YES**; control `HEAD` → correctly **NOT**.
+
+⚠ **The capability probe was NOT completed and I am not claiming it as one.** Three strings came
+back present through the NUL-split pipeline (`skipped_unverified_selector` 1,
+`skipped_unanchored_selector` 1, `selector_scheme` 4) and then the run **timed out at 120 s** on the
+longer scans, so the build-sha check and *both controls* never ran. An uncontrolled probe is not
+evidence; the provenance line and the ancestry check above are what this rests on.
+
+### Arm 1 holds on new data [MEASURED 2026-08-25 09:40 UTC]
+
+| | |
+|---|---|
+| rows filed since the 08-24 15:39 roll | **15** (was 10 yesterday) |
+| of those, invented `TAG.TAG` | **0** |
+| carrying `selector_scheme` / `matches` | **15 / 15** |
+| withdrawn by 587 | **73**, unchanged |
+| `contrast_failure` total | 514 |
+
+### ⚠ "the render audit fails more often than it succeeds — 11 of 20 runs OVER 7 DAYS" — the rate was real, the WINDOW was not
+
+`orchestration_states` is pruned to about **24 hours** (oldest row of any kind, measured today:
+`2026-08-24 09:36`, against a clock of `2026-08-25 09:40`). My query yesterday said
+`created_at > now() - interval '7 days'` and **that filter did nothing** — there was no data older
+than a day for it to exclude. So "11 of 20 over 7 days" was **11 of 20 in one day**.
+
+**The rate stands; the denominator's units were wrong**, and it is the fourth figure in two days
+that I mislabelled by taking a population from whatever was already in front of me. It is quoted in
+this lane's handoff §10, `README_where_we_are` and the SUMMARY — corrected in all of them.
+
+⚠ **And it is not reproducible**, by construction: the rows behind it have since been pruned. A
+figure taken from `orchestration_states` must record its own window because the table will not
+remember. → `WRONG_CALLS.md`.
+
+### The rotation is IDLE BY DESIGN, not stalled — and the real cadence is 3 days, not a fortnight
+
+No `render-audit-agent` orchestration exists between **2026-08-24 20:31** and now, 13 hours on an
+hourly job. That reads as a stall. It is not, and the mechanism is readable rather than inferable —
+`scheduled_tasks.pre_query` for `site-render-audit-rotation`:
+
+- picks sites `status IN ('active','deployed')` whose `site_discovery_rotation.last_selected_at`
+  is older than **`interval '3 days'`**, excluding any site holding a `claimed` build item;
+- `ORDER BY last_selected_at ASC NULLS FIRST` **`LIMIT 1`** — one site per hourly tick;
+- and stamps `last_selected_at = now()` inside the same statement.
+
+[MEASURED 2026-08-25 09:40 UTC] **28** active/deployed sites · **0** currently past the 3-day window
+· **0** blocked by a claimed build · stamps spanning `2026-08-22 14:06` → `2026-08-24 20:31`. So the
+rotation swept the whole fleet in ~54 hours and is now in the trough of its own cycle. **Next site
+due: `apis.uk` at 2026-08-25 14:06 UTC.**
+
+⚠ **The task row looks identical either way** — `enabled=t`, `last_triggered_at` 3 minutes old,
+`last_completed_at` equal to it. A tick that dispatches nothing advances both exactly like a tick
+that dispatched. **Ask the `pre_query` how many sites are due; never read liveness off
+`last_triggered_at`.** (WII-016's status line describes this same trap, from 08-12.)
+
+### This makes 587's re-detection promise checkable TEN DAYS EARLIER than I said
+
+[MEASURED 2026-08-25 09:40 UTC] All **13** sites whose rows 587 withdrew are in
+`site_discovery_rotation`; all were last selected **before** 587 applied (newest `18:30:59`, oldest
+`2026-08-23 21:20:41`); **0 have been audited since.** Which is the whole reason **0 of 56**
+withdrawn pairings have come back — not a failed promise, simply no occasion yet.
+
+Earliest due **2026-08-26 21:20 UTC**, and with a 3-day window against a 1/hour sweep of 28 sites,
+**all 13 will have been re-audited by roughly 2026-08-27 21:30 UTC.**
+
+> **So the check date is 2026-08-28, not the 2026-09-07 in the old handoff.** That 09-07 came from
+> the fortnight figure, which was derived from `contrast_failure.created_at` — *when a finding was
+> last FILED*, which only happens when an audit finds something. **The rotation stamp is the actual
+> cadence and the filing date is a lossy proxy for it.** Same class as everything else this week:
+> the number was measured, and it measured the wrong population.

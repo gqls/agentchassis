@@ -50298,3 +50298,40 @@ hypothesis, and should have been sold to the owner as one.
 **The transferable shape:** *a deficiency you can see is not the cause you can't.* When a message,
 a config or a doc is plainly inadequate, fixing it is right — and the claim that it will fix the
 OUTCOME needs its own evidence, because the inadequacy was never shown to be load-bearing.
+
+## 2026-08-25 — `bugfix_352_invented_selector` lane: I put `interval '7 days'` on a table that keeps ~24 hours, and published the result as a 7-day base rate
+
+**The claim.** *"`render-audit-agent` fails more often than it succeeds — [MEASURED 2026-08-24
+19:08 UTC] **11 of 20 runs over 7 days** ended `complete_error`."* Written into this lane's NOTES,
+handoff §10, `README_where_we_are` and its SUMMARY, and relayed to two other lanes.
+
+**`orchestration_states` is pruned to about 24 hours.** [MEASURED 2026-08-25 09:40 UTC] the oldest
+row of *any* kind in the table is `2026-08-24 09:36`, against a clock of `2026-08-25 09:40`. My
+`WHERE created_at > now() - interval '7 days'` **excluded nothing**, because nothing older than a
+day was there to exclude. It was 11 of 20 in **one day**.
+
+**How.** I wrote a window I never checked the table could span. Nothing in the result says
+otherwise: a 7-day filter over a 1-day table returns rows, no warning, no empty set — **the query
+succeeds and silently answers a smaller question.** The `GROUP BY created_at::date` I ran alongside
+it printed exactly two dates, `2026-08-23` and `2026-08-24`, which was the disconfirming evidence
+sitting on my own screen. I read it as "quiet week".
+
+**Why it is worse than the arithmetic.** The rate is real for the day it covers, so nothing
+downstream is *wrong* — but **the figure is now unreproducible by construction**: the rows behind it
+have been pruned, so no one can ever re-derive it, and the dated-count convention this estate runs on
+implies they could. A retained-window table needs its window recorded next to the count, not just the
+date.
+
+**The cheap check, one query, before any windowed count:**
+`SELECT min(created_at), max(created_at), count(*) FROM <table>;` — if `min` is newer than the window
+you asked for, your window is the table's, not yours. It takes seconds and it would have printed
+`2026-08-24 09:36` in front of me.
+
+**Fourth in two days, and the pattern is now unmistakable.** `0 collisions ever` (wrong table —
+ignored an archive), `fourth producer` (wrong slice — a `LIMIT`), `needs_rerender 2 filers` (wrong
+sub-population — retracted rows only), and now `over 7 days` (wrong window — a pruned table). **Every
+one was a population error, none was an arithmetic error, and every one of the four was reported in
+the same confident voice as a checked figure.** Three were caught by a peer re-running my query;
+this one by the table refusing to hold still overnight. The generalisation is not "be careful" — it
+is that **`[MEASURED]` certifies the number and says nothing about the population**, and the
+population is where all four failures were.
