@@ -3321,7 +3321,7 @@ Filing this tool made 15 `tool_crosslink:` rows for this lane, so I checked them
 and the answer inverts a claim in this file.
 
 **[MEASURED 2026-08-25 15:00Z]** On site `6b49db8e`, `tool_crosslink:%` rows all-history:
-**41 `wont_fix` · 15 `deferred` · 13 `failed` · 2 `unresolved` · ZERO `complete`.** 71 rows since
+**41 `wont_fix` · 15 `deferred` · **22** `failed` · 2 `unresolved` · ZERO `complete`.** 80 rows since
 2026-08-05 and **not one cross-mention has ever been written on this site.** The 15 `deferred` ones
 are this lane's, all eight tools since 08-24, every one carrying
 `OWNED_PAGE_GUARD: page-build-handler declares refuse_owned_page and page <id> is
@@ -3384,3 +3384,13 @@ ROLLING WINDOW — any all-history count must `UNION ALL` `site_work_items_archi
 silently scoped to the retention window while reading as all-time.** Every all-history census this
 lane has quoted (crosslink states, add_tool history, rerender counts) should be re-read with that
 caveat; forward-looking ones carry the UNION from now on.
+
+> **SHARPENED 2026-08-25 ~17:00Z (grind session; supersedes this file's "~92% park" figure from the
+> 11:00Z entry):** the three generic pages are `domains`, `index`, `news` — the SHOPFRONT; every
+> `/learn/` article is owned. So on webdesign.co.uk it is not "most picks park":
+> **every topically-CORRECT cross-mention pick parks, structurally** — zero-of-71 delivered is the
+> expected value, not bad luck, and the ~8% residual is unreachable by the recipe's own pick-by-topic
+> rule. ⚠ Do NOT read this as licence to steer picks at the writable shopfront pages — that trades a
+> parked correct mention for a delivered wrong one (their LANDMINES entry
+> `a-toolcrosslink-finding-you-filed-with-relatedpages-is-parked-not-delivered`, corr `a5f9b925`).
+> Relayed to the 333 session for their demand block. Grind at #42 cubic-bezier.
