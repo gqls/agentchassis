@@ -409,7 +409,66 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			preStoreScore.SchemaFieldCount))
 	}
 	if !preStoreScore.SchemaTemplateSynced && preStoreScore.TemplateVariableCount > 0 {
-		blockingIssues = append(blockingIssues, describeSchemaTemplateMismatch(preStoreScore))
+		orphans, unknownVars, _ := classifySyncIssues(preStoreScore.QualityIssues)
+		if len(unknownVars) > 0 {
+			// A template var with no schema source renders empty on every page —
+			// a real defect. Block, and name EVERY offender (both directions).
+			blockingIssues = append(blockingIssues, describeSchemaTemplateMismatch(preStoreScore))
+		} else {
+			// Orphan-only mismatch (owner ruling 2026-08-25, bugs_open/345): a
+			// schema field with no {{.placeholder}} renders nothing whether it is
+			// kept or dropped, so DROP it and store rather than refuse the whole
+			// component over a harmless surplus. The recorder already scored this
+			// class `warning`; the gate used to enforce it as blocking, and 9
+			// components died orphan-only over fields the framework would have
+			// ignored (against 1 completed) — measured 2026-08-25.
+			//
+			// Drop ONLY orphans absent from the incumbent schema. An orphan that
+			// is also an existing field is left in place: dropping it would remove
+			// a name a live page's content_data may be keyed on, which is the
+			// stranding guard's concern below, not this branch's. On a creation
+			// there is no incumbent, so every orphan is new and droppable — which
+			// is the entire measured firing class (all needs_new_component births).
+			incumbent := map[string]bool{}
+			if isRegeneration {
+				incumbent = schemaFieldSet(existingSchema)
+			}
+			droppable := make([]string, 0, len(orphans))
+			for _, f := range orphans {
+				if !incumbent[f] {
+					droppable = append(droppable, f)
+				}
+			}
+			if len(droppable) > 0 {
+				if reduced, derr := dropSchemaFields(inputSchemaJSON, droppable); derr == nil {
+					// Keep the stored artefact and every downstream check (source
+					// vocabulary, stranding, the INSERT/UPDATE) reading the SAME
+					// reduced schema. inputSchemaJSON is what is stored;
+					// schemaJSONStr is what the checks below read.
+					inputSchemaJSON = reduced
+					schemaJSONStr = reduced
+					logger.Info("store_generated_component: orphan-only schema/template mismatch — dropped unrendered field(s) and storing",
+						zap.String("function", functionName),
+						zap.String("section_type", sectionType),
+						zap.Strings("dropped_orphan_fields", droppable),
+						zap.Int("incumbent_orphans_kept", len(orphans)-len(droppable)))
+				} else {
+					// If the drop itself fails, fall back to the old behaviour
+					// (block) rather than store a schema we could not reduce.
+					logger.Warn("store_generated_component: orphan-only mismatch but field drop failed — blocking as before",
+						zap.String("function", functionName), zap.Error(derr))
+					blockingIssues = append(blockingIssues, describeSchemaTemplateMismatch(preStoreScore))
+				}
+			} else {
+				// Every orphan is an incumbent field: nothing safe to drop, but
+				// still not a blocking defect — store as-is (the fields render
+				// nothing and the stranding guard below owns the incumbent set).
+				logger.Info("store_generated_component: orphan-only schema/template mismatch, all orphans are incumbent fields — storing without change",
+					zap.String("function", functionName),
+					zap.String("section_type", sectionType),
+					zap.Strings("orphan_fields", orphans))
+			}
+		}
 	}
 
 	// Substantive template with no placeholders at all. Catches the case
@@ -1677,20 +1736,7 @@ func recordValidationRejection(
 	}
 
 	// Classify issues into orphan-field (bookkeeping) vs other.
-	orphanSchemaFields := []string{}
-	unknownTemplateVars := []string{}
-	otherIssues := []string{}
-	for _, issue := range score.QualityIssues {
-		if m := orphanSchemaFieldPattern.FindStringSubmatch(issue); len(m) > 1 {
-			orphanSchemaFields = append(orphanSchemaFields, m[1])
-			continue
-		}
-		if m := unknownTemplateVarPattern.FindStringSubmatch(issue); len(m) > 1 {
-			unknownTemplateVars = append(unknownTemplateVars, m[1])
-			continue
-		}
-		otherIssues = append(otherIssues, issue)
-	}
+	orphanSchemaFields, unknownTemplateVars, otherIssues := classifySyncIssues(score.QualityIssues)
 
 	// Severity: bookkeeping-only failures are warning; anything else is error.
 	severity := "warning"
@@ -1908,6 +1954,56 @@ func deriveRenderMode(inputSchemaJSON string) string {
 // schemaFieldSet returns the set of field names declared under
 // input_schema.fields. Empty or invalid schema → empty set. Mirrors the
 // fields-parse used by deriveRenderMode.
+// classifySyncIssues splits scoreComponent's QualityIssues into the two
+// schema/template directions plus everything else, using the SAME regexes the
+// stored classifier and describeSchemaTemplateMismatch rely on — one parse, one
+// source of truth (the bugs_closed/034 drift rule). orphans are schema fields
+// with no {{.placeholder}}; unknownVars are {{.placeholders}} with no schema
+// entry; others is any remaining issue string.
+func classifySyncIssues(qualityIssues []string) (orphans, unknownVars, others []string) {
+	orphans = []string{}
+	unknownVars = []string{}
+	others = []string{}
+	for _, issue := range qualityIssues {
+		if m := orphanSchemaFieldPattern.FindStringSubmatch(issue); len(m) > 1 {
+			orphans = append(orphans, m[1])
+			continue
+		}
+		if m := unknownTemplateVarPattern.FindStringSubmatch(issue); len(m) > 1 {
+			unknownVars = append(unknownVars, m[1])
+			continue
+		}
+		others = append(others, issue)
+	}
+	return orphans, unknownVars, others
+}
+
+// dropSchemaFields returns inputSchemaJSON with the named fields removed from
+// .fields (house dialect). bugs_open/345: an orphan-only mismatch drops its
+// unrendered fields rather than refusing the store. Preserves every other key
+// of the schema object untouched; errors if the JSON does not parse so the
+// caller can fall back to blocking rather than store a schema it could not
+// reduce.
+func dropSchemaFields(inputSchemaJSON string, names []string) (string, error) {
+	var schema map[string]interface{}
+	if err := json.Unmarshal([]byte(inputSchemaJSON), &schema); err != nil {
+		return "", fmt.Errorf("dropSchemaFields: parse: %w", err)
+	}
+	fields, ok := schema["fields"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("dropSchemaFields: no .fields object")
+	}
+	for _, n := range names {
+		delete(fields, n)
+	}
+	schema["fields"] = fields
+	out, err := json.Marshal(schema)
+	if err != nil {
+		return "", fmt.Errorf("dropSchemaFields: marshal: %w", err)
+	}
+	return string(out), nil
+}
+
 func schemaFieldSet(inputSchemaJSON string) map[string]bool {
 	out := map[string]bool{}
 	if inputSchemaJSON == "" || inputSchemaJSON == "{}" {
