@@ -70,9 +70,12 @@ not a fault.
 then a newborn code needs declaring (the two-hour turnaround of 2026-08-24 is the worked example),
 or (b) one of the commissioned readers ships — then flip its code to `consumed` with
 `reader`/`reader_sink` in the same commit (the checker verifies both), or (c) a baseline code
-fires — then rule it. **Read the `8d798266` council verdict if nobody has** (`SELECT
-metadata->>'decision' FROM diagnosis_artifacts WHERE correlation_id='8d798266-bdff-4bc9-a4c6-77df9767a4b5'
-AND kind='council_report'`); the code is on the shared branch, a REVISE is a follow-up commit.
+fires — then rule it. `8d798266` is **APPROVED (round 2)** — round 1's "unrelated registry entries" objection turned out
+to be a real SAME-FILE PASSENGER: commit `eb7d92371` carries `bugs_open/388`'s three entries, taken
+by the pathspec commit from the shared working tree (attributed both sides; 388 messaged, told not
+to re-add). Its advisory produced one more fix: the prefix guard exempts the sanctioned `:` family
+boundary and the scan normalises on the first colon at collection (`dacc1a488`, council
+`b2ca539f` — **read that verdict if nobody has**; a REVISE is a follow-up commit).
 
 **First external validation of the commit-time scan (2026-08-25):** the `bugs_open/388` lane's
 three new codes were caught by the scan before ANY had fired — the case the DB-side check is

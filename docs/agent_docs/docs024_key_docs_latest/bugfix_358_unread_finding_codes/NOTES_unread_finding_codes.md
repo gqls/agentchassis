@@ -1255,3 +1255,23 @@ The helper-existence objections were answered with provenance rather than assert
 of a SHARED file, read the hunks and ask whose they are. A working-tree diff of a shared file is a
 census of every session's edits, not of yours — and after a pathspec commit, so is the committed
 diff of that file.
+
+### `8d798266` round 2: APPROVED (12 seats, 5 abstained) — and its advisory found a real gap, twice
+
+The passenger attribution held; the rename round is approved. Two mediums, both CHECKED:
+
+- **editquality — raw `HasPrefix` flags the sanctioned colon-family convention.** Correct, and
+  probing it found the SAME inconsistency in the registration arm: a colon-suffixed LITERAL whose
+  family head is declared would fail the commit while the daily DB check (which keys on the code up
+  to the first colon) would pass it — two arms disagreeing with their own authority. Unreachable
+  today; fixed before any writer hits it (`dacc1a488`, council `b2ca539f`): `sanctionedFamily`
+  exempts ONLY the `:` boundary from the guard, and scanned codes normalise on the first colon at
+  collection. Mutation-proved both ways: a colon-family probe passes BOTH arms, an underscore
+  extension (`UNKNOWN_ZZ_PROBE`) still fails BOTH; probes removed, green.
+- **debug_historian — a renamed error code splits history at its birth date.** True in general and
+  answered by measurement here: the old code had ZERO rows, so no census splits. The general trap
+  is real and already in the estate's landmine corpus ("a marker in an error string has a BIRTH
+  DATE").
+
+Every correlation this lane has opened is now APPROVED or awaiting one micro-round on a test-only
+refinement (`b2ca539f` — read it; a REVISE is a follow-up commit).
