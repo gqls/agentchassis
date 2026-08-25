@@ -168,3 +168,59 @@ most important rule in the whole change. It is fixed, and the pattern is written
 
 **Nothing is live yet.** All of this is code, and code on this system does nothing until
 the next fleet build goes out. The first real test is the day after that.
+
+---
+
+## 2026-08-25, later — it ran for real, it worked, and I need a build to go out
+
+The thing above did go live, and this morning at 09:06 it ran across the whole estate
+for the first time properly. Nineteen sites, no errors. It found five calculators whose
+code already contains figures from their own register and wrote a ready-to-paste
+suggestion for each. Seven of those are on our second stamp duty calculator, which until
+today was watched by nothing at all.
+
+So the mechanism works. The line at the end of the last entry — "nothing is live yet" —
+is out of date, and I have left it there rather than tidy it away.
+
+**It also found a mistake of mine, which is the part I would rather report than bury.**
+On one site it proposed *two* different register entries for the same single number in
+the calculator's code. Nobody can act on that: you cannot declare two facts for one
+constant. I had written a comment claiming the code refused exactly this case, and the
+refusal had never been written. That is fixed. A second, separate problem turned up the
+same day: if someone writes one of these checks in a slightly different — and arguably
+more sensible — place in the file, nothing reads it and nothing complains. The sweep now
+says so out loud. Also fixed.
+
+**Both fixes are committed and neither is in the running system.** I checked rather than
+assumed: I asked the live service directly whether it contains the new code, with a
+control string that must be there and a nonsense string that must not, and the answer is
+no on both counts. The machines happened to restart eight minutes *before* I wrote the
+first fix, which is why.
+
+**So the ask is a build.** I have bumped the tag to `v1.0.1338`, because re-releasing the
+tag that is already out there just serves the cached copy of the old code — that trap is
+written into the makefile itself. When you have a moment:
+
+```
+date; make release redeploy-agents ENVIRONMENT=production REGION=uk001; date
+```
+
+I will check afterwards, at the service itself rather than at the tag, and report back.
+
+Until that build goes out, one thing is worth knowing: the "someone put the check in the
+wrong place" warning reads as empty everywhere. That is because the code isn't running,
+not because everyone has got it right — so it is not evidence of anything yet.
+
+**Meanwhile I am not waiting.** The seven bindings on the second stamp duty calculator do
+not need the build, so I am doing that adoption now. That matters beyond one calculator:
+the measuring half of this work only gathers data when somebody newly declares, and the
+one site that has declared so far uses figures too small for the check to say anything
+about. This one is the first that will produce a real answer.
+
+While setting that up I found that the note I sent that lane last night was wrong in a
+way worth owning. I warned them about a problem in their fence installer — except I had
+read the *neighbouring* lane's installer, not theirs. Theirs does not have that problem.
+It has a worse one I had not spotted: it rebuilds the whole file from scratch every time
+it runs, so anything added by hand afterwards is silently deleted the next time anyone
+uses it. I am fixing their installer properly rather than pasting something in that would
+quietly vanish, and I have corrected the note so they read the true version first.
