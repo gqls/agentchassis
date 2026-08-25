@@ -54,7 +54,12 @@ func (c *ToolAcceptanceDueCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, 
 		JOIN page_components pc ON pc.component_id = cc.id
 		JOIN pages p ON pc.page_id = p.id
 		WHERE p.site_id = $1
+		  AND pc.build_status <> 'removed'
 		  AND `+datahelpers.PageHasShippedPredicateFor("p")+toolEligibilityWhere, dctx.SiteID)
+	// Slot filter mirrors check_tool_health's and check_tool_acceptance's
+	// (2026-08-25, council 21540c8e round 1) — a removed slot is the
+	// assembler-excluded tombstone; see check_tool_acceptance.go for the full
+	// rationale.
 	if err != nil {
 		return nil, fmt.Errorf("tool_acceptance_due: tool query failed: %w", err)
 	}

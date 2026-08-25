@@ -11,6 +11,7 @@
 package discovery_checks
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -89,4 +90,49 @@ func TestContractRulesJudgeTemplateForForksAndNothingWhenEmpty(t *testing.T) {
 	if issues := auditContractRules(portedTombstoneExcerpt, "", false); len(issues) != 0 {
 		t.Errorf("ported instance with empty rendered_html must yield no contract findings, got %d", len(issues))
 	}
+}
+
+// TestToolPopulationQueriesExcludeTombstones holds all three
+// toolEligibilityWhere callers that join page_components to the slot filter —
+// the council's round-1 objection (21540c8e, bug_historian medium) was that
+// patching one call site of a shared population mechanism leaves the siblings
+// exposed, and measuring confirmed BOTH acceptance checks had the same
+// unaudited-tombstone exposure. Comment lines are skipped; zero matches of the
+// join anchor is a loud failure (a broken scan must not pass silently).
+func TestToolPopulationQueriesExcludeTombstones(t *testing.T) {
+	for _, file := range []string{
+		"check_tool_health.go",
+		"check_tool_acceptance.go",
+		"check_tool_acceptance_due.go",
+	} {
+		src, err := osReadFileForScan(file)
+		if err != nil {
+			t.Fatalf("cannot read %s: %v", file, err)
+		}
+		joinLine, filterLine := -1, -1
+		for i, l := range strings.Split(src, "\n") {
+			trimmed := strings.TrimSpace(l)
+			if strings.HasPrefix(trimmed, "//") {
+				continue
+			}
+			if joinLine == -1 && strings.Contains(l, "JOIN page_components pc ON pc.component_id") {
+				joinLine = i + 1
+			}
+			if filterLine == -1 && strings.Contains(l, "pc.build_status <> 'removed'") {
+				filterLine = i + 1
+			}
+		}
+		if joinLine == -1 {
+			t.Errorf("%s: population join not found — the scan is anchored on nothing and asserts nothing", file)
+			continue
+		}
+		if filterLine == -1 {
+			t.Errorf("%s: population query joins page_components with NO tombstone filter — a retire-without-replace slot's unreachable markup would be audited and filed against (the bugs_closed/360 shape; council 21540c8e round 1)", file)
+		}
+	}
+}
+
+func osReadFileForScan(name string) (string, error) {
+	b, err := os.ReadFile(name)
+	return string(b), err
 }
