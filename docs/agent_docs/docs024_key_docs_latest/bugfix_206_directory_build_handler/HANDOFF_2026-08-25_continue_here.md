@@ -61,13 +61,41 @@ route, the chassis must carry `efec862f4`. Check with the build stamp, per servi
 `git merge-base --is-ancestor efec862f4 <the stamp>`. (`debug_historian` made this point in the
 verdict: verify rollout at the running pod, not at green tests.)
 
-### 2. The parked rows (an operator action; expectations CHANGED today)
+### 2. The parked rows — ⛔ **NOTHING ON `garden-tools.uk` IS TO BE CLEARED (OWNER RULING, 2026-08-25)**
 
-`garden-tools.uk` brand-directory-index / brand-profile / buying-guides-index, `dartsonline.com`
-brand-detail, `loanzy.uk` guides-index. RUNBOOK §4 has the recipe and the `priority ASC` trap.
-**What changed: `section-index` is no longer expected to stay parked** — the hold-out ended today,
-so `buying-guides-index` and `guides-index` now route like the rest. `entity-page` still files a
-deferred `capability_gap` by design.
+> **CORRECTED 2026-08-25, within hours of writing this file.** The paragraph below originally
+> listed the three `garden-tools.uk` rows first, as "an operator action", and pointed at the
+> re-triage recipe. **That action is forbidden.** The owner **retracted** the parked-row
+> authorisation on 2026-08-25 — see
+> `CONTRIB_2026-08-25_from_loanzy_lane_the_owner_retracted_the_parked_row_authorisation.md` in this
+> directory, filed by the `loanzy_uk_example_site` lane at 11:05, **five minutes before this
+> handoff was committed, and I had not read it.** Their words: *"the third option is the live one:
+> we record the gap honestly. Nothing is to be cleared on `garden-tools.uk`."*
+>
+> The CONTRIB was filed precisely because the **08-24** handoff had this same defect — a §1 that
+> says "do NOT clear a parked row" and a §2 eleven lines later that spends the authorisation
+> anyway. **I reproduced it in the document that supersedes it.** That is the failure this estate
+> keeps paying for: a corrected plan surviving, uncorrected, in a second place in the same file.
+> Caught by an adversarial review of this lane's own output, not by me.
+
+**`garden-tools.uk` — brand-directory-index / brand-profile / buying-guides-index: DO NOT TOUCH.**
+Its whole value is that it is an unassisted greenfield build, and it is the baseline four lanes are
+measuring against. Clearing a row there is also **inert** on its own (nothing schedules
+`reconcile_site_plan`) and destructive with a re-plan. The gap is recorded honestly instead; that
+IS the resolution, not a deferral of one.
+
+**`dartsonline.com` brand-detail and `loanzy.uk` guides-index are NOT covered by that ruling** —
+the CONTRIB says so explicitly ("this note says nothing about them"). If clearing those is right on
+your own reading, RUNBOOK §4 has the recipe and the `priority ASC` trap. Read §7a first: an
+`unresolved` row cannot be freed this way at all.
+
+**What changed today: `section-index` is no longer expected to stay parked** — the hold-out ended,
+so `guides-index` now routes like the rest. `entity-page` still files a deferred `capability_gap`
+by design.
+
+⚠ **And a re-triage still proves NOTHING about this fix** — setting `handler_agent` by hand only
+re-demonstrates that `directory-build-handler` works, known since 08-08. Worse than useless for the
+closure test: per item 1, a hand-set handler is now a known false-PASS path.
 
 ⚠ **But check §7a first.** A row at `unresolved` is treated as OPEN by `loadOpenPageItems` (so
 reconcile skips the page and the new routing never reaches it), is NOT covered by `idx_swi_dedup`,
