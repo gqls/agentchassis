@@ -158,6 +158,14 @@ func scanPackageErrorCodes(t *testing.T) (codes []string, filesParsed int, unres
 
 	// Pass 2 — every `ErrorCode:` field value. Anything that is neither a string
 	// literal nor a resolvable file-scope const is RECORDED, not dropped.
+	//
+	// NORMALISED ON THE FIRST COLON, exactly as the DB-side checker's authority
+	// is ("KEYED ON THE CODE UP TO THE FIRST COLON" — registry _doc): a
+	// colon-suffixed literal is a member of its declared family, and comparing
+	// the raw string here would fail a commit the daily check would pass —
+	// found by this file's own colon probe while answering 8d798266 r2's
+	// editquality objection, before any real writer hit it.
+	normalise := func(s string) string { return strings.SplitN(s, ":", 2)[0] }
 	seen := map[string]bool{}
 	unresolvedSeen := map[string]bool{}
 	for _, f := range files {
@@ -176,14 +184,14 @@ func scanPackageErrorCodes(t *testing.T) (codes []string, filesParsed int, unres
 			case *ast.BasicLit:
 				if v.Kind == token.STRING {
 					if str, err := strconv.Unquote(v.Value); err == nil && str != "" {
-						seen[str] = true
+						seen[normalise(str)] = true
 						return true
 					}
 				}
 				unresolvedSeen[where+" (non-string literal)"] = true
 			case *ast.Ident:
 				if str, ok := consts[v.Name]; ok && str != "" {
-					seen[str] = true
+					seen[normalise(str)] = true
 					return true
 				}
 				// A local variable or parameter — the code arrives at runtime,
@@ -474,6 +482,18 @@ func TestFindingCodeScanNamesDoNotExtendDeclaredCodes(t *testing.T) {
 			if c == d {
 				continue // declared-vs-declared is the DB-side checker's job
 			}
+			// A prefix relation whose boundary is a COLON is the sanctioned
+			// family convention, not a collision: the checker normalises on the
+			// first colon (`tool_crosslink_not_emitted:reason` IS its family
+			// head), so flagging it here would fail the one naming shape the
+			// registry blesses. Raised by the council's editquality seat on the
+			// approved round (8d798266 r2, medium): raw HasPrefix contradicted
+			// the risks section's own "colon-suffix is the sanctioned family
+			// mechanism". Any other boundary — `_`, a letter, anything — is the
+			// UNKNOWN_HANDLER_VERDICT shape and still fails.
+			if sanctionedFamily(c, d) || sanctionedFamily(d, c) {
+				continue
+			}
 			if strings.HasPrefix(c, d) || strings.HasPrefix(d, c) {
 				t.Errorf("code %q and declared code %q are prefix-related — a LIKE query on the "+
 					"shorter catches both, and declaring the longer will fail the daily check with "+
@@ -483,4 +503,10 @@ func TestFindingCodeScanNamesDoNotExtendDeclaredCodes(t *testing.T) {
 			}
 		}
 	}
+}
+
+// sanctionedFamily reports whether long extends short at a COLON boundary —
+// the one prefix shape the registry's normalisation blesses as a family.
+func sanctionedFamily(long, short string) bool {
+	return strings.HasPrefix(long, short) && len(long) > len(short) && long[len(short)] == ':'
 }
