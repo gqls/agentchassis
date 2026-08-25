@@ -51344,3 +51344,32 @@ both times the useful move was to go and check. The tally is now: 4 medium-or-hi
 across three rounds, of which 2 were factually wrong about the code, 1 quoted a stale comment, and
 **1 was a real defect I had shipped past my own mutation suite.** That last one is the whole reason
 to submit.
+
+**4. I published two totals I had never computed — into five files each — by reading my own output
+table by eye.** Same lane, same day, hours after entry 1 above. I wrote **"12 dead anchors"** (it
+was **11** — I summed a column visually and counted eight `1`s where the data had six) and
+**"13 of 21 pages clean"** (it was **11 of 19** — the census found 21 referring pages, but two were
+on a `.internal` host that does not resolve, which **I had myself recorded in the same run** as the
+reason to exclude them, and then used 21 as the denominator anyway; 13 was 21 − 8, a number reached
+by subtraction from the wrong total rather than by counting the rows I had).
+
+Caught by the fix's own audit rows: after the dispatch, `agent_error_log` returned 8 suppression
+rows summing to 11. A second, independent instrument agreed — the served `internal_total` deltas
+per page (−1,−1,−1,−1,−1,−1,−2,−3) also sum to 11.
+
+**The shape: a figure read off a table you produced yourself feels measured.** It sits directly
+beside real measurements, in the same voice, formatted the same way — and it inherits their
+authority without having been computed. This is distinct from an unmarked inference (which at
+least *feels* like a claim): every one of these numbers was `[MEASURED]`, dated, and sourced from a
+real run. The arithmetic on top of the measurement was not.
+
+**The cheap check: make the shell do the arithmetic, and print the denominator.** My final census
+script carries a `TOTDEAD` accumulator and prints `population: $(wc -l < list.txt)`; my first one
+printed rows and let me add them up. The rule generalises — **any total you type rather than
+compute is an unmeasured claim in a measured document**, and the excluded-rows case is where it
+bites hardest, because the exclusion and the denominator are written minutes apart.
+
+**Cost:** low, because the conclusion did not depend on either number — the discrimination was
+perfect either way, and the corrected denominator is the *stronger* claim, since 21 counted two
+pages nobody had fetched. But it went into a bug file, a handoff banner, two lane docs and two
+commit messages before the audit rows caught it, and forward-only means the commits stand.
