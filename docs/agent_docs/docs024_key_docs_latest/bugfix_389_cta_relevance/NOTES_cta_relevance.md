@@ -514,3 +514,34 @@ CONTRIB and its addendum), `LANDMINES.md` (whose trap line also still claimed th
 > count — validate a control only where you expect it to fire and you learn nothing about what it
 > does elsewhere. **A detector needs a negative case before it is a detector**, and mine got one only
 > because a restore gave me a known-good state to re-run it on.
+
+### 2026-08-25 ~21:15Z — the `shared-ledger-not-appended` advisory on my LANDMINES correction: checked, and it is clean
+
+The pre-commit hook flagged commit `3effa14c9` for removing **5 lines** from `LANDMINES.md`, a
+fleet-wide append-only ledger, on the grounds that a removed line is most likely another session's
+entry. Correct thing to flag; worth discharging rather than waving through, because "I only touched
+my own entry" is exactly what someone who had clobbered a neighbour's would also believe.
+
+Three checks, and the first is the one that cannot be fooled by content:
+
+```
+git diff --numstat 3effa14c9^ 3effa14c9 -- …/LANDMINES.md   ->  15 added, 5 removed
+git diff … | grep '^@@'                                     ->  ONE hunk, @@ -18140,15 +18140,25 @@
+grep -n '^### A `content_rewrite` commissioned…'             ->  my entry's header is line 18139
+git show <before>:… | grep -c '^### '  vs  <after>           ->  728 and 728
+```
+
+The single hunk begins at 18140, immediately inside my own entry (header 18139), and the total entry
+count is **identical before and after** — so no entry was deleted, and nothing outside mine was
+touched. The 5 lines were the wrong `left(text,80)` check and the trap sentence that still called the
+canary undamaged, both written by me an hour earlier in this same session, both replaced by a dated
+`⚠ CORRECTED` note in place. That is precisely what the ledger's own guidance asks for
+(*"correct in place with a dated note rather than a rewrite"*).
+
+⚠ Note the entry-count check is what actually proves it. A hunk range only shows where the diff
+*starts*; a deletion running off the end of my entry into the next one would still open at 18140.
+Counting `### ` headers on both sides is the assertion that no entry vanished.
+
+Verifier re-armed for the changed entry (`./scripts/landmines-verify-dispatch.sh`, correlation
+`f2b7a0a0-79a5-4bbb-ad76-04bb1864d368`) — a corrected entry needs re-verifying, and the arming state
+is consumed by a bare `--apply`.
