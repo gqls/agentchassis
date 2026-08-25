@@ -3213,3 +3213,27 @@ CSS), `var(--color-surface)` ×4 and `var(--color-text)` ×9 (each preview's own
 Tombstone re-read: removed ✓. Self-contained — no orphan.
 **39/63. Phase B continues: entropy-meter (8,325) next, then text-sanitizer, cubic-bezier,
 golden-ratio, monolith-splitter…**
+
+## 2026-08-25 13:50Z — #40 `tool-entropy-meter` DONE (40 of 63)
+
+Item `f96e3752` (related_pages: learn-security-entropy-physics alone — one strong pick beats a
+padded pair). Ported defect with poetry in it: a tool preaching "Length > Complexity" computed
+`Math.log2(Math.pow(pool, length))`, which OVERFLOWS to Infinity at ~150+ characters — it displayed
+"Infinity" bits on exactly the long passphrases its own teaching recommends. Plus undisclosed
+100-bit bar scale and no in-browser privacy statement. RUN complete/adopted, component `3f148400`;
+retire `UPDATE 1` ~30 s post-build (slot `535df8a5` md5 `c8d4ea74…` intact); rerender `1a9c8c57`
+complete 13:44:40. **COMPONENT by mechanism (beyond the brief):** entropy = `length * log2(poolSize)`
+with the working shown live on the page; the CRACK TIME also runs in log space (`log2Seconds =
+bits - LOG2_RATE`, `Math.pow(2,…)` only under a SAFE_POW_LIMIT, centuries expressed via powers of
+ten past it) — nothing can overflow anywhere; guess-rate literal stated on the page; "in your
+browser" privacy phrase present and true (no network calls); dictionary warning kept. 0·0·0
+counts, 3 listeners. **SERVE-GRADE PASS:** 200 / 21,893 / LM 13:44:57 > 13:44:40; negatives 0
+(passInput, dictionaryWarning, bits, time, **and the buggy `Math.pow(pool` expression itself**);
+positives = code-arm literals. Tombstone re-read: removed ✓. Self-contained — no orphan.
+**40/63. Phase B remainder (19 + 5 rich apps): text-sanitizer (8,607) next, then cubic-bezier,
+golden-ratio, monolith-splitter, asset-formatter…**
+
+Also this hour: the 387/392 lane's outbound-links check scoping settled by measurement (their 103
+tool-pages-typed-blog-post finding; my rebuilt pages OUT of scope, two generator-made prose guides
+legitimately IN; their prefix `no_outbound_links:<page>:<site>` — distinct from `internal_link:`
+and `tool_crosslink:`, so the dated zero-overlaps figure stands).

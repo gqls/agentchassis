@@ -1,5 +1,7 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-25 ~11:15Z. Supersedes `HANDOFF_2026-08-22_continue_here.md`.
 
+**STATE (updated 13:50Z): 40 of 63 SERVE-CONFIRMED (#40 entropy-meter done, NOTES 13:50Z — the Infinity-bits overflow dead, all arithmetic in log space). Phase B continues: text-sanitizer (8,607) next. Prior line follows.**
+
 **STATE (updated 13:10Z): 39 of 63 SERVE-CONFIRMED — #39 focus-ring's owed grade PAID (NOTES 13:10Z). Phase B continues smallest-first: entropy-meter (8,325) next. Superseded owed-line follows.**
 
 **STATE (updated 12:45Z): 38 confirmed + #39 focus-ring RETIRED with serve-grade OWED (rerender `4f0a3002`; controls pinned in NOTES 12:45Z — grade it FIRST on pickup, then dispatch nothing for it: self-contained, no orphan). Phase B continues smallest-first: entropy-meter (8,325) next. Prior state line follows.**
