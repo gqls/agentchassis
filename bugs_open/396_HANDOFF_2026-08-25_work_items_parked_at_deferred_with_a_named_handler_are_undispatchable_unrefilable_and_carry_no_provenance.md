@@ -191,6 +191,48 @@ why it was parked. Reading it as a trace would shrink the population on a false 
    slot. It is in lockstep with `workItemTerminalStatuses`, and **migration 157 already broke that
    pair once fleet-wide with SQLSTATE 42P10.** Architecture-scope, not a patch.
 
+## 6b. ⚠ SUPERSEDES §6a's candidate 1 — the fix is the EXISTING site lock, not a park verb (2026-08-25, after council `ed821065` REVISE)
+
+**§6a said the primary fix was a park verb. That was wrong, and the council's `prior_art` seat
+caught it as a HIGH.** `sites.locked_at` / `locked_by` already exist, are live on **3 of 51** sites
+with a real reason in `locked_by`, gate `build-pipeline-trigger > find_dispatchable_site`, and have
+admin lock/unlock endpoints. **The lock mutates NO work-item row** — so it strands nothing, holds no
+`idx_swi_dedup` slot, and **the 22-day stall in §2 could not have happened under it.** Migration
+`621`'s verb makes the wrong tool tidier.
+
+**What was actually missing is narrower: the lock is all-or-nothing.** That is why the
+`mortgagecalculator_couk_adoption` lane wrote the 15-second backstop that minted 38 of the 52 — its
+own handoff calls the site lock *"(a)"* and item status *"(b) the finer control"*.
+
+**SHIPPED INSTEAD** (council `175df761`, register **WII-036**):
+
+| artefact | state |
+|---|---|
+| `sites.lock_except_item_ids uuid[]` — migration `632` | **APPLIED**, inert by construction |
+| `siteLockExceptionSQL()` + `honour_site_lock` opt-in in `LoadWorkItemsAction` | **COMMITTED, INERT until the next chassis roll** |
+| migration `633_..._HOLD.sql` — the config half | **HELD. Do not apply before the roll.** |
+
+⚠⚠ **THE ORDERING IS NOT BUREAUCRACY.** `find_dispatchable_site` selects a **SITE**, not an item.
+`LoadWorkItemsAction`, which runs next, has **never** checked `sites.locked_at` — the lock has
+exactly ONE gate. Apply `633` before the binary and a locked site with an exception list dispatches
+its **entire** queue, on precisely the sites somebody deliberately locked. Both halves, binary
+first.
+
+⚠ Two misreadings that cost this lane time and will cost the next reader more:
+`load_work_item_actions.go:134` **looks** like a second gate and is not — it is inside
+`WriteBuildItemsAction`, and **its log line misnames its own function** as
+`"LoadWorkItemsAction: site is locked, skipping"`. And the selector's SQL lives under
+`config.query`, **not** `config.pre_query`.
+
+**Migration 621 (the park verb) is kept, demoted, and re-labelled** — see WII-034's amendment. It
+is for parking specific items on an **unlocked** site, where the alternative is the raw `UPDATE`
+that caused this bug. It is **not** the answer to "hold this site", and two objections stand
+against parking as a mechanism at all: a parked row **still holds its dedup slot**, and
+`work_item_retraction.go:205` can **close a deliberate park without any unpark route**.
+
+**Candidate 2 (the `status_override` allow-list) shipped and was APPROVED** — council `9c16eb83`,
+Go, inert until the roll.
+
 ## 6a. What the corrected root cause does to those candidates — it SHARPENS them
 
 **The cause is not a bug in a writer. It is a MISSING VERB.** Four sessions each needed to hold a
