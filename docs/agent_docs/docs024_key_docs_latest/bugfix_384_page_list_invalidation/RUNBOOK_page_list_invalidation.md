@@ -91,3 +91,37 @@ Peer sessions are addressable by name via ListAgents/SendMessage (`bugs_open/326
    ```
    Disconfirming result: the completeness agent visits a stale site (`site_discovery_rotation`) and files nothing; or files against a page whose stored array matches a fresh resolve (re-run the comparison by hand before calling it wrong).
 4. The per-run summary is in the discovery run's findings (`"summary":true` with stale/current/unknown) — `unknown > 0` on a site means a source did not resolve; that is not "current".
+
+## Post-roll acceptance (the protocol that PASSED 2026-08-25)
+```bash
+./docs/agent_docs/docs024_key_docs_latest/bugfix_384_page_list_invalidation/scripts/induce_card_landing.sh dartsonline.com barrel-shapes
+```
+⚠ **That script's kcat route FAILS** — `asset-deployer` dispatched to `system.agent.generic.requests` lands on a pod with no S3 client (`derive_card_asset: storage client not available`). Use the **work-item route** instead, which is production's own path:
+```sql
+INSERT INTO site_work_items (site_id, source, pipeline, item_type, severity, summary, spec, priority,
+                             handler_agent, status, created_by, item_key, batch_id)
+VALUES ('<site>','image-build-handler','build','needs_content_image','low','<why>',
+        '{"mode":"content_card","check":"<your_tag>","entity_type":"page","entity_id":"<page uuid>","page_name":"<page>","purpose":"card"}'::jsonb,
+        65,'asset-deployer','triaged','<your_tag>','content_image:<page>', gen_random_uuid())
+ON CONFLICT DO NOTHING;
+```
+Then wait for `build-dispatch-loop` — it runs **per site** (`load_items` takes `input_data.site_id`), roughly every 90 minutes per site, so check the rotation rather than assuming it stalled:
+```sql
+SELECT s.domain, count(*), max(o.created_at)::timestamp(0) FROM orchestration_states o
+  LEFT JOIN sites s ON s.id::text = o.collected_data->'input_data'->>'site_id'
+ WHERE o.owner_agent_type='build-dispatch-loop' AND o.created_at > now()-interval '3 hours' GROUP BY 1 ORDER BY 3 DESC;
+```
+The assertion (expect exactly N, none on an `owned` page):
+```sql
+SELECT p.name, COALESCE(p.rebuild_policy,'generic') AS policy, w.status, w.spec->>'reason', w.created_by, w.item_key
+  FROM site_work_items w JOIN pages p ON p.id=w.page_id
+ WHERE w.site_id='<site>' AND w.item_type='page_rerender' AND w.spec->>'cause'='card_landed:<page>' ORDER BY p.name;
+```
+And the causation leg — pin `pages.deployed_at` BEFORE, then require it to advance on the back of those items:
+```sql
+SELECT coalesce(collected_data->'input_data'->'spec'->>'page_name','?'), status,
+       coalesce(collected_data->'rerender_sections'->>'escalated','n/a'), current_step
+  FROM orchestration_states WHERE owner_agent_type='page-rerender'
+   AND collected_data->'input_data'->'spec'->>'cause'='card_landed:<page>';
+```
+⚠ **The served page is not the measurement on dartsonline** — it serves 12/12 because the filer hand-repaired it on 2026-08-24. The ROWS are.

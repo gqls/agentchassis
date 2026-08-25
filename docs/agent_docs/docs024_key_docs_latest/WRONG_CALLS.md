@@ -50335,3 +50335,15 @@ the same confident voice as a checked figure.** Three were caught by a peer re-r
 this one by the table refusing to hold still overnight. The generalisation is not "be careful" — it
 is that **`[MEASURED]` certifies the number and says nothing about the population**, and the
 population is where all four failures were.
+
+## 2026-08-25 — `bugfix_384_page_list_invalidation` lane: the bound I added for the council SILENCED the sweep's own motivating case, and I wrote the opposite into three documents
+
+**What I wrote.** In `bugs_open/384`, register entry PBP-048 and the lane NOTES, on 2026-08-24: *"Its first sweep will re-render the 4 sites holding the 14 stale `tool-cta` entries."* The council's Phase-2 round-1 guardian objection then asked me to bound the per-event consumer count; I did it by requiring the consuming component's template to actually render the image (`cc.html_template ~* '\.image\y'`), measured and correct on its own terms — `tool-cta` has **59** live instances as of 2026-08-25 and renders no image.
+
+**What was true.** Those two facts are the same fact. The filter that bounds the EVENT seam also narrows the SWEEP, because both read one shared lookup — which is the design. So the 14 stale `tool-cta` entries are outside the sweep's population by construction, and the sentence promising it would fix them was false the moment the filter shipped. Simulated against the live fleet on 2026-08-25 under the shipped predicate: the sweep would file **zero** items today, on any site.
+
+**Why the wrong version reads as right.** Each half was measured, dated and council-reviewed. Nothing in either measurement points at the other, and the filter's own rationale ("a stale-but-invisible array is a re-render for no visible change") is exactly the argument for excluding them — so the change was right and the claim it invalidated sat two documents away, still reading as a plan.
+
+**What caught it.** Asking, before recommending that the owner enable the sweep, *what would it actually file on the first pass?* — and simulating it rather than repeating what the bug file said.
+
+**The cheap check that would have.** When you narrow a shared predicate, grep your own lane's docs for the population you cited as the motivating case and re-run its census under the NEW predicate. One query, and it is the same rule as re-running a detector on the case that motivated it: **a bound added at a reviewer's request is a change to what your detector can see, not only to what it costs.**
