@@ -167,10 +167,22 @@ A zero with no demonstration that the measure *can* be non-zero is an argument, 
 |---|---|---|---|---|
 | `homegarden.uk/april/index.html` | 46 | **0** | **0** | **0** |
 | `homegarden.uk/august/index.html` | 46 | **0** | **0** | **0** |
-| `dartsonline.com/` *(positive control — a listing WITH data)* | 108 | 108 | **108** | **1** |
+| `dartsonline.com/` *(positive control — a listing WITH data)* | 108 | 108 | **12** | **1** |
 
-**A listing with data scores 108/1; a skipped one scores 0/0.** That is the disconfirming result §5
-was missing.
+**A listing with data scores 12 cards / 1 section; a skipped one scores 0 / 0.** That is the
+disconfirming result §5 was missing.
+
+> ⚠ **THE UNIT MATTERS AND MY FIRST VERSION OF THIS TABLE OVERSTATED IT BY 9×** (corrected
+> 2026-08-25 by the `bugs_open/381` lane, verified here). I originally recorded **108**, having
+> counted elements whose `class` attribute *contains the substring* `article-card`. Measured:
+> the page carries **12 actual cards**, each emitting **nine BEM class names** —
+> `article-card`, `__image`, `__category`, `__content`, `__title`, `__excerpt`, `__meta`,
+> `__date`, `__read-time`, twelve of each — so a substring match counts the card container **plus
+> its eight descendants**: 12 × 9 = 108.
+> **Count the class as a whole TOKEN in the class list, not as a substring.** The inflation factor
+> is the component's internal complexity, so it differs per component and looks like a real
+> quantity: `108 vs 0` invites a reader to think the gap is nine times what it is, and nothing in
+> the number itself says otherwise.
 
 > ⚠ **AND THE CONTROL CARRIES A TRAP WORTH MORE THAN ITSELF: THE CONTAMINANT IS SITE-DEPENDENT.**
 > On `homegarden.uk` the class name appears **46 times inside an inlined `<style>` block**, so a raw
@@ -180,9 +192,9 @@ was missing.
 >
 > **So a markup-counting command verified on one site can be silently wrong on the next**, and
 > "I checked this grep and it was fine" is worthless as assurance. **Strip `<style>` and `<script>`
-> unconditionally**, and count ELEMENTS (`<tag ... class="…x…">`) rather than string occurrences —
-> the element form is immune to both CSS and to the class name appearing in prose or a data
-> attribute.
+> unconditionally**, and count elements bearing the class **as a whole token in the class list** — not string
+> occurrences (inflated by every BEM descendant) and not substring matches on the attribute (same
+> inflation). The token form is immune to CSS, to prose mentions, and to BEM.
 
 **Provenance of this section:** the positive control and the CSS observation are the `bugs_open/381`
 lane's; verified here independently before recording. Their framing of why it matters is the best
