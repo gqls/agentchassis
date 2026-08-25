@@ -7,7 +7,7 @@
 // which of them actually issue SQL containing the card join, then requires the
 // two sets to be identical in both directions.
 //
-// Why not a source scan: a scan would make the comment above pageImageJoins
+// Why not a source scan: a scan would make the comment above PageImageJoinsSQL
 // load-bearing (the a-source-scanning-test-makes-comments-load-bearing trap).
 // Recording the SQL the handler executes is the behaviour, not a description
 // of it.
@@ -30,7 +30,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// cardJoinNeedle is the one fragment of pageImageJoins that no other query in
+// cardJoinNeedle is the one fragment of PageImageJoinsSQL that no other query in
 // this package carries: the entity-linked card predicate.
 const cardJoinNeedle = "ca.purpose = 'card'"
 
@@ -65,8 +65,8 @@ func recordedSQLFor(t *testing.T, base string) []string {
 }
 
 func TestPageImageSourcesMatchTheResolversThatReadCards(t *testing.T) {
-	if !strings.Contains(pageImageJoins, cardJoinNeedle) {
-		t.Fatalf("pageImageJoins no longer contains %q — update cardJoinNeedle to a fragment unique to the card join, or this test cannot see the join at all", cardJoinNeedle)
+	if !strings.Contains(PageImageJoinsSQL, cardJoinNeedle) {
+		t.Fatalf("PageImageJoinsSQL no longer contains %q — update cardJoinNeedle to a fragment unique to the card join, or this test cannot see the join at all", cardJoinNeedle)
 	}
 
 	reads := map[string]bool{}

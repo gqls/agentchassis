@@ -177,7 +177,7 @@ var queryHandlers = map[string]queryHandler{
 	},
 }
 
-// pageImageSources names the query bases whose resolvers splice pageImageJoins
+// pageImageSources names the query bases whose resolvers splice PageImageJoinsSQL
 // — i.e. whose items carry an `image` computed from the page's CARD asset
 // (assets.entity_type='page', purpose='card') with the current plan hero as
 // the fallback. Declared beside queryHandlers, and pinned to it by
@@ -392,7 +392,7 @@ func pageListEligibilitySQL(listedOnly bool) string {
 	return FetchablePageEligibilitySQL
 }
 
-// pageImageProjection / pageImageJoins are the shared SQL fragments that give
+// PageImageProjectionSQL / PageImageJoinsSQL are the shared SQL fragments that give
 // every page-listing query its item image (Phase I3, Lane B). Two candidates,
 // in preference order:
 //   - ca: the page's entity-linked CARD asset (assets.entity_type='page' +
@@ -401,14 +401,24 @@ func pageListEligibilitySQL(listedOnly bool) string {
 //     always-present fallback until a card is derived.
 //
 // Alias `p` for pages is required in the enclosing query. The lateral hero
-// lookup runs per returned row; listings are capped at 24 rows so this stays
-// cheap.
-const pageImageProjection = `
+// lookup runs per returned row; the resolvers below cap at 24 rows so this
+// stays cheap — a caller that splices these fragments into an UNCAPPED query
+// pays the lateral per row (rebuild_blog_listing does; see its note).
+//
+// EXPORTED 2026-08-25 (bugs_open/384 decision 3). They were package-private
+// while the resolvers here were the only readers. They are not any more:
+// `rebuild_blog_listing` derives the SAME article set for the SAME blog page
+// and was hand-writing `"image": ""` for every article, which made it a second
+// writer of a field the 384 seam exists to keep correct. Sharing the fragments
+// is the same remedy this package already applies to the eligibility floor
+// (ListedPageEligibilitySQL): one definition, so the two cannot disagree about
+// what a listing item's image IS.
+const PageImageProjectionSQL = `
 		    COALESCE(ca.asset_key, '') AS card_key,
 		    COALESCE(ha.asset_key, '') AS hero_key,
 		    COALESCE(ha.purpose, '')   AS hero_purpose`
 
-const pageImageJoins = `
+const PageImageJoinsSQL = `
 		LEFT JOIN assets ca
 		  ON ca.site_id = p.site_id AND ca.entity_type = 'page'
 		 AND ca.entity_id = p.id AND ca.purpose = 'card' AND ca.status = 'active'
@@ -422,17 +432,24 @@ const pageImageJoins = `
 		     LIMIT 1
 		) ha ON true`
 
-// pageImageCols carries the scanned image candidates for one listing row.
-type pageImageCols struct {
+// PageImageCols carries the scanned image candidates for one listing row.
+type PageImageCols struct {
 	CardKey     string
 	HeroKey     string
 	HeroPurpose string
 }
 
-// webPath resolves the item's image to a deployed git path: card first, plan
+// WebPath resolves the item's image to a deployed git path: card first, plan
 // hero second, empty when the page has neither. Never assets.url — that holds
 // an expiring presigned S3 URL.
-func (c pageImageCols) webPath() string {
+//
+// The card-first/hero-second preference is the WHOLE contract, and a caller
+// that wants only the purpose-built crop cannot express that here — measured
+// 2026-08-25, loancalculator.co.uk has 0 of 10 tool pages with a card, so its
+// listing items resolve to full-bleed page heroes. Changing that means a
+// card-only key in the item shape, which is a change to the shared query.*
+// seam, not a tweak here.
+func (c PageImageCols) WebPath() string {
 	if c.CardKey != "" {
 		return storage.DeployedWebPath(c.CardKey, "card")
 	}
@@ -518,9 +535,9 @@ func resolvePagesWhereType(
 		    p.url,
 		    COALESCE(p.meta_description, '')        AS meta_description,
 		    COALESCE(p.nav_label, p.title, p.name)  AS nav_label,
-		    `+pageImageProjection+`
+		    `+PageImageProjectionSQL+`
 		FROM pages p
-		`+pageImageJoins+`
+		`+PageImageJoinsSQL+`
 		WHERE p.site_id   = $1
 		  AND p.page_type = $2
 		  AND p.status   IN ('active', 'deployed')`+eligibility+`
@@ -535,7 +552,7 @@ func resolvePagesWhereType(
 	items := make([]map[string]interface{}, 0)
 	for rows.Next() {
 		var name, title, url, metaDesc, navLabel string
-		var img pageImageCols
+		var img PageImageCols
 		if err := rows.Scan(&name, &title, &url, &metaDesc, &navLabel, &img.CardKey, &img.HeroKey, &img.HeroPurpose); err != nil {
 			logger.Warn("resolvePagesWhereType: scan failed", zap.Error(err))
 			continue
@@ -546,7 +563,7 @@ func resolvePagesWhereType(
 			"url":              url,
 			"meta_description": metaDesc,
 			"nav_label":        navLabel,
-			"image":            img.webPath(),
+			"image":            img.WebPath(),
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -606,12 +623,12 @@ func resolvePagesUnderSection(
 		    p.url,
 		    COALESCE(p.meta_description, '')       AS meta_description,
 		    COALESCE(p.nav_label, p.title, p.name) AS nav_label,
-		    `+pageImageProjection+`
+		    `+PageImageProjectionSQL+`
 		FROM pages p
 		JOIN site_areas sa
 		  ON sa.id = p.site_area_id
 		 AND sa.site_id = p.site_id
-		`+pageImageJoins+`
+		`+PageImageJoinsSQL+`
 		WHERE p.site_id = $1
 		  AND (lower(sa.name) = lower($2)
 		       OR sa.url_prefix = $2
@@ -628,7 +645,7 @@ func resolvePagesUnderSection(
 	items := make([]map[string]interface{}, 0)
 	for rows.Next() {
 		var name, title, url, metaDesc, navLabel string
-		var img pageImageCols
+		var img PageImageCols
 		if err := rows.Scan(&name, &title, &url, &metaDesc, &navLabel, &img.CardKey, &img.HeroKey, &img.HeroPurpose); err != nil {
 			logger.Warn("resolvePagesUnderSection: scan failed", zap.Error(err))
 			continue
@@ -639,7 +656,7 @@ func resolvePagesUnderSection(
 			"url":              url,
 			"meta_description": metaDesc,
 			"nav_label":        navLabel,
-			"image":            img.webPath(),
+			"image":            img.WebPath(),
 		})
 	}
 	if err := rows.Err(); err != nil {

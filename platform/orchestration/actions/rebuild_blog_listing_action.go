@@ -93,7 +93,29 @@ import (
 // been deliberately `archived`. That second gap defeated archiving, which is
 // the containment route the fleet relies on for a dead page.
 //
-// Alias contract: `p` for pages, as the shared constants require.
+// THE IMAGE IS THE SHARED PROJECTION, NOT A BLANK (bugs_open/384 decision 3,
+// 2026-08-25). This query used to omit the image entirely and the scan loop
+// wrote `"image": ""` for every article. That made this action a SECOND WRITER
+// of `content_data.articles` on a field the 384 seam exists to keep correct:
+// leopardessconsulting.co.uk's blog page carries `blog-listing_pre_037`, which
+// declares `articles` ← `query.blog_posts` AND renders `.image`, so it is a 384
+// consumer. A card landing there makes the seam re-resolve the array with the
+// real image; the next `rerender-pages` run (42 in the 14 days to 2026-08-25,
+// and this is an unconditional step in it) blanked it again. Last writer won.
+//
+// Measured before changing it, 2026-08-25: 3 live blog-index listings, 47
+// listed articles, 47 blank images — and 0 of the 47 has a card asset or a plan
+// hero. So the shared projection returns "" for every one of them TODAY and
+// this change alters no stored byte. It is a door-closing fix, not a repair;
+// do not quote it as having fixed a visible listing.
+//
+// ⚠ UNCAPPED, unlike the resolvers. PageImageJoinsSQL's lateral hero lookup
+// runs per returned row, and resolvePagesWhereType caps at 24 while this query
+// has no LIMIT at all. Cheap at today's volumes (the largest listing is 20
+// articles); it is stated here so the cost is known rather than discovered.
+//
+// Alias contract: `p` for pages, as the shared constants require. `ca` and `ha`
+// come from PageImageJoinsSQL and do not collide with the `pc` subquery below.
 const blogPostsQuery = `
 		SELECT p.id, p.name, p.url, p.title,
 		       COALESCE(p.meta_description, ''),
@@ -104,8 +126,10 @@ const blogPostsQuery = `
 		            WHERE pc.page_id = p.id
 		              AND COALESCE(pc.slot_name, '') NOT IN ('header', 'footer', 'head')),
 		           0
-		       ) as content_length
+		       ) as content_length,
+		       ` + queryresolve.PageImageProjectionSQL + `
 		FROM pages p
+		` + queryresolve.PageImageJoinsSQL + `
 		WHERE p.site_id = $1
 		  AND p.page_type = 'blog-post'
 		  AND p.status IN ('active', 'deployed')` + queryresolve.ListedPageEligibilitySQL + `
@@ -186,39 +210,7 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 	}
 	defer rows.Close()
 
-	var articles []map[string]interface{}
-	for rows.Next() {
-		var id uuid.UUID
-		var name, url, title, metaDesc string
-		var createdAt time.Time
-		var contentLength int
-		if err := rows.Scan(&id, &name, &url, &title, &metaDesc, &createdAt, &contentLength); err != nil {
-			logger.Warn("Failed to scan blog post", zap.Error(err))
-			continue
-		}
-
-		// Strip " | Company Name" suffix from titles
-		cleanTitle := title
-		if idx := strings.LastIndex(cleanTitle, " | "); idx > 0 {
-			cleanTitle = cleanTitle[:idx]
-		}
-
-		// Truncate excerpt
-		excerpt := metaDesc
-		if len(excerpt) > 200 {
-			excerpt = excerpt[:197] + "..."
-		}
-
-		articles = append(articles, map[string]interface{}{
-			"title":     cleanTitle,
-			"url":       url,
-			"excerpt":   excerpt,
-			"date":      createdAt.Format("Jan 2, 2006"),
-			"category":  "",
-			"image":     "",
-			"read_time": estimateReadTime(contentLength),
-		})
-	}
+	articles := scanBlogArticles(rows, logger)
 
 	// How many articles the listing carried BEFORE this rebuild. Read for the
 	// shrink check below; -1 means "no previous set to compare against".
@@ -412,6 +404,61 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		"component_id": componentID.String(),
 		"slot_name":    slotName,
 	}, nil
+}
+
+// scanBlogArticles projects blogPostsQuery's rows into the listing item shape.
+//
+// EXTRACTED from the action's inline loop 2026-08-25 (bugs_open/384 decision 3)
+// so the SCAN CONTRACT is testable. The image arrives as three columns spliced
+// in from queryresolve.PageImageProjectionSQL, and a projection that gains or
+// reorders a column breaks this Scan at RUNTIME, not at compile time — the same
+// failure class the alias-contract test already guards for the eligibility
+// fragment. Driving this function with mock rows is the only DB-free way to
+// prove the column count and order still line up.
+//
+// A row that fails to scan is logged and skipped rather than failing the
+// rebuild: one malformed post must not blank a whole listing (the caller
+// treats an empty set as "leave the existing listing alone", so a hard failure
+// here would be indistinguishable from "no posts").
+func scanBlogArticles(rows *sql.Rows, logger *zap.Logger) []map[string]interface{} {
+	var articles []map[string]interface{}
+	for rows.Next() {
+		var id uuid.UUID
+		var name, url, title, metaDesc string
+		var createdAt time.Time
+		var contentLength int
+		var img queryresolve.PageImageCols
+		if err := rows.Scan(&id, &name, &url, &title, &metaDesc, &createdAt, &contentLength,
+			&img.CardKey, &img.HeroKey, &img.HeroPurpose); err != nil {
+			logger.Warn("Failed to scan blog post", zap.Error(err))
+			continue
+		}
+
+		// Strip " | Company Name" suffix from titles
+		cleanTitle := title
+		if idx := strings.LastIndex(cleanTitle, " | "); idx > 0 {
+			cleanTitle = cleanTitle[:idx]
+		}
+
+		// Truncate excerpt
+		excerpt := metaDesc
+		if len(excerpt) > 200 {
+			excerpt = excerpt[:197] + "..."
+		}
+
+		articles = append(articles, map[string]interface{}{
+			"title":    cleanTitle,
+			"url":      url,
+			"excerpt":  excerpt,
+			"date":     createdAt.Format("Jan 2, 2006"),
+			"category": "",
+			// The SHARED projection, never a blank (bugs_open/384 decision 3):
+			// card crop first, plan hero second, "" when the page has neither.
+			"image":     img.WebPath(),
+			"read_time": estimateReadTime(contentLength),
+		})
+	}
+	return articles
 }
 
 // findBlogPage locates the blog listing page for a site.
