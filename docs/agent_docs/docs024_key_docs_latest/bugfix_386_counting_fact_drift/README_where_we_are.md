@@ -62,3 +62,39 @@ it here.
 
 Nothing has been changed on any live site yet. The only thing written so far is this lane's own
 notes.
+
+## 2026-08-25 — the number on the broken page was never written by the writer
+
+An hour after I wrote the plan above I checked something I should have checked first: how the
+number on the convicted page actually got there. It changes the order of the work, so I want to be
+straight about it rather than quietly re-planning.
+
+Two things came out of it.
+
+The first is good news. Your ruling — say "at least N", or don't print the number — is already
+running in production on five facts, and somebody arrived at it by hand before you ruled. One of
+them reads "more than 10 live production sites", with the live count of 26 kept available behind the
+scenes and an explicit note telling the writer to state a floor and never the exact figure. That is
+your ruling, working, on a live site. So Phase A copies a template we already have rather than
+inventing one, which makes it a much smaller and safer job than I had assumed.
+
+The second is more awkward. The five facts that actually convict the fundamentallyai page carry no
+writer instruction at all — they never told the writer anything. The numbers on that page came from
+a chart component whose whole job is to render the register, and the figure is frozen into the
+stored component as it was on Saturday. So "phrase it as at least N" has nothing to attach to
+there: there is no sentence, only a chart.
+
+Which means, for the case that started this bug, your ruling's *other* half is the one that applies
+— the part you explicitly left standing, where the register learns to remember the values it used
+to hold. And it is the right answer for a chart rather than a workaround, because the chart already
+prints its own date: "11,513, verified 23 August" is true for ever. Nobody needs to re-render
+anything. The register just has no way to agree with a page about last Saturday.
+
+There is also a smaller correction worth having. I said the problem covered thirteen facts. It
+covers far fewer in practice. Most of those thirteen are counts of things you could list on your
+fingers — eight archetypes, six manufacturers, four guides — and the writer instruction for several
+of them names every item. An exact count is the honest form there, and converting them to "at
+least" would weaken the checker for nothing. The genuinely fast-moving ones are four figures on
+fundamentallyai and two on leopardess. That is the real size of it.
+
+Still nothing changed on any live site.

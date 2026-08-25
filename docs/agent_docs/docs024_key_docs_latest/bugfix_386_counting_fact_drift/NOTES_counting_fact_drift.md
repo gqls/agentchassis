@@ -84,3 +84,68 @@ substring test, so a `gte` fact vouches for every smaller number near a term it 
 supports has risen by 3,213 since the figure was taken. So the caveat is *understated*, not wrong.
 Reported back to the 364 lane. This is the third document in two days to quote a counting fact
 that had moved by the time it was read, which is itself the argument for the ruling.
+
+## 2026-08-25 later still — the 13 facts do NOT take one remedy, and the motivating case takes the ruling's *other* half
+
+Prompted by an FYI from the `bugs_open/387` session (its lane: the writer shipped the literal
+`NNN` placeholder 14 times because the unscoped prompt carries only `writer_block`, never the fact
+values). That made me check how each exposed fact's number actually reaches the page before
+designing anything, and the answer splits the population.
+
+`[MEASURED 2026-08-25]` `writer_line` + `writer_block_managed` for all 29 sql-sourced number facts:
+
+**(a) The ruling is already implemented on 5 facts, by hand, and it works.** `F1-live-sites` is
+`gte` 26 with `writer_line` = *"more than 10 live production sites … (live count {value}; state a
+FLOOR, never the exact number)"*. Same shape on `F2-council-seats` ("more than a dozen"),
+`C1-records-verified` ("more than 2,000"), `C4-agent-definitions-catalogue` ("more than 150
+… ({value} at the last live count)"). A rounded-down floor, with the live value available to the
+substituter and an explicit instruction not to state it. **That is the owner's ruling, in
+production, predating the ruling.** Phase A copies this template rather than inventing one — and it
+is also evidence the ruling is implementable without the accidental-support hole, because all four
+carry narrow multi-word terms.
+
+**(b) The five facts that actually convict the page have NO `writer_line` at all.** F9, F10, F11,
+F12, F13 — precisely the bug's §1 evidence. `composeWriterBlock` composes from `writer_line`, so
+these five contribute **nothing** to the writer's instructions while still being used by
+`numberSupported` to convict. The numbers on the convicted page were therefore never written under
+instruction from these facts.
+
+Where they came from instead:
+```
+capabilities | evidence-chart | evidence-chart | comp_updated 2026-08-23 | deployed 2026-08-24
+old_in_content_data = t | old_in_rendered = t | new_in_content_data = f
+```
+The stale value is **frozen into `content_data`**, written on 08-23 when the register said 11513;
+today's 11828 is absent from it. So this is a stored snapshot produced by the component that exists
+to render the register.
+
+**Three consequences, and they reorder the lane:**
+
+1. **The ruling's prose remedy cannot reach the motivating case.** There is no `writer_line` to
+   rewrite, and "express it as at least N" is a *prose* instruction; the convicted content is a
+   chart. §4b anticipated this by explicitly preserving candidate 1 — for this component class
+   candidate 1 is not a tolerance widening, it is the *semantically correct* answer, because the
+   chart already renders its own `verified 2026-08-23` stamp. "11513 verified 2026-08-23" is a true
+   statement for ever, and needs no re-render at all. The register simply cannot currently agree.
+2. **An assemble-mode rerender would republish the stale bytes.** Only a regenerating rerender
+   (`rerender_sections`, i.e. reason ∈ `image_landed` / `section_data_resolved` / `cta_links_stale`)
+   recomputes `content_data`. Any Phase C design must pick the reason deliberately; the default
+   route is the one that cannot fix this.
+3. **The real exposure is far smaller than 13.** Of the 13 `exact` sql facts, the fast movers are
+   fundamentallyai F9/F10 (+~180 a day) and F11/F12 (+17 / +39 a day), plus leopardess
+   `C1-ch-vet-mirror` and `C1-records-enriched`. The rest are small counts of *enumerable* things —
+   `vonc-archetypes` 8 (and its writer_line names all eight), `vonc-guides` 4, `vonc-tools` 6,
+   `rh-manufacturers` 6 (names all six), `rh-grippers` 10, and `F14-interactive-tools` 5 whose
+   writer_line says *"an EXACT count — do not round it or state a floor"*. For those, exact is the
+   honest form and the ruling's stronger option does not apply; converting them to `gte` would be
+   the accidental-support mistake for no benefit.
+
+So: **the ruling applies cleanly to about two prose facts on leopardess; the bug's own motivating
+damage takes Phase B.** I had committed the order as "ruling first, durable fix second" an hour
+ago. That is right as a default and wrong for the case that filed the bug — recorded here rather
+than quietly re-ordered.
+
+`writer_block_managed` is `true` on fundamentallyai and leopardess, unset on robot-hands and vonc —
+though both unmanaged sites already use `{value}` in every writer_line, which is worth passing back
+to 387: whatever blocks unmanaged sites from machine substitution, it is not the absence of
+`{value}` in their lines.
