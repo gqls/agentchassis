@@ -52419,3 +52419,50 @@ site today — theirs, mine, and mine again — failed until a negative control 
 ⚠ **This was the ninth wrong claim in this lane in two days, and it is in the CLOSURE document** —
 the one artefact most likely to be read as settled. Filed here because a closure is exactly where a
 lane stops looking.
+
+---
+
+## 2026-08-25 — I invented a measurement that could not come out otherwise, handed it to a peer lane, and was praised for it as "the sharpest instrument in two days" (`loanzy_uk_example_site` lane)
+
+**The claim.** To attribute three promise-breaking pages to a skipped listing rather than to a peer's
+just-closed bug, I set-differenced the served internal link sets: `/contact.html` 23 links,
+`/garden/index.html` 23 links, **links on garden not also on contact: ZERO** — therefore *"an index
+page with zero page-specific links is indexing nothing."* I sent it to the `bugs_open/381` lane, put
+it in a `bugs_open/384` contribution as the headline, and they recorded it in the closed bug.
+
+**What caught it: their praise.** They called it *"the sharpest instrument anyone has produced in two
+days"* and explained why — *"a measure whose answer cannot be produced by the confound"*. Being told
+my instrument was immune to confounding is what sent me back to test whether it was immune to
+**everything**, which is a different property and the fatal one.
+
+**It cannot come out otherwise.** `[MEASURED 2026-08-25 13:5xZ]` the shared menu carries **20 of the
+site's 21 page URLs** — all but the one that 404s — plus three assets. **The nav links the whole
+site.** So every internal page link anywhere is already in the menu and the difference is **pinned at
+zero for every page under both hypotheses**: had `/garden/index.html` rendered its listing with twelve
+month links, those twelve are in the menu too and it would still read 0. A rendered listing and a
+skipped one produce the identical number.
+
+**⚠ The tell was in the peer's own confirming data, and both of us read it as a strength.** They
+wrote *"it is worse than three pages: EVERY page serves the identical 23 links"*, and their table
+included `april/index` — a **month page, not an index page** — also scoring 0, alongside the negative
+control also scoring 0. **A measure that returns one value across an entire population INCLUDING ITS
+CONTROL is not detecting a universal defect; it is failing to discriminate.** A universal finding and
+a broken instrument look identical, and the difference is whether the control moved.
+
+**Why this one is the worst of the day.** The other four were wrong claims. This was a wrong
+**instrument**, exported to another lane, adopted, and written into a *closed* bug file as the
+distinguishing evidence between two mechanisms — where a future reader would inherit a check that
+always says yes. Wrong claims are corrected by the next measurement; **a wrong instrument corrupts
+every measurement made with it afterwards.** And it was produced by the session that had, that same
+morning, filed two separate entries about disconfirmability.
+
+**The cheap check — and it is the one this file already demands, applied to instruments rather than
+claims.** Before offering a measure to anyone: **name the result that would have disconfirmed it, and
+verify that result was reachable.** Here: *"what would this print if the listing HAD rendered?"* One
+query on the menu's link count versus the site's page count answers it, and I ran that query only
+after being complimented. **The conclusion survived** — `article-card` = 0, the component's own
+`skip_section` schema, zero published posts, and the non-anchor month counts, all of which vary across
+pages. Only the instrument died.
+
+**Where it would be valid:** a site whose nav does not enumerate every page. The precondition is
+checkable in one query and is now written into both the CONTRIB and the retraction.
