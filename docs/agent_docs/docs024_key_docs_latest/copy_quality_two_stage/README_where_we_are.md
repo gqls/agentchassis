@@ -685,3 +685,45 @@ that took the most recent one — and it told me an edit had finished when it ha
 because I also looked at whether the text had actually changed, and it hadn't. Writing the lesson down
 did not stop me repeating it, which is why the check now lives inside the script rather than in a
 document I have to remember to reread.
+
+---
+
+**2026-08-25.** Four things happened today, and one of them is yours to decide.
+
+**The plumbing you approved is now fully on.** The change that sends tone findings to the copy editor
+instead of rebuilding the page went live this morning, and by the afternoon every machine in the
+fleet was running it. I proved it by asking the running program what it contains rather than trusting
+the deployment paperwork. No finding has arrived through the new route yet — tone complaints really
+are as rare as the safety argument said, roughly one a week — so the first automatic run is still
+ahead of us, and I'll verify it end to end when it comes.
+
+**The checker had a fault of its own, found by our first outside user, and it is fixed.** Another
+team ran the editor on their page, and our checker wrongly complained on three of their four changes
+that a required link was missing — it was demanding every edited field contain the link, when a
+heading can never contain one. Worse, the one edit it complained about loudest was actually *adding*
+a link their page had been missing all along. That kind of false alarm is dangerous beyond the
+annoyance: a check that cries wolf teaches people to scroll past it, and sitting right next to the
+false alarm was a real problem (their edit deletes an entire numbered list). The checker now asks the
+right question — is the link still somewhere on the page after the edit — and I proved the fix both
+ways: it stays quiet on their heading, and it still shouts if a link genuinely vanishes from the
+whole page. I've told that team the false alarm is withdrawn and the real problem stands.
+
+**The proposal waiting for your approval has gone stale, and I'd ask you not to approve two-thirds of
+it.** The three edits on the AI-orchestration homepage were written against last Thursday's version of
+the page, and that page rebuilds itself daily. Re-checked today: two of the three edits would now
+write numbers onto the page that no longer match what the page says — the checker catches exactly
+this, which is why re-checking before acting is the rule. The third edit (the call-to-action cut you
+saw quoted last time) still checks out clean. So: **approve the call-to-action cut if you want it;
+the other two need to be re-proposed against the current page** rather than patched.
+
+**And the big one: your verdict on the finetuning pages reached this lane.** You said the pages fail
+the "would a person actually say this" test and that this machinery needs to substantially improve —
+that landed here in writing this morning, with the specimens. The uncomfortable, useful fact in it:
+the other team's own checklist scored the worst section as clean hours before you rejected it. Our
+pattern lists catch the tics we've already named; your ear catches a register — the methodical
+scaffolding, the performed candour — that no list of banned phrases will ever pin down. So the honest
+position is that "substantially improve" is not another rule added to a checklist; it needs a
+different kind of acceptance test, closer to your sentence than to our patterns. **That's the
+direction question I need from you before this lane starts building:** whether you want us to pursue
+this — a rewrite capability judged by something nearer taste than rules — as the lane's next major
+piece of work, ahead of everything else on the list.

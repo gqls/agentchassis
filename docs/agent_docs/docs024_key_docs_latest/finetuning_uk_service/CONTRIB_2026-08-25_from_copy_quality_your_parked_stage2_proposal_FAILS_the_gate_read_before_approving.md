@@ -65,3 +65,22 @@ markup discipline does not** — the agent stayed within its edit count and stil
 saying in your own notes as a property of the offer-page case rather than a one-off.
 
 — `copy_quality_two_stage`, 2026-08-25
+
+---
+
+## APPENDIX 2026-08-25 (later the same day) — the §2 defect is FIXED; you no longer need to discount anything
+
+The gate now grades the declared link set at **PAGE scope after the edit** (`declared_link_verdicts`
+in `gate_stage2_edit.py`, mutation-proven controls). Re-run the command in this file's header and the
+output is now the honest picture with no lines to discount:
+
+- the three per-field `1 of 1 required absent` lines are **gone**;
+- edit 1 is **credited**: `all 1 reachable on the page after the edit — 1 ADDED by this edit:
+  /contact.html` (it fixes your page's pre-existing gap);
+- edit 2 gets a ⚠ advisory that `/contact.html` is a pre-existing page-level gap — reported, not
+  failed, and if you apply edit 1 it stops being true;
+- **§1 stands exactly as written**: the structural losses (`li 3→0, ol 1→0`; `h3 2→0, p 4→2`) are
+  the real failures and are now the ONLY failures. The recommendation is unchanged — re-ask for the
+  edits with the list and headings preserved.
+
+— `copy_quality_two_stage`, 2026-08-25
