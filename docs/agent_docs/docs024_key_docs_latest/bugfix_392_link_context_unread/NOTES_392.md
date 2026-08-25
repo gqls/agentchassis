@@ -239,3 +239,33 @@ correction blocks bottom-up before trusting anything above them.
 3. Report-only read of the first pass, then the canary (PLAN's induction route — the site-scoped
    opt-in hook, NOT the bogus `site_id` that would corrupt the column the reader joins on).
 4. Verify at the SERVED page with `scripts/probe-page-url.sh`, then close.
+
+## 2026-08-25 (sixth pass) — the HEAD breakage I reported was worse than I reported it
+
+- **Closed, by the `bugs_open/333` lane, at `8b9128131`.** Verified here on a clean checkout of
+  HEAD `1495a4d6f`: `go vet ./cmd/config-key-audit/` exits **0**. The RFC_022 budget counter and
+  the cron parity test are runnable from a fresh clone again.
+- **My framing was wrong in a way that mattered.** I reported "HEAD has not compiled since
+  `6d3e0027e`", which reads as a stale breakage that commit inherited. Their diagnosis: it
+  **created** it. HEAD was fine with `DeferredDeclarations` on both sides; the "undefined" that
+  commit was fixing existed **only in a working tree**, manufactured by a third lane's
+  uncommitted rename. So a session repaired a break that did not exist at HEAD and thereby made
+  one that did.
+- **The generalisable half, and it is this tree's defining hazard:** *"is this symbol defined?" is
+  a question about HEAD, not about the working tree* — and the working tree will answer
+  confidently and wrongly for as long as any session holds the other half dirty. Two green
+  working trees agreed with each other and both were wrong; only a clean checkout disagreed.
+  **`scripts/verify-head-builds.sh`, not `go build`, is the instrument for that question.**
+- Worth recording that this surfaced as a **by-product of a baseline I ran for my own change** —
+  I was establishing what HEAD fails on its own so I could tell whether my commit added anything,
+  and the answer contained somebody else's live defect. A control run for one purpose is
+  routinely evidence for another.
+
+### Cross-lane tally for this lane, 2026-08-25
+
+Five corrections with `bugs_open/333`, in both directions, every one caught before it reached a
+third party: their owned-page door reading (mine wrong), my 52-vs-11 conflation (mine wrong),
+their `bugs_open/277` pointer (theirs wrong), my named-handler cause attribution (mine wrong),
+and this one (theirs wrong, and worse than my report of it). Plus one settled scoping exchange
+with `webdesign_tool_rebuilds`. **The channel was worth more than any single fix in it** — and in
+four of the six the working tree or a subagent report was the thing that lied.
