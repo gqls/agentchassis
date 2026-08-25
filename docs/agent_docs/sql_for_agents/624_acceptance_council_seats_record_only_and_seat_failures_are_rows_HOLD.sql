@@ -1,4 +1,4 @@
--- 620_acceptance_council_seats_record_only_and_seat_failures_are_rows_HOLD.sql
+-- 624_acceptance_council_seats_record_only_and_seat_failures_are_rows_HOLD.sql
 --
 -- _HOLD: NOT for the runner. Phase 3 of the plan in
 -- docs/agent_docs/docs024_key_docs_latest/loanzy_uk_example_site/
@@ -6,8 +6,16 @@
 -- and the config half of RFC_056. Apply BY HAND, and ONLY after BOTH:
 --   (1) a chassis roll carrying `filing_mode` on write_audit_findings and the three
 --       checks build_prerequisites / heading_promise / structure_floor
---       (prove it: kubectl logs -l app=agent-chassis | grep -m1 'build provenance',
---        then git merge-base --is-ancestor <the Go commit> <that sha>);
+--       (prove it the way that WORKS — the CLAUDE.md 'build provenance' log grep is
+--        REFUTED [MEASURED 2026-08-25, bugs_open/395 lane, confirmed by the vigilant
+--        lane]: that string is emitted nowhere in this repo's Go source. Use:
+--          SELECT git_commit FROM service_binary_capabilities
+--           WHERE service='agent-chassis' AND kind='build'
+--           ORDER BY last_seen_at DESC LIMIT 1;
+--        then `git merge-base --is-ancestor c440d5c5e <that sha>` PLUS one
+--        must-be-absent and one must-be-present control commit in the same breath.
+--        [MEASURED 2026-08-25 19:5xZ] the running chassis a7459a44b… ALREADY carries
+--        c440d5c5e with both controls behaving — precondition (1) is met today);
 --   (2) the council verdict on RFC_056's submission has been READ.
 -- Applied against an older binary, part C makes every model seat's findings
 -- dispatch exactly as before (an unknown config key is ignored), part B names
@@ -32,6 +40,19 @@
 --      existing model seats (visual-design-auditor, content-quality-auditor,
 --      site-review-agent, offer-analyser, brief-fidelity-auditor). From here on their
 --      findings are VERDICT rows: status deferred, handler '', routing kept in spec.
+--      THE SEAT ARITHMETIC, in one place because council round d1342f2a caught the
+--      three phrasings drifting: the loop makes FOUR model-seat CALLS
+--      (design_audit, site_review, offer_analyser, brief_fidelity); design-audit is
+--      a compound seat whose TWO children (visual-design-auditor,
+--      content-quality-auditor) do the filing, so FIVE existing write steps get
+--      record mode here, and with the reader seat that is SIX write steps — which is
+--      what part E verifies. ⚠ STATED GAP: the seat-failure rows of part D are at
+--      the LOOP-CALL level; design-audit-agent's own internal error routes
+--      (call_visual_auditor error -> spawn_content_auditor, call_content_auditor
+--      error -> complete) swallow a CHILD failure without erroring the call, so a
+--      child-level failure leaves no row and does not withhold the pass stamp.
+--      Closing that needs an edit INSIDE design-audit-agent's workflow — a named
+--      follow-up in RFC_056 addendum 2, not smuggled into this file.
 --   D. rewires improvement-loop: mechanical seats -> acceptance seats -> the four
 --      model seats -> the reader seat -> check_seats_ran -> record_audit_pass; and
 --      every seat call plus both enrichment steps gets a record_<seat>_failed step
@@ -53,7 +74,7 @@
 
 -- Part 0: the operator asserts the binary. Replace the literal with the stamp
 -- read from the running chassis; the DO block refuses the placeholder.
--- Run as:  psql -v FILING_MODE_SHIPPED=<sha> -f 620_...HOLD.sql   (the placeholder below
+-- Run as:  psql -v FILING_MODE_SHIPPED=<sha> -f 624_...HOLD.sql   (the placeholder below
 -- is set ONLY when the operator passed nothing, and the probe refuses it).
 \if :{?FILING_MODE_SHIPPED}
 \else
@@ -61,31 +82,31 @@
 \endif
 -- psql does not interpolate :'vars' inside a dollar-quoted DO body, so the value is
 -- staged in a temp table by plain SQL and read from there.
-DROP TABLE IF EXISTS _620_operator;
-CREATE TEMP TABLE _620_operator AS SELECT :'FILING_MODE_SHIPPED'::text AS sha;
+DROP TABLE IF EXISTS _624_operator;
+CREATE TEMP TABLE _624_operator AS SELECT :'FILING_MODE_SHIPPED'::text AS sha;
 
 DO $probe$
 DECLARE v_sha text;
 BEGIN
     IF EXISTS (SELECT 1 FROM agent_definitions WHERE type = 'reader-experience-auditor' AND deleted_at IS NULL) THEN
-        RAISE EXCEPTION '620: already applied - reader-experience-auditor exists';
+        RAISE EXCEPTION '624: already applied - reader-experience-auditor exists';
     END IF;
-    SELECT sha INTO v_sha FROM _620_operator;
+    SELECT sha INTO v_sha FROM _624_operator;
     IF v_sha = 'REPLACE-WITH-THE-CHASSIS-BUILD-PROVENANCE-SHA' OR length(v_sha) < 7 THEN
-        RAISE EXCEPTION '620: refuse - set FILING_MODE_SHIPPED (-v FILING_MODE_SHIPPED=<sha>) to the chassis build-provenance sha you have verified carries filing_mode (part 0 of the header)';
+        RAISE EXCEPTION '624: refuse - set FILING_MODE_SHIPPED (-v FILING_MODE_SHIPPED=<sha>) to the chassis build-provenance sha you have verified carries filing_mode (part 0 of the header)';
     END IF;
-    RAISE NOTICE '620: operator asserts filing_mode shipped at chassis %', v_sha;
+    RAISE NOTICE '624: operator asserts filing_mode shipped at chassis %', v_sha;
 END $probe$;
 
 BEGIN;
 
-SELECT snapshot_agent('improvement-loop',           '620_acceptance_council_seats_record_only_and_seat_failures_are_rows_HOLD: pre-update');
-SELECT snapshot_agent('visual-design-auditor',      '620: pre-update (filing_mode)');
-SELECT snapshot_agent('content-quality-auditor',    '620: pre-update (filing_mode)');
-SELECT snapshot_agent('site-review-agent',          '620: pre-update (filing_mode)');
-SELECT snapshot_agent('offer-analyser',             '620: pre-update (filing_mode)');
-SELECT snapshot_agent('brief-fidelity-auditor',     '620: pre-update (filing_mode)');
-SELECT snapshot_agent('completeness-discovery-agent','620: shape source for acceptance-discovery-agent (not edited)');
+SELECT snapshot_agent('improvement-loop',           '624_acceptance_council_seats_record_only_and_seat_failures_are_rows_HOLD: pre-update');
+SELECT snapshot_agent('visual-design-auditor',      '624: pre-update (filing_mode)');
+SELECT snapshot_agent('content-quality-auditor',    '624: pre-update (filing_mode)');
+SELECT snapshot_agent('site-review-agent',          '624: pre-update (filing_mode)');
+SELECT snapshot_agent('offer-analyser',             '624: pre-update (filing_mode)');
+SELECT snapshot_agent('brief-fidelity-auditor',     '624: pre-update (filing_mode)');
+SELECT snapshot_agent('completeness-discovery-agent','624: shape source for acceptance-discovery-agent (not edited)');
 
 -- ── Part A: acceptance-discovery-agent ───────────────────────────────────────
 INSERT INTO agent_definitions
@@ -109,7 +130,7 @@ SELECT 'acceptance-discovery-agent',
 DO $a$ BEGIN
     IF (SELECT default_config #> '{workflow,steps,run_checks,config,checks}' FROM agent_definitions WHERE type='acceptance-discovery-agent' AND deleted_at IS NULL)
        IS DISTINCT FROM '["build_prerequisites","heading_promise","structure_floor"]'::jsonb THEN
-        RAISE EXCEPTION '620 A: acceptance-discovery-agent not created with the three checks (was completeness-discovery-agent''s run_checks step renamed?)';
+        RAISE EXCEPTION '624 A: acceptance-discovery-agent not created with the three checks (was completeness-discovery-agent''s run_checks step renamed?)';
     END IF;
 END $a$;
 
@@ -237,7 +258,7 @@ BEGIN
         IF NOT EXISTS (SELECT 1 FROM agent_definitions
                         WHERE type = r.agent AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
                           AND default_config #>> v_path = 'write_audit_findings') THEN
-            RAISE EXCEPTION '620 C drift: %.% is not a write_audit_findings step', r.agent, r.step;
+            RAISE EXCEPTION '624 C drift: %.% is not a write_audit_findings step', r.agent, r.step;
         END IF;
         UPDATE agent_definitions
            SET default_config = jsonb_set(default_config, ARRAY['workflow','steps', r.step, 'config', 'filing_mode'], '"record"'::jsonb, true),
@@ -259,24 +280,24 @@ BEGIN
       FROM agent_definitions
      WHERE type = 'improvement-loop' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
      ORDER BY version DESC LIMIT 1;
-    IF v_id IS NULL THEN RAISE EXCEPTION '620 D: no live improvement-loop'; END IF;
+    IF v_id IS NULL THEN RAISE EXCEPTION '624 D: no live improvement-loop'; END IF;
 
-    -- Accept EITHER the pre-619 edge or 619's bypass; refuse anything else.
+    -- Accept EITHER the pre-623 edge or 623's bypass; refuse anything else.
     v_next := v_steps #>> '{call_completeness_discovery,next_step}';
     IF v_next NOT IN ('spawn_design_audit', 'record_audit_pass') THEN
-        RAISE EXCEPTION '620 D drift: call_completeness_discovery.next_step is % (expected spawn_design_audit or 619''s record_audit_pass)', v_next;
+        RAISE EXCEPTION '624 D drift: call_completeness_discovery.next_step is % (expected spawn_design_audit or 623''s record_audit_pass)', v_next;
     END IF;
     IF v_steps #>> '{call_brief_fidelity,next_step}' IS DISTINCT FROM 'record_audit_pass' THEN
-        RAISE EXCEPTION '620 D drift: call_brief_fidelity.next_step is %', v_steps #>> '{call_brief_fidelity,next_step}';
+        RAISE EXCEPTION '624 D drift: call_brief_fidelity.next_step is %', v_steps #>> '{call_brief_fidelity,next_step}';
     END IF;
     IF v_steps ? 'check_seats_ran' OR v_steps ? 'spawn_reader_audit' OR v_steps ? 'spawn_acceptance_discovery' THEN
-        RAISE EXCEPTION '620 D drift: a step this file adds already exists';
+        RAISE EXCEPTION '624 D drift: a step this file adds already exists';
     END IF;
 
     -- D1. The acceptance seats after completeness.
     v_steps := jsonb_set(v_steps, '{call_completeness_discovery,next_step}', '"spawn_acceptance_discovery"'::jsonb, true);
     v_steps := jsonb_set(v_steps, '{call_completeness_discovery,description}',
-        '"Run completeness checks (empty sections). 620: -> acceptance seats -> model seats (record-only) -> reader seat -> check_seats_ran"'::jsonb, true);
+        '"Run completeness checks (empty sections). 624: -> acceptance seats -> model seats (record-only) -> reader seat -> check_seats_ran"'::jsonb, true);
     v_steps := v_steps || jsonb_build_object(
         'spawn_acceptance_discovery', jsonb_build_object(
             'action', 'spawn_agent',
@@ -335,7 +356,7 @@ BEGIN
       ) AS t(seat, call_step, successor, level)
     LOOP
         IF NOT (v_steps ? r.call_step) THEN
-            RAISE EXCEPTION '620 D3 drift: step % missing', r.call_step;
+            RAISE EXCEPTION '624 D3 drift: step % missing', r.call_step;
         END IF;
         -- the route: step-level everywhere; the config-level twin removed where it existed
         v_steps := jsonb_set(v_steps, ARRAY[r.call_step, 'error_step'], to_jsonb('record_' || r.seat || '_failed'), true);
@@ -372,19 +393,28 @@ BEGIN
     --     (create_work_item returns item_type whether it inserted or deduped); one that
     --     never ran resolves to nil, which compares unequal. No parentheses: OR-joined
     --     equalities need none, and the evaluator would strip them anyway.
-    IF position('(' in v_cond) > 0 THEN RAISE EXCEPTION '620 D4: parentheses in the seats condition'; END IF;
+    IF position('(' in v_cond) > 0 THEN RAISE EXCEPTION '624 D4: parentheses in the seats condition'; END IF;
     v_steps := v_steps || jsonb_build_object('check_seats_ran', jsonb_build_object(
         'action', 'conditional',
         'config', jsonb_build_object(
             'condition', v_cond,
-            'then_step', 'triage_findings',
+            'then_step', 'record_audit_attempt',
             'else_step', 'record_audit_pass'),
-        'description', 'RFC_056 rule 4: a seat that did not run must not be recorded as having passed. Any seat failure this run -> skip record_audit_pass (the fingerprint stays unaudited, so the next sweep re-audits) and go straight to triage'));
+        'description', 'RFC_056 rule 4: a seat that did not run must not be recorded as having passed. Any seat failure this run -> record_audit_attempt (cooldown stamped, PASS not counted) instead of record_audit_pass. Evaluator semantics proven by TestSeatsGate_* (absent field != literal; one present field trips the OR chain)'),
+    'record_audit_attempt', jsonb_build_object(
+        'action', 'query_database',
+        'config', jsonb_build_object(
+            'query', 'UPDATE sites SET settings = jsonb_set(jsonb_set(COALESCE(settings, ''{}''::jsonb), ''{maintenance_profile}'', COALESCE(settings->''maintenance_profile'', ''{}''::jsonb), true), ''{maintenance_profile,last_audit,at}'', to_jsonb(now()), true) WHERE id = $1',
+            'params', jsonb_build_array('site_record.site_id'),
+            'output_format', 'object'),
+        'next_step', 'triage_findings',
+        'description', 'A failed-seat sweep stamps the audit ATTEMPT (last_audit.at -> the 14-day cooldown holds, so a persistently failing seat cannot put a site on an every-sweep audit treadmill - improvement_guardian, round d1342f2a) but touches NEITHER the fingerprint nor passes_at_fingerprint: no pass is counted, rule 4 holds, and not_converging still needs three REAL passes',
+        'output_field', 'audit_attempt_recorded'));
 
     UPDATE agent_definitions
        SET default_config = jsonb_set(default_config, '{workflow,steps}', v_steps, false), updated_at = now()
      WHERE id = v_id;
-    RAISE NOTICE '620 D: improvement-loop rewired on % (% steps)', v_id, (SELECT count(*) FROM jsonb_object_keys(v_steps));
+    RAISE NOTICE '624 D: improvement-loop rewired on % (% steps)', v_id, (SELECT count(*) FROM jsonb_object_keys(v_steps));
 END $d$;
 
 -- ── Part E: verify ───────────────────────────────────────────────────────────
@@ -399,8 +429,8 @@ BEGIN
       FROM agent_definitions WHERE type = 'improvement-loop' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
      ORDER BY version DESC LIMIT 1;
     SELECT count(*) INTO v_n FROM jsonb_object_keys(v_steps);
-    -- 31 + acceptance(2) + reader(2) + check_seats_ran(1) + 11 record steps = 47
-    IF v_n <> 47 THEN RAISE EXCEPTION '620 E: expected 47 steps, got %', v_n; END IF;
+    -- 31 + acceptance(2) + reader(2) + check_seats_ran(1) + record_audit_attempt(1) + 11 record steps = 48
+    IF v_n <> 48 THEN RAISE EXCEPTION '624 E: expected 48 steps, got %', v_n; END IF;
     SELECT count(*) INTO v_dangling
       FROM (
         SELECT e.v->>'next_step' AS tgt FROM jsonb_each(v_steps) AS e(k,v) WHERE e.v ? 'next_step'
@@ -409,12 +439,12 @@ BEGIN
         UNION ALL SELECT e.v->'config'->>'then_step' FROM jsonb_each(v_steps) AS e(k,v) WHERE e.v->'config' ? 'then_step'
         UNION ALL SELECT e.v->'config'->>'else_step' FROM jsonb_each(v_steps) AS e(k,v) WHERE e.v->'config' ? 'else_step'
       ) AS edges WHERE tgt IS NOT NULL AND NOT (v_steps ? tgt);
-    IF v_dangling > 0 THEN RAISE EXCEPTION '620 E: % dangling edge(s)', v_dangling; END IF;
+    IF v_dangling > 0 THEN RAISE EXCEPTION '624 E: % dangling edge(s)', v_dangling; END IF;
     IF v_steps #> '{enrich_news_feed,config}' ? 'error_step' OR v_steps #> '{enrich_directory_features,config}' ? 'error_step' THEN
-        RAISE EXCEPTION '620 E: a config-level error_step twin survived on an enrichment step';
+        RAISE EXCEPTION '624 E: a config-level error_step twin survived on an enrichment step';
     END IF;
-    IF v_steps #>> '{check_seats_ran,config,then_step}' <> 'triage_findings' OR v_steps #>> '{check_seats_ran,config,else_step}' <> 'record_audit_pass' THEN
-        RAISE EXCEPTION '620 E: check_seats_ran wiring wrong';
+    IF v_steps #>> '{check_seats_ran,config,then_step}' <> 'record_audit_attempt' OR v_steps #>> '{check_seats_ran,config,else_step}' <> 'record_audit_pass' THEN
+        RAISE EXCEPTION '624 E: check_seats_ran wiring wrong';
     END IF;
     FOR r IN SELECT * FROM (VALUES
         ('visual-design-auditor','write_findings'),('content-quality-auditor','write_findings'),
@@ -423,13 +453,24 @@ BEGIN
     LOOP
         IF NOT EXISTS (SELECT 1 FROM agent_definitions WHERE type = r.agent AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
                          AND default_config #>> ARRAY['workflow','steps', r.step, 'config', 'filing_mode'] = 'record') THEN
-            RAISE EXCEPTION '620 E: %.% does not carry filing_mode=record', r.agent, r.step;
+            RAISE EXCEPTION '624 E: %.% does not carry filing_mode=record', r.agent, r.step;
         END IF;
     END LOOP;
     IF NOT EXISTS (SELECT 1 FROM agent_definitions WHERE type='acceptance-discovery-agent' AND is_active AND deleted_at IS NULL) THEN
-        RAISE EXCEPTION '620 E: acceptance-discovery-agent missing';
+        RAISE EXCEPTION '624 E: acceptance-discovery-agent missing';
     END IF;
-    RAISE NOTICE '620: verified - 47 steps, 0 dangling edges, 6 model seats record-only, 2 agents created, 11 seat-failure records wired';
+    RAISE NOTICE '624: verified - 48 steps, 0 dangling edges, 6 model seat write steps record-only, 2 agents created, 11 seat-failure records + the audit-attempt stamp wired';
 END $e$;
+
+-- The travelling record (tooling_provenance, round d1342f2a): the decision reaches
+-- doc_notes under the two subject keys the next session will actually query.
+INSERT INTO doc_notes (subject_type, subject_key, body, categories, source, created_by)
+VALUES
+  ('action', 'write_audit_findings',
+   'DECISION (RFC_056, migration 624): filing_mode=record is LIVE on six model-seat write steps (visual-design-auditor, content-quality-auditor, site-review-agent, offer-analyser, brief-fidelity-auditor, reader-experience-auditor). Their findings are VERDICT rows: deferred + handler '''' + routing/provenance/release_recipe in spec; both promoters refuse them; the seat''s own silence-retraction is the revalidator (RFC_056 addendum). Release = the recipe on the row. Do NOT re-point these at dispatch without reading RFC_056.',
+   '["decision"]'::jsonb, 'migration-624', 'loanzy_uk_example_site'),
+  ('decision', 'improvement-loop',
+   'DECISION (RFC_056, migration 624): the loop now runs mechanical seats -> acceptance seats (build_prerequisites, heading_promise, structure_floor; flag-only) -> four model-seat calls (record-only) -> reader seat -> check_seats_ran. Every seat call and both enrichment steps route failure to a record_<seat>_failed step (deferred capability_gap per site per seat) and a failed-seat sweep stamps the audit ATTEMPT but never a PASS. Prior art built on, not re-derived: IMP-054 (premise voided by detected-item-promoter), IMP-006 (approval-mode proposal, shipped as filing_mode), IMP-016 (gated re-enable).',
+   '["decision"]'::jsonb, 'migration-624', 'loanzy_uk_example_site');
 
 COMMIT;

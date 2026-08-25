@@ -110,6 +110,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -396,10 +397,17 @@ func (c *HeadingPromiseCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 		return result, nil
 	}
 
+	// The page set uses the estate's shared lifecycle predicate, not a hand-rolled
+	// status filter: `pages.status` has more than one live spelling (LANDMINES:
+	// "a pages query that filters on status may be filtering on NOTHING"), and a
+	// flag-only, self-clearing check that silently selects zero pages reads as
+	// "nothing to report" — the wrong direction. Council round d1342f2a
+	// (debug_historian) caught the raw spelling here; check_structure_floor had
+	// the predicate from birth.
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
-		SELECT id, url FROM pages
-		WHERE site_id = $1 AND status = 'active' AND COALESCE(url, '') <> ''
-		ORDER BY url, id`, dctx.SiteID)
+		SELECT p.id, p.url FROM pages p
+		WHERE p.site_id = $1 AND `+datahelpers.PageWantedLivePredicateFor("p")+` AND COALESCE(p.url, '') <> ''
+		ORDER BY p.url, p.id`, dctx.SiteID)
 	if err != nil {
 		return nil, fmt.Errorf("heading_promise: load pages: %w", err)
 	}

@@ -1,4 +1,4 @@
--- 619_improvement_loop_bypasses_the_llm_audit_seats_HOLD.sql
+-- 623_improvement_loop_bypasses_the_llm_audit_seats_HOLD.sql
 --
 -- _HOLD: NOT for the runner. Applied BY HAND, on the owner's word, as Phase 1 of
 -- docs/agent_docs/docs024_key_docs_latest/loanzy_uk_example_site/
@@ -68,13 +68,13 @@ BEGIN
           AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
           AND default_config #>> '{workflow,steps,call_completeness_discovery,next_step}' = 'record_audit_pass'
     ) THEN
-        RAISE EXCEPTION '619: already applied - call_completeness_discovery already bypasses the LLM seats';
+        RAISE EXCEPTION '623: already applied - call_completeness_discovery already bypasses the LLM seats';
     END IF;
 END $probe$;
 
 BEGIN;
 
-SELECT snapshot_agent('improvement-loop', '619_improvement_loop_bypasses_the_llm_audit_seats_HOLD: pre-update');
+SELECT snapshot_agent('improvement-loop', '623_improvement_loop_bypasses_the_llm_audit_seats_HOLD: pre-update');
 
 DO $edit$
 DECLARE
@@ -88,23 +88,23 @@ BEGIN
        AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
      ORDER BY version DESC LIMIT 1;
     IF v_id IS NULL THEN
-        RAISE EXCEPTION '619: no live improvement-loop row';
+        RAISE EXCEPTION '623: no live improvement-loop row';
     END IF;
 
     -- The shape this was written against [MEASURED 2026-08-25, 31 steps].
     IF v_steps #>> '{call_completeness_discovery,next_step}' IS DISTINCT FROM 'spawn_design_audit' THEN
-        RAISE EXCEPTION '619 drift: call_completeness_discovery.next_step is %, expected spawn_design_audit',
+        RAISE EXCEPTION '623 drift: call_completeness_discovery.next_step is %, expected spawn_design_audit',
             v_steps #>> '{call_completeness_discovery,next_step}';
     END IF;
     IF v_steps #>> '{call_brief_fidelity,next_step}' IS DISTINCT FROM 'record_audit_pass' THEN
-        RAISE EXCEPTION '619 drift: the LLM chain no longer ends at record_audit_pass (got %)',
+        RAISE EXCEPTION '623 drift: the LLM chain no longer ends at record_audit_pass (got %)',
             v_steps #>> '{call_brief_fidelity,next_step}';
     END IF;
     FOREACH v_seat IN ARRAY ARRAY['spawn_design_audit','call_design_audit','spawn_site_review','call_site_review',
                                   'spawn_offer_analyser','call_offer_analyser','spawn_brief_fidelity','call_brief_fidelity',
                                   'record_audit_pass'] LOOP
         IF NOT (v_steps ? v_seat) THEN
-            RAISE EXCEPTION '619 drift: step % missing', v_seat;
+            RAISE EXCEPTION '623 drift: step % missing', v_seat;
         END IF;
     END LOOP;
 
@@ -115,7 +115,7 @@ BEGIN
     UPDATE agent_definitions
        SET default_config = jsonb_set(default_config, '{workflow,steps}', v_steps, false), updated_at = now()
      WHERE id = v_id;
-    RAISE NOTICE '619: edited % - LLM seats bypassed, 31 steps kept', v_id;
+    RAISE NOTICE '623: edited % - LLM seats bypassed, 31 steps kept', v_id;
 END $edit$;
 
 DO $verify$
@@ -129,10 +129,10 @@ BEGIN
        AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
      ORDER BY version DESC LIMIT 1;
     IF v_steps #>> '{call_completeness_discovery,next_step}' <> 'record_audit_pass' THEN
-        RAISE EXCEPTION '619 verify: edge not moved';
+        RAISE EXCEPTION '623 verify: edge not moved';
     END IF;
     IF (SELECT count(*) FROM jsonb_object_keys(v_steps)) <> 31 THEN
-        RAISE EXCEPTION '619 verify: expected 31 steps (nothing deleted), got %', (SELECT count(*) FROM jsonb_object_keys(v_steps));
+        RAISE EXCEPTION '623 verify: expected 31 steps (nothing deleted), got %', (SELECT count(*) FROM jsonb_object_keys(v_steps));
     END IF;
     SELECT count(*) INTO v_dangling
       FROM (
@@ -144,9 +144,9 @@ BEGIN
       ) AS edges
      WHERE tgt IS NOT NULL AND NOT (v_steps ? tgt);
     IF v_dangling > 0 THEN
-        RAISE EXCEPTION '619 verify: % dangling edge(s)', v_dangling;
+        RAISE EXCEPTION '623 verify: % dangling edge(s)', v_dangling;
     END IF;
-    RAISE NOTICE '619: verified - mechanical seats -> record_audit_pass, 31 steps, 0 dangling edges';
+    RAISE NOTICE '623: verified - mechanical seats -> record_audit_pass, 31 steps, 0 dangling edges';
 END $verify$;
 
 COMMIT;

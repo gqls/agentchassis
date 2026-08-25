@@ -158,9 +158,9 @@ Continue-the-sweep is kept (one auditor must not strand it); the pass stamp is w
 
 | phase | what | kind | state 2026-08-25 |
 |---|---|---|---|
-| 1 | `call_completeness_discovery.next_step: spawn_design_audit → record_audit_pass` — the four model seats bypassed, not deleted; then `improvement-sweep.enabled = true` | config | migration `619_…_HOLD` written + rehearsed; **owner's word** |
+| 1 | `call_completeness_discovery.next_step: spawn_design_audit → record_audit_pass` — the four model seats bypassed, not deleted; then `improvement-sweep.enabled = true` | config | migration `623_…_HOLD` written + rehearsed; **owner's word** |
 | 2 | `filing_mode: record`; checks `build_prerequisites`, `heading_promise`, `structure_floor` | Go | in tree, tests green; council submission with this RFC; inert until roll |
-| 3 | name the three checks; create `reader-experience-auditor`; `filing_mode: record` on all five model seats' write steps; restore the Phase-1 edge; seat-failure records (§6) | config | to write as `620_…_HOLD`; apply after roll + verdict |
+| 3 | name the three checks; create `reader-experience-auditor`; `filing_mode: record` on all five model seats' write steps; restore the Phase-1 edge; seat-failure records (§6) | config | to write as `624_…_HOLD`; apply after roll + verdict |
 
 ## 8. Verdicts and routing
 
@@ -249,3 +249,93 @@ spec, so record rows are in scope by construction. So:
 **Falsifier for this addendum:** a record row whose finding stopped reproducing still open after
 its site's third audit at a new fingerprint — then the retraction's scope check is not matching
 record rows and the claim above is wrong at the join, not the design.
+
+---
+
+## ADDENDUM 2 (2026-08-25, late evening) — round 1 came back REVISE, and what each objection turned out to be
+
+Corr `d1342f2a`, gating objection from `editquality`. Triaged the way the estate's practice says to
+— a revise round is cheaper than the defect it finds, and this one found four real ones. Each line
+below says what was CHANGED or what the checked answer IS; nothing is defended that was not measured.
+
+**Real defects, fixed:**
+1. **Migration number collision** (guidelines): `619` was already the live `619_cta_bg_is_not_a_colour.sql`,
+   and `621`/`622` were taken the same day. The HOLDs are renumbered **623** (bypass) and **624**
+   (seats). Every reference in this RFC, the PLAN, the handoff and the register is updated.
+2. **The seats-gate semantics are now PROVEN, not watched** (guardian HIGH, bug_historian HIGH):
+   `conditional_branch_seats_gate_test.go` pins `compareValues(nil, "capability_gap") = false` (a
+   clean sweep stamps the pass) and one present field tripping the bracket-free OR chain (a failed
+   seat withholds it). Bonus finding while pinning the footgun: the empty-literal hole
+   (`nil == "" → true`) is UNREACHABLE in string-form conditions — the evaluator trims the
+   expression first, so a trailing ` == ` never parses — and the test pins that too.
+3. **The withheld pass stamp interacted badly with the cooldown** (improvement_guardian): a
+   persistently failing seat would have put its site on an every-sweep audit treadmill. 624 now
+   routes a failed-seat sweep to `record_audit_attempt`, which stamps `last_audit.at` (the 14-day
+   cooldown holds) while touching neither the fingerprint nor `passes_at_fingerprint` — no PASS is
+   counted, rule 4 holds, `not_converging` still needs three real passes. 48 steps, re-rehearsed.
+4. **`heading_promise` filtered pages on a raw `status = 'active'`** (debug_historian) — the exact
+   spelling the landmine warns may filter on nothing. It now carries
+   `datahelpers.PageWantedLivePredicateFor("p")` like its sibling, with the round credited in the
+   code comment.
+
+**Checked answers, no change:**
+5. **`approval_mode` exists — why a new convention?** (reuse_agent HIGH). Measured, not argued: the
+   column is read at exactly ONE door — `load_work_item_actions.go:726`, the dispatcher's loader —
+   and `[MEASURED 2026-08-25]` all **11,964** rows are `'auto'`; the review path has never been
+   exercised. A verdict row held by `approval_mode` would be promoted to `triaged` first (the
+   promoters do not read the column) and then held **in-flight** — where the silence-retraction
+   explicitly may not write (`triaged` is in `workItemInFlightStatuses`), so it would be exactly the
+   stale-forever verdict ADDENDUM 1 rules out, invisible to every census as "in flight". The
+   `deferred`+`''` shape is refused by BOTH doors and lives inside the retraction's scope. Stated
+   rather than assumed now; and IMP-006's `approval_mode` was a per-SITE proposal in any case.
+6. **`bugs_open/083` reconciliation** (bug_historian): 083 is ACCIDENTAL starvation — `detected`
+   rows nothing ever promotes. Record rows are the opposite on every distinguishing axis: parked
+   `deferred` (not `detected`), by DESIGN, stamped (`spec.filing_mode='record'`, `deferred_by`,
+   `release_recipe`), and lifecycle-owned by the seat's silence-retraction. An on-call engineer
+   tells them apart by one predicate: `spec->>'filing_mode' = 'record'`. Named in 624's doc_notes row.
+7. **`''` vs NULL at the post-078 guards** (bug_historian low): both promoter doors already coalesce
+   — `COALESCE(handler_agent,'') <> ''` (promoter pre_query; `workItemRoutableSQL`) — so empty
+   string and NULL are one value at every door that matters.
+8. **The 5-step blast radius might undercount nested steps** (guardian): re-censused by TEXT over
+   the whole config, not a top-level steps walk: 7 active rows contain the string; 5 are the model
+   seats' action steps; `council-gate` and `fix-proposer` carry it as roster PROSE (0 steps with
+   `action = 'write_audit_findings'`). The count is 5, now measured the blind-proof way.
+9. **Prior art** (prior_art_librarian): `acceptance-discovery-agent` / `reader-experience-auditor`
+   checked against the live registry — the adjacent types are `experience-approval-council`,
+   `experience-planner`, `experience-register-writer`, `tool-acceptance-agent`, none a site-facing
+   acceptance seat (the planner has no dispatch path at all, measured this morning). `filing_mode`
+   has no prior occurrence in the repo or the register; IMP-006 records the four earlier PROPOSALS,
+   none built. `check_missing_structure.go`, despite its name, checks CHROME (header/footer/head
+   rendered) — different domain from `structure_floor`; `check_voice_tells` scans prose register,
+   not heading-vs-body structure. Both now named here so the adjacency is recorded.
+10. **spec-based stamps vs `refreshOpenWorkItem`** (raised by nobody, found while answering: the
+    396 lane's park verb, migration `621_park_work_items_verb.sql`, landed the same evening and
+    chose `result` because `refreshOnConflict` producers REPLACE `spec` wholesale). Record rows are
+    safe in `spec` for a reason that must be stated, not lucky: `write_audit_findings` inserts with
+    `dropOnConflict` (never refresh), and its dedup keys are audit_source-prefixed, so the only
+    producer that can ever touch that key is the same seat through the same non-refreshing path.
+    If a refreshing producer is ever pointed at these keys, the stamps die — the park verb's
+    `result` channel is the escape hatch, and the two mechanisms are siblings, not rivals: 621 is
+    the HUMAN park (dry-run default, unskippable stamps), record mode is the MACHINE park.
+11. **Gate 1c interaction** (vigilant lane, post-roll): record rows never reach `complete`, so the
+    new completion gate never grades that producer while record mode is in force. Correct on both
+    sides — parking is the safer state — and that producer's gate-1c census going quiet is
+    EXPECTED, not evidence; stated so neither lane misreads an empty census.
+12. **The release path is raw SQL only** (architecture, low — accepted as a named follow-up): a
+    verdict-queue listing (and eventually a release surface) is owed before record rows accumulate
+    across the fleet; until then the RUNBOOK query and the per-row recipe are the interface.
+
+**Stated gap, new (from fixing the seat arithmetic):** the seat-failure rows are at the LOOP-CALL
+level; `design-audit-agent`'s own internal error routes swallow a CHILD auditor failure
+(`call_visual_auditor` error → `spawn_content_auditor`; `call_content_auditor` error → `complete`)
+without erroring the call, so a child-level failure leaves no row and does not withhold the pass
+stamp. Closing it means editing design-audit-agent's workflow — a follow-up on this RFC, not
+smuggled into 624.
+
+**Also corrected while revising:** the deploy check in 624's header. The CLAUDE.md `build
+provenance` log grep is REFUTED (`[MEASURED 2026-08-25]`, bugs_open/395 lane, confirmed
+independently: the string is emitted nowhere in this repo's Go source). The working route is
+`service_binary_capabilities` + `git merge-base --is-ancestor` with a present-control and an
+absent-control — and by that route the fleet's 19:07Z roll to v1.0.1339 (commit `a7459a44b…`)
+**already carries `c440d5c5e`**: the seam and the three seats are in the running binary, and 624's
+precondition (1) is met today.

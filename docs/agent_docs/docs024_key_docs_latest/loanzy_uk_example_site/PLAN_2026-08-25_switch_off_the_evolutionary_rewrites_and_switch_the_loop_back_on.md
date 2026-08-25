@@ -111,7 +111,7 @@ The seats stay — they are the site acceptance council the owner asked for this
 **The change:** one edge. `call_completeness_discovery.next_step` moves from `spawn_design_audit`
 to `record_audit_pass`. The eight LLM-seat steps stay in the workflow, inert and unreachable —
 nothing is deleted, and the rollback is the same edge flipped back. Migration:
-`docs/agent_docs/sql_for_agents/619_improvement_loop_bypasses_the_llm_audit_seats_HOLD.sql`
+`docs/agent_docs/sql_for_agents/623_improvement_loop_bypasses_the_llm_audit_seats_HOLD.sql`
 (+ `_ROLLBACK`). **Rehearsed 2026-08-25 against the live row inside a rolled-back transaction:**
 drift guard passed, edit + verify passed (31 steps kept, 0 dangling edges), live row untouched.
 
@@ -203,7 +203,7 @@ failed. Config only; carried by the same migration so it lands with the seats.
 
 ## 7. The choices that are yours
 
-1. **Apply 619 and switch the sweep on** — Phase 1, today. (My recommendation: yes; the seats are
+1. **Apply 623 and switch the sweep on** — Phase 1, today. (My recommendation: yes; the seats are
    preserved, the rollback is one edge, and the verification queries say within an hour whether a
    seat is still reachable.)
 2. **The render-audit rotation** — leave on, or pause until the `390` lane's commits 2 and 3 land.

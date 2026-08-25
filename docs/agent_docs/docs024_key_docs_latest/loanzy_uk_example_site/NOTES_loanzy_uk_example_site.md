@@ -1874,7 +1874,7 @@ routing in `spec` (and NOT `deferred` + named handler, which is `bugs_open/396`'
 found the same afternoon by another lane). The test names both doors so a half-fix on either fails.
 
 **Second misstep:** `firstNonEmpty` already existed in package `actions` (`write_site_plan_action.go:1071`,
-variadic) — my duplicate broke the build; removed. **Third:** 620's operator assertion used `:'VAR'` inside a
+variadic) — my duplicate broke the build; removed. **Third:** 624's operator assertion used `:'VAR'` inside a
 `DO $$` body, which psql does not interpolate → syntax error on first rehearsal; staged through a temp table.
 Then the file's own `\set` default overrode `-v` → wrapped in `\if :{?VAR}`. Both rehearsals now pass and the
 placeholder refuses.
@@ -1891,7 +1891,7 @@ never meet; landmark-only header/footer stripping because homegarden's calendar 
 inside `<main>`), `check_structure_floor.go` (792/673). `verify-head-builds.sh --with` ×10 against HEAD
 `f3c1da996`: OK. Both packages green.
 
-**Config:** `619_…_HOLD` (one edge, seats bypassed not deleted; 31 steps, 0 dangling) and `620_…_HOLD`
+**Config:** `623_…_HOLD` (one edge, seats bypassed not deleted; 31 steps, 0 dangling) and `624_…_HOLD`
 (acceptance + reader agents, record mode on six seats, 11 seat-failure records, `check_seats_ran`; 47 steps,
 0 dangling) — both rehearsed forward and apply-then-rollback. Neither applied. RFC_056 drafted. Register
 IMP-056/057. PLAN written for the owner.
