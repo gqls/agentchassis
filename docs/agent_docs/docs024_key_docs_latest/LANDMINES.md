@@ -17870,3 +17870,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** WDS-002 (corrected 2026-08-25) · `bugs_open/398` · the entry above · council round 2 architecture seat (`db9b7cbf`: "two copies of logic that must stay in sync is itself a small accumulating cost")
 - **source:** 2026-08-25, dispatch_throughput lane, on finding `213` untracked in the tree while answering that objection.
 - **added:** 2026-08-25, dispatch_throughput lane
+
+### `du` as a normal user cannot see `/var/lib/docker`, and reports `4.0K` rather than an error — every disk census on this box has been a census of a quarter of it
+
+- **footprint:** `du -xsh`, `du -x /`, `/var/lib/docker`, `/var/lib/containerd`, `docker system df`, `docker builder prune`, `~/.cache/go-build`, `df -h /`, any "the disk is filling" investigation
+- **fires when:** you size a filesystem with `du` — top-level sweep, biggest-consumers list, before/after cleanup table — as an unprivileged user, on a machine that runs Docker. Which is this one.
+- **the trap:** `/var/lib/docker` is root-owned and mode 0710. `du -xsh /var/lib/docker` returns **`4.0K`**. That is **not an error, not a zero, and not a refusal** — it is exactly what an empty directory looks like, and the `2>/dev/null` on every `du` recipe in this estate discards the one `cannot read directory` line that would have corrected it. `[MEASURED 2026-08-25]` the real contents were **539 GB of Docker build cache** (6,052 records, 437.9 GB reclaimable) plus **104 GB of images**, i.e. **~64% of a 937 GB disk**, invisible to every figure this lane published for three days — including a confident before/after cleanup table.
+- **why the wrong answer looks exactly like the right one:** the sweep *succeeds*. It returns a plausible, well-formed, sorted list of consumers whose largest entries are real. Nothing is missing from the output; the output is simply of a different, smaller thing than you asked about. A 98.7 GB clean-up was measured, reported and celebrated against a denominator that excluded the actual dominant consumer.
+- **the check, and it costs nothing — RECONCILE `du` AGAINST `df` BEFORE BELIEVING ANY DISK CENSUS:**
+  ```bash
+  du -xsb / 2>/dev/null | awk '{printf "du:  %.1f GB\n", $1/2^30}'
+  df -B1 --output=used / | tail -1 | awk '{printf "df:  %.1f GB\n", $1/2^30}'
+  # 2026-08-25: du 226 GB vs df 754 GB. A 528 GB gap means YOU CANNOT SEE THE DISK.
+  docker system df                      # the part du cannot reach
+  du -x / 2>&1 >/dev/null | head        # and READ the denied lines instead of discarding them
+  ```
+  **Rule out deleted-but-open files first** — the other classic `du`/`df` divergence, and it was ruled out here (`lsof -nP | awk '/\(deleted\)/'` → 0.9 GB, not 528). If that is small, the gap is something you cannot read, not something being held.
+- **⚠ AND DO NOT PRUNE THE IMAGES TO MATCH.** `docker system df` reported **1,034 images / 1 ACTIVE**, which reads as "1,033 are dead". It is not: images share layers, and docker's own reclaimable figure was **11.41 GB, not ~90 GB** — it did not move at all across a prune that freed 537 GB of *cache*. Meanwhile `push-*`/`deploy-*` are git-blind and ship **whatever is tagged locally**, so a locally-built-but-unpushed release image is a session's work and `docker image prune -a` destroys it (`v1.0.1337` was 9 hours old and unverifiable from the session — registry credentials must not be fetched, owner 2026-08-23). **Small upside, unbounded downside.** `docker builder prune -a -f` is the safe half: 539 GB → 1.272 GB in 6 minutes, images/containers/volumes untouched, and a `FROM scratch` build afterwards proved an empty cache costs time and not capability.
+- **the third reaper-shaped hole, and the only one that is ABSENT rather than slow:** Go's cache trims at 5 days (and still gained **50.5 GB in 25 h**); `systemd-tmpfiles` reaps `/tmp` at 10 days against a 4-day fill; **Docker's builder has no automatic eviction by default at all.** That is how it reached half a terabyte unremarked. `docker builder prune --keep-storage <N>GB` is the bound.
+- **relations:** MEMORY [[a-bigger-container-is-not-a-bound]] (same lane, third repeat of measuring the container you already know about) · [[a-closer-census-cannot-see-what-it-succeeded-at]] · the `/tmp` recipe entry above · `docs024_key_docs_latest/tmpfs_exhaustion/` · OPP-005
+- **source:** 2026-08-25, `tmpfs_exhaustion` lane, from the owner asking "is /tmp full again?" — it was not, and following the arithmetic rather than the suspicion found a 528 GB hole in the lane's own instrument.
+- **added:** 2026-08-25, `tmpfs_exhaustion` lane

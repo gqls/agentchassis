@@ -330,3 +330,46 @@ Every time this lane has measured, it has measured the container it already knew
 the crontab while the machine was asleep. **Each answer was true and none of them answered the
 question.** The generalisable check is the same in all three: name the thing that would look
 identical whether you were right or wrong, and go and measure *that*.
+
+### 2026-08-25 — the Docker build cache prune, on the owner's instruction
+
+`docker builder prune -a -f`, 18:19:13 → 18:25:19 UTC (**6m 06s**), exit 0.
+
+| | before | after |
+|---|---|---|
+| Docker **build cache** | **539 GB** / 6,052 records / 437.9 GB reclaimable | **1.272 GB** / 16 records / **0 B reclaimable** |
+| `/` used | 754 G, **85%** | **334 G, 38%** |
+| `/` free | 136 G | **556 G** |
+| Docker images | 1,034 unique / 103.8 GB | **1,041 / 104.5 GB — UNTOUCHED** |
+| containers · volumes | 1 · 6 | 1 · 6 — untouched |
+| `/tmp` | 4.1 G / 27% | 4.5 G / 30% |
+
+**421 GB returned to the filesystem** (df), against 537.7 GB of cache removed — the difference is
+other sessions building during the six minutes, which is also why the image count went *up* (1,034
+→ 1,041) while nothing was deleted from it.
+
+**What was verified after, because "exit 0" is not evidence the estate still works:**
+
+- **The release images survived**: `v1.0.1337` → **29 images**, `v1.0.1336` → **29**. This was the
+  hazard I refused to prune: `push-*`/`deploy-*` are git-blind and ship whatever is tagged locally,
+  so an unpushed local build is a session's work, and I could not verify from here which tags were
+  already in the registry. Registry credentials were deliberately not fetched (owner 2026-08-23:
+  never read a key into the session).
+- **Docker can still build**: a two-line `FROM scratch` image built to a real digest, exit 0. The
+  cache being empty must cost *time*, not *capability*, and now that is measured rather than assumed.
+- Both filesystems re-read together, per this lane's own rule.
+
+**A correction I owed the owner and made in chat before the prune finished.** I had said "~90 GB of
+unused images". That was **wrong**: I derived it by subtracting "1 active" from 1,034 images, which
+ignores that images share layers. Docker's own figure is **11.41 GB** reclaimable, and it did not
+budge across the prune. So the image half was ~8× smaller than I stated *and* the dangerous half —
+small upside, unbounded downside — which is the combination that should always resolve to "don't".
+
+**Why the build cache grew to 539 GB in the first place**, since bounding it is the next question:
+`make build-<service>` covers 14 backend services and every build adds layers; `[MEASURED]` 1,346
+cache records were touched in the last 24 h and images show a steady churn (74 built two days ago,
+83 six days ago, 313 three weeks ago). Docker's builder has **no automatic eviction by default** —
+unlike Go's cache (5-day trim) and `systemd-tmpfiles` (10-day) it never reaps at all, which makes it
+the third reaper-shaped hole in this machine and the only one that is simply absent rather than too
+slow. `docker builder prune --keep-storage <N>GB` is the bound, and it is a decision, not a fix to
+apply quietly.

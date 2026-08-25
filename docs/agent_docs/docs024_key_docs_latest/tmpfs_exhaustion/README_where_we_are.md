@@ -237,3 +237,44 @@ lane was originally asked to do.
 I'd also gently flag that **this is now the fourth different thing filling this machine**, and the
 first three each looked like the whole story at the time. The honest position is that the disk needs
 someone watching *all* of it, not this lane watching the corner it started in.
+
+## 2026-08-25 (later) — pruned. The disk is at 38%.
+
+Done, six minutes, and it went further than I predicted.
+
+| | before | after |
+|---|---|---|
+| Docker build cache | **539 GB** | **1.3 GB** |
+| disk used | 754 GB — **85% full** | **334 GB — 38% full** |
+| disk free | 136 GB | **556 GB** |
+
+**556 GB free.** For context, this machine has spent the last three weeks between 85% and 87% full,
+and the whole of my lane's work up to yesterday — the recipe fix, the 98.7 GB clear-out — was
+fighting over a fifth of what one command just returned.
+
+**What I checked afterwards, because "it finished successfully" isn't the same as "everything still
+works":**
+
+The release images are all still there — 29 of them for the current version, 29 for the one before.
+That was the thing I deliberately refused to touch: the deploy commands ship whatever image is
+sitting on this machine, so deleting one that hadn't been uploaded yet would have destroyed
+somebody's build, and I had no safe way to check which were uploaded.
+
+Docker can still build — I built a trivial throwaway image to prove it. An empty cache should cost
+*time*, not *ability*, and now that's measured rather than hoped.
+
+`/tmp`, the thing you originally asked about, is at 30% and entirely fine.
+
+**The correction I gave you mid-prune stands and is worth repeating**: my "~90 GB of unused images"
+was wrong by about eight times — the real figure is 11 GB, and I'd got it by assuming images don't
+share storage, which they do. Small gain, big risk, so not touching it was right for two independent
+reasons rather than one.
+
+**One thing to decide when you have a moment, but nothing is urgent now.** Docker's build cache has
+**no automatic clean-up at all** — that's why it reached half a terabyte. It's the third cleaner-
+shaped hole I've found in this machine in three days, and the only one that's genuinely missing
+rather than just too slow (Go's cleans after five days, Ubuntu's after ten, both too late to help).
+There's a setting that caps it at a size you choose, which would mean this never happens again. I
+haven't set it, because picking the number is a real trade — too low and every build gets slower.
+
+With 556 GB free there's no pressure, so it can wait for you.
