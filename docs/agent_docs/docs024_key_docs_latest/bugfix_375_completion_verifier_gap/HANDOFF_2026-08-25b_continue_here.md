@@ -1,177 +1,227 @@
-# HANDOFF — continue here: `bugs_open/375`, after the owner's four rulings
+# HANDOFF — continue here: `bugs_open/375`, the unguarded completion writer
 
-**Written 2026-08-25 (evening)** by the lane's first working session. Supersedes
-`HANDOFF_2026-08-25_continue_here.md` (same day, morning — keep it for its §5 traps).
+**Rewritten 2026-08-25 (end of session)** by the lane's first working session. Supersedes
+`HANDOFF_2026-08-25_continue_here.md` (same day, morning) and `HANDOFF_2026-08-24_start_here.md`
+(the original cold start) — both kept for the record, neither current.
 
-> **In one line:** the gate is LIVE and inert by design; **candidate 4 is BUILT and council-APPROVED**;
-> a verifier is **WRITTEN and deliberately UNREGISTERED** behind a five-step prerequisite whose first
-> step is a live migration. The bug is still OPEN and should be. What is left is §4.
+> **In one line:** three council-approved changes shipped, nothing is pending, and **the bug is still
+> OPEN and should be**. What is left is §3 — and only one item there is blocked on anything.
 
 ---
 
-## 1. The owner's rulings, 2026-08-25, and what each one produced
+## 1. What this bug is, in plain terms
 
-| ruling | what was done |
+A **work item** is one recorded defect on one site. A **verifier** re-runs that defect's own
+predicate immediately before the item is stamped `complete`, and refuses the stamp if the defect is
+still there. It exists to stop a handler reporting success without having fixed anything.
+
+There are **three** writers of `complete`, and they have never agreed:
+
+| writer | consults the verifier? |
 |---|---|
-| **1. Do not close 375 until it is fixed** | Recorded in bug §9c/§9d with the reasoning and what *would* let it close. Nothing was closed. |
-| **2. Build candidate 4** | **DONE.** `livespec.UnarmedVerifiedCompleters` + a build-time lockstep + `config-key-audit --unarmed-verified-completers`. Council `3083d182` **APPROVED r1**. Register `WII-031`. |
-| **3. Explain candidate 2 further** | Explained in chat; not started. It remains architecture-scope. §4c below. |
-| **4. Write a verifier** | **WRITTEN, NOT REGISTERED.** `required_fields_missing`, mutation-proven. Register `WII-032`. Registration is a five-step sequence written into the verifier's own file; step 1 is a live migration. §4a below. **Council round 1 → REVISE, and it found a REAL defect** (an empty field declaration computed to "nothing missing" and would have certified an emptied schema as repaired). Fixed `43277271a`; **round 2 verdict PENDING — READ IT FIRST**, §2a below. |
-| **plus: file the `image_url_404` bug** | **NOT FILED — the premise was refuted.** See §5. Contributed into `bugs_open/033` instead (commit `243684746`). |
+| `CompleteWorkItemAction` | yes, always |
+| `UpdateWorkItemStatusAction` | **never did.** Since 2026-08-24: only when that STEP sets `verify_before_complete: true`. **No step does.** |
+| the `claimed-item-timeout` sweep | **no** — writes the row directly; held off a type only by `livespec.ClaimedItemTimeoutExclusions` (`bugs_closed/317`) |
+
+`verifier_coverage_test.go` goes green regardless of any of that. **That is the bug**, and it is
+still true today for every completion through writer 2.
 
 ## 2. Verified state `[2026-08-25, each with how it was checked]`
 
 | thing | state | how |
 |---|---|---|
-| `WII-030`'s gate in the binary | **LIVE, `v1.0.1337`, both pods** | literal probe on `/proc/1/exe` with a must-be-present and a must-be-absent control; the Go identifier `updateStatusVerifyConfigKey` is correctly **absent** |
+| `WII-030`'s gate in the binary | **LIVE**, chassis `v1.0.1337`, both pods, started 09:27Z | literal probe of `/proc/1/exe` with a must-be-PRESENT and a must-be-ABSENT control. ⚠ the Go identifier `updateStatusVerifyConfigKey` is correctly **absent** — never probe for that |
 | steps arming `verify_before_complete` | **0** of 200 live agents | recursive `jsonb_path_query` |
 | declared unarmed `complete` arms | **6**, and the live set MATCHES | `go run ./cmd/config-key-audit --unarmed-verified-completers` → `[]`, exit 0 |
-| that clean result | **DEMAND-CONTROLLED both ways** | dropping a real entry → `undeclared`; adding a ghost → `stale`; both exit 1, same input |
+| that clean result | **DEMAND-CONTROLLED both ways** | drop a real entry → `undeclared`; add a ghost → `stale`; both exit 1, same input |
 | item types reachable by those arms | **7**, none with a verifier | live **UNION `site_work_items_archive`** — the live table alone says 5 |
-| the verifier | **written, unregistered, mutation-proven ×3** | swapping the lifecycle axis fails 6 tests; neutering `Grades` fails the 213 assertion; making an unreadable schema resolve fails the fail-closed test |
-| council | `3083d182` **APPROVED r1** (candidate 4) · `c8ed18c1` (verifier) — **READ IT** | `orchestration_states` by payload |
-| the bug | **OPEN, correctly** | bug §9c |
+| `verifier_not_consulted` rows | **0 — and UNINFORMATIVE** | the demand control is empty: no verifier exists for any of the 7, so the record *cannot* fire. Not a pass, not a fail |
+| the verifier | written, **unregistered**, mutation-proven ×4 | §3a |
+| council | **3 submissions, all APPROVED** (one after a REVISE) | §4 |
+| the bug | **OPEN, correctly** | §5 |
 
-⚠ **Snapshots on a shared tree. Re-run before acting.**
+⚠ **Snapshots on a tree many sessions share. Re-run before acting on any of it.**
 
-## 2a. The verdict — BOTH ROUNDS IN, and round 1 earned its keep
+### 2a. ⚠ NOTHING FROM 2026-08-25 NEEDS A CHASSIS ROLL — do not wait for one
 
-`c8ed18c1-a694-4c80-afdc-12274634fbd2` — round 1 **REVISE** (13 seats), round 2 **APPROVED**
-(13 seats, *"all reviewers approve"*, 11:34:36Z, 3 low objections, none gating). Nothing is pending;
-this section is kept because the *shape* of reading it is a trap.
+The chassis is `v1.0.1337`, built at **09:27Z**, i.e. **before** today's commits. That is fine and
+it is worth being explicit, because the reflex on this estate is "Go change ⇒ wait for the roll":
 
-```sql
-SELECT orchestration_id, current_step, status, created_at FROM orchestration_states
- WHERE collected_data->'input_data'->>'fix_correlation_id' = 'c8ed18c1-a694-4c80-afdc-12274634fbd2'
- ORDER BY created_at;              -- TWO rows: round 1 COMPLETED, round 2 is the later one
-SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
- WHERE correlation_id = 'c8ed18c1-a694-4c80-afdc-12274634fbd2' AND kind='council_report'
- ORDER BY created_at;              -- one report per round
+- **Candidate 4's Go half is a TEST.** It runs at build time. It is effective now, for anybody who
+  runs `go test`. Nothing at runtime reads `livespec.UnarmedVerifiedCompleters`.
+- **The audit mode is a CLI** run from the repo (`cmd/config-key-audit`), not a deployed service.
+  Effective now.
+- **The verifier is UNREGISTERED**, so although it compiles into the chassis it is unreachable at
+  runtime. A roll ships it as dead weight and changes nothing.
+
+The only thing that ever needed a roll was `WII-030`'s gate, and that shipped in `v1.0.1337`.
+
+## 3. WHAT IS LEFT — three items
+
+### 3a. Register the verifier — five steps, and only step 1 is blocked
+
+The verifier for `required_fields_missing` is **written, mutation-proven and council-approved, and
+deliberately not switched on**. The full sequence lives in
+`discovery_checks/verify_required_fields_missing.go`'s own header — **that header is the runbook**,
+and the LANDMINE *"Registering a verifier is NOT a one-line change"* carries it too.
+
+| # | step | state |
+|---|---|---|
+| **1** | Add `required_fields_missing` to `livespec.ClaimedItemTimeoutExclusions` **AND ship a migration amending the live `scheduled_tasks.pre_query`** for `claimed-item-timeout` | **BLOCKED — see below** |
+| 2 | Scope-test licence in `write_audit_findings_verifier_join_test.go` `optedIn` | ✅ **DONE** |
+| 3 | Remove the type from `itemTypesWithoutVerifiers` | not done (correctly — it is still unregistered) |
+| 4 | Lifecycle posture for the file | ✅ **DONE** (`PostureObserves`) |
+| 5 | `WII-031`'s lockstep will fail on **three** arms of `CQ-023`'s router — arm or acknowledge each | not done |
+
+**Why step 1 is first and load-bearing.** The `claimed-item-timeout` sweep writes `site_work_items`
+directly. Until the **LIVE** clause excludes this type, that sweep completes items **straight past
+the new verifier** — `bugs_closed/317` reintroduced *by the act of adding a guard*. A false green is
+worse than a missing one. **The council accepted this argument explicitly** (round 2, after a HIGH
+objection that an unregistered verifier changes nothing), so the sequence is the reviewed plan, not
+a session's preference.
+
+**What blocks it, and how to tell when it clears.** Step 1 edits `platform/livespec/livespec.go`,
+which another session has had in-flight all day — **re-checked at end of session: still dirty**
+(`livespec.go` + `livespec_test.go`). A pathspec commit of a shared file takes their half-written
+work as a passenger. **Check before starting:**
+```bash
+git status --porcelain -- platform/livespec/     # empty = clear to proceed
 ```
-⚠ **Two rounds share one correlation** (that is what `RESUBMIT_CORR` is for), so `LIMIT 1` on the
-report table gives you the LATEST — order by `created_at` and check which round you are reading.
 
-**Round 1's finding is fixed** (`43277271a`): `SchemaContentFields` returns `ok=true` with
-ZERO fields for a v2 schema whose `fields` object is empty, so the predicate computed "nothing
-missing" and would have certified an emptied schema as REPAIRED. It now errors, fail-closed. If
-round 2 raises something new, the code is already on the shared branch — act on it, do not wait.
+**Then verify at the LIVE object, never at the Go declaration:**
+```sql
+SELECT pre_query LIKE '%required_fields_missing%' AS live_clause_has_it
+FROM scheduled_tasks WHERE name = 'claimed-item-timeout';
+```
+```bash
+go run ./cmd/config-key-audit --live-declaration-drift
+```
 
-**The seats ACCEPTED the deferral argument**, which is the part that matters for §4a: the gating
-objection was that an unregistered verifier leaves the defect unchanged (true as a description), and
-round 2's answer — that registering it without step 1's migration is strictly *worse* than inert,
-because the claimed-item-timeout sweep would complete items straight past it, a false green rather
-than a missing one — carried. **So the five-step sequence is the reviewed plan, not a session's
-preference.** If the owner would rather arm it sooner and accept that window, that is a legitimate
-call and it is theirs.
+⚠ **Step 5 has its own ordering.** Arming `close_converted` is the one `CQ-023` warns fail-closes a
+live route. **Arm `close_stale` and `close_resolved` first**, read that router's close paths, and
+treat `close_converted` as a separate decision — or take the acknowledgement arm, which is why
+`WII-031` demands a reason rather than a switch.
 
-⚠ **One low objection was answered by measurement and should not be re-opened:** the empty-fields
-fix is local to the verifier rather than pushed into `datahelpers.SchemaContentFields`, and that is
-correct — the helper has **10 non-test callers and exactly ONE resolves** (this verifier). The other
-nine file or render, where an empty declaration correctly means "nothing to do", so hardening the
-helper would break them.
+**Once registered AND an arm is armed**, this becomes the live proof for the first time:
+```sql
+SELECT count(*) FROM site_work_items WHERE result->'_verification'->>'status' = 'verifier_not_consulted';
+```
+A zero there *once armed* is a real fault. A zero **now** means nothing — the record cannot fire.
 
-## 3. What is committed
+### 3b. Candidate 2 — unify the two writers (the real fix, architecture-scope)
 
-`c735bfd9c` `c94212ad3` `721465601` `35257bee2` `b6aa4853b` `e88cd0e4f` `b0c066ac5` (WII-030 and its
-docs) · `243684746` (033 contrib) · `3083d182`'s code (candidate 4) · `64645d05e` (the verifier) ·
-`034d43bbc` (pattern-check allow-list) · `08a44365f` (a stale comment corrected) · `7ae01c648`
-(WII-031/032) · `8b700ec88` (the landmine).
+**Not started, and the honest next step is a scoping read rather than a proposal.**
 
-## 4. WHAT IS LEFT — in the order a next session should take it
+Everything this lane shipped *manages* the asymmetry — an opt-in switch, a runtime marker, a build
+guard, a declaration, a drift audit. Five mechanisms describing one duplication. Unify the writers
+and all five stop being necessary, because "which door did this go through" stops being a question.
 
-### 4a. Register the verifier — FIVE steps, and step 1 is load-bearing
+This lane did its **first half** without setting out to: both paths now share one gate
+implementation and one row read (`loadWorkItemVerifyRow`). What nobody has done is **read
+`CompleteWorkItemAction`'s call sites** to judge whether the merge is feasible — its inputs come
+through `datahelpers.ExtractActionInputs` with a `CompleteWorkItemInputSpec`, while
+`UpdateWorkItemStatusAction` reads `params.StepConfig.Config` directly and declares no spec at all.
+Until somebody reads that, "have the second delegate to the first" is a sentence, not a plan.
 
-The sequence is written into `discovery_checks/verify_required_fields_missing.go`'s header, and the
-landmine *"Registering a verifier is NOT a one-line change"* carries it too. Summary:
+⚠ **Do not ship it inside a bug patch.** `bugs_closed/124` drew a REJECTED verdict for exactly that
+shape, and the owner ruling of 2026-07-29 puts a change to what a shared completion path guarantees
+at architecture scope. Precedent for how to do it: `bugs_closed/284` (duplicate writers unified with
+a structural single-definition test to stop a fourth copy appearing). Destination:
+`architecture_review/` as an RFC that either proposes the merge or argues it down.
 
-1. **THE MIGRATION, FIRST.** Add `required_fields_missing` to `livespec.ClaimedItemTimeoutExclusions`
-   **and ship a migration amending the live `scheduled_tasks.pre_query`** for `claimed-item-timeout`.
-   Until the LIVE clause excludes the type, that sweep writes `site_work_items` directly and will
-   complete items **straight past the new verifier** — `bugs_closed/317` reintroduced by the act of
-   adding a guard. ⚠ **Step 1 edits `platform/livespec/livespec.go`, which is why this stopped here:**
-   another session had four hunks of in-flight, non-compiling work in it on 2026-08-25. **Check that
-   file is clean before starting.** Verify at the live object, not the Go declaration:
-   `SELECT pre_query LIKE '%required_fields_missing%' FROM scheduled_tasks WHERE name='claimed-item-timeout';`
-   then `go run ./cmd/config-key-audit --live-declaration-drift`.
-2. Scope-test licence — **already done** (`write_audit_findings_verifier_join_test.go` `optedIn`).
-3. Remove the type from `itemTypesWithoutVerifiers`.
-4. Lifecycle posture — **already done** (`PostureObserves`).
-5. `WII-031`'s lockstep will then fail on **three** arms of `CQ-023`'s router. Arm or acknowledge each.
-   ⚠ **Arm `close_stale` and `close_resolved` before `close_converted`** — CQ-023 records that the
-   `converted` arm fail-closes once a verifier exists for this type.
+### 3c. Optional — put the new audit mode on a cadence (an owner call)
 
-Then, and only then, the live proof becomes available:
-`SELECT count(*) FROM site_work_items WHERE result->'_verification'->>'status'='verifier_not_consulted'`
-can be non-zero for the first time — and a zero once registered **and** armed is a real fault.
+`--unarmed-verified-completers` fires only when somebody runs it. If the `undeclared` direction is
+worth catching automatically it belongs beside the other nightly `config-key-audit` CronJobs.
+Recorded in `WII-031`'s verify-later. **Not a session's call.**
 
-### 4b. Candidate 2 — unify the two writers (architecture-scope, the real fix)
+## 4. What shipped, and the council record
 
-Not started. `bugs_closed/284` is the precedent. This lane did its first half: both paths share one
-gate implementation and one row read (`loadWorkItemVerifyRow`). **Nobody has read
-`CompleteWorkItemAction`'s call sites**, so the honest first step is a scoping read, not a proposal —
-and the owner ruling of 2026-07-29 plus `bugs_closed/124`'s REJECTED verdict are both about exactly
-the shape of shipping this inside a bug patch.
+| submission | what | verdict |
+|---|---|---|
+| `7a6add95` | `WII-030` — the opt-in verifier gate on writer 2, plus the bypass record | **APPROVED r1** (12 seats), 2 medium objections, both acted on |
+| `3083d182` | `WII-031` — candidate 4: the build-time lockstep + live-drift audit | **APPROVED r1** (10 seats) |
+| `c8ed18c1` | `WII-032` — the `required_fields_missing` verifier | **r1 REVISE → r2 APPROVED** (13 seats, *"all reviewers approve"*) |
 
-### 4c. Optional: put the new audit mode on a cadence
+**Round 1 of `c8ed18c1` earned its keep and is the most transferable thing in this lane.**
+`SchemaContentFields` returns `ok=true` with **ZERO** fields for a v2 schema whose `fields` object is
+empty (`component_schema_fields.go:78`). `missingRequiredValueFields` then found nothing missing and
+the verifier said **Resolved** — so a component whose field declarations had been **emptied** (the
+silent-loss class of `bugs_open/012`, `/021`) would have been **certified as repaired by the guard
+written to catch it**. Fixed (`43277271a`), fail-closed under RFC_017.
 
-`--unarmed-verified-completers` is a CLI and fires only when somebody runs it. If the `undeclared`
-direction is worth catching automatically it belongs beside the other nightly `config-key-audit`
-CronJobs. **An owner call, not a session's** — noted in `WII-031`'s verify-later.
+**The asymmetry is the lesson:** a DETECTOR's `continue` on an unreadable declaration is correct; a
+VERIFIER running the identical arithmetic certifies a repair. ⚠ The fix is deliberately **local** —
+measured: `SchemaContentFields` has **10** non-test callers and **exactly one resolves**; hardening
+the shared helper would break the nine that legitimately want the permissive reading.
 
-## 5. The `image_url_404` bug was NOT filed, and why that is the right answer
+## 5. Why the bug is still OPEN
 
-The morning handoff carried an `[OBSERVED, NOT DIAGNOSED]` note: 42 rows with an empty
-`handler_agent` while the handler built for them had handled none — read as a dispatch defect.
-**Both halves were wrong.**
+The bar is **fixed AND live**. The gate is live. The bug is **not fixed**: every completion through
+`update_work_item_status` is still unverified, no arm is armed, and the two writers are still two.
 
-- The empty handler is **deliberate and documented three times** in `check_image_url_404.go`
-  (`:274`: *"HandlerAgent intentionally empty — flag-only. Repairing a stale reference means removing
-  or repointing it, which no image generator can decide."*).
-- The handler has **not** handled 0 rows — it handled **3**. They were archived out of the rolling
-  window.
+What changed is that the trap now **fails the build** instead of only leaving a row marker, that a
+verifier exists for somebody to register, and that three documents which used to mislead now tell the
+truth. **None of that makes the bug's own claim false.** Closing on "the mechanism shipped" is the
+`bugs_open/021` §INSTANCE 2 error one level along.
 
-And the useful half: on the one occasion three rows were hand-assigned to that handler, **it
-escalated all three straight back to `needs_human_review`.** So the obvious remedy — "give every
-`HandlerAgent: \"\"` type a dispatch route" — is refuted on this type by direct evidence.
-`bugs_open/033`'s header already asks exactly this contract question and says two council seats
-disagreed, so the finding went **into that file** (`243684746`), not into a new bug.
-
-## 6. Traps this lane has paid for
+## 6. Traps this lane has paid for — read before touching anything
 
 1. **`site_work_items` is a ROLLING WINDOW.** UNION `site_work_items_archive` for any
-   "all-history"/"ever" claim. It cost this lane a figure published to six files, and a positive
-   control that shared the blind spot. (`WRONG_CALLS.md`, bug §8.)
-2. **Enumerate what a helper can RETURN, not what you expect it to return.** `SchemaContentFields` returns `ok=true` with a ZERO-LENGTH map for `{"fields":{}}`; I had handled unparseable JSON and `ok==false` and the gap between those two conditions was the defect. Mutate PER SHAPE — three of four shapes in the fix's test were already caught, and an aggregate mutation would have hidden that only one was the hole.
-3. **grep LANDMINES for the SYMBOL you are about to build on.** The entry that predicted this defect was written 2026-08-03 and its footprint names this type's detector, whose predicate I was reusing. The SessionStart hook only matches files already dirty, so a shared helper is never shown to you.
+   "all-history"/"ever" claim. Cost this lane a figure published to six files, **and a positive
+   control that shared the blind spot**. (`WRONG_CALLS.md`; bug §8.)
+2. **Enumerate what a helper can RETURN, not what you expect it to return.** The `{"fields":{}}`
+   defect sat in the gap between two conditions I had already handled. **Mutate PER SHAPE** — three
+   of four shapes in the fix's test were already caught, and an aggregate mutation would have hidden
+   that only one was the hole.
+3. **grep LANDMINES for the SYMBOL you are about to build on.** The entry predicting that defect was
+   written 2026-08-03 and its footprint named the very file whose predicate I was reusing. The
+   SessionStart hook only matches files already dirty, so a shared helper is never shown to you.
 4. **A mock cannot assert SQL text.** sqlmock returns whatever you queued regardless of the
-   statement — put the column list or predicate in the **expectation**. Measured twice: values-only
-   assertions passed mutations that dropped a column and that swapped the lifecycle axis.
-5. **Mutate, don't trust green.** M1–M13 on record. ⚠ The terminal-decision guard sits in SERIES on
-   this arm, so fixtures must be in `detected`/`claimed`/`triaged` or a mutation reads as covered.
+   statement — put the column list or predicate in the **expectation**. Caught twice here.
+5. **Mutate, don't trust green.** M1–M14 on record. ⚠ The terminal-decision guard sits in SERIES on
+   this arm, so fixtures must be `detected`/`claimed`/`triaged` or a mutation reads as covered.
 6. **Do not register a verifier from a test `init()`** — the registry has no removal and a
    cross-package contract test reads it. Use the `verifierLookup` seam.
-7. **A pathspec commit takes SAME-FILE passengers, possibly half-written.** Twice today the right
-   move was a new file (`livespec/unarmed_completers.go`) or stopping at the file boundary (step 1).
-8. **A stale comment is read as ground truth by reviewers.** A sentence in
-   `claim_timeout_exclusion_lockstep_test.go` saying phase 2 was unbuilt cost a council seat a MEDIUM
-   objection against a correct claim. Corrected in place with the cost recorded. ⚠ And the naming
-   trap it exposed: **`PhaseGoSide` is the CHECKED state; `PhaseLiveAudit` is the INERT one.**
+7. **A pathspec commit takes SAME-FILE passengers, possibly half-written.** Twice the right move was
+   a new file (`livespec/unarmed_completers.go`) or stopping at the file boundary (step 1). **The
+   tell: a deletion count in `git diff --numstat` you cannot account for.**
+8. **A stale document is read as ground truth by reviewers.** THREE instances in two days — a
+   `phase-2 auditor has not shipped` sentence, `CQ-023`'s fail-close warning, and a landmine
+   footprint naming a symbol that no longer exists. All three were correct when written; all three
+   misled a council seat. ⚠ Naming trap the first exposed: **`PhaseGoSide` is the CHECKED state and
+   `PhaseLiveAudit` is the INERT one.**
 9. **The code index is pinned at `e347c5ad` (2026-08-23)**, so a landmine-verifier verdict on newer
    files reports "0 rows" as staleness, not absence.
-10. **HEAD was broken by another lane today** (`TestNoNewMigrationFileReadersOutsideTheAllowList`,
-   from `bugs_open/333`'s test file). Not this lane's; the session editing `livespec.go` is likely
-   fixing it. If `./platform/livespec/...` fails for you, check whose it is before debugging.
+10. **Other lanes broke HEAD twice today** (`TestNoNewMigrationFileReadersOutsideTheAllowList` from
+    `bugs_open/333`'s file; `advisedIdentityPin` undefined in `actions`). If a package fails for you,
+    check whose it is before debugging. `scripts/verify-head-builds.sh --with <your files>` is how
+    this lane tested throughout.
 
-## 7. Where everything is
+## 7. What is NOT established — do not quietly inherit it
+
+- **Whether any of the 7 types SHOULD have a verifier.** Two are on `verifier_coverage_test.go`'s
+  `catMechanical` backlog; that is an invitation, not a judgement.
+- **Whether the 578 unguarded completions contain FALSE completions.** Nobody has re-run those
+  predicates. `bugs_open/367` found one by accident — that is one, not a rate. Its own measurement,
+  probably its own `090`.
+- **Whether candidate 2 is feasible.** Cited by shape from `bugs_closed/284`, never verified.
+- **Whether a shared "guard exclusion" struct should cover writers 2 and 3.** A council seat raised
+  it twice, low severity; **unactioned and stated as such**, not resolved.
+- **Whether `098` has credited these commits.** Trailers are present and well-formed on all of them;
+  the report is slow and was never run to completion. `098_REPORT_unreviewed_commits_v1.sh 3`.
+
+## 8. Where everything is
 
 | what | where |
 |---|---|
 | the bug | `bugs_open/375_HANDOFF_2026-08-23_…md` — read **§7c, §8, §9, §10** |
-| WII-030's gate | `platform/orchestration/actions/update_work_item_status_verification.go` |
-| candidate 4 | `platform/livespec/unarmed_completers.go` · `platform/orchestration/actions/unarmed_completer_lockstep_test.go` · `cmd/config-key-audit/unarmedcompleters.go` |
-| the verifier | `platform/orchestration/actions/discovery_checks/verify_required_fields_missing.go` (+ `_test.go`) — **its header IS the registration runbook** |
+| `WII-030`'s gate | `platform/orchestration/actions/update_work_item_status_verification.go` |
+| candidate 4 (`WII-031`) | `platform/livespec/unarmed_completers.go` · `platform/orchestration/actions/unarmed_completer_lockstep_test.go` · `cmd/config-key-audit/unarmedcompleters.go` |
+| the verifier (`WII-032`) | `platform/orchestration/actions/discovery_checks/verify_required_fields_missing.go` (+ `_test.go`) — **its header IS the registration runbook** |
 | the third writer's precedent | `platform/orchestration/actions/claim_timeout_exclusion_lockstep_test.go`, `bugs_closed/317` |
-| this lane's five | `PLAN_2026-08-24_…`, `RUNBOOK_…`, `NOTES_…`, `README_where_we_are.md`, `SUMMARY_2026-08-24_…` |
-| register | `WII-030`, **`WII-031`**, **`WII-032`**; `CQ-023` (corrected) |
-| landmines | two entries: *"Registering a verifier protects a type only on the paths that ASK"* and *"Registering a verifier is NOT a one-line change"* |
-| wrong calls | `WRONG_CALLS.md`, two entries dated 2026-08-24 |
+| this lane's standing five | `PLAN_2026-08-24_…`, `RUNBOOK_…`, `NOTES_…`, `README_where_we_are.md`, `SUMMARY_2026-08-24_…` |
+| register | `WII-030`, `WII-031`, `WII-032`; `CQ-023` (corrected) |
+| landmines | two entries: *"…protects a type only on the paths that ASK"* and *"Registering a verifier is NOT a one-line change"*; plus a corrected footprint on the *"unreadable config computes to HEALTHY"* entry |
+| wrong calls | `WRONG_CALLS.md` — three entries, 2026-08-24 ×2 and 2026-08-25 |
+| the `image_url_404` finding | `bugs_open/033`, CONTRIB 2026-08-25 — **not** a bug of its own; the premise was refuted |
