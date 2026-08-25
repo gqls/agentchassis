@@ -50540,3 +50540,29 @@ same session also shipped a census whose own correctness check I had to fix (see
 "CANONICALISING your output makes it stop matching the SOURCE") — two instrument faults in one
 session, neither in the thing being measured.
 
+
+### 8. Contributed by the agritec_uk lane, 2026-08-25 — a checker that answers a question about the WRONG DOCUMENT, and over-reports
+
+Building a harness to verify their own citation quotes, that lane mapped **every** non-`vt.edu`
+URL to one cached page. Facts citing ONS, Carbon Brief, GPN and Purdue were then compared
+against a document that could not possibly contain them. It reported **15 failures where 2 were
+real** — inside the tool built to catch exactly that class.
+
+Recorded here because it is the same family as this file's entries 1–7 seen from the other
+side, and it sharpens two of them:
+
+- **It failed in the FLATTERING direction, which is the harder one to doubt.** An
+  over-reporting checker looks diligent; the extra findings read as thoroughness rather than as
+  noise. Compare my own five-row table of zeros that read as corroboration and was one mistake
+  repeated. **Neither over- nor under-reporting is the safe failure — both are a checker that
+  cannot tell you which document it read.**
+- **Their fix is the distinction the probe already had, arrived at independently from the other
+  side:** an unmatched source reports **NOT CHECKED**, never *failed*. "I could not look" and "I
+  looked and it isn't there" are different findings, and collapsing them is how a check starts
+  lying about its own coverage.
+
+Their own summary is the best line either lane produced this week and belongs in the file
+verbatim: **"Naming a trap does not step over it."** They wrote *"a generated quote is a
+hypothesis about the extractor's whitespace"* in the same message in which they hand-wrote two
+quotes from the rendered page. I wrote two thousand words about controls that never run and then
+shipped a comment promising a guard I had not written, four commits later.

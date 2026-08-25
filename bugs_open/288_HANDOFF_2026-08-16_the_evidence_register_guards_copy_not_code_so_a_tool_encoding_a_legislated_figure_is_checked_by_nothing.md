@@ -391,6 +391,36 @@ Phase 3a's data, which is the precondition for Phase 3b.** They are in series, a
 away than "run it for a month" implied. If LMC adopt their 7 bindings, that is 7 annotated
 emissions on the next pass and the distribution starts.
 
+## §5d — ADOPTION MOVED, and Phase 3a's first real distribution is 100% `not_probed`
+
+2026-08-25, after the `agritec_uk` lane landed a 24-fact declaration on
+`tool-sfi26-revenue-stacker`. Verified through the parser's own path, not just that the JSON
+parses: the `LIKE '%"facts"%'` prefilter selects it, `facts` is a top-level sibling of
+`profiles`/`container`/`checks`, 24 entries, all strings, **0 duplicates**, 5 checks preserved, **no
+per-check `facts` key** (which P7 would hold inert), and **all 24 resolve against their register**,
+so zero `fact_declaration_broken`.
+
+| | |
+|---|---|
+| declarations filed | **24**, `unreconciled_declaration` → `fact_drift_review` |
+| **probe verdict on all 24** | **`not_probed`** |
+| citation arm | **104 fresh, 0 error, 0 drifted** (was 22 of 105 two days earlier) |
+| `artifact_check` | 4 fresh |
+
+**THE DISTRIBUTION IS THE POINT, AND THIS IS A ZERO-INFORMATION SAMPLE.** Every SFI rate is below
+the measured floor of 1000, so all 24 refuse. Phase 3a is no longer *starved* — it annotated every
+emission, which is the mechanism working — but a site whose register is a rate table produces
+**24 rows of `not_probed` and no discriminating data at all.**
+
+**So Phase 3b's precondition is narrower than "adoption": it needs adoption BY A SITE WHOSE VALUES
+CLEAR THE FLOOR.** Of the estate, that is mortgagecalculator, loanandmortgagecalculator and
+gamesdesign. **LMC's seven suggested bindings are still untouched and are now the single highest-
+value action on this lane** — seven five- and six-digit SDLT figures on the second stamp-duty
+calculator, which is both the biggest unguarded surface AND the distribution's best source.
+
+**Adoption two days on:** `artifact_check` **0 → 6 facts**; tool PLANs declaring **1 → 2**;
+`fact_binding_suggested` notes **5**, of which **1 acted on**.
+
 ## §6 — what is owed now, in order (2026-08-24)
 
 1. **The roll.** All of Phases 1 and 2 is Go and therefore inert. Verify at the binary,
