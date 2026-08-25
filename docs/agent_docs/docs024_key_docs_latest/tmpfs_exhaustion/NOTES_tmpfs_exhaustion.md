@@ -257,3 +257,76 @@ Fixed properly rather than re-documented: every root now prints a header uncondi
 explicit line when it has nothing. The generalisable version is the one I had already written down
 and then walked straight into — **never leave a missing row as a signal**; if absence carries
 meaning, emit something.
+
+## 2026-08-25 — asked "is /tmp full again?", and the answer moved the goalposts twice
+
+**No.** `/tmp` = **4.1 G / 27%**, *lower* than yesterday's 4.9 G / 32%. Scratch = **25 G**, down
+from 33 G. Both halves of this lane's fix are holding.
+
+### But the disk went 74% → 85% overnight, and neither cause is scratch
+
+| | 2026-08-24 13:04 | 2026-08-25 12:48 |
+|---|---|---|
+| `/` used | 656 G, **74%** | 753 G, **85%** |
+| `/` free | 234 G | **137 G** |
+| `~/.claude-scratch` | 33 G | **25 G — went DOWN** |
+
+97 GB gone in 25 h while the thing I had been watching *shrank*. Two consumers, found by following
+the arithmetic rather than the suspicion:
+
+**1. Go's build cache — `~/.cache/go-build`, 117 GB, `[MEASURED]` +50.5 GB / 116,321 files in 25 h.**
+Go's own trimmer is working (`trim.txt` stamped ~2 h before I looked) but only removes entries
+unused for **5+ days**, against ~50 GB/day of churn from ~50 sessions compiling. Same shape as the
+`systemd-tmpfiles` finding: a reaper that exists, runs, and cannot fire fast enough to matter.
+Note the 2026-08-23 handoff called this cache out by name as *"the Go cache that actually matters …
+untouched by any of this"* — correct at the time, and it is now the second-largest thing on the box.
+
+**2. Docker's build cache — 539 GB, of which 437.9 GB is reclaimable. Plus 103.8 GB of images
+(1,034 images, exactly ONE in use).**
+
+### The methodological finding, and it is the third repeat of the same error this lane has made
+
+**`du` could not see it, and said so quietly.** `du -xsb /` totals **226 GB** against `df`'s
+**754 GB used** — a **528 GB gap**. Everything in this lane's accounting, yesterday's included,
+was built on `du` as user `ant`, and `/var/lib/docker` is root-owned: `du -xsh /var/lib/docker`
+returns **`4.0K`**, which is not an error, not a zero, and not a refusal — it is a plausible small
+number for an empty directory. `2>/dev/null` then hides the one line that would have said
+otherwise.
+
+The check that finds it is free and I should have run it on day one:
+
+```bash
+du -xsb / 2>/dev/null | awk '{print $1}'   # vs
+df -B1 --output=used /  | tail -1          # a large gap = you cannot see the disk
+```
+
+**Reconcile `du` against `df` before believing any disk census.** Deleted-but-open files were the
+obvious suspect and were ruled out first (`lsof | grep deleted` → 0.9 GB, not 528).
+
+### And the nightly job I armed yesterday never fired
+
+The log held exactly one block — my own foreground test. `[MEASURED]` the machine was **suspended
+2026-08-24 23:15:13 → 2026-08-25 09:54:17**; the 06:41 crontab entry fell inside it, and plain
+`cron` does not replay a window it slept through (`anacron` covers only
+`/etc/cron.{daily,weekly,monthly}`, not a user crontab line). **It would have missed every night
+with that sleep pattern, silently.**
+
+Replaced with a systemd **user timer**, `Persistent=true`, which runs on resume when its window was
+missed — the same mechanism that makes `systemd-tmpfiles-clean.timer` on this box fire reliably
+while my crontab line did not. Proved the unit **runs** (`systemctl --user start` → `Result=success`,
+correct block appended, **both** root headers present), not merely that it is scheduled. Crontab
+entry removed so there is one scheduler; the other two lanes' jobs verified present afterwards.
+⚠ `Linger=no`, so it still stops at logout — needs root, recorded rather than left as a surprise.
+
+**What caught it was the warning I wrote into the crontab comment and the RUNBOOK** — *"a MISSING
+block means the job did not run; it must NOT read as nothing is wrong."* That is the one thing
+today that worked exactly as designed, and it is the reason I opened the log instead of glancing at
+`df` and calling it fine.
+
+### Three for three, and the pattern is now the finding
+
+Every time this lane has measured, it has measured the container it already knew about:
+`/tmp` while the producer moved to disk · the scratch tree while `du` could not see Docker ·
+the crontab while the machine was asleep. **Each answer was true and none of them answered the
+question.** The generalisable check is the same in all three: name the thing that would look
+identical whether you were right or wrong, and go and measure *that*.

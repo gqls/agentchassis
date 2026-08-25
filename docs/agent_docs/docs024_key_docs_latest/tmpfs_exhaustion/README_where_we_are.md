@@ -181,3 +181,59 @@ reads rather than in eight documents only their own lanes read. The nightly log 
 and that's the measurement I'd want before touching anything else — including whether `/tmp` should
 be a memory-backed folder on this box at all, which is still open and still needs your root
 password.
+
+## 2026-08-25 — you asked if `/tmp` was full again. It isn't. Something much bigger is.
+
+**Short answer: no.** `/tmp` is at 27%, slightly emptier than yesterday, and the scratch folder went
+*down* from 33 GB to 25 GB. Both halves of the fix are holding.
+
+**But the disk went from 74% full to 85% overnight** — 97 GB gone in a day — while the thing I'd
+been watching was shrinking. So I went looking, and found two things I had never measured, one of
+which dwarfs everything this lane has ever looked at.
+
+**Go's build cache is 117 GB and grew 50 GB in a day.** That's the compiler's own store of
+previously-compiled code, and it's genuinely useful — it's what makes the second build fast. Go
+does clean it up, but only removes things untouched for five days, and with fifty sessions
+compiling we're adding fifty gigabytes a day. Same story as before: a cleaner that works and can't
+keep up.
+
+**Docker's build cache is 539 GB, of which 438 GB is dead weight.** There are also 1,034 stored
+container images taking 104 GB, of which exactly one is in use. That is over half a terabyte, and it
+is more than five times everything my lane has ever been looking at.
+
+**Now the part I want to own, because it's a mistake I've now made three times in three days.**
+
+Every disk figure this lane has produced — including yesterday's confident before-and-after table —
+came from a command that **cannot see Docker's storage**, because that lives in a root-owned folder
+my account can't read. And it doesn't fail loudly when it can't: it reports **"4.0K"**, which looks
+exactly like a small empty folder. Add up everything my command could see and you get 226 GB;
+the disk says 754 GB is used. **I have been reporting on a quarter of the disk and presenting it as
+the disk.**
+
+There's a one-line check that catches this — compare the total your tool found against what the
+filesystem says is used, and if they disagree wildly, you can't see the disk. It's free, and I
+should have run it on day one.
+
+**And the nightly report I set up for you yesterday never ran.**
+
+The laptop was asleep from 23:15 to 09:54, and I'd scheduled it for 06:41 — inside the sleep. The
+old-style scheduler I used simply skips anything it slept through; it would have missed it every
+single night, silently. I've replaced it with the kind that catches up when the machine wakes, the
+same mechanism Ubuntu's own cleaner uses on this box — and I tested that it actually *runs*, rather
+than just confirming it was scheduled.
+
+The one thing that worked exactly as intended was the warning I'd written next to it: *a missing
+entry in the log means the job didn't run, and must never be read as "nothing is wrong"*. That's
+the only reason I opened the log instead of glancing at the disk and telling you it was fine.
+
+**What I'd like your decision on, and it's a bigger number than yesterday's:**
+
+The 438 GB of dead Docker build cache is reclaimable with one command. The trade is that the next
+few builds of each service will be slower while it rebuilds what it actually needs. There's also
+around 90 GB of stored images that nothing is using. I haven't touched either — it's a much larger
+irreversible action than yesterday's, it affects everyone's build times, and it's outside what this
+lane was originally asked to do.
+
+I'd also gently flag that **this is now the fourth different thing filling this machine**, and the
+first three each looked like the whole story at the time. The honest position is that the disk needs
+someone watching *all* of it, not this lane watching the corner it started in.
