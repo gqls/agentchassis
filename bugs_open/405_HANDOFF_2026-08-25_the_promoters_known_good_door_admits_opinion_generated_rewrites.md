@@ -28,7 +28,10 @@ were earned by BOTH populations under one item_type.
 
 - **The promoter's own description says** "Does NOT re-enable improvement-sweep" — its authors
   understood it as draining a triage backlog, not as a dispatch route for auditors. But
-  **[MEASURED 2026-08-25, live ∪ archive]** 26 LLM-audit rows (`spec->>'audit_source'` ∈ the six
+  **[MEASURED 2026-08-25, live ∪ archive]** ~~26~~ **27** LLM-audit rows
+  (> **CORRECTED 2026-08-25 late evening by the `bugs_open/391` lane's re-verification (their
+  > CONTRIB below, commit `db96ea770`): my own four listed batches sum 5+6+12+4 = 27, and I wrote
+  > 26 beside them. A dated count is what gets quoted onward — caught before it travelled.**) (`spec->>'audit_source'` ∈ the six
   model-seat sources) were promoted between 2026-08-20 and 2026-08-24 **while the sweep was
   disabled** (triaged_at 08-20 14:59, 08-22 11:26, 08-24 10:27, 08-24 22:21; the 08-17 12:40 and
   08-22 18:4x batches excluded as sweep/hand-run triage). Rewrites the owner believed were off
@@ -79,20 +82,42 @@ at all — went through the council instead: RFC_056, trail `d1342f2a`.)
 3. **Do nothing beyond 623/624** and accept Residues A/B as documented. Honest, free, and the
    next session to hand-fire an auditor pays for it.
 
+**Why candidate 1 is NECESSARY and not merely tidier — the 391 lane's dated measurement (2026-08-25,
+their CONTRIB): the measurement-vs-judgement axis does not exist on the row in ANY current column.**
+`created_by` is the seat name exactly (a list — inherits candidate 2's drift); `source='discovery'`
+spans 6,763 rows across 27 distinct creators with no audit_source (does not discriminate);
+`spec ? 'audit_source'` separates the six seats cleanly but OVER-blocks `tool-acceptance-tier4` and
+`owner-request`. So the origin stamp has to be WRITTEN; it cannot be derived. That table is the
+answer to "why not use what's there".
+
 ## 6. How to verify a fix
 
 Induce, don't wait: file one synthetic `detected` row with a proven pair and
-`spec.origin='model_opinion'` (or an audit_source from the six), wait two promoter ticks, assert
-it is HELD with the named reason in the tick's `doc_notes` row — and file the mechanical control
-row in the same breath, asserting it IS promoted. Both directions, same run.
+`spec.origin='model_opinion'` (or an audit_source from the six), and file the mechanical control
+row in the same breath. ~~Assert the held row's reason in the tick's `doc_notes` row~~ —
+> **CORRECTED 2026-08-25 (391 lane): THERE ARE NO PER-TICK `doc_notes` ROWS.** The promoter fires
+> ~96×/day and `subject_key='scheduled_tasks.detected-item-promoter'` holds 4 rows, all landmine
+> syncs; `held`/`held_detail` go to `target_topic=system.agent.generic.requests`, not to
+> `doc_notes`. As written, the HELD half of the test had nothing to assert on while the control
+> half passed — a test that silently runs one way and reports green.
+**The executable assertion:** the control row is PROMOTED (status `triaged`, `triaged_at` set)
+within two ticks — which proves ticks ran over this site — AND the opinion row is still at
+`detected` in the same window. Both read from `site_work_items` alone. If the fix also adds a
+held-reason receipt somewhere durable, name that target in the fix, not here.
 
 ## 7. Routing
 
-- The promoter's living owners: the `083`/`277` lineage — `bugs_open/277` session notified
-  2026-08-25 with this file's path. If that lane takes candidate 1, the Go half touches
-  `write_audit_findings` — coordinate with RFC_056 (this lane), whose record-mode seam is
-  adjacent but NOT a substitute (record mode changes what the six seats FILE; candidate 1 changes
-  what the promoter ADMITS, whoever filed it).
+- ~~The promoter's living owners: the `083`/`277` lineage~~ — **CORRECTED 2026-08-25 (the
+  session I notified re-verified the lineage): the 083 lane built it (`3c6354059`) and is CLOSED;
+  the 277 lane closed 083 as a CONSUMER, not an author, and is ITSELF CLOSED (`af3acc8b2`,
+  `0f8e23638`, 08-22); the live session carrying the name "bugs_open/277" is the `bugs_open/391`
+  lane, routed here by a session NAME. `who-owns` had it right: closed, no open owner.** That lane
+  declined candidate 1 (not on the merits — scope their user did not set) and verified §§1, 4 and
+  the count above; see their CONTRIB. **So candidate 1's natural home is whoever owns
+  `write_audit_findings` — today that is the `loanzy_uk_example_site` lane (RFC_056), which holds
+  the Go half already; the pre_query half must land in the SAME change or the Go↔SQL lockstep
+  drifts.** Record-mode (RFC_056) is adjacent but NOT a substitute: it changes what the six seats
+  FILE; candidate 1 changes what the promoter ADMITS, whoever filed it.
 - 016b §9 pattern (transferable): **a "known-good" test scoped to one axis certifies every other
   axis by accident** — the pair's history voted, the row's provenance never did.
 
