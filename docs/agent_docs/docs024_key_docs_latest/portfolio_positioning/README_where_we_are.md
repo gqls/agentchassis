@@ -1036,3 +1036,42 @@ it survives this session either way.
 **To pick this up in a fresh session:**
 `docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/HANDOFF_2026-08-25b_continue_here.md`
 
+
+---
+
+**2026-08-25 (late) — finished. Every site that should have a sitemap has one.**
+
+All three checks came back over the last hour and all three were what I predicted.
+
+`webdesign.uk` — the domain that forwards everything elsewhere — now correctly produces **no**
+sitemap. It found the same seven pages as before, rejected all seven because they forward, and
+published nothing. That is the right answer, not a gap: it stays on the uncovered list permanently
+and deliberately.
+
+`homegarden.uk` and `cv1.co.uk` — the two that had been quietly skipped because the sweep visited
+them before their pages went up — are both live: 20 pages and 3 pages respectively, every address
+matching a real page.
+
+**We're at 29 of 31.** The two that aren't covered are `adversecreditmortgage.co.uk`, which is under
+your halt and deliberately skipped, and `webdesign.uk` above. So there is no site left that ought to
+have a sitemap and doesn't. On Monday morning it was 8 out of 28.
+
+**One thing I want to be straight about, because it would be easy to let it slide past.** The fix I
+made this evening — the one that stops a site being visited before it's ready — **has not actually
+been exercised yet.** Both sites recovered because I put them back in the queue by hand, and both
+now have pages, so the new check isn't even consulted for them. It will get its first real test when
+the next brand-new site appears. I've written down exactly what to look for so nobody has to take my
+word for it: a site with no pages published that has still been marked as visited means the fix
+didn't work.
+
+I mention it because "29 of 31, all green" is exactly the sort of result that lets an untested piece
+of work ride along unnoticed.
+
+**Also worth knowing:** the review panel approved the fix but flagged that my database edit used a
+find-and-replace which would have hit *every* match if the phrase appeared twice. It appeared once,
+so nothing went wrong — I checked. But the criticism was correct and I've written down the cheaper
+check that would have removed the doubt entirely.
+
+**To pick this up in a fresh session:**
+`docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/HANDOFF_2026-08-25b_continue_here.md`
+
