@@ -174,3 +174,73 @@ open) · `bugs_open/203` (an unconditional default, different mechanism) · `bug
 fleet CTA-destination repair machinery to reuse) · `bugs_closed/191` (header CTA validated by a
 looser predicate than the nav beside it — the same nav-vs-CTA divergence, one layer up) ·
 `bugs_open/248` (recompute clobbering authored links — constrains any repair run).
+
+---
+
+# ⚠ CORRECTION 2026-08-25, same day, before anything was acted on — THIS SYMPTOM WAS ALREADY MEASURED AND COMMISSIONED, and it changes the recommendation
+
+**I filed the sections above without finding the prior lane, and I should have.** I grepped
+`bugs_open/` and `bugs_closed/` for the mechanism (which is what "grep before you file" literally
+says) and found the adjacent bugs. **The prior art was not in a bug file — it was in a lane**, and
+one line of `MEMORY_workstreams.md` names it. The cheap check I skipped: **grep the workstreams
+index, not just the bug directories.**
+
+## What was already known, 10 days before this file [`cta_target_content_pass`, 2026-08-15]
+
+`docs/agent_docs/docs024_key_docs_latest/cta_target_content_pass/PLAN_2026-08-15_cta_target_content_pass.md`
+measured the same population and named the same shape:
+
+> *"Where the button's wording named a real page, label-match chose it (good). Where it did not,
+> the positional fallback chose **the site's top-ranked interactive page** — the same one for every
+> such page on the site. Measured 2026-08-15: **16 sites have ≥6 rows on their modal target; worst
+> are finetuning.uk (39 rows on /tools/password-entropy.html), ai-agent-orchestration.com (36, same
+> tool) and gaswholesalers.com (28)** — and `/tools/password-entropy.html` is the modal target on
+> THREE sites, sometimes topically absurd (an AI-services page's main button pointing at a password
+> checker)."*
+
+**The owner accepted that as a floor on 2026-08-15 and commissioned a content pass** to vary the
+targets page by page. **Nothing has been run.** So this file's symptom is not new, and the owner's
+2026-08-25 report — *"not deliberate and actually wrong"* — is best read as **the floor being
+withdrawn**, not as a fresh discovery.
+
+## What this file actually adds, stated honestly
+
+1. **WHY that particular tool wins**, which the 08-15 plan did not have: not "it is top-ranked" as
+   a brute fact but **`nav_order = 1`, a fossil set at page creation on 2026-03-13**, beating every
+   relevant tool at 6–204 on exactly the three affected sites. That is the difference between a
+   condition and a cause, and it is what makes a cheap fix possible.
+2. **`in_header` is not read by the chooser**, so hiding the page from the nav — already tried,
+   with a comment explaining why — cannot help.
+3. **It is still minting today** (17 stamped 08-23 → 08-25). The stamp did not exist on 08-15
+   (LNK-035 shipped 08-22), so the earlier lane could not have known whether this was live or
+   inherited. It is live.
+
+## ⚠ The recommendation in §"The decisions this needs" is REVISED accordingly
+
+The commissioned content pass is an **LLM rewrite over every affected page of 16 sites**, and its
+own plan flags three caveats it must design around. The `nav_order` finding means **the three
+worst sites may not need it at all**: correcting one number per site changes which tool the
+positional fallback picks for *every* page on that site at once.
+
+**So the ordering matters more than the choice:**
+
+1. **First**, correct the ranking input (decision 2) or add the opt-out (decision 3) — cheap, and
+   it moves the modal target on the worst three sites in one step.
+2. **Then re-measure** the 08-15 population. The content pass is sized against a number that is
+   now 10 days stale and that step 1 will change substantially.
+3. **Only then** scope the content pass over whatever repetition remains, which is a real problem
+   (repetitive CTAs across a site) but a *different* one from the off-topic CTA the owner reported.
+
+Running the content pass first would spend an LLM rewrite of 16 sites to work around a fossil
+integer — and would leave the fossil in place to mis-rank the next tool added.
+
+## One more consumer this file did not name
+
+The `bugfix_308` lane recorded (2026-08-22) a **third** consumer of the CTA candidate loaders that
+no CTA document names: `render_site_components_action.go`'s **site header fallback**. Its output is
+never persisted — *"`site_components` carries 0 `cta_url` keys across all 24 header rows"* — so a
+`content_data` before/after diff **reads clean while all 24 headers move**. Any fix here must be
+verified at the rendered header, not in `content_data`.
+
+**Relations, added:** `cta_target_content_pass` (the commissioned pass this is the root cause of —
+tell that lane before acting), `bugs_open/308` (the third consumer, and the provenance work).

@@ -63,6 +63,22 @@ state, not a human judgement. Only leopardess is documented as deliberate, by it
 4. **Repair:** the 80 stored values. Reuse `bugs_closed/268`'s fleet CTA-resolution re-run —
    **after** 1–3, or it re-mints the same answer.
 
+> ⚠ **REVISED the same day — read `bugs_open/389`'s CORRECTION section before acting.** This
+> symptom was already measured on **2026-08-15** by the `cta_target_content_pass` lane (16 sites
+> with ≥6 rows on one modal target; finetuning 39, ai-agent-orchestration 36; password-entropy the
+> modal target on three sites, called *"topically absurd"* there). **The owner accepted it as a
+> floor and commissioned a content pass; nothing was run.** So decision 4 is not "reuse 268" alone
+> — there is a **standing commission** to honour or withdraw. What this lane adds is the CAUSE
+> (`nav_order = 1`, a fossil from 2026-03-13) and proof it is still minting. **The ordering now
+> matters more than the choice: correct the ranking input FIRST, re-measure, and only then size
+> the content pass** — otherwise an LLM rewrite across 16 sites is spent working around a fossil
+> integer that stays in place to mis-rank the next tool added.
+>
+> ⚠ Also: `render_site_components_action.go`'s **site header fallback** is a third consumer of the
+> same loaders, and its output is never persisted (`site_components` holds 0 `cta_url` keys across
+> 24 header rows) — so a `content_data` diff **reads clean while all 24 headers move**. Verify any
+> fix at the rendered header.
+
 **Recommendation if asked:** candidate 1 in the bug file — an explicit "never a CTA target" flag
 read by `loadInteractivePages`. It makes the intent *sayable*, which today it is not; that is
 precisely why hiding the page from the nav was the only move available and accomplished nothing.

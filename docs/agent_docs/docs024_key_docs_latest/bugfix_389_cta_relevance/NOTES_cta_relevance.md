@@ -45,3 +45,23 @@ unattributable. Reading NULL as authored would have made this look historical an
 either site says so. `in_header` is read by one and not the other. That is why a human's explicit
 "don't make this prominent" was a no-op: the two mechanisms disagree about which column carries
 the intent, and there is no column that carries it for CTAs at all.
+
+### ⚠ MISSTEP 3 — I filed before finding the prior lane, and the prior lane had the population 10 days earlier
+`cta_target_content_pass` measured this on **2026-08-15**: 16 sites with ≥6 rows on one modal
+target, finetuning 39, ai-agent-orchestration 36, password-entropy modal on three sites and
+described in that plan as *"topically absurd"*. The owner **accepted it as a floor and commissioned
+a content pass**; nothing was run.
+
+**Why I missed it:** I grepped `bugs_open/` and `bugs_closed/` for the mechanism — which is what
+"grep before you file" literally prescribes — and the prior art is **not a bug**. It is a lane,
+named in one line of `MEMORY_workstreams.md` (line 88). **The cheap check: grep the workstreams
+index too, not only the bug directories.** A commissioned-but-unrun deliverable lives in a lane
+doc by definition, because it is not a defect.
+
+**What it changed:** not the finding (the `nav_order = 1` fossil and the live minting are new and
+stand) but the **recommendation**. The commissioned pass is an LLM rewrite over 16 sites; the
+fossil integer means the three worst sites may need one `UPDATE` each instead. Ordering now leads
+the write-up: fix the ranking input, re-measure, then size the content pass against what remains.
+**A root cause found under a commissioned workaround should change the workaround's scope before
+anyone runs it** — that is the transferable point, and it is why filing without the lane search
+was worth correcting the same day rather than leaving as a footnote.
