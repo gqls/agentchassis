@@ -167,3 +167,28 @@ to their owners for the first time.
 - Tests: degraded harness grows board cases incl. a MOBILE context (touch
   viewport) driving drag by synthesized pointers; mutation-verified like
   everything else on this page.
+
+---
+
+## OWNER RULINGS 2026-08-25 (later) — stage 3 shaped, and the tier
+
+1. **Stage 3 goes ahead: crop, rotate, captions.** His framing, recorded
+   because it shapes the build: *"maybe these are a different type of note. we
+   can move that type of note to become an editor eventually, cropping images,
+   making gifs, editing videos when the bandwidth allows (we could eventually
+   do this serverside if needed) or simple small edits clientside."* So stage 3
+   is the SEED of an editing surface, not its ceiling: today = simple small
+   client-side edits (rotate 90°, drag-crop, captions); the door stays open to
+   an editor-type note, GIF-making, video editing, and server-side processing.
+   Design consequences now: an edit NEVER mutates in place (canvas → upload as
+   a NEW media row → delete the original only on the 2xx — crash-safe and
+   trivially undoable by not-deleting later); captions live on the media ROW
+   (`media.caption`), not in the layout, so they survive re-arrangement and
+   will feed any future editor view; GIFs are refused for editing with a plain
+   sentence (a canvas edit would silently keep one frame — losing the
+   animation is worse than waiting).
+2. **Quota stays 50 MB; the paid-storage-tier COPY is wanted.** Drafted and
+   presented in chat for sign-off. NOT shipped to the site until a purchase
+   mechanism exists — a page that offers storage nobody can buy is exactly the
+   claims-without-mechanism class bugfix 161 exists to prevent. The in-product
+   meter already states the allowance factually.

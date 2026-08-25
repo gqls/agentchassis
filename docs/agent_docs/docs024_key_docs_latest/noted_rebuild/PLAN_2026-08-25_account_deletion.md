@@ -93,3 +93,11 @@ Engine ~150 lines + tests, editor ~80 lines + case, one deploy each — the
 engine half can ride the SAME deploy as the B2/stage-2 binary if approved
 before the owner runs the box commands, otherwise the next one. No platform
 (cluster) code is touched; not council scope.
+
+---
+
+## OWNER RULING 2026-08-25 (later): IMMEDIATE — build it
+
+§5.1 decided: immediate hard delete. §5.2 (the backup sentence) to be presented
+in chat and applied to the privacy page through the normal chain (draft →
+checker → evidence_base → 074b) only after his wording sign-off.
