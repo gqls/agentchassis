@@ -37,6 +37,11 @@ jobs (78% obsolete when re-measured; Fable-audited). **Migration
    since April). `VerifyMisdirectedCTAResolved` = re-run `ctaClassifyAnchor` on the page before
    a `cta_links_stale` rerender may complete; and the detector should not file a `page_rerender`
    for a page with ZERO covered findings (that is the two-strike stock manufacturer, NOTES §8).
+   > **CORRECTED 2026-08-25 (333 lane): the "(now parks `deferred` under 333's door)" clause above is
+   > FALSE** — 0 owned-page `cta_links_stale` rows have ever parked (135 complete / 108 unresolved /
+   > 96 failed / 22 cancelled / 1 triaged, live+archive); the door keys on the target handler's
+   > declaration and `page-rerender` declares none, by design. See
+   > `CONTRIB_2026-08-25_owned_page_cta_rows_do_not_park_under_333s_door.md` in this directory.
 3. **Optional widening**: `tool-cta` (12 findings), `tool-list` (5), `case-studies-grid` (1)
    carry `cta_url`-shaped schema fields — adding them to `ctaFieldNames` is council-gated work
    that converts ~18 human findings to machine ones. `article-body`/`ported-*`/`generic-text-block`
@@ -52,6 +57,8 @@ jobs (78% obsolete when re-measured; Fable-audited). **Migration
   window — compute ageout from the SECOND-NEWEST strike (my 08-29 dartsonline deferral was
   wrong; the estate corrected it 16 minutes after ageout). <3h repeats now DEFER, not drop
   (`f16c87beb`, 326-D). Owned-page findings park at `deferred` with `builder_needed` (333).
+  > **CORRECTED 2026-08-25 (333 lane): FALSE for this lane's findings** — they target `page-rerender`,
+  > which declares no refusal, so the door never parks them; 0 ever have. Same CONTRIB as above.
 - **The hourly rolling sweep is live and Phase B repairs stick** — do not hand-fire sweeps
   except to jump the queue; pre-flight per NOTES §9 if you do
   (`scripts/initial_messages/170_work_item_flow_build/075_trigger_discovery.sh <domain> completeness`).

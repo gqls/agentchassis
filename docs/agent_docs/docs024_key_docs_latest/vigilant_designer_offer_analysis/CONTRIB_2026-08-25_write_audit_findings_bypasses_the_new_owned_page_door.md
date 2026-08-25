@@ -50,3 +50,25 @@ and I will not pre-empt it.
 
 Both are in `LANDMINES.md`. Full account: `bugs_open/333` (POST-ROLL section) and
 `docs/agent_docs/docs024_key_docs_latest/bugfix_333_owned_page_door/`.
+
+## ADDENDUM 2026-08-25 (later, same lane) — the owner has ruled, and it reverses the recommendation above
+
+Two updates, one of which supersedes a paragraph above:
+
+1. **The promoter-side recommendation above was WRONG in its operative detail, and is withdrawn.** An
+   adversarial review inside the 333 lane found that the promoter which actually promoted your three rows is
+   the **scheduled task `detected-item-promoter`** (raw SQL in `scheduled_tasks.pre_query`, every 900s — your
+   rows' identical `triaged_at = 2026-08-24 22:21:38.324` is its tick), not the Go
+   `TriageDetectedItemsAction` (called only by `improvement-loop`, which runs periodically but had no run on
+   that site in that window). A Go-side predicate would therefore not have covered your rows, and a SQL-side
+   park would re-implement the door's parked shape in a second medium.
+
+2. **Owner ruling 2026-08-25: `write_audit_findings_action.go` will be routed through `writeWorkItem`** (the
+   seam the door sits in), so your action's rows get the same parked shape as every seam producer. The 333
+   lane will make that change and put it through the council gate; your `classified.HandlerAgent` /
+   `PageID` semantics are unchanged — only the INSERT at `:987` moves to the shared writer. The "it is yours
+   to take" offer above is superseded by that ruling; nothing is needed from your lane, and you will be able
+   to verify at `SELECT count(*) FROM site_work_items WHERE created_by='offer-analysis' AND
+   status='deferred' AND error LIKE 'OWNED_PAGE_GUARD%'` once it ships.
+
+— `bugfix_333_owned_page_door`, 2026-08-25

@@ -24,6 +24,16 @@ about, one level up.
    `unresolved` stock (this made the 215-row backlog 308's lane spent a day unpicking).
 2. **Owned page** — handler refuses `rebuild_policy=owned`; since `333`'s door (v1.0.1335+)
    these park at `deferred` with `builder_needed`, which is visible but still not a repair.
+   > **CORRECTED 2026-08-25 (by the `bugfix_333_owned_page_door` lane): they do NOT park, and the door
+   > structurally cannot cover them.** The door parks only when the TARGET HANDLER declares
+   > `refuse_owned_page` (mig 488); `cta_links_stale` rerenders are filed at `page-rerender`, which must
+   > never declare it (per-agent/per-branch ruling, register WII-028, with the 384 lane).
+   > [MEASURED 2026-08-25 ~10:50Z, live+archive] owned-page `spec.reason='cta_links_stale'` rows:
+   > **0 `deferred`, ever** — 135 complete / 108 unresolved / 96 failed / 22 cancelled / 1 triaged. The
+   > `save_sections` refusal also has no `wont_fix` terminal (mig 480 covers `load_page_record` only), so
+   > these loop `failed`→`triaged`. Consequences for the fix candidates — including that candidate 1
+   > would refuse-loop on owned pages unless they are excluded upstream — in
+   > `docs/agent_docs/docs024_key_docs_latest/bugfix_308_cta_destination_provenance/CONTRIB_2026-08-25_owned_page_cta_rows_do_not_park_under_333s_door.md`.
 3. **Data-less legacy component** — empty `content_data`, `rendered_html` frozen
    (ai-agent-orchestration.com `/blog` hero + call-to-action, frozen 2026-04-14): the
    recompute has nothing to write into; the rerender carries stored HTML byte-identical.
