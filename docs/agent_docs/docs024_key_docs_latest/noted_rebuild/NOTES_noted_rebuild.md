@@ -2668,3 +2668,42 @@ verified on the box. **Door closed**: the RUNBOOK recipe now runs `chmod` on
 `.new` FIRST, so a re-run fails before the backup step. The general shape: in
 an `&&` chain, every step BEFORE the guard runs on every retry — put the
 existence check first, or a "safe to re-run" script quietly is not.
+
+---
+
+## 2026-08-25, second session — deletion + captions + image editing BUILT; deploying
+
+Owner rulings: immediate deletion GO; stage 3 = crop/rotate/captions as the
+SEED of an editing surface (his different-note-type vision recorded in the
+PLAN); quota stays 50 MB; tier copy drafted, NOT shipped (no mechanism —
+bugfix-161's class).
+
+**Engine (commit a63a6e21b, binary `4ab02cf6…`)**: `DELETE /api/account`
+(password re-typed; B2 objects before the row cascade; refuses wholesale if any
+object cannot go; goodbye only after everything is gone) + `PATCH
+/api/media/{id}` captions (on the ROW, 500 chars). 16/16 tests incl.
+B2-refusal-aborts-everything + retry-converges-to-empty-bucket; password gate
+and B2 cleanup mutation-verified red. **DEPLOYED + verified**: sha matched,
+active, still `media storage: B2`, DELETE /api/account and PATCH /api/media
+both answer 401 unauthenticated (old binary: 405), caption column present,
+shopfront 200. Rollback: `/root/noted-engine.pre-20260825-deletion`.
+
+**Editor (commit db5df07ba)**: Account panel (loud failures, goodbye on 2xx);
+captions in strip + board; rotate/drag-crop editing that never mutates in place
+(copy first, original after, board items RETARGET preserving position; GIFs
+refused with the reason). Harness 61 checks (A–O); MUT-G refusal-as-success
+crash-red, MUT-H silent-edit-failure crash-red, MUT-I optimistic caption red.
+Smoke now SELF-CLEANS: deletes its throwaway through the live panel and proves
+the credentials die (commit fdb4fb502).
+
+**Deploying**: 077 corr `39c50b3c…` COMPLETED, placement carries
+`nw-account-panel` + `nw-edit-canvas` (47,444 B); page_rerender `909e6c3d…`
+(`…_delete_edit_v3`, column asserted → tool-write), 136 ahead at filing,
+watcher armed. On landing: box/live bytes → live smoke (now 19 checks incl.
+live deletion self-cleanup).
+
+`[MEASURED]` box DB at 15:40 UTC: media rows 0 Postgres / 0 B2 (the smokes
+deleted their own), accounts 5 (throwaways + owner tests) — so the proposed
+backup sentence ("media is not in the backups") is exactly true with no pre-B2
+residue, and the 5 throwaways can be drained through the live endpoint once
+this lands.
