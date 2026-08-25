@@ -5,6 +5,16 @@
 and should be re-grounded before you act on it — two of four premises had expired in the five
 days before this session, and one published figure turned out to be wrong (§5).
 
+> **CORRECTED / SUPERSEDED IN PART, 2026-08-25 (evening session):** the owner answered ALL FOUR
+> §3 decisions — D1 **drop** the trust rule entirely; D2 **per-page** heroes for the dozen that
+> matter, archetypes for the rest; D3 **this lane** takes the platform fix; D4 **build the critic
+> in this lane**. And §3 D3's premise was stale when written: the "bugs_open/238 / 248 family" is
+> **CLOSED** (238 on 08-21, asset-248, 355; only the CTA-clobber 248 remains open). The services
+> damage was traced to a NEW unprotected class — hand-authored values inside `source:"llm"`
+> fields, eaten by an `offer-analysis` content_rewrite on 08-22 11:35Z — filed as
+> **`bugs_open/403`**, which this lane now owns. Evidence + session record: RUNNING_NOTES
+> 2026-08-25 (evening). Read 403 before §4 or §6.
+
 **Site:** `leopardessconsulting.co.uk` · `site_id 4851f6fc-71cf-4160-a270-e03d6d3e0732`
 **Home page:** `/index.html` · page name `index`
 **Approved plan this continues:** `~/.claude/plans/let-s-do-1-2-and-3-ancient-crab.md`

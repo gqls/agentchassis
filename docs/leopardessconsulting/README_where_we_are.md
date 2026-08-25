@@ -1272,3 +1272,39 @@ the nineteen pages it is blocking; how distinctive you want the page headers to 
 on the underlying bug that keeps undoing the services page; and who builds the design critic —
 which, it turns out, you already asked for in July and which has been proposed five times
 without being built.
+
+**2026-08-25, later — you answered all four questions, and the services story turned out to have moved under us.**
+
+Your answers, so they are on the record: the word "trust" comes off the banned list entirely.
+Page headers get individual images for the dozen pages that matter, with shared ones for the
+rest. This lane takes on the platform bug that keeps undoing the services page, rather than
+waiting for anyone else. And this lane builds the design critic too.
+
+Before acting on any of it I re-checked the ground, because the handoff was written this
+morning and this estate moves fast. Three things had changed.
+
+First, the shared fault we had been pointing at — the family of bugs about regeneration
+losing content — is closed. Fixed, live, proven, by the lanes that owned it. So "wait for
+them" stopped being an option this morning; there was nothing left to wait for.
+
+Second, and this is the important one: I found exactly what ate the services page, and it is
+NOT the bug that was closed. On the 22nd at half past eleven in the morning, an automated
+"offer analysis" pass rewrote the services page's copy wholesale. The cards and the picture
+references we had restored by hand live INSIDE the blocks of text that the writing machinery
+owns — and the machinery has no way of telling "a person wrote this deliberately" from "I
+wrote this last time". So every rewrite pass is allowed to eat hand-made work, and no
+safety net we have can even see it happen. The one exception is buttons: since the 22nd,
+machine-made button links carry a little marker saying so. That marker is the pattern the
+general fix needs. I have written the whole thing up as a new fault record — number 403 —
+with the evidence, and fired the independent diagnosis loop at it to check my reading.
+
+Third, some reassurance: your "Book an architecture conversation" button is still pointing
+at the contact page — the repair from earlier today held. An automated pass did rewrite the
+services and tools pages' bottom buttons this evening, but it swapped one calculator link
+for another and honestly marked its work as machine-made; nothing hand-authored was touched.
+
+What this means for the plan: restoring the services page by hand a fourth time, with no
+protection, would just feed the same machine again — two rewrite passes hit that page in the
+last four days alone. So the order is: build the protection (the fix for 403), then restore
+on top of it. The picture work and the voice work are not blocked by any of this and start
+now.

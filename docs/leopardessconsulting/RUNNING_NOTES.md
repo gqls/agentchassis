@@ -3232,3 +3232,50 @@ all serving 200. So new heroes follow the same pattern; nothing new needs design
 **One pre-existing defect noticed in passing, not repaired:** `hero_case_studies` still holds
 a **presigned S3 URL** in `assets.url` (`bugs_open/152`'s recurrence, which this lane already
 contributed on 2026-08-16).
+
+---
+
+## 2026-08-25 (evening session, "leopardess") — owner rulings D1–D4 + the re-grounding that rewrote D3
+
+**Owner answers (AskUserQuestion, this session):** D1 = DROP the trust rule entirely (not the
+narrowing I recommended). D2 = per-page heroes for the dozen that matter, archetypes for the rest.
+D3 = THIS lane takes the platform fix. D4 = build the design critic in THIS lane.
+
+**Re-grounding before acting — three premises had moved since the morning handoff:**
+
+1. **The "bugs_open/238 / 248 family" cited by handoff §D3 is CLOSED** — `bugs_closed/238`
+   (08-21, prevention proven live on v1.0.1322), `bugs_closed/248` (asset-repair one), and
+   `bugs_closed/355` (08-23). Only `bugs_open/248` (CTA recompute, the OTHER 248) is open.
+   Classic closed-blocker-keeps-being-obeyed shape.
+2. **The third /services damage is dated and attributed** `[MEASURED 2026-08-25]`:
+   ONE generation, 2026-08-22 11:35:41Z, `save_page_sections_overwrite`, driven by
+   `site_work_items` key `offer-analysis_content_rewrite_services_4851f6fc-…` (created 11:17:21Z,
+   complete 11:36:20Z). `info-card-grid` 1,794B/6 cards → 1,147B/3 cards; `teaser-reveal-panel`
+   4,136B/6 items/6 `icon-service-*` refs → 3,511B/5 items/0 refs. The restore had survived
+   FOUR rerenders byte-identical (08-14 18:25, 08-16, 08-17, archived 08-22) — rerender MERGES,
+   the rewrite path REPLACES. Queries preserved in `bugs_open/403`.
+3. **This is a NEW mechanism, not 238 recurring** — the lost values sat INSIDE `source:"llm"`
+   array fields; PBP-039 carry (non-llm only), `cmd/content-loss-check` (blank transitions only)
+   and the 238 closure census (pairs by field key) are each structurally blind. Filed as
+   **`bugs_open/403`** (+ 016b §9 pattern + LANDMINES entry, commit `0c43d5050`); 090 run fired
+   FIRST — intake corr `2590b5b6…`, **run corr `c946b495-115d-4e3e-8186-3819273edb6c`** (advisory:
+   HEAD was 87 ahead of origin at dispatch, so the loop cannot see the newest tree).
+
+**Tonight's live activity on the site (watched it happen mid-query):** work-item pair created
+19:17:57Z — `content_rewrite/cta_label_relevance` + `page_rerender/cta_relink` — rewrote
+`/services` (19:52–19:53Z) and `/tools` (19:40–19:41Z) CTAs. BENIGN: swapped one machine-minted
+tools CTA for another (password-entropy → complexity-estimator), label and URL agree both sides,
+and stamped `__cta_minted` (LNK-035, `datahelpers/cta_provenance.go`, shipped 08-22). Teaser
+values also rewritten (3,511→4,925B, same 5 items). **Home held**: hero `/contact.html`,
+call-to-action primary AND secondary `/contact.html` — the morning re-authoring survived.
+NOTE for any future survival claim: name the PRODUCER survived, not the number of rerenders
+(248's fix-record lesson).
+
+**Voice-pass unblock check:** `ai_endpoint_health` → `api.anthropic.com` healthy=t. The
+2026-09-01 cap note in `VOICE_2026-08-17_banned_phrases_ready.sql` is STALE; both halves can
+apply now. The trust rule to drop is element `"trust / trusted / deserves trust — …"` in
+`site_specs` aspect `voice` → `banned_language` array (site `4851f6fc…`, is_current).
+
+**Next in this session:** voice pass (drop trust element + apply ready SQL + rerender 3 pages +
+served-page verify), then first per-page hero end-to-end. 403 fix design + critic design (D4)
+queued behind them; read the 090 verdict before designing the 403 fix.
