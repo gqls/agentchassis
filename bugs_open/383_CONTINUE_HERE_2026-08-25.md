@@ -7,7 +7,7 @@
 > after the **2026-08-25 09:27** roll. They predate it by ~22 hours. Everything below is the
 > corrected position.
 
-**Read with:** `bugs_open/383_HANDOFF_2026-08-24_…md` (the bug; §13 is the post-roll verification)
+**Read with:** `bugs_open/383_HANDOFF_2026-08-24_…md` (the bug; **§14 is the retraction — read it before §13**)
 · lane dir `docs/agent_docs/docs024_key_docs_latest/bugfix_283_component_instance_scope/`
 · `SUMMARY_2026-08-24_occurrence_derivation.md` (the read-out) · `NOTES_…md` sessions 13–14.
 
@@ -22,7 +22,7 @@ render paths see only ONE section at a time — `RenderComponentAction` (every b
 `content_rewrite`) and the section editor — and both passed a **constant 0**, so every copy got
 the same id. That is why repaired pages kept breaking: repairing worked, it did not hold.
 
-## 2. STATUS: fixed, shipped, and verified at the artefact
+## 2. STATUS: fixed, council-approved, shipped — and NOT yet observed working in production
 
 - **Fix**: `364e80b7f` — build path counts its own loop's already-rendered items; editor counts
   stored predecessors position-exactly; constant 0 is the universal fallback. **No migration, no
@@ -106,8 +106,11 @@ COPY — name **both** paths on the commit and verify with
   five**; anything else (including an invented one, including none) goes to assemble-only, which
   re-ships stored bytes and **completes successfully having repaired nothing**. Use
   `template_changed` — the only one of the five with no Go branch keyed on it.
-- **Ask the DB for an interval, never eyeball its timestamp against your shell.** The DB is UTC,
-  this box is BST. I nearly escalated a healthy dispatch trigger as dead on a one-hour illusion.
+- **⚠ NEVER `::time(0)` A TIMESTAMP YOU WILL REASON ABOUT — it discards the DATE.** This cast
+  cost this lane twice in twenty hours: once nearly declaring a healthy dispatch trigger dead (the
+  DB is UTC, this box is BST), and once turning rows written *the previous day* into proof that
+  the day's deploy worked (`WRONG_CALLS` 11). Let the database do the comparison instead — 
+  `bool_and(updated_at < '<roll>'::timestamptz)` answers in one word and cannot be misread.
 - **When you retire a symbol, the prose is the load-bearing edit, not the regex.** In one session
   the retired binder was still named as live advice in `pattern-check.py`'s finding text, in
   CLC-014's body, and in my own CLC-031 entry. Grep `.go` **and** `.py` **and** the register.
