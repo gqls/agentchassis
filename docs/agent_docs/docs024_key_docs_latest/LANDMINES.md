@@ -17693,3 +17693,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/283` §13 · `bugs_open/098` · migrations `460`, `614`, `615` · REB-002 · MEMORY [[a-stale-page-holds-every-improvement-since-it-rendered]], [[live-and-committed-are-independent-facts]]
 - **source:** 2026-08-25, `bugs_open/384` lane, shipping `tool-cta`'s image (migration `614`) and having to write its own fan-out (`615`)
 - **added:** 2026-08-25, `bugs_open/384` lane
+
+### Censusing "work items with no handler" by `handler_agent IS NULL` finds NOTHING, and the owned-page door keeps the PRODUCER's name on every row it parks — so parked work reads as live, named work
+
+- **footprint:** `site_work_items.handler_agent` · `site_work_items.created_by` · `status='deferred'` · the owned-page door (`writeWorkItem`, `platform/orchestration/actions/load_work_item_actions.go`) · `OWNED_PAGE_GUARD` · `bugs_open/396` · any "who owns this queue / what is unhandled" census
+- **fires when:** you count, group or triage work items by whether they carry a handler — a backlog census, a provenance hunt, an "is this population growing" re-measure.
+- **the trap, in two halves that compound.** (1) `handler_agent` is `NOT NULL DEFAULT ''::text`, so a cleared handler is the **empty string**: `IS NULL` finds nothing and `IS NOT NULL` is TRUE for every parked row. (2) **The door clears the handler but PRESERVES `created_by`.** So a parked row still carries the name of whatever filed it, and a `GROUP BY created_by` shows it sitting under an active producer — indistinguishable from live, named, dispatchable work. Measured 2026-08-25: `content_rewrite` at `deferred` splits **11 genuinely named** (`voiceh-rollout` 9, `apis-uk-bees-lane` 2) against **41 door-parked** (`required-fields-missing-handler` 28, `tool-generator` 13); an `IS NOT NULL` census returns **52** and reads as a population that has quintupled in a day.
+- **the check:** group by the ways the field can be GONE, and print the discriminator instead of trusting a filter —
+  ```sql
+  SELECT coalesce(created_by,'(null)') AS parker, (handler_agent IS NULL) AS is_null,
+         (handler_agent = '') AS is_empty, (COALESCE(handler_agent,'')<>'') AS truly_named, count(*)
+  FROM site_work_items WHERE item_type='<type>' AND status='deferred'
+  GROUP BY 1,2,3,4 ORDER BY 5 DESC;
+  ```
+  Genuinely named = `COALESCE(handler_agent,'')<>''`. Door-parked = handler cleared **AND** `error LIKE 'OWNED_PAGE_GUARD%'`. **A population defined by an ABSENCE cannot be censused by a field that is still present.**
+- **⚠ the column fact is ALREADY in this file** — see the `mistyped_deployed_page` entry, whose fourth bullet states `NOT NULL DEFAULT ''::text` and whose footprint was widened **2026-08-02** precisely because it had bitten a second lane on an unrelated no-handler refusal. **This is the third occurrence.** The entry did not protect me because I grepped the *situation* (parked deferred rows) and not the *symbol*, which is exactly what MEMORY [[grep-landmines-for-your-symbols]] exists to stop: the SessionStart hook matches DIRTY PATHS, and a table-and-column footprint can never match one. Grep `handler_agent` before you count it.
+- **generalises:** a sentinel that is a legal value of the column (`''`, `0`, `'unknown'`) is invisible to the nullity test people reach for, and a mechanism that clears one field while preserving another leaves rows wearing their old identity. Ask what the clearing code actually WROTE, not what "cleared" suggests.
+- **relations:** `bugs_open/396` (the parked-with-a-named-handler population — its census is clean, and this is why that distinction is load-bearing) · `bugs_open/333` (the door) · WII-028 · `WRONG_CALLS.md` 2026-08-25 · MEMORY [[grep-landmines-for-your-symbols]]
+- **source:** 2026-08-25, `bugs_open/392` lane — I asserted "all 40 have `handler_agent` null" to another lane from a query whose own output printed BLANK rather than my `'(cleared)'` coalesce default, then re-derived the filter from memory and reported 11 as 52. Caught by the `bugs_open/333` lane before it reached a third lane's census.
+- **added:** 2026-08-25, `bugs_open/392` lane
