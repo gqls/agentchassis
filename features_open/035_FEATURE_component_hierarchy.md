@@ -354,6 +354,24 @@ P1–P3 have held on editorial pages for real weeks. The un-owned-page question
    tripwire, not a bug to "fix" with a CASCADE: cascading would hand the sweep
    exactly the silent-destruction power 178 exists to deny. The general
    unlocked-page answer is P5's opening question, not P1's assumption.
+   > **Added 2026-08-25 (357 lane), and it sharpens what P5 must answer:** the
+   > same file carries a **completeness floor** (`save_sections_prune_floor.go`)
+   > that refuses the WHOLE save when the incoming row set is too small a
+   > fraction of two independently-measured cohorts — the existing rows, and
+   > `pages.sections`' **planned** count. Composition changes the arithmetic of
+   > both, because a composed page's `page_components` holds parents **plus
+   > children** while `pages.sections` still lists only the parents (D2/§9). So
+   > a later NON-composition-aware save of a composed page offers parents-only
+   > against an existing set of parents+children, and the ratio falls — the
+   > floor then refuses the entire save. That is fail-closed and arguably
+   > correct, but it presents as a `save_refused_incomplete` work item nobody
+   > can interpret. **[MEASURED 2026-08-25 by the 357 lane]** 32 such items are
+   > parked at `needs_human_review` across ~14 domains since 2026-07-31, from a
+   > different cause (a one-section fragment against a 3+ section plan) — so
+   > this floor demonstrably fires in production and is not theoretical.
+   > **Moot for P1/P2** (owned/locked pages: the rows are not agent-writable and
+   > the delete never runs). It is P5's question, and P5 must answer it as
+   > "what is the denominator on a composed page?", not by lowering the ratio.
 2. **Cycles and depth** — FK permits them; the walk refuses them (D4.3),
    fail-closed, tested in P0 with an induced cycle. A guard proven only by a
    quiet test is not proven (the mutate-to-prove rule).
@@ -394,18 +412,38 @@ P1–P3 have held on editorial pages for real weeks. The un-owned-page question
      token" — it is **another template's token**, i.e. a false provenance claim
      of exactly the kind RFC_046 exists to prevent.
 
-   **[VERIFIED 2026-08-25 — today's code is SAFE, and that is the trap.]** Both
-   live readers of the field render exactly ONE template per context, so nothing
+   **[VERIFIED 2026-08-25 — today's code is SAFE, and that is the trap.]**
+   ~~Both~~ **FOUR (corrected same day — the 357 lane, who own the stamp, named a
+   reader my census missed; a count stale by ADDITION within the hour, which is
+   the failure this repo's dated-count rule exists for)** live readers of the
+   field render exactly ONE template per context, so nothing
    is wrong now: `rerender_page_sections_action.go` allocates a fresh
    `rc := &RenderContext{…}` at **:632, inside** the per-section loop opened at
    :473, renders at :661 and reads at :759; `v3_site_actions.go` renders at
-   :2459 and reads at :2553 with **no loop between them**. (`assemble_from_library.go:303`
+   :2459 and reads at :2553 with **no loop between them**; and
+   `adopt_fragment_section.go` allocates `rc := &RenderContext{…}` at :122,
+   renders once and reads at :144 — so **phase 2's own adoption path is
+   unaffected too** (contributed by the 357 lane, 2026-08-25).
+   (`assemble_from_library.go:303`
    *does* reuse one context across its component loop, mutating it per iteration
    — but it discards all three reports and nothing on that path reads the SHA
    back, so it is unaffected today.) **The walk is the first code on the estate
    that would render many templates per context**, which is why no existing test
    or reader would catch this and why it must be decided before the walk is
    written, not after.
+
+   **The four-reader version of this is stronger than the two-reader one, and it
+   is the whole argument:** four independent files, in four lanes, all happen to
+   allocate a fresh context per render — and *nothing made them*. It is a
+   property held by convention across a corpus, not an invariant, which is
+   precisely the shape that breaks the first time someone writes the fifth. The
+   357 lane agrees the primitive-level fix (clear the field on entry to
+   `RenderTemplate`, so "unknown" is guaranteed rather than coincidental) is
+   correct **and is architecture-scope, not a bug patch** — by the 2026-07-29 §1
+   test it changes what the shared mechanism GUARANTEES, from conditional-on-
+   caller-structure to unconditional. It is theirs to route, and they want the
+   falsifier below attached to it rather than shipped after it. **Do not bolt it
+   into the P1 commit.**
 
    **The rule for P1:** capture the digest immediately after each node's
    `RenderTemplate` call, or give each node its own context. Do NOT read
