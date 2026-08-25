@@ -562,3 +562,51 @@ You asked whether one was due. Strictly it is not — I wrote one yesterday and 
 the trigger. But I have written a short one anyway, because the honest read-out has changed:
 yesterday's says the work is finished and reads as a clean success, and it would mislead anyone who
 read only it. The new one records that we shipped a defect and that somebody else found it.
+
+## 25 August, late afternoon — picking the lane back up
+
+I re-checked the site first. Everything from this morning holds: all seven pages I probe come back
+fine, and the placeholder is gone from every one of them.
+
+### Two things in this morning's note were already out of date when it was written
+
+The note said seventeen contrast findings were still parked and that the checker had not visited the site
+since the 10th. Neither was true at the time of writing. Eight of the seventeen had been closed the
+evening before by another team (they were filed against selectors that could never match anything), so
+the real number is nine. And the checker *had* visited — early on the 24th — it just closed nothing. I
+had read "no new findings since the 10th" as "no visit since the 10th", which does not follow: a visit
+that finds nothing leaves nothing behind. I have logged both as my own wrong calls.
+
+### The nine that are left are a real test for the other team's bug
+
+I measured the nine parked items myself. Seven of them are still on the page and now pass — that is the
+readability work from last week doing its job. One element is gone entirely. One page I could not
+measure. So the checker should have closed eight of nine on its visit, and it closed none. I cannot tell
+whether that visit finished or timed out (the record has aged out), so I have written the measurement
+into the bug that owns this and pointed at the next visit — due on or after the 27th — as the one that
+will decide it.
+
+### The durable fix for the placeholder is now buildable, and I have built our half — as a held file
+
+This morning I wrote that we could not switch the site over to the machine-written figures sheet because
+the switch would delete our hand-written "never say this" list. The other team built the missing piece
+this afternoon: a separate, hand-owned list that the machine carries through untouched. It is written,
+reviewed and committed — but not yet in the software that is running, so flipping the switch today would
+still delete the list. I measured that rather than assuming it: I ran today's sheet through the real
+code, and what comes out is the seven numbers and nothing else.
+
+So I have prepared the switch-over as a file that is deliberately held back. It moves every prohibition
+into the new protected list, keeps the seven figures exactly as they are, and pre-writes the sheet to the
+exact text the machine will produce — so the first automatic refresh after the switch is a test: if the
+sheet comes back byte-for-byte the same, the prediction was right. The file refuses to run unless you
+tell it which software version is live, and it refuses today's version by name. I rehearsed every refusal
+and the full apply-then-undo against the real database without changing anything. It has gone to the
+review council. When the next release lands, applying it is a single documented command.
+
+### One page on the site cannot currently be rebuilt
+
+The automation savings estimator page refuses every rebuild because a rebuild would drop about half of its
+layout — a safety floor catches it and writes nothing, which is right. Another team traced it: the stored
+page and what the template would regenerate have drifted apart, and it was already failing before their
+work touched it. It is not urgent, but it does mean two small fixes queued against that page have not
+landed and will not until someone reconciles it.

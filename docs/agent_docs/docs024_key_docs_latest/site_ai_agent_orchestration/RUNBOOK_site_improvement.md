@@ -215,3 +215,74 @@ kubectl exec -i -n ai-persona-system postgres-clients-0 -- \
   transaction, which took longer than a 240 s timeout here.
 - **Next number = highest in the directory + 1, and numbers still collide** (457 and 458 each name
   two unrelated migrations). Re-check immediately before writing: 470 appeared during this session.
+
+## R10 — Apply the managed flip (617 HOLD) ONLY after the carry has rolled, then prove it survived
+
+`617_aiao_writer_block_managed_with_guidance_carry_HOLD.sql` is inert-by-name (the runner's `SIDECAR_RE`
+excludes `_HOLD`). It needs the CLM-029 carry (`c17a18620`) in the RUNNING chassis, and the file cannot
+check git ancestry itself — so this one-liner does the check first and only then pipes the file:
+
+```bash
+PSQL="kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db"
+LIVE=$($PSQL -Atc "SELECT git_commit FROM service_binary_capabilities WHERE service='agent-chassis'
+        AND last_seen_at > now()-interval '30 minutes' GROUP BY 1 ORDER BY max(last_seen_at) DESC LIMIT 1")
+echo "running chassis: $LIVE"
+git merge-base --is-ancestor c17a18620 "$LIVE" && echo CARRY-IS-LIVE || { echo "NOT YET — do not apply"; false; }
+# only if CARRY-IS-LIVE:
+$PSQL -v ON_ERROR_STOP=1 -v live_chassis="$LIVE" \
+  < docs/agent_docs/sql_for_agents/617_aiao_writer_block_managed_with_guidance_carry_HOLD.sql
+./scripts/migration/run-migrations.sh --record-only 617_aiao_writer_block_managed_with_guidance_carry_HOLD.sql \
+  --note "applied by hand after merge-base proved c17a18620 in $LIVE"
+```
+
+**Gotchas.**
+- **The guard refuses `4c996e1b5…` by name** (the chassis live on 2026-08-25) and any sha that is not the
+  one heartbeating. It does NOT know whether a NEWER sha contains the carry — that is what the
+  `merge-base` line is for. Skipping it and typing the running sha after a roll that lacks `c17a18620`
+  would pass the guard and delete the prohibitions at the next refresh.
+- **`-v live_chassis` unset → `617 REFUSED … Got: (unset)`, exit 3.** Rehearsed. The `\if :{?live_chassis}`
+  at the top turns a missing variable into an empty string so the refusal is the guard's message, not a
+  psql syntax error with exit 0.
+- **A `--record-only` for a `_HOLD` file works** (the record path takes any filename); the apply path
+  never sees it.
+
+**The survival check — the first ~09:06Z refresh after applying.** Managed regeneration replaces
+`writer_block` only when the composed text differs (`existing != block`,
+`refresh_evidence_base_action.go` "Whitelist regeneration"). 617 wrote the composer's exact output, so:
+
+```sql
+SELECT created_by, created_at,
+       md5(data->>'writer_block') = md5((SELECT old_value->'data'->>'writer_block' FROM migration_backups
+                                          WHERE migration_name='617_aiao_writer_block_managed_with_guidance_carry')) AS still_611,
+       md5(data->>'writer_block') AS wb_md5,
+       (data->>'writer_block') ~ 'NOT TRACKED / DOES NOT EXIST, NEVER STATE' AS has_never_state,
+       (data->>'writer_block') ~ '\mNNN\M' AS has_nnn,
+       jsonb_array_length(data->'facts') AS facts
+FROM site_specs
+WHERE site_id='2a8ebf9c-20a2-4c39-b191-840b012371da' AND aspect='evidence_base' AND is_current;
+```
+Expect: `created_by='evidence-refresher'`, `still_611=f`, `has_never_state=t`, `has_nnn=f`, `facts=8`, and
+`wb_md5` equal to the md5 of the 617 constant (compute it from the file:
+`python3 -c "import re,hashlib;t=open('docs/agent_docs/sql_for_agents/617_aiao_writer_block_managed_with_guidance_carry_HOLD.sql').read();print(hashlib.md5(re.findall(r'\\$WB\\$(.*?)\\$WB\\$',t,re.S)[0].encode()).hexdigest())"`).
+A different md5 with `has_never_state=t` means the composer's output differs from the prediction in some
+harmless way — diff it and record it; `has_never_state=f` means the carry is NOT in the running binary
+after all — run the ROLLBACK sidecar and re-check the merge-base.
+
+**Compose offline with the REAL function, without touching the shared tree.** Map a scratch test file
+into the package with `go test -overlay` (the harness used to build 617; the live row's output is in
+NOTES 2026-08-25 §3):
+
+```bash
+S=<scratchpad>; kubectl … psql -At -c "SELECT data FROM site_specs WHERE site_id='…' AND aspect='evidence_base' AND is_current" > $S/eb.json
+cat > $S/zz_preview_test.go <<'GO'
+package actions
+import ("encoding/json";"os";"testing")
+func TestPreview(t *testing.T){ raw,_:=os.ReadFile(os.Getenv("EB")); var eb map[string]interface{}
+  if err:=json.Unmarshal(raw,&eb); err!=nil { t.Fatal(err) }
+  os.WriteFile(os.Getenv("OUT"), []byte(composeWriterBlock(eb)), 0o644) }
+GO
+printf '{"Replace":{"%s":"%s"}}' "$PWD/platform/orchestration/actions/zz_preview_test.go" "$S/zz_preview_test.go" > $S/overlay.json
+EB=$S/eb.json OUT=$S/composed.txt go test -overlay $S/overlay.json -run TestPreview -count=1 ./platform/orchestration/actions/
+```
+`git status platform/orchestration/actions/` shows nothing of yours afterwards — the file never existed
+on disk in the tree, so no other session's `git add -A` can sweep it.

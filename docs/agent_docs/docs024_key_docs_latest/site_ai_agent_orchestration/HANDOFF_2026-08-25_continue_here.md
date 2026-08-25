@@ -4,6 +4,32 @@
 contrast, carousels and images — all three remain done and were re-verified today. What it does not
 contain is the incident below, which this lane caused.
 
+> ## ⚠ UPDATE 2026-08-25 ~17:10Z (session "ai-agent-orchestration") — read this before §3 and §5
+>
+> - **§3 is STALE.** The `writer_block_guidance` carry IS BUILT — **CLM-029**, by the **387 lane** (not 288):
+>   `c17a18620` → `14ec48b89` → `cbadcba71`, council `0de22385` APPROVED r2 — and **INERT**: the running
+>   chassis `4c996e1b5` (heartbeating 15:27Z) does not contain it (`merge-base` = 1). **The flip is
+>   PREPARED, not applied:** `sql_for_agents/617_aiao_writer_block_managed_with_guidance_carry_HOLD.sql`
+>   (council corr `35ab8b23`). It carries every 611 prohibition into the guidance key, pre-writes
+>   `writer_block` to the composer's exact output, and refuses the pre-carry sha by name. **Apply with
+>   RUNBOOK R10 and nothing else** — R10 runs `git merge-base --is-ancestor c17a18620 <running sha>` first,
+>   which the file cannot do for itself. Then R10's ~09:06Z survival check (byte-identity). Measured, not
+>   assumed: today's binary composes the live row to seven number lines and **zero** prohibitions.
+> - **§5 item 2 was stale when written.** **9** parked contrast rows, not 17 (8 cancelled 19:11Z 08-24 —
+>   TAG.TAG selectors, `bugs_open/352`), and the render audit **did** visit (rotation stamp 02:23Z 08-24) and
+>   retracted nothing. R1 today: **7 of 9 selectors present and passing**, 1 gone, 1 unmeasured. Contributed
+>   as `bugs_open/296` §11; **the discriminating run is the next selection, due ≥ 2026-08-27 02:23Z** — read
+>   its `orchestration_states.final_result` while it is inside retention. WRONG_CALLS logged (mine).
+> - **NEW open item, not investigated:** `tool-automation-savings-estimator` cannot be rerendered — two
+>   `page_rerender` rows failed (08-24 21:00Z, 08-25 14:30Z) at the section floor (77→37 class attributes,
+>   48% < 50%). The 384 lane traced it as pre-existing (their NOTES:198); `bugs_open/253` class. Until it is
+>   reconciled, the queued misdirected-CTA fix for that page cannot land either.
+> - **First check tomorrow, whichever lane wakes first (the 387 lane's, on our row):** after ~09:06Z —
+>   `SELECT created_by, (data->>'writer_block' ~ 'NNN') FROM site_specs WHERE
+>   site_id='2a8ebf9c-20a2-4c39-b191-840b012371da' AND aspect='evidence_base' AND is_current;` → expect
+>   `evidence-refresher`, `f`. Today's 09:06Z pass predates 611/613, so tomorrow's is the first real one.
+> - Everything in the ✅ table above re-verified 16:00Z: 7/7 pages 200, `NNN=0`, stylesheet 20.9 KB.
+
 > ## ✅ The original ask is COMPLETE and intact. ⚠ One incident, caused by this lane, now fixed at source.
 >
 > | thing | state (verified 2026-08-25) |

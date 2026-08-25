@@ -1366,3 +1366,126 @@ drift.
 **So handoff §5 item 1 is CLOSED**, and the disconfirming result it named ("if it is not 0 several
 hours after 611/613, the regeneration is not picking up the new block") did not occur — the
 regeneration picked it up on the first rebuild after the source fix.
+
+---
+
+## 2026-08-25 ~15:55–17:05Z — session "ai-agent-orchestration": re-verification, two stale handoff claims, the managed flip PREPARED (617 HOLD), a 296 measurement
+
+### 1. Re-verified at the artefact (all [MEASURED 2026-08-25 ~16:00Z])
+- 7/7 pages HTTP 200 with `NNN=0` — index, about, pricing, services, model-directory, adoption-tracker,
+  protocol-tracker. Stylesheet 20,923 bytes (not clobbered — `bugs_open/296` §10.4's undercount caveat does
+  not apply to this site).
+- `evidence_base` current row = `created_by='613_migration'` (12:09:40Z); keys `facts, writer_block,
+  banned_claims`; `writer_block_managed` unset; no `writer_block_guidance`. The refresher's last supersede was
+  **09:06:24Z — BEFORE 611/613** — so tomorrow's ~09:06Z pass is the first that could disturb them (the 387
+  lane's pinned check; copied into the handoff).
+- Live chassis: `service_binary_capabilities` → `4c996e1b5` (one distinct sha, started 09:27Z). merge-base:
+  `c17a18620`, `14ec48b89`, `cbadcba71` (the CLM-029 carry) are **NOT** ancestors.
+
+### 2. Two claims in this morning's handoff were STALE WHEN WRITTEN (WRONG_CALLS logged)
+(a) *"The 17 parked contrast_failure items — still deferred, untouched since 08-11."* → **9** deferred. Eight
+were `cancelled` at **2026-08-24 19:11:22Z** — 18 hours before the handoff — with
+`result.reason` = *"The item_key selector is TAG.TAG — invented by the render audit's class fallback for a
+class-less element (bugs_open/352). It matches nothing on any…"*. The 17 was carried from the 08-22 handoff
+without a count.
+(b) *"because the site's render audit has not run here since 08-10."* → `site_discovery_rotation` has
+`render-audit-agent.last_selected_at = 2026-08-24 02:23:11Z`. The inference came from
+`max(created_at)` of `contrast_failure` rows (08-10): **an audit that files nothing leaves no row, so the
+absence of rows is not the absence of runs** — the rotation table is the record of selection.
+
+### 3. Handoff §3 is stale: the guidance carry IS BUILT — by the 387 lane, not 288
+`writer_block_guidance` = **CLM-029** (commits `c17a18620` → `14ec48b89` → `cbadcba71`, council
+`0de22385` APPROVED r2), built "as agreed with the 288 lane (option b, their window)". Seated once in
+`composeWriterBlock` (`refresh_evidence_base_action.go:1339`) and copied through the scoped path
+(`plan_sections_action.go:2593`). Contract (register): **NEGATIVE/PROHIBITIVE guidance ONLY**. Inert until
+the roll. **The flip stays forbidden today, and I measured why rather than repeating it:** the live row run
+through the REAL `composeWriterBlock` (a `go test -overlay` harness — the test file is mapped in from the
+scratchpad, nothing touches the shared tree; recipe in RUNBOOK R10) produces the seven number lines and
+**no prohibition at all**:
+```
+NUMBERS (state only these, with their listed meaning; dated snapshots up to a listed live count are fine):
+- more than 150 active agent definitions in the production registry
+- more than 150 distinct agent types
+- 8 departments — Strategy, Research, Content, Design, Development, Quality, Operations, Data (the platform's OWN taxonomy, never 'departments served')
+- more than 20 live sites in production, built and operated end-to-end by the platform
+- 17 backend services
+- automated work items completed: state NO figure — the ledger is reaped, so this count falls as well as rises
+- over a thousand orchestrations a day (never an exact daily figure — a rolling 24-hour window is stale within hours)
+```
+
+### 4. The 296 test — measured, and it is a result for THAT lane
+- Selected 02:23Z 08-24; the run's `orchestration_states` row is **beyond retention** (oldest row in the
+  table: 08-24 13:09Z, 7,898 rows), so completed-vs-timed-out is unknowable. Fleet: 9 COMPLETED
+  render-audit runs since 08-24 15:29Z, every one with a matching rotation stamp — the rotation fires.
+- The 9 deferred rows are unmoved (`updated_at` 08-11 12:31Z). R1 over the six pages they name: **about 0,
+  services 0**; news / index / tools report only an over-image `A.btn` at 3.95:1 (a different selector,
+  approximate by the adapter's admission); **ai-readiness-quiz NOT MEASURED** ("probe produced no result").
+- Element census on the served pages (`grep -o 'class="[^"]*\b<cls>\b'`): **7 of 9 selectors still present
+  and now passing** — index `P.news-card-summary` ×5, about `A.cta-btn` ×2 / `SPAN.stat-value` ×3 /
+  `SPAN.about-eyebrow` ×1, services `SPAN.info-card-grid__eyebrow` ×1 / `H3.info-card-grid__card-title` ×6,
+  tools `H3.tl-card-title` ×6. news `A.cta-btn`: **0 elements** (gone). ai-readiness-quiz `BUTTON.btn` ×4,
+  unmeasured. So these are REPAIRED (this lane's 08-17→08-24 work), not vanished.
+- `retractResolvedContrastFindings` closes a parked row iff its page is in the run's `pages_audited` and the
+  key is absent from the run's failing set. Eight of nine qualify today. **It did not fire.** Candidates, not
+  distinguishable from what survives: (i) the 02:23Z run timed out (`site-render-audit-rotation`
+  `timeout_seconds=1800`; 43 pages; `max_pages 60`) — 296 §10.2's class; (ii) `pages_audited` did not
+  include these pages. **The next selection is due ≥ 2026-08-27 02:23Z** (3-day interval, `ORDER BY
+  last_selected_at ASC`), inside retention — that run is the discriminating one. Contributed as
+  `bugs_open/296` §11.
+- Ruled out: the 352 skew guard (`ffa6e1c3d`, 08-24 13:45Z) postdates the run, but all nine keys are
+  classed `TAG.class`, for which old and new selector compositions are identical.
+
+### 5. The flip, PREPARED — `sql_for_agents/617_aiao_writer_block_managed_with_guidance_carry_HOLD.sql`
+Council corr **`35ab8b23-5f22-457f-a8c8-92baad862422`** (admission dry-run passed; 2 edits; in scope because `_HOLD.sql` IS the change).
+- **What it writes:** `writer_block_managed=true`; `writer_block_guidance` = every prohibition 611 carried,
+  verbatim, plus two categories the site's `banned_claims` already enforces (systems shipped for clients,
+  client sectors served) — stated, not silent; an 8th fact `aao-architecture`, **valueless** (`EvidenceFact.Value`
+  is `*float64` — a string value would break every reader's parse), so 611's positive "Architecture:
+  Kubernetes, Kafka, Postgres" line rides the composer's CAPABILITIES section instead of guidance (which may
+  not carry positive statements); and `writer_block` = the EXACT 1,993-byte output of `composeWriterBlock`
+  over the proposed document (same jsonb expression, run read-only, fed to the real function). 611's block
+  retired. 7 existing facts byte-identical; `banned_claims` untouched. Both asserted by guard.
+- **Why HOLD:** the carry is not live (§1). On today's binary the flip deletes the prohibitions at the next
+  refresh (§3's measurement). The file's CHASSIS GUARD refuses: no sha; the pre-carry sha `4c996e1b5…`
+  (hardcoded); a sha that is not the one heartbeating in `service_binary_capabilities` (30-min window); a
+  mixed fleet. **It cannot compute git ancestry** — R10's one-liner runs `git merge-base --is-ancestor
+  c17a18620 $LIVE` first and only then pipes the file. A guard that makes you type the sha you checked.
+- **Rehearsed against the live DB, all doomed transactions:** (a) no `-v` → refused, exit 3; (b) `-v
+  live_chassis=4c996e1b5…` → "PRE-CARRY chassis"; (c) unknown 40-hex → "not the chassis that is RUNNING
+  (4c996e1b5…)"; (d) guard stripped, `COMMIT→ROLLBACK` → `NOTICE: 617 OK`; (e) migration THEN rollback in ONE
+  transaction → both OK, prior document byte-identical; (d') both writer_block constants minus
+  ", uptime percentages" → `617: the composed writer_block lost a phrase 611 carried: uptime percentages` —
+  the phrase guard is live, not vacuous. Afterwards: current row still `613_migration`, 0 backup rows.
+- ⚠ **Number collision, again:** `616_css_patch_agent_prompt…` appeared at 16:40:38, two minutes before my
+  write at 16:42:34, both untracked. Caught by the "re-check immediately before writing" line in R9; renumbered
+  617 (free), internal references `sed`-checked to zero strays.
+- **The live disconfirming test, after application:** the first ~09:06Z refresh should supersede the 617 row
+  with an `evidence-refresher` row whose `writer_block` is **byte-identical** to the constant
+  (`existing != block` is the only condition for regeneration). A different block means my prediction of the
+  composer's output was wrong — read the diff; do not touch the refresher. Query in R10.
+- The composed block, for the record:
+```
+NUMBERS (state only these, with their listed meaning; dated snapshots up to a listed live count are fine):
+- more than 150 active agent definitions in the production registry
+- more than 150 distinct agent types
+- 8 departments — Strategy, Research, Content, Design, Development, Quality, Operations, Data (the platform's OWN taxonomy, never 'departments served')
+- more than 20 live sites in production, built and operated end-to-end by the platform
+- 17 backend services
+- automated work items completed: state NO figure — the ledger is reaped, so this count falls as well as rises
+- over a thousand orchestrations a day (never an exact daily figure — a rolling 24-hour window is stale within hours)
+
+CAPABILITIES (assert without inventing numbers):
+- Architecture: Kubernetes, Kafka, Postgres — true and stated freely
+
+NEVER copy a number out of a page, a template, or an older spec: the NUMBERS list above is the ONLY authority for figures about this business, and if a count is not written there, write no count at all. NEVER restate a listed floor as any other number. NEVER write letters as stand-ins for digits (a letter repeated where a number belongs): a stand-in is a defect that ships, not a placeholder. NEVER write "over 70 specialised AI agents", "70+ agents" or "30+ agent types" — true as lower bounds and understating the fleet by more than half (owner ruling 2026-07-27). NEVER frame the 8 departments as departments of external clients ("departments served"): they are the platform's OWN organisational taxonomy. NEVER state an exact daily orchestration figure, and NEVER state a total of automated work items completed. NOT TRACKED / DOES NOT EXIST, NEVER STATE: clients served, "departments served", satisfaction rates, awards won, concurrent-instance counts ("thousands of concurrent instances" is not measured), uptime percentages, systems shipped for clients, client sectors served. None of these are measured; every such figure at any value is an invention.
+```
+
+### 6. Seen, not mine — recorded for the handoff
+`tool-automation-savings-estimator`: two `page_rerender` rows **failed** (08-24 21:00Z from
+completeness-discovery `cta_links_stale`; 08-25 14:30Z from `bugfix_384_toolcta_fanout`
+`template_changed`), both at `save_page_sections: SECTION COMPONENT FLOOR REFUSED … 77→37 class attributes
+(48% kept, floor 50%)`. The 384 lane has it (their NOTES:198): the refusing slot is the page's own bespoke
+tool section, "that page already failed 3 times on 2026-08-24, before any of this lane's work" —
+pre-existing divergence between stored HTML and what template+`content_data` regenerate. `bugs_open/253`
+class. Until reconciled, **every rerender of that page fails the same way**, which also means the 08-24
+misdirected-CTA fix for it never lands. Not investigated here.
