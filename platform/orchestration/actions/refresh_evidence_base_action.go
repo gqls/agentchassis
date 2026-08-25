@@ -145,6 +145,14 @@ type siteRefreshResult struct {
 	WorkItemRefreshed bool                  `json:"work_item_refreshed"`
 	Facts             []evidenceFactRefresh `json:"facts"`
 
+	// FactsHistoryRecorded counts the superseded readings retained this pass
+	// (bugs_open/386). Reported separately from FactsUpdated because they answer
+	// different questions and can legitimately disagree: every armed fact whose
+	// value moves increments both, while an UNARMED fact moving increments only
+	// FactsUpdated. So a run showing updates and zero history is the honest signal
+	// that nothing is armed yet — not a silent failure of the retention.
+	FactsHistoryRecorded int `json:"facts_history_recorded"`
+
 	// AttestationsDue counts attested_by facts RFC_025 stage 1's staleness nudge
 	// flagged this pass. Kept separate from Drifted/WorkItemCreated (below)
 	// rather than folded into them: an attestation going stale is not the same
@@ -532,6 +540,17 @@ func refreshOneSiteEvidence(
 		// register's number tracks it either way. Drift is reported, not
 		// suppressed — the work item is what a human acts on.
 		if entry.Outcome != "fresh" {
+			// Record the OUTGOING reading before it is lost. Until this existed,
+			// every refresh discarded the value the register had just held, which
+			// is what turned each already-deployed page rendering it into an
+			// "unregistered claim" overnight (bugs_open/386). Ordered before the
+			// overwrite because after it the old reading is unrecoverable from
+			// this map — the superseded site_specs row keeps it, but nothing in
+			// the scan path reads that.
+			if recordFactHistory(fact, entry.StoredVal,
+				datahelpers.GetStringField(fact, "verified_at", "")) {
+				res.FactsHistoryRecorded++
+			}
 			fact["value"] = live
 			fact["verified_at"] = today
 			entry.VerifiedAt = today
@@ -1178,6 +1197,57 @@ func evidenceValueWithinTolerance(stored, live float64, tolerance string) bool {
 	default: // exact
 		return math.Abs(live-stored) < 1e-9
 	}
+}
+
+// recordFactHistory appends a fact's OUTGOING reading to its history, in place
+// on the raw map, and reports whether it wrote anything (bugs_open/386).
+//
+// Why the raw map rather than the typed EvidenceFact: this whole action works on
+// map[string]interface{} precisely so unknown keys survive the rewrite, and
+// round-tripping one fact through the struct to add a field would drop every key
+// the struct does not know about — the exact data loss the comment at the top of
+// refreshOneSite exists to prevent.
+//
+// Four refusals, each closing a way this could quietly widen what the scan
+// accepts:
+//   - unarmed facts are skipped, so retention is opt-in per fact and the unsafe
+//     side is off by default;
+//   - a fact with no outgoing value records nothing — there is no former reading
+//     to remember, and writing a zero would invent one;
+//   - a reading identical to the newest retained entry is not duplicated, so a
+//     same-day second refresh cannot inflate the history;
+//   - the array is trimmed to the cap from the FRONT, dropping the oldest.
+func recordFactHistory(fact map[string]interface{}, outgoing *float64, outgoingVerifiedAt string) bool {
+	if fact == nil || outgoing == nil {
+		return false
+	}
+	if !datahelpers.GetBoolField(fact, "retain_history", false) {
+		return false
+	}
+
+	existing, _ := fact["history"].([]interface{})
+
+	// A repeat of the newest entry is not a new reading. Without this, two
+	// refreshes on one day (measured: 2026-08-16 has two) would each append, and
+	// the cap would then be reached in half the calendar time it claims to cover.
+	if n := len(existing); n > 0 {
+		if last, ok := existing[n-1].(map[string]interface{}); ok {
+			if v, ok := numericField(last["value"]); ok && math.Abs(v-*outgoing) < 1e-9 {
+				return false
+			}
+		}
+	}
+
+	entry := map[string]interface{}{"value": *outgoing}
+	if outgoingVerifiedAt != "" {
+		entry["verified_at"] = outgoingVerifiedAt
+	}
+	updated := append(existing, entry)
+	if len(updated) > datahelpers.FactHistoryMaxEntries {
+		updated = updated[len(updated)-datahelpers.FactHistoryMaxEntries:]
+	}
+	fact["history"] = updated
+	return true
 }
 
 // composeWriterBlock rebuilds the V2 writer whitelist from the register.
