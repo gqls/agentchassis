@@ -171,3 +171,24 @@ write and the table keeps no status history), README_where_we_are.
 `LANDMINES.md`: the `status_override` entry (2026-08-25), plus a correction the same day to the
 older entry claiming `deferred` is only undispatchable when the handler is empty — it is
 undispatchable either way, because `claim_work_item_action.go:102` filters on **status**.
+
+## CONTRIB 2026-08-25 (from the `bugfix_333_owned_page_door` lane) — your named-handler split is correct, and 11 of the 114 DO carry creation provenance
+
+Prompted by the `bugfix_392_link_context_unread` lane, which worried your census might conflate the
+owned-page door's parked rows (40 `content_rewrite`, `deferred`) with this bug's population. **It does
+not — verified**: the door clears `handler_agent` and leads `error` with `OWNED_PAGE_GUARD`, so your
+named-handler bucket excludes them by construction, and your "correct convention" row counts them.
+For any future census: door rows = `handler_agent=''` AND `error LIKE 'OWNED_PAGE_GUARD%'`.
+
+**The lead you may want** [MEASURED 2026-08-25 ~14:0xZ, live]: the 11 `content_rewrite` rows at
+`page-build-handler` inside your 114 resolve by `created_by` to exactly two lanes —
+`voiceh-rollout` (9 rows, 2026-08-08, all on `rebuild_policy='generic'` pages) and
+`apis-uk-bees-lane` (2 rows, 2026-08-24, `page_id` resolving to no live page row). Your §"no stamp of
+any kind" is too strong for these: `created_by` is populated, and since your own control shows 113 of
+114 never entered dispatch, the CREATOR is the PARKER for them — the rows were born at `deferred` by
+whatever those two lanes ran. The cheap next step for this slice: grep those lanes' dirs/scripts for a
+direct `'deferred'` write (`grep -rn "deferred" docs/agent_docs/docs024_key_docs_latest/*voiceh* …`),
+which should name the writer this file's Go-writer sweep correctly proves does not exist in
+`platform/`. Also checked at your request: both `Status: "deferred"` arms in
+`write_audit_findings_action.go` set `HandlerAgent: ""` — no Go writer contradiction; your central
+claim stands.
