@@ -241,9 +241,20 @@ passenger. Flagged to the 364 session.
 `platform/orchestration/datahelpers/claims.go`, which is the half the whole design lives in — and I
 had named that path explicitly on `git commit`.
 
-Not a loss, and not a mystery: the file was already committed, by `001211abf` (the 364 lane's
-"I described a peer's fix … corrected in all five places"). That session swept my uncommitted
-working-tree changes into its own commit. This is the exact failure CLAUDE.md describes — committing
+Not a loss, and not a mystery: the file was already committed by the 364 lane, which swept my
+uncommitted working-tree changes into its own commit.
+
+> **CORRECTED 2026-08-25, within the hour — I named the wrong commit, and I had named it in the one
+> place it would be used for hand-tracing.** I wrote `001211abf`. It is **`6548e8d79`** ("a gte fact
+> that is a ROLLING WINDOW falls…"), which added **98 lines** to `claims.go` and introduced
+> `FactHistoryEntry`, `RetainHistory`, `History`, `FactHistoryMaxEntries` and the `historySupports`
+> arm. `001211abf` added **25 lines of which ZERO are non-comment** — it appeared in my search only
+> because its prose mentions `historySupports` while describing the function.
+> **What caught it:** the 364 lane, checking my claim against its own commit rather than accepting
+> it. **My error was the command.** I ran `git log -3 -- claims.go`, which answers "what last
+> touched this file" — a question I did not ask. The question was "what introduced these symbols",
+> and its command is the pickaxe: `git log -S 'FactHistoryEntry' -- <file>`. A path-filtered log
+> will always name the most recent commit, and it will always look like an answer. This is the exact failure CLAUDE.md describes — committing
 per task stops *you* sweeping up *others'* WIP; it cannot stop a session still running `git add -A`
 from sweeping up *yours*. By the time my pathspec commit ran there was nothing left to commit for
 that path, so it silently carried five files instead of six.
@@ -273,8 +284,17 @@ Nothing to undo. Recorded here, reported to the 364 lane so their commit's conte
 surprise to them either, and the correlation is written down in both this file and CLM-028 so the
 verdict can still be traced by hand when `098` shows the gap.
 
-**The check, for anyone whose task spans a file another lane is active in:** after a pathspec
-commit, read the yellow scope block and count the files against what you named. It is advisory and
-it never blocks, which is exactly why it is easy to scroll past — but a path you named that is
-*absent* from it means the file was committed by someone else between your edit and your commit, and
-that is worth knowing before you write "shipped" anywhere.
+**The checks — and it takes TWO, because there are two failures here and neither check sees the
+other's.** Recorded as a pair after the 364 lane pointed out that mine only catches half of it:
+
+- **A path you NAMED that is ABSENT from the yellow scope block** = someone committed it between
+  your edit and your commit. That is *my* failure above, and the scope block catches it.
+- **A path that is PRESENT but arrived FATTER than you thought** = you have swept up someone else's
+  work. The scope block cannot see this: it lists *files*, not lines, and the file was present and
+  expected — only its size was wrong. The check is `git diff --numstat <file>` before committing,
+  which prints `added deleted path`. `98 2` against an expectation of about twenty is not a number
+  anyone scrolls past. That is the 364 lane's failure, and it is the same "gate on the COUNT, which
+  no content can fool" rule that already exists as a landmine for deleted markdown bullets.
+
+Neither is a substitute for the other, and the second is the one with teeth: the sweeper is the
+party who can still prevent it, and the swept party finds out afterwards or not at all.
