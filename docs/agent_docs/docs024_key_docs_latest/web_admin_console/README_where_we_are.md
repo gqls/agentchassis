@@ -303,3 +303,37 @@ with the largest registers. Nothing rebuilds those if they are ever damaged. And
 a register has ever actually been emptied is somebody running SQL by hand, which no amount of
 code can prevent. That is a habit to keep rather than a thing to build: hand-written database
 changes touching those registers should check themselves before they finish.
+
+## 2026-08-25, evening — your release went out, and both things are live
+
+The confirmation page is running. I checked it the thorough way rather than trusting the
+version number: asked the service which code it was built from, confirmed all three pieces are
+in there, and then actually opened the page from inside the cluster. It shows the heading, the
+one button, and nothing else, and it does not record anything when opened. I also pressed the
+button's route with a made-up link and got the "no longer active" page, which proves the whole
+path works end to end without anything being confirmed.
+
+The other thread's containment change went out in the same release, and the two fit together
+properly: the customer links now live on their own port, and the admin API is genuinely absent
+from it. I checked that as a pair, because "the admin API is not on this port" only means
+something if you also show it IS on the other one. It is.
+
+Your Builds screen changes are live too. Refresh and you should see the shorter orchestration
+list, with a link to show the older ones, and a line telling you when nothing is running, which
+is why no Terminate button appears.
+
+**One thing is left and it is yours:** the links host config needs applying on the box, so it
+points at the new port. Until you do, a customer link gets nothing. I confirmed that is the
+current state rather than assuming it — and it is worth saying how, because it nearly fooled
+me: every test I ran from outside returned the same "not found", including the one that is
+*supposed* to. The difference was in the text of the reply, not the code. One came from our own
+software, which told me the request is still reaching the old port; the other came from the
+relay box itself. Same number, different fact.
+
+Nothing is at risk while it waits, because no customer links exist yet.
+
+**And one thing I have deliberately not done.** I have not tested an actual working link end to
+end, because that means creating a real one and pressing it, which stamps a real site as
+"customer has moved" and feeds the schedule that eventually takes their site down. Everything
+around it is proven; that last step is yours to authorise, and it takes about a minute whenever
+you want it.
