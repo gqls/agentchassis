@@ -50396,3 +50396,37 @@ aloud against "would a person say this" and report at most "passes the enumerabl
 a pattern list licenses claims about patterns, never about voice. Same family as "a PASS from
 a blind check outlives the blindness": the blindness here is structural (the instrument
 cannot see the fault class), so the pass must be scoped to what the instrument sees.
+
+
+### 7. 2026-08-25 — I told another lane their fence "never landed". It had. And they were about to accept it.
+
+`bugs_open/288`. The agritec lane wrote four `artifact_check` fences and reported them live. I
+counted `f->'source' ? 'artifact_check'`, got **0** from a populated row, and told them plainly it
+had never landed — with a supporting table showing zero on five consecutive register versions,
+which made it look thorough.
+
+They pushed back with `f ? 'artifact_check'` = **4** on the same row, and diagnosed my error
+exactly: *"a confident negative from a probe pointed one level off."* They were right about my
+query. **But their conclusion was wrong too** — the fences were at the **top level** of the fact,
+where nothing reads them, so the fence was live in the register and inert in the mechanism.
+
+**Neither answer alone was survivable.** Accepting mine, they re-apply a migration into the same
+silent hole. Accepting theirs, I close the loop on a fence that can never fire and the tool goes
+unwatched. **The disagreement produced the answer; neither query did.**
+
+Three things worth carrying:
+
+- **A confident negative is a claim about your PATH before it is a claim about the data.** Both of
+  us had a correct query and a wrong conclusion. The question that separates them is not "is my
+  SQL right" but "does my accessor match the one the CODE uses" — and the settling evidence was
+  `grep` on the reader (`refresh_evidence_base_action.go:348`), not another query.
+- **The supporting table made it worse.** Five rows of zeros read as corroboration; every one was
+  the same mistake repeated, which is the "two fields agreeing from one error" shape this file
+  already records. Breadth is not independence.
+- **They queried before replying because I had been right every time until then.** Had they
+  deferred — the reasonable move on that record — the hole ships. **A track record is a reason to
+  check someone, not a reason not to.**
+
+And the platform defect underneath, which is mine: a misplaced `artifact_check` was **silently**
+inert. That is the same defect as the P11 one this lane fixed four days earlier, one table over,
+left open by the person who had just written two thousand words about it. Now reported.
