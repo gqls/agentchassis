@@ -50,8 +50,24 @@
 //          that burns an attempt and parks needs_human_review
 //        unknown type     → emit needs_page at page-build-handler (as before)
 //
-// "Open" = status NOT IN ('complete','verified','rejected','wont_fix','failed').
-// Same set the dedup index uses; consistent semantics.
+// "Open" (loadOpenPageItems, :713) = status NOT IN
+// ('complete','verified','rejected','wont_fix','failed','cancelled').
+//
+// > CORRECTED 2026-08-25: this comment used to list five statuses and claim
+// > "Same set the dedup index uses; consistent semantics." BOTH halves were
+// > wrong, and the second one matters. The SQL excludes SIX (it has 'cancelled'
+// > too), and idx_swi_dedup's partial predicate excludes SEVEN — the same six
+// > PLUS 'unresolved'. So the two sets differ by exactly one status, and that
+// > status is the damaging direction: a row at 'unresolved' is treated as OPEN
+// > here (the page is skipped as "already queued", so new routing NEVER reaches
+// > it) while the dedup index does NOT cover it (an INSERT would have been
+// > allowed). It is also undispatchable — both claim gates filter
+// > status IN ('triaged','approved') — so the page is parked with nothing that
+// > can free it. [MEASURED 2026-08-25] one live instance:
+// > adversecreditmortgage.co.uk `blog-index`, a section-index needs_page at
+// > page-build-handler, status='unresolved' since 2026-08-18. The
+// > 2026-08-25 routing fix does NOT reach it, for this reason and not for
+// > any reason to do with routing. Not fixed here — see bugs_open/206.
 //
 // Updates sites.last_reconciled_at on success so the future scheduled
 // tick can skip recently-reconciled sites.
@@ -436,9 +452,21 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 		// so a row minted here as 'needs_content_page' would be INVISIBLE to
 		// this action's own open-item dedup check on the next run — it would
 		// re-emit the page every reconcile, unbounded, which is the failure
-		// bugs_open/210 closed. The itemType field is meaningful to
-		// WriteBuildItemsAction, which files into a different key namespace;
-		// here the namespace is needs_page: and the type must match it.
+		// bugs_open/210 closed.
+		//
+		// > CORRECTED 2026-08-25: the rest of this sentence used to read "The
+		// > itemType field is meaningful to WriteBuildItemsAction, which files
+		// > into a DIFFERENT KEY NAMESPACE". That is false and one grep of the
+		// > other producer disproves it: load_work_item_actions.go:335 files
+		// > `itemKey: fmt.Sprintf("needs_page:%s", pageName)` — the SAME
+		// > namespace this action uses at :289. The false claim mattered
+		// > because it made the two doors look non-colliding, which is exactly
+		// > what the council's round-4 guardian said they were NOT. Both mint
+		// > `needs_page:<name>` under idx_swi_dedup and the first writer wins.
+		// > What survives is the real reason itemType is not bound here:
+		// > loadOpenPageItems filters on item_type, so a row minted under a
+		// > type outside its list is invisible to this action's own dedup check
+		// > regardless of what key it carries.
 
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO site_work_items (

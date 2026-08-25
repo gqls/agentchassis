@@ -8,11 +8,12 @@
 // items the map would have routed or gap-filed).
 //
 // The table covers every map entry AND both non-entries, so the extraction
-// cannot silently change an existing route. It also pins the deliberate
-// ABSENCE of section-index: that entry is held out until WriteBuildItemsAction
-// calls this function, because until then the two producers would disagree
-// about one page_type and the dedup index would silently pick a winner
-// (council round 4). Adding it here without doing the swap fails this table.
+// cannot silently change an existing route.
+//
+// 2026-08-25: the swap landed — WriteBuildItemsAction's inline copy is gone and
+// section-index is now IN the map, so this table pins the route rather than the
+// hold-out. Both producers read one function, so there is no longer a second
+// copy for this table to be compared against by hand.
 
 package actions
 
@@ -26,16 +27,15 @@ func TestBuilderForPageType(t *testing.T) {
 		wantNeeded   string
 		wantKnown    bool
 	}{
-		// section-index is DELIBERATELY not in the map (round-4 decision):
-		// it must stay byte-identical to WriteBuildItemsAction's inline copy
-		// until that copy calls this function, or the two producers race on
-		// one itemKey and whichever fires first silently wins. So it takes
-		// the generic default, exactly as it does today at both producers.
-		// When the swap lands, add the entry and change this row — one line
-		// then moves both doors at once, which is the point.
-		{"section-index", "page-build-handler", "needs_content_page", "", false},
+		// section-index routes to the layout-ensuring builder as of 2026-08-25
+		// (the WriteBuildItemsAction swap; see builder_routing.go). Before that
+		// it was held at the generic default so the two producers could not
+		// disagree. If this row ever goes back to page-build-handler, a
+		// section-index page with no layout in any source silently no-ops
+		// again — that is bugs_open/206's entire signature.
+		{"section-index", "directory-build-handler", "needs_directory", "", true},
 
-		// Pre-existing routes — must be byte-identical to the inline map.
+		// Pre-existing routes.
 		{"entity-directory", "directory-build-handler", "needs_directory", "", true},
 		{"content", "page-build-handler", "needs_content_page", "", true},
 		{"index", "page-build-handler", "needs_content_page", "", true},

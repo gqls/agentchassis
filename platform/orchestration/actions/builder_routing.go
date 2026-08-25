@@ -12,14 +12,16 @@
 // one decision is the drift class this estate keeps paying for. Do not add a
 // third copy; call this function.
 //
-// TRANSIENT DUPLICATE (2026-08-24): WriteBuildItemsAction still carries the
-// original inline maps — its file (load_work_item_actions.go) is uncommittable
-// while an ownerless dirty hunk sits in it (an 8-arg applyWorkItemFailureLadder
-// call against HEAD's 7-arg signature; a pathspec commit of that file breaks
-// HEAD, verified by git-archive overlay 2026-08-24 — see the 206 lane PLAN
-// addendum). Swap WriteBuildItemsAction onto this function the moment that
-// file is clean. Until then the inline copy lacks only the section-index
-// entry, i.e. the planner path keeps its pre-2026-08-24 behaviour.
+// BOTH DOORS NOW CALL THIS (2026-08-25). The transient duplicate is gone:
+// WriteBuildItemsAction's inline maps were removed the day its file came clean,
+// and `section-index` was added here in the same commit — which is the order
+// council round 4 required, because the two producers mint into the SAME
+// item_key namespace (`needs_page:<name>`, both of them) under idx_swi_dedup,
+// so a disagreement between them is not untidiness: whichever fires first
+// silently wins and the loser's routing never happens.
+//
+// grep before adding a third caller: `builderForPageType` should be the only
+// place a page_type is turned into a handler name.
 
 package actions
 
@@ -54,32 +56,25 @@ func builderForPageType(pageType string) (info builderRouteInfo, neededBuilder s
 		// migrations 336/337 (the seed alone does NOT match the live row).
 		"entity-directory": {handler: "directory-build-handler", itemType: "needs_directory"},
 
-		// ── DELIBERATELY ABSENT: "section-index" ────────────────────────
-		// It belongs here — the route is proven, twice, at the artefact
-		// (vetcomparison guides-index is page_type='section-index', built by
-		// directory-build-handler, sections ["hero","guide-list"], serving).
-		// It is NOT here because this map must stay byte-identical to
-		// WriteBuildItemsAction's inline copy while that copy still exists.
+		// section-index joins entity-directory on directory-build-handler for
+		// the SAME reason, and it is the reason that matters: that handler is
+		// the only one whose workflow carries `ensure_page_section_layout`, so
+		// it is the only one that can build a page whose layout is missing
+		// from every source. page-build-handler no-ops on exactly that case
+		// ("no sections ready to build") — which is the whole of bugs_open/206.
 		//
-		// Council round 4 (2026-08-24) is why: with the entry present, the
-		// two producers disagreed about exactly one page_type — and the
-		// guardian seat showed the disagreement is not merely untidy. Both
-		// mint the same itemKey (needs_page:<name>) under idx_swi_dedup, so
-		// whichever fires FIRST wins and the other is silently dropped. A
-		// page the planner reaches first would keep the wrong handler and
-		// this fix would never fire for it, with no signal anywhere. Four
-		// seats over three rounds called the divergence an anti-pattern;
-		// the guardian gave it a mechanism.
+		// The route is proven at the artefact, twice, by hand re-routes that
+		// predate any map knowing it: vetcomparison guides-index
+		// (page_type='section-index', sections ["hero","guide-list"], serving
+		// since 2026-08-08) and vetcomparison practice (2026-08-24).
 		//
-		// So the entry waits for the swap rather than racing it. ADD IT
-		// WHEN WriteBuildItemsAction CALLS THIS FUNCTION — at that moment
-		// one line here changes both doors at once, which is the whole
-		// point of the consolidation. Until then section-index falls to the
-		// generic default below, exactly as it does today at both
-		// producers: no regression, no divergence, nothing to reconcile.
-		// (Measured 2026-08-24: 2 of the 5 parked pages are section-index
-		// and stay parked until then — loanzy guides-index, garden-tools
-		// buying-guides-index. That is the price of not racing.)
+		// It was held out of this map from 2026-08-24 to 2026-08-25 ONLY
+		// because WriteBuildItemsAction still had its own copy of these
+		// entries and the two producers would have disagreed on this one
+		// page_type. That copy is gone as of the commit that adds this line;
+		// the hold-out has served its purpose and the reason it existed no
+		// longer applies.
+		"section-index": {handler: "directory-build-handler", itemType: "needs_directory"},
 	}
 	// Known page types whose builders don't exist yet. entity-page is a
 	// DECISION, not an oversight: the two parked entity-page builds as of

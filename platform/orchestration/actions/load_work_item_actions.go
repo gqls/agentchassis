@@ -228,47 +228,21 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 		}
 		pageType = normalizePageType(pageType) // already exists at line 784
 
-		// Known available builders — update this map when adding new builder agents
-		type builderInfo struct {
-			handler  string
-			itemType string
-		}
-		availableBuilders := map[string]builderInfo{
-			"content":    {handler: "page-build-handler", itemType: "needs_content_page"},
-			"index":      {handler: "page-build-handler", itemType: "needs_content_page"},
-			"landing":    {handler: "page-build-handler", itemType: "needs_content_page"},
-			"blog-index": {handler: "page-build-handler", itemType: "needs_content_page"},
-			"blog-post":  {handler: "page-build-handler", itemType: "needs_content_page"},
-			// bugs_open/206: directory-build-handler ensures the page's plan
-			// layout (ensure_page_section_layout, defaulting to
-			// ["hero","directory-listing"]) then delegates the actual build
-			// to page-build-handler — see agent_definitions seed
-			// 001_directory_build_handler.sql. entity-page stays unavailable
-			// below: practice pages are deliberately on hold pending more
-			// source data (features_open/021's own P1), so no builder for it
-			// yet — building one now would be ahead of a demonstrated need.
-			"entity-directory": {handler: "directory-build-handler", itemType: "needs_directory"},
-			// Add here as builders become available:
-			// "entity-page":      {handler: "entity-page-build-handler", itemType: "needs_entity_page"},
-			// "tool":             {handler: "tool-build-handler", itemType: "needs_tool_page"},
-			// # "blog-index":       {handler: "blog-build-handler", itemType: "needs_blog_index"},
-			// # "blog-post":        {handler: "blog-build-handler", itemType: "needs_blog_post"},
-			// and news
-		}
+		// Route by page_type through the SHARED authority (builder_routing.go,
+		// register BLD-027). This door and reconcile_site_plan are the two
+		// producers of `needs_page:<name>` items, and until 2026-08-25 each
+		// carried its own copy of the routing decision: this one as the two
+		// closure-local maps that used to sit here, reconcile as a hardcoded
+		// 'page-build-handler' SQL literal. The drift re-fired bugs_open/206
+		// through reconcile for five pages on three sites — one an
+		// entity-directory page parked fifteen days while its builder ran.
+		// Do not reintroduce a local copy; change builderForPageType instead
+		// and both doors move together.
+		route, neededBuilder, known := builderForPageType(pageType)
+		handlerAgent := route.handler
+		itemType := route.itemType
 
-		// Known page types whose builders don't exist yet
-		unavailableBuilders := map[string]string{
-			"tool":        "tool-builder",
-			"entity-page": "entity-page-builder",
-		}
-
-		handlerAgent := "page-build-handler"
-		itemType := "needs_content_page"
-
-		if info, available := availableBuilders[pageType]; available {
-			handlerAgent = info.handler
-			itemType = info.itemType
-		} else if neededBuilder, known := unavailableBuilders[pageType]; known {
+		if neededBuilder != "" {
 			// Known type but builder not available — log deferred capability gap
 			gapSpec, _ := json.Marshal(map[string]interface{}{
 				"page_name":      pageName,
@@ -278,16 +252,30 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 			})
 
 			ok, err := insertWorkItem(ctx, tx, workItem{
-				siteID:       siteID,
-				source:       "planner",
-				pipeline:     "build",
-				itemType:     "capability_gap",
-				severity:     "low",
-				summary:      fmt.Sprintf("Page '%s' needs %s (not yet available)", pageName, neededBuilder),
-				spec:         string(gapSpec),
-				pageID:       pageIDPtr,
-				priority:     200,
-				handlerAgent: neededBuilder,
+				siteID:   siteID,
+				source:   "planner",
+				pipeline: "build",
+				itemType: "capability_gap",
+				severity: "low",
+				summary:  fmt.Sprintf("Page '%s' needs %s (not yet available)", pageName, neededBuilder),
+				spec:     string(gapSpec),
+				pageID:   pageIDPtr,
+				priority: 200,
+				// handler_agent EMPTY, deliberately — matching the sibling
+				// producer (reconcile_site_plan_action.go) and every one of
+				// the 50 capability_gap rows on file. This arm used to write
+				// `neededBuilder` here, i.e. the name of an agent that by
+				// construction does NOT exist: council round 2 (bug_historian,
+				// HIGH) ruled that shape at the reconcile door on 2026-08-24
+				// as bugs_closed/078's (an unroutable handler_agent
+				// livelocking the dispatcher), leaving `status='deferred'` as
+				// the only thing between us and it. The builder's name lives
+				// in spec.builder_needed above, which is where a reader looks.
+				// [MEASURED 2026-08-25, live + archive, all history] this arm
+				// has minted ZERO rows ever — 0 of 50 capability_gap rows carry
+				// created_by='site-planner' — so the alignment costs nothing
+				// and no existing row changes.
+				handlerAgent: "",
 				status:       "deferred",
 				createdBy:    "site-planner",
 				itemKey:      fmt.Sprintf("capability_gap:%s:%s", pageType, pageName),
@@ -304,7 +292,8 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 				)
 			}
 			continue // Skip — don't create a dispatch work item for this page
-		} else {
+		}
+		if !known {
 			// Completely unknown page_type — fall through to default handler
 			logger.Warn("WriteBuildItemsAction: Unknown page_type, using page-build-handler",
 				zap.String("page_type", pageType),

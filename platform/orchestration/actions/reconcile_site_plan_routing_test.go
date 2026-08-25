@@ -148,29 +148,29 @@ func TestReconcileRoutesEntityDirectoryToItsBuilder(t *testing.T) {
 // A section-index page must reach the same builder — the route two live hand
 // re-routes proved (guides-index 2026-08-08, practice 2026-08-24) before any
 // map knew it. loanzy.uk's guides-index is the parked real case.
-// section-index must take the GENERIC handler for now, and this test exists to
-// say that is a decision rather than an oversight. The route is proven at the
-// artefact, but the entry is held out of the map until WriteBuildItemsAction
-// calls builderForPageType too — otherwise the two producers disagree on this
-// one page_type, both mint the same itemKey under idx_swi_dedup, and whichever
-// fires first silently wins (council round 4, guardian).
+// THE SWAP LANDED 2026-08-25, so section-index now takes the SAME builder here.
+// It was held on the generic handler from 08-24 to 08-25 only while
+// WriteBuildItemsAction still carried its own copy of the map; with one
+// function behind both doors a disagreement is no longer representable.
 //
-// WHEN THE SWAP LANDS: add "section-index" to availableBuilders and change the
-// expectation here to directory-build-handler. Both doors move together.
-func TestReconcileLeavesSectionIndexOnTheGenericBuilderUntilBothDoorsMove(t *testing.T) {
+// This assertion is the one that matters for the parked real cases: loanzy.uk
+// guides-index and garden-tools.uk buying-guides-index are both section-index
+// pages that no-op'd on page-build-handler.
+func TestReconcileRoutesSectionIndexToTheLayoutEnsuringBuilder(t *testing.T) {
 	f := reconcileRoutingFixture{
 		pageName: "guides-index", role: "section-index",
 		pageType: "section-index", buildStatus: "planned",
 	}
 	err := f.run(t, func(mock sqlmock.Sqlmock) {
 		mock.ExpectExec(regexp.QuoteMeta("'reconcile_site_plan', 'build', 'needs_page'")).
-			WithArgs(reconcileInsertArgs(7, map[int]driver.Value{4: "page-build-handler"})...).
+			WithArgs(reconcileInsertArgs(7, map[int]driver.Value{4: "directory-build-handler"})...).
 			WillReturnResult(sqlmock.NewResult(1, 1))
 	})
 	if err != nil {
-		t.Fatalf("reconcile failed — section-index no longer takes the generic handler. If you added "+
-			"the map entry, make sure WriteBuildItemsAction calls builderForPageType in the SAME "+
-			"commit, then update this test: %v", err)
+		t.Fatalf("reconcile failed — a section-index page is not being routed to "+
+			"directory-build-handler, so a page with no layout in any source will no-op on "+
+			"the generic builder ('no sections ready to build') exactly as bugs_open/206 "+
+			"describes: %v", err)
 	}
 }
 
