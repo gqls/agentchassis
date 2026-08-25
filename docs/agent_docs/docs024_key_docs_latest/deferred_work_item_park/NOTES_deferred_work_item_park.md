@@ -302,3 +302,93 @@ measurement retracted as structurally unanswerable (`updated_at - created_at`), 
 corrected by an instrument I had not thought to run, and one inherited lead verified as void. The
 useful residue is not the cause — it is the eight exclusions and the two controls, which are what
 the next reader would otherwise re-derive.
+
+## 2026-08-25 (later still) — an independent Fable review refuted the filing within the hour, and both errors were mine to have avoided
+
+The owner commissioned a second model to reconsider the whole lane. It refuted the central claim
+and **answered the question that had defeated both me and the diagnosis loop**. I re-verified every
+load-bearing point first-hand before accepting any of it.
+
+### MISSTEP 2 — I wrote the lesson, then applied it to one column
+
+`396` §5 records, in my own words, the lesson the diagnosis loop taught me hours earlier: *"a
+membership test can only find members you can name — do not test for the stamps you know,
+ENUMERATE the stamps that exist."* I put the `jsonb_object_keys` query in this lane's RUNBOOK,
+added the pattern to `016b` §9, and saved it to memory.
+
+**I ran that enumeration against `spec`. I never ran it against `result`.**
+
+```sql
+SELECT k, count(*) FROM site_work_items w, LATERAL jsonb_object_keys(w.result) k
+WHERE w.status='deferred' AND COALESCE(w.handler_agent,'')<>'' GROUP BY 1 ORDER BY 2 DESC;
+--  deferred_by 62 | deferred_reason 60 | deferred_from_status 60 | reason 2 | deferred_at 2
+```
+
+**62 of the 114 rows I had just published as *"carrying no trace of any kind"* are fully stamped** —
+`loancalculator_rebuild_thread` (60, with `deferred_from_status='detected'`, a reason naming the
+owner-ordered rebuild, and an explicit release condition *"un-park after rebuild verify"*) and
+`apis-uk-bees-lane` (2, with `deferred_at` and a paragraph of reasoning). Genuinely unstamped: **52**.
+
+`result` is not an exotic place to look. Migration `442` stamps `result.repair_284` on this same
+table for exactly this purpose.
+
+⚠ **The shape is worse than not having known the lesson: I generalised the fix to the INSTANCE that
+taught it (the `spec` column) instead of to the CLASS (provenance can live in any JSONB column on
+the row).** A rule written down after a miss is not learned until you ask *where else does this
+apply?* and answer it with a query. Two `jsonb_object_keys` calls instead of one.
+
+### MISSTEP 3 — I searched the code for a writer, on a tree whose writers leave notes
+
+`396` §4 listed *"a hand-run `psql` UPDATE by an earlier session"* as **OPEN, untested, "no evidence
+beyond the absence of alternatives, which is not evidence."**
+
+The evidence was in the repo, dated, and weeks old:
+
+- `mortgagecalculator_couk_adoption/HANDOFF_2026-08-03_continue_here.md:81-90` — *"every 15s, defer
+  anything dispatchable"*, verbatim `UPDATE site_work_items SET status='deferred', updated_at=NOW()
+  WHERE … AND status IN ('triaged','approved')`. ⚠ **It sets nothing else — which is exactly why
+  those 38 rows carry no stamp.** Corroborated by that lane's own NOTES at `:305`, `:462-473`,
+  `:526`, whose named counts (3 `needs_page` + 1 `needs_rerender`) match the surviving residue.
+- commit `90a4fb812` (08-04, idea.uk) — *"Holds: 12× undeployed_asset + footer needs_rerender +
+  deactivated_component → `deferred` (UPDATE 14)"*, matching idea.uk's 14 rows type-for-type.
+
+I ran the Go grep a dozen times. **I never ran `grep -rn "SET status='deferred'" docs/`**, which
+lands on the answer immediately. **"No code does this" and "nobody did this" are different
+statements**, and CLAUDE.md's opening fact — many sessions, one tree, one live database, worked by
+hand — is precisely what makes them different here.
+
+### And my "best lead" was refuted by two timestamps
+
+idea.uk's 14 were **created 07-31 19:18** and **parked 08-04 22:03** [MEASURED]. The discovery run I
+found completing at 22:03 was co-occurring with the **park**, not the birth — and the park was a
+human's `UPDATE 14`. I had already written in this file that *"a co-occurring actor is not a writing
+actor"* and then leaned on the correlation anyway, because it was the only lead I had left.
+
+### The detail worth keeping longest
+
+`mortgagecalculator_couk_adoption/NOTES…:2844` reads: **"[UNVERIFIED] what deferred them … a
+hand-park at adoption is the obvious guess and I did not establish it."** Written by the lane whose
+own handoff, in the same directory, carries the recipe it ran. **The lane forgot its own backstop,
+and I inherited the marker and re-derived the mystery from scratch.**
+
+⚠ **Someone else's `[UNVERIFIED]` is a claim about what THEY checked — a lead to close, not a
+boundary to respect.** The cheapest first move is to check whether the marker's own lane already
+answered it. Contributed back to them today.
+
+### What survived the attack, and what the lane is now worth
+
+Unchanged and re-verified: §3's three predicates; the `idx_swi_dedup` reading; migration 217; the
+`claim_work_item_action.go:102` clause; `FailWorkItemAction`'s exclusion; and — importantly — that
+**no Go path produces the shape**. But that last one now rests on the right evidence: a *config
+walk* over every `agent_definitions` row (two actions take a status from step config —
+`create_work_item_action.go:194-222` and `UpdateWorkItemStatusAction`), not on a source grep, which
+structurally could not have falsified it.
+
+**The reframing is the useful output**: the cause is not a defective writer, it is a **missing
+verb**. Four lanes each needed to hold a site's queue, none had a supported way to do it, so each
+improvised the same `UPDATE` — and only the ones who thought of it left a stamp. The estate now
+carries **six** competing ad-hoc provenance conventions for one act. That is a better argument for
+building the verb than the 52 unstamped rows ever were.
+
+**Tally for this lane: 3 hypotheses killed by me, 1 of my own claims killed by a peer, 1 measurement
+retracted as unanswerable, 2 census errors — and the answer found in a document I never opened.**
