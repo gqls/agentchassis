@@ -1,4 +1,11 @@
-# 383 lane — CONTINUE HERE (2026-08-25). The fix is SHIPPED and WELL-TESTED. It is **NOT yet proven at the artefact**, and that is the one thing left.
+# 383 lane — CLOSED 2026-08-25. The fix is shipped, observed working at the served page, and the bug is in `bugs_closed/`.
+
+> **✅ SUPERSEDED THE SAME DAY — the missing observation was MADE.** A `content_rewrite` (the exact
+> operation that re-collided repaired pages on 2026-08-23) ran on
+> `gaswholesalers.com/wholesale-pricing-explained.html` at 12:42:19Z and both `generic-text-block`
+> instances came back **distinct**, confirmed at the served page with a staleness control.
+> Full evidence: **§15 of the handoff**. Everything below is the pre-closure position, kept because
+> the corrections in it are the record of how this lane reasoned — not because it is current.
 
 > **⚠ CORRECTED 2026-08-25, later the same day.** An earlier version of this file said the fix was
 > "LIVE and PROVEN at the artefact" and that the lane was one observation from closing. **The proof
