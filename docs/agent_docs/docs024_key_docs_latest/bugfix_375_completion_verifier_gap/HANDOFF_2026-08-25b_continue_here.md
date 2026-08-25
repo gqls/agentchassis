@@ -34,10 +34,11 @@
 
 ⚠ **Snapshots on a shared tree. Re-run before acting.**
 
-## 2a. ⚠ THE FIRST THING TO DO: read the pending verdict
+## 2a. The verdict — BOTH ROUNDS IN, and round 1 earned its keep
 
-`c8ed18c1-a694-4c80-afdc-12274634fbd2` — round 1 **REVISE** (13 seats), round 2 resubmitted on the
-same correlation (orch `27f7bc39`) and **still running when this was written.**
+`c8ed18c1-a694-4c80-afdc-12274634fbd2` — round 1 **REVISE** (13 seats), round 2 **APPROVED**
+(13 seats, *"all reviewers approve"*, 11:34:36Z, 3 low objections, none gating). Nothing is pending;
+this section is kept because the *shape* of reading it is a trap.
 
 ```sql
 SELECT orchestration_id, current_step, status, created_at FROM orchestration_states
@@ -50,18 +51,24 @@ SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
 ⚠ **Two rounds share one correlation** (that is what `RESUBMIT_CORR` is for), so `LIMIT 1` on the
 report table gives you the LATEST — order by `created_at` and check which round you are reading.
 
-**Round 1's finding is already fixed** (`43277271a`): `SchemaContentFields` returns `ok=true` with
+**Round 1's finding is fixed** (`43277271a`): `SchemaContentFields` returns `ok=true` with
 ZERO fields for a v2 schema whose `fields` object is empty, so the predicate computed "nothing
 missing" and would have certified an emptied schema as REPAIRED. It now errors, fail-closed. If
 round 2 raises something new, the code is already on the shared branch — act on it, do not wait.
 
-**What round 2 argues, so you can judge whether the seats accepted it:** the gating objection was
-that an unregistered verifier leaves the defect unchanged. True as a description. The counter is
-that registering it without step 1's migration is strictly *worse* than inert — the
-claimed-item-timeout sweep would complete items straight past it, a false green rather than a
-missing one — and that round 1 is itself the argument for this order, since a defect was caught
-before the predicate ever graded a live claim. **If the owner would rather take that risk and arm it
-now, that is a legitimate call and it is theirs, not a session's.**
+**The seats ACCEPTED the deferral argument**, which is the part that matters for §4a: the gating
+objection was that an unregistered verifier leaves the defect unchanged (true as a description), and
+round 2's answer — that registering it without step 1's migration is strictly *worse* than inert,
+because the claimed-item-timeout sweep would complete items straight past it, a false green rather
+than a missing one — carried. **So the five-step sequence is the reviewed plan, not a session's
+preference.** If the owner would rather arm it sooner and accept that window, that is a legitimate
+call and it is theirs.
+
+⚠ **One low objection was answered by measurement and should not be re-opened:** the empty-fields
+fix is local to the verifier rather than pushed into `datahelpers.SchemaContentFields`, and that is
+correct — the helper has **10 non-test callers and exactly ONE resolves** (this verifier). The other
+nine file or render, where an empty declaration correctly means "nothing to do", so hardening the
+helper would break them.
 
 ## 3. What is committed
 

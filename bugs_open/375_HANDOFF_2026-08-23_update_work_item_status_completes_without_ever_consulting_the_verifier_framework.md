@@ -530,8 +530,7 @@ than chasing the symbol. Footprint corrected, and the entry now carries the half
 fires hardest on a VERIFIER**, since a detector's `continue` on an unreadable declaration is right
 while a verifier's identical arithmetic certifies a repair.
 
-**Round 2 resubmitted on the same correlation** (`RESUBMIT_CORR`, orch `27f7bc39`) — **verdict
-PENDING at the time of writing; read it.** It carries the fix plus answers to five further
+**Round 2 → APPROVED** (same correlation, orch `27f7bc39`, 2026-08-25 11:34:36Z, 13 seats, *"all reviewers approve"*, 3 low objections, none gating). It carries the fix plus answers to five further
 objections: two were factually wrong about the code (`checks.RegisteredVerifierItemTypes()` is
 `verifiers.go:198`; no existing `config-key-audit` mode mentions either symbol), one asked for the
 census query in-submission, one asked whether the two shared guard-test files were checked for
@@ -548,3 +547,22 @@ emptied schema as repaired was caught **before it ever graded a live claim**.
 **Tally across this lane's three rounds:** 4 medium-or-high objections — 2 factually wrong about the
 code, 1 quoting a stale comment, **1 a real defect shipped past my own mutation suite.** That last
 one is the whole reason to submit.
+
+### 10f. Round 2 APPROVED — and one low objection answered by measurement, so nobody re-opens it
+
+`reuse_agent` (low) noted the empty-fields fix is local to the verifier and does not change
+`datahelpers.SchemaContentFields`, and answered itself: *"architecturally defensible here (detector
+and verifier need opposite interpretations of the same empty-fields result)"*. Right — but it implies
+a class question, so it was measured rather than reasoned about.
+
+`SchemaContentFields` has **10 non-test callers** as of 2026-08-25, and **exactly one RESOLVES** —
+this verifier. The other nine either FILE (the two detectors) or read fields for rendering, planning,
+CTA extraction and envelope shaping, where an empty declaration correctly means "nothing to do".
+**So there is no latent class of other resolvers carrying the same hole**, and pushing the guard down
+into the shared helper would break the nine that legitimately want the permissive reading.
+
+The other two low objections: the `optedIn` licence lives in `write_audit_findings_verifier_join_test.go`
+whose name reads narrower than its contents (it is the shared `Grades` opt-in registry — its own
+`TestOnlyTheOptedInVerifierCarriesAScopeTest` iterates every registered verifier, not just that
+action's); and the carried-forward "a shared guard-exclusion struct across writers 2 and 3 was never
+considered", which remains **unactioned and stated as such**.
