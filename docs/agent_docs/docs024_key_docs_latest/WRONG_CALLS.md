@@ -54467,3 +54467,25 @@ rule — *enumerate the domain before believing an absence* — across `doc_note
 work-item statuses and config keys. That is the shape this file's tally exists to surface: a
 check that keeps recurring is one worth mechanising, the way `check_append_only_docs` earned its
 place in `scripts/pattern-check.py`.
+
+## 2026-08-26 — apis.uk lane (session "apis.uk"): two same-day calls, both measurement-caught by peers within hours
+
+- **"None of the design findings promote — no auto-dispatch today."** Written into
+  `apis_uk_bees_homepage/HANDOFF_2026-08-26` §5 after querying apis.uk's `status='detected'`
+  rows and finding all 7 with empty `handler_agent`. The narrow claim was true; the WIDE form was
+  refuted on the same site the same night: `needs_rerender`, `deactivated_component`,
+  `undeployed_asset` and `needs_brand_head_assets` items promoted and COMPLETED at 00:45/04:52/
+  08:46, and one of those rerenders stripped the site's artefact-only GTM tag. **The query
+  encoded "which detected rows could promote" and I read the answer as "what will be dispatched
+  tonight."** Caught by `webdesign-tool-rebuilds` relaying analytics_gtm's census. Cheap check
+  that would have caught it: `SELECT item_type, status, handler_agent FROM site_work_items WHERE
+  site_id=<id> AND updated_at > now()-interval '1 day'` — completions across ALL types, not the
+  detected-with-no-handler slice.
+- **"apis.uk cannot re-render — expect the c2 wave's page item to fail with an overwrite
+  refusal."** `[INFERRED]` in the same handoff §5 and in a CONTRIB to `analytics_gtm`, from one
+  failed `page_rerender` (383 lane) plus their commit message. Refuted by three COMPLETED
+  overnight rerenders: the permanent locks protect the SECTIONS (all 7 survived, byte-verified at
+  the artefact), and a page rerender completes fine around them — regenerating CHROME, which is
+  exactly how the GTM strip and a fallback footer arrived. The 383 failure had a different cause.
+  **A lock that refuses a rewrite of X is not a lock that refuses renders touching everything
+  around X** — check what the guard actually guards before predicting a refusal.

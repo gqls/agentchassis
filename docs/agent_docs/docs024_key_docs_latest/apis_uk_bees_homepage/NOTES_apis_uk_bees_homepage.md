@@ -1269,3 +1269,18 @@ shifted to :1290 — still not mine.
 
 **And the morning's CONTRIB paid off within ~2h:** `a0ec90eb9` (396 lane) declared their code;
 the full actions suite including the finding-code scan is green at HEAD again.
+
+### 2026-08-26 ~13:20 — the trap fired: chrome refresh stripped GTM and resurrected a fallback footer; two of my same-day calls were wrong
+
+Peer relay (webdesign-tool-rebuilds ← analytics_gtm) then measured here: overnight
+improvement-loop completions re-rendered apis.uk's chrome at 08:46:26 (all three site_components
+rows, one timestamp). Served page now: GTM ×0 (397 bucket-B strip, 10/10 artefact-only sites),
+one minimal fallback footer (brand + copyright — no email, no disclosure), +371 B; h1/sections/
+images intact, **7/7 permanent locks held at the artefact**. Page re-queued 09:15.
+
+Two WRONG_CALLS rows filed (the wide no-auto-dispatch claim; the cannot-re-render inference —
+the second also poisoned my CONTRIB to analytics_gtm, corrected by message). The durable finding:
+**"no footer" was artefact-only state all along** — same class as the GTM backfill, no spec-level
+suppression exists, `RenderFallbackFooter` regenerates the shell on every chrome refresh. Owner
+decision framed in handoff §5b: accept the shell vs commission an opt-in
+`chrome.footer_disabled`. No interim row-emptying (397-class churn against c2's imminent wave).

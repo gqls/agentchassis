@@ -105,8 +105,31 @@ door). No auto-dispatch today; re-check that premise if anyone maps handlers ont
 | `image_url_404` ×2: chrome references `/assets/images/favicon.png` + `og-card.png`, no active asset | real, mild (404 favicon/og-card). Fix = deploy the two assets, NOT edit chrome |
 | `prerequisite_missing` ×2 (page_research, feed_sources) · `structure_floor_unmet` (1 of 6 structures) | the single-page-by-design shape failing fleet norms — expected; annotate rather than "fix" if they nag |
 
-⚠ **THE TRAP for any of these:** the locks guard `page_components` only. Any repair that
-regenerates chrome (head/footer render) **strips the GTM tag** — apis.uk is `bugs_open/397`
-bucket B (artefact-only) until `analytics_gtm`'s `c2` applies. So: assets over chrome edits,
-coordinate anything chrome-shaped with that lane, and settle `pages.build_status` after any
-repair (a render re-queues).
+⚠ **THE TRAP fired overnight — §5b.** The locks guard `page_components` only, and that is
+exactly what the 00:45–08:46 completions proved: sections survived, chrome did not.
+
+## 5b. 2026-08-26 08:46 — the chrome refresh stripped GTM AND brought a fallback footer back
+
+Measured ~13:15 BST, served page: 200 / 68,248 B · h1 + 6 sections + 7 images INTACT (7/7
+permanent locks held, artefact-verified) · no email anywhere · **`googletagmanager` ×0** ·
+**one `<footer>`** — the minimal `RenderFallbackFooter` shell (brand h3 + copyright only).
+All three `site_components` rows regenerated together at 08:46:26 by the improvement-loop's
+completed `needs_rerender`; page re-queued (`needs_rebuild` since 09:15). My §5 prediction that
+apis.uk "cannot re-render" was WRONG — see `WRONG_CALLS.md` 2026-08-26, both entries.
+
+**The finding that outlives the incident: the owner's no-footer ruling had the SAME latent
+defect as the GTM backfill.** Emptying `site_components.footer` was artefact-only state; no
+spec-level suppression exists (grepped: no `footer_disabled`/`suppress_footer`/`no_footer` key
+anywhere), so ANY chrome refresh regenerates the shell via `RenderFallbackFooter`
+(`component_library.go:1976`). Re-emptying the row now is 397-class churn — c2's imminent wave
+would revert it again.
+
+**Sequence for whoever acts next (after `analytics_gtm`'s c2 wave lands on apis.uk):**
+1. Verify GTM at the served bytes (c2 writes the spec key; the wave re-renders chrome WITH it).
+2. **OWNER DECISION on the footer:** (a) accept the minimal fallback shell (brand + ©, no email,
+   no disclosure — the harmful content is absent), or (b) commission the durable mechanism: an
+   opt-in `site_config.chrome.footer_disabled` respected in `RenderFooter`/`InjectFooter`
+   (council-scope, small; the 2026-08-02 opt-in ruling's shape). Interim row-emptying is NOT
+   recommended — it re-fights every chrome refresh.
+3. Settle `pages.build_status` (render → settle; it is `needs_rebuild` right now).
+4. Open oddity: one `deactivated_component` item sits `unresolved` (08:40) — read before touching.
