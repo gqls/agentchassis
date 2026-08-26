@@ -358,6 +358,18 @@ cold — identical to the afternoon state — then did everything the classifier
   to `doc_notes`, and its verifier is NOT armed — re-run
   `./scripts/landmines-verify-dispatch.sh` once 401 is fixed.
 
+  > **CORRECTED 2026-08-26 (closing session, not this lane): 402 is CLOSED and there
+  > is NOTHING left for this lane to re-run.** Your entry
+  > (`…the-repo-copy-of-a-box-deployed-config-file-drifts-behind-live-edits…`) was
+  > delivered AND verified the same evening you filed — two landmine-verifier
+  > verdicts in `doc_notes`, 2026-08-25 20:05:04Z and 20:08:20Z (both UNVERIFIABLE,
+  > which is a verdict: the dispatch ran). Do not re-run the dispatch for it. Also:
+  > the "wants to rewrite all 847" half was a misread of a mislabelled print
+  > (`to insert/refresh:` showed the file's TOTAL, always) — the delta logic was
+  > fine; the EOF was the 3MB body read-back, retried since `02c740616` and made
+  > ~110KB by the closing commit. Full account:
+  > `bugs_closed/402_HANDOFF_2026-08-25_landmines_sync_delta_wants_the_whole_corpus.md`.
+
 ## The owner's two runs
 
 **1. Migration 436** — type in this chat:
