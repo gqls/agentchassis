@@ -155,3 +155,64 @@ func TestRecordRetraction_GatedTypesAreNotDoubleJudged(t *testing.T) {
 		t.Fatalf("unmet expectations: %v", err)
 	}
 }
+
+// Round 04a3ce1f's gating objection (editquality, true round 2): content_rewrite
+// has FIVE producers ([MEASURED 2026-08-26] reader 36, content-quality 23,
+// site-review 19, brief-fidelity 15, offer 12 record rows on one item_type), so
+// the multi-producer property must be a PINNED CONTROL, not an assertion. One
+// seat's silence may only ever judge its own rows: another seat's record row of
+// the SAME type, and a row with a FOREIGN (non-seat) audit_source that merely
+// copied the filing_mode key, are both out of scope — no streak write, no
+// retraction. This is also the answer to the "self-service enrolment" worry
+// (guardian, architecture): carrying filing_mode='record' does NOT enrol a row;
+// enrolment requires BOTH the key AND spec.audit_source naming the seat whose
+// run is judging — and only write_audit_findings seats run this pass at all.
+func TestRecordRetraction_AnotherSeatsVerdictsAreNotMySilences(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+	mineID := uuid.New()
+	// The running seat is visual-design-audit (auditParams). Three candidates of
+	// ONE item_type: mine (in scope), the reader seat's (another producer), and a
+	// hypothetical non-seat producer that copied the key (foreign audit_source).
+	readerSpec := `{"audit_source":"reader-experience-audit","filing_mode":"record","routed_handler":"page-build-handler"}`
+	foreignSpec := `{"audit_source":"some-future-producer","filing_mode":"record"}`
+
+	expectPagesLoad(mock, siteID)
+	mock.ExpectBegin()
+	mock.ExpectQuery("item_type = 'dark_section_audit'").
+		WithArgs(siteID).WillReturnRows(candidateRows())
+	mock.ExpectQuery("SELECT DISTINCT item_type").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"item_type"}).AddRow("content_rewrite"))
+	mock.ExpectQuery("item_type = 'content_rewrite'").
+		WithArgs(siteID).
+		WillReturnRows(candidateRows().
+			AddRow(mineID, "mine", "deferred", recordSpec, `{"retraction":{"silent_runs":2,"audit_source":"visual-design-audit"}}`).
+			AddRow(uuid.New(), "readers", "deferred", readerSpec, `{"retraction":{"silent_runs":2,"audit_source":"reader-experience-audit"}}`).
+			AddRow(uuid.New(), "foreign", "deferred", foreignSpec, `{}`))
+	// Exactly ONE write: MY row's third silence retracts it. The reader's row —
+	// same type, same streak — and the foreign row get nothing; an unexpected
+	// second write fails the ordered mock, and their absence from the retract
+	// call's args is the whole point.
+	mock.ExpectExec("UPDATE site_work_items").
+		WithArgs("visual-design-audit", argJSONContains{"3 consecutive runs"}, siteID,
+			"content_rewrite", "mine", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	out, err := WriteAuditFindingsAction(context.Background(), auditParams(db, siteID, []interface{}{}))
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	r := retractionFor(t, out, "content_rewrite:record")
+	if r.Retracted != 1 || r.Candidates != 1 || r.StreaksBumped != 0 {
+		t.Fatalf("want exactly my own row judged (1 candidate, 1 retracted); got %+v", r)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}

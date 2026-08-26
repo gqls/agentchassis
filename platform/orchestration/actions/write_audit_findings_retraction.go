@@ -163,6 +163,15 @@ var silenceRetractionGates = map[string]silenceRetractionRule{
 // observes re-files fresh on its very next run. That asymmetry, not a
 // measurement, licenses the default; dispatch-mode rows of ungated types stay
 // deliberately inert (TestAuditRetraction_UngatedItemTypeIsInert).
+//
+// CARRYING filing_mode='record' DOES NOT ENROL A ROW IN THIS GATE (council
+// round 04a3ce1f, guardian + architecture). Enrolment needs THREE things at
+// once: the key, a spec.audit_source naming the seat whose run is judging
+// (the per-candidate scope check below - one seat's silence can never judge
+// another producer's rows), and a producer that runs this pass at all, which
+// only write_audit_findings seats do. A future producer that copies the key
+// gets nothing - pinned, with a three-producer mixed candidate set, by
+// TestRecordRetraction_AnotherSeatsVerdictsAreNotMySilences.
 var recordModeSilenceRule = silenceRetractionRule{
 	Why: "record-mode default: a verdict row dispatches nothing, and a wrong retraction " +
 		"self-corrects (the freed dedup slot lets a still-observed finding re-file on the " +
