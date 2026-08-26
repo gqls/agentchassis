@@ -84,3 +84,23 @@ Both requests terminal and correct-by-design at the visitor surface (apology + r
 dossier respectively). No workaround needed for launch-to-nobody (page unlinked);
 **worth fixing before the widget goes on the site** — the widget invites exactly the
 vague first message that hits Finding 1.
+
+---
+
+## FIX BUILT 2026-08-26 (same day) — chat side; NOT yet live; 409 stays OPEN until the live replay passes
+
+Fix candidate 1 implemented at `Normalise`'s single choke point (`coerce` KindText
+rejects hedge-phrased values — covers the chat AND plain-form doors), plus the
+matching prompt rule, plus travel_mm/mounting guidance for finding 2. Tests added;
+the guard is MUTATION-PROVED (removing `containsHedge` fails
+`TestNormaliseRejectsHedgedTextValues` on every hedged value, including the exact
+live-failure string). Council: `Council-Submitted: 70083c99-c299-4b35-a868-1583d3355396`.
+
+**Inert until the island image rolls** (owner-run swap). Close criteria: replay the
+session-1 shapes live — (a) hedged mounting → the assistant ASKS AGAIN, spec stays
+incomplete, no build spent; (b) volunteered "300 mm travel" → clarifying question,
+not a bind; (c) the 613916a7 happy-path baseline still passes. The cluster-side
+prose/validator seam is deliberately untouched — if hedges can no longer enter the
+spec, the prose has nothing to hedge about; if a live run still manufactures
+"to be confirmed" from a clean spec, that is a NEW finding against the prose
+prompt, filed separately.

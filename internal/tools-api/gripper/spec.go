@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -67,7 +68,7 @@ var Fields = []Field{
 	{Name: "part_geometry", Kind: KindText, Required: true,
 		Guidance: "the shape and key dimensions of the part in words, in millimetres (e.g. \"cylinder, 60 mm diameter, 120 mm long\")"},
 	{Name: "travel_mm", Kind: KindNumber, Required: true,
-		Guidance: "the jaw opening the gripper must span to pick the part, in millimetres, as a number — usually the part's width or diameter across the grip; ask for it if the geometry does not make it plain"},
+		Guidance: "the jaw opening the gripper must span to pick the part, in millimetres, as a number — usually the part's width or diameter across the grip; ask for it if the geometry does not make it plain. CAUTION: when the visitor volunteers a distance using words like travel, stroke, reach or motion, that is usually the ROBOT'S movement, not the jaw opening — do not record it here; ask which dimension the jaws must span"},
 	{Name: "surface_material", Kind: KindMaterial, Required: true,
 		Guidance: "the material of the surface being gripped, chosen from exactly: " + strings.Join(Materials, ", ") + " (offer this list; if the visitor's material is not on it, ask which is closest and record that)"},
 	{Name: "ip_min", Kind: KindInt, Required: false,
@@ -75,7 +76,7 @@ var Fields = []Field{
 	{Name: "cycle_rate", Kind: KindNumber, Required: true,
 		Guidance: "picks per minute, as a number"},
 	{Name: "mounting", Kind: KindText, Required: true,
-		Guidance: "the robot or arm it mounts to and the flange standard if known (e.g. \"UR5e, ISO 9409-1-50-4-M6\")"},
+		Guidance: "the robot or arm it mounts to and the flange standard if known (e.g. \"UR5e, ISO 9409-1-50-4-M6\"); when the standard is not stated, record only what was — never append a note that something is missing or unconfirmed"},
 	{Name: "application", Kind: KindText, Required: false,
 		Guidance: "anything else about the application worth passing to the engineer: environment (washdown, temperature, dust), orientation, presentation, constraints"},
 	{Name: "budget", Kind: KindText, Required: false,
@@ -137,6 +138,36 @@ func Normalise(raw map[string]interface{}) Spec {
 	return out
 }
 
+// hedgePhrases mark a text value as an ANNOTATION OF ABSENCE rather than a
+// fact: the model writing "ISO 9409 flange (standard not yet specified)" is
+// recording its own uncertainty into a data field. bugs_open/409 (2026-08-26):
+// exactly that value reached complete:true, the report prose then honestly
+// hedged ("needs to be confirmed"), and the cluster's placeholder validator
+// blocked the page — so a vague visitor got a guaranteed failed report. The
+// rule here is the same one Normalise already applies to a wrong type: a
+// hedge is "does not know" wearing a value's clothes, so the value is dropped
+// and missing_fields keeps asking. The prompt also tells the model not to
+// write these (prompt.go); this guard is the enforcement, because a prompt
+// line is not a control.
+var hedgePhrases = []string{
+	"not yet specified", "not specified", "unspecified",
+	"to be confirmed", "to be decided", "not yet known",
+	"not sure", "unsure", "unknown", "don't know", "do not know",
+	"n/a",
+}
+
+var hedgeTokens = regexp.MustCompile(`\b(?i:tbc|tbd)\b`)
+
+func containsHedge(s string) bool {
+	l := strings.ToLower(s)
+	for _, h := range hedgePhrases {
+		if strings.Contains(l, h) {
+			return true
+		}
+	}
+	return hedgeTokens.MatchString(s)
+}
+
 func coerce(kind Kind, v interface{}) (interface{}, bool) {
 	switch kind {
 	case KindNumber:
@@ -154,7 +185,7 @@ func coerce(kind Kind, v interface{}) (interface{}, bool) {
 	case KindText:
 		s, ok := v.(string)
 		s = strings.TrimSpace(s)
-		if !ok || s == "" {
+		if !ok || s == "" || containsHedge(s) {
 			return nil, false
 		}
 		if len(s) > maxTextLen {

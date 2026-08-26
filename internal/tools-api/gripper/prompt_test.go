@@ -158,3 +158,20 @@ func TestValidEmail(t *testing.T) {
 		t.Errorf("trimmed form = %q", got)
 	}
 }
+
+// bugs_open/409: the prompt must carry the no-hedge rule (the code guard in
+// Normalise is the enforcement; this is the instruction that stops the model
+// looping on a value the guard will discard) and the travel_mm caution that
+// keeps a volunteered arm-travel distance out of the jaw-span field.
+func TestPromptCarriesThe409Rules(t *testing.T) {
+	p := BuildPrompt(Spec{}, nil, "hi")
+	for _, must := range []string{
+		`never write phrases like "not yet specified"`,
+		"that is usually the ROBOT'S movement, not the jaw opening",
+		"never append a note that something is missing or unconfirmed",
+	} {
+		if !strings.Contains(p, must) {
+			t.Errorf("prompt lost the 409 rule fragment %q", must)
+		}
+	}
+}

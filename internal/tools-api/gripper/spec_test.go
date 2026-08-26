@@ -148,3 +148,38 @@ func TestForClusterAddsNoIdentifiers(t *testing.T) {
 		}
 	}
 }
+
+// bugs_open/409 finding 1: a text value carrying an annotation of absence is
+// "does not know" wearing a value's clothes — Normalise must drop it so
+// missing_fields keeps asking, instead of complete:true feeding the report
+// prose a hedge the cluster's placeholder validator will block.
+func TestNormaliseRejectsHedgedTextValues(t *testing.T) {
+	// The exact value that caused the first live failed report (2026-08-26).
+	hedged := []string{
+		"Gantry, ISO 9409 flange (standard not yet specified)",
+		"unknown",
+		"steel bracket, dimensions TBC",
+		"UR5e, flange tbd",
+		"washdown cell, IP rating n/a",
+		"not sure, probably a cylinder",
+		"To Be Confirmed",
+	}
+	for _, v := range hedged {
+		got := Normalise(map[string]interface{}{"mounting": v})
+		if _, ok := got["mounting"]; ok {
+			t.Errorf("hedged value %q was recorded; want dropped", v)
+		}
+	}
+	// Clean values must still pass — including ones adjacent to the tokens.
+	clean := []string{
+		"UR5e, ISO 9409-1-50-4-M6",
+		"gantry, ISO 9409 flange",
+		"outboard bracket on the gantry", // 'tbd' must not match inside words
+	}
+	for _, v := range clean {
+		got := Normalise(map[string]interface{}{"mounting": v})
+		if got["mounting"] != v {
+			t.Errorf("clean value %q was dropped; want kept", v)
+		}
+	}
+}
