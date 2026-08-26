@@ -226,3 +226,29 @@ date -u; kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clie
 Never take the time from a `kubectl` error line, a pod log prefix, or a shell prompt. This bites
 hardest in the BST half of the year, when the offset is non-zero but small enough to be mistaken for
 clock skew rather than a zone.
+
+## After the 2026-08-26 credit top-up: re-fire the outage's terminal residue
+
+The credit outage (23:46:29Z 08-25 → top-up) permanently failed work items that exhausted
+`max_attempts` against the dead API. **They do NOT self-heal** — the 1,400 `triaged` rows drain on
+their own, these do not. `[MEASURED 08:56Z]` 21 items, 20 carrying "credit balance" in `error`,
+bleed ~4/hour while the outage continues. Found by the 391 lane, verified here at the artefact.
+
+```sql
+-- 1. LOOK FIRST (the list, not the count):
+SELECT wi.id, s.domain, wi.item_type, wi.updated_at, left(wi.error, 80)
+  FROM site_work_items wi JOIN sites s ON s.id = wi.site_id
+ WHERE wi.status = 'failed' AND wi.updated_at > '2026-08-26 00:00:00+00'
+   AND wi.error ~* 'credit balance|connection reset'
+ ORDER BY wi.updated_at;
+
+-- 2. Re-fire exactly those (bound the window at the top-up time; the error
+--    predicate is what keeps a genuinely-broken item from riding along):
+UPDATE site_work_items
+   SET status = 'triaged', attempt_count = 0, error = NULL, retry_after = NULL, updated_at = now()
+ WHERE status = 'failed'
+   AND updated_at BETWEEN '2026-08-26 00:00:00+00' AND '<top-up time>'
+   AND error ~* 'credit balance|connection reset';
+```
+The 1 non-matching failure (of 21) is judged on its own error text, by hand. The `needs_diagnosis`
+row re-runs its 090 diagnosis on re-fire — expected.
