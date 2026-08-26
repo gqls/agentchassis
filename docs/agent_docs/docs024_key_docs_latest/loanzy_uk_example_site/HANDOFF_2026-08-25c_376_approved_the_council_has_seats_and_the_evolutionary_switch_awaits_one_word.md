@@ -27,7 +27,7 @@ into regenerating handlers (`content_rewrite`/`needs_content_page`/`needs_conten
 promoted 08-20→08-24 with the sweep OFF; 0 sit at `detected` now**. So the sweep being off never
 meant the rewrites were off, and `detected` is not a parking state. Record rows are `deferred` +
 `handler ''` + provenance/`release_recipe` in spec; they self-clear via the seat's own
-silence-retraction (RFC_056 addendum).
+~~silence-retraction (RFC_056 addendum)~~ — **CORRECTED 2026-08-26: only `dark_section_audit` was ever gated; the record-mode default gate is built, submitted, and inert until a roll — until then verdict rows are cleared by HUMANS ONLY (RUNBOOK queue). See the RFC CORRECTION block.**
 
 ## 3. Next, in order
 
@@ -51,7 +51,7 @@ silence-retraction (RFC_056 addendum).
 - PLAN §5 query 2 non-zero after Phase 1 → an LLM seat is reachable by a route the plan did not see.
 - A record row dispatched → one of the two doors changed (`write_audit_findings_filing_mode_test.go` names both).
 - A record row still open after 3 audits at a new fingerprint with the finding gone → the
-  silence-retraction is not matching record rows (RFC addendum falsifier).
+  silence-retraction is not matching record rows (RFC addendum falsifier). **CORRECTED 2026-08-26: this falsifier FIRED, early, by reading rather than waiting — the gates map never included these types; fix built (recordModeSilenceRule).**
 - Bad renders continuing with the seats bypassed → look at `site-render-audit-rotation`
   (`contrast_failure` → `css-patch-agent`, 239 completions in 14 days) — the OTHER source, the 390 lane's.
 

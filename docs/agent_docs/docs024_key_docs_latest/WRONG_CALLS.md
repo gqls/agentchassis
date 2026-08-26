@@ -54344,3 +54344,25 @@ by its config's apply time. Before claiming check X ran in sweep S: compare S's 
 X's enabling migration timestamp — one comparison, both numbers already in hand that morning.
 Same family as "a quiet-test passes when the rule is gone": absence of findings is evidence
 only when the detector was demonstrably present.
+
+---
+
+**2026-08-26 · loanzy_uk_example_site · "verdict rows are revalidated by the seat's own silence-retraction" — false for every item type but one.**
+RFC_056 ADDENDUM 1 answered a peer's parked-verdict objection with that sentence, citing two REAL
+facts (the retraction file names `deferred` as a status that "can accrue a silence observation";
+`spec.audit_source` scopes candidates to the seat). The claim was still false: the retraction
+iterates `silenceRetractionGates`, and that map holds exactly ONE type (`dark_section_audit`, with
+a measured per-type justification). Every other verdict type had NO revalidator — a record row
+held its dedup key for ever unless a human cleared it, the very no-release park the design cited
+`bugs_open/396` to avoid. **The peer withdrew their objection on the strength of the false claim.**
+*What caught it:* the finetuning lane read migration 621's `v_parkable` array before USING the park
+verb and reported what the file said — which prompted a re-read of my own mechanism at the same
+joint, 14 hours after I had watched the 391 lane name this exact failure ("a landmine that says
+'safe in direction X' is not a landmine that says 'safe'" — I retained the reassuring halves and
+never read the roster they were conditional on).
+*The cheap check:* **before claiming a mechanism covers X, read the ROSTER that enumerates its
+coverage** — the gates map, the checks array, the exclusion list — not the status posture or the
+scope filter, which say who is eligible, never who is enrolled. One grep
+(`silenceRetractionGates = map` → count the keys) would have cost ten seconds.
+*Tally note:* third instance THIS WEEK of roster-vs-posture conflation across lanes (391's text
+census read as steps; my §6 doc_notes target; this). If a fourth lands, it is a 016b §9 pattern.

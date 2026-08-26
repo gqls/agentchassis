@@ -145,6 +145,31 @@ var silenceRetractionGates = map[string]silenceRetractionRule{
 // needs_human_review — can accrue a silence observation. See the header for
 // why `triaged` in particular is not negotiable (the stale reaper keys on
 // updated_at, and the table's trigger bumps it on every write).
+// recordModeSilenceRule is the DEFAULT gate for rows filed with
+// filing_mode=record (RFC_056 §5), whatever their item_type. It exists because
+// of a corrected false claim: RFC_056 ADDENDUM 1 asserted verdict rows were
+// revalidated by "the seat's own silence-retraction", and the gates map above
+// held exactly ONE type (dark_section_audit) — so for every other type a
+// verdict row held its dedup key FOR EVER unless a human cleared it, which is
+// bugs_open/396's no-release park shape inside the mechanism built to avoid it
+// (caught 2026-08-26 by the finetuning lane's park-verb reading; corrected in
+// the RFC the same hour).
+//
+// WHY A DEFAULT IS SAFE HERE AND FORBIDDEN FOR DISPATCH ROWS. The gated rule
+// above earns its threshold from a MEASURED per-type miss rate, because a wrong
+// retraction of a dispatch-mode row closes the record of a real defect. A
+// record row is a VERDICT: it dispatches nothing, and a wrong retraction
+// SELF-CORRECTS — retraction frees the dedup slot, so a finding the seat still
+// observes re-files fresh on its very next run. That asymmetry, not a
+// measurement, licenses the default; dispatch-mode rows of ungated types stay
+// deliberately inert (TestAuditRetraction_UngatedItemTypeIsInert).
+var recordModeSilenceRule = silenceRetractionRule{
+	Why: "record-mode default: a verdict row dispatches nothing, and a wrong retraction " +
+		"self-corrects (the freed dedup slot lets a still-observed finding re-file on the " +
+		"seat's next run)",
+	ConsecutiveSilences: 3,
+}
+
 var workItemInFlightStatuses = map[string]bool{
 	"triaged": true,
 	"claimed": true,
@@ -183,6 +208,20 @@ func readSilenceState(result []byte) silenceState {
 		return silenceState{}
 	}
 	return wrapper.Retraction
+}
+
+// specFilingMode reads spec.filing_mode off a candidate row.
+func specFilingMode(spec []byte) string {
+	if len(spec) == 0 {
+		return ""
+	}
+	var s struct {
+		FilingMode string `json:"filing_mode"`
+	}
+	if err := json.Unmarshal(spec, &s); err != nil {
+		return ""
+	}
+	return s.FilingMode
 }
 
 // specAuditSource reads spec.audit_source off a candidate row.
@@ -244,13 +283,32 @@ func retractSilentAuditFindings(
 	out := map[string]interface{}{}
 	for itemType, rule := range silenceRetractionGates {
 		res, rErr := retractOneSilentType(ctx, tx, siteID, auditSource, batchID,
-			itemType, rule, !observedItemTypes[itemType], logger)
+			itemType, rule, false, !observedItemTypes[itemType], logger)
 		if rErr != nil {
 			return nil, rErr
 		}
 		out[itemType] = res
 	}
 
+	// Second pass: the record-mode default (see recordModeSilenceRule). Types
+	// already gated above keep their measured rule and are skipped here; within
+	// an ungated type, only rows stamped filing_mode=record are in scope —
+	// dispatch rows of ungated types remain deliberately inert.
+	recordTypes, rtErr := loadRecordModeItemTypes(ctx, tx, siteID)
+	if rtErr != nil {
+		return nil, rtErr
+	}
+	for _, itemType := range recordTypes {
+		if _, gated := silenceRetractionGates[itemType]; gated {
+			continue
+		}
+		res, rErr := retractOneSilentType(ctx, tx, siteID, auditSource, batchID,
+			itemType, recordModeSilenceRule, true, !observedItemTypes[itemType], logger)
+		if rErr != nil {
+			return nil, rErr
+		}
+		out[itemType+":record"] = res
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("retraction: commit: %w", err)
 	}
@@ -265,6 +323,7 @@ func retractOneSilentType(
 	batchID uuid.UUID,
 	itemType string,
 	rule silenceRetractionRule,
+	recordOnly bool,
 	silent bool,
 	logger *zap.Logger,
 ) (silenceRetractionResult, error) {
@@ -292,6 +351,13 @@ func retractOneSilentType(
 	for _, c := range candidates {
 		if workItemInFlightStatuses[c.Status] {
 			res.SkippedInFlight++
+			verdicts[c.ID] = retractionOutOfScope
+			continue
+		}
+		if recordOnly && specFilingMode(c.Spec) != filingModeRecord {
+			// A dispatch-mode row of an ungated type: the default gate has no
+			// licence over it (no self-correction symmetry), so it is out of
+			// scope exactly as if this pass had never run.
 			verdicts[c.ID] = retractionOutOfScope
 			continue
 		}

@@ -378,3 +378,38 @@ because the verdict landed the same evening.
   this lane's NOTES; the addendum's claims stand, now with pointers.
 - test-fold phrasing in edit 1 (editquality) and the byte-identical caveat (guardian) — recorded;
   the byte-identical claim is per-step and the census in ADDENDUM 2 §8 is the blind-proof version.
+
+---
+
+## CORRECTION (2026-08-26, morning) — ADDENDUM 1's central claim was FALSE for every type but one, and the fix is now built
+
+**What was wrong.** ADDENDUM 1 answered the parked-verdict objection with: *"verdict rows are
+revalidated — by the seat that made them"*, citing the silence retraction and the file's own line
+that `deferred` "can accrue a silence observation". Both citations are real; the claim was still
+false, because the retraction runs only over `silenceRetractionGates`, and that map holds **exactly
+one type: `dark_section_audit`** (with a per-type MEASURED miss-rate justification). For every
+other type record mode files — `content_rewrite`, `needs_content_page`, `needs_content_planning`,
+`needs_design_review`, the lot — there was **no retraction at all**: a verdict row held its dedup
+key for ever unless a human cleared it. That is `bugs_open/396`'s no-release park, inside the
+mechanism this RFC claimed avoided it. The vigilant lane withdrew their objection partly on this
+claim; they have been told.
+
+**How it was caught, and the lesson is the 391 lane's from twelve hours earlier, committed by me
+this time:** the finetuning lane read migration 621's parkable-status list before using it and
+reported what the file SAID rather than what its header promised — which prompted me to re-read my
+own mechanism at the same joint. I had read the status posture ("deferred can accrue silences") and
+the scope check (`spec.audit_source`), and **retained the reassuring halves without reading the
+GATES map they were conditional on.** The cheap check that would have caught it: before claiming a
+mechanism covers X, read the roster that enumerates what it covers. Logged in `WRONG_CALLS.md`.
+
+**The fix (built 2026-08-26, tests green, council submission pending, inert until a roll):**
+`recordModeSilenceRule` — a DEFAULT retraction gate for rows with `filing_mode=record`, whatever
+their item type. The licence is an asymmetry, not a measurement: a wrong retraction of a DISPATCH
+row closes the record of a real defect (hence the measured per-type gates stay mandatory there,
+and dispatch rows of ungated types stay inert — pinned by
+`TestRecordRetraction_DispatchRowsOfUngatedTypesStayInert`), while a wrong retraction of a VERDICT
+row **self-corrects** — retraction frees the dedup slot, so a finding the seat still observes
+re-files fresh on its very next run. Gated types keep their measured rule (no double-judging,
+pinned). With this, ADDENDUM 1's reasoning — and the §9 answer built on it — is restored as
+written; until the fix rolls, the truth is: **verdict rows are cleared by humans only**, and the
+RUNBOOK's queue is the whole lifecycle.

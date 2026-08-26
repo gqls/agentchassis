@@ -145,6 +145,42 @@ func loadAuditRetractionCandidates(
 	return out, nil
 }
 
+// loadRecordModeItemTypes lists the DISTINCT item types with at least one OPEN
+// record-mode row for this site — the domain of the record-mode default gate
+// (recordModeSilenceRule). Ordered, so callers and test expectations are
+// deterministic. Status predicate matches loadAuditRetractionCandidates above:
+// the open set, closed statuses excluded.
+func loadRecordModeItemTypes(
+	ctx context.Context,
+	tx *sql.Tx,
+	siteID uuid.UUID,
+) ([]string, error) {
+	rows, err := tx.QueryContext(ctx, fmt.Sprintf(`
+		SELECT DISTINCT item_type
+		FROM site_work_items
+		WHERE site_id = $1
+		  AND spec->>'filing_mode' = 'record'
+		  AND status NOT IN (%s)
+		ORDER BY item_type
+	`, sqlInList(workItemClosedStatuses)), siteID)
+	if err != nil {
+		return nil, fmt.Errorf("load record-mode item types: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var t string
+		if sErr := rows.Scan(&t); sErr != nil {
+			return nil, fmt.Errorf("scan record-mode item type: %w", sErr)
+		}
+		out = append(out, t)
+	}
+	if rErr := rows.Err(); rErr != nil {
+		return nil, fmt.Errorf("read record-mode item types: %w", rErr)
+	}
+	return out, nil
+}
+
 // retractResolvedAuditFindings closes the candidates the caller's `decide` reports
 // as positively observed to be fixed, and only those.
 //

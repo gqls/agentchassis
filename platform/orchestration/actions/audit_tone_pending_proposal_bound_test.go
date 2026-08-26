@@ -67,6 +67,7 @@ func TestToneBound_WithholdsWhileAProposalIsPending(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery("item_type = 'dark_section_audit'").WithArgs(siteID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "item_key", "status", "spec", "result"}))
+	expectRecordTypesLoad(mock, siteID)
 	mock.ExpectCommit()
 
 	out, err := WriteAuditFindingsAction(context.Background(),

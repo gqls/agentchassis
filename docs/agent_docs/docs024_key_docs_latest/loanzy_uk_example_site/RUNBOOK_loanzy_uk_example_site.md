@@ -256,8 +256,11 @@ row re-runs its 090 diagnosis on re-fire — expected.
 ## The verdict queue (record-mode rows) — read, release, and the promises around it
 
 The acceptance council's model seats file VERDICTS: `deferred`, `handler_agent ''`,
-`spec.filing_mode='record'`. Nothing dispatches them; the seat's own silence-retraction clears the
-ones that stop reproducing (3 consecutive clean runs of the same seat). This query is the interim
+`spec.filing_mode='record'`. Nothing dispatches them. ~~The seat's own silence-retraction clears the
+ones that stop reproducing~~ — **CORRECTED 2026-08-26: that was true only for `dark_section_audit`**
+(the gates map's single entry); the default gate for record rows (`recordModeSilenceRule`) is built
+and rides the next roll — **until then, this queue is the WHOLE lifecycle: rows leave it only by the
+release UPDATE below or a hand `cancelled`.** This query is the interim
 release interface RFC_056's verdict note promised (a real surface is owed before rows accumulate
 fleet-wide):
 

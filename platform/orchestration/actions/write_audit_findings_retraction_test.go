@@ -111,6 +111,7 @@ func TestAuditRetraction_FirstSilenceBumpsAndDoesNotRetract(t *testing.T) {
 	mock.ExpectExec("UPDATE site_work_items").
 		WithArgs(itemID, 1, "visual-design-audit").
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	expectRecordTypesLoad(mock, siteID)
 	mock.ExpectCommit()
 
 	out, err := WriteAuditFindingsAction(context.Background(), auditParams(db, siteID, []interface{}{}))
@@ -151,6 +152,7 @@ func TestAuditRetraction_ThirdSilenceRetracts(t *testing.T) {
 		WithArgs("visual-design-audit", argJSONContains{"3 consecutive runs"}, siteID,
 			"dark_section_audit", key, sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	expectRecordTypesLoad(mock, siteID)
 	mock.ExpectCommit()
 
 	out, err := WriteAuditFindingsAction(context.Background(), auditParams(db, siteID, []interface{}{}))
@@ -205,6 +207,7 @@ func TestAuditRetraction_AFindingResetsTheStreak(t *testing.T) {
 	mock.ExpectExec("UPDATE site_work_items").
 		WithArgs(itemID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	expectRecordTypesLoad(mock, siteID)
 	mock.ExpectCommit()
 
 	out, err := WriteAuditFindingsAction(context.Background(),
@@ -298,6 +301,7 @@ func TestAuditRetraction_RecognisedEmptyReplyStillRetracts(t *testing.T) {
 	mock.ExpectExec("UPDATE site_work_items").
 		WithArgs(itemID, 1, "visual-design-audit").
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	expectRecordTypesLoad(mock, siteID)
 	mock.ExpectCommit()
 
 	// The wrapped-object shape with an empty list — a real auditor reporting a
@@ -351,6 +355,7 @@ func TestAuditRetraction_ObservedButDedupedIsNotSilence(t *testing.T) {
 			`{"retraction":{"silent_runs":2,"audit_source":"visual-design-audit"}}`))
 	mock.ExpectExec("UPDATE site_work_items").WithArgs(itemID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	expectRecordTypesLoad(mock, siteID)
 	mock.ExpectCommit()
 
 	out, err := WriteAuditFindingsAction(context.Background(),
@@ -405,6 +410,7 @@ func TestAuditRetraction_AnotherProducersRowsAreUntouched(t *testing.T) {
 	mock.ExpectExec("UPDATE site_work_items").
 		WithArgs(ours, 1, "visual-design-audit").
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	expectRecordTypesLoad(mock, siteID)
 	mock.ExpectCommit()
 
 	out, err := WriteAuditFindingsAction(context.Background(), auditParams(db, siteID, []interface{}{}))
@@ -456,6 +462,7 @@ func TestAuditRetraction_InFlightRowsAreNeverWritten(t *testing.T) {
 	mock.ExpectExec("UPDATE site_work_items").
 		WithArgs("visual-design-audit", sqlmock.AnyArg(), siteID, "dark_section_audit", "k3", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	expectRecordTypesLoad(mock, siteID)
 	mock.ExpectCommit()
 
 	out, err := WriteAuditFindingsAction(context.Background(), auditParams(db, siteID, []interface{}{}))
@@ -503,6 +510,7 @@ func TestAuditRetraction_UngatedItemTypeIsInert(t *testing.T) {
 	mock.ExpectQuery("item_type = 'dark_section_audit'").
 		WithArgs(siteID).
 		WillReturnRows(candidateRows())
+	expectRecordTypesLoad(mock, siteID)
 	mock.ExpectCommit()
 
 	out, err := WriteAuditFindingsAction(context.Background(), auditParams(db, siteID, []interface{}{}))
@@ -614,6 +622,7 @@ func TestWriteAuditFindings_UngatedProducerPathIsUnchanged(t *testing.T) {
 	mock.ExpectQuery("item_type = 'dark_section_audit'").
 		WithArgs(siteID).
 		WillReturnRows(candidateRows())
+	expectRecordTypesLoad(mock, siteID)
 	mock.ExpectCommit()
 
 	out, err := WriteAuditFindingsAction(context.Background(),
@@ -663,6 +672,7 @@ func TestWriteAuditFindings_UngatedProducerDedupStillSuppresses(t *testing.T) {
 	mock.ExpectQuery("item_type = 'dark_section_audit'").
 		WithArgs(siteID).
 		WillReturnRows(candidateRows())
+	expectRecordTypesLoad(mock, siteID)
 	mock.ExpectCommit()
 
 	out, err := WriteAuditFindingsAction(context.Background(),
