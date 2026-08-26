@@ -135,3 +135,32 @@ retraction path are deliberately untouched (VIZ-016's alias-key history is why).
 - Fleet: stamp `2fb40a96`, rolled 08-25 ~23:11.
 - Docs debt: none known; `README_where_we_are.md` needs an 08-26 entry if the owner asks before
   the next session writes one.
+
+---
+
+## ⚠ DATED CORRECTION 2026-08-26 ~09:15 BST — §1(a) said "verdict PENDING"; the run actually DIED, and the cause is the PROVIDER, not the submission
+
+Checked before signing off rather than leaving "pending" to be believed: the `fe5cbe0c` run
+terminated at `complete_invalid` — *"no reviewer produced a readable opinion (6 abstained, 11
+unreadable)"*. Eleven seats unreadable at once is systemic, and the cause is on the record:
+`agent_error_log` carries fleet-wide `LLM_API_ERROR … AI endpoint unavailable: provider=anthropic`
+at 08:46–08:48, exactly while the seats executed. (The `bugfix_243_provider_cap_resilience` lane is
+active in the tree — related territory.) The last healthy council verdict fleet-wide is 21:38 on
+08-25; mine is the only run since.
+
+**So §1(a) becomes: (a-0) FIRST check the provider is back** (any successful `council_report` after
+08-26 09:00, or a clean `execute_llm_prompt` in recent logs), **then resubmit 635 on the SAME
+correlation**:
+
+```bash
+RESUBMIT_CORR=fe5cbe0c-8a04-47a7-b64d-68fc235da14d \
+  ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+  docs/agent_docs/docs024_key_docs_latest/bugfix_390_cascade_attribution/council_submission_635_2026-08-26.json
+```
+
+An invalid run produced no verdict, so this is a retry of infrastructure, not a defence of a
+REVISE — the submission JSON needs no edit (unless the provider outage outlasts the day; then
+note the resubmission delay in it). The commit `0b796c39d` carries `Council-Submitted: fe5cbe0c`,
+which stays TRUE — it asserts submission, not a verdict — and 098 resolves it once a real verdict
+lands on that correlation. Do NOT dispatch a duplicate on a fresh correlation: that is the
+double-round the runbook warns about.
