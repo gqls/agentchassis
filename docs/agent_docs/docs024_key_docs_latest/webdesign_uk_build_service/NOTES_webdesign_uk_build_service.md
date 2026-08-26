@@ -5763,3 +5763,26 @@ find the RIGHT org before paying the wrong one. The wave-5 index item stays `tri
 (f81f0618, key held); refire with the proven envelope (claim + client_id=system,
 scratchpad wave5c/d body) once credits land. My two auto-refire watchers were killed by
 session pauses — re-arm on resume, don't assume they ran.
+
+## 2026-08-26 morning — credits restored; HOME-POINTS LIVE; stored rows fixed; the copy work is DONE
+
+Owner topped up the fleet Anthropic account. Re-fired the index build (proven bypass, corr
+64fa0794): COMPLETED, deployed `f3cb129`. **The bullets section is exactly the brief** ("The
+offer, in short": who it's for / ZIP yours to host-edit-maintain / "We are not a hosting
+company, but we can help you set it up on free hosting like Netlify" / 30 days / categories +
+no online shops / "Your own code editor (IDE) or your favourite AI tool are good for this" /
+"See the full list of what you get" link). Work item f81f0618 stamped complete AFTER artefact
+verification. Label re-placed (again) and pushed.
+
+**Lesson banked: a direct SERVED-page edit does not survive reassembly.** The overnight
+discovery sweep (design/completeness agents, 05:50) assemble-rerendered how-it-works and
+resurrected "Visual Studio Code" from the stored row. Fix: `SQL_2026-08-26_stored_rows_
+editor_wording.sql` applies the same five sentence replacements to page_components
+rendered_html AND content_data (both assemble and template-regenerate paths read them), and
+recomputes rendered_html_digest (= md5(rendered_html), verified on live rows) so the edit
+does not read as divergence. Served how-it-works re-edited + pushed. The two queued
+`_assemble` items for the tool pages will now serve the fixed rows.
+
+**State: the copy brief is COMPLETE across every page, served and stored. The single
+remaining launch action is the owner's Cloudflare page-rule removal.** Next build work:
+domain service P1 (EPP domain:check) + P2 (*.ugg2.com wildcard + slug convention).
