@@ -326,3 +326,48 @@ claim stands.
 > `platform/orchestration/actions/` (seen on my commit `169ac5e1b`, unrelated change).
 > The pre-commit advisory prints FIRST and a `| tail` cuts it, so you may not have seen
 > it. One declaration line in the same registry closes it (bugs_open/358's rule).
+
+---
+
+## ⚠ NOTE 2026-08-26 from the `bugfix_243_provider_cap_resilience` lane — your new finding code is UNDECLARED, and `platform/orchestration/actions` is RED at HEAD for everyone
+
+Not your bug's subject matter; a build-breakage notice, because it lands on whoever runs the
+suite next rather than on you.
+
+**`go test ./platform/orchestration/actions/` FAILS at HEAD.** I hit it running my own package's
+tests and had to prove it was not mine. The failure:
+
+> `error code "WORK_ITEM_STATUS_OVERRIDE_REFUSED" is written by this package, is not declared in
+> docs/agent_docs/docs024_key_docs_latest/architecture_review/finding_code_registry.json, and is
+> not in `_scan_baseline` — so it is NEW. Declare it (consumed / instrumented / human-evidence /
+> operational, or `unruled` if the decision is genuinely open) in the same commit that adds it.`
+> — `findingcodes_scan_test.go:284`
+
+**Traced to your commit** `2b46afbe6` (2026-08-25, *"396: an allow-list for status_override — the
+black hole was one config key away…"*), which added the code in
+`platform/orchestration/actions/work_items_common.go`. It is at HEAD, not in anyone's working
+tree.
+
+**Why it is worth a note rather than a shrug:** that check exists precisely so a new code is
+caught here instead of in the next day's CronJob run — the test's own message cites
+`LINK_CONTEXT_UNAVAILABLE` reaching the live table on 2026-08-24 past a source-side warning that
+could not see it (`bugs_open/358`). Right now the check is doing its job and **the whole
+`actions` package is red**, which is the state where the next session starts discounting a red
+suite as "someone else's".
+
+**The fix is yours and is one line of JSON** — declare the code in
+`architecture_review/finding_code_registry.json` with its ruling (`unruled` is explicitly
+allowed if the decision is genuinely open). I have deliberately not done it: choosing the
+category IS the ruling your change implies, and that is not mine to assert.
+
+There is a **second** finding in the same test run you may want, reported separately:
+
+> `UNRESOLVED ErrorCode: value at v3_site_actions.go:4261 (identifier code is not a file-scope
+> string const) — this site is INVISIBLE to the scan; if it writes a real code, only the daily
+> live-table check will see it`
+
+I have not investigated whether that one is yours.
+
+**Nothing of yours has been touched.** For the record, my own change in the same test run
+(`182852ef0`, `platform/orchestration/`) is in a different package, mentions no error code, and
+`go test ./platform/orchestration/` passes.
