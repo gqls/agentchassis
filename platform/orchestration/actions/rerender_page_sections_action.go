@@ -1231,19 +1231,56 @@ func loadStoredSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logge
 	defer rows.Close()
 
 	var out []storedSection
+	// offered counts rows the CURSOR yielded, against len(out) kept
+	// (bugs_open/410's pinned count). Not "rows in page_components for this
+	// page": the WHERE above legitimately drops 'removed' tombstones in SQL, so
+	// that comparison would fire on every page carrying a removed component — a
+	// large, healthy population — and a guard that fires constantly on correct
+	// input gets loosened within a week.
+	offered := 0
 	for rows.Next() {
+		offered++
 		var s storedSection
 		var cdJSON []byte
 		if err := rows.Scan(&s.id, &s.parentInstanceID, &s.componentID, &s.slotName, &cdJSON, &s.renderedHTML, &s.position, &s.componentVersionID); err != nil {
+			// scan-loss:accepted: counted — ScanShortfall below refuses the
+			// partial result. The per-row Warn is kept deliberately: on a mixed
+			// failure it records EVERY failing row's cause, where returning here
+			// would record only the first, and the first is rarely the
+			// informative one when a projection has drifted.
 			logger.Warn("rerender_page_sections: row scan failed", zap.Error(err))
 			continue
 		}
 		if len(cdJSON) > 0 {
+			// KNOWN RESIDUAL, stated rather than left quiet (bugs_open/410): a
+			// corrupt content_data keeps the row and empties its content, so
+			// offered == kept and the guard below cannot see it. That is a
+			// second silent-loss class in this same loop, on a different axis
+			// (content, not rows), and it needs its own decision about whether
+			// an unparseable section may render as an empty one. Not fixed here.
 			_ = json.Unmarshal(cdJSON, &s.contentData)
 		}
 		out = append(out, s)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// ANY loss is an error here — deliberately STRICTER than scanBlogArticles'
+	// graded policy in rebuild_blog_listing_action.go, and the asymmetry is the
+	// point. That reader feeds a PROJECTION: a listing aggregates posts that
+	// still exist, so one malformed row degrades a nav surface and must not
+	// blank a live listing. This reader feeds a WHOLESALE REPLACE —
+	// save_page_sections deletes the page's rows and rewrites them
+	// (save_page_sections_action.go's `DELETE FROM page_components WHERE
+	// page_id = $1`), so a section missing from THIS slice is not merely
+	// unrendered, it is DELETED, and the page ships with a hole under a fresh
+	// deploy stamp with the work item reported complete. Degradation is not on
+	// the menu: the choice is a loud failure or a silent destruction.
+	//
+	// The refusal lands before anything is written (this loader runs at the top
+	// of the action, ahead of strip/render/save), so a page keeps serving its
+	// last good render while the step fails and retries.
+	return out, datahelpers.ScanShortfall(offered, len(out), "rerender_page_sections: stored page_components")
 }
 
 // carryStoredSection builds a sections_metadata entry that re-emits a section's

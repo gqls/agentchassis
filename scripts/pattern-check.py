@@ -537,6 +537,136 @@ def check_dynamic_item_type(files, ref, findings):
                 ))
 
 
+# ── bugs_open/410: a cursor-loop scan that swallows a row ──────────────────────
+#
+# ADVISORY TWIN of TestNoNewSilentScanLoss
+# (platform/orchestration/actions/scan_swallow_ratchet_test.go). Both layers use
+# THIS classifier's rule and read the SAME baseline file — one baseline, two
+# readers, which is tighter than the minting pair (which shares only a regex).
+# CHANGE THEM TOGETHER.
+#
+# The blocking test covers platform/orchestration/actions/** only. This advisory
+# is tree-wide, which is the whole reason it exists: the other 41 sites
+# (internal/, cmd/, pkg/, rest of platform/) have no blocking cover, and a commit
+# that grows one of them should still say so.
+SCAN_FOR_NEXT_RE = re.compile(r"\bfor\s+([A-Za-z_][A-Za-z0-9_.]*)\.Next\(\)\s*\{")
+SCAN_ERRNIL_RE = re.compile(r"err\s*!=\s*nil")
+SCAN_CONTINUE_RE = re.compile(r"^\s*continue\b")
+SCAN_LOSS_MARKER = "scan-loss:accepted"
+SCAN_SWALLOW_BASELINE = "platform/orchestration/actions/scan_swallow_baseline.txt"
+
+
+def _scan_match_block(lines, start, limit):
+    """Index of the line closing the block opened at/after `start`, or None."""
+    depth, seen = 0, False
+    for k in range(start, min(start + limit, len(lines))):
+        for ch in lines[k]:
+            if ch == "{":
+                depth += 1
+                seen = True
+            elif ch == "}":
+                depth -= 1
+                if seen and depth == 0:
+                    return k
+    return None
+
+
+def _count_scan_swallows(content):
+    """Count UNMARKED cursor-loop scan swallows.
+
+    MUST stay in step with countUnmarkedScanSwallows() in
+    platform/orchestration/actions/scan_swallow_ratchet_test.go.
+
+    Shape matched on comment-STRIPPED text (a comment describing the pattern must
+    not be counted); the opt-out marker, being a comment, read from RAW text over
+    the same span. Single-row QueryRow(...).Scan(&x) is deliberately NOT this
+    shape — there is no cursor-yielded count to compare against.
+    """
+    raw = content.splitlines()
+    lines = strip_comments(content).splitlines()
+    n = 0
+    for i, line in enumerate(lines):
+        m = SCAN_FOR_NEXT_RE.search(line)
+        if not m:
+            continue
+        cursor = m.group(1)
+        loop_end = _scan_match_block(lines, i, 400)
+        if loop_end is None:
+            continue
+        scan_re = re.compile(r"\b" + re.escape(cursor) + r"\.Scan\(")
+        j = i + 1
+        while j <= loop_end and j < len(lines):
+            if scan_re.search(lines[j]):
+                start = None
+                for k in range(j, min(j + 14, loop_end + 1, len(lines))):
+                    if SCAN_ERRNIL_RE.search(lines[k]) and "{" in lines[k]:
+                        start = k
+                        break
+                if start is not None:
+                    end = _scan_match_block(lines, start, 60)
+                    if end is not None:
+                        if any(SCAN_CONTINUE_RE.match(b) for b in lines[start + 1:end + 1]):
+                            span = "\n".join(raw[start:end + 1])
+                            if SCAN_LOSS_MARKER not in span:
+                                n += 1
+                        j = end
+            j += 1
+    return n
+
+
+def _scan_swallow_baseline(ref):
+    """path -> count, read AS OF the ref under test so a --commit audit compares
+    against the baseline that commit actually carried."""
+    content = file_content(SCAN_SWALLOW_BASELINE, ref)
+    out = {}
+    for line in (content or "").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split()
+        if len(parts) == 2 and parts[1].isdigit():
+            out[parts[0]] = int(parts[1])
+    return out
+
+
+def check_scan_swallow(files, ref, findings):
+    """bugs_open/410 — a scan failure that thins a result and reports success."""
+    baseline = None
+    for path in files:
+        if not path.endswith(".go") or path.endswith("_test.go"):
+            continue
+        content = file_content(path, ref)
+        if not content:
+            continue
+        got = _count_scan_swallows(content)
+        if not got:
+            continue
+        if baseline is None:
+            baseline = _scan_swallow_baseline(ref)
+            # An unreadable/absent baseline must not turn every touched file into
+            # a finding: fail quiet, the blocking twin still holds the line.
+            if not baseline:
+                return
+        want = baseline.get(path, 0)
+        if got <= want:
+            continue
+        findings.append((
+            "scan-swallow", path,
+            f"{BOLD}rows.Scan{RESET} error branch continues — the reader returns fewer rows "
+            f"than the cursor yielded, with no error ({want} known here, now {got})",
+            "bugs_open/410 — a thinned scan is invisible to the caller: the work completes, the "
+            "artefact is rewritten from the short result, and the deploy stamp says freshly "
+            "built. In loadStoredSections it was destructive, because save_page_sections then "
+            "replaces the page's rows wholesale and the dropped section is DELETED. Count and "
+            "refuse with datahelpers.ScanShortfall(offered, len(out), subject) — "
+            "loadStoredSections in rerender_page_sections_action.go is the worked example, and "
+            "scanBlogArticles in rebuild_blog_listing_action.go is the graded variant. If the "
+            f"loss is deliberate and separately guarded, mark the branch `// {SCAN_LOSS_MARKER}: "
+            "<reason>`. The blocking twin of this advisory is TestNoNewSilentScanLoss — change "
+            "both patterns together.",
+        ))
+
+
 # A writer of page_components.rendered_html with no link repair (bugs_open/136).
 #
 # bugs_open/079 put the dead-internal-link repair at the full-page section save,
@@ -2026,7 +2156,7 @@ CHECKS = (check_untouched_twin, check_gofmt, check_stdin_eater, check_kcat_stdin
           check_register_entry_without_row,
           check_runtime_fill_marker, check_unrepaired_component_write,
           check_unscoped_component_render,
-          check_dynamic_item_type,
+          check_dynamic_item_type, check_scan_swallow,
           check_partial_page_upsert, check_silent_reply_drop,
           check_handrolled_shipped_predicate, check_flexless_hamburger,
           check_unlisted_release_overlay)

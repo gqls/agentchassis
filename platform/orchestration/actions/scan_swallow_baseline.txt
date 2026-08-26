@@ -1,0 +1,155 @@
+# scan_swallow_baseline.txt — bugs_open/410
+#
+# Per-file counts of UNMARKED cursor-loop scan swallows: a `rows.Scan` inside a
+# `for rows.Next()` loop whose error branch `continue`s, so the reader returns
+# fewer rows than the cursor yielded and the caller cannot tell.
+#
+# READ BY TWO LAYERS, ONE PATTERN (the work_item_type_minting_ratchet_test.go
+# rule — change them together):
+#   - platform/orchestration/actions/scan_swallow_ratchet_test.go  (BLOCKING,
+#     covers platform/orchestration/actions/** only)
+#   - scripts/pattern-check.py check_scan_swallow                  (ADVISORY,
+#     tree-wide, fires only on files a commit touches)
+#
+# ENTRIES ONLY EVER GO DOWN. A count that rises, or a file that appears, fails
+# the ratchet: fix it with datahelpers.ScanShortfall (loadStoredSections in
+# rerender_page_sections_action.go is the worked example) or mark the site
+# `// scan-loss:accepted: <reason>` inside the error branch. A count that FALLS
+# also fails, with an instruction to lower the entry here — so the baseline
+# cannot silently drift and a net-zero swap cannot hide.
+#
+# Generated 2026-08-26. 207 sites in 127 files; 166 of them in the blocking
+# scope. Paths are repo-root-relative. Regenerate by re-running the census, do
+# not hand-edit except to lower a count.
+#
+# NOT a list of bugs. Most of these are harmless — a swallow only destroys
+# something when the caller's result feeds a wholesale replace or is reported as
+# complete. The list exists to stop the population GROWING, and to make a
+# fix-on-touch cheap, not to imply 207 defects.
+cmd/core-manager/main.go 1
+cmd/scheduler/main.go 1
+internal/auth-service/admin/user_management.go 4
+internal/auth-service/project/repository.go 1
+internal/auth-service/subscription/repository.go 1
+internal/auth-service/user/repository.go 1
+internal/auth-service/user/repository_admin.go 2
+internal/core-manager/admin/agent_handlers.go 4
+internal/core-manager/admin/asset_admin_handlers.go 2
+internal/core-manager/admin/client_handlers.go 1
+internal/core-manager/admin/page_admin_handlers.go 4
+internal/core-manager/admin/pipeline_admin_handlers.go 1
+internal/core-manager/admin/site_admin_handlers.go 5
+internal/core-manager/admin/snapshot_admin_handlers.go 1
+internal/core-manager/admin/spec_admin_handlers.go 2
+internal/core-manager/admin/system_handlers.go 2
+internal/core-manager/admin/tool_admin_handlers.go 2
+internal/core-manager/admin/topic_cleanup_handler.go 1
+internal/core-manager/database/personas.go 2
+platform/database/pgvector.go 1
+platform/evolution/performance.go 1
+platform/orchestration/actions/apply_adoption_plan_action.go 1
+platform/orchestration/actions/business_intel_actions.go 2
+platform/orchestration/actions/check_endpoint_health_action.go 1
+platform/orchestration/actions/cleanup_stale_topics.go 2
+platform/orchestration/actions/code_symbols_actions.go 1
+platform/orchestration/actions/companies_house_actions.go 1
+platform/orchestration/actions/companies_house_detail_fetch_action.go 1
+platform/orchestration/actions/companies_house_fetch_accounts_action.go 1
+platform/orchestration/actions/companies_house_llm_review_action.go 1
+platform/orchestration/actions/companies_house_local_match_action.go 5
+platform/orchestration/actions/component_library.go 2
+platform/orchestration/actions/component_selector.go 1
+platform/orchestration/actions/compute_component_quality.go 1
+platform/orchestration/actions/cta_label_audit.go 1
+platform/orchestration/actions/database_actions.go 1
+platform/orchestration/actions/design_actions.go 2
+platform/orchestration/actions/diagnose_load_runtime_action.go 3
+platform/orchestration/actions/discovery_checks/check_asset_reference_404.go 2
+platform/orchestration/actions/discovery_checks/check_backend_entry_orphaned.go 1
+platform/orchestration/actions/discovery_checks/check_broken_nav_links.go 1
+platform/orchestration/actions/discovery_checks/check_component_standards.go 4
+platform/orchestration/actions/discovery_checks/check_component_template_corrupted.go 1
+platform/orchestration/actions/discovery_checks/check_componentless_pages.go 1
+platform/orchestration/actions/discovery_checks/check_contact_form_undeliverable.go 1
+platform/orchestration/actions/discovery_checks/check_content_image_missing.go 1
+platform/orchestration/actions/discovery_checks/check_cta_nonpage.go 1
+platform/orchestration/actions/discovery_checks/check_dead_controls.go 1
+platform/orchestration/actions/discovery_checks/check_duplicate_palette.go 1
+platform/orchestration/actions/discovery_checks/check_empty_sections.go 2
+platform/orchestration/actions/discovery_checks/check_image_source_unsatisfiable.go 1
+platform/orchestration/actions/discovery_checks/check_image_url_404.go 3
+platform/orchestration/actions/discovery_checks/check_incomplete_page_group.go 2
+platform/orchestration/actions/discovery_checks/check_integrity.go 7
+platform/orchestration/actions/discovery_checks/check_literal_markdown.go 2
+platform/orchestration/actions/discovery_checks/check_misdirected_cta.go 2
+platform/orchestration/actions/discovery_checks/check_missing_prose_links.go 2
+platform/orchestration/actions/discovery_checks/check_news_feed.go 1
+platform/orchestration/actions/discovery_checks/check_orphan_element_refs.go 1
+platform/orchestration/actions/discovery_checks/check_orphan_pages.go 1
+platform/orchestration/actions/discovery_checks/check_page_content_divergence.go 1
+platform/orchestration/actions/discovery_checks/check_phantom_internal_links.go 3
+platform/orchestration/actions/discovery_checks/check_placeholder_contact.go 1
+platform/orchestration/actions/discovery_checks/check_required_fields_missing.go 1
+platform/orchestration/actions/discovery_checks/check_stylesheet_gutted.go 3
+platform/orchestration/actions/discovery_checks/check_tool_acceptance.go 1
+platform/orchestration/actions/discovery_checks/check_tool_acceptance_due.go 1
+platform/orchestration/actions/discovery_checks/check_tool_health.go 1
+platform/orchestration/actions/discovery_checks/check_tool_recreation_needed.go 1
+platform/orchestration/actions/discovery_checks/check_truncated_component.go 2
+platform/orchestration/actions/discovery_checks/check_undeployed_assets.go 1
+platform/orchestration/actions/discovery_checks/check_unverified_claims.go 2
+platform/orchestration/actions/discovery_checks/check_voice_tells.go 1
+platform/orchestration/actions/dispatch_feed_sources_action.go 1
+platform/orchestration/actions/dispatch_verifiers.go 1
+platform/orchestration/actions/entity_state_actions.go 2
+platform/orchestration/actions/feed_actions.go 1
+platform/orchestration/actions/feed_triage_actions.go 1
+platform/orchestration/actions/fix_forced_text_colours_action.go 2
+platform/orchestration/actions/fix_harcoded_colours_action.go 2
+platform/orchestration/actions/fix_nav_link_templates_action.go 1
+platform/orchestration/actions/format_crawl_for_analysis_action.go 1
+platform/orchestration/actions/get_pages_for_rerender_action.go 1
+platform/orchestration/actions/get_pages_to_build_actions.go 2
+platform/orchestration/actions/load_component_library_actions.go 2
+platform/orchestration/actions/load_doc_context_action.go 1
+platform/orchestration/actions/load_pending_verifications_action.go 1
+platform/orchestration/actions/load_site_pages_action.go 1
+platform/orchestration/actions/load_unswept_areas_action.go 1
+platform/orchestration/actions/load_work_item_actions.go 1
+platform/orchestration/actions/maintenance_actions.go 3
+platform/orchestration/actions/nav_tables.go 3
+platform/orchestration/actions/plan_sections_action.go 5
+platform/orchestration/actions/populate_nav_tables_action.go 1
+platform/orchestration/actions/promote_candidates_action.go 1
+platform/orchestration/actions/queryresolve/business_directory.go 1
+platform/orchestration/actions/queryresolve/directory_items.go 1
+platform/orchestration/actions/queryresolve/news_items.go 1
+platform/orchestration/actions/queryresolve/queryresolve.go 3
+platform/orchestration/actions/rag_actions.go 1
+platform/orchestration/actions/rebuild_blog_listing_action.go 1
+platform/orchestration/actions/reconcile_section_data_action.go 1
+platform/orchestration/actions/refresh_evidence_base_action.go 1
+platform/orchestration/actions/render_css_from_spec_action.go 1
+platform/orchestration/actions/render_js_snippets_for_site_action.go 1
+platform/orchestration/actions/render_rss_feed_action.go 1
+platform/orchestration/actions/render_site_components_action.go 3
+platform/orchestration/actions/render_sitemap_action.go 1
+platform/orchestration/actions/rerender_pages_actions.go 4
+platform/orchestration/actions/rerender_single_page_action.go 5
+platform/orchestration/actions/resolve_internal_links_action.go 3
+platform/orchestration/actions/scrape_company_number_action.go 1
+platform/orchestration/actions/seed_build_queue_action.go 1
+platform/orchestration/actions/site_db_actions.go 2
+platform/orchestration/actions/site_snapshots_actions.go 1
+platform/orchestration/actions/site_spec_actions.go 1
+platform/orchestration/actions/sync_site_identity_action.go 1
+platform/orchestration/actions/training_data_export.go 1
+platform/orchestration/actions/v3_site_actions.go 2
+platform/orchestration/actions/verify_acceptance_predicates_action.go 1
+platform/orchestration/actions/verify_report_prose_action.go 1
+platform/orchestration/actions/vet_med_export_action.go 1
+platform/orchestration/actions/vet_med_price_scrape_action.go 1
+platform/orchestration/actions/vet_med_url_discovery_action.go 1
+platform/orchestration/actions/vet_med_url_map_action.go 1
+platform/orchestration/actions/write_audit_findings_action.go 1
+platform/orchestration/datahelpers/cta_label_universe.go 1
