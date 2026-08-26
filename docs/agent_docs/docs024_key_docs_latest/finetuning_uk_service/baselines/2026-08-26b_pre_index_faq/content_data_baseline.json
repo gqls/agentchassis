@@ -1,0 +1,321 @@
+[
+    {
+        "url": "/faq.html",
+        "slot": "hero",
+        "position": 1,
+        "content_data": {
+            "cta_url": "/contact.html",
+            "cta_text": "Book a discovery call",
+            "headline": "Questions about AI, answered plainly",
+            "subheadline": "Most people come to us with the same worries: cost, data privacy, and whether this will actually work for a business like theirs. Here are the straight answers. If you'd rather get a read on your own situation first, try our AI Project Readiness Checker.",
+            "__cta_minted": {
+                "cta_url": "/contact.html"
+            },
+            "secondary_cta": "Try the AI Project Readiness Checker",
+            "background_image": "/assets/images/hero.jpg",
+            "cta_target_title": "Book a Discovery Call | Finetune",
+            "secondary_cta_url": "/tools/ai-readiness-checker/index.html",
+            "secondary_cta_target_title": "AI Project Readiness Checker"
+        }
+    },
+    {
+        "url": "/faq.html",
+        "slot": "faq",
+        "position": 2,
+        "content_data": {
+            "questions": [
+                {
+                    "answer": "We build AI systems that remove manual work from business processes: screening requests, drafting quotes, reading documents, answering internal questions, and running agents that handle multi-step tasks. Some projects are a single automation. Others are a network of AI agents working together on something bigger. You can see the full range on our services page at /services.html.",
+                    "question": "What does Finetune actually do?"
+                },
+                {
+                    "answer": "No. We pick the model that suits the task, whether that's an open-weight model like Llama or Mistral, a hosted provider, or something fine-tuned specifically for you. Locking a client into one vendor's roadmap isn't in their interest or ours.",
+                    "question": "Do you only work with one AI provider?"
+                },
+                {
+                    "answer": "Not if we build it the way we normally recommend. We can deploy models privately, host them on infrastructure you control, or run smaller models locally in the browser so nothing leaves your systems at all. If a project genuinely needs a third-party API, we'll say so upfront and explain what that means for your data.",
+                    "question": "Will our data end up training someone else's model?"
+                },
+                {
+                    "answer": "ChatGPT is a good starting point for individual tasks, but it wasn't built to read your internal documents, follow your approval process, or run unattended inside a workflow. What we build is connected to your actual data and your actual rules, with human review sitting wherever you decide it should. The gap between 'useful chatbot' and 'system that runs part of the business' is most of the work.",
+                    "question": "How is this different from just using ChatGPT?"
+                },
+                {
+                    "answer": "Prompting shapes what a general model does in one conversation. RAG lets a model search your documents and reason over them before answering. Fine-tuning retrains part of the model on your own examples so it behaves a certain way by default. Most businesses need one or two of these, not all three, and part of our job is telling you which.",
+                    "question": "What's the difference between fine-tuning, RAG, and just writing a good prompt?"
+                },
+                {
+                    "answer": "It will, occasionally, so the systems are built with that assumption rather than against it. We set configurable review gates so a person checks anything that matters before it goes out, and automate the rest. Nothing runs as an unsupervised black box unless a client explicitly wants it that way.",
+                    "question": "What happens if AI gets something wrong?"
+                },
+                {
+                    "answer": "Yes, that describes most of our clients. You don't need to understand how a model works to know that quoting takes too long or that staff answer the same email ten times a week. We handle the technical side and explain decisions in terms of what changes for your team, not model architecture.",
+                    "question": "We're not technical. Can we still work with you?"
+                },
+                {
+                    "answer": "It depends on the scope, the data involved, and whether you need a single automation or a larger system. We've laid out how we price projects at /pricing.html, and a discovery call will get you a proper estimate for your specific case.",
+                    "question": "How much does this cost?"
+                },
+                {
+                    "answer": "A single automation can move quickly once we understand the process. A multi-agent system or a custom-trained model takes longer, because it involves testing against real data before it goes anywhere near production. We'd rather give you a timeline on a call than a headline number here.",
+                    "question": "How long does a project take?"
+                },
+                {
+                    "answer": "Usually not. Most of what we build is aimed at businesses with admin-heavy processes and a small team carrying the load, not enterprises with dedicated engineering departments. If a task isn't worth automating, we'll tell you that instead of selling you a system anyway.",
+                    "question": "Is our business too small for this?"
+                },
+                {
+                    "answer": "Then we'll say so. A lot of the time a broken process needs fixing before any AI system can help it, and automating a mess just produces a faster mess. We'd rather turn down a project than deliver one that doesn't hold up.",
+                    "question": "What if AI isn't actually the right answer for our problem?"
+                },
+                {
+                    "answer": "Book a discovery call and describe the process that's causing the pain. If you'd rather get a sense of where things stand before that call, our AI Project Readiness Checker at /tools/ai-readiness-checker/index.html is a short set of questions that flags what's ready and what still needs sorting, and it can give a wrong steer occasionally so treat it as a starting point rather than a verdict. We'll tell you whether AI is the right tool for it and what a working system would actually involve. You can reach us through /contact.html.",
+                    "question": "How do we get started?"
+                }
+            ],
+            "section_title": "Frequently Asked Questions"
+        }
+    },
+    {
+        "url": "/faq.html",
+        "slot": "call-to-action",
+        "position": 3,
+        "content_data": {
+            "headline": "Still got questions? Ask them on a call.",
+            "primary_cta": "Book a discovery call",
+            "subheadline": "FAQs only go so far. If your situation doesn't fit neatly into one of these answers, the fastest way to get a straight answer is to talk to someone who's built these systems before. Not sure you're even at that stage yet? Try our AI Project Readiness Checker first. It takes a few minutes and tells you whether you're ready to build, ready to pilot, or still exploring.",
+            "__cta_minted": {
+                "primary_cta_url": "/contact.html"
+            },
+            "secondary_cta": "Check your AI readiness",
+            "primary_cta_url": "/contact.html",
+            "secondary_cta_url": "/tools/ai-readiness-checker/index.html",
+            "primary_cta_target_title": "Book a Discovery Call | Finetune",
+            "secondary_cta_target_title": "AI Project Readiness Checker"
+        }
+    },
+    {
+        "url": "/index.html",
+        "slot": "hero",
+        "position": 1,
+        "content_data": {
+            "cta_url": "/contact.html",
+            "cta_text": "Book a discovery call",
+            "headline": "Practical AI systems for businesses that don't have time for hype",
+            "subheadline": "We build automation, agent systems, and data tools for UK companies buried in admin work. We pick whichever model actually does the job, not whichever vendor we're tied to. Your data stays on your systems throughout.",
+            "__cta_minted": {
+                "cta_url": "/contact.html"
+            },
+            "secondary_cta": "See how we work",
+            "background_image": "/assets/images/hero.jpg",
+            "cta_target_title": "Book a Discovery Call | Finetune",
+            "secondary_cta_url": "/tools/tool-ai-data-risk-checker.html",
+            "secondary_cta_target_title": "AI Data Risk Checker | Tools"
+        }
+    },
+    {
+        "url": "/index.html",
+        "slot": "features",
+        "position": 2,
+        "content_data": {
+            "features": [
+                {
+                    "icon": "layers",
+                    "name": "Whichever model does the job",
+                    "description": "Text, images, code, and reasoning each get handled by whichever model does that job best. We don't sell one AI model dressed up eight different ways, and we're not tied to any single provider's roadmap."
+                },
+                {
+                    "icon": "lock",
+                    "name": "Your data stays yours",
+                    "description": "Private hosting, models fine-tuned on your own records, and in-browser tools that never touch a server are all options we build with. If your data can't leave the building, we design for that from the start."
+                },
+                {
+                    "icon": "sliders",
+                    "name": "Open models, tuned for you",
+                    "description": "We fine-tune open-weight models such as Llama, Mistral, and Phi using techniques like LoRA and DoRA, adapting them to your documents and your terminology instead of leaving you stuck inside one vendor's product."
+                },
+                {
+                    "icon": "check-square",
+                    "name": "You approve what matters",
+                    "description": "Every system we build has review gates you configure yourself. Automate the repetitive parts and keep a person checking the parts that carry risk. Nothing runs unsupervised unless you decide it should."
+                },
+                {
+                    "icon": "trending-up",
+                    "name": "Gets better after launch",
+                    "description": "Our systems run automated quality sweeps between review cycles. The sites, data pipelines, and tools we build keep improving after handover, not just on the day they go live."
+                },
+                {
+                    "icon": "search-check",
+                    "name": "Checked against sources, not guessed",
+                    "description": "Research and content agents check facts against official sources before anything gets published, with attribution and a credibility score attached. That doesn't make the output foolproof, but it does mean you can see where a claim came from."
+                }
+            ],
+            "headline": "What you actually get",
+            "subheadline": "Systems built around your business and your data, not around one AI provider's product line. No vendor lock-in, no black boxes."
+        }
+    },
+    {
+        "url": "/index.html",
+        "slot": "differentiators",
+        "position": 3,
+        "content_data": {
+            "features": [
+                {
+                    "name": "The right model for the job, not the only one we offer",
+                    "description": "We use whichever model does the job best. A fast, cheap model handles the routine tasks, a large reasoning model takes the harder ones, and some jobs are better handled by a fine-tuned open-weight model running on your own hardware. We're not tied to one provider, so you get the model that fits the task, not the model we happen to sell."
+                },
+                {
+                    "name": "Privacy comes first, not as an afterthought",
+                    "description": "Your data doesn't need to leave your building to get value from AI. We build private LLM deployments, fine-tune models on your own records, and where it makes sense, run models in-browser so nothing is sent to a server at all. Ask us what running your own private AI setup would look like."
+                },
+                {
+                    "name": "Open models, not a walled garden",
+                    "description": "We work with open-weight models like Llama, Mistral, and Phi, and fine-tune them on your specific domain with custom embeddings. That means no vendor lock-in and no dependency on a single company's pricing or roadmap. If a better open model comes along next year, you can move to it."
+                },
+                {
+                    "name": "You stay in control of what gets automated",
+                    "description": "Automation should save you time, not hand over judgement you didn't agree to give up. We build configurable review gates so you decide what gets automated outright and what needs a human to sign off first. No black boxes, and no surprises in what the system decided while you weren't looking."
+                },
+                {
+                    "name": "Systems that improve after we've left",
+                    "description": "Systems we build keep improving after launch, through automated quality sweeps that run between review cycles. Websites, data pipelines, and internal tools get better over time rather than being frozen at the point we handed them over."
+                },
+                {
+                    "name": "Checked against sources, not just generated",
+                    "description": "Our research agents check facts against official sources before anything gets published, with source attribution and a credibility score attached. It's a mechanism for catching mistakes early, not a promise that every output is correct. You should still read what comes out before you act on it."
+                }
+            ],
+            "headline": "Why businesses work with us instead of building this alone"
+        }
+    },
+    {
+        "url": "/index.html",
+        "slot": "case-studies-grid",
+        "position": 4,
+        "content_data": {
+            "cta_label": "Start your project",
+            "card1_title": "Cutting the Manual Work Out of Quote Requests",
+            "card2_title": "Making Years of Documents Searchable in Plain English",
+            "card3_title": "Pulling Company Filings Together Without the Manual Trawl",
+            "card4_title": "A Team of Agents Handling Exceptions Before They Escalate",
+            "card5_title": "Keeping Client Data Off Third-Party Servers Entirely",
+            "cta_subtext": "No pressure, just a straightforward conversation about your systems.",
+            "cta_link_url": "/contact.html",
+            "card1_excerpt": "Quote requests arrived by email, phone, and web form, and someone had to read each one before pricing could start. We built a screening and quoting pipeline that reads the request and checks it against pricing rules. Anything unusual gets flagged for a person to review. Turnaround times dropped and staff stopped chasing paperwork.",
+            "card2_excerpt": "Staff kept asking each other questions that were already answered somewhere in the firm's own files. We deployed a retrieval system over their emails, contracts, and knowledge base so anyone can ask a question and get an answer sourced from the actual document. Fewer interruptions, faster answers, no guessing.",
+            "card3_excerpt": "The team spent hours a week checking company registries and regulatory filings by hand, one entity at a time. We built a pipeline that collects and structures that data automatically, so analysts start from a finished table instead of a search bar. The research still needs a human eye, but the legwork is gone.",
+            "card4_excerpt": "Late deliveries and missing paperwork used to sit in a queue until someone had time to sort them out. A network of coordinating agents now checks each exception and gathers the relevant records. Each one gets resolved automatically or handed to a person with the full picture attached. Nothing gets lost, and nobody has to chase it.",
+            "card5_excerpt": "A firm handling sensitive client records wanted the benefits of AI without sending that data anywhere outside their own systems. We deployed a private model hosted on their own infrastructure, fine-tuned on their document style, with nothing leaving the building. Compliance stopped being a blocker and became a footnote.",
+            "eyebrow_label": "Case Studies",
+            "section_intro": "These are the kinds of problems we get called in for: too many manual steps, too much time lost to admin, data locked away in emails and spreadsheets. Each project below started as a specific business problem, not a technology wish list. Have a look, then see the full list on the case studies page.",
+            "card1_link_url": "/case-studies.html",
+            "card2_link_url": "/case-studies.html",
+            "card3_link_url": "/case-studies.html",
+            "card4_link_url": "/case-studies.html",
+            "card5_link_url": "/case-studies.html",
+            "card1_image_alt": "Abstract network diagram showing branching data flow paths converging into a single processing node",
+            "card1_image_url": "/assets/images/case-study-facilities.jpg",
+            "card2_image_alt": "Abstract geometric grid representing indexed documents connected by thin linking lines",
+            "card2_image_url": "/assets/images/case-study-legal-rag.jpg",
+            "card3_image_alt": "Abstract flow diagram of structured data streams feeding into organised rows of a table",
+            "card3_image_url": "/assets/images/case-study-financial-data.jpg",
+            "card4_image_alt": "Abstract cluster of connected geometric nodes representing coordinating agent processes",
+            "card4_image_url": "/assets/images/case-study-logistics-strategy.jpg",
+            "card5_image_alt": "Abstract illustration of a secure enclosed network with data held inside a bounded geometric shape",
+            "card5_image_url": "/assets/images/case-study-private-ai.jpg",
+            "card1_stat_label": "",
+            "card1_stat_value": "",
+            "card2_stat_label": "",
+            "card2_stat_value": "",
+            "card3_stat_label": "",
+            "card3_stat_value": "",
+            "card4_stat_label": "",
+            "card4_stat_value": "",
+            "card5_stat_label": "",
+            "card5_stat_value": "",
+            "filter_all_label": "All Work",
+            "filter_nav_label": "Filter case studies by category",
+            "section_headline": "Real Systems, Real Businesses, Built to Work",
+            "card1_client_name": "Facilities management provider, Midlands",
+            "card2_client_name": "Professional services firm, London",
+            "card3_client_name": "Financial services research team",
+            "card4_client_name": "Operations team, regional logistics group",
+            "card5_client_name": "Legal practice handling sensitive client records",
+            "filter_design_label": "Design",
+            "filter_growth_label": "Growth",
+            "card1_category_label": "Automation",
+            "card2_category_label": "Data & Search",
+            "card3_category_label": "Financial Data",
+            "card4_category_label": "Agent Systems",
+            "card5_category_label": "Private Deployment",
+            "filter_strategy_label": "Strategy",
+            "read_case_study_label": "Read case study",
+            "filter_technology_label": "Technology"
+        }
+    },
+    {
+        "url": "/index.html",
+        "slot": "departments-grid",
+        "position": 5,
+        "content_data": {
+            "departments": [
+                {
+                    "icon": "workflow",
+                    "name": "Automation Systems",
+                    "subtitle": "Taking the manual work out of everyday processes",
+                    "description": "We build pipelines that take over the repetitive parts of a job: screening requests, generating quotes, reading documents, routing tasks to the right person. That frees your team from the admin eating their day, so they can spend it on the calls that actually need a person, rather than replacing them."
+                },
+                {
+                    "icon": "network",
+                    "name": "Agent Systems",
+                    "subtitle": "Networks of AI that work a problem together",
+                    "description": "Some tasks are too large for one model to handle on its own. We design networks of AI agents that split a problem apart, work on the pieces in parallel, and report back. Ask us about systems where tens of thousands of agents pass information between each other to solve something a single model couldn't."
+                },
+                {
+                    "icon": "layers",
+                    "name": "Model Training & Company Knowledge",
+                    "subtitle": "Teaching AI your business, not the internet",
+                    "description": "An off-the-shelf model knows a lot about everything and almost nothing about you. We fine-tune models on your own data using methods like LoRA and DoRA, and build retrieval systems that let AI search your emails, contracts, and internal knowledge before it answers. It gets your business right because it's actually read your business."
+                },
+                {
+                    "icon": "database",
+                    "name": "Data Collection & Pipelines",
+                    "subtitle": "Turning public records into usable answers",
+                    "description": "We build systems that pull structured information from thousands of websites, company registries, and regulatory filings. This suits anyone who needs financial or market data gathered at a scale a person couldn't manage by hand, and kept current without someone doing it manually every week."
+                },
+                {
+                    "icon": "lock",
+                    "name": "Private Deployment & Infrastructure",
+                    "subtitle": "AI that runs on your terms, not a vendor's",
+                    "description": "Some data shouldn't leave the building. We deploy models privately, including versions that run locally or directly in the browser, so nothing sensitive touches a third-party server. We also set up the agent frameworks underneath, so your team can run these systems in production rather than just look at a demo."
+                },
+                {
+                    "icon": "compass",
+                    "name": "Strategy, Sites & Implementation",
+                    "subtitle": "From first conversation to working system",
+                    "description": "Most companies don't need a lecture on AI. They need help finding where it actually fits in their own processes. We work through that with you and build the case for what's worth doing. Then we build it, including fast, well-made websites and documentation when that's part of the job."
+                }
+            ],
+            "section_intro": "We've split the work into six areas. Find the one that matches your problem, or get in touch if you're not sure which it is.",
+            "section_title": "The work we do"
+        }
+    },
+    {
+        "url": "/index.html",
+        "slot": "call-to-action",
+        "position": 6,
+        "content_data": {
+            "headline": "Talk to us before you buy any AI system.",
+            "primary_cta": "Book a discovery call",
+            "subheadline": "We'll tell you if AI is the right answer for what you're dealing with. If it isn't, we'll say so, and point you elsewhere.",
+            "__cta_minted": {
+                "primary_cta_url": "/contact.html"
+            },
+            "secondary_cta": "Not ready to talk? Check our services first.",
+            "primary_cta_url": "/contact.html",
+            "secondary_cta_url": "/tools/tool-ai-data-risk-checker.html",
+            "primary_cta_target_title": "Book a Discovery Call | Finetune",
+            "secondary_cta_target_title": "AI Data Risk Checker | Tools"
+        }
+    }
+]
