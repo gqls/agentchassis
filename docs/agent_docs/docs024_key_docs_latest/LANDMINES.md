@@ -18514,3 +18514,13 @@ code change owed at the next roll, tracked in RFC_015 §5.
   see `WRONG_CALLS.md` same date. Fixed and mutation-proved: refuses on a future `completed_at`,
   reports the true 47 s on the real value.
 - **added:** 2026-08-26, webdesign_tool_rebuilds lane
+
+---
+
+### A `kubectl patch` to `personae-platform-secrets` survives only until the next release — terraform owns that secret's data map WHOLESALE, and the revert keeps the object's ancient creationTimestamp
+- **footprint:** `personae-platform-secrets` · `deployments/terraform/environments/production/uk001/047-base-configs/main.tf` (`kubernetes_secret.personae_platform_secrets`) · `terraform.tfvars.secret` · `make release` · every `envFrom: secretRef` consumer (auth-service and ~20 others)
+- **fires when:** you (or the owner) add a key to the live secret with `kubectl patch`/`edit` — the standard k8s move, it works immediately, every consumer mounts it after a restart — and then ANY release runs. `047-base-configs` re-applies the terraform resource whose `data` map is authoritative; keys not in that map are REMOVED. Measured 2026-08-26: the owner patched `STRIPE_SECRET_KEY`+`STRIPE_WEBHOOK_SECRET` in and the webhook flipped 503→400 (verified); the same night's fleet roll flipped it silently back to 503.
+- **why the wrong state looks right:** the secret is NOT recreated — `creationTimestamp` stays (2025-08-19 on the live object), there is no kubectl `last-applied` annotation to diff, no event, no log line anywhere; the consumer's failure (an honest 503) reads as "keys were never added" or "service bug", and the patch's author remembers adding them. The gap between patch and revert can be hours, so cause and effect never sit in one session.
+- **the check — before trusting any hand-added key in this secret:** is it in the terraform map? `grep -n '<KEY_NAME>' deployments/terraform/environments/production/uk001/047-base-configs/main.tf` — absent means your key dies at the next release. The durable move is variable + data entry in 047 (values in the owner's local `terraform.tfvars.secret`, never the repo) — done for the Stripe pair 2026-08-26, as REQUIRED with no default so a release missing the values fails loudly naming the variable instead of reverting silently. After any release, re-verify the CONSUMER (the webhook's 400-vs-503 is auth-service's), not the secret listing.
+- **source:** 2026-08-26 night, webdesign.uk lane — the post-roll control sweep caught `webhook: 503` where the same probe had returned 400 hours earlier; diagnosed by keys-listing (STRIPE pair gone, 9 keys left) + creationTimestamp + the 047 resource's data map
+- **added:** 2026-08-26, webdesign_uk_build_service lane
