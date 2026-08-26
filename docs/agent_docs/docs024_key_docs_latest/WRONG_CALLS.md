@@ -55552,3 +55552,73 @@ run, it must be run against a fixture that lets the damage happen.
 
 Family: mutate-the-code-to-prove-the-guard, a-mutation-that-passes-may-have-hit-a-guard-in-series,
 a-quiet-test-passes-when-the-rule-is-gone, a-post-fix-zero-needs-a-demand-control.
+
+---
+
+## 2026-08-26 — I wrote the "grep LANDMINES by symbol" rule into my own runbook, then did not do it on the next table I touched
+
+**Session `bugsweep3`, `bugs_open/394`, council round 1.**
+
+**The claim I shipped.** A contrast_failure `item_key` is `'contrast_failure:' + path + '#' +
+selector`, so the page path can be recovered by splitting on the first `#`. I wrote
+`pagePathFromContrastKey`, tested it with a round-trip through the real composer, committed it,
+and told the owner the design was grounded.
+
+**What was actually true.** Both halves of the assumption fail on live data.
+
+```sql
+SELECT count(*) AS rows, count(*) FILTER (WHERE item_key ~ '#.*#') AS multi_hash
+FROM site_work_items WHERE item_type='contrast_failure';          -- 469 | 1
+
+SELECT count(*) FROM pages WHERE url LIKE '%#%';                  -- 1
+-- idea.uk | /tools.html#audience-check | active
+```
+
+A **selector** may contain `#` (the `describe` scheme emits `tag#id.classes` by construction), and
+a **page URL** may contain `#`. `idea.uk` has `/tools.html#audience-check` *and* `/tools.html` both
+ACTIVE, with 35 open contrast rows — so my split maps a finding on the first onto the second, a
+**different real page on the same site**. Nothing errors, nothing comes back empty, and the wrong
+page is prioritised successfully.
+
+**What caught it.** The council gate's `editquality` seat, which named the LANDMINE keyed to this
+exact footprint — *"The render-audit package now holds TWO selector-composition schemes, and
+converging them re-keys ~271 unrelated work items"* — and asked what happens if some rows use the
+other scheme.
+
+**Why this row is not just "the gate worked".** Two things make it mine.
+
+1. **I had written the rule down that morning.** My own RUNBOOK for the previous bug says *"grep
+   LANDMINES by table, command and symbol footprint — the SessionStart hook only matches files
+   already DIRTY, so a shared helper is never shown."* I did grep it, for `discovery_checks`, on
+   `bugs_open/359`. When I moved to a different table on the next bug I did not repeat it. **A
+   habit I performed once is not a habit**, and the hook could not have saved me:
+   `site_work_items.item_key` is a *table-and-column* footprint, which no path match ever fires on.
+
+2. **The reviewer's own evidence would have exonerated me.** The seat's read-only check returned
+   **25 live keys, every one conforming to the shape I assumed.** Had I answered the objection with
+   that sample — which was right there in the verdict, and which I could honestly have called
+   "measured" — I would have defended a live defect with data. The conforming sample says nothing
+   about the non-conforming rows, and the non-conformer was 1 in 469.
+
+**Cheap checks.**
+
+1. **Grep LANDMINES for the TABLE AND COLUMN, not just the package, and do it again at each new
+   footprint** — `grep -n "site_work_items.item_key" …/LANDMINES.md`. The trigger is *touching a
+   new table or symbol*, not *starting a new task*.
+2. **When a claim is about the SHAPE of a stored value, census the WHOLE population with a
+   negative-form predicate**, not a `LIMIT 25` of the positive form. Ask "how many do NOT match"
+   (`WHERE item_key !~ '^contrast_failure:[^#]+#[^#]+$'`), because the count that matters is the
+   exceptions and a sample of conformers cannot contain one.
+3. **When you must recover a component of a composed key, go FORWARD instead** — rebuild the key
+   from the known part and prefix-match, the way the consumer already does. A parse infers what a
+   composer knew; a rebuild asks it. Here the grader had been doing it correctly at
+   `write_render_audit_findings_action.go:748` the whole time, and copying it made the whole class
+   unrepresentable rather than guarded.
+
+**And the generalisable one:** *a delimiter is only a delimiter if it cannot occur in the parts.*
+`#` occurs in both parts here. Before splitting on any separator in a composed identifier, run the
+count of values containing more than one of it — one query, and it was `1`.
+
+Family: grep-landmines-for-your-symbols, a-report-is-not-a-measurement,
+a-revise-round-is-cheaper-than-the-defect-it-finds, dedup-index-go-list-lockstep,
+an-objection-naming-one-file-is-naming-a-category.
