@@ -5844,3 +5844,13 @@ Delivery lane detail that adjusts the launch compile: the delivery EMAIL is furt
 "just build it" — the claim/precondition layer is live-hardened (DGH-017), but copy +
 send + the needs_delivery_review PRODUCER are deliberately unbuilt pending the owner's
 two open product questions. Stripe unchanged (keys NONE, measured).
+
+**2026-08-26 addendum — delivery lane confirms: the uniform 200 on `/c/` is DESIGNED
+(no-oracle).** delivery.go:182-188: 200 on success AND every failure, one undifferentiated
+"no longer active" page — a 404 from a link we sent reads as "we lost your site", and
+distinguishing unknown/expired/revoked/spent would only tell an attacker which guess was
+closer. **Do not "fix" it to a 404 or add per-cause messages.** They also ran the suffix
+control (GET+POST `/c/<43-char>/confirm` → 404 from outside), completing their outside
+table verbatim; their listener item is CLOSED. Delivery email's remaining gates, their
+words: needs_delivery_review producer (unbuilt) · copy+send (deliberately unwritten
+pending the owner's two open product questions) · the owner review per DECISION_2026-08-21e.
