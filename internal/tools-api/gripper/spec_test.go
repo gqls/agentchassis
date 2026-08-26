@@ -183,3 +183,52 @@ func TestNormaliseRejectsHedgedTextValues(t *testing.T) {
 		}
 	}
 }
+
+// Council round-1 direction on 409 (corr 70083c99): finding 2 needs code
+// enforcement, not guidance alone. reconcile drops a travel_mm no stated part
+// dimension can justify — the live mis-bind was 300 against 120 × 80 × 40.
+func TestNormaliseReconcilesTravelAgainstGeometry(t *testing.T) {
+	geo := "rectangular machined aluminium casting, 120 × 80 × 40 mm"
+	cases := []struct {
+		travel float64
+		keep   bool
+		why    string
+	}{
+		{300, false, "the exact live mis-bind: 2.5x the largest dimension"},
+		{80, true, "the correct jaw span (part width)"},
+		{180, true, "boundary: exactly 1.5x the largest dimension stays"},
+		{181, false, "just past the boundary drops"},
+	}
+	for _, c := range cases {
+		got := Normalise(map[string]interface{}{"part_geometry": geo, "travel_mm": c.travel})
+		_, kept := got["travel_mm"]
+		if kept != c.keep {
+			t.Errorf("travel %v vs %q: kept=%v want %v (%s)", c.travel, geo, kept, c.keep, c.why)
+		}
+	}
+	// Fail-open: no geometry, or a geometry stating no numbers, drops nothing.
+	if got := Normalise(map[string]interface{}{"travel_mm": 300.0}); got["travel_mm"] != 300.0 {
+		t.Errorf("travel without geometry was dropped; the guard must fail open")
+	}
+	if got := Normalise(map[string]interface{}{"part_geometry": "a small flat plate", "travel_mm": 300.0}); got["travel_mm"] != 300.0 {
+		t.Errorf("travel with a numberless geometry was dropped; the guard must fail open")
+	}
+}
+
+// The cross-TURN shape of the live failure: geometry stored earlier, the
+// implausible travel arriving in a later turn. Merge must apply the same
+// reconcile the SQL-merge path gets via Normalise on RETURNING.
+func TestMergeReconcilesAcrossTurns(t *testing.T) {
+	stored := Spec{"part_geometry": "cylinder, 60 mm diameter, 120 mm long", "mass_kg": 2.5}
+	turn := Normalise(map[string]interface{}{"travel_mm": 300.0}) // alone it survives (fail-open)
+	if turn["travel_mm"] != 300.0 {
+		t.Fatalf("precondition: lone travel should pass Normalise")
+	}
+	got := Merge(stored, turn)
+	if _, kept := got["travel_mm"]; kept {
+		t.Errorf("merged spec kept travel 300 against a 120 mm part: %#v", got)
+	}
+	if got2 := Merge(stored, Normalise(map[string]interface{}{"travel_mm": 60.0})); got2["travel_mm"] != 60.0 {
+		t.Errorf("plausible travel was dropped on merge: %#v", got2)
+	}
+}

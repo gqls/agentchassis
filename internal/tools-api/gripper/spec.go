@@ -24,6 +24,7 @@ import (
 	"math"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -135,7 +136,7 @@ func Normalise(raw map[string]interface{}) Spec {
 			out[k] = nv
 		}
 	}
-	return out
+	return reconcile(out)
 }
 
 // hedgePhrases mark a text value as an ANNOTATION OF ABSENCE rather than a
@@ -228,6 +229,46 @@ func asFloat(v interface{}) (float64, bool) {
 	return 0, false
 }
 
+// travelPlausibleFactor bounds travel_mm against the largest dimension the
+// visitor stated in part_geometry. travel_mm is the JAW OPENING (see its
+// guidance); a jaw opening far beyond every stated part dimension is almost
+// certainly the ROBOT'S travel mis-heard as a gripper spec — the exact live
+// mis-bind of bugs_open/409 finding 2 (volunteered "300 mm pick-and-place
+// travel" recorded against a 120 × 80 × 40 mm part). 1.5 leaves honest
+// headroom: jaws open wider than the gripped dimension for clearance, and a
+// span up to 1.5× the LARGEST stated dimension stays representable; 2.5× (the
+// live case) cannot be a span of this part. Added at the council's round-1
+// direction (corr 70083c99): finding 1's rule got code enforcement and
+// finding 2 only got prompt guidance, and a prompt line is not a control.
+const travelPlausibleFactor = 1.5
+
+var geometryNumbers = regexp.MustCompile(`\d+(?:\.\d+)?`)
+
+// reconcile applies the cross-field rules a per-field coerce cannot see. It
+// runs at the end of Normalise, which every real spec passes through on its
+// way out of storage or in from a client (chat RETURNING, session rescan,
+// submit-from-session, plain-form inline) — one choke point, no separate call
+// site to forget. Rules fail OPEN: with either field absent, or a geometry
+// that states no numbers, nothing is dropped — the guard exists to catch a
+// contradiction between stated facts, not to demand facts.
+func reconcile(s Spec) Spec {
+	t, tok := s["travel_mm"].(float64)
+	g, gok := s["part_geometry"].(string)
+	if !tok || !gok {
+		return s
+	}
+	largest := 0.0
+	for _, m := range geometryNumbers.FindAllString(g, -1) {
+		if v, err := strconv.ParseFloat(m, 64); err == nil && v > largest {
+			largest = v
+		}
+	}
+	if largest > 0 && t > largest*travelPlausibleFactor {
+		delete(s, "travel_mm") // implausible as a jaw span: re-ask, never guess
+	}
+	return s
+}
+
 // Merge applies a turn's spec on top of the stored one. NON-NULL NEVER
 // REGRESSES: a key the model omitted or nulled this turn keeps its stored
 // value. The model is asked for the full spec every turn, and it will
@@ -242,7 +283,7 @@ func Merge(stored, turn Spec) Spec {
 	for k, v := range turn {
 		out[k] = v
 	}
-	return out
+	return reconcile(out)
 }
 
 // Missing returns the required fields the spec does not yet hold, in ask order.
