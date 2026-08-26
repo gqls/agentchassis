@@ -249,6 +249,37 @@ FROM ranked r GROUP BY domain, site_id
 ORDER BY 3 LIMIT 25;
 ```
 
+## Phase 3 apply + post-checks (added 2026-08-26 — apply ONLY per the HANDOFF gate)
+
+```bash
+# Apply (hand-applied _HOLD; refusal-first, snapshotted, guarded; rerun-safe — a replay RAISEs):
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db   -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/658_dispatch_phase3_batch_8_HOLD.sql
+# Rollback (explicit 5s — NEVER '#-' the keys: Go defaults are 50/20, deletion = 10x batch):
+#   ... -f - < docs/agent_docs/sql_for_agents/658_dispatch_phase3_batch_8_ROLLBACK.sql
+```
+
+```sql
+-- Verify at the artefact, not the migration exit code (and never via updated_at — degenerate):
+SELECT default_config#>>'{workflow,steps,load_items,config,max_items}'          AS max_items,
+       default_config#>>'{workflow,steps,process_item,config,max_iterations}'  AS max_iterations
+FROM agent_definitions WHERE type='build-dispatch-loop'
+  AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+
+-- Probe the CAPABILITY: post-apply loops should show loaded up to 8 and claim_result keys past _4.
+SELECT orchestration_id, created_at,
+  CASE WHEN jsonb_typeof(collected_data->'pending'->'items')='array'
+       THEN jsonb_array_length(collected_data->'pending'->'items') END loaded,
+  (SELECT count(*) FROM jsonb_object_keys(collected_data) k WHERE k ~ '^claim_result_[0-9]+$') claims
+FROM orchestration_states WHERE owner_agent_type='build-dispatch-loop'
+  AND created_at > '<apply time>' ORDER BY created_at DESC LIMIT 10;
+
+-- collected_data size watch (state.go tripwire: 8 MiB warn / 24 MiB alarm; batch 8 ≈ ×1.6):
+SELECT round(avg(pg_column_size(collected_data))/1024) avg_kb,
+       round(max(pg_column_size(collected_data))/1024) max_kb, count(*)
+FROM orchestration_states WHERE owner_agent_type='build-dispatch-loop'
+  AND created_at > '<apply time>';
+```
+
 ## Council (added 2026-08-25)
 
 ```bash

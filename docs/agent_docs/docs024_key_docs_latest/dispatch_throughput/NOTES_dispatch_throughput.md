@@ -625,3 +625,49 @@ visibly in 413, logged in WRONG_CALLS ("a graded verdict grades the SENTENCE you
 Deliberately NOT re-filing the 090 on the corrected sentence — the open question is now a
 fix-candidate choice, and the census is repeatable from the RUNBOOK. 391 lane told (they asked
 only if the mechanism was amended — it was not; their NOTES need no correction).
+
+### 2026-08-26 ~21:4xZ — Phase 3 PREPARED (migration 658 written + council-submitted); tomorrow's protocol locked; two pieces of lane lore corrected by the exploration
+
+Owner sanctioned Phase 3 + tomorrow's read this evening ("413 is being looked at in another
+thread so you can move onto Phase 3 and tomorrow's read"), and chose "After the read" when the
+sequencing was put to them directly. Coordination with the 413 fix session (their migration is
+657): they apply ≥12:00Z tomorrow, after my boundaries, and their selector reads max_items LIVE
+— no lockstep either way. Full protocol in HANDOFF-b top block.
+
+**Exploration findings that changed the design (all verified at code/artefact, not lore):**
+- Iterations are NOT unrolled in config — one `process_item` step with a sub_workflow; the
+  `iter_N` names are runtime-generated (`loop_expansion_handler.go:101`). Batch 8 = two integer
+  writes on paths `{workflow,steps,load_items,config,max_items}` and
+  `{workflow,steps,process_item,config,max_iterations}`.
+- "One without the other is a silent no-op" CONFIRMED (`loop_actions.go:197-203` truncation)
+  with refinements: a THROUGHPUT no-op, harmless (the loader is a pure SELECT and claims
+  nothing — surplus rows stay triaged); max_items-alone Warns to pod logs, max_iterations-alone
+  is fully silent.
+- ⚠ Both readers fall back to Go defaults on type mismatch: max_items→**50**
+  (`load_work_item_actions.go:699`), max_iterations→**20** (`loop_actions.go:52-55`). So the
+  values are bare jsonb numbers, the guard asserts `jsonb_typeof='number'`, and **the rollback
+  sets 5 explicitly — key deletion (633's rollback shape) would run batch 50/20, ten times
+  Phase 3.**
+- Claims are per-iteration (only writer: `claim_work_item_action.go:96-113`; claim_result_N
+  keys accrue one per iteration on live rows) → batch 8 adds NO claim-reaper exposure; what
+  lengthens ~60% is the site's busy window (the selector's NOT-EXISTS clause) — the 413
+  interaction, measured by the floor.
+- **Honest sizing `[MEASURED 2026-08-26, 24h, n=1,588]`:** 80.3% of turns loaded exactly the
+  cap; 26/29 sites ≥5 eligible, 22/29 ≥8 (full loader predicate incl. retry_after); one pass
+  drains 134 vs 204 items. But turns lengthen ~60%, so expected throughput is **~+7%**
+  (overhead amortisation) — NOT +52%, NOT PLAN:195's ~1.5× (that assumed the dead timeout
+  half). Framed exactly this way in the council submission.
+- New risk found and metered, not blocking: collected_data ×1.6 → ~1.9 MB avg / ~7.3 MB max
+  vs the 8 MiB warn tripwire (`state.go:891-912`); watch post-apply (RUNBOOK query).
+- D3 recorded satisfied-VACUOUSLY in WDS-002 (timeout half dead per bug 398); do not re-run
+  051 (it would replace the whole loop workflow, not reset a knob).
+
+**Files:** `658_dispatch_phase3_batch_8_HOLD.sql` + `_ROLLBACK` (refusal-BEFORE-snapshot per
+the LANDMINES 2026-08-26 replay-decoy trap — 633's own order is backwards; whole-fleet md5
+negative control in the guard). Council: DRY_RUN clean, submitted,
+`SUBMISSION_CORR 95099f95-b32b-4656-bfe1-28f140de3717` — read the verdict before tomorrow's
+apply if landed; `Council-Submitted:` trailer on the commit either way.
+
+Note on who-owns: `who-owns.py 413` names THIS lane (we filed it) — the human owner's routing
+of the FIX to the "bugs_open/413" session supersedes commit-history inference; levers + meters
+stay here, coordination contract in HANDOFF-b.
