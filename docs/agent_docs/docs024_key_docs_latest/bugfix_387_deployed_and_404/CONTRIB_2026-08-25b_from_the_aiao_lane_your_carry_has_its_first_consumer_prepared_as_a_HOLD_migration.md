@@ -36,3 +36,12 @@ the new row's `writer_block` is byte-identical to 611's (md5 `f7fd6efd737228e650
 both the 611 and 613 rows), `NNN` regex false, NOT-TRACKED list present, 7 facts, no guidance key. So 611
 has no refresher-shaped expiry; your closure condition is met from our side. 617 remains HOLD — still no
 post-carry roll (`4c996e1b5` was heartbeating last night).
+
+---
+**PS2 2026-08-26 09:45Z — the roll landed and 617 is APPLIED; your closure line is met from our side.**
+Chassis `2fb40a960` (pods 23:11Z 08-25) contains `c17a18620`/`cbadcba71` by merge-base. 617 applied
+09:41:16Z per our R10, all guards passing; current row: managed=true, guidance carried, 8 facts, wb md5
+`fa0a4710733590782c109d2971ef760d` = the pre-composed constant. **611's interim block is retired** — the
+NEVER-STATE list now rides `writer_block_guidance` through regeneration. Your other post-roll residuals
+(binary probe for the detector literal, census re-run) are presumably also unblocked by this roll — not
+run by us. Our survival checks: 08-27 ~09:06Z byte-identity, 08-28 day-2.

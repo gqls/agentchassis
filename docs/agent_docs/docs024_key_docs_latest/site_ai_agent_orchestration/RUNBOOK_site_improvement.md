@@ -298,3 +298,10 @@ on disk in the tree, so no other session's `git add -A` can sweep it.
   struct round-trip would bite if one existed. CLM-029's round surveyed all 9 `ParseEvidenceBase` callers
   (readers/guards only) and pinned both real write paths with round-trip tests, so expect the same md5 on
   day 2 — but expect it by looking.
+
+> **CORRECTED 2026-08-26 (found by running it):** R10's line "*a `--record-only` for a `_HOLD` file
+> works*" is FALSE — the runner refuses UPPERCASE-suffixed sidecars for recording too ("recording one is
+> meaningless"). Nothing dangles: `_HOLD` files are also excluded from the pending listing, and the
+> application record IS the database — the `created_by='617_migration'` spec row plus the
+> `migration_backups` row. Skip step 4; verify those two rows instead. (617 was applied this way
+> 2026-08-26 09:41:16Z against chassis `2fb40a960`, all guards passing; wb md5 `fa0a4710…` verified.)

@@ -1719,3 +1719,44 @@ The `webdesign-tool-rebuilds` seat says the design rotation (paused since the 08
   (08-26) = the tool-rebuild lane working this site's tools; `needs_content_image`/`undeployed_asset`
   completes + `derive_card_asset` rerenders = the 384 card mechanism. Three concurrent producers — do not
   conflate.
+
+## 2026-08-26 ~09:45Z — the roll landed overnight; 617 APPLIED per R10; one attribution corrected, one R10 claim corrected
+
+> **CORRECTED 2026-08-26 (caught by the webdesign-tool-rebuilds seat, ~09:30Z):** §3 above attributed
+> today's `audit_tool`/`evaluate_tools`/`improve_tool` items to "the tool-rebuild lane working this site's
+> tools". **Wrong — nobody in that lane touched this site.** `created_by` says `design-discovery-agent`
+> (verified): they are the Track 2 contract-rules checker (tool_health rules 16/17) running INSIDE
+> design-discovery sweeps that the improvement-loop (owner re-enabled ~21:18Z 08-25) dispatches as
+> children overnight. Loop visits do NOT stamp `site_discovery_rotation`, so the ~08-27 LRV slot estimate
+> stands. Attribute such items to "the tool_health check, loop-driven" — the lane wrote the rule, the
+> platform runs it everywhere. My error was inferring authorship from the messenger's lane instead of
+> reading `created_by` — the column was one query away and I had already run its neighbour.
+
+### The roll: chassis `2fb40a960` since 23:11Z 08-25 — the carry is LIVE
+`service_binary_capabilities`: one distinct sha, pods started 2026-08-25 23:11:34Z. `git merge-base
+--is-ancestor` — `c17a18620` ✓ and `cbadcba71` ✓ IN the running binary. R10's gate condition met.
+
+### 617 APPLIED 09:41:16Z — every guard passed on the real path
+`psql -v live_chassis=2fb40a960f…` → backup INSERT 1, supersede UPDATE 1, insert INSERT 1,
+`NOTICE: 617 OK`. Verified at the row: `created_by='617_migration'`, `writer_block_managed=true`,
+`writer_block_guidance` present, **8 facts**, `writer_block` md5 **`fa0a4710733590782c109d2971ef760d`** =
+the file's `$WB$` constant md5 exactly, `NNN` regex f. **611's interim block is RETIRED; the prohibitions
+now live in the CLM-029 carry.** The backup row (`migration_backups`,
+migration_name='617_aiao_writer_block_managed_with_guidance_carry') holds the superseded 09:07Z refresher
+document for the rollback sidecar.
+
+> **CORRECTED 2026-08-26, my own R10:** it said "*a `--record-only` for a `_HOLD` file works (the record
+> path takes any filename)*". **False — the runner REFUSED it**: "UPPERCASE-suffixed sidecar … recording
+> one is meaningless." I asserted the record half without testing it (I had only tested the apply-side
+> exclusion). No dangling state: a `_HOLD` file is also grepped OUT of the pending listing, and the
+> durable application record is the DB itself (the `617_migration` spec row + the migration_backups row).
+> R10 corrected in place.
+
+### Owed next — the disconfirming tests, now LIVE tests
+- **2026-08-27 ~09:06Z** — first MANAGED refresh: expect a fresh `evidence-refresher` row with
+  `writer_block` **byte-identical** (md5 `fa0a4710…`). Different md5 + NOT-TRACKED still present = my
+  composition prediction was off (diff it, record it); NOT-TRACKED absent = the carry is not doing its job
+  — run the ROLLBACK sidecar and investigate.
+- **2026-08-28 ~09:06Z** — day-2 (first re-read of a refresher-WRITTEN row; the typed-struct question).
+- Also owed by the platform, not us: the next page regeneration writes copy from the COMPOSED block for
+  the first time — same floors, so no visible change is the expected result.

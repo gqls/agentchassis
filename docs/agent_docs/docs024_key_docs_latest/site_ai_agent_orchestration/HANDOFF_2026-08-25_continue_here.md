@@ -44,6 +44,14 @@ contain is the incident below, which this lane caused.
 >   primary deliberate); 6 stale `detected` `image_url_404` rows from 08-09 may resurface — PLAN §2: never
 >   route them to the triage-only image handlers. Today's tool/audit items are the tool-rebuild lane, not
 >   the rotation (NOTES 08-26 §3).
+> - ✅ **THE ROLL LANDED (chassis `2fb40a960`, 23:11Z 08-25) AND 617 IS APPLIED — 2026-08-26 09:41:16Z,
+>   per R10, all guards passing.** `writer_block_managed=true`, guidance carried, 8 facts, wb md5
+>   `fa0a4710…` = the composed constant exactly. **611's interim block is RETIRED.** ⚠ R10's record-only
+>   step is refused for `_HOLD` files (R10 corrected — the DB rows are the record). **Owed: the 08-27
+>   ~09:06Z byte-identity survival check, and the day-2 (08-28) re-check** — queries in R10.
+>   ⚠ Attribution correction (theirs): today's audit_tool/evaluate_tools/improve_tool items are the
+>   tool_health check running loop-driven inside design-discovery children — `created_by` says
+>   `design-discovery-agent`; not the tool-rebuild lane's session (NOTES 08-26 CORRECTED block).
 > - Everything in the ✅ table above re-verified 16:00Z: 7/7 pages 200, `NNN=0`, stylesheet 20.9 KB.
 
 > ## ✅ The original ask is COMPLETE and intact. ⚠ One incident, caused by this lane, now fixed at source.
