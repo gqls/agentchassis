@@ -642,3 +642,46 @@ Nothing this lane can do about it; it clears when the credits do.
 The config is live and provably inert. **The end-to-end exercise is OWED and cannot be done today**:
 lock a site, except one item, confirm that item dispatches and its siblings do not — all of which
 needs a working dispatch queue. Recorded in the ledger note and in the handoff, not left implied.
+
+## 2026-08-26 09:0xZ — fleet back, council resubmitted, and the exception list EXERCISED against live data
+
+### The fleet recovered, and the grouped query is what showed it
+
+`GROUP BY success` over the last 30 minutes: failures stop at **08:57:45**, successes start at
+**08:58:28**. Health row flipped to `t` at 09:00. Queue moved `claimed = 0 → 2`. **The bare
+`count(*)` I used yesterday would have read "healthy" through the whole outage** — see misstep 4.
+
+### ✅ ACCEPTANCE: both gates exercised across three states, on live data, rolled back
+
+The end-to-end scheduler path is not reachable on demand — `find_dispatchable_site` is
+`ORDER BY wi.created_at ASC LIMIT 1` **across the whole fleet**, and with **1,398** triaged items
+outstanding (oldest 08-18) a site whose items were created this morning will not be selected for
+days. Waiting for it is not a test, it is a hope.
+
+So both predicates were run **verbatim against live data** inside a transaction that was then
+**rolled back** — `cv1.co.uk`, 6 dispatchable items:
+
+| state | selector picks the site? | loader returns |
+|---|---|---|
+| **A — unlocked** (baseline) | YES | **6** (all of them) |
+| **B — locked, NO exception** | **no** ✓ | **0** ✓ |
+| **C — locked, ONE exception** | **YES** ✓ | **exactly 1** ✓ — and **the right one** ✓ |
+
+**6 → 0 → 1 is the whole result.** State B is the important one: it proves the lock still holds
+with an exception column present, which is the arm whose loss would silently switch the lock off
+fleet-wide. State C proves the exception is scoped to the named id and does not leak to its five
+siblings. Negative control after `ROLLBACK`: `locked_at` NULL, `lock_except_item_ids` NULL —
+**zero production impact, and cv1's queue was never actually held.**
+
+⚠ **What this does NOT prove, stated so nobody reads it as more:** that the *scheduler* picks the
+site in production. The predicates are proven; the dispatch loop's use of them is proven only by
+the binary probe and the config read-back. **The honest gap is the tick, not the logic** — and it
+closes on its own the first time a locked site with an exception list wins the fleet ordering.
+
+### Council resubmitted
+
+`175df761` r2, run `e74cc1f3`. The JSON was corrected first: it had **8 edits with two file paths
+listed twice**, because the r2-only additions were appended for files already in the plan. Merged
+to **6 edits, 0 duplicates**. ⚠ That was **not** why the previous round died — it died
+`complete_invalid` with every reviewer unreadable on the outage, and was never judged — but a plan
+listing one file twice is harder to review and sat at the 8-edit cap for no reason.
