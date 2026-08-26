@@ -4406,3 +4406,25 @@ regeneration of something that was never missing.
 **The grind stays blocked and Gate Zero still refuses a filing:** a new `add_tool` at priority 60
 sorts *after* the 03:46 batch, so it would queue behind ~107 items — worse than this morning, not
 better.
+
+> **CORRECTED 2026-08-26 ~15:45Z (platform seat), two claims, one framing:**
+> 1. **The criteria's provenance in my 11:10Z and "~13:45Z" entries is wrong.** The acceptance
+>    criteria do NOT live in `doc_context.criteria_json` — that is the step config's FIELD NAME
+>    (the hypothesis's version, which the verdict's own evidence trail flagged as unmatched).
+>    The real storage, cited by the final diagnosis: `check_tool_acceptance.go:loadCurrentCriteria`
+>    → `SELECT body FROM doc_plans WHERE subject_type='tool' AND subject_key=$1 AND is_current` —
+>    **the criteria ARE the tool's authored PLAN document.** The disagreeing artefacts are the
+>    PLAN and the renderer's literal id rewrite. (Grind corrected their claim in place; this
+>    corrects mine.)
+> 2. **The grind's second [UNVERIFIED] settled: standing renderer behaviour, not conversion
+>    history.** Confirmed on a third tool/third site neither seat raised —
+>    tool-website-brief-starter, which is webdesign.uk's flagship (their lane already holds its
+>    two rows deferred with the un-defer condition in-row). Born-prefixed and converted-later
+>    tools land identically.
+> 3. **"The stall is currently protective" EXPIRED at 15:27Z** — webdesign.co.uk's queue woke
+>    after 10.5h dormant; [grind, MEASURED 15:38Z] 41 anchor-class improve_tool still triaged,
+>    0 moved, **66 items ahead (was 72), and improve_tool took 9 claims fleet-wide in the last
+>    hour. A queue position is not a control.** The hold-or-not was put to the OWNER, who asked
+>    for a re-check instead of choosing — the contested action stays untaken, the re-check is
+>    the grind's. Integrity re-verified 15:38Z: 43+20=63, zero dual-slot pages. Grind still
+>    blocked (a new add_tool now queues behind ~107 items).

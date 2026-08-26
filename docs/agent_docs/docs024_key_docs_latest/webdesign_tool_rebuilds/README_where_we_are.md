@@ -473,3 +473,15 @@ across the fleet are confirmed to have been triggered by false failures. The fix
 the team that owns the checker; the evidence trail is on their desk. The rebuilding seat's
 own browser-level checks, the ones that actually opened the pages, remain the only real
 grading the tools have had — and those all passed.
+
+## 2026-08-26, mid-afternoon (platform seat) — the stalled queue woke up, so the accidental protection is gone
+
+A short correction to this morning's note. I wrote that the only thing stopping the forty-one
+false rewrite jobs was that the site's queue happened to be stalled. That stall ended at 15:27 —
+the queue is moving again, sixty-six items stand between the front and those forty-one, and the
+rewriting worker has been taking jobs across the fleet this past hour. The sibling seat asked
+you whether to hold them and you asked for a re-check instead; that re-check is theirs and the
+contested action remains untaken. For the record, the two other sites that hit the same false
+alarm have both already parked their copies with the release condition written on the row —
+that pattern is ready if you want it here. Nothing has been damaged: the rebuilt tools were
+re-verified intact this afternoon.
