@@ -1044,3 +1044,31 @@ second-click page's outside check, which is what releases the delivery-email blo
 
 Relayed all of the above (dated) to the webdesign.uk lane for their whole-launch owner
 status, including the design-rotation label risk and the two bounded admin-only residuals.
+
+## 2026-08-26 (afternoon) — BOX APPLIED; OUTSIDE TABLE COMPLETE; SYS-095 fully live end-to-end
+
+The webdesign.uk lane applied the repointed vhost (~13:2xZ; old vhost backed up to
+`/root/links.webdesign.uk.nginx.bak-2026-08-26`, `nginx -t` clean, reloaded) and measured
+the outside table: GET `/c/<43-char shape>` **200** (1,021 bytes, the render-only page,
+from the internet) · POST same path **200** · `/c/x` **404** · `/other` **404** · preview
+200 · admin 302 · apex parked-302.
+
+**I ran the control their table didn't name** — the landmine's exact case: POST and GET
+`https://links.webdesign.uk/c/<43>/confirm` both → **404** [MEASURED 2026-08-26 from
+outside]. With theirs, that completes `PLAN_2026-08-25`'s outside table verbatim.
+
+**Their one question — POST 200 on a nonexistent token — is the DESIGNED answer**
+(`delivery.go:182-188`): 200 on success and on every failure, one undifferentiated page,
+because the status being identical across causes IS the no-oracle property. Confirmed to
+them with the instruction not to "fix" it.
+
+**So SYS-095 is LIVE END-TO-END as of 2026-08-26 afternoon:** rolled ~11:55Z →
+pod-verified (containment triple 404/401/200) → box applied ~13:2x → outside-verified
+(their table + my suffix control). The second-click page is outside-verified, and the
+delivery-email gate of DECISION_2026-08-24 is met on that front.
+
+**Delivery email's remaining gates, stated so nobody re-derives them:** the
+`needs_delivery_review` producer (unbuilt; must file via `actions.writeWorkItem`, at
+`needs_human_review`, with `ReviewItemRequiredSpec()`'s `checkpoint:true`); the copy +
+send (deliberately unwritten pending the owner's two open product questions); the owner
+review itself per DECISION_2026-08-21e. Nothing else on this lane blocks it.
