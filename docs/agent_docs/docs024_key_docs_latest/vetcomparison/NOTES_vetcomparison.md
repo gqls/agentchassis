@@ -1672,3 +1672,38 @@ next guides-index rerender; in_footer true, parity with siblings), plan section 
 `e30cc88e` → page-build-handler, priority 10. Verification on completion: every published claim
 checked against the attested list, links resolved, disclosure framing checked, then a
 guides-index rerender so the fourth guide is listed.
+
+## 2026-08-27 — the AHC guide audit: three published falsehoods, zero exposure, and the "platform bug" that was my own config schema
+
+**The build completed and the artefact FAILED the honesty audit.** The writer produced, from model
+memory: (1) "valid … for up to 4 months from issue" — gov.uk says **6 months** (and 4-months was
+MY OWN wrong memory on 08-26, evidently a shared model prior); (2) "a pet passport issued in the
+EU … remains valid in its own right" — gov.uk says a GB resident **cannot** use a pet passport to
+enter the EU even if EU-issued (refused-at-border grade); (3) "the AHC … is not covered by the
+CMA price controls" — it is **item 1** of the mandated list (the same error my reply draft made).
+Plus: none of the brief's content (no VHC, no £, no gov.uk citations). **Exposure at discovery:
+ZERO** — guides-index and sitemap did not yet link the page (the deferred rerender turned out to
+be the accidental safety), so the fix could be done properly.
+
+> **CORRECTED same morning — my first diagnosis ("platform bug: content_direction never reaches
+> the writer") was WRONG, and the probe that "proved" it was wrong-shaped.** The mechanism works
+> exactly as `bugs_closed/025` built it (migration 187): the writer prompt renders a guarded
+> block of FOUR NAMED KEYS — `instruction`, `format`, `examples`, `avoid` — and BOTH my briefs
+> (08-24 practice, 08-26 guide) used none of them (`purpose`, `must_cover`, `attested_facts`, …),
+> so every value was silently dropped. My llm_call_log probe searched for the string
+> 'content_direction' in `prompt_rendered` — **a template renders VALUES, never key names**, so
+> that null was vacuous; the real evidence was the absent VALUE phrases, which stands. Two
+> knock-ons corrected: (a) the 08-24 NOTES claim that content_direction steered the claim page is
+> FALSE — that copy fit because the re-aimed TITLE/META (which do reach the prompt) and the site
+> brief carried it; (b) no platform bug filed — the near-miss was one read of 025's closure away,
+> and the memory rule that would have prevented it already existed ("check llm_fields before
+> ASKING the framework" — read the CONSUMER'S contract before writing config at it).
+
+**Fixes, in order:** literal D16-class correction filed (`section_edit` ce7e65bb, priority 5 —
+full replacement carrying only attested facts incl. the tapeworm page fetched to attest the
+writer's country list, which was itself wrong by omission: Northern Ireland missing); BOTH pages'
+`content_direction` rewritten into the documented 4-key schema (attested facts + rails inside
+`instruction`, prohibitions in `avoid`) so any future content re-render — which REGENERATES copy
+(07-25 landmine) and would otherwise re-introduce memory-written errors over my literal fix — is
+actually steered. Guides-index rerender stays deferred until the corrected article is verified
+live.

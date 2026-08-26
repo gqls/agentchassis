@@ -56536,3 +56536,23 @@ between two sources of truth converts every test built on it into a tautology.
 Family: mutate-the-code-to-prove-the-guard, a-quiet-test-passes-when-the-rule-is-gone,
 cite-the-arm-not-the-function, a-mocks-own-bookkeeping-cannot-assert-a-negative,
 prove-a-deploy-at-the-artefact-index.
+
+## 2026-08-27 — vetcomparison lane: wrote steering config against an invented schema, then "proved" a platform bug with a probe that could never have found the key
+- **The claims:** (1) two `pages.content_direction` briefs written with keys I made up
+  (`must_cover`, `attested_facts`, …) and believed effective — the 08-24 NOTES says the brief
+  steered the claim page; (2) when the AHC guide ignored its brief, I concluded "platform bug:
+  content_direction never reaches the writer", evidenced by `position('content_direction' in
+  prompt_rendered)=false`.
+- **What caught it:** reading `bugs_closed/025`'s closure before filing the bug — the writer
+  template renders exactly `{instruction, format, examples, avoid}` and nothing else; my keys
+  were silently dropped. And a template renders VALUES, not key NAMES, so my probe's null was
+  vacuous regardless of the truth.
+- **The errors:** wrote config at a consumer whose contract I never read (the schema was in the
+  closed bug + the column COMMENT the whole time); then probed a rendered artefact for a source
+  identifier. Family: "a config key nothing reads looks live" + "a grep proves absence only for
+  the spelling it searches" — the spelling a TEMPLATE emits is its values.
+- **The cheap checks:** before writing config that a mechanism consumes, read the consumer's
+  template/contract (one SELECT on the agent def); when probing a rendered prompt, search for a
+  VALUE only your config could have produced — never the field name.
+- **Cost:** three model-memory falsehoods (one refused-at-border grade) published on an
+  UNLINKED page — zero exposure by luck of a deferred rerender, corrected same morning.
