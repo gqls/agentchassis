@@ -55811,3 +55811,47 @@ encoded, and an absolute quantifier encodes a different, weaker-to-defend questi
 
 Family: your-measurement-answers-the-question-you-encoded (measurement-discipline-index),
 a-revise-round-is-cheaper-than-the-defect-it-finds.
+
+---
+
+## 2026-08-26 (later) — the SAME mistake again, four hours on, with a different cause
+
+**Lane:** `bugfix_407_site_declares_its_own_header`. Read the entry above first — this is its
+second instance, and the pair together says more than either alone.
+
+**The claim.** A second new test file, a second mutation table, thirteen rows again. Two were
+false again: the mutation that sorts the declared header slots alphabetically, and the one that
+leaves a declared page in the footer group as well as the header. Both guards could be deleted
+with their named test still green.
+
+**The truth, and it is NOT this morning's cause.** Nothing was passing on a downstream failure
+this time. The tests were precisely targeted and asserted exactly the right property. **Their
+FIXTURES could not produce the failure:**
+
+- the total-order test declared `["pricing-transparency","service-areas"]` — which is already
+  alphabetical order, so a mutation that re-sorts the declared list is a no-op on that input;
+- the de-duplication test used a corpus in which every page had `in_header=true`, so the
+  utility group was EMPTY and there was nothing for the guard to de-duplicate.
+
+**What caught it.** Running the mutations. Again. There was no other tell: both tests were
+green, the package was green, and the table read well.
+
+**Why the pair matters more than either.** This morning's lesson was "a mutation that passes may
+have hit a guard in series". That is one of at least two ways a mutation table lies, and having
+learned it I still shipped the other one the same day. **A test can be correctly aimed, assert
+the right property, and be VACUOUS because its input cannot exercise the path.** The general
+statement covering both: *a passing test proves the current code is acceptable to that test, and
+nothing else* — not that any line is load-bearing, not that the fixture reaches it.
+
+**The cheap check, which is now a habit rather than a lookup, in two parts.**
+(1) **Never write a mutation row you have not executed.** Twice now the table was written from
+the design and twice it contained falsehoods; the design is where you form the hypothesis, the
+run is where it becomes evidence.
+(2) **Give every guard test an explicit SETUP ASSERTION** that fails loudly if the corpus stops
+exercising the path — `if !navContains(utility, "footer-only") { t.Fatal("setup is wrong: utility
+must be non-empty, or the guard is unexercised") }`. Without it, a fixture that has quietly
+stopped discriminating is indistinguishable from a guard that works, and it will drift there on
+its own as the corpus is edited by someone else.
+
+Family: mutate-the-code-to-prove-the-guard, a-mutation-that-passes-may-have-hit-a-guard-in-series,
+a-quiet-test-passes-when-the-rule-is-gone, a-post-fix-zero-needs-a-demand-control.
