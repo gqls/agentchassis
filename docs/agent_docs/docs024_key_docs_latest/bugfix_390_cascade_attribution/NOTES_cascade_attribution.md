@@ -287,3 +287,30 @@ Re-check the next free number at write time, not at plan time.
 **Predictions P1–P5: all still open.** Zero audits since the roll (rotation ticked 08-26 07:47,
 no site past the 3-day window). P4's window opens with the first post-roll audit, expected by
 ~08-29.
+
+## 2026-08-26 (l) — provider back; 635 resubmitted; P1 graded, and it was not a prediction
+
+**Provider outage over** (owner topped up credit ~10:00 BST; last `LLM_API_ERROR` 09:57:46 BST).
+635 resubmitted on the SAME correlation `fe5cbe0c`, run `a613549a`, ~10:02 BST.
+
+**P1 graded: the OBSERVATION is confirmed, the PREDICTION is void.** cv1.co.uk's three `detected`
+rows dispatched 14:40–14:42 BST on 08-25 and parked at `css_base_integrity_guard_198`,
+attempt_count 1, no LLM run, no rule appended — exactly the claimed behaviour of 542's gate.
+
+**But the timestamps disqualify it as a prediction**: the rows parked at 14:40–14:42 BST and my
+"pre-registered" P1 was committed at 16:38 BST (`3956adc06`) — **two hours after the event**. I was
+blind to the outcome (my last read of those rows, ~13:30 BST, showed `detected`, and I did not
+re-check before writing), but *"I had not looked"* is not *"it had not happened"*. A prediction
+registered after its event is a postdiction however blind the author, because nothing could have
+made it wrong. → `WRONG_CALLS.md`.
+
+**P2–P5 remain genuine predictions** — they concern post-roll behaviour and the roll (23:11) came
+hours after the commit that registered them.
+
+**The verification calendar moved up.** The earlier "no site past the window" reading used the
+WRONG rotation stamp — `site_discovery_rotation.last_selected_at` unfiltered, which mixes agent
+types. The live `pre_query` keys on `agent_type='render-audit-agent'`, and under that key the next
+sites come due TODAY: remortgagecalculator.uk 13:16 UTC, garden-tools.uk 17:18, cookly.uk 18:19.
+First post-roll audit expected at the first hourly tick after ~14:16 BST — not "~08-29".
+(The rotation stamps the site in the same statement it selects it, so a due reading is consumed by
+the read; always read `due_at`, never re-derive from a stale query.)

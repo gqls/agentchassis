@@ -54238,3 +54238,26 @@ group-by-the-axis-you-report, i-repeated-the-error-i-had-just-written-up.
   **What was worth keeping:** the discriminator that a healthy council carries ten `review_*` keys in
   `collected_data` while a dead one carries none (only `gate_*`) — that separates "the seats
   disagreed" from "the seats never ran", and proved the fault was upstream of council logic entirely.
+
+## 2026-08-26 — `bugfix_390_cascade_attribution` (session "bug sweep"): I called a postdiction a pre-registered prediction
+
+**The claim.** The lane NOTES §(g) and two commit messages describe P1 ("cv1's three detected rows
+will park at `css_base_integrity_guard_198`, the LLM never runs") as a *pre-registered prediction*
+with its disconfirming result stated in advance.
+
+**What was true.** The rows parked at 14:40–14:42 BST on 08-25; the commit registering the
+"prediction" is `3956adc06` at **16:38 BST** — two hours later. I was genuinely blind to the
+outcome (my last read showed `detected`), but nothing could have made P1 wrong by the time it was
+written, and *unfalsifiable-when-registered* is the property that separates a prediction from a
+postdiction. The observation itself stands as evidence for 542's gate; it just carries no
+predictive weight, and citing it as P1-confirmed without the caveat would overstate the design's
+track record.
+
+**What caught it.** Comparing the rows' `updated_at` against the registering commit's timestamp —
+one `git log -1 --format=%ci` next to one column read — done at grading time because grading felt
+too easy.
+
+**The cheap check, skipped.** When registering a prediction about an event that MAY already have
+fired, re-read the subject in the same breath as the registration, and write the read into the
+prediction ("status was X at HH:MM"). The registration is only as good as its evidence that the
+event had not yet happened. Tally: prediction-registered-after-its-event.
