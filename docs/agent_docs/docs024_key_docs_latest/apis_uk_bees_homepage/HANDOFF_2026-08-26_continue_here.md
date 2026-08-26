@@ -139,7 +139,21 @@ was the strip vector); expect the wave's items to COMPLETE and gtm to return on 
    recommended — it re-fights every chrome refresh.
 3. Settle `pages.build_status` (render → settle; it is `needs_rebuild` right now).
 4. Open oddity: one `deactivated_component` item sits `unresolved` (08:40) — read before touching.
-5. `chrome_divergence_overwritten` `2e4e5f51…` (00:44, the head strip's receipt) is
+5. **NEAR-MISS, resolved by another lane (2026-08-26, migration `644`, register IMG-074):** the
+   `Illustrated Text Block` component sourced `image_url` from `site_assets.image`, which
+   ALIASES to hero — so the very c2/rebuild wave this section waits for would have run
+   plan_sections and **overwritten all six distinct illustrations with hero-home.jpg**
+   ("live resolution always wins" beats carryStored). The `vigilant_designer_offer_analysis`
+   lane retargeted it to `site_assets.illustration` (no alias ⇒ resolves nothing here ⇒ carry
+   PRESERVES the six) and fixed `image_alt` (it was handing the image URL to screen readers).
+   **Verified at the component and at our six stored values, all distinct, this session.**
+   ⚠ CONSTRAINT ON STEP 4's un-defer (from their unfixed pointer): apis.uk's five
+   `site_plan_imagery` illustration rows are INERT (scope='page'; no resolver arm reads them),
+   and even scope='section' resolution maps by kind FIRST-WINS — several illustration blocks on
+   one page would all get the SAME image. So the two NEW sections (swarm, pollination) cannot
+   rely on live imagery resolution: put their images in `content_data` + lock, exactly as the
+   existing six were done (CLC-030), until the resolver learns per-section illustration mapping.
+6. `chrome_divergence_overwritten` `2e4e5f51…` (00:44, the head strip's receipt) is
    `needs_human_review` — the platform ARCHIVED the pre-strip head (48,471 B), so the tagged
    artefact is recoverable evidence. Owner disposition queued via `bugs_open/397` §10-addendum;
    do not close it from this lane.

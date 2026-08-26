@@ -1310,3 +1310,21 @@ Also from their message: `chrome_divergence_overwritten` item `2e4e5f51…` (00:
 strip) is `needs_human_review` and the platform **archived the pre-strip head — 48,471 bytes**
 — so the tagged artefact is recoverable evidence, not gone. Disposition queued for the owner in
 `bugs_open/397` §10-addendum; added to handoff §5b's open list.
+
+### 2026-08-26 ~11:45 UTC — near-miss on the six illustrations, caught and fixed by another lane before our own wave could fire it
+
+`vigilant_designer_offer_analysis` found that `Illustrated Text Block` sourced `image_url` from
+`site_assets.image` — an ALIAS to hero — and apis.uk has a live `hero_home`, so the next
+plan_sections run on /index.html (i.e. the c2/rebuild wave WE are waiting for) would have
+resolved all six sections' images to hero-home.jpg, live-resolution-beats-carry. They shipped
+migration `644` (`site_assets.illustration`, no alias ⇒ carry preserves; `image_alt` → `llm` —
+it had been feeding the URL to screen readers). Verified here at both ends: component sources
+read `site_assets.illustration | llm`, and our six `content_data.image_url` values are intact
+and distinct (positions 2–7). Our six are the estate's ONLY live instances of this component, so
+nothing else would have shown the failure first — the defect was aimed at exactly one page, ours.
+
+Their unfixed pointer constrains our un-defer plan and is now in handoff §5b: the five
+`site_plan_imagery` illustration rows are inert (scope='page'), and section-scope resolution is
+first-wins by kind — so swarm/pollination images go in via content_data + lock (CLC-030 route),
+not via the resolver. Their register entry: IMG-074; their migration is Council-Submitted
+(08477888, pending).
