@@ -127,8 +127,47 @@ func PopulateNavTablesAction(ctx context.Context, params ActionParams) (interfac
 		}, nil
 	}
 
+	// --- The site's own header declaration (bugs_open/407) ---
+	//
+	// site_specs aspect `site_config`, key `chrome` — beside header_cta_url and
+	// header_cta_label, which are per-site header config already living there.
+	// A missing row is the normal case and means "this site has not spoken";
+	// ErrNoRows is therefore not an error here, and treating it as one would make
+	// every undeclared site fail its nav rebuild.
+	var siteConfigRaw []byte
+	err = params.DB.QueryRowContext(ctx,
+		`SELECT data::text FROM site_specs
+		  WHERE site_id = $1 AND aspect = 'site_config' AND is_current`,
+		siteID).Scan(&siteConfigRaw)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to load site_config spec: %w", err)
+	}
+	decl := siteNavDeclarationFromSiteConfig(siteConfigRaw)
+	if decl.Source == navDeclSourceInvalid {
+		// LOUD, not absent. Whoever wrote this must be able to find out it did
+		// nothing — an override that is silently ignored is the defect this whole
+		// change exists to remove, and reproducing it one level up would be the
+		// same mistake with better formatting.
+		logger.Warn("populate_nav_tables: site_config->'chrome' header slots are malformed; the "+
+			"readable part was used and the rest IGNORED — check the site's declared header",
+			zap.String("site_id", siteIDStr),
+			zap.Int("slots_parsed", len(decl.HeaderSlots)))
+	}
+
+	// The site's own cap wins over the fleet-wide step config. Without this a site
+	// declaring nine slots under a fleet cap of eight would have its own explicit
+	// list truncated, which is absurd.
+	maxHeaderItems = decl.EffectiveCap(maxHeaderItems)
+
 	// --- Classify and populate ---
-	primaryPages, legalPages, utilityPages := classifyPagesForNav(pages, logger)
+	primaryPages, legalPages, utilityPages, declReport := classifyPagesForNavDeclared(pages, decl, logger)
+
+	// The names actually PLACED, not the names declared: a declared name that was
+	// missing or ineligible never reached primary and cannot be truncated out of it.
+	declaredNames := make(map[string]bool, len(declReport.Placed))
+	for _, n := range declReport.Placed {
+		declaredNames[n] = true
+	}
 
 	if len(primaryPages) > maxHeaderItems {
 		// Overflow primary items go to utility so they still appear in footer nav.
@@ -136,6 +175,26 @@ func PopulateNavTablesAction(ctx context.Context, params ActionParams) (interfac
 		overflowPages := primaryPages[maxHeaderItems:]
 		primaryPages = primaryPages[:maxHeaderItems]
 		utilityPages = append(overflowPages, utilityPages...)
+
+		// A page the SITE ITSELF declared, pushed out by the cap, is a different
+		// event from an undeclared page losing on tier — the site asked for it by
+		// name and did not get it, which is this bug wearing a smaller hat. Both
+		// keys are the site's own, so the remedy is the site's; what it must not be
+		// is silent.
+		for _, p := range overflowPages {
+			name := strings.ToLower(p.Name)
+			if !declaredNames[name] {
+				continue
+			}
+			declReport.Truncated = append(declReport.Truncated, name)
+		}
+		if len(declReport.Truncated) > 0 {
+			logger.Warn("populate_nav_tables: DECLARED header slots did not fit the cap and were "+
+				"moved to the footer — raise settings->'nav'->'max_header_items' or shorten header_slots",
+				zap.String("site_id", siteIDStr),
+				zap.Int("max_header_items", maxHeaderItems),
+				zap.Strings("truncated", declReport.Truncated))
+		}
 	}
 
 	// COMPLETENESS FLOOR (bugs_open/165 site B). The transaction below deletes
@@ -239,6 +298,16 @@ func PopulateNavTablesAction(ctx context.Context, params ActionParams) (interfac
 	for k, v := range floorDetail {
 		result[k] = v
 	}
+	// The declaration's own outcome, beside the floor's numbers rather than only in
+	// a log line. A declared name that resolved to nothing is precisely the silence
+	// bugs_open/407 is about; it has to surface where an operator already looks.
+	result["nav_declaration_source"] = decl.Source // "default" | "site_config" | "invalid"
+	result["declared_slots"] = declReport.Placed
+	result["declared_missing"] = declReport.Missing
+	result["declared_ineligible"] = declReport.Ineligible
+	result["declared_flag_disagreed"] = declReport.FlagDisagreed
+	result["declared_truncated_by_cap"] = declReport.Truncated
+	result["max_header_items_effective"] = maxHeaderItems
 	return result, nil
 }
 
@@ -281,6 +350,22 @@ func loadPagesForNav(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *
 	return pages, nil
 }
 
+// navLegalNames and navSystemNames were local to classifyPagesForNav until
+// bugs_open/407 gave them a second reader: navDeclarationEligibility, which
+// refuses to promote a system or legal page even when a site declares it. Hoisted
+// rather than copied — a second spelling of "which pages are legal" would let the
+// classifier and the declaration disagree about the same page, and nothing at
+// either site would say so.
+var navLegalNames = map[string]bool{
+	"privacy": true, "terms": true, "cookies": true,
+	"disclaimer": true, "privacy-policy": true, "terms-of-service": true,
+	"cookie-policy": true, "terms-and-conditions": true,
+}
+
+var navSystemNames = map[string]bool{
+	"404": true, "sitemap": true, "robots": true,
+}
+
 // classifyPagesForNav sorts pages into primary, legal, and utility groups.
 //
 // Primary nav is filled by priority tier — core pages first, then content hubs,
@@ -294,16 +379,20 @@ func loadPagesForNav(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *
 //
 // Within each tier, pages are ordered by nav_order (from the planner), then creation date.
 // Pages without in_header=true skip primary entirely and go to utility if in_footer=true.
+// classifyPagesForNav is the UNDECLARED path, kept at its exact signature so
+// nav_membership_test.go — which pins bugs_open/149 A2's invariant that the flags
+// declare MEMBERSHIP and a URL shape decides only WHERE — runs against it with a
+// ZERO DIFF. That zero diff is the evidence that bugs_open/407's change is a no-op
+// for every site which has not declared a header, so do not fold this away.
 func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, legal, utility []pageNavInfo) {
-	legalNames := map[string]bool{
-		"privacy": true, "terms": true, "cookies": true,
-		"disclaimer": true, "privacy-policy": true, "terms-of-service": true,
-		"cookie-policy": true, "terms-and-conditions": true,
-	}
+	p, l, u, _ := classifyPagesForNavDeclared(pages, siteNavDeclaration{}, logger)
+	return p, l, u
+}
 
-	systemNames := map[string]bool{
-		"404": true, "sitemap": true, "robots": true,
-	}
+func classifyPagesForNavDeclared(pages []pageNavInfo, decl siteNavDeclaration, logger *zap.Logger) (
+	primary, legal, utility []pageNavInfo, declReport navDeclarationReport) {
+	legalNames := navLegalNames
+	systemNames := navSystemNames
 
 	// isChildPageURL returns true for pages that live under a category path,
 	// like /tools/something.html or /blog/something.html. These are child pages
@@ -424,14 +513,38 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 		return candidates[i].page.NavOrder < candidates[j].page.NavOrder
 	})
 
+	var fallbackPrimary []pageNavInfo
 	for _, c := range candidates {
-		primary = append(primary, c.page)
+		fallbackPrimary = append(fallbackPrimary, c.page)
+	}
+
+	// bugs_open/407 — the SITE's own word, ahead of the fleet default. Undeclared
+	// sites take the `!decl.Declared()` arm, which returns fallbackPrimary
+	// unchanged, so everything above this line is exactly what it was.
+	var promoted map[string]bool
+	primary, promoted, declReport = applyNavDeclaration(decl, pages, fallbackPrimary)
+
+	if len(promoted) > 0 {
+		// A declared page that classification had sent to the footer must not
+		// appear in BOTH groups. Filtering utility here rather than at the
+		// promotion site keeps the one rule — "a page appears in exactly one
+		// group" — in the one place that can see every group.
+		kept := utility[:0]
+		for _, p := range utility {
+			if promoted[strings.ToLower(p.Name)] {
+				continue
+			}
+			kept = append(kept, p)
+		}
+		utility = kept
 	}
 
 	logger.Info("classifyPagesForNav: classified",
 		zap.Int("primary_candidates", len(primary)),
 		zap.Int("legal", len(legal)),
 		zap.Int("utility", len(utility)),
+		zap.Int("declared_placed", len(declReport.Placed)),
+		zap.Int("declared_missing", len(declReport.Missing)),
 	)
 	return
 }
