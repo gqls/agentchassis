@@ -10,14 +10,16 @@ verification recipe that file previously gave.
 
 ---
 
-## 0a. ⚠ FLEET LLM OUTAGE — read before planning anything
+## 0a. FLEET LLM OUTAGE — **RESOLVED 2026-08-26 ~09:00Z**, kept for the residue it left
+
+> **RESOLVED.** Credit restored; verified at the artefact — the 09:00 hour ran **124 calls, 124
+> ok, 0 failed**. The residue below still stands and still needs re-firing.
 
 `[MEASURED 2026-08-26 08:5xZ]` The Anthropic account ran out of credit at ~2026-08-25 23:46Z.
 **Zero successful LLM calls across 00:00–08:00**, 691 attempts, 690 of them verbatim *"Your credit
 balance is too low to access the Anthropic API"* (controls: 157 and 124 successes in the 21:00 and
 22:00 hours). Owner notified by the `loanzy_uk_example_site` lane.
 
-- **Blocked:** step 1 below (retirement goes through the framework's content path).
 - **Not blocked:** `cta_links_stale` rerenders (explicitly no-LLM), and all measurement/SQL work.
 - **Residue that survives the top-up:** **21** work items fleet-wide have exhausted `max_attempts`
   against the dead API and will **not** self-heal — 7 `unbuilt_internal_link`, 4 `content_rewrite`,
@@ -174,11 +176,52 @@ put through it (17%)**: `finetuning.uk/your-own-model.html` and `finetuning.uk/t
 - Same family as `bugs_open/403` (owned by the leopardess lane); CONTRIB filed there with the new
   shape and the detector query. `LANDMINES.md` has the prospective check; `WRONG_CALLS.md` the incident.
 
-## 5. NEXT: retirement (step 3), and the ordering is still load-bearing
+## 5. NEXT: retirement — and it is THREE steps, not two. The 2-step order DEADLOCKS
 
-1. **Retire the three tool pages** (owner decision 1 — the shared library component
-   `tool-password-entropy` **STAYS** `is_active=true`), through the framework (2026-08-04 ruling),
-   never hand-edits. ⚠ **Blocked on the LLM credit outage — see §0a.**
+> **⚠ CORRECTED 2026-08-26 after reading the retraction machinery.** This section previously read
+> *retire the pages → then re-resolve the label-less fields*. **Those two are each other's
+> preconditions**, so that order cannot start:
+> - `retract_page_deployment` **REFUSES** any page something editorial still links to — by design
+>   (`retract_page_graph.go`: *"INBOUND, editorial → REFUSE the retraction and name the referrers"*),
+>   so that a retraction cannot create a dead link. Measured with the action's own quote-delimited
+>   `href="<url>"` predicate `[MEASURED 2026-08-26]`: **61 rows across 47 active pages**, plus the
+>   aiao footer `site_component`.
+> - The re-resolution is blocked the other way by `applyCTARecompute`'s **KEEP #2**, which returns
+>   early while the stored destination is in `validPages`.
+>
+> **It breaks on `validPages`.** `loadResolverPageSet` (`resolve_internal_links_action.go:964`)
+> selects `WHERE status NOT IN ('deleted','archived')`. **Archiving alone** drops the page out of
+> that set, KEEP #2 goes false, KEEP #3 cannot catch a relative `/tools/…` path, and control reaches
+> the positional pick — which the `nav_order` 1 → 900 demotion already made correct. **Archive is
+> the key that turns both locks**, and it needs no LLM and deletes nothing.
+>
+> **"Retire" is also two distinct operations.** `pages.status='archived'` is **hand-run SQL** — the
+> action's own header: *"nothing in this codebase archives a page … there is no writer of
+> `status='archived'` at all"*. Removing the FILE is `retract_page_deployment`, driven by the live
+> **`page-retraction`** agent (config `site_id_field`, `page_ids_field`). **Archiving does NOT
+> unpublish** — it freezes the last rendered HTML and keeps serving it, verified at the artefact
+> (archived canary returns **200**, absent control **404**). So there is no 404 window between the
+> steps, and the whole sequence is reversible until step 3.
+
+1. **ARCHIVE** the three pages (SQL; reversible; the page keeps serving). Then **2. RE-RESOLVE**
+   the inbound references (`cta_links_stale`, **no LLM**). Then **3. RETRACT** via the
+   `page-retraction` agent, which will no longer refuse and which also deactivates the
+   `site_nav_items` row itself (structural inbound is *mechanised*, editorial is *refused*,
+   newly-stranded outbound is *reported*).
+
+   Owner decision 1 — the shared library component **STAYS** active. ⚠ **There is NO
+   `content_components` row named `tool-password-entropy`**, as this file used to say: the active
+   library row is **`tool-password-entropy_pre_037`**, and the four per-site `tool-password-entropy-<domain>`
+   rows are already `is_active=false`. A guard written to the old wording finds 0 and falsely aborts —
+   assert on `count(*) WHERE name ILIKE '%password-entropy%' AND is_active = 1` instead.
+
+   **Canary order, simplest first** (from the per-site table below): `finetuning.uk` →
+   `leopardessconsulting.co.uk` → `ai-agent-orchestration.com` **last**, since only that one has a
+   `site_nav_items` row and a footer link.
+
+   ⚠ **Before any retraction run, read `LANDMINES.md` on the two siblings' opposite `dry_run`
+   defaults** — omitting the key on `retract_page_deployment` **deletes**, where omitting it on
+   `retract_asset_files` is a dry run.
 
    **Blast radius `[RE-MEASURED 2026-08-26 ~09:00Z]`** (the old **91** was taken before step 2 ran):
    **63** `page_components` rows over **49** pages — aiao 30/19, leopardess 20/19, finetuning 13/11.
