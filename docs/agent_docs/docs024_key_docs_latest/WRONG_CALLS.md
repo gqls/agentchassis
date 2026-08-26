@@ -56007,3 +56007,44 @@ is the cheapest possible correction; one instrument, truncated, is how this happ
 
 Family: prior-art-search-goes-stale, a-closer-census-cannot-see-what-it-succeeded-at,
 a-subagent-report-is-another-doc, say-N-before-interpreting.
+
+## 2026-08-26 — I added the blocker check to LANDMINES at 17:29Z, then predicted a queue wait at 18:00Z without running it
+
+**The claim.** At 17:29Z I appended a correction to `LANDMINES.md`'s dispatch entry documenting that
+the live site selector carries
+`AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status='claimed')`,
+so **one claimed row excludes its entire site from dispatch**. I measured it, found **0 sites
+fleet-wide** holding a claimed row older than 30 minutes, and wrote that it was **"LATENT, not today's
+problem"** — including the exact query to check it with.
+
+**What went wrong.** At 18:00:15Z I filed the next build with the corrected GATE ZERO reading
+**0 items ahead**, and predicted a fast claim on that basis — the previous filing had been claimed in
+2m14s under the same reading. It sat `triaged` for **ten minutes**. At 18:01:09Z a `needs_content_page`
+row was claimed on the same site and the whole site dropped out of `find_dispatchable_site`; it was
+absent from the fleet top-5 ranking while my item waited. **I had written the query that answers this
+thirty-one minutes earlier and did not run it.**
+
+**The measurement was not false — the inference from it was.** "0 sites blocked" was true at 17:29Z
+and false at 18:01Z. This is the known shape (*a `[MEASURED]` claim about STATE expires while a DATED
+EVENT does not*) with a sharper edge on it: **I marked it correctly, dated it, called it latent, and
+then reasoned from it thirty minutes later as though "latent" were a property of the mechanism rather
+than a reading of the clock.** The marker did its job; I stopped reading my own marker.
+
+**Cost.** Small and self-correcting — ten minutes, no damage, and the wait was legitimate queue
+behaviour rather than a fault. The real cost would have been publishing "filing is claimed in ~2
+minutes now" as a lane expectation, which is what I was about to do.
+
+**The cheap check, which I already owned.** `truly_ahead = 0` and *"will be claimed soon"* are
+different propositions, and one query separates them:
+```sql
+SELECT count(*) FROM site_work_items WHERE site_id='<site>' AND status='claimed';  -- >0 ⇒ excluded now
+```
+**Generalisable form: when you write a new check into a shared doc, the very next task is the one to
+run it on.** A check authored and not exercised is at its least likely ever to run, because the
+session that wrote it is the one that believes it already knows the answer. Same failure as this
+file's 2026-08-26 entry *"I wrote the 'grep LANDMINES by symbol' rule into my own runbook, then did
+not do it on the next table I touched"* — two sessions, one day, same shape, and neither of us was
+short of the knowledge.
+
+Family: a-measured-claim-about-state-expires, grep-landmines-for-your-symbols,
+a-report-is-not-a-measurement, prior-art-search-goes-stale.
