@@ -55363,3 +55363,75 @@ without forking the record.
 
 Family: who-owns-is-blind-to-uncommitted-sessions, committing-is-shipping-on-shared-head,
 prior-art-search-goes-stale, a-handoff-outlives-the-work-it-asked-for.
+
+---
+
+## 2026-08-26 — I censused "open work items" with a status list I made up, got the right answer, and would not have known if I hadn't
+
+**Session `bugsweep3`, designing the fix for `bugs_open/394`.**
+
+**The claim.** The fix hinges on one number: how many pages carry a finding that the render
+audit is the only thing able to grade. If it is small, a priority set dissolves a latency
+trade-off; if it is large, it does not. I measured it with:
+
+```sql
+WHERE wi.item_type = 'contrast_failure'
+  AND wi.status NOT IN ('complete','cancelled','rejected')
+```
+
+and reported **3 open items across 3 pages on webdesign.co.uk**, in this lane's NOTES and in a
+message to the owner.
+
+**What was actually true.** That status list is not the platform's. The retraction path uses
+`workItemClosedStatuses` (`platform/orchestration/actions/work_items_common.go:85-91`), which
+the file sets out beside its sibling precisely so the difference is visible rather than
+discovered:
+
+```
+terminal (dedup / ON CONFLICT):  complete verified rejected wont_fix cancelled failed unresolved
+closed   (retraction):           complete verified rejected wont_fix cancelled
+```
+
+I omitted `verified` and `wont_fix` — two SETTLED statuses my query counted as open. The
+omission is not cosmetic: `unresolved` and `failed` are excluded from that list **deliberately**
+(RFC_010, owner ruling 2026-08-02, "Decision 2: `unresolved` is OPEN"), so the boundary is a
+ruled one that I re-drew by hand without reading it.
+
+**What caught it.** Not me, and not the number. A planning agent I had asked to derive the
+priority predicate *from the grader* opened `work_item_retraction.go:118-128` and read the
+actual candidate query. I had gone to the data; it went to the code that consumes the data.
+
+**Why this is worth a row even though the number was right.** Re-run with the exact predicate,
+webdesign.co.uk is still **3 and 3**. It carries no `verified` or `wont_fix` contrast rows, so
+the wrong list and the right list select the same set — **on that one site.** Fleet-wide the
+same census spans 17 sites and up to 23 items, and there is no reason the agreement would hold
+on robot-hands.com or idea.uk.
+
+So the figure was not validated by coming out the same; it was **unfalsified by a site-specific
+coincidence**, and I had no instrument that would have told me the difference. This is the
+[[a-measured-claim-can-be-right-for-the-wrong-reason]] shape and it is nastier than being wrong,
+because a wrong number gets challenged and a right number does not.
+
+**Cheap check, and it is a habit not a lookup: when you census a state the CODE also selects,
+derive the predicate from the code's own constant, not from the status names you can remember.**
+Concretely — `grep` for the constant (`workItemClosedStatuses`, `workItemTerminalStatuses`,
+`linkablePageStatusPredicate`, `PageWantedLivePredicateFor`) and read the list, before writing
+the `NOT IN`. Every one of these has a sibling it is deliberately NOT equal to, and the estate
+has already filed the drift both ways (`idx_swi_dedup` ↔ `workItemTerminalStatuses` lockstep;
+`linkablePageStatusPredicate` ↔ `PageWantedLivePredicateFor`).
+
+**And the second-order one, which is the real lesson: a hand-written predicate that agrees with
+the real one on your sample tells you nothing about the predicate.** If the census is going to
+justify a design, run it on the site you care about AND on the fleet — a disagreement anywhere
+in the fleet is the signal that your predicate is not theirs, and it is the only signal you are
+going to get.
+
+**Related, same session, same shape one level down:** I keyed the census on `page_id`, which is
+populated on all 111 open `contrast_failure` rows. The grader has never read that column — it
+recovers the page from the path inside `item_key` (`workItemKey("contrast_failure",
+path+"#"+selector)`). Keying on `page_id` would have shipped a second notion of "which page"
+living beside the real one, agreeing today and diverging the first time a row was filed without
+one. Same cause: I asked the table what it held instead of asking the consumer what it reads.
+
+Family: cite-the-arm-not-the-function, dedup-index-go-list-lockstep,
+a-closer-census-cannot-see-what-it-succeeded-at, seed-sql-is-history-live-row-is-fact.
