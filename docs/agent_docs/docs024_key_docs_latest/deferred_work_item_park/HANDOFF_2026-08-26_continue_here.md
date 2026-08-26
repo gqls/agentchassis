@@ -1,4 +1,4 @@
-# HANDOFF 2026-08-26 — `bugs_open/396`: both fixes are LIVE. Two steps are owed, and BOTH are blocked by a fleet outage that is not ours.
+# HANDOFF 2026-08-26 — `bugs_open/396`: both fixes are LIVE and EXERCISED. Nothing is blocked; one council verdict is outstanding.
 
 **Read this box. Everything below it is background or recipe.**
 
