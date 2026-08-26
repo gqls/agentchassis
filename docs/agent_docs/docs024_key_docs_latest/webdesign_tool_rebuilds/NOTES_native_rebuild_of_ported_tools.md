@@ -5261,3 +5261,39 @@ non-empty guard, published at 19:45:39, re-graded: PASS.
 **So both of the day's fake-pass shapes were caught prospectively by the instrument built from them,
 and one of them was caught by the fix to the instrument's own bug.** That is the whole argument for
 writing the check down rather than remembering it.
+
+## 2026-08-26 22:15Z — PLATFORM SEAT: v1.0.1345 roll verified; tombstone constant LIVE in both services; both standing controls clean
+
+The fresh roll landed 20:23–20:25Z (agent-chassis + core-manager pods restarted, tag `v1.0.1345`).
+This discharges step 1 of `HANDOFF_2026-08-26_platform_seat_continue_here.md` — the tombstone-constant
+work was Go-source SQL, inert until this roll.
+
+**Provenance, per service (the only load-bearing proof):**
+- core-manager: its own startup line, pod `core-manager-9d6689d-497s7` at 20:23:34Z —
+  `"msg":"build provenance","git_commit":"b34c24f4c65b78eaf0145e9a43fb7aa64da6b5b5"`. A real JSON log
+  line (`caller: core-manager/main.go:69`), not landmine text — the 08-26 trap checked for.
+- agent-chassis: the startup line had ALREADY rotated out of the full retained log by 22:12Z — only
+  **~1h50m** after pod start, much faster than the 08-11 "hours" measurement. `[MEASURED 22:12Z]`
+  rc=1 on an untailed grep of the whole log. Fell back to the binary probe with both controls in one
+  breath: expected sha `b34c24f4c…` **PRESENT** in `/proc/1/exe`, bogus 40-hex control
+  (`deadbeef`×5) **ABSENT**, `$SHA` non-empty guarded. `[MEASURED 22:12Z]`
+- Ancestry: all four commits — `18561ff05`, `d36faaeaf`, `18853ade6`, `5f35e066a` — are ancestors of
+  `b34c24f4c` (`git merge-base --is-ancestor`, each exit 0). **`datahelpers.NotRemovedSQL` is
+  therefore LIVE in agent-chassis AND core-manager.**
+
+**Behavioural control `[MEASURED 22:13Z]`:** `SELECT COALESCE(build_status,'<NULL>'), count(*) FROM
+page_components GROUP BY 1;` → deployed **2340** / removed **55** / pending **40** / approved **23** /
+NULL **0** (no NULL group at all). Against the morning baseline (2256/49/31/14/0): every population
+grew, NULL stayed empty. Nothing to chase; new baseline recorded as of 2026-08-26 22:13Z.
+
+**Demand control `[MEASURED 22:13Z]`:** exactly ONE open `capability_gap:tool_health_contract_rules`
+row for webdesign.co.uk — `0aba0ca8`, status `deferred`, "20 finding(s)", `created_at = updated_at =
+03:46:26Z`. The row is UNCHANGED since the sweep that wrote it — the instrument has not re-run, so
+"still 20" is a lagging meter, **not** a regression signal. The grind's 19:47Z entry above puts the
+true remainder at **14** (49 of 63 live), so the NEXT sweep should show residue 20→14. Only if a
+fresh sweep (updated_at moves) still says 20 does `check_tool_health.go` rules 16/17 need reading.
+
+**Missteps, recorded:** (1) my first residue query assumed `result->'residue'` was a jsonb array —
+`cannot get array length of a scalar`; the count lives in the row's `summary` text ("N finding(s)…").
+Select the raw row before writing jsonb path expressions. (2) an `ORDER BY 2` against a single
+concatenated output column — schema-first applies to my own SELECT list too. Both cost one query each.

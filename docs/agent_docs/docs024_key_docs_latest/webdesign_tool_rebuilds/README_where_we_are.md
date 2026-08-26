@@ -694,3 +694,16 @@ exists.
 **Where that leaves us: forty-nine of sixty-three, all live, nothing owed, and the queue is flowing
 normally again.** Fourteen tools remain, five of which are the larger applications you asked to be
 done last and one at a time with your review.
+
+*(Platform seat, later the same evening.)* The fresh build you deployed tonight has been checked
+properly, and the news is good. The database-consistency fix we put through review earlier this week
+— the one that makes every part of the system agree on what "a removed tool" means — is now actually
+running in production, in both of the services it touches. I did not take the version number's word
+for it: each service was asked directly what code it is running, and both answered with the right
+commit. The follow-up health check on the database also came back exactly as predicted — no component
+rows anywhere with a missing status, which was the failure the fix exists to prevent.
+
+One counter looks stuck but is not: the checker that counts "tools still owed a rebuild" last ran
+this morning and still says twenty, while the rebuild seat's own tally says fourteen remain. The
+checker simply has not looked again yet; when it next runs, that number should drop to fourteen, and
+if it does not, that is the thing to investigate. Nothing here needs a decision from you.

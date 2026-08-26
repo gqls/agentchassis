@@ -1,4 +1,6 @@
 # HANDOFF — webdesign tool rebuilds, THE PLATFORM SEAT. Written 2026-08-26 ~17:15Z.
+# UPDATED 2026-08-26 22:20Z — the v1.0.1345 roll landed and step 1 (pod-verify the tombstone
+# constant) is DISCHARGED with evidence; the to-do list below is renumbered accordingly.
 # Supersedes HANDOFF_2026-08-25_platform_seat_continue_here.md (kept for its correction trail).
 
 **TWO SEATS WORK THIS LANE.** This is the PLATFORM seat (session `webdesign-tool-rebuilds`,
@@ -20,7 +22,9 @@ times, correction block in place).
   it dispatches design/completeness/acceptance discovery as children on its own site selection and
   writes NO rotation stamps. Fourteen threads were notified; `bugs_open/401` (the watchdog's 3/3
   miscount) stays OPEN — fix unowned, CONTRIB in `bugfix_230_discovery_driver/`.
-- **The tombstone predicate is ONE constant** — `datahelpers.NotRemovedSQL` / `NotRemoved(alias)`,
+- **The tombstone predicate is ONE constant — and as of 22:13Z it is LIVE IN PRODUCTION**
+  (v1.0.1345 roll, verified per service at the artefact; step 0 below has the evidence) —
+  `datahelpers.NotRemovedSQL` / `NotRemoved(alias)`,
   NULL-safe, adopted at ALL **15** spellings across **13** files (census as of 2026-08-26; it was
   "5" then "11" then "15", each revision from a wider instrument). Council trail **89dcc04a**:
   round-1 REVISE (reuse: shared const, not lockstep tests) → done as asked → **APPROVED** (3
@@ -43,18 +47,34 @@ times, correction block in place).
 
 ## What the NEXT session of this seat should do, in order
 
-1. **Pod-verify the tombstone-constant work at the NEXT ROLL** (it is Go-source SQL, inert until
-   images ship — affects agent-chassis AND core-manager): ancestry of `18853ade6` and `5f35e066a`
-   in each service's own stamp (`git merge-base --is-ancestor <commit> <stamp>`), then the
-   behavioural control: `SELECT COALESCE(build_status,'<NULL>'), count(*) FROM page_components
-   GROUP BY 1;` (was deployed 2256 / removed 49 / pending 31 / approved 14 / NULL 0 on
-   2026-08-26 — any future NULL rows must now appear in ALL populations, not just the assembler's).
-2. **Watch the standing demand control**: webdesign's `capability_gap:tool_health_contract_rules`
-   residue should SHRINK from 20 as the grind resumes rebuilding. If it grows or a SECOND open row
-   appears for the site, that is a checker regression — read `check_tool_health.go` rules 16/17.
-3. **Watch for the grind's Phase B ping** (first rich app built → this seat second-eyes the
-   feature-list browser grade). Currently far out: their queue sits behind ~107 sweep items.
-4. **Nothing else is this seat's**: the checker fix is staged_component_build's; the watchdog fix
+0. ~~**Pod-verify the tombstone-constant work at the NEXT ROLL**~~ — **DONE 2026-08-26 22:13Z**
+   (NOTES 22:15Z entry has the full evidence). The roll was `v1.0.1345`, pods restarted
+   20:23–20:25Z. Both services stamp `b34c24f4c` (core-manager: own startup line; agent-chassis:
+   binary probe with negative control — its startup line rotates out of the log in **~1h50m**, far
+   faster than the 08-11 "hours" figure). All four commits (`18561ff05`, `d36faaeaf`, `18853ade6`,
+   `5f35e066a`) are ancestors of that stamp → **`datahelpers.NotRemovedSQL` is LIVE in
+   agent-chassis AND core-manager.** Behavioural control passed: deployed 2340 / removed 55 /
+   pending 40 / approved 23 / **NULL 0** as of 2026-08-26 22:13Z (baseline 2256/49/31/14/0 that
+   morning — every population grew, NULL stayed empty). Any future NULL rows must appear in ALL
+   populations; today there are none.
+1. **Watch the standing demand control**: webdesign's `capability_gap:tool_health_contract_rules`
+   residue should SHRINK from 20 as the grind rebuilds. **Status at 22:13Z: still ONE open row
+   (`0aba0ca8`, `deferred`, "20 finding(s)") but `updated_at` is unmoved at 03:46:26Z — the checker
+   has NOT re-swept, so "still 20" is a lagging meter, not a regression.** The grind hit 49/63 live
+   at 19:47Z, so the true remainder is **14**; the next sweep (updated_at moves, or a new row
+   closes/replaces this one) should read ~14. Only a FRESH sweep still saying 20, growth, or a
+   SECOND open row for the site means checker regression — then read `check_tool_health.go` rules
+   16/17. Working query (residue count is in `summary` TEXT — "N finding(s)…" — NOT a jsonb array;
+   the first attempt at `result->'residue'` errors):
+   `SELECT swi.id, swi.status, swi.updated_at, left(swi.summary,80) FROM site_work_items swi JOIN
+   sites s ON s.id=swi.site_id WHERE s.domain LIKE 'webdesign.co%' AND swi.item_type=
+   'capability_gap' AND swi.item_key LIKE '%tool_health%' AND swi.status NOT IN
+   ('complete','cancelled','rejected');`
+2. **Watch for the grind's Phase B ping** (first rich app built → this seat second-eyes the
+   feature-list browser grade). **Nearer than this file said at 17:15Z**: the grind is at 49/63
+   with 14 remaining, FIVE of which are the rich apps (owner: one at a time, at the served page).
+   Read their `HANDOFF_2026-08-26_continue_here.md` for current queue position before assuming.
+3. **Nothing else is this seat's**: the checker fix is staged_component_build's; the watchdog fix
    is the 230 lane's; the noted lane may bring an external-source-of-truth RFC (owner has directed
    fleet-wide — this seat contributes the checker-side evidence section if asked, builds NO
    tool_health-local waiver).
@@ -74,7 +94,10 @@ times, correction block in place).
 
 - **Ancestry-of-stamp is the ONLY load-bearing deploy proof; per SERVICE.** Probe traps recorded:
   literal-in-binary-anyway, exit-137≈1, linker dead-code-elimination, and NEW 08-26: a
-  provenance-grep of chassis logs can match LANDMINE TEXT about provenance.
+  provenance-grep of chassis logs can match LANDMINE TEXT about provenance. Also measured 08-26
+  22:12Z: the chassis startup line rotates out of the retained log in **~1h50m** — an empty grep
+  there means "out of range", not "unstamped"; the binary probe (expected sha + bogus-sha control
+  in the same breath, `$SHA` non-empty guarded) is the fallback with no shelf life.
 - **Check names and item types are DISJOINT vocabularies** for the tool family (LANDMINES
   2026-08-26): census by `spec->>'check'`, never `item_type='tool_health'` (0 rows for ever).
 - **A config-gated check's first run is bounded below by its config's apply time** — zeros before
