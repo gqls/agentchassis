@@ -102,8 +102,11 @@ pin the mapping explicitly — a lockstep test over the pairs above, not a comme
 
 ## 5. Fix candidates, ordered by what closes the door (not by effort)
 
-1. **An origin class the promoter can read** (closes the door) — **BUILT 2026-08-26, council
-   submission pending, NOT applied.** `write_audit_findings` stamps `spec.origin =
+1. **An origin class the promoter can read** (closes the door) — **BUILT, council APPROVED round 1
+   (corr `946d587c`, 4 advisory none high), and APPLIED 2026-08-26 09:4xZ** — live pre_query
+   carries `origin_ok` ×4 and the description names door 5. The door holds nothing until the
+   stamping binary rolls (the Go stamp postdates v1.0.1339); §6's two-direction verification is
+   OWED after that roll. `write_audit_findings` stamps `spec.origin =
    'model_opinion'` into every finding's base spec unconditionally (every live caller is a model
    seat; a future mechanical adopter would widen the HOLD — the safe direction), and migration
    `629_promoter_origin_door_holds_model_opinions.sql` adds the fifth door by four
