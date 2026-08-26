@@ -69,6 +69,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/livespec"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -141,7 +142,9 @@ func init() {
 // unit test (rerender_strip_gate_test.go), not inferred from code review.
 func shouldStripLiteralMarkdown(stepConfig map[string]interface{}, reason string) bool {
 	on, _ := stepConfig["strip_literal_markdown"].(bool)
-	return on && reason == "literal_markdown"
+	// bugs_open/404: name the vocabulary value, do not re-spell it. Retiring or
+	// renaming it must break the build here, not silently disarm this gate.
+	return on && reason == livespec.ReasonLiteralMarkdown
 }
 
 // storedSection is one page_components row as loaded for re-render.
@@ -538,7 +541,7 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		// After migrations 091/098 the schema no longer sources CTA urls, so a
 		// stale url survives in stored content_data; writing the recomputed
 		// target into plan.ResolvedData wins the merge below (resolved_data last).
-		if reason == "cta_links_stale" {
+		if reason == livespec.ReasonCTALinksStale { // bugs_open/404: named, not re-spelled
 			fn := comp.Function
 			if fn == "" {
 				fn = s.slotName

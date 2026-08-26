@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/livespec"
 	"github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
@@ -118,6 +119,76 @@ func singlePageFromScalars(collected map[string]interface{}, config map[string]i
 // emitters here. This is a delegate, not a second spelling.
 func pageRerenderItemKey(pageName string, siteID uuid.UUID, keyReason string) string {
 	return discovery_checks.PageRerenderItemKey(pageName, siteID, keyReason)
+}
+
+// rerenderMode is the decision the two gates make, extracted so it is PURE and
+// therefore exhaustively testable without a database — the real function the
+// action calls, not a re-implementation a test could disagree with silently.
+type rerenderMode struct {
+	Scoped        bool
+	StampReason   bool
+	KeyReason     string // exactly what the spec will carry; "" means assemble-only
+	UnknownReason string // non-empty when the caller passed a reason nobody declared
+	Warnings      []string
+}
+
+// rerenderModeFor resolves a (reason, component_id) pair against the ONE
+// definition of the sections-rerender vocabulary — bugs_open/404.
+//
+// The two gates are DIFFERENT TESTS and that is the whole subtlety:
+//
+//	Scoped      narrows WHICH PAGES get items, and needs a component to scope BY
+//	StampReason decides whether the item carries a reason AT ALL, which is what
+//	            page-rerender's check_rerender_mode branches on
+//
+// An unknown reason yields neither, so the item carries no reason, so the gate
+// reads it as assemble-only and re-ships the stored HTML verbatim — completing
+// green and changing nothing. Both readers fail toward assemble; that direction
+// is why this vocabulary drifted twice in one day without anyone noticing.
+func rerenderModeFor(reason, componentID string) rerenderMode {
+	var m rerenderMode
+	if reason == "" {
+		// The ordinary case, and it must stay silent: a site-wide refresh IS
+		// supposed to be assemble-only. [MEASURED 2026-08-26] 17,844 items of
+		// exactly this shape, correctly.
+		return m
+	}
+
+	r, known := livespec.RerenderSectionReasonByName(reason)
+	if !known {
+		// LOUD, NOT REFUSED. An unknown routing key that completes green IS this
+		// bug — but out-of-vocabulary reasons are also a live, legitimate practice:
+		// adopt_verbatim stamps `verbatim_adoption_deploy` on items that are
+		// SUPPOSED to assemble, because verbatim adoption re-ships stored HTML by
+		// design. Refusing would be new authority on a shared seam with a standing
+		// counter-example (owner ruling 2026-08-02 §2), so this reports and lets
+		// the caller decide.
+		m.UnknownReason = reason
+		m.Warnings = append(m.Warnings,
+			"create_rerender_items: reason is not in the sections-rerender vocabulary — these "+
+				"items will be ASSEMBLE-ONLY and will re-ship the stored HTML unchanged. If that is "+
+				"what you meant, good; if you expected a template or section re-render, this is "+
+				"bugs_open/404.")
+		return m
+	}
+
+	m.Scoped = r.ComponentScoped && componentID != ""
+	m.StampReason = m.Scoped || r.StampAlways
+	if m.StampReason {
+		m.KeyReason = reason
+	}
+
+	if r.StampAlways && r.ComponentScoped && componentID == "" {
+		// Stamped but unscoped: every page in the caller's list gets a sections
+		// re-render. Bounded by that list, and the RIGHT degrade direction —
+		// assemble can never deliver a template change at all, so over-delivery
+		// (which announces itself) beats silent under-delivery.
+		m.Warnings = append(m.Warnings,
+			"create_rerender_items: "+reason+" without component_id — stamping WITHOUT component "+
+				"scoping, so every page in this list gets a sections re-render. Pass component_id "+
+				"to narrow it to the pages that carry the component.")
+	}
+	return m
 }
 
 // insertPageRerenderItem is THE one INSERT for page_rerender work items — the
@@ -218,20 +289,36 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 	// item per page, which is what site-wide refreshes rely on.
 	reason := inputs.Get("reason")
 	componentIDStr := inputs.Get("component_id")
-	// Reasons page-rerender gates the section re-render on.
-	scoped := (reason == "section_data_resolved" || reason == "image_landed") && componentIDStr != ""
-	// cta_links_stale is stamped WITHOUT component scoping: the CTA recompute
-	// in rerender_page_sections is cheap and page-scoped, and a site-wide CTA
-	// repair has no single triggering component to scope by.
-	stampReason := scoped || reason == "cta_links_stale"
+
+	// ── THE VOCABULARY HAS ONE DEFINITION NOW (bugs_open/404) ──────────────
+	//
+	// These two branches used to carry their own hardcoded copies of "which
+	// reasons mean re-resolve", and page-rerender's live gate carried a third. On
+	// 2026-08-18 two lanes appended a value each to the gate — template_changed
+	// (migration 460) and literal_markdown (473) — and neither touched this file.
+	// The gate knew five; this reader knew three.
+	//
+	// ⚠ AND THE FAILURE DIRECTION IS WHY THAT MATTERED. An unknown reason here
+	// leaves keyReason empty, so the item carries NO reason, so the gate reads it
+	// as assemble-only and re-ships the stored HTML verbatim — completing green
+	// and changing nothing. Both readers fail toward assemble, which is the
+	// estate's safe, cheap, preferred mode AND its silent-failure mode, so drift
+	// in this vocabulary is invisible by construction.
+	//
+	// livespec.RerenderSectionReasons is the single definition, and the live gate
+	// is asserted against it every morning by config-key-audit
+	// --live-declaration-drift.
+	mode := rerenderModeFor(reason, componentIDStr)
+	scoped, stampReason, unknownReason := mode.Scoped, mode.StampReason, mode.UnknownReason
+	for _, w := range mode.Warnings {
+		logger.Warn(w, zap.String("reason", reason),
+			zap.Strings("declared", livespec.RerenderSectionReasonNames()))
+	}
 
 	// keyReason mirrors EXACTLY what the spec carries (empty spec.reason =>
 	// assemble-only), so the dedup key discriminates the two render modes. See
 	// pageRerenderItemKey — bugs_open/024 defect 6.
-	keyReason := ""
-	if stampReason {
-		keyReason = reason
-	}
+	keyReason := mode.KeyReason
 
 	var dependentPages map[string]bool
 	if scoped {
@@ -356,9 +443,16 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 		zap.Int("items_created", itemsCreated),
 		zap.String("batch_id", batchID.String()))
 
-	return map[string]interface{}{
+	out := map[string]interface{}{
 		"items_created": itemsCreated,
 		"pages_total":   len(pages),
 		"batch_id":      batchID.String(),
-	}, nil
+	}
+	if unknownReason != "" {
+		// In the RESULT, not only in a pod log. A log line scrolls; a step result
+		// is what an operator reads when they ask why nothing changed — which is
+		// the question this bug exists to make answerable.
+		out["unknown_reason"] = unknownReason
+	}
+	return out, nil
 }

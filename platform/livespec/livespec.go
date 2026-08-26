@@ -88,7 +88,11 @@ const (
 //
 // It exists because of a council objection (bug_historian, round 2): a field that
 // is accepted but never read is indistinguishable from one that works.
-const LiveAuditOnlyDeclarations = 8
+// ⚠ 8 -> 10 on 2026-08-26 (bugs_open/404): the re-render reason count and the
+// component-template-fixer query are both live-only. The count reads a live
+// column and the fixer entry reads a live query body; neither is something a
+// unit test with no database can check, which is what this Phase means.
+const LiveAuditOnlyDeclarations = 10
 
 // MaxDeclarations is a growth boundary (council: architecture, round 1). livespec
 // is a registry of guarded live objects, not a general config store; if it sprawls
@@ -394,6 +398,70 @@ var Declarations = []Declaration{
 		Provenance: "the WII-028 owned-page door reads this key; migration 488 wrote it. Its Go tie is " +
 			"work_item_owned_page_door_test.go, which quotes the frozen path as a literal rather than " +
 			"reading 488's file. Measured live 2026-08-25: 1 row, and 0 for a deliberately bogus path.",
+	},
+	{
+		// bugs_open/404. The gate is the OTHER reader of the vocabulary
+		// RerenderSectionReasons defines; this is what ties the two together
+		// across the Go/DB boundary that neither side can cross.
+		Key:  "workflow.page-rerender.check_rerender_mode.reasons",
+		Kind: "workflow",
+		ProbeSQL: "SELECT default_config #>> '{workflow,steps,check_rerender_mode,config,condition}' " +
+			"FROM agent_definitions WHERE type = 'page-rerender' AND is_active " +
+			"AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL",
+		Mode:      FragmentMatch,
+		Phase:     PhaseGoSide,
+		Fragments: []Fragment{{Text: CheckRerenderModeConditionClause(), Min: 1, Max: 1}},
+		Provenance: "REB-001 wrote the three-reason condition; migration 460 appended " +
+			"template_changed and 473 appended literal_markdown, both on 2026-08-18, neither " +
+			"touching the Go reader — which is bugs_open/404. The renderer's output was compared " +
+			"against the live text on 2026-08-26 and is byte-identical.",
+	},
+	{
+		// ⚠ THE PAIRED COUNT, AND IT IS NOT DECORATION.
+		//
+		// The whole-clause fragment above is NOT self-bounding. The exclusions
+		// clause can be, because it ends at a closing paren; this condition has no
+		// terminator at all, so a SIXTH reason APPENDED to the live gate leaves the
+		// declared five-value prefix present and the Min:1/Max:1 fragment GREEN.
+		// A fragment sees loss and mutation; only a count sees ADDITION — which is
+		// precisely the direction bugs_open/404 drifted in, twice, in one day.
+		Key:         "workflow.page-rerender.check_rerender_mode.reasons.value_count",
+		Kind:        "workflow",
+		Mode:        CountEqual,
+		ExpectCount: len(RerenderSectionReasons),
+		Phase:       PhaseLiveAudit,
+		ProbeSQL: "SELECT ((length(c) - length(replace(c, 'input_data.spec.reason ==', ''))) " +
+			"/ length('input_data.spec.reason =='))::text FROM (SELECT default_config #>> " +
+			"'{workflow,steps,check_rerender_mode,config,condition}' AS c FROM agent_definitions " +
+			"WHERE type = 'page-rerender' AND is_active AND COALESCE(is_snapshot, false) = false " +
+			"AND deleted_at IS NULL) t",
+		Provenance: "counts occurrences of 'input_data.spec.reason ==', one per value. ExpectCount " +
+			"derives from RerenderSectionReasons, so live-versus-list parity IS the assertion rather " +
+			"than a number someone has to remember to bump. Measured live 2026-08-26: 5.",
+	},
+	{
+		// bugs_open/404 candidate 3, and the reason it is declared rather than
+		// merely fixed: this is the THIRD copy of "which reasons mean re-resolve",
+		// written in raw SQL inside a workflow config where nothing was watching it.
+		Key:  "workflow.component-template-fixer.create_rerender",
+		Kind: "workflow",
+		ProbeSQL: "SELECT default_config #>> '{workflow,steps,create_rerender,config,query}' " +
+			"FROM agent_definitions WHERE type = 'component-template-fixer' AND is_active " +
+			"AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL",
+		Mode:  FragmentMatch,
+		Phase: PhaseLiveAudit,
+		Fragments: []Fragment{
+			{Text: "'reason','template_changed'", Min: 1, Max: 1},
+			{Text: "p.rebuild_policy IS DISTINCT FROM 'owned'", Min: 1},
+			{Text: "p.status = 'active'", Min: 1},
+		},
+		Provenance: "migration 460 rewrote this step. The LIVE row has since drifted from 460's " +
+			"text — it gained the rebuild_policy clause and LOST the filename spec key (measured " +
+			"2026-08-26) — which is exactly why this is declared against the live object rather " +
+			"than against the file. The p.status fragment is live only after migration 655; before " +
+			"that the fixer filed re-renders for archived pages, re-publishing retired ones and " +
+			"making a retraction self-undoing (bugs_open/098's mechanism; 16 of 60 live tool-cta " +
+			"instances sat on archived pages, measured 2026-08-25).",
 	},
 }
 

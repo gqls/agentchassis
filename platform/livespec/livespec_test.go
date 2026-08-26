@@ -210,6 +210,12 @@ var migrationReaderAllowList = map[string]string{
 		"canonical channel — whole statements, checksummed runner, no replace()-of-live indirection.",
 	"contact_info_no_fabrication_test.go": "uses a migration's template body as a RENDER FIXTURE, not as " +
 		"a claim about a live object; the file names its live watcher itself.",
+	"rerender_reasons_test.go": "scans the WHOLE corpus for re-render reason literals and asserts each " +
+		"is a declared value — accumulation-aware, pins no single file, and the live tie is LIVE " +
+		"(livespec workflow.page-rerender.check_rerender_mode.reasons + .value_count). It exists to " +
+		"close the window the ~24h auditor cadence leaves: migrations 460 and 473 each appended a " +
+		"reason to the live gate on 2026-08-18 without telling the Go reader, and this is what would " +
+		"have failed at COMMIT time on the day. bugs_open/404.",
 }
 
 // TestNoNewMigrationFileReadersOutsideTheAllowList stops the class regrowing.
@@ -331,6 +337,13 @@ var gainBlindnessWaivers = map[string]string{
 	"workflow.build-site-planner.load_existing_pages": "a single canonical predicate bounded Min 1 Max 1, " +
 		"not a vocabulary. The Max already refuses a second occurrence, which is the only growth this " +
 		"one-predicate declaration has.",
+	"workflow.component-template-fixer.create_rerender": "a query BODY, not an enumerable vocabulary — " +
+		"there is no set here whose SIZE could grow, so no count could be written. Its three fragments are " +
+		"the three predicates that must hold: the reason stamp (Min 1 Max 1, so a second stamp is refused), " +
+		"the owned-page guard, and the page-status filter migration 655 adds. ⚠ STATED PLAINLY BECAUSE IT IS " +
+		"A REAL RESIDUAL: a rewrite that ADDS a predicate — narrowing the fan-out further — is invisible " +
+		"here. That direction is the safe one for this query (it files fewer re-renders, never more), and " +
+		"the dangerous direction is LOSS, which the Min:1 fragments catch. bugs_open/404.",
 	"workflow.page-content-writer.slot_name_from": "bounded Min 2 Max 2 as of 2026-08-25, so a third render " +
 		"step setting slot_name_from stops the auditor. That is the growth direction that matters here; the " +
 		"live object is two workflow steps, not an open-ended list of values.",
