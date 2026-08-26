@@ -853,3 +853,57 @@ visible half of an incident ends, and the mitigations it justified stay on.*
 > trigger-2 as that lane's designated ROLLBACK LEVER** made "deliberate retirement" a live
 > alternative worth ruling out. **A durable record beat both our inferences**, which is the argument
 > for writing the boring ones down.
+
+### 2026-08-26 ~15:2xZ — the 5½-hour wait RESOLVED: it was a real defect, now `bugs_open/413`. This lane PARKS, deliberately
+
+The `dispatch_throughput` lane took my undiagnosed handover and filed
+**`bugs_open/413_HANDOFF_2026-08-26_selector_and_loader_disagree_on_ordering_so_a_pinned_item_starves_younger_sites.md`**
+(090 run `250188a7` in flight as the independent check).
+
+**The mechanism, theirs not mine:** the site selector ranks sites by their oldest eligible row's
+**age**; the loader then serves the picked site by **priority**, max 5. So an old row at a poor
+priority (e.g. `audit_tool` @140, "run last within the site") **keeps winning site selection for its
+site while never being loaded** — better-priority rows keep arriving ahead of it. The site's age
+freezes at the pinned row, and every younger site gets nothing.
+
+**The piece I could not have found:** it is invisible in `site_work_items`, where *"never selected"*
+and *"selected but loaded zero"* look identical. `orchestration_states` separates them —
+finetuning.uk had **exactly one** build-dispatch-loop in 12h, so the problem is selection-side. That
+is the query I did not know to run, and it is why handing the observation over undiagnosed was
+right rather than merely cautious.
+
+**My rank-13/19/20 anomaly resolves too, and the resolution is a rolling-window trap I should have
+suspected:** those sites held pre-05:03 rows *earlier* which have since drained or archived. They
+stopped receiving loops at the exact moments their own old rows drained — which is the cross-check
+that the model is right. I compared a *current* rank snapshot against *historical* service and read
+the mismatch as an anomaly in the ordering; it was an artefact of comparing two different instants.
+
+**Where this lane actually stands, measured:**
+
+- `finetuning.uk` is **not itself pinned** — its oldest row is `generic_theme` @**60** (05:03:29),
+  which would load fine. It is a **victim of pins on the seven sites ahead of it**; the peer confirms
+  two of those (`gaswholesalers`, `loanandmortgagecalculator`) are starving the same way.
+- **My canary is load position 1** in finetuning.uk's own queue — priority 30, ahead of the @60
+  block. **The moment the site wins a turn, it runs.** Nothing about my dispatch is wrong.
+
+> **DECISION: PARK. Do not fire the rerender directly.** The estate's direct-fire remedy is for a
+> **dead** queue; this queue is doing **265–278 claims/h**. Firing round a *starved* site is exactly
+> MISSTEP 9 in a new costume — and that time I also had a real-sounding justification.
+>
+> **The deciding fact is that there is NO live damage.** Verified at the artefact just now:
+> `/tools/password-entropy.html` is archived and still returns **200** (absent control 404), and
+> `/about.html` still resolves both its links to it. Archiving freezes a page and keeps serving it,
+> so the intermediate state is **coherent, not broken**: the page is archived, still served, still
+> linked, nothing dead. The remaining work is an *improvement*, not a repair, and it does not justify
+> routing around a known defect another lane is actively fixing.
+>
+> The state is also **guarded against the one way it could go wrong**: a retraction that removed the
+> file while inbound links remain would create dead links — and `retract_page_deployment` refuses
+> exactly that case. So the sequence cannot be half-completed into damage by anyone.
+
+**Adopted from this lane by `dispatch_throughput`:** the **per-site starvation floor** (worst-case
+hours-since-last-claim across waiting sites) is now in their RUNBOOK and is a required part of
+tomorrow's 24h post-B read — because the aggregate they were reading (265–278 claims/h, 13–17
+distinct sites/h) is healthy *and* fully consistent with a mid-rank site receiving nothing for six
+hours. My Phase 3 note is in 413 too, and correctly framed as cutting both ways (deeper loads reach
+@140 rows sooner, but each pick holds a site longer) — to be measured, not assumed.
