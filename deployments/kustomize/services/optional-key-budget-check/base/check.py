@@ -152,7 +152,7 @@ OPTIONAL_KEY_COUNTS = {
     "mark_training_run_running": 1,
     "normalize_to_feed_items": 3,
     "persist_diagnosis_note": 10,
-    "plan_sections": 7,
+    "plan_sections": 8,
     "populate_nav_tables": 1,
     "prepare_rebuild_dispatches": 3,
     "prepare_scrape_batches": 2,
