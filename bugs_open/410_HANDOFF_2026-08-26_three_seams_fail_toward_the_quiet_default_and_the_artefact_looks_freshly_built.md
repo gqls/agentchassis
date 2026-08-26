@@ -114,3 +114,47 @@ argument the file otherwise makes from construction alone. Supplied by the `news
 *best evidenced*. Had `loadStoredSections` returned `scanned < selected` as an error, or even a
 count, those six tests would have named the cause on the first run instead of six times reporting
 its symptom.
+
+---
+
+## 2026-08-26 (later) — candidate 3 is not a proposal: this package already implements it, for a different reader
+
+Two additions, both verified here rather than relayed — the first correcting how I pitched the
+reproduction, the second removing the need to argue for the fix at all.
+
+**1. The seam is invisible to the tests that cover it, not merely unnamed by them.** I wrote that the
+six tests "encoded the symptom and lost the cause". The `news_editorial` lane's sharper version, which
+I checked: those tests assert **section count and content**, never *rows-in equals rows-out*. So they
+would have **passed** on a column change that was wrong in a way that still scanned. Confirmed by
+grep across the package's `_test.go` files: the loader's covering tests assert `len(sections) != 1`
+and similar, and **no test in that area asserts scan completeness**. That is not "the error message
+was unhelpful" — it is a check that cannot come out the other way, the family all three lanes logged
+separately this week.
+
+**2. And the guard already exists, ten files away, arrived at the same way.**
+`TestAnUnreadableSectionRefusesComponentGrainForTheWholePage`
+(`validate_page_content_surface_test.go`) protects `collectPageSections` with **exactly** candidate
+3. Its own comment states the defect in terms this file could have borrowed wholesale:
+
+> *"A section whose HTML the canonical reader cannot resolve must NOT be silently dropped from the
+> scan while the rest of the page is judged and reported as scanned. That is a partial, invisible
+> loss of coverage… **The guard is a COUNT**: fewer sections back than the metadata held means
+> something was dropped, whatever the reason."*
+
+and its failure message is this file's whole thesis in one line — *"that page would be scanned in
+part and reported as scanned in full"*.
+
+**Three things follow.**
+
+- **Candidate 3 stops being a design proposal.** It is *"apply the count guard this package already
+  uses on `collectPageSections` to `loadStoredSections`"* — the same reframing that strengthened
+  `bugs_open/399`'s candidate 1. A reviewer asking "why now" gets a precedent, not an argument.
+- **It was found by a council objection, not by an incident** (bug_historian, round 1, correlation
+  `3ed2b792`). So the estate has already reasoned its way to this guard once *before* it cost
+  anything — and the loader simply never inherited it. That is a stronger case for propagating it
+  than three post-hoc instances.
+- **Copy its mutation check too, verbatim in spirit.** That test carries: *"delete the
+  `len(sections) != len(items)` guard and this test must fail. If it still passes, the guard is not
+  what is producing the refusal and the coverage hole is back."* A count guard added to
+  `loadStoredSections` without that discipline is a check nobody has proven can fail — which is the
+  defect this file is about, reintroduced as its own fix.
