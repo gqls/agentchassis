@@ -447,3 +447,10 @@ after the re-render — nobody should expect the wave to change it.
 lane's then-uncommitted entry ("USAGE count read as DAMAGE count") alongside mine — the scope report
 cannot see a same-file passenger, and the numstat (58 lines for a ~16-line entry) was the tell.
 Nothing lost, forward-only; their entry is intact and now committed under my message; they were told.
+
+**19.** `[2026-08-26 ~11:55 BST]` **OWNER RULING: "leave lampenkap google tag"** — filed by the 384
+lane into this dir as agreed (`CONTRIB_2026-08-26_from_bugs_open_384_owner_ruling_leave_lampenkap_tagged.md`,
+`d3f04b95a`). cv1 remains open. The ruling arrived with an owner question — *"is that what GA4 is?"* —
+answered with a fresh measurement, not memory: container re-read 10:50Z, **still version 2 / 0 tags /
+no `G-` id**, so tagged ≠ reporting; nothing reports until he publishes. Plain-English version added
+to README for him. The 384 lane deliberately left the wiring fact to this lane — correct split.

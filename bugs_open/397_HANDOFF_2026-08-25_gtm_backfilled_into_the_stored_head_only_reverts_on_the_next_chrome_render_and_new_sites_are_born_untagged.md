@@ -291,3 +291,8 @@ Banked from the lanes' acks, 2026-08-26 (fuller versions in `analytics_gtm/NOTES
   differing from peers = NOT YET REACHED, not skipped — re-sample before concluding a miss.
 - **Open OWNER question: should `cv1.co.uk` and `lampenkap.com` report into the estate's GA4?**
   Portfolio call, both lanes agreed; both keyed today; retraction is one supersede (4 + 1 pages).
+  > **lampenkap RULED 2026-08-26: "leave lampenkap google tag" — keep the key, no retraction**
+  > (`analytics_gtm/CONTRIB_2026-08-26_from_bugs_open_384_owner_ruling_leave_lampenkap_tagged.md`,
+  > `d3f04b95a`). **cv1.co.uk remains the open half.** And per the owner's attached question ("is
+  > that what GA4 is?"): the ruling keeps the CONTAINER on the site; nothing reports into GA4 until
+  > the container carries a published Google Tag — 0 tags at 2026-08-26 10:50Z, re-measured.

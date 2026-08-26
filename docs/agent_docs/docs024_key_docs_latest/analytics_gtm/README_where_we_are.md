@@ -226,3 +226,16 @@ back, not more churn — and the two big loan-calculator sites never lost theirs
 One practical thing for your Google walkthrough: until apis.uk rebuilds, it serves no tag — so when
 you get to the "check it works" step, load **idea.uk or vonc.com** instead and watch Realtime there.
 The container itself still has no published tag; that click is still yours.
+
+## 2026-08-26 — your lampenkap ruling is done, and your question deserves a straight answer
+
+Your "leave lampenkap google tag" is recorded and nothing was changed — it keeps the tag and will
+report like every other site.
+
+You asked *"is that what GA4 is?"* — fair question, and the honest answer is: not quite, and the
+difference matters for what happens next. The thing on every site (GTM-PQ3WCTBD) is **Tag Manager —
+a socket**. GA4 is **the appliance** you plug into it, and the plug is the Measurement ID from your
+Agent Chassis property. I re-checked the socket just now: it still has **nothing plugged in** — zero
+tags — so no site is reporting anything to Google yet, lampenkap included. The moment you finish the
+walkthrough (Google Tag with the Agent Chassis id, then Submit → Publish), every site starts
+reporting at once. That one step is still the whole ballgame.
