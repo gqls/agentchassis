@@ -55500,3 +55500,55 @@ under mutation is reporting that it is not watching.
 
 Family: mutate-the-code-to-prove-the-guard, a-mutation-that-passes-may-have-hit-a-guard-in-series,
 a-quiet-test-passes-when-the-rule-is-gone, a-post-fix-zero-needs-a-demand-control.
+
+---
+
+## 2026-08-26 — I wrote a mutation table before running it, and two of its rows were false
+
+**Lane:** `bugfix_359_archived_page_still_serving`.
+
+**The claim.** The new check's test file opens with the house mutation table — "break this,
+and THAT named test fails" — one row per guard. I wrote all thirteen rows from the design,
+because I knew which test was aimed at which guard. Two of them named the check's two most
+important guards: the invented-URL control (without it, a catch-all domain makes every
+retired page read as damage) and the active-sibling control (without it, a dead origin makes
+every retired page read as fine — the false all-clear this whole check exists to avoid).
+
+**The truth.** I then actually ran the mutations. Eleven were caught. **The two control rows
+SURVIVED** — I deleted each guard and its named test went on passing.
+
+**Why, and this is the transferable part.** Neither test was asserting the wrong thing. Both
+were passing on a **different failure**. Their fixtures scripted only what the test was about,
+so with the control removed the run simply fell over on the next unscripted thing — a probe
+with no answer, a query with no expectation — and `Run` returned an error anyway. The
+assertion was `err != nil`. It saw an error and was satisfied. **A refusal test that does not
+name its refusal cannot tell its own guard from the next one along.**
+
+That is the recorded landmine "a mutation that PASSES usually hit a guard in SERIES", and I
+had read it. Reading it did not stop me writing the table from the design instead of from the
+result — which is the actual failure here. **A mutation table is a record of experiments that
+were RUN. Written from intent it is a design document wearing the costume of evidence**, and
+it is worse than no table, because the next reader takes it as proof that the guards below it
+are load-bearing.
+
+**What caught it.** Running the mutations, one command, before committing. There was no
+subtler tell — every test was green, the package was green, and the table read beautifully.
+
+**The fix, both halves, because one alone is not enough.** (1) Script everything DOWNSTREAM of
+the guard as healthy, so a check that ignored the control would run to completion and do the
+damage the test is meant to forbid — that is what makes the assertion discriminating at all.
+(2) Assert **which** guard refused (`strings.Contains(err, "invented-URL control")`), not
+merely that something did. With only (1) a future refactor that moves the failure elsewhere
+silently re-opens the hole; with only (2) the test can still be satisfied by a guard in series
+that happens to produce a similar message.
+
+**Cheap check, stated so it generalises: never write a mutation row you have not executed, and
+when a refusal test passes, ask what would happen to it if the guard simply were not there.**
+The second question is the whole of it — a passing test proves the CURRENT code is acceptable,
+never that any particular line of it is load-bearing. This is
+[[mutate-the-code-to-prove-the-guard]] with the sting in the tail that
+[[a-mutation-that-passes-may-have-hit-a-guard-in-series]] names: the mutation must not only be
+run, it must be run against a fixture that lets the damage happen.
+
+Family: mutate-the-code-to-prove-the-guard, a-mutation-that-passes-may-have-hit-a-guard-in-series,
+a-quiet-test-passes-when-the-rule-is-gone, a-post-fix-zero-needs-a-demand-control.
