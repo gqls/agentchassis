@@ -219,13 +219,34 @@ WHERE EXISTS (SELECT 1 FROM site_work_items wi WHERE wi.site_id=s.id
    AND (wi.retry_after IS NULL OR wi.retry_after <= now()))
 ORDER BY last_claim ASC NULLS FIRST LIMIT 15;
 
--- The pin census: eligible rows old enough to be their site's representative but at the
--- served-last end of the loader's ordering, on sites with recent claims at better priorities.
-SELECT s.domain, wi.created_at, wi.priority, wi.item_type, wi.attempt_count
-FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
-WHERE wi.status IN ('triaged','approved') AND wi.priority >= 130
-  AND wi.created_at < now()-interval '6 hours'
-ORDER BY wi.created_at LIMIT 20;
+-- PINNED vs VICTIM census (the discriminator is the 391 lane's, 2026-08-26): a site is PINNED
+-- when its oldest eligible row falls outside the loader's top-max_items by (priority,
+-- created_at) — it wins selection on a row it never loads; a VICTIM's oldest would load fine,
+-- the site just never wins. Starvation is POSITIONAL (being behind pins in age order) — a
+-- pinned site starves the same way while older pins exist. ⚠ pin status is DYNAMIC (a pin
+-- clears when better-priority inflow pauses) — the census is a snapshot, date it.
+WITH elig AS (
+  SELECT wi.id, wi.site_id, wi.created_at, wi.priority, s.domain
+  FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+  WHERE (s.locked_at IS NULL OR wi.id = ANY(COALESCE(s.lock_except_item_ids, ARRAY[]::uuid[])))
+    AND wi.status IN ('triaged','approved') AND wi.attempt_count < wi.max_attempts
+    AND (wi.retry_after IS NULL OR wi.retry_after <= now())
+    AND (COALESCE(wi.approval_mode,'auto')='auto' OR wi.status='approved')
+    AND (wi.depends_on IS NULL OR NOT EXISTS (
+          SELECT 1 FROM unnest(wi.depends_on) dep_id
+          WHERE dep_id NOT IN (SELECT id FROM site_work_items
+                               WHERE site_id=wi.site_id AND status IN ('complete','verified'))))),
+ranked AS (
+  SELECT e.*,
+    row_number() OVER (PARTITION BY site_id ORDER BY created_at, priority, id) age_rank,
+    row_number() OVER (PARTITION BY site_id ORDER BY priority, created_at) load_rank
+  FROM elig e)
+SELECT domain, count(*) eligible, min(created_at) oldest,
+  max(load_rank) FILTER (WHERE age_rank=1) oldest_load_rank,
+  max(load_rank) FILTER (WHERE age_rank=1) > 5 pinned,
+  (SELECT max(claimed_at) FROM site_work_items c WHERE c.site_id=r.site_id) last_claim
+FROM ranked r GROUP BY domain, site_id
+ORDER BY 3 LIMIT 25;
 ```
 
 ## Council (added 2026-08-25)

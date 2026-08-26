@@ -104,3 +104,33 @@ never-loaded pins) but hold each site busy longer per pick. Do not treat Phase 3
 neutral — measure the per-site floor across it. Ruling B itself (migration 637) neither caused nor
 cures this: the pair co-picked the deep site 94% pre-B, so pre-B starvation was WORSE, just
 unmeasured.
+
+## Addendum 2026-08-26 ~15:5xZ — pinned vs victim, measured (the distinction is the 391 lane's, from their own site's shape)
+
+The 391 lane observed that finetuning.uk is NOT itself pinned (its oldest row is @60 and loads
+fine the moment the site wins) and proposed the discriminator: **pinned** = the site's oldest
+eligible row falls OUTSIDE the loader's top-`max_items` by (priority, created_at); **victim** =
+the oldest would load, the site simply never wins. Census run `[MEASURED 2026-08-26 ~15:5xZ]`,
+query in RUNBOOK (windowed rank comparison, all selector clauses applied):
+
+- **25 sites hold eligible work; 13 are pinned, 12 are not.** Severe pins: loanzy.uk
+  (oldest loads 60th), ai-agent-orchestration.com (51st), webdesign.co.uk (34th), loancash
+  (28th), lendzy (28th), loancalculator (27th). finetuning.uk: oldest_load_rank **2** — pure
+  victim, canary at rank 1 (their reading of their own queue, confirmed here).
+- **Pin status is DYNAMIC — the file's own first example has already cleared.**
+  mortgagecalculator.co.uk, pinned with 3× @140 behind a deep better-priority queue at ~15:1x,
+  had drained to 5 eligible by ~15:5x: oldest_load_rank 3, unpinned, last claim 15:16. A pin
+  clears when the site's better-priority inflow pauses long enough to drain within reach.
+  Any census of this population is a snapshot; date it.
+- **Sharpened mechanism: a site's own pin does not starve ITSELF — starvation is positional.**
+  loanandmortgagecalculator.co.uk is pinned (rank 8) AND starving since 04:39 — because of the
+  pins AHEAD of it in age order, not its own. A pinned site starves the same way a victim does
+  while older pins exist; its own pin then makes it the next persistent age-blocker once it
+  starts winning. Fix consequences: unpinning (candidate 1) frees victims for free, as the 391
+  lane noted — but candidate 2 (age floor) is the only one that bounds the POSITIONAL wait,
+  which is the harm both groups actually suffer.
+- Currently starving > 10 h: gaswholesalers.com (victim, last claim 04:22),
+  finetuning.uk (victim, 05:09); loanandmortgagecalculator (pinned, 04:39).
+
+090 status at this addendum: run `250188a7` iterating (evidence bundles 15:16 / 15:20 in
+`diagnosis_artifacts`), verdict not yet landed — will be appended here when read.
