@@ -22,6 +22,37 @@ spec:
               mountPath: /app/configs
               readOnly: true
           env:
+            # THE DELIVERY EMAIL'S SMTP IDENTITY (DGH-018; owner-supplied settings
+            # 2026-08-26, proven end-to-end at Gmail's Authentication-Results:
+            # dkim/spf/dmarc all pass). Read by mailer.FromEnv("DELIVERY_SMTP") in
+            # send_delivery_email; the action constructs the sender BEFORE the
+            # once-only handover stamp, so a missing password here fails LOUD with
+            # nothing stamped — never a site stranded handed-over-but-unemailed.
+            #
+            # ⚠ DELIVERY_SMTP_PASS is a secretKeyRef against `delivery-smtp-secrets`,
+            # a secret the OWNER creates (he holds the password; it exists in no
+            # file and no session):
+            #   kubectl -n ai-persona-system create secret generic delivery-smtp-secrets             #     --from-literal=DELIVERY_SMTP_PASS='<the mailbox password>'
+            # Until it exists the pods show CreateContainerConfigError — loud by
+            # design, the same fail-visibly choice bugs_open/245's fix made.
+            # Port 465 = implicit TLS; mailer.UsesImplicitTLS already handles it.
+            - name: DELIVERY_SMTP_HOST
+              value: "mail.contactforsales.com"
+            - name: DELIVERY_SMTP_PORT
+              value: "465"
+            - name: DELIVERY_SMTP_USER
+              value: "webdesign@contactforsales.com"
+            - name: DELIVERY_SMTP_FROM
+              value: "webdesign@contactforsales.com"
+            - name: DELIVERY_SMTP_FROM_NAME
+              value: "webdesign.uk"
+            - name: DELIVERY_SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: delivery-smtp-secrets
+                  key: DELIVERY_SMTP_PASS
+                  optional: true
+
             # Core agent configuration
             - name: AGENT_TYPE
               value: "generic"
