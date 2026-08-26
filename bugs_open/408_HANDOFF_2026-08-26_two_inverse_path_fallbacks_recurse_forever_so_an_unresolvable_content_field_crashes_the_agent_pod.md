@@ -1,0 +1,144 @@
+# 408 — two inverse path fallbacks recurse forever, so an unresolvable `content_field` crashes the agent pod with a stack overflow
+
+**Filed 2026-08-26 by the `bugs_open/357` lane**, found while testing 357's phase-3
+precondition. **Not a 357 defect** — 357 is only how I reached a missing field. This is a
+general fault in the fleet's page-composition path and it takes the pod down.
+
+---
+
+## 1. The defect
+
+`extractFieldValue` (`platform/orchestration/actions/multipage_actions.go:1185`) has two
+fallbacks for an unresolvable path, and **they are exact inverses of each other with no depth
+bound and no visited set**:
+
+```go
+// A — path CONTAINS ".response." -> strip it and recurse          (:1207-1214)
+if strings.Contains(fieldPath, ".response.") {
+    fallbackPath := strings.Replace(fieldPath, ".response.", ".", 1)
+    return extractFieldValue(data, fallbackPath, logger)
+}
+
+// B — path does NOT contain ".response." -> add it and recurse    (:1215-1223)
+parts := strings.Split(fieldPath, ".")
+if len(parts) >= 2 && !strings.Contains(fieldPath, ".response.") {
+    responsePath := parts[0] + ".response." + strings.Join(parts[1:], ".")
+    return extractFieldValue(data, responsePath, logger)
+}
+```
+
+A removes `.response.`; B puts it back. Each call satisfies the other's condition, so:
+
+```
+page_content_0.response.page_html  --A-->  page_content_0.page_html
+page_content_0.page_html           --B-->  page_content_0.response.page_html
+… forever, until the goroutine stack passes 1 GB and the runtime kills the process
+```
+
+**Every cycle emits a `Warn`**, so the pod also floods its own logs on the way down.
+
+## 2. Evidence [MEASURED 2026-08-26]
+
+Pod `agent-page-rebuild-147e9f90-4xf8j`, container terminated `exitCode: 2`, `reason: Error`:
+
+```
+runtime: goroutine stack exceeds 1000000000-byte limit
+runtime: sp=0xc0215b8360 stack=[0xc0215b8000, 0xc0415b8000]
+fatal error: stack overflow
+```
+
+**The whole log of that container is one repeated line — 12,654 of 12,654:**
+
+```json
+{"level":"warn","caller":"actions/multipage_actions.go:1202","msg":"Field not found in path",
+ "step_name":"build_pages_loop_iter_0_assemble_page","action":"assemble_page",
+ "field":"page_html","full_path":"page_content_0.response.page_html"}
+```
+
+`grep -c 'Field not found in path'` = **12654**; total lines = **12654**; distinct payload = **1**
+(`"field":"page_html"`). The `full_path` is the ORIGINAL on every line, which is the A→B→A
+cycle returning to its start every second hop.
+
+**Three orchestrations were destroyed by it** — all abandoned mid-flight at
+`build_pages_loop_iter_0_assemble_page` and only released hours later by the stale reaper
+(`"reaper: stale EXECUTING_STEP for >4h"`): `e0c2d505-9875-4347-a718-a852f32ec6b7`,
+`5a0cad41-fe0c-4636-9b2d-9c942486019c`, `bf29ec85-8ef9-457a-9366-1ca121a95810`. Pod restart
+count reached **2** in 27 minutes.
+
+## 3. Why the caller is innocent — and why that makes the fix easy
+
+`AssemblePageAction` (`multipage_actions.go:17`) calls it at `:106` and **already handles the
+missing case correctly**:
+
+```go
+content := extractFieldValue(params.CollectedData, contentField, params.Logger)
+if content == "" {
+    // No content found - treat as skipped rather than error
+    // This allows the loop to continue with other pages
+```
+
+The contract the caller relies on is *"returns the value, or `""` if it cannot be found"*. The
+function honours that on every path **except** the two fallbacks, where instead of returning
+`""` it never returns at all. **Nothing about the call site needs to change.**
+
+## 4. How it is reached
+
+Any `assemble_page` whose `content_field` does not resolve, where the path has ≥2 parts. The
+route I hit: a page whose content writer returned `skipped: true`,
+`reason: "no sections defined for page"`, `section_count: 0` — so
+`page_content_0.response.page_html` was legitimately absent. **A page the writer skips is a
+NORMAL outcome the caller was written to tolerate**, and it kills the pod.
+
+⚠ **This is not rare-path-only.** `content_field` is operator-set config
+(`"content_field": "page_content.response.page_html"` on `page-rebuild`'s `assemble_page`), so
+a typo in any agent's step config produces the same crash rather than a skipped page.
+
+## 5. Fix candidates, ordered by what makes the bad state unrepresentable
+
+1. **Give the recursion a bounded, monotone shape.** Try each path form at most once — e.g.
+   resolve against an explicit ordered candidate list (`original`, `stripped`, `with-response`)
+   in a loop with no self-call at all. This makes non-termination structurally impossible
+   rather than merely unlikely, and is the smallest diff.
+2. **Pass a depth/visited parameter.** Correct, but it keeps a recursive shape whose safety
+   depends on every future editor preserving the guard — weaker than (1) for the same effort.
+3. **Return `""` from the second fallback instead of recursing.** One line, kills the cycle,
+   but silently drops the one genuinely useful case (a path written without `.response.` that
+   needs it). Acceptable only as an emergency stop.
+4. ~~Raise the stack limit / add a pod memory limit~~ — **rejected**: it converts a fast crash
+   into a slow one and leaves the log flood and the 4h orchestration abandonment intact.
+
+**Also worth fixing regardless of which is chosen:** the `Warn` inside the loop. A log line per
+recursion turned one failed lookup into 12,654 lines. Log the failure once, at the top-level
+call, not per attempt.
+
+**This is `platform/` Go, so the fix wants the council gate** (and it is inert until an image
+is built and rolled).
+
+## 6. How to verify
+
+Unit-level, and it needs no cluster:
+
+```go
+// must RETURN, and must return "" — today it never returns
+got := extractFieldValue(map[string]interface{}{"page_content_0": map[string]interface{}{
+    "response": map[string]interface{}{"skipped": true},
+}}, "page_content_0.response.page_html", zap.NewNop())
+// want: "" — and the test must have a TIMEOUT, because the failure mode is non-termination,
+// not a wrong value. A plain assert would hang the test binary rather than fail it.
+```
+
+⚠ **A test asserting the return value alone cannot fail today — it never gets to assert.**
+Run it under `go test -timeout 30s` and treat the timeout as the failing signal, or the suite
+reports a hang rather than a defect.
+
+End to end: rebuild a page whose writer skips, and assert the pod's restart count is unchanged
+and the orchestration reaches a terminal state rather than sitting at `assemble_page`.
+
+## 7. Relations
+
+- **`bugs_open/357`** — how it was found. It is currently **blocking 357's phase 3**: the
+  precondition that an adopted row survives a rebuild cannot be tested while every rebuild of
+  that page crashes the pod. See
+  `docs/agent_docs/docs024_key_docs_latest/bugfix_357_component_identity/HANDOFF_2026-08-26_continue_here.md`.
+- **`bugs_open/406`** — the other defect the same investigation turned up; unrelated mechanism.
+- The stale-orchestration reaper is the only thing that releases the wedged runs, at **>4h**.
