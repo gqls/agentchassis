@@ -2844,3 +2844,57 @@ Exposure checked today rather than after a surprise:
 - The other rotation checks (palette_contrast, image_url_404, tool_health,
   missing_css) have no known noted-specific trap; anything they file will be visible
   as work items on the site and should be read against this entry first.
+
+---
+
+## 2026-08-26 (cont.) — the sweep wave hit TODAY, not in 2-3 days; site verified intact; two peer lanes engaged
+
+The "~2-3 day ramp" in the rotation heads-up was wrong for noted: LRV-first put
+us near the front, and tool/audit sweeps were ALREADY active overnight (first
+completions 03:35Z, i.e. BEFORE the 09:20Z design-rotation re-enable — separate
+mechanisms). ~40 new work items on noted this morning; 67 open rows total.
+
+**Verified intact after the wave** (all at the artefact, 2026-08-26):
+- Live smoke **17/17 PASSED** (editor, engine, media, deletion).
+- Privacy "30 days" spot-check present (full 26/26 not re-run).
+- **Stored tool-write component (2f24b506) IS our shipped editor**: 47,444
+  chars vs repo file 47,531 B, `nw-` ids + "Saved ✓" present, updated_at =
+  our 08-25 15:33Z ship. The TWO failed instance_scope_conversion attempts
+  wrote nothing. So the 12 queued page_rerender items redeploy the same
+  editor — not a loaded gun.
+
+**What already changed today (03:34–03:36Z + 07:42Z):**
+- Head chrome rebuilt twice ("deactivated Document Head" ×2) — this TOOK THE
+  GTM TAG (analytics lane's 08-24 backfill was artefact-only; their
+  cross-session note + `bugs_open/397` §9; they are applying the durable fix
+  with owner go). The open `chrome_divergence_overwritten` (head, 49,431 B) is
+  THEIR backfill being archived out — told them to claim it; also pointed
+  them at the 08-18 header sibling (2,385 B, unknown provenance).
+- `undeployed_asset` 'icon' "deployed=true" **three times** — and the
+  referenced paths STILL serve the 68,972 B HTML fallback. ⚠ noted 200s
+  every path INCLUDING an invented control, so status-code probes are
+  useless here — discriminate by content_type (text/html = broken).
+- page_rerender on tool-legacy-rescue-guide ran, then went
+  `[unresolved after 2 attempts]` on its misdirected-CTA reason.
+
+**Standing findings:**
+- **favicon.png / logo.png / og-card.png references in the head are broken on
+  the wire and PRE-EXISTING** — both the archived (old) and current head carry
+  them; today's rebuild did not introduce them. No hero.jpg on index/about
+  served HTML. Damage class: no favicon, broken link previews. The framework
+  is queuing LLM-generated brand assets (logo, icon, hero, og-card) at
+  asset-deployer/image-build-handler — **a branding decision on the owner's
+  product; flagged to him in README rather than allowed silently**.
+- improve_tool "Write has no @media": fact true of the tool's own CSS
+  (0 by design, fluid mobile-first), inference refuted by the 61-check
+  harness incl. 390px. improve_tool "legacy-rescue has no <style>": same
+  heuristic class, unassessed. add_tool ESCALATION spec embeds the full
+  incumbent contract ("preserve these invariants") — careful, but
+  replace_existing:true on the product's core surface for a multi-instance
+  convention a single-instance tool can't benefit from. **Asked the
+  webdesign-tool-rebuilds lane (msg 12db35e6) for the sanctioned exemption
+  route instead of wont_fixing standing-sweep items that would re-detect.**
+- Watchlist: `evaluate_tools` (tool-suggester could ADD tools),
+  `prerequisite_missing` ×2 (research_results / content_sources absent —
+  could pull noted into content-research flows; detected, no handler yet),
+  contrast_failure ×7 unresolved at css-patch-agent (08-24, pre-wave).

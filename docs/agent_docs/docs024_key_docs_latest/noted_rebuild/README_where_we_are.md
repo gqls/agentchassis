@@ -526,3 +526,34 @@ to noted@contactforsales.com reaches anyone. The domain does have a working
 mail service behind it, so mail won't just bounce off a dead domain — but
 whether that particular address lands in a mailbox someone reads, only your
 one test email can prove. That question is still yours.
+
+---
+
+2026-08-26, mid-morning. The platform's automatic housekeeping woke back up
+today after a fortnight off, and noted was one of the first sites it visited.
+Mostly this is fine and working as designed: it re-checked the site top to
+bottom, and I verified afterwards that everything you care about is untouched
+— the editor passes all its live checks, the privacy wording is in place, and
+the queued "re-render" jobs would simply reproduce the current site.
+
+Two things you should know. First, the site briefly lost its Google
+Analytics tag early this morning — a re-render rebuilt the page furniture
+from source and the tag had only ever been patched into the finished page,
+not the source. The analytics team spotted it within hours and is putting it
+back the durable way. Nothing else was lost.
+
+Second, a decision that is genuinely yours: noted has never had a favicon
+(the little browser-tab icon), a logo image, or a link-preview picture — the
+pages point at image addresses that serve nothing, and they always have. The
+housekeeping noticed and is queuing up MACHINE-GENERATED artwork to fill
+those slots. If you'd rather choose your own icon and preview image for your
+own product — or want nothing there at all — say so and we'll put your
+choice in before the machine invents one. This is cosmetic either way; the
+site works regardless.
+
+One more piece of automation wants to rewrite the note editor itself to fit
+a platform-wide code convention. The rewrite instructions are careful — they
+insist on preserving every behaviour we built — but I've asked the team that
+owns that machinery whether a tool like ours can be exempted, since the
+convention solves a problem our editor can't have. Nothing will change
+without the editor's full test suite being run against it.
