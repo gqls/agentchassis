@@ -1,32 +1,53 @@
-# HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-26 ~15:45Z.
+# HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-26 ~15:45Z; STATE + GATE ZERO revised 17:35Z (grind seat: #44 built and retired, queue cleared, GATE ZERO corrected against the real selector).
 Supersedes `HANDOFF_2026-08-25_continue_here.md` (which had accumulated nine stacked STATE lines).
 
-## STATE: 43 of 63 serve-confirmed. NOTHING IN FLIGHT. THE GRIND IS BLOCKED — do not file yet.
+## STATE: 44 of 63 retired (43 serve-confirmed, #44 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE HAS CLEARED — filing works again.
 
-43 `removed` + 20 `deployed` = 63, verified 2026-08-26 15:38Z, with **zero pages carrying both a
-live ported slot and a live native slot**. Nothing is part-done: no open `add_tool`, no pending
-retire, no unwatched rerender, no owed serve-grade.
+44 `removed` + 19 `deployed` = 63 (tool pages), verified 2026-08-26 17:32Z, with **zero pages carrying
+both a live ported slot and a live native slot**. Nothing is part-done except the serve-grade below.
 
-**Why blocked, and the ONE query that tells you when it is not.** `webdesign.co.uk` is queue-starved:
-328 triaged build items, draining ~6 claims/hour, and a new `add_tool` at priority 60 sorts *after*
-the 03:46 batch — so it would queue behind **~107** items. A build you cannot attend must not be
-filed (an unattended build publishes a page serving BOTH tools). **Run GATE ZERO before anything:**
+**#44 `tool-monolith-splitter` is BUILT AND RETIRED** — `add_tool e164b069` filed 16:49:27Z, claimed
+17:03:19Z (13m52s), complete 17:06:50Z, run graded clean, retired 17:23:20Z under full guards, tombstone
+re-read. **SERVE-GRADE OWED:** rerender `4d02956e-391a-4024-9eb8-ef2c7c9bb2bc` is `triaged` with ~80
+dispatchable items ahead `[MEASURED 17:28Z]` (~24 claims/h ⇒ ~3.3 h). **Do NOT file a second rerender**
+— it would dedupe against that row. State while waiting is safe: DB has ported removed + native
+deployed, the page serves the old single tool, and that rerender assembles native-only when it lands.
+Grade it with step 7 below when it completes.
+
+**⚠ GATE ZERO — THE RUNBOOK'S QUERY COUNTS THE WRONG POPULATION. Use the corrected one.**
+`[VERIFIED at the arms 2026-08-26]` The runbook's citations (`maintenance_actions.go:882`,
+`seed_build_queue_action.go:69`) are **two different queues, neither of them `site_work_items`** —
+the first claims from `maintenance_queue` filtered by `task_type`, the second reads `build_queue`.
+The real loader is `platform/orchestration/actions/load_work_item_actions.go` (~747-790), and it
+additionally requires `attempt_count < max_attempts` **and** `(retry_after IS NULL OR retry_after <=
+NOW())`. The old query therefore *overcounts* stalled retries and *undercounts* by filtering
+`pipeline='build'`, which the dispatcher does not filter (`build-dispatch-loop.load_items` sets
+neither a pipeline nor a handler filter; `max_items: 5`). Measured today: old query **10**, truth **8**.
 
 ```sql
-SELECT count(*) AS ahead_of_me FROM site_work_items
-WHERE site_id='6b49db8e-d447-4467-8277-4f3018af9897' AND pipeline='build' AND status='triaged'
-  AND (priority, created_at) < (60, now());
+SELECT count(*) AS truly_ahead FROM site_work_items wi
+WHERE wi.site_id='6b49db8e-d447-4467-8277-4f3018af9897'
+  AND wi.status IN ('triaged','approved')
+  AND wi.attempt_count < wi.max_attempts
+  AND (wi.retry_after IS NULL OR wi.retry_after <= NOW())
+  AND (COALESCE(wi.approval_mode,'auto')='auto' OR wi.status='approved')
+  AND (wi.priority, wi.created_at) < (60, now());
 SELECT max(claimed_at) AS site_last_served FROM site_work_items
 WHERE site_id='6b49db8e-d447-4467-8277-4f3018af9897';
 ```
-More than a handful ahead, or a stale last-served, means **wait**. ⚠ **Do NOT bump `priority` and do
-NOT re-file** — the per-site pickup is `priority ASC` (LOWER first), so a bump moves you BACKWARDS,
-and `LANDMINES.md` forbids it. On 2026-08-26 a 12-hour census showing every claimed `add_tool` at
-priority 120/130 and none at 60 looked like starvation-by-priority and was the causation inverted.
 
-**#44 `tool-monolith-splitter` was filed and WITHDRAWN** (`910ea037`, cancelled under guards 10:25Z;
-ported slot `e134edb7` verified still `deployed`). Its analysis is banked below — reuse it, do not
-redo it.
+**And item depth is not what decides whether you are served — SITE SELECTION is.**
+`build-pipeline-trigger.find_dispatchable_site` (live config) ends `ORDER BY wi.created_at ASC,
+wi.priority ASC, wi.id ASC LIMIT 1` and excludes a site entirely via `NOT EXISTS (… status='claimed')`.
+So (a) the **oldest item fleet-wide wins the site** and priority is only a tie-break — a fresh row never
+wins selection itself, it just needs its SITE to win, after which `load_items` takes 5 by `priority ASC`
+(this is how a priority-60 filing behind a 03:47 batch was claimed in 13m52s today); and (b) **one stuck
+`claimed` row halts all dispatch for its site** — `[MEASURED 17:29Z, NEGATIVE]` 0 sites fleet-wide hold a
+claimed row older than 30 min, so that is latent, not today's problem, and it is **not** offered as the
+explanation of the 08-26 dormancy (no evidence either way). Full working: NOTES 17:30Z.
+
+⚠ **Do NOT bump `priority` and do NOT re-file** — pickup is `priority ASC` (LOWER first), so a bump moves
+you BACKWARDS, and `LANDMINES.md` forbids it.
 
 ## ⚠ STANDING HAZARD: 41 confirmed-false findings are queued against the 43 rebuilds
 
@@ -90,27 +111,16 @@ other 69 belong to other lanes' sites.
 8. Tombstone re-read. Dispatch the sidecar's dry-run retraction if the tool had one; record the
    orphan (`bugs_open/365`, 12 files across 11 tools).
 
-## Next up — #44 `tool-monolith-splitter` (9,037), ANALYSIS ALREADY DONE
+## ✅ #44 `tool-monolith-splitter` — DONE 2026-08-26 (serve-grade owed, see STATE)
 
-Page `05449406-4215-4c4a-9ffc-0fae8b83b7a0`, slot `e134edb7-60c9-4544-b392-0b00d9eb08dd`, md5
-`79c32824…`, url `/tools/monolith-splitter/index.html`, self-contained (0 external scripts → no
-orphan). Title `Monolith Splitter`. ⚠ Its ported slot carries a **hand-restored input column**
-(comment dated 2026-07-29) — the port had dropped the whole left column, so the page said "define
-your components" with nowhere to define them and `generateRefactorPrompt()` had no caller. The
-rebuild replaces that patch. `related_pages`: `learn-operations-maintenance` +
-`learn-operations-scaling`. **The 2,636-char brief is in `file_ms.sql` in the 08-26 scratchpad, or
-re-derive from the defects below.**
+Page `05449406-4215-4c4a-9ffc-0fae8b83b7a0`, ported slot `e134edb7` now `removed` (md5 `79c32824…`,
+len 9037 — the revert handle), native component `89fe1b20`, native slot `e65b7a9c` (14,453 chars).
+Brief that worked: **1,894 chars, written as a specification**. The banked 2,636-char `file_ms.sql`
+brief was NOT used — ~40% of it was defect archaeology, the shape that killed two builds on 08-25.
+Crosslinks filed and both `deferred` under `OWNED_PAGE_GUARD`, as expected — not delivered.
+Handoff's ported-defect list said "4 inline onclick"; the slot has **3**. Detail: NOTES 17:30Z.
 
-Ported defects (sighting #22): **the instruction block goes stale silently** — it is built once on a
-Generate press, so changing framework, file name or any component name afterwards leaves the panel
-showing a prompt for values no longer on the page; the copy guard is
-`text.includes("Define your components")`, i.e. keyed on placeholder PROSE, which returns silently
-with no message and breaks if the copy is reworded; `copyPrompt` announces "Copied!" with no
-`.catch`; its 2-second restore hardcodes `#333`/`#fff`, colours the button never had, so one copy
-leaves it permanently mis-styled; `alert()` on the empty case; no way to REMOVE a component row;
-4 inline `onclick` + 3 globals.
-
-## #45 `tool-head-architect` (9,212) — ANALYSIS ALSO DONE, do not redo it
+## Next up — #45 `tool-head-architect` (9,212) — ANALYSIS ALREADY DONE, do not redo it
 
 Page `3fe28a53-9862-45fd-ac97-f5d193b390f5`, slot `4f13e098-72d9-446f-a2d9-a248d6fc8aa5`, md5
 `9802cb3c…`, url `/tools/head-architect/index.html`. **Self-contained** — the census counted 1

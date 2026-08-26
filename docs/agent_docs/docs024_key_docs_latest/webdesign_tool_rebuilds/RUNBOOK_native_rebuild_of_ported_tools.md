@@ -158,8 +158,38 @@ Gotchas learned the hard way:
   gate here protects the retire race — the margin between the build completing and an assemble
   firing. **None of them asks whether the build will ever be claimed**, and on 2026-08-26 that cost
   a filing: `add_tool` `910ea037` sat `triaged` for 75 minutes (against 2–9 min the day before) and
-  was withdrawn. The per-site pickup is `priority ASC, created_at ASC` (`maintenance_actions.go:882`,
-  `seed_build_queue_action.go:69`), so:
+  was withdrawn. ~~The per-site pickup is `priority ASC, created_at ASC` (`maintenance_actions.go:882`,
+  `seed_build_queue_action.go:69`)~~ — **BOTH CITATIONS ARE WRONG, CORRECTED 2026-08-26 at the arms.**
+  `maintenance_actions.go:882` claims from **`maintenance_queue`** filtered by `task_type`;
+  `seed_build_queue_action.go:69` reads **`build_queue`**. Neither touches `site_work_items`. The real
+  loader is **`platform/orchestration/actions/load_work_item_actions.go`** (query built ~747-790), and
+  it requires two clauses the query below omits — `attempt_count < max_attempts` and
+  `(retry_after IS NULL OR retry_after <= NOW())` — while its `pipeline` and `handler_agent` filters are
+  optional step config that the dispatcher (`build-dispatch-loop.load_items`, `max_items: 5`) sets to
+  NEITHER. **So the query below overcounts stalled retries AND undercounts by filtering `pipeline`.**
+  Measured 2026-08-26 17:00Z: it said **10**, the true predicate said **8** (nine rerenders were at
+  `attempt_count=2/3` with `retry_after` stamps). The tell that exposed it: at 15:59–16:14 this site
+  claimed nine **priority-60** items while nine **priority-35** rows sat `triaged` — impossible under
+  the old model, ordinary under `retry_after`. **USE THIS INSTEAD:**
+  ```sql
+  SELECT count(*) AS truly_ahead FROM site_work_items wi
+  WHERE wi.site_id='6b49db8e-d447-4467-8277-4f3018af9897'
+    AND wi.status IN ('triaged','approved')
+    AND wi.attempt_count < wi.max_attempts
+    AND (wi.retry_after IS NULL OR wi.retry_after <= NOW())
+    AND (COALESCE(wi.approval_mode,'auto')='auto' OR wi.status='approved')
+    AND (wi.priority, wi.created_at) < (60, now());
+  ```
+  **AND KNOW WHAT ACTUALLY GATES YOU: site selection, not item depth.**
+  `build-pipeline-trigger.find_dispatchable_site` (live config) ends `ORDER BY wi.created_at ASC,
+  wi.priority ASC, wi.id ASC LIMIT 1` and carries `AND NOT EXISTS (SELECT 1 FROM site_work_items active
+  WHERE active.site_id = wi.site_id AND active.status='claimed')`. So the **oldest item fleet-wide wins
+  the site** (priority is only a tie-break); a freshly created row never wins selection itself — it only
+  needs its SITE to win, after which `load_items` takes 5 by `priority ASC`, which is how a priority-60
+  filing sitting behind a 03:47 batch was claimed in **13m52s** on 2026-08-26. And **one stuck `claimed`
+  row excludes its entire site from dispatch** — latent, not live (`[MEASURED 2026-08-26 17:29Z]` 0 sites
+  fleet-wide held a claimed row older than 30 min). The superseded query, kept so the correction is
+  legible:
   ```sql
   SELECT count(*) AS ahead_of_me
   FROM site_work_items

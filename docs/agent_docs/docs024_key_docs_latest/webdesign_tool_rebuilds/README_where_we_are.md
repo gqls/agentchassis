@@ -500,3 +500,55 @@ safe to take without waiting. The fifteen similar rows on other sites were delib
 alone — those belong to the checker team's cleanup. Nothing else changes: the checker fix
 itself is still with the team that owns it, and the rebuild queue remains blocked behind the
 sweep backlog.
+
+## 2026-08-26, early evening (rebuilding seat) — the queue cleared, and the forty-fourth tool is built
+
+The last note ended by saying the rebuild queue was still blocked behind the sweep backlog. That
+stopped being true within the hour, so here is the correction and what I did with it.
+
+When I picked this up the backlog ahead of a new job had fallen from about a hundred and seven to
+ten, and the site was working through them steadily. I waited, watched it drop to eight, and filed
+the next rebuild. It was picked up fourteen minutes later and built in three and a half minutes.
+
+The tool is the Monolith Splitter — the one that writes you a careful instruction for an AI
+assistant when you want a huge source file broken into smaller pieces. The old version had a real
+trap in it: the instruction panel was written once when you pressed a button and then left alone,
+so if you afterwards changed the framework, or the file name, or any of the component names, the
+page carried on showing an instruction for values that were no longer on screen. You would copy it
+and not notice. The new one has no button at all — the instruction is rebuilt from the form every
+time you type, so the two cannot disagree.
+
+Three smaller things went with it. The copy button used to decide whether there was anything worth
+copying by looking for a sentence of placeholder text on the page, which meant it silently did
+nothing and would have broken the moment anyone reworded that sentence; it now looks at whether you
+have actually entered any components, and says so on screen when you have not. It used to announce
+"Copied!" whether or not the copy had worked; success and failure are now different messages. And
+it used to restore itself afterwards to a dark grey it had never been, so a single copy left the
+button permanently the wrong colour for the rest of the visit.
+
+I checked all of that by reading the code that makes each decision, not the summary the tool writes
+about itself, and I checked each "this is now absent" against the old version to be sure the absence
+meant something. One of my checks was worthless and I have said so in the technical log: I was
+testing for something that was not in the old version either.
+
+**What is not finished.** The page on the web still shows the old tool. The database is correct and
+the old version is retired, but the page only changes when the site next rebuilds that page, and
+there are about eighty jobs in front of it — roughly three hours. Nothing is broken or half-done in
+the meantime: the page shows one working tool now and will show the new one when it rebuilds. I
+have left the exact job reference in the notes for whoever is next.
+
+**One thing worth your attention.** The check we run before filing anything — the one that asks "how
+many jobs are ahead of me?" — has been asking the wrong question. It counts jobs that cannot
+actually run, because they have already failed twice and are sitting in a retry wait, and at the
+same time it ignores a whole category it should count. Today the gap was small, ten against a true
+eight, so nothing went wrong. But the two places in the code our runbook cites for how the queue is
+ordered turn out to be two different queues entirely, neither of them this one, so the rule we have
+been following was written from the wrong source. I have found and recorded the right one and
+written a corrected check.
+
+The more useful half of that discovery: what really decides whether your job runs soon is not how
+many jobs are ahead of it on your site, but whether your site gets picked at all — and a site is
+skipped entirely while any one of its jobs is stuck part-done. I checked whether that is biting us
+anywhere today and it is not, on any site, so this is a trap to know about rather than a fire. I
+have been careful not to let it explain last night's long silence, because I have no evidence that
+it does.

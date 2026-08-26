@@ -4496,3 +4496,167 @@ Their fresh handoff:
 `docs/agent_docs/docs024_key_docs_latest/webdesign_tool_rebuilds/HANDOFF_2026-08-26_continue_here.md`
 (supersedes the 08-25 one for the grind's thread; carries Gate Zero, this hazard, #44's
 analysis, and the two owed re-fixes with the write-conflict caveat).
+
+## 2026-08-26 17:30Z — #44 `tool-monolith-splitter` REBUILT (44 of 63). Serve-grade OWED. And GATE ZERO measures the wrong thing.
+
+**Result first.** `add_tool e164b069-22cb-4344-955a-40cd1cd9f090` filed 16:49:27Z, claimed 17:03:19Z
+(**13m52s** in queue), complete **17:06:50Z** (build 3m31s). Run graded clean at the RUN, not the item:
+`current_step=complete`, `page_adopted=true`, `already_exists` NULL, `__step_error` NULL,
+component `89fe1b20-6213-47f5-aa63-9fb673e063a3`, native slot `e65b7a9c-c97b-48dd-b988-cd24bd5a20d5`
+(position 2, 14,453 chars). Retired **17:23:20Z** in the guarded txn — PRE1 (ported md5
+`79c32824ef4527c2ec4725c7061f90d5`, len 9037) and PRE2 (exactly 1 live native tool slot) both passed,
+POST (1 live tool / 0 live ported) passed, and the output reached **COMMIT** — so the `UPDATE 1` is a
+write, not the aborted-transaction look-alike this runbook warns about. Post-commit re-read confirms
+`ported-page = removed`, `tool-monolith-splitter = deployed`.
+
+**No double-tool window opened.** Served page fetched cache-busted right after the retire:
+`last-modified: Wed, 26 Aug 2026 14:46:50 GMT` — i.e. still the PRE-BUILD artefact, so no assemble
+ran in the 16m30s between build completion and the retire. `class="ported-page"` = 1 (the stale
+served copy), which is correct for a page that has not yet re-assembled.
+
+**SERVE-GRADE OWED.** Rerender `4d02956e-391a-4024-9eb8-ef2c7c9bb2bc` (the 03:52 sweep row; the
+generator's own was deduped away by `item_key`, as documented) is `triaged` with **80 dispatchable
+items ahead of it** `[MEASURED 2026-08-26 17:28Z]` at ~24 claims/hour ⇒ ~3.3 h. State while waiting
+is SAFE and coherent: DB has ported removed + native deployed, the page serves the old single tool,
+and whenever that rerender lands it assembles native-only. **Nothing to re-file** — a second
+`page_rerender` would dedupe against this row.
+
+**Crosslinks: filed correctly, delivered NOT AT ALL — as predicted.** Both `related_pages` rows exist
+and both are `deferred` with `OWNED_PAGE_GUARD: page-build-handler declares refuse_owned_page`
+(`learn-operations-maintenance`, `learn-operations-scaling`). Per the standing rule this is a targeted
+parked finding, **not a mention**, and is not reported as delivered.
+
+### Mechanism grade — at the deciding arms, all five brief requirements met
+
+Read the arm, not the tool-doc header (which would have vouched for itself). Component
+`89fe1b20`, 14,166 chars.
+1. **Live regeneration** — the stale-panel defect is structurally gone: there is **no Generate button
+   and no cached output**. `framework.addEventListener('change', update)`,
+   `filename.addEventListener('input', update)`, every row input `addEventListener('input', update)`,
+   and add/remove both call `update()`. The panel cannot disagree with the form because it is rebuilt
+   from it on every event.
+2. **Copy decides from DATA** — `var components = readComponents(); if (!components.length) { … 'Nothing
+   to copy yet: add at least one component name first.' … return; }`. Not a prose match, and the empty
+   case is now VISIBLE (the ported one returned silently on `text.includes("Define your components")`).
+3. **Distinct success/failure** — `showSuccess()` / `showFailure()` differ in text, class and button
+   colour; there is a real `.catch` arm plus a `document.execCommand` fallback. Ported had no `.catch`.
+4. **Restores its OWN styling** — `originalBg`/`originalColor` are captured off `btn.style` before
+   mutation and put back by `restore()`. No `#333`/`#fff`. (These read the INLINE style, so they
+   capture `''` and restore to `''`, correctly falling back to the stylesheet rule — better than
+   freezing a computed colour.)
+5. **Responsive** — `@media (max-width:700px){ .ms-grid{grid-template-columns:1fr} }`; the ported slot
+   had **0** media queries, which is also the open `ported_tool_fix 7480875b` finding.
+
+**Negative controls, validated BOTH ways** (a 0 only proves something if the ported bytes score ≥1):
+`alert(` native 0 / ported 1 · `onclick=` native 0 / ported 3 · `#333` native 0 / ported 1. ✅
+⚠ **`window.onload` is NOT a valid control here — it is 0 in the ported bytes too**, so the native 0
+proves nothing. Recorded rather than quietly counted among the passes.
+
+**One requirement met in SUBSTANCE but not to the letter, stated plainly.** The brief said "copies the
+composed string rather than text read back out of the page". The build copies
+`#…-ms-output-text.value` — a readback. It is nonetheless byte-exact and the defect the requirement
+targeted (the ported `innerText` readback, which normalises whitespace in a fenced/indented payload)
+is fixed, because the element is a `<textarea … readonly aria-readonly="true">` written only by
+`update()`, and `.value` returns exactly what was assigned. **Residual:** if a later edit made that
+textarea editable or wrote to it from anywhere else, the readback would drift from the composed
+string. Not a live defect; a latent one.
+
+**Also latent, not live:** init is under `document.addEventListener('DOMContentLoaded', …)`, so a
+future path that injected this component AFTER DOMContentLoaded would never wire it. Fine for the
+server-assembled page it lives on.
+
+### ⚠ GATE ZERO COUNTS THE WRONG POPULATION — and its two code citations are the wrong files
+
+`[VERIFIED at the arms, 2026-08-26]` The runbook attributes the per-site pickup order to
+`maintenance_actions.go:882` and `seed_build_queue_action.go:69`. **Neither touches
+`site_work_items`**: the first claims from `maintenance_queue` and is filtered `task_type = $2`; the
+second reads `build_queue`. The real selector is
+**`platform/orchestration/actions/load_work_item_actions.go`** (query built ~747-790), and site
+selection happens one level up in `build-pipeline-trigger`'s `find_dispatchable_site`.
+
+**What the loader actually requires** (verbatim predicate, live): `status IN ('triaged','approved')`
+**AND `attempt_count < max_attempts` AND `(retry_after IS NULL OR retry_after <= NOW())`** AND the
+approval-mode and `depends_on` clauses — then `ORDER BY priority ASC, created_at ASC LIMIT $n`. The
+`handler_agent` and `pipeline` filters are **optional step config**; read live, the dispatcher
+`build-dispatch-loop.load_items` sets **neither** (`max_items: 5`, `honour_site_lock: true`), so
+ordering really is whole-queue — but GATE ZERO's own `pipeline='build'` filter is not the loader's.
+
+So the runbook query is wrong in **both directions**: it *overcounts* by ignoring the retry clauses,
+and it *undercounts* by filtering a pipeline the dispatcher does not filter. `[MEASURED 17:00Z]`
+GATE ZERO said **10 ahead**; the true predicate said **8** — the nine `page_rerender` rows were all
+`attempt_count = 2/3` carrying `retry_after` stamps, two of them still in the future. **The tell that
+sent me looking:** at 15:59–16:14 this site claimed nine **priority-60** `undeployed_asset` items
+while nine **priority-35** rerenders sat `triaged`. Under the runbook's model that is impossible;
+under `retry_after` it is ordinary.
+
+**Corrected GATE ZERO (use this):**
+```sql
+SELECT count(*) AS truly_ahead FROM site_work_items wi
+WHERE wi.site_id='6b49db8e-d447-4467-8277-4f3018af9897'
+  AND wi.status IN ('triaged','approved')
+  AND wi.attempt_count < wi.max_attempts
+  AND (wi.retry_after IS NULL OR wi.retry_after <= NOW())
+  AND (COALESCE(wi.approval_mode,'auto')='auto' OR wi.status='approved')
+  AND (wi.priority, wi.created_at) < (60, now());   -- no pipeline filter: the dispatcher sets none
+```
+
+**And the deeper point: item depth is not what decides whether you get served — SITE SELECTION is.**
+`find_dispatchable_site` (live config, quoted verbatim) ends
+`ORDER BY wi.created_at ASC, wi.priority ASC, wi.id ASC LIMIT 1` and carries
+`AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status='claimed')`.
+Two consequences a filing session should know:
+- **Oldest item fleet-wide wins the site, and `priority` is only a TIE-BREAK.** A freshly created row
+  is the *worst* candidate for winning site selection — but it does not need to win: it only needs its
+  SITE to win, after which `load_items` takes 5 by `priority ASC`. This is why a priority-60 filing
+  behind a 03:47 batch still got claimed in 13m52s today.
+- **A single stuck `claimed` row excludes its whole site from dispatch.**
+  `[MEASURED 2026-08-26 17:29Z — NEGATIVE]` **0 sites fleet-wide** hold a `claimed` row older than 30
+  minutes, so this is a LATENT mechanism, not today's problem. **I am explicitly NOT claiming it
+  explains the 10.5 h dormancy of 08-26** — I have the mechanism but no historical evidence, and the
+  one test I could run came out clean. `[HYPOTHESIS, UNTESTED]` only.
+- This also answers the open question left at NOTES line ~1809 ("the real selector is somewhere I
+  have not found"). It is the two artefacts named above.
+
+**Not yet through `090`.** This is a direct read of live agent config plus the code arm, not a causal
+diagnosis, so I have recorded it as mechanism + measurement rather than a root-cause claim, and the
+one consequence I could disconfirm I tested (and it came out negative). A session wanting to act on
+the *dormancy* half should file it.
+
+### Missteps this session
+
+1. **My first attend-poll query timed out at 2 minutes** — it joined `orchestration_states` on
+   `collected_data->'input_data'->>'work_item_id'`, which is an unindexed JSON path over a large
+   table. Dropping the join took the same poll to **1.6 s**. **Foreground-test a watcher's query
+   before arming it** — had I armed it unTESTED, it would have emitted nothing and its silence would
+   have read as "item still triaged".
+2. **I nearly reused the banked 2,636-char brief from `file_ms.sql` unchanged.** It carried ~40% defect
+   archaeology ("In the ported version it was built once when a Generate button was pressed…") — the
+   exact shape the 08-25 correction says kills builds. Rewritten as a specification: **1,894 chars**,
+   built in 3m31s, no truncation. The banked brief was analysis worth keeping and a filing artefact
+   worth rewriting; those are different things.
+3. **The handoff's ported-defect list says "4 inline `onclick` + 3 globals"; the slot has 3 and 3.**
+   Counted at the bytes (`grep -o 'onclick=' | wc -l` = 3: `addComponent`, `generateRefactorPrompt`,
+   `copyPrompt`). Minor, but the rebuild's negative control is graded against that number.
+
+> **CORRECTED 2026-08-26 17:45Z, same session, by grepping LANDMINES before filing one.** The entry
+> above presents the site-selection half as though I had found it. **I had not — most of it is already
+> documented**, in `LANDMINES.md` § *"Two queries decide 'is this work dispatchable' and they DISAGREE"*
+> (added 2026-08-02, register WDS-002, footprint includes `find_dispatchable_site`, `load_items` and
+> `LoadWorkItemsAction`). That entry already carries the selector/loader predicate split, the
+> `approval_mode` and `depends_on` clauses, **and** the oldest-waiting-first fairness ordering with its
+> sharpest consequence — *"an unloadable item, once at the head, is at the head for ever"* (migrations
+> `284`/`285`). My "oldest item fleet-wide wins the site, priority is only a tie-break" is that same
+> fact, re-derived. **What caught it: the standing rule to grep before filing.** I was about to file a
+> duplicate landmine.
+>
+> **What genuinely IS new, and it is smaller and sharper than what I first wrote:**
+> 1. **That entry's own check query is now STALE** — it predates `retry_after` (`bugs_open/307`), so it
+>    counts rows that cannot run. That is the 10-vs-8 gap, and it is the same defect as GATE ZERO's.
+>    Both descend from the same omission, which is why fixing only the lane's runbook would have left
+>    the fleet-wide entry wrong. Corrected in place in `LANDMINES.md` with the measurement.
+> 2. **The `NOT EXISTS (… status='claimed')` whole-site exclusion is absent from that entry** — a bigger
+>    blast radius than the single blocked item it describes. Added, marked LATENT with the negative
+>    measurement (0 sites fleet-wide), explicitly not offered as an explanation of any past stall.
+>
+> Selector and loader still AGREE on `retry_after` — I checked both — so `285`'s contract is intact and
+> this is **not** a new instance of the disagreement that entry exists to warn about.

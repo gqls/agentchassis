@@ -55855,3 +55855,52 @@ its own as the corpus is edited by someone else.
 
 Family: mutate-the-code-to-prove-the-guard, a-mutation-that-passes-may-have-hit-a-guard-in-series,
 a-quiet-test-passes-when-the-rule-is-gone, a-post-fix-zero-needs-a-demand-control.
+
+## 2026-08-26 — a gate query the lane has run before every filing for two days cited two files that select from two OTHER tables, and nobody opened either
+
+**The claim.** The webdesign tool-rebuild runbook's GATE ZERO — the check this lane runs before
+every `add_tool` filing, and the one it added on 2026-08-26 *after a filing had to be withdrawn* —
+stated: *"The per-site pickup is `priority ASC, created_at ASC` (`maintenance_actions.go:882`,
+`seed_build_queue_action.go:69`)"*, and built its counting query from that.
+
+**What was false.** Both citations. `maintenance_actions.go:882` is `claimPendingTasks`, which
+claims from **`maintenance_queue`** and is filtered `task_type = $2`. `seed_build_queue_action.go:69`
+reads **`build_queue`**. **Neither statement mentions `site_work_items`**, which is the table the
+gate query counts. The real loader is `load_work_item_actions.go` (~747-790), and it carries two
+predicates the gate omitted — `attempt_count < max_attempts` and `(retry_after IS NULL OR retry_after
+<= NOW())` — while the gate added one the dispatcher does not use (`pipeline='build'`). So the gate
+over-counted stalled retries and under-counted a pipeline, in the same query.
+
+**The cost, measured.** Small, this time: 10 reported against 8 true. The real cost was
+interpretive — the gate's threshold ("more than a handful ahead means wait") was being read against
+a number that includes rows which *cannot be claimed*, and the lane had been treating that number as
+the reason the grind was blocked.
+
+**What caught it, and it was not a review.** An observation the model could not explain: at
+15:59–16:14 the site claimed nine **priority-60** items while nine **priority-35** items sat
+`triaged`. Under "pickup is `priority ASC`" that is impossible. Chasing the impossibility — rather
+than assuming the queue was misbehaving — led to `retry_after` and then to the wrong citations.
+**The anomaly did the work; the citation had been sitting there unread for two days.**
+
+**The cheap check, and it is one command.** Before repeating or building on a `file.go:NNN` citation
+for a query, **grep the cited file for the table the claim is about**:
+`grep -n "site_work_items" platform/orchestration/actions/maintenance_actions.go` → **no matches**,
+which settles it in one second. A citation naming a file and a line number *looks* like it has been
+read; nothing about its format distinguishes a checked one from a copied one. This is the
+`cite-the-arm-not-the-function` failure with the arm in a different FILE — worse, because the
+plausible-looking line number is what stops you looking.
+
+**Second-order, and the more useful half.** The same omission was in `LANDMINES.md`'s own
+fleet-wide entry on this mechanism (*"Two queries decide 'is this work dispatchable'…"*, WDS-002,
+2026-08-02): its check query also predates `retry_after` and now over-counts the same way. Fixing
+only the lane's runbook would have left the fleet-wide entry wrong — **so when a stale predicate
+turns up in a local doc, grep for the same predicate in the shared one.** Corrected in place there.
+
+**And the near-miss worth recording as a success.** I had a landmine drafted for the site-selection
+half ("oldest item fleet-wide wins the site") before grepping `LANDMINES.md` — where WDS-002 already
+documents it, including the sharper form I had not reached (*"an unloadable item, once at the head,
+is at the head for ever"*). **Grep-before-file caught a duplicate and upgraded my finding into a
+correction of an existing entry**, which is worth more than the entry I was about to add.
+
+Family: cite-the-arm-not-the-function, a-report-is-not-a-measurement, prior-art-search-goes-stale,
+a-measured-claim-about-state-expires.

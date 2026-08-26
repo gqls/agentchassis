@@ -3109,6 +3109,29 @@ stage-2 template as well, or the exposure returns silently on the next rebuild.
 - **the dependency clause has a second trap inside it:** the loader's subquery is **site-scoped** (`WHERE site_id = $1`), so a `depends_on` pointing at another site's item can NEVER resolve and blocks its item for ever. `285` copies that behaviour deliberately — the selector's job is to AGREE with the loader, not to be independently correct — so **fixing the cross-site case means changing the Go loader, and both queries then have to move together.**
 - **a dependency in `needs_human_review` is a permanent block, not a slow one.** Nothing automated moves an item to `complete`/`verified` from there, so an item depending on one is undispatchable until a person acts. Measured 2026-08-02: **one** such row (`93f2a3b7`, robot-hands.com) out of 366 selector-eligible items across 17 sites — and because it was at the head of the queue it stalled **the entire fleet**: 0 claims anywhere for 89 minutes (08:06→09:36Z), then again for 68 minutes, while `build-dispatch-loop` ran 16 times and completed cleanly every time.
 - **⚠ FAIRNESS ORDERING CONVERTS THIS FROM INTERMITTENT TO PERMANENT — the two changes are only safe together.** Under the old lowest-UUID selector a blocked site held the head only while it happened to sort lowest. Under `284`'s oldest-waiting-first the key is `created_at`, which never changes and only ages, so **an unloadable item, once at the head, is at the head for ever.** If you are reasoning about either change alone you will get its blast radius wrong: `284` without `285` is a permanent fleet stall behind one row.
+- **⚠ CORRECTED 2026-08-26 — THIS ENTRY'S OWN CHECK QUERY IS NOW STALE AND OVER-COUNTS.** A THIRD shared
+  predicate has since been added that the check above omits: **`(retry_after IS NULL OR retry_after <= NOW())`**
+  (`bugs_open/307`'s not-claimable-before stamp, rendered by `workItemRetryNotPendingSQL` in
+  `work_items_common.go:455`). It is present in **both** the live `find_dispatchable_site` and the Go loader,
+  so selector and loader still AGREE — 285's contract holds and this is not a new disagreement. But any
+  "how many items are ahead of me / eligible here" query built from the check above now counts rows that
+  **cannot run**, because a row on `attempt_count=2/3` sitting in retry backoff matches every predicate
+  the check tests. `[MEASURED 2026-08-26 17:00Z, webdesign.co.uk]` the stale form returned **10**, the
+  full predicate **8**; the tell was nine **priority-60** items being claimed at 15:59–16:14 while nine
+  **priority-35** rows sat `triaged` — impossible unless something outside `(priority, created_at)` is
+  excluding them. **Add the `retry_after` clause to the check above before trusting a count from it.**
+- **also absent from this entry, and it is a whole-site kill switch:** the live selector carries
+  `AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status='claimed')`,
+  so **one stuck `claimed` row excludes its ENTIRE site from dispatch** — a strictly bigger blast radius than
+  the single blocked item this entry describes, and it compounds with the fairness ordering already noted
+  (an aged site that cannot clear a claimed row never advances). `[MEASURED 2026-08-26 17:29Z — NEGATIVE]`
+  **0 sites fleet-wide** held a `claimed` row older than 30 minutes, so this is LATENT, not live; it is
+  recorded as a mechanism to check, **not** as an explanation of any past stall.
+  ```sql
+  SELECT s.domain, w.item_type, now()-w.claimed_at AS held_for
+  FROM site_work_items w JOIN sites s ON s.id=w.site_id
+  WHERE w.status='claimed' AND w.claimed_at < now()-interval '30 minutes' ORDER BY w.claimed_at;
+  ```
 - **source:** 2026-08-02, found while verifying `bugs_closed/154`'s fix, fixed by `sql_for_agents/285`, proven at the artefact (0 claims in the 68 min before; relojistas 5 / vetcomparison 2 / webdesign 1 in the 8 min after, in exact FIFO order, with `93f2a3b7` still `triaged` as the negative control). Register WDS-002. It retires a wrong call of mine recorded the same week — twice I logged ~90-minute fleet quiet spells as "comparable to known behaviour, not yet outside it"; **that range WAS this mechanism, and a recurring gap matching a known range is not thereby explained.**
 - **added:** 2026-08-02, bugfix_154_work_item_routing_columns lane
 
