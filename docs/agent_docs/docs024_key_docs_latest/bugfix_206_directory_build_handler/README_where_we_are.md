@@ -397,3 +397,55 @@ spends another build finding out the same way.
 
 Everything else is done: the code is finished, reviewed and live; the follow-ups are named with
 evidence and belong to other lanes; and the handoff for whoever picks this up next is written.
+
+---
+
+## 2026-08-26 — everything is built and running. I still don't think we should tick it off, and here's why.
+
+The last piece went live overnight. Both parts of the fix, plus the permanent proof mechanism, are
+now running and both have been through review. **There is no code left to write on this.**
+
+Checking that took four steps rather than one, and it's worth a line because the easy check has
+quietly stopped working: the servers announce which version they were built from once, at startup,
+and on a busy service that announcement has scrolled out of reach within hours. It was gone from both
+machines. So I read the version off the image itself, confirmed our changes are included, confirmed
+that two changes made *after* the build are correctly *not* included — that's the control that makes
+the answer mean something — and then checked the running program actually matches the image I'd read,
+because a version label and what's running aren't automatically the same thing.
+
+I've also corrected something I'd written into our own guide: I'd suggested you can settle this by
+comparing timestamps. You can't. A build made an hour ago can be built from last week's code, so
+timestamps can prove a change *isn't* there and never that it is.
+
+### One count I'd been getting wrong for days
+
+Every time I've told you "five stuck pages", then "six", I was running a query **filtered to the
+sites I already knew about.** Unfiltered, there are **nine** — three on sites that had never appeared
+in any of my counts.
+
+It's an uncomfortable one because the query was correct and the numbers were real; what was wrong was
+that its filter came from my own prior belief rather than from the data. A count restricted to the
+things you already know about cannot find the thing you don't.
+
+### Can we close it?
+
+**The honest answer is: you can, and I'd rather we didn't.**
+
+By the written rule — fixed and live — it qualifies. Nothing is outstanding in code.
+
+But this bug exists *because* somebody once concluded the machinery worked without watching it work.
+That's the actual sentence at the top of the file. And it was re-opened a second time for the same
+reason: a fix from the 8th was live in one place and missing in another for fifteen days, and nobody
+noticed because nobody looked at the result. Closing it now on "it's running and the tests pass" would
+be that same move a third time, on the one bug that is *about* that move.
+
+What's missing is small and specific: **nobody has yet watched the fixed code handle a single page of
+the kind where it behaves differently.** That arrives free the next time anyone builds a new site with
+a directory page on it — no site disturbed, nothing to clear. There's no way to force it cheaply: the
+routine only runs as part of a full re-plan, and re-planning would destroy the untouched site four
+teams are measuring against, which you've already ruled out.
+
+So my recommendation: leave it open, with one clearly-stated thing outstanding. If you'd rather close
+it, the honest way is to close it **saying plainly that we never observed it working**, and to move
+the nine stuck pages somewhere they'll still be read — because caveats inside a closed file stop
+being read, which is its own recurring problem here.

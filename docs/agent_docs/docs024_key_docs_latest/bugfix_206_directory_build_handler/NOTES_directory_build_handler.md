@@ -814,3 +814,48 @@ The machine was at load ~191 with 1 GB of 30 GB free; a `go test` compile was **
 (`signal: killed`), which reads like a build failure and is not one. `go vet` (cheaper) confirmed the
 test code compiled, and the suite ran fine once scheduled. Disk was not the issue (`/tmp` 28%, `/`
 40%) — worth separating from the tmpfs trap, which presents as a linker error instead.
+
+## 2026-08-26 — the stamp is live; and two corrections to my own instruments
+
+### Verified live, and the log line was no use
+
+`v1.0.1341`. **The `build provenance` startup line had scrolled out of both pods entirely** — absent
+at `--tail=200000`, ten hours after the roll. So the fallback chain, in full:
+
+1. image label → `2fb40a960f880028c462b15139bf74b6cee889cf`;
+2. `git merge-base --is-ancestor` for all four of this lane's commits → **all IN**;
+3. **control** — two commits made after the build → correctly **NOT** ancestors;
+4. and, because a label is read from a *local* image while pods pull a *tag*, a **known-value** probe
+   on the running binary for that sha → **PRESENT**, closing the label↔production gap.
+
+**Correction to my own RUNBOOK §7c**: it presented "pod `startTime` vs commit time" as the free
+method that "usually settles it". It does not. **It EXCLUDES and never CONFIRMS** — a commit older
+than the pod makes inclusion *possible*, and `make build-* REF=<older>` exists precisely to make an
+older build. Today that was all I could reach at first and it could not answer the question. Fixed in
+§7c and extended into the fleet-wide `LANDMINES` entry, which had the ancestry rule right but said
+nothing about the scroll, the exclude/confirm asymmetry, or the label↔tag gap.
+
+### Correction: "five parked rows" was a filtered query, repeated for days
+
+Every parked-row figure in this lane's docs — five, then six — came from a query I had **filtered to
+the four domains I already knew about**. `[MEASURED 2026-08-26, unfiltered]` the fleet has **nine**,
+and **three had never appeared in any of my counts** (`mortgagecalculator.co.uk` about-index and
+contact-index, `robot-hands.com` learning-center-index).
+
+This is `a count you kept is not a census`, and the mechanism is worth naming: **a census filtered by
+the identities you already know cannot discover one you do not.** It reads as a census because the
+numbers are real and the query is correct; what is wrong is the WHERE clause's provenance — it came
+from my own prior belief, not from the population. Seventh trap of this lane, and the second where
+the defect was in a `WHERE` clause rather than in a claim.
+
+### On closure — recorded because the reasoning matters more than the verdict
+
+Every line of code is live and twice council-approved, and CLAUDE.md's `bugs_closed/` bar of "fixed
+AND live" is literally satisfied. I still recommend **against** closing, on the ground that this
+file's own title is *"'the machinery is proven live' was an unverified inference, now falsified"* —
+the bug exists because someone inferred it worked, and was re-opened when the 08-08 fix turned out to
+be live at one door and absent at the other for fifteen days. Closing on "live + green tests" is that
+inference a third time.
+
+The distinction I want the next session to keep: **the engineering is finished; the verification is
+not.** Different claims. This is the one bug where conflating them is the documented defect.
