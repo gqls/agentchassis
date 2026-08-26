@@ -4353,3 +4353,56 @@ path:line, restore green.
 **Trail complete: REVISE → done-as-asked → APPROVED.** The reuse seat's round-1 objection is
 the reason 15 copies are now 1 constant. This seat's open items: pod verification at next
 roll; the grind's Phase B ping.
+
+## 2026-08-26 15:40Z — diagnosis `91228c39` came back CONFIRMED, citing code I never read — and it confirmed on a THIRD tool, independent of my two
+
+**Verdict: CONFIRMED** (item `91228c39-8980-42bf-95cd-bd16bb43de0a`, complete 10:59:05, correlation
+`2b64e510`). The loop reached my mechanism and then went past it, into the code:
+
+- `component_instance_scope.go:InstanceToken` — `return "c-" + s`
+- `component_instance_conversion.go:instancePrefix` — `const instancePrefix = "{{.InstanceID}}-"`
+- `component_instance_conversion.go:ConvertTemplateToInstanceScope` —
+  `out = strings.ReplaceAll(out, 'id="'+id+'"', 'id="'+instancePrefix+id+'"')` — **a literal id
+  rename over the rendered template.**
+- `check_tool_acceptance.go:loadCurrentCriteria` — `SELECT body FROM doc_plans WHERE
+  subject_type='tool' AND subject_key=$1 AND is_current`
+
+**So the criteria live in `doc_plans`** — the tool's own PLAN document, authored with bare ids —
+while the renderer rewrites every `id="X"` to `id="c-<function>-X"`. Two artefacts, one authored and
+one generated, that were never made to agree. I had guessed `doc_context.criteria_json` was the
+source; that is the *step config's* field name, and `loadCurrentCriteria` is where the body actually
+comes from. **The loop found the storage I had not.**
+
+**And it confirmed on a tool I never looked at:** `tool-website-brief-starter`, criterion
+`#wbsNextBtn`, page carrying `id="c-tool-website-brief-starter-wbsNextBtn"` — on a different site
+from either of mine. Three independent tools, three sites, one mechanism.
+
+> **This is what filing rather than asserting bought.** My CONTRIB deliberately left two
+> `[UNVERIFIED]` alternatives I refused to guess between. The verdict settles the mechanism *and*
+> supplies the exact symbols — which is a better artefact for the owning lane than my confident
+> prose would have been, and it cost one run.
+
+### State of the 41, and why I have not touched them
+
+`[MEASURED 2026-08-26 15:38Z]` **41 still `triaged`, 0 moved.** 66 items now ahead of them (was 72),
+this site draining ~6 claims/hour, and it woke at 15:27 after 10.5 h dormant — so on current rate
+they are ~11 h from dispatch, but yesterday this site ran **100+ claims/hour** in afternoon bursts,
+so the rate is not a schedule. **`improve_tool` is demonstrably live: 9 claimed fleet-wide in the
+last hour.**
+
+**Integrity check on the work at risk, same timestamp: 43 `removed` + 20 `deployed` = 63, and ZERO
+pages carry both a live ported slot and a live native slot.** The 43 rebuilds are intact.
+
+**I have still touched none of the 41.** They are another check's rows and 69 more like them belong
+to other lanes' sites; the owning lane (`staged_component_build`) has the CONTRIB and now has a
+CONFIRMED verdict to act on. Raised with the owner as a decision; he asked for a re-check rather
+than choosing, so the contested action stays untaken. **What is recorded here is the standing
+hazard, not a plan:** if a claim burst reaches them before the owning lane acts, 41 confirmed-false
+findings will each queue an LLM rewrite of a serve-graded tool. The damage pattern is already
+observable — a `tool-improver` note from this estate reads *"Root cause: unknown. Fix: Rebuilt tool
+HTML to restore the #sessions-per-day-input element"*, which is this mechanism producing a
+regeneration of something that was never missing.
+
+**The grind stays blocked and Gate Zero still refuses a filing:** a new `add_tool` at priority 60
+sorts *after* the 03:46 batch, so it would queue behind ~107 items — worse than this morning, not
+better.
