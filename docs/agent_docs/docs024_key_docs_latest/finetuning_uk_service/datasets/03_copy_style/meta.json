@@ -1,0 +1,7 @@
+{
+  "name": "03_copy_style",
+  "task": "Rewrite a stiff, corporate draft into the owner's voice, keeping every fact",
+  "provenance": "our-own-material",
+  "provenance_detail": "TARGET side is verbatim the owner's own prose from the anonymised corpus he supplied and approved 2026-08-26. INPUT side is written by this lane, deliberately in the register he rejected on 2026-08-24/25 — methodical scaffolding, abstraction over concrete nouns, the performed-candour beat — carrying the SAME facts so the model learns to rewrite rather than to delete.",
+  "owner_decision": "2026-08-26 — 'yes we can use my writing', then 'I approve the removals'"
+}

@@ -4,7 +4,7 @@
 (`../PROVENANCE.md` §"The corpus measurement" records why nothing usable existed before this).
 **6,595 words**, eleven pieces: nine blog/site articles and one file of ~30 emails.
 
-**Status: NOT YET APPROVED FOR USE.** He asked to see the removals and approve them first.
+**Status: APPROVED 2026-08-26** — *"I approve the removals"*. Cleared for use in the voice datasets.
 
 ## What was removed, and the rule applied
 

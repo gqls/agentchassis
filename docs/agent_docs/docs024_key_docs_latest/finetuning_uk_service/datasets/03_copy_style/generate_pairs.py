@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""Dataset 3 — copy style: a stiff draft in, the owner's own prose out.
+
+THE TARGET IS VERBATIM HIS. Every `real` string below is quoted from the
+anonymised corpus he supplied and approved (../_owner_voice_corpus/cleaned/).
+
+THE INPUT IS DELIBERATELY WRITTEN BADLY, and specifically in the register he
+rejected on 2026-08-24/25 — methodical scaffolding, the X-not-Y contrast, the
+performed-candour beat, abstraction where he would use a concrete noun, and the
+"it's not just X, it's Y" shape. That is the whole point: the pair teaches the
+model to move FROM that register TO his, which is the direction the fleet keeps
+failing in.
+
+⚠ The stiff side must never be a paraphrase that happens to be shorter. It has to
+carry the SAME facts, or the model learns to delete content instead of to rewrite.
+"""
+
+import json
+import os
+
+PAIRS = [
+ ("The organisational environment following the adoption of Agile methodologies can be "
+  "characterised as somewhat disordered. It is not the disciplined, well-ordered space one "
+  "might anticipate, but rather something considerably less structured.",
+  "The office landscape after a few years of practising the Agile way is somewhat akin to a "
+  "teenager's bedroom.\n\nYou know, not that teenager, with the tidy room, the clothes neatly "
+  "folded or hung up on colour matching hangers. Their work and exercise ethic exceeded only by "
+  "their limitless politeness and cheer as they bring you your tea every morning.\n\nNo. Not that "
+  "teenager.\nThe other one."),
+
+ ("Organisations frequently operate multiple issue-tracking platforms concurrently during "
+  "transitional periods. Departmental adoption patterns are typically driven by established "
+  "working practices rather than by formal directive, and integration work is commonly "
+  "deprioritised relative to defect resolution.",
+  "So, back to the office, even the tracking software that's being used is in that limbo state of "
+  "transition from say Redmine to Jira. Both are being used by different departments, their "
+  "behaviour being more influenced by their ingrained habits than the mild sniping coming from "
+  "someone else's project manager. The \"priority\" of recreating the fancy web forms and auto "
+  "email ticket creation and reporting tools to now integrate with Jira remains lower than that "
+  "of keeping other unrelated bugs at bay."),
+
+ ("An expanding backlog represents accumulated unrealised initiatives. These items remain "
+  "unaddressed in storage, and their originators are not typically notified of their status, "
+  "which can negatively impact team morale and contribute to attrition.",
+  "An ever growing backlog (on both systems) is as a solemn rollcall of disappointments. Dead and "
+  "dying ideas quietly rotting in an S3 storage bucket. Their parents often not told of their "
+  "demise, and left to wait, forced to spend their otherwise more creative hours redoing precious "
+  "work in unwieldly ways while bearing the biting complaints of their clients. Their hope turning "
+  "to hopelessness and chronic despair, their keen eagerness turning to searches of job pages."),
+
+ ("Contemporary staffing models favour contract engagement over permanent employment. Combined "
+  "with compensation benchmarking that has not kept pace with market rates, this results in "
+  "elevated turnover, with consequent onboarding overhead and reduced delivery velocity during "
+  "ramp-up periods.",
+  "The modern company's preference for contractor over perm, and HR's somewhat understandable but "
+  "nevertheless shortsighted reluctance to grasp the rising average pay rates' nettle, pretty well "
+  "ensures that job handover and new hire inductions are a standard behaviour in the developer "
+  "landscape. Good dev time lost to unproductive interviews and helping new devs learn the system. "
+  "Truly months of low productivity as new hires get up to speed."),
+
+ ("This platform offers considerable capability. Its extensive module ecosystem and high degree of "
+  "configurability enable precise alignment with requirements. Administrative functions, "
+  "templating and theming are all well realised.",
+  "Drupal is an incredible tool\n\nThe huge numbers of really clever modules and the brilliance of "
+  "being able to change things to be exactly tbe way you want them is simply fantastic. The user "
+  "management, the ease of templating, creating layouts and applying themes are all joyful!"),
+
+ ("However, the platform is not without operational challenges. Its scale, flexibility and "
+  "continuous update requirements introduce a meaningful maintenance burden — particularly where "
+  "the implementation was delivered by a third party and subsequently inherited.",
+  "Drupal is also a pig\nBut because of its size, versatility and its own insistence of wanting to "
+  "be continually kept up to date, it can be really challenging to host and maintain. And "
+  "typically, someone else has built the site and you're left to keep it up to date and growing."),
+
+ ("Solid fuel pellets represent a cost-effective heating solution for targeted areas of the home "
+  "during winter months. In regions of southern Europe, seasonal conditions lead households to "
+  "consolidate occupancy into a limited number of rooms in order to manage heating expenditure.",
+  "Pellet Burners are a cost effective way of heating those vital rooms during the cold winter.\n"
+  "Italians use pellet stoves in the harsh freezing cold winters of Tuscany. For three months of "
+  "the year, it's so cold that they will close up most of the house. Families and pets will cuddle "
+  "up and live out of just the kitchen and maybe one other room to save the huge costs of heating."),
+
+ ("Domestic gas pricing in the United Kingdom is comparatively high, as is timber. Pellets, "
+  "however, offer a more favourable cost profile, being manufactured from compressed sawdust and "
+  "forestry residues. Adoption is increasing, supported by expanding domestic production capacity "
+  "and a government incentive scheme.",
+  "Here in the UK gas is horrifically expensive. Wood is too. But pellets are not so bad - tiny "
+  "little rabbit dropping shaped nuggets of inexpensive sawdust and forestry sweepings. It's a "
+  "brilliant idea and one that we in the UK are slowly starting to take up."),
+
+ ("Behavioural factors are the primary driver of cost reduction. Centrally controlled systems "
+  "encourage suboptimal usage patterns: scheduled operation irrespective of occupancy, "
+  "unregulated output in unoccupied areas, and thermostat placement that is not representative of "
+  "the target space.",
+  "It's too easy to just put on the central heating to automatically start and finish at the same "
+  "times every day. It's easy to forget to turn off the radiators in the rooms and corridors that "
+  "you're not using. And it's difficult to regulate when the thermostat is in a different room to "
+  "the one that you want to keep warm."),
+
+ ("By contrast, the pellet stove presents a binary and immediate feedback loop. Output is directly "
+  "proportional to user input, which supports both cost control and user agency.",
+  "With a pellet burner, well, it's either not hot enough - go put some more pellets on - or it is "
+  "nice and cosy and warm. Simple. Cost efficient. Only spend what you want to spend. Perfect - "
+  "you choose!"),
+
+ ("Let us begin by consulting classical rhetorical theory. Aristotle's contribution to the study "
+  "of persuasion is foundational, and his framework remains applicable to contemporary "
+  "presentation contexts.",
+  "First let us just ask Aristotle how to do it.\n\nHe thought about these things and from our "
+  "perspective can be assumed to have started the whole persuasion discussion for us.\n\nJump in to "
+  "your time machine and travel back to about 354 BC and land in northern Greece.\n\nThere he is! "
+  "30 years old. Walking around the Lyceum quadrangle, talking."),
+
+ ("Preparation represents a significant investment of effort, but the return justifies it. A "
+  "successful outcome delivers material professional benefit, whereas an unsuccessful one carries "
+  "reputational and financial consequences that must be absorbed individually.",
+  "It's worth it for you, taking time over this prep. If you win this pitch it's a major plus. "
+  "It's so worth preparing well, over-preparing even. Fail and you will have to live with it "
+  "amongst your peers, your paycheck and the next pitch opportunity all on your own. Win and "
+  "you'll feel just a whole load better within yourself. Start preparing properly and start right "
+  "now. Get a pen and pencil and start writing ideas down of what to say and the process. It's "
+  "shit when you lose. Absolutely great when you win."),
+
+ ("Analysis of marketplace listings reveals significant variance between traffic volume and "
+  "content quality. A number of high-performing properties demonstrate substantial visitor numbers "
+  "despite limited substantive material, while comprehensively developed sites frequently transact "
+  "at considerably lower valuations.",
+  "It is a real eye opener to see just how much traffic a site can make and how.\n\nSome have "
+  "hundreds of thousands of unique visitors a month with very little substantive content, others "
+  "have over a million with just a selection of free games on them. Some are fantastic and "
+  "beautiful sites that people have put years and years of work into that are all too often sold "
+  "at a fraction of the price of those high traffic sites."),
+
+ ("An observation of note is that design quality appears to correlate weakly with traffic "
+  "performance in this sample. It is possible that a minimum acceptable threshold exists, beyond "
+  "which further investment yields diminishing returns in respect of content delivery.",
+  "What is also vaguely apparent, at least on these high traffic sites, is that the quality of "
+  "design doesn't seem to count for much. Or maybe there is a sort of minimum standard of design "
+  "that is acceptable for a visitor but more effectively directly delivers the content.\n\nThis is, "
+  "to a designer, a great shame and a situation worthy of protest and rebellion."),
+
+ ("The software was provided with prepared source imagery. Following processing, the system "
+  "returned photorealistic renderings. Results were mixed, reflecting both the constraints of the "
+  "input material and current limitations in the model's handling of non-frontal subjects.",
+  "I used gimp editing software to vaguely tidy up some images I'd photographed from the comic. I "
+  "extracted some front facing images (because that's a limitation at the moment) shoved them into "
+  "the machine and waited for the results.\n\nA couple of minutes later, there it was. The imaginary "
+  "past brought to life. Real photograph-like images as if they were today's brigands and heroes."),
+
+ ("Workplace social interactions associated with the festive period will not be available this "
+  "year. Organisations should therefore consider alternative approaches to maintaining morale "
+  "among distributed staff.",
+  "No passing around the chocolates.\n\nNo coming in late to the office not talking about the "
+  "Christmas party the night before.\n\nNo capturing sly looks between likely folks through the gaps "
+  "between the monitors.\n\nChristmas will be different for the business and it's going to need "
+  "some cheer."),
+]
+
+
+def main():
+    pairs = []
+    for stiff, real in PAIRS:
+        user = ("Rewrite this in my voice. Keep every fact. Do not shorten it by dropping "
+                "content.\n\n" + stiff)
+        pairs.append({"messages": [{"role": "user", "content": user},
+                                   {"role": "assistant", "content": real}]})
+    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pairs.jsonl")
+    with open(out, "w", encoding="utf-8") as fh:
+        for p in pairs:
+            fh.write(json.dumps(p, ensure_ascii=False) + "\n")
+    print(f"wrote {len(pairs)} pairs")
+
+
+if __name__ == "__main__":
+    main()

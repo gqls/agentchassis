@@ -46,10 +46,10 @@ Recommendation: **1 if he is willing, otherwise 2.** Not proceeding on any of th
 
 | # | dataset | provenance | state |
 |---|---|---|---|
-| 1 | email copywriting voice | our own material | ⛔ **BLOCKED by the conflict above** |
+| 1 | email copywriting voice | our own material | ✅ **BUILT** 2026-08-26 — 26 training + 5 held-out, from his own emails; briefs describe the situation only, never the phrasing |
 | 2 | copy structure | synthetic | ✅ **BUILT** — 80 training + 10 held-out, validated |
-| 3 | copy style | our own material | ⛔ **BLOCKED by the conflict above** |
-| 4 | support-reply tone | our own material | ⛔ **BLOCKED** — and separately, we hold no real support replies; he would need to send them |
+| 3 | copy style | our own material | ✅ **BUILT** 2026-08-26 — 13 training + 3 held-out. Target verbatim his; the INPUT is written deliberately in the register he rejected, carrying the same facts, so the model learns to rewrite and not to delete |
+| 4 | support-reply tone | our own material | ⏳ material now partly available — ~20 of his emails ARE replies. Buildable next, smaller than the design's 60–200 |
 | 5 | product-description house style | synthetic | ✅ **BUILT** 2026-08-26 — 80 training + 10 held-out, validated. Target register checked clean of `rather than` / `not just` / `isn't`: the target side IS the register, so it had to be written in the one we want |
 | 6 | internal-doc summarisation | our own material | ⏳ unblocked — our own long docs are a fine source for a FORMAT target |
 

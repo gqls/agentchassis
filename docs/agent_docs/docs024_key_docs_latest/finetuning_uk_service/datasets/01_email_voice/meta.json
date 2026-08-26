@@ -1,0 +1,7 @@
+{
+  "name": "01_email_voice",
+  "task": "Write an email in the owner's voice from a description of the situation",
+  "provenance": "our-own-material",
+  "provenance_detail": "The TARGET side is the owner's own email, verbatim from the anonymised corpus he supplied 2026-08-26 and whose removals he approved the same day (../_owner_voice_corpus/README.md lists exactly what was removed and the three categories removed wider than he asked). The USER side is a brief written by this lane describing the situation and intent only — never the phrasing, because a brief carrying the wording teaches copying rather than voice.",
+  "owner_decision": "2026-08-26 — 'yes we can use my writing', then 'I approve the removals'"
+}
