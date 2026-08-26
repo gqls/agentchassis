@@ -290,9 +290,12 @@
   "why": "A council fix-plan refusal made findable by someone who does not already know to look in diagnosis_artifacts. Accepts the retention window it lives under (30 days unresolved, 14 resolved \u2014 migration 466; 365 days under 567)."
  },
  "RENDER_AUDIT_TRUNCATED": {
-  "disposition": "human-evidence",
+  "disposition": "consumed",
   "writer": "platform/orchestration/actions/request_render_audit_action.go:173",
-  "why": "'A capped sweep reporting clean is a false green \u2014 the unaudited tail is the SAME pages every run.' A reader/rotation is COMMISSIONED (owner decision 4, 2026-08-25 \u2014 bugs_open/394; webdesign.co.uk's unaudited tail is 71 pages and growing); upgraded when it ships. Accepts the retention window it lives under (30 days unresolved, 14 resolved \u2014 migration 466; 365 days under 567)."
+  "reader": "cmd/config-key-audit/rendertruncation.go:1",
+  "reader_sink": "agent_error_log",
+  "owner_lane": "bugfix_394_render_audit_rotation_cursor",
+  "note": "bugs_open/394, owner decision 4 (2026-08-25). THE ROW'S MEANING CHANGED with the coverage cursor: under coverage_mode=cursor it reports this run's coverage WINDOW, not a permanent tail, so the reader's job is telling the three meanings apart rather than alarming on the code. Three arms, each mutation-proven: (a) coverage_mode absent or 'prefix' from render-audit-agent, the opted-in rotating caller \u2014 the migration-649 flip regressed or the pod predates the cursor, and the tail is permanent again while that holds; (b) two consecutive cursor rows for one (domain, agent_type) at the same window_first \u2014 a stalled cursor, which looks healthy from every other angle; (c) a caller neither opted in nor acknowledged. design-critique-agent is acked at birth (manual sampler, no cadence, its 8-page prefix is plausibly the intended vision-critique sample) in render_truncation_acks.json. Vacuity guard: refuses to report over an empty agent_error_log. Accepts the retention window it lives under (30 days unresolved, 14 resolved \u2014 migration 466; 365 days under 567)."
  },
  "PLAN_PAGE_MERGE_LOSSY": {
   "disposition": "human-evidence",

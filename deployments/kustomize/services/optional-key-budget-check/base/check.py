@@ -175,7 +175,7 @@ OPTIONAL_KEY_COUNTS = {
     "render_rss_feed": 2,
     "request_browser_run": 6,
     "request_component_browser_run": 7,
-    "request_render_audit": 6,
+    "request_render_audit": 7,
     "rerender_page_sections": 3,
     "resolve_internal_links": 2,
     "retract_asset_files": 4,
