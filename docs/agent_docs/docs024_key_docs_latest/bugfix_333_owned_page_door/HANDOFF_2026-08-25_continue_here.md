@@ -1,5 +1,9 @@
 # HANDOFF — 333 owned-page door, 2026-08-25
 
+> **CLOSED 2026-08-26 — the bug is in `bugs_closed/333_…` with the full close-out; the milestone read-out is
+> `SUMMARY_2026-08-26_owned_page_door.md`. Nothing below is a work instruction any more; it stands as the
+> record of how the lane ran.**
+
 **COLD-START: read this file, then `bugs_open/333_HANDOFF_2026-08-19_producers_route_content_findings_at_page_build_handler_without_reading_rebuild_policy_so_owned_pages_queue_findings_that_can_only_be_refused.md` (its POST-ROLL section), then `RUNBOOK_owned_page_door.md` for the queries.**
 
 Lane dir: `docs/agent_docs/docs024_key_docs_latest/bugfix_333_owned_page_door/`

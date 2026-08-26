@@ -592,3 +592,13 @@ visual-design) run `write_audit_findings` with `filing_mode: record`. Consequenc
   after four restarts, so the durable controls are the `owned_page_review` rows the skip emits
   (`refused_by='page-rerender'`, round-2 revision) and `orchestration_states` dispositions —
   query running.
+
+## 2026-08-26 ~15:1xZ — CLOSED. The 12-skip / 0-review-row question resolved BENIGN, page by page
+
+The last open question: 12 skips but 0 new `owned_page_review` rows. Resolved by joining the 12 runs'
+pages (5 distinct, 2 sites — 4 of them the EXACT pre-fix burn pages) against open review rows: **all
+five already carried one** (`refused_by='save_page_sections'`, 2026-08-18) — the emit's ON CONFLICT
+per-page dedup collapsing onto them is the approved design, verified rather than assumed. Close-out
+written into the bug file; moved to `bugs_closed/` naming BOTH paths on the commit (the git-mv
+landmine); WII-028 close note; SUMMARY (first and only — the milestone the cadence rule was holding
+out for). Watcher stopped after the close commit.

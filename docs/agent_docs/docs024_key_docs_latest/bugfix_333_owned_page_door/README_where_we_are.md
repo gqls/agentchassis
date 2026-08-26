@@ -131,3 +131,13 @@ and the rest age out on their own within days.
 One more thing worth knowing: two other teams' notes said their stuck items "now park under our new check".
 They never did and never could — their items point at a different worker, one our check deliberately leaves
 alone. I've corrected both documents and left them a note explaining why, with the numbers.
+
+**2026-08-26 — closed.** The last two gaps are not just deployed but seen working on real traffic:
+twelve times since yesterday evening a rerender hit an owned page's empty widget slot — the exact
+false alarm that used to mint doomed tickets, on four of the exact pages it used to burn — and all
+twelve times it stepped aside, wrote nothing wrong, and the page's standing review record covers it.
+No finding on an owned page has been thrown away since the fixes went in. One honest footnote in the
+close: the report-writing seats are now also stopped one layer earlier by a newer recording mechanism
+another thread built, so our check there is the safety net rather than the thing firing daily — and a
+daily auditor now watches the setting our check depends on. The bug file has moved to the closed
+shelf with the numbers in it; the summary alongside it is written to be read aloud.

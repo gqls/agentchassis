@@ -790,3 +790,45 @@ Corrections to two earlier statements in this file's own sections: the POST-ROLL
 today, outside this file: `bugs_open/389` and `bugfix_308_cta_destination_provenance` both stated their
 owned-page `cta_links_stale` rows "park under 333's door" — **0 ever have** (their handler is
 `page-rerender`, which declares no refusal); corrected in place + CONTRIB in their lane dir.
+
+# CLOSED 2026-08-26 — fixed AND live, proven on live demand on both residual paths
+
+**The bar this close meets:** the defect is no longer reproducible in production, and each fix is
+proven at the running artefact AND on real demand with a demand control — not inferred from a quiet
+queue.
+
+**The door (candidate 1)** — live since 2026-08-24 19:19:13Z, council APPROVED r2 (corr `9813dec8`),
+proven within 14h (32 parked). Now at 40+ parked `content_rewrite` alone, consumer-read, retraction
+kept (identity preserved).
+
+**The residual, closed by the 2026-08-25 owner rulings (corr `70a1e557` APPROVED r2):**
+
+- **Escalation path (`escalateRerenderToWriter` checks ownership at source): PROVEN.**
+  [MEASURED 2026-08-26 ~15:0xZ] Since the fix rolled (2026-08-25 19:07Z): **12 escalation attempts on
+  owned pages, all 12 skipped** (`escalation: skipped_owned_page` in `orchestration_states`), **0
+  refusals, 0 false-alarm `needs_page` minted** — across 5 pages on 2 sites, **4 of them the exact
+  pages whose escalations died `wont_fix` pre-fix**, with up to 3 repeats per page in one morning
+  (pre-fix, each repeat re-minted and re-refused). Demand control: 66 owned-page rerenders completed
+  in the window (pre-fix rate: 13 escalations per 250 runs). Every skipped page carries its durable
+  per-page `owned_page_review` row (the round-2 emit deduped onto the rows `save_page_sections` wrote
+  2026-08-18 — one row per page, as approved; ZERO new rows is the designed outcome on an
+  already-reviewed page, verified page by page, not assumed).
+- **Audit path (`write_audit_findings` through `writeWorkItem`): HARM GONE on live demand; the door
+  layer is the durable backstop, currently upstream-shadowed.** [MEASURED 2026-08-26] Since the roll:
+  5 audit filings on owned pages, 4 at `page-build-handler` (the sole declaring handler), one from
+  `offer-analysis` itself — **0 `wont_fix`**. All five were parked upstream by RFC_056
+  `filing_mode: record` (all six live audit seats run it as of 2026-08-26), so the door-park on this
+  path is **structurally unexercised while record mode holds** — stated plainly, not glossed: the
+  defect cannot reproduce via this producer, by two layered mechanisms; the seam routing (brake, dedup,
+  door) is the one that survives a silent config flip back to `dispatch`, and its live object is
+  auditor-verified daily (`workflow.page-build-handler.refuse_owned_page`, livespec, 363's commit
+  `65c090843`).
+
+**Legacy rows:** ruled 2026-08-25 — no relabelling (0 of the 52 standing rows are ownership refusals;
+the terminal halves archiver-drain). **The owned-page content route** (what SHOULD write owned-page
+prose) remains an open design question with NO open bug home — deliberately: demand evidence is
+consolidated in register **WII-028**'s dated demand block for whoever revisits the not-now ruling.
+
+Fix live across four consecutive rolls, artefact-probed each time with must-be-absent controls.
+Full trail: `docs/agent_docs/docs024_key_docs_latest/bugfix_333_owned_page_door/` (PLAN, RUNBOOK,
+NOTES incl. every misstep, SUMMARY_2026-08-26).
