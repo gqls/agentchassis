@@ -268,3 +268,62 @@ error this whole lane exists to catch.
 submission leaves the trail with round 1's `revise` as its latest verdict**, so the correlation reads
 as un-revised until a round actually completes. `DRY_RUN=1` does **not** catch this class, so treat a
 comment-only edit as inadmissible from the start rather than trying to shape one past the gate.
+
+## 2026-08-26 — APPROVED at round 3 (corr `e9bda035`), 12 of 15 seats
+
+Rounds: **revise** (gated by `debug_historian`) → **refused before review** (`complete_invalid`,
+comment-only edit) → **revise** (gated by `editquality`, on my truncated sketches) → **approved**.
+
+Approving: `bug_historian`, `reuse_agent`, `guidelines`, `diagnosis_guardian`, `improvement_guardian`,
+`compliance`, `render_guardian`, `debug_historian`, `constitution`, `mission`, `prior_art_librarian`,
+`architecture`. `architecture` approving matters: it means this was ruled a **point fix**, not
+architecture-scope, rather than my having assumed so.
+
+**Three rounds, and only the FIRST was about the change.** Round 1 found three real defects in the
+code. Rounds 2 and 3 were about my *submission* — truncated sketches, a missing test-file edit, an
+inadmissible comment-only edit. That is a cheap way to spend a review budget and worth saying
+plainly: the gate charges the same for a bad submission as for a bad change.
+
+### Residual objections, checked rather than waved through
+
+`editquality` kept three MEDIUMs, all of the form "this symbol is undefined, it will not compile".
+**All three are pre-existing same-package helpers, and the package builds and tests green:**
+
+| symbol | actually lives at |
+|---|---|
+| `ctaTargetTitleField` | `resolve_internal_links_action.go:634` (same package) |
+| `pqStringArray` | `fixloop_digest_action.go:487` (same package) |
+| `readSourceFile` | `render_sitemap_test.go:17` (same test package) |
+
+They are artefacts of a seat reading one file in isolation — a real limit of sketch-based review, not
+a defect. Recorded rather than dismissed, because "the reviewer was wrong" is the most dangerous
+sentence to write without evidence, and the evidence here is `go build` plus `go test` plus
+`verify-head-builds.sh` against HEAD.
+
+### `guardian`'s medium — CHECKED, and it does not bite
+
+> *"the estate has a live landmine that four agent types carry two ACTIVE rows under the same type.
+> If any of the six affected types are among those four, the six-step census and the per-type UPDATE
+> could both be silently wrong."*
+
+Exactly the right question to ask of a `type IN (...)` UPDATE. Verified `[MEASURED 2026-08-26]`:
+
+```
+page-build-handler 1 · page-rerender 1 · page-rebuild 1 · pageflow-builder 1
+site-work-orchestrator 1 · tool-recreation-handler 1
+```
+
+**All six carry exactly one active row**, so neither the census nor the UPDATEs can double-touch or
+undercount. The migrations' `RAISE EXCEPTION` on `count <> 6` also fails loudly if that changes
+before they are applied — which is the property that makes this safe to leave rather than re-engineer.
+
+### `guardian`'s standing caution, accepted and NOT closed
+
+> *"Unchanged tests prove the CASES THEY COVER are preserved, not that no live finding population
+> shifts — RFC_047's ambiguity split is new surface the old tests never exercised."*
+
+This is right and I have no counter-evidence. The extraction is behaviour-preserving *by
+construction* (`ctaClassifyAnchor` maps the three verdicts back onto its original two returns), but
+"the detector's live finding population is unchanged" is a claim about production that only
+production can settle. **Added to the post-roll verification owed**: compare `misdirected_cta`
+finding volume across the roll, and treat a shift as this change's until shown otherwise.

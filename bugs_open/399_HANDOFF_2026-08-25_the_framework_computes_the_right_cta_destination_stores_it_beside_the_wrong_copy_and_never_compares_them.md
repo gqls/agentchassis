@@ -158,7 +158,13 @@ the rule this estate already uses to the one place it demonstrably is not being 
 # ADDENDUM 2026-08-26 — taken on, built, committed. Two of this file's own claims are corrected.
 
 Picked up by the `bugfix_399_cta_label_agreement` lane (`docs/agent_docs/docs024_key_docs_latest/bugfix_399_cta_label_agreement/`).
-Committed `08afad7cd`; council `Council-Submitted: e9bda035-5ad7-4a27-8d4f-613bd03abe05`.
+Committed `08afad7cd` (+ revisions); council **APPROVED at round 3**, corr
+`e9bda035-5ad7-4a27-8d4f-613bd03abe05`, 12 of 15 seats — `architecture` among them, so this is a
+**ruled** point fix rather than an assumed one. Rounds 1–2 found three real defects and all were
+fixed before approval: an ordering constraint shipped as prose rather than a `_HOLD` filename; a
+coverage claim that was two writers of three (see §4's correction); and a false mutation claim in
+the very test written to prove the pass cannot fail a save — which, once fixed, exposed a recover
+handler that re-raised through the same nil logger and contained nothing.
 Register **LNK-040**. **Inert until the next fleet roll AND until migration `643` applies.**
 
 ## 0. Still valid, and two of the figures above had already gone stale
