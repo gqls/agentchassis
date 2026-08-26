@@ -566,9 +566,34 @@ consecutive hours with zero successes**, and the fleet is still attempting ~80 c
 
 **Second-order damage, which nobody had measured and which OUTLIVES the top-up:** `[MEASURED
 2026-08-26 08:5xZ]` **21 work items have exhausted `max_attempts` against the dead API since
-00:00Z** — 7 `unbuilt_internal_link`, 4 `content_rewrite`, 3+1 `improve_tool`, 2 `needs_page`, and
-one `needs_diagnosis` from a `090` trigger. Those do **not** self-heal when credit returns; they are
-`failed` for good and need re-firing by hand. The other 1,239 `triaged` / 170 `detected` rows are
+00:00Z.** Those do **not** self-heal when credit returns; they are `failed` for good and need
+re-firing by hand.
+
+> **⚠ CORRECTED 2026-08-26 — my enumeration above was INCOMPLETE, and it is the re-fire list.**
+> It originally read *"7 `unbuilt_internal_link`, 4 `content_rewrite`, 3+1 `improve_tool`, 2
+> `needs_page`, and one `needs_diagnosis`"* — which **sums to 18**, beside a total of **21**. Two
+> `dead_fragment_link` and one `page_rerender` were dropped. The `loanzy_uk_example_site` lane's
+> composition is the correct one; re-queried here by `item_type` alone to settle it:
+>
+> | item_type | burned | cites "credit balance" |
+> |---|---|---|
+> | `unbuilt_internal_link` | 7 | 7 |
+> | `content_rewrite` | 4 | 4 |
+> | `improve_tool` | 4 | 4 |
+> | `dead_fragment_link` | 2 | 2 |
+> | `needs_page` | 2 | 2 |
+> | `needs_diagnosis` | 1 | 1 |
+> | `page_rerender` | 1 | **0** |
+> | **total** | **21** | **20** |
+>
+> The `page_rerender` is the single non-matcher — a failure that landed in the window for another
+> reason — so an error-predicated re-fire correctly skips it and it needs judging by hand. That
+> lane's `RUNBOOK` holds the recipe.
+>
+> **This is the exact error I corrected in `bugs_open/405` twelve hours earlier** — a correct total
+> beside an enumeration that does not sum to it — and here the enumeration IS the operational
+> artefact: anyone re-firing from my list would have restored 18 of 21 and left three broken with
+> the outage marked resolved. `WRONG_CALLS.md` has it. The other 1,239 `triaged` / 170 `detected` rows are
 merely queued and will drain. **The outage is the visible event; the burned retry budget is the
 residue.** Whoever tops up should re-fire those 21.
 

@@ -54185,3 +54185,44 @@ a-question-inherits-its-embedded-claims-burden, the-throwaway-line-is-the-unaudi
   the CAPABILITY, not the commit" and "a `[MEASURED]` claim is only evidence if
   the measurement could have come out otherwise": a zero-cost probe of a
   costs-money capability cannot come out "no money".
+
+## 2026-08-26 — I shipped a correct total beside an enumeration that summed to 18, twelve hours after correcting another lane for exactly that
+
+**The claim.** Reporting the credit outage's residue, I wrote: *"21 work items have exhausted
+`max_attempts` … — 7 `unbuilt_internal_link`, 4 `content_rewrite`, 3+1 `improve_tool`, 2
+`needs_page`, and one `needs_diagnosis`."* The total is right. **The list sums to 18.** Two
+`dead_fragment_link` rows and one `page_rerender` were dropped between reading my own query output
+and writing the sentence — the grouped output was by `(created_by, item_type)`, nine rows, and I
+compressed it to prose by eye instead of re-grouping by the axis I was actually reporting.
+
+**Why it mattered more than an arithmetic slip: the enumeration IS the operational artefact.** That
+list is the re-fire list for after the top-up. Anyone working from it restores **18 of 21**, and the
+outage then reads as resolved while three items stay broken — the residue-inside-the-residue.
+
+**The `loanzy_uk_example_site` lane caught it and was too generous about it**, describing the
+difference as *"one `page_rerender` where you had the `improve_tool` split; both are artefact reads"*
+— i.e. treating it as two defensible readings. It was not. Re-queried by `item_type` alone, their
+composition is exactly right: 7 / 4 / 4 / 2 / 2 / 1 / 1 = 21, of which **20** cite "credit balance"
+and the lone `page_rerender` does not (a different failure that landed in the window, correctly
+skipped by an error-predicated re-fire).
+
+**This is the same defect I corrected in their `bugs_open/405` twelve hours earlier** — a stated 26
+beside batches summing to 27 — and I wrote at the time that *"a dated count is the thing that gets
+quoted onward."* Mine was worse: theirs was a historical figure in a bug file, mine was a live
+work list.
+
+**The cheap check, and it is the same one both times:** when you write a total and a breakdown in
+one sentence, **add the breakdown up before you send it.** And prefer to emit the breakdown from
+the query on the axis you are reporting — I had a nine-row `(created_by, item_type)` grouping and
+was reporting by `item_type`; re-grouping is one clause and eliminates the eyeball step entirely.
+**Do not compress a result set into prose by reading it.**
+
+**The pattern worth naming, because this is its third instance in one session:** every one of these
+was an error I had *just finished diagnosing in someone else's work or my own*. The control
+validated only where it fires (twice, mine). The text census read as a step census (theirs by my
+warning, then mine by my query). The enumeration that does not sum (theirs, then mine). **Writing a
+lesson down is not the same as holding it while you work**, and the interval between the two was
+under a day each time.
+
+Family: an-enumeration-is-an-operational-artefact, add-up-your-own-breakdown,
+group-by-the-axis-you-report, i-repeated-the-error-i-had-just-written-up.
