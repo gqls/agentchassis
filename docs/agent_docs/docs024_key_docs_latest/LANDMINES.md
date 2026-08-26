@@ -18307,3 +18307,19 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/283` (the sweep), the 08-22 owner rulings in `bugfix_283_component_instance_scope/CONTRIB_2026-08-22*` (the seam this population sits outside), MEMORY [[a-complete-work-item-is-not-a-repaired-artefact]] (here inverted twice: complete AND repaired, just not for long)
 - **source:** 2026-08-26, noted_rebuild lane; full account + held items + offered resolution: `bugfix_283_component_instance_scope/CONTRIB_2026-08-26_from_noted_lane_tool_write_single_instance_and_a_write_conflict.md`; structural-forward-risk confirmation for the 43-tool population: webdesign-tool-rebuilds NOTES (~12:45Z, commit e5e7b3c35)
 - **added:** 2026-08-26, noted.co.uk lane
+
+### THE TOOL-FAMILY CHECKS NEVER FILE AN ITEM BEARING THEIR OWN NAME — a census on item_type='tool_acceptance'/'tool_health' reads 0 for ever and reads as "never ran"
+
+- **footprint:** `site_work_items.item_type` · `check_tool_health.go` · `check_tool_acceptance.go` · `check_tool_acceptance_due.go` · any "did acceptance/health come back?" census
+- **fires when:** you count what a tool-family check produced by querying `item_type` = the check's name — after a sweep, while verifying a resume, or auditing coverage. Zero rows, no error, and "the check never ran" looks proven.
+- **the trap:** the check names and the item types are DISJOINT vocabularies, verified at the code **as of 2026-08-26**: check `tool_acceptance` files `improve_tool` (forks) / `ported_tool_fix` (ported) — `check_tool_acceptance.go:274,299`; check `tool_acceptance_due` files `acceptance_run` — `check_tool_acceptance_due.go:127`; check `tool_health` files `improve_tool`/`ported_tool_fix`/`audit_tool`/`capability_gap` — `check_tool_health.go:308,326,441` + rule 17. No item ever carries `tool_acceptance`, `tool_acceptance_due` or `tool_health` as its type. Fired live 2026-08-26, BOTH directions in one exchange: a relay said "tool_acceptance items resume" (they cannot exist), and a lane's "acceptance item types 0 rows, ever" read as *acceptance never came back* while **54 `acceptance_run` + 12 `audit_tool` + 52 `improve_tool`** rows from that very check sat on the site.
+- **the check:** census by the SPEC, not the type name — the checks stamp their identity inside: `spec->>'check'`:
+  ```sql
+  SELECT item_type, spec->>'check' AS check, count(*) FROM site_work_items
+   WHERE site_id='<site>' AND spec->>'check' IN ('tool_health','tool_acceptance','tool_acceptance_due')
+   GROUP BY 1,2;
+  ```
+  (`acceptance_run` rows key on the due-check's shape; if the spec key is absent on a type, read the filing code before concluding.) The findings-level record in `orchestration_states.collected_data->'discovery_result'` uses CHECK names — the two vocabularies never mix.
+- **relations:** `bugs_open/401` (found in its aftermath) · MEMORY [[a-subagent-report-is-another-doc]] (a key SHAPE is a hypothesis about provenance) · the vacuous-zero family (WRONG_CALLS 2026-08-26)
+- **source:** 2026-08-26, webdesign_tool_rebuilds platform seat + grind seat, each side of the same trap in one exchange
+- **added:** 2026-08-26, webdesign_tool_rebuilds platform seat

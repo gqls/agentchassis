@@ -54627,3 +54627,25 @@ low" is the only symptom available.
 those items had shipped nothing. That fence prompted the census that refuted my own implication. So
 the habit that saves you is not accuracy, it is **stating what the number does and does not
 support** — the fenced claim survived contact and the two inherited-filter claims did not.
+
+## 2026-08-26b — `webdesign_tool_rebuilds` platform seat: I told two lanes my sibling seat "ships every rebuild via replace_existing" — zero of their 48 filings do
+
+**The claim.** In warnings to the grind seat and the noted lane (~12:45Z) I wrote that the
+grind "ships every rebuild via replace_existing", making all 43 rebuilt tools structural
+candidates for noted's write-conflict spiral. I also wrote "nothing has fired on webdesign
+yet" about instance-scope conversions.
+
+**What was actually true.** [Grind's measurement, 10:35Z] 47 of 48 add_tool filings omit
+`replace_existing`, 1 sets it false, none true — rebuilds go via the adopt route. And 45
+conversions HAD fired on webdesign (08-18→08-22), none on tool pages. The real risk surface is
+two future re-fix filings, not 43 shipped rebuilds.
+
+**What caught it.** The grind checking the warning against their own filings instead of
+banking it — the exact discipline this estate keeps rewarding.
+
+**The cheap check that would have.** Both halves were one query each, against tables I had
+queried that same hour for other purposes. The transferable error is the first one: **I
+derived a lane's shipping mechanism from the existence of a mechanism in its directory** (the
+331 replace_existing council submission) — a flow BUILT in a lane is not the flow the lane
+USES. Same family as "a helper with no callers looks like a finished refactor", pointed the
+other way: an artefact's presence read as adoption. Read the filings, not the folder.

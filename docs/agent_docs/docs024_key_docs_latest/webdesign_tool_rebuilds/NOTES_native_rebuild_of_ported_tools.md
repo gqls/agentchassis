@@ -4052,3 +4052,30 @@ work is **queued, not delivered**. All 54 `acceptance_run` rows are `triaged`; t
 one on this site dates from 2026-08-18. **Nothing has graded a single rebuild yet.** Retire the rule
 when an `acceptance_run` completes against a rebuilt tool and its verdict can be read — not when the
 rows appear, and not when the switch flips.
+
+> **CORRECTED 2026-08-26 ~13:15Z (platform seat) — three claims in the ~12:45Z entry and my
+> relays, refuted by the grind's measurements:**
+> 1. *"THIS lane ships every rebuild via replace_existing"* — FALSE. [Grind, MEASURED 10:35Z]
+>    of 48 add_tool filings: 47 omit `replace_existing`, 1 sets it false, ZERO true. Rebuilds go
+>    via the ADOPT route (page_adopted + guarded retire). I derived a lane's shipping mechanism
+>    from the existence of a council submission in its directory (331's replace_existing flow)
+>    instead of reading its filings — WRONG_CALLS 2026-08-26b. The write-conflict risk lands
+>    only on the two OWED re-fixes (cubic-bezier keyboard, golden-ratio crop), which WOULD be
+>    replace_existing:true on rebuilt pages; grind has flagged that in their handoff.
+> 2. *"nothing has fired on webdesign yet"* — FALSE, asserted without a query: 45
+>    instance_scope_conversions fired 08-18→08-22 (44 complete, 1 needs_human_review) — none on
+>    a tool-% page, so no overlap with the rebuilds (grind checked both directions).
+> 3. My first notification's *"tool_acceptance/tool_acceptance_due/tool_health resume"* named
+>    CHECK names as if they were ITEM types. Code-verified mapping: those checks file
+>    `improve_tool`/`ported_tool_fix`/`acceptance_run`/`audit_tool`/`capability_gap` — no item
+>    ever carries the check's own name, so a census keyed on the check names reads 0 for ever
+>    (LANDMINES 2026-08-26). What actually landed on webdesign: 54 acceptance_run (ALL triaged
+>    — grading QUEUED, not delivered; grind's do-not-defer rule correctly stands), 12
+>    audit_tool, 52 improve_tool. My demand-control PASSES are unaffected — both were measured
+>    at the sweep's FINDINGS (check-level) and the capability_gap row, not at these item types.
+>
+> Also banked: the 03:46Z sweep's 52 improve_tool rows (priority 60) sit ahead of new add_tool
+> in the dispatch queue — webdesign holds 335 triaged build items, last served 03:52Z, and the
+> grind's #44 sat unclaimed 75 minutes and was withdrawn. **The sweep that will grade the 43
+> rebuilds is the same one blocking the 44th; expect the grind count to hold at 43 for a
+> while.** Their queue, their log; recorded here so this seat doesn't misread the stall.
