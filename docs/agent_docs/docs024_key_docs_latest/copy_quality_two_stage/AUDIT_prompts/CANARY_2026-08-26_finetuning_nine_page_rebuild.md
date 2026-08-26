@@ -134,3 +134,36 @@ locked to a single vendor") rather than self-limiting candour; P1 (honesty-beat)
 Caveat: fleet mixed during these builds (19× v1.0.1344 / 106× v1.0.1345), so which gate prompt
 repaired any given section is not attributable — immaterial to the forgiveness/vocabulary
 arithmetic, which precedes the repair.
+
+---
+
+## ROUND 3 — the substantive verdict (2026-08-26 ~21:30, 8 of 9 pages through; contact pending)
+
+**Protocol held**: finetuning's read was fixed BEFORE any battery output for the six clean pages
+(their message is the record); the two tool pages were contaminated by round 1 and marked so.
+Two independent instruments converge: their 4-shape hand count **30**, this lane's regex on the
+same four shapes **34** over the same pages (count-method differences only; approach re-counts
+differ by 1 across a possible interim rebuild; `model-approach-selector` REBUILT AGAIN at 21:04
+and improved 3→2 — forward-only working as designed).
+
+**P2a: REFUTED, emphatically — the pre-registered new finding is REAL.** The decisive fact,
+theirs: a positive comparison-avoidance instruction entered the site brief at **19:03:22**,
+before all six builds. So these pages were written with (a) the demonstration stack cleared in
+every layer, (b) a positive instruction present — and produced **~5 constructions per page**
+(their 30 / our 34-40 across 6-8 pages). Per the pre-registration: *"the demonstration theory is
+WRONG for that class — model prior… a new finding, not a scoring quibble."* **The carrier is the
+model's own preference. De-demonstration and instruction have both hit their ceiling; the only
+remaining lever is mechanical repair.** (Consistent with, and the strongest instance yet of, the
+estate's "prescriptions do not govern" line — now proven in the SUBTRACTIVE direction too.)
+
+**P1 CLEAR** (plainly 0–1/page, "honest" 0 outside the tool-mandate area). **P4 CONFIRMED**
+(candour beat reduced but present — "so the judgement behind each system is never a mystery to
+you"). **The truncation rule validated on 30 real instances**: their sample shows every
+construction truncates losslessly ("…lets a model give a specific, sourced answer." full stop).
+**Their prose read, fixed first: genuinely better in kind** — concrete headings, sentences a
+person would say — with the comparison habit as the residual tic.
+
+**Consequence for the owner's Q-A:** it is no longer a tuning preference. With the model prior
+as the carrier, the ONLY path to his target is the gate repairing what it sees — repair-all (or
+a small per-PAGE allowance) plus the Q-B vocabulary additions. Everything else has been tried
+and measured.

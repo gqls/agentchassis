@@ -52,8 +52,15 @@ day — the chassis roll, the owner's trial, and the canary's first scores lande
   `instead_of` + `not_just` are **outside the gate's five shapes** → invisible. The trial changed
   repair STYLE; forgiveness + vocabulary decide WHAT is repaired. Character is much better than
   the old floor (vendor-portability contrasts, not self-limiting candour; honesty-beat CLEAR).
-- Full scoring (round 3) when all nine + index/faq land: per-page battery vs pre-registration,
-  finetuning's read FIRST then battery (their P5 ordering), ours alongside.
+- **Round 3 SCORED (8 of 9; contact pending): P2a REFUTED EMPHATICALLY — the pre-registered new
+  finding is real.** A positive comparison-avoidance instruction entered the brief at 19:03,
+  before all six clean builds; with the demonstration stack cleared AND the instruction present,
+  the pages still carry ~5 constructions each (their hand count 30, our battery 34 on the same
+  shapes — two instruments converge; both reads fixed per protocol). **The carrier is the model's
+  own preference; the only remaining lever is the gate.** P1 clear, P4 confirmed, prose genuinely
+  better in kind (their read, fixed first). All 30 truncate losslessly — the trial's approach
+  validated on real instances. This makes Q-A the whole ballgame: repair-all (or per-PAGE
+  allowance) + Q-B vocabulary is the only measured path to the owner's target.
 
 ## ⚠ OPEN QUESTIONS FOR THE OWNER (Q-A, Q-B in the rulings doc, with the numbers)
 
