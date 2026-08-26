@@ -1019,3 +1019,28 @@ listener fixes; claim round 3 (0b84970d) as post-approval hardening so the trail
 what shipped. Also this morning: design rotation re-enable verified at the live rows,
 label-strip risk relayed to the webdesign lane; the six-listeners observation gained its
 trigger (an eighth forces an RFC).
+
+## 2026-08-26 (midday) — THE ROLL LANDED: listener LIVE and verified at the pod; the box apply is now the owed half
+
+A core-manager roll at ~11:55:08Z picked up everything: pod stamp `e7f1045fd`, and ALL of
+`24b63120d` (second-click), `d1a4bdcdf`, `d30917150` (listener), `67f1794f9` +
+`d547b54cc` (this morning's Fable fixes) are ancestors — control (`fa3b665ed`) passes.
+
+**Verified at the pod, 2026-08-26 midday** (in-cluster half of the plan's table; the
+outside half stays owed):
+- opt-in present (`SERVICE_SERVER_DELIVERY_PORT=8090` in pod env) and the listener's own
+  startup lines at 11:55:08Z ("Delivery listener configured/Starting … customer routes only");
+- **the containment triple**: `:8090 /api/v1/admin/work-items` → **404** ·
+  `:8088` same path → **401** (the not-404 control — proves the 404 is the listener, not a
+  dead probe) · `:8090 /c/<43-char token shape>` → **200** (the reach control — proves the
+  404s are not a dead port). That is checks #5/#6 + reach from `PLAN_2026-08-25`.
+
+**The state to not misread:** from OUTSIDE, `/c/` now 404s at the box — the box still
+proxies `:8088`, where the routes no longer are. This is the plan's predicted zero-impact
+window (`customer_access_tokens` 0, handovers 0/0, re-measured today), and the vhost's
+DO-NOT-APPLY-BEFORE-THE-ROLL gate is **now satisfied**: the box apply is UNBLOCKED and
+owed at the owner's next box step. After it: the outside verification table, then the
+second-click page's outside check, which is what releases the delivery-email block.
+
+Relayed all of the above (dated) to the webdesign.uk lane for their whole-launch owner
+status, including the design-rotation label risk and the two bounded admin-only residuals.
