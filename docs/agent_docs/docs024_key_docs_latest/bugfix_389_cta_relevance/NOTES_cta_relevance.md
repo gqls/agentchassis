@@ -545,3 +545,66 @@ Counting `### ` headers on both sides is the assertion that no entry vanished.
 Verifier re-armed for the changed entry (`./scripts/landmines-verify-dispatch.sh`, correlation
 `f2b7a0a0-79a5-4bbb-ad76-04bb1864d368`) — a corrected entry needs re-verifying, and the arming state
 is consumed by a bare `--apply`.
+
+### 2026-08-26 ~08:5xZ — fleet LLM outage VERIFIED at the artefact; this lane's two dead rows closed; and MISSTEP 14: I never read my own landmine verdict
+
+**The API credit outage is real, and it is not a passing note.** The `loanzy_uk_example_site` lane
+reported it; verified here at the artefact rather than taken on report, with a pre-outage control so
+"zero" means something:
+
+| hour (UTC) | calls | ok | failed |
+|---|---|---|---|
+| 08-25 21:00 | 159 | **157** | 2 |
+| 08-25 22:00 | 128 | **124** | 4 |
+| 08-25 23:00 | 123 | 107 | 16 |
+| 08-26 00:00 → 08:00 | ~691 | **0** | **691** |
+
+Verbatim, 690 of 691: `API request failed with status 400: {"type":"error","error":
+{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic
+API…"}}`. (The single non-Anthropic failure is an unrelated `ollama-adapter` timeout.) **Nine
+consecutive hours with zero successes**, and the fleet is still attempting ~80 calls/hour into it.
+
+**Second-order damage, which nobody had measured and which OUTLIVES the top-up:** `[MEASURED
+2026-08-26 08:5xZ]` **21 work items have exhausted `max_attempts` against the dead API since
+00:00Z** — 7 `unbuilt_internal_link`, 4 `content_rewrite`, 3+1 `improve_tool`, 2 `needs_page`, and
+one `needs_diagnosis` from a `090` trigger. Those do **not** self-heal when credit returns; they are
+`failed` for good and need re-firing by hand. The other 1,239 `triaged` / 170 `detected` rows are
+merely queued and will drain. **The outage is the visible event; the burned retry budget is the
+residue.** Whoever tops up should re-fire those 21.
+
+**⇒ Consequence for this lane: step 3 (retirement) CANNOT START until credit is restored.** It goes
+through the framework, and the framework's content path is LLM-shaped. A `cta_links_stale` rerender
+is explicitly no-LLM and would still work; a retirement is not that.
+
+**Closed this lane's two dead rows** (`SQL_2026-08-26_close_the_superseded_model_directory_pair.sql`,
+no LLM involved). Both were superseded by the retry pair that completed 21:00:09Z:
+`cta_label_relevance:2c7c836c…` sat at `needs_human_review`, and `cta_relink:2c7c836c…` sat at
+`triaged` **depending on it** — and `load_work_item_actions.go:713` only dispatches on
+`complete`/`verified`, so that relink was **permanently undispatchable**. I had documented leaving
+the first "as the record" and had **not noticed the second at all**. Left alone it would sit for
+ever, and a future reader querying this lane would see an unfinished pair beside 26 complete ones —
+the `bugs_open/396` shape. Cancelled, not deleted, each row carrying its own reason and the key of
+what replaced it. Guard induced against the pre-change state first (`found 0`, aborted), then passed:
+**0 open, 2 cancelled, the rest complete.**
+
+> **MISSTEP 14 — I dispatched the landmine verifier twice, reported "re-armed", and never read the
+> verdict.** Both runs returned **`NEEDS_HUMAN_REVIEW`** (20:45:29 and 21:11:34), while other lanes'
+> entries that evening returned `STILL_VALID`. I only looked this morning, and only because the
+> outage made me audit my own outstanding dispatches.
+>
+> **The verdict is not "your entry is wrong" — it is "this instrument cannot answer."** The verifier
+> is a **Go-only** index: *"Scope: 8700 symbols, the indexed corpus holds only: .go"*, pinned at
+> commit `e347c5ad` of **2026-08-23** — *"the last pushed tip, not the present tree"*, which the
+> verifier itself flags as **predating the incident by two days**. It confirmed the three Go-visible
+> footprints (`site_work_items`, `spec.suggestion`, `page_components.content_data`) and honestly
+> declared the rest unanswerable: *"1 NOT ANSWERABLE by this index; 3 ran and matched nothing in
+> scope."* `item_type='content_rewrite'`, `page_component_history.source_item_id` and the SQL repair
+> recipe are database artefacts it structurally cannot see.
+>
+> **So this is the session's FOURTH instrument-scope finding, and it generalises past my entry: any
+> landmine whose footprint is a TABLE, a work-item type, a migration or a SQL recipe will return
+> `NEEDS_HUMAN_REVIEW` from this verifier no matter how true it is** — because the corpus is `.go`
+> only, while `LANDMINES.md` is explicitly a corpus of *paths, tables, commands and symbols*. For
+> that whole class the verdict does not discriminate. Credit to the verifier for saying "not
+> answerable" instead of returning a green; that is the behaviour I spent yesterday failing at.
+> **Not re-dispatched** — it is LLM-shaped, and there is no credit.
