@@ -261,20 +261,6 @@ func TestTruncationMessage_ModeSplit(t *testing.T) {
 	}
 }
 
-func TestPagePathFromContrastKeyRoundTrips(t *testing.T) {
-	for _, p := range []string{"/index.html", "/tools/matchmatrix/index.html", "/news/index.html"} {
-		key := workItemKey("contrast_failure", p+"#BUTTON.btn-run")
-		if got := pagePathFromContrastKey(key); got != p {
-			t.Fatalf("round trip broke: %q -> key %q -> %q", p, key, got)
-		}
-	}
-	// A key of another shape must yield "", which matches no live page, rather
-	// than a prefix that would match many.
-	if got := pagePathFromContrastKey("undeployed_asset:abc-123"); got != "" {
-		t.Fatalf("a foreign key yielded %q — it must not select anything", got)
-	}
-}
-
 // A site that fits inside the cap must never touch the cursor table: no read, no
 // write, and no truncation row. Proven by registering NO cursor expectations on
 // the mock — an unexpected query fails the test.
@@ -397,5 +383,82 @@ func TestPriorityPageBeyondTheWindowDoesNotMoveTheStoredCursor(t *testing.T) {
 	body := string(producer.value)
 	if strings.Index(body, "/p140.html") > strings.Index(body, "/p061.html") {
 		t.Fatalf("priority pages must be sent ahead of the rotation slice")
+	}
+}
+
+// THE COLLISION THE COUNCIL FOUND (editquality, round 1, corr f67593f5).
+//
+// The first cut recovered the page path by splitting a contrast_failure key on
+// its first '#'. Both halves of the hazard are LIVE, measured 2026-08-26:
+//
+//   - a selector may contain '#' — `…/index.html#BUTTON#c-tool-…` exists in
+//     production (1 of 469 open rows), and the `describe` scheme emits
+//     `tag#id.classes` by construction;
+//   - a PAGE URL may contain '#' — idea.uk carries BOTH `/tools.html` and
+//     `/tools.html#audience-check` as ACTIVE pages, with 35 open contrast rows.
+//
+// So the split turns a finding on `/tools.html#audience-check` into one on
+// `/tools.html`, which is a REAL page on that site: the wrong page is
+// prioritised, and nothing errors. This fixture is idea.uk's real shape.
+//
+// MUTATION: reinstate a first-'#' split to derive the path → `/tools.html` is
+// selected instead of `/tools.html#audience-check` and this test fails.
+func TestPriorityMatchIsNotFooledByAHashInThePageURLOrTheSelector(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New().String()
+
+	live := []auditPageRow{
+		{Path: "/tools.html", Ord: 10, Name: "tools"},
+		{Path: "/tools.html#audience-check", Ord: 20, Name: "tools-audience-check"},
+		{Path: "/tools/sfi26-revenue-stacker/index.html", Ord: 100, Name: "sfi26"},
+	}
+
+	mock.ExpectQuery("FROM site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"item_key"}).
+			// a finding on the FRAGMENT page — must not be attributed to /tools.html
+			AddRow("contrast_failure:/tools.html#audience-check#SPAN.eyebrow").
+			// a selector that itself contains '#' — the live shape
+			AddRow("contrast_failure:/tools/sfi26-revenue-stacker/index.html#BUTTON#c-tool-calc-btn").
+			// an open row whose page is not live at all
+			AddRow("contrast_failure:/retired.html#P.gone"))
+
+	hit, total, notLive, err := pagesWithOpenContrastFindings(context.Background(), db, siteID, live)
+	if err != nil {
+		t.Fatalf("lookup failed: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("open row count %d, want 3", total)
+	}
+	if !hit["/tools.html#audience-check"] {
+		t.Fatalf("a finding on the fragment page was not attributed to it")
+	}
+	if hit["/tools.html"] {
+		t.Fatalf("a finding on /tools.html#audience-check was mis-attributed to /tools.html — "+
+			"this is the exact live collision on idea.uk, and it is silent: %v", hit)
+	}
+	if !hit["/tools/sfi26-revenue-stacker/index.html"] {
+		t.Fatalf("a selector containing '#' broke the match")
+	}
+	if notLive != 1 {
+		t.Fatalf("notLive = %d, want 1 (the retired page's row can never self-grade)", notLive)
+	}
+}
+
+// The prefix this matcher builds must be the SAME string the grader builds, or
+// the priority set and the retraction set are talking about different rows.
+// Built by the shared composer on both sides, so this pins the composition
+// rather than a copy of it.
+//
+// MUTATION: change the delimiter or the prefix spelling in workItemKey → fails
+// here AND on the grading side, which is the point.
+func TestPriorityPrefixIsTheGradersOwnComposition(t *testing.T) {
+	const path = "/index.html"
+	want := workItemKey("contrast_failure", path+"#") // exactly line 748's construction
+	if want != "contrast_failure:/index.html#" {
+		t.Fatalf("composer produced %q — the grader builds its audited-page prefix the same way", want)
 	}
 }

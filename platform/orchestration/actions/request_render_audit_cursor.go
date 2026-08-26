@@ -84,6 +84,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 
 	"go.uber.org/zap"
@@ -220,22 +221,47 @@ func cyclicFrom(rows []auditPageRow, cur *auditCursor) []auditPageRow {
 	return out
 }
 
-// openContrastPagePaths returns the page paths carrying an OPEN contrast_failure
-// row — the exact population `retractResolvedContrastFindings` can grade.
+// pagesWithOpenContrastFindings returns which of `live` carry an OPEN
+// contrast_failure row — the exact population `retractResolvedContrastFindings`
+// can grade.
+//
+// ⚠ IT MATCHES FORWARD FROM THE PAGE, AND NEVER PARSES THE KEY. That is not a
+// style choice; parsing is unsafe here and the council's editquality seat caught
+// it on round 1 by naming the LANDMINE this footprint carries ("The render-audit
+// package now holds TWO selector-composition schemes"). The first version of
+// this function split the key on its first '#' to recover the path. Measured
+// 2026-08-26, that is wrong on live data:
+//
+//   - a SELECTOR may itself contain '#'. In production today:
+//     `contrast_failure:/tools/sfi26-revenue-stacker/index.html#BUTTON#c-tool-…`
+//     (1 of 469 rows), and the `describe` scheme emits `tag#id.classes` by
+//     construction, so this is a shape the estate deliberately keeps.
+//   - and worse, a PAGE URL may contain '#'. `idea.uk` has BOTH
+//     `/tools.html#audience-check` and `/tools.html` as ACTIVE pages, and 35
+//     open contrast_failure rows. Splitting on the first '#' turns the first
+//     into the second — a path that IS a real page on that site — so the wrong
+//     page would be prioritised, silently and successfully.
+//
+// The safe construction is the GRADER'S OWN: build the prefix from the page with
+// workItemKey (write_render_audit_findings_action.go:748 does exactly this) and
+// prefix-match. It cannot be ambiguous, because the prefix ends at the '#' the
+// composer inserted, and a longer page's prefix cannot match a shorter page's
+// key — the property `TestWriteRenderAuditFindings_ShorterPageDoesNotPrefixMatchALongerOne`
+// already pins on the grading side.
 //
 // The status predicate interpolates sqlInList(workItemClosedStatuses), the SAME
 // constant `loadAuditRetractionCandidates` uses, rather than restating a status
-// list. That is not tidiness: `workItemClosedStatuses` is deliberately NOT
-// `workItemTerminalStatuses` — `unresolved` and `failed` are OPEN (RFC_010,
-// owner ruling 2026-08-02 "Decision 2") — and a hand-written copy of the list
-// would agree with it until the day it did not. A session censusing this
-// population by hand on 2026-08-26 omitted `verified` and `wont_fix` and got the
-// right answer anyway, by site-specific coincidence (WRONG_CALLS.md).
-//
-// The path is recovered with pagePathFromContrastKey, the inverse of the
-// composer, because the grader identifies a page by the path inside item_key and
-// has never read page_id.
-func openContrastPagePaths(ctx context.Context, db *sql.DB, siteID string) (map[string]bool, int, error) {
+// list. `workItemClosedStatuses` is deliberately NOT `workItemTerminalStatuses` —
+// `unresolved` and `failed` are OPEN (RFC_010, owner ruling 2026-08-02
+// "Decision 2") — and a hand-written copy would agree with it until the day it
+// did not. A session censusing this population by hand on 2026-08-26 omitted
+// `verified` and `wont_fix` and got the right answer anyway, by site-specific
+// coincidence (WRONG_CALLS.md).
+// Returns: the live page paths that carry at least one open row; the total open
+// row count; and the number of open rows that matched NO live page — an item
+// that can never self-grade, because the audit will never photograph its page
+// again. That third number is reported, not acted on.
+func pagesWithOpenContrastFindings(ctx context.Context, db *sql.DB, siteID string, live []auditPageRow) (map[string]bool, int, int, error) {
 	q := `SELECT COALESCE(item_key, '')
 	        FROM site_work_items
 	       WHERE site_id = $1::uuid
@@ -243,26 +269,45 @@ func openContrastPagePaths(ctx context.Context, db *sql.DB, siteID string) (map[
 	         AND status NOT IN (` + sqlInList(workItemClosedStatuses) + `)`
 	rows, err := db.QueryContext(ctx, q, siteID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("open contrast_failure lookup failed: %w", err)
+		return nil, 0, 0, fmt.Errorf("open contrast_failure lookup failed: %w", err)
 	}
 	defer rows.Close()
 
-	paths := map[string]bool{}
-	n := 0
+	var keys []string
 	for rows.Next() {
 		var key string
 		if err := rows.Scan(&key); err != nil {
-			return nil, 0, fmt.Errorf("open contrast_failure scan: %w", err)
+			return nil, 0, 0, fmt.Errorf("open contrast_failure scan: %w", err)
 		}
-		n++
-		if p := pagePathFromContrastKey(key); p != "" {
-			paths[p] = true
-		}
+		keys = append(keys, key)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("open contrast_failure rows: %w", err)
+		return nil, 0, 0, fmt.Errorf("open contrast_failure rows: %w", err)
 	}
-	return paths, n, nil
+
+	// One prefix per live page, built by the composer. Longest path first, so a
+	// page whose path is a prefix of another cannot claim the other's rows —
+	// e.g. idea.uk's `/tools.html` must not swallow `/tools.html#audience-check`.
+	ordered := make([]auditPageRow, len(live))
+	copy(ordered, live)
+	sort.Slice(ordered, func(i, j int) bool { return len(ordered[i].Path) > len(ordered[j].Path) })
+
+	hit := map[string]bool{}
+	unmatched := 0
+	for _, key := range keys {
+		found := false
+		for _, pg := range ordered {
+			if strings.HasPrefix(key, workItemKey("contrast_failure", pg.Path+"#")) {
+				hit[pg.Path] = true
+				found = true
+				break
+			}
+		}
+		if !found {
+			unmatched++
+		}
+	}
+	return hit, len(keys), unmatched, nil
 }
 
 // selectPriorityRegradeSet picks the finding-bearing pages to carry in this run.
@@ -288,7 +333,7 @@ func selectPriorityRegradeSet(
 		return res
 	}
 
-	paths, openRows, err := openContrastPagePaths(ctx, db, siteID)
+	paths, openRows, notLive, err := pagesWithOpenContrastFindings(ctx, db, siteID, live)
 	if err != nil {
 		// Fail OPEN, loudly: a priority set we could not compute must degrade to
 		// a plain rotation, never block the audit. The run still covers a window.
@@ -313,7 +358,7 @@ func selectPriorityRegradeSet(
 		}
 		res.taken = append(res.taken, r)
 	}
-	res.notLive = len(paths) - matched
+	res.notLive = notLive
 
 	if len(res.dropped) > 0 {
 		logger.Warn("request_render_audit: priority regrade set exceeds its reserve — the excess is NOT audited this run; the drop rotates with the cursor, so no page is dropped permanently",

@@ -511,36 +511,27 @@ func workItemKey(itemType, target string) string {
 	return itemType + ":" + target
 }
 
-// pagePathFromContrastKey is the INVERSE of the contrast_failure composition
-// above — workItemKey("contrast_failure", pagePath+"#"+selector), spelled at
-// write_render_audit_findings_action.go:489.
+// ── bugs_open/394: THE INVERSE OF THIS COMPOSITION IS NOT SAFE TO WRITE ────
 //
-// WHY IT LIVES HERE, BESIDE THE COMPOSER, and not at its caller. The page
-// identity a contrast_failure row carries is the path INSIDE item_key. It is not
-// page_id: the retraction path never reads that column, it builds
-// workItemKey("contrast_failure", p+"#") and prefix-matches (:748). A caller that
-// recovered the path any other way would be a SECOND notion of "which page",
-// agreeing with the real one today and diverging the first time a row is filed
-// differently — so the composer and its inverse are one edit apart on purpose,
-// and TestPagePathFromContrastKeyRoundTrips pins them together by running the
-// real composer rather than a copy of its format.
+// A first cut of the render-audit coverage cursor added a pagePathFromContrastKey
+// here, splitting a contrast_failure key on its first '#' to recover the page
+// path. It was REMOVED after the council's editquality seat objected, and the
+// measurement it prompted says why, so the next author does not re-add it:
 //
-// Returns "" for a key that is not this shape — an empty path matches no live
-// page, so a malformed key drops out of a priority set rather than selecting
-// everything. bugs_open/394.
-func pagePathFromContrastKey(key string) string {
-	const prefix = "contrast_failure:"
-	if !strings.HasPrefix(key, prefix) {
-		return ""
-	}
-	rest := strings.TrimPrefix(key, prefix)
-	// The selector follows the first '#'. A URL path cannot contain one, so the
-	// first is the right one — and a key with no '#' at all is a path on its own.
-	if i := strings.IndexByte(rest, '#'); i >= 0 {
-		rest = rest[:i]
-	}
-	return rest
-}
+//   - a SELECTOR may contain '#'. Live 2026-08-26:
+//     `contrast_failure:/tools/sfi26-revenue-stacker/index.html#BUTTON#c-tool-…`,
+//     and the `describe` scheme emits `tag#id.classes` by construction — two
+//     selector schemes coexist here deliberately and permanently (LANDMINES,
+//     "The render-audit package now holds TWO selector-composition schemes";
+//     register VIZ-016 / WII-016).
+//   - a PAGE URL may contain '#'. `idea.uk` has BOTH `/tools.html#audience-check`
+//     and `/tools.html` ACTIVE, with 35 open contrast_failure rows. Splitting on
+//     the first '#' turns the first into the second — a path that IS a real page
+//     on that site — so the wrong page is selected, silently and successfully.
+//
+// The safe direction is FORWARD, and the grader already goes that way: build the
+// prefix from the page with workItemKey(...) and prefix-match
+// (write_render_audit_findings_action.go:748). Do that instead of parsing.
 
 // resolveWorkItems closes work items a discovery check has POSITIVELY OBSERVED
 // to be fixed. It is the runner-side half of checks.CheckResult.Resolved
