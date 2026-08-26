@@ -314,3 +314,37 @@ sites come due TODAY: remortgagecalculator.uk 13:16 UTC, garden-tools.uk 17:18, 
 First post-roll audit expected at the first hourly tick after ~14:16 BST — not "~08-29".
 (The rotation stamps the site in the same statement it selects it, so a due reading is consumed by
 the read; always read `due_at`, never re-derive from a stale query.)
+
+## 2026-08-26 (m) — state re-verified at 12:18 BST; the handoff's accounting query named a key that never exists; watch armed for the first post-roll audit
+
+**Re-verified live, not inherited:** 635's verdict is `approved` at the DB
+(`diagnosis_artifacts`, corr `fe5cbe0c`, 09:14:09 UTC — one row, no earlier verdict, consistent
+with r1 dying at `complete_invalid`). Zero cascade-attributed `contrast_failure` rows exist
+(`spec ? 'cascade_scheme'` → 0), and zero post-roll audits have run.
+
+**The verification calendar, read from `last_selected_at + 3 days` (read-only — the pre_query
+stamps in the same statement it selects, so never run IT to ask what's due):**
+remortgagecalculator.uk due 13:16 UTC today, garden-tools.uk 17:18, cookly.uk 18:19.
+Task ticks hourly (`interval_seconds=3600`, last trigger 10:49 UTC), so first selection at the
+**13:49 UTC tick (~14:49 BST)**. The P2/P3-decisive sites all come due TOMORROW: vonc.com 10:27,
+noted.co.uk 12:28, loanzy.uk 15:29 UTC (loancash 17:30; cv1 08-28 12:39).
+
+**All three of today's due sites PASS 542's gate** (RUNBOOK §3 query: css_len 17,978–20,156, all
+site_count=1, all linked) — so any new `detected` rows today dispatch to css-patch-agent rather
+than parking, and **P2 may be gradable today**, not only P4.
+
+**CORRECTION (appended to the handoff too): the handoff §1(b) accounting query reads
+`collected_data->'audit_findings'`, a key that exists on NO orchestration row.** The cascade
+counters are written into the action RESULT map
+(`write_render_audit_findings_action.go:642-651`, unconditional, zeros included) and land under
+the STEP key — `collected_data->'write_findings'` (grounded on the cv1 08-25 run, whose
+`inserted: 3 / deduped: 5` accounting sits exactly there; all 3 existing `render-audit-agent`
+orchestrations have no `audit_findings` key). The wrong query returns 0 rows for ever and reads
+as "no audit yet" — the same shape as the `audit_findings` name being written from memory rather
+than from the step map. Baseline for the watch: today, zero rows carry
+`write_findings ? 'cascade_attributed'`, so the first hit IS the first post-roll audit.
+
+**Prior-audit baseline for remortgagecalculator.uk:** 7 `contrast_failure` rows all `complete`
+(5 filed 08-23 13:17, complete by 13:49; 2 filed 08-20). If today's audit re-files any of those
+pairings byte-identical, that is the last pre-attribution evidence of the damage class; the NEW
+rows should carry `cascade_scheme` + `repair_surface` (P4).

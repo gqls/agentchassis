@@ -101,3 +101,29 @@ was simply me having already done it. I have written that down where the next pe
 Two review rounds are still running. The remaining piece — teaching the repair agent to use the new
 measurement — is deliberately waiting until the services roll, so it can be built against real data
 rather than my expectations of it.
+
+---
+
+**26 August, lunchtime.** Everything is now approved and live, and today is the first day the new
+measurement meets a real site.
+
+The overnight release carried the measuring code onto all three services, and I proved that at the
+running services themselves rather than trusting the release notes. The review panel has now
+approved all three pieces of this work — the quick prompt fix, the measuring code, and the final
+piece that routes on the measurement. The last of those took two attempts through no fault of the
+work: the first review died mid-run because the AI provider the reviewers themselves run on was
+briefly out of credit, so eleven of the seats simply couldn't speak. Once that was topped up, the
+same submission passed with no objections at all.
+
+One small but important catch this morning: the previous session's handover note contained a
+checking query pointing at a name that doesn't exist in the database — anyone following it would
+have concluded for ever that no audit had run yet. I traced where the numbers actually land, fixed
+the note, and wrote down how the mistake happened (the name was written from memory rather than
+read from the code).
+
+What happens next is out of our hands, deliberately: the site checker visits each site every three
+days on its own schedule, and the first site due — a remortgage calculator site — comes up early
+this afternoon. That visit will be the first time the new measurement runs for real. The decisive
+sites, the ones whose repeated failed repairs started this whole investigation, come due tomorrow
+morning and afternoon. I've set a watch so the moment the first results land we can read them and
+grade the predictions we wrote down in advance.

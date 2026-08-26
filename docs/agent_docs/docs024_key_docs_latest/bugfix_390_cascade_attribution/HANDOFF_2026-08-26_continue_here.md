@@ -179,3 +179,25 @@ audit expected at the first hourly rotation tick after ~14:16 BST today (remortg
 due 13:16 UTC; then garden-tools 17:18, cookly 18:19 UTC). P1 was graded — the observation
 confirms 542's gate but it was a POSTDICTION (event preceded registration by 2h; WRONG_CALLS
 2026-08-26); P2–P4 remain genuine and pending.
+
+---
+
+## ⚠ DATED CORRECTION 2026-08-26 ~12:35 BST — §1(b)'s accounting query names a key that never exists; the counters land under `write_findings`
+
+The producer-accounting query in §1(b) reads `collected_data->'audit_findings'`. **There is no such
+key.** The cascade counters are written into the ACTION RESULT map in
+`write_render_audit_findings_action.go:642-651`, and that result lands in `collected_data` under
+the STEP name — `write_findings` (verified against all 3 existing `render-audit-agent`
+orchestrations: `collected_data ? 'audit_findings'` is false on every one, and the cv1 run's
+accounting — `inserted: 3`, `deduped: 5` — sits at `collected_data->'write_findings'`). The
+query §1(b) gives would return zero rows for ever and read as "no audit has run yet". Correct form:
+
+```sql
+SELECT jsonb_pretty(collected_data->'write_findings') FROM orchestration_states
+WHERE collected_data->'write_findings' ? 'cascade_attributed' ORDER BY updated_at DESC LIMIT 3;
+```
+
+The keys are written unconditionally, zeros included (the code comment at :634 says so and the
+code does), so **presence of `cascade_attributed` = post-roll audit; absence = old code or no
+audit** — with `cascade_scheme_present` as the discriminator between "cannot attribute" and
+"attributed nothing".
