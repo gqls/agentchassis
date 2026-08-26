@@ -26,8 +26,8 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	orchtypes "github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/pkg/models"
+	orchtypes "github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
