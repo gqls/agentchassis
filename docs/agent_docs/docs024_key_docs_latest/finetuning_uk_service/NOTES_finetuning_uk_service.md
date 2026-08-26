@@ -1995,3 +1995,72 @@ no hero images which has meant that the copy is also unreadable. e.g. services.h
 4. **I read the wrong council verdict first** — `ORDER BY created_at DESC LIMIT 1` on `doc_notes`
    returned another lane's REVISE about `save_page_sections`. Filter by YOUR correlation. The
    standing caution says exactly this and I did it anyway.
+
+## 2026-08-26b — the hero-image request, and why it STOPPED before it ran
+
+**Owner asked** for the improvement loop to be run "carefully" to fix the missing images. Three
+findings, then a reversal he was right to make.
+
+### 1. Two of the three recorded image problems are FALSE
+
+`site_work_items` held **11 `image_url_404` findings** (filed 2026-07-26 and 2026-08-03, never
+promoted). All of them are wrong at the artefact `[MEASURED 2026-08-26]`:
+
+- all five `/assets/images/case-study-*.jpg` serve **HTTP 200** with real bytes (51–94 KB each);
+- the "16 `<img>` tags render with no image source" finding: **0** empty/`#` `src` across
+  index, case-studies, use-cases, services, about;
+- `scripts/render_audit.py`, which actually loads them: **`broken-img=0`** on every page checked.
+
+The check compares a referenced path against the `assets` table; its own header records that the
+HTTP half is deferred. So these are DB-vs-reality drift, not broken images. **Do not read that
+queue as "the site has missing images".**
+
+### 2. The real defect: 9 pages have no hero image at all
+
+`about`, `approach`, `careers`, `case-studies`, `contact`, `services`, `use-cases`, and 2 tool
+pages carry **neither `hero_url` nor `background_image`** in the hero component's `content_data`.
+Those are the pages that fall to the CSS colour-band branch — i.e. exactly the population
+`bugs_open/398` was about. The other **26** pages all share **one** image, `/assets/images/hero.jpg`,
+so a naive fix would have put the same picture on 35 pages.
+
+### 3. ⚠ THE FRAMEWORK COUPLES IMAGES TO A FULL LLM REBUILD, and that is the whole story
+
+`needs_imagery`(page-scoped) → `image-build-handler` → generate → store → deploy →
+**`flag_page_image_rebuild`** → emits **`item_type='needs_page'` at `page-build-handler`** →
+**full LLM rebuild, copy regenerated**.
+
+- Read from the code, not the comment: `flag_page_image_rebuild_action.go:175-193` sets
+  `itemType: "needs_page"`, `handlerAgent: "page-build-handler"`.
+- ⚠ **Its `spec` carries `{"reason":"image_landed"}` and its `item_key` is `page_rerender:<page>`,
+  both of which make it LOOK like the light path. It is not.** `render_news_section_html.go:39-56`
+  documents a session making exactly that mistake: *"on the belief that spec.reason selected a
+  scoped no-LLM branch there. It does not."* The consequence there was copy-regeneration roulette
+  4×/day, and on 2026-07-24 one roll **re-invented two phantom links and fabricated a contact
+  email** on the relojistas homepage.
+- `page-rerender` DOES honour `image_landed` (`check_rerender_mode` routes it to
+  `rerender_sections`, no LLM) — but nothing files a `page_rerender` for a landed hero, because
+  the wiring (`hero_url` into the render context) happens inside `BuildRenderContextAction`
+  (`v3_site_actions.go:1358`), i.e. only in the build path. **There is no light route today.**
+
+### 4. What happened
+
+Put to the owner as a choice; he chose "do it fully now, accept the copy regeneration". A restore
+baseline was captured and committed first (9 pages' served HTML + all 66 components' `content_data`,
+`baselines/2026-08-26_pre_hero_rebuild/`), and 9 page-scoped `needs_imagery` items were filed with
+one distinct concept each, honouring `design_intent.imagery_direction`.
+
+**He then reversed it — "I don't want the copy in the register I rejected - I will chase the copy
+machinery" — and the reversal landed before anything ran.** Verified three ways: 9 items still
+`triaged` (never claimed), **0** `needs_page` items ever emitted, and the served pages
+byte-identical to the baseline (md5, services/about/contact).
+
+### 5. CANCELLED, not parked — and my own measurement is why
+
+`park_work_items` (migration 621) sets `status='deferred'`, and `deferred` is **not terminal** in
+`idx_swi_dedup`, so a parked key **cannot be re-filed** while it sits there (measured earlier the
+same day, `bugs_open/396` trail). `cancelled` IS terminal, so it releases the key. The nine can be
+re-filed **verbatim** from `baselines/2026-08-26_pre_hero_rebuild/hero_items_filed.sql` the moment
+the copy rewrite is scheduled — one rebuild doing images and copy together, which is the outcome
+worth waiting for anyway.
+
+**Net: no spend, no copy touched, prompts banked, key released.**
