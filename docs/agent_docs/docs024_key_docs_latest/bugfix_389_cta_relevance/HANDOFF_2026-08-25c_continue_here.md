@@ -1,5 +1,7 @@
 # HANDOFF — 2026-08-25c. **START HERE.** `bugs_open/391` — step 2 is 11 of 12 done and verified live; retirement is the next real work
 
+> **⚠ SUPERSEDED 2026-08-26 by `HANDOFF_2026-08-26_continue_here.md`.** Kept for the reasoning trail.
+
 **Supersedes `HANDOFF_2026-08-25b_continue_here.md`** (keep it for the reasoning trail). Read this,
 then `bugs_open/391` from the bottom — its last section is the step 2 result and it amends the
 verification recipe that file previously gave.

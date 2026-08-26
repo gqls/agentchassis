@@ -218,3 +218,42 @@ name it in their wording? The answer is two, and they are on the one page still 
 lands, that whole category is finished. The remaining links to the tool — about thirty buttons that
 point at it without naming it, plus the site footer — are the next phase, and they cannot be fixed
 until the tool pages are actually retired.
+
+---
+
+**2026-08-26, evening.** The buttons work. Both test pages now serve links that match what their
+labels promise, checked on the live sites rather than in the database — the password tool is gone
+from every button whose wording named it, on all three sites. That whole category is finished: the
+query that finds "a button that names the password tool and links to it" returns nothing anywhere.
+
+**The retirement itself is half done and deliberately parked.** Two of the three tool pages are
+archived. Archiving does not take a page down — it freezes it and keeps serving it — so nothing is
+broken, no link is dead, and all of it can be undone by flipping one field back. The third site is
+held back on purpose: it is the only one where the tool also appears in the site footer, so it is the
+fiddly one and it should go last.
+
+**There is one decision I need from you before I finish the job**, and it is worth understanding
+because the obvious version of the work would have looked successful and been wrong.
+
+Forty-one buttons across the three sites still point at the password tool. If I simply re-point them,
+the framework sends each one to whichever tool it judges most relevant. That is right for a button
+that says "Try the AI Data Risk Checker". It is wrong for a button that says **"Write to
+leopardess@contactforsales.com"** — that one should go to a contact page, and the framework will send
+it to an ROI calculator instead. I have seen both outcomes today, on two test pages, which is how I
+know the difference is real and not theoretical.
+
+**Twenty-three of the forty-one are that second kind.** A clear majority. So if I had run the job as
+planned, I would have cleared every reference to the password tool — which is what we said success
+looked like — and left twenty-three buttons inviting people to get in touch and delivering them to a
+calculator. Worse than the original problem in one respect: a plausible-looking tool link is one
+nobody reports.
+
+So the question for you is what those twenty-three should do. Send them to the contact page? Have the
+framework rewrite the copy so the button is about the tool it points at? Something per-site? Once you
+decide, the rest is mechanical and I can finish it in one pass.
+
+**One other thing worth knowing, though it needs nothing from you.** GitHub had a real outage this
+afternoon — their deployment service was down for about ninety minutes. During that window our work
+was completing correctly, committing correctly, and simply not reaching the live sites. It has since
+recovered and everything queued has landed. I mention it only because if you looked at any site
+between about half past three and five o'clock and thought a change had not worked, that is why.
