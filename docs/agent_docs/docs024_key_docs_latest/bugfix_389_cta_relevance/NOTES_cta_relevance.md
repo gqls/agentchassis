@@ -864,7 +864,23 @@ The `dispatch_throughput` lane took my undiagnosed handover and filed
 **age**; the loader then serves the picked site by **priority**, max 5. So an old row at a poor
 priority (e.g. `audit_tool` @140, "run last within the site") **keeps winning site selection for its
 site while never being loaded** — better-priority rows keep arriving ahead of it. The site's age
-freezes at the pinned row, and every younger site gets nothing.
+freezes at the pinned row, and every younger site is starved behind it.
+
+> **⚠ CORRECTED 2026-08-26 ~17:2xZ — "gets nothing" is TOO STRONG, and the `dispatch_throughput` lane
+> caught the same overstatement in their own filed symptom and fixed it there too.** Fall-through
+> service does exist: a younger site is reached when the sites above it are simultaneously busy. The
+> precise claim, which all the evidence supports, is **"served only by fall-through, with no bound on
+> the wait"** — and this lane's own site is the measurement behind it: **one build-dispatch-loop in
+> 12 hours.** The defect is the *absence of a bound*, not the absence of service, which is why an age
+> floor is the candidate that addresses it.
+>
+> **090 verdict on `bugs_open/413`: UNVERIFIABLE** — *"NOT confirmed (stopped: iteration-cap)"*,
+> no fix proposed, neither confirmed nor refuted. **The mechanism is NOT amended**, so nothing above
+> needs revising. Their reconciliation, for the record: the loop sampled `status='detected'` rows as
+> "oldest rows" — a population the selector never sees, since it requires `triaged`/`approved` — and
+> its "a dozen+ sites cycling" counter-point is what 413 *predicts* among sites at the old end of the
+> order, refuting a monopoly claim the file does not make. 413 stands on declared first-hand
+> verification under the 2026-07-31 ruling.
 
 **The piece I could not have found:** it is invisible in `site_work_items`, where *"never selected"*
 and *"selected but loaded zero"* look identical. `orchestration_states` separates them —
