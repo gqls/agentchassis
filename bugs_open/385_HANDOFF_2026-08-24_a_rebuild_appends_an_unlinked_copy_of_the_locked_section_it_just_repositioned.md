@@ -337,6 +337,36 @@ was at when the duplication happened — carries the identical snapshot SQL.)
 `GOLDEN_2026-08-24_post_385_repair` exactly, exit 0, after both the roll and the rerender
 wave, with `--selftest` green first.
 
+## 7b. 2026-08-26 — the fix is LIVE, and the damage's own stale detection fired harmlessly
+
+**LIVE, probed at the artefact `[MEASURED 2026-08-26]`:** an overnight roll (pods
+`agent-chassis-6dd68888dc-*`, started 2026-08-25 23:11Z, after `b9d0f02be`'s 21:03Z)
+carries both new symbols — `matchPreservedSectionIdx` AND `PairStoredToIncoming` present
+in `/proc/1/exe` on **both replicas**, present-control (`matchLockedRow`) found,
+absent-control (`matchPreservedSectionIdxZZZ`) absent. The armed row can no longer
+duplicate; the owner's data-disarm question is now optional belt-and-braces.
+
+**And the queue paid out a lesson the same morning.** `content_duplication:
+tool-loan-vs-savings` was filed 2026-08-24 14:49 by a discovery run — a GENUINE
+detection of the then-live duplicate, hours before §7's remediation removed it. The
+remediation repaired the damage but never retracted the queued detection (the estate's
+"closing the damage does not retract the pointers at it" shape). It sat `detected`
+until the promoter re-enable on 08-26 dispatched it at 08:30: the `deduplicate-sections`
+agent found nothing to delete (its `remove_component_ids` named the row §7 had already
+deleted; `page_component_history` shows **zero writes** on the page that morning),
+completed its parent, and filed a benign assemble-only `page_rerender` — the same
+operation §7 step 4 used. Verified after: 5 rows, locked row untouched, byte-twins 0
+fleet-wide, served page zero duplicate ids, and the golden harness reproduces exactly
+(selftest green first). **If you repair damage by hand, grep the queue for detections of
+that damage filed BEFORE your repair — they outlive it and fire when promotion resumes.**
+
+**CLOSE CRITERION (what keeps this file in `bugs_open/`):** the fix is live but has not
+been exercised on the arm that failed. One clean **build-arm** rebuild of a locked
+positional tool page (§9), with byte-twins 0 and the golden green after, closes this to
+`bugs_closed/`. The rerender waves now sweeping the site (design rotation re-enabled
+2026-08-26 09:20Z; the `bugs_open/397` GTM repair's chrome+44-page wave) run the SAFE
+arm and do not qualify.
+
 ## 8. Fix candidates, ordered by what closes the door
 
 > **RE-RANKED 2026-08-25, now that §5c names the writer.** The original three candidates

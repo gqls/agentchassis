@@ -6718,3 +6718,35 @@ fix is inert until an image ships — merge-base `b9d0f02be` vs the pod stamp, s
 probe in bug §9), **(2) the owner's disarm decision** (flip the one armed row to
 'approved'), **(3) build-arm verification post-roll** (bug §9 — do NOT fire a
 needs_page at loan-vs-savings before (1) or (2)).
+
+## 2026-08-26 — the fix is LIVE; the stale detection fired harmlessly; two waves inbound
+
+**Fix LIVE `[MEASURED 2026-08-26]`.** Overnight roll: pods `6dd68888dc-*` started
+2026-08-25 23:11Z (after `b9d0f02be` at 21:03Z). Symbol probe on BOTH replicas:
+`matchPreservedSectionIdx` present, `PairStoredToIncoming` present, present-control
+`matchLockedRow` found, absent-control `matchPreservedSectionIdxZZZ` absent. Triggered by
+a peer heads-up (webdesign-tool-rebuilds: design rotation re-enabled 09:20Z) that made
+"is the fix live yet?" urgent — the answer was already yes.
+
+**The 08-24 stale detection resolved itself, harmlessly, and taught something.**
+`content_duplication:tool-loan-vs-savings` — filed 08-24 14:49 against the REAL duplicate,
+hours before our hand remediation; never retracted by it — dispatched 08-26 08:30 when
+promotion resumed. The dedupe agent deleted nothing (its `remove_component_ids` named the
+row already gone; `page_component_history` shows zero writes on the page today), completed
+the parent, filed a benign assemble-only `page_rerender` (same op as §7 step 4).
+**Lesson, now in bug §7b: a hand repair must grep the queue for detections of the damage
+filed BEFORE the repair — they outlive it and fire when promotion resumes.** (Family:
+"a closed blocker keeps being obeyed" / "checking the pod does not check the queue".)
+
+**Health, all measured today:** page 5 rows, locked calc pos 2 with 08-02 bytes; 0 orphans
+and 0 byte-twins fleet-wide; served page 0 duplicate ids; harness selftest green then
+golden `--compare` MATCHES on the victim URL (one page deliberately — mid-morning sweeps
+active; the full-11 run stays the post-wave check).
+
+**Inbound (peer heads-ups, both recorded in the 08-26 handoff):** design rotation ramp
+(~2-3 days to this site; findings born `detected`, promoter auto-dispatches) and the
+`bugs_open/397` GTM repair (chrome + 44/47 pages re-render+redeploy — the rerender arm).
+Neither can exercise 385's build arm; churn in `created_at`s and chrome is expected.
+
+**385 stays OPEN on one criterion:** a clean build-arm rebuild (bug §7b). Everything else
+about the bug is done: cause (§5c), class fix (LOCK-009), council APPROVED, fix live.

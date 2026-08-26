@@ -2502,3 +2502,34 @@ What I need from you: two decisions. First, the code fix — small, and it copie
 we already use in two sibling places — goes through the usual review. Second, there is a
 one-line data change that disarms the one remaining trap today (relabelling that single
 stored row to match its ten siblings), but it touches a row you locked, so it is your call.
+
+## 2026-08-26 — the fix went live overnight, and the leftover alarm went off harmlessly
+
+Good news first: the code fix for Saturday's duplication shipped in last night's release,
+and I checked it in the running system itself this morning, on both server copies, with
+the usual positive and negative controls. The trap that could have duplicated the
+calculator again is now defused everywhere. That also softens the second decision I asked
+you for: relabelling that one stored row is now optional tidiness rather than protection —
+the code no longer cares what the label says.
+
+One small drama resolved itself while I watched. Back on Sunday afternoon, before we
+repaired the duplicated page by hand, one of the automatic inspectors had already noticed
+the duplicate and filed a work ticket about it. Our repair removed the duplicate but
+nobody cancelled that ticket, and the machinery that acts on such tickets happened to be
+paused fleet-wide — so it sat there, forgotten. This morning that machinery was switched
+back on and the ticket fired: a repair agent went to remove a duplicate that no longer
+exists, found nothing to remove, and finished cleanly. No harm done, and I verified the
+page afterwards — right sections, calculator intact, and it still gives exactly the
+answers our recorded baseline expects. The lesson is written down where it belongs: when
+we repair something by hand, we should also check the ticket queue for alarms about the
+thing we just fixed.
+
+Two waves of automated activity are about to pass over this site, both expected and both
+harmless to the calculators: the design inspection rota is running again after a
+fortnight off (our turn comes within a couple of days, and it may file findings or even
+dispatch small repairs on its own), and a separate team is fixing how the analytics tag
+is stored, which will make most of this site's pages quietly re-render and redeploy once.
+If you glance at the site's activity and see a flurry, it is these — not new damage. The
+one thing I am still waiting for, to close the bug file formally, is a rebuild of a
+calculator page through the specific route that failed on Saturday; the waves above use
+the other, safe route, so they do not count as proof either way.
