@@ -1,10 +1,13 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-26 ~15:45Z; STATE + GATE ZERO revised 17:35Z (grind seat: #44 built and retired, queue cleared, GATE ZERO corrected against the real selector).
 Supersedes `HANDOFF_2026-08-25_continue_here.md` (which had accumulated nine stacked STATE lines).
 
-## STATE: 49 of 63 retired · 45 SERVE-CONFIRMED (#45 and #46 confirmed; #44/#47/#48/#49 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works.
+## STATE: 49 of 63 SERVE-CONFIRMED. NOTHING IN FLIGHT, NOTHING OWED. THE QUEUE IS CLEAR — filing works.
 
-**USE THE GATED SERVE-GRADE, DO NOT HAND-ROLL ONE:** `scratchpad/servegrade.sh <slug> <ported-slot-file>
-<completed_at> [negatives…]`. It EXITS NON-ZERO on non-200, a missing/unparseable `last-modified`, or
+**USE THE GATED SERVE-GRADE, DO NOT HAND-ROLL ONE:**
+`docs/agent_docs/docs024_key_docs_latest/webdesign_tool_rebuilds/servegrade.sh <slug> <ported-slot-file> <completed_at> [negatives…]`
+— committed in this lane's own directory, NOT a scratchpad (a scratchpad is session-scoped and the
+path would be dead for you). Dump the ported slot first:
+`psql -At -c "SELECT rendered_html FROM page_components WHERE id='<ported slot>'" > /tmp/ported.html`. It EXITS NON-ZERO on non-200, a missing/unparseable `last-modified`, or
 an artefact not newer than `completed_at`, and marks a negative control `WORTHLESS` when the ported
 slot does not contain it. Three traps are baked into it, all of which faked a PASS:
 **(a)** a 404 scores 0 on every negative control — printing the status code beside the counts is not

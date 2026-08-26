@@ -662,3 +662,35 @@ Neither did any damage, and the page turned out to be fine — the 404 was a few
 lag, which I confirmed by checking two other tools nobody had touched. But both mistakes produced a
 confident *green* result rather than an error, which is the kind that gets believed. I have written
 both up and made the check refuse to run at all unless the page loads properly.
+
+## 2026-08-26, evening (rebuilding seat) — all six are live to the public, and nothing is left hanging
+
+Following on from the last note: the remaining five pages have now rebuilt, and I have checked every
+one of them on the live site rather than in the database. All six of today's tools are serving the new
+version, none is serving the old one, and none of the pages is broken. Forty-nine of the sixty-three
+are now done and confirmed live.
+
+I checked the specific fixes are actually in what the public receives, not just in what we built —
+those are different things, and only the second one matters to a visitor. The escaping in the head
+builder, the mobile breakpoint in the layout generator's output, and the card and IP-address handling
+in the privacy redactor are all present in the served pages.
+
+**Two of the six checks refused to run, and both refusals were correct.** One page returned "not
+found" for a few seconds immediately after publishing — I confirmed it was a brief publishing lag by
+checking two other tools nobody had touched, and it was serving normally moments later. The other was
+still showing a five-hour-old copy because the new one had not finished uploading; the check spotted
+that the page was stale rather than grading the old version by mistake.
+
+That second one is worth a word, because it only worked by luck of timing. An hour earlier I had
+found and fixed a bug in that very check: it was reading our database timestamps as if they were in
+British Summer Time rather than UTC, which made every page look a full hour fresher than it really
+was. Left alone, it would have waved through anything up to an hour out of date — including the stale
+page it correctly caught tonight.
+
+I have written that trap up properly and moved the checking script out of my temporary working area
+into the project itself, so the next person has it rather than a dead link to a folder that no longer
+exists.
+
+**Where that leaves us: forty-nine of sixty-three, all live, nothing owed, and the queue is flowing
+normally again.** Fourteen tools remain, five of which are the larger applications you asked to be
+done last and one at a time with your review.

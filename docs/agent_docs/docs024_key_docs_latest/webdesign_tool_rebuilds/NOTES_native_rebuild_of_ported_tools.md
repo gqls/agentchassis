@@ -5212,3 +5212,52 @@ real value it passes reporting **47 s**, not 3647.
 believed local time was UTC. **The `-u` forced BOTH format specifiers into UTC — including the one
 labelled "local".** A probe that asks a question and then overrides the answer will confirm whatever
 the flag says. `date; date -u` side by side is the honest form.
+
+## 2026-08-26 19:47Z — ALL SIX SERVE-CONFIRMED. 49 of 63 live. Nothing owed from this session.
+
+`[MEASURED 2026-08-26 19:47Z]` **49 `removed` + 14 `deployed` = 63 · 0 dual-slot pages · all six of
+this session's pages serve `class="ported-page"` = 0 and http=200.** Every serve-grade used the gated
+`servegrade.sh`, so each one refuses rather than reports on a bad artefact.
+
+| # | tool | assembler completed | artefact | lag | bytes | result |
+|---|---|---|---|---|---|---|
+| 44 | monolith-splitter | 19:41:06 | 19:42:43 | 97 s | 21,817 | **PASS** |
+| 45 | head-architect | 19:24:36 | 19:24:49 | 13 s | 26,947 | **PASS** |
+| 46 | asset-formatter | 19:11:25 | 19:12:12 | 47 s | 24,654 | **PASS** |
+| 47 | layout-generator | 19:31:18 | 19:31:29 | 11 s | 26,277 | **PASS** |
+| 48 | insight-injector | 19:28:41 | 19:29:41 | 60 s | 25,407 | **PASS** |
+| 49 | privacy-redactor | 19:45:23 | 19:45:39 | 16 s | 26,866 | **PASS** |
+
+Every negative control on every tool was validated **both ways** (0 on the served page, ≥1 in that
+tool's ported slot), and every page returned **0** raw `{{.` tags. Publish lag measured across six
+publishes: **11–97 s**, consistent with the runbook's "1–2 min".
+
+**The load-bearing fixes were re-verified in the SERVED bytes, not just at the component** — the
+distinction that matters, because a component grade proves what was built and only the served page
+proves what the public gets:
+- #45 `escapeAttr` ×6, `escapeJsonForScript` ×2, `DOMParser`, `u003c`
+- #47 `push('@media` ×1 (the **emitted** CSS carries its own breakpoint), `generateCssBlock` ×4 (one
+  spec feeding preview and code), `writeText(composedCode)`
+- #49 `luhnValid` ×2, `ipv6Regex` ×2, the no-network sentence ×1, the American Express note ×1, and
+  **0 network calls in the served page**
+- #46 the key-validation string "cannot start with a digit"
+- #48 `[Insert Hard Fact Here]` and `[Business Name]` both **absent** from the served bytes
+
+### The gate refused twice, for two different real reasons — it is not decorative
+
+**#47 layout-generator: refused on `http=404`.** Classified transient by the gate's own instruction
+(curl the RECORDED `pages.url` + a same-form sibling): recorded url 200/26,277, two untouched siblings
+200. **Second occurrence of the same blip, both within seconds of a publish** — so this is a
+reproducible propagation window, not an incident. `[MEASURED]` twice today, ~1 min after the
+assembler completed each time. **Grading in that window is the trap; waiting ten seconds is the fix.**
+
+**#49 privacy-redactor: refused on STALENESS.** Served `last-modified` was **14:46:51** — the
+*pre-build* copy, 5 hours old — against `completed_at 19:45:23`. S3 had not published yet, ~30 s in.
+**This is the freshness clause catching exactly what it exists for**, and it is the direct payoff of
+fixing the `date -u -d` timezone bug an hour earlier: with the broken comparison the stale artefact
+would have looked 3600 s *fresher* and this refusal would not have happened. Re-polled with the
+non-empty guard, published at 19:45:39, re-graded: PASS.
+
+**So both of the day's fake-pass shapes were caught prospectively by the instrument built from them,
+and one of them was caught by the fix to the instrument's own bug.** That is the whole argument for
+writing the check down rather than remembering it.
