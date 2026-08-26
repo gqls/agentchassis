@@ -68,3 +68,38 @@ domain programme ("own authoritative DNS = the domain programme's backbone"). Ea
 gets its own council round where it touches `internal/`/`platform/`; the EPP client is
 the deployed Python tool on the idea.uk box (VMB-015) and extending it follows its own
 conventions (dry-run default stays).
+
+## RULINGS 2026-08-26 (owner, evening) — the TAG and the SEVERABILITY architecture
+
+1. **Interim TAG = DESIGNCONSULT** ("use my current Nominet Tag for this"). Conditions
+   (this lane's, concurred): our DB is the authority on which domains are customer
+   domains, never the tag's list; registrations move to the second TAG the day Nominet
+   grants it, early customer domains TAG-moved then.
+2. **SEVERABLE BY DESIGN** ("keep it somehow separate from the main functioning of the
+   service so if we decide not to go with it we can easily revert to uuid or similar
+   subdomains"). The architecture, per the estate's opt-in-default-OFF ruling
+   (2026-08-02 §2): the domain is an OPT-IN LAYER per site. `site_config` gains a
+   `domain_programme` key — absent or `{"mode":"ugg2"}` (the DEFAULT) means the site
+   serves at `<slug>.ugg2.com` and the core flow never consults the layer;
+   `{"mode":"registered","domain":...,"tag":"DESIGNCONSULT","registered_at":...}` is
+   the opt-in. NOTHING in the core delivery path reads the key until P5 wiring, and
+   then only to choose the serving hostname. **Revert of the whole programme = flip
+   modes back**: sites serve at their slugs again, created zones are one API DELETE
+   each, registration years are sunk (~GBP 4/domain) — nothing in the main service
+   changes shape.
+
+## BUILT 2026-08-26 (P3/P4 first cut, both dry-run-default, --apply unexercised)
+
+- `idea_uk_vm_site/box/nominet-epp-domain-register.py` — domain:create under the tag.
+  **Dry-run PROVEN live from a cluster pod 2026-08-26**: login 1000, availability check,
+  registrant resolved live from idea.uk's registry record (owner-until-sale, 2026-08-21),
+  exact create XML printed with the NS pair pre-set. The FIRST `--apply` is an
+  owner-approved moment (it spends money) and remains unexercised.
+- `site_delivery_and_editor/cf_customer_domain_zone.sh` — zone+records+routes for one
+  customer domain, wrapping the recipe worked and verified 2026-08-25 (homegarden.uk);
+  dry-run default; prints the ASSIGNED NS pair for the EPP client to set; re-reads
+  rather than trusting POST receipts. Unexercised until the first real domain.
+
+Remaining: P5 wiring (hostname choice reads the layer; delivery email carries the
+domain + retention link) — after the delivery email exists; billing (£10/mo Payment
+Link) — Stripe-gated.
