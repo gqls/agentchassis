@@ -200,6 +200,13 @@ until he speaks is this lane's job; choosing the future of the tools is his.
 
 **Also on the page's queue since 644:** `image_source_unsatisfiable` (`needs_human_review`,
 11:24) — the checker now flags that `illustrated-text-block` sources `image_url` from
-`site_assets.illustration`, which resolves nothing here. **That is the PROTECTION working**
-(644 made the six stored illustrations carry instead of being hero-clobbered) — the item is a
-true statement and a false alarm; told the 644 lane, leave it for them/the owner.
+`site_assets.illustration`, which resolves nothing here. The source genuinely resolves nothing
+(644 made the six stored illustrations survive by CARRY instead of being hero-clobbered), so the
+item's first clause is true; its second — "renders empty or falls back to a placeholder" — is a
+rendering claim the check never verifies (it reads schemas, not values, so it fires whether or
+not images are carried). **CORRECTED 14:55 from the 644 lane's fleet census:** not a false
+alarm — a SUPPLY WARNING wearing a rendering defect's words: a new page with this component on
+this site would render nothing. `[MEASURED by them 2026-08-26]` 58 of 67 open
+`image_source_unsatisfiable` items name a field that IS populated on the page. They have put the
+check's meaning through the diagnosis loop (`8aeba0b6…`) and will file it in `bugs_open/`.
+**Leave our item alone — it is now evidence.**

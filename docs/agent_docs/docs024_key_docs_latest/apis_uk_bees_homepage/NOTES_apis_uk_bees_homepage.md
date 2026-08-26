@@ -1365,3 +1365,13 @@ in §5c (refusal declaration first, RFC_056 follow-up they are recording; cancel
 §8 now carries the parking recipe + the `park_work_items` (mig 621) pointer. Their framing of
 their own boundary is worth quoting: "tool EVALUATION is growth, not a defect, and should not
 have been on the dispatching side of the line."
+
+### 2026-08-26 ~14:55 UTC — my "false alarm" on image_source_unsatisfiable was under-read; the 644 lane measured it fleet-wide
+
+They confirmed the mechanism (the check decides from schemas + alias table, never consults
+carryStored) and corrected my framing twice: it fires whether or not images are carried, and it
+is a supply warning (a NEW page with this component here renders nothing) not a false alarm —
+two states that want distinguishing, not merging. Census: 58/67 open items assert "renders
+empty" about populated fields. Routed by them through 090 (`8aeba0b6`), bug to follow; our
+item stays as evidence. Adopted into §5c. Lesson for me: **"true statement, false alarm" was
+itself a compressed claim — the alarm was about the wrong thing, not about nothing.**
