@@ -1,5 +1,13 @@
 # HANDOFF — `bugs_open/357`, component identity — 2026-08-25 (evening)
 
+> ## ⚠ SUPERSEDED 2026-08-26 — read `HANDOFF_2026-08-26_continue_here.md` first
+>
+> Still the fullest evidence trail for the prune-floor finding and the adoption run, and
+> nothing in it has been refuted. What changed overnight: the control rebuild was RUN and
+> **did not discriminate** (it failed on credit exhaustion before reaching the step in
+> question), and the fleet now has **ZERO successful LLM calls**, which blocks every remaining
+> item. §0's credit note here understates it — read the 08-26 handoff's blocker section.
+
 **Cold-start for a fresh session. Read this, then
 `HANDOFF_2026-08-25_continue_here.md` (this morning's — still accurate about phases 0/2/3
 and the F2 guard, but its central open question is now ANSWERED here), then the bug file
