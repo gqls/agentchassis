@@ -134,6 +134,8 @@ a real writer today (`save_page_meta_description_action.go:211`). It accumulates
 from its first write, costs nothing, and is the only thing that keeps a future tightening to
 fail-SAFE available — without it the estate can never move off "unmarked means overwritable".
 
+**⚠ CITE THE FILE, NOT THIS HANDOFF, AND NOT A CHAT MESSAGE.** The marker design and the no-writer caveat are both recorded in `bugs_open/403` by its owning lane (`0049b10d9` — the ruling; `24cc44ed1` — the caveat, credited to this measurement). That was deliberate on both sides: this whole thread exists because a rule that lived only as prose in one lane's file did not bind on another, and a rule that lives only in a cross-session message is strictly worse than that. The three-state vocabulary (`__authored` FORBIDS · minted LICENSES · neither = today's behaviour) is 403's to define; this handoff is a consumer of it.
+
 ### RULED — decision 2: **widen it.** The owner's words: *"it's ok for the tests to read real content
 but not to write it."*
 
