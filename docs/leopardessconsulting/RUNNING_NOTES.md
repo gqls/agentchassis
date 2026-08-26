@@ -3453,3 +3453,15 @@ natural behaviour surface.
 - Locked-page row baselines for the rerender-on-locked-row landmine (surfaced by the hook this
   morning): about 4 rows/1 locked, contact 5/1, index 6/3, services 4/3 — expect UNCHANGED after
   any rerender; +1 means the duplicate-not-protect trap fired (bugs_open/189 has the reversal SQL).
+
+### 2026-08-26 — cross-lane: the 403 marker design is RULED (395 lane asked; recorded in 403)
+
+The `bugs_open/395` session asked the marker-direction question before building a second answer
+to it (their owner ruling on meta_description rewrites needs "machine-written only" gating and
+no provenance exists). Ruled as 403's owner, full text in 403 §"DESIGN RULING for candidate 1":
+both directions coexist (`__cta_minted` licenses, new `__authored` forbids, neither = today's
+per-surface default), key `__authored` field→true whole-field inside content_data, enforcement
+at save/plan, home `datahelpers/authored_provenance.go`, columns share the CONVENTION not the
+storage (companion column, no generic registry). Replied via SendMessage; they build their
+column instance independently citing the ruling. Their gift back: meta_description is
+structurally IMMUTABLE when non-empty (320) — the inverse failure, recorded in 403 as related.

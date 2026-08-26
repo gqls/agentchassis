@@ -180,6 +180,37 @@ passes are frequent: this page was hit by `offer-analysis` (08-22) and `cta_labe
    `save_page_sections` keeps it out of the DELETE and re-seats it. This is the correct
    immediate protection for the `/services.html` restore and the hero-only slots. Its cost
    is coarseness: nothing automated may improve the locked row again until a human unlocks.
+### DESIGN RULING for candidate 1 `[decided 2026-08-26, on a cross-lane request from bugs_open/395]`
+
+The 395 lane hit the same question from the opposite side (owner ruling there: automated
+rewrite of `pages.meta_description` licensed ONLY for machine-written values — and no
+provenance exists to gate it). Ruled once, here, by this lane as the marker's owner:
+
+- **BOTH marker directions coexist, with different meanings and one vocabulary.** The machine
+  mark (`__cta_minted` family) = "machine wrote this, re-derivable, overwrite LICENSED",
+  stamped in code by the writing path. The human mark (new) = "a person put this here,
+  overwrite FORBIDDEN", stamped at edit time. **Neither present = today's behaviour on that
+  surface** — the 2026-08-02 opt-in/default-OFF shape; absent marks change nothing.
+- **Key `__authored`**, an object mapping field name → true, sibling to the fields inside
+  `content_data`. Whole-FIELD granularity (every traced instance here is whole-field).
+  Deliberately NOT schema-declared, same reasoning as `__cta_minted` (invisible to the
+  content-loss differ, survives as an undeclared key).
+- **Enforcement** at `save_page_sections`/`planSection`: a field named in the stored row's
+  `__authored` is carried verbatim into any regeneration, marker included.
+- **Home:** new `platform/orchestration/datahelpers/authored_provenance.go` (AuthoredKey,
+  SetAuthored, IsAuthored) — NOT an extension of `cta_provenance.go`, whose semantics differ
+  (it records the minted VALUE; this records a bare flag). Cross-referenced comments both ways.
+- **Plain COLUMNS share the convention, not the storage**: a companion provenance column per
+  surface (395's `pages.meta_description` case), not a generic (table,row,field) registry —
+  that would be accumulation-before-need (RFC_022's watch class). The 395 lane builds its
+  column instance independently, citing this ruling; words stay aligned ("authored" forbids,
+  "minted" licenses).
+- **Related, from 395's evidence:** `pages.meta_description` has three writers, all
+  create-or-fill-blank except `save_page_meta_description_action.go:211` — a non-empty value
+  is structurally IMMUTABLE there (`bugs_open/320`), the exact inverse of this bug's failure
+  mode. Provenance is what makes that column safely mutable for the first time — the same
+  missing piece, seen from both ends.
+
 1. **Generalise provenance (the field-level fix — makes the bad state unrepresentable).** An authored
    marker inside `content_data` (the inverse of `__cta_minted`: mark what a HUMAN wrote, e.g. an
    `__authored` key listing authored paths or values), honoured at plan/save time — the rewrite
