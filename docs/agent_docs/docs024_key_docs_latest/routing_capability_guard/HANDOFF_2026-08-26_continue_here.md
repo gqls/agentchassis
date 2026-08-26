@@ -16,9 +16,11 @@
 
 > **The root cause of `bugs_open/395` is FIXED AND LIVE AND PROVEN. Rule 3b (`WII-035`) went live on
 > `v1.0.1341` at 2026-08-25 23:11:52Z and fired twice within 33 minutes on two sites nobody had
-> measured. What remains is not engineering — it is FOUR DECISIONS, one of which is the owner's and
-> blocks everything downstream: nothing in the estate may currently rewrite a published page
-> description, so these findings are correctly recorded and permanently unrepairable.**
+> measured. TWO OF THE FOUR DECISIONS ARE NOW RULED (§2): the overwrite authority is GRANTED but only
+> over machine-written descriptions, and the test vocabulary is to be WIDENED. ⚠ The first cannot be
+> implemented yet — `pages` carries NO provenance, so the machine/human distinction the ruling rests
+> on cannot be made by the system, and the marker that would make it is `bugs_open/403`'s
+> (leopardess lane, active). Coordinating, deliberately not building. Decisions 3 and 4 are open.**
 
 ---
 
@@ -52,6 +54,75 @@ SELECT s.domain, wi.created_at, wi.spec->>'unwritable_field', wi.spec->>'would_h
   FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
  WHERE wi.spec ? 'unwritable_field' ORDER BY wi.created_at DESC;
 ```
+
+---
+
+## 2. ⚠ OWNER RULINGS, 2026-08-26 — READ THIS BEFORE §2.1; TWO OF THE FOUR ARE ANSWERED
+
+> **The four decisions below are kept in full as originally put, because the ruling only makes sense
+> beside the question. What changed is recorded here.**
+
+### RULED — decision 1: **option (c).** An automated finding MAY cause a published page description to
+be rewritten, **but only where the description was machine-written, never human-authored copy.**
+The owner added, unprompted: ***"I haven't yet written any manually."***
+
+⚠ **AND THE RULING CANNOT BE IMPLEMENTED AS STATED, YET — this is the live blocker.**
+`[MEASURED 2026-08-26]` the `pages` table carries `meta_description` **and no provenance of any kind**
+— no source column, no author, no stamp. So the distinction the owner drew **cannot currently be made
+by the system**; it exists only in his sentence. With **838** live descriptions (and 40 blank) and
+none hand-written, **option (c) today covers all 838** — it is not narrower in reach than granting the
+authority outright. What it buys is protection from the moment anyone *does* write one by hand.
+
+**So the build order is provenance FIRST, authority SECOND, gated on the stamp** — because the owner's
+own standing rule is that a statement is not a control on a shared tree. This was put to him and he
+said to proceed.
+
+⚠⚠ **DO NOT BUILD THAT PROVENANCE HERE.** `bugs_open/403` (the **leopardess** lane, active
+2026-08-26) is the same question — *"did a human or the machine write this value?"* — and its fix
+candidate 1 proposes an `__authored` marker, the inverse of the existing `__cta_minted`
+(`platform/orchestration/datahelpers/cta_provenance.go:57`). Building a second, differently-shaped
+answer for `pages.meta_description` is precisely the drift the council objected to on this very
+change. **Coordination message sent; awaiting their call on three things:** which direction the marker
+takes, whether the convention covers a plain COLUMN as well as a key inside `content_data`, and
+whether `cta_provenance.go` is the right home.
+
+**The fork that matters, stated so whoever picks this up does not re-derive it:**
+
+| direction | "safe to overwrite" means | fails how | consequence for decision 1 |
+|---|---|---|---|
+| mark the **MACHINE** (`__cta_minted` shape) | carries the machine mark | **fail-SAFE** — unmarked is treated as possibly-human and left alone | **nothing is overwritable today**, since all 838 are unmarked, until each has been rewritten once by a marked path |
+| mark the **HUMAN** (403's `__authored`) | no human mark present | **fail-OPEN** — a human write that misses the mark is destroyed | works on day one, and matches "none are manual" exactly |
+
+403 is a bug about authored values being **destroyed**, so that lane will likely want fail-safe; this
+decision wants the other. Probably not a conflict — both markers with different meanings (machine-minted
+*licences* an overwrite, human-authored *forbids* one, neither present = the 2026-08-02 default-OFF,
+i.e. today's behaviour) — **but it is a decision, and it must be made once by the marker's owner.**
+
+### RULED — decision 2: **widen it.** The owner's words: *"it's ok for the tests to read real content
+but not to write it."*
+
+That constraint is already satisfied by construction — a predicate IS a read-only condition with no
+power to change anything — so what he is approving is what a test may **READ**. Relayed to the
+`vigilant_designer_offer_analysis` lane, whose seam it is (`acceptancePredicateTextFields`,
+`features_open/030` §10 v2(a), the bounded head-of-hero excerpt).
+
+⚠ **Why this is the unblocker for gate 1c and not merely a widening:** `meta_description` and `title`
+are both unwritable on the audit-routed path, so *every* predicate that producer can currently emit is
+doomed at birth. **Page body content is different — `page-content-writer` can actually write it** — so
+a predicate over body content is the first one that could be SATISFIED after a fix, i.e. the first
+route to `outcome='permitted'` and to promoting gate 1c from recording to refusing.
+
+⚠ **AND IT WILL BREAK THIS LANE'S BUILD, BY DESIGN.** `TestPageFieldWritersCoversThePredicateVocabulary`
+fails the moment a third field joins `acceptancePredicateTextFields`. Two ways to satisfy it, and the
+choice was offered to that lane: add the new field to `pageFieldWriters` with
+`WritableBy: {"page-build-handler": true}` and its dated measurement, or relax the lockstep to exempt
+writable fields. **Prefer the first** — it keeps every field in the vocabulary carrying a dated
+statement of who can write it, which is the property that made rule 3b possible at all.
+
+### STILL OPEN — decisions 3 and 4. The owner asked for a plainer explanation of both and it was given;
+no ruling yet. §2.3 and §2.4 below are the questions as put. For 3 the ask is narrow: agreement to
+**defer with a trigger** (build the audit only when the roster gains a third entry) rather than a
+yes/no on building it now.
 
 ---
 
