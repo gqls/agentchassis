@@ -29,7 +29,7 @@
 
 DO $verify$
 DECLARE
-    v_new_md5 CONSTANT text := '3faec9702166d06567f677e5937517c8';
+    v_new_md5 CONSTANT text := 'af908ea3758814994d0f54b8506e9a70';
     v_rows    int;
     v_q       text;
     v_k       int;
@@ -72,12 +72,14 @@ BEGIN
     IF v_krows <> 1 THEN
         RAISE EXCEPTION '657 VERIFY 3/4: expected exactly 1 active build-dispatch-loop row, found % (K would come from an arbitrary one)', v_krows;
     END IF;
+    -- Selected the way THE RUNTIME selects the row (loadAgentDefinition,
+    -- processor.go:371-389: version DESC; updated_at is degenerate — council ecf2e542).
     SELECT (ad.default_config->'workflow'->'steps'->'load_items'->'config'->>'max_items')::int
       INTO v_k
       FROM agent_definitions ad
      WHERE ad.type='build-dispatch-loop' AND ad.is_active
        AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
-     ORDER BY ad.updated_at DESC LIMIT 1;
+     ORDER BY ad.version DESC LIMIT 1;
     IF v_k IS NULL OR v_k < 1 THEN
         RAISE EXCEPTION '657 VERIFY 3/4: load_items.max_items does not resolve to a positive int (got %) — selector is silently running at K=1', v_k;
     END IF;

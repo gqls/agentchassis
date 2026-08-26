@@ -222,3 +222,25 @@ the 09:00Z pre-fix floor baseline. Commands + acceptance meter: dispatch_through
 §657. **Disconfirming result for the fix** (unchanged from §"How to verify"): any site with
 eligible work > ~1h unserved while pinned rows exist elsewhere, measured at the floor, worst
 site, dated. Close this bug only when fixed AND live AND measured.
+
+## Council round 1: REVISE — and the gating objection was right (2026-08-26 ~21:0xZ)
+
+Verdict on corr `ecf2e542` landed ~12 min after submission: **REVISE, gating objection from
+debug_historian (HIGH)** — the K subquery selected the build-dispatch-loop row by
+`ORDER BY updated_at DESC`, but the runtime loader (`loadAgentDefinition`,
+`platform/messaging/processor.go:371-389`; `loadAgentDefinitionForAction`,
+`ai_actions.go:1400-1412`) selects `ORDER BY version DESC LIMIT 1`, and `updated_at` is
+documented DEGENERATE — so under a duplicate-active-row shape (four types carry one) K could
+be read from a row the runtime never loads. Moot today (their own check: 1 active row,
+version {1}, both types) and fixed anyway: **the K subquery now mirrors the loader's
+selection rule verbatim**; new stored-text md5 `af908ea3758814994d0f54b8506e9a70` (VERIFY
+updated in lockstep). Their second objection also acted on: preflight now asserts exactly ONE
+active row per type and pins the UPDATE by captured row id, never re-resolved by type.
+Remaining seats' items answered with evidence in the r2 rationale (operation re-typed
+`config_change`; 658's text verified non-competing — 0 ordering hits, jsonb_set-integers
+only; test-absence claim re-stated as a run check; provenance shown: the landmine doc_notes
+rows synced at 20:49 pre-round ARE the subject's travelling record). All r2 proofs re-run at
+21:10Z: dry-run transaction green end-to-end, pre-apply VERIFY still fails by design.
+**Round 2 submitted on the SAME correlation** (`RESUBMIT_CORR`, trail accumulates); the
+throughput lane's tomorrow-session gates its all-clear on this verdict being read and acted
+on. A REVISE round is cheaper than the defect it finds — this one found a real one.
