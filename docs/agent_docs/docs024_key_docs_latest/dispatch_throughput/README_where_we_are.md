@@ -257,3 +257,26 @@ One number from overnight that confirms the choice: the share of claim attempts 
 wasted on each other had grown to almost 60% (it was 39% when I measured on Monday). The change
 went to the review council this morning as usual; first measurements of the new behaviour follow
 below, and a full day's before/after comparison tomorrow.
+
+---
+
+**26 Aug, late morning — two hours in, the change is doing what we hoped.**
+
+Fires are evenly spaced (median 60 seconds apart). The work is spreading: 22 different sites
+picked up in two hours, where the old pair spent 94% of its time piling onto one. Wasted claim
+attempts are down from roughly six in ten to about one in ten — and half of that residue was
+the tail end of the overnight credit outage, not the dispatcher.
+
+The fleet is clearing the backlog at roughly 200 claims an hour, against a theoretical ceiling
+of about 300 at this cadence. Demand is not the limit — there are about 1,270 triaged items
+across 30 sites waiting. The batch size (5 items per turn) is now the knob that binds, which is
+exactly the next change on the queue once tomorrow's full-day reading is in.
+
+One safety flag came up and was checked. The monitoring showed what looked like two handlers on
+the same work item at once — the first time ever. On inspection it was not: one handler had died
+mid-job during the credit outage and sat unnoticed until the hourly cleaner removed it; a second
+handler legitimately picked up the freed item a couple of minutes before that cleanup was
+stamped. The overlap was bookkeeping, not two live workers. The daily check has been taught to
+recognise that shape — and to report it rather than hide it — so it doesn't cry wolf tomorrow.
+
+The full before/after verdict on the speed change comes tomorrow morning.

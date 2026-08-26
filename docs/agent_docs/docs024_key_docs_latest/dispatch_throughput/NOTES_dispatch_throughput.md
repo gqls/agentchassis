@@ -500,3 +500,78 @@ it out believing council-scope refuses `_ROLLBACK` files as edits, though the `_
 r3 was accepted, so listing it would likely have worked. Lesson for the next submission: list
 every artefact the rationale leans on, and let the scope filter do the refusing. Nothing to
 build; verdict read in full; this commit carries `Council-Reviewed: 69a04e0a…`.
+
+### 2026-08-26 ~11:1xZ — ~2h post-B interim read; first zombie-tail pair found and the VERIFY 6/7 narrowed for it
+
+All meters `[MEASURED 2026-08-26 10:50–10:55Z]`, windows as stated; taken now partly because
+`orchestration_states` retains ~24–27 h — tomorrow's 24h read loses this morning if it runs late.
+
+- **Cadence:** 100 fires 08:52→10:49, gap p50 **60 s**, p90 100 s, max 276 s — p90 heavier than
+  the 30-min read (65 s); slow ticks under load, watch at 24 h. Sibling frozen at 08:51:09
+  (disabled, interval column still 60 — rollback row untouched).
+- **Steering:** 100 loops across **22 distinct sites** (≥ 08:55 steady state).
+- **Lost claims: 11.4%** (49 of 431). Anatomy: 46 `already_claimed_or_ineligible` across 43
+  distinct items = the residual consecutive-fire overlap, ~1 per item; 3 `ai_endpoint_unavailable`
+  all on `efccd5d8` at 08:55–08:58 — entirely the credit-outage tail, none after ~09:00 recovery.
+  **Post-recovery loss mode is overlap only, 46/(382+46) = 10.7%** — close to but not yet the
+  single-digit target; the 24h read judges.
+- **Throughput with demand beside it:** claims/h 30 → 118 → 199 (08/09/10h UTC), completions/h
+  29 → 111 → 220, sites claimed/h 7 → 15 → 18. Arrivals/h 131 → 226 → 135; open depth now:
+  triaged 1,268 / 30 sites (demand is not the constraint). 199 claims/h vs the ~300 ceiling
+  estimate. ⚠ the pre-08:51 hours are outage-confounded (LLM handlers dead) — not a clean pre-B
+  control; the trailing-24h pre-B stretch tomorrow carries the same caveat (handoff top block).
+- **Batch cap binds:** avg loaded 4.66 per loaded loop against `max_items=5` (was 3.83 at 09:20)
+  — Phase 3's case (5→8 both knobs) is now measured, queued behind the 24h read per HANDOFF-b.
+- **Wait to claim** (items claimed ≥ 08:55, n=318): p50 **8.8 h**, p90 10.6 h — a backlog-drain
+  figure (outage + filing wave), not steady-state; hold arrivals beside it tomorrow.
+- **SAFETY — first non-zero in the double-handle census, investigated, NOT a double-handle:**
+  post-B window census read 371 handlers / 349 items / **1 "overlapping pair"** (was 0 in 2,579
+  on 08-25). The pair (`a52ac67f` / `d0f7ea9e`, item `b82f5cf5`): handler A stuck at
+  `call_content_writer` ("Request … timed out after 3 retries" — the outage tail), sat zombie,
+  stale-reaped 10:37:42 ("running for 1h21m20s, max age 1h0m0s"); the item's claim released
+  earlier, B claimed 10:34:57 via the normal claim path and completed 10:48. Overlap = A's
+  2-minute reap-lag tail vs B's live run. **Mechanism note: for a stale-reaped orchestration,
+  `updated_at` is the REAP stamp, not end-of-life — raw interval overlap counts zombie tails.**
+  Structural, will recur: the item-claim release and the orchestration reaper are separate
+  clocks, and under a deep backlog the successor claims fast.
+- **VERIFY 6/7 narrowed in consequence** (same-day, the r3-advisory precedent — a daily check
+  that false-RAISEs teaches sessions to dismiss RAISEs): pairs whose FIRST-started member is
+  stale-reaped (`error LIKE 'Orchestration stale%'`) AND whose second started > 10 min later are
+  excluded from the violation count and reported as a **NOTICE** — never silently dropped. A
+  stale-reaped member with a near-simultaneous partner still counts (a real claim race starts
+  within seconds — first-claim p50 17.7 s). **Mutation-proved against LIVE data** `[MEASURED
+  ~11:0x–11:2xZ]`: the scratch mutant with the exclusion disabled (`AND false`) RAISEs 6/7 on
+  this very pair, exit 3; the real file then passed **all 7 + the zombie NOTICE ("1 zombie-tail
+  pair(s) excluded")** — the strongest possible mutation pair: same live data, one predicate
+  apart. ⚠ both runs took 10–20+ min, not the morning's 2m49s — the DB was IO-saturated
+  (5+ concurrent full jsonb scans of orchestration_states from other lanes, 2 autovacuums);
+  budget the daily VERIFY by DB load, not by its best time. LANDMINES entry appended for the
+  general trap (updated_at-as-aliveness on stale-reaped rows) and the verifier dispatched
+  (corr 808c4de2).
+- Also observed (not diagnosed, not this lane's): the item was claimable ~3 min BEFORE the
+  orchestration reaper stamped its stuck handler — two staleness clocks, claim-level and
+  orchestration-level, by design or not.
+
+### 2026-08-26 ~15:1xZ — afternoon artefact reads + a cross-lane inquiry answered (sibling ≠ outage pause)
+
+- **Throughput held near ceiling all afternoon** `[MEASURED 15:0xZ]`: claims/h 206 → 134 → 265 →
+  278 → 271 (10:00–14:00 UTC hours), completions/h 237 → 132 → 260 → 279 → 269 — against the
+  ~300/h ceiling estimate. The 11:00 dip coincides with the DB IO saturation noted above.
+- **The VERIFY's informational table grew a THIRD group with blank `row_task_name`** — resolved
+  at the artefact, NOT a 637 defect: post-B loops stamp `task_name` correctly (306 of them,
+  08:52→14:58). The blank group is a separate, pre-existing population of `build-dispatch-loop`
+  spawns from another producer (42 pre-B / 21 post-B in the trailing 30 h, present since at
+  least 08-25 21:20; 0 co-picks, ~10.7% lost). Liveness (4/7) is unaffected — the trigger's own
+  loops carry the stamp. Left unattributed deliberately: which producer spawns them is a
+  question for a quiet moment, not a defect hunt.
+- **Cross-lane inquiry (bugs_open/391 lane, ~14:5xZ): "build-pipeline-trigger-2 is disabled —
+  is that the credit-outage pause outliving its cause?"** Answered in full by SendMessage: no —
+  it is owner ruling B (migration 637), applied 08:51Z, coincidentally minutes before credit
+  recovery; re-enabling is blocked by VERIFY 2/7 and would REINTRODUCE the 94% co-pick waste.
+  Their throughput figure ("146–154/h") disagrees with the artefact (265–278/h) — asked them to
+  remeasure their meter. Their independent read of `find_dispatchable_site` (priority orders
+  items WITHIN a site; `created_at` orders BETWEEN sites; skip-if-site-has-claimed-item) matches
+  ours — a useful second derivation, cited here. They correctly did NOT flip the row. The
+  incident validates 637's design choice of keeping the ruling mechanical (2/7) rather than
+  documentary: the next session that pattern-matches "disabled = paused" hits a RAISE, not a
+  silent regression.

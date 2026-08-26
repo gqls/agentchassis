@@ -12,7 +12,7 @@
 > pre-B side), and D4's case is now measured, not hypothetical.
 > OWED 1 below is therefore DONE; the new queue head is the **24h post-B read** (cadence p50
 > ~60 s; lost-claim share from ~59% → single digits; distinct sites per hour; wait p50/p90 with
-> arrivals held beside) — meters in RUNBOOK; first ~30-min reads in NOTES 2026-08-26. After that:
+> arrivals held beside) — meters in RUNBOOK; ~30-min AND ~2h reads in NOTES 2026-08-26 (cadence p50 60 s; 22 distinct sites/2h; lost claims 11.4%, post-outage 10.7%; batch cap BINDS at avg 4.66/5). After that:
 > Phase 3 batch-only (5→8 both knobs), then D4. Full ruling + evidence: NOTES 2026-08-26.
 
 **Read first, in this order:** this file → `NOTES_dispatch_throughput.md` 2026-08-25 session-2
@@ -70,8 +70,9 @@ name='build-pipeline-trigger-2';`
 2. **Until that ruling: run the VERIFY daily** —
    `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db
    -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/584_dispatch_sibling_C_insert_trigger_2_VERIFY.sql`
-   (6 assertions: parity · identity · 0 hardcoded stamps + control · liveness · 0 double-handles ·
-   no third sibling; passed 2026-08-25 post-hardening, mutation-proved twice). This is the monitoring commitment made to the guardian.
+   (7 assertions since 637's lockstep edit; 6/7 narrowed 2026-08-26 to exclude-and-NOTICE
+   zombie-tail pairs — a stale-reaped handler's updated_at is the reap stamp, so raw overlap
+   false-RAISEs on a benign successor re-claim; NOTES 2026-08-26). This is the monitoring commitment made to the guardian.
 3. **Phase 3 is now batch-ONLY**: `load_items.max_items` 5→8 + `process_item.max_iterations` 5→8
    together (one without the other is a silent no-op). The "timeout 300→600 lockstep" half is a
    NO-OP on this binary (timeout_seconds is inert — bug 398); record D3 as satisfied-vacuously,

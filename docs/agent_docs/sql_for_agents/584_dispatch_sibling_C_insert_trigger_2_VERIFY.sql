@@ -19,7 +19,7 @@
 -- real safety property of N=2, and it is what the council asked to see.
 
 DO $$
-DECLARE n int; m int; v text; hardcoded int;
+DECLARE n int; m int; z int; v text; hardcoded int;
 BEGIN
   -- 1/7 GATE PARITY: every trigger row — disabled ones included, they are the rollback
   --     path — agrees on the dispatch GATE (pre_query/agent/topic/fire_message). The
@@ -84,17 +84,35 @@ BEGIN
 
   -- 6/7 NO DOUBLE-HANDLE: no work item had two handler orchestrations ALIVE AT ONCE in 24 h.
   --     (sequential retries — handlers = attempt_count — are legitimate and are not counted)
+  --     Narrowed 2026-08-26 (NOTES): for a STALE-REAPED handler, updated_at is the REAP stamp,
+  --     not end-of-life — it sat as a zombie from the moment its request died until the reaper
+  --     fired, so raw interval overlap counts a successor that legitimately re-claimed the
+  --     released item (first live case: pair a52ac67f/d0f7ea9e, 2m overlap = the reap lag).
+  --     Excluded shape: first-started member stale-reaped AND second started > 10 min later
+  --     (a real claim race starts within seconds — first-claim p50 17.7 s, 2026-08-25); a
+  --     stale-reaped member with a near-simultaneous partner still COUNTS. Excluded pairs are
+  --     reported as a NOTICE, never silently dropped.
   WITH loops AS (
     SELECT orchestration_id FROM orchestration_states
      WHERE created_at > now() - interval '24 hours' AND owner_agent_type = 'build-dispatch-loop'),
   h AS (
-    SELECT o.orchestration_id, o.collected_data->'input_data'->>'work_item_id' wi, o.created_at s, o.updated_at e
+    SELECT o.orchestration_id, o.collected_data->'input_data'->>'work_item_id' wi, o.created_at s, o.updated_at e,
+           o.status, o.error
       FROM orchestration_states o JOIN loops l ON l.orchestration_id = o.parent_orchestration_id
-     WHERE o.collected_data->'input_data'->>'work_item_id' IS NOT NULL)
-  SELECT count(*) INTO n FROM h a JOIN h b
-      ON a.wi = b.wi AND a.orchestration_id < b.orchestration_id AND a.s < b.e AND b.s < a.e;
+     WHERE o.collected_data->'input_data'->>'work_item_id' IS NOT NULL),
+  pairs AS (
+    SELECT (CASE WHEN a.s <= b.s THEN a.status ELSE b.status END = 'FAILED'
+            AND CASE WHEN a.s <= b.s THEN a.error ELSE b.error END LIKE 'Orchestration stale%'
+            AND abs(EXTRACT(epoch FROM a.s - b.s)) > 600) AS zombie_tail
+      FROM h a JOIN h b
+        ON a.wi = b.wi AND a.orchestration_id < b.orchestration_id AND a.s < b.e AND b.s < a.e)
+  SELECT count(*) FILTER (WHERE NOT zombie_tail), count(*) FILTER (WHERE zombie_tail)
+    INTO n, z FROM pairs;
   IF n <> 0 THEN
     RAISE EXCEPTION '584 VERIFY 6/7 DOUBLE-HANDLE: % overlapping handler pair(s) on one work item in 24 h — the atomic claim did not hold', n;
+  END IF;
+  IF z <> 0 THEN
+    RAISE NOTICE '584 VERIFY 6/7: % zombie-tail pair(s) excluded (first-started member stale-reaped; its updated_at is the reap stamp, not end-of-life — NOTES 2026-08-26)', z;
   END IF;
 
   -- 7/7 NO THIRD SIBLING (council r3 guardian/architecture advisory, 2026-08-25): the clone

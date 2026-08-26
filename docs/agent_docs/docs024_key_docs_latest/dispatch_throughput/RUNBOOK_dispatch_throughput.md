@@ -152,6 +152,12 @@ SELECT alive, count(*) minutes FROM x GROUP BY 1 ORDER BY 1;
 
 -- DOUBLE-HANDLE CENSUS (the induction, on the population): handler orchestrations per work item and
 -- overlapping pairs on ONE item. Sequential retries show handlers = attempt_count and overlapped = f.
+-- ⚠ A STALE-REAPED handler's updated_at is the REAP stamp, not end-of-life: a stuck handler sits
+-- zombie until the reaper fires, and its successor legitimately re-claims the released item inside
+-- that window — raw overlap then reads >=1 with the claim invariant intact (first live case
+-- 2026-08-26, pair a52ac67f/d0f7ea9e: 2 min of reap lag). Discriminator: status FAILED + error
+-- 'Orchestration stale%' on the first-started member, second started minutes-not-seconds later.
+-- The VERIFY's 6/7 excludes exactly this shape and reports it as a NOTICE (NOTES 2026-08-26).
 WITH loops AS (SELECT orchestration_id FROM orchestration_states WHERE created_at > now()-interval '24 hours' AND owner_agent_type='build-dispatch-loop'),
 h AS (SELECT o.orchestration_id, o.collected_data->'input_data'->>'work_item_id' wi, o.created_at s, o.updated_at e
       FROM orchestration_states o JOIN loops l ON l.orchestration_id=o.parent_orchestration_id)
