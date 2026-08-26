@@ -1,3 +1,6 @@
+> **⚠ SUPERSEDED by `HANDOFF_2026-08-26_continue_here.md`.** The correction block below still
+> matters (the owner split and the dropped §3 bullet); the STATE is one day stale.
+
 # HANDOFF 2026-08-25 — continue here
 
 **Supersedes `HANDOFF_2026-08-24_continue_here.md`.** That one is still accurate on the traps and

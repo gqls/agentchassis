@@ -1134,3 +1134,56 @@ please communicate to that lane that that is what they take and we will take the
 `site_components.head`/`content`). The handoff's row names are `pages.name` and
 `site_components.slot_name` + `rendered_html`; the RUNBOOK §5 already had the right shapes and I
 typed from memory instead of reading it. Cost: one round trip.
+
+## 2026-08-26 (session "apis.uk") — per-section subjects: read, built, mutation-proven, submitted, committed; one owed parity caught by a peer
+
+**Owner: "go ahead with per section subjects" (2026-08-25, after the lane split).**
+
+### What the reading changed about the design
+
+The 08-24/25 handoffs' design ("let an entry be a string or {component, subject}") was right in
+intent and wrong in placement: RFC_016 §5.1 (owner-RATIFIED 2026-08-08) already defines the
+extension contract, and the `facts` field (PBP-037, Slice B live — verified in the live
+`page-content-writer` config, not assumed from the RFC's stale "HELD" line) provides working
+rails at every hop. So the subject became the seam's SECOND field rather than a new seam:
+migration 638 (applied, schema-verified), extractSectionEntries + INSERT, normalise pass sibling
+`section_subjects`, carry, loader (LOCK-008 merge mirrored), plan_sections opt-in key,
+`sectionPlanItem.Subject`, three `_HOLD` seeds (639/640/641; 641 owner-read gated per §5.2).
+Commit `35905c547`; council `Council-Submitted: 4bd35ed8-5f72-4a2f-9cbf-3860847837f4`; register
+PBP-049 + the PBP-037 nested-contract line in the same commit (the 08-11 ruling demands exactly
+that); PBP-037's 16-days-stale index cell corrected visibly while there.
+
+### Missteps and near-misses, the point of this file
+
+1. **My first mutation test proved nothing and I nearly recorded it as proof.** Removing the
+   `clone["subject"]` set passed the suite — because my test's realised entries are plain
+   strings, so the mutation hit the OBJECT arm the test never exercises
+   (`a-mutation-that-passes-may-have-hit-a-guard-in-series`, and its neighbour: the wrong ARM).
+   Re-run on the string arm and on scopeItem's attach: both FAIL exactly one named test each.
+   The object arm is now a **stated** untested gap in PBP-049 and the council risks, not a
+   silently-assumed-covered one.
+2. **I would have shipped the RFC_022 parity break.** `section_subjects` in the Optional list is
+   an optional-key-count change; the cron literal (`check.py`) must ride the same commit
+   (CLAUDE.md RFC_022 — I had read it this session and still missed it at commit time). The
+   **333 lane caught it at HEAD within ~30 minutes** and told me instead of fixing it, having
+   checked blame and found my then-uncommitted change — the correct call under
+   `your-fix-invalidates-a-peers-pending-test`, done TO me rather than BY me. Settled
+   `339474ca4`: regenerated from a committed-HEAD extract (the tree carries other lanes' Go
+   WIP), sole delta plan_sections 7→8, tests green vs HEAD, overlay applied, **verified at the
+   mounted ConfigMap with an unchanged neighbour key as control**.
+3. **The pattern check flagged 3 `logged-model-output` lines in my commit — none mine.** All
+   three pre-date the change (git log -L: 2026-03-31, 05-12, 06-20); the check scans whole
+   touched files. Recorded so the next reader of `35905c547`'s advisory doesn't chase them.
+4. **Pre-existing red at clean HEAD**: `TestFindingCodeScanEveryWriteIsRegistered` /
+   `WORK_ITEM_STATUS_OVERRIDE_REFUSED`, from `2b46afbe6` (the status_override 396 — duplicate
+   number, resolve by slug). Proven pre-existing by running the suite against HEAD without my
+   overlay files. CONTRIB filed into `deferred_work_item_park/`. Cost me one verification round;
+   without the check it would have read as MY failure.
+
+### Cross-lane, this session
+
+CONTRIBs out: `brochure_component_library` (seam extended per their own RFC; carry semantics),
+`bugfix_285_lock_blind_section_list` (loader + their test file, third aligned list),
+`copy_quality_two_stage` (their experiment's stated precondition now has a mechanism + adoption
+query), `deferred_work_item_park` (the unregistered finding code). Messages: `google` (08-25
+split), `bugs_open/333` (parity settled; they re-verified green from their side).
