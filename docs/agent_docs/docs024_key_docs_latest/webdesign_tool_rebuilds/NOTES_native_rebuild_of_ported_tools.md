@@ -4660,3 +4660,32 @@ the *dormancy* half should file it.
 >
 > Selector and loader still AGREE on `retry_after` — I checked both — so `285`'s contract is intact and
 > this is **not** a new instance of the disagreement that entry exists to warn about.
+
+## 2026-08-26 17:55Z — #44 will JOIN the anchor-absent hazard, and I proved it rather than assumed it
+
+The 41 held findings are against the earlier rebuilds. **#44 is on course to add more**, and the
+foreseeable consequence is worth stating before the next session meets it as a surprise.
+
+`acceptance_run ee2ae5e4-b0c8-46f3-8a2f-9e864f9a8b77` (`tool_acceptance_due`, priority 90, `triaged`)
+is queued for this tool, behind the rerender. When it fires it will hit the same id-scoping mismatch.
+**Proven at the artefacts, both halves, rather than inferred from the diagnosis:**
+
+- what the page carries — `SELECT substring(rendered_html from 'id="[^"]*ms-framework[^"]*"')` on slot
+  `e65b7a9c` → **`id="c-tool-monolith-splitter-ms-framework"`**
+- what the criteria seek — `SELECT substring(body from '#ms-[a-z-]*')` from the `is_current`
+  `doc_plans` row for `subject_key='tool-monolith-splitter'` → **`#ms-copy-btn`**
+
+Bare id sought, scoped id served: the exact chain of `91228c39`. So the count in the STANDING HAZARD
+section is a floor, not a total, and it grows by one tool per rebuild until the checker or the
+criteria are fixed. **The hold is not a fix and was never claimed to be** — it buys time, and this
+is the rate at which the debt accrues.
+
+⚠ **One thing the next session should NOT assume: which `doc_plans` row the checker reads.** There
+are **two** current rows for this tool — `subject_key='monolith-splitter'` (1,686 chars, contains
+neither scoped nor bare `ms-` ids) and `subject_key='tool-monolith-splitter'` (2,903 chars, bare
+ids). `loadCurrentCriteria` keys on `subject_key=$1`; I did **not** establish which string it is
+passed, so I have not claimed which row governs. `[UNVERIFIED]` — read the caller before acting on
+it. It matters: only one of the two rows can produce the anchor-absent finding.
+
+**Final state check, 17:55Z:** served page `http=200`, 17,431 bytes, `class="ported-page"` = **1**
+— stale-but-single, which is the correct and safe intermediate state. Not 2; no damage.
