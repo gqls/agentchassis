@@ -1,5 +1,8 @@
 # HANDOFF 2026-08-25 — continue here
 
+> **SUPERSEDED 2026-08-26 → read `HANDOFF_2026-08-26_continue_here.md`.** This file is the
+> 08-25 record (the escalations arriving, the audit beginning) and is kept for history.
+
 **Lane:** `copy_quality_two_stage` (stage 2 = the `copy-editor` editorial pass).
 **Supersedes `HANDOFF_2026-08-23_continue_here.md`.**
 
