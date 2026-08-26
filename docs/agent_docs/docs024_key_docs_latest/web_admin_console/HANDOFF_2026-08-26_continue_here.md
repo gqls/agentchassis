@@ -129,3 +129,77 @@ what produced the vacuous test), and declaring my own LANDMINES entry clobbered 
 that were one impossible grep pattern (the heading had backticks; the entry was in HEAD the whole
 time, and the guard in my re-add script inherited the same bug and let me duplicate it).
 New landmine added: `POST /c/<token>` must live on the SAME path as the GET.
+
+---
+
+# ADDENDUM 2026-08-26 (later) — the terminate lane's verdict, roll-proof, and one INERT commit
+
+Appended by the session that wrote `48e75aad2` (the "another session" of §4 above), after the
+fresh build. Everything in the original handoff above stands; this section is what moved since
+09:24. Read order for a cold start on the TERMINATE/REVIEW thread specifically:
+`PLAN_2026-08-24_build_steps_screen.md` §7–7e (the whole review arc, findings F1–F8, verdicts,
+dispositions) · this addendum · then the original handoff above for the wider lane.
+
+## A1. Roll-proof `[MEASURED 2026-08-26, after the fresh build]`
+
+- core-manager stamp **`2fb40a960`**; `git merge-base --is-ancestor 48e75aad2 2fb40a960` PASSES
+  (control: post-stamp commits correctly fail it). **F1+F2 — terminate scoped to still-running
+  rows, 409 ALREADY_TERMINAL, deterministic root-first detail SELECT — are LIVE.**
+- Dashboard `v1.0.1341` — carries the corrected terminate confirm copy ("every still-running
+  orchestration under this correlation … finished rows are left untouched").
+
+## A2. Council `be7544eb` verdict: APPROVED round 1 — READ, both advisories ANSWERED
+
+Two editquality advisories (full text: `diagnosis_artifacts` kind=`council_report`,
+correlation `be7544eb%`):
+
+1. **Symbol mismatch (edit 2)** — no code owed. `HandleResumeWorkflow` is genuinely the single
+   handler for both actions (`binding:"required,oneof=resume terminate"`); the objection assumed
+   two handlers. Answered in PLAN §7e.
+2. **Hardcoded terminal set (edit 1)** — the seat was right, and righter than it knew:
+   `orchestration_status_vocabulary` marks **CANCELLED** terminal, CANCELLED has **no Go
+   writer** (hand-written rows only; 24 measured 2026-08-19), and the literal-only filter would
+   have relabelled a CANCELLED sibling FAILED **today**, not under future drift.
+
+## A3. ⚠ ONE COMMIT IS INERT — the next session's first check
+
+**`79c541085`** (committed this morning, `Council-Reviewed: be7544eb`): terminate terminality is
+now *literal set OR `orchestration_status_vocabulary.is_terminal`* — belt and braces; a new
+terminal status needs no code change, an emptied vocabulary leaves the Go constants as the
+floor. Test regex requires both halves; the NOT EXISTS half was mutation-proven (stripped →
+observed fail → restored), as were both original halves before it.
+**It does NOT ship until a core-manager build made from a commit ≥ `79c541085` rolls.** Check:
+
+```bash
+kubectl -n ai-persona-system logs -l app=core-manager --tail=300 | grep -m1 'build provenance'
+git merge-base --is-ancestor 79c541085 <the stamp>   # pass = live
+```
+
+Until then the LIVE terminate uses the literal-only filter — safe for COMPLETED/FAILED
+siblings, still wrong for a CANCELLED one (rare: hand-written rows only, reaped at 24h).
+
+## A4. Still open from the review (PLAN §7a), deliberately — small, none urgent
+
+| id | what | size |
+|---|---|---|
+| F4 | sqlmock `expectWrite` has no `WithArgs` — the raw-bytes-vs-restruct landmine mutation survives the evidence_base guard suite | one test line |
+| F5 | `uuid.Parse` accepts `urn:uuid:…` which Postgres rejects → 500 not 400 on the workflows site filter; pass `parsed.String()` | one line |
+| F6 | SPA never checks returned workflow rows carry `site_id === siteId` — moot while versions match, re-opens on any backend rollback | one filter line |
+| F7/F8 | info-grade (divergence-badge fallback attribution; no top-level Builds tab) | — |
+
+## A5. Corrections this thread logged against ITSELF, so the next session inherits the checks
+
+All in `WRONG_CALLS.md` (2026-08-24/25 entries) and PLAN §6b/§6d/§7e: `LIKE '%__step_error%'`
+counts wildcards not literals (`_` is a wildcard — use `strpos`, and READ ONE MATCHED ROW before
+quoting any pattern-derived count); a state snapshot re-published two days later plus arithmetic
+on a stored timestamp fabricated a "stalled build" the owner was told about twice; `evidence_base`
+313 was ALL rows where only 19 are current (filter `is_current` before quoting `site_specs`
+counts); and the §7 review had the correlation-non-uniqueness fact in hand and never asked it of
+the SPA's `key=` — the lane session found that third consequence (§4 above, `c016b3fb4`).
+
+## A6. Falsifiers for this addendum
+
+- Stamps in A1 expire with the next roll — re-ask the pod, per service.
+- `79c541085`'s INERT status flips silently on any core-manager roll — run the A3 check rather
+  than trusting this file's word "inert".
+- A newer handoff or addendum below this one.
