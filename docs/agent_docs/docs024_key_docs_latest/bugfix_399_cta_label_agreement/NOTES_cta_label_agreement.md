@@ -240,3 +240,31 @@ both present as "still green".
   disclosed in prose but excluded from the edit list because the gate refuses comment-only sketches,
   so the council reviewed a plan that was not the whole diff. It now rides as a listed edit with
   surrounding context.
+
+## 2026-08-26 — round 2 was REFUSED before review, and the reason is a real tension worth recording
+
+The round-2 resubmission reached `complete_invalid` without a single seat running:
+
+> `step persist_submission failed: … plan failed validation: edit 8: sketch is comment-only — a fix
+> plan proposes changes, not observations; drop the edit or make it real`
+
+**The client dry-run passed and the server refused.** The two checks are not the same: the client
+tests whether *every non-blank line* is a comment; the server appears to test whether every **added**
+line is. My sketch had diff context lines (a real `func` signature) but every `+` line was a comment,
+because the change genuinely is comment-only.
+
+**This is a real tension, not a formatting slip.** The council's `guardian` seat objected in round 1
+that a comment-only edit rode along unlisted — *"the council is reviewing a sketch that is not the
+full diff that runs — precisely the failure mode this gate exists to prevent"*. The gate then refuses
+that same edit, by design. Both are right, and there is no submission that satisfies both.
+
+Resolved by dropping the edit and **attesting it in the rationale in full**, naming the commit
+(`00cf81437`) so any seat can read the diff. What I did **not** do is fabricate a code line to make
+the sketch pass — that would have satisfied the gate by defeating its purpose, which is the shape of
+error this whole lane exists to catch.
+
+⚠ **Two costs of the refusal, worth knowing before anyone repeats it.** It cost a full dispatch round
+(the run publishes, queues, and dies at `persist_submission`), and — more importantly — **a refused
+submission leaves the trail with round 1's `revise` as its latest verdict**, so the correlation reads
+as un-revised until a round actually completes. `DRY_RUN=1` does **not** catch this class, so treat a
+comment-only edit as inadmissible from the start rather than trying to shape one past the gate.
