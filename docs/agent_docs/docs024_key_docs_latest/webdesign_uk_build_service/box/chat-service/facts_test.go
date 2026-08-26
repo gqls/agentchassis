@@ -224,14 +224,14 @@ func TestConductCarriesTheBriefBuilderAndItsRestraints(t *testing.T) {
 // never invented).
 func TestConductCarriesFlexibleIntakeAndTheSubmitLoop(t *testing.T) {
 	for _, want := range []string{
-		"Do not assume the visitor runs a business",  // site-type flexibility exists
-		"treat it as their brief",                    // a pasted description is not re-interviewed
-		"Where the content will come from",           // the content/affiliate enabler
-		"a product feed",                             // supplied-content sites are named as normal
+		"Do not assume the visitor runs a business",           // site-type flexibility exists
+		"treat it as their brief",                             // a pasted description is not re-interviewed
+		"Where the content will come from",                    // the content/affiliate enabler
+		"a product feed",                                      // supplied-content sites are named as normal
 		"Do not promise it can be built and do not refuse it", // beyond-facts wants are recorded, not ruled on
-		"using the submit_brief tool",                // the loop closes through the tool
-		"never state one the tool did not return",    // no invented references
-		"clearly said yes to submitting",             // consent gates submission
+		"using the submit_brief tool",                         // the loop closes through the tool
+		"never state one the tool did not return",             // no invented references
+		"clearly said yes to submitting",                      // consent gates submission
 	} {
 		if !strings.Contains(promptConduct, want) {
 			t.Errorf("conduct lost the clause %q", want)
