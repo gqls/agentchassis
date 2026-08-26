@@ -262,6 +262,51 @@ fields, resolved by Go, holding each child's **already-rendered** HTML. The walk
    > child bytes. Both are content-loss shapes and both need an answer in P1,
    > not P5. Had the walk gone where D4.6 said, it would have satisfied §6.8's
    > own warning about dormant mechanisms while changing nothing.
+   >
+   > **DECIDED 2026-08-26 — REFUSE direction 1, RECOMPOSE direction 2.** Settled
+   > on production evidence contributed by the `bugs_open/384` lane
+   > (`agentchassis-51`), which spent two days in this exact failure mode, and on
+   > an ASYMMETRY rather than on caution:
+   > - **Direction 2 (child edited, parent serves stale bytes) is the one that
+   >   reaches production.** 384 is this defect in another vocabulary: the child
+   >   object was correct — derived, linked, `active`, byte-perfect — and the
+   >   parent listing served old bytes for **four days**. It survived because
+   >   *everything you would check said fine*: the child row right, the parent
+   >   re-rendered three times, work items `complete`, no error, no empty region,
+   >   no visual gap. **Old is invisible.**
+   > - **Direction 1 (parent rendered alone, `{{.slots.*}}` → empty) empties
+   >   VISIBLY.** It is silent in the logs but loud in the artefact, and this
+   >   estate already has instruments that notice a page losing a region
+   >   (`empty_section`). It is the more destructive failure and the more
+   >   findable one.
+   > - **So refusing direction 2 would be the expensive mistake.**
+   >   `apply_section_edit` is the live, load-bearing edit path — it is what
+   >   delivered this lane's instance-scope change on 2026-08-25 — and a
+   >   fail-closed refusal there converts "the parent goes stale" into "the
+   >   editor stops working", a regression that would have to be un-shipped.
+   >   Refusing direction 1 costs nothing anyone does today: **nothing renders a
+   >   composite parent alone.**
+   >
+   > **THE STALENESS TELL IS A DIGEST, NOT A TIMESTAMP — and the column already
+   > exists and is already maintained. `[MEASURED 2026-08-26]`**
+   > `page_components.rendered_html_digest` is **md5**, written in the SAME
+   > STATEMENT as the bytes (`bugs_open/229`; `save_page_sections_action.go:1066`,
+   > `section_editor_actions.go:1569`), so it cannot drift from what it describes.
+   > **1,935 of 1,948 stamped rows (99.3%) match `md5(rendered_html)` right now**,
+   > including both rows this lane rewrote yesterday. So "the parent is stale"
+   > is a pure join — the parent's stored HTML must embed each child's CURRENT
+   > digest — with no render, no HTTP and no comparison re-render.
+   > ⚠ **Two things any such sweep owes.** (1) **288 rows carry `rendered_html`
+   > and NO digest** (12.9%) — that is the sweep's blind spot and it must be
+   > counted, not silently excluded. (2) **A demand control up front**: a
+   > stale-count of zero is worth nothing until the query is shown to have
+   > counted something, which is how 384's own sweep reports
+   > (`consumer_pages: 25, stale: 0, current: 25`).
+   > **Do NOT use `updated_at` ordering** ("any child newer than its parent").
+   > It is wrong in both directions: a no-op child re-render bumps the timestamp
+   > without changing bytes (false positive), and a shared-tree write can reorder
+   > them (false negative). 384's own verification protocol tripped on exactly
+   > that and was corrected the same day.
 
 **No `{{template}}` support is added to the executor.** VIZ-007's constraint
 (missing function = parse error; no arithmetic) stays exactly as-is; composition
