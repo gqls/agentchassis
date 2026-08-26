@@ -986,3 +986,31 @@ The last one needs a **PARTIAL** outage — some seats answering, some failing. 
 **The limit this exposes, stated plainly: the fix converts a partial provider failure from fatal
 to survivable. It cannot save a round when the provider is 100% down, and it was never intended
 to.** That belongs in the record next to the win.
+
+---
+
+## RECURRENCE 2026-08-26 (`idea_uk_vm_site` lane) — same class, new message: "credit balance is too low", 23:47Z onward, OPEN as of 08:50Z
+
+Found while reading idea.uk's overnight failures after the v1.0.1341 roll; recorded here because
+this file is the class and carries the proven recovery procedure.
+
+- **Message differs from 08-10:** `{"type":"invalid_request_error","message":"Your credit balance
+  is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase
+  credits."}` (sample `req_011CeQrxFHTYb4BE9SeTB5Kd`) — credits exhausted, not the monthly usage
+  cap; no "resets September" clause this time, so there is no calendar to even wrongly wait for.
+- `[MEASURED 2026-08-26 ~08:55Z]` `agent_error_log`: **1,884** rows matching `%credit balance%`
+  from **2026-08-25 23:47:10Z** to **08:50:26Z** — still firing at last read, ~9 h in.
+- **Attempt burn is the compounding damage:** 20 `site_work_items` rows driven to terminal
+  `failed` (attempt_count 3) across 6 sites so far — loanzy 7, dartsonline 6, cookly 4,
+  ai-agent-orchestration 1, idea.uk 1 (`ade31076`, `dead_fragment_link`), system.internal 1 —
+  and last night's fleet audit wave left large `triaged` backlogs (idea.uk alone: 34) queued to
+  dispatch into the outage.
+- **Recovery = the owner adds credit** (what actually ended the 08-10 instance, 21 days before
+  the calendar). Recovery check unchanged from §6: `SELECT max(created_at) FROM llm_call_log
+  WHERE success;` — sustained successes, not one probe. Post-recovery, sweep the burned rows:
+  `SELECT id, item_type, site_id FROM site_work_items WHERE status='failed' AND error LIKE
+  '%credit balance%';` — these are provider casualties, not code bugs; re-read before anyone
+  diagnoses them as regressions of the fresh build.
+- One console pointer for the owner, from the fleet's own memory: if the billing page shows
+  credit/0% used, check which ORG the fleet key belongs to via the key's "Last used" — the
+  default console org has not been the fleet's before.
