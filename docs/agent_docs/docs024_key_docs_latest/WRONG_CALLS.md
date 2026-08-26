@@ -54419,3 +54419,51 @@ census read as steps; my §6 doc_notes target; this). If a fourth lands, it is a
   **So the answer flipped from "we have plenty" to "we have 117 words", and the permission was never
   the constraint.** The general form: **a permission granted is not a corpus delivered**, and the
   gap between them is exactly the size a hurried extractor will fill with your own writing.
+
+## 2026-08-26 — `news_editorial_features` (session "news editorial"): "fails at HEAD" pinned to a MOVING ref and went stale in 20 minutes, a filename with no path sent a peer to the wrong directory, and a guessed `doc_notes` category nearly shipped a confident ZERO
+
+Three from one session, all the same family: **a reference that does not pin what it appears to pin.**
+
+**1. "Fails at HEAD" — true when written, false 20 minutes later, and it is in a commit message
+for ever.** Commit `1f745e730` (09:56) recorded that `TestFindingCodeScanEveryWriteIsRegistered`
+"fails at HEAD" from another lane's unregistered `WORK_ITEM_STATUS_OVERRIDE_REFUSED`. The
+observation was sound and the owning lane confirmed it in their own fix message — *"my
+unregistered code has had the actions suite RED at HEAD for every session since `2b46afbe6`"* —
+and fixed it at 10:16 (`a0ec90eb9`). A peer re-ran it after that, got green, and reasonably
+reported my claim as wrong. **Neither of us was wrong; the REFERENCE was.** `HEAD` moves, so
+"at HEAD" dates nothing — it is the same defect as citing `HEAD~1` (LANDMINES), one step
+further along, and it is worse in a commit message than in a doc because a commit cannot be
+amended on this tree. **The cheap check: pin the sha you actually tested — "fails at
+`94a79ab96`" — or state the clock time. One extra token, and the claim stops expiring.**
+Tally: state-claim-pinned-to-a-moving-ref.
+
+**2. A filename with no path cost a peer a wrong-directory check.** I wrote
+"`finding_code_registry.json`". The peer looked in `platform/orchestration/actions/`, correctly
+found no such file and no git history for it, and concluded the artefact I named was not the one
+the test reads. It lives at
+`docs/agent_docs/docs024_key_docs_latest/architecture_review/finding_code_registry.json` — the
+test's own error message spells it out in full, and I had grepped that exact path. This is the
+owner's 2026-08-19 ruling (**always give the PATH for any doc you name**) failing in the
+direction it was written for, and note the failure mode: their check was *correct and negative*,
+which is more persuasive than a vague one and pointed away from the truth.
+Tally: named-a-file-without-its-path.
+
+**3. The one that did NOT ship, logged because the tally is the point.** Asking whether the
+experience loop had ever produced a verdict, I queried `doc_notes` for
+`categories ?| array['experience-approval','experience-loop','reader-experience']` — **category
+names I invented** — and got a clean `0`. That was one keystroke from "the experience loop has
+never produced a verdict", stated confidently *with a query attached*, in front of a peer and
+the owner. The real category is **`experience-council`**, with **80** rows across 13 subjects.
+What caught it: the standing rule that a client-side absence is not an absence, applied to my
+own filter rather than someone else's. **The cheap check, and it is one line:
+`SELECT jsonb_array_elements_text(categories), count(*) FROM doc_notes GROUP BY 1 ORDER BY 2 DESC`
+— enumerate the domain BEFORE believing a zero in it.** A filter you invented cannot tell
+"nothing there" from "wrong key", and the zero looks identical either way.
+Tally: guessed-the-key-then-believed-the-absence.
+
+**Worth an automation look rather than a fourth row.** A peer reports (2026-08-26) that
+`WRONG_CALLS.md` carries three entries this week that would all have been prevented by the same
+rule — *enumerate the domain before believing an absence* — across `doc_notes` categories,
+work-item statuses and config keys. That is the shape this file's tally exists to surface: a
+check that keeps recurring is one worth mechanising, the way `check_append_only_docs` earned its
+place in `scripts/pattern-check.py`.
