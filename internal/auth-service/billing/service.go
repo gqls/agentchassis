@@ -34,7 +34,7 @@ func (s *Service) Configured() bool { return s.provider != nil }
 // a wider API.
 func (s *Service) CreateVoucher(ctx context.Context, dropsPriceToPence int, recipientName string, expiresAt time.Time) (Voucher, error) {
 	if !RuledVoucherPences[dropsPriceToPence] {
-		return Voucher{}, fmt.Errorf("drops_price_to_pence must be 1000 (£10) or 5500 (£55), got %d", dropsPriceToPence)
+		return Voucher{}, fmt.Errorf("drops_price_to_pence must be 1000 (£10), 3000 (£30) or 5500 (£55), got %d", dropsPriceToPence)
 	}
 	if !expiresAt.After(time.Now()) {
 		return Voucher{}, errors.New("expires_at must be in the future")

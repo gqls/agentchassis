@@ -144,10 +144,10 @@ func TestVoucherRuledVariantsOnly(t *testing.T) {
 	svc := newTestService(newFakeStore(), &FakeProvider{})
 	for _, pence := range []int{0, 100, 14900, 5501} {
 		if _, err := svc.CreateVoucher(context.Background(), pence, "", time.Now().Add(time.Hour)); err == nil {
-			t.Fatalf("voucher variant %dp must be rejected (ruled: 1000|5500)", pence)
+			t.Fatalf("voucher variant %dp must be rejected (ruled: 1000|3000|5500)", pence)
 		}
 	}
-	for _, pence := range []int{1000, 5500} {
+	for _, pence := range []int{1000, 3000, 5500} {
 		if _, err := svc.CreateVoucher(context.Background(), pence, "", time.Now().Add(time.Hour)); err != nil {
 			t.Fatalf("ruled variant %dp rejected: %v", pence, err)
 		}

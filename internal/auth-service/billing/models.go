@@ -32,8 +32,10 @@ type Order struct {
 // ListPricePence is the ruled £149 all-in list price (owner, 2026-08-11).
 const ListPricePence = 14900
 
-// The ruled voucher variants: codes drop the all-in price to £10 or £55.
-var RuledVoucherPences = map[int]bool{1000: true, 5500: true}
+// The ruled voucher variants: codes drop the all-in price to £10, £30 or £55
+// (£30 added by owner ruling 2026-08-26: his own end-to-end trial runs, collecting
+// the site as a customer would, priced to exercise the voucher path for real).
+var RuledVoucherPences = map[int]bool{1000: true, 3000: true, 5500: true}
 
 // Order statuses. Deliberately no 'refunded' — refunds are manual and
 // unadvertised (owner ruling 2026-08-11); code must not model them.
